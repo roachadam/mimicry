@@ -34,6 +34,13 @@ linters:
     - gocritic        # broad diagnostic/style/perf checks
     - prealloc        # preallocate slices in loops
     - revive          # golint replacement, default rules incl. exported and package-comments
+  exclusions:
+    rules:
+      # Tests close bodies through helpers and t.Cleanup, which bodyclose cannot
+      # follow; product code is still checked.
+      - path: _test\.go
+        linters:
+          - bodyclose
 
 formatters:
   enable:
