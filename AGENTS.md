@@ -57,3 +57,7 @@ cfg := mimicry.Config{
 Use the standard `testing` package with hand-written fakes; no assertion libraries. Tests must be deterministic: inject randomness and clocks rather than depending on them.
 
 Profile accuracy is proven by the harness against real browser captures, not by unit tests that restate a profile's values.
+
+## Built-in profiles
+
+Built-in profiles are JSON files in `profiles/data/`, one per browser version and platform; the typed Go variables are generated from them. Every built-in profile must pass `profile.Parse`, enforced twice: the generator refuses to generate from an invalid file, and a test in `profiles` parses every embedded file. A profile without a matching capture in `harness/testdata/captures/` is not finished.
