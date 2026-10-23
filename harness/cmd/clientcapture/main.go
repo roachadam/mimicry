@@ -56,7 +56,7 @@ func run() error {
 			return err
 		}
 	}
-	ca, err := server.LoadOrCreateCA(*caDir, server.CAHosts, time.Now())
+	ca, err := server.LoadOrCreateCA(*caDir, server.CADomains, time.Now())
 	if err != nil {
 		return err
 	}

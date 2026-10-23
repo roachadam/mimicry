@@ -77,10 +77,10 @@ func replayPage() *pageshape.Page {
 }
 
 // replayServer serves sc and returns a client that reaches every
-// *.localhost name on it, the server's port, and the capture channel.
+// *.test name on it, the server's port, and the capture channel.
 func replayServer(t *testing.T, sc *Scenario) (*http.Client, string, <-chan *capture.Capture) {
 	t.Helper()
-	ca, err := LoadOrCreateCA(t.TempDir(), CAHosts, time.Now())
+	ca, err := LoadOrCreateCA(t.TempDir(), CADomains, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,12 +177,12 @@ func TestReplay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if hosts, _, ok := sc.MultiHost(); !ok || hosts[0] != "ex-com.localhost" || len(hosts) != 5 {
-		t.Fatalf("hosts %v, want ex-com.localhost first of 5", hosts)
+	if hosts, _, ok := sc.MultiHost(); !ok || hosts[0] != "ex-com.test" || len(hosts) != 5 {
+		t.Fatalf("hosts %v, want ex-com.test first of 5", hosts)
 	}
 	client, port, captures := replayServer(t, sc)
 	base := func(host string) string {
-		return "https://" + host + ".localhost:" + port
+		return "https://" + host + ".test:" + port
 	}
 
 	// The navigation redirects to the document, which schedules the
@@ -198,7 +198,7 @@ func TestReplay(t *testing.T) {
 		t.Errorf("document over %s, %d bytes; want HTTP/2, the recorded 5000", resp.Proto, len(html))
 	}
 	if got := resp.Header.Values("Set-Cookie"); len(got) != 1 || !strings.HasPrefix(got[0], "c1_=") ||
-		!strings.HasSuffix(got[0], "; Path=/; Secure; Domain=ex-com.localhost; HttpOnly; Max-Age=600") || len(strings.SplitN(got[0], ";", 2)[0]) != 3+1+32 {
+		!strings.HasSuffix(got[0], "; Path=/; Secure; Domain=ex-com.test; HttpOnly; Max-Age=600") || len(strings.SplitN(got[0], ";", 2)[0]) != 3+1+32 {
 		t.Errorf("document cookies %q", got)
 	}
 	top := jobsOf(t, html)
@@ -210,7 +210,7 @@ func TestReplay(t *testing.T) {
 	if got := jobURLs(top); !slices.Equal(got, wantTop) {
 		t.Errorf("top document jobs\n got %v\nwant %v", got, wantTop)
 	}
-	if !strings.Contains(html, `"https://frame.other-org.localhost:`+port+`/cleanup","https://www.ex-com.localhost:`+port+`/cleanup"`) {
+	if !strings.Contains(html, `"https://frame.other-org.test:`+port+`/cleanup","https://www.ex-com.test:`+port+`/cleanup"`) {
 		t.Errorf("top document does not clean up both cookie hosts")
 	}
 
@@ -270,11 +270,11 @@ func TestReplay(t *testing.T) {
 		hosts = append(hosts, tr.Host)
 	}
 	slices.Sort(hosts)
-	want := []string{"ex-com.localhost", "frame.other-org.localhost", "www.ex-com.localhost"}
+	want := []string{"ex-com.test", "frame.other-org.test", "www.ex-com.test"}
 	if !slices.Equal(hosts, want) {
 		t.Errorf("page traces from %v, want %v", hosts, want)
 	}
-	if len(page.H1) != 1 || page.H1[0].Host != "beacon.track-net.localhost" {
+	if len(page.H1) != 1 || page.H1[0].Host != "beacon.track-net.test" {
 		t.Errorf("page HTTP/1.1 requests %+v", page.H1)
 	}
 }

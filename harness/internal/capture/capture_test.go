@@ -137,7 +137,7 @@ func TestWritePagesLoadBack(t *testing.T) {
 			H1: []H1Request{
 				{
 					Conn: 1,
-					Host: "beacon.track-net.localhost",
+					Host: "beacon.track-net.test",
 					Line: "POST /r6 HTTP/1.1",
 				},
 			},
@@ -149,8 +149,8 @@ func TestWritePagesLoadBack(t *testing.T) {
 		},
 		Scenario: "replay-ex.com",
 		SamplePages: []*Page{
-			sample("www.ex-com.localhost"),
-			sample("cdn.ex-com.localhost"),
+			sample("www.ex-com.test"),
+			sample("cdn.ex-com.test"),
 		},
 	}
 	path, err := Write(dir, c)

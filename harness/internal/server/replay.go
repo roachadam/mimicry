@@ -17,9 +17,9 @@ import (
 
 // Replay returns a scenario that loads the shape of a recorded real page
 // (cmd/pageshape) with synthetic content. Each real host is served under
-// localhost, with its site kept apart (www.nike.com becomes
-// www.nike-com.localhost, a site of its own), from one listener with a
-// certificate per hostname. Generated documents, the top one and every
+// .test, with its site kept apart (www.nike.com becomes www.nike-com.test, a
+// site of its own), from one listener with a certificate per hostname.
+// Generated documents, the top one and every
 // iframe's, schedule the page's requests at their recorded times with the
 // element or API that gives the recorded fetch destination and mode;
 // responses have the recorded status, type, size and cookies (synthetic
@@ -91,14 +91,15 @@ func (s replayStats) String() string {
 		s.site, s.requests, s.scheduled, s.redirects, s.preflights, s.approximated, s.skipped, s.reparented)
 }
 
-// ReplayHost maps a real host into localhost with its site kept apart:
-// "www.nike.com" (site "nike.com") becomes "www.nike-com.localhost".
+// ReplayHost maps a real host under .test with its site kept apart:
+// "www.nike.com" (site "nike.com") becomes "www.nike-com.test", whose site
+// is nike-com.test.
 func ReplayHost(h pageshape.Host) string {
 	site := h.Site
 	if site == "" || !strings.HasSuffix(h.Name, site) {
-		return strings.ReplaceAll(h.Name, ".", "-") + ".localhost"
+		return strings.ReplaceAll(h.Name, ".", "-") + ".test"
 	}
-	return strings.TrimSuffix(h.Name, site) + strings.ReplaceAll(site, ".", "-") + ".localhost"
+	return strings.TrimSuffix(h.Name, site) + strings.ReplaceAll(site, ".", "-") + ".test"
 }
 
 func newReplay(p *pageshape.Page) *replay {

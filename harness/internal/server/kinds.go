@@ -15,10 +15,10 @@ import (
 // The kinds page's hosts: the page itself, another origin of its site, and
 // another site.
 const (
-	kindsHost      = "www.kinds-a.localhost"
-	kindsSameSite  = "static.kinds-a.localhost"
-	kindsCrossSite = "cdn.kinds-b.localhost"
-	kindsSiteA     = "kinds-a.localhost"
+	kindsHost      = "www.kinds-a.test"
+	kindsSameSite  = "static.kinds-a.test"
+	kindsCrossSite = "cdn.kinds-b.test"
+	kindsSiteA     = "kinds-a.test"
 )
 
 // kindsTargets are the hosts every request kind is tried against, with the
@@ -123,7 +123,7 @@ var KindsCookies = []string{
 	"k_utf=café; Path=/; Secure",
 	`k_json={"a":1}; Path=/; Secure`,
 	"k_big=" + strings.Repeat("b", 4100) + "; Path=/; Secure",
-	"k_dommis=1; Domain=other-site.localhost; Path=/; Secure",
+	"k_dommis=1; Domain=other-site.test; Path=/; Secure",
 	"__Host-k_bad=1; Domain=" + kindsSiteA + "; Path=/; Secure",
 	"__Secure-k_ok=1; Path=/; Secure",
 	"k_expired=1; Path=/; Secure; Expires=Thu, 01 Jan 1970 00:00:00 GMT",
@@ -146,10 +146,12 @@ var KindsThirdPartyCookies = []string{
 // parsed, before its script runs: browsers prioritise these by where they
 // sit (a blocking script in the head, a deferred one, a preload), not only
 // by kind. Tag is the element, with %s for the URL; the image comes last,
-// in the body.
+// in the body. Steps without a Tag are requested by the page's CSS: the
+// fonts its @font-face rules declare, fetched because text uses them.
 func KindsMarkup() []KindsStep {
 	return []KindsStep{
 		{Label: "style-head.so", Kind: "style", Host: kindsHost, Tag: `<link rel="stylesheet" href="%s">`},
+		{Label: "style-fonts.so", Kind: "style", Host: kindsHost, Tag: `<link rel="stylesheet" href="%s">`},
 		{Label: "preload-script.so", Kind: "script", Host: kindsHost, Tag: `<link rel="preload" as="script" href="%s">`},
 		{Label: "preload-font.so", Kind: "font", Host: kindsHost, Tag: `<link rel="preload" as="font" type="font/woff2" crossorigin href="%s">`},
 		{Label: "script-blocking.so", Kind: "script", Host: kindsHost, Tag: `<script src="%s"></script>`},
@@ -157,7 +159,17 @@ func KindsMarkup() []KindsStep {
 		{Label: "script-async.so", Kind: "script", Host: kindsHost, Tag: `<script async src="%s"></script>`},
 		{Label: "script-async.cs", Kind: "script", Host: kindsCrossSite, Tag: `<script async src="%s"></script>`},
 		{Label: "image-markup.so", Kind: "image", Host: kindsHost, Tag: `<img src="%s" alt="">`},
+		{Label: "font-css.so", Kind: "font", Host: kindsHost},
+		{Label: "font-css.cs", Kind: "font", Host: kindsCrossSite},
 	}
+}
+
+// kindsFontCSS declares a same-origin and a cross-site web font, the way a
+// site and Google Fonts do; the page's text uses both.
+func kindsFontCSS(origin func(string) string) []byte {
+	return []byte(`@font-face { font-family: "k-so"; src: url("/k/font-css.so") format("woff2"); }
+@font-face { font-family: "k-cs"; src: url("` + origin(kindsCrossSite) + `/k/font-css.cs") format("woff2"); }
+`)
 }
 
 // Kinds is the kinds scenario: every request kind a page makes, against its
@@ -272,8 +284,11 @@ func (p kindsPage) answer(req request) response {
 	if !ok {
 		return response{status: 404, contentType: "text/plain", body: []byte("not found\n"), headers: cors}
 	}
-	if label == kindsFormLabel {
+	switch label {
+	case kindsFormLabel:
 		return response{status: 200, contentType: "text/html; charset=utf-8", body: kindsLanding(origin)}
+	case "style-fonts.so":
+		return response{status: 200, contentType: "text/css", body: kindsFontCSS(origin)}
 	}
 	hop := strings.HasSuffix(label, ".hop")
 	for _, s := range append(KindsMarkup(), KindsSteps()...) {
@@ -373,7 +388,9 @@ func (kindsPage) document(port string) []byte {
 	}
 	var markup strings.Builder
 	for _, s := range KindsMarkup() {
-		fmt.Fprintf(&markup, s.Tag+"\n", url(s))
+		if s.Tag != "" {
+			fmt.Fprintf(&markup, s.Tag+"\n", url(s))
+		}
 	}
 	steps := KindsSteps()
 	for i := range steps {
@@ -386,7 +403,9 @@ func (kindsPage) document(port string) []byte {
 	).Replace(kindsScript)
 	head, body, _ := strings.Cut(markup.String(), "<img")
 	return []byte("<!doctype html>\n<html><head><meta charset=\"utf-8\"><title>mimicry kinds</title><link rel=\"icon\" href=\"data:,\">\n" +
-		head + "</head><body>\n<img" + body + "<script>" + script + "</script>\n</body></html>\n")
+		head + "</head><body>\n<img" + body +
+		"<p style=\"font-family: k-so\">same-origin font</p>\n<p style=\"font-family: k-cs\">cross-site font</p>\n" +
+		"<script>" + script + "</script>\n</body></html>\n")
 }
 
 const kindsScript = `(async () => {

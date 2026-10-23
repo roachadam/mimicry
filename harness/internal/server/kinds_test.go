@@ -42,13 +42,22 @@ func TestKinds(t *testing.T) {
 			t.Errorf("step %d (%s) at %s, want %s", i, s.Label, s.URL, wantURL)
 		}
 	}
-	if !strings.Contains(html, `f.action = "`+url(kindsHost, "/k/"+kindsFormLabel)+`"`) {
-		t.Error("document does not end with the form POST")
-	}
 	for _, s := range KindsMarkup() {
+		if s.Tag == "" {
+			continue // requested by the page's CSS, checked below
+		}
 		if tag := fmt.Sprintf(s.Tag, url(s.Host, "/k/"+s.Label)); !strings.Contains(html, tag) {
 			t.Errorf("document lacks %s", tag)
 		}
+	}
+	_, css := fetch(t, client, "GET", url(kindsHost, "/k/style-fonts.so"), nil)
+	for _, font := range []string{`url("/k/font-css.so")`, `url("` + url(kindsCrossSite, "/k/font-css.cs") + `")`} {
+		if !strings.Contains(css, font) {
+			t.Errorf("font stylesheet lacks %s:\n%s", font, css)
+		}
+	}
+	if !strings.Contains(html, `f.action = "`+url(kindsHost, "/k/"+kindsFormLabel)+`"`) {
+		t.Error("document does not end with the form POST")
 	}
 	if head, _, _ := strings.Cut(html, "</head>"); !strings.Contains(head, "script-blocking.so") || strings.Contains(head, "image-markup.so") {
 		t.Error("blocking script must be in the head, the image in the body")

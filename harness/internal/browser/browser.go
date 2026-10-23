@@ -14,10 +14,11 @@ import (
 
 // Target is the capture server browsers connect to.
 type Target struct {
-	// Host is the capture hostname. Chrome and Firefox resolve it to
-	// 127.0.0.1 through their own settings. Safari cannot be configured that
-	// way and uses localhost instead. Either way it is a hostname: browsers
-	// omit server_name for IP addresses.
+	// Host is the capture hostname, under .test. Chrome and Firefox resolve
+	// it to 127.0.0.1 through their own settings; Safari, which cannot be
+	// configured that way, through the system and the capture tool's DNS
+	// stub (internal/dnsstub). Either way it is a hostname: browsers omit
+	// server_name for IP addresses.
 	Host string
 	Port int
 	// Hosts are the other hostnames a replayed page reaches, all served
@@ -124,12 +125,8 @@ func Find() []*Browser {
 	return found
 }
 
-// URL is where b goes for t. Safari cannot map hostnames, so it goes to
-// localhost, unless t's host is already a localhost name (replay).
+// URL is where b goes for t.
 func (b *Browser) URL(t Target) string {
-	if b.Shared && !strings.HasSuffix(t.Host, ".localhost") {
-		return t.url("localhost")
-	}
 	return t.url(t.Host)
 }
 

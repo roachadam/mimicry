@@ -77,7 +77,7 @@ func loadCert(certFile, keyFile, caDir string) (tls.Certificate, error) {
 		}
 		caDir = dir
 	}
-	ca, err := server.LoadOrCreateCA(caDir, server.CAHosts, time.Now())
+	ca, err := server.LoadOrCreateCA(caDir, server.CADomains, time.Now())
 	if err != nil {
 		return tls.Certificate{}, err
 	}

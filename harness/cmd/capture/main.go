@@ -28,6 +28,7 @@ import (
 	"github.com/roachadam/mimicry/harness/internal/browser"
 	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/harness/internal/diff"
+	"github.com/roachadam/mimicry/harness/internal/dnsstub"
 	"github.com/roachadam/mimicry/harness/internal/pageshape"
 	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/profile"
@@ -99,7 +100,7 @@ func run() error {
 		}
 		*caDir = dir
 	}
-	ca, err := server.LoadOrCreateCA(*caDir, server.CAHosts, time.Now())
+	ca, err := server.LoadOrCreateCA(*caDir, server.CADomains, time.Now())
 	if err != nil {
 		return err
 	}
@@ -116,13 +117,31 @@ func run() error {
 		cert:      cert,
 		scenarios: scenarios,
 	}
+	// Safari resolves through the system: the stub answers its *.test
+	// lookups (Chrome and Firefox map the names themselves).
+	dns, err := (&net.ListenConfig{}).ListenPacket(ctx, "udp", dnsstub.Addr)
+	if err != nil {
+		log.Printf("DNS stub for *.test on %s: %v; Safari will not reach the capture hosts", dnsstub.Addr, err)
+	} else {
+		go func() {
+			if err := dnsstub.Serve(ctx, dns); err != nil {
+				log.Printf("DNS stub: %v", err)
+			}
+		}()
+	}
 
 	failed := 0
 	for _, b := range browsers {
-		if b.Shared && !server.TrustedBySystem(cert, "localhost") {
+		if b.Shared && !dnsstub.ResolverInstalled() {
+			log.Printf("%s: %s does not send *.test lookups to the capture tool, so %s cannot reach the capture hosts. Create it once:\n  %s",
+				b.Name, dnsstub.ResolverFile, b.Name, dnsstub.InstallCommand)
+			failed++
+			continue
+		}
+		if b.Shared && !server.TrustedBySystem(cert, server.CaptureHost) {
 			log.Printf("%s: the capture CA is not trusted, so %s would stop at a certificate warning. Trust it once (macOS asks for your password):\n"+
 				"  security add-trusted-cert -r trustRoot -p ssl -k ~/Library/Keychains/login.keychain-db %q\n"+
-				"It can only vouch for %s.", b.Name, b.Name, ca.CertPath, strings.Join(server.CAHosts, " and "))
+				"It can only vouch for names under %s.", b.Name, b.Name, ca.CertPath, strings.Join(server.CADomains, " and "))
 			failed++
 			continue
 		}

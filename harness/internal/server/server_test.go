@@ -594,7 +594,7 @@ func TestServeClosesOpenConnectionsOnStop(t *testing.T) {
 // stopWithClient requests path on an HTTP/2 connection, reads the response
 // if read is set (else leaves it waiting for credit), then stops the server.
 func stopWithClient(t *testing.T, path string, read bool) {
-	ca, err := LoadOrCreateCA(t.TempDir(), CAHosts, time.Now())
+	ca, err := LoadOrCreateCA(t.TempDir(), CADomains, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}

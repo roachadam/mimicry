@@ -18,13 +18,26 @@ import (
 	"time"
 )
 
-// CaptureHost is the hostname browsers are pointed at. Each browser resolves it
-// to 127.0.0.1 through its own settings; a hostname rather than an IP matters
-// because browsers omit server_name for IP addresses.
+// CaptureHost is the hostname browsers are pointed at. It resolves to
+// 127.0.0.1 through each browser's own settings (Chrome, Firefox) or the
+// capture tool's DNS stub for *.test (Safari, internal/dnsstub); a hostname
+// rather than an IP matters because browsers omit server_name for IP
+// addresses.
 const CaptureHost = "capture.mimicry.test"
 
-// CAHosts are the only names the capture CA may issue for. Safari uses
-// localhost, which resolves without any system change.
+// CADomains are the only domains the capture CA may issue for, with every
+// name under them. test is a reserved top-level domain: it holds the
+// capture host and the sites the kinds page and replays serve
+// (www.kinds-a.test, www.nike-com.test), each a real-looking site of its
+// own. localhost is kept for pointing a browser at cmd/capture-server by
+// hand. WebKit treats every *.localhost name as a site of its own, so
+// captures use *.test.
+var CADomains = []string{
+	"test",
+	"localhost",
+}
+
+// CAHosts are the names the default capture certificate covers.
 var CAHosts = []string{
 	CaptureHost,
 	"localhost",
@@ -51,9 +64,9 @@ func DefaultCADir() (string, error) {
 	return filepath.Join(dir, "mimicry", "capture-ca"), nil
 }
 
-// LoadOrCreateCA loads the CA in dir, or creates one limited to hosts. An
-// existing CA must permit exactly hosts; otherwise delete dir to replace it.
-func LoadOrCreateCA(dir string, hosts []string, now time.Time) (*CA, error) {
+// LoadOrCreateCA loads the CA in dir, or creates one limited to domains. An
+// existing CA must permit exactly domains; otherwise delete dir to replace it.
+func LoadOrCreateCA(dir string, domains []string, now time.Time) (*CA, error) {
 	certPath := filepath.Join(dir, "ca.pem")
 	keyPath := filepath.Join(dir, "ca-key.pem")
 	certPEM, certErr := os.ReadFile(certPath)
@@ -65,22 +78,22 @@ func LoadOrCreateCA(dir string, hosts []string, now time.Time) (*CA, error) {
 			return nil, fmt.Errorf("%s: %w", dir, err)
 		}
 		ca.CertPath = certPath
-		if !sameHosts(ca.Cert.PermittedDNSDomains, hosts) {
+		if !sameHosts(ca.Cert.PermittedDNSDomains, domains) {
 			return nil, fmt.Errorf("%s: the CA permits %v, not %v; delete the directory (and untrust the old CA) to replace it",
-				dir, ca.Cert.PermittedDNSDomains, hosts)
+				dir, ca.Cert.PermittedDNSDomains, domains)
 		}
 		if now.After(ca.Cert.NotAfter) {
 			return nil, fmt.Errorf("%s: the CA expired on %s; delete the directory (and untrust the old CA) to replace it", dir, ca.Cert.NotAfter)
 		}
 		return ca, nil
 	case errors.Is(certErr, os.ErrNotExist) && errors.Is(keyErr, os.ErrNotExist):
-		return createCA(dir, certPath, keyPath, hosts, now)
+		return createCA(dir, certPath, keyPath, domains, now)
 	default:
 		return nil, fmt.Errorf("%s: incomplete CA, delete the directory to replace it: %w", dir, errors.Join(certErr, keyErr))
 	}
 }
 
-func createCA(dir, certPath, keyPath string, hosts []string, now time.Time) (*CA, error) {
+func createCA(dir, certPath, keyPath string, domains []string, now time.Time) (*CA, error) {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, err
@@ -94,7 +107,7 @@ func createCA(dir, certPath, keyPath string, hosts []string, now time.Time) (*CA
 	tmpl := &x509.Certificate{
 		SerialNumber: serial,
 		Subject: pkix.Name{
-			CommonName: "mimicry capture CA (local)",
+			CommonName: "mimicry capture CA (local, .test)",
 		},
 		NotBefore:                   now.Add(-time.Hour),
 		NotAfter:                    now.AddDate(5, 0, 0),
@@ -103,7 +116,7 @@ func createCA(dir, certPath, keyPath string, hosts []string, now time.Time) (*CA
 		IsCA:                        true,
 		MaxPathLenZero:              true,
 		PermittedDNSDomainsCritical: true,
-		PermittedDNSDomains:         slices.Clone(hosts),
+		PermittedDNSDomains:         slices.Clone(domains),
 		ExcludedIPRanges: []*net.IPNet{
 			allIPv4,
 			allIPv6,
