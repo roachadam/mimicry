@@ -91,6 +91,9 @@ func (c *checker) checkTLS(t *TLS) {
 	if len(t.CompressionMethods) == 0 {
 		c.add("tls.compression_methods", "is required")
 	}
+	if t.ExtensionOrder != ExtensionOrderFixed && t.ExtensionOrder != ExtensionOrderShuffled {
+		c.add("tls.extension_order", "must be %q or %q", ExtensionOrderFixed, ExtensionOrderShuffled)
+	}
 	if len(t.Extensions) == 0 {
 		c.add("tls.extensions", "is required")
 	}

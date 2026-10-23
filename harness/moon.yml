@@ -28,7 +28,7 @@ tasks:
       runInCI: false
   # A standalone capture server for pointing any client at by hand.
   capture-server:
-    description: 'Run the capture server on https://127.0.0.1:8443/'
+    description: 'Run the capture server on https://localhost:8443/'
     command: 'go run ./cmd/capture-server'
     toolchain: 'system'
     options:

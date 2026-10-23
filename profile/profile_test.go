@@ -176,6 +176,14 @@ func TestValidate(t *testing.T) {
 			want: "is required",
 		},
 		{
+			name: "unknown extension order",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.TLS.ExtensionOrder = "random"
+			},
+			path: "tls.extension_order",
+			want: `must be "fixed" or "shuffled"`,
+		},
+		{
 			name: "repeated key share group",
 			mutate: func(t *testing.T, p *Profile) {
 				ks := &p.TLS.Extensions[extIndex(t, p, ExtKeyShare)]

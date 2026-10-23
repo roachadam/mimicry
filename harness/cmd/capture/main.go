@@ -1,6 +1,11 @@
-// Command capture launches the installed browsers against an in-process
-// capture server and writes each browser's capture, with its JA3, JA4 and
-// Akamai fingerprints, to the output directory.
+// Command capture launches the installed browsers against the capture server
+// and writes each browser's capture, with its JA3, JA4 and Akamai fingerprints,
+// to the output directory.
+//
+// Each browser is sampled several times, each time on a fresh server and port
+// so that no connection or session carries over. If the samples differ only in
+// extension order, the browser shuffles its extensions; any other difference
+// is an error, because the profile could not describe it.
 package main
 
 import (
@@ -21,6 +26,7 @@ import (
 
 	"github.com/roachadam/mimicry/harness/internal/browser"
 	"github.com/roachadam/mimicry/harness/internal/capture"
+	"github.com/roachadam/mimicry/harness/internal/diff"
 	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/profile"
 )
@@ -32,13 +38,25 @@ func main() {
 	}
 }
 
+type options struct {
+	headless bool
+	samples  int
+	timeout  time.Duration
+	out      string
+	cert     tls.Certificate
+}
+
 func run() error {
 	out := flag.String("out", "testdata/captures", "directory to write captures to")
 	only := flag.String("browsers", "", "comma-separated browsers to capture (default: every installed one)")
 	headless := flag.Bool("headless", false, "hide browser windows; for checking the tool only: headless Chrome reports HeadlessChrome in its user agent")
+	samples := flag.Int("samples", 3, "connections to sample per browser (at least 2, to tell whether it shuffles extensions)")
 	caDir := flag.String("ca-dir", "", "capture CA directory (default: <user config dir>/mimicry/capture-ca)")
-	timeout := flag.Duration("timeout", 45*time.Second, "how long to wait for each browser")
+	timeout := flag.Duration("timeout", 45*time.Second, "how long to wait for each sample")
 	flag.Parse()
+	if *samples < 2 {
+		return errors.New("-samples must be at least 2")
+	}
 
 	browsers := browser.Find()
 	if *only != "" {
@@ -71,35 +89,14 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", "127.0.0.1:0")
-	if err != nil {
-		return err
+	opts := options{
+		headless: *headless,
+		samples:  *samples,
+		timeout:  *timeout,
+		out:      *out,
+		cert:     cert,
 	}
-	captures := make(chan *capture.Capture, 64)
-	srv := &server.Server{
-		TLSConfig: &tls.Config{
-			Certificates: []tls.Certificate{
-				cert,
-			},
-		},
-		OnCapture: func(c *capture.Capture) {
-			select {
-			case captures <- c:
-			default:
-			}
-		},
-	}
-	serveCtx, stopServer := context.WithCancel(ctx)
-	defer stopServer()
-	go func() {
-		_ = srv.Serve(serveCtx, ln)
-	}()
 
-	target := browser.Target{
-		Host:       server.CaptureHost,
-		Port:       ln.Addr().(*net.TCPAddr).Port,
-		CertSHA256: sha256.Sum256(cert.Certificate[0]),
-	}
 	failed := 0
 	for _, b := range browsers {
 		if b.Shared && !server.TrustedBySystem(cert, "localhost") {
@@ -109,7 +106,7 @@ func run() error {
 			failed++
 			continue
 		}
-		if err := captureOne(ctx, b, target, captures, *headless, *timeout, *out); err != nil {
+		if err := captureBrowser(ctx, b, opts); err != nil {
 			log.Printf("%s: %v", b.Name, err)
 			failed++
 		}
@@ -120,16 +117,16 @@ func run() error {
 	return nil
 }
 
-func captureOne(ctx context.Context, b *browser.Browser, t browser.Target, captures <-chan *capture.Capture, headless bool, timeout time.Duration, out string) error {
-	log.Printf("%s: opening %s", b.Name, b.URL(t))
-	session, err := b.Open(ctx, t, headless)
-	if err != nil {
-		return err
+func captureBrowser(ctx context.Context, b *browser.Browser, opts options) error {
+	samples := make([]*capture.Capture, 0, opts.samples)
+	for i := range opts.samples {
+		c, err := sample(ctx, b, opts)
+		if err != nil {
+			return fmt.Errorf("sample %d: %w", i+1, err)
+		}
+		samples = append(samples, c)
 	}
-	c, err := await(ctx, b.Name, captures, timeout)
-	if closeErr := session.Close(); closeErr != nil {
-		log.Printf("%s: cleaning up: %v", b.Name, closeErr)
-	}
+	c, err := combine(samples)
 	if err != nil {
 		return err
 	}
@@ -138,10 +135,10 @@ func captureOne(ctx context.Context, b *browser.Browser, t browser.Target, captu
 		log.Printf("%s: warning: no server_name in the ClientHello", c.Profile.Name)
 	}
 	f := capture.Compute(&c.Profile)
+	log.Printf("%s: extension order %s across %d samples", c.Profile.Name, c.Profile.TLS.ExtensionOrder, len(samples))
 	log.Printf("%s: JA4 %s", c.Profile.Name, f.JA4)
-	log.Printf("%s: JA3 %s", c.Profile.Name, f.JA3)
 	log.Printf("%s: Akamai %s", c.Profile.Name, f.Akamai)
-	path, err := capture.Write(out, c)
+	path, err := capture.Write(opts.out, c)
 	if errors.Is(err, capture.ErrExists) {
 		log.Printf("%s: %v; delete it to capture again", c.Profile.Name, err)
 		return nil
@@ -151,6 +148,89 @@ func captureOne(ctx context.Context, b *browser.Browser, t browser.Target, captu
 	}
 	log.Printf("%s: wrote %s", c.Profile.Name, path)
 	return nil
+}
+
+// combine decides the extension order from the samples and checks they agree
+// on everything else. It returns the first sample.
+func combine(samples []*capture.Capture) (*capture.Capture, error) {
+	first := samples[0]
+	order := profile.ExtensionOrderFixed
+	for _, s := range samples[1:] {
+		if !slices.Equal(extensionTypes(first), extensionTypes(s)) {
+			order = profile.ExtensionOrderShuffled
+		}
+	}
+	for _, s := range samples {
+		s.Profile.TLS.ExtensionOrder = order
+	}
+	for i, s := range samples[1:] {
+		if diffs := diff.Compare(&first.Profile, &s.Profile); len(diffs) > 0 {
+			lines := make([]string, len(diffs))
+			for j, d := range diffs {
+				lines[j] = d.String()
+			}
+			return nil, fmt.Errorf("sample %d differs from sample 1 beyond extension order, which a profile cannot describe:\n%s",
+				i+2, strings.Join(lines, "\n"))
+		}
+	}
+	return first, nil
+}
+
+func extensionTypes(c *capture.Capture) []profile.Code {
+	out := make([]profile.Code, len(c.Profile.TLS.Extensions))
+	for i, e := range c.Profile.TLS.Extensions {
+		out[i] = e.Type
+	}
+	return out
+}
+
+// sample runs a fresh capture server, sends the browser to it, and returns the
+// first complete capture from that browser.
+func sample(ctx context.Context, b *browser.Browser, opts options) (*capture.Capture, error) {
+	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", "127.0.0.1:0")
+	if err != nil {
+		return nil, err
+	}
+	captures := make(chan *capture.Capture, 64)
+	srv := &server.Server{
+		TLSConfig: &tls.Config{
+			Certificates: []tls.Certificate{
+				opts.cert,
+			},
+		},
+		OnCapture: func(c *capture.Capture) {
+			select {
+			case captures <- c:
+			default:
+			}
+		},
+	}
+	serveCtx, stopServer := context.WithCancel(ctx)
+	served := make(chan struct{})
+	go func() {
+		_ = srv.Serve(serveCtx, ln)
+		close(served)
+	}()
+	defer func() {
+		stopServer()
+		<-served
+	}()
+
+	t := browser.Target{
+		Host:       server.CaptureHost,
+		Port:       ln.Addr().(*net.TCPAddr).Port,
+		CertSHA256: sha256.Sum256(opts.cert.Certificate[0]),
+	}
+	log.Printf("%s: opening %s", b.Name, b.URL(t))
+	session, err := b.Open(ctx, t, opts.headless)
+	if err != nil {
+		return nil, err
+	}
+	c, err := await(ctx, b.Name, captures, opts.timeout)
+	if closeErr := session.Close(); closeErr != nil {
+		log.Printf("%s: cleaning up: %v", b.Name, closeErr)
+	}
+	return c, err
 }
 
 // await returns the first complete capture from the named browser. Captures

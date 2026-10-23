@@ -247,8 +247,12 @@ func TestClientHelloAgreesWithStdlib(t *testing.T) {
 				}
 			}
 
+			// Identity, headers and extension order come from elsewhere (the
+			// user agent, a request, several samples); fill them in so only
+			// the parsed TLS section is judged.
 			p := c.Profile
 			p.Name, p.Browser, p.Version, p.Platform = "x", "x", "x", "x"
+			p.TLS.ExtensionOrder = profile.ExtensionOrderFixed
 			p.Headers = []profile.Header{
 				{
 					Name: "accept",
@@ -536,5 +540,109 @@ func TestHTTP1Recording(t *testing.T) {
 	}
 	if c.Profile.HTTP2 != nil {
 		t.Error("HTTP/1.1 capture has an HTTP/2 section")
+	}
+}
+
+// Safari keeps running between captures and holds its connection open.
+// Stopping the server must close such connections instead of waiting for
+// ConnTimeout, or every Safari sample takes a minute.
+func TestServeClosesOpenConnectionsOnStop(t *testing.T) {
+	ca, err := LoadOrCreateCA(t.TempDir(), CAHosts, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cert, err := ca.Issue(CAHosts, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ln, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := &Server{
+		TLSConfig: &tls.Config{
+			Certificates: []tls.Certificate{
+				cert,
+			},
+		},
+		ConnTimeout: time.Minute,
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		done <- srv.Serve(ctx, ln)
+	}()
+
+	pool := x509.NewCertPool()
+	pool.AddCert(ca.Cert)
+	raw, err := (&net.Dialer{}).DialContext(t.Context(), "tcp", ln.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = raw.Close()
+	}()
+	conn := tls.Client(raw, &tls.Config{
+		ServerName: "localhost",
+		RootCAs:    pool,
+		NextProtos: []string{
+			"h2",
+		},
+	})
+	if err := conn.HandshakeContext(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	// Complete a request, as Safari does, then leave the connection open.
+	if _, err := io.WriteString(conn, http2.ClientPreface); err != nil {
+		t.Fatal(err)
+	}
+	fr := http2.NewFramer(conn, conn)
+	fr.ReadMetaHeaders = hpack.NewDecoder(4096, nil)
+	var block bytes.Buffer
+	enc := hpack.NewEncoder(&block)
+	for _, f := range []hpack.HeaderField{
+		{
+			Name:  ":method",
+			Value: "GET",
+		},
+		{
+			Name:  ":authority",
+			Value: "localhost",
+		},
+		{
+			Name:  ":scheme",
+			Value: "https",
+		},
+		{
+			Name:  ":path",
+			Value: "/",
+		},
+	} {
+		if err := enc.WriteField(f); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := fr.WriteSettings(); err != nil {
+		t.Fatal(err)
+	}
+	if err := fr.WriteHeaders(http2.HeadersFrameParam{
+		StreamID:      1,
+		BlockFragment: block.Bytes(),
+		EndStream:     true,
+		EndHeaders:    true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if status := readResponse(t, fr, 1); status != "200" {
+		t.Fatalf("status %s", status)
+	}
+	cancel()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("Serve: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Serve did not return while a client held a connection open")
 	}
 }

@@ -24,6 +24,7 @@
     "compression_methods": [
       0
     ],
+    "extension_order": "fixed",
     "extensions": [
       {
         "type": "0x0000"

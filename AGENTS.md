@@ -66,6 +66,10 @@ Built-in profiles are JSON files in `profiles/data/`, one per browser version an
 
 `moon run harness:capture` launches every installed browser (Chrome, Firefox, Safari) against an in-process capture server and writes new captures to `harness/testdata/captures/`. It never overwrites; delete a capture to retake it. Use visible windows for captures you commit: headless Chrome reports `HeadlessChrome` in its user agent. moon skips this task when `CI=true`.
 
+Each browser is sampled three times (`-samples`), each on a fresh server and port so no connection or TLS session carries over. If the samples differ only in extension order, the capture records `"extension_order": "shuffled"` (Chrome), otherwise `"fixed"`. Any other difference between samples fails the capture: it is randomness a profile cannot describe and needs investigating.
+
+`go run ./cmd/diff WANT.json GOT.json` (in `harness/`) lists every difference between two captures or profiles, comparing extension order as WANT's `extension_order` says, and exits 1 if there are any.
+
 - Chrome and Firefox run with throwaway profiles and resolve `capture.mimicry.test` to 127.0.0.1 themselves; Chrome ignores certificate errors and Firefox gets a certificate exception. Nothing on the system changes.
 - Safari cannot be isolated: it opens a tab in the user's own window on `https://localhost:<port>/` (closed afterwards) and must trust the capture CA. The CA lives in `<user config dir>/mimicry/capture-ca/`, outside the repo, and is name-constrained to `capture.mimicry.test` and `localhost` with IP addresses excluded, so it cannot vouch for any real site. Trust it once; the capture command prints this when needed:
 

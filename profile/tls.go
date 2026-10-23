@@ -6,10 +6,26 @@ type TLS struct {
 	CipherSuites []Code `json:"cipher_suites"`
 	// CompressionMethods, normally [0] (null).
 	CompressionMethods ByteList `json:"compression_methods"`
-	// Extensions in the browser's canonical order. A browser that shuffles its
-	// extensions (Chrome) is described by one order; the shuffle is applied per
-	// connection.
+	// ExtensionOrder says whether the browser sends Extensions in this exact
+	// order (ExtensionOrderFixed) or permutes them per connection
+	// (ExtensionOrderShuffled, Chrome since 110). Pinned extensions keep their
+	// position either way; see Extension.Pinned.
+	ExtensionOrder string `json:"extension_order"`
+	// Extensions in the order of one observed ClientHello.
 	Extensions []Extension `json:"extensions"`
+}
+
+// Values of TLS.ExtensionOrder.
+const (
+	ExtensionOrderFixed    = "fixed"
+	ExtensionOrderShuffled = "shuffled"
+)
+
+// Pinned reports whether e keeps its position when a browser shuffles its
+// extensions: GREASE brackets the list, padding sizes the record, and
+// pre_shared_key must be last (RFC 8446, section 4.2.11).
+func (e *Extension) Pinned() bool {
+	return e.Type == GREASE || e.Type == ExtPadding || e.Type == ExtPreSharedKey
 }
 
 // Extension is one ClientHello extension. Type is required. The payload is

@@ -30,8 +30,9 @@ type Server struct {
 	ConnTimeout time.Duration
 }
 
-// Serve handles connections from ln until ctx is canceled, then waits for
-// open connections to finish.
+// Serve handles connections from ln until ctx is canceled, then closes the
+// open ones and waits for their handlers to return. Clients that stay running,
+// like Safari, would otherwise hold connections open until ConnTimeout.
 func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 	cfg := s.TLSConfig.Clone()
 	cfg.NextProtos = []string{
@@ -62,7 +63,11 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 }
 
 func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config) error {
+	stop := context.AfterFunc(ctx, func() {
+		_ = conn.Close()
+	})
 	defer func() {
+		stop()
 		_ = conn.Close()
 	}()
 	timeout := s.ConnTimeout
