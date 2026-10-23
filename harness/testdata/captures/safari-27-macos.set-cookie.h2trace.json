@@ -1,0 +1,3101 @@
+[
+  {
+    "frames": [
+      {
+        "ms": 0,
+        "type": "SETTINGS",
+        "length": 24
+      },
+      {
+        "ms": 0,
+        "type": "WINDOW_UPDATE",
+        "length": 4,
+        "increment": 10420225
+      },
+      {
+        "ms": 0,
+        "type": "SETTINGS",
+        "flags": 1,
+        "length": 0
+      },
+      {
+        "ms": 32,
+        "type": "HEADERS",
+        "stream": 1,
+        "flags": 5,
+        "length": 259
+      },
+      {
+        "ms": 38,
+        "type": "HEADERS",
+        "stream": 3,
+        "flags": 5,
+        "length": 767
+      },
+      {
+        "ms": 38,
+        "type": "HEADERS",
+        "stream": 5,
+        "flags": 5,
+        "length": 164
+      },
+      {
+        "ms": 38,
+        "type": "HEADERS",
+        "stream": 7,
+        "flags": 5,
+        "length": 66
+      },
+      {
+        "ms": 40,
+        "type": "HEADERS",
+        "stream": 9,
+        "flags": 5,
+        "length": 73
+      },
+      {
+        "ms": 173,
+        "type": "HEADERS",
+        "stream": 11,
+        "flags": 5,
+        "length": 53
+      },
+      {
+        "ms": 179,
+        "type": "HEADERS",
+        "stream": 13,
+        "flags": 5,
+        "length": 75
+      }
+    ],
+    "requests": [
+      {
+        "stream": 1,
+        "path": "/",
+        "block": "8287418ba0e41d139d09b8dbcebeef84408a4148b4a549275a42a13f8690e4b692d49f7adad07f66a281b0dae053fad0321aa49d13fda992a49685340c8a6adca7e28104416e277fb521aeba0bc8b1e63258700dae15c2da9fd66c7bf467fa5283752a988a4ea7fed4e25b1063d4c09d5c0b854dc39476198700dae15c2dff53b0497ca589d34d1f43aeba0c41a4c7a98f33a69a3fdf9a68fa1d75d0620d263d4c79a68fbed00177febe58f9fbed00177b408a4148b4a549275906497f83a8f517408a4148b4a549275a93c85f86a87dcd30d25f518b2d4b70ddf45abefb4005df4086aec31ec327d785b6007d286f50929bd9abfa5242cb40d25fa523b3e94f684c9f",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "incremental",
+            "index": 1,
+            "name": ":authority",
+            "value": "localhost:58797",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 4,
+            "name": ":path",
+            "value": "/"
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-dest",
+            "value": "document",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 58,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 19,
+            "name": "accept",
+            "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-site",
+            "value": "none",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-mode",
+            "value": "navigate",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 17,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "priority",
+            "value": "u=0, i",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 16,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd",
+            "huffman_value": true
+          }
+        ]
+      },
+      {
+        "stream": 3,
+        "path": "/style.css",
+        "block": "8287c604876109f5415722117f0684427d505fc5538e497ca582211f5f2c7cfdf6800b8773929d29ad1718628390744e7426e36f3afbac7f7f068840e92ac7b0d31aaf7f0685a8eb10f623c57f0585b600fd286fc460ff8802887193ac10e707ed7462c65bf9faadfba38cda0be7366049eb5c909e1beb7beb777bf766e76651faffee0d4fbfe3bb7f8f8e1cbed20d3d6c0b48f5dbd84c8fc0d00f5af4b50eae9e6f35e7293762cd5dea9ac1e99f282689ff0467fc7bc5832b3d0db238ff6bf1db8db6f4cbb3bf3dbddf7dadb7a1ce97c31ecb6d4d0f4bec7cb5c9977ee58f82bbb1d1823e3c8b9ea90ef70dfc6f3c1a99c9cfa474328d33b3f99bbecc98ba37c65e3b274f4ffedde8cedbbe43bb08ab76d9cd7e9c389921a9bf68edf5eabfcd16cfb37747c68d1b1ae7fb8237905fcda2f61c687fa8bbfff462ef3fe354d9af75f4b31ad8f327f358b00661d97eed7dfd6e2e0edc6fbf907d1db3461ef9de6a1aaafd5a3f57885c55bdf98aa34787aee4fe6a4846d7e777f069f7773decbb7669275d7d6ff2bc8dd84e42650a7783bf7ffe97570a35b377464d4f6f9eeb25c99ea03bceee173c6b27872c07ac8ebfaacbbc2112d9c1d3bf1e88bd76821051b369f27a1f0dfec9c7664ca0c7ef05fcff9b07dc7bafe315db7dc3e1ff13f4f63f1f11861f51c43140cf60c48cd2414ef6f675e1da4cd86bfcec01471bde0a5e4f5f461cba830b92f0f52d417c2f15ec9c11471cad70e1fbffd73656b68d5cf1f8e777cd3fb35db7739455ef9f70b9ef60ad98a7a0e4823ed9a91732e3e68a88997075f63e4e3a1297b3d89cc57a8cf79bebe3693c64bdb962e0eda3ab9bbf60a1a8d149026c7397a2fbf5e7d3d933c723fcfc0aeeec7d87dba3996cfd23b9dbd70f1f1191ac2fc1fbcbae7cdc5c7c36fff6dc9a71ff6090ac4082995befb015fbc5b713bfb7483f6091ac4183f768f66ff7d241f1bfbbbd03e1c760c341a481321bffab7b96ee6e7bff798af953c30737ceb5f921cd916d74bd2e0a1d5b7ddf58f4efae7302669df76fff70735a97a1c86d9b65b4433d988e5cd6f6376ca337",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": ":authority",
+            "value": "localhost:58797"
+          },
+          {
+            "rep": "without",
+            "index": 4,
+            "name": ":path",
+            "value": "/style.css",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 69,
+            "name": "sec-fetch-dest",
+            "value": "style",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 69,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15"
+          },
+          {
+            "rep": "incremental",
+            "index": 19,
+            "name": "accept",
+            "value": "text/css,*/*;q=0.1",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 51,
+            "name": "referer",
+            "value": "https://localhost:58797/",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 69,
+            "name": "sec-fetch-site",
+            "value": "same-origin",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 69,
+            "name": "sec-fetch-mode",
+            "value": "no-cors",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 69,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "incremental",
+            "index": 68,
+            "name": "priority",
+            "value": "u=1, i",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 68,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "_abck=AL0ZplGHeDLk-ZMVgMexKK0dyPdAoAD-zkBT9BgYrJay~EO99wv5X9aAJzt0Nkr14syqz1isX1l0yPN4AOjxC4xJcSGKpCn4Ey3xscMhX2i9wzGEJ3jiQbbZpwqVuujJQvYRv994RCALt91bQuutl8fzaWPdJTS-oEpBblEbVWeLndo8UTVC81n3IYjbl3sNh3XKvQIGj5VfVQhtj~Bj3RBx1SF2p7uhiDmFG3cimDuauyypXMuhQSj9asMQ4YZEb8seXR2z1Hs9k2v~a2vhX4mrPSDt3b-HKtXP2E1garDBpvySeEqVD9Iaj7rMFvL84AnnZ-byCceGp8XGnibFkStXOt1a4Xv9ENzBLCJRQNckPkDWCsSFoccJ1tT0vv~eOUlP3BMIO8ThB3eILn07YBF6wPcw6r0yI79OrBUA2-L0jvVjsCBlcc2b3uoIyaUTzcVQIJ0HzEDLXQavaSDH2BuzAw9whjza",
+            "huffman_value": true
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "aka_a2=3",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "bid=mT5QkUqdKFpXq02bb8weeW8DsFJO1A6fUyfn1918e8IUslVJ4UUZ~6Qp-MOYHwYBxmZgBuS6lnzYv16z",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "geoloc=bqKm2YeHYsnctfEkzaW671eeq8G6GClLC5kwRcwICS-eEqMk6S",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "ni_d=tr6Wyezyxy8ILbd9Yw2BSHqaqj6JrZc7L5PA",
+            "huffman_value": true
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "p19=ZWkLKV691u~uINH",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "p20=mf5vQ0pzGRG7ZBca",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "p21=ZRaQTzjdaVDSvlaUV",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "sid=tdi~-zfBKYTZY2DetUEY9o-DdAKI-Pm8fEl7-TByHNTphi0g47zu~EY-m8AIiQRfu2aorGoeKuqiqJai",
+            "huffman_value": true
+          }
+        ]
+      },
+      {
+        "stream": 5,
+        "path": "/img.png",
+        "block": "8287d3048660d4ccbd754d7f0b84352398bfd253de352398ac782c75fd1a91cc5607dcd2fd1a91cc563a79a3e8d48e62b1394c4fa352398ac4e53116417b5a5a885faee690a763e7efb4005defa352398ac5754df46a4731584779bfdf9a68fa352398ac7cfdf6800bbdf5f2c7cfdf6800bb7fcac9c8cf7f0885b606fe9437cec71f11861f51c43140cfc6c5c41f1191ac2fc1fbcbae7cdc5c7c36fff6dc9a71ffc3c2c1",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 83,
+            "name": ":authority",
+            "value": "localhost:58797"
+          },
+          {
+            "rep": "without",
+            "index": 4,
+            "name": ":path",
+            "value": "/img.png",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 74,
+            "name": "sec-fetch-dest",
+            "value": "image",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 82,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15"
+          },
+          {
+            "rep": "incremental",
+            "index": 19,
+            "name": "accept",
+            "value": "image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 74,
+            "name": "referer",
+            "value": "https://localhost:58797/"
+          },
+          {
+            "rep": "indexed",
+            "index": 73,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "indexed",
+            "index": 72,
+            "name": "sec-fetch-mode",
+            "value": "no-cors"
+          },
+          {
+            "rep": "indexed",
+            "index": 79,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "incremental",
+            "index": 71,
+            "name": "priority",
+            "value": "u=5, i",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 78,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "cookie",
+            "value": "_abck=AL0ZplGHeDLk-ZMVgMexKK0dyPdAoAD-zkBT9BgYrJay~EO99wv5X9aAJzt0Nkr14syqz1isX1l0yPN4AOjxC4xJcSGKpCn4Ey3xscMhX2i9wzGEJ3jiQbbZpwqVuujJQvYRv994RCALt91bQuutl8fzaWPdJTS-oEpBblEbVWeLndo8UTVC81n3IYjbl3sNh3XKvQIGj5VfVQhtj~Bj3RBx1SF2p7uhiDmFG3cimDuauyypXMuhQSj9asMQ4YZEb8seXR2z1Hs9k2v~a2vhX4mrPSDt3b-HKtXP2E1garDBpvySeEqVD9Iaj7rMFvL84AnnZ-byCceGp8XGnibFkStXOt1a4Xv9ENzBLCJRQNckPkDWCsSFoccJ1tT0vv~eOUlP3BMIO8ThB3eILn07YBF6wPcw6r0yI79OrBUA2-L0jvVjsCBlcc2b3uoIyaUTzcVQIJ0HzEDLXQavaSDH2BuzAw9whjza"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "aka_a2=3",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": "cookie",
+            "value": "bid=mT5QkUqdKFpXq02bb8weeW8DsFJO1A6fUyfn1918e8IUslVJ4UUZ~6Qp-MOYHwYBxmZgBuS6lnzYv16z"
+          },
+          {
+            "rep": "indexed",
+            "index": 69,
+            "name": "cookie",
+            "value": "geoloc=bqKm2YeHYsnctfEkzaW671eeq8G6GClLC5kwRcwICS-eEqMk6S"
+          },
+          {
+            "rep": "indexed",
+            "index": 68,
+            "name": "cookie",
+            "value": "ni_d=tr6Wyezyxy8ILbd9Yw2BSHqaqj6JrZc7L5PA"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "p19=ZWkLKV691u~uINH",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 67,
+            "name": "cookie",
+            "value": "p20=mf5vQ0pzGRG7ZBca"
+          },
+          {
+            "rep": "indexed",
+            "index": 66,
+            "name": "cookie",
+            "value": "p21=ZRaQTzjdaVDSvlaUV"
+          },
+          {
+            "rep": "indexed",
+            "index": 65,
+            "name": "cookie",
+            "value": "sid=tdi~-zfBKYTZY2DetUEY9o-DdAKI-Pm8fEl7-TByHNTphi0g47zu~EY-m8AIiQRfu2aorGoeKuqiqJai"
+          }
+        ]
+      },
+      {
+        "stream": 7,
+        "path": "/app.js",
+        "block": "8287d604866075d6bf447f7f0184412c3569d553032a2f2acdcccbd2cad0c91f11861f51c43140cfc8c7c61f1191ac2fc1fbcbae7cdc5c7c36fff6dc9a71ffc5c4c3",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 86,
+            "name": ":authority",
+            "value": "localhost:58797"
+          },
+          {
+            "rep": "without",
+            "index": 4,
+            "name": ":path",
+            "value": "/app.js",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 64,
+            "name": "sec-fetch-dest",
+            "value": "script",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 85,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15"
+          },
+          {
+            "rep": "incremental",
+            "index": 19,
+            "name": "accept",
+            "value": "*/*"
+          },
+          {
+            "rep": "indexed",
+            "index": 77,
+            "name": "referer",
+            "value": "https://localhost:58797/"
+          },
+          {
+            "rep": "indexed",
+            "index": 76,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "indexed",
+            "index": 75,
+            "name": "sec-fetch-mode",
+            "value": "no-cors"
+          },
+          {
+            "rep": "indexed",
+            "index": 82,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 74,
+            "name": "priority",
+            "value": "u=1, i"
+          },
+          {
+            "rep": "indexed",
+            "index": 80,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 73,
+            "name": "cookie",
+            "value": "_abck=AL0ZplGHeDLk-ZMVgMexKK0dyPdAoAD-zkBT9BgYrJay~EO99wv5X9aAJzt0Nkr14syqz1isX1l0yPN4AOjxC4xJcSGKpCn4Ey3xscMhX2i9wzGEJ3jiQbbZpwqVuujJQvYRv994RCALt91bQuutl8fzaWPdJTS-oEpBblEbVWeLndo8UTVC81n3IYjbl3sNh3XKvQIGj5VfVQhtj~Bj3RBx1SF2p7uhiDmFG3cimDuauyypXMuhQSj9asMQ4YZEb8seXR2z1Hs9k2v~a2vhX4mrPSDt3b-HKtXP2E1garDBpvySeEqVD9Iaj7rMFvL84AnnZ-byCceGp8XGnibFkStXOt1a4Xv9ENzBLCJRQNckPkDWCsSFoccJ1tT0vv~eOUlP3BMIO8ThB3eILn07YBF6wPcw6r0yI79OrBUA2-L0jvVjsCBlcc2b3uoIyaUTzcVQIJ0HzEDLXQavaSDH2BuzAw9whjza"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "aka_a2=3",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 72,
+            "name": "cookie",
+            "value": "bid=mT5QkUqdKFpXq02bb8weeW8DsFJO1A6fUyfn1918e8IUslVJ4UUZ~6Qp-MOYHwYBxmZgBuS6lnzYv16z"
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "cookie",
+            "value": "geoloc=bqKm2YeHYsnctfEkzaW671eeq8G6GClLC5kwRcwICS-eEqMk6S"
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": "cookie",
+            "value": "ni_d=tr6Wyezyxy8ILbd9Yw2BSHqaqj6JrZc7L5PA"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "p19=ZWkLKV691u~uINH",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 69,
+            "name": "cookie",
+            "value": "p20=mf5vQ0pzGRG7ZBca"
+          },
+          {
+            "rep": "indexed",
+            "index": 68,
+            "name": "cookie",
+            "value": "p21=ZRaQTzjdaVDSvlaUV"
+          },
+          {
+            "rep": "indexed",
+            "index": 67,
+            "name": "cookie",
+            "value": "sid=tdi~-zfBKYTZY2DetUEY9o-DdAKI-Pm8fEl7-TByHNTphi0g47zu~EY-m8AIiQRfu2aorGoeKuqiqJai"
+          }
+        ]
+      },
+      {
+        "stream": 9,
+        "path": "/again",
+        "block": "8287d8048560730cd57f7f00842d35a7d7d7bfcecd7f0d8321ec47d47f0385b6067e9437d3cc1f11861f51c43140cfcbcac91f1191ac2fc1fbcbae7cdc5c7c36fff6dc9a71ffc8c7c6",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 88,
+            "name": ":authority",
+            "value": "localhost:58797"
+          },
+          {
+            "rep": "without",
+            "index": 4,
+            "name": ":path",
+            "value": "/again",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 63,
+            "name": "sec-fetch-dest",
+            "value": "empty",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 87,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15"
+          },
+          {
+            "rep": "indexed",
+            "index": 63,
+            "name": "accept",
+            "value": "*/*"
+          },
+          {
+            "rep": "indexed",
+            "index": 78,
+            "name": "referer",
+            "value": "https://localhost:58797/"
+          },
+          {
+            "rep": "indexed",
+            "index": 77,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "incremental",
+            "index": 76,
+            "name": "sec-fetch-mode",
+            "value": "cors",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 84,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "incremental",
+            "index": 66,
+            "name": "priority",
+            "value": "u=3, i",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 83,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 76,
+            "name": "cookie",
+            "value": "_abck=AL0ZplGHeDLk-ZMVgMexKK0dyPdAoAD-zkBT9BgYrJay~EO99wv5X9aAJzt0Nkr14syqz1isX1l0yPN4AOjxC4xJcSGKpCn4Ey3xscMhX2i9wzGEJ3jiQbbZpwqVuujJQvYRv994RCALt91bQuutl8fzaWPdJTS-oEpBblEbVWeLndo8UTVC81n3IYjbl3sNh3XKvQIGj5VfVQhtj~Bj3RBx1SF2p7uhiDmFG3cimDuauyypXMuhQSj9asMQ4YZEb8seXR2z1Hs9k2v~a2vhX4mrPSDt3b-HKtXP2E1garDBpvySeEqVD9Iaj7rMFvL84AnnZ-byCceGp8XGnibFkStXOt1a4Xv9ENzBLCJRQNckPkDWCsSFoccJ1tT0vv~eOUlP3BMIO8ThB3eILn07YBF6wPcw6r0yI79OrBUA2-L0jvVjsCBlcc2b3uoIyaUTzcVQIJ0HzEDLXQavaSDH2BuzAw9whjza"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "aka_a2=3",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 75,
+            "name": "cookie",
+            "value": "bid=mT5QkUqdKFpXq02bb8weeW8DsFJO1A6fUyfn1918e8IUslVJ4UUZ~6Qp-MOYHwYBxmZgBuS6lnzYv16z"
+          },
+          {
+            "rep": "indexed",
+            "index": 74,
+            "name": "cookie",
+            "value": "geoloc=bqKm2YeHYsnctfEkzaW671eeq8G6GClLC5kwRcwICS-eEqMk6S"
+          },
+          {
+            "rep": "indexed",
+            "index": 73,
+            "name": "cookie",
+            "value": "ni_d=tr6Wyezyxy8ILbd9Yw2BSHqaqj6JrZc7L5PA"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "p19=ZWkLKV691u~uINH",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 72,
+            "name": "cookie",
+            "value": "p20=mf5vQ0pzGRG7ZBca"
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "cookie",
+            "value": "p21=ZRaQTzjdaVDSvlaUV"
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": "cookie",
+            "value": "sid=tdi~-zfBKYTZY2DetUEY9o-DdAKI-Pm8fEl7-TByHNTphi0g47zu~EY-m8AIiQRfu2aorGoeKuqiqJai"
+          }
+        ]
+      },
+      {
+        "stream": 11,
+        "path": "/nav",
+        "block": "8287db048362a1f7dad9d8d0cfd6d5d4d3cc1f11861f51c43140cfcbcac91f1191ac2fc1fbcbae7cdc5c7c36fff6dc9a71ffc8c7c6",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 91,
+            "name": ":authority",
+            "value": "localhost:58797"
+          },
+          {
+            "rep": "without",
+            "index": 4,
+            "name": ":path",
+            "value": "/nav",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 90,
+            "name": "sec-fetch-dest",
+            "value": "document"
+          },
+          {
+            "rep": "indexed",
+            "index": 89,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15"
+          },
+          {
+            "rep": "indexed",
+            "index": 88,
+            "name": "accept",
+            "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+          },
+          {
+            "rep": "indexed",
+            "index": 80,
+            "name": "referer",
+            "value": "https://localhost:58797/"
+          },
+          {
+            "rep": "indexed",
+            "index": 79,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "indexed",
+            "index": 86,
+            "name": "sec-fetch-mode",
+            "value": "navigate"
+          },
+          {
+            "rep": "indexed",
+            "index": 85,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 84,
+            "name": "priority",
+            "value": "u=0, i"
+          },
+          {
+            "rep": "indexed",
+            "index": 83,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 76,
+            "name": "cookie",
+            "value": "_abck=AL0ZplGHeDLk-ZMVgMexKK0dyPdAoAD-zkBT9BgYrJay~EO99wv5X9aAJzt0Nkr14syqz1isX1l0yPN4AOjxC4xJcSGKpCn4Ey3xscMhX2i9wzGEJ3jiQbbZpwqVuujJQvYRv994RCALt91bQuutl8fzaWPdJTS-oEpBblEbVWeLndo8UTVC81n3IYjbl3sNh3XKvQIGj5VfVQhtj~Bj3RBx1SF2p7uhiDmFG3cimDuauyypXMuhQSj9asMQ4YZEb8seXR2z1Hs9k2v~a2vhX4mrPSDt3b-HKtXP2E1garDBpvySeEqVD9Iaj7rMFvL84AnnZ-byCceGp8XGnibFkStXOt1a4Xv9ENzBLCJRQNckPkDWCsSFoccJ1tT0vv~eOUlP3BMIO8ThB3eILn07YBF6wPcw6r0yI79OrBUA2-L0jvVjsCBlcc2b3uoIyaUTzcVQIJ0HzEDLXQavaSDH2BuzAw9whjza"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "aka_a2=3",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 75,
+            "name": "cookie",
+            "value": "bid=mT5QkUqdKFpXq02bb8weeW8DsFJO1A6fUyfn1918e8IUslVJ4UUZ~6Qp-MOYHwYBxmZgBuS6lnzYv16z"
+          },
+          {
+            "rep": "indexed",
+            "index": 74,
+            "name": "cookie",
+            "value": "geoloc=bqKm2YeHYsnctfEkzaW671eeq8G6GClLC5kwRcwICS-eEqMk6S"
+          },
+          {
+            "rep": "indexed",
+            "index": 73,
+            "name": "cookie",
+            "value": "ni_d=tr6Wyezyxy8ILbd9Yw2BSHqaqj6JrZc7L5PA"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "p19=ZWkLKV691u~uINH",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 72,
+            "name": "cookie",
+            "value": "p20=mf5vQ0pzGRG7ZBca"
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "cookie",
+            "value": "p21=ZRaQTzjdaVDSvlaUV"
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": "cookie",
+            "value": "sid=tdi~-zfBKYTZY2DetUEY9o-DdAKI-Pm8fEl7-TByHNTphi0g47zu~EY-m8AIiQRfu2aorGoeKuqiqJai"
+          }
+        ]
+      },
+      {
+        "stream": 13,
+        "path": "/done",
+        "block": "8287db04846243d45fc0d9c173949d29ad1718628390744e7426e36f3afbac543effd0c0d6bfd4cd1f11861f51c43140cfcccbca1f1191ac2fc1fbcbae7cdc5c7c36fff6dc9a71ffc9c8c7",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 91,
+            "name": ":authority",
+            "value": "localhost:58797"
+          },
+          {
+            "rep": "without",
+            "index": 4,
+            "name": ":path",
+            "value": "/done",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 64,
+            "name": "sec-fetch-dest",
+            "value": "empty"
+          },
+          {
+            "rep": "indexed",
+            "index": 89,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15"
+          },
+          {
+            "rep": "indexed",
+            "index": 65,
+            "name": "accept",
+            "value": "*/*"
+          },
+          {
+            "rep": "incremental",
+            "index": 51,
+            "name": "referer",
+            "value": "https://localhost:58797/nav",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 80,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "indexed",
+            "index": 64,
+            "name": "sec-fetch-mode",
+            "value": "cors"
+          },
+          {
+            "rep": "indexed",
+            "index": 86,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 63,
+            "name": "priority",
+            "value": "u=3, i"
+          },
+          {
+            "rep": "indexed",
+            "index": 84,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 77,
+            "name": "cookie",
+            "value": "_abck=AL0ZplGHeDLk-ZMVgMexKK0dyPdAoAD-zkBT9BgYrJay~EO99wv5X9aAJzt0Nkr14syqz1isX1l0yPN4AOjxC4xJcSGKpCn4Ey3xscMhX2i9wzGEJ3jiQbbZpwqVuujJQvYRv994RCALt91bQuutl8fzaWPdJTS-oEpBblEbVWeLndo8UTVC81n3IYjbl3sNh3XKvQIGj5VfVQhtj~Bj3RBx1SF2p7uhiDmFG3cimDuauyypXMuhQSj9asMQ4YZEb8seXR2z1Hs9k2v~a2vhX4mrPSDt3b-HKtXP2E1garDBpvySeEqVD9Iaj7rMFvL84AnnZ-byCceGp8XGnibFkStXOt1a4Xv9ENzBLCJRQNckPkDWCsSFoccJ1tT0vv~eOUlP3BMIO8ThB3eILn07YBF6wPcw6r0yI79OrBUA2-L0jvVjsCBlcc2b3uoIyaUTzcVQIJ0HzEDLXQavaSDH2BuzAw9whjza"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "aka_a2=3",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 76,
+            "name": "cookie",
+            "value": "bid=mT5QkUqdKFpXq02bb8weeW8DsFJO1A6fUyfn1918e8IUslVJ4UUZ~6Qp-MOYHwYBxmZgBuS6lnzYv16z"
+          },
+          {
+            "rep": "indexed",
+            "index": 75,
+            "name": "cookie",
+            "value": "geoloc=bqKm2YeHYsnctfEkzaW671eeq8G6GClLC5kwRcwICS-eEqMk6S"
+          },
+          {
+            "rep": "indexed",
+            "index": 74,
+            "name": "cookie",
+            "value": "ni_d=tr6Wyezyxy8ILbd9Yw2BSHqaqj6JrZc7L5PA"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "p19=ZWkLKV691u~uINH",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 73,
+            "name": "cookie",
+            "value": "p20=mf5vQ0pzGRG7ZBca"
+          },
+          {
+            "rep": "indexed",
+            "index": 72,
+            "name": "cookie",
+            "value": "p21=ZRaQTzjdaVDSvlaUV"
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "cookie",
+            "value": "sid=tdi~-zfBKYTZY2DetUEY9o-DdAKI-Pm8fEl7-TByHNTphi0g47zu~EY-m8AIiQRfu2aorGoeKuqiqJai"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "frames": [
+      {
+        "ms": 0,
+        "type": "SETTINGS",
+        "length": 24
+      },
+      {
+        "ms": 0,
+        "type": "WINDOW_UPDATE",
+        "length": 4,
+        "increment": 10420225
+      },
+      {
+        "ms": 0,
+        "type": "SETTINGS",
+        "flags": 1,
+        "length": 0
+      },
+      {
+        "ms": 43,
+        "type": "HEADERS",
+        "stream": 1,
+        "flags": 5,
+        "length": 259
+      },
+      {
+        "ms": 49,
+        "type": "HEADERS",
+        "stream": 3,
+        "flags": 5,
+        "length": 766
+      },
+      {
+        "ms": 50,
+        "type": "HEADERS",
+        "stream": 5,
+        "flags": 5,
+        "length": 164
+      },
+      {
+        "ms": 50,
+        "type": "HEADERS",
+        "stream": 7,
+        "flags": 5,
+        "length": 66
+      },
+      {
+        "ms": 51,
+        "type": "HEADERS",
+        "stream": 9,
+        "flags": 5,
+        "length": 73
+      },
+      {
+        "ms": 96,
+        "type": "HEADERS",
+        "stream": 11,
+        "flags": 5,
+        "length": 53
+      },
+      {
+        "ms": 101,
+        "type": "HEADERS",
+        "stream": 13,
+        "flags": 5,
+        "length": 75
+      }
+    ],
+    "requests": [
+      {
+        "stream": 1,
+        "path": "/",
+        "block": "8287418ba0e41d139d09b8dbcf001f84408a4148b4a549275a42a13f8690e4b692d49f7adad07f66a281b0dae053fad0321aa49d13fda992a49685340c8a6adca7e28104416e277fb521aeba0bc8b1e63258700dae15c2da9fd66c7bf467fa5283752a988a4ea7fed4e25b1063d4c09d5c0b854dc39476198700dae15c2dff53b0497ca589d34d1f43aeba0c41a4c7a98f33a69a3fdf9a68fa1d75d0620d263d4c79a68fbed00177febe58f9fbed00177b408a4148b4a549275906497f83a8f517408a4148b4a549275a93c85f86a87dcd30d25f518b2d4b70ddf45abefb4005df4086aec31ec327d785b6007d286f50929bd9abfa5242cb40d25fa523b3e94f684c9f",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "incremental",
+            "index": 1,
+            "name": ":authority",
+            "value": "localhost:58800",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 4,
+            "name": ":path",
+            "value": "/"
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-dest",
+            "value": "document",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 58,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 19,
+            "name": "accept",
+            "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-site",
+            "value": "none",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-mode",
+            "value": "navigate",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 17,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "priority",
+            "value": "u=0, i",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 16,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd",
+            "huffman_value": true
+          }
+        ]
+      },
+      {
+        "stream": 3,
+        "path": "/style.css",
+        "block": "8287c604876109f5415722117f0684427d505fc5538e497ca582211f5f2c7cfdf6800b8773919d29ad1718628390744e7426e36f3c00317f068840e92ac7b0d31aaf7f0685a8eb10f623c57f0585b600fd286fc460ff8802887193ac10e707ed7462c65bf9faadfba38cda0be7366049eb5c909e1beb7beb777bf766e76651faffee0d4fbfe3bb7f8f8e1cbed20d3d6c0b48f5dbd84c8fc0d00f5af4b50eae9e6f35e7293762cd5dea9ac1e99f282689ff0467fc7bc5832b3d0db238ff6bf1db8db6f4cbb3bf3dbddf7dadb7a1ce97c31ecb6d4d0f4bec7cb5c9977ee58f82bbb1d1823e3c8b9ea90ef70dfc6f3c1a99c9cfa474328d33b3f99bbecc98ba37c65e3b274f4ffedde8cedbbe43bb08ab76d9cd7e9c389921a9bf68edf5eabfcd16cfb37747c68d1b1ae7fb8237905fcda2f61c687fa8bbfff462ef3fe354d9af75f4b31ad8f327f358b00661d97eed7dfd6e2e0edc6fbf907d1db3461ef9de6a1aaafd5a3f57885c55bdf98aa34787aee4fe6a4846d7e777f069f7773decbb7669275d7d6ff2bc8dd84e42650a7783bf7ffe97570a35b377464d4f6f9eeb25c99ea03bceee173c6b27872c07ac8ebfaacbbc2112d9c1d3bf1e88bd76821051b369f27a1f0dfec9c7664ca0c7ef05fcff9b07dc7bafe315db7dc3e1ff13f4f63f1f11861f51c43140cf60c48cd2414ef6f675e1da4cd86bfcec01471bde0a5e4f5f461cba830b92f0f52d417c2f15ec9c11471cad70e1fbffd73656b68d5cf1f8e777cd3fb35db7739455ef9f70b9ef60ad98a7a0e4823ed9a91732e3e68a88997075f63e4e3a1297b3d89cc57a8cf79bebe3693c64bdb962e0eda3ab9bbf60a1a8d149026c7397a2fbf5e7d3d933c723fcfc0aeeec7d87dba3996cfd23b9dbd70f1f1191ac2fc1fbcbae7cdc5c7c36fff6dc9a71ff6090ac4082995befb015fbc5b713bfb7483f6091ac4183f768f66ff7d241f1bfbbbd03e1c760c341a481321bffab7b96ee6e7bff798af953c30737ceb5f921cd916d74bd2e0a1d5b7ddf58f4efae7302669df76fff70735a97a1c86d9b65b4433d988e5cd6f6376ca337",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": ":authority",
+            "value": "localhost:58800"
+          },
+          {
+            "rep": "without",
+            "index": 4,
+            "name": ":path",
+            "value": "/style.css",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 69,
+            "name": "sec-fetch-dest",
+            "value": "style",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 69,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15"
+          },
+          {
+            "rep": "incremental",
+            "index": 19,
+            "name": "accept",
+            "value": "text/css,*/*;q=0.1",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 51,
+            "name": "referer",
+            "value": "https://localhost:58800/",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 69,
+            "name": "sec-fetch-site",
+            "value": "same-origin",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 69,
+            "name": "sec-fetch-mode",
+            "value": "no-cors",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 69,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "incremental",
+            "index": 68,
+            "name": "priority",
+            "value": "u=1, i",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 68,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "_abck=AL0ZplGHeDLk-ZMVgMexKK0dyPdAoAD-zkBT9BgYrJay~EO99wv5X9aAJzt0Nkr14syqz1isX1l0yPN4AOjxC4xJcSGKpCn4Ey3xscMhX2i9wzGEJ3jiQbbZpwqVuujJQvYRv994RCALt91bQuutl8fzaWPdJTS-oEpBblEbVWeLndo8UTVC81n3IYjbl3sNh3XKvQIGj5VfVQhtj~Bj3RBx1SF2p7uhiDmFG3cimDuauyypXMuhQSj9asMQ4YZEb8seXR2z1Hs9k2v~a2vhX4mrPSDt3b-HKtXP2E1garDBpvySeEqVD9Iaj7rMFvL84AnnZ-byCceGp8XGnibFkStXOt1a4Xv9ENzBLCJRQNckPkDWCsSFoccJ1tT0vv~eOUlP3BMIO8ThB3eILn07YBF6wPcw6r0yI79OrBUA2-L0jvVjsCBlcc2b3uoIyaUTzcVQIJ0HzEDLXQavaSDH2BuzAw9whjza",
+            "huffman_value": true
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "aka_a2=3",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "bid=mT5QkUqdKFpXq02bb8weeW8DsFJO1A6fUyfn1918e8IUslVJ4UUZ~6Qp-MOYHwYBxmZgBuS6lnzYv16z",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "geoloc=bqKm2YeHYsnctfEkzaW671eeq8G6GClLC5kwRcwICS-eEqMk6S",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "ni_d=tr6Wyezyxy8ILbd9Yw2BSHqaqj6JrZc7L5PA",
+            "huffman_value": true
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "p19=ZWkLKV691u~uINH",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "p20=mf5vQ0pzGRG7ZBca",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "p21=ZRaQTzjdaVDSvlaUV",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "sid=tdi~-zfBKYTZY2DetUEY9o-DdAKI-Pm8fEl7-TByHNTphi0g47zu~EY-m8AIiQRfu2aorGoeKuqiqJai",
+            "huffman_value": true
+          }
+        ]
+      },
+      {
+        "stream": 5,
+        "path": "/img.png",
+        "block": "8287d3048660d4ccbd754d7f0b84352398bfd253de352398ac782c75fd1a91cc5607dcd2fd1a91cc563a79a3e8d48e62b1394c4fa352398ac4e53116417b5a5a885faee690a763e7efb4005defa352398ac5754df46a4731584779bfdf9a68fa352398ac7cfdf6800bbdf5f2c7cfdf6800bb7fcac9c8cf7f0885b606fe9437cec71f11861f51c43140cfc6c5c41f1191ac2fc1fbcbae7cdc5c7c36fff6dc9a71ffc3c2c1",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 83,
+            "name": ":authority",
+            "value": "localhost:58800"
+          },
+          {
+            "rep": "without",
+            "index": 4,
+            "name": ":path",
+            "value": "/img.png",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 74,
+            "name": "sec-fetch-dest",
+            "value": "image",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 82,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15"
+          },
+          {
+            "rep": "incremental",
+            "index": 19,
+            "name": "accept",
+            "value": "image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 74,
+            "name": "referer",
+            "value": "https://localhost:58800/"
+          },
+          {
+            "rep": "indexed",
+            "index": 73,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "indexed",
+            "index": 72,
+            "name": "sec-fetch-mode",
+            "value": "no-cors"
+          },
+          {
+            "rep": "indexed",
+            "index": 79,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "incremental",
+            "index": 71,
+            "name": "priority",
+            "value": "u=5, i",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 78,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "cookie",
+            "value": "_abck=AL0ZplGHeDLk-ZMVgMexKK0dyPdAoAD-zkBT9BgYrJay~EO99wv5X9aAJzt0Nkr14syqz1isX1l0yPN4AOjxC4xJcSGKpCn4Ey3xscMhX2i9wzGEJ3jiQbbZpwqVuujJQvYRv994RCALt91bQuutl8fzaWPdJTS-oEpBblEbVWeLndo8UTVC81n3IYjbl3sNh3XKvQIGj5VfVQhtj~Bj3RBx1SF2p7uhiDmFG3cimDuauyypXMuhQSj9asMQ4YZEb8seXR2z1Hs9k2v~a2vhX4mrPSDt3b-HKtXP2E1garDBpvySeEqVD9Iaj7rMFvL84AnnZ-byCceGp8XGnibFkStXOt1a4Xv9ENzBLCJRQNckPkDWCsSFoccJ1tT0vv~eOUlP3BMIO8ThB3eILn07YBF6wPcw6r0yI79OrBUA2-L0jvVjsCBlcc2b3uoIyaUTzcVQIJ0HzEDLXQavaSDH2BuzAw9whjza"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "aka_a2=3",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": "cookie",
+            "value": "bid=mT5QkUqdKFpXq02bb8weeW8DsFJO1A6fUyfn1918e8IUslVJ4UUZ~6Qp-MOYHwYBxmZgBuS6lnzYv16z"
+          },
+          {
+            "rep": "indexed",
+            "index": 69,
+            "name": "cookie",
+            "value": "geoloc=bqKm2YeHYsnctfEkzaW671eeq8G6GClLC5kwRcwICS-eEqMk6S"
+          },
+          {
+            "rep": "indexed",
+            "index": 68,
+            "name": "cookie",
+            "value": "ni_d=tr6Wyezyxy8ILbd9Yw2BSHqaqj6JrZc7L5PA"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "p19=ZWkLKV691u~uINH",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 67,
+            "name": "cookie",
+            "value": "p20=mf5vQ0pzGRG7ZBca"
+          },
+          {
+            "rep": "indexed",
+            "index": 66,
+            "name": "cookie",
+            "value": "p21=ZRaQTzjdaVDSvlaUV"
+          },
+          {
+            "rep": "indexed",
+            "index": 65,
+            "name": "cookie",
+            "value": "sid=tdi~-zfBKYTZY2DetUEY9o-DdAKI-Pm8fEl7-TByHNTphi0g47zu~EY-m8AIiQRfu2aorGoeKuqiqJai"
+          }
+        ]
+      },
+      {
+        "stream": 7,
+        "path": "/app.js",
+        "block": "8287d604866075d6bf447f7f0184412c3569d553032a2f2acdcccbd2cad0c91f11861f51c43140cfc8c7c61f1191ac2fc1fbcbae7cdc5c7c36fff6dc9a71ffc5c4c3",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 86,
+            "name": ":authority",
+            "value": "localhost:58800"
+          },
+          {
+            "rep": "without",
+            "index": 4,
+            "name": ":path",
+            "value": "/app.js",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 64,
+            "name": "sec-fetch-dest",
+            "value": "script",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 85,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15"
+          },
+          {
+            "rep": "incremental",
+            "index": 19,
+            "name": "accept",
+            "value": "*/*"
+          },
+          {
+            "rep": "indexed",
+            "index": 77,
+            "name": "referer",
+            "value": "https://localhost:58800/"
+          },
+          {
+            "rep": "indexed",
+            "index": 76,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "indexed",
+            "index": 75,
+            "name": "sec-fetch-mode",
+            "value": "no-cors"
+          },
+          {
+            "rep": "indexed",
+            "index": 82,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 74,
+            "name": "priority",
+            "value": "u=1, i"
+          },
+          {
+            "rep": "indexed",
+            "index": 80,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 73,
+            "name": "cookie",
+            "value": "_abck=AL0ZplGHeDLk-ZMVgMexKK0dyPdAoAD-zkBT9BgYrJay~EO99wv5X9aAJzt0Nkr14syqz1isX1l0yPN4AOjxC4xJcSGKpCn4Ey3xscMhX2i9wzGEJ3jiQbbZpwqVuujJQvYRv994RCALt91bQuutl8fzaWPdJTS-oEpBblEbVWeLndo8UTVC81n3IYjbl3sNh3XKvQIGj5VfVQhtj~Bj3RBx1SF2p7uhiDmFG3cimDuauyypXMuhQSj9asMQ4YZEb8seXR2z1Hs9k2v~a2vhX4mrPSDt3b-HKtXP2E1garDBpvySeEqVD9Iaj7rMFvL84AnnZ-byCceGp8XGnibFkStXOt1a4Xv9ENzBLCJRQNckPkDWCsSFoccJ1tT0vv~eOUlP3BMIO8ThB3eILn07YBF6wPcw6r0yI79OrBUA2-L0jvVjsCBlcc2b3uoIyaUTzcVQIJ0HzEDLXQavaSDH2BuzAw9whjza"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "aka_a2=3",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 72,
+            "name": "cookie",
+            "value": "bid=mT5QkUqdKFpXq02bb8weeW8DsFJO1A6fUyfn1918e8IUslVJ4UUZ~6Qp-MOYHwYBxmZgBuS6lnzYv16z"
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "cookie",
+            "value": "geoloc=bqKm2YeHYsnctfEkzaW671eeq8G6GClLC5kwRcwICS-eEqMk6S"
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": "cookie",
+            "value": "ni_d=tr6Wyezyxy8ILbd9Yw2BSHqaqj6JrZc7L5PA"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "p19=ZWkLKV691u~uINH",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 69,
+            "name": "cookie",
+            "value": "p20=mf5vQ0pzGRG7ZBca"
+          },
+          {
+            "rep": "indexed",
+            "index": 68,
+            "name": "cookie",
+            "value": "p21=ZRaQTzjdaVDSvlaUV"
+          },
+          {
+            "rep": "indexed",
+            "index": 67,
+            "name": "cookie",
+            "value": "sid=tdi~-zfBKYTZY2DetUEY9o-DdAKI-Pm8fEl7-TByHNTphi0g47zu~EY-m8AIiQRfu2aorGoeKuqiqJai"
+          }
+        ]
+      },
+      {
+        "stream": 9,
+        "path": "/again",
+        "block": "8287d8048560730cd57f7f00842d35a7d7d7bfcecd7f0d8321ec47d47f0385b6067e9437d3cc1f11861f51c43140cfcbcac91f1191ac2fc1fbcbae7cdc5c7c36fff6dc9a71ffc8c7c6",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 88,
+            "name": ":authority",
+            "value": "localhost:58800"
+          },
+          {
+            "rep": "without",
+            "index": 4,
+            "name": ":path",
+            "value": "/again",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 63,
+            "name": "sec-fetch-dest",
+            "value": "empty",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 87,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15"
+          },
+          {
+            "rep": "indexed",
+            "index": 63,
+            "name": "accept",
+            "value": "*/*"
+          },
+          {
+            "rep": "indexed",
+            "index": 78,
+            "name": "referer",
+            "value": "https://localhost:58800/"
+          },
+          {
+            "rep": "indexed",
+            "index": 77,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "incremental",
+            "index": 76,
+            "name": "sec-fetch-mode",
+            "value": "cors",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 84,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "incremental",
+            "index": 66,
+            "name": "priority",
+            "value": "u=3, i",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 83,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 76,
+            "name": "cookie",
+            "value": "_abck=AL0ZplGHeDLk-ZMVgMexKK0dyPdAoAD-zkBT9BgYrJay~EO99wv5X9aAJzt0Nkr14syqz1isX1l0yPN4AOjxC4xJcSGKpCn4Ey3xscMhX2i9wzGEJ3jiQbbZpwqVuujJQvYRv994RCALt91bQuutl8fzaWPdJTS-oEpBblEbVWeLndo8UTVC81n3IYjbl3sNh3XKvQIGj5VfVQhtj~Bj3RBx1SF2p7uhiDmFG3cimDuauyypXMuhQSj9asMQ4YZEb8seXR2z1Hs9k2v~a2vhX4mrPSDt3b-HKtXP2E1garDBpvySeEqVD9Iaj7rMFvL84AnnZ-byCceGp8XGnibFkStXOt1a4Xv9ENzBLCJRQNckPkDWCsSFoccJ1tT0vv~eOUlP3BMIO8ThB3eILn07YBF6wPcw6r0yI79OrBUA2-L0jvVjsCBlcc2b3uoIyaUTzcVQIJ0HzEDLXQavaSDH2BuzAw9whjza"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "aka_a2=3",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 75,
+            "name": "cookie",
+            "value": "bid=mT5QkUqdKFpXq02bb8weeW8DsFJO1A6fUyfn1918e8IUslVJ4UUZ~6Qp-MOYHwYBxmZgBuS6lnzYv16z"
+          },
+          {
+            "rep": "indexed",
+            "index": 74,
+            "name": "cookie",
+            "value": "geoloc=bqKm2YeHYsnctfEkzaW671eeq8G6GClLC5kwRcwICS-eEqMk6S"
+          },
+          {
+            "rep": "indexed",
+            "index": 73,
+            "name": "cookie",
+            "value": "ni_d=tr6Wyezyxy8ILbd9Yw2BSHqaqj6JrZc7L5PA"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "p19=ZWkLKV691u~uINH",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 72,
+            "name": "cookie",
+            "value": "p20=mf5vQ0pzGRG7ZBca"
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "cookie",
+            "value": "p21=ZRaQTzjdaVDSvlaUV"
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": "cookie",
+            "value": "sid=tdi~-zfBKYTZY2DetUEY9o-DdAKI-Pm8fEl7-TByHNTphi0g47zu~EY-m8AIiQRfu2aorGoeKuqiqJai"
+          }
+        ]
+      },
+      {
+        "stream": 11,
+        "path": "/nav",
+        "block": "8287db048362a1f7dad9d8d0cfd6d5d4d3cc1f11861f51c43140cfcbcac91f1191ac2fc1fbcbae7cdc5c7c36fff6dc9a71ffc8c7c6",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 91,
+            "name": ":authority",
+            "value": "localhost:58800"
+          },
+          {
+            "rep": "without",
+            "index": 4,
+            "name": ":path",
+            "value": "/nav",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 90,
+            "name": "sec-fetch-dest",
+            "value": "document"
+          },
+          {
+            "rep": "indexed",
+            "index": 89,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15"
+          },
+          {
+            "rep": "indexed",
+            "index": 88,
+            "name": "accept",
+            "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+          },
+          {
+            "rep": "indexed",
+            "index": 80,
+            "name": "referer",
+            "value": "https://localhost:58800/"
+          },
+          {
+            "rep": "indexed",
+            "index": 79,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "indexed",
+            "index": 86,
+            "name": "sec-fetch-mode",
+            "value": "navigate"
+          },
+          {
+            "rep": "indexed",
+            "index": 85,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 84,
+            "name": "priority",
+            "value": "u=0, i"
+          },
+          {
+            "rep": "indexed",
+            "index": 83,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 76,
+            "name": "cookie",
+            "value": "_abck=AL0ZplGHeDLk-ZMVgMexKK0dyPdAoAD-zkBT9BgYrJay~EO99wv5X9aAJzt0Nkr14syqz1isX1l0yPN4AOjxC4xJcSGKpCn4Ey3xscMhX2i9wzGEJ3jiQbbZpwqVuujJQvYRv994RCALt91bQuutl8fzaWPdJTS-oEpBblEbVWeLndo8UTVC81n3IYjbl3sNh3XKvQIGj5VfVQhtj~Bj3RBx1SF2p7uhiDmFG3cimDuauyypXMuhQSj9asMQ4YZEb8seXR2z1Hs9k2v~a2vhX4mrPSDt3b-HKtXP2E1garDBpvySeEqVD9Iaj7rMFvL84AnnZ-byCceGp8XGnibFkStXOt1a4Xv9ENzBLCJRQNckPkDWCsSFoccJ1tT0vv~eOUlP3BMIO8ThB3eILn07YBF6wPcw6r0yI79OrBUA2-L0jvVjsCBlcc2b3uoIyaUTzcVQIJ0HzEDLXQavaSDH2BuzAw9whjza"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "aka_a2=3",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 75,
+            "name": "cookie",
+            "value": "bid=mT5QkUqdKFpXq02bb8weeW8DsFJO1A6fUyfn1918e8IUslVJ4UUZ~6Qp-MOYHwYBxmZgBuS6lnzYv16z"
+          },
+          {
+            "rep": "indexed",
+            "index": 74,
+            "name": "cookie",
+            "value": "geoloc=bqKm2YeHYsnctfEkzaW671eeq8G6GClLC5kwRcwICS-eEqMk6S"
+          },
+          {
+            "rep": "indexed",
+            "index": 73,
+            "name": "cookie",
+            "value": "ni_d=tr6Wyezyxy8ILbd9Yw2BSHqaqj6JrZc7L5PA"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "p19=ZWkLKV691u~uINH",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 72,
+            "name": "cookie",
+            "value": "p20=mf5vQ0pzGRG7ZBca"
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "cookie",
+            "value": "p21=ZRaQTzjdaVDSvlaUV"
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": "cookie",
+            "value": "sid=tdi~-zfBKYTZY2DetUEY9o-DdAKI-Pm8fEl7-TByHNTphi0g47zu~EY-m8AIiQRfu2aorGoeKuqiqJai"
+          }
+        ]
+      },
+      {
+        "stream": 13,
+        "path": "/done",
+        "block": "8287db04846243d45fc0d9c173949d29ad1718628390744e7426e36f3c003150fbffd0c0d6bfd4cd1f11861f51c43140cfcccbca1f1191ac2fc1fbcbae7cdc5c7c36fff6dc9a71ffc9c8c7",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 91,
+            "name": ":authority",
+            "value": "localhost:58800"
+          },
+          {
+            "rep": "without",
+            "index": 4,
+            "name": ":path",
+            "value": "/done",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 64,
+            "name": "sec-fetch-dest",
+            "value": "empty"
+          },
+          {
+            "rep": "indexed",
+            "index": 89,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15"
+          },
+          {
+            "rep": "indexed",
+            "index": 65,
+            "name": "accept",
+            "value": "*/*"
+          },
+          {
+            "rep": "incremental",
+            "index": 51,
+            "name": "referer",
+            "value": "https://localhost:58800/nav",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 80,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "indexed",
+            "index": 64,
+            "name": "sec-fetch-mode",
+            "value": "cors"
+          },
+          {
+            "rep": "indexed",
+            "index": 86,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 63,
+            "name": "priority",
+            "value": "u=3, i"
+          },
+          {
+            "rep": "indexed",
+            "index": 84,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 77,
+            "name": "cookie",
+            "value": "_abck=AL0ZplGHeDLk-ZMVgMexKK0dyPdAoAD-zkBT9BgYrJay~EO99wv5X9aAJzt0Nkr14syqz1isX1l0yPN4AOjxC4xJcSGKpCn4Ey3xscMhX2i9wzGEJ3jiQbbZpwqVuujJQvYRv994RCALt91bQuutl8fzaWPdJTS-oEpBblEbVWeLndo8UTVC81n3IYjbl3sNh3XKvQIGj5VfVQhtj~Bj3RBx1SF2p7uhiDmFG3cimDuauyypXMuhQSj9asMQ4YZEb8seXR2z1Hs9k2v~a2vhX4mrPSDt3b-HKtXP2E1garDBpvySeEqVD9Iaj7rMFvL84AnnZ-byCceGp8XGnibFkStXOt1a4Xv9ENzBLCJRQNckPkDWCsSFoccJ1tT0vv~eOUlP3BMIO8ThB3eILn07YBF6wPcw6r0yI79OrBUA2-L0jvVjsCBlcc2b3uoIyaUTzcVQIJ0HzEDLXQavaSDH2BuzAw9whjza"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "aka_a2=3",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 76,
+            "name": "cookie",
+            "value": "bid=mT5QkUqdKFpXq02bb8weeW8DsFJO1A6fUyfn1918e8IUslVJ4UUZ~6Qp-MOYHwYBxmZgBuS6lnzYv16z"
+          },
+          {
+            "rep": "indexed",
+            "index": 75,
+            "name": "cookie",
+            "value": "geoloc=bqKm2YeHYsnctfEkzaW671eeq8G6GClLC5kwRcwICS-eEqMk6S"
+          },
+          {
+            "rep": "indexed",
+            "index": 74,
+            "name": "cookie",
+            "value": "ni_d=tr6Wyezyxy8ILbd9Yw2BSHqaqj6JrZc7L5PA"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "p19=ZWkLKV691u~uINH",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 73,
+            "name": "cookie",
+            "value": "p20=mf5vQ0pzGRG7ZBca"
+          },
+          {
+            "rep": "indexed",
+            "index": 72,
+            "name": "cookie",
+            "value": "p21=ZRaQTzjdaVDSvlaUV"
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "cookie",
+            "value": "sid=tdi~-zfBKYTZY2DetUEY9o-DdAKI-Pm8fEl7-TByHNTphi0g47zu~EY-m8AIiQRfu2aorGoeKuqiqJai"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "frames": [
+      {
+        "ms": 0,
+        "type": "SETTINGS",
+        "length": 24
+      },
+      {
+        "ms": 0,
+        "type": "WINDOW_UPDATE",
+        "length": 4,
+        "increment": 10420225
+      },
+      {
+        "ms": 0,
+        "type": "SETTINGS",
+        "flags": 1,
+        "length": 0
+      },
+      {
+        "ms": 42,
+        "type": "HEADERS",
+        "stream": 1,
+        "flags": 5,
+        "length": 259
+      },
+      {
+        "ms": 48,
+        "type": "HEADERS",
+        "stream": 3,
+        "flags": 5,
+        "length": 766
+      },
+      {
+        "ms": 48,
+        "type": "HEADERS",
+        "stream": 5,
+        "flags": 5,
+        "length": 164
+      },
+      {
+        "ms": 49,
+        "type": "HEADERS",
+        "stream": 7,
+        "flags": 5,
+        "length": 66
+      },
+      {
+        "ms": 50,
+        "type": "HEADERS",
+        "stream": 9,
+        "flags": 5,
+        "length": 73
+      },
+      {
+        "ms": 94,
+        "type": "HEADERS",
+        "stream": 11,
+        "flags": 5,
+        "length": 53
+      },
+      {
+        "ms": 98,
+        "type": "HEADERS",
+        "stream": 13,
+        "flags": 5,
+        "length": 75
+      }
+    ],
+    "requests": [
+      {
+        "stream": 1,
+        "path": "/",
+        "block": "8287418ba0e41d139d09b8dbcf019f84408a4148b4a549275a42a13f8690e4b692d49f7adad07f66a281b0dae053fad0321aa49d13fda992a49685340c8a6adca7e28104416e277fb521aeba0bc8b1e63258700dae15c2da9fd66c7bf467fa5283752a988a4ea7fed4e25b1063d4c09d5c0b854dc39476198700dae15c2dff53b0497ca589d34d1f43aeba0c41a4c7a98f33a69a3fdf9a68fa1d75d0620d263d4c79a68fbed00177febe58f9fbed00177b408a4148b4a549275906497f83a8f517408a4148b4a549275a93c85f86a87dcd30d25f518b2d4b70ddf45abefb4005df4086aec31ec327d785b6007d286f50929bd9abfa5242cb40d25fa523b3e94f684c9f",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "incremental",
+            "index": 1,
+            "name": ":authority",
+            "value": "localhost:58803",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 4,
+            "name": ":path",
+            "value": "/"
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-dest",
+            "value": "document",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 58,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 19,
+            "name": "accept",
+            "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-site",
+            "value": "none",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-mode",
+            "value": "navigate",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 17,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "priority",
+            "value": "u=0, i",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 16,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd",
+            "huffman_value": true
+          }
+        ]
+      },
+      {
+        "stream": 3,
+        "path": "/style.css",
+        "block": "8287c604876109f5415722117f0684427d505fc5538e497ca582211f5f2c7cfdf6800b8773919d29ad1718628390744e7426e36f3c06587f068840e92ac7b0d31aaf7f0685a8eb10f623c57f0585b600fd286fc460ff8802887193ac10e707ed7462c65bf9faadfba38cda0be7366049eb5c909e1beb7beb777bf766e76651faffee0d4fbfe3bb7f8f8e1cbed20d3d6c0b48f5dbd84c8fc0d00f5af4b50eae9e6f35e7293762cd5dea9ac1e99f282689ff0467fc7bc5832b3d0db238ff6bf1db8db6f4cbb3bf3dbddf7dadb7a1ce97c31ecb6d4d0f4bec7cb5c9977ee58f82bbb1d1823e3c8b9ea90ef70dfc6f3c1a99c9cfa474328d33b3f99bbecc98ba37c65e3b274f4ffedde8cedbbe43bb08ab76d9cd7e9c389921a9bf68edf5eabfcd16cfb37747c68d1b1ae7fb8237905fcda2f61c687fa8bbfff462ef3fe354d9af75f4b31ad8f327f358b00661d97eed7dfd6e2e0edc6fbf907d1db3461ef9de6a1aaafd5a3f57885c55bdf98aa34787aee4fe6a4846d7e777f069f7773decbb7669275d7d6ff2bc8dd84e42650a7783bf7ffe97570a35b377464d4f6f9eeb25c99ea03bceee173c6b27872c07ac8ebfaacbbc2112d9c1d3bf1e88bd76821051b369f27a1f0dfec9c7664ca0c7ef05fcff9b07dc7bafe315db7dc3e1ff13f4f63f1f11861f51c43140cf60c48cd2414ef6f675e1da4cd86bfcec01471bde0a5e4f5f461cba830b92f0f52d417c2f15ec9c11471cad70e1fbffd73656b68d5cf1f8e777cd3fb35db7739455ef9f70b9ef60ad98a7a0e4823ed9a91732e3e68a88997075f63e4e3a1297b3d89cc57a8cf79bebe3693c64bdb962e0eda3ab9bbf60a1a8d149026c7397a2fbf5e7d3d933c723fcfc0aeeec7d87dba3996cfd23b9dbd70f1f1191ac2fc1fbcbae7cdc5c7c36fff6dc9a71ff6090ac4082995befb015fbc5b713bfb7483f6091ac4183f768f66ff7d241f1bfbbbd03e1c760c341a481321bffab7b96ee6e7bff798af953c30737ceb5f921cd916d74bd2e0a1d5b7ddf58f4efae7302669df76fff70735a97a1c86d9b65b4433d988e5cd6f6376ca337",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": ":authority",
+            "value": "localhost:58803"
+          },
+          {
+            "rep": "without",
+            "index": 4,
+            "name": ":path",
+            "value": "/style.css",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 69,
+            "name": "sec-fetch-dest",
+            "value": "style",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 69,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15"
+          },
+          {
+            "rep": "incremental",
+            "index": 19,
+            "name": "accept",
+            "value": "text/css,*/*;q=0.1",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 51,
+            "name": "referer",
+            "value": "https://localhost:58803/",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 69,
+            "name": "sec-fetch-site",
+            "value": "same-origin",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 69,
+            "name": "sec-fetch-mode",
+            "value": "no-cors",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 69,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "incremental",
+            "index": 68,
+            "name": "priority",
+            "value": "u=1, i",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 68,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "_abck=AL0ZplGHeDLk-ZMVgMexKK0dyPdAoAD-zkBT9BgYrJay~EO99wv5X9aAJzt0Nkr14syqz1isX1l0yPN4AOjxC4xJcSGKpCn4Ey3xscMhX2i9wzGEJ3jiQbbZpwqVuujJQvYRv994RCALt91bQuutl8fzaWPdJTS-oEpBblEbVWeLndo8UTVC81n3IYjbl3sNh3XKvQIGj5VfVQhtj~Bj3RBx1SF2p7uhiDmFG3cimDuauyypXMuhQSj9asMQ4YZEb8seXR2z1Hs9k2v~a2vhX4mrPSDt3b-HKtXP2E1garDBpvySeEqVD9Iaj7rMFvL84AnnZ-byCceGp8XGnibFkStXOt1a4Xv9ENzBLCJRQNckPkDWCsSFoccJ1tT0vv~eOUlP3BMIO8ThB3eILn07YBF6wPcw6r0yI79OrBUA2-L0jvVjsCBlcc2b3uoIyaUTzcVQIJ0HzEDLXQavaSDH2BuzAw9whjza",
+            "huffman_value": true
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "aka_a2=3",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "bid=mT5QkUqdKFpXq02bb8weeW8DsFJO1A6fUyfn1918e8IUslVJ4UUZ~6Qp-MOYHwYBxmZgBuS6lnzYv16z",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "geoloc=bqKm2YeHYsnctfEkzaW671eeq8G6GClLC5kwRcwICS-eEqMk6S",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "ni_d=tr6Wyezyxy8ILbd9Yw2BSHqaqj6JrZc7L5PA",
+            "huffman_value": true
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "p19=ZWkLKV691u~uINH",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "p20=mf5vQ0pzGRG7ZBca",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "p21=ZRaQTzjdaVDSvlaUV",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "sid=tdi~-zfBKYTZY2DetUEY9o-DdAKI-Pm8fEl7-TByHNTphi0g47zu~EY-m8AIiQRfu2aorGoeKuqiqJai",
+            "huffman_value": true
+          }
+        ]
+      },
+      {
+        "stream": 5,
+        "path": "/img.png",
+        "block": "8287d3048660d4ccbd754d7f0b84352398bfd253de352398ac782c75fd1a91cc5607dcd2fd1a91cc563a79a3e8d48e62b1394c4fa352398ac4e53116417b5a5a885faee690a763e7efb4005defa352398ac5754df46a4731584779bfdf9a68fa352398ac7cfdf6800bbdf5f2c7cfdf6800bb7fcac9c8cf7f0885b606fe9437cec71f11861f51c43140cfc6c5c41f1191ac2fc1fbcbae7cdc5c7c36fff6dc9a71ffc3c2c1",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 83,
+            "name": ":authority",
+            "value": "localhost:58803"
+          },
+          {
+            "rep": "without",
+            "index": 4,
+            "name": ":path",
+            "value": "/img.png",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 74,
+            "name": "sec-fetch-dest",
+            "value": "image",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 82,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15"
+          },
+          {
+            "rep": "incremental",
+            "index": 19,
+            "name": "accept",
+            "value": "image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 74,
+            "name": "referer",
+            "value": "https://localhost:58803/"
+          },
+          {
+            "rep": "indexed",
+            "index": 73,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "indexed",
+            "index": 72,
+            "name": "sec-fetch-mode",
+            "value": "no-cors"
+          },
+          {
+            "rep": "indexed",
+            "index": 79,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "incremental",
+            "index": 71,
+            "name": "priority",
+            "value": "u=5, i",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 78,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "cookie",
+            "value": "_abck=AL0ZplGHeDLk-ZMVgMexKK0dyPdAoAD-zkBT9BgYrJay~EO99wv5X9aAJzt0Nkr14syqz1isX1l0yPN4AOjxC4xJcSGKpCn4Ey3xscMhX2i9wzGEJ3jiQbbZpwqVuujJQvYRv994RCALt91bQuutl8fzaWPdJTS-oEpBblEbVWeLndo8UTVC81n3IYjbl3sNh3XKvQIGj5VfVQhtj~Bj3RBx1SF2p7uhiDmFG3cimDuauyypXMuhQSj9asMQ4YZEb8seXR2z1Hs9k2v~a2vhX4mrPSDt3b-HKtXP2E1garDBpvySeEqVD9Iaj7rMFvL84AnnZ-byCceGp8XGnibFkStXOt1a4Xv9ENzBLCJRQNckPkDWCsSFoccJ1tT0vv~eOUlP3BMIO8ThB3eILn07YBF6wPcw6r0yI79OrBUA2-L0jvVjsCBlcc2b3uoIyaUTzcVQIJ0HzEDLXQavaSDH2BuzAw9whjza"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "aka_a2=3",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": "cookie",
+            "value": "bid=mT5QkUqdKFpXq02bb8weeW8DsFJO1A6fUyfn1918e8IUslVJ4UUZ~6Qp-MOYHwYBxmZgBuS6lnzYv16z"
+          },
+          {
+            "rep": "indexed",
+            "index": 69,
+            "name": "cookie",
+            "value": "geoloc=bqKm2YeHYsnctfEkzaW671eeq8G6GClLC5kwRcwICS-eEqMk6S"
+          },
+          {
+            "rep": "indexed",
+            "index": 68,
+            "name": "cookie",
+            "value": "ni_d=tr6Wyezyxy8ILbd9Yw2BSHqaqj6JrZc7L5PA"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "p19=ZWkLKV691u~uINH",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 67,
+            "name": "cookie",
+            "value": "p20=mf5vQ0pzGRG7ZBca"
+          },
+          {
+            "rep": "indexed",
+            "index": 66,
+            "name": "cookie",
+            "value": "p21=ZRaQTzjdaVDSvlaUV"
+          },
+          {
+            "rep": "indexed",
+            "index": 65,
+            "name": "cookie",
+            "value": "sid=tdi~-zfBKYTZY2DetUEY9o-DdAKI-Pm8fEl7-TByHNTphi0g47zu~EY-m8AIiQRfu2aorGoeKuqiqJai"
+          }
+        ]
+      },
+      {
+        "stream": 7,
+        "path": "/app.js",
+        "block": "8287d604866075d6bf447f7f0184412c3569d553032a2f2acdcccbd2cad0c91f11861f51c43140cfc8c7c61f1191ac2fc1fbcbae7cdc5c7c36fff6dc9a71ffc5c4c3",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 86,
+            "name": ":authority",
+            "value": "localhost:58803"
+          },
+          {
+            "rep": "without",
+            "index": 4,
+            "name": ":path",
+            "value": "/app.js",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 64,
+            "name": "sec-fetch-dest",
+            "value": "script",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 85,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15"
+          },
+          {
+            "rep": "incremental",
+            "index": 19,
+            "name": "accept",
+            "value": "*/*"
+          },
+          {
+            "rep": "indexed",
+            "index": 77,
+            "name": "referer",
+            "value": "https://localhost:58803/"
+          },
+          {
+            "rep": "indexed",
+            "index": 76,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "indexed",
+            "index": 75,
+            "name": "sec-fetch-mode",
+            "value": "no-cors"
+          },
+          {
+            "rep": "indexed",
+            "index": 82,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 74,
+            "name": "priority",
+            "value": "u=1, i"
+          },
+          {
+            "rep": "indexed",
+            "index": 80,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 73,
+            "name": "cookie",
+            "value": "_abck=AL0ZplGHeDLk-ZMVgMexKK0dyPdAoAD-zkBT9BgYrJay~EO99wv5X9aAJzt0Nkr14syqz1isX1l0yPN4AOjxC4xJcSGKpCn4Ey3xscMhX2i9wzGEJ3jiQbbZpwqVuujJQvYRv994RCALt91bQuutl8fzaWPdJTS-oEpBblEbVWeLndo8UTVC81n3IYjbl3sNh3XKvQIGj5VfVQhtj~Bj3RBx1SF2p7uhiDmFG3cimDuauyypXMuhQSj9asMQ4YZEb8seXR2z1Hs9k2v~a2vhX4mrPSDt3b-HKtXP2E1garDBpvySeEqVD9Iaj7rMFvL84AnnZ-byCceGp8XGnibFkStXOt1a4Xv9ENzBLCJRQNckPkDWCsSFoccJ1tT0vv~eOUlP3BMIO8ThB3eILn07YBF6wPcw6r0yI79OrBUA2-L0jvVjsCBlcc2b3uoIyaUTzcVQIJ0HzEDLXQavaSDH2BuzAw9whjza"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "aka_a2=3",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 72,
+            "name": "cookie",
+            "value": "bid=mT5QkUqdKFpXq02bb8weeW8DsFJO1A6fUyfn1918e8IUslVJ4UUZ~6Qp-MOYHwYBxmZgBuS6lnzYv16z"
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "cookie",
+            "value": "geoloc=bqKm2YeHYsnctfEkzaW671eeq8G6GClLC5kwRcwICS-eEqMk6S"
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": "cookie",
+            "value": "ni_d=tr6Wyezyxy8ILbd9Yw2BSHqaqj6JrZc7L5PA"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "p19=ZWkLKV691u~uINH",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 69,
+            "name": "cookie",
+            "value": "p20=mf5vQ0pzGRG7ZBca"
+          },
+          {
+            "rep": "indexed",
+            "index": 68,
+            "name": "cookie",
+            "value": "p21=ZRaQTzjdaVDSvlaUV"
+          },
+          {
+            "rep": "indexed",
+            "index": 67,
+            "name": "cookie",
+            "value": "sid=tdi~-zfBKYTZY2DetUEY9o-DdAKI-Pm8fEl7-TByHNTphi0g47zu~EY-m8AIiQRfu2aorGoeKuqiqJai"
+          }
+        ]
+      },
+      {
+        "stream": 9,
+        "path": "/again",
+        "block": "8287d8048560730cd57f7f00842d35a7d7d7bfcecd7f0d8321ec47d47f0385b6067e9437d3cc1f11861f51c43140cfcbcac91f1191ac2fc1fbcbae7cdc5c7c36fff6dc9a71ffc8c7c6",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 88,
+            "name": ":authority",
+            "value": "localhost:58803"
+          },
+          {
+            "rep": "without",
+            "index": 4,
+            "name": ":path",
+            "value": "/again",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 63,
+            "name": "sec-fetch-dest",
+            "value": "empty",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 87,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15"
+          },
+          {
+            "rep": "indexed",
+            "index": 63,
+            "name": "accept",
+            "value": "*/*"
+          },
+          {
+            "rep": "indexed",
+            "index": 78,
+            "name": "referer",
+            "value": "https://localhost:58803/"
+          },
+          {
+            "rep": "indexed",
+            "index": 77,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "incremental",
+            "index": 76,
+            "name": "sec-fetch-mode",
+            "value": "cors",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 84,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "incremental",
+            "index": 66,
+            "name": "priority",
+            "value": "u=3, i",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 83,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 76,
+            "name": "cookie",
+            "value": "_abck=AL0ZplGHeDLk-ZMVgMexKK0dyPdAoAD-zkBT9BgYrJay~EO99wv5X9aAJzt0Nkr14syqz1isX1l0yPN4AOjxC4xJcSGKpCn4Ey3xscMhX2i9wzGEJ3jiQbbZpwqVuujJQvYRv994RCALt91bQuutl8fzaWPdJTS-oEpBblEbVWeLndo8UTVC81n3IYjbl3sNh3XKvQIGj5VfVQhtj~Bj3RBx1SF2p7uhiDmFG3cimDuauyypXMuhQSj9asMQ4YZEb8seXR2z1Hs9k2v~a2vhX4mrPSDt3b-HKtXP2E1garDBpvySeEqVD9Iaj7rMFvL84AnnZ-byCceGp8XGnibFkStXOt1a4Xv9ENzBLCJRQNckPkDWCsSFoccJ1tT0vv~eOUlP3BMIO8ThB3eILn07YBF6wPcw6r0yI79OrBUA2-L0jvVjsCBlcc2b3uoIyaUTzcVQIJ0HzEDLXQavaSDH2BuzAw9whjza"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "aka_a2=3",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 75,
+            "name": "cookie",
+            "value": "bid=mT5QkUqdKFpXq02bb8weeW8DsFJO1A6fUyfn1918e8IUslVJ4UUZ~6Qp-MOYHwYBxmZgBuS6lnzYv16z"
+          },
+          {
+            "rep": "indexed",
+            "index": 74,
+            "name": "cookie",
+            "value": "geoloc=bqKm2YeHYsnctfEkzaW671eeq8G6GClLC5kwRcwICS-eEqMk6S"
+          },
+          {
+            "rep": "indexed",
+            "index": 73,
+            "name": "cookie",
+            "value": "ni_d=tr6Wyezyxy8ILbd9Yw2BSHqaqj6JrZc7L5PA"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "p19=ZWkLKV691u~uINH",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 72,
+            "name": "cookie",
+            "value": "p20=mf5vQ0pzGRG7ZBca"
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "cookie",
+            "value": "p21=ZRaQTzjdaVDSvlaUV"
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": "cookie",
+            "value": "sid=tdi~-zfBKYTZY2DetUEY9o-DdAKI-Pm8fEl7-TByHNTphi0g47zu~EY-m8AIiQRfu2aorGoeKuqiqJai"
+          }
+        ]
+      },
+      {
+        "stream": 11,
+        "path": "/nav",
+        "block": "8287db048362a1f7dad9d8d0cfd6d5d4d3cc1f11861f51c43140cfcbcac91f1191ac2fc1fbcbae7cdc5c7c36fff6dc9a71ffc8c7c6",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 91,
+            "name": ":authority",
+            "value": "localhost:58803"
+          },
+          {
+            "rep": "without",
+            "index": 4,
+            "name": ":path",
+            "value": "/nav",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 90,
+            "name": "sec-fetch-dest",
+            "value": "document"
+          },
+          {
+            "rep": "indexed",
+            "index": 89,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15"
+          },
+          {
+            "rep": "indexed",
+            "index": 88,
+            "name": "accept",
+            "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+          },
+          {
+            "rep": "indexed",
+            "index": 80,
+            "name": "referer",
+            "value": "https://localhost:58803/"
+          },
+          {
+            "rep": "indexed",
+            "index": 79,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "indexed",
+            "index": 86,
+            "name": "sec-fetch-mode",
+            "value": "navigate"
+          },
+          {
+            "rep": "indexed",
+            "index": 85,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 84,
+            "name": "priority",
+            "value": "u=0, i"
+          },
+          {
+            "rep": "indexed",
+            "index": 83,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 76,
+            "name": "cookie",
+            "value": "_abck=AL0ZplGHeDLk-ZMVgMexKK0dyPdAoAD-zkBT9BgYrJay~EO99wv5X9aAJzt0Nkr14syqz1isX1l0yPN4AOjxC4xJcSGKpCn4Ey3xscMhX2i9wzGEJ3jiQbbZpwqVuujJQvYRv994RCALt91bQuutl8fzaWPdJTS-oEpBblEbVWeLndo8UTVC81n3IYjbl3sNh3XKvQIGj5VfVQhtj~Bj3RBx1SF2p7uhiDmFG3cimDuauyypXMuhQSj9asMQ4YZEb8seXR2z1Hs9k2v~a2vhX4mrPSDt3b-HKtXP2E1garDBpvySeEqVD9Iaj7rMFvL84AnnZ-byCceGp8XGnibFkStXOt1a4Xv9ENzBLCJRQNckPkDWCsSFoccJ1tT0vv~eOUlP3BMIO8ThB3eILn07YBF6wPcw6r0yI79OrBUA2-L0jvVjsCBlcc2b3uoIyaUTzcVQIJ0HzEDLXQavaSDH2BuzAw9whjza"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "aka_a2=3",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 75,
+            "name": "cookie",
+            "value": "bid=mT5QkUqdKFpXq02bb8weeW8DsFJO1A6fUyfn1918e8IUslVJ4UUZ~6Qp-MOYHwYBxmZgBuS6lnzYv16z"
+          },
+          {
+            "rep": "indexed",
+            "index": 74,
+            "name": "cookie",
+            "value": "geoloc=bqKm2YeHYsnctfEkzaW671eeq8G6GClLC5kwRcwICS-eEqMk6S"
+          },
+          {
+            "rep": "indexed",
+            "index": 73,
+            "name": "cookie",
+            "value": "ni_d=tr6Wyezyxy8ILbd9Yw2BSHqaqj6JrZc7L5PA"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "p19=ZWkLKV691u~uINH",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 72,
+            "name": "cookie",
+            "value": "p20=mf5vQ0pzGRG7ZBca"
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "cookie",
+            "value": "p21=ZRaQTzjdaVDSvlaUV"
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": "cookie",
+            "value": "sid=tdi~-zfBKYTZY2DetUEY9o-DdAKI-Pm8fEl7-TByHNTphi0g47zu~EY-m8AIiQRfu2aorGoeKuqiqJai"
+          }
+        ]
+      },
+      {
+        "stream": 13,
+        "path": "/done",
+        "block": "8287db04846243d45fc0d9c173949d29ad1718628390744e7426e36f3c0658a87dffd0c0d6bfd4cd1f11861f51c43140cfcccbca1f1191ac2fc1fbcbae7cdc5c7c36fff6dc9a71ffc9c8c7",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 91,
+            "name": ":authority",
+            "value": "localhost:58803"
+          },
+          {
+            "rep": "without",
+            "index": 4,
+            "name": ":path",
+            "value": "/done",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 64,
+            "name": "sec-fetch-dest",
+            "value": "empty"
+          },
+          {
+            "rep": "indexed",
+            "index": 89,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15"
+          },
+          {
+            "rep": "indexed",
+            "index": 65,
+            "name": "accept",
+            "value": "*/*"
+          },
+          {
+            "rep": "incremental",
+            "index": 51,
+            "name": "referer",
+            "value": "https://localhost:58803/nav",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 80,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "indexed",
+            "index": 64,
+            "name": "sec-fetch-mode",
+            "value": "cors"
+          },
+          {
+            "rep": "indexed",
+            "index": 86,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 63,
+            "name": "priority",
+            "value": "u=3, i"
+          },
+          {
+            "rep": "indexed",
+            "index": 84,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 77,
+            "name": "cookie",
+            "value": "_abck=AL0ZplGHeDLk-ZMVgMexKK0dyPdAoAD-zkBT9BgYrJay~EO99wv5X9aAJzt0Nkr14syqz1isX1l0yPN4AOjxC4xJcSGKpCn4Ey3xscMhX2i9wzGEJ3jiQbbZpwqVuujJQvYRv994RCALt91bQuutl8fzaWPdJTS-oEpBblEbVWeLndo8UTVC81n3IYjbl3sNh3XKvQIGj5VfVQhtj~Bj3RBx1SF2p7uhiDmFG3cimDuauyypXMuhQSj9asMQ4YZEb8seXR2z1Hs9k2v~a2vhX4mrPSDt3b-HKtXP2E1garDBpvySeEqVD9Iaj7rMFvL84AnnZ-byCceGp8XGnibFkStXOt1a4Xv9ENzBLCJRQNckPkDWCsSFoccJ1tT0vv~eOUlP3BMIO8ThB3eILn07YBF6wPcw6r0yI79OrBUA2-L0jvVjsCBlcc2b3uoIyaUTzcVQIJ0HzEDLXQavaSDH2BuzAw9whjza"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "aka_a2=3",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 76,
+            "name": "cookie",
+            "value": "bid=mT5QkUqdKFpXq02bb8weeW8DsFJO1A6fUyfn1918e8IUslVJ4UUZ~6Qp-MOYHwYBxmZgBuS6lnzYv16z"
+          },
+          {
+            "rep": "indexed",
+            "index": 75,
+            "name": "cookie",
+            "value": "geoloc=bqKm2YeHYsnctfEkzaW671eeq8G6GClLC5kwRcwICS-eEqMk6S"
+          },
+          {
+            "rep": "indexed",
+            "index": 74,
+            "name": "cookie",
+            "value": "ni_d=tr6Wyezyxy8ILbd9Yw2BSHqaqj6JrZc7L5PA"
+          },
+          {
+            "rep": "never",
+            "index": 32,
+            "name": "cookie",
+            "value": "p19=ZWkLKV691u~uINH",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 73,
+            "name": "cookie",
+            "value": "p20=mf5vQ0pzGRG7ZBca"
+          },
+          {
+            "rep": "indexed",
+            "index": 72,
+            "name": "cookie",
+            "value": "p21=ZRaQTzjdaVDSvlaUV"
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "cookie",
+            "value": "sid=tdi~-zfBKYTZY2DetUEY9o-DdAKI-Pm8fEl7-TByHNTphi0g47zu~EY-m8AIiQRfu2aorGoeKuqiqJai"
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -34,6 +34,16 @@ type HTTP2 struct {
 	// per stream and for the connection. Zero means half the window.
 	StreamUpdateThreshold     uint32 `json:"stream_update_threshold,omitempty"`
 	ConnectionUpdateThreshold uint32 `json:"connection_update_threshold,omitempty"`
+	// WindowUpdateIntervalMillis also returns credit, however little, once
+	// this long has passed since the last WINDOW_UPDATE on the stream or
+	// connection; checked as the reader consumes data, as Chromium does
+	// (5000). Zero: thresholds only.
+	WindowUpdateIntervalMillis uint32 `json:"window_update_interval_ms,omitempty"`
+	// IdlePingMillis: a request that starts after nothing was received for
+	// this long sends a PING right after its HEADERS, carrying a counter
+	// from 1, as Chromium does (10000). A PING unanswered for as long again
+	// closes the connection. Zero sends none.
+	IdlePingMillis uint32 `json:"idle_ping_ms,omitempty"`
 	// SplitCookie sends each cookie as its own header field (RFC 9113,
 	// 8.2.3), as every captured browser does, instead of one joined field.
 	SplitCookie bool `json:"split_cookie,omitempty"`
@@ -50,6 +60,10 @@ type HPACK struct {
 	WithoutIndexing []string `json:"without_indexing,omitempty"`
 	// NeverIndexed names are sent as never-indexed literals.
 	NeverIndexed []string `json:"never_indexed,omitempty"`
+	// NeverIndexBelow sends fields with these names never-indexed when their
+	// value is shorter than the given number of bytes: Firefox and Safari
+	// never index cookie crumbs under 20 bytes (19 never, 20 indexed).
+	NeverIndexBelow map[string]int `json:"never_index_below,omitempty"`
 	// LiteralOnExactMatch sends a WithoutIndexing field that matches a table
 	// entry exactly as a literal naming that entry (Firefox), instead of as
 	// an indexed field (Chromium, Safari).
@@ -60,6 +74,12 @@ type HPACK struct {
 	// Huffman says when strings are Huffman-coded: HuffmanShorter or
 	// HuffmanAlways.
 	Huffman string `json:"huffman"`
+	// MaxTableSize caps the dynamic table the encoder announces and uses,
+	// whatever the server allows (Safari: 4096). Zero: the server's size.
+	MaxTableSize uint32 `json:"max_table_size,omitempty"`
+	// SizeUpdates says when a table size the server sets is signalled:
+	// SizeUpdatesOnChange or SizeUpdatesAlways.
+	SizeUpdates string `json:"size_updates"`
 }
 
 // HPACK name matching and Huffman rules.
@@ -75,6 +95,12 @@ const (
 	HuffmanShorter = "shorter"
 	// HuffmanAlways codes every string, even when longer (Firefox).
 	HuffmanAlways = "always"
+	// SizeUpdatesOnChange signals a table size only when it changes
+	// (Chromium).
+	SizeUpdatesOnChange = "on_change"
+	// SizeUpdatesAlways signals every table size the server sends, even
+	// the unchanged default 4096 (Firefox, Safari).
+	SizeUpdatesAlways = "always"
 )
 
 // Setting is one SETTINGS parameter.

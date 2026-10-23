@@ -26,7 +26,8 @@ func main() {
 			continue
 		}
 		variations := h2trace.Compare(samples)
-		exact, measured := h2trace.Features(samples[0])
+		f := h2trace.Extract(samples[0])
+		exact, measured := f.Exact, f.Measured
 		fmt.Printf("%s: %d samples, %d features, %d vary\n", path, len(samples), len(exact)+len(measured), len(variations))
 		for _, v := range variations {
 			fmt.Printf("  %s\n", v.Feature)

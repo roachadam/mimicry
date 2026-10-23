@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/roachadam/mimicry/harness/internal/h2trace"
+	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/profiles"
 )
 
@@ -22,7 +23,7 @@ func TestConnectionMatchesBrowserTrace(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			base, tr, captures := captureClient(t, p)
+			base, tr, captures := captureClient(t, p, server.DefaultScenario)
 			client := &http.Client{Transport: tr}
 			send := func(method, path string, body []byte) {
 				t.Helper()
@@ -44,7 +45,7 @@ func TestConnectionMatchesBrowserTrace(t *testing.T) {
 			send(http.MethodPost, "/upload", make([]byte, 200_000))
 			send(http.MethodGet, "/big", nil)
 			tr.CloseIdleConnections()
-			gotExact, gotMeasured := h2trace.Features((<-captures).Trace)
+			got := h2trace.Extract((<-captures).Trace)
 
 			exactFeatures := []string{
 				// The first request's header block, instruction by
@@ -53,27 +54,41 @@ func TestConnectionMatchesBrowserTrace(t *testing.T) {
 				// Firefox's per-stream top-up (absent for the others).
 				"request[/].window_top_up",
 			}
-			measuredFeatures := []string{
-				"data_max[/upload]",
-				"window_update_median[conn]",
-			}
-			// Firefox's stream updates follow how fast the page read the
-			// body (16 KiB to 3 MiB in its traces) and are not modelled: a
-			// known gap.
-			if name != "firefox-158-macos" {
-				measuredFeatures = append(measuredFeatures, "window_update_median[/big]")
-			}
+			const frame = 16384
+			var browserMaxData uint32
+			// Every credit increment mimicry sends must be one the browser
+			// itself sends, within a frame: credit is returned when a
+			// threshold is crossed, so increments depend on where DATA frames
+			// fell and on how often the browser checks, which varies between
+			// connections (Safari's connection credit overshoots by up to
+			// 1.2 MB, Firefox's stream credit follows the page's reads). A
+			// wrong policy (64 KB or 4 MB steps the browser never takes)
+			// falls outside.
+			low, high := map[string]uint32{}, map[string]uint32{}
 			for i, want := range loadTraces(t, name) {
-				wantExact, wantMeasured := h2trace.Features(want)
+				w := h2trace.Extract(want)
 				for _, f := range exactFeatures {
-					if wantExact[f] != gotExact[f] {
-						t.Errorf("sample %d: %s\n got %s\nwant %s", i+1, f, gotExact[f], wantExact[f])
+					if w.Exact[f] != got.Exact[f] {
+						t.Errorf("sample %d: %s\n got %s\nwant %s", i+1, f, got.Exact[f], w.Exact[f])
 					}
 				}
-				for _, f := range measuredFeatures {
-					w, g := wantMeasured[f], gotMeasured[f]
-					if g+h2trace.Slack(w) < w || g > w+h2trace.Slack(w) {
-						t.Errorf("sample %d: %s %d, want %d±%d", i+1, f, g, w, h2trace.Slack(w))
+				browserMaxData = max(browserMaxData, w.Measured["data_max[/upload]"])
+				for where, incs := range w.Credit {
+					for _, inc := range incs {
+						if l, ok := low[where]; !ok || inc < l {
+							low[where] = inc
+						}
+						high[where] = max(high[where], inc)
+					}
+				}
+			}
+			if g := got.Measured["data_max[/upload]"]; g != browserMaxData {
+				t.Errorf("largest upload DATA frame %d, want %d", g, browserMaxData)
+			}
+			for _, where := range []string{"conn", "/big"} {
+				for _, inc := range got.Credit[where] {
+					if inc+frame < low[where] || inc > high[where]+frame {
+						t.Errorf("%s credit increment %d, outside the browser's %d..%d (± one frame)", where, inc, low[where], high[where])
 					}
 				}
 			}

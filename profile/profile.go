@@ -21,7 +21,17 @@ type Profile struct {
 	HTTP2 *HTTP2 `json:"http2,omitempty"`
 	// Headers of a top-level navigation request, in order.
 	Headers []Header `json:"headers"`
+	// CookieOrder is the order of cookies in the Cookie header:
+	// CookieOrderCreation (empty; Chrome, Firefox: RFC 6265 order, as Go's
+	// cookie jar produces) or CookieOrderName (Safari: sorted by name).
+	CookieOrder string `json:"cookie_order,omitempty"`
 }
+
+// Cookie orders.
+const (
+	CookieOrderCreation = ""
+	CookieOrderName     = "name"
+)
 
 // Parse decodes a profile from JSON and validates it. Unknown fields and
 // trailing data are errors, so a typo cannot silently drop a setting.

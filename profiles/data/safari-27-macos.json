@@ -160,11 +160,13 @@
         ":path",
         "content-length"
       ],
-      "never_indexed": [
-        "cookie"
-      ],
+      "never_index_below": {
+        "cookie": 20
+      },
       "name_match": "static_first",
-      "huffman": "shorter"
+      "huffman": "shorter",
+      "max_table_size": 4096,
+      "size_updates": "always"
     }
   },
   "headers": [
@@ -206,5 +208,6 @@
     {
       "name": "cookie"
     }
-  ]
+  ],
+  "cookie_order": "name"
 }

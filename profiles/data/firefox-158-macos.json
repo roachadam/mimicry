@@ -173,12 +173,13 @@
       "without_indexing": [
         ":path"
       ],
-      "never_indexed": [
-        "cookie"
-      ],
+      "never_index_below": {
+        "cookie": 20
+      },
       "literal_on_exact_match": true,
       "name_match": "highest_index",
-      "huffman": "always"
+      "huffman": "always",
+      "size_updates": "always"
     }
   },
   "headers": [

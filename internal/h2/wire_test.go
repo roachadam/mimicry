@@ -2,6 +2,8 @@ package h2
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -14,6 +16,8 @@ import (
 	"golang.org/x/net/http2"
 	xhpack "golang.org/x/net/http2/hpack"
 
+	"github.com/jonboulle/clockwork"
+
 	"github.com/roachadam/mimicry/profile"
 	"github.com/roachadam/mimicry/profiles"
 )
@@ -21,6 +25,7 @@ import (
 // peer is the server end of a client connection, driven frame by frame.
 type peer struct {
 	t      *testing.T
+	conn   net.Conn
 	fr     *http2.Framer
 	frames chan http2.Frame
 	enc    *xhpack.Encoder
@@ -29,11 +34,12 @@ type peer struct {
 
 // newPeer connects a client for p to a raw server peer over net.Pipe. Frames
 // the client sends arrive on peer.frames, preface excluded.
-func newPeer(t *testing.T, p *profile.Profile) (*Conn, *peer) {
+func newPeer(t *testing.T, p *profile.Profile, clock clockwork.Clock) (*Conn, *peer) {
 	t.Helper()
 	clientSide, serverSide := net.Pipe()
 	pr := &peer{
 		t:      t,
+		conn:   serverSide,
 		fr:     http2.NewFramer(serverSide, serverSide),
 		frames: make(chan http2.Frame, 256),
 	}
@@ -61,7 +67,7 @@ func newPeer(t *testing.T, p *profile.Profile) (*Conn, *peer) {
 			pr.frames <- f
 		}
 	}()
-	c, err := New(clientSide, p.HTTP2, p.Headers)
+	c, err := New(clientSide, p, clock)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,7 +173,7 @@ func roundTripAsync(c *Conn, req *http.Request) <-chan responseOrError {
 // A body read to its declared length and then closed waits for the server's
 // END_STREAM instead of resetting the stream; one closed early is reset.
 func TestClosingFullyReadBodyDoesNotReset(t *testing.T) {
-	c, pr := newPeer(t, profiles.Chrome155MacOS())
+	c, pr := newPeer(t, profiles.Chrome155MacOS(), clockwork.NewRealClock())
 
 	result := roundTripAsync(c, get(t, "/full"))
 	h := pr.headers()
@@ -210,7 +216,7 @@ func TestClosingFullyReadBodyDoesNotReset(t *testing.T) {
 // its HEADERS.
 func TestFirstStreamAndStreamWindowUpdate(t *testing.T) {
 	p := profiles.Firefox158MacOS()
-	c, pr := newPeer(t, p)
+	c, pr := newPeer(t, p, clockwork.NewRealClock())
 	for _, want := range []uint32{3, 5} {
 		result := roundTripAsync(c, get(t, "/"))
 		h := pr.headers()
@@ -231,7 +237,7 @@ func TestFirstStreamAndStreamWindowUpdate(t *testing.T) {
 // Chrome makes each request depend, exclusively, on the newest stream still
 // open, and on stream 0 when none is.
 func TestChainedPriorities(t *testing.T) {
-	c, pr := newPeer(t, profiles.Chrome155MacOS())
+	c, pr := newPeer(t, profiles.Chrome155MacOS(), clockwork.NewRealClock())
 	first := roundTripAsync(c, get(t, "/1"))
 	h1 := pr.headers()
 	second := roundTripAsync(c, get(t, "/2"))
@@ -256,7 +262,7 @@ func TestChainedPriorities(t *testing.T) {
 // from 65535-byte chunks as Chrome cuts its own.
 func TestDataFrameCap(t *testing.T) {
 	p := profiles.Chrome155MacOS()
-	c, pr := newPeer(t, p)
+	c, pr := newPeer(t, p, clockwork.NewRealClock())
 	// Room for the whole upload, as the capture server allows.
 	if err := pr.fr.WriteWindowUpdate(0, 1<<20); err != nil {
 		t.Fatal(err)
@@ -293,25 +299,153 @@ func TestDataFrameCap(t *testing.T) {
 	<-result
 }
 
-// Cookies go out one per field, as every captured browser sends them.
-func TestCookieSplit(t *testing.T) {
-	c, pr := newPeer(t, profiles.Safari27MacOS())
-	req := get(t, "/")
-	req.Header.Set("Cookie", "a=1; b=2;c=3")
-	result := roundTripAsync(c, req)
-	h := pr.headers()
-	var cookies []string
-	for _, f := range h.Fields {
-		if f.Name == "cookie" {
-			cookies = append(cookies, f.Value)
-			if !f.Sensitive {
-				t.Errorf("Safari cookie %q not sent never-indexed", f.Value)
+// Cookies go out one per field, as every captured browser sends them, in the
+// profile's order: creation order for Chrome, by name for Safari.
+func TestCookieSplitAndOrder(t *testing.T) {
+	for _, tt := range []struct {
+		p    *profile.Profile
+		want string
+	}{
+		{profiles.Chrome155MacOS(), "b=2|a=1|c=3"},
+		{profiles.Safari27MacOS(), "a=1|b=2|c=3"},
+	} {
+		c, pr := newPeer(t, tt.p, clockwork.NewRealClock())
+		req := get(t, "/")
+		req.Header.Set("Cookie", "b=2; a=1;c=3")
+		result := roundTripAsync(c, req)
+		h := pr.headers()
+		var cookies []string
+		for _, f := range h.Fields {
+			if f.Name == "cookie" {
+				cookies = append(cookies, f.Value)
 			}
 		}
+		if got := strings.Join(cookies, "|"); got != tt.want {
+			t.Errorf("%s: cookie fields %s, want %s", tt.p.Name, got, tt.want)
+		}
+		pr.respond(h.StreamID, 0, nil, true)
+		<-result
 	}
-	if strings.Join(cookies, "|") != "a=1|b=2|c=3" {
-		t.Fatalf("cookie fields %q, want a=1, b=2, c=3", cookies)
+}
+
+// Chrome also returns credit once 5 s have passed since its last
+// WINDOW_UPDATE, however little is owed, connection first (captured in the
+// slow-idle scenario).
+func TestWindowUpdateInterval(t *testing.T) {
+	clock := clockwork.NewFakeClockAt(time.Date(2026, 10, 23, 0, 0, 0, 0, time.UTC))
+	c, pr := newPeer(t, profiles.Chrome155MacOS(), clock)
+	result := roundTripAsync(c, get(t, "/slow"))
+	h := pr.headers()
+	if err := pr.fr.WriteHeaders(http2.HeadersFrameParam{StreamID: h.StreamID, BlockFragment: []byte{0x88}, EndHeaders: true}); err != nil {
+		t.Fatal(err)
+	}
+	r := <-result
+	if r.err != nil {
+		t.Fatal(r.err)
+	}
+	read := func(n int) {
+		t.Helper()
+		if err := pr.fr.WriteData(h.StreamID, false, make([]byte, n)); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := io.ReadFull(r.resp.Body, make([]byte, n)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	read(1000) // far below both thresholds: no credit yet
+	clock.Advance(5 * time.Second)
+	read(500)
+	// next() hides connection WINDOW_UPDATEs as preface frames; collect the
+	// credit returns from the raw frames, past the preface's.
+	var got []string
+	for len(got) < 2 {
+		var f http2.Frame
+		select {
+		case f = <-pr.frames:
+		case <-time.After(5 * time.Second):
+			t.Fatalf("no credit returned after 5 s; got %v", got)
+		}
+		if wu, ok := f.(*http2.WindowUpdateFrame); ok && wu.Increment != profiles.Chrome155MacOS().HTTP2.WindowUpdate {
+			got = append(got, fmt.Sprintf("%d+%d", wu.StreamID, wu.Increment))
+		}
+	}
+	if want := []string{"0+1500", fmt.Sprintf("%d+1500", h.StreamID)}; !slices.Equal(got, want) {
+		t.Fatalf("credit returned as %v, want %v", got, want)
+	}
+	_ = r.resp.Body.Close()
+}
+
+// A Chrome request after 10 s without reading anything sends a PING after its
+// HEADERS, counting from 1 (captured in the slow-idle scenario). One that is
+// not answered within 10 s more closes the connection, and the request in
+// flight fails without being retried elsewhere. Safari sends no PING.
+func TestIdlePing(t *testing.T) {
+	clock := clockwork.NewFakeClockAt(time.Date(2026, 10, 23, 0, 0, 0, 0, time.UTC))
+	c, pr := newPeer(t, profiles.Chrome155MacOS(), clock)
+	clock.Advance(11 * time.Second)
+	first := roundTripAsync(c, get(t, "/1"))
+	h := pr.headers()
+	ping, ok := pr.next().(*http2.PingFrame)
+	if !ok || ping.IsAck() || ping.Data != [8]byte{0, 0, 0, 0, 0, 0, 0, 1} {
+		t.Fatalf("after HEADERS got %+v, want PING 0000000000000001", ping)
 	}
 	pr.respond(h.StreamID, 0, nil, true)
-	<-result
+	if r := <-first; r.err != nil {
+		t.Fatal(r.err)
+	}
+	if err := pr.fr.WritePing(true, ping.Data); err != nil {
+		t.Fatal(err)
+	}
+
+	// Quiet again, and this time the PING is never answered.
+	clock.Advance(11 * time.Second)
+	second := roundTripAsync(c, get(t, "/2"))
+	pr.headers()
+	if ping, ok := pr.next().(*http2.PingFrame); !ok || ping.Data[7] != 2 {
+		t.Fatalf("got %+v, want PING 0000000000000002", ping)
+	}
+	clock.Advance(10 * time.Second)
+	r := <-second
+	if r.err == nil || errors.Is(r.err, ErrConnUnusable) {
+		t.Fatalf("in-flight request on a dead connection: %v, want a non-retryable error", r.err)
+	}
+	if c.CanTakeNewRequest() {
+		t.Fatal("connection still takes requests after its PING went unanswered")
+	}
+
+	safari := clockwork.NewFakeClockAt(time.Date(2026, 10, 23, 0, 0, 0, 0, time.UTC))
+	sc, spr := newPeer(t, profiles.Safari27MacOS(), safari)
+	safari.Advance(30 * time.Second)
+	res := roundTripAsync(sc, get(t, "/"))
+	sh := spr.headers()
+	spr.respond(sh.StreamID, 0, nil, true)
+	<-res
+	// The next frame Safari sends, if any, must not be a PING.
+	_ = sc.Close()
+	for f := range spr.frames {
+		if _, isPing := f.(*http2.PingFrame); isPing {
+			t.Fatal("Safari sent a PING")
+		}
+	}
+}
+
+// When the server closes the connection, a request already sent may have
+// been processed: it fails with an error the engine does not retry, unlike a
+// request that had not started (ErrConnUnusable).
+func TestInFlightRequestNotRetriedOnClose(t *testing.T) {
+	c, pr := newPeer(t, profiles.Chrome155MacOS(), clockwork.NewRealClock())
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "https://example.com/pay", strings.NewReader("x"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	inFlight := roundTripAsync(c, req)
+	pr.headers()
+	_ = pr.conn.Close()
+	r := <-inFlight
+	if r.err == nil || errors.Is(r.err, ErrConnUnusable) {
+		t.Fatalf("in-flight POST on a closed connection: %v, want a non-retryable error", r.err)
+	}
+	if _, err := c.RoundTrip(get(t, "/next")); !errors.Is(err, ErrConnUnusable) {
+		t.Fatalf("new request on the closed connection: %v, want ErrConnUnusable", err)
+	}
 }

@@ -365,6 +365,41 @@ func TestValidate(t *testing.T) {
 			want: "also in never_indexed",
 		},
 		{
+			name: "non-positive never-index length",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.HTTP2.HPACK = &HPACK{
+					NeverIndexBelow: map[string]int{
+						"cookie": 0,
+					},
+					NameMatch:   NameMatchStaticFirst,
+					Huffman:     HuffmanShorter,
+					SizeUpdates: SizeUpdatesOnChange,
+				}
+			},
+			path: "http2.hpack.never_index_below[cookie]",
+			want: "positive length",
+		},
+		{
+			name: "unknown size update rule",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.HTTP2.HPACK = &HPACK{
+					NameMatch:   NameMatchStaticFirst,
+					Huffman:     HuffmanShorter,
+					SizeUpdates: "sometimes",
+				}
+			},
+			path: "http2.hpack.size_updates",
+			want: `must be "on_change" or "always"`,
+		},
+		{
+			name: "unknown cookie order",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.CookieOrder = "random"
+			},
+			path: "cookie_order",
+			want: "creation order",
+		},
+		{
 			name: "uppercase header",
 			mutate: func(_ *testing.T, p *Profile) {
 				p.Headers[2].Name = "User-Agent"

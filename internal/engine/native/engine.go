@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jonboulle/clockwork"
+
 	"github.com/roachadam/mimicry/internal/dial"
 	"github.com/roachadam/mimicry/internal/fingerprint"
 	"github.com/roachadam/mimicry/internal/h1"
@@ -33,8 +35,8 @@ type Config struct {
 // It is safe for concurrent use.
 type Engine struct {
 	plan    *fingerprint.Plan
-	http2   *profile.HTTP2
-	headers []profile.Header
+	profile *profile.Profile
+	clock   clockwork.Clock
 	rootCAs *x509.CertPool
 	dialer  dial.Dialer
 
@@ -67,8 +69,7 @@ func New(cfg Config) (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Own copies of the HTTP parts, so later changes to the caller's profile
-	// have no effect.
+	// An own copy, so later changes to the caller's profile have no effect.
 	data, err := profile.Encode(cfg.Profile)
 	if err != nil {
 		return nil, err
@@ -83,8 +84,8 @@ func New(cfg Config) (*Engine, error) {
 	}
 	return &Engine{
 		plan:    plan,
-		http2:   p.HTTP2,
-		headers: p.Headers,
+		profile: p,
+		clock:   clockwork.NewRealClock(),
 		rootCAs: cfg.RootCAs,
 		dialer: dial.Dialer{
 			Timeout: timeout,
@@ -177,7 +178,7 @@ func (e *Engine) try(req *http.Request, key string) (*http.Response, error) {
 	conn, proto, err := e.dial(req)
 	var hc *h2.Conn
 	if err == nil && proto == "h2" {
-		hc, err = h2.New(conn, e.http2, e.headers)
+		hc, err = h2.New(conn, e.profile, e.clock)
 		if err != nil {
 			_ = conn.Close()
 		}
@@ -201,7 +202,7 @@ func (e *Engine) try(req *http.Request, key string) (*http.Response, error) {
 		}
 		return resp, err
 	}
-	return e.roundTripH1(key, h1.New(conn, e.headers), req)
+	return e.roundTripH1(key, h1.New(conn, e.profile), req)
 }
 
 // dial connects and, for https, performs the profile's TLS handshake. It
@@ -231,7 +232,7 @@ func (e *Engine) roundTripH1(key string, c *h1.Conn, req *http.Request) (*http.R
 		e.mu.Lock()
 		e.idle[key] = append(e.idle[key], idleConn{
 			conn:  c,
-			since: time.Now(),
+			since: e.clock.Now(),
 		})
 		e.mu.Unlock()
 	})
@@ -244,7 +245,7 @@ func (e *Engine) takeIdle(key string) (*h1.Conn, bool) {
 	for len(conns) > 0 {
 		ic := conns[len(conns)-1]
 		conns = conns[:len(conns)-1]
-		if time.Since(ic.since) < idleTimeout {
+		if e.clock.Since(ic.since) < idleTimeout {
 			e.idle[key] = conns
 			return ic.conn, true
 		}

@@ -2,27 +2,65 @@ package e2e
 
 import (
 	"encoding/hex"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
+	"golang.org/x/net/http2"
+
 	"github.com/roachadam/mimicry/harness/internal/h2trace"
+	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/internal/hpack"
+	"github.com/roachadam/mimicry/profile"
 	"github.com/roachadam/mimicry/profiles"
 )
 
-// loadTraces returns every sample's trace for the named capture.
+const captureDir = "../testdata/captures/"
+
+// loadTraces returns every sample's trace for the named capture's default
+// scenario.
 func loadTraces(t *testing.T, name string) []*h2trace.Trace {
 	t.Helper()
-	traces, err := h2trace.Load("../testdata/captures/" + name + ".h2trace.json")
+	traces, err := h2trace.Load(captureDir + name + ".h2trace.json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	return traces
 }
 
+// scenarioTraces returns every captured scenario's traces for the named
+// capture, by scenario.
+func scenarioTraces(t *testing.T, name string) map[*server.Scenario][]*h2trace.Trace {
+	t.Helper()
+	files, err := filepath.Glob(captureDir + name + ".*h2trace.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := map[*server.Scenario][]*h2trace.Trace{}
+	for _, f := range files {
+		// <name>.h2trace.json or <name>.<scenario>.h2trace.json
+		scenario := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(f), name+"."), "h2trace.json")
+		sc := server.DefaultScenario
+		if scenario = strings.TrimSuffix(scenario, "."); scenario != "" {
+			if sc, err = server.ScenarioByName(scenario); err != nil {
+				t.Fatalf("%s: %v", f, err)
+			}
+		}
+		traces, err := h2trace.Load(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out[sc] = traces
+	}
+	return out
+}
+
 // Replaying a browser's requests through mimicry's encoder with the built-in
 // profile's HPACK policy reproduces every header block the browser sent, byte
-// for byte, on every sampled connection.
+// for byte, on every sampled connection of every scenario. The server's
+// header table size reaches the encoder where the browser acknowledged the
+// server's SETTINGS.
 func TestHPACKReproducesBrowserBlocks(t *testing.T) {
 	for _, name := range profiles.Names() {
 		t.Run(name, func(t *testing.T) {
@@ -33,26 +71,45 @@ func TestHPACKReproducesBrowserBlocks(t *testing.T) {
 			if p.HTTP2.HPACK == nil {
 				t.Fatal("built-in profile has no HPACK policy")
 			}
-			for i, tr := range loadTraces(t, name) {
-				t.Run("sample "+strconv.Itoa(i+1), func(t *testing.T) {
-					enc := hpack.NewEncoder(p.HTTP2.HPACK)
-					for _, r := range tr.Requests {
-						var fields []hpack.Field
-						for _, ins := range r.Instructions {
-							if ins.Rep != h2trace.SizeUpdate {
-								fields = append(fields, hpack.Field{
-									Name:  ins.Name,
-									Value: ins.Value,
-								})
-							}
-						}
-						got := hex.EncodeToString(enc.AppendBlock(nil, fields))
-						if got != r.Block {
-							t.Fatalf("%s (stream %d):\n got %s\nwant %s", r.Path, r.Stream, got, r.Block)
-						}
-					}
-				})
+			for sc, traces := range scenarioTraces(t, name) {
+				for i, tr := range traces {
+					t.Run(sc.Name+" sample "+strconv.Itoa(i+1), func(t *testing.T) {
+						replay(t, p.HTTP2.HPACK, sc, tr)
+					})
+				}
 			}
 		})
+	}
+}
+
+// replay re-encodes tr's header blocks in order. The table size a scenario's
+// server advertised reaches the encoder where the browser acknowledged the
+// server's SETTINGS, and only if the server sent one, as in the client.
+func replay(t *testing.T, policy *profile.HPACK, sc *server.Scenario, tr *h2trace.Trace) {
+	t.Helper()
+	enc := hpack.NewEncoder(policy)
+	tableSize, advertised := sc.Setting(http2.SettingHeaderTableSize)
+	next := 0
+	for _, f := range tr.Frames {
+		switch {
+		case f.Type == "SETTINGS" && f.Flags&0x1 != 0 && advertised:
+			enc.SetPeerTableSize(tableSize)
+		case f.Type == "HEADERS":
+			r := tr.Requests[next]
+			next++
+			var fields []hpack.Field
+			for _, ins := range r.Instructions {
+				if ins.Rep != h2trace.SizeUpdate {
+					fields = append(fields, hpack.Field{
+						Name:  ins.Name,
+						Value: ins.Value,
+					})
+				}
+			}
+			got := hex.EncodeToString(enc.AppendBlock(nil, fields))
+			if got != r.Block {
+				t.Fatalf("%s (stream %d):\n got %s\nwant %s", r.Path, r.Stream, got, r.Block)
+			}
+		}
 	}
 }

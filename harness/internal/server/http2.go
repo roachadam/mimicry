@@ -19,100 +19,11 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// page is what a browser loads: subresources on the same connection, then a
-// script that downloads, uploads, requests again and navigates to /nav with
-// cookies, whose page asks for /done, which completes the capture.
-const page = `<!doctype html>
-<html><head><meta charset="utf-8"><title>mimicry capture</title>
-<link rel="icon" href="data:,">
-<link rel="stylesheet" href="/style.css">
-</head><body>
-<p>mimicry capture ok</p>
-<img src="/img.png" alt="">
-<script src="/app.js"></script>
-</body></html>
-`
-
-// script's /again request carries a header whose Huffman coding is longer
-// than the raw string, which tells "Huffman when not longer" from "always".
-// The cookies are scoped to /nav, so no other request (and no later sample
-// in a persistent browser like Safari) carries them, and /nav deletes them.
-const script = `(async () => {
-  const big = await fetch('/big');
-  await big.arrayBuffer();
-  await fetch('/upload', {method: 'POST', body: new Uint8Array(` + uploadSize + `)});
-  await (await fetch('/again', {headers: {'x-mimicry-huffman': '{^}~'}})).text();
-  document.cookie = 'mimicry_a=1; path=/nav';
-  document.cookie = 'mimicry_b=2; path=/nav';
-  location.href = '/nav';
-})();
-`
-
-// navPage is the page a cookie-carrying navigation lands on.
-const navPage = `<!doctype html>
-<html><head><meta charset="utf-8"><title>mimicry capture</title>
-<link rel="icon" href="data:,">
-</head><body>
-<p>mimicry capture ok</p>
-<script>
-document.cookie = 'mimicry_a=; path=/nav; max-age=0';
-document.cookie = 'mimicry_b=; path=/nav; max-age=0';
-fetch('/done');
-</script>
-</body></html>
-`
-
-const uploadSize = "200000"
-
-// bigSize is larger than every captured browser's stream receive window, so
-// the download shows how each one returns flow-control credit. It stays at
-// 16 MiB: after a response of 24 MiB or more, Chrome 155 closes the
-// connection (TCP FIN, no GOAWAY) and carries on with the page on a new one,
-// which splits the trace.
-const bigSize = 16 << 20
-
-// png is a 1x1 transparent PNG.
-var png = []byte{
-	0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
-	0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4,
-	0x89, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x63, 0x00, 0x01, 0x00, 0x00,
-	0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae,
-	0x42, 0x60, 0x82,
-}
-
-// response is what the server answers for a path.
-type response struct {
-	status      int
-	contentType string
-	body        []byte
-}
-
-func respondTo(path string, uploaded int) response {
-	switch path {
-	case "/":
-		return response{200, "text/html; charset=utf-8", []byte(page)}
-	case "/style.css":
-		return response{200, "text/css", []byte("body { font: 14px sans-serif }\n")}
-	case "/app.js":
-		return response{200, "text/javascript", []byte(script)}
-	case "/img.png":
-		return response{200, "image/png", png}
-	case "/big":
-		return response{200, "application/octet-stream", make([]byte, bigSize)}
-	case "/upload":
-		return response{200, "text/plain", []byte(strconv.Itoa(uploaded) + "\n")}
-	case "/nav":
-		return response{200, "text/html; charset=utf-8", []byte(navPage)}
-	case "/again", "/done":
-		return response{200, "text/plain", []byte("ok\n")}
-	}
-	return response{404, "text/plain", []byte("not found\n")}
-}
-
 // h2conn is the server side of one captured HTTP/2 connection.
 type h2conn struct {
-	fr    *http2.Framer
-	start time.Time
+	fr       *http2.Framer
+	start    time.Time
+	scenario *Scenario
 
 	// Read-loop state.
 	dec     *hpack.Decoder
@@ -135,13 +46,14 @@ type h2conn struct {
 	enc *hpack.Encoder
 	buf bytes.Buffer
 
-	// mu guards the send windows.
+	// mu guards the send windows and the DATA committed per stream.
 	mu            sync.Mutex
 	cond          *sync.Cond
 	connWindow    int64
 	initialWindow int64
 	maxFrame      int
 	sendWindows   map[uint32]*int64
+	sent          map[uint32]uint64
 	closed        bool
 }
 
@@ -152,10 +64,10 @@ type h2stream struct {
 
 // serveHTTP2 records the client's connection preface frames and first request
 // into c's profile, traces every frame and header block into c.Trace, and
-// answers requests until the client goes away. emit hands the capture over;
-// it is called when the client asks for /done (a browser that ran the
-// page's script) and, by the caller, when the connection ends.
-func serveHTTP2(conn net.Conn, c *capture.Capture, emit func()) error {
+// answers requests as sc says until the client goes away. emit hands the
+// capture over; it is called when the client asks for /done (a browser that
+// ran the page's script) and, by the caller, when the connection ends.
+func serveHTTP2(conn net.Conn, c *capture.Capture, sc *Scenario, emit func()) error {
 	preface := make([]byte, len(http2.ClientPreface))
 	if _, err := io.ReadFull(conn, preface); err != nil {
 		return err
@@ -166,6 +78,7 @@ func serveHTTP2(conn net.Conn, c *capture.Capture, emit func()) error {
 	s := &h2conn{
 		fr:            http2.NewFramer(conn, conn),
 		start:         time.Now(),
+		scenario:      sc,
 		dec:           hpack.NewDecoder(4096, nil),
 		c:             c,
 		h:             &profile.HTTP2{},
@@ -176,7 +89,14 @@ func serveHTTP2(conn net.Conn, c *capture.Capture, emit func()) error {
 		initialWindow: 65535,
 		maxFrame:      16384,
 		sendWindows:   map[uint32]*int64{},
+		sent:          map[uint32]uint64{},
 	}
+	// The client may move its encoder's table anywhere up to what we
+	// advertise; until it says so, it uses the default 4096. Frames larger
+	// than we advertise are rejected, as a real server would, so a browser
+	// exceeding them shows up as an error rather than passing unnoticed.
+	s.dec.SetAllowedMaxDynamicTableSize(max(4096, sc.tableSize()))
+	s.fr.SetMaxReadFrameSize(sc.maxFrameSize())
 	s.cond = sync.NewCond(&s.mu)
 	s.enc = hpack.NewEncoder(&s.buf)
 	c.Trace = s.trace
@@ -187,7 +107,7 @@ func serveHTTP2(conn net.Conn, c *capture.Capture, emit func()) error {
 		s.mu.Unlock()
 	}()
 	s.wmu.Lock()
-	err := s.fr.WriteSettings()
+	err := s.fr.WriteSettings(sc.Settings...)
 	s.wmu.Unlock()
 	if err != nil {
 		return err
@@ -291,6 +211,11 @@ func (s *h2conn) record(f http2.Frame) {
 	switch f := f.(type) {
 	case *http2.WindowUpdateFrame:
 		tf.Increment = f.Increment
+		if f.StreamID != 0 {
+			s.mu.Lock()
+			tf.SentBefore = s.sent[f.StreamID]
+			s.mu.Unlock()
+		}
 	case *http2.RSTStreamFrame:
 		tf.ErrCode = f.ErrCode.String()
 	case *http2.GoAwayFrame:
@@ -431,7 +356,7 @@ func (s *h2conn) onData(f *http2.DataFrame, senders *sync.WaitGroup, emit func()
 // goroutine, since they wait for the client's flow-control credit.
 func (s *h2conn) respond(id uint32, st *h2stream, senders *sync.WaitGroup, emit func()) {
 	delete(s.streams, id)
-	r := respondTo(st.path, st.uploaded)
+	r := s.scenario.answer(st.path, st.uploaded)
 	if st.path == "/done" && s.tracing {
 		s.tracing = false
 		s.c.Finished = true
@@ -459,7 +384,7 @@ func (s *h2conn) send(id uint32, r response) error {
 	}()
 	s.wmu.Lock()
 	s.buf.Reset()
-	for _, field := range []hpack.HeaderField{
+	fields := []hpack.HeaderField{
 		{
 			Name:  ":status",
 			Value: strconv.Itoa(r.status),
@@ -476,7 +401,8 @@ func (s *h2conn) send(id uint32, r response) error {
 			Name:  "cache-control",
 			Value: "no-store",
 		},
-	} {
+	}
+	for _, field := range append(fields, r.headers...) {
 		_ = s.enc.WriteField(field)
 	}
 	err := s.fr.WriteHeaders(http2.HeadersFrameParam{
@@ -489,8 +415,15 @@ func (s *h2conn) send(id uint32, r response) error {
 		return err
 	}
 	body := r.body
-	for {
-		n, err := s.reserve(id, len(body))
+	for first := true; ; first = false {
+		want := len(body)
+		if r.dripChunk > 0 {
+			want = min(want, r.dripChunk)
+			if !first {
+				time.Sleep(r.dripEvery)
+			}
+		}
+		n, err := s.reserve(id, want)
 		if err != nil {
 			return err
 		}
@@ -525,6 +458,9 @@ func (s *h2conn) reserve(id uint32, want int) (int, error) {
 		if n > 0 {
 			*w -= n
 			s.connWindow -= n
+			// Counted before the bytes are written, so a credit return can
+			// never appear larger than the data it is for.
+			s.sent[id] += uint64(n)
 			return int(n), nil
 		}
 		s.cond.Wait()

@@ -26,6 +26,7 @@ import (
 
 	"github.com/roachadam/mimicry/harness/internal/browser"
 	"github.com/roachadam/mimicry/harness/internal/capture"
+	"github.com/roachadam/mimicry/harness/internal/diff"
 	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/profile"
 )
@@ -38,11 +39,12 @@ func main() {
 }
 
 type options struct {
-	headless bool
-	samples  int
-	timeout  time.Duration
-	out      string
-	cert     tls.Certificate
+	headless  bool
+	samples   int
+	timeout   time.Duration
+	out       string
+	cert      tls.Certificate
+	scenarios []*server.Scenario
 }
 
 func run() error {
@@ -52,9 +54,21 @@ func run() error {
 	samples := flag.Int("samples", 3, "connections to sample per browser (at least 2, to tell whether it shuffles extensions)")
 	caDir := flag.String("ca-dir", "", "capture CA directory (default: <user config dir>/mimicry/capture-ca)")
 	timeout := flag.Duration("timeout", 45*time.Second, "how long to wait for each sample")
+	scenarioNames := flag.String("scenarios", "", "comma-separated scenarios to capture (default: all; see internal/server/scenario.go)")
 	flag.Parse()
 	if *samples < 2 {
 		return errors.New("-samples must be at least 2")
+	}
+	scenarios := server.Scenarios
+	if *scenarioNames != "" {
+		scenarios = nil
+		for name := range strings.SplitSeq(*scenarioNames, ",") {
+			sc, err := server.ScenarioByName(name)
+			if err != nil {
+				return err
+			}
+			scenarios = append(scenarios, sc)
+		}
 	}
 
 	browsers := browser.Find()
@@ -89,11 +103,12 @@ func run() error {
 		return err
 	}
 	opts := options{
-		headless: *headless,
-		samples:  *samples,
-		timeout:  *timeout,
-		out:      *out,
-		cert:     cert,
+		headless:  *headless,
+		samples:   *samples,
+		timeout:   *timeout,
+		out:       *out,
+		cert:      cert,
+		scenarios: scenarios,
 	}
 
 	failed := 0
@@ -116,48 +131,71 @@ func run() error {
 	return nil
 }
 
+// captureBrowser captures each scenario. Profiles come from the default
+// scenario; every other scenario's first request is compared with it, since
+// a browser that sends it differently under other server behaviour is a
+// finding.
 func captureBrowser(ctx context.Context, b *browser.Browser, opts options) error {
+	var base *capture.Capture
+	for _, sc := range opts.scenarios {
+		c, err := captureScenario(ctx, b, sc, opts)
+		if err != nil {
+			return fmt.Errorf("scenario %s: %w", sc.Name, err)
+		}
+		if sc == server.DefaultScenario {
+			base = c
+			if !c.HasExtension(profile.ExtServerName) {
+				log.Printf("%s: warning: no server_name in the ClientHello", c.Profile.Name)
+			}
+			f := capture.Compute(&c.Profile)
+			log.Printf("%s: extension order %s across %d samples", c.Profile.Name, c.Profile.TLS.ExtensionOrder, opts.samples)
+			log.Printf("%s: JA4 %s", c.Profile.Name, f.JA4)
+			log.Printf("%s: Akamai %s", c.Profile.Name, f.Akamai)
+		} else if base != nil {
+			for _, d := range diff.Compare(&base.Profile, &c.Profile) {
+				log.Printf("%s: scenario %s changes the first request: %s", c.Profile.Name, sc.Name, d)
+			}
+		}
+		path, err := capture.Write(opts.out, c)
+		if errors.Is(err, capture.ErrExists) {
+			log.Printf("%s: %v; delete it to capture again", c.Profile.Name, err)
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		log.Printf("%s: wrote %s", c.Profile.Name, path)
+	}
+	return nil
+}
+
+func captureScenario(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts options) (*capture.Capture, error) {
 	samples := make([]*capture.Capture, 0, opts.samples)
 	for i := range opts.samples {
-		c, err := sample(ctx, b, opts)
+		c, err := sample(ctx, b, sc, opts)
 		if err != nil {
-			return fmt.Errorf("sample %d: %w", i+1, err)
+			return nil, fmt.Errorf("sample %d: %w", i+1, err)
 		}
 		samples = append(samples, c)
 	}
 	c, err := capture.Combine(samples)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	c.Identify()
-	if !c.HasExtension(profile.ExtServerName) {
-		log.Printf("%s: warning: no server_name in the ClientHello", c.Profile.Name)
-	}
-	f := capture.Compute(&c.Profile)
-	log.Printf("%s: extension order %s across %d samples", c.Profile.Name, c.Profile.TLS.ExtensionOrder, len(samples))
-	log.Printf("%s: JA4 %s", c.Profile.Name, f.JA4)
-	log.Printf("%s: Akamai %s", c.Profile.Name, f.Akamai)
-	path, err := capture.Write(opts.out, c)
-	if errors.Is(err, capture.ErrExists) {
-		log.Printf("%s: %v; delete it to capture again", c.Profile.Name, err)
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	log.Printf("%s: wrote %s", c.Profile.Name, path)
-	return nil
+	return c, nil
 }
 
-// sample runs a fresh capture server, sends the browser to it, and returns the
-// first complete capture from that browser.
-func sample(ctx context.Context, b *browser.Browser, opts options) (*capture.Capture, error) {
+// sample runs a fresh capture server answering as sc, sends the browser to
+// it, and returns the first complete capture from that browser.
+func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts options) (*capture.Capture, error) {
 	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", "127.0.0.1:0")
 	if err != nil {
 		return nil, err
 	}
 	captures := make(chan *capture.Capture, 64)
 	srv := &server.Server{
+		Scenario: sc,
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{
 				opts.cert,
@@ -227,8 +265,13 @@ func await(ctx context.Context, name string, captures <-chan *capture.Capture, t
 				for _, r := range c.Trace.Requests {
 					paths = append(paths, r.Path)
 				}
-				log.Printf("%s: an HTTP/2 connection ended before /done after %v (last frame at %d ms); waiting for the rest",
-					name, paths, c.Trace.Frames[len(c.Trace.Frames)-1].Millis)
+				frames := c.Trace.Frames[max(0, len(c.Trace.Frames)-6):]
+				last := make([]string, len(frames))
+				for i, f := range frames {
+					last[i] = fmt.Sprintf("%s@%d+%dms", f.Type, f.Stream, f.Millis)
+				}
+				log.Printf("%s: an HTTP/2 connection ended before /done after %v; its last frames: %s; waiting for the rest",
+					name, paths, strings.Join(last, " "))
 				continue
 			}
 			return c, nil

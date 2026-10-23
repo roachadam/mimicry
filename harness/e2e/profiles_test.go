@@ -21,9 +21,10 @@ import (
 	"github.com/roachadam/mimicry/profiles"
 )
 
-// captureClient runs a capture server and returns its base URL, a mimicry
-// transport for p trusting it, and the channel its captures arrive on.
-func captureClient(t *testing.T, p *profile.Profile) (string, *mimicry.Transport, <-chan *capture.Capture) {
+// captureClient runs a capture server answering as sc and returns its base
+// URL, a mimicry transport for p trusting it, and the channel its captures
+// arrive on.
+func captureClient(t *testing.T, p *profile.Profile, sc *server.Scenario) (string, *mimicry.Transport, <-chan *capture.Capture) {
 	t.Helper()
 	cert, pool := testutil.Certificate(t, "localhost")
 	ln, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
@@ -33,6 +34,7 @@ func captureClient(t *testing.T, p *profile.Profile) (string, *mimicry.Transport
 	captures := make(chan *capture.Capture, 8)
 	ctx, cancel := context.WithCancel(t.Context())
 	srv := &server.Server{
+		Scenario: sc,
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{
 				cert,
@@ -69,7 +71,7 @@ func captureClient(t *testing.T, p *profile.Profile) (string, *mimicry.Transport
 // client for p, and returns what the capture server recorded.
 func captureRequests(t *testing.T, p *profile.Profile, n int) []*capture.Capture {
 	t.Helper()
-	base, tr, captures := captureClient(t, p)
+	base, tr, captures := captureClient(t, p, server.DefaultScenario)
 	client := &http.Client{Transport: tr}
 	got := make([]*capture.Capture, 0, n)
 	for range n {

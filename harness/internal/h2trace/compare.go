@@ -53,7 +53,8 @@ func Compare(samples []*Trace) []Variation {
 	measured := make([]map[string]uint32, len(samples))
 	keys := map[string]bool{}
 	for i, t := range samples {
-		exact[i], measured[i] = Features(t)
+		f := Extract(t)
+		exact[i], measured[i] = f.Exact, f.Measured
 		for k := range exact[i] {
 			keys[k] = true
 		}
@@ -98,9 +99,17 @@ func absDiff(a, b uint32) uint32 {
 	return b - a
 }
 
-// Features extracts the features Compare compares, keyed by name: exact ones
-// as strings, measured ones as numbers.
-func Features(t *Trace) (map[string]string, map[string]uint32) {
+// Features are a trace's features: exact ones as strings, measured ones as
+// numbers, keyed by name, and every credit-returning WINDOW_UPDATE increment
+// by stream path ("conn" for the connection).
+type Features struct {
+	Exact    map[string]string
+	Measured map[string]uint32
+	Credit   map[string][]uint32
+}
+
+// Extract computes the features Compare compares.
+func Extract(t *Trace) Features {
 	exact := map[string]string{}
 	measured := map[string]uint32{}
 	paths := map[uint32]string{}
@@ -121,7 +130,6 @@ func Features(t *Trace) (map[string]string, map[string]uint32) {
 	dataMax := map[string]uint32{}
 	updates := map[string][]uint32{}
 	headersSeen := false
-	var prev Frame
 	for _, f := range t.Frames {
 		where := "conn"
 		if f.Stream != 0 {
@@ -135,9 +143,10 @@ func Features(t *Trace) (map[string]string, map[string]uint32) {
 			dataMax[where] = max(dataMax[where], f.Length)
 		case "WINDOW_UPDATE":
 			switch {
-			case prev.Type == "HEADERS" && prev.Stream == f.Stream && f.Stream != 0:
-				// A top-up sent with the request (Firefox), not credit for
-				// data received.
+			case f.Stream != 0 && uint64(f.Increment) > f.SentBefore:
+				// More than the server had sent on the stream: a top-up
+				// sent with the request (Firefox), not credit for data
+				// received.
 				exact["request["+where+"].window_top_up"] = strconv.FormatUint(uint64(f.Increment), 10)
 			case headersSeen:
 				// Credit returns only: the preface's update comes before
@@ -166,7 +175,6 @@ func Features(t *Trace) (map[string]string, map[string]uint32) {
 				headersSeen = true
 			}
 		}
-		prev = f
 	}
 	exact["frames"] = strings.Join(frames, " ")
 	for where, m := range dataMax {
@@ -177,7 +185,11 @@ func Features(t *Trace) (map[string]string, map[string]uint32) {
 		slices.Sort(s)
 		measured["window_update_median["+where+"]"] = s[len(s)/2]
 	}
-	return exact, measured
+	return Features{
+		Exact:    exact,
+		Measured: measured,
+		Credit:   updates,
+	}
 }
 
 // shapes renders instructions without their values.

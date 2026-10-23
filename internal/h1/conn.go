@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/roachadam/mimicry/internal/headerorder"
@@ -18,19 +19,21 @@ import (
 
 // Conn is a client HTTP/1.1 connection carrying one request at a time.
 type Conn struct {
-	conn    net.Conn
-	br      *bufio.Reader
-	bw      *bufio.Writer
-	headers []profile.Header
+	conn        net.Conn
+	br          *bufio.Reader
+	bw          *bufio.Writer
+	headers     []profile.Header
+	cookieOrder string
 }
 
-// New wraps conn, which carries HTTP/1.1, plain or over TLS.
-func New(conn net.Conn, headers []profile.Header) *Conn {
+// New wraps conn, which carries HTTP/1.1, plain or over TLS, for profile p.
+func New(conn net.Conn, p *profile.Profile) *Conn {
 	return &Conn{
-		conn:    conn,
-		br:      bufio.NewReader(conn),
-		bw:      bufio.NewWriter(conn),
-		headers: headers,
+		conn:        conn,
+		br:          bufio.NewReader(conn),
+		bw:          bufio.NewWriter(conn),
+		headers:     p.Headers,
+		cookieOrder: p.CookieOrder,
 	}
 }
 
@@ -123,6 +126,9 @@ func (c *Conn) writeRequest(req *http.Request) error {
 		}
 	}
 	for _, f := range headerorder.Build(c.headers, req.Header, skipHeader) {
+		if f.Name == "cookie" && c.cookieOrder != profile.CookieOrderCreation {
+			f.Value = strings.Join(headerorder.Cookies(f.Value, c.cookieOrder), "; ")
+		}
 		if _, err := c.bw.WriteString(http.CanonicalHeaderKey(f.Name) + ": " + f.Value + "\r\n"); err != nil {
 			return err
 		}

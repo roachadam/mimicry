@@ -13,15 +13,17 @@ var chromium = profile.HPACK{
 	WithoutIndexing: []string{
 		":path",
 	},
-	NameMatch: profile.NameMatchStaticFirst,
-	Huffman:   profile.HuffmanShorter,
+	NameMatch:   profile.NameMatchStaticFirst,
+	Huffman:     profile.HuffmanShorter,
+	SizeUpdates: profile.SizeUpdatesOnChange,
 }
 
 // defaultTableSize is the dynamic table size before the peer's SETTINGS.
 const defaultTableSize = 4096
 
-// maxTableSize bounds the table whatever the peer allows, as Chromium's
-// encoder does; the size update still announces the peer's value.
+// maxTableSize bounds the table whatever is announced, as Chromium's encoder
+// does: offered 1 MiB, Chrome 155 announces 1 MiB (captured), but uses at
+// most this.
 const maxTableSize = 65536
 
 // Encoder encodes header blocks for one connection. It is not safe for
@@ -63,12 +65,16 @@ func NewEncoder(policy *profile.HPACK) *Encoder {
 	}
 }
 
-// SetPeerTableSize applies the peer's SETTINGS_HEADER_TABLE_SIZE. The next
-// block starts with size updates (RFC 7541, 4.2): the smallest size set since
-// the last block if it went below the size then in effect, then the final
-// one. Nothing is emitted while the size is unchanged.
+// SetPeerTableSize applies the peer's SETTINGS_HEADER_TABLE_SIZE, capped by
+// the policy's MaxTableSize. The next block starts with size updates (RFC
+// 7541, 4.2): the smallest size set since the last block if it went below the
+// size then in effect, then the final one. An unchanged size is signalled
+// only under SizeUpdatesAlways.
 func (e *Encoder) SetPeerTableSize(size uint32) {
-	if size == e.peerSize && !e.pending {
+	if e.policy.MaxTableSize > 0 {
+		size = min(size, e.policy.MaxTableSize)
+	}
+	if size == e.peerSize && !e.pending && e.policy.SizeUpdates != profile.SizeUpdatesAlways {
 		return
 	}
 	if !e.pending {
@@ -104,6 +110,9 @@ func (e *Encoder) AppendBlock(dst []byte, fields []Field) []byte {
 func (e *Encoder) appendField(dst []byte, f Field) []byte {
 	without := slices.Contains(e.policy.WithoutIndexing, f.Name)
 	never := slices.Contains(e.policy.NeverIndexed, f.Name)
+	if n, ok := e.policy.NeverIndexBelow[f.Name]; ok && len(f.Value) < n {
+		never = true
+	}
 	exact := e.exactIndex(f)
 	if exact != 0 && !never && (!without || !e.policy.LiteralOnExactMatch) {
 		return appendInt(dst, 0x80, 7, exact)

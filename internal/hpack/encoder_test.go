@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"math/rand/v2"
 	"strconv"
+	"strings"
 	"testing"
 
 	xhpack "golang.org/x/net/http2/hpack"
@@ -91,15 +92,41 @@ func TestDecoderAgreesUnderEvictionAndResize(t *testing.T) {
 }
 
 func TestSizeUpdates(t *testing.T) {
+	firefoxAndSafari := &profile.HPACK{
+		NameMatch:   profile.NameMatchStaticFirst,
+		Huffman:     profile.HuffmanShorter,
+		SizeUpdates: profile.SizeUpdatesAlways,
+	}
+	safari := &profile.HPACK{
+		NameMatch:    profile.NameMatchStaticFirst,
+		Huffman:      profile.HuffmanShorter,
+		SizeUpdates:  profile.SizeUpdatesAlways,
+		MaxTableSize: 4096,
+	}
 	tests := []struct {
-		name  string
-		sizes []uint32
-		want  string // hex prefix of the next block
+		name   string
+		policy *profile.HPACK
+		sizes  []uint32
+		want   string // hex prefix of the next block
 	}{
 		{
 			name:  "unchanged default size emits nothing",
 			sizes: []uint32{4096},
 			want:  "82",
+		},
+		{
+			// Captured: Firefox and Safari answer an explicit 4096.
+			name:   "always: an unchanged size is signalled",
+			policy: firefoxAndSafari,
+			sizes:  []uint32{4096},
+			want:   "3fe11f" + "82",
+		},
+		{
+			// Captured: offered 64 KiB or 1 MiB, Safari announces 4096.
+			name:   "a capped table announces its cap",
+			policy: safari,
+			sizes:  []uint32{1 << 20},
+			want:   "3fe11f" + "82",
 		},
 		{
 			name:  "larger size",
@@ -129,7 +156,7 @@ func TestSizeUpdates(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			enc := NewEncoder(nil)
+			enc := NewEncoder(tt.policy)
 			for _, s := range tt.sizes {
 				enc.SetPeerTableSize(s)
 			}
@@ -147,5 +174,30 @@ func TestSizeUpdates(t *testing.T) {
 				t.Errorf("second block %s, want 82", got)
 			}
 		})
+	}
+}
+
+// Firefox and Safari never index cookie crumbs under 20 bytes and index
+// longer ones (captured with 19-, 20- and 21-byte crumbs).
+func TestNeverIndexBelow(t *testing.T) {
+	enc := NewEncoder(&profile.HPACK{
+		NeverIndexBelow: map[string]int{
+			"cookie": 20,
+		},
+		NameMatch:   profile.NameMatchStaticFirst,
+		Huffman:     profile.HuffmanShorter,
+		SizeUpdates: profile.SizeUpdatesAlways,
+	})
+	for _, tt := range []struct {
+		value string
+		want  string // first bytes: representation and the static cookie name (32)
+	}{
+		{"p19=" + strings.Repeat("x", 15), "1f11"}, // never indexed
+		{"p20=" + strings.Repeat("x", 16), "60"},   // incremental indexing
+	} {
+		got := hex.EncodeToString(enc.AppendBlock(nil, []Field{{Name: "cookie", Value: tt.value}}))
+		if !strings.HasPrefix(got, tt.want) {
+			t.Errorf("%d-byte crumb encoded %s, want prefix %s", len(tt.value), got, tt.want)
+		}
 	}
 }

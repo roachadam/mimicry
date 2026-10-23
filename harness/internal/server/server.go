@@ -28,6 +28,9 @@ type Server struct {
 	Logf func(format string, args ...any)
 	// ConnTimeout bounds each connection. Zero means one minute.
 	ConnTimeout time.Duration
+	// Scenario says how HTTP/2 connections are answered. Nil means
+	// DefaultScenario.
+	Scenario *Scenario
 }
 
 // Serve handles connections from ln until ctx is canceled, then closes the
@@ -85,8 +88,13 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config) err
 	if err != nil {
 		return err
 	}
+	sc := s.Scenario
+	if sc == nil {
+		sc = DefaultScenario
+	}
 	c := &capture.Capture{
 		ClientHello: msg,
+		Scenario:    sc.Name,
 	}
 	c.Profile.TLS = t
 	emitted := false
@@ -109,7 +117,7 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config) err
 	}
 	c.Protocol = tlsConn.ConnectionState().NegotiatedProtocol
 	if c.Protocol == "h2" {
-		err = serveHTTP2(tlsConn, c, emit)
+		err = serveHTTP2(tlsConn, c, sc, emit)
 	} else {
 		err = serveHTTP1(tlsConn, c, emit)
 	}

@@ -25,6 +25,10 @@ type Frame struct {
 	Length uint32 `json:"length"`
 	// Increment of a WINDOW_UPDATE.
 	Increment uint32 `json:"increment,omitempty"`
+	// SentBefore, for a stream's WINDOW_UPDATE, is how many DATA bytes the
+	// server had committed to that stream when it arrived. An increment
+	// above it cannot be credit for data received: it is a top-up.
+	SentBefore uint64 `json:"sent_before,omitempty"`
 	// ErrCode of an RST_STREAM or GOAWAY.
 	ErrCode string `json:"err_code,omitempty"`
 	// Data of a PING, hex.

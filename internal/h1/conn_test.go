@@ -23,7 +23,7 @@ func dial(t *testing.T, addr string) *Conn {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := New(conn, profiles.Chrome155MacOS().Headers)
+	c := New(conn, profiles.Chrome155MacOS())
 	t.Cleanup(func() {
 		_ = c.Close()
 	})

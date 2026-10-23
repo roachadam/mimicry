@@ -2,6 +2,7 @@ package profile
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 )
@@ -67,6 +68,9 @@ func (p *Profile) Validate() error {
 		c.add("http2", "is required because ALPN offers h2")
 	}
 	c.checkHeaders(p.Headers)
+	if p.CookieOrder != CookieOrderCreation && p.CookieOrder != CookieOrderName {
+		c.add("cookie_order", "must be empty (creation order) or %q", CookieOrderName)
+	}
 	if len(c.problems) > 0 {
 		return &ValidationError{
 			Problems: c.problems,
@@ -237,6 +241,16 @@ func (c *checker) checkHPACK(p *HPACK) {
 	}
 	for i, n := range p.NeverIndexed {
 		c.checkHeaderName(fmt.Sprintf("http2.hpack.never_indexed[%d]", i), n)
+	}
+	for _, n := range slices.Sorted(maps.Keys(p.NeverIndexBelow)) {
+		path := "http2.hpack.never_index_below[" + n + "]"
+		c.checkHeaderName(path, n)
+		if p.NeverIndexBelow[n] <= 0 {
+			c.add(path, "must be a positive length")
+		}
+	}
+	if p.SizeUpdates != SizeUpdatesOnChange && p.SizeUpdates != SizeUpdatesAlways {
+		c.add("http2.hpack.size_updates", "must be %q or %q", SizeUpdatesOnChange, SizeUpdatesAlways)
 	}
 }
 

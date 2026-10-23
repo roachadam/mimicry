@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jonboulle/clockwork"
+
 	"github.com/roachadam/mimicry/profiles"
 )
 
@@ -45,7 +47,7 @@ func dial(t *testing.T, srv *httptest.Server) *Conn {
 		t.Fatal(err)
 	}
 	p := profiles.Chrome155MacOS()
-	c, err := New(tlsConn, p.HTTP2, p.Headers)
+	c, err := New(tlsConn, p, clockwork.NewRealClock())
 	if err != nil {
 		t.Fatal(err)
 	}

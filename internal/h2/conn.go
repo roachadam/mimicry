@@ -2,6 +2,7 @@ package h2
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jonboulle/clockwork"
 	"golang.org/x/net/http2"
 	xhpack "golang.org/x/net/http2/hpack"
 
@@ -24,6 +26,10 @@ import (
 // connection was closed or went away. Such a request is safe to retry on a
 // new connection.
 var ErrConnUnusable = errors.New("h2: connection unusable")
+
+// errConnLost fails requests in flight when the connection dies. They may
+// have been processed, so unlike ErrConnUnusable they are not retried.
+var errConnLost = errors.New("h2: connection lost with the request in flight")
 
 const (
 	defaultWindow    = 65535
@@ -41,10 +47,12 @@ const (
 // Conn is a client HTTP/2 connection that opens like the profile's browser.
 // It is safe for concurrent use.
 type Conn struct {
-	conn    net.Conn
-	fr      *http2.Framer
-	headers []profile.Header
-	h2      *profile.HTTP2
+	conn        net.Conn
+	fr          *http2.Framer
+	headers     []profile.Header
+	h2          *profile.HTTP2
+	cookieOrder string
+	clock       clockwork.Clock
 
 	// wmu serializes frame writes and guards the HPACK encoder. Lock order:
 	// wmu may be held while taking mu, never the reverse.
@@ -79,6 +87,18 @@ type Conn struct {
 	recvConnUnacked  uint32
 	streamThreshold  uint32
 	connThreshold    uint32
+	// Chromium's timers (profile.HTTP2 WindowUpdateIntervalMillis and
+	// IdlePingMillis): credit is also returned once updateInterval has
+	// passed since the last WINDOW_UPDATE, and a request that starts after
+	// idlePing without reading anything sends a PING, whose ACK must come
+	// back within idlePing or the connection is closed.
+	updateInterval time.Duration
+	connLastUpdate time.Time
+	idlePing       time.Duration
+	lastRead       time.Time
+	pingCount      uint64
+	// pingTimer is set while a PING awaits its ACK.
+	pingTimer clockwork.Timer
 }
 
 type stream struct {
@@ -87,15 +107,17 @@ type stream struct {
 	// resp delivers the response headers, or an error, once.
 	resp chan responseOrError
 	body *pipe
-	// unacked counts consumed body bytes not yet returned by WINDOW_UPDATE.
-	unacked uint32
+	// unacked counts consumed body bytes not yet returned by WINDOW_UPDATE;
+	// lastUpdate is when credit was last returned (or the stream opened).
+	unacked    uint32
+	lastUpdate time.Time
 	// delivered is set once the response headers went to RoundTrip; later
 	// HEADERS frames are trailers.
 	delivered bool
 	done      bool
 	// linger resets the stream if the peer never sends END_STREAM after the
 	// caller read the whole body and closed it.
-	linger *time.Timer
+	linger clockwork.Timer
 }
 
 type responseOrError struct {
@@ -103,19 +125,24 @@ type responseOrError struct {
 	err  error
 }
 
-// New opens an HTTP/2 connection on conn, which must have negotiated "h2":
-// it sends the preface, then the profile's SETTINGS, connection
-// WINDOW_UPDATE and PRIORITY frames, in that order, as the browser does.
-func New(conn net.Conn, h2 *profile.HTTP2, headers []profile.Header) (*Conn, error) {
+// New opens an HTTP/2 connection on conn, which must have negotiated "h2",
+// for profile p (which must have HTTP2): it sends the preface, then the
+// profile's SETTINGS, connection WINDOW_UPDATE and PRIORITY frames, in that
+// order, as the browser does. clock drives the profile's timers.
+func New(conn net.Conn, p *profile.Profile, clock clockwork.Clock) (*Conn, error) {
+	h2 := p.HTTP2
 	firstID := h2.FirstStreamID
 	if firstID == 0 {
 		firstID = 1
 	}
+	now := clock.Now()
 	c := &Conn{
 		conn:             conn,
 		fr:               http2.NewFramer(conn, conn),
-		headers:          headers,
+		headers:          p.Headers,
 		h2:               h2,
+		cookieOrder:      p.CookieOrder,
+		clock:            clock,
 		henc:             hpack.NewEncoder(h2.HPACK),
 		streams:          map[uint32]*stream{},
 		nextID:           firstID,
@@ -125,6 +152,10 @@ func New(conn net.Conn, h2 *profile.HTTP2, headers []profile.Header) (*Conn, err
 		sendWindow:       defaultWindow,
 		recvStreamWindow: defaultWindow,
 		recvConnWindow:   defaultWindow + h2.WindowUpdate,
+		updateInterval:   time.Duration(h2.WindowUpdateIntervalMillis) * time.Millisecond,
+		connLastUpdate:   now,
+		idlePing:         time.Duration(h2.IdlePingMillis) * time.Millisecond,
+		lastRead:         now,
 	}
 	c.cond = sync.NewCond(&c.mu)
 	tableSize := uint32(defaultTableSize)
@@ -307,17 +338,20 @@ func (c *Conn) writeHeaders(s *stream, req *http.Request, endStream bool) error 
 		})
 	}
 	for _, f := range ordered {
-		if f.Name == "cookie" && c.h2.SplitCookie {
-			// One field per cookie (RFC 9113, 8.2.3), as browsers send them.
-			for crumb := range strings.SplitSeq(f.Value, ";") {
-				if crumb = strings.TrimSpace(crumb); crumb != "" {
+		if f.Name == "cookie" {
+			crumbs := headerorder.Cookies(f.Value, c.cookieOrder)
+			if c.h2.SplitCookie {
+				// One field per cookie (RFC 9113, 8.2.3), as browsers send
+				// them.
+				for _, crumb := range crumbs {
 					fields = append(fields, hpack.Field{
 						Name:  f.Name,
 						Value: crumb,
 					})
 				}
+				continue
 			}
-			continue
+			f.Value = strings.Join(crumbs, "; ")
 		}
 		fields = append(fields, hpack.Field{
 			Name:  f.Name,
@@ -340,6 +374,7 @@ func (c *Conn) writeHeaders(s *stream, req *http.Request, endStream bool) error 
 		parent = max(parent, open)
 	}
 	s.id = id
+	s.lastUpdate = c.clock.Now()
 	c.streams[id] = s
 	frameSize := int(c.maxFrameSize)
 	c.mu.Unlock()
@@ -377,9 +412,44 @@ func (c *Conn) writeHeaders(s *stream, req *http.Request, endStream bool) error 
 		}
 	}
 	if inc := c.h2.StreamWindowUpdate; inc > 0 {
-		return c.fr.WriteWindowUpdate(id, inc)
+		if err := c.fr.WriteWindowUpdate(id, inc); err != nil {
+			return err
+		}
 	}
-	return nil
+	return c.maybePing()
+}
+
+// maybePing sends Chromium's connection check after a request's HEADERS: a
+// PING carrying a counter from 1 when nothing was read for idlePing and no
+// PING is in flight. wmu must be held.
+func (c *Conn) maybePing() error {
+	if c.idlePing == 0 {
+		return nil
+	}
+	c.mu.Lock()
+	send := c.pingTimer == nil && c.clock.Since(c.lastRead) >= c.idlePing
+	if send {
+		c.pingCount++
+		c.pingTimer = c.clock.AfterFunc(c.idlePing, c.pingTimedOut)
+	}
+	count := c.pingCount
+	c.mu.Unlock()
+	if !send {
+		return nil
+	}
+	var data [8]byte
+	binary.BigEndian.PutUint64(data[:], count)
+	return c.fr.WritePing(false, data)
+}
+
+// pingTimedOut closes a connection whose PING went unanswered: it is dead.
+func (c *Conn) pingTimedOut() {
+	c.mu.Lock()
+	hung := c.pingTimer != nil
+	c.mu.Unlock()
+	if hung {
+		_ = c.conn.Close()
+	}
 }
 
 // writeBody sends body as DATA frames within the peer's flow-control windows,
@@ -451,18 +521,21 @@ func (c *Conn) reserveSend(ctx context.Context, s *stream, want int) (int, error
 	}
 }
 
-// consumed returns flow-control credit once a reader has taken n body bytes,
-// in WINDOW_UPDATEs batched up to the profile's thresholds, as browsers do.
+// consumed returns flow-control credit once a reader has taken n body bytes:
+// when the profile's thresholds are reached or, with an update interval, when
+// that long has passed since the last WINDOW_UPDATE, as browsers do. Like
+// Chrome, the connection's update goes before the stream's.
 func (c *Conn) consumed(s *stream, n int) {
+	now := c.clock.Now()
 	c.mu.Lock()
 	s.unacked += uint32(n)         //nolint:gosec // n is a read length
 	c.recvConnUnacked += uint32(n) //nolint:gosec // n is a read length
 	var streamInc, connInc uint32
-	if !s.done && s.unacked >= c.streamThreshold {
-		streamInc, s.unacked = s.unacked, 0
+	if !s.done && c.due(s.unacked, c.streamThreshold, s.lastUpdate, now) {
+		streamInc, s.unacked, s.lastUpdate = s.unacked, 0, now
 	}
-	if c.recvConnUnacked >= c.connThreshold {
-		connInc, c.recvConnUnacked = c.recvConnUnacked, 0
+	if c.due(c.recvConnUnacked, c.connThreshold, c.connLastUpdate, now) {
+		connInc, c.recvConnUnacked, c.connLastUpdate = c.recvConnUnacked, 0, now
 	}
 	c.mu.Unlock()
 	if streamInc == 0 && connInc == 0 {
@@ -470,12 +543,18 @@ func (c *Conn) consumed(s *stream, n int) {
 	}
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
-	if streamInc > 0 {
-		_ = c.fr.WriteWindowUpdate(s.id, streamInc)
-	}
 	if connInc > 0 {
 		_ = c.fr.WriteWindowUpdate(0, connInc)
 	}
+	if streamInc > 0 {
+		_ = c.fr.WriteWindowUpdate(s.id, streamInc)
+	}
+}
+
+// due reports whether unacked bytes should be returned now. c.mu must be
+// held.
+func (c *Conn) due(unacked, threshold uint32, last, now time.Time) bool {
+	return unacked >= threshold || (c.updateInterval > 0 && unacked > 0 && now.Sub(last) >= c.updateInterval)
 }
 
 // linger waits for the peer's END_STREAM on a stream whose body was read in
@@ -489,7 +568,7 @@ func (c *Conn) linger(s *stream) {
 	if s.done {
 		return
 	}
-	s.linger = time.AfterFunc(lingerTimeout, func() {
+	s.linger = c.clock.AfterFunc(lingerTimeout, func() {
 		c.reset(s, http2.ErrCodeCancel, errBodyClosed)
 	})
 }
@@ -535,8 +614,11 @@ func (c *Conn) closeStream(s *stream, err error) {
 
 func (c *Conn) readLoop() {
 	err := c.read()
+	streamErr := err
 	if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
-		err = ErrConnUnusable
+		// New requests may go to another connection. Requests already sent
+		// may have been processed, so they are not retried.
+		err, streamErr = ErrConnUnusable, errConnLost
 	}
 	c.mu.Lock()
 	if c.err == nil {
@@ -549,7 +631,7 @@ func (c *Conn) readLoop() {
 	c.cond.Broadcast()
 	c.mu.Unlock()
 	for _, s := range streams {
-		c.closeStream(s, err)
+		c.closeStream(s, streamErr)
 	}
 	_ = c.conn.Close()
 }
@@ -560,6 +642,9 @@ func (c *Conn) read() error {
 		if err != nil {
 			return err
 		}
+		c.mu.Lock()
+		c.lastRead = c.clock.Now()
+		c.mu.Unlock()
 		switch f := f.(type) {
 		case *http2.SettingsFrame:
 			if f.IsAck() {
@@ -591,13 +676,20 @@ func (c *Conn) read() error {
 				})
 			}
 		case *http2.PingFrame:
-			if !f.IsAck() {
-				c.wmu.Lock()
-				err := c.fr.WritePing(true, f.Data)
-				c.wmu.Unlock()
-				if err != nil {
-					return err
+			if f.IsAck() {
+				c.mu.Lock()
+				if c.pingTimer != nil {
+					c.pingTimer.Stop()
+					c.pingTimer = nil
 				}
+				c.mu.Unlock()
+				continue
+			}
+			c.wmu.Lock()
+			err := c.fr.WritePing(true, f.Data)
+			c.wmu.Unlock()
+			if err != nil {
+				return err
 			}
 		case *http2.GoAwayFrame:
 			c.onGoAway(f)
@@ -730,11 +822,12 @@ func (c *Conn) onData(f *http2.DataFrame) error {
 // returnConnCredit counts size bytes that no reader will consume towards the
 // connection's WINDOW_UPDATE.
 func (c *Conn) returnConnCredit(size uint32) error {
+	now := c.clock.Now()
 	c.mu.Lock()
 	c.recvConnUnacked += size
 	var inc uint32
-	if c.recvConnUnacked >= c.connThreshold {
-		inc, c.recvConnUnacked = c.recvConnUnacked, 0
+	if c.due(c.recvConnUnacked, c.connThreshold, c.connLastUpdate, now) {
+		inc, c.recvConnUnacked, c.connLastUpdate = c.recvConnUnacked, 0, now
 	}
 	c.mu.Unlock()
 	if inc == 0 {
@@ -744,6 +837,7 @@ func (c *Conn) returnConnCredit(size uint32) error {
 	defer c.wmu.Unlock()
 	return c.fr.WriteWindowUpdate(0, inc)
 }
+
 func (c *Conn) onGoAway(f *http2.GoAwayFrame) {
 	c.mu.Lock()
 	c.goAway = true

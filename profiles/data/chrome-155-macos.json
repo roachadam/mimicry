@@ -172,13 +172,16 @@
     "max_data_frame": 16375,
     "stream_update_threshold": 3145729,
     "connection_update_threshold": 7864321,
+    "window_update_interval_ms": 5000,
+    "idle_ping_ms": 10000,
     "split_cookie": true,
     "hpack": {
       "without_indexing": [
         ":path"
       ],
       "name_match": "static_first",
-      "huffman": "shorter"
+      "huffman": "shorter",
+      "size_updates": "on_change"
     }
   },
   "headers": [

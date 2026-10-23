@@ -56,11 +56,14 @@ cfg := mimicry.Config{
 
 Use the standard `testing` package with hand-written fakes; no assertion libraries. Tests must be deterministic: inject randomness and clocks rather than depending on them.
 
-Profile accuracy is proven by the harness against real browser captures, not by unit tests that restate a profile's values. `harness/e2e` checks every built-in profile three ways:
+Profile accuracy is proven by the harness against real browser captures, not by unit tests that restate a profile's values. `harness/e2e` checks every built-in profile four ways:
 
 - `TestProfilesMatchCaptures`: mimicry's request to the capture server has no differences from the browser's capture (TLS, HTTP/2 preface and first request, headers).
-- `TestHPACKReproducesBrowserBlocks`: re-encoding the browser's traced requests with the profile's `http2.hpack` reproduces every header block byte for byte. `http2.hpack` cannot be captured; this is what keeps it honest.
-- `TestConnectionMatchesBrowserTrace`: on one connection, mimicry's first header block, largest upload DATA frame and typical WINDOW_UPDATE increments match the browser's trace.
+- `TestHPACKReproducesBrowserBlocks`: re-encoding the browser's traced requests with the profile's `http2.hpack` reproduces every header block byte for byte, in every sample of every scenario. `http2.hpack` cannot be captured; this is what keeps it honest.
+- `TestConnectionMatchesBrowserTrace`: on one connection, mimicry's first header block and largest upload DATA frame match every sample of the browser's trace, and every WINDOW_UPDATE credit increment it sends lies within the range the browser's own increments span (± one frame). Ranges, not single values, because credit timing varies between a browser's own connections.
+- `TestCookiesMatchBrowserTrace`: cookies set by the server come back from mimicry, through a real cookie jar, in the browser's order and representation.
+
+Behaviour that depends on time (Chrome's 5 s credit return, its idle PING) is tested in `internal/h2` with a fake clock against a raw HTTP/2 peer; the captures show it, the unit tests pin it.
 
 ## Built-in profiles
 
@@ -72,7 +75,11 @@ Built-in profiles are JSON files in `profiles/data/`, one per browser version an
 
 Each browser is sampled three times (`-samples`), each on a fresh server and port so no connection or TLS session carries over. If the samples differ only in extension order, the capture records `"extension_order": "shuffled"` (Chrome), otherwise `"fixed"`. Any other difference between samples fails the capture: it is randomness a profile cannot describe and needs investigating.
 
-The capture page loads like a site: a stylesheet, an image and a script on one connection, then a 16 MiB download, a 200 KB upload, a request carrying a header whose Huffman coding is longer than its value, and a navigation to `/nav` with two cookies (scoped to `/nav` and deleted there, so Safari keeps nothing). The page ends by requesting `/done`; an HTTP/2 connection that ends before that is a truncated trace and is skipped, logged. `<name>.h2trace.json` is a JSON array with every sample's trace: every frame the browser sent and each header block's HPACK instructions. The profile JSON still comes from the first request only.
+The capture page loads like a site: a stylesheet, an image and a script on one connection, then a 16 MiB download, a 200 KB upload, a request carrying a header whose Huffman coding is longer than its value, and a navigation to `/nav` with two cookies (scoped to `/nav` and deleted there, so Safari keeps nothing). The page ends by requesting `/done`; an HTTP/2 connection that ends before that is a truncated trace and is skipped, logged with its last frames. `<name>.h2trace.json` is a JSON array with every sample's trace: every frame the browser sent and each header block's HPACK instructions. The profile JSON still comes from the first request only.
+
+Scenarios (`internal/server/scenario.go`, `-scenarios`, default all) capture the same browser under other server behaviour: server-set cookies, unusual SETTINGS, a slow download and an idle connection. Each writes `<name>.<scenario>.h2trace.json`; its first request is compared with the default page's and any change is logged as a finding. Add a scenario when a behaviour might depend on the server; reuse the default page wherever possible.
+
+Chrome starts on `about:blank` and gets the capture URL 5 s later: a fresh profile rebuilds its certificate verifiers within seconds of launch and retires every open connection, which a long-running browser never shows a server.
 
 `go run ./cmd/tracestat FILE.h2trace.json...` (in `harness/`) lists the features a capture's samples disagree on (request order, HPACK shapes, priorities, frame order exactly; largest DATA frame and median WINDOW_UPDATE within 2%). A varying feature is either modelled or recorded as a known gap; never pick one sample's value.
 

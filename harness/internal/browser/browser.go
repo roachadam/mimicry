@@ -46,7 +46,22 @@ type Browser struct {
 	Shared bool
 	// prepare writes any profile files into dir and returns the arguments.
 	prepare func(dir string, t Target, headless bool) ([]string, error)
+	// warmup, when set, starts the browser on about:blank and hands it the
+	// capture URL this much later through a second invocation of binary on
+	// the same profile, which the running instance takes over.
+	warmup time.Duration
+	binary string
 }
+
+// chromeWarmup is how long a fresh Chrome profile settles before the capture
+// page. Within its first seconds it rebuilds its certificate verifiers (with
+// a new cookie store and server properties cache) and marks every open
+// connection as going away (net log: CERT_VERIFY_PROC_CREATED, then
+// QUIC_SESSION_POOL_MARK_ALL_ACTIVE_SESSIONS_GOING_AWAY), so a capture page
+// loaded at once moves to a second connection partway through. A
+// long-running Chrome never shows a server this; --disable-component-update
+// does not prevent it.
+const chromeWarmup = 5 * time.Second
 
 var macOSApps = map[string]string{
 	"chrome":  "/Applications/Google Chrome.app",
@@ -91,6 +106,11 @@ func Find() []*Browser {
 		switch name {
 		case "chrome":
 			b.prepare = chromeArgs
+			b.warmup = chromeWarmup
+			b.binary = b.Path
+			if b.App != "" {
+				b.binary = filepath.Join(b.App, "Contents", "MacOS", "Google Chrome")
+			}
 		case "firefox":
 			b.prepare = firefoxProfile
 		case "safari":
@@ -143,7 +163,11 @@ func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, 
 		_ = os.RemoveAll(dir)
 		return nil, err
 	}
-	args = append(args, b.URL(t))
+	if b.warmup > 0 {
+		args = append(args, "about:blank")
+	} else {
+		args = append(args, b.URL(t))
+	}
 	var cmd *exec.Cmd
 	if b.App != "" {
 		// -n: a new instance even if the user's browser is open. -W: open
@@ -166,7 +190,29 @@ func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, 
 		_ = cmd.Wait()
 		close(s.done)
 	}()
+	if b.warmup > 0 {
+		if err := b.handOff(ctx, s, dir, b.URL(t)); err != nil {
+			_ = s.Close()
+			return nil, err
+		}
+	}
 	return s, nil
+}
+
+// handOff waits out the warm-up, then passes url to the running instance by
+// invoking the browser again on the same profile directory.
+func (b *Browser) handOff(ctx context.Context, s *Session, dir, url string) error {
+	select {
+	case <-time.After(b.warmup):
+	case <-s.done:
+		return fmt.Errorf("%s exited during its warm-up", b.Name)
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	if out, err := exec.CommandContext(ctx, b.binary, "--user-data-dir="+dir, url).CombinedOutput(); err != nil { //nolint:gosec // the binary is a known browser location; dir is our own
+		return fmt.Errorf("handing %s the capture URL: %w: %s", b.Name, err, strings.TrimSpace(string(out)))
+	}
+	return nil
 }
 
 // Close stops the browser, killing it if it has not exited within five
