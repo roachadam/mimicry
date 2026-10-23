@@ -1,0 +1,304 @@
+[
+  {
+    "frames": [
+      {
+        "ms": 0,
+        "type": "SETTINGS",
+        "length": 24
+      },
+      {
+        "ms": 0,
+        "type": "WINDOW_UPDATE",
+        "length": 4,
+        "increment": 15663105
+      },
+      {
+        "ms": 0,
+        "type": "HEADERS",
+        "stream": 1,
+        "flags": 37,
+        "length": 467,
+        "priority": {
+          "depends_on": 0,
+          "exclusive": true,
+          "weight": 255
+        }
+      },
+      {
+        "ms": 0,
+        "type": "SETTINGS",
+        "flags": 1,
+        "length": 0
+      },
+      {
+        "ms": 0,
+        "type": "HEADERS",
+        "stream": 3,
+        "flags": 37,
+        "length": 703,
+        "priority": {
+          "depends_on": 0,
+          "exclusive": true,
+          "weight": 255
+        }
+      },
+      {
+        "ms": 0,
+        "type": "GOAWAY",
+        "length": 17,
+        "err_code": "NO_ERROR"
+      }
+    ],
+    "requests": [
+      {
+        "stream": 1,
+        "path": "/",
+        "block": "82418ba0e41d139d09b8e042fbbf878440874148b1275ad1ffb8fe6f4f61e935b4ff3f7de0fe42d8bf9fa53f9d274ff90c576c1d527f3f7de0fe44d7f3f4a7f388e79a82a97a7b0f497f9fbef07f216c5fcf408b4148b1275ad1ad49e33505023f30408d4148b1275ad1ad5d034ca7b29f07226d61634f53224092b6b9ac1c8558d520a4b6c2ad617b5a54251f01317ad9d07f66a281b0dae053fad0321aa49d13fda992a49685340c8a6adca7e28104416e277fb521aeba0bc8b1e632586d975765c53facd8f7e8cff4a506ea5531149d4ffda97a7b0f49580b625c0b817029b8728ec330db2eaecb9f53e5497ca589d34d1f43aeba0c41a4c7a98f33a69a3fdf9a68fa1d75d0620d263d4c79a68fbed00177fe8d48e62b03ee697e8d48e62b1e0b1d7f46a4731581d754df5f2c7cfdf6800bbdf43aeba0c41a4c7a9841a6a8b22c5f249c754c5fbef046cfdf6800bbbf408a4148b4a549275906497f83a8f517408a4148b4a549275a93c85f86a87dcd30d25f408a4148b4a549275ad416cf023f31408a4148b4a549275a42a13f8690e4b692d49f50929bd9abfa5242cb40d25fa523b3e94f684c9f518b2d4b70ddf45abefb4005df4086aec31ec327d785b6007d286f5887a47e561cc5801f",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "incremental",
+            "index": 1,
+            "name": ":authority",
+            "value": "localhost:61197",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 4,
+            "name": ":path",
+            "value": "/"
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-ch-ua",
+            "value": "\"Chromium\";v=\"152\", \"Not?A_Brand\";v=\"24\", \"Google Chrome\";v=\"152\"",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-ch-ua-mobile",
+            "value": "?0",
+            "huffman_name": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-ch-ua-platform",
+            "value": "\"macOS\"",
+            "huffman_name": true
+          },
+          {
+            "rep": "incremental",
+            "name": "upgrade-insecure-requests",
+            "value": "1",
+            "huffman_name": true
+          },
+          {
+            "rep": "incremental",
+            "index": 58,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 19,
+            "name": "accept",
+            "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-site",
+            "value": "none",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-mode",
+            "value": "navigate",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-user",
+            "value": "?1",
+            "huffman_name": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-dest",
+            "value": "document",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 16,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 17,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "priority",
+            "value": "u=0, i",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 24,
+            "name": "cache-control",
+            "value": "max-age=0",
+            "huffman_value": true
+          }
+        ]
+      },
+      {
+        "stream": 3,
+        "path": "/again",
+        "block": "82cc87048560730cd57fcbcac9c8c7c6c5c4c3c2c1c0bfbe60ff9f041f51c43140cfda9314f41c9047db3522e65c7cd151132e0ebec7c9c74252f67b1398af519ef37d7c6d278c97b72c5c1db4757377da910e3275821ce0fdae8c58cb7f3f55bf74719b417ce6cc093d6b9213c37d6f7d6eef7eecdcecca3f5ffdc1a9f7fc776ff1f1c397da41a7ad81691ebb7b0991f81a01eb5e96a1d5d3cde6bce526ec59abbd53583d33e504d13fe08cff8f78b06567a1b6471fed7e3b71b6de997677e7b7bbefb5b6f439d2f863d96da9a1e97d8f96b932efdcb1f057763a3047c79173d521dee1bf8de783533939f48e8651a6767f3377d9931746f8cbc764e9e9ffdbbd19db77c87761156edb39afd38713243537ed1dbebd57f9a2d9f66ee8f8d1a3635cff7046f20bf9b45ec38d0ff5177ffe8c5de7fc6a9b35eebe96635b1e64fe6b1600cc3b2fddafbfadc5c1db8df7f20fa3b668c3df3bcd43555fab47eaf10b8ab7bf315468f0f5dc9fcd4908dafceefe0d3eeee7bd976ecd24ebafadfe5791bb09c84ca14ef077efffd2eae146b66ee8c9a9edf3dd64b933d40779ddc2e78d64f0e580f591d7f5597784225b383a77e3d117aed0420a366d3e4f43e1bfd938ecc99418fde0bf9ff360fb8f75fc62bb6fb87c3fe27e9ec7f6a5468a4813639cbd17dfaf3e9ec99e391fe7e0577763ec3edd1ccb67e91dcedeb87ed4ac4183f768f66ff7d241f1bfbbbd03e1c7ed4ac4082995befb015fbc5b713bfb7483fb52b0bf07ef2eb9f37171f0dbffdb7269c7f6a466920a77b7b3af0ed266c35fe7600a38def052f27afa30e5d4185c9787a96a0be178af64e08a38e56b870fdffeb9b2b5b46ae78fc73bbe69fd9aedbb9ca2af7cfb85cf7f6a20d240990dffd5bdcb77373dffbcc57ca9e1839be75afc90e6c8b6ba5e97050eadbeefac7a77d73981334efbb7ffb839ad4bd0e436cdb2da219ecc472e6b7b1bb6519b",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "indexed",
+            "index": 76,
+            "name": ":authority",
+            "value": "localhost:61197"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "without",
+            "index": 4,
+            "name": ":path",
+            "value": "/again",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 75,
+            "name": "sec-ch-ua",
+            "value": "\"Chromium\";v=\"152\", \"Not?A_Brand\";v=\"24\", \"Google Chrome\";v=\"152\""
+          },
+          {
+            "rep": "indexed",
+            "index": 74,
+            "name": "sec-ch-ua-mobile",
+            "value": "?0"
+          },
+          {
+            "rep": "indexed",
+            "index": 73,
+            "name": "sec-ch-ua-platform",
+            "value": "\"macOS\""
+          },
+          {
+            "rep": "indexed",
+            "index": 72,
+            "name": "upgrade-insecure-requests",
+            "value": "1"
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36"
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": "accept",
+            "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+          },
+          {
+            "rep": "indexed",
+            "index": 69,
+            "name": "sec-fetch-site",
+            "value": "none"
+          },
+          {
+            "rep": "indexed",
+            "index": 68,
+            "name": "sec-fetch-mode",
+            "value": "navigate"
+          },
+          {
+            "rep": "indexed",
+            "index": 67,
+            "name": "sec-fetch-user",
+            "value": "?1"
+          },
+          {
+            "rep": "indexed",
+            "index": 66,
+            "name": "sec-fetch-dest",
+            "value": "document"
+          },
+          {
+            "rep": "indexed",
+            "index": 65,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 64,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 63,
+            "name": "priority",
+            "value": "u=0, i"
+          },
+          {
+            "rep": "indexed",
+            "index": 62,
+            "name": "cache-control",
+            "value": "max-age=0"
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "aka_a2=3; geoloc=bqKm2YeHYsnctfEkzaW671eeq8G6GClLC5kwRcwICS-eEqMk6S; _abck=AL0ZplGHeDLk-ZMVgMexKK0dyPdAoAD-zkBT9BgYrJay~EO99wv5X9aAJzt0Nkr14syqz1isX1l0yPN4AOjxC4xJcSGKpCn4Ey3xscMhX2i9wzGEJ3jiQbbZpwqVuujJQvYRv994RCALt91bQuutl8fzaWPdJTS-oEpBblEbVWeLndo8UTVC81n3IYjbl3sNh3XKvQIGj5VfVQhtj~Bj3RBx1SF2p7uhiDmFG3cimDuauyypXMuhQSj9asMQ4YZEb8seXR2z1Hs9k2v~a2vhX4mrPSDt3b-HKtXP2E1garDBpvySeEqVD9Iaj7rMFvL84AnnZ-byCceGp8XGnibFkStXOt1a4Xv9ENzBLCJRQNckPkDWCsSFoccJ1tT0vv~eOUlP3BMIO8ThB3eILn07YBF6wPcw6r0yI79OrBUA2-L0jvVjsCBlcc2b3uoIyaUTzcVQIJ0HzEDLXQavaSDH2BuzAw9whjza; ni_d=tr6Wyezyxy8ILbd9Yw2BSHqaqj6JrZc7L5PA; p21=ZRaQTzjdaVDSvlaUV; p20=mf5vQ0pzGRG7ZBca; p19=ZWkLKV691u~uINH; bid=mT5QkUqdKFpXq02bb8weeW8DsFJO1A6fUyfn1918e8IUslVJ4UUZ~6Qp-MOYHwYBxmZgBuS6lnzYv16z; sid=tdi~-zfBKYTZY2DetUEY9o-DdAKI-Pm8fEl7-TByHNTphi0g47zu~EY-m8AIiQRfu2aorGoeKuqiqJai",
+            "huffman_value": true
+          }
+        ]
+      }
+    ]
+  }
+]

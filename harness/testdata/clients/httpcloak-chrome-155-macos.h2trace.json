@@ -1,0 +1,1019 @@
+[
+  {
+    "frames": [
+      {
+        "ms": 0,
+        "type": "SETTINGS",
+        "length": 24
+      },
+      {
+        "ms": 0,
+        "type": "WINDOW_UPDATE",
+        "length": 4,
+        "increment": 15663105
+      },
+      {
+        "ms": 0,
+        "type": "HEADERS",
+        "stream": 1,
+        "flags": 37,
+        "length": 465,
+        "priority": {
+          "depends_on": 0,
+          "exclusive": true,
+          "weight": 255
+        }
+      },
+      {
+        "ms": 0,
+        "type": "SETTINGS",
+        "flags": 1,
+        "length": 0
+      },
+      {
+        "ms": 0,
+        "type": "HEADERS",
+        "stream": 3,
+        "flags": 37,
+        "length": 708,
+        "priority": {
+          "depends_on": 0,
+          "exclusive": true,
+          "weight": 255
+        }
+      }
+    ],
+    "requests": [
+      {
+        "stream": 1,
+        "path": "/",
+        "block": "82418ba0e41d139d09b8e040f87f878440874148b1275ad1ffb8fe711cf350552f4f61e92ff3f7de0fe42db7fcfd29fcde9ec3d26b69fe7efbc1fc85b6ff9fa53f9d274ff50dcbb60ea93f9fbef07f226bf9408b4148b1275ad1ad49e33505023f30408d4148b1275ad1ad5d034ca7b29f07226d61634f53224092b6b9ac1c8558d520a4b6c2ad617b5a54251f01317ad9d07f66a281b0dae053fad0321aa49d13fda992a49685340c8a6adca7e28104416e277fb521aeba0bc8b1e632586d975765c53facd8f7e8cff4a506ea5531149d4ffda97a7b0f49580b6dae05c0b814dc394761986d975765cf53ec497ca589d34d1f43aeba0c41a4c7a98f33a69a3fdf9a68fa1d75d0620d263d4c79a68fbed00177fe8d48e62b1d3cd1f46a4731581f734bf46a473158f058ebfa352398ac0ebaa6faf963e7efb4005defa1d75d0620d263d4c20d35459162f924e3aa62fdf782367efb4005dd408a4148b4a549275906497f83a8f517408a4148b4a549275a93c85f86a87dcd30d25f408a4148b4a549275ad416cf023f31408a4148b4a549275a42a13f8690e4b692d49f50929bd9abfa5242cb40d25fa523b3e94f684c9f518b2d4b70ddf45abefb4005df4086aec31ec327d785b6007d286f",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "incremental",
+            "index": 1,
+            "name": ":authority",
+            "value": "localhost:61091",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 4,
+            "name": ":path",
+            "value": "/"
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-ch-ua",
+            "value": "\"Google Chrome\";v=\"155\", \"Chromium\";v=\"155\", \"Not(A:Brand\";v=\"24\"",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-ch-ua-mobile",
+            "value": "?0",
+            "huffman_name": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-ch-ua-platform",
+            "value": "\"macOS\"",
+            "huffman_name": true
+          },
+          {
+            "rep": "incremental",
+            "name": "upgrade-insecure-requests",
+            "value": "1",
+            "huffman_name": true
+          },
+          {
+            "rep": "incremental",
+            "index": 58,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 19,
+            "name": "accept",
+            "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-site",
+            "value": "none",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-mode",
+            "value": "navigate",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-user",
+            "value": "?1",
+            "huffman_name": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-dest",
+            "value": "document",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 16,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 17,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "priority",
+            "value": "u=0, i",
+            "huffman_name": true,
+            "huffman_value": true
+          }
+        ]
+      },
+      {
+        "stream": 3,
+        "path": "/again",
+        "block": "82cb87048560730cd57fcac9c8c7c6c5c4c3c2c1c0bf60c341a481321bffab7b96ee6e7bff798af953c30737ceb5f921cd916d74bd2e0a1d5b7ddf58f4efae7302669df76fff70735a97a1c86d9b65b4433d988e5cd6f6376ca33760c48cd2414ef6f675e1da4cd86bfcec01471bde0a5e4f5f461cba830b92f0f52d417c2f15ec9c11471cad70e1fbffd73656b68d5cf1f8e777cd3fb35db7739455ef9f70b9ef60ad98a7a0e4823ed9a91732e3e68a88997075f63e4e3a1297b3d89cc57a8cf79bebe3693c64bdb962e0eda3ab9bbf60861f51c43140cf60ff8802887193ac10e707ed7462c65bf9faadfba38cda0be7366049eb5c909e1beb7beb777bf766e76651faffee0d4fbfe3bb7f8f8e1cbed20d3d6c0b48f5dbd84c8fc0d00f5af4b50eae9e6f35e7293762cd5dea9ac1e99f282689ff0467fc7bc5832b3d0db238ff6bf1db8db6f4cbb3bf3dbddf7dadb7a1ce97c31ecb6d4d0f4bec7cb5c9977ee58f82bbb1d1823e3c8b9ea90ef70dfc6f3c1a99c9cfa474328d33b3f99bbecc98ba37c65e3b274f4ffedde8cedbbe43bb08ab76d9cd7e9c389921a9bf68edf5eabfcd16cfb37747c68d1b1ae7fb8237905fcda2f61c687fa8bbfff462ef3fe354d9af75f4b31ad8f327f358b00661d97eed7dfd6e2e0edc6fbf907d1db3461ef9de6a1aaafd5a3f57885c55bdf98aa34787aee4fe6a4846d7e777f069f7773decbb7669275d7d6ff2bc8dd84e42650a7783bf7ffe97570a35b377464d4f6f9eeb25c99ea03bceee173c6b27872c07ac8ebfaacbbc2112d9c1d3bf1e88bd76821051b369f27a1f0dfec9c7664ca0c7ef05fcff9b07dc7bafe315db7dc3e1ff13f4f63f60a1a8d149026c7397a2fbf5e7d3d933c723fcfc0aeeec7d87dba3996cfd23b9dbd70f6091ac2fc1fbcbae7cdc5c7c36fff6dc9a71ff6090ac4082995befb015fbc5b713bfb7483f6091ac4183f768f66ff7d241f1bfbbbd03e1c7c7",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "indexed",
+            "index": 75,
+            "name": ":authority",
+            "value": "localhost:61091"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "without",
+            "index": 4,
+            "name": ":path",
+            "value": "/again",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 74,
+            "name": "sec-ch-ua",
+            "value": "\"Google Chrome\";v=\"155\", \"Chromium\";v=\"155\", \"Not(A:Brand\";v=\"24\""
+          },
+          {
+            "rep": "indexed",
+            "index": 73,
+            "name": "sec-ch-ua-mobile",
+            "value": "?0"
+          },
+          {
+            "rep": "indexed",
+            "index": 72,
+            "name": "sec-ch-ua-platform",
+            "value": "\"macOS\""
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "upgrade-insecure-requests",
+            "value": "1"
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+          },
+          {
+            "rep": "indexed",
+            "index": 69,
+            "name": "accept",
+            "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+          },
+          {
+            "rep": "indexed",
+            "index": 68,
+            "name": "sec-fetch-site",
+            "value": "none"
+          },
+          {
+            "rep": "indexed",
+            "index": 67,
+            "name": "sec-fetch-mode",
+            "value": "navigate"
+          },
+          {
+            "rep": "indexed",
+            "index": 66,
+            "name": "sec-fetch-user",
+            "value": "?1"
+          },
+          {
+            "rep": "indexed",
+            "index": 65,
+            "name": "sec-fetch-dest",
+            "value": "document"
+          },
+          {
+            "rep": "indexed",
+            "index": 64,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 63,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "sid=tdi~-zfBKYTZY2DetUEY9o-DdAKI-Pm8fEl7-TByHNTphi0g47zu~EY-m8AIiQRfu2aorGoeKuqiqJai",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "bid=mT5QkUqdKFpXq02bb8weeW8DsFJO1A6fUyfn1918e8IUslVJ4UUZ~6Qp-MOYHwYBxmZgBuS6lnzYv16z",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "geoloc=bqKm2YeHYsnctfEkzaW671eeq8G6GClLC5kwRcwICS-eEqMk6S",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "aka_a2=3",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "_abck=AL0ZplGHeDLk-ZMVgMexKK0dyPdAoAD-zkBT9BgYrJay~EO99wv5X9aAJzt0Nkr14syqz1isX1l0yPN4AOjxC4xJcSGKpCn4Ey3xscMhX2i9wzGEJ3jiQbbZpwqVuujJQvYRv994RCALt91bQuutl8fzaWPdJTS-oEpBblEbVWeLndo8UTVC81n3IYjbl3sNh3XKvQIGj5VfVQhtj~Bj3RBx1SF2p7uhiDmFG3cimDuauyypXMuhQSj9asMQ4YZEb8seXR2z1Hs9k2v~a2vhX4mrPSDt3b-HKtXP2E1garDBpvySeEqVD9Iaj7rMFvL84AnnZ-byCceGp8XGnibFkStXOt1a4Xv9ENzBLCJRQNckPkDWCsSFoccJ1tT0vv~eOUlP3BMIO8ThB3eILn07YBF6wPcw6r0yI79OrBUA2-L0jvVjsCBlcc2b3uoIyaUTzcVQIJ0HzEDLXQavaSDH2BuzAw9whjza",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "ni_d=tr6Wyezyxy8ILbd9Yw2BSHqaqj6JrZc7L5PA",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "p19=ZWkLKV691u~uINH",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "p20=mf5vQ0pzGRG7ZBca",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "p21=ZRaQTzjdaVDSvlaUV",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "priority",
+            "value": "u=0, i"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "frames": [
+      {
+        "ms": 0,
+        "type": "SETTINGS",
+        "length": 24
+      },
+      {
+        "ms": 0,
+        "type": "WINDOW_UPDATE",
+        "length": 4,
+        "increment": 15663105
+      },
+      {
+        "ms": 0,
+        "type": "HEADERS",
+        "stream": 1,
+        "flags": 37,
+        "length": 465,
+        "priority": {
+          "depends_on": 0,
+          "exclusive": true,
+          "weight": 255
+        }
+      },
+      {
+        "ms": 0,
+        "type": "SETTINGS",
+        "flags": 1,
+        "length": 0
+      },
+      {
+        "ms": 0,
+        "type": "HEADERS",
+        "stream": 3,
+        "flags": 37,
+        "length": 708,
+        "priority": {
+          "depends_on": 0,
+          "exclusive": true,
+          "weight": 255
+        }
+      }
+    ],
+    "requests": [
+      {
+        "stream": 1,
+        "path": "/",
+        "block": "82418ba0e41d139d09b8e040fb9f878440874148b1275ad1ffb8fe711cf350552f4f61e92ff3f7de0fe42db7fcfd29fcde9ec3d26b69fe7efbc1fc85b6ff9fa53f9d274ff50dcbb60ea93f9fbef07f226bf9408b4148b1275ad1ad49e33505023f30408d4148b1275ad1ad5d034ca7b29f07226d61634f53224092b6b9ac1c8558d520a4b6c2ad617b5a54251f01317ad9d07f66a281b0dae053fad0321aa49d13fda992a49685340c8a6adca7e28104416e277fb521aeba0bc8b1e632586d975765c53facd8f7e8cff4a506ea5531149d4ffda97a7b0f49580b6dae05c0b814dc394761986d975765cf53ec497ca589d34d1f43aeba0c41a4c7a98f33a69a3fdf9a68fa1d75d0620d263d4c79a68fbed00177fe8d48e62b1d3cd1f46a4731581f734bf46a473158f058ebfa352398ac0ebaa6faf963e7efb4005defa1d75d0620d263d4c20d35459162f924e3aa62fdf782367efb4005dd408a4148b4a549275906497f83a8f517408a4148b4a549275a93c85f86a87dcd30d25f408a4148b4a549275ad416cf023f31408a4148b4a549275a42a13f8690e4b692d49f50929bd9abfa5242cb40d25fa523b3e94f684c9f518b2d4b70ddf45abefb4005df4086aec31ec327d785b6007d286f",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "incremental",
+            "index": 1,
+            "name": ":authority",
+            "value": "localhost:61096",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 4,
+            "name": ":path",
+            "value": "/"
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-ch-ua",
+            "value": "\"Google Chrome\";v=\"155\", \"Chromium\";v=\"155\", \"Not(A:Brand\";v=\"24\"",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-ch-ua-mobile",
+            "value": "?0",
+            "huffman_name": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-ch-ua-platform",
+            "value": "\"macOS\"",
+            "huffman_name": true
+          },
+          {
+            "rep": "incremental",
+            "name": "upgrade-insecure-requests",
+            "value": "1",
+            "huffman_name": true
+          },
+          {
+            "rep": "incremental",
+            "index": 58,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 19,
+            "name": "accept",
+            "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-site",
+            "value": "none",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-mode",
+            "value": "navigate",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-user",
+            "value": "?1",
+            "huffman_name": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-dest",
+            "value": "document",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 16,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 17,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "priority",
+            "value": "u=0, i",
+            "huffman_name": true,
+            "huffman_value": true
+          }
+        ]
+      },
+      {
+        "stream": 3,
+        "path": "/again",
+        "block": "82cb87048560730cd57fcac9c8c7c6c5c4c3c2c1c0bf60c341a481321bffab7b96ee6e7bff798af953c30737ceb5f921cd916d74bd2e0a1d5b7ddf58f4efae7302669df76fff70735a97a1c86d9b65b4433d988e5cd6f6376ca33760c48cd2414ef6f675e1da4cd86bfcec01471bde0a5e4f5f461cba830b92f0f52d417c2f15ec9c11471cad70e1fbffd73656b68d5cf1f8e777cd3fb35db7739455ef9f70b9ef60ad98a7a0e4823ed9a91732e3e68a88997075f63e4e3a1297b3d89cc57a8cf79bebe3693c64bdb962e0eda3ab9bbf60861f51c43140cf60ff8802887193ac10e707ed7462c65bf9faadfba38cda0be7366049eb5c909e1beb7beb777bf766e76651faffee0d4fbfe3bb7f8f8e1cbed20d3d6c0b48f5dbd84c8fc0d00f5af4b50eae9e6f35e7293762cd5dea9ac1e99f282689ff0467fc7bc5832b3d0db238ff6bf1db8db6f4cbb3bf3dbddf7dadb7a1ce97c31ecb6d4d0f4bec7cb5c9977ee58f82bbb1d1823e3c8b9ea90ef70dfc6f3c1a99c9cfa474328d33b3f99bbecc98ba37c65e3b274f4ffedde8cedbbe43bb08ab76d9cd7e9c389921a9bf68edf5eabfcd16cfb37747c68d1b1ae7fb8237905fcda2f61c687fa8bbfff462ef3fe354d9af75f4b31ad8f327f358b00661d97eed7dfd6e2e0edc6fbf907d1db3461ef9de6a1aaafd5a3f57885c55bdf98aa34787aee4fe6a4846d7e777f069f7773decbb7669275d7d6ff2bc8dd84e42650a7783bf7ffe97570a35b377464d4f6f9eeb25c99ea03bceee173c6b27872c07ac8ebfaacbbc2112d9c1d3bf1e88bd76821051b369f27a1f0dfec9c7664ca0c7ef05fcff9b07dc7bafe315db7dc3e1ff13f4f63f60a1a8d149026c7397a2fbf5e7d3d933c723fcfc0aeeec7d87dba3996cfd23b9dbd70f6091ac2fc1fbcbae7cdc5c7c36fff6dc9a71ff6090ac4082995befb015fbc5b713bfb7483f6091ac4183f768f66ff7d241f1bfbbbd03e1c7c7",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "indexed",
+            "index": 75,
+            "name": ":authority",
+            "value": "localhost:61096"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "without",
+            "index": 4,
+            "name": ":path",
+            "value": "/again",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 74,
+            "name": "sec-ch-ua",
+            "value": "\"Google Chrome\";v=\"155\", \"Chromium\";v=\"155\", \"Not(A:Brand\";v=\"24\""
+          },
+          {
+            "rep": "indexed",
+            "index": 73,
+            "name": "sec-ch-ua-mobile",
+            "value": "?0"
+          },
+          {
+            "rep": "indexed",
+            "index": 72,
+            "name": "sec-ch-ua-platform",
+            "value": "\"macOS\""
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "upgrade-insecure-requests",
+            "value": "1"
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+          },
+          {
+            "rep": "indexed",
+            "index": 69,
+            "name": "accept",
+            "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+          },
+          {
+            "rep": "indexed",
+            "index": 68,
+            "name": "sec-fetch-site",
+            "value": "none"
+          },
+          {
+            "rep": "indexed",
+            "index": 67,
+            "name": "sec-fetch-mode",
+            "value": "navigate"
+          },
+          {
+            "rep": "indexed",
+            "index": 66,
+            "name": "sec-fetch-user",
+            "value": "?1"
+          },
+          {
+            "rep": "indexed",
+            "index": 65,
+            "name": "sec-fetch-dest",
+            "value": "document"
+          },
+          {
+            "rep": "indexed",
+            "index": 64,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 63,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "sid=tdi~-zfBKYTZY2DetUEY9o-DdAKI-Pm8fEl7-TByHNTphi0g47zu~EY-m8AIiQRfu2aorGoeKuqiqJai",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "bid=mT5QkUqdKFpXq02bb8weeW8DsFJO1A6fUyfn1918e8IUslVJ4UUZ~6Qp-MOYHwYBxmZgBuS6lnzYv16z",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "geoloc=bqKm2YeHYsnctfEkzaW671eeq8G6GClLC5kwRcwICS-eEqMk6S",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "aka_a2=3",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "_abck=AL0ZplGHeDLk-ZMVgMexKK0dyPdAoAD-zkBT9BgYrJay~EO99wv5X9aAJzt0Nkr14syqz1isX1l0yPN4AOjxC4xJcSGKpCn4Ey3xscMhX2i9wzGEJ3jiQbbZpwqVuujJQvYRv994RCALt91bQuutl8fzaWPdJTS-oEpBblEbVWeLndo8UTVC81n3IYjbl3sNh3XKvQIGj5VfVQhtj~Bj3RBx1SF2p7uhiDmFG3cimDuauyypXMuhQSj9asMQ4YZEb8seXR2z1Hs9k2v~a2vhX4mrPSDt3b-HKtXP2E1garDBpvySeEqVD9Iaj7rMFvL84AnnZ-byCceGp8XGnibFkStXOt1a4Xv9ENzBLCJRQNckPkDWCsSFoccJ1tT0vv~eOUlP3BMIO8ThB3eILn07YBF6wPcw6r0yI79OrBUA2-L0jvVjsCBlcc2b3uoIyaUTzcVQIJ0HzEDLXQavaSDH2BuzAw9whjza",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "ni_d=tr6Wyezyxy8ILbd9Yw2BSHqaqj6JrZc7L5PA",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "p19=ZWkLKV691u~uINH",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "p20=mf5vQ0pzGRG7ZBca",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "p21=ZRaQTzjdaVDSvlaUV",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "priority",
+            "value": "u=0, i"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "frames": [
+      {
+        "ms": 0,
+        "type": "SETTINGS",
+        "length": 24
+      },
+      {
+        "ms": 0,
+        "type": "WINDOW_UPDATE",
+        "length": 4,
+        "increment": 15663105
+      },
+      {
+        "ms": 0,
+        "type": "HEADERS",
+        "stream": 1,
+        "flags": 37,
+        "length": 465,
+        "priority": {
+          "depends_on": 0,
+          "exclusive": true,
+          "weight": 255
+        }
+      },
+      {
+        "ms": 0,
+        "type": "SETTINGS",
+        "flags": 1,
+        "length": 0
+      },
+      {
+        "ms": 0,
+        "type": "HEADERS",
+        "stream": 3,
+        "flags": 37,
+        "length": 708,
+        "priority": {
+          "depends_on": 0,
+          "exclusive": true,
+          "weight": 255
+        }
+      }
+    ],
+    "requests": [
+      {
+        "stream": 1,
+        "path": "/",
+        "block": "82418ba0e41d139d09b8e04200ff878440874148b1275ad1ffb8fe711cf350552f4f61e92ff3f7de0fe42db7fcfd29fcde9ec3d26b69fe7efbc1fc85b6ff9fa53f9d274ff50dcbb60ea93f9fbef07f226bf9408b4148b1275ad1ad49e33505023f30408d4148b1275ad1ad5d034ca7b29f07226d61634f53224092b6b9ac1c8558d520a4b6c2ad617b5a54251f01317ad9d07f66a281b0dae053fad0321aa49d13fda992a49685340c8a6adca7e28104416e277fb521aeba0bc8b1e632586d975765c53facd8f7e8cff4a506ea5531149d4ffda97a7b0f49580b6dae05c0b814dc394761986d975765cf53ec497ca589d34d1f43aeba0c41a4c7a98f33a69a3fdf9a68fa1d75d0620d263d4c79a68fbed00177fe8d48e62b1d3cd1f46a4731581f734bf46a473158f058ebfa352398ac0ebaa6faf963e7efb4005defa1d75d0620d263d4c20d35459162f924e3aa62fdf782367efb4005dd408a4148b4a549275906497f83a8f517408a4148b4a549275a93c85f86a87dcd30d25f408a4148b4a549275ad416cf023f31408a4148b4a549275a42a13f8690e4b692d49f50929bd9abfa5242cb40d25fa523b3e94f684c9f518b2d4b70ddf45abefb4005df4086aec31ec327d785b6007d286f",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "incremental",
+            "index": 1,
+            "name": ":authority",
+            "value": "localhost:61101",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 4,
+            "name": ":path",
+            "value": "/"
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-ch-ua",
+            "value": "\"Google Chrome\";v=\"155\", \"Chromium\";v=\"155\", \"Not(A:Brand\";v=\"24\"",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-ch-ua-mobile",
+            "value": "?0",
+            "huffman_name": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-ch-ua-platform",
+            "value": "\"macOS\"",
+            "huffman_name": true
+          },
+          {
+            "rep": "incremental",
+            "name": "upgrade-insecure-requests",
+            "value": "1",
+            "huffman_name": true
+          },
+          {
+            "rep": "incremental",
+            "index": 58,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 19,
+            "name": "accept",
+            "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-site",
+            "value": "none",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-mode",
+            "value": "navigate",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-user",
+            "value": "?1",
+            "huffman_name": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-dest",
+            "value": "document",
+            "huffman_name": true,
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 16,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 17,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "name": "priority",
+            "value": "u=0, i",
+            "huffman_name": true,
+            "huffman_value": true
+          }
+        ]
+      },
+      {
+        "stream": 3,
+        "path": "/again",
+        "block": "82cb87048560730cd57fcac9c8c7c6c5c4c3c2c1c0bf60c341a481321bffab7b96ee6e7bff798af953c30737ceb5f921cd916d74bd2e0a1d5b7ddf58f4efae7302669df76fff70735a97a1c86d9b65b4433d988e5cd6f6376ca33760c48cd2414ef6f675e1da4cd86bfcec01471bde0a5e4f5f461cba830b92f0f52d417c2f15ec9c11471cad70e1fbffd73656b68d5cf1f8e777cd3fb35db7739455ef9f70b9ef60ad98a7a0e4823ed9a91732e3e68a88997075f63e4e3a1297b3d89cc57a8cf79bebe3693c64bdb962e0eda3ab9bbf60861f51c43140cf60ff8802887193ac10e707ed7462c65bf9faadfba38cda0be7366049eb5c909e1beb7beb777bf766e76651faffee0d4fbfe3bb7f8f8e1cbed20d3d6c0b48f5dbd84c8fc0d00f5af4b50eae9e6f35e7293762cd5dea9ac1e99f282689ff0467fc7bc5832b3d0db238ff6bf1db8db6f4cbb3bf3dbddf7dadb7a1ce97c31ecb6d4d0f4bec7cb5c9977ee58f82bbb1d1823e3c8b9ea90ef70dfc6f3c1a99c9cfa474328d33b3f99bbecc98ba37c65e3b274f4ffedde8cedbbe43bb08ab76d9cd7e9c389921a9bf68edf5eabfcd16cfb37747c68d1b1ae7fb8237905fcda2f61c687fa8bbfff462ef3fe354d9af75f4b31ad8f327f358b00661d97eed7dfd6e2e0edc6fbf907d1db3461ef9de6a1aaafd5a3f57885c55bdf98aa34787aee4fe6a4846d7e777f069f7773decbb7669275d7d6ff2bc8dd84e42650a7783bf7ffe97570a35b377464d4f6f9eeb25c99ea03bceee173c6b27872c07ac8ebfaacbbc2112d9c1d3bf1e88bd76821051b369f27a1f0dfec9c7664ca0c7ef05fcff9b07dc7bafe315db7dc3e1ff13f4f63f60a1a8d149026c7397a2fbf5e7d3d933c723fcfc0aeeec7d87dba3996cfd23b9dbd70f6091ac2fc1fbcbae7cdc5c7c36fff6dc9a71ff6090ac4082995befb015fbc5b713bfb7483f6091ac4183f768f66ff7d241f1bfbbbd03e1c7c7",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "indexed",
+            "index": 75,
+            "name": ":authority",
+            "value": "localhost:61101"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "without",
+            "index": 4,
+            "name": ":path",
+            "value": "/again",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 74,
+            "name": "sec-ch-ua",
+            "value": "\"Google Chrome\";v=\"155\", \"Chromium\";v=\"155\", \"Not(A:Brand\";v=\"24\""
+          },
+          {
+            "rep": "indexed",
+            "index": 73,
+            "name": "sec-ch-ua-mobile",
+            "value": "?0"
+          },
+          {
+            "rep": "indexed",
+            "index": 72,
+            "name": "sec-ch-ua-platform",
+            "value": "\"macOS\""
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "upgrade-insecure-requests",
+            "value": "1"
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+          },
+          {
+            "rep": "indexed",
+            "index": 69,
+            "name": "accept",
+            "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+          },
+          {
+            "rep": "indexed",
+            "index": 68,
+            "name": "sec-fetch-site",
+            "value": "none"
+          },
+          {
+            "rep": "indexed",
+            "index": 67,
+            "name": "sec-fetch-mode",
+            "value": "navigate"
+          },
+          {
+            "rep": "indexed",
+            "index": 66,
+            "name": "sec-fetch-user",
+            "value": "?1"
+          },
+          {
+            "rep": "indexed",
+            "index": 65,
+            "name": "sec-fetch-dest",
+            "value": "document"
+          },
+          {
+            "rep": "indexed",
+            "index": 64,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 63,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "sid=tdi~-zfBKYTZY2DetUEY9o-DdAKI-Pm8fEl7-TByHNTphi0g47zu~EY-m8AIiQRfu2aorGoeKuqiqJai",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "bid=mT5QkUqdKFpXq02bb8weeW8DsFJO1A6fUyfn1918e8IUslVJ4UUZ~6Qp-MOYHwYBxmZgBuS6lnzYv16z",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "geoloc=bqKm2YeHYsnctfEkzaW671eeq8G6GClLC5kwRcwICS-eEqMk6S",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "aka_a2=3",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "_abck=AL0ZplGHeDLk-ZMVgMexKK0dyPdAoAD-zkBT9BgYrJay~EO99wv5X9aAJzt0Nkr14syqz1isX1l0yPN4AOjxC4xJcSGKpCn4Ey3xscMhX2i9wzGEJ3jiQbbZpwqVuujJQvYRv994RCALt91bQuutl8fzaWPdJTS-oEpBblEbVWeLndo8UTVC81n3IYjbl3sNh3XKvQIGj5VfVQhtj~Bj3RBx1SF2p7uhiDmFG3cimDuauyypXMuhQSj9asMQ4YZEb8seXR2z1Hs9k2v~a2vhX4mrPSDt3b-HKtXP2E1garDBpvySeEqVD9Iaj7rMFvL84AnnZ-byCceGp8XGnibFkStXOt1a4Xv9ENzBLCJRQNckPkDWCsSFoccJ1tT0vv~eOUlP3BMIO8ThB3eILn07YBF6wPcw6r0yI79OrBUA2-L0jvVjsCBlcc2b3uoIyaUTzcVQIJ0HzEDLXQavaSDH2BuzAw9whjza",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "ni_d=tr6Wyezyxy8ILbd9Yw2BSHqaqj6JrZc7L5PA",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "p19=ZWkLKV691u~uINH",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "p20=mf5vQ0pzGRG7ZBca",
+            "huffman_value": true
+          },
+          {
+            "rep": "incremental",
+            "index": 32,
+            "name": "cookie",
+            "value": "p21=ZRaQTzjdaVDSvlaUV",
+            "huffman_value": true
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "priority",
+            "value": "u=0, i"
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,226 @@
+{
+  "name": "mimicry-chrome-155-macos",
+  "browser": "chrome",
+  "version": "155",
+  "platform": "macos",
+  "tls": {
+    "cipher_suites": [
+      "GREASE",
+      "0x1301",
+      "0x1302",
+      "0x1303",
+      "0xc02b",
+      "0xc02f",
+      "0xc02c",
+      "0xc030",
+      "0xcca9",
+      "0xcca8",
+      "0xc013",
+      "0xc014",
+      "0x009c",
+      "0x009d",
+      "0x002f",
+      "0x0035"
+    ],
+    "compression_methods": [
+      0
+    ],
+    "extension_order": "shuffled",
+    "extensions": [
+      {
+        "type": "GREASE"
+      },
+      {
+        "type": "0xca34",
+        "data": "00b80582df1302010582df1302060582df13020d0582df13020e0582df13020f0582df1302120582df1302130582df13021408839a648c9b2d010708839a648c9b2d010808839a648c9b2d010908839a648c9b2d010a08839a648c9b2d010b08839a648c9b2d010c08839a648c9b2d010d08839a648c9b2d011208839a648c9b2d011304d679090104d679090404d679090504d679090604d679090704d679090804d679090a04d679090b04d679090c04d679090d04d679090f"
+      },
+      {
+        "type": "0x001b",
+        "cert_compression": [
+          "0x0002"
+        ]
+      },
+      {
+        "type": "0xfe0d"
+      },
+      {
+        "type": "0x0017"
+      },
+      {
+        "type": "0x0033",
+        "key_shares": [
+          "GREASE",
+          "0x11ec",
+          "0x001d"
+        ]
+      },
+      {
+        "type": "0x0010",
+        "alpn": [
+          "h2",
+          "http/1.1"
+        ]
+      },
+      {
+        "type": "0x0012"
+      },
+      {
+        "type": "0x002d",
+        "psk_modes": [
+          1
+        ]
+      },
+      {
+        "type": "0x000d",
+        "signature_algorithms": [
+          "GREASE",
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0403",
+          "0x0804",
+          "0x0401",
+          "0x0503",
+          "0x0805",
+          "0x0501",
+          "0x0806",
+          "0x0601"
+        ]
+      },
+      {
+        "type": "0x000a",
+        "groups": [
+          "GREASE",
+          "0x11ec",
+          "0x001d",
+          "0x0017",
+          "0x0018"
+        ]
+      },
+      {
+        "type": "0xff01",
+        "data": "00"
+      },
+      {
+        "type": "0x0023"
+      },
+      {
+        "type": "0x0005",
+        "data": "0100000000"
+      },
+      {
+        "type": "0x002b",
+        "versions": [
+          "GREASE",
+          "0x0304",
+          "0x0303"
+        ]
+      },
+      {
+        "type": "0x000b",
+        "point_formats": [
+          0
+        ]
+      },
+      {
+        "type": "0x44cd",
+        "alps": [
+          "h2"
+        ]
+      },
+      {
+        "type": "0x0000"
+      },
+      {
+        "type": "GREASE",
+        "data": "00"
+      }
+    ]
+  },
+  "http2": {
+    "settings": [
+      {
+        "id": 1,
+        "value": 65536
+      },
+      {
+        "id": 2,
+        "value": 0
+      },
+      {
+        "id": 4,
+        "value": 6291456
+      },
+      {
+        "id": 6,
+        "value": 262144
+      }
+    ],
+    "window_update": 15663105,
+    "headers_priority": {
+      "depends_on": 0,
+      "exclusive": true,
+      "weight": 255
+    },
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ]
+  },
+  "headers": [
+    {
+      "name": "sec-ch-ua",
+      "value": "\"Google Chrome\";v=\"155\", \"Chromium\";v=\"155\", \"Not(A:Brand\";v=\"24\""
+    },
+    {
+      "name": "sec-ch-ua-mobile",
+      "value": "?0"
+    },
+    {
+      "name": "sec-ch-ua-platform",
+      "value": "\"macOS\""
+    },
+    {
+      "name": "upgrade-insecure-requests",
+      "value": "1"
+    },
+    {
+      "name": "user-agent",
+      "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+    },
+    {
+      "name": "accept",
+      "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+    },
+    {
+      "name": "sec-fetch-site",
+      "value": "none"
+    },
+    {
+      "name": "sec-fetch-mode",
+      "value": "navigate"
+    },
+    {
+      "name": "sec-fetch-user",
+      "value": "?1"
+    },
+    {
+      "name": "sec-fetch-dest",
+      "value": "document"
+    },
+    {
+      "name": "accept-encoding",
+      "value": "gzip, deflate, br, zstd"
+    },
+    {
+      "name": "accept-language",
+      "value": "en-US,en;q=0.9"
+    },
+    {
+      "name": "priority",
+      "value": "u=0, i"
+    }
+  ]
+}
