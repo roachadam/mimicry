@@ -70,6 +70,8 @@ Behaviour that depends on time (Chrome's 5 s credit return, its idle PING) is te
 
 Built-in profiles are JSON files in `profiles/data/`, one per browser version and platform; the typed Go variables are generated from them. Every built-in profile must pass `profile.Parse`, enforced twice: the generator refuses to generate from an invalid file, and a test in `profiles` parses every embedded file. A profile without a matching capture in `harness/testdata/captures/` is not finished.
 
+Each profile file is complete and self-contained: no inheritance between versions or platforms, so every value is visible in one file and checked against that version's own capture. A new version starts as a copy of the previous one; replace every captured field from the new capture, and treat everything copied that a capture cannot show (`http2.hpack`, header slots, `cookie_order`, `http1` slots) as unverified until the e2e tests pass against the new traces. Planned: `profilegen derive` to automate this copy and list the copied fields.
+
 ## Capturing browsers
 
 `moon run harness:capture` launches every installed browser (Chrome, Firefox, Safari) against an in-process capture server and writes new captures to `harness/testdata/captures/`. It never overwrites; delete a capture to retake it. Use visible windows for captures you commit: headless Chrome reports `HeadlessChrome` in its user agent. moon skips this task when `CI=true`.
