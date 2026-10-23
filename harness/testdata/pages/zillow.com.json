@@ -1,0 +1,6405 @@
+{
+  "site": "zillow.com",
+  "recorded": "2026-10-23",
+  "browser": "chrome-155-macos",
+  "hosts": [
+    {
+      "name": "www.zillow.com",
+      "site": "zillow.com"
+    },
+    {
+      "name": "www.zillowstatic.com",
+      "site": "zillowstatic.com"
+    },
+    {
+      "name": "fonts.googleapis.com",
+      "site": "fonts.googleapis.com"
+    },
+    {
+      "name": "cdn.pubnub.com",
+      "site": "pubnub.com"
+    },
+    {
+      "name": "api.consentjs.datagrail.io",
+      "site": "datagrail.io"
+    },
+    {
+      "name": "www.google-analytics.com",
+      "site": "google-analytics.com"
+    },
+    {
+      "name": "cdn.zg-api.com",
+      "site": "zg-api.com"
+    },
+    {
+      "name": "www.datadoghq-browser-agent.com",
+      "site": "datadoghq-browser-agent.com"
+    },
+    {
+      "name": "ift.px-cloud.net",
+      "site": "px-cloud.net"
+    },
+    {
+      "name": "collector-pxhyx10rg3.px-cloud.net",
+      "site": "px-cloud.net"
+    },
+    {
+      "name": "sb.scorecardresearch.com",
+      "site": "scorecardresearch.com"
+    },
+    {
+      "name": "accounts.google.com",
+      "site": "google.com"
+    },
+    {
+      "name": "o168728.ingest.sentry.io",
+      "site": "sentry.io"
+    },
+    {
+      "name": "pagead2.googlesyndication.com",
+      "site": "googlesyndication.com"
+    },
+    {
+      "name": "ri.px-cloud.net",
+      "site": "px-cloud.net"
+    },
+    {
+      "name": "e.zg-api.com",
+      "site": "zg-api.com"
+    },
+    {
+      "name": "rum.zg-api.com",
+      "site": "zg-api.com"
+    },
+    {
+      "name": "sdk.split.io",
+      "site": "split.io"
+    },
+    {
+      "name": "auth.split.io",
+      "site": "split.io"
+    },
+    {
+      "name": "cs.zg-api.com",
+      "site": "zg-api.com",
+      "shared": [
+        37
+      ]
+    },
+    {
+      "name": "photos.zillowstatic.com",
+      "site": "zillowstatic.com"
+    },
+    {
+      "name": "www.googletagmanager.com",
+      "site": "googletagmanager.com"
+    },
+    {
+      "name": "s.pinimg.com",
+      "site": "pinimg.com"
+    },
+    {
+      "name": "analytics.tiktok.com",
+      "site": "tiktok.com"
+    },
+    {
+      "name": "www.redditstatic.com",
+      "site": "redditstatic.com"
+    },
+    {
+      "name": "sc-static.net",
+      "site": "sc-static.net"
+    },
+    {
+      "name": "c.amazon-adsystem.com",
+      "site": "amazon-adsystem.com"
+    },
+    {
+      "name": "bat.bing.com",
+      "site": "bing.com"
+    },
+    {
+      "name": "www.facebook.com",
+      "site": "facebook.com"
+    },
+    {
+      "name": "lighthouse.edoinc.com",
+      "site": "edoinc.com"
+    },
+    {
+      "name": "js.adsrvr.org",
+      "site": "adsrvr.org"
+    },
+    {
+      "name": "www.google.com",
+      "site": "google.com"
+    },
+    {
+      "name": "ad.doubleclick.net",
+      "site": "doubleclick.net"
+    },
+    {
+      "name": "pt.ispot.tv",
+      "site": "ispot.tv"
+    },
+    {
+      "name": "kds-pixel.kargo.com",
+      "site": "kargo.com"
+    },
+    {
+      "name": "connect.facebook.net",
+      "site": "facebook.net"
+    },
+    {
+      "name": "googleads.g.doubleclick.net",
+      "site": "doubleclick.net"
+    },
+    {
+      "name": "gtm-z.zg-api.com",
+      "site": "zg-api.com"
+    },
+    {
+      "name": "www.googleadservices.com",
+      "site": "googleadservices.com"
+    },
+    {
+      "name": "ct.pinterest.com",
+      "site": "pinterest.com"
+    },
+    {
+      "name": "pixel-config.reddit.com",
+      "site": "reddit.com"
+    },
+    {
+      "name": "alb.reddit.com",
+      "site": "reddit.com"
+    },
+    {
+      "name": "4704202.fls.doubleclick.net",
+      "site": "doubleclick.net"
+    },
+    {
+      "name": "s.amazon-adsystem.com",
+      "site": "amazon-adsystem.com"
+    },
+    {
+      "name": "tr.snapchat.com",
+      "site": "snapchat.com"
+    },
+    {
+      "name": "analytics-ipv6.tiktokw.us",
+      "site": "tiktokw.us"
+    },
+    {
+      "name": "tr6.snapchat.com",
+      "site": "snapchat.com"
+    },
+    {
+      "name": "insight.adsrvr.org",
+      "site": "adsrvr.org"
+    },
+    {
+      "name": "adservice.google.com",
+      "site": "google.com"
+    }
+  ],
+  "requests": [
+    {
+      "host": 0,
+      "at_ms": 0,
+      "method": "GET",
+      "dest": "document",
+      "mode": "navigate",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 1,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": -1,
+      "content_type": "text/html",
+      "size": 422014,
+      "set_cookies": [
+        {
+          "id": 1,
+          "name_len": 5,
+          "value_len": 42,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "persistent": true
+        },
+        {
+          "id": 2,
+          "name_len": 9,
+          "value_len": 38,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "http_only": true
+        }
+      ]
+    },
+    {
+      "host": 1,
+      "at_ms": 367,
+      "method": "GET",
+      "dest": "font",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 87,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/octet-stream",
+      "size": 279056
+    },
+    {
+      "host": 1,
+      "at_ms": 370,
+      "method": "GET",
+      "dest": "font",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 79,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/octet-stream",
+      "size": 349376
+    },
+    {
+      "host": 2,
+      "at_ms": 371,
+      "method": "GET",
+      "dest": "style",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 4,
+      "query_len": 41,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/css",
+      "size": 18162
+    },
+    {
+      "host": 0,
+      "at_ms": 379,
+      "method": "GET",
+      "dest": "style",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 115,
+      "cookie_crumbs": 2,
+      "cookie_bytes": 98,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/css",
+      "size": 49161
+    },
+    {
+      "host": 1,
+      "at_ms": 380,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 2,
+      "path_len": 56,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/webp",
+      "size": 98202
+    },
+    {
+      "host": 0,
+      "at_ms": 405,
+      "method": "GET",
+      "dest": "manifest",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 2,
+      "path_len": 14,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 283,
+      "set_cookies": [
+        {
+          "id": 1,
+          "name_len": 5,
+          "value_len": 42,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "persistent": true
+        },
+        {
+          "id": 2,
+          "name_len": 9,
+          "value_len": 38,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "http_only": true
+        },
+        {
+          "id": 3,
+          "name_len": 3,
+          "value_len": 27,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "script": true
+        },
+        {
+          "id": 4,
+          "name_len": 4,
+          "value_len": 26,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "script": true
+        },
+        {
+          "id": 5,
+          "name_len": 20,
+          "value_len": 73,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "script": true
+        },
+        {
+          "id": 6,
+          "name_len": 22,
+          "value_len": 73,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "script": true
+        },
+        {
+          "id": 7,
+          "name_len": 5,
+          "value_len": 26,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "script": true
+        }
+      ]
+    },
+    {
+      "host": 3,
+      "at_ms": 575,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h1",
+      "path_len": 35,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 245230
+    },
+    {
+      "host": 4,
+      "at_ms": 576,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 93,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/javascript",
+      "size": 114607
+    },
+    {
+      "host": 0,
+      "at_ms": 576,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 68,
+      "cookie_crumbs": 2,
+      "cookie_bytes": 98,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 10672
+    },
+    {
+      "host": 0,
+      "at_ms": 576,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 70,
+      "cookie_crumbs": 2,
+      "cookie_bytes": 98,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 139979
+    },
+    {
+      "host": 0,
+      "at_ms": 577,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 65,
+      "cookie_crumbs": 2,
+      "cookie_bytes": 98,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 402656
+    },
+    {
+      "host": 0,
+      "at_ms": 577,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 71,
+      "cookie_crumbs": 2,
+      "cookie_bytes": 98,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 202511
+    },
+    {
+      "host": 0,
+      "at_ms": 577,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 65,
+      "cookie_crumbs": 2,
+      "cookie_bytes": 98,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 15487
+    },
+    {
+      "host": 0,
+      "at_ms": 577,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 65,
+      "cookie_crumbs": 2,
+      "cookie_bytes": 98,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 8180
+    },
+    {
+      "host": 0,
+      "at_ms": 577,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 65,
+      "cookie_crumbs": 2,
+      "cookie_bytes": 98,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 12007
+    },
+    {
+      "host": 0,
+      "at_ms": 578,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 90,
+      "cookie_crumbs": 2,
+      "cookie_bytes": 98,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 16508
+    },
+    {
+      "host": 0,
+      "at_ms": 578,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 73,
+      "cookie_crumbs": 2,
+      "cookie_bytes": 98,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 5232
+    },
+    {
+      "host": 0,
+      "at_ms": 578,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 71,
+      "cookie_crumbs": 2,
+      "cookie_bytes": 98,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 77
+    },
+    {
+      "host": 1,
+      "at_ms": 579,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 2,
+      "path_len": 48,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/svg+xml",
+      "size": 2369
+    },
+    {
+      "host": 1,
+      "at_ms": 580,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 2,
+      "path_len": 46,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/svg+xml",
+      "size": 2357
+    },
+    {
+      "host": 5,
+      "at_ms": 580,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 13,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/javascript",
+      "size": 52310
+    },
+    {
+      "host": 6,
+      "at_ms": 581,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 23,
+      "query_len": 9,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 246125
+    },
+    {
+      "host": 7,
+      "at_ms": 582,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 22,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/javascript",
+      "size": 165703
+    },
+    {
+      "host": 1,
+      "at_ms": 582,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 2,
+      "path_len": 36,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 43878
+    },
+    {
+      "host": 0,
+      "at_ms": 583,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 17,
+      "cookie_crumbs": 2,
+      "cookie_bytes": 98,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 240479
+    },
+    {
+      "host": 1,
+      "at_ms": 611,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 3,
+      "path_len": 70,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 408935
+    },
+    {
+      "host": 1,
+      "at_ms": 613,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 3,
+      "path_len": 65,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 312574
+    },
+    {
+      "host": 1,
+      "at_ms": 614,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 3,
+      "path_len": 56,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 84841
+    },
+    {
+      "host": 1,
+      "at_ms": 615,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 3,
+      "path_len": 63,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 57389
+    },
+    {
+      "host": 1,
+      "at_ms": 615,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 3,
+      "path_len": 41,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 127908
+    },
+    {
+      "host": 1,
+      "at_ms": 615,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 3,
+      "path_len": 60,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 102217
+    },
+    {
+      "host": 1,
+      "at_ms": 615,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 3,
+      "path_len": 53,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 1198979
+    },
+    {
+      "host": 1,
+      "at_ms": 616,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 3,
+      "path_len": 45,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 761
+    },
+    {
+      "host": 1,
+      "at_ms": 616,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 3,
+      "path_len": 46,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 923295
+    },
+    {
+      "host": 1,
+      "at_ms": 616,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 3,
+      "path_len": 38,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 4293
+    },
+    {
+      "host": 8,
+      "at_ms": 658,
+      "method": "GET",
+      "dest": "empty",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 3,
+      "query_len": 38,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/html",
+      "size": 500
+    },
+    {
+      "host": 9,
+      "at_ms": 666,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 17,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 33,
+          "class": "base64"
+        }
+      ],
+      "body": 954,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/json",
+      "size": 976
+    },
+    {
+      "host": 1,
+      "at_ms": 691,
+      "method": "GET",
+      "dest": "font",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 88,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/octet-stream",
+      "size": 42120
+    },
+    {
+      "host": 10,
+      "at_ms": 695,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 21,
+      "status": 302,
+      "redirect_to": 10,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0
+    },
+    {
+      "host": 1,
+      "at_ms": 697,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 3,
+      "path_len": 34,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/svg+xml",
+      "size": 6974
+    },
+    {
+      "host": 1,
+      "at_ms": 697,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 3,
+      "path_len": 36,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/svg+xml",
+      "size": 4133
+    },
+    {
+      "host": 4,
+      "at_ms": 704,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 50,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/javascript",
+      "size": 8156
+    },
+    {
+      "host": 0,
+      "at_ms": 756,
+      "method": "GET",
+      "dest": "empty",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 26,
+      "query_len": 14,
+      "cookie_crumbs": 7,
+      "cookie_bytes": 392,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/json",
+      "size": 15,
+      "set_cookies": [
+        {
+          "id": 8,
+          "name_len": 10,
+          "value_len": 32,
+          "class": "hex",
+          "path": "/",
+          "http_only": true
+        },
+        {
+          "id": 11,
+          "name_len": 16,
+          "value_len": 42,
+          "class": "urlencoded",
+          "site_wide": true,
+          "path": "/",
+          "script": true
+        },
+        {
+          "id": 12,
+          "name_len": 11,
+          "value_len": 4,
+          "class": "alnum",
+          "site_wide": true,
+          "path": "/",
+          "script": true
+        },
+        {
+          "id": 13,
+          "name_len": 16,
+          "value_len": 4,
+          "class": "alnum",
+          "site_wide": true,
+          "path": "/",
+          "script": true
+        },
+        {
+          "id": 14,
+          "name_len": 15,
+          "value_len": 42,
+          "class": "urlencoded",
+          "site_wide": true,
+          "path": "/",
+          "script": true
+        }
+      ]
+    },
+    {
+      "host": 11,
+      "at_ms": 780,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 11,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 276306
+    },
+    {
+      "host": 12,
+      "at_ms": 792,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 31,
+      "query_len": 108,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 472,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/json",
+      "size": 2
+    },
+    {
+      "host": 0,
+      "at_ms": 801,
+      "method": "GET",
+      "dest": "script",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 123,
+      "query_len": 7,
+      "cookie_crumbs": 7,
+      "cookie_bytes": 392,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 13078
+    },
+    {
+      "host": 10,
+      "at_ms": 808,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 30,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": 39,
+      "initiator": 0,
+      "content_type": "text/javascript",
+      "size": 21945
+    },
+    {
+      "host": 0,
+      "at_ms": 834,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 123,
+      "cookie_crumbs": 7,
+      "cookie_bytes": 392,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 140352
+    },
+    {
+      "host": 0,
+      "at_ms": 834,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 122,
+      "cookie_crumbs": 7,
+      "cookie_bytes": 392,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 70564
+    },
+    {
+      "host": 0,
+      "at_ms": 834,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 117,
+      "cookie_crumbs": 7,
+      "cookie_bytes": 392,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 30154
+    },
+    {
+      "host": 0,
+      "at_ms": 835,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 117,
+      "cookie_crumbs": 7,
+      "cookie_bytes": 392,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 641297
+    },
+    {
+      "host": 0,
+      "at_ms": 835,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 117,
+      "cookie_crumbs": 7,
+      "cookie_bytes": 392,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 433991
+    },
+    {
+      "host": 0,
+      "at_ms": 835,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 117,
+      "cookie_crumbs": 7,
+      "cookie_bytes": 392,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 2860
+    },
+    {
+      "host": 13,
+      "at_ms": 842,
+      "method": "GET",
+      "dest": "empty",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 25,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/javascript",
+      "size": 166218
+    },
+    {
+      "host": 10,
+      "at_ms": 847,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 2,
+      "query_len": 431,
+      "status": 302,
+      "redirect_to": 10,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0,
+      "set_cookies": [
+        {
+          "id": 9,
+          "name_len": 3,
+          "value_len": 33,
+          "class": "hex",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        },
+        {
+          "id": 10,
+          "name_len": 3,
+          "value_len": 33,
+          "class": "hex",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 0,
+      "at_ms": 901,
+      "method": "GET",
+      "dest": "script",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 136,
+      "query_len": 7,
+      "cookie_crumbs": 12,
+      "cookie_bytes": 599,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 9349,
+      "set_cookies": [
+        {
+          "id": 15,
+          "name_len": 7,
+          "value_len": 140,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "script": true
+        },
+        {
+          "id": 16,
+          "name_len": 6,
+          "value_len": 36,
+          "class": "base64url",
+          "site_wide": true,
+          "path": "/",
+          "script": true
+        },
+        {
+          "id": 17,
+          "name_len": 5,
+          "value_len": 237,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "script": true
+        }
+      ]
+    },
+    {
+      "host": 10,
+      "at_ms": 901,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 3,
+      "query_len": 431,
+      "cookie_crumbs": 2,
+      "cookie_bytes": 76,
+      "status": 204,
+      "redirect_to": -1,
+      "redirect_from": 55,
+      "initiator": 0,
+      "size": 0
+    },
+    {
+      "host": 11,
+      "at_ms": 906,
+      "method": "GET",
+      "dest": "style",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 10,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/css",
+      "size": 696
+    },
+    {
+      "host": 14,
+      "at_ms": 930,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 9,
+      "query_len": 51,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": -1,
+      "content_type": "text/javascript",
+      "size": 390138
+    },
+    {
+      "host": 5,
+      "at_ms": 938,
+      "method": "GET",
+      "dest": "empty",
+      "mode": "cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 8,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/gif",
+      "size": 35
+    },
+    {
+      "host": 0,
+      "at_ms": 942,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 131,
+      "cookie_crumbs": 15,
+      "cookie_bytes": 1039,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 139965
+    },
+    {
+      "host": 0,
+      "at_ms": 942,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 130,
+      "cookie_crumbs": 15,
+      "cookie_bytes": 1039,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 33425
+    },
+    {
+      "host": 0,
+      "at_ms": 943,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 125,
+      "cookie_crumbs": 15,
+      "cookie_bytes": 1039,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 248529
+    },
+    {
+      "host": 0,
+      "at_ms": 943,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 125,
+      "cookie_crumbs": 15,
+      "cookie_bytes": 1039,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 105866
+    },
+    {
+      "host": 0,
+      "at_ms": 943,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 125,
+      "cookie_crumbs": 15,
+      "cookie_bytes": 1039,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 449
+    },
+    {
+      "host": 15,
+      "at_ms": 1061,
+      "method": "GET",
+      "dest": "empty",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 13,
+      "query_len": 433,
+      "status": 204,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0,
+      "set_cookies": [
+        {
+          "id": 18,
+          "name_len": 5,
+          "value_len": 42,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 16,
+      "at_ms": 1062,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 12,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 1065,
+      "status": 201,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0,
+      "set_cookies": [
+        {
+          "id": 18,
+          "name_len": 5,
+          "value_len": 42,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 17,
+      "at_ms": 1090,
+      "method": "OPTIONS",
+      "dest": "empty",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 53,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 37
+    },
+    {
+      "host": 17,
+      "at_ms": 1091,
+      "method": "OPTIONS",
+      "dest": "empty",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 17,
+      "query_len": 25,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 37
+    },
+    {
+      "host": 0,
+      "at_ms": 1099,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 117,
+      "cookie_crumbs": 15,
+      "cookie_bytes": 1039,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 78376
+    },
+    {
+      "host": 0,
+      "at_ms": 1099,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 117,
+      "cookie_crumbs": 15,
+      "cookie_bytes": 1039,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 290922
+    },
+    {
+      "host": 18,
+      "at_ms": 1105,
+      "method": "OPTIONS",
+      "dest": "empty",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 12,
+      "query_len": 48,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/json",
+      "size": 4
+    },
+    {
+      "host": 16,
+      "at_ms": 1107,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 12,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 733,
+      "status": 201,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0,
+      "set_cookies": [
+        {
+          "id": 18,
+          "name_len": 5,
+          "value_len": 42,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 19,
+      "at_ms": 1107,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 54,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 1664,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0,
+      "set_cookies": [
+        {
+          "id": 18,
+          "name_len": 5,
+          "value_len": 42,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 19,
+      "at_ms": 1109,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 54,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 2047,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0,
+      "set_cookies": [
+        {
+          "id": 18,
+          "name_len": 5,
+          "value_len": 42,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 19,
+      "at_ms": 1113,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 54,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 2043,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0,
+      "set_cookies": [
+        {
+          "id": 18,
+          "name_len": 5,
+          "value_len": 42,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 19,
+      "at_ms": 1113,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 54,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 1656,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0,
+      "set_cookies": [
+        {
+          "id": 18,
+          "name_len": 5,
+          "value_len": 42,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 0,
+      "at_ms": 1167,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 8,
+      "headers": [
+        {
+          "name": "x-caller-id",
+          "len": 13,
+          "class": "base64url"
+        },
+        {
+          "name": "x-user-guid",
+          "len": 36,
+          "class": "base64url"
+        },
+        {
+          "name": "client-id",
+          "len": 13,
+          "class": "base64url"
+        },
+        {
+          "name": "content-type",
+          "len": 16,
+          "class": "base64"
+        },
+        {
+          "name": "x-client-ip",
+          "len": 13,
+          "class": "text"
+        },
+        {
+          "name": "x-caller-version",
+          "len": 8,
+          "class": "hex"
+        }
+      ],
+      "body": 2482,
+      "cookie_crumbs": 15,
+      "cookie_bytes": 1039,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/json",
+      "size": 77782
+    },
+    {
+      "host": 1,
+      "at_ms": 1175,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 3,
+      "path_len": 67,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/webp",
+      "size": 85774
+    },
+    {
+      "host": 1,
+      "at_ms": 1175,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 3,
+      "path_len": 67,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/webp",
+      "size": 141406
+    },
+    {
+      "host": 1,
+      "at_ms": 1176,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 3,
+      "path_len": 63,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/webp",
+      "size": 95070
+    },
+    {
+      "host": 0,
+      "at_ms": 1176,
+      "method": "GET",
+      "dest": "script",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 136,
+      "query_len": 7,
+      "cookie_crumbs": 15,
+      "cookie_bytes": 1039,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 18452
+    },
+    {
+      "host": 19,
+      "at_ms": 1178,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 54,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 1608,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0,
+      "set_cookies": [
+        {
+          "id": 18,
+          "name_len": 5,
+          "value_len": 42,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 0,
+      "at_ms": 1199,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 131,
+      "cookie_crumbs": 15,
+      "cookie_bytes": 1039,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 139962
+    },
+    {
+      "host": 0,
+      "at_ms": 1199,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 130,
+      "cookie_crumbs": 15,
+      "cookie_bytes": 1039,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 36569
+    },
+    {
+      "host": 0,
+      "at_ms": 1200,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 125,
+      "cookie_crumbs": 15,
+      "cookie_bytes": 1039,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 4508
+    },
+    {
+      "host": 0,
+      "at_ms": 1201,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 125,
+      "cookie_crumbs": 15,
+      "cookie_bytes": 1039,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 587439
+    },
+    {
+      "host": 0,
+      "at_ms": 1201,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 125,
+      "cookie_crumbs": 15,
+      "cookie_bytes": 1039,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 19723
+    },
+    {
+      "host": 0,
+      "at_ms": 1201,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 125,
+      "cookie_crumbs": 15,
+      "cookie_bytes": 1039,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 268683
+    },
+    {
+      "host": 0,
+      "at_ms": 1201,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 125,
+      "cookie_crumbs": 15,
+      "cookie_bytes": 1039,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 9282
+    },
+    {
+      "host": 0,
+      "at_ms": 1201,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 125,
+      "cookie_crumbs": 15,
+      "cookie_bytes": 1039,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 546
+    },
+    {
+      "host": 0,
+      "at_ms": 1236,
+      "method": "GET",
+      "dest": "style",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 115,
+      "cookie_crumbs": 15,
+      "cookie_bytes": 1039,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/css",
+      "size": 89253
+    },
+    {
+      "host": 18,
+      "at_ms": 1238,
+      "method": "GET",
+      "dest": "empty",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 12,
+      "query_len": 48,
+      "headers": [
+        {
+          "name": "authorization",
+          "len": 43,
+          "class": "text"
+        },
+        {
+          "name": "content-type",
+          "len": 16,
+          "class": "base64"
+        },
+        {
+          "name": "splitsdkversion",
+          "len": 18,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/json",
+      "size": 696
+    },
+    {
+      "host": 0,
+      "at_ms": 1251,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 9,
+      "headers": [
+        {
+          "name": "x-z-fr-allowed-client-id",
+          "len": 15,
+          "class": "base64url"
+        },
+        {
+          "name": "x-caller-id",
+          "len": 17,
+          "class": "base64url"
+        },
+        {
+          "name": "x-z-enable-oauth-conversion",
+          "len": 4,
+          "class": "alnum"
+        },
+        {
+          "name": "content-type",
+          "len": 16,
+          "class": "base64"
+        }
+      ],
+      "body": 4119,
+      "cookie_crumbs": 15,
+      "cookie_bytes": 1039,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/json",
+      "size": 1692
+    },
+    {
+      "host": 17,
+      "at_ms": 1263,
+      "method": "GET",
+      "dest": "empty",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 53,
+      "headers": [
+        {
+          "name": "authorization",
+          "len": 43,
+          "class": "text"
+        },
+        {
+          "name": "content-type",
+          "len": 16,
+          "class": "base64"
+        },
+        {
+          "name": "splitsdkversion",
+          "len": 18,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/json",
+      "size": 37
+    },
+    {
+      "host": 17,
+      "at_ms": 1263,
+      "method": "GET",
+      "dest": "empty",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 17,
+      "query_len": 25,
+      "headers": [
+        {
+          "name": "authorization",
+          "len": 43,
+          "class": "text"
+        },
+        {
+          "name": "content-type",
+          "len": 16,
+          "class": "base64"
+        },
+        {
+          "name": "splitsdkversion",
+          "len": 18,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/json",
+      "size": 1970874
+    },
+    {
+      "host": 0,
+      "at_ms": 1561,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 8,
+      "headers": [
+        {
+          "name": "x-caller-id",
+          "len": 13,
+          "class": "base64url"
+        },
+        {
+          "name": "x-user-guid",
+          "len": 36,
+          "class": "base64url"
+        },
+        {
+          "name": "client-id",
+          "len": 13,
+          "class": "base64url"
+        },
+        {
+          "name": "content-type",
+          "len": 16,
+          "class": "base64"
+        },
+        {
+          "name": "x-client-ip",
+          "len": 13,
+          "class": "text"
+        },
+        {
+          "name": "x-caller-version",
+          "len": 8,
+          "class": "hex"
+        }
+      ],
+      "body": 3189,
+      "cookie_crumbs": 15,
+      "cookie_bytes": 1039,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/json",
+      "size": 8551,
+      "set_cookies": [
+        {
+          "id": 19,
+          "name_len": 4,
+          "value_len": 631,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "script": true
+        }
+      ]
+    },
+    {
+      "host": 19,
+      "at_ms": 1583,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 54,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 2512,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 48,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0,
+      "set_cookies": [
+        {
+          "id": 18,
+          "name_len": 5,
+          "value_len": 42,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 20,
+      "at_ms": 1583,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 45,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/webp",
+      "size": 30620
+    },
+    {
+      "host": 20,
+      "at_ms": 1583,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 57,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/jpeg",
+      "size": 992
+    },
+    {
+      "host": 20,
+      "at_ms": 1583,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 45,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/webp",
+      "size": 33746
+    },
+    {
+      "host": 20,
+      "at_ms": 1584,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 45,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/webp",
+      "size": 23080
+    },
+    {
+      "host": 20,
+      "at_ms": 1584,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 45,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/webp",
+      "size": 48412
+    },
+    {
+      "host": 20,
+      "at_ms": 1584,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 45,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/webp",
+      "size": 27534
+    },
+    {
+      "host": 20,
+      "at_ms": 1584,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 45,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/webp",
+      "size": 38942
+    },
+    {
+      "host": 20,
+      "at_ms": 1584,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 45,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/webp",
+      "size": 25816
+    },
+    {
+      "host": 20,
+      "at_ms": 1584,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 45,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/webp",
+      "size": 29736
+    },
+    {
+      "host": 9,
+      "at_ms": 1640,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 17,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 33,
+          "class": "base64"
+        }
+      ],
+      "body": 10259,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/json",
+      "size": 1256
+    },
+    {
+      "host": 19,
+      "at_ms": 1753,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 54,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 2613,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 48,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0,
+      "set_cookies": [
+        {
+          "id": 18,
+          "name_len": 5,
+          "value_len": 42,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 19,
+      "at_ms": 1753,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 54,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 1911,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 48,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0,
+      "set_cookies": [
+        {
+          "id": 18,
+          "name_len": 5,
+          "value_len": 42,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 19,
+      "at_ms": 1753,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 54,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 2600,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 48,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0,
+      "set_cookies": [
+        {
+          "id": 18,
+          "name_len": 5,
+          "value_len": 42,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 19,
+      "at_ms": 1753,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 54,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 1911,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 48,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0,
+      "set_cookies": [
+        {
+          "id": 18,
+          "name_len": 5,
+          "value_len": 42,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 19,
+      "at_ms": 1754,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 54,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 2609,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 48,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0,
+      "set_cookies": [
+        {
+          "id": 18,
+          "name_len": 5,
+          "value_len": 42,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 19,
+      "at_ms": 1754,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 54,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 1911,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 48,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0,
+      "set_cookies": [
+        {
+          "id": 18,
+          "name_len": 5,
+          "value_len": 42,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 1,
+      "at_ms": 1755,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 3,
+      "path_len": 65,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/webp",
+      "size": 7858
+    },
+    {
+      "host": 1,
+      "at_ms": 1755,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 3,
+      "path_len": 64,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/webp",
+      "size": 4534
+    },
+    {
+      "host": 1,
+      "at_ms": 1755,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 3,
+      "path_len": 64,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/webp",
+      "size": 5354
+    },
+    {
+      "host": 19,
+      "at_ms": 1877,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 54,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 2023,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 48,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0,
+      "set_cookies": [
+        {
+          "id": 18,
+          "name_len": 5,
+          "value_len": 42,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 19,
+      "at_ms": 1877,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 54,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 2023,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 48,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0,
+      "set_cookies": [
+        {
+          "id": 18,
+          "name_len": 5,
+          "value_len": 42,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 19,
+      "at_ms": 1877,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 54,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 2116,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 48,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0,
+      "set_cookies": [
+        {
+          "id": 18,
+          "name_len": 5,
+          "value_len": 42,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 21,
+      "at_ms": 1935,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 7,
+      "query_len": 13,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 874798
+    },
+    {
+      "host": 1,
+      "at_ms": 1935,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 3,
+      "path_len": 50,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 571
+    },
+    {
+      "host": 0,
+      "at_ms": 1937,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 12,
+      "cookie_crumbs": 16,
+      "cookie_bytes": 1677,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/vnd.microsoft.icon",
+      "size": 4286
+    },
+    {
+      "host": 1,
+      "at_ms": 1937,
+      "method": "GET",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 3,
+      "path_len": 100,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/octet-stream",
+      "size": 13168
+    },
+    {
+      "host": 1,
+      "at_ms": 1938,
+      "method": "GET",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 3,
+      "path_len": 104,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/octet-stream",
+      "size": 18780
+    },
+    {
+      "host": 21,
+      "at_ms": 2202,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 8,
+      "query_len": 31,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 496728
+    },
+    {
+      "host": 21,
+      "at_ms": 2202,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 8,
+      "query_len": 31,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 502581
+    },
+    {
+      "host": 21,
+      "at_ms": 2203,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 8,
+      "query_len": 32,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 502712
+    },
+    {
+      "host": 21,
+      "at_ms": 2203,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 8,
+      "query_len": 31,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 450967
+    },
+    {
+      "host": 21,
+      "at_ms": 2203,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 8,
+      "query_len": 31,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 448228
+    },
+    {
+      "host": 21,
+      "at_ms": 2203,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 8,
+      "query_len": 33,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 459439
+    },
+    {
+      "host": 22,
+      "at_ms": 2215,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 11,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 5072
+    },
+    {
+      "host": 23,
+      "at_ms": 2224,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 21,
+      "query_len": 34,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 10814,
+      "set_cookies": [
+        {
+          "id": 23,
+          "name_len": 4,
+          "value_len": 41,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 24,
+      "at_ms": 2225,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 13,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 88449
+    },
+    {
+      "host": 25,
+      "at_ms": 2225,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 15,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 59535,
+      "set_cookies": [
+        {
+          "id": 21,
+          "name_len": 4,
+          "value_len": 32,
+          "class": "hex",
+          "path": "/scevent.min.js",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 26,
+      "at_ms": 2226,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 12,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 36125
+    },
+    {
+      "host": 27,
+      "at_ms": 2226,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 7,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 58485
+    },
+    {
+      "host": 28,
+      "at_ms": 2226,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 4,
+      "query_len": 67,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/plain",
+      "size": 0,
+      "set_cookies": [
+        {
+          "id": 20,
+          "name_len": 2,
+          "value_len": 66,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "http_only": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 21,
+      "at_ms": 2233,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 8,
+      "query_len": 29,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 420174
+    },
+    {
+      "host": 29,
+      "at_ms": 2234,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 10,
+      "query_len": 15,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 5452
+    },
+    {
+      "host": 30,
+      "at_ms": 2234,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h1",
+      "path_len": 19,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 46142
+    },
+    {
+      "host": 21,
+      "at_ms": 2236,
+      "method": "GET",
+      "dest": "iframe",
+      "mode": "navigate",
+      "protocol": "h2",
+      "conn": 3,
+      "path_len": 8,
+      "query_len": 15,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/html",
+      "size": 266
+    },
+    {
+      "host": 31,
+      "at_ms": 2237,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 12,
+      "query_len": 563,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/plain",
+      "size": 0
+    },
+    {
+      "host": 32,
+      "at_ms": 2238,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 1,
+      "path_len": 14,
+      "query_len": 114,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 204,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/html",
+      "size": 0
+    },
+    {
+      "host": 33,
+      "at_ms": 2238,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 17,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/gif",
+      "size": 43,
+      "set_cookies": [
+        {
+          "id": 26,
+          "name_len": 2,
+          "value_len": 132,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 33,
+      "at_ms": 2280,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 17,
+      "query_len": 19,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/gif",
+      "size": 43,
+      "set_cookies": [
+        {
+          "id": 26,
+          "name_len": 2,
+          "value_len": 132,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 22,
+      "at_ms": 2281,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 24,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 164029
+    },
+    {
+      "host": 33,
+      "at_ms": 2288,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 17,
+      "query_len": 40,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/gif",
+      "size": 43,
+      "set_cookies": [
+        {
+          "id": 26,
+          "name_len": 2,
+          "value_len": 132,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 34,
+      "at_ms": 2309,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 13,
+      "query_len": 34,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/gif",
+      "size": 43,
+      "set_cookies": [
+        {
+          "id": 24,
+          "name_len": 5,
+          "value_len": 36,
+          "class": "base64url",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "http_only": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 35,
+      "at_ms": 2311,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 18,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/x-javascript",
+      "size": 435232
+    },
+    {
+      "host": 31,
+      "at_ms": 2316,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 25,
+      "query_len": 778,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/html",
+      "size": 0
+    },
+    {
+      "host": 31,
+      "at_ms": 2317,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 12,
+      "query_len": 640,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/plain",
+      "size": 0
+    },
+    {
+      "host": 36,
+      "at_ms": 2350,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 41,
+      "query_len": 778,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/javascript",
+      "size": 6850,
+      "set_cookies": [
+        {
+          "id": 22,
+          "name_len": 11,
+          "value_len": 18,
+          "class": "alnum",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 37,
+      "at_ms": 2366,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "path_len": 62,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 228,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 48,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0
+    },
+    {
+      "host": 31,
+      "at_ms": 2373,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 24,
+      "query_len": 767,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/html",
+      "size": 0
+    },
+    {
+      "host": 31,
+      "at_ms": 2374,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 12,
+      "query_len": 627,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/plain",
+      "size": 0
+    },
+    {
+      "host": 36,
+      "at_ms": 2394,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 40,
+      "query_len": 777,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/javascript",
+      "size": 6847,
+      "set_cookies": [
+        {
+          "id": 22,
+          "name_len": 11,
+          "value_len": 18,
+          "class": "alnum",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 31,
+      "at_ms": 2395,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 24,
+      "query_len": 777,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/html",
+      "size": 0
+    },
+    {
+      "host": 36,
+      "at_ms": 2396,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 40,
+      "query_len": 767,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/javascript",
+      "size": 6837,
+      "set_cookies": [
+        {
+          "id": 22,
+          "name_len": 11,
+          "value_len": 18,
+          "class": "alnum",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 38,
+      "at_ms": 2411,
+      "method": "GET",
+      "dest": "empty",
+      "mode": "cors",
+      "protocol": "h3",
+      "conn": 1,
+      "path_len": 29,
+      "query_len": 954,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/json",
+      "size": 3516
+    },
+    {
+      "host": 31,
+      "at_ms": 2412,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 12,
+      "query_len": 637,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/plain",
+      "size": 0
+    },
+    {
+      "host": 38,
+      "at_ms": 2418,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 1,
+      "path_len": 26,
+      "query_len": 948,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/gif",
+      "size": 35
+    },
+    {
+      "host": 36,
+      "at_ms": 2433,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 40,
+      "query_len": 787,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "cookie_crumbs": 1,
+      "cookie_bytes": 30,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/javascript",
+      "size": 6876,
+      "set_cookies": [
+        {
+          "id": 22,
+          "name_len": 11,
+          "value_len": 0,
+          "class": "empty",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        },
+        {
+          "id": 25,
+          "name_len": 3,
+          "value_len": 64,
+          "class": "base64url",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "http_only": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 31,
+      "at_ms": 2434,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 24,
+      "query_len": 787,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/html",
+      "size": 0
+    },
+    {
+      "host": 36,
+      "at_ms": 2435,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 42,
+      "query_len": 787,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "cookie_crumbs": 1,
+      "cookie_bytes": 30,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/javascript",
+      "size": 6877,
+      "set_cookies": [
+        {
+          "id": 22,
+          "name_len": 11,
+          "value_len": 0,
+          "class": "empty",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        },
+        {
+          "id": 25,
+          "name_len": 3,
+          "value_len": 64,
+          "class": "base64url",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "http_only": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 31,
+      "at_ms": 2435,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 26,
+      "query_len": 787,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/html",
+      "size": 0
+    },
+    {
+      "host": 31,
+      "at_ms": 2437,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 12,
+      "query_len": 662,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/plain",
+      "size": 0
+    },
+    {
+      "host": 36,
+      "at_ms": 2459,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 40,
+      "query_len": 784,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "cookie_crumbs": 1,
+      "cookie_bytes": 30,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/javascript",
+      "size": 6873,
+      "set_cookies": [
+        {
+          "id": 22,
+          "name_len": 11,
+          "value_len": 0,
+          "class": "empty",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        },
+        {
+          "id": 25,
+          "name_len": 3,
+          "value_len": 64,
+          "class": "base64url",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "http_only": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 31,
+      "at_ms": 2460,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 24,
+      "query_len": 784,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/html",
+      "size": 0
+    },
+    {
+      "host": 31,
+      "at_ms": 2461,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 12,
+      "query_len": 644,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/plain",
+      "size": 0
+    },
+    {
+      "host": 9,
+      "at_ms": 2464,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 17,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 33,
+          "class": "base64"
+        }
+      ],
+      "body": 5283,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/json",
+      "size": 372
+    },
+    {
+      "host": 36,
+      "at_ms": 2481,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 42,
+      "query_len": 788,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "cookie_crumbs": 1,
+      "cookie_bytes": 68,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/javascript",
+      "size": 6879
+    },
+    {
+      "host": 31,
+      "at_ms": 2482,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 26,
+      "query_len": 788,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/html",
+      "size": 0
+    },
+    {
+      "host": 31,
+      "at_ms": 2484,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 12,
+      "query_len": 652,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/plain",
+      "size": 0
+    },
+    {
+      "host": 39,
+      "at_ms": 2492,
+      "method": "GET",
+      "dest": "empty",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 6,
+      "query_len": 117,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/json",
+      "size": 438,
+      "set_cookies": [
+        {
+          "id": 32,
+          "name_len": 3,
+          "value_len": 151,
+          "class": "base64url",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "http_only": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 39,
+      "at_ms": 2493,
+      "method": "GET",
+      "dest": "empty",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 6,
+      "query_len": 357,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/json",
+      "size": 438,
+      "set_cookies": [
+        {
+          "id": 32,
+          "name_len": 3,
+          "value_len": 151,
+          "class": "base64url",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "http_only": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 39,
+      "at_ms": 2494,
+      "method": "GET",
+      "dest": "empty",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 4,
+      "query_len": 741,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/gif",
+      "size": 35,
+      "set_cookies": [
+        {
+          "id": 32,
+          "name_len": 3,
+          "value_len": 151,
+          "class": "base64url",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "http_only": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 40,
+      "at_ms": 2498,
+      "method": "GET",
+      "dest": "empty",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 30,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/json",
+      "size": 40
+    },
+    {
+      "host": 41,
+      "at_ms": 2499,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 3,
+      "query_len": 34,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 33,
+          "class": "base64"
+        }
+      ],
+      "body": 429,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/plain",
+      "size": 0
+    },
+    {
+      "host": 32,
+      "at_ms": 2527,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 1,
+      "path_len": 909,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "cookie_crumbs": 1,
+      "cookie_bytes": 68,
+      "status": 302,
+      "redirect_to": 32,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/html",
+      "size": 0
+    },
+    {
+      "host": 42,
+      "at_ms": 2529,
+      "method": "GET",
+      "dest": "iframe",
+      "mode": "navigate",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 921,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "cookie_crumbs": 1,
+      "cookie_bytes": 68,
+      "status": 302,
+      "redirect_to": 42,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/html",
+      "size": 0
+    },
+    {
+      "host": 32,
+      "at_ms": 2530,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 1,
+      "path_len": 888,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "cookie_crumbs": 1,
+      "cookie_bytes": 68,
+      "status": 302,
+      "redirect_to": 32,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/html",
+      "size": 0
+    },
+    {
+      "host": 42,
+      "at_ms": 2530,
+      "method": "GET",
+      "dest": "iframe",
+      "mode": "navigate",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 900,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "cookie_crumbs": 1,
+      "cookie_bytes": 68,
+      "status": 302,
+      "redirect_to": 42,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/html",
+      "size": 0
+    },
+    {
+      "host": 31,
+      "at_ms": 2531,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 12,
+      "query_len": 623,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/plain",
+      "size": 0
+    },
+    {
+      "host": 43,
+      "at_ms": 2532,
+      "method": "GET",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 4,
+      "query_len": 134,
+      "status": 302,
+      "redirect_to": 43,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0,
+      "set_cookies": [
+        {
+          "id": 29,
+          "name_len": 5,
+          "value_len": 25,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "http_only": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 26,
+      "at_ms": 2532,
+      "method": "GET",
+      "dest": "empty",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 2,
+      "path_len": 29,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/json",
+      "size": 251
+    },
+    {
+      "host": 27,
+      "at_ms": 2541,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 20,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 400
+    },
+    {
+      "host": 44,
+      "at_ms": 2542,
+      "method": "GET",
+      "dest": "script",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 51,
+      "query_len": 19,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 205
+    },
+    {
+      "host": 44,
+      "at_ms": 2544,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 2,
+      "path_len": 2,
+      "query_len": 929,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/png",
+      "size": 68,
+      "set_cookies": [
+        {
+          "id": 30,
+          "name_len": 5,
+          "value_len": 91,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 44,
+      "at_ms": 2544,
+      "method": "GET",
+      "dest": "iframe",
+      "mode": "navigate",
+      "protocol": "h2",
+      "conn": 3,
+      "path_len": 5,
+      "query_len": 130,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/html",
+      "size": 672,
+      "set_cookies": [
+        {
+          "id": 30,
+          "name_len": 5,
+          "value_len": 87,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 31,
+      "at_ms": 2544,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 32,
+      "query_len": 1148,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/gif",
+      "size": 42
+    },
+    {
+      "host": 35,
+      "at_ms": 2553,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 31,
+      "query_len": 1256,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/x-javascript",
+      "size": 378856
+    },
+    {
+      "host": 31,
+      "at_ms": 2554,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 31,
+      "query_len": 1136,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/gif",
+      "size": 42
+    },
+    {
+      "host": 31,
+      "at_ms": 2554,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 31,
+      "query_len": 1146,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/gif",
+      "size": 42
+    },
+    {
+      "host": 23,
+      "at_ms": 2554,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 41,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 46,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 497243
+    },
+    {
+      "host": 31,
+      "at_ms": 2555,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 31,
+      "query_len": 1175,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/gif",
+      "size": 42
+    },
+    {
+      "host": 31,
+      "at_ms": 2555,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 33,
+      "query_len": 1174,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/gif",
+      "size": 42
+    },
+    {
+      "host": 29,
+      "at_ms": 2555,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 11,
+      "query_len": 281,
+      "status": 202,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/html",
+      "size": 0
+    },
+    {
+      "host": 31,
+      "at_ms": 2555,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 31,
+      "query_len": 1172,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/gif",
+      "size": 42
+    },
+    {
+      "host": 36,
+      "at_ms": 2599,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 40,
+      "query_len": 1641,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "cookie_crumbs": 1,
+      "cookie_bytes": 68,
+      "status": 302,
+      "redirect_to": 31,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/html",
+      "size": 0
+    },
+    {
+      "host": 37,
+      "at_ms": 2601,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "path_len": 62,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 1827,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 48,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0
+    },
+    {
+      "host": 31,
+      "at_ms": 2601,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 33,
+      "query_len": 1176,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/gif",
+      "size": 42
+    },
+    {
+      "host": 28,
+      "at_ms": 2632,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 4,
+      "query_len": 1065,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 69,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "text/plain",
+      "size": 0
+    },
+    {
+      "host": 31,
+      "at_ms": 2634,
+      "method": "GET",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 32,
+      "query_len": 2013,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": 200,
+      "initiator": 0,
+      "content_type": "text/html",
+      "size": 0
+    },
+    {
+      "host": 27,
+      "at_ms": 2645,
+      "method": "GET",
+      "dest": "image",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 9,
+      "query_len": 357,
+      "status": 204,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0,
+      "set_cookies": [
+        {
+          "id": 27,
+          "name_len": 4,
+          "value_len": 32,
+          "class": "hex",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        },
+        {
+          "id": 28,
+          "name_len": 2,
+          "value_len": 1,
+          "class": "digits",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 23,
+      "at_ms": 2704,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 39,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 46,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 139650
+    },
+    {
+      "host": 43,
+      "at_ms": 2709,
+      "method": "GET",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 4,
+      "query_len": 140,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 31,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": 185,
+      "initiator": 0,
+      "content_type": "text/html",
+      "size": 65,
+      "set_cookies": [
+        {
+          "id": 29,
+          "name_len": 5,
+          "value_len": 23,
+          "class": "alnum",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "http_only": true,
+          "same_site": "none",
+          "persistent": true
+        },
+        {
+          "id": 31,
+          "name_len": 10,
+          "value_len": 1,
+          "class": "digits",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "http_only": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 23,
+      "at_ms": 2714,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 13,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 1493,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 46,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0
+    },
+    {
+      "host": 23,
+      "at_ms": 2714,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 13,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 1464,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 46,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0
+    },
+    {
+      "host": 23,
+      "at_ms": 2714,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 13,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 1525,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 46,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0
+    },
+    {
+      "host": 39,
+      "at_ms": 2802,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 26,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 155,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "application/javascript",
+      "size": 4222
+    },
+    {
+      "host": 39,
+      "at_ms": 2804,
+      "method": "GET",
+      "dest": "empty",
+      "mode": "cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 4,
+      "query_len": 1091,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 155,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "content_type": "image/gif",
+      "size": 35,
+      "set_cookies": [
+        {
+          "id": 33,
+          "name_len": 16,
+          "value_len": 192,
+          "class": "base64",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    },
+    {
+      "host": 32,
+      "at_ms": 2827,
+      "method": "GET",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 1,
+      "path_len": 943,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "cookie_crumbs": 1,
+      "cookie_bytes": 68,
+      "status": 302,
+      "redirect_to": 31,
+      "redirect_from": 180,
+      "initiator": 0,
+      "content_type": "text/html",
+      "size": 0
+    },
+    {
+      "host": 42,
+      "at_ms": 2912,
+      "method": "GET",
+      "dest": "iframe",
+      "mode": "navigate",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 934,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "cookie_crumbs": 1,
+      "cookie_bytes": 68,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": 183,
+      "initiator": 0,
+      "content_type": "text/html",
+      "size": 1836
+    },
+    {
+      "host": 23,
+      "at_ms": 2920,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 17,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 2191,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 46,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0
+    },
+    {
+      "host": 44,
+      "at_ms": 3146,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 2,
+      "path_len": 2,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 4509,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 93,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0
+    },
+    {
+      "host": 23,
+      "at_ms": 3214,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 17,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 1551,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 46,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0
+    },
+    {
+      "host": 23,
+      "at_ms": 3214,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 15,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 979,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 46,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0
+    },
+    {
+      "host": 42,
+      "at_ms": 3797,
+      "method": "GET",
+      "dest": "iframe",
+      "mode": "navigate",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 955,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "cookie_crumbs": 1,
+      "cookie_bytes": 68,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": 181,
+      "initiator": 0,
+      "content_type": "text/html",
+      "size": 1170
+    },
+    {
+      "host": 38,
+      "at_ms": 3809,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 21,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 42,
+      "content_type": "text/javascript",
+      "size": 67303
+    },
+    {
+      "host": 32,
+      "at_ms": 3891,
+      "method": "GET",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 1,
+      "path_len": 922,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "cookie_crumbs": 1,
+      "cookie_bytes": 68,
+      "status": 302,
+      "redirect_to": 31,
+      "redirect_from": 182,
+      "initiator": 0,
+      "content_type": "text/html",
+      "size": 0
+    },
+    {
+      "host": 38,
+      "at_ms": 3897,
+      "method": "GET",
+      "dest": "script",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 31,
+      "query_len": 974,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 42,
+      "content_type": "text/javascript",
+      "size": 8932
+    },
+    {
+      "host": 31,
+      "at_ms": 3961,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 3,
+      "path_len": 34,
+      "query_len": 1544,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 42,
+      "content_type": "image/gif",
+      "size": 42
+    },
+    {
+      "host": 31,
+      "at_ms": 4060,
+      "method": "GET",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 1512,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": 213,
+      "initiator": 0,
+      "content_type": "image/gif",
+      "size": 42
+    },
+    {
+      "host": 37,
+      "at_ms": 4075,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "path_len": 62,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 1294,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 48,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0
+    },
+    {
+      "host": 31,
+      "at_ms": 5026,
+      "method": "GET",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h3",
+      "conn": 2,
+      "path_len": 1492,
+      "headers": [
+        {
+          "name": "x-browser-channel",
+          "len": 6,
+          "class": "alnum"
+        },
+        {
+          "name": "x-browser-year",
+          "len": 4,
+          "class": "digits"
+        },
+        {
+          "name": "x-browser-validation",
+          "len": 28,
+          "class": "base64"
+        },
+        {
+          "name": "x-browser-copyright",
+          "len": 47,
+          "class": "text"
+        }
+      ],
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": 221,
+      "initiator": 0,
+      "content_type": "image/gif",
+      "size": 42
+    },
+    {
+      "host": 23,
+      "at_ms": 12720,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 13,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 1525,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 46,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0
+    },
+    {
+      "host": 19,
+      "at_ms": 13552,
+      "method": "POST",
+      "dest": "empty",
+      "mode": "no-cors",
+      "protocol": "h2",
+      "conn": 1,
+      "path_len": 54,
+      "headers": [
+        {
+          "name": "content-type",
+          "len": 24,
+          "class": "text"
+        }
+      ],
+      "body": 1873,
+      "cookie_crumbs": 1,
+      "cookie_bytes": 48,
+      "status": 200,
+      "redirect_to": -1,
+      "redirect_from": -1,
+      "initiator": 0,
+      "size": 0,
+      "set_cookies": [
+        {
+          "id": 18,
+          "name_len": 5,
+          "value_len": 42,
+          "class": "text",
+          "site_wide": true,
+          "path": "/",
+          "secure": true,
+          "same_site": "none",
+          "persistent": true
+        }
+      ]
+    }
+  ]
+}
