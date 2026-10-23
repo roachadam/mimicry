@@ -14,3 +14,24 @@ fileGroups:
     - '/**/*.go'
     - '/go.mod'
     - '/go.sum'
+
+tasks:
+  # Launches the installed browsers (visible windows unless `-- -headless`)
+  # against an in-process capture server and writes new captures to
+  # testdata/captures. Never overwrites; delete a capture to retake it.
+  capture:
+    description: 'Capture the installed browsers into testdata/captures'
+    command: 'go run ./cmd/capture'
+    toolchain: 'system'
+    options:
+      cache: false
+      runInCI: false
+  # A standalone capture server for pointing any client at by hand.
+  capture-server:
+    description: 'Run the capture server on https://127.0.0.1:8443/'
+    command: 'go run ./cmd/capture-server'
+    toolchain: 'system'
+    options:
+      cache: false
+      runInCI: false
+      persistent: true
