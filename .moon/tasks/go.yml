@@ -1,0 +1,31 @@
+$schema: 'https://moonrepo.dev/schemas/tasks.json'
+# Every project with `language: 'go'` inherits these. Go comes from .prototools
+# through proto's shim, so tasks run with the `system` toolchain.
+inheritedBy:
+  language: 'go'
+
+fileGroups:
+  sources:
+    - '**/*.go'
+    - 'go.mod'
+    - 'go.sum'
+
+tasks:
+  test:
+    command: 'go test ./...'
+    toolchain: 'system'
+    inputs:
+      - '@group(sources)'
+  vet:
+    command: 'go vet ./...'
+    toolchain: 'system'
+    inputs:
+      - '@group(sources)'
+  # golangci-lint is installed outside moon. It walks up to the repo-root
+  # .golangci.yml. --allow-parallel-runners: moon lints both modules at once.
+  lint:
+    command: 'golangci-lint run --allow-parallel-runners'
+    toolchain: 'system'
+    inputs:
+      - '@group(sources)'
+      - '/.golangci.yml'

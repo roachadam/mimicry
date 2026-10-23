@@ -1,0 +1,38 @@
+version: "2"
+
+# Runs per Go module (repo root and harness/) through the moon `lint` task; see
+# .moon/tasks/go.yml. Based on an earlier project's set, with errcheck and revive's
+# doc-comment rules on from the start since this is a new codebase.
+linters:
+  # "standard" = errcheck, govet, ineffassign, staticcheck, unused.
+  default: standard
+  enable:
+    # --- guardrails ---
+    - bodyclose       # HTTP response bodies are closed
+    - unconvert       # no redundant type conversions
+    - misspell        # common English misspellings
+    - copyloopvar     # no leftover loop-var copies
+    - makezero        # no append to a non-zero-length make()
+    # --- bug catchers ---
+    - nilerr          # don't return nil after checking err != nil
+    - errorlint       # correct error wrapping (%w, errors.Is/As)
+    - noctx           # network calls carry a context
+    - unparam         # no unused function parameters
+    - nilnil          # don't return (nil, nil)
+    - wastedassign    # no assignments never read
+    - contextcheck    # inherited context is propagated
+    - gochecknoinits  # no init() functions
+    - gosec           # security checks
+    # --- style ---
+    - gocritic        # broad diagnostic/style/perf checks
+    - prealloc        # preallocate slices in loops
+    - revive          # golint replacement, default rules incl. exported and package-comments
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/roachadam/mimicry

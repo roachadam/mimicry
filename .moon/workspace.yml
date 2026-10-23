@@ -1,0 +1,12 @@
+$schema: 'https://moonrepo.dev/schemas/workspace.json'
+
+# The repo is local-only for now, so change detection compares against the
+# local branch. Switch to 'origin/main' once it has a remote and CI.
+vcs:
+  defaultBranch: 'main'
+
+projects:
+  # The library module lives at the repo root so users import
+  # github.com/roachadam/mimicry directly.
+  mimicry: '.'
+  harness: 'harness'

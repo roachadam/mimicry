@@ -1,0 +1,14 @@
+.DS_Store
+.claude/*
+.cursor
+.worktrees
+
+# moon
+.moon/cache/
+
+# Build output
+bin/
+
+# Local-only workspace for trying unmerged changes in ../utls (see AGENTS.md)
+go.work
+go.work.sum

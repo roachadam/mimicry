@@ -1,0 +1,16 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+layer: 'tool'
+language: 'go'
+dependsOn:
+  - 'mimicry'
+
+# The harness compares mimicry's profiles against real browsers, so a change in
+# the library must invalidate its cached test results too.
+fileGroups:
+  sources:
+    - '**/*.go'
+    - 'go.mod'
+    - 'go.sum'
+    - '/**/*.go'
+    - '/go.mod'
+    - '/go.sum'
