@@ -28,6 +28,16 @@ func (c *Capture) Complete() bool {
 	return len(c.Profile.Headers) > 0
 }
 
+// HasExtension reports whether the ClientHello carried an extension of typ.
+func (c *Capture) HasExtension(typ profile.Code) bool {
+	for _, e := range c.Profile.TLS.Extensions {
+		if e.Type == typ {
+			return true
+		}
+	}
+	return false
+}
+
 // UserAgent returns the request's user-agent header, or "".
 func (c *Capture) UserAgent() string {
 	for _, h := range c.Profile.Headers {

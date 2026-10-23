@@ -7,25 +7,29 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
 
-// Target is where a launched browser goes.
+// Target is the capture server browsers connect to.
 type Target struct {
-	// Host is the capture hostname. Browsers resolve it to 127.0.0.1 through
-	// their own settings, so no system DNS change is needed. A hostname, not an
-	// IP, matters: browsers omit server_name for IP addresses.
+	// Host is the capture hostname. Chrome and Firefox resolve it to
+	// 127.0.0.1 through their own settings. Safari cannot be configured that
+	// way and uses localhost instead. Either way it is a hostname: browsers
+	// omit server_name for IP addresses.
 	Host string
-	// URL is the page to open, on Host.
-	URL string
+	Port int
 	// CertSHA256 is the SHA-256 of the server certificate (DER), which Firefox
 	// is told to accept.
 	CertSHA256 [32]byte
 }
 
-// Browser is an installed browser that can be launched with a throwaway
-// profile.
+func (t Target) url(host string) string {
+	return "https://" + host + ":" + strconv.Itoa(t.Port) + "/"
+}
+
+// Browser is an installed browser that can be launched against a Target.
 type Browser struct {
 	// Name matches capture.ParseUserAgent's browser names.
 	Name string
@@ -37,6 +41,9 @@ type Browser struct {
 	// macOS privacy restrictions, and Firefox exits because it cannot read its
 	// own Application Support folder.
 	App string
+	// Shared marks a browser that cannot run a separate instance or profile:
+	// it opens a tab in the user's own window. Only Safari.
+	Shared bool
 	// prepare writes any profile files into dir and returns the arguments.
 	prepare func(dir string, t Target, headless bool) ([]string, error)
 }
@@ -44,6 +51,7 @@ type Browser struct {
 var macOSApps = map[string]string{
 	"chrome":  "/Applications/Google Chrome.app",
 	"firefox": "/Applications/Firefox.app",
+	"safari":  "/Applications/Safari.app",
 }
 
 var linuxCommands = map[string][]string{
@@ -56,10 +64,11 @@ var linuxCommands = map[string][]string{
 	},
 }
 
-// Find returns the supported browsers installed here, Chrome then Firefox.
+// Find returns the supported browsers installed here: Chrome, Firefox, then
+// Safari.
 func Find() []*Browser {
 	var found []*Browser
-	for _, name := range []string{"chrome", "firefox"} {
+	for _, name := range []string{"chrome", "firefox", "safari"} {
 		b := &Browser{
 			Name: name,
 		}
@@ -84,10 +93,20 @@ func Find() []*Browser {
 			b.prepare = chromeArgs
 		case "firefox":
 			b.prepare = firefoxProfile
+		case "safari":
+			b.Shared = true
 		}
 		found = append(found, b)
 	}
 	return found
+}
+
+// URL is where b goes for t.
+func (b *Browser) URL(t Target) string {
+	if b.Shared {
+		return t.url("localhost")
+	}
+	return t.url(t.Host)
 }
 
 // Session is a running browser.
@@ -96,11 +115,25 @@ type Session struct {
 	dir  string
 	app  bool
 	done chan struct{}
+	// tabURL is set for a shared browser: Close closes its tabs on this URL
+	// rather than stopping the user's browser.
+	tabURL string
 }
 
-// Open launches b on t with a new profile directory. headless hides the
-// window; a visible browser is the more faithful capture.
+// Open launches b on t. Chrome and Firefox get a new profile directory and
+// their own instance; headless hides their windows. Safari opens a tab in the
+// user's own window, ignores headless, and must trust the server's
+// certificate.
 func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, error) {
+	if b.Shared {
+		url := b.URL(t)
+		if err := exec.CommandContext(ctx, "open", "-a", b.App, url).Run(); err != nil { //nolint:gosec // the app is a known browser location
+			return nil, fmt.Errorf("opening %s: %w", b.Name, err)
+		}
+		return &Session{
+			tabURL: url,
+		}, nil
+	}
 	dir, err := os.MkdirTemp("", "mimicry-"+b.Name+"-")
 	if err != nil {
 		return nil, err
@@ -110,6 +143,7 @@ func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, 
 		_ = os.RemoveAll(dir)
 		return nil, err
 	}
+	args = append(args, b.URL(t))
 	var cmd *exec.Cmd
 	if b.App != "" {
 		// -n: a new instance even if the user's browser is open. -W: open
@@ -136,8 +170,15 @@ func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, 
 }
 
 // Close stops the browser, killing it if it has not exited within five
-// seconds, and removes its profile.
+// seconds, and removes its profile. For Safari it closes the capture tab.
 func (s *Session) Close() error {
+	if s.tabURL != "" {
+		script := `tell application "Safari" to close (every tab of every window whose URL starts with "` + s.tabURL + `")`
+		if out, err := exec.Command("osascript", "-e", script).CombinedOutput(); err != nil { //nolint:noctx,gosec // must run after the caller's context ends; the URL is ours
+			return fmt.Errorf("closing the Safari tab: %w: %s", err, strings.TrimSpace(string(out)))
+		}
+		return nil
+	}
 	s.stop(false)
 	select {
 	case <-s.done:
@@ -193,7 +234,7 @@ func chromeArgs(dir string, t Target, headless bool) ([]string, error) {
 	if headless {
 		args = append(args, "--headless=new")
 	}
-	return append(args, t.URL), nil
+	return args, nil
 }
 
 // firefoxProfile writes prefs that map the capture host to 127.0.0.1 and
@@ -221,21 +262,17 @@ func firefoxProfile(dir string, t Target, headless bool) ([]string, error) {
 	if headless {
 		args = append(args, "--headless")
 	}
-	return append(args, t.URL), nil
+	return args, nil
 }
 
 // firefoxOverride is a cert_override.txt accepting the server certificate for
-// the URL's host and port.
+// the target's host and port.
 func firefoxOverride(t Target) string {
-	hostPort := t.Host
-	if _, rest, ok := strings.Cut(t.URL, "://"); ok {
-		hostPort, _, _ = strings.Cut(rest, "/")
-	}
 	pairs := make([]string, len(t.CertSHA256))
 	for i, b := range t.CertSHA256 {
 		pairs[i] = fmt.Sprintf("%02X", b)
 	}
 	return "# PSM Certificate Override Settings file\n" +
 		"# This is a generated file!  Do not edit.\n" +
-		hostPort + ":\tOID.2.16.840.1.101.3.4.2.1\t" + strings.Join(pairs, ":") + "\t\n"
+		t.Host + ":" + strconv.Itoa(t.Port) + ":\tOID.2.16.840.1.101.3.4.2.1\t" + strings.Join(pairs, ":") + "\t\n"
 }

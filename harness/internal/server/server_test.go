@@ -34,9 +34,14 @@ type testServer struct {
 // ClientHello is delivered on infos, as an independent check of ours.
 func startServer(t *testing.T) *testServer {
 	t.Helper()
-	cert, err := SelfSigned([]string{
+	hosts := []string{
 		"localhost",
-	}, time.Now())
+	}
+	ca, err := LoadOrCreateCA(t.TempDir(), hosts, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cert, err := ca.Issue(hosts, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +55,7 @@ func startServer(t *testing.T) *testServer {
 		captures: make(chan *capture.Capture, 4),
 		infos:    make(chan *tls.ClientHelloInfo, 4),
 	}
-	ts.pool.AddCert(cert.Leaf)
+	ts.pool.AddCert(ca.Cert)
 	srv := &Server{
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{

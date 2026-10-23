@@ -61,3 +61,17 @@ Profile accuracy is proven by the harness against real browser captures, not by 
 ## Built-in profiles
 
 Built-in profiles are JSON files in `profiles/data/`, one per browser version and platform; the typed Go variables are generated from them. Every built-in profile must pass `profile.Parse`, enforced twice: the generator refuses to generate from an invalid file, and a test in `profiles` parses every embedded file. A profile without a matching capture in `harness/testdata/captures/` is not finished.
+
+## Capturing browsers
+
+`moon run harness:capture` launches every installed browser (Chrome, Firefox, Safari) against an in-process capture server and writes new captures to `harness/testdata/captures/`. It never overwrites; delete a capture to retake it. Use visible windows for captures you commit: headless Chrome reports `HeadlessChrome` in its user agent. moon skips this task when `CI=true`.
+
+- Chrome and Firefox run with throwaway profiles and resolve `capture.mimicry.test` to 127.0.0.1 themselves; Chrome ignores certificate errors and Firefox gets a certificate exception. Nothing on the system changes.
+- Safari cannot be isolated: it opens a tab in the user's own window on `https://localhost:<port>/` (closed afterwards) and must trust the capture CA. The CA lives in `<user config dir>/mimicry/capture-ca/`, outside the repo, and is name-constrained to `capture.mimicry.test` and `localhost` with IP addresses excluded, so it cannot vouch for any real site. Trust it once; the capture command prints this when needed:
+
+  ```sh
+  security add-trusted-cert -r trustRoot -p ssl -k ~/Library/Keychains/login.keychain-db \
+    ~/Library/Application\ Support/mimicry/capture-ca/ca.pem
+  ```
+
+  To undo: `security remove-trusted-cert` with the same file, then delete the directory.

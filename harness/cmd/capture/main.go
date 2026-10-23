@@ -36,7 +36,7 @@ func run() error {
 	out := flag.String("out", "testdata/captures", "directory to write captures to")
 	only := flag.String("browsers", "", "comma-separated browsers to capture (default: every installed one)")
 	headless := flag.Bool("headless", false, "hide browser windows; for checking the tool only: headless Chrome reports HeadlessChrome in its user agent")
-	host := flag.String("host", "capture.mimicry.test", "hostname browsers connect to; resolved to 127.0.0.1 inside each browser")
+	caDir := flag.String("ca-dir", "", "capture CA directory (default: <user config dir>/mimicry/capture-ca)")
 	timeout := flag.Duration("timeout", 45*time.Second, "how long to wait for each browser")
 	flag.Parse()
 
@@ -56,9 +56,18 @@ func run() error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	cert, err := server.SelfSigned([]string{
-		*host,
-	}, time.Now())
+	if *caDir == "" {
+		dir, err := server.DefaultCADir()
+		if err != nil {
+			return err
+		}
+		*caDir = dir
+	}
+	ca, err := server.LoadOrCreateCA(*caDir, server.CAHosts, time.Now())
+	if err != nil {
+		return err
+	}
+	cert, err := ca.Issue(server.CAHosts, time.Now())
 	if err != nil {
 		return err
 	}
@@ -87,12 +96,19 @@ func run() error {
 	}()
 
 	target := browser.Target{
-		Host:       *host,
-		URL:        fmt.Sprintf("https://%s:%d/", *host, ln.Addr().(*net.TCPAddr).Port),
+		Host:       server.CaptureHost,
+		Port:       ln.Addr().(*net.TCPAddr).Port,
 		CertSHA256: sha256.Sum256(cert.Certificate[0]),
 	}
 	failed := 0
 	for _, b := range browsers {
+		if b.Shared && !server.TrustedBySystem(cert, "localhost") {
+			log.Printf("%s: the capture CA is not trusted, so %s would stop at a certificate warning. Trust it once (macOS asks for your password):\n"+
+				"  security add-trusted-cert -r trustRoot -p ssl -k ~/Library/Keychains/login.keychain-db %q\n"+
+				"It can only vouch for %s.", b.Name, b.Name, ca.CertPath, strings.Join(server.CAHosts, " and "))
+			failed++
+			continue
+		}
 		if err := captureOne(ctx, b, target, captures, *headless, *timeout, *out); err != nil {
 			log.Printf("%s: %v", b.Name, err)
 			failed++
@@ -105,7 +121,7 @@ func run() error {
 }
 
 func captureOne(ctx context.Context, b *browser.Browser, t browser.Target, captures <-chan *capture.Capture, headless bool, timeout time.Duration, out string) error {
-	log.Printf("%s: opening %s", b.Name, t.URL)
+	log.Printf("%s: opening %s", b.Name, b.URL(t))
 	session, err := b.Open(ctx, t, headless)
 	if err != nil {
 		return err
@@ -118,7 +134,7 @@ func captureOne(ctx context.Context, b *browser.Browser, t browser.Target, captu
 		return err
 	}
 	c.Identify()
-	if !hasExtension(c, profile.ExtServerName) {
+	if !c.HasExtension(profile.ExtServerName) {
 		log.Printf("%s: warning: no server_name in the ClientHello", c.Profile.Name)
 	}
 	f := capture.Compute(&c.Profile)
@@ -160,13 +176,4 @@ func await(ctx context.Context, name string, captures <-chan *capture.Capture, t
 			return nil, ctx.Err()
 		}
 	}
-}
-
-func hasExtension(c *capture.Capture, typ profile.Code) bool {
-	for _, e := range c.Profile.TLS.Extensions {
-		if e.Type == typ {
-			return true
-		}
-	}
-	return false
 }

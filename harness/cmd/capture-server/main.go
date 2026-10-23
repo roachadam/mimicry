@@ -19,6 +19,7 @@ import (
 
 	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/harness/internal/server"
+	"github.com/roachadam/mimicry/profile"
 )
 
 func main() {
@@ -31,11 +32,12 @@ func main() {
 func run() error {
 	addr := flag.String("addr", "127.0.0.1:8443", "address to listen on")
 	out := flag.String("out", "captures", "directory to write captures to")
-	certFile := flag.String("cert", "", "certificate file (default: a fresh self-signed certificate)")
+	certFile := flag.String("cert", "", "certificate file (default: one issued by the capture CA)")
 	keyFile := flag.String("key", "", "key file for -cert")
+	caDir := flag.String("ca-dir", "", "capture CA directory (default: <user config dir>/mimicry/capture-ca)")
 	flag.Parse()
 
-	cert, err := loadCert(*certFile, *keyFile)
+	cert, err := loadCert(*certFile, *keyFile, *caDir)
 	if err != nil {
 		return err
 	}
@@ -59,24 +61,33 @@ func run() error {
 		},
 		Logf: log.Printf,
 	}
-	log.Printf("capturing on https://%s/ and writing to %s", ln.Addr(), *out)
+	_, port, _ := net.SplitHostPort(ln.Addr().String())
+	log.Printf("capturing on https://localhost:%s/ (or %s with the browser mapping it to 127.0.0.1), writing to %s", port, server.CaptureHost, *out)
 	return srv.Serve(ctx, ln)
 }
 
-func loadCert(certFile, keyFile string) (tls.Certificate, error) {
+func loadCert(certFile, keyFile, caDir string) (tls.Certificate, error) {
 	if certFile != "" || keyFile != "" {
 		return tls.LoadX509KeyPair(certFile, keyFile)
 	}
-	return server.SelfSigned([]string{
-		"localhost",
-		"127.0.0.1",
-		"::1",
-	}, time.Now())
+	if caDir == "" {
+		dir, err := server.DefaultCADir()
+		if err != nil {
+			return tls.Certificate{}, err
+		}
+		caDir = dir
+	}
+	ca, err := server.LoadOrCreateCA(caDir, server.CAHosts, time.Now())
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	return ca.Issue(server.CAHosts, time.Now())
 }
 
 func save(dir string, c *capture.Capture) {
 	if !c.Complete() {
-		log.Printf("ClientHello only (no request; ALPN %q, %d extensions)", c.Protocol, len(c.Profile.TLS.Extensions))
+		log.Printf("ClientHello only (no request; ALPN %q, %d extensions, server_name %t)",
+			c.Protocol, len(c.Profile.TLS.Extensions), c.HasExtension(profile.ExtServerName))
 		return
 	}
 	c.Identify()
