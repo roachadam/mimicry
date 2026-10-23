@@ -6,7 +6,7 @@ mimicry is a Go HTTP client that reproduces real browsers' network fingerprints.
 
 ## Commands
 
-Tool versions are pinned in `.prototools` (Go, moon). golangci-lint v2 is installed separately.
+Tool versions are pinned in `.prototools` (Go, moon). golangci-lint is pinned in `.moon/tasks/go.yml` and run with `go run`, so it is built with the pinned Go; run it through moon rather than a system install.
 
 ```sh
 moon run :test :vet :lint   # every project

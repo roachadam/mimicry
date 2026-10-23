@@ -1,0 +1,194 @@
+{
+  "name": "example-chrome-like",
+  "browser": "chrome",
+  "version": "0",
+  "platform": "test",
+  "tls": {
+    "cipher_suites": [
+      "GREASE",
+      "0x1301",
+      "0x1302",
+      "0x1303",
+      "0xc02b",
+      "0xc02f",
+      "0xc02c",
+      "0xc030",
+      "0xcca9",
+      "0xcca8",
+      "0xc013",
+      "0xc014",
+      "0x009c",
+      "0x009d",
+      "0x002f",
+      "0x0035"
+    ],
+    "compression_methods": [
+      0
+    ],
+    "extensions": [
+      {
+        "type": "GREASE"
+      },
+      {
+        "type": "0x0000"
+      },
+      {
+        "type": "0x0017"
+      },
+      {
+        "type": "0xff01",
+        "data": "00"
+      },
+      {
+        "type": "0x000a",
+        "groups": [
+          "GREASE",
+          "0x11ec",
+          "0x001d",
+          "0x0017",
+          "0x0018"
+        ]
+      },
+      {
+        "type": "0x000b",
+        "point_formats": [
+          0
+        ]
+      },
+      {
+        "type": "0x0023"
+      },
+      {
+        "type": "0x0010",
+        "alpn": [
+          "h2",
+          "http/1.1"
+        ]
+      },
+      {
+        "type": "0x0005",
+        "data": "0100000000"
+      },
+      {
+        "type": "0x000d",
+        "signature_algorithms": [
+          "0x0403",
+          "0x0804",
+          "0x0401",
+          "0x0503",
+          "0x0805",
+          "0x0501",
+          "0x0806",
+          "0x0601"
+        ]
+      },
+      {
+        "type": "0x0012"
+      },
+      {
+        "type": "0x0033",
+        "key_shares": [
+          "GREASE",
+          "0x11ec",
+          "0x001d"
+        ]
+      },
+      {
+        "type": "0x002d",
+        "psk_modes": [
+          1
+        ]
+      },
+      {
+        "type": "0x002b",
+        "versions": [
+          "GREASE",
+          "0x0304",
+          "0x0303"
+        ]
+      },
+      {
+        "type": "0x001b",
+        "cert_compression": [
+          "0x0002"
+        ]
+      },
+      {
+        "type": "0x44cd",
+        "alps": [
+          "h2"
+        ]
+      },
+      {
+        "type": "0xfe0d"
+      },
+      {
+        "type": "GREASE",
+        "data": "00"
+      },
+      {
+        "type": "0x0015"
+      }
+    ]
+  },
+  "http2": {
+    "settings": [
+      {
+        "id": 1,
+        "value": 65536
+      },
+      {
+        "id": 2,
+        "value": 0
+      },
+      {
+        "id": 4,
+        "value": 6291456
+      },
+      {
+        "id": 6,
+        "value": 262144
+      }
+    ],
+    "window_update": 15663105,
+    "headers_priority": {
+      "depends_on": 0,
+      "exclusive": true,
+      "weight": 255
+    },
+    "pseudo_header_order": [
+      ":method",
+      ":authority",
+      ":scheme",
+      ":path"
+    ]
+  },
+  "headers": [
+    {
+      "name": "cache-control"
+    },
+    {
+      "name": "upgrade-insecure-requests",
+      "value": "1"
+    },
+    {
+      "name": "user-agent",
+      "value": "Mozilla/5.0"
+    },
+    {
+      "name": "accept",
+      "value": "text/html"
+    },
+    {
+      "name": "accept-encoding",
+      "value": "gzip, deflate, br, zstd"
+    },
+    {
+      "name": "accept-language",
+      "value": "en-US,en;q=0.9"
+    },
+    {
+      "name": "cookie"
+    }
+  ]
+}
