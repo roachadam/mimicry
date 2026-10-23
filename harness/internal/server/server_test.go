@@ -400,10 +400,11 @@ func TestHTTP2Recording(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if status := readResponse(t, fr, 3); status != "404" {
-		t.Errorf("second request status %s, want 404", status)
+	if status := readResponse(t, fr, 3); status != "200" {
+		t.Errorf("second request status %s, want 200: the server answers every request", status)
 	}
-
+	// A client that does not ask for /done completes its capture by closing.
+	_ = conn.Close()
 	c := receive(t, ts.captures)
 	want := &profile.HTTP2{
 		Settings: []profile.Setting{

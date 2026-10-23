@@ -75,9 +75,11 @@ func captureRequests(t *testing.T, p *profile.Profile, n int) []*capture.Capture
 		}
 		_, _ = io.Copy(io.Discard, resp.Body)
 		_ = resp.Body.Close()
-		got = append(got, <-captures)
-		// A fresh connection, and so a fresh ClientHello, for each request.
+		// Closing the connection completes the capture (mimicry runs no page
+		// script to ask for /done), and the next request gets a fresh
+		// connection and ClientHello.
 		tr.CloseIdleConnections()
+		got = append(got, <-captures)
 	}
 	return got
 }

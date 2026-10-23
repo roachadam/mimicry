@@ -2,12 +2,14 @@ package capture
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/roachadam/mimicry/harness/internal/h2trace"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -21,6 +23,9 @@ type Capture struct {
 	ClientHello []byte
 	// Protocol is the negotiated ALPN protocol, empty if the handshake failed.
 	Protocol string
+	// Trace is the HTTP/2 connection's frames and header blocks, nil for
+	// HTTP/1.1.
+	Trace *h2trace.Trace
 }
 
 // Complete reports whether a request was recorded, not only the ClientHello.
@@ -106,9 +111,10 @@ func majorAfter(ua, marker string) string {
 // ErrExists is returned by Write when a capture with the same name exists.
 var ErrExists = errors.New("capture already exists")
 
-// Write stores c in dir as <name>.json (the profile) and <name>.clienthello
-// (the raw ClientHello as hex). It never overwrites: an existing capture
-// returns ErrExists. It returns the path of the profile file.
+// Write stores c in dir as <name>.json (the profile), <name>.clienthello (the
+// raw ClientHello as hex) and, for HTTP/2, <name>.h2trace.json (the
+// connection trace). It never overwrites: an existing capture returns
+// ErrExists. It returns the path of the profile file.
 func Write(dir string, c *Capture) (string, error) {
 	if c.Profile.Name == "" {
 		return "", errors.New("capture has no name; call Identify first")
@@ -124,6 +130,15 @@ func Write(dir string, c *Capture) (string, error) {
 	hello := []byte(hex.EncodeToString(c.ClientHello) + "\n")
 	if err := writeNew(filepath.Join(dir, c.Profile.Name+".clienthello"), hello); err != nil {
 		return "", err
+	}
+	if c.Trace != nil {
+		trace, err := json.MarshalIndent(c.Trace, "", "  ")
+		if err != nil {
+			return "", err
+		}
+		if err := writeNew(filepath.Join(dir, c.Profile.Name+".h2trace.json"), append(trace, '\n')); err != nil {
+			return "", err
+		}
 	}
 	return path, nil
 }

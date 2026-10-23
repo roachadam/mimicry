@@ -41,7 +41,8 @@ func serveHTTP1(conn net.Conn, c *capture.Capture, recorded func()) error {
 		})
 	}
 	recorded()
+	const body = "mimicry capture ok\n"
 	_, err = fmt.Fprintf(conn, "HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s",
-		len(responseBody), responseBody)
+		len(body), body)
 	return err
 }

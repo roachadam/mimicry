@@ -2,25 +2,132 @@ package server
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/hpack"
 
 	"github.com/roachadam/mimicry/harness/internal/capture"
+	"github.com/roachadam/mimicry/harness/internal/h2trace"
 	"github.com/roachadam/mimicry/profile"
 )
 
-var responseBody = []byte("mimicry capture ok\n")
+// page is what a browser loads: subresources on the same connection, then a
+// script that downloads, uploads, requests again and finally asks for /done,
+// which completes the capture.
+const page = `<!doctype html>
+<html><head><meta charset="utf-8"><title>mimicry capture</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/style.css">
+</head><body>
+<p>mimicry capture ok</p>
+<img src="/img.png" alt="">
+<script src="/app.js"></script>
+</body></html>
+`
+
+const script = `(async () => {
+  const big = await fetch('/big');
+  await big.arrayBuffer();
+  await fetch('/upload', {method: 'POST', body: new Uint8Array(` + uploadSize + `)});
+  await (await fetch('/again')).text();
+  await fetch('/done');
+})();
+`
+
+const uploadSize = "200000"
+
+// bigSize is larger than every captured browser's stream receive window, so
+// the download shows how each one returns flow-control credit.
+const bigSize = 8 << 20
+
+// png is a 1x1 transparent PNG.
+var png = []byte{
+	0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+	0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4,
+	0x89, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x63, 0x00, 0x01, 0x00, 0x00,
+	0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae,
+	0x42, 0x60, 0x82,
+}
+
+// response is what the server answers for a path.
+type response struct {
+	status      int
+	contentType string
+	body        []byte
+}
+
+func respondTo(path string, uploaded int) response {
+	switch path {
+	case "/":
+		return response{200, "text/html; charset=utf-8", []byte(page)}
+	case "/style.css":
+		return response{200, "text/css", []byte("body { font: 14px sans-serif }\n")}
+	case "/app.js":
+		return response{200, "text/javascript", []byte(script)}
+	case "/img.png":
+		return response{200, "image/png", png}
+	case "/big":
+		return response{200, "application/octet-stream", make([]byte, bigSize)}
+	case "/upload":
+		return response{200, "text/plain", []byte(strconv.Itoa(uploaded) + "\n")}
+	case "/again", "/done":
+		return response{200, "text/plain", []byte("ok\n")}
+	}
+	return response{404, "text/plain", []byte("not found\n")}
+}
+
+// h2conn is the server side of one captured HTTP/2 connection.
+type h2conn struct {
+	fr    *http2.Framer
+	start time.Time
+
+	// Read-loop state.
+	dec     *hpack.Decoder
+	c       *capture.Capture
+	h       *profile.HTTP2
+	trace   *h2trace.Trace
+	tracing bool // false once the capture was handed over
+	// The header block being assembled, with its HEADERS frame's flags.
+	block         []byte
+	blockID       uint32
+	blockEnded    bool
+	blockPriority *http2.PriorityParam
+	streams       map[uint32]*h2stream
+
+	// wmu serialises writes; enc is only used under it.
+	wmu sync.Mutex
+	enc *hpack.Encoder
+	buf bytes.Buffer
+
+	// mu guards the send windows.
+	mu            sync.Mutex
+	cond          *sync.Cond
+	connWindow    int64
+	initialWindow int64
+	maxFrame      int
+	sendWindows   map[uint32]*int64
+	closed        bool
+}
+
+type h2stream struct {
+	path     string
+	uploaded int
+}
 
 // serveHTTP2 records the client's connection preface frames and first request
-// into c, calls recorded once that request is in, and answers every request
-// until the client goes away.
-func serveHTTP2(conn net.Conn, c *capture.Capture, recorded func()) error {
+// into c's profile, traces every frame and header block into c.Trace, and
+// answers requests until the client goes away. emit hands the capture over;
+// it is called when the client asks for /done (a browser that ran the
+// page's script) and, by the caller, when the connection ends.
+func serveHTTP2(conn net.Conn, c *capture.Capture, emit func()) error {
 	preface := make([]byte, len(http2.ClientPreface))
 	if _, err := io.ReadFull(conn, preface); err != nil {
 		return err
@@ -28,65 +135,104 @@ func serveHTTP2(conn net.Conn, c *capture.Capture, recorded func()) error {
 	if string(preface) != http2.ClientPreface {
 		return fmt.Errorf("bad HTTP/2 preface %q", preface)
 	}
-	fr := http2.NewFramer(conn, conn)
-	fr.ReadMetaHeaders = hpack.NewDecoder(4096, nil)
-	if err := fr.WriteSettings(); err != nil {
+	s := &h2conn{
+		fr:            http2.NewFramer(conn, conn),
+		start:         time.Now(),
+		dec:           hpack.NewDecoder(4096, nil),
+		c:             c,
+		h:             &profile.HTTP2{},
+		trace:         &h2trace.Trace{},
+		tracing:       true,
+		streams:       map[uint32]*h2stream{},
+		connWindow:    65535,
+		initialWindow: 65535,
+		maxFrame:      16384,
+		sendWindows:   map[uint32]*int64{},
+	}
+	s.cond = sync.NewCond(&s.mu)
+	s.enc = hpack.NewEncoder(&s.buf)
+	c.Trace = s.trace
+	defer func() {
+		s.mu.Lock()
+		s.closed = true
+		s.cond.Broadcast()
+		s.mu.Unlock()
+	}()
+	s.wmu.Lock()
+	err := s.fr.WriteSettings()
+	s.wmu.Unlock()
+	if err != nil {
 		return err
 	}
-	var block bytes.Buffer
-	enc := hpack.NewEncoder(&block)
-	h := &profile.HTTP2{}
-	gotSettings, gotRequest := false, false
+	var senders sync.WaitGroup
+	defer senders.Wait()
+	gotSettings := false
 	for {
-		f, err := fr.ReadFrame()
+		f, err := s.fr.ReadFrame()
 		if err != nil {
 			return err
 		}
+		s.record(f)
 		switch f := f.(type) {
 		case *http2.SettingsFrame:
 			if f.IsAck() {
 				continue
 			}
-			if !gotSettings {
-				gotSettings = true
-				if err := f.ForeachSetting(func(s http2.Setting) error {
-					h.Settings = append(h.Settings, profile.Setting{
-						ID:    uint16(s.ID),
-						Value: s.Val,
-					})
-					return nil
-				}); err != nil {
-					return err
-				}
-			}
-			if err := fr.WriteSettingsAck(); err != nil {
+			if err := s.applySettings(f, !gotSettings); err != nil {
 				return err
 			}
+			gotSettings = true
 		case *http2.WindowUpdateFrame:
-			if f.StreamID == 0 && !gotRequest && h.WindowUpdate == 0 {
-				h.WindowUpdate = f.Increment
+			if f.StreamID == 0 && len(s.trace.Requests) == 0 && s.h.WindowUpdate == 0 {
+				s.h.WindowUpdate = f.Increment
 			}
+			s.mu.Lock()
+			if f.StreamID == 0 {
+				s.connWindow += int64(f.Increment)
+			} else if w := s.sendWindows[f.StreamID]; w != nil {
+				*w += int64(f.Increment)
+			}
+			s.cond.Broadcast()
+			s.mu.Unlock()
 		case *http2.PriorityFrame:
-			if !gotRequest {
-				h.Priorities = append(h.Priorities, profile.Priority{
+			if len(s.trace.Requests) == 0 {
+				s.h.Priorities = append(s.h.Priorities, profile.Priority{
 					StreamID:      f.StreamID,
 					PriorityParam: priorityParam(f.PriorityParam),
 				})
 			}
-		case *http2.MetaHeadersFrame:
-			status := 404
-			if !gotRequest {
-				gotRequest = true
-				status = 200
-				recordRequest(c, h, f)
-				recorded()
+		case *http2.HeadersFrame:
+			s.block, s.blockID = append(s.block[:0], f.HeaderBlockFragment()...), f.StreamID
+			s.blockEnded, s.blockPriority = f.StreamEnded(), nil
+			if f.HasPriority() {
+				p := f.Priority
+				s.blockPriority = &p
 			}
-			if err := respond(fr, enc, &block, f.StreamID, status); err != nil {
+			if f.HeadersEnded() {
+				if err := s.onHeaders(&senders, emit); err != nil {
+					return err
+				}
+			}
+		case *http2.ContinuationFrame:
+			if f.StreamID != s.blockID {
+				return fmt.Errorf("CONTINUATION for stream %d inside stream %d's block", f.StreamID, s.blockID)
+			}
+			s.block = append(s.block, f.HeaderBlockFragment()...)
+			if f.HeadersEnded() {
+				if err := s.onHeaders(&senders, emit); err != nil {
+					return err
+				}
+			}
+		case *http2.DataFrame:
+			if err := s.onData(f, &senders, emit); err != nil {
 				return err
 			}
 		case *http2.PingFrame:
 			if !f.IsAck() {
-				if err := fr.WritePing(true, f.Data); err != nil {
+				s.wmu.Lock()
+				err := s.fr.WritePing(true, f.Data)
+				s.wmu.Unlock()
+				if err != nil {
 					return err
 				}
 			}
@@ -96,22 +242,255 @@ func serveHTTP2(conn net.Conn, c *capture.Capture, recorded func()) error {
 	}
 }
 
-func recordRequest(c *capture.Capture, h *profile.HTTP2, f *http2.MetaHeadersFrame) {
-	if f.HasPriority() {
-		p := priorityParam(f.Priority)
-		h.HeadersPriority = &p
+// record appends f to the trace while the capture is still being built.
+func (s *h2conn) record(f http2.Frame) {
+	if !s.tracing {
+		return
 	}
-	for _, field := range f.Fields {
-		if strings.HasPrefix(field.Name, ":") {
-			h.PseudoHeaderOrder = append(h.PseudoHeaderOrder, field.Name)
-			continue
+	hdr := f.Header()
+	tf := h2trace.Frame{
+		Millis: time.Since(s.start).Milliseconds(),
+		Type:   hdr.Type.String(),
+		Stream: hdr.StreamID,
+		Flags:  uint8(hdr.Flags),
+		Length: hdr.Length,
+	}
+	switch f := f.(type) {
+	case *http2.WindowUpdateFrame:
+		tf.Increment = f.Increment
+	case *http2.RSTStreamFrame:
+		tf.ErrCode = f.ErrCode.String()
+	case *http2.GoAwayFrame:
+		tf.ErrCode = f.ErrCode.String()
+	case *http2.PingFrame:
+		tf.Data = hex.EncodeToString(f.Data[:])
+	case *http2.PriorityFrame:
+		tf.Priority = tracePriority(f.PriorityParam)
+	case *http2.HeadersFrame:
+		if f.HasPriority() {
+			tf.Priority = tracePriority(f.Priority)
 		}
-		c.Profile.Headers = append(c.Profile.Headers, profile.Header{
-			Name:  field.Name,
-			Value: field.Value,
+	}
+	s.trace.Frames = append(s.trace.Frames, tf)
+}
+
+func tracePriority(p http2.PriorityParam) *h2trace.Priority {
+	return &h2trace.Priority{
+		DependsOn: p.StreamDep,
+		Exclusive: p.Exclusive,
+		Weight:    p.Weight,
+	}
+}
+
+func (s *h2conn) applySettings(f *http2.SettingsFrame, first bool) error {
+	s.mu.Lock()
+	err := f.ForeachSetting(func(st http2.Setting) error {
+		if first {
+			s.h.Settings = append(s.h.Settings, profile.Setting{
+				ID:    uint16(st.ID),
+				Value: st.Val,
+			})
+		}
+		switch st.ID {
+		case http2.SettingInitialWindowSize:
+			delta := int64(st.Val) - s.initialWindow
+			s.initialWindow = int64(st.Val)
+			for _, w := range s.sendWindows {
+				*w += delta
+			}
+		case http2.SettingMaxFrameSize:
+			s.maxFrame = int(st.Val)
+		}
+		return nil
+	})
+	s.cond.Broadcast()
+	s.mu.Unlock()
+	if err != nil {
+		return err
+	}
+	s.wmu.Lock()
+	defer s.wmu.Unlock()
+	return s.fr.WriteSettingsAck()
+}
+
+// onHeaders decodes the complete header block.
+func (s *h2conn) onHeaders(senders *sync.WaitGroup, emit func()) error {
+	id := s.blockID
+	instructions, err := h2trace.Decode(s.dec, s.block)
+	if err != nil {
+		return err
+	}
+	st := &h2stream{}
+	for _, ins := range instructions {
+		if ins.Name == ":path" {
+			st.path = ins.Value
+		}
+	}
+	if s.tracing {
+		s.trace.Requests = append(s.trace.Requests, h2trace.Request{
+			Stream:       id,
+			Path:         st.path,
+			Block:        hex.EncodeToString(s.block),
+			Instructions: instructions,
 		})
 	}
-	c.Profile.HTTP2 = h
+	if s.c.Profile.HTTP2 == nil {
+		s.recordFirstRequest(instructions)
+	}
+	s.streams[id] = st
+	if s.blockEnded {
+		s.respond(id, st, senders, emit)
+	}
+	return nil
+}
+
+func (s *h2conn) recordFirstRequest(instructions []h2trace.Instruction) {
+	if s.blockPriority != nil {
+		p := priorityParam(*s.blockPriority)
+		s.h.HeadersPriority = &p
+	}
+	for _, ins := range instructions {
+		if ins.Rep == h2trace.SizeUpdate {
+			continue
+		}
+		if strings.HasPrefix(ins.Name, ":") {
+			s.h.PseudoHeaderOrder = append(s.h.PseudoHeaderOrder, ins.Name)
+			continue
+		}
+		s.c.Profile.Headers = append(s.c.Profile.Headers, profile.Header{
+			Name:  ins.Name,
+			Value: ins.Value,
+		})
+	}
+	s.c.Profile.HTTP2 = s.h
+}
+
+func (s *h2conn) onData(f *http2.DataFrame, senders *sync.WaitGroup, emit func()) error {
+	// Return the credit straight away, so the client's upload is paced by its
+	// own behaviour rather than ours.
+	if n := f.Header().Length; n > 0 {
+		s.wmu.Lock()
+		err := s.fr.WriteWindowUpdate(0, n)
+		if err == nil && !f.StreamEnded() {
+			err = s.fr.WriteWindowUpdate(f.StreamID, n)
+		}
+		s.wmu.Unlock()
+		if err != nil {
+			return err
+		}
+	}
+	st := s.streams[f.StreamID]
+	if st == nil {
+		return nil
+	}
+	st.uploaded += len(f.Data())
+	if f.StreamEnded() {
+		s.respond(f.StreamID, st, senders, emit)
+	}
+	return nil
+}
+
+// respond answers a finished request. Bodies are sent from their own
+// goroutine, since they wait for the client's flow-control credit.
+func (s *h2conn) respond(id uint32, st *h2stream, senders *sync.WaitGroup, emit func()) {
+	delete(s.streams, id)
+	r := respondTo(st.path, st.uploaded)
+	if st.path == "/done" && s.tracing {
+		s.tracing = false
+		emit()
+	}
+	s.mu.Lock()
+	w := s.initialWindow
+	s.sendWindows[id] = &w
+	s.mu.Unlock()
+	senders.Go(func() {
+		if err := s.send(id, r); err != nil {
+			s.mu.Lock()
+			s.closed = true
+			s.cond.Broadcast()
+			s.mu.Unlock()
+		}
+	})
+}
+
+func (s *h2conn) send(id uint32, r response) error {
+	defer func() {
+		s.mu.Lock()
+		delete(s.sendWindows, id)
+		s.mu.Unlock()
+	}()
+	s.wmu.Lock()
+	s.buf.Reset()
+	for _, field := range []hpack.HeaderField{
+		{
+			Name:  ":status",
+			Value: strconv.Itoa(r.status),
+		},
+		{
+			Name:  "content-type",
+			Value: r.contentType,
+		},
+		{
+			Name:  "content-length",
+			Value: strconv.Itoa(len(r.body)),
+		},
+		{
+			Name:  "cache-control",
+			Value: "no-store",
+		},
+	} {
+		_ = s.enc.WriteField(field)
+	}
+	err := s.fr.WriteHeaders(http2.HeadersFrameParam{
+		StreamID:      id,
+		BlockFragment: s.buf.Bytes(),
+		EndHeaders:    true,
+	})
+	s.wmu.Unlock()
+	if err != nil {
+		return err
+	}
+	body := r.body
+	for {
+		n, err := s.reserve(id, len(body))
+		if err != nil {
+			return err
+		}
+		s.wmu.Lock()
+		err = s.fr.WriteData(id, n == len(body), body[:n])
+		s.wmu.Unlock()
+		if err != nil {
+			return err
+		}
+		body = body[n:]
+		if len(body) == 0 {
+			return nil
+		}
+	}
+}
+
+// reserve waits for send window on stream id and the connection, and takes
+// up to want bytes of it (at least one frame's worth when want is zero).
+func (s *h2conn) reserve(id uint32, want int) (int, error) {
+	if want == 0 {
+		return 0, nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for {
+		if s.closed {
+			return 0, net.ErrClosed
+		}
+		w := s.sendWindows[id]
+		n := int64(min(want, s.maxFrame))
+		n = min(n, *w, s.connWindow)
+		if n > 0 {
+			*w -= n
+			s.connWindow -= n
+			return int(n), nil
+		}
+		s.cond.Wait()
+	}
 }
 
 func priorityParam(p http2.PriorityParam) profile.PriorityParam {
@@ -120,35 +499,4 @@ func priorityParam(p http2.PriorityParam) profile.PriorityParam {
 		Exclusive: p.Exclusive,
 		Weight:    p.Weight,
 	}
-}
-
-func respond(fr *http2.Framer, enc *hpack.Encoder, block *bytes.Buffer, stream uint32, status int) error {
-	block.Reset()
-	fields := []hpack.HeaderField{
-		{
-			Name:  ":status",
-			Value: strconv.Itoa(status),
-		},
-		{
-			Name:  "content-type",
-			Value: "text/plain; charset=utf-8",
-		},
-		{
-			Name:  "content-length",
-			Value: strconv.Itoa(len(responseBody)),
-		},
-	}
-	for _, field := range fields {
-		if err := enc.WriteField(field); err != nil {
-			return err
-		}
-	}
-	if err := fr.WriteHeaders(http2.HeadersFrameParam{
-		StreamID:      stream,
-		BlockFragment: block.Bytes(),
-		EndHeaders:    true,
-	}); err != nil {
-		return err
-	}
-	return fr.WriteData(stream, true, responseBody)
 }
