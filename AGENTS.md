@@ -16,13 +16,13 @@ moon run harness:test       # the harness only
 
 ## Package boundaries
 
-The public surface is small: the root package (`Transport`, `Client`, `Config`, `Engine`), `profile` and `profiles`. Everything else is in `internal/`, flat, one package per concern. Each package's `doc.go` states what it may import; keep to it.
+The public surface is small: the root package (`Transport`, `NewClient`, `Config`, `Engine`, `HeaderOrderKey`), `profile` and `profiles`. Everything else is in `internal/`, flat, one package per concern. Each package's `doc.go` states what it may import; keep to it.
 
 - Only `internal/handshake` imports `github.com/roachadam/utls`.
 - Only `internal/engine/native` assembles the request path (pool → dial → handshake → h1/h2).
 - `profile` imports the standard library only.
 - Public packages never import from `harness/`.
-- Use `net/http` types in the public API. Header order comes from the profile, with `HeaderOrderKey` / `PHeaderOrderKey` as a per-request override; do not fork `net/http`.
+- Use `net/http` types in the public API. Header order comes from the profile, with `HeaderOrderKey` as a per-request override; pseudo-header order comes from the profile only. Do not fork `net/http`.
 - One dial path (`internal/dial`), and every network step honours the context and its deadline.
 - Never hold a lock across network I/O.
 - Configuration is a struct (`Config`), not functional options or boolean parameters.
@@ -56,7 +56,7 @@ cfg := mimicry.Config{
 
 Use the standard `testing` package with hand-written fakes; no assertion libraries. Tests must be deterministic: inject randomness and clocks rather than depending on them.
 
-Profile accuracy is proven by the harness against real browser captures, not by unit tests that restate a profile's values.
+Profile accuracy is proven by the harness against real browser captures, not by unit tests that restate a profile's values: `harness/e2e` sends every built-in profile through mimicry to the capture server and requires no differences from its browser's capture.
 
 ## Built-in profiles
 

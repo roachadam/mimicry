@@ -26,7 +26,6 @@ import (
 
 	"github.com/roachadam/mimicry/harness/internal/browser"
 	"github.com/roachadam/mimicry/harness/internal/capture"
-	"github.com/roachadam/mimicry/harness/internal/diff"
 	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/profile"
 )
@@ -126,7 +125,7 @@ func captureBrowser(ctx context.Context, b *browser.Browser, opts options) error
 		}
 		samples = append(samples, c)
 	}
-	c, err := combine(samples)
+	c, err := capture.Combine(samples)
 	if err != nil {
 		return err
 	}
@@ -148,40 +147,6 @@ func captureBrowser(ctx context.Context, b *browser.Browser, opts options) error
 	}
 	log.Printf("%s: wrote %s", c.Profile.Name, path)
 	return nil
-}
-
-// combine decides the extension order from the samples and checks they agree
-// on everything else. It returns the first sample.
-func combine(samples []*capture.Capture) (*capture.Capture, error) {
-	first := samples[0]
-	order := profile.ExtensionOrderFixed
-	for _, s := range samples[1:] {
-		if !slices.Equal(extensionTypes(first), extensionTypes(s)) {
-			order = profile.ExtensionOrderShuffled
-		}
-	}
-	for _, s := range samples {
-		s.Profile.TLS.ExtensionOrder = order
-	}
-	for i, s := range samples[1:] {
-		if diffs := diff.Compare(&first.Profile, &s.Profile); len(diffs) > 0 {
-			lines := make([]string, len(diffs))
-			for j, d := range diffs {
-				lines[j] = d.String()
-			}
-			return nil, fmt.Errorf("sample %d differs from sample 1 beyond extension order, which a profile cannot describe:\n%s",
-				i+2, strings.Join(lines, "\n"))
-		}
-	}
-	return first, nil
-}
-
-func extensionTypes(c *capture.Capture) []profile.Code {
-	out := make([]profile.Code, len(c.Profile.TLS.Extensions))
-	for i, e := range c.Profile.TLS.Extensions {
-		out[i] = e.Type
-	}
-	return out
 }
 
 // sample runs a fresh capture server, sends the browser to it, and returns the
