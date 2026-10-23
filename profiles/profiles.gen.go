@@ -14,6 +14,11 @@ func Firefox158MacOS() *profile.Profile {
 	return load("firefox-158-macos")
 }
 
+// Safari26MacOS returns a fresh copy of the safari-26-macos profile (safari 26 on macos).
+func Safari26MacOS() *profile.Profile {
+	return load("safari-26-macos")
+}
+
 // Safari27MacOS returns a fresh copy of the safari-27-macos profile (safari 27 on macos).
 func Safari27MacOS() *profile.Profile {
 	return load("safari-27-macos")
@@ -22,5 +27,6 @@ func Safari27MacOS() *profile.Profile {
 var names = []string{
 	"chrome-155-macos",
 	"firefox-158-macos",
+	"safari-26-macos",
 	"safari-27-macos",
 }
