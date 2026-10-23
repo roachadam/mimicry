@@ -1,0 +1,46 @@
+package profiles
+
+import (
+	"embed"
+	"fmt"
+	"slices"
+
+	"github.com/roachadam/mimicry/profile"
+)
+
+//go:generate go run ../cmd/profilegen
+
+//go:embed data/*.json
+var data embed.FS
+
+// load parses an embedded profile. Every embedded file is validated by the
+// generator and by this package's tests, so a failure here is a build defect.
+func load(name string) *profile.Profile {
+	p, err := parse(name)
+	if err != nil {
+		panic(err)
+	}
+	return p
+}
+
+func parse(name string) (*profile.Profile, error) {
+	b, err := data.ReadFile("data/" + name + ".json")
+	if err != nil {
+		return nil, fmt.Errorf("profiles: %q is not a built-in profile", name)
+	}
+	return profile.Parse(b)
+}
+
+// ByName returns a fresh copy of the built-in profile called name, for example
+// "chrome-155-macos".
+func ByName(name string) (*profile.Profile, error) {
+	if !slices.Contains(names, name) {
+		return nil, fmt.Errorf("profiles: %q is not a built-in profile", name)
+	}
+	return parse(name)
+}
+
+// Names lists the built-in profiles.
+func Names() []string {
+	return slices.Clone(names)
+}
