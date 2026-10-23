@@ -72,6 +72,8 @@ Built-in profiles are JSON files in `profiles/data/`, one per browser version an
 
 Each profile file is complete and self-contained: no inheritance between versions or platforms, so every value is visible in one file and checked against that version's own capture. A new version starts as a copy of the previous one; replace every captured field from the new capture, and treat everything copied that a capture cannot show (`http2.hpack`, header slots, `cookie_order`, `http1` slots) as unverified until the e2e tests pass against the new traces. Planned: `profilegen derive` to automate this copy and list the copied fields.
 
+`profiles/EVIDENCE.md` lists every claim the profiles make, its evidence (wire, fitted to the wire, measured on another request kind, or copied) and the test that keeps it true. A profile change that adds, removes or re-sources a claim updates its row in the same commit.
+
 ## Capturing browsers
 
 `moon run harness:capture` launches every installed browser (Chrome, Firefox, Safari) against an in-process capture server and writes new captures to `harness/testdata/captures/`. It never overwrites; delete a capture to retake it. Use visible windows for captures you commit: headless Chrome reports `HeadlessChrome` in its user agent. moon skips this task when `CI=true`.
