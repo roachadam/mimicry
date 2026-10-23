@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strconv"
 	"sync"
 	"testing"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
+	"github.com/roachadam/mimicry/profile"
 	"github.com/roachadam/mimicry/profiles"
 )
 
@@ -108,8 +110,12 @@ func TestGet(t *testing.T) {
 		t.Errorf("body %q", body)
 	}
 	// The profile's user-agent is sent by default.
-	if got, want := resp.Header.Get("X-Agent"), profiles.Chrome155MacOS().Headers[4].Value; got != want {
-		t.Errorf("server saw user-agent %q, want the profile's %q", got, want)
+	p := profiles.Chrome155MacOS()
+	ua := p.Headers[slices.IndexFunc(p.Headers, func(h profile.Header) bool {
+		return h.Name == "user-agent"
+	})].Value
+	if got := resp.Header.Get("X-Agent"); got != ua {
+		t.Errorf("server saw user-agent %q, want the profile's %q", got, ua)
 	}
 }
 

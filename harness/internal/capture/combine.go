@@ -39,6 +39,9 @@ func Combine(samples []*Capture) (*Capture, error) {
 		if s.Trace != nil {
 			first.SampleTraces = append(first.SampleTraces, s.Trace)
 		}
+		if len(s.H1) > 0 {
+			first.SampleH1 = append(first.SampleH1, s.H1)
+		}
 	}
 	return first, nil
 }

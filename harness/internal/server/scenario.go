@@ -22,6 +22,9 @@ type Scenario struct {
 	Doc string
 	// Settings are advertised in the server's SETTINGS frame.
 	Settings []http2.Setting
+	// HTTP1 offers only http/1.1 in ALPN, so browsers load the page over
+	// HTTP/1.1.
+	HTTP1 bool
 	// respond answers the paths the scenario changes; the default page
 	// answers the rest.
 	respond func(path string, uploaded int) (response, bool)
@@ -93,6 +96,11 @@ var Scenarios = []*Scenario{
 		Name:    "slow-idle",
 		Doc:     "a 15 s trickle download, then 11 s idle before a request: window-update timers and pings",
 		respond: slowIdleResponse,
+	},
+	{
+		Name:  "http1",
+		Doc:   "the server offers only HTTP/1.1: header casing and order, cookies and connections over HTTP/1.1",
+		HTTP1: true,
 	},
 }
 

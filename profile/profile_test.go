@@ -400,6 +400,43 @@ func TestValidate(t *testing.T) {
 			want: "creation order",
 		},
 		{
+			name: "HTTP/1.1 header repeated in another case",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.HTTP1 = &HTTP1{
+					Headers: []Header{
+						{
+							Name: "Host",
+						},
+						{
+							Name:  "Accept",
+							Value: "*/*",
+						},
+						{
+							Name:  "accept",
+							Value: "*/*",
+						},
+					},
+				}
+			},
+			path: "http1.headers[2]",
+			want: "repeats header accept",
+		},
+		{
+			name: "HTTP/1.1 headers without Host",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.HTTP1 = &HTTP1{
+					Headers: []Header{
+						{
+							Name:  "Accept",
+							Value: "*/*",
+						},
+					},
+				}
+			},
+			path: "http1.headers",
+			want: "must place Host",
+		},
+		{
 			name: "uppercase header",
 			mutate: func(_ *testing.T, p *Profile) {
 				p.Headers[2].Name = "User-Agent"

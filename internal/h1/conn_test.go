@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/roachadam/mimicry/profile"
 	"github.com/roachadam/mimicry/profiles"
 )
 
@@ -58,9 +59,10 @@ func do(t *testing.T, c *Conn, req *http.Request) (string, bool) {
 	return string(b), <-released
 }
 
-// Host and Connection come first, then the profile's headers in its order,
-// with the request's own headers in their profile positions.
-func TestRequestHeadOrder(t *testing.T) {
+// requestHead sends req over a connection for p and returns the request head
+// the server read, one line per element.
+func requestHead(t *testing.T, p *profile.Profile, req *http.Request) []string {
+	t.Helper()
 	ln, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -91,35 +93,96 @@ func TestRequestHeadOrder(t *testing.T) {
 			lines = append(lines, line)
 		}
 		head <- lines
+		_, _ = io.Copy(io.Discard, io.LimitReader(r, req.ContentLength))
 		_, _ = io.WriteString(conn, "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
 	}()
-	c := dial(t, ln.Addr().String())
-	req := newRequest(t, http.MethodGet, "http://example.com/a?b=1", nil)
-	req.Header.Set("Accept-Language", "de")
+	conn, err := (&net.Dialer{}).DialContext(t.Context(), "tcp", ln.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := New(conn, p)
+	t.Cleanup(func() {
+		_ = c.Close()
+	})
 	do(t, c, req)
+	return <-head
+}
 
-	lines := <-head
-	names := make([]string, 0, len(lines)-1)
-	for _, l := range lines[1:] {
+func headerNames(lines []string) []string {
+	names := make([]string, 0, len(lines))
+	for _, l := range lines {
 		name, _, _ := strings.Cut(l, ":")
 		names = append(names, name)
 	}
-	want := make([]string, 0, 2+len(profiles.Chrome155MacOS().Headers))
-	want = append(want, "Host", "Connection")
-	for _, h := range profiles.Chrome155MacOS().Headers {
-		// Headers without a default value only fix a position.
+	return names
+}
+
+// With an http1 section, the head follows it exactly: its order and casing,
+// Host and the body's Content-Length at their places, the request's own
+// headers in their profile positions.
+func TestRequestHeadFollowsHTTP1Section(t *testing.T) {
+	p := profiles.Chrome155MacOS()
+	var names []string
+	for _, h := range p.HTTP1.Headers {
+		// Headers without a default value only fix a position; Host is
+		// always sent.
+		if h.Value != "" || h.Name == "Host" {
+			names = append(names, h.Name)
+		}
+	}
+
+	req := newRequest(t, http.MethodGet, "http://example.com/a?b=1", nil)
+	req.Header.Set("Accept-Language", "de")
+	lines := requestHead(t, p, req)
+	if lines[0] != "GET /a?b=1 HTTP/1.1" {
+		t.Errorf("request line %q", lines[0])
+	}
+	if got := headerNames(lines[1:]); !slices.Equal(got, names) {
+		t.Errorf("GET header order\n got %v\nwant %v", got, names)
+	}
+	for _, want := range []string{"Host: example.com", "Accept-Language: de"} {
+		if !slices.Contains(lines, want) {
+			t.Errorf("%q not sent: %v", want, lines)
+		}
+	}
+
+	// Chrome puts the body's length right after Connection.
+	post := newRequest(t, http.MethodPost, "http://example.com/upload", strings.NewReader("abc"))
+	lines = requestHead(t, p, post)
+	wantPost := slices.Insert(slices.Clone(names), 2, "Content-Length")
+	if got := headerNames(lines[1:]); !slices.Equal(got, wantPost) {
+		t.Errorf("POST header order\n got %v\nwant %v", got, wantPost)
+	}
+	if !slices.Contains(lines, "Content-Length: 3") {
+		t.Errorf("Content-Length: 3 not sent: %v", lines)
+	}
+}
+
+// Without an http1 section, Host and Connection come first, then the
+// profile's headers in canonical casing.
+func TestRequestHeadWithoutHTTP1Section(t *testing.T) {
+	p := profiles.Chrome155MacOS()
+	p.HTTP1 = nil
+	want := []string{"Host", "Connection"}
+	for _, h := range p.Headers {
 		if h.Value != "" {
 			want = append(want, http.CanonicalHeaderKey(h.Name))
 		}
 	}
-	if lines[0] != "GET /a?b=1 HTTP/1.1" {
-		t.Errorf("request line %q", lines[0])
+	lines := requestHead(t, p, newRequest(t, http.MethodGet, "http://example.com/", nil))
+	if got := headerNames(lines[1:]); !slices.Equal(got, want) {
+		t.Errorf("header order\n got %v\nwant %v", got, want)
 	}
-	if !slices.Equal(names, want) {
-		t.Errorf("header order\n got %v\nwant %v", names, want)
-	}
-	if !slices.Contains(lines, "Accept-Language: de") {
-		t.Errorf("request's Accept-Language not sent: %v", lines)
+}
+
+// Over HTTP/1.1 the cookies go out on one line, in the profile's cookie
+// order: Safari's sorts them by name.
+func TestCookieLineFollowsCookieOrder(t *testing.T) {
+	req := newRequest(t, http.MethodGet, "http://example.com/", nil)
+	req.Header.Set("Cookie", "b=2; a=1")
+	lines := requestHead(t, profiles.Safari27MacOS(), req)
+	if !slices.Contains(lines, "Cookie: a=1; b=2") {
+		t.Errorf("cookie line not sorted by name: %q", lines)
 	}
 }
 

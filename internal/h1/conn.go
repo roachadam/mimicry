@@ -24,17 +24,33 @@ type Conn struct {
 	bw          *bufio.Writer
 	headers     []profile.Header
 	cookieOrder string
+	// From the profile's http1 section, when it has one: its header list
+	// with lowercase names (for headerorder) and each name's casing.
+	h1Order []profile.Header
+	h1Case  map[string]string
 }
 
 // New wraps conn, which carries HTTP/1.1, plain or over TLS, for profile p.
 func New(conn net.Conn, p *profile.Profile) *Conn {
-	return &Conn{
+	c := &Conn{
 		conn:        conn,
 		br:          bufio.NewReader(conn),
 		bw:          bufio.NewWriter(conn),
 		headers:     p.Headers,
 		cookieOrder: p.CookieOrder,
 	}
+	if p.HTTP1 != nil {
+		c.h1Case = make(map[string]string, len(p.HTTP1.Headers))
+		for _, h := range p.HTTP1.Headers {
+			lower := strings.ToLower(h.Name)
+			c.h1Order = append(c.h1Order, profile.Header{
+				Name:  lower,
+				Value: h.Value,
+			})
+			c.h1Case[lower] = h.Name
+		}
+	}
+	return c
 }
 
 // Close closes the connection.
@@ -110,26 +126,61 @@ func (c *Conn) writeRequest(req *http.Request) error {
 	if host == "" {
 		host = req.URL.Host
 	}
-	if _, err := fmt.Fprintf(c.bw, "%s %s HTTP/1.1\r\nHost: %s\r\nConnection: keep-alive\r\n", req.Method, req.URL.RequestURI(), host); err != nil {
+	if _, err := fmt.Fprintf(c.bw, "%s %s HTTP/1.1\r\n", req.Method, req.URL.RequestURI()); err != nil {
 		return err
 	}
 	hasBody := req.Body != nil && req.Body != http.NoBody
 	chunked := hasBody && req.ContentLength < 0
+	var framing http.Header
 	switch {
 	case chunked:
-		if _, err := c.bw.WriteString("Transfer-Encoding: chunked\r\n"); err != nil {
-			return err
+		framing = http.Header{
+			"Transfer-Encoding": {"chunked"},
 		}
 	case req.ContentLength > 0 || req.Method == http.MethodPost || req.Method == http.MethodPut || req.Method == http.MethodPatch:
-		if _, err := c.bw.WriteString("Content-Length: " + strconv.FormatInt(max(req.ContentLength, 0), 10) + "\r\n"); err != nil {
-			return err
+		framing = http.Header{
+			"Content-Length": {strconv.FormatInt(max(req.ContentLength, 0), 10)},
 		}
 	}
-	for _, f := range headerorder.Build(c.headers, req.Header, skipHeader) {
+	var fields []headerorder.Field
+	if c.h1Order != nil {
+		// The profile places every header, Host and framing included.
+		h := req.Header.Clone()
+		if h == nil {
+			h = http.Header{}
+		}
+		h.Set("Host", host)
+		for k, v := range framing {
+			h[k] = v
+		}
+		fields = headerorder.Build(c.h1Order, h, func(string) bool {
+			return false
+		})
+	} else {
+		fields = append(fields, headerorder.Field{
+			Name:  "host",
+			Value: host,
+		}, headerorder.Field{
+			Name:  "connection",
+			Value: "keep-alive",
+		})
+		for k, v := range framing {
+			fields = append(fields, headerorder.Field{
+				Name:  strings.ToLower(k),
+				Value: v[0],
+			})
+		}
+		fields = append(fields, headerorder.Build(c.headers, req.Header, skipHeader)...)
+	}
+	for _, f := range fields {
 		if f.Name == "cookie" && c.cookieOrder != profile.CookieOrderCreation {
 			f.Value = strings.Join(headerorder.Cookies(f.Value, c.cookieOrder), "; ")
 		}
-		if _, err := c.bw.WriteString(http.CanonicalHeaderKey(f.Name) + ": " + f.Value + "\r\n"); err != nil {
+		name := c.h1Case[f.Name]
+		if name == "" {
+			name = http.CanonicalHeaderKey(f.Name)
+		}
+		if _, err := c.bw.WriteString(name + ": " + f.Value + "\r\n"); err != nil {
 			return err
 		}
 	}

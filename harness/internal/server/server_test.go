@@ -7,8 +7,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"reflect"
 	"slices"
 	"strings"
@@ -507,37 +509,68 @@ func readResponse(t *testing.T, fr *http2.Framer, stream uint32) string {
 	}
 }
 
+// HTTP/1.1 requests are recorded verbatim, casing and order intact, across
+// keep-alive requests and connections; /done, on whichever connection,
+// completes the capture with the whole page load and the first request's
+// headers as the profile's.
 func TestHTTP1Recording(t *testing.T) {
 	ts := startServer(t)
-	conn := ts.dialTLS(t, "http/1.1")
-	request := "GET / HTTP/1.1\r\nHost: localhost\r\nUser-Agent: test-agent/1\r\nAccept: */*\r\n\r\n"
-	if _, err := io.WriteString(conn, request); err != nil {
-		t.Fatal(err)
+	first := ts.dialTLS(t, "http/1.1")
+	firstReader := bufio.NewReader(first)
+	second := ts.dialTLS(t, "http/1.1")
+	secondReader := bufio.NewReader(second)
+	send := func(conn io.Writer, r *bufio.Reader, request string) {
+		t.Helper()
+		if _, err := io.WriteString(conn, request); err != nil {
+			t.Fatal(err)
+		}
+		resp, err := http.ReadResponse(r, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			line, _, _ := strings.Cut(request, "\r")
+			t.Fatalf("%q: status %s", line, resp.Status)
+		}
 	}
-	status, err := bufio.NewReader(conn).ReadString('\n')
-	if err != nil {
-		t.Fatal(err)
-	}
-	if status != "HTTP/1.1 200 OK\r\n" {
-		t.Errorf("status line %q, want HTTP/1.1 200 OK", status)
-	}
+	send(first, firstReader, "GET / HTTP/1.1\r\nHost: localhost\r\nUser-Agent: test-agent/1\r\nsec-ch-ua: x\r\n\r\n")
+	// A chunked upload, then another request on the same connection.
+	send(first, firstReader, "POST /upload HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n\r\n3\r\nabc\r\n0\r\n\r\n")
+	send(first, firstReader, "GET /again HTTP/1.1\r\nHost: localhost\r\n\r\n")
+	send(second, secondReader, "GET /done HTTP/1.1\r\nHost: localhost\r\n\r\n")
+
 	c := receive(t, ts.captures)
-	want := []profile.Header{
+	if !c.Finished {
+		t.Fatal("capture not finished at /done")
+	}
+	got := make([]string, 0, len(c.H1))
+	for _, r := range c.H1 {
+		got = append(got, fmt.Sprintf("%d %s", r.Conn, r.Line))
+	}
+	want := []string{"1 GET / HTTP/1.1", "1 POST /upload HTTP/1.1", "1 GET /again HTTP/1.1", "2 GET /done HTTP/1.1"}
+	if !slices.Equal(got, want) {
+		t.Errorf("requests\n got %v\nwant %v", got, want)
+	}
+	if !slices.Equal(c.H1[0].Headers, []string{"Host: localhost", "User-Agent: test-agent/1", "sec-ch-ua: x"}) {
+		t.Errorf("header lines not verbatim: %q", c.H1[0].Headers)
+	}
+	wantProfile := []profile.Header{
 		{
-			Name:  "host",
-			Value: "localhost",
+			Name: "host",
 		},
 		{
 			Name:  "user-agent",
 			Value: "test-agent/1",
 		},
 		{
-			Name:  "accept",
-			Value: "*/*",
+			Name:  "sec-ch-ua",
+			Value: "x",
 		},
 	}
-	if !slices.Equal(c.Profile.Headers, want) {
-		t.Errorf("headers:\n got %+v\nwant %+v", c.Profile.Headers, want)
+	if !slices.Equal(c.Profile.Headers, wantProfile) {
+		t.Errorf("profile headers:\n got %+v\nwant %+v", c.Profile.Headers, wantProfile)
 	}
 	if c.Profile.HTTP2 != nil {
 		t.Error("HTTP/1.1 capture has an HTTP/2 section")

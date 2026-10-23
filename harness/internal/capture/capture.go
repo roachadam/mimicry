@@ -29,6 +29,10 @@ type Capture struct {
 	// SampleTraces are the traces of every sample this capture was combined
 	// from (Combine), the first being Trace. Nil for a single connection.
 	SampleTraces []*h2trace.Trace
+	// H1 are the HTTP/1.1 requests of a page load, across its connections;
+	// SampleH1 holds every sample's (Combine).
+	H1       []H1Request
+	SampleH1 [][]H1Request
 	// Finished reports that the client asked for /done: a browser ran the
 	// capture page to the end. A browser's trace without it is truncated.
 	Finished bool
@@ -123,57 +127,70 @@ func majorAfter(ua, marker string) string {
 var ErrExists = errors.New("capture already exists")
 
 // Write stores c in dir. For the default scenario it writes <name>.json (the
-// profile), <name>.clienthello (the raw ClientHello as hex) and, for HTTP/2,
-// <name>.h2trace.json (a JSON array of connection traces: every sample's, or
-// c.Trace alone). Other scenarios only add their traces, as
-// <name>.<scenario>.h2trace.json: profiles come from the default page. It
-// never overwrites: an existing file returns ErrExists. It returns the path
-// of the first file written.
+// profile) and <name>.clienthello (the raw ClientHello as hex). Traces go to
+// <name>.h2trace.json and <name>.h1trace.json, JSON arrays with every
+// sample's trace (or c's alone); other scenarios write only their traces, as
+// <name>.<scenario>.h2trace.json and .h1trace.json, since profiles come from
+// the default page. It never overwrites: an existing file returns ErrExists.
+// It returns the path of the first file written.
 func Write(dir string, c *Capture) (string, error) {
 	if c.Profile.Name == "" {
 		return "", errors.New("capture has no name; call Identify first")
 	}
-	traceName := c.Profile.Name + ".h2trace.json"
-	var path string
+	prefix := filepath.Join(dir, c.Profile.Name)
+	var written []string
 	if c.Scenario == "" || c.Scenario == DefaultScenario {
 		data, err := profile.Encode(&c.Profile)
 		if err != nil {
 			return "", err
 		}
-		path = filepath.Join(dir, c.Profile.Name+".json")
-		if err := writeNew(path, data); err != nil {
+		if err := writeNew(prefix+".json", data); err != nil {
 			return "", err
 		}
 		hello := []byte(hex.EncodeToString(c.ClientHello) + "\n")
-		if err := writeNew(filepath.Join(dir, c.Profile.Name+".clienthello"), hello); err != nil {
+		if err := writeNew(prefix+".clienthello", hello); err != nil {
 			return "", err
 		}
+		written = append(written, prefix+".json")
 	} else {
-		traceName = c.Profile.Name + "." + c.Scenario + ".h2trace.json"
+		prefix += "." + c.Scenario
 	}
-	traces := c.SampleTraces
-	if len(traces) == 0 && c.Trace != nil {
-		traces = []*h2trace.Trace{
+	h2 := c.SampleTraces
+	if len(h2) == 0 && c.Trace != nil {
+		h2 = []*h2trace.Trace{
 			c.Trace,
 		}
 	}
-	if len(traces) > 0 {
-		data, err := json.MarshalIndent(traces, "", "  ")
+	h1 := c.SampleH1
+	if len(h1) == 0 && len(c.H1) > 0 {
+		h1 = [][]H1Request{
+			c.H1,
+		}
+	}
+	for _, trace := range []struct {
+		path    string
+		samples any
+		present bool
+	}{
+		{prefix + ".h2trace.json", h2, len(h2) > 0},
+		{prefix + ".h1trace.json", h1, len(h1) > 0},
+	} {
+		if !trace.present {
+			continue
+		}
+		data, err := json.MarshalIndent(trace.samples, "", "  ")
 		if err != nil {
 			return "", err
 		}
-		tracePath := filepath.Join(dir, traceName)
-		if err := writeNew(tracePath, append(data, '\n')); err != nil {
+		if err := writeNew(trace.path, append(data, '\n')); err != nil {
 			return "", err
 		}
-		if path == "" {
-			path = tracePath
-		}
+		written = append(written, trace.path)
 	}
-	if path == "" {
-		return "", fmt.Errorf("scenario %s captured no HTTP/2 trace (protocol %q)", c.Scenario, c.Protocol)
+	if len(written) == 0 {
+		return "", fmt.Errorf("scenario %s captured no trace (protocol %q)", c.Scenario, c.Protocol)
 	}
-	return path, nil
+	return written[0], nil
 }
 
 func writeNew(path string, data []byte) error {

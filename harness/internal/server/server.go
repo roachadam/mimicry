@@ -37,12 +37,22 @@ type Server struct {
 // open ones and waits for their handlers to return. Clients that stay running,
 // like Safari, would otherwise hold connections open until ConnTimeout.
 func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
+	sc := s.Scenario
+	if sc == nil {
+		sc = DefaultScenario
+	}
 	cfg := s.TLSConfig.Clone()
 	cfg.NextProtos = []string{
 		"h2",
 		"http/1.1",
 	}
+	if sc.HTTP1 {
+		cfg.NextProtos = []string{
+			"http/1.1",
+		}
+	}
 	cfg.MinVersion = tls.VersionTLS12
+	log := &h1Log{}
 	stop := context.AfterFunc(ctx, func() {
 		_ = ln.Close()
 	})
@@ -58,14 +68,14 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 			return err
 		}
 		wg.Go(func() {
-			if err := s.handle(ctx, conn, cfg); err != nil && s.Logf != nil {
+			if err := s.handle(ctx, conn, cfg, sc, log); err != nil && s.Logf != nil {
 				s.Logf("%s: %v", conn.RemoteAddr(), err)
 			}
 		})
 	}
 }
 
-func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config) error {
+func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc *Scenario, log *h1Log) error {
 	stop := context.AfterFunc(ctx, func() {
 		_ = conn.Close()
 	})
@@ -87,10 +97,6 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config) err
 	t, err := ParseClientHello(msg)
 	if err != nil {
 		return err
-	}
-	sc := s.Scenario
-	if sc == nil {
-		sc = DefaultScenario
 	}
 	c := &capture.Capture{
 		ClientHello: msg,
@@ -119,7 +125,7 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config) err
 	if c.Protocol == "h2" {
 		err = serveHTTP2(tlsConn, c, sc, emit)
 	} else {
-		err = serveHTTP1(tlsConn, c, emit)
+		err = serveHTTP1(tlsConn, c, sc, log, emit)
 	}
 	if isClosed(err) {
 		return nil

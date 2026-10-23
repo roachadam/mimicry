@@ -19,12 +19,24 @@ type Profile struct {
 	TLS TLS `json:"tls"`
 	// HTTP2 is required when the profile offers h2 in ALPN.
 	HTTP2 *HTTP2 `json:"http2,omitempty"`
-	// Headers of a top-level navigation request, in order.
+	// Headers of a top-level navigation request over HTTP/2, in order.
 	Headers []Header `json:"headers"`
+	// HTTP1 describes the same request over HTTP/1.1, which browsers send
+	// with a header set, order and casing of their own. Nil writes Headers
+	// in canonical casing after Host and Connection.
+	HTTP1 *HTTP1 `json:"http1,omitempty"`
 	// CookieOrder is the order of cookies in the Cookie header:
 	// CookieOrderCreation (empty; Chrome, Firefox: RFC 6265 order, as Go's
 	// cookie jar produces) or CookieOrderName (Safari: sorted by name).
 	CookieOrder string `json:"cookie_order,omitempty"`
+}
+
+// HTTP1 describes a browser's HTTP/1.1 requests.
+type HTTP1 struct {
+	// Headers of a navigation request, in order, named exactly as sent
+	// ("User-Agent", "sec-ch-ua"). Host takes the request's host, and
+	// Content-Length the body's length; values work as in Profile.Headers.
+	Headers []Header `json:"headers"`
 }
 
 // Cookie orders.

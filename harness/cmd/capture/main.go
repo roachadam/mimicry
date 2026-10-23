@@ -151,7 +151,7 @@ func captureBrowser(ctx context.Context, b *browser.Browser, opts options) error
 			log.Printf("%s: extension order %s across %d samples", c.Profile.Name, c.Profile.TLS.ExtensionOrder, opts.samples)
 			log.Printf("%s: JA4 %s", c.Profile.Name, f.JA4)
 			log.Printf("%s: Akamai %s", c.Profile.Name, f.Akamai)
-		} else if base != nil {
+		} else if base != nil && !sc.HTTP1 {
 			for _, d := range diff.Compare(&base.Profile, &c.Profile) {
 				log.Printf("%s: scenario %s changes the first request: %s", c.Profile.Name, sc.Name, d)
 			}
@@ -272,6 +272,11 @@ func await(ctx context.Context, name string, captures <-chan *capture.Capture, t
 				}
 				log.Printf("%s: an HTTP/2 connection ended before /done after %v; its last frames: %s; waiting for the rest",
 					name, paths, strings.Join(last, " "))
+				continue
+			}
+			if len(c.H1) > 0 && !c.Finished {
+				// One of the page's HTTP/1.1 connections; the one that asks
+				// for /done carries the whole page load.
 				continue
 			}
 			return c, nil

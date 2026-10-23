@@ -68,6 +68,9 @@ func (p *Profile) Validate() error {
 		c.add("http2", "is required because ALPN offers h2")
 	}
 	c.checkHeaders(p.Headers)
+	if p.HTTP1 != nil {
+		c.checkHTTP1(p.HTTP1)
+	}
 	if p.CookieOrder != CookieOrderCreation && p.CookieOrder != CookieOrderName {
 		c.add("cookie_order", "must be empty (creation order) or %q", CookieOrderName)
 	}
@@ -279,5 +282,25 @@ func (c *checker) checkHeaders(headers []Header) {
 			c.add(path, "repeats header %s", h.Name)
 		}
 		seen[h.Name] = true
+	}
+}
+
+// checkHTTP1 checks the HTTP/1.1 header list: any casing, but each name once
+// whatever its case, and a place for Host, which every request carries.
+func (c *checker) checkHTTP1(h *HTTP1) {
+	seen := map[string]bool{}
+	for i, hd := range h.Headers {
+		path := fmt.Sprintf("http1.headers[%d]", i)
+		lower := strings.ToLower(hd.Name)
+		switch {
+		case hd.Name == "" || strings.ContainsAny(hd.Name, " :\r\n"):
+			c.add(path, "name %q is not a header name", hd.Name)
+		case seen[lower]:
+			c.add(path, "repeats header %s", hd.Name)
+		}
+		seen[lower] = true
+	}
+	if !seen["host"] {
+		c.add("http1.headers", "must place Host")
 	}
 }
