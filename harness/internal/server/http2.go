@@ -65,8 +65,11 @@ fetch('/done');
 const uploadSize = "200000"
 
 // bigSize is larger than every captured browser's stream receive window, so
-// the download shows how each one returns flow-control credit.
-const bigSize = 32 << 20
+// the download shows how each one returns flow-control credit. It stays at
+// 16 MiB: after a response of 24 MiB or more, Chrome 155 closes the
+// connection (TCP FIN, no GOAWAY) and carries on with the page on a new one,
+// which splits the trace.
+const bigSize = 16 << 20
 
 // png is a 1x1 transparent PNG.
 var png = []byte{
@@ -431,6 +434,7 @@ func (s *h2conn) respond(id uint32, st *h2stream, senders *sync.WaitGroup, emit 
 	r := respondTo(st.path, st.uploaded)
 	if st.path == "/done" && s.tracing {
 		s.tracing = false
+		s.c.Finished = true
 		emit()
 	}
 	s.mu.Lock()

@@ -72,7 +72,9 @@ Built-in profiles are JSON files in `profiles/data/`, one per browser version an
 
 Each browser is sampled three times (`-samples`), each on a fresh server and port so no connection or TLS session carries over. If the samples differ only in extension order, the capture records `"extension_order": "shuffled"` (Chrome), otherwise `"fixed"`. Any other difference between samples fails the capture: it is randomness a profile cannot describe and needs investigating.
 
-The capture page loads like a site: a stylesheet, an image and a script on one connection, then a 32 MiB download, a 200 KB upload, a request carrying a header whose Huffman coding is longer than its value, and a navigation to `/nav` with two cookies (scoped to `/nav` and deleted there, so Safari keeps nothing). `<name>.h2trace.json` records every frame the browser sent and each header block's HPACK instructions; the profile JSON still comes from the first request only.
+The capture page loads like a site: a stylesheet, an image and a script on one connection, then a 16 MiB download, a 200 KB upload, a request carrying a header whose Huffman coding is longer than its value, and a navigation to `/nav` with two cookies (scoped to `/nav` and deleted there, so Safari keeps nothing). The page ends by requesting `/done`; an HTTP/2 connection that ends before that is a truncated trace and is skipped, logged. `<name>.h2trace.json` is a JSON array with every sample's trace: every frame the browser sent and each header block's HPACK instructions. The profile JSON still comes from the first request only.
+
+`go run ./cmd/tracestat FILE.h2trace.json...` (in `harness/`) lists the features a capture's samples disagree on (request order, HPACK shapes, priorities, frame order exactly; largest DATA frame and median WINDOW_UPDATE within 2%). A varying feature is either modelled or recorded as a known gap; never pick one sample's value.
 
 `go run ./cmd/diff WANT.json GOT.json` (in `harness/`) lists every difference between two captures or profiles, comparing extension order as WANT's `extension_order` says, and exits 1 if there are any.
 

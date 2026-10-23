@@ -26,6 +26,12 @@ type Capture struct {
 	// Trace is the HTTP/2 connection's frames and header blocks, nil for
 	// HTTP/1.1.
 	Trace *h2trace.Trace
+	// SampleTraces are the traces of every sample this capture was combined
+	// from (Combine), the first being Trace. Nil for a single connection.
+	SampleTraces []*h2trace.Trace
+	// Finished reports that the client asked for /done: a browser ran the
+	// capture page to the end. A browser's trace without it is truncated.
+	Finished bool
 }
 
 // Complete reports whether a request was recorded, not only the ClientHello.
@@ -112,9 +118,10 @@ func majorAfter(ua, marker string) string {
 var ErrExists = errors.New("capture already exists")
 
 // Write stores c in dir as <name>.json (the profile), <name>.clienthello (the
-// raw ClientHello as hex) and, for HTTP/2, <name>.h2trace.json (the
-// connection trace). It never overwrites: an existing capture returns
-// ErrExists. It returns the path of the profile file.
+// raw ClientHello as hex) and, for HTTP/2, <name>.h2trace.json (a JSON array
+// of connection traces: every sample's, or c.Trace alone). It never
+// overwrites: an existing capture returns ErrExists. It returns the path of
+// the profile file.
 func Write(dir string, c *Capture) (string, error) {
 	if c.Profile.Name == "" {
 		return "", errors.New("capture has no name; call Identify first")
@@ -131,12 +138,18 @@ func Write(dir string, c *Capture) (string, error) {
 	if err := writeNew(filepath.Join(dir, c.Profile.Name+".clienthello"), hello); err != nil {
 		return "", err
 	}
-	if c.Trace != nil {
-		trace, err := json.MarshalIndent(c.Trace, "", "  ")
+	traces := c.SampleTraces
+	if len(traces) == 0 && c.Trace != nil {
+		traces = []*h2trace.Trace{
+			c.Trace,
+		}
+	}
+	if len(traces) > 0 {
+		data, err := json.MarshalIndent(traces, "", "  ")
 		if err != nil {
 			return "", err
 		}
-		if err := writeNew(filepath.Join(dir, c.Profile.Name+".h2trace.json"), append(trace, '\n')); err != nil {
+		if err := writeNew(filepath.Join(dir, c.Profile.Name+".h2trace.json"), append(data, '\n')); err != nil {
 			return "", err
 		}
 	}

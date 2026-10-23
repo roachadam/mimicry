@@ -169,6 +169,11 @@ func sample(ctx context.Context, b *browser.Browser, opts options) (*capture.Cap
 			default:
 			}
 		},
+		// A connection ended by a server error yields a truncated trace;
+		// say so rather than let it pass as browser behaviour.
+		Logf: func(format string, args ...any) {
+			log.Printf("%s: server: "+format, append([]any{b.Name}, args...)...)
+		},
 	}
 	serveCtx, stopServer := context.WithCancel(ctx)
 	served := make(chan struct{})
@@ -212,9 +217,21 @@ func await(ctx context.Context, name string, captures <-chan *capture.Capture, t
 				log.Printf("%s: a connection ended without a request (ALPN %q)", name, c.Protocol)
 				continue
 			}
-			if browserName, _, _ := capture.ParseUserAgent(c.UserAgent()); browserName == name {
-				return c, nil
+			if browserName, _, _ := capture.ParseUserAgent(c.UserAgent()); browserName != name {
+				continue
 			}
+			if c.Trace != nil && !c.Finished {
+				// The connection ended before the page asked for /done, so
+				// its trace stops partway; the page carries on elsewhere.
+				paths := make([]string, 0, len(c.Trace.Requests))
+				for _, r := range c.Trace.Requests {
+					paths = append(paths, r.Path)
+				}
+				log.Printf("%s: an HTTP/2 connection ended before /done after %v (last frame at %d ms); waiting for the rest",
+					name, paths, c.Trace.Frames[len(c.Trace.Frames)-1].Millis)
+				continue
+			}
+			return c, nil
 		case <-deadline:
 			return nil, fmt.Errorf("no request within %s", timeout)
 		case <-ctx.Done():
