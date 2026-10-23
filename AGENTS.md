@@ -90,6 +90,8 @@ Chrome starts on `about:blank` and gets the capture URL 5 s later: a fresh profi
 
 `go run ./cmd/diff WANT.json GOT.json` (in `harness/`) lists every difference between two captures or profiles, comparing extension order as WANT's `extension_order` says, and exits 1 if there are any.
 
+`go run ./cmd/clientcapture -scenario NAME -out DIR -name LABEL -- COMMAND {url}...` (in `harness/`) captures any other client: it runs the command three times, each against a fresh server, and writes the combined capture (logging, not failing, when the client varies where browsers do not). `reports/` holds comparisons made with it; date them, name the client versions, and keep the captures in `testdata/clients/`.
+
 - Chrome and Firefox run with throwaway profiles and resolve `capture.mimicry.test` to 127.0.0.1 themselves; Chrome ignores certificate errors and Firefox gets a certificate exception. Nothing on the system changes.
 - Safari cannot be isolated: it opens a tab in the user's own window on `https://localhost:<port>/` (closed afterwards) and must trust the capture CA. The CA lives in `<user config dir>/mimicry/capture-ca/`, outside the repo, and is name-constrained to `capture.mimicry.test` and `localhost` with IP addresses excluded, so it cannot vouch for any real site. Trust it once; the capture command prints this when needed:
 
