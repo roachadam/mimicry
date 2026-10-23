@@ -10,6 +10,9 @@ import (
 // Trace is everything a client sent on one HTTP/2 connection, frame by frame,
 // with each request's header block as encoded on the wire.
 type Trace struct {
+	// Host is the connection's server name, recorded when a page spans
+	// several hosts (replay scenarios).
+	Host     string    `json:"host,omitempty"`
 	Frames   []Frame   `json:"frames"`
 	Requests []Request `json:"requests"`
 }

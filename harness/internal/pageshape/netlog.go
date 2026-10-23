@@ -238,6 +238,7 @@ func (b *builder) sent(r *pending, hs []string) {
 	r.Headers = r.Headers[:0]
 	r.CookieCrumbs, r.CookieBytes = 0, 0
 	site := b.page.Hosts[r.Host].Site
+	var accept string
 	for _, line := range hs {
 		name, value, ok := strings.Cut(line, ":")
 		if !ok || name == "" {
@@ -263,14 +264,29 @@ func (b *builder) sent(r *pending, hs []string) {
 				r.CookieCrumbs++
 				b.scriptCookie(site, cn, cv)
 			}
+		case name == "accept":
+			accept = value
 		case strings.HasPrefix(name, ":") || strings.HasPrefix(name, "sec-") || browserHeaders[name]:
 		default:
-			r.Headers = append(r.Headers, Field{
+			f := Field{
 				Name:  name,
 				Len:   len(value),
 				Class: Classify(value),
-			})
+			}
+			if name == "content-type" {
+				f.Value = value
+			}
+			r.Headers = append(r.Headers, f)
 		}
+	}
+	// A fetch sends */* unless the page asks for something else.
+	if r.Dest == "empty" && accept != "" && accept != "*/*" {
+		r.Headers = append(r.Headers, Field{
+			Name:  "accept",
+			Len:   len(accept),
+			Class: Classify(accept),
+			Value: accept,
+		})
 	}
 	if r.authority == "" {
 		r.authority = r.url.Host

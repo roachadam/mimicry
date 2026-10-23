@@ -177,6 +177,7 @@
     "split_cookie": true,
     "hpack": {
       "without_indexing": [
+        ":method",
         ":path"
       ],
       "name_match": "static_first",

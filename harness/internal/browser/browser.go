@@ -20,6 +20,9 @@ type Target struct {
 	// omit server_name for IP addresses.
 	Host string
 	Port int
+	// Hosts are the other hostnames a replayed page reaches, all served
+	// on Port.
+	Hosts []string
 	// CertSHA256 is the SHA-256 of the server certificate (DER), which Firefox
 	// is told to accept.
 	CertSHA256 [32]byte
@@ -121,9 +124,10 @@ func Find() []*Browser {
 	return found
 }
 
-// URL is where b goes for t.
+// URL is where b goes for t. Safari cannot map hostnames, so it goes to
+// localhost, unless t's host is already a localhost name (replay).
 func (b *Browser) URL(t Target) string {
-	if b.Shared {
+	if b.Shared && !strings.HasSuffix(t.Host, ".localhost") {
 		return t.url("localhost")
 	}
 	return t.url(t.Host)
@@ -269,11 +273,15 @@ func (s *Session) stop(kill bool) {
 }
 
 func chromeArgs(dir string, t Target, headless bool) ([]string, error) {
+	rules := make([]string, 0, 1+len(t.Hosts))
+	for _, h := range append([]string{t.Host}, t.Hosts...) {
+		rules = append(rules, "MAP "+h+" 127.0.0.1")
+	}
 	args := []string{
 		"--user-data-dir=" + dir,
 		"--no-first-run",
 		"--no-default-browser-check",
-		"--host-resolver-rules=MAP " + t.Host + " 127.0.0.1",
+		"--host-resolver-rules=" + strings.Join(rules, ","),
 		// Certificate checks happen after the ClientHello and do not change it.
 		"--ignore-certificate-errors",
 	}
@@ -283,17 +291,22 @@ func chromeArgs(dir string, t Target, headless bool) ([]string, error) {
 	return args, nil
 }
 
-// firefoxProfile writes prefs that map the capture host to 127.0.0.1 and
-// silence first-run pages, plus a certificate exception for the server.
+// firefoxProfile writes prefs that map the capture hosts to 127.0.0.1 and
+// silence first-run pages, plus a certificate exception for the server. A
+// replay's many hosts have a certificate each, so Firefox trusts the
+// system's roots instead, where the capture CA is trusted.
 func firefoxProfile(dir string, t Target, headless bool) ([]string, error) {
 	prefs := []string{
-		`user_pref("network.dns.localDomains", "` + t.Host + `");`,
+		`user_pref("network.dns.localDomains", "` + strings.Join(append([]string{t.Host}, t.Hosts...), ",") + `");`,
 		`user_pref("network.dns.disableIPv6", true);`,
 		`user_pref("browser.shell.checkDefaultBrowser", false);`,
 		`user_pref("browser.startup.homepage_override.mstone", "ignore");`,
 		`user_pref("browser.aboutwelcome.enabled", false);`,
 		`user_pref("datareporting.policy.dataSubmissionEnabled", false);`,
 		`user_pref("toolkit.telemetry.reportingpolicy.firstRun", false);`,
+	}
+	if len(t.Hosts) > 0 {
+		prefs = append(prefs, `user_pref("security.enterprise_roots.enabled", true);`)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "user.js"), []byte(strings.Join(prefs, "\n")+"\n"), 0o600); err != nil {
 		return nil, err

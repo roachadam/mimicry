@@ -173,6 +173,9 @@
       "without_indexing": [
         ":path"
       ],
+      "never_indexed": [
+        "authorization"
+      ],
       "never_index_below": {
         "cookie": 20
       },

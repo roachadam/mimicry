@@ -19,6 +19,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"slices"
 	"strings"
 	"syscall"
@@ -27,6 +28,7 @@ import (
 	"github.com/roachadam/mimicry/harness/internal/browser"
 	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/harness/internal/diff"
+	"github.com/roachadam/mimicry/harness/internal/pageshape"
 	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/profile"
 )
@@ -43,6 +45,7 @@ type options struct {
 	samples   int
 	timeout   time.Duration
 	out       string
+	ca        *server.CA
 	cert      tls.Certificate
 	scenarios []*server.Scenario
 }
@@ -54,7 +57,9 @@ func run() error {
 	samples := flag.Int("samples", 3, "connections to sample per browser (at least 2, to tell whether it shuffles extensions)")
 	caDir := flag.String("ca-dir", "", "capture CA directory (default: <user config dir>/mimicry/capture-ca)")
 	timeout := flag.Duration("timeout", 45*time.Second, "how long to wait for each sample")
-	scenarioNames := flag.String("scenarios", "", "comma-separated scenarios to capture (default: all; see internal/server/scenario.go)")
+	scenarioNames := flag.String("scenarios", "", "comma-separated scenarios to capture (default: all but replays; see internal/server/scenario.go); "+
+		"replay-<site> replays -pages/<site>.json, replay all of them")
+	pages := flag.String("pages", "testdata/pages", "directory of recorded page shapes (cmd/pageshape) for replay scenarios")
 	flag.Parse()
 	if *samples < 2 {
 		return errors.New("-samples must be at least 2")
@@ -63,11 +68,11 @@ func run() error {
 	if *scenarioNames != "" {
 		scenarios = nil
 		for name := range strings.SplitSeq(*scenarioNames, ",") {
-			sc, err := server.ScenarioByName(name)
+			found, err := scenariosNamed(name, *pages)
 			if err != nil {
 				return err
 			}
-			scenarios = append(scenarios, sc)
+			scenarios = append(scenarios, found...)
 		}
 	}
 
@@ -107,6 +112,7 @@ func run() error {
 		samples:   *samples,
 		timeout:   *timeout,
 		out:       *out,
+		ca:        ca,
 		cert:      cert,
 		scenarios: scenarios,
 	}
@@ -151,7 +157,7 @@ func captureBrowser(ctx context.Context, b *browser.Browser, opts options) error
 			log.Printf("%s: extension order %s across %d samples", c.Profile.Name, c.Profile.TLS.ExtensionOrder, opts.samples)
 			log.Printf("%s: JA4 %s", c.Profile.Name, f.JA4)
 			log.Printf("%s: Akamai %s", c.Profile.Name, f.Akamai)
-		} else if base != nil && !sc.HTTP1 {
+		} else if _, _, replayed := sc.Replayed(); base != nil && !sc.HTTP1 && !replayed {
 			for _, d := range diff.Compare(&base.Profile, &c.Profile) {
 				log.Printf("%s: scenario %s changes the first request: %s", c.Profile.Name, sc.Name, d)
 			}
@@ -193,13 +199,19 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 	if err != nil {
 		return nil, err
 	}
-	captures := make(chan *capture.Capture, 64)
+	// A replayed page opens a connection per host, each handing over a
+	// capture; the buffer holds them all so the one asking for /done is
+	// never dropped.
+	captures := make(chan *capture.Capture, 1024)
 	srv := &server.Server{
 		Scenario: sc,
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{
 				opts.cert,
 			},
+		},
+		IssueCert: func(hosts []string) (tls.Certificate, error) {
+			return opts.ca.Issue(hosts, time.Now())
 		},
 		OnCapture: func(c *capture.Capture) {
 			select {
@@ -229,12 +241,19 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 		Port:       ln.Addr().(*net.TCPAddr).Port,
 		CertSHA256: sha256.Sum256(opts.cert.Certificate[0]),
 	}
+	timeout := opts.timeout
+	start, length, replayed := sc.Replayed()
+	if replayed {
+		t.Host = start
+		t.Hosts = sc.ReplayHosts()
+		timeout += length
+	}
 	log.Printf("%s: opening %s", b.Name, b.URL(t))
 	session, err := b.Open(ctx, t, opts.headless)
 	if err != nil {
 		return nil, err
 	}
-	c, err := await(ctx, b.Name, captures, opts.timeout)
+	c, err := await(ctx, b.Name, captures, timeout, replayed)
 	if closeErr := session.Close(); closeErr != nil {
 		log.Printf("%s: cleaning up: %v", b.Name, closeErr)
 	}
@@ -242,8 +261,9 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 }
 
 // await returns the first complete capture from the named browser. Captures
-// from other browsers, or with only a ClientHello, are skipped.
-func await(ctx context.Context, name string, captures <-chan *capture.Capture, timeout time.Duration) (*capture.Capture, error) {
+// from other browsers, or with only a ClientHello, are skipped. A replayed
+// page spans many connections; only the one asking for /done carries it.
+func await(ctx context.Context, name string, captures <-chan *capture.Capture, timeout time.Duration, page bool) (*capture.Capture, error) {
 	deadline := time.After(timeout)
 	for {
 		select {
@@ -256,6 +276,9 @@ func await(ctx context.Context, name string, captures <-chan *capture.Capture, t
 				continue
 			}
 			if browserName, _, _ := capture.ParseUserAgent(c.UserAgent()); browserName != name {
+				continue
+			}
+			if page && !c.Finished {
 				continue
 			}
 			if c.Trace != nil && !c.Finished {
@@ -286,4 +309,46 @@ func await(ctx context.Context, name string, captures <-chan *capture.Capture, t
 			return nil, ctx.Err()
 		}
 	}
+}
+
+// scenariosNamed resolves a -scenarios entry: a built-in scenario,
+// replay-<site> for pages/<site>.json, or replay for every page there.
+func scenariosNamed(name, pages string) ([]*server.Scenario, error) {
+	var files []string
+	switch {
+	case name == "replay":
+		var err error
+		if files, err = filepath.Glob(filepath.Join(pages, "*.json")); err != nil {
+			return nil, err
+		}
+		if len(files) == 0 {
+			return nil, fmt.Errorf("no page shapes in %s", pages)
+		}
+	case strings.HasPrefix(name, "replay-"):
+		files = []string{
+			filepath.Join(pages, strings.TrimPrefix(name, "replay-")+".json"),
+		}
+	default:
+		sc, err := server.ScenarioByName(name)
+		if err != nil {
+			return nil, err
+		}
+		return []*server.Scenario{
+			sc,
+		}, nil
+	}
+	out := make([]*server.Scenario, 0, len(files))
+	for _, f := range files {
+		p, err := pageshape.Load(f)
+		if err != nil {
+			return nil, err
+		}
+		sc, err := server.Replay(p)
+		if err != nil {
+			return nil, err
+		}
+		log.Print(sc.Doc)
+		out = append(out, sc)
+	}
+	return out, nil
 }

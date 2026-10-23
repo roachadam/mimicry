@@ -33,6 +33,10 @@ type Capture struct {
 	// SampleH1 holds every sample's (Combine).
 	H1       []H1Request
 	SampleH1 [][]H1Request
+	// Page is a whole page load across connections and hosts (replay
+	// scenarios); SamplePages holds every sample's (Combine).
+	Page        *Page
+	SamplePages []*Page
 	// Finished reports that the client asked for /done: a browser ran the
 	// capture page to the end. A browser's trace without it is truncated.
 	Finished bool
@@ -167,6 +171,12 @@ func Write(dir string, c *Capture) (string, error) {
 			c.H1,
 		}
 	}
+	pages := c.SamplePages
+	if len(pages) == 0 && c.Page != nil {
+		pages = []*Page{
+			c.Page,
+		}
+	}
 	for _, trace := range []struct {
 		path    string
 		samples any
@@ -174,6 +184,8 @@ func Write(dir string, c *Capture) (string, error) {
 	}{
 		{prefix + ".h2trace.json", h2, len(h2) > 0},
 		{prefix + ".h1trace.json", h1, len(h1) > 0},
+		// Replayed pages are tens of MiB of repetitive JSON.
+		{prefix + ".pagetrace.json.gz", pages, len(pages) > 0},
 	} {
 		if !trace.present {
 			continue
@@ -182,7 +194,13 @@ func Write(dir string, c *Capture) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		if err := writeNew(trace.path, append(data, '\n')); err != nil {
+		data = append(data, '\n')
+		if strings.HasSuffix(trace.path, ".gz") {
+			if data, err = gzipped(data); err != nil {
+				return "", err
+			}
+		}
+		if err := writeNew(trace.path, data); err != nil {
 			return "", err
 		}
 		written = append(written, trace.path)

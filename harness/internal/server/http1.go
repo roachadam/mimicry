@@ -10,46 +10,19 @@ import (
 	"net/textproto"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/profile"
 )
 
-// h1Log collects one page load's HTTP/1.1 requests across the server's
-// connections: browsers spread an HTTP/1.1 page over several.
-type h1Log struct {
-	mu       sync.Mutex
-	conns    int
-	requests []capture.H1Request
-}
-
-func (l *h1Log) newConn() int {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.conns++
-	return l.conns
-}
-
-func (l *h1Log) add(r capture.H1Request) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.requests = append(l.requests, r)
-}
-
-func (l *h1Log) snapshot() []capture.H1Request {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return append([]capture.H1Request(nil), l.requests...)
-}
-
 // serveHTTP1 answers HTTP/1.1 requests on conn as sc says, keeping the
 // connection open, and records each request verbatim into c.H1 and the
-// server's log. The first request's headers become c's profile headers
+// page log. The first request's headers become c's profile headers
 // (lowercased; the verbatim lines keep the casing). When the client asks for
 // /done, c gets the whole page load from the log, its profile headers come
-// from the page's first request, and emit hands it over.
-func serveHTTP1(conn net.Conn, c *capture.Capture, sc *Scenario, log *h1Log, emit func()) error {
+// from the page's first request, and emit hands it over. host is the
+// connection's server name.
+func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, log *pageLog, emit func()) error {
 	id := log.newConn()
 	br := bufio.NewReader(conn)
 	tp := textproto.NewReader(br)
@@ -58,14 +31,19 @@ func serveHTTP1(conn net.Conn, c *capture.Capture, sc *Scenario, log *h1Log, emi
 		if err != nil {
 			return err
 		}
-		_, rest, ok := strings.Cut(line, " ")
+		method, rest, ok := strings.Cut(line, " ")
 		target, _, ok2 := strings.Cut(rest, " ")
 		if !ok || !ok2 {
 			return fmt.Errorf("bad request line %q", line)
 		}
 		req := capture.H1Request{
 			Conn: id,
+			Host: host,
 			Line: line,
+		}
+		ask := request{
+			method: method,
+			path:   target,
 		}
 		var length int64
 		chunked := false
@@ -82,17 +60,27 @@ func serveHTTP1(conn net.Conn, c *capture.Capture, sc *Scenario, log *h1Log, emi
 				return fmt.Errorf("bad header line %q", h)
 			}
 			req.Headers = append(req.Headers, h)
+			value = strings.TrimSpace(value)
 			switch strings.ToLower(strings.TrimSpace(name)) {
 			case "content-length":
-				length, _ = strconv.ParseInt(strings.TrimSpace(value), 10, 64)
+				length, _ = strconv.ParseInt(value, 10, 64)
 			case "transfer-encoding":
 				chunked = strings.Contains(strings.ToLower(value), "chunked")
+			case "host":
+				ask.host = value
+			case "origin":
+				ask.origin = value
+			case "access-control-request-headers":
+				ask.preflightHeaders = value
 			}
 		}
 		log.add(req)
-		c.H1 = append(c.H1, req)
-		if len(c.Profile.Headers) == 0 {
-			c.Profile.Headers = profileHeaders(req.Headers)
+		// After /done the capture belongs to its receiver.
+		if !c.Finished {
+			c.H1 = append(c.H1, req)
+			if len(c.Profile.Headers) == 0 {
+				c.Profile.Headers = profileHeaders(req.Headers)
+			}
 		}
 
 		var uploaded int64
@@ -118,10 +106,17 @@ func serveHTTP1(conn net.Conn, c *capture.Capture, sc *Scenario, log *h1Log, emi
 			}
 		}
 
-		r := sc.answer(target, int(uploaded))
-		if target == "/done" {
-			c.H1 = log.snapshot()
-			c.Profile.Headers = profileHeaders(c.H1[0].Headers)
+		ask.uploaded = int(uploaded)
+		r := sc.answer(ask)
+		if target == "/done" && !c.Finished {
+			if sc.replay != nil {
+				c.Page = log.page()
+				c.H1 = nil
+				pageProfile(c)
+			} else {
+				c.H1 = log.snapshot()
+				c.Profile.Headers = profileHeaders(c.H1[0].Headers)
+			}
 			c.Finished = true
 			emit()
 		}

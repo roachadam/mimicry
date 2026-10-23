@@ -83,7 +83,8 @@ func TestFromNetLog(t *testing.T) {
 	l.event("HTTP2_SESSION_SEND_HEADERS", 100, map[string]any{"headers": []string{":method: POST", ":authority: api.example.com", ":path: /v1/x?a=1"}})
 	l.request(2, "https://example.com", "", "other", "POST", "https://api.example.com/v1/x?a=1", h2,
 		[]string{":authority: api.example.com", ":path: /v1/x?a=1", "sec-fetch-dest: empty", "sec-fetch-mode: cors",
-			"content-length: 12", "x-trace-id: deadbeef", "cookie: sid=0123abcd; _ga=GA1.2.345"},
+			"content-length: 12", "x-trace-id: deadbeef", "content-type: application/json", "accept: application/json",
+			"cookie: sid=0123abcd; _ga=GA1.2.345"},
 		[]string{"HTTP/1.1 204"}, 0)
 	// Chrome's own request for the page, and another tab's: both left out.
 	l.request(3, "https://example.com", "not an origin", "other", "GET", "https://content-autofill.googleapis.com/q", h2, nil, []string{"HTTP/1.1 200"}, 10)
@@ -156,6 +157,18 @@ func TestFromNetLog(t *testing.T) {
 			Name:  "x-trace-id",
 			Len:   8,
 			Class: "hex",
+		},
+		{
+			Name:  "content-type",
+			Len:   16,
+			Class: Classify("application/json"),
+			Value: "application/json",
+		},
+		{
+			Name:  "accept",
+			Len:   16,
+			Class: Classify("application/json"),
+			Value: "application/json",
 		},
 	}
 	if !slices.Equal(api.Headers, wantHeaders) {

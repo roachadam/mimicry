@@ -2746,6 +2746,12 @@
           "name": "x-tmplatform",
           "len": 6,
           "class": "alnum"
+        },
+        {
+          "name": "accept",
+          "len": 16,
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "cookie_crumbs": 5,
@@ -2795,6 +2801,14 @@
       "protocol": "h2",
       "conn": 1,
       "path_len": 10,
+      "headers": [
+        {
+          "name": "accept",
+          "len": 16,
+          "class": "base64",
+          "value": "application/json"
+        }
+      ],
       "status": 200,
       "redirect_to": -1,
       "redirect_from": -1,
@@ -2856,6 +2870,12 @@
           "name": "x-tmplatform",
           "len": 6,
           "class": "alnum"
+        },
+        {
+          "name": "accept",
+          "len": 16,
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "cookie_crumbs": 5,
@@ -3941,6 +3961,14 @@
       "protocol": "h2",
       "conn": 1,
       "path_len": 33,
+      "headers": [
+        {
+          "name": "accept",
+          "len": 16,
+          "class": "base64",
+          "value": "application/json"
+        }
+      ],
       "status": 200,
       "redirect_to": -1,
       "redirect_from": -1,
@@ -4139,7 +4167,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         },
         {
           "name": "x-browser-channel",
@@ -4570,7 +4599,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "status": 204,
@@ -4674,7 +4704,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 1507,
@@ -4697,7 +4728,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 1498,
@@ -4722,7 +4754,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 1469,
@@ -4889,7 +4922,8 @@
         {
           "name": "content-type",
           "len": 25,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/x-protobuffer"
         },
         {
           "name": "x-browser-channel",
@@ -5274,7 +5308,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 1626,
@@ -5361,7 +5396,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/octet-stream"
         }
       ],
       "body": 19906,
@@ -5901,7 +5937,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "body": 2733,
@@ -6724,7 +6761,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 460,
@@ -7928,7 +7966,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "status": 200,
@@ -7948,6 +7987,14 @@
       "conn": 1,
       "path_len": 12,
       "query_len": 233,
+      "headers": [
+        {
+          "name": "accept",
+          "len": 16,
+          "class": "base64",
+          "value": "application/json"
+        }
+      ],
       "status": 200,
       "redirect_to": -1,
       "redirect_from": -1,
@@ -9037,7 +9084,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 1530,
@@ -9063,7 +9111,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 419,
@@ -9087,7 +9136,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 816,

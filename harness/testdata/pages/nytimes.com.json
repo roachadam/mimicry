@@ -2383,7 +2383,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 469,
@@ -2455,7 +2456,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 680,
@@ -2480,7 +2482,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 516,
@@ -4598,7 +4601,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         },
         {
           "name": "nyt-app-type",
@@ -8102,7 +8106,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 4512,
@@ -8629,7 +8634,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         },
         {
           "name": "nyt-app-type",
@@ -8722,7 +8728,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "body": 485,
@@ -8852,7 +8859,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         },
         {
           "name": "nyt-app-type",
@@ -8927,7 +8935,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 23233,
@@ -9088,7 +9097,8 @@
         {
           "name": "content-type",
           "len": 33,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/x-www-form-urlencoded"
         }
       ],
       "body": 7350,
@@ -9145,7 +9155,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         },
         {
           "name": "nyt-app-type",
@@ -9175,7 +9186,14 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
+        },
+        {
+          "name": "accept",
+          "len": 16,
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "status": 200,
@@ -9259,7 +9277,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "cookie_crumbs": 15,
@@ -9307,7 +9326,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 923,
@@ -9331,7 +9351,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 926,
@@ -9355,7 +9376,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 926,
@@ -9379,7 +9401,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 926,
@@ -9403,7 +9426,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 932,
@@ -9500,7 +9524,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         },
         {
           "name": "nyt-app-type",
@@ -9883,7 +9908,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         },
         {
           "name": "nyt-app-type",
@@ -10008,7 +10034,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "status": 302,
@@ -10651,7 +10678,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 3413,
@@ -11075,7 +11103,8 @@
         {
           "name": "content-type",
           "len": 18,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/binary"
         },
         {
           "name": "x-goog-authuser",
@@ -11132,7 +11161,8 @@
         {
           "name": "content-type",
           "len": 18,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/binary"
         },
         {
           "name": "x-goog-authuser",
@@ -11189,7 +11219,8 @@
         {
           "name": "content-type",
           "len": 18,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/binary"
         },
         {
           "name": "x-goog-authuser",
@@ -11312,7 +11343,8 @@
         {
           "name": "content-type",
           "len": 18,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/binary"
         },
         {
           "name": "x-goog-authuser",
@@ -11439,7 +11471,8 @@
         {
           "name": "content-type",
           "len": 18,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/binary"
         },
         {
           "name": "x-goog-authuser",
@@ -11496,7 +11529,8 @@
         {
           "name": "content-type",
           "len": 18,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/binary"
         },
         {
           "name": "x-goog-authuser",
@@ -11553,7 +11587,8 @@
         {
           "name": "content-type",
           "len": 18,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/binary"
         },
         {
           "name": "x-goog-authuser",
@@ -11610,7 +11645,8 @@
         {
           "name": "content-type",
           "len": 18,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/binary"
         },
         {
           "name": "x-goog-authuser",
@@ -11870,7 +11906,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "cookie_crumbs": 1,
@@ -12683,7 +12720,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "status": 200,
@@ -12731,7 +12769,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "status": 200,
@@ -12779,7 +12818,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "status": 200,
@@ -12827,7 +12867,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "status": 200,
@@ -12875,7 +12916,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "status": 200,
@@ -12923,7 +12965,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 5869,
@@ -12960,7 +13003,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 4079,
@@ -12985,7 +13029,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 3760,
@@ -13024,7 +13069,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 5857,
@@ -13062,7 +13108,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 4171,
@@ -13101,7 +13148,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         },
         {
           "name": "nyt-app-type",
@@ -13165,7 +13213,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 1248,
@@ -16259,7 +16308,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "cookie_crumbs": 26,
@@ -16543,7 +16593,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "body": 235,
@@ -16614,7 +16665,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 792,
@@ -16640,7 +16692,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 22396,
@@ -26425,7 +26478,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 407,
@@ -30448,7 +30502,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 407,

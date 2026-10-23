@@ -31,6 +31,9 @@ type Server struct {
 	// Scenario says how HTTP/2 connections are answered. Nil means
 	// DefaultScenario.
 	Scenario *Scenario
+	// IssueCert issues a certificate for hosts. Replay scenarios need it:
+	// they serve many hostnames, each with its own certificate.
+	IssueCert func(hosts []string) (tls.Certificate, error)
 }
 
 // Serve handles connections from ln until ctx is canceled, then closes the
@@ -52,7 +55,13 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 		}
 	}
 	cfg.MinVersion = tls.VersionTLS12
-	log := &h1Log{}
+	if sc.replay != nil {
+		if s.IssueCert == nil {
+			return errors.New("replay scenario " + sc.Name + " needs Server.IssueCert")
+		}
+		cfg = sc.replay.tlsConfig(cfg, s.IssueCert)
+	}
+	log := &pageLog{}
 	stop := context.AfterFunc(ctx, func() {
 		_ = ln.Close()
 	})
@@ -75,7 +84,7 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 	}
 }
 
-func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc *Scenario, log *h1Log) error {
+func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc *Scenario, log *pageLog) error {
 	stop := context.AfterFunc(ctx, func() {
 		_ = conn.Close()
 	})
@@ -121,11 +130,12 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 		// they reject the certificate.
 		return err
 	}
-	c.Protocol = tlsConn.ConnectionState().NegotiatedProtocol
+	state := tlsConn.ConnectionState()
+	c.Protocol = state.NegotiatedProtocol
 	if c.Protocol == "h2" {
-		err = serveHTTP2(tlsConn, c, sc, emit)
+		err = serveHTTP2(tlsConn, state.ServerName, c, sc, log, emit)
 	} else {
-		err = serveHTTP1(tlsConn, c, sc, log, emit)
+		err = serveHTTP1(tlsConn, state.ServerName, c, sc, log, emit)
 	}
 	if isClosed(err) {
 		return nil

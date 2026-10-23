@@ -90,11 +90,14 @@ type Request struct {
 }
 
 // Field is a header's shape: its real name, and its value's length and
-// character class.
+// character class. Value is kept only for headers whose value is not
+// personal and changes what the browser does (content-type and accept
+// decide whether a cross-origin fetch needs a preflight).
 type Field struct {
 	Name  string `json:"name"`
 	Len   int    `json:"len"`
 	Class string `json:"class"`
+	Value string `json:"value,omitempty"`
 }
 
 // Cookie is the shape of a cookie being set.

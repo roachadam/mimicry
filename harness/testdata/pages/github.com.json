@@ -2319,7 +2319,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 738,
@@ -2724,7 +2725,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 6809,
@@ -2782,7 +2784,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 56801,
@@ -2807,7 +2810,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 1053,
@@ -2833,7 +2837,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 10221,

@@ -396,7 +396,8 @@
         {
           "name": "content-type",
           "len": 33,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/x-www-form-urlencoded"
         }
       ],
       "body": 906,
@@ -6182,7 +6183,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         },
         {
           "name": "x-apollo-operation-name",
@@ -6243,6 +6245,12 @@
           "name": "x-o-correlation-id",
           "len": 36,
           "class": "base64url"
+        },
+        {
+          "name": "accept",
+          "len": 16,
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "cookie_crumbs": 7,
@@ -6584,7 +6592,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         },
         {
           "name": "x-apollo-operation-name",
@@ -6645,6 +6654,12 @@
           "name": "x-o-correlation-id",
           "len": 36,
           "class": "base64url"
+        },
+        {
+          "name": "accept",
+          "len": 16,
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "cookie_crumbs": 7,
@@ -6946,6 +6961,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -6974,6 +6995,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7002,6 +7029,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7030,6 +7063,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7058,6 +7097,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7086,6 +7131,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7114,6 +7165,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7142,6 +7199,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7170,6 +7233,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7198,6 +7267,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7226,6 +7301,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7254,6 +7335,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7282,6 +7369,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7310,6 +7403,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7338,6 +7437,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7366,6 +7471,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7394,6 +7505,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7422,6 +7539,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7450,6 +7573,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7478,6 +7607,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7506,6 +7641,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7534,6 +7675,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7562,6 +7709,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7590,6 +7743,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7618,6 +7777,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7646,6 +7811,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7674,6 +7845,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7702,6 +7879,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7730,6 +7913,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7758,6 +7947,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7786,6 +7981,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7814,6 +8015,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7842,6 +8049,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7870,6 +8083,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7898,6 +8117,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7926,6 +8151,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7954,6 +8185,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -7982,6 +8219,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -8010,6 +8253,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -8038,6 +8287,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -8066,6 +8321,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -8094,6 +8355,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -8122,6 +8389,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -8150,6 +8423,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -8178,6 +8457,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -8206,6 +8491,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -8234,6 +8525,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -8262,6 +8559,12 @@
           "name": "dpr",
           "len": 1,
           "class": "digits"
+        },
+        {
+          "name": "accept",
+          "len": 145,
+          "class": "text",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         }
       ],
       "status": 200,
@@ -8485,7 +8788,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 14335,
@@ -8535,7 +8839,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 12721,
@@ -8585,7 +8890,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 661,
@@ -8664,7 +8970,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 19975,
@@ -8732,7 +9039,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 869,
@@ -8811,7 +9119,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 868,
@@ -8978,7 +9287,8 @@
         {
           "name": "content-type",
           "len": 33,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/x-www-form-urlencoded"
         }
       ],
       "body": 10842,
@@ -9030,7 +9340,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 18813,
@@ -9230,7 +9541,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         },
         {
           "name": "tenant-id",
@@ -9276,6 +9588,12 @@
           "name": "x-o-correlation-id",
           "len": 36,
           "class": "base64url"
+        },
+        {
+          "name": "accept",
+          "len": 16,
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "cookie_crumbs": 33,
@@ -9478,7 +9796,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         },
         {
           "name": "x-apollo-operation-name",
@@ -9544,6 +9863,12 @@
           "name": "x-o-correlation-id",
           "len": 36,
           "class": "alnum"
+        },
+        {
+          "name": "accept",
+          "len": 16,
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "body": 1430,
@@ -9755,7 +10080,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         },
         {
           "name": "x-apollo-operation-name",
@@ -9816,6 +10142,12 @@
           "name": "x-o-correlation-id",
           "len": 36,
           "class": "base64url"
+        },
+        {
+          "name": "accept",
+          "len": 16,
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "body": 4764,
@@ -10092,7 +10424,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         },
         {
           "name": "x-apollo-operation-name",
@@ -10153,6 +10486,12 @@
           "name": "x-o-correlation-id",
           "len": 36,
           "class": "base64url"
+        },
+        {
+          "name": "accept",
+          "len": 16,
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "body": 1650,
@@ -10365,7 +10704,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         },
         {
           "name": "x-apollo-operation-name",
@@ -10426,6 +10766,12 @@
           "name": "x-o-correlation-id",
           "len": 36,
           "class": "base64url"
+        },
+        {
+          "name": "accept",
+          "len": 16,
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "cookie_crumbs": 33,
@@ -10712,7 +11058,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         },
         {
           "name": "x-apollo-operation-name",
@@ -10773,6 +11120,12 @@
           "name": "x-o-correlation-id",
           "len": 36,
           "class": "base64url"
+        },
+        {
+          "name": "accept",
+          "len": 16,
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "cookie_crumbs": 33,
@@ -10816,7 +11169,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 28733,
@@ -10866,7 +11220,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 657,
@@ -11032,7 +11387,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 20599,
@@ -11185,7 +11541,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         },
         {
           "name": "x-apollo-operation-name",
@@ -11246,6 +11603,12 @@
           "name": "x-o-correlation-id",
           "len": 36,
           "class": "alnum"
+        },
+        {
+          "name": "accept",
+          "len": 16,
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "cookie_crumbs": 34,
@@ -11289,7 +11652,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 816,
@@ -11748,7 +12112,8 @@
         {
           "name": "content-type",
           "len": 33,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/x-www-form-urlencoded"
         }
       ],
       "body": 26653,
@@ -11826,7 +12191,8 @@
         {
           "name": "content-type",
           "len": 33,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/x-www-form-urlencoded"
         }
       ],
       "body": 34184,
@@ -12001,7 +12367,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 27753,
@@ -12646,7 +13013,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 781,
@@ -12725,7 +13093,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 719,
@@ -12804,7 +13173,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 659,
@@ -12883,7 +13253,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 659,
@@ -12962,7 +13333,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 660,
@@ -13041,7 +13413,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 660,
@@ -13177,7 +13550,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 780,
@@ -13256,7 +13630,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 780,
@@ -13426,7 +13801,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         },
         {
           "name": "x-snr-ref",
@@ -13527,7 +13903,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 33,
@@ -13565,7 +13942,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 33,
@@ -13588,7 +13966,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 33,
@@ -13611,7 +13990,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 23,
@@ -13634,7 +14014,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 324,
@@ -13657,7 +14038,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 23,
@@ -13680,7 +14062,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 85,
@@ -13703,7 +14086,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 23,
@@ -13726,7 +14110,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 85,
@@ -13749,7 +14134,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 324,
@@ -13772,7 +14158,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 85,
@@ -13795,7 +14182,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 4113,
@@ -13818,7 +14206,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 378,
@@ -13841,7 +14230,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 378,
@@ -13864,7 +14254,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 378,
@@ -13887,7 +14278,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 8943,
@@ -13910,7 +14302,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 8942,
@@ -13933,7 +14326,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 5270,
@@ -13956,7 +14350,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 134,
@@ -13979,7 +14374,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 134,
@@ -14002,7 +14398,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 134,
@@ -14182,7 +14579,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 24908,
@@ -14613,7 +15011,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 491,
@@ -14636,7 +15035,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 491,
@@ -14659,7 +15059,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 491,
@@ -14682,7 +15083,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 490,
@@ -14705,7 +15107,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 490,
@@ -14728,7 +15131,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 490,
@@ -14909,7 +15313,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 329,
@@ -14932,7 +15337,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 329,
@@ -14955,7 +15361,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 329,
@@ -14977,7 +15384,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 29046,
@@ -15056,7 +15464,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 6688,
@@ -15135,7 +15544,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 22142,
@@ -15371,7 +15781,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 780,
@@ -15450,7 +15861,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 781,
@@ -15529,7 +15941,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 817,
@@ -15608,7 +16021,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 780,
@@ -15687,7 +16101,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 30342,

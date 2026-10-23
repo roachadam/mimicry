@@ -42,6 +42,9 @@ func Combine(samples []*Capture) (*Capture, error) {
 		if len(s.H1) > 0 {
 			first.SampleH1 = append(first.SampleH1, s.H1)
 		}
+		if s.Page != nil {
+			first.SamplePages = append(first.SamplePages, s.Page)
+		}
 	}
 	return first, nil
 }

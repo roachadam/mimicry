@@ -577,10 +577,23 @@ func TestHTTP1Recording(t *testing.T) {
 	}
 }
 
-// Safari keeps running between captures and holds its connection open.
-// Stopping the server must close such connections instead of waiting for
-// ConnTimeout, or every Safari sample takes a minute.
+// Stopping the server must end every connection promptly: one a client keeps
+// open after a request, as Safari does between captures (or every Safari
+// sample would take ConnTimeout), and one whose response is stuck waiting
+// for flow-control credit the client never grants, as a browser leaving a
+// big replayed page does.
 func TestServeClosesOpenConnectionsOnStop(t *testing.T) {
+	t.Run("idle after a request", func(t *testing.T) {
+		stopWithClient(t, "/", true)
+	})
+	t.Run("response waiting for credit", func(t *testing.T) {
+		stopWithClient(t, "/big", false)
+	})
+}
+
+// stopWithClient requests path on an HTTP/2 connection, reads the response
+// if read is set (else leaves it waiting for credit), then stops the server.
+func stopWithClient(t *testing.T, path string, read bool) {
 	ca, err := LoadOrCreateCA(t.TempDir(), CAHosts, time.Now())
 	if err != nil {
 		t.Fatal(err)
@@ -649,7 +662,7 @@ func TestServeClosesOpenConnectionsOnStop(t *testing.T) {
 		},
 		{
 			Name:  ":path",
-			Value: "/",
+			Value: path,
 		},
 	} {
 		if err := enc.WriteField(f); err != nil {
@@ -667,8 +680,13 @@ func TestServeClosesOpenConnectionsOnStop(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if status := readResponse(t, fr, 1); status != "200" {
-		t.Fatalf("status %s", status)
+	if read {
+		if status := readResponse(t, fr, 1); status != "200" {
+			t.Fatalf("status %s", status)
+		}
+	} else {
+		// Let the response use up the initial window and block.
+		time.Sleep(200 * time.Millisecond)
 	}
 	cancel()
 	select {

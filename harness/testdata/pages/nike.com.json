@@ -1393,6 +1393,14 @@
       "conn": 1,
       "path_len": 26,
       "query_len": 9,
+      "headers": [
+        {
+          "name": "accept",
+          "len": 16,
+          "class": "base64",
+          "value": "application/json"
+        }
+      ],
       "cookie_crumbs": 7,
       "cookie_bytes": 805,
       "status": 200,
@@ -1434,6 +1442,14 @@
       "conn": 1,
       "path_len": 28,
       "query_len": 9,
+      "headers": [
+        {
+          "name": "accept",
+          "len": 16,
+          "class": "base64",
+          "value": "application/json"
+        }
+      ],
       "cookie_crumbs": 7,
       "cookie_bytes": 805,
       "status": 200,
@@ -1475,6 +1491,14 @@
       "conn": 1,
       "path_len": 21,
       "query_len": 9,
+      "headers": [
+        {
+          "name": "accept",
+          "len": 16,
+          "class": "base64",
+          "value": "application/json"
+        }
+      ],
       "cookie_crumbs": 7,
       "cookie_bytes": 805,
       "status": 200,
@@ -1516,6 +1540,14 @@
       "conn": 1,
       "path_len": 22,
       "query_len": 9,
+      "headers": [
+        {
+          "name": "accept",
+          "len": 16,
+          "class": "base64",
+          "value": "application/json"
+        }
+      ],
       "cookie_crumbs": 7,
       "cookie_bytes": 805,
       "status": 200,
@@ -1589,6 +1621,12 @@
           "name": "nike-api-caller-id",
           "len": 18,
           "class": "text"
+        },
+        {
+          "name": "accept",
+          "len": 31,
+          "class": "text",
+          "value": "application/json; charset=UTF-8"
         }
       ],
       "status": 200,
@@ -1608,6 +1646,14 @@
       "conn": 1,
       "path_len": 25,
       "query_len": 9,
+      "headers": [
+        {
+          "name": "accept",
+          "len": 16,
+          "class": "base64",
+          "value": "application/json"
+        }
+      ],
       "cookie_crumbs": 7,
       "cookie_bytes": 805,
       "status": 200,
@@ -3010,7 +3056,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 1151,
@@ -3185,7 +3232,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         },
         {
           "name": "x-insert-key",
@@ -3819,7 +3867,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "body": 2496,
@@ -3844,7 +3893,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "body": 2496,
@@ -3869,7 +3919,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "body": 9658,
@@ -3894,7 +3945,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "body": 2259,
@@ -3929,7 +3981,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "body": 2493,
@@ -3954,7 +4007,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "body": 2491,
@@ -3980,7 +4034,8 @@
         {
           "name": "content-type",
           "len": 17,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/proto"
         },
         {
           "name": "connect-protocol-version",
@@ -4008,7 +4063,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "body": 2493,
@@ -4034,7 +4090,8 @@
         {
           "name": "content-type",
           "len": 17,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/proto"
         },
         {
           "name": "connect-protocol-version",
@@ -4109,7 +4166,8 @@
         {
           "name": "content-type",
           "len": 25,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain; charset=UTF-8"
         }
       ],
       "body": 1301,
@@ -4149,7 +4207,8 @@
         {
           "name": "content-type",
           "len": 25,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain; charset=UTF-8"
         }
       ],
       "body": 1228,
@@ -4189,7 +4248,8 @@
         {
           "name": "content-type",
           "len": 25,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain; charset=UTF-8"
         }
       ],
       "body": 1233,
@@ -4229,7 +4289,8 @@
         {
           "name": "content-type",
           "len": 25,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain; charset=UTF-8"
         }
       ],
       "body": 1220,
@@ -4484,7 +4545,8 @@
         {
           "name": "content-type",
           "len": 17,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/proto"
         },
         {
           "name": "connect-protocol-version",
@@ -5050,7 +5112,8 @@
         {
           "name": "content-type",
           "len": 33,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/x-www-form-urlencoded"
         }
       ],
       "body": 487,
@@ -5121,7 +5184,8 @@
         {
           "name": "content-type",
           "len": 17,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/proto"
         },
         {
           "name": "connect-protocol-version",
@@ -5168,7 +5232,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 52,
@@ -5261,7 +5326,8 @@
         {
           "name": "content-type",
           "len": 25,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain; charset=UTF-8"
         }
       ],
       "body": 1235,
@@ -5546,7 +5612,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 16146,
@@ -5620,7 +5687,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 410,
@@ -5644,7 +5712,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 24316,
@@ -5668,7 +5737,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 15234,
@@ -5692,7 +5762,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 1651,
@@ -5716,7 +5787,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 521,
@@ -5740,7 +5812,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 113816,
@@ -6065,7 +6138,8 @@
         {
           "name": "content-type",
           "len": 25,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain; charset=UTF-8"
         }
       ],
       "body": 1295,
@@ -6105,7 +6179,8 @@
         {
           "name": "content-type",
           "len": 25,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain; charset=UTF-8"
         }
       ],
       "body": 1229,
@@ -6310,12 +6385,19 @@
         {
           "name": "content-type",
           "len": 31,
-          "class": "text"
+          "class": "text",
+          "value": "application/json; charset=UTF-8"
         },
         {
           "name": "x-nike-visitorid",
           "len": 36,
           "class": "base64url"
+        },
+        {
+          "name": "accept",
+          "len": 16,
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "cookie_crumbs": 19,
@@ -6384,7 +6466,8 @@
         {
           "name": "content-type",
           "len": 17,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/proto"
         },
         {
           "name": "connect-protocol-version",
@@ -6547,7 +6630,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 238,
@@ -6601,7 +6685,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "body": 1897,
@@ -6627,7 +6712,8 @@
         {
           "name": "content-type",
           "len": 17,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/proto"
         },
         {
           "name": "connect-protocol-version",
@@ -6742,7 +6828,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 1461,
@@ -6765,7 +6852,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 1452,
@@ -6790,7 +6878,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 1423,
@@ -6835,7 +6924,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/octet-stream"
         }
       ],
       "body": 19866,
@@ -6884,7 +6974,8 @@
         {
           "name": "content-type",
           "len": 25,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain; charset=UTF-8"
         }
       ],
       "body": 1267,
@@ -7326,7 +7417,8 @@
         {
           "name": "content-type",
           "len": 25,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain; charset=UTF-8"
         }
       ],
       "body": 1231,
@@ -7366,7 +7458,8 @@
         {
           "name": "content-type",
           "len": 25,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain; charset=UTF-8"
         }
       ],
       "body": 1231,
@@ -7613,7 +7706,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "status": 200,
@@ -7637,7 +7731,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "body": 673,
@@ -7661,7 +7756,8 @@
         {
           "name": "content-type",
           "len": 17,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/proto"
         },
         {
           "name": "connect-protocol-version",
@@ -7707,7 +7803,8 @@
         {
           "name": "content-type",
           "len": 17,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/proto"
         },
         {
           "name": "connect-protocol-version",
@@ -7892,7 +7989,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "body": 1897,
@@ -7917,7 +8015,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "body": 1921,
@@ -7973,7 +8072,8 @@
         {
           "name": "content-type",
           "len": 31,
-          "class": "text"
+          "class": "text",
+          "value": "application/json; charset=UTF-8"
         },
         {
           "name": "x-nike-visitid",
@@ -7999,6 +8099,12 @@
           "name": "x-nike-visitorid",
           "len": 36,
           "class": "base64url"
+        },
+        {
+          "name": "accept",
+          "len": 16,
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "body": 128,
@@ -8349,7 +8455,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 1720,
@@ -8519,7 +8626,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         },
         {
           "name": "eventdatasource",
@@ -8583,7 +8691,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 978,
@@ -8632,7 +8741,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 16338,
@@ -8656,7 +8766,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 16202,
@@ -8721,7 +8832,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "body": 2494,
@@ -8747,7 +8859,8 @@
         {
           "name": "content-type",
           "len": 24,
-          "class": "text"
+          "class": "text",
+          "value": "text/plain;charset=UTF-8"
         }
       ],
       "body": 1484,
@@ -8772,7 +8885,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 16230,
@@ -8796,7 +8910,8 @@
         {
           "name": "content-type",
           "len": 10,
-          "class": "base64"
+          "class": "base64",
+          "value": "text/plain"
         }
       ],
       "body": 16262,
@@ -8849,7 +8964,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "body": 2491,
@@ -8874,7 +8990,8 @@
         {
           "name": "content-type",
           "len": 16,
-          "class": "base64"
+          "class": "base64",
+          "value": "application/json"
         }
       ],
       "body": 2512,

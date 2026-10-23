@@ -160,6 +160,9 @@
         ":path",
         "content-length"
       ],
+      "never_indexed": [
+        "authorization"
+      ],
       "never_index_below": {
         "cookie": 20
       },

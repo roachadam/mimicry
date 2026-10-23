@@ -28,6 +28,22 @@ type Scenario struct {
 	// respond answers the paths the scenario changes; the default page
 	// answers the rest.
 	respond func(path string, uploaded int) (response, bool)
+	// replay, when set, answers every request instead (Replay).
+	replay *replay
+}
+
+// request is what a scenario needs to know to answer a request.
+type request struct {
+	method string
+	// host is the authority, with its port.
+	host string
+	path string
+	// origin and preflightHeaders are the Origin and
+	// Access-Control-Request-Headers headers.
+	origin           string
+	preflightHeaders string
+	// uploaded is the request body's size.
+	uploaded int
 }
 
 // DefaultScenario is the capture page every profile comes from.
@@ -118,13 +134,16 @@ func ScenarioByName(name string) (*Scenario, error) {
 	return nil, fmt.Errorf("unknown scenario %q (have %s)", name, strings.Join(names, ", "))
 }
 
-func (sc *Scenario) answer(path string, uploaded int) response {
+func (sc *Scenario) answer(r request) response {
+	if sc.replay != nil {
+		return sc.replay.answer(r)
+	}
 	if sc.respond != nil {
-		if r, ok := sc.respond(path, uploaded); ok {
-			return r
+		if resp, ok := sc.respond(r.path, r.uploaded); ok {
+			return resp
 		}
 	}
-	return defaultResponse(path, uploaded)
+	return defaultResponse(r.path, r.uploaded)
 }
 
 // tableSize is the header table size the scenario allows.

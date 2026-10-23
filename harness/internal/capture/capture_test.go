@@ -4,8 +4,10 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
+	"github.com/roachadam/mimicry/harness/internal/h2trace"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -112,5 +114,57 @@ func TestWriteNeverOverwrites(t *testing.T) {
 	}
 	if string(after) != string(first) {
 		t.Error("second Write changed the existing capture")
+	}
+}
+
+// A replayed page's capture, written with every sample, loads back whole:
+// what the HPACK oracle reads is what the capture tool wrote.
+func TestWritePagesLoadBack(t *testing.T) {
+	dir := t.TempDir()
+	sample := func(host string) *Page {
+		return &Page{
+			H2: []*h2trace.Trace{
+				{
+					Host: host,
+					Requests: []h2trace.Request{
+						{
+							Stream: 1,
+							Path:   "/r1",
+						},
+					},
+				},
+			},
+			H1: []H1Request{
+				{
+					Conn: 1,
+					Host: "beacon.track-net.localhost",
+					Line: "POST /r6 HTTP/1.1",
+				},
+			},
+		}
+	}
+	c := &Capture{
+		Profile: profile.Profile{
+			Name: "chrome-155-macos",
+		},
+		Scenario: "replay-ex.com",
+		SamplePages: []*Page{
+			sample("www.ex-com.localhost"),
+			sample("cdn.ex-com.localhost"),
+		},
+	}
+	path, err := Write(dir, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if path != filepath.Join(dir, "chrome-155-macos.replay-ex.com.pagetrace.json.gz") {
+		t.Fatalf("path %s", path)
+	}
+	pages, err := LoadPages(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(pages, c.SamplePages) {
+		t.Errorf("loaded %+v, want what was written", pages)
 	}
 }

@@ -26,11 +26,16 @@ type h2conn struct {
 	scenario *Scenario
 
 	// Read-loop state.
-	dec     *hpack.Decoder
-	c       *capture.Capture
-	h       *profile.HTTP2
-	trace   *h2trace.Trace
-	tracing bool // false once the capture was handed over
+	dec   *hpack.Decoder
+	c     *capture.Capture
+	h     *profile.HTTP2
+	trace *h2trace.Trace
+	// tracing is false once the capture was handed over. traceMu guards it
+	// and the trace's slices: at a page's /done another connection's
+	// goroutine stops this one's tracing (pageLog.page).
+	traceMu sync.Mutex
+	tracing bool
+	log     *pageLog
 	// The header block being assembled, with its HEADERS frame's flags.
 	block         []byte
 	blockID       uint32
@@ -58,16 +63,16 @@ type h2conn struct {
 }
 
 type h2stream struct {
-	path     string
-	uploaded int
+	req request
 }
 
 // serveHTTP2 records the client's connection preface frames and first request
 // into c's profile, traces every frame and header block into c.Trace, and
 // answers requests as sc says until the client goes away. emit hands the
 // capture over; it is called when the client asks for /done (a browser that
-// ran the page's script) and, by the caller, when the connection ends.
-func serveHTTP2(conn net.Conn, c *capture.Capture, sc *Scenario, emit func()) error {
+// ran the page's script) and, by the caller, when the connection ends. host
+// is the connection's server name; log collects the page across connections.
+func serveHTTP2(conn net.Conn, host string, c *capture.Capture, sc *Scenario, log *pageLog, emit func()) error {
 	preface := make([]byte, len(http2.ClientPreface))
 	if _, err := io.ReadFull(conn, preface); err != nil {
 		return err
@@ -84,6 +89,7 @@ func serveHTTP2(conn net.Conn, c *capture.Capture, sc *Scenario, emit func()) er
 		h:             &profile.HTTP2{},
 		trace:         &h2trace.Trace{},
 		tracing:       true,
+		log:           log,
 		streams:       map[uint32]*h2stream{},
 		connWindow:    65535,
 		initialWindow: 65535,
@@ -100,11 +106,20 @@ func serveHTTP2(conn net.Conn, c *capture.Capture, sc *Scenario, emit func()) er
 	s.cond = sync.NewCond(&s.mu)
 	s.enc = hpack.NewEncoder(&s.buf)
 	c.Trace = s.trace
+	if sc.replay != nil {
+		s.trace.Host = host
+	}
+	log.addH2(s)
+	// Senders blocked on flow control wait for credit the client will no
+	// longer send: mark the connection closed and wake them before waiting
+	// for them, or the connection's handler never returns.
+	var senders sync.WaitGroup
 	defer func() {
 		s.mu.Lock()
 		s.closed = true
 		s.cond.Broadcast()
 		s.mu.Unlock()
+		senders.Wait()
 	}()
 	s.wmu.Lock()
 	err := s.fr.WriteSettings(sc.Settings...)
@@ -112,8 +127,6 @@ func serveHTTP2(conn net.Conn, c *capture.Capture, sc *Scenario, emit func()) er
 	if err != nil {
 		return err
 	}
-	var senders sync.WaitGroup
-	defer senders.Wait()
 	gotSettings := false
 	for {
 		f, err := s.fr.ReadFrame()
@@ -197,6 +210,8 @@ func serveHTTP2(conn net.Conn, c *capture.Capture, sc *Scenario, emit func()) er
 
 // record appends f to the trace while the capture is still being built.
 func (s *h2conn) record(f http2.Frame) {
+	s.traceMu.Lock()
+	defer s.traceMu.Unlock()
 	if !s.tracing {
 		return
 	}
@@ -230,6 +245,14 @@ func (s *h2conn) record(f http2.Frame) {
 		}
 	}
 	s.trace.Frames = append(s.trace.Frames, tf)
+}
+
+// stopTracing ends the trace and returns it.
+func (s *h2conn) stopTracing() *h2trace.Trace {
+	s.traceMu.Lock()
+	defer s.traceMu.Unlock()
+	s.tracing = false
+	return s.trace
 }
 
 func tracePriority(p http2.PriorityParam) *h2trace.Priority {
@@ -280,19 +303,30 @@ func (s *h2conn) onHeaders(senders *sync.WaitGroup, emit func()) error {
 	}
 	st := &h2stream{}
 	for _, ins := range instructions {
-		if ins.Name == ":path" {
-			st.path = ins.Value
+		switch ins.Name {
+		case ":path":
+			st.req.path = ins.Value
+		case ":method":
+			st.req.method = ins.Value
+		case ":authority":
+			st.req.host = ins.Value
+		case "origin":
+			st.req.origin = ins.Value
+		case "access-control-request-headers":
+			st.req.preflightHeaders = ins.Value
 		}
 	}
+	s.traceMu.Lock()
 	if s.tracing {
 		s.trace.Requests = append(s.trace.Requests, h2trace.Request{
 			Stream:       id,
-			Path:         st.path,
+			Path:         st.req.path,
 			Block:        hex.EncodeToString(s.block),
 			Instructions: instructions,
 		})
 	}
-	if s.c.Profile.HTTP2 == nil {
+	s.traceMu.Unlock()
+	if s.c.Profile.HTTP2 == nil && !s.c.Finished {
 		s.recordFirstRequest(instructions)
 	}
 	s.streams[id] = st
@@ -345,7 +379,7 @@ func (s *h2conn) onData(f *http2.DataFrame, senders *sync.WaitGroup, emit func()
 	if st == nil {
 		return nil
 	}
-	st.uploaded += len(f.Data())
+	st.req.uploaded += len(f.Data())
 	if f.StreamEnded() {
 		s.respond(f.StreamID, st, senders, emit)
 	}
@@ -356,9 +390,19 @@ func (s *h2conn) onData(f *http2.DataFrame, senders *sync.WaitGroup, emit func()
 // goroutine, since they wait for the client's flow-control credit.
 func (s *h2conn) respond(id uint32, st *h2stream, senders *sync.WaitGroup, emit func()) {
 	delete(s.streams, id)
-	r := s.scenario.answer(st.path, st.uploaded)
-	if st.path == "/done" && s.tracing {
+	r := s.scenario.answer(st.req)
+	s.traceMu.Lock()
+	done := st.req.path == "/done" && s.tracing
+	if done && s.scenario.replay == nil {
 		s.tracing = false
+	}
+	s.traceMu.Unlock()
+	if done {
+		if s.scenario.replay != nil {
+			s.c.Page = s.log.page()
+			s.c.Trace = nil
+			pageProfile(s.c)
+		}
 		s.c.Finished = true
 		emit()
 	}
