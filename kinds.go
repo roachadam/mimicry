@@ -164,10 +164,17 @@ func Exact(req *http.Request) *http.Request {
 // errNotMeasured reports a request the profile cannot describe.
 var errNotMeasured = errors.New("mimicry: not measured for this profile")
 
-// resolve returns the plan for req as r describes it from page from (nil:
-// none), and the headers to send with it; nil plan: the profile's
-// navigation, unchanged.
-func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL) (*headerorder.Plan, http.Header, error) {
+// sending is how to send one request: the plan (nil: the profile's
+// navigation, unchanged), its headers, and the connection partition.
+type sending struct {
+	plan      *headerorder.Plan
+	header    http.Header
+	partition string
+}
+
+// resolve returns how to send req as r describes it, from page from (nil:
+// none).
+func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL) (*sending, error) {
 	h := req.Header.Clone()
 	if h == nil {
 		h = http.Header{}
@@ -180,7 +187,7 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL) (*
 	)
 	if r.Kind == Navigate {
 		if r.Priority != Auto || r.CrossOrigin != None || r.Credentials != SameOrigin || r.NoCORS {
-			return nil, nil, fmt.Errorf("mimicry: a navigation takes no priority, crossorigin, credentials or mode")
+			return nil, errors.New("mimicry: a navigation takes no priority, crossorigin, credentials or mode")
 		}
 		list, variants = p.Headers, p.Variants
 		if p.HTTP1 != nil {
@@ -189,16 +196,16 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL) (*
 	} else {
 		name, ok := profileKinds[r.Kind]
 		if !ok {
-			return nil, nil, fmt.Errorf("mimicry: unknown request kind %d", int(r.Kind))
+			return nil, fmt.Errorf("mimicry: unknown request kind %d", int(r.Kind))
 		}
 		if kind = p.Kinds[name]; kind == nil {
-			return nil, nil, fmt.Errorf("%w: profile %s has no %s requests", errNotMeasured, p.Name, r.Kind)
+			return nil, fmt.Errorf("%w: profile %s has no %s requests", errNotMeasured, p.Name, r.Kind)
 		}
 		if r.CrossOrigin != None && !slices.Contains(elements, r.Kind) {
-			return nil, nil, fmt.Errorf("mimicry: %s requests take no crossorigin attribute", r.Kind)
+			return nil, fmt.Errorf("mimicry: %s requests take no crossorigin attribute", r.Kind)
 		}
 		if (r.Credentials != SameOrigin || r.NoCORS) && r.Kind != Fetch && (r.Kind != XHR || r.NoCORS) {
-			return nil, nil, fmt.Errorf("mimicry: %s requests take no credentials mode or no-cors", r.Kind)
+			return nil, fmt.Errorf("mimicry: %s requests take no credentials mode or no-cors", r.Kind)
 		}
 		list, h1, variants, weight = kind.Headers, kind.HTTP1, kind.Variants, kind.Weight
 	}
@@ -207,10 +214,45 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL) (*
 	if ctx == nil {
 		ctx = &profile.Context{}
 	}
+	// The redirect chain this request ends, first URL first: http.Client
+	// sets Response on each request it makes by following a redirect.
 	target := req.URL
-	site, crossOrigin := "none", false
+	chain := []*url.URL{target}
+	for prev := req; prev.Response != nil && prev.Response.Request != nil; {
+		prev = prev.Response.Request
+		chain = append([]*url.URL{prev.URL}, chain...)
+	}
+	redirected := len(chain) > 1
+	if redirected {
+		// http.Client sets Referer to the previous URL when it follows a
+		// redirect; browsers keep the page's. A caller's own value stays.
+		prev := *chain[len(chain)-2]
+		prev.User = nil
+		if h.Get("Referer") == prev.String() {
+			h.Del("Referer")
+		}
+	}
+	// site is sec-fetch-site: the most distant relation along the chain.
+	// targetSite is this URL's own, which picks the order and decides
+	// sec-fetch-storage-access. tainted is the Fetch standard's tainted
+	// origin: the chain left another origin than the page's for a third,
+	// so Origin is "null". sameOrigin is a chain that never left the
+	// page's origin, which same-origin credentials need.
+	site, targetSite := "none", "none"
+	crossOrigin, tainted, sameOrigin := false, false, true
 	if from != nil {
-		site, crossOrigin = relation(from, target)
+		targetSite, crossOrigin = relation(from, target)
+		site = targetSite
+		for i, u := range chain {
+			s, other := relation(from, u)
+			if siteRank[s] > siteRank[site] {
+				site = s
+			}
+			sameOrigin = sameOrigin && !other
+			if i > 0 && origin(chain[i-1]) != origin(u) && origin(chain[i-1]) != origin(from) {
+				tainted = true
+			}
+		}
 	}
 
 	values := map[string]string{}
@@ -235,9 +277,9 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL) (*
 	var credentialed bool
 	switch {
 	case r.Kind == Fetch || r.Kind == XHR:
-		credentialed = r.Credentials == Include || (r.Credentials == SameOrigin && !crossOrigin)
+		credentialed = r.Credentials == Include || (r.Credentials == SameOrigin && sameOrigin)
 	case mode == "cors":
-		credentialed = !crossOrigin || r.CrossOrigin == UseCredentials
+		credentialed = sameOrigin || r.CrossOrigin == UseCredentials
 	default:
 		credentialed = true
 	}
@@ -246,13 +288,14 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL) (*
 	}
 
 	// Origin: on every request but GET and HEAD, and on CORS requests to
-	// another origin (or same-origin element ones, where the browser does).
+	// another origin (or same-origin element ones, where the browser does);
+	// "null" once the chain is tainted.
 	sendOrigin := false
 	if from != nil {
 		switch {
 		case req.Method != http.MethodGet && req.Method != http.MethodHead:
 			sendOrigin = true
-		case mode == "cors" && crossOrigin:
+		case mode == "cors" && (crossOrigin || tainted):
 			sendOrigin = true
 		case mode == "cors" && ctx.SameOriginElementOrigin && slices.Contains(elements, r.Kind):
 			sendOrigin = true
@@ -260,6 +303,9 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL) (*
 	}
 	if sendOrigin {
 		values["origin"] = origin(from)
+		if tainted {
+			values["origin"] = "null"
+		}
 	}
 	referrerURL := from
 	if r.Stylesheet != nil && ctx.StylesheetReferrer {
@@ -268,8 +314,19 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL) (*
 	if ref := referrer(referrerURL, target); ref != "" {
 		values["referer"] = ref
 	}
-	if site == "cross-site" && credentialed && ctx.StorageAccess != "" {
+	if targetSite == "cross-site" && credentialed && ctx.StorageAccess != "" {
 		values["sec-fetch-storage-access"] = ctx.StorageAccess
+	}
+	// Connections: Chrome keeps credential-less requests, and a cross-site
+	// frame's navigation, on connections of their own.
+	s := &sending{
+		header: h,
+	}
+	switch {
+	case ctx.FrameConnections && r.Kind == Frame && targetSite == "cross-site":
+		s.partition = "frame " + registrable(target.Hostname())
+	case ctx.AnonymousConnections && !credentialed:
+		s.partition = "anonymous"
 	}
 
 	switch r.Priority {
@@ -282,7 +339,7 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL) (*
 			}
 		}
 		if u == nil {
-			return nil, nil, fmt.Errorf("%w: profile %s has no measured fetchpriority %s for %s requests", errNotMeasured, p.Name, map[Priority]string{High: "high", Low: "low"}[r.Priority], r.Kind)
+			return nil, fmt.Errorf("%w: profile %s has no measured fetchpriority %s for %s requests", errNotMeasured, p.Name, map[Priority]string{High: "high", Low: "low"}[r.Priority], r.Kind)
 		}
 		values["priority"] = u.Priority
 		if u.Priority == "" {
@@ -299,14 +356,15 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL) (*
 	// The order: the variant for this method, site relation and CORS
 	// check, else the kind's own.
 	cond := profile.Variant{
-		Site:        map[string]string{"same-site": profile.SiteSameSite, "cross-site": profile.SiteCrossSite}[site],
+		Site:        map[string]string{"same-site": profile.SiteSameSite, "cross-site": profile.SiteCrossSite}[targetSite],
 		CORSChecked: sendOrigin || pageSet(h, list),
+		Redirected:  redirected,
 	}
 	if req.Method != http.MethodGet {
 		cond.Method = req.Method
 	}
 	for _, v := range variants {
-		if v.Method == cond.Method && v.Site == cond.Site && v.CORSChecked == cond.CORSChecked {
+		if v.Method == cond.Method && v.Site == cond.Site && v.CORSChecked == cond.CORSChecked && v.Redirected == cond.Redirected {
 			list, h1 = v.Headers, v.HTTP1
 			break
 		}
@@ -314,47 +372,39 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL) (*
 
 	if r.Kind == Navigate && len(values) == 0 && cond.Method == "" {
 		// A typed GET navigation: the profile's own lists.
-		return nil, h, nil
+		return s, nil
 	}
-	plan := &headerorder.Plan{
+	s.plan = &headerorder.Plan{
 		Headers: fill(list, values),
 		Weight:  weight,
 	}
 	if len(h1) > 0 {
-		plan.HTTP1 = fill(h1, values)
+		s.plan.HTTP1 = fill(h1, values)
 	}
-	return plan, h, nil
+	return s, nil
 }
 
 // fill copies list with the computed values set, case-blind. A computed
-// header the list does not place goes last, except priority: a list
-// without it is a protocol the browser sends none over (Chrome's
-// HTTP/1.1).
+// header the list does not place is not sent: the list is what the browser
+// sends in this case (no priority over Chrome's HTTP/1.1, no sec-fetch-* on
+// Safari's redirected fetches).
 func fill(list []profile.Header, values map[string]string) []profile.Header {
-	out := make([]profile.Header, 0, len(list)+len(values))
-	placed := make(map[string]bool, len(values))
-	for _, hd := range list {
-		lower := strings.ToLower(hd.Name)
-		if v, ok := values[lower]; ok {
+	out := make([]profile.Header, len(list))
+	for i, hd := range list {
+		if v, ok := values[strings.ToLower(hd.Name)]; ok {
 			hd.Value = v
-			placed[lower] = true
 		}
-		out = append(out, hd)
-	}
-	names := make([]string, 0, len(values))
-	for name := range values {
-		names = append(names, name)
-	}
-	slices.Sort(names)
-	for _, name := range names {
-		if !placed[name] && values[name] != "" && name != "priority" {
-			out = append(out, profile.Header{
-				Name:  name,
-				Value: values[name],
-			})
-		}
+		out[i] = hd
 	}
 	return out
+}
+
+// siteRank orders sec-fetch-site values from nearest to most distant.
+var siteRank = map[string]int{
+	"none":        0,
+	"same-origin": 1,
+	"same-site":   2,
+	"cross-site":  3,
 }
 
 func valueOf(list []profile.Header, name string) string {

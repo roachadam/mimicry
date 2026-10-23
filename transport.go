@@ -20,6 +20,7 @@ import (
 
 	"github.com/roachadam/mimicry/internal/engine/native"
 	"github.com/roachadam/mimicry/internal/headerorder"
+	"github.com/roachadam/mimicry/internal/pool"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -127,12 +128,9 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	r, _ := req.Context().Value(requestKey{}).(Request)
 	exact, _ := req.Context().Value(exactKey{}).(bool)
 	if t.profile != nil {
-		var (
-			plan *headerorder.Plan
-			h    http.Header
-		)
+		s := &sending{}
 		if exact {
-			plan, h = &headerorder.Plan{}, req.Header.Clone()
+			s.plan, s.header = &headerorder.Plan{}, req.Header.Clone()
 		} else {
 			from := r.From
 			if from == nil && r.Kind != Navigate {
@@ -146,10 +144,11 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 				}
 			}
 			var err error
-			if plan, h, err = resolve(t.profile, req, r, from); err != nil {
+			if s, err = resolve(t.profile, req, r, from); err != nil {
 				return nil, err
 			}
 		}
+		h := s.header
 		if h == nil {
 			h = http.Header{}
 		}
@@ -158,9 +157,9 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 				h[k] = v
 			}
 		}
-		ctx := req.Context()
-		if plan != nil {
-			ctx = headerorder.WithPlan(ctx, plan)
+		ctx := pool.WithPartition(req.Context(), s.partition)
+		if s.plan != nil {
+			ctx = headerorder.WithPlan(ctx, s.plan)
 		}
 		req = req.Clone(ctx)
 		req.Header = h

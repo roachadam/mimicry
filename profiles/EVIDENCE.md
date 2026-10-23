@@ -101,15 +101,16 @@ cross-origin frames and the form POST, the others do not (activation state).
 | Claim | Evidence | Notes |
 |---|---|---|
 | `kinds.*.headers`, `http1`: names, order, values per kind | W | `font` is the CSS `@font-face` load: Firefox's sends `accept-encoding: identity`, unlike its `FontFace` loads |
-| `kinds.*.variants`: order by method, site relation, CORS check | W | Safari has many (a CORS-checked request starts `sec-fetch-site, accept, origin`; a cross-site beacon differs from a same-site one); Firefox for cross-origin fetches and preload fonts; Chrome none. A combination not captured falls back to the kind's default order |
+| `kinds.*.variants`: order by method, site relation, CORS check, redirect | W | Safari has many (a CORS-checked request starts `sec-fetch-site, accept, origin`; a cross-site beacon differs from a same-site one; its redirected fetches drop `sec-fetch-*`, `accept-language` and `priority`). Every browser orders a redirect's request its own way. Firefox also for cross-origin fetches and preload fonts. A combination not captured falls back to the kind's default order |
 | `kinds.*.weight` | W | Chrome and Firefox; Safari sends no priority |
 | `kinds.fetch.high`, `.low`; `kinds.injected_image.high` | W | Other kinds' fetchpriority is not measured: asking for it is an error |
 | `*` (where page-set headers go) | W (`fetch-custom`) | |
 | `context.storage_access` | W: Chrome `active`, Firefox `none`, Safari none | Sent on credentialed cross-site requests |
 | `context.same_origin_element_origin` | W: Chrome, Safari | Origin on same-origin CORS element requests |
 | `context.stylesheet_referrer` | W: Chrome, Firefox | Safari refers CSS fonts to the page; only same-origin fonts captured, at `/` |
-| `context.fetch_redirect_drops`, `anonymous_connections`, `frame_connections` | W | Recorded; not yet acted on (redirects and connection partitioning are next) |
+| `context.anonymous_connections`, `frame_connections` | W: Chrome | Requests without credentials, and a cross-site frame's navigation, go on connections of their own; checked by `TestKindsMatchBrowserTraces` (which requests share a connection, every sample). Safari: one connection per host, as mimicry's default. Firefox: see below |
 | Referer by strict-origin-when-cross-origin; Origin per the Fetch standard; credentials per mode | W where captured, otherwise the standard | The page sits at `/`, so full URL and origin coincide except for the CSS font |
+| After a redirect: sec-fetch-site the chain's most distant relation, `Origin: null` once the chain is tainted, the page's Referer (not `http.Client`'s), storage access by the URL's own relation | W (`fetch-redirect`, `image-redirect`, both directions) | |
 
 ## Behaviour in code, not in profiles
 
@@ -123,12 +124,13 @@ cross-origin frames and the form POST, the others do not (activation state).
 ## Not covered by any claim
 
 What a profile does not describe, so mimicry does not imitate it: CORS
-preflights; redirect-specific behaviour (Safari's dropped headers, `Origin:
-null`) and connection partitioning, recorded but not yet acted on; how many
-parallel connections a page opens; Chrome's mid-load re-prioritisation of a
-script and chained dependencies between concurrent subresources (not
-compared); `FontFace` loads; `crossorigin` stylesheets; ECH payloads;
-HTTP/3; the TCP/IP fingerprint.
+preflights; Firefox's connections for credential-less requests (their own
+to the same-site host, shared to the page's own and the cross-site host, in
+every sample; no rule found); connections for what a cross-site frame
+itself loads; how many parallel connections a page opens; Chrome's
+mid-load re-prioritisation of a script and chained dependencies between
+concurrent subresources (not compared); `FontFace` loads; `crossorigin`
+stylesheets; ECH payloads; HTTP/3; the TCP/IP fingerprint.
 
 ## Keeping it true
 

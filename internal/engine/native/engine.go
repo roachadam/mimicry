@@ -18,6 +18,7 @@ import (
 	"github.com/roachadam/mimicry/internal/h1"
 	"github.com/roachadam/mimicry/internal/h2"
 	"github.com/roachadam/mimicry/internal/handshake"
+	"github.com/roachadam/mimicry/internal/pool"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -111,6 +112,9 @@ func (e *Engine) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, fmt.Errorf("mimicry: unsupported scheme %q", req.URL.Scheme)
 	}
 	key := req.URL.Scheme + "://" + hostPort(req.URL.Scheme, req.URL.Host)
+	if p := pool.Partition(req.Context()); p != "" {
+		key += " " + p
+	}
 	for attempt := 0; ; attempt++ {
 		resp, err := e.try(req, key)
 		if !errors.Is(err, errRetry) {

@@ -25,10 +25,10 @@ import (
 
 // Every request of the kinds page, made through mimicry as its kind from
 // the page, is the browser's: the same header names in the same order, the
-// same values, the same HTTP/2 weight, and over HTTP/1.1 the same lines.
-// Each of the browser's samples must agree. Left out, as later steps' work:
-// cookies (mimicry/cookies; this client has no jar, and cookie fields are
-// not compared), redirects, CORS preflights, and FontFace loads (no kind).
+// same values, the same HTTP/2 weight, and over HTTP/1.1 the same lines;
+// redirects' requests too, as http.Client follows them. Left out: cookies
+// (mimicry/cookies; this client has no jar, and cookie fields are not
+// compared), CORS preflights, and FontFace loads (no kind).
 func TestKindsMatchBrowserTraces(t *testing.T) {
 	for _, name := range profiles.Names() {
 		t.Run(name, func(t *testing.T) {
@@ -47,23 +47,93 @@ func TestKindsMatchBrowserTraces(t *testing.T) {
 					}
 					got := runKindsPage(t, p, sc)
 					h1 := sc == server.KindsHTTP1
+					var all []string
 					for _, step := range kindsRequests() {
-						g := kindsFields(got, step.label, h1)
-						if g == nil {
-							t.Errorf("%s: mimicry sent no request", step.label)
-							continue
+						labels := []string{step.label}
+						if step.redirect {
+							labels = append(labels, step.label+".hop")
 						}
-						forms := browserForms(t, want, step.label, h1)
-						if !slices.ContainsFunc(forms, func(w *kindsSent) bool {
-							return slices.Equal(g.lines, w.lines) && g.weight == w.weight
-						}) {
-							t.Errorf("%s:\n got %q weight %d\nwant %q weight %d", step.label, g.lines, g.weight, forms[0].lines, forms[0].weight)
+						all = append(all, labels...)
+						for _, label := range labels {
+							g := kindsFields(got, label, h1)
+							if g == nil {
+								t.Errorf("%s: mimicry sent no request", label)
+								continue
+							}
+							forms := browserForms(t, want, label, h1)
+							if !slices.ContainsFunc(forms, func(w *kindsSent) bool {
+								return slices.Equal(g.lines, w.lines) && g.weight == w.weight
+							}) {
+								t.Errorf("%s:\n got %q weight %d\nwant %q weight %d", label, g.lines, g.weight, forms[0].lines, forms[0].weight)
+							}
 						}
+					}
+					if !h1 {
+						checkConnections(t, name, got, want, all)
 					}
 				})
 			}
 		})
 	}
+}
+
+// partitionGaps are profiles whose browser groups the kinds page's
+// requests into connections in a way mimicry does not model, and why.
+var partitionGaps = map[string]string{
+	"firefox-158-macos": "Firefox gives credential-less requests their own connection to the same-site host only, sharing one connection to the page's own host and to the cross-site one (all three samples); no rule found, not modelled",
+}
+
+// checkConnections compares which requests share a connection: for each
+// request, the first request on its connection, in mimicry's page and in
+// every browser sample (HTTP/2, where a browser keeps one connection per
+// host and partition).
+func checkConnections(t *testing.T, name string, got *capture.Page, want []*capture.Page, labels []string) {
+	t.Helper()
+	g := connGroups(got, labels)
+	for i, page := range want {
+		w := connGroups(page, labels)
+		var diffs []string
+		for _, l := range labels {
+			if g[l] != w[l] {
+				diffs = append(diffs, l+": mimicry with "+g[l]+", browser with "+w[l])
+			}
+		}
+		if len(diffs) == 0 {
+			continue
+		}
+		if gap, ok := partitionGaps[name]; ok {
+			t.Logf("connections, sample %d, a known gap (%s):\n  %s", i+1, gap, strings.Join(diffs, "\n  "))
+			continue
+		}
+		t.Errorf("connections, sample %d:\n  %s", i+1, strings.Join(diffs, "\n  "))
+	}
+}
+
+// connGroups maps each label to the first of labels sent on the same
+// HTTP/2 connection.
+func connGroups(page *capture.Page, labels []string) map[string]string {
+	conn := map[string]int{}
+	for ci, tr := range page.H2 {
+		for _, r := range tr.Requests {
+			label := strings.TrimPrefix(r.Path, "/k/")
+			if _, seen := conn[label]; !seen {
+				conn[label] = ci
+			}
+		}
+	}
+	first := map[int]string{}
+	out := map[string]string{}
+	for _, l := range labels {
+		c, ok := conn[l]
+		if !ok {
+			continue
+		}
+		if _, ok := first[c]; !ok {
+			first[c] = l
+		}
+		out[l] = first[c]
+	}
+	return out
 }
 
 // kindsRequest is one request of the kinds page as a mimicry caller makes
@@ -74,6 +144,8 @@ type kindsRequest struct {
 	req     mimicry.Request
 	headers http.Header
 	body    string
+	// redirect: the server redirects it, and the client follows.
+	redirect bool
 }
 
 // kindsRequests maps the kinds page's markup and steps to mimicry
@@ -112,8 +184,8 @@ func kindsRequests() []kindsRequest {
 	}
 	for _, s := range server.KindsSteps() {
 		kind, ok := scripted[s.Kind]
-		if !ok || s.RedirectTo != "" {
-			continue // FontFace loads; redirects
+		if !ok {
+			continue // FontFace loads
 		}
 		r := kindsRequest{
 			label:  s.Label,
@@ -125,8 +197,9 @@ func kindsRequests() []kindsRequest {
 				NoCORS:      s.Mode == "no-cors",
 				Priority:    map[string]mimicry.Priority{"": mimicry.Auto, "high": mimicry.High, "low": mimicry.Low}[s.Priority],
 			},
-			headers: http.Header{},
-			body:    s.Body,
+			headers:  http.Header{},
+			body:     s.Body,
+			redirect: s.RedirectTo != "",
 		}
 		if s.Method != "" {
 			r.method = s.Method

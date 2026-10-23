@@ -73,20 +73,25 @@ type Kind struct {
 }
 
 // Variant is the header order a browser uses for some requests of a kind:
-// browsers build headers along different paths, so a POST or a CORS-checked
-// request can order them otherwise. A request takes the variant whose
-// condition it matches exactly, else the kind's own order.
+// browsers build headers along different paths, so a POST, a CORS-checked
+// request or one after a redirect can order them otherwise, and send
+// fewer. A request takes the variant whose condition it matches exactly,
+// else the kind's own order. A variant's lists are exactly what the browser
+// sent: a header they lack is not sent.
 type Variant struct {
 	// Method is the request's method; empty is GET.
 	Method string `json:"method,omitempty"`
-	// Site is the request's sec-fetch-site relation to its page:
+	// Site is the request URL's own relation to its page (after a
+	// redirect too, where sec-fetch-site reports the whole chain's):
 	// SiteSameSite or SiteCrossSite; empty is same-origin.
 	Site string `json:"site,omitempty"`
 	// CORSChecked is a request that carries Origin or headers the page
 	// set.
-	CORSChecked bool     `json:"cors_checked,omitempty"`
-	Headers     []Header `json:"headers"`
-	HTTP1       []Header `json:"http1,omitempty"`
+	CORSChecked bool `json:"cors_checked,omitempty"`
+	// Redirected is a request made by following a redirect.
+	Redirected bool     `json:"redirected,omitempty"`
+	Headers    []Header `json:"headers"`
+	HTTP1      []Header `json:"http1,omitempty"`
 }
 
 // Site relations of a request to its page, as sec-fetch-site names them.
@@ -118,16 +123,12 @@ type Context struct {
 	// fonts and images it loads (Chrome, Firefox); otherwise the page's
 	// (Safari).
 	StylesheetReferrer bool `json:"stylesheet_referrer,omitempty"`
-	// FetchRedirectDrops are the headers a fetch() or XHR request loses
-	// after a redirect (Safari: its sec-fetch-* headers, accept-language
-	// and priority).
-	FetchRedirectDrops []string `json:"fetch_redirect_drops,omitempty"`
 	// AnonymousConnections keeps requests sent without credentials on
 	// connections of their own, separate from those that carry cookies
 	// (Chrome).
 	AnonymousConnections bool `json:"anonymous_connections,omitempty"`
-	// FrameConnections keeps a cross-site frame's requests on connections of
-	// their own (Chrome's network partitioning by frame site).
+	// FrameConnections keeps a cross-site frame's navigation on connections
+	// of its own (Chrome's network partitioning by frame site).
 	FrameConnections bool `json:"frame_connections,omitempty"`
 }
 
@@ -165,8 +166,8 @@ func (c *checker) checkKinds(kinds map[string]*Kind) {
 // condition and none repeats the default one.
 func (c *checker) checkVariants(path string, vs []Variant, others bool) {
 	type condition struct {
-		method, site string
-		cors         bool
+		method, site     string
+		cors, redirected bool
 	}
 	seen := map[condition]bool{}
 	for i, v := range vs {
@@ -182,9 +183,10 @@ func (c *checker) checkVariants(path string, vs []Variant, others bool) {
 			c.add(at+".site", "must be empty (same-origin), %q or %q", SiteSameSite, SiteCrossSite)
 		}
 		cond := condition{
-			method: v.Method,
-			site:   v.Site,
-			cors:   v.CORSChecked,
+			method:     v.Method,
+			site:       v.Site,
+			cors:       v.CORSChecked,
+			redirected: v.Redirected,
 		}
 		switch {
 		case cond == condition{}:

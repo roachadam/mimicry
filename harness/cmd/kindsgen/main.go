@@ -204,7 +204,7 @@ func derive(p *profile.Profile, reqs []*request) error {
 	pick := func(bases []string) []*request {
 		var out []*request
 		for _, r := range reqs {
-			if !r.hop && r.method != "OPTIONS" && slices.Contains(bases, r.base) {
+			if r.method != "OPTIONS" && slices.Contains(bases, r.base) {
 				out = append(out, r)
 			}
 		}
@@ -261,9 +261,10 @@ func derive(p *profile.Profile, reqs []*request) error {
 
 // condition is what picks a header order: a profile.Variant's condition.
 type condition struct {
-	method string // "" for GET
-	site   string // profile.Site*
-	cors   bool
+	method     string // "" for GET
+	site       string // profile.Site*
+	cors       bool
+	redirected bool
 }
 
 func (r *request) condition() condition {
@@ -276,8 +277,16 @@ func (r *request) condition() condition {
 		c.method = r.method
 	}
 	// Labels end in their target: so (same origin), ss (same site), cs
-	// (cross site); a redirect's first leg in its first ("so-cs").
+	// (cross site); a redirect's in its legs' ("so-cs"), the first leg
+	// going to the first, the hop to the second.
 	_, target, _ := strings.Cut(r.label, ".")
+	if first, second, ok := strings.Cut(target, "-"); ok {
+		target = first
+		if r.hop {
+			target = second
+		}
+	}
+	c.redirected = r.hop
 	switch {
 	case strings.HasPrefix(target, "ss"):
 		c.site = profile.SiteSameSite
@@ -383,7 +392,9 @@ func orders(own, all []*request, seed *orderPair, values func(h1 bool) func(stri
 			if slices.Equal(base.h2, o.h2) && slices.Equal(base.h1, o.h1) {
 				continue
 			}
-		} else {
+		} else if !c.redirected {
+			// A redirect's order is never folded: its lists may rightly
+			// lack headers the kind sends otherwise (Safari's hops).
 			h2, ok2 := fold(slices.Clone(base.h2), o.h2)
 			h1, ok1 := fold(slices.Clone(base.h1), o.h1)
 			if ok2 && ok1 {
@@ -399,6 +410,7 @@ func orders(own, all []*request, seed *orderPair, values func(h1 bool) func(stri
 			Method:      c.method,
 			Site:        c.site,
 			CORSChecked: c.cors,
+			Redirected:  c.redirected,
 			Headers:     fill(others[c].h2, values(false)),
 			HTTP1:       fill(others[c].h1, values(true)),
 		})
@@ -549,10 +561,10 @@ func urgencyOf(reqs []*request) (*profile.Urgency, error) {
 // contextOf derives the profile's context rules from the requests that
 // show them.
 func contextOf(reqs []*request) (*profile.Context, error) {
-	// The first sample's GET of label (after its redirect when hop).
-	find := func(label string, hop bool) *request {
+	// The first sample's GET of label (the first leg, for a redirect).
+	find := func(label string) *request {
 		for _, r := range reqs {
-			if r.label == label && r.method == "GET" && r.hop == hop && r.sample == 0 {
+			if r.label == label && r.method == "GET" && !r.hop && r.sample == 0 {
 				return r
 			}
 		}
@@ -573,12 +585,11 @@ func contextOf(reqs []*request) (*profile.Context, error) {
 			break
 		}
 	}
-	corsSO := find("image-cors.so", false)
-	fetchSO, omitSO := find("fetch.so", false), find("fetch-omit.so", false)
-	frameCS, scriptCS := find("iframe.cs", false), find("script.cs", false)
-	leg, hop := find("fetch-redirect.so-cs", false), find("fetch-redirect.so-cs", true)
-	cssFont := find("font-css.so", false)
-	if corsSO == nil || fetchSO == nil || omitSO == nil || frameCS == nil || scriptCS == nil || leg == nil || hop == nil || cssFont == nil {
+	corsSO := find("image-cors.so")
+	fetchSO, omitSO := find("fetch.so"), find("fetch-omit.so")
+	frameCS, scriptCS := find("iframe.cs"), find("script.cs")
+	cssFont := find("font-css.so")
+	if corsSO == nil || fetchSO == nil || omitSO == nil || frameCS == nil || scriptCS == nil || cssFont == nil {
 		return nil, errors.New("context: the captures lack the requests that show it")
 	}
 	_, c.SameOriginElementOrigin = has(corsSO, "origin")
@@ -586,14 +597,6 @@ func contextOf(reqs []*request) (*profile.Context, error) {
 	c.StylesheetReferrer = strings.HasSuffix(ref, "/k/style-fonts.so")
 	c.AnonymousConnections = omitSO.conn != fetchSO.conn
 	c.FrameConnections = frameCS.conn != scriptCS.conn
-	for _, h := range leg.h2 {
-		if slices.Contains(contextHeaders, h.Name) {
-			continue
-		}
-		if _, ok := has(hop, h.Name); !ok {
-			c.FetchRedirectDrops = append(c.FetchRedirectDrops, h.Name)
-		}
-	}
 	return c, nil
 }
 
