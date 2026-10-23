@@ -3,11 +3,15 @@ package mimicry
 import (
 	"compress/gzip"
 	"compress/zlib"
+	"context"
 	"crypto/x509"
 	"io"
+	"net"
 	"net/http"
 	"net/http/cookiejar"
+	"net/url"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/klauspost/compress/zstd"
@@ -37,29 +41,48 @@ type Config struct {
 	RootCAs *x509.CertPool
 	// DialTimeout bounds TCP connects; zero means 30 seconds.
 	DialTimeout time.Duration
+	// DialContext opens TCP connections, as http.Transport's does (to pin a
+	// host to an address, or dial through your own network code); TLS and
+	// everything above stay the profile's. Nil uses net.Dialer.
+	DialContext func(ctx context.Context, network, addr string) (net.Conn, error)
 	// Engine replaces the pure-Go engine; Profile, RootCAs and DialTimeout
-	// are then ignored.
+	// are then ignored by the engine, which also ignores request kinds'
+	// header lists and priorities.
 	Engine Engine
+	// Headers are added to every request: the caller's own, such as an API
+	// key, not the profile's. They take the place the request's kind gives
+	// them (page-set headers), override the profile's defaults and computed
+	// headers, and yield to the request's own; a key with no values
+	// suppresses the profile's default.
+	Headers http.Header
 }
 
 // Transport is an http.RoundTripper that sends requests as the profile's
 // browser. It is safe for concurrent use.
 type Transport struct {
-	engine Engine
+	engine  Engine
+	profile *profile.Profile
+	headers http.Header
 	// decode is true when the profile sends Accept-Encoding by default.
 	decode bool
+	// lastNav is the URL of the last navigation sent: the page other kinds
+	// come from by default.
+	lastNav atomic.Pointer[url.URL]
 }
 
 // NewTransport builds a Transport from cfg.
 func NewTransport(cfg Config) (*Transport, error) {
 	t := &Transport{
-		engine: cfg.Engine,
+		engine:  cfg.Engine,
+		profile: cfg.Profile,
+		headers: cfg.Headers.Clone(),
 	}
 	if t.engine == nil {
 		e, err := native.New(native.Config{
 			Profile:     cfg.Profile,
 			RootCAs:     cfg.RootCAs,
 			DialTimeout: cfg.DialTimeout,
+			DialContext: cfg.DialContext,
 		})
 		if err != nil {
 			return nil, err
@@ -94,12 +117,58 @@ func NewClient(cfg Config) (*http.Client, error) {
 	}, nil
 }
 
-// RoundTrip implements http.RoundTripper. When the profile chose
-// Accept-Encoding (the request did not set it), response bodies are decoded
-// and Content-Encoding removed, as a browser would.
+// RoundTrip implements http.RoundTripper. It sends req as its kind (As,
+// With; a navigation by default) from its page, with Config.Headers added.
+// When the profile chose Accept-Encoding (the request did not set it),
+// response bodies are decoded and Content-Encoding removed, as a browser
+// would.
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	_, callerSet := req.Header[http.CanonicalHeaderKey("Accept-Encoding")]
+	r, _ := req.Context().Value(requestKey{}).(Request)
+	exact, _ := req.Context().Value(exactKey{}).(bool)
+	if t.profile != nil {
+		var (
+			plan *headerorder.Plan
+			h    http.Header
+		)
+		if exact {
+			plan, h = &headerorder.Plan{}, req.Header.Clone()
+		} else {
+			from := r.From
+			if from == nil && r.Kind != Navigate {
+				from = t.lastNav.Load()
+				if from == nil {
+					from = &url.URL{
+						Scheme: req.URL.Scheme,
+						Host:   req.URL.Host,
+						Path:   "/",
+					}
+				}
+			}
+			var err error
+			if plan, h, err = resolve(t.profile, req, r, from); err != nil {
+				return nil, err
+			}
+		}
+		if h == nil {
+			h = http.Header{}
+		}
+		for k, v := range t.headers {
+			if _, set := h[k]; !set {
+				h[k] = v
+			}
+		}
+		ctx := req.Context()
+		if plan != nil {
+			ctx = headerorder.WithPlan(ctx, plan)
+		}
+		req = req.Clone(ctx)
+		req.Header = h
+	}
 	resp, err := t.engine.RoundTrip(req)
+	if err == nil && r.Kind == Navigate && !exact {
+		t.lastNav.Store(req.URL)
+	}
 	if err != nil || !t.decode || callerSet || req.Method == http.MethodHead {
 		return resp, err
 	}

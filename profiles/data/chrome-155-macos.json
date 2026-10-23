@@ -2170,6 +2170,7 @@
   "context": {
     "storage_access": "active",
     "same_origin_element_origin": true,
+    "stylesheet_referrer": true,
     "anonymous_connections": true,
     "frame_connections": true
   }

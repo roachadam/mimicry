@@ -40,17 +40,25 @@ func New(conn net.Conn, p *profile.Profile) *Conn {
 		cookieOrder: p.CookieOrder,
 	}
 	if p.HTTP1 != nil {
-		c.h1Case = make(map[string]string, len(p.HTTP1.Headers))
-		for _, h := range p.HTTP1.Headers {
-			lower := strings.ToLower(h.Name)
-			c.h1Order = append(c.h1Order, profile.Header{
-				Name:  lower,
-				Value: h.Value,
-			})
-			c.h1Case[lower] = h.Name
-		}
+		c.h1Order, c.h1Case = lowerList(p.HTTP1.Headers)
 	}
 	return c
+}
+
+// lowerList returns an HTTP/1.1 header list with lowercase names, for
+// headerorder, and each name's casing.
+func lowerList(headers []profile.Header) ([]profile.Header, map[string]string) {
+	order := make([]profile.Header, 0, len(headers))
+	cases := make(map[string]string, len(headers))
+	for _, h := range headers {
+		lower := strings.ToLower(h.Name)
+		order = append(order, profile.Header{
+			Name:  lower,
+			Value: h.Value,
+		})
+		cases[lower] = h.Name
+	}
+	return order, cases
 }
 
 // Close closes the connection.
@@ -142,8 +150,15 @@ func (c *Conn) writeRequest(req *http.Request) error {
 			"Content-Length": {strconv.FormatInt(max(req.ContentLength, 0), 10)},
 		}
 	}
+	headers, h1Order, h1Case := c.headers, c.h1Order, c.h1Case
+	if plan := headerorder.PlanFrom(req.Context()); plan != nil {
+		headers, h1Order, h1Case = plan.Headers, nil, nil
+		if len(plan.HTTP1) > 0 {
+			h1Order, h1Case = lowerList(plan.HTTP1)
+		}
+	}
 	var fields []headerorder.Field
-	if c.h1Order != nil {
+	if h1Order != nil {
 		// The profile places every header, Host and framing included.
 		h := req.Header.Clone()
 		if h == nil {
@@ -153,7 +168,7 @@ func (c *Conn) writeRequest(req *http.Request) error {
 		for k, v := range framing {
 			h[k] = v
 		}
-		fields = headerorder.Build(c.h1Order, h, func(string) bool {
+		fields = headerorder.Build(h1Order, h, func(string) bool {
 			return false
 		})
 	} else {
@@ -170,15 +185,17 @@ func (c *Conn) writeRequest(req *http.Request) error {
 				Value: v[0],
 			})
 		}
-		fields = append(fields, headerorder.Build(c.headers, req.Header, skipHeader)...)
+		fields = append(fields, headerorder.Build(headers, req.Header, skipHeader)...)
 	}
 	for _, f := range fields {
 		if f.Name == "cookie" && c.cookieOrder != profile.CookieOrderCreation {
 			f.Value = strings.Join(headerorder.Cookies(f.Value, c.cookieOrder), "; ")
 		}
-		name := c.h1Case[f.Name]
+		name := h1Case[f.Name]
 		if name == "" {
-			name = http.CanonicalHeaderKey(f.Name)
+			// A header the profile does not name goes out as the caller
+			// spelled it, as browsers send a page's own headers.
+			name = callerCase(req.Header, f.Name)
 		}
 		if _, err := c.bw.WriteString(name + ": " + f.Value + "\r\n"); err != nil {
 			return err
@@ -231,4 +248,15 @@ func (b *body) Close() error {
 	err := b.ReadCloser.Close()
 	b.finish(b.eof)
 	return err
+}
+
+// callerCase returns how h spells the header lower, or its canonical form
+// when h does not have it.
+func callerCase(h http.Header, lower string) string {
+	for k := range h {
+		if strings.EqualFold(k, lower) {
+			return k
+		}
+	}
+	return http.CanonicalHeaderKey(lower)
 }

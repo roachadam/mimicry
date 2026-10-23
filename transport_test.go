@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/tls"
+	"crypto/x509"
 	"io"
 	"net"
 	"net/http"
@@ -26,6 +27,7 @@ type testServer struct {
 	srv   *httptest.Server
 	conns *atomic.Int32
 	tr    *Transport
+	pool  *x509.CertPool
 }
 
 func server(t *testing.T, h2 bool, handler http.HandlerFunc) testServer {
@@ -60,6 +62,7 @@ func server(t *testing.T, h2 bool, handler http.HandlerFunc) testServer {
 		srv:   srv,
 		conns: conns,
 		tr:    tr,
+		pool:  pool,
 	}
 }
 

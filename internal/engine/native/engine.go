@@ -1,6 +1,7 @@
 package native
 
 import (
+	"context"
 	"crypto/x509"
 	"errors"
 	"fmt"
@@ -28,6 +29,7 @@ type Config struct {
 	Profile     *profile.Profile
 	RootCAs     *x509.CertPool
 	DialTimeout time.Duration
+	DialContext func(ctx context.Context, network, addr string) (net.Conn, error)
 }
 
 // Engine is the pure-Go engine: pooled connections, one dial path, uTLS
@@ -88,7 +90,8 @@ func New(cfg Config) (*Engine, error) {
 		clock:   clockwork.NewRealClock(),
 		rootCAs: cfg.RootCAs,
 		dialer: dial.Dialer{
-			Timeout: timeout,
+			Timeout:     timeout,
+			DialContext: cfg.DialContext,
 		},
 		h2:    map[string]*h2.Conn{},
 		idle:  map[string][]idleConn{},

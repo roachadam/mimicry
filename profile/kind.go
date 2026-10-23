@@ -114,6 +114,10 @@ type Context struct {
 	// elements make in CORS mode (a crossorigin attribute, fonts), as
 	// Chrome and Safari do; Firefox sends it on cross-origin ones only.
 	SameOriginElementOrigin bool `json:"same_origin_element_origin,omitempty"`
+	// StylesheetReferrer sends a stylesheet's URL as the Referer of the
+	// fonts and images it loads (Chrome, Firefox); otherwise the page's
+	// (Safari).
+	StylesheetReferrer bool `json:"stylesheet_referrer,omitempty"`
 	// FetchRedirectDrops are the headers a fetch() or XHR request loses
 	// after a redirect (Safari: its sec-fetch-* headers, accept-language
 	// and priority).

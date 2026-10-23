@@ -16,13 +16,13 @@ moon run harness:test       # the harness only
 
 ## Package boundaries
 
-The public surface is small: the root package (`Transport`, `NewClient`, `Config`, `Engine`, `HeaderOrderKey`), `profile` and `profiles`. Everything else is in `internal/`, flat, one package per concern. Each package's `doc.go` states what it may import; keep to it.
+The public surface is small: the root package (`Transport`, `NewClient`, `Config`, `Engine`, `HeaderOrderKey`, and request kinds: `Kind`, `Request`, `As`, `With`, `Exact`), `profile` and `profiles`. Everything else is in `internal/`, flat, one package per concern. Each package's `doc.go` states what it may import; keep to it.
 
 - Only `internal/handshake` imports `github.com/roachadam/utls`.
 - Only `internal/engine/native` assembles the request path (pool → dial → handshake → h1/h2).
 - `profile` imports the standard library only.
 - Public packages never import from `harness/`.
-- Use `net/http` types in the public API. Header order comes from the profile, with `HeaderOrderKey` as a per-request override; pseudo-header order comes from the profile only. Do not fork `net/http`.
+- Use `net/http` types in the public API. Header order comes from the profile (the navigation, or the request's kind and its variant), with `HeaderOrderKey` as a per-request override; pseudo-header order comes from the profile only. Do not fork `net/http`.
 - One dial path (`internal/dial`), and every network step honours the context and its deadline.
 - Never hold a lock across network I/O.
 - Configuration is a struct (`Config`), not functional options or boolean parameters.
@@ -73,6 +73,8 @@ Built-in profiles are JSON files in `profiles/data/`, one per browser version an
 Each profile file is complete and self-contained: no inheritance between versions or platforms, so every value is visible in one file and checked against that version's own capture. A new version starts as a copy of the previous one; replace every captured field from the new capture, and treat everything copied that a capture cannot show (`http2.hpack`, header slots, `cookie_order`, `http1` slots) as unverified until the e2e tests pass against the new traces. Planned: `profilegen derive` to automate this copy and list the copied fields.
 
 `profiles/EVIDENCE.md` lists every claim the profiles make, its evidence (wire, fitted to the wire, measured on another request kind, or copied) and the test that keeps it true. A profile change that adds, removes or re-sources a claim updates its row in the same commit.
+
+A profile's `kinds`, `context` and navigation `variants` are generated, never hand-edited: `go run ./cmd/kindsgen -profile ../profiles/data/<name>.json` (in `harness/`) derives them from `<name>.kinds.pagetrace.json.gz` and `<name>.kinds-http1.pagetrace.json.gz`, and refuses captures it cannot reconcile. Rerun it after recapturing kinds; `TestKindsMatchBrowserTraces` checks the result against the same traces.
 
 ## Capturing browsers
 

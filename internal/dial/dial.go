@@ -11,11 +11,22 @@ import (
 type Dialer struct {
 	// Timeout bounds the TCP connect, on top of the context's deadline.
 	Timeout time.Duration
+	// DialContext, when set, opens the connection instead of net.Dialer;
+	// Timeout still bounds it.
+	DialContext func(ctx context.Context, network, addr string) (net.Conn, error)
 }
 
 // Dial connects to addr ("host:port"). It honours ctx's cancellation and
 // deadline.
 func (d *Dialer) Dial(ctx context.Context, addr string) (net.Conn, error) {
+	if d.DialContext != nil {
+		if d.Timeout > 0 {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, d.Timeout)
+			defer cancel()
+		}
+		return d.DialContext(ctx, "tcp", addr)
+	}
 	nd := net.Dialer{
 		Timeout:   d.Timeout,
 		KeepAlive: 30 * time.Second,

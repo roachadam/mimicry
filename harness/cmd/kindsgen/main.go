@@ -577,10 +577,13 @@ func contextOf(reqs []*request) (*profile.Context, error) {
 	fetchSO, omitSO := find("fetch.so", false), find("fetch-omit.so", false)
 	frameCS, scriptCS := find("iframe.cs", false), find("script.cs", false)
 	leg, hop := find("fetch-redirect.so-cs", false), find("fetch-redirect.so-cs", true)
-	if corsSO == nil || fetchSO == nil || omitSO == nil || frameCS == nil || scriptCS == nil || leg == nil || hop == nil {
+	cssFont := find("font-css.so", false)
+	if corsSO == nil || fetchSO == nil || omitSO == nil || frameCS == nil || scriptCS == nil || leg == nil || hop == nil || cssFont == nil {
 		return nil, errors.New("context: the captures lack the requests that show it")
 	}
 	_, c.SameOriginElementOrigin = has(corsSO, "origin")
+	ref, _ := has(cssFont, "referer")
+	c.StylesheetReferrer = strings.HasSuffix(ref, "/k/style-fonts.so")
 	c.AnonymousConnections = omitSO.conn != fetchSO.conn
 	c.FrameConnections = frameCS.conn != scriptCS.conn
 	for _, h := range leg.h2 {

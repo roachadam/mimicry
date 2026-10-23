@@ -79,11 +79,37 @@ replayed pages (3516 checks), re-encoded byte for byte.
 |---|---|---|
 | `headers`: navigation header names, order, default values over HTTP/2 | W+ (Safari 26: W+, differs from 27 only in user agent and `accept-encoding`) | `TestProfilesMatchCaptures` |
 | `referer`, `cookie` slots in `headers` | W (the `/nav` navigation) | over HTTP/1.1 by `TestHTTP1MatchesBrowserTrace`; over HTTP/2 not compared end to end |
-| `content-length` slot in `headers` | **K**: placed where each browser put it on `fetch()` uploads (Chrome first, Firefox after `referer`, Safari before `accept-language`); navigation POSTs not captured | not compared end to end over HTTP/2 |
+| `content-length` slot in `headers` | **K**: placed where each browser put it on `fetch()` uploads (Chrome first, Firefox after `referer`, Safari before `accept-language`). A navigation POST takes `variants` instead (below) | `TestKindsMatchBrowserTraces` (form POST) |
+| `variants`: the navigation's order for a form POST (Chrome adds `cache-control: max-age=0`; Firefox moves `referer`, `cookie`; Safari uses its CORS-checked order) | W (`kinds`, `kinds-http1`); Safari 26: none (no kinds capture) | `TestKindsMatchBrowserTraces` |
 | `accept-language` value | W, but it is this machine's language setting, not a browser constant | `TestProfilesMatchCaptures` |
 | `http1.headers`: HTTP/1.1 names as sent (casing), order, values, Host and Connection positions | W+ (`http1` scenario, every browser and Safari 26) | `TestHTTP1MatchesBrowserTrace` (`/` and `/nav`, line for line), `TestRequestHeadFollowsHTTP1Section` |
 | `Content-Length` slot in `http1.headers` | **K** (`fetch()` uploads) | `TestRequestHeadFollowsHTTP1Section` (Chrome, unit) |
 | `cookie_order` | W+: creation order for Chrome and Firefox, by name for Safari | `TestCookiesMatchBrowserTrace`, `TestCookieLineFollowsCookieOrder`, `TestCookies` |
+
+## Request kinds
+
+Derived from the `kinds` and `kinds-http1` captures by `harness/cmd/kindsgen`
+(it refuses captures that disagree), for Chrome 155, Firefox 158 and Safari
+27; Safari 26 has none (captured on the second Mac, before the kinds page).
+All rows checked by `TestKindsMatchBrowserTraces`: every request of the kinds
+page, made through mimicry as its kind from the page, equals the browser's
+(names, order, values, HTTP/2 weight; over HTTP/1.1 line for line), cookies
+aside. Where the browser's own samples differ, any form it sent passes and
+the variance is logged: one Chrome HTTP/1.1 sample sends `Sec-Fetch-User` on
+cross-origin frames and the form POST, the others do not (activation state).
+
+| Claim | Evidence | Notes |
+|---|---|---|
+| `kinds.*.headers`, `http1`: names, order, values per kind | W | `font` is the CSS `@font-face` load: Firefox's sends `accept-encoding: identity`, unlike its `FontFace` loads |
+| `kinds.*.variants`: order by method, site relation, CORS check | W | Safari has many (a CORS-checked request starts `sec-fetch-site, accept, origin`; a cross-site beacon differs from a same-site one); Firefox for cross-origin fetches and preload fonts; Chrome none. A combination not captured falls back to the kind's default order |
+| `kinds.*.weight` | W | Chrome and Firefox; Safari sends no priority |
+| `kinds.fetch.high`, `.low`; `kinds.injected_image.high` | W | Other kinds' fetchpriority is not measured: asking for it is an error |
+| `*` (where page-set headers go) | W (`fetch-custom`) | |
+| `context.storage_access` | W: Chrome `active`, Firefox `none`, Safari none | Sent on credentialed cross-site requests |
+| `context.same_origin_element_origin` | W: Chrome, Safari | Origin on same-origin CORS element requests |
+| `context.stylesheet_referrer` | W: Chrome, Firefox | Safari refers CSS fonts to the page; only same-origin fonts captured, at `/` |
+| `context.fetch_redirect_drops`, `anonymous_connections`, `frame_connections` | W | Recorded; not yet acted on (redirects and connection partitioning are next) |
+| Referer by strict-origin-when-cross-origin; Origin per the Fetch standard; credentials per mode | W where captured, otherwise the standard | The page sits at `/`, so full URL and origin coincide except for the CSS font |
 
 ## Behaviour in code, not in profiles
 
@@ -96,13 +122,13 @@ replayed pages (3516 checks), re-encoded byte for byte.
 
 ## Not covered by any claim
 
-What a profile does not describe, so mimicry does not imitate it: headers,
-priorities and weights of non-navigation requests (scripts, images,
-`fetch()`); how many parallel connections a page opens; Chrome's mid-load
-re-prioritisation of a script; ECH payloads; HTTP/3; the TCP/IP fingerprint.
-The replayed real pages (`harness/testdata/captures/*.replay-*`) hold the
-browsers' behaviour for all but the last two, for when request kinds are
-modelled.
+What a profile does not describe, so mimicry does not imitate it: CORS
+preflights; redirect-specific behaviour (Safari's dropped headers, `Origin:
+null`) and connection partitioning, recorded but not yet acted on; how many
+parallel connections a page opens; Chrome's mid-load re-prioritisation of a
+script and chained dependencies between concurrent subresources (not
+compared); `FontFace` loads; `crossorigin` stylesheets; ECH payloads;
+HTTP/3; the TCP/IP fingerprint.
 
 ## Keeping it true
 

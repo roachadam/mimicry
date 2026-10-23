@@ -289,8 +289,7 @@ func (c *Conn) newStream() (*stream, error) {
 		return nil, ErrConnUnusable
 	}
 	s := &stream{
-		sendWindow: c.initialWindow,
-		resp:       make(chan responseOrError, 1),
+		resp: make(chan responseOrError, 1),
 	}
 	s.body = newPipe(func(n int) {
 		c.consumed(s, n)
@@ -329,7 +328,12 @@ func (c *Conn) writeHeaders(s *stream, req *http.Request, endStream bool) error 
 	if req.ContentLength > 0 && h.Get("Content-Length") == "" {
 		h.Set("Content-Length", strconv.FormatInt(req.ContentLength, 10))
 	}
-	ordered := headerorder.Build(c.headers, h, skipHeader)
+	list := c.headers
+	plan := headerorder.PlanFrom(req.Context())
+	if plan != nil {
+		list = plan.Headers
+	}
+	ordered := headerorder.Build(list, h, skipHeader)
 	fields := make([]hpack.Field, 0, len(c.h2.PseudoHeaderOrder)+len(ordered))
 	for _, name := range c.h2.PseudoHeaderOrder {
 		fields = append(fields, hpack.Field{
@@ -375,6 +379,10 @@ func (c *Conn) writeHeaders(s *stream, req *http.Request, endStream bool) error 
 	}
 	s.id = id
 	s.lastUpdate = c.clock.Now()
+	// The window is the one in force when the stream joins c.streams, so a
+	// SETTINGS change before then is not lost: from here on, SETTINGS
+	// adjust it with the other open streams.
+	s.sendWindow = c.initialWindow
 	c.streams[id] = s
 	frameSize := int(c.maxFrameSize)
 	c.mu.Unlock()
@@ -393,6 +401,10 @@ func (c *Conn) writeHeaders(s *stream, req *http.Request, endStream bool) error 
 	}
 	if p := c.h2.HeadersPriority; p != nil {
 		param.Priority = priorityParam(*p)
+		if plan != nil && plan.Weight != 0 {
+			// As on the wire, like the profile's (captured from frames).
+			param.Priority.Weight = plan.Weight
+		}
 		if c.h2.ChainPriorities {
 			param.Priority.StreamDep = parent
 			param.Priority.Exclusive = true

@@ -2258,6 +2258,7 @@
     }
   },
   "context": {
-    "storage_access": "none"
+    "storage_access": "none",
+    "stylesheet_referrer": true
   }
 }
