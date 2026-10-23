@@ -176,12 +176,13 @@ func TestValidate(t *testing.T) {
 			want: "is required",
 		},
 		{
-			name: "repeated cipher suite",
-			mutate: func(_ *testing.T, p *Profile) {
-				p.TLS.CipherSuites = append(p.TLS.CipherSuites, 0x1301)
+			name: "repeated key share group",
+			mutate: func(t *testing.T, p *Profile) {
+				ks := &p.TLS.Extensions[extIndex(t, p, ExtKeyShare)]
+				ks.KeyShares = append(ks.KeyShares, 0x001d)
 			},
-			path: "tls.cipher_suites",
-			want: "repeats 0x1301",
+			path: "tls.extensions[11].key_shares",
+			want: "repeats 0x001d",
 		},
 		{
 			name: "repeated extension",
@@ -344,5 +345,17 @@ func TestValidate(t *testing.T) {
 			}
 			t.Fatalf("no problem at %s containing %q; got:\n%v", tc.path, tc.want, err)
 		})
+	}
+}
+
+// Safari lists a signature algorithm twice; repeats the protocols allow must
+// stay expressible.
+func TestValidateAllowsRepeatsBrowsersSend(t *testing.T) {
+	p := parseValid(t)
+	sa := &p.TLS.Extensions[extIndex(t, p, ExtSignatureAlgorithms)]
+	sa.SignatureAlgorithms = append(sa.SignatureAlgorithms, 0x0805)
+	p.TLS.CipherSuites = append(p.TLS.CipherSuites, 0x1301)
+	if err := p.Validate(); err != nil {
+		t.Fatal(err)
 	}
 }

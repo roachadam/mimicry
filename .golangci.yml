@@ -6,6 +6,13 @@ version: "2"
 linters:
   # "standard" = errcheck, govet, ineffassign, staticcheck, unused.
   default: standard
+  settings:
+    gosec:
+      excludes:
+        # File paths are built by our own code and tests (capture names come
+        # from parsed browser identities), never from untrusted input. Same
+        # policy as our other projects.
+        - G304
   enable:
     # --- guardrails ---
     - bodyclose       # HTTP response bodies are closed

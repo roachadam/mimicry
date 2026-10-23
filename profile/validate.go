@@ -42,7 +42,9 @@ func (c *checker) add(path, format string, args ...any) {
 }
 
 // Validate checks p and returns a *ValidationError listing every problem, or
-// nil.
+// nil. It rejects only what is malformed or forbidden by the protocols, not
+// what is merely unusual: real browsers do odd things, such as Safari listing
+// a signature algorithm twice, and a profile must be able to reproduce them.
 func (p *Profile) Validate() error {
 	c := &checker{}
 	if p.Name == "" {
@@ -86,7 +88,6 @@ func (c *checker) checkTLS(t *TLS) {
 	if len(t.CipherSuites) == 0 {
 		c.add("tls.cipher_suites", "is required")
 	}
-	c.checkUnique("tls.cipher_suites", t.CipherSuites)
 	if len(t.CompressionMethods) == 0 {
 		c.add("tls.compression_methods", "is required")
 	}
@@ -142,14 +143,11 @@ func (c *checker) checkExtension(path string, e *Extension) {
 			}
 		}
 	}
-	c.checkUnique(path+".groups", e.Groups)
+	// RFC 8446, section 4.2.8: no two key shares for the same group.
 	c.checkUnique(path+".key_shares", e.KeyShares)
-	c.checkUnique(path+".signature_algorithms", e.SignatureAlgorithms)
-	c.checkUnique(path+".versions", e.Versions)
-	c.checkUnique(path+".cert_compression", e.CertCompression)
 }
 
-// checkUnique reports repeated values. GREASE may appear once per list.
+// checkUnique reports repeated values.
 func (c *checker) checkUnique(path string, codes []Code) {
 	seen := map[Code]bool{}
 	for _, v := range codes {
