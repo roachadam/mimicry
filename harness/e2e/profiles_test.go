@@ -21,16 +21,16 @@ import (
 	"github.com/roachadam/mimicry/profiles"
 )
 
-// captureRequests sends n requests, each on a new connection, with a mimicry
-// client for p, and returns what the capture server recorded.
-func captureRequests(t *testing.T, p *profile.Profile, n int) []*capture.Capture {
+// captureClient runs a capture server and returns its base URL, a mimicry
+// transport for p trusting it, and the channel its captures arrive on.
+func captureClient(t *testing.T, p *profile.Profile) (string, *mimicry.Transport, <-chan *capture.Capture) {
 	t.Helper()
 	cert, pool := testutil.Certificate(t, "localhost")
 	ln, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	captures := make(chan *capture.Capture, n)
+	captures := make(chan *capture.Capture, 8)
 	ctx, cancel := context.WithCancel(t.Context())
 	srv := &server.Server{
 		TLSConfig: &tls.Config{
@@ -53,7 +53,6 @@ func captureRequests(t *testing.T, p *profile.Profile, n int) []*capture.Capture
 			t.Error(err)
 		}
 	})
-
 	_, port, _ := net.SplitHostPort(ln.Addr().String())
 	tr, err := mimicry.NewTransport(mimicry.Config{
 		Profile: p,
@@ -62,10 +61,19 @@ func captureRequests(t *testing.T, p *profile.Profile, n int) []*capture.Capture
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(tr.CloseIdleConnections)
+	return "https://localhost:" + port, tr, captures
+}
+
+// captureRequests sends n requests, each on a new connection, with a mimicry
+// client for p, and returns what the capture server recorded.
+func captureRequests(t *testing.T, p *profile.Profile, n int) []*capture.Capture {
+	t.Helper()
+	base, tr, captures := captureClient(t, p)
 	client := &http.Client{Transport: tr}
 	got := make([]*capture.Capture, 0, n)
 	for range n {
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "https://localhost:"+port+"/", nil)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, base+"/", nil)
 		if err != nil {
 			t.Fatal(err)
 		}

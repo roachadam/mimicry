@@ -56,7 +56,11 @@ cfg := mimicry.Config{
 
 Use the standard `testing` package with hand-written fakes; no assertion libraries. Tests must be deterministic: inject randomness and clocks rather than depending on them.
 
-Profile accuracy is proven by the harness against real browser captures, not by unit tests that restate a profile's values: `harness/e2e` sends every built-in profile through mimicry to the capture server and requires no differences from its browser's capture.
+Profile accuracy is proven by the harness against real browser captures, not by unit tests that restate a profile's values. `harness/e2e` checks every built-in profile three ways:
+
+- `TestProfilesMatchCaptures`: mimicry's request to the capture server has no differences from the browser's capture (TLS, HTTP/2 preface and first request, headers).
+- `TestHPACKReproducesBrowserBlocks`: re-encoding the browser's traced requests with the profile's `http2.hpack` reproduces every header block byte for byte. `http2.hpack` cannot be captured; this is what keeps it honest.
+- `TestConnectionMatchesBrowserTrace`: on one connection, mimicry's first header block, largest upload DATA frame and typical WINDOW_UPDATE increments match the browser's trace.
 
 ## Built-in profiles
 
@@ -67,6 +71,8 @@ Built-in profiles are JSON files in `profiles/data/`, one per browser version an
 `moon run harness:capture` launches every installed browser (Chrome, Firefox, Safari) against an in-process capture server and writes new captures to `harness/testdata/captures/`. It never overwrites; delete a capture to retake it. Use visible windows for captures you commit: headless Chrome reports `HeadlessChrome` in its user agent. moon skips this task when `CI=true`.
 
 Each browser is sampled three times (`-samples`), each on a fresh server and port so no connection or TLS session carries over. If the samples differ only in extension order, the capture records `"extension_order": "shuffled"` (Chrome), otherwise `"fixed"`. Any other difference between samples fails the capture: it is randomness a profile cannot describe and needs investigating.
+
+The capture page loads like a site: a stylesheet, an image and a script on one connection, then a 32 MiB download, a 200 KB upload, a request carrying a header whose Huffman coding is longer than its value, and a navigation to `/nav` with two cookies (scoped to `/nav` and deleted there, so Safari keeps nothing). `<name>.h2trace.json` records every frame the browser sent and each header block's HPACK instructions; the profile JSON still comes from the first request only.
 
 `go run ./cmd/diff WANT.json GOT.json` (in `harness/`) lists every difference between two captures or profiles, comparing extension order as WANT's `extension_order` says, and exits 1 if there are any.
 

@@ -150,7 +150,22 @@
       ":scheme",
       ":authority",
       ":path"
-    ]
+    ],
+    "max_data_frame": 16374,
+    "stream_update_threshold": 507904,
+    "connection_update_threshold": 5242880,
+    "split_cookie": true,
+    "hpack": {
+      "without_indexing": [
+        ":path",
+        "content-length"
+      ],
+      "never_indexed": [
+        "cookie"
+      ],
+      "name_match": "static_first",
+      "huffman": "shorter"
+    }
   },
   "headers": [
     {
@@ -164,6 +179,9 @@
     {
       "name": "accept",
       "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+    },
+    {
+      "name": "referer"
     },
     {
       "name": "sec-fetch-site",
@@ -184,6 +202,9 @@
     {
       "name": "accept-encoding",
       "value": "gzip, deflate, br, zstd"
+    },
+    {
+      "name": "cookie"
     }
   ]
 }

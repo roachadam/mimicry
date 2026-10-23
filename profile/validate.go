@@ -195,6 +195,55 @@ func (c *checker) checkHTTP2(h *HTTP2) {
 	if !slices.Equal(order, want) {
 		c.add("http2.pseudo_header_order", "must list each of %s exactly once", strings.Join(pseudoHeaders, ", "))
 	}
+	if h.ChainPriorities && h.HeadersPriority == nil {
+		c.add("http2.chain_priorities", "needs headers_priority")
+	}
+	if h.FirstStreamID != 0 && (h.FirstStreamID%2 == 0 || h.FirstStreamID >= 1<<31) {
+		c.add("http2.first_stream_id", "must be an odd stream ID below 2^31")
+	}
+	for _, v := range []struct {
+		path  string
+		value uint32
+	}{
+		{"http2.stream_window_update", h.StreamWindowUpdate},
+		{"http2.stream_update_threshold", h.StreamUpdateThreshold},
+		{"http2.connection_update_threshold", h.ConnectionUpdateThreshold},
+	} {
+		if v.value > 1<<31-1 {
+			c.add(v.path, "exceeds the maximum window 2^31-1")
+		}
+	}
+	if h.MaxDataFrame > 1<<24-1 {
+		c.add("http2.max_data_frame", "exceeds the largest frame 2^24-1")
+	}
+	if h.HPACK != nil {
+		c.checkHPACK(h.HPACK)
+	}
+}
+
+func (c *checker) checkHPACK(p *HPACK) {
+	if p.NameMatch != NameMatchStaticFirst && p.NameMatch != NameMatchHighestIndex {
+		c.add("http2.hpack.name_match", "must be %q or %q", NameMatchStaticFirst, NameMatchHighestIndex)
+	}
+	if p.Huffman != HuffmanShorter && p.Huffman != HuffmanAlways {
+		c.add("http2.hpack.huffman", "must be %q or %q", HuffmanShorter, HuffmanAlways)
+	}
+	for i, n := range p.WithoutIndexing {
+		path := fmt.Sprintf("http2.hpack.without_indexing[%d]", i)
+		c.checkHeaderName(path, n)
+		if slices.Contains(p.NeverIndexed, n) {
+			c.add(path, "%s is also in never_indexed", n)
+		}
+	}
+	for i, n := range p.NeverIndexed {
+		c.checkHeaderName(fmt.Sprintf("http2.hpack.never_indexed[%d]", i), n)
+	}
+}
+
+func (c *checker) checkHeaderName(path, name string) {
+	if name == "" || name != strings.ToLower(name) {
+		c.add(path, "name %q must be lowercase and not empty", name)
+	}
 }
 
 func (c *checker) checkHeaders(headers []Header) {

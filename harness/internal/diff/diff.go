@@ -146,6 +146,16 @@ func (d *differ) compareHTTP2(want, got *profile.HTTP2) {
 	d.check("http2.priorities", want.Priorities, got.Priorities)
 	d.check("http2.headers_priority", want.HeadersPriority, got.HeadersPriority)
 	d.check("http2.pseudo_header_order", strings.Join(want.PseudoHeaderOrder, ","), strings.Join(got.PseudoHeaderOrder, ","))
+	d.check("http2.first_stream_id", firstStream(want), firstStream(got))
+	d.check("http2.stream_window_update", want.StreamWindowUpdate, got.StreamWindowUpdate)
+}
+
+// firstStream is the first request's stream ID; zero means the default 1.
+func firstStream(h *profile.HTTP2) uint32 {
+	if h.FirstStreamID == 0 {
+		return 1
+	}
+	return h.FirstStreamID
 }
 
 func presence(present bool) string {

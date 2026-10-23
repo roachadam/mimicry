@@ -162,7 +162,24 @@
       ":path",
       ":authority",
       ":scheme"
-    ]
+    ],
+    "first_stream_id": 3,
+    "stream_window_update": 12451840,
+    "max_data_frame": 16000,
+    "stream_update_threshold": 4194304,
+    "connection_update_threshold": 4194304,
+    "split_cookie": true,
+    "hpack": {
+      "without_indexing": [
+        ":path"
+      ],
+      "never_indexed": [
+        "cookie"
+      ],
+      "literal_on_exact_match": true,
+      "name_match": "highest_index",
+      "huffman": "always"
+    }
   },
   "headers": [
     {
@@ -180,6 +197,12 @@
     {
       "name": "accept-encoding",
       "value": "gzip, deflate, br, zstd"
+    },
+    {
+      "name": "referer"
+    },
+    {
+      "name": "cookie"
     },
     {
       "name": "upgrade-insecure-requests",

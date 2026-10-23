@@ -107,7 +107,10 @@ func TestRequestHeadOrder(t *testing.T) {
 	want := make([]string, 0, 2+len(profiles.Chrome155MacOS().Headers))
 	want = append(want, "Host", "Connection")
 	for _, h := range profiles.Chrome155MacOS().Headers {
-		want = append(want, http.CanonicalHeaderKey(h.Name))
+		// Headers without a default value only fix a position.
+		if h.Value != "" {
+			want = append(want, http.CanonicalHeaderKey(h.Name))
+		}
 	}
 	if lines[0] != "GET /a?b=1 HTTP/1.1" {
 		t.Errorf("request line %q", lines[0])

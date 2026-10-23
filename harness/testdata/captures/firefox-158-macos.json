@@ -162,7 +162,9 @@
       ":path",
       ":authority",
       ":scheme"
-    ]
+    ],
+    "first_stream_id": 3,
+    "stream_window_update": 12451840
   },
   "headers": [
     {

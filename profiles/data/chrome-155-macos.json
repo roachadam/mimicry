@@ -162,12 +162,24 @@
       "exclusive": true,
       "weight": 255
     },
+    "chain_priorities": true,
     "pseudo_header_order": [
       ":method",
       ":authority",
       ":scheme",
       ":path"
-    ]
+    ],
+    "max_data_frame": 16375,
+    "stream_update_threshold": 3145729,
+    "connection_update_threshold": 7864321,
+    "split_cookie": true,
+    "hpack": {
+      "without_indexing": [
+        ":path"
+      ],
+      "name_match": "static_first",
+      "huffman": "shorter"
+    }
   },
   "headers": [
     {
@@ -211,12 +223,18 @@
       "value": "document"
     },
     {
+      "name": "referer"
+    },
+    {
       "name": "accept-encoding",
       "value": "gzip, deflate, br, zstd"
     },
     {
       "name": "accept-language",
       "value": "en-US,en;q=0.9"
+    },
+    {
+      "name": "cookie"
     },
     {
       "name": "priority",

@@ -20,8 +20,8 @@ import (
 )
 
 // page is what a browser loads: subresources on the same connection, then a
-// script that downloads, uploads, requests again and finally asks for /done,
-// which completes the capture.
+// script that downloads, uploads, requests again and navigates to /nav with
+// cookies, whose page asks for /done, which completes the capture.
 const page = `<!doctype html>
 <html><head><meta charset="utf-8"><title>mimicry capture</title>
 <link rel="icon" href="data:,">
@@ -33,20 +33,40 @@ const page = `<!doctype html>
 </body></html>
 `
 
+// script's /again request carries a header whose Huffman coding is longer
+// than the raw string, which tells "Huffman when not longer" from "always".
+// The cookies are scoped to /nav, so no other request (and no later sample
+// in a persistent browser like Safari) carries them, and /nav deletes them.
 const script = `(async () => {
   const big = await fetch('/big');
   await big.arrayBuffer();
   await fetch('/upload', {method: 'POST', body: new Uint8Array(` + uploadSize + `)});
-  await (await fetch('/again')).text();
-  await fetch('/done');
+  await (await fetch('/again', {headers: {'x-mimicry-huffman': '{^}~'}})).text();
+  document.cookie = 'mimicry_a=1; path=/nav';
+  document.cookie = 'mimicry_b=2; path=/nav';
+  location.href = '/nav';
 })();
+`
+
+// navPage is the page a cookie-carrying navigation lands on.
+const navPage = `<!doctype html>
+<html><head><meta charset="utf-8"><title>mimicry capture</title>
+<link rel="icon" href="data:,">
+</head><body>
+<p>mimicry capture ok</p>
+<script>
+document.cookie = 'mimicry_a=; path=/nav; max-age=0';
+document.cookie = 'mimicry_b=; path=/nav; max-age=0';
+fetch('/done');
+</script>
+</body></html>
 `
 
 const uploadSize = "200000"
 
 // bigSize is larger than every captured browser's stream receive window, so
 // the download shows how each one returns flow-control credit.
-const bigSize = 8 << 20
+const bigSize = 32 << 20
 
 // png is a 1x1 transparent PNG.
 var png = []byte{
@@ -78,6 +98,8 @@ func respondTo(path string, uploaded int) response {
 		return response{200, "application/octet-stream", make([]byte, bigSize)}
 	case "/upload":
 		return response{200, "text/plain", []byte(strconv.Itoa(uploaded) + "\n")}
+	case "/nav":
+		return response{200, "text/html; charset=utf-8", []byte(navPage)}
 	case "/again", "/done":
 		return response{200, "text/plain", []byte("ok\n")}
 	}
@@ -101,6 +123,9 @@ type h2conn struct {
 	blockEnded    bool
 	blockPriority *http2.PriorityParam
 	streams       map[uint32]*h2stream
+	// firstHeaders is set right after the first request's header block, so
+	// a WINDOW_UPDATE that immediately follows it is recorded.
+	firstHeaders bool
 
 	// wmu serialises writes; enc is only used under it.
 	wmu sync.Mutex
@@ -173,6 +198,8 @@ func serveHTTP2(conn net.Conn, c *capture.Capture, emit func()) error {
 			return err
 		}
 		s.record(f)
+		afterFirstHeaders := s.firstHeaders
+		s.firstHeaders = false
 		switch f := f.(type) {
 		case *http2.SettingsFrame:
 			if f.IsAck() {
@@ -185,6 +212,9 @@ func serveHTTP2(conn net.Conn, c *capture.Capture, emit func()) error {
 		case *http2.WindowUpdateFrame:
 			if f.StreamID == 0 && len(s.trace.Requests) == 0 && s.h.WindowUpdate == 0 {
 				s.h.WindowUpdate = f.Increment
+			}
+			if afterFirstHeaders && f.StreamID == s.blockID {
+				s.h.StreamWindowUpdate = f.Increment
 			}
 			s.mu.Lock()
 			if f.StreamID == 0 {
@@ -349,6 +379,10 @@ func (s *h2conn) recordFirstRequest(instructions []h2trace.Instruction) {
 		p := priorityParam(*s.blockPriority)
 		s.h.HeadersPriority = &p
 	}
+	if s.blockID != 1 {
+		s.h.FirstStreamID = s.blockID
+	}
+	s.firstHeaders = true
 	for _, ins := range instructions {
 		if ins.Rep == h2trace.SizeUpdate {
 			continue

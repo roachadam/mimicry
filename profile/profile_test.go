@@ -312,6 +312,59 @@ func TestValidate(t *testing.T) {
 			want: "exactly once",
 		},
 		{
+			name: "even first stream ID",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.HTTP2.FirstStreamID = 2
+			},
+			path: "http2.first_stream_id",
+			want: "odd stream ID",
+		},
+		{
+			name: "chained priorities without a priority",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.HTTP2.ChainPriorities = true
+				p.HTTP2.HeadersPriority = nil
+			},
+			path: "http2.chain_priorities",
+			want: "needs headers_priority",
+		},
+		{
+			name: "update threshold beyond any window",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.HTTP2.ConnectionUpdateThreshold = 1 << 31
+			},
+			path: "http2.connection_update_threshold",
+			want: "maximum window",
+		},
+		{
+			name: "unknown HPACK name match",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.HTTP2.HPACK = &HPACK{
+					NameMatch: "lowest",
+					Huffman:   HuffmanShorter,
+				}
+			},
+			path: "http2.hpack.name_match",
+			want: `must be "static_first" or "highest_index"`,
+		},
+		{
+			name: "header both without indexing and never indexed",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.HTTP2.HPACK = &HPACK{
+					WithoutIndexing: []string{
+						"cookie",
+					},
+					NeverIndexed: []string{
+						"cookie",
+					},
+					NameMatch: NameMatchStaticFirst,
+					Huffman:   HuffmanShorter,
+				}
+			},
+			path: "http2.hpack.without_indexing[0]",
+			want: "also in never_indexed",
+		},
+		{
 			name: "uppercase header",
 			mutate: func(_ *testing.T, p *Profile) {
 				p.Headers[2].Name = "User-Agent"
