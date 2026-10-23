@@ -55,11 +55,11 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 		}
 	}
 	cfg.MinVersion = tls.VersionTLS12
-	if sc.replay != nil {
+	if sc.multi != nil {
 		if s.IssueCert == nil {
-			return errors.New("replay scenario " + sc.Name + " needs Server.IssueCert")
+			return errors.New("scenario " + sc.Name + " serves several hosts and needs Server.IssueCert")
 		}
-		cfg = sc.replay.tlsConfig(cfg, s.IssueCert)
+		cfg = multiHostTLS(sc.multi, cfg, s.IssueCert)
 	}
 	log := &pageLog{}
 	stop := context.AfterFunc(ctx, func() {
@@ -132,6 +132,7 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 	}
 	state := tlsConn.ConnectionState()
 	c.Protocol = state.NegotiatedProtocol
+	log.connection(c, state.ServerName)
 	if c.Protocol == "h2" {
 		err = serveHTTP2(tlsConn, state.ServerName, c, sc, log, emit)
 	} else {

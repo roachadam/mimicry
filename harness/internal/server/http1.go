@@ -109,10 +109,10 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 		ask.uploaded = int(uploaded)
 		r := sc.answer(ask)
 		if target == "/done" && !c.Finished {
-			if sc.replay != nil {
+			if sc.multi != nil {
 				c.Page = log.page()
 				c.H1 = nil
-				pageProfile(c)
+				log.pageProfile(c)
 			} else {
 				c.H1 = log.snapshot()
 				c.Profile.Headers = profileHeaders(c.H1[0].Headers)

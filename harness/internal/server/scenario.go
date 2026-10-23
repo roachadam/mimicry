@@ -28,8 +28,9 @@ type Scenario struct {
 	// respond answers the paths the scenario changes; the default page
 	// answers the rest.
 	respond func(path string, uploaded int) (response, bool)
-	// replay, when set, answers every request instead (Replay).
-	replay *replay
+	// multi, when set, serves a page across several hosts and answers every
+	// request instead (Replay, the kinds page).
+	multi multiHost
 }
 
 // request is what a scenario needs to know to answer a request.
@@ -118,6 +119,8 @@ var Scenarios = []*Scenario{
 		Doc:   "the server offers only HTTP/1.1: header casing and order, cookies and connections over HTTP/1.1",
 		HTTP1: true,
 	},
+	Kinds,
+	KindsHTTP1,
 }
 
 // ScenarioByName finds a scenario.
@@ -135,8 +138,8 @@ func ScenarioByName(name string) (*Scenario, error) {
 }
 
 func (sc *Scenario) answer(r request) response {
-	if sc.replay != nil {
-		return sc.replay.answer(r)
+	if sc.multi != nil {
+		return sc.multi.answer(r)
 	}
 	if sc.respond != nil {
 		if resp, ok := sc.respond(r.path, r.uploaded); ok {

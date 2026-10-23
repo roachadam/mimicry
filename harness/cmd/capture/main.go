@@ -157,7 +157,7 @@ func captureBrowser(ctx context.Context, b *browser.Browser, opts options) error
 			log.Printf("%s: extension order %s across %d samples", c.Profile.Name, c.Profile.TLS.ExtensionOrder, opts.samples)
 			log.Printf("%s: JA4 %s", c.Profile.Name, f.JA4)
 			log.Printf("%s: Akamai %s", c.Profile.Name, f.Akamai)
-		} else if _, _, replayed := sc.Replayed(); base != nil && !sc.HTTP1 && !replayed {
+		} else if _, _, multi := sc.MultiHost(); base != nil && !sc.HTTP1 && !multi {
 			for _, d := range diff.Compare(&base.Profile, &c.Profile) {
 				log.Printf("%s: scenario %s changes the first request: %s", c.Profile.Name, sc.Name, d)
 			}
@@ -242,10 +242,10 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 		CertSHA256: sha256.Sum256(opts.cert.Certificate[0]),
 	}
 	timeout := opts.timeout
-	start, length, replayed := sc.Replayed()
-	if replayed {
-		t.Host = start
-		t.Hosts = sc.ReplayHosts()
+	hosts, length, multi := sc.MultiHost()
+	if multi {
+		t.Host = hosts[0]
+		t.Hosts = hosts[1:]
 		timeout += length
 	}
 	log.Printf("%s: opening %s", b.Name, b.URL(t))
@@ -253,7 +253,7 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 	if err != nil {
 		return nil, err
 	}
-	c, err := await(ctx, b.Name, captures, timeout, replayed)
+	c, err := await(ctx, b.Name, captures, timeout, multi)
 	if closeErr := session.Close(); closeErr != nil {
 		log.Printf("%s: cleaning up: %v", b.Name, closeErr)
 	}
@@ -261,8 +261,9 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 }
 
 // await returns the first complete capture from the named browser. Captures
-// from other browsers, or with only a ClientHello, are skipped. A replayed
-// page spans many connections; only the one asking for /done carries it.
+// from other browsers, or with only a ClientHello, are skipped. A page
+// across several hosts spans many connections; only the one asking for
+// /done carries it.
 func await(ctx context.Context, name string, captures <-chan *capture.Capture, timeout time.Duration, page bool) (*capture.Capture, error) {
 	deadline := time.After(timeout)
 	for {

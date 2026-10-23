@@ -177,8 +177,8 @@ func TestReplay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if host, _, ok := sc.Replayed(); !ok || host != "ex-com.localhost" {
-		t.Fatalf("starts on %q, want ex-com.localhost", host)
+	if hosts, _, ok := sc.MultiHost(); !ok || hosts[0] != "ex-com.localhost" || len(hosts) != 5 {
+		t.Fatalf("hosts %v, want ex-com.localhost first of 5", hosts)
 	}
 	client, port, captures := replayServer(t, sc)
 	base := func(host string) string {

@@ -106,7 +106,7 @@ func serveHTTP2(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 	s.cond = sync.NewCond(&s.mu)
 	s.enc = hpack.NewEncoder(&s.buf)
 	c.Trace = s.trace
-	if sc.replay != nil {
+	if sc.multi != nil {
 		s.trace.Host = host
 	}
 	log.addH2(s)
@@ -393,15 +393,15 @@ func (s *h2conn) respond(id uint32, st *h2stream, senders *sync.WaitGroup, emit 
 	r := s.scenario.answer(st.req)
 	s.traceMu.Lock()
 	done := st.req.path == "/done" && s.tracing
-	if done && s.scenario.replay == nil {
+	if done && s.scenario.multi == nil {
 		s.tracing = false
 	}
 	s.traceMu.Unlock()
 	if done {
-		if s.scenario.replay != nil {
+		if s.scenario.multi != nil {
 			s.c.Page = s.log.page()
 			s.c.Trace = nil
-			pageProfile(s.c)
+			s.log.pageProfile(s.c)
 		}
 		s.c.Finished = true
 		emit()

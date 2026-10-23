@@ -1,7 +1,6 @@
 package server
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
@@ -9,7 +8,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"golang.org/x/net/http2/hpack"
@@ -35,28 +33,10 @@ func Replay(p *pageshape.Page) (*Scenario, error) {
 	}
 	rp := newReplay(p)
 	return &Scenario{
-		Name:   "replay-" + p.Site,
-		Doc:    rp.stats.String(),
-		replay: rp,
+		Name:  "replay-" + p.Site,
+		Doc:   rp.stats.String(),
+		multi: rp,
 	}, nil
-}
-
-// Replayed reports, for a replay scenario, the host its page starts on and
-// how long the recorded page ran; ok is false for other scenarios.
-func (sc *Scenario) Replayed() (host string, length time.Duration, ok bool) {
-	if sc.replay == nil {
-		return "", 0, false
-	}
-	return sc.replay.names[sc.replay.page.Requests[0].Host], sc.replay.length, true
-}
-
-// ReplayHosts lists every hostname a replay scenario serves; nil for other
-// scenarios.
-func (sc *Scenario) ReplayHosts() []string {
-	if sc.replay == nil {
-		return nil
-	}
-	return slices.Clone(sc.replay.names)
 }
 
 // maxBody caps a replayed response body: what matters is the flow-control
@@ -80,16 +60,13 @@ type replay struct {
 	jobs map[int][]int
 	// next follows redirects: request -> the request its redirect leads to.
 	next map[int]int
-	// h1Only marks hosts the real page reached only over HTTP/1.1.
-	h1Only []bool
+	// onlyH1 marks hosts the real page reached only over HTTP/1.1.
+	onlyH1 []bool
 	// cookies lists, per host, the cookies set from it: /cleanup deletes
 	// them.
 	cookies map[int][]pageshape.Cookie
-	length  time.Duration
+	runFor  time.Duration
 	stats   replayStats
-
-	mu      sync.Mutex
-	configs map[string]*tls.Config
 }
 
 // replayStats says how faithfully a page is replayed.
@@ -131,9 +108,8 @@ func newReplay(p *pageshape.Page) *replay {
 		docs:    map[int]bool{},
 		jobs:    map[int][]int{},
 		next:    map[int]int{},
-		h1Only:  make([]bool, len(p.Hosts)),
+		onlyH1:  make([]bool, len(p.Hosts)),
 		cookies: map[int][]pageshape.Cookie{},
-		configs: map[string]*tls.Config{},
 		stats: replayStats{
 			site:         p.Site,
 			requests:     len(p.Requests),
@@ -161,9 +137,9 @@ func newReplay(p *pageshape.Page) *replay {
 		last = max(last, r.At)
 	}
 	for i := range p.Hosts {
-		rp.h1Only[i] = !h2[i]
+		rp.onlyH1[i] = !h2[i]
 	}
-	rp.length = min(time.Duration(last)*time.Millisecond, maxLength)
+	rp.runFor = min(time.Duration(last)*time.Millisecond, maxLength)
 	rp.top = rp.end(0)
 	rp.docs[rp.top] = true
 	for i, r := range p.Requests {
@@ -233,45 +209,45 @@ func (rp *replay) frameOf(i int) int {
 	return best
 }
 
-// tlsConfig returns base answering each replay host with its own
-// certificate (covering the hosts whose requests the real page sent on that
-// host's connections) and only http/1.1 for hosts the page reached only
-// over HTTP/1.1.
-func (rp *replay) tlsConfig(base *tls.Config, issue func([]string) (tls.Certificate, error)) *tls.Config {
-	cfg := base.Clone()
-	cfg.GetConfigForClient = func(hello *tls.ClientHelloInfo) (*tls.Config, error) {
-		rp.mu.Lock()
-		defer rp.mu.Unlock()
-		if c, ok := rp.configs[hello.ServerName]; ok {
-			return c, nil
-		}
-		i, ok := rp.byName[hello.ServerName]
-		if !ok {
-			return nil, fmt.Errorf("replay of %s has no host %q", rp.page.Site, hello.ServerName)
-		}
-		names := []string{
-			hello.ServerName,
-		}
-		for _, s := range rp.page.Hosts[i].Shared {
-			names = append(names, rp.names[s])
-		}
-		cert, err := issue(names)
-		if err != nil {
-			return nil, err
-		}
-		c := base.Clone()
-		c.Certificates = []tls.Certificate{
-			cert,
-		}
-		if rp.h1Only[i] {
-			c.NextProtos = []string{
-				"http/1.1",
-			}
-		}
-		rp.configs[hello.ServerName] = c
-		return c, nil
+// hosts lists the replay hostnames, the navigation's first.
+func (rp *replay) hosts() []string {
+	start := rp.names[rp.page.Requests[0].Host]
+	out := []string{
+		start,
 	}
-	return cfg
+	for _, n := range rp.names {
+		if n != start {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
+// certNames puts on a host's certificate the hosts whose requests the
+// real page sent on that host's connections.
+func (rp *replay) certNames(host string) ([]string, bool) {
+	i, ok := rp.byName[host]
+	if !ok {
+		return nil, false
+	}
+	names := []string{
+		host,
+	}
+	for _, s := range rp.page.Hosts[i].Shared {
+		names = append(names, rp.names[s])
+	}
+	return names, true
+}
+
+// h1Only: hosts the page reached only over HTTP/1.1 are offered nothing
+// else.
+func (rp *replay) h1Only(host string) bool {
+	i, ok := rp.byName[host]
+	return ok && rp.onlyH1[i]
+}
+
+func (rp *replay) length() time.Duration {
+	return rp.runFor
 }
 
 // url is where request i is replayed.
@@ -520,7 +496,7 @@ func (rp *replay) document(doc int, port string) []byte {
 	script := strings.NewReplacer(
 		"__JOBS__", string(jobsJSON),
 		"__TOP__", strconv.FormatBool(doc == rp.top),
-		"__END__", strconv.FormatInt(rp.length.Milliseconds()-int64(start), 10),
+		"__END__", strconv.FormatInt(rp.runFor.Milliseconds()-int64(start), 10),
 		"__CLEANUP__", string(cleanupJSON),
 	).Replace(replayScript)
 	html := "<!doctype html>\n<html><head><meta charset=\"utf-8\"><title>mimicry replay</title><link rel=\"icon\" href=\"data:,\"></head><body>\n<script>" +

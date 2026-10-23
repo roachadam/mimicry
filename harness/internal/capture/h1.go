@@ -26,10 +26,22 @@ type H1Request struct {
 }
 
 // Page is a whole page load across every connection and host it used:
-// each HTTP/2 connection's trace and every HTTP/1.1 request.
+// each HTTP/2 connection's trace, every HTTP/1.1 request, and every
+// connection's handshake.
 type Page struct {
-	H2 []*h2trace.Trace `json:"h2"`
-	H1 []H1Request      `json:"h1,omitempty"`
+	H2          []*h2trace.Trace `json:"h2"`
+	H1          []H1Request      `json:"h1,omitempty"`
+	Connections []Connection     `json:"connections,omitempty"`
+}
+
+// Connection is one connection of a page, in the order their handshakes
+// completed.
+type Connection struct {
+	Host     string `json:"host"`
+	Protocol string `json:"protocol"`
+	// Resumed reports a ClientHello offering a pre-shared key: the browser
+	// resuming an earlier session instead of a full handshake.
+	Resumed bool `json:"resumed,omitempty"`
 }
 
 // LoadPages reads a replayed page capture written by Write
