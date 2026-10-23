@@ -462,6 +462,64 @@ func TestValidate(t *testing.T) {
 			path: "headers[0]",
 			want: "belongs in http2.pseudo_header_order",
 		},
+		{
+			name: "unknown kind",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.Kinds = map[string]*Kind{
+					"websocket": {
+						Headers: p.Headers,
+					},
+				}
+			},
+			path: "kinds.websocket",
+			want: "is not a request kind",
+		},
+		{
+			name: "other-headers marker in the navigation",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.Headers[1].Name = OtherHeaders
+			},
+			path: "headers[1]",
+			want: "belongs only in a kind's lists",
+		},
+		{
+			name: "variant repeating the default condition",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.Variants = []Variant{
+					{
+						Headers: p.Headers,
+					},
+				}
+			},
+			path: "variants[0]",
+			want: "repeats the default condition",
+		},
+		{
+			name: "two variants with one condition",
+			mutate: func(_ *testing.T, p *Profile) {
+				v := Variant{
+					Method:  "POST",
+					Site:    SiteCrossSite,
+					Headers: p.Headers,
+				}
+				p.Variants = []Variant{v, v}
+			},
+			path: "variants[1]",
+			want: "repeats an earlier variant's condition",
+		},
+		{
+			name: "variant with an unknown site",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.Variants = []Variant{
+					{
+						Site:    "same-origin",
+						Headers: p.Headers,
+					},
+				}
+			},
+			path: "variants[0].site",
+			want: "must be empty (same-origin)",
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			p := parseValid(t)

@@ -19,12 +19,21 @@ type Profile struct {
 	TLS TLS `json:"tls"`
 	// HTTP2 is required when the profile offers h2 in ALPN.
 	HTTP2 *HTTP2 `json:"http2,omitempty"`
-	// Headers of a top-level navigation request over HTTP/2, in order.
+	// Headers of a top-level navigation request over HTTP/2, in order: the
+	// profile's base request (KindNavigate in the client).
 	Headers []Header `json:"headers"`
 	// HTTP1 describes the same request over HTTP/1.1, which browsers send
 	// with a header set, order and casing of their own. Nil writes Headers
 	// in canonical casing after Host and Connection.
 	HTTP1 *HTTP1 `json:"http1,omitempty"`
+	// Variants are the orders the navigation takes otherwise (a form POST),
+	// as Kind.Variants.
+	Variants []Variant `json:"variants,omitempty"`
+	// Kinds describe the browser's other requests, by kind (KindFetch, ...).
+	Kinds map[string]*Kind `json:"kinds,omitempty"`
+	// Context is how the browser fills what depends on which page makes a
+	// request. Nil: as the Fetch standard says, with no browser extras.
+	Context *Context `json:"context,omitempty"`
 	// CookieOrder is the order of cookies in the Cookie header:
 	// CookieOrderCreation (empty; Chrome, Firefox: RFC 6265 order, as Go's
 	// cookie jar produces) or CookieOrderName (Safari: sorted by name).

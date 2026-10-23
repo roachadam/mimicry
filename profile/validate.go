@@ -67,10 +67,12 @@ func (p *Profile) Validate() error {
 	} else if alpn != nil && slices.Contains(alpn.ALPN, "h2") {
 		c.add("http2", "is required because ALPN offers h2")
 	}
-	c.checkHeaders(p.Headers)
+	c.checkHeaderList("headers", p.Headers, false)
 	if p.HTTP1 != nil {
-		c.checkHTTP1(p.HTTP1)
+		c.checkHTTP1Headers("http1.headers", p.HTTP1.Headers, false)
 	}
+	c.checkVariants("variants", p.Variants, false)
+	c.checkKinds(p.Kinds)
 	if p.CookieOrder != CookieOrderCreation && p.CookieOrder != CookieOrderName {
 		c.add("cookie_order", "must be empty (creation order) or %q", CookieOrderName)
 	}
@@ -263,44 +265,53 @@ func (c *checker) checkHeaderName(path, name string) {
 	}
 }
 
-func (c *checker) checkHeaders(headers []Header) {
+// checkHeaderList checks an HTTP/2 header list: lowercase names, each once,
+// no pseudo-headers; others allows the OtherHeaders marker.
+func (c *checker) checkHeaderList(path string, headers []Header, others bool) {
 	if len(headers) == 0 {
-		c.add("headers", "is required")
+		c.add(path, "is required")
 	}
 	seen := map[string]bool{}
 	for i, h := range headers {
-		path := fmt.Sprintf("headers[%d]", i)
+		at := fmt.Sprintf("%s[%d]", path, i)
 		switch {
+		case h.Name == OtherHeaders && others:
+		case h.Name == OtherHeaders:
+			c.add(at, "%s belongs only in a kind's lists", OtherHeaders)
 		case h.Name == "":
-			c.add(path, "name is required")
+			c.add(at, "name is required")
 		case strings.HasPrefix(h.Name, ":"):
-			c.add(path, "pseudo-header %s belongs in http2.pseudo_header_order", h.Name)
+			c.add(at, "pseudo-header %s belongs in http2.pseudo_header_order", h.Name)
 		case h.Name != strings.ToLower(h.Name):
-			c.add(path, "name %q must be lowercase", h.Name)
+			c.add(at, "name %q must be lowercase", h.Name)
 		}
 		if seen[h.Name] {
-			c.add(path, "repeats header %s", h.Name)
+			c.add(at, "repeats header %s", h.Name)
 		}
 		seen[h.Name] = true
 	}
 }
 
-// checkHTTP1 checks the HTTP/1.1 header list: any casing, but each name once
-// whatever its case, and a place for Host, which every request carries.
-func (c *checker) checkHTTP1(h *HTTP1) {
+// checkHTTP1Headers checks an HTTP/1.1 header list: any casing, but each
+// name once whatever its case, and a place for Host, which every request
+// carries; others allows the OtherHeaders marker.
+func (c *checker) checkHTTP1Headers(path string, headers []Header, others bool) {
 	seen := map[string]bool{}
-	for i, hd := range h.Headers {
-		path := fmt.Sprintf("http1.headers[%d]", i)
+	for i, hd := range headers {
+		at := fmt.Sprintf("%s[%d]", path, i)
 		lower := strings.ToLower(hd.Name)
 		switch {
+		case hd.Name == OtherHeaders && others:
+		case hd.Name == OtherHeaders:
+			c.add(at, "%s belongs only in a kind's lists", OtherHeaders)
 		case hd.Name == "" || strings.ContainsAny(hd.Name, " :\r\n"):
-			c.add(path, "name %q is not a header name", hd.Name)
+			c.add(at, "name %q is not a header name", hd.Name)
 		case seen[lower]:
-			c.add(path, "repeats header %s", hd.Name)
+			c.add(at, "repeats header %s", hd.Name)
 		}
 		seen[lower] = true
 	}
 	if !seen["host"] {
-		c.add("http1.headers", "must place Host")
+		c.add(path, "must place Host")
 	}
 }
