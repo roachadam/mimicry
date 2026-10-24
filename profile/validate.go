@@ -76,6 +76,9 @@ func (p *Profile) Validate() error {
 	if p.Cookies != nil {
 		c.checkCookies(p.Cookies)
 	}
+	if p.Proxy != nil {
+		c.checkProxy(p.Proxy)
+	}
 	if len(c.problems) > 0 {
 		return &ValidationError{
 			Problems: c.problems,
@@ -332,5 +335,22 @@ func (c *checker) checkHTTP1Headers(path string, headers []Header, others bool) 
 	}
 	if !seen["host"] {
 		c.add(path, "must place Host")
+	}
+}
+
+// checkProxy checks the proxy section: a CONNECT header list that places
+// Host, and a SOCKS5 handshake mimicry can send.
+func (c *checker) checkProxy(p *Proxy) {
+	c.checkHTTP1Headers("proxy.connect", p.Connect, false)
+	if p.ForwardAuthAfter != "" && p.ForwardAuthAfter != strings.ToLower(p.ForwardAuthAfter) {
+		c.add("proxy.forward_auth_after", "name %q must be lowercase", p.ForwardAuthAfter)
+	}
+	if s := p.SOCKS5; s != nil {
+		if len(s.Methods) != 1 || s.Methods[0] != 0 {
+			c.add("proxy.socks5.methods", "must be [0]: other offers are not implemented")
+		}
+		if s.Address != SOCKS5Domain {
+			c.add("proxy.socks5.address", "must be %q: other address types are not implemented", SOCKS5Domain)
+		}
 	}
 }

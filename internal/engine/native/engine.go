@@ -5,8 +5,10 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -31,6 +33,9 @@ type Config struct {
 	RootCAs     *x509.CertPool
 	DialTimeout time.Duration
 	DialContext func(ctx context.Context, network, addr string) (net.Conn, error)
+	// Proxy picks each request's proxy, as http.Transport's does; nil, or
+	// a nil URL, connects directly.
+	Proxy func(*http.Request) (*url.URL, error)
 }
 
 // Engine is the pure-Go engine: pooled connections, one dial path, uTLS
@@ -42,6 +47,7 @@ type Engine struct {
 	clock   clockwork.Clock
 	rootCAs *x509.CertPool
 	dialer  dial.Dialer
+	proxy   func(*http.Request) (*url.URL, error)
 	// tickets keeps TLS session tickets when the profile resumes.
 	tickets *handshake.Tickets
 
@@ -98,7 +104,10 @@ func New(cfg Config) (*Engine, error) {
 		dialer: dial.Dialer{
 			Timeout:     timeout,
 			DialContext: cfg.DialContext,
+			Proxy:       p.Proxy,
+			UserAgent:   userAgent(p),
 		},
+		proxy:   cfg.Proxy,
 		h2:      map[string]*h2.Conn{},
 		idle:    map[string][]idleConn{},
 		dials:   map[string]*dialCall{},
@@ -121,9 +130,31 @@ func (e *Engine) RoundTrip(req *http.Request) (*http.Response, error) {
 	if req.URL.Scheme != "https" && req.URL.Scheme != "http" {
 		return nil, fmt.Errorf("mimicry: unsupported scheme %q", req.URL.Scheme)
 	}
-	key := poolKey(req)
+	r, err := e.route(req)
+	if err != nil {
+		return nil, err
+	}
+	if r.forward {
+		if auth := e.dialer.Authorization(r.proxy); auth != "" {
+			req = withProxyAuth(req, auth)
+		}
+	}
+	answered := false
 	for attempt := 0; ; attempt++ {
-		resp, err := e.try(req, key)
+		resp, err := e.try(req, r)
+		if err == nil && r.forward && !answered && resp.StatusCode == http.StatusProxyAuthRequired && e.dialer.Challenged(r.proxy, resp.Header) {
+			// As browsers do, answer the proxy's challenge once, on the
+			// same connection: read to the end, it goes back to the pool
+			// for the resent request to take.
+			answered = true
+			_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
+			_ = resp.Body.Close()
+			if req, err = fresh(req); err != nil {
+				return nil, err
+			}
+			req = withProxyAuth(req, e.dialer.Authorization(r.proxy))
+			continue
+		}
 		if !errors.Is(err, errRetry) {
 			return resp, err
 		}
@@ -133,33 +164,88 @@ func (e *Engine) RoundTrip(req *http.Request) (*http.Response, error) {
 		if err := req.Context().Err(); err != nil {
 			return nil, err
 		}
-		// The failed attempt may have consumed the body: send a fresh copy,
-		// on a clone so the caller's request is not modified.
-		if req.Body != nil && req.Body != http.NoBody {
-			if req.GetBody == nil {
-				return nil, errors.New("mimicry: connection failed and the request body cannot be resent")
-			}
-			body, err := req.GetBody()
-			if err != nil {
-				return nil, err
-			}
-			req = req.Clone(req.Context())
-			req.Body = body
+		// The failed attempt may have consumed the body: send a fresh copy.
+		if req, err = fresh(req); err != nil {
+			return nil, err
 		}
 	}
 }
 
-// poolKey is the pool a request's connection belongs to: scheme, host and
-// port, and its partition.
-func poolKey(req *http.Request) string {
-	key := req.URL.Scheme + "://" + hostPort(req.URL.Scheme, req.URL.Host)
-	if p := pool.Partition(req.Context()); p != "" {
-		key += " " + p
+// fresh returns req ready to send again: with a new copy of its body, on a
+// clone so the caller's request is not modified.
+func fresh(req *http.Request) (*http.Request, error) {
+	if req.Body == nil || req.Body == http.NoBody {
+		return req, nil
 	}
-	return key
+	if req.GetBody == nil {
+		return nil, errors.New("mimicry: the request must be sent again and its body cannot be resent")
+	}
+	body, err := req.GetBody()
+	if err != nil {
+		return nil, err
+	}
+	req = req.Clone(req.Context())
+	req.Body = body
+	return req, nil
 }
 
-func (e *Engine) try(req *http.Request, key string) (*http.Response, error) {
+// withProxyAuth returns a clone of req carrying Proxy-Authorization, which
+// the HTTP/1.1 writer places as the profile says.
+func withProxyAuth(req *http.Request, auth string) *http.Request {
+	req = req.Clone(req.Context())
+	req.Header.Set("Proxy-Authorization", auth)
+	return req
+}
+
+// route is how a request reaches its server: the connection pool it
+// belongs to, and the proxy it goes through.
+type route struct {
+	// key is the pool: scheme, host and port, partition, and proxy.
+	key string
+	// proxy is nil for a direct connection.
+	proxy *url.URL
+	// forward sends plain-HTTP requests to an HTTP proxy whole, instead of
+	// through a tunnel.
+	forward bool
+}
+
+// route picks req's proxy and pool. Connections and TLS sessions are
+// never shared between proxies, or with direct connections.
+func (e *Engine) route(req *http.Request) (route, error) {
+	r := route{
+		key: req.URL.Scheme + "://" + hostPort(req.URL.Scheme, req.URL.Host),
+	}
+	if p := pool.Partition(req.Context()); p != "" {
+		r.key += " " + p
+	}
+	if e.proxy == nil {
+		return r, nil
+	}
+	p, err := e.proxy(req)
+	if err != nil || p == nil {
+		return r, err
+	}
+	if err := e.dialer.CheckProxy(p); err != nil {
+		return r, err
+	}
+	r.proxy = p
+	r.forward = p.Scheme == dial.SchemeHTTP && req.URL.Scheme == "http"
+	r.key += " via " + p.String()
+	return r, nil
+}
+
+// userAgent is the profile's User-Agent value.
+func userAgent(p *profile.Profile) string {
+	for _, h := range p.Headers {
+		if h.Name == "user-agent" {
+			return h.Value
+		}
+	}
+	return ""
+}
+
+func (e *Engine) try(req *http.Request, r route) (*http.Response, error) {
+	key := r.key
 	e.mu.Lock()
 	if c := e.h2[key]; c != nil {
 		if c.CanTakeNewRequest() {
@@ -186,7 +272,7 @@ func (e *Engine) try(req *http.Request, key string) (*http.Response, error) {
 		// The server speaks HTTP/1.1 only: like a browser, open another
 		// connection at once instead of waiting for one in progress.
 		e.mu.Unlock()
-		conn, proto, err := e.dial(req)
+		conn, proto, err := e.dial(req, r)
 		if err != nil {
 			return nil, err
 		}
@@ -194,7 +280,7 @@ func (e *Engine) try(req *http.Request, key string) (*http.Response, error) {
 			// It changed its mind; use this one and share it from now on.
 			return e.adoptH2(key, conn, req)
 		}
-		return e.roundTripH1(key, h1.New(conn, e.profile), req)
+		return e.roundTripH1(key, e.newH1(conn, r), req)
 	}
 	if call := e.dials[key]; call != nil {
 		e.mu.Unlock()
@@ -213,7 +299,7 @@ func (e *Engine) try(req *http.Request, key string) (*http.Response, error) {
 	e.dials[key] = call
 	e.mu.Unlock()
 
-	conn, proto, err := e.dial(req)
+	conn, proto, err := e.dial(req, r)
 	var hc *h2.Conn
 	if err == nil && proto == "h2" {
 		hc, err = h2.New(conn, e.profile, e.clock)
@@ -243,7 +329,16 @@ func (e *Engine) try(req *http.Request, key string) (*http.Response, error) {
 		}
 		return resp, err
 	}
-	return e.roundTripH1(key, h1.New(conn, e.profile), req)
+	return e.roundTripH1(key, e.newH1(conn, r), req)
+}
+
+// newH1 wraps conn, which carries HTTP/1.1, for the route's requests.
+func (e *Engine) newH1(conn net.Conn, r route) *h1.Conn {
+	c := h1.New(conn, e.profile)
+	if r.forward {
+		c.Forward(e.profile.Proxy)
+	}
+	return c
 }
 
 // adoptH2 makes conn, which negotiated h2, the pool's shared connection for
@@ -270,12 +365,22 @@ func (e *Engine) adoptH2(key string, conn net.Conn, req *http.Request) (*http.Re
 	return resp, err
 }
 
-// dial connects and, for https, performs the profile's TLS handshake. It
-// returns the negotiated protocol ("h2", or HTTP/1.1 otherwise).
-func (e *Engine) dial(req *http.Request) (net.Conn, string, error) {
+// dial connects, through the route's proxy if it has one, and, for https,
+// performs the profile's TLS handshake. It returns the negotiated protocol
+// ("h2", or HTTP/1.1 otherwise).
+func (e *Engine) dial(req *http.Request, r route) (net.Conn, string, error) {
 	ctx := req.Context()
 	addr := hostPort(req.URL.Scheme, req.URL.Host)
-	conn, err := e.dialer.Dial(ctx, addr)
+	var conn net.Conn
+	var err error
+	switch {
+	case r.proxy == nil:
+		conn, err = e.dialer.Dial(ctx, addr)
+	case r.forward:
+		conn, err = e.dialer.DialProxy(ctx, r.proxy)
+	default:
+		conn, err = e.dialer.DialVia(ctx, r.proxy, addr)
+	}
 	if err != nil {
 		return nil, "", err
 	}
@@ -288,9 +393,10 @@ func (e *Engine) dial(req *http.Request) (net.Conn, string, error) {
 	}
 	hello := e.plan.Hello()
 	if e.tickets != nil {
-		// Tickets are kept per connection pool, partition included: a
-		// browser's credential-less connections do not resume its others'.
-		cfg.Tickets, cfg.TicketKey = e.tickets, poolKey(req)
+		// Tickets are kept per connection pool, partition and proxy
+		// included: a browser's credential-less connections do not resume
+		// its others'.
+		cfg.Tickets, cfg.TicketKey = e.tickets, r.key
 		if cfg.Ticket = e.tickets.Take(cfg.TicketKey); cfg.Ticket != nil && cfg.Ticket.TLS13() {
 			// A TLS 1.2 ticket goes in the full hello's session_ticket.
 			hello = e.plan.ResumedHello()

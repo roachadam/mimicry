@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -27,10 +29,26 @@ type Target struct {
 	// CertSHA256 is the SHA-256 of the server certificate (DER), which Firefox
 	// is told to accept.
 	CertSHA256 [32]byte
+	// Proxy, when set, is the proxy the browser goes through
+	// ("http://127.0.0.1:port" or "socks5://127.0.0.1:port").
+	Proxy *url.URL
+	// Plain sends the browser to http:// instead of https://.
+	Plain bool
+	// ProxyAuth, when set, are the credentials the browser answers its
+	// proxy's authentication challenges with: Chrome over the DevTools
+	// protocol, Firefox over WebDriver BiDi, as a user typing them into the
+	// login dialog.
+	ProxyAuth *url.Userinfo
+	// debugPort is Firefox's remote debugging port when ProxyAuth is set.
+	debugPort int
 }
 
 func (t Target) url(host string) string {
-	return "https://" + host + ":" + strconv.Itoa(t.Port) + "/"
+	scheme := "https://"
+	if t.Plain {
+		scheme = "http://"
+	}
+	return scheme + host + ":" + strconv.Itoa(t.Port) + "/"
 }
 
 // Browser is an installed browser that can be launched against a Target.
@@ -139,6 +157,8 @@ type Session struct {
 	// tabURL is set for a shared browser: Close closes its tabs on this URL
 	// rather than stopping the user's browser.
 	tabURL string
+	// devtools is the debugging connection answering proxy challenges.
+	devtools io.Closer
 }
 
 // Open launches b on t. Chrome and Firefox get a new profile directory and
@@ -146,6 +166,9 @@ type Session struct {
 // user's own window, ignores headless, and must trust the server's
 // certificate.
 func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, error) {
+	// Safari takes its proxy from the system (the capture tool's PAC
+	// script) and asks the user for proxy credentials in a dialog: with
+	// ProxyAuth, someone at the screen types them.
 	if b.Shared {
 		url := b.URL(t)
 		if err := exec.CommandContext(ctx, "open", "-a", b.App, url).Run(); err != nil { //nolint:gosec // the app is a known browser location
@@ -159,12 +182,21 @@ func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, 
 	if err != nil {
 		return nil, err
 	}
+	// Firefox meets the proxy challenge on its first page, so with ProxyAuth
+	// it starts on about:blank and is navigated once the intercept is set.
+	bidi := t.ProxyAuth != nil && b.Name == "firefox"
+	if bidi {
+		if t.debugPort, err = freePort(); err != nil {
+			_ = os.RemoveAll(dir)
+			return nil, err
+		}
+	}
 	args, err := b.prepare(dir, t, headless)
 	if err != nil {
 		_ = os.RemoveAll(dir)
 		return nil, err
 	}
-	if b.warmup > 0 {
+	if b.warmup > 0 || bidi {
 		args = append(args, "about:blank")
 	} else {
 		args = append(args, b.URL(t))
@@ -191,6 +223,20 @@ func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, 
 		_ = cmd.Wait()
 		close(s.done)
 	}()
+	if t.ProxyAuth != nil {
+		switch {
+		case bidi:
+			s.devtools, err = firefoxAuth(ctx, t.debugPort, b.URL(t), t.ProxyAuth)
+		case b.Name == "chrome":
+			s.devtools, err = chromeAuth(ctx, dir, t.ProxyAuth)
+		default:
+			err = fmt.Errorf("%s cannot be given proxy credentials", b.Name)
+		}
+		if err != nil {
+			_ = s.Close()
+			return nil, err
+		}
+	}
 	if b.warmup > 0 {
 		if err := b.handOff(ctx, s, dir, b.URL(t)); err != nil {
 			_ = s.Close()
@@ -219,6 +265,9 @@ func (b *Browser) handOff(ctx context.Context, s *Session, dir, url string) erro
 // Close stops the browser, killing it if it has not exited within five
 // seconds, and removes its profile. For Safari it closes the capture tab.
 func (s *Session) Close() error {
+	if s.devtools != nil {
+		_ = s.devtools.Close()
+	}
 	if s.tabURL != "" {
 		script := `tell application "Safari" to close (every tab of every window whose URL starts with "` + s.tabURL + `")`
 		if out, err := exec.Command("osascript", "-e", script).CombinedOutput(); err != nil { //nolint:noctx,gosec // must run after the caller's context ends; the URL is ours
@@ -282,6 +331,12 @@ func chromeArgs(dir string, t Target, headless bool) ([]string, error) {
 		// Certificate checks happen after the ClientHello and do not change it.
 		"--ignore-certificate-errors",
 	}
+	if t.Proxy != nil {
+		args = append(args, "--proxy-server="+t.Proxy.String())
+	}
+	if t.ProxyAuth != nil {
+		args = append(args, "--remote-debugging-port=0", "--remote-allow-origins="+debugOrigin)
+	}
 	if headless {
 		args = append(args, "--headless=new")
 	}
@@ -305,6 +360,31 @@ func firefoxProfile(dir string, t Target, headless bool) ([]string, error) {
 	if len(t.Hosts) > 0 {
 		prefs = append(prefs, `user_pref("security.enterprise_roots.enabled", true);`)
 	}
+	if t.Proxy != nil {
+		host, port := t.Proxy.Hostname(), t.Proxy.Port()
+		prefs = append(prefs, `user_pref("network.proxy.type", 1);`)
+		switch t.Proxy.Scheme {
+		case "socks5":
+			prefs = append(prefs,
+				`user_pref("network.proxy.socks", "`+host+`");`,
+				`user_pref("network.proxy.socks_port", `+port+`);`,
+				`user_pref("network.proxy.socks_version", 5);`,
+			)
+		default:
+			prefs = append(prefs,
+				`user_pref("network.proxy.http", "`+host+`");`,
+				`user_pref("network.proxy.http_port", `+port+`);`,
+				`user_pref("network.proxy.ssl", "`+host+`");`,
+				`user_pref("network.proxy.ssl_port", `+port+`);`,
+			)
+		}
+	}
+	if t.ProxyAuth != nil {
+		// The remote agent otherwise applies its "recommended" automation
+		// preferences, some of which change networking (speculative
+		// connections, captive-portal checks).
+		prefs = append(prefs, `user_pref("remote.prefs.recommended", false);`)
+	}
 	if err := os.WriteFile(filepath.Join(dir, "user.js"), []byte(strings.Join(prefs, "\n")+"\n"), 0o600); err != nil {
 		return nil, err
 	}
@@ -314,6 +394,9 @@ func firefoxProfile(dir string, t Target, headless bool) ([]string, error) {
 	args := []string{
 		"--profile", dir,
 		"--new-instance",
+	}
+	if t.ProxyAuth != nil {
+		args = append(args, "--remote-debugging-port", strconv.Itoa(t.debugPort), "--remote-allow-origins", debugOrigin)
 	}
 	if headless {
 		args = append(args, "--headless")

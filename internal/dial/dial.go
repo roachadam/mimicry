@@ -2,34 +2,235 @@ package dial
 
 import (
 	"context"
+	"encoding/base64"
+	"errors"
+	"fmt"
 	"net"
+	"net/http"
+	"net/url"
+	"slices"
+	"strings"
+	"sync"
 	"time"
+
+	"github.com/roachadam/mimicry/internal/proxy"
+	"github.com/roachadam/mimicry/profile"
 )
 
-// Dialer opens TCP connections. It is the one place connections start;
-// proxies and resolver policy plug in here.
+// Dialer opens TCP connections, directly or through a proxy. It is the one
+// place connections start.
 type Dialer struct {
-	// Timeout bounds the TCP connect, on top of the context's deadline.
+	// Timeout bounds the connect (through a proxy: to the proxy, and the
+	// proxy's handshake), on top of the context's deadline.
 	Timeout time.Duration
-	// DialContext, when set, opens the connection instead of net.Dialer;
-	// Timeout still bounds it.
+	// DialContext, when set, opens the connection (to the proxy, when
+	// there is one) instead of net.Dialer; Timeout still bounds it.
 	DialContext func(ctx context.Context, network, addr string) (net.Conn, error)
+	// Proxy is how the profile's browser talks to proxies; nil (not
+	// measured) makes proxies an error.
+	Proxy *profile.Proxy
+	// UserAgent is the profile's, which CONNECT requests carry.
+	UserAgent string
+
+	// asked holds the proxies (by URL) that have asked for credentials:
+	// browsers send them unasked from then on.
+	asked sync.Map
 }
 
 // Dial connects to addr ("host:port"). It honours ctx's cancellation and
 // deadline.
 func (d *Dialer) Dial(ctx context.Context, addr string) (net.Conn, error) {
+	if d.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, d.Timeout)
+		defer cancel()
+	}
+	return d.dial(ctx, addr)
+}
+
+func (d *Dialer) dial(ctx context.Context, addr string) (net.Conn, error) {
 	if d.DialContext != nil {
-		if d.Timeout > 0 {
-			var cancel context.CancelFunc
-			ctx, cancel = context.WithTimeout(ctx, d.Timeout)
-			defer cancel()
-		}
 		return d.DialContext(ctx, "tcp", addr)
 	}
 	nd := net.Dialer{
-		Timeout:   d.Timeout,
 		KeepAlive: 30 * time.Second,
 	}
 	return nd.DialContext(ctx, "tcp", addr)
+}
+
+// Supported proxy URL schemes.
+const (
+	SchemeHTTP    = "http"
+	SchemeSOCKS5  = "socks5"
+	SchemeSOCKS5H = "socks5h"
+)
+
+// CheckProxy reports whether the profile can go through p.
+func (d *Dialer) CheckProxy(p *url.URL) error {
+	switch {
+	case p.Scheme != SchemeHTTP && p.Scheme != SchemeSOCKS5 && p.Scheme != SchemeSOCKS5H:
+		return fmt.Errorf("mimicry: proxy scheme %q is not supported (http, socks5, socks5h)", p.Scheme)
+	case p.Host == "":
+		return fmt.Errorf("mimicry: proxy URL %q has no host", p.Redacted())
+	case d.Proxy == nil:
+		return errors.New("mimicry: the profile does not describe how its browser talks to proxies (not measured)")
+	case p.Scheme != SchemeHTTP && d.Proxy.SOCKS5 == nil:
+		return errors.New("mimicry: the profile does not describe its browser's SOCKS5 handshake (not measured)")
+	case p.Scheme == SchemeHTTP && p.User != nil && !slices.ContainsFunc(d.Proxy.Connect, func(h profile.Header) bool {
+		return strings.EqualFold(h.Name, "proxy-authorization")
+	}):
+		return errors.New("mimicry: the profile does not describe how its browser gives a proxy credentials (not measured)")
+	}
+	return nil
+}
+
+// DialProxy connects to the proxy p itself, for plain-HTTP requests sent
+// to it whole.
+func (d *Dialer) DialProxy(ctx context.Context, p *url.URL) (net.Conn, error) {
+	return d.Dial(ctx, proxyAddr(p))
+}
+
+// DialVia connects to addr through the proxy p: an HTTP proxy's CONNECT
+// tunnel or a SOCKS5 connection, as the profile's browser asks for them.
+func (d *Dialer) DialVia(ctx context.Context, p *url.URL, addr string) (net.Conn, error) {
+	if d.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, d.Timeout)
+		defer cancel()
+	}
+	conn, err := d.dial(ctx, proxyAddr(p))
+	if err != nil {
+		return nil, err
+	}
+	if p.Scheme == SchemeHTTP {
+		return d.connect(ctx, conn, p, addr)
+	}
+	methods := make([]byte, 0, len(d.Proxy.SOCKS5.Methods)+1)
+	for _, m := range d.Proxy.SOCKS5.Methods {
+		if m < 0 || m > 255 {
+			_ = conn.Close()
+			return nil, fmt.Errorf("mimicry: SOCKS5 method %d is not a byte", m)
+		}
+		methods = append(methods, byte(m))
+	}
+	if p.User != nil {
+		// Browsers do not authenticate to SOCKS5 proxies: with credentials
+		// in the URL, username and password are offered too.
+		methods = append(methods, proxy.MethodUser)
+	}
+	if err := proxy.SOCKS5(ctx, conn, addr, methods, p.User); err != nil {
+		_ = conn.Close()
+		return nil, fmt.Errorf("mimicry: proxy %s: %w", p.Host, err)
+	}
+	return conn, nil
+}
+
+// connect opens a CONNECT tunnel on conn, closing it on failure.
+// Credentials go only to a proxy that has asked for them, as browsers send
+// them: a 407 is answered once, on the same connection (a new one if the
+// proxy closed it), and later CONNECTs carry them unasked.
+func (d *Dialer) connect(ctx context.Context, conn net.Conn, p *url.URL, addr string) (net.Conn, error) {
+	auth := d.Authorization(p)
+	answer, tunnel, err := proxy.Connect(ctx, conn, addr, d.connectHeader(addr, auth))
+	switch {
+	case err != nil:
+		_ = conn.Close()
+		return nil, fmt.Errorf("mimicry: proxy %s: %w", p.Host, err)
+	case answer.StatusCode/100 == 2:
+		return tunnel, nil
+	case answer.StatusCode != http.StatusProxyAuthRequired || auth != "" || p.User == nil:
+		_ = conn.Close()
+		return nil, fmt.Errorf("mimicry: proxy %s answered CONNECT with %s", p.Host, answer.Status)
+	}
+	if err := basicChallenge(answer.Header); err != nil {
+		_ = conn.Close()
+		return nil, fmt.Errorf("mimicry: proxy %s: %w", p.Host, err)
+	}
+	d.asked.Store(p.String(), true)
+	conn = tunnel
+	if answer.Close {
+		_ = conn.Close()
+		if conn, err = d.dial(ctx, proxyAddr(p)); err != nil {
+			return nil, err
+		}
+	}
+	answer, tunnel, err = proxy.Connect(ctx, conn, addr, d.connectHeader(addr, d.Authorization(p)))
+	switch {
+	case err != nil:
+		_ = conn.Close()
+		return nil, fmt.Errorf("mimicry: proxy %s: %w", p.Host, err)
+	case answer.StatusCode/100 != 2:
+		_ = conn.Close()
+		return nil, fmt.Errorf("mimicry: proxy %s answered CONNECT with credentials with %s", p.Host, answer.Status)
+	}
+	return tunnel, nil
+}
+
+// Challenged records that p asked for credentials (a 407 with header h)
+// on a plain-HTTP request, and reports whether they can be given: p has
+// them and asks for Basic. From then on Authorization returns them.
+func (d *Dialer) Challenged(p *url.URL, h http.Header) bool {
+	if p.User == nil || basicChallenge(h) != nil {
+		return false
+	}
+	d.asked.Store(p.String(), true)
+	return true
+}
+
+// Authorization returns the Proxy-Authorization value to send p unasked:
+// its Basic credentials once it has asked for them, else "".
+func (d *Dialer) Authorization(p *url.URL) string {
+	if _, ok := d.asked.Load(p.String()); !ok || p.User == nil {
+		return ""
+	}
+	password, _ := p.User.Password()
+	return "Basic " + base64.StdEncoding.EncodeToString([]byte(p.User.Username()+":"+password))
+}
+
+// connectHeader is the profile's CONNECT header list for addr: Host is
+// addr, User-Agent the profile's, Proxy-Authorization auth (left out when
+// empty).
+func (d *Dialer) connectHeader(addr, auth string) []string {
+	lines := make([]string, 0, len(d.Proxy.Connect))
+	for _, h := range d.Proxy.Connect {
+		value := h.Value
+		switch strings.ToLower(h.Name) {
+		case "host":
+			value = addr
+		case "user-agent":
+			if value == "" {
+				value = d.UserAgent
+			}
+		case "proxy-authorization":
+			if auth == "" {
+				continue
+			}
+			value = auth
+		}
+		lines = append(lines, h.Name+": "+value)
+	}
+	return lines
+}
+
+// basicChallenge checks that a 407's header h offers Basic authentication,
+// the only scheme supported.
+func basicChallenge(h http.Header) error {
+	for _, c := range h.Values("Proxy-Authenticate") {
+		if scheme, _, _ := strings.Cut(strings.TrimSpace(c), " "); strings.EqualFold(scheme, "basic") {
+			return nil
+		}
+	}
+	return fmt.Errorf("proxy asks for authentication by %q, and only Basic is supported", h.Values("Proxy-Authenticate"))
+}
+
+// proxyAddr is p's host and port; without a port, the scheme's default.
+func proxyAddr(p *url.URL) string {
+	if p.Port() != "" {
+		return p.Host
+	}
+	port := "1080"
+	if p.Scheme == SchemeHTTP {
+		port = "80"
+	}
+	return net.JoinHostPort(p.Hostname(), port)
 }

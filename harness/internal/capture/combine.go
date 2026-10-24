@@ -45,6 +45,9 @@ func Combine(samples []*Capture) (*Capture, error) {
 		if s.Page != nil {
 			first.SamplePages = append(first.SamplePages, s.Page)
 		}
+		if len(s.Proxy) > 0 {
+			first.SampleProxy = append(first.SampleProxy, s.Proxy)
+		}
 	}
 	return first, nil
 }

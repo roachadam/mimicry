@@ -8,9 +8,12 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/textproto"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/net/http2/hpack"
 
 	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/profile"
@@ -37,6 +40,15 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 		if !ok || !ok2 {
 			return fmt.Errorf("bad request line %q", line)
 		}
+		// A request to a proxy names the whole URL (absolute form). Through
+		// the capture proxy a browser also sends its own background requests
+		// (update checks, captive-portal probes): those are answered 404 and
+		// not recorded.
+		foreign := false
+		if u, err := url.Parse(target); err == nil && u.IsAbs() {
+			target = u.RequestURI()
+			foreign = !strings.HasSuffix(u.Hostname(), ".test")
+		}
 		req := capture.H1Request{
 			Conn: id,
 			Host: host,
@@ -48,6 +60,7 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 		}
 		var length int64
 		chunked := false
+		proxyAuth := ""
 		for {
 			h, err := tp.ReadLine()
 			if err != nil {
@@ -73,15 +86,19 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 				ask.origin = value
 			case "access-control-request-headers":
 				ask.preflightHeaders = value
+			case "proxy-authorization":
+				proxyAuth = value
 			}
 		}
-		log.add(req)
-		log.request(c)
-		// After /done the capture belongs to its receiver.
-		if !c.Finished {
-			c.H1 = append(c.H1, req)
-			if len(c.Profile.Headers) == 0 {
-				c.Profile.Headers = profileHeaders(req.Headers)
+		if !foreign {
+			log.add(req)
+			log.request(c)
+			// After /done the capture belongs to its receiver.
+			if !c.Finished {
+				c.H1 = append(c.H1, req)
+				if len(c.Profile.Headers) == 0 {
+					c.Profile.Headers = profileHeaders(req.Headers)
+				}
 			}
 		}
 
@@ -110,7 +127,27 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 
 		ask.uploaded = int(uploaded)
 		r := sc.answer(ask)
-		if target == "/done" && !c.Finished {
+		challenged := false
+		switch {
+		case foreign:
+			r = response{
+				status:      http.StatusNotFound,
+				contentType: "text/plain",
+			}
+		case sc.Plain && sc.ProxyAuth && proxyAuth != ProxyAuthorization():
+			challenged = true
+			r = response{
+				status:      http.StatusProxyAuthRequired,
+				contentType: "text/plain",
+				headers: []hpack.HeaderField{
+					{
+						Name:  "Proxy-Authenticate",
+						Value: `Basic realm="mimicry capture"`,
+					},
+				},
+			}
+		}
+		if target == "/done" && !c.Finished && !foreign && !challenged {
 			if sc.multi != nil {
 				c.Page = log.page()
 				c.H1 = nil

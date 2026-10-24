@@ -102,19 +102,9 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 	if err := conn.SetDeadline(time.Now().Add(timeout)); err != nil {
 		return err
 	}
-	raw, msg, err := readClientHello(conn)
-	if err != nil {
-		return err
-	}
-	t, err := ParseClientHello(msg)
-	if err != nil {
-		return err
-	}
 	c := &capture.Capture{
-		ClientHello: msg,
-		Scenario:    sc.Name,
+		Scenario: sc.Name,
 	}
-	c.Profile.TLS = t
 	emitted := false
 	emit := func() {
 		if !emitted && s.OnCapture != nil {
@@ -123,6 +113,23 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 		}
 	}
 	defer emit()
+	if sc.Plain {
+		c.Protocol = "http/1.1"
+		if err := serveHTTP1(conn, "", c, sc, log, emit); !isClosed(err) {
+			return err
+		}
+		return nil
+	}
+	raw, msg, err := readClientHello(conn)
+	if err != nil {
+		return err
+	}
+	t, err := ParseClientHello(msg)
+	if err != nil {
+		return err
+	}
+	c.ClientHello = msg
+	c.Profile.TLS = t
 
 	tlsConn := tls.Server(&replayConn{
 		Conn: conn,

@@ -27,6 +27,8 @@ type Conn struct {
 	// with lowercase names (for headerorder) and each name's casing.
 	h1Order []profile.Header
 	h1Case  map[string]string
+	// forward, when set, sends requests whole to an HTTP proxy (Forward).
+	forward *profile.Proxy
 }
 
 // New wraps conn, which carries HTTP/1.1, plain or over TLS, for profile p.
@@ -41,6 +43,14 @@ func New(conn net.Conn, p *profile.Profile) *Conn {
 		c.h1Order, c.h1Case = lowerList(p.HTTP1.Headers)
 	}
 	return c
+}
+
+// Forward makes c send its requests to an HTTP proxy as the profile's
+// browser does (p): absolute-form request lines, Connection under p's
+// ForwardConnection name, and a request's Proxy-Authorization header where
+// p's ForwardAuthAfter places it.
+func (c *Conn) Forward(p *profile.Proxy) {
+	c.forward = p
 }
 
 // lowerList returns an HTTP/1.1 header list with lowercase names, for
@@ -132,7 +142,17 @@ func (c *Conn) writeRequest(req *http.Request) error {
 	if host == "" {
 		host = req.URL.Host
 	}
-	if _, err := fmt.Fprintf(c.bw, "%s %s HTTP/1.1\r\n", req.Method, req.URL.RequestURI()); err != nil {
+	target := req.URL.RequestURI()
+	reqHeader := req.Header
+	auth := ""
+	if c.forward != nil {
+		target = req.URL.Scheme + "://" + req.URL.Host + target
+		if auth = reqHeader.Get("Proxy-Authorization"); auth != "" {
+			reqHeader = reqHeader.Clone()
+			reqHeader.Del("Proxy-Authorization")
+		}
+	}
+	if _, err := fmt.Fprintf(c.bw, "%s %s HTTP/1.1\r\n", req.Method, target); err != nil {
 		return err
 	}
 	hasBody := req.Body != nil && req.Body != http.NoBody
@@ -158,7 +178,7 @@ func (c *Conn) writeRequest(req *http.Request) error {
 	var fields []headerorder.Field
 	if h1Order != nil {
 		// The profile places every header, Host and framing included.
-		h := req.Header.Clone()
+		h := reqHeader.Clone()
 		if h == nil {
 			h = http.Header{}
 		}
@@ -183,16 +203,31 @@ func (c *Conn) writeRequest(req *http.Request) error {
 				Value: v[0],
 			})
 		}
-		fields = append(fields, headerorder.Build(headers, req.Header, skipHeader)...)
+		fields = append(fields, headerorder.Build(headers, reqHeader, skipHeader)...)
 	}
 	for _, f := range fields {
 		name := h1Case[f.Name]
 		if name == "" {
 			// A header the profile does not name goes out as the caller
 			// spelled it, as browsers send a page's own headers.
-			name = callerCase(req.Header, f.Name)
+			name = callerCase(reqHeader, f.Name)
+		}
+		if c.forward != nil && f.Name == "connection" && c.forward.ForwardConnection != "" {
+			name = c.forward.ForwardConnection
 		}
 		if _, err := c.bw.WriteString(name + ": " + f.Value + "\r\n"); err != nil {
+			return err
+		}
+		if auth != "" && f.Name == c.forward.ForwardAuthAfter {
+			if _, err := c.bw.WriteString("Proxy-Authorization: " + auth + "\r\n"); err != nil {
+				return err
+			}
+			auth = ""
+		}
+	}
+	if auth != "" {
+		// Last, or where its slot's header was not sent.
+		if _, err := c.bw.WriteString("Proxy-Authorization: " + auth + "\r\n"); err != nil {
 			return err
 		}
 	}

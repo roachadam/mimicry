@@ -37,6 +37,9 @@ type Profile struct {
 	// Cookies are the browser's cookie rules. Nil: RFC 6265bis's
 	// (DefaultCookies).
 	Cookies *Cookies `json:"cookies,omitempty"`
+	// Proxy is how the browser talks to HTTP and SOCKS5 proxies. Nil: not
+	// measured, so sending through a proxy is an error.
+	Proxy *Proxy `json:"proxy,omitempty"`
 }
 
 // HTTP1 describes a browser's HTTP/1.1 requests.

@@ -43,8 +43,20 @@ type Config struct {
 	DialTimeout time.Duration
 	// DialContext opens TCP connections, as http.Transport's does (to pin a
 	// host to an address, or dial through your own network code); TLS and
-	// everything above stay the profile's. Nil uses net.Dialer.
+	// everything above stay the profile's. Through a proxy it reaches the
+	// proxy. Nil uses net.Dialer.
 	DialContext func(ctx context.Context, network, addr string) (net.Conn, error)
+	// Proxy returns the proxy for a request, as http.Transport's does
+	// (http.ProxyURL, http.ProxyFromEnvironment); nil, or a nil URL,
+	// connects directly. An "http" proxy tunnels https requests with
+	// CONNECT and takes http requests whole; "socks5" and "socks5h" tunnel
+	// both, the proxy resolving host names either way. The proxy sees what
+	// the profile's browser sends it (its proxy section; a profile without
+	// one cannot use proxies); the server sees what it would without the
+	// proxy. Credentials in the URL go as the browser sends them: once the
+	// proxy asks (407), then unasked. Each proxy has its own connections and
+	// TLS sessions.
+	Proxy func(*http.Request) (*url.URL, error)
 	// Engine replaces the pure-Go engine; Profile, RootCAs and DialTimeout
 	// are then ignored by the engine, which also ignores request kinds'
 	// header lists and priorities.
@@ -91,6 +103,7 @@ func NewTransport(cfg Config) (*Transport, error) {
 			RootCAs:     cfg.RootCAs,
 			DialTimeout: cfg.DialTimeout,
 			DialContext: cfg.DialContext,
+			Proxy:       cfg.Proxy,
 		})
 		if err != nil {
 			return nil, err

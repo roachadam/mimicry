@@ -1,0 +1,459 @@
+package e2e
+
+import (
+	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"io/fs"
+	"net"
+	"net/http"
+	"net/url"
+	"os"
+	"slices"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/roachadam/mimicry"
+	"github.com/roachadam/mimicry/harness/internal/capture"
+	"github.com/roachadam/mimicry/harness/internal/diff"
+	"github.com/roachadam/mimicry/harness/internal/proxy"
+	"github.com/roachadam/mimicry/harness/internal/server"
+	"github.com/roachadam/mimicry/profile"
+	"github.com/roachadam/mimicry/profiles"
+)
+
+// mimicry asks proxies for connections as the browser does, against the
+// browser's own captures through the capture proxy: the CONNECT request
+// line for line; the SOCKS5 handshake byte for byte; with credentials, the
+// challenge first, the retry on the same connection and credentials unasked
+// from then on, with Proxy-Authorization where the browser puts it; and a
+// plain-HTTP request in absolute form with the browser's Connection or
+// Proxy-Connection. What goes through a tunnel is the profile's direct
+// ClientHello. (A plain-HTTP request's other headers are those of a
+// non-secure origin, not compared here.)
+func TestProxyMatchesBrowser(t *testing.T) {
+	for _, name := range profiles.Names() {
+		t.Run(name, func(t *testing.T) {
+			p, err := profiles.ByName(name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Run("connect", func(t *testing.T) {
+				want := loadSamples[[]capture.ProxyRequest](t, name+".proxy-connect.proxytrace.json")
+				s := startProxied(t, p, scenario(t, "proxy-connect"), nil)
+				s.get("https", server.CaptureHost)
+				got := s.proxy.Requests()
+				if len(got) != 1 {
+					t.Fatalf("%d proxy requests, want 1: %v", len(got), got)
+				}
+				if !slices.ContainsFunc(want, func(sample []capture.ProxyRequest) bool {
+					return slices.Equal(portless(firstOK(sample).Lines), portless(got[0].Lines))
+				}) {
+					t.Errorf("CONNECT:\n got %q\nwant %q", portless(got[0].Lines), portless(firstOK(want[0]).Lines))
+				}
+				s.checkTunnelledHello(p)
+			})
+			t.Run("socks5", func(t *testing.T) {
+				want := loadSamples[[]capture.ProxyRequest](t, name+".proxy-socks5.proxytrace.json")
+				s := startProxied(t, p, scenario(t, "proxy-socks5"), nil)
+				s.get("https", server.CaptureHost)
+				got := s.proxy.Requests()
+				if len(got) != 1 {
+					t.Fatalf("%d proxy requests, want 1: %v", len(got), got)
+				}
+				w := want[0][0]
+				if got[0].Greeting != w.Greeting || socksPortless(got[0].Request) != socksPortless(w.Request) {
+					t.Errorf("SOCKS5:\n got %s %s\nwant %s %s", got[0].Greeting, got[0].Request, w.Greeting, w.Request)
+				}
+				s.checkTunnelledHello(p)
+			})
+			t.Run("auth", func(t *testing.T) {
+				wantFlow := loadSamples[[]capture.ProxyRequest](t, name+".proxy-auth.proxytrace.json")
+				sc := scenario(t, "proxy-auth")
+				hosts, _, _ := sc.MultiHost()
+				s := startProxied(t, p, sc, url.UserPassword(server.ProxyUser, server.ProxyPassword))
+				// A new tunnel each time.
+				for range 3 {
+					s.get("https", hosts[0])
+					s.tr.CloseIdleConnections()
+				}
+				got := connectFlow(s.proxy.Requests())
+				for i, sample := range wantFlow {
+					if w := connectFlow(sample)[:len(got)]; !slices.Equal(got, w) {
+						t.Errorf("CONNECT flow (connection, status, credentials) against sample %d:\n got %v\nwant %v", i+1, got, w)
+					}
+				}
+				authed := firstOK(s.proxy.Requests())
+				if w := firstOK(wantFlow[0]); !slices.Equal(portless(authed.Lines), portless(w.Lines)) {
+					t.Errorf("CONNECT with credentials:\n got %q\nwant %q", portless(authed.Lines), portless(w.Lines))
+				}
+			})
+			t.Run("plain", func(t *testing.T) {
+				want := loadSamples[[]capture.H1Request](t, name+".proxy-plain.h1trace.json")
+				s := startProxied(t, p, scenario(t, "proxy-plain"), nil)
+				s.get("http", server.CaptureHost)
+				got := s.h1()
+				if g, w := forwardFraming(got[0]), forwardFraming(want[0][0]); g != w {
+					t.Errorf("forwarded request:\n got %s\nwant %s", g, w)
+				}
+			})
+			t.Run("plain-auth", func(t *testing.T) {
+				want := loadSamples[[]capture.H1Request](t, name+".proxy-plain-auth.h1trace.json")
+				s := startProxied(t, p, scenario(t, "proxy-plain-auth"), url.UserPassword(server.ProxyUser, server.ProxyPassword))
+				s.get("http", server.CaptureHost)
+				s.get("http", server.CaptureHost)
+				got := s.h1()
+				g, w := forwardAuthFlow(got), forwardAuthFlow(want[0])[:len(got)]
+				if !slices.Equal(g, w) {
+					t.Errorf("forwarded requests (connection, credentials):\n got %v\nwant %v", g, w)
+				}
+				if g, w := authPlace(got[1].Headers), authPlace(want[0][1].Headers); g != w {
+					t.Errorf("Proxy-Authorization on a forwarded request: got %s, want %s", g, w)
+				}
+			})
+		})
+	}
+}
+
+// What a profile does not describe is an error, not a guess: any proxy
+// for a profile without a proxy section, and proxy credentials for one
+// whose browser's way with them is not measured (Safari's: macOS asks for
+// them in System Settings, never in a challenge dialog).
+func TestUnmeasuredProxyIsAnError(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		profile string
+		strip   bool
+		user    *url.Userinfo
+	}{
+		{"no proxy section", "chrome-155-macos", true, nil},
+		{"credentials not measured", "safari-27-macos", false, url.UserPassword("u", "p")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p, err := profiles.ByName(tc.profile)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tc.strip {
+				p.Proxy = nil
+			}
+			tr, err := mimicry.NewTransport(mimicry.Config{
+				Profile: p,
+				Proxy: http.ProxyURL(&url.URL{
+					Scheme: "http",
+					Host:   "127.0.0.1:1",
+					User:   tc.user,
+				}),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "https://example.test/", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := tr.RoundTrip(req); err == nil || !strings.Contains(err.Error(), "not measured") {
+				t.Fatalf("got %v, want an error saying it is not measured", err)
+			}
+		})
+	}
+}
+
+// proxySession is a capture server behind the capture proxy, and a mimicry
+// transport for a profile using that proxy.
+type proxySession struct {
+	t        *testing.T
+	tr       *mimicry.Transport
+	proxy    *proxy.Proxy
+	port     string
+	pool     *x509.CertPool
+	captures chan *capture.Capture
+}
+
+func startProxied(t *testing.T, p *profile.Profile, sc *server.Scenario, user *url.Userinfo) *proxySession {
+	t.Helper()
+	ca, err := server.LoadOrCreateCA(t.TempDir(), server.CADomains, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cert, err := ca.Issue(server.CAHosts, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &proxySession{
+		t:        t,
+		pool:     x509.NewCertPool(),
+		captures: make(chan *capture.Capture, 64),
+		// Behind a proxy the port is only named, never dialled.
+		port: "8443",
+		proxy: &proxy.Proxy{
+			Allow: func(host string) bool {
+				return strings.HasSuffix(host, ".test")
+			},
+			Plain: sc.Plain,
+			Logf:  t.Logf,
+		},
+	}
+	if sc.ProxyAuth {
+		s.proxy.Auth = server.ProxyAuthorization()
+	}
+	s.pool.AddCert(ca.Cert)
+	srv := &server.Server{
+		Scenario: sc,
+		TLSConfig: &tls.Config{
+			Certificates: []tls.Certificate{
+				cert,
+			},
+		},
+		IssueCert: func(hosts []string) (tls.Certificate, error) {
+			return ca.Issue(hosts, time.Now())
+		},
+		OnCapture: func(c *capture.Capture) {
+			s.captures <- c
+		},
+		Logf: t.Logf,
+	}
+	pln, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	served, proxied := make(chan error, 1), make(chan error, 1)
+	go func() {
+		proxied <- s.proxy.Serve(ctx, pln)
+	}()
+	go func() {
+		served <- srv.Serve(ctx, s.proxy.Listener())
+	}()
+	t.Cleanup(func() {
+		cancel()
+		for _, ch := range []chan error{served, proxied} {
+			if err := <-ch; err != nil && !errors.Is(err, net.ErrClosed) {
+				t.Error(err)
+			}
+		}
+	})
+	s.tr, err = mimicry.NewTransport(mimicry.Config{
+		Profile: p,
+		RootCAs: s.pool,
+		Proxy: http.ProxyURL(&url.URL{
+			Scheme: sc.Proxy,
+			Host:   pln.Addr().String(),
+			User:   user,
+		}),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(s.tr.CloseIdleConnections)
+	return s
+}
+
+// get requests host's page over scheme and reads it.
+func (s *proxySession) get(scheme, host string) {
+	s.t.Helper()
+	req, err := http.NewRequestWithContext(s.t.Context(), http.MethodGet, scheme+"://"+net.JoinHostPort(host, s.port)+"/", nil)
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	resp, err := s.tr.RoundTrip(req)
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	_, _ = io.Copy(io.Discard, resp.Body)
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		s.t.Fatalf("%s: %s", req.URL, resp.Status)
+	}
+}
+
+// capture closes mimicry's connections, which completes the capture of
+// the one used.
+func (s *proxySession) capture() *capture.Capture {
+	s.t.Helper()
+	s.tr.CloseIdleConnections()
+	for {
+		select {
+		case c := <-s.captures:
+			if c.Complete() {
+				return c
+			}
+		case <-time.After(10 * time.Second):
+			s.t.Fatal("no capture")
+		}
+	}
+}
+
+// h1 returns the HTTP/1.1 requests the server recorded.
+func (s *proxySession) h1() []capture.H1Request {
+	s.t.Helper()
+	return s.capture().H1
+}
+
+// checkTunnelledHello checks that the ClientHello through the tunnel is
+// the profile's.
+func (s *proxySession) checkTunnelledHello(p *profile.Profile) {
+	s.t.Helper()
+	c := s.capture()
+	got := profile.Profile{
+		TLS: c.Profile.TLS,
+	}
+	want := profile.Profile{
+		TLS: p.TLS,
+	}
+	got.TLS.ExtensionOrder, want.TLS.ExtensionOrder = p.TLS.ExtensionOrder, p.TLS.ExtensionOrder
+	for _, d := range diff.Compare(&want, &got) {
+		s.t.Errorf("ClientHello through the tunnel: %s", d)
+	}
+}
+
+func scenario(t *testing.T, name string) *server.Scenario {
+	t.Helper()
+	sc, err := server.ScenarioByName(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return sc
+}
+
+// loadSamples reads a capture's samples, skipping the test when the
+// browser has none.
+func loadSamples[T any](t *testing.T, file string) []T {
+	t.Helper()
+	path := captureDir + file
+	var data []byte
+	var err error
+	if strings.HasSuffix(file, ".gz") {
+		var pages []*capture.Page
+		pages, err = capture.LoadPages(path)
+		if err == nil {
+			data, err = json.Marshal(pages)
+		}
+	} else {
+		data, err = os.ReadFile(path)
+	}
+	if errors.Is(err, fs.ErrNotExist) {
+		t.Skipf("no capture %s", file)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	var samples []T
+	if err := json.Unmarshal(data, &samples); err != nil {
+		t.Fatal(err)
+	}
+	return samples
+}
+
+// firstOK is the first CONNECT the proxy let through.
+func firstOK(sample []capture.ProxyRequest) capture.ProxyRequest {
+	for _, r := range sample {
+		if r.Status == http.StatusOK {
+			return r
+		}
+	}
+	return capture.ProxyRequest{}
+}
+
+// portless replaces ports after .test hosts.
+func portless(lines []string) []string {
+	out := make([]string, len(lines))
+	for i, l := range lines {
+		out[i] = testPort.ReplaceAllString(l, ".test:PORT")
+	}
+	return out
+}
+
+// socksPortless drops a SOCKS5 request's port (its last two bytes, hex).
+func socksPortless(req string) string {
+	return req[:max(len(req)-4, 0)]
+}
+
+// connectFlow describes CONNECTs as (connection, status, credentials),
+// connections numbered from 1 in order of use. Connections that only ever
+// got a 407 are left out: Chrome's speculative preconnects, which mimicry
+// does not make, abandon theirs.
+func connectFlow(sample []capture.ProxyRequest) []string {
+	ok := map[int]bool{}
+	for _, r := range sample {
+		if r.Status == http.StatusOK {
+			ok[r.Conn] = true
+		}
+	}
+	number := map[int]int{}
+	var out []string
+	for _, r := range sample {
+		if !ok[r.Conn] {
+			continue
+		}
+		if number[r.Conn] == 0 {
+			number[r.Conn] = len(number) + 1
+		}
+		auth := "-"
+		if slices.ContainsFunc(r.Lines, func(l string) bool {
+			return strings.HasPrefix(strings.ToLower(l), "proxy-authorization:")
+		}) {
+			auth = "credentials"
+		}
+		out = append(out, fmt.Sprintf("conn %d %d %s", number[r.Conn], r.Status, auth))
+	}
+	return out
+}
+
+// forwardFraming describes how a request was sent to a proxy whole: its
+// request line, and which connection header it carries. Where that header
+// sits depends on the rest of the header set, a non-secure origin's, which
+// is not compared here.
+func forwardFraming(r capture.H1Request) string {
+	line := testPort.ReplaceAllString(r.Line, ".test:PORT")
+	var conn []string
+	for _, h := range r.Headers {
+		name, _, _ := strings.Cut(h, ":")
+		if strings.EqualFold(name, "connection") || strings.EqualFold(name, "proxy-connection") {
+			conn = append(conn, h)
+		}
+	}
+	return fmt.Sprintf("%q, %q", line, conn)
+}
+
+// forwardAuthFlow describes forwarded requests as (connection, credentials),
+// connections numbered from 1 in order of use.
+func forwardAuthFlow(sample []capture.H1Request) []string {
+	number := map[int]int{}
+	out := make([]string, 0, len(sample))
+	for _, r := range sample {
+		if number[r.Conn] == 0 {
+			number[r.Conn] = len(number) + 1
+		}
+		auth := "-"
+		if authPlace(r.Headers) != "none" {
+			auth = "credentials"
+		}
+		out = append(out, fmt.Sprintf("conn %d %s", number[r.Conn], auth))
+	}
+	return out
+}
+
+// authPlace says where Proxy-Authorization is: after which header, last,
+// or none.
+func authPlace(headers []string) string {
+	for i, h := range headers {
+		if !strings.HasPrefix(strings.ToLower(h), "proxy-authorization:") {
+			continue
+		}
+		if i == len(headers)-1 {
+			return "last"
+		}
+		if i == 0 {
+			return "first"
+		}
+		name, _, _ := strings.Cut(headers[i-1], ":")
+		return "after " + name
+	}
+	return "none"
+}

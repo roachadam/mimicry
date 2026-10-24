@@ -1,0 +1,44 @@
+[
+  [
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 502,
+      "target": "capture.mimicry.test:63329",
+      "lines": [
+        "CONNECT capture.mimicry.test:63329 HTTP/1.1",
+        "Host: capture.mimicry.test:63329",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 502,
+      "target": "capture.mimicry.test:63359",
+      "lines": [
+        "CONNECT capture.mimicry.test:63359 HTTP/1.1",
+        "Host: capture.mimicry.test:63359",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 502,
+      "target": "capture.mimicry.test:63380",
+      "lines": [
+        "CONNECT capture.mimicry.test:63380 HTTP/1.1",
+        "Host: capture.mimicry.test:63380",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    }
+  ]
+]

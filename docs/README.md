@@ -34,6 +34,7 @@ Related, elsewhere in the repository:
 | [0011](decisions/0011-connection-partitioning.md) | Model connection partitioning only where a rule is measured | Accepted |
 | [0012](decisions/0012-cookie-rules-in-profiles.md) | Browser cookie rules as a profile section | Accepted |
 | [0013](decisions/0013-tls-resumption.md) | TLS session resumption as the browser does it | Accepted |
+| [0014](decisions/0014-proxies.md) | Proxies as the browser uses them | Accepted |
 
 New records copy [`decisions/template.md`](decisions/template.md).
 
@@ -41,3 +42,4 @@ New records copy [`decisions/template.md`](decisions/template.md).
 
 - [How a request is built](concepts/how-a-request-is-built.md)
 - [Cookies](concepts/cookies.md)
+- [Proxies](concepts/proxies.md)

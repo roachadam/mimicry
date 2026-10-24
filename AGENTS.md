@@ -64,6 +64,7 @@ Profile accuracy is proven by the harness against real browser captures, not by 
 - `TestCookiesMatchBrowserTrace`: cookies set by the server come back from mimicry, through its cookie jar, in the browser's order and HPACK representation.
 - `TestKindsMatchBrowserTraces` and `TestCookiesScenarioMatchesBrowser`: every request of the kinds page, and every probe of the cookies page, made through mimicry from its page: headers, order, values, weights, connections and cookies as the browser sent them.
 - `TestResumptionMatchesBrowser`: on the resume page, mimicry opens and resumes as many connections per host as the browser did, and every resumed ClientHello has no differences from the browser's.
+- `TestProxyMatchesBrowser`: through the capture proxy, mimicry's CONNECT lines, SOCKS5 bytes, credential flow (challenge first, retry on the same connection, unasked from then on) and plain-HTTP framing are the browser's, and the tunnelled ClientHello is the profile's.
 - `TestHTTP1MatchesBrowserTrace`: over HTTP/1.1, mimicry's two navigations (`/`, then `/nav` with a referer and cookies) are the browser's header lines exactly, casing, order and values, in every sample of the `http1` scenario (authority normalised).
 
 Behaviour that depends on time (Chrome's 5 s credit return, its idle PING) is tested in `internal/h2` with a fake clock against a raw HTTP/2 peer; the captures show it, the unit tests pin it.
@@ -111,3 +112,11 @@ Chrome starts on `about:blank` and gets the capture URL 5 s later: a fresh profi
   ```
 
   To undo: `security remove-trusted-cert` with the same file, then delete the directory.
+- Proxy scenarios (`proxy-*`) put the capture proxy (`harness/internal/proxy`: HTTP CONNECT, absolute-form, SOCKS5, all recorded) in front of the server. Chrome gets `--proxy-server`, Firefox proxy prefs. With credentials (`proxy-auth`, `proxy-plain-auth`) the tool answers the browser's 407 over Chrome's DevTools protocol (browser-level `Fetch`) and Firefox's WebDriver BiDi (with `remote.prefs.recommended` off, so the remote agent changes no networking prefs), as a user typing into the login dialog. Safari takes its proxy from the system: point the active network service at the tool's PAC script once, which proxies only `*.test`, and turn it off after (the first run after setting it may time out while Safari fetches the script; run again):
+
+  ```sh
+  sudo networksetup -setautoproxyurl <service> http://127.0.0.1:15356/mimicry.pac
+  sudo networksetup -setautoproxystate <service> off
+  ```
+
+  Safari cannot be given proxy credentials by the tool: macOS asks for them in System Settings, not in a dialog, and has no field for them with a PAC script.

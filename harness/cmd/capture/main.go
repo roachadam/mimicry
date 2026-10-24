@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -30,6 +31,7 @@ import (
 	"github.com/roachadam/mimicry/harness/internal/diff"
 	"github.com/roachadam/mimicry/harness/internal/dnsstub"
 	"github.com/roachadam/mimicry/harness/internal/pageshape"
+	"github.com/roachadam/mimicry/harness/internal/proxy"
 	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/profile"
 )
@@ -130,8 +132,28 @@ func run() error {
 		}()
 	}
 
+	proxied := slices.ContainsFunc(scenarios, func(sc *server.Scenario) bool {
+		return sc.Proxy != ""
+	})
+	if proxied && slices.ContainsFunc(browsers, func(b *browser.Browser) bool {
+		return b.Shared
+	}) {
+		go func() {
+			if err := servePAC(ctx); err != nil {
+				log.Printf("PAC script on %s: %v", safariPACAddr, err)
+			}
+		}()
+	}
+
 	failed := 0
 	for _, b := range browsers {
+		if b.Shared && proxied && !pacConfigured(ctx) {
+			log.Printf("%s: the system does not use the capture tool's proxy script, so %s would not use the capture proxy. Point the active network service at it (an administrator's password), and turn it off after:\n"+
+				"  sudo networksetup -setautoproxyurl <service> %s\n  sudo networksetup -setautoproxystate <service> off\n"+
+				"(networksetup -listallnetworkservices lists services). The script proxies only *.test.", b.Name, b.Name, safariPACURL)
+			failed++
+			continue
+		}
 		if b.Shared && !dnsstub.ResolverInstalled() {
 			log.Printf("%s: %s does not send *.test lookups to the capture tool, so %s cannot reach the capture hosts. Create it once:\n  %s",
 				b.Name, dnsstub.ResolverFile, b.Name, dnsstub.InstallCommand)
@@ -176,7 +198,7 @@ func captureBrowser(ctx context.Context, b *browser.Browser, opts options) error
 			log.Printf("%s: extension order %s across %d samples", c.Profile.Name, c.Profile.TLS.ExtensionOrder, opts.samples)
 			log.Printf("%s: JA4 %s", c.Profile.Name, f.JA4)
 			log.Printf("%s: Akamai %s", c.Profile.Name, f.Akamai)
-		} else if _, _, multi := sc.MultiHost(); base != nil && !sc.HTTP1 && !multi {
+		} else if _, _, multi := sc.MultiHost(); base != nil && !sc.HTTP1 && !sc.Plain && !multi {
 			for _, d := range diff.Compare(&base.Profile, &c.Profile) {
 				log.Printf("%s: scenario %s changes the first request: %s", c.Profile.Name, sc.Name, d)
 			}
@@ -244,8 +266,52 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 			log.Printf("%s: server: "+format, append([]any{b.Name}, args...)...)
 		},
 	}
+	// Behind a proxy the browser never dials this port, but the URL names
+	// it, so CONNECT and SOCKS5 requests carry a real-looking one.
+	port := ln.Addr().(*net.TCPAddr).Port
+	var px *proxy.Proxy
+	var proxyURL *url.URL
+	var pln net.Listener
+	if sc.Proxy != "" {
+		addr := "127.0.0.1:0"
+		if b.Shared {
+			// Safari reaches the proxy the system's PAC script names.
+			addr, port = safariProxyListen(sc, port)
+		}
+		if pln, err = (&net.ListenConfig{}).Listen(ctx, "tcp", addr); err != nil {
+			_ = ln.Close()
+			return nil, err
+		}
+		px = &proxy.Proxy{
+			// Only the capture hosts; a browser's background traffic is refused.
+			Allow: func(host string) bool {
+				return strings.HasSuffix(host, ".test") || host == "127.0.0.1"
+			},
+			Plain: sc.Plain,
+		}
+		if sc.ProxyAuth {
+			px.Auth = server.ProxyAuthorization()
+		}
+		px.Logf = func(format string, args ...any) {
+			log.Printf("%s: proxy: "+format, append([]any{b.Name}, args...)...)
+		}
+		proxyURL = &url.URL{
+			Scheme: sc.Proxy,
+			Host:   pln.Addr().String(),
+		}
+		_ = ln.Close()
+		ln = px.Listener()
+	}
 	serveCtx, stopServer := context.WithCancel(ctx)
-	served := make(chan struct{})
+	served, proxied := make(chan struct{}), make(chan struct{})
+	if px != nil {
+		go func() {
+			_ = px.Serve(serveCtx, pln)
+			close(proxied)
+		}()
+	} else {
+		close(proxied)
+	}
 	go func() {
 		_ = srv.Serve(serveCtx, ln)
 		close(served)
@@ -253,12 +319,18 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 	defer func() {
 		stopServer()
 		<-served
+		<-proxied
 	}()
 
 	t := browser.Target{
 		Host:       server.CaptureHost,
-		Port:       ln.Addr().(*net.TCPAddr).Port,
+		Port:       port,
 		CertSHA256: sha256.Sum256(opts.cert.Certificate[0]),
+		Proxy:      proxyURL,
+		Plain:      sc.Plain,
+	}
+	if sc.ProxyAuth {
+		t.ProxyAuth = url.UserPassword(server.ProxyUser, server.ProxyPassword)
 	}
 	timeout := opts.timeout
 	hosts, length, multi := sc.MultiHost()
@@ -266,6 +338,11 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 		t.Host = hosts[0]
 		t.Hosts = hosts[1:]
 		timeout += length
+	}
+	if b.Shared && t.ProxyAuth != nil {
+		// Nothing can answer Safari's login dialog but a person.
+		log.Printf("%s: when asked for proxy credentials, type user %q, password %q", b.Name, server.ProxyUser, server.ProxyPassword)
+		timeout += 2 * time.Minute
 	}
 	log.Printf("%s: opening %s", b.Name, b.URL(t))
 	session, err := b.Open(ctx, t, opts.headless)
@@ -275,6 +352,9 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 	c, err := await(ctx, b.Name, captures, timeout, multi)
 	if closeErr := session.Close(); closeErr != nil {
 		log.Printf("%s: cleaning up: %v", b.Name, closeErr)
+	}
+	if c != nil && px != nil {
+		c.Proxy = px.Requests()
 	}
 	return c, err
 }

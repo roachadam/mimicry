@@ -5187,5 +5187,26 @@
     "nameless": "drop",
     "latin1_values": true,
     "order": "domain_name"
+  },
+  "proxy": {
+    "connect": [
+      {
+        "name": "Host"
+      },
+      {
+        "name": "Proxy-Connection",
+        "value": "keep-alive"
+      },
+      {
+        "name": "Connection",
+        "value": "keep-alive"
+      }
+    ],
+    "socks5": {
+      "methods": [
+        0
+      ],
+      "address": "domain"
+    }
   }
 }

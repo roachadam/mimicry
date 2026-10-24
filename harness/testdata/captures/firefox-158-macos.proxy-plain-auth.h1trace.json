@@ -1,0 +1,467 @@
+[
+  [
+    {
+      "conn": 4,
+      "line": "GET http://capture.mimicry.test:64543/ HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64543",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Connection: keep-alive",
+        "Upgrade-Insecure-Requests: 1",
+        "Priority: u=0, i"
+      ]
+    },
+    {
+      "conn": 4,
+      "line": "GET http://capture.mimicry.test:64543/ HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64543",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Connection: keep-alive",
+        "Upgrade-Insecure-Requests: 1",
+        "Priority: u=0, i",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "conn": 4,
+      "line": "GET http://capture.mimicry.test:64543/img.png HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64543",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: image/avif,image/jxl,image/webp,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Connection: keep-alive",
+        "Referer: http://capture.mimicry.test:64543/",
+        "Priority: u=5, i"
+      ]
+    },
+    {
+      "conn": 5,
+      "line": "GET http://capture.mimicry.test:64543/style.css HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64543",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: text/css,*/*;q=0.1",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Connection: keep-alive",
+        "Referer: http://capture.mimicry.test:64543/",
+        "Priority: u=2"
+      ]
+    },
+    {
+      "conn": 6,
+      "line": "GET http://capture.mimicry.test:64543/app.js HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64543",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Connection: keep-alive",
+        "Referer: http://capture.mimicry.test:64543/"
+      ]
+    },
+    {
+      "conn": 6,
+      "line": "GET http://capture.mimicry.test:64543/big HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64543",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Referer: http://capture.mimicry.test:64543/",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Connection: keep-alive",
+        "Priority: u=4"
+      ]
+    },
+    {
+      "conn": 6,
+      "line": "POST http://capture.mimicry.test:64543/upload HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64543",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Referer: http://capture.mimicry.test:64543/",
+        "Content-Length: 200000",
+        "Origin: http://capture.mimicry.test:64543",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Connection: keep-alive",
+        "Priority: u=4"
+      ]
+    },
+    {
+      "conn": 6,
+      "line": "GET http://capture.mimicry.test:64543/again HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64543",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Referer: http://capture.mimicry.test:64543/",
+        "x-mimicry-huffman: {^}~",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Connection: keep-alive",
+        "Priority: u=4"
+      ]
+    },
+    {
+      "conn": 6,
+      "line": "GET http://capture.mimicry.test:64543/nav HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64543",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Connection: keep-alive",
+        "Referer: http://capture.mimicry.test:64543/",
+        "Cookie: mimicry_a=1; mimicry_b=2",
+        "Upgrade-Insecure-Requests: 1",
+        "Priority: u=0, i"
+      ]
+    },
+    {
+      "conn": 6,
+      "line": "GET http://capture.mimicry.test:64543/done HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64543",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Referer: http://capture.mimicry.test:64543/nav",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Connection: keep-alive",
+        "Priority: u=4"
+      ]
+    }
+  ],
+  [
+    {
+      "conn": 4,
+      "line": "GET http://capture.mimicry.test:64571/ HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64571",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Connection: keep-alive",
+        "Upgrade-Insecure-Requests: 1",
+        "Priority: u=0, i"
+      ]
+    },
+    {
+      "conn": 4,
+      "line": "GET http://capture.mimicry.test:64571/ HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64571",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Connection: keep-alive",
+        "Upgrade-Insecure-Requests: 1",
+        "Priority: u=0, i",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "conn": 4,
+      "line": "GET http://capture.mimicry.test:64571/img.png HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64571",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: image/avif,image/jxl,image/webp,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Connection: keep-alive",
+        "Referer: http://capture.mimicry.test:64571/",
+        "Priority: u=5, i"
+      ]
+    },
+    {
+      "conn": 5,
+      "line": "GET http://capture.mimicry.test:64571/style.css HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64571",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: text/css,*/*;q=0.1",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Connection: keep-alive",
+        "Referer: http://capture.mimicry.test:64571/",
+        "Priority: u=2"
+      ]
+    },
+    {
+      "conn": 6,
+      "line": "GET http://capture.mimicry.test:64571/app.js HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64571",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Connection: keep-alive",
+        "Referer: http://capture.mimicry.test:64571/"
+      ]
+    },
+    {
+      "conn": 6,
+      "line": "GET http://capture.mimicry.test:64571/big HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64571",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Referer: http://capture.mimicry.test:64571/",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Connection: keep-alive",
+        "Priority: u=4"
+      ]
+    },
+    {
+      "conn": 6,
+      "line": "POST http://capture.mimicry.test:64571/upload HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64571",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Referer: http://capture.mimicry.test:64571/",
+        "Content-Length: 200000",
+        "Origin: http://capture.mimicry.test:64571",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Connection: keep-alive",
+        "Priority: u=4"
+      ]
+    },
+    {
+      "conn": 6,
+      "line": "GET http://capture.mimicry.test:64571/again HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64571",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Referer: http://capture.mimicry.test:64571/",
+        "x-mimicry-huffman: {^}~",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Connection: keep-alive",
+        "Priority: u=4"
+      ]
+    },
+    {
+      "conn": 6,
+      "line": "GET http://capture.mimicry.test:64571/nav HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64571",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Connection: keep-alive",
+        "Referer: http://capture.mimicry.test:64571/",
+        "Cookie: mimicry_a=1; mimicry_b=2",
+        "Upgrade-Insecure-Requests: 1",
+        "Priority: u=0, i"
+      ]
+    },
+    {
+      "conn": 6,
+      "line": "GET http://capture.mimicry.test:64571/done HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64571",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Referer: http://capture.mimicry.test:64571/nav",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Connection: keep-alive",
+        "Priority: u=4"
+      ]
+    }
+  ],
+  [
+    {
+      "conn": 4,
+      "line": "GET http://capture.mimicry.test:64597/ HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64597",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Connection: keep-alive",
+        "Upgrade-Insecure-Requests: 1",
+        "Priority: u=0, i"
+      ]
+    },
+    {
+      "conn": 4,
+      "line": "GET http://capture.mimicry.test:64597/ HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64597",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Connection: keep-alive",
+        "Upgrade-Insecure-Requests: 1",
+        "Priority: u=0, i",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "conn": 4,
+      "line": "GET http://capture.mimicry.test:64597/img.png HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64597",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: image/avif,image/jxl,image/webp,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Connection: keep-alive",
+        "Referer: http://capture.mimicry.test:64597/",
+        "Priority: u=5, i"
+      ]
+    },
+    {
+      "conn": 5,
+      "line": "GET http://capture.mimicry.test:64597/app.js HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64597",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Connection: keep-alive",
+        "Referer: http://capture.mimicry.test:64597/"
+      ]
+    },
+    {
+      "conn": 6,
+      "line": "GET http://capture.mimicry.test:64597/style.css HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64597",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: text/css,*/*;q=0.1",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Connection: keep-alive",
+        "Referer: http://capture.mimicry.test:64597/",
+        "Priority: u=2"
+      ]
+    },
+    {
+      "conn": 5,
+      "line": "GET http://capture.mimicry.test:64597/big HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64597",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Referer: http://capture.mimicry.test:64597/",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Connection: keep-alive",
+        "Priority: u=4"
+      ]
+    },
+    {
+      "conn": 5,
+      "line": "POST http://capture.mimicry.test:64597/upload HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64597",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Referer: http://capture.mimicry.test:64597/",
+        "Content-Length: 200000",
+        "Origin: http://capture.mimicry.test:64597",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Connection: keep-alive",
+        "Priority: u=4"
+      ]
+    },
+    {
+      "conn": 5,
+      "line": "GET http://capture.mimicry.test:64597/again HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64597",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Referer: http://capture.mimicry.test:64597/",
+        "x-mimicry-huffman: {^}~",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Connection: keep-alive",
+        "Priority: u=4"
+      ]
+    },
+    {
+      "conn": 5,
+      "line": "GET http://capture.mimicry.test:64597/nav HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64597",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Connection: keep-alive",
+        "Referer: http://capture.mimicry.test:64597/",
+        "Cookie: mimicry_a=1; mimicry_b=2",
+        "Upgrade-Insecure-Requests: 1",
+        "Priority: u=0, i"
+      ]
+    },
+    {
+      "conn": 5,
+      "line": "GET http://capture.mimicry.test:64597/done HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:64597",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Referer: http://capture.mimicry.test:64597/nav",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Connection: keep-alive",
+        "Priority: u=4"
+      ]
+    }
+  ]
+]

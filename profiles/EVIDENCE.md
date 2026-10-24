@@ -142,6 +142,22 @@ that differs only by that cookie, and logs it.
 | Referer by strict-origin-when-cross-origin; Origin per the Fetch standard; credentials per mode | W where captured, otherwise the standard | The page sits at `/`, so full URL and origin coincide except for the CSS font |
 | After a redirect: sec-fetch-site the chain's most distant relation, `Origin: null` once the chain is tainted, the page's Referer (not `http.Client`'s), storage access by the URL's own relation | W (`fetch-redirect`, `image-redirect`, both directions) | |
 
+## Proxies
+
+`proxy` section ([decision 0014](../docs/decisions/0014-proxies.md)), from
+the `proxy-*` captures ([report](../harness/reports/proxies-2026-10-24.md)).
+All checked by `TestProxyMatchesBrowser` (mimicry through the capture proxy
+against every browser's capture) and `TestUnmeasuredProxyIsAnError`.
+
+| Claim (`proxy.…`) | Chrome 155 | Firefox 158 | Safari 27 | Safari 26 |
+|---|---|---|---|---|
+| `connect` (CONNECT header names, order, values) | W: Host, Proxy-Connection, User-Agent | W: User-Agent, Proxy-Connection, Connection, Host | W: Host, Proxy-Connection, Connection | W: as Safari 27 |
+| `Proxy-Authorization` slot, credential flow (challenge first, retry on the same connection, unasked after) | W: last; preconnects aside (net log) | W: last | not measured: macOS takes proxy credentials only from System Settings, none for a PAC proxy; credentials are an error | as Safari 27 |
+| `forward_connection` (plain HTTP to the proxy) | W: Proxy-Connection | W: none (Connection) | W: none | W: none |
+| `forward_auth_after` | W: after Connection's slot | W: last | not measured | not measured |
+| `socks5` | W: `05 01 00`, host name | W: same | W: same | W: same |
+| Tunnelled connection equals the direct one | W | W | W | W |
+
 ## Behaviour in code, not in profiles
 
 | Behaviour | Evidence | Checked by |
@@ -160,7 +176,10 @@ every sample; no rule found); connections for what a cross-site frame
 itself loads; how many parallel connections a page opens; Chrome's
 mid-load re-prioritisation of a script and chained dependencies between
 concurrent subresources (not compared); `FontFace` loads; `crossorigin`
-stylesheets; ECH payloads; HTTP/3; the TCP/IP fingerprint.
+stylesheets; ECH payloads; HTTP/3; the TCP/IP fingerprint; Chrome's
+speculative preconnects to a proxy; `https://` proxies; Safari's HTTPS
+upgrade attempt before a plain-HTTP request; non-secure origins' header sets
+(no `Sec-Fetch-*`, smaller `Accept-Encoding`), proxied or not.
 
 ## Keeping it true
 

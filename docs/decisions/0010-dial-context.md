@@ -20,10 +20,12 @@ TCP connection; TLS and everything above stay the profile's.
 
 ## Consequences
 
-Proxies, when added, belong in the same dial path; a caller's
-`DialContext` and a configured proxy must be defined to compose, not to
-race.
+Proxies belong in the same dial path; a caller's `DialContext` and a
+configured proxy must be defined to compose, not to race. Since
+[0014](0014-proxies.md) they do: `DialContext` opens the connection to the
+proxy, and the tunnel through it is the profile's.
 
 ## Revisit when
 
-Proxy support lands.
+A caller needs to dial the server's address itself while also using a
+proxy.

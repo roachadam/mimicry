@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/base64"
 	"fmt"
 	"strconv"
 	"strings"
@@ -25,6 +26,14 @@ type Scenario struct {
 	// HTTP1 offers only http/1.1 in ALPN, so browsers load the page over
 	// HTTP/1.1.
 	HTTP1 bool
+	// Proxy, when set, has the browser reach the server through the
+	// capture proxy: ProxyHTTP or ProxySOCKS5.
+	Proxy string
+	// Plain serves the page over plain HTTP (HTTP/1.1, no TLS).
+	Plain bool
+	// ProxyAuth has the proxy demand ProxyUser and ProxyPassword: CONNECTs,
+	// or with Plain each forwarded request, without them are answered 407.
+	ProxyAuth bool
 	// maxVersion caps the TLS version the server negotiates (zero: TLS
 	// 1.3), to see what browsers do with a TLS 1.2-only server.
 	maxVersion uint16
@@ -54,6 +63,25 @@ type request struct {
 var DefaultScenario = &Scenario{
 	Name: capture.DefaultScenario,
 	Doc:  "subresources, a 16 MiB download, a 200 KB upload, a Huffman probe header, a navigation with document.cookie cookies",
+}
+
+// Values of Scenario.Proxy.
+const (
+	ProxyHTTP   = "http"
+	ProxySOCKS5 = "socks5"
+)
+
+// The credentials a ProxyAuth scenario's proxy demands, which the capture
+// tool gives the browser when challenged.
+const (
+	ProxyUser     = "mimicry"
+	ProxyPassword = "capture"
+)
+
+// ProxyAuthorization is the Proxy-Authorization value for ProxyUser and
+// ProxyPassword.
+func ProxyAuthorization() string {
+	return "Basic " + base64.StdEncoding.EncodeToString([]byte(ProxyUser+":"+ProxyPassword))
 }
 
 // Scenarios lists every scenario, DefaultScenario first.
@@ -121,6 +149,36 @@ var Scenarios = []*Scenario{
 		Name:  "http1",
 		Doc:   "the server offers only HTTP/1.1: header casing and order, cookies and connections over HTTP/1.1",
 		HTTP1: true,
+	},
+	{
+		Name:  "proxy-connect",
+		Doc:   "the capture page through an HTTP proxy: each CONNECT request, and the tunnelled connection against the direct one",
+		Proxy: ProxyHTTP,
+	},
+	{
+		Name:  "proxy-socks5",
+		Doc:   "the capture page through a SOCKS5 proxy: the handshake bytes, and the tunnelled connection against the direct one",
+		Proxy: ProxySOCKS5,
+	},
+	{
+		Name:  "proxy-plain",
+		Doc:   "the capture page over plain HTTP through an HTTP proxy: absolute-form requests and their headers",
+		Proxy: ProxyHTTP,
+		Plain: true,
+	},
+	{
+		Name:      "proxy-auth",
+		Doc:       "the resume page (a new connection per request, three hosts) through an HTTP proxy demanding Basic credentials: the 407 challenge, the retry, and whether later CONNECTs send credentials unasked",
+		Proxy:     ProxyHTTP,
+		ProxyAuth: true,
+		multi:     resumePage{},
+	},
+	{
+		Name:      "proxy-plain-auth",
+		Doc:       "the capture page over plain HTTP through an HTTP proxy demanding Basic credentials: where Proxy-Authorization goes on forwarded requests",
+		Proxy:     ProxyHTTP,
+		Plain:     true,
+		ProxyAuth: true,
 	},
 	Kinds,
 	KindsHTTP1,

@@ -37,6 +37,10 @@ type Capture struct {
 	// scenarios); SamplePages holds every sample's (Combine).
 	Page        *Page
 	SamplePages []*Page
+	// Proxy is how the client asked the capture proxy for its connections
+	// (proxy scenarios); SampleProxy holds every sample's (Combine).
+	Proxy       []ProxyRequest
+	SampleProxy [][]ProxyRequest
 	// Finished reports that the client asked for /done: a browser ran the
 	// capture page to the end. A browser's trace without it is truncated.
 	Finished bool
@@ -177,6 +181,12 @@ func Write(dir string, c *Capture) (string, error) {
 			c.Page,
 		}
 	}
+	proxy := c.SampleProxy
+	if len(proxy) == 0 && len(c.Proxy) > 0 {
+		proxy = [][]ProxyRequest{
+			c.Proxy,
+		}
+	}
 	for _, trace := range []struct {
 		path    string
 		samples any
@@ -186,6 +196,7 @@ func Write(dir string, c *Capture) (string, error) {
 		{prefix + ".h1trace.json", h1, len(h1) > 0},
 		// Replayed pages are tens of MiB of repetitive JSON.
 		{prefix + ".pagetrace.json.gz", pages, len(pages) > 0},
+		{prefix + ".proxytrace.json", proxy, len(proxy) > 0},
 	} {
 		if !trace.present {
 			continue

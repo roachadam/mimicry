@@ -1,0 +1,551 @@
+[
+  [
+    {
+      "kind": "connect",
+      "conn": 11,
+      "status": 407,
+      "target": "www.kinds-a.test:64261",
+      "lines": [
+        "CONNECT www.kinds-a.test:64261 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.kinds-a.test:64261"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 11,
+      "status": 200,
+      "target": "www.kinds-a.test:64261",
+      "lines": [
+        "CONNECT www.kinds-a.test:64261 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.kinds-a.test:64261",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 22,
+      "status": 200,
+      "target": "www.kinds-a.test:64261",
+      "lines": [
+        "CONNECT www.kinds-a.test:64261 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.kinds-a.test:64261",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 37,
+      "status": 200,
+      "target": "www.kinds-a.test:64261",
+      "lines": [
+        "CONNECT www.kinds-a.test:64261 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.kinds-a.test:64261",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 49,
+      "status": 200,
+      "target": "www.kinds-a.test:64261",
+      "lines": [
+        "CONNECT www.kinds-a.test:64261 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.kinds-a.test:64261",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 61,
+      "status": 200,
+      "target": "static.kinds-a.test:64261",
+      "lines": [
+        "CONNECT static.kinds-a.test:64261 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: static.kinds-a.test:64261",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 70,
+      "status": 200,
+      "target": "static.kinds-a.test:64261",
+      "lines": [
+        "CONNECT static.kinds-a.test:64261 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: static.kinds-a.test:64261",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 77,
+      "status": 200,
+      "target": "h1.kinds-a.test:64261",
+      "lines": [
+        "CONNECT h1.kinds-a.test:64261 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.kinds-a.test:64261",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 78,
+      "status": 200,
+      "target": "h1.kinds-a.test:64261",
+      "lines": [
+        "CONNECT h1.kinds-a.test:64261 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.kinds-a.test:64261",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 79,
+      "status": 200,
+      "target": "h1.kinds-a.test:64261",
+      "lines": [
+        "CONNECT h1.kinds-a.test:64261 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.kinds-a.test:64261",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 80,
+      "status": 200,
+      "target": "h1.kinds-a.test:64261",
+      "lines": [
+        "CONNECT h1.kinds-a.test:64261 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.kinds-a.test:64261",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 81,
+      "status": 200,
+      "target": "h1.kinds-a.test:64261",
+      "lines": [
+        "CONNECT h1.kinds-a.test:64261 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.kinds-a.test:64261",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 82,
+      "status": 200,
+      "target": "www.kinds-a.test:64261",
+      "lines": [
+        "CONNECT www.kinds-a.test:64261 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.kinds-a.test:64261",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 12,
+      "status": 407,
+      "target": "www.kinds-a.test:64354",
+      "lines": [
+        "CONNECT www.kinds-a.test:64354 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.kinds-a.test:64354"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 12,
+      "status": 200,
+      "target": "www.kinds-a.test:64354",
+      "lines": [
+        "CONNECT www.kinds-a.test:64354 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.kinds-a.test:64354",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 23,
+      "status": 200,
+      "target": "www.kinds-a.test:64354",
+      "lines": [
+        "CONNECT www.kinds-a.test:64354 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.kinds-a.test:64354",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 39,
+      "status": 200,
+      "target": "www.kinds-a.test:64354",
+      "lines": [
+        "CONNECT www.kinds-a.test:64354 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.kinds-a.test:64354",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 49,
+      "status": 200,
+      "target": "www.kinds-a.test:64354",
+      "lines": [
+        "CONNECT www.kinds-a.test:64354 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.kinds-a.test:64354",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 62,
+      "status": 200,
+      "target": "static.kinds-a.test:64354",
+      "lines": [
+        "CONNECT static.kinds-a.test:64354 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: static.kinds-a.test:64354",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 73,
+      "status": 200,
+      "target": "static.kinds-a.test:64354",
+      "lines": [
+        "CONNECT static.kinds-a.test:64354 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: static.kinds-a.test:64354",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 77,
+      "status": 200,
+      "target": "h1.kinds-a.test:64354",
+      "lines": [
+        "CONNECT h1.kinds-a.test:64354 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.kinds-a.test:64354",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 78,
+      "status": 200,
+      "target": "h1.kinds-a.test:64354",
+      "lines": [
+        "CONNECT h1.kinds-a.test:64354 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.kinds-a.test:64354",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 79,
+      "status": 200,
+      "target": "h1.kinds-a.test:64354",
+      "lines": [
+        "CONNECT h1.kinds-a.test:64354 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.kinds-a.test:64354",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 80,
+      "status": 200,
+      "target": "h1.kinds-a.test:64354",
+      "lines": [
+        "CONNECT h1.kinds-a.test:64354 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.kinds-a.test:64354",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 81,
+      "status": 200,
+      "target": "h1.kinds-a.test:64354",
+      "lines": [
+        "CONNECT h1.kinds-a.test:64354 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.kinds-a.test:64354",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 82,
+      "status": 200,
+      "target": "www.kinds-a.test:64354",
+      "lines": [
+        "CONNECT www.kinds-a.test:64354 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.kinds-a.test:64354",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 10,
+      "status": 407,
+      "target": "www.kinds-a.test:64447",
+      "lines": [
+        "CONNECT www.kinds-a.test:64447 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.kinds-a.test:64447"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 10,
+      "status": 200,
+      "target": "www.kinds-a.test:64447",
+      "lines": [
+        "CONNECT www.kinds-a.test:64447 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.kinds-a.test:64447",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 21,
+      "status": 200,
+      "target": "www.kinds-a.test:64447",
+      "lines": [
+        "CONNECT www.kinds-a.test:64447 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.kinds-a.test:64447",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 28,
+      "status": 200,
+      "target": "www.kinds-a.test:64447",
+      "lines": [
+        "CONNECT www.kinds-a.test:64447 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.kinds-a.test:64447",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 47,
+      "status": 200,
+      "target": "www.kinds-a.test:64447",
+      "lines": [
+        "CONNECT www.kinds-a.test:64447 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.kinds-a.test:64447",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 59,
+      "status": 200,
+      "target": "static.kinds-a.test:64447",
+      "lines": [
+        "CONNECT static.kinds-a.test:64447 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: static.kinds-a.test:64447",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 67,
+      "status": 200,
+      "target": "static.kinds-a.test:64447",
+      "lines": [
+        "CONNECT static.kinds-a.test:64447 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: static.kinds-a.test:64447",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 77,
+      "status": 200,
+      "target": "h1.kinds-a.test:64447",
+      "lines": [
+        "CONNECT h1.kinds-a.test:64447 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.kinds-a.test:64447",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 78,
+      "status": 200,
+      "target": "h1.kinds-a.test:64447",
+      "lines": [
+        "CONNECT h1.kinds-a.test:64447 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.kinds-a.test:64447",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 79,
+      "status": 200,
+      "target": "h1.kinds-a.test:64447",
+      "lines": [
+        "CONNECT h1.kinds-a.test:64447 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.kinds-a.test:64447",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 80,
+      "status": 200,
+      "target": "h1.kinds-a.test:64447",
+      "lines": [
+        "CONNECT h1.kinds-a.test:64447 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.kinds-a.test:64447",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 81,
+      "status": 200,
+      "target": "h1.kinds-a.test:64447",
+      "lines": [
+        "CONNECT h1.kinds-a.test:64447 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.kinds-a.test:64447",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 82,
+      "status": 200,
+      "target": "www.kinds-a.test:64447",
+      "lines": [
+        "CONNECT www.kinds-a.test:64447 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.kinds-a.test:64447",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    }
+  ]
+]

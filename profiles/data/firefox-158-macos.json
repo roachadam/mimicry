@@ -2865,5 +2865,32 @@
     "redirects": "chain",
     "nameless": "name",
     "order": "rfc"
+  },
+  "proxy": {
+    "connect": [
+      {
+        "name": "User-Agent"
+      },
+      {
+        "name": "Proxy-Connection",
+        "value": "keep-alive"
+      },
+      {
+        "name": "Connection",
+        "value": "keep-alive"
+      },
+      {
+        "name": "Host"
+      },
+      {
+        "name": "Proxy-Authorization"
+      }
+    ],
+    "socks5": {
+      "methods": [
+        0
+      ],
+      "address": "domain"
+    }
   }
 }
