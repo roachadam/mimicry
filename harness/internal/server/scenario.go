@@ -122,6 +122,7 @@ var Scenarios = []*Scenario{
 	Kinds,
 	KindsHTTP1,
 	Cookies,
+	Resume,
 }
 
 // ScenarioByName finds a scenario.
@@ -187,6 +188,13 @@ type response struct {
 	// drip sends the body dripChunk bytes at a time, dripEvery apart.
 	dripChunk int
 	dripEvery time.Duration
+	// closeAfter ends the connection after this response (HTTP/1.1:
+	// Connection: close; HTTP/2: GOAWAY), so the next request needs a new
+	// one.
+	closeAfter bool
+	// delay holds the response back, so a client's concurrent requests
+	// stay in flight together.
+	delay time.Duration
 }
 
 // page is what a browser loads: subresources on the same connection, then a

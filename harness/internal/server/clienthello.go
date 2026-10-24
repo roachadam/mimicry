@@ -1,6 +1,8 @@
 package server
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -59,6 +61,48 @@ func readClientHello(r io.Reader) (raw, msg []byte, err error) {
 }
 
 var errMalformed = errors.New("malformed ClientHello")
+
+// pskIdentities returns how many identities a ClientHello's pre_shared_key
+// extension offers and a short hash of the first (the ticket), or 0 and ""
+// without one.
+func pskIdentities(msg []byte) (int, string) {
+	s := cryptobyte.String(msg)
+	var body, sessionID, suites, compression, exts cryptobyte.String
+	if !s.Skip(1) || !s.ReadUint24LengthPrefixed(&body) ||
+		!body.Skip(2+32) || !body.ReadUint8LengthPrefixed(&sessionID) ||
+		!body.ReadUint16LengthPrefixed(&suites) || !body.ReadUint8LengthPrefixed(&compression) ||
+		!body.ReadUint16LengthPrefixed(&exts) {
+		return 0, ""
+	}
+	for !exts.Empty() {
+		var typ uint16
+		var data cryptobyte.String
+		if !exts.ReadUint16(&typ) || !exts.ReadUint16LengthPrefixed(&data) {
+			return 0, ""
+		}
+		if code(typ) != profile.ExtPreSharedKey {
+			continue
+		}
+		var ids cryptobyte.String
+		if !data.ReadUint16LengthPrefixed(&ids) {
+			return 0, ""
+		}
+		n, first := 0, ""
+		for !ids.Empty() {
+			var id cryptobyte.String
+			if !ids.ReadUint16LengthPrefixed(&id) || !ids.Skip(4) {
+				return 0, ""
+			}
+			if n == 0 {
+				sum := sha256.Sum256(id)
+				first = hex.EncodeToString(sum[:6])
+			}
+			n++
+		}
+		return n, first
+	}
+	return 0, ""
+}
 
 // ParseClientHello turns a ClientHello handshake message into the TLS section
 // of a profile. GREASE values become profile.GREASE, and extension bodies are

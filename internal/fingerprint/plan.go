@@ -2,6 +2,7 @@ package fingerprint
 
 import (
 	"math/rand/v2"
+	"slices"
 
 	"github.com/roachadam/mimicry/profile"
 )
@@ -55,6 +56,26 @@ type Hello struct {
 // connection gets its own order, as Chrome does.
 func (p *Plan) Hello() Hello {
 	return p.hello(rand.IntN) //nolint:gosec // order only needs to be uniform; math/rand/v2's default source is ChaCha8, seeded per process
+}
+
+// Resumes reports whether the browser resumes sessions (profile
+// tls.resumption).
+func (p *Plan) Resumes() bool {
+	return p.tls.Resumption != nil
+}
+
+// ResumedHello returns a new connection's ClientHello offering a ticket: the
+// full one, shuffled alike, without the extensions the browser drops when
+// resuming, and with pre_shared_key last. Only for a plan that Resumes.
+func (p *Plan) ResumedHello() Hello {
+	h := p.Hello()
+	h.Extensions = slices.DeleteFunc(h.Extensions, func(e profile.Extension) bool {
+		return slices.Contains(p.tls.Resumption.Drop, e.Type)
+	})
+	h.Extensions = append(h.Extensions, profile.Extension{
+		Type: profile.ExtPreSharedKey,
+	})
+	return h
 }
 
 // hello builds a Hello, drawing the permutation with intn(n), which returns a

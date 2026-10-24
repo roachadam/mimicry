@@ -11,8 +11,23 @@ type TLS struct {
 	// (ExtensionOrderShuffled, Chrome since 110). Pinned extensions keep their
 	// position either way; see Extension.Pinned.
 	ExtensionOrder string `json:"extension_order"`
-	// Extensions in the order of one observed ClientHello.
+	// Extensions in the order of one observed ClientHello: a full
+	// handshake's.
 	Extensions []Extension `json:"extensions"`
+	// Resumption is how the browser resumes a TLS 1.3 session on a new
+	// connection to a server it holds a ticket for. Nil: it does not
+	// (Safari), and every connection is a full handshake.
+	Resumption *Resumption `json:"resumption,omitempty"`
+}
+
+// Resumption describes a resumed ClientHello relative to the full one:
+// the same extensions, in the same order or shuffled alike, minus Drop,
+// with pre_shared_key last. Each ticket is used once (Chrome, Firefox), so
+// concurrent new connections resume one at a time.
+type Resumption struct {
+	// Drop are extensions the resumed ClientHello leaves out (Firefox:
+	// session_ticket).
+	Drop []Code `json:"drop,omitempty"`
 }
 
 // Values of TLS.ExtensionOrder.

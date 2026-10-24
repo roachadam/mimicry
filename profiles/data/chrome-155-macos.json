@@ -135,7 +135,8 @@
         "type": "GREASE",
         "data": "00"
       }
-    ]
+    ],
+    "resumption": {}
   },
   "http2": {
     "settings": [

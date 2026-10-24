@@ -421,6 +421,7 @@ func (s *h2conn) respond(id uint32, st *h2stream, senders *sync.WaitGroup, emit 
 }
 
 func (s *h2conn) send(id uint32, r response) error {
+	time.Sleep(r.delay)
 	defer func() {
 		s.mu.Lock()
 		delete(s.sendWindows, id)
@@ -479,7 +480,14 @@ func (s *h2conn) send(id uint32, r response) error {
 		}
 		body = body[n:]
 		if len(body) == 0 {
-			return nil
+			if r.closeAfter {
+				// No new streams here: the client's next request opens a
+				// new connection.
+				s.wmu.Lock()
+				err = s.fr.WriteGoAway(id, http2.ErrCodeNo, nil)
+				s.wmu.Unlock()
+			}
+			return err
 		}
 	}
 }

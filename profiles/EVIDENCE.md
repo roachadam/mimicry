@@ -34,6 +34,7 @@ sent).
 | `extensions` (types, contents: groups, key shares, signature algorithms, versions, ALPN, ALPS, point formats, PSK modes, certificate compression, record size limit, raw data such as Chrome's trust anchors 0xca34) | W+ | W+ | W+ | W+ | Chrome's trust anchor list was identical in all samples. |
 | GREASE ECH (0xfe0d) payload | presence and position W; payload is BoringSSL's, matches | presence and position W; **payload differs**: Firefox sends two cipher suites and a 223-byte payload | — | — | The schema records only the type. Known gap. |
 | key share material, random, session ID | generated per connection | | | | Values, not claims. |
+| `resumption` (resumed ClientHello: full minus `drop`, `pre_shared_key` last; single-use tickets; no 0-RTT) | W: drops nothing | W: drops `session_ticket` | W: none (never resumes) | **C** from Safari 27 | `resume` scenario ([report](../harness/reports/resume-2026-10-24.md)); `TestResumptionMatchesBrowser` (connections and resumptions per host, every resumed hello diffed) |
 
 Cross-checked outside our server: Firefox 158's JA3, and Safari 27's JA3, JA4
 and Akamai fingerprints, match what tls.peet.ws reports for the same
@@ -140,7 +141,7 @@ cross-origin frames and the form POST, the others do not (activation state).
 |---|---|---|
 | A fully read response is not reset (no RST_STREAM; waits for END_STREAM up to 10 s) | W: no browser resets streams it read | `TestClosingFullyReadBodyDoesNotReset` |
 | Uploads read in 65535-byte chunks | W for the first 64 KiB of Chrome and Safari uploads; later chunks and all of Firefox's are not modelled | `TestConnectionMatchesBrowserTrace` (largest frame only) |
-| Every connection is a full handshake | **not browser behaviour**: browsers resume with `pre_shared_key` | known gap |
+| HTTP/1.1-only servers get parallel connections at once; HTTP/2 candidates wait for the first | W (`resume`: three parallel requests, three connections opened together) | `TestResumptionMatchesBrowser` |
 | HelloRetryRequest cookie placed at a random non-pinned position (uTLS fork patch 2) | **not Chrome's mechanism**: Chrome places it by its per-handshake permutation | known gap |
 
 ## Not covered by any claim

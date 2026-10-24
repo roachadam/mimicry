@@ -10,6 +10,7 @@ import (
 	"net/textproto"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/profile"
@@ -120,8 +121,12 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 			c.Finished = true
 			emit()
 		}
+		time.Sleep(r.delay)
 		if err := writeResponse(conn, r); err != nil {
 			return err
+		}
+		if r.closeAfter {
+			return nil
 		}
 	}
 }
@@ -151,6 +156,9 @@ func writeResponse(w io.Writer, r response) error {
 	bw := bufio.NewWriter(w)
 	_, _ = fmt.Fprintf(bw, "HTTP/1.1 %d %s\r\nContent-Type: %s\r\nContent-Length: %d\r\nCache-Control: no-store\r\n",
 		r.status, http.StatusText(r.status), r.contentType, len(r.body))
+	if r.closeAfter {
+		_, _ = bw.WriteString("Connection: close\r\n")
+	}
 	for _, h := range r.headers {
 		_, _ = fmt.Fprintf(bw, "%s: %s\r\n", h.Name, h.Value)
 	}

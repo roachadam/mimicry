@@ -76,14 +76,16 @@ func captureClientWith(t *testing.T, p *profile.Profile, sc *server.Scenario, ja
 	return "https://localhost:" + port, tr, captures
 }
 
-// captureRequests sends n requests, each on a new connection, with a mimicry
-// client for p, and returns what the capture server recorded.
+// captureRequests sends n requests, each from a fresh mimicry client for p
+// to a fresh server, as the browser samples were fresh launches: every one
+// a full handshake, none resuming another's session. It returns what the
+// capture server recorded.
 func captureRequests(t *testing.T, p *profile.Profile, n int) []*capture.Capture {
 	t.Helper()
-	base, tr, captures := captureClient(t, p, server.DefaultScenario)
-	client := &http.Client{Transport: tr}
 	got := make([]*capture.Capture, 0, n)
 	for range n {
+		base, tr, captures := captureClient(t, p, server.DefaultScenario)
+		client := &http.Client{Transport: tr}
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, base+"/", nil)
 		if err != nil {
 			t.Fatal(err)
@@ -95,8 +97,7 @@ func captureRequests(t *testing.T, p *profile.Profile, n int) []*capture.Capture
 		_, _ = io.Copy(io.Discard, resp.Body)
 		_ = resp.Body.Close()
 		// Closing the connection completes the capture (mimicry runs no page
-		// script to ask for /done), and the next request gets a fresh
-		// connection and ClientHello.
+		// script to ask for /done).
 		tr.CloseIdleConnections()
 		got = append(got, <-captures)
 	}

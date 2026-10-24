@@ -130,7 +130,12 @@
       {
         "type": "0xfe0d"
       }
-    ]
+    ],
+    "resumption": {
+      "drop": [
+        "0x0023"
+      ]
+    }
   },
   "http2": {
     "settings": [

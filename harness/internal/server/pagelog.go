@@ -21,14 +21,21 @@ type pageLog struct {
 	first       *capture.Capture
 }
 
-// connection records a connection whose handshake completed.
-func (l *pageLog) connection(c *capture.Capture, host string) {
+// connection records a connection whose handshake completed: its
+// ClientHello, and whether it offered and got a resumed session.
+func (l *pageLog) connection(c *capture.Capture, host string, accepted bool) {
+	n, first := pskIdentities(c.ClientHello)
+	hello := c.Profile.TLS
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.connections = append(l.connections, capture.Connection{
-		Host:     host,
-		Protocol: c.Protocol,
-		Resumed:  c.HasExtension(profile.ExtPreSharedKey),
+		Host:          host,
+		Protocol:      c.Protocol,
+		Resumed:       c.HasExtension(profile.ExtPreSharedKey),
+		Accepted:      accepted,
+		PSKIdentities: n,
+		PSKIdentity:   first,
+		Hello:         &hello,
 	})
 	if l.first == nil {
 		l.first = &capture.Capture{

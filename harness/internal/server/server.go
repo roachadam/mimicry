@@ -132,7 +132,7 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 	}
 	state := tlsConn.ConnectionState()
 	c.Protocol = state.NegotiatedProtocol
-	log.connection(c, state.ServerName)
+	log.connection(c, state.ServerName, state.DidResume)
 	if c.Protocol == "h2" {
 		err = serveHTTP2(tlsConn, state.ServerName, c, sc, log, emit)
 	} else {

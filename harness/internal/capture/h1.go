@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/roachadam/mimicry/harness/internal/h2trace"
+	"github.com/roachadam/mimicry/profile"
 )
 
 // H1Request is one HTTP/1.1 request as the client sent it, casing and order
@@ -42,6 +43,16 @@ type Connection struct {
 	// Resumed reports a ClientHello offering a pre-shared key: the browser
 	// resuming an earlier session instead of a full handshake.
 	Resumed bool `json:"resumed,omitempty"`
+	// Accepted reports that the server resumed the session the client
+	// offered.
+	Accepted bool `json:"accepted,omitempty"`
+	// PSKIdentities is how many tickets the ClientHello offered, and
+	// PSKIdentity a short hash of the first, to tell one ticket used twice
+	// from fresh ones.
+	PSKIdentities int    `json:"psk_identities,omitempty"`
+	PSKIdentity   string `json:"psk_identity,omitempty"`
+	// Hello is the connection's ClientHello.
+	Hello *profile.TLS `json:"hello,omitempty"`
 }
 
 // LoadPages reads a replayed page capture written by Write

@@ -19,6 +19,13 @@ type Config struct {
 	ServerName string
 	// RootCAs verifies the server certificate; nil uses the system roots.
 	RootCAs *x509.CertPool
+	// Tickets, when set, keeps the server's TLS 1.3 tickets under
+	// TicketKey for later connections. Nil: no resumption.
+	Tickets   *Tickets
+	TicketKey string
+	// Ticket is the session this connection resumes; the hello must then
+	// carry pre_shared_key (fingerprint.Plan.ResumedHello).
+	Ticket *Ticket
 }
 
 // Client performs the TLS handshake on conn with hello and returns the TLS
@@ -30,13 +37,23 @@ func Client(ctx context.Context, conn net.Conn, hello fingerprint.Hello, cfg Con
 		_ = conn.Close()
 		return nil, "", err
 	}
-	tlsConn := utls.UClient(conn, &utls.Config{
+	config := &utls.Config{
 		ServerName: cfg.ServerName,
 		RootCAs:    cfg.RootCAs,
-		// Without a session cache there is nothing to resume; do not send an
-		// empty pre_shared_key.
+		// Without a ticket to resume, the hello has no pre_shared_key.
 		PreferSkipResumptionOnNilExtension: true,
-	}, utls.HelloCustom)
+	}
+	if cfg.Tickets != nil {
+		config.ClientSessionCache = &connCache{
+			ticket:  cfg.Ticket,
+			tickets: cfg.Tickets,
+			key:     cfg.TicketKey,
+		}
+		// A ticket uTLS will not use (expired, another name) leaves
+		// pre_shared_key empty: leave it out and do a full handshake.
+		config.OmitEmptyPsk = true
+	}
+	tlsConn := utls.UClient(conn, config, utls.HelloCustom)
 	if err := tlsConn.ApplyPreset(spec); err != nil {
 		_ = conn.Close()
 		return nil, "", fmt.Errorf("handshake: applying ClientHello: %w", err)
@@ -99,7 +116,8 @@ func extension(e *profile.Extension) (utls.TLSExtension, error) {
 		// parameters, so every profile uses BoringSSL's (Chrome's).
 		return utls.BoringGREASEECH(), nil
 	case profile.ExtPreSharedKey:
-		return nil, errors.New("pre_shared_key profiles need session resumption, which is not supported yet")
+		// Filled from the connection's ticket by uTLS.
+		return &utls.UtlsPreSharedKeyExtension{}, nil
 	case profile.ExtSupportedGroups:
 		curves := make([]utls.CurveID, len(e.Groups))
 		for i, g := range e.Groups {

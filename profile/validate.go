@@ -129,6 +129,19 @@ func (c *checker) checkTLS(t *TLS) {
 			}
 		}
 	}
+	if r := t.Resumption; r != nil {
+		if t.extension(ExtPreSharedKey) != nil {
+			c.add("tls.extensions", "the full ClientHello cannot offer pre_shared_key; tls.resumption adds it")
+		}
+		if t.extension(ExtPSKKeyExchangeModes) == nil {
+			c.add("tls.resumption", "needs psk_key_exchange_modes in the ClientHello (RFC 8446, section 4.2.9)")
+		}
+		for i, d := range r.Drop {
+			if t.extension(d) == nil {
+				c.add(fmt.Sprintf("tls.resumption.drop[%d]", i), "extension %s is not in the ClientHello", d)
+			}
+		}
+	}
 }
 
 func (c *checker) checkExtension(path string, e *Extension) {

@@ -42,6 +42,8 @@ type Engine struct {
 	clock   clockwork.Clock
 	rootCAs *x509.CertPool
 	dialer  dial.Dialer
+	// tickets keeps TLS session tickets when the profile resumes.
+	tickets *handshake.Tickets
 
 	// mu guards the pool. It is never held across network I/O: dials,
 	// handshakes and HTTP/2 setup happen with it released.
@@ -49,6 +51,9 @@ type Engine struct {
 	h2    map[string]*h2.Conn
 	idle  map[string][]idleConn
 	dials map[string]*dialCall
+	// h1Hosts are pools whose server negotiated HTTP/1.1: new requests
+	// dial in parallel instead of waiting for a dial in progress.
+	h1Hosts map[string]bool
 }
 
 type idleConn struct {
@@ -85,7 +90,7 @@ func New(cfg Config) (*Engine, error) {
 	if timeout == 0 {
 		timeout = 30 * time.Second
 	}
-	return &Engine{
+	e := &Engine{
 		plan:    plan,
 		profile: p,
 		clock:   clockwork.NewRealClock(),
@@ -94,10 +99,15 @@ func New(cfg Config) (*Engine, error) {
 			Timeout:     timeout,
 			DialContext: cfg.DialContext,
 		},
-		h2:    map[string]*h2.Conn{},
-		idle:  map[string][]idleConn{},
-		dials: map[string]*dialCall{},
-	}, nil
+		h2:      map[string]*h2.Conn{},
+		idle:    map[string][]idleConn{},
+		dials:   map[string]*dialCall{},
+		h1Hosts: map[string]bool{},
+	}
+	if plan.Resumes() {
+		e.tickets = handshake.NewTickets()
+	}
+	return e, nil
 }
 
 // errRetry means the request did not start and should be tried again.
@@ -111,10 +121,7 @@ func (e *Engine) RoundTrip(req *http.Request) (*http.Response, error) {
 	if req.URL.Scheme != "https" && req.URL.Scheme != "http" {
 		return nil, fmt.Errorf("mimicry: unsupported scheme %q", req.URL.Scheme)
 	}
-	key := req.URL.Scheme + "://" + hostPort(req.URL.Scheme, req.URL.Host)
-	if p := pool.Partition(req.Context()); p != "" {
-		key += " " + p
-	}
+	key := poolKey(req)
 	for attempt := 0; ; attempt++ {
 		resp, err := e.try(req, key)
 		if !errors.Is(err, errRetry) {
@@ -142,6 +149,16 @@ func (e *Engine) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 }
 
+// poolKey is the pool a request's connection belongs to: scheme, host and
+// port, and its partition.
+func poolKey(req *http.Request) string {
+	key := req.URL.Scheme + "://" + hostPort(req.URL.Scheme, req.URL.Host)
+	if p := pool.Partition(req.Context()); p != "" {
+		key += " " + p
+	}
+	return key
+}
+
 func (e *Engine) try(req *http.Request, key string) (*http.Response, error) {
 	e.mu.Lock()
 	if c := e.h2[key]; c != nil {
@@ -164,6 +181,20 @@ func (e *Engine) try(req *http.Request, key string) (*http.Response, error) {
 			return nil, errRetry
 		}
 		return resp, err
+	}
+	if e.h1Hosts[key] {
+		// The server speaks HTTP/1.1 only: like a browser, open another
+		// connection at once instead of waiting for one in progress.
+		e.mu.Unlock()
+		conn, proto, err := e.dial(req)
+		if err != nil {
+			return nil, err
+		}
+		if proto == "h2" {
+			// It changed its mind; use this one and share it from now on.
+			return e.adoptH2(key, conn, req)
+		}
+		return e.roundTripH1(key, h1.New(conn, e.profile), req)
 	}
 	if call := e.dials[key]; call != nil {
 		e.mu.Unlock()
@@ -196,6 +227,9 @@ func (e *Engine) try(req *http.Request, key string) (*http.Response, error) {
 	if hc != nil {
 		e.h2[key] = hc
 		call.h2 = hc
+		delete(e.h1Hosts, key)
+	} else if err == nil {
+		e.h1Hosts[key] = true
 	}
 	close(call.done)
 	e.mu.Unlock()
@@ -212,6 +246,30 @@ func (e *Engine) try(req *http.Request, key string) (*http.Response, error) {
 	return e.roundTripH1(key, h1.New(conn, e.profile), req)
 }
 
+// adoptH2 makes conn, which negotiated h2, the pool's shared connection for
+// key (closing it if one already took that place) and sends req on it.
+func (e *Engine) adoptH2(key string, conn net.Conn, req *http.Request) (*http.Response, error) {
+	hc, err := h2.New(conn, e.profile, e.clock)
+	if err != nil {
+		_ = conn.Close()
+		return nil, err
+	}
+	e.mu.Lock()
+	delete(e.h1Hosts, key)
+	if existing := e.h2[key]; existing != nil && existing.CanTakeNewRequest() {
+		e.mu.Unlock()
+		_ = hc.Close()
+		return nil, errRetry
+	}
+	e.h2[key] = hc
+	e.mu.Unlock()
+	resp, err := hc.RoundTrip(req)
+	if errors.Is(err, h2.ErrConnUnusable) {
+		e.dropH2(key, hc)
+	}
+	return resp, err
+}
+
 // dial connects and, for https, performs the profile's TLS handshake. It
 // returns the negotiated protocol ("h2", or HTTP/1.1 otherwise).
 func (e *Engine) dial(req *http.Request) (net.Conn, string, error) {
@@ -224,10 +282,20 @@ func (e *Engine) dial(req *http.Request) (net.Conn, string, error) {
 	if req.URL.Scheme == "http" {
 		return conn, "http/1.1", nil
 	}
-	return handshake.Client(ctx, conn, e.plan.Hello(), handshake.Config{
+	cfg := handshake.Config{
 		ServerName: req.URL.Hostname(),
 		RootCAs:    e.rootCAs,
-	})
+	}
+	hello := e.plan.Hello()
+	if e.tickets != nil {
+		// Tickets are kept per connection pool, partition included: a
+		// browser's credential-less connections do not resume its others'.
+		cfg.Tickets, cfg.TicketKey = e.tickets, poolKey(req)
+		if cfg.Ticket = e.tickets.Take(cfg.TicketKey); cfg.Ticket != nil {
+			hello = e.plan.ResumedHello()
+		}
+	}
+	return handshake.Client(ctx, conn, hello, cfg)
 }
 
 func (e *Engine) roundTripH1(key string, c *h1.Conn, req *http.Request) (*http.Response, error) {
