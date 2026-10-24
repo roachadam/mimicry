@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -48,9 +49,37 @@ func New(conn net.Conn, p *profile.Profile) *Conn {
 // Forward makes c send its requests to an HTTP proxy as the profile's
 // browser does (p): absolute-form request lines, Connection under p's
 // ForwardConnection name, and a request's Proxy-Authorization header where
-// p's ForwardAuthAfter places it.
+// p's ForwardAuth places it.
 func (c *Conn) Forward(p *profile.Proxy) {
 	c.forward = p
+}
+
+// ChallengeAnswered is the context key (value true) that marks a request
+// sent again with credentials because the proxy asked for them, which
+// some browsers place differently (profile.ForwardAuth.RetryLast).
+type ChallengeAnswered struct{}
+
+// authIndex is where Proxy-Authorization goes among fields: before
+// fields[i], or last at len(fields).
+func authIndex(fields []headerorder.Field, a *profile.ForwardAuth, answering bool) int {
+	if a == nil || (answering && a.RetryLast) {
+		return len(fields)
+	}
+	if a.Before != "" {
+		if i := slices.IndexFunc(fields, func(f headerorder.Field) bool {
+			return f.Name == a.Before
+		}); i >= 0 {
+			return i
+		}
+		return len(fields)
+	}
+	at := len(fields)
+	for i, f := range fields {
+		if slices.Contains(a.After, f.Name) {
+			at = i + 1
+		}
+	}
+	return at
 }
 
 // lowerList returns an HTTP/1.1 header list with lowercase names, for
@@ -205,7 +234,17 @@ func (c *Conn) writeRequest(req *http.Request) error {
 		}
 		fields = append(fields, headerorder.Build(headers, reqHeader, skipHeader)...)
 	}
-	for _, f := range fields {
+	at := len(fields)
+	if auth != "" {
+		answering, _ := req.Context().Value(ChallengeAnswered{}).(bool)
+		at = authIndex(fields, c.forward.ForwardAuth, answering)
+	}
+	for i, f := range fields {
+		if auth != "" && i == at {
+			if _, err := c.bw.WriteString("Proxy-Authorization: " + auth + "\r\n"); err != nil {
+				return err
+			}
+		}
 		name := h1Case[f.Name]
 		if name == "" {
 			// A header the profile does not name goes out as the caller
@@ -218,15 +257,8 @@ func (c *Conn) writeRequest(req *http.Request) error {
 		if _, err := c.bw.WriteString(name + ": " + f.Value + "\r\n"); err != nil {
 			return err
 		}
-		if auth != "" && f.Name == c.forward.ForwardAuthAfter {
-			if _, err := c.bw.WriteString("Proxy-Authorization: " + auth + "\r\n"); err != nil {
-				return err
-			}
-			auth = ""
-		}
 	}
-	if auth != "" {
-		// Last, or where its slot's header was not sent.
+	if auth != "" && at == len(fields) {
 		if _, err := c.bw.WriteString("Proxy-Authorization: " + auth + "\r\n"); err != nil {
 			return err
 		}

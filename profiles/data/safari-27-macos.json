@@ -5184,6 +5184,29 @@
         "value": "keep-alive"
       }
     ],
+    "connect_auth": [
+      {
+        "name": "Host"
+      },
+      {
+        "name": "Connection",
+        "value": "keep-alive"
+      },
+      {
+        "name": "Proxy-Authorization"
+      },
+      {
+        "name": "Proxy-Connection",
+        "value": "keep-alive"
+      }
+    ],
+    "connect_credentials": "on_challenge",
+    "forward_credentials": "always",
+    "forward_auth": {
+      "after": [
+        "accept-encoding"
+      ]
+    },
     "socks5": {
       "methods": [
         0

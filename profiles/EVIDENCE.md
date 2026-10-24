@@ -152,9 +152,11 @@ against every browser's capture) and `TestUnmeasuredProxyIsAnError`.
 | Claim (`proxy.…`) | Chrome 155 | Firefox 158 | Safari 27 | Safari 26 |
 |---|---|---|---|---|
 | `connect` (CONNECT header names, order, values) | W: Host, Proxy-Connection, User-Agent | W: User-Agent, Proxy-Connection, Connection, Host | W: Host, Proxy-Connection, Connection | W: as Safari 27 |
-| `Proxy-Authorization` slot, credential flow (challenge first, retry on the same connection, unasked after) | W: last; preconnects aside (net log) | W: last | not measured: never sent credentials with a PAC proxy plus System-keychain passwords, nor with a manual proxy whose password was saved in System Settings (407, one retry without, then nothing; [report](../harness/reports/proxies-2026-10-24.md)); credentials are an error | not tried; as Safari 27 |
+| `connect_auth` (CONNECT with credentials) | W: `connect` + Proxy-Authorization last (retry and unasked alike) | W: same | W: Host, Connection, Proxy-Authorization, Proxy-Connection | **C** from Safari 27 |
+| `connect_credentials` | W: `after_challenge` (preconnects aside, net log) | W: `after_challenge` | W: `on_challenge` (every tunnel) | **C** from Safari 27 |
+| `forward_credentials` | W: `after_challenge` | W: `after_challenge` | W: `always` (fresh Safari) | **C** from Safari 27 |
 | `forward_connection` (plain HTTP to the proxy) | W: Proxy-Connection | W: none (Connection) | W: none | W: none |
-| `forward_auth_after` | W: after Connection's slot | W: last | not measured | not measured |
+| `forward_auth` | W: after connection, content-length | W: before connection; last on the challenged retry | W: after accept-encoding | **C** from Safari 27 |
 | `socks5` | W: `05 01 00`, host name | W: same | W: same | W: same |
 | Tunnelled connection equals the direct one | W | W | W | W |
 

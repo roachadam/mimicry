@@ -2881,11 +2881,33 @@
       },
       {
         "name": "Host"
+      }
+    ],
+    "connect_auth": [
+      {
+        "name": "User-Agent"
+      },
+      {
+        "name": "Proxy-Connection",
+        "value": "keep-alive"
+      },
+      {
+        "name": "Connection",
+        "value": "keep-alive"
+      },
+      {
+        "name": "Host"
       },
       {
         "name": "Proxy-Authorization"
       }
     ],
+    "connect_credentials": "after_challenge",
+    "forward_credentials": "after_challenge",
+    "forward_auth": {
+      "before": "connection",
+      "retry_last": true
+    },
     "socks5": {
       "methods": [
         0

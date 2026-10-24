@@ -34,17 +34,22 @@ server sees. Decision 0010 left proxies to compose with `Config.DialContext`.
   `socks5h` (both send the host name for the proxy to resolve, as browsers
   do). `https` proxies are not supported yet.
 - `DialContext` reaches the proxy; everything above the tunnel is unchanged.
-- Profile section `proxy`: `connect` (the CONNECT header list; Host and
-  User-Agent filled in; a `Proxy-Authorization` slot marks the credential flow
-  as measured), `forward_connection` (Chrome's Proxy-Connection on forwarded
-  requests), `forward_auth_after` (where Proxy-Authorization goes on them),
+- Profile section `proxy`: `connect` and `connect_auth` (the CONNECT header
+  lists without and with credentials; Host and User-Agent filled in),
+  `connect_credentials` (`after_challenge`: unasked once the proxy has
+  asked, Chrome and Firefox; `on_challenge`: every tunnel waits for its 407,
+  Safari), `forward_credentials` (`after_challenge`, or `always` from the
+  first request, Safari), `forward_connection` (Chrome's Proxy-Connection on
+  forwarded requests), `forward_auth` (where Proxy-Authorization goes on
+  them: after or before named headers, and Firefox's last on the retry),
   `socks5` (methods offered, address type). A profile without the section
-  refuses proxies; without the slot it refuses HTTP-proxy credentials; without
-  `socks5` it refuses SOCKS5 (decision 0008).
-- Credentials: the first request goes without; a Basic 407 is answered once on
-  the same connection (a new one if the proxy closed it); from then on every
-  request to that proxy URL carries them unasked. SOCKS5 credentials, which no
-  browser sends, are offered (method 2) only when the URL has them.
+  refuses proxies; without `connect_auth` it refuses HTTP-proxy credentials;
+  without `socks5` it refuses SOCKS5 (decision 0008).
+- A 407 is answered once, on the same connection (a new one if the proxy
+  closed it), Basic only. Whether a proxy has asked is kept per proxy URL,
+  shared by tunnels and forwarded requests ([INFERENCE]: not measured
+  separately). SOCKS5 credentials, which no browser sends, are offered
+  (method 2) only when the URL has them.
 - Each proxy URL (credentials included) is part of the pool key: connections
   and TLS sessions are never shared between proxies, or with direct traffic.
   [INFERENCE] Browsers use one proxy configuration at a time, so there is no
@@ -64,13 +69,11 @@ the request's own flow), and tunnels that change nothing. Ledger section
 
 ## Consequences
 
-- The first request to an authenticating proxy costs a round trip, as in the
-  browser.
-- Safari profiles work with proxies without credentials only. Safari never
-  sent credentials in any setup tried (PAC with System-keychain passwords; a
-  manual proxy with the password saved through System Settings and
-  `networksetup`, Safari restarted): a 407, one retry without them, then
-  nothing. Its flow is not measured, so credentials are an error.
+- The first request to an authenticating proxy costs a round trip, as in
+  the browser; with a Safari profile every tunnel does.
+- Safari's credential rules come from Safari 27, measured once macOS itself
+  had been given the credentials through its own login dialog (the report
+  lists the setups that did not work); Safari 26 copies them.
 - Plain-HTTP requests through a proxy are framed as the browser frames them,
   but their header set is still an HTTPS request's (non-secure origins are not
   modelled yet, proxy or not).
@@ -78,6 +81,7 @@ the request's own flow), and tunnels that change nothing. Ledger section
 
 ## Revisit when
 
-Safari is seen sending proxy credentials (some way of giving them to it is found),
+Safari 26's credential flow is measured, a profile changes how Safari gets
+proxy credentials,
 an https proxy is needed, a browser is captured offering SOCKS5
 authentication, or a caller needs credentials sent from the first request.

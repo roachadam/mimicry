@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -76,9 +75,7 @@ func (d *Dialer) CheckProxy(p *url.URL) error {
 		return errors.New("mimicry: the profile does not describe how its browser talks to proxies (not measured)")
 	case p.Scheme != SchemeHTTP && d.Proxy.SOCKS5 == nil:
 		return errors.New("mimicry: the profile does not describe its browser's SOCKS5 handshake (not measured)")
-	case p.Scheme == SchemeHTTP && p.User != nil && !slices.ContainsFunc(d.Proxy.Connect, func(h profile.Header) bool {
-		return strings.EqualFold(h.Name, "proxy-authorization")
-	}):
+	case p.Scheme == SchemeHTTP && p.User != nil && d.Proxy.ConnectAuth == nil:
 		return errors.New("mimicry: the profile does not describe how its browser gives a proxy credentials (not measured)")
 	}
 	return nil
@@ -125,20 +122,26 @@ func (d *Dialer) DialVia(ctx context.Context, p *url.URL, addr string) (net.Conn
 	return conn, nil
 }
 
-// connect opens a CONNECT tunnel on conn, closing it on failure.
-// Credentials go only to a proxy that has asked for them, as browsers send
-// them: a 407 is answered once, on the same connection (a new one if the
-// proxy closed it), and later CONNECTs carry them unasked.
+// connect opens a CONNECT tunnel on conn, closing it on failure, with
+// credentials as the profile's browser gives them: unasked once the proxy
+// has asked for them (after_challenge), or only in answer to a 407
+// (on_challenge), which is answered once, on the same connection (a new
+// one if the proxy closed it).
 func (d *Dialer) connect(ctx context.Context, conn net.Conn, p *url.URL, addr string) (net.Conn, error) {
-	auth := d.Authorization(p)
-	answer, tunnel, err := proxy.Connect(ctx, conn, addr, d.connectHeader(addr, auth))
+	_, asked := d.asked.Load(p.String())
+	unasked := p.User != nil && asked && d.Proxy.ConnectCredentials == profile.CredentialsAfterChallenge
+	header := d.connectHeader(addr, d.Proxy.Connect, "")
+	if unasked {
+		header = d.connectHeader(addr, d.Proxy.ConnectAuth, credentials(p))
+	}
+	answer, tunnel, err := proxy.Connect(ctx, conn, addr, header)
 	switch {
 	case err != nil:
 		_ = conn.Close()
 		return nil, fmt.Errorf("mimicry: proxy %s: %w", p.Host, err)
 	case answer.StatusCode/100 == 2:
 		return tunnel, nil
-	case answer.StatusCode != http.StatusProxyAuthRequired || auth != "" || p.User == nil:
+	case answer.StatusCode != http.StatusProxyAuthRequired || unasked || p.User == nil:
 		_ = conn.Close()
 		return nil, fmt.Errorf("mimicry: proxy %s answered CONNECT with %s", p.Host, answer.Status)
 	}
@@ -154,7 +157,7 @@ func (d *Dialer) connect(ctx context.Context, conn net.Conn, p *url.URL, addr st
 			return nil, err
 		}
 	}
-	answer, tunnel, err = proxy.Connect(ctx, conn, addr, d.connectHeader(addr, d.Authorization(p)))
+	answer, tunnel, err = proxy.Connect(ctx, conn, addr, d.connectHeader(addr, d.Proxy.ConnectAuth, credentials(p)))
 	switch {
 	case err != nil:
 		_ = conn.Close()
@@ -168,7 +171,7 @@ func (d *Dialer) connect(ctx context.Context, conn net.Conn, p *url.URL, addr st
 
 // Challenged records that p asked for credentials (a 407 with header h)
 // on a plain-HTTP request, and reports whether they can be given: p has
-// them and asks for Basic. From then on Authorization returns them.
+// them and asks for Basic.
 func (d *Dialer) Challenged(p *url.URL, h http.Header) bool {
 	if p.User == nil || basicChallenge(h) != nil {
 		return false
@@ -177,22 +180,38 @@ func (d *Dialer) Challenged(p *url.URL, h http.Header) bool {
 	return true
 }
 
-// Authorization returns the Proxy-Authorization value to send p unasked:
-// its Basic credentials once it has asked for them, else "".
-func (d *Dialer) Authorization(p *url.URL) string {
-	if _, ok := d.asked.Load(p.String()); !ok || p.User == nil {
+// ForwardAuthorization returns the Proxy-Authorization value a plain-HTTP
+// request to p carries unasked: its Basic credentials from the first
+// request (always) or once p has asked for them (after_challenge); else
+// "". A request answering p's challenge carries Credentials instead.
+func (d *Dialer) ForwardAuthorization(p *url.URL) string {
+	if p.User == nil {
+		return ""
+	}
+	if _, asked := d.asked.Load(p.String()); asked || d.Proxy.ForwardCredentials == profile.CredentialsAlways {
+		return credentials(p)
+	}
+	return ""
+}
+
+// Credentials returns p's Basic Proxy-Authorization value, or "".
+func Credentials(p *url.URL) string {
+	return credentials(p)
+}
+
+func credentials(p *url.URL) string {
+	if p.User == nil {
 		return ""
 	}
 	password, _ := p.User.Password()
 	return "Basic " + base64.StdEncoding.EncodeToString([]byte(p.User.Username()+":"+password))
 }
 
-// connectHeader is the profile's CONNECT header list for addr: Host is
-// addr, User-Agent the profile's, Proxy-Authorization auth (left out when
-// empty).
-func (d *Dialer) connectHeader(addr, auth string) []string {
-	lines := make([]string, 0, len(d.Proxy.Connect))
-	for _, h := range d.Proxy.Connect {
+// connectHeader is a CONNECT header list for addr: Host is addr,
+// User-Agent the profile's, Proxy-Authorization auth.
+func (d *Dialer) connectHeader(addr string, list []profile.Header, auth string) []string {
+	lines := make([]string, 0, len(list))
+	for _, h := range list {
 		value := h.Value
 		switch strings.ToLower(h.Name) {
 		case "host":
@@ -202,9 +221,6 @@ func (d *Dialer) connectHeader(addr, auth string) []string {
 				value = d.UserAgent
 			}
 		case "proxy-authorization":
-			if auth == "" {
-				continue
-			}
 			value = auth
 		}
 		lines = append(lines, h.Name+": "+value)

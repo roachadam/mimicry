@@ -1,0 +1,908 @@
+[
+  [
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 407,
+      "target": "www.kinds-a.test:62651",
+      "lines": [
+        "CONNECT www.kinds-a.test:62651 HTTP/1.1",
+        "Host: www.kinds-a.test:62651",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 200,
+      "target": "www.kinds-a.test:62651",
+      "lines": [
+        "CONNECT www.kinds-a.test:62651 HTTP/1.1",
+        "Host: www.kinds-a.test:62651",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 407,
+      "target": "www.kinds-a.test:62651",
+      "lines": [
+        "CONNECT www.kinds-a.test:62651 HTTP/1.1",
+        "Host: www.kinds-a.test:62651",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 200,
+      "target": "www.kinds-a.test:62651",
+      "lines": [
+        "CONNECT www.kinds-a.test:62651 HTTP/1.1",
+        "Host: www.kinds-a.test:62651",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 3,
+      "status": 407,
+      "target": "www.kinds-a.test:62651",
+      "lines": [
+        "CONNECT www.kinds-a.test:62651 HTTP/1.1",
+        "Host: www.kinds-a.test:62651",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 3,
+      "status": 200,
+      "target": "www.kinds-a.test:62651",
+      "lines": [
+        "CONNECT www.kinds-a.test:62651 HTTP/1.1",
+        "Host: www.kinds-a.test:62651",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 4,
+      "status": 407,
+      "target": "www.kinds-a.test:62651",
+      "lines": [
+        "CONNECT www.kinds-a.test:62651 HTTP/1.1",
+        "Host: www.kinds-a.test:62651",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 4,
+      "status": 200,
+      "target": "www.kinds-a.test:62651",
+      "lines": [
+        "CONNECT www.kinds-a.test:62651 HTTP/1.1",
+        "Host: www.kinds-a.test:62651",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 5,
+      "status": 407,
+      "target": "static.kinds-a.test:62651",
+      "lines": [
+        "CONNECT static.kinds-a.test:62651 HTTP/1.1",
+        "Host: static.kinds-a.test:62651",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 5,
+      "status": 200,
+      "target": "static.kinds-a.test:62651",
+      "lines": [
+        "CONNECT static.kinds-a.test:62651 HTTP/1.1",
+        "Host: static.kinds-a.test:62651",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 6,
+      "status": 407,
+      "target": "static.kinds-a.test:62651",
+      "lines": [
+        "CONNECT static.kinds-a.test:62651 HTTP/1.1",
+        "Host: static.kinds-a.test:62651",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 6,
+      "status": 200,
+      "target": "static.kinds-a.test:62651",
+      "lines": [
+        "CONNECT static.kinds-a.test:62651 HTTP/1.1",
+        "Host: static.kinds-a.test:62651",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 7,
+      "status": 407,
+      "target": "h1.kinds-a.test:62651",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62651 HTTP/1.1",
+        "Host: h1.kinds-a.test:62651",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 7,
+      "status": 200,
+      "target": "h1.kinds-a.test:62651",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62651 HTTP/1.1",
+        "Host: h1.kinds-a.test:62651",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 8,
+      "status": 407,
+      "target": "h1.kinds-a.test:62651",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62651 HTTP/1.1",
+        "Host: h1.kinds-a.test:62651",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 8,
+      "status": 200,
+      "target": "h1.kinds-a.test:62651",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62651 HTTP/1.1",
+        "Host: h1.kinds-a.test:62651",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 9,
+      "status": 407,
+      "target": "h1.kinds-a.test:62651",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62651 HTTP/1.1",
+        "Host: h1.kinds-a.test:62651",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 9,
+      "status": 200,
+      "target": "h1.kinds-a.test:62651",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62651 HTTP/1.1",
+        "Host: h1.kinds-a.test:62651",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 10,
+      "status": 407,
+      "target": "h1.kinds-a.test:62651",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62651 HTTP/1.1",
+        "Host: h1.kinds-a.test:62651",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 11,
+      "status": 407,
+      "target": "h1.kinds-a.test:62651",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62651 HTTP/1.1",
+        "Host: h1.kinds-a.test:62651",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 10,
+      "status": 200,
+      "target": "h1.kinds-a.test:62651",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62651 HTTP/1.1",
+        "Host: h1.kinds-a.test:62651",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 11,
+      "status": 200,
+      "target": "h1.kinds-a.test:62651",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62651 HTTP/1.1",
+        "Host: h1.kinds-a.test:62651",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 13,
+      "status": 407,
+      "target": "www.kinds-a.test:62651",
+      "lines": [
+        "CONNECT www.kinds-a.test:62651 HTTP/1.1",
+        "Host: www.kinds-a.test:62651",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 13,
+      "status": 200,
+      "target": "www.kinds-a.test:62651",
+      "lines": [
+        "CONNECT www.kinds-a.test:62651 HTTP/1.1",
+        "Host: www.kinds-a.test:62651",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 407,
+      "target": "www.kinds-a.test:62668",
+      "lines": [
+        "CONNECT www.kinds-a.test:62668 HTTP/1.1",
+        "Host: www.kinds-a.test:62668",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 200,
+      "target": "www.kinds-a.test:62668",
+      "lines": [
+        "CONNECT www.kinds-a.test:62668 HTTP/1.1",
+        "Host: www.kinds-a.test:62668",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 407,
+      "target": "www.kinds-a.test:62668",
+      "lines": [
+        "CONNECT www.kinds-a.test:62668 HTTP/1.1",
+        "Host: www.kinds-a.test:62668",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 200,
+      "target": "www.kinds-a.test:62668",
+      "lines": [
+        "CONNECT www.kinds-a.test:62668 HTTP/1.1",
+        "Host: www.kinds-a.test:62668",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 3,
+      "status": 407,
+      "target": "www.kinds-a.test:62668",
+      "lines": [
+        "CONNECT www.kinds-a.test:62668 HTTP/1.1",
+        "Host: www.kinds-a.test:62668",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 3,
+      "status": 200,
+      "target": "www.kinds-a.test:62668",
+      "lines": [
+        "CONNECT www.kinds-a.test:62668 HTTP/1.1",
+        "Host: www.kinds-a.test:62668",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 4,
+      "status": 407,
+      "target": "www.kinds-a.test:62668",
+      "lines": [
+        "CONNECT www.kinds-a.test:62668 HTTP/1.1",
+        "Host: www.kinds-a.test:62668",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 4,
+      "status": 200,
+      "target": "www.kinds-a.test:62668",
+      "lines": [
+        "CONNECT www.kinds-a.test:62668 HTTP/1.1",
+        "Host: www.kinds-a.test:62668",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 5,
+      "status": 407,
+      "target": "static.kinds-a.test:62668",
+      "lines": [
+        "CONNECT static.kinds-a.test:62668 HTTP/1.1",
+        "Host: static.kinds-a.test:62668",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 5,
+      "status": 200,
+      "target": "static.kinds-a.test:62668",
+      "lines": [
+        "CONNECT static.kinds-a.test:62668 HTTP/1.1",
+        "Host: static.kinds-a.test:62668",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 6,
+      "status": 407,
+      "target": "static.kinds-a.test:62668",
+      "lines": [
+        "CONNECT static.kinds-a.test:62668 HTTP/1.1",
+        "Host: static.kinds-a.test:62668",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 6,
+      "status": 200,
+      "target": "static.kinds-a.test:62668",
+      "lines": [
+        "CONNECT static.kinds-a.test:62668 HTTP/1.1",
+        "Host: static.kinds-a.test:62668",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 7,
+      "status": 407,
+      "target": "h1.kinds-a.test:62668",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62668 HTTP/1.1",
+        "Host: h1.kinds-a.test:62668",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 7,
+      "status": 200,
+      "target": "h1.kinds-a.test:62668",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62668 HTTP/1.1",
+        "Host: h1.kinds-a.test:62668",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 8,
+      "status": 407,
+      "target": "h1.kinds-a.test:62668",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62668 HTTP/1.1",
+        "Host: h1.kinds-a.test:62668",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 8,
+      "status": 200,
+      "target": "h1.kinds-a.test:62668",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62668 HTTP/1.1",
+        "Host: h1.kinds-a.test:62668",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 9,
+      "status": 407,
+      "target": "h1.kinds-a.test:62668",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62668 HTTP/1.1",
+        "Host: h1.kinds-a.test:62668",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 9,
+      "status": 200,
+      "target": "h1.kinds-a.test:62668",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62668 HTTP/1.1",
+        "Host: h1.kinds-a.test:62668",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 11,
+      "status": 407,
+      "target": "h1.kinds-a.test:62668",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62668 HTTP/1.1",
+        "Host: h1.kinds-a.test:62668",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 10,
+      "status": 407,
+      "target": "h1.kinds-a.test:62668",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62668 HTTP/1.1",
+        "Host: h1.kinds-a.test:62668",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 11,
+      "status": 200,
+      "target": "h1.kinds-a.test:62668",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62668 HTTP/1.1",
+        "Host: h1.kinds-a.test:62668",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 10,
+      "status": 200,
+      "target": "h1.kinds-a.test:62668",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62668 HTTP/1.1",
+        "Host: h1.kinds-a.test:62668",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 12,
+      "status": 407,
+      "target": "www.kinds-a.test:62668",
+      "lines": [
+        "CONNECT www.kinds-a.test:62668 HTTP/1.1",
+        "Host: www.kinds-a.test:62668",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 12,
+      "status": 200,
+      "target": "www.kinds-a.test:62668",
+      "lines": [
+        "CONNECT www.kinds-a.test:62668 HTTP/1.1",
+        "Host: www.kinds-a.test:62668",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 407,
+      "target": "www.kinds-a.test:62681",
+      "lines": [
+        "CONNECT www.kinds-a.test:62681 HTTP/1.1",
+        "Host: www.kinds-a.test:62681",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 200,
+      "target": "www.kinds-a.test:62681",
+      "lines": [
+        "CONNECT www.kinds-a.test:62681 HTTP/1.1",
+        "Host: www.kinds-a.test:62681",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 407,
+      "target": "www.kinds-a.test:62681",
+      "lines": [
+        "CONNECT www.kinds-a.test:62681 HTTP/1.1",
+        "Host: www.kinds-a.test:62681",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 200,
+      "target": "www.kinds-a.test:62681",
+      "lines": [
+        "CONNECT www.kinds-a.test:62681 HTTP/1.1",
+        "Host: www.kinds-a.test:62681",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 3,
+      "status": 407,
+      "target": "www.kinds-a.test:62681",
+      "lines": [
+        "CONNECT www.kinds-a.test:62681 HTTP/1.1",
+        "Host: www.kinds-a.test:62681",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 3,
+      "status": 200,
+      "target": "www.kinds-a.test:62681",
+      "lines": [
+        "CONNECT www.kinds-a.test:62681 HTTP/1.1",
+        "Host: www.kinds-a.test:62681",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 4,
+      "status": 407,
+      "target": "www.kinds-a.test:62681",
+      "lines": [
+        "CONNECT www.kinds-a.test:62681 HTTP/1.1",
+        "Host: www.kinds-a.test:62681",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 4,
+      "status": 200,
+      "target": "www.kinds-a.test:62681",
+      "lines": [
+        "CONNECT www.kinds-a.test:62681 HTTP/1.1",
+        "Host: www.kinds-a.test:62681",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 5,
+      "status": 407,
+      "target": "static.kinds-a.test:62681",
+      "lines": [
+        "CONNECT static.kinds-a.test:62681 HTTP/1.1",
+        "Host: static.kinds-a.test:62681",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 5,
+      "status": 200,
+      "target": "static.kinds-a.test:62681",
+      "lines": [
+        "CONNECT static.kinds-a.test:62681 HTTP/1.1",
+        "Host: static.kinds-a.test:62681",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 6,
+      "status": 407,
+      "target": "static.kinds-a.test:62681",
+      "lines": [
+        "CONNECT static.kinds-a.test:62681 HTTP/1.1",
+        "Host: static.kinds-a.test:62681",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 6,
+      "status": 200,
+      "target": "static.kinds-a.test:62681",
+      "lines": [
+        "CONNECT static.kinds-a.test:62681 HTTP/1.1",
+        "Host: static.kinds-a.test:62681",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 7,
+      "status": 407,
+      "target": "h1.kinds-a.test:62681",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62681 HTTP/1.1",
+        "Host: h1.kinds-a.test:62681",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 7,
+      "status": 200,
+      "target": "h1.kinds-a.test:62681",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62681 HTTP/1.1",
+        "Host: h1.kinds-a.test:62681",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 8,
+      "status": 407,
+      "target": "h1.kinds-a.test:62681",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62681 HTTP/1.1",
+        "Host: h1.kinds-a.test:62681",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 8,
+      "status": 200,
+      "target": "h1.kinds-a.test:62681",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62681 HTTP/1.1",
+        "Host: h1.kinds-a.test:62681",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 9,
+      "status": 407,
+      "target": "h1.kinds-a.test:62681",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62681 HTTP/1.1",
+        "Host: h1.kinds-a.test:62681",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 9,
+      "status": 200,
+      "target": "h1.kinds-a.test:62681",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62681 HTTP/1.1",
+        "Host: h1.kinds-a.test:62681",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 10,
+      "status": 407,
+      "target": "h1.kinds-a.test:62681",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62681 HTTP/1.1",
+        "Host: h1.kinds-a.test:62681",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 11,
+      "status": 407,
+      "target": "h1.kinds-a.test:62681",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62681 HTTP/1.1",
+        "Host: h1.kinds-a.test:62681",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 10,
+      "status": 200,
+      "target": "h1.kinds-a.test:62681",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62681 HTTP/1.1",
+        "Host: h1.kinds-a.test:62681",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 11,
+      "status": 200,
+      "target": "h1.kinds-a.test:62681",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62681 HTTP/1.1",
+        "Host: h1.kinds-a.test:62681",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 12,
+      "status": 407,
+      "target": "www.kinds-a.test:62681",
+      "lines": [
+        "CONNECT www.kinds-a.test:62681 HTTP/1.1",
+        "Host: www.kinds-a.test:62681",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 12,
+      "status": 200,
+      "target": "www.kinds-a.test:62681",
+      "lines": [
+        "CONNECT www.kinds-a.test:62681 HTTP/1.1",
+        "Host: www.kinds-a.test:62681",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    }
+  ]
+]

@@ -1,0 +1,308 @@
+[
+  [
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 407,
+      "target": "capture.mimicry.test:62814",
+      "lines": [
+        "CONNECT capture.mimicry.test:62814 HTTP/1.1",
+        "Host: capture.mimicry.test:62814",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 502,
+      "target": "capture.mimicry.test:62814",
+      "lines": [
+        "CONNECT capture.mimicry.test:62814 HTTP/1.1",
+        "Host: capture.mimicry.test:62814",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 407,
+      "target": "capture.mimicry.test:62814",
+      "lines": [
+        "CONNECT capture.mimicry.test:62814 HTTP/1.1",
+        "Host: capture.mimicry.test:62814",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 502,
+      "target": "capture.mimicry.test:62814",
+      "lines": [
+        "CONNECT capture.mimicry.test:62814 HTTP/1.1",
+        "Host: capture.mimicry.test:62814",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 3,
+      "status": 407,
+      "target": "capture.mimicry.test:62814",
+      "lines": [
+        "CONNECT capture.mimicry.test:62814 HTTP/1.1",
+        "Host: capture.mimicry.test:62814",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 3,
+      "status": 502,
+      "target": "capture.mimicry.test:62814",
+      "lines": [
+        "CONNECT capture.mimicry.test:62814 HTTP/1.1",
+        "Host: capture.mimicry.test:62814",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 4,
+      "status": 407,
+      "target": "capture.mimicry.test:62814",
+      "lines": [
+        "CONNECT capture.mimicry.test:62814 HTTP/1.1",
+        "Host: capture.mimicry.test:62814",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 4,
+      "status": 502,
+      "target": "capture.mimicry.test:62814",
+      "lines": [
+        "CONNECT capture.mimicry.test:62814 HTTP/1.1",
+        "Host: capture.mimicry.test:62814",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 407,
+      "target": "capture.mimicry.test:62822",
+      "lines": [
+        "CONNECT capture.mimicry.test:62822 HTTP/1.1",
+        "Host: capture.mimicry.test:62822",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 502,
+      "target": "capture.mimicry.test:62822",
+      "lines": [
+        "CONNECT capture.mimicry.test:62822 HTTP/1.1",
+        "Host: capture.mimicry.test:62822",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 407,
+      "target": "capture.mimicry.test:62822",
+      "lines": [
+        "CONNECT capture.mimicry.test:62822 HTTP/1.1",
+        "Host: capture.mimicry.test:62822",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 502,
+      "target": "capture.mimicry.test:62822",
+      "lines": [
+        "CONNECT capture.mimicry.test:62822 HTTP/1.1",
+        "Host: capture.mimicry.test:62822",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 3,
+      "status": 407,
+      "target": "capture.mimicry.test:62822",
+      "lines": [
+        "CONNECT capture.mimicry.test:62822 HTTP/1.1",
+        "Host: capture.mimicry.test:62822",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 3,
+      "status": 502,
+      "target": "capture.mimicry.test:62822",
+      "lines": [
+        "CONNECT capture.mimicry.test:62822 HTTP/1.1",
+        "Host: capture.mimicry.test:62822",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 4,
+      "status": 407,
+      "target": "capture.mimicry.test:62822",
+      "lines": [
+        "CONNECT capture.mimicry.test:62822 HTTP/1.1",
+        "Host: capture.mimicry.test:62822",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 4,
+      "status": 502,
+      "target": "capture.mimicry.test:62822",
+      "lines": [
+        "CONNECT capture.mimicry.test:62822 HTTP/1.1",
+        "Host: capture.mimicry.test:62822",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 407,
+      "target": "capture.mimicry.test:62830",
+      "lines": [
+        "CONNECT capture.mimicry.test:62830 HTTP/1.1",
+        "Host: capture.mimicry.test:62830",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 502,
+      "target": "capture.mimicry.test:62830",
+      "lines": [
+        "CONNECT capture.mimicry.test:62830 HTTP/1.1",
+        "Host: capture.mimicry.test:62830",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 407,
+      "target": "capture.mimicry.test:62830",
+      "lines": [
+        "CONNECT capture.mimicry.test:62830 HTTP/1.1",
+        "Host: capture.mimicry.test:62830",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 502,
+      "target": "capture.mimicry.test:62830",
+      "lines": [
+        "CONNECT capture.mimicry.test:62830 HTTP/1.1",
+        "Host: capture.mimicry.test:62830",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 3,
+      "status": 407,
+      "target": "capture.mimicry.test:62830",
+      "lines": [
+        "CONNECT capture.mimicry.test:62830 HTTP/1.1",
+        "Host: capture.mimicry.test:62830",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 3,
+      "status": 502,
+      "target": "capture.mimicry.test:62830",
+      "lines": [
+        "CONNECT capture.mimicry.test:62830 HTTP/1.1",
+        "Host: capture.mimicry.test:62830",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 4,
+      "status": 407,
+      "target": "capture.mimicry.test:62830",
+      "lines": [
+        "CONNECT capture.mimicry.test:62830 HTTP/1.1",
+        "Host: capture.mimicry.test:62830",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 4,
+      "status": 502,
+      "target": "capture.mimicry.test:62830",
+      "lines": [
+        "CONNECT capture.mimicry.test:62830 HTTP/1.1",
+        "Host: capture.mimicry.test:62830",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    }
+  ]
+]

@@ -134,15 +134,18 @@ func (e *Engine) RoundTrip(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Every copy of req sent below keeps its context.
+	ctx := req.Context()
+	unasked := ""
 	if r.forward {
-		if auth := e.dialer.Authorization(r.proxy); auth != "" {
-			req = withProxyAuth(req, auth)
+		if unasked = e.dialer.ForwardAuthorization(r.proxy); unasked != "" {
+			req = withProxyAuth(ctx, req, unasked)
 		}
 	}
 	answered := false
 	for attempt := 0; ; attempt++ {
 		resp, err := e.try(req, r)
-		if err == nil && r.forward && !answered && resp.StatusCode == http.StatusProxyAuthRequired && e.dialer.Challenged(r.proxy, resp.Header) {
+		if err == nil && r.forward && !answered && unasked == "" && resp.StatusCode == http.StatusProxyAuthRequired && e.dialer.Challenged(r.proxy, resp.Header) {
 			// As browsers do, answer the proxy's challenge once, on the
 			// same connection: read to the end, it goes back to the pool
 			// for the resent request to take.
@@ -152,7 +155,7 @@ func (e *Engine) RoundTrip(req *http.Request) (*http.Response, error) {
 			if req, err = fresh(req); err != nil {
 				return nil, err
 			}
-			req = withProxyAuth(req, e.dialer.Authorization(r.proxy))
+			req = withProxyAuth(context.WithValue(ctx, h1.ChallengeAnswered{}, true), req, dial.Credentials(r.proxy))
 			continue
 		}
 		if !errors.Is(err, errRetry) {
@@ -189,10 +192,11 @@ func fresh(req *http.Request) (*http.Request, error) {
 	return req, nil
 }
 
-// withProxyAuth returns a clone of req carrying Proxy-Authorization, which
-// the HTTP/1.1 writer places as the profile says.
-func withProxyAuth(req *http.Request, auth string) *http.Request {
-	req = req.Clone(req.Context())
+// withProxyAuth returns a clone of req, on ctx, carrying
+// Proxy-Authorization, which the HTTP/1.1 writer places as the profile
+// says.
+func withProxyAuth(ctx context.Context, req *http.Request, auth string) *http.Request {
+	req = req.Clone(ctx)
 	req.Header.Set("Proxy-Authorization", auth)
 	return req
 }

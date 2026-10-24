@@ -46,22 +46,22 @@ func TestProxyMatchesBrowser(t *testing.T) {
 			t.Run("connect", func(t *testing.T) {
 				want := loadSamples[[]capture.ProxyRequest](t, name+".proxy-connect.proxytrace.json")
 				s := startProxied(t, p, scenario(t, "proxy-connect"), nil)
-				s.get("https", server.CaptureHost)
+				s.get("https", server.CaptureHost, "/")
 				got := s.proxy.Requests()
 				if len(got) != 1 {
 					t.Fatalf("%d proxy requests, want 1: %v", len(got), got)
 				}
 				if !slices.ContainsFunc(want, func(sample []capture.ProxyRequest) bool {
-					return slices.Equal(portless(firstOK(sample).Lines), portless(got[0].Lines))
+					return slices.Equal(portless(nthOK(sample, 0).Lines), portless(got[0].Lines))
 				}) {
-					t.Errorf("CONNECT:\n got %q\nwant %q", portless(got[0].Lines), portless(firstOK(want[0]).Lines))
+					t.Errorf("CONNECT:\n got %q\nwant %q", portless(got[0].Lines), portless(nthOK(want[0], 0).Lines))
 				}
 				s.checkTunnelledHello(p)
 			})
 			t.Run("socks5", func(t *testing.T) {
 				want := loadSamples[[]capture.ProxyRequest](t, name+".proxy-socks5.proxytrace.json")
 				s := startProxied(t, p, scenario(t, "proxy-socks5"), nil)
-				s.get("https", server.CaptureHost)
+				s.get("https", server.CaptureHost, "/")
 				got := s.proxy.Requests()
 				if len(got) != 1 {
 					t.Fatalf("%d proxy requests, want 1: %v", len(got), got)
@@ -79,7 +79,7 @@ func TestProxyMatchesBrowser(t *testing.T) {
 				s := startProxied(t, p, sc, url.UserPassword(server.ProxyUser, server.ProxyPassword))
 				// A new tunnel each time.
 				for range 3 {
-					s.get("https", hosts[0])
+					s.get("https", hosts[0], "/")
 					s.tr.CloseIdleConnections()
 				}
 				got := connectFlow(s.proxy.Requests())
@@ -88,15 +88,19 @@ func TestProxyMatchesBrowser(t *testing.T) {
 						t.Errorf("CONNECT flow (connection, status, credentials) against sample %d:\n got %v\nwant %v", i+1, got, w)
 					}
 				}
-				authed := firstOK(s.proxy.Requests())
-				if w := firstOK(wantFlow[0]); !slices.Equal(portless(authed.Lines), portless(w.Lines)) {
-					t.Errorf("CONNECT with credentials:\n got %q\nwant %q", portless(authed.Lines), portless(w.Lines))
+				// The first tunnel's CONNECT answering the challenge, and the
+				// second's (unasked, for browsers that send them so).
+				for n := range 2 {
+					g, w := nthOK(s.proxy.Requests(), n), nthOK(wantFlow[0], n)
+					if !slices.Equal(portless(g.Lines), portless(w.Lines)) {
+						t.Errorf("CONNECT %d with credentials:\n got %q\nwant %q", n+1, portless(g.Lines), portless(w.Lines))
+					}
 				}
 			})
 			t.Run("plain", func(t *testing.T) {
 				want := loadSamples[[]capture.H1Request](t, name+".proxy-plain.h1trace.json")
 				s := startProxied(t, p, scenario(t, "proxy-plain"), nil)
-				s.get("http", server.CaptureHost)
+				s.get("http", server.CaptureHost, "/")
 				got := s.h1()
 				if g, w := forwardFraming(got[0]), forwardFraming(want[0][0]); g != w {
 					t.Errorf("forwarded request:\n got %s\nwant %s", g, w)
@@ -105,15 +109,23 @@ func TestProxyMatchesBrowser(t *testing.T) {
 			t.Run("plain-auth", func(t *testing.T) {
 				want := loadSamples[[]capture.H1Request](t, name+".proxy-plain-auth.h1trace.json")
 				s := startProxied(t, p, scenario(t, "proxy-plain-auth"), url.UserPassword(server.ProxyUser, server.ProxyPassword))
-				s.get("http", server.CaptureHost)
-				s.get("http", server.CaptureHost)
+				s.get("http", server.CaptureHost, "/")
+				s.get("http", server.CaptureHost, "/nav")
 				got := s.h1()
 				g, w := forwardAuthFlow(got), forwardAuthFlow(want[0])[:len(got)]
 				if !slices.Equal(g, w) {
 					t.Errorf("forwarded requests (connection, credentials):\n got %v\nwant %v", g, w)
 				}
-				if g, w := authPlace(got[1].Headers), authPlace(want[0][1].Headers); g != w {
-					t.Errorf("Proxy-Authorization on a forwarded request: got %s, want %s", g, w)
+				// The first navigation with credentials (for most browsers, the
+				// one answering the challenge), and the second (unasked).
+				for _, path := range []string{"/", "/nav"} {
+					g, w := credentialed(got, path), credentialed(want[0], path)
+					if g == nil || w == nil {
+						t.Fatalf("%s: no request with credentials (mimicry %v, browser %v)", path, g != nil, w != nil)
+					}
+					if gp, wp := authPlace(g.Headers), authPlace(w.Headers); gp != wp {
+						t.Errorf("%s: Proxy-Authorization %s, want %s", path, gp, wp)
+					}
 				}
 			})
 		})
@@ -122,26 +134,34 @@ func TestProxyMatchesBrowser(t *testing.T) {
 
 // What a profile does not describe is an error, not a guess: any proxy
 // for a profile without a proxy section, and proxy credentials for one
-// whose browser's way with them is not measured (Safari's: macOS asks for
-// them in System Settings, never in a challenge dialog).
+// whose browser's way with them is not measured (no connect_auth).
 func TestUnmeasuredProxyIsAnError(t *testing.T) {
 	for _, tc := range []struct {
-		name    string
-		profile string
-		strip   bool
-		user    *url.Userinfo
+		name  string
+		strip func(p *profile.Proxy) *profile.Proxy
+		user  *url.Userinfo
 	}{
-		{"no proxy section", "chrome-155-macos", true, nil},
-		{"credentials not measured", "safari-27-macos", false, url.UserPassword("u", "p")},
+		{
+			name: "no proxy section",
+			strip: func(*profile.Proxy) *profile.Proxy {
+				return nil
+			},
+		},
+		{
+			name: "credentials not measured",
+			strip: func(p *profile.Proxy) *profile.Proxy {
+				p.ConnectAuth, p.ConnectCredentials, p.ForwardCredentials, p.ForwardAuth = nil, "", "", nil
+				return p
+			},
+			user: url.UserPassword("u", "p"),
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			p, err := profiles.ByName(tc.profile)
+			p, err := profiles.ByName("chrome-155-macos")
 			if err != nil {
 				t.Fatal(err)
 			}
-			if tc.strip {
-				p.Proxy = nil
-			}
+			p.Proxy = tc.strip(p.Proxy)
 			tr, err := mimicry.NewTransport(mimicry.Config{
 				Profile: p,
 				Proxy: http.ProxyURL(&url.URL{
@@ -254,10 +274,10 @@ func startProxied(t *testing.T, p *profile.Profile, sc *server.Scenario, user *u
 	return s
 }
 
-// get requests host's page over scheme and reads it.
-func (s *proxySession) get(scheme, host string) {
+// get requests path on host over scheme and reads it.
+func (s *proxySession) get(scheme, host, path string) {
 	s.t.Helper()
-	req, err := http.NewRequestWithContext(s.t.Context(), http.MethodGet, scheme+"://"+net.JoinHostPort(host, s.port)+"/", nil)
+	req, err := http.NewRequestWithContext(s.t.Context(), http.MethodGet, scheme+"://"+net.JoinHostPort(host, s.port)+path, nil)
 	if err != nil {
 		s.t.Fatal(err)
 	}
@@ -350,14 +370,30 @@ func loadSamples[T any](t *testing.T, file string) []T {
 	return samples
 }
 
-// firstOK is the first CONNECT the proxy let through.
-func firstOK(sample []capture.ProxyRequest) capture.ProxyRequest {
+// nthOK is the CONNECT the proxy let through n-th, from 0.
+func nthOK(sample []capture.ProxyRequest, n int) capture.ProxyRequest {
 	for _, r := range sample {
-		if r.Status == http.StatusOK {
+		if r.Status != http.StatusOK {
+			continue
+		}
+		if n == 0 {
 			return r
 		}
+		n--
 	}
 	return capture.ProxyRequest{}
+}
+
+// credentialed is the first request for path that carries
+// Proxy-Authorization, or nil.
+func credentialed(sample []capture.H1Request, path string) *capture.H1Request {
+	for i, r := range sample {
+		u, err := url.Parse(strings.Fields(r.Line)[1])
+		if err == nil && u.Path == path && authPlace(r.Headers) != "none" {
+			return &sample[i]
+		}
+	}
+	return nil
 }
 
 // portless replaces ports after .test hosts.

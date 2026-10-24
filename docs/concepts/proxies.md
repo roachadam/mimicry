@@ -33,14 +33,19 @@ The proxy sees what the profile's browser sends a proxy, from captures
 
 ## Credentials
 
-Put them in the URL (`http://user:pass@proxy:3128`). They are used the way a
-browser uses them: the first request goes without, the proxy's 407 is
-answered on the same connection, and every later request to that proxy sends
-them unasked. Only Basic authentication is supported.
+Put them in the URL (`http://user:pass@proxy:3128`). They are used the way
+the profile's browser uses them:
 
-The Safari profiles cannot send credentials to an HTTP proxy: how Safari does
-it is not measured, so it is an error. SOCKS5 credentials, which no browser
-sends, are offered when the URL has them; that part is visibly yours.
+- Chrome and Firefox: the first request to a proxy goes without, the
+  proxy's 407 is answered on the same connection, and every later request
+  to that proxy sends them unasked.
+- Safari: every CONNECT goes without and is answered after its 407 (on the
+  same connection, in a different header order); plain-HTTP requests carry
+  them from the first.
+
+Only Basic authentication is supported. SOCKS5 credentials, which no
+browser sends, are offered when the URL has them; that part is visibly
+yours.
 
 ## Connections
 

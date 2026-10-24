@@ -338,12 +338,39 @@ func (c *checker) checkHTTP1Headers(path string, headers []Header, others bool) 
 	}
 }
 
-// checkProxy checks the proxy section: a CONNECT header list that places
-// Host, and a SOCKS5 handshake mimicry can send.
+// checkProxy checks the proxy section: CONNECT header lists that place
+// Host (and, with credentials, Proxy-Authorization), credential timing
+// mimicry implements, and a SOCKS5 handshake mimicry can send.
 func (c *checker) checkProxy(p *Proxy) {
 	c.checkHTTP1Headers("proxy.connect", p.Connect, false)
-	if p.ForwardAuthAfter != "" && p.ForwardAuthAfter != strings.ToLower(p.ForwardAuthAfter) {
-		c.add("proxy.forward_auth_after", "name %q must be lowercase", p.ForwardAuthAfter)
+	if p.ConnectAuth == nil {
+		if p.ConnectCredentials != "" || p.ForwardCredentials != "" || p.ForwardAuth != nil {
+			c.add("proxy", "credential timing and placement need connect_auth")
+		}
+	} else {
+		c.checkHTTP1Headers("proxy.connect_auth", p.ConnectAuth, false)
+		if !slices.ContainsFunc(p.ConnectAuth, func(h Header) bool {
+			return strings.EqualFold(h.Name, "proxy-authorization")
+		}) {
+			c.add("proxy.connect_auth", "must place Proxy-Authorization")
+		}
+		if p.ConnectCredentials != CredentialsAfterChallenge && p.ConnectCredentials != CredentialsOnChallenge {
+			c.add("proxy.connect_credentials", "must be %q or %q", CredentialsAfterChallenge, CredentialsOnChallenge)
+		}
+		if p.ForwardCredentials != CredentialsAfterChallenge && p.ForwardCredentials != CredentialsAlways {
+			c.add("proxy.forward_credentials", "must be %q or %q", CredentialsAfterChallenge, CredentialsAlways)
+		}
+	}
+	if a := p.ForwardAuth; a != nil {
+		if len(a.After) > 0 && a.Before != "" {
+			c.add("proxy.forward_auth", "takes after or before, not both")
+		}
+		for i, n := range a.After {
+			c.checkHeaderName(fmt.Sprintf("proxy.forward_auth.after[%d]", i), n)
+		}
+		if a.Before != "" {
+			c.checkHeaderName("proxy.forward_auth.before", a.Before)
+		}
 	}
 	if s := p.SOCKS5; s != nil {
 		if len(s.Methods) != 1 || s.Methods[0] != 0 {

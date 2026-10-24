@@ -2886,13 +2886,32 @@
       },
       {
         "name": "User-Agent"
+      }
+    ],
+    "connect_auth": [
+      {
+        "name": "Host"
+      },
+      {
+        "name": "Proxy-Connection",
+        "value": "keep-alive"
+      },
+      {
+        "name": "User-Agent"
       },
       {
         "name": "Proxy-Authorization"
       }
     ],
+    "connect_credentials": "after_challenge",
+    "forward_credentials": "after_challenge",
     "forward_connection": "Proxy-Connection",
-    "forward_auth_after": "connection",
+    "forward_auth": {
+      "after": [
+        "connection",
+        "content-length"
+      ]
+    },
     "socks5": {
       "methods": [
         0
