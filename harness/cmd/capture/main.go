@@ -147,10 +147,10 @@ func run() error {
 
 	failed := 0
 	for _, b := range browsers {
-		if b.Shared && proxied && !pacConfigured(ctx) {
-			log.Printf("%s: the system does not use the capture tool's proxy script, so %s would not use the capture proxy. Point the active network service at it (an administrator's password), and turn it off after:\n"+
+		if b.Shared && proxied && !safariProxyConfigured(ctx) {
+			log.Printf("%s: the system does not send %s to the capture proxy. Point the active network service at the tool's proxy script (an administrator's password), and turn it off after:\n"+
 				"  sudo networksetup -setautoproxyurl <service> %s\n  sudo networksetup -setautoproxystate <service> off\n"+
-				"(networksetup -listallnetworkservices lists services). The script proxies only *.test.", b.Name, b.Name, safariPACURL)
+				"(networksetup -listallnetworkservices lists services). The script proxies only *.test. For proxy credentials, use manual web and secure web proxies at %s with a password instead.", b.Name, b.Name, safariPACURL, safariHTTPProxy)
 			failed++
 			continue
 		}
@@ -288,6 +288,9 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 				return strings.HasSuffix(host, ".test") || host == "127.0.0.1"
 			},
 			Plain: sc.Plain,
+			// Safari uses the system's proxy, which with a manual proxy
+			// carries everything the Mac sends.
+			PassThrough: b.Shared,
 		}
 		if sc.ProxyAuth {
 			px.Auth = server.ProxyAuthorization()

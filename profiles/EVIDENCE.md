@@ -152,7 +152,7 @@ against every browser's capture) and `TestUnmeasuredProxyIsAnError`.
 | Claim (`proxy.…`) | Chrome 155 | Firefox 158 | Safari 27 | Safari 26 |
 |---|---|---|---|---|
 | `connect` (CONNECT header names, order, values) | W: Host, Proxy-Connection, User-Agent | W: User-Agent, Proxy-Connection, Connection, Host | W: Host, Proxy-Connection, Connection | W: as Safari 27 |
-| `Proxy-Authorization` slot, credential flow (challenge first, retry on the same connection, unasked after) | W: last; preconnects aside (net log) | W: last | not measured: macOS takes proxy credentials only from System Settings, none for a PAC proxy; credentials are an error | as Safari 27 |
+| `Proxy-Authorization` slot, credential flow (challenge first, retry on the same connection, unasked after) | W: last; preconnects aside (net log) | W: last | not measured: never sent credentials with a PAC proxy plus System-keychain passwords, nor with a manual proxy whose password was saved in System Settings (407, one retry without, then nothing; [report](../harness/reports/proxies-2026-10-24.md)); credentials are an error | not tried; as Safari 27 |
 | `forward_connection` (plain HTTP to the proxy) | W: Proxy-Connection | W: none (Connection) | W: none | W: none |
 | `forward_auth_after` | W: after Connection's slot | W: last | not measured | not measured |
 | `socks5` | W: `05 01 00`, host name | W: same | W: same | W: same |

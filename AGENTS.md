@@ -119,4 +119,4 @@ Chrome starts on `about:blank` and gets the capture URL 5 s later: a fresh profi
   sudo networksetup -setautoproxystate <service> off
   ```
 
-  Safari cannot be given proxy credentials by the tool: macOS asks for them in System Settings, not in a dialog, and has no field for them with a PAC script.
+  The tool also accepts manual web and secure web proxies at `127.0.0.1:15354` instead of the script; it then passes every non-`*.test` request through to the network unrecorded, since the whole Mac uses the proxy, and the Mac has no working proxy between samples or after the run until the proxies are turned off. Safari never sent proxy credentials in any setup tried (see `harness/reports/proxies-2026-10-24.md`), so the tool cannot capture its credential flow.

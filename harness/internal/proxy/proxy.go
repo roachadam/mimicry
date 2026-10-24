@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/textproto"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -24,10 +25,14 @@ import (
 // Listener: CONNECT and SOCKS5 tunnels after the proxy's reply, or, when
 // Plain, absolute-form HTTP requests as they are, first request included.
 type Proxy struct {
-	// Allow reports whether host may be reached. Others are refused and not
-	// recorded: a browser's own background traffic goes through its proxy
-	// too.
+	// Allow reports whether host is a capture host. Others are refused (or
+	// passed through, with PassThrough) and not recorded: a browser's own
+	// background traffic goes through its proxy too.
 	Allow func(host string) bool
+	// PassThrough carries requests for other hosts to the network, without
+	// credentials or records, for a proxy the whole system uses while
+	// capturing (Safari through a manual proxy).
+	PassThrough bool
 	// Plain means the server behind speaks plain HTTP: absolute-form
 	// requests are passed on and CONNECT is recorded, then answered 502 (a
 	// browser may try HTTPS first). Otherwise CONNECT tunnels are passed on
@@ -96,6 +101,12 @@ func (p *Proxy) Serve(ctx context.Context, ln net.Listener) error {
 }
 
 func (p *Proxy) handle(ctx context.Context, conn net.Conn, out *listener) error {
+	// Until the connection is handed on (or for good, when passed
+	// through), stopping the proxy closes it.
+	stop := context.AfterFunc(ctx, func() {
+		_ = conn.Close()
+	})
+	defer stop()
 	if err := conn.SetDeadline(time.Now().Add(30 * time.Second)); err != nil {
 		return err
 	}
@@ -138,6 +149,10 @@ func (p *Proxy) http(conn net.Conn, br *bufio.Reader, id int) (io.Reader, error)
 		}
 		method, rest, _ := strings.Cut(line, " ")
 		if method != "CONNECT" {
+			target, _, _ := strings.Cut(rest, " ")
+			if u, err := url.Parse(target); p.PassThrough && err == nil && !p.Allow(u.Hostname()) {
+				return nil, forward(conn, bufio.NewReader(io.MultiReader(strings.NewReader(line), br)))
+			}
 			if !p.Plain {
 				_, err := io.WriteString(conn, "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
 				return nil, errors.Join(err, conn.Close())
@@ -173,6 +188,9 @@ func (p *Proxy) http(conn net.Conn, br *bufio.Reader, id int) (io.Reader, error)
 			return nil, fmt.Errorf("CONNECT %q: %w", target, err)
 		}
 		if !p.Allow(host) {
+			if p.PassThrough {
+				return nil, tunnel(conn, br, target)
+			}
 			_, err := io.WriteString(conn, "HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
 			return nil, errors.Join(err, conn.Close())
 		}
@@ -196,6 +214,66 @@ func (p *Proxy) http(conn net.Conn, br *bufio.Reader, id int) (io.Reader, error)
 			return nil, err
 		}
 		return br, nil
+	}
+}
+
+// tunnel connects conn to target and copies both ways until either side
+// closes.
+func tunnel(conn net.Conn, br *bufio.Reader, target string) error {
+	dst, err := net.DialTimeout("tcp", target, 10*time.Second) //nolint:noctx // bounded by the timeout; lives as long as the client's connection
+	if err != nil {
+		_, werr := io.WriteString(conn, "HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+		return errors.Join(err, werr, conn.Close())
+	}
+	if _, err := io.WriteString(conn, "HTTP/1.1 200 Connection established\r\n\r\n"); err != nil {
+		return errors.Join(err, dst.Close())
+	}
+	if err := conn.SetDeadline(time.Time{}); err != nil {
+		return errors.Join(err, dst.Close())
+	}
+	done := make(chan struct{})
+	go func() {
+		_, _ = io.Copy(dst, br)
+		_ = dst.Close()
+		close(done)
+	}()
+	_, _ = io.Copy(conn, dst)
+	_ = conn.Close()
+	<-done
+	return nil
+}
+
+// passTransport carries passed-through plain requests, directly.
+var passTransport = &http.Transport{
+	Proxy: nil,
+}
+
+// forward answers absolute-form requests on conn by sending them on to
+// the network, until the client closes.
+func forward(conn net.Conn, br *bufio.Reader) error {
+	defer func() {
+		_ = conn.Close()
+	}()
+	if err := conn.SetDeadline(time.Time{}); err != nil {
+		return err
+	}
+	for {
+		req, err := http.ReadRequest(br)
+		if err != nil {
+			return nil
+		}
+		req.RequestURI = ""
+		req.Header.Del("Proxy-Connection")
+		resp, err := passTransport.RoundTrip(req)
+		if err != nil {
+			_, err := io.WriteString(conn, "HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+			return err
+		}
+		err = resp.Write(conn)
+		_ = resp.Body.Close()
+		if err != nil {
+			return err
+		}
 	}
 }
 

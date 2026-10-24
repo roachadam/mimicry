@@ -66,9 +66,11 @@ the request's own flow), and tunnels that change nothing. Ledger section
 
 - The first request to an authenticating proxy costs a round trip, as in the
   browser.
-- Safari profiles work with proxies without credentials only: macOS takes
-  proxy credentials from System Settings, and for a PAC-configured proxy has
-  no field for them, so their flow could not be captured.
+- Safari profiles work with proxies without credentials only. Safari never
+  sent credentials in any setup tried (PAC with System-keychain passwords; a
+  manual proxy with the password saved through System Settings and
+  `networksetup`, Safari restarted): a 407, one retry without them, then
+  nothing. Its flow is not measured, so credentials are an error.
 - Plain-HTTP requests through a proxy are framed as the browser frames them,
   but their header set is still an HTTPS request's (non-secure origins are not
   modelled yet, proxy or not).
@@ -76,6 +78,6 @@ the request's own flow), and tunnels that change nothing. Ledger section
 
 ## Revisit when
 
-Safari's credential flow is measured (a manual proxy with a saved password),
+Safari is seen sending proxy credentials (some way of giving them to it is found),
 an https proxy is needed, a browser is captured offering SOCKS5
 authentication, or a caller needs credentials sent from the first request.

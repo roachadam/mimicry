@@ -59,14 +59,22 @@ func servePAC(ctx context.Context) error {
 	return nil
 }
 
-// pacConfigured reports whether the system uses safariPACURL.
-func pacConfigured(ctx context.Context) bool {
+// safariProxyConfigured reports whether the system sends Safari to the
+// capture proxy: through safariPACURL, or through manual web and secure
+// web proxies at safariHTTPProxy. Only a manual proxy can carry a saved
+// password: macOS takes proxy credentials from System Settings, which has
+// no field for them with a PAC script.
+func safariProxyConfigured(ctx context.Context) bool {
 	out, err := exec.CommandContext(ctx, "scutil", "--proxy").Output()
 	if err != nil {
 		return false
 	}
 	s := string(out)
-	return strings.Contains(s, "ProxyAutoConfigEnable : 1") && strings.Contains(s, "ProxyAutoConfigURLString : "+safariPACURL)
+	if strings.Contains(s, "ProxyAutoConfigEnable : 1") {
+		return strings.Contains(s, "ProxyAutoConfigURLString : "+safariPACURL)
+	}
+	host, port, _ := net.SplitHostPort(safariHTTPProxy)
+	return strings.Contains(s, "HTTPSEnable : 1") && strings.Contains(s, "HTTPSProxy : "+host) && strings.Contains(s, "HTTPSPort : "+port)
 }
 
 // safariProxyListen returns where the proxy for sc listens when Safari is
