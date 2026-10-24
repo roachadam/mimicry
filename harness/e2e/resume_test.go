@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"slices"
 	"strings"
 	"sync"
@@ -38,9 +37,6 @@ func TestResumptionMatchesBrowser(t *testing.T) {
 					t.Fatal(err)
 				}
 				want, err := capture.LoadPages(captureDir + name + "." + sc.Name + ".pagetrace.json.gz")
-				if os.IsNotExist(err) {
-					t.Skipf("no %s capture for %s", sc.Name, name)
-				}
 				if err != nil {
 					t.Fatal(err)
 				}

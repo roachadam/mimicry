@@ -2,6 +2,7 @@ package profile
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 )
@@ -30,8 +31,12 @@ const (
 	KindPreflight = "preflight"
 )
 
-// Kinds lists every kind a profile may describe, in a stable order.
-var Kinds = []string{
+// Kinds returns every kind a profile may describe, in a stable order.
+func Kinds() []string {
+	return slices.Clone(kinds)
+}
+
+var kinds = []string{
 	KindFrame,
 	KindScript,
 	KindAsyncScript,
@@ -62,7 +67,7 @@ type Kind struct {
 	// is the order of a same-origin GET that is not CORS-checked.
 	Headers []Header `json:"headers"`
 	// HTTP1 is the same over HTTP/1.1, named exactly as sent, with Host and
-	// Connection placed.
+	// Connection placed. Required when the profile has HTTP1.
 	HTTP1 []Header `json:"http1,omitempty"`
 	// Variants are the orders the browser uses instead for other requests
 	// of the kind, with values as Headers'.
@@ -93,6 +98,10 @@ type Variant struct {
 	// CORSChecked is a request that carries Origin or headers the page
 	// set.
 	CORSChecked bool `json:"cors_checked,omitempty"`
+	// PageSet is a request that carries a header the page set itself (not
+	// one the kind's list names). Such a request is CORS-checked, so
+	// PageSet needs CORSChecked.
+	PageSet bool `json:"page_set,omitempty"`
 	// Redirected is a request made by following a redirect.
 	Redirected bool `json:"redirected,omitempty"`
 	// Insecure is a request to a URL that is not potentially trustworthy
@@ -103,7 +112,10 @@ type Variant struct {
 	// (Insecure alone); a kind with none is not measured for it.
 	Insecure bool     `json:"insecure,omitempty"`
 	Headers  []Header `json:"headers,omitempty"`
-	HTTP1    []Header `json:"http1,omitempty"`
+	// HTTP1 is the variant over HTTP/1.1. Empty on a secure variant: not
+	// measured over HTTP/1.1 (its capture was HTTP/2 only), so a request
+	// matching it there is an error.
+	HTTP1 []Header `json:"http1,omitempty"`
 }
 
 // Site relations of a request to its page, as sec-fetch-site names them.
@@ -157,17 +169,15 @@ const (
 )
 
 // checkKinds checks every kind's lists and that only known kinds appear.
-func (c *checker) checkKinds(kinds map[string]*Kind) {
-	names := make([]string, 0, len(kinds))
-	for name := range kinds {
-		names = append(names, name)
-	}
-	slices.Sort(names)
-	for _, name := range names {
-		k := kinds[name]
+// Once the profile has an HTTP/1.1 navigation, every kind needs its HTTP/1.1
+// list: without one, its requests would go out in a guessed order (decision
+// 0008).
+func (c *checker) checkKinds(p *Profile) {
+	for _, name := range slices.Sorted(maps.Keys(p.Kinds)) {
+		k := p.Kinds[name]
 		path := "kinds." + name
-		if !slices.Contains(Kinds, name) {
-			c.add(path, "is not a request kind (have %s)", strings.Join(Kinds, ", "))
+		if !slices.Contains(kinds, name) {
+			c.add(path, "is not a request kind (have %s)", strings.Join(kinds, ", "))
 		}
 		if k == nil {
 			c.add(path, "is empty")
@@ -176,6 +186,8 @@ func (c *checker) checkKinds(kinds map[string]*Kind) {
 		c.checkHeaderList(path+".headers", k.Headers, true)
 		if len(k.HTTP1) > 0 {
 			c.checkHTTP1Headers(path+".http1", k.HTTP1, true)
+		} else if p.HTTP1 != nil {
+			c.add(path+".http1", "is required because the profile has http1")
 		}
 		c.checkVariants(path+".variants", k.Variants, true)
 		for which, u := range map[string]*Urgency{"high": k.High, "low": k.Low} {
@@ -190,8 +202,8 @@ func (c *checker) checkKinds(kinds map[string]*Kind) {
 // condition and none repeats the default one.
 func (c *checker) checkVariants(path string, vs []Variant, others bool) {
 	type condition struct {
-		method, site               string
-		cors, redirected, insecure bool
+		method, site                        string
+		cors, pageSet, redirected, insecure bool
 	}
 	seen := map[condition]bool{}
 	for i, v := range vs {
@@ -215,10 +227,14 @@ func (c *checker) checkVariants(path string, vs []Variant, others bool) {
 		if v.Site != SiteSameOrigin && v.Site != SiteSameSite && v.Site != SiteCrossSite {
 			c.add(at+".site", "must be empty (same-origin), %q or %q", SiteSameSite, SiteCrossSite)
 		}
+		if v.PageSet && !v.CORSChecked {
+			c.add(at+".page_set", "needs cors_checked: a request carrying headers the page set is CORS-checked")
+		}
 		cond := condition{
 			method:     v.Method,
 			site:       v.Site,
 			cors:       v.CORSChecked,
+			pageSet:    v.PageSet,
 			redirected: v.Redirected,
 			insecure:   v.Insecure,
 		}

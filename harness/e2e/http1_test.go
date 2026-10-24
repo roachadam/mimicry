@@ -3,16 +3,16 @@ package e2e
 import (
 	"encoding/json"
 	"io"
+	"maps"
 	"net/http"
-	"net/http/cookiejar"
 	"net/url"
 	"os"
 	"slices"
 	"strings"
 	"testing"
 
-	"golang.org/x/net/publicsuffix"
-
+	"github.com/roachadam/mimicry"
+	"github.com/roachadam/mimicry/cookies"
 	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/profiles"
@@ -20,12 +20,13 @@ import (
 
 // Over HTTP/1.1, mimicry's navigations are the browser's line for line:
 // header names in the browser's casing and order, the same values, and one
-// Cookie line in the browser's cookie order. The first navigation uses the
-// profile's defaults; for the second (/nav, with a referer and the page's
-// cookies) the test sets what a caller would for that navigation: headers
-// whose values the browser changed, and suppression of ones it dropped.
-// Host and URLs are compared with the authority replaced, since the browser
-// was served on another name and port.
+// Cookie line in the browser's cookie order. The first navigation is a
+// typed URL; the second (/nav) a navigation from the page, with the
+// cookies the page set through the profile's jar. The page navigates by
+// script, without user activation, so the caller suppresses the one header
+// that cannot express (Sec-Fetch-User). Host and URLs are compared with
+// the authority replaced, since the browser was served on another name and
+// port.
 func TestHTTP1MatchesBrowserTrace(t *testing.T) {
 	sc, err := server.ScenarioByName("http1")
 	if err != nil {
@@ -38,52 +39,46 @@ func TestHTTP1MatchesBrowserTrace(t *testing.T) {
 				t.Fatal(err)
 			}
 			samples := loadH1Traces(t, name)
-			want := navigations(t, samples[0])
-			base, tr, captures := captureClient(t, p, sc)
-			jar, err := cookiejar.New(&cookiejar.Options{
-				PublicSuffixList: publicsuffix.List,
-			})
-			if err != nil {
-				t.Fatal(err)
-			}
-			baseURL, err := url.Parse(base)
+			jar := newJar(t, p)
+			base, tr, captures := captureClientWith(t, p, sc, jar)
+			page, err := url.Parse(base + "/")
 			if err != nil {
 				t.Fatal(err)
 			}
 			client := &http.Client{
 				Transport: tr,
-				Jar:       jar,
 			}
-			get := func(path string, h http.Header) {
+			get := func(path string, r mimicry.Request, h http.Header) {
 				t.Helper()
 				req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, base+path, nil)
 				if err != nil {
 					t.Fatal(err)
 				}
-				for k, v := range h {
-					req.Header[k] = v
-				}
-				resp, err := client.Do(req)
+				maps.Copy(req.Header, h)
+				resp, err := client.Do(mimicry.With(req, r))
 				if err != nil {
 					t.Fatal(err)
 				}
 				_, _ = io.Copy(io.Discard, resp.Body)
 				_ = resp.Body.Close()
 			}
-			get("/", nil)
+			get("/", mimicry.Request{}, nil)
 			// The page then sets these with document.cookie.
-			jar.SetCookies(baseURL, []*http.Cookie{
-				{ //nolint:gosec // as document.cookie sets them: no HttpOnly, no SameSite
-					Name:  "mimicry_a",
-					Value: "1",
-				},
-				{ //nolint:gosec // as document.cookie sets them: no HttpOnly, no SameSite
-					Name:  "mimicry_b",
-					Value: "2",
-				},
+			jar.SetCookies(cookies.Request{
+				URL:  page,
+				Page: page,
+			}, []string{
+				"mimicry_a=1",
+				"mimicry_b=2",
 			})
-			get("/nav", callerHeaders(want[0], want[1], baseURL.Host))
-			get("/done", nil)
+			// A script navigation has no user activation.
+			get("/nav", mimicry.Request{
+				Kind: mimicry.Navigate,
+				From: page,
+			}, http.Header{
+				"Sec-Fetch-User": nil,
+			})
+			get("/done", mimicry.Request{}, nil)
 			c := <-captures
 			if c.Protocol != "http/1.1" {
 				t.Fatalf("negotiated %q, want http/1.1", c.Protocol)
@@ -146,35 +141,4 @@ func normalize(lines []string) []string {
 		out[i] = strings.ReplaceAll(l, host, "{host}")
 	}
 	return out
-}
-
-// callerHeaders returns what a caller sets to turn the first navigation
-// (first) into the second (nav): headers the browser added or changed,
-// except Host and Cookie, which the client and jar supply, with the authority
-// put back as host; and nil for headers it dropped.
-func callerHeaders(first, nav []string, host string) http.Header {
-	values := func(lines []string) map[string]string {
-		m := make(map[string]string, len(lines))
-		for _, l := range lines {
-			name, value, _ := strings.Cut(l, ":")
-			m[http.CanonicalHeaderKey(name)] = strings.TrimSpace(value)
-		}
-		return m
-	}
-	before, after := values(first), values(nav)
-	h := http.Header{}
-	for name, v := range after {
-		if name == "Host" || name == "Cookie" || before[name] == v {
-			continue
-		}
-		h[name] = []string{
-			strings.ReplaceAll(v, "{host}", host),
-		}
-	}
-	for name := range before {
-		if _, ok := after[name]; !ok {
-			h[name] = nil
-		}
-	}
-	return h
 }

@@ -2,6 +2,7 @@ package cookies
 
 import (
 	"errors"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -18,15 +19,26 @@ const (
 // parsed is a Set-Cookie line before the jar's checks.
 type parsed struct {
 	name, value string
-	// expires is the Max-Age or Expires time; zero when neither.
-	expires     time.Time
-	domain      string // without leading dot; empty when absent
-	path        string // empty when absent or invalid
+	// expires is the Max-Age or Expires time, capped at 400 days from
+	// now; zero when neither.
+	expires time.Time
+	// domain is the last Domain attribute without its leading dot; empty
+	// when absent or empty (host-only).
+	domain string
+	// pathAttr is the last Path attribute as sent, valid or not; empty
+	// when absent. path is pathAttr when valid (it starts with "/"), else
+	// empty: the default path.
+	pathAttr    string
+	path        string
 	secure      bool
 	httpOnly    bool
 	sameSite    SameSite
 	partitioned bool
 }
+
+// maxExpiry is how far ahead a cookie may expire (RFC 6265bis 5.6.1,
+// 5.6.2): 400 days.
+const maxExpiry = 400 * 24 * time.Hour
 
 // parse reads a Set-Cookie line by RFC 6265bis section 5.6; nameless is the
 // profile's policy for a pair without "=", now the time Max-Age counts
@@ -74,10 +86,13 @@ func parse(line, nameless string, now time.Time) (*parsed, error) {
 				maxAge = &t
 			}
 		case "domain":
-			if val != "" {
-				p.domain = strings.ToLower(strings.TrimPrefix(val, "."))
-			}
+			// The last Domain wins; an empty one makes the cookie host-only.
+			p.domain = strings.ToLower(strings.TrimPrefix(val, "."))
 		case "path":
+			// The last Path wins, even when invalid: then the cookie gets
+			// the default path.
+			p.pathAttr = val
+			p.path = ""
 			if strings.HasPrefix(val, "/") {
 				p.path = val
 			}
@@ -103,6 +118,9 @@ func parse(line, nameless string, now time.Time) (*parsed, error) {
 	if maxAge != nil {
 		p.expires = *maxAge // Max-Age wins over Expires
 	}
+	if limit := now.Add(maxExpiry); p.expires.After(limit) {
+		p.expires = limit
+	}
 	return p, nil
 }
 
@@ -110,29 +128,27 @@ func trimWSP(s string) string {
 	return strings.Trim(s, " \t")
 }
 
-// parseMaxAge reads Max-Age: a delta in seconds; zero or below is the
-// earliest time, which expires the cookie.
+// parseMaxAge reads Max-Age: a delta in seconds, "-" and digits or digits
+// only, else ignored; zero or below is the earliest time, which expires
+// the cookie.
 func parseMaxAge(v string, now time.Time) (time.Time, bool) {
-	if v == "" || (v[0] != '-' && (v[0] < '0' || v[0] > '9')) {
+	digits := strings.TrimPrefix(v, "-")
+	if digits == "" || strings.ContainsFunc(digits, func(r rune) bool {
+		return r < '0' || r > '9'
+	}) {
 		return time.Time{}, false
 	}
-	for _, r := range v[1:] {
-		if r < '0' || r > '9' {
-			return time.Time{}, false
-		}
-	}
-	n, err := strconv.ParseInt(v, 10, 64)
-	if err != nil {
-		if v[0] == '-' {
-			return time.Unix(0, 0), true
-		}
-		n = 1 << 40 // overflow: far future
-	}
-	if n <= 0 {
+	if digits != v {
 		return time.Unix(0, 0), true
 	}
-	const maxDelta = 400 * 24 * 60 * 60 // RFC 6265bis caps expiry at 400 days
-	return now.Add(time.Duration(min(n, maxDelta)) * time.Second), true
+	n, err := strconv.ParseInt(digits, 10, 64)
+	if err != nil {
+		n = math.MaxInt64 // overflow: far future, capped below
+	}
+	if n == 0 {
+		return time.Unix(0, 0), true
+	}
+	return now.Add(time.Duration(min(n, int64(maxExpiry/time.Second))) * time.Second), true
 }
 
 // parseDate reads a cookie date by RFC 6265bis section 5.1.1.

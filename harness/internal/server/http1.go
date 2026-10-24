@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
-	"net/textproto"
 	"net/url"
 	"strconv"
 	"strings"
@@ -29,9 +28,8 @@ import (
 func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, log *pageLog, emit func()) error {
 	id := log.newConn()
 	br := bufio.NewReader(conn)
-	tp := textproto.NewReader(br)
 	for {
-		line, err := tp.ReadLine()
+		line, err := readLine(br)
 		if err != nil {
 			return err
 		}
@@ -62,7 +60,7 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 		chunked := false
 		proxyAuth := ""
 		for {
-			h, err := tp.ReadLine()
+			h, err := readLine(br)
 			if err != nil {
 				return err
 			}
@@ -116,7 +114,7 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 			// The chunked reader stops at the last chunk; the trailer
 			// section ends with an empty line.
 			for {
-				t, err := tp.ReadLine()
+				t, err := readLine(br)
 				if err != nil {
 					return err
 				}
@@ -172,6 +170,21 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 			return nil
 		}
 	}
+}
+
+// readLine reads one line, which must end in CRLF, and returns it without
+// the CRLF. A line ending in a bare LF is an error rather than recorded as if
+// it were CRLF, so a client that sends one fails visibly.
+func readLine(br *bufio.Reader) (string, error) {
+	line, err := br.ReadString('\n')
+	if err != nil {
+		return "", err
+	}
+	text, ok := strings.CutSuffix(line, "\r\n")
+	if !ok {
+		return "", fmt.Errorf("line %q does not end in CRLF", line)
+	}
+	return text, nil
 }
 
 // profileHeaders turns verbatim header lines into profile headers. Host is

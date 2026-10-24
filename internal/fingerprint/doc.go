@@ -17,7 +17,7 @@
 // plan would pick the cookie's position as part of the permutation and the
 // uTLS fork would need a hook to place it there. Deferred until a capture or
 // the server-stack handshake tests show the difference matters; see
-// HANDOFF.md, "Known gaps".
+// profiles/EVIDENCE.md, "Behaviour in code, not in profiles".
 //
 // Imports: profile and the standard library. It describes the ClientHello; it does
 // not perform handshakes.

@@ -44,13 +44,23 @@ func Client(ctx context.Context, conn net.Conn, hello fingerprint.Hello, cfg Con
 		PreferSkipResumptionOnNilExtension: true,
 	}
 	if cfg.Tickets != nil {
-		config.ClientSessionCache = &connCache{
+		cache := &connCache{
 			ticket:  cfg.Ticket,
 			tickets: cfg.Tickets,
 			key:     cfg.TicketKey,
 		}
-		// A ticket uTLS will not use (expired, another name) leaves
-		// pre_shared_key empty: leave it out and do a full handshake.
+		config.ClientSessionCache = cache
+		// Tickets keep their server certificate's expiry, past which uTLS
+		// declines them. It runs on resumed handshakes too, and before any
+		// ticket is stored.
+		config.VerifyConnection = func(cs utls.ConnectionState) error {
+			if len(cs.PeerCertificates) > 0 {
+				cache.notAfter = cs.PeerCertificates[0].NotAfter
+			}
+			return nil
+		}
+		// A ticket uTLS will not use (another name) leaves pre_shared_key
+		// empty: leave it out and do a full handshake.
 		config.OmitEmptyPsk = true
 	}
 	tlsConn := utls.UClient(conn, config, utls.HelloCustom)

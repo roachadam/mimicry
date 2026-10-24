@@ -1,16 +1,15 @@
 package profile
 
 import (
-	"bytes"
 	"encoding/json"
-	"errors"
+	jsonv2 "encoding/json/v2"
 	"fmt"
-	"io"
 )
 
 // Profile describes one browser version on one platform.
 type Profile struct {
-	// Name identifies the profile, for example "chrome-155-macos".
+	// Name identifies the profile, for example "chrome-155-macos":
+	// lowercase letters and digits in parts joined by dashes.
 	Name     string `json:"name"`
 	Browser  string `json:"browser"`
 	Version  string `json:"version"`
@@ -24,7 +23,8 @@ type Profile struct {
 	Headers []Header `json:"headers"`
 	// HTTP1 describes the same request over HTTP/1.1, which browsers send
 	// with a header set, order and casing of their own. Nil writes Headers
-	// in canonical casing after Host and Connection.
+	// in canonical casing after Host and Connection. Set, every kind needs
+	// its HTTP/1.1 list too.
 	HTTP1 *HTTP1 `json:"http1,omitempty"`
 	// Variants are the orders the navigation takes otherwise (a form POST),
 	// as Kind.Variants.
@@ -34,8 +34,7 @@ type Profile struct {
 	// Context is how the browser fills what depends on which page makes a
 	// request. Nil: as the Fetch standard says, with no browser extras.
 	Context *Context `json:"context,omitempty"`
-	// Cookies are the browser's cookie rules. Nil: RFC 6265bis's
-	// (DefaultCookies).
+	// Cookies are the browser's cookie rules. Required.
 	Cookies *Cookies `json:"cookies,omitempty"`
 	// Proxy is how the browser talks to HTTP and SOCKS5 proxies. Nil: not
 	// measured, so sending through a proxy is an error.
@@ -50,20 +49,26 @@ type HTTP1 struct {
 	Headers []Header `json:"headers"`
 }
 
-// Parse decodes a profile from JSON and validates it. Unknown fields and
-// trailing data are errors, so a typo cannot silently drop a setting.
+// Parse decodes a profile from JSON, as Decode, and validates it.
 func Parse(data []byte) (*Profile, error) {
-	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.DisallowUnknownFields()
-	var p Profile
-	if err := dec.Decode(&p); err != nil {
-		return nil, fmt.Errorf("profile: %w", err)
-	}
-	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
-		return nil, errors.New("profile: trailing data after the profile")
+	p, err := Decode(data)
+	if err != nil {
+		return nil, err
 	}
 	if err := p.Validate(); err != nil {
 		return nil, err
+	}
+	return p, nil
+}
+
+// Decode decodes a profile from JSON without validating it, as Encode
+// writes one: for harness captures, which record one request and lack what
+// a complete profile needs. Unknown, miscased and repeated keys and trailing
+// data are errors, so a typo cannot silently drop a setting.
+func Decode(data []byte) (*Profile, error) {
+	var p Profile
+	if err := jsonv2.Unmarshal(data, &p, jsonv2.RejectUnknownMembers(true)); err != nil {
+		return nil, fmt.Errorf("profile: %w", err)
 	}
 	return &p, nil
 }

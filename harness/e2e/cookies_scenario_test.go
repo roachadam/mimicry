@@ -3,8 +3,6 @@ package e2e
 import (
 	"net/http"
 	"net/url"
-	"slices"
-	"strings"
 	"testing"
 
 	"github.com/roachadam/mimicry"
@@ -16,10 +14,11 @@ import (
 
 // The cookies page, walked through mimicry as the browser walked it (page
 // A, a third-party setter, redirects across sites, a navigation to site C
-// and its requests, a link and a form POST back to A), sends on every probe
-// exactly the browser's cookies, in its order: SameSite on cross-site
-// navigations, partitions under another top-level site, None without
-// Secure, redirects, path and domain order.
+// and its requests, a link and a form POST back to A), sends every probe
+// as the browser did: the same header lines in the same order, with the
+// same values and HTTP/2 weight, and so the browser's cookies in its
+// order: SameSite on cross-site navigations, partitions under another
+// top-level site, None without Secure, redirects, path and domain order.
 func TestCookiesScenarioMatchesBrowser(t *testing.T) {
 	for _, name := range profiles.Names() {
 		t.Run(name, func(t *testing.T) {
@@ -28,7 +27,7 @@ func TestCookiesScenarioMatchesBrowser(t *testing.T) {
 				t.Fatal(err)
 			}
 			if p.Kinds == nil {
-				t.Skipf("%s describes no request kinds (no kinds capture)", name)
+				t.Fatalf("%s describes no request kinds", name)
 			}
 			want, err := capture.LoadPages(captureDir + name + ".cookies.pagetrace.json.gz")
 			if err != nil {
@@ -36,28 +35,14 @@ func TestCookiesScenarioMatchesBrowser(t *testing.T) {
 			}
 			got := runCookiesPage(t, p)
 			for _, label := range []string{
-				"c-order.so",
+				"c-setcookie.cs", "c-order.so",
 				"c-redirect.cs-ss", "c-redirect.cs-ss.hop",
 				"c-redirect.ss-so", "c-redirect.ss-so.hop",
 				"c-redirect.cs-so", "c-redirect.cs-so.hop",
 				"c-part.cs", "c-third.so",
 				"c-nav-get.so", "c-nav-post.so",
 			} {
-				g := kindsFields(got, label, false, false)
-				if g == nil {
-					t.Errorf("%s: mimicry sent no request", label)
-					continue
-				}
-				gc := cookieLines(g)
-				for i, page := range want {
-					w := kindsFields(page, label, false, false)
-					if w == nil {
-						t.Fatalf("%s: sample %d has no browser request", label, i+1)
-					}
-					if wc := cookieLines(w); !slices.Equal(gc, wc) {
-						t.Errorf("%s, sample %d:\n got %q\nwant %q", label, i+1, gc, wc)
-					}
-				}
+				compareKind(t, got, want, label, false, false)
 			}
 		})
 	}
@@ -80,7 +65,16 @@ func runCookiesPage(t *testing.T, p *profile.Profile) *capture.Page {
 		}
 		return v
 	}
+	// nav navigates from page from; the page's script does (location.href,
+	// form.submit()), so without user activation: no Sec-Fetch-User.
 	nav := func(method, target string, from *url.URL, h http.Header, body string) *url.URL {
+		if from != nil {
+			h = h.Clone()
+			if h == nil {
+				h = http.Header{}
+			}
+			h["Sec-Fetch-User"] = nil
+		}
 		s.send(method, target, mimicry.Request{
 			Kind: mimicry.Navigate,
 			From: from,
@@ -109,15 +103,4 @@ func runCookiesPage(t *testing.T, p *profile.Profile) *capture.Page {
 		"Content-Type": {"application/x-www-form-urlencoded"},
 	}, "a=1")
 	return s.finish(s.url(siteA, "/done"))
-}
-
-// cookieLines are a request's cookie fields, in order.
-func cookieLines(s *kindsSent) []string {
-	var out []string
-	for _, l := range s.lines {
-		if v, ok := strings.CutPrefix(l, "cookie: "); ok {
-			out = append(out, v)
-		}
-	}
-	return out
 }

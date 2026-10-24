@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-24
+- Commits: `a09ce1f`, `31f727b`
 
 ## Problem
 
@@ -44,7 +45,7 @@ in kind, not only in degree:
 | `lax_allows_unsafe_seconds` | Chrome's exception window (120) |
 | `none_requires_secure` | bool |
 | `third_party` | `samesite` (Chrome), `partition_all` (Firefox), `partitioned_only` (Safari) |
-| `redirects` | `ignore` (Chrome), `chain` (Firefox), `block_after_cross_site` (Safari) |
+| `redirects` | `ignore` (Chrome), `chain` (Firefox, Safari 26), `block_after_cross_site` (Safari 27) |
 | `nameless` | `value` (Chrome), `name` (Firefox), `drop` (Safari) |
 | `latin1_values` | bool (Safari) |
 | `order` | `rfc` (Chrome, Firefox), `domain_name` (Safari) |
@@ -56,6 +57,10 @@ responses).
 
 The jar orders cookies itself; the connections only split them into HTTP/2
 fields. A caller's own `Cookie` header is sent as written.
+
+The section is required in a profile (0008), and `profile.Cookies.Validate`
+checks it; `cookies.New` refuses invalid rules. A jar used without a
+profile takes `profile.DefaultCookies` (RFC 6265bis only).
 
 ## Evidence
 

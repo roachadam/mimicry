@@ -47,7 +47,7 @@ type HTTP2 struct {
 	// SplitCookie sends each cookie as its own header field (RFC 9113,
 	// 8.2.3), as every captured browser does, instead of one joined field.
 	SplitCookie bool `json:"split_cookie,omitempty"`
-	// HPACK is how header blocks are encoded. Nil encodes as Chromium does.
+	// HPACK is how header blocks are encoded. Required.
 	HPACK *HPACK `json:"hpack,omitempty"`
 }
 
@@ -70,37 +70,46 @@ type HPACK struct {
 	LiteralOnExactMatch bool `json:"literal_on_exact_match,omitempty"`
 	// NameMatch chooses which entry a literal's name refers to when several
 	// carry it: NameMatchStaticFirst or NameMatchHighestIndex.
-	NameMatch string `json:"name_match"`
+	NameMatch NameMatchRule `json:"name_match"`
 	// Huffman says when strings are Huffman-coded: HuffmanShorter or
 	// HuffmanAlways.
-	Huffman string `json:"huffman"`
+	Huffman HuffmanRule `json:"huffman"`
 	// MaxTableSize caps the dynamic table the encoder announces and uses,
 	// whatever the server allows (Safari: 4096). Zero: the server's size.
 	MaxTableSize uint32 `json:"max_table_size,omitempty"`
 	// SizeUpdates says when a table size the server sets is signalled:
 	// SizeUpdatesOnChange or SizeUpdatesAlways.
-	SizeUpdates string `json:"size_updates"`
+	SizeUpdates SizeUpdateRule `json:"size_updates"`
 }
 
-// HPACK name matching and Huffman rules.
+// NameMatchRule is a value of HPACK.NameMatch.
+type NameMatchRule string
+
+// HuffmanRule is a value of HPACK.Huffman.
+type HuffmanRule string
+
+// SizeUpdateRule is a value of HPACK.SizeUpdates.
+type SizeUpdateRule string
+
+// HPACK name matching, Huffman and size update rules.
 const (
 	// NameMatchStaticFirst refers to the first static entry with the name,
 	// else the newest dynamic one (Chromium, Safari).
-	NameMatchStaticFirst = "static_first"
+	NameMatchStaticFirst NameMatchRule = "static_first"
 	// NameMatchHighestIndex refers to the entry with the highest index: the
 	// oldest dynamic entry before any static one (Firefox).
-	NameMatchHighestIndex = "highest_index"
+	NameMatchHighestIndex NameMatchRule = "highest_index"
 	// HuffmanShorter codes a string only when that is strictly shorter
 	// (Chromium, Safari).
-	HuffmanShorter = "shorter"
+	HuffmanShorter HuffmanRule = "shorter"
 	// HuffmanAlways codes every string, even when longer (Firefox).
-	HuffmanAlways = "always"
+	HuffmanAlways HuffmanRule = "always"
 	// SizeUpdatesOnChange signals a table size only when it changes
 	// (Chromium).
-	SizeUpdatesOnChange = "on_change"
+	SizeUpdatesOnChange SizeUpdateRule = "on_change"
 	// SizeUpdatesAlways signals every table size the server sends, even
 	// the unchanged default 4096 (Firefox, Safari).
-	SizeUpdatesAlways = "always"
+	SizeUpdatesAlways SizeUpdateRule = "always"
 )
 
 // Setting is one SETTINGS parameter.
@@ -127,9 +136,11 @@ type PriorityParam struct {
 	Weight uint8 `json:"weight"`
 }
 
-// Header is one request header, in the browser's order. Names are lowercase.
-// An empty Value only fixes where a header supplied by the caller goes; a
-// non-empty Value is also sent by default.
+// Header is one request header, in the browser's order. Names are tokens
+// (RFC 9110, section 5.6.2): lowercase in HTTP/2 lists, as sent in HTTP/1.1
+// and proxy lists. Values hold no CR, LF or NUL. An empty Value only fixes
+// where a header supplied by the caller goes; a non-empty Value is also sent
+// by default.
 type Header struct {
 	Name  string `json:"name"`
 	Value string `json:"value,omitempty"`

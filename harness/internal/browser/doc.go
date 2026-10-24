@@ -1,5 +1,5 @@
 // Package browser launches real release builds of Chrome, Firefox and Safari
 // against the capture server.
 //
-// Imports: the standard library only.
+// Imports: golang.org/x/net/websocket and the standard library.
 package browser

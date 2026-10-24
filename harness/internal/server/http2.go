@@ -41,7 +41,7 @@ type h2conn struct {
 	blockID       uint32
 	blockEnded    bool
 	blockPriority *http2.PriorityParam
-	streams       map[uint32]*h2stream
+	streams       map[uint32]*request
 	// firstHeaders is set right after the first request's header block, so
 	// a WINDOW_UPDATE that immediately follows it is recorded.
 	firstHeaders bool
@@ -60,10 +60,6 @@ type h2conn struct {
 	sendWindows   map[uint32]*int64
 	sent          map[uint32]uint64
 	closed        bool
-}
-
-type h2stream struct {
-	req request
 }
 
 // serveHTTP2 records the client's connection preface frames and first request
@@ -90,7 +86,7 @@ func serveHTTP2(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 		trace:         &h2trace.Trace{},
 		tracing:       true,
 		log:           log,
-		streams:       map[uint32]*h2stream{},
+		streams:       map[uint32]*request{},
 		connWindow:    65535,
 		initialWindow: 65535,
 		maxFrame:      16384,
@@ -111,10 +107,13 @@ func serveHTTP2(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 	}
 	log.addH2(s)
 	// Senders blocked on flow control wait for credit the client will no
-	// longer send: mark the connection closed and wake them before waiting
-	// for them, or the connection's handler never returns.
+	// longer send, and senders blocked writing to a client that stopped
+	// reading never finish: close the connection, mark it closed and wake
+	// them before waiting for them, or the connection's handler never
+	// returns.
 	var senders sync.WaitGroup
 	defer func() {
+		_ = conn.Close()
 		s.mu.Lock()
 		s.closed = true
 		s.cond.Broadcast()
@@ -301,26 +300,26 @@ func (s *h2conn) onHeaders(senders *sync.WaitGroup, emit func()) error {
 	if err != nil {
 		return err
 	}
-	st := &h2stream{}
+	st := &request{}
 	for _, ins := range instructions {
 		switch ins.Name {
 		case ":path":
-			st.req.path = ins.Value
+			st.path = ins.Value
 		case ":method":
-			st.req.method = ins.Value
+			st.method = ins.Value
 		case ":authority":
-			st.req.host = ins.Value
+			st.host = ins.Value
 		case "origin":
-			st.req.origin = ins.Value
+			st.origin = ins.Value
 		case "access-control-request-headers":
-			st.req.preflightHeaders = ins.Value
+			st.preflightHeaders = ins.Value
 		}
 	}
 	s.traceMu.Lock()
 	if s.tracing {
 		s.trace.Requests = append(s.trace.Requests, h2trace.Request{
 			Stream:       id,
-			Path:         st.req.path,
+			Path:         st.path,
 			Block:        hex.EncodeToString(s.block),
 			Instructions: instructions,
 		})
@@ -330,6 +329,13 @@ func (s *h2conn) onHeaders(senders *sync.WaitGroup, emit func()) error {
 		s.recordFirstRequest(instructions)
 	}
 	s.streams[id] = st
+	// The stream's send window exists from its HEADERS on, so a
+	// WINDOW_UPDATE for it before the request ends (Firefox sends one right
+	// after every HEADERS) is not lost.
+	s.mu.Lock()
+	w := s.initialWindow
+	s.sendWindows[id] = &w
+	s.mu.Unlock()
 	if s.blockEnded {
 		s.respond(id, st, senders, emit)
 	}
@@ -379,7 +385,7 @@ func (s *h2conn) onData(f *http2.DataFrame, senders *sync.WaitGroup, emit func()
 	if st == nil {
 		return nil
 	}
-	st.req.uploaded += len(f.Data())
+	st.uploaded += len(f.Data())
 	if f.StreamEnded() {
 		s.respond(f.StreamID, st, senders, emit)
 	}
@@ -388,12 +394,12 @@ func (s *h2conn) onData(f *http2.DataFrame, senders *sync.WaitGroup, emit func()
 
 // respond answers a finished request. Bodies are sent from their own
 // goroutine, since they wait for the client's flow-control credit.
-func (s *h2conn) respond(id uint32, st *h2stream, senders *sync.WaitGroup, emit func()) {
+func (s *h2conn) respond(id uint32, st *request, senders *sync.WaitGroup, emit func()) {
 	delete(s.streams, id)
 	s.log.request(s.c)
-	r := s.scenario.answer(st.req)
+	r := s.scenario.answer(*st)
 	s.traceMu.Lock()
-	done := st.req.path == "/done" && s.tracing
+	done := st.path == "/done" && s.tracing
 	if done && s.scenario.multi == nil {
 		s.tracing = false
 	}
@@ -407,10 +413,6 @@ func (s *h2conn) respond(id uint32, st *h2stream, senders *sync.WaitGroup, emit 
 		s.c.Finished = true
 		emit()
 	}
-	s.mu.Lock()
-	w := s.initialWindow
-	s.sendWindows[id] = &w
-	s.mu.Unlock()
 	senders.Go(func() {
 		if err := s.send(id, r); err != nil {
 			s.mu.Lock()

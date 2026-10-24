@@ -41,7 +41,7 @@ type Scenario struct {
 	// answers the rest.
 	respond func(path string, uploaded int) (response, bool)
 	// multi, when set, serves a page across several hosts and answers every
-	// request instead (Replay, the kinds page).
+	// request instead (Replay, the kinds, cors, cookies and resume pages).
 	multi multiHost
 }
 
@@ -171,7 +171,9 @@ var Scenarios = []*Scenario{
 		Doc:       "the resume page (a new connection per request, three hosts) through an HTTP proxy demanding Basic credentials: the 407 challenge, the retry, and whether later CONNECTs send credentials unasked",
 		Proxy:     ProxyHTTP,
 		ProxyAuth: true,
-		multi:     resumePage{},
+		multi: resumePage{
+			fixedHosts: resumeHosts,
+		},
 	},
 	{
 		Name:      "proxy-plain-auth",

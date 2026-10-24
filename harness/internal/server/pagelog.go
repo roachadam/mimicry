@@ -14,11 +14,12 @@ type pageLog struct {
 	conns    int
 	requests []capture.H1Request
 	h2       []*h2conn
-	// connections are every connection's host, protocol and resumption;
-	// first is the first one's ClientHello: on a fresh server it cannot
-	// resume a session, so it is the browser's full handshake.
+	// connections are every connection's host, protocol, resumption and
+	// parsed ClientHello; firstHello is the first one's raw ClientHello: on
+	// a fresh server it cannot resume a session, so it is the browser's
+	// full handshake.
 	connections []capture.Connection
-	first       *capture.Capture
+	firstHello  []byte
 	// index finds a connection's entry in connections by its capture.
 	index map[*capture.Capture]int
 }
@@ -44,13 +45,8 @@ func (l *pageLog) connection(c *capture.Capture, host string, accepted bool) {
 		l.index = map[*capture.Capture]int{}
 	}
 	l.index[c] = len(l.connections) - 1
-	if l.first == nil {
-		l.first = &capture.Capture{
-			ClientHello: c.ClientHello,
-			Profile: profile.Profile{
-				TLS: c.Profile.TLS,
-			},
-		}
+	if len(l.connections) == 1 {
+		l.firstHello = c.ClientHello
 	}
 }
 
@@ -112,12 +108,11 @@ func (l *pageLog) page() *capture.Page {
 // cookies; the page's data is its traces.
 func (l *pageLog) pageProfile(c *capture.Capture) {
 	l.mu.Lock()
-	first := l.first
-	l.mu.Unlock()
-	if first != nil {
-		c.ClientHello = first.ClientHello
-		c.Profile.TLS = first.Profile.TLS
+	if len(l.connections) > 0 {
+		c.ClientHello = l.firstHello
+		c.Profile.TLS = *l.connections[0].Hello
 	}
+	l.mu.Unlock()
 	ua := c.UserAgent()
 	c.Profile.HTTP2 = nil
 	c.Profile.Headers = []profile.Header{

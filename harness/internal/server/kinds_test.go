@@ -94,7 +94,9 @@ func TestKinds(t *testing.T) {
 	deletions := resp.Header.Values("Set-Cookie")
 	for _, d := range []string{
 		"k_site=; Path=/; Secure; Max-Age=0; Domain=" + kindsSiteA,
-		"=; Path=/; Secure; Max-Age=0", // knoeq: a cookie without a name
+		// knoeq, a cookie without a name, deleted in the form it was set:
+		// browsers ignore "=" with nothing on either side.
+		"knoeq; Path=/; Secure; Max-Age=0",
 		"k_quoted=; Path=/; Secure; Max-Age=0",
 	} {
 		if !slices.Contains(deletions, d) {

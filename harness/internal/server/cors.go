@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -30,37 +29,22 @@ import (
 //   - redirect.cs: the request is answered 307 to redirect-target.cs: a
 //     second preflight?
 var CORS = &Scenario{
-	Name:  "cors",
-	Doc:   "CORS preflights: Access-Control-Request-Headers' form, methods, credentials, the preflight cache, refused preflights, redirects",
-	multi: corsPage{},
+	Name: "cors",
+	Doc:  "CORS preflights: Access-Control-Request-Headers' form, methods, credentials, the preflight cache, refused preflights, redirects",
+	multi: corsPage{
+		fixedHosts: fixedHosts{
+			names: []string{
+				kindsHost,
+				kindsSameSite,
+				kindsCrossSite,
+			},
+			runFor: 30 * time.Second,
+		},
+	},
 }
 
-type corsPage struct{}
-
-func (corsPage) hosts() []string {
-	return []string{
-		kindsHost,
-		kindsSameSite,
-		kindsCrossSite,
-	}
-}
-
-func (corsPage) certNames(host string) ([]string, bool) {
-	switch host {
-	case kindsHost, kindsSameSite, kindsCrossSite:
-		return []string{
-			host,
-		}, true
-	}
-	return nil, false
-}
-
-func (corsPage) h1Only(string) bool {
-	return false
-}
-
-func (corsPage) length() time.Duration {
-	return 30 * time.Second
+type corsPage struct {
+	fixedHosts
 }
 
 // CORSStep is one fetch() of the cors page, to the cross-site host, in
@@ -135,19 +119,12 @@ func corsScript(cs string) string {
 }
 
 func (p corsPage) answer(req request) response {
-	host, port, err := net.SplitHostPort(req.host)
-	if err != nil {
-		host, port = req.host, "443"
-	}
-	origin := func(h string) string {
-		return "https://" + net.JoinHostPort(h, port)
-	}
+	host, port := splitAuthority(req.host)
+	origin := originOn("https://", port)
 	path, _, _ := strings.Cut(req.path, "?")
 	if host == kindsHost && path == "/" {
 		script := corsScript(origin(kindsCrossSite))
-		return response{status: 200, contentType: "text/html; charset=utf-8", body: []byte(
-			"<!doctype html>\n<html><head><meta charset=\"utf-8\"><title>mimicry cors</title><link rel=\"icon\" href=\"data:,\"></head><body>\n<script>" +
-				script + "</script>\n</body></html>\n")}
+		return response{status: 200, contentType: "text/html; charset=utf-8", body: htmlPage("cors", "", "<script>"+script+"</script>\n")}
 	}
 	if path == "/done" {
 		return response{status: 200, contentType: "text/plain", body: []byte("ok\n")}
@@ -156,27 +133,13 @@ func (p corsPage) answer(req request) response {
 	if !ok {
 		return response{status: 404, contentType: "text/plain", body: []byte("not found\n")}
 	}
-	allow := []hpack.HeaderField{
-		{
-			Name:  "access-control-allow-origin",
-			Value: req.origin,
-		},
-		{
-			Name:  "access-control-allow-credentials",
-			Value: "true",
-		},
-	}
+	allow := corsAllow(req.origin)
 	if req.method == "OPTIONS" {
-		allow = append(allow, hpack.HeaderField{
-			Name:  "access-control-allow-methods",
-			Value: "GET, POST, PUT",
-		})
-		if req.preflightHeaders != "" && label != "denied-headers.cs" {
-			allow = append(allow, hpack.HeaderField{
-				Name:  "access-control-allow-headers",
-				Value: req.preflightHeaders,
-			})
+		requested := req.preflightHeaders
+		if label == "denied-headers.cs" {
+			requested = ""
 		}
+		allow := preflightAllow(allow, "GET, POST, PUT", requested)
 		status := 204
 		switch label {
 		case "maxage.cs":

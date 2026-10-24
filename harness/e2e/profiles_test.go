@@ -76,6 +76,18 @@ func captureClientWith(t *testing.T, p *profile.Profile, sc *server.Scenario, ja
 	return "https://localhost:" + port, tr, captures
 }
 
+// newJar returns an empty cookie jar with p's cookie rules.
+func newJar(t *testing.T, p *profile.Profile) *cookies.Jar {
+	t.Helper()
+	j, err := cookies.New(cookies.Config{
+		Rules: p.Cookies,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return j
+}
+
 // captureRequests sends n requests, each from a fresh mimicry client for p
 // to a fresh server, as the browser samples were fresh launches: every one
 // a full handshake, none resuming another's session. It returns what the
@@ -110,7 +122,7 @@ func loadCapture(t *testing.T, name string) *profile.Profile {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := profile.Parse(data)
+	p, err := profile.Decode(data)
 	if err != nil {
 		t.Fatal(err)
 	}

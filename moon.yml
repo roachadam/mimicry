@@ -10,3 +10,7 @@ fileGroups:
     - 'go.mod'
     - 'go.sum'
     - '!harness/**'
+  testdata:
+    - 'profiles/data/**'
+    - '**/testdata/**'
+    - '!harness/**'

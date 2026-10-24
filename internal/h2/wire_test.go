@@ -2,6 +2,7 @@ package h2
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -30,11 +31,28 @@ type peer struct {
 	frames chan http2.Frame
 	enc    *xhpack.Encoder
 	buf    bytes.Buffer
+	pings  uint64
+}
+
+// peerConfig sets up a client against a raw server peer.
+type peerConfig struct {
+	profile *profile.Profile
+	clock   clockwork.Clock
+	// wrap, if set, wraps the client's end of the pipe.
+	wrap func(net.Conn) net.Conn
 }
 
 // newPeer connects a client for p to a raw server peer over net.Pipe. Frames
 // the client sends arrive on peer.frames, preface excluded.
 func newPeer(t *testing.T, p *profile.Profile, clock clockwork.Clock) (*Conn, *peer) {
+	t.Helper()
+	return newPeerWith(t, peerConfig{
+		profile: p,
+		clock:   clock,
+	})
+}
+
+func newPeerWith(t *testing.T, cfg peerConfig) (*Conn, *peer) {
 	t.Helper()
 	clientSide, serverSide := net.Pipe()
 	pr := &peer{
@@ -67,7 +85,11 @@ func newPeer(t *testing.T, p *profile.Profile, clock clockwork.Clock) (*Conn, *p
 			pr.frames <- f
 		}
 	}()
-	c, err := New(clientSide, p, clock)
+	conn := clientSide
+	if cfg.wrap != nil {
+		conn = cfg.wrap(clientSide)
+	}
+	c, err := New(conn, cfg.profile, cfg.clock)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,6 +98,68 @@ func newPeer(t *testing.T, p *profile.Profile, clock clockwork.Clock) (*Conn, *p
 		_ = serverSide.Close()
 	})
 	return c, pr
+}
+
+// sync sends a PING and returns every frame the client sent before its ACK:
+// once it returns, the client has handled every frame sent before.
+func (p *peer) sync() []http2.Frame {
+	p.t.Helper()
+	p.pings++
+	var data [8]byte
+	binary.BigEndian.PutUint64(data[:], p.pings)
+	if err := p.fr.WritePing(false, data); err != nil {
+		p.t.Fatal(err)
+	}
+	var before []http2.Frame
+	for {
+		select {
+		case f, ok := <-p.frames:
+			if !ok {
+				p.t.Fatal("client closed the connection")
+			}
+			if ping, isPing := f.(*http2.PingFrame); isPing && ping.IsAck() && ping.Data == data {
+				return before
+			}
+			before = append(before, f)
+		case <-time.After(5 * time.Second):
+			p.t.Fatal("no PING ACK from the client")
+		}
+	}
+}
+
+// closed returns every frame the client sent until it closed the
+// connection.
+func (p *peer) closed() []http2.Frame {
+	p.t.Helper()
+	var frames []http2.Frame
+	for {
+		select {
+		case f, ok := <-p.frames:
+			if !ok {
+				return frames
+			}
+			frames = append(frames, f)
+		case <-time.After(5 * time.Second):
+			p.t.Fatal("the client did not close the connection")
+		}
+	}
+}
+
+// headerFields sends a HEADERS frame carrying fields on stream.
+func (p *peer) headerFields(stream uint32, end bool, fields ...xhpack.HeaderField) {
+	p.t.Helper()
+	p.buf.Reset()
+	for _, f := range fields {
+		_ = p.enc.WriteField(f)
+	}
+	if err := p.fr.WriteHeaders(http2.HeadersFrameParam{
+		StreamID:      stream,
+		BlockFragment: p.buf.Bytes(),
+		EndHeaders:    true,
+		EndStream:     end,
+	}); err != nil {
+		p.t.Fatal(err)
+	}
 }
 
 type dataCopy struct {
@@ -259,7 +343,9 @@ func TestChainedPriorities(t *testing.T) {
 }
 
 // Request bodies go out in DATA frames no larger than the profile's cap, cut
-// from 65535-byte chunks as Chrome cuts its own.
+// from 65535-byte chunks as Chrome cuts its own, and END_STREAM rides on the
+// last frame carrying data, as every captured browser sends it: no empty
+// DATA frame ends the stream.
 func TestDataFrameCap(t *testing.T) {
 	p := profiles.Chrome155MacOS()
 	c, pr := newPeer(t, p, clockwork.NewRealClock())
@@ -277,23 +363,25 @@ func TestDataFrameCap(t *testing.T) {
 	}
 	result := roundTripAsync(c, req)
 	h := pr.headers()
-	var sizes []int
+	var frames []string
 	for {
 		f := pr.next()
 		d, ok := f.(*dataCopy)
 		if !ok {
 			continue
 		}
-		if len(d.data) > 0 {
-			sizes = append(sizes, len(d.data))
+		frame := strconv.Itoa(len(d.data))
+		if d.end {
+			frame += "+END"
 		}
+		frames = append(frames, frame)
 		if d.end {
 			break
 		}
 	}
-	want := []int{16375, 16375, 16375, 16375, 35, 4465}
-	if !slices.Equal(sizes, want) {
-		t.Fatalf("DATA payloads %v, want %v", sizes, want)
+	want := []string{"16375", "16375", "16375", "16375", "35", "4465+END"}
+	if !slices.Equal(frames, want) {
+		t.Fatalf("DATA frames %v, want %v", frames, want)
 	}
 	pr.respond(h.StreamID, 0, nil, true)
 	<-result
@@ -397,6 +485,9 @@ func TestIdlePing(t *testing.T) {
 	if err := pr.fr.WritePing(true, ping.Data); err != nil {
 		t.Fatal(err)
 	}
+	// The client must have read the ACK before the clock moves on, or it
+	// counts the ACK as recent traffic and rightly sends no PING.
+	pr.sync()
 
 	// Quiet again, and this time the PING is never answered.
 	clock.Advance(11 * time.Second)

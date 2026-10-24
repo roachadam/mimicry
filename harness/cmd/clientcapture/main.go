@@ -5,9 +5,11 @@
 //	    curl_chrome152_macos -sk -c JAR -b JAR {url}/ {url}/again
 //
 // It serves the scenario on a fresh port, runs the command with every {url}
-// replaced by the server's https://localhost:<port>, and once the command has
-// exited writes every connection the client opened as DIR/<name>[-<n>].json
-// (the profile-format capture), .clienthello and .h2trace.json.
+// replaced by the server's https://localhost:<port>. Of each run it keeps the
+// first connection the client sent a request on (later ones are logged and
+// dropped), and once every run has exited it writes them as DIR/<name>.json
+// (the profile-format capture), .clienthello and .h2trace.json (or
+// .h1trace.json), one trace per run.
 package main
 
 import (
@@ -20,13 +22,12 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/harness/internal/server"
-	"github.com/roachadam/mimicry/profile"
 )
 
 func main() {
@@ -79,17 +80,9 @@ func run() error {
 	if err != nil {
 		// A client that varies where the browser does not is a finding
 		// for the comparison, not a reason to stop: keep the first sample,
-		// with the extension order its samples show.
+		// with the extension order Combine found across the samples.
 		log.Printf("%s: %v", *name, err)
 		c = captured[0]
-		c.Profile.TLS.ExtensionOrder = profile.ExtensionOrderFixed
-		for _, s := range captured[1:] {
-			if !slices.EqualFunc(c.Profile.TLS.Extensions, s.Profile.TLS.Extensions, func(a, b profile.Extension) bool {
-				return a.Type == b.Type
-			}) {
-				c.Profile.TLS.ExtensionOrder = profile.ExtensionOrderShuffled
-			}
-		}
 	}
 	c.Identify()
 	// A client's capture is its profile and trace, whatever the server's
@@ -115,7 +108,14 @@ func sample(sc *server.Scenario, cert tls.Certificate, command []string) (*captu
 	if err != nil {
 		return nil, err
 	}
-	captures := make(chan *capture.Capture, 64)
+	// OnCapture runs on the connections' goroutines and must not block
+	// them: Serve waits for every handler before returning.
+	var (
+		mu         sync.Mutex
+		first      *capture.Capture
+		extra      int
+		incomplete []string
+	)
 	srv := &server.Server{
 		Scenario: sc,
 		TLSConfig: &tls.Config{
@@ -124,7 +124,16 @@ func sample(sc *server.Scenario, cert tls.Certificate, command []string) (*captu
 			},
 		},
 		OnCapture: func(c *capture.Capture) {
-			captures <- c
+			mu.Lock()
+			defer mu.Unlock()
+			switch {
+			case !c.Complete():
+				incomplete = append(incomplete, c.Protocol)
+			case first == nil:
+				first = c
+			default:
+				extra++
+			}
 		},
 		Logf: log.Printf,
 	}
@@ -148,20 +157,15 @@ func sample(sc *server.Scenario, cert tls.Certificate, command []string) (*captu
 	if err := <-served; err != nil {
 		return nil, err
 	}
-	close(captures)
 	if cmdErr != nil {
 		return nil, fmt.Errorf("%s: %w", args[0], cmdErr)
 	}
-	var first *capture.Capture
-	for c := range captures {
-		switch {
-		case !c.Complete():
-			log.Printf("a connection sent no request (ALPN %q)", c.Protocol)
-		case first == nil:
-			first = c
-		default:
-			log.Printf("the client opened another connection; only the first is kept")
-		}
+	// Serve has returned, so every handler has.
+	for _, protocol := range incomplete {
+		log.Printf("a connection sent no request (ALPN %q)", protocol)
+	}
+	if extra > 0 {
+		log.Printf("the client opened %d more connections; only the first is kept", extra)
 	}
 	if first == nil {
 		return nil, errors.New("the client sent no request")

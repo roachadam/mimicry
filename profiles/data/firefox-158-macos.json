@@ -427,6 +427,67 @@
       ]
     },
     {
+      "method": "POST",
+      "site": "cross-site",
+      "cors_checked": true,
+      "headers": [
+        {
+          "name": "user-agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
+        },
+        {
+          "name": "accept",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        },
+        {
+          "name": "accept-language",
+          "value": "en-US,en;q=0.9"
+        },
+        {
+          "name": "accept-encoding",
+          "value": "gzip, deflate, br, zstd"
+        },
+        {
+          "name": "content-type"
+        },
+        {
+          "name": "content-length"
+        },
+        {
+          "name": "origin"
+        },
+        {
+          "name": "referer"
+        },
+        {
+          "name": "cookie"
+        },
+        {
+          "name": "upgrade-insecure-requests",
+          "value": "1"
+        },
+        {
+          "name": "sec-fetch-dest",
+          "value": "document"
+        },
+        {
+          "name": "sec-fetch-mode",
+          "value": "navigate"
+        },
+        {
+          "name": "sec-fetch-site"
+        },
+        {
+          "name": "priority",
+          "value": "u=0, i"
+        },
+        {
+          "name": "te",
+          "value": "trailers"
+        }
+      ]
+    },
+    {
       "insecure": true,
       "http1": [
         {
@@ -1354,6 +1415,9 @@
           "name": "*"
         },
         {
+          "name": "sec-fetch-storage-access"
+        },
+        {
           "name": "cookie"
         },
         {
@@ -1410,6 +1474,9 @@
         },
         {
           "name": "*"
+        },
+        {
+          "name": "Sec-Fetch-Storage-Access"
         },
         {
           "name": "Connection",
@@ -1537,6 +1604,7 @@
         {
           "site": "cross-site",
           "cors_checked": true,
+          "page_set": true,
           "headers": [
             {
               "name": "user-agent",
@@ -1619,14 +1687,8 @@
               "name": "Origin"
             },
             {
-              "name": "Sec-Fetch-Storage-Access"
-            },
-            {
               "name": "Connection",
               "value": "keep-alive"
-            },
-            {
-              "name": "Cookie"
             },
             {
               "name": "Sec-Fetch-Dest",
@@ -1754,6 +1816,7 @@
         {
           "site": "same-site",
           "cors_checked": true,
+          "page_set": true,
           "headers": [
             {
               "name": "user-agent",
@@ -1779,9 +1842,6 @@
             },
             {
               "name": "origin"
-            },
-            {
-              "name": "cookie"
             },
             {
               "name": "sec-fetch-dest",
@@ -1837,9 +1897,6 @@
               "value": "keep-alive"
             },
             {
-              "name": "Cookie"
-            },
-            {
               "name": "Sec-Fetch-Dest",
               "value": "empty"
             },
@@ -1857,6 +1914,164 @@
           ]
         },
         {
+          "method": "PUT",
+          "site": "cross-site",
+          "cors_checked": true,
+          "headers": [
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
+            },
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "accept-language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br, zstd"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "empty"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "cors"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "priority",
+              "value": "u=4"
+            },
+            {
+              "name": "content-length"
+            },
+            {
+              "name": "te",
+              "value": "trailers"
+            }
+          ]
+        },
+        {
+          "method": "PUT",
+          "site": "cross-site",
+          "cors_checked": true,
+          "page_set": true,
+          "headers": [
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
+            },
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "accept-language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br, zstd"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "*"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "empty"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "cors"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "priority",
+              "value": "u=4"
+            },
+            {
+              "name": "content-length"
+            },
+            {
+              "name": "te",
+              "value": "trailers"
+            }
+          ]
+        },
+        {
+          "site": "cross-site",
+          "cors_checked": true,
+          "page_set": true,
+          "redirected": true,
+          "headers": [
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
+            },
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "accept-language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br, zstd"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "*"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "empty"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "cors"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "priority",
+              "value": "u=4"
+            },
+            {
+              "name": "te",
+              "value": "trailers"
+            }
+          ]
+        },
+        {
           "insecure": true,
           "http1": [
             {
@@ -1939,6 +2154,7 @@
         },
         {
           "cors_checked": true,
+          "page_set": true,
           "insecure": true,
           "http1": [
             {
@@ -2002,9 +2218,6 @@
             },
             {
               "name": "Referer"
-            },
-            {
-              "name": "*"
             },
             {
               "name": "Origin"
@@ -2103,8 +2316,9 @@
           ]
         },
         {
-          "site": "cross-site",
+          "site": "same-site",
           "cors_checked": true,
+          "page_set": true,
           "insecure": true,
           "http1": [
             {
@@ -2131,6 +2345,46 @@
             },
             {
               "name": "*"
+            },
+            {
+              "name": "Origin"
+            },
+            {
+              "name": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "name": "Priority",
+              "value": "u=4"
+            }
+          ]
+        },
+        {
+          "site": "cross-site",
+          "cors_checked": true,
+          "insecure": true,
+          "http1": [
+            {
+              "name": "Host"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "Accept-Encoding",
+              "value": "gzip, deflate"
+            },
+            {
+              "name": "Referer"
             },
             {
               "name": "Origin"
@@ -2214,6 +2468,50 @@
             },
             {
               "name": "Content-Length"
+            },
+            {
+              "name": "Origin"
+            },
+            {
+              "name": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "name": "Priority",
+              "value": "u=4"
+            }
+          ]
+        },
+        {
+          "site": "cross-site",
+          "cors_checked": true,
+          "page_set": true,
+          "insecure": true,
+          "http1": [
+            {
+              "name": "Host"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "Accept-Encoding",
+              "value": "gzip, deflate"
+            },
+            {
+              "name": "Referer"
+            },
+            {
+              "name": "*"
             },
             {
               "name": "Origin"
@@ -2500,7 +2798,7 @@
             },
             {
               "name": "Accept-Encoding",
-              "value": "gzip, deflate"
+              "value": "identity"
             },
             {
               "name": "Origin"
@@ -3039,6 +3337,53 @@
           ]
         },
         {
+          "site": "same-site",
+          "redirected": true,
+          "headers": [
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
+            },
+            {
+              "name": "accept",
+              "value": "image/avif,image/jxl,image/webp,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"
+            },
+            {
+              "name": "accept-language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br, zstd"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "cookie"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "image"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "no-cors"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "priority",
+              "value": "u=5, i"
+            },
+            {
+              "name": "te",
+              "value": "trailers"
+            }
+          ]
+        },
+        {
           "insecure": true,
           "http1": [
             {
@@ -3104,7 +3449,8 @@
               "name": "Referer"
             },
             {
-              "name": "Priority"
+              "name": "Priority",
+              "value": "u=5, i"
             }
           ]
         },
@@ -3139,7 +3485,8 @@
               "name": "Referer"
             },
             {
-              "name": "Priority"
+              "name": "Priority",
+              "value": "u=5, i"
             }
           ]
         },
@@ -3590,6 +3937,53 @@
             {
               "name": "Priority",
               "value": "u=5, i"
+            }
+          ]
+        },
+        {
+          "site": "same-site",
+          "redirected": true,
+          "headers": [
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
+            },
+            {
+              "name": "accept",
+              "value": "image/avif,image/jxl,image/webp,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"
+            },
+            {
+              "name": "accept-language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br, zstd"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "cookie"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "image"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "no-cors"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "priority",
+              "value": "u=5, i"
+            },
+            {
+              "name": "te",
+              "value": "trailers"
             }
           ]
         },
@@ -4651,7 +5045,8 @@
               "value": "en-US,en;q=0.9"
             },
             {
-              "name": "Accept-Encoding"
+              "name": "Accept-Encoding",
+              "value": "gzip, deflate"
             },
             {
               "name": "Origin"

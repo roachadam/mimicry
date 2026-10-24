@@ -74,10 +74,7 @@ func TestClientSendsThePlannedHello(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			plan, err := fingerprint.Compile(p)
-			if err != nil {
-				t.Fatal(err)
-			}
+			plan := fingerprint.Compile(p)
 			hello := plan.Hello()
 			raw, err := (&net.Dialer{}).DialContext(t.Context(), "tcp", ln.Addr().String())
 			if err != nil {
@@ -137,10 +134,7 @@ func TestHandshakeFailsOnUntrustedCertificate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := fingerprint.Compile(profiles.Chrome155MacOS())
-	if err != nil {
-		t.Fatal(err)
-	}
+	plan := fingerprint.Compile(profiles.Chrome155MacOS())
 	_, _, err = Client(t.Context(), client, plan.Hello(), Config{
 		ServerName: "localhost",
 	})
@@ -161,11 +155,8 @@ func TestSpecRefusesBodiesUTLSWouldChange(t *testing.T) {
 			}
 		}
 	}
-	plan, err := fingerprint.Compile(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = Spec(plan.Hello())
+	plan := fingerprint.Compile(p)
+	_, err := Spec(plan.Hello())
 	if err == nil || !strings.Contains(err.Error(), "0xff01") {
 		t.Fatalf("Spec error = %v, want a refusal for 0xff01", err)
 	}

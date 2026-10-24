@@ -122,3 +122,13 @@ func TestScenarioSettingsAreAdvertised(t *testing.T) {
 		t.Fatalf("largest DATA frame %d: the client did not see the advertised 64 KiB frame size", largest)
 	}
 }
+
+// Every page served across several hosts names them: a page with none could
+// not be opened.
+func TestMultiHostScenariosHaveHosts(t *testing.T) {
+	for _, sc := range Scenarios {
+		if hosts, length, ok := sc.MultiHost(); ok && (len(hosts) == 0 || length <= 0) {
+			t.Errorf("scenario %s: hosts %q, length %s", sc.Name, hosts, length)
+		}
+	}
+}

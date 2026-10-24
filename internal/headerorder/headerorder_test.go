@@ -104,6 +104,16 @@ func TestBuild(t *testing.T) {
 			},
 		},
 		{
+			name: "override key in any case, never sent",
+			h: http.Header{
+				"header-order:": {"accept", "USER-AGENT"},
+			},
+			want: []string{
+				"accept=*/*",
+				"user-agent=agent/1",
+			},
+		},
+		{
 			name: "repeated values stay separate fields",
 			h: http.Header{
 				"Cookie": {"a=1", "b=2"},

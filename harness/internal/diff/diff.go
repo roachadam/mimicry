@@ -51,10 +51,15 @@ func render(v any) string {
 	return string(b)
 }
 
-// Compare reports every difference between want and got. Extension order is
-// compared as want.TLS.ExtensionOrder says: exactly when fixed, and only for
-// pinned extensions when shuffled. Profile identity (name, browser, version,
-// platform) is not compared; the user-agent header covers it.
+// Compare reports every difference between the parts of want and got that a
+// capture of one connection records: the ClientHello (tls, without
+// resumption), the HTTP/2 preface (settings, window update, priorities,
+// pseudo-header order, first stream) and the first request's headers. The
+// rest of a profile (http1, kinds, variants, context, cookies, proxy, hpack,
+// flow control) is derived from page traces and not compared. Extension
+// order is compared as want.TLS.ExtensionOrder says: exactly when fixed, and
+// only for pinned extensions when shuffled. Profile identity (name, browser,
+// version, platform) is not compared; the user-agent header covers it.
 func Compare(want, got *profile.Profile) []Difference {
 	d := &differ{}
 	d.compareTLS(&want.TLS, &got.TLS)
@@ -174,27 +179,37 @@ func (d *differ) compareHeaders(want, got []profile.Header) {
 		return strings.Join(out, ", ")
 	}
 	d.check("headers (order)", names(want), names(got))
-	values := func(hs []profile.Header) map[string]string {
-		m := make(map[string]string, len(hs))
+	// Values are matched by name, and a repeated name's occurrences in order,
+	// so a name sent twice is compared value by value.
+	values := func(hs []profile.Header) map[string][]string {
+		m := make(map[string][]string, len(hs))
 		for _, h := range hs {
-			m[h.Name] = h.Value
+			m[h.Name] = append(m[h.Name], h.Value)
 		}
 		return m
 	}
 	wv, gv := values(want), values(got)
-	for _, h := range want {
-		if g, ok := gv[h.Name]; ok {
-			d.check("headers["+h.Name+"]", h.Value, g)
+	var all []string
+	for _, h := range slices.Concat(want, got) {
+		if !slices.Contains(all, h.Name) {
+			all = append(all, h.Name)
 		}
 	}
-	for _, h := range got {
-		if _, ok := wv[h.Name]; !ok {
-			d.check("headers["+h.Name+"]", "(missing)", h.Value)
+	for _, name := range all {
+		w, g := wv[name], gv[name]
+		for i := range max(len(w), len(g)) {
+			path := "headers[" + name + "]"
+			if len(w) > 1 || len(g) > 1 {
+				path += fmt.Sprintf("#%d", i+1)
+			}
+			d.check(path, valueOrMissing(w, i), valueOrMissing(g, i))
 		}
 	}
-	for _, h := range want {
-		if _, ok := gv[h.Name]; !ok {
-			d.check("headers["+h.Name+"]", h.Value, "(missing)")
-		}
+}
+
+func valueOrMissing(values []string, i int) string {
+	if i >= len(values) {
+		return "(missing)"
 	}
+	return values[i]
 }

@@ -1,8 +1,10 @@
 package profile
 
 import (
+	"bytes"
 	"fmt"
 	"maps"
+	"regexp"
 	"slices"
 	"strings"
 )
@@ -42,14 +44,32 @@ func (c *checker) add(path, format string, args ...any) {
 	})
 }
 
+// err returns the problems found as a *ValidationError, or nil.
+func (c *checker) err() error {
+	if len(c.problems) == 0 {
+		return nil
+	}
+	return &ValidationError{
+		Problems: c.problems,
+	}
+}
+
+// profileName is the form of Profile.Name, which also names the built-in
+// profile's file and accessor.
+var profileName = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+
 // Validate checks p and returns a *ValidationError listing every problem, or
-// nil. It rejects only what is malformed or forbidden by the protocols, not
-// what is merely unusual: real browsers do odd things, such as Safari listing
-// a signature algorithm twice, and a profile must be able to reproduce them.
+// nil. It rejects what is malformed, forbidden by the protocols, beyond what
+// mimicry can send, or not measured (decision 0008), not what is merely
+// unusual: real browsers do odd things, such as Safari listing a signature
+// algorithm twice, and a profile must be able to reproduce them.
 func (p *Profile) Validate() error {
 	c := &checker{}
-	if p.Name == "" {
+	switch {
+	case p.Name == "":
 		c.add("name", "is required")
+	case !profileName.MatchString(p.Name):
+		c.add("name", "%q must be lowercase letters and digits in parts joined by dashes, as chrome-155-macos", p.Name)
 	}
 	if p.Browser == "" {
 		c.add("browser", "is required")
@@ -72,22 +92,15 @@ func (p *Profile) Validate() error {
 		c.checkHTTP1Headers("http1.headers", p.HTTP1.Headers, false)
 	}
 	c.checkVariants("variants", p.Variants, false)
-	c.checkKinds(p.Kinds)
+	c.checkKinds(p)
 	if ctx := p.Context; ctx != nil && ctx.PreflightCache != "" && ctx.PreflightCache != PreflightCacheReplace && ctx.PreflightCache != PreflightCacheMerge {
 		c.add("context.preflight_cache", "must be empty, %q or %q", PreflightCacheReplace, PreflightCacheMerge)
 	}
-	if p.Cookies != nil {
-		c.checkCookies(p.Cookies)
-	}
+	c.checkCookies(p.Cookies)
 	if p.Proxy != nil {
-		c.checkProxy(p.Proxy)
+		c.checkProxy(p.Proxy, p.Headers)
 	}
-	if len(c.problems) > 0 {
-		return &ValidationError{
-			Problems: c.problems,
-		}
-	}
-	return nil
+	return c.err()
 }
 
 func (t *TLS) extension(typ Code) *Extension {
@@ -97,6 +110,42 @@ func (t *TLS) extension(typ Code) *Extension {
 		}
 	}
 	return nil
+}
+
+// tls13 is TLS 1.3's supported_versions value.
+const tls13 Code = 0x0304
+
+// greaseBodies are the bodies uTLS gives the first and second GREASE
+// extensions, as BoringSSL does; it fills in no more than two.
+var greaseBodies = []Bytes{
+	{},
+	{
+		0,
+	},
+}
+
+// fixedBodies are the bodies of the data extensions uTLS writes itself
+// rather than send the profile's bytes.
+var fixedBodies = map[Code]Bytes{
+	// OCSP, with no responder IDs or extensions.
+	ExtStatusRequest: {
+		1, 0, 0, 0, 0,
+	},
+	ExtSignedCertificateTimestamp: {},
+	ExtExtendedMasterSecret:       {},
+	// An empty renegotiated_connection: an initial handshake.
+	ExtRenegotiationInfo: {
+		0,
+	},
+}
+
+// keptOnResumption are extensions a TLS 1.3 resumed ClientHello cannot
+// leave out: the PSK needs its modes (RFC 8446, section 4.2.9), and TLS 1.3
+// needs supported_versions and, for (EC)DHE modes, key_share.
+var keptOnResumption = []Code{
+	ExtSupportedVersions,
+	ExtPSKKeyExchangeModes,
+	ExtKeyShare,
 }
 
 func (c *checker) checkTLS(t *TLS) {
@@ -113,6 +162,7 @@ func (c *checker) checkTLS(t *TLS) {
 		c.add("tls.extensions", "is required")
 	}
 	seen := map[Code]int{}
+	grease := 0
 	for i := range t.Extensions {
 		e := &t.Extensions[i]
 		path := fmt.Sprintf("tls.extensions[%d]", i)
@@ -124,7 +174,19 @@ func (c *checker) checkTLS(t *TLS) {
 		if e.Type == ExtPreSharedKey && i != len(t.Extensions)-1 {
 			c.add(path, "pre_shared_key must be the last extension (RFC 8446, section 4.2.11)")
 		}
+		if e.Type == GREASE {
+			if grease < len(greaseBodies) && !bytes.Equal(e.Data, greaseBodies[grease]) {
+				c.add(path, "GREASE extension %d's body must be %s, the one uTLS sends, not %s", grease+1, describe(greaseBodies[grease]), describe(e.Data))
+			}
+			grease++
+			if grease == len(greaseBodies)+1 {
+				c.add(path, "more than %d GREASE extensions are not supported", len(greaseBodies))
+			}
+		}
 		c.checkExtension(path, e)
+	}
+	if sv := t.extension(ExtSupportedVersions); sv == nil || !slices.Contains(sv.Versions, tls13) {
+		c.add("tls.extensions", "must offer TLS 1.3 (%s) in supported_versions: TLS 1.2-only profiles are not supported", tls13)
 	}
 	keyShare := t.extension(ExtKeyShare)
 	groups := t.extension(ExtSupportedGroups)
@@ -142,9 +204,14 @@ func (c *checker) checkTLS(t *TLS) {
 		if t.extension(ExtPSKKeyExchangeModes) == nil {
 			c.add("tls.resumption", "needs psk_key_exchange_modes in the ClientHello (RFC 8446, section 4.2.9)")
 		}
+		c.checkUnique("tls.resumption.drop", r.Drop)
 		for i, d := range r.Drop {
+			path := fmt.Sprintf("tls.resumption.drop[%d]", i)
+			if slices.Contains(keptOnResumption, d) {
+				c.add(path, "a TLS 1.3 resumption cannot leave out extension %s", d)
+			}
 			if t.extension(d) == nil {
-				c.add(fmt.Sprintf("tls.resumption.drop[%d]", i), "extension %s is not in the ClientHello", d)
+				c.add(path, "extension %s is not in the ClientHello", d)
 			}
 		}
 		if r.TLS12 != "" && r.TLS12 != TLS12Reuse && r.TLS12 != TLS12SingleUse {
@@ -154,6 +221,14 @@ func (c *checker) checkTLS(t *TLS) {
 			c.add("tls.resumption.tls12", "needs session_ticket in the ClientHello")
 		}
 	}
+}
+
+// describe writes an extension body for a message.
+func describe(b Bytes) string {
+	if len(b) == 0 {
+		return "empty"
+	}
+	return fmt.Sprintf("%x", []byte(b))
 }
 
 func (c *checker) checkExtension(path string, e *Extension) {
@@ -179,6 +254,9 @@ func (c *checker) checkExtension(path string, e *Extension) {
 				c.add(path, "extension %s takes data, not %s", e.Type, f)
 			}
 		}
+		if want, fixed := fixedBodies[e.Type]; fixed && !bytes.Equal(e.Data, want) {
+			c.add(path, "extension %s's body must be %s, the one uTLS sends, not %s", e.Type, describe(want), describe(e.Data))
+		}
 	}
 	// RFC 8446, section 4.2.8: no two key shares for the same group.
 	c.checkUnique(path+".key_shares", e.KeyShares)
@@ -195,11 +273,29 @@ func (c *checker) checkUnique(path string, codes []Code) {
 	}
 }
 
+// HTTP/2 settings with value ranges (RFC 9113, section 6.5.2).
+const (
+	settingEnablePush        = 0x2
+	settingInitialWindowSize = 0x4
+	settingMaxFrameSize      = 0x5
+)
+
+// HTTP/2 limits (RFC 9113): the largest flow-control window and stream ID,
+// the window every connection starts with, and the frame size range.
+const (
+	maxWindow       = 1<<31 - 1
+	maxStreamID     = 1<<31 - 1
+	initialWindow   = 65535
+	minMaxFrameSize = 1 << 14
+	maxMaxFrameSize = 1<<24 - 1
+)
+
 func (c *checker) checkHTTP2(h *HTTP2) {
 	if len(h.Settings) == 0 {
 		c.add("http2.settings", "is required")
 	}
 	ids := map[uint16]bool{}
+	streamWindow := uint64(initialWindow)
 	for i, s := range h.Settings {
 		path := fmt.Sprintf("http2.settings[%d]", i)
 		if s.ID == 0 {
@@ -209,18 +305,45 @@ func (c *checker) checkHTTP2(h *HTTP2) {
 			c.add(path, "repeats setting %d", s.ID)
 		}
 		ids[s.ID] = true
+		switch s.ID {
+		case settingEnablePush:
+			if s.Value != 0 {
+				c.add(path, "SETTINGS_ENABLE_PUSH must be 0: server push is not implemented")
+			}
+		case settingInitialWindowSize:
+			if s.Value > maxWindow {
+				c.add(path, "SETTINGS_INITIAL_WINDOW_SIZE exceeds the maximum window 2^31-1 (RFC 9113, section 6.5.2)")
+			}
+			streamWindow = uint64(s.Value)
+		case settingMaxFrameSize:
+			if s.Value < minMaxFrameSize || s.Value > maxMaxFrameSize {
+				c.add(path, "SETTINGS_MAX_FRAME_SIZE must be from 2^14 to 2^24-1 (RFC 9113, section 6.5.2)")
+			}
+		}
 	}
-	if h.WindowUpdate > 1<<31-1 {
-		c.add("http2.window_update", "exceeds the maximum increment 2^31-1")
+	if initialWindow+uint64(h.WindowUpdate) > maxWindow {
+		c.add("http2.window_update", "with the initial 65535 exceeds the maximum window 2^31-1 (RFC 9113, section 6.9.1)")
+	}
+	if streamWindow+uint64(h.StreamWindowUpdate) > maxWindow {
+		c.add("http2.stream_window_update", "with SETTINGS_INITIAL_WINDOW_SIZE exceeds the maximum window 2^31-1 (RFC 9113, section 6.9.1)")
 	}
 	for i, p := range h.Priorities {
 		path := fmt.Sprintf("http2.priorities[%d]", i)
 		if p.StreamID == 0 {
 			c.add(path, "stream_id must not be 0")
 		}
+		if p.StreamID > maxStreamID {
+			c.add(path, "stream_id must be below 2^31")
+		}
+		if p.DependsOn > maxStreamID {
+			c.add(path, "depends_on must be below 2^31")
+		}
 		if p.DependsOn == p.StreamID {
 			c.add(path, "a stream cannot depend on itself")
 		}
+	}
+	if hp := h.HeadersPriority; hp != nil && hp.DependsOn > maxStreamID {
+		c.add("http2.headers_priority", "depends_on must be below 2^31")
 	}
 	order := slices.Clone(h.PseudoHeaderOrder)
 	slices.Sort(order)
@@ -232,25 +355,32 @@ func (c *checker) checkHTTP2(h *HTTP2) {
 	if h.ChainPriorities && h.HeadersPriority == nil {
 		c.add("http2.chain_priorities", "needs headers_priority")
 	}
-	if h.FirstStreamID != 0 && (h.FirstStreamID%2 == 0 || h.FirstStreamID >= 1<<31) {
+	if h.FirstStreamID != 0 && (h.FirstStreamID%2 == 0 || h.FirstStreamID > maxStreamID) {
 		c.add("http2.first_stream_id", "must be an odd stream ID below 2^31")
 	}
 	for _, v := range []struct {
 		path  string
 		value uint32
 	}{
-		{"http2.stream_window_update", h.StreamWindowUpdate},
-		{"http2.stream_update_threshold", h.StreamUpdateThreshold},
-		{"http2.connection_update_threshold", h.ConnectionUpdateThreshold},
+		{
+			path:  "http2.stream_update_threshold",
+			value: h.StreamUpdateThreshold,
+		},
+		{
+			path:  "http2.connection_update_threshold",
+			value: h.ConnectionUpdateThreshold,
+		},
 	} {
-		if v.value > 1<<31-1 {
+		if v.value > maxWindow {
 			c.add(v.path, "exceeds the maximum window 2^31-1")
 		}
 	}
-	if h.MaxDataFrame > 1<<24-1 {
+	if h.MaxDataFrame > maxMaxFrameSize {
 		c.add("http2.max_data_frame", "exceeds the largest frame 2^24-1")
 	}
-	if h.HPACK != nil {
+	if h.HPACK == nil {
+		c.add("http2.hpack", "is required: how the browser encodes headers is not measured")
+	} else {
 		c.checkHPACK(h.HPACK)
 	}
 }
@@ -264,17 +394,17 @@ func (c *checker) checkHPACK(p *HPACK) {
 	}
 	for i, n := range p.WithoutIndexing {
 		path := fmt.Sprintf("http2.hpack.without_indexing[%d]", i)
-		c.checkHeaderName(path, n)
+		c.checkFieldName(path, n)
 		if slices.Contains(p.NeverIndexed, n) {
 			c.add(path, "%s is also in never_indexed", n)
 		}
 	}
 	for i, n := range p.NeverIndexed {
-		c.checkHeaderName(fmt.Sprintf("http2.hpack.never_indexed[%d]", i), n)
+		c.checkFieldName(fmt.Sprintf("http2.hpack.never_indexed[%d]", i), n)
 	}
 	for _, n := range slices.Sorted(maps.Keys(p.NeverIndexBelow)) {
 		path := "http2.hpack.never_index_below[" + n + "]"
-		c.checkHeaderName(path, n)
+		c.checkFieldName(path, n)
 		if p.NeverIndexBelow[n] <= 0 {
 			c.add(path, "must be a positive length")
 		}
@@ -284,14 +414,59 @@ func (c *checker) checkHPACK(p *HPACK) {
 	}
 }
 
-func (c *checker) checkHeaderName(path, name string) {
-	if name == "" || name != strings.ToLower(name) {
-		c.add(path, "name %q must be lowercase and not empty", name)
+// checkFieldName checks a name in the HPACK rules: a request pseudo-header or
+// a lowercase header name.
+func (c *checker) checkFieldName(path, name string) {
+	if !slices.Contains(pseudoHeaders, name) {
+		c.checkHeaderName(path, name)
 	}
 }
 
+// checkHeaderName checks a lowercase header name outside a header list.
+func (c *checker) checkHeaderName(path, name string) {
+	if !isToken(name) || name != strings.ToLower(name) {
+		c.add(path, "name %q must be a lowercase header name", name)
+	}
+}
+
+// isToken reports whether s is a token (RFC 9110, section 5.6.2), the form
+// of a header name.
+func isToken(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := range len(s) {
+		b := s[i]
+		alnum := 'a' <= b && b <= 'z' || 'A' <= b && b <= 'Z' || '0' <= b && b <= '9'
+		if !alnum && strings.IndexByte("!#$%&'*+-.^_`|~", b) < 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// checkHeaderValue rejects what would end or corrupt a header line (RFC
+// 9110, section 5.5).
+func (c *checker) checkHeaderValue(path, value string) {
+	if strings.ContainsAny(value, "\r\n\x00") {
+		c.add(path, "value %q must not contain CR, LF or NUL", value)
+	}
+}
+
+// connectionSpecific are the headers HTTP/2 forbids (RFC 9113, section
+// 8.2.2), Host included: :authority carries it.
+var connectionSpecific = []string{
+	"connection",
+	"host",
+	"keep-alive",
+	"proxy-connection",
+	"transfer-encoding",
+	"upgrade",
+}
+
 // checkHeaderList checks an HTTP/2 header list: lowercase names, each once,
-// no pseudo-headers; others allows the OtherHeaders marker.
+// no pseudo-headers or connection-specific ones; others allows the
+// OtherHeaders marker.
 func (c *checker) checkHeaderList(path string, headers []Header, others bool) {
 	if len(headers) == 0 {
 		c.add(path, "is required")
@@ -307,9 +482,14 @@ func (c *checker) checkHeaderList(path string, headers []Header, others bool) {
 			c.add(at, "name is required")
 		case strings.HasPrefix(h.Name, ":"):
 			c.add(at, "pseudo-header %s belongs in http2.pseudo_header_order", h.Name)
+		case !isToken(h.Name):
+			c.add(at, "name %q is not a header name", h.Name)
 		case h.Name != strings.ToLower(h.Name):
 			c.add(at, "name %q must be lowercase", h.Name)
+		case slices.Contains(connectionSpecific, h.Name):
+			c.add(at, "%s is connection-specific, which HTTP/2 forbids (RFC 9113, section 8.2.2)", h.Name)
 		}
+		c.checkHeaderValue(at, h.Value)
 		if seen[h.Name] {
 			c.add(at, "repeats header %s", h.Name)
 		}
@@ -329,11 +509,12 @@ func (c *checker) checkHTTP1Headers(path string, headers []Header, others bool) 
 		case hd.Name == OtherHeaders && others:
 		case hd.Name == OtherHeaders:
 			c.add(at, "%s belongs only in a kind's lists", OtherHeaders)
-		case hd.Name == "" || strings.ContainsAny(hd.Name, " :\r\n"):
+		case !isToken(hd.Name):
 			c.add(at, "name %q is not a header name", hd.Name)
 		case seen[lower]:
 			c.add(at, "repeats header %s", hd.Name)
 		}
+		c.checkHeaderValue(at, hd.Value)
 		seen[lower] = true
 	}
 	if !seen["host"] {
@@ -342,16 +523,19 @@ func (c *checker) checkHTTP1Headers(path string, headers []Header, others bool) 
 }
 
 // checkProxy checks the proxy section: CONNECT header lists that place
-// Host (and, with credentials, Proxy-Authorization), credential timing
-// mimicry implements, and a SOCKS5 handshake mimicry can send.
-func (c *checker) checkProxy(p *Proxy) {
+// Host (and, with credentials, Proxy-Authorization) and take a user agent
+// the navigation headers have, credential timing mimicry implements, and a
+// SOCKS5 handshake mimicry can send.
+func (c *checker) checkProxy(p *Proxy, headers []Header) {
 	c.checkHTTP1Headers("proxy.connect", p.Connect, false)
+	c.checkProxyUserAgent("proxy.connect", p.Connect, headers)
 	if p.ConnectAuth == nil {
 		if p.ConnectCredentials != "" || p.ForwardCredentials != "" || p.ForwardAuth != nil {
 			c.add("proxy", "credential timing and placement need connect_auth")
 		}
 	} else {
 		c.checkHTTP1Headers("proxy.connect_auth", p.ConnectAuth, false)
+		c.checkProxyUserAgent("proxy.connect_auth", p.ConnectAuth, headers)
 		if !slices.ContainsFunc(p.ConnectAuth, func(h Header) bool {
 			return strings.EqualFold(h.Name, "proxy-authorization")
 		}) {
@@ -363,6 +547,9 @@ func (c *checker) checkProxy(p *Proxy) {
 		if p.ForwardCredentials != CredentialsAfterChallenge && p.ForwardCredentials != CredentialsAlways {
 			c.add("proxy.forward_credentials", "must be %q or %q", CredentialsAfterChallenge, CredentialsAlways)
 		}
+	}
+	if p.ForwardConnection != "" && !isToken(p.ForwardConnection) {
+		c.add("proxy.forward_connection", "%q is not a header name", p.ForwardConnection)
 	}
 	if a := p.ForwardAuth; a != nil {
 		if len(a.After) > 0 && a.Before != "" {
@@ -382,5 +569,20 @@ func (c *checker) checkProxy(p *Proxy) {
 		if s.Address != SOCKS5Domain {
 			c.add("proxy.socks5.address", "must be %q: other address types are not implemented", SOCKS5Domain)
 		}
+	}
+}
+
+// checkProxyUserAgent requires a user agent in the navigation headers when
+// a CONNECT list places User-Agent, which takes its value from there.
+func (c *checker) checkProxyUserAgent(path string, connect, headers []Header) {
+	if !slices.ContainsFunc(connect, func(h Header) bool {
+		return strings.EqualFold(h.Name, "user-agent")
+	}) {
+		return
+	}
+	if !slices.ContainsFunc(headers, func(h Header) bool {
+		return h.Name == "user-agent" && h.Value != ""
+	}) {
+		c.add(path, "places User-Agent, but headers has no user-agent value to send")
 	}
 }

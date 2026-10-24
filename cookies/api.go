@@ -15,26 +15,45 @@ import (
 )
 
 // All returns copies of every cookie, expired ones included until a request
-// or ClearExpired removes them, in creation order.
+// to their domain or ClearExpired removes them, in creation order.
 func (j *Jar) All() []*Cookie {
 	j.mu.Lock()
-	defer j.mu.Unlock()
-	out := make([]*Cookie, len(j.cookies))
-	for i, c := range j.cookies {
-		cp := *c
+	es := j.entries()
+	out := make([]*Cookie, len(es))
+	for i, e := range es {
+		cp := *e.c
 		out[i] = &cp
 	}
+	j.mu.Unlock()
 	return out
+}
+
+// entries returns every entry in creation order. Call with the lock held.
+func (j *Jar) entries() []entry {
+	var n int
+	for _, bucket := range j.domains {
+		n += len(bucket)
+	}
+	es := make([]entry, 0, n)
+	for _, bucket := range j.domains {
+		es = append(es, bucket...)
+	}
+	slices.SortFunc(es, compareCreated)
+	return es
 }
 
 // Set stores c as given, without a URL or a browser's rules: for restoring
 // a session or seeding a jar. Name and value must hold no control
-// characters or ";"; Domain is required; an empty Path is "/"; a zero
+// characters or ";", and a nameless cookie's value must not start with
+// __Secure- or __Host-; Domain is required; an empty Path is "/"; a zero
 // Created is now. It replaces a cookie with the same name, domain, path and
 // partition.
 func (j *Jar) Set(c Cookie) error {
 	if strings.ContainsAny(c.Name, ";=") || strings.ContainsFunc(c.Name+c.Value, isControl) || strings.Contains(c.Value, ";") {
 		return errors.New("cookies: name or value holds a control character, \";\" or \"=\" in the name")
+	}
+	if c.Name == "" && hiddenPrefix(c.Value) {
+		return errors.New("cookies: a nameless cookie's value starts with __Secure- or __Host-")
 	}
 	if c.Name == "" && c.Value == "" {
 		return errors.New("cookies: empty name and value")
@@ -53,23 +72,18 @@ func (j *Jar) Set(c Cookie) error {
 	if c.LastAccess.IsZero() {
 		c.LastAccess = c.Created
 	}
+	key := domainKey(c.Domain)
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	if i := slices.IndexFunc(j.cookies, func(old *Cookie) bool {
-		return sameKey(old, &c)
+	bucket := j.domains[key]
+	if i := slices.IndexFunc(bucket, func(old entry) bool {
+		return sameKey(old.c, &c)
 	}); i >= 0 {
-		j.cookies[i] = &c
+		bucket[i].c = &c
 		return nil
 	}
-	// Keep creation order, which RFC ordering of equal paths relies on: a
-	// cookie goes after those created at the same time or earlier.
-	i, _ := slices.BinarySearchFunc(j.cookies, &c, func(a, b *Cookie) int {
-		if a.Created.After(b.Created) {
-			return 1
-		}
-		return -1
-	})
-	j.cookies = slices.Insert(j.cookies, i, &c)
+	// Among cookies created at the same time, the new one goes last.
+	j.domains[key] = append(bucket, j.newEntry(&c))
 	return nil
 }
 
@@ -78,19 +92,45 @@ func isControl(r rune) bool {
 }
 
 // Delete removes every cookie match reports true for, and returns how many.
+// match gets a copy of each cookie, with the jar unlocked: it may use the
+// jar. A cookie replaced while match runs stays.
 func (j *Jar) Delete(match func(*Cookie) bool) int {
 	j.mu.Lock()
+	es := j.entries()
+	copies := make([]Cookie, len(es))
+	for i, e := range es {
+		copies[i] = *e.c
+	}
+	j.mu.Unlock()
+	doomed := map[*Cookie]bool{}
+	for i, e := range es {
+		if match(&copies[i]) {
+			doomed[e.c] = true
+		}
+	}
+	if len(doomed) == 0 {
+		return 0
+	}
+	j.mu.Lock()
 	defer j.mu.Unlock()
-	before := len(j.cookies)
-	j.cookies = slices.DeleteFunc(j.cookies, match)
-	return before - len(j.cookies)
+	n := 0
+	for key, bucket := range j.domains {
+		j.store(key, slices.DeleteFunc(bucket, func(e entry) bool {
+			if doomed[e.c] {
+				n++
+				return true
+			}
+			return false
+		}))
+	}
+	return n
 }
 
 // Clear removes every cookie.
 func (j *Jar) Clear() {
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	j.cookies = nil
+	j.domains = map[string][]entry{}
 }
 
 // ClearExpired removes expired cookies, and returns how many.
@@ -118,11 +158,19 @@ func (j *Jar) Clone() *Jar {
 		rules:       j.rules,
 		clock:       j.clock,
 		onSetCookie: j.onSetCookie,
-		cookies:     make([]*Cookie, len(j.cookies)),
+		domains:     make(map[string][]entry, len(j.domains)),
+		seq:         j.seq,
 	}
-	for i, ck := range j.cookies {
-		cp := *ck
-		c.cookies[i] = &cp
+	for key, bucket := range j.domains {
+		es := make([]entry, len(bucket))
+		for i, e := range bucket {
+			cp := *e.c
+			es[i] = entry{
+				c:   &cp,
+				seq: e.seq,
+			}
+		}
+		c.domains[key] = es
 	}
 	return c
 }
@@ -150,13 +198,14 @@ func (j *Jar) ReadJSON(r io.Reader) error {
 }
 
 // WriteNetscape writes the cookies in the Netscape cookies.txt format curl
-// and wget read. The format has no SameSite, partition or creation time:
-// partitioned cookies are left out, and the rest lose those attributes.
+// and wget read. The format has no SameSite, partition or creation time
+// and separates fields with tabs: partitioned cookies and cookies with a
+// tab in a field are left out, and the rest lose those attributes.
 func (j *Jar) WriteNetscape(w io.Writer) error {
 	bw := bufio.NewWriter(w)
 	_, _ = bw.WriteString("# Netscape HTTP Cookie File\n")
 	for _, c := range j.All() {
-		if c.Partition != "" {
+		if c.Partition != "" || strings.Contains(c.Name+c.Value+c.Path+c.Domain, "\t") {
 			continue
 		}
 		domain := c.Domain
@@ -230,10 +279,11 @@ func upperBool(b bool) string {
 
 // CookieJar returns the jar as an http.CookieJar, for an http.Client or
 // other code that wants one. It is lossy, which is why mimicry's transport
-// does not use it: net/http hands it cookies already parsed (values with
-// spaces or commas re-quoted, values with backslashes, UTF-8 or quotes
-// dropped, before the jar sees them), and asks for cookies with only a URL,
-// so every request is treated as a navigation from nowhere (no SameSite or
+// does not use it: net/http hands it only the cookies it can parse (values
+// with backslashes, UTF-8 or inner quotes are dropped before the jar sees
+// them; the jar stores the raw lines of the rest), sends values with
+// spaces or commas re-quoted, and asks for cookies with only a URL, so
+// every request is treated as a navigation from nowhere (no SameSite or
 // third-party rules apply).
 func (j *Jar) CookieJar() http.CookieJar {
 	return adapter{
@@ -248,7 +298,13 @@ type adapter struct {
 func (a adapter) SetCookies(u *url.URL, cs []*http.Cookie) {
 	lines := make([]string, 0, len(cs))
 	for _, c := range cs {
-		if line := c.String(); line != "" {
+		// Raw is the Set-Cookie line as received; String re-serializes,
+		// re-quoting values, for a cookie built by hand.
+		line := c.Raw
+		if line == "" {
+			line = c.String()
+		}
+		if line != "" {
 			lines = append(lines, line)
 		}
 	}
@@ -267,9 +323,16 @@ func (a adapter) Cookies(u *url.URL) []*http.Cookie {
 	})
 	out := make([]*http.Cookie, len(cs))
 	for i, c := range cs {
+		// net/http drops '"' from a value and quotes it again when told
+		// it was quoted.
+		value, quoted := c.Value, false
+		if len(value) >= 2 && value[0] == '"' && value[len(value)-1] == '"' {
+			value, quoted = value[1:len(value)-1], true
+		}
 		out[i] = &http.Cookie{ //nolint:gosec // a request cookie: only name and value are sent
-			Name:  c.Name,
-			Value: c.Value,
+			Name:   c.Name,
+			Value:  value,
+			Quoted: quoted,
 		}
 	}
 	return out

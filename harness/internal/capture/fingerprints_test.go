@@ -72,23 +72,19 @@ func chromeLikeTLS() profile.TLS {
 // uses this cipher list.
 func TestJA4CipherHashMatchesFoxIO(t *testing.T) {
 	tls := chromeLikeTLS()
-	parts := strings.Split(ja4(&tls, true), "_")
+	parts := strings.Split(ja4(&tls), "_")
 	if parts[1] != "8daaf6152771" {
 		t.Fatalf("JA4 cipher hash %s, want FoxIO's 8daaf6152771", parts[1])
 	}
 }
 
-// JA4 sorts, so Chrome's per-connection extension shuffle must not change it;
-// JA3 keeps order, so it must.
+// JA4 sorts, so Chrome's per-connection extension shuffle must not change it.
 func TestJA4StableUnderShuffle(t *testing.T) {
 	a := chromeLikeTLS()
 	b := chromeLikeTLS()
 	b.Extensions[1], b.Extensions[6] = b.Extensions[6], b.Extensions[1]
-	if ja4(&a, true) != ja4(&b, true) {
+	if ja4(&a) != ja4(&b) {
 		t.Error("JA4 changed when extensions were reordered")
-	}
-	if ja3(&a) == ja3(&b) {
-		t.Error("JA3 did not change when extensions were reordered")
 	}
 }
 
@@ -137,23 +133,11 @@ func TestJA4Prefix(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tls := chromeLikeTLS()
 			tc.mutate(&tls)
-			got, _, _ := strings.Cut(ja4(&tls, true), "_")
+			got, _, _ := strings.Cut(ja4(&tls), "_")
 			if got != tc.want {
 				t.Errorf("JA4 prefix %s, want %s", got, tc.want)
 			}
 		})
-	}
-}
-
-func TestJA3ExcludesGREASE(t *testing.T) {
-	tls := chromeLikeTLS()
-	want := "771," +
-		"4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53," +
-		"0-23-10-11-16-13-43," +
-		"29-23," +
-		"0"
-	if got := ja3(&tls); got != want {
-		t.Errorf("JA3 string\n got %s\nwant %s", got, want)
 	}
 }
 

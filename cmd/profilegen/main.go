@@ -84,7 +84,9 @@ var platforms = map[string]string{
 	"chromeos": "ChromeOS",
 }
 
-// funcName turns "chrome-155-macos" into "Chrome155MacOS".
+// funcName turns "chrome-155-macos" into "Chrome155MacOS". The name is a
+// valid profile's (profile.Validate): lowercase letters and digits in
+// non-empty parts joined by dashes.
 func funcName(name string) string {
 	var b strings.Builder
 	for part := range strings.SplitSeq(name, "-") {

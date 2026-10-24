@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-24
+- Commits: `f1105c7`, `24aa09a`
 
 ## Problem
 
@@ -38,14 +39,18 @@ alternate between resumed and full.
   8446; uTLS writes it there too), and `tls12`, the TLS 1.2 ticket policy:
   `reuse` (Chrome), `single_use` (Firefox), or empty for no TLS 1.2
   resumption.
-- `internal/handshake.Tickets` keeps the latest ticket per pool (scheme,
-  host, port, partition). A TLS 1.3 ticket is taken by one connection;
-  tickets the server sends on it replace it. A TLS 1.2 ticket follows the
-  policy. `session_ticket` became a generated extension (empty, or the TLS
-  1.2 ticket): profiles record its position only.
+- `internal/handshake.Tickets` keeps the latest ticket per pool key
+  (scheme, host, port, partition, proxy). A TLS 1.3 ticket is taken by one
+  connection; tickets the server sends on it replace it. A TLS 1.2 ticket
+  follows the policy. `session_ticket` became a generated extension (empty,
+  or the TLS 1.2 ticket): profiles record its position only.
 - The fingerprint plan builds the resumed hello (same shuffle as a full
-  one); a ticket uTLS will not use leaves `pre_shared_key` out
-  (`OmitEmptyPsk`) and the handshake is full.
+  one). A TLS 1.3 ticket past its lifetime, or whose server certificate
+  expired, is dropped before the hello is built, so the hello is full
+  (review 2026-10-24: uTLS would otherwise decline it after the resumed
+  shape was chosen, sending a hello no browser sends). A ticket uTLS still
+  will not use leaves `pre_shared_key` out (`OmitEmptyPsk`). TLS 1.2 ticket
+  lifetime is unmeasured: only certificate expiry applies.
 - Found on the way: the engine made a request wait for another's dial even
   to a server known to speak HTTP/1.1 only, so it opened "parallel"
   connections one after another (and each resumed). Browsers open them at

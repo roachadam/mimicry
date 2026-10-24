@@ -18,21 +18,22 @@ import (
 // requests so the client finishes normally.
 type Server struct {
 	// TLSConfig must hold the certificate. The server offers h2 and http/1.1
-	// over its own copy.
+	// over its own copy. Plain scenarios, which never do TLS, need none.
 	TLSConfig *tls.Config
-	// OnCapture receives each connection's capture once, as soon as the first
-	// request is recorded, or when the connection ends without one. It is
-	// called from the connection's goroutine.
+	// OnCapture receives each connection's capture once: when the client
+	// asks for /done (with the whole page for scenarios that span several
+	// connections), or else when the connection ends. It is called from the
+	// connection's goroutine.
 	OnCapture func(*capture.Capture)
 	// Logf receives connection errors. Nil discards them.
 	Logf func(format string, args ...any)
 	// ConnTimeout bounds each connection. Zero means one minute.
 	ConnTimeout time.Duration
-	// Scenario says how HTTP/2 connections are answered. Nil means
-	// DefaultScenario.
+	// Scenario says how connections, HTTP/2 and HTTP/1.1, are answered. Nil
+	// means DefaultScenario.
 	Scenario *Scenario
-	// IssueCert issues a certificate for hosts. Replay scenarios need it:
-	// they serve many hostnames, each with its own certificate.
+	// IssueCert issues a certificate for hosts. Scenarios serving several
+	// hosts over TLS need it: each host has its own certificate.
 	IssueCert func(hosts []string) (tls.Certificate, error)
 }
 
@@ -44,25 +45,12 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 	if sc == nil {
 		sc = DefaultScenario
 	}
-	cfg := s.TLSConfig.Clone()
-	cfg.NextProtos = []string{
-		"h2",
-		"http/1.1",
-	}
-	if sc.HTTP1 {
-		cfg.NextProtos = []string{
-			"http/1.1",
+	var cfg *tls.Config
+	if !sc.Plain {
+		var err error
+		if cfg, err = s.tlsConfig(sc); err != nil {
+			return err
 		}
-	}
-	cfg.MinVersion = tls.VersionTLS12
-	if sc.maxVersion != 0 {
-		cfg.MaxVersion = sc.maxVersion
-	}
-	if sc.multi != nil {
-		if s.IssueCert == nil {
-			return errors.New("scenario " + sc.Name + " serves several hosts and needs Server.IssueCert")
-		}
-		cfg = multiHostTLS(sc.multi, cfg, s.IssueCert)
 	}
 	log := &pageLog{}
 	stop := context.AfterFunc(ctx, func() {
@@ -85,6 +73,31 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 			}
 		})
 	}
+}
+
+// tlsConfig is the TLS configuration sc's connections are served with.
+func (s *Server) tlsConfig(sc *Scenario) (*tls.Config, error) {
+	cfg := s.TLSConfig.Clone()
+	cfg.NextProtos = []string{
+		"h2",
+		"http/1.1",
+	}
+	if sc.HTTP1 {
+		cfg.NextProtos = []string{
+			"http/1.1",
+		}
+	}
+	cfg.MinVersion = tls.VersionTLS12
+	if sc.maxVersion != 0 {
+		cfg.MaxVersion = sc.maxVersion
+	}
+	if sc.multi == nil {
+		return cfg, nil
+	}
+	if s.IssueCert == nil {
+		return nil, errors.New("scenario " + sc.Name + " serves several hosts and needs Server.IssueCert")
+	}
+	return multiHostTLS(sc.multi, cfg, s.IssueCert), nil
 }
 
 func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc *Scenario, log *pageLog) error {

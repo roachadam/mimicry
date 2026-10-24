@@ -9,11 +9,10 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"strings"
-	"sync"
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"golang.org/x/net/http/httpguts"
 
 	"github.com/roachadam/mimicry/internal/dial"
 	"github.com/roachadam/mimicry/internal/fingerprint"
@@ -27,10 +26,21 @@ import (
 // idleTimeout is how long an idle HTTP/1.1 connection is kept.
 const idleTimeout = 90 * time.Second
 
+// defaultDialTimeout applies when Config.DialTimeout is zero.
+const defaultDialTimeout = 30 * time.Second
+
+// maxAttempts bounds how many connections one request tries.
+const maxAttempts = 5
+
 // Config configures the engine.
 type Config struct {
-	Profile     *profile.Profile
-	RootCAs     *x509.CertPool
+	// Profile is the browser to imitate. New takes ownership: it must be
+	// valid (profile.Parse or Validate) and never changed afterwards.
+	Profile *profile.Profile
+	RootCAs *x509.CertPool
+	// DialTimeout bounds the connect (through a proxy: to the proxy, and the
+	// proxy's handshake) and, separately, the TLS handshake, on top of the
+	// request context's deadline. Zero means 30 seconds.
 	DialTimeout time.Duration
 	DialContext func(ctx context.Context, network, addr string) (net.Conn, error)
 	// Proxy picks each request's proxy, as http.Transport's does; nil, or
@@ -46,96 +56,88 @@ type Engine struct {
 	profile *profile.Profile
 	clock   clockwork.Clock
 	rootCAs *x509.CertPool
-	dialer  dial.Dialer
+	dialer  *dial.Dialer
 	proxy   func(*http.Request) (*url.URL, error)
 	// tickets keeps TLS session tickets when the profile resumes.
 	tickets *handshake.Tickets
-
-	// mu guards the pool. It is never held across network I/O: dials,
-	// handshakes and HTTP/2 setup happen with it released.
-	mu    sync.Mutex
-	h2    map[string]*h2.Conn
-	idle  map[string][]idleConn
-	dials map[string]*dialCall
-	// h1Hosts are pools whose server negotiated HTTP/1.1: new requests
-	// dial in parallel instead of waiting for a dial in progress.
-	h1Hosts map[string]bool
+	pool    *pool.Pool[*h2.Conn, *h1.Conn]
 }
 
-type idleConn struct {
-	conn  *h1.Conn
-	since time.Time
-}
-
-// dialCall lets concurrent requests to one host share a dial.
-type dialCall struct {
-	done chan struct{}
-	h2   *h2.Conn // set if the dial produced an HTTP/2 connection
-	err  error
-}
-
-// New builds an engine for cfg.Profile.
+// New builds an engine for cfg.Profile, which it takes ownership of.
 func New(cfg Config) (*Engine, error) {
-	if cfg.Profile == nil {
+	return newEngine(cfg, clockwork.NewRealClock(), nil)
+}
+
+// newEngine is New with the clock and a hook for tests (pool.Config.OnWait).
+func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine, error) {
+	p := cfg.Profile
+	if p == nil {
 		return nil, errors.New("mimicry: Config.Profile is required")
-	}
-	plan, err := fingerprint.Compile(cfg.Profile)
-	if err != nil {
-		return nil, err
-	}
-	// An own copy, so later changes to the caller's profile have no effect.
-	data, err := profile.Encode(cfg.Profile)
-	if err != nil {
-		return nil, err
-	}
-	p, err := profile.Parse(data)
-	if err != nil {
-		return nil, err
 	}
 	timeout := cfg.DialTimeout
 	if timeout == 0 {
-		timeout = 30 * time.Second
+		timeout = defaultDialTimeout
 	}
+	plan := fingerprint.Compile(p)
 	e := &Engine{
 		plan:    plan,
 		profile: p,
-		clock:   clockwork.NewRealClock(),
+		clock:   clock,
 		rootCAs: cfg.RootCAs,
-		dialer: dial.Dialer{
+		dialer: &dial.Dialer{
 			Timeout:     timeout,
 			DialContext: cfg.DialContext,
 			Proxy:       p.Proxy,
 			UserAgent:   userAgent(p),
 		},
-		proxy:   cfg.Proxy,
-		h2:      map[string]*h2.Conn{},
-		idle:    map[string][]idleConn{},
-		dials:   map[string]*dialCall{},
-		h1Hosts: map[string]bool{},
+		proxy: cfg.Proxy,
+		pool: pool.New[*h2.Conn, *h1.Conn](pool.Config{
+			Clock:       clock,
+			IdleTimeout: idleTimeout,
+			OnWait:      onWait,
+		}),
 	}
 	if plan.Resumes() {
-		e.tickets = handshake.NewTickets(p.TLS.Resumption.TLS12)
+		e.tickets = handshake.NewTickets(p.TLS.Resumption.TLS12, clock)
 	}
 	return e, nil
 }
 
-// errRetry means the request did not start and should be tried again.
-var errRetry = errors.New("retry")
+// Errors of an attempt that may be tried again on another connection.
+var (
+	// errNotSent: nothing of the request was sent, so it goes again as it
+	// is, whatever its method and body.
+	errNotSent = errors.New("request not sent")
+	// errRetry: the request may have been sent in part on a connection the
+	// server had closed; it goes again only with a fresh body.
+	errRetry = errors.New("request failed on a reused connection")
+)
 
-// RoundTrip sends req on a pooled or new connection.
-func (e *Engine) RoundTrip(req *http.Request) (*http.Response, error) {
+// RoundTrip sends req on a pooled or new connection. It closes req.Body,
+// on errors too.
+func (e *Engine) RoundTrip(req *http.Request) (resp *http.Response, err error) {
+	// Every copy of req sent below keeps its context.
+	ctx := req.Context()
+	defer func() {
+		// req is the request last sent, or about to be: its body is the
+		// one not closed yet.
+		if err != nil && req.Body != nil {
+			_ = req.Body.Close()
+		}
+	}()
 	if req.URL == nil || req.URL.Host == "" {
 		return nil, errors.New("mimicry: request has no host")
 	}
 	if req.URL.Scheme != "https" && req.URL.Scheme != "http" {
 		return nil, fmt.Errorf("mimicry: unsupported scheme %q", req.URL.Scheme)
 	}
+	if !httpguts.ValidHostHeader(req.URL.Host) {
+		return nil, fmt.Errorf("mimicry: invalid host %q", req.URL.Host)
+	}
 	r, err := e.route(req)
 	if err != nil {
 		return nil, err
 	}
-	// Every copy of req sent below keeps its context.
-	ctx := req.Context()
 	unasked := ""
 	if r.forward {
 		if unasked = e.dialer.ForwardAuthorization(r.proxy); unasked != "" {
@@ -143,8 +145,8 @@ func (e *Engine) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 	}
 	answered := false
-	for attempt := 0; ; attempt++ {
-		resp, err := e.try(req, r)
+	for attempt := 1; ; attempt++ {
+		resp, err := e.try(ctx, req, r)
 		if err == nil && r.forward && !answered && unasked == "" && resp.StatusCode == http.StatusProxyAuthRequired && e.dialer.Challenged(r.proxy, resp.Header) {
 			// As browsers do, answer the proxy's challenge once, on the
 			// same connection: read to the end, it goes back to the pool
@@ -158,19 +160,25 @@ func (e *Engine) RoundTrip(req *http.Request) (*http.Response, error) {
 			req = withProxyAuth(context.WithValue(ctx, h1.ChallengeAnswered{}, true), req, dial.Credentials(r.proxy))
 			continue
 		}
-		if !errors.Is(err, errRetry) {
+		notSent := errors.Is(err, errNotSent)
+		if !notSent && !errors.Is(err, errRetry) {
 			return resp, err
 		}
-		if attempt == 4 {
-			return nil, errors.New("mimicry: no usable connection after several attempts")
+		if attempt == maxAttempts {
+			return nil, fmt.Errorf("mimicry: no usable connection after %d attempts: %w", attempt, err)
 		}
-		if err := req.Context().Err(); err != nil {
+		if err := ctx.Err(); err != nil {
 			return nil, err
+		}
+		if notSent {
+			continue
 		}
 		// The failed attempt may have consumed the body: send a fresh copy.
-		if req, err = fresh(req); err != nil {
+		next, err := fresh(req)
+		if err != nil {
 			return nil, err
 		}
+		req = next
 	}
 }
 
@@ -206,6 +214,8 @@ func withProxyAuth(ctx context.Context, req *http.Request, auth string) *http.Re
 type route struct {
 	// key is the pool: scheme, host and port, partition, and proxy.
 	key string
+	// addr is the server's host and port.
+	addr string
 	// proxy is nil for a direct connection.
 	proxy *url.URL
 	// forward sends plain-HTTP requests to an HTTP proxy whole, instead of
@@ -216,8 +226,10 @@ type route struct {
 // route picks req's proxy and pool. Connections and TLS sessions are
 // never shared between proxies, or with direct connections.
 func (e *Engine) route(req *http.Request) (route, error) {
+	addr := hostPort(req.URL)
 	r := route{
-		key: req.URL.Scheme + "://" + hostPort(req.URL.Scheme, req.URL.Host),
+		key:  req.URL.Scheme + "://" + addr,
+		addr: addr,
 	}
 	if p := pool.Partition(req.Context()); p != "" {
 		r.key += " " + p
@@ -248,92 +260,53 @@ func userAgent(p *profile.Profile) string {
 	return ""
 }
 
-func (e *Engine) try(req *http.Request, r route) (*http.Response, error) {
-	key := r.key
-	e.mu.Lock()
-	if c := e.h2[key]; c != nil {
-		if c.CanTakeNewRequest() {
-			e.mu.Unlock()
-			resp, err := c.RoundTrip(req)
-			if errors.Is(err, h2.ErrConnUnusable) {
-				e.dropH2(key, c)
-				return nil, errRetry
-			}
-			return resp, err
-		}
-		delete(e.h2, key)
-	}
-	if c, ok := e.takeIdle(key); ok {
-		e.mu.Unlock()
-		resp, err := e.roundTripH1(key, c, req)
-		if err != nil && replayable(req) && req.Context().Err() == nil {
-			// The server may have closed the idle connection: try a new one.
-			return nil, errRetry
-		}
-		return resp, err
-	}
-	if e.h1Hosts[key] {
-		// The server speaks HTTP/1.1 only: like a browser, open another
-		// connection at once instead of waiting for one in progress.
-		e.mu.Unlock()
-		conn, proto, err := e.dial(req, r)
-		if err != nil {
-			return nil, err
-		}
-		if proto == "h2" {
-			// It changed its mind; use this one and share it from now on.
-			return e.adoptH2(key, conn, req)
-		}
-		return e.roundTripH1(key, e.newH1(conn, r), req)
-	}
-	if call := e.dials[key]; call != nil {
-		e.mu.Unlock()
-		select {
-		case <-call.done:
-			// HTTP/2: the next attempt finds the shared connection. HTTP/1.1
-			// or a failed dial: the next attempt dials its own.
-			return nil, errRetry
-		case <-req.Context().Done():
-			return nil, req.Context().Err()
-		}
-	}
-	call := &dialCall{
-		done: make(chan struct{}),
-	}
-	e.dials[key] = call
-	e.mu.Unlock()
-
-	conn, proto, err := e.dial(req, r)
-	var hc *h2.Conn
-	if err == nil && proto == "h2" {
-		hc, err = h2.New(conn, e.profile, e.clock)
-		if err != nil {
-			_ = conn.Close()
-		}
-	}
-	e.mu.Lock()
-	delete(e.dials, key)
-	call.err = err
-	if hc != nil {
-		e.h2[key] = hc
-		call.h2 = hc
-		delete(e.h1Hosts, key)
-	} else if err == nil {
-		e.h1Hosts[key] = true
-	}
-	close(call.done)
-	e.mu.Unlock()
+// try sends req once: on the pool's connection for the route, or a new one.
+func (e *Engine) try(ctx context.Context, req *http.Request, r route) (*http.Response, error) {
+	got, err := e.pool.Get(ctx, r.key)
 	if err != nil {
 		return nil, err
 	}
-	if hc != nil {
-		resp, err := hc.RoundTrip(req)
-		if errors.Is(err, h2.ErrConnUnusable) {
-			e.dropH2(key, hc)
+	switch got.Found {
+	case pool.FoundShared:
+		return e.roundTripH2(r.key, got.Shared, req)
+	case pool.FoundExclusive:
+		resp, err := e.roundTripH1(r.key, got.Exclusive, req)
+		if err != nil && replayable(req) && ctx.Err() == nil {
+			// The server may have closed the idle connection as the
+			// request went out: try a new one.
+			return nil, fmt.Errorf("%w: %w", errRetry, err)
 		}
 		return resp, err
 	}
-	return e.roundTripH1(key, e.newH1(conn, r), req)
+	d := got.Dial
+	conn, proto, err := e.dial(ctx, req, r)
+	if err != nil {
+		d.Fail(err)
+		return nil, err
+	}
+	if proto != "h2" {
+		d.Exclusive()
+		return e.roundTripH1(r.key, e.newH1(conn, r), req)
+	}
+	hc, err := h2.New(conn, e.profile, e.clock)
+	if err != nil {
+		_ = conn.Close()
+		d.Fail(err)
+		return nil, err
+	}
+	return e.roundTripH2(r.key, d.Shared(hc), req)
+}
+
+// roundTripH2 sends req on c. A request c did not send (it is going away
+// or failed) goes to another connection, and c leaves the pool, finishing
+// what it has in flight.
+func (e *Engine) roundTripH2(key string, c *h2.Conn, req *http.Request) (*http.Response, error) {
+	resp, err := c.RoundTrip(req)
+	if errors.Is(err, h2.ErrConnUnusable) {
+		e.pool.RemoveShared(key, c)
+		return nil, fmt.Errorf("%w: %w", errNotSent, err)
+	}
+	return resp, err
 }
 
 // newH1 wraps conn, which carries HTTP/1.1, for the route's requests.
@@ -345,45 +318,19 @@ func (e *Engine) newH1(conn net.Conn, r route) *h1.Conn {
 	return c
 }
 
-// adoptH2 makes conn, which negotiated h2, the pool's shared connection for
-// key (closing it if one already took that place) and sends req on it.
-func (e *Engine) adoptH2(key string, conn net.Conn, req *http.Request) (*http.Response, error) {
-	hc, err := h2.New(conn, e.profile, e.clock)
-	if err != nil {
-		_ = conn.Close()
-		return nil, err
-	}
-	e.mu.Lock()
-	delete(e.h1Hosts, key)
-	if existing := e.h2[key]; existing != nil && existing.CanTakeNewRequest() {
-		e.mu.Unlock()
-		_ = hc.Close()
-		return nil, errRetry
-	}
-	e.h2[key] = hc
-	e.mu.Unlock()
-	resp, err := hc.RoundTrip(req)
-	if errors.Is(err, h2.ErrConnUnusable) {
-		e.dropH2(key, hc)
-	}
-	return resp, err
-}
-
 // dial connects, through the route's proxy if it has one, and, for https,
-// performs the profile's TLS handshake. It returns the negotiated protocol
-// ("h2", or HTTP/1.1 otherwise).
-func (e *Engine) dial(req *http.Request, r route) (net.Conn, string, error) {
-	ctx := req.Context()
-	addr := hostPort(req.URL.Scheme, req.URL.Host)
+// performs the profile's TLS handshake, bounded by the dial timeout. It
+// returns the negotiated protocol ("h2", or HTTP/1.1 otherwise).
+func (e *Engine) dial(ctx context.Context, req *http.Request, r route) (net.Conn, string, error) {
 	var conn net.Conn
 	var err error
 	switch {
 	case r.proxy == nil:
-		conn, err = e.dialer.Dial(ctx, addr)
+		conn, err = e.dialer.Dial(ctx, r.addr)
 	case r.forward:
 		conn, err = e.dialer.DialProxy(ctx, r.proxy)
 	default:
-		conn, err = e.dialer.DialVia(ctx, r.proxy, addr)
+		conn, err = e.dialer.DialVia(ctx, r.proxy, r.addr)
 	}
 	if err != nil {
 		return nil, "", err
@@ -406,71 +353,23 @@ func (e *Engine) dial(req *http.Request, r route) (net.Conn, string, error) {
 			hello = e.plan.ResumedHello()
 		}
 	}
-	return handshake.Client(ctx, conn, hello, cfg)
+	hctx, cancel := context.WithTimeout(ctx, e.dialer.Timeout)
+	defer cancel()
+	return handshake.Client(hctx, conn, hello, cfg)
 }
 
+// roundTripH1 sends req on c, which the pool gave or a dial made, and
+// gives c back to the pool when the response ends.
 func (e *Engine) roundTripH1(key string, c *h1.Conn, req *http.Request) (*http.Response, error) {
 	return c.RoundTrip(req, func(reusable bool) {
-		if !reusable {
-			_ = c.Close()
-			return
-		}
-		e.mu.Lock()
-		e.idle[key] = append(e.idle[key], idleConn{
-			conn:  c,
-			since: e.clock.Now(),
-		})
-		e.mu.Unlock()
+		e.pool.Release(key, c, reusable)
 	})
-}
-
-// takeIdle pops the most recently used idle connection, closing any that
-// idled too long. e.mu must be held.
-func (e *Engine) takeIdle(key string) (*h1.Conn, bool) {
-	conns := e.idle[key]
-	for len(conns) > 0 {
-		ic := conns[len(conns)-1]
-		conns = conns[:len(conns)-1]
-		if e.clock.Since(ic.since) < idleTimeout {
-			e.idle[key] = conns
-			return ic.conn, true
-		}
-		_ = ic.conn.Close()
-	}
-	delete(e.idle, key)
-	return nil, false
-}
-
-func (e *Engine) dropH2(key string, c *h2.Conn) {
-	e.mu.Lock()
-	if e.h2[key] == c {
-		delete(e.h2, key)
-	}
-	e.mu.Unlock()
-	_ = c.Close()
 }
 
 // CloseIdleConnections closes idle HTTP/1.1 connections and HTTP/2
 // connections with no requests in flight.
 func (e *Engine) CloseIdleConnections() {
-	e.mu.Lock()
-	var closing []interface{ Close() error }
-	for key, conns := range e.idle {
-		for _, ic := range conns {
-			closing = append(closing, ic.conn)
-		}
-		delete(e.idle, key)
-	}
-	for key, c := range e.h2 {
-		if c.Idle() {
-			closing = append(closing, c)
-			delete(e.h2, key)
-		}
-	}
-	e.mu.Unlock()
-	for _, c := range closing {
-		_ = c.Close()
-	}
+	e.pool.CloseIdle()
 }
 
 // replayable reports whether req can be sent again on a new connection:
@@ -484,14 +383,15 @@ func replayable(req *http.Request) bool {
 	return req.Body == nil || req.Body == http.NoBody || req.GetBody != nil
 }
 
-// hostPort adds the scheme's default port when host has none.
-func hostPort(scheme, host string) string {
-	if _, _, err := net.SplitHostPort(host); err == nil {
-		return host
+// hostPort is u's host and port; without a port, or with an empty one, the
+// scheme's default.
+func hostPort(u *url.URL) string {
+	port := u.Port()
+	if port == "" {
+		port = "443"
+		if u.Scheme == "http" {
+			port = "80"
+		}
 	}
-	host = strings.TrimSuffix(strings.TrimPrefix(host, "["), "]")
-	if scheme == "http" {
-		return net.JoinHostPort(host, "80")
-	}
-	return net.JoinHostPort(host, "443")
+	return net.JoinHostPort(u.Hostname(), port)
 }

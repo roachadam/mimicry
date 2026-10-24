@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"io"
 	"net/http"
+	"net/url"
 	"testing"
 
+	"github.com/roachadam/mimicry"
 	"github.com/roachadam/mimicry/harness/internal/h2trace"
 	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/profiles"
@@ -25,7 +27,13 @@ func TestConnectionMatchesBrowserTrace(t *testing.T) {
 			}
 			base, tr, captures := captureClient(t, p, server.DefaultScenario)
 			client := &http.Client{Transport: tr}
-			send := func(method, path string, body []byte) {
+			page, err := url.Parse(base + "/")
+			if err != nil {
+				t.Fatal(err)
+			}
+			// As the capture page: a navigation to /, then its script's
+			// fetches of /big and /upload.
+			send := func(method, path string, body []byte, r mimicry.Request) {
 				t.Helper()
 				req, err := http.NewRequestWithContext(t.Context(), method, base+path, bytes.NewReader(body))
 				if err != nil {
@@ -34,16 +42,20 @@ func TestConnectionMatchesBrowserTrace(t *testing.T) {
 				if body == nil {
 					req.Body = http.NoBody
 				}
-				resp, err := client.Do(req)
+				resp, err := client.Do(mimicry.With(req, r))
 				if err != nil {
 					t.Fatal(err)
 				}
 				_, _ = io.Copy(io.Discard, resp.Body)
 				_ = resp.Body.Close()
 			}
-			send(http.MethodGet, "/", nil)
-			send(http.MethodPost, "/upload", make([]byte, 200_000))
-			send(http.MethodGet, "/big", nil)
+			fetch := mimicry.Request{
+				Kind: mimicry.Fetch,
+				From: page,
+			}
+			send(http.MethodGet, "/", nil, mimicry.Request{})
+			send(http.MethodGet, "/big", nil, fetch)
+			send(http.MethodPost, "/upload", make([]byte, 200_000), fetch)
 			tr.CloseIdleConnections()
 			got := h2trace.Extract((<-captures).Trace)
 

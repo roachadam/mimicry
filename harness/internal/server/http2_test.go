@@ -10,6 +10,10 @@ import (
 	"slices"
 	"strconv"
 	"testing"
+	"time"
+
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/hpack"
 
 	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/internal/testutil"
@@ -120,5 +124,86 @@ func TestPageFlowTrace(t *testing.T) {
 	// The first request's headers became the profile's, as before.
 	if c.Profile.HTTP2 == nil || len(c.Profile.Headers) == 0 || len(c.Profile.HTTP2.PseudoHeaderOrder) != 4 {
 		t.Errorf("first request not recorded into the profile: %+v", c.Profile.HTTP2)
+	}
+}
+
+// A stream WINDOW_UPDATE that arrives before the request ends (Firefox sends
+// one right after every HEADERS) counts toward the response: the server
+// sends the initial window plus the update, not the initial window alone.
+func TestHTTP2StreamWindowUpdateBeforeEndStream(t *testing.T) {
+	ts := startServer(t)
+	conn := ts.dialTLS(t, "h2")
+	if _, err := io.WriteString(conn, http2.ClientPreface); err != nil {
+		t.Fatal(err)
+	}
+	fr := http2.NewFramer(conn, conn)
+	var block bytes.Buffer
+	enc := hpack.NewEncoder(&block)
+	for _, f := range []hpack.HeaderField{
+		{
+			Name:  ":method",
+			Value: "POST",
+		},
+		{
+			Name:  ":authority",
+			Value: "localhost",
+		},
+		{
+			Name:  ":scheme",
+			Value: "https",
+		},
+		{
+			Name:  ":path",
+			Value: "/big",
+		},
+	} {
+		if err := enc.WriteField(f); err != nil {
+			t.Fatal(err)
+		}
+	}
+	const initial, update = 1000, 100000
+	for _, write := range []func() error{
+		func() error {
+			return fr.WriteSettings(http2.Setting{
+				ID:  http2.SettingInitialWindowSize,
+				Val: initial,
+			})
+		},
+		func() error {
+			return fr.WriteWindowUpdate(0, 10<<20)
+		},
+		func() error {
+			return fr.WriteHeaders(http2.HeadersFrameParam{
+				StreamID:      1,
+				BlockFragment: block.Bytes(),
+				EndHeaders:    true,
+			})
+		},
+		func() error {
+			return fr.WriteWindowUpdate(1, update)
+		},
+		func() error {
+			return fr.WriteData(1, true, []byte("x"))
+		},
+	} {
+		if err := write(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := conn.SetReadDeadline(time.Now().Add(10 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	got := 0
+	for got < initial+update {
+		f, err := fr.ReadFrame()
+		if err != nil {
+			t.Fatalf("after %d bytes of stream 1 (granted %d): %v", got, initial+update, err)
+		}
+		if d, ok := f.(*http2.DataFrame); ok && d.StreamID == 1 {
+			got += len(d.Data())
+		}
+	}
+	if got != initial+update {
+		t.Errorf("server sent %d bytes on stream 1, granted %d", got, initial+update)
 	}
 }

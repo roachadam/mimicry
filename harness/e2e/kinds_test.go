@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/roachadam/mimicry"
-	"github.com/roachadam/mimicry/cookies"
 	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/profile"
@@ -38,7 +37,7 @@ func TestKindsMatchBrowserTraces(t *testing.T) {
 				t.Fatal(err)
 			}
 			if p.Kinds == nil {
-				t.Skipf("%s describes no request kinds (no kinds capture)", name)
+				t.Fatalf("%s describes no request kinds", name)
 			}
 			for _, sc := range []*server.Scenario{server.Kinds, server.KindsHTTP1, server.KindsPlain} {
 				t.Run(sc.Name, func(t *testing.T) {
@@ -108,9 +107,10 @@ func compareKind(t *testing.T, got *capture.Page, want []*capture.Page, label st
 		return
 	}
 	// kb_part is set by a response during the page, so a browser request
-	// racing it may go without; mimicry's, made in order, never does.
-	if slices.ContainsFunc(forms, func(w *kindsSent) bool {
-		return slices.Equal(withoutRaceCookie(g.lines), withoutRaceCookie(w.lines)) && g.weight == w.weight
+	// racing it may go without; mimicry's, made in order, never does. Only
+	// where the race was captured, and only in that direction.
+	if raceCookieLabels[label] && hasRaceCookie(g.lines) && slices.ContainsFunc(forms, func(w *kindsSent) bool {
+		return !hasRaceCookie(w.lines) && slices.Equal(withoutRaceCookie(g.lines), w.lines) && g.weight == w.weight
 	}) {
 		t.Logf("%s: matches but for %s, which the browser had not yet received", name, raceCookie)
 		return
@@ -132,6 +132,21 @@ func pageNavigation(page *capture.Page) []string {
 // raceCookie is the kinds page's cookie set during the page itself.
 const raceCookie = "kb_part=1"
 
+// raceCookieLabels are the labels whose browser samples were captured
+// without raceCookie (Safari 26's font-css.cs over HTTP/2, requested before
+// the response setting it had been processed).
+var raceCookieLabels = map[string]bool{
+	"font-css.cs": true,
+}
+
+// hasRaceCookie reports whether a cookie line carries raceCookie.
+func hasRaceCookie(lines []string) bool {
+	return slices.ContainsFunc(lines, func(l string) bool {
+		name, value, ok := strings.Cut(l, ": ")
+		return ok && strings.EqualFold(name, "cookie") && slices.Contains(strings.Split(value, "; "), raceCookie)
+	})
+}
+
 // withoutRaceCookie drops raceCookie from cookie lines (one per line over
 // HTTP/2, joined by "; " over HTTP/1.1), and lines left empty.
 func withoutRaceCookie(lines []string) []string {
@@ -152,10 +167,27 @@ func withoutRaceCookie(lines []string) []string {
 	return out
 }
 
-// partitionGaps are profiles whose browser groups the kinds page's
-// requests into connections in a way mimicry does not model, and why.
-var partitionGaps = map[string]string{
-	"firefox-158-macos": "Firefox gives credential-less requests their own connection to the same-site host only, sharing one connection to the page's own host and to the cross-site one (all three samples); no rule found, not modelled",
+// partitionGaps are, per profile, the exact connection differences between
+// mimicry and every browser sample of the kinds page that are known and not
+// modelled: label to "mimicry with X, browser with Y". Any other
+// difference, or one of these no longer seen, fails.
+//
+// Firefox gives credential-less requests their own connection to the
+// same-site host only, sharing one connection to the page's own host and
+// to the cross-site one (all three samples); no rule found.
+var partitionGaps = map[string]map[string]string{
+	"firefox-158-macos": {
+		"script-cors.ss":  "mimicry with script.ss, browser with script-cors.ss",
+		"image-cors.ss":   "mimicry with script.ss, browser with script-cors.ss",
+		"fetch.ss":        "mimicry with script.ss, browser with script-cors.ss",
+		"fetch-omit.ss":   "mimicry with script.ss, browser with script-cors.ss",
+		"fetch-nocors.ss": "mimicry with script.ss, browser with script-cors.ss",
+		"fetch-json.ss":   "mimicry with script.ss, browser with script-cors.ss",
+		"fetch-custom.ss": "mimicry with script.ss, browser with script-cors.ss",
+		"fetch-high.ss":   "mimicry with script.ss, browser with script-cors.ss",
+		"fetch-low.ss":    "mimicry with script.ss, browser with script-cors.ss",
+		"xhr.ss":          "mimicry with script.ss, browser with script-cors.ss",
+	},
 }
 
 // checkConnections compares which requests share a connection: for each
@@ -165,22 +197,27 @@ var partitionGaps = map[string]string{
 func checkConnections(t *testing.T, name string, got *capture.Page, want []*capture.Page, labels []string) {
 	t.Helper()
 	g := connGroups(got, labels)
+	known := partitionGaps[name]
 	for i, page := range want {
 		w := connGroups(page, labels)
-		var diffs []string
+		diffs := map[string]string{}
 		for _, l := range labels {
 			if g[l] != w[l] {
-				diffs = append(diffs, l+": mimicry with "+g[l]+", browser with "+w[l])
+				diffs[l] = "mimicry with " + g[l] + ", browser with " + w[l]
 			}
 		}
-		if len(diffs) == 0 {
-			continue
+		for _, l := range labels {
+			d, isDiff := diffs[l]
+			k, isKnown := known[l]
+			switch {
+			case isDiff && d != k:
+				t.Errorf("connections, sample %d: %s: %s", i+1, l, d)
+			case !isDiff && isKnown:
+				t.Errorf("connections, sample %d: %s: known gap %q no longer seen", i+1, l, k)
+			case isDiff:
+				t.Logf("connections, sample %d: %s: known gap: %s", i+1, l, d)
+			}
 		}
-		if gap, ok := partitionGaps[name]; ok {
-			t.Logf("connections, sample %d, a known gap (%s):\n  %s", i+1, gap, strings.Join(diffs, "\n  "))
-			continue
-		}
-		t.Errorf("connections, sample %d:\n  %s", i+1, strings.Join(diffs, "\n  "))
 	}
 }
 
@@ -401,9 +438,7 @@ func startPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *pageSessi
 	tr, err := mimicry.NewTransport(mimicry.Config{
 		Profile: p,
 		RootCAs: pool,
-		Cookies: cookies.New(cookies.Config{
-			Rules: p.Cookies,
-		}),
+		Cookies: newJar(t, p),
 		// Every capture host is this server.
 		DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
 			return (&net.Dialer{}).DialContext(ctx, network, ln.Addr().String())

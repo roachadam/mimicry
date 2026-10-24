@@ -3,6 +3,7 @@ package hpack
 import (
 	"encoding/hex"
 	"math/rand/v2"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -13,7 +14,15 @@ import (
 )
 
 var policies = map[string]*profile.HPACK{
-	"chromium default": nil,
+	"chrome-like": {
+		WithoutIndexing: []string{
+			":method",
+			":path",
+		},
+		NameMatch:   profile.NameMatchStaticFirst,
+		Huffman:     profile.HuffmanShorter,
+		SizeUpdates: profile.SizeUpdatesOnChange,
+	},
 	"firefox-like": {
 		WithoutIndexing: []string{
 			":path",
@@ -81,7 +90,7 @@ func TestDecoderAgreesUnderEvictionAndResize(t *testing.T) {
 					if got[i].Name != f.Name || got[i].Value != f.Value {
 						t.Fatalf("block %d field %d: decoded %s: %s, sent %s: %s", block, i, got[i].Name, got[i].Value, f.Name, f.Value)
 					}
-					wantSensitive := policy != nil && f.Name == "cookie"
+					wantSensitive := slices.Contains(policy.NeverIndexed, f.Name)
 					if got[i].Sensitive != wantSensitive {
 						t.Fatalf("block %d: %s sensitive %v, want %v", block, f.Name, got[i].Sensitive, wantSensitive)
 					}
@@ -92,6 +101,11 @@ func TestDecoderAgreesUnderEvictionAndResize(t *testing.T) {
 }
 
 func TestSizeUpdates(t *testing.T) {
+	chrome := &profile.HPACK{
+		NameMatch:   profile.NameMatchStaticFirst,
+		Huffman:     profile.HuffmanShorter,
+		SizeUpdates: profile.SizeUpdatesOnChange,
+	}
 	firefoxAndSafari := &profile.HPACK{
 		NameMatch:   profile.NameMatchStaticFirst,
 		Huffman:     profile.HuffmanShorter,
@@ -110,9 +124,10 @@ func TestSizeUpdates(t *testing.T) {
 		want   string // hex prefix of the next block
 	}{
 		{
-			name:  "unchanged default size emits nothing",
-			sizes: []uint32{4096},
-			want:  "82",
+			name:   "unchanged default size emits nothing",
+			policy: chrome,
+			sizes:  []uint32{4096},
+			want:   "82",
 		},
 		{
 			// Captured: Firefox and Safari answer an explicit 4096.
@@ -129,29 +144,34 @@ func TestSizeUpdates(t *testing.T) {
 			want:   "3fe11f" + "82",
 		},
 		{
-			name:  "larger size",
-			sizes: []uint32{65536},
-			want:  "3fe1ff03" + "82",
+			name:   "larger size",
+			policy: chrome,
+			sizes:  []uint32{65536},
+			want:   "3fe1ff03" + "82",
 		},
 		{
-			name:  "beyond the table bound still announces the peer's value",
-			sizes: []uint32{1048576},
-			want:  "3fe1ff3f" + "82",
+			name:   "beyond the table bound still announces the peer's value",
+			policy: chrome,
+			sizes:  []uint32{1048576},
+			want:   "3fe1ff3f" + "82",
 		},
 		{
-			name:  "down then up emits the minimum first",
-			sizes: []uint32{2048, 8192},
-			want:  "3fe10f" + "3fe13f" + "82",
+			name:   "down then up emits the minimum first",
+			policy: chrome,
+			sizes:  []uint32{2048, 8192},
+			want:   "3fe10f" + "3fe13f" + "82",
 		},
 		{
-			name:  "two increases emit only the final size",
-			sizes: []uint32{8192, 16384},
-			want:  "3fe17f" + "82",
+			name:   "two increases emit only the final size",
+			policy: chrome,
+			sizes:  []uint32{8192, 16384},
+			want:   "3fe17f" + "82",
 		},
 		{
-			name:  "up then down emits only the final, smaller size",
-			sizes: []uint32{16384, 8192},
-			want:  "3fe13f" + "82",
+			name:   "up then down emits only the final, smaller size",
+			policy: chrome,
+			sizes:  []uint32{16384, 8192},
+			want:   "3fe13f" + "82",
 		},
 	}
 	for _, tt := range tests {

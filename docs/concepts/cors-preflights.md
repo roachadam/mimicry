@@ -54,6 +54,12 @@ The request-dependent headers are:
 A preflight never carries cookies, even for `Credentials: CredentialsInclude`. Chrome
 sends it on its connection for credential-less requests.
 
+Of `Config.Headers`, a preflight carries only those the preflight kind's
+lists name, so an override of `User-Agent` or `Accept-Language` goes on it
+as on the request; others, such as an API key, never do. The request's own
+headers are never on it: the unsafe ones are only named in
+`Access-Control-Request-Headers`.
+
 ## The answer
 
 The request is sent only if the answer allows it:
@@ -62,7 +68,8 @@ The request is sent only if the answer allows it:
   without credentials;
 - with credentials, `Access-Control-Allow-Credentials: true`;
 - the method is listed in `Access-Control-Allow-Methods`, or is GET, HEAD or
-  POST;
+  POST; a `*` in that list covers any method for requests without
+  credentials;
 - every unsafe header is listed in `Access-Control-Allow-Headers`. A `*` in
   that list covers headers only for requests without credentials, and
   never `Authorization`.
@@ -74,13 +81,16 @@ still goes first, but no browser would send what follows.
 
 The real response's own `Access-Control-*` headers are not checked: a
 browser has sent the request by then, and only hides the response from the
-page's script.
+page's script. Nor is a redirect response's: the Fetch standard checks a
+CORS request's 3xx before following it, but what browsers do with one that
+fails is not captured yet, so mimicry follows it.
 
 ## The cache
 
 A successful answer is remembered per page origin, URL and credentials
-mode. It lasts for `Access-Control-Max-Age` seconds, or 5 s without one
-(`Max-Age: 0`: not at all). A later request that the remembered answer
+mode. It lasts for `Access-Control-Max-Age` seconds as sent (browsers cap
+it, but their caps are not measured), or 5 s without one (`Max-Age: 0`:
+not at all). A later request that the remembered answer
 allows goes without a preflight. Browsers differ in what they remember
 (`context.preflight_cache`):
 
@@ -103,4 +113,5 @@ new URL too.
   same order as the browser's. The refused steps must return a
   `*CORSError`.
 - Unit tests in `preflight_test.go` cover the safelist, the expiry with a
-  fake clock, and the refusal rules.
+  fake clock, the refusal rules, the cache's pruning, and which
+  `Config.Headers` a preflight carries.

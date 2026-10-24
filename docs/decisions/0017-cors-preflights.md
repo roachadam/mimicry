@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-24
-- Commits: (this change)
+- Commits: `846393e`
 
 ## Problem
 
@@ -52,18 +52,25 @@ Option 3, the user's choice.
   (`context.preflight_cache: replace`). Firefox merges what each answer
   allowed (`merge`).
 - **Check.** The preflight's status must be 2xx, and
-  `Access-Control-Allow-Origin` must be the origin. With credentials it
-  must not be `*`, and `Access-Control-Allow-Credentials` must be `true`.
-  The method must be safelisted or allowed. Every unsafe header must be
-  allowed, with `*` covering headers only without credentials and never
+  `Access-Control-Allow-Origin` must be the origin, or `*` for a request
+  without credentials. With credentials, `Access-Control-Allow-Credentials`
+  must be `true`. The method must be safelisted or allowed (`*` allows any
+  method only without credentials). Every unsafe header must be allowed,
+  with `*` covering headers only without credentials and never
   `Authorization`. Otherwise the result is `*CORSError` and no request.
+- **Headers.** The preflight carries the `Config.Headers` its own lists
+  name (a User-Agent or Accept-Language override, as the request carries
+  them), never page headers such as an API key.
 - **Redirects.** Each hop comes back through `RoundTrip`, so a redirected
   request is preflighted again for its new URL.
 
 The actual response's own CORS headers are not checked. A browser has
 already sent that request by then; what it withholds is the response from
-the page's script, which mimicry has no counterpart for. The wire is the
-same either way.
+the page's script, which mimicry has no counterpart for. One case does
+change the wire: the Fetch standard checks CORS on a redirect response
+before following it, so a refused 3xx ends the chain in a browser, while
+mimicry follows it. That is not measured yet; the cors page gains the case
+in the next capture.
 
 ## Evidence
 

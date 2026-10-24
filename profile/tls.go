@@ -63,11 +63,15 @@ func (e *Extension) Pinned() bool {
 // given in one of three ways, depending on Type:
 //
 //   - Generated per connection, with no payload in the profile: server_name,
-//     padding, pre_shared_key and encrypted_client_hello.
+//     padding, pre_shared_key, session_ticket and encrypted_client_hello.
 //   - A typed field: Groups for supported_groups, KeyShares for key_share, and
 //     so on (see each field).
 //   - Data, the exact body, for every other type including GREASE. Absent
-//     Data means an empty body.
+//     Data means an empty body. uTLS writes some bodies itself, so Data must
+//     be the one it sends: empty for the first GREASE extension (of at most
+//     two), 00 for the second; empty for extended_master_secret and
+//     signed_certificate_timestamp; 0100000000 for status_request; 00 for
+//     renegotiation_info.
 type Extension struct {
 	Type Code `json:"type"`
 
@@ -100,24 +104,28 @@ type Extension struct {
 
 // Extension types with special handling in profiles.
 const (
-	ExtServerName              Code = 0x0000
-	ExtSupportedGroups         Code = 0x000a
-	ExtECPointFormats          Code = 0x000b
-	ExtSignatureAlgorithms     Code = 0x000d
-	ExtALPN                    Code = 0x0010
-	ExtPadding                 Code = 0x0015
-	ExtCompressCertificate     Code = 0x001b
-	ExtRecordSizeLimit         Code = 0x001c
-	ExtDelegatedCredentials    Code = 0x0022
-	ExtSessionTicket           Code = 0x0023
-	ExtPreSharedKey            Code = 0x0029
-	ExtSupportedVersions       Code = 0x002b
-	ExtPSKKeyExchangeModes     Code = 0x002d
-	ExtSignatureAlgorithmsCert Code = 0x0032
-	ExtKeyShare                Code = 0x0033
-	ExtApplicationSettingsOld  Code = 0x4469
-	ExtApplicationSettings     Code = 0x44cd
-	ExtEncryptedClientHello    Code = 0xfe0d
+	ExtServerName                 Code = 0x0000
+	ExtStatusRequest              Code = 0x0005
+	ExtSupportedGroups            Code = 0x000a
+	ExtECPointFormats             Code = 0x000b
+	ExtSignatureAlgorithms        Code = 0x000d
+	ExtALPN                       Code = 0x0010
+	ExtSignedCertificateTimestamp Code = 0x0012
+	ExtPadding                    Code = 0x0015
+	ExtExtendedMasterSecret       Code = 0x0017
+	ExtCompressCertificate        Code = 0x001b
+	ExtRecordSizeLimit            Code = 0x001c
+	ExtDelegatedCredentials       Code = 0x0022
+	ExtSessionTicket              Code = 0x0023
+	ExtPreSharedKey               Code = 0x0029
+	ExtSupportedVersions          Code = 0x002b
+	ExtPSKKeyExchangeModes        Code = 0x002d
+	ExtSignatureAlgorithmsCert    Code = 0x0032
+	ExtKeyShare                   Code = 0x0033
+	ExtApplicationSettingsOld     Code = 0x4469
+	ExtApplicationSettings        Code = 0x44cd
+	ExtEncryptedClientHello       Code = 0xfe0d
+	ExtRenegotiationInfo          Code = 0xff01
 )
 
 // generatedExtensions have bodies built per connection.

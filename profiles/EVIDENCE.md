@@ -24,8 +24,12 @@ sample splits cookies).
 
 All rows checked by `TestProfilesMatchCaptures` (mimicry's ClientHello
 diffed field by field against the capture, extension order as the capture
-says) and `TestClientSendsThePlannedHello` (the planned bytes are the bytes
-sent).
+says). `TestClientSendsThePlannedHello` checks that the cipher suites and
+extension types a TLS server receives, in order, are the planned ones (not
+the extension bodies). `profile.Validate` refuses a profile whose GREASE,
+extended_master_secret, signed_certificate_timestamp, status_request or
+renegotiation_info bodies differ from the ones uTLS sends, so a profile
+cannot claim bytes the handshake would not send.
 
 | Claim (`tls.…`) | Chrome 155 | Firefox 158 | Safari 27 | Safari 26 | Notes |
 |---|---|---|---|---|---|
@@ -34,7 +38,7 @@ sent).
 | `extensions` (types, contents: groups, key shares, signature algorithms, versions, ALPN, ALPS, point formats, PSK modes, certificate compression, record size limit, raw data such as Chrome's trust anchors 0xca34) | W+ | W+ | W+ | W+ | Chrome's trust anchor list was identical in all samples. |
 | GREASE ECH (0xfe0d) payload | presence and position W; payload is BoringSSL's, matches | presence and position W; **payload differs**: Firefox sends two cipher suites and a 223-byte payload | — | — | The schema records only the type. Known gap. |
 | key share material, random, session ID | generated per connection | | | | Values, not claims. |
-| `resumption` (TLS 1.3: full hello minus `drop`, `pre_shared_key` last, single-use tickets, no 0-RTT; `tls12`: ticket in `session_ticket`, used as the policy says) | W: drops nothing; `tls12: reuse` | W: drops `session_ticket`; `tls12: single_use` | W: none (never resumes, TLS 1.3 or 1.2) | W: none, as Safari 27 | `resume`, `resume-tls12` scenarios ([report](../harness/reports/resume-2026-10-24.md)); `TestResumptionMatchesBrowser` (used connections and resumptions per host, every resumed hello diffed) |
+| `resumption` (TLS 1.3: full hello minus `drop`, `pre_shared_key` last, single-use tickets, no 0-RTT; `tls12`: ticket in `session_ticket`, used as the policy says) | W: drops nothing; `tls12: reuse` | W: drops `session_ticket`; `tls12: single_use` | W: none (never resumes, TLS 1.3 or 1.2) | W: none, as Safari 27 | `resume`, `resume-tls12` scenarios ([report](../harness/reports/resume-2026-10-24.md)); `TestResumptionMatchesBrowser` (used connections and resumptions per host, every resumed hello diffed). A TLS 1.3 ticket past its lifetime or its certificate's expiry is not offered, so the hello is a full one (`TestTicketPastItsLifetimeIsNotOffered`, `TestTicketPastItsCertificateIsNotOffered`); a TLS 1.2 ticket lasts until its certificate expires (its lifetime is not measured) |
 
 Cross-checked outside our server: Firefox 158's JA3, and Safari 27's JA3, JA4
 and Akamai fingerprints, match what tls.peet.ws reports for the same
@@ -51,11 +55,11 @@ browsers.
 | `chain_priorities` (each request depends exclusively on the previous) | W (capture page traces) | — | — | `TestChainedPriorities` (unit); not compared against the trace end to end |
 | `pseudo_header_order` | W+ | W+ | W+ | `TestProfilesMatchCaptures` |
 | `first_stream_id`, `stream_window_update` | — (1, none) | W+: stream 3, 12451840 per stream | — | `TestProfilesMatchCaptures`, `TestFirstStreamAndStreamWindowUpdate` |
-| `max_data_frame` (upload DATA cap) | W+: 16375 | W+: 16000 | W+: 16374 | `TestConnectionMatchesBrowserTrace` (largest frame equal), `TestDataFrameCap`; holds whatever frame size the server allows (`large-settings`) |
-| `stream_update_threshold`, `connection_update_threshold` | W | W | W | `TestConnectionMatchesBrowserTrace`: every increment within the browser's own observed range ± one frame. Firefox's stream credit and Safari's connection overshoot are timing-driven; only the range is matched. |
+| `max_data_frame` (upload DATA cap) | W+: 16375 | W+: 16000 | W+: 16374 | `TestConnectionMatchesBrowserTrace` (largest frame equal, under the capture server's default SETTINGS), `TestDataFrameCap` (frame sizes, END_STREAM on the last DATA frame). The browsers keep their cap when the server allows larger frames (`large-settings`); no mimicry test raises the server's MAX_FRAME_SIZE |
+| `stream_update_threshold`, `connection_update_threshold` | W | W | W | `TestConnectionMatchesBrowserTrace`: every increment within the browser's own observed range ± one frame. Firefox's `stream_update_threshold` is range-checked only: its stream credit follows the page's reads, and the range it spans is too wide to pin the threshold. Safari's connection overshoot is timing-driven; only the range is matched. |
 | `window_update_interval_ms` (credit returned after 5 s however little) | W (`slow-idle`) | — | — | `TestWindowUpdateInterval` (unit, fake clock) |
 | `idle_ping_ms` (PING after 10 s idle, close if unanswered) | W (`slow-idle`) | — (never pings) | — (never pings) | `TestIdlePing` (unit, fake clock) |
-| `split_cookie` (one HPACK field per cookie) | W+ | W+ | W+ | `TestCookiesMatchBrowserTrace`, `TestCookieSplitAndOrder` |
+| `split_cookie` (one HPACK field per cookie) | W+ | W+ | W+ | `TestCookiesMatchBrowserTrace`, `TestCookieSplit` |
 
 ## HPACK
 
@@ -82,7 +86,8 @@ byte.
 | `headers`: navigation header names, order, default values over HTTP/2 | W+ (Safari 26: W+, differs from 27 only in user agent and `accept-encoding`) | `TestProfilesMatchCaptures` |
 | `referer`, `cookie` slots in `headers` | W (the `/nav` navigation) | over HTTP/1.1 by `TestHTTP1MatchesBrowserTrace`; over HTTP/2 not compared end to end |
 | `content-length` slot in `headers` | **K**: placed where each browser put it on `fetch()` uploads (Chrome first, Firefox after `referer`, Safari before `accept-language`). A navigation POST takes `variants` instead (below) | `TestKindsMatchBrowserTraces` (form POST) |
-| `variants`: the navigation's order for a form POST (Chrome adds `cache-control: max-age=0`; Firefox moves `referer`, `cookie`; Safari uses its CORS-checked order) | W (`kinds`, `kinds-http1`, Safari 26 included) | `TestKindsMatchBrowserTraces` |
+| `variants`: the navigation's order for a form POST to its own origin (Chrome adds `cache-control: max-age=0`; Firefox moves `referer`, `cookie`; Safari uses its CORS-checked order) | W (`kinds`, `kinds-http1`, Safari 26 included) | `TestKindsMatchBrowserTraces` |
+| `variants` `{POST, cross-site, cors_checked}`: a cross-site form POST navigation | W (`cookies`, `c-nav-post.so`; HTTP/2 only, so no `http1` list) | `TestCookiesScenarioMatchesBrowser`. A same-site form POST was not captured: it is an error, since the navigation's own lists have no Origin slot (the rule: `TestOriginNeedsAMeasuredList`) |
 | `accept-language` value | W, but it is this machine's language setting, not a browser constant | `TestProfilesMatchCaptures` |
 | `http1.headers`: HTTP/1.1 names as sent (casing), order, values, Host and Connection positions | W+ (`http1` scenario, every browser and Safari 26) | `TestHTTP1MatchesBrowserTrace` (`/` and `/nav`, line for line), `TestRequestHeadFollowsHTTP1Section` |
 | `Content-Length` slot in `http1.headers` | **K** (`fetch()` uploads) | `TestRequestHeadFollowsHTTP1Section` (Chrome, unit) |
@@ -114,33 +119,46 @@ them).
 
 ## Request kinds
 
-Derived from the `kinds`, `kinds-http1` and `kinds-plain` captures by
-`harness/cmd/kindsgen` (it refuses captures that disagree), for every
-profile; Safari 26's equal Safari 27's apart from its user agent and
-`accept-encoding`.
-All rows checked by `TestKindsMatchBrowserTraces`: every request of the kinds
-page, made through mimicry as its kind from the page, equals the browser's
-(names, order, values, HTTP/2 weight; over HTTP/1.1 line for line), cookies
-included. Where the browser's own samples differ, any form it sent passes and
-the variance is logged: one Chrome HTTP/1.1 sample sends `Sec-Fetch-User` on
-cross-origin frames and the form POST, the others do not (activation state).
-`kb_part`, set by an image the page loads, races Safari's CSS font request
-(`font-css.cs`): Safari 27 and Safari 26 over HTTP/1.1 send it in some
-samples, Safari 26 over HTTP/2 in none of six. The test accepts a request
-that differs only by that cookie, and logs it.
+Derived from the `kinds`, `kinds-http1`, `kinds-plain`, `cookies` and `cors`
+captures by `harness/cmd/kindsgen` (it refuses captures that disagree), for
+every profile; Safari 26's equal Safari 27's apart from its user agent and
+`accept-encoding`. `TestRegenerateReproducesProfiles` keeps the committed
+profiles equal to what kindsgen derives from the committed captures.
+Rows from the kinds pages are checked by `TestKindsMatchBrowserTraces`: every
+request of the kinds page, made through mimicry as its kind from the page,
+equals the browser's (names, order, values, HTTP/2 weight; over HTTP/1.1 line
+for line), cookies included. Where the browser's own samples differ, any form
+it sent passes and the variance is logged: one Chrome HTTP/1.1 sample sends
+`Sec-Fetch-User` on cross-origin frames and the form POST, the others do not
+(activation state). `kb_part`, set by an image the page loads, races Safari's
+CSS font request (`font-css.cs`): of three samples each, Safari 27 sends it in
+all over HTTP/1.1 and two over HTTP/2, Safari 26 in two over HTTP/1.1 and none
+over HTTP/2. For that label only (`raceCookieLabels`), the test also accepts
+mimicry's request carrying the cookie where no browser sample does, if nothing
+else differs, and logs it. Rows from the `cookies` capture are checked by
+`TestCookiesScenarioMatchesBrowser` (every probe's full header lines and
+weight); rows only the `cors` capture shows are checked by their derivation
+only: `TestCORSMatchesBrowser` compares those requests' methods, paths,
+cookies and `Access-Control-Request-*` headers, not their header order.
 
 | Claim | Evidence | Notes |
 |---|---|---|
 | `kinds.*.headers`, `http1`: names, order, values per kind | W | `font` is the CSS `@font-face` load: Firefox's sends `accept-encoding: identity`, unlike its `FontFace` loads |
-| `kinds.*.variants`: order by method, site relation, CORS check, redirect | W | Safari has many (a CORS-checked request starts `sec-fetch-site, accept, origin`; a cross-site beacon differs from a same-site one; its redirected fetches drop `sec-fetch-*`, `accept-language` and `priority`). Every browser orders a redirect's request its own way. Firefox also for cross-origin fetches and preload fonts. A combination not captured falls back to the kind's default order |
-| `insecure` variants (kinds and navigation): requests to a non-secure origin, HTTP/1.1 lists as sent | W (`kinds-plain`, every profile incl. Safari 26; [report](../harness/reports/plain-http-2026-10-24.md)) | No `Sec-Fetch-*` (Chrome: no client hints either), `Accept-Encoding: gzip, deflate`, Chrome's `Origin` after `User-Agent`, Safari's reorders and `Upgrade-Insecure-Requests` on frames. A combination not captured takes the kind's non-secure default, never the secure lists. Loopback hosts count as secure (Secure Contexts specification, not captured). Also `TestNonSecureOriginsAreNotLoopback` |
+| `kinds.*.variants`: order by method, site relation, CORS check, page-set headers, redirect | W | Safari has many (a CORS-checked request starts `sec-fetch-site, accept, origin`; a cross-site beacon differs from a same-site one; its redirected fetches drop `sec-fetch-*`, `accept-language` and `priority`). Every browser orders a redirect's request its own way. Firefox also for cross-origin fetches and preload fonts. A combination not captured falls back to the kind's default order, unless that order has no place for an Origin the request sends: then it is an error (`TestOriginNeedsAMeasuredList`) |
+| `page_set` (a variant for requests carrying a header the page set itself, not one the kind's list names; it implies `cors_checked`) | W (`kinds`: `fetch-custom`; `cors`: fetches with and without the page's header, every profile) | Fetch only. The `*` slot is in the `page_set` lists and, for Chrome and Firefox, the base fetch list; the other CORS-checked lists have none. `TestKindsMatchBrowserTraces`; matching by `TestPageSetVariants` (unit) |
+| Fetch `PUT` variants `{PUT, cross-site, cors_checked}` and the same with `page_set` | W (`cors`: `put.cs`, and the `maxage.cs` PUT with the page's header; HTTP/2 only) | Firefox, Safari 27 and 26 (Safari places `content-length` differently in the two). Chrome's PUTs merge into its base fetch order, so it has none. Derivation only (see above) |
+| `kinds.image`, `kinds.injected_image` variant `{same-site, redirected}` | W (`cookies`, `c-redirect.cs-ss.hop`; HTTP/2 only) | `TestCookiesScenarioMatchesBrowser` |
+| Safari 27's `cookie` slot in the redirected same-origin image lists (HTTP/2) | W (`cookies`, `c-redirect.ss-so.hop`: Safari 27 sends cookies on that hop) | `TestCookiesScenarioMatchesBrowser` |
+| Firefox's `sec-fetch-storage-access` slot in the base fetch list | W (`fetch-include.cs`: `none` on credentialed cross-site fetches) | `TestKindsMatchBrowserTraces` |
+| Variants with no `http1` list (those only the `cookies` or `cors` capture shows) | W over HTTP/2 only | Such a request over HTTP/1.1 is refused with `ErrNotMeasured` rather than sent in a guessed order (`TestHTTP2OnlyVariantOverHTTP1`) |
+| `insecure` variants (kinds and navigation): requests to a non-secure origin, HTTP/1.1 lists as sent | W (`kinds-plain`, every profile incl. Safari 26; [report](../harness/reports/plain-http-2026-10-24.md)) | No `Sec-Fetch-*` (Chrome: no client hints either), `Accept-Encoding: gzip, deflate`, Chrome's `Origin` after `User-Agent`, Safari's reorders and `Upgrade-Insecure-Requests` on frames. A variant's values come from the kind's own plain requests, in its condition where captured, else in any (`TestInsecureVariantValues`, `TestInsecureVariantValuesFromOwnElsewhere`): Firefox image `Priority: u=5, i`, font `Accept-Encoding: identity`, preload_font `gzip, deflate`; Safari async_script `u=3, i`, script, defer_script and preload_script `u=1, i`, image `u=5, i`. A combination not captured takes the kind's non-secure default, never the secure lists. Loopback hosts count as secure (Secure Contexts specification, not captured). Also `TestNonSecureOriginsAreNotLoopback` |
 | `kinds.*.weight` | W | Chrome and Firefox; Safari sends no priority |
 | `kinds.fetch.high`, `.low`; `kinds.injected_image.high` | W | Other kinds' fetchpriority is not measured: asking for it is an error |
-| `*` (where page-set headers go) | W (`fetch-custom`) | |
+| `*` (where page-set headers go) | W (`fetch-custom`: X-Mimicry's position) | One position for every page-set header; the browsers place them by name (see "Not covered") |
 | `context.storage_access` | W: Chrome `active`, Firefox `none`, Safari none | Sent on credentialed cross-site requests |
 | `context.same_origin_element_origin` | W: Chrome, Safari | Origin on same-origin CORS element requests |
 | `context.stylesheet_referrer` | W: Chrome, Firefox | Safari refers CSS fonts to the page; only same-origin fonts captured, at `/` |
-| `context.anonymous_connections`, `frame_connections` | W: Chrome | Requests without credentials, and a cross-site frame's navigation, go on connections of their own; checked by `TestKindsMatchBrowserTraces` (which requests share a connection, every sample). Safari: one connection per host, as mimicry's default. Firefox: see below |
+| `context.anonymous_connections`, `frame_connections` | W: Chrome | Requests without credentials, and a cross-site frame's navigation, go on connections of their own; checked by `TestKindsMatchBrowserTraces` (which requests share a connection, every sample). Safari: one connection per host, as mimicry's default. Firefox: no rule (see "Not covered"); the test pins its known differences label by label (`partitionGaps`), and fails on any other or on one no longer seen |
 | Referer by strict-origin-when-cross-origin; Origin per the Fetch standard; credentials per mode | W where captured, otherwise the standard | The page sits at `/`, so full URL and origin coincide except for the CSS font |
 | After a redirect: sec-fetch-site the chain's most distant relation, `Origin: null` once the chain is tainted, the page's Referer (not `http.Client`'s), storage access by the URL's own relation | W (`fetch-redirect`, `image-redirect`, both directions) | |
 
@@ -167,7 +185,9 @@ Safari 26. All rows **W**.
 `proxy` section ([decision 0014](../docs/decisions/0014-proxies.md)), from
 the `proxy-*` captures ([report](../harness/reports/proxies-2026-10-24.md)).
 All checked by `TestProxyMatchesBrowser` (mimicry through the capture proxy
-against every browser's capture) and `TestUnmeasuredProxyIsAnError`.
+against every browser's capture) and `TestUnmeasuredProxyIsAnError`. Safari
+26's credential rows are **C**: its `proxy-auth` and `proxy-plain-auth`
+captures were never taken (`missingCaptures` in the test).
 
 | Claim (`proxy.…`) | Chrome 155 | Firefox 158 | Safari 27 | Safari 26 |
 |---|---|---|---|---|
@@ -187,23 +207,62 @@ against every browser's capture) and `TestUnmeasuredProxyIsAnError`.
 | A fully read response is not reset (no RST_STREAM; waits for END_STREAM up to 10 s) | W: no browser resets streams it read | `TestClosingFullyReadBodyDoesNotReset` |
 | Uploads read in 65535-byte chunks | W for the first 64 KiB of Chrome and Safari uploads; later chunks and all of Firefox's are not modelled | `TestConnectionMatchesBrowserTrace` (largest frame only) |
 | HTTP/1.1-only servers get parallel connections at once; HTTP/2 candidates wait for the first | W (`resume`: three parallel requests, three connections opened together) | `TestResumptionMatchesBrowser` |
+| END_STREAM on an upload's last DATA frame (body of known length), no empty frame after | W (the capture page's upload, every profile, every sample) | `TestDataFrameCap` |
+| `Config.Headers`' Authorization and Cookie are not sent once a redirect chain has left an origin | The Fetch standard (Authorization on a cross-origin redirect); not captured | `TestConfigCredentialsStayBehindCrossOriginRedirects` |
+| A CORS preflight carries only the `Config.Headers` the preflight kind's lists name (a User-Agent or Accept-Language override), never others such as an API key | Follows the request it precedes; not captured (browsers have no `Config.Headers`) | `TestPreflightGetsConfigOverrides` |
 | HelloRetryRequest cookie placed at a random non-pinned position (uTLS fork patch 2) | **not Chrome's mechanism**: Chrome places it by its per-handshake permutation | known gap |
 
 ## Not covered by any claim
 
-What a profile does not describe, so mimicry does not imitate it: CORS
-preflight Max-Age caps, partitioning of the preflight cache by top-level
-site, and preflights from cross-site frames; Firefox's connections for credential-less requests (their own
-to the same-site host, shared to the page's own and the cross-site host, in
-every sample; no rule found); connections for what a cross-site frame
-itself loads; how many parallel connections a page opens; Chrome's
-mid-load re-prioritisation of a script and chained dependencies between
-concurrent subresources (not compared); `FontFace` loads; `crossorigin`
-stylesheets; ECH payloads; HTTP/3; the TCP/IP fingerprint; Chrome's
-speculative preconnects to a proxy; `https://` proxies; Safari's HTTPS
-upgrade attempt (TLS on the same port) before a plain-HTTP request,
-Chrome's HTTPS-Upgrades on port 80, and HSTS: requests go to the URL given,
-by decision ([0016](../docs/decisions/0016-literal-urls-no-https-upgrade.md)).
+What a profile does not describe, so mimicry does not imitate it:
+
+- Headers: where a page-set header goes depends on its name, in every
+  sample (Chrome puts `x-mimicry` and `x-other` first, `x-a` after
+  `sec-ch-ua`, `x-b` after `sec-ch-ua-mobile`; Safari 26 and 27 put
+  `x-mimicry` after `sec-fetch-dest`, `x-other` after `sec-fetch-mode`,
+  `x-b,x-a` after `origin`), while mimicry puts every page-set header in
+  the one `*` slot measured from X-Mimicry; a same-site form POST
+  navigation (not captured: an error); where Cookie goes on a non-secure
+  origin (no browser sent one on the `kinds-plain` page); `FontFace`
+  loads; `crossorigin` stylesheets.
+- CORS: preflight Max-Age caps (honoured as sent), partitioning of the
+  preflight cache by top-level site, and preflights from cross-site frames;
+  the CORS check on a redirect response (a 3xx without
+  `Access-Control-Allow-Origin`: capture pending), which mimicry does not
+  make.
+- Redirects follow Go's `http.Client`, not a browser: at most 10 hops, and
+  a PUT or POST becomes a GET on 301, 302 and 303.
+- Cookies: per-domain and total limits; adjusting `Expires` for the
+  server's `Date`; the `__Http-` and `__Host-Http-` prefixes; Chrome
+  keeping a cookie's creation time only while its value is unchanged
+  (cookie order after rotation; [INFERENCE], from its source); Firefox's
+  SameSite, by its source not schemeful ([INFERENCE]); `Secure` cookies
+  over plain HTTP to loopback (the jar refuses them, though requests to
+  loopback count as secure); the order between Safari's `Domain` cookies
+  of different levels.
+- Connections: Firefox's connections for credential-less requests (their
+  own to the same-site host, shared to the page's own and the cross-site
+  host, in every sample; no rule found); connections for what a cross-site
+  frame itself loads; how many parallel connections a page opens, and a
+  per-host cap on HTTP/1.1 connections (mimicry has none); HTTP/2
+  connection coalescing across hosts (Chrome's replays show it; mimicry
+  opens a connection per host); the 90 s after which an idle HTTP/1.1
+  connection is closed; the TLS 1.2 ticket lifetime.
+- HTTP/2: Chrome's mid-load re-prioritisation of a script and chained
+  dependencies between concurrent subresources (not compared); an upload
+  of unknown length ends with an empty END_STREAM DATA frame; a
+  REFUSED_STREAM makes mimicry stop using the connection (Chrome retries
+  on the same session: [INFERENCE], from its source); on errors, RST_STREAM
+  before the credit for discarded bytes, and GOAWAY before closing
+  ([INFERENCE], from Chromium's source; never captured).
+- TLS and below: ECH payloads; HTTP/3; the TCP/IP fingerprint.
+- Proxies: Chrome's speculative preconnects to a proxy; `https://`
+  proxies; Safari 26's credential flow (never captured, copied from Safari
+  27).
+- By decision ([0016](../docs/decisions/0016-literal-urls-no-https-upgrade.md)):
+  Safari's HTTPS upgrade attempt (TLS on the same port) before a
+  plain-HTTP request, Chrome's HTTPS-Upgrades on port 80, and HSTS:
+  requests go to the URL given.
 
 ## Keeping it true
 

@@ -34,8 +34,9 @@ type Proxy struct {
 	// capturing (Safari through a manual proxy).
 	PassThrough bool
 	// Plain means the server behind speaks plain HTTP: absolute-form
-	// requests are passed on and CONNECT is recorded, then answered 502 (a
-	// browser may try HTTPS first). Otherwise CONNECT tunnels are passed on
+	// requests for hosts Allow accepts are passed on (others are answered
+	// 403) and CONNECT is recorded, then answered 502 (a browser may try
+	// HTTPS first). Otherwise CONNECT tunnels are passed on
 	// and absolute-form requests answered 404.
 	Plain bool
 	// Auth, when set, is the Proxy-Authorization value a CONNECT must
@@ -150,11 +151,17 @@ func (p *Proxy) http(conn net.Conn, br *bufio.Reader, id int) (io.Reader, error)
 		method, rest, _ := strings.Cut(line, " ")
 		if method != "CONNECT" {
 			target, _, _ := strings.Cut(rest, " ")
-			if u, err := url.Parse(target); p.PassThrough && err == nil && !p.Allow(u.Hostname()) {
+			u, err := url.Parse(target)
+			refused := err == nil && !p.Allow(u.Hostname())
+			if refused && p.PassThrough {
 				return nil, forward(conn, bufio.NewReader(io.MultiReader(strings.NewReader(line), br)))
 			}
 			if !p.Plain {
 				_, err := io.WriteString(conn, "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+				return nil, errors.Join(err, conn.Close())
+			}
+			if refused {
+				_, err := io.WriteString(conn, "HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
 				return nil, errors.Join(err, conn.Close())
 			}
 			return io.MultiReader(strings.NewReader(line), br), nil

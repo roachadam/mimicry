@@ -3,32 +3,35 @@ package h2
 import (
 	"bytes"
 	"errors"
+	"io"
 	"sync"
 )
 
 var errBodyClosed = errors.New("h2: response body closed")
 
 // pipe buffers a stream's response body between the read loop and the
-// caller. Flow control bounds how much the server can send ahead of reads.
+// caller. The connection holds the peer to the stream's receive window,
+// which bounds what it buffers. Every buffered byte leaves once: read
+// (onRead), or discarded by Close or an error end, which report how many so
+// the connection returns that credit.
 type pipe struct {
 	mu     sync.Mutex
 	cond   *sync.Cond
 	buf    bytes.Buffer
-	err    error // set when the stream ends; returned once buf is drained
-	ended  bool  // the stream ended (err is set)
+	err    error // set when the stream ends; io.EOF once buf is drained
 	closed bool  // the caller closed the body
 	// read counts bytes handed to the caller; expected is the response's
 	// Content-Length, or -1.
 	read     int64
 	expected int64
 	onRead   func(n int)
-	// onClose runs when the caller closes the body before the stream ended.
-	// complete reports that every declared byte was read, so only the peer's
-	// END_STREAM is outstanding.
-	onClose func(complete bool)
+	// onClose runs once, when the caller closes the body. complete reports
+	// that every declared byte was read, so only the peer's END_STREAM can
+	// be outstanding; discarded is how many buffered bytes nobody read.
+	onClose func(complete bool, discarded int)
 }
 
-func newPipe(onRead func(n int), onClose func(complete bool)) *pipe {
+func newPipe(onRead func(n int), onClose func(complete bool, discarded int)) *pipe {
 	p := &pipe{
 		expected: -1,
 		onRead:   onRead,
@@ -67,18 +70,21 @@ func (p *pipe) Read(b []byte) (int, error) {
 	return 0, err
 }
 
-// Close implements io.Closer. Closing before the stream ends calls onClose.
+// Close implements io.Closer: it discards what is buffered and, the first
+// time, calls onClose.
 func (p *pipe) Close() error {
 	p.mu.Lock()
-	already, ended := p.closed, p.ended
-	complete := p.expected >= 0 && p.read == p.expected && p.buf.Len() == 0
+	if p.closed {
+		p.mu.Unlock()
+		return nil
+	}
 	p.closed = true
+	discarded := p.buf.Len()
+	complete := p.expected >= 0 && p.read == p.expected && discarded == 0
 	p.buf.Reset()
 	p.cond.Broadcast()
 	p.mu.Unlock()
-	if !already && !ended {
-		p.onClose(complete)
-	}
+	p.onClose(complete, discarded)
 	return nil
 }
 
@@ -95,11 +101,21 @@ func (p *pipe) write(b []byte) bool {
 	return true
 }
 
-func (p *pipe) closeWithError(err error) {
+// end ends the body with err, the first time. io.EOF leaves the buffered
+// bytes to be read first; any other error is returned at once and discards
+// them, and end reports how many.
+func (p *pipe) end(err error) int {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if !p.ended {
-		p.err, p.ended = err, true
+	if p.err != nil {
+		return 0
+	}
+	p.err = err
+	var discarded int
+	if !errors.Is(err, io.EOF) {
+		discarded = p.buf.Len()
+		p.buf.Reset()
 	}
 	p.cond.Broadcast()
+	return discarded
 }

@@ -34,8 +34,8 @@ priority depends on it: a blocking script and an async one differ, an
 
 `mimicry.As(req, kind)` for the common case; `mimicry.With(req,
 Request{Kind, From, Priority, CrossOrigin, Credentials, NoCORS,
-Stylesheet})` for full control; `mimicry.Exact(req)` sends only the
-caller's headers. Options are a struct, not functional options.
+Stylesheet, IgnoreCORS})` for full control; `mimicry.Exact(req)` sends only
+the caller's headers. Options are a struct, not functional options.
 
 The rule: **defaults reproduce the browser exactly; every deviation is
 visibly the caller's.** Precedence, lowest first:
@@ -46,12 +46,17 @@ visibly the caller's.** Precedence, lowest first:
    `sec-fetch-storage-access`, credentials (cookies dropped when the mode
    sends none), recomputed along a redirect chain;
 3. `Config.Headers`, the caller's own headers for every request (an API
-   key), distinct from profile defaults;
+   key), distinct from profile defaults. They count as headers the page
+   set (variant choice, preflights, credentials); their `Authorization`
+   and `Cookie` are dropped once a redirect chain crossed origins;
 4. the request's own headers: a value wins, `nil` removes one header,
-   `HeaderOrderKey` reorders.
+   `HeaderOrderKey` reorders (and drops the profile defaults it does not
+   name).
 
 Without `From`, other kinds come from the transport's last navigation, else
-from the target's own origin.
+from the target's own origin: a Transport is one browsing entity
+([0019](0019-transport-is-one-browsing-entity.md)). A navigation that is not
+a GET needs `From`, the page whose form sends it (0008).
 
 ## Evidence
 
@@ -66,8 +71,9 @@ page-set header keeps the caller's spelling, as browsers keep the page's.
 
 ## Consequences
 
-Users describe intent, not headers. Kinds a custom engine ignores
-(`Config.Engine`) lose their lists and priorities; documented on `Config`.
+Users describe intent, not headers. `Config.Engine`, which could not carry
+the kinds' lists to an outside engine, was removed
+([0018](0018-no-public-engine.md)).
 
 ## Revisit when
 

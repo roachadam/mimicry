@@ -32,10 +32,9 @@ import (
 // line for line; the SOCKS5 handshake byte for byte; with credentials, the
 // challenge first, the retry on the same connection and credentials unasked
 // from then on, with Proxy-Authorization where the browser puts it; and a
-// plain-HTTP request in absolute form with the browser's Connection or
-// Proxy-Connection. What goes through a tunnel is the profile's direct
-// ClientHello. (A plain-HTTP request's other headers are those of a
-// non-secure origin, not compared here.)
+// plain-HTTP request in absolute form, every line the browser's (with
+// credentials, where Proxy-Authorization goes). What goes through a tunnel
+// is the profile's direct ClientHello.
 func TestProxyMatchesBrowser(t *testing.T) {
 	for _, name := range profiles.Names() {
 		t.Run(name, func(t *testing.T) {
@@ -75,7 +74,10 @@ func TestProxyMatchesBrowser(t *testing.T) {
 			t.Run("auth", func(t *testing.T) {
 				wantFlow := loadSamples[[]capture.ProxyRequest](t, name+".proxy-auth.proxytrace.json")
 				sc := scenario(t, "proxy-auth")
-				hosts, _, _ := sc.MultiHost()
+				hosts, _, ok := sc.MultiHost()
+				if !ok || len(hosts) == 0 {
+					t.Fatalf("scenario %s serves no hosts", sc.Name)
+				}
 				s := startProxied(t, p, sc, url.UserPassword(server.ProxyUser, server.ProxyPassword))
 				// A new tunnel each time.
 				for range 3 {
@@ -84,7 +86,12 @@ func TestProxyMatchesBrowser(t *testing.T) {
 				}
 				got := connectFlow(s.proxy.Requests())
 				for i, sample := range wantFlow {
-					if w := connectFlow(sample)[:len(got)]; !slices.Equal(got, w) {
+					w := connectFlow(sample)
+					if len(w) < len(got) {
+						t.Errorf("CONNECT flow against sample %d: mimicry made %d steps, the browser %d:\n got %v\nwant %v", i+1, len(got), len(w), got, w)
+						continue
+					}
+					if w = w[:len(got)]; !slices.Equal(got, w) {
 						t.Errorf("CONNECT flow (connection, status, credentials) against sample %d:\n got %v\nwant %v", i+1, got, w)
 					}
 				}
@@ -112,8 +119,10 @@ func TestProxyMatchesBrowser(t *testing.T) {
 				s.get("http", server.CaptureHost, "/")
 				s.get("http", server.CaptureHost, "/nav")
 				got := s.h1()
-				g, w := forwardAuthFlow(got), forwardAuthFlow(want[0])[:len(got)]
-				if !slices.Equal(g, w) {
+				g, w := forwardAuthFlow(got), forwardAuthFlow(want[0])
+				if len(w) < len(g) {
+					t.Errorf("forwarded requests: mimicry made %d, the browser %d:\n got %v\nwant %v", len(g), len(w), g, w)
+				} else if w = w[:len(g)]; !slices.Equal(g, w) {
 					t.Errorf("forwarded requests (connection, credentials):\n got %v\nwant %v", g, w)
 				}
 				// The first navigation with credentials (for most browsers, the
@@ -341,8 +350,15 @@ func scenario(t *testing.T, name string) *server.Scenario {
 	return sc
 }
 
+// missingCaptures are the captures known not to exist, and why; a test
+// needing one is skipped. Any other missing capture fails.
+var missingCaptures = map[string]string{
+	"safari-26-macos.proxy-auth.proxytrace.json":    "Safari 26 proxy credentials were never captured",
+	"safari-26-macos.proxy-plain-auth.h1trace.json": "Safari 26 proxy credentials were never captured",
+}
+
 // loadSamples reads a capture's samples, skipping the test when the
-// browser has none.
+// capture is one of missingCaptures.
 func loadSamples[T any](t *testing.T, file string) []T {
 	t.Helper()
 	path := captureDir + file
@@ -357,8 +373,14 @@ func loadSamples[T any](t *testing.T, file string) []T {
 	} else {
 		data, err = os.ReadFile(path)
 	}
+	if why, ok := missingCaptures[file]; ok {
+		if err == nil {
+			t.Fatalf("capture %s exists but is listed missing (%s)", file, why)
+		}
+		t.Skipf("no capture %s: %s", file, why)
+	}
 	if errors.Is(err, fs.ErrNotExist) {
-		t.Skipf("no capture %s", file)
+		t.Fatalf("no capture %s", file)
 	}
 	if err != nil {
 		t.Fatal(err)

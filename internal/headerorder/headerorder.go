@@ -6,12 +6,18 @@ package headerorder
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"slices"
 	"strings"
 
 	"github.com/roachadam/mimicry/profile"
 )
+
+// ErrNotMeasured reports a request the profile cannot describe. The root
+// package exports it as mimicry.ErrNotMeasured; it lives here so the
+// connections can return it too.
+var ErrNotMeasured = errors.New("mimicry: not measured for this profile")
 
 // Plan is how to send one request other than as the profile's navigation:
 // its header lists, with request-dependent slots already filled, and its
@@ -22,6 +28,10 @@ type Plan struct {
 	// Both empty sends only the request's own headers.
 	Headers []profile.Header
 	HTTP1   []profile.Header
+	// NoHTTP1: the request's lists were measured over HTTP/2 only, so an
+	// HTTP/1.1 connection must refuse it (ErrNotMeasured) rather than
+	// guess the order.
+	NoHTTP1 bool
 	// Weight is the HEADERS priority weight; zero keeps the profile's.
 	Weight uint8
 }
@@ -39,9 +49,12 @@ func PlanFrom(ctx context.Context) *Plan {
 	return p
 }
 
-// Key is the request header that overrides the order for one request: its
-// values are header names, in the order to send them. The trailing colon makes
-// it an invalid header name, so it can never be sent by mistake.
+// Key is the request header that sets the header list for one request: its
+// values are header names, in the order to send them. It replaces the
+// profile's order, so a profile default it does not name is not sent; a
+// header the request sets is still sent, after the named ones. Its name is
+// matched in any case. The trailing colon makes it an invalid header name,
+// so it can never be sent by mistake.
 const Key = "Header-Order:"
 
 // Field is one header to send. Name is lowercase.
@@ -57,17 +70,20 @@ type Field struct {
 //     value wins;
 //   - a header in h with no values (h["Accept-Language"] = nil) suppresses the
 //     profile's default;
-//   - order is the profile's (or Key's, if set); headers it does not list go
-//     where it lists profile.OtherHeaders, else after the rest, sorted by
-//     name;
+//   - order is the profile's, or Key's if set (then profile defaults Key
+//     does not name are dropped); headers it does not list go where it
+//     lists profile.OtherHeaders, else after the rest, sorted by name;
+//   - names are compared case-insensitively;
 //   - skip names headers never to send (connection-level ones the protocol
 //     handles itself).
 func Build(prof []profile.Header, h http.Header, skip func(name string) bool) []Field {
 	// A key present with no values suppresses the profile's default: it stays
 	// in the map with nothing to send.
 	values := make(map[string][]string, len(h))
+	var override []string
 	for k, v := range h {
-		if k == Key {
+		if strings.EqualFold(k, Key) {
+			override = append(override, v...)
 			continue
 		}
 		name := strings.ToLower(k)
@@ -76,10 +92,11 @@ func Build(prof []profile.Header, h http.Header, skip func(name string) bool) []
 	defaults := make(map[string]string, len(prof))
 	order := make([]string, 0, len(prof))
 	for _, ph := range prof {
-		defaults[ph.Name] = ph.Value
-		order = append(order, ph.Name)
+		name := strings.ToLower(ph.Name)
+		defaults[name] = ph.Value
+		order = append(order, name)
 	}
-	if override := h[Key]; len(override) > 0 {
+	if len(override) > 0 {
 		order = order[:0]
 		for _, name := range override {
 			order = append(order, strings.ToLower(name))

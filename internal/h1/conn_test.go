@@ -216,16 +216,30 @@ func TestBodies(t *testing.T) {
 	if body, _ := do(t, c, unsized); body != "chunked|"+payload {
 		t.Errorf("chunked upload echoed %q...", body[:min(len(body), 20)])
 	}
+	// ContentLength 0 with a body is an unknown length too, as in net/http.
+	unknown := newRequest(t, http.MethodPost, srv.URL, nil)
+	unknown.Body = io.NopCloser(strings.NewReader(payload))
+	if body, _ := do(t, c, unknown); body != "chunked|"+payload {
+		t.Errorf("unknown-length upload echoed %q...", body[:min(len(body), 20)])
+	}
 }
 
 // A body closed before its end, or a server that closes, makes the connection
-// unusable; it must not be handed to the next request.
+// unusable; it must not be handed to the next request. Closing early must not
+// read the rest: this server's body never ends.
 func TestNotReusable(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/close" {
 			w.Header().Set("Connection", "close")
+			_, _ = io.WriteString(w, "done")
+			return
 		}
-		_, _ = w.Write(bytes.Repeat([]byte("x"), 1<<20))
+		chunk := bytes.Repeat([]byte("x"), 1<<16)
+		for {
+			if _, err := w.Write(chunk); err != nil {
+				return
+			}
+		}
 	}))
 	t.Cleanup(srv.Close)
 

@@ -162,7 +162,17 @@
       ":authority",
       ":scheme",
       ":path"
-    ]
+    ],
+    "split_cookie": true,
+    "hpack": {
+      "without_indexing": [
+        ":method",
+        ":path"
+      ],
+      "name_match": "static_first",
+      "huffman": "shorter",
+      "size_updates": "on_change"
+    }
   },
   "headers": [
     {
@@ -191,5 +201,14 @@
     {
       "name": "cookie"
     }
-  ]
+  ],
+  "cookies": {
+    "unset_samesite": "lax",
+    "lax_allows_unsafe_seconds": 120,
+    "none_requires_secure": true,
+    "third_party": "samesite",
+    "redirects": "ignore",
+    "nameless": "value",
+    "order": "rfc"
+  }
 }

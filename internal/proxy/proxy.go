@@ -26,6 +26,36 @@ type Answer struct {
 	Close bool
 }
 
+// maxAnswerHeader bounds the bytes read until a CONNECT answer's header
+// ends.
+const maxAnswerHeader = 64 << 10
+
+// ErrAnswerTooLarge is returned for a CONNECT answer whose header is longer
+// than 64 KiB.
+var ErrAnswerTooLarge = errors.New("the proxy's answer header is longer than 64 KiB")
+
+// headerLimit reads from r, failing with ErrAnswerTooLarge once left bytes
+// are read; a negative left is no limit.
+type headerLimit struct {
+	r    io.Reader
+	left int
+}
+
+func (l *headerLimit) Read(p []byte) (int, error) {
+	if l.left < 0 {
+		return l.r.Read(p)
+	}
+	if l.left == 0 {
+		return 0, ErrAnswerTooLarge
+	}
+	if len(p) > l.left {
+		p = p[:l.left]
+	}
+	n, err := l.r.Read(p)
+	l.left -= n
+	return n, err
+}
+
 // Connect asks an HTTP proxy, over conn, for a tunnel to target
 // ("host:port"): a CONNECT request with header lines as given, in order and
 // spelled as sent ("Host: example.com:443"). On a 2xx answer the returned
@@ -42,13 +72,20 @@ func Connect(ctx context.Context, conn net.Conn, target string, header []string)
 	if _, err := io.WriteString(conn, b.String()); err != nil {
 		return Answer{}, nil, contextError(ctx, err)
 	}
-	br := bufio.NewReader(conn)
+	limit := &headerLimit{
+		r:    conn,
+		left: maxAnswerHeader,
+	}
+	br := bufio.NewReader(limit)
 	resp, err := http.ReadResponse(br, &http.Request{
 		Method: http.MethodConnect,
 	})
 	if err != nil {
 		return Answer{}, nil, contextError(ctx, fmt.Errorf("reading the proxy's answer to CONNECT: %w", err))
 	}
+	// The header is read: the body (bounded below) and the tunnel are not
+	// limited.
+	limit.left = -1
 	a := Answer{
 		StatusCode: resp.StatusCode,
 		Status:     resp.Status,

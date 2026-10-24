@@ -38,6 +38,9 @@ Related, elsewhere in the repository:
 | [0015](decisions/0015-non-secure-origins.md) | Requests to non-secure origins as captured, per kind | Accepted |
 | [0016](decisions/0016-literal-urls-no-https-upgrade.md) | Requests go to the URL given; no HTTPS upgrades or HSTS by default | Accepted |
 | [0017](decisions/0017-cors-preflights.md) | CORS preflights as the browser sends them, refusal included | Accepted |
+| [0018](decisions/0018-no-public-engine.md) | No public Engine interface | Accepted |
+| [0019](decisions/0019-transport-is-one-browsing-entity.md) | A Transport is one browsing entity | Accepted |
+| [0020](decisions/0020-connection-pool-package.md) | The connection pool is its own package | Accepted |
 
 New records copy [`decisions/template.md`](decisions/template.md).
 

@@ -9,15 +9,6 @@ import (
 	"github.com/roachadam/mimicry/profiles"
 )
 
-func compile(t *testing.T, p *profile.Profile) *Plan {
-	t.Helper()
-	plan, err := Compile(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return plan
-}
-
 func types(exts []profile.Extension) []profile.Code {
 	out := make([]profile.Code, len(exts))
 	for i, e := range exts {
@@ -28,7 +19,7 @@ func types(exts []profile.Extension) []profile.Code {
 
 func TestFixedOrderNeverMoves(t *testing.T) {
 	p := profiles.Firefox158MacOS()
-	plan := compile(t, p)
+	plan := Compile(p)
 	want := types(p.TLS.Extensions)
 	for range 100 {
 		if got := types(plan.Hello().Extensions); !slices.Equal(got, want) {
@@ -43,7 +34,7 @@ func TestFixedOrderNeverMoves(t *testing.T) {
 // chance (~12.5% vs ~6.7% for Chrome); this test catches that kind of bias.
 func TestShuffleIsUniform(t *testing.T) {
 	p := profiles.Chrome155MacOS()
-	plan := compile(t, p)
+	plan := Compile(p)
 	k := len(plan.movable)
 	if k < 10 {
 		t.Fatalf("only %d movable extensions; expected Chrome's shuffled set", k)
@@ -76,7 +67,7 @@ func TestShuffleIsUniform(t *testing.T) {
 
 func TestShufflePinsGREASE(t *testing.T) {
 	p := profiles.Chrome155MacOS()
-	plan := compile(t, p)
+	plan := Compile(p)
 	want := map[int]profile.Code{}
 	for i, e := range p.TLS.Extensions {
 		if e.Pinned() {
@@ -100,7 +91,7 @@ func TestShufflePinsGREASE(t *testing.T) {
 // per-client or per-session order is a known bug in other libraries: two
 // connections then carry an identical order.
 func TestEachConnectionGetsAFreshOrder(t *testing.T) {
-	plan := compile(t, profiles.Chrome155MacOS())
+	plan := Compile(profiles.Chrome155MacOS())
 	seen := map[string]bool{}
 	for range 20 {
 		var key string
@@ -115,25 +106,11 @@ func TestEachConnectionGetsAFreshOrder(t *testing.T) {
 	}
 }
 
-func TestPlanIsIndependentOfItsProfile(t *testing.T) {
-	p := profiles.Chrome155MacOS()
-	plan := compile(t, p)
-	p.TLS.CipherSuites[1] = 0x0005
-	p.TLS.Extensions = p.TLS.Extensions[:3]
+func TestHelloIsIndependentOfThePlan(t *testing.T) {
+	plan := Compile(profiles.Chrome155MacOS())
 	h := plan.Hello()
-	if h.CipherSuites[1] == 0x0005 || len(h.Extensions) <= 3 {
-		t.Fatal("changing the profile after Compile changed the plan")
-	}
 	h.CipherSuites[1] = 0x0005
 	if plan.Hello().CipherSuites[1] == 0x0005 {
 		t.Fatal("changing a Hello changed the plan")
-	}
-}
-
-func TestCompileRejectsInvalidProfile(t *testing.T) {
-	p := profiles.Chrome155MacOS()
-	p.TLS.ExtensionOrder = ""
-	if _, err := Compile(p); err == nil {
-		t.Fatal("compiled an invalid profile")
 	}
 }

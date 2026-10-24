@@ -10,8 +10,8 @@ import (
 )
 
 // Combine sets every sample's extension order from how the samples compare
-// (shuffled if any two orders differ, fixed otherwise) and checks the samples
-// agree on everything else. It returns the first sample, holding every
+// (shuffled if any two orders differ, fixed otherwise), even when it then
+// returns an error, and checks the samples agree on everything else. It returns the first sample, holding every
 // sample's trace in SampleTraces; how far those agree is h2trace.Compare's
 // job, since timing legitimately varies between connections.
 func Combine(samples []*Capture) (*Capture, error) {

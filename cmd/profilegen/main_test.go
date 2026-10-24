@@ -47,6 +47,26 @@ func TestGenerateRefuses(t *testing.T) {
 			data: valid,
 			want: "must be chrome-155-macos.json",
 		},
+		{
+			// funcName panicked on the empty part.
+			name: "name with an empty part",
+			file: "chrome--macos.json",
+			data: bytes.Replace(valid, []byte(`"name": "chrome-155-macos"`), []byte(`"name": "chrome--macos"`), 1),
+			want: "lowercase letters and digits",
+		},
+		{
+			name: "name with a trailing dash",
+			file: "chrome-155-macos-.json",
+			data: bytes.Replace(valid, []byte(`"name": "chrome-155-macos"`), []byte(`"name": "chrome-155-macos-"`), 1),
+			want: "lowercase letters and digits",
+		},
+		{
+			// Not a Go identifier once joined.
+			name: "name with a dot",
+			file: "safari-26.1-macos.json",
+			data: bytes.Replace(valid, []byte(`"name": "chrome-155-macos"`), []byte(`"name": "safari-26.1-macos"`), 1),
+			want: "lowercase letters and digits",
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()

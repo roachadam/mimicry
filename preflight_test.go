@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -62,7 +63,7 @@ func corsTransport(t *testing.T, e *corsEngine, extra http.Header) *Transport {
 	t.Helper()
 	tr, err := NewTransport(Config{
 		Profile: profiles.Chrome155MacOS(),
-		Engine:  e,
+		engine:  e,
 		Headers: extra,
 	})
 	if err != nil {
@@ -112,6 +113,10 @@ func TestPreflightWhenNeeded(t *testing.T) {
 		{name: "XHR", method: http.MethodDelete, target: cross, r: Request{Kind: XHR}, want: "OPTIONS /x DELETE "},
 		{name: "text/plain", method: http.MethodPost, target: cross, h: http.Header{"Content-Type": {"text/plain;charset=UTF-8"}}, r: Request{Kind: Fetch}},
 		{name: "JSON", method: http.MethodPost, target: cross, h: http.Header{"Content-Type": {"application/json"}}, r: Request{Kind: Fetch}, want: "OPTIONS /x POST content-type"},
+		{name: "text/plain, invalid parameter", method: http.MethodPost, target: cross, h: http.Header{"Content-Type": {"text/plain; foo"}}, r: Request{Kind: Fetch}},
+		{name: "text/plain, repeated charset", method: http.MethodPost, target: cross, h: http.Header{"Content-Type": {" Text/Plain ;charset=a;charset=b"}}, r: Request{Kind: Fetch}},
+		{name: "no subtype", method: http.MethodPost, target: cross, h: http.Header{"Content-Type": {"text/"}}, r: Request{Kind: Fetch}, want: "OPTIONS /x POST content-type"},
+		{name: "two types", method: http.MethodPost, target: cross, h: http.Header{"Content-Type": {"text/plain", "text/html"}}, r: Request{Kind: Fetch}, want: "OPTIONS /x POST content-type"},
 		{name: "plain language", target: cross, h: http.Header{"Accept-Language": {"en-US,en;q=0.9"}}, r: Request{Kind: Fetch}},
 		{name: "language with an underscore", target: cross, h: http.Header{"Accept-Language": {"en_US"}}, r: Request{Kind: Fetch}, want: "OPTIONS /x GET accept-language"},
 		{name: "long Accept", target: cross, h: http.Header{"Accept": {strings.Repeat("a", 129)}}, r: Request{Kind: Fetch}, want: "OPTIONS /x GET accept"},
@@ -248,5 +253,82 @@ func TestPreflightRefused(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// Storing preflights costs amortised constant time: the cache drops what
+// has expired only once it has doubled, so n stores look at O(n) entries
+// in all, and expired entries still go.
+func TestPreflightCachePruning(t *testing.T) {
+	var c preflightCache
+	now := time.Unix(1_000_000, 0)
+	need := func(i int) *preflightNeed {
+		return &preflightNeed{
+			key: preflightKey{
+				origin: "https://www.a.test",
+				url:    "https://api.b.test/x?i=" + strconv.Itoa(i),
+			},
+			method: http.MethodPut,
+		}
+	}
+	answer := func(maxAge string) http.Header {
+		return http.Header{
+			"Access-Control-Allow-Methods": {"PUT"},
+			"Access-Control-Max-Age":       {maxAge},
+		}
+	}
+	const n = 4096
+	for i := range n {
+		c.store(need(i), answer("1"), true, now)
+	}
+	if c.scanned > 4*n {
+		t.Errorf("%d stores looked at %d entries", n, c.scanned)
+	}
+	later := now.Add(2 * time.Second)
+	for i := range n {
+		c.store(need(n+i), answer("600"), true, later)
+	}
+	if len(c.entries) > 2*n {
+		t.Errorf("%d entries for %d live ones", len(c.entries), n)
+	}
+	if !c.allows(need(2*n-1), later) || c.allows(need(0), later) {
+		t.Error("the cache lost a live entry or kept an expired one")
+	}
+}
+
+// A preflight carries the Config.Headers its own list names (a User-Agent
+// override), as the request does, and none of the page's (an API key).
+func TestPreflightGetsConfigOverrides(t *testing.T) {
+	e := &fakeEngine{
+		answer: func(req *http.Request) *http.Response {
+			if req.Method != http.MethodOptions {
+				return nil
+			}
+			return &http.Response{
+				StatusCode: http.StatusNoContent,
+				Header:     allowAll(),
+				Body:       http.NoBody,
+				Request:    req,
+			}
+		},
+	}
+	tr := fakeTransport(t, Config{
+		Headers: http.Header{
+			"User-Agent": {"custom"},
+			"X-Api-Key":  {"k"},
+		},
+	}, e)
+	if err := corsDo(t, tr, http.MethodPut, "https://api.b.test/x", nil, Request{Kind: Fetch}); err != nil {
+		t.Fatal(err)
+	}
+	if len(e.sent) != 2 {
+		t.Fatalf("%d requests sent, want a preflight and the request", len(e.sent))
+	}
+	pre, req := e.sent[0].Header, e.sent[1].Header
+	if pre.Get("User-Agent") != "custom" || req.Get("User-Agent") != "custom" {
+		t.Errorf("User-Agent: preflight %q, request %q, want both custom", pre.Get("User-Agent"), req.Get("User-Agent"))
+	}
+	if pre.Get("X-Api-Key") != "" || req.Get("X-Api-Key") != "k" {
+		t.Errorf("X-Api-Key: preflight %q, request %q, want the request's only", pre.Get("X-Api-Key"), req.Get("X-Api-Key"))
 	}
 }

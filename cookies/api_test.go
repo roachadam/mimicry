@@ -37,7 +37,7 @@ func fill(t *testing.T, j *Jar) {
 // cookies everywhere, partitioned ones included.
 func TestJSONRoundTrip(t *testing.T) {
 	clock := clockwork.NewFakeClockAt(time.Date(2026, 10, 24, 12, 0, 0, 0, time.UTC))
-	j := New(Config{
+	j := newJar(t, Config{
 		Clock: clock,
 	})
 	fill(t, j)
@@ -45,7 +45,7 @@ func TestJSONRoundTrip(t *testing.T) {
 	if err := j.WriteJSON(&buf); err != nil {
 		t.Fatal(err)
 	}
-	k := New(Config{
+	k := newJar(t, Config{
 		Clock: clock,
 	})
 	if err := k.ReadJSON(&buf); err != nil {
@@ -71,7 +71,7 @@ func TestJSONRoundTrip(t *testing.T) {
 // Secure, HttpOnly, expiry, raw value) and leave partitioned cookies out.
 func TestNetscapeRoundTrip(t *testing.T) {
 	clock := clockwork.NewFakeClockAt(time.Date(2026, 10, 24, 12, 0, 0, 0, time.UTC))
-	j := New(Config{
+	j := newJar(t, Config{
 		Clock: clock,
 	})
 	fill(t, j)
@@ -92,7 +92,7 @@ func TestNetscapeRoundTrip(t *testing.T) {
 	if strings.Contains(text, "part") {
 		t.Errorf("partitioned cookie written:\n%s", text)
 	}
-	k := New(Config{
+	k := newJar(t, Config{
 		Clock: clock,
 	})
 	if err := k.ReadNetscape(strings.NewReader(text)); err != nil {
@@ -108,7 +108,7 @@ func TestNetscapeRoundTrip(t *testing.T) {
 // A clone is independent; ClearSession drops session cookies only; Delete
 // removes what matches.
 func TestCloneClearDelete(t *testing.T) {
-	j := New(Config{})
+	j := newJar(t, Config{})
 	fill(t, j)
 	c := j.Clone()
 	if n := c.ClearSession(); n != 3 {
@@ -130,11 +130,13 @@ func TestCloneClearDelete(t *testing.T) {
 
 // Set takes a cookie without a URL, refusing what could not be sent.
 func TestSet(t *testing.T) {
-	j := New(Config{})
+	j := newJar(t, Config{})
 	for _, c := range []Cookie{
 		{Name: "a", Value: "1"},
 		{Name: "a;b", Value: "1", Domain: "example.com"},
 		{Name: "a", Value: "1\n", Domain: "example.com"},
+		{Name: "", Value: " __Host-a=1", Domain: "example.com"},
+		{Name: "", Value: "__secure-a=1", Domain: "example.com"},
 	} {
 		if err := j.Set(c); err == nil {
 			t.Errorf("Set(%+v) accepted", c)
@@ -148,18 +150,66 @@ func TestSet(t *testing.T) {
 	}
 }
 
-// The http.CookieJar adapter stores and returns cookies for an
-// http.Client.
+// Delete's match runs with the jar unlocked, so it may read the jar, and
+// gets copies: changing one changes nothing stored.
+func TestDeleteMatchMayUseJar(t *testing.T) {
+	j := newJar(t, Config{})
+	fill(t, j)
+	n := j.Delete(func(c *Cookie) bool {
+		others := j.All()
+		c.Value = "changed"
+		return len(others) == 4 && c.Name == "sess"
+	})
+	if n != 1 {
+		t.Errorf("Delete removed %d, want 1", n)
+	}
+	for _, c := range j.All() {
+		if c.Name == "sess" || c.Value == "changed" {
+			t.Errorf("after Delete: %+v", c)
+		}
+	}
+}
+
+// Netscape fields are tab-separated: a cookie with a tab is left out, so
+// the file still reads back.
+func TestNetscapeSkipsTabs(t *testing.T) {
+	j := newJar(t, Config{})
+	j.SetCookies(nav(t, "https://example.com/"), []string{"tab=x\ty", "ok=1"})
+	if err := j.Set(Cookie{
+		Name:   "path",
+		Value:  "1",
+		Domain: "example.com",
+		Path:   "/a\tb",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	if err := j.WriteNetscape(&buf); err != nil {
+		t.Fatal(err)
+	}
+	k := newJar(t, Config{})
+	if err := k.ReadNetscape(&buf); err != nil {
+		t.Fatal(err)
+	}
+	if all := k.All(); len(all) != 1 || all[0].Name != "ok" {
+		t.Errorf("read back %d cookies, want only ok", len(all))
+	}
+}
+
+// The http.CookieJar adapter stores the raw Set-Cookie lines net/http
+// passes on, and returns quoted values so net/http sends them quoted.
 func TestCookieJarAdapter(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/set" {
 			w.Header().Add("Set-Cookie", "a=1; Path=/")
+			w.Header().Add("Set-Cookie", `q="Ab+/cd=="; Path=/`)
+			w.Header().Add("Set-Cookie", "s=x y; Path=/s")
 			return
 		}
 		w.Header().Set("X-Cookie", r.Header.Get("Cookie"))
 	}))
 	t.Cleanup(srv.Close)
-	j := New(Config{
+	j := newJar(t, Config{
 		Rules: profile.DefaultCookies(),
 	})
 	client := &http.Client{
@@ -175,8 +225,15 @@ func TestCookieJarAdapter(t *testing.T) {
 			t.Fatal(err)
 		}
 		_ = resp.Body.Close()
-		if got := resp.Header.Get("X-Cookie"); path == "/get" && got != "a=1" {
+		if got := resp.Header.Get("X-Cookie"); path == "/get" && got != `a=1; q="Ab+/cd=="` {
 			t.Errorf("server saw Cookie %q", got)
 		}
+	}
+	values := map[string]string{}
+	for _, c := range j.All() {
+		values[c.Name] = c.Value
+	}
+	if values["q"] != `"Ab+/cd=="` || values["s"] != "x y" {
+		t.Errorf("stored values %q", values)
 	}
 }

@@ -6,7 +6,8 @@ package profile
 type Proxy struct {
 	// Connect are a CONNECT request's headers without credentials, in
 	// order, named as sent. Host takes the target's host and port, and
-	// User-Agent the profile's user agent; others are sent as given.
+	// User-Agent the user agent in the profile's headers, which must have
+	// one; others are sent as given.
 	Connect []Header `json:"connect"`
 	// ConnectAuth are a CONNECT request's headers when it carries
 	// credentials, Proxy-Authorization included, filled in as Connect's.
@@ -16,11 +17,11 @@ type Proxy struct {
 	// ConnectCredentials is when a CONNECT carries credentials:
 	// CredentialsAfterChallenge or CredentialsOnChallenge. Required with
 	// ConnectAuth.
-	ConnectCredentials string `json:"connect_credentials,omitempty"`
+	ConnectCredentials CredentialTiming `json:"connect_credentials,omitempty"`
 	// ForwardCredentials is when a plain-HTTP request sent to a proxy
 	// carries them: CredentialsAfterChallenge or CredentialsAlways.
 	// Required with ConnectAuth.
-	ForwardCredentials string `json:"forward_credentials,omitempty"`
+	ForwardCredentials CredentialTiming `json:"forward_credentials,omitempty"`
 	// ForwardConnection, when set, is the header that carries Connection's
 	// value, in its place, on a plain-HTTP request sent to a proxy
 	// ("Proxy-Connection": Chrome). Empty keeps Connection.
@@ -33,18 +34,22 @@ type Proxy struct {
 	SOCKS5 *SOCKS5 `json:"socks5,omitempty"`
 }
 
-// Values of Proxy.ConnectCredentials and Proxy.ForwardCredentials.
+// CredentialTiming is when a request to a proxy carries credentials: a value
+// of Proxy.ConnectCredentials and Proxy.ForwardCredentials.
+type CredentialTiming string
+
+// Values of CredentialTiming.
 const (
 	// CredentialsAfterChallenge sends the first request to a proxy without
 	// credentials, answers its 407 on the same connection, and sends them
 	// unasked on every later request to that proxy (Chrome, Firefox).
-	CredentialsAfterChallenge = "after_challenge"
+	CredentialsAfterChallenge CredentialTiming = "after_challenge"
 	// CredentialsOnChallenge sends every request without credentials and
 	// answers each 407 on the same connection (Safari's CONNECT).
-	CredentialsOnChallenge = "on_challenge"
+	CredentialsOnChallenge CredentialTiming = "on_challenge"
 	// CredentialsAlways sends them on every request, the first included
 	// (Safari's plain-HTTP requests).
-	CredentialsAlways = "always"
+	CredentialsAlways CredentialTiming = "always"
 )
 
 // ForwardAuth is where Proxy-Authorization goes in a plain-HTTP request
@@ -71,10 +76,14 @@ type SOCKS5 struct {
 	Methods []int `json:"methods"`
 	// Address is how the target is named: SOCKS5Domain, the host name for
 	// the proxy to resolve.
-	Address string `json:"address"`
+	Address SOCKS5Address `json:"address"`
 }
 
-// Values of SOCKS5.Address.
+// SOCKS5Address is how a SOCKS5 request names its target: a value of
+// SOCKS5.Address.
+type SOCKS5Address string
+
+// Values of SOCKS5Address.
 const (
-	SOCKS5Domain = "domain"
+	SOCKS5Domain SOCKS5Address = "domain"
 )

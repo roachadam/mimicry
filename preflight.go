@@ -3,7 +3,6 @@ package mimicry
 import (
 	"fmt"
 	"io"
-	"mime"
 	"net/http"
 	"net/url"
 	"slices"
@@ -94,7 +93,7 @@ func (t *Transport) preflight(req *http.Request, r Request, from *url.URL, crede
 		rule = t.profile.Context.PreflightCache
 	}
 	if rule == "" {
-		return fmt.Errorf("%w: profile %s has no CORS preflight cache rule", errNotMeasured, t.profile.Name)
+		return fmt.Errorf("%w: profile %s has no CORS preflight cache rule", ErrNotMeasured, t.profile.Name)
 	}
 	if t.preflights.allows(need, t.clock.Now()) {
 		return nil
@@ -114,7 +113,7 @@ func (t *Transport) preflight(req *http.Request, r Request, from *url.URL, crede
 	s, err := resolve(t.profile, pre, Request{
 		Kind: kindPreflight,
 		From: from,
-	}, from)
+	}, from, t.preflightHeaders)
 	if err != nil {
 		return err
 	}
@@ -206,7 +205,14 @@ type preflightKey struct {
 type preflightCache struct {
 	mu      sync.Mutex
 	entries map[preflightKey]map[string]time.Time
+	// pruneAt is the number of entries at which store next drops what has
+	// expired; scanned counts the entries pruning has looked at.
+	pruneAt int
+	scanned int
 }
+
+// minPrune is the fewest entries pruning waits for.
+const minPrune = 64
 
 // allows reports whether a cached answer allows need's request at now.
 func (c *preflightCache) allows(need *preflightNeed, now time.Time) bool {
@@ -245,17 +251,23 @@ func (c *preflightCache) store(need *preflightNeed, h http.Header, replace bool,
 	if c.entries == nil {
 		c.entries = map[preflightKey]map[string]time.Time{}
 	}
-	// Drop what has expired, so the cache stays as small as its live
-	// entries.
-	for key, items := range c.entries {
-		for item, at := range items {
-			if !now.Before(at) {
-				delete(items, item)
+	// Drop what has expired once the cache has doubled since it last did,
+	// so it stays within twice its live entries at an amortised constant
+	// cost per store. (Browsers cap their caches too; by how much is not
+	// measured.)
+	if len(c.entries) >= c.pruneAt {
+		for key, items := range c.entries {
+			c.scanned++
+			for item, at := range items {
+				if !now.Before(at) {
+					delete(items, item)
+				}
+			}
+			if len(items) == 0 {
+				delete(c.entries, key)
 			}
 		}
-		if len(items) == 0 {
-			delete(c.entries, key)
-		}
+		c.pruneAt = max(2*len(c.entries), minPrune)
 	}
 	items := c.entries[need.key]
 	if items == nil || replace {
@@ -332,11 +344,7 @@ func safelistedHeader(lower, value string) bool {
 		if strings.ContainsFunc(value, corsUnsafeByte) {
 			return false
 		}
-		essence, _, err := mime.ParseMediaType(value)
-		if err != nil {
-			return false
-		}
-		switch essence {
+		switch mimeEssence(value) {
 		case "application/x-www-form-urlencoded", "multipart/form-data", "text/plain":
 			return true
 		}
@@ -347,9 +355,61 @@ func safelistedHeader(lower, value string) bool {
 	return false
 }
 
+// preflightConfig returns the Config.Headers (config) a CORS preflight
+// gets: those its kind's header lists name, such as a User-Agent or
+// Accept-Language override, so it goes as the request does; never the
+// page's own, such as an API key, which a preflight never carries.
+func preflightConfig(p *profile.Profile, config http.Header) http.Header {
+	kind := p.Kinds[profile.KindPreflight]
+	if kind == nil {
+		return nil
+	}
+	lists := make([][]profile.Header, 0, 2+2*len(kind.Variants))
+	lists = append(lists, kind.Headers, kind.HTTP1)
+	for _, v := range kind.Variants {
+		lists = append(lists, v.Headers, v.HTTP1)
+	}
+	out := http.Header{}
+	for k, v := range config {
+		for _, list := range lists {
+			if slices.ContainsFunc(list, func(hd profile.Header) bool {
+				return strings.EqualFold(hd.Name, k)
+			}) {
+				out[k] = v
+				break
+			}
+		}
+	}
+	return out
+}
+
 // corsUnsafeByte reports a CORS-unsafe request-header byte.
 func corsUnsafeByte(c rune) bool {
 	return c < 0x20 && c != '\t' || c == 0x7f || strings.ContainsRune("\"():<>?@[\\]{}", c)
+}
+
+// mimeEssence returns a MIME type's essence (type/subtype, lowercase), as
+// the Fetch standard's "parse a MIME type" does, or "" when it fails.
+// Parameters cannot make it fail: the standard skips invalid ones.
+func mimeEssence(value string) string {
+	value = strings.Trim(value, " \t\r\n")
+	typ, rest, ok := strings.Cut(value, "/")
+	if !ok {
+		return ""
+	}
+	sub, _, _ := strings.Cut(rest, ";")
+	sub = strings.TrimRight(sub, " \t\r\n")
+	if !token(typ) || !token(sub) {
+		return ""
+	}
+	return strings.ToLower(typ + "/" + sub)
+}
+
+// token reports a non-empty string of HTTP token code points.
+func token(s string) bool {
+	return s != "" && !strings.ContainsFunc(s, func(c rune) bool {
+		return (c < '0' || c > '9') && (c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && !strings.ContainsRune("!#$%&'*+-.^_`|~", c)
+	})
 }
 
 // languageByte reports a byte the Fetch standard allows in a safelisted

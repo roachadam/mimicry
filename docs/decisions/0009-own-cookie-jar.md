@@ -1,7 +1,7 @@
 # 0009: Our own cookie jar, driven by the transport
 
-- Status: Accepted (design); building in step 9.3
-- Date: 2026-10-23
+- Status: Accepted
+- Date: 2026-10-23 (designed), 2026-10-24 (built: `a09ce1f`, `31f727b`; review fixes 2026-10-24)
 
 ## Problem
 
@@ -16,16 +16,24 @@ ones with backslashes, UTF-8 or embedded quotes (verified on Go 1.27).
 
 Package `mimicry/cookies`, wired into the transport by `NewClient`: it reads
 raw `Set-Cookie` lines and writes the `Cookie` header byte for byte, with
-the request's kind and page in hand. Strict browser rules by default (a
-cookie the browser drops must be dropped, or sending it is a tell),
-leniency opt-in per rule. Full API: every attribute plus the raw line, set
-without a URL, list and filter, delete by match, clear, clone, JSON and
-Netscape import/export, `For(req)` (what would be sent, in browser order),
-an `OnSetCookie` hook reporting each rejection and why. It also implements
-`http.CookieJar` as an adapter, documented as lossy.
+the request's kind and page in hand. Strict browser rules: a cookie the
+browser drops is dropped, or sending it is a tell. RFC 6265bis rules are in
+code (prefixes, `__Host-` needing `Path=/` as sent, nameless cookies that
+hide a prefix, the 400-day cap on `Max-Age` and `Expires`, escaped-path
+matching, the last attribute winning); where browsers differ, the
+profile's `cookies` section decides (0012). `New` validates those rules
+and returns an error.
 
-Per-browser behaviour is measured (the kinds capture records every cookie
-each browser sent on every request), not assumed.
+API: every attribute plus the raw line; `Set` without a URL; `All`;
+`Delete` by match; `Clear`, `ClearExpired`, `ClearSession`; `Clone`; JSON
+and Netscape import/export; `Cookies(Request)` (what a request would send,
+in browser order); an `OnSetCookie` hook reporting each rejection and why.
+Cookies are stored per registrable domain. It also implements
+`http.CookieJar` as an adapter, documented as lossy. Leniency per rule,
+once planned, was not built: nothing has asked for it.
+
+Per-browser behaviour is measured (the kinds and cookies captures record
+every cookie each browser sent on every request), not assumed.
 
 ## Revisit when
 

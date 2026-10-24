@@ -16,30 +16,21 @@ type Plan struct {
 	movable []int
 }
 
-// Compile validates p and copies its ClientHello into a Plan. Later changes to
-// p do not affect the Plan.
-func Compile(p *profile.Profile) (*Plan, error) {
-	// A round trip through the canonical encoding is a deep copy, and Parse
-	// validates the profile.
-	data, err := profile.Encode(p)
-	if err != nil {
-		return nil, err
-	}
-	copied, err := profile.Parse(data)
-	if err != nil {
-		return nil, err
-	}
+// Compile turns p's ClientHello into a Plan. p must be valid (profile.Parse
+// or Validate), and the Plan shares its values: p must not change
+// afterwards.
+func Compile(p *profile.Profile) *Plan {
 	plan := &Plan{
-		tls: copied.TLS,
+		tls: p.TLS,
 	}
-	if copied.TLS.ExtensionOrder == profile.ExtensionOrderShuffled {
-		for i := range copied.TLS.Extensions {
-			if !copied.TLS.Extensions[i].Pinned() {
+	if p.TLS.ExtensionOrder == profile.ExtensionOrderShuffled {
+		for i := range p.TLS.Extensions {
+			if !p.TLS.Extensions[i].Pinned() {
 				plan.movable = append(plan.movable, i)
 			}
 		}
 	}
-	return plan, nil
+	return plan
 }
 
 // Hello is the ClientHello layout for one connection. GREASE values are

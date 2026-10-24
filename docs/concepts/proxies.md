@@ -49,11 +49,18 @@ yours.
 
 ## Connections
 
-Each proxy URL has its own connections and TLS sessions; nothing is shared
-with other proxies or with direct requests. `Config.DialContext`, when set,
-opens the connection to the proxy.
+Each proxy URL has its own connections and TLS sessions (the pool key
+includes the proxy); nothing is shared with other proxies or with direct
+requests. `Config.DialContext`, when set, opens the connection to the
+proxy. `Config.DialTimeout` bounds the connect to the proxy together with
+the proxy's handshake (CONNECT or SOCKS5), and the TLS handshake with the
+server separately; the request's context bounds both.
 
 ## Limits
 
 - `https://` proxies (TLS to the proxy) are not supported.
 - Chrome's speculative extra connections to the proxy are not made.
+- A CONNECT answer whose header is longer than 64 KiB fails the request
+  (`proxy.ErrAnswerTooLarge`, internal).
+- A request whose host is not a valid `Host` header is refused before
+  anything is dialled, proxy or not.

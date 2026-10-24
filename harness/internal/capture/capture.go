@@ -134,32 +134,85 @@ func majorAfter(ua, marker string) string {
 // ErrExists is returned by Write when a capture with the same name exists.
 var ErrExists = errors.New("capture already exists")
 
+// output is one file Write stores.
+type output struct {
+	path   string
+	encode func() ([]byte, error)
+}
+
 // Write stores c in dir. For the default scenario it writes <name>.json (the
 // profile) and <name>.clienthello (the raw ClientHello as hex). Traces go to
 // <name>.h2trace.json and <name>.h1trace.json, JSON arrays with every
 // sample's trace (or c's alone); other scenarios write only their traces, as
 // <name>.<scenario>.h2trace.json and .h1trace.json, since profiles come from
-// the default page. It never overwrites: an existing file returns ErrExists.
-// It returns the path of the first file written.
+// the default page. It never overwrites: if any of the files exists it writes
+// none and returns ErrExists. It returns the path of the first file written.
 func Write(dir string, c *Capture) (string, error) {
+	outputs, err := outputsOf(dir, c)
+	if err != nil {
+		return "", err
+	}
+	if err := checkNew(outputs); err != nil {
+		return "", err
+	}
+	data := make([][]byte, len(outputs))
+	for i, o := range outputs {
+		if data[i], err = o.encode(); err != nil {
+			return "", err
+		}
+	}
+	for i, o := range outputs {
+		if err := writeNew(o.path, data[i]); err != nil {
+			return "", err
+		}
+	}
+	return outputs[0].path, nil
+}
+
+// CheckNew returns ErrExists if any file Write would store for c in dir
+// exists. A capture holding one sample names the same files as one holding
+// every sample, so it tells after the first sample whether a scenario is
+// already captured.
+func CheckNew(dir string, c *Capture) error {
+	outputs, err := outputsOf(dir, c)
+	if err != nil {
+		return err
+	}
+	return checkNew(outputs)
+}
+
+func checkNew(outputs []output) error {
+	for _, o := range outputs {
+		_, err := os.Stat(o.path)
+		if err == nil {
+			return fmt.Errorf("%s: %w", o.path, ErrExists)
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+	}
+	return nil
+}
+
+// outputsOf lists the files Write stores for c, the first one first.
+func outputsOf(dir string, c *Capture) ([]output, error) {
 	if c.Profile.Name == "" {
-		return "", errors.New("capture has no name; call Identify first")
+		return nil, errors.New("capture has no name; call Identify first")
 	}
 	prefix := filepath.Join(dir, c.Profile.Name)
-	var written []string
+	var outputs []output
 	if c.Scenario == "" || c.Scenario == DefaultScenario {
-		data, err := profile.Encode(&c.Profile)
-		if err != nil {
-			return "", err
-		}
-		if err := writeNew(prefix+".json", data); err != nil {
-			return "", err
-		}
-		hello := []byte(hex.EncodeToString(c.ClientHello) + "\n")
-		if err := writeNew(prefix+".clienthello", hello); err != nil {
-			return "", err
-		}
-		written = append(written, prefix+".json")
+		outputs = append(outputs, output{
+			path: prefix + ".json",
+			encode: func() ([]byte, error) {
+				return profile.Encode(&c.Profile)
+			},
+		}, output{
+			path: prefix + ".clienthello",
+			encode: func() ([]byte, error) {
+				return []byte(hex.EncodeToString(c.ClientHello) + "\n"), nil
+			},
+		})
 	} else {
 		prefix += "." + c.Scenario
 	}
@@ -201,25 +254,25 @@ func Write(dir string, c *Capture) (string, error) {
 		if !trace.present {
 			continue
 		}
-		data, err := json.MarshalIndent(trace.samples, "", "  ")
-		if err != nil {
-			return "", err
-		}
-		data = append(data, '\n')
-		if strings.HasSuffix(trace.path, ".gz") {
-			if data, err = gzipped(data); err != nil {
-				return "", err
-			}
-		}
-		if err := writeNew(trace.path, data); err != nil {
-			return "", err
-		}
-		written = append(written, trace.path)
+		outputs = append(outputs, output{
+			path: trace.path,
+			encode: func() ([]byte, error) {
+				data, err := json.MarshalIndent(trace.samples, "", "  ")
+				if err != nil {
+					return nil, err
+				}
+				data = append(data, '\n')
+				if strings.HasSuffix(trace.path, ".gz") {
+					return gzipped(data)
+				}
+				return data, nil
+			},
+		})
 	}
-	if len(written) == 0 {
-		return "", fmt.Errorf("scenario %s captured no trace (protocol %q)", c.Scenario, c.Protocol)
+	if len(outputs) == 0 {
+		return nil, fmt.Errorf("scenario %s captured no trace (protocol %q)", c.Scenario, c.Protocol)
 	}
-	return written[0], nil
+	return outputs, nil
 }
 
 func writeNew(path string, data []byte) error {

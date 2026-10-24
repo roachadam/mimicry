@@ -2,7 +2,6 @@ package server
 
 import (
 	"crypto/tls"
-	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -29,62 +28,46 @@ var ResumeSteps = []string{
 // does it on new connections to a host it holds a ticket for, over HTTP/2
 // and HTTP/1.1, sequential and parallel.
 var Resume = &Scenario{
-	Name:  "resume",
-	Doc:   "TLS session resumption: new connections to hosts the browser holds tickets for, sequential and parallel, HTTP/2 and HTTP/1.1",
-	multi: resumePage{},
+	Name: "resume",
+	Doc:  "TLS session resumption: new connections to hosts the browser holds tickets for, sequential and parallel, HTTP/2 and HTTP/1.1",
+	multi: resumePage{
+		fixedHosts: resumeHosts,
+	},
 }
 
 // ResumeTLS12 is the resume page from a server that speaks TLS 1.2 at
 // most: resumption by session ticket instead of pre_shared_key.
 var ResumeTLS12 = &Scenario{
-	Name:       "resume-tls12",
-	Doc:        "TLS 1.2 session resumption: the resume page from a TLS 1.2-only server (session tickets)",
-	multi:      resumePage{},
+	Name: "resume-tls12",
+	Doc:  "TLS 1.2 session resumption: the resume page from a TLS 1.2-only server (session tickets)",
+	multi: resumePage{
+		fixedHosts: resumeHosts,
+	},
 	maxVersion: tls.VersionTLS12,
 }
 
-type resumePage struct{}
+type resumePage struct {
+	fixedHosts
+}
 
-func (resumePage) hosts() []string {
-	return []string{
+var resumeHosts = fixedHosts{
+	names: []string{
 		kindsHost,
 		kindsSameSite,
 		resumeH1,
-	}
-}
-
-func (resumePage) certNames(host string) ([]string, bool) {
-	switch host {
-	case kindsHost, kindsSameSite, resumeH1:
-		return []string{
-			host,
-		}, true
-	}
-	return nil, false
-}
-
-func (resumePage) h1Only(host string) bool {
-	return host == resumeH1
-}
-
-func (resumePage) length() time.Duration {
-	return 20 * time.Second
+	},
+	http1: []string{
+		resumeH1,
+	},
+	runFor: 20 * time.Second,
 }
 
 func (p resumePage) answer(req request) response {
-	host, port, err := net.SplitHostPort(req.host)
-	if err != nil {
-		host, port = req.host, "443"
-	}
-	origin := func(h string) string {
-		return "https://" + net.JoinHostPort(h, port)
-	}
+	host, port := splitAuthority(req.host)
+	origin := originOn("https://", port)
 	var cors []hpack.HeaderField
 	if req.origin != "" {
-		cors = []hpack.HeaderField{
-			{Name: "access-control-allow-origin", Value: req.origin},
-			{Name: "access-control-allow-credentials", Value: "true"},
-		}
+		cors = corsAllow(req.origin)
 	}
 	path, _, _ := strings.Cut(req.path, "?")
 	switch {
@@ -123,9 +106,9 @@ func (resumePage) document(origin func(string) string) []byte {
 		}
 		steps = append(steps, "["+strings.Join(urls, ", ")+"]")
 	}
-	return []byte("<!doctype html>\n<html><head><meta charset=\"utf-8\"><title>mimicry resume</title><link rel=\"icon\" href=\"data:,\"></head><body>\n<script>(async () => {\n" +
-		"const get = u => fetch(u, {credentials: \"include\"}).then(r => r.arrayBuffer()).catch(() => {});\n" +
-		"const pause = () => new Promise(d => setTimeout(d, 300));\n" +
-		"for (const step of [" + strings.Join(steps, ", ") + "]) { await pause(); await Promise.all(step.map(get)); }\n" +
-		"fetch(\"/done\");\n})();</script>\n</body></html>\n")
+	return htmlPage("resume", "", "<script>(async () => {\n"+
+		"const get = u => fetch(u, {credentials: \"include\"}).then(r => r.arrayBuffer()).catch(() => {});\n"+
+		"const pause = () => new Promise(d => setTimeout(d, 300));\n"+
+		"for (const step of ["+strings.Join(steps, ", ")+"]) { await pause(); await Promise.all(step.map(get)); }\n"+
+		"fetch(\"/done\");\n})();</script>\n")
 }

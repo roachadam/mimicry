@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -178,9 +177,11 @@ func kindsFontCSS(origin func(string) string) []byte {
 // cookies of every SameSite value plus non-standard ones; it ends with a
 // form-submit POST navigation.
 var Kinds = &Scenario{
-	Name:  "kinds",
-	Doc:   "request kinds (script, style, image, font, iframe, fetch, XHR, beacon, form POST) same-origin, same-site and cross-site; SameSite, third-party and non-standard cookies",
-	multi: kindsPage{},
+	Name: "kinds",
+	Doc:  "request kinds (script, style, image, font, iframe, fetch, XHR, beacon, form POST) same-origin, same-site and cross-site; SameSite, third-party and non-standard cookies",
+	multi: kindsPage{
+		fixedHosts: kindsHosts(false),
+	},
 }
 
 // KindsHTTP1 is the kinds page with every host offering only HTTP/1.1:
@@ -189,7 +190,7 @@ var KindsHTTP1 = &Scenario{
 	Name: "kinds-http1",
 	Doc:  "the kinds page over HTTP/1.1 only",
 	multi: kindsPage{
-		http1: true,
+		fixedHosts: kindsHosts(true),
 	},
 }
 
@@ -200,15 +201,33 @@ var KindsPlain = &Scenario{
 	Doc:   "the kinds page over plain HTTP (no TLS): each kind's headers to a non-secure origin",
 	Plain: true,
 	multi: kindsPage{
-		http1: true,
-		plain: true,
+		fixedHosts: kindsHosts(true),
+		plain:      true,
 	},
 }
 
 type kindsPage struct {
-	http1 bool
+	fixedHosts
 	// plain serves the page and every host over http://.
 	plain bool
+}
+
+// kindsHosts are the kinds page's hosts; http1 offers each only HTTP/1.1.
+func kindsHosts(http1 bool) fixedHosts {
+	f := fixedHosts{
+		names: []string{
+			kindsHost,
+			kindsSameSite,
+			kindsCrossSite,
+		},
+		// Sequential steps of a few milliseconds each, and up to 5 s for
+		// one that never completes.
+		runFor: 20 * time.Second,
+	}
+	if http1 {
+		f.http1 = f.names
+	}
+	return f
 }
 
 // scheme is how the page's URLs start.
@@ -219,69 +238,15 @@ func (p kindsPage) scheme() string {
 	return "https://"
 }
 
-func (kindsPage) hosts() []string {
-	return []string{
-		kindsHost,
-		kindsSameSite,
-		kindsCrossSite,
-	}
-}
-
-func (kindsPage) certNames(host string) ([]string, bool) {
-	switch host {
-	case kindsHost, kindsSameSite, kindsCrossSite:
-		return []string{
-			host,
-		}, true
-	}
-	return nil, false
-}
-
-func (p kindsPage) h1Only(string) bool {
-	return p.http1
-}
-
-func (kindsPage) length() time.Duration {
-	// Sequential steps of a few milliseconds each, and up to 5 s for one
-	// that never completes.
-	return 20 * time.Second
-}
-
 func (p kindsPage) answer(req request) response {
-	host, port, err := net.SplitHostPort(req.host)
-	if err != nil {
-		host, port = req.host, "443"
-	}
-	origin := func(h string) string {
-		return p.scheme() + net.JoinHostPort(h, port)
-	}
+	host, port := splitAuthority(req.host)
+	origin := originOn(p.scheme(), port)
 	var cors []hpack.HeaderField
 	if req.origin != "" {
-		cors = []hpack.HeaderField{
-			{
-				Name:  "access-control-allow-origin",
-				Value: req.origin,
-			},
-			{
-				Name:  "access-control-allow-credentials",
-				Value: "true",
-			},
-		}
+		cors = corsAllow(req.origin)
 	}
 	if req.method == "OPTIONS" {
-		allow := slices.Concat(cors, []hpack.HeaderField{
-			{
-				Name:  "access-control-allow-methods",
-				Value: "GET, POST",
-			},
-		})
-		if req.preflightHeaders != "" {
-			allow = append(allow, hpack.HeaderField{
-				Name:  "access-control-allow-headers",
-				Value: req.preflightHeaders,
-			})
-		}
-		return response{status: 204, contentType: "text/plain", headers: allow}
+		return response{status: 204, contentType: "text/plain", headers: preflightAllow(cors, "GET, POST", req.preflightHeaders)}
 	}
 	path, _, _ := strings.Cut(req.path, "?")
 	switch path {
@@ -362,7 +327,10 @@ func kindsBody(kind string) response {
 // each form it was set.
 func kindsDeletions(host string) []hpack.HeaderField {
 	type deletion struct {
-		name, attrs string
+		// pair is the cookie-pair that deletes: "name=", or for a cookie
+		// set without "=" the same nameless form, since browsers ignore a
+		// Set-Cookie whose name and value are both empty.
+		pair, attrs string
 	}
 	var dels []deletion
 	switch host {
@@ -370,25 +338,36 @@ func kindsDeletions(host string) []hpack.HeaderField {
 		for _, c := range KindsCookies {
 			switch {
 			case strings.HasPrefix(c, "k_site="):
-				dels = append(dels, deletion{"k_site", "; Domain=" + kindsSiteA})
+				dels = append(dels, deletion{"k_site=", "; Domain=" + kindsSiteA})
 			case !strings.Contains(c, "Domain="):
-				dels = append(dels, deletion{setCookieName(c), ""})
+				dels = append(dels, deletion{deletionPair(c), ""})
 			}
 		}
 	case kindsCrossSite:
 		for _, c := range KindsThirdPartyCookies {
-			dels = append(dels, deletion{setCookieName(c), ""})
+			dels = append(dels, deletion{deletionPair(c), ""})
 		}
-		dels = append(dels, deletion{"kb_part", "; SameSite=None; Partitioned"})
+		dels = append(dels, deletion{"kb_part=", "; SameSite=None; Partitioned"})
 	}
 	out := make([]hpack.HeaderField, 0, len(dels))
 	for _, d := range dels {
 		out = append(out, hpack.HeaderField{
 			Name:  "set-cookie",
-			Value: d.name + "=; Path=/; Secure; Max-Age=0" + d.attrs,
+			Value: d.pair + "; Path=/; Secure; Max-Age=0" + d.attrs,
 		})
 	}
 	return out
+}
+
+// deletionPair is the cookie-pair that deletes the cookie setCookie sets:
+// its name with an empty value, or, for a pair without "=" (a cookie with an
+// empty name, RFC 6265bis), the pair itself.
+func deletionPair(setCookie string) string {
+	pair, _, _ := strings.Cut(setCookie, ";")
+	if name, _, ok := strings.Cut(pair, "="); ok {
+		return name + "="
+	}
+	return pair
 }
 
 // setCookieName is the name a Set-Cookie value sets; a pair without "="
@@ -424,10 +403,9 @@ func (p kindsPage) document(port string) []byte {
 		"__FORM__", strconv.Quote(p.scheme()+net.JoinHostPort(kindsHost, port)+"/k/"+kindsFormLabel),
 	).Replace(kindsScript)
 	head, body, _ := strings.Cut(markup.String(), "<img")
-	return []byte("<!doctype html>\n<html><head><meta charset=\"utf-8\"><title>mimicry kinds</title><link rel=\"icon\" href=\"data:,\">\n" +
-		head + "</head><body>\n<img" + body +
-		"<p style=\"font-family: k-so\">same-origin font</p>\n<p style=\"font-family: k-cs\">cross-site font</p>\n" +
-		"<script>" + script + "</script>\n</body></html>\n")
+	return htmlPage("kinds", "\n"+head, "<img"+body+
+		"<p style=\"font-family: k-so\">same-origin font</p>\n<p style=\"font-family: k-cs\">cross-site font</p>\n"+
+		"<script>"+script+"</script>\n")
 }
 
 const kindsScript = `(async () => {
@@ -485,7 +463,7 @@ func kindsLanding(origin func(string) string) []byte {
 		origin(kindsSameSite) + "/cleanup",
 		origin(kindsCrossSite) + "/cleanup",
 	})
-	return []byte("<!doctype html>\n<html><head><meta charset=\"utf-8\"><title>mimicry kinds</title><link rel=\"icon\" href=\"data:,\"></head><body>\n<script>(async () => {\n" +
-		"await Promise.all(" + string(cleanup) + ".map(u => fetch(u, {credentials: 'include', mode: 'no-cors'}).catch(() => {})));\n" +
-		"fetch('/done');\n})();</script>\n</body></html>\n")
+	return htmlPage("kinds", "", "<script>(async () => {\n"+
+		"await Promise.all("+string(cleanup)+".map(u => fetch(u, {credentials: 'include', mode: 'no-cors'}).catch(() => {})));\n"+
+		"fetch('/done');\n})();</script>\n")
 }

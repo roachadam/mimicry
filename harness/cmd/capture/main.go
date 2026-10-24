@@ -1,6 +1,7 @@
 // Command capture launches the installed browsers against the capture server
-// and writes each browser's capture, with its JA3, JA4 and Akamai fingerprints,
-// to the output directory.
+// and writes each browser's capture to the output directory, logging its JA4
+// and Akamai fingerprints. A scenario whose capture exists is skipped after
+// its first sample, once the user agent names it.
 //
 // Each browser is sampled several times, each time on a fresh server and port
 // so that no connection or session carries over. If the samples differ only in
@@ -147,7 +148,12 @@ func run() error {
 
 	failed := 0
 	for _, b := range browsers {
-		if b.Shared && proxied && !safariProxyConfigured(ctx) {
+		bopts := opts
+		mode := safariProxyNone
+		if b.Shared && proxied {
+			mode = safariProxyConfig(ctx)
+		}
+		if b.Shared && proxied && mode == safariProxyNone {
 			log.Printf("%s: the system does not send %s to the capture proxy. Point the active network service at the tool's proxy script (an administrator's password), and turn it off after:\n"+
 				"  sudo networksetup -setautoproxyurl <service> %s\n  sudo networksetup -setautoproxystate <service> off\n"+
 				"(networksetup -listallnetworkservices lists services). The script proxies only *.test. For proxy credentials, use manual web and secure web proxies at %s with a password instead.", b.Name, b.Name, safariPACURL, safariHTTPProxy)
@@ -167,8 +173,24 @@ func run() error {
 			failed++
 			continue
 		}
-		if err := captureBrowser(ctx, b, opts); err != nil {
+		refused := 0
+		if mode == safariProxyManual {
+			// A manual proxy sends SOCKS5 scenarios' URLs to the HTTP
+			// proxy, so their samples could only time out.
+			bopts.scenarios = slices.DeleteFunc(slices.Clone(opts.scenarios), func(sc *server.Scenario) bool {
+				if sc.Proxy != server.ProxySOCKS5 {
+					return false
+				}
+				log.Printf("%s: skipping scenario %s: the system uses manual web proxies, which send everything to the HTTP proxy at %s. Use the proxy script for SOCKS5 scenarios:\n"+
+					"  sudo networksetup -setautoproxyurl <service> %s", b.Name, sc.Name, safariHTTPProxy, safariPACURL)
+				refused++
+				return true
+			})
+		}
+		if err := captureBrowser(ctx, b, bopts); err != nil {
 			log.Printf("%s: %v", b.Name, err)
+			failed++
+		} else if refused > 0 {
 			failed++
 		}
 	}
@@ -186,6 +208,10 @@ func captureBrowser(ctx context.Context, b *browser.Browser, opts options) error
 	var base *capture.Capture
 	for _, sc := range opts.scenarios {
 		c, err := captureScenario(ctx, b, sc, opts)
+		if errors.Is(err, capture.ErrExists) {
+			log.Printf("%s: scenario %s: %v; delete it to capture again", b.Name, sc.Name, err)
+			continue
+		}
 		if err != nil {
 			return fmt.Errorf("scenario %s: %w", sc.Name, err)
 		}
@@ -222,6 +248,14 @@ func captureScenario(ctx context.Context, b *browser.Browser, sc *server.Scenari
 		c, err := sample(ctx, b, sc, opts)
 		if err != nil {
 			return nil, fmt.Errorf("sample %d: %w", i+1, err)
+		}
+		if i == 0 {
+			// The first sample names the capture: stop here if it exists
+			// rather than after every sample.
+			c.Identify()
+			if err := capture.CheckNew(opts.out, c); err != nil {
+				return nil, err
+			}
 		}
 		samples = append(samples, c)
 	}

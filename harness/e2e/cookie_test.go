@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/roachadam/mimicry/cookies"
 	"github.com/roachadam/mimicry/harness/internal/h2trace"
 	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/profiles"
@@ -31,9 +30,7 @@ func TestCookiesMatchBrowserTrace(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			base, tr, captures := captureClientWith(t, p, sc, cookies.New(cookies.Config{
-				Rules: p.Cookies,
-			}))
+			base, tr, captures := captureClientWith(t, p, sc, newJar(t, p))
 			client := &http.Client{
 				Transport: tr,
 			}

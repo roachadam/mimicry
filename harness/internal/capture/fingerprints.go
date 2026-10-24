@@ -1,7 +1,6 @@
 package capture
 
 import (
-	"crypto/md5" //nolint:gosec // JA3 is defined as an MD5 hash; this is an identifier, not security
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -15,14 +14,9 @@ import (
 // Fingerprints are the hashes anti-bot systems commonly key on, computed from a
 // profile. They summarise a capture; the profile itself is what gets compared.
 type Fingerprints struct {
-	// JA3 is the MD5 of JA3Raw. It depends on extension order, so it changes
-	// per connection for browsers that shuffle extensions.
-	JA3    string
-	JA3Raw string
 	// JA4 follows FoxIO's specification (github.com/FoxIO-LLC/ja4). It sorts
 	// ciphers and extensions, so it is stable across extension shuffles.
-	JA4    string
-	JA4Raw string
+	JA4 string
 	// Akamai is the HTTP/2 fingerprint from Akamai's 2017 Black Hat paper:
 	// SETTINGS|WINDOW_UPDATE|PRIORITY|pseudo-header order. Empty without HTTP/2.
 	Akamai string
@@ -35,12 +29,8 @@ const legacyVersion = 0x0303
 // Compute returns the fingerprints of p.
 func Compute(p *profile.Profile) Fingerprints {
 	f := Fingerprints{
-		JA3Raw: ja3(&p.TLS),
-		JA4Raw: ja4(&p.TLS, false),
-		JA4:    ja4(&p.TLS, true),
+		JA4: ja4(&p.TLS),
 	}
-	sum := md5.Sum([]byte(f.JA3Raw)) //nolint:gosec // see import
-	f.JA3 = hex.EncodeToString(sum[:])
 	if p.HTTP2 != nil {
 		f.Akamai = akamai(p.HTTP2)
 	}
@@ -75,39 +65,9 @@ func extensionTypes(t *profile.TLS) []profile.Code {
 	return types
 }
 
-func decimals(codes []profile.Code) string {
-	parts := make([]string, len(codes))
-	for i, c := range codes {
-		parts[i] = strconv.Itoa(int(c))
-	}
-	return strings.Join(parts, "-")
-}
-
-// ja3 builds SSLVersion,Ciphers,Extensions,Groups,PointFormats in decimal,
-// GREASE excluded.
-func ja3(t *profile.TLS) string {
-	var groups []profile.Code
-	if e := extension(t, profile.ExtSupportedGroups); e != nil {
-		groups = e.Groups
-	}
-	var points []string
-	if e := extension(t, profile.ExtECPointFormats); e != nil {
-		for _, p := range e.PointFormats {
-			points = append(points, strconv.Itoa(int(p)))
-		}
-	}
-	return strings.Join([]string{
-		strconv.Itoa(legacyVersion),
-		decimals(withoutGREASE(t.CipherSuites)),
-		decimals(withoutGREASE(extensionTypes(t))),
-		decimals(withoutGREASE(groups)),
-		strings.Join(points, "-"),
-	}, ",")
-}
-
-// ja4 builds the TCP JA4. hashed selects JA4 (truncated SHA-256 of the lists)
-// or JA4_r (the lists themselves).
-func ja4(t *profile.TLS, hashed bool) string {
+// ja4 builds the TCP JA4: its prefix and the truncated SHA-256 of the sorted
+// cipher and extension lists.
+func ja4(t *profile.TLS) string {
 	ciphers := withoutGREASE(t.CipherSuites)
 	exts := withoutGREASE(extensionTypes(t))
 
@@ -146,9 +106,6 @@ func ja4(t *profile.TLS, hashed bool) string {
 		}
 	}
 
-	if !hashed {
-		return a + "_" + b + "_" + c
-	}
 	return a + "_" + truncatedHash(b, len(ciphers) == 0) + "_" + truncatedHash(c, len(rest) == 0)
 }
 

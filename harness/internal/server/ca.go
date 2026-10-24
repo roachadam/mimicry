@@ -29,9 +29,9 @@ const CaptureHost = "capture.mimicry.test"
 // name under them. test is a reserved top-level domain: it holds the
 // capture host and the sites the kinds page and replays serve
 // (www.kinds-a.test, www.nike-com.test), each a real-looking site of its
-// own. localhost is kept for pointing a browser at cmd/capture-server by
-// hand. WebKit treats every *.localhost name as a site of its own, so
-// captures use *.test.
+// own. localhost is kept for cmd/clientcapture, which points a client at
+// https://localhost:<port>. WebKit treats every *.localhost name as a site of
+// its own, so browser captures use *.test.
 var CADomains = []string{
 	"test",
 	"localhost",
@@ -45,8 +45,8 @@ var CAHosts = []string{
 
 // CA is the capture tools' certificate authority. It persists across runs so
 // that it can be trusted once (Safari cannot be told to ignore certificate
-// errors). Name constraints limit it to Hosts and forbid IP addresses, so even
-// a trusted copy cannot vouch for any real site.
+// errors). Name constraints limit it to CADomains and forbid IP addresses, so
+// even a trusted copy cannot vouch for any real site.
 type CA struct {
 	Cert *x509.Certificate
 	key  *ecdsa.PrivateKey

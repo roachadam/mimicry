@@ -10,8 +10,11 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 
+	"github.com/roachadam/mimicry/internal/headerorder"
+	"github.com/roachadam/mimicry/profile"
 	"github.com/roachadam/mimicry/profiles"
 )
 
@@ -129,7 +132,7 @@ func TestCredentialsDecideCookies(t *testing.T) {
 func TestUnmeasuredPriority(t *testing.T) {
 	s, _ := headersSeen(t)
 	err := send(t, s.tr, With(newRequest(t, s.url+"/", nil), Request{Kind: Script, Priority: PriorityHigh}))
-	if !errors.Is(err, errNotMeasured) {
+	if !errors.Is(err, ErrNotMeasured) {
 		t.Fatalf("got %v, want a not-measured error", err)
 	}
 }
@@ -196,5 +199,238 @@ func TestNonSecureOriginsAreNotLoopback(t *testing.T) {
 		if gotSecure != tc.secure || (!tc.secure && seen.Get("Sec-Fetch-Dest") != "") {
 			t.Errorf("http://%s: Sec-Fetch-Mode %q, Accept-Encoding %q; want a secure-origin request %v", tc.host, seen.Get("Sec-Fetch-Mode"), seen.Get("Accept-Encoding"), tc.secure)
 		}
+	}
+}
+
+// A request carrying a header its page set takes the variant measured with
+// one, and one without takes the variant measured without: the two can
+// order the same headers differently.
+func TestPageSetVariants(t *testing.T) {
+	p := profiles.Chrome155MacOS()
+	fetch := p.Kinds[profile.KindFetch]
+	plain := slices.Clone(fetch.Headers)
+	slices.Reverse(plain)
+	if !slices.ContainsFunc(plain, func(h profile.Header) bool {
+		return h.Name == "origin"
+	}) {
+		plain = append(plain, profile.Header{
+			Name: "origin",
+		})
+	}
+	withPage := append(slices.Clone(plain), profile.Header{
+		Name: "x-a",
+	})
+	// The test's own variants replace any measured ones.
+	fetch.Variants = slices.DeleteFunc(fetch.Variants, func(v profile.Variant) bool {
+		return v.Method == http.MethodPut && v.Site == profile.SiteCrossSite && !v.Redirected && !v.Insecure
+	})
+	for _, v := range []struct {
+		pageSet bool
+		list    []profile.Header
+	}{
+		{pageSet: false, list: plain},
+		{pageSet: true, list: withPage},
+	} {
+		fetch.Variants = append(fetch.Variants, profile.Variant{
+			Method:      http.MethodPut,
+			Site:        profile.SiteCrossSite,
+			CORSChecked: true,
+			PageSet:     v.pageSet,
+			Headers:     v.list,
+			HTTP1:       fetch.HTTP1,
+		})
+	}
+	page, err := url.Parse("https://www.a.test/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		h    http.Header
+		want []profile.Header
+	}{
+		{h: nil, want: plain},
+		// A suppressed default is not a header the page set.
+		{h: http.Header{"Sec-Fetch-User": nil}, want: plain},
+		{h: http.Header{"X-A": {"1"}}, want: withPage},
+	} {
+		e := &fakeEngine{
+			answer: func(req *http.Request) *http.Response {
+				if req.Method != http.MethodOptions {
+					return nil
+				}
+				return &http.Response{
+					StatusCode: http.StatusNoContent,
+					Header:     allowAll(),
+					Body:       http.NoBody,
+					Request:    req,
+				}
+			},
+		}
+		tr := fakeTransport(t, Config{
+			Profile: p,
+		}, e)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodPut, "https://api.b.test/x", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for k, v := range tc.h {
+			req.Header[k] = v
+		}
+		if err := send(t, tr, With(req, Request{Kind: Fetch, From: page})); err != nil {
+			t.Fatal(err)
+		}
+		plan := headerorder.PlanFrom(e.sent[len(e.sent)-1].Context())
+		if plan == nil || !slices.EqualFunc(plan.Headers, tc.want, func(a, b profile.Header) bool {
+			return a.Name == b.Name
+		}) {
+			t.Errorf("headers %v: plan %+v, want the variant measured that way", tc.h, plan)
+		}
+	}
+}
+
+// Requests no browser can make are errors, and nothing is sent: a no-cors
+// fetch() with a method other than GET, HEAD or POST, a beacon that is not
+// a POST, a stylesheet loading anything but fonts and images, and the
+// transport's own preflight kind.
+func TestImpossibleRequests(t *testing.T) {
+	page, err := url.Parse("https://www.a.test/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	css := page.JoinPath("style.css")
+	for _, tc := range []struct {
+		name     string
+		method   string
+		r        Request
+		possible bool
+	}{
+		{name: "no-cors PUT", method: http.MethodPut, r: Request{Kind: Fetch, NoCORS: true}},
+		{name: "no-cors POST", method: http.MethodPost, r: Request{Kind: Fetch, NoCORS: true}, possible: true},
+		{name: "beacon GET", method: http.MethodGet, r: Request{Kind: Beacon}},
+		{name: "beacon POST", method: http.MethodPost, r: Request{Kind: Beacon}, possible: true},
+		{name: "stylesheet script", method: http.MethodGet, r: Request{Kind: Script, Stylesheet: css}},
+		{name: "stylesheet navigation", method: http.MethodGet, r: Request{Kind: Navigate, Stylesheet: css}},
+		{name: "stylesheet font", method: http.MethodGet, r: Request{Kind: Font, Stylesheet: css}, possible: true},
+		{name: "stylesheet image", method: http.MethodGet, r: Request{Kind: Image, Stylesheet: css}, possible: true},
+		{name: "preflight", method: http.MethodOptions, r: Request{Kind: kindPreflight}},
+	} {
+		e := &fakeEngine{}
+		tr := fakeTransport(t, Config{}, e)
+		req, err := http.NewRequestWithContext(t.Context(), tc.method, "https://www.a.test/x", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tc.r.From = page
+		err = send(t, tr, With(req, tc.r))
+		if (err == nil) != tc.possible || (len(e.sent) > 0) != tc.possible {
+			t.Errorf("%s: err %v, %d sent; want possible %v", tc.name, err, len(e.sent), tc.possible)
+		}
+	}
+}
+
+// A typed navigation that matches a navigation variant takes it.
+func TestTypedNavigationTakesItsVariant(t *testing.T) {
+	p := profiles.Chrome155MacOS()
+	list := slices.Clone(p.Headers)
+	slices.Reverse(list)
+	p.Variants = append(p.Variants, profile.Variant{
+		CORSChecked: true,
+		PageSet:     true,
+		Headers:     list,
+		HTTP1:       p.HTTP1.Headers,
+	})
+	e := &fakeEngine{}
+	tr := fakeTransport(t, Config{
+		Profile: p,
+	}, e)
+	// A header the navigation list does not name makes it CORS-checked.
+	if err := send(t, tr, newRequest(t, "https://a.test/", http.Header{"X-A": {"1"}})); err != nil {
+		t.Fatal(err)
+	}
+	plan := headerorder.PlanFrom(e.sent[0].Context())
+	if plan == nil || !slices.EqualFunc(plan.Headers, list, func(a, b profile.Header) bool {
+		return a.Name == b.Name
+	}) {
+		t.Errorf("plan %+v, want the variant's list", plan)
+	}
+}
+
+// A request that sends Origin but matches no variant, so that only a
+// fallback list without an Origin slot is left, is not measured: it would
+// drop Origin. An exact variant is the browser's.
+func TestOriginNeedsAMeasuredList(t *testing.T) {
+	page, err := url.Parse("https://a.test/form")
+	if err != nil {
+		t.Fatal(err)
+	}
+	post := func(p *profile.Profile) error {
+		tr := fakeTransport(t, Config{
+			Profile: p,
+		}, &fakeEngine{})
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "https://a.test/submit", strings.NewReader("a=1"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		return send(t, tr, With(req, Request{From: page}))
+	}
+	if err := post(profiles.Chrome155MacOS()); err != nil {
+		t.Errorf("same-origin form POST, measured: %v", err)
+	}
+	p := profiles.Chrome155MacOS()
+	p.Variants = slices.DeleteFunc(p.Variants, func(v profile.Variant) bool {
+		return v.Method == http.MethodPost && !v.Insecure
+	})
+	if err := post(p); !errors.Is(err, ErrNotMeasured) {
+		t.Errorf("form POST without its variant: got %v, want ErrNotMeasured", err)
+	}
+}
+
+// Only a page's form makes a navigation that is not a GET: without From
+// it is refused before anything is sent, while a typed GET goes.
+func TestNavigationWithoutPageIsAGet(t *testing.T) {
+	e := &fakeEngine{}
+	tr := fakeTransport(t, Config{
+		Profile: profiles.Chrome155MacOS(),
+	}, e)
+	post, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "https://a.test/submit", strings.NewReader("a=1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := send(t, tr, post); err == nil {
+		t.Error("POST navigation without From: sent, want an error")
+	}
+	if err := send(t, tr, newRequest(t, "https://a.test/", nil)); err != nil {
+		t.Errorf("typed GET navigation: %v", err)
+	}
+	if len(e.sent) != 1 {
+		t.Errorf("engine got %d requests, want only the GET", len(e.sent))
+	}
+}
+
+// A variant measured over HTTP/2 only has no HTTP/1.1 list: on an
+// HTTP/1.1 connection the request is not measured, never sent in a guessed
+// order.
+func TestHTTP2OnlyVariantOverHTTP1(t *testing.T) {
+	var served atomic.Int32
+	s := server(t, false, func(w http.ResponseWriter, _ *http.Request) {
+		served.Add(1)
+		w.WriteHeader(http.StatusNoContent)
+	})
+	page, err := url.Parse("https://www.a.test/form")
+	if err != nil {
+		t.Fatal(err)
+	}
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, s.url+"/submit", strings.NewReader("a=1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	// A cross-site form POST: every profile measured it over HTTP/2 only.
+	if err := send(t, s.tr, With(req, Request{From: page})); !errors.Is(err, ErrNotMeasured) {
+		t.Errorf("cross-site form POST over HTTP/1.1: got %v, want ErrNotMeasured", err)
+	}
+	if n := served.Load(); n != 0 {
+		t.Errorf("server saw %d requests, want none", n)
 	}
 }

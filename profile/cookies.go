@@ -71,10 +71,10 @@ const (
 	OrderDomainName = "domain_name"
 )
 
-// DefaultCookies are RFC 6265bis's rules, for a profile without a cookies
-// section: Lax by default, None needs Secure, SameSite judged by the
-// request URL, Partitioned cookies keyed by top-level site, a nameless pair
-// is a value, RFC order.
+// DefaultCookies are RFC 6265bis's rules, for a jar used without a profile
+// (a profile must state its browser's): Lax by default, None needs Secure,
+// SameSite judged by the request URL, Partitioned cookies keyed by top-level
+// site, a nameless pair is a value, RFC order.
 func DefaultCookies() *Cookies {
 	return &Cookies{
 		UnsetSameSite:      SameSiteLax,
@@ -86,7 +86,22 @@ func DefaultCookies() *Cookies {
 	}
 }
 
+// Validate checks the rules as Profile.Validate checks a profile's cookies
+// section, and returns a *ValidationError listing every problem, or nil. Nil
+// rules are an error.
+func (k *Cookies) Validate() error {
+	c := &checker{}
+	c.checkCookies(k)
+	return c.err()
+}
+
+// checkCookies requires k: a profile without cookie rules has not measured
+// its browser's (decision 0008).
 func (c *checker) checkCookies(k *Cookies) {
+	if k == nil {
+		c.add("cookies", "is required")
+		return
+	}
 	oneOf := func(field, v string, allowed ...string) {
 		for _, a := range allowed {
 			if v == a {

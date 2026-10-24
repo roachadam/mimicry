@@ -1,8 +1,8 @@
 // Package dial is the single path from an address to a connected socket,
 // directly or through an HTTP or SOCKS5 proxy (internal/proxy speaks their
 // protocols; this package asks as the profile's browser does). Every step
-// honours the context and its deadline. Resolver policy (internal/dns)
-// plugs in here, so no other package opens connections.
+// honours the context and its deadline, so no other package opens
+// connections.
 //
-// Imports: dns, proxy, profile and the standard library.
+// Imports: proxy, profile and the standard library.
 package dial

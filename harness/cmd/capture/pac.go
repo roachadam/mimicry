@@ -59,22 +59,42 @@ func servePAC(ctx context.Context) error {
 	return nil
 }
 
-// safariProxyConfigured reports whether the system sends Safari to the
-// capture proxy: through safariPACURL, or through manual web and secure
-// web proxies at safariHTTPProxy. Only a manual proxy can carry a saved
-// password: macOS takes proxy credentials from System Settings, which has
-// no field for them with a PAC script.
-func safariProxyConfigured(ctx context.Context) bool {
+// safariProxy is how the system sends Safari to the capture proxy.
+type safariProxy int
+
+const (
+	// safariProxyNone: it does not.
+	safariProxyNone safariProxy = iota
+	// safariProxyPAC: through safariPACURL, which sends SOCKS5 scenarios'
+	// URLs to safariSOCKSProxy and the rest to safariHTTPProxy.
+	safariProxyPAC
+	// safariProxyManual: through manual web and secure web proxies at
+	// safariHTTPProxy. Only a manual proxy can carry a saved password:
+	// macOS takes proxy credentials from System Settings, which has no
+	// field for them with a PAC script. It sends every URL to the HTTP
+	// proxy, so SOCKS5 scenarios cannot run.
+	safariProxyManual
+)
+
+// safariProxyConfig reports how the system sends Safari to the capture
+// proxy.
+func safariProxyConfig(ctx context.Context) safariProxy {
 	out, err := exec.CommandContext(ctx, "scutil", "--proxy").Output()
 	if err != nil {
-		return false
+		return safariProxyNone
 	}
 	s := string(out)
 	if strings.Contains(s, "ProxyAutoConfigEnable : 1") {
-		return strings.Contains(s, "ProxyAutoConfigURLString : "+safariPACURL)
+		if strings.Contains(s, "ProxyAutoConfigURLString : "+safariPACURL) {
+			return safariProxyPAC
+		}
+		return safariProxyNone
 	}
 	host, port, _ := net.SplitHostPort(safariHTTPProxy)
-	return strings.Contains(s, "HTTPSEnable : 1") && strings.Contains(s, "HTTPSProxy : "+host) && strings.Contains(s, "HTTPSPort : "+port)
+	if strings.Contains(s, "HTTPSEnable : 1") && strings.Contains(s, "HTTPSProxy : "+host) && strings.Contains(s, "HTTPSPort : "+port) {
+		return safariProxyManual
+	}
+	return safariProxyNone
 }
 
 // safariProxyListen returns where the proxy for sc listens when Safari is

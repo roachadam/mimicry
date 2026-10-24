@@ -225,13 +225,67 @@ func TestCompare(t *testing.T) {
 	}
 }
 
+// A header name sent twice is compared occurrence by occurrence, not through
+// its last value.
+func TestCompareRepeatedHeaders(t *testing.T) {
+	headers := func(values ...string) []profile.Header {
+		hs := make([]profile.Header, 0, len(values))
+		for _, v := range values {
+			hs = append(hs, profile.Header{
+				Name:  "cookie",
+				Value: v,
+			})
+		}
+		return hs
+	}
+	for _, tc := range []struct {
+		name      string
+		want, got []string
+		diffs     []string
+	}{
+		{
+			name:  "identical",
+			want:  []string{"a", "b"},
+			got:   []string{"a", "b"},
+			diffs: nil,
+		},
+		{
+			name: "first value differs",
+			want: []string{"a", "b"},
+			got:  []string{"b", "b"},
+			diffs: []string{
+				"headers[cookie]#1",
+			},
+		},
+		{
+			name: "one sent fewer times",
+			want: []string{"a", "b"},
+			got:  []string{"a"},
+			diffs: []string{
+				"headers (order)",
+				"headers[cookie]#2",
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			want := sample(profile.ExtensionOrderFixed)
+			got := sample(profile.ExtensionOrderFixed)
+			want.Headers = headers(tc.want...)
+			got.Headers = headers(tc.got...)
+			if p := paths(Compare(want, got)); strings.Join(p, "|") != strings.Join(tc.diffs, "|") {
+				t.Errorf("differences at %q, want %q", p, tc.diffs)
+			}
+		})
+	}
+}
+
 func loadCapture(t *testing.T, name string) *profile.Profile {
 	t.Helper()
 	data, err := os.ReadFile("../../testdata/captures/" + name + ".json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := profile.Parse(data)
+	p, err := profile.Decode(data)
 	if err != nil {
 		t.Fatal(err)
 	}

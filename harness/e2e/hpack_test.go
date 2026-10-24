@@ -71,9 +71,6 @@ func TestHPACKReproducesBrowserBlocks(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if p.HTTP2.HPACK == nil {
-				t.Fatal("built-in profile has no HPACK policy")
-			}
 			for sc, traces := range scenarioTraces(t, name) {
 				for i, tr := range traces {
 					t.Run(sc.Name+" sample "+strconv.Itoa(i+1), func(t *testing.T) {

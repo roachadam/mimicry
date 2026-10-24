@@ -1,7 +1,6 @@
 package server
 
 import (
-	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -52,52 +51,31 @@ var CookiesRedirects = map[string]string{
 // loads A's and the cross-site host's images, then navigates back to A by
 // a link and by a form POST), and cleans up.
 var Cookies = &Scenario{
-	Name:  "cookies",
-	Doc:   "cookies on cross-site navigations (GET, form POST), across top-level sites (partitioned), after cross-site redirects; SameSite=None without Secure; order with mixed paths and domains",
-	multi: cookiesPage{},
+	Name: "cookies",
+	Doc:  "cookies on cross-site navigations (GET, form POST), across top-level sites (partitioned), after cross-site redirects; SameSite=None without Secure; order with mixed paths and domains",
+	multi: cookiesPage{
+		fixedHosts: fixedHosts{
+			names: []string{
+				kindsHost,
+				kindsSameSite,
+				kindsCrossSite,
+				cookiesSiteC,
+			},
+			runFor: 40 * time.Second,
+		},
+	},
 }
 
-type cookiesPage struct{}
-
-func (cookiesPage) hosts() []string {
-	return []string{
-		kindsHost,
-		kindsSameSite,
-		kindsCrossSite,
-		cookiesSiteC,
-	}
-}
-
-func (cookiesPage) certNames(host string) ([]string, bool) {
-	switch host {
-	case kindsHost, kindsSameSite, kindsCrossSite, cookiesSiteC:
-		return []string{
-			host,
-		}, true
-	}
-	return nil, false
-}
-
-func (cookiesPage) h1Only(string) bool {
-	return false
-}
-
-func (cookiesPage) length() time.Duration {
-	return 40 * time.Second
+type cookiesPage struct {
+	fixedHosts
 }
 
 func (p cookiesPage) answer(req request) response {
-	host, port, err := net.SplitHostPort(req.host)
-	if err != nil {
-		host, port = req.host, "443"
-	}
-	origin := func(h string) string {
-		return "https://" + net.JoinHostPort(h, port)
-	}
+	host, port := splitAuthority(req.host)
+	origin := originOn("https://", port)
 	html := func(script string) response {
-		return response{status: 200, contentType: "text/html; charset=utf-8", body: []byte(
-			"<!doctype html>\n<html><head><meta charset=\"utf-8\"><title>mimicry cookies</title><link rel=\"icon\" href=\"data:,\"></head><body>\n<script>(async () => {\n" +
-				cookiesLoad + script + "\n})();</script>\n</body></html>\n")}
+		return response{status: 200, contentType: "text/html; charset=utf-8", body: htmlPage("cookies", "", "<script>(async () => {\n"+
+			cookiesLoad+script+"\n})();</script>\n")}
 	}
 	image := response{status: 200, contentType: "image/png", body: png}
 	path, _, _ := strings.Cut(req.path, "?")

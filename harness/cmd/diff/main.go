@@ -1,6 +1,9 @@
-// Command diff compares two profiles or captures and lists every difference,
-// for example two versions of a browser, or a capture of mimicry against the
-// browser it imitates. Extension order is compared as the first file's
+// Command diff compares two captures of one connection, for example two
+// versions of a browser, or a capture of mimicry against the browser it
+// imitates, and lists every difference in what such a capture records: the
+// ClientHello, the HTTP/2 preface and the first request's headers. The rest of
+// a profile (http1, kinds, variants, context, cookies, proxy, hpack, flow
+// control) is not compared. Extension order is compared as the first file's
 // extension_order says. It exits 1 when the files differ.
 //
 //	go run ./cmd/diff WANT.json GOT.json
@@ -50,7 +53,7 @@ func load(path string) (*profile.Profile, error) {
 	if err != nil {
 		return nil, err
 	}
-	p, err := profile.Parse(data)
+	p, err := profile.Decode(data)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}

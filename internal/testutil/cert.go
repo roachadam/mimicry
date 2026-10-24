@@ -16,6 +16,12 @@ import (
 // day, and a pool that trusts it.
 func Certificate(t testing.TB, hosts ...string) (tls.Certificate, *x509.CertPool) {
 	t.Helper()
+	return CertificateValidFor(t, 24*time.Hour, hosts...)
+}
+
+// CertificateValidFor is Certificate valid for validity from now.
+func CertificateValidFor(t testing.TB, validity time.Duration, hosts ...string) (tls.Certificate, *x509.CertPool) {
+	t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		t.Fatal(err)
@@ -27,7 +33,7 @@ func Certificate(t testing.TB, hosts ...string) (tls.Certificate, *x509.CertPool
 		},
 		DNSNames:              hosts,
 		NotBefore:             time.Now().Add(-time.Hour),
-		NotAfter:              time.Now().Add(24 * time.Hour),
+		NotAfter:              time.Now().Add(validity),
 		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,

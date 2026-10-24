@@ -8,16 +8,6 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// chromium is the policy used when a profile has none: Chromium's encoder.
-var chromium = profile.HPACK{
-	WithoutIndexing: []string{
-		":path",
-	},
-	NameMatch:   profile.NameMatchStaticFirst,
-	Huffman:     profile.HuffmanShorter,
-	SizeUpdates: profile.SizeUpdatesOnChange,
-}
-
 // defaultTableSize is the dynamic table size before the peer's SETTINGS.
 const defaultTableSize = 4096
 
@@ -52,12 +42,10 @@ func (e entry) size() uint32 {
 	return uint32(len(e.name) + len(e.value) + 32) //nolint:gosec // header fields are far below 4 GiB
 }
 
-// NewEncoder returns an encoder following policy, or Chromium's encoder when
-// policy is nil. The policy must be valid (profile.Validate).
+// NewEncoder returns an encoder following policy, which must be a valid
+// profile's (profile.Validate requires http2.hpack): there is no default,
+// since how a browser encodes headers must be measured (decision 0008).
 func NewEncoder(policy *profile.HPACK) *Encoder {
-	if policy == nil {
-		policy = &chromium
-	}
 	return &Encoder{
 		policy:   *policy,
 		maxSize:  defaultTableSize,

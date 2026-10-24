@@ -1,6 +1,7 @@
 package cookies
 
 import (
+	"cmp"
 	"net"
 	"net/http"
 	"net/url"
@@ -61,17 +62,49 @@ type Jar struct {
 	onSetCookie func(Event)
 
 	mu sync.Mutex
-	// cookies are in creation order.
-	cookies []*Cookie
+	// domains holds the cookies by the registrable domain of their Domain
+	// (domainKey), so that a request looks only at its host's.
+	domains map[string][]entry
+	// seq is the next entry's sequence number.
+	seq uint64
 }
 
-// New returns an empty jar.
-func New(cfg Config) *Jar {
+// entry is a stored cookie and its sequence number: the order it was
+// stored in, which orders cookies created at the same time.
+type entry struct {
+	c   *Cookie
+	seq uint64
+}
+
+// compareCreated orders entries by creation: creation time, then the
+// order they were stored in.
+func compareCreated(a, b entry) int {
+	if d := a.c.Created.Compare(b.c.Created); d != 0 {
+		return d
+	}
+	return cmp.Compare(a.seq, b.seq)
+}
+
+// domainKey is the key a cookie with domain, or a request to host domain,
+// is kept under: its registrable domain. A cookie only ever goes to hosts
+// with its own registrable domain, since its Domain is never a public
+// suffix unless it is the host itself.
+func domainKey(domain string) string {
+	return site.Registrable(domain)
+}
+
+// New returns an empty jar. Its rules, when given, must be valid
+// (profile.Cookies.Validate).
+func New(cfg Config) (*Jar, error) {
 	j := &Jar{
 		clock:       cfg.Clock,
 		onSetCookie: cfg.OnSetCookie,
+		domains:     map[string][]entry{},
 	}
 	if cfg.Rules != nil {
+		if err := cfg.Rules.Validate(); err != nil {
+			return nil, err
+		}
 		j.rules = *cfg.Rules
 	} else {
 		j.rules = *profile.DefaultCookies()
@@ -79,7 +112,7 @@ func New(cfg Config) *Jar {
 	if j.clock == nil {
 		j.clock = clockwork.NewRealClock()
 	}
-	return j
+	return j, nil
 }
 
 // context is how a request relates to its top-level page.
@@ -141,10 +174,16 @@ func (j *Jar) effective(s SameSite) SameSite {
 // SetCookies stores the cookies of a response to r: its raw Set-Cookie
 // lines, as received.
 func (j *Jar) SetCookies(r Request, lines []string) {
+	ctx := j.contextOf(r)
+	now := j.clock.Now()
 	events := make([]Event, 0, len(lines))
 	j.mu.Lock()
 	for _, line := range lines {
-		events = append(events, j.set(r, line))
+		events = append(events, j.set(setRequest{
+			Request: r,
+			ctx:     ctx,
+			now:     now,
+		}, line))
 	}
 	j.mu.Unlock()
 	if j.onSetCookie != nil {
@@ -154,7 +193,15 @@ func (j *Jar) SetCookies(r Request, lines []string) {
 	}
 }
 
-func (j *Jar) set(r Request, line string) Event {
+// setRequest is a request whose response sets cookies, with what every
+// one of its lines shares.
+type setRequest struct {
+	Request
+	ctx context
+	now time.Time
+}
+
+func (j *Jar) set(r setRequest, line string) Event {
 	e := Event{
 		URL:  r.URL,
 		Line: line,
@@ -163,13 +210,12 @@ func (j *Jar) set(r Request, line string) Event {
 		e.Rejected = why
 		return e
 	}
-	now := j.clock.Now()
+	now := r.now
 	p, err := parse(line, j.rules.Nameless, now)
 	if err != nil {
 		return reject(err.Error())
 	}
-	ctx := j.contextOf(r)
-	if ctx.blocked {
+	if r.ctx.blocked {
 		return reject("set after a cross-site redirect, which this browser blocks")
 	}
 	host := strings.ToLower(r.URL.Hostname())
@@ -203,16 +249,19 @@ func (j *Jar) set(r Request, line string) Event {
 		c.Domain = p.domain
 	}
 	if c.Path == "" {
-		c.Path = defaultPath(r.URL.Path)
+		c.Path = defaultPath(r.URL.EscapedPath())
 	}
 	if c.Secure && !secureURL {
 		return reject("Secure from an insecure URL")
 	}
-	lower := strings.ToLower(c.Name)
-	if strings.HasPrefix(lower, "__secure-") && !c.Secure {
+	if c.Name == "" && hiddenPrefix(c.Value) {
+		return reject("a nameless cookie whose value starts with __Secure- or __Host-")
+	}
+	if hasPrefixFold(c.Name, "__Secure-") && !c.Secure {
 		return reject("__Secure- prefix without Secure")
 	}
-	if strings.HasPrefix(lower, "__host-") && (!c.Secure || !c.HostOnly || c.Path != "/") {
+	// __Host- needs the Path attribute as sent, not the default path.
+	if hasPrefixFold(c.Name, "__Host-") && (!c.Secure || !c.HostOnly || p.pathAttr != "/") {
 		return reject("__Host- prefix needs Secure, no Domain and Path=/")
 	}
 	if c.SameSite == SameSiteNone && !c.Secure && j.rules.NoneRequiresSecure {
@@ -221,45 +270,66 @@ func (j *Jar) set(r Request, line string) Event {
 	if c.Partitioned && !c.Secure {
 		return reject("Partitioned without Secure")
 	}
-	if !r.Navigation && ctx.crossSite && j.effective(c.SameSite) != SameSiteNone {
+	if !r.Navigation && r.ctx.crossSite && j.effective(c.SameSite) != SameSiteNone {
 		return reject("SameSite=" + j.effective(c.SameSite).String() + " from a cross-site response")
 	}
 	switch {
-	case ctx.thirdParty && j.rules.ThirdParty == profile.ThirdPartyPartitionAll:
-		c.Partition = ctx.topSite
-	case ctx.thirdParty && j.rules.ThirdParty == profile.ThirdPartyPartitionedOnly && !c.Partitioned:
+	case r.ctx.thirdParty && j.rules.ThirdParty == profile.ThirdPartyPartitionAll:
+		c.Partition = r.ctx.topSite
+	case r.ctx.thirdParty && j.rules.ThirdParty == profile.ThirdPartyPartitionedOnly && !c.Partitioned:
 		return reject("an unpartitioned third-party cookie, which this browser blocks")
 	case c.Partitioned:
-		c.Partition = ctx.topSite
+		c.Partition = r.ctx.topSite
 	}
+	key := domainKey(c.Domain)
+	bucket := j.domains[key]
 	if !secureURL {
 		// An insecure URL cannot shadow a Secure cookie (RFC 6265bis 5.7).
-		for _, old := range j.cookies {
-			if old.Secure && old.Name == c.Name && (domainMatch(c.Domain, old.Domain) || domainMatch(old.Domain, c.Domain)) && pathMatch(c.Path, old.Path) {
+		for _, old := range bucket {
+			if old.c.Secure && old.c.Name == c.Name && (domainMatch(c.Domain, old.c.Domain) || domainMatch(old.c.Domain, c.Domain)) && pathMatch(c.Path, old.c.Path) {
 				return reject("would shadow a Secure cookie from an insecure URL")
 			}
 		}
 	}
-	i := slices.IndexFunc(j.cookies, func(old *Cookie) bool {
-		return sameKey(old, c)
+	i := slices.IndexFunc(bucket, func(old entry) bool {
+		return sameKey(old.c, c)
 	})
 	if !c.Expires.IsZero() && !c.Expires.After(now) {
 		if i >= 0 {
-			j.cookies = slices.Delete(j.cookies, i, i+1)
+			j.store(key, slices.Delete(bucket, i, i+1))
 		}
 		e.Deleted = true
 		return e
 	}
 	if i >= 0 {
 		// A replacement keeps the old cookie's creation time and place.
-		c.Created = j.cookies[i].Created
-		j.cookies[i] = c
+		c.Created = bucket[i].c.Created
+		bucket[i].c = c
 	} else {
-		j.cookies = append(j.cookies, c)
+		j.domains[key] = append(bucket, j.newEntry(c))
 	}
 	cp := *c
 	e.Cookie = &cp
 	return e
+}
+
+// newEntry numbers c as the jar's newest cookie. Call with the lock held.
+func (j *Jar) newEntry(c *Cookie) entry {
+	j.seq++
+	return entry{
+		c:   c,
+		seq: j.seq,
+	}
+}
+
+// store sets the cookies kept under key, dropping the key when there are
+// none. Call with the lock held.
+func (j *Jar) store(key string, bucket []entry) {
+	if len(bucket) == 0 {
+		delete(j.domains, key)
+		return
+	}
+	j.domains[key] = bucket
 }
 
 // Cookies returns the cookies the browser would send with r, in its order.
@@ -273,19 +343,23 @@ func (j *Jar) Cookies(r Request) []*Cookie {
 	host := strings.ToLower(r.URL.Hostname())
 	secureURL := r.URL.Scheme == "https"
 	safe := r.Method == "" || r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions || r.Method == http.MethodTrace
+	reqPath := r.URL.EscapedPath()
+	key := domainKey(host)
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	j.cookies = slices.DeleteFunc(j.cookies, func(c *Cookie) bool {
-		return !c.Expires.IsZero() && !c.Expires.After(now)
+	bucket := slices.DeleteFunc(j.domains[key], func(e entry) bool {
+		return !e.c.Expires.IsZero() && !e.c.Expires.After(now)
 	})
-	var out []*Cookie
-	for _, c := range j.cookies {
+	j.store(key, bucket)
+	var matched []entry
+	for _, e := range bucket {
+		c := e.c
 		switch {
 		case c.HostOnly && host != c.Domain:
 			continue
 		case !c.HostOnly && !domainMatch(host, c.Domain):
 			continue
-		case !pathMatch(r.URL.Path, c.Path):
+		case !pathMatch(reqPath, c.Path):
 			continue
 		case c.Secure && !secureURL:
 			continue
@@ -310,27 +384,32 @@ func (j *Jar) Cookies(r Request) []*Cookie {
 			}
 		}
 		c.LastAccess = now
-		cp := *c
-		out = append(out, &cp)
+		matched = append(matched, e)
 	}
-	j.sortForRequest(out)
+	j.sortForRequest(matched)
+	out := make([]*Cookie, len(matched))
+	for i, e := range matched {
+		cp := *e.c
+		out[i] = &cp
+	}
 	return out
 }
 
-// sortForRequest puts cookies in the browser's order. The input is in
-// creation order, which the stable sort keeps among equals.
-func (j *Jar) sortForRequest(cs []*Cookie) {
-	slices.SortStableFunc(cs, func(a, b *Cookie) int {
-		if d := len(b.Path) - len(a.Path); d != 0 {
+// sortForRequest puts cookies in the browser's order.
+func (j *Jar) sortForRequest(es []entry) {
+	slices.SortFunc(es, func(a, b entry) int {
+		if d := len(b.c.Path) - len(a.c.Path); d != 0 {
 			return d
 		}
-		if j.rules.Order != profile.OrderDomainName {
-			return a.Created.Compare(b.Created)
+		if j.rules.Order == profile.OrderDomainName {
+			if d := strings.Compare(storedDomain(a.c), storedDomain(b.c)); d != 0 {
+				return d
+			}
+			if d := strings.Compare(a.c.Name, b.c.Name); d != 0 {
+				return d
+			}
 		}
-		if d := strings.Compare(storedDomain(a), storedDomain(b)); d != 0 {
-			return d
-		}
-		return strings.Compare(a.Name, b.Name)
+		return compareCreated(a, b)
 	})
 }
 
@@ -380,8 +459,8 @@ func pathMatch(reqPath, cookiePath string) bool {
 	return strings.HasSuffix(cookiePath, "/") || reqPath[len(cookiePath)] == '/'
 }
 
-// defaultPath is a cookie's path when it sets none: the request path's
-// directory (RFC 6265bis 5.1.4).
+// defaultPath is a cookie's path when it sets none: the directory of the
+// request's escaped path (RFC 6265bis 5.1.4).
 func defaultPath(p string) string {
 	if p == "" || p[0] != '/' {
 		return "/"
@@ -391,6 +470,34 @@ func defaultPath(p string) string {
 		return "/"
 	}
 	return p[:i]
+}
+
+// hasPrefixFold reports whether s starts with prefix, ASCII case-blind
+// (as browsers match cookie prefixes; no Unicode folding).
+func hasPrefixFold(s, prefix string) bool {
+	if len(s) < len(prefix) {
+		return false
+	}
+	lower := func(b byte) byte {
+		if 'A' <= b && b <= 'Z' {
+			return b + 'a' - 'A'
+		}
+		return b
+	}
+	for i := range len(prefix) {
+		if lower(s[i]) != lower(prefix[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// hiddenPrefix reports whether a nameless cookie's value starts, after
+// leading whitespace, with a cookie prefix: a server would read it as a
+// prefixed name, so browsers refuse it (RFC 6265bis 5.7).
+func hiddenPrefix(value string) bool {
+	v := strings.TrimLeft(value, " \t")
+	return hasPrefixFold(v, "__Secure-") || hasPrefixFold(v, "__Host-")
 }
 
 // latin1 re-encodes each byte of v at or above 0x80 as the UTF-8 of the

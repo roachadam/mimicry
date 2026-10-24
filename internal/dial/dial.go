@@ -132,7 +132,7 @@ func (d *Dialer) connect(ctx context.Context, conn net.Conn, p *url.URL, addr st
 	unasked := p.User != nil && asked && d.Proxy.ConnectCredentials == profile.CredentialsAfterChallenge
 	header := d.connectHeader(addr, d.Proxy.Connect, "")
 	if unasked {
-		header = d.connectHeader(addr, d.Proxy.ConnectAuth, credentials(p))
+		header = d.connectHeader(addr, d.Proxy.ConnectAuth, Credentials(p))
 	}
 	answer, tunnel, err := proxy.Connect(ctx, conn, addr, header)
 	switch {
@@ -157,7 +157,7 @@ func (d *Dialer) connect(ctx context.Context, conn net.Conn, p *url.URL, addr st
 			return nil, err
 		}
 	}
-	answer, tunnel, err = proxy.Connect(ctx, conn, addr, d.connectHeader(addr, d.Proxy.ConnectAuth, credentials(p)))
+	answer, tunnel, err = proxy.Connect(ctx, conn, addr, d.connectHeader(addr, d.Proxy.ConnectAuth, Credentials(p)))
 	switch {
 	case err != nil:
 		_ = conn.Close()
@@ -189,17 +189,13 @@ func (d *Dialer) ForwardAuthorization(p *url.URL) string {
 		return ""
 	}
 	if _, asked := d.asked.Load(p.String()); asked || d.Proxy.ForwardCredentials == profile.CredentialsAlways {
-		return credentials(p)
+		return Credentials(p)
 	}
 	return ""
 }
 
 // Credentials returns p's Basic Proxy-Authorization value, or "".
 func Credentials(p *url.URL) string {
-	return credentials(p)
-}
-
-func credentials(p *url.URL) string {
 	if p.User == nil {
 		return ""
 	}

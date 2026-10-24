@@ -9,13 +9,18 @@ fileGroups:
     - '**/*.go'
     - 'go.mod'
     - 'go.sum'
+  # Data the tests read: embedded profiles, captures, fixtures. Without it
+  # moon replays cached results after a profile or capture changes.
+  testdata:
+    - '**/testdata/**'
 
 tasks:
   test:
-    command: 'go test ./...'
+    command: 'go test -race ./...'
     toolchain: 'system'
     inputs:
       - '@group(sources)'
+      - '@group(testdata)'
   vet:
     command: 'go vet ./...'
     toolchain: 'system'

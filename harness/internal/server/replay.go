@@ -296,37 +296,13 @@ func (rp *replay) request(host, path string) (int, bool) {
 }
 
 func (rp *replay) answer(req request) response {
-	host, port, err := net.SplitHostPort(req.host)
-	if err != nil {
-		host, port = req.host, "443"
-	}
+	host, port := splitAuthority(req.host)
 	var cors []hpack.HeaderField
 	if req.origin != "" {
-		cors = []hpack.HeaderField{
-			{
-				Name:  "access-control-allow-origin",
-				Value: req.origin,
-			},
-			{
-				Name:  "access-control-allow-credentials",
-				Value: "true",
-			},
-		}
+		cors = corsAllow(req.origin)
 	}
 	if req.method == "OPTIONS" {
-		allow := slices.Concat(cors, []hpack.HeaderField{
-			{
-				Name:  "access-control-allow-methods",
-				Value: "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-			},
-		})
-		if req.preflightHeaders != "" {
-			allow = append(allow, hpack.HeaderField{
-				Name:  "access-control-allow-headers",
-				Value: req.preflightHeaders,
-			})
-		}
-		return response{status: 204, contentType: "text/plain", headers: allow}
+		return response{status: 204, contentType: "text/plain", headers: preflightAllow(cors, "GET, POST, PUT, PATCH, DELETE, OPTIONS", req.preflightHeaders)}
 	}
 	switch req.path {
 	case "/done", "/cleanup":
@@ -500,12 +476,13 @@ func (rp *replay) document(doc int, port string) []byte {
 		"__END__", strconv.FormatInt(rp.runFor.Milliseconds()-int64(start), 10),
 		"__CLEANUP__", string(cleanupJSON),
 	).Replace(replayScript)
-	html := "<!doctype html>\n<html><head><meta charset=\"utf-8\"><title>mimicry replay</title><link rel=\"icon\" href=\"data:,\"></head><body>\n<script>" +
-		script + "</script>\n"
-	if n := min(rp.page.Requests[doc].Size, maxBody) - len(html) - len("<!---->\n</body></html>\n"); n > 0 {
-		html += "<!--" + synthetic("text", n, "document "+strconv.Itoa(doc)) + "-->\n"
+	body := "<script>" + script + "</script>\n"
+	html := htmlPage("replay", "", body)
+	// Padded with a comment to the recorded size.
+	if n := min(rp.page.Requests[doc].Size, maxBody) - len(html) - len("<!---->\n"); n > 0 {
+		html = htmlPage("replay", "", body+"<!--"+synthetic("text", n, "document "+strconv.Itoa(doc))+"-->\n")
 	}
-	return []byte(html + "</body></html>\n")
+	return html
 }
 
 // replayScript runs a document's jobs. Each destination gets the element or
