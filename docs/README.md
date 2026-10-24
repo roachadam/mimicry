@@ -35,3 +35,8 @@ Related, elsewhere in the repository:
 | [0012](decisions/0012-cookie-rules-in-profiles.md) | Browser cookie rules as a profile section | Accepted |
 
 New records copy [`decisions/template.md`](decisions/template.md).
+
+## Concepts
+
+- [How a request is built](concepts/how-a-request-is-built.md)
+- [Cookies](concepts/cookies.md)

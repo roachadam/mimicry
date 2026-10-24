@@ -13,6 +13,7 @@
 package cookies
 
 import (
+	"strings"
 	"time"
 )
 
@@ -40,34 +41,55 @@ func (s SameSite) String() string {
 	return ""
 }
 
+// MarshalText writes the attribute value ("Lax"; empty when unset).
+func (s SameSite) MarshalText() ([]byte, error) {
+	return []byte(s.String()), nil
+}
+
+// UnmarshalText reads an attribute value, case-blind; anything else is
+// unset, as in a Set-Cookie line.
+func (s *SameSite) UnmarshalText(b []byte) error {
+	switch strings.ToLower(string(b)) {
+	case "lax":
+		*s = SameSiteLax
+	case "strict":
+		*s = SameSiteStrict
+	case "none":
+		*s = SameSiteNone
+	default:
+		*s = SameSiteUnset
+	}
+	return nil
+}
+
 // Cookie is a stored cookie.
 type Cookie struct {
 	// Name and Value as stored: exactly as received, except where the
 	// browser changes them (Safari's Latin-1 re-encoding). Name is empty
 	// for a pair without "=" in browsers that keep it as a value.
-	Name  string
-	Value string
+	Name  string `json:"name"`
+	Value string `json:"value"`
 	// Domain is the host for a host-only cookie, else the Domain
 	// attribute without its leading dot.
-	Domain   string
-	HostOnly bool
-	Path     string
+	Domain   string `json:"domain"`
+	HostOnly bool   `json:"host_only,omitempty"`
+	Path     string `json:"path"`
 	// Expires is when the cookie expires; zero for a session cookie.
-	Expires  time.Time
-	Secure   bool
-	HTTPOnly bool
-	SameSite SameSite
+	Expires  time.Time `json:"expires,omitzero"`
+	Secure   bool      `json:"secure,omitempty"`
+	HTTPOnly bool      `json:"http_only,omitempty"`
+	SameSite SameSite  `json:"same_site,omitempty"`
 	// Partitioned is the attribute; Partition is the top-level site the
 	// cookie is kept under ("https://example.com"), set for Partitioned
 	// cookies and, in Firefox, for every cookie of a cross-site context.
 	// Empty: the unpartitioned jar.
-	Partitioned bool
-	Partition   string
-	Created     time.Time
-	LastAccess  time.Time
+	Partitioned bool      `json:"partitioned,omitempty"`
+	Partition   string    `json:"partition,omitempty"`
+	Created     time.Time `json:"created"`
+	LastAccess  time.Time `json:"last_access,omitzero"`
 	// Raw is the Set-Cookie line that set it; empty for one set with
 	// Jar.Set.
-	Raw string
+	Raw string `json:"raw,omitempty"`
 }
 
 // sameKey reports whether a and b are the same cookie: a later one
