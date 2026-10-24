@@ -36,6 +36,7 @@ Related, elsewhere in the repository:
 | [0013](decisions/0013-tls-resumption.md) | TLS session resumption as the browser does it | Accepted |
 | [0014](decisions/0014-proxies.md) | Proxies as the browser uses them | Accepted |
 | [0015](decisions/0015-non-secure-origins.md) | Requests to non-secure origins as captured, per kind | Accepted |
+| [0016](decisions/0016-literal-urls-no-https-upgrade.md) | Requests go to the URL given; no HTTPS upgrades or HSTS by default | Accepted |
 
 New records copy [`decisions/template.md`](decisions/template.md).
 

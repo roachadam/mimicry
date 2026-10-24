@@ -182,8 +182,9 @@ mid-load re-prioritisation of a script and chained dependencies between
 concurrent subresources (not compared); `FontFace` loads; `crossorigin`
 stylesheets; ECH payloads; HTTP/3; the TCP/IP fingerprint; Chrome's
 speculative preconnects to a proxy; `https://` proxies; Safari's HTTPS
-upgrade attempt (TLS on the same port) before a plain-HTTP request, and
-Chrome's HTTPS-Upgrades on port 80.
+upgrade attempt (TLS on the same port) before a plain-HTTP request,
+Chrome's HTTPS-Upgrades on port 80, and HSTS: requests go to the URL given,
+by decision ([0016](../docs/decisions/0016-literal-urls-no-https-upgrade.md)).
 
 ## Keeping it true
 

@@ -49,7 +49,8 @@ requests line for line), `TestNonSecureOriginsAreNotLoopback`.
 - A custom profile without non-secure variants cannot send `http://`
   requests (to anything but loopback) until it has them.
 - Safari's HTTPS upgrade attempt before a plain request, and Chrome's
-  HTTPS-Upgrades on port 80, are not made.
+  HTTPS-Upgrades on port 80, are not made: requests go to the URL given
+  ([0016](0016-literal-urls-no-https-upgrade.md)).
 
 ## Revisit when
 
