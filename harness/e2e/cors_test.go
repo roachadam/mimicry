@@ -87,7 +87,7 @@ func corsFetch(t *testing.T, s *pageSession, from *url.URL, target string, st se
 		From: from,
 	}
 	if st.Include {
-		r.Credentials = mimicry.Include
+		r.Credentials = mimicry.CredentialsInclude
 	}
 	resp, err := s.client.Do(mimicry.With(req, r))
 	if err != nil {

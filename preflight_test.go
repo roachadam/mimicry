@@ -119,7 +119,7 @@ func TestPreflightWhenNeeded(t *testing.T) {
 		{name: "suffix range", target: cross, h: http.Header{"Range": {"bytes=-99"}}, r: Request{Kind: Fetch}, want: "OPTIONS /x GET range"},
 		{name: "Config.Headers are the page's", target: cross, extra: http.Header{"X-Api-Key": {"k"}}, r: Request{Kind: Fetch}, want: "OPTIONS /x GET x-api-key"},
 		{name: "no-cors", target: cross, h: http.Header{"X-A": {"1"}}, r: Request{Kind: Fetch, NoCORS: true}},
-		{name: "not fetch or XHR", target: cross, h: http.Header{"X-A": {"1"}}, r: Request{Kind: Image, CrossOrigin: Anonymous}},
+		{name: "not fetch or XHR", target: cross, h: http.Header{"X-A": {"1"}}, r: Request{Kind: Image, CrossOrigin: CrossOriginAnonymous}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			e := &corsEngine{
@@ -236,7 +236,7 @@ func TestPreflightRefused(t *testing.T) {
 					IgnoreCORS: ignore,
 				}
 				if tc.include {
-					r.Credentials = Include
+					r.Credentials = CredentialsInclude
 				}
 				err := corsDo(t, corsTransport(t, e, nil), http.MethodGet, "https://api.b.test/x", tc.h, r)
 				var cerr *CORSError

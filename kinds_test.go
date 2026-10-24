@@ -106,10 +106,10 @@ func TestCredentialsDecideCookies(t *testing.T) {
 		sent bool
 	}{
 		{name: "cross-origin fetch", req: Request{Kind: Fetch, From: other}, sent: false},
-		{name: "cross-origin fetch, include", req: Request{Kind: Fetch, From: other, Credentials: Include}, sent: true},
-		{name: "same-origin fetch, omit", req: Request{Kind: Fetch, Credentials: Omit}, sent: false},
+		{name: "cross-origin fetch, include", req: Request{Kind: Fetch, From: other, Credentials: CredentialsInclude}, sent: true},
+		{name: "same-origin fetch, omit", req: Request{Kind: Fetch, Credentials: CredentialsOmit}, sent: false},
 		{name: "cross-origin image", req: Request{Kind: InjectedImage, From: other}, sent: true},
-		{name: "cross-origin image, crossorigin", req: Request{Kind: InjectedImage, From: other, CrossOrigin: Anonymous}, sent: false},
+		{name: "cross-origin image, crossorigin", req: Request{Kind: InjectedImage, From: other, CrossOrigin: CrossOriginAnonymous}, sent: false},
 	}
 	for _, c := range cases {
 		req := With(newRequest(t, s.url+"/", http.Header{"Cookie": {"a=1"}}), c.req)
@@ -128,7 +128,7 @@ func TestCredentialsDecideCookies(t *testing.T) {
 // guess.
 func TestUnmeasuredPriority(t *testing.T) {
 	s, _ := headersSeen(t)
-	err := send(t, s.tr, With(newRequest(t, s.url+"/", nil), Request{Kind: Script, Priority: High}))
+	err := send(t, s.tr, With(newRequest(t, s.url+"/", nil), Request{Kind: Script, Priority: PriorityHigh}))
 	if !errors.Is(err, errNotMeasured) {
 		t.Fatalf("got %v, want a not-measured error", err)
 	}

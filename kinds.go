@@ -85,34 +85,34 @@ var elements = []Kind{
 // Priority is the fetchpriority a page gives a request.
 type Priority int
 
-// Priorities. Auto is the kind's own.
+// Priorities. PriorityAuto is the kind's own.
 const (
-	Auto Priority = iota
-	High
-	Low
+	PriorityAuto Priority = iota
+	PriorityHigh
+	PriorityLow
 )
 
 // CrossOrigin is an element's crossorigin attribute, which makes its request
 // a CORS request.
 type CrossOrigin int
 
-// CrossOrigin values. None is no attribute: the element's own mode.
+// CrossOrigin values. CrossOriginNone is no attribute: the element's own mode.
 const (
-	None           CrossOrigin = iota
-	Anonymous                  // crossorigin, crossorigin="anonymous"
-	UseCredentials             // crossorigin="use-credentials"
+	CrossOriginNone           CrossOrigin = iota
+	CrossOriginAnonymous                  // crossorigin, crossorigin="anonymous"
+	CrossOriginUseCredentials             // crossorigin="use-credentials"
 )
 
 // Credentials is a fetch() or XHR request's credentials mode: whether it
 // carries cookies.
 type Credentials int
 
-// Credentials modes. SameOrigin is fetch()'s default and XHR's without
+// Credentials modes. CredentialsSameOrigin is fetch()'s default and XHR's without
 // withCredentials.
 const (
-	SameOrigin Credentials = iota
-	Include                // credentials: "include", withCredentials = true
-	Omit                   // credentials: "omit"
+	CredentialsSameOrigin Credentials = iota
+	CredentialsInclude                // credentials: "include", withCredentials = true
+	CredentialsOmit                   // credentials: "omit"
 )
 
 // Request describes how a page makes a request, for With. The zero value
@@ -124,7 +124,7 @@ type Request struct {
 	// other kinds, the transport's last navigation, or else the request's
 	// own origin.
 	From *url.URL
-	// Priority is the request's fetchpriority. High and Low need the
+	// Priority is the request's fetchpriority. PriorityHigh and PriorityLow need the
 	// profile to have measured them for the kind; RoundTrip fails
 	// otherwise.
 	Priority Priority
@@ -199,7 +199,7 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL) (*
 		kind     *profile.Kind
 	)
 	if r.Kind == Navigate {
-		if r.Priority != Auto || r.CrossOrigin != None || r.Credentials != SameOrigin || r.NoCORS {
+		if r.Priority != PriorityAuto || r.CrossOrigin != CrossOriginNone || r.Credentials != CredentialsSameOrigin || r.NoCORS {
 			return nil, errors.New("mimicry: a navigation takes no priority, crossorigin, credentials or mode")
 		}
 		list, variants = p.Headers, p.Variants
@@ -214,10 +214,10 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL) (*
 		if kind = p.Kinds[name]; kind == nil {
 			return nil, fmt.Errorf("%w: profile %s has no %s requests", errNotMeasured, p.Name, r.Kind)
 		}
-		if r.CrossOrigin != None && !slices.Contains(elements, r.Kind) {
+		if r.CrossOrigin != CrossOriginNone && !slices.Contains(elements, r.Kind) {
 			return nil, fmt.Errorf("mimicry: %s requests take no crossorigin attribute", r.Kind)
 		}
-		if (r.Credentials != SameOrigin || r.NoCORS) && r.Kind != Fetch && (r.Kind != XHR || r.NoCORS) {
+		if (r.Credentials != CredentialsSameOrigin || r.NoCORS) && r.Kind != Fetch && (r.Kind != XHR || r.NoCORS) {
 			return nil, fmt.Errorf("mimicry: %s requests take no credentials mode or no-cors", r.Kind)
 		}
 		list, h1, variants, weight = kind.Headers, kind.HTTP1, kind.Variants, kind.Weight
@@ -264,7 +264,7 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL) (*
 	values := map[string]string{}
 	mode := valueOf(list, "sec-fetch-mode")
 	switch {
-	case r.CrossOrigin != None:
+	case r.CrossOrigin != CrossOriginNone:
 		mode = "cors"
 	case r.NoCORS:
 		mode = "no-cors"
@@ -287,9 +287,9 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL) (*
 		// every browser's captures show.
 		credentialed = false
 	case r.Kind == Fetch || r.Kind == XHR:
-		credentialed = r.Credentials == Include || (r.Credentials == SameOrigin && sameOrigin)
+		credentialed = r.Credentials == CredentialsInclude || (r.Credentials == CredentialsSameOrigin && sameOrigin)
 	case mode == "cors":
-		credentialed = sameOrigin || r.CrossOrigin == UseCredentials
+		credentialed = sameOrigin || r.CrossOrigin == CrossOriginUseCredentials
 	default:
 		credentialed = true
 	}
@@ -353,16 +353,16 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL) (*
 	}
 
 	switch r.Priority {
-	case High, Low:
+	case PriorityHigh, PriorityLow:
 		var u *profile.Urgency
 		if kind != nil {
 			u = kind.High
-			if r.Priority == Low {
+			if r.Priority == PriorityLow {
 				u = kind.Low
 			}
 		}
 		if u == nil {
-			return nil, fmt.Errorf("%w: profile %s has no measured fetchpriority %s for %s requests", errNotMeasured, p.Name, map[Priority]string{High: "high", Low: "low"}[r.Priority], r.Kind)
+			return nil, fmt.Errorf("%w: profile %s has no measured fetchpriority %s for %s requests", errNotMeasured, p.Name, map[Priority]string{PriorityHigh: "high", PriorityLow: "low"}[r.Priority], r.Kind)
 		}
 		values["priority"] = u.Priority
 		if u.Priority == "" {

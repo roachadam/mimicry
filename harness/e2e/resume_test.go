@@ -141,7 +141,7 @@ func runResumePage(t *testing.T, p *profile.Profile, sc *server.Scenario) *captu
 	fetch := mimicry.Request{
 		Kind:        mimicry.Fetch,
 		From:        page,
-		Credentials: mimicry.Include,
+		Credentials: mimicry.CredentialsInclude,
 	}
 	for _, step := range server.ResumeSteps {
 		labels := strings.Split(step, "|")

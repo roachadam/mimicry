@@ -272,10 +272,10 @@ func kindsRequests() []kindsRequest {
 			method: http.MethodGet,
 			req: mimicry.Request{
 				Kind:        kind,
-				CrossOrigin: map[string]mimicry.CrossOrigin{"": mimicry.None, "anonymous": mimicry.Anonymous, "use-credentials": mimicry.UseCredentials}[s.CrossOrigin],
-				Credentials: map[string]mimicry.Credentials{"": mimicry.SameOrigin, "include": mimicry.Include, "omit": mimicry.Omit}[s.Credentials],
+				CrossOrigin: map[string]mimicry.CrossOrigin{"": mimicry.CrossOriginNone, "anonymous": mimicry.CrossOriginAnonymous, "use-credentials": mimicry.CrossOriginUseCredentials}[s.CrossOrigin],
+				Credentials: map[string]mimicry.Credentials{"": mimicry.CredentialsSameOrigin, "include": mimicry.CredentialsInclude, "omit": mimicry.CredentialsOmit}[s.Credentials],
 				NoCORS:      s.Mode == "no-cors",
-				Priority:    map[string]mimicry.Priority{"": mimicry.Auto, "high": mimicry.High, "low": mimicry.Low}[s.Priority],
+				Priority:    map[string]mimicry.Priority{"": mimicry.PriorityAuto, "high": mimicry.PriorityHigh, "low": mimicry.PriorityLow}[s.Priority],
 			},
 			headers:  http.Header{},
 			body:     s.Body,

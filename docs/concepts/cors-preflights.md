@@ -51,7 +51,7 @@ The request-dependent headers are:
 - `Access-Control-Request-Headers`: the unsafe header names, lowercase,
   sorted, joined by `,` (`x-a,x-b`), or absent when there are none.
 
-A preflight never carries cookies, even for `Credentials: Include`. Chrome
+A preflight never carries cookies, even for `Credentials: CredentialsInclude`. Chrome
 sends it on its connection for credential-less requests.
 
 ## The answer
