@@ -121,6 +121,7 @@ var Scenarios = []*Scenario{
 	},
 	Kinds,
 	KindsHTTP1,
+	Cookies,
 }
 
 // ScenarioByName finds a scenario.
