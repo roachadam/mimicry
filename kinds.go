@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"slices"
@@ -359,24 +360,36 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL) (*
 		}
 	}
 
-	// The order: the variant for this method, site relation and CORS
-	// check, else the kind's own.
+	// The order: the variant for this method, site relation, CORS check,
+	// redirect and security, else the kind's own. A non-secure request
+	// (plain http:// to anything but loopback) never takes the secure
+	// lists: its exact variant, else the kind's non-secure one.
 	cond := profile.Variant{
 		Site:        map[string]string{"same-site": profile.SiteSameSite, "cross-site": profile.SiteCrossSite}[targetSite],
 		CORSChecked: sendOrigin || pageSet(h, list),
 		Redirected:  redirected,
+		Insecure:    !trustworthy(target),
 	}
 	if req.Method != http.MethodGet {
 		cond.Method = req.Method
 	}
-	for _, v := range variants {
-		if v.Method == cond.Method && v.Site == cond.Site && v.CORSChecked == cond.CORSChecked && v.Redirected == cond.Redirected {
-			list, h1 = v.Headers, v.HTTP1
-			break
+	same := func(v profile.Variant) bool {
+		return v.Method == cond.Method && v.Site == cond.Site && v.CORSChecked == cond.CORSChecked && v.Redirected == cond.Redirected && v.Insecure == cond.Insecure
+	}
+	i := slices.IndexFunc(variants, same)
+	if i < 0 && cond.Insecure {
+		i = slices.IndexFunc(variants, func(v profile.Variant) bool {
+			return v.Insecure && v.Method == "" && v.Site == "" && !v.CORSChecked && !v.Redirected
+		})
+		if i < 0 {
+			return nil, fmt.Errorf("%w: profile %s has no %s request to a non-secure origin (http://) for method %q, site %q, CORS-checked %v, redirected %v", errNotMeasured, p.Name, r.Kind, cond.Method, cond.Site, cond.CORSChecked, cond.Redirected)
 		}
 	}
+	if i >= 0 {
+		list, h1 = variants[i].Headers, variants[i].HTTP1
+	}
 
-	if r.Kind == Navigate && len(values) == 0 && cond.Method == "" {
+	if r.Kind == Navigate && len(values) == 0 && cond.Method == "" && !cond.Insecure {
 		// A typed GET navigation: the profile's own lists.
 		return s, nil
 	}
@@ -388,6 +401,21 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL) (*
 		s.plan.HTTP1 = fill(h1, values)
 	}
 	return s, nil
+}
+
+// trustworthy reports a potentially trustworthy URL (Secure Contexts):
+// https or wss, or a loopback host. Browsers send Sec-Fetch-*, client
+// hints and their full Accept-Encoding only to these.
+func trustworthy(u *url.URL) bool {
+	if u.Scheme == "https" || u.Scheme == "wss" {
+		return true
+	}
+	host := strings.ToLower(u.Hostname())
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // fill copies list with the computed values set, case-blind. A computed

@@ -35,6 +35,7 @@ Related, elsewhere in the repository:
 | [0012](decisions/0012-cookie-rules-in-profiles.md) | Browser cookie rules as a profile section | Accepted |
 | [0013](decisions/0013-tls-resumption.md) | TLS session resumption as the browser does it | Accepted |
 | [0014](decisions/0014-proxies.md) | Proxies as the browser uses them | Accepted |
+| [0015](decisions/0015-non-secure-origins.md) | Requests to non-secure origins as captured, per kind | Accepted |
 
 New records copy [`decisions/template.md`](decisions/template.md).
 

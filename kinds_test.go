@@ -1,11 +1,15 @@
 package mimicry
 
 import (
+	"context"
 	"errors"
 	"maps"
+	"net"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/roachadam/mimicry/profiles"
@@ -145,5 +149,52 @@ func TestKindsComeFromLastNavigation(t *testing.T) {
 	got := (*seen)[1]
 	if got.Get("Referer") != s.url+"/page?q=1" || got.Get("Sec-Fetch-Site") != "same-origin" || got.Get("Sec-Fetch-Dest") != "empty" {
 		t.Errorf("fetch after navigating to /page?q=1: Referer %q, Sec-Fetch-Site %q, Sec-Fetch-Dest %q", got.Get("Referer"), got.Get("Sec-Fetch-Site"), got.Get("Sec-Fetch-Dest"))
+	}
+}
+
+// A request to a non-secure origin (plain http:// to anything but
+// loopback) takes the browser's non-secure lists: no Sec-Fetch-* and a
+// shorter Accept-Encoding. Loopback hosts are potentially trustworthy, so
+// plain http:// to them stays a secure-origin request.
+func TestNonSecureOriginsAreNotLoopback(t *testing.T) {
+	var seen http.Header
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = r.Header.Clone()
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(srv.Close)
+	_, port, err := net.SplitHostPort(srv.Listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr, err := NewTransport(Config{
+		Profile: profiles.Chrome155MacOS(),
+		// Every host name below is this server.
+		DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext(ctx, network, srv.Listener.Addr().String())
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(tr.CloseIdleConnections)
+	for _, tc := range []struct {
+		host   string
+		secure bool
+	}{
+		{"localhost", true},
+		{"app.localhost", true},
+		{"127.0.0.2", true},
+		{"[::1]", true},
+		{"example.test", false},
+		{"192.168.1.10", false},
+	} {
+		if err := send(t, tr, newRequest(t, "http://"+tc.host+":"+port+"/", nil)); err != nil {
+			t.Fatal(err)
+		}
+		gotSecure := seen.Get("Sec-Fetch-Mode") != "" && strings.Contains(seen.Get("Accept-Encoding"), "br")
+		if gotSecure != tc.secure || (!tc.secure && seen.Get("Sec-Fetch-Dest") != "") {
+			t.Errorf("http://%s: Sec-Fetch-Mode %q, Accept-Encoding %q; want a secure-origin request %v", tc.host, seen.Get("Sec-Fetch-Mode"), seen.Get("Accept-Encoding"), tc.secure)
+		}
 	}
 }

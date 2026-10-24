@@ -75,8 +75,7 @@ the request's own flow), and tunnels that change nothing. Ledger section
   had been given the credentials through its own login dialog (the report
   lists the setups that did not work); Safari 26 copies them.
 - Plain-HTTP requests through a proxy are framed as the browser frames them,
-  but their header set is still an HTTPS request's (non-secure origins are not
-  modelled yet, proxy or not).
+  with the browser's non-secure header set ([0015](0015-non-secure-origins.md)).
 - Chrome's speculative preconnects to the proxy are not made.
 
 ## Revisit when

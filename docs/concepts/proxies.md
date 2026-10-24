@@ -56,7 +56,4 @@ opens the connection to the proxy.
 ## Limits
 
 - `https://` proxies (TLS to the proxy) are not supported.
-- Plain `http://` requests carry an HTTPS request's headers; browsers send
-  non-secure origins fewer (no `Sec-Fetch-*`, smaller `Accept-Encoding`). Not
-  modelled yet, with or without a proxy.
 - Chrome's speculative extra connections to the proxy are not made.

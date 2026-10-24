@@ -40,14 +40,14 @@ func TestKindsMatchBrowserTraces(t *testing.T) {
 			if p.Kinds == nil {
 				t.Skipf("%s describes no request kinds (no kinds capture)", name)
 			}
-			for _, sc := range []*server.Scenario{server.Kinds, server.KindsHTTP1} {
+			for _, sc := range []*server.Scenario{server.Kinds, server.KindsHTTP1, server.KindsPlain} {
 				t.Run(sc.Name, func(t *testing.T) {
 					want, err := capture.LoadPages(captureDir + name + "." + sc.Name + ".pagetrace.json.gz")
 					if err != nil {
 						t.Fatal(err)
 					}
 					got := runKindsPage(t, p, sc)
-					h1 := sc == server.KindsHTTP1
+					h1 := sc != server.Kinds
 					var all []string
 					for _, step := range kindsRequests() {
 						labels := []string{step.label}
@@ -83,10 +83,31 @@ func TestKindsMatchBrowserTraces(t *testing.T) {
 					if !h1 {
 						checkConnections(t, name, got, want, all)
 					}
+					if sc.Plain {
+						// The page itself: a typed navigation to a non-secure
+						// origin, line for line.
+						g := pageNavigation(got)
+						if !slices.ContainsFunc(want, func(w *capture.Page) bool {
+							return slices.Equal(pageNavigation(w), g)
+						}) {
+							t.Errorf("navigation:\n got %q\nwant %q", g, pageNavigation(want[0]))
+						}
+					}
 				})
 			}
 		})
 	}
+}
+
+// pageNavigation is the first HTTP/1.1 GET of a page's own document, its
+// lines with ports replaced.
+func pageNavigation(page *capture.Page) []string {
+	for _, r := range page.H1 {
+		if strings.HasPrefix(r.Line, "GET / ") {
+			return portless(r.Headers)
+		}
+	}
+	return nil
 }
 
 // raceCookie is the kinds page's cookie set during the page itself.
@@ -312,6 +333,7 @@ type pageSession struct {
 	t        *testing.T
 	client   *http.Client
 	port     string
+	scheme   string
 	captures chan *capture.Capture
 }
 
@@ -327,7 +349,11 @@ func startPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *pageSessi
 	}
 	s := &pageSession{
 		t:        t,
+		scheme:   "https",
 		captures: make(chan *capture.Capture, 64),
+	}
+	if sc.Plain {
+		s.scheme = "http"
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	srv := &server.Server{
@@ -376,7 +402,7 @@ func startPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *pageSessi
 }
 
 func (s *pageSession) url(host, path string) string {
-	return "https://" + net.JoinHostPort(host, s.port) + path
+	return s.scheme + "://" + net.JoinHostPort(host, s.port) + path
 }
 
 // send makes one request as r describes, with the page's own headers h and

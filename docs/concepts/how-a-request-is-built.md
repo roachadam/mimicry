@@ -18,8 +18,11 @@ it. See [decision 0005](../decisions/0005-request-kinds-api.md).
 
 1. **Pick the lists.** The navigation's (`headers`, `http1`) or the kind's
    (`kinds.<kind>`); then the variant matching the request's method, its
-   URL's relation to the page, whether it is CORS-checked and whether it
-   follows a redirect ([0006](../decisions/0006-header-order-variants.md)).
+   URL's relation to the page, whether it is CORS-checked, whether it
+   follows a redirect ([0006](../decisions/0006-header-order-variants.md)),
+   and whether its URL is a non-secure origin (plain `http://` to anything
+   but loopback, which takes the browser's non-secure lists:
+   [0015](../decisions/0015-non-secure-origins.md)).
    A list holds names in order, default values, and slots (empty values)
    for headers that depend on the request.
 2. **Compute what the page decides** and fill the slots:

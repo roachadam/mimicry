@@ -62,9 +62,9 @@ Profile accuracy is proven by the harness against real browser captures, not by 
 - `TestHPACKReproducesBrowserBlocks`: re-encoding the browser's traced requests with the profile's `http2.hpack` reproduces every header block byte for byte, in every sample of every scenario and on every connection of every replayed real page. `http2.hpack` cannot be captured; this is what keeps it honest. A failure names the first instruction that differs.
 - `TestConnectionMatchesBrowserTrace`: on one connection, mimicry's first header block and largest upload DATA frame match every sample of the browser's trace, and every WINDOW_UPDATE credit increment it sends lies within the range the browser's own increments span (± one frame). Ranges, not single values, because credit timing varies between a browser's own connections.
 - `TestCookiesMatchBrowserTrace`: cookies set by the server come back from mimicry, through its cookie jar, in the browser's order and HPACK representation.
-- `TestKindsMatchBrowserTraces` and `TestCookiesScenarioMatchesBrowser`: every request of the kinds page, and every probe of the cookies page, made through mimicry from its page: headers, order, values, weights, connections and cookies as the browser sent them.
+- `TestKindsMatchBrowserTraces` and `TestCookiesScenarioMatchesBrowser`: every request of the kinds page (over HTTP/2, HTTP/1.1 and plain HTTP, the last with the page's navigation too), and every probe of the cookies page, made through mimicry from its page: headers, order, values, weights, connections and cookies as the browser sent them.
 - `TestResumptionMatchesBrowser`: on the resume page, mimicry opens and resumes as many connections per host as the browser did, and every resumed ClientHello has no differences from the browser's.
-- `TestProxyMatchesBrowser`: through the capture proxy, mimicry's CONNECT lines, SOCKS5 bytes, credential flow (challenge first, retry on the same connection, unasked from then on) and plain-HTTP framing are the browser's, and the tunnelled ClientHello is the profile's.
+- `TestProxyMatchesBrowser`: through the capture proxy, mimicry's CONNECT lines, SOCKS5 bytes, credential flow (challenge first or every time, retry on the same connection, unasked when the browser does) and forwarded plain-HTTP requests (line for line) are the browser's, and the tunnelled ClientHello is the profile's.
 - `TestHTTP1MatchesBrowserTrace`: over HTTP/1.1, mimicry's two navigations (`/`, then `/nav` with a referer and cookies) are the browser's header lines exactly, casing, order and values, in every sample of the `http1` scenario (authority normalised).
 
 Behaviour that depends on time (Chrome's 5 s credit return, its idle PING) is tested in `internal/h2` with a fake clock against a raw HTTP/2 peer; the captures show it, the unit tests pin it.
@@ -77,7 +77,7 @@ Each profile file is complete and self-contained: no inheritance between version
 
 `profiles/EVIDENCE.md` lists every claim the profiles make, its evidence (wire, fitted to the wire, measured on another request kind, or copied) and the test that keeps it true. A profile change that adds, removes or re-sources a claim updates its row in the same commit.
 
-A profile's `kinds`, `context` and navigation `variants` are generated, never hand-edited: `go run ./cmd/kindsgen -profile ../profiles/data/<name>.json` (in `harness/`) derives them from `<name>.kinds.pagetrace.json.gz` and `<name>.kinds-http1.pagetrace.json.gz`, and refuses captures it cannot reconcile. Rerun it after recapturing kinds; `TestKindsMatchBrowserTraces` checks the result against the same traces.
+A profile's `kinds`, `context` and navigation `variants` are generated, never hand-edited: `go run ./cmd/kindsgen -profile ../profiles/data/<name>.json` (in `harness/`) derives them from `<name>.kinds.pagetrace.json.gz`, `<name>.kinds-http1.pagetrace.json.gz` and `<name>.kinds-plain.pagetrace.json.gz` (non-secure variants), and refuses captures it cannot reconcile. Rerun it after recapturing kinds; `TestKindsMatchBrowserTraces` checks the result against the same traces.
 
 ## Documentation
 

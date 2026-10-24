@@ -89,9 +89,16 @@ type Variant struct {
 	// set.
 	CORSChecked bool `json:"cors_checked,omitempty"`
 	// Redirected is a request made by following a redirect.
-	Redirected bool     `json:"redirected,omitempty"`
-	Headers    []Header `json:"headers"`
-	HTTP1      []Header `json:"http1,omitempty"`
+	Redirected bool `json:"redirected,omitempty"`
+	// Insecure is a request to a URL that is not potentially trustworthy
+	// (plain http:// to anything but loopback): browsers send no
+	// Sec-Fetch-* or client hints and fewer encodings, over HTTP/1.1 only,
+	// so such a variant has HTTP1 and no Headers. A non-secure request with
+	// no variant for its exact condition takes the kind's non-secure one
+	// (Insecure alone); a kind with none is not measured for it.
+	Insecure bool     `json:"insecure,omitempty"`
+	Headers  []Header `json:"headers,omitempty"`
+	HTTP1    []Header `json:"http1,omitempty"`
 }
 
 // Site relations of a request to its page, as sec-fetch-site names them.
@@ -166,13 +173,22 @@ func (c *checker) checkKinds(kinds map[string]*Kind) {
 // condition and none repeats the default one.
 func (c *checker) checkVariants(path string, vs []Variant, others bool) {
 	type condition struct {
-		method, site     string
-		cors, redirected bool
+		method, site               string
+		cors, redirected, insecure bool
 	}
 	seen := map[condition]bool{}
 	for i, v := range vs {
 		at := fmt.Sprintf("%s[%d]", path, i)
-		c.checkHeaderList(at+".headers", v.Headers, others)
+		if v.Insecure {
+			if len(v.Headers) > 0 {
+				c.add(at+".headers", "must be empty: browsers send non-secure requests over HTTP/1.1 only")
+			}
+			if len(v.HTTP1) == 0 {
+				c.add(at+".http1", "is required for a non-secure variant")
+			}
+		} else {
+			c.checkHeaderList(at+".headers", v.Headers, others)
+		}
 		if len(v.HTTP1) > 0 {
 			c.checkHTTP1Headers(at+".http1", v.HTTP1, others)
 		}
@@ -187,6 +203,7 @@ func (c *checker) checkVariants(path string, vs []Variant, others bool) {
 			site:       v.Site,
 			cors:       v.CORSChecked,
 			redirected: v.Redirected,
+			insecure:   v.Insecure,
 		}
 		switch {
 		case cond == condition{}:

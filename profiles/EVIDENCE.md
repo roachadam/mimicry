@@ -114,9 +114,10 @@ them).
 
 ## Request kinds
 
-Derived from the `kinds` and `kinds-http1` captures by `harness/cmd/kindsgen`
-(it refuses captures that disagree), for every profile; Safari 26's equal
-Safari 27's apart from its user agent and `accept-encoding`.
+Derived from the `kinds`, `kinds-http1` and `kinds-plain` captures by
+`harness/cmd/kindsgen` (it refuses captures that disagree), for every
+profile; Safari 26's equal Safari 27's apart from its user agent and
+`accept-encoding`.
 All rows checked by `TestKindsMatchBrowserTraces`: every request of the kinds
 page, made through mimicry as its kind from the page, equals the browser's
 (names, order, values, HTTP/2 weight; over HTTP/1.1 line for line), cookies
@@ -132,6 +133,7 @@ that differs only by that cookie, and logs it.
 |---|---|---|
 | `kinds.*.headers`, `http1`: names, order, values per kind | W | `font` is the CSS `@font-face` load: Firefox's sends `accept-encoding: identity`, unlike its `FontFace` loads |
 | `kinds.*.variants`: order by method, site relation, CORS check, redirect | W | Safari has many (a CORS-checked request starts `sec-fetch-site, accept, origin`; a cross-site beacon differs from a same-site one; its redirected fetches drop `sec-fetch-*`, `accept-language` and `priority`). Every browser orders a redirect's request its own way. Firefox also for cross-origin fetches and preload fonts. A combination not captured falls back to the kind's default order |
+| `insecure` variants (kinds and navigation): requests to a non-secure origin, HTTP/1.1 lists as sent | W (`kinds-plain`, every profile incl. Safari 26; [report](../harness/reports/plain-http-2026-10-24.md)) | No `Sec-Fetch-*` (Chrome: no client hints either), `Accept-Encoding: gzip, deflate`, Chrome's `Origin` after `User-Agent`, Safari's reorders and `Upgrade-Insecure-Requests` on frames. A combination not captured takes the kind's non-secure default, never the secure lists. Loopback hosts count as secure (Secure Contexts specification, not captured). Also `TestNonSecureOriginsAreNotLoopback` |
 | `kinds.*.weight` | W | Chrome and Firefox; Safari sends no priority |
 | `kinds.fetch.high`, `.low`; `kinds.injected_image.high` | W | Other kinds' fetchpriority is not measured: asking for it is an error |
 | `*` (where page-set headers go) | W (`fetch-custom`) | |
@@ -180,8 +182,8 @@ mid-load re-prioritisation of a script and chained dependencies between
 concurrent subresources (not compared); `FontFace` loads; `crossorigin`
 stylesheets; ECH payloads; HTTP/3; the TCP/IP fingerprint; Chrome's
 speculative preconnects to a proxy; `https://` proxies; Safari's HTTPS
-upgrade attempt before a plain-HTTP request; non-secure origins' header sets
-(no `Sec-Fetch-*`, smaller `Accept-Encoding`), proxied or not.
+upgrade attempt (TLS on the same port) before a plain-HTTP request, and
+Chrome's HTTPS-Upgrades on port 80.
 
 ## Keeping it true
 

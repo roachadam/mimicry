@@ -1,6 +1,6 @@
 // Command kindsgen derives a profile's request kinds and context rules from
-// its browser's kinds captures (the kinds and kinds-http1 scenarios), and
-// writes them into the profile:
+// its browser's kinds captures (the kinds, kinds-http1 and kinds-plain
+// scenarios), and writes them into the profile:
 //
 //	go run ./cmd/kindsgen -captures testdata/captures -profile ../profiles/data/chrome-155-macos.json
 //
@@ -9,8 +9,9 @@
 // attribute, keep their place); default values and the HTTP/2 weight come
 // from the kind's own requests, a header sent by all of them with one value
 // becoming a default and any other a slot. The navigation's lists gain the
-// slots of the captured form POST. It refuses to write when the captures
-// disagree (two orders that cannot be merged, weights that differ).
+// slots of the captured form POST. Requests over plain HTTP (kinds-plain)
+// become non-secure variants, exactly as sent. It refuses to write when the
+// captures disagree (two orders that cannot be merged, weights that differ).
 package main
 
 import (
@@ -57,7 +58,11 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	reqs := collect(h2, h1)
+	plain, err := capture.LoadPages(filepath.Join(*captures, p.Name+".kinds-plain.pagetrace.json.gz"))
+	if err != nil {
+		return err
+	}
+	reqs := collect(h2, h1, plain)
 	if err := derive(p, reqs); err != nil {
 		return err
 	}
@@ -78,6 +83,9 @@ type request struct {
 	label, base string
 	method      string
 	hop         bool // the request after a redirect
+	// plain is a request over plain HTTP (kinds-plain): HTTP/1.1 only,
+	// and to a non-secure origin.
+	plain bool
 	// h2 are its HTTP/2 header fields in order (cookie crumbs as one
 	// cookie), h1 its HTTP/1.1 lines; weight its HEADERS priority weight;
 	// conn its connection (trace index).
@@ -88,9 +96,10 @@ type request struct {
 	sample int
 }
 
-// collect gathers the kinds page's requests from every sample of both
-// captures.
-func collect(h2Pages, h1Pages []*capture.Page) []*request {
+// collect gathers the kinds page's requests from every sample of the
+// captures. Plain-HTTP requests include the page's own navigation, as
+// label "page".
+func collect(h2Pages, h1Pages, plainPages []*capture.Page) []*request {
 	var out []*request
 	byKey := map[string]*request{}
 	key := func(sample int, label, method string) string {
@@ -156,6 +165,35 @@ func collect(h2Pages, h1Pages []*capture.Page) []*request {
 			}
 		}
 	}
+	for si, page := range plainPages {
+		for _, r := range page.H1 {
+			method, rest, _ := strings.Cut(r.Line, " ")
+			target, _, _ := strings.Cut(rest, " ")
+			target, _, _ = strings.Cut(target, "?")
+			label, ok := strings.CutPrefix(target, "/k/")
+			switch {
+			case target == "/":
+				label = "page"
+			case !ok:
+				continue
+			}
+			q := &request{
+				method: method,
+				sample: si,
+				plain:  true,
+			}
+			for _, l := range r.Headers {
+				name, value, _ := strings.Cut(l, ":")
+				q.h1 = append(q.h1, profile.Header{
+					Name:  name,
+					Value: strings.TrimSpace(value),
+				})
+			}
+			q.label, q.hop = strings.CutSuffix(label, ".hop")
+			q.base, _, _ = strings.Cut(q.label, ".")
+			out = append(out, q)
+		}
+	}
 	return out
 }
 
@@ -201,10 +239,11 @@ var (
 )
 
 func derive(p *profile.Profile, reqs []*request) error {
-	pick := func(bases []string) []*request {
+	// pick takes the kinds' requests over TLS (plain false) or plain HTTP.
+	pick := func(bases []string, plain bool) []*request {
 		var out []*request
 		for _, r := range reqs {
-			if r.method != "OPTIONS" && slices.Contains(bases, r.base) {
+			if r.method != "OPTIONS" && r.plain == plain && slices.Contains(bases, r.base) {
 				out = append(out, r)
 			}
 		}
@@ -213,7 +252,7 @@ func derive(p *profile.Profile, reqs []*request) error {
 	p.Kinds = map[string]*profile.Kind{}
 	var errs []error
 	for _, src := range kindSources {
-		own, all := pick(src.own), pick(src.all)
+		own := pick(src.own, false)
 		if len(own) == 0 {
 			errs = append(errs, fmt.Errorf("%s: no captured requests", src.kind))
 			continue
@@ -229,7 +268,10 @@ func derive(p *profile.Profile, reqs []*request) error {
 			}
 		}
 		var err error
-		k.Headers, k.HTTP1, k.Variants, err = orders(own, all, nil, values)
+		k.Headers, k.HTTP1, k.Variants, err = orders(
+			slices.Concat(own, pick(src.own, true)),
+			slices.Concat(pick(src.all, false), pick(src.all, true)),
+			nil, values)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", src.kind, err))
 		}
@@ -240,7 +282,7 @@ func derive(p *profile.Profile, reqs []*request) error {
 			if base == "" {
 				continue
 			}
-			u, err := urgencyOf(pick([]string{base}))
+			u, err := urgencyOf(pick([]string{base}, false))
 			if err != nil {
 				errs = append(errs, fmt.Errorf("%s %s: %w", src.kind, base, err))
 			}
@@ -248,12 +290,15 @@ func derive(p *profile.Profile, reqs []*request) error {
 		}
 		p.Kinds[src.kind] = k
 	}
-	ctx, err := contextOf(reqs)
+	ctx, err := contextOf(slices.DeleteFunc(slices.Clone(reqs), func(r *request) bool {
+		return r.plain
+	}))
 	if err != nil {
 		errs = append(errs, err)
 	}
 	p.Context = ctx
-	if err := navigationVariants(p, pick([]string{"form-post"})); err != nil {
+	navs := slices.Concat(pick([]string{"form-post"}, false), pick([]string{"form-post", "page"}, true))
+	if err := navigationVariants(p, navs); err != nil {
 		errs = append(errs, err)
 	}
 	return errors.Join(errs...)
@@ -265,13 +310,19 @@ type condition struct {
 	site       string // profile.Site*
 	cors       bool
 	redirected bool
+	insecure   bool
 }
 
 func (r *request) condition() condition {
+	headers := r.h2
+	if r.plain {
+		headers = r.h1
+	}
 	c := condition{
-		cors: slices.ContainsFunc(r.h2, func(h profile.Header) bool {
-			return h.Name == "origin" || h.Name == customHeader
+		cors: slices.ContainsFunc(headers, func(h profile.Header) bool {
+			return strings.EqualFold(h.Name, "origin") || strings.EqualFold(h.Name, customHeader)
 		}),
+		insecure: r.plain,
 	}
 	if r.method != "GET" {
 		c.method = r.method
@@ -333,7 +384,7 @@ func orders(own, all []*request, seed *orderPair, values func(h1 bool) func(stri
 	def := condition{}
 	if groups[def] == nil {
 		for _, c := range conds {
-			if len(mine[c]) > len(mine[def]) {
+			if !c.insecure && len(mine[c]) > len(mine[def]) {
 				def = c
 			}
 		}
@@ -386,13 +437,18 @@ func orders(own, all []*request, seed *orderPair, values func(h1 bool) func(stri
 			errs = append(errs, err)
 			continue
 		}
-		if seed != nil {
+		switch {
+		case c.insecure:
+			// A non-secure request's lists are exactly what the browser
+			// sent: without the headers it sends only to secure origins,
+			// with values of their own (Accept-Encoding). Always a variant.
+		case seed != nil:
 			// The seed stays as measured: any group that differs from it
 			// is a variant, with the headers only it sends.
 			if slices.Equal(base.h2, o.h2) && slices.Equal(base.h1, o.h1) {
 				continue
 			}
-		} else if !c.redirected {
+		case !c.redirected:
 			// A redirect's order is never folded: its lists may rightly
 			// lack headers the kind sends otherwise (Safari's hops).
 			h2, ok2 := fold(slices.Clone(base.h2), o.h2)
@@ -406,14 +462,27 @@ func orders(own, all []*request, seed *orderPair, values func(h1 bool) func(stri
 		others[c] = o
 	}
 	for _, c := range conflicting {
-		variants = append(variants, profile.Variant{
+		v := profile.Variant{
 			Method:      c.method,
 			Site:        c.site,
 			CORSChecked: c.cors,
 			Redirected:  c.redirected,
+			Insecure:    c.insecure,
 			Headers:     fill(others[c].h2, values(false)),
 			HTTP1:       fill(others[c].h1, values(true)),
-		})
+		}
+		if c.insecure {
+			// Values from the plain requests themselves: the kind's own
+			// where captured, else its type-mates'.
+			from := mine[c]
+			if len(from) == 0 {
+				from = groups[c]
+			}
+			v.HTTP1 = fill(others[c].h1, func(name string) string {
+				return commonValue(from, (*request).h1Of, name)
+			})
+		}
+		variants = append(variants, v)
 	}
 	return fill(base.h2, values(false)), fill(base.h1, values(true)), variants, errors.Join(errs...)
 }
@@ -602,8 +671,12 @@ func contextOf(reqs []*request) (*profile.Context, error) {
 
 // navigationVariants sets the navigation's variants from the captured form
 // POSTs: their orders, with the navigation's values, and the POSTs' own for
-// headers only they send.
-func navigationVariants(p *profile.Profile, posts []*request) error {
+// headers only they send. navs may hold plain-HTTP navigations too (the
+// page and its form POST), which become non-secure variants.
+func navigationVariants(p *profile.Profile, navs []*request) error {
+	posts := slices.DeleteFunc(slices.Clone(navs), func(r *request) bool {
+		return r.plain
+	})
 	if len(posts) == 0 {
 		return errors.New("navigation: no captured form POST")
 	}
@@ -630,7 +703,7 @@ func navigationVariants(p *profile.Profile, posts []*request) error {
 	if p.HTTP1 != nil {
 		seed.h1 = names(p.HTTP1.Headers)
 	}
-	_, _, variants, err := orders(nil, posts, seed, values)
+	_, _, variants, err := orders(nil, navs, seed, values)
 	if err != nil {
 		return fmt.Errorf("navigation: %w", err)
 	}

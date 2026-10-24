@@ -102,8 +102,8 @@ func TestProxyMatchesBrowser(t *testing.T) {
 				s := startProxied(t, p, scenario(t, "proxy-plain"), nil)
 				s.get("http", server.CaptureHost, "/")
 				got := s.h1()
-				if g, w := forwardFraming(got[0]), forwardFraming(want[0][0]); g != w {
-					t.Errorf("forwarded request:\n got %s\nwant %s", g, w)
+				if g, w := forwarded(got[0]), forwarded(want[0][0]); !slices.Equal(g, w) {
+					t.Errorf("forwarded request:\n got %q\nwant %q", g, w)
 				}
 			})
 			t.Run("plain-auth", func(t *testing.T) {
@@ -441,20 +441,10 @@ func connectFlow(sample []capture.ProxyRequest) []string {
 	return out
 }
 
-// forwardFraming describes how a request was sent to a proxy whole: its
-// request line, and which connection header it carries. Where that header
-// sits depends on the rest of the header set, a non-secure origin's, which
-// is not compared here.
-func forwardFraming(r capture.H1Request) string {
-	line := testPort.ReplaceAllString(r.Line, ".test:PORT")
-	var conn []string
-	for _, h := range r.Headers {
-		name, _, _ := strings.Cut(h, ":")
-		if strings.EqualFold(name, "connection") || strings.EqualFold(name, "proxy-connection") {
-			conn = append(conn, h)
-		}
-	}
-	return fmt.Sprintf("%q, %q", line, conn)
+// forwarded is how a request was sent to a proxy whole: its request line
+// and header lines, ports replaced.
+func forwarded(r capture.H1Request) []string {
+	return portless(append([]string{r.Line}, r.Headers...))
 }
 
 // forwardAuthFlow describes forwarded requests as (connection, credentials),

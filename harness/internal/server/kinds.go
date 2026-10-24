@@ -193,8 +193,30 @@ var KindsHTTP1 = &Scenario{
 	},
 }
 
+// KindsPlain is the kinds page over plain HTTP: what each kind sends to a
+// non-secure origin.
+var KindsPlain = &Scenario{
+	Name:  "kinds-plain",
+	Doc:   "the kinds page over plain HTTP (no TLS): each kind's headers to a non-secure origin",
+	Plain: true,
+	multi: kindsPage{
+		http1: true,
+		plain: true,
+	},
+}
+
 type kindsPage struct {
 	http1 bool
+	// plain serves the page and every host over http://.
+	plain bool
+}
+
+// scheme is how the page's URLs start.
+func (p kindsPage) scheme() string {
+	if p.plain {
+		return "http://"
+	}
+	return "https://"
 }
 
 func (kindsPage) hosts() []string {
@@ -231,7 +253,7 @@ func (p kindsPage) answer(req request) response {
 		host, port = req.host, "443"
 	}
 	origin := func(h string) string {
-		return "https://" + net.JoinHostPort(h, port)
+		return p.scheme() + net.JoinHostPort(h, port)
 	}
 	var cors []hpack.HeaderField
 	if req.origin != "" {
@@ -382,9 +404,9 @@ func setCookieName(setCookie string) string {
 
 // document is the kinds page: it runs the steps one after another (5 s at
 // most each), then submits a form, a POST navigation to the landing page.
-func (kindsPage) document(port string) []byte {
+func (p kindsPage) document(port string) []byte {
 	url := func(s KindsStep) string {
-		return "https://" + net.JoinHostPort(s.Host, port) + "/k/" + s.Label
+		return p.scheme() + net.JoinHostPort(s.Host, port) + "/k/" + s.Label
 	}
 	var markup strings.Builder
 	for _, s := range KindsMarkup() {
@@ -399,7 +421,7 @@ func (kindsPage) document(port string) []byte {
 	stepsJSON, _ := json.Marshal(steps) //nolint:gosec // Credentials is fetch()'s credentials mode, not a secret
 	script := strings.NewReplacer(
 		"__STEPS__", string(stepsJSON),
-		"__FORM__", strconv.Quote("https://"+net.JoinHostPort(kindsHost, port)+"/k/"+kindsFormLabel),
+		"__FORM__", strconv.Quote(p.scheme()+net.JoinHostPort(kindsHost, port)+"/k/"+kindsFormLabel),
 	).Replace(kindsScript)
 	head, body, _ := strings.Cut(markup.String(), "<img")
 	return []byte("<!doctype html>\n<html><head><meta charset=\"utf-8\"><title>mimicry kinds</title><link rel=\"icon\" href=\"data:,\">\n" +
