@@ -215,12 +215,7 @@ func New(conn net.Conn, p *profile.Profile, clock clockwork.Clock) (*Conn, error
 	tableSize := uint32(defaultTableSize)
 	readFrameSize := uint32(defaultFrameSize)
 	headerListSize := uint32(defaultHeaderListSize)
-	settings := make([]http2.Setting, len(h2.Settings))
-	for i, s := range h2.Settings {
-		settings[i] = http2.Setting{
-			ID:  http2.SettingID(s.ID),
-			Val: s.Value,
-		}
+	for _, s := range h2.Settings {
 		switch http2.SettingID(s.ID) {
 		case http2.SettingInitialWindowSize:
 			c.recvStreamWindow = s.Value
@@ -246,25 +241,75 @@ func New(conn net.Conn, p *profile.Profile, clock clockwork.Clock) (*Conn, error
 	c.fr.ReadMetaHeaders = xhpack.NewDecoder(tableSize, nil)
 	c.fr.MaxHeaderListSize = headerListSize
 
-	if _, err := io.WriteString(conn, http2.ClientPreface); err != nil {
+	if err := writePreface(conn, c.fr, h2); err != nil {
 		return nil, err
-	}
-	if err := c.fr.WriteSettings(settings...); err != nil {
-		return nil, err
-	}
-	if h2.WindowUpdate > 0 {
-		if err := c.fr.WriteWindowUpdate(0, h2.WindowUpdate); err != nil {
-			return nil, err
-		}
-	}
-	for _, p := range h2.Priorities {
-		if err := c.fr.WritePriority(p.StreamID, priorityParam(p.PriorityParam)); err != nil {
-			return nil, err
-		}
 	}
 	go c.readLoop()
 	return c, nil
 }
+
+// writePreface writes the client preface and the profile's SETTINGS,
+// connection WINDOW_UPDATE and PRIORITY frames, in that order.
+func writePreface(conn net.Conn, fr *http2.Framer, h2 *profile.HTTP2) error {
+	if _, err := io.WriteString(conn, http2.ClientPreface); err != nil {
+		return err
+	}
+	settings := make([]http2.Setting, len(h2.Settings))
+	for i, s := range h2.Settings {
+		settings[i] = http2.Setting{
+			ID:  http2.SettingID(s.ID),
+			Val: s.Value,
+		}
+	}
+	if err := fr.WriteSettings(settings...); err != nil {
+		return err
+	}
+	if h2.WindowUpdate > 0 {
+		if err := fr.WriteWindowUpdate(0, h2.WindowUpdate); err != nil {
+			return err
+		}
+	}
+	for _, p := range h2.Priorities {
+		if err := fr.WritePriority(p.StreamID, priorityParam(p.PriorityParam)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Decline opens an HTTP/2 connection on conn, which must have negotiated
+// "h2", only to close it: it sends what New sends, then GOAWAY (NO_ERROR,
+// no streams), and closes conn without acknowledging the server's
+// SETTINGS. Firefox does this to a connection it no longer needs once its
+// handshake is done, because another one serves the host
+// (profile.CoalesceOnConnect). conn is closed on errors too.
+//
+// The close waits, in the background, until what the server sent has been
+// read (at most declineLinger): closing with unread data resets the
+// connection, and a reset can overtake the frames above, which the server
+// then never sees. Every Firefox sample shows them all arriving; how
+// Firefox's own close looks on TCP is not captured.
+func Decline(conn net.Conn, p *profile.Profile) error {
+	fr := http2.NewFramer(conn, conn)
+	err := writePreface(conn, fr, p.HTTP2)
+	if err == nil {
+		err = fr.WriteGoAway(0, http2.ErrCodeNo, nil)
+	}
+	if err != nil {
+		_ = conn.Close()
+		return err
+	}
+	go func() {
+		_ = conn.SetReadDeadline(time.Now().Add(declineLinger))
+		_, _ = io.Copy(io.Discard, conn)
+		_ = conn.Close()
+	}()
+	return nil
+}
+
+// declineLinger bounds how long a declined connection reads before it
+// closes.
+const declineLinger = time.Second
 
 func priorityParam(p profile.PriorityParam) http2.PriorityParam {
 	return http2.PriorityParam{
@@ -432,11 +477,12 @@ func (c *Conn) head(req *http.Request, length int64) (requestHead, error) {
 	head := requestHead{
 		endStream: length == 0,
 	}
+	var table *profile.HeaderTable
 	if plan != nil {
-		list = plan.Headers
+		list, table = plan.Headers, plan.Table
 		head.weight = plan.Weight
 	}
-	ordered := headerorder.Build(list, h, skipHeader)
+	ordered := headerorder.Build(list, h, skipHeader, table)
 	head.fields = make([]hpack.Field, 0, len(c.h2.PseudoHeaderOrder)+len(ordered))
 	for _, name := range c.h2.PseudoHeaderOrder {
 		head.fields = append(head.fields, hpack.Field{

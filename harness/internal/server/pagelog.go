@@ -15,11 +15,12 @@ type pageLog struct {
 	requests []capture.H1Request
 	h2       []*h2conn
 	// connections are every connection's host, protocol, resumption and
-	// parsed ClientHello; firstHello is the first one's raw ClientHello: on
-	// a fresh server it cannot resume a session, so it is the browser's
-	// full handshake.
-	connections []capture.Connection
-	firstHello  []byte
+	// parsed ClientHello; firstHello and firstRecords are the first one's
+	// raw ClientHello and the records that carried it: on a fresh server it
+	// cannot resume a session, so it is the browser's full handshake.
+	connections  []capture.Connection
+	firstHello   []byte
+	firstRecords []byte
 	// index finds a connection's entry in connections by its capture.
 	index map[*capture.Capture]int
 }
@@ -40,6 +41,7 @@ func (l *pageLog) connection(c *capture.Capture, host string, accepted bool) {
 		PSKIdentity:   o.pskIdentity,
 		Ticket:        o.ticket,
 		Hello:         &hello,
+		RecordVersion: c.RecordVersion(),
 	})
 	if l.index == nil {
 		l.index = map[*capture.Capture]int{}
@@ -47,6 +49,7 @@ func (l *pageLog) connection(c *capture.Capture, host string, accepted bool) {
 	l.index[c] = len(l.connections) - 1
 	if len(l.connections) == 1 {
 		l.firstHello = c.ClientHello
+		l.firstRecords = c.Records
 	}
 }
 
@@ -110,6 +113,7 @@ func (l *pageLog) pageProfile(c *capture.Capture) {
 	l.mu.Lock()
 	if len(l.connections) > 0 {
 		c.ClientHello = l.firstHello
+		c.Records = l.firstRecords
 		c.Profile.TLS = *l.connections[0].Hello
 	}
 	l.mu.Unlock()

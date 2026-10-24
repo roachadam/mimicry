@@ -59,6 +59,9 @@ type Connection struct {
 	Requests int `json:"requests,omitempty"`
 	// Hello is the connection's ClientHello.
 	Hello *profile.TLS `json:"hello,omitempty"`
+	// RecordVersion is the record-layer version of the records that
+	// carried it; zero in captures made before it was kept.
+	RecordVersion uint16 `json:"record_version,omitempty"`
 }
 
 // LoadPages reads a replayed page capture written by Write

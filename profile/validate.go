@@ -100,6 +100,8 @@ func (p *Profile) Validate() error {
 	if p.Proxy != nil {
 		c.checkProxy(p.Proxy, p.Headers)
 	}
+	c.checkRedirects(p.Redirects)
+	c.checkConnections(p.Connections)
 	return c.err()
 }
 
@@ -112,8 +114,40 @@ func (t *TLS) extension(typ Code) *Extension {
 	return nil
 }
 
-// tls13 is TLS 1.3's supported_versions value.
-const tls13 Code = 0x0304
+// tls13 is TLS 1.3's supported_versions value; tls12 is the legacy_version
+// a TLS 1.3 ClientHello carries.
+const (
+	tls13 Code = 0x0304
+	tls12 Code = 0x0303
+	// recordVersion is the record-layer version uTLS sends the first
+	// ClientHello in.
+	recordVersion Code = 0x0301
+)
+
+// sessionIDLength is the length of the session ID uTLS sends.
+const sessionIDLength = 32
+
+// keyLengths are the key share lengths of the groups uTLS generates keys
+// for (RFC 8446, section 4.2.8.2; draft-ietf-tls-ecdhe-mlkem).
+var keyLengths = map[Code]uint16{
+	0x0017: 65,   // secp256r1, uncompressed
+	0x0018: 97,   // secp384r1
+	0x0019: 133,  // secp521r1
+	0x001d: 32,   // x25519
+	0x0202: 1568, // MLKEM1024
+	0x11ec: 1216, // X25519MLKEM768
+	0x6399: 1216, // X25519Kyber768Draft00
+}
+
+// HPKE identifiers uTLS can name in a GREASE ECH extension (RFC 9180,
+// section 7), and the tag length of every one of those AEADs.
+const (
+	hpkeMaxKDF  = 0x0003 // HKDF-SHA256, -SHA384, -SHA512
+	hpkeMaxAEAD = 0x0003 // AES-128-GCM, AES-256-GCM, ChaCha20Poly1305
+	hpkeTagLen  = 16
+	// echEncLength is the length of the X25519 key uTLS encapsulates.
+	echEncLength = 32
+)
 
 // greaseBodies are the bodies uTLS gives the first and second GREASE
 // extensions, as BoringSSL does; it fills in no more than two.
@@ -149,6 +183,15 @@ var keptOnResumption = []Code{
 }
 
 func (c *checker) checkTLS(t *TLS) {
+	c.checkHelloRecord(t)
+	// uTLS caps legacy_version at TLS 1.2 and always sends a 32-byte
+	// session ID; both are what a TLS 1.3 ClientHello carries.
+	if t.LegacyVersion != tls12 {
+		c.add("tls.legacy_version", "must be %s, the one the handshake sends, not %s", tls12, t.LegacyVersion)
+	}
+	if t.SessionIDLength != sessionIDLength {
+		c.add("tls.session_id_length", "must be %d, the length the handshake sends, not %d", sessionIDLength, t.SessionIDLength)
+	}
 	if len(t.CipherSuites) == 0 {
 		c.add("tls.cipher_suites", "is required")
 	}
@@ -238,14 +281,16 @@ func (c *checker) checkExtension(path string, e *Extension) {
 		if len(set) > 0 {
 			c.add(path, "extension %s is generated per connection; remove %s", e.Type, strings.Join(set, ", "))
 		}
-	case typedField[e.Type] != "":
-		want := typedField[e.Type]
-		if !slices.Contains(set, want) {
-			c.add(path, "extension %s needs %s", e.Type, want)
+	case typedFields[e.Type] != nil:
+		want := typedFields[e.Type]
+		for _, f := range want {
+			if !slices.Contains(set, f) {
+				c.add(path, "extension %s needs %s", e.Type, f)
+			}
 		}
 		for _, f := range set {
-			if f != want {
-				c.add(path, "extension %s takes %s, not %s", e.Type, want, f)
+			if !slices.Contains(want, f) {
+				c.add(path, "extension %s takes %s, not %s", e.Type, strings.Join(want, " and "), f)
 			}
 		}
 	default:
@@ -260,6 +305,98 @@ func (c *checker) checkExtension(path string, e *Extension) {
 	}
 	// RFC 8446, section 4.2.8: no two key shares for the same group.
 	c.checkUnique(path+".key_shares", e.KeyShares)
+	if e.Type == ExtKeyShare && len(e.KeyShareLengths) > 0 {
+		c.checkKeyShareLengths(path, e)
+	}
+	if e.ECH != nil {
+		c.checkECH(path+".ech", e.ECH)
+	}
+}
+
+// checkKeyShareLengths checks that every key share has a length the
+// handshake can send: its group's, or at least a byte for GREASE.
+func (c *checker) checkKeyShareLengths(path string, e *Extension) {
+	if len(e.KeyShareLengths) != len(e.KeyShares) {
+		c.add(path+".key_share_lengths", "has %d lengths for %d key shares", len(e.KeyShareLengths), len(e.KeyShares))
+		return
+	}
+	for i, g := range e.KeyShares {
+		n := e.KeyShareLengths[i]
+		p := fmt.Sprintf("%s.key_share_lengths[%d]", path, i)
+		want, known := keyLengths[g]
+		switch {
+		case g == GREASE:
+			if n == 0 {
+				c.add(p, "a GREASE key share needs at least one byte")
+			}
+		case !known:
+			c.add(p, "the handshake cannot generate a key for group %s", g)
+		case n != want:
+			c.add(p, "group %s's key is %d bytes, not %d", g, want, n)
+		}
+	}
+}
+
+// checkECH checks a GREASE ECH shape against what uTLS can send.
+func (c *checker) checkECH(path string, ech *ECH) {
+	if len(ech.CipherSuites) == 0 {
+		c.add(path+".cipher_suites", "is required")
+	}
+	for i, s := range ech.CipherSuites {
+		p := fmt.Sprintf("%s.cipher_suites[%d]", path, i)
+		if s.KDF == 0 || s.KDF > hpkeMaxKDF {
+			c.add(p, "KDF %s is not an HPKE KDF the handshake can name", s.KDF)
+		}
+		if s.AEAD == 0 || s.AEAD > hpkeMaxAEAD {
+			c.add(p, "AEAD %s is not an HPKE AEAD the handshake can name", s.AEAD)
+		}
+		if i > 0 && ech.CipherSuites[i-1].Compare(s) >= 0 {
+			c.add(p, "cipher suites must be sorted and unique")
+		}
+	}
+	if ech.EncLength != echEncLength {
+		c.add(path+".enc_length", "must be %d, the X25519 key the handshake encapsulates, not %d", echEncLength, ech.EncLength)
+	}
+	if len(ech.PayloadLengths) == 0 {
+		c.add(path+".payload_lengths", "is required")
+	}
+	c.checkPayloadLengths(path+".payload_lengths", ech.PayloadLengths)
+}
+
+// checkPayloadLengths checks a set of GREASE ECH payload lengths: each longer
+// than the AEAD tag, sorted and unique.
+func (c *checker) checkPayloadLengths(path string, lengths []uint16) {
+	for i, n := range lengths {
+		p := fmt.Sprintf("%s[%d]", path, i)
+		if n <= hpkeTagLen {
+			c.add(p, "%d is no longer than the %d-byte AEAD tag", n, hpkeTagLen)
+		}
+		if i > 0 && lengths[i-1] >= n {
+			c.add(p, "payload lengths must be sorted and unique")
+		}
+	}
+}
+
+// checkHelloRecord checks the record version the ClientHello travels in
+// and the GREASE ECH payload lengths of a resumed ClientHello.
+func (c *checker) checkHelloRecord(t *TLS) {
+	// uTLS (as Go's crypto/tls) sends the first ClientHello in TLS 1.0
+	// records.
+	if t.RecordVersion != recordVersion {
+		c.add("tls.record_version", "must be %s, the one the handshake sends, not %s", recordVersion, t.RecordVersion)
+	}
+	r := t.Resumption
+	if r == nil {
+		return
+	}
+	ech := t.extension(ExtEncryptedClientHello)
+	if ech != nil && len(r.ECHPayloadLengths) == 0 {
+		c.add("tls.resumption.ech_payload_lengths", "is required with encrypted_client_hello")
+	}
+	if ech == nil && len(r.ECHPayloadLengths) > 0 {
+		c.add("tls.resumption.ech_payload_lengths", "needs encrypted_client_hello in the ClientHello")
+	}
+	c.checkPayloadLengths("tls.resumption.ech_payload_lengths", r.ECHPayloadLengths)
 }
 
 // checkUnique reports repeated values.

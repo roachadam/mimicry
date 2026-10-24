@@ -54,6 +54,15 @@ type Config struct {
 	// everything above stay the profile's. Through a proxy it reaches the
 	// proxy. Nil uses net.Dialer.
 	DialContext func(ctx context.Context, network, addr string) (net.Conn, error)
+	// Resolver looks host names up: for connections when DialContext is
+	// nil, and, for a profile that coalesces on lookup (Chrome, Safari),
+	// to find whether another host's HTTP/2 connection reaches an address
+	// the request's host resolves to, which the request then takes, as the
+	// browser does, if that connection's certificate covers the host. A
+	// failed lookup only means a new connection. Nil uses
+	// net.DefaultResolver. Set it with DialContext when DialContext maps
+	// hosts to addresses DNS does not give.
+	Resolver *net.Resolver
 	// Proxy returns the proxy for a request, as http.Transport's does
 	// (http.ProxyURL, http.ProxyFromEnvironment); nil, or a nil URL,
 	// connects directly. An "http" proxy tunnels https requests with
@@ -145,6 +154,7 @@ func NewTransport(cfg Config) (*Transport, error) {
 			RootCAs:     cfg.RootCAs,
 			DialTimeout: cfg.DialTimeout,
 			DialContext: cfg.DialContext,
+			Resolver:    cfg.Resolver,
 			Proxy:       cfg.Proxy,
 		})
 		if err != nil {
@@ -163,7 +173,11 @@ func NewTransport(cfg Config) (*Transport, error) {
 // NewClient returns an *http.Client using a new Transport and, unless
 // cfg.Cookies holds one, a new cookie jar with the profile's cookie rules.
 // The jar is the transport's, not the client's Jar: it needs what an
-// http.CookieJar never sees (the page, the request kind, redirects).
+// http.CookieJar never sees (the page, the request kind, redirects). The
+// client follows redirects as far as the browser does: the Transport
+// stops a chain after 20, not http.Client's default 10. A CheckRedirect of
+// your own still applies, with the hops as http.Client built them (a PUT
+// answered 301 shows as the GET the Transport sends as a PUT).
 func NewClient(cfg Config) (*http.Client, error) {
 	t, err := NewTransport(cfg)
 	if err != nil {
@@ -179,7 +193,8 @@ func NewClient(cfg Config) (*http.Client, error) {
 		t.jar = jar
 	}
 	return &http.Client{
-		Transport: t,
+		Transport:     t,
+		CheckRedirect: followRedirects,
 	}, nil
 }
 
@@ -190,11 +205,29 @@ func NewClient(cfg Config) (*http.Client, error) {
 // Content-Encoding and Content-Length removed, as a browser would; HEAD
 // responses, 204 and 304 responses, and those with Content-Length 0 are
 // left as they are.
+//
+// A redirect http.Client follows goes out as the browser sends it: a PUT
+// or DELETE answered 301 or 302 keeps its method and body (its GetBody
+// resends it), and a chain stops after 20 redirects with an error. A
+// fetch() or XHR in CORS mode to another origin whose redirect does not
+// allow its origin (Access-Control-Allow-Origin) returns a *CORSError
+// instead of the redirect, so nothing more is sent, unless
+// Request.IgnoreCORS.
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	ctx := req.Context()
 	r, _ := ctx.Value(requestKey{}).(Request)
 	exact, _ := ctx.Value(exactKey{}).(bool)
 	callerSet := hasHeader(req.Header, "Accept-Encoding") || hasHeader(t.headers, "Accept-Encoding")
+	if req.Response != nil {
+		next, err := browserHop(req)
+		if err != nil {
+			if req.Body != nil && req.Body != http.NoBody {
+				_ = req.Body.Close()
+			}
+			return nil, err
+		}
+		req = next
+	}
 	s, err := t.prepare(req, r, exact)
 	if err != nil {
 		// The RoundTripper contract: the body is closed, even on errors.
@@ -218,6 +251,11 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	resp, err := t.engine.RoundTrip(req)
 	if err == nil && t.jar != nil && s.credentialed {
 		t.jar.SetCookies(s.cookies, resp.Header.Values("Set-Cookie"))
+	}
+	if err == nil && !r.IgnoreCORS {
+		if cerr := refusedRedirect(req, resp, s); cerr != nil {
+			return nil, cerr
+		}
 	}
 	return t.finish(req, r, exact, callerSet, resp, err)
 }

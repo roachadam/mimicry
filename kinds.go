@@ -189,6 +189,10 @@ type sending struct {
 	// credentialed: the request sends and keeps cookies.
 	credentialed bool
 	cookies      cookies.Request
+	// corsOrigin is the Origin a fetch() or XHR in CORS mode to another
+	// origin sends, which its redirects must allow (Access-Control-Allow-
+	// Origin) for the browser to follow them; "" for other requests.
+	corsOrigin string
 }
 
 // resolve returns how to send req as r describes it, from page from (nil:
@@ -335,6 +339,15 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 		case mode == "cors" && ctx.SameOriginElementOrigin && slices.Contains(elements, r.Kind):
 			sendOrigin = true
 		}
+		if !sendOrigin && mode == "cors" && (r.Kind == Fetch || r.Kind == XHR) && redirectedToGet(req) {
+			// A redirect turned the request into a GET: whether the Origin
+			// it sent goes on is the browser's (Safari: it does). Measured
+			// on fetch(); XHR, the same CORS-mode request, follows it.
+			if p.Redirects == nil {
+				return nil, fmt.Errorf("%w: profile %s has no redirects rules, for a %s redirected to a GET", ErrNotMeasured, p.Name, r.Kind)
+			}
+			sendOrigin = p.Redirects.MethodChangeOrigin == profile.RedirectOriginKeep
+		}
 	}
 	if sendOrigin {
 		values["origin"] = origin(from)
@@ -369,6 +382,9 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 			Page:       from,
 			Redirects:  chain[:len(chain)-1],
 		},
+	}
+	if sendOrigin && mode == "cors" && (crossOrigin || tainted) && (r.Kind == Fetch || r.Kind == XHR) {
+		s.corsOrigin = values["origin"]
 	}
 	switch {
 	case ctx.FrameConnections && r.Kind == Frame && targetSite == "cross-site":
@@ -407,6 +423,11 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 	// takes the secure lists: its exact variant, else the kind's
 	// non-secure one.
 	set := pageSet(h, list)
+	var table *profile.HeaderTable
+	if r.Kind == Fetch || r.Kind == XHR {
+		table = ctx.HeaderTable
+		combinePageHeaders(h, list)
+	}
 	cond := profile.Variant{
 		Site:        map[string]string{"same-site": profile.SiteSameSite, "cross-site": profile.SiteCrossSite}[targetSite],
 		CORSChecked: sendOrigin || set,
@@ -418,10 +439,24 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 	if req.Method != http.MethodGet {
 		cond.Method = req.Method
 	}
-	same := func(v profile.Variant) bool {
-		return v.Method == cond.Method && v.Site == cond.Site && v.CORSChecked == cond.CORSChecked && v.PageSet == cond.PageSet && v.Redirected == cond.Redirected && v.Insecure == cond.Insecure
+	i := slices.IndexFunc(variants, func(v profile.Variant) bool {
+		return sameCondition(v, cond)
+	})
+	if i < 0 && set && table != nil {
+		if cond.Redirected && !table.Redirected {
+			// The captures do not show the table ordering a redirect's
+			// request: only a capture of this condition says how.
+			return nil, fmt.Errorf("%w: profile %s has no %s request after a redirect with headers the page set for method %q, site %q, non-secure %v", ErrNotMeasured, p.Name, r.Kind, cond.Method, cond.Site, cond.Insecure)
+		}
+		// The browser's header table places the page's headers among its
+		// own: the order is the request's without them, the table's run
+		// added (headerorder.TableOrder).
+		base := cond
+		base.CORSChecked, base.PageSet = sendOrigin, false
+		i = slices.IndexFunc(variants, func(v profile.Variant) bool {
+			return sameCondition(v, base)
+		})
 	}
-	i := slices.IndexFunc(variants, same)
 	measured := i >= 0
 	if i < 0 && cond.Insecure {
 		i = slices.IndexFunc(variants, func(v profile.Variant) bool {
@@ -461,6 +496,10 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 		Headers: fill(list, values),
 		NoHTTP1: noHTTP1,
 		Weight:  weight,
+		Table:   table,
+		// fetch()'s Headers object lowercases names; XHR keeps the
+		// page's spelling (headers-order capture, over HTTP/1.1).
+		LowerOwn: r.Kind == Fetch,
 	}
 	if len(h1) > 0 {
 		s.plan.HTTP1 = fill(h1, values)
@@ -520,20 +559,57 @@ func valueOf(list []profile.Header, name string) string {
 // with no values suppresses a default and sends nothing: not one.
 func pageSet(h http.Header, list []profile.Header) bool {
 	for name, values := range h {
-		lower := strings.ToLower(name)
-		switch {
-		case len(values) == 0:
-			continue
-		case lower == "cookie", lower == "content-type", lower == "content-length", lower == strings.ToLower(HeaderOrderKey):
-			continue
-		}
-		if !slices.ContainsFunc(list, func(hd profile.Header) bool {
-			return hd.Name == lower
-		}) {
+		if len(values) > 0 && pageHeader(name, list) {
 			return true
 		}
 	}
 	return false
+}
+
+// pageHeader reports whether name is a header the page set itself: one
+// list does not name, other than those any request may carry (cookie, the
+// body's type and length) and HeaderOrderKey.
+func pageHeader(name string, list []profile.Header) bool {
+	lower := strings.ToLower(name)
+	switch lower {
+	case "cookie", "content-type", "content-length", strings.ToLower(HeaderOrderKey):
+		return false
+	}
+	return !slices.ContainsFunc(list, func(hd profile.Header) bool {
+		return hd.Name == lower
+	})
+}
+
+// combinePageHeaders gives each header the page set itself one line, as
+// fetch() and XHR send a name set twice, in any case: its values joined by
+// ", " (headers-order capture, every browser), under the page's first
+// spelling, here the first of h's in sorted order.
+func combinePageHeaders(h http.Header, list []profile.Header) {
+	spellings := map[string][]string{}
+	for name, values := range h {
+		if len(values) > 0 && pageHeader(name, list) {
+			key := strings.ToLower(name)
+			spellings[key] = append(spellings[key], name)
+		}
+	}
+	for _, names := range spellings {
+		if len(names) == 1 && len(h[names[0]]) == 1 {
+			continue
+		}
+		slices.Sort(names)
+		var values []string
+		for _, name := range names {
+			values = append(values, h[name]...)
+			delete(h, name)
+		}
+		h[names[0]] = []string{strings.Join(values, ", ")}
+	}
+}
+
+// sameCondition reports whether variant v is for exactly the requests cond
+// describes.
+func sameCondition(v, cond profile.Variant) bool {
+	return v.Method == cond.Method && v.Site == cond.Site && v.CORSChecked == cond.CORSChecked && v.PageSet == cond.PageSet && v.Redirected == cond.Redirected && v.Insecure == cond.Insecure
 }
 
 // hasHeader reports whether h has name, in any case, even with no values
@@ -652,4 +728,14 @@ func redirectsBefore(req *http.Request) []*url.URL {
 		urls = append([]*url.URL{prev.URL}, urls...)
 	}
 	return urls
+}
+
+// redirectedToGet reports a GET that a redirect made of a request with
+// another method than GET or HEAD (browserHop's rules).
+func redirectedToGet(req *http.Request) bool {
+	if (req.Method != "" && req.Method != http.MethodGet) || req.Response == nil || req.Response.Request == nil {
+		return false
+	}
+	prev := req.Response.Request.Method
+	return prev != "" && prev != http.MethodGet && prev != http.MethodHead
 }

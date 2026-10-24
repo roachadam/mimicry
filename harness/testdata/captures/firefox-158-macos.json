@@ -4,6 +4,9 @@
   "version": "158",
   "platform": "macos",
   "tls": {
+    "record_version": "0x0301",
+    "legacy_version": "0x0303",
+    "session_id_length": 32,
     "cipher_suites": [
       "0x1301",
       "0x1303",
@@ -84,6 +87,11 @@
           "0x11ec",
           "0x001d",
           "0x0017"
+        ],
+        "key_share_lengths": [
+          1216,
+          32,
+          65
         ]
       },
       {
@@ -128,7 +136,23 @@
         ]
       },
       {
-        "type": "0xfe0d"
+        "type": "0xfe0d",
+        "ech": {
+          "cipher_suites": [
+            {
+              "kdf": "0x0001",
+              "aead": "0x0001"
+            },
+            {
+              "kdf": "0x0001",
+              "aead": "0x0003"
+            }
+          ],
+          "enc_length": 32,
+          "payload_lengths": [
+            240
+          ]
+        }
       }
     ]
   },

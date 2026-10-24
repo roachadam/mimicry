@@ -90,7 +90,7 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 		}
 		// A plain connection has no server name: the Host header names
 		// the host.
-		if req.Host == "" && sc.Plain {
+		if req.Host == "" && (sc.Plain || sc.mixedScheme) {
 			req.Host, _, _ = strings.Cut(ask.host, ":")
 		}
 		if !foreign {

@@ -21,6 +21,14 @@ type Capture struct {
 	// ClientHello is the raw ClientHello handshake message, kept for debugging
 	// anything the profile schema does not describe.
 	ClientHello []byte
+	// Records are the TLS records that carried ClientHello, record headers
+	// included (the record-layer version, how the message was split). Nil
+	// in captures made before they were kept.
+	Records []byte
+	// SampleClientHellos are every sample's records (or, without them, its
+	// ClientHello) when this capture was combined from several (Combine),
+	// the first being this capture's.
+	SampleClientHellos [][]byte
 	// Protocol is the negotiated ALPN protocol, empty if the handshake failed.
 	Protocol string
 	// Trace is the HTTP/2 connection's frames and header blocks, nil for
@@ -64,6 +72,24 @@ func (c *Capture) HasExtension(typ profile.Code) bool {
 		}
 	}
 	return false
+}
+
+// RecordVersion is the record-layer version of the records that carried the
+// ClientHello, zero if they were not kept.
+func (c *Capture) RecordVersion() uint16 {
+	if len(c.Records) < 3 {
+		return 0
+	}
+	return uint16(c.Records[1])<<8 | uint16(c.Records[2])
+}
+
+// hello is what <name>.clienthello keeps of one sample: its records, or its
+// ClientHello message if they were not kept.
+func (c *Capture) hello() []byte {
+	if len(c.Records) > 0 {
+		return c.Records
+	}
+	return c.ClientHello
 }
 
 // UserAgent returns the request's user-agent header, or "".
@@ -141,7 +167,8 @@ type output struct {
 }
 
 // Write stores c in dir. For the default scenario it writes <name>.json (the
-// profile) and <name>.clienthello (the raw ClientHello as hex). Traces go to
+// profile) and <name>.clienthello (every sample's ClientHello records as
+// hex, one sample per line; see ReadClientHellos). Traces go to
 // <name>.h2trace.json and <name>.h1trace.json, JSON arrays with every
 // sample's trace (or c's alone); other scenarios write only their traces, as
 // <name>.<scenario>.h2trace.json and .h1trace.json, since profiles come from
@@ -194,6 +221,37 @@ func checkNew(outputs []output) error {
 	return nil
 }
 
+// ReadClientHellos reads a <name>.clienthello file: one sample per line, in
+// hex, each either the TLS records that carried the ClientHello (starting
+// with the handshake record type, 0x16) or, in captures made before records
+// were kept, the ClientHello handshake message alone (starting with its type,
+// 0x01).
+func ReadClientHellos(path string) ([][]byte, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var hellos [][]byte
+	for i, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+		b, err := hex.DecodeString(strings.TrimSpace(line))
+		if err != nil {
+			return nil, fmt.Errorf("%s:%d: %w", path, i+1, err)
+		}
+		if len(b) == 0 || (b[0] != recordTypeHandshake && b[0] != handshakeClientHello) {
+			return nil, fmt.Errorf("%s:%d: neither TLS records nor a ClientHello message", path, i+1)
+		}
+		hellos = append(hellos, b)
+	}
+	return hellos, nil
+}
+
+// The first byte of a record carrying a handshake, and of a ClientHello
+// message.
+const (
+	recordTypeHandshake  = 0x16
+	handshakeClientHello = 0x01
+)
+
 // outputsOf lists the files Write stores for c, the first one first.
 func outputsOf(dir string, c *Capture) ([]output, error) {
 	if c.Profile.Name == "" {
@@ -210,7 +268,18 @@ func outputsOf(dir string, c *Capture) ([]output, error) {
 		}, output{
 			path: prefix + ".clienthello",
 			encode: func() ([]byte, error) {
-				return []byte(hex.EncodeToString(c.ClientHello) + "\n"), nil
+				hellos := c.SampleClientHellos
+				if len(hellos) == 0 {
+					hellos = [][]byte{
+						c.hello(),
+					}
+				}
+				var out []byte
+				for _, h := range hellos {
+					out = hex.AppendEncode(out, h)
+					out = append(out, '\n')
+				}
+				return out, nil
 			},
 		})
 	} else {

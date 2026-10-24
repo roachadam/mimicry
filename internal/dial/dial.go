@@ -25,6 +25,9 @@ type Dialer struct {
 	// DialContext, when set, opens the connection (to the proxy, when
 	// there is one) instead of net.Dialer; Timeout still bounds it.
 	DialContext func(ctx context.Context, network, addr string) (net.Conn, error)
+	// Resolver looks host names up for net.Dialer; nil uses
+	// net.DefaultResolver. DialContext does its own lookups.
+	Resolver *net.Resolver
 	// Proxy is how the profile's browser talks to proxies; nil (not
 	// measured) makes proxies an error.
 	Proxy *profile.Proxy
@@ -53,6 +56,7 @@ func (d *Dialer) dial(ctx context.Context, addr string) (net.Conn, error) {
 	}
 	nd := net.Dialer{
 		KeepAlive: 30 * time.Second,
+		Resolver:  d.Resolver,
 	}
 	return nd.DialContext(ctx, "tcp", addr)
 }

@@ -76,8 +76,19 @@ func Client(ctx context.Context, conn net.Conn, hello fingerprint.Hello, cfg Con
 }
 
 // Spec turns a connection's ClientHello layout into a uTLS spec. GREASE
-// placeholders and empty key shares are filled in by uTLS per connection.
+// placeholders, empty key shares and GREASE ECH's random fields are filled
+// in by uTLS per connection, so a spec serves one connection.
 func Spec(h fingerprint.Hello) (*utls.ClientHelloSpec, error) {
+	// uTLS sends the first hello in TLS 1.0 records, caps legacy_version at
+	// TLS 1.2 and sends a 32-byte session ID; profile.Validate allows
+	// nothing else.
+	if h.RecordVersion != recordVersion {
+		return nil, fmt.Errorf("handshake: record version %s; uTLS sends the ClientHello in %s records", h.RecordVersion, recordVersion)
+	}
+	if h.LegacyVersion != legacyVersion || h.SessionIDLength != sessionIDLength {
+		return nil, fmt.Errorf("handshake: legacy_version %s with a %d-byte session ID; uTLS sends %s with %d bytes",
+			h.LegacyVersion, h.SessionIDLength, legacyVersion, sessionIDLength)
+	}
 	spec := &utls.ClientHelloSpec{
 		CipherSuites:       codes16(h.CipherSuites),
 		CompressionMethods: append([]uint8(nil), h.CompressionMethods...),
@@ -122,9 +133,7 @@ func extension(e *profile.Extension) (utls.TLSExtension, error) {
 			GetPaddingLen: utls.BoringPaddingStyle,
 		}, nil
 	case profile.ExtEncryptedClientHello:
-		// GREASE ECH. The profile does not yet record a browser's ECH
-		// parameters, so every profile uses BoringSSL's (Chrome's).
-		return utls.BoringGREASEECH(), nil
+		return greaseECH(e.ECH)
 	case profile.ExtPreSharedKey:
 		// Filled from the connection's ticket by uTLS.
 		return &utls.UtlsPreSharedKeyExtension{}, nil
@@ -140,16 +149,19 @@ func extension(e *profile.Extension) (utls.TLSExtension, error) {
 			Curves: curves,
 		}, nil
 	case profile.ExtKeyShare:
+		if len(e.KeyShareLengths) != len(e.KeyShares) {
+			return nil, fmt.Errorf("%d key share lengths for %d key shares", len(e.KeyShareLengths), len(e.KeyShares))
+		}
 		shares := make([]utls.KeyShare, len(e.KeyShares))
 		for i, g := range e.KeyShares {
 			shares[i] = utls.KeyShare{
 				Group: utls.CurveID(g),
 			}
 			if g == profile.GREASE {
-				// A GREASE key share carries a one-byte key, as BoringSSL sends.
-				shares[i].Data = []byte{
-					0,
-				}
+				// uTLS sends a GREASE share's key as given: zeros, as
+				// BoringSSL does, of the profile's length. Other keys are
+				// generated, their lengths fixed by the group.
+				shares[i].Data = make([]byte, e.KeyShareLengths[i])
 			}
 		}
 		return &utls.KeyShareExtension{
@@ -205,6 +217,53 @@ func extension(e *profile.Extension) (utls.TLSExtension, error) {
 		}, nil
 	}
 	return dataExtension(e)
+}
+
+// What uTLS sends regardless of the profile: the first ClientHello's record
+// version (conn.go writes TLS 1.0 before a version is negotiated),
+// legacy_version, the session ID's length, GREASE ECH's X25519 encapsulated
+// key, and the AEAD tag every HPKE AEAD adds to the payload.
+const (
+	recordVersion   profile.Code = 0x0301
+	legacyVersion   profile.Code = 0x0303
+	sessionIDLength uint8        = 32
+	echEncLength    uint16       = 32
+	hpkeTagLength   uint16       = 16
+)
+
+// greaseECH builds a GREASE encrypted_client_hello extension in the
+// profile's shape. uTLS picks the cipher suite and the payload length per
+// connection from the candidates, and a random config_id.
+func greaseECH(ech *profile.ECH) (utls.TLSExtension, error) {
+	if ech == nil {
+		return nil, errors.New("no GREASE ECH shape")
+	}
+	if ech.EncLength != echEncLength {
+		return nil, fmt.Errorf("encapsulated key of %d bytes; uTLS sends %d", ech.EncLength, echEncLength)
+	}
+	ext := &utls.GREASEEncryptedClientHelloExtension{
+		CandidateCipherSuites: make([]utls.HPKESymmetricCipherSuite, len(ech.CipherSuites)),
+		CandidatePayloadLens:  make([]uint16, len(ech.PayloadLengths)),
+	}
+	for i, s := range ech.CipherSuites {
+		// AES-128-GCM, AES-256-GCM and ChaCha20Poly1305: uTLS panics on
+		// any other.
+		if s.AEAD < 1 || s.AEAD > 3 {
+			return nil, fmt.Errorf("HPKE AEAD %s is not one uTLS can size", s.AEAD)
+		}
+		ext.CandidateCipherSuites[i] = utls.HPKESymmetricCipherSuite{
+			KdfId:  uint16(s.KDF),
+			AeadId: uint16(s.AEAD),
+		}
+	}
+	for i, n := range ech.PayloadLengths {
+		if n <= hpkeTagLength {
+			return nil, fmt.Errorf("payload of %d bytes is no longer than the AEAD tag", n)
+		}
+		// uTLS takes the plaintext's length and adds the tag.
+		ext.CandidatePayloadLens[i] = n - hpkeTagLength
+	}
+	return ext, nil
 }
 
 // Raw-data extensions uTLS has state for.

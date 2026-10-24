@@ -62,12 +62,12 @@ response's raw `Set-Cookie` lines go back to the jar with the same context.
 Shared by every browser, in code (RFC 6265bis): `Domain` must match the
 host and not be a public suffix; host-only cookies go to their host only;
 default paths and path matching, on the URL's escaped path; `Secure` only
-from and to HTTPS, and an insecure URL cannot shadow a `Secure` cookie;
-`__Secure-` and `__Host-` prefixes, `__Host-` with a `Path=/` attribute as
-sent (the default path does not count); a nameless cookie whose value
-starts with `__Secure-` or `__Host-` (any case, after spaces and tabs) is
-refused, by `SetCookies` and `Set` alike; name plus value at most 4096
-bytes; `Max-Age` over `Expires`, either capped at 400 days from creation;
+from and to HTTPS (and loopback, where the profile says), and an insecure
+URL cannot shadow a `Secure` cookie; `__Secure-` and `__Host-` prefixes; a
+nameless cookie whose value starts with `__Secure-` or `__Host-` (any
+case, after spaces and tabs), or holds `=`, is refused, by `SetCookies`
+and `Set` alike; name plus value at most 4096 bytes; `Max-Age` over
+`Expires`, either capped at 400 days from creation;
 of repeated attributes the last wins (a last invalid `Path` gives the
 default path, a last empty `Domain` a host-only cookie); `Lax` and
 `Strict` cookies refused from cross-site responses; `Partitioned` needs
@@ -85,22 +85,30 @@ Where browsers differ, from the profile (`cookies` in the JSON):
 | `knoeq` (no `=`) | value: sent `knoeq` | name: sent `knoeq=` | dropped |
 | UTF-8 values | as received | as received | re-encoded as Latin-1 |
 | Order | longer path, then older | same | longer path, `Domain` cookies first, then name |
+| A cookie replaced with a new value | becomes the newest (moves in the order) | keeps its creation time | (order is by name) |
+| SameSite across `http://` and `https://` of one host | cross-site (schemeful) | same-site | not captured: schemeful kept |
+| `__Host-` without `Path` (default path `/`) | rejected: needs the attribute | rejected | kept |
+| `__Http-`, `__Host-Http-` | need `Secure` and `HttpOnly` | same | ordinary names |
+| `Secure` over `http://localhost` | set and sent | same | Safari 27: same; Safari 26: rejected |
+| Cookies per site | 180; the 181st evicts the least recently used down to 150 | same | no limit (200 kept) |
 
 A top-level navigation's site is its own; any other request's is its
 page's. A request is cross-site, for SameSite, when its site differs from
-that (for Firefox, when any URL of its redirect chain does). Lax cookies
-go cross-site only on top-level navigations with a safe method.
+that (for Firefox, when any URL of its redirect chain does, and without
+the scheme). Lax cookies go cross-site only on top-level navigations with
+a safe method. The per-site limit counts each partition apart, and evicts
+expired cookies first.
 
 ## Not modelled
 
-Per-domain and total cookie limits (browsers evict past roughly 180 per
-domain); adjusting `Expires` for the server's `Date` header; the `__Http-`
-and `__Host-Http-` prefixes; Chrome keeping a cookie's creation time only
-while its value is unchanged, which moves a rotated cookie in the order
-([INFERENCE], from Chromium's source); Firefox's SameSite, which by its
-source is not schemeful ([INFERENCE]; the jar's is); `Secure` cookies over
-plain HTTP to loopback (the jar refuses them); the order of `Domain`
-cookies of different levels in Safari; whether Safari refuses
+Total cookie limits, and Chrome's priorities and `Secure`-last eviction
+within the per-site limit; adjusting `Expires` for the server's `Date`
+header; whether `__Http-` needs `Secure` (every capture's had it: the
+RFC's rule); whether a nameless `=x` without a second `=` is kept (the
+capture's all held one); Safari's SameSite across schemes (its HTTPS
+upgrade reached TLS on the capture's shared port); loopback hosts other
+than `localhost` (from the Secure Contexts specification); the order of
+`Domain` cookies of different levels in Safari; whether Safari refuses
 unpartitioned third-party cookies at store or send (the jar does both);
 the end of Chrome's two-minute window is Chromium's documented value, not
 captured. The ledger lists the gaps in

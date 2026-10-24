@@ -16,19 +16,28 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// CORSError is a request whose CORS preflight's answer does not allow it:
-// the browser would not send it, and RoundTrip did not
-// (Request.IgnoreCORS sends it anyway).
+// CORSError is a request the browser would not send: its CORS preflight's
+// answer does not allow it, or it follows a redirect that fails the CORS
+// check (Redirect). RoundTrip did not send it (Request.IgnoreCORS sends it
+// anyway).
 type CORSError struct {
+	// URL is the refused request's: the preflighted URL, or the one that
+	// answered with the redirect.
 	URL *url.URL
-	// Reason is the CORS rule the answer breaks.
+	// Redirect is true when the refused response is URL's redirect, not
+	// its preflight's answer.
+	Redirect bool
+	// Reason is the CORS rule the response breaks.
 	Reason string
-	// Status and Header are the preflight's response.
+	// Status and Header are the refused response's.
 	Status int
 	Header http.Header
 }
 
 func (e *CORSError) Error() string {
+	if e.Redirect {
+		return fmt.Sprintf("mimicry: CORS check of the %d redirect from %s refused it: %s", e.Status, e.URL.Redacted(), e.Reason)
+	}
 	return fmt.Sprintf("mimicry: CORS preflight for %s refused the request: %s", e.URL.Redacted(), e.Reason)
 }
 
@@ -151,17 +160,8 @@ func checkPreflight(resp *http.Response, need *preflightNeed) string {
 		return fmt.Sprintf("status %d is not ok", resp.StatusCode)
 	}
 	cred := need.key.credentialed
-	acao := resp.Header.Values("Access-Control-Allow-Origin")
-	switch {
-	case len(acao) != 1:
-		return "no single Access-Control-Allow-Origin"
-	case acao[0] == "*" && cred:
-		return "Access-Control-Allow-Origin * on a request with credentials"
-	case acao[0] != "*" && acao[0] != need.key.origin:
-		return fmt.Sprintf("Access-Control-Allow-Origin %q is not %q", acao[0], need.key.origin)
-	}
-	if cred && resp.Header.Get("Access-Control-Allow-Credentials") != "true" {
-		return "no Access-Control-Allow-Credentials: true on a request with credentials"
+	if reason := checkCORS(resp.Header, need.key.origin, cred); reason != "" {
+		return reason
 	}
 	methods := headerList(resp.Header, "Access-Control-Allow-Methods")
 	if !safelistedMethod(need.method) && !slices.Contains(methods, need.method) && (cred || !slices.Contains(methods, "*")) {
@@ -176,6 +176,24 @@ func checkPreflight(resp *http.Response, need *preflightNeed) string {
 		if !slices.Contains(names, name) && (!wildcard || name == "authorization") {
 			return fmt.Sprintf("Access-Control-Allow-Headers does not allow %s", name)
 		}
+	}
+	return ""
+}
+
+// checkCORS returns why a response's headers fail the Fetch standard's CORS
+// check for a request from origin, with credentials or not, or "".
+func checkCORS(h http.Header, origin string, credentialed bool) string {
+	acao := h.Values("Access-Control-Allow-Origin")
+	switch {
+	case len(acao) != 1:
+		return "no single Access-Control-Allow-Origin"
+	case acao[0] == "*" && credentialed:
+		return "Access-Control-Allow-Origin * on a request with credentials"
+	case acao[0] != "*" && acao[0] != origin:
+		return fmt.Sprintf("Access-Control-Allow-Origin %q is not %q", acao[0], origin)
+	}
+	if credentialed && h.Get("Access-Control-Allow-Credentials") != "true" {
+		return "no Access-Control-Allow-Credentials: true on a request with credentials"
 	}
 	return ""
 }

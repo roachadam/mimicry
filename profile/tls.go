@@ -2,6 +2,18 @@ package profile
 
 // TLS describes a browser's ClientHello.
 type TLS struct {
+	// RecordVersion is the record-layer version of the TLS records that
+	// carry the ClientHello: 0x0301 for every browser captured (RFC 8446,
+	// section 5.1, allows 0x0301 for the initial ClientHello). Zero in a
+	// capture whose records were not kept.
+	RecordVersion Code `json:"record_version,omitempty"`
+	// LegacyVersion is the ClientHello's legacy_version: 0x0303 in a TLS 1.3
+	// ClientHello (RFC 8446, section 4.1.2).
+	LegacyVersion Code `json:"legacy_version"`
+	// SessionIDLength is the length of legacy_session_id, whose bytes are
+	// random per connection: 32 in TLS 1.3's middlebox compatibility mode
+	// (RFC 8446, appendix D.4).
+	SessionIDLength uint8 `json:"session_id_length"`
 	// CipherSuites in the order the browser offers them.
 	CipherSuites []Code `json:"cipher_suites"`
 	// CompressionMethods, normally [0] (null).
@@ -33,6 +45,12 @@ type Resumption struct {
 	// TLS12 is how TLS 1.2 session tickets are used: TLS12Reuse or
 	// TLS12SingleUse. Empty: TLS 1.2 sessions are not resumed.
 	TLS12 string `json:"tls12,omitempty"`
+	// ECHPayloadLengths are the GREASE ECH payload lengths a TLS 1.3
+	// resumed ClientHello picks from, one per connection, in place of the
+	// full hello's ech.payload_lengths: the inner hello it pads for carries
+	// the ticket (Firefox: 400 bytes instead of 240). Required when the
+	// ClientHello has encrypted_client_hello.
+	ECHPayloadLengths []uint16 `json:"ech_payload_lengths,omitempty"`
 }
 
 // Values of Resumption.TLS12.
@@ -63,9 +81,10 @@ func (e *Extension) Pinned() bool {
 // given in one of three ways, depending on Type:
 //
 //   - Generated per connection, with no payload in the profile: server_name,
-//     padding, pre_shared_key, session_ticket and encrypted_client_hello.
-//   - A typed field: Groups for supported_groups, KeyShares for key_share, and
-//     so on (see each field).
+//     padding, pre_shared_key and session_ticket.
+//   - Typed fields: Groups for supported_groups, KeyShares and
+//     KeyShareLengths for key_share, ECH for encrypted_client_hello, and so
+//     on (see each field).
 //   - Data, the exact body, for every other type including GREASE. Absent
 //     Data means an empty body. uTLS writes some bodies itself, so Data must
 //     be the one it sends: empty for the first GREASE extension (of at most
@@ -83,6 +102,12 @@ type Extension struct {
 	// KeyShares lists the groups a key share is sent for, for key_share. Keys
 	// are generated per connection.
 	KeyShares []Code `json:"key_shares,omitempty"`
+	// KeyShareLengths are the lengths of the keys in KeyShares, in the same
+	// order, for key_share. A group fixes its key's length; a GREASE share's
+	// is the browser's choice (BoringSSL: one byte).
+	KeyShareLengths []uint16 `json:"key_share_lengths,omitempty"`
+	// ECH for encrypted_client_hello: the GREASE extension's shape.
+	ECH *ECH `json:"ech,omitempty"`
 	// SignatureAlgorithms for signature_algorithms, signature_algorithms_cert
 	// and delegated_credentials.
 	SignatureAlgorithms []Code `json:"signature_algorithms,omitempty"`
@@ -100,6 +125,37 @@ type Extension struct {
 	CertCompression []Code `json:"cert_compression,omitempty"`
 	// RecordSizeLimit for record_size_limit.
 	RecordSizeLimit uint16 `json:"record_size_limit,omitempty"`
+}
+
+// ECH is the shape of the GREASE encrypted_client_hello extension a browser
+// sends to a server it holds no ECH configuration for: an outer ClientHello's
+// extension with an HPKE cipher suite, a config_id, an encapsulated key and
+// a payload, all but their lengths random. The config_id is a random byte
+// per connection; the cipher suite and the payload length are picked per
+// connection from CipherSuites and PayloadLengths, which list every value
+// the captures show (one each when the browser does not vary it).
+type ECH struct {
+	// CipherSuites are the HPKE symmetric cipher suites, sorted.
+	CipherSuites []HPKESuite `json:"cipher_suites"`
+	// EncLength is the encapsulated key's length: 32 for X25519.
+	EncLength uint16 `json:"enc_length"`
+	// PayloadLengths are the payload's lengths, the AEAD tag included,
+	// sorted.
+	PayloadLengths []uint16 `json:"payload_lengths"`
+}
+
+// HPKESuite is an HPKE symmetric cipher suite (RFC 9180, section 7).
+type HPKESuite struct {
+	KDF  Code `json:"kdf"`
+	AEAD Code `json:"aead"`
+}
+
+// Compare orders suites by KDF, then AEAD.
+func (s HPKESuite) Compare(o HPKESuite) int {
+	if s.KDF != o.KDF {
+		return int(s.KDF) - int(o.KDF)
+	}
+	return int(s.AEAD) - int(o.AEAD)
 }
 
 // Extension types with special handling in profiles.
@@ -134,25 +190,55 @@ var generatedExtensions = map[Code]bool{
 	ExtPadding:      true,
 	ExtPreSharedKey: true,
 	// Empty, or a TLS 1.2 session ticket being resumed.
-	ExtSessionTicket:        true,
-	ExtEncryptedClientHello: true,
+	ExtSessionTicket: true,
 }
 
-// typedField names the JSON field that carries each typed extension's payload.
-var typedField = map[Code]string{
-	ExtSupportedGroups:         "groups",
-	ExtKeyShare:                "key_shares",
-	ExtSignatureAlgorithms:     "signature_algorithms",
-	ExtSignatureAlgorithmsCert: "signature_algorithms",
-	ExtDelegatedCredentials:    "signature_algorithms",
-	ExtSupportedVersions:       "versions",
-	ExtALPN:                    "alpn",
-	ExtApplicationSettingsOld:  "alps",
-	ExtApplicationSettings:     "alps",
-	ExtECPointFormats:          "point_formats",
-	ExtPSKKeyExchangeModes:     "psk_modes",
-	ExtCompressCertificate:     "cert_compression",
-	ExtRecordSizeLimit:         "record_size_limit",
+// typedFields names the JSON fields that carry each typed extension's
+// payload; all are required.
+var typedFields = map[Code][]string{
+	ExtSupportedGroups: {
+		"groups",
+	},
+	ExtKeyShare: {
+		"key_shares",
+		"key_share_lengths",
+	},
+	ExtEncryptedClientHello: {
+		"ech",
+	},
+	ExtSignatureAlgorithms: {
+		"signature_algorithms",
+	},
+	ExtSignatureAlgorithmsCert: {
+		"signature_algorithms",
+	},
+	ExtDelegatedCredentials: {
+		"signature_algorithms",
+	},
+	ExtSupportedVersions: {
+		"versions",
+	},
+	ExtALPN: {
+		"alpn",
+	},
+	ExtApplicationSettingsOld: {
+		"alps",
+	},
+	ExtApplicationSettings: {
+		"alps",
+	},
+	ExtECPointFormats: {
+		"point_formats",
+	},
+	ExtPSKKeyExchangeModes: {
+		"psk_modes",
+	},
+	ExtCompressCertificate: {
+		"cert_compression",
+	},
+	ExtRecordSizeLimit: {
+		"record_size_limit",
+	},
 }
 
 // setFields returns the JSON names of the payload fields set on e.
@@ -166,6 +252,12 @@ func (e *Extension) setFields() []string {
 	}
 	if len(e.KeyShares) > 0 {
 		fields = append(fields, "key_shares")
+	}
+	if len(e.KeyShareLengths) > 0 {
+		fields = append(fields, "key_share_lengths")
+	}
+	if e.ECH != nil {
+		fields = append(fields, "ech")
 	}
 	if len(e.SignatureAlgorithms) > 0 {
 		fields = append(fields, "signature_algorithms")

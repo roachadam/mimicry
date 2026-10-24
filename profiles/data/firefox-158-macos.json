@@ -4,6 +4,9 @@
   "version": "158",
   "platform": "macos",
   "tls": {
+    "record_version": "0x0301",
+    "legacy_version": "0x0303",
+    "session_id_length": 32,
     "cipher_suites": [
       "0x1301",
       "0x1303",
@@ -84,6 +87,11 @@
           "0x11ec",
           "0x001d",
           "0x0017"
+        ],
+        "key_share_lengths": [
+          1216,
+          32,
+          65
         ]
       },
       {
@@ -128,14 +136,33 @@
         ]
       },
       {
-        "type": "0xfe0d"
+        "type": "0xfe0d",
+        "ech": {
+          "cipher_suites": [
+            {
+              "kdf": "0x0001",
+              "aead": "0x0001"
+            },
+            {
+              "kdf": "0x0001",
+              "aead": "0x0003"
+            }
+          ],
+          "enc_length": 32,
+          "payload_lengths": [
+            240
+          ]
+        }
       }
     ],
     "resumption": {
       "drop": [
         "0x0023"
       ],
-      "tls12": "single_use"
+      "tls12": "single_use",
+      "ech_payload_lengths": [
+        400
+      ]
     }
   },
   "http2": {
@@ -564,6 +591,9 @@
           "name": "Referer"
         },
         {
+          "name": "Cookie"
+        },
+        {
           "name": "Upgrade-Insecure-Requests",
           "value": "1"
         },
@@ -738,6 +768,9 @@
               "name": "Referer"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Priority"
             }
           ]
@@ -771,6 +804,9 @@
             },
             {
               "name": "Referer"
+            },
+            {
+              "name": "Cookie"
             }
           ]
         },
@@ -807,6 +843,9 @@
             },
             {
               "name": "Referer"
+            },
+            {
+              "name": "Cookie"
             }
           ]
         },
@@ -1005,6 +1044,9 @@
               "name": "Referer"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Priority",
               "value": "u=6"
             }
@@ -1050,6 +1092,9 @@
             },
             {
               "name": "Referer"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Priority",
@@ -1270,6 +1315,9 @@
               "name": "Referer"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Priority"
             }
           ]
@@ -1303,6 +1351,9 @@
             },
             {
               "name": "Referer"
+            },
+            {
+              "name": "Cookie"
             }
           ]
         },
@@ -1339,6 +1390,9 @@
             },
             {
               "name": "Referer"
+            },
+            {
+              "name": "Cookie"
             }
           ]
         },
@@ -2072,6 +2126,114 @@
           ]
         },
         {
+          "method": "PUT",
+          "cors_checked": true,
+          "redirected": true,
+          "headers": [
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
+            },
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "accept-language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br, zstd"
+            },
+            {
+              "name": "content-type"
+            },
+            {
+              "name": "content-length"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "empty"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "cors"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "priority",
+              "value": "u=4"
+            },
+            {
+              "name": "te",
+              "value": "trailers"
+            }
+          ]
+        },
+        {
+          "method": "DELETE",
+          "cors_checked": true,
+          "redirected": true,
+          "headers": [
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
+            },
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "accept-language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br, zstd"
+            },
+            {
+              "name": "content-type"
+            },
+            {
+              "name": "content-length"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "empty"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "cors"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "priority",
+              "value": "u=4"
+            },
+            {
+              "name": "te",
+              "value": "trailers"
+            }
+          ]
+        },
+        {
           "insecure": true,
           "http1": [
             {
@@ -2099,6 +2261,9 @@
             {
               "name": "Connection",
               "value": "keep-alive"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Priority",
@@ -2147,6 +2312,9 @@
               "value": "keep-alive"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Priority",
               "value": "u=4"
             }
@@ -2187,6 +2355,9 @@
               "value": "keep-alive"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Priority",
               "value": "u=4"
             }
@@ -2225,6 +2396,9 @@
             {
               "name": "Connection",
               "value": "keep-alive"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Priority",
@@ -2600,6 +2774,9 @@
             {
               "name": "Connection",
               "value": "keep-alive"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Priority",
@@ -2737,6 +2914,9 @@
             },
             {
               "name": "Referer"
+            },
+            {
+              "name": "Cookie"
             }
           ]
         },
@@ -2950,6 +3130,9 @@
               "name": "Referer"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Upgrade-Insecure-Requests",
               "value": "1"
             },
@@ -2988,6 +3171,9 @@
             },
             {
               "name": "Referer"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Upgrade-Insecure-Requests",
@@ -3413,6 +3599,9 @@
               "name": "Referer"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Priority",
               "value": "u=5, i"
             }
@@ -3483,6 +3672,9 @@
             },
             {
               "name": "Referer"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Priority",
@@ -3636,6 +3828,9 @@
             {
               "name": "Connection",
               "value": "keep-alive"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Priority",
@@ -4017,6 +4212,9 @@
               "name": "Referer"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Priority",
               "value": "u=5, i"
             }
@@ -4087,6 +4285,9 @@
             },
             {
               "name": "Referer"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Priority",
@@ -4240,6 +4441,9 @@
             {
               "name": "Connection",
               "value": "keep-alive"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Priority",
@@ -4417,6 +4621,9 @@
               "name": "Referer"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Priority"
             }
           ]
@@ -4450,6 +4657,9 @@
             },
             {
               "name": "Referer"
+            },
+            {
+              "name": "Cookie"
             }
           ]
         },
@@ -4486,6 +4696,9 @@
             },
             {
               "name": "Referer"
+            },
+            {
+              "name": "Cookie"
             }
           ]
         },
@@ -5019,6 +5232,9 @@
               "value": "keep-alive"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Priority",
               "value": "u=2"
             }
@@ -5264,6 +5480,9 @@
               "name": "Referer"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Priority",
               "value": "u=1"
             }
@@ -5298,6 +5517,9 @@
             },
             {
               "name": "Referer"
+            },
+            {
+              "name": "Cookie"
             }
           ]
         },
@@ -5334,6 +5556,9 @@
             },
             {
               "name": "Referer"
+            },
+            {
+              "name": "Cookie"
             }
           ]
         },
@@ -5541,6 +5766,9 @@
               "name": "Referer"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Priority",
               "value": "u=2"
             }
@@ -5575,6 +5803,9 @@
             },
             {
               "name": "Referer"
+            },
+            {
+              "name": "Cookie"
             }
           ]
         },
@@ -5611,6 +5842,9 @@
             },
             {
               "name": "Referer"
+            },
+            {
+              "name": "Cookie"
             }
           ]
         },
@@ -5780,6 +6014,9 @@
               "name": "Referer"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Priority",
               "value": "u=2"
             }
@@ -5814,6 +6051,9 @@
             },
             {
               "name": "Referer"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Priority",
@@ -5882,6 +6122,9 @@
           "name": "origin"
         },
         {
+          "name": "*"
+        },
+        {
           "name": "referer"
         },
         {
@@ -5924,6 +6167,9 @@
           "value": "gzip, deflate, br, zstd"
         },
         {
+          "name": "*"
+        },
+        {
           "name": "Origin"
         },
         {
@@ -5949,6 +6195,53 @@
         }
       ],
       "variants": [
+        {
+          "site": "cross-site",
+          "cors_checked": true,
+          "page_set": true,
+          "headers": [
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
+            },
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "accept-language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br, zstd"
+            },
+            {
+              "name": "*"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "empty"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "cors"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "te",
+              "value": "trailers"
+            }
+          ]
+        },
         {
           "insecure": true,
           "http1": [
@@ -5977,6 +6270,9 @@
             },
             {
               "name": "Referer"
+            },
+            {
+              "name": "Cookie"
             }
           ]
         },
@@ -6067,7 +6363,13 @@
     "third_party": "partition_all",
     "redirects": "chain",
     "nameless": "name",
-    "order": "rfc"
+    "order": "rfc",
+    "samesite_scheme": "schemeless",
+    "host_prefix_path": "attribute",
+    "http_prefix": true,
+    "secure_loopback": true,
+    "max_per_site": 180,
+    "evict_to": 150
   },
   "proxy": {
     "connect": [
@@ -6117,5 +6419,12 @@
       ],
       "address": "domain"
     }
+  },
+  "redirects": {
+    "method_change_origin": "drop"
+  },
+  "connections": {
+    "http1_per_host": 6,
+    "coalesce": "connect"
   }
 }

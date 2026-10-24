@@ -152,3 +152,42 @@ func TestPageCaptureUsesFirstHandshake(t *testing.T) {
 		t.Errorf("connections resumed %v, want [false true]", resumed)
 	}
 }
+
+// Over plain HTTP the kinds page sets, after its Secure cookies (which a
+// non-secure origin refuses), cookies it keeps, and its cleanup deletes them
+// as they were set; over TLS neither changes.
+func TestKindsPlainCookies(t *testing.T) {
+	client, port, _ := replayServer(t, KindsPlain)
+	url := func(host, path string) string {
+		return "http://" + host + ":" + port + path
+	}
+	resp, _ := fetch(t, client, "GET", url(kindsHost, "/"), nil)
+	if got, want := resp.Header.Values("Set-Cookie"), slices.Concat(KindsCookies, KindsPlainCookies); !slices.Equal(got, want) {
+		t.Errorf("document sets %q, want %q", got, want)
+	}
+	for _, c := range KindsPlainCookies {
+		if strings.Contains(c, "Secure") || !strings.HasPrefix(c, "k") {
+			t.Errorf("%q: plain cookies are not Secure and start with k", c)
+		}
+	}
+	resp, _ = fetch(t, client, "GET", url(kindsHost, "/cleanup"), nil)
+	deletions := resp.Header.Values("Set-Cookie")
+	if got, want := deletions[len(deletions)-len(KindsPlainCookies):], []string{
+		"kp_lax=; Path=/; Max-Age=0",
+		"kp_unset=; Path=/; Max-Age=0",
+		"kp_site=; Domain=" + kindsSiteA + "; Path=/; Max-Age=0",
+	}; !slices.Equal(got, want) {
+		t.Errorf("cleanup ends %q, want %q", got, want)
+	}
+	if resp, _ = fetch(t, client, "GET", url(kindsSameSite, "/cleanup"), nil); len(resp.Header.Values("Set-Cookie")) != 0 {
+		t.Errorf("same-site cleanup deletes %q", resp.Header.Values("Set-Cookie"))
+	}
+
+	tlsClient, tlsPort, _ := replayServer(t, Kinds)
+	resp, _ = fetch(t, tlsClient, "GET", "https://"+kindsHost+":"+tlsPort+"/cleanup", nil)
+	for _, d := range resp.Header.Values("Set-Cookie") {
+		if strings.HasPrefix(d, "kp_") {
+			t.Errorf("kinds over TLS deletes %q", d)
+		}
+	}
+}

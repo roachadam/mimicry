@@ -41,6 +41,10 @@ Related, elsewhere in the repository:
 | [0018](decisions/0018-no-public-engine.md) | No public Engine interface | Accepted |
 | [0019](decisions/0019-transport-is-one-browsing-entity.md) | A Transport is one browsing entity | Accepted |
 | [0020](decisions/0020-connection-pool-package.md) | The connection pool is its own package | Accepted |
+| [0021](decisions/0021-page-headers-hash-table-order.md) | Page-set headers in the browser's hash-table order | Accepted |
+| [0022](decisions/0022-redirects-as-the-browser-follows-them.md) | Redirects follow the browser's rules, inside the Transport | Accepted |
+| [0023](decisions/0023-connection-limits-and-coalescing.md) | Per-host HTTP/1.1 limit and HTTP/2 coalescing, per browser | Accepted |
+| [0024](decisions/0024-clienthello-shape-in-profiles.md) | The ClientHello's whole shape is profile data | Accepted |
 
 New records copy [`decisions/template.md`](decisions/template.md).
 

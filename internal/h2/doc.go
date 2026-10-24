@@ -11,6 +11,8 @@
 // size and header list size. A request the peer cannot have processed
 // fails with ErrConnUnusable, its body unread; after GOAWAY the streams the
 // peer will answer run on and the connection closes after the last.
+// Decline sends a connection the preface and GOAWAY and closes it unused,
+// as Firefox does to one another connection made unnecessary.
 //
 // Imports: profile, headerorder, hpack, golang.org/x/net and the standard
 // library.

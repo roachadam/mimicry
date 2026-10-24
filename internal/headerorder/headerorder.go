@@ -34,6 +34,12 @@ type Plan struct {
 	NoHTTP1 bool
 	// Weight is the HEADERS priority weight; zero keeps the profile's.
 	Weight uint8
+	// Table is the browser's header table for the page's own headers
+	// (fetch() and XHR); nil places them as the lists say.
+	Table *profile.HeaderTable
+	// LowerOwn sends the headers the lists do not name lowercase over
+	// HTTP/1.1 (fetch()), not as the caller spelled them.
+	LowerOwn bool
 }
 
 type planKey struct{}
@@ -72,11 +78,14 @@ type Field struct {
 //     profile's default;
 //   - order is the profile's, or Key's if set (then profile defaults Key
 //     does not name are dropped); headers it does not list go where it
-//     lists profile.OtherHeaders, else after the rest, sorted by name;
+//     lists profile.OtherHeaders, else, with a table and no Key, in the
+//     table's order together with the table's names the list sends, where
+//     the list has the first of those (TableOrder), else after the rest,
+//     sorted by name;
 //   - names are compared case-insensitively;
 //   - skip names headers never to send (connection-level ones the protocol
 //     handles itself).
-func Build(prof []profile.Header, h http.Header, skip func(name string) bool) []Field {
+func Build(prof []profile.Header, h http.Header, skip func(name string) bool, table *profile.HeaderTable) []Field {
 	// A key present with no values suppresses the profile's default: it stays
 	// in the map with nothing to send.
 	values := make(map[string][]string, len(h))
@@ -97,6 +106,8 @@ func Build(prof []profile.Header, h http.Header, skip func(name string) bool) []
 		order = append(order, name)
 	}
 	if len(override) > 0 {
+		// The caller's own order: no browser placed anything.
+		table = nil
 		order = order[:0]
 		for _, name := range override {
 			order = append(order, strings.ToLower(name))
@@ -133,10 +144,26 @@ func Build(prof []profile.Header, h http.Header, skip func(name string) bool) []
 		}
 	}
 	slices.Sort(rest)
+	tabled := tableRun(table, order, rest, func(name string) bool {
+		if skip(name) {
+			return false
+		}
+		if v, set := values[name]; set {
+			return len(v) > 0
+		}
+		return defaults[name] != ""
+	})
 	for _, name := range order {
 		if name == profile.OtherHeaders {
 			for _, r := range rest {
 				emit(r)
+			}
+			continue
+		}
+		if slices.Contains(tabled, name) {
+			// The table's run, at its first name the list sends.
+			for _, t := range tabled {
+				emit(t)
 			}
 			continue
 		}
@@ -146,4 +173,38 @@ func Build(prof []profile.Header, h http.Header, skip func(name string) bool) []
 		emit(name)
 	}
 	return fields
+}
+
+// tableRun returns the run table sends for a request whose list is order
+// and whose own headers are rest, sends reporting which names go out: nil
+// without a table, a page header, a table name the list sends, or with an
+// OtherHeaders slot (the list places the page's headers itself), or when
+// the table cannot hold the list (TableOrder).
+func tableRun(table *profile.HeaderTable, order, rest []string, sends func(string) bool) []string {
+	if table == nil || slices.Contains(order, profile.OtherHeaders) {
+		return nil
+	}
+	var page, members []string
+	for _, name := range rest {
+		if sends(name) {
+			page = append(page, name)
+		}
+	}
+	if len(page) == 0 {
+		return nil
+	}
+	all := table.Members()
+	for _, name := range order {
+		if slices.Contains(all, name) && sends(name) && !slices.Contains(members, name) {
+			members = append(members, name)
+		}
+	}
+	if len(members) == 0 {
+		return nil
+	}
+	run, ok := TableOrder(table, members, page)
+	if !ok {
+		return nil
+	}
+	return run
 }

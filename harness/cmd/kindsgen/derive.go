@@ -18,8 +18,12 @@ type pages struct {
 	// kinds is the kinds page over HTTP/2, kindsH1 over HTTP/1.1 and
 	// plain over plain HTTP (kinds, kinds-http1, kinds-plain).
 	kinds, kindsH1, plain []*capture.Page
-	// cookies is the cookies page (HTTP/2), cors the cors page.
-	cookies, cors []*capture.Page
+	// cookies is the cookies page (HTTP/2), cors the cors page, corsEdge
+	// the cors-edge page (HTTP/2).
+	cookies, cors, corsEdge []*capture.Page
+	// headers is the headers-order page: fetch() and XHR with headers the
+	// page set, over HTTP/2 (so, cs) and HTTP/1.1 (h1).
+	headers []*capture.Page
 }
 
 // loadPages reads profile name's captures from dir.
@@ -34,6 +38,8 @@ func loadPages(dir, name string) (*pages, error) {
 		{scenario: "kinds-plain", into: &out.plain},
 		{scenario: "cookies", into: &out.cookies},
 		{scenario: "cors", into: &out.cors},
+		{scenario: "cors-edge", into: &out.corsEdge},
+		{scenario: "headers-order", into: &out.headers},
 	} {
 		got, err := capture.LoadPages(filepath.Join(dir, name+"."+f.scenario+".pagetrace.json.gz"))
 		if err != nil {
@@ -44,7 +50,8 @@ func loadPages(dir, name string) (*pages, error) {
 	return out, nil
 }
 
-// request is one captured request of the kinds, cookies or cors page.
+// request is one captured request of the kinds, cookies, cors, cors-edge or
+// headers-order page.
 type request struct {
 	// label is its step ("script-cors.cs"), base the part before the
 	// first dot ("script-cors").
@@ -54,8 +61,8 @@ type request struct {
 	// plain is a request over plain HTTP (kinds-plain): HTTP/1.1 only,
 	// and to a non-secure origin.
 	plain bool
-	// other is a request of the cookies or cors page: HTTP/2 only, not
-	// the kinds page's.
+	// other is a request of another page than the kinds page: over one
+	// protocol only.
 	other bool
 	// site is the request URL's own relation to its page
 	// (profile.Site*).
@@ -68,6 +75,10 @@ type request struct {
 	weight uint8
 	conn   int
 	sample int
+	// pageOrder are the page's headers, lowercase, in the order the page
+	// set them where that is the order they reach the browser (XHR's
+	// setRequestHeader); nil: by name (fetch()'s Headers object).
+	pageOrder []string
 }
 
 // labelSite is the site relation a kinds page label names: labels end in
@@ -259,12 +270,8 @@ func collect(pg *pages) ([]*request, error) {
 	}
 	for si, page := range pg.cors {
 		for _, q := range h2Requests(page, si, "/p/") {
-			// The OPTIONS are the preflight kind's; a request whose page
-			// header is not X-Mimicry has it where X-Mimicry does not go
-			// (by name), which profile.OtherHeaders cannot say.
-			if q.method == "OPTIONS" || slices.ContainsFunc(q.h2, func(h profile.Header) bool {
-				return isPageSet(h.Name) && h.Name != customHeader
-			}) {
+			// The OPTIONS are the preflight kind's.
+			if q.method == "OPTIONS" {
 				continue
 			}
 			q.other = true
@@ -274,6 +281,95 @@ func collect(pg *pages) ([]*request, error) {
 			q.base = "cors-" + q.base
 			q.site = labelSite(q.label, q.hop)
 			out = append(out, q)
+		}
+	}
+	out = append(out, corsEdgeRequests(pg.corsEdge)...)
+	hdrs, err := headersRequests(pg.headers)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	out = append(out, hdrs...)
+	return out, errors.Join(errs...)
+}
+
+// corsEdgeRequests returns the cors-edge page's fetches (HTTP/2, all fetch()
+// in CORS mode from the so page): /p/<label> and its redirects'
+// /p/<label>.hop<n>, each hop on its label's host (so or cs), but the GET
+// hops. Those share a condition with the kinds and cors pages' redirects
+// yet order otherwise: Chrome places Origin by whether the first leg
+// carried it, Safari reorders every header on a redirect, so their orders
+// cannot merge into one list per condition. The OPTIONS are the preflight
+// kind's, which the kinds page describes.
+func corsEdgeRequests(samples []*capture.Page) []*request {
+	var out []*request
+	for si, page := range samples {
+		for _, q := range h2Requests(page, si, "/p/") {
+			label, hop, _ := strings.Cut(q.label, ".hop")
+			if q.method == "OPTIONS" || (hop != "" && q.method == "GET") {
+				continue
+			}
+			q.other = true
+			q.label, q.hop = label, hop != ""
+			q.base = "cors-edge"
+			// A hop stays on its label's host: its own relation is the
+			// label's, as is the chain's.
+			q.site = labelSite(q.label, false)
+			out = append(out, q)
+		}
+	}
+	return out
+}
+
+// headersRequests returns the headers-order page's fetches and XHRs, each
+// carrying headers the page set (server.HeadersSteps): over HTTP/2 to the
+// page's origin (so) and another site (cs), over HTTP/1.1 to another
+// origin of the page's site (h1). Their base is hdr-fetch or hdr-xhr. The
+// OPTIONS are the preflight kind's, which the kinds page describes.
+func headersRequests(samples []*capture.Page) ([]*request, error) {
+	steps := map[string]server.HeadersStep{}
+	for _, st := range server.HeadersSteps() {
+		steps[st.Label] = st
+	}
+	var out []*request
+	var errs []error
+	add := func(q *request, si int) {
+		st, ok := steps[q.label]
+		if !ok {
+			errs = append(errs, fmt.Errorf("headers-order sample %d: %s is no step", si+1, q.label))
+			return
+		}
+		target := q.label[strings.LastIndex(q.label, ".")+1:]
+		q.other = true
+		q.base = "hdr-" + st.API
+		q.site = map[string]string{"so": profile.SiteSameOrigin, "cs": profile.SiteCrossSite, "h1": profile.SiteSameSite}[target]
+		if st.API == "xhr" {
+			for _, h := range st.Headers {
+				if name := strings.ToLower(h[0]); !slices.Contains(q.pageOrder, name) {
+					q.pageOrder = append(q.pageOrder, name)
+				}
+			}
+		}
+		out = append(out, q)
+	}
+	for si, page := range samples {
+		for _, q := range h2Requests(page, si, "/h/") {
+			if q.method != "OPTIONS" {
+				add(q, si)
+			}
+		}
+		for _, r := range page.H1 {
+			method, rest, _ := strings.Cut(r.Line, " ")
+			target, _, _ := strings.Cut(rest, " ")
+			label, ok := strings.CutPrefix(target, "/h/")
+			if !ok || method == "OPTIONS" {
+				continue
+			}
+			add(&request{
+				label:  label,
+				method: method,
+				sample: si,
+				h1:     h1Fields(r.Headers),
+			}, si)
 		}
 	}
 	return out, errors.Join(errs...)
@@ -296,13 +392,9 @@ var contextHeaders = []string{
 	"access-control-request-method", "access-control-request-headers",
 }
 
-// customHeader is the header the kinds page sets itself on a fetch(): where
-// it lands is where every page-set header goes (profile.OtherHeaders).
-const customHeader = "x-mimicry"
-
-// pageSetNames are the headers the kinds and cors pages set themselves
-// (fetch() headers), lowercase, but Content-Type, which being set never
-// makes a request CORS-checked.
+// pageSetNames are the headers the kinds, cors and headers-order pages set
+// themselves (fetch() and XHR headers), lowercase, but Content-Type, which
+// being set never makes a request CORS-checked.
 var pageSetNames = func() map[string]bool {
 	out := map[string]bool{}
 	for _, st := range server.KindsSteps() {
@@ -311,6 +403,11 @@ var pageSetNames = func() map[string]bool {
 		}
 	}
 	for _, st := range server.CORSSteps() {
+		for _, h := range st.Headers {
+			out[strings.ToLower(h[0])] = true
+		}
+	}
+	for _, st := range server.HeadersSteps() {
 		for _, h := range st.Headers {
 			out[strings.ToLower(h[0])] = true
 		}
@@ -324,16 +421,19 @@ func isPageSet(name string) bool {
 	return pageSetNames[strings.ToLower(name)]
 }
 
-// kindSources says which captured requests describe each kind: own give
-// its defaults and weight, all (its resource type) the header order; high
-// and low the fetchpriority variants where measured. A preflight kind
-// takes the OPTIONS requests, others never.
-var kindSources = []struct {
+// kindSource says which captured requests describe a kind: own give its
+// defaults and weight, all (its resource type) the header order; high and
+// low the fetchpriority variants where measured. A preflight kind takes
+// the OPTIONS requests, others never.
+type kindSource struct {
 	kind      string
 	own, all  []string
 	high, low string
 	preflight bool
-}{
+}
+
+// kindSources are every kind's sources.
+var kindSources = []kindSource{
 	{kind: profile.KindFrame, own: []string{"iframe"}, all: []string{"iframe"}},
 	{kind: profile.KindScript, own: []string{"script-blocking"}, all: scripts},
 	{kind: profile.KindAsyncScript, own: []string{"script-async"}, all: scripts},
@@ -346,7 +446,7 @@ var kindSources = []struct {
 	{kind: profile.KindFont, own: []string{"font-css"}, all: fonts},
 	{kind: profile.KindPreloadFont, own: []string{"preload-font"}, all: fonts},
 	{kind: profile.KindFetch, own: []string{"fetch"}, all: fetches, high: "fetch-high", low: "fetch-low"},
-	{kind: profile.KindXHR, own: []string{"xhr"}, all: []string{"xhr"}},
+	{kind: profile.KindXHR, own: []string{"xhr"}, all: []string{"xhr", "hdr-xhr"}},
 	{kind: profile.KindBeacon, own: []string{"beacon"}, all: []string{"beacon"}},
 	{kind: profile.KindPreflight, own: []string{"fetch-json", "fetch-custom"}, all: []string{"fetch-json", "fetch-custom"}, preflight: true},
 }
@@ -358,9 +458,12 @@ var (
 	images = []string{"image", "image-cors", "image-high", "image-markup", "image-setcookie", "image-redirect", "c-setcookie", "c-order", "c-redirect", "c-part", "c-third"}
 	fonts  = []string{"font", "font-css", "preload-font"}
 	// fetches include the cors page's (cors-*): PUTs, and fetches with
-	// and without a header the page set, to the cross-site host.
+	// and without a header the page set, to the cross-site host; the
+	// cors-edge page's (methods, redirects); and the headers-order page's
+	// (hdr-fetch).
 	fetches = []string{"fetch", "fetch-include", "fetch-omit", "fetch-nocors", "fetch-json", "fetch-custom", "fetch-high", "fetch-low", "fetch-redirect",
-		"cors-put", "cors-setcookie", "cors-include", "cors-maxage", "cors-default", "cors-redirect", "cors-redirect-target", "cors-cleanup"}
+		"cors-put", "cors-setcookie", "cors-include", "cors-maxage", "cors-default", "cors-redirect", "cors-redirect-target", "cors-cleanup", "cors-multi",
+		"cors-edge", "hdr-fetch"}
 	// formPosts are the form POST navigations: the kinds page's to its own
 	// origin, the cookies page's from another site.
 	formPosts = []string{"form-post", "c-nav-post"}
@@ -380,6 +483,16 @@ func derive(p *profile.Profile, reqs []*request) error {
 	}
 	p.Kinds = map[string]*profile.Kind{}
 	var errs []error
+	all := func(kind string) []*request {
+		i := slices.IndexFunc(kindSources, func(s kindSource) bool {
+			return s.kind == kind
+		})
+		return slices.Concat(pick(kindSources[i].all, false, false), pick(kindSources[i].all, true, false))
+	}
+	table, err := deriveTable(all(profile.KindFetch), all(profile.KindXHR))
+	if err != nil {
+		errs = append(errs, err)
+	}
 	for _, src := range kindSources {
 		own := pick(src.own, false, src.preflight)
 		if len(own) == 0 {
@@ -396,11 +509,14 @@ func derive(p *profile.Profile, reqs []*request) error {
 				return commonValue(own, list, name)
 			}
 		}
-		var err error
+		var t *profile.HeaderTable
+		if slices.Contains(tableKinds, src.kind) {
+			t = table
+		}
 		k.Headers, k.HTTP1, k.Variants, err = orders(
 			slices.Concat(own, pick(src.own, true, src.preflight)),
 			slices.Concat(pick(src.all, false, src.preflight), pick(src.all, true, src.preflight)),
-			nil, values)
+			nil, t, values)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", src.kind, err))
 		}
@@ -424,6 +540,8 @@ func derive(p *profile.Profile, reqs []*request) error {
 	}))
 	if err != nil {
 		errs = append(errs, err)
+	} else {
+		ctx.HeaderTable = table
 	}
 	p.Context = ctx
 	navs := slices.Concat(pick(formPosts, false, false), pick([]string{"form-post", "page"}, true, false))
@@ -445,7 +563,9 @@ type condition struct {
 
 func (r *request) condition() condition {
 	headers := r.h2
-	if r.plain {
+	if r.plain || len(r.h2) == 0 {
+		// Over HTTP/1.1 only: plain HTTP, or the headers-order page's
+		// HTTP/1.1 host.
 		headers = r.h1
 	}
 	c := condition{
@@ -483,9 +603,12 @@ type orderPair struct {
 // type-mates disagree keeps the kind's own requests' order. The default is
 // the plain GET's, or, for a kind never sent so (beacons POST), its own
 // requests' commonest condition. A non-nil seed is the default order
-// instead, every group checked against it. values gives a header's default
-// value.
-func orders(own, all []*request, seed *orderPair, values func(h1 bool) func(string) string) (h2, h1 []profile.Header, variants []profile.Variant, err error) {
+// instead, every group checked against it. With a header table, a group of
+// requests carrying the page's headers needs no variant when the table
+// places them in the order of their condition without them
+// (tablePlaces); it never folds into the default. values gives a header's
+// default value.
+func orders(own, all []*request, seed *orderPair, table *profile.HeaderTable, values func(h1 bool) func(string) string) (h2, h1 []profile.Header, variants []profile.Variant, err error) {
 	var conds []condition
 	groups := map[condition][]*request{}
 	mine := map[condition][]*request{}
@@ -548,6 +671,28 @@ func orders(own, all []*request, seed *orderPair, values func(h1 bool) func(stri
 	others := map[condition]orderPair{}
 	for _, c := range conds {
 		if c == def {
+			continue
+		}
+		if table != nil && c.pageSet {
+			placed, err := tablePlaces(table, groups, groups[c])
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			if placed {
+				continue
+			}
+			// The table does not order them from a captured order without
+			// the page's headers: the browser's order as captured, the
+			// page's at the slot. Never folded: the slot would join the
+			// default, which the table orders.
+			o, err := orderFor(c)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			conflicting = append(conflicting, c)
+			others[c] = o
 			continue
 		}
 		o, err := orderFor(c)
@@ -623,7 +768,8 @@ func insecureValue(mine, ownPlain, group []*request) func(string) string {
 }
 
 // orderOf merges the header orders of rs. HTTP/1.1 names keep their
-// casing; the page's own header becomes profile.OtherHeaders.
+// casing; the page's own headers, next to each other, become one
+// profile.OtherHeaders (apart, the merge refuses them).
 func orderOf(rs []*request, list func(*request) []profile.Header, h1 bool) ([]string, error) {
 	var seqs [][]string
 	for _, r := range rs {
@@ -631,7 +777,9 @@ func orderOf(rs []*request, list func(*request) []profile.Header, h1 bool) ([]st
 		for _, h := range list(r) {
 			switch {
 			case isPageSet(h.Name):
-				seq = append(seq, profile.OtherHeaders)
+				if len(seq) == 0 || seq[len(seq)-1] != profile.OtherHeaders {
+					seq = append(seq, profile.OtherHeaders)
+				}
 			case h1:
 				seq = append(seq, h.Name)
 			default:
@@ -857,7 +1005,7 @@ func navigationVariants(p *profile.Profile, navs []*request) error {
 	if p.HTTP1 != nil {
 		seed.h1 = names(p.HTTP1.Headers)
 	}
-	_, _, variants, err := orders(nil, navs, seed, values)
+	_, _, variants, err := orders(nil, navs, seed, nil, values)
 	if err != nil {
 		return fmt.Errorf("navigation: %w", err)
 	}

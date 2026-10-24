@@ -1,0 +1,280 @@
+// Command hellogen derives the shape of a browser's ClientHello from its
+// captured ClientHellos, and writes it into the profile and into the
+// capture's own profile JSON:
+//
+//	go run ./cmd/hellogen -captures testdata/captures -profile ../profiles/data/chrome-155-macos.json
+//
+// It reads <name>.clienthello (every sample's ClientHello, one per line; see
+// capture.ReadClientHellos), parses each as the capture server does and
+// combines them as the capture tool does (capture.Combine): the shape is
+// tls.record_version, tls.legacy_version, tls.session_id_length,
+// key_share's key_share_lengths and encrypted_client_hello's ech. GREASE
+// ECH's cipher suites and payload lengths are picked per connection, so
+// their sets are every value any connection shows: the samples', and every
+// connection of every page capture (<name>.*.pagetrace.json.gz) that
+// recorded its hello's shape. A TLS 1.3 resumed hello (pre_shared_key)
+// pads its ECH payload for the ticket: its payload lengths are a set of
+// their own, tls.resumption.ech_payload_lengths. It refuses samples Combine
+// cannot reconcile, connections whose shape is not the samples', and a
+// profile or capture whose ClientHello, shape aside, is not the one the
+// samples show.
+package main
+
+import (
+	"errors"
+	"flag"
+	"fmt"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+
+	"github.com/roachadam/mimicry/harness/internal/capture"
+	"github.com/roachadam/mimicry/harness/internal/diff"
+	"github.com/roachadam/mimicry/harness/internal/server"
+	"github.com/roachadam/mimicry/profile"
+)
+
+func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, "hellogen:", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
+	captures := flag.String("captures", "testdata/captures", "directory with the profile's <name>.clienthello and <name>.json")
+	path := flag.String("profile", "", "profile JSON to update (required); its name picks the captures")
+	flag.Parse()
+	if *path == "" {
+		flag.Usage()
+		os.Exit(2)
+	}
+	data, err := os.ReadFile(*path)
+	if err != nil {
+		return err
+	}
+	p, err := profile.Decode(data)
+	if err != nil {
+		return err
+	}
+	capturePath := filepath.Join(*captures, p.Name+".json")
+	captured, err := os.ReadFile(capturePath) //nolint:gosec // the capture of the profile named on the command line
+	if err != nil {
+		return err
+	}
+	out, outCapture, err := regenerate(data, captured, *captures, p.Name)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(*path, out, 0o600); err != nil { //nolint:gosec // rewriting the profile named on the command line is the point
+		return err
+	}
+	return os.WriteFile(capturePath, outCapture, 0o600) //nolint:gosec // and its capture's profile JSON
+}
+
+// regenerate returns the profile JSON data and the capture's profile JSON
+// captured with the ClientHello shape derived from the captures of profile
+// name in dir. The profile is validated once the shape is in: a profile
+// without one yet cannot pass.
+func regenerate(data, captured []byte, dir, name string) ([]byte, []byte, error) {
+	p, err := profile.Decode(data)
+	if err != nil {
+		return nil, nil, err
+	}
+	c, err := profile.Decode(captured)
+	if err != nil {
+		return nil, nil, fmt.Errorf("capture: %w", err)
+	}
+	derived, err := derive(dir, name)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := apply(&p.TLS, derived); err != nil {
+		return nil, nil, fmt.Errorf("profile: %w", err)
+	}
+	if err := apply(&c.TLS, derived); err != nil {
+		return nil, nil, fmt.Errorf("capture: %w", err)
+	}
+	if err := p.Validate(); err != nil {
+		return nil, nil, err
+	}
+	out, err := profile.Encode(p)
+	if err != nil {
+		return nil, nil, err
+	}
+	outCapture, err := profile.Encode(c)
+	if err != nil {
+		return nil, nil, err
+	}
+	return out, outCapture, nil
+}
+
+// shape is what derive measures: the full ClientHello, its ECH sets taken
+// from every full handshake, and the payload lengths of resumed hellos'
+// GREASE ECH (nil if no connection resumed with a TLS 1.3 ticket).
+type shape struct {
+	full              *profile.TLS
+	resumedECHLengths []uint16
+}
+
+// derive parses every sample in <name>.clienthello and combines them, then
+// folds in the GREASE ECH choices of every page capture's connections.
+func derive(dir, name string) (*shape, error) {
+	path := filepath.Join(dir, name+".clienthello")
+	hellos, err := capture.ReadClientHellos(path)
+	if err != nil {
+		return nil, err
+	}
+	samples := make([]*capture.Capture, len(hellos))
+	for i, h := range hellos {
+		s := &capture.Capture{
+			ClientHello: h,
+		}
+		if h[0] != 0x01 {
+			s.Records = h
+			if _, s.ClientHello, err = server.ParseRecords(h); err != nil {
+				return nil, fmt.Errorf("%s: sample %d: %w", path, i+1, err)
+			}
+		}
+		if s.Profile.TLS, err = server.ParseClientHello(s.ClientHello); err != nil {
+			return nil, fmt.Errorf("%s: sample %d: %w", path, i+1, err)
+		}
+		samples[i] = s
+	}
+	combined, err := capture.Combine(samples)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	sh := &shape{
+		full: &combined.Profile.TLS,
+	}
+	pages, err := filepath.Glob(filepath.Join(dir, name+".*.pagetrace.json.gz"))
+	if err != nil {
+		return nil, err
+	}
+	for _, path := range pages {
+		loaded, err := capture.LoadPages(path)
+		if err != nil {
+			return nil, err
+		}
+		for i, page := range loaded {
+			for j, conn := range page.Connections {
+				if err := sh.add(&conn); err != nil {
+					return nil, fmt.Errorf("%s: sample %d, connection %d: %w", path, i+1, j+1, err)
+				}
+			}
+		}
+	}
+	slices.Sort(sh.resumedECHLengths)
+	sh.resumedECHLengths = slices.Compact(sh.resumedECHLengths)
+	return sh, nil
+}
+
+// add folds one page connection's ClientHello into the shape: its record
+// version, legacy_version, session ID and key share lengths must be the
+// samples'; its GREASE ECH cipher suite joins the full hello's set, and its
+// payload length the full or the resumed hello's set. Connections captured
+// before the shape was recorded (no legacy_version) carry nothing to add.
+func (sh *shape) add(conn *capture.Connection) error {
+	h := conn.Hello
+	if h == nil || h.LegacyVersion == 0 {
+		return nil
+	}
+	full := sh.full
+	if conn.RecordVersion != 0 && full.RecordVersion != 0 && profile.Code(conn.RecordVersion) != full.RecordVersion {
+		return fmt.Errorf("record version %#04x, the samples' %s", conn.RecordVersion, full.RecordVersion)
+	}
+	if h.LegacyVersion != full.LegacyVersion || h.SessionIDLength != full.SessionIDLength {
+		return fmt.Errorf("legacy_version %s with a %d-byte session ID, the samples' %s with %d bytes",
+			h.LegacyVersion, h.SessionIDLength, full.LegacyVersion, full.SessionIDLength)
+	}
+	if got, want := extension(h, profile.ExtKeyShare), extension(full, profile.ExtKeyShare); (got == nil) != (want == nil) ||
+		got != nil && !slices.Equal(got.KeyShareLengths, want.KeyShareLengths) {
+		return fmt.Errorf("key share lengths %v, the samples' %v", lengths(got), lengths(want))
+	}
+	got, want := extension(h, profile.ExtEncryptedClientHello), extension(full, profile.ExtEncryptedClientHello)
+	if (got == nil) != (want == nil) {
+		return fmt.Errorf("encrypted_client_hello present %v, in the samples %v", got != nil, want != nil)
+	}
+	if got == nil {
+		return nil
+	}
+	if got.ECH.EncLength != want.ECH.EncLength {
+		return fmt.Errorf("ECH enc_length %d, the samples' %d", got.ECH.EncLength, want.ECH.EncLength)
+	}
+	// Combine gave the combined hello an ECH of its own (mergeECH): its
+	// sets grow in place.
+	ech := want.ECH
+	ech.CipherSuites = append(ech.CipherSuites, got.ECH.CipherSuites...)
+	slices.SortFunc(ech.CipherSuites, profile.HPKESuite.Compare)
+	ech.CipherSuites = slices.Compact(ech.CipherSuites)
+	if extension(h, profile.ExtPreSharedKey) != nil {
+		sh.resumedECHLengths = append(sh.resumedECHLengths, got.ECH.PayloadLengths...)
+		return nil
+	}
+	ech.PayloadLengths = append(ech.PayloadLengths, got.ECH.PayloadLengths...)
+	slices.Sort(ech.PayloadLengths)
+	ech.PayloadLengths = slices.Compact(ech.PayloadLengths)
+	return nil
+}
+
+func lengths(e *profile.Extension) []uint16 {
+	if e == nil {
+		return nil
+	}
+	return e.KeyShareLengths
+}
+
+// apply copies the derived shape into t, after checking that t is, shape
+// aside, the ClientHello the samples show (in t's extension order). A t
+// that resumes TLS 1.3 sessions with GREASE ECH takes the resumed hellos'
+// payload lengths, which some connection must have measured.
+func apply(t *profile.TLS, sh *shape) error {
+	derived := sh.full
+	t.RecordVersion = derived.RecordVersion
+	t.LegacyVersion = derived.LegacyVersion
+	t.SessionIDLength = derived.SessionIDLength
+	for i := range t.Extensions {
+		e := &t.Extensions[i]
+		if e.Type != profile.ExtKeyShare && e.Type != profile.ExtEncryptedClientHello {
+			continue
+		}
+		d := extension(derived, e.Type)
+		if d == nil {
+			return fmt.Errorf("extension %s is not in the captured ClientHellos", e.Type)
+		}
+		e.KeyShareLengths = d.KeyShareLengths
+		e.ECH = d.ECH
+	}
+	if r := t.Resumption; r != nil && extension(t, profile.ExtEncryptedClientHello) != nil {
+		if len(sh.resumedECHLengths) == 0 {
+			return errors.New("tls.resumption: no captured connection resumed with a TLS 1.3 ticket, so its GREASE ECH payload lengths are unmeasured")
+		}
+		r.ECHPayloadLengths = sh.resumedECHLengths
+	}
+	want := profile.Profile{
+		TLS: *derived,
+	}
+	got := profile.Profile{
+		TLS: *t,
+	}
+	got.TLS.Resumption = nil
+	if diffs := diff.Compare(&want, &got); len(diffs) > 0 {
+		lines := make([]string, len(diffs))
+		for i, d := range diffs {
+			lines[i] = d.String()
+		}
+		return errors.New("its ClientHello is not the captured one:\n" + strings.Join(lines, "\n"))
+	}
+	return nil
+}
+
+func extension(t *profile.TLS, typ profile.Code) *profile.Extension {
+	for i := range t.Extensions {
+		if t.Extensions[i].Type == typ {
+			return &t.Extensions[i]
+		}
+	}
+	return nil
+}

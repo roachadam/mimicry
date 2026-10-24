@@ -39,6 +39,13 @@ type Profile struct {
 	// Proxy is how the browser talks to HTTP and SOCKS5 proxies. Nil: not
 	// measured, so sending through a proxy is an error.
 	Proxy *Proxy `json:"proxy,omitempty"`
+	// Redirects is how the browser follows redirects where browsers
+	// differ. Nil: not measured, so a redirect that changes a request's
+	// method is an error.
+	Redirects *Redirects `json:"redirects,omitempty"`
+	// Connections are how the browser shares connections: its HTTP/1.1
+	// connections per host and HTTP/2 coalescing. Required.
+	Connections *Connections `json:"connections,omitempty"`
 }
 
 // HTTP1 describes a browser's HTTP/1.1 requests.

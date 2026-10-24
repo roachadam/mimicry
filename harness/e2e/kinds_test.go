@@ -99,7 +99,7 @@ func compareKind(t *testing.T, got *capture.Page, want []*capture.Page, label st
 		t.Errorf("%s: mimicry sent no request", name)
 		return
 	}
-	forms := browserForms(t, want, label, h1, preflight)
+	forms := browserForms(t, want, "/k/"+label, h1, preflight)
 	same := func(w *kindsSent) bool {
 		return slices.Equal(g.lines, w.lines) && g.weight == w.weight
 	}
@@ -439,10 +439,12 @@ func startPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *pageSessi
 		Profile: p,
 		RootCAs: pool,
 		Cookies: newJar(t, p),
-		// Every capture host is this server.
+		// Every capture host is this server, and resolves to its address,
+		// as on the capture machines.
 		DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
 			return (&net.Dialer{}).DialContext(ctx, network, ln.Addr().String())
 		},
+		Resolver: stubResolver(t),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -508,7 +510,12 @@ var testPort = regexp.MustCompile(`\.test:\d+`)
 // kindsFields returns page's first request for label (its preflight, when
 // preflight; never one after a redirect), or nil.
 func kindsFields(page *capture.Page, label string, h1, preflight bool) *kindsSent {
-	path := "/k/" + label
+	return requestFields(page, "/k/"+label, h1, preflight)
+}
+
+// requestFields returns page's first request for path (its preflight, when
+// preflight; never one after a redirect), or nil.
+func requestFields(page *capture.Page, path string, h1, preflight bool) *kindsSent {
 	if h1 {
 		for _, r := range page.H1 {
 			method, rest, _ := strings.Cut(r.Line, " ")
@@ -555,19 +562,19 @@ func kindsFields(page *capture.Page, label string, h1, preflight bool) *kindsSen
 }
 
 // browserForms returns the distinct forms the browser's samples sent for
-// label, commonest first. When samples differ (a browser's own variance,
+// path, commonest first. When samples differ (a browser's own variance,
 // such as Chrome's Sec-Fetch-User depending on activation state across
 // runs), any form the browser was seen sending is one it sends; the
 // variance is logged.
-func browserForms(t *testing.T, samples []*capture.Page, label string, h1, preflight bool) []*kindsSent {
+func browserForms(t *testing.T, samples []*capture.Page, path string, h1, preflight bool) []*kindsSent {
 	t.Helper()
 	counts := map[string]int{}
 	forms := map[string]*kindsSent{}
 	var keys []string
 	for i, page := range samples {
-		s := kindsFields(page, label, h1, preflight)
+		s := requestFields(page, path, h1, preflight)
 		if s == nil {
-			t.Fatalf("%s: sample %d has no browser request", label, i+1)
+			t.Fatalf("%s: sample %d has no browser request", path, i+1)
 		}
 		key := strings.Join(s.lines, "\n") + "\n" + strconv.Itoa(int(s.weight))
 		if counts[key] == 0 {
@@ -584,7 +591,7 @@ func browserForms(t *testing.T, samples []*capture.Page, label string, h1, prefl
 		out[i] = forms[k]
 	}
 	if len(out) > 1 {
-		t.Logf("%s: the browser's samples differ; %d of %d: %q", label, counts[keys[1]], len(samples), out[1].lines)
+		t.Logf("%s: the browser's samples differ; %d of %d: %q", path, counts[keys[1]], len(samples), out[1].lines)
 	}
 	return out
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -131,6 +132,17 @@ var KindsCookies = []string{
 	"knoeq; Path=/; Secure",
 }
 
+// KindsPlainCookies are set by the kinds-plain page's document after
+// KindsCookies, which are all Secure and so refused over http://: cookies a
+// non-secure origin keeps (Lax, SameSite unset, site-wide), so the Cookie
+// header's place on non-secure requests is measured. Its /cleanup deletes
+// them.
+var KindsPlainCookies = []string{
+	"kp_lax=1; Path=/; SameSite=Lax",
+	"kp_unset=1; Path=/",
+	"kp_site=1; Domain=" + kindsSiteA + "; Path=/; SameSite=Lax",
+}
+
 // KindsThirdPartyCookies are set by the cross-site host on an image the page
 // loads: whether later cross-site requests carry them shows each browser's
 // third-party cookie policy.
@@ -255,7 +267,11 @@ func (p kindsPage) answer(req request) response {
 			break
 		}
 		r := response{status: 200, contentType: "text/html; charset=utf-8", body: p.document(port)}
-		for _, c := range KindsCookies {
+		cookies := KindsCookies
+		if p.plain {
+			cookies = slices.Concat(KindsCookies, KindsPlainCookies)
+		}
+		for _, c := range cookies {
 			r.headers = append(r.headers, hpack.HeaderField{
 				Name:  "set-cookie",
 				Value: c,
@@ -265,6 +281,14 @@ func (p kindsPage) answer(req request) response {
 	case "/cleanup", "/done":
 		r := response{status: 200, contentType: "text/plain", body: []byte("ok\n"), headers: cors}
 		r.headers = append(r.headers, kindsDeletions(host)...)
+		if p.plain && host == kindsHost {
+			for _, d := range cookieDeletions(KindsPlainCookies) {
+				r.headers = append(r.headers, hpack.HeaderField{
+					Name:  "set-cookie",
+					Value: d,
+				})
+			}
+		}
 		return r
 	}
 	label, ok := strings.CutPrefix(path, "/k/")

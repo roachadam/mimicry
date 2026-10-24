@@ -284,6 +284,180 @@ func TestValidate(t *testing.T) {
 			want: "group 0x0019 is not in supported_groups",
 		},
 		{
+			name: "legacy_version other than TLS 1.2's",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.TLS.LegacyVersion = 0x0301
+			},
+			path: "tls.legacy_version",
+			want: "must be 0x0303",
+		},
+		{
+			name: "no legacy_version",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.TLS.LegacyVersion = 0
+			},
+			path: "tls.legacy_version",
+			want: "must be 0x0303",
+		},
+		{
+			name: "record version other than TLS 1.0's",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.TLS.RecordVersion = 0x0303
+			},
+			path: "tls.record_version",
+			want: "must be 0x0301",
+		},
+		{
+			name: "no record version",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.TLS.RecordVersion = 0
+			},
+			path: "tls.record_version",
+			want: "must be 0x0301",
+		},
+		{
+			name: "session ID uTLS does not send",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.TLS.SessionIDLength = 0
+			},
+			path: "tls.session_id_length",
+			want: "must be 32",
+		},
+		{
+			name: "key share without lengths",
+			mutate: func(t *testing.T, p *Profile) {
+				p.TLS.Extensions[extIndex(t, p, ExtKeyShare)].KeyShareLengths = nil
+			},
+			path: "tls.extensions[11]",
+			want: "needs key_share_lengths",
+		},
+		{
+			name: "fewer key share lengths than key shares",
+			mutate: func(t *testing.T, p *Profile) {
+				ks := &p.TLS.Extensions[extIndex(t, p, ExtKeyShare)]
+				ks.KeyShareLengths = ks.KeyShareLengths[:2]
+			},
+			path: "tls.extensions[11].key_share_lengths",
+			want: "has 2 lengths for 3 key shares",
+		},
+		{
+			name: "key share length not its group's",
+			mutate: func(t *testing.T, p *Profile) {
+				p.TLS.Extensions[extIndex(t, p, ExtKeyShare)].KeyShareLengths[2] = 33
+			},
+			path: "tls.extensions[11].key_share_lengths[2]",
+			want: "group 0x001d's key is 32 bytes, not 33",
+		},
+		{
+			name: "empty GREASE key share",
+			mutate: func(t *testing.T, p *Profile) {
+				p.TLS.Extensions[extIndex(t, p, ExtKeyShare)].KeyShareLengths[0] = 0
+			},
+			path: "tls.extensions[11].key_share_lengths[0]",
+			want: "needs at least one byte",
+		},
+		{
+			name: "key share for a group without key generation",
+			mutate: func(t *testing.T, p *Profile) {
+				p.TLS.Extensions[extIndex(t, p, ExtSupportedGroups)].Groups = append(p.TLS.Extensions[extIndex(t, p, ExtSupportedGroups)].Groups, 0x0100)
+				ks := &p.TLS.Extensions[extIndex(t, p, ExtKeyShare)]
+				ks.KeyShares = append(ks.KeyShares, 0x0100)
+				ks.KeyShareLengths = append(ks.KeyShareLengths, 256)
+			},
+			path: "tls.extensions[11].key_share_lengths[3]",
+			want: "cannot generate a key for group 0x0100",
+		},
+		{
+			name: "ECH without its shape",
+			mutate: func(t *testing.T, p *Profile) {
+				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH = nil
+			},
+			path: "tls.extensions[16]",
+			want: "needs ech",
+		},
+		{
+			name: "ECH shape on another extension",
+			mutate: func(t *testing.T, p *Profile) {
+				p.TLS.Extensions[extIndex(t, p, ExtALPN)].ECH = p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH
+			},
+			path: "tls.extensions[7]",
+			want: "takes alpn, not ech",
+		},
+		{
+			name: "ECH without cipher suites",
+			mutate: func(t *testing.T, p *Profile) {
+				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.CipherSuites = nil
+			},
+			path: "tls.extensions[16].ech.cipher_suites",
+			want: "is required",
+		},
+		{
+			name: "ECH AEAD uTLS cannot name",
+			mutate: func(t *testing.T, p *Profile) {
+				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.CipherSuites[0].AEAD = 0xffff
+			},
+			path: "tls.extensions[16].ech.cipher_suites[0]",
+			want: "AEAD 0xffff is not an HPKE AEAD",
+		},
+		{
+			name: "ECH KDF uTLS cannot name",
+			mutate: func(t *testing.T, p *Profile) {
+				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.CipherSuites[0].KDF = 0
+			},
+			path: "tls.extensions[16].ech.cipher_suites[0]",
+			want: "KDF 0x0000 is not an HPKE KDF",
+		},
+		{
+			name: "ECH cipher suites out of order",
+			mutate: func(t *testing.T, p *Profile) {
+				ech := p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH
+				ech.CipherSuites = []HPKESuite{
+					{
+						KDF:  1,
+						AEAD: 3,
+					},
+					{
+						KDF:  1,
+						AEAD: 1,
+					},
+				}
+			},
+			path: "tls.extensions[16].ech.cipher_suites[1]",
+			want: "sorted and unique",
+		},
+		{
+			name: "ECH encapsulated key not X25519's",
+			mutate: func(t *testing.T, p *Profile) {
+				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.EncLength = 65
+			},
+			path: "tls.extensions[16].ech.enc_length",
+			want: "must be 32",
+		},
+		{
+			name: "ECH without payload lengths",
+			mutate: func(t *testing.T, p *Profile) {
+				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.PayloadLengths = nil
+			},
+			path: "tls.extensions[16].ech.payload_lengths",
+			want: "is required",
+		},
+		{
+			name: "ECH payload no longer than the tag",
+			mutate: func(t *testing.T, p *Profile) {
+				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.PayloadLengths[0] = 16
+			},
+			path: "tls.extensions[16].ech.payload_lengths[0]",
+			want: "no longer than the 16-byte AEAD tag",
+		},
+		{
+			name: "ECH payload lengths repeated",
+			mutate: func(t *testing.T, p *Profile) {
+				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.PayloadLengths[1] = 176
+			},
+			path: "tls.extensions[16].ech.payload_lengths[1]",
+			want: "sorted and unique",
+		},
+		{
 			name: "h2 offered without http2",
 			mutate: func(_ *testing.T, p *Profile) {
 				p.HTTP2 = nil
@@ -731,6 +905,40 @@ func TestValidate(t *testing.T) {
 			want: "must be empty",
 		},
 		{
+			name: "TLS 1.3 resumption with GREASE ECH but no resumed payload lengths",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.TLS.Resumption = &Resumption{}
+			},
+			path: "tls.resumption.ech_payload_lengths",
+			want: "is required with encrypted_client_hello",
+		},
+		{
+			name: "resumed ECH payload lengths without encrypted_client_hello",
+			mutate: func(_ *testing.T, p *Profile) {
+				removeExtension(p, ExtEncryptedClientHello)
+				p.TLS.Resumption = &Resumption{
+					ECHPayloadLengths: []uint16{
+						400,
+					},
+				}
+			},
+			path: "tls.resumption.ech_payload_lengths",
+			want: "needs encrypted_client_hello",
+		},
+		{
+			name: "resumed ECH payload lengths unsorted",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.TLS.Resumption = &Resumption{
+					ECHPayloadLengths: []uint16{
+						400,
+						240,
+					},
+				}
+			},
+			path: "tls.resumption.ech_payload_lengths[1]",
+			want: "sorted and unique",
+		},
+		{
 			name: "server push enabled",
 			mutate: func(_ *testing.T, p *Profile) {
 				p.HTTP2.Settings[1].Value = 1
@@ -1084,6 +1292,16 @@ func TestValidate(t *testing.T) {
 			want: `must be empty, "replace" or "merge"`,
 		},
 		{
+			name: "unknown redirect origin rule",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.Redirects = &Redirects{
+					MethodChangeOrigin: "sometimes",
+				}
+			},
+			path: "redirects.method_change_origin",
+			want: `must be "keep" or "drop"`,
+		},
+		{
 			name: "no cookie rules",
 			mutate: func(_ *testing.T, p *Profile) {
 				p.Cookies = nil
@@ -1205,6 +1423,9 @@ func TestValidateAcceptsLimits(t *testing.T) {
 			ExtSessionTicket,
 		},
 		TLS12: TLS12SingleUse,
+		ECHPayloadLengths: []uint16{
+			400,
+		},
 	}
 	if err := p.Validate(); err != nil {
 		t.Fatal(err)
@@ -1244,6 +1465,29 @@ func TestCookiesValidate(t *testing.T) {
 	var verr *ValidationError
 	if err := bad.Validate(); !errors.As(err, &verr) || len(verr.Problems) != 1 || verr.Problems[0].Path != "cookies.order" {
 		t.Errorf("unknown order: Validate() = %v, want one problem at cookies.order", err)
+	}
+	for _, tt := range []struct {
+		edit func(*Cookies)
+		path string
+	}{
+		{func(k *Cookies) { k.SameSiteScheme = "" }, "cookies.samesite_scheme"},
+		{func(k *Cookies) { k.HostPrefixPath = "default" }, "cookies.host_prefix_path"},
+		{func(k *Cookies) { k.NewValueRenews, k.Order = true, OrderDomainName }, "cookies.new_value_renews"},
+		{func(k *Cookies) { k.MaxPerSite = -1 }, "cookies.max_per_site"},
+		{func(k *Cookies) { k.EvictTo = 150 }, "cookies.evict_to"},
+		{func(k *Cookies) { k.MaxPerSite = 180 }, "cookies.evict_to"},
+		{func(k *Cookies) { k.MaxPerSite, k.EvictTo = 180, 180 }, "cookies.evict_to"},
+	} {
+		k := DefaultCookies()
+		tt.edit(k)
+		if err := k.Validate(); !errors.As(err, &verr) || len(verr.Problems) != 1 || verr.Problems[0].Path != tt.path {
+			t.Errorf("%+v: Validate() = %v, want one problem at %s", k, err, tt.path)
+		}
+	}
+	limited := DefaultCookies()
+	limited.MaxPerSite, limited.EvictTo = 180, 150
+	if err := limited.Validate(); err != nil {
+		t.Errorf("180/150: %v", err)
 	}
 }
 

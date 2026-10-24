@@ -49,11 +49,27 @@ in kind, not only in degree:
 | `nameless` | `value` (Chrome), `name` (Firefox), `drop` (Safari) |
 | `latin1_values` | bool (Safari) |
 | `order` | `rfc` (Chrome, Firefox), `domain_name` (Safari) |
+| `new_value_renews` | a cookie whose value changes moves to the end of its order (Chrome) |
+| `samesite_scheme` | `schemeful` (Chrome), `schemeless` (Firefox); Safari: see below |
+| `host_prefix_path` | `attribute`: `__Host-` needs `Path=/` as sent (Chrome, Firefox); `stored`: the stored path, default included (Safari) |
+| `http_prefix` | enforce `__Http-` and `__Host-Http-` (Chrome, Firefox) |
+| `secure_loopback` | a `Secure` cookie set over `http://localhost` is kept and sent (Chrome, Firefox, Safari 27; not Safari 26) |
+| `max_per_site`, `evict_to` | 180 and 150 (Chrome, Firefox); Safari: no limit seen at 200 |
+
+The last six rows come from the `cookies-edge` capture
+([report](../../harness/reports/cookies-edge-2026-10-24.md)). The wire shows
+169 of 200 cookies kept in Chrome and Firefox, which 180/150 explains
+exactly (150 left after the purge, plus the 19 set after it); the numbers
+themselves are the browsers' sources. Safari's `samesite_scheme` is **not
+measured**: Safari's HTTPS upgrade succeeded on the capture server's
+shared port, so its plain-HTTP steps never ran. It is set to `schemeful`
+until a page with a plain-only port measures it.
 
 Rules every browser shares stay in code (RFC 6265bis: domain and path
 matching, public suffixes, `__Host-` and `__Secure-` prefixes, the 4096-byte
 limit, expiry, Secure only over HTTPS, Lax/Strict refused from cross-site
-responses).
+responses, nameless cookies whose value contains `=` refused, as all four
+browsers did).
 
 The jar orders cookies itself; the connections only split them into HTTP/2
 fields. A caller's own `Cookie` header is sent as written.

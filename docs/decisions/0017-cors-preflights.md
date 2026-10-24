@@ -62,15 +62,13 @@ Option 3, the user's choice.
   name (a User-Agent or Accept-Language override, as the request carries
   them), never page headers such as an API key.
 - **Redirects.** Each hop comes back through `RoundTrip`, so a redirected
-  request is preflighted again for its new URL.
+  request is preflighted again for its new URL. A CORS-mode 3xx whose
+  answer fails the CORS check ends the chain with `*CORSError` (`Redirect`
+  set), as every browser in the `cors-edge` capture did (0022).
 
-The actual response's own CORS headers are not checked. A browser has
-already sent that request by then; what it withholds is the response from
-the page's script, which mimicry has no counterpart for. One case does
-change the wire: the Fetch standard checks CORS on a redirect response
-before following it, so a refused 3xx ends the chain in a browser, while
-mimicry follows it. That is not measured yet; the cors page gains the case
-in the next capture.
+The actual response's own CORS headers are not checked otherwise. A
+browser has already sent that request by then; what it withholds is the
+response from the page's script, which mimicry has no counterpart for.
 
 ## Evidence
 

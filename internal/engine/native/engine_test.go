@@ -20,6 +20,7 @@ import (
 	"golang.org/x/net/http2/hpack"
 
 	"github.com/roachadam/mimicry/internal/testutil"
+	"github.com/roachadam/mimicry/profile"
 	"github.com/roachadam/mimicry/profiles"
 )
 
@@ -87,14 +88,28 @@ type options struct {
 	dialTimeout time.Duration
 	dial        func(ctx context.Context, network, addr string) (net.Conn, error)
 	onWait      func(key string)
+	// profile defaults to Chrome 155's; certHosts, the names on the test
+	// servers' certificate, to localhost.
+	profile   *profile.Profile
+	certHosts []string
 }
 
 func newTestEngine(t *testing.T, o options) *Engine {
 	t.Helper()
-	cert, roots := testutil.Certificate(t, "localhost")
+	hosts := o.certHosts
+	if hosts == nil {
+		hosts = []string{
+			"localhost",
+		}
+	}
+	cert, roots := testutil.Certificate(t, hosts...)
 	serverCert.Store(&cert)
+	p := o.profile
+	if p == nil {
+		p = profiles.Chrome155MacOS()
+	}
 	e, err := newEngine(Config{
-		Profile:     profiles.Chrome155MacOS(),
+		Profile:     p,
 		RootCAs:     roots,
 		DialTimeout: o.dialTimeout,
 		DialContext: o.dial,

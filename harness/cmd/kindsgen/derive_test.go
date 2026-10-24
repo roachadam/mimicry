@@ -72,7 +72,7 @@ func TestInsecureVariantValues(t *testing.T) {
 			return ""
 		}
 	}
-	_, _, variants, err := orders(own, all, nil, none)
+	_, _, variants, err := orders(own, all, nil, nil, none)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +138,7 @@ func TestInsecureVariantValuesFromOwnElsewhere(t *testing.T) {
 			return ""
 		}
 	}
-	_, _, variants, err := orders(own, all, nil, none)
+	_, _, variants, err := orders(own, all, nil, nil, none)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -431,9 +431,9 @@ func fetchRequest(method, path string, fields ...string) h2trace.Request {
 	return r
 }
 
-// The cors page's fetches are the fetch kind's, but its preflights and
-// those carrying a page header other than X-Mimicry (which land by name);
-// a path no step has is a redirect's target.
+// The cors page's fetches are the fetch kind's, whatever header the page
+// set (a header table places each by name), but its preflights; a path no
+// step has is a redirect's target.
 func TestCollectCORSFetches(t *testing.T) {
 	page := &capture.Page{
 		H2: []*h2trace.Trace{
@@ -465,6 +465,16 @@ func TestCollectCORSFetches(t *testing.T) {
 			method: "PUT",
 			site:   profile.SiteCrossSite,
 			cors:   true,
+		}),
+		fmt.Sprintf("GET cors-multi %+v", condition{
+			site:    profile.SiteCrossSite,
+			cors:    true,
+			pageSet: true,
+		}),
+		fmt.Sprintf("GET cors-maxage %+v", condition{
+			site:    profile.SiteCrossSite,
+			cors:    true,
+			pageSet: true,
 		}),
 		fmt.Sprintf("GET cors-redirect-target %+v", condition{
 			site:       profile.SiteCrossSite,

@@ -108,10 +108,23 @@ header before dialling, picks the request's proxy, and asks the pool
 (`internal/pool`) for a connection by key: scheme, host and port,
 partition, and proxy. Per key the pool holds one shared HTTP/2 connection,
 the idle HTTP/1.1 ones, and the dial in progress, which concurrent
-requests wait for and share, its error included. An idle HTTP/1.1
+requests wait for and share, its error included. Once a key's server is
+known to speak HTTP/1.1 only, requests dial in parallel up to the
+profile's `connections.http1_per_host` (6 in every browser); more wait,
+first come first served, for a connection to come back. An idle HTTP/1.1
 connection is checked without blocking before reuse (closed by the peer,
 or holding bytes nobody asked for: it is closed instead) and closed after
 90 s idle; a key with no connections is forgotten after the same time.
+
+A request to a host with no HTTP/2 connection of its own may take another
+host's (coalescing), as the profile's `connections.coalesce` says: one in
+the same partition, to the same port, not through a proxy, whose
+certificate covers the host. With `lookup` (Chrome, Safari) the host is
+looked up (`Config.Resolver`) and the connection must reach one of its
+addresses: no new connection is opened. With `connect` (Firefox) the host
+is dialled and handshaked first; if another connection reaches the same
+address, the new one sends its preface and GOAWAY and closes, and the
+request goes on the other.
 
 A new connection is dialled (`internal/dial`, `Config.DialContext`, through
 the proxy if there is one) and handshaked with the profile's ClientHello
@@ -147,6 +160,8 @@ last navigation.
 preflights, redirects, connection sharing),
 `TestCookiesScenarioMatchesBrowser` (the cookies page),
 `TestCORSMatchesBrowser` (the preflight cache and refusals),
+`TestConnectionsMatchBrowser` (the per-host HTTP/1.1 cap and coalescing),
 `TestHPACKReproducesBrowserBlocks`. The resolver's rules by unit tests in
 `kinds_test.go`, `transport_test.go` and `preflight_test.go`; the pool's by
-`internal/pool`'s, with fake connections and a fake clock.
+`internal/pool`'s, with fake connections and a fake clock; coalescing by
+`internal/engine/native`'s, with fake servers and lookups.

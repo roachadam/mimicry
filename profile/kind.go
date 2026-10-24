@@ -160,6 +160,58 @@ type Context struct {
 	// PreflightCacheMerge (Firefox: what every answer allowed). Empty: not
 	// measured, so requests that need a preflight are an error.
 	PreflightCache string `json:"preflight_cache,omitempty"`
+	// HeaderTable is how the browser orders the headers a page sets on a
+	// fetch() or XHR among its own, where the kind's list has no
+	// OtherHeaders slot. Nil: those lists place them after the rest,
+	// sorted by name (Firefox's lists all have the slot).
+	HeaderTable *HeaderTable `json:"header_table,omitempty"`
+}
+
+// HeaderTable is a browser's request header table: it keeps a fetch()'s or
+// XHR's headers, the page's and some of its own, in one hash table and
+// sends them in the table's order, so where a page's header goes depends
+// on its name and on every other name in the table (headers-order
+// capture). The table's names go out as one run, where the list puts its
+// first one.
+type HeaderTable struct {
+	// Hash is the table: HashBlink or HashCF.
+	Hash string `json:"hash"`
+	// Own are the browser's own headers in the table, lowercase. They
+	// enter it in the list's order.
+	Own []string `json:"own"`
+	// PageFirst: the page's headers enter the table first, then the
+	// browser's own (Chrome). Otherwise the browser's own are in the table
+	// as the list has them, and the page's enter after (Safari).
+	PageFirst bool `json:"page_first,omitempty"`
+	// AsPage are list headers that enter the table with the page's, sorted
+	// among them (Chrome's content-type, which a page sets in its fetch()
+	// headers).
+	AsPage []string `json:"as_page,omitempty"`
+	// Late are list headers that enter the table after the page's
+	// (Safari's content-length, set once the body is).
+	Late []string `json:"late,omitempty"`
+	// Redirected: the table orders a request made by following a redirect
+	// as any other (Chrome). Otherwise such a request with the page's
+	// headers takes only a variant captured with them (Safari, whose
+	// redirects reorder every header).
+	Redirected bool `json:"redirected,omitempty"`
+}
+
+// Values of HeaderTable.Hash.
+const (
+	// HashBlink is Blink's HTTPHeaderMap: a WTF::HashMap keyed by the
+	// case-folded name (rapidhash), open addressing with triangular
+	// probing, 8 buckets doubling at half full.
+	HashBlink = "blink"
+	// HashCF is CFNetwork's header dictionary: a CFDictionary keyed by
+	// the lowercased name (CFString's hash), linear probing, prime
+	// bucket counts.
+	HashCF = "cf"
+)
+
+// Members returns the table's list headers: Own, AsPage and Late.
+func (t *HeaderTable) Members() []string {
+	return slices.Concat(t.Own, t.AsPage, t.Late)
 }
 
 // Values of Context.PreflightCache.
@@ -196,6 +248,76 @@ func (c *checker) checkKinds(p *Profile) {
 			}
 		}
 	}
+	c.checkHeaderTable(p)
+}
+
+// checkHeaderTable checks the context's header table: a known hash, names
+// once each, and in every fetch() and XHR list it orders (one without an
+// OtherHeaders slot) its names as one run, the table's place.
+func (c *checker) checkHeaderTable(p *Profile) {
+	if p.Context == nil || p.Context.HeaderTable == nil {
+		return
+	}
+	t := p.Context.HeaderTable
+	const path = "context.header_table"
+	if t.Hash != HashBlink && t.Hash != HashCF {
+		c.add(path+".hash", "must be %q or %q", HashBlink, HashCF)
+	}
+	if len(t.Own) == 0 {
+		c.add(path+".own", "is required")
+	}
+	seen := map[string]bool{}
+	for _, name := range t.Members() {
+		switch {
+		case name != strings.ToLower(name) || !isToken(name):
+			c.add(path, "%q is not a lowercase header name", name)
+		case seen[name]:
+			c.add(path, "names %s twice", name)
+		}
+		seen[name] = true
+	}
+	for _, kind := range []string{KindFetch, KindXHR} {
+		k := p.Kinds[kind]
+		if k == nil {
+			continue
+		}
+		lists := map[string][]Header{
+			"headers": k.Headers,
+			"http1":   k.HTTP1,
+		}
+		for i, v := range k.Variants {
+			if v.Redirected && !t.Redirected {
+				// The table does not order these.
+				continue
+			}
+			lists[fmt.Sprintf("variants[%d].headers", i)] = v.Headers
+			lists[fmt.Sprintf("variants[%d].http1", i)] = v.HTTP1
+		}
+		for _, at := range slices.Sorted(maps.Keys(lists)) {
+			if !tableRun(lists[at], seen) {
+				c.add("kinds."+kind+"."+at, "splits the header table's names %v: they go out as one run", t.Members())
+			}
+		}
+	}
+}
+
+// tableRun reports whether list, unless it has an OtherHeaders slot, names
+// the table's members (lowercase) next to each other.
+func tableRun(list []Header, members map[string]bool) bool {
+	first, last, n := -1, -1, 0
+	for i, h := range list {
+		if h.Name == OtherHeaders {
+			return true
+		}
+		if members[strings.ToLower(h.Name)] {
+			if first < 0 {
+				first = i
+			}
+			last = i
+			n++
+		}
+	}
+	return n == 0 || last-first+1 == n
 }
 
 // checkVariants checks each variant's lists, and that no two share a

@@ -19,443 +19,427 @@
         "length": 0
       },
       {
-        "ms": 91,
+        "ms": 54,
         "type": "HEADERS",
         "stream": 1,
         "flags": 5,
-        "length": 259
+        "length": 267
       },
       {
-        "ms": 312,
+        "ms": 218,
         "type": "HEADERS",
         "stream": 3,
         "flags": 5,
-        "length": 85
+        "length": 92
       },
       {
-        "ms": 312,
+        "ms": 218,
         "type": "HEADERS",
         "stream": 5,
         "flags": 5,
         "length": 128
       },
       {
-        "ms": 313,
+        "ms": 218,
         "type": "HEADERS",
         "stream": 7,
         "flags": 5,
         "length": 30
       },
       {
-        "ms": 314,
+        "ms": 220,
         "type": "HEADERS",
         "stream": 9,
         "flags": 5,
         "length": 35
       },
       {
-        "ms": 317,
+        "ms": 223,
         "type": "WINDOW_UPDATE",
         "stream": 9,
         "length": 4,
         "increment": 507895,
-        "sent_before": 1277952
+        "sent_before": 917504
       },
       {
-        "ms": 318,
+        "ms": 224,
         "type": "WINDOW_UPDATE",
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 2605047
+        "sent_before": 1687552
       },
       {
-        "ms": 319,
+        "ms": 225,
         "type": "WINDOW_UPDATE",
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 3112951
+        "sent_before": 2621440
       },
       {
-        "ms": 319,
+        "ms": 225,
         "type": "WINDOW_UPDATE",
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 3620855
+        "sent_before": 2621440
       },
       {
-        "ms": 321,
+        "ms": 226,
         "type": "WINDOW_UPDATE",
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 4128759
+        "sent_before": 3063808
       },
       {
-        "ms": 321,
+        "ms": 226,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 3407872
+      },
+      {
+        "ms": 227,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 3899392
+      },
+      {
+        "ms": 227,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 4128768
+      },
+      {
+        "ms": 228,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 4620288
+      },
+      {
+        "ms": 229,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 5193728
+      },
+      {
+        "ms": 229,
+        "type": "WINDOW_UPDATE",
+        "length": 4,
+        "increment": 5243605
+      },
+      {
+        "ms": 230,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 5668864
+      },
+      {
+        "ms": 231,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 6176768
+      },
+      {
+        "ms": 232,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 6668288
+      },
+      {
+        "ms": 234,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 8404992
+      },
+      {
+        "ms": 234,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 8404992
+      },
+      {
+        "ms": 235,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 8814592
+      },
+      {
+        "ms": 235,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 8814592
+      },
+      {
+        "ms": 236,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 9256960
+      },
+      {
+        "ms": 237,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 9863168
+      },
+      {
+        "ms": 239,
+        "type": "WINDOW_UPDATE",
+        "length": 4,
+        "increment": 5914624
+      },
+      {
+        "ms": 239,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 11747319
+      },
+      {
+        "ms": 239,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 11747319
+      },
+      {
+        "ms": 240,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 12173303
+      },
+      {
+        "ms": 240,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 12173303
+      },
+      {
+        "ms": 240,
         "type": "WINDOW_UPDATE",
         "stream": 9,
         "length": 4,
         "increment": 507895,
-        "sent_before": 4456439
+        "sent_before": 12550135
       },
       {
-        "ms": 321,
+        "ms": 241,
         "type": "WINDOW_UPDATE",
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 5144558
+        "sent_before": 12795895
       },
       {
-        "ms": 322,
+        "ms": 242,
         "type": "WINDOW_UPDATE",
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 5652462
+        "sent_before": 13418487
       },
       {
-        "ms": 324,
-        "type": "WINDOW_UPDATE",
-        "length": 4,
-        "increment": 5292730
-      },
-      {
-        "ms": 324,
+        "ms": 243,
         "type": "WINDOW_UPDATE",
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 6160366
+        "sent_before": 13778935
       },
       {
-        "ms": 324,
+        "ms": 245,
         "type": "WINDOW_UPDATE",
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 6160366
+        "sent_before": 15810542
       },
       {
-        "ms": 324,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507895,
-        "sent_before": 6176750
-      },
-      {
-        "ms": 324,
+        "ms": 245,
         "type": "WINDOW_UPDATE",
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 6176750
+        "sent_before": 15810542
       },
       {
-        "ms": 325,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 7667694
-      },
-      {
-        "ms": 327,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 8699877
-      },
-      {
-        "ms": 328,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 9207781
-      },
-      {
-        "ms": 329,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 9715685
-      },
-      {
-        "ms": 329,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 10092517
-      },
-      {
-        "ms": 330,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507895,
-        "sent_before": 10633189
-      },
-      {
-        "ms": 330,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 11010021
-      },
-      {
-        "ms": 332,
+        "ms": 246,
         "type": "WINDOW_UPDATE",
         "length": 4,
-        "increment": 6455287
+        "increment": 5308398
       },
       {
-        "ms": 332,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 11747292
-      },
-      {
-        "ms": 332,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 11747292
-      },
-      {
-        "ms": 332,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 12124124
-      },
-      {
-        "ms": 332,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 12124124
-      },
-      {
-        "ms": 333,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507895,
-        "sent_before": 13139932
-      },
-      {
-        "ms": 333,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 13139932
-      },
-      {
-        "ms": 335,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 14794707
-      },
-      {
-        "ms": 335,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 14794707
-      },
-      {
-        "ms": 336,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 15810515
-      },
-      {
-        "ms": 336,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 15810515
-      },
-      {
-        "ms": 336,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507895,
-        "sent_before": 16744403
-      },
-      {
-        "ms": 337,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 16777216
-      },
-      {
-        "ms": 342,
+        "ms": 254,
         "type": "HEADERS",
         "stream": 11,
         "flags": 4,
-        "length": 51
+        "length": 59
       },
       {
-        "ms": 342,
+        "ms": 254,
         "type": "DATA",
         "stream": 11,
         "length": 16374
       },
       {
-        "ms": 342,
+        "ms": 254,
         "type": "DATA",
         "stream": 11,
         "length": 16374
       },
       {
-        "ms": 342,
+        "ms": 254,
         "type": "DATA",
         "stream": 11,
         "length": 16374
       },
       {
-        "ms": 342,
+        "ms": 254,
         "type": "DATA",
         "stream": 11,
         "length": 16374
       },
       {
-        "ms": 342,
+        "ms": 254,
         "type": "DATA",
         "stream": 11,
         "length": 39
       },
       {
-        "ms": 342,
+        "ms": 254,
         "type": "DATA",
         "stream": 11,
         "length": 16374
       },
       {
-        "ms": 342,
+        "ms": 254,
         "type": "DATA",
         "stream": 11,
         "length": 16374
       },
       {
-        "ms": 342,
+        "ms": 254,
         "type": "DATA",
         "stream": 11,
         "length": 16374
       },
       {
-        "ms": 342,
+        "ms": 254,
         "type": "DATA",
         "stream": 11,
         "length": 16374
       },
       {
-        "ms": 342,
+        "ms": 254,
         "type": "DATA",
         "stream": 11,
         "length": 39
       },
       {
-        "ms": 343,
+        "ms": 254,
         "type": "DATA",
         "stream": 11,
         "length": 2
       },
       {
-        "ms": 343,
+        "ms": 254,
+        "type": "DATA",
+        "stream": 11,
+        "length": 16374
+      },
+      {
+        "ms": 254,
+        "type": "DATA",
+        "stream": 11,
+        "length": 16374
+      },
+      {
+        "ms": 254,
         "type": "DATA",
         "stream": 11,
         "length": 16372
       },
       {
-        "ms": 343,
+        "ms": 254,
         "type": "DATA",
         "stream": 11,
         "length": 16374
       },
       {
-        "ms": 343,
-        "type": "DATA",
-        "stream": 11,
-        "length": 16374
-      },
-      {
-        "ms": 343,
-        "type": "DATA",
-        "stream": 11,
-        "length": 16374
-      },
-      {
-        "ms": 343,
+        "ms": 254,
         "type": "DATA",
         "stream": 11,
         "length": 39
       },
       {
-        "ms": 343,
-        "type": "DATA",
-        "stream": 11,
-        "length": 2
-      },
-      {
-        "ms": 343,
+        "ms": 254,
         "type": "DATA",
         "stream": 11,
         "flags": 1,
-        "length": 3393
+        "length": 3395
       },
       {
-        "ms": 343,
+        "ms": 255,
         "type": "HEADERS",
         "stream": 13,
         "flags": 5,
         "length": 39
       },
       {
-        "ms": 360,
+        "ms": 263,
         "type": "HEADERS",
         "stream": 15,
         "flags": 5,
         "length": 39
       },
       {
-        "ms": 485,
+        "ms": 405,
         "type": "HEADERS",
         "stream": 17,
         "flags": 5,
-        "length": 39
+        "length": 47
       }
     ],
     "requests": [
       {
         "stream": 1,
         "path": "/",
-        "block": "8287418ba0e41d139d09b8dbcebcf784408a4148b4a549275a42a13f8690e4b692d49f7adad07f66a281b0dae053fad0321aa49d13fda992a49685340c8a6adca7e28104416e277fb521aeba0bc8b1e63258700dae15c2da9fd66c7bf467fa5283752a988a4ea7fed4e25b1063d4c09d5c0b854dc39476198700dae15c2dff53b0497ca589d34d1f43aeba0c41a4c7a98f33a69a3fdf9a68fa1d75d0620d263d4c79a68fbed00177febe58f9fbed00177b408a4148b4a549275906497f83a8f517408a4148b4a549275a93c85f86a87dcd30d25f518b2d4b70ddf45abefb4005df4086aec31ec327d785b6007d286f50929bd9abfa5242cb40d25fa523b3e94f684c9f",
+        "block": "8287419320eb4db6157a4d498967a5d25426e36db6e33f84408a4148b4a549275a42a13f8690e4b692d49f7adad07f66a281b0dae053fad0321aa49d13fda992a49685340c8a6adca7e28104416e277fb521aeba0bc8b1e63258700dae15c2da9fd66c7bf467fa5283752a988a4ea7fed4e25b1063d4c09d5c0b854dc39476198700dae15c2dff53b0497ca589d34d1f43aeba0c41a4c7a98f33a69a3fdf9a68fa1d75d0620d263d4c79a68fbed00177febe58f9fbed00177b408a4148b4a549275906497f83a8f517408a4148b4a549275a93c85f86a87dcd30d25f518b2d4b70ddf45abefb4005df4086aec31ec327d785b6007d286f50929bd9abfa5242cb40d25fa523b3e94f684c9f",
         "instructions": [
           {
             "rep": "indexed",
@@ -473,7 +457,7 @@
             "rep": "incremental",
             "index": 1,
             "name": ":authority",
-            "value": "localhost:58788",
+            "value": "capture.mimicry.test:55563",
             "huffman_value": true
           },
           {
@@ -543,7 +527,7 @@
       {
         "stream": 3,
         "path": "/style.css",
-        "block": "8287c604876109f5415722117f0684427d505fc5538e497ca582211f5f2c7cfdf6800b8773929d29ad1718628390744e7426e36f3af3cc7f7f068840e92ac7b0d31aaf7f0685a8eb10f623c57f0585b600fd286fc4",
+        "block": "8287c604876109f5415722117f0684427d505fc5538e497ca582211f5f2c7cfdf6800b8773999d29ad17186083ad36d855e93526259e9749509b8db6db8cb17f068840e92ac7b0d31aaf7f0685a8eb10f623c57f0585b600fd286fc4",
         "instructions": [
           {
             "rep": "indexed",
@@ -561,7 +545,7 @@
             "rep": "indexed",
             "index": 70,
             "name": ":authority",
-            "value": "localhost:58788"
+            "value": "capture.mimicry.test:55563"
           },
           {
             "rep": "without",
@@ -594,7 +578,7 @@
             "rep": "incremental",
             "index": 51,
             "name": "referer",
-            "value": "https://localhost:58788/",
+            "value": "https://capture.mimicry.test:55563/",
             "huffman_value": true
           },
           {
@@ -653,7 +637,7 @@
             "rep": "indexed",
             "index": 76,
             "name": ":authority",
-            "value": "localhost:58788"
+            "value": "capture.mimicry.test:55563"
           },
           {
             "rep": "without",
@@ -686,7 +670,7 @@
             "rep": "indexed",
             "index": 67,
             "name": "referer",
-            "value": "https://localhost:58788/"
+            "value": "https://capture.mimicry.test:55563/"
           },
           {
             "rep": "indexed",
@@ -742,7 +726,7 @@
             "rep": "indexed",
             "index": 79,
             "name": ":authority",
-            "value": "localhost:58788"
+            "value": "capture.mimicry.test:55563"
           },
           {
             "rep": "without",
@@ -774,7 +758,7 @@
             "rep": "indexed",
             "index": 70,
             "name": "referer",
-            "value": "https://localhost:58788/"
+            "value": "https://capture.mimicry.test:55563/"
           },
           {
             "rep": "indexed",
@@ -829,7 +813,7 @@
             "rep": "indexed",
             "index": 81,
             "name": ":authority",
-            "value": "localhost:58788"
+            "value": "capture.mimicry.test:55563"
           },
           {
             "rep": "without",
@@ -861,7 +845,7 @@
             "rep": "indexed",
             "index": 71,
             "name": "referer",
-            "value": "https://localhost:58788/"
+            "value": "https://capture.mimicry.test:55563/"
           },
           {
             "rep": "indexed",
@@ -900,7 +884,7 @@
       {
         "stream": 11,
         "path": "/upload",
-        "block": "8387d4048562dae838e4c140853d8698d57f919d29ad1718628390744e7426e36f3af3dfc9c0d3cac10f0d8410000003cfbfcd",
+        "block": "8387d4048562dae838e4c140853d8698d57f999d29ad17186083ad36d855e93526259e9749509b8db6db8cffc9c0d3cac10f0d8410000003cfbfcd",
         "instructions": [
           {
             "rep": "indexed",
@@ -918,7 +902,7 @@
             "rep": "indexed",
             "index": 84,
             "name": ":authority",
-            "value": "localhost:58788"
+            "value": "capture.mimicry.test:55563"
           },
           {
             "rep": "without",
@@ -936,7 +920,7 @@
           {
             "rep": "incremental",
             "name": "origin",
-            "value": "https://localhost:58788",
+            "value": "https://capture.mimicry.test:55563",
             "huffman_name": true,
             "huffman_value": true
           },
@@ -962,7 +946,7 @@
             "rep": "indexed",
             "index": 74,
             "name": "referer",
-            "value": "https://localhost:58788/"
+            "value": "https://capture.mimicry.test:55563/"
           },
           {
             "rep": "indexed",
@@ -1018,7 +1002,7 @@
             "rep": "indexed",
             "index": 85,
             "name": ":authority",
-            "value": "localhost:58788"
+            "value": "capture.mimicry.test:55563"
           },
           {
             "rep": "without",
@@ -1061,7 +1045,7 @@
             "rep": "indexed",
             "index": 75,
             "name": "referer",
-            "value": "https://localhost:58788/"
+            "value": "https://capture.mimicry.test:55563/"
           },
           {
             "rep": "indexed",
@@ -1110,7 +1094,7 @@
             "rep": "indexed",
             "index": 86,
             "name": ":authority",
-            "value": "localhost:58788"
+            "value": "capture.mimicry.test:55563"
           },
           {
             "rep": "without",
@@ -1141,7 +1125,7 @@
             "rep": "indexed",
             "index": 75,
             "name": "referer",
-            "value": "https://localhost:58788/"
+            "value": "https://capture.mimicry.test:55563/"
           },
           {
             "rep": "indexed",
@@ -1192,7 +1176,7 @@
       {
         "stream": 17,
         "path": "/done",
-        "block": "8287d604846243d45fc2d4c373949d29ad1718628390744e7426e36f3af3cc543effcbc2d1c1cf",
+        "block": "8287d604846243d45fc2d4c3739c9d29ad17186083ad36d855e93526259e9749509b8db6db8cb150fbffcbc2d1c1cf",
         "instructions": [
           {
             "rep": "indexed",
@@ -1210,7 +1194,7 @@
             "rep": "indexed",
             "index": 86,
             "name": ":authority",
-            "value": "localhost:58788"
+            "value": "capture.mimicry.test:55563"
           },
           {
             "rep": "without",
@@ -1241,7 +1225,7 @@
             "rep": "incremental",
             "index": 51,
             "name": "referer",
-            "value": "https://localhost:58788/nav",
+            "value": "https://capture.mimicry.test:55563/nav",
             "huffman_value": true
           },
           {
@@ -1298,18 +1282,18 @@
         "length": 0
       },
       {
-        "ms": 45,
+        "ms": 47,
         "type": "HEADERS",
         "stream": 1,
         "flags": 5,
-        "length": 259
+        "length": 267
       },
       {
         "ms": 51,
         "type": "HEADERS",
         "stream": 3,
         "flags": 5,
-        "length": 84
+        "length": 92
       },
       {
         "ms": 51,
@@ -1319,42 +1303,26 @@
         "length": 128
       },
       {
-        "ms": 52,
+        "ms": 51,
         "type": "HEADERS",
         "stream": 7,
         "flags": 5,
         "length": 30
       },
       {
-        "ms": 53,
+        "ms": 52,
         "type": "HEADERS",
         "stream": 9,
         "flags": 5,
         "length": 35
       },
       {
-        "ms": 58,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507895,
-        "sent_before": 868352
-      },
-      {
-        "ms": 58,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 1130496
-      },
-      {
         "ms": 59,
         "type": "WINDOW_UPDATE",
         "stream": 9,
         "length": 4,
-        "increment": 507904,
-        "sent_before": 1884160
+        "increment": 507895,
+        "sent_before": 606208
       },
       {
         "ms": 60,
@@ -1362,15 +1330,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 2113536
-      },
-      {
-        "ms": 61,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 2621440
+        "sent_before": 1064960
       },
       {
         "ms": 62,
@@ -1378,7 +1338,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 3112960
+        "sent_before": 1622016
       },
       {
         "ms": 63,
@@ -1386,7 +1346,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 3670016
+        "sent_before": 2129920
       },
       {
         "ms": 64,
@@ -1394,7 +1354,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 4145152
+        "sent_before": 2621440
       },
       {
         "ms": 65,
@@ -1402,7 +1362,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 4669440
+        "sent_before": 3112960
       },
       {
         "ms": 66,
@@ -1410,13 +1370,15 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 5144576
+        "sent_before": 3637248
       },
       {
         "ms": 66,
         "type": "WINDOW_UPDATE",
+        "stream": 9,
         "length": 4,
-        "increment": 5243605
+        "increment": 507904,
+        "sent_before": 4145152
       },
       {
         "ms": 67,
@@ -1424,7 +1386,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 5652480
+        "sent_before": 4636672
       },
       {
         "ms": 68,
@@ -1432,23 +1394,13 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 6356992
+        "sent_before": 5210112
       },
       {
-        "ms": 69,
+        "ms": 68,
         "type": "WINDOW_UPDATE",
-        "stream": 9,
         "length": 4,
-        "increment": 507904,
-        "sent_before": 6864896
-      },
-      {
-        "ms": 69,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 7405568
+        "increment": 5243605
       },
       {
         "ms": 70,
@@ -1456,7 +1408,15 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 7733248
+        "sent_before": 6848512
+      },
+      {
+        "ms": 70,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 6848512
       },
       {
         "ms": 71,
@@ -1464,21 +1424,55 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 8339456
+        "sent_before": 8191991
       },
       {
-        "ms": 71,
+        "ms": 72,
         "type": "WINDOW_UPDATE",
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 8716288
+        "sent_before": 8699895
+      },
+      {
+        "ms": 72,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 8699895
+      },
+      {
+        "ms": 72,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 9715703
+      },
+      {
+        "ms": 72,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507895,
+        "sent_before": 9715703
       },
       {
         "ms": 73,
         "type": "WINDOW_UPDATE",
+        "stream": 9,
         "length": 4,
-        "increment": 5488631
+        "increment": 507904,
+        "sent_before": 10256375
+      },
+      {
+        "ms": 73,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 10928119
       },
       {
         "ms": 74,
@@ -1486,39 +1480,13 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 10731511
-      },
-      {
-        "ms": 74,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 10731511
-      },
-      {
-        "ms": 74,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 11272183
-      },
-      {
-        "ms": 74,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 11272183
+        "sent_before": 11714551
       },
       {
         "ms": 75,
         "type": "WINDOW_UPDATE",
-        "stream": 9,
         "length": 4,
-        "increment": 507895,
-        "sent_before": 12615671
+        "increment": 5308398
       },
       {
         "ms": 75,
@@ -1526,7 +1494,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 12615671
+        "sent_before": 12255214
       },
       {
         "ms": 76,
@@ -1534,7 +1502,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 13778926
+        "sent_before": 12763118
       },
       {
         "ms": 76,
@@ -1542,31 +1510,31 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 13778926
+        "sent_before": 13271022
       },
       {
-        "ms": 77,
+        "ms": 76,
         "type": "WINDOW_UPDATE",
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 14073838
+        "sent_before": 13271022
       },
       {
-        "ms": 77,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 14073838
-      },
-      {
-        "ms": 78,
+        "ms": 76,
         "type": "WINDOW_UPDATE",
         "stream": 9,
         "length": 4,
         "increment": 507895,
-        "sent_before": 15024110
+        "sent_before": 13271022
+      },
+      {
+        "ms": 77,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 13516782
       },
       {
         "ms": 78,
@@ -1574,28 +1542,36 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 16072686
-      },
-      {
-        "ms": 78,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 16072686
+        "sent_before": 14630894
       },
       {
         "ms": 79,
         "type": "WINDOW_UPDATE",
         "length": 4,
-        "increment": 5341175
+        "increment": 5259255
+      },
+      {
+        "ms": 79,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 15810533
+      },
+      {
+        "ms": 79,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 15810533
       },
       {
         "ms": 86,
         "type": "HEADERS",
         "stream": 11,
         "flags": 4,
-        "length": 51
+        "length": 59
       },
       {
         "ms": 86,
@@ -1662,6 +1638,24 @@
         "type": "DATA",
         "stream": 11,
         "length": 2
+      },
+      {
+        "ms": 86,
+        "type": "DATA",
+        "stream": 11,
+        "length": 16374
+      },
+      {
+        "ms": 86,
+        "type": "DATA",
+        "stream": 11,
+        "length": 16374
+      },
+      {
+        "ms": 86,
+        "type": "DATA",
+        "stream": 11,
+        "length": 16374
       },
       {
         "ms": 86,
@@ -1673,38 +1667,14 @@
         "ms": 86,
         "type": "DATA",
         "stream": 11,
-        "length": 16374
-      },
-      {
-        "ms": 86,
-        "type": "DATA",
-        "stream": 11,
-        "length": 16374
-      },
-      {
-        "ms": 86,
-        "type": "DATA",
-        "stream": 11,
-        "length": 16374
-      },
-      {
-        "ms": 86,
-        "type": "DATA",
-        "stream": 11,
         "length": 39
       },
       {
         "ms": 86,
         "type": "DATA",
         "stream": 11,
-        "length": 2
-      },
-      {
-        "ms": 86,
-        "type": "DATA",
-        "stream": 11,
         "flags": 1,
-        "length": 3393
+        "length": 3395
       },
       {
         "ms": 87,
@@ -1714,7 +1684,7 @@
         "length": 39
       },
       {
-        "ms": 102,
+        "ms": 103,
         "type": "HEADERS",
         "stream": 15,
         "flags": 5,
@@ -1725,14 +1695,14 @@
         "type": "HEADERS",
         "stream": 17,
         "flags": 5,
-        "length": 39
+        "length": 47
       }
     ],
     "requests": [
       {
         "stream": 1,
         "path": "/",
-        "block": "8287418ba0e41d139d09b8dbcebe1f84408a4148b4a549275a42a13f8690e4b692d49f7adad07f66a281b0dae053fad0321aa49d13fda992a49685340c8a6adca7e28104416e277fb521aeba0bc8b1e63258700dae15c2da9fd66c7bf467fa5283752a988a4ea7fed4e25b1063d4c09d5c0b854dc39476198700dae15c2dff53b0497ca589d34d1f43aeba0c41a4c7a98f33a69a3fdf9a68fa1d75d0620d263d4c79a68fbed00177febe58f9fbed00177b408a4148b4a549275906497f83a8f517408a4148b4a549275a93c85f86a87dcd30d25f518b2d4b70ddf45abefb4005df4086aec31ec327d785b6007d286f50929bd9abfa5242cb40d25fa523b3e94f684c9f",
+        "block": "8287419320eb4db6157a4d498967a5d25426e36db6e39f84408a4148b4a549275a42a13f8690e4b692d49f7adad07f66a281b0dae053fad0321aa49d13fda992a49685340c8a6adca7e28104416e277fb521aeba0bc8b1e63258700dae15c2da9fd66c7bf467fa5283752a988a4ea7fed4e25b1063d4c09d5c0b854dc39476198700dae15c2dff53b0497ca589d34d1f43aeba0c41a4c7a98f33a69a3fdf9a68fa1d75d0620d263d4c79a68fbed00177febe58f9fbed00177b408a4148b4a549275906497f83a8f517408a4148b4a549275a93c85f86a87dcd30d25f518b2d4b70ddf45abefb4005df4086aec31ec327d785b6007d286f50929bd9abfa5242cb40d25fa523b3e94f684c9f",
         "instructions": [
           {
             "rep": "indexed",
@@ -1750,7 +1720,7 @@
             "rep": "incremental",
             "index": 1,
             "name": ":authority",
-            "value": "localhost:58791",
+            "value": "capture.mimicry.test:55566",
             "huffman_value": true
           },
           {
@@ -1820,7 +1790,7 @@
       {
         "stream": 3,
         "path": "/style.css",
-        "block": "8287c604876109f5415722117f0684427d505fc5538e497ca582211f5f2c7cfdf6800b8773919d29ad1718628390744e7426e36f3af8587f068840e92ac7b0d31aaf7f0685a8eb10f623c57f0585b600fd286fc4",
+        "block": "8287c604876109f5415722117f0684427d505fc5538e497ca582211f5f2c7cfdf6800b8773999d29ad17186083ad36d855e93526259e9749509b8db6db8e317f068840e92ac7b0d31aaf7f0685a8eb10f623c57f0585b600fd286fc4",
         "instructions": [
           {
             "rep": "indexed",
@@ -1838,7 +1808,7 @@
             "rep": "indexed",
             "index": 70,
             "name": ":authority",
-            "value": "localhost:58791"
+            "value": "capture.mimicry.test:55566"
           },
           {
             "rep": "without",
@@ -1871,7 +1841,7 @@
             "rep": "incremental",
             "index": 51,
             "name": "referer",
-            "value": "https://localhost:58791/",
+            "value": "https://capture.mimicry.test:55566/",
             "huffman_value": true
           },
           {
@@ -1930,7 +1900,7 @@
             "rep": "indexed",
             "index": 76,
             "name": ":authority",
-            "value": "localhost:58791"
+            "value": "capture.mimicry.test:55566"
           },
           {
             "rep": "without",
@@ -1963,7 +1933,7 @@
             "rep": "indexed",
             "index": 67,
             "name": "referer",
-            "value": "https://localhost:58791/"
+            "value": "https://capture.mimicry.test:55566/"
           },
           {
             "rep": "indexed",
@@ -2019,7 +1989,7 @@
             "rep": "indexed",
             "index": 79,
             "name": ":authority",
-            "value": "localhost:58791"
+            "value": "capture.mimicry.test:55566"
           },
           {
             "rep": "without",
@@ -2051,7 +2021,7 @@
             "rep": "indexed",
             "index": 70,
             "name": "referer",
-            "value": "https://localhost:58791/"
+            "value": "https://capture.mimicry.test:55566/"
           },
           {
             "rep": "indexed",
@@ -2106,7 +2076,7 @@
             "rep": "indexed",
             "index": 81,
             "name": ":authority",
-            "value": "localhost:58791"
+            "value": "capture.mimicry.test:55566"
           },
           {
             "rep": "without",
@@ -2138,7 +2108,7 @@
             "rep": "indexed",
             "index": 71,
             "name": "referer",
-            "value": "https://localhost:58791/"
+            "value": "https://capture.mimicry.test:55566/"
           },
           {
             "rep": "indexed",
@@ -2177,7 +2147,7 @@
       {
         "stream": 11,
         "path": "/upload",
-        "block": "8387d4048562dae838e4c140853d8698d57f919d29ad1718628390744e7426e36f3af87fc9c0d3cac10f0d8410000003cfbfcd",
+        "block": "8387d4048562dae838e4c140853d8698d57f999d29ad17186083ad36d855e93526259e9749509b8db6db8e7fc9c0d3cac10f0d8410000003cfbfcd",
         "instructions": [
           {
             "rep": "indexed",
@@ -2195,7 +2165,7 @@
             "rep": "indexed",
             "index": 84,
             "name": ":authority",
-            "value": "localhost:58791"
+            "value": "capture.mimicry.test:55566"
           },
           {
             "rep": "without",
@@ -2213,7 +2183,7 @@
           {
             "rep": "incremental",
             "name": "origin",
-            "value": "https://localhost:58791",
+            "value": "https://capture.mimicry.test:55566",
             "huffman_name": true,
             "huffman_value": true
           },
@@ -2239,7 +2209,7 @@
             "rep": "indexed",
             "index": 74,
             "name": "referer",
-            "value": "https://localhost:58791/"
+            "value": "https://capture.mimicry.test:55566/"
           },
           {
             "rep": "indexed",
@@ -2295,7 +2265,7 @@
             "rep": "indexed",
             "index": 85,
             "name": ":authority",
-            "value": "localhost:58791"
+            "value": "capture.mimicry.test:55566"
           },
           {
             "rep": "without",
@@ -2338,7 +2308,7 @@
             "rep": "indexed",
             "index": 75,
             "name": "referer",
-            "value": "https://localhost:58791/"
+            "value": "https://capture.mimicry.test:55566/"
           },
           {
             "rep": "indexed",
@@ -2387,7 +2357,7 @@
             "rep": "indexed",
             "index": 86,
             "name": ":authority",
-            "value": "localhost:58791"
+            "value": "capture.mimicry.test:55566"
           },
           {
             "rep": "without",
@@ -2418,7 +2388,7 @@
             "rep": "indexed",
             "index": 75,
             "name": "referer",
-            "value": "https://localhost:58791/"
+            "value": "https://capture.mimicry.test:55566/"
           },
           {
             "rep": "indexed",
@@ -2469,7 +2439,7 @@
       {
         "stream": 17,
         "path": "/done",
-        "block": "8287d604846243d45fc2d4c373949d29ad1718628390744e7426e36f3af858a87dffcbc2d1c1cf",
+        "block": "8287d604846243d45fc2d4c3739c9d29ad17186083ad36d855e93526259e9749509b8db6db8e3150fbffcbc2d1c1cf",
         "instructions": [
           {
             "rep": "indexed",
@@ -2487,7 +2457,7 @@
             "rep": "indexed",
             "index": 86,
             "name": ":authority",
-            "value": "localhost:58791"
+            "value": "capture.mimicry.test:55566"
           },
           {
             "rep": "without",
@@ -2518,7 +2488,7 @@
             "rep": "incremental",
             "index": 51,
             "name": "referer",
-            "value": "https://localhost:58791/nav",
+            "value": "https://capture.mimicry.test:55566/nav",
             "huffman_value": true
           },
           {
@@ -2575,133 +2545,47 @@
         "length": 0
       },
       {
-        "ms": 37,
+        "ms": 49,
         "type": "HEADERS",
         "stream": 1,
         "flags": 5,
-        "length": 259
+        "length": 267
       },
       {
-        "ms": 43,
+        "ms": 53,
         "type": "HEADERS",
         "stream": 3,
         "flags": 5,
-        "length": 85
+        "length": 92
       },
       {
-        "ms": 43,
+        "ms": 53,
         "type": "HEADERS",
         "stream": 5,
         "flags": 5,
         "length": 128
       },
       {
-        "ms": 43,
+        "ms": 53,
         "type": "HEADERS",
         "stream": 7,
         "flags": 5,
         "length": 30
       },
       {
-        "ms": 44,
+        "ms": 55,
         "type": "HEADERS",
         "stream": 9,
         "flags": 5,
         "length": 35
       },
       {
-        "ms": 49,
+        "ms": 58,
         "type": "WINDOW_UPDATE",
         "stream": 9,
         "length": 4,
         "increment": 507895,
-        "sent_before": 606208
-      },
-      {
-        "ms": 50,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 1097728
-      },
-      {
-        "ms": 51,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 1605632
-      },
-      {
-        "ms": 52,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 2097152
-      },
-      {
-        "ms": 53,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 2605056
-      },
-      {
-        "ms": 54,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 3145728
-      },
-      {
-        "ms": 55,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 3620864
-      },
-      {
-        "ms": 56,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 4128768
-      },
-      {
-        "ms": 57,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 4620288
-      },
-      {
-        "ms": 58,
-        "type": "WINDOW_UPDATE",
-        "length": 4,
-        "increment": 5243605
-      },
-      {
-        "ms": 58,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 5455872
-      },
-      {
-        "ms": 59,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 5636096
+        "sent_before": 573440
       },
       {
         "ms": 60,
@@ -2709,15 +2593,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 6193152
-      },
-      {
-        "ms": 60,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 6701056
+        "sent_before": 1081344
       },
       {
         "ms": 61,
@@ -2725,7 +2601,15 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 7225344
+        "sent_before": 1638400
+      },
+      {
+        "ms": 62,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 2097152
       },
       {
         "ms": 63,
@@ -2733,15 +2617,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 9207799
-      },
-      {
-        "ms": 63,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 9207799
+        "sent_before": 2637824
       },
       {
         "ms": 64,
@@ -2749,37 +2625,15 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 10223607
+        "sent_before": 3145728
       },
       {
-        "ms": 64,
+        "ms": 65,
         "type": "WINDOW_UPDATE",
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 10223607
-      },
-      {
-        "ms": 64,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507895,
-        "sent_before": 10551287
-      },
-      {
-        "ms": 64,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 10551287
-      },
-      {
-        "ms": 66,
-        "type": "WINDOW_UPDATE",
-        "length": 4,
-        "increment": 5472247
+        "sent_before": 3702784
       },
       {
         "ms": 66,
@@ -2787,39 +2641,15 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 12255214
+        "sent_before": 4161536
       },
       {
-        "ms": 66,
+        "ms": 67,
         "type": "WINDOW_UPDATE",
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 12255214
-      },
-      {
-        "ms": 66,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 12894190
-      },
-      {
-        "ms": 66,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 12894190
-      },
-      {
-        "ms": 68,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507895,
-        "sent_before": 14286830
+        "sent_before": 4636672
       },
       {
         "ms": 68,
@@ -2827,7 +2657,21 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 14286830
+        "sent_before": 5210112
+      },
+      {
+        "ms": 68,
+        "type": "WINDOW_UPDATE",
+        "length": 4,
+        "increment": 5243605
+      },
+      {
+        "ms": 68,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 5783552
       },
       {
         "ms": 69,
@@ -2835,169 +2679,317 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 15302629
+        "sent_before": 6225920
       },
       {
-        "ms": 69,
+        "ms": 70,
         "type": "WINDOW_UPDATE",
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 15302629
-      },
-      {
-        "ms": 69,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 15876069
-      },
-      {
-        "ms": 69,
-        "type": "WINDOW_UPDATE",
-        "stream": 9,
-        "length": 4,
-        "increment": 507904,
-        "sent_before": 15876069
+        "sent_before": 6684672
       },
       {
         "ms": 71,
         "type": "WINDOW_UPDATE",
+        "stream": 9,
         "length": 4,
-        "increment": 5308398
+        "increment": 507904,
+        "sent_before": 7208960
+      },
+      {
+        "ms": 71,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 7766016
+      },
+      {
+        "ms": 72,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 8257536
+      },
+      {
+        "ms": 74,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 10223607
+      },
+      {
+        "ms": 74,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 10223607
       },
       {
         "ms": 75,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 10649591
+      },
+      {
+        "ms": 75,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 10649591
+      },
+      {
+        "ms": 75,
+        "type": "WINDOW_UPDATE",
+        "length": 4,
+        "increment": 5275639
+      },
+      {
+        "ms": 75,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507895,
+        "sent_before": 11550711
+      },
+      {
+        "ms": 76,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 12763118
+      },
+      {
+        "ms": 77,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 13271022
+      },
+      {
+        "ms": 77,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 13271022
+      },
+      {
+        "ms": 78,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 14188526
+      },
+      {
+        "ms": 78,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507895,
+        "sent_before": 14221294
+      },
+      {
+        "ms": 80,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 15302629
+      },
+      {
+        "ms": 80,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 15302629
+      },
+      {
+        "ms": 81,
+        "type": "WINDOW_UPDATE",
+        "length": 4,
+        "increment": 5324782
+      },
+      {
+        "ms": 81,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 16318437
+      },
+      {
+        "ms": 81,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 16318437
+      },
+      {
+        "ms": 81,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507895,
+        "sent_before": 16383973
+      },
+      {
+        "ms": 81,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 507904,
+        "sent_before": 16383973
+      },
+      {
+        "ms": 86,
         "type": "HEADERS",
         "stream": 11,
         "flags": 4,
-        "length": 51
+        "length": 59
       },
       {
-        "ms": 75,
+        "ms": 86,
         "type": "DATA",
         "stream": 11,
         "length": 16374
       },
       {
-        "ms": 75,
+        "ms": 86,
         "type": "DATA",
         "stream": 11,
         "length": 16374
       },
       {
-        "ms": 75,
+        "ms": 86,
         "type": "DATA",
         "stream": 11,
         "length": 16374
       },
       {
-        "ms": 75,
+        "ms": 86,
         "type": "DATA",
         "stream": 11,
         "length": 16374
       },
       {
-        "ms": 75,
+        "ms": 86,
         "type": "DATA",
         "stream": 11,
         "length": 39
       },
       {
-        "ms": 75,
+        "ms": 86,
         "type": "DATA",
         "stream": 11,
         "length": 16374
       },
       {
-        "ms": 75,
+        "ms": 86,
         "type": "DATA",
         "stream": 11,
         "length": 16374
       },
       {
-        "ms": 75,
+        "ms": 86,
         "type": "DATA",
         "stream": 11,
         "length": 16374
       },
       {
-        "ms": 75,
+        "ms": 86,
         "type": "DATA",
         "stream": 11,
         "length": 16374
       },
       {
-        "ms": 75,
+        "ms": 86,
         "type": "DATA",
         "stream": 11,
         "length": 39
       },
       {
-        "ms": 75,
+        "ms": 86,
         "type": "DATA",
         "stream": 11,
         "length": 2
       },
       {
-        "ms": 75,
+        "ms": 86,
         "type": "DATA",
         "stream": 11,
         "length": 16372
       },
       {
-        "ms": 75,
+        "ms": 86,
         "type": "DATA",
         "stream": 11,
         "length": 16374
       },
       {
-        "ms": 75,
+        "ms": 86,
         "type": "DATA",
         "stream": 11,
         "length": 16374
       },
       {
-        "ms": 75,
+        "ms": 86,
         "type": "DATA",
         "stream": 11,
         "length": 16374
       },
       {
-        "ms": 75,
+        "ms": 86,
+        "type": "DATA",
+        "stream": 11,
+        "length": 39
+      },
+      {
+        "ms": 86,
         "type": "DATA",
         "stream": 11,
         "flags": 1,
-        "length": 3434
+        "length": 3395
       },
       {
-        "ms": 76,
+        "ms": 87,
         "type": "HEADERS",
         "stream": 13,
         "flags": 5,
         "length": 39
       },
       {
-        "ms": 90,
+        "ms": 99,
         "type": "HEADERS",
         "stream": 15,
         "flags": 5,
         "length": 39
       },
       {
-        "ms": 95,
+        "ms": 103,
         "type": "HEADERS",
         "stream": 17,
         "flags": 5,
-        "length": 39
+        "length": 47
       }
     ],
     "requests": [
       {
         "stream": 1,
         "path": "/",
-        "block": "8287418ba0e41d139d09b8dbcebed784408a4148b4a549275a42a13f8690e4b692d49f7adad07f66a281b0dae053fad0321aa49d13fda992a49685340c8a6adca7e28104416e277fb521aeba0bc8b1e63258700dae15c2da9fd66c7bf467fa5283752a988a4ea7fed4e25b1063d4c09d5c0b854dc39476198700dae15c2dff53b0497ca589d34d1f43aeba0c41a4c7a98f33a69a3fdf9a68fa1d75d0620d263d4c79a68fbed00177febe58f9fbed00177b408a4148b4a549275906497f83a8f517408a4148b4a549275a93c85f86a87dcd30d25f518b2d4b70ddf45abefb4005df4086aec31ec327d785b6007d286f50929bd9abfa5242cb40d25fa523b3e94f684c9f",
+        "block": "8287419320eb4db6157a4d498967a5d25426e36db6e3df84408a4148b4a549275a42a13f8690e4b692d49f7adad07f66a281b0dae053fad0321aa49d13fda992a49685340c8a6adca7e28104416e277fb521aeba0bc8b1e63258700dae15c2da9fd66c7bf467fa5283752a988a4ea7fed4e25b1063d4c09d5c0b854dc39476198700dae15c2dff53b0497ca589d34d1f43aeba0c41a4c7a98f33a69a3fdf9a68fa1d75d0620d263d4c79a68fbed00177febe58f9fbed00177b408a4148b4a549275906497f83a8f517408a4148b4a549275a93c85f86a87dcd30d25f518b2d4b70ddf45abefb4005df4086aec31ec327d785b6007d286f50929bd9abfa5242cb40d25fa523b3e94f684c9f",
         "instructions": [
           {
             "rep": "indexed",
@@ -3015,7 +3007,7 @@
             "rep": "incremental",
             "index": 1,
             "name": ":authority",
-            "value": "localhost:58794",
+            "value": "capture.mimicry.test:55568",
             "huffman_value": true
           },
           {
@@ -3085,7 +3077,7 @@
       {
         "stream": 3,
         "path": "/style.css",
-        "block": "8287c604876109f5415722117f0684427d505fc5538e497ca582211f5f2c7cfdf6800b8773929d29ad1718628390744e7426e36f3afb4c7f7f068840e92ac7b0d31aaf7f0685a8eb10f623c57f0585b600fd286fc4",
+        "block": "8287c604876109f5415722117f0684427d505fc5538e497ca582211f5f2c7cfdf6800b8773999d29ad17186083ad36d855e93526259e9749509b8db6db8f317f068840e92ac7b0d31aaf7f0685a8eb10f623c57f0585b600fd286fc4",
         "instructions": [
           {
             "rep": "indexed",
@@ -3103,7 +3095,7 @@
             "rep": "indexed",
             "index": 70,
             "name": ":authority",
-            "value": "localhost:58794"
+            "value": "capture.mimicry.test:55568"
           },
           {
             "rep": "without",
@@ -3136,7 +3128,7 @@
             "rep": "incremental",
             "index": 51,
             "name": "referer",
-            "value": "https://localhost:58794/",
+            "value": "https://capture.mimicry.test:55568/",
             "huffman_value": true
           },
           {
@@ -3195,7 +3187,7 @@
             "rep": "indexed",
             "index": 76,
             "name": ":authority",
-            "value": "localhost:58794"
+            "value": "capture.mimicry.test:55568"
           },
           {
             "rep": "without",
@@ -3228,7 +3220,7 @@
             "rep": "indexed",
             "index": 67,
             "name": "referer",
-            "value": "https://localhost:58794/"
+            "value": "https://capture.mimicry.test:55568/"
           },
           {
             "rep": "indexed",
@@ -3284,7 +3276,7 @@
             "rep": "indexed",
             "index": 79,
             "name": ":authority",
-            "value": "localhost:58794"
+            "value": "capture.mimicry.test:55568"
           },
           {
             "rep": "without",
@@ -3316,7 +3308,7 @@
             "rep": "indexed",
             "index": 70,
             "name": "referer",
-            "value": "https://localhost:58794/"
+            "value": "https://capture.mimicry.test:55568/"
           },
           {
             "rep": "indexed",
@@ -3371,7 +3363,7 @@
             "rep": "indexed",
             "index": 81,
             "name": ":authority",
-            "value": "localhost:58794"
+            "value": "capture.mimicry.test:55568"
           },
           {
             "rep": "without",
@@ -3403,7 +3395,7 @@
             "rep": "indexed",
             "index": 71,
             "name": "referer",
-            "value": "https://localhost:58794/"
+            "value": "https://capture.mimicry.test:55568/"
           },
           {
             "rep": "indexed",
@@ -3442,7 +3434,7 @@
       {
         "stream": 11,
         "path": "/upload",
-        "block": "8387d4048562dae838e4c140853d8698d57f919d29ad1718628390744e7426e36f3afb5fc9c0d3cac10f0d8410000003cfbfcd",
+        "block": "8387d4048562dae838e4c140853d8698d57f999d29ad17186083ad36d855e93526259e9749509b8db6db8f7fc9c0d3cac10f0d8410000003cfbfcd",
         "instructions": [
           {
             "rep": "indexed",
@@ -3460,7 +3452,7 @@
             "rep": "indexed",
             "index": 84,
             "name": ":authority",
-            "value": "localhost:58794"
+            "value": "capture.mimicry.test:55568"
           },
           {
             "rep": "without",
@@ -3478,7 +3470,7 @@
           {
             "rep": "incremental",
             "name": "origin",
-            "value": "https://localhost:58794",
+            "value": "https://capture.mimicry.test:55568",
             "huffman_name": true,
             "huffman_value": true
           },
@@ -3504,7 +3496,7 @@
             "rep": "indexed",
             "index": 74,
             "name": "referer",
-            "value": "https://localhost:58794/"
+            "value": "https://capture.mimicry.test:55568/"
           },
           {
             "rep": "indexed",
@@ -3560,7 +3552,7 @@
             "rep": "indexed",
             "index": 85,
             "name": ":authority",
-            "value": "localhost:58794"
+            "value": "capture.mimicry.test:55568"
           },
           {
             "rep": "without",
@@ -3603,7 +3595,7 @@
             "rep": "indexed",
             "index": 75,
             "name": "referer",
-            "value": "https://localhost:58794/"
+            "value": "https://capture.mimicry.test:55568/"
           },
           {
             "rep": "indexed",
@@ -3652,7 +3644,7 @@
             "rep": "indexed",
             "index": 86,
             "name": ":authority",
-            "value": "localhost:58794"
+            "value": "capture.mimicry.test:55568"
           },
           {
             "rep": "without",
@@ -3683,7 +3675,7 @@
             "rep": "indexed",
             "index": 75,
             "name": "referer",
-            "value": "https://localhost:58794/"
+            "value": "https://capture.mimicry.test:55568/"
           },
           {
             "rep": "indexed",
@@ -3734,7 +3726,7 @@
       {
         "stream": 17,
         "path": "/done",
-        "block": "8287d604846243d45fc2d4c373949d29ad1718628390744e7426e36f3afb4c543effcbc2d1c1cf",
+        "block": "8287d604846243d45fc2d4c3739c9d29ad17186083ad36d855e93526259e9749509b8db6db8f3150fbffcbc2d1c1cf",
         "instructions": [
           {
             "rep": "indexed",
@@ -3752,7 +3744,7 @@
             "rep": "indexed",
             "index": 86,
             "name": ":authority",
-            "value": "localhost:58794"
+            "value": "capture.mimicry.test:55568"
           },
           {
             "rep": "without",
@@ -3783,7 +3775,7 @@
             "rep": "incremental",
             "index": 51,
             "name": "referer",
-            "value": "https://localhost:58794/nav",
+            "value": "https://capture.mimicry.test:55568/nav",
             "huffman_value": true
           },
           {

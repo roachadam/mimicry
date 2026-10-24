@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"time"
 
@@ -43,6 +44,10 @@ type Config struct {
 	// request context's deadline. Zero means 30 seconds.
 	DialTimeout time.Duration
 	DialContext func(ctx context.Context, network, addr string) (net.Conn, error)
+	// Resolver looks host names up: for dials without DialContext, and to
+	// find another host's HTTP/2 connection a request may take
+	// (profile.CoalesceOnLookup). Nil uses net.DefaultResolver.
+	Resolver *net.Resolver
 	// Proxy picks each request's proxy, as http.Transport's does; nil, or
 	// a nil URL, connects directly.
 	Proxy func(*http.Request) (*url.URL, error)
@@ -58,9 +63,11 @@ type Engine struct {
 	rootCAs *x509.CertPool
 	dialer  *dial.Dialer
 	proxy   func(*http.Request) (*url.URL, error)
+	// lookup returns a host's addresses, for coalescing on lookup.
+	lookup func(ctx context.Context, host string) ([]netip.Addr, error)
 	// tickets keeps TLS session tickets when the profile resumes.
 	tickets *handshake.Tickets
-	pool    *pool.Pool[*h2.Conn, *h1.Conn]
+	pool    *pool.Pool[*shared, *h1.Conn]
 }
 
 // New builds an engine for cfg.Profile, which it takes ownership of.
@@ -73,6 +80,9 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 	p := cfg.Profile
 	if p == nil {
 		return nil, errors.New("mimicry: Config.Profile is required")
+	}
+	if p.Connections == nil {
+		return nil, errors.New("mimicry: the profile has no connections section")
 	}
 	timeout := cfg.DialTimeout
 	if timeout == 0 {
@@ -87,14 +97,17 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 		dialer: &dial.Dialer{
 			Timeout:     timeout,
 			DialContext: cfg.DialContext,
+			Resolver:    cfg.Resolver,
 			Proxy:       p.Proxy,
 			UserAgent:   userAgent(p),
 		},
-		proxy: cfg.Proxy,
-		pool: pool.New[*h2.Conn, *h1.Conn](pool.Config{
-			Clock:       clock,
-			IdleTimeout: idleTimeout,
-			OnWait:      onWait,
+		proxy:  cfg.Proxy,
+		lookup: lookupFunc(cfg.Resolver),
+		pool: pool.New[*shared, *h1.Conn](pool.Config{
+			Clock:        clock,
+			IdleTimeout:  idleTimeout,
+			MaxExclusive: p.Connections.HTTP1PerHost,
+			OnWait:       onWait,
 		}),
 	}
 	if plan.Resumes() {
@@ -214,8 +227,14 @@ func withProxyAuth(ctx context.Context, req *http.Request, auth string) *http.Re
 type route struct {
 	// key is the pool: scheme, host and port, partition, and proxy.
 	key string
-	// addr is the server's host and port.
+	// addr is the server's host and port; host is the host alone.
 	addr string
+	host string
+	// group is what an HTTP/2 connection to another host must share for
+	// the request to go on it (coalescing): scheme, port and partition.
+	// Empty for requests that never take another host's connection:
+	// plain HTTP, or through a proxy.
+	group string
 	// proxy is nil for a direct connection.
 	proxy *url.URL
 	// forward sends plain-HTTP requests to an HTTP proxy whole, instead of
@@ -230,9 +249,15 @@ func (e *Engine) route(req *http.Request) (route, error) {
 	r := route{
 		key:  req.URL.Scheme + "://" + addr,
 		addr: addr,
+		host: req.URL.Hostname(),
 	}
-	if p := pool.Partition(req.Context()); p != "" {
-		r.key += " " + p
+	partition := pool.Partition(req.Context())
+	if partition != "" {
+		r.key += " " + partition
+	}
+	if req.URL.Scheme == "https" {
+		_, port, _ := net.SplitHostPort(addr)
+		r.group = "https :" + port + " " + partition
 	}
 	if e.proxy == nil {
 		return r, nil
@@ -247,6 +272,9 @@ func (e *Engine) route(req *http.Request) (route, error) {
 	r.proxy = p
 	r.forward = p.Scheme == dial.SchemeHTTP && req.URL.Scheme == "http"
 	r.key += " via " + p.String()
+	// Coalescing through a proxy was never captured; the proxy resolves
+	// names, so the address condition cannot be checked either.
+	r.group = ""
 	return r, nil
 }
 
@@ -260,7 +288,8 @@ func userAgent(p *profile.Profile) string {
 	return ""
 }
 
-// try sends req once: on the pool's connection for the route, or a new one.
+// try sends req once: on the pool's connection for the route, another
+// host's the profile's coalescing rule allows, or a new one.
 func (e *Engine) try(ctx context.Context, req *http.Request, r route) (*http.Response, error) {
 	got, err := e.pool.Get(ctx, r.key)
 	if err != nil {
@@ -279,6 +308,11 @@ func (e *Engine) try(ctx context.Context, req *http.Request, r route) (*http.Res
 		return resp, err
 	}
 	d := got.Dial
+	if d.MayShare() && e.profile.Connections.Coalesce == profile.CoalesceOnLookup {
+		if c := e.coalesceOnLookup(ctx, r); c != nil {
+			return e.roundTripH2(r.key, d.Adopt(c), req)
+		}
+	}
 	conn, proto, err := e.dial(ctx, req, r)
 	if err != nil {
 		d.Fail(err)
@@ -288,19 +322,26 @@ func (e *Engine) try(ctx context.Context, req *http.Request, r route) (*http.Res
 		d.Exclusive()
 		return e.roundTripH1(r.key, e.newH1(conn, r), req)
 	}
+	if e.profile.Connections.Coalesce == profile.CoalesceOnConnect {
+		if c := e.coalesceOnConnect(r, conn); c != nil {
+			// The browser opens the connection, then lets it go.
+			_ = h2.Decline(conn, e.profile)
+			return e.roundTripH2(r.key, d.Adopt(c), req)
+		}
+	}
 	hc, err := h2.New(conn, e.profile, e.clock)
 	if err != nil {
 		_ = conn.Close()
 		d.Fail(err)
 		return nil, err
 	}
-	return e.roundTripH2(r.key, d.Shared(hc), req)
+	return e.roundTripH2(r.key, d.Shared(newShared(hc, conn, r)), req)
 }
 
 // roundTripH2 sends req on c. A request c did not send (it is going away
 // or failed) goes to another connection, and c leaves the pool, finishing
 // what it has in flight.
-func (e *Engine) roundTripH2(key string, c *h2.Conn, req *http.Request) (*http.Response, error) {
+func (e *Engine) roundTripH2(key string, c *shared, req *http.Request) (*http.Response, error) {
 	resp, err := c.RoundTrip(req)
 	if errors.Is(err, h2.ErrConnUnusable) {
 		e.pool.RemoveShared(key, c)

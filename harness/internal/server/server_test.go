@@ -199,6 +199,13 @@ func TestClientHelloAgreesWithStdlib(t *testing.T) {
 			if sent != nil && !bytes.Equal(c.ClientHello, sent) {
 				t.Error("recorded ClientHello differs from the bytes the client sent")
 			}
+			// Go and uTLS send the first ClientHello in TLS 1.0 records.
+			if version, msg, err := ParseRecords(c.Records); err != nil || version != 0x0301 || !bytes.Equal(msg, c.ClientHello) {
+				t.Errorf("recorded records: version %#04x, carry the ClientHello %v, error %v", version, bytes.Equal(msg, c.ClientHello), err)
+			}
+			if c.RecordVersion() != 0x0301 {
+				t.Errorf("record version %#04x, want 0x0301", c.RecordVersion())
+			}
 			exts := make([]profile.Code, 0, len(c.Profile.TLS.Extensions))
 			for _, e := range c.Profile.TLS.Extensions {
 				exts = append(exts, e.Type)

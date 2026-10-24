@@ -4,6 +4,9 @@
   "version": "27",
   "platform": "macos",
   "tls": {
+    "record_version": "0x0301",
+    "legacy_version": "0x0303",
+    "session_id_length": 32,
     "cipher_suites": [
       "GREASE",
       "0x1302",
@@ -97,6 +100,11 @@
           "GREASE",
           "0x11ec",
           "0x001d"
+        ],
+        "key_share_lengths": [
+          1,
+          1216,
+          32
         ]
       },
       {

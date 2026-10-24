@@ -44,16 +44,19 @@ func (j *Jar) entries() []entry {
 
 // Set stores c as given, without a URL or a browser's rules: for restoring
 // a session or seeding a jar. Name and value must hold no control
-// characters or ";", and a nameless cookie's value must not start with
-// __Secure- or __Host-; Domain is required; an empty Path is "/"; a zero
-// Created is now. It replaces a cookie with the same name, domain, path and
-// partition.
+// characters or ";", and a nameless cookie's value must neither start with
+// __Secure- or __Host- nor hold "="; Domain is required; an empty Path is
+// "/"; a zero Created is now. It replaces a cookie with the same name,
+// domain, path and partition.
 func (j *Jar) Set(c Cookie) error {
 	if strings.ContainsAny(c.Name, ";=") || strings.ContainsFunc(c.Name+c.Value, isControl) || strings.Contains(c.Value, ";") {
 		return errors.New("cookies: name or value holds a control character, \";\" or \"=\" in the name")
 	}
 	if c.Name == "" && hiddenPrefix(c.Value) {
 		return errors.New("cookies: a nameless cookie's value starts with __Secure- or __Host-")
+	}
+	if c.Name == "" && strings.Contains(c.Value, "=") {
+		return errors.New("cookies: a nameless cookie's value holds \"=\"")
 	}
 	if c.Name == "" && c.Value == "" {
 		return errors.New("cookies: empty name and value")

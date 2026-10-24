@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/roachadam/mimicry/harness/internal/capture"
+	"github.com/roachadam/mimicry/profile"
 )
 
 // Server accepts TLS connections, records what each client sends, and answers
@@ -126,7 +127,25 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 		}
 	}
 	defer emit()
-	if sc.Plain {
+	// A mixed-scheme scenario serves http:// and https:// on one port: a
+	// connection that does not start with a TLS handshake record is plain
+	// HTTP/1.1.
+	plain := sc.Plain
+	if sc.mixedScheme {
+		var first [1]byte
+		if _, err := io.ReadFull(conn, first[:]); err != nil {
+			if isClosed(err) {
+				return nil
+			}
+			return err
+		}
+		conn = &replayConn{
+			Conn: conn,
+			r:    io.MultiReader(bytes.NewReader(first[:]), conn),
+		}
+		plain = first[0] != recordTypeHandshake
+	}
+	if plain {
 		c.Protocol = "http/1.1"
 		if err := serveHTTP1(conn, "", c, sc, log, emit); !isClosed(err) {
 			return err
@@ -142,7 +161,9 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 		return err
 	}
 	c.ClientHello = msg
+	c.Records = raw
 	c.Profile.TLS = t
+	c.Profile.TLS.RecordVersion = profile.Code(c.RecordVersion())
 
 	tlsConn := tls.Server(&replayConn{
 		Conn: conn,

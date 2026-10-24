@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -119,7 +120,11 @@ func resumptionOffer(msg []byte) offer {
 
 // ParseClientHello turns a ClientHello handshake message into the TLS section
 // of a profile. GREASE values become profile.GREASE, and extension bodies are
-// decoded into the profile's typed fields where it has one.
+// decoded into the profile's typed fields where it has one. Values random per
+// connection (the random, the session ID's bytes, keys, ECH's config_id and
+// bytes) are left out, their lengths kept. A padding extension must be
+// zeros, as long as BoringSSL's rule makes it (the only rule a profile can
+// describe).
 func ParseClientHello(msg []byte) (profile.TLS, error) {
 	s := cryptobyte.String(msg)
 	var msgType uint8
@@ -138,6 +143,8 @@ func ParseClientHello(msg []byte) (profile.TLS, error) {
 		return profile.TLS{}, errMalformed
 	}
 	t := profile.TLS{
+		LegacyVersion:      profile.Code(legacyVersion),
+		SessionIDLength:    uint8(len(sessionID)), //nolint:gosec // read with an 8-bit length prefix
 		CompressionMethods: profile.ByteList(append([]byte(nil), compression...)),
 	}
 	var err error
@@ -151,11 +158,15 @@ func ParseClientHello(msg []byte) (profile.TLS, error) {
 	if !body.ReadUint16LengthPrefixed(&exts) || !body.Empty() {
 		return profile.TLS{}, errMalformed
 	}
+	padding := -1
 	for !exts.Empty() {
 		var typ uint16
 		var data cryptobyte.String
 		if !exts.ReadUint16(&typ) || !exts.ReadUint16LengthPrefixed(&data) {
 			return profile.TLS{}, errMalformed
+		}
+		if typ == uint16(profile.ExtPadding) {
+			padding = len(data)
 		}
 		e, err := parseExtension(code(typ), data)
 		if err != nil {
@@ -163,7 +174,49 @@ func ParseClientHello(msg []byte) (profile.TLS, error) {
 		}
 		t.Extensions = append(t.Extensions, e)
 	}
+	if padding >= 0 {
+		if want, pads := boringPadding(len(msg) - 4 - padding); !pads || want != padding {
+			return profile.TLS{}, fmt.Errorf("extension %s: %d bytes of padding are not BoringSSL's for a %d-byte ClientHello, and a profile cannot describe another rule",
+				profile.ExtPadding, padding, len(msg)-4-padding)
+		}
+	}
 	return t, nil
+}
+
+// boringPadding is BoringSSL's padding rule, which uTLS implements
+// (BoringPaddingStyle): a ClientHello message of 256 to 511 bytes without
+// padding is padded to 512, with at least one byte of padding. It returns
+// the padding's length, and whether to pad.
+func boringPadding(unpadded int) (int, bool) {
+	if unpadded <= 0xff || unpadded >= 0x200 {
+		return 0, false
+	}
+	n := 0x200 - unpadded
+	if n >= 4+1 {
+		return n - 4, true
+	}
+	return 1, true
+}
+
+// ParseRecords splits the TLS records that carried a ClientHello into the
+// record-layer version and the handshake message. Every record must carry
+// the same version, and nothing may follow the message.
+func ParseRecords(records []byte) (uint16, []byte, error) {
+	raw, msg, err := readClientHello(bytes.NewReader(records))
+	if err != nil {
+		return 0, nil, err
+	}
+	if len(raw) != len(records) {
+		return 0, nil, fmt.Errorf("%d bytes follow the ClientHello's records", len(records)-len(raw))
+	}
+	version := uint16(raw[1])<<8 | uint16(raw[2])
+	for rest := raw; len(rest) > 0; {
+		if v := uint16(rest[1])<<8 | uint16(rest[2]); v != version {
+			return 0, nil, fmt.Errorf("records carry versions %#04x and %#04x", version, v)
+		}
+		rest = rest[recordHeaderLen+(int(rest[3])<<8|int(rest[4])):]
+	}
+	return version, msg, nil
 }
 
 func parseExtension(typ profile.Code, data cryptobyte.String) (profile.Extension, error) {
@@ -172,15 +225,25 @@ func parseExtension(typ profile.Code, data cryptobyte.String) (profile.Extension
 	}
 	var err error
 	switch typ {
-	case profile.ExtServerName, profile.ExtPadding, profile.ExtSessionTicket, profile.ExtPreSharedKey, profile.ExtEncryptedClientHello:
+	case profile.ExtServerName, profile.ExtSessionTicket, profile.ExtPreSharedKey:
 		// Generated per connection; the profile records only the position.
 		return e, nil
+	case profile.ExtPadding:
+		// Its length is checked against the whole message.
+		for _, b := range data {
+			if b != 0 {
+				return e, errors.New("padding that is not zeros")
+			}
+		}
+		return e, nil
+	case profile.ExtEncryptedClientHello:
+		e.ECH, err = readGREASEECH(&data)
 	case profile.ExtSupportedGroups:
 		e.Groups, err = readCodeList16(&data)
 	case profile.ExtSignatureAlgorithms, profile.ExtSignatureAlgorithmsCert, profile.ExtDelegatedCredentials:
 		e.SignatureAlgorithms, err = readCodeList16(&data)
 	case profile.ExtKeyShare:
-		e.KeyShares, err = readKeyShareGroups(&data)
+		e.KeyShares, e.KeyShareLengths, err = readKeyShares(&data)
 	case profile.ExtSupportedVersions:
 		var list cryptobyte.String
 		if !data.ReadUint8LengthPrefixed(&list) {
@@ -254,22 +317,62 @@ func readCodeList16(s *cryptobyte.String) ([]profile.Code, error) {
 	return readCodes(&list)
 }
 
-// readKeyShareGroups reads a key_share client body and keeps only the groups.
-func readKeyShareGroups(s *cryptobyte.String) ([]profile.Code, error) {
+// readKeyShares reads a key_share client body: each share's group and the
+// length of its key.
+func readKeyShares(s *cryptobyte.String) ([]profile.Code, []uint16, error) {
 	var shares cryptobyte.String
 	if !s.ReadUint16LengthPrefixed(&shares) {
-		return nil, errMalformed
+		return nil, nil, errMalformed
 	}
 	var groups []profile.Code
+	var lengths []uint16
 	for !shares.Empty() {
 		var group uint16
 		var key cryptobyte.String
 		if !shares.ReadUint16(&group) || !shares.ReadUint16LengthPrefixed(&key) {
-			return nil, errMalformed
+			return nil, nil, errMalformed
 		}
 		groups = append(groups, code(group))
+		lengths = append(lengths, uint16(len(key))) //nolint:gosec // read with a 16-bit length prefix
 	}
-	return groups, nil
+	return groups, lengths, nil
+}
+
+// echOuter is the ECHClientHello type of an outer ClientHello's extension,
+// the only one a ClientHello on the wire carries.
+const echOuter = 0
+
+// readGREASEECH reads an outer encrypted_client_hello body: its cipher
+// suite, and the lengths of its encapsulated key and payload. The config_id
+// and the bytes are random per connection and not kept.
+func readGREASEECH(s *cryptobyte.String) (*profile.ECH, error) {
+	var typ uint8
+	var kdf, aead uint16
+	var enc, payload cryptobyte.String
+	if !s.ReadUint8(&typ) {
+		return nil, errMalformed
+	}
+	if typ != echOuter {
+		return nil, fmt.Errorf("ECH type %d is not an outer ClientHello's", typ)
+	}
+	if !s.ReadUint16(&kdf) || !s.ReadUint16(&aead) ||
+		!s.Skip(1) || // config_id
+		!s.ReadUint16LengthPrefixed(&enc) ||
+		!s.ReadUint16LengthPrefixed(&payload) {
+		return nil, errMalformed
+	}
+	return &profile.ECH{
+		CipherSuites: []profile.HPKESuite{
+			{
+				KDF:  profile.Code(kdf),
+				AEAD: profile.Code(aead),
+			},
+		},
+		EncLength: uint16(len(enc)), //nolint:gosec // read with a 16-bit length prefix
+		PayloadLengths: []uint16{
+			uint16(len(payload)), //nolint:gosec // read with a 16-bit length prefix
+		},
+	}, nil
 }
 
 // readProtocols reads an ALPN-style list: 16-bit total length, then

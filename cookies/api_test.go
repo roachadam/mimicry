@@ -137,6 +137,7 @@ func TestSet(t *testing.T) {
 		{Name: "a", Value: "1\n", Domain: "example.com"},
 		{Name: "", Value: " __Host-a=1", Domain: "example.com"},
 		{Name: "", Value: "__secure-a=1", Domain: "example.com"},
+		{Name: "", Value: "a=1", Domain: "example.com"},
 	} {
 		if err := j.Set(c); err == nil {
 			t.Errorf("Set(%+v) accepted", c)

@@ -22,8 +22,8 @@ type Fingerprints struct {
 	Akamai string
 }
 
-// legacyVersion is the ClientHello legacy_version every TLS 1.2+ client sends.
-// The profile does not store it.
+// legacyVersion is the ClientHello legacy_version every TLS 1.2+ client
+// sends, for captures made before profiles recorded it.
 const legacyVersion = 0x0303
 
 // Compute returns the fingerprints of p.
@@ -71,7 +71,10 @@ func ja4(t *profile.TLS) string {
 	ciphers := withoutGREASE(t.CipherSuites)
 	exts := withoutGREASE(extensionTypes(t))
 
-	version := legacyVersion
+	version := int(t.LegacyVersion)
+	if version == 0 {
+		version = legacyVersion
+	}
 	if e := extension(t, profile.ExtSupportedVersions); e != nil {
 		for _, v := range withoutGREASE(e.Versions) {
 			version = max(version, int(v))

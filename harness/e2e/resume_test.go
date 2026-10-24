@@ -56,13 +56,7 @@ func checkResumption(t *testing.T, p *profile.Profile, sc *server.Scenario, want
 	if !slices.Contains(samples, g) {
 		t.Errorf("used connections per host (total/resumed):\n got %s\nwant one of %q", g, samples)
 	}
-	var browserResumed *profile.TLS
-	for _, c := range want[0].Connections {
-		if c.Resumed {
-			browserResumed = c.Hello
-			break
-		}
-	}
+	browserResumed := resumedHello(want)
 	tls13 := sc == server.Resume
 	for i, c := range got.Connections {
 		if !c.Resumed {
@@ -90,6 +84,52 @@ func checkResumption(t *testing.T, p *profile.Profile, sc *server.Scenario, want
 			t.Errorf("connection %d's resumed ClientHello: %s", i+1, d)
 		}
 	}
+}
+
+// resumedHello returns the browser's resumed ClientHello as captured, the
+// first sample's first, with GREASE ECH's cipher suites and payload lengths
+// every resumed connection of every sample picked from; nil if the browser
+// never resumed.
+func resumedHello(pages []*capture.Page) *profile.TLS {
+	var hello *profile.TLS
+	var ech *profile.ECH
+	for _, page := range pages {
+		for _, c := range page.Connections {
+			if !c.Resumed {
+				continue
+			}
+			if hello == nil {
+				t := *c.Hello
+				t.Extensions = slices.Clone(t.Extensions)
+				hello = &t
+			}
+			for _, e := range c.Hello.Extensions {
+				if e.ECH == nil {
+					continue
+				}
+				if ech == nil {
+					ech = &profile.ECH{
+						EncLength: e.ECH.EncLength,
+					}
+				}
+				ech.CipherSuites = append(ech.CipherSuites, e.ECH.CipherSuites...)
+				ech.PayloadLengths = append(ech.PayloadLengths, e.ECH.PayloadLengths...)
+			}
+		}
+	}
+	if hello == nil || ech == nil {
+		return hello
+	}
+	slices.SortFunc(ech.CipherSuites, profile.HPKESuite.Compare)
+	ech.CipherSuites = slices.Compact(ech.CipherSuites)
+	slices.Sort(ech.PayloadLengths)
+	ech.PayloadLengths = slices.Compact(ech.PayloadLengths)
+	for i := range hello.Extensions {
+		if hello.Extensions[i].ECH != nil {
+			hello.Extensions[i].ECH = ech
+		}
+	}
+	return hello
 }
 
 // resumeCounts summarizes a page's used connections as host

@@ -4,6 +4,9 @@
   "version": "0",
   "platform": "test",
   "tls": {
+    "record_version": "0x0301",
+    "legacy_version": "0x0303",
+    "session_id_length": 32,
     "cipher_suites": [
       "GREASE",
       "0x1301",
@@ -92,6 +95,11 @@
           "GREASE",
           "0x11ec",
           "0x001d"
+        ],
+        "key_share_lengths": [
+          1,
+          1216,
+          32
         ]
       },
       {
@@ -121,7 +129,20 @@
         ]
       },
       {
-        "type": "0xfe0d"
+        "type": "0xfe0d",
+        "ech": {
+          "cipher_suites": [
+            {
+              "kdf": "0x0001",
+              "aead": "0x0001"
+            }
+          ],
+          "enc_length": 32,
+          "payload_lengths": [
+            176,
+            208
+          ]
+        }
       },
       {
         "type": "GREASE",
@@ -209,6 +230,12 @@
     "third_party": "samesite",
     "redirects": "ignore",
     "nameless": "value",
-    "order": "rfc"
+    "order": "rfc",
+    "samesite_scheme": "schemeful",
+    "host_prefix_path": "attribute"
+  },
+  "connections": {
+    "http1_per_host": 6,
+    "coalesce": "lookup"
   }
 }

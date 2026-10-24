@@ -4,6 +4,9 @@
   "version": "26",
   "platform": "macos",
   "tls": {
+    "record_version": "0x0301",
+    "legacy_version": "0x0303",
+    "session_id_length": 32,
     "cipher_suites": [
       "GREASE",
       "0x1302",
@@ -97,6 +100,11 @@
           "GREASE",
           "0x11ec",
           "0x001d"
+        ],
+        "key_share_lengths": [
+          1,
+          1216,
+          32
         ]
       },
       {
@@ -509,6 +517,9 @@
           "value": "gzip, deflate"
         },
         {
+          "name": "Cookie"
+        },
+        {
           "name": "Connection",
           "value": "keep-alive"
         }
@@ -917,6 +928,9 @@
               "value": "gzip, deflate"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Connection",
               "value": "keep-alive"
             }
@@ -992,6 +1006,9 @@
               "value": "gzip, deflate"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Connection",
               "value": "keep-alive"
             }
@@ -1026,6 +1043,9 @@
             {
               "name": "Accept-Encoding",
               "value": "gzip, deflate"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Connection",
@@ -1066,6 +1086,9 @@
             {
               "name": "Accept-Encoding",
               "value": "gzip, deflate"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Connection",
@@ -1389,6 +1412,9 @@
               "value": "gzip, deflate"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Connection",
               "value": "keep-alive"
             }
@@ -1438,6 +1464,9 @@
             {
               "name": "Accept-Encoding",
               "value": "gzip, deflate"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Connection",
@@ -1899,6 +1928,9 @@
               "value": "gzip, deflate"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Connection",
               "value": "keep-alive"
             }
@@ -1974,6 +2006,9 @@
               "value": "gzip, deflate"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Connection",
               "value": "keep-alive"
             }
@@ -2008,6 +2043,9 @@
             {
               "name": "Accept-Encoding",
               "value": "gzip, deflate"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Connection",
@@ -2048,6 +2086,9 @@
             {
               "name": "Accept-Encoding",
               "value": "gzip, deflate"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Connection",
@@ -2293,101 +2334,6 @@
         },
         {
           "cors_checked": true,
-          "page_set": true,
-          "headers": [
-            {
-              "name": "accept",
-              "value": "*/*"
-            },
-            {
-              "name": "sec-fetch-site"
-            },
-            {
-              "name": "sec-fetch-mode",
-              "value": "cors"
-            },
-            {
-              "name": "user-agent",
-              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
-            },
-            {
-              "name": "referer"
-            },
-            {
-              "name": "sec-fetch-dest",
-              "value": "empty"
-            },
-            {
-              "name": "*"
-            },
-            {
-              "name": "accept-language",
-              "value": "en-US,en;q=0.9"
-            },
-            {
-              "name": "priority",
-              "value": "u=3, i"
-            },
-            {
-              "name": "accept-encoding",
-              "value": "gzip, deflate, br"
-            },
-            {
-              "name": "cookie"
-            }
-          ],
-          "http1": [
-            {
-              "name": "Host"
-            },
-            {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
-              "name": "Sec-Fetch-Site"
-            },
-            {
-              "name": "Sec-Fetch-Mode",
-              "value": "cors"
-            },
-            {
-              "name": "User-Agent",
-              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
-            },
-            {
-              "name": "Referer"
-            },
-            {
-              "name": "Sec-Fetch-Dest",
-              "value": "empty"
-            },
-            {
-              "name": "*"
-            },
-            {
-              "name": "Accept-Language",
-              "value": "en-US,en;q=0.9"
-            },
-            {
-              "name": "Priority",
-              "value": "u=3, i"
-            },
-            {
-              "name": "Accept-Encoding",
-              "value": "gzip, deflate, br"
-            },
-            {
-              "name": "Cookie"
-            },
-            {
-              "name": "Connection",
-              "value": "keep-alive"
-            }
-          ]
-        },
-        {
-          "cors_checked": true,
           "redirected": true,
           "headers": [
             {
@@ -2621,105 +2567,6 @@
             },
             {
               "name": "Content-Length"
-            },
-            {
-              "name": "Accept-Language",
-              "value": "en-US,en;q=0.9"
-            },
-            {
-              "name": "Priority",
-              "value": "u=3, i"
-            },
-            {
-              "name": "Accept-Encoding",
-              "value": "gzip, deflate, br"
-            },
-            {
-              "name": "Connection",
-              "value": "keep-alive"
-            }
-          ]
-        },
-        {
-          "site": "cross-site",
-          "cors_checked": true,
-          "page_set": true,
-          "headers": [
-            {
-              "name": "sec-fetch-site"
-            },
-            {
-              "name": "accept",
-              "value": "*/*"
-            },
-            {
-              "name": "origin"
-            },
-            {
-              "name": "sec-fetch-mode",
-              "value": "cors"
-            },
-            {
-              "name": "user-agent",
-              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
-            },
-            {
-              "name": "referer"
-            },
-            {
-              "name": "sec-fetch-dest",
-              "value": "empty"
-            },
-            {
-              "name": "*"
-            },
-            {
-              "name": "accept-language",
-              "value": "en-US,en;q=0.9"
-            },
-            {
-              "name": "priority",
-              "value": "u=3, i"
-            },
-            {
-              "name": "accept-encoding",
-              "value": "gzip, deflate, br"
-            },
-            {
-              "name": "cookie"
-            }
-          ],
-          "http1": [
-            {
-              "name": "Host"
-            },
-            {
-              "name": "Sec-Fetch-Site"
-            },
-            {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
-              "name": "Origin"
-            },
-            {
-              "name": "Sec-Fetch-Mode",
-              "value": "cors"
-            },
-            {
-              "name": "User-Agent",
-              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
-            },
-            {
-              "name": "Referer"
-            },
-            {
-              "name": "Sec-Fetch-Dest",
-              "value": "empty"
-            },
-            {
-              "name": "*"
             },
             {
               "name": "Accept-Language",
@@ -2995,102 +2842,6 @@
           ]
         },
         {
-          "site": "same-site",
-          "cors_checked": true,
-          "page_set": true,
-          "headers": [
-            {
-              "name": "sec-fetch-site"
-            },
-            {
-              "name": "accept",
-              "value": "*/*"
-            },
-            {
-              "name": "origin"
-            },
-            {
-              "name": "sec-fetch-mode",
-              "value": "cors"
-            },
-            {
-              "name": "user-agent",
-              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
-            },
-            {
-              "name": "referer"
-            },
-            {
-              "name": "sec-fetch-dest",
-              "value": "empty"
-            },
-            {
-              "name": "*"
-            },
-            {
-              "name": "accept-language",
-              "value": "en-US,en;q=0.9"
-            },
-            {
-              "name": "priority",
-              "value": "u=3, i"
-            },
-            {
-              "name": "accept-encoding",
-              "value": "gzip, deflate, br"
-            }
-          ],
-          "http1": [
-            {
-              "name": "Host"
-            },
-            {
-              "name": "Sec-Fetch-Site"
-            },
-            {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
-              "name": "Origin"
-            },
-            {
-              "name": "Sec-Fetch-Mode",
-              "value": "cors"
-            },
-            {
-              "name": "User-Agent",
-              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
-            },
-            {
-              "name": "Referer"
-            },
-            {
-              "name": "Sec-Fetch-Dest",
-              "value": "empty"
-            },
-            {
-              "name": "*"
-            },
-            {
-              "name": "Accept-Language",
-              "value": "en-US,en;q=0.9"
-            },
-            {
-              "name": "Priority",
-              "value": "u=3, i"
-            },
-            {
-              "name": "Accept-Encoding",
-              "value": "gzip, deflate, br"
-            },
-            {
-              "name": "Connection",
-              "value": "keep-alive"
-            }
-          ]
-        },
-        {
           "method": "PUT",
           "site": "cross-site",
           "cors_checked": true,
@@ -3138,23 +2889,20 @@
           ]
         },
         {
-          "method": "PUT",
           "site": "cross-site",
           "cors_checked": true,
           "page_set": true,
+          "redirected": true,
           "headers": [
-            {
-              "name": "sec-fetch-site"
-            },
             {
               "name": "accept",
               "value": "*/*"
             },
             {
-              "name": "origin"
+              "name": "sec-fetch-site"
             },
             {
-              "name": "content-length"
+              "name": "origin"
             },
             {
               "name": "sec-fetch-mode",
@@ -3173,6 +2921,47 @@
             },
             {
               "name": "*"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            }
+          ]
+        },
+        {
+          "method": "PUT",
+          "cors_checked": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "content-type"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "empty"
+            },
+            {
+              "name": "content-length"
             },
             {
               "name": "accept-language",
@@ -3189,9 +2978,8 @@
           ]
         },
         {
-          "site": "cross-site",
+          "method": "PUT",
           "cors_checked": true,
-          "page_set": true,
           "redirected": true,
           "headers": [
             {
@@ -3199,10 +2987,20 @@
               "value": "*/*"
             },
             {
+              "name": "content-type"
+            },
+            {
               "name": "sec-fetch-site"
             },
             {
               "name": "origin"
+            },
+            {
+              "name": "content-length"
+            },
+            {
+              "name": "priority",
+              "value": "u=3, i"
             },
             {
               "name": "sec-fetch-mode",
@@ -3220,7 +3018,107 @@
               "value": "empty"
             },
             {
-              "name": "*"
+              "name": "accept-language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            }
+          ]
+        },
+        {
+          "method": "DELETE",
+          "cors_checked": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "content-type"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "empty"
+            },
+            {
+              "name": "content-length"
+            },
+            {
+              "name": "accept-language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "priority",
+              "value": "u=3, i"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            }
+          ]
+        },
+        {
+          "method": "DELETE",
+          "cors_checked": true,
+          "redirected": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "content-type"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "content-length"
+            },
+            {
+              "name": "priority",
+              "value": "u=3, i"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "empty"
+            },
+            {
+              "name": "accept-language",
+              "value": "en-US,en;q=0.9"
             },
             {
               "name": "accept-encoding",
@@ -3258,6 +3156,9 @@
               "value": "gzip, deflate"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Connection",
               "value": "keep-alive"
             }
@@ -3304,44 +3205,7 @@
               "value": "gzip, deflate"
             },
             {
-              "name": "Connection",
-              "value": "keep-alive"
-            }
-          ]
-        },
-        {
-          "cors_checked": true,
-          "page_set": true,
-          "insecure": true,
-          "http1": [
-            {
-              "name": "Host"
-            },
-            {
-              "name": "User-Agent",
-              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
-            },
-            {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
-              "name": "Referer"
-            },
-            {
-              "name": "*"
-            },
-            {
-              "name": "Accept-Language",
-              "value": "en-US,en;q=0.9"
-            },
-            {
-              "name": "Priority",
-              "value": "u=3, i"
-            },
-            {
-              "name": "Accept-Encoding",
-              "value": "gzip, deflate"
+              "name": "Cookie"
             },
             {
               "name": "Connection",
@@ -3382,6 +3246,9 @@
             {
               "name": "Accept-Encoding",
               "value": "gzip, deflate"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Connection",
@@ -3453,50 +3320,6 @@
             },
             {
               "name": "Content-Length"
-            },
-            {
-              "name": "Accept-Language",
-              "value": "en-US,en;q=0.9"
-            },
-            {
-              "name": "Priority",
-              "value": "u=3, i"
-            },
-            {
-              "name": "Accept-Encoding",
-              "value": "gzip, deflate"
-            },
-            {
-              "name": "Connection",
-              "value": "keep-alive"
-            }
-          ]
-        },
-        {
-          "site": "same-site",
-          "cors_checked": true,
-          "page_set": true,
-          "insecure": true,
-          "http1": [
-            {
-              "name": "Host"
-            },
-            {
-              "name": "User-Agent",
-              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
-            },
-            {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
-              "name": "Referer"
-            },
-            {
-              "name": "Origin"
-            },
-            {
-              "name": "*"
             },
             {
               "name": "Accept-Language",
@@ -3620,50 +3443,6 @@
             },
             {
               "name": "Content-Length"
-            },
-            {
-              "name": "Accept-Language",
-              "value": "en-US,en;q=0.9"
-            },
-            {
-              "name": "Priority",
-              "value": "u=3, i"
-            },
-            {
-              "name": "Accept-Encoding",
-              "value": "gzip, deflate"
-            },
-            {
-              "name": "Connection",
-              "value": "keep-alive"
-            }
-          ]
-        },
-        {
-          "site": "cross-site",
-          "cors_checked": true,
-          "page_set": true,
-          "insecure": true,
-          "http1": [
-            {
-              "name": "Host"
-            },
-            {
-              "name": "User-Agent",
-              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
-            },
-            {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
-              "name": "Referer"
-            },
-            {
-              "name": "Origin"
-            },
-            {
-              "name": "*"
             },
             {
               "name": "Accept-Language",
@@ -3741,6 +3520,9 @@
             {
               "name": "Accept-Encoding",
               "value": "gzip, deflate"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Connection",
@@ -3971,6 +3753,9 @@
               "value": "gzip, deflate"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Connection",
               "value": "keep-alive"
             }
@@ -4004,6 +3789,9 @@
             {
               "name": "Accept-Encoding",
               "value": "gzip, deflate"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Connection",
@@ -4076,6 +3864,9 @@
             {
               "name": "Accept-Encoding",
               "value": "gzip, deflate"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Connection",
@@ -4206,6 +3997,9 @@
               "value": "gzip, deflate"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Connection",
               "value": "keep-alive"
             }
@@ -4244,6 +4038,9 @@
             {
               "name": "Accept-Encoding",
               "value": "gzip, deflate"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Connection",
@@ -4902,6 +4699,9 @@
               "value": "gzip, deflate"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Connection",
               "value": "keep-alive"
             }
@@ -4977,6 +4777,9 @@
               "value": "gzip, deflate"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Connection",
               "value": "keep-alive"
             }
@@ -5011,6 +4814,9 @@
             {
               "name": "Accept-Encoding",
               "value": "gzip, deflate"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Connection",
@@ -5164,6 +4970,9 @@
             {
               "name": "Accept-Encoding",
               "value": "gzip, deflate"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Connection",
@@ -5782,6 +5591,9 @@
               "value": "gzip, deflate"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Connection",
               "value": "keep-alive"
             }
@@ -5857,6 +5669,9 @@
               "value": "gzip, deflate"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Connection",
               "value": "keep-alive"
             }
@@ -5891,6 +5706,9 @@
             {
               "name": "Accept-Encoding",
               "value": "gzip, deflate"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Connection",
@@ -6044,6 +5862,9 @@
             {
               "name": "Accept-Encoding",
               "value": "gzip, deflate"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Connection",
@@ -6457,6 +6278,9 @@
               "value": "gzip, deflate"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Connection",
               "value": "keep-alive"
             }
@@ -6532,6 +6356,9 @@
               "value": "gzip, deflate"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Connection",
               "value": "keep-alive"
             }
@@ -6566,6 +6393,9 @@
             {
               "name": "Accept-Encoding",
               "value": "gzip, deflate"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Connection",
@@ -6606,6 +6436,9 @@
             {
               "name": "Accept-Encoding",
               "value": "gzip, deflate"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Connection",
@@ -7077,6 +6910,9 @@
               "value": "gzip, deflate"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Connection",
               "value": "keep-alive"
             }
@@ -7110,6 +6946,9 @@
             {
               "name": "Accept-Encoding",
               "value": "gzip, deflate"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Connection",
@@ -7182,6 +7021,9 @@
             {
               "name": "Accept-Encoding",
               "value": "gzip, deflate"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Connection",
@@ -7592,6 +7434,9 @@
               "value": "gzip, deflate"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Connection",
               "value": "keep-alive"
             }
@@ -7667,6 +7512,9 @@
               "value": "gzip, deflate"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Connection",
               "value": "keep-alive"
             }
@@ -7701,6 +7549,9 @@
             {
               "name": "Accept-Encoding",
               "value": "gzip, deflate"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Connection",
@@ -7741,6 +7592,9 @@
             {
               "name": "Accept-Encoding",
               "value": "gzip, deflate"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Connection",
@@ -8191,6 +8045,9 @@
               "value": "gzip, deflate"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Connection",
               "value": "keep-alive"
             }
@@ -8266,6 +8123,9 @@
               "value": "gzip, deflate"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Connection",
               "value": "keep-alive"
             }
@@ -8300,6 +8160,9 @@
             {
               "name": "Accept-Encoding",
               "value": "gzip, deflate"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Connection",
@@ -8340,6 +8203,9 @@
             {
               "name": "Accept-Encoding",
               "value": "gzip, deflate"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Connection",
@@ -8506,6 +8372,9 @@
               "value": "gzip, deflate"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Connection",
               "value": "keep-alive"
             }
@@ -8540,6 +8409,9 @@
             {
               "name": "Accept-Encoding",
               "value": "gzip, deflate"
+            },
+            {
+              "name": "Cookie"
             },
             {
               "name": "Connection",
@@ -8880,6 +8752,9 @@
               "value": "gzip, deflate"
             },
             {
+              "name": "Cookie"
+            },
+            {
               "name": "Connection",
               "value": "keep-alive"
             }
@@ -8970,7 +8845,23 @@
   },
   "context": {
     "same_origin_element_origin": true,
-    "preflight_cache": "replace"
+    "preflight_cache": "replace",
+    "header_table": {
+      "hash": "cf",
+      "own": [
+        "accept",
+        "content-type",
+        "origin",
+        "referer",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "user-agent"
+      ],
+      "late": [
+        "content-length"
+      ]
+    }
   },
   "cookies": {
     "unset_samesite": "none",
@@ -8978,7 +8869,9 @@
     "redirects": "chain",
     "nameless": "drop",
     "latin1_values": true,
-    "order": "domain_name"
+    "order": "domain_name",
+    "samesite_scheme": "schemeful",
+    "host_prefix_path": "stored"
   },
   "proxy": {
     "connect": [
@@ -9023,5 +8916,12 @@
       ],
       "address": "domain"
     }
+  },
+  "redirects": {
+    "method_change_origin": "keep"
+  },
+  "connections": {
+    "http1_per_host": 6,
+    "coalesce": "lookup"
   }
 }

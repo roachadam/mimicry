@@ -58,8 +58,10 @@ func render(v any) string {
 // rest of a profile (http1, kinds, variants, context, cookies, proxy, hpack,
 // flow control) is derived from page traces and not compared. Extension
 // order is compared as want.TLS.ExtensionOrder says: exactly when fixed, and
-// only for pinned extensions when shuffled. Profile identity (name, browser,
-// version, platform) is not compared; the user-agent header covers it.
+// only for pinned extensions when shuffled. GREASE ECH's cipher suites and
+// payload lengths are sets a browser picks from per connection: got's must
+// be among want's. Profile identity (name, browser, version, platform) is
+// not compared; the user-agent header covers it.
 func Compare(want, got *profile.Profile) []Difference {
 	d := &differ{}
 	d.compareTLS(&want.TLS, &got.TLS)
@@ -69,6 +71,13 @@ func Compare(want, got *profile.Profile) []Difference {
 }
 
 func (d *differ) compareTLS(want, got *profile.TLS) {
+	// Zero: the records were not kept (older captures, page connections,
+	// whose record version is capture.Connection's).
+	if want.RecordVersion != 0 && got.RecordVersion != 0 {
+		d.check("tls.record_version", want.RecordVersion, got.RecordVersion)
+	}
+	d.check("tls.legacy_version", want.LegacyVersion, got.LegacyVersion)
+	d.check("tls.session_id_length", want.SessionIDLength, got.SessionIDLength)
 	d.check("tls.cipher_suites", want.CipherSuites, got.CipherSuites)
 	d.check("tls.compression_methods", []uint8(want.CompressionMethods), []uint8(got.CompressionMethods))
 	d.check("tls.extension_order", want.ExtensionOrder, got.ExtensionOrder)
@@ -100,9 +109,39 @@ func (d *differ) compareTLS(want, got *profile.TLS) {
 			if len(w) > 1 || len(g) > 1 {
 				path += fmt.Sprintf("#%d", i+1)
 			}
+			if i < len(w) && i < len(g) && w[i].ECH != nil && g[i].ECH != nil {
+				d.compareECH(path, w[i], g[i])
+				continue
+			}
 			d.check(path, extensionOrMissing(w, i), extensionOrMissing(g, i))
 		}
 	}
+}
+
+// compareECH compares two GREASE ECH extensions: the encapsulated key's
+// length exactly, and got's cipher suites and payload lengths as subsets of
+// want's.
+func (d *differ) compareECH(path string, want, got profile.Extension) {
+	w, g := *want.ECH, *got.ECH
+	want.ECH, got.ECH = nil, nil
+	d.check(path, render(want), render(got))
+	d.check(path+".ech.enc_length", w.EncLength, g.EncLength)
+	if !subset(g.CipherSuites, w.CipherSuites) {
+		d.check(path+".ech.cipher_suites (one of)", w.CipherSuites, g.CipherSuites)
+	}
+	if !subset(g.PayloadLengths, w.PayloadLengths) {
+		d.check(path+".ech.payload_lengths (one of)", w.PayloadLengths, g.PayloadLengths)
+	}
+}
+
+// subset reports whether every element of s is in of.
+func subset[T comparable](s, of []T) bool {
+	for _, v := range s {
+		if !slices.Contains(of, v) {
+			return false
+		}
+	}
+	return true
 }
 
 // pinned lists the pinned extensions with their positions, e.g. "0:GREASE".

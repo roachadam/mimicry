@@ -288,6 +288,85 @@ func TestPageSetVariants(t *testing.T) {
 	}
 }
 
+// With a header table (Chrome's), a fetch() or XHR carrying headers its
+// page set takes the list of its condition without them and the table:
+// the plan has no slot, and fetch() sends the page's names lowercase. A
+// redirect's such request, which the captures do not show the table
+// ordering, is not measured unless a variant was captured for it.
+func TestHeaderTablePlans(t *testing.T) {
+	p := profiles.Chrome155MacOS()
+	if p.Context.HeaderTable == nil {
+		t.Fatal("chrome-155-macos has no header table")
+	}
+	page, err := url.Parse("https://www.a.test/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		kind  Kind
+		lower bool
+	}{
+		{
+			kind:  Fetch,
+			lower: true,
+		},
+		{
+			kind: XHR,
+		},
+	} {
+		e := &fakeEngine{}
+		tr := fakeTransport(t, Config{
+			Profile: p,
+		}, e)
+		req := newRequest(t, "https://www.a.test/x", http.Header{"X-A": {"1"}})
+		if err := send(t, tr, With(req, Request{Kind: tc.kind, From: page})); err != nil {
+			t.Fatal(err)
+		}
+		plan := headerorder.PlanFrom(e.sent[len(e.sent)-1].Context())
+		if plan == nil || plan.Table == nil || !slices.Equal(plan.Table.Own, p.Context.HeaderTable.Own) || plan.LowerOwn != tc.lower || slices.ContainsFunc(plan.Headers, func(h profile.Header) bool {
+			return h.Name == profile.OtherHeaders
+		}) {
+			t.Errorf("%s: plan %+v, want the table, lowercase %v, no slot", tc.kind, plan, tc.lower)
+		}
+	}
+
+	e := &fakeEngine{}
+	tr := fakeTransport(t, Config{
+		Profile: p,
+	}, e)
+	first := newRequest(t, "https://www.a.test/old", nil)
+	hop := newRequest(t, "https://www.a.test/new", http.Header{"X-A": {"1"}})
+	hop.Response = &http.Response{
+		Request: first,
+	}
+	if err := send(t, tr, With(hop, Request{Kind: Fetch, From: page})); !errors.Is(err, ErrNotMeasured) || len(e.sent) > 0 {
+		t.Errorf("redirected with a page header: %v, %d sent; want ErrNotMeasured", err, len(e.sent))
+	}
+}
+
+// A header the page set twice, in any spelling, goes out as one, its
+// values joined by ", " under the first spelling, as fetch() and XHR send
+// it; one value is left alone.
+func TestPageHeadersCombine(t *testing.T) {
+	h := http.Header{
+		"X-Dup":   {"1"},
+		"x-dup":   {"2"},
+		"X-Twice": {"a", "b"},
+		"X-One":   {"1"},
+		"Accept":  {"x", "y"},
+	}
+	combinePageHeaders(h, profiles.Chrome155MacOS().Kinds[profile.KindFetch].Headers)
+	want := http.Header{
+		"X-Dup":   {"1, 2"},
+		"X-Twice": {"a, b"},
+		"X-One":   {"1"},
+		"Accept":  {"x", "y"},
+	}
+	if !maps.EqualFunc(h, want, slices.Equal) {
+		t.Errorf("got %v, want %v", h, want)
+	}
+}
+
 // Requests no browser can make are errors, and nothing is sent: a no-cors
 // fetch() with a method other than GET, HEAD or POST, a beacon that is not
 // a POST, a stylesheet loading anything but fonts and images, and the

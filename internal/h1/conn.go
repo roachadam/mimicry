@@ -256,11 +256,15 @@ func (c *Conn) buildHead(req *http.Request, framing http.Header) (*head, error) 
 		return nil, fmt.Errorf("h1: invalid request target %q", target)
 	}
 	headers, h1Order, h1Case := c.headers, c.h1Order, c.h1Case
+	var (
+		table    *profile.HeaderTable
+		lowerOwn bool
+	)
 	if plan := headerorder.PlanFrom(req.Context()); plan != nil {
 		if plan.NoHTTP1 {
 			return nil, fmt.Errorf("%w: no HTTP/1.1 header list for this request (measured over HTTP/2 only)", headerorder.ErrNotMeasured)
 		}
-		headers, h1Order, h1Case = plan.Headers, nil, nil
+		headers, h1Order, h1Case, table, lowerOwn = plan.Headers, nil, nil, plan.Table, plan.LowerOwn
 		if len(plan.HTTP1) > 0 {
 			h1Order, h1Case = lowerList(plan.HTTP1)
 		}
@@ -278,7 +282,7 @@ func (c *Conn) buildHead(req *http.Request, framing http.Header) (*head, error) 
 		}
 		fields = headerorder.Build(h1Order, h, func(string) bool {
 			return false
-		})
+		}, table)
 	} else {
 		fields = append(fields, headerorder.Field{
 			Name:  "host",
@@ -293,7 +297,7 @@ func (c *Conn) buildHead(req *http.Request, framing http.Header) (*head, error) 
 				Value: v[0],
 			})
 		}
-		fields = append(fields, headerorder.Build(headers, reqHeader, skipHeader)...)
+		fields = append(fields, headerorder.Build(headers, reqHeader, skipHeader, table)...)
 	}
 	at := len(fields)
 	if auth != "" {
@@ -312,9 +316,14 @@ func (c *Conn) buildHead(req *http.Request, framing http.Header) (*head, error) 
 			})
 		}
 		name := h1Case[f.Name]
-		if name == "" {
+		switch {
+		case name != "":
+		case lowerOwn:
+			// fetch()'s Headers object lowercases a page's names.
+			name = f.Name
+		default:
 			// A header the profile does not name goes out as the caller
-			// spelled it, as browsers send a page's own headers.
+			// spelled it, as browsers send a page's own headers (XHR).
 			name = callerCase(reqHeader, f.Name)
 		}
 		if c.forward != nil && f.Name == "connection" && c.forward.ForwardConnection != "" {

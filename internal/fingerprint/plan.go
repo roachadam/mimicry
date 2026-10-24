@@ -14,6 +14,9 @@ type Plan struct {
 	// movable are the indexes of the extensions a shuffle may move; nil when
 	// the profile's extension order is fixed.
 	movable []int
+	// resumedECH is GREASE ECH's shape in a resumed hello; nil without
+	// resumption or ECH.
+	resumedECH *profile.ECH
 }
 
 // Compile turns p's ClientHello into a Plan. p must be valid (profile.Parse
@@ -30,12 +33,26 @@ func Compile(p *profile.Profile) *Plan {
 			}
 		}
 	}
+	if r := p.TLS.Resumption; r != nil {
+		for _, e := range p.TLS.Extensions {
+			if e.ECH != nil {
+				resumed := *e.ECH
+				resumed.PayloadLengths = r.ECHPayloadLengths
+				plan.resumedECH = &resumed
+			}
+		}
+	}
 	return plan
 }
 
 // Hello is the ClientHello layout for one connection. GREASE values are
-// placeholders and key shares carry no keys; the handshake fills both in.
+// placeholders and key shares carry no keys; the handshake fills both in,
+// and the random, the session ID and GREASE ECH's random fields.
 type Hello struct {
+	// RecordVersion is the version of the records carrying the hello.
+	RecordVersion      profile.Code
+	LegacyVersion      profile.Code
+	SessionIDLength    uint8
 	CipherSuites       []profile.Code
 	CompressionMethods []uint8
 	// Extensions in the order this connection sends them.
@@ -57,12 +74,18 @@ func (p *Plan) Resumes() bool {
 
 // ResumedHello returns a new connection's ClientHello offering a ticket: the
 // full one, shuffled alike, without the extensions the browser drops when
-// resuming, and with pre_shared_key last. Only for a plan that Resumes.
+// resuming, with GREASE ECH's payload lengths those of a resumed hello, and
+// with pre_shared_key last. Only for a plan that Resumes.
 func (p *Plan) ResumedHello() Hello {
 	h := p.Hello()
 	h.Extensions = slices.DeleteFunc(h.Extensions, func(e profile.Extension) bool {
 		return slices.Contains(p.tls.Resumption.Drop, e.Type)
 	})
+	for i := range h.Extensions {
+		if h.Extensions[i].ECH != nil {
+			h.Extensions[i].ECH = p.resumedECH
+		}
+	}
 	h.Extensions = append(h.Extensions, profile.Extension{
 		Type: profile.ExtPreSharedKey,
 	})
@@ -73,6 +96,9 @@ func (p *Plan) ResumedHello() Hello {
 // uniform integer in [0, n).
 func (p *Plan) hello(intn func(int) int) Hello {
 	h := Hello{
+		RecordVersion:      p.tls.RecordVersion,
+		LegacyVersion:      p.tls.LegacyVersion,
+		SessionIDLength:    p.tls.SessionIDLength,
 		CipherSuites:       append([]profile.Code(nil), p.tls.CipherSuites...),
 		CompressionMethods: append([]uint8(nil), p.tls.CompressionMethods...),
 		Extensions:         make([]profile.Extension, len(p.tls.Extensions)),

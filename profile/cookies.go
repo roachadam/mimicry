@@ -25,6 +25,33 @@ type Cookies struct {
 	Latin1Values bool `json:"latin1_values,omitempty"`
 	// Order is the order of cookies in the Cookie header.
 	Order string `json:"order"`
+	// NewValueRenews gives a cookie replaced with a different value a new
+	// creation time, which moves it after its peers in the order (Chrome);
+	// otherwise a replacement keeps the old cookie's (RFC 6265bis;
+	// Firefox). Only with OrderRFC: OrderDomainName's cookies are not
+	// ordered by creation.
+	NewValueRenews bool `json:"new_value_renews,omitempty"`
+	// SameSiteScheme is whether a site, for SameSite, includes the scheme:
+	// SameSiteSchemeful makes http:// and https:// of one host cross-site
+	// (Chrome; RFC 6265bis), SameSiteSchemeless does not (Firefox).
+	SameSiteScheme string `json:"samesite_scheme"`
+	// HostPrefixPath is what the __Host- prefix's Path=/ rule checks.
+	HostPrefixPath string `json:"host_prefix_path"`
+	// HTTPPrefix enforces the __Http- and __Host-Http- prefixes: Secure
+	// and HttpOnly, and __Host-'s rules for the latter (Chrome, Firefox).
+	// Off, they are ordinary names (Safari).
+	HTTPPrefix bool `json:"http_prefix,omitempty"`
+	// SecureLoopback makes plain http:// to a loopback host (localhost,
+	// *.localhost, 127.0.0.0/8, ::1) secure for cookies: Secure cookies
+	// are set from and sent to it (Chrome, Firefox, Safari 27; not Safari
+	// 26).
+	SecureLoopback bool `json:"secure_loopback,omitempty"`
+	// MaxPerSite is how many cookies a registrable domain keeps (each
+	// partition apart): when a new cookie makes more, the least recently
+	// used are evicted until EvictTo remain (Chrome, Firefox: 180 and
+	// 150). Zero: no limit (Safari kept all 200 of the capture's).
+	MaxPerSite int `json:"max_per_site,omitempty"`
+	EvictTo    int `json:"evict_to,omitempty"`
 }
 
 // Cookie policy values.
@@ -69,12 +96,26 @@ const (
 	// (Domain cookies, stored with a leading dot, first), then by name
 	// (Safari).
 	OrderDomainName = "domain_name"
+
+	// SameSiteScheme values.
+	SameSiteSchemeful  = "schemeful"
+	SameSiteSchemeless = "schemeless"
+
+	// HostPrefixPathAttribute requires a Path=/ attribute as sent: a
+	// __Host- cookie without Path is refused (RFC 6265bis; Chrome,
+	// Firefox).
+	HostPrefixPathAttribute = "attribute"
+	// HostPrefixPathStored requires the stored path to be "/": a __Host-
+	// cookie without Path whose default path is "/" is kept (Safari).
+	HostPrefixPathStored = "stored"
 )
 
 // DefaultCookies are RFC 6265bis's rules, for a jar used without a profile
 // (a profile must state its browser's): Lax by default, None needs Secure,
-// SameSite judged by the request URL, Partitioned cookies keyed by top-level
-// site, a nameless pair is a value, RFC order.
+// SameSite judged by the request URL and schemeful, Partitioned cookies
+// keyed by top-level site, a nameless pair is a value, RFC order, the
+// __Host- Path attribute and the __Http- prefixes enforced, loopback secure
+// (Secure Contexts), no cookie limit.
 func DefaultCookies() *Cookies {
 	return &Cookies{
 		UnsetSameSite:      SameSiteLax,
@@ -83,6 +124,10 @@ func DefaultCookies() *Cookies {
 		Redirects:          RedirectsIgnore,
 		Nameless:           NamelessValue,
 		Order:              OrderRFC,
+		SameSiteScheme:     SameSiteSchemeful,
+		HostPrefixPath:     HostPrefixPathAttribute,
+		HTTPPrefix:         true,
+		SecureLoopback:     true,
 	}
 }
 
@@ -115,10 +160,23 @@ func (c *checker) checkCookies(k *Cookies) {
 	oneOf("redirects", k.Redirects, RedirectsIgnore, RedirectsChain, RedirectsBlockAfterCrossSite)
 	oneOf("nameless", k.Nameless, NamelessValue, NamelessName, NamelessDrop)
 	oneOf("order", k.Order, OrderRFC, OrderDomainName)
+	oneOf("samesite_scheme", k.SameSiteScheme, SameSiteSchemeful, SameSiteSchemeless)
+	oneOf("host_prefix_path", k.HostPrefixPath, HostPrefixPathAttribute, HostPrefixPathStored)
 	if k.LaxAllowsUnsafeSeconds < 0 {
 		c.add("cookies.lax_allows_unsafe_seconds", "must not be negative")
 	}
 	if k.LaxAllowsUnsafeSeconds > 0 && k.UnsetSameSite != SameSiteLax {
 		c.add("cookies.lax_allows_unsafe_seconds", "applies only when unset_samesite is %q", SameSiteLax)
+	}
+	if k.NewValueRenews && k.Order != OrderRFC {
+		c.add("cookies.new_value_renews", "applies only when order is %q", OrderRFC)
+	}
+	switch {
+	case k.MaxPerSite < 0:
+		c.add("cookies.max_per_site", "must not be negative")
+	case k.MaxPerSite == 0 && k.EvictTo != 0:
+		c.add("cookies.evict_to", "applies only with max_per_site")
+	case k.MaxPerSite > 0 && (k.EvictTo <= 0 || k.EvictTo >= k.MaxPerSite):
+		c.add("cookies.evict_to", "must be between 1 and max_per_site - 1")
 	}
 }

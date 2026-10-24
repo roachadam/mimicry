@@ -146,18 +146,45 @@ func (j *Jar) contextOf(r Request) context {
 		urls = append(urls, r.Redirects...)
 	}
 	for _, u := range urls {
-		if !site.Same(u, ref) {
+		if !j.sameSite(u, ref) {
 			c.crossSite = true
 		}
 	}
 	if j.rules.Redirects == profile.RedirectsBlockAfterCrossSite {
 		for _, u := range r.Redirects {
-			if !site.Same(u, ref) {
+			if !j.sameSite(u, ref) {
 				c.blocked = true
 			}
 		}
 	}
 	return c
+}
+
+// sameSite reports whether a and b are same-site for SameSite: the same
+// schemeful site, or only the same registrable domain where the browser
+// leaves the scheme out (Firefox).
+func (j *Jar) sameSite(a, b *url.URL) bool {
+	if j.rules.SameSiteScheme == profile.SameSiteSchemeless {
+		return site.Registrable(a.Hostname()) == site.Registrable(b.Hostname())
+	}
+	return site.Same(a, b)
+}
+
+// secure reports whether u counts as secure for Secure cookies: https, or
+// plain http to a loopback host where the browser treats it as secure.
+func (j *Jar) secure(u *url.URL) bool {
+	return u.Scheme == "https" || (j.rules.SecureLoopback && loopback(u.Hostname()))
+}
+
+// loopback reports a loopback host by the Secure Contexts specification:
+// localhost, a name under .localhost, 127.0.0.0/8 or ::1.
+func loopback(host string) bool {
+	host = strings.ToLower(host)
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // effective is a cookie's SameSite with Unset resolved by the rules.
@@ -219,7 +246,7 @@ func (j *Jar) set(r setRequest, line string) Event {
 		return reject("set after a cross-site redirect, which this browser blocks")
 	}
 	host := strings.ToLower(r.URL.Hostname())
-	secureURL := r.URL.Scheme == "https"
+	secureURL := j.secure(r.URL)
 	c := &Cookie{
 		Name:        p.name,
 		Value:       p.value,
@@ -257,12 +284,25 @@ func (j *Jar) set(r setRequest, line string) Event {
 	if c.Name == "" && hiddenPrefix(c.Value) {
 		return reject("a nameless cookie whose value starts with __Secure- or __Host-")
 	}
+	// A server would read the pair as a name (every browser refuses it).
+	if c.Name == "" && strings.Contains(c.Value, "=") {
+		return reject("a nameless cookie whose value holds \"=\"")
+	}
 	if hasPrefixFold(c.Name, "__Secure-") && !c.Secure {
 		return reject("__Secure- prefix without Secure")
 	}
-	// __Host- needs the Path attribute as sent, not the default path.
-	if hasPrefixFold(c.Name, "__Host-") && (!c.Secure || !c.HostOnly || p.pathAttr != "/") {
+	// __Host- needs Path=/: as the attribute sent (RFC 6265bis), or as
+	// stored, the default path counting (Safari).
+	hostPath := p.pathAttr
+	if j.rules.HostPrefixPath == profile.HostPrefixPathStored {
+		hostPath = c.Path
+	}
+	if hasPrefixFold(c.Name, "__Host-") && (!c.Secure || !c.HostOnly || hostPath != "/") {
 		return reject("__Host- prefix needs Secure, no Domain and Path=/")
+	}
+	// __Host-Http- also meets __Host-'s rules, above.
+	if j.rules.HTTPPrefix && (hasPrefixFold(c.Name, "__Http-") || hasPrefixFold(c.Name, "__Host-Http-")) && (!c.Secure || !c.HTTPOnly) {
+		return reject("__Http- prefix needs Secure and HttpOnly")
 	}
 	if c.SameSite == SameSiteNone && !c.Secure && j.rules.NoneRequiresSecure {
 		return reject("SameSite=None without Secure")
@@ -301,12 +341,17 @@ func (j *Jar) set(r setRequest, line string) Event {
 		e.Deleted = true
 		return e
 	}
-	if i >= 0 {
+	switch {
+	case i >= 0 && j.rules.NewValueRenews && bucket[i].c.Value != c.Value:
+		// A new value makes a new cookie, the newest (Chrome).
+		j.domains[key] = append(slices.Delete(bucket, i, i+1), j.newEntry(c))
+	case i >= 0:
 		// A replacement keeps the old cookie's creation time and place.
 		c.Created = bucket[i].c.Created
 		bucket[i].c = c
-	} else {
+	default:
 		j.domains[key] = append(bucket, j.newEntry(c))
+		j.evict(key, c.Partition, now)
 	}
 	cp := *c
 	e.Cookie = &cp
@@ -320,6 +365,54 @@ func (j *Jar) newEntry(c *Cookie) entry {
 		c:   c,
 		seq: j.seq,
 	}
+}
+
+// evict keeps the browser's per-site limit on the cookies of partition kept
+// under key: once they number more than MaxPerSite, the expired ones go,
+// then the least recently used (oldest first among equals) until EvictTo
+// remain. Call with the lock held.
+func (j *Jar) evict(key, partition string, now time.Time) {
+	if j.rules.MaxPerSite == 0 {
+		return
+	}
+	bucket := j.domains[key]
+	count := func() int {
+		n := 0
+		for _, e := range bucket {
+			if e.c.Partition == partition {
+				n++
+			}
+		}
+		return n
+	}
+	if count() <= j.rules.MaxPerSite {
+		return
+	}
+	bucket = slices.DeleteFunc(bucket, func(e entry) bool {
+		return !e.c.Expires.IsZero() && !e.c.Expires.After(now)
+	})
+	if excess := count() - j.rules.EvictTo; excess > 0 {
+		var lru []entry
+		for _, e := range bucket {
+			if e.c.Partition == partition {
+				lru = append(lru, e)
+			}
+		}
+		slices.SortFunc(lru, func(a, b entry) int {
+			if d := a.c.LastAccess.Compare(b.c.LastAccess); d != 0 {
+				return d
+			}
+			return cmp.Compare(a.seq, b.seq)
+		})
+		evicted := make(map[uint64]bool, excess)
+		for _, e := range lru[:excess] {
+			evicted[e.seq] = true
+		}
+		bucket = slices.DeleteFunc(bucket, func(e entry) bool {
+			return evicted[e.seq]
+		})
+	}
+	j.store(key, bucket)
 }
 
 // store sets the cookies kept under key, dropping the key when there are
@@ -341,7 +434,7 @@ func (j *Jar) Cookies(r Request) []*Cookie {
 	}
 	now := j.clock.Now()
 	host := strings.ToLower(r.URL.Hostname())
-	secureURL := r.URL.Scheme == "https"
+	secureURL := j.secure(r.URL)
 	safe := r.Method == "" || r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions || r.Method == http.MethodTrace
 	reqPath := r.URL.EscapedPath()
 	key := domainKey(host)

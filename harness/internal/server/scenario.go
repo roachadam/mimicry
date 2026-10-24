@@ -37,11 +37,16 @@ type Scenario struct {
 	// maxVersion caps the TLS version the server negotiates (zero: TLS
 	// 1.3), to see what browsers do with a TLS 1.2-only server.
 	maxVersion uint16
+	// mixedScheme serves plain HTTP on the same port as TLS: a connection
+	// whose first byte does not start a TLS handshake record is answered
+	// as plain HTTP/1.1, so a page can move between http:// and https:// of
+	// one host (and reach http://localhost).
+	mixedScheme bool
 	// respond answers the paths the scenario changes; the default page
 	// answers the rest.
 	respond func(path string, uploaded int) (response, bool)
 	// multi, when set, serves a page across several hosts and answers every
-	// request instead (Replay, the kinds, cors, cookies and resume pages).
+	// request instead (Replay and the other pages of several hosts).
 	multi multiHost
 }
 
@@ -189,6 +194,10 @@ var Scenarios = []*Scenario{
 	Cookies,
 	Resume,
 	ResumeTLS12,
+	CookiesEdge,
+	CORSEdge,
+	Connections,
+	HeadersOrder,
 }
 
 // ScenarioByName finds a scenario.
