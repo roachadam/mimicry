@@ -83,11 +83,19 @@ func TestKindsMatchBrowserTraces(t *testing.T) {
 // with the browser's forms of it.
 func compareKind(t *testing.T, got *capture.Page, want []*capture.Page, label string, h1, preflight bool) {
 	t.Helper()
-	g := kindsFields(got, label, h1, preflight)
-	name := label
+	comparePath(t, got, want, "/k/"+label, raceCookieLabels[label], h1, preflight)
+}
+
+// comparePath compares mimicry's first request for path (or its
+// preflight) with the browser's forms of it: header lines and HTTP/2
+// weight. race: the browser's samples were captured without raceCookie.
+func comparePath(t *testing.T, got *capture.Page, want []*capture.Page, path string, race, h1, preflight bool) {
+	t.Helper()
+	g := requestFields(got, path, h1, preflight)
+	name := path
 	if preflight {
 		name += " preflight"
-		if browser := kindsFields(want[0], label, h1, true) != nil; browser != (g != nil) {
+		if browser := requestFields(want[0], path, h1, true) != nil; browser != (g != nil) {
 			t.Errorf("%s: mimicry sent one %v, the browser %v", name, g != nil, browser)
 			return
 		}
@@ -99,7 +107,7 @@ func compareKind(t *testing.T, got *capture.Page, want []*capture.Page, label st
 		t.Errorf("%s: mimicry sent no request", name)
 		return
 	}
-	forms := browserForms(t, want, "/k/"+label, h1, preflight)
+	forms := browserForms(t, want, path, h1, preflight)
 	same := func(w *kindsSent) bool {
 		return slices.Equal(g.lines, w.lines) && g.weight == w.weight
 	}
@@ -109,7 +117,7 @@ func compareKind(t *testing.T, got *capture.Page, want []*capture.Page, label st
 	// kb_part is set by a response during the page, so a browser request
 	// racing it may go without; mimicry's, made in order, never does. Only
 	// where the race was captured, and only in that direction.
-	if raceCookieLabels[label] && hasRaceCookie(g.lines) && slices.ContainsFunc(forms, func(w *kindsSent) bool {
+	if race && hasRaceCookie(g.lines) && slices.ContainsFunc(forms, func(w *kindsSent) bool {
 		return !hasRaceCookie(w.lines) && slices.Equal(withoutRaceCookie(g.lines), w.lines) && g.weight == w.weight
 	}) {
 		t.Logf("%s: matches but for %s, which the browser had not yet received", name, raceCookie)
@@ -385,12 +393,15 @@ func runKindsPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *captur
 
 // pageSession is a multi-host scenario's server and a mimicry client for a
 // profile reaching every host on it, with the profile's cookie jar.
+// plainPort is the scenario's plain-HTTP port, if it has one
+// (Scenario.PlainPort), which the client reaches by URL port.
 type pageSession struct {
-	t        *testing.T
-	client   *http.Client
-	port     string
-	scheme   string
-	captures chan *capture.Capture
+	t         *testing.T
+	client    *http.Client
+	port      string
+	plainPort string
+	scheme    string
+	captures  chan *capture.Capture
 }
 
 func startPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *pageSession {
@@ -423,6 +434,12 @@ func startPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *pageSessi
 		},
 		Logf: t.Logf,
 	}
+	if sc.PlainPort() {
+		if srv.PlainListener, err = (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0"); err != nil {
+			t.Fatal(err)
+		}
+		_, s.plainPort, _ = net.SplitHostPort(srv.PlainListener.Addr().String())
+	}
 	done := make(chan error, 1)
 	go func() {
 		done <- srv.Serve(ctx, ln)
@@ -440,9 +457,14 @@ func startPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *pageSessi
 		RootCAs: pool,
 		Cookies: newJar(t, p),
 		// Every capture host is this server, and resolves to its address,
-		// as on the capture machines.
-		DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
-			return (&net.Dialer{}).DialContext(ctx, network, ln.Addr().String())
+		// as on the capture machines; the plain port is its second
+		// listener.
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			to := ln.Addr().String()
+			if _, port, err := net.SplitHostPort(addr); err == nil && s.plainPort != "" && port == s.plainPort {
+				to = srv.PlainListener.Addr().String()
+			}
+			return (&net.Dialer{}).DialContext(ctx, network, to)
 		},
 		Resolver: stubResolver(t),
 	})
@@ -506,12 +528,6 @@ type kindsSent struct {
 }
 
 var testPort = regexp.MustCompile(`\.test:\d+`)
-
-// kindsFields returns page's first request for label (its preflight, when
-// preflight; never one after a redirect), or nil.
-func kindsFields(page *capture.Page, label string, h1, preflight bool) *kindsSent {
-	return requestFields(page, "/k/"+label, h1, preflight)
-}
 
 // requestFields returns page's first request for path (its preflight, when
 // preflight; never one after a redirect), or nil.

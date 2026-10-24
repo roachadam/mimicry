@@ -40,7 +40,9 @@ on anything but Fetch and XHR.
    (`kinds.<kind>`); then the variant matching the request's method, its
    URL's relation to the page, whether it is CORS-checked, whether it
    carries a header the page set (one the list does not name: `page_set`),
-   whether it follows a redirect
+   whether it follows a redirect (and then whether the redirect went to
+   another origin, `cross_origin_redirect`, and whether the request it
+   answered carried `Origin`, `origin_before_redirect`)
    ([0006](../decisions/0006-header-order-variants.md)), and whether its URL
    is a non-secure origin (plain `http://` to anything but loopback, which
    takes the browser's non-secure lists:
@@ -48,7 +50,8 @@ on anything but Fetch and XHR.
    A list holds names in order, default values, and slots (empty values)
    for headers that depend on the request. A combination no variant
    matches takes the kind's default order (for a non-secure request, its
-   non-secure default).
+   non-secure default), except a redirect's request of a kind whose
+   redirects were captured (fetch, images): that is `ErrNotMeasured`.
 3. **Compute what the page decides** and fill the slots:
    - `sec-fetch-site`: same-origin, same-site (public suffix list,
      schemeful) or cross-site; after a redirect, the most distant relation

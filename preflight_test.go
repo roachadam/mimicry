@@ -54,7 +54,7 @@ func allowAll() http.Header {
 	return http.Header{
 		"Access-Control-Allow-Origin":      {"https://www.a.test"},
 		"Access-Control-Allow-Credentials": {"true"},
-		"Access-Control-Allow-Methods":     {"GET, POST, PUT, DELETE"},
+		"Access-Control-Allow-Methods":     {"GET, POST, PUT, DELETE, PATCH"},
 		"Access-Control-Allow-Headers":     {"X-A, X-B, Content-Type, Accept, Accept-Language, Range, X-Api-Key, Authorization"},
 	}
 }

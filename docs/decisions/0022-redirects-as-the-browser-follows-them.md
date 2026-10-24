@@ -36,15 +36,35 @@ drop it.
 
 The Transport corrects each hop. It:
 - restores the method, body (`GetBody`) and body headers by the Fetch
-  rules;
-- refuses a 21st request;
+  rules: 301/302 keep every method but POST, 303 makes a GET (HEAD stays
+  HEAD), 307/308 keep everything;
+- refuses a request beyond the limit: 20 redirects for fetches, and for
+  navigations `redirects.navigation_limit` (19 in Chrome, 20 in Firefox
+  and Safari);
 - returns `*CORSError` (with `Redirect` set) for a refused CORS 3xx,
-  unless `IgnoreCORS`.
+  unless `IgnoreCORS`. This covers fetch(), XHR, elements with
+  `crossorigin` and fonts, and requires `Access-Control-Allow-Credentials`
+  when the request carries credentials.
 
 `NewClient` sets a `CheckRedirect` that allows every redirect, so the
-Transport's limit is the only one. The `Origin` rule on a hop that became
-a GET is a profile field, `redirects.method_change_origin` (`keep` Safari,
-`drop` Chrome and Firefox).
+Transport's limit is the only one. Profile `redirects` holds:
+- `method_change_origin`: the `Origin` rule on a hop that became a GET
+  (`keep` Safari, `drop` Chrome and Firefox);
+- `navigation_limit`;
+- `hop_preflight`: whether a hop after a preflighted request is
+  preflighted again even when simple (`inherit`, Firefox and Safari) or
+  only by its own needs (`own`, Chrome).
+
+Hop header order is chosen by redirect conditions on variants (0006).
+Typed navigations take site `none`. A hop the captures do not cover is
+`ErrNotMeasured` (0008).
+
+## Evidence
+
+The `cors-edge`, `redirects2` and `nav-redirect-*` captures
+([reports](../../harness/reports/cors-edge-2026-10-24.md),
+[redirects2](../../harness/reports/redirects2-2026-10-24.md)), all four
+browsers, identical across samples.
 
 ## Consequences
 
@@ -53,11 +73,14 @@ a GET is a profile field, `redirects.method_change_origin` (`keep` Safari,
   answered 301 appears as a GET in `via`), and the Transport fixes it on
   the wire.
 - A redirected body without `GetBody` is an error, not a dropped body.
+- Chrome's error page reloads the last URL after its limit; that is
+  browser UI and not reproduced.
 
 ## Revisit when
 
-- A capture covers what these rules do not: 307/308, PATCH, HEAD; XHR and
-  `<img crossorigin>` redirects; a navigation chain longer than 20; a form
-  POST answered 302 in Safari.
-- Header order on GET redirect hops gets its variant condition (listed as
-  a gap).
+- A capture covers a navigation from a page redirected to another origin:
+  same-site or cross-site, by link or by script. Those hops are
+  `ErrNotMeasured` today.
+- Styles, fonts and preloads redirected without
+  `Access-Control-Allow-Origin`: the CORS check is assumed from the spec
+  there, not captured.

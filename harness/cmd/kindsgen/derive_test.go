@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -433,7 +434,7 @@ func fetchRequest(method, path string, fields ...string) h2trace.Request {
 
 // The cors page's fetches are the fetch kind's, whatever header the page
 // set (a header table places each by name), but its preflights; a path no
-// step has is a redirect's target.
+// step has is a redirect's target, following redirect.cs's redirect.
 func TestCollectCORSFetches(t *testing.T) {
 	page := &capture.Page{
 		H2: []*h2trace.Trace{
@@ -443,6 +444,7 @@ func TestCollectCORSFetches(t *testing.T) {
 					fetchRequest("PUT", "/p/put.cs", "origin: https://a.test", "content-length: 0"),
 					fetchRequest("GET", "/p/multi.cs", "x-b: 1", "x-a: 1", "origin: https://a.test"),
 					fetchRequest("GET", "/p/maxage.cs", "x-other: 1", "origin: https://a.test"),
+					fetchRequest("GET", "/p/redirect.cs", "x-mimicry: 1", "origin: https://a.test"),
 					fetchRequest("GET", "/p/redirect-target.cs", "origin: https://a.test", "x-mimicry: 1"),
 				},
 			},
@@ -476,15 +478,106 @@ func TestCollectCORSFetches(t *testing.T) {
 			cors:    true,
 			pageSet: true,
 		}),
+		fmt.Sprintf("GET cors-redirect %+v", condition{
+			site:    profile.SiteCrossSite,
+			cors:    true,
+			pageSet: true,
+		}),
 		fmt.Sprintf("GET cors-redirect-target %+v", condition{
-			site:       profile.SiteCrossSite,
-			cors:       true,
-			pageSet:    true,
-			redirected: true,
+			site:         profile.SiteCrossSite,
+			cors:         true,
+			pageSet:      true,
+			redirected:   true,
+			originBefore: true,
 		}),
 	}
 	if !slices.Equal(got, want) {
 		t.Errorf("got %q\nwant %q", got, want)
+	}
+}
+
+// A hop's redirect conditions come from the request whose redirect it
+// follows: the cors-edge page's .hop<n> follows .hop<n-1> (.hop1 its
+// label's), on the same host; the cookies page's .hop its label's, here on
+// another host. Hops the method changed (PUT answered 303) keep the
+// Origin the request before carried; a hop whose previous request was not
+// captured is an error.
+func TestCollectRedirectHops(t *testing.T) {
+	edge := &capture.Page{
+		H2: []*h2trace.Trace{
+			{
+				Host: "www.kinds-a.test",
+				Requests: []h2trace.Request{
+					fetchRequest("PUT", "/p/m-put-303.so", "origin: https://www.kinds-a.test", "content-length: 1"),
+					fetchRequest("GET", "/p/m-put-303.so.hop1", "accept: */*"),
+					fetchRequest("GET", "/p/chain.so", "accept: */*"),
+					fetchRequest("GET", "/p/chain.so.hop1", "accept: */*"),
+					fetchRequest("GET", "/p/chain.so.hop2", "accept: */*"),
+				},
+			},
+		},
+	}
+	cookies := &capture.Page{
+		H2: []*h2trace.Trace{
+			{
+				Host: "cdn.kinds-b.test",
+				Requests: []h2trace.Request{
+					fetchRequest("GET", "/k/c-redirect.cs-so", "sec-fetch-site: cross-site"),
+				},
+			},
+			{
+				Host: "www.kinds-a.test",
+				Requests: []h2trace.Request{
+					fetchRequest("GET", "/k/c-redirect.cs-so.hop", "sec-fetch-site: cross-site"),
+				},
+			},
+		},
+	}
+	reqs, err := collect(&pages{
+		cookies: []*capture.Page{
+			cookies,
+		},
+		corsEdge: []*capture.Page{
+			edge,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]condition{}
+	for _, r := range reqs {
+		if r.hop {
+			got[r.path] = r.condition()
+		}
+	}
+	want := map[string]condition{
+		"/p/m-put-303.so.hop1": {
+			redirected:    true,
+			originBefore:  true,
+			methodChanged: true,
+		},
+		"/p/chain.so.hop1": {
+			redirected: true,
+		},
+		"/p/chain.so.hop2": {
+			redirected: true,
+		},
+		"/k/c-redirect.cs-so.hop": {
+			redirected:  true,
+			crossOrigin: true,
+		},
+	}
+	if !maps.Equal(got, want) {
+		t.Errorf("got %+v\nwant %+v", got, want)
+	}
+
+	edge.H2[0].Requests = slices.Delete(edge.H2[0].Requests, 3, 4)
+	if _, err := collect(&pages{
+		corsEdge: []*capture.Page{
+			edge,
+		},
+	}); err == nil || !strings.Contains(err.Error(), "/p/chain.so.hop2 follows a redirect from /p/chain.so.hop1, which was not captured") {
+		t.Errorf("chain without .hop1: got %v, want the missing request named", err)
 	}
 }
 
@@ -542,5 +635,136 @@ func TestContextOfEverySample(t *testing.T) {
 		if got, err := contextOf(reqs); err == nil {
 			t.Errorf("%s: got %+v, want an error", name, *got)
 		}
+	}
+}
+
+// The redirects2 page's requests take their step's kind (redir-<kind>)
+// and link to the request each follows; a navigation's GET first leg is
+// left out, and so is a path requested again with its step's later
+// requests (Chrome's error page reloading the chain its limit stopped).
+func TestCollectRedirects2(t *testing.T) {
+	page := &capture.Page{
+		H2: []*h2trace.Trace{
+			{
+				Host: "www.redir-b.test",
+				Requests: []h2trace.Request{
+					fetchRequest("GET", "/p/fetch-acao.cs-cs", "origin: https://www.redir-a.test"),
+				},
+			},
+			{
+				Host: "www.redir-c.test",
+				Requests: []h2trace.Request{
+					fetchRequest("GET", "/p/fetch-acao.cs-cs.hop1", "origin: null"),
+				},
+			},
+			{
+				Host: "www.redir-a.test",
+				Requests: []h2trace.Request{
+					fetchRequest("GET", "/p/nav-chain.so", "referer: https://www.redir-a.test/s/nav-chain.so"),
+					fetchRequest("GET", "/p/nav-chain.so.hop1", "referer: https://www.redir-a.test/s/nav-chain.so"),
+					fetchRequest("GET", "/p/nav-chain.so.hop1", "cache-control: max-age=0"),
+					fetchRequest("GET", "/p/nav-chain.so.hop2", "cache-control: max-age=0"),
+				},
+			},
+		},
+	}
+	reqs, err := collect(&pages{
+		redirects2: []*capture.Page{
+			page,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := make([]string, 0, len(reqs))
+	for _, r := range reqs {
+		got = append(got, fmt.Sprintf("%s %s %+v", r.base, r.path, r.condition()))
+	}
+	want := []string{
+		fmt.Sprintf("redir-fetch /p/fetch-acao.cs-cs %+v", condition{
+			site: profile.SiteCrossSite,
+			cors: true,
+		}),
+		fmt.Sprintf("redir-fetch /p/fetch-acao.cs-cs.hop1 %+v", condition{
+			site:         profile.SiteCrossSite,
+			cors:         true,
+			redirected:   true,
+			crossOrigin:  true,
+			originBefore: true,
+		}),
+		fmt.Sprintf("redir-navigate /p/nav-chain.so.hop1 %+v", condition{
+			redirected: true,
+		}),
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("got\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+// The nav-redirect pages' chains are typed (no Referer): every request's
+// relation is none. A hop from plain HTTP (HTTP/1.1 to the plain port)
+// to HTTPS on the same host went to another origin, from a non-secure
+// one; the secure GET first leg is the profile's own navigation.
+func TestCollectNavRedirects(t *testing.T) {
+	so := &capture.Page{
+		H2: []*h2trace.Trace{
+			{
+				Host: "www.navr-a.test",
+				Requests: []h2trace.Request{
+					fetchRequest("GET", "/p/nav.so", "sec-fetch-site: none"),
+					fetchRequest("GET", "/p/nav.so.hop1", "sec-fetch-site: none"),
+					fetchRequest("GET", "/done", "referer: https://www.navr-a.test/p/nav.so.hop1"),
+				},
+			},
+		},
+	}
+	plain := &capture.Page{
+		H2: []*h2trace.Trace{
+			{
+				Host: "www.navr-a.test",
+				Requests: []h2trace.Request{
+					fetchRequest("GET", "/p/nav.http.hop1", "sec-fetch-site: none"),
+				},
+			},
+		},
+		H1: []capture.H1Request{
+			{
+				Host:    "www.navr-a.test:8080",
+				Line:    "GET /p/nav.http HTTP/1.1",
+				Headers: []string{"Host: www.navr-a.test:8080", "Upgrade-Insecure-Requests: 1"},
+			},
+		},
+	}
+	reqs, err := collect(&pages{
+		navRedirects: [][]*capture.Page{
+			{so},
+			{plain},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := make([]string, 0, len(reqs))
+	for _, r := range reqs {
+		got = append(got, fmt.Sprintf("%s %s %+v", r.base, r.path, r.condition()))
+	}
+	want := []string{
+		fmt.Sprintf("nav-redirect /p/nav.so.hop1 %+v", condition{
+			site:       profile.SiteNone,
+			redirected: true,
+		}),
+		fmt.Sprintf("nav-redirect /p/nav.http.hop1 %+v", condition{
+			site:           profile.SiteNone,
+			redirected:     true,
+			crossOrigin:    true,
+			insecureBefore: true,
+		}),
+		fmt.Sprintf("nav-redirect /p/nav.http %+v", condition{
+			site:     profile.SiteNone,
+			insecure: true,
+		}),
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("got\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 }

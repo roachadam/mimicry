@@ -26,6 +26,11 @@ type Target struct {
 	// Hosts are the other hostnames a replayed page reaches, all served
 	// on Port.
 	Hosts []string
+	// HostCerts says the server presents each host a certificate of its
+	// own from the capture CA (pages across hosts, even a page of one
+	// host), so Firefox trusts the system's roots, where the CA is
+	// trusted, rather than an exception for CertSHA256.
+	HostCerts bool
 	// CertSHA256 is the SHA-256 of the server certificate (DER), which Firefox
 	// is told to accept.
 	CertSHA256 [32]byte
@@ -34,6 +39,8 @@ type Target struct {
 	Proxy *url.URL
 	// Plain sends the browser to http:// instead of https://.
 	Plain bool
+	// Path is the start URL's path; "" for "/".
+	Path string
 	// ProxyAuth, when set, are the credentials the browser answers its
 	// proxy's authentication challenges with: Chrome over the DevTools
 	// protocol, Firefox over WebDriver BiDi, as a user typing them into the
@@ -48,7 +55,11 @@ func (t Target) url(host string) string {
 	if t.Plain {
 		scheme = "http://"
 	}
-	return scheme + host + ":" + strconv.Itoa(t.Port) + "/"
+	path := t.Path
+	if path == "" {
+		path = "/"
+	}
+	return scheme + host + ":" + strconv.Itoa(t.Port) + path
 }
 
 // Browser is an installed browser that can be launched against a Target.
@@ -345,8 +356,8 @@ func chromeArgs(dir string, t Target, headless bool) ([]string, error) {
 
 // firefoxProfile writes prefs that map the capture hosts to 127.0.0.1 and
 // silence first-run pages, plus a certificate exception for the server. A
-// replay's many hosts have a certificate each, so Firefox trusts the
-// system's roots instead, where the capture CA is trusted.
+// page served with a certificate per host has Firefox trust the system's
+// roots instead, where the capture CA is trusted.
 func firefoxProfile(dir string, t Target, headless bool) ([]string, error) {
 	prefs := []string{
 		`user_pref("network.dns.localDomains", "` + strings.Join(append([]string{t.Host}, t.Hosts...), ",") + `");`,
@@ -357,7 +368,7 @@ func firefoxProfile(dir string, t Target, headless bool) ([]string, error) {
 		`user_pref("datareporting.policy.dataSubmissionEnabled", false);`,
 		`user_pref("toolkit.telemetry.reportingpolicy.firstRun", false);`,
 	}
-	if len(t.Hosts) > 0 {
+	if t.HostCerts {
 		prefs = append(prefs, `user_pref("security.enterprise_roots.enabled", true);`)
 	}
 	if t.Proxy != nil {

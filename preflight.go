@@ -3,6 +3,7 @@ package mimicry
 import (
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"slices"
@@ -54,14 +55,18 @@ type preflightNeed struct {
 	// headers are the request's CORS-unsafe header names, lowercase,
 	// sorted, once each: Access-Control-Request-Headers.
 	headers []string
+	// forced: only inheritance asks for it (hopPreflight), its method
+	// and headers need nothing allowed.
+	forced bool
 }
 
 // needsPreflight returns the preflight a browser sends before req, header
 // set h (the page's headers), from page from, or nil when it sends none:
 // a fetch() in CORS mode or an XHR to another origin than the request's,
 // with a method other than GET, HEAD and POST or a header the Fetch
-// standard does not safelist.
-func needsPreflight(req *http.Request, r Request, from *url.URL, credentialed bool, h http.Header) *preflightNeed {
+// standard does not safelist; with force, whatever its method and
+// headers (a hop inheriting its chain's preflight).
+func needsPreflight(req *http.Request, r Request, from *url.URL, credentialed bool, h http.Header, force bool) *preflightNeed {
 	if from == nil || (r.Kind != Fetch && r.Kind != XHR) || r.NoCORS {
 		return nil
 	}
@@ -73,7 +78,7 @@ func needsPreflight(req *http.Request, r Request, from *url.URL, credentialed bo
 		return nil
 	}
 	headers := unsafeHeaders(h)
-	if safelistedMethod(req.Method) && len(headers) == 0 {
+	if !force && safelistedMethod(req.Method) && len(headers) == 0 {
 		return nil
 	}
 	u := *req.URL
@@ -86,26 +91,33 @@ func needsPreflight(req *http.Request, r Request, from *url.URL, credentialed bo
 		},
 		method:  req.Method,
 		headers: headers,
+		forced:  safelistedMethod(req.Method) && len(headers) == 0,
 	}
 }
 
 // preflight sends req's CORS preflight when the profile's browser would
-// (needsPreflight) and its answer is not cached, and checks the answer: a
-// *CORSError when it does not allow req, unless r.IgnoreCORS.
-func (t *Transport) preflight(req *http.Request, r Request, from *url.URL, credentialed bool, h http.Header) error {
-	need := needsPreflight(req, r, from, credentialed, h)
+// (needsPreflight, hopPreflight) and its answer is not cached, and checks
+// the answer: a *CORSError when it does not allow req, unless
+// r.IgnoreCORS. It reports whether req needed one.
+func (t *Transport) preflight(req *http.Request, r Request, from *url.URL, credentialed bool, h http.Header) (bool, error) {
+	need := needsPreflight(req, r, from, credentialed, h, false)
 	if need == nil {
-		return nil
+		forced := needsPreflight(req, r, from, credentialed, h, true)
+		inherit, err := t.hopPreflight(req, forced != nil)
+		if err != nil || !inherit {
+			return false, err
+		}
+		need = forced
 	}
 	var rule string
 	if t.profile.Context != nil {
 		rule = t.profile.Context.PreflightCache
 	}
 	if rule == "" {
-		return fmt.Errorf("%w: profile %s has no CORS preflight cache rule", ErrNotMeasured, t.profile.Name)
+		return true, fmt.Errorf("%w: profile %s has no CORS preflight cache rule", ErrNotMeasured, t.profile.Name)
 	}
 	if t.preflights.allows(need, t.clock.Now()) {
-		return nil
+		return true, nil
 	}
 	ctx := req.Context()
 	// The same URL and redirect chain (Response, which decides the
@@ -124,7 +136,7 @@ func (t *Transport) preflight(req *http.Request, r Request, from *url.URL, crede
 		From: from,
 	}, from, t.preflightHeaders)
 	if err != nil {
-		return err
+		return true, err
 	}
 	pctx := pool.WithPartition(ctx, s.partition)
 	if s.plan != nil {
@@ -134,15 +146,15 @@ func (t *Transport) preflight(req *http.Request, r Request, from *url.URL, crede
 	pre.Header = s.header
 	resp, err := t.engine.RoundTrip(pre)
 	if err != nil {
-		return err
+		return true, err
 	}
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
 	_ = resp.Body.Close()
 	if reason := checkPreflight(resp, need); reason != "" {
 		if r.IgnoreCORS {
-			return nil
+			return true, nil
 		}
-		return &CORSError{
+		return true, &CORSError{
 			URL:    req.URL,
 			Reason: reason,
 			Status: resp.StatusCode,
@@ -150,8 +162,30 @@ func (t *Transport) preflight(req *http.Request, r Request, from *url.URL, crede
 		}
 	}
 	t.preflights.store(need, resp.Header, rule == profile.PreflightCacheReplace, t.clock.Now())
-	return nil
+	return true, nil
 }
+
+// hopPreflight reports whether req, when a redirect's hop that could be
+// preflighted (could), is because the request whose redirect it follows
+// needed a preflight: the profile's redirects.hop_preflight inherit
+// (Firefox, Safari preflighted the GET a cross-site PATCH answered 303
+// became; Chrome did not). Not measured without the rule.
+func (t *Transport) hopPreflight(req *http.Request, could bool) (bool, error) {
+	if !could || req.Response == nil || req.Response.Request == nil {
+		return false, nil
+	}
+	if before, _ := req.Response.Request.Context().Value(preflightedKey{}).(bool); !before {
+		return false, nil
+	}
+	if t.profile.Redirects == nil {
+		return false, fmt.Errorf("%w: profile %s has no redirects rules, for a hop after a CORS preflight", ErrNotMeasured, t.profile.Name)
+	}
+	return t.profile.Redirects.HopPreflight == profile.RedirectPreflightInherit, nil
+}
+
+// preflightedKey marks a request sent after a CORS preflight it needed, in
+// its context, which a redirect's next hop sees as req.Response.Request.
+type preflightedKey struct{}
 
 // checkPreflight returns why a preflight's response does not allow the
 // request (the Fetch standard's CORS-preflight fetch), or "".
@@ -242,6 +276,11 @@ func (c *preflightCache) allows(need *preflightNeed, now time.Time) bool {
 		return ok && now.Before(until)
 	}
 	cred := need.key.credentialed
+	if need.forced && !slices.ContainsFunc(slices.Collect(maps.Keys(items)), has) {
+		// Nothing in the method and headers needs allowing: only an
+		// earlier answer for the URL, still live, spares this one.
+		return false
+	}
 	if !safelistedMethod(need.method) && !has("m:"+need.method) && (cred || !has("m:*")) {
 		return false
 	}

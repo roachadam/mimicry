@@ -36,6 +36,10 @@ type Server struct {
 	// IssueCert issues a certificate for hosts. Scenarios serving several
 	// hosts over TLS need it: each host has its own certificate.
 	IssueCert func(hosts []string) (tls.Certificate, error)
+	// PlainListener is the second port of a scenario that serves plain
+	// HTTP on a port of its own (Scenario.PlainPort); Serve serves and
+	// closes it along with the first. Other scenarios leave it nil.
+	PlainListener net.Listener
 }
 
 // Serve handles connections from ln until ctx is canceled, then closes the
@@ -54,6 +58,41 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 		}
 	}
 	log := &pageLog{}
+	if !sc.plainPort {
+		return s.accept(ctx, ln, func(conn net.Conn) error {
+			return s.handle(ctx, conn, cfg, sc, log, false)
+		})
+	}
+	if s.PlainListener == nil {
+		_ = ln.Close()
+		return errors.New("scenario " + sc.Name + " serves plain HTTP on a port of its own and needs Server.PlainListener")
+	}
+	plain := s.PlainListener
+	sc = sc.onPorts(ln.Addr(), plain.Addr())
+	// Either listener failing stops the other.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	var errs [2]error
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		defer cancel()
+		errs[0] = s.accept(ctx, ln, func(conn net.Conn) error {
+			return s.handle(ctx, conn, cfg, sc, log, false)
+		})
+	})
+	wg.Go(func() {
+		defer cancel()
+		errs[1] = s.accept(ctx, plain, func(conn net.Conn) error {
+			return s.handle(ctx, conn, nil, sc, log, true)
+		})
+	})
+	wg.Wait()
+	return errors.Join(errs[:]...)
+}
+
+// accept hands each connection from ln to handle, on its own goroutine,
+// until ctx is canceled; then it closes ln and waits for the handlers.
+func (s *Server) accept(ctx context.Context, ln net.Listener, handle func(net.Conn) error) error {
 	stop := context.AfterFunc(ctx, func() {
 		_ = ln.Close()
 	})
@@ -69,7 +108,7 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 			return err
 		}
 		wg.Go(func() {
-			if err := s.handle(ctx, conn, cfg, sc, log); err != nil && s.Logf != nil {
+			if err := handle(conn); err != nil && s.Logf != nil {
 				s.Logf("%s: %v", conn.RemoteAddr(), err)
 			}
 		})
@@ -101,7 +140,9 @@ func (s *Server) tlsConfig(sc *Scenario) (*tls.Config, error) {
 	return multiHostTLS(sc.multi, cfg, s.IssueCert), nil
 }
 
-func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc *Scenario, log *pageLog) error {
+// handle serves one connection. plainOnly is a connection to a PlainPort
+// scenario's plain port, which answers TLS as an HTTP-only server would.
+func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc *Scenario, log *pageLog, plainOnly bool) error {
 	stop := context.AfterFunc(ctx, func() {
 		_ = conn.Close()
 	})
@@ -129,9 +170,9 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 	defer emit()
 	// A mixed-scheme scenario serves http:// and https:// on one port: a
 	// connection that does not start with a TLS handshake record is plain
-	// HTTP/1.1.
+	// HTTP/1.1. A plain port tells them apart only to refuse TLS.
 	plain := sc.Plain
-	if sc.mixedScheme {
+	if sc.mixedScheme || plainOnly {
 		var first [1]byte
 		if _, err := io.ReadFull(conn, first[:]); err != nil {
 			if isClosed(err) {
@@ -144,6 +185,9 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 			r:    io.MultiReader(bytes.NewReader(first[:]), conn),
 		}
 		plain = first[0] != recordTypeHandshake
+	}
+	if plainOnly && !plain {
+		return refuseTLS(conn)
 	}
 	if plain {
 		c.Protocol = "http/1.1"

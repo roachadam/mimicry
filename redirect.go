@@ -5,12 +5,20 @@ import (
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/roachadam/mimicry/profile"
 )
 
 // maxRedirects is how many redirects a chain follows: every captured
-// browser requested the 20th redirect's URL and not the 21st (the
-// cors-edge capture's chain.so, as the Fetch standard says).
+// browser's fetch() requested the 20th redirect's URL and not the 21st
+// (the cors-edge capture's chain.so, as the Fetch standard says). A
+// navigation's limit is the profile's (redirects.navigation_limit).
 const maxRedirects = 20
+
+// navigationRedirects is how many redirects every captured browser's
+// top-level navigation follows: Chrome stopped there, Firefox and Safari
+// followed one more (the redirects2 capture's nav-chain.so).
+const navigationRedirects = 19
 
 // bodyHeaders are the request-body headers the Fetch standard drops with
 // the body when a redirect turns a request into a GET, and http.Client
@@ -22,17 +30,28 @@ var bodyHeaders = []string{"Content-Encoding", "Content-Language", "Content-Loca
 // and HEAD answered 303, go on as a GET without their body (as http.Client
 // sends them); every other request keeps its method, body and body
 // headers, which http.Client drops for PUT, DELETE and others answered 301
-// or 302. A chain longer than maxRedirects is an error: the browser fails
-// the request rather than send it. The method and body come from the
-// request the redirect answered as it was sent (req.Response.Request), so
-// a chain keeps them hop after hop.
-func browserHop(req *http.Request) (*http.Request, error) {
+// or 302. A chain longer than the browser follows is an error: the
+// browser fails the request rather than send it. That is maxRedirects,
+// but for a navigation (nav), whose limit is p's. The method and body
+// come from the request the redirect answered as it was sent
+// (req.Response.Request), so a chain keeps them hop after hop.
+func browserHop(p *profile.Profile, req *http.Request, nav bool) (*http.Request, error) {
 	prev := req.Response.Request
 	if prev == nil {
 		return req, nil
 	}
-	if n := len(redirectsBefore(req)); n > maxRedirects {
-		return nil, fmt.Errorf("mimicry: stopped after %d redirects", maxRedirects)
+	n := len(redirectsBefore(req))
+	limit := maxRedirects
+	if nav {
+		switch {
+		case p.Redirects != nil:
+			limit = p.Redirects.NavigationLimit
+		case n > navigationRedirects:
+			return nil, fmt.Errorf("%w: profile %s has no redirects rules, for a navigation's redirect %d (every browser follows %d)", ErrNotMeasured, p.Name, n, navigationRedirects)
+		}
+	}
+	if n > limit {
+		return nil, fmt.Errorf("mimicry: stopped after %d redirects", limit)
 	}
 	status := req.Response.StatusCode
 	method := prev.Method
@@ -85,10 +104,13 @@ func browserHop(req *http.Request) (*http.Request, error) {
 
 // refusedRedirect returns the *CORSError for resp, the response to req
 // (sent as s says), when resp is a redirect the browser does not follow: a
-// fetch() or XHR in CORS mode to another origin needs its redirects to
-// pass the CORS check too (Access-Control-Allow-Origin, and -Credentials
-// with credentials). Every captured browser stopped there, with or
-// without a preflight before. It closes resp's body then. Nil otherwise.
+// request in CORS mode to another origin (fetch(), XHR, an element with
+// crossorigin, a font) needs its redirects to pass the CORS check too
+// (Access-Control-Allow-Origin, and -Credentials with credentials). Every
+// captured browser stopped there: fetch() with or without a preflight
+// before, with and without credentials (cors-edge, redirects2), XHR,
+// <img crossorigin> and <script crossorigin> (redirects2). It closes
+// resp's body then. Nil otherwise.
 func refusedRedirect(req *http.Request, resp *http.Response, s *sending) error {
 	if s.corsOrigin == "" || resp.Header.Get("Location") == "" {
 		return nil

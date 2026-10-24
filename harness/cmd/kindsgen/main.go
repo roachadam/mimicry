@@ -6,9 +6,14 @@
 // It reads <name>.kinds.pagetrace.json.gz, <name>.kinds-http1.pagetrace.json.gz,
 // <name>.kinds-plain.pagetrace.json.gz (non-secure variants),
 // <name>.cookies.pagetrace.json.gz (what the kinds page cannot show:
-// cross-site form POSTs, images redirected to the page's site) and
+// cross-site form POSTs, images redirected to the page's site),
 // <name>.cors.pagetrace.json.gz (context.preflight_cache, and the page's
-// fetches: PUT and page-set-header variants).
+// fetches: PUT and page-set-header variants), <name>.cors-edge.pagetrace.json.gz
+// (fetch redirects: PUT, DELETE and POST answered 301, 302 and 303, and a
+// long chain), <name>.redirects2.pagetrace.json.gz (redirects of every
+// kind, form POSTs, a navigation chain, PATCH preflights), any
+// <name>.nav-redirect-*.pagetrace.json.gz (typed navigations whose start
+// URL redirects) and <name>.headers-order.pagetrace.json.gz (context.header_table).
 //
 // For each kind, the header order merges every captured request of its
 // resource type (so slots seen only on some, like origin with a crossorigin
@@ -17,6 +22,10 @@
 // becoming a default and any other a slot. The navigation's lists gain the
 // slots of the captured form POSTs. Requests over plain HTTP (kinds-plain)
 // become non-secure variants, exactly as sent, with the kind's own values.
+// A request made by following a redirect is never folded into another
+// order: its condition also says whether the redirect went to another
+// origin (host) than the request it answered, and whether that request
+// carried Origin, both read from that request's capture.
 // It refuses to write when the captures disagree (two orders that cannot be
 // merged, weights that differ, samples that show different rules) or cannot
 // be reconciled (a request captured over one protocol only).

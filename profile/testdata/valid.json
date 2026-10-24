@@ -230,6 +230,7 @@
     "third_party": "samesite",
     "redirects": "ignore",
     "nameless": "value",
+    "empty_name": "keep",
     "order": "rfc",
     "samesite_scheme": "schemeful",
     "host_prefix_path": "attribute"

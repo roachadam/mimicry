@@ -33,3 +33,11 @@ connection and logs Firefox's difference as a known gap.
 
 A capture designed for it (more hosts, orders, timings) explains Firefox's
 grouping; or a cross-site frame's own requests are modelled.
+
+Measured since (2026-10-24, `redirects2`): every browser sends a
+navigation to another site on a connection of its own, not on one the
+previous page used. That is partitioning by top-level site. It is not
+modelled: it changes the pool key for every request a page makes, and
+needs its own capture (which requests of a page share the top-level key,
+per browser) and decision. `TestRedirects2MatchesBrowser` compares those
+requests apart from their connections and lists the gap.

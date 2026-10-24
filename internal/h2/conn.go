@@ -458,6 +458,7 @@ func (c *Conn) head(req *http.Request, length int64) (requestHead, error) {
 	if h == nil {
 		h = http.Header{}
 	}
+	plan := headerorder.PlanFrom(req.Context())
 	if length != 0 {
 		// A body's length is the one declared, never the caller's header.
 		for name := range h {
@@ -465,15 +466,15 @@ func (c *Conn) head(req *http.Request, length int64) (requestHead, error) {
 				delete(h, name)
 			}
 		}
-		if length > 0 {
+		if length > 0 && (plan == nil || !plan.NoContentLength) {
 			h.Set("Content-Length", strconv.FormatInt(length, 10))
 		} else {
-			// Unknown: no length is declared, not even a profile default.
+			// Unknown, or not sent by the browser: no length is
+			// declared, not even a profile default.
 			h["Content-Length"] = nil
 		}
 	}
 	list := c.headers
-	plan := headerorder.PlanFrom(req.Context())
 	head := requestHead{
 		endStream: length == 0,
 	}

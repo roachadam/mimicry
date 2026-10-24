@@ -756,6 +756,25 @@ func TestValidate(t *testing.T) {
 			want: "repeats an earlier variant's condition",
 		},
 		{
+			name: "redirect conditions without redirected",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.Variants = []Variant{
+					{
+						Method:               "POST",
+						OriginBeforeRedirect: true,
+						Headers:              p.Headers,
+					},
+					{
+						Method:                  "PUT",
+						MethodChangedByRedirect: true,
+						Headers:                 p.Headers,
+					},
+				}
+			},
+			path: "variants[1]",
+			want: "cross_origin_redirect, origin_before_redirect, method_changed_by_redirect and insecure_before_redirect need redirected",
+		},
+		{
 			name: "name with an empty part",
 			mutate: func(_ *testing.T, p *Profile) {
 				p.Name = "chrome--macos"
@@ -1302,6 +1321,29 @@ func TestValidate(t *testing.T) {
 			want: `must be "keep" or "drop"`,
 		},
 		{
+			name: "no navigation redirect limit",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.Redirects = &Redirects{
+					MethodChangeOrigin: RedirectOriginDrop,
+					HopPreflight:       RedirectPreflightOwn,
+				}
+			},
+			path: "redirects.navigation_limit",
+			want: "must be positive",
+		},
+		{
+			name: "unknown hop preflight rule",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.Redirects = &Redirects{
+					MethodChangeOrigin: RedirectOriginDrop,
+					NavigationLimit:    20,
+					HopPreflight:       "always",
+				}
+			},
+			path: "redirects.hop_preflight",
+			want: `must be "own" or "inherit"`,
+		},
+		{
 			name: "no cookie rules",
 			mutate: func(_ *testing.T, p *Profile) {
 				p.Cookies = nil
@@ -1470,6 +1512,7 @@ func TestCookiesValidate(t *testing.T) {
 		edit func(*Cookies)
 		path string
 	}{
+		{func(k *Cookies) { k.EmptyName = "" }, "cookies.empty_name"},
 		{func(k *Cookies) { k.SameSiteScheme = "" }, "cookies.samesite_scheme"},
 		{func(k *Cookies) { k.HostPrefixPath = "default" }, "cookies.host_prefix_path"},
 		{func(k *Cookies) { k.NewValueRenews, k.Order = true, OrderDomainName }, "cookies.new_value_renews"},

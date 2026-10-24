@@ -42,6 +42,12 @@ type Scenario struct {
 	// as plain HTTP/1.1, so a page can move between http:// and https:// of
 	// one host (and reach http://localhost).
 	mixedScheme bool
+	// plainPort serves plain HTTP/1.1, and nothing else, on a second port
+	// (see PlainPort); ports are both ports, set on the copy Serve runs.
+	// startPlain starts the page there (see StartsPlain).
+	plainPort  bool
+	startPlain bool
+	ports      portPair
 	// respond answers the paths the scenario changes; the default page
 	// answers the rest.
 	respond func(path string, uploaded int) (response, bool)
@@ -62,6 +68,8 @@ type request struct {
 	preflightHeaders string
 	// uploaded is the request body's size.
 	uploaded int
+	// ports are a PlainPort scenario's two ports (zero otherwise).
+	ports portPair
 }
 
 // DefaultScenario is the capture page every profile comes from.
@@ -198,6 +206,12 @@ var Scenarios = []*Scenario{
 	CORSEdge,
 	Connections,
 	HeadersOrder,
+	CookiesEdge2,
+	Redirects2,
+	NavRedirectSO,
+	NavRedirectSS,
+	NavRedirectCS,
+	NavRedirectHTTP,
 }
 
 // ScenarioByName finds a scenario.
@@ -215,6 +229,7 @@ func ScenarioByName(name string) (*Scenario, error) {
 }
 
 func (sc *Scenario) answer(r request) response {
+	r.ports = sc.ports
 	if sc.multi != nil {
 		return sc.multi.answer(r)
 	}

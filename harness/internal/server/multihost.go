@@ -14,12 +14,13 @@ import (
 
 // multiHost is a page served across several hostnames from one listener,
 // each with its own certificate: the replay of a real page, the kinds,
-// cors, cookies, resume, cookies-edge, cors-edge, connections and
-// headers-order pages. The capture is the whole page (capture.Page).
+// cors, cookies, resume, cookies-edge, cors-edge, connections,
+// headers-order, cookies-edge2, redirects2 and nav-redirect pages. The
+// capture is the whole page (capture.Page).
 type multiHost interface {
 	answer(r request) response
 	// hosts are the page's hostnames; the first is the one it starts on,
-	// at "/".
+	// at Scenario.StartPath.
 	hosts() []string
 	// certNames are the names on host's certificate (host first, then
 	// those whose requests may share its connections); ok is false for a

@@ -383,7 +383,8 @@ func TestEmptyEncodedBodies(t *testing.T) {
 }
 
 // An empty redirect with a Content-Encoding is followed: http.Client reads
-// and closes its body.
+// and closes its body. (Typed navigations' redirects are not measured:
+// the redirect's order is beside the point here.)
 func TestEmptyEncodedRedirect(t *testing.T) {
 	e := &fakeEngine{
 		answer: func(req *http.Request) *http.Response {
@@ -403,7 +404,7 @@ func TestEmptyEncodedRedirect(t *testing.T) {
 		},
 	}
 	client, err := NewClient(Config{
-		Profile: profiles.Chrome155MacOS(),
+		Profile: anyRedirectOrder(profiles.Chrome155MacOS()),
 		engine:  e,
 	})
 	if err != nil {
@@ -590,7 +591,8 @@ func TestConfigHeadersAreThePagesHeaders(t *testing.T) {
 
 // Authorization and Cookie from Config.Headers stay behind once a
 // redirect chain leaves an origin, even when it comes back; same-origin
-// redirects keep them.
+// redirects keep them. (Typed navigations' redirects are not measured:
+// their order is beside the point here.)
 func TestConfigCredentialsStayBehindCrossOriginRedirects(t *testing.T) {
 	e := &fakeEngine{
 		answer: func(req *http.Request) *http.Response {
@@ -611,7 +613,7 @@ func TestConfigCredentialsStayBehindCrossOriginRedirects(t *testing.T) {
 		},
 	}
 	client, err := NewClient(Config{
-		Profile: profiles.Chrome155MacOS(),
+		Profile: anyRedirectOrder(profiles.Chrome155MacOS()),
 		Headers: http.Header{
 			"Authorization": {"Bearer secret"},
 			"Cookie":        {"sid=1"},

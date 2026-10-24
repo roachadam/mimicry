@@ -24,7 +24,9 @@ import (
 // Access-Control-Allow-Origin (no next hop, with or without a preflight:
 // mimicry returns a *CORSError), the method and body PUT, DELETE and POST
 // keep or lose on 301, 302 and 303 (and Safari's Origin on the GET), and
-// the 20-redirect limit (an error, no 21st hop).
+// the 20-redirect limit (an error, no 21st hop). Every request, first legs
+// and hops (and preflights), has the browser's header lines and HTTP/2
+// weight.
 func TestCORSEdgeMatchesBrowser(t *testing.T) {
 	for _, name := range profiles.Names() {
 		t.Run(name, func(t *testing.T) {
@@ -66,14 +68,35 @@ func TestCORSEdgeMatchesBrowser(t *testing.T) {
 					t.Errorf("%s: %v", st.Label, err)
 				}
 			}
-			got := corsEdgeConnections(s.finish(s.url(hosts[0], "/done")))
+			done := s.finish(s.url(hosts[0], "/done"))
+			got := corsEdgeConnections(done)
 			for i, w := range want {
 				if wc := corsEdgeConnections(w); !slices.EqualFunc(got, wc, slices.Equal) {
 					t.Errorf("sample %d: connections differ:\n got %q\nwant %q", i+1, got, wc)
 				}
 			}
+			for _, path := range corsEdgePaths(want[0]) {
+				for _, preflight := range []bool{false, true} {
+					comparePath(t, done, want, path, false, false, preflight)
+				}
+			}
 		})
 	}
+}
+
+// corsEdgePaths are the paths of page's fetches (/p/), first legs and
+// hops, each once, sorted.
+func corsEdgePaths(page *capture.Page) []string {
+	var out []string
+	for _, tr := range page.H2 {
+		for _, r := range tr.Requests {
+			if strings.HasPrefix(r.Path, "/p/") && !slices.Contains(out, r.Path) {
+				out = append(out, r.Path)
+			}
+		}
+	}
+	slices.Sort(out)
+	return out
 }
 
 // corsEdgeFetch makes step st as the page's fetch() from page from: a

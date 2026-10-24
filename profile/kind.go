@@ -86,14 +86,17 @@ type Kind struct {
 // browsers build headers along different paths, so a POST, a CORS-checked
 // request or one after a redirect can order them otherwise, and send
 // fewer. A request takes the variant whose condition it matches exactly,
-// else the kind's own order. A variant's lists are exactly what the browser
-// sent: a header they lack is not sent.
+// else the kind's own order; but once a kind has a redirected variant (its
+// redirects were captured), a redirected request takes only an exact one.
+// A variant's lists are exactly what the browser sent: a header they lack
+// is not sent.
 type Variant struct {
 	// Method is the request's method; empty is GET.
 	Method string `json:"method,omitempty"`
 	// Site is the request URL's own relation to its page (after a
 	// redirect too, where sec-fetch-site reports the whole chain's):
-	// SiteSameSite or SiteCrossSite; empty is same-origin.
+	// SiteSameSite or SiteCrossSite; empty is same-origin; SiteNone a
+	// navigation no page made (a typed URL), whatever its URL.
 	Site string `json:"site,omitempty"`
 	// CORSChecked is a request that carries Origin or headers the page
 	// set.
@@ -104,6 +107,25 @@ type Variant struct {
 	PageSet bool `json:"page_set,omitempty"`
 	// Redirected is a request made by following a redirect.
 	Redirected bool `json:"redirected,omitempty"`
+	// CrossOriginRedirect is a redirected request to another origin than
+	// the URL whose redirect it follows (Safari then sends no
+	// Sec-Fetch-*). Needs Redirected.
+	CrossOriginRedirect bool `json:"cross_origin_redirect,omitempty"`
+	// OriginBeforeRedirect is a redirected request whose previous request,
+	// the one the redirect answered, carried Origin (Chrome keeps that
+	// Origin's place; one the redirect adds goes after Sec-Fetch-*).
+	// Needs Redirected.
+	OriginBeforeRedirect bool `json:"origin_before_redirect,omitempty"`
+	// MethodChangedByRedirect is a redirected request whose method the
+	// redirect changed (a PATCH answered 303 goes on as a GET): Chrome
+	// drops the Origin the previous request carried and adds its own
+	// after Sec-Fetch-*. Needs Redirected.
+	MethodChangedByRedirect bool `json:"method_changed_by_redirect,omitempty"`
+	// InsecureBeforeRedirect is a redirected request whose previous
+	// request went to a non-secure URL (a typed http:// answered with a
+	// redirect to https://): Safari carries Upgrade-Insecure-Requests over
+	// and orders the hop otherwise. Needs Redirected.
+	InsecureBeforeRedirect bool `json:"insecure_before_redirect,omitempty"`
 	// Insecure is a request to a URL that is not potentially trustworthy
 	// (plain http:// to anything but loopback): browsers send no
 	// Sec-Fetch-* or client hints and fewer encodings, over HTTP/1.1 only,
@@ -123,6 +145,10 @@ const (
 	SiteSameOrigin = ""
 	SiteSameSite   = "same-site"
 	SiteCrossSite  = "cross-site"
+	// SiteNone is a navigation's without a page (a typed URL): Safari
+	// orders its redirects otherwise than a page's (nav-redirect and
+	// redirects2 captures).
+	SiteNone = "none"
 )
 
 // Urgency is a request's priority signals.
@@ -324,8 +350,10 @@ func tableRun(list []Header, members map[string]bool) bool {
 // condition and none repeats the default one.
 func (c *checker) checkVariants(path string, vs []Variant, others bool) {
 	type condition struct {
-		method, site                        string
-		cors, pageSet, redirected, insecure bool
+		method, site                                     string
+		cors, pageSet, redirected, insecure              bool
+		crossOriginRedirect, originBefore, methodChanged bool
+		insecureBefore                                   bool
 	}
 	seen := map[condition]bool{}
 	for i, v := range vs {
@@ -346,19 +374,26 @@ func (c *checker) checkVariants(path string, vs []Variant, others bool) {
 		if v.Method == "GET" || strings.ContainsAny(v.Method, " \r\n") {
 			c.add(at+".method", "must be empty for GET, or a method")
 		}
-		if v.Site != SiteSameOrigin && v.Site != SiteSameSite && v.Site != SiteCrossSite {
-			c.add(at+".site", "must be empty (same-origin), %q or %q", SiteSameSite, SiteCrossSite)
+		if v.Site != SiteSameOrigin && v.Site != SiteSameSite && v.Site != SiteCrossSite && v.Site != SiteNone {
+			c.add(at+".site", "must be empty (same-origin), %q, %q or %q", SiteSameSite, SiteCrossSite, SiteNone)
 		}
 		if v.PageSet && !v.CORSChecked {
 			c.add(at+".page_set", "needs cors_checked: a request carrying headers the page set is CORS-checked")
 		}
+		if (v.CrossOriginRedirect || v.OriginBeforeRedirect || v.MethodChangedByRedirect || v.InsecureBeforeRedirect) && !v.Redirected {
+			c.add(at, "cross_origin_redirect, origin_before_redirect, method_changed_by_redirect and insecure_before_redirect need redirected")
+		}
 		cond := condition{
-			method:     v.Method,
-			site:       v.Site,
-			cors:       v.CORSChecked,
-			pageSet:    v.PageSet,
-			redirected: v.Redirected,
-			insecure:   v.Insecure,
+			method:              v.Method,
+			site:                v.Site,
+			cors:                v.CORSChecked,
+			pageSet:             v.PageSet,
+			redirected:          v.Redirected,
+			insecure:            v.Insecure,
+			crossOriginRedirect: v.CrossOriginRedirect,
+			originBefore:        v.OriginBeforeRedirect,
+			methodChanged:       v.MethodChangedByRedirect,
+			insecureBefore:      v.InsecureBeforeRedirect,
 		}
 		switch {
 		case cond == condition{}:

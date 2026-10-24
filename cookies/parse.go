@@ -40,10 +40,10 @@ type parsed struct {
 // 5.6.2): 400 days.
 const maxExpiry = 400 * 24 * time.Hour
 
-// parse reads a Set-Cookie line by RFC 6265bis section 5.6; nameless is the
-// profile's policy for a pair without "=", now the time Max-Age counts
-// from.
-func parse(line, nameless string, now time.Time) (*parsed, error) {
+// parse reads a Set-Cookie line by RFC 6265bis section 5.6, with rules'
+// policies for a pair without "=" and one with nothing before it; now is
+// the time Max-Age counts from.
+func parse(line string, rules *profile.Cookies, now time.Time) (*parsed, error) {
 	for i := range len(line) {
 		if b := line[i]; (b < 0x20 && b != '\t') || b == 0x7f {
 			return nil, errors.New("control character in the line")
@@ -53,8 +53,11 @@ func parse(line, nameless string, now time.Time) (*parsed, error) {
 	p := &parsed{}
 	if name, value, ok := strings.Cut(pairText, "="); ok {
 		p.name, p.value = trimWSP(name), trimWSP(value)
+		if p.name == "" && p.value != "" && rules.EmptyName == profile.EmptyNameDrop {
+			return nil, errors.New("an empty name before \"=\", which this browser drops")
+		}
 	} else {
-		switch nameless {
+		switch rules.Nameless {
 		case profile.NamelessName:
 			p.name = trimWSP(pairText)
 		case profile.NamelessDrop:

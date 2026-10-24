@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"net/url"
 	"slices"
@@ -189,10 +188,15 @@ type sending struct {
 	// credentialed: the request sends and keeps cookies.
 	credentialed bool
 	cookies      cookies.Request
-	// corsOrigin is the Origin a fetch() or XHR in CORS mode to another
-	// origin sends, which its redirects must allow (Access-Control-Allow-
-	// Origin) for the browser to follow them; "" for other requests.
+	// corsOrigin is the Origin a request in CORS mode to another origin
+	// (fetch(), XHR, an element with crossorigin, a font) sends, which its
+	// redirects must allow (Access-Control-Allow-Origin) for the browser
+	// to follow them; "" for other requests.
 	corsOrigin string
+	// preflighted: the request needed a CORS preflight (sent or cached),
+	// which a profile's later hops may inherit
+	// (redirects.hop_preflight).
+	preflighted bool
 }
 
 // resolve returns how to send req as r describes it, from page from (nil:
@@ -205,6 +209,12 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 	// The redirect chain this request ends, first URL first.
 	target := req.URL
 	chain := append(redirectsBefore(req), target)
+	// Browsers send Sec-Fetch-*, client hints and their full
+	// Accept-Encoding only to potentially trustworthy URLs.
+	insecure := !site.Trustworthy(target)
+	// insecureBefore: the request a redirect answered went to a non-secure
+	// URL (http:// upgraded to https://).
+	insecureBefore := len(chain) > 1 && !site.Trustworthy(chain[len(chain)-2])
 	// Config.Headers count as the page's from here on: for the variant,
 	// credentials and the preflight.
 	addHeaders(h, config, chain)
@@ -301,7 +311,9 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 	if r.Kind != Navigate {
 		values["sec-fetch-mode"] = mode
 	}
-	if r.Kind != Navigate || from != nil {
+	if r.Kind != Navigate || from != nil || redirected {
+		// A typed navigation's redirect keeps sec-fetch-site none, which
+		// its hop's list leaves to fill.
 		values["sec-fetch-site"] = site
 	}
 
@@ -329,31 +341,13 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 	// Origin: on every request but GET and HEAD, and on CORS requests to
 	// another origin (or same-origin element ones, where the browser does);
 	// "null" once the chain is tainted.
-	sendOrigin := false
-	if from != nil {
-		switch {
-		case req.Method != http.MethodGet && req.Method != http.MethodHead:
-			sendOrigin = true
-		case mode == "cors" && (crossOrigin || tainted):
-			sendOrigin = true
-		case mode == "cors" && ctx.SameOriginElementOrigin && slices.Contains(elements, r.Kind):
-			sendOrigin = true
-		}
-		if !sendOrigin && mode == "cors" && (r.Kind == Fetch || r.Kind == XHR) && redirectedToGet(req) {
-			// A redirect turned the request into a GET: whether the Origin
-			// it sent goes on is the browser's (Safari: it does). Measured
-			// on fetch(); XHR, the same CORS-mode request, follows it.
-			if p.Redirects == nil {
-				return nil, fmt.Errorf("%w: profile %s has no redirects rules, for a %s redirected to a GET", ErrNotMeasured, p.Name, r.Kind)
-			}
-			sendOrigin = p.Redirects.MethodChangeOrigin == profile.RedirectOriginKeep
-		}
+	sentOrigin, err := originOf(p, ctx, req, r, mode, from)
+	if err != nil {
+		return nil, err
 	}
+	sendOrigin := sentOrigin != ""
 	if sendOrigin {
-		values["origin"] = origin(from)
-		if tainted {
-			values["origin"] = "null"
-		}
+		values["origin"] = sentOrigin
 	}
 	referrerURL := from
 	if r.Stylesheet != nil && ctx.StylesheetReferrer {
@@ -383,7 +377,7 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 			Redirects:  chain[:len(chain)-1],
 		},
 	}
-	if sendOrigin && mode == "cors" && (crossOrigin || tainted) && (r.Kind == Fetch || r.Kind == XHR) {
+	if sendOrigin && mode == "cors" && (crossOrigin || tainted) && (r.Kind == Fetch || r.Kind == XHR || slices.Contains(elements, r.Kind)) {
 		s.corsOrigin = values["origin"]
 	}
 	switch {
@@ -418,26 +412,45 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 	}
 
 	// The order: the variant for this method, site relation, CORS check,
-	// page-set headers, redirect and security, else the kind's own. A
-	// non-secure request (plain http:// to anything but loopback) never
-	// takes the secure lists: its exact variant, else the kind's
-	// non-secure one.
+	// page-set headers, redirect (and whether it crossed origins, whether
+	// the request before it carried Origin, and whether it changed the
+	// method) and security, else the kind's own; a redirected request of a
+	// kind with redirected variants takes only its exact one. A non-secure
+	// request (plain http:// to anything but loopback) never takes the
+	// secure lists: its exact variant, else the kind's non-secure one.
 	set := pageSet(h, list)
+	if r.Kind == kindPreflight {
+		// A preflight carries the page's headers by name only
+		// (Access-Control-Request-Headers): Safari orders one that does
+		// otherwise (kinds and cors pages, against redirects2's PATCH).
+		set = hasHeader(h, "Access-Control-Request-Headers")
+	}
 	var table *profile.HeaderTable
 	if r.Kind == Fetch || r.Kind == XHR {
 		table = ctx.HeaderTable
 		combinePageHeaders(h, list)
 	}
 	cond := profile.Variant{
-		Site:        map[string]string{"same-site": profile.SiteSameSite, "cross-site": profile.SiteCrossSite}[targetSite],
+		Site:        map[string]string{"same-site": profile.SiteSameSite, "cross-site": profile.SiteCrossSite, "none": profile.SiteNone}[targetSite],
 		CORSChecked: sendOrigin || set,
 		PageSet:     set,
 		// A preflight for a redirect's next URL is a request of its own.
 		Redirected: redirected && r.Kind != kindPreflight,
-		Insecure:   !trustworthy(target),
+		Insecure:   insecure,
 	}
 	if req.Method != http.MethodGet {
 		cond.Method = req.Method
+	}
+	if cond.Redirected {
+		prev := req.Response.Request
+		cond.CrossOriginRedirect = origin(chain[len(chain)-2]) != origin(target)
+		before, err := originOf(p, ctx, prev, r, mode, from)
+		if err != nil {
+			return nil, err
+		}
+		cond.OriginBeforeRedirect = before != ""
+		cond.MethodChangedByRedirect = methodOf(prev) != methodOf(req)
+		cond.InsecureBeforeRedirect = insecureBefore
 	}
 	i := slices.IndexFunc(variants, func(v profile.Variant) bool {
 		return sameCondition(v, cond)
@@ -456,6 +469,23 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 		i = slices.IndexFunc(variants, func(v profile.Variant) bool {
 			return sameCondition(v, base)
 		})
+	}
+	if i < 0 && cond.Redirected && slices.ContainsFunc(variants, func(v profile.Variant) bool {
+		return v.Redirected
+	}) {
+		// The kind's redirects were captured, and browsers order a
+		// redirect's request by how it was made (Safari rebuilds it
+		// whole): no other list is this one.
+		return nil, fmt.Errorf("%w: profile %s has no %s request after a redirect for method %q, site %q, CORS-checked %v, page-set headers %v, cross-origin redirect %v, Origin before the redirect %v, method changed by the redirect %v, non-secure before the redirect %v, non-secure %v", ErrNotMeasured, p.Name, r.Kind, cond.Method, cond.Site, cond.CORSChecked, cond.PageSet, cond.CrossOriginRedirect, cond.OriginBeforeRedirect, cond.MethodChangedByRedirect, cond.InsecureBeforeRedirect, cond.Insecure)
+	}
+	if r.Kind == Navigate && cond.Redirected && i >= 0 && sentFetchUser(p, req.Response.Request) && !hasHeader(h, "Sec-Fetch-User") && !slices.ContainsFunc(variants[i].Headers, func(hd profile.Header) bool {
+		return strings.EqualFold(hd.Name, "sec-fetch-user")
+	}) {
+		// The request before sent Sec-Fetch-User (a user's navigation: a
+		// typed URL, a link), and the hop's variant was measured on
+		// navigations without it (a script's): where the browser keeps it
+		// on the hop is not measured.
+		return nil, fmt.Errorf("%w: profile %s has no redirect of a navigation sending Sec-Fetch-User (a typed URL or a link) for site %q, cross-origin redirect %v; a script's navigation suppresses it (a nil Sec-Fetch-User header)", ErrNotMeasured, p.Name, cond.Site, cond.CrossOriginRedirect)
 	}
 	measured := i >= 0
 	if i < 0 && cond.Insecure {
@@ -500,26 +530,16 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 		// fetch()'s Headers object lowercases names; XHR keeps the
 		// page's spelling (headers-order capture, over HTTP/1.1).
 		LowerOwn: r.Kind == Fetch,
+		// A body whose measured list has no content-length goes without
+		// one (Safari's redirected PATCH and POST after a preflight).
+		NoContentLength: measured && req.Body != nil && req.Body != http.NoBody && !slices.ContainsFunc(list, func(hd profile.Header) bool {
+			return strings.EqualFold(hd.Name, "content-length")
+		}),
 	}
 	if len(h1) > 0 {
 		s.plan.HTTP1 = fill(h1, values)
 	}
 	return s, nil
-}
-
-// trustworthy reports a potentially trustworthy URL (Secure Contexts):
-// https or wss, or a loopback host. Browsers send Sec-Fetch-*, client
-// hints and their full Accept-Encoding only to these.
-func trustworthy(u *url.URL) bool {
-	if u.Scheme == "https" || u.Scheme == "wss" {
-		return true
-	}
-	host := strings.ToLower(u.Hostname())
-	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
-		return true
-	}
-	ip := net.ParseIP(host)
-	return ip != nil && ip.IsLoopback()
 }
 
 // fill copies list with the computed values set, case-blind. A computed
@@ -609,7 +629,64 @@ func combinePageHeaders(h http.Header, list []profile.Header) {
 // sameCondition reports whether variant v is for exactly the requests cond
 // describes.
 func sameCondition(v, cond profile.Variant) bool {
-	return v.Method == cond.Method && v.Site == cond.Site && v.CORSChecked == cond.CORSChecked && v.PageSet == cond.PageSet && v.Redirected == cond.Redirected && v.Insecure == cond.Insecure
+	return v.Method == cond.Method && v.Site == cond.Site && v.CORSChecked == cond.CORSChecked && v.PageSet == cond.PageSet && v.Redirected == cond.Redirected && v.CrossOriginRedirect == cond.CrossOriginRedirect && v.OriginBeforeRedirect == cond.OriginBeforeRedirect && v.MethodChangedByRedirect == cond.MethodChangedByRedirect && v.InsecureBeforeRedirect == cond.InsecureBeforeRedirect && v.Insecure == cond.Insecure
+}
+
+// sentFetchUser reports whether navigation req, as sent, carried
+// Sec-Fetch-User: its plan's list (none: the profile's navigation) has
+// it with a value, and the caller did not suppress it.
+func sentFetchUser(p *profile.Profile, req *http.Request) bool {
+	list := p.Headers
+	if plan := headerorder.PlanFrom(req.Context()); plan != nil {
+		list = plan.Headers
+	}
+	return valueOf(list, "sec-fetch-user") != "" && !hasHeader(req.Header, "Sec-Fetch-User")
+}
+
+// methodOf is req's method, GET when empty.
+func methodOf(req *http.Request) string {
+	if req.Method == "" {
+		return http.MethodGet
+	}
+	return req.Method
+}
+
+// originOf returns the Origin req sends, made as r in mode (sec-fetch-mode)
+// from page from (nil: none sent): on every request but GET and HEAD, and
+// on CORS requests to another origin (or same-origin element ones, where
+// the browser does); "null" once its redirect chain is tainted; "" for
+// none.
+func originOf(p *profile.Profile, ctx *profile.Context, req *http.Request, r Request, mode string, from *url.URL) (string, error) {
+	if from == nil {
+		return "", nil
+	}
+	_, crossOrigin := relation(from, req.URL)
+	tainted := isTainted(from, append(redirectsBefore(req), req.URL))
+	send := false
+	switch {
+	case req.Method != http.MethodGet && req.Method != http.MethodHead:
+		send = true
+	case mode == "cors" && (crossOrigin || tainted):
+		send = true
+	case mode == "cors" && ctx.SameOriginElementOrigin && slices.Contains(elements, r.Kind):
+		send = true
+	}
+	if !send && mode == "cors" && (r.Kind == Fetch || r.Kind == XHR) && redirectedToGet(req) {
+		// A redirect turned the request into a GET: whether the Origin
+		// it sent goes on is the browser's (Safari: it does). Measured
+		// on fetch(); XHR, the same CORS-mode request, follows it.
+		if p.Redirects == nil {
+			return "", fmt.Errorf("%w: profile %s has no redirects rules, for a %s redirected to a GET", ErrNotMeasured, p.Name, r.Kind)
+		}
+		send = p.Redirects.MethodChangeOrigin == profile.RedirectOriginKeep
+	}
+	switch {
+	case !send:
+		return "", nil
+	case tainted:
+		return "null", nil
+	}
+	return origin(from), nil
 }
 
 // hasHeader reports whether h has name, in any case, even with no values

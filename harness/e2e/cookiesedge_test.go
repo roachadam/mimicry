@@ -21,19 +21,26 @@ import (
 // cookies, order after a value changes, schemeful SameSite, Secure cookies
 // on http://localhost and the per-site limit on 200 cookies.
 func TestCookiesEdgeMatchesBrowser(t *testing.T) {
+	matchCookiesEdgePage(t, server.CookiesEdge, server.CookiesEdgeSteps())
+}
+
+// matchCookiesEdgePage walks the page of sc (a cookies-edge scenario, its
+// steps) through mimicry as every profile and compares each step's Cookie
+// header with every sample of the browser's capture of sc.
+func matchCookiesEdgePage(t *testing.T, sc *server.Scenario, steps []server.CookiesEdgeStep) {
+	t.Helper()
 	for _, name := range profiles.Names() {
 		t.Run(name, func(t *testing.T) {
 			p, err := profiles.ByName(name)
 			if err != nil {
 				t.Fatal(err)
 			}
-			want, err := capture.LoadPages(captureDir + name + ".cookies-edge.pagetrace.json.gz")
+			want, err := capture.LoadPages(captureDir + name + "." + sc.Name + ".pagetrace.json.gz")
 			if err != nil {
 				t.Fatal(err)
 			}
-			steps := server.CookiesEdgeSteps()
 			plain := edgeSchemes(t, want, steps)
-			got := runCookiesEdgePage(t, p, steps, plain)
+			got := runCookiesEdgePage(t, p, sc, steps, plain)
 			for _, st := range steps {
 				g, ok := edgeCookie(got, st, plain[st.Label])
 				if !ok {
@@ -124,20 +131,27 @@ func edgeCookie(page *capture.Page, st server.CookiesEdgeStep, plain bool) (stri
 	return "", false
 }
 
-// runCookiesEdgePage walks the cookies-edge page through mimicry as profile
-// p: each navigation from the page before it, by script (no
-// Sec-Fetch-User), each other step a same-origin fetch() with credentials
-// "include" from the last navigation's page, over plain HTTP where plain
-// says the browser used it.
-func runCookiesEdgePage(t *testing.T, p *profile.Profile, steps []server.CookiesEdgeStep, plain map[string]bool) *capture.Page {
+// runCookiesEdgePage walks a cookies-edge page (sc, its steps) through
+// mimicry as profile p: each navigation from the page before it, by script
+// (no Sec-Fetch-User), each other step a same-origin fetch() with
+// credentials "include" from the last navigation's page, over plain HTTP
+// where plain says the browser used it, a Plain step on the scenario's
+// plain port if it has one.
+func runCookiesEdgePage(t *testing.T, p *profile.Profile, sc *server.Scenario, steps []server.CookiesEdgeStep, plain map[string]bool) *capture.Page {
 	t.Helper()
-	s := startPage(t, p, server.CookiesEdge)
+	s := startPage(t, p, sc)
 	target := func(st server.CookiesEdgeStep) *url.URL {
-		scheme := "https"
+		scheme, port := "https", s.port
 		if plain[st.Label] {
 			scheme = "http"
 		}
-		u, err := url.Parse(scheme + "://" + net.JoinHostPort(st.Host, s.port) + st.Path)
+		if st.Plain && s.plainPort != "" {
+			if !plain[st.Label] {
+				t.Fatalf("%s: the capture has it over https://, on a port without TLS", st.Label)
+			}
+			port = s.plainPort
+		}
+		u, err := url.Parse(scheme + "://" + net.JoinHostPort(st.Host, port) + st.Path)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -166,5 +180,5 @@ func runCookiesEdgePage(t *testing.T, p *profile.Profile, steps []server.Cookies
 			Credentials: mimicry.CredentialsInclude,
 		}, nil, "")
 	}
-	return s.finish(page.JoinPath("..", "done").String())
+	return s.finish(page.ResolveReference(&url.URL{Path: "/done"}).String())
 }

@@ -291,8 +291,9 @@ func TestPageSetVariants(t *testing.T) {
 // With a header table (Chrome's), a fetch() or XHR carrying headers its
 // page set takes the list of its condition without them and the table:
 // the plan has no slot, and fetch() sends the page's names lowercase. A
-// redirect's such request, which the captures do not show the table
-// ordering, is not measured unless a variant was captured for it.
+// redirect's such request takes the table only where the captures show it
+// ordering one (HeaderTable.Redirected, Chrome's); otherwise it is not
+// measured unless a variant was captured for it.
 func TestHeaderTablePlans(t *testing.T) {
 	p := profiles.Chrome155MacOS()
 	if p.Context.HeaderTable == nil {
@@ -330,17 +331,30 @@ func TestHeaderTablePlans(t *testing.T) {
 		}
 	}
 
-	e := &fakeEngine{}
-	tr := fakeTransport(t, Config{
-		Profile: p,
-	}, e)
-	first := newRequest(t, "https://www.a.test/old", nil)
-	hop := newRequest(t, "https://www.a.test/new", http.Header{"X-A": {"1"}})
-	hop.Response = &http.Response{
-		Request: first,
-	}
-	if err := send(t, tr, With(hop, Request{Kind: Fetch, From: page})); !errors.Is(err, ErrNotMeasured) || len(e.sent) > 0 {
-		t.Errorf("redirected with a page header: %v, %d sent; want ErrNotMeasured", err, len(e.sent))
+	for _, redirected := range []bool{true, false} {
+		p := profiles.Chrome155MacOS()
+		if !p.Context.HeaderTable.Redirected {
+			t.Fatal("chrome-155-macos's header table does not order redirects")
+		}
+		p.Context.HeaderTable.Redirected = redirected
+		e := &fakeEngine{}
+		tr := fakeTransport(t, Config{
+			Profile: p,
+		}, e)
+		first := newRequest(t, "https://www.a.test/old", nil)
+		hop := newRequest(t, "https://www.a.test/new", http.Header{"X-A": {"1"}})
+		hop.Response = &http.Response{
+			Request: first,
+		}
+		err := send(t, tr, With(hop, Request{Kind: Fetch, From: page}))
+		switch {
+		case !redirected && (!errors.Is(err, ErrNotMeasured) || len(e.sent) > 0):
+			t.Errorf("redirected with a page header, no table for redirects: %v, %d sent; want ErrNotMeasured", err, len(e.sent))
+		case redirected && err != nil:
+			t.Errorf("redirected with a page header: %v", err)
+		case redirected && headerorder.PlanFrom(e.sent[0].Context()).Table == nil:
+			t.Errorf("redirected with a page header: plan %+v, want the table", headerorder.PlanFrom(e.sent[0].Context()))
+		}
 	}
 }
 
@@ -407,12 +421,14 @@ func TestImpossibleRequests(t *testing.T) {
 	}
 }
 
-// A typed navigation that matches a navigation variant takes it.
+// A typed navigation that matches a navigation variant takes it: its site
+// relation is none.
 func TestTypedNavigationTakesItsVariant(t *testing.T) {
 	p := profiles.Chrome155MacOS()
 	list := slices.Clone(p.Headers)
 	slices.Reverse(list)
 	p.Variants = append(p.Variants, profile.Variant{
+		Site:        profile.SiteNone,
 		CORSChecked: true,
 		PageSet:     true,
 		Headers:     list,

@@ -175,7 +175,8 @@ func NewTransport(cfg Config) (*Transport, error) {
 // The jar is the transport's, not the client's Jar: it needs what an
 // http.CookieJar never sees (the page, the request kind, redirects). The
 // client follows redirects as far as the browser does: the Transport
-// stops a chain after 20, not http.Client's default 10. A CheckRedirect of
+// stops a chain after 20 (a navigation's after the profile's
+// redirects.navigation_limit), not http.Client's default 10. A CheckRedirect of
 // your own still applies, with the hops as http.Client built them (a PUT
 // answered 301 shows as the GET the Transport sends as a PUT).
 func NewClient(cfg Config) (*http.Client, error) {
@@ -206,20 +207,24 @@ func NewClient(cfg Config) (*http.Client, error) {
 // responses, 204 and 304 responses, and those with Content-Length 0 are
 // left as they are.
 //
-// A redirect http.Client follows goes out as the browser sends it: a PUT
-// or DELETE answered 301 or 302 keeps its method and body (its GetBody
-// resends it), and a chain stops after 20 redirects with an error. A
-// fetch() or XHR in CORS mode to another origin whose redirect does not
-// allow its origin (Access-Control-Allow-Origin) returns a *CORSError
-// instead of the redirect, so nothing more is sent, unless
-// Request.IgnoreCORS.
+// A redirect http.Client follows goes out as the browser sends it: a PUT,
+// DELETE or PATCH answered 301 or 302 keeps its method and body (its
+// GetBody resends it), and a chain stops with an error after 20 redirects
+// (a navigation's, or an Exact request's, after the profile's
+// redirects.navigation_limit). A request in CORS mode to another origin
+// (fetch(), XHR, an element with crossorigin, a font) whose redirect does
+// not allow its origin (Access-Control-Allow-Origin, and -Credentials
+// with credentials) returns a *CORSError instead of the redirect, so
+// nothing more is sent, unless Request.IgnoreCORS. A hop is preflighted
+// for its own method and headers, and, where the profile says so
+// (redirects.hop_preflight), because the request before it was.
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	ctx := req.Context()
 	r, _ := ctx.Value(requestKey{}).(Request)
 	exact, _ := ctx.Value(exactKey{}).(bool)
 	callerSet := hasHeader(req.Header, "Accept-Encoding") || hasHeader(t.headers, "Accept-Encoding")
 	if req.Response != nil {
-		next, err := browserHop(req)
+		next, err := browserHop(t.profile, req, exact || r.Kind == Navigate)
 		if err != nil {
 			if req.Body != nil && req.Body != http.NoBody {
 				_ = req.Body.Close()
@@ -240,6 +245,11 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	ctx = pool.WithPartition(ctx, s.partition)
 	if s.plan != nil {
 		ctx = headerorder.WithPlan(ctx, s.plan)
+	}
+	if s.preflighted {
+		// The next hop's preflight may depend on it (hopPreflight): it
+		// sees this request as its Response's.
+		ctx = context.WithValue(ctx, preflightedKey{}, true)
 	}
 	if t.jar != nil && s.credentialed && !hasHeader(h, "Cookie") {
 		if line := cookies.Header(t.jar.Cookies(s.cookies)); line != "" {
@@ -303,7 +313,7 @@ func (t *Transport) prepare(req *http.Request, r Request, exact bool) (*sending,
 	if err != nil {
 		return nil, err
 	}
-	if err := t.preflight(req, r, from, s.credentialed, s.header); err != nil {
+	if s.preflighted, err = t.preflight(req, r, from, s.credentialed, s.header); err != nil {
 		return nil, err
 	}
 	return s, nil

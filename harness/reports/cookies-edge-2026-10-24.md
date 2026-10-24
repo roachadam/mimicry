@@ -116,11 +116,102 @@ evicts least recently used, as both sources do. No header was truncated.
 
 ## Not measured
 
-- Safari's SameSite across `http://` and `https://`: needs the plain page on
-  a port where TLS fails (or a host Safari will not upgrade), since its
-  HTTPS upgrade reaches TLS on this page's shared port.
-- Whether `__Http-` needs `Secure`; a nameless `=x` without a second `=`;
-  Safari's `__Host-` without `Path` at a default path other than `/`.
+- ~~Safari's SameSite across `http://` and `https://`~~: measured by
+  `cookies-edge2`, below.
+- ~~Whether `__Http-` needs `Secure`; a nameless `=x` without a second
+  `=`~~: measured by `cookies-edge2`, below. Safari's `__Host-` without
+  `Path` at a default path other than `/`.
 - Loopback hosts other than `localhost`.
 - Total cookie limits; Chrome's priority and `Secure`-aware eviction order;
   how partitions count toward the limit (the jar counts each apart).
+
+## cookies-edge2: what this page left open
+
+The `cookies-edge2` page (step table `server.CookiesEdge2Steps`, 3 samples
+each; Safari 26 from the second Mac) serves its `http://` steps on a second
+port that answers plain HTTP/1.1 only and refuses a TLS ClientHello with a
+400. No browser's samples differed on any step. Checked end to end by
+`TestCookiesEdge2MatchesBrowser`.
+
+### The plain port
+
+Every browser, in every sample, sent `sch-to-http` and `sch-http-probe` as
+plain HTTP/1.1 to the plain port (the capture's `H1` entries, both on
+connection 1; Safari 26's third sample put the probe on a connection 2),
+with `Upgrade-Insecure-Requests: 1` on the navigation. The page trace holds
+no TLS connection to the plain port: a refused handshake is only in the
+capture server's log (`plain port: refused a TLS handshake`), which the
+capture runs reported for Safari, so Safari tried its HTTPS upgrade on the
+plain port, was refused, and fell back to `http://`. The trace cannot show
+whether Chrome or Firefox tried too.
+
+### Schemeful SameSite (cookies set from `https://`)
+
+`e2_sch_strict` (`Strict`), `e2_sch_lax`, `e2_sch_unset`, `e2_sch_secure`
+(`Secure; SameSite=Lax`), all `Path=/`; `start` is the same-origin fetch on
+the https page that set them:
+
+| Step | Chrome | Firefox | Safari 27, 26 |
+|---|---|---|---|
+| `sch-start-probe` | all four | all four | all four (by name) |
+| `sch-to-http` (navigation https → http) | `lax; unset` (no `Strict`) | `strict; lax; unset` | `lax; strict; unset` |
+| `sch-http-probe` (same-origin fetch on http) | `strict; lax; unset` | same | `lax; strict; unset` |
+| `sch-to-https` (navigation http → https) | `lax; unset; secure` (no `Strict`) | all four | all four |
+| `sch-https-probe` | all four | all four | all four |
+
+Safari is **schemeless**, as Firefox: `Strict` goes on both cross-scheme
+navigations. Chrome and Firefox repeat what `cookies-edge` showed. No
+browser sent the `Secure` cookie over `http://`.
+
+### Nameless `=x` cookies (`nameless-probe`)
+
+Each on its own nested path under `/n`, set by the `n-doc` navigation:
+
+| Cookie | Chrome | Firefox | Safari 27, 26 |
+|---|---|---|---|
+| `=ctl; Secure` (control) | kept, sent `ctl` | dropped | dropped |
+| `=__Secure-x; Secure` | dropped | dropped | dropped |
+| `= __Host-x; Secure` | dropped | dropped | dropped |
+| `=__secure-x; Secure` | dropped | dropped | dropped |
+| `=x` (not `Secure`) | kept, sent `x` | dropped | dropped |
+| Cookie header | `x; ctl` | (none) | (none) |
+
+Chrome keeps a nameless cookie and refuses a value that starts with a
+prefix in any case, after a space (RFC 6265bis, the jar's code rule).
+Firefox and Safari keep no nameless `=x` cookie at all: a profile rule.
+
+### `__Http-` and `__Host-Http-` without `Secure` (`http-probe`)
+
+All `HttpOnly; Path=/`:
+
+| Cookie | Chrome | Firefox | Safari 27, 26 |
+|---|---|---|---|
+| `__Http-e2_ok` (`Secure`) | kept | kept | kept |
+| `__Http-e2_nosec` | **dropped** | **dropped** | kept |
+| `__Host-Http-e2_ok` (`Secure`) | kept | kept | kept |
+| `__Host-Http-e2_nosec` | dropped | dropped | dropped |
+
+Chrome and Firefox require `Secure` for `__Http-` (the jar's
+`http_prefix` already did, from the RFC). Safari treats `__Http-` as an
+ordinary name; its `__Host-Http-` cookie is refused by `__Host-`'s own
+`Secure` rule.
+
+### What changed in mimicry
+
+| Rule | Where | Chrome | Firefox | Safari 27 | Safari 26 |
+|---|---|---|---|---|---|
+| `samesite_scheme` | profile | `schemeful` | `schemeless` | **`schemeless`** (was `schemeful`, unmeasured) | same |
+| `empty_name` (new, required) | profile; `parse` drops `=x` under `drop` | `keep` | `drop` | `drop` | `drop` |
+| Nameless value starting with a prefix, any case, after whitespace | code (unchanged) | measured | — | — | — |
+| `__Http-` needs `Secure` | code under `http_prefix` (unchanged) | measured | measured | — (`http_prefix: false`) | same |
+
+`cookies-edge`'s and `cookies-edge2`'s e2e tests share one walk
+(`matchCookiesEdgePage`); the e2e page session opens the scenario's plain
+port and dials it by the URL's port.
+
+### Still not measured
+
+- Whether Chrome refuses a nameless value starting with `__Http-` (the jar
+  does not; `__Host-Http-` is covered by `__Host-`).
+- Whether Chrome or Firefox tried TLS on the plain port before plain HTTP.
+- Safari's `__Host-` without `Path` at a default path other than `/`.

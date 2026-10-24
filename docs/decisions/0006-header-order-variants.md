@@ -52,6 +52,21 @@ A variant derived only from HTTP/2 captures (the `cors` and `cookies`
 pages run over HTTP/2) has no HTTP/1.1 list. Sent over HTTP/1.1 it is not
 measured, and the connection refuses it (0008).
 
+Redirect hops have conditions of their own, each found by testing which
+one explains every captured hop (`cors-edge`, `redirects2`,
+`nav-redirect-*`):
+- `cross_origin_redirect`: the redirect left the origin of the request it
+  answered;
+- `origin_before_redirect`: that request carried `Origin`;
+- `method_changed_by_redirect`: Chrome places `Origin` differently on a
+  GET a redirect made from another method;
+- `insecure_before_redirect`: the previous request was plain http.
+
+A typed navigation's hop has site `none`. For fetch, images and
+navigations, a hop whose combination was not captured is `ErrNotMeasured`,
+never the kind's default order: every browser reorders hops. Page-set
+headers follow 0021's table where the browser uses one.
+
 `harness/cmd/kindsgen` derives all of this and refuses captures it cannot
 reconcile. Profile `context.fetch_redirect_drops` was removed: the redirect
 variants encode it.

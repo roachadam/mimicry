@@ -162,7 +162,7 @@ func (j *Jar) contextOf(r Request) context {
 
 // sameSite reports whether a and b are same-site for SameSite: the same
 // schemeful site, or only the same registrable domain where the browser
-// leaves the scheme out (Firefox).
+// leaves the scheme out (Firefox, Safari).
 func (j *Jar) sameSite(a, b *url.URL) bool {
 	if j.rules.SameSiteScheme == profile.SameSiteSchemeless {
 		return site.Registrable(a.Hostname()) == site.Registrable(b.Hostname())
@@ -173,18 +173,7 @@ func (j *Jar) sameSite(a, b *url.URL) bool {
 // secure reports whether u counts as secure for Secure cookies: https, or
 // plain http to a loopback host where the browser treats it as secure.
 func (j *Jar) secure(u *url.URL) bool {
-	return u.Scheme == "https" || (j.rules.SecureLoopback && loopback(u.Hostname()))
-}
-
-// loopback reports a loopback host by the Secure Contexts specification:
-// localhost, a name under .localhost, 127.0.0.0/8 or ::1.
-func loopback(host string) bool {
-	host = strings.ToLower(host)
-	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
-		return true
-	}
-	ip := net.ParseIP(host)
-	return ip != nil && ip.IsLoopback()
+	return u.Scheme == "https" || (j.rules.SecureLoopback && site.Loopback(u.Hostname()))
 }
 
 // effective is a cookie's SameSite with Unset resolved by the rules.
@@ -238,7 +227,7 @@ func (j *Jar) set(r setRequest, line string) Event {
 		return e
 	}
 	now := r.now
-	p, err := parse(line, j.rules.Nameless, now)
+	p, err := parse(line, &j.rules, now)
 	if err != nil {
 		return reject(err.Error())
 	}

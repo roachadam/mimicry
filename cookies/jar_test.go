@@ -485,6 +485,47 @@ func TestNamelessPolicies(t *testing.T) {
 	}
 }
 
+// A pair with nothing before "=" (cookies-edge2's nameless-probe): a
+// value, sent alone, unless it passes for a prefixed name in any case or
+// after a space (Chrome), or nothing at all (Firefox, Safari). Each has a
+// path of its own: a host keeps one nameless cookie per path.
+func TestEmptyNamePolicies(t *testing.T) {
+	lines := []string{
+		"=ctl; Path=/n; Secure",
+		"=__Secure-x; Path=/n/1; Secure",
+		"= __Host-x; Path=/n/1/2; Secure",
+		"=__secure-x; Path=/n/1/2/3; Secure",
+		"=x; Path=/n/1/2/3/4",
+	}
+	for _, tt := range []struct {
+		policy string
+		want   string
+	}{
+		{profile.EmptyNameKeep, "x; ctl"},
+		{profile.EmptyNameDrop, ""},
+	} {
+		j := newJar(t, Config{
+			Rules: rules(func(r *profile.Cookies) {
+				r.EmptyName = tt.policy
+			}),
+		})
+		j.SetCookies(nav(t, "https://example.com/d/n-doc"), lines)
+		if got := Header(j.Cookies(nav(t, "https://example.com/n/1/2/3/4/probe"))); got != tt.want {
+			t.Errorf("%s: %q, want %q", tt.policy, got, tt.want)
+		}
+	}
+	// The rule is the "=" form's alone: a pair without "=" keeps its own.
+	j := newJar(t, Config{
+		Rules: rules(func(r *profile.Cookies) {
+			r.EmptyName = profile.EmptyNameDrop
+		}),
+	})
+	j.SetCookies(nav(t, "https://example.com/"), []string{"knoeq"})
+	if got := Header(j.Cookies(nav(t, "https://example.com/"))); got != "knoeq" {
+		t.Errorf("pair without \"=\" under %s: %q, want %q", profile.EmptyNameDrop, got, "knoeq")
+	}
+}
+
 // Safari re-encodes value bytes above 0x7f as Latin-1 characters.
 func TestLatin1Values(t *testing.T) {
 	for _, latin1 := range []bool{false, true} {
@@ -568,9 +609,11 @@ func TestCreationOrderAcrossDomains(t *testing.T) {
 	}
 }
 
-// Safari ignores the __Http- prefixes and checks __Host-'s Path=/ on the
-// path stored, so a cookie without Path whose default path is "/" is kept;
-// RFC 6265bis (Chrome, Firefox) refuses both.
+// Safari ignores the __Http- prefixes (a __Host-Http- name is still
+// __Host-'s, so it needs Secure) and checks __Host-'s Path=/ on the path
+// stored, so a cookie without Path whose default path is "/" is kept; RFC
+// 6265bis (Chrome, Firefox) refuses them, __Http- without Secure too
+// (cookies-edge2's http-probe).
 func TestPrefixPolicies(t *testing.T) {
 	safari := rules(func(r *profile.Cookies) {
 		r.HTTPPrefix = false
@@ -584,6 +627,8 @@ func TestPrefixPolicies(t *testing.T) {
 		{"https://www.example.com/", "__Http-a=1; Secure; Path=/", false, true},
 		{"https://www.example.com/", "__Host-Http-a=1; Secure; HttpOnly; Path=/", true, true},
 		{"https://www.example.com/", "__Host-Http-a=1; Secure; Path=/", false, true},
+		{"https://www.example.com/", "__Http-a=1; HttpOnly; Path=/", false, true},
+		{"https://www.example.com/", "__Host-Http-a=1; HttpOnly; Path=/", false, false},
 		{"https://www.example.com/", "__Host-a=1; Secure", false, true},
 		{"https://www.example.com/d/e", "__Host-a=1; Secure", false, false},
 		{"https://www.example.com/", "__Host-a=1; Secure; Path=/x", false, false},
@@ -635,7 +680,7 @@ func TestNewValueRenews(t *testing.T) {
 
 // Chrome judges SameSite on schemeful sites: a navigation between https://
 // and http:// of one host is cross-site, so Strict cookies stay behind.
-// Firefox leaves the scheme out.
+// Firefox and Safari leave the scheme out.
 func TestSameSiteScheme(t *testing.T) {
 	for _, tt := range []struct {
 		scheme string

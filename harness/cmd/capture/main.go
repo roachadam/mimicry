@@ -339,6 +339,15 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 		_ = ln.Close()
 		ln = px.Listener()
 	}
+	if sc.PlainPort() {
+		// The page's http:// URLs name a second port, which answers no
+		// TLS; every host resolves to this address on either port.
+		if srv.PlainListener, err = (&net.ListenConfig{}).Listen(ctx, "tcp", "127.0.0.1:0"); err != nil {
+			_ = ln.Close()
+			return nil, err
+		}
+		log.Printf("%s: plain HTTP on port %d", b.Name, srv.PlainListener.Addr().(*net.TCPAddr).Port)
+	}
 	serveCtx, stopServer := context.WithCancel(ctx)
 	served, proxied := make(chan struct{}), make(chan struct{})
 	if px != nil {
@@ -374,7 +383,14 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 	if multi {
 		t.Host = hosts[0]
 		t.Hosts = hosts[1:]
+		t.HostCerts = true
+		t.Path = sc.StartPath()
 		timeout += length
+	}
+	if sc.StartsPlain() {
+		// The page starts at http:// on its plain port.
+		t.Plain = true
+		t.Port = srv.PlainListener.Addr().(*net.TCPAddr).Port
 	}
 	if b.Shared && t.ProxyAuth != nil {
 		// Nothing can answer Safari's login dialog but a person.

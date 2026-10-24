@@ -66,8 +66,9 @@ from and to HTTPS (and loopback, where the profile says), and an insecure
 URL cannot shadow a `Secure` cookie; `__Secure-` and `__Host-` prefixes; a
 nameless cookie whose value starts with `__Secure-` or `__Host-` (any
 case, after spaces and tabs), or holds `=`, is refused, by `SetCookies`
-and `Set` alike; name plus value at most 4096 bytes; `Max-Age` over
-`Expires`, either capped at 400 days from creation;
+and `Set` alike (where a browser keeps nameless cookies at all, below);
+name plus value at most 4096 bytes; `Max-Age` over `Expires`, either
+capped at 400 days from creation;
 of repeated attributes the last wins (a last invalid `Path` gives the
 default path, a last empty `Domain` a host-only cookie); `Lax` and
 `Strict` cookies refused from cross-site responses; `Partitioned` needs
@@ -83,31 +84,31 @@ Where browsers differ, from the profile (`cookies` in the JSON):
 | Third-party (a request whose site is not its page's) | `SameSite=None` cookies sent; `Partitioned` ones kept per top-level site | every cookie kept per top-level site | only `Partitioned` cookies |
 | After a redirect | judged by the URL alone | judged by the whole chain | nothing after a cross-site hop |
 | `knoeq` (no `=`) | value: sent `knoeq` | name: sent `knoeq=` | dropped |
+| `=x` (empty name) | value: sent `x`; `=__Secure-x`, `= __Host-x`, `=__secure-x` rejected | dropped | dropped |
 | UTF-8 values | as received | as received | re-encoded as Latin-1 |
 | Order | longer path, then older | same | longer path, `Domain` cookies first, then name |
 | A cookie replaced with a new value | becomes the newest (moves in the order) | keeps its creation time | (order is by name) |
-| SameSite across `http://` and `https://` of one host | cross-site (schemeful) | same-site | not captured: schemeful kept |
+| SameSite across `http://` and `https://` of one host | cross-site (schemeful) | same-site | same-site |
 | `__Host-` without `Path` (default path `/`) | rejected: needs the attribute | rejected | kept |
-| `__Http-`, `__Host-Http-` | need `Secure` and `HttpOnly` | same | ordinary names |
+| `__Http-`, `__Host-Http-` | need `Secure` and `HttpOnly` | same | ordinary names (`__Host-Http-` still needs `__Host-`'s `Secure`) |
 | `Secure` over `http://localhost` | set and sent | same | Safari 27: same; Safari 26: rejected |
 | Cookies per site | 180; the 181st evicts the least recently used down to 150 | same | no limit (200 kept) |
 
 A top-level navigation's site is its own; any other request's is its
 page's. A request is cross-site, for SameSite, when its site differs from
-that (for Firefox, when any URL of its redirect chain does, and without
-the scheme). Lax cookies go cross-site only on top-level navigations with
-a safe method. The per-site limit counts each partition apart, and evicts
-expired cookies first.
+that (for Firefox, when any URL of its redirect chain does; for Firefox
+and Safari, without the scheme). Lax cookies go cross-site only on
+top-level navigations with a safe method. The per-site limit counts each
+partition apart, and evicts expired cookies first.
 
 ## Not modelled
 
 Total cookie limits, and Chrome's priorities and `Secure`-last eviction
 within the per-site limit; adjusting `Expires` for the server's `Date`
-header; whether `__Http-` needs `Secure` (every capture's had it: the
-RFC's rule); whether a nameless `=x` without a second `=` is kept (the
-capture's all held one); Safari's SameSite across schemes (its HTTPS
-upgrade reached TLS on the capture's shared port); loopback hosts other
-than `localhost` (from the Secure Contexts specification); the order of
+header; whether Chrome refuses a nameless value starting with `__Http-`
+(not captured; the jar checks `__Secure-` and `__Host-`, which covers
+`__Host-Http-`); loopback hosts other than `localhost` (from the Secure
+Contexts specification); the order of
 `Domain` cookies of different levels in Safari; whether Safari refuses
 unpartitioned third-party cookies at store or send (the jar does both);
 the end of Chrome's two-minute window is Chromium's documented value, not

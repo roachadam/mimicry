@@ -46,3 +46,20 @@ func IsPublicSuffix(domain string) bool {
 	suffix, _ := publicsuffix.PublicSuffix(domain)
 	return suffix == domain
 }
+
+// Loopback reports a loopback host (Secure Contexts): localhost, a name
+// under .localhost, or a loopback IP address.
+func Loopback(host string) bool {
+	host = strings.ToLower(host)
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+// Trustworthy reports a potentially trustworthy URL (Secure Contexts):
+// https or wss, or a loopback host.
+func Trustworthy(u *url.URL) bool {
+	return u.Scheme == "https" || u.Scheme == "wss" || Loopback(u.Hostname())
+}

@@ -437,6 +437,349 @@
       ]
     },
     {
+      "redirected": true,
+      "origin_before_redirect": true,
+      "method_changed_by_redirect": true,
+      "headers": [
+        {
+          "name": "accept",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        },
+        {
+          "name": "sec-fetch-site"
+        },
+        {
+          "name": "priority",
+          "value": "u=0, i"
+        },
+        {
+          "name": "sec-fetch-mode",
+          "value": "navigate"
+        },
+        {
+          "name": "user-agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+        },
+        {
+          "name": "accept-language",
+          "value": "en-US,en;q=0.9"
+        },
+        {
+          "name": "sec-fetch-dest",
+          "value": "document"
+        },
+        {
+          "name": "referer"
+        },
+        {
+          "name": "accept-encoding",
+          "value": "gzip, deflate, br"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "cors_checked": true,
+      "redirected": true,
+      "origin_before_redirect": true,
+      "headers": [
+        {
+          "name": "accept",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        },
+        {
+          "name": "content-type"
+        },
+        {
+          "name": "sec-fetch-site"
+        },
+        {
+          "name": "origin"
+        },
+        {
+          "name": "content-length"
+        },
+        {
+          "name": "priority",
+          "value": "u=0, i"
+        },
+        {
+          "name": "sec-fetch-mode",
+          "value": "navigate"
+        },
+        {
+          "name": "user-agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+        },
+        {
+          "name": "referer"
+        },
+        {
+          "name": "sec-fetch-dest",
+          "value": "document"
+        },
+        {
+          "name": "accept-language",
+          "value": "en-US,en;q=0.9"
+        },
+        {
+          "name": "accept-encoding",
+          "value": "gzip, deflate, br"
+        }
+      ]
+    },
+    {
+      "redirected": true,
+      "headers": [
+        {
+          "name": "accept",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        },
+        {
+          "name": "sec-fetch-site"
+        },
+        {
+          "name": "priority",
+          "value": "u=0, i"
+        },
+        {
+          "name": "sec-fetch-mode",
+          "value": "navigate"
+        },
+        {
+          "name": "user-agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+        },
+        {
+          "name": "accept-language",
+          "value": "en-US,en;q=0.9"
+        },
+        {
+          "name": "sec-fetch-dest",
+          "value": "document"
+        },
+        {
+          "name": "referer"
+        },
+        {
+          "name": "accept-encoding",
+          "value": "gzip, deflate, br"
+        }
+      ]
+    },
+    {
+      "site": "cross-site",
+      "redirected": true,
+      "origin_before_redirect": true,
+      "method_changed_by_redirect": true,
+      "headers": [
+        {
+          "name": "accept",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        },
+        {
+          "name": "sec-fetch-site"
+        },
+        {
+          "name": "priority",
+          "value": "u=0, i"
+        },
+        {
+          "name": "sec-fetch-mode",
+          "value": "navigate"
+        },
+        {
+          "name": "user-agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+        },
+        {
+          "name": "accept-language",
+          "value": "en-US,en;q=0.9"
+        },
+        {
+          "name": "sec-fetch-dest",
+          "value": "document"
+        },
+        {
+          "name": "referer"
+        },
+        {
+          "name": "accept-encoding",
+          "value": "gzip, deflate, br"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "site": "cross-site",
+      "cors_checked": true,
+      "redirected": true,
+      "origin_before_redirect": true,
+      "headers": [
+        {
+          "name": "accept",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        },
+        {
+          "name": "content-type"
+        },
+        {
+          "name": "sec-fetch-site"
+        },
+        {
+          "name": "origin"
+        },
+        {
+          "name": "content-length"
+        },
+        {
+          "name": "priority",
+          "value": "u=0, i"
+        },
+        {
+          "name": "sec-fetch-mode",
+          "value": "navigate"
+        },
+        {
+          "name": "user-agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+        },
+        {
+          "name": "referer"
+        },
+        {
+          "name": "sec-fetch-dest",
+          "value": "document"
+        },
+        {
+          "name": "accept-language",
+          "value": "en-US,en;q=0.9"
+        },
+        {
+          "name": "accept-encoding",
+          "value": "gzip, deflate, br"
+        }
+      ]
+    },
+    {
+      "site": "none",
+      "redirected": true,
+      "cross_origin_redirect": true,
+      "headers": [
+        {
+          "name": "accept",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        },
+        {
+          "name": "sec-fetch-site"
+        },
+        {
+          "name": "sec-fetch-mode",
+          "value": "navigate"
+        },
+        {
+          "name": "user-agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+        },
+        {
+          "name": "accept-language",
+          "value": "en-US,en;q=0.9"
+        },
+        {
+          "name": "sec-fetch-dest",
+          "value": "document"
+        },
+        {
+          "name": "priority",
+          "value": "u=0, i"
+        },
+        {
+          "name": "accept-encoding",
+          "value": "gzip, deflate, br"
+        }
+      ]
+    },
+    {
+      "site": "none",
+      "redirected": true,
+      "cross_origin_redirect": true,
+      "insecure_before_redirect": true,
+      "headers": [
+        {
+          "name": "accept",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        },
+        {
+          "name": "sec-fetch-site"
+        },
+        {
+          "name": "upgrade-insecure-requests",
+          "value": "1"
+        },
+        {
+          "name": "sec-fetch-mode",
+          "value": "navigate"
+        },
+        {
+          "name": "user-agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+        },
+        {
+          "name": "accept-language",
+          "value": "en-US,en;q=0.9"
+        },
+        {
+          "name": "sec-fetch-dest",
+          "value": "document"
+        },
+        {
+          "name": "priority",
+          "value": "u=0, i"
+        },
+        {
+          "name": "accept-encoding",
+          "value": "gzip, deflate, br"
+        }
+      ]
+    },
+    {
+      "site": "none",
+      "redirected": true,
+      "headers": [
+        {
+          "name": "accept",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        },
+        {
+          "name": "sec-fetch-site"
+        },
+        {
+          "name": "sec-fetch-mode",
+          "value": "navigate"
+        },
+        {
+          "name": "user-agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+        },
+        {
+          "name": "accept-language",
+          "value": "en-US,en;q=0.9"
+        },
+        {
+          "name": "sec-fetch-dest",
+          "value": "document"
+        },
+        {
+          "name": "priority",
+          "value": "u=0, i"
+        },
+        {
+          "name": "accept-encoding",
+          "value": "gzip, deflate, br"
+        }
+      ]
+    },
+    {
       "insecure": true,
       "http1": [
         {
@@ -518,6 +861,43 @@
         },
         {
           "name": "Cookie"
+        },
+        {
+          "name": "Connection",
+          "value": "keep-alive"
+        }
+      ]
+    },
+    {
+      "site": "none",
+      "insecure": true,
+      "http1": [
+        {
+          "name": "Host"
+        },
+        {
+          "name": "Upgrade-Insecure-Requests",
+          "value": "1"
+        },
+        {
+          "name": "Accept",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        },
+        {
+          "name": "User-Agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+        },
+        {
+          "name": "Accept-Language",
+          "value": "en-US,en;q=0.9"
+        },
+        {
+          "name": "Priority",
+          "value": "u=0, i"
+        },
+        {
+          "name": "Accept-Encoding",
+          "value": "gzip, deflate"
         },
         {
           "name": "Connection",
@@ -895,6 +1275,43 @@
             {
               "name": "Connection",
               "value": "keep-alive"
+            }
+          ]
+        },
+        {
+          "site": "cross-site",
+          "cors_checked": true,
+          "redirected": true,
+          "origin_before_redirect": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "no-cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "script"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
             }
           ]
         },
@@ -1899,6 +2316,43 @@
           ]
         },
         {
+          "site": "cross-site",
+          "cors_checked": true,
+          "redirected": true,
+          "origin_before_redirect": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "no-cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "script"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            }
+          ]
+        },
+        {
           "insecure": true,
           "http1": [
             {
@@ -2335,6 +2789,8 @@
         {
           "cors_checked": true,
           "redirected": true,
+          "cross_origin_redirect": true,
+          "origin_before_redirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -2590,6 +3046,7 @@
           "site": "cross-site",
           "cors_checked": true,
           "redirected": true,
+          "cross_origin_redirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -2893,6 +3350,7 @@
           "cors_checked": true,
           "page_set": true,
           "redirected": true,
+          "origin_before_redirect": true,
           "headers": [
             {
               "name": "accept",
@@ -2981,6 +3439,7 @@
           "method": "PUT",
           "cors_checked": true,
           "redirected": true,
+          "origin_before_redirect": true,
           "headers": [
             {
               "name": "accept",
@@ -3020,6 +3479,51 @@
             {
               "name": "accept-language",
               "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            }
+          ]
+        },
+        {
+          "cors_checked": true,
+          "redirected": true,
+          "origin_before_redirect": true,
+          "method_changed_by_redirect": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "priority",
+              "value": "u=3, i"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "cors"
+            },
+            {
+              "name": "accept-language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "empty"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
             },
             {
               "name": "accept-encoding",
@@ -3080,6 +3584,7 @@
           "method": "DELETE",
           "cors_checked": true,
           "redirected": true,
+          "origin_before_redirect": true,
           "headers": [
             {
               "name": "accept",
@@ -3119,6 +3624,507 @@
             {
               "name": "accept-language",
               "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            }
+          ]
+        },
+        {
+          "redirected": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "priority",
+              "value": "u=3, i"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "accept-language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "empty"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            }
+          ]
+        },
+        {
+          "site": "cross-site",
+          "cors_checked": true,
+          "redirected": true,
+          "origin_before_redirect": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "empty"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            }
+          ]
+        },
+        {
+          "method": "POST",
+          "cors_checked": true,
+          "redirected": true,
+          "origin_before_redirect": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "content-type"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "content-length"
+            },
+            {
+              "name": "priority",
+              "value": "u=3, i"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "empty"
+            },
+            {
+              "name": "accept-language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            }
+          ]
+        },
+        {
+          "method": "HEAD",
+          "redirected": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "priority",
+              "value": "u=3, i"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "accept-language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "empty"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            }
+          ]
+        },
+        {
+          "method": "PATCH",
+          "cors_checked": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "content-type"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "empty"
+            },
+            {
+              "name": "content-length"
+            },
+            {
+              "name": "accept-language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "priority",
+              "value": "u=3, i"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            }
+          ]
+        },
+        {
+          "method": "PATCH",
+          "cors_checked": true,
+          "redirected": true,
+          "origin_before_redirect": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "content-type"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "content-length"
+            },
+            {
+              "name": "priority",
+              "value": "u=3, i"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "empty"
+            },
+            {
+              "name": "accept-language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            }
+          ]
+        },
+        {
+          "site": "same-site",
+          "cors_checked": true,
+          "redirected": true,
+          "origin_before_redirect": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "empty"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            }
+          ]
+        },
+        {
+          "method": "POST",
+          "site": "cross-site",
+          "cors_checked": true,
+          "redirected": true,
+          "origin_before_redirect": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "content-type"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "empty"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            }
+          ]
+        },
+        {
+          "method": "PATCH",
+          "site": "cross-site",
+          "cors_checked": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "content-type"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "empty"
+            },
+            {
+              "name": "content-length"
+            },
+            {
+              "name": "accept-language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "priority",
+              "value": "u=3, i"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            }
+          ]
+        },
+        {
+          "method": "PATCH",
+          "site": "cross-site",
+          "cors_checked": true,
+          "redirected": true,
+          "origin_before_redirect": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "content-type"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "empty"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            }
+          ]
+        },
+        {
+          "site": "cross-site",
+          "cors_checked": true,
+          "redirected": true,
+          "origin_before_redirect": true,
+          "method_changed_by_redirect": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "empty"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            }
+          ]
+        },
+        {
+          "site": "cross-site",
+          "cors_checked": true,
+          "redirected": true,
+          "cross_origin_redirect": true,
+          "origin_before_redirect": true,
+          "headers": [
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "origin"
             },
             {
               "name": "accept-encoding",
@@ -3466,6 +4472,8 @@
           "site": "cross-site",
           "cors_checked": true,
           "redirected": true,
+          "cross_origin_redirect": true,
+          "insecure_before_redirect": true,
           "insecure": true,
           "http1": [
             {
@@ -3498,6 +4506,9 @@
         {
           "cors_checked": true,
           "redirected": true,
+          "cross_origin_redirect": true,
+          "origin_before_redirect": true,
+          "insecure_before_redirect": true,
           "insecure": true,
           "http1": [
             {
@@ -4273,6 +5284,7 @@
         },
         {
           "redirected": true,
+          "cross_origin_redirect": true,
           "headers": [
             {
               "name": "accept",
@@ -4451,6 +5463,7 @@
         {
           "site": "cross-site",
           "redirected": true,
+          "cross_origin_redirect": true,
           "headers": [
             {
               "name": "accept",
@@ -4629,6 +5642,7 @@
         {
           "site": "same-site",
           "redirected": true,
+          "cross_origin_redirect": true,
           "headers": [
             {
               "name": "accept",
@@ -4670,6 +5684,122 @@
           ]
         },
         {
+          "redirected": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "priority",
+              "value": "u=5, i"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "no-cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "accept-language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "image"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            }
+          ]
+        },
+        {
+          "site": "same-site",
+          "redirected": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "accept-language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "no-cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "image"
+            },
+            {
+              "name": "priority",
+              "value": "u=5, i"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            }
+          ]
+        },
+        {
+          "site": "cross-site",
+          "cors_checked": true,
+          "redirected": true,
+          "origin_before_redirect": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "no-cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "image"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            }
+          ]
+        },
+        {
           "insecure": true,
           "http1": [
             {
@@ -4907,6 +6037,8 @@
         {
           "site": "cross-site",
           "redirected": true,
+          "cross_origin_redirect": true,
+          "insecure_before_redirect": true,
           "insecure": true,
           "http1": [
             {
@@ -4943,6 +6075,8 @@
         },
         {
           "redirected": true,
+          "cross_origin_redirect": true,
+          "insecure_before_redirect": true,
           "insecure": true,
           "http1": [
             {
@@ -5165,6 +6299,7 @@
         },
         {
           "redirected": true,
+          "cross_origin_redirect": true,
           "headers": [
             {
               "name": "accept",
@@ -5343,6 +6478,7 @@
         {
           "site": "cross-site",
           "redirected": true,
+          "cross_origin_redirect": true,
           "headers": [
             {
               "name": "accept",
@@ -5521,6 +6657,7 @@
         {
           "site": "same-site",
           "redirected": true,
+          "cross_origin_redirect": true,
           "headers": [
             {
               "name": "accept",
@@ -5562,6 +6699,122 @@
           ]
         },
         {
+          "redirected": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "priority",
+              "value": "u=5, i"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "no-cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "accept-language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "image"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            }
+          ]
+        },
+        {
+          "site": "same-site",
+          "redirected": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "accept-language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "no-cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "image"
+            },
+            {
+              "name": "priority",
+              "value": "u=5, i"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            }
+          ]
+        },
+        {
+          "site": "cross-site",
+          "cors_checked": true,
+          "redirected": true,
+          "origin_before_redirect": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "no-cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "image"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            }
+          ]
+        },
+        {
           "insecure": true,
           "http1": [
             {
@@ -5799,6 +7052,8 @@
         {
           "site": "cross-site",
           "redirected": true,
+          "cross_origin_redirect": true,
+          "insecure_before_redirect": true,
           "insecure": true,
           "http1": [
             {
@@ -5835,6 +7090,8 @@
         },
         {
           "redirected": true,
+          "cross_origin_redirect": true,
+          "insecure_before_redirect": true,
           "insecure": true,
           "http1": [
             {
@@ -6249,6 +7506,43 @@
           ]
         },
         {
+          "site": "cross-site",
+          "cors_checked": true,
+          "redirected": true,
+          "origin_before_redirect": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "no-cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "script"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            }
+          ]
+        },
+        {
           "insecure": true,
           "http1": [
             {
@@ -6595,8 +7889,59 @@
       "variants": [
         {
           "method": "OPTIONS",
+          "site": "cross-site",
+          "cors_checked": true,
+          "headers": [
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "access-control-request-method"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "empty"
+            },
+            {
+              "name": "content-length"
+            },
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "accept-language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "priority",
+              "value": "u=3, i"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            }
+          ]
+        },
+        {
+          "method": "OPTIONS",
           "site": "same-site",
           "cors_checked": true,
+          "page_set": true,
           "insecure": true,
           "http1": [
             {
@@ -6647,6 +7992,7 @@
           "method": "OPTIONS",
           "site": "cross-site",
           "cors_checked": true,
+          "page_set": true,
           "insecure": true,
           "http1": [
             {
@@ -7405,6 +8751,43 @@
           ]
         },
         {
+          "site": "cross-site",
+          "cors_checked": true,
+          "redirected": true,
+          "origin_before_redirect": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "no-cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "script"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            }
+          ]
+        },
+        {
           "insecure": true,
           "http1": [
             {
@@ -8012,6 +9395,43 @@
             {
               "name": "Connection",
               "value": "keep-alive"
+            }
+          ]
+        },
+        {
+          "site": "cross-site",
+          "cors_checked": true,
+          "redirected": true,
+          "origin_before_redirect": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "no-cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "script"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
             }
           ]
         },
@@ -8723,6 +10143,43 @@
           ]
         },
         {
+          "site": "cross-site",
+          "cors_checked": true,
+          "redirected": true,
+          "origin_before_redirect": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "empty"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            }
+          ]
+        },
+        {
           "insecure": true,
           "http1": [
             {
@@ -8868,9 +10325,10 @@
     "third_party": "partitioned_only",
     "redirects": "chain",
     "nameless": "drop",
+    "empty_name": "drop",
     "latin1_values": true,
     "order": "domain_name",
-    "samesite_scheme": "schemeful",
+    "samesite_scheme": "schemeless",
     "host_prefix_path": "stored"
   },
   "proxy": {
@@ -8918,7 +10376,9 @@
     }
   },
   "redirects": {
-    "method_change_origin": "keep"
+    "method_change_origin": "keep",
+    "navigation_limit": 20,
+    "hop_preflight": "inherit"
   },
   "connections": {
     "http1_per_host": 6,

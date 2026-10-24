@@ -3,8 +3,10 @@ package main
 import (
 	"errors"
 	"fmt"
+	"net"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/roachadam/mimicry/harness/internal/capture"
@@ -19,11 +21,15 @@ type pages struct {
 	// plain over plain HTTP (kinds, kinds-http1, kinds-plain).
 	kinds, kindsH1, plain []*capture.Page
 	// cookies is the cookies page (HTTP/2), cors the cors page, corsEdge
-	// the cors-edge page (HTTP/2).
-	cookies, cors, corsEdge []*capture.Page
+	// the cors-edge page and redirects2 the redirects2 page (HTTP/2).
+	cookies, cors, corsEdge, redirects2 []*capture.Page
 	// headers is the headers-order page: fetch() and XHR with headers the
 	// page set, over HTTP/2 (so, cs) and HTTP/1.1 (h1).
 	headers []*capture.Page
+	// navRedirects are the navigation-redirect pages
+	// (nav-redirect-<x>, any number, maybe none), each a page per
+	// sample: navigations whose start URL redirects.
+	navRedirects [][]*capture.Page
 }
 
 // loadPages reads profile name's captures from dir.
@@ -39,6 +45,7 @@ func loadPages(dir, name string) (*pages, error) {
 		{scenario: "cookies", into: &out.cookies},
 		{scenario: "cors", into: &out.cors},
 		{scenario: "cors-edge", into: &out.corsEdge},
+		{scenario: "redirects2", into: &out.redirects2},
 		{scenario: "headers-order", into: &out.headers},
 	} {
 		got, err := capture.LoadPages(filepath.Join(dir, name+"."+f.scenario+".pagetrace.json.gz"))
@@ -47,17 +54,36 @@ func loadPages(dir, name string) (*pages, error) {
 		}
 		*f.into = got
 	}
+	files, err := filepath.Glob(filepath.Join(dir, name+".nav-redirect-*.pagetrace.json.gz"))
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range files {
+		got, err := capture.LoadPages(f)
+		if err != nil {
+			return nil, err
+		}
+		out.navRedirects = append(out.navRedirects, got)
+	}
 	return out, nil
 }
 
-// request is one captured request of the kinds, cookies, cors, cors-edge or
-// headers-order page.
+// request is one captured request of the kinds, cookies, cors, cors-edge,
+// redirects2 or headers-order page.
 type request struct {
 	// label is its step ("script-cors.cs"), base the part before the
 	// first dot ("script-cors").
 	label, base string
 	method      string
 	hop         bool // the request after a redirect
+	// host is the host it went to (the trace's), path its path without
+	// the query.
+	host, path string
+	// crossOriginRedirect, originBefore, methodChanged and insecureBefore
+	// are a hop's: it went to another origin than the request whose
+	// redirect it follows, which carried Origin, with another method, over
+	// plain HTTP (linkRedirects).
+	crossOriginRedirect, originBefore, methodChanged, insecureBefore bool
 	// plain is a request over plain HTTP (kinds-plain): HTTP/1.1 only,
 	// and to a non-secure origin.
 	plain bool
@@ -133,6 +159,8 @@ func h2Requests(page *capture.Page, si int, prefix string) []*request {
 				continue
 			}
 			q := &request{
+				host:   tr.Host,
+				path:   r.Path,
 				conn:   ci,
 				weight: weights[r.Stream],
 				sample: si,
@@ -170,8 +198,15 @@ func collect(pg *pages) ([]*request, error) {
 	key := func(sample int, label, method string) string {
 		return fmt.Sprint(sample, " ", method, " ", label)
 	}
+	// hopPrev is a kinds, kinds-plain or cookies hop's previous request:
+	// its label's own path.
+	hopPrev := func(q *request) string {
+		return strings.TrimSuffix(q.path, ".hop")
+	}
 	for si, page := range pg.kinds {
-		for _, q := range h2Requests(page, si, "/k/") {
+		qs := h2Requests(page, si, "/k/")
+		errs = append(errs, linkRedirects("kinds", qs, hopPrev))
+		for _, q := range qs {
 			q.site = labelSite(q.label, q.hop)
 			label := q.label
 			if q.hop {
@@ -216,6 +251,7 @@ func collect(pg *pages) ([]*request, error) {
 		}
 	}
 	for si, page := range pg.plain {
+		var qs []*request
 		for _, r := range page.H1 {
 			method, rest, _ := strings.Cut(r.Line, " ")
 			target, _, _ := strings.Cut(rest, " ")
@@ -229,6 +265,8 @@ func collect(pg *pages) ([]*request, error) {
 			}
 			q := &request{
 				method: method,
+				host:   r.Host,
+				path:   target,
 				sample: si,
 				plain:  true,
 				h1:     h1Fields(r.Headers),
@@ -236,11 +274,15 @@ func collect(pg *pages) ([]*request, error) {
 			q.label, q.hop = strings.CutSuffix(label, ".hop")
 			q.base, _, _ = strings.Cut(q.label, ".")
 			q.site = labelSite(q.label, q.hop)
-			out = append(out, q)
+			qs = append(qs, q)
 		}
+		errs = append(errs, linkRedirects("kinds-plain", qs, hopPrev))
+		out = append(out, qs...)
 	}
 	for si, page := range pg.cookies {
-		for _, q := range h2Requests(page, si, "/k/") {
+		qs := h2Requests(page, si, "/k/")
+		errs = append(errs, linkRedirects("cookies", qs, hopPrev))
+		for _, q := range qs {
 			q.other = true
 			// The cookies page's requests come from pages on several
 			// sites, so a label names its host, not its relation; but
@@ -269,21 +311,41 @@ func collect(pg *pages) ([]*request, error) {
 		steps[st.Label] = true
 	}
 	for si, page := range pg.cors {
-		for _, q := range h2Requests(page, si, "/p/") {
+		qs := h2Requests(page, si, "/p/")
+		for _, q := range qs {
+			// Every fetch goes to the cross-site host, its label naming
+			// it; a label no step has is a redirect's target.
+			q.hop = q.method != "OPTIONS" && !steps[q.label]
+		}
+		errs = append(errs, linkRedirects("cors", qs, func(q *request) string {
+			return "/p/" + corsRedirects[q.label]
+		}))
+		for _, q := range qs {
 			// The OPTIONS are the preflight kind's.
 			if q.method == "OPTIONS" {
 				continue
 			}
 			q.other = true
-			// Every fetch goes to the cross-site host, its label naming
-			// it; a label no step has is a redirect's target.
-			q.hop = !steps[q.label]
 			q.base = "cors-" + q.base
 			q.site = labelSite(q.label, q.hop)
 			out = append(out, q)
 		}
 	}
-	out = append(out, corsEdgeRequests(pg.corsEdge)...)
+	edge, err := corsEdgeRequests(pg.corsEdge)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	out = append(out, edge...)
+	r2, err := redirects2Requests(pg.redirects2)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	out = append(out, r2...)
+	navs, err := navRedirectRequests(pg.navRedirects)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	out = append(out, navs...)
 	hdrs, err := headersRequests(pg.headers)
 	if err != nil {
 		errs = append(errs, err)
@@ -292,24 +354,65 @@ func collect(pg *pages) ([]*request, error) {
 	return out, errors.Join(errs...)
 }
 
+// corsRedirects names, for each redirect target of the cors page, the step
+// whose redirect leads there (server.CORS answers redirect.cs 307).
+var corsRedirects = map[string]string{
+	"redirect-target.cs": "redirect.cs",
+}
+
+// linkRedirects sets the redirect conditions of each hop among reqs, one
+// sample of page's requests: whether it went to another host than its
+// previous request, the one at path prev(hop) whose redirect it follows,
+// whether that one carried Origin, and whether its method was another.
+func linkRedirects(page string, reqs []*request, prev func(*request) string) error {
+	byPath := map[string]*request{}
+	for _, q := range reqs {
+		if q.method != "OPTIONS" && byPath[q.path] == nil {
+			byPath[q.path] = q
+		}
+	}
+	var errs []error
+	for _, q := range reqs {
+		if !q.hop {
+			continue
+		}
+		p := byPath[prev(q)]
+		if p == nil {
+			errs = append(errs, fmt.Errorf("%s sample %d: %s %s follows a redirect from %s, which was not captured", page, q.sample+1, q.method, q.path, prev(q)))
+			continue
+		}
+		// Another host, or the same over the other scheme (a plain-HTTP
+		// request's hop to HTTPS).
+		q.crossOriginRedirect = p.host != q.host || p.plain != q.plain
+		q.originBefore = slices.ContainsFunc(slices.Concat(p.h2, p.h1), func(h profile.Header) bool {
+			return strings.EqualFold(h.Name, "origin")
+		})
+		q.methodChanged = p.method != q.method
+		q.insecureBefore = p.plain
+	}
+	return errors.Join(errs...)
+}
+
 // corsEdgeRequests returns the cors-edge page's fetches (HTTP/2, all fetch()
 // in CORS mode from the so page): /p/<label> and its redirects'
-// /p/<label>.hop<n>, each hop on its label's host (so or cs), but the GET
-// hops. Those share a condition with the kinds and cors pages' redirects
-// yet order otherwise: Chrome places Origin by whether the first leg
-// carried it, Safari reorders every header on a redirect, so their orders
-// cannot merge into one list per condition. The OPTIONS are the preflight
-// kind's, which the kinds page describes.
-func corsEdgeRequests(samples []*capture.Page) []*request {
+// /p/<label>.hop<n>, each hop on its label's host (so or cs) and following
+// the redirect of .hop<n-1> (.hop1: of <label>'s). The OPTIONS are the
+// preflight kind's, which the kinds page describes.
+func corsEdgeRequests(samples []*capture.Page) ([]*request, error) {
 	var out []*request
+	errs := make([]error, 0, len(samples))
 	for si, page := range samples {
-		for _, q := range h2Requests(page, si, "/p/") {
+		qs := h2Requests(page, si, "/p/")
+		for _, q := range qs {
 			label, hop, _ := strings.Cut(q.label, ".hop")
-			if q.method == "OPTIONS" || (hop != "" && q.method == "GET") {
+			q.label, q.hop = label, hop != ""
+		}
+		errs = append(errs, linkRedirects("cors-edge", qs, previousHop))
+		for _, q := range qs {
+			if q.method == "OPTIONS" {
 				continue
 			}
 			q.other = true
-			q.label, q.hop = label, hop != ""
 			q.base = "cors-edge"
 			// A hop stays on its label's host: its own relation is the
 			// label's, as is the chain's.
@@ -317,7 +420,151 @@ func corsEdgeRequests(samples []*capture.Page) []*request {
 			out = append(out, q)
 		}
 	}
-	return out
+	return out, errors.Join(errs...)
+}
+
+// redirects2Requests returns the redirects2 page's requests (HTTP/2,
+// server.Redirects2Steps, every step made from a page on its so host):
+// /p/<label> and its redirects' /p/<label>.hop<n>, each following the
+// redirect of .hop<n-1> (.hop1: of <label>'s). Each takes base
+// "redir-<step kind>"; its own relation is its host's, which the label
+// names (a cs-cs hop's is its second part). A navigation's GET first leg
+// is none of these: the hops are what the page measures, and a script's
+// navigation is not the profile's. A path requested a second time is no
+// redirect's: Chrome's error page reloads the navigation its redirect
+// limit stopped (nav-chain.so, with cache-control: max-age=0), so that
+// request and its step's later ones are left out. The OPTIONS are the
+// preflight kind's.
+func redirects2Requests(samples []*capture.Page) ([]*request, error) {
+	steps := map[string]server.Redirects2Step{}
+	for _, st := range server.Redirects2Steps() {
+		steps[st.Label] = st
+	}
+	var out []*request
+	var errs []error
+	for si, page := range samples {
+		var qs []*request
+		seen, reloaded := map[string]bool{}, map[string]bool{}
+		for _, q := range h2Requests(page, si, "/p/") {
+			label, hop, _ := strings.Cut(q.label, ".hop")
+			st, ok := steps[label]
+			if !ok {
+				errs = append(errs, fmt.Errorf("redirects2 sample %d: %s is no step", si+1, q.path))
+				continue
+			}
+			if q.method != "OPTIONS" {
+				reloaded[label] = reloaded[label] || seen[q.path]
+				seen[q.path] = true
+			}
+			if reloaded[label] {
+				continue
+			}
+			q.label, q.hop = label, hop != ""
+			q.base = "redir-" + st.Kind
+			q.site = labelSite(q.label, q.hop)
+			q.other = true
+			qs = append(qs, q)
+		}
+		errs = append(errs, linkRedirects("redirects2", qs, previousHop))
+		for _, q := range qs {
+			st := steps[q.label]
+			if q.method == "OPTIONS" {
+				// A preflight, the preflight kind's: for a hop's URL too, a
+				// request of its own (resolve).
+				q.hop, q.crossOriginRedirect, q.originBefore, q.methodChanged, q.insecureBefore = false, false, false, false, false
+			}
+			if st.Nav() && !q.hop && q.method == "GET" {
+				continue
+			}
+			out = append(out, q)
+		}
+	}
+	return out, errors.Join(errs...)
+}
+
+// previousHop is the path of the request whose redirect a .hop<n> request
+// follows: .hop<n-1>, or for .hop1 its label's.
+func previousHop(q *request) string {
+	path, n, _ := strings.Cut(q.path, ".hop")
+	if n == "1" {
+		return path
+	}
+	i, err := strconv.Atoi(n)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%s.hop%d", path, i-1)
+}
+
+// navRedirectBase is the base of the nav-redirect pages' requests.
+const navRedirectBase = "nav-redirect"
+
+// navRedirectRequests returns the nav-redirect pages' navigations (each a
+// slice of samples): /p/<label> and its redirects' /p/<label>.hop<n>, on
+// any host, each hop following .hop<n-1>'s redirect (.hop1: <label>'s),
+// over HTTP/2 or, to a plain-HTTP port, HTTP/1.1 (every browser's HTTPS
+// in these captures is HTTP/2, so an HTTP/1.1 request is a non-secure
+// one). A chain whose first request carries no Referer is typed: its
+// requests' relation is "none" (profile.SiteNone; sec-fetch-site stays
+// none along the chain), whatever its hosts and scheme (nav.http:
+// http:// to https:// on one host); otherwise it is the label's. A
+// secure GET first leg is left out: the profile's own navigation, which
+// its kinds captures describe. Requests of other paths (the page a chain
+// ends on, /done) are too.
+func navRedirectRequests(pages [][]*capture.Page) ([]*request, error) {
+	var out []*request
+	var errs []error
+	for _, samples := range pages {
+		for si, page := range samples {
+			qs := h2Requests(page, si, "/p/")
+			for _, r := range page.H1 {
+				method, rest, _ := strings.Cut(r.Line, " ")
+				target, _, _ := strings.Cut(rest, " ")
+				target, _, _ = strings.Cut(target, "?")
+				label, ok := strings.CutPrefix(target, "/p/")
+				if !ok {
+					continue
+				}
+				host := r.Host
+				if h, _, err := net.SplitHostPort(host); err == nil {
+					host = h
+				}
+				qs = append(qs, &request{
+					label:  label,
+					method: method,
+					host:   host,
+					path:   target,
+					sample: si,
+					plain:  true,
+					h1:     h1Fields(r.Headers),
+				})
+			}
+			typed := map[string]bool{}
+			for _, q := range qs {
+				label, hop, _ := strings.Cut(q.label, ".hop")
+				q.label, q.hop = label, hop != ""
+				q.base = navRedirectBase
+				q.other = true
+				if !q.hop {
+					typed[label] = !slices.ContainsFunc(slices.Concat(q.h2, q.h1), func(h profile.Header) bool {
+						return strings.EqualFold(h.Name, "referer")
+					})
+				}
+			}
+			errs = append(errs, linkRedirects(navRedirectBase, qs, previousHop))
+			for _, q := range qs {
+				q.site = labelSite(q.label, q.hop)
+				if typed[q.label] {
+					q.site = profile.SiteNone
+				}
+				if !q.hop && !q.plain && q.method == "GET" {
+					continue
+				}
+				out = append(out, q)
+			}
+		}
+	}
+	return out, errors.Join(errs...)
 }
 
 // headersRequests returns the headers-order page's fetches and XHRs, each
@@ -446,27 +693,35 @@ var kindSources = []kindSource{
 	{kind: profile.KindFont, own: []string{"font-css"}, all: fonts},
 	{kind: profile.KindPreloadFont, own: []string{"preload-font"}, all: fonts},
 	{kind: profile.KindFetch, own: []string{"fetch"}, all: fetches, high: "fetch-high", low: "fetch-low"},
-	{kind: profile.KindXHR, own: []string{"xhr"}, all: []string{"xhr", "hdr-xhr"}},
+	{kind: profile.KindXHR, own: []string{"xhr"}, all: []string{"xhr", "hdr-xhr", "redir-" + server.RedirectXHR}},
 	{kind: profile.KindBeacon, own: []string{"beacon"}, all: []string{"beacon"}},
-	{kind: profile.KindPreflight, own: []string{"fetch-json", "fetch-custom"}, all: []string{"fetch-json", "fetch-custom"}, preflight: true},
+	// Preflights: the kinds page's, for headers the page set; the
+	// redirects2 page's, for PATCH alone.
+	{kind: profile.KindPreflight, own: []string{"fetch-json", "fetch-custom"}, all: []string{"fetch-json", "fetch-custom", "redir-" + server.RedirectFetch}, preflight: true},
 }
 
 var (
-	scripts = []string{"script", "script-cors", "script-cors-cred", "script-blocking", "script-defer", "script-async", "preload-script"}
+	// scripts include the redirects2 page's <script crossorigin>.
+	scripts = []string{"script", "script-cors", "script-cors-cred", "script-blocking", "script-defer", "script-async", "preload-script", "redir-" + server.RedirectScript}
 	// images include the cookies page's: injected images, some from
-	// another site's page, and redirects to the page's own site.
-	images = []string{"image", "image-cors", "image-high", "image-markup", "image-setcookie", "image-redirect", "c-setcookie", "c-order", "c-redirect", "c-part", "c-third"}
-	fonts  = []string{"font", "font-css", "preload-font"}
+	// another site's page, and redirects to the page's own site; and the
+	// redirects2 page's (markup, new Image() and crossorigin ones,
+	// redirected).
+	images = []string{"image", "image-cors", "image-high", "image-markup", "image-setcookie", "image-redirect", "c-setcookie", "c-order", "c-redirect", "c-part", "c-third",
+		"redir-" + server.RedirectImageMarkup, "redir-" + server.RedirectImageNew, "redir-" + server.RedirectImage}
+	fonts = []string{"font", "font-css", "preload-font"}
 	// fetches include the cors page's (cors-*): PUTs, and fetches with
 	// and without a header the page set, to the cross-site host; the
-	// cors-edge page's (methods, redirects); and the headers-order page's
-	// (hdr-fetch).
+	// cors-edge and redirects2 pages' (methods, redirects); and the
+	// headers-order page's (hdr-fetch).
 	fetches = []string{"fetch", "fetch-include", "fetch-omit", "fetch-nocors", "fetch-json", "fetch-custom", "fetch-high", "fetch-low", "fetch-redirect",
 		"cors-put", "cors-setcookie", "cors-include", "cors-maxage", "cors-default", "cors-redirect", "cors-redirect-target", "cors-cleanup", "cors-multi",
-		"cors-edge", "hdr-fetch"}
-	// formPosts are the form POST navigations: the kinds page's to its own
-	// origin, the cookies page's from another site.
-	formPosts = []string{"form-post", "c-nav-post"}
+		"cors-edge", "redir-" + server.RedirectFetch, "hdr-fetch"}
+	// navigations are the navigations a page makes, and typed ones: the
+	// kinds page's form POST to its own origin, the cookies page's from
+	// another site, the redirects2 page's form POSTs and navigation chain,
+	// and the nav-redirect pages' typed navigations, with their redirects.
+	navigations = []string{"form-post", "c-nav-post", "redir-" + server.RedirectForm, "redir-" + server.RedirectNavigate, navRedirectBase}
 )
 
 func derive(p *profile.Profile, reqs []*request) error {
@@ -544,7 +799,7 @@ func derive(p *profile.Profile, reqs []*request) error {
 		ctx.HeaderTable = table
 	}
 	p.Context = ctx
-	navs := slices.Concat(pick(formPosts, false, false), pick([]string{"form-post", "page"}, true, false))
+	navs := slices.Concat(pick(navigations, false, false), pick([]string{"form-post", "page", navRedirectBase}, true, false))
 	if err := navigationVariants(p, navs); err != nil {
 		errs = append(errs, err)
 	}
@@ -558,7 +813,13 @@ type condition struct {
 	cors       bool
 	pageSet    bool
 	redirected bool
-	insecure   bool
+	// crossOrigin, originBefore, methodChanged and insecureBefore are a
+	// redirect's (the request's fields of those names).
+	crossOrigin    bool
+	originBefore   bool
+	methodChanged  bool
+	insecureBefore bool
+	insecure       bool
 }
 
 func (r *request) condition() condition {
@@ -573,8 +834,19 @@ func (r *request) condition() condition {
 		pageSet: slices.ContainsFunc(headers, func(h profile.Header) bool {
 			return isPageSet(h.Name)
 		}),
-		redirected: r.hop,
-		insecure:   r.plain,
+		redirected:     r.hop,
+		crossOrigin:    r.crossOriginRedirect,
+		originBefore:   r.originBefore,
+		methodChanged:  r.methodChanged,
+		insecureBefore: r.insecureBefore,
+		insecure:       r.plain,
+	}
+	if r.method == "OPTIONS" {
+		// A preflight names the page's headers in
+		// Access-Control-Request-Headers (resolve's rule).
+		c.pageSet = slices.ContainsFunc(headers, func(h profile.Header) bool {
+			return strings.EqualFold(h.Name, "access-control-request-headers")
+		})
 	}
 	c.cors = c.pageSet || slices.ContainsFunc(headers, func(h profile.Header) bool {
 		return strings.EqualFold(h.Name, "origin")
@@ -731,14 +1003,18 @@ func orders(own, all []*request, seed *orderPair, table *profile.HeaderTable, va
 	})
 	for _, c := range conflicting {
 		v := profile.Variant{
-			Method:      c.method,
-			Site:        c.site,
-			CORSChecked: c.cors,
-			PageSet:     c.pageSet,
-			Redirected:  c.redirected,
-			Insecure:    c.insecure,
-			Headers:     fill(others[c].h2, values(false)),
-			HTTP1:       fill(others[c].h1, values(true)),
+			Method:                  c.method,
+			Site:                    c.site,
+			CORSChecked:             c.cors,
+			PageSet:                 c.pageSet,
+			Redirected:              c.redirected,
+			Insecure:                c.insecure,
+			CrossOriginRedirect:     c.crossOrigin,
+			OriginBeforeRedirect:    c.originBefore,
+			MethodChangedByRedirect: c.methodChanged,
+			InsecureBeforeRedirect:  c.insecureBefore,
+			Headers:                 fill(others[c].h2, values(false)),
+			HTTP1:                   fill(others[c].h1, values(true)),
 		}
 		if c.insecure {
 			v.HTTP1 = fill(others[c].h1, insecureValue(mine[c], ownPlain, groups[c]))
@@ -978,12 +1254,18 @@ func sampleContext(reqs []*request, sample int) (*profile.Context, error) {
 // headers only they send. navs may hold plain-HTTP navigations too (the
 // page and its form POST), which become non-secure variants.
 func navigationVariants(p *profile.Profile, navs []*request) error {
-	posts := slices.DeleteFunc(slices.Clone(navs), func(r *request) bool {
+	secure := slices.DeleteFunc(slices.Clone(navs), func(r *request) bool {
 		return r.plain
+	})
+	posts := slices.DeleteFunc(slices.Clone(secure), func(r *request) bool {
+		return r.method != "POST"
 	})
 	if len(posts) == 0 {
 		return errors.New("navigation: no captured form POST")
 	}
+	// A header the navigation's lists lack takes the value the form
+	// POSTs that send it agree on, else the other navigations that send
+	// it (a redirect's hop from http://: Upgrade-Insecure-Requests).
 	values := func(h1 bool) func(string) string {
 		base, list := p.Headers, (*request).h2Of
 		if h1 {
@@ -996,7 +1278,16 @@ func navigationVariants(p *profile.Profile, navs []*request) error {
 			if v, ok := headerValue(base, name); ok {
 				return v
 			}
-			return commonValue(posts, list, name)
+			for _, set := range [][]*request{posts, secure} {
+				sending := slices.DeleteFunc(slices.Clone(set), func(r *request) bool {
+					_, ok := headerValue(list(r), name)
+					return !ok
+				})
+				if len(sending) > 0 {
+					return commonValue(sending, list, name)
+				}
+			}
+			return ""
 		}
 	}
 	seed := &orderPair{

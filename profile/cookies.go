@@ -20,6 +20,8 @@ type Cookies struct {
 	Redirects string `json:"redirects"`
 	// Nameless is what a Set-Cookie pair without "=" sets.
 	Nameless string `json:"nameless"`
+	// EmptyName is what a pair with nothing before its "=" ("=x") sets.
+	EmptyName string `json:"empty_name"`
 	// Latin1Values re-encodes non-ASCII value bytes as if each were a
 	// Latin-1 character (Safari: "café" in UTF-8 becomes "cafÃ©").
 	Latin1Values bool `json:"latin1_values,omitempty"`
@@ -33,13 +35,15 @@ type Cookies struct {
 	NewValueRenews bool `json:"new_value_renews,omitempty"`
 	// SameSiteScheme is whether a site, for SameSite, includes the scheme:
 	// SameSiteSchemeful makes http:// and https:// of one host cross-site
-	// (Chrome; RFC 6265bis), SameSiteSchemeless does not (Firefox).
+	// (Chrome; RFC 6265bis), SameSiteSchemeless does not (Firefox,
+	// Safari).
 	SameSiteScheme string `json:"samesite_scheme"`
 	// HostPrefixPath is what the __Host- prefix's Path=/ rule checks.
 	HostPrefixPath string `json:"host_prefix_path"`
 	// HTTPPrefix enforces the __Http- and __Host-Http- prefixes: Secure
 	// and HttpOnly, and __Host-'s rules for the latter (Chrome, Firefox).
-	// Off, they are ordinary names (Safari).
+	// Off, they are ordinary names, __Host-Http- still a __Host- name
+	// (Safari).
 	HTTPPrefix bool `json:"http_prefix,omitempty"`
 	// SecureLoopback makes plain http:// to a loopback host (localhost,
 	// *.localhost, 127.0.0.0/8, ::1) secure for cookies: Secure cookies
@@ -89,6 +93,13 @@ const (
 	// NamelessDrop ignores it (Safari).
 	NamelessDrop = "drop"
 
+	// EmptyNameKeep makes "=x" a cookie with an empty name and value "x",
+	// sent as "x" (Chrome; RFC 6265bis). The value must not start with a
+	// cookie prefix, in any case and after whitespace, nor hold "=".
+	EmptyNameKeep = "keep"
+	// EmptyNameDrop ignores it (Firefox, Safari).
+	EmptyNameDrop = "drop"
+
 	// OrderRFC sends longer paths first, then older cookies first (RFC
 	// 6265; Chrome, Firefox).
 	OrderRFC = "rfc"
@@ -113,9 +124,9 @@ const (
 // DefaultCookies are RFC 6265bis's rules, for a jar used without a profile
 // (a profile must state its browser's): Lax by default, None needs Secure,
 // SameSite judged by the request URL and schemeful, Partitioned cookies
-// keyed by top-level site, a nameless pair is a value, RFC order, the
-// __Host- Path attribute and the __Http- prefixes enforced, loopback secure
-// (Secure Contexts), no cookie limit.
+// keyed by top-level site, a nameless pair is a value and so is "=x", RFC
+// order, the __Host- Path attribute and the __Http- prefixes enforced,
+// loopback secure (Secure Contexts), no cookie limit.
 func DefaultCookies() *Cookies {
 	return &Cookies{
 		UnsetSameSite:      SameSiteLax,
@@ -123,6 +134,7 @@ func DefaultCookies() *Cookies {
 		ThirdParty:         ThirdPartySameSite,
 		Redirects:          RedirectsIgnore,
 		Nameless:           NamelessValue,
+		EmptyName:          EmptyNameKeep,
 		Order:              OrderRFC,
 		SameSiteScheme:     SameSiteSchemeful,
 		HostPrefixPath:     HostPrefixPathAttribute,
@@ -159,6 +171,7 @@ func (c *checker) checkCookies(k *Cookies) {
 	oneOf("third_party", k.ThirdParty, ThirdPartySameSite, ThirdPartyPartitionAll, ThirdPartyPartitionedOnly)
 	oneOf("redirects", k.Redirects, RedirectsIgnore, RedirectsChain, RedirectsBlockAfterCrossSite)
 	oneOf("nameless", k.Nameless, NamelessValue, NamelessName, NamelessDrop)
+	oneOf("empty_name", k.EmptyName, EmptyNameKeep, EmptyNameDrop)
 	oneOf("order", k.Order, OrderRFC, OrderDomainName)
 	oneOf("samesite_scheme", k.SameSiteScheme, SameSiteSchemeful, SameSiteSchemeless)
 	oneOf("host_prefix_path", k.HostPrefixPath, HostPrefixPathAttribute, HostPrefixPathStored)
