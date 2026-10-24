@@ -105,7 +105,7 @@ func New(cfg Config) (*Engine, error) {
 		h1Hosts: map[string]bool{},
 	}
 	if plan.Resumes() {
-		e.tickets = handshake.NewTickets()
+		e.tickets = handshake.NewTickets(p.TLS.Resumption.TLS12)
 	}
 	return e, nil
 }
@@ -291,7 +291,8 @@ func (e *Engine) dial(req *http.Request) (net.Conn, string, error) {
 		// Tickets are kept per connection pool, partition included: a
 		// browser's credential-less connections do not resume its others'.
 		cfg.Tickets, cfg.TicketKey = e.tickets, poolKey(req)
-		if cfg.Ticket = e.tickets.Take(cfg.TicketKey); cfg.Ticket != nil {
+		if cfg.Ticket = e.tickets.Take(cfg.TicketKey); cfg.Ticket != nil && cfg.Ticket.TLS13() {
+			// A TLS 1.2 ticket goes in the full hello's session_ticket.
 			hello = e.plan.ResumedHello()
 		}
 	}

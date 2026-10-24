@@ -34,7 +34,7 @@ sent).
 | `extensions` (types, contents: groups, key shares, signature algorithms, versions, ALPN, ALPS, point formats, PSK modes, certificate compression, record size limit, raw data such as Chrome's trust anchors 0xca34) | W+ | W+ | W+ | W+ | Chrome's trust anchor list was identical in all samples. |
 | GREASE ECH (0xfe0d) payload | presence and position W; payload is BoringSSL's, matches | presence and position W; **payload differs**: Firefox sends two cipher suites and a 223-byte payload | — | — | The schema records only the type. Known gap. |
 | key share material, random, session ID | generated per connection | | | | Values, not claims. |
-| `resumption` (resumed ClientHello: full minus `drop`, `pre_shared_key` last; single-use tickets; no 0-RTT) | W: drops nothing | W: drops `session_ticket` | W: none (never resumes) | **C** from Safari 27 | `resume` scenario ([report](../harness/reports/resume-2026-10-24.md)); `TestResumptionMatchesBrowser` (connections and resumptions per host, every resumed hello diffed) |
+| `resumption` (TLS 1.3: full hello minus `drop`, `pre_shared_key` last, single-use tickets, no 0-RTT; `tls12`: ticket in `session_ticket`, used as the policy says) | W: drops nothing; `tls12: reuse` | W: drops `session_ticket`; `tls12: single_use` | W: none (never resumes, TLS 1.3 or 1.2) | **C** from Safari 27 | `resume`, `resume-tls12` scenarios ([report](../harness/reports/resume-2026-10-24.md)); `TestResumptionMatchesBrowser` (used connections and resumptions per host, every resumed hello diffed) |
 
 Cross-checked outside our server: Firefox 158's JA3, and Safari 27's JA3, JA4
 and Akamai fingerprints, match what tls.peet.ws reports for the same

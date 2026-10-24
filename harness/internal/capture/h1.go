@@ -40,8 +40,9 @@ type Page struct {
 type Connection struct {
 	Host     string `json:"host"`
 	Protocol string `json:"protocol"`
-	// Resumed reports a ClientHello offering a pre-shared key: the browser
-	// resuming an earlier session instead of a full handshake.
+	// Resumed reports a ClientHello offering an earlier session (TLS 1.3
+	// pre_shared_key, or a TLS 1.2 session ticket) instead of a full
+	// handshake.
 	Resumed bool `json:"resumed,omitempty"`
 	// Accepted reports that the server resumed the session the client
 	// offered.
@@ -51,6 +52,11 @@ type Connection struct {
 	// from fresh ones.
 	PSKIdentities int    `json:"psk_identities,omitempty"`
 	PSKIdentity   string `json:"psk_identity,omitempty"`
+	// Ticket is a short hash of the TLS 1.2 session ticket offered.
+	Ticket string `json:"ticket,omitempty"`
+	// Requests is how many requests the connection carried; zero for one
+	// a browser opened speculatively and never used.
+	Requests int `json:"requests,omitempty"`
 	// Hello is the connection's ClientHello.
 	Hello *profile.TLS `json:"hello,omitempty"`
 }

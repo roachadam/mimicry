@@ -1,4 +1,4 @@
-# 0013: TLS 1.3 session resumption as the browser does it
+# 0013: TLS session resumption as the browser does it
 
 - Status: Accepted
 - Date: 2026-10-24
@@ -17,6 +17,12 @@ connections opened together only one resumes. Their resumed ClientHello is
 the full one plus `pre_shared_key` last; Firefox also leaves
 `session_ticket` out. Neither sends 0-RTT data. Safari never resumes.
 
+From a TLS 1.2-only server (`resume-tls12`), both put the ticket in the
+full hello's `session_ticket`; Chrome reuses a TLS 1.2 ticket for every
+new connection, concurrent ones included, while Firefox uses it once and
+keeps no ticket a resumed connection receives, so its connections
+alternate between resumed and full.
+
 ## Options
 
 - uTLS's session cache as is: tickets are reused across connections, and
@@ -28,13 +34,15 @@ the full one plus `pre_shared_key` last; Firefox also leaves
 ## Decision
 
 - Profile `tls.resumption` (nil: never resumes): `drop`, the extensions the
-  resumed hello leaves out. `pre_shared_key` always goes last (RFC 8446;
-  uTLS writes it there too).
-- `internal/handshake.Tickets` keeps the latest TLS 1.3 ticket per pool
-  (scheme, host, port, partition). A new connection takes it, so a ticket
-  is used once and concurrent connections resume one at a time; tickets
-  the server sends on that connection replace it. TLS 1.2 sessions are not
-  kept: the resumed hello is TLS 1.3's.
+  TLS 1.3 resumed hello leaves out (`pre_shared_key` always goes last, RFC
+  8446; uTLS writes it there too), and `tls12`, the TLS 1.2 ticket policy:
+  `reuse` (Chrome), `single_use` (Firefox), or empty for no TLS 1.2
+  resumption.
+- `internal/handshake.Tickets` keeps the latest ticket per pool (scheme,
+  host, port, partition). A TLS 1.3 ticket is taken by one connection;
+  tickets the server sends on it replace it. A TLS 1.2 ticket follows the
+  policy. `session_ticket` became a generated extension (empty, or the TLS
+  1.2 ticket): profiles record its position only.
 - The fingerprint plan builds the resumed hello (same shuffle as a full
   one); a ticket uTLS will not use leaves `pre_shared_key` out
   (`OmitEmptyPsk`) and the handshake is full.
@@ -51,5 +59,5 @@ resume page through mimicry.
 
 ## Revisit when
 
-A browser is captured using 0-RTT, several tickets at once, or TLS 1.2
-resumption against a server that offers only TLS 1.2.
+A browser is captured using 0-RTT, several tickets at once, or session-ID
+(not ticket) resumption with a server that issues no tickets.

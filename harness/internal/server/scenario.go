@@ -25,6 +25,9 @@ type Scenario struct {
 	// HTTP1 offers only http/1.1 in ALPN, so browsers load the page over
 	// HTTP/1.1.
 	HTTP1 bool
+	// maxVersion caps the TLS version the server negotiates (zero: TLS
+	// 1.3), to see what browsers do with a TLS 1.2-only server.
+	maxVersion uint16
 	// respond answers the paths the scenario changes; the default page
 	// answers the rest.
 	respond func(path string, uploaded int) (response, bool)
@@ -123,6 +126,7 @@ var Scenarios = []*Scenario{
 	KindsHTTP1,
 	Cookies,
 	Resume,
+	ResumeTLS12,
 }
 
 // ScenarioByName finds a scenario.

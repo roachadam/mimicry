@@ -19,24 +19,31 @@ type pageLog struct {
 	// resume a session, so it is the browser's full handshake.
 	connections []capture.Connection
 	first       *capture.Capture
+	// index finds a connection's entry in connections by its capture.
+	index map[*capture.Capture]int
 }
 
 // connection records a connection whose handshake completed: its
 // ClientHello, and whether it offered and got a resumed session.
 func (l *pageLog) connection(c *capture.Capture, host string, accepted bool) {
-	n, first := pskIdentities(c.ClientHello)
+	o := resumptionOffer(c.ClientHello)
 	hello := c.Profile.TLS
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.connections = append(l.connections, capture.Connection{
 		Host:          host,
 		Protocol:      c.Protocol,
-		Resumed:       c.HasExtension(profile.ExtPreSharedKey),
+		Resumed:       o.pskIdentities > 0 || o.ticket != "",
 		Accepted:      accepted,
-		PSKIdentities: n,
-		PSKIdentity:   first,
+		PSKIdentities: o.pskIdentities,
+		PSKIdentity:   o.pskIdentity,
+		Ticket:        o.ticket,
 		Hello:         &hello,
 	})
+	if l.index == nil {
+		l.index = map[*capture.Capture]int{}
+	}
+	l.index[c] = len(l.connections) - 1
 	if l.first == nil {
 		l.first = &capture.Capture{
 			ClientHello: c.ClientHello,
@@ -53,6 +60,16 @@ func (l *pageLog) newConn() int {
 	defer l.mu.Unlock()
 	l.conns++
 	return l.conns
+}
+
+// request counts a request on the connection c captures: a connection
+// with none was opened speculatively and never used.
+func (l *pageLog) request(c *capture.Capture) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if i, ok := l.index[c]; ok {
+		l.connections[i].Requests++
+	}
 }
 
 func (l *pageLog) add(r capture.H1Request) {

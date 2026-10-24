@@ -55,6 +55,9 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 		}
 	}
 	cfg.MinVersion = tls.VersionTLS12
+	if sc.maxVersion != 0 {
+		cfg.MaxVersion = sc.maxVersion
+	}
 	if sc.multi != nil {
 		if s.IssueCert == nil {
 			return errors.New("scenario " + sc.Name + " serves several hosts and needs Server.IssueCert")

@@ -20,15 +20,31 @@ type TLS struct {
 	Resumption *Resumption `json:"resumption,omitempty"`
 }
 
-// Resumption describes a resumed ClientHello relative to the full one:
-// the same extensions, in the same order or shuffled alike, minus Drop,
-// with pre_shared_key last. Each ticket is used once (Chrome, Firefox), so
-// concurrent new connections resume one at a time.
+// Resumption describes how a browser resumes sessions. With a TLS 1.3
+// ticket, the resumed ClientHello is the full one, in the same order or
+// shuffled alike, minus Drop, with pre_shared_key last; each ticket is used
+// once (Chrome, Firefox), so concurrent new connections resume one at a
+// time. With a TLS 1.2 ticket, the ClientHello is the full one with the
+// ticket in session_ticket, used as TLS12 says.
 type Resumption struct {
-	// Drop are extensions the resumed ClientHello leaves out (Firefox:
-	// session_ticket).
+	// Drop are extensions a TLS 1.3 resumed ClientHello leaves out
+	// (Firefox: session_ticket).
 	Drop []Code `json:"drop,omitempty"`
+	// TLS12 is how TLS 1.2 session tickets are used: TLS12Reuse or
+	// TLS12SingleUse. Empty: TLS 1.2 sessions are not resumed.
+	TLS12 string `json:"tls12,omitempty"`
 }
+
+// Values of Resumption.TLS12.
+const (
+	// TLS12Reuse resumes every new connection with the newest ticket,
+	// concurrent ones included, until a newer one replaces it (Chrome).
+	TLS12Reuse = "reuse"
+	// TLS12SingleUse uses a ticket once, and keeps none a resumed
+	// connection receives, so connections alternate between full and
+	// resumed handshakes (Firefox).
+	TLS12SingleUse = "single_use"
+)
 
 // Values of TLS.ExtensionOrder.
 const (
@@ -93,6 +109,7 @@ const (
 	ExtCompressCertificate     Code = 0x001b
 	ExtRecordSizeLimit         Code = 0x001c
 	ExtDelegatedCredentials    Code = 0x0022
+	ExtSessionTicket           Code = 0x0023
 	ExtPreSharedKey            Code = 0x0029
 	ExtSupportedVersions       Code = 0x002b
 	ExtPSKKeyExchangeModes     Code = 0x002d
@@ -105,9 +122,11 @@ const (
 
 // generatedExtensions have bodies built per connection.
 var generatedExtensions = map[Code]bool{
-	ExtServerName:           true,
-	ExtPadding:              true,
-	ExtPreSharedKey:         true,
+	ExtServerName:   true,
+	ExtPadding:      true,
+	ExtPreSharedKey: true,
+	// Empty, or a TLS 1.2 session ticket being resumed.
+	ExtSessionTicket:        true,
 	ExtEncryptedClientHello: true,
 }
 

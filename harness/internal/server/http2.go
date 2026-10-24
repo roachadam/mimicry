@@ -390,6 +390,7 @@ func (s *h2conn) onData(f *http2.DataFrame, senders *sync.WaitGroup, emit func()
 // goroutine, since they wait for the client's flow-control credit.
 func (s *h2conn) respond(id uint32, st *h2stream, senders *sync.WaitGroup, emit func()) {
 	delete(s.streams, id)
+	s.log.request(s.c)
 	r := s.scenario.answer(st.req)
 	s.traceMu.Lock()
 	done := st.req.path == "/done" && s.tracing

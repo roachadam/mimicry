@@ -62,46 +62,59 @@ func readClientHello(r io.Reader) (raw, msg []byte, err error) {
 
 var errMalformed = errors.New("malformed ClientHello")
 
-// pskIdentities returns how many identities a ClientHello's pre_shared_key
-// extension offers and a short hash of the first (the ticket), or 0 and ""
-// without one.
-func pskIdentities(msg []byte) (int, string) {
+// offer is what a ClientHello offers to resume: TLS 1.3 tickets
+// (pre_shared_key identities: how many, and a short hash of the first) or a
+// TLS 1.2 session ticket (a short hash of it).
+type offer struct {
+	pskIdentities int
+	pskIdentity   string
+	ticket        string
+}
+
+// resumptionOffer reads msg's offer; zero for a full handshake.
+func resumptionOffer(msg []byte) offer {
+	var o offer
 	s := cryptobyte.String(msg)
 	var body, sessionID, suites, compression, exts cryptobyte.String
 	if !s.Skip(1) || !s.ReadUint24LengthPrefixed(&body) ||
 		!body.Skip(2+32) || !body.ReadUint8LengthPrefixed(&sessionID) ||
 		!body.ReadUint16LengthPrefixed(&suites) || !body.ReadUint8LengthPrefixed(&compression) ||
 		!body.ReadUint16LengthPrefixed(&exts) {
-		return 0, ""
+		return o
+	}
+	short := func(b []byte) string {
+		sum := sha256.Sum256(b)
+		return hex.EncodeToString(sum[:6])
 	}
 	for !exts.Empty() {
 		var typ uint16
 		var data cryptobyte.String
 		if !exts.ReadUint16(&typ) || !exts.ReadUint16LengthPrefixed(&data) {
-			return 0, ""
+			return offer{}
 		}
-		if code(typ) != profile.ExtPreSharedKey {
-			continue
-		}
-		var ids cryptobyte.String
-		if !data.ReadUint16LengthPrefixed(&ids) {
-			return 0, ""
-		}
-		n, first := 0, ""
-		for !ids.Empty() {
-			var id cryptobyte.String
-			if !ids.ReadUint16LengthPrefixed(&id) || !ids.Skip(4) {
-				return 0, ""
+		switch code(typ) {
+		case profile.ExtSessionTicket:
+			if len(data) > 0 {
+				o.ticket = short(data)
 			}
-			if n == 0 {
-				sum := sha256.Sum256(id)
-				first = hex.EncodeToString(sum[:6])
+		case profile.ExtPreSharedKey:
+			var ids cryptobyte.String
+			if !data.ReadUint16LengthPrefixed(&ids) {
+				return offer{}
 			}
-			n++
+			for !ids.Empty() {
+				var id cryptobyte.String
+				if !ids.ReadUint16LengthPrefixed(&id) || !ids.Skip(4) {
+					return offer{}
+				}
+				if o.pskIdentities == 0 {
+					o.pskIdentity = short(id)
+				}
+				o.pskIdentities++
+			}
 		}
-		return n, first
 	}
-	return 0, ""
+	return o
 }
 
 // ParseClientHello turns a ClientHello handshake message into the TLS section
@@ -159,7 +172,7 @@ func parseExtension(typ profile.Code, data cryptobyte.String) (profile.Extension
 	}
 	var err error
 	switch typ {
-	case profile.ExtServerName, profile.ExtPadding, profile.ExtPreSharedKey, profile.ExtEncryptedClientHello:
+	case profile.ExtServerName, profile.ExtPadding, profile.ExtSessionTicket, profile.ExtPreSharedKey, profile.ExtEncryptedClientHello:
 		// Generated per connection; the profile records only the position.
 		return e, nil
 	case profile.ExtSupportedGroups:

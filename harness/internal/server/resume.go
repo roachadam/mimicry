@@ -1,6 +1,7 @@
 package server
 
 import (
+	"crypto/tls"
 	"net"
 	"strconv"
 	"strings"
@@ -31,6 +32,15 @@ var Resume = &Scenario{
 	Name:  "resume",
 	Doc:   "TLS session resumption: new connections to hosts the browser holds tickets for, sequential and parallel, HTTP/2 and HTTP/1.1",
 	multi: resumePage{},
+}
+
+// ResumeTLS12 is the resume page from a server that speaks TLS 1.2 at
+// most: resumption by session ticket instead of pre_shared_key.
+var ResumeTLS12 = &Scenario{
+	Name:       "resume-tls12",
+	Doc:        "TLS 1.2 session resumption: the resume page from a TLS 1.2-only server (session tickets)",
+	multi:      resumePage{},
+	maxVersion: tls.VersionTLS12,
 }
 
 type resumePage struct{}

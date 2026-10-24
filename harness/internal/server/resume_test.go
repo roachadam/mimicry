@@ -79,3 +79,31 @@ func TestResume(t *testing.T) {
 		t.Errorf("connections:\n got %q\nwant %q", got, want)
 	}
 }
+
+// From the TLS 1.2-only resume page, a client resumes by session ticket:
+// the connection records the ticket's hash, not pre_shared_key.
+func TestResumeTLS12(t *testing.T) {
+	client, port, captures := replayServer(t, ResumeTLS12)
+	tr := client.Transport.(*http.Transport)
+	tr.TLSClientConfig.ClientSessionCache = tls.NewLRUClientSessionCache(8)
+	url := func(path string) string {
+		return "https://" + kindsHost + ":" + port + path
+	}
+	for _, path := range []string{"/", "/k/r1.so", "/done"} {
+		resp, _ := fetch(t, client, "GET", url(path), nil)
+		if resp.TLS.Version != tls.VersionTLS12 {
+			t.Fatalf("%s negotiated %x, want TLS 1.2", path, resp.TLS.Version)
+		}
+	}
+	var page *capture.Page
+	for page == nil {
+		if c := receive(t, captures); c.Finished {
+			page = c.Page
+		}
+	}
+	for i, c := range page.Connections {
+		if wantResumed := i > 0; c.Resumed != wantResumed || c.Accepted != wantResumed || (c.Ticket != "") != wantResumed || c.PSKIdentities != 0 {
+			t.Errorf("connection %d: resumed %v accepted %v ticket %q psk %d", i+1, c.Resumed, c.Accepted, c.Ticket, c.PSKIdentities)
+		}
+	}
+}

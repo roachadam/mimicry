@@ -136,7 +136,9 @@
         "data": "00"
       }
     ],
-    "resumption": {}
+    "resumption": {
+      "tls12": "reuse"
+    }
   },
   "http2": {
     "settings": [

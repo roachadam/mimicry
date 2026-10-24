@@ -141,6 +141,12 @@ func (c *checker) checkTLS(t *TLS) {
 				c.add(fmt.Sprintf("tls.resumption.drop[%d]", i), "extension %s is not in the ClientHello", d)
 			}
 		}
+		if r.TLS12 != "" && r.TLS12 != TLS12Reuse && r.TLS12 != TLS12SingleUse {
+			c.add("tls.resumption.tls12", "must be empty, %q or %q", TLS12Reuse, TLS12SingleUse)
+		}
+		if r.TLS12 != "" && t.extension(ExtSessionTicket) == nil {
+			c.add("tls.resumption.tls12", "needs session_ticket in the ClientHello")
+		}
 	}
 }
 

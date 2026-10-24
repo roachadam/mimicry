@@ -134,7 +134,8 @@
     "resumption": {
       "drop": [
         "0x0023"
-      ]
+      ],
+      "tls12": "single_use"
     }
   },
   "http2": {

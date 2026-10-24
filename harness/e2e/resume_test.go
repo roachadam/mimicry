@@ -19,77 +19,92 @@ import (
 	"github.com/roachadam/mimicry/profiles"
 )
 
-// mimicry resumes TLS sessions as the browser does on the resume page: per
-// host, as many new connections and as many of them resumed as in one of
-// the browser's samples (Chrome sometimes has no ticket yet for its second
-// connection), one ticket each, single-use (one of three parallel
-// connections resumes), and every resumed ClientHello the browser's (its
-// full one minus what it drops, pre_shared_key last); Safari never
-// resumes.
+// mimicry resumes TLS sessions as the browser does on the resume page, from
+// a TLS 1.3 server and a TLS 1.2-only one: per host, as many used
+// connections and as many of them resumed as in one of the browser's
+// samples (connections a browser opened speculatively and never used are
+// left out, and Chrome sometimes has no ticket yet for its second
+// connection). That covers ticket use: TLS 1.3 tickets once (one of three
+// parallel connections resumes); TLS 1.2 tickets shared (Chrome: all three)
+// or once with no ticket kept from a resumed connection (Firefox:
+// alternating). Every resumption offers one ticket, the server accepts it,
+// and every resumed ClientHello is the browser's. Safari never resumes.
 func TestResumptionMatchesBrowser(t *testing.T) {
 	for _, name := range profiles.Names() {
-		t.Run(name, func(t *testing.T) {
-			p, err := profiles.ByName(name)
-			if err != nil {
-				t.Fatal(err)
-			}
-			want, err := capture.LoadPages(captureDir + name + ".resume.pagetrace.json.gz")
-			if os.IsNotExist(err) {
-				t.Skipf("no resume capture for %s", name)
-			}
-			if err != nil {
-				t.Fatal(err)
-			}
-			got := runResumePage(t, p)
-
-			g := resumeCounts(got)
-			samples := make([]string, 0, len(want))
-			for _, page := range want {
-				samples = append(samples, resumeCounts(page))
-			}
-			if !slices.Contains(samples, g) {
-				t.Errorf("connections per host (total/resumed):\n got %s\nwant one of %q", g, samples)
-			}
-
-			var browserResumed *profile.TLS
-			for _, c := range want[0].Connections {
-				if c.Resumed {
-					browserResumed = c.Hello
-					break
+		for _, sc := range []*server.Scenario{server.Resume, server.ResumeTLS12} {
+			t.Run(name+"/"+sc.Name, func(t *testing.T) {
+				p, err := profiles.ByName(name)
+				if err != nil {
+					t.Fatal(err)
 				}
-			}
-			for i, c := range got.Connections {
-				if !c.Resumed {
-					continue
+				want, err := capture.LoadPages(captureDir + name + "." + sc.Name + ".pagetrace.json.gz")
+				if os.IsNotExist(err) {
+					t.Skipf("no %s capture for %s", sc.Name, name)
 				}
-				if browserResumed == nil {
-					t.Errorf("connection %d resumed; the browser never does", i+1)
-					continue
+				if err != nil {
+					t.Fatal(err)
 				}
-				if c.PSKIdentities != 1 || !c.Accepted {
-					t.Errorf("connection %d: %d tickets offered, accepted %v", i+1, c.PSKIdentities, c.Accepted)
-				}
-				w := profile.Profile{
-					TLS: *browserResumed,
-				}
-				h := profile.Profile{
-					TLS: *c.Hello,
-				}
-				w.TLS.ExtensionOrder, h.TLS.ExtensionOrder = p.TLS.ExtensionOrder, p.TLS.ExtensionOrder
-				for _, d := range diff.Compare(&w, &h) {
-					t.Errorf("connection %d's resumed ClientHello: %s", i+1, d)
-				}
-			}
-		})
+				checkResumption(t, p, sc, want, runResumePage(t, p, sc))
+			})
+		}
 	}
 }
 
-// resumeCounts summarizes a page's connections as host total/resumed, in
-// the order hosts first appear.
+func checkResumption(t *testing.T, p *profile.Profile, sc *server.Scenario, want []*capture.Page, got *capture.Page) {
+	t.Helper()
+	g := resumeCounts(got)
+	samples := make([]string, 0, len(want))
+	for _, page := range want {
+		samples = append(samples, resumeCounts(page))
+	}
+	if !slices.Contains(samples, g) {
+		t.Errorf("used connections per host (total/resumed):\n got %s\nwant one of %q", g, samples)
+	}
+	var browserResumed *profile.TLS
+	for _, c := range want[0].Connections {
+		if c.Resumed {
+			browserResumed = c.Hello
+			break
+		}
+	}
+	tls13 := sc == server.Resume
+	for i, c := range got.Connections {
+		if !c.Resumed {
+			continue
+		}
+		if browserResumed == nil {
+			t.Errorf("connection %d resumed; the browser never does", i+1)
+			continue
+		}
+		offered := c.PSKIdentities == 1 && c.Ticket == ""
+		if !tls13 {
+			offered = c.PSKIdentities == 0 && c.Ticket != ""
+		}
+		if !offered || !c.Accepted {
+			t.Errorf("connection %d: %d TLS 1.3 tickets, TLS 1.2 ticket %q, accepted %v", i+1, c.PSKIdentities, c.Ticket, c.Accepted)
+		}
+		w := profile.Profile{
+			TLS: *browserResumed,
+		}
+		h := profile.Profile{
+			TLS: *c.Hello,
+		}
+		w.TLS.ExtensionOrder, h.TLS.ExtensionOrder = p.TLS.ExtensionOrder, p.TLS.ExtensionOrder
+		for _, d := range diff.Compare(&w, &h) {
+			t.Errorf("connection %d's resumed ClientHello: %s", i+1, d)
+		}
+	}
+}
+
+// resumeCounts summarizes a page's used connections as host
+// total/resumed, in the order hosts first appear.
 func resumeCounts(page *capture.Page) string {
 	var hosts []string
 	total, resumed := map[string]int{}, map[string]int{}
 	for _, c := range page.Connections {
+		if c.Requests == 0 {
+			continue
+		}
 		if total[c.Host] == 0 {
 			hosts = append(hosts, c.Host)
 		}
@@ -105,13 +120,13 @@ func resumeCounts(page *capture.Page) string {
 	return strings.Join(parts, ", ")
 }
 
-// runResumePage walks the resume page through mimicry as profile p: the
-// page, then each step from it with credentials (the parallel step's
+// runResumePage walks the resume page of sc through mimicry as profile p:
+// the page, then each step from it with credentials (the parallel step's
 // requests together), then /done.
-func runResumePage(t *testing.T, p *profile.Profile) *capture.Page {
+func runResumePage(t *testing.T, p *profile.Profile, sc *server.Scenario) *capture.Page {
 	t.Helper()
-	s := startPage(t, p, server.Resume)
-	hosts, _, _ := server.Resume.MultiHost()
+	s := startPage(t, p, sc)
+	hosts, _, _ := sc.MultiHost()
 	hostOf := map[string]string{
 		"so": hosts[0],
 		"ss": hosts[1],

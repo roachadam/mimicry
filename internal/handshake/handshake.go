@@ -118,6 +118,9 @@ func extension(e *profile.Extension) (utls.TLSExtension, error) {
 	case profile.ExtPreSharedKey:
 		// Filled from the connection's ticket by uTLS.
 		return &utls.UtlsPreSharedKeyExtension{}, nil
+	case profile.ExtSessionTicket:
+		// Empty, or the TLS 1.2 ticket being resumed, filled by uTLS.
+		return &utls.SessionTicketExtension{}, nil
 	case profile.ExtSupportedGroups:
 		curves := make([]utls.CurveID, len(e.Groups))
 		for i, g := range e.Groups {
@@ -199,7 +202,6 @@ const (
 	extStatusRequest        = 0x0005
 	extSCT                  = 0x0012
 	extExtendedMasterSecret = 0x0017
-	extSessionTicket        = 0x0023
 	extRenegotiationInfo    = 0xff01
 )
 
@@ -216,8 +218,6 @@ func dataExtension(e *profile.Extension) (utls.TLSExtension, error) {
 	switch e.Type {
 	case extExtendedMasterSecret:
 		return want(nil, &utls.ExtendedMasterSecretExtension{})
-	case extSessionTicket:
-		return want(nil, &utls.SessionTicketExtension{})
 	case extSCT:
 		return want(nil, &utls.SCTExtension{})
 	case extStatusRequest:

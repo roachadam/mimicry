@@ -76,6 +76,7 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 			}
 		}
 		log.add(req)
+		log.request(c)
 		// After /done the capture belongs to its receiver.
 		if !c.Finished {
 			c.H1 = append(c.H1, req)
