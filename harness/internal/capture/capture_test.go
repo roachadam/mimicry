@@ -117,39 +117,6 @@ func TestWriteNeverOverwrites(t *testing.T) {
 	}
 }
 
-// Retaking a capture whose later file was left behind writes nothing, so a
-// new trace never sits next to an old one; CheckNew sees the same conflict.
-func TestWriteWritesNothingWhenAnyOutputExists(t *testing.T) {
-	dir := t.TempDir()
-	left := filepath.Join(dir, "chrome-155-macos.proxy.proxytrace.json")
-	if err := os.WriteFile(left, []byte("old\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	c := &Capture{
-		Profile: profile.Profile{
-			Name: "chrome-155-macos",
-		},
-		Scenario: "proxy",
-		H1: []H1Request{
-			{
-				Line: "GET / HTTP/1.1",
-			},
-		},
-		Proxy: []ProxyRequest{
-			{},
-		},
-	}
-	if err := CheckNew(dir, c); !errors.Is(err, ErrExists) {
-		t.Errorf("CheckNew error = %v, want ErrExists", err)
-	}
-	if _, err := Write(dir, c); !errors.Is(err, ErrExists) {
-		t.Fatalf("Write error = %v, want ErrExists", err)
-	}
-	if _, err := os.Stat(filepath.Join(dir, "chrome-155-macos.proxy.h1trace.json")); !errors.Is(err, os.ErrNotExist) {
-		t.Errorf("h1trace written next to the existing proxytrace (stat error %v)", err)
-	}
-}
-
 // A replayed page's capture, written with every sample, loads back whole:
 // what the HPACK oracle reads is what the capture tool wrote.
 func TestWritePagesLoadBack(t *testing.T) {

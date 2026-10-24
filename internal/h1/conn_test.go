@@ -14,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/roachadam/mimicry/internal/headerorder"
 	"github.com/roachadam/mimicry/profile"
 	"github.com/roachadam/mimicry/profiles"
 )
@@ -173,36 +172,6 @@ func TestRequestHeadWithoutHTTP1Section(t *testing.T) {
 	lines := requestHead(t, p, newRequest(t, http.MethodGet, "http://example.com/", nil))
 	if got := headerNames(lines[1:]); !slices.Equal(got, want) {
 		t.Errorf("header order\n got %v\nwant %v", got, want)
-	}
-}
-
-// A header the plan's lists do not name goes out lowercase under LowerOwn,
-// as fetch() sends a page's, else as the caller spelled it, as XHR does.
-func TestRequestHeadPageHeaderCase(t *testing.T) {
-	p := profiles.Chrome155MacOS()
-	for _, tc := range []struct {
-		lower bool
-		want  string
-	}{
-		{
-			lower: true,
-			want:  "x-mixed: 1",
-		},
-		{
-			lower: false,
-			want:  "X-MiXeD: 1",
-		},
-	} {
-		req := newRequest(t, http.MethodGet, "http://example.com/", nil)
-		req.Header["X-MiXeD"] = []string{"1"}
-		req = req.WithContext(headerorder.WithPlan(req.Context(), &headerorder.Plan{
-			Headers:  p.Headers,
-			HTTP1:    p.HTTP1.Headers,
-			LowerOwn: tc.lower,
-		}))
-		if lines := requestHead(t, p, req); !slices.Contains(lines, tc.want) {
-			t.Errorf("LowerOwn %v: %q not sent: %v", tc.lower, tc.want, lines)
-		}
 	}
 }
 

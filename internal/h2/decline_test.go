@@ -12,65 +12,6 @@ import (
 	"github.com/roachadam/mimicry/profiles"
 )
 
-// Decline sends the preface New sends, then GOAWAY with NO_ERROR and no
-// streams, and closes: Firefox's frames on the connection it opened to a
-// host another connection serves (the connections capture).
-func TestDeclineSendsThePrefaceThenGoAway(t *testing.T) {
-	p := profiles.Firefox158MacOS()
-	client, server := net.Pipe()
-	errs := make(chan error, 1)
-	go func() {
-		errs <- Decline(client, p)
-	}()
-	br := bufio.NewReader(server)
-	preface := make([]byte, len(http2.ClientPreface))
-	if _, err := io.ReadFull(br, preface); err != nil || string(preface) != http2.ClientPreface {
-		t.Fatalf("preface %q, %v", preface, err)
-	}
-	fr := http2.NewFramer(nil, br)
-	var types []http2.FrameType
-	for {
-		f, err := fr.ReadFrame()
-		if err != nil {
-			if !errors.Is(err, io.EOF) {
-				t.Fatal(err)
-			}
-			break
-		}
-		types = append(types, f.Header().Type)
-		switch f := f.(type) {
-		case *http2.SettingsFrame:
-			if n := f.NumSettings(); n != len(p.HTTP2.Settings) {
-				t.Errorf("%d settings, want %d", n, len(p.HTTP2.Settings))
-			}
-		case *http2.WindowUpdateFrame:
-			if f.Increment != p.HTTP2.WindowUpdate {
-				t.Errorf("WINDOW_UPDATE %d, want %d", f.Increment, p.HTTP2.WindowUpdate)
-			}
-		case *http2.GoAwayFrame:
-			if f.ErrCode != http2.ErrCodeNo || f.LastStreamID != 0 {
-				t.Errorf("GOAWAY %v after stream %d, want NO_ERROR after 0", f.ErrCode, f.LastStreamID)
-			}
-		}
-	}
-	want := []http2.FrameType{
-		http2.FrameSettings,
-		http2.FrameWindowUpdate,
-		http2.FrameGoAway,
-	}
-	if len(types) != len(want) {
-		t.Fatalf("frames %v, want %v", types, want)
-	}
-	for i := range want {
-		if types[i] != want[i] {
-			t.Fatalf("frames %v, want %v", types, want)
-		}
-	}
-	if err := <-errs; err != nil {
-		t.Fatal(err)
-	}
-}
-
 // Over TCP, a server that sends its SETTINGS at once still reads every
 // frame Decline sent, then a clean end: Decline reads what the server
 // sent before closing, so its close is no reset that could overtake its

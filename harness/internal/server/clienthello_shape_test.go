@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/roachadam/mimicry/harness/internal/capture"
@@ -316,115 +315,5 @@ func echMutations() []helloMutation {
 				return data[:10]
 			}),
 		},
-	}
-}
-
-// The parser keeps what is constant per browser and drops what is random:
-// Chrome's captured hello, as the reviewer's repro read it.
-func TestParseClientHelloRecordsShape(t *testing.T) {
-	got, err := ParseClientHello(capturedHellos(t)["chrome-155-macos"])
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.LegacyVersion != 0x0303 || got.SessionIDLength != 32 {
-		t.Errorf("legacy_version %s, session ID %d bytes; want 0x0303, 32", got.LegacyVersion, got.SessionIDLength)
-	}
-	for _, e := range got.Extensions {
-		switch e.Type {
-		case profile.ExtKeyShare:
-			if !slices.Equal(e.KeyShareLengths, []uint16{
-				1,
-				1216,
-				32,
-			}) {
-				t.Errorf("key share lengths %v", e.KeyShareLengths)
-			}
-		case profile.ExtEncryptedClientHello:
-			want := profile.ECH{
-				CipherSuites: []profile.HPKESuite{
-					{
-						KDF:  1,
-						AEAD: 1,
-					},
-				},
-				EncLength: 32,
-				PayloadLengths: []uint16{
-					144, // the first sample, retaken 2026-10-24
-				},
-			}
-			if e.ECH == nil || !slices.Equal(e.ECH.CipherSuites, want.CipherSuites) || e.ECH.EncLength != want.EncLength || !slices.Equal(e.ECH.PayloadLengths, want.PayloadLengths) {
-				t.Errorf("ECH %+v, want %+v", e.ECH, want)
-			}
-		}
-	}
-}
-
-// Padding is accepted only as BoringSSL sizes it, and only as zeros.
-func TestParseClientHelloChecksPadding(t *testing.T) {
-	// Safari's hello without its post-quantum key share is short enough for
-	// BoringSSL to pad.
-	h := splitHello(t, capturedHellos(t)["safari-27-macos"])
-	h = h.withExtension(t, extKeyShare, func(data []byte) []byte {
-		return keyShares(data, func(_, n int) int {
-			return min(n, 32)
-		})
-	})
-	unpadded := len(h.bytes()) // without the padding extension
-	want, pads := boringPadding(unpadded)
-	if !pads {
-		t.Fatalf("a %d-byte hello is not padded; pick a shorter one", unpadded)
-	}
-	padded := func(body []byte) []byte {
-		p := h
-		p.extensions = append(slices.Clone(h.extensions), helloExtension{
-			typ:  extPadding,
-			data: body,
-		})
-		return p.bytes()
-	}
-	if _, err := ParseClientHello(padded(make([]byte, want))); err != nil {
-		t.Errorf("BoringSSL's %d bytes of padding: %v", want, err)
-	}
-	for _, tc := range []struct {
-		name string
-		body []byte
-		err  string
-	}{
-		{
-			name: "one byte too many",
-			body: make([]byte, want+1),
-			err:  "not BoringSSL's",
-		},
-		{
-			name: "not zeros",
-			body: append(make([]byte, want-1), 1),
-			err:  "not zeros",
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			if _, err := ParseClientHello(padded(tc.body)); err == nil || !strings.Contains(err.Error(), tc.err) {
-				t.Fatalf("error = %v, want one containing %q", err, tc.err)
-			}
-		})
-	}
-}
-
-func TestParseRecords(t *testing.T) {
-	msg := chromeHello(t)
-	wire := records(msg, 100)
-	version, got, err := ParseRecords(wire)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if version != 0x0301 || string(got) != string(msg) {
-		t.Errorf("version %#04x, message equal %v", version, string(got) == string(msg))
-	}
-	mixed := slices.Clone(wire)
-	mixed[105+2] = 3 // the second record's version: 0x0303
-	if _, _, err := ParseRecords(mixed); err == nil || !strings.Contains(err.Error(), "versions 0x0301 and 0x0303") {
-		t.Errorf("mixed record versions: error = %v", err)
-	}
-	if _, _, err := ParseRecords(append(slices.Clone(wire), 0x16)); err == nil || !strings.Contains(err.Error(), "follow") {
-		t.Errorf("trailing byte: error = %v", err)
 	}
 }

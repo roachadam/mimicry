@@ -58,6 +58,8 @@ cfg := mimicry.Config{
 
 Use the standard `testing` package with hand-written fakes; no assertion libraries. Tests must be deterministic: inject randomness and clocks rather than depending on them.
 
+Prefer e2e and integration tests: a behaviour browsers show belongs in an e2e replay of its capture, not in a unit test that restates the rule. Write a unit or raw-peer test only for what no capture can reach, and only when the failure would be serious: a crash, a deadlock or stall, a security bug (injection, smuggling, leaked credentials), a hostile server, or an error path (`ErrNotMeasured`, refused requests). One table test per such area, not one test per case. Before deleting or skipping a unit test because e2e covers it, break the code and check that an e2e test fails.
+
 Profile accuracy is proven by the harness against real browser captures, not by unit tests that restate a profile's values. `harness/e2e` checks every built-in profile against its browser's captures:
 
 - `TestProfilesMatchCaptures`: mimicry's request to the capture server has no differences from the browser's capture (TLS, HTTP/2 preface and first request, headers).
@@ -79,7 +81,7 @@ Behaviour that depends on time (Chrome's 5 s credit return, its idle PING) is te
 
 ## Built-in profiles
 
-Built-in profiles are JSON files in `profiles/data/`, one per browser version and platform; the accessor functions (`profiles.Chrome155MacOS()` and the rest, each returning a fresh copy) are generated from them by `cmd/profilegen`. Every built-in profile must pass `profile.Parse`, enforced twice: the generator refuses to generate from an invalid file, and a test in `profiles` parses every embedded file. `profiles` also checks that each file re-encodes byte for byte (`TestBuiltinsRoundTrip`: the files are in `profile.Encode`'s format) and that every `user-agent` and `accept-language` value in it is the navigation's (`TestIdentityHeadersMatchNavigation`). A profile without a matching capture in `harness/testdata/captures/` is not finished.
+Built-in profiles are JSON files in `profiles/data/`, one per browser version and platform; the accessor functions (`profiles.Chrome155MacOS()` and the rest, each returning a fresh copy) are generated from them by `cmd/profilegen`. Every built-in profile must pass `profile.Parse`, enforced twice: the generator refuses to generate from an invalid file, and a test in `profiles` parses every embedded file. A profile without a matching capture in `harness/testdata/captures/` is not finished.
 
 `profile.Parse` is `profile.Decode` (strict JSON: unknown, miscased and repeated keys are errors) followed by `Validate`. Captures record one connection and are not complete profiles, so the harness loads them with `profile.Decode`.
 

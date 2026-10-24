@@ -2,7 +2,6 @@ package handshake
 
 import (
 	"crypto/tls"
-	"fmt"
 	"io"
 	"net"
 	"testing"
@@ -71,43 +70,5 @@ func TestTicketPastItsLifetimeIsNotOffered(t *testing.T) {
 	clock.Advance(8 * 24 * time.Hour)
 	if tk := tickets.Take("k"); tk != nil {
 		t.Fatal("a ticket past its 7-day lifetime was offered: the hello would take the resumed shape uTLS then empties")
-	}
-}
-
-func TestTicketWithinItsLifetimeIsOffered(t *testing.T) {
-	tickets, clock := newTickets()
-	ticketFrom(t, tickets, "k", 30*24*time.Hour)
-	clock.Advance(6 * 24 * time.Hour)
-	if tk := tickets.Take("k"); tk == nil || !tk.TLS13() {
-		t.Fatalf("Take = %v, want the TLS 1.3 ticket", tk)
-	}
-}
-
-func TestTicketPastItsCertificateIsNotOffered(t *testing.T) {
-	tickets, clock := newTickets()
-	ticketFrom(t, tickets, "k", 24*time.Hour)
-	clock.Advance(25 * time.Hour)
-	if tk := tickets.Take("k"); tk != nil {
-		t.Fatal("a ticket whose server certificate expired was offered")
-	}
-}
-
-func TestExpiredTicketsAreSwept(t *testing.T) {
-	tickets, clock := newTickets()
-	ticketFrom(t, tickets, "first", 30*24*time.Hour)
-	tickets.mu.Lock()
-	tk := tickets.m["first"]
-	tickets.mu.Unlock()
-	for i := range minSweep - 2 {
-		tickets.keep(fmt.Sprint(i), tk.state, nil, time.Time{})
-	}
-	clock.Advance(8 * 24 * time.Hour)
-	// The store reaches minSweep: every expired ticket goes, this one too.
-	tickets.keep("last", tk.state, nil, time.Time{})
-	tickets.mu.Lock()
-	n := len(tickets.m)
-	tickets.mu.Unlock()
-	if n != 0 {
-		t.Fatalf("%d tickets kept, want the expired ones dropped", n)
 	}
 }

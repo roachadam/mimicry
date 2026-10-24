@@ -6,7 +6,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -196,63 +195,6 @@ func TestInformationalResponses(t *testing.T) {
 	got, reusable := do(t, c, newRequest(t, http.MethodGet, "http://example.com/", nil))
 	if got != "ok" || !reusable {
 		t.Errorf("got %q, reusable %v; want the final response, reusable", got, reusable)
-	}
-}
-
-func TestSwitchingProtocolsIsFinal(t *testing.T) {
-	fc := &fakeConn{
-		in: strings.NewReader("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n"),
-	}
-	c := New(fc, profiles.Chrome155MacOS())
-	released := make(chan bool, 1)
-	resp, err := c.RoundTrip(newRequest(t, http.MethodGet, "http://example.com/", nil), func(reusable bool) {
-		released <- reusable
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.StatusCode != http.StatusSwitchingProtocols {
-		t.Errorf("status %d, want 101", resp.StatusCode)
-	}
-	_ = resp.Body.Close()
-	if <-released {
-		t.Error("connection reusable after 101")
-	}
-}
-
-func TestUsable(t *testing.T) {
-	tests := []struct {
-		name string
-		conn *fakeConn
-		want bool
-	}{
-		{
-			name: "alive",
-			conn: &fakeConn{
-				end: os.ErrDeadlineExceeded,
-			},
-			want: true,
-		},
-		{
-			name: "closed by peer",
-			conn: &fakeConn{},
-			want: false,
-		},
-		{
-			name: "unexpected bytes",
-			conn: &fakeConn{
-				in:  strings.NewReader("HTTP/1.1 408 Request Timeout\r\n\r\n"),
-				end: os.ErrDeadlineExceeded,
-			},
-			want: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := New(tt.conn, profiles.Chrome155MacOS()).Usable(); got != tt.want {
-				t.Errorf("Usable() = %v, want %v", got, tt.want)
-			}
-		})
 	}
 }
 

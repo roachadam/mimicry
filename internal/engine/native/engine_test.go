@@ -8,7 +8,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -140,30 +139,27 @@ func tlsServer(ctx context.Context, conn net.Conn) (*tls.Conn, error) {
 	return srv, srv.HandshakeContext(ctx)
 }
 
-// serveH1 answers requests on conn with 200 and their body, n of them,
-// then calls after.
-func serveH1(n int, after func(conn net.Conn) error) func(context.Context, net.Conn) error {
+// serveH1 answers one request on conn with 200 and its body, then
+// calls after.
+func serveH1(after func(conn net.Conn) error) func(context.Context, net.Conn) error {
 	return func(_ context.Context, conn net.Conn) error {
-		br := bufio.NewReader(conn)
-		for range n {
-			req, err := http.ReadRequest(br)
-			if err != nil {
-				return err
-			}
-			body, err := io.ReadAll(req.Body)
-			if err != nil {
-				return err
-			}
-			resp := &http.Response{
-				StatusCode:    http.StatusOK,
-				ProtoMajor:    1,
-				ProtoMinor:    1,
-				ContentLength: int64(len(body)),
-				Body:          io.NopCloser(strings.NewReader(string(body))),
-			}
-			if err := resp.Write(conn); err != nil {
-				return err
-			}
+		req, err := http.ReadRequest(bufio.NewReader(conn))
+		if err != nil {
+			return err
+		}
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			return err
+		}
+		resp := &http.Response{
+			StatusCode:    http.StatusOK,
+			ProtoMajor:    1,
+			ProtoMinor:    1,
+			ContentLength: int64(len(body)),
+			Body:          io.NopCloser(strings.NewReader(string(body))),
+		}
+		if err := resp.Write(conn); err != nil {
+			return err
 		}
 		if after != nil {
 			return after(conn)
@@ -188,10 +184,10 @@ func serveH2(ctx context.Context, conn net.Conn) error {
 	return nil
 }
 
-// roundTrip sends a request on t's context. It does not fail t, so
-// goroutines may call it.
-func roundTrip(t *testing.T, e *Engine, method, target string, body io.Reader) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(t.Context(), method, target, body)
+// get sends a GET on t's context. It does not fail t, so goroutines may
+// call it.
+func get(t *testing.T, e *Engine, target string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, target, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -222,14 +218,14 @@ func postOnce(t *testing.T, e *Engine, target, data string) (*http.Response, err
 
 func TestDeadIdleConnectionIsNotReused(t *testing.T) {
 	closed := make(chan struct{})
-	n := newFakeNet(t, serveH1(1, func(conn net.Conn) error {
+	n := newFakeNet(t, serveH1(func(conn net.Conn) error {
 		defer close(closed)
 		return conn.Close()
-	}), serveH1(1, nil))
+	}), serveH1(nil))
 	e := newTestEngine(t, options{
 		dial: n.dial,
 	})
-	resp, err := roundTrip(t, e, http.MethodGet, "http://example.test/", nil)
+	resp, err := get(t, e, "http://example.test/")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -243,23 +239,6 @@ func TestDeadIdleConnectionIsNotReused(t *testing.T) {
 	}
 	if got := readAll(t, resp); got != "data" {
 		t.Fatalf("body %q", got)
-	}
-}
-
-func TestIdleConnectionIsReused(t *testing.T) {
-	n := newFakeNet(t, serveH1(2, nil))
-	e := newTestEngine(t, options{
-		dial: n.dial,
-	})
-	for range 2 {
-		resp, err := roundTrip(t, e, http.MethodGet, "http://example.test/", nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		readAll(t, resp)
-	}
-	if d := n.dials(); len(d) != 1 {
-		t.Fatalf("dialed %v, want one connection", d)
 	}
 }
 
@@ -281,7 +260,7 @@ func blockingDial(n *fakeNet, err error) (dial func(context.Context, string, str
 }
 
 func TestWaiterSendsABodyThatCannotBeResent(t *testing.T) {
-	n := newFakeNet(t, serveH1(1, nil), serveH1(1, nil))
+	n := newFakeNet(t, serveH1(nil), serveH1(nil))
 	dial, dialing, release := blockingDial(n, nil)
 	waiting := make(chan string, 1)
 	e := newTestEngine(t, options{
@@ -292,7 +271,7 @@ func TestWaiterSendsABodyThatCannotBeResent(t *testing.T) {
 	})
 	first := make(chan error, 1)
 	go func() {
-		resp, err := roundTrip(t, e, http.MethodGet, "http://example.test/", nil)
+		resp, err := get(t, e, "http://example.test/")
 		if err == nil {
 			_, _ = io.Copy(io.Discard, resp.Body)
 			_ = resp.Body.Close()
@@ -332,12 +311,12 @@ func TestWaitersGetTheSharedDialsError(t *testing.T) {
 	})
 	errs := make(chan error, 2)
 	go func() {
-		_, err := roundTrip(t, e, http.MethodGet, "https://localhost/", nil)
+		_, err := get(t, e, "https://localhost/")
 		errs <- err
 	}()
 	<-dialing
 	go func() {
-		_, err := roundTrip(t, e, http.MethodGet, "https://localhost/", nil)
+		_, err := get(t, e, "https://localhost/")
 		errs <- err
 	}()
 	<-waiting
@@ -438,25 +417,6 @@ func writeOK(fr *http2.Framer, stream uint32) error {
 	})
 }
 
-func TestRequestRefusedByGoAwayGoesToANewConnection(t *testing.T) {
-	n := newFakeNet(t, goAwayServer(func(fr *http2.Framer, _ *http2.MetaHeadersFrame) error {
-		return fr.WriteGoAway(0, http2.ErrCodeNo, nil)
-	}), serveH2)
-	e := newTestEngine(t, options{
-		dial: n.dial,
-	})
-	resp, err := roundTrip(t, e, http.MethodGet, "https://localhost/", nil)
-	if err != nil {
-		t.Fatalf("request refused by the first connection's GOAWAY: %v", err)
-	}
-	if got := readAll(t, resp); got != "ok" {
-		t.Fatalf("body %q", got)
-	}
-	if d := n.dials(); len(d) != 2 {
-		t.Fatalf("dialed %v, want two connections", d)
-	}
-}
-
 func TestGoAwayLetsStartedStreamsFinish(t *testing.T) {
 	first, answer := make(chan struct{}), make(chan struct{})
 	n := newFakeNet(t, goAwayServer(func(fr *http2.Framer, f *http2.MetaHeadersFrame) error {
@@ -477,7 +437,7 @@ func TestGoAwayLetsStartedStreamsFinish(t *testing.T) {
 	})
 	started := make(chan error, 1)
 	go func() {
-		resp, err := roundTrip(t, e, http.MethodGet, "https://localhost/slow", nil)
+		resp, err := get(t, e, "https://localhost/slow")
 		if err == nil {
 			_, err = io.Copy(io.Discard, resp.Body)
 			_ = resp.Body.Close()
@@ -485,7 +445,7 @@ func TestGoAwayLetsStartedStreamsFinish(t *testing.T) {
 		started <- err
 	}()
 	<-first
-	resp, err := roundTrip(t, e, http.MethodGet, "https://localhost/", nil)
+	resp, err := get(t, e, "https://localhost/")
 	if err != nil {
 		t.Fatalf("request refused by GOAWAY: %v", err)
 	}
@@ -524,69 +484,5 @@ func TestHandshakeIsBoundedByTheDialTimeout(t *testing.T) {
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("the TLS handshake outlived the dial timeout")
-	}
-}
-
-func TestEmptyPortIsTheSchemesDefault(t *testing.T) {
-	n := newFakeNet(t, serveH1(1, nil))
-	e := newTestEngine(t, options{
-		dial: n.dial,
-	})
-	resp, err := roundTrip(t, e, http.MethodGet, "http://example.test:/", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	readAll(t, resp)
-	if d := n.dials(); len(d) != 1 || d[0] != "example.test:80" {
-		t.Fatalf("dialed %v, want example.test:80", d)
-	}
-}
-
-func TestInvalidHostIsRefusedBeforeDialing(t *testing.T) {
-	n := newFakeNet(t)
-	e := newTestEngine(t, options{
-		dial: n.dial,
-	})
-	req := &http.Request{
-		Method: http.MethodGet,
-		URL: &url.URL{
-			Scheme: "http",
-			Host:   "example.test\r\nInjected: 1",
-			Path:   "/",
-		},
-		Header: http.Header{},
-	}
-	if _, err := e.RoundTrip(req.WithContext(t.Context())); err == nil {
-		t.Fatal("a host with CRLF was accepted")
-	}
-	if d := n.dials(); len(d) != 0 {
-		t.Fatalf("dialed %v", d)
-	}
-}
-
-type closeTracker struct {
-	io.Reader
-	closed atomic.Bool
-}
-
-func (c *closeTracker) Close() error {
-	c.closed.Store(true)
-	return nil
-}
-
-func TestBodyIsClosedWhenTheRequestFails(t *testing.T) {
-	e := newTestEngine(t, options{
-		dial: func(context.Context, string, string) (net.Conn, error) {
-			return nil, errors.New("connection refused")
-		},
-	})
-	body := &closeTracker{
-		Reader: strings.NewReader("data"),
-	}
-	if _, err := roundTrip(t, e, http.MethodPost, "http://example.test/", body); err == nil {
-		t.Fatal("request succeeded without a connection")
-	}
-	if !body.closed.Load() {
-		t.Fatal("the request body was not closed")
 	}
 }

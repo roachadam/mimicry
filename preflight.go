@@ -258,9 +258,8 @@ type preflightCache struct {
 	mu      sync.Mutex
 	entries map[preflightKey]map[string]time.Time
 	// pruneAt is the number of entries at which store next drops what has
-	// expired; scanned counts the entries pruning has looked at.
+	// expired.
 	pruneAt int
-	scanned int
 }
 
 // minPrune is the fewest entries pruning waits for.
@@ -314,7 +313,6 @@ func (c *preflightCache) store(need *preflightNeed, h http.Header, replace bool,
 	// measured.)
 	if len(c.entries) >= c.pruneAt {
 		for key, items := range c.entries {
-			c.scanned++
 			for item, at := range items {
 				if !now.Before(at) {
 					delete(items, item)

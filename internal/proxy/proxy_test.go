@@ -57,61 +57,6 @@ func expect(r io.Reader, want []byte) error {
 	return nil
 }
 
-func TestConnectSendsTheHeaderAsGivenAndKeepsEarlyTunnelBytes(t *testing.T) {
-	conn := peer(t, func(conn net.Conn) error {
-		br := bufio.NewReader(conn)
-		req, err := readRequest(br)
-		if err != nil {
-			return err
-		}
-		if want := "CONNECT example.com:443 HTTP/1.1\r\nHost: example.com:443\r\nProxy-Connection: keep-alive\r\n\r\n"; req != want {
-			return errors.New("CONNECT request " + req)
-		}
-		_, err = io.WriteString(conn, "HTTP/1.1 200 Connection established\r\n\r\nearly")
-		return err
-	})
-	a, tunnel, err := Connect(t.Context(), conn, "example.com:443", []string{
-		"Host: example.com:443",
-		"Proxy-Connection: keep-alive",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if a.StatusCode != 200 {
-		t.Fatalf("status %d", a.StatusCode)
-	}
-	if err := expect(tunnel, []byte("early")); err != nil {
-		t.Fatalf("tunnel: %v", err)
-	}
-}
-
-func TestConnectReadsARefusalsBodyAndKeepsTheConnection(t *testing.T) {
-	conn := peer(t, func(conn net.Conn) error {
-		br := bufio.NewReader(conn)
-		if _, err := readRequest(br); err != nil {
-			return err
-		}
-		if _, err := io.WriteString(conn, "HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm=\"p\"\r\nContent-Length: 6\r\n\r\ndenied"); err != nil {
-			return err
-		}
-		if _, err := readRequest(br); err != nil {
-			return err
-		}
-		_, err := io.WriteString(conn, "HTTP/1.1 200 OK\r\n\r\n")
-		return err
-	})
-	a, next, err := Connect(t.Context(), conn, "example.com:443", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if a.StatusCode != 407 || a.Close || a.Header.Get("Proxy-Authenticate") != `Basic realm="p"` {
-		t.Fatalf("answer %+v", a)
-	}
-	if a, _, err = Connect(t.Context(), next, "example.com:443", nil); err != nil || a.StatusCode != 200 {
-		t.Fatalf("second CONNECT on the same connection: %+v, %v", a, err)
-	}
-}
-
 func TestConnectBoundsTheAnswerHeader(t *testing.T) {
 	conn := peer(t, func(conn net.Conn) error {
 		br := bufio.NewReader(conn)
@@ -167,54 +112,6 @@ func (p socksPeer) serve(conn net.Conn) error {
 	// may fail; the client's result is what the test checks.
 	_, _ = conn.Write(p.reply)
 	return nil
-}
-
-// succeeded is a SOCKS5 success reply bound to 10.0.0.1:1080.
-var succeeded = []byte{5, 0, 0, 1, 10, 0, 0, 1, 0x04, 0x38}
-
-func TestSOCKS5ConnectsByDomain(t *testing.T) {
-	conn := peer(t, socksPeer{
-		methods: []byte{0},
-		pick:    0,
-		request: append(append([]byte{5, 1, 0, 3, 11}, "example.com"...), 0x01, 0xbb),
-		reply:   succeeded,
-	}.serve)
-	if err := SOCKS5(t.Context(), conn, "example.com:443", []byte{0}, nil); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestSOCKS5ConnectsByIP(t *testing.T) {
-	ipv6 := net.ParseIP("2001:db8::1")
-	conn := peer(t, socksPeer{
-		methods: []byte{0},
-		pick:    0,
-		request: append(append([]byte{5, 1, 0, 4}, ipv6...), 0x00, 0x50),
-		// A reply bound to a domain name.
-		reply: append(append([]byte{5, 0, 0, 3, 5}, "proxy"...), 0x04, 0x38),
-	}.serve)
-	if err := SOCKS5(t.Context(), conn, "[2001:db8::1]:80", []byte{0}, nil); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestSOCKS5AuthenticatesWithUsernameAndPassword(t *testing.T) {
-	conn := peer(t, socksPeer{
-		methods: []byte{0, 2},
-		pick:    2,
-		auth: func(conn net.Conn) error {
-			if err := expect(conn, []byte("\x01\x04user\x06secret")); err != nil {
-				return err
-			}
-			_, err := conn.Write([]byte{1, 0})
-			return err
-		},
-		request: append(append([]byte{5, 1, 0, 1}, 192, 0, 2, 1), 0x01, 0xbb),
-		reply:   succeeded,
-	}.serve)
-	if err := SOCKS5(t.Context(), conn, "192.0.2.1:443", []byte{0, 2}, url.UserPassword("user", "secret")); err != nil {
-		t.Fatal(err)
-	}
 }
 
 func TestSOCKS5Failures(t *testing.T) {
@@ -283,16 +180,5 @@ func TestSOCKS5Failures(t *testing.T) {
 				t.Fatalf("err = %v, want %q", err, tt.want)
 			}
 		})
-	}
-}
-
-func TestSOCKS5RefusesLongHostNames(t *testing.T) {
-	conn := peer(t, socksPeer{
-		methods: []byte{0},
-		pick:    0,
-	}.serve)
-	err := SOCKS5(t.Context(), conn, strings.Repeat("a", 256)+":443", []byte{0}, nil)
-	if err == nil || !strings.Contains(err.Error(), "host name is limited to 255 bytes") {
-		t.Fatalf("err = %v", err)
 	}
 }

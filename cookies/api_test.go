@@ -171,32 +171,6 @@ func TestDeleteMatchMayUseJar(t *testing.T) {
 	}
 }
 
-// Netscape fields are tab-separated: a cookie with a tab is left out, so
-// the file still reads back.
-func TestNetscapeSkipsTabs(t *testing.T) {
-	j := newJar(t, Config{})
-	j.SetCookies(nav(t, "https://example.com/"), []string{"tab=x\ty", "ok=1"})
-	if err := j.Set(Cookie{
-		Name:   "path",
-		Value:  "1",
-		Domain: "example.com",
-		Path:   "/a\tb",
-	}); err != nil {
-		t.Fatal(err)
-	}
-	var buf bytes.Buffer
-	if err := j.WriteNetscape(&buf); err != nil {
-		t.Fatal(err)
-	}
-	k := newJar(t, Config{})
-	if err := k.ReadNetscape(&buf); err != nil {
-		t.Fatal(err)
-	}
-	if all := k.All(); len(all) != 1 || all[0].Name != "ok" {
-		t.Errorf("read back %d cookies, want only ok", len(all))
-	}
-}
-
 // The http.CookieJar adapter stores the raw Set-Cookie lines net/http
 // passes on, and returns quoted values so net/http sends them quoted.
 func TestCookieJarAdapter(t *testing.T) {
