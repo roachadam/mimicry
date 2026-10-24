@@ -37,6 +37,7 @@ Related, elsewhere in the repository:
 | [0014](decisions/0014-proxies.md) | Proxies as the browser uses them | Accepted |
 | [0015](decisions/0015-non-secure-origins.md) | Requests to non-secure origins as captured, per kind | Accepted |
 | [0016](decisions/0016-literal-urls-no-https-upgrade.md) | Requests go to the URL given; no HTTPS upgrades or HSTS by default | Accepted |
+| [0017](decisions/0017-cors-preflights.md) | CORS preflights as the browser sends them, refusal included | Accepted |
 
 New records copy [`decisions/template.md`](decisions/template.md).
 
@@ -45,3 +46,4 @@ New records copy [`decisions/template.md`](decisions/template.md).
 - [How a request is built](concepts/how-a-request-is-built.md)
 - [Cookies](concepts/cookies.md)
 - [Proxies](concepts/proxies.md)
+- [CORS preflights](concepts/cors-preflights.md)

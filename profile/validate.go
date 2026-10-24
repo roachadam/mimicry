@@ -73,6 +73,9 @@ func (p *Profile) Validate() error {
 	}
 	c.checkVariants("variants", p.Variants, false)
 	c.checkKinds(p.Kinds)
+	if ctx := p.Context; ctx != nil && ctx.PreflightCache != "" && ctx.PreflightCache != PreflightCacheReplace && ctx.PreflightCache != PreflightCacheMerge {
+		c.add("context.preflight_cache", "must be empty, %q or %q", PreflightCacheReplace, PreflightCacheMerge)
+	}
 	if p.Cookies != nil {
 		c.checkCookies(p.Cookies)
 	}

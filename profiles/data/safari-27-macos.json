@@ -6090,6 +6090,213 @@
         }
       ]
     },
+    "preflight": {
+      "headers": [
+        {
+          "name": "origin"
+        },
+        {
+          "name": "sec-fetch-site"
+        },
+        {
+          "name": "access-control-request-method"
+        },
+        {
+          "name": "access-control-request-headers"
+        },
+        {
+          "name": "sec-fetch-mode",
+          "value": "cors"
+        },
+        {
+          "name": "user-agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15"
+        },
+        {
+          "name": "referer"
+        },
+        {
+          "name": "sec-fetch-dest",
+          "value": "empty"
+        },
+        {
+          "name": "content-length"
+        },
+        {
+          "name": "accept",
+          "value": "*/*"
+        },
+        {
+          "name": "accept-language",
+          "value": "en-US,en;q=0.9"
+        },
+        {
+          "name": "priority",
+          "value": "u=3, i"
+        },
+        {
+          "name": "accept-encoding",
+          "value": "gzip, deflate, br, zstd"
+        }
+      ],
+      "http1": [
+        {
+          "name": "Host"
+        },
+        {
+          "name": "Origin"
+        },
+        {
+          "name": "Sec-Fetch-Site"
+        },
+        {
+          "name": "Access-Control-Request-Method"
+        },
+        {
+          "name": "Access-Control-Request-Headers"
+        },
+        {
+          "name": "Sec-Fetch-Mode",
+          "value": "cors"
+        },
+        {
+          "name": "User-Agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15"
+        },
+        {
+          "name": "Referer"
+        },
+        {
+          "name": "Sec-Fetch-Dest",
+          "value": "empty"
+        },
+        {
+          "name": "Content-Length"
+        },
+        {
+          "name": "Accept",
+          "value": "*/*"
+        },
+        {
+          "name": "Accept-Language",
+          "value": "en-US,en;q=0.9"
+        },
+        {
+          "name": "Priority",
+          "value": "u=3, i"
+        },
+        {
+          "name": "Accept-Encoding",
+          "value": "gzip, deflate, br, zstd"
+        },
+        {
+          "name": "Connection",
+          "value": "keep-alive"
+        }
+      ],
+      "variants": [
+        {
+          "method": "OPTIONS",
+          "site": "same-site",
+          "cors_checked": true,
+          "insecure": true,
+          "http1": [
+            {
+              "name": "Host"
+            },
+            {
+              "name": "Access-Control-Request-Headers"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15"
+            },
+            {
+              "name": "Access-Control-Request-Method"
+            },
+            {
+              "name": "Referer"
+            },
+            {
+              "name": "Origin"
+            },
+            {
+              "name": "Content-Length"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "Priority",
+              "value": "u=3, i"
+            },
+            {
+              "name": "Accept-Encoding",
+              "value": "gzip, deflate"
+            },
+            {
+              "name": "Connection",
+              "value": "keep-alive"
+            }
+          ]
+        },
+        {
+          "method": "OPTIONS",
+          "site": "cross-site",
+          "cors_checked": true,
+          "insecure": true,
+          "http1": [
+            {
+              "name": "Host"
+            },
+            {
+              "name": "Access-Control-Request-Headers"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15"
+            },
+            {
+              "name": "Access-Control-Request-Method"
+            },
+            {
+              "name": "Referer"
+            },
+            {
+              "name": "Origin"
+            },
+            {
+              "name": "Content-Length"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "Priority",
+              "value": "u=3, i"
+            },
+            {
+              "name": "Accept-Encoding",
+              "value": "gzip, deflate"
+            },
+            {
+              "name": "Connection",
+              "value": "keep-alive"
+            }
+          ]
+        }
+      ]
+    },
     "preload_font": {
       "headers": [
         {
@@ -8195,7 +8402,8 @@
     }
   },
   "context": {
-    "same_origin_element_origin": true
+    "same_origin_element_origin": true,
+    "preflight_cache": "replace"
   },
   "cookies": {
     "unset_samesite": "none",

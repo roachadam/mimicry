@@ -183,6 +183,7 @@ var Scenarios = []*Scenario{
 	Kinds,
 	KindsHTTP1,
 	KindsPlain,
+	CORS,
 	Cookies,
 	Resume,
 	ResumeTLS12,

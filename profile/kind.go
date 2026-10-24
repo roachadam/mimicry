@@ -24,6 +24,10 @@ const (
 	KindFetch          = "fetch"           // fetch()
 	KindXHR            = "xhr"             // XMLHttpRequest
 	KindBeacon         = "beacon"          // navigator.sendBeacon
+	// KindPreflight is the CORS preflight (OPTIONS) the browser sends
+	// itself before a fetch() or XHR that needs one; callers never ask for
+	// it.
+	KindPreflight = "preflight"
 )
 
 // Kinds lists every kind a profile may describe, in a stable order.
@@ -42,6 +46,7 @@ var Kinds = []string{
 	KindFetch,
 	KindXHR,
 	KindBeacon,
+	KindPreflight,
 }
 
 // OtherHeaders is a header name that, in a kind's lists, marks where headers
@@ -137,7 +142,19 @@ type Context struct {
 	// FrameConnections keeps a cross-site frame's navigation on connections
 	// of its own (Chrome's network partitioning by frame site).
 	FrameConnections bool `json:"frame_connections,omitempty"`
+	// PreflightCache is how successful CORS preflights are remembered, per
+	// page origin, URL and credentials mode: PreflightCacheReplace (Chrome,
+	// Safari: the latest answer replaces the URL's entry) or
+	// PreflightCacheMerge (Firefox: what every answer allowed). Empty: not
+	// measured, so requests that need a preflight are an error.
+	PreflightCache string `json:"preflight_cache,omitempty"`
 }
+
+// Values of Context.PreflightCache.
+const (
+	PreflightCacheReplace = "replace"
+	PreflightCacheMerge   = "merge"
+)
 
 // checkKinds checks every kind's lists and that only known kinds appear.
 func (c *checker) checkKinds(kinds map[string]*Kind) {

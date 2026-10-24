@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/roachadam/mimicry/harness/internal/capture"
+	"github.com/roachadam/mimicry/harness/internal/h2trace"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -62,8 +63,15 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	cors, err := capture.LoadPages(filepath.Join(*captures, p.Name+".cors.pagetrace.json.gz"))
+	if err != nil {
+		return err
+	}
 	reqs := collect(h2, h1, plain)
 	if err := derive(p, reqs); err != nil {
+		return err
+	}
+	if p.Context.PreflightCache, err = preflightCache(cors); err != nil {
 		return err
 	}
 	if err := p.Validate(); err != nil {
@@ -201,6 +209,7 @@ func collect(h2Pages, h1Pages, plainPages []*capture.Page) []*request {
 var contextHeaders = []string{
 	"referer", "origin", "cookie", "sec-fetch-site", "sec-fetch-storage-access",
 	"content-type", "content-length", "host",
+	"access-control-request-method", "access-control-request-headers",
 }
 
 // customHeader is the header the kinds page sets itself on a fetch(): where
@@ -209,11 +218,13 @@ const customHeader = "x-mimicry"
 
 // kindSources says which captured requests describe each kind: own give
 // its defaults and weight, all (its resource type) the header order; high
-// and low the fetchpriority variants where measured.
+// and low the fetchpriority variants where measured. A preflight kind
+// takes the OPTIONS requests, others never.
 var kindSources = []struct {
 	kind      string
 	own, all  []string
 	high, low string
+	preflight bool
 }{
 	{kind: profile.KindFrame, own: []string{"iframe"}, all: []string{"iframe"}},
 	{kind: profile.KindScript, own: []string{"script-blocking"}, all: scripts},
@@ -229,6 +240,7 @@ var kindSources = []struct {
 	{kind: profile.KindFetch, own: []string{"fetch"}, all: fetches, high: "fetch-high", low: "fetch-low"},
 	{kind: profile.KindXHR, own: []string{"xhr"}, all: []string{"xhr"}},
 	{kind: profile.KindBeacon, own: []string{"beacon"}, all: []string{"beacon"}},
+	{kind: profile.KindPreflight, own: []string{"fetch-json", "fetch-custom"}, all: []string{"fetch-json", "fetch-custom"}, preflight: true},
 }
 
 var (
@@ -239,11 +251,12 @@ var (
 )
 
 func derive(p *profile.Profile, reqs []*request) error {
-	// pick takes the kinds' requests over TLS (plain false) or plain HTTP.
-	pick := func(bases []string, plain bool) []*request {
+	// pick takes the kinds' requests over TLS (plain false) or plain HTTP,
+	// the preflights (OPTIONS) or the rest.
+	pick := func(bases []string, plain, preflight bool) []*request {
 		var out []*request
 		for _, r := range reqs {
-			if r.method != "OPTIONS" && r.plain == plain && slices.Contains(bases, r.base) {
+			if (r.method == "OPTIONS") == preflight && r.plain == plain && slices.Contains(bases, r.base) {
 				out = append(out, r)
 			}
 		}
@@ -252,7 +265,7 @@ func derive(p *profile.Profile, reqs []*request) error {
 	p.Kinds = map[string]*profile.Kind{}
 	var errs []error
 	for _, src := range kindSources {
-		own := pick(src.own, false)
+		own := pick(src.own, false, src.preflight)
 		if len(own) == 0 {
 			errs = append(errs, fmt.Errorf("%s: no captured requests", src.kind))
 			continue
@@ -269,8 +282,8 @@ func derive(p *profile.Profile, reqs []*request) error {
 		}
 		var err error
 		k.Headers, k.HTTP1, k.Variants, err = orders(
-			slices.Concat(own, pick(src.own, true)),
-			slices.Concat(pick(src.all, false), pick(src.all, true)),
+			slices.Concat(own, pick(src.own, true, src.preflight)),
+			slices.Concat(pick(src.all, false, src.preflight), pick(src.all, true, src.preflight)),
 			nil, values)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", src.kind, err))
@@ -282,7 +295,7 @@ func derive(p *profile.Profile, reqs []*request) error {
 			if base == "" {
 				continue
 			}
-			u, err := urgencyOf(pick([]string{base}, false))
+			u, err := urgencyOf(pick([]string{base}, false, false))
 			if err != nil {
 				errs = append(errs, fmt.Errorf("%s %s: %w", src.kind, base, err))
 			}
@@ -297,11 +310,61 @@ func derive(p *profile.Profile, reqs []*request) error {
 		errs = append(errs, err)
 	}
 	p.Context = ctx
-	navs := slices.Concat(pick([]string{"form-post"}, false), pick([]string{"form-post", "page"}, true))
+	navs := slices.Concat(pick([]string{"form-post"}, false, false), pick([]string{"form-post", "page"}, true, false))
 	if err := navigationVariants(p, navs); err != nil {
 		errs = append(errs, err)
 	}
 	return errors.Join(errs...)
+}
+
+// preflightCache derives profile.Context.PreflightCache from the cors
+// page: after a preflight for another header (X-Other) to maxage.cs, the
+// first request (X-Mimicry, preflighted and cached before) is preflighted
+// again when the latest answer replaced the URL's entry, and not when
+// answers merge. Every sample must agree.
+func preflightCache(pages []*capture.Page) (string, error) {
+	var found string
+	for i, page := range pages {
+		var seq []string
+		for _, tr := range page.H2 {
+			reqs := slices.Clone(tr.Requests)
+			slices.SortFunc(reqs, func(a, b h2trace.Request) int {
+				return int(a.Stream) - int(b.Stream)
+			})
+			for _, r := range reqs {
+				if r.Path != "/p/maxage.cs" {
+					continue
+				}
+				method, acrh := "", ""
+				for _, ins := range r.Instructions {
+					switch ins.Name {
+					case ":method":
+						method = ins.Value
+					case "access-control-request-headers":
+						acrh = ins.Value
+					}
+				}
+				seq = append(seq, method+" "+acrh)
+			}
+		}
+		at := slices.Index(seq, "OPTIONS x-other")
+		if at < 0 || at+2 >= len(seq) {
+			return "", fmt.Errorf("preflight cache: cors sample %d lacks the requests that show it: %q", i+1, seq)
+		}
+		// seq[at+1] is the X-Other request; then the X-Mimicry one again.
+		got := profile.PreflightCacheMerge
+		if seq[at+2] == "OPTIONS x-mimicry" {
+			got = profile.PreflightCacheReplace
+		}
+		if found != "" && got != found {
+			return "", fmt.Errorf("preflight cache: cors samples disagree (%s, %s)", found, got)
+		}
+		found = got
+	}
+	if found == "" {
+		return "", errors.New("preflight cache: no cors samples")
+	}
+	return found, nil
 }
 
 // condition is what picks a header order: a profile.Variant's condition.

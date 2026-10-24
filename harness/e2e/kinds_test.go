@@ -27,9 +27,9 @@ import (
 // Every request of the kinds page, made through mimicry as its kind from
 // the page, is the browser's: the same header names in the same order, the
 // same values, the same HTTP/2 weight, and over HTTP/1.1 the same lines;
-// redirects' requests too, as http.Client follows them, and the cookies
-// each sends through mimicry's jar. Left out: CORS preflights and FontFace
-// loads (no kind).
+// redirects' requests too, as http.Client follows them, the cookies each
+// sends through mimicry's jar, and the CORS preflights mimicry sends where
+// the browser did, and only there. Left out: FontFace loads (no kind).
 func TestKindsMatchBrowserTraces(t *testing.T) {
 	for _, name := range profiles.Names() {
 		t.Run(name, func(t *testing.T) {
@@ -56,28 +56,9 @@ func TestKindsMatchBrowserTraces(t *testing.T) {
 						}
 						all = append(all, labels...)
 						for _, label := range labels {
-							g := kindsFields(got, label, h1)
-							if g == nil {
-								t.Errorf("%s: mimicry sent no request", label)
-								continue
+							for _, preflight := range []bool{false, true} {
+								compareKind(t, got, want, label, h1, preflight)
 							}
-							forms := browserForms(t, want, label, h1)
-							same := func(w *kindsSent) bool {
-								return slices.Equal(g.lines, w.lines) && g.weight == w.weight
-							}
-							if slices.ContainsFunc(forms, same) {
-								continue
-							}
-							// kb_part is set by a response during the page, so a
-							// browser request racing it may go without; mimicry's,
-							// made in order, never does.
-							if slices.ContainsFunc(forms, func(w *kindsSent) bool {
-								return slices.Equal(withoutRaceCookie(g.lines), withoutRaceCookie(w.lines)) && g.weight == w.weight
-							}) {
-								t.Logf("%s: matches but for %s, which the browser had not yet received", label, raceCookie)
-								continue
-							}
-							t.Errorf("%s:\n got %q weight %d\nwant %q weight %d", label, g.lines, g.weight, forms[0].lines, forms[0].weight)
 						}
 					}
 					if !h1 {
@@ -97,6 +78,44 @@ func TestKindsMatchBrowserTraces(t *testing.T) {
 			}
 		})
 	}
+}
+
+// compareKind compares mimicry's request for label (or its preflight)
+// with the browser's forms of it.
+func compareKind(t *testing.T, got *capture.Page, want []*capture.Page, label string, h1, preflight bool) {
+	t.Helper()
+	g := kindsFields(got, label, h1, preflight)
+	name := label
+	if preflight {
+		name += " preflight"
+		if browser := kindsFields(want[0], label, h1, true) != nil; browser != (g != nil) {
+			t.Errorf("%s: mimicry sent one %v, the browser %v", name, g != nil, browser)
+			return
+		}
+		if g == nil {
+			return
+		}
+	}
+	if g == nil {
+		t.Errorf("%s: mimicry sent no request", name)
+		return
+	}
+	forms := browserForms(t, want, label, h1, preflight)
+	same := func(w *kindsSent) bool {
+		return slices.Equal(g.lines, w.lines) && g.weight == w.weight
+	}
+	if slices.ContainsFunc(forms, same) {
+		return
+	}
+	// kb_part is set by a response during the page, so a browser request
+	// racing it may go without; mimicry's, made in order, never does.
+	if slices.ContainsFunc(forms, func(w *kindsSent) bool {
+		return slices.Equal(withoutRaceCookie(g.lines), withoutRaceCookie(w.lines)) && g.weight == w.weight
+	}) {
+		t.Logf("%s: matches but for %s, which the browser had not yet received", name, raceCookie)
+		return
+	}
+	t.Errorf("%s:\n got %q weight %d\nwant %q weight %d", name, g.lines, g.weight, forms[0].lines, forms[0].weight)
 }
 
 // pageNavigation is the first HTTP/1.1 GET of a page's own document, its
@@ -451,15 +470,15 @@ type kindsSent struct {
 
 var testPort = regexp.MustCompile(`\.test:\d+`)
 
-// kindsFields returns page's first request for label (not a preflight, not
-// after a redirect), or nil.
-func kindsFields(page *capture.Page, label string, h1 bool) *kindsSent {
+// kindsFields returns page's first request for label (its preflight, when
+// preflight; never one after a redirect), or nil.
+func kindsFields(page *capture.Page, label string, h1, preflight bool) *kindsSent {
 	path := "/k/" + label
 	if h1 {
 		for _, r := range page.H1 {
 			method, rest, _ := strings.Cut(r.Line, " ")
 			target, _, _ := strings.Cut(rest, " ")
-			if target != path || method == http.MethodOptions {
+			if target != path || (method == http.MethodOptions) != preflight {
 				continue
 			}
 			s := &kindsSent{}
@@ -486,7 +505,7 @@ func kindsFields(page *capture.Page, label string, h1 bool) *kindsSent {
 					s.lines = append(s.lines, ins.Name+": "+testPort.ReplaceAllString(ins.Value, ".test:PORT"))
 				}
 			}
-			if method == http.MethodOptions {
+			if (method == http.MethodOptions) != preflight {
 				continue
 			}
 			for _, f := range tr.Frames {
@@ -505,13 +524,13 @@ func kindsFields(page *capture.Page, label string, h1 bool) *kindsSent {
 // such as Chrome's Sec-Fetch-User depending on activation state across
 // runs), any form the browser was seen sending is one it sends; the
 // variance is logged.
-func browserForms(t *testing.T, samples []*capture.Page, label string, h1 bool) []*kindsSent {
+func browserForms(t *testing.T, samples []*capture.Page, label string, h1, preflight bool) []*kindsSent {
 	t.Helper()
 	counts := map[string]int{}
 	forms := map[string]*kindsSent{}
 	var keys []string
 	for i, page := range samples {
-		s := kindsFields(page, label, h1)
+		s := kindsFields(page, label, h1, preflight)
 		if s == nil {
 			t.Fatalf("%s: sample %d has no browser request", label, i+1)
 		}

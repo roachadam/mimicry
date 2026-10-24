@@ -144,6 +144,24 @@ that differs only by that cookie, and logs it.
 | Referer by strict-origin-when-cross-origin; Origin per the Fetch standard; credentials per mode | W where captured, otherwise the standard | The page sits at `/`, so full URL and origin coincide except for the CSS font |
 | After a redirect: sec-fetch-site the chain's most distant relation, `Origin: null` once the chain is tainted, the page's Referer (not `http.Client`'s), storage access by the URL's own relation | W (`fetch-redirect`, `image-redirect`, both directions) | |
 
+## CORS preflights
+
+`kinds.preflight` and `context.preflight_cache` ([decision 0017](../docs/decisions/0017-cors-preflights.md)),
+from the `kinds`, `kinds-http1`, `kinds-plain` and `cors` captures
+([report](../harness/reports/cors-2026-10-24.md)), every profile including
+Safari 26. All rows **W**.
+
+| Claim | Checked by | Notes |
+|---|---|---|
+| `kinds.preflight`: the `OPTIONS` request's names, order, values, weight; HTTP/1.1 lines; non-secure variants | `TestKindsMatchBrowserTraces` (every preflight of the kinds page; none where the browser sent none) | Priority and weight are the browser's `fetch()` ones; Safari sends `content-length: 0` |
+| When a request is preflighted: `fetch()` in CORS mode or XHR, to another origin, with a method other than GET/HEAD/POST or a header outside the Fetch safelist | `TestKindsMatchBrowserTraces`, `TestCORSMatchesBrowser`; the safelist's edges by `TestPreflightWhenNeeded` | The safelist's edges (long values, ranges, languages) follow the Fetch standard, not captures |
+| `Access-Control-Request-Headers`: lowercase, sorted, joined by `,`; absent without unsafe headers | `TestCORSMatchesBrowser` (`multi.cs`, `put.cs`) | |
+| The preflight carries no cookies; Chrome sends it on its credential-less connection | `TestCORSMatchesBrowser` (`include.cs`) | Firefox and Safari: the requests' own connection |
+| Cache lifetime: `Access-Control-Max-Age`, else 5 s | `TestCORSMatchesBrowser` (Max-Age 600, the default at once and after 6 s); `TestPreflightCacheLifetime` (the bounds, fake clock) | Max-Age caps not measured: honoured as sent |
+| `context.preflight_cache`: `replace` (Chrome, Safari 27, 26), `merge` (Firefox) | `TestCORSMatchesBrowser` (`maxage.cs`, the request after another header's preflight) | Derived by kindsgen from the `cors` capture |
+| A refused preflight (status not 2xx, or a header not allowed): no request | `TestCORSMatchesBrowser` (`denied-*.cs`); the other refusal rules by `TestPreflightRefused` | Origin, credentials and wildcard rules follow the Fetch standard; only these two refusals were captured |
+| A redirected request is preflighted again for its new URL | `TestCORSMatchesBrowser` (`redirect.cs`) | |
+
 ## Proxies
 
 `proxy` section ([decision 0014](../docs/decisions/0014-proxies.md)), from
@@ -174,7 +192,8 @@ against every browser's capture) and `TestUnmeasuredProxyIsAnError`.
 ## Not covered by any claim
 
 What a profile does not describe, so mimicry does not imitate it: CORS
-preflights; Firefox's connections for credential-less requests (their own
+preflight Max-Age caps, partitioning of the preflight cache by top-level
+site, and preflights from cross-site frames; Firefox's connections for credential-less requests (their own
 to the same-site host, shared to the page's own and the cross-site host, in
 every sample; no rule found); connections for what a cross-site frame
 itself loads; how many parallel connections a page opens; Chrome's

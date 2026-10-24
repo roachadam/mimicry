@@ -42,6 +42,10 @@ const (
 	Beacon                     // navigator.sendBeacon
 )
 
+// kindPreflight is the CORS preflight the transport sends before a request
+// that needs one; callers never make it.
+const kindPreflight Kind = -1
+
 // profileKinds names each kind in profile.Profile.Kinds.
 var profileKinds = map[Kind]string{
 	Frame:          profile.KindFrame,
@@ -58,6 +62,7 @@ var profileKinds = map[Kind]string{
 	Fetch:          profile.KindFetch,
 	XHR:            profile.KindXHR,
 	Beacon:         profile.KindBeacon,
+	kindPreflight:  profile.KindPreflight,
 }
 
 func (k Kind) String() string {
@@ -134,6 +139,10 @@ type Request struct {
 	// stylesheet (Chrome, Firefox; profile.Context.StylesheetReferrer) send
 	// its URL as Referer; sec-fetch-site and Origin stay From's.
 	Stylesheet *url.URL
+	// IgnoreCORS sends a request whose CORS preflight's answer does not
+	// allow it, which a browser never does: RoundTrip otherwise returns a
+	// *CORSError and sends nothing more. The preflight is still sent.
+	IgnoreCORS bool
 }
 
 type requestKey struct{}
@@ -242,16 +251,14 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL) (*
 	if from != nil {
 		targetSite, crossOrigin = relation(from, target)
 		site = targetSite
-		for i, u := range chain {
+		for _, u := range chain {
 			s, other := relation(from, u)
 			if siteRank[s] > siteRank[site] {
 				site = s
 			}
 			sameOrigin = sameOrigin && !other
-			if i > 0 && origin(chain[i-1]) != origin(u) && origin(chain[i-1]) != origin(from) {
-				tainted = true
-			}
 		}
+		tainted = isTainted(from, chain)
 	}
 
 	values := map[string]string{}
@@ -275,6 +282,10 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL) (*
 	// crossorigin="use-credentials"; navigations, frames and beacons always.
 	var credentialed bool
 	switch {
+	case r.Kind == kindPreflight:
+		// A preflight never carries credentials (Fetch standard), as
+		// every browser's captures show.
+		credentialed = false
 	case r.Kind == Fetch || r.Kind == XHR:
 		credentialed = r.Credentials == Include || (r.Credentials == SameOrigin && sameOrigin)
 	case mode == "cors":
@@ -315,6 +326,11 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL) (*
 	}
 	if targetSite == "cross-site" && credentialed && ctx.StorageAccess != "" {
 		values["sec-fetch-storage-access"] = ctx.StorageAccess
+	}
+	if r.Kind == kindPreflight {
+		// Safari sends an empty preflight's length; lists without the
+		// slot drop it.
+		values["content-length"] = "0"
 	}
 	// Connections: Chrome keeps credential-less requests, and a cross-site
 	// frame's navigation, on connections of their own.
@@ -367,8 +383,9 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL) (*
 	cond := profile.Variant{
 		Site:        map[string]string{"same-site": profile.SiteSameSite, "cross-site": profile.SiteCrossSite}[targetSite],
 		CORSChecked: sendOrigin || pageSet(h, list),
-		Redirected:  redirected,
-		Insecure:    !trustworthy(target),
+		// A preflight for a redirect's next URL is a request of its own.
+		Redirected: redirected && r.Kind != kindPreflight,
+		Insecure:   !trustworthy(target),
 	}
 	if req.Method != http.MethodGet {
 		cond.Method = req.Method
@@ -478,6 +495,18 @@ func relation(from, target *url.URL) (rel string, crossOrigin bool) {
 		return "same-site", true
 	}
 	return "cross-site", true
+}
+
+// isTainted reports whether a redirect chain from page from went from
+// another origin than the page's to yet another one, which makes the
+// request's origin opaque (Origin: null).
+func isTainted(from *url.URL, chain []*url.URL) bool {
+	for i := 1; i < len(chain); i++ {
+		if origin(chain[i-1]) != origin(chain[i]) && origin(chain[i-1]) != origin(from) {
+			return true
+		}
+	}
+	return false
 }
 
 // framePartition is the connection partition of a cross-site frame's

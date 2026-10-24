@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/jonboulle/clockwork"
 	"github.com/klauspost/compress/zstd"
 	brrr "github.com/molecule-man/go-brrr"
 
@@ -87,6 +88,9 @@ type Transport struct {
 	// lastNav is the URL of the last navigation sent: the page other kinds
 	// come from by default.
 	lastNav atomic.Pointer[url.URL]
+	// preflights remembers successful CORS preflights; clock times them.
+	preflights preflightCache
+	clock      clockwork.Clock
 }
 
 // NewTransport builds a Transport from cfg.
@@ -96,6 +100,7 @@ func NewTransport(cfg Config) (*Transport, error) {
 		profile: cfg.Profile,
 		headers: cfg.Headers.Clone(),
 		jar:     cfg.Cookies,
+		clock:   clockwork.NewRealClock(),
 	}
 	if t.engine == nil {
 		e, err := native.New(native.Config{
@@ -154,6 +159,7 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	exact, _ := req.Context().Value(exactKey{}).(bool)
 	if t.profile != nil {
 		s := &sending{}
+		var from *url.URL
 		if exact {
 			s.plan, s.header = &headerorder.Plan{}, req.Header.Clone()
 			// Exact still keeps cookies, as a navigation from its page.
@@ -166,7 +172,7 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 				Redirects:  redirectsBefore(req),
 			}
 		} else {
-			from := r.From
+			from = r.From
 			if from == nil && r.Kind != Navigate {
 				from = t.lastNav.Load()
 				if from == nil {
@@ -189,6 +195,11 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		for k, v := range t.headers {
 			if _, set := h[k]; !set {
 				h[k] = v
+			}
+		}
+		if !exact {
+			if err := t.preflight(req, r, from, s.credentialed, h); err != nil {
+				return nil, err
 			}
 		}
 		ctx := pool.WithPartition(req.Context(), s.partition)

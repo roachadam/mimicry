@@ -53,8 +53,14 @@ it. See [decision 0005](../decisions/0005-request-kinds-api.md).
 3. **Layer the caller's headers.** `Config.Headers` where the request does
    not set the same header; then the request's own headers win, `nil`
    suppresses a default, `HeaderOrderKey` reorders.
+4. **Preflight it if the browser would.** A cross-origin `fetch()` or XHR
+   with a non-safelisted method or header first gets an `OPTIONS`
+   preflight (the `preflight` kind), unless a cached answer allows it. An
+   answer that does not allow it stops the request with `*CORSError`
+   ([CORS preflights](cors-preflights.md),
+   [0017](../decisions/0017-cors-preflights.md)).
 
-`Exact(req)` skips steps 1 and 2: only the caller's headers are sent.
+`Exact(req)` skips steps 1, 2 and 4: only the caller's headers are sent.
 
 ## 3. The connection writes it
 
@@ -76,5 +82,6 @@ the request to:
 
 `harness/e2e`: `TestProfilesMatchCaptures` (first request),
 `TestHTTP1MatchesBrowserTrace`, `TestCookiesMatchBrowserTrace`,
-`TestKindsMatchBrowserTraces` (every request of the kinds page, redirects,
-connection sharing), `TestHPACKReproducesBrowserBlocks`.
+`TestKindsMatchBrowserTraces` (every request of the kinds page and its
+preflights, redirects, connection sharing), `TestCORSMatchesBrowser` (the
+preflight cache and refusals), `TestHPACKReproducesBrowserBlocks`.

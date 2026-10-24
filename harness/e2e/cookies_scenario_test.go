@@ -43,14 +43,14 @@ func TestCookiesScenarioMatchesBrowser(t *testing.T) {
 				"c-part.cs", "c-third.so",
 				"c-nav-get.so", "c-nav-post.so",
 			} {
-				g := kindsFields(got, label, false)
+				g := kindsFields(got, label, false, false)
 				if g == nil {
 					t.Errorf("%s: mimicry sent no request", label)
 					continue
 				}
 				gc := cookieLines(g)
 				for i, page := range want {
-					w := kindsFields(page, label, false)
+					w := kindsFields(page, label, false, false)
 					if w == nil {
 						t.Fatalf("%s: sample %d has no browser request", label, i+1)
 					}

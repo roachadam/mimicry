@@ -4134,6 +4134,206 @@
       ],
       "weight": 21
     },
+    "preflight": {
+      "headers": [
+        {
+          "name": "user-agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
+        },
+        {
+          "name": "accept",
+          "value": "*/*"
+        },
+        {
+          "name": "accept-language",
+          "value": "en-US,en;q=0.9"
+        },
+        {
+          "name": "accept-encoding",
+          "value": "gzip, deflate, br, zstd"
+        },
+        {
+          "name": "access-control-request-method"
+        },
+        {
+          "name": "access-control-request-headers"
+        },
+        {
+          "name": "referer"
+        },
+        {
+          "name": "origin"
+        },
+        {
+          "name": "sec-fetch-dest",
+          "value": "empty"
+        },
+        {
+          "name": "sec-fetch-mode",
+          "value": "cors"
+        },
+        {
+          "name": "sec-fetch-site"
+        },
+        {
+          "name": "priority",
+          "value": "u=4"
+        },
+        {
+          "name": "te",
+          "value": "trailers"
+        }
+      ],
+      "http1": [
+        {
+          "name": "Host"
+        },
+        {
+          "name": "User-Agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
+        },
+        {
+          "name": "Accept",
+          "value": "*/*"
+        },
+        {
+          "name": "Accept-Language",
+          "value": "en-US,en;q=0.9"
+        },
+        {
+          "name": "Accept-Encoding",
+          "value": "gzip, deflate, br, zstd"
+        },
+        {
+          "name": "Access-Control-Request-Method"
+        },
+        {
+          "name": "Access-Control-Request-Headers"
+        },
+        {
+          "name": "Referer"
+        },
+        {
+          "name": "Origin"
+        },
+        {
+          "name": "Connection",
+          "value": "keep-alive"
+        },
+        {
+          "name": "Sec-Fetch-Dest",
+          "value": "empty"
+        },
+        {
+          "name": "Sec-Fetch-Mode",
+          "value": "cors"
+        },
+        {
+          "name": "Sec-Fetch-Site"
+        },
+        {
+          "name": "Priority",
+          "value": "u=4"
+        }
+      ],
+      "variants": [
+        {
+          "method": "OPTIONS",
+          "site": "same-site",
+          "cors_checked": true,
+          "insecure": true,
+          "http1": [
+            {
+              "name": "Host"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "Accept-Encoding",
+              "value": "gzip, deflate"
+            },
+            {
+              "name": "Access-Control-Request-Method"
+            },
+            {
+              "name": "Access-Control-Request-Headers"
+            },
+            {
+              "name": "Referer"
+            },
+            {
+              "name": "Origin"
+            },
+            {
+              "name": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "name": "Priority",
+              "value": "u=4"
+            }
+          ]
+        },
+        {
+          "method": "OPTIONS",
+          "site": "cross-site",
+          "cors_checked": true,
+          "insecure": true,
+          "http1": [
+            {
+              "name": "Host"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "Accept-Encoding",
+              "value": "gzip, deflate"
+            },
+            {
+              "name": "Access-Control-Request-Method"
+            },
+            {
+              "name": "Access-Control-Request-Headers"
+            },
+            {
+              "name": "Referer"
+            },
+            {
+              "name": "Origin"
+            },
+            {
+              "name": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "name": "Priority",
+              "value": "u=4"
+            }
+          ]
+        }
+      ],
+      "weight": 21
+    },
     "preload_font": {
       "headers": [
         {
@@ -5463,7 +5663,8 @@
   },
   "context": {
     "storage_access": "none",
-    "stylesheet_referrer": true
+    "stylesheet_referrer": true,
+    "preflight_cache": "merge"
   },
   "cookies": {
     "unset_samesite": "none",
