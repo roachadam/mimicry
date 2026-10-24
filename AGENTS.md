@@ -76,6 +76,10 @@ Each profile file is complete and self-contained: no inheritance between version
 
 A profile's `kinds`, `context` and navigation `variants` are generated, never hand-edited: `go run ./cmd/kindsgen -profile ../profiles/data/<name>.json` (in `harness/`) derives them from `<name>.kinds.pagetrace.json.gz` and `<name>.kinds-http1.pagetrace.json.gz`, and refuses captures it cannot reconcile. Rerun it after recapturing kinds; `TestKindsMatchBrowserTraces` checks the result against the same traces.
 
+## Documentation
+
+`docs/` holds working documentation (see `docs/README.md`). A change that makes, changes or reverses a design decision adds or updates its record in `docs/decisions/` in the same commit (copy `template.md`, next number, add it to the index). A feature that lands updates its concept doc in `docs/concepts/`. Write the reasoning while it is fresh: the options rejected and the evidence matter more than polish.
+
 ## Capturing browsers
 
 `moon run harness:capture` launches every installed browser (Chrome, Firefox, Safari) against an in-process capture server and writes new captures to `harness/testdata/captures/`. It never overwrites; delete a capture to retake it. Use visible windows for captures you commit: headless Chrome reports `HeadlessChrome` in its user agent. moon skips this task when `CI=true`.
