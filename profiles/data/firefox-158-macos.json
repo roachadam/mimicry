@@ -2851,5 +2851,13 @@
   "context": {
     "storage_access": "none",
     "stylesheet_referrer": true
+  },
+  "cookies": {
+    "unset_samesite": "none",
+    "none_requires_secure": true,
+    "third_party": "partition_all",
+    "redirects": "chain",
+    "nameless": "name",
+    "order": "rfc"
   }
 }

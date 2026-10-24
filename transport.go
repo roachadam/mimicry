@@ -8,7 +8,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/http/cookiejar"
 	"net/url"
 	"strings"
 	"sync/atomic"
@@ -16,8 +15,8 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 	brrr "github.com/molecule-man/go-brrr"
-	"golang.org/x/net/publicsuffix"
 
+	"github.com/roachadam/mimicry/cookies"
 	"github.com/roachadam/mimicry/internal/engine/native"
 	"github.com/roachadam/mimicry/internal/headerorder"
 	"github.com/roachadam/mimicry/internal/pool"
@@ -56,6 +55,12 @@ type Config struct {
 	// headers, and yield to the request's own; a key with no values
 	// suppresses the profile's default.
 	Headers http.Header
+	// Cookies is the cookie jar requests send from and responses store to,
+	// under the profile's cookie rules. NewClient creates one when nil;
+	// NewTransport leaves cookies to the caller (an http.Client Jar, or
+	// Cookie headers) when nil. A request that sets its own Cookie header
+	// sends that instead.
+	Cookies *cookies.Jar
 }
 
 // Transport is an http.RoundTripper that sends requests as the profile's
@@ -64,6 +69,7 @@ type Transport struct {
 	engine  Engine
 	profile *profile.Profile
 	headers http.Header
+	jar     *cookies.Jar
 	// decode is true when the profile sends Accept-Encoding by default.
 	decode bool
 	// lastNav is the URL of the last navigation sent: the page other kinds
@@ -77,6 +83,7 @@ func NewTransport(cfg Config) (*Transport, error) {
 		engine:  cfg.Engine,
 		profile: cfg.Profile,
 		headers: cfg.Headers.Clone(),
+		jar:     cfg.Cookies,
 	}
 	if t.engine == nil {
 		e, err := native.New(native.Config{
@@ -100,21 +107,26 @@ func NewTransport(cfg Config) (*Transport, error) {
 	return t, nil
 }
 
-// NewClient returns an *http.Client using a new Transport and a cookie jar.
+// NewClient returns an *http.Client using a new Transport and, unless
+// cfg.Cookies holds one, a new cookie jar with the profile's cookie rules.
+// The jar is the transport's, not the client's Jar: it needs what an
+// http.CookieJar never sees (the page, the request kind, redirects).
 func NewClient(cfg Config) (*http.Client, error) {
-	t, err := NewTransport(cfg)
-	if err != nil {
-		return nil, err
+	if cfg.Cookies == nil {
+		var rules *profile.Cookies
+		if cfg.Profile != nil {
+			rules = cfg.Profile.Cookies
+		}
+		cfg.Cookies = cookies.New(cookies.Config{
+			Rules: rules,
+		})
 	}
-	jar, err := cookiejar.New(&cookiejar.Options{
-		PublicSuffixList: publicsuffix.List,
-	})
+	t, err := NewTransport(cfg)
 	if err != nil {
 		return nil, err
 	}
 	return &http.Client{
 		Transport: t,
-		Jar:       jar,
 	}, nil
 }
 
@@ -131,6 +143,15 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		s := &sending{}
 		if exact {
 			s.plan, s.header = &headerorder.Plan{}, req.Header.Clone()
+			// Exact still keeps cookies, as a navigation from its page.
+			s.credentialed = true
+			s.cookies = cookies.Request{
+				URL:        req.URL,
+				Method:     req.Method,
+				Navigation: true,
+				Page:       r.From,
+				Redirects:  redirectsBefore(req),
+			}
 		} else {
 			from := r.From
 			if from == nil && r.Kind != Navigate {
@@ -161,10 +182,26 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		if s.plan != nil {
 			ctx = headerorder.WithPlan(ctx, s.plan)
 		}
+		if t.jar != nil && s.credentialed && h.Get("Cookie") == "" {
+			if line := cookies.Header(t.jar.Cookies(s.cookies)); line != "" {
+				h.Set("Cookie", line)
+			}
+		}
 		req = req.Clone(ctx)
 		req.Header = h
+		resp, err := t.engine.RoundTrip(req)
+		if err == nil && t.jar != nil && s.credentialed {
+			t.jar.SetCookies(s.cookies, resp.Header.Values("Set-Cookie"))
+		}
+		return t.finish(req, r, exact, callerSet, resp, err)
 	}
 	resp, err := t.engine.RoundTrip(req)
+	return t.finish(req, r, exact, callerSet, resp, err)
+}
+
+// finish records the last navigation and decodes the body, as RoundTrip
+// describes.
+func (t *Transport) finish(req *http.Request, r Request, exact, callerSet bool, resp *http.Response, err error) (*http.Response, error) {
 	if err == nil && r.Kind == Navigate && !exact {
 		t.lastNav.Store(req.URL)
 	}

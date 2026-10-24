@@ -73,8 +73,8 @@ func (p *Profile) Validate() error {
 	}
 	c.checkVariants("variants", p.Variants, false)
 	c.checkKinds(p.Kinds)
-	if p.CookieOrder != CookieOrderCreation && p.CookieOrder != CookieOrderName {
-		c.add("cookie_order", "must be empty (creation order) or %q", CookieOrderName)
+	if p.Cookies != nil {
+		c.checkCookies(p.Cookies)
 	}
 	if len(c.problems) > 0 {
 		return &ValidationError{

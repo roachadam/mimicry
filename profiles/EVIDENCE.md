@@ -84,7 +84,29 @@ replayed pages (3516 checks), re-encoded byte for byte.
 | `accept-language` value | W, but it is this machine's language setting, not a browser constant | `TestProfilesMatchCaptures` |
 | `http1.headers`: HTTP/1.1 names as sent (casing), order, values, Host and Connection positions | W+ (`http1` scenario, every browser and Safari 26) | `TestHTTP1MatchesBrowserTrace` (`/` and `/nav`, line for line), `TestRequestHeadFollowsHTTP1Section` |
 | `Content-Length` slot in `http1.headers` | **K** (`fetch()` uploads) | `TestRequestHeadFollowsHTTP1Section` (Chrome, unit) |
-| `cookie_order` | W+: creation order for Chrome and Firefox, by name for Safari | `TestCookiesMatchBrowserTrace`, `TestCookieLineFollowsCookieOrder`, `TestCookies` |
+
+## Cookies
+
+`cookies` section ([decision 0012](../docs/decisions/0012-cookie-rules-in-profiles.md)),
+from the `set-cookie`, `kinds` and `cookies` captures
+([report](../harness/reports/cookies-2026-10-24.md)). Checked end to end by
+`TestCookiesScenarioMatchesBrowser` (the cookies page walked through
+mimicry: every probe's cookies, in order), `TestKindsMatchBrowserTraces`
+(every kinds request's cookies) and `TestCookiesMatchBrowserTrace` (crumbs,
+HPACK representation); the shared RFC 6265bis rules by `cookies` unit tests.
+Safari 26: copied (**C**) from Safari 27 except `order`, which its
+`set-cookie` capture shows (W).
+
+| Claim (`cookies.…`) | Chrome 155 | Firefox 158 | Safari 27 |
+|---|---|---|---|
+| `unset_samesite` | W: `lax` (third-party unset cookie not sent; withheld on cross-site POST only past the window) | W: `none` | W: `none` |
+| `lax_allows_unsafe_seconds` | 120: a seconds-old cookie sent on a cross-site form POST is W; the 120-second end is Chromium's documented value, not captured | — | — |
+| `none_requires_secure` | W | W | W: `false` (kept and sent) |
+| `third_party` | W: `samesite`; `Partitioned` keyed by top-level site (withheld under site C) | W: `partition_all` (nothing third-party crosses top-level sites) | W: `partitioned_only` (blocking at store or send is not observable; the jar does both) |
+| `redirects` | W: `ignore` | W: `chain` | W: `block_after_cross_site` (cross-site → same-site and → same-origin hops alike) |
+| `nameless` | W: `value` (`knoeq`) | W: `name` (`knoeq=`) | W: `drop` |
+| `latin1_values` | W: no | W: no | W: yes (`cafÃ©`) |
+| `order` | W+: `rfc` (path length, then creation) | W+: `rfc` | W+: `domain_name` (path length, `Domain` cookies first, name); ordering between `Domain` cookies of different levels not captured |
 
 ## Request kinds
 

@@ -3,24 +3,22 @@ package e2e
 import (
 	"io"
 	"net/http"
-	"net/http/cookiejar"
 	"slices"
 	"strconv"
 	"strings"
 	"testing"
 
-	"golang.org/x/net/publicsuffix"
-
+	"github.com/roachadam/mimicry/cookies"
 	"github.com/roachadam/mimicry/harness/internal/h2trace"
 	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/profiles"
 )
 
-// Cookies a server sets come back from mimicry, through a real cookie jar,
-// as the browser sent them on its first request after: the same crumbs in the
+// Cookies a server sets come back from mimicry, through its cookie jar, as
+// the browser sent them on its first request after: the same crumbs in the
 // same order, each with the same representation and Huffman use (Chrome
 // indexes every crumb; Firefox and Safari never index those under 20 bytes;
-// Safari sorts them by name). Table indices are left out: the browser's
+// Safari orders them by name). Table indices are left out: the browser's
 // earlier subresource requests filled its table differently.
 func TestCookiesMatchBrowserTrace(t *testing.T) {
 	sc, err := server.ScenarioByName("set-cookie")
@@ -33,16 +31,11 @@ func TestCookiesMatchBrowserTrace(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			base, tr, captures := captureClient(t, p, sc)
-			jar, err := cookiejar.New(&cookiejar.Options{
-				PublicSuffixList: publicsuffix.List,
-			})
-			if err != nil {
-				t.Fatal(err)
-			}
+			base, tr, captures := captureClientWith(t, p, sc, cookies.New(cookies.Config{
+				Rules: p.Cookies,
+			}))
 			client := &http.Client{
 				Transport: tr,
-				Jar:       jar,
 			}
 			for _, path := range []string{"/", "/again"} {
 				req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, base+path, nil)

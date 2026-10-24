@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/roachadam/mimicry"
+	"github.com/roachadam/mimicry/cookies"
 	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/profile"
@@ -26,9 +27,9 @@ import (
 // Every request of the kinds page, made through mimicry as its kind from
 // the page, is the browser's: the same header names in the same order, the
 // same values, the same HTTP/2 weight, and over HTTP/1.1 the same lines;
-// redirects' requests too, as http.Client follows them. Left out: cookies
-// (mimicry/cookies; this client has no jar, and cookie fields are not
-// compared), CORS preflights, and FontFace loads (no kind).
+// redirects' requests too, as http.Client follows them, and the cookies
+// each sends through mimicry's jar. Left out: CORS preflights and FontFace
+// loads (no kind).
 func TestKindsMatchBrowserTraces(t *testing.T) {
 	for _, name := range profiles.Names() {
 		t.Run(name, func(t *testing.T) {
@@ -171,16 +172,21 @@ func kindsRequests() []kindsRequest {
 		"xhr":    mimicry.XHR,
 		"beacon": mimicry.Beacon,
 	}
-	var out []kindsRequest
+	var out, fonts []kindsRequest
 	for _, s := range server.KindsMarkup() {
 		base, _, _ := strings.Cut(s.Label, ".")
-		out = append(out, kindsRequest{
+		r := kindsRequest{
 			label:  s.Label,
 			method: http.MethodGet,
 			req: mimicry.Request{
 				Kind: markup[base],
 			},
-		})
+		}
+		if s.Tag == "" {
+			fonts = append(fonts, r)
+			continue
+		}
+		out = append(out, r)
 	}
 	for _, s := range server.KindsSteps() {
 		kind, ok := scripted[s.Kind]
@@ -214,6 +220,13 @@ func kindsRequests() []kindsRequest {
 			r.headers.Set("Content-Type", "text/plain;charset=UTF-8")
 		}
 		out = append(out, r)
+		if len(fonts) > 0 {
+			// The CSS fonts load when their text renders: in most browser
+			// samples just after the page's first step, which sets the
+			// third-party cookies the cross-site font then carries.
+			out = append(out, fonts...)
+			fonts = nil
+		}
 	}
 	return append(out, kindsRequest{
 		label:  "form-post.so",
@@ -232,6 +245,44 @@ func kindsRequests() []kindsRequest {
 // mimicry as profile p, from the page, and returns the server's capture.
 func runKindsPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *capture.Page {
 	t.Helper()
+	s := startPage(t, p, sc)
+	hosts, _, _ := sc.MultiHost()
+	page := s.url(hosts[0], "/")
+	s.send(http.MethodGet, page, mimicry.Request{}, nil, "")
+	from, err := url.Parse(page)
+	if err != nil {
+		t.Fatal(err)
+	}
+	steps := map[string]server.KindsStep{}
+	for _, st := range slices.Concat(server.KindsMarkup(), server.KindsSteps()) {
+		steps[st.Label] = st
+	}
+	for _, r := range kindsRequests() {
+		host := hosts[0]
+		if st, ok := steps[r.label]; ok {
+			host = st.Host
+		}
+		r.req.From = from
+		if strings.HasPrefix(r.label, "font-css.") {
+			// The stylesheet that declares the font loads it.
+			r.req.Stylesheet = from.JoinPath("k", "style-fonts.so")
+		}
+		s.send(r.method, s.url(host, "/k/"+r.label), r.req, r.headers, r.body)
+	}
+	return s.finish(s.url(hosts[0], "/done"))
+}
+
+// pageSession is a multi-host scenario's server and a mimicry client for a
+// profile reaching every host on it, with the profile's cookie jar.
+type pageSession struct {
+	t        *testing.T
+	client   *http.Client
+	port     string
+	captures chan *capture.Capture
+}
+
+func startPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *pageSession {
+	t.Helper()
 	ca, err := server.LoadOrCreateCA(t.TempDir(), server.CADomains, time.Now())
 	if err != nil {
 		t.Fatal(err)
@@ -240,7 +291,10 @@ func runKindsPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *captur
 	if err != nil {
 		t.Fatal(err)
 	}
-	captures := make(chan *capture.Capture, 64)
+	s := &pageSession{
+		t:        t,
+		captures: make(chan *capture.Capture, 64),
+	}
 	ctx, cancel := context.WithCancel(t.Context())
 	srv := &server.Server{
 		Scenario:  sc,
@@ -249,7 +303,7 @@ func runKindsPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *captur
 			return ca.Issue(hosts, time.Now())
 		},
 		OnCapture: func(c *capture.Capture) {
-			captures <- c
+			s.captures <- c
 		},
 		Logf: t.Logf,
 	}
@@ -268,6 +322,9 @@ func runKindsPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *captur
 	tr, err := mimicry.NewTransport(mimicry.Config{
 		Profile: p,
 		RootCAs: pool,
+		Cookies: cookies.New(cookies.Config{
+			Rules: p.Cookies,
+		}),
 		// Every capture host is this server.
 		DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
 			return (&net.Dialer{}).DialContext(ctx, network, ln.Addr().String())
@@ -277,66 +334,56 @@ func runKindsPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *captur
 		t.Fatal(err)
 	}
 	t.Cleanup(tr.CloseIdleConnections)
-	client := &http.Client{
+	s.client = &http.Client{
 		Transport: tr,
 	}
-	_, port, _ := net.SplitHostPort(ln.Addr().String())
-	hosts, _, _ := sc.MultiHost()
-	page := "https://" + net.JoinHostPort(hosts[0], port)
-	send := func(method, target string, r mimicry.Request, h http.Header, body string) {
-		t.Helper()
-		var rd io.Reader
-		if body != "" {
-			rd = strings.NewReader(body)
-		}
-		req, err := http.NewRequestWithContext(t.Context(), method, target, rd)
-		if err != nil {
-			t.Fatal(err)
-		}
-		maps.Copy(req.Header, h)
-		resp, err := client.Do(mimicry.With(req, r))
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, _ = io.Copy(io.Discard, resp.Body)
-		_ = resp.Body.Close()
+	_, s.port, _ = net.SplitHostPort(ln.Addr().String())
+	return s
+}
+
+func (s *pageSession) url(host, path string) string {
+	return "https://" + net.JoinHostPort(host, s.port) + path
+}
+
+// send makes one request as r describes, with the page's own headers h and
+// body, and reads the response.
+func (s *pageSession) send(method, target string, r mimicry.Request, h http.Header, body string) {
+	s.t.Helper()
+	var rd io.Reader
+	if body != "" {
+		rd = strings.NewReader(body)
 	}
-	send(http.MethodGet, page+"/", mimicry.Request{}, nil, "")
-	from, err := url.Parse(page + "/")
+	req, err := http.NewRequestWithContext(s.t.Context(), method, target, rd)
 	if err != nil {
-		t.Fatal(err)
+		s.t.Fatal(err)
 	}
-	steps := map[string]server.KindsStep{}
-	for _, s := range slices.Concat(server.KindsMarkup(), server.KindsSteps()) {
-		steps[s.Label] = s
+	maps.Copy(req.Header, h)
+	resp, err := s.client.Do(mimicry.With(req, r))
+	if err != nil {
+		s.t.Fatal(err)
 	}
-	for _, r := range kindsRequests() {
-		host := hosts[0]
-		if s, ok := steps[r.label]; ok {
-			host = s.Host
-		}
-		r.req.From = from
-		if strings.HasPrefix(r.label, "font-css.") {
-			// The stylesheet that declares the font loads it.
-			r.req.Stylesheet = from.JoinPath("k", "style-fonts.so")
-		}
-		send(r.method, "https://"+net.JoinHostPort(host, port)+"/k/"+r.label, r.req, r.headers, r.body)
-	}
-	send(http.MethodGet, page+"/done", mimicry.Request{}, nil, "")
+	_, _ = io.Copy(io.Discard, resp.Body)
+	_ = resp.Body.Close()
+}
+
+// finish asks for done and returns the page capture.
+func (s *pageSession) finish(done string) *capture.Page {
+	s.t.Helper()
+	s.send(http.MethodGet, done, mimicry.Request{}, nil, "")
 	for {
 		select {
-		case c := <-captures:
+		case c := <-s.captures:
 			if c.Finished && c.Page != nil {
 				return c.Page
 			}
 		case <-time.After(10 * time.Second):
-			t.Fatal("no page capture")
+			s.t.Fatal("no page capture")
 		}
 	}
 }
 
-// kindsSent is one request as compared: its header lines (cookies left
-// out, ports replaced) and HEADERS weight.
+// kindsSent is one request as compared: its header lines (ports replaced;
+// cookies included, one line per HTTP/2 crumb) and HEADERS weight.
 type kindsSent struct {
 	lines  []string
 	weight uint8
@@ -357,9 +404,7 @@ func kindsFields(page *capture.Page, label string, h1 bool) *kindsSent {
 			}
 			s := &kindsSent{}
 			for _, l := range r.Headers {
-				if name, _, _ := strings.Cut(l, ":"); !strings.EqualFold(name, "cookie") {
-					s.lines = append(s.lines, testPort.ReplaceAllString(l, ".test:PORT"))
-				}
+				s.lines = append(s.lines, testPort.ReplaceAllString(l, ".test:PORT"))
 			}
 			return s
 		}
@@ -376,7 +421,7 @@ func kindsFields(page *capture.Page, label string, h1 bool) *kindsSent {
 				switch {
 				case ins.Name == ":method":
 					method = ins.Value
-				case ins.Name == "" || ins.Name == "cookie" || strings.HasPrefix(ins.Name, ":"):
+				case ins.Name == "" || strings.HasPrefix(ins.Name, ":"):
 				default:
 					s.lines = append(s.lines, ins.Name+": "+testPort.ReplaceAllString(ins.Value, ".test:PORT"))
 				}

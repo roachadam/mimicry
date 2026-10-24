@@ -34,10 +34,9 @@ type Profile struct {
 	// Context is how the browser fills what depends on which page makes a
 	// request. Nil: as the Fetch standard says, with no browser extras.
 	Context *Context `json:"context,omitempty"`
-	// CookieOrder is the order of cookies in the Cookie header:
-	// CookieOrderCreation (empty; Chrome, Firefox: RFC 6265 order, as Go's
-	// cookie jar produces) or CookieOrderName (Safari: sorted by name).
-	CookieOrder string `json:"cookie_order,omitempty"`
+	// Cookies are the browser's cookie rules. Nil: RFC 6265bis's
+	// (DefaultCookies).
+	Cookies *Cookies `json:"cookies,omitempty"`
 }
 
 // HTTP1 describes a browser's HTTP/1.1 requests.
@@ -47,12 +46,6 @@ type HTTP1 struct {
 	// Content-Length the body's length; values work as in Profile.Headers.
 	Headers []Header `json:"headers"`
 }
-
-// Cookie orders.
-const (
-	CookieOrderCreation = ""
-	CookieOrderName     = "name"
-)
 
 // Parse decodes a profile from JSON and validates it. Unknown fields and
 // trailing data are errors, so a typo cannot silently drop a setting.

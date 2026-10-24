@@ -175,17 +175,6 @@ func TestRequestHeadWithoutHTTP1Section(t *testing.T) {
 	}
 }
 
-// Over HTTP/1.1 the cookies go out on one line, in the profile's cookie
-// order: Safari's sorts them by name.
-func TestCookieLineFollowsCookieOrder(t *testing.T) {
-	req := newRequest(t, http.MethodGet, "http://example.com/", nil)
-	req.Header.Set("Cookie", "b=2; a=1")
-	lines := requestHead(t, profiles.Safari27MacOS(), req)
-	if !slices.Contains(lines, "Cookie: a=1; b=2") {
-		t.Errorf("cookie line not sorted by name: %q", lines)
-	}
-}
-
 func TestKeepAliveReuse(t *testing.T) {
 	var addrs []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

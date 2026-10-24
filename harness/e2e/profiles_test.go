@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/roachadam/mimicry"
+	"github.com/roachadam/mimicry/cookies"
 	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/harness/internal/diff"
 	"github.com/roachadam/mimicry/harness/internal/server"
@@ -25,6 +26,13 @@ import (
 // URL, a mimicry transport for p trusting it, and the channel its captures
 // arrive on.
 func captureClient(t *testing.T, p *profile.Profile, sc *server.Scenario) (string, *mimicry.Transport, <-chan *capture.Capture) {
+	t.Helper()
+	return captureClientWith(t, p, sc, nil)
+}
+
+// captureClientWith is captureClient with jar as the transport's cookie
+// jar (nil: none).
+func captureClientWith(t *testing.T, p *profile.Profile, sc *server.Scenario, jar *cookies.Jar) (string, *mimicry.Transport, <-chan *capture.Capture) {
 	t.Helper()
 	cert, pool := testutil.Certificate(t, "localhost")
 	ln, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
@@ -59,6 +67,7 @@ func captureClient(t *testing.T, p *profile.Profile, sc *server.Scenario) (strin
 	tr, err := mimicry.NewTransport(mimicry.Config{
 		Profile: p,
 		RootCAs: pool,
+		Cookies: jar,
 	})
 	if err != nil {
 		t.Fatal(err)

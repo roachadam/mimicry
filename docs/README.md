@@ -32,5 +32,6 @@ Related, elsewhere in the repository:
 | [0009](decisions/0009-own-cookie-jar.md) | Our own cookie jar, driven by the transport | Accepted |
 | [0010](decisions/0010-dial-context.md) | `Config.DialContext` for the TCP connection | Accepted |
 | [0011](decisions/0011-connection-partitioning.md) | Model connection partitioning only where a rule is measured | Accepted |
+| [0012](decisions/0012-cookie-rules-in-profiles.md) | Browser cookie rules as a profile section | Accepted |
 
 New records copy [`decisions/template.md`](decisions/template.md).

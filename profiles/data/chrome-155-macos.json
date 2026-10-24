@@ -2862,5 +2862,14 @@
     "stylesheet_referrer": true,
     "anonymous_connections": true,
     "frame_connections": true
+  },
+  "cookies": {
+    "unset_samesite": "lax",
+    "lax_allows_unsafe_seconds": 120,
+    "none_requires_secure": true,
+    "third_party": "samesite",
+    "redirects": "ignore",
+    "nameless": "value",
+    "order": "rfc"
   }
 }

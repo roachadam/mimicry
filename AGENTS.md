@@ -16,7 +16,7 @@ moon run harness:test       # the harness only
 
 ## Package boundaries
 
-The public surface is small: the root package (`Transport`, `NewClient`, `Config`, `Engine`, `HeaderOrderKey`, and request kinds: `Kind`, `Request`, `As`, `With`, `Exact`), `profile` and `profiles`. Everything else is in `internal/`, flat, one package per concern. Each package's `doc.go` states what it may import; keep to it.
+The public surface is small: the root package (`Transport`, `NewClient`, `Config`, `Engine`, `HeaderOrderKey`, and request kinds: `Kind`, `Request`, `As`, `With`, `Exact`), `cookies` (the jar), `profile` and `profiles`. Everything else is in `internal/`, flat, one package per concern. Each package's `doc.go` states what it may import; keep to it.
 
 - Only `internal/handshake` imports `github.com/roachadam/utls`.
 - Only `internal/engine/native` assembles the request path (pool → dial → handshake → h1/h2).
@@ -61,7 +61,8 @@ Profile accuracy is proven by the harness against real browser captures, not by 
 - `TestProfilesMatchCaptures`: mimicry's request to the capture server has no differences from the browser's capture (TLS, HTTP/2 preface and first request, headers).
 - `TestHPACKReproducesBrowserBlocks`: re-encoding the browser's traced requests with the profile's `http2.hpack` reproduces every header block byte for byte, in every sample of every scenario and on every connection of every replayed real page. `http2.hpack` cannot be captured; this is what keeps it honest. A failure names the first instruction that differs.
 - `TestConnectionMatchesBrowserTrace`: on one connection, mimicry's first header block and largest upload DATA frame match every sample of the browser's trace, and every WINDOW_UPDATE credit increment it sends lies within the range the browser's own increments span (± one frame). Ranges, not single values, because credit timing varies between a browser's own connections.
-- `TestCookiesMatchBrowserTrace`: cookies set by the server come back from mimicry, through a real cookie jar, in the browser's order and representation.
+- `TestCookiesMatchBrowserTrace`: cookies set by the server come back from mimicry, through its cookie jar, in the browser's order and HPACK representation.
+- `TestKindsMatchBrowserTraces` and `TestCookiesScenarioMatchesBrowser`: every request of the kinds page, and every probe of the cookies page, made through mimicry from its page: headers, order, values, weights, connections and cookies as the browser sent them.
 - `TestHTTP1MatchesBrowserTrace`: over HTTP/1.1, mimicry's two navigations (`/`, then `/nav` with a referer and cookies) are the browser's header lines exactly, casing, order and values, in every sample of the `http1` scenario (authority normalised).
 
 Behaviour that depends on time (Chrome's 5 s credit return, its idle PING) is tested in `internal/h2` with a fake clock against a raw HTTP/2 peer; the captures show it, the unit tests pin it.
@@ -70,7 +71,7 @@ Behaviour that depends on time (Chrome's 5 s credit return, its idle PING) is te
 
 Built-in profiles are JSON files in `profiles/data/`, one per browser version and platform; the typed Go variables are generated from them. Every built-in profile must pass `profile.Parse`, enforced twice: the generator refuses to generate from an invalid file, and a test in `profiles` parses every embedded file. A profile without a matching capture in `harness/testdata/captures/` is not finished.
 
-Each profile file is complete and self-contained: no inheritance between versions or platforms, so every value is visible in one file and checked against that version's own capture. A new version starts as a copy of the previous one; replace every captured field from the new capture, and treat everything copied that a capture cannot show (`http2.hpack`, header slots, `cookie_order`, `http1` slots) as unverified until the e2e tests pass against the new traces. Planned: `profilegen derive` to automate this copy and list the copied fields.
+Each profile file is complete and self-contained: no inheritance between versions or platforms, so every value is visible in one file and checked against that version's own capture. A new version starts as a copy of the previous one; replace every captured field from the new capture, and treat everything copied that a capture cannot show (`http2.hpack`, header slots, `cookies`, `http1` slots) as unverified until the e2e tests pass against the new traces. Planned: `profilegen derive` to automate this copy and list the copied fields.
 
 `profiles/EVIDENCE.md` lists every claim the profiles make, its evidence (wire, fitted to the wire, measured on another request kind, or copied) and the test that keeps it true. A profile change that adds, removes or re-sources a claim updates its row in the same commit.
 

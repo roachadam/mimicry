@@ -392,12 +392,23 @@ func TestValidate(t *testing.T) {
 			want: `must be "on_change" or "always"`,
 		},
 		{
-			name: "unknown cookie order",
+			name: "unknown third-party policy",
 			mutate: func(_ *testing.T, p *Profile) {
-				p.CookieOrder = "random"
+				p.Cookies = DefaultCookies()
+				p.Cookies.ThirdParty = "block_all"
 			},
-			path: "cookie_order",
-			want: "creation order",
+			path: "cookies.third_party",
+			want: "must be one of",
+		},
+		{
+			name: "Lax exception without Lax by default",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.Cookies = DefaultCookies()
+				p.Cookies.UnsetSameSite = SameSiteNone
+				p.Cookies.LaxAllowsUnsafeSeconds = 120
+			},
+			path: "cookies.lax_allows_unsafe_seconds",
+			want: "applies only when",
 		},
 		{
 			name: "HTTP/1.1 header repeated in another case",

@@ -267,5 +267,12 @@
       }
     ]
   },
-  "cookie_order": "name"
+  "cookies": {
+    "unset_samesite": "none",
+    "third_party": "partitioned_only",
+    "redirects": "block_after_cross_site",
+    "nameless": "drop",
+    "latin1_values": true,
+    "order": "domain_name"
+  }
 }

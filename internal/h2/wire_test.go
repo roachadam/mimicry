@@ -299,15 +299,16 @@ func TestDataFrameCap(t *testing.T) {
 	<-result
 }
 
-// Cookies go out one per field, as every captured browser sends them, in the
-// profile's order: creation order for Chrome, by name for Safari.
-func TestCookieSplitAndOrder(t *testing.T) {
+// Cookies go out one per field, as every captured browser sends them, in
+// the order given: the jar orders them, a caller's header is sent as
+// written.
+func TestCookieSplit(t *testing.T) {
 	for _, tt := range []struct {
 		p    *profile.Profile
 		want string
 	}{
 		{profiles.Chrome155MacOS(), "b=2|a=1|c=3"},
-		{profiles.Safari27MacOS(), "a=1|b=2|c=3"},
+		{profiles.Safari27MacOS(), "b=2|a=1|c=3"},
 	} {
 		c, pr := newPeer(t, tt.p, clockwork.NewRealClock())
 		req := get(t, "/")

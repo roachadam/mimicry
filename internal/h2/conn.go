@@ -47,12 +47,11 @@ const (
 // Conn is a client HTTP/2 connection that opens like the profile's browser.
 // It is safe for concurrent use.
 type Conn struct {
-	conn        net.Conn
-	fr          *http2.Framer
-	headers     []profile.Header
-	h2          *profile.HTTP2
-	cookieOrder string
-	clock       clockwork.Clock
+	conn    net.Conn
+	fr      *http2.Framer
+	headers []profile.Header
+	h2      *profile.HTTP2
+	clock   clockwork.Clock
 
 	// wmu serializes frame writes and guards the HPACK encoder. Lock order:
 	// wmu may be held while taking mu, never the reverse.
@@ -141,7 +140,6 @@ func New(conn net.Conn, p *profile.Profile, clock clockwork.Clock) (*Conn, error
 		fr:               http2.NewFramer(conn, conn),
 		headers:          p.Headers,
 		h2:               h2,
-		cookieOrder:      p.CookieOrder,
 		clock:            clock,
 		henc:             hpack.NewEncoder(h2.HPACK),
 		streams:          map[uint32]*stream{},
@@ -343,7 +341,7 @@ func (c *Conn) writeHeaders(s *stream, req *http.Request, endStream bool) error 
 	}
 	for _, f := range ordered {
 		if f.Name == "cookie" {
-			crumbs := headerorder.Cookies(f.Value, c.cookieOrder)
+			crumbs := headerorder.Crumbs(f.Value)
 			if c.h2.SplitCookie {
 				// One field per cookie (RFC 9113, 8.2.3), as browsers send
 				// them.

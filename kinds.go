@@ -4,15 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"net/url"
 	"slices"
 	"strings"
 
-	"golang.org/x/net/publicsuffix"
-
+	"github.com/roachadam/mimicry/cookies"
 	"github.com/roachadam/mimicry/internal/headerorder"
+	"github.com/roachadam/mimicry/internal/site"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -165,11 +164,15 @@ func Exact(req *http.Request) *http.Request {
 var errNotMeasured = errors.New("mimicry: not measured for this profile")
 
 // sending is how to send one request: the plan (nil: the profile's
-// navigation, unchanged), its headers, and the connection partition.
+// navigation, unchanged), its headers, the connection partition, and how
+// the cookie jar sees it.
 type sending struct {
 	plan      *headerorder.Plan
 	header    http.Header
 	partition string
+	// credentialed: the request sends and keeps cookies.
+	credentialed bool
+	cookies      cookies.Request
 }
 
 // resolve returns how to send req as r describes it, from page from (nil:
@@ -214,14 +217,9 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL) (*
 	if ctx == nil {
 		ctx = &profile.Context{}
 	}
-	// The redirect chain this request ends, first URL first: http.Client
-	// sets Response on each request it makes by following a redirect.
+	// The redirect chain this request ends, first URL first.
 	target := req.URL
-	chain := []*url.URL{target}
-	for prev := req; prev.Response != nil && prev.Response.Request != nil; {
-		prev = prev.Response.Request
-		chain = append([]*url.URL{prev.URL}, chain...)
-	}
+	chain := append(redirectsBefore(req), target)
 	redirected := len(chain) > 1
 	if redirected {
 		// http.Client sets Referer to the previous URL when it follows a
@@ -320,11 +318,19 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL) (*
 	// Connections: Chrome keeps credential-less requests, and a cross-site
 	// frame's navigation, on connections of their own.
 	s := &sending{
-		header: h,
+		header:       h,
+		credentialed: credentialed,
+		cookies: cookies.Request{
+			URL:        target,
+			Method:     req.Method,
+			Navigation: r.Kind == Navigate,
+			Page:       from,
+			Redirects:  chain[:len(chain)-1],
+		},
 	}
 	switch {
 	case ctx.FrameConnections && r.Kind == Frame && targetSite == "cross-site":
-		s.partition = "frame " + registrable(target.Hostname())
+		s.partition = framePartition(target)
 	case ctx.AnonymousConnections && !credentialed:
 		s.partition = "anonymous"
 	}
@@ -435,28 +441,21 @@ func pageSet(h http.Header, list []profile.Header) bool {
 }
 
 // relation returns target's sec-fetch-site relation to page from, and
-// whether it is another origin. Sites are schemeful: scheme plus registrable
-// domain (public suffix list), or the host itself for IPs and hosts without
-// one.
-func relation(from, target *url.URL) (site string, crossOrigin bool) {
+// whether it is another origin. Sites are schemeful (internal/site).
+func relation(from, target *url.URL) (rel string, crossOrigin bool) {
 	if origin(from) == origin(target) {
 		return "same-origin", false
 	}
-	if from.Scheme == target.Scheme && registrable(from.Hostname()) == registrable(target.Hostname()) {
+	if site.Same(from, target) {
 		return "same-site", true
 	}
 	return "cross-site", true
 }
 
-func registrable(host string) string {
-	host = strings.ToLower(strings.TrimSuffix(host, "."))
-	if net.ParseIP(host) != nil {
-		return host
-	}
-	if site, err := publicsuffix.EffectiveTLDPlusOne(host); err == nil {
-		return site
-	}
-	return host
+// framePartition is the connection partition of a cross-site frame's
+// navigation: its own site.
+func framePartition(target *url.URL) string {
+	return "frame " + site.Of(target)
 }
 
 // origin serializes u's origin: scheme://host[:port], the port only when it
@@ -493,4 +492,16 @@ func referrer(from, target *url.URL) string {
 		u.Path = "/"
 	}
 	return u.String()
+}
+
+// redirectsBefore returns the URLs that redirected to req, first first:
+// http.Client sets Response on each request it makes by following a
+// redirect.
+func redirectsBefore(req *http.Request) []*url.URL {
+	var urls []*url.URL
+	for prev := req; prev.Response != nil && prev.Response.Request != nil; {
+		prev = prev.Response.Request
+		urls = append([]*url.URL{prev.URL}, urls...)
+	}
+	return urls
 }

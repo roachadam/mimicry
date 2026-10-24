@@ -19,11 +19,10 @@ import (
 
 // Conn is a client HTTP/1.1 connection carrying one request at a time.
 type Conn struct {
-	conn        net.Conn
-	br          *bufio.Reader
-	bw          *bufio.Writer
-	headers     []profile.Header
-	cookieOrder string
+	conn    net.Conn
+	br      *bufio.Reader
+	bw      *bufio.Writer
+	headers []profile.Header
 	// From the profile's http1 section, when it has one: its header list
 	// with lowercase names (for headerorder) and each name's casing.
 	h1Order []profile.Header
@@ -33,11 +32,10 @@ type Conn struct {
 // New wraps conn, which carries HTTP/1.1, plain or over TLS, for profile p.
 func New(conn net.Conn, p *profile.Profile) *Conn {
 	c := &Conn{
-		conn:        conn,
-		br:          bufio.NewReader(conn),
-		bw:          bufio.NewWriter(conn),
-		headers:     p.Headers,
-		cookieOrder: p.CookieOrder,
+		conn:    conn,
+		br:      bufio.NewReader(conn),
+		bw:      bufio.NewWriter(conn),
+		headers: p.Headers,
 	}
 	if p.HTTP1 != nil {
 		c.h1Order, c.h1Case = lowerList(p.HTTP1.Headers)
@@ -188,9 +186,6 @@ func (c *Conn) writeRequest(req *http.Request) error {
 		fields = append(fields, headerorder.Build(headers, req.Header, skipHeader)...)
 	}
 	for _, f := range fields {
-		if f.Name == "cookie" && c.cookieOrder != profile.CookieOrderCreation {
-			f.Value = strings.Join(headerorder.Cookies(f.Value, c.cookieOrder), "; ")
-		}
 		name := h1Case[f.Name]
 		if name == "" {
 			// A header the profile does not name goes out as the caller
