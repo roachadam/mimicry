@@ -62,11 +62,22 @@ func TestKindsMatchBrowserTraces(t *testing.T) {
 								continue
 							}
 							forms := browserForms(t, want, label, h1)
-							if !slices.ContainsFunc(forms, func(w *kindsSent) bool {
+							same := func(w *kindsSent) bool {
 								return slices.Equal(g.lines, w.lines) && g.weight == w.weight
-							}) {
-								t.Errorf("%s:\n got %q weight %d\nwant %q weight %d", label, g.lines, g.weight, forms[0].lines, forms[0].weight)
 							}
+							if slices.ContainsFunc(forms, same) {
+								continue
+							}
+							// kb_part is set by a response during the page, so a
+							// browser request racing it may go without; mimicry's,
+							// made in order, never does.
+							if slices.ContainsFunc(forms, func(w *kindsSent) bool {
+								return slices.Equal(withoutRaceCookie(g.lines), withoutRaceCookie(w.lines)) && g.weight == w.weight
+							}) {
+								t.Logf("%s: matches but for %s, which the browser had not yet received", label, raceCookie)
+								continue
+							}
+							t.Errorf("%s:\n got %q weight %d\nwant %q weight %d", label, g.lines, g.weight, forms[0].lines, forms[0].weight)
 						}
 					}
 					if !h1 {
@@ -76,6 +87,29 @@ func TestKindsMatchBrowserTraces(t *testing.T) {
 			}
 		})
 	}
+}
+
+// raceCookie is the kinds page's cookie set during the page itself.
+const raceCookie = "kb_part=1"
+
+// withoutRaceCookie drops raceCookie from cookie lines (one per line over
+// HTTP/2, joined by "; " over HTTP/1.1), and lines left empty.
+func withoutRaceCookie(lines []string) []string {
+	out := make([]string, 0, len(lines))
+	for _, l := range lines {
+		name, value, ok := strings.Cut(l, ": ")
+		if !ok || !strings.EqualFold(name, "cookie") {
+			out = append(out, l)
+			continue
+		}
+		crumbs := slices.DeleteFunc(strings.Split(value, "; "), func(c string) bool {
+			return c == raceCookie
+		})
+		if len(crumbs) > 0 {
+			out = append(out, name+": "+strings.Join(crumbs, "; "))
+		}
+	}
+	return out
 }
 
 // partitionGaps are profiles whose browser groups the kinds page's

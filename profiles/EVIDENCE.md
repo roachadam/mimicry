@@ -34,7 +34,7 @@ sent).
 | `extensions` (types, contents: groups, key shares, signature algorithms, versions, ALPN, ALPS, point formats, PSK modes, certificate compression, record size limit, raw data such as Chrome's trust anchors 0xca34) | W+ | W+ | W+ | W+ | Chrome's trust anchor list was identical in all samples. |
 | GREASE ECH (0xfe0d) payload | presence and position W; payload is BoringSSL's, matches | presence and position W; **payload differs**: Firefox sends two cipher suites and a 223-byte payload | — | — | The schema records only the type. Known gap. |
 | key share material, random, session ID | generated per connection | | | | Values, not claims. |
-| `resumption` (TLS 1.3: full hello minus `drop`, `pre_shared_key` last, single-use tickets, no 0-RTT; `tls12`: ticket in `session_ticket`, used as the policy says) | W: drops nothing; `tls12: reuse` | W: drops `session_ticket`; `tls12: single_use` | W: none (never resumes, TLS 1.3 or 1.2) | **C** from Safari 27 | `resume`, `resume-tls12` scenarios ([report](../harness/reports/resume-2026-10-24.md)); `TestResumptionMatchesBrowser` (used connections and resumptions per host, every resumed hello diffed) |
+| `resumption` (TLS 1.3: full hello minus `drop`, `pre_shared_key` last, single-use tickets, no 0-RTT; `tls12`: ticket in `session_ticket`, used as the policy says) | W: drops nothing; `tls12: reuse` | W: drops `session_ticket`; `tls12: single_use` | W: none (never resumes, TLS 1.3 or 1.2) | W: none, as Safari 27 | `resume`, `resume-tls12` scenarios ([report](../harness/reports/resume-2026-10-24.md)); `TestResumptionMatchesBrowser` (used connections and resumptions per host, every resumed hello diffed) |
 
 Cross-checked outside our server: Firefox 158's JA3, and Safari 27's JA3, JA4
 and Akamai fingerprints, match what tls.peet.ws reports for the same
@@ -81,7 +81,7 @@ replayed pages (3516 checks), re-encoded byte for byte.
 | `headers`: navigation header names, order, default values over HTTP/2 | W+ (Safari 26: W+, differs from 27 only in user agent and `accept-encoding`) | `TestProfilesMatchCaptures` |
 | `referer`, `cookie` slots in `headers` | W (the `/nav` navigation) | over HTTP/1.1 by `TestHTTP1MatchesBrowserTrace`; over HTTP/2 not compared end to end |
 | `content-length` slot in `headers` | **K**: placed where each browser put it on `fetch()` uploads (Chrome first, Firefox after `referer`, Safari before `accept-language`). A navigation POST takes `variants` instead (below) | `TestKindsMatchBrowserTraces` (form POST) |
-| `variants`: the navigation's order for a form POST (Chrome adds `cache-control: max-age=0`; Firefox moves `referer`, `cookie`; Safari uses its CORS-checked order) | W (`kinds`, `kinds-http1`); Safari 26: none (no kinds capture) | `TestKindsMatchBrowserTraces` |
+| `variants`: the navigation's order for a form POST (Chrome adds `cache-control: max-age=0`; Firefox moves `referer`, `cookie`; Safari uses its CORS-checked order) | W (`kinds`, `kinds-http1`, Safari 26 included) | `TestKindsMatchBrowserTraces` |
 | `accept-language` value | W, but it is this machine's language setting, not a browser constant | `TestProfilesMatchCaptures` |
 | `http1.headers`: HTTP/1.1 names as sent (casing), order, values, Host and Connection positions | W+ (`http1` scenario, every browser and Safari 26) | `TestHTTP1MatchesBrowserTrace` (`/` and `/nav`, line for line), `TestRequestHeadFollowsHTTP1Section` |
 | `Content-Length` slot in `http1.headers` | **K** (`fetch()` uploads) | `TestRequestHeadFollowsHTTP1Section` (Chrome, unit) |
@@ -95,8 +95,10 @@ from the `set-cookie`, `kinds` and `cookies` captures
 mimicry: every probe's cookies, in order), `TestKindsMatchBrowserTraces`
 (every kinds request's cookies) and `TestCookiesMatchBrowserTrace` (crumbs,
 HPACK representation); the shared RFC 6265bis rules by `cookies` unit tests.
-Safari 26: copied (**C**) from Safari 27 except `order`, which its
-`set-cookie` capture shows (W).
+Safari 26 (captured on the second Mac, 2026-10-24): W from its own `set-cookie`
+and `cookies` captures, all as Safari 27 except `redirects`: **`chain`**
+(Safari 26 sends cookies on cross-site → same-site redirect hops; 27 blocks
+them).
 
 | Claim (`cookies.…`) | Chrome 155 | Firefox 158 | Safari 27 |
 |---|---|---|---|
@@ -112,14 +114,18 @@ Safari 26: copied (**C**) from Safari 27 except `order`, which its
 ## Request kinds
 
 Derived from the `kinds` and `kinds-http1` captures by `harness/cmd/kindsgen`
-(it refuses captures that disagree), for Chrome 155, Firefox 158 and Safari
-27; Safari 26 has none (captured on the second Mac, before the kinds page).
+(it refuses captures that disagree), for every profile; Safari 26's equal
+Safari 27's apart from its user agent and `accept-encoding`.
 All rows checked by `TestKindsMatchBrowserTraces`: every request of the kinds
 page, made through mimicry as its kind from the page, equals the browser's
 (names, order, values, HTTP/2 weight; over HTTP/1.1 line for line), cookies
-aside. Where the browser's own samples differ, any form it sent passes and
+included. Where the browser's own samples differ, any form it sent passes and
 the variance is logged: one Chrome HTTP/1.1 sample sends `Sec-Fetch-User` on
 cross-origin frames and the form POST, the others do not (activation state).
+`kb_part`, set by an image the page loads, races Safari's CSS font request
+(`font-css.cs`): Safari 27 and Safari 26 over HTTP/1.1 send it in some
+samples, Safari 26 over HTTP/2 in none of six. The test accepts a request
+that differs only by that cookie, and logs it.
 
 | Claim | Evidence | Notes |
 |---|---|---|
