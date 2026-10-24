@@ -3,7 +3,7 @@
 Every claim the built-in profiles make, where it comes from, and what keeps
 it true. Profiles: `chrome-155-macos`, `firefox-158-macos`, `safari-27-macos`
 (captured on this Mac), `safari-26-macos` (captured on a second Mac, macOS
-26.2). Last reviewed 2026-10-23.
+26.2). Last reviewed 2026-10-24.
 
 ## Evidence classes
 
@@ -61,12 +61,13 @@ browsers.
 
 All rows **F**, checked by `TestHPACKReproducesBrowserBlocks`: every header
 block of every sample of every scenario, and of every connection of the six
-replayed pages (3516 checks), re-encoded byte for byte.
+replayed pages for every profile (4249 connections), re-encoded byte for
+byte.
 
 | Claim (`http2.hpack.…`) | Chrome 155 | Firefox 158 | Safari 27 | Safari 26 |
 |---|---|---|---|---|
-| `without_indexing` | `:path`; `:method` (seen only on `OPTIONS` preflights in replays: GET and POST are exact static-table matches, so the rule cannot show for them) | `:path` | `:path`, `content-length` | as Safari 27, verified on its own scenarios |
-| `never_indexed` | — | `authorization` (replays) | `authorization` (replays) | `authorization` **C** from Safari 27: no Safari 26 replay captured |
+| `without_indexing` | `:path`; `:method` (seen only on `OPTIONS` preflights in replays: GET and POST are exact static-table matches, so the rule cannot show for them) | `:path` | `:path`, `content-length` | as Safari 27, verified on its own scenarios and replays |
+| `never_indexed` | — | `authorization` (replays) | `authorization` (replays: nytimes 3, zillow 9) | `authorization` (its own replays: nytimes 3, zillow 9, as Safari 27) |
 | `never_index_below` | — (indexes every cookie) | `cookie` under 20 bytes (19 never, 20 indexed) | same | same |
 | `literal_on_exact_match` | — | yes | — | — |
 | `name_match` | static first | highest index | static first | static first |
