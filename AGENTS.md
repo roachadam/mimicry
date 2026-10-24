@@ -63,6 +63,7 @@ Profile accuracy is proven by the harness against real browser captures, not by 
 - `TestConnectionMatchesBrowserTrace`: on one connection, mimicry's first header block and largest upload DATA frame match every sample of the browser's trace, and every WINDOW_UPDATE credit increment it sends lies within the range the browser's own increments span (± one frame). Ranges, not single values, because credit timing varies between a browser's own connections.
 - `TestCookiesMatchBrowserTrace`: cookies set by the server come back from mimicry, through its cookie jar, in the browser's order and HPACK representation.
 - `TestKindsMatchBrowserTraces` and `TestCookiesScenarioMatchesBrowser`: every request of the kinds page, and every probe of the cookies page, made through mimicry from its page: headers, order, values, weights, connections and cookies as the browser sent them.
+- `TestResumptionMatchesBrowser`: on the resume page, mimicry opens and resumes as many connections per host as the browser did, and every resumed ClientHello has no differences from the browser's.
 - `TestHTTP1MatchesBrowserTrace`: over HTTP/1.1, mimicry's two navigations (`/`, then `/nav` with a referer and cookies) are the browser's header lines exactly, casing, order and values, in every sample of the `http1` scenario (authority normalised).
 
 Behaviour that depends on time (Chrome's 5 s credit return, its idle PING) is tested in `internal/h2` with a fake clock against a raw HTTP/2 peer; the captures show it, the unit tests pin it.
