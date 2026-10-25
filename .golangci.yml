@@ -35,6 +35,14 @@ linters:
     - prealloc        # preallocate slices in loops
     - revive          # golint replacement, default rules incl. exported and package-comments
   exclusions:
+    # internal/quic is a copy of golang.org/x/net/quic (decision 0027) in
+    # upstream's style, which these linters fault in ~500 places (unchecked
+    # Close errors, math/rand, %v on errors, unused test helpers, init
+    # functions). Fixing them would make every upstream sync a merge, so the
+    # copy is not linted; formatters still run on it. mimicry's own lines
+    # there are checked by hand: see "Lint" in internal/quic/UPSTREAM.md.
+    paths:
+      - ^internal/quic/
     rules:
       # Tests close bodies through helpers and t.Cleanup, which bodyclose cannot
       # follow; product code is still checked.

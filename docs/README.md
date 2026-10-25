@@ -47,6 +47,7 @@ Related, elsewhere in the repository:
 | [0024](decisions/0024-clienthello-shape-in-profiles.md) | The ClientHello's whole shape is profile data | Accepted |
 | [0025](decisions/0025-websockets.md) | WebSockets as each browser opens and frames them | Accepted |
 | [0026](decisions/0026-http3-capture.md) | HTTP/3 is captured from the client's own packets | Accepted |
+| [0027](decisions/0027-quic-base.md) | QUIC from a copy of x/net/quic; HTTP/3 and QPACK our own | Accepted |
 
 New records copy [`decisions/template.md`](decisions/template.md).
 

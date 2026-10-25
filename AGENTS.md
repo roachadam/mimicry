@@ -20,7 +20,7 @@ moon run harness:test       # the harness only
 
 The public surface is small: the root package (`Transport`, `NewClient`, `Config`, `HeaderOrderKey`, `ErrNotMeasured`, request kinds: `Kind`, `Request`, `As`, `With`, `Exact`, and `CORSError`; WebSockets: `DialWebSocket`, `WebSocket`, `WebSocketOptions`, `MessageType`, `CloseError`), `cookies` (the jar; `cookies.New` returns `(*Jar, error)`), `profile` and `profiles`. Everything else is in `internal/`, flat, one package per concern. Each package's `doc.go` states what it may import; keep to it.
 
-- Only `internal/handshake` imports `github.com/roachadam/utls`.
+- Only `internal/handshake` and `internal/quic` (QUIC's TLS, decision 0027) import `github.com/roachadam/utls`.
 - Only `internal/engine/native` assembles the request path (pool → dial → handshake → h1/h2).
 - `profile` imports the standard library only.
 - Public packages never import from `harness/`.
