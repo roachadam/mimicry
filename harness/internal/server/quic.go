@@ -186,7 +186,7 @@ func (s *Server) serveQUIC(ctx context.Context, sc *Scenario, log *pageLog, issu
 
 // quicConns decodes every client address's datagrams into its QUIC
 // connections, with the HTTP/3 the server read on each, ordered by their
-// first datagram.
+// first datagram. Each is rederived from its wire data (Conn.Rederive).
 func (l *pageLog) quicConns() []*quictrace.Conn {
 	q := &l.quic
 	q.mu.Lock()
@@ -217,6 +217,7 @@ func (l *pageLog) quicConns() []*quictrace.Conn {
 			}
 		}
 		for _, d := range decoded {
+			d.Rederive()
 			if b := d.ClientHelloBytes(); b != nil {
 				t, err := ParseClientHello(b)
 				switch {

@@ -33,7 +33,8 @@ type Conn struct {
 	// in order of arrival.
 	Datagrams []Datagram `json:"datagrams"`
 	// H3 is what the client sent at the HTTP/3 layer; nil if the
-	// handshake never completed (a client that rejected the certificate).
+	// handshake never completed (a client that rejected the certificate):
+	// it sent no Handshake packet with CRYPTO data, its Finished.
 	H3 *H3 `json:"h3,omitempty"`
 	// Close is how the connection ended, if it had by the time the page
 	// was taken.
@@ -204,11 +205,11 @@ type Close struct {
 // H3 is what a client sent at the HTTP/3 layer of one connection (RFC
 // 9114), as the server read it from each stream.
 type H3 struct {
-	// Streams are the client's unidirectional streams in the order they
-	// arrived: control, QPACK encoder and decoder, and any other (GREASE)
-	// types.
+	// Streams are the client's unidirectional streams in wire order (of
+	// each stream's first STREAM frame; by stream ID for any without one):
+	// control, QPACK encoder and decoder, and any other (GREASE) types.
 	Streams []H3Stream `json:"streams"`
-	// Requests are its request streams in the order they arrived.
+	// Requests are its request streams in the same order.
 	Requests []H3Request `json:"requests"`
 }
 
@@ -302,8 +303,10 @@ type H3Request struct {
 	// hex; Section is it decoded.
 	Block   string  `json:"block"`
 	Section Section `json:"section"`
-	// Blocked reports that the section referred to dynamic table entries
-	// the encoder stream had not yet delivered, so decoding waited.
+	// Blocked reports that the client sent the section referring to
+	// dynamic table entries before it sent their inserts: on the wire, the
+	// encoder stream data before the STREAM frame that starts the HEADERS
+	// frame does not complete Required Insert Count inserts.
 	Blocked bool `json:"blocked,omitempty"`
 	// Trailers is a trailing HEADERS frame's section.
 	Trailers *Section `json:"trailers,omitempty"`

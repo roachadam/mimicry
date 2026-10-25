@@ -400,11 +400,12 @@ func decoderStream(r *bufio.Reader, update func(func(*quictrace.H3Stream))) erro
 
 // decodeSection decodes a request's field section, waiting while it is
 // blocked on the encoder stream, and acknowledges it (Section
-// Acknowledgment) if it referred to the dynamic table.
-func (h *h3conn) decodeSection(stream uint64, block []byte) (quictrace.Section, bool, error) {
+// Acknowledgment) if it referred to the dynamic table. Whether the client
+// sent it blocked is read from the wire (Conn.Rederive), not from this
+// wait, which depends on the order the server's goroutines ran.
+func (h *h3conn) decodeSection(stream uint64, block []byte) (quictrace.Section, error) {
 	h.qmu.Lock()
 	defer h.qmu.Unlock()
-	blocked := false
 	for {
 		s, err := h.table.DecodeSection(block)
 		if !errors.Is(err, quictrace.ErrBlocked) || h.qdone {
@@ -412,9 +413,8 @@ func (h *h3conn) decodeSection(stream uint64, block []byte) (quictrace.Section, 
 				h.toDecoder(quictrace.AppendSectionAck(nil, stream))
 				h.known = max(h.known, s.RequiredInsertCount)
 			}
-			return s, blocked, err
+			return s, err
 		}
-		blocked = true
 		h.qcond.Wait()
 	}
 }
@@ -449,7 +449,7 @@ func (h *h3conn) request(str *quic.Stream) {
 		})
 		switch typ {
 		case quictrace.FrameH3Headers:
-			s, blocked, derr := h.decodeSection(id, payload)
+			s, derr := h.decodeSection(id, payload)
 			if derr != nil {
 				err = derr
 				break
@@ -465,7 +465,7 @@ func (h *h3conn) request(str *quic.Stream) {
 			update(func(q *quictrace.H3Request) {
 				q.Method, q.Path = st.method, st.path
 				q.Block = hex.EncodeToString(payload)
-				q.Section, q.Blocked = s, blocked
+				q.Section = s
 			})
 			h.firstRequest(s.Fields)
 		case quictrace.FrameH3Data:

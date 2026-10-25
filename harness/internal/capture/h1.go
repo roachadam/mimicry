@@ -82,7 +82,8 @@ type Connection struct {
 }
 
 // LoadPages reads a replayed page capture written by Write
-// (<name>.<scenario>.pagetrace.json.gz): every sample's page.
+// (<name>.<scenario>.pagetrace.json.gz): every sample's page, its QUIC
+// connections rederived from their wire data (quictrace.Conn.Rederive).
 func LoadPages(path string) ([]*Page, error) {
 	f, err := os.Open(path) //nolint:gosec // a capture file the caller names
 	if err != nil {
@@ -98,6 +99,11 @@ func LoadPages(path string) ([]*Page, error) {
 	var pages []*Page
 	if err := json.NewDecoder(r).Decode(&pages); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	for _, p := range pages {
+		for _, c := range p.QUIC {
+			c.Rederive()
+		}
 	}
 	return pages, nil
 }

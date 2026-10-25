@@ -8,7 +8,8 @@ import (
 
 // transportParameterNames are the transport parameters browsers send (RFC
 // 9000 section 18.2; RFC 9221; RFC 9287; RFC 9368; Google QUIC's;
-// draft-ietf-quic-ack-frequency's min_ack_delay).
+// draft-ietf-quic-ack-frequency's min_ack_delay: drafts 01 and 02's
+// 0xff02de1a, which Firefox sends, and later drafts' 0xff04de1b).
 var transportParameterNames = map[uint64]string{
 	0x00:       "original_destination_connection_id",
 	0x01:       "max_idle_timeout",
@@ -34,6 +35,7 @@ var transportParameterNames = map[uint64]string{
 	0x3128:     "google_connection_options",
 	0x3129:     "user_agent_id",
 	0x4752:     "google_version",
+	0xff02de1a: "min_ack_delay",
 	0xff04de1b: "min_ack_delay",
 }
 
@@ -53,6 +55,7 @@ var varintParameters = map[uint64]bool{
 	0x0e:       true,
 	0x20:       true,
 	0x3127:     true,
+	0xff02de1a: true,
 	0xff04de1b: true,
 }
 
@@ -64,7 +67,9 @@ var connectionIDParameters = map[uint64]bool{
 }
 
 // IsGreaseTransportParameter reports a reserved transport parameter
-// identifier (RFC 9000, section 18.1).
+// identifier (RFC 9000, section 18.1). Some are taken by extensions
+// (min_ack_delay's 0xff02de1a), so ParseTransportParameters marks only
+// unknown ones GREASE.
 func IsGreaseTransportParameter(id uint64) bool {
 	return id >= 27 && (id-27)%31 == 0
 }
@@ -88,7 +93,7 @@ func ParseTransportParameters(data []byte) ([]TransportParameter, error) {
 		p := TransportParameter{
 			ID:     id,
 			Name:   transportParameterNames[id],
-			Grease: IsGreaseTransportParameter(id),
+			Grease: transportParameterNames[id] == "" && IsGreaseTransportParameter(id),
 			Length: len(value),
 		}
 		v, n := varint(value)

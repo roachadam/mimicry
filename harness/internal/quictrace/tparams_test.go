@@ -48,6 +48,15 @@ func TestParseTransportParameters(t *testing.T) {
 			},
 		},
 		{
+			// Firefox's min_ack_delay (ack-frequency drafts 01 and 02),
+			// 1000 µs: its id is 31*N+27 but known, so not GREASE.
+			name: "min_ack_delay 0xff02de1a",
+			body: "c0000000ff02de1a0243e8",
+			want: []tp{
+				{ID: 0xff02de1a, Name: "min_ack_delay", Length: 2, Value: new(uint64(1000))},
+			},
+		},
+		{
 			name:    "value longer than the body",
 			body:    "0104800075",
 			wantErr: true,
