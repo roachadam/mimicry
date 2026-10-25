@@ -5,43 +5,103 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"golang.org/x/crypto/cryptobyte"
 )
 
-// Received is one UDP datagram as the server's socket read it.
+// Received is one UDP datagram as the server's socket read or wrote it.
 type Received struct {
 	At   time.Time
 	Data []byte
+	// Server is set on a datagram the server sent to the client address.
+	Server bool
+	// Addr is the client address it came from or went to; one value (""
+	// for all) when the caller decodes one address.
+	Addr string
 }
 
-// Decode turns the datagrams one client address sent, in order of
-// arrival, into its connections: usually one; more if the client sent a
-// new connection's Initial from the same address. start is when the
-// server started serving the page; cidLen the length of the connection IDs
-// the server issues, which short headers carry without a length; keyLog
-// the server's key log, for every packet type but Initial. Packets it
-// cannot open keep their header and say why.
+// Decode turns the datagrams of client addresses, the client's and the
+// server's merged in time order, into the client's connections: usually
+// one per address; more if the client sent a new connection's Initial
+// from the same address. An address's current connection is the latest
+// started from it. A client datagram from an address without one joins
+// the connection whose 1-RTT keys open it, the most recent first (a
+// client migrating to a new path, RFC 9000 section 9), and the address
+// is that connection's from then on; one no connection opens is dropped.
+// Server datagrams go to their address's connection, if it has one yet.
+// start is when the server started serving the page; cidLen the length of
+// the connection IDs the server issues, which short headers carry without
+// a length; keyLog the server's key log, for every packet type but
+// Initial. Packets it cannot open keep their header and say why.
 func Decode(start time.Time, datagrams []Received, cidLen int, keyLog *KeyLog) []*Conn {
 	var conns []*Conn
-	var c *connState
+	var states []*connState
+	byAddr := map[string]*connState{}
 	for _, r := range datagrams {
+		c := byAddr[r.Addr]
+		if r.Server {
+			if c != nil {
+				c.conn.Server = append(c.conn.Server, c.datagram(r, c.serverPacket))
+			}
+			continue
+		}
 		if next := c.newConnection(r.Data); next != nil {
 			c = next
 			c.keyLog = keyLog
 			c.cidLen = cidLen
 			c.first = r.At
+			c.addrs = []string{
+				r.Addr,
+			}
+			c.conn.Addr = r.Addr
 			c.conn.Millis = r.At.Sub(start).Milliseconds()
+			byAddr[r.Addr] = c
+			states = append(states, c)
 			conns = append(conns, c.conn)
 		}
 		if c == nil {
-			// Datagrams before any Initial: nothing to attribute them to.
-			continue
+			c = migrated(states, r.Data)
+			if c == nil {
+				// Nothing to attribute it to.
+				continue
+			}
+			c.addrs = append(c.addrs, r.Addr)
+			byAddr[r.Addr] = c
 		}
-		c.datagram(r)
+		c.conn.Datagrams = append(c.conn.Datagrams, c.datagram(r, c.packet))
 	}
 	return conns
+}
+
+// migrated returns the connection, the most recent first, whose current
+// 1-RTT keys (either key phase) open data, a short header packet from an
+// address none of them uses yet; nil if none does.
+func migrated(states []*connState, data []byte) *connState {
+	if len(data) == 0 || data[0]&0x80 != 0 {
+		return nil
+	}
+	for _, c := range slices.Backward(states) {
+		pnOffset := 1 + c.cidLen
+		if len(data) < pnOffset {
+			continue
+		}
+		version := c.appVersion()
+		k := c.trafficKeys(c.app, labelClientTraffic, version, data, pnOffset, true, c.largest[spaceApp])
+		if k == nil {
+			continue
+		}
+		if _, err := k.unprotect(data, pnOffset, true, c.largest[spaceApp]); err == nil {
+			return c
+		}
+		if next, err := k.next(); err == nil {
+			if _, err := next.unprotect(data, pnOffset, true, c.largest[spaceApp]); err == nil {
+				return c
+			}
+		}
+	}
+	return nil
 }
 
 // connState is the decoding state of one connection.
@@ -50,13 +110,30 @@ type connState struct {
 	first  time.Time
 	cidLen int
 	keyLog *KeyLog
-	// version is the first packet's.
+	// addrs are the client addresses it used, in order of first use.
+	addrs []string
+	// version is the first packet's; odcid its Destination Connection ID,
+	// from which every version's Initial keys derive; scidLen the length
+	// of its Source Connection ID, which the server's short headers carry.
 	version uint32
-	// Keys by packet type; app are the 1-RTT keys of the latest key phase.
-	initial, handshake, early, app *keys
-	// largest is the largest packet number opened in each packet number
-	// space (Initial, Handshake, application data), -1 for none.
-	largest [3]int64
+	odcid   []byte
+	scidLen int
+	// initialVersion and handshakeVersion are the versions of the client's
+	// latest Initial and Handshake packets (0 for none): its 1-RTT packets
+	// are in the latter's, or before any the former's.
+	initialVersion, handshakeVersion uint32
+	// vnSent reports that the server sent a Version Negotiation packet.
+	vnSent bool
+	// The client's keys by packet type and version; app are the 1-RTT keys
+	// of the latest key phase.
+	initial, handshake, early, app map[uint32]*keys
+	// The server's keys by packet type and version; of serverApp only the
+	// header protection key is used, which key updates keep.
+	serverInitial, serverHandshake, serverApp map[uint32]*keys
+	// largest is the largest packet number the client sent that was opened
+	// in each packet number space (Initial, Handshake, application data),
+	// -1 for none; serverLargest the server's.
+	largest, serverLargest [3]int64
 	// hello reassembles the Initial packets' CRYPTO stream until the
 	// ClientHello is complete; helloMsg is it, random its client random
 	// and pskIdentity the first ticket it offers.
@@ -64,6 +141,10 @@ type connState struct {
 	helloMsg    []byte
 	random      []byte
 	pskIdentity []byte
+	// serverCrypto reassembles the server's Handshake CRYPTO stream until
+	// its first message, EncryptedExtensions, is complete (serverDone).
+	serverCrypto cryptoStream
+	serverDone   bool
 }
 
 // Packet number spaces.
@@ -75,18 +156,23 @@ const (
 
 // newConnection returns the state of a new connection if datagram data
 // starts one: an Initial that the current connection's keys (if any)
-// cannot open but keys from its own Destination Connection ID can.
+// cannot open but keys from its own Destination Connection ID can; or,
+// after the server sent a Version Negotiation packet, one those keys open
+// in another version than the current connection's first (the client
+// starting over with a new ClientHello, RFC 9000 section 6.2).
 func (c *connState) newConnection(data []byte) *connState {
 	h, err := parseLongHeader(data)
 	if err != nil || h.typ != PacketInitial {
 		return nil
 	}
-	if c != nil && c.initial != nil {
-		if _, err := c.initial.unprotect(data[:h.end], h.pnOffset, false, c.largest[spaceInitial]); err == nil {
-			return nil
+	if c != nil && (!c.vnSent || h.version == c.version) {
+		if k := c.initialKeys(h.version, false); k != nil {
+			if _, err := k.unprotect(data[:h.end], h.pnOffset, false, c.largest[spaceInitial]); err == nil {
+				return nil
+			}
 		}
 	}
-	k, err := clientInitialKeys(h.version, h.dcid)
+	k, err := initialKeys(h.version, h.dcid, false)
 	if err != nil {
 		return nil
 	}
@@ -98,17 +184,50 @@ func (c *connState) newConnection(data []byte) *connState {
 			Version:   versionHex(h.version),
 			Datagrams: []Datagram{},
 		},
-		version: h.version,
-		initial: k,
-		largest: [3]int64{-1, -1, -1},
+		version:        h.version,
+		odcid:          append([]byte(nil), h.dcid...),
+		scidLen:        h.scidLen,
+		initialVersion: h.version,
+		initial: map[uint32]*keys{
+			h.version: k,
+		},
+		handshake:       map[uint32]*keys{},
+		early:           map[uint32]*keys{},
+		app:             map[uint32]*keys{},
+		serverInitial:   map[uint32]*keys{},
+		serverHandshake: map[uint32]*keys{},
+		serverApp:       map[uint32]*keys{},
+		largest:         [3]int64{-1, -1, -1},
+		serverLargest:   [3]int64{-1, -1, -1},
 	}
 }
 
-// datagram decodes one datagram's packets into the connection.
-func (c *connState) datagram(r Received) {
+// initialKeys returns the client's Initial keys in a version, or with
+// server the server's, derived from the connection's original Destination
+// Connection ID the first time; nil for a version without them.
+func (c *connState) initialKeys(version uint32, server bool) *keys {
+	m := c.initial
+	if server {
+		m = c.serverInitial
+	}
+	if k, ok := m[version]; ok {
+		return k
+	}
+	k, err := initialKeys(version, c.odcid, server)
+	if err != nil {
+		k = nil
+	}
+	m[version] = k
+	return k
+}
+
+// datagram decodes one datagram's packets with packet, the client's or the
+// server's packet decoder.
+func (c *connState) datagram(r Received, packet func([]byte) (Packet, int, error)) Datagram {
 	d := Datagram{
 		Micros: r.At.Sub(c.first).Microseconds(),
 		Size:   len(r.Data),
+		Path:   slices.Index(c.addrs, r.Addr),
 	}
 	rest := r.Data
 	for len(rest) > 0 {
@@ -118,7 +237,7 @@ func (c *connState) datagram(r Received) {
 			d.Trailing = len(rest)
 			break
 		}
-		p, n, err := c.packet(rest)
+		p, n, err := packet(rest)
 		if err != nil {
 			d.Trailing = len(rest)
 			break
@@ -126,15 +245,17 @@ func (c *connState) datagram(r Received) {
 		d.Packets = append(d.Packets, p)
 		rest = rest[n:]
 	}
-	c.conn.Datagrams = append(c.conn.Datagrams, d)
+	return d
 }
 
-// longHeader is a long header packet's header fields.
+// longHeader is a long header packet's header fields; idsEnd is where its
+// connection IDs end.
 type longHeader struct {
 	version       uint32
 	typ           string
 	dcid          []byte
 	scidLen       int
+	idsEnd        int
 	tokenLen      *int
 	length        *int
 	pnOffset, end int
@@ -165,6 +286,7 @@ func parseLongHeader(b []byte) (longHeader, error) {
 	if r.err != nil {
 		return longHeader{}, errHeader
 	}
+	h.idsEnd = len(b) - len(r.b)
 	if h.version == 0 {
 		h.typ, h.end = PacketVN, len(b)
 		return h, nil
@@ -194,8 +316,8 @@ func parseLongHeader(b []byte) (longHeader, error) {
 	return h, nil
 }
 
-// packet decodes the packet at the start of b and returns it with its
-// length.
+// packet decodes the client's packet at the start of b and returns it
+// with its length.
 func (c *connState) packet(b []byte) (Packet, int, error) {
 	if b[0]&0x80 == 0 {
 		if len(b) < 1+c.cidLen {
@@ -206,12 +328,89 @@ func (c *connState) packet(b []byte) (Packet, int, error) {
 			DCIDLength: c.cidLen,
 			Size:       len(b),
 		}
-		c.open(&p, b, 1+c.cidLen, true)
+		c.open(&p, b, 1+c.cidLen, true, c.appVersion())
 		return p, len(b), nil
 	}
-	h, err := parseLongHeader(b)
+	h, p, err := longPacket(b)
 	if err != nil {
 		return Packet{}, 0, err
+	}
+	switch h.typ {
+	case PacketInitial:
+		c.initialVersion = h.version
+	case PacketHandshake:
+		c.handshakeVersion = h.version
+		c.conn.NegotiatedVersion = ""
+		if h.version != c.version {
+			c.conn.NegotiatedVersion = versionHex(h.version)
+		}
+	}
+	switch h.typ {
+	case PacketInitial, PacketHandshake, Packet0RTT:
+		c.open(&p, b[:h.end], h.pnOffset, false, h.version)
+	default:
+		p.Error = "not a packet a client protects"
+	}
+	return p, h.end, nil
+}
+
+// serverPacket decodes the server's packet at the start of b and returns
+// it with its length: Initial and Handshake packets opened, a 1-RTT
+// packet's header only (header protection removed if the key log has its
+// secret), a Version Negotiation packet's versions, a Retry's integrity
+// tag checked.
+func (c *connState) serverPacket(b []byte) (Packet, int, error) {
+	if b[0]&0x80 == 0 {
+		pnOffset := 1 + c.scidLen
+		if len(b) < pnOffset {
+			return Packet{}, 0, errHeader
+		}
+		p := Packet{
+			Type:       Packet1RTT,
+			FirstByte:  b[0] & 0xe0,
+			DCIDLength: c.scidLen,
+			Size:       len(b),
+		}
+		if k := c.serverAppKeys(c.appVersion(), b, pnOffset); k != nil {
+			if _, o, err := k.unmask(b, pnOffset, true, c.serverLargest[spaceApp]); err == nil {
+				p.FirstByte, p.PNLength, p.PN = o.firstByte, o.pnLen, o.pn
+				c.serverLargest[spaceApp] = max(c.serverLargest[spaceApp], int64(o.pn)) //nolint:gosec // packet numbers are below 2^62
+			}
+		}
+		return p, len(b), nil
+	}
+	h, p, err := longPacket(b)
+	if err != nil {
+		return Packet{}, 0, err
+	}
+	switch h.typ {
+	case PacketInitial, PacketHandshake:
+		c.openServer(&p, b[:h.end], h.pnOffset, h.version)
+	case PacketVN:
+		c.vnSent = true
+		list := b[h.idsEnd:h.end]
+		for ; len(list) >= 4; list = list[4:] {
+			p.Versions = append(p.Versions, versionHex(binary.BigEndian.Uint32(list)))
+		}
+		if len(list) > 0 {
+			p.Error = "version list not a multiple of 4 bytes"
+		}
+	case PacketRetry:
+		p.TokenLength = new(max(0, h.end-h.idsEnd-16))
+		if err := verifyRetry(h.version, b[:h.end], c.odcid); err != nil {
+			p.Error = err.Error()
+		}
+	default:
+		p.Error = "not a packet a server protects"
+	}
+	return p, h.end, nil
+}
+
+// longPacket reads the long header at the start of b into a Packet.
+func longPacket(b []byte) (longHeader, Packet, error) {
+	h, err := parseLongHeader(b)
+	if err != nil {
+		return longHeader{}, Packet{}, err
 	}
 	p := Packet{
 		Type:        h.typ,
@@ -223,30 +422,15 @@ func (c *connState) packet(b []byte) (Packet, int, error) {
 		Length:      h.length,
 		Size:        h.end,
 	}
-	switch h.typ {
-	case PacketInitial, PacketHandshake, Packet0RTT:
-		c.open(&p, b[:h.end], h.pnOffset, false)
-	default:
-		p.Error = "not a packet a client protects"
-	}
-	return p, h.end, nil
+	return h, p, nil
 }
 
-// open removes the packet's protection with the keys of its type and
-// reads its frames into p.
-func (c *connState) open(p *Packet, b []byte, pnOffset int, short bool) {
-	space, k := c.keysFor(p.Type, b, pnOffset, short)
+// open removes the protection of the client's packet with the keys of its
+// type and version and reads its frames into p.
+func (c *connState) open(p *Packet, b []byte, pnOffset int, short bool, version uint32) {
+	space, k := c.keysFor(p.Type, version, b, pnOffset, short)
 	if k == nil {
-		p.FirstByte = 0
-		if short {
-			p.FirstByte = b[0] & 0xe0
-		} else {
-			p.FirstByte = b[0] & 0xf0
-		}
-		p.Error = "no keys"
-		if c.random == nil {
-			p.Error = "no keys: the ClientHello was not complete"
-		}
+		c.noKeys(p, b, short)
 		return
 	}
 	o, err := k.unprotect(b, pnOffset, short, c.largest[space])
@@ -254,22 +438,14 @@ func (c *connState) open(p *Packet, b []byte, pnOffset int, short bool) {
 		// A new key phase (RFC 9001, section 6).
 		if next, nerr := k.next(); nerr == nil {
 			if no, oerr := next.unprotect(b, pnOffset, short, c.largest[space]); oerr == nil {
-				c.app = next
+				c.app[version] = next
 				o, err = no, nil
 			}
 		}
 	}
-	if err != nil {
-		p.FirstByte = 0
-		p.Error = "cannot open: " + err.Error()
+	crypto, ok := readOpened(p, o, err, &c.largest[space])
+	if !ok {
 		return
-	}
-	p.FirstByte, p.PNLength, p.PN = o.firstByte, o.pnLen, o.pn
-	c.largest[space] = max(c.largest[space], int64(o.pn)) //nolint:gosec // packet numbers are below 2^62
-	frames, crypto, err := parseFrames(o.payload)
-	p.Frames = frames
-	if err != nil {
-		p.Error = "frames: " + err.Error()
 	}
 	if p.Type == Packet0RTT {
 		c.conn.EarlyData = true
@@ -282,30 +458,133 @@ func (c *connState) open(p *Packet, b []byte, pnOffset int, short bool) {
 	}
 }
 
-// keysFor returns the packet number space and keys of a packet type,
-// deriving them from the key log the first time.
-func (c *connState) keysFor(typ string, b []byte, pnOffset int, short bool) (int, *keys) {
-	switch typ {
-	case PacketInitial:
-		return spaceInitial, c.initial
-	case PacketHandshake:
-		if c.handshake == nil {
-			c.handshake = c.derive(labelClientHandshake, b, pnOffset, short, spaceHandshake)
-		}
-		return spaceHandshake, c.handshake
-	case Packet0RTT:
-		if c.early == nil {
-			c.early = c.derive(labelClientEarly, b, pnOffset, short, spaceApp)
-		}
-		return spaceApp, c.early
+// openServer removes the protection of the server's Initial or Handshake
+// packet with the keys of its type and version and reads its frames into
+// p, and its Handshake packets' CRYPTO stream until the server's transport
+// parameters.
+func (c *connState) openServer(p *Packet, b []byte, pnOffset int, version uint32) {
+	space, k := spaceInitial, c.initialKeys(version, true)
+	if p.Type == PacketHandshake {
+		space = spaceHandshake
+		k = c.trafficKeys(c.serverHandshake, labelServerHandshake, version, b, pnOffset, false, c.serverLargest[space])
 	}
-	if c.app == nil {
-		c.app = c.derive(labelClientTraffic, b, pnOffset, short, spaceApp)
+	if k == nil {
+		c.noKeys(p, b, false)
+		return
 	}
-	return spaceApp, c.app
+	o, err := k.unprotect(b, pnOffset, false, c.serverLargest[space])
+	crypto, ok := readOpened(p, o, err, &c.serverLargest[space])
+	if !ok || p.Type != PacketHandshake || c.serverDone {
+		return
+	}
+	for _, d := range crypto {
+		c.serverCrypto.add(d)
+	}
+	c.encryptedExtensions(p)
 }
 
-func (c *connState) derive(label string, b []byte, pnOffset int, short bool, space int) *keys {
+// noKeys records in p that there are no keys to open packet b: only the
+// first byte's unprotected bits.
+func (c *connState) noKeys(p *Packet, b []byte, short bool) {
+	p.FirstByte = b[0] & 0xf0
+	if short {
+		p.FirstByte = b[0] & 0xe0
+	}
+	p.Error = "no keys"
+	if c.random == nil {
+		p.Error = "no keys: the ClientHello was not complete"
+	}
+}
+
+// readOpened records an opened packet's header fields and frames in p and
+// raises largest, its space's largest packet number, to its own; it
+// returns the CRYPTO frames' data, and false if err says the packet could
+// not be opened.
+func readOpened(p *Packet, o opened, err error, largest *int64) ([]cryptoData, bool) {
+	if err != nil {
+		p.FirstByte = 0
+		p.Error = "cannot open: " + err.Error()
+		return nil, false
+	}
+	p.FirstByte, p.PNLength, p.PN = o.firstByte, o.pnLen, o.pn
+	*largest = max(*largest, int64(o.pn)) //nolint:gosec // packet numbers are below 2^62
+	frames, crypto, err := parseFrames(o.payload)
+	p.Frames = frames
+	if err != nil {
+		p.Error = "frames: " + err.Error()
+	}
+	return crypto, true
+}
+
+// appVersion is the version of 1-RTT packets: of the client's latest
+// Handshake packet, or before any its latest Initial's.
+func (c *connState) appVersion() uint32 {
+	if c.handshakeVersion != 0 {
+		return c.handshakeVersion
+	}
+	return c.initialVersion
+}
+
+// serverAppKeys returns the server's 1-RTT keys in a version, derived the
+// first time from the key log's SERVER_TRAFFIC_SECRET_0: in the
+// connection's cipher suite (of its other keys), or before any is known
+// the suite whose AEAD authenticates the server's packet b. Only their
+// header protection key is used, which key updates keep.
+func (c *connState) serverAppKeys(version uint32, b []byte, pnOffset int) *keys {
+	if k := c.serverApp[version]; k != nil {
+		return k
+	}
+	secret := c.keyLog.secret(c.random, labelServerTraffic)
+	if secret == nil {
+		return nil
+	}
+	var k *keys
+	if s, ok := c.suite(); ok {
+		var err error
+		if k, err = newKeys(s, version, secret); err != nil {
+			return nil
+		}
+	} else if k = keysForSecret(version, secret, b, pnOffset, true, c.serverLargest[spaceApp]); k == nil {
+		return nil
+	}
+	c.serverApp[version] = k
+	return k
+}
+
+// suite is the connection's cipher suite, from any keys derived from its
+// key log secrets.
+func (c *connState) suite() (suite, bool) {
+	for _, m := range []map[uint32]*keys{c.serverHandshake, c.handshake, c.app} {
+		for _, k := range m {
+			if k != nil {
+				return k.suite, true
+			}
+		}
+	}
+	return suite{}, false
+}
+
+// keysFor returns the packet number space and keys of a client packet's
+// type and version, deriving them the first time.
+func (c *connState) keysFor(typ string, version uint32, b []byte, pnOffset int, short bool) (int, *keys) {
+	switch typ {
+	case PacketInitial:
+		return spaceInitial, c.initialKeys(version, false)
+	case PacketHandshake:
+		return spaceHandshake, c.trafficKeys(c.handshake, labelClientHandshake, version, b, pnOffset, short, c.largest[spaceHandshake])
+	case Packet0RTT:
+		return spaceApp, c.trafficKeys(c.early, labelClientEarly, version, b, pnOffset, short, c.largest[spaceApp])
+	}
+	return spaceApp, c.trafficKeys(c.app, labelClientTraffic, version, b, pnOffset, short, c.largest[spaceApp])
+}
+
+// trafficKeys returns the keys of m in a version, deriving them the first
+// time from the key log's secret under label: those of its suites whose
+// AEAD authenticates packet b (read as unprotect does).
+func (c *connState) trafficKeys(m map[uint32]*keys, label string, version uint32, b []byte, pnOffset int, short bool, largest int64) *keys {
+	if k := m[version]; k != nil {
+		return k
+	}
 	secret := c.keyLog.secret(c.random, label)
 	if secret == nil && label == labelClientEarly {
 		secret = c.keyLog.earlySecret(c.pskIdentity, c.helloMsg)
@@ -313,7 +592,11 @@ func (c *connState) derive(label string, b []byte, pnOffset int, short bool, spa
 	if secret == nil {
 		return nil
 	}
-	return keysForSecret(c.version, secret, b, pnOffset, short, c.largest[space])
+	k := keysForSecret(version, secret, b, pnOffset, short, largest)
+	if k != nil {
+		m[version] = k
+	}
+	return k
 }
 
 // helloDone fills in the connection's ClientHello once the CRYPTO stream
@@ -339,6 +622,26 @@ func (c *connState) helloDone() {
 		if c.conn.TransportParameters, err = ParseTransportParameters(h.transportParameters); err != nil {
 			c.conn.HelloError = err.Error()
 		}
+	}
+}
+
+// encryptedExtensions reads the server's transport parameters once its
+// Handshake CRYPTO stream holds all of its first message,
+// EncryptedExtensions; why they could not be goes to p, the packet that
+// completed it.
+func (c *connState) encryptedExtensions(p *Packet) {
+	msg := c.serverCrypto.message()
+	if msg == nil {
+		return
+	}
+	c.serverDone = true
+	c.serverCrypto = cryptoStream{}
+	params, err := readEncryptedExtensions(msg)
+	if err == nil {
+		c.conn.ServerTransportParameters, err = ParseTransportParameters(params)
+	}
+	if err != nil && p.Error == "" {
+		p.Error = "EncryptedExtensions: " + err.Error()
 	}
 }
 
@@ -449,4 +752,32 @@ func readHello(msg []byte) (hello, error) {
 		}
 	}
 	return h, nil
+}
+
+// readEncryptedExtensions returns the body of an EncryptedExtensions
+// message's quic_transport_parameters extension (RFC 9001, section 8.2).
+func readEncryptedExtensions(msg []byte) ([]byte, error) {
+	s := cryptobyte.String(msg)
+	var typ uint8
+	var body, exts cryptobyte.String
+	if !s.ReadUint8(&typ) {
+		return nil, errors.New("empty handshake message")
+	}
+	if typ != 8 {
+		return nil, fmt.Errorf("the first handshake message is of type %d, not EncryptedExtensions", typ)
+	}
+	if !s.ReadUint24LengthPrefixed(&body) || !body.ReadUint16LengthPrefixed(&exts) {
+		return nil, errors.New("malformed EncryptedExtensions")
+	}
+	for !exts.Empty() {
+		var ext uint16
+		var data cryptobyte.String
+		if !exts.ReadUint16(&ext) || !exts.ReadUint16LengthPrefixed(&data) {
+			return nil, errors.New("malformed EncryptedExtensions extensions")
+		}
+		if ext == extTransportParameters {
+			return append([]byte(nil), data...), nil
+		}
+	}
+	return nil, errors.New("no quic_transport_parameters in EncryptedExtensions")
 }

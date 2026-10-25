@@ -23,18 +23,27 @@ import (
 var (
 	retrySecret = []byte{0xbe, 0x0c, 0x69, 0x0b, 0x9f, 0x66, 0x57, 0x5a, 0x1d, 0x76, 0x6b, 0x54, 0xe3, 0x68, 0xc8, 0x4e}
 	retryNonce  = []byte{0x46, 0x15, 0x99, 0xd3, 0x5d, 0x63, 0x2b, 0xf2, 0x23, 0x98, 0x25, 0xbb}
-	retryAEAD   = func() cipher.AEAD {
-		c, err := aes.NewCipher(retrySecret)
-		if err != nil {
-			panic(err)
-		}
-		aead, err := cipher.NewGCM(c)
-		if err != nil {
-			panic(err)
-		}
-		return aead
-	}()
+	retryAEAD   = newRetryAEAD(retrySecret)
 )
+
+// v2's key and nonce (mimicry: RFC 9369, section 3.3.3).
+var (
+	retrySecretV2 = []byte{0x8f, 0xb4, 0xb0, 0x1b, 0x56, 0xac, 0x48, 0xe2, 0x60, 0xfb, 0xcb, 0xce, 0xad, 0x7c, 0xcc, 0x92}
+	retryNonceV2  = []byte{0xd8, 0x69, 0x69, 0xbc, 0x2d, 0x7c, 0x6d, 0x99, 0x90, 0xef, 0xb0, 0x4a}
+	retryAEADV2   = newRetryAEAD(retrySecretV2)
+)
+
+func newRetryAEAD(key []byte) cipher.AEAD {
+	c, err := aes.NewCipher(key)
+	if err != nil {
+		panic(err)
+	}
+	aead, err := cipher.NewGCM(c)
+	if err != nil {
+		panic(err)
+	}
+	return aead
+}
 
 // retryTokenValidityPeriod is how long we accept a Retry packet token after sending it.
 const retryTokenValidityPeriod = 5 * time.Second
@@ -185,6 +194,7 @@ func (e *Endpoint) sendRetry(now time.Time, p genericLongPacket, peerAddr netip.
 }
 
 type retryPacket struct {
+	version   uint32 // mimicry: v1 or v2
 	dstConnID []byte
 	srcConnID []byte
 	token     []byte
@@ -227,13 +237,18 @@ func parseRetryPacket(b, origDstConnID []byte) (p retryPacket, ok bool) {
 	// Use this to validate the packet integrity tag.
 	pseudo := quicwire.AppendUint8Bytes(nil, origDstConnID)
 	pseudo = append(pseudo, b[:len(b)-retryIntegrityTagLength]...)
-	wantTag := retryAEAD.Seal(nil, retryNonce, nil, pseudo)
+	aead, nonce := retryAEAD, retryNonce
+	if lp.version == quicVersion2 { // mimicry: v2's tag
+		aead, nonce = retryAEADV2, retryNonceV2
+	}
+	wantTag := aead.Seal(nil, nonce, nil, pseudo)
 	if !bytes.Equal(gotTag, wantTag) {
 		return retryPacket{}, false
 	}
 
 	token := lp.data[:len(lp.data)-retryIntegrityTagLength]
 	return retryPacket{
+		version:   lp.version,
 		dstConnID: lp.dstConnID,
 		srcConnID: lp.srcConnID,
 		token:     token,

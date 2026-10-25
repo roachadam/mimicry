@@ -3,12 +3,12 @@ package main
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
 	"slices"
 	"strings"
 
 	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/harness/internal/diff"
+	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -20,8 +20,9 @@ type quicConn struct {
 }
 
 // quicHello derives tls.quic from the ClientHello of every QUIC connection
-// in the h3 captures (<name>.h3-*.pagetrace.json.gz, forced or not): how it
-// differs from t, the TLS hello. Every full hello must be t's with the same
+// in the h3-discovery and h3-page captures (server.H3ProfileCaptures,
+// forced or not): how it differs from t, the TLS hello. Every full hello
+// must be t's with the same
 // cipher suites, session ID, dropped extensions and replaced bodies, and
 // quic_transport_parameters added; their orders all alike (fixed) or not
 // (shuffled, keeping the extensions every one ends with last). Every
@@ -89,7 +90,7 @@ func quicHello(dir, name string, t *profile.TLS) (*profile.QUICHello, error) {
 // quicConns reads every QUIC connection's ClientHello from the h3
 // captures, in file, sample and connection order.
 func quicConns(dir, name string) ([]quicConn, error) {
-	paths, err := filepath.Glob(filepath.Join(dir, name+".h3-*.pagetrace.json.gz"))
+	paths, err := server.H3ProfileCaptures(dir, name)
 	if err != nil {
 		return nil, err
 	}

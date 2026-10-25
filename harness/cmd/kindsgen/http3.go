@@ -42,8 +42,9 @@ type h3Request struct {
 }
 
 // deriveH3 derives what HTTP/3 changes in p's request kinds from every
-// request of the h3 captures (<name>.h3-*.pagetrace.json.gz) sent over
-// HTTP/3: http3.headers, and http3.high and http3.low; and the variants
+// request of the h3-discovery and h3-page captures
+// (server.H3ProfileCaptures) sent over HTTP/3: http3.headers, and
+// http3.high and http3.low; and the variants
 // of a kind's HTTP/2 lists that only the h3 pages show (an XHR POST). An
 // error without such requests.
 func deriveH3(p *profile.Profile, dir string) error {
@@ -285,7 +286,7 @@ func h3Steps() map[string]server.H3Step {
 // h3Requests reads every request over HTTP/3 of the h3 captures, with
 // its kind from its page's step.
 func h3Requests(dir, name string) ([]h3Request, error) {
-	paths, err := filepath.Glob(filepath.Join(dir, name+".h3-*.pagetrace.json.gz"))
+	paths, err := server.H3ProfileCaptures(dir, name)
 	if err != nil {
 		return nil, err
 	}
@@ -459,7 +460,7 @@ func defaultPriority(p *profile.Profile, q h3Request) bool {
 // High and Low where the kinds captures did not measure them, and checks
 // them against the kind's where they did.
 func h2Urgencies(p *profile.Profile, dir string) error {
-	paths, err := filepath.Glob(filepath.Join(dir, p.Name+".h3-*.pagetrace.json.gz"))
+	paths, err := server.H3ProfileCaptures(dir, p.Name)
 	if err != nil {
 		return err
 	}

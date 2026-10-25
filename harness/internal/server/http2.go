@@ -114,6 +114,9 @@ func serveHTTP2(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 	if sc.multi != nil {
 		s.trace.Host = host
 	}
+	if sc.h3 != nil {
+		s.trace.Millis = s.start.Sub(log.start).Milliseconds()
+	}
 	s.traceIndex = log.addH2(s)
 	// Senders blocked on flow control wait for credit the client will no
 	// longer send, and senders blocked writing to a client that stopped

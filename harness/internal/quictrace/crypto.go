@@ -219,10 +219,11 @@ func (k *keys) next() (*keys, error) {
 	return n, nil
 }
 
-// clientInitialKeys derives the keys protecting a client's Initial packets
-// from the Destination Connection ID of its first Initial (RFC 9001,
-// section 5.2).
-func clientInitialKeys(version uint32, dcid []byte) (*keys, error) {
+// initialKeys derives the keys protecting a client's Initial packets, or
+// with server the server's, from the Destination Connection ID of the
+// client's first Initial (RFC 9001, section 5.2), in a version's salt and
+// labels.
+func initialKeys(version uint32, dcid []byte, server bool) (*keys, error) {
 	salt, ok := initialSalts[version]
 	if !ok {
 		return nil, fmt.Errorf("no Initial salt for version %#08x", version)
@@ -231,11 +232,57 @@ func clientInitialKeys(version uint32, dcid []byte) (*keys, error) {
 	if err != nil {
 		return nil, err
 	}
-	secret, err := expandLabel(sha256.New, initial, "client in", sha256.Size)
+	label := "client in"
+	if server {
+		label = "server in"
+	}
+	secret, err := expandLabel(sha256.New, initial, label, sha256.Size)
 	if err != nil {
 		return nil, err
 	}
 	return newKeys(suites[tlsAES128GCMSHA256], version, secret)
+}
+
+// retryIntegrity are each version's Retry Integrity Tag key and nonce
+// (RFC 9001, section 5.8; RFC 9369, section 3.3.3).
+var retryIntegrity = map[uint32][2][]byte{
+	Version1: {
+		{0xbe, 0x0c, 0x69, 0x0b, 0x9f, 0x66, 0x57, 0x5a, 0x1d, 0x76, 0x6b, 0x54, 0xe3, 0x68, 0xc8, 0x4e},
+		{0x46, 0x15, 0x99, 0xd3, 0x5d, 0x63, 0x2b, 0xf2, 0x23, 0x98, 0x25, 0xbb},
+	},
+	Version2: {
+		{0x8f, 0xb4, 0xb0, 0x1b, 0x56, 0xac, 0x48, 0xe2, 0x60, 0xfb, 0xcb, 0xce, 0xad, 0x7c, 0xcc, 0x92},
+		{0xd8, 0x69, 0x69, 0xbc, 0x2d, 0x7c, 0x6d, 0x99, 0x90, 0xef, 0xb0, 0x4a},
+	},
+}
+
+// errRetryTag is a Retry packet whose integrity tag does not verify.
+var errRetryTag = errors.New("retry integrity tag does not verify")
+
+// verifyRetry checks a Retry packet's integrity tag, its last 16 bytes,
+// against the Retry pseudo-packet with the original Destination Connection
+// ID odcid (RFC 9001, section 5.8).
+func verifyRetry(version uint32, retry, odcid []byte) error {
+	ki, ok := retryIntegrity[version]
+	if !ok {
+		return fmt.Errorf("no Retry integrity key for version %#08x", version)
+	}
+	if len(retry) < 16 {
+		return errShortPacket
+	}
+	aead, err := aesGCM(ki[0])
+	if err != nil {
+		return err
+	}
+	body := retry[:len(retry)-16]
+	pseudo := make([]byte, 0, 1+len(odcid)+len(body))
+	pseudo = append(pseudo, byte(len(odcid))) //nolint:gosec // connection IDs are at most 255 bytes
+	pseudo = append(pseudo, odcid...)
+	pseudo = append(pseudo, body...)
+	if _, err := aead.Open(nil, ki[1], retry[len(body):], pseudo); err != nil {
+		return errRetryTag
+	}
+	return nil
 }
 
 // keysForSecret derives keys from a traffic secret of an unknown suite,
@@ -275,8 +322,27 @@ var errShortPacket = errors.New("packet too short for header protection")
 // none), and opens the payload. pnOffset is where the packet number
 // starts; short is a short-header (1-RTT) packet.
 func (k *keys) unprotect(p []byte, pnOffset int, short bool, largest int64) (opened, error) {
+	header, o, err := k.unmask(p, pnOffset, short, largest)
+	if err != nil {
+		return opened{}, err
+	}
+	nonce := append([]byte(nil), k.iv...)
+	for i := range 8 {
+		nonce[len(nonce)-1-i] ^= byte(o.pn >> (8 * i)) //nolint:gosec // one byte of pn at a time
+	}
+	o.payload, err = k.aead.Open(nil, nonce, p[len(header):], header)
+	if err != nil {
+		return opened{}, err
+	}
+	return o, nil
+}
+
+// unmask removes header protection from p (a copy is made) and decodes the
+// packet number as unprotect does, returning the unprotected header and
+// its fields, without the payload.
+func (k *keys) unmask(p []byte, pnOffset int, short bool, largest int64) ([]byte, opened, error) {
 	if len(p) < pnOffset+4+16 {
-		return opened{}, errShortPacket
+		return nil, opened{}, errShortPacket
 	}
 	mask := k.mask(p[pnOffset+4 : pnOffset+4+16])
 	first := p[0]
@@ -293,21 +359,12 @@ func (k *keys) unprotect(p []byte, pnOffset int, short bool, largest int64) (ope
 		header[pnOffset+i] ^= mask[1+i] //nolint:gosec // pnLen is at most 4, mask has 5 bytes
 		truncated = truncated<<8 | uint64(header[pnOffset+i])
 	}
-	pn := decodePacketNumber(largest, truncated, pnLen)
-	nonce := append([]byte(nil), k.iv...)
-	for i := range 8 {
-		nonce[len(nonce)-1-i] ^= byte(pn >> (8 * i)) //nolint:gosec // one byte of pn at a time
-	}
-	payload, err := k.aead.Open(nil, nonce, p[pnOffset+pnLen:], header)
-	if err != nil {
-		return opened{}, err
-	}
-	return opened{
+	o := opened{
 		firstByte: first,
 		pnLen:     pnLen,
-		pn:        pn,
-		payload:   payload,
-	}, nil
+		pn:        decodePacketNumber(largest, truncated, pnLen),
+	}
+	return header, o, nil
 }
 
 // decodePacketNumber recovers a full packet number from its truncated

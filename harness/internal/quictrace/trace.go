@@ -6,16 +6,25 @@ import (
 
 // Conn is everything a client sent on one QUIC connection: its datagrams
 // as they arrived, packet by packet and frame by frame, the ClientHello its
-// Initial packets carried, and, if the handshake completed, its HTTP/3.
+// Initial packets carried, and, if the handshake completed, its HTTP/3;
+// and what the server sent it, for when the server's behaviour is part of
+// the scenario (version negotiation, Retry).
 type Conn struct {
 	// Millis is when its first datagram arrived, since the capture server
 	// started serving the page (the same clock as the page's other
 	// connections).
 	Millis int64 `json:"ms"`
+	// Addr is the client address it started on (Received.Addr), for the
+	// server to match it with the connections it served; not stored.
+	Addr string `json:"-"`
 	// Host is the ClientHello's server_name.
 	Host string `json:"host"`
-	// Version is the QUIC version of the client's first packet, hex.
-	Version string `json:"version"`
+	// Version is the QUIC version of the client's first packet, hex;
+	// NegotiatedVersion the one its handshake finished in (of its Handshake
+	// packets), set only if it differs (compatible version negotiation, RFC
+	// 9368).
+	Version           string `json:"version"`
+	NegotiatedVersion string `json:"negotiated_version,omitempty"`
 	// ClientHello is the ClientHello message its Initial packets' CRYPTO
 	// frames carried, reassembled, hex; Hello is it parsed (as a TCP
 	// connection's) and HelloError why it could not be.
@@ -23,15 +32,22 @@ type Conn struct {
 	Hello       *profile.TLS `json:"hello,omitempty"`
 	HelloError  string       `json:"hello_error,omitempty"`
 	// TransportParameters are the ClientHello's quic_transport_parameters
-	// (extension 0x39), in the order sent.
-	TransportParameters []TransportParameter `json:"transport_parameters,omitempty"`
+	// (extension 0x39), in the order sent; ServerTransportParameters the
+	// server's, from its EncryptedExtensions.
+	TransportParameters       []TransportParameter `json:"transport_parameters,omitempty"`
+	ServerTransportParameters []TransportParameter `json:"server_transport_parameters,omitempty"`
 	// Resumed reports a ClientHello offering an earlier session
 	// (pre_shared_key); EarlyData that the client sent 0-RTT packets.
 	Resumed   bool `json:"resumed,omitempty"`
 	EarlyData bool `json:"early_data,omitempty"`
 	// Datagrams are every UDP datagram the client sent on the connection,
-	// in order of arrival.
+	// in order of arrival, from every address it used.
 	Datagrams []Datagram `json:"datagrams"`
+	// Server are the datagrams the server sent to the connection's
+	// addresses while they were its, in order. Its Initial and Handshake
+	// packets are opened; its 1-RTT packets only have their header
+	// protection removed, if the key log has SERVER_TRAFFIC_SECRET_0.
+	Server []Datagram `json:"server,omitempty"`
 	// H3 is what the client sent at the HTTP/3 layer; nil if the
 	// handshake never completed (a client that rejected the certificate):
 	// it sent no Handshake packet with CRYPTO data, its Finished.
@@ -41,11 +57,16 @@ type Conn struct {
 	Close *Close `json:"close,omitempty"`
 }
 
-// Datagram is one UDP datagram the client sent.
+// Datagram is one UDP datagram the client sent (or, in Conn.Server, the
+// server).
 type Datagram struct {
-	// Micros since the connection's first datagram.
+	// Micros since the connection's first client datagram.
 	Micros int64 `json:"us"`
 	Size   int   `json:"size"`
+	// Path is the index of its client address among the connection's, in
+	// order of first use: 0 the one it started on, more after the client
+	// migrated (RFC 9000, section 9).
+	Path int `json:"path,omitempty"`
 	// Packets are the QUIC packets coalesced in it.
 	Packets []Packet `json:"packets"`
 	// Trailing counts bytes after the last packet that start none (a
@@ -76,11 +97,14 @@ type Packet struct {
 	// Version of a long header packet, hex.
 	Version    string `json:"version,omitempty"`
 	DCIDLength int    `json:"dcid_length"`
-	// SCIDLength, TokenLength (Initial packets) and Length (the long
-	// header's Length field) are nil for packets without them.
+	// SCIDLength, TokenLength (Initial and Retry packets) and Length (the
+	// long header's Length field) are nil for packets without them.
 	SCIDLength  *int `json:"scid_length,omitempty"`
 	TokenLength *int `json:"token_length,omitempty"`
 	Length      *int `json:"length,omitempty"`
+	// Versions are a Version Negotiation packet's supported versions, hex,
+	// in order.
+	Versions []string `json:"versions,omitempty"`
 	// PNLength and PN are the packet number's encoded length and full
 	// value.
 	PNLength int    `json:"pn_length,omitempty"`
@@ -89,7 +113,8 @@ type Packet struct {
 	Size   int     `json:"size"`
 	Frames []Frame `json:"frames,omitempty"`
 	// Error is why the payload could not be read: no keys for its packet
-	// number space, or failed authentication.
+	// number space, or failed authentication; of a Retry, that its
+	// integrity tag does not verify.
 	Error string `json:"error,omitempty"`
 }
 
@@ -173,7 +198,7 @@ type Frame struct {
 }
 
 // TransportParameter is one QUIC transport parameter (RFC 9000, section
-// 18) as the client sent it.
+// 18) as the client (or server) sent it.
 type TransportParameter struct {
 	ID uint64 `json:"id"`
 	// Name is the parameter's name, for those known; Grease marks a

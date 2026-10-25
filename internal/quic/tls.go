@@ -81,9 +81,9 @@ func (c *Conn) handleTLSEvents(now time.Time) error {
 			}
 			switch e.Level {
 			case tls.QUICEncryptionLevelHandshake:
-				c.keysHandshake.r.init(e.Suite, e.Data)
+				c.keysHandshake.r.initVersion(c.quicVersion(), e.Suite, e.Data) // mimicry: v2
 			case tls.QUICEncryptionLevelApplication:
-				c.keysAppData.r.init(e.Suite, e.Data)
+				c.keysAppData.r.initVersion(c.quicVersion(), e.Suite, e.Data) // mimicry: v2
 			}
 		case tls.QUICSetWriteSecret:
 			if err := checkCipherSuite(e.Suite); err != nil {
@@ -91,9 +91,9 @@ func (c *Conn) handleTLSEvents(now time.Time) error {
 			}
 			switch e.Level {
 			case tls.QUICEncryptionLevelHandshake:
-				c.keysHandshake.w.init(e.Suite, e.Data)
+				c.keysHandshake.w.initVersion(c.quicVersion(), e.Suite, e.Data) // mimicry: v2
 			case tls.QUICEncryptionLevelApplication:
-				c.keysAppData.w.init(e.Suite, e.Data)
+				c.keysAppData.w.initVersion(c.quicVersion(), e.Suite, e.Data) // mimicry: v2
 			}
 		case tls.QUICWriteData:
 			var space numberSpace

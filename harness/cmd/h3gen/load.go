@@ -9,6 +9,7 @@ import (
 
 	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/harness/internal/quictrace"
+	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -54,7 +55,7 @@ type discoveryPage struct {
 }
 
 func load(dir, name string) (*captureSet, error) {
-	paths, err := filepath.Glob(filepath.Join(dir, name+".h3-*.pagetrace.json.gz"))
+	paths, err := server.H3ProfileCaptures(dir, name)
 	if err != nil {
 		return nil, err
 	}

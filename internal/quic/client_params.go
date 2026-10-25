@@ -25,7 +25,7 @@ type tpEntry struct {
 // connection: scid as initial_source_connection_id, GREASE drawn with rng,
 // those sent only when resuming (resumed) included, rtt as initial_rtt
 // (left out when zero), in the profile's order.
-func marshalProfileParams(p *profile.QUIC, scid []byte, resumed bool, rtt time.Duration, rng *rand.Rand) ([]byte, error) {
+func marshalProfileParams(p *profile.QUIC, scid []byte, resumed bool, rtt time.Duration, version uint32, rng *rand.Rand) ([]byte, error) {
 	var entries []tpEntry
 	for i := range p.TransportParameters {
 		tp := &p.TransportParameters[i]
@@ -50,7 +50,7 @@ func marshalProfileParams(p *profile.QUIC, scid []byte, resumed bool, rtt time.D
 			}
 			e.value = quicwire.AppendVarint(nil, uint64(rtt.Microseconds())) //nolint:gosec // rtt > 0
 		case tp.ID == profile.TPVersionInformation:
-			v, err := versionInformation(tp, rng)
+			v, err := versionInformation(tp, version, rng)
 			if err != nil {
 				return nil, err
 			}
@@ -96,8 +96,10 @@ func marshalProfileParams(p *profile.QUIC, scid []byte, resumed bool, rtt time.D
 }
 
 // versionInformation encodes version_information (RFC 9368): the chosen
-// version, then the available ones, GREASE drawn per connection.
-func versionInformation(tp *profile.TransportParameter, rng *rand.Rand) ([]byte, error) {
+// version, then the available ones, GREASE drawn per connection. The
+// chosen one is the version the connection starts in: v2 when it resumes
+// a v2 connection's ticket (Firefox), the profile's otherwise.
+func versionInformation(tp *profile.TransportParameter, version uint32, rng *rand.Rand) ([]byte, error) {
 	if len(tp.Versions) == 0 {
 		return nil, fmt.Errorf("quic: version_information without versions")
 	}
@@ -107,6 +109,9 @@ func versionInformation(tp *profile.TransportParameter, rng *rand.Rand) ([]byte,
 		if v == profile.GREASEVersion {
 			versions[i] = rng.Uint32()&0xf0f0f0f0 | 0x0a0a0a0a
 		}
+	}
+	if version != quicVersion1 {
+		versions[0] = version
 	}
 	if tp.ShuffleVersions {
 		available := versions[1:]

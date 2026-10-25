@@ -66,6 +66,17 @@ func (t *Ticket) TLS13() bool {
 	return t.tls13
 }
 
+// Extra is the session's SessionState.Extra: what the connection that
+// received the ticket stored with it (the QUIC version and transport
+// parameters, quic.TicketVersion).
+func (t *Ticket) Extra() [][]byte {
+	_, s, err := t.state.ResumptionState()
+	if err != nil || s == nil {
+		return nil
+	}
+	return s.Extra
+}
+
 // Take returns the ticket a new connection for key offers, or nil. TLS 1.3
 // tickets, and TLS 1.2 ones under single use, leave the store: concurrent
 // connections then resume one at a time. Expired tickets are dropped.

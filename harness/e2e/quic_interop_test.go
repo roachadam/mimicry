@@ -236,6 +236,87 @@ var interopCases = []interopCase{
 		},
 	},
 	{
+		// A stream opened in 0-RTT, on the remembered 16 KB stream
+		// window, takes B's larger one when its transport parameters
+		// arrive (RFC 9000, section 7.4.1): blocked at 16 KB in 0-RTT
+		// packets at most, never in 1-RTT ones.
+		name:    "0rtt-window-grows",
+		limit:   15 * time.Second,
+		zeroRTT: true,
+		server: backendOpts{
+			streamWindow: 16 * kib,
+			connWindow:   64 * kib,
+		},
+		run: func(e *interopEnv) {
+			e.warm()
+			b := e.backend(backendOpts{
+				name: "B",
+			})
+			e.relay.SetTarget(b.target)
+			e.newConnection()
+			info := e.upload(256*kib, 34)
+			if info.Backend != "B" || !info.Used0RTT {
+				e.t.Errorf("want B to accept 0-RTT, got %+v", info)
+			}
+			if n := b.streamBlocked.Load(); n != 0 {
+				e.t.Errorf("B received %d STREAM_DATA_BLOCKED frames in 1-RTT: the stream kept the remembered window", n)
+			}
+		},
+	},
+	{
+		// 0-RTT rejected by B, whose windows are smaller than the
+		// remembered ones: what the client sends again in 1-RTT keeps
+		// to B's (RFC 9001, section 4.6.2), or B closes the connection
+		// with FLOW_CONTROL_ERROR.
+		name:    "0rtt-rejected-smaller-windows",
+		limit:   20 * time.Second,
+		zeroRTT: true,
+		run: func(e *interopEnv) {
+			e.warm()
+			e.relay.SetTarget(e.backend(backendOpts{
+				name:         "B",
+				no0RTT:       true,
+				streamWindow: 8 * kib,
+				connWindow:   16 * kib,
+			}).target)
+			e.newConnection()
+			info := e.upload(256*kib, 35)
+			if info.Backend != "B" || !info.Resumed || info.Used0RTT {
+				e.t.Errorf("want B to resume without 0-RTT, got %+v", info)
+			}
+		},
+	},
+	{
+		// A server speaking v2 only answers every profile's version 1
+		// Initial with a Version Negotiation packet (RFC 9000, section
+		// 6): the dial fails at once and the requests go over TCP,
+		// none waiting for a handshake timeout.
+		name:  "version-negotiation",
+		limit: 10 * time.Second,
+		server: backendOpts{
+			versions: []quic.Version{quic.Version2},
+		},
+		run: func(e *interopEnv) {
+			for i := range 6 {
+				start := time.Now()
+				resp, _, err := e.do(http.MethodGet, "/info", nil)
+				if err != nil {
+					e.t.Fatalf("request %d: %v", i, err)
+				}
+				if resp.ProtoMajor == 3 {
+					e.t.Fatalf("request %d went over HTTP/3 to a v2-only server", i)
+				}
+				if d := time.Since(start); d > time.Second {
+					e.t.Errorf("request %d took %v: it waited for the QUIC dial", i, d)
+				}
+				time.Sleep(50 * time.Millisecond)
+			}
+			if st := e.relay.Stats(); st.Forwarded[1] == 0 {
+				e.t.Errorf("the server never answered the client's Initial: %+v", st)
+			}
+		},
+	},
+	{
 		name:  "chacha20",
 		limit: 20 * time.Second,
 		server: backendOpts{
@@ -836,7 +917,7 @@ func (e *interopEnv) downloadWith(n int, seed uint64, at int, fn func()) (connIn
 }
 
 // upload posts n bytes of seed's stream and checks the server's digest.
-func (e *interopEnv) upload(n int, seed uint64) {
+func (e *interopEnv) upload(n int, seed uint64) connInfo {
 	e.t.Helper()
 	what := fmt.Sprintf("upload of %d bytes", n)
 	data := interopBytes(n, seed)
@@ -844,11 +925,12 @@ func (e *interopEnv) upload(n int, seed uint64) {
 	if err != nil {
 		e.t.Fatalf("%s: %v", what, err)
 	}
-	e.h3(resp, what)
+	info := e.h3(resp, what)
 	sum := sha256.Sum256(data)
 	if want := fmt.Sprintf("%d %x", n, sum); string(body) != want {
 		e.t.Fatalf("%s: the server read %q, want %q", what, body, want)
 	}
+	return info
 }
 
 // parallel runs fn for 0 to n-1 at once, each with the case's env in a
@@ -954,6 +1036,12 @@ type backendOpts struct {
 	idle time.Duration
 	// tiny: tiny flow control windows and 2 concurrent request streams.
 	tiny bool
+	// versions are the QUIC versions the server accepts (default quic-go's,
+	// 1 and 2); a client in another answers with Version Negotiation.
+	versions []quic.Version
+	// streamWindow and connWindow, when set, are the server's stream and
+	// connection receive windows, initial and maximum.
+	streamWindow, connWindow int
 	// bigChain: a certificate chain several times larger than the client's
 	// first flight, so the anti-amplification limit holds the server's.
 	bigChain bool
@@ -981,6 +1069,9 @@ type backend struct {
 	closed    chan struct{}
 	closeOnce sync.Once
 	rejected  atomic.Bool
+	// streamBlocked counts the STREAM_DATA_BLOCKED frames received in
+	// 1-RTT packets.
+	streamBlocked atomic.Int64
 }
 
 // backend starts a backend for the case, stopped when it ends.
@@ -1048,6 +1139,15 @@ func startBackend(opts backendOpts, cert tls.Certificate, ticketKey [32]byte) (*
 		MaxIdleTimeout: cmp.Or(opts.idle, 30*time.Second),
 		Allow0RTT:      !opts.no0RTT,
 		Tracer:         b.tracer,
+		Versions:       opts.versions,
+	}
+	if opts.streamWindow > 0 {
+		qconf.InitialStreamReceiveWindow = uint64(opts.streamWindow)
+		qconf.MaxStreamReceiveWindow = uint64(opts.streamWindow)
+	}
+	if opts.connWindow > 0 {
+		qconf.InitialConnectionReceiveWindow = uint64(opts.connWindow)
+		qconf.MaxConnectionReceiveWindow = uint64(opts.connWindow)
 	}
 	if opts.tiny {
 		qconf.InitialStreamReceiveWindow = 8 * kib
@@ -1275,6 +1375,15 @@ func (r *serverRecorder) RecordEvent(ev qlogwriter.Event) {
 	case qlog.KeyUpdated:
 		if ev.KeyType == qlog.KeyTypeServer1RTT && ev.Trigger == qlog.KeyUpdateLocal {
 			r.b.keyUpdates.Add(1)
+		}
+	case qlog.PacketReceived:
+		if ev.Header.PacketType != qlog.PacketType1RTT {
+			break
+		}
+		for _, f := range ev.Frames {
+			if _, ok := f.Frame.(*qlog.StreamDataBlockedFrame); ok {
+				r.b.streamBlocked.Add(1)
+			}
 		}
 	case qlog.ConnectionClosed:
 		r.b.mu.Lock()

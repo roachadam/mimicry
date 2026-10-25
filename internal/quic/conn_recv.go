@@ -30,6 +30,9 @@ func (c *Conn) handleDatagram(now time.Time, dgram *datagram) (handled bool) {
 	}
 	for len(buf) > 0 {
 		var n int
+		if c.client != nil {
+			c.clientUpgrade(buf) // mimicry: QUIC v2
+		}
 		ptype := getPacketType(buf)
 		switch ptype {
 		case packetTypeInitial:
@@ -97,7 +100,7 @@ func (c *Conn) handleLongHeader(now time.Time, dgram *datagram, ptype packetType
 		})
 		return -1
 	}
-	if p.version != quicVersion1 {
+	if p.version != c.quicVersion() { // mimicry: v2
 		// The peer has changed versions on us mid-handshake?
 		c.abort(now, localTransportError{
 			code:   errProtocolViolation,
@@ -198,7 +201,9 @@ func (c *Conn) handleRetry(now time.Time, pkt []byte) {
 	// that cannot be validated."
 	// https://www.rfc-editor.org/rfc/rfc9000#section-17.2.5.2-2
 	p, ok := parseRetryPacket(pkt, c.connIDState.originalDstConnID)
-	if !ok {
+	if !ok || p.version != c.quicVersion() {
+		// mimicry: "The client ignores Retry packets using other
+		// versions" (RFC 9369, section 4.1).
 		return
 	}
 	// "A client MUST discard a Retry packet with a zero-length Retry Token field."
@@ -209,6 +214,9 @@ func (c *Conn) handleRetry(now time.Time, pkt []byte) {
 	c.retryToken = cloneBytes(p.token)
 	c.connIDState.handleRetryPacket(p.srcConnID)
 	c.keysInitial = initialKeys(p.srcConnID, c.side)
+	if c.client != nil {
+		c.client.initialCID = cloneBytes(p.srcConnID) // mimicry: v2's Initial keys
+	}
 	// We need to resend any data we've already sent in Initial packets.
 	// We must not reuse already sent packet numbers.
 	c.loss.discardPackets(initialSpace, c.log, c.handleAckOrLoss)
@@ -236,6 +244,10 @@ func (c *Conn) handleVersionNegotiation(now time.Time, pkt []byte) {
 	_, srcConnID, versions := parseVersionNegotiation(pkt)
 	if len(c.connIDState.remote) < 1 || !bytes.Equal(c.connIDState.remote[0].cid, srcConnID) {
 		return // Source Connection ID doesn't match what we sent
+	}
+	if c.client != nil {
+		c.clientVersionNegotiation(now, versions) // mimicry: RFC 9368
+		return
 	}
 	for len(versions) >= 4 {
 		ver := binary.BigEndian.Uint32(versions)

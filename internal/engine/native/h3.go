@@ -338,6 +338,10 @@ func (e *Engine) connectH3(ctx context.Context, r route, key string, port uint16
 	if e.profile.QUIC.Tokens {
 		dc.Token = token
 	}
+	if cfg.Ticket != nil {
+		// A v2 connection's ticket starts its resumption in v2 (Firefox).
+		dc.Version = quic.TicketVersion(cfg.Ticket.Extra())
+	}
 	qc, err := quic.Dial(dctx, pc, peer, dc)
 	if err != nil {
 		return nil, err

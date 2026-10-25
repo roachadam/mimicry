@@ -126,13 +126,83 @@ the mechanical import rewrites.
      here as browsers send nothing on an idle connection; without one a
      receiving client stayed silent after the server's probe of its new
      path was lost, until the idle timeout (row `rebinding-probe-loss`).
+   - 0-RTT flow control (`client_tls.go`, hook in `conn.go`'s
+     `receiveTransportParameters`): streams opened in 0-RTT, on the
+     remembered windows, take the server's larger ones when its transport
+     parameters arrive (`clientApplyPeerWindows`; row
+     `0rtt-window-grows`); on rejected 0-RTT the send side starts again,
+     limited by the new parameters only: connection credit, every
+     stream's window and sent offset reset, everything flushed unsent
+     (`clientResetFlowControl`, `Stream.resetSendWindow`; row
+     `0rtt-rejected-smaller-windows`). Upstream has no 0-RTT.
+
+7. **QUIC v2** (RFC 9369) by compatible version negotiation (RFC 9368),
+   for a client whose profile lists v2 in `version_information` (Firefox).
+   Upstream has no v2: it speaks version 1 only and its server never
+   upgrades. Every connection starts in version 1; its wire does not
+   change unless the server answers in v2.
+   - `packet_protection.go`: `initVersion` beside `init` on `headerKey`,
+     `packetKey`, `fixedKeys` and `updatingKeys` (which keeps its
+     version for key updates), `updateSecretVersion`,
+     `initialKeysVersion`: v2's salt and `quicv2 key/iv/hp/ku` labels
+     (`versionLabels`). The upstream functions are the version 1 case.
+   - `packet.go`: `getPacketType` reads v2's rotated type bits when the
+     Version field is v2; `longPacketTypeBits` encodes them
+     (`packet_writer.go`).
+   - `retry.go`: v2's Retry integrity key and nonce;
+     `retryPacket.version`. The server still sends version 1 only.
+   - `transport_params.go`: `version_information` (0x11) parsed into
+     `transportParameters.versionInfo`, and encoded when set (tests'
+     servers only).
+   - `client_version.go` (new): `clientUpgrade` (called first in
+     `conn_recv.go`'s `handleDatagram`) switches to v2 on the server's
+     first v2 Initial that v2's Initial keys open, before the
+     ServerHello, only when the profile lists v2;
+     `clientCheckVersionInfo` (from `receiveTransportParameters`)
+     closes with VERSION_NEGOTIATION_ERROR when the server's chosen
+     version is not the one in use or was not offered, or it sent none
+     after an upgrade or after a Version Negotiation packet, or (after
+     one) Available Versions that would not have led to the same
+     version. The error code is 0x53f8, the draft codepoint Firefox
+     sends (capture h3-vn), not RFC 9368's 0x11 (`errors.go` names it).
+     A Version Negotiation packet (hook in `conn_recv.go`'s
+     `handleVersionNegotiation`) ends a profile client at once with a
+     `VersionNegotiationError` carrying its versions (`errors.Is`
+     `ErrVersionNegotiation`); `RetryVersion` is the version Firefox
+     starts its next connection in (v2), and
+     `DialConfig.AfterVersionNegotiation` marks that connection, which
+     ignores further such packets. Upstream's clients keep upstream's
+     handling.
+   - `conn_recv.go`: the long header version check and Retry use the
+     connection's version (`Conn.quicVersion`); a Retry in another
+     version is ignored; the Retry's connection ID is kept for v2's
+     keys. `tls.go`: Handshake and 1-RTT keys get the version's labels.
+   - `client_send.go`: Initial and Handshake packets in the version in
+     use; 0-RTT stays version 1 (RFC 9369, section 4.1).
+     `client_tls.go`: a v2 connection's tickets carry its version
+     (`rememberedVersion`); `TicketVersion` reads it and
+     `DialConfig.Version` starts the resuming connection in v2: Initial
+     keys, every long header, 0-RTT, and `version_information`'s chosen
+     version (`client_params.go`), as Firefox does (capture h3-v2). No
+     NEW_TOKEN token from a v2 connection is passed on (RFC 9369,
+     section 5; Firefox's reuse unmeasured). The engine and the interop
+     prober set `Version` from the ticket (`handshake.Ticket.Extra`).
+   - Tests: `client_version_test.go` (upgrade, mismatched or missing
+     server `version_information`, no upgrade for Chrome and Safari, RFC
+     9369 appendix A vectors, a connection starting in v2, Version
+     Negotiation and the connection after it), on upstream's `testConn`, which gains
+     `testConn.version` (the peer's Version field and key labels), h3 as
+     the synthetic server's ALPN for a profile client, and
+     `cmp` in `conn_test.go`'s imports.
 
 ## Tests
 
 The tests are upstream's own, kept as the proof that the copy and the TLS
 swap work: `go test -race ./internal/quic/...`. They are allowed under
 AGENTS.md's tests policy for that reason, not as a model for new tests.
-None were pruned: all pass on uTLS.
+None were pruned: all pass on uTLS. `client_version_test.go` is mimicry's
+(change 7): v2 has no upstream tests, and the browser client's handshake
+cannot be checked anywhere but on the synthetic peer.
 
 ## Lint
 

@@ -379,13 +379,18 @@ with a GOAWAY (Firefox), Chrome's transport parameters unshuffled.
 | `kinds.xhr` POST variant (`cors_checked`, no `http1`) | K: the `h3-page` XHR POST over HTTP/3 (= its HTTP/2 list), 3 samples; `cookie` slot placed after its predecessor (assumed) | K: over HTTP/3 in HTTP/2 form (`alt-used` out, `te` back last), 3 samples; `*` and `cookie` slots assumed | W: its `h3-page` HTTP/2 requests, 3 samples; `cookie` slot assumed | W: as 27 |
 | `http3.discovery` | W (local roots): `next_request`; no TCP GOAWAY; no race (0-RTT QUIC alone after the server's GOAWAY) | W (local roots): `on_alt_svc`; `goaway_tcp` (every HTTP/2 connection QUIC replaced, 3 of 3); `race_after_goaway`, 6–9 ms | W: `new_connection` (QUIC only after the server's HTTP/2 GOAWAY; `h3-b` stayed on HTTP/2); race not measured | W: as 27 |
 
-Not measured, documented on `profile.QUIC` and `profile.HTTP3`: credit
-growth (Chrome's one `MAX_DATA` equal to its initial credit is not
-modelled), ACK frequency, key updates the browser starts, PMTU probing,
-ECN, migration, DATAGRAM, Retry and version negotiation; Safari's QPACK
-with a table, request bodies, PRIORITY_UPDATE, resumption and close; what
-`-h3-local-roots` might change after the handshake (switching and racing
-were only seen with it).
+Not measured, documented on `profile.QUIC` and `profile.HTTP3`: PMTU
+probing, ECN, DATAGRAM and Retry; Safari's QPACK with a table, request
+bodies, PRIORITY_UPDATE and resumption; what `-h3-local-roots` might
+change after the handshake (switching and racing were only seen with it);
+a v2 connection's NEW_TOKEN reused by a v1 one; broken-alternative
+durations beyond a page; credit growth beyond 50 MiB or at lower
+bandwidth; key updates beyond 37,000 received packets. Measured but in no
+profile field yet ([report](../harness/reports/http3-edge-2026-10-25.md)):
+credit growth (fixed windows, Chrome's repeated `MAX_DATA`), ACK frequency
+(no ACK_FREQUENCY frames), key updates (no browser starts one), Chrome's
+port migration on a dead path, QUIC version 2 and Version Negotiation, and
+each browser's retransmission schedule, give-up and TCP fallback.
 
 ## Behaviour in code, not in profiles
 

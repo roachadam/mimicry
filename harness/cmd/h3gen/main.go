@@ -4,7 +4,8 @@
 //	go run ./cmd/h3gen -captures testdata/captures -profile ../profiles/data/chrome-155-macos.json
 //
 // It reads every <name>.h3-discovery and <name>.h3-page capture, with and
-// without -h3-local-roots (<name>.h3-*.pagetrace.json.gz). Every QUIC
+// without -h3-local-roots (server.H3ProfileCaptures; not the h3 edge
+// scenarios' failures and other versions). Every QUIC
 // connection's first flight counts, failed handshakes included (they show
 // the same Initial packets, ClientHello and transport parameters); what
 // follows the handshake comes from connections that completed it, and
@@ -36,7 +37,7 @@ func main() {
 }
 
 func run() error {
-	captures := flag.String("captures", "testdata/captures", "directory with the profile's h3 captures (<name>.h3-*.pagetrace.json.gz)")
+	captures := flag.String("captures", "testdata/captures", "directory with the profile's h3-discovery and h3-page captures")
 	path := flag.String("profile", "", "profile JSON to update (required); its name picks the captures")
 	flag.Parse()
 	if *path == "" {

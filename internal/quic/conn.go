@@ -160,6 +160,11 @@ func newConn(now time.Time, side connSide, cids newServerConnIDs, peerHostname s
 		// held until the application's first writes (Dial).
 		maxDatagramSize = c.client.p.DatagramSize
 		c.cork.Store(1)
+		// No key update of its own until half the lowest AEAD
+		// confidentiality limit (upstream's later schedule): no browser
+		// started one in 50 MiB (capture h3-download); they follow the
+		// server's. Upstream starts one after 100 packets.
+		c.keysAppData.updateAfter = clientKeyUpdateAfter
 	}
 	c.loss.init(c.side, maxDatagramSize, now)
 	if c.client != nil {
@@ -275,6 +280,13 @@ func (c *Conn) receiveTransportParameters(p transportParameters) error {
 	isRetry := c.retryToken != nil
 	if err := c.connIDState.validateTransportParameters(c, isRetry, p); err != nil {
 		return err
+	}
+	if c.client != nil {
+		// mimicry: version_information, and streams opened in 0-RTT.
+		if err := c.clientCheckVersionInfo(p); err != nil {
+			return err
+		}
+		defer c.clientApplyPeerWindows(p)
 	}
 	c.streams.outflow.setMaxData(p.initialMaxData)
 	c.streams.localLimit[bidiStream].setMax(p.initialMaxStreamsBidi)

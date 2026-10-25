@@ -14,7 +14,7 @@ Runs are on macOS arm64 with OrbStack, and the amd64-only images run under emula
 
 ## How each runner case maps to a browser client
 
-v2 is left out: no profile offers it as its version (only Firefox lists it, in `version_information`, see bug 1). For the server's side, the runner names the case `transfer` for `multiplexing` and `keyupdate`, and `multiconnect` for the handshake loss cases.
+v2 is not a case of its own: no profile starts a fresh connection in it. Firefox lists it in `version_information` and is upgraded by servers that negotiate compatibly (bug 1, fixed); see the rerun below. For the server's side, the runner names the case `transfer` for `multiplexing` and `keyupdate`, and `multiconnect` for the handshake loss cases.
 
 | Case | Server TESTCASE | Client |
 |---|---|---|
@@ -175,14 +175,14 @@ Summary: 69 of 72 rows pass. Safari never resumes QUIC (as captured), so its sec
 
 ## Bugs found
 
-Neither bug was fixed in this run. Both were sent to InteropLocal, which confirmed them and is reporting them to Main as open.
+Bug 1 is fixed (see "Rerun after the v2 fix" below). Bug 2 is the engine's and stays open here.
 
-1. **Firefox cannot finish a handshake when the server upgrades it to QUIC v2.**
+1. **Firefox cannot finish a handshake when the server upgrades it to QUIC v2. Fixed.**
    - What happens: Firefox's `version_information` lists v2 (`6b3343cf`). Servers that do RFC 9368 compatible version negotiation answer its v1 Initial in v2. `internal/quic` speaks v1 only: it drops those packets and resends Initials until the 10 s handshake timeout. aioquic sends a stateless reset first.
    - Where: kwik, picoquic, aioquic and haproxy locally (every Firefox row), and in production on **www.litespeedtech.com** and **quic.aiortc.org**.
    - Impact on the engine: the Firefox profile waits 10 s and then stays on TCP for those origins.
-   - What the browser does: [INFERENCE, not captured] neqo supports v2 and would finish in v2.
-   - Fix (InteropLocal's outline): v2 Initial salt and keys, `quicv2` HKDF labels, rotated long-header types, the v2 Retry key, a mid-handshake key switch, and `version_information` validation. The fingerprint does not change.
+   - What the browser does (captured by H3EdgeCapture, Firefox 158 against aioquic 1.7, `h3-v2` capture): first flight in v1 with `version_information` chosen 1, available {GREASE, v2, 1}; the server's first Initial is v1 (ACK+PING), which Firefox ACKs in a v1 Initial; from the server's v2 Initial on, every long header is v2, the Initial packet numbers continuing, v2 Initial keys from the original DCID. A resumed connection to the same origin starts in v2 from its first packet, 0-RTT included, `version_information` chosen v2 with the same available list.
+   - Fix (`internal/quic`, UPSTREAM.md change 7): v2 Initial salt and keys, `quicv2` HKDF labels, rotated long-header types, the v2 Retry key, the switch on the server's first v2 Initial (only for a profile listing v2, only before the ServerHello), `version_information` validation (VERSION_NEGOTIATION_ERROR on a mismatched or missing chosen version), and resumption of a v2 ticket in v2. Version 1 connections' wire is unchanged (`TestHTTP3MatchesBrowser`). Tests: `internal/quic/client_version_test.go` (upgrade, mismatched/missing server `version_information`, no upgrade for Chrome or Safari, starting in v2, RFC 9369 appendix A vectors), every one failing under its mutation. quic-go cannot upgrade compatibly, so `TestQUICInterop` covers the incompatible path instead: row `version-negotiation` (a v2-only server: every profile's dial fails at once on the Version Negotiation packet and its requests go over TCP, none over 1 s; with the abort removed they wait the 10 s timeout).
    - Repro: `-servers kwik -cases handshake -profiles firefox-158-macos`. Trace: `/tmp/interop/fixed/t1/local/kwik/handshake-as-http3/check/firefox-158-macos/conn01.trace.json`, plus `.keys`.
 2. **A QUIC alternative that never answers stalls requests for the handshake timeout.**
    - (a) With UDP blocked, the first request that wants HTTP/3 waits 10.0 s before going to TCP on Firefox, Safari 26 and Safari 27 (`udpblocked`). Chrome does not wait, because its dial runs in the background.
@@ -191,7 +191,7 @@ Neither bug was fixed in this run. Both were sent to InteropLocal, which confirm
    - Fix (outline): a race or backup timer for TCP; mark the origin broken when a 0-RTT connection dies before any server packet.
    - The browser fingerprint is unaffected; only the error path changes.
 
-No regression tests were added: neither bug was fixed in this run. The tool itself is opt-in and not a test.
+The tool itself is opt-in and not a test.
 
 ## Remaining failures: analysis
 
@@ -206,9 +206,43 @@ No regression tests were added: neither bug was fixed in this run. The tool itse
 - **quiche handshakecorruption: `received stateless reset` on connection 2.** A corrupted resumed Initial makes quiche answer with a stateless reset, and the connection ends at once. This is correct RFC behaviour and the server's choice. The same happens on aioquic Chrome.
 - **ngtcp2 multiplexing, Chrome only: 972 of 2000.** nghttp3 closes with `H3_EXCESSIVE_LOAD` (0x107) after about 1000 PRIORITY_UPDATE frames (server log: `nghttp3_conn_read_stream2: ERR_H3_EXCESSIVE_LOAD`, preceded by a run of PRIORITY_UPDATEs). Chrome sends one per prioritised request, as captured (102 of 102). [INFERENCE] real Chrome issuing 2000 requests in a second would hit the same rate limit. This is server policy, not a mimicry bug.
 - **kwik, Chrome resumption, zerortt and alternate loss connections.** kwik logs `Server accepted early data`, then closes with H3_CLOSED_CRITICAL_STREAM (0x104) and crashes: `IllegalStateException: Missing keys for encryption level ZeroRTT`. [INFERENCE] this is a kwik server bug; other servers accept the same 0-RTT flight (ngtcp2, haproxy, nginx, quinn, xquic, lsquic, Google, Cloudflare). It is not decrypted yet.
-- **lsquic, Chrome: occasional `INTERNAL_ERROR` from the server at handshake** (handshake, longrtt, zerortt, loss cases). The other profiles are unaffected, and www.litespeedtech.com handshakes with Chrome cleanly. The cause is not found; the server log is in `run2/local/lsquic/*/server/`.
+- **lsquic, Chrome: occasional `INTERNAL_ERROR` from the server at handshake** (handshake, longrtt, zerortt, loss cases; www.litespeedtech.com did it once in the rerun too). lsquic's: its mini connection stashes at most 10 out-of-order CRYPTO frames and closes with INTERNAL_ERROR (0x1) at the 11th. Server log (`-seed 3`, zerortt): `mini-conn: cannot stash more CRYPTO frames, at 10 already, while max is 10`, then `sending CONNECTION_CLOSE, is_app: 0, error code: 1`. Chrome's chaos protection cuts its hello into up to 12 CRYPTO frames per packet (2–10 added per packet in all 66 captured packets, EVIDENCE.md); the frames were contiguous and in range, so nothing in our packets is outside what Chrome sends, and how many arrive before offset 0 is down to the shuffle (it failed for 1–2 of 3 cases per seed). lsquic raised the limit to 20 and made it a setting in 4.10.0 ("ngtcp2's chaos protection … aborts such handshakes", lsquic issue #680); the runner image `litespeedtech/lsquic-qir:latest` was built 2025-11-19, before it. [INFERENCE] real Chrome fails the same way against servers on older lsquic.
 - **www.akamai.com, Safari 26: the second probe connection was closed** right after the handshake. It happened once and Safari 27 passed; not reproduced.
 - **chacha20 is n/a where the server cannot be made to prefer it** (quiche, nginx/BoringSSL, quinn, xquic, aioquic, kwik, s2n-quic, lsquic). Where it can (ngtcp2, haproxy), every profile negotiates 0x1303 and transfers.
+
+## Rerun after the v2 fix (QUICv2)
+
+`go run ./cmd/interop -local -servers kwik,picoquic,aioquic,haproxy,lsquic` and `-public -sites www.litespeedtech.com,quic.aiortc.org`, all profiles, after the fix. Cells C, F, S26, S27 as above.
+
+| Server | handshake | longrtt | transfer | multiplexing | keyupdate | transferloss | transfercorruption | blackhole | retry | resumption | zerortt | chacha20 | handshakeloss | handshakecorruption | discovery | udpblocked |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| kwik | PPPP | PPPP | PPPP | PPPP | PPPP | PPPP | PPPP | PPPP | PPPP | FP-- | FP-- | ---- | FFPP | FPFP | PPPP | PFFF |
+| picoquic | PPPP | PPPP | PPPP | PPPP | PPPP | PPPP | PPPP | PPPP | PPPP | PP-- | PP-- | ---- | PPPP | PPPP | PPPP | PFFF |
+| aioquic | PPPP | PPPP | PFPP | PFPP | PFPP | PFPP | PFPP | PFPP | PPPP | PP-- | PP-- | ---- | PPPP | FPPP | PFPP | PFFF |
+| haproxy | PPPP | PPPP | PPPP | PPPP | PPPP | PPPP | PFPP | FPPP | PPPP | PP-- | PP-- | PPPP | PPPP | PPPP | PPPP | PFFF |
+| lsquic | FPPP | FPPP | PPPP | PPPP | PPPP | PPPP | PPPP | PPPP | PPPP | FP-- | FP-- | ---- | FFFF | FFFF | PPPP | PFFF |
+
+Firefox before (`run2`): F in every column for kwik, picoquic and aioquic; haproxy was not in `run2`'s table; lsquic does not upgrade a fresh connection, so Firefox passed there before and after. After, Firefox's resumption and zerortt cells come from the second run made after resumption in v2 was added (the first full run stored no v2 ticket: `no session ticket within 2 s`); Firefox-only rerun of handshake, transfer, resumption, zerortt: kwik PPPP, picoquic PPPP, aioquic PFPP, haproxy PPPP, lsquic PPPP.
+
+Public, after:
+
+| Site | Profile | Result | QUIC version | h3 (engine) | 2nd conn | 0-RTT | Error |
+|---|---|---|---|---|---|---|---|
+| www.litespeedtech.com | C | pass (1 of 2 runs: probe connection 2 INTERNAL_ERROR, the lsquic stash limit) | 1 | req 3 | resumed | not sent | |
+| www.litespeedtech.com | F | pass with v2 fresh; fail on the resumed probe | 6b3343cf | req 2 | fresh | not sent | probe connection 2: `handshake timeout` |
+| www.litespeedtech.com | S26, S27 | pass | 1 | req 2 | fresh | not sent | |
+| quic.aiortc.org | C | pass | 1 | req 3 | resumed | accepted | |
+| quic.aiortc.org | F | pass | 6b3343cf | req 2 | resumed | accepted | |
+| quic.aiortc.org | S26, S27 | pass | 1 | req 2 | fresh | not sent | |
+
+Still failing, and why:
+
+- **aioquic, Firefox, every transfer case: idle timeout.** aioquic derives v2 1-RTT key updates with `quic ku` instead of `quicv2 ku` (`src/aioquic/quic/crypto.py`, `next_key_phase`; RFC 9369, section 3.3.2). `internal/quic` starts a key update after 100 packets (upstream's `updateAfter`), after which aioquic cannot read the client's packets. With that update disabled the row passes. aioquic's bug; but note that the client-started update is upstream behaviour the profiles do not model (the captures only show browsers following the server's).
+- **www.litespeedtech.com, Firefox, resumed connection in v2: no handshake.** lsquic answers the v2 Initial with a Retry whose Long Packet Type bits are v1's (`lsquic_iquic_gen_retry_pkt`: `0xC0 | (3 << 4)` whatever the version), which in v2 reads as a Handshake packet, so the Retry is never seen and the connection times out. lsquic's bug; what Firefox does there is not captured.
+- **Version Negotiation, Firefox (capture h3-vn):** Firefox starts a new connection in v2 1 ms after the packet and closes it with 0x53f8 when the server's transport parameters lack version_information (quic-go), then uses TCP. `internal/quic` has the protocol side: `VersionNegotiationError`, `RetryVersion` (v2 for Firefox, none for Chrome and Safari), `DialConfig.AfterVersionNegotiation` (version_information required, Available Versions checked, 0x53f8). The engine does not redial yet: Firefox's second connection carries a different ClientHello (512 bytes: X25519 key share only, no ECH or compress_certificate, a padding extension, shuffled order), which no profile describes. Until it does, the engine falls back to TCP at once (row `version-negotiation`), which ends where Firefox ends against quic-go; against a v2-only server that sends version_information, Firefox would reach HTTP/3 and mimicry does not.
+- **kwik, Chrome resumption/zerortt**: kwik's 0-RTT crash, as before. **lsquic Chrome**: the stash limit above. **udpblocked**: bug 2.
+
+`TestQUICInterop` rows added with the fix: `version-negotiation` (above), and for 0-RTT flow control `0rtt-window-grows` (a stream opened in 0-RTT on a remembered 16 KB window takes B's larger one; without the fix the upload stalls until the deadline, 3 of 3) and `0rtt-rejected-smaller-windows` (0-RTT rejected by a server with 8 KB stream windows; without the fix quic-go closes with FLOW_CONTROL_ERROR, 3 of 3).
 
 ## Doc follow-ups
 

@@ -1,7 +1,10 @@
 package quictrace
 
 import (
+	"bytes"
+	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -154,6 +157,554 @@ func TestDecodeRFC9001Samples(t *testing.T) {
 		}
 		if o.firstByte != 0x42 || o.pnLen != 3 || o.pn != 654360564 || !slices.Equal(o.payload, []byte{0x01}) {
 			t.Errorf("opened first byte %#x, %d-byte packet number %d, payload %x; want 0x42, 3, 654360564, 01", o.firstByte, o.pnLen, o.pn, o.payload)
+		}
+	})
+}
+
+// RFC 9369's sample packets (appendix A): the client Initial of A.2, the
+// server Initial answering it (A.3) and a Retry (A.4); and RFC 9001's
+// Retry (appendix A.4) answering its version 1 client Initial. All use the
+// client's Destination Connection ID 8394c8f03e515708 and the server's
+// connection ID f067a5502a4262b5.
+const (
+	rfc9369ClientInitial = "" +
+		"d76b3343cf088394c8f03e5157080000449ea0c95e82ffe67b6abcdb4298b485" +
+		"dd04de806071bf03dceebfa162e75d6c96058bdbfb127cdfcbf903388e99ad04" +
+		"9f9a3dd4425ae4d0992cfff18ecf0fdb5a842d09747052f17ac2053d21f57c5d" +
+		"250f2c4f0e0202b70785b7946e992e58a59ac52dea6774d4f03b55545243cf1a" +
+		"12834e3f249a78d395e0d18f4d766004f1a2674802a747eaa901c3f10cda5500" +
+		"cb9122faa9f1df66c392079a1b40f0de1c6054196a11cbea40afb6ef5253cd68" +
+		"18f6625efce3b6def6ba7e4b37a40f7732e093daa7d52190935b8da58976ff33" +
+		"12ae50b187c1433c0f028edcc4c2838b6a9bfc226ca4b4530e7a4ccee1bfa2a3" +
+		"d396ae5a3fb512384b2fdd851f784a65e03f2c4fbe11a53c7777c023462239dd" +
+		"6f7521a3f6c7d5dd3ec9b3f233773d4b46d23cc375eb198c63301c21801f6520" +
+		"bcfb7966fc49b393f0061d974a2706df8c4a9449f11d7f3d2dcbb90c6b877045" +
+		"636e7c0c0fe4eb0f697545460c806910d2c355f1d253bc9d2452aaa549e27a1f" +
+		"ac7cf4ed77f322e8fa894b6a83810a34b361901751a6f5eb65a0326e07de7c12" +
+		"16ccce2d0193f958bb3850a833f7ae432b65bc5a53975c155aa4bcb4f7b2c4e5" +
+		"4df16efaf6ddea94e2c50b4cd1dfe06017e0e9d02900cffe1935e0491d77ffb4" +
+		"fdf85290fdd893d577b1131a610ef6a5c32b2ee0293617a37cbb08b847741c3b" +
+		"8017c25ca9052ca1079d8b78aebd47876d330a30f6a8c6d61dd1ab5589329de7" +
+		"14d19d61370f8149748c72f132f0fc99f34d766c6938597040d8f9e2bb522ff9" +
+		"9c63a344d6a2ae8aa8e51b7b90a4a806105fcbca31506c446151adfeceb51b91" +
+		"abfe43960977c87471cf9ad4074d30e10d6a7f03c63bd5d4317f68ff325ba3bd" +
+		"80bf4dc8b52a0ba031758022eb025cdd770b44d6d6cf0670f4e990b22347a7db" +
+		"848265e3e5eb72dfe8299ad7481a408322cac55786e52f633b2fb6b614eaed18" +
+		"d703dd84045a274ae8bfa73379661388d6991fe39b0d93debb41700b41f90a15" +
+		"c4d526250235ddcd6776fc77bc97e7a417ebcb31600d01e57f32162a8560cacc" +
+		"7e27a096d37a1a86952ec71bd89a3e9a30a2a26162984d7740f81193e8238e61" +
+		"f6b5b984d4d3dfa033c1bb7e4f0037febf406d91c0dccf32acf423cfa1e70710" +
+		"10d3f270121b493ce85054ef58bada42310138fe081adb04e2bd901f2f13458b" +
+		"3d6758158197107c14ebb193230cd1157380aa79cae1374a7c1e5bbcb80ee23e" +
+		"06ebfde206bfb0fcbc0edc4ebec309661bdd908d532eb0c6adc38b7ca7331dce" +
+		"8dfce39ab71e7c32d318d136b6100671a1ae6a6600e3899f31f0eed19e3417d1" +
+		"34b90c9058f8632c798d4490da4987307cba922d61c39805d072b589bd52fdf1" +
+		"e86215c2d54e6670e07383a27bbffb5addf47d66aa85a0c6f9f32e59d85a44dd" +
+		"5d3b22dc2be80919b490437ae4f36a0ae55edf1d0b5cb4e9a3ecabee93dfc6e3" +
+		"8d209d0fa6536d27a5d6fbb17641cde27525d61093f1b28072d111b2b4ae5f89" +
+		"d5974ee12e5cf7d5da4d6a31123041f33e61407e76cffcdcfd7e19ba58cf4b53" +
+		"6f4c4938ae79324dc402894b44faf8afbab35282ab659d13c93f70412e85cb19" +
+		"9a37ddec600545473cfb5a05e08d0b209973b2172b4d21fb69745a262ccde96b" +
+		"a18b2faa745b6fe189cf772a9f84cbfc"
+	rfc9369ServerInitial = "" +
+		"dc6b3343cf0008f067a5502a4262b5004075d92faaf16f05d8a4398c47089698" +
+		"baeea26b91eb761d9b89237bbf87263017915358230035f7fd3945d88965cf17" +
+		"f9af6e16886c61bfc703106fbaf3cb4cfa52382dd16a393e42757507698075b2" +
+		"c984c707f0a0812d8cd5a6881eaf21ceda98f4bd23f6fe1a3e2c43edd9ce7ca8" +
+		"4bed8521e2e140"
+	rfc9369Retry = "cf6b3343cf0008f067a5502a4262b5746f6b656ec8646ce8bfe33952d955543665dcc7b6"
+	rfc9001Retry = "ff000000010008f067a5502a4262b5746f6b656e04a265ba2eff4d829058fb3f0f2496ba"
+)
+
+// sealPacket protects a packet as its sender would (RFC 9001, section 5):
+// header ends in the packet number, of the length its first byte says;
+// short is a short header.
+func sealPacket(k *keys, header, payload []byte, short bool) []byte {
+	pnLen := int(header[0]&0x03) + 1
+	pnOffset := len(header) - pnLen
+	var pn uint64
+	for _, b := range header[pnOffset:] {
+		pn = pn<<8 | uint64(b)
+	}
+	nonce := append([]byte(nil), k.iv...)
+	for i := range 8 {
+		nonce[len(nonce)-1-i] ^= byte(pn >> (8 * i)) //nolint:gosec // one byte of pn at a time
+	}
+	p := k.aead.Seal(append([]byte(nil), header...), nonce, payload, header)
+	mask := k.mask(p[pnOffset+4 : pnOffset+4+16])
+	if short {
+		p[0] ^= mask[0] & 0x1f
+	} else {
+		p[0] ^= mask[0] & 0x0f
+	}
+	for i := range pnLen {
+		p[pnOffset+i] ^= mask[1+i] //nolint:gosec // pnLen is at most 4, mask has 5 bytes
+	}
+	return p
+}
+
+// longPacketHeader is a long header of type bits typ with a 2-byte packet
+// number pn, for a payload of n bytes; an Initial's has an empty token.
+func longPacketHeader(typ byte, version uint32, dcid, scid []byte, initial bool, pn uint16, n int) []byte {
+	h := []byte{0xc0 | typ<<4 | 0x01}
+	h = binary.BigEndian.AppendUint32(h, version)
+	h = append(h, byte(len(dcid))) //nolint:gosec // test connection IDs are short
+	h = append(h, dcid...)
+	h = append(h, byte(len(scid))) //nolint:gosec // test connection IDs are short
+	h = append(h, scid...)
+	if initial {
+		h = append(h, 0)
+	}
+	h = binary.BigEndian.AppendUint16(h, 0x4000|uint16(2+n+16)) //nolint:gosec // test payloads are short
+	return binary.BigEndian.AppendUint16(h, pn)
+}
+
+// cryptoFrame is a CRYPTO frame carrying data at offset 0.
+func cryptoFrame(data []byte) []byte {
+	return append(AppendVarint([]byte{0x06, 0x00}, uint64(len(data))), data...)
+}
+
+// checkPackets compares packets' types, versions, errors and frame types
+// with want, one "type version error: frames" line per packet.
+func checkPackets(t *testing.T, what string, datagrams []Datagram, want []string) {
+	t.Helper()
+	var got []string
+	for _, d := range datagrams {
+		for _, p := range d.Packets {
+			var frames []string
+			for _, f := range p.Frames {
+				frames = append(frames, f.Type)
+			}
+			got = append(got, fmt.Sprintf("%s %s %q: %s", p.Type, p.Version, p.Error, strings.Join(frames, " ")))
+		}
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("%s packets:\n%s\nwant:\n%s", what, strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+// TestDecodeRFC9369Samples decodes QUIC version 2 (RFC 9369) and version
+// negotiation through Decode, server datagrams merged with the client's:
+// the appendix's client Initial, the server's Initial and Retry answering
+// it (and RFC 9001's version 1 Retry), a corrupted Retry; a compatible
+// upgrade from version 1 to 2 (RFC 9368) whose other packets are sealed
+// here (Handshake and 1-RTT secrets from a key log, the server's transport
+// parameters); the same connection migrating to a second client address;
+// the server's 1-RTT headers across a key update; and an incompatible
+// negotiation, which starts a new connection.
+func TestDecodeRFC9369Samples(t *testing.T) {
+	start := time.Date(2026, 10, 25, 12, 0, 0, 0, time.UTC)
+	client := func(ms int, b []byte) Received {
+		return Received{
+			At:   start.Add(time.Duration(ms) * time.Millisecond),
+			Data: b,
+		}
+	}
+	server := func(ms int, b []byte) Received {
+		return Received{
+			At:     start.Add(time.Duration(ms) * time.Millisecond),
+			Data:   b,
+			Server: true,
+		}
+	}
+	odcid := mustHex(t, "8394c8f03e515708")
+	serverCID := mustHex(t, "f067a5502a4262b5")
+	v1Initial := mustHex(t, rfc9001ClientInitial)
+	v2Initial := mustHex(t, rfc9369ClientInitial)
+	serverInitial := mustHex(t, rfc9369ServerInitial)
+	frame := mustHex(t, rfc9001CryptoFrame)
+
+	// The rest of a compatible upgrade's handshake, sealed here with the
+	// secrets of a key log for the ClientHello's client random.
+	hello, err := readHello(frame[4:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	secrets := map[string][]byte{
+		labelClientHandshake: bytes.Repeat([]byte{0x01}, 32),
+		labelServerHandshake: bytes.Repeat([]byte{0x02}, 32),
+		labelClientTraffic:   bytes.Repeat([]byte{0x03}, 32),
+		labelServerTraffic:   bytes.Repeat([]byte{0x04}, 32),
+	}
+	keyLogOf := func(labels ...string) *KeyLog {
+		var keyLog KeyLog
+		for _, label := range labels {
+			if _, err := fmt.Fprintf(&keyLog, "%s %x %x\n", label, hello.random, secrets[label]); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return &keyLog
+	}
+	seal := func(k *keys, err error, header, payload []byte, short bool) []byte {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return sealPacket(k, header, payload, short)
+	}
+	traffic := func(label string, version uint32) (*keys, error) {
+		return newKeys(suites[tlsAES128GCMSHA256], version, secrets[label])
+	}
+	// The client's version 2 Initial goes to the server's connection ID,
+	// with keys from its original one.
+	ack := []byte{0x02, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00}
+	k, err := initialKeys(Version2, odcid, false)
+	clientInitial := seal(k, err, longPacketHeader(0x01, Version2, serverCID, nil, true, 3, len(ack)), ack, false)
+	// EncryptedExtensions with version_information (chosen version 2, then
+	// 2 and 1) and initial_max_data.
+	tp := []byte{0x11, 0x0c, 0x6b, 0x33, 0x43, 0xcf, 0x6b, 0x33, 0x43, 0xcf, 0x00, 0x00, 0x00, 0x01, 0x04, 0x02, 0x44, 0x00}
+	ee := []byte{0x08, 0x00, 0x00, byte(6 + len(tp)), 0x00, byte(4 + len(tp)), 0x00, 0x39, 0x00, byte(len(tp))} //nolint:gosec // 18 bytes of parameters
+	payload := cryptoFrame(slices.Concat(ee, tp))
+	k, err = traffic(labelServerHandshake, Version2)
+	serverHandshake := seal(k, err, longPacketHeader(0x03, Version2, nil, serverCID, false, 0, len(payload)), payload, false)
+	payload = cryptoFrame(append([]byte{0x14, 0x00, 0x00, 0x20}, make([]byte, 32)...))
+	k, err = traffic(labelClientHandshake, Version2)
+	clientHandshake := seal(k, err, longPacketHeader(0x03, Version2, serverCID, nil, false, 0, len(payload)), payload, false)
+	k, err = traffic(labelClientTraffic, Version2)
+	client1RTT := seal(k, err, append(append([]byte{0x41}, serverCID...), 0x00, 0x00), []byte{0x01, 0x00}, true)
+	upgrade := []Received{
+		client(0, v1Initial),
+		server(2, serverInitial),
+		client(4, clientInitial),
+		server(5, serverHandshake),
+		client(6, clientHandshake),
+		client(7, client1RTT),
+	}
+
+	t.Run("client Initial", func(t *testing.T) {
+		for _, k := range []struct {
+			server bool
+			iv     string
+		}{
+			{
+				server: false,
+				iv:     "91f73e2351d8fa91660e909f",
+			},
+			{
+				server: true,
+				iv:     "dd13c276499c0249d3310652",
+			},
+		} {
+			keys, err := initialKeys(Version2, odcid, k.server)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := hex.EncodeToString(keys.iv); got != k.iv {
+				t.Errorf("server %v: iv %s; want %s", k.server, got, k.iv)
+			}
+		}
+		conns := Decode(start, []Received{
+			client(1500, v2Initial),
+		}, 8, nil)
+		if len(conns) != 1 {
+			t.Fatalf("got %d connections, want 1", len(conns))
+		}
+		c := conns[0]
+		if c.Millis != 1500 || c.Version != "6b3343cf" || c.NegotiatedVersion != "" || c.Host != "example.com" {
+			t.Errorf("connection: ms %d, version %s, negotiated %q, host %q; want 1500, 6b3343cf, none, example.com", c.Millis, c.Version, c.NegotiatedVersion, c.Host)
+		}
+		checkPackets(t, "client", c.Datagrams, []string{
+			`Initial 6b3343cf "": CRYPTO PADDING`,
+		})
+		p := c.Datagrams[0].Packets[0]
+		if p.FirstByte != 0xd3 || p.DCIDLength != 8 || p.SCIDLength == nil || *p.SCIDLength != 0 ||
+			p.TokenLength == nil || *p.TokenLength != 0 || p.Length == nil || *p.Length != 1182 ||
+			p.PNLength != 4 || p.PN != 2 || p.Size != 1200 || p.Frames[0].Length != 241 || p.Frames[1].Count != 1162-245 {
+			t.Errorf("packet: %+v; want the appendix's d3, 8-byte DCID, no SCID or token, length 1182, 4-byte packet number 2, CRYPTO of 241 bytes, padding", p)
+		}
+		if got, want := c.ClientHello, hex.EncodeToString(frame[4:]); got != want {
+			t.Errorf("ClientHello %s; want the CRYPTO frame's data %s", got, want)
+		}
+	})
+
+	t.Run("server Initial", func(t *testing.T) {
+		conns := Decode(start, []Received{
+			client(0, v2Initial),
+			server(3, serverInitial),
+		}, 8, nil)
+		if len(conns) != 1 || len(conns[0].Server) != 1 {
+			t.Fatalf("got %d connections; want 1 with one server datagram", len(conns))
+		}
+		c := conns[0]
+		checkPackets(t, "client", c.Datagrams, []string{
+			`Initial 6b3343cf "": CRYPTO PADDING`,
+		})
+		checkPackets(t, "server", c.Server, []string{
+			`Initial 6b3343cf "": ACK CRYPTO`,
+		})
+		d := c.Server[0]
+		p := d.Packets[0]
+		if d.Micros != 3000 || d.Size != 135 || p.FirstByte != 0xd1 || p.DCIDLength != 0 || p.SCIDLength == nil || *p.SCIDLength != 8 ||
+			p.TokenLength == nil || *p.TokenLength != 0 || p.Length == nil || *p.Length != 117 ||
+			p.PNLength != 2 || p.PN != 1 || p.Size != 135 || p.Frames[1].Length != 90 {
+			t.Errorf("datagram at %d us of %d bytes, packet %+v; want 3000 us, 135 bytes, d1, no DCID, 8-byte SCID, no token, length 117, 2-byte packet number 1, CRYPTO of 90 bytes", d.Micros, d.Size, p)
+		}
+	})
+
+	t.Run("Retry", func(t *testing.T) {
+		corrupted := mustHex(t, rfc9369Retry)
+		corrupted[len(corrupted)-1] ^= 0x01
+		for _, tt := range []struct {
+			name    string
+			initial []byte
+			retry   []byte
+			version string
+			err     string
+		}{
+			{
+				name:    "version 2",
+				initial: v2Initial,
+				retry:   mustHex(t, rfc9369Retry),
+				version: "6b3343cf",
+			},
+			{
+				name:    "version 1",
+				initial: v1Initial,
+				retry:   mustHex(t, rfc9001Retry),
+				version: "00000001",
+			},
+			{
+				name:    "corrupted",
+				initial: v2Initial,
+				retry:   corrupted,
+				version: "6b3343cf",
+				err:     errRetryTag.Error(),
+			},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				conns := Decode(start, []Received{
+					client(0, tt.initial),
+					server(1, tt.retry),
+				}, 8, nil)
+				if len(conns) != 1 {
+					t.Fatalf("got %d connections, want 1", len(conns))
+				}
+				checkPackets(t, "server", conns[0].Server, []string{
+					fmt.Sprintf("Retry %s %q: ", tt.version, tt.err),
+				})
+				p := conns[0].Server[0].Packets[0]
+				if p.DCIDLength != 0 || p.SCIDLength == nil || *p.SCIDLength != 8 || p.TokenLength == nil || *p.TokenLength != 5 || p.Size != len(tt.retry) {
+					t.Errorf("packet %+v; want no DCID, 8-byte SCID, 5-byte token, %d bytes", p, len(tt.retry))
+				}
+			})
+		}
+	})
+
+	t.Run("compatible upgrade", func(t *testing.T) {
+		keyLog := keyLogOf(labelClientHandshake, labelServerHandshake, labelClientTraffic)
+		server1RTT := append([]byte{0x41}, make([]byte, 24)...)
+		datagrams := append(slices.Clone(upgrade), server(8, server1RTT))
+
+		conns := Decode(start, datagrams[:3], 8, keyLog)
+		if len(conns) != 1 || conns[0].NegotiatedVersion != "" {
+			t.Fatalf("before any Handshake packet: %d connections; want 1 without a negotiated version", len(conns))
+		}
+		checkPackets(t, "client", conns[0].Datagrams, []string{
+			`Initial 00000001 "": CRYPTO PADDING`,
+			`Initial 6b3343cf "": ACK PADDING`,
+		})
+
+		conns = Decode(start, datagrams, 8, keyLog)
+		if len(conns) != 1 {
+			t.Fatalf("got %d connections, want 1", len(conns))
+		}
+		c := conns[0]
+		if c.Version != "00000001" || c.NegotiatedVersion != "6b3343cf" {
+			t.Errorf("version %s, negotiated %q; want 00000001, 6b3343cf", c.Version, c.NegotiatedVersion)
+		}
+		checkPackets(t, "client", c.Datagrams, []string{
+			`Initial 00000001 "": CRYPTO PADDING`,
+			`Initial 6b3343cf "": ACK PADDING`,
+			`Handshake 6b3343cf "": CRYPTO`,
+			`1-RTT  "": PING PADDING`,
+		})
+		checkPackets(t, "server", c.Server, []string{
+			`Initial 6b3343cf "": ACK CRYPTO`,
+			`Handshake 6b3343cf "": CRYPTO`,
+			`1-RTT  "": `,
+		})
+		if p := c.Datagrams[1].Packets[0]; p.PN != 3 || p.DCIDLength != 8 {
+			t.Errorf("client's version 2 Initial: packet number %d, %d-byte DCID; want 3, 8", p.PN, p.DCIDLength)
+		}
+		if p := c.Server[2].Packets[0]; p.DCIDLength != 0 || p.Size != 25 || p.FirstByte != 0x40 {
+			t.Errorf("server's 1-RTT packet: %+v; want no DCID, 25 bytes, first byte 40", p)
+		}
+		tps := c.ServerTransportParameters
+		if len(tps) != 2 || tps[0].Name != "version_information" || !slices.Equal(tps[0].Versions, []string{"6b3343cf", "6b3343cf", "00000001"}) ||
+			tps[1].Name != "initial_max_data" || tps[1].Value == nil || *tps[1].Value != 1024 {
+			t.Errorf("server transport parameters %+v; want version_information 6b3343cf 6b3343cf 00000001, initial_max_data 1024", tps)
+		}
+	})
+
+	t.Run("migration", func(t *testing.T) {
+		from := func(addr string, r Received) Received {
+			r.Addr = addr
+			return r
+		}
+		k, err := traffic(labelClientTraffic, Version2)
+		migrated := seal(k, err, append(append([]byte{0x41}, serverCID...), 0x00, 0x01), []byte{0x01, 0x00}, true)
+		k, err = traffic(labelServerTraffic, Version2)
+		toNewPath := seal(k, err, []byte{0x41, 0x00, 0x00}, []byte{0x01, 0x00}, true)
+		datagrams := make([]Received, 0, len(upgrade)+4)
+		for _, r := range upgrade {
+			datagrams = append(datagrams, from("a", r))
+		}
+		datagrams = append(datagrams,
+			// To an address no connection uses yet: dropped.
+			from("c", server(8, toNewPath)),
+			from("b", client(9, migrated)),
+			from("b", server(10, toNewPath)),
+			// From an address no connection uses, opened by none: dropped.
+			from("c", client(11, append([]byte{0x41}, make([]byte, 30)...))),
+		)
+		conns := Decode(start, datagrams, 8, keyLogOf(labelClientHandshake, labelServerHandshake, labelClientTraffic, labelServerTraffic))
+		if len(conns) != 1 {
+			t.Fatalf("got %d connections, want 1", len(conns))
+		}
+		c := conns[0]
+		checkPackets(t, "client", c.Datagrams, []string{
+			`Initial 00000001 "": CRYPTO PADDING`,
+			`Initial 6b3343cf "": ACK PADDING`,
+			`Handshake 6b3343cf "": CRYPTO`,
+			`1-RTT  "": PING PADDING`,
+			`1-RTT  "": PING PADDING`,
+		})
+		checkPackets(t, "server", c.Server, []string{
+			`Initial 6b3343cf "": ACK CRYPTO`,
+			`Handshake 6b3343cf "": CRYPTO`,
+			`1-RTT  "": `,
+		})
+		paths := func(ds []Datagram) []int {
+			out := make([]int, 0, len(ds))
+			for _, d := range ds {
+				out = append(out, d.Path)
+			}
+			return out
+		}
+		if got := paths(c.Datagrams); c.Addr != "a" || !slices.Equal(got, []int{0, 0, 0, 0, 1}) {
+			t.Errorf("started on %q, client paths %v; want a, 0 0 0 0 1", c.Addr, got)
+		}
+		if got := paths(c.Server); !slices.Equal(got, []int{0, 0, 1}) {
+			t.Errorf("server paths %v; want 0 0 1", got)
+		}
+		if p := c.Datagrams[4].Packets[0]; p.PN != 1 {
+			t.Errorf("client's packet on the new path: packet number %d; want 1", p.PN)
+		}
+		if p := c.Server[2].Packets[0]; p.FirstByte != 0x41 || p.PNLength != 2 || p.PN != 0 || p.DCIDLength != 0 {
+			t.Errorf("server's packet on the new path: %+v; want first byte 41, 2-byte packet number 0, no DCID", p)
+		}
+	})
+
+	t.Run("server 1-RTT key phase", func(t *testing.T) {
+		k, err := traffic(labelServerTraffic, Version1)
+		phase0 := seal(k, err, []byte{0x41, 0x00, 0x07}, []byte{0x01, 0x00}, true)
+		next, err := k.next()
+		phase1 := seal(next, err, []byte{0x44, 0x08}, []byte{0x01, 0x00, 0x00}, true)
+		for _, tt := range []struct {
+			name   string
+			keyLog *KeyLog
+			// want are each server packet's first byte, packet number
+			// length and packet number.
+			want []string
+		}{
+			{
+				name:   "SERVER_TRAFFIC_SECRET_0 logged",
+				keyLog: keyLogOf(labelServerTraffic),
+				want: []string{
+					"41 2 7",
+					"44 1 8",
+				},
+			},
+			{
+				name:   "not logged",
+				keyLog: keyLogOf(),
+				want: []string{
+					"40 0 0",
+					"40 0 0",
+				},
+			},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				conns := Decode(start, []Received{
+					client(0, v1Initial),
+					server(1, phase0),
+					server(2, phase1),
+				}, 8, tt.keyLog)
+				if len(conns) != 1 {
+					t.Fatalf("got %d connections, want 1", len(conns))
+				}
+				var got []string
+				for _, d := range conns[0].Server {
+					for _, p := range d.Packets {
+						got = append(got, fmt.Sprintf("%02x %d %d", p.FirstByte, p.PNLength, p.PN))
+						if p.Type != Packet1RTT || p.Frames != nil || p.Error != "" {
+							t.Errorf("packet %+v; want a 1-RTT header without frames or error", p)
+						}
+					}
+				}
+				if !slices.Equal(got, tt.want) {
+					t.Errorf("server 1-RTT headers %q; want %q", got, tt.want)
+				}
+			})
+		}
+	})
+
+	t.Run("version negotiation", func(t *testing.T) {
+		vn := append(append([]byte{0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08}, odcid...), 0x00, 0x00, 0x00, 0x01, 0xff, 0x00, 0x00, 0x1d)
+		for _, tt := range []struct {
+			name      string
+			datagrams []Received
+			// versions are each connection's, with its client and server
+			// datagram counts.
+			versions []string
+		}{
+			{
+				name: "incompatible",
+				datagrams: []Received{
+					server(0, vn),
+					client(1, v2Initial),
+					server(2, vn),
+					client(3, v1Initial),
+				},
+				versions: []string{
+					"6b3343cf 1 1",
+					"00000001 1 0",
+				},
+			},
+			{
+				name: "without Version Negotiation",
+				datagrams: []Received{
+					client(1, v2Initial),
+					client(3, v1Initial),
+				},
+				versions: []string{
+					"6b3343cf 2 0",
+				},
+			},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				conns := Decode(start, tt.datagrams, 8, nil)
+				var got []string
+				for _, c := range conns {
+					got = append(got, fmt.Sprintf("%s %d %d", c.Version, len(c.Datagrams), len(c.Server)))
+					for _, d := range c.Datagrams {
+						if p := d.Packets[0]; p.Type != PacketInitial || p.Error != "" {
+							t.Errorf("connection %s: packet %s not opened: %s", c.Version, p.Type, p.Error)
+						}
+					}
+				}
+				if !slices.Equal(got, tt.versions) {
+					t.Fatalf("connections %q; want %q", got, tt.versions)
+				}
+				if len(conns[0].Server) == 0 {
+					return
+				}
+				p := conns[0].Server[0].Packets[0]
+				if p.Type != PacketVN || p.Error != "" || p.DCIDLength != 0 || p.SCIDLength == nil || *p.SCIDLength != 8 ||
+					!slices.Equal(p.Versions, []string{"00000001", "ff00001d"}) {
+					t.Errorf("Version Negotiation packet %+v; want no DCID, 8-byte SCID, versions 00000001 ff00001d", p)
+				}
+			})
 		}
 	})
 }

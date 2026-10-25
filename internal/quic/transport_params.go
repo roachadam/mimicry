@@ -35,6 +35,7 @@ type transportParameters struct {
 	activeConnIDLimit              int64
 	initialSrcConnID               []byte
 	retrySrcConnID                 []byte
+	versionInfo                    []byte // mimicry: version_information, RFC 9368
 }
 
 const (
@@ -72,6 +73,7 @@ const (
 	paramActiveConnectionIDLimit         = 0x0e
 	paramInitialSourceConnectionID       = 0x0f
 	paramRetrySourceConnectionID         = 0x10
+	paramVersionInformation              = 0x11 // mimicry: RFC 9368, section 3
 )
 
 func marshalTransportParameters(p transportParameters) []byte {
@@ -159,6 +161,10 @@ func marshalTransportParameters(p transportParameters) []byte {
 	}
 	if v := p.retrySrcConnID; v != nil {
 		b = quicwire.AppendVarint(b, paramRetrySourceConnectionID)
+		b = quicwire.AppendVarintBytes(b, v)
+	}
+	if v := p.versionInfo; v != nil { // mimicry: set by tests' servers only
+		b = quicwire.AppendVarint(b, paramVersionInformation)
 		b = quicwire.AppendVarintBytes(b, v)
 	}
 	return b
@@ -271,6 +277,11 @@ func unmarshalTransportParams(params []byte) (transportParameters, error) {
 			n = len(val)
 		case paramRetrySourceConnectionID:
 			p.retrySrcConnID = val
+			n = len(val)
+		case paramVersionInformation:
+			// mimicry: kept for the client's check (clientCheckVersionInfo);
+			// non-nil when present, even empty.
+			p.versionInfo = append([]byte{}, val...)
 			n = len(val)
 		default:
 			n = len(val)

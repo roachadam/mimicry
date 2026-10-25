@@ -9,19 +9,24 @@ import (
 	"golang.org/x/crypto/cryptobyte"
 )
 
-// Key log labels of the client's traffic secrets (NSS key log format).
+// Key log labels of the client's traffic secrets, and of the server's
+// handshake and first application traffic secrets (NSS key log format).
 const (
 	labelClientEarly     = "CLIENT_EARLY_TRAFFIC_SECRET"
 	labelClientHandshake = "CLIENT_HANDSHAKE_TRAFFIC_SECRET"
 	labelClientTraffic   = "CLIENT_TRAFFIC_SECRET_0"
+	labelServerHandshake = "SERVER_HANDSHAKE_TRAFFIC_SECRET"
+	labelServerTraffic   = "SERVER_TRAFFIC_SECRET_0"
 )
 
 // KeyLog collects the TLS key log a server writes (tls.Config.KeyLogWriter,
 // NSS format, one line per write): every connection's traffic secrets, by
 // the client random of its ClientHello. Decode reads it to open the
-// client's Handshake and 1-RTT packets. A Go server logs no early traffic
-// secret, so the PSKs of the tickets clients resume with are kept too
-// (AddTicket), from which Decode derives it for 0-RTT packets.
+// client's Handshake and 1-RTT packets and the server's Handshake packets
+// (and its 1-RTT packets' headers).
+// A Go server logs no early traffic secret, so the PSKs of the tickets
+// clients resume with are kept too (AddTicket), from which Decode derives
+// it for 0-RTT packets.
 type KeyLog struct {
 	mu      sync.Mutex
 	secrets map[string]map[string][]byte

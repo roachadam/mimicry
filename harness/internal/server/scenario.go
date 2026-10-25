@@ -228,6 +228,11 @@ var Scenarios = []*Scenario{
 	WebSocketH2,
 	H3Discovery,
 	H3Page,
+	H3Blackhole,
+	H3Broken,
+	H3V2,
+	H3VN,
+	H3Download,
 }
 
 // ScenarioByName finds a scenario.
@@ -295,9 +300,18 @@ type response struct {
 	dripChunk int
 	dripEvery time.Duration
 	// closeAfter ends the connection after this response (HTTP/1.1:
-	// Connection: close; HTTP/2: GOAWAY), so the next request needs a new
-	// one.
+	// Connection: close; HTTP/2: GOAWAY; HTTP/3: GOAWAY, then
+	// CONNECTION_CLOSE), so the next request needs a new one; tcpOnly
+	// limits it to HTTP/1.1 and HTTP/2, and blackhole has no QUIC
+	// connection started after an HTTP/3 close answered.
 	closeAfter bool
+	tcpOnly    bool
+	blackhole  bool
+	// silence, the page's first time over HTTP/3, answers nothing: from
+	// the request on, the server drops every datagram of its connection
+	// both ways, as if the path had died. Over TCP, or again, the request
+	// is answered.
+	silence bool
 	// delay holds the response back, so a client's concurrent requests
 	// stay in flight together.
 	delay time.Duration

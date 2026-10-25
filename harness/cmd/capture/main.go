@@ -151,6 +151,14 @@ func run() error {
 		}()
 	}
 
+	var skipped error
+	if slices.ContainsFunc(scenarios, (*server.Scenario).NeedsAioquic) {
+		if err := server.AioquicAvailable(ctx); err != nil {
+			skipped = fmt.Errorf("skipped the scenarios serving HTTP/3 with aioquic: they need %w", err)
+			log.Print(skipped)
+			opts.scenarios = slices.DeleteFunc(slices.Clone(scenarios), (*server.Scenario).NeedsAioquic)
+		}
+	}
 	failed := 0
 	for _, b := range browsers {
 		bopts := opts
@@ -206,9 +214,9 @@ func run() error {
 		}
 	}
 	if failed > 0 {
-		return fmt.Errorf("%d of %d browsers failed", failed, len(browsers))
+		return errors.Join(fmt.Errorf("%d of %d browsers failed", failed, len(browsers)), skipped)
 	}
-	return nil
+	return skipped
 }
 
 // captureBrowser captures each scenario. Profiles come from the default

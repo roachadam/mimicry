@@ -104,6 +104,7 @@ func (s *Server) serveH3(serverCtx context.Context, conn *quic.Conn, sc *Scenari
 	}
 	defer h.emit()
 	log.quic.add(h)
+	defer log.quic.ended(h)
 	// ctx ends with the connection, or when the server stops, which closes
 	// the connection.
 	ctx, cancel := context.WithCancelCause(serverCtx)
@@ -538,6 +539,11 @@ func (h *h3conn) firstRequest(fields []quictrace.FieldLine) {
 // the page over first.
 func (h *h3conn) respond(str *quic.Stream, st request) {
 	r := h.sc.answer(st)
+	if r.silence && h.log.quic.silence(h.addr) {
+		// The connection goes dark: no answer, and nothing more either
+		// way, as if the path had died.
+		return
+	}
 	if st.path == "/done" {
 		// page() snapshots this connection too, so it runs before h.mu is
 		// taken.
@@ -580,14 +586,15 @@ func (h *h3conn) respond(str *quic.Stream, st request) {
 	if err := str.Close(); err != nil {
 		return
 	}
-	if r.closeAfter {
-		h.goAway()
+	if r.closeAfter && !r.tcpOnly {
+		h.goAway(r.blackhole)
 	}
 }
 
 // goAway sends GOAWAY, so the client makes no more requests here, and
-// closes the connection (H3_NO_ERROR) a moment later.
-func (h *h3conn) goAway() {
+// closes the connection (H3_NO_ERROR) a moment later; with blackhole, no
+// QUIC connection started after that is answered.
+func (h *h3conn) goAway(blackhole bool) {
 	h.wmu.Lock()
 	_, err := h.control.Write(quictrace.AppendFrame(nil, quictrace.FrameH3GoAway, quictrace.AppendVarint(nil, h.maxStream+4)))
 	h.wmu.Unlock()
@@ -596,6 +603,13 @@ func (h *h3conn) goAway() {
 	}
 	time.AfterFunc(h3GoAwayGrace, func() {
 		_ = h.conn.CloseWithError(h3NoError, "")
+		if blackhole {
+			// CloseWithError has queued the CONNECTION_CLOSE; the
+			// connection's address is silenced with the rest.
+			time.AfterFunc(100*time.Millisecond, func() {
+				h.log.quic.blackhole(h.addr)
+			})
+		}
 	})
 }
 
@@ -651,9 +665,16 @@ func (h *h3conn) snapshot() (*quictrace.H3, *quictrace.Close) {
 }
 
 // h3Server is how a scenario serves HTTP/3: the SETTINGS the server sends,
-// in order.
+// in order; with blackhole, nothing at all (the socket records and drops
+// every datagram); versions are the QUIC versions quic-go accepts (nil:
+// its default, 1 and 2), others answered with Version Negotiation; aioquic
+// serves it with aioquic instead of quic-go (serveAioquic), a server that
+// upgrades compatibly to version 2.
 type h3Server struct {
-	settings [][2]uint64
+	settings  [][2]uint64
+	blackhole bool
+	versions  []quic.Version
+	aioquic   bool
 }
 
 // setting is the value of one of the server's settings, 0 if it sends

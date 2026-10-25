@@ -78,6 +78,30 @@ const (
 	longPacketTypeRetry     = 3 << 4
 )
 
+// longPacketTypesV2 maps v2's Long Packet Type bits to packet types
+// (mimicry: RFC 9369, section 3.2, a rotation of v1's).
+var longPacketTypesV2 = [4]packetType{packetTypeRetry, packetTypeInitial, packetType0RTT, packetTypeHandshake}
+
+// longPacketTypeBits returns the Long Packet Type bits of ptype in a
+// version (mimicry: v2's are v1's plus one).
+func longPacketTypeBits(version uint32, ptype packetType) byte {
+	var bits byte
+	switch ptype {
+	case packetType0RTT:
+		bits = longPacketType0RTT
+	case packetTypeHandshake:
+		bits = longPacketTypeHandshake
+	case packetTypeRetry:
+		bits = longPacketTypeRetry
+	default:
+		bits = longPacketTypeInitial
+	}
+	if version == quicVersion2 {
+		bits = (bits + 1<<4) & 0x30
+	}
+	return bits
+}
+
 // Frame types.
 // https://www.rfc-editor.org/rfc/rfc9000.html#section-19
 const (
@@ -143,6 +167,10 @@ func getPacketType(b []byte) packetType {
 	}
 	if b[0]&fixedBit != fixedBit {
 		return packetTypeInvalid
+	}
+	// mimicry: v2 rotates the type bits (RFC 9369, section 3.2).
+	if binary.BigEndian.Uint32(b[1:5]) == quicVersion2 {
+		return longPacketTypesV2[b[0]&0x30>>4]
 	}
 	switch b[0] & 0x30 {
 	case longPacketTypeInitial:

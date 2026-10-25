@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/roachadam/mimicry/harness/internal/capture"
+	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -165,7 +166,7 @@ func insertAfterPredecessor(fields, list []profile.Header, name string) []profil
 
 // h2Candidates are the h3 pages' non-GET requests over HTTP/2.
 func h2Candidates(p *profile.Profile, dir string) ([]h3Candidate, error) {
-	paths, err := filepath.Glob(filepath.Join(dir, p.Name+".h3-*.pagetrace.json.gz"))
+	paths, err := server.H3ProfileCaptures(dir, p.Name)
 	if err != nil {
 		return nil, err
 	}

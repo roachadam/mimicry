@@ -116,17 +116,7 @@ func (w *packetWriter) finishProtectedLongHeaderPacket(pnumMaxAcked packetNumber
 	pnumLen := packetNumberLength(p.num, pnumMaxAcked)
 	plen := w.padPacketLength(pnumLen)
 	hdr := w.b[:w.pktOff]
-	var typeBits byte
-	switch p.ptype {
-	case packetTypeInitial:
-		typeBits = longPacketTypeInitial
-	case packetType0RTT:
-		typeBits = longPacketType0RTT
-	case packetTypeHandshake:
-		typeBits = longPacketTypeHandshake
-	case packetTypeRetry:
-		typeBits = longPacketTypeRetry
-	}
+	typeBits := longPacketTypeBits(p.version, p.ptype) // mimicry: per version
 	hdr = append(hdr, headerFormLong|fixedBit|typeBits|byte(pnumLen-1))
 	hdr = binary.BigEndian.AppendUint32(hdr, p.version)
 	hdr = quicwire.AppendUint8Bytes(hdr, p.dstConnID)

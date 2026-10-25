@@ -41,8 +41,14 @@ func (k headerKey) isSet() bool {
 }
 
 func (k *headerKey) init(suite uint16, secret []byte) {
+	k.initVersion(quicVersion1, suite, secret)
+}
+
+// initVersion is init with the labels of a QUIC version. mimicry: v2
+// (RFC 9369, section 3.3.2).
+func (k *headerKey) initVersion(version uint32, suite uint16, secret []byte) {
 	h, keySize := hashForSuite(suite)
-	hpKey := hkdfExpandLabel(h.New, secret, "quic hp", nil, keySize)
+	hpKey := hkdfExpandLabel(h.New, secret, versionLabels(version).hp, nil, keySize)
 	switch suite {
 	case tls.TLS_AES_128_GCM_SHA256, tls.TLS_AES_256_GCM_SHA384:
 		c, err := aes.NewCipher(hpKey)
@@ -150,9 +156,15 @@ type packetKey struct {
 }
 
 func (k *packetKey) init(suite uint16, secret []byte) {
+	k.initVersion(quicVersion1, suite, secret)
+}
+
+// initVersion is init with the labels of a QUIC version (mimicry: v2).
+func (k *packetKey) initVersion(version uint32, suite uint16, secret []byte) {
 	// https://www.rfc-editor.org/rfc/rfc9001#section-5.1
 	h, keySize := hashForSuite(suite)
-	key := hkdfExpandLabel(h.New, secret, "quic key", nil, keySize)
+	labels := versionLabels(version)
+	key := hkdfExpandLabel(h.New, secret, labels.key, nil, keySize)
 	switch suite {
 	case tls.TLS_AES_128_GCM_SHA256, tls.TLS_AES_256_GCM_SHA384:
 		k.aead = newAESAEAD(key)
@@ -161,7 +173,7 @@ func (k *packetKey) init(suite uint16, secret []byte) {
 	default:
 		panic("BUG: unknown cipher suite")
 	}
-	k.iv = hkdfExpandLabel(h.New, secret, "quic iv", nil, k.aead.NonceSize())
+	k.iv = hkdfExpandLabel(h.New, secret, labels.iv, nil, k.aead.NonceSize())
 }
 
 func newAESAEAD(key []byte) cipher.AEAD {
@@ -219,8 +231,13 @@ type fixedKeys struct {
 }
 
 func (k *fixedKeys) init(suite uint16, secret []byte) {
-	k.hdr.init(suite, secret)
-	k.pkt.init(suite, secret)
+	k.initVersion(quicVersion1, suite, secret)
+}
+
+// initVersion is init with the labels of a QUIC version (mimicry: v2).
+func (k *fixedKeys) initVersion(version uint32, suite uint16, secret []byte) {
+	k.hdr.initVersion(version, suite, secret)
+	k.pkt.initVersion(version, suite, secret)
 }
 
 func (k fixedKeys) isSet() bool {
@@ -283,6 +300,7 @@ func (k *fixedKeyPair) canWrite() bool {
 // over the lifetime of a connection.
 // https://www.rfc-editor.org/rfc/rfc9001#section-6
 type updatingKeys struct {
+	version    uint32 // mimicry: the QUIC version, for its labels (zero: v1)
 	suite      uint16
 	hdr        headerKey
 	pkt        [2]packetKey // current, next
@@ -290,10 +308,16 @@ type updatingKeys struct {
 }
 
 func (k *updatingKeys) init(suite uint16, secret []byte) {
+	k.initVersion(quicVersion1, suite, secret)
+}
+
+// initVersion is init with the labels of a QUIC version (mimicry: v2).
+func (k *updatingKeys) initVersion(version uint32, suite uint16, secret []byte) {
+	k.version = version
 	k.suite = suite
-	k.hdr.init(suite, secret)
+	k.hdr.initVersion(version, suite, secret)
 	// Initialize pkt[1] with secret_0, and then call update to generate secret_1.
-	k.pkt[1].init(suite, secret)
+	k.pkt[1].initVersion(version, suite, secret)
 	k.nextSecret = secret
 	k.update()
 }
@@ -303,14 +327,20 @@ func (k *updatingKeys) init(suite uint16, secret []byte) {
 // The next key in pkt[1] becomes the current key.
 // A new next key is generated in pkt[1].
 func (k *updatingKeys) update() {
-	k.nextSecret = updateSecret(k.suite, k.nextSecret)
+	k.nextSecret = updateSecretVersion(k.version, k.suite, k.nextSecret)
 	k.pkt[0] = k.pkt[1]
-	k.pkt[1].init(k.suite, k.nextSecret)
+	k.pkt[1].initVersion(k.version, k.suite, k.nextSecret)
 }
 
 func updateSecret(suite uint16, secret []byte) (nextSecret []byte) {
+	return updateSecretVersion(quicVersion1, suite, secret)
+}
+
+// updateSecretVersion is updateSecret with the labels of a QUIC version
+// (mimicry: v2).
+func updateSecretVersion(version uint32, suite uint16, secret []byte) (nextSecret []byte) {
 	h, _ := hashForSuite(suite)
-	return hkdfExpandLabel(h.New, secret, "quic ku", nil, len(secret))
+	return hkdfExpandLabel(h.New, secret, versionLabels(version).ku, nil, len(secret))
 }
 
 // An updatingKeyPair is a read/write pair of updating keys.
@@ -472,6 +502,21 @@ func aeadIntegrityLimit(suite uint16) int64 {
 // https://www.rfc-editor.org/rfc/rfc9001#section-5.2-2
 var initialSalt = []byte{0x38, 0x76, 0x2c, 0xf7, 0xf5, 0x59, 0x34, 0xb3, 0x4d, 0x17, 0x9a, 0xe6, 0xa4, 0xc8, 0x0c, 0xad, 0xcc, 0xbb, 0x7f, 0x0a}
 
+// mimicry: https://www.rfc-editor.org/rfc/rfc9369#section-3.3.1
+var initialSaltV2 = []byte{0x0d, 0xed, 0xe3, 0xde, 0xf7, 0x00, 0xa6, 0xdb, 0x81, 0x93, 0x81, 0xbe, 0x6e, 0x26, 0x9d, 0xcb, 0xf9, 0xbd, 0x2e, 0xd9}
+
+// packetLabels are the HKDF labels of a QUIC version's packet protection.
+type packetLabels struct{ key, iv, hp, ku string }
+
+// versionLabels returns a version's labels. mimicry: v2's are "quicv2 …"
+// (RFC 9369, section 3.3.2); every other version gets v1's.
+func versionLabels(version uint32) packetLabels {
+	if version == quicVersion2 {
+		return packetLabels{"quicv2 key", "quicv2 iv", "quicv2 hp", "quicv2 ku"}
+	}
+	return packetLabels{"quic key", "quic iv", "quic hp", "quic ku"}
+}
+
 // initialKeys returns the keys used to protect Initial packets.
 //
 // The Initial packet keys are derived from the Destination Connection ID
@@ -479,13 +524,23 @@ var initialSalt = []byte{0x38, 0x76, 0x2c, 0xf7, 0xf5, 0x59, 0x34, 0xb3, 0x4d, 0
 //
 // https://www.rfc-editor.org/rfc/rfc9001#section-5.2
 func initialKeys(cid []byte, side connSide) fixedKeyPair {
-	initialSecret := hkdf.Extract(sha256.New, cid, initialSalt)
+	return initialKeysVersion(cid, side, quicVersion1)
+}
+
+// initialKeysVersion is initialKeys for a QUIC version: its salt and labels.
+// mimicry: v2 (RFC 9369, sections 3.3.1 and 3.3.2).
+func initialKeysVersion(cid []byte, side connSide, version uint32) fixedKeyPair {
+	salt := initialSalt
+	if version == quicVersion2 {
+		salt = initialSaltV2
+	}
+	initialSecret := hkdf.Extract(sha256.New, cid, salt)
 	var clientKeys fixedKeys
 	clientSecret := hkdfExpandLabel(sha256.New, initialSecret, "client in", nil, sha256.Size)
-	clientKeys.init(tls.TLS_AES_128_GCM_SHA256, clientSecret)
+	clientKeys.initVersion(version, tls.TLS_AES_128_GCM_SHA256, clientSecret)
 	var serverKeys fixedKeys
 	serverSecret := hkdfExpandLabel(sha256.New, initialSecret, "server in", nil, sha256.Size)
-	serverKeys.init(tls.TLS_AES_128_GCM_SHA256, serverSecret)
+	serverKeys.initVersion(version, tls.TLS_AES_128_GCM_SHA256, serverSecret)
 	if side == clientSide {
 		return fixedKeyPair{r: serverKeys, w: clientKeys}
 	} else {

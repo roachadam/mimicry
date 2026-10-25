@@ -90,7 +90,7 @@ func (c *Conn) maybeSendClient(now time.Time) (next time.Time) {
 			}
 			p := longPacket{
 				ptype:     packetTypeInitial,
-				version:   quicVersion1,
+				version:   cc.version,
 				num:       pnum,
 				dstConnID: dstConnID,
 				srcConnID: c.connIDState.srcConnID(),
@@ -131,7 +131,7 @@ func (c *Conn) maybeSendClient(now time.Time) (next time.Time) {
 			pnumMaxAcked := c.loss.spaces[handshakeSpace].maxAcked
 			p := longPacket{
 				ptype:     packetTypeHandshake,
-				version:   quicVersion1,
+				version:   cc.version,
 				num:       pnum,
 				dstConnID: dstConnID,
 				srcConnID: c.connIDState.srcConnID(),
@@ -163,7 +163,7 @@ func (c *Conn) maybeSendClient(now time.Time) (next time.Time) {
 			pnumMaxAcked := c.loss.spaces[appDataSpace].maxAcked
 			p := longPacket{
 				ptype:     packetType0RTT,
-				version:   quicVersion1,
+				version:   cc.originalVersion, // even after an upgrade (RFC 9369, section 4.1)
 				num:       pnum,
 				dstConnID: dstConnID,
 				srcConnID: c.connIDState.srcConnID(),

@@ -2,8 +2,12 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"net"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -68,22 +72,63 @@ var H3Page = &Scenario{
 	},
 }
 
+// H3ProfileCaptures returns the paths of name's h3-discovery and h3-page
+// captures in dir, unforced and with -h3-local-roots, those that exist,
+// sorted: the captures a profile's QUIC and HTTP/3 sections are
+// generated from. The edge scenarios' (h3-blackhole, h3-broken, h3-v2,
+// h3-vn) record failures and other QUIC versions, which no profile field
+// describes.
+func H3ProfileCaptures(dir, name string) ([]string, error) {
+	var out []string
+	for _, sc := range []*Scenario{H3Discovery, H3Page} {
+		for _, cond := range []string{"", ".local-roots"} {
+			path := filepath.Join(dir, name+"."+sc.Name+cond+".pagetrace.json.gz")
+			_, err := os.Stat(path)
+			switch {
+			case err == nil:
+				out = append(out, path)
+			case !errors.Is(err, fs.ErrNotExist):
+				return nil, err
+			}
+		}
+	}
+	slices.Sort(out)
+	return out, nil
+}
+
 // H3Step is one request of the h3 pages: a KindsStep (Host's
 // /h3/<Label>) made by the document at Page (a path), PauseMillis after
-// its previous step completed. A step with a Tag is in the document's
-// markup instead; a "navigate" step loads the document at its own URL
-// (its steps are those whose Page is that path) and ends its page's
-// steps; a page whose steps end otherwise asks for /done.
+// its previous step completed (or, after a NoWait step, started). A step
+// with a Tag is in the document's markup instead; a "navigate" step loads
+// the document at its own URL (its steps are those whose Page is that
+// path) and ends its page's steps; a page whose steps end otherwise asks
+// for /done.
 type H3Step struct {
 	KindsStep
 	Page        string `json:"-"`
 	PauseMillis int    `json:"pause"`
+	// NoWait starts the next step's pause without waiting for this one to
+	// complete, so steps keep their schedule however long the browser
+	// takes; its URL gets ?t=<performance.now() in ms>, when the script
+	// made the request.
+	NoWait bool `json:"nowait,omitempty"`
 	// Delay holds the response back, so the browser can change the
 	// request's priority while it is in flight; CloseAfter ends the
 	// connection that carried it after answering (HTTP/3: GOAWAY, then
-	// CONNECTION_CLOSE H3_NO_ERROR; HTTP/2: GOAWAY).
+	// CONNECTION_CLOSE H3_NO_ERROR; HTTP/2: GOAWAY), GoAwayTCP only an
+	// HTTP/2 one (over HTTP/3 it is answered as any other).
 	Delay      time.Duration `json:"-"`
 	CloseAfter bool          `json:"-"`
+	GoAwayTCP  bool          `json:"-"`
+	// Silence, the first time it arrives over HTTP/3, leaves the request
+	// unanswered and drops every later datagram of its connection both
+	// ways (repeated on another connection, it is answered); Blackhole,
+	// with CloseAfter over HTTP/3, leaves every QUIC connection started
+	// after the close unanswered.
+	Silence   bool `json:"-"`
+	Blackhole bool `json:"-"`
+	// Download, when set, answers with that many incompressible bytes.
+	Download int `json:"-"`
 }
 
 // Path is the step's path.
@@ -193,10 +238,14 @@ func H3PageSteps() []H3Step {
 }
 
 // h3Page serves an h3 page: the documents and requests of its steps,
-// each response advertising HTTP/3 on the port it came on.
+// each response advertising HTTP/3 on the port it came on, except from
+// plainHosts. With doneHost the page asks for /done there (a host whose
+// requests stay on TCP, when HTTP/3 is not this server's).
 type h3Page struct {
 	fixedHosts
-	steps func() []H3Step
+	steps      func() []H3Step
+	plainHosts []string
+	doneHost   string
 }
 
 func (p h3Page) answer(req request) response {
@@ -206,7 +255,9 @@ func (p h3Page) answer(req request) response {
 	if req.origin != "" {
 		r.headers = append(r.headers, corsAllow(req.origin)...)
 	}
-	r.headers = append(r.headers, altSvc(port))
+	if !slices.Contains(p.plainHosts, host) {
+		r.headers = append(r.headers, altSvc(port))
+	}
 	return r
 }
 
@@ -225,7 +276,16 @@ func (p h3Page) respond(host, port, path string) response {
 			return response{status: 200, contentType: "text/html; charset=utf-8", body: p.document(path, port)}
 		}
 		r := kindsBody(s.Kind)
-		r.delay, r.closeAfter = s.Delay, s.CloseAfter
+		if s.Download > 0 {
+			r = response{
+				status:      200,
+				contentType: "application/octet-stream",
+				body:        incompressible()[:s.Download],
+			}
+		}
+		r.delay = s.Delay
+		r.closeAfter, r.tcpOnly, r.blackhole = s.CloseAfter || s.GoAwayTCP, s.GoAwayTCP, s.Blackhole
+		r.silence = s.Silence
 		return r
 	}
 	return response{status: 404, contentType: "text/plain", body: []byte("not found\n")}
@@ -251,13 +311,18 @@ func (p h3Page) document(path, port string) []byte {
 		}
 	}
 	stepsJSON, _ := json.Marshal(steps) //nolint:gosec // Credentials is fetch()'s credentials mode, not a secret
+	done := "fetch('/done');"
+	if p.doneHost != "" {
+		done = "fetch('https://" + net.JoinHostPort(p.doneHost, port) + "/done', {mode: 'no-cors'});"
+	}
 	script := "(async () => {\nconst steps = " + string(stepsJSON) + ";\n" + kindsRun + `
 for (const s of steps) {
   await new Promise(d => setTimeout(d, s.pause));
   if (s.kind === 'navigate') { location.href = s.url; return; }
+  if (s.nowait) { run({...s, url: s.url + '?t=' + Math.round(performance.now())}); continue; }
   await run(s);
 }
-fetch('/done');
+` + done + `
 })();`
 	return htmlPage("h3 "+path, "\n"+head.String(), body.String()+"<script>"+script+"</script>\n")
 }

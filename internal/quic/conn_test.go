@@ -6,6 +6,7 @@ package quic
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"errors"
 	"flag"
@@ -145,6 +146,9 @@ type testConn struct {
 	wkeyAppData   test1RTTKeys
 	rsecrets      [numberSpaceCount]keySecret
 	wsecrets      [numberSpaceCount]keySecret
+	// mimicry: version is the QUIC version of the peer's long headers and
+	// of the Handshake and 1-RTT keys; zero is version 1.
+	version uint32
 
 	// testConn uses a test hook to snoop on the conn's TLS events.
 	// CRYPTO data produced by the conn's QUICConn is placed in
@@ -299,6 +303,10 @@ func newTestConnForConn(t *testing.T, endpoint *testEndpoint, conn *Conn, cids n
 	}
 
 	peerQUICConfig := &tls.QUICConfig{TLSConfig: newTestTLSConfig(conn.side.peer())}
+	if conn.client != nil {
+		// mimicry: a browser profile's client offers h3 only.
+		peerQUICConfig.TLSConfig.NextProtos = []string{"h3"}
+	}
 	if conn.side == clientSide {
 		tc.peerTLSConn = tls.QUICServer(peerQUICConfig)
 	} else {
@@ -430,7 +438,7 @@ func (tc *testConn) newDatagramWithPathAndFrames(ptype packetType, path pathAddr
 			keyNumber:   tc.sendKeyNumber,
 			keyPhaseBit: tc.sendKeyPhaseBit,
 			frames:      frames,
-			version:     quicVersion1,
+			version:     cmp.Or(tc.version, quicVersion1), // mimicry: v2
 			dstConnID:   dstConnID,
 			srcConnID:   tc.peerConnID,
 		}},
@@ -1014,11 +1022,12 @@ func (tc *testConnHooks) handleTLSEvent(e tls.QUICEvent) {
 			tc.t.Errorf("%v key mismatch for level for level %v", typ, e.Level)
 		}
 	}
+	v := cmp.Or(tc.version, quicVersion1) // mimicry: v2 labels
 	setAppDataKey := func(suite uint16, secret []byte, k *test1RTTKeys) {
-		k.hdr.init(suite, secret)
+		k.hdr.initVersion(v, suite, secret)
 		for i := 0; i < len(k.pkt); i++ {
-			k.pkt[i].init(suite, secret)
-			secret = updateSecret(suite, secret)
+			k.pkt[i].initVersion(v, suite, secret)
+			secret = updateSecretVersion(v, suite, secret)
 		}
 	}
 	switch e.Kind {
@@ -1026,7 +1035,7 @@ func (tc *testConnHooks) handleTLSEvent(e tls.QUICEvent) {
 		checkKey("write", &tc.wsecrets, e)
 		switch e.Level {
 		case tls.QUICEncryptionLevelHandshake:
-			tc.keysHandshake.w.init(e.Suite, e.Data)
+			tc.keysHandshake.w.initVersion(v, e.Suite, e.Data)
 		case tls.QUICEncryptionLevelApplication:
 			setAppDataKey(e.Suite, e.Data, &tc.wkeyAppData)
 		}
@@ -1034,7 +1043,7 @@ func (tc *testConnHooks) handleTLSEvent(e tls.QUICEvent) {
 		checkKey("read", &tc.rsecrets, e)
 		switch e.Level {
 		case tls.QUICEncryptionLevelHandshake:
-			tc.keysHandshake.r.init(e.Suite, e.Data)
+			tc.keysHandshake.r.initVersion(v, e.Suite, e.Data)
 		case tls.QUICEncryptionLevelApplication:
 			setAppDataKey(e.Suite, e.Data, &tc.rkeyAppData)
 		}
@@ -1051,7 +1060,7 @@ func (tc *testConnHooks) handleTLSEvent(e tls.QUICEvent) {
 			checkKey("write", &tc.rsecrets, e)
 			switch e.Level {
 			case tls.QUICEncryptionLevelHandshake:
-				tc.keysHandshake.r.init(e.Suite, e.Data)
+				tc.keysHandshake.r.initVersion(v, e.Suite, e.Data)
 			case tls.QUICEncryptionLevelApplication:
 				setAppDataKey(e.Suite, e.Data, &tc.rkeyAppData)
 			}
@@ -1059,7 +1068,7 @@ func (tc *testConnHooks) handleTLSEvent(e tls.QUICEvent) {
 			checkKey("read", &tc.wsecrets, e)
 			switch e.Level {
 			case tls.QUICEncryptionLevelHandshake:
-				tc.keysHandshake.w.init(e.Suite, e.Data)
+				tc.keysHandshake.w.initVersion(v, e.Suite, e.Data)
 			case tls.QUICEncryptionLevelApplication:
 				setAppDataKey(e.Suite, e.Data, &tc.wkeyAppData)
 			}

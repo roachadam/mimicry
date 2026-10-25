@@ -45,6 +45,15 @@ type DialConfig struct {
 	// resumes (Conn.SmoothedRTT), for a profile that sends it when resuming
 	// (Chrome's initial_rtt); zero leaves that parameter out.
 	CachedRTT time.Duration
+	// Version is the QUIC version the connection starts in: zero or 1, or
+	// 2 when Hello resumes the ticket of a v2 connection
+	// (TicketVersion), as Firefox does. 2 needs a profile offering it.
+	Version uint32
+	// AfterVersionNegotiation: the connection is the one started in
+	// Version after a Version Negotiation packet (RetryVersion). It then
+	// requires the server's version_information and checks its Available
+	// Versions (RFC 9368, section 4), and ignores further such packets.
+	AfterVersionNegotiation bool
 }
 
 // ErrIdleTimeout is the error of a connection closed by its idle timeout
@@ -219,6 +228,20 @@ type clientState struct {
 	// peerParams is the server's quic_transport_parameters body, stored
 	// with its tickets for 0-RTT.
 	peerParams []byte
+	// version is the QUIC version in use: 1, or 2 once the server's
+	// Initial switched to it (clientUpgrade). sentVersionInfo: the
+	// profile sends version_information; available is its Available
+	// Versions, GREASE left out. initialCID is the Destination Connection
+	// ID the Initial keys come from (the first one, or the Retry's).
+	version         uint32
+	originalVersion uint32 // the version it started in, for 0-RTT
+	afterVN         bool   // DialConfig.AfterVersionNegotiation
+	sentVersionInfo bool
+	available       []uint32
+	initialCID      []byte
+	// peerMaxData is the server's initial_max_data, once its transport
+	// parameters arrived (clientResetFlowControl).
+	peerMaxData int64
 	// keepAlive: the application has a request outstanding (KeepAlive).
 	keepAlive atomic.Bool
 }
@@ -252,7 +275,21 @@ func newClientConfig(cfg DialConfig) (*clientState, *Config, error) {
 		rng:       rng,
 		ackDelay:  -1,
 		confirmed: make(chan struct{}),
+		version:   quicVersion1,
 	}
+	cc.sentVersionInfo, cc.available = clientVersions(p)
+	switch cfg.Version {
+	case 0, quicVersion1:
+	case quicVersion2:
+		if !cc.offers(quicVersion2) {
+			return nil, nil, errors.New("quic: version 2 for a profile that does not offer it")
+		}
+		cc.version = quicVersion2
+	default:
+		return nil, nil, fmt.Errorf("quic: version %#x", cfg.Version)
+	}
+	cc.originalVersion = cc.version
+	cc.afterVN = cfg.AfterVersionNegotiation
 	if p.Tokens && len(cfg.Token) > 0 {
 		cc.token = cloneBytes(cfg.Token)
 	}
@@ -285,7 +322,7 @@ func newClientConfig(cfg DialConfig) (*clientState, *Config, error) {
 		}
 		cc.ackDelay = unscaledAckDelay(drawRange(rng, *p.AckDelayConstant))
 	}
-	params, err := marshalProfileParams(p, cc.scid, cc.resumed, cfg.CachedRTT, rng)
+	params, err := marshalProfileParams(p, cc.scid, cc.resumed, cfg.CachedRTT, cc.version, rng)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -358,6 +395,11 @@ func (c *Conn) localConnIDLen() int {
 	}
 	return connIDLen
 }
+
+// clientKeyUpdateAfter is the packet number after which a client starts
+// its first key update: half the lowest AEAD confidentiality limit, 2^23
+// packets (RFC 9001, section 6.6), as upstream schedules every later one.
+const clientKeyUpdateAfter = 1 << 22
 
 // spinBitMask is the latency spin bit of a 1-RTT packet's first byte (RFC
 // 9000, section 17.4).

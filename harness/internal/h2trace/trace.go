@@ -12,7 +12,12 @@ import (
 type Trace struct {
 	// Host is the connection's server name, recorded when a page spans
 	// several hosts (replay scenarios).
-	Host     string    `json:"host,omitempty"`
+	Host string `json:"host,omitempty"`
+	// Millis is when the connection preface arrived, since the server
+	// started serving the page: recorded on the h3 pages, on the clock of
+	// their QUIC datagrams, so each request's time on the page is Millis
+	// plus its frame's.
+	Millis   int64     `json:"ms,omitempty"`
 	Frames   []Frame   `json:"frames"`
 	Requests []Request `json:"requests"`
 }

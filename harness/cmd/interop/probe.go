@@ -162,6 +162,9 @@ func (pr *prober) dial(ctx context.Context, host string, peer netip.AddrPort, im
 	if pr.p.QUIC.Tokens {
 		dc.Token = token
 	}
+	if cfg.Ticket != nil {
+		dc.Version = quic.TicketVersion(cfg.Ticket.Extra())
+	}
 	start := time.Now()
 	qc, err := quic.Dial(ctx, t, peer, dc)
 	c.dialed = time.Since(start)

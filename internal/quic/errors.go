@@ -73,6 +73,8 @@ func (e transportError) String() string {
 		return "AEAD_LIMIT_REACHED"
 	case errNoViablePath:
 		return "NO_VIABLE_PATH"
+	case errVersionNegotiationError: // mimicry: Firefox's 0x53f8
+		return "VERSION_NEGOTIATION_ERROR"
 	}
 	if e >= 0x0100 && e <= 0x01ff {
 		return fmt.Sprintf("CRYPTO_ERROR(%v)", uint64(e)&0xff)
