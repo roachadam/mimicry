@@ -1,0 +1,371 @@
+package main
+
+import (
+	"context"
+	"crypto/sha256"
+	"crypto/x509"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"net/netip"
+	"os"
+	"path/filepath"
+	"strconv"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/jonboulle/clockwork"
+
+	"github.com/roachadam/mimicry/internal/fingerprint"
+	"github.com/roachadam/mimicry/internal/h3"
+	"github.com/roachadam/mimicry/internal/handshake"
+	"github.com/roachadam/mimicry/internal/quic"
+	"github.com/roachadam/mimicry/profile"
+)
+
+// prober opens QUIC connections and speaks HTTP/3 on them as the engine
+// does (internal/engine/native connectH3: the profile's QUIC hello, its
+// resumption and 0-RTT, NEW_TOKEN tokens, the cached RTT, h3.New), but on
+// a watched socket (tap) with a key log, so a run sees what the engine
+// keeps to itself: the server's version, Retry, 0-RTT acceptance, the
+// cipher suite, key updates and the exact error. One prober is one
+// origin's state, as the engine keeps per origin.
+type prober struct {
+	p     *profile.Profile
+	plan  *fingerprint.Plan
+	roots *x509.CertPool
+	// tickets are QUIC session tickets, kept under ticketKey.
+	tickets *handshake.Tickets
+	// dir, when set, gets each connection's key log and datagram trace.
+	dir string
+	// seed seeds the impairment draws; each connection takes the next.
+	seed atomic.Uint64
+	n    atomic.Int64
+
+	mu    sync.Mutex
+	token []byte
+	rtt   time.Duration
+	// held is a ticket waitTicket took from tickets, for the next dial.
+	held *handshake.Ticket
+}
+
+// ticketKey is the key the prober's tickets are kept under: one origin.
+const ticketKey = "interop h3"
+
+func newProber(p *profile.Profile, roots *x509.CertPool, dir string, seed uint64) *prober {
+	pr := &prober{
+		p:       p,
+		plan:    fingerprint.Compile(p),
+		roots:   roots,
+		tickets: handshake.NewTickets("", clockwork.NewRealClock()),
+		dir:     dir,
+	}
+	pr.seed.Store(seed)
+	return pr
+}
+
+// resumes reports whether the profile resumes QUIC sessions (with 0-RTT):
+// Chrome and Firefox, not Safari.
+func (pr *prober) resumes() bool {
+	return pr.plan.Resumes() && pr.p.QUIC.ZeroRTT
+}
+
+// probeConn is one QUIC connection with HTTP/3 on it.
+type probeConn struct {
+	qc  *quic.Conn
+	hc  *h3.Conn
+	tap *tap
+	// name labels its files in the prober's directory.
+	name string
+	// offeredPSK: the hello resumed a ticket.
+	offeredPSK bool
+	// dialed is how long quic.Dial took: the handshake, or nothing for a
+	// 0-RTT connection, which returns at once.
+	dialed time.Duration
+	host   string
+	port   string
+	// keys is the key log file, closed by save.
+	keys *os.File
+}
+
+// dial opens a connection to peer for host (its server name and
+// :authority), resuming the last ticket where the profile resumes. It is
+// always for a request about to be sent (h3.Options.Pending), as the
+// engine's dials for a request are.
+func (pr *prober) dial(ctx context.Context, host string, peer netip.AddrPort, imp impairment) (*probeConn, error) {
+	network, local := "udp4", "0.0.0.0:0"
+	if peer.Addr().Is6() && !peer.Addr().Is4In6() {
+		network, local = "udp6", "[::]:0"
+	}
+	pc, err := (&net.ListenConfig{}).ListenPacket(ctx, network, local)
+	if err != nil {
+		return nil, err
+	}
+	seed := pr.seed.Add(1)
+	t := newTap(pc, imp, pr.p.QUIC.SCIDLength, seed)
+	c := &probeConn{
+		tap:  t,
+		name: fmt.Sprintf("conn%02d", pr.n.Add(1)),
+		host: host,
+		port: strconv.Itoa(int(peer.Port())),
+	}
+	cfg := handshake.Config{
+		ServerName: host,
+		RootCAs:    pr.roots,
+	}
+	hello := pr.plan.QUICHello()
+	pr.mu.Lock()
+	rtt, token := pr.rtt, pr.token
+	held := pr.held
+	pr.held = nil
+	pr.mu.Unlock()
+	if pr.resumes() {
+		cfg.Tickets, cfg.TicketKey = pr.tickets, ticketKey
+		if cfg.Ticket = held; cfg.Ticket == nil {
+			cfg.Ticket = pr.tickets.Take(ticketKey)
+		}
+		if cfg.Ticket != nil {
+			hello = pr.plan.ResumedQUICHello()
+			c.offeredPSK = true
+		} else {
+			rtt = 0
+		}
+	}
+	spec, err := handshake.Spec(hello)
+	if err != nil {
+		_ = pc.Close()
+		return nil, err
+	}
+	tlsConfig := handshake.QUICConfig(cfg)
+	var keyLog io.Writer
+	if pr.dir != "" {
+		f, err := os.Create(filepath.Join(pr.dir, c.name+".keys"))
+		if err == nil {
+			keyLog, c.keys = f, f
+		}
+	}
+	tlsConfig.KeyLogWriter = t.keyLogWriter(keyLog)
+	dc := quic.DialConfig{
+		Profile:   pr.p.QUIC,
+		Hello:     spec,
+		TLS:       tlsConfig,
+		CachedRTT: rtt,
+		OnToken: func(b []byte) {
+			pr.mu.Lock()
+			defer pr.mu.Unlock()
+			pr.token = b
+		},
+	}
+	if pr.p.QUIC.Tokens {
+		dc.Token = token
+	}
+	start := time.Now()
+	qc, err := quic.Dial(ctx, t, peer, dc)
+	c.dialed = time.Since(start)
+	if err != nil {
+		pr.save(c)
+		return c, err
+	}
+	c.qc = qc
+	hc, err := h3.New(qc, pr.p, h3.Options{ //nolint:contextcheck // the connection serves the server's streams for its own lifetime, as in the engine
+		AltHost: host,
+		AltPort: c.port,
+		Pending: true,
+	})
+	if err != nil {
+		pr.save(c)
+		return c, err
+	}
+	c.hc = hc
+	return c, nil
+}
+
+// close closes c and keeps its smoothed RTT for the next connection,
+// as the engine does.
+func (pr *prober) close(c *probeConn) {
+	if c == nil {
+		return
+	}
+	if c.qc != nil {
+		select {
+		case <-c.qc.Done():
+		default:
+			rtt := c.qc.SmoothedRTT() //nolint:contextcheck // read on the connection's loop, which outlives any request
+			pr.mu.Lock()
+			pr.rtt = rtt
+			pr.mu.Unlock()
+		}
+	}
+	if c.hc != nil {
+		_ = c.hc.Close()
+	} else if c.qc != nil {
+		_ = c.qc.Close()
+	}
+	pr.save(c)
+}
+
+// save writes c's datagram trace when the prober keeps files.
+func (pr *prober) save(c *probeConn) {
+	if pr.dir == "" || c == nil {
+		return
+	}
+	_ = c.tap.writeTrace(filepath.Join(pr.dir, c.name+".trace.json"))
+	if c.keys != nil {
+		_ = c.keys.Close()
+		c.keys = nil
+	}
+}
+
+// connFacts is what a connection showed.
+type connFacts struct {
+	Name        string   `json:"name"`
+	Version     string   `json:"version,omitempty"`
+	Handshake   bool     `json:"handshake"`
+	HandshakeMS float64  `json:"handshake_ms"`
+	Cipher      string   `json:"cipher,omitempty"`
+	ALPN        string   `json:"alpn,omitempty"`
+	OfferedPSK  bool     `json:"offered_psk"`
+	Resumed     bool     `json:"resumed"`
+	Sent0RTT    int      `json:"sent_0rtt_packets"`
+	EarlyData   bool     `json:"early_data"`
+	Retries     int      `json:"retries"`
+	VN          int      `json:"version_negotiations"`
+	ServerKU    int      `json:"server_key_updates"`
+	ClientKU    int      `json:"client_key_updates"`
+	KUKnown     bool     `json:"key_updates_known"`
+	Stats       tapStats `json:"stats"`
+	CloseErr    string   `json:"close_error,omitempty"`
+}
+
+// facts reads what c showed so far.
+func (c *probeConn) facts() connFacts {
+	st := c.tap.stats()
+	f := connFacts{
+		Name:        c.name,
+		HandshakeMS: ms(c.dialed),
+		OfferedPSK:  c.offeredPSK,
+		Sent0RTT:    st.Sent["0rtt"],
+		Retries:     st.Retries,
+		VN:          st.VN,
+		Stats:       st,
+	}
+	if len(st.Versions) > 0 {
+		f.Version = fmt.Sprintf("%#08x", st.Versions[len(st.Versions)-1])
+	}
+	if c.qc == nil {
+		return f
+	}
+	cs := c.qc.ConnectionState()
+	f.Handshake = cs.HandshakeComplete
+	f.Resumed = cs.DidResume
+	f.ALPN = cs.NegotiatedProtocol
+	if cs.CipherSuite != 0 {
+		f.Cipher = fmt.Sprintf("%#04x", cs.CipherSuite)
+	}
+	f.EarlyData = c.qc.EarlyData()
+	f.ServerKU, f.ClientKU, f.KUKnown = c.tap.keyUpdates(cs.CipherSuite)
+	select {
+	case <-c.qc.Done():
+		if err := c.qc.Err(); err != nil {
+			f.CloseErr = err.Error()
+		}
+	default:
+	}
+	return f
+}
+
+// fetched is one request's outcome.
+type fetched struct {
+	Path   string  `json:"path"`
+	Status int     `json:"status"`
+	Proto  string  `json:"proto,omitempty"`
+	Bytes  int64   `json:"bytes"`
+	MS     float64 `json:"ms"`
+	Err    string  `json:"error,omitempty"`
+	// sum is the body's SHA-256.
+	sum [32]byte
+}
+
+// get sends a GET for path on c with the profile's navigation header
+// values and reads the whole body.
+func (pr *prober) get(ctx context.Context, c *probeConn, path string) (out fetched) {
+	out = fetched{
+		Path: path,
+	}
+	start := time.Now()
+	defer func() {
+		out.MS = ms(time.Since(start))
+	}()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://"+authority(c.host, c.port)+path, nil)
+	if err != nil {
+		out.Err = err.Error()
+		return out
+	}
+	for _, h := range pr.p.Headers {
+		if h.Value != "" {
+			req.Header.Set(h.Name, h.Value)
+		}
+	}
+	resp, err := c.hc.RoundTrip(req)
+	if err != nil {
+		out.Err = err.Error()
+		return out
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	out.Status, out.Proto = resp.StatusCode, resp.Proto
+	h := sha256.New()
+	out.Bytes, err = io.Copy(h, resp.Body)
+	if err != nil {
+		out.Err = err.Error()
+	}
+	copy(out.sum[:], h.Sum(nil))
+	return out
+}
+
+// authority is host:port without the port when it is 443.
+func authority(host, port string) string {
+	if port == "443" {
+		return host
+	}
+	return net.JoinHostPort(host, port)
+}
+
+// waitTicket waits up to d for the server's session ticket to be stored,
+// as a browser's connection lives long enough to receive it.
+func (pr *prober) waitTicket(ctx context.Context, d time.Duration) bool {
+	if !pr.resumes() {
+		return false
+	}
+	deadline := time.Now().Add(d)
+	for time.Now().Before(deadline) && ctx.Err() == nil {
+		if t := pr.tickets.Take(ticketKey); t != nil {
+			pr.mu.Lock()
+			pr.held = t
+			pr.mu.Unlock()
+			return true
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	return false
+}
+
+func ms(d time.Duration) float64 {
+	return float64(d.Microseconds()) / 1000
+}
+
+// errString is err's text, or "".
+func errString(err error) string {
+	if err == nil {
+		return ""
+	}
+	var ce *quic.ConnectionCloseError
+	if errors.As(err, &ce) {
+		return fmt.Sprintf("peer application close %#x: %s", ce.Code, ce.Reason)
+	}
+	return err.Error()
+}

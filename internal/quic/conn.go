@@ -398,7 +398,12 @@ func (c *Conn) loop(now time.Time) {
 				c.abortImmediately(now, errIdleTimeout)
 				return
 			}
+			pto := c.loss.ptoExpired
 			c.loss.advance(now, c.handleAckOrLoss)
+			if c.client != nil && !pto && c.loss.ptoExpired {
+				// mimicry: the client's probes resend its CRYPTO data.
+				c.clientPTOExpired()
+			}
 			if c.lifetimeAdvance(now) {
 				// The connection has completed the draining period,
 				// and may be shut down.

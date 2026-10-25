@@ -37,8 +37,12 @@ Alt-Svc of the response that came with a GOAWAY starts nothing.
 
 A QUIC connection that fails to connect sends the request to TCP and
 keeps the origin off HTTP/3 for 5 minutes (Chrome's first back-off; the
-browsers were only seen not retrying within a page). QUIC resolves the
-host through `Config.Resolver`; `Config.DialContext` has no part in it.
+browsers were only seen not retrying within a page). The fallback comes
+only after the handshake timeout, and a 0-RTT connection that never
+hears from the server does not trigger it at all; browsers race TCP
+instead [INFERENCE] (open: `harness/reports/quic-interop-2026-10-25.md`).
+QUIC resolves the host through `Config.Resolver`; `Config.DialContext`
+has no part in it.
 
 ## The QUIC connection
 
@@ -90,7 +94,10 @@ A priority measured only over HTTP/3 (`http3.high`, `http3.low`) is
 
 Credit growth under large downloads, key updates the browser starts,
 PMTU probing, ECN, migration, DATAGRAM frames, Retry and version
-negotiation, discovery through DNS HTTPS records, a server that uses
+negotiation (Firefox offers QUIC v2 in `version_information`, which
+`internal/quic` does not speak), loss-recovery timing (the first PTO
+comes from x/net's 333 ms initial RTT), discovery through DNS HTTPS
+records, a server that uses
 QPACK's dynamic table in responses; for Safari also resumption, 0-RTT,
 QPACK with a dynamic table and any request kind but `fetch()` over
 HTTP/3. Kinds the profile has no HTTP/3 data for stay on TCP.
@@ -113,3 +120,27 @@ add). Each refuses a sample its rule does not describe.
   rule the captures contradict fails.
 - `TestQPACKReproducesBrowserSections` re-encodes every captured field
   list and must reproduce the browser's bytes.
+- `TestQUICInterop` (`harness/e2e/quic_interop_test.go`) runs every
+  profile against quic-go's HTTP/3 server through a seeded relay
+  (`harness/internal/udprelay`: loss, reordering, duplication,
+  corruption, delay, blackholes, a small MTU, NAT rebinding): handshake,
+  large and concurrent transfers, Retry, resumption and 0-RTT (accepted
+  and rejected), ChaCha20, key updates, the anti-amplification limit,
+  GOAWAY, idle and server closes, stream resets and tiny flow control
+  windows, each checked byte for byte and against a time limit.
+
+## Under loss and failure
+
+Not measured from the browsers; their behaviour is taken from their
+source where known ([INFERENCE] otherwise) and changes nothing on a clean
+path:
+
+- A PTO sends two probes and resends every unacknowledged CRYPTO byte, so
+  a ClientHello longer than a packet goes whole.
+- While a request is outstanding the connection sends a PING after
+  15 s of silence, or half the idle timeout if shorter (Chrome's ping
+  alarm with open streams, Firefox's stream keep-alive); an idle
+  connection still ends silently.
+- A replayable request whose connection ended before its response (the
+  server's CONNECTION_CLOSE crossing it) goes again on a new connection,
+  as over a reused HTTP/1.1 connection.

@@ -142,6 +142,31 @@ func (c *Conn) Confirmed() <-chan struct{} {
 	return c.client.confirmed
 }
 
+// clientKeepAlive is the longest a client connection with a request
+// outstanding stays silent: Chrome's ping alarm with open streams
+// (quiche's 15 s ping timeout); the keep-alive comes sooner, at half the
+// idle timeout, when that is shorter (neqo's stream keep-alive).
+const clientKeepAlive = 15 * time.Second
+
+// KeepAlive turns keep-alives on (while the application has a request
+// outstanding) or off: a PING once the connection has been silent for
+// clientKeepAlive or half its idle timeout. Without it a client waiting
+// for a response is silent, and a server that cannot reach it (its path
+// to the client changed, the probe of the new path lost) never learns of
+// it before the idle timeout. An idle connection without requests still
+// ends silently.
+func (c *Conn) KeepAlive(on bool) {
+	c.client.keepAlive.Store(on)
+}
+
+// keepAlivePeriod is the client's keep-alive period: zero while off.
+func (cc *clientState) keepAlivePeriod() time.Duration {
+	if !cc.keepAlive.Load() {
+		return 0
+	}
+	return clientKeepAlive
+}
+
 // clientState is a client connection's browser behaviour: the profile's
 // rules with this connection's draws made.
 type clientState struct {
@@ -194,6 +219,8 @@ type clientState struct {
 	// peerParams is the server's quic_transport_parameters body, stored
 	// with its tickets for 0-RTT.
 	peerParams []byte
+	// keepAlive: the application has a request outstanding (KeepAlive).
+	keepAlive atomic.Bool
 }
 
 // newClientConfig validates cfg and makes the connection's draws.

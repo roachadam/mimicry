@@ -210,7 +210,9 @@ func (e *Engine) tryH3(ctx context.Context, req *http.Request, r route) (resp *h
 }
 
 // roundTripH3 sends req on c. A request the server did not process goes
-// to another connection, and c leaves the pool.
+// to another connection, and c leaves the pool; so does a replayable one
+// whose connection ended before its response (the server closed it as
+// the request went out), as over a reused HTTP/1.1 connection.
 func (e *Engine) roundTripH3(key string, c *h3.Conn, req *http.Request) (*http.Response, bool, error) {
 	resp, err := c.RoundTrip(req)
 	switch {
@@ -219,6 +221,9 @@ func (e *Engine) roundTripH3(key string, c *h3.Conn, req *http.Request) (*http.R
 		return nil, true, fmt.Errorf("%w: %w", errNotSent, err)
 	case errors.Is(err, h3.ErrRejected):
 		// Its body was read: it goes again with a fresh copy.
+		e.quic.pool.RemoveShared(key, c)
+		return nil, true, fmt.Errorf("%w: %w", errRetry, err)
+	case errors.Is(err, h3.ErrConnLost) && replayable(req):
 		e.quic.pool.RemoveShared(key, c)
 		return nil, true, fmt.Errorf("%w: %w", errRetry, err)
 	}

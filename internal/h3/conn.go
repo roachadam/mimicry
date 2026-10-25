@@ -27,6 +27,11 @@ var ErrConnUnusable = errors.New("h3: connection cannot take the request")
 // fresh copy of its body.
 var ErrRejected = errors.New("h3: request rejected by the server")
 
+// ErrConnLost is a request whose connection ended (the server closed it,
+// it timed out, or reset) before the response's headers arrived: the
+// server may or may not have processed it.
+var ErrConnLost = errors.New("h3: connection ended before the response")
+
 // maxFieldSection bounds a response's field section and control frames
 // when the profile announces no SETTINGS_MAX_FIELD_SECTION_SIZE.
 const maxFieldSection = 256 << 10
@@ -328,7 +333,7 @@ func (c *Conn) CanTakeNewRequest() bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	select {
-	case <-c.done:
+	case <-c.qc.Done():
 		return false
 	default:
 	}
@@ -639,12 +644,13 @@ func (c *Conn) readDecoderStream(s *quic.Stream) error {
 }
 
 // reserve counts a request about to start, unless the connection cannot
-// take it.
+// take it. While requests are in flight the connection keeps itself alive,
+// as browsers do with open streams.
 func (c *Conn) reserve() bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	select {
-	case <-c.done:
+	case <-c.qc.Done():
 		return false
 	default:
 	}
@@ -652,6 +658,9 @@ func (c *Conn) reserve() bool {
 		return false
 	}
 	c.active++
+	if c.active == 1 {
+		c.qc.KeepAlive(true)
+	}
 	return true
 }
 
@@ -659,6 +668,9 @@ func (c *Conn) release() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.active--
+	if c.active == 0 {
+		c.qc.KeepAlive(false)
+	}
 }
 
 // RoundTrip sends req on a new request stream and returns the response
@@ -716,6 +728,13 @@ func (c *Conn) RoundTrip(req *http.Request) (*http.Response, error) {
 			}
 			return nil, fmt.Errorf("%w: %w", ErrConnUnusable, err)
 		}
+		if ctx.Err() == nil && !errors.Is(err, ErrConnLost) {
+			select {
+			case <-c.qc.Done():
+				return nil, fmt.Errorf("%w: %w", ErrConnLost, err)
+			default:
+			}
+		}
 		return nil, err
 	}
 	return resp, nil
@@ -746,7 +765,7 @@ func (c *Conn) start(ctx context.Context, hd head, end bool) (*quic.Stream, erro
 	s, err := c.qc.NewStream(ctx)
 	if err != nil {
 		select {
-		case <-c.done:
+		case <-c.qc.Done():
 			return nil, fmt.Errorf("%w: %w", ErrConnUnusable, err)
 		default:
 		}
@@ -795,6 +814,12 @@ func (c *Conn) start(ctx context.Context, hd head, end bool) (*quic.Stream, erro
 	}
 	c.qc.Uncork()
 	if err != nil {
+		select {
+		case <-c.qc.Done():
+			// Part of the request may have gone before the end.
+			return nil, fmt.Errorf("%w: %w", ErrConnLost, err)
+		default:
+		}
 		return nil, err
 	}
 	return s, nil
@@ -832,7 +857,7 @@ func (c *Conn) decode(ctx context.Context, id uint64, block []byte) ([]qpack.Fie
 		select {
 		case <-c.done:
 			c.decMu.Unlock()
-			return nil, ErrConnUnusable
+			return nil, ErrConnLost
 		default:
 		}
 		c.decCond.Wait()
@@ -1088,7 +1113,11 @@ func (b *body) Read(p []byte) (int, error) {
 	n, err := b.r.s.Read(p)
 	b.remain -= uint64(n) //nolint:gosec // n >= 0
 	if err != nil {
-		err = unexpectedEOF(err)
+		// The stream returns its last bytes with io.EOF: a clean end if
+		// they finish the DATA frame.
+		if !errors.Is(err, io.EOF) || b.remain != 0 {
+			err = unexpectedEOF(err)
+		}
 		b.end(err)
 		return n, err
 	}

@@ -98,7 +98,6 @@ func (c *Conn) newLocalStream(ctx context.Context, styp streamType) (*Stream, er
 
 	s := newStream(c, newStreamID(c.side, styp, num))
 	s.outmaxbuf = c.config.maxStreamWriteBufferSize()
-	s.outwin = c.streams.peerInitialMaxStreamDataRemote[styp]
 	if styp == bidiStream {
 		s.inmaxbuf = c.config.maxStreamReadBufferSize()
 		s.inwin = c.config.maxStreamReadBufferSize()
@@ -108,6 +107,10 @@ func (c *Conn) newLocalStream(ctx context.Context, styp streamType) (*Stream, er
 
 	// Modify c.streams on the conn's loop.
 	if err := c.runOnLoop(ctx, func(now time.Time, c *Conn) {
+		// mimicry: the peer's initial window is read on the loop, which
+		// writes it when the server's transport parameters arrive: a
+		// 0-RTT connection opens streams before that.
+		s.outwin = c.streams.peerInitialMaxStreamDataRemote[styp]
 		c.streams.streams[s.id] = maybeStream{s}
 	}); err != nil {
 		return nil, err

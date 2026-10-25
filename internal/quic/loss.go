@@ -33,6 +33,10 @@ type lossState struct {
 	// True when the PTO timer has expired and a probe packet has not yet been sent.
 	ptoExpired bool
 
+	// mimicry: ptoProbes is how many probe packets the expired PTO still
+	// sends, when a client set more than upstream's one (clientPTOExpired).
+	ptoProbes int
+
 	// Count of PTO expirations since the lack received acknowledgement.
 	// https://www.rfc-editor.org/rfc/rfc9002#section-6.2.1-9
 	ptoBackoffCount int
@@ -105,6 +109,7 @@ func (c *lossState) reset(now time.Time, maxDatagramSize int) {
 	// Reset PTO timer and backoff.
 	c.ptoBackoffCount = 0
 	c.ptoExpired = false
+	c.ptoProbes = 0
 	c.scheduleTimer(now)
 	// Mark previously-sent packets as not contributing to congestion control.
 	c.appDataEpoch = c.spaces[appDataSpace].nextNum
@@ -238,7 +243,13 @@ func (c *lossState) packetSent(now time.Time, log *slog.Logger, space numberSpac
 		c.pacer.packetSent(now, size, c.cc.congestionWindow, c.rtt.smoothedRTT)
 		if sent.ackEliciting {
 			c.spaces[space].lastAckEliciting = sent.num
-			c.ptoExpired = false // reset expired PTO timer after sending probe
+			if c.ptoProbes > 1 {
+				// mimicry: another probe to send.
+				c.ptoProbes--
+			} else {
+				c.ptoExpired = false // reset expired PTO timer after sending probe
+				c.ptoProbes = 0
+			}
 		}
 		c.scheduleTimer(now)
 		if logEnabled(log, QLogLevelPacket) {

@@ -105,6 +105,28 @@ the mechanical import rewrites.
      one connection, whose end closes the socket.
    - `packet_writer.go`: `packetWriter.spin`.
 
+6. **Interop fixes** (found by `TestQUICInterop` in `harness/e2e`, each
+   with the row that fails without it):
+   - `conn_streams.go`: `newLocalStream` reads the peer's initial stream
+     window on the loop. A 0-RTT connection opens streams before the
+     server's transport parameters arrive, and the loop writes the window
+     then: a data race (`-race`, rows `0rtt-accepted`, `goaway`).
+   - PTO probes of a client (`clientPTOExpired` in `client_send.go`):
+     two probe packets per PTO (`loss.go`: `lossState.ptoProbes`, set by
+     the hook in `conn.go`'s timer case), and every unacknowledged CRYPTO
+     byte queued again (`conn_send.go`: the client sends it as unsent
+     data). Upstream's one probe resends the CRYPTO stream's first
+     unacknowledged range only, so the end of a ClientHello longer than a
+     packet (every browser's) waited for loss detection, which never came
+     while the server's ACKs were lost (row `handshake-ack-loss`).
+   - Keep-alive while a request is outstanding (`client.go`:
+     `Conn.KeepAlive`, `clientKeepAlive`; `idle.go`: the period comes
+     from it, and an expired keep-alive sends nothing once the last
+     request ended). Upstream's is a fixed `Config.KeepAlivePeriod`, off
+     here as browsers send nothing on an idle connection; without one a
+     receiving client stayed silent after the server's probe of its new
+     path was lost, until the idle timeout (row `rebinding-probe-loss`).
+
 ## Tests
 
 The tests are upstream's own, kept as the proof that the copy and the TLS

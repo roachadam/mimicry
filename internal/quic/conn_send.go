@@ -263,7 +263,9 @@ func (c *Conn) appendFrames(now time.Time, space numberSpace, pnum packetNumber,
 	// TODO: Add all the other frames we can send.
 
 	// CRYPTO
-	c.crypto[space].dataToSend(pto, func(off, size int64) int64 {
+	// mimicry: a client's PTO queued its unacknowledged CRYPTO data
+	// (clientPTOExpired), sent as any unsent data.
+	c.crypto[space].dataToSend(pto && c.client == nil, func(off, size int64) int64 {
 		b, _ := c.w.appendCryptoFrame(off, int(size))
 		c.crypto[space].sendData(off, b)
 		return int64(len(b))

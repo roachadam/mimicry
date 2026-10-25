@@ -249,6 +249,30 @@ func (c *Conn) maybeSendClient(now time.Time) (next time.Time) {
 	}
 }
 
+// clientProbesPerPTO is how many probe packets a client's PTO sends: the
+// two RFC 9002 (section 6.2.4) allows, so one lost datagram does not cost
+// another, doubled, timeout.
+const clientProbesPerPTO = 2
+
+// clientPTOExpired prepares a client's PTO probes: every unacknowledged
+// CRYPTO byte is queued again, so the probes carry a ClientHello longer
+// than one packet whole. Upstream's single probe resends the first
+// unacknowledged range alone, which a browser's ClientHello outgrows: with
+// the server's ACKs lost, its end would wait for loss detection forever.
+func (c *Conn) clientPTOExpired() {
+	c.loss.ptoProbes = clientProbesPerPTO
+	for space := range c.crypto {
+		s := &c.crypto[space]
+		if s.out.start == s.out.end {
+			continue
+		}
+		s.outunsent.add(s.out.start, s.out.end)
+		for _, a := range s.outacked {
+			s.outunsent.sub(a.start, a.end)
+		}
+	}
+}
+
 // corkHolds reports whether a Cork holds the connection's packets: from
 // the start when sending 0-RTT, otherwise once the handshake is complete.
 // A closing connection is never held.

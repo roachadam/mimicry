@@ -102,6 +102,10 @@ func (c *Conn) restartIdleTimer(now time.Time) {
 	c.idle.nextTimeout = c.idle.idleTimeout
 	c.idle.shouldSendKeepAlive = false
 	keepAlive := c.config.keepAlivePeriod()
+	if c.client != nil {
+		// mimicry: only while a request is outstanding (Conn.KeepAlive).
+		keepAlive = c.client.keepAlivePeriod()
+	}
 	switch {
 	case !c.handshakeConfirmed.isSet():
 		// We do not send keep-alives before the handshake is complete.
@@ -176,7 +180,8 @@ func (c *Conn) idleAdvance(now time.Time) (shouldExit bool) {
 	if next := c.idle.nextTimeout; !next.Equal(c.idle.idleTimeout) && !next.IsZero() && !now.Before(next) {
 		// Keep-alive timeout has expired.
 		// Queue a keep-alive and switch to the idle timeout.
-		c.idle.shouldSendKeepAlive = true
+		// mimicry: not if the client's last request ended meanwhile.
+		c.idle.shouldSendKeepAlive = c.client == nil || c.client.keepAlive.Load()
 		c.idle.nextTimeout = c.idle.idleTimeout
 		return false
 	}
