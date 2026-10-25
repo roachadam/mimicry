@@ -98,7 +98,7 @@ byte.
 
 | Claim (`http2.hpack.…`) | Chrome 155 | Firefox 158 | Safari 27 | Safari 26 |
 |---|---|---|---|---|
-| `without_indexing` | `:path`; `:method` (seen only on `OPTIONS` preflights in replays: GET and POST are exact static-table matches, so the rule cannot show for them) | `:path` | `:path`, `content-length` | as Safari 27, verified on its own scenarios and replays |
+| `without_indexing` | `:path`; `:method` (seen only on `OPTIONS` preflights in replays: GET and POST are exact static-table matches, so the rule cannot show for them); `:protocol` (the `websocket-h2` extended CONNECTs) | `:path` | `:path`, `content-length` | as Safari 27, verified on its own scenarios and replays |
 | `never_indexed` | — | `authorization` (replays) | `authorization` (replays: nytimes 3, zillow 9) | `authorization` (its own replays: nytimes 3, zillow 9, as Safari 27) |
 | `never_index_below` | — (indexes every cookie) | `cookie` under 20 bytes (19 never, 20 indexed) | same | same |
 | `literal_on_exact_match` | — | yes | — | — |

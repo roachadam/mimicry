@@ -554,7 +554,7 @@ func (c *checker) checkHPACK(p *HPACK) {
 // checkFieldName checks a name in the HPACK rules: a request pseudo-header or
 // a lowercase header name.
 func (c *checker) checkFieldName(path, name string) {
-	if !slices.Contains(pseudoHeaders, name) {
+	if !slices.Contains(pseudoHeaders, name) && !slices.Contains(extendedPseudoHeaders, name) {
 		c.checkHeaderName(path, name)
 	}
 }

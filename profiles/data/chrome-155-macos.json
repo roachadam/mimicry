@@ -210,7 +210,8 @@
     "hpack": {
       "without_indexing": [
         ":method",
-        ":path"
+        ":path",
+        ":protocol"
       ],
       "name_match": "static_first",
       "huffman": "shorter",

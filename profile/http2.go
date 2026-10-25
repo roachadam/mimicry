@@ -153,3 +153,11 @@ var pseudoHeaders = []string{
 	":scheme",
 	":path",
 }
+
+// extendedPseudoHeaders are pseudo-headers only some requests carry:
+// `:protocol`, on an extended CONNECT (RFC 8441, WebSockets over HTTP/2).
+// They may appear in field lists such as the HPACK policy's, but not in
+// pseudo_header_order, which lists those every request carries.
+var extendedPseudoHeaders = []string{
+	":protocol",
+}
