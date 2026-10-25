@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	"golang.org/x/net/publicsuffix"
+
 	"github.com/roachadam/mimicry"
 	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/harness/internal/server"
@@ -50,8 +52,9 @@ func TestRedirects2MatchesBrowser(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			done := runRedirects2Page(t, p)
-			apart := redirectsApart()
+			steps := server.Redirects2Steps()
+			done := runRedirectsPage(t, p, server.Redirects2, steps)
+			apart := redirectsApart(server.Redirects2, steps)
 			got := mergeHosts(redirectsConnections(t, done, false, apart), redirectsMerged[name])
 			wantRows := redirectsConnections(t, want[0], redirectsReload[name], apart)
 			for i, w := range want {
@@ -126,24 +129,23 @@ func mergeHosts(rows [][]string, hosts map[string]string) [][]string {
 	return out
 }
 
-// runRedirects2Page makes the redirects2 page's requests through mimicry
-// as profile p, as the page does (server.Redirects2Steps), and returns
-// the server's capture.
-func runRedirects2Page(t *testing.T, p *profile.Profile) *capture.Page {
+// runRedirectsPage makes the requests of page sc (redirects2, or
+// nav-redirect-page) through mimicry as profile p, as the page does
+// (steps), and returns the server's capture.
+func runRedirectsPage(t *testing.T, p *profile.Profile, sc *server.Scenario, steps []server.Redirects2Step) *capture.Page {
 	t.Helper()
-	s := startPage(t, p, server.Redirects2)
+	s := startPage(t, p, sc)
 	// As NewClient: the Transport stops chains where browsers do.
 	s.client.CheckRedirect = func(*http.Request, []*http.Request) error {
 		return nil
 	}
-	hosts, _, _ := server.Redirects2.MultiHost()
+	hosts, _, _ := sc.MultiHost()
 	pageURL := s.url(hosts[0], "/")
 	s.send(http.MethodGet, pageURL, mimicry.Request{}, nil, "")
 	root, err := url.Parse(pageURL)
 	if err != nil {
 		t.Fatal(err)
 	}
-	steps := server.Redirects2Steps()
 	// The page's markup images load with it, before its script.
 	ordered := slices.Concat(
 		slices.DeleteFunc(slices.Clone(steps), func(st server.Redirects2Step) bool {
@@ -169,15 +171,21 @@ func runRedirects2Page(t *testing.T, p *profile.Profile) *capture.Page {
 				t.Fatal(perr)
 			}
 			var h http.Header
-			if st.Body != "" {
-				h = http.Header{"Content-Type": {"application/x-www-form-urlencoded"}}
-			}
+			body := st.Body
 			method := st.Method
 			if method == "" {
 				method = http.MethodGet
 			}
+			switch {
+			case method == http.MethodGet && body != "":
+				// A GET form sends its field in the query.
+				target += "?" + body
+				body = ""
+			case body != "":
+				h = http.Header{"Content-Type": {"application/x-www-form-urlencoded"}}
+			}
 			var landed *url.URL
-			landed, err = redirectsSend(t, s, method, target, st.Body, h, mimicry.Request{Kind: mimicry.Navigate, From: from}, true)
+			landed, err = redirectsSend(t, s, method, target, body, h, mimicry.Request{Kind: mimicry.Navigate, From: from}, true)
 			if landed != nil {
 				last = landed
 			}
@@ -271,7 +279,14 @@ func redirectsSend(t *testing.T, s *pageSession, method, target, body string, h 
 // (within its origin, apex to www, to another site, http:// to https://
 // of its host), made through mimicry as a typed URL (Navigate, no From):
 // the same requests on each connection, and every one with the browser's
-// header lines (and HTTP/2 weight).
+// header lines (and HTTP/2 weight). nav-redirect-page's navigations,
+// which a page makes and a redirect sends to another origin, are made
+// through mimicry from the page that makes them (Navigate, From the
+// page; no Sec-Fetch-User, as by script), as TestRedirects2MatchesBrowser
+// makes redirects2's: the same requests on each connection (those of a
+// navigation with a request to another site per host instead: mimicry's
+// pool is not partitioned by top-level site), every one with the
+// browser's header lines and weight.
 func TestNavRedirectsMatchBrowser(t *testing.T) {
 	for _, name := range profiles.Names() {
 		for _, sc := range server.NavRedirects {
@@ -284,6 +299,21 @@ func TestNavRedirectsMatchBrowser(t *testing.T) {
 				want, err := capture.LoadPages(captureDir + name + "." + sc.Name + ".pagetrace.json.gz")
 				if err != nil {
 					t.Fatal(err)
+				}
+				if sc == server.NavRedirectPage {
+					steps := server.NavRedirectPageSteps()
+					done := runRedirectsPage(t, p, sc, steps)
+					apart := redirectsApart(sc, steps)
+					got := redirectsConnections(t, done, false, apart)
+					for i, w := range want {
+						if d := rowsDiff(got, redirectsConnections(t, w, false, apart)); d != "" {
+							t.Errorf("sample %d: connections differ: %s", i+1, d)
+						}
+					}
+					for _, path := range redirectsPaths(redirectsConnections(t, want[0], false, apart)) {
+						comparePath(t, done, want, path, false, false, false)
+					}
+					return
 				}
 				step, ok := sc.NavRedirectStep()
 				if !ok {
@@ -370,7 +400,8 @@ func redirectsConnections(t *testing.T, page *capture.Page, reload bool, apart m
 		for _, row := range rows[1:] {
 			fields := strings.Fields(row)
 			method, path := fields[0], fields[1]
-			label, _, _ := strings.Cut(path, ".hop")
+			label, _, _ := strings.Cut(path, "?")
+			label, _, _ = strings.Cut(label, ".hop")
 			switch {
 			case path == "/sw/watchdog.js":
 				continue
@@ -427,13 +458,21 @@ func redirectsConnections(t *testing.T, page *capture.Page, reload bool, apart m
 	return out
 }
 
-// redirectsApart are the redirects2 steps redirectsConnections lists
-// apart: the navigations to another site than the page's.
-func redirectsApart() map[string]bool {
-	hosts, _, _ := server.Redirects2.MultiHost()
+// redirectsApart are the steps of page sc that redirectsConnections lists
+// apart: the navigations with a request to another site than the page's
+// (first leg or hop).
+func redirectsApart(sc *server.Scenario, steps []server.Redirects2Step) map[string]bool {
+	hosts, _, _ := sc.MultiHost()
+	site := func(host string) string {
+		s, err := publicsuffix.EffectiveTLDPlusOne(host)
+		if err != nil {
+			return host
+		}
+		return s
+	}
 	out := map[string]bool{}
-	for _, st := range server.Redirects2Steps() {
-		if st.Nav() && st.Host != hosts[0] {
+	for _, st := range steps {
+		if st.Nav() && (site(st.Host) != site(hosts[0]) || site(st.HopHost()) != site(hosts[0])) {
 			out["/p/"+st.Label] = true
 		}
 	}

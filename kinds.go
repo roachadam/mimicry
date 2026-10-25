@@ -279,8 +279,10 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 			h.Del("Referer")
 		}
 	}
-	// site is sec-fetch-site: the most distant relation along the chain.
-	// targetSite is this URL's own, which picks the order and decides
+	// site is sec-fetch-site: the most distant relation along the chain
+	// (for a navigation under redirects.navigation_site restart, the
+	// chain from its last redirect to another site on). targetSite is
+	// this URL's own, which picks the order and decides
 	// sec-fetch-storage-access. tainted is the Fetch standard's tainted
 	// origin: the chain left another origin than the page's for a third,
 	// so Origin is "null". sameOrigin is a chain that never left the
@@ -290,9 +292,18 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 	if from != nil {
 		targetSite, crossOrigin = relation(from, target)
 		site = targetSite
-		for _, u := range chain {
+		counted := 0
+		if r.Kind == Navigate && p.Redirects != nil && p.Redirects.NavigationSite == profile.RedirectSiteRestart {
+			for i := len(chain) - 1; i > 0; i-- {
+				if rel, _ := relation(chain[i-1], chain[i]); rel == "cross-site" {
+					counted = i
+					break
+				}
+			}
+		}
+		for i, u := range chain {
 			s, other := relation(from, u)
-			if siteRank[s] > siteRank[site] {
+			if i >= counted && siteRank[s] > siteRank[site] {
 				site = s
 			}
 			sameOrigin = sameOrigin && !other
@@ -353,7 +364,7 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 	if r.Stylesheet != nil && ctx.StylesheetReferrer {
 		referrerURL = r.Stylesheet
 	}
-	if ref := referrer(referrerURL, target); ref != "" {
+	if ref := referrer(referrerURL, chain); ref != "" {
 		values["referer"] = ref
 	}
 	if targetSite == "cross-site" && credentialed && ctx.StorageAccess != "" {
@@ -451,6 +462,10 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 		cond.OriginBeforeRedirect = before != ""
 		cond.MethodChangedByRedirect = methodOf(prev) != methodOf(req)
 		cond.InsecureBeforeRedirect = insecureBefore
+		if r.Kind == Navigate {
+			rel, _ := relation(chain[len(chain)-2], target)
+			cond.CrossSiteRedirect = rel == "cross-site"
+		}
 	}
 	i := slices.IndexFunc(variants, func(v profile.Variant) bool {
 		return sameCondition(v, cond)
@@ -476,7 +491,7 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 		// The kind's redirects were captured, and browsers order a
 		// redirect's request by how it was made (Safari rebuilds it
 		// whole): no other list is this one.
-		return nil, fmt.Errorf("%w: profile %s has no %s request after a redirect for method %q, site %q, CORS-checked %v, page-set headers %v, cross-origin redirect %v, Origin before the redirect %v, method changed by the redirect %v, non-secure before the redirect %v, non-secure %v", ErrNotMeasured, p.Name, r.Kind, cond.Method, cond.Site, cond.CORSChecked, cond.PageSet, cond.CrossOriginRedirect, cond.OriginBeforeRedirect, cond.MethodChangedByRedirect, cond.InsecureBeforeRedirect, cond.Insecure)
+		return nil, fmt.Errorf("%w: profile %s has no %s request after a redirect for method %q, site %q, CORS-checked %v, page-set headers %v, cross-origin redirect %v, cross-site redirect %v, Origin before the redirect %v, method changed by the redirect %v, non-secure before the redirect %v, non-secure %v", ErrNotMeasured, p.Name, r.Kind, cond.Method, cond.Site, cond.CORSChecked, cond.PageSet, cond.CrossOriginRedirect, cond.CrossSiteRedirect, cond.OriginBeforeRedirect, cond.MethodChangedByRedirect, cond.InsecureBeforeRedirect, cond.Insecure)
 	}
 	if r.Kind == Navigate && cond.Redirected && i >= 0 && sentFetchUser(p, req.Response.Request) && !hasHeader(h, "Sec-Fetch-User") && !slices.ContainsFunc(variants[i].Headers, func(hd profile.Header) bool {
 		return strings.EqualFold(hd.Name, "sec-fetch-user")
@@ -629,7 +644,7 @@ func combinePageHeaders(h http.Header, list []profile.Header) {
 // sameCondition reports whether variant v is for exactly the requests cond
 // describes.
 func sameCondition(v, cond profile.Variant) bool {
-	return v.Method == cond.Method && v.Site == cond.Site && v.CORSChecked == cond.CORSChecked && v.PageSet == cond.PageSet && v.Redirected == cond.Redirected && v.CrossOriginRedirect == cond.CrossOriginRedirect && v.OriginBeforeRedirect == cond.OriginBeforeRedirect && v.MethodChangedByRedirect == cond.MethodChangedByRedirect && v.InsecureBeforeRedirect == cond.InsecureBeforeRedirect && v.Insecure == cond.Insecure
+	return v.Method == cond.Method && v.Site == cond.Site && v.CORSChecked == cond.CORSChecked && v.PageSet == cond.PageSet && v.Redirected == cond.Redirected && v.CrossOriginRedirect == cond.CrossOriginRedirect && v.CrossSiteRedirect == cond.CrossSiteRedirect && v.OriginBeforeRedirect == cond.OriginBeforeRedirect && v.MethodChangedByRedirect == cond.MethodChangedByRedirect && v.InsecureBeforeRedirect == cond.InsecureBeforeRedirect && v.Insecure == cond.Insecure
 }
 
 // sentFetchUser reports whether navigation req, as sent, carried
@@ -776,15 +791,27 @@ func origin(u *url.URL) string {
 	return strings.ToLower(u.Scheme) + "://" + host
 }
 
-// referrer is the Referer for a request from page from to target under the
-// browsers' default policy, strict-origin-when-cross-origin: the page's URL
-// (without fragment or credentials) to its own origin, its origin to others,
-// nothing from HTTPS to HTTP.
-func referrer(from, target *url.URL) string {
-	if from == nil || (from.Scheme == "https" && target.Scheme == "http") {
+// referrer is the Referer for a request from page from along chain (its
+// URLs, the request's last) under the browsers' default policy,
+// strict-origin-when-cross-origin: the page's URL (without fragment or
+// credentials) to its own origin, its origin to others, nothing from
+// HTTPS to HTTP. Each redirect's request applies the policy to the
+// referrer the request before it sent (the Fetch standard's main fetch),
+// so a chain that left the page's origin sends only the origin even back
+// on it, and none at all after an http:// URL (every browser:
+// nav-redirect-page's nav-302.cs-so.hop1 and nav-301.ss-so.hop1).
+func referrer(from *url.URL, chain []*url.URL) string {
+	if from == nil {
 		return ""
 	}
-	if origin(from) != origin(target) {
+	stripped := false
+	for _, target := range chain {
+		if from.Scheme == "https" && target.Scheme == "http" {
+			return ""
+		}
+		stripped = stripped || origin(from) != origin(target)
+	}
+	if stripped {
 		return origin(from) + "/"
 	}
 	u := *from

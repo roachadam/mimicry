@@ -212,6 +212,7 @@ var Scenarios = []*Scenario{
 	NavRedirectSS,
 	NavRedirectCS,
 	NavRedirectHTTP,
+	NavRedirectPage,
 }
 
 // ScenarioByName finds a scenario.

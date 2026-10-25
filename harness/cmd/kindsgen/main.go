@@ -13,7 +13,8 @@
 // long chain), <name>.redirects2.pagetrace.json.gz (redirects of every
 // kind, form POSTs, a navigation chain, PATCH preflights), any
 // <name>.nav-redirect-*.pagetrace.json.gz (typed navigations whose start
-// URL redirects) and <name>.headers-order.pagetrace.json.gz (context.header_table).
+// URL redirects, and a page's navigations redirected to another origin)
+// and <name>.headers-order.pagetrace.json.gz (context.header_table).
 //
 // For each kind, the header order merges every captured request of its
 // resource type (so slots seen only on some, like origin with a crossorigin

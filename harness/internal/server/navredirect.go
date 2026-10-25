@@ -8,11 +8,12 @@ import (
 	"golang.org/x/net/http2/hpack"
 )
 
-// The nav-redirect pages' hosts: a site's apex and www host, and another
-// site.
+// The nav-redirect pages' hosts: a site's apex, www and static hosts, and
+// another site.
 const (
 	navrSite      = "navr-a.test"
 	navrHost      = "www.navr-a.test"
+	navrStatic    = "static.navr-a.test"
 	navrCrossSite = "www.navr-b.test"
 )
 
@@ -34,12 +35,68 @@ var (
 		NavRedirectStep{Label: "nav.http", Host: navrHost, Plain: true, Status: 301, Next: navrHost})
 )
 
-// NavRedirects are the nav-redirect scenarios.
+// NavRedirectPage is the nav-redirect-page scenario: navigations a page
+// makes that are redirected to another origin, from
+// https://www.navr-a.test/ (see NavRedirectPageSteps). It is served as the
+// redirects2 page is: each navigation from a page of its own,
+// /s/<label>, the page its hop lands on going to the next one's, the
+// watchdog armed before each.
+var NavRedirectPage = &Scenario{
+	Name: "nav-redirect-page",
+	Doc:  "navigations by a page's script (location.href) and forms (GET, and POST answered 303) redirected to another origin: same-origin and same-site URLs answered 302 to another site, 301 from www to static and from the apex to www, a cross-site URL answered 302 back to the page's origin",
+	multi: redirects2Page{
+		fixedHosts: fixedHosts{
+			names: []string{
+				navrHost,
+				navrSite,
+				navrStatic,
+				navrCrossSite,
+			},
+			runFor: 20 * time.Second,
+		},
+		steps: NavRedirectPageSteps(),
+	},
+}
+
+// NavRedirectPageSteps returns the nav-redirect-page page's navigations,
+// in order, each a top-level navigation from a page on www.navr-a.test
+// whose one redirect goes to another origin (a hop that mimicry refuses as
+// unmeasured without this capture). Each is made by script: none has user
+// activation, so none sends Sec-Fetch-User (the capture tool sends no
+// input events). Labels name the first request's site, then the hop's:
+//
+//   - nav-302.so-cs, nav-302.ss-cs: location.href to the page's origin and
+//     to static.navr-a.test (its site), answered 302 to another site;
+//   - nav-301.so-ss, nav-301.ss-so: location.href to the page's origin
+//     answered 301 to static.navr-a.test, and to the apex answered 301 to
+//     www.navr-a.test (the page's origin);
+//   - form-get-302.so-cs: a form GET (field a=1, in the query) to the
+//     page's origin answered 302 to another site;
+//   - form-post-303.so-cs: a form POST (a=1) to the page's origin
+//     answered 303 to another site: .hop1 is a GET;
+//   - nav-302.cs-so: location.href to another site answered 302 back to
+//     the page's origin. Last: the page it lands on, on www.navr-a.test,
+//     ends the watchdog it armed.
+func NavRedirectPageSteps() []Redirects2Step {
+	return []Redirects2Step{
+		{Label: "nav-302.so-cs", Kind: RedirectNavigate, Host: navrHost, Next: navrCrossSite, Status: 302, Hops: 1},
+		{Label: "nav-302.ss-cs", Kind: RedirectNavigate, Host: navrStatic, Next: navrCrossSite, Status: 302, Hops: 1},
+		{Label: "nav-301.so-ss", Kind: RedirectNavigate, Host: navrHost, Next: navrStatic, Status: 301, Hops: 1},
+		{Label: "nav-301.ss-so", Kind: RedirectNavigate, Host: navrSite, Next: navrHost, Status: 301, Hops: 1},
+		{Label: "form-get-302.so-cs", Kind: RedirectForm, Host: navrHost, Next: navrCrossSite, Method: "GET", Body: "a=1", Status: 302, Hops: 1},
+		{Label: "form-post-303.so-cs", Kind: RedirectForm, Host: navrHost, Next: navrCrossSite, Method: "POST", Body: "a=1", Status: 303, Hops: 1},
+		{Label: "nav-302.cs-so", Kind: RedirectNavigate, Host: navrCrossSite, Next: navrHost, Status: 302, Hops: 1},
+	}
+}
+
+// NavRedirects are the nav-redirect scenarios: typed navigations
+// (NavRedirectStep) and the page's (NavRedirectPage).
 var NavRedirects = []*Scenario{
 	NavRedirectSO,
 	NavRedirectSS,
 	NavRedirectCS,
 	NavRedirectHTTP,
+	NavRedirectPage,
 }
 
 // NavRedirectStep is a nav-redirect page: the typed navigation to

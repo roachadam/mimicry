@@ -41,7 +41,8 @@ on anything but Fetch and XHR.
    URL's relation to the page, whether it is CORS-checked, whether it
    carries a header the page set (one the list does not name: `page_set`),
    whether it follows a redirect (and then whether the redirect went to
-   another origin, `cross_origin_redirect`, and whether the request it
+   another origin, `cross_origin_redirect`, for a navigation whether to
+   another site, `cross_site_redirect`, and whether the request it
    answered carried `Origin`, `origin_before_redirect`)
    ([0006](../decisions/0006-header-order-variants.md)), and whether its URL
    is a non-secure origin (plain `http://` to anything but loopback, which
@@ -56,7 +57,9 @@ on anything but Fetch and XHR.
    - `sec-fetch-site`: same-origin, same-site (public suffix list,
      schemeful) or cross-site; after a redirect, the most distant relation
      along the chain (`http.Client` sets `req.Response` on each hop, which
-     is how the chain is found).
+     is how the chain is found); for a navigation under
+     `redirects.navigation_site` `restart` (Safari 27), only from its last
+     redirect to another site on.
    - `sec-fetch-mode`: the kind's, `cors` with a crossorigin attribute,
      `no-cors` for a no-cors fetch.
    - Credentials: navigations, frames, beacons and no-cors elements send
@@ -68,8 +71,9 @@ on anything but Fetch and XHR.
      (`context.same_origin_element_origin`); `null` once a redirect chain is
      tainted.
    - `Referer`: strict-origin-when-cross-origin from the page (or the
-     stylesheet, where the browser does); `http.Client`'s redirect Referer
-     is discarded.
+     stylesheet, where the browser does), applied hop by hop, so a chain
+     that left the page's origin sends only the origin from then on;
+     `http.Client`'s redirect Referer is discarded.
    - `sec-fetch-storage-access`: on credentialed cross-site requests, the
      browser's value.
    - `priority` and HTTP/2 weight: the kind's, or its measured

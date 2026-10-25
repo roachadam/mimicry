@@ -126,6 +126,12 @@ type Variant struct {
 	// redirect to https://): Safari carries Upgrade-Insecure-Requests over
 	// and orders the hop otherwise. Needs Redirected.
 	InsecureBeforeRedirect bool `json:"insecure_before_redirect,omitempty"`
+	// CrossSiteRedirect is a redirected navigation to another site than
+	// the URL whose redirect it follows (schemeful sites): Safari sends
+	// Referer before Sec-Fetch-Dest on such a hop, after it on one that
+	// stays on its site (nav-redirect-page). Navigations only; needs
+	// CrossOriginRedirect.
+	CrossSiteRedirect bool `json:"cross_site_redirect,omitempty"`
 	// Insecure is a request to a URL that is not potentially trustworthy
 	// (plain http:// to anything but loopback): browsers send no
 	// Sec-Fetch-* or client hints and fewer encodings, over HTTP/1.1 only,
@@ -347,13 +353,14 @@ func tableRun(list []Header, members map[string]bool) bool {
 }
 
 // checkVariants checks each variant's lists, and that no two share a
-// condition and none repeats the default one.
+// condition and none repeats the default one. others marks a kind's
+// variants (a navigation's are the profile's own).
 func (c *checker) checkVariants(path string, vs []Variant, others bool) {
 	type condition struct {
 		method, site                                     string
 		cors, pageSet, redirected, insecure              bool
 		crossOriginRedirect, originBefore, methodChanged bool
-		insecureBefore                                   bool
+		insecureBefore, crossSiteRedirect                bool
 	}
 	seen := map[condition]bool{}
 	for i, v := range vs {
@@ -383,6 +390,12 @@ func (c *checker) checkVariants(path string, vs []Variant, others bool) {
 		if (v.CrossOriginRedirect || v.OriginBeforeRedirect || v.MethodChangedByRedirect || v.InsecureBeforeRedirect) && !v.Redirected {
 			c.add(at, "cross_origin_redirect, origin_before_redirect, method_changed_by_redirect and insecure_before_redirect need redirected")
 		}
+		if v.CrossSiteRedirect && !v.CrossOriginRedirect {
+			c.add(at+".cross_site_redirect", "needs cross_origin_redirect: a redirect to another site goes to another origin")
+		}
+		if v.CrossSiteRedirect && others {
+			c.add(at+".cross_site_redirect", "is a navigation's condition, not a request kind's")
+		}
 		cond := condition{
 			method:              v.Method,
 			site:                v.Site,
@@ -394,6 +407,7 @@ func (c *checker) checkVariants(path string, vs []Variant, others bool) {
 			originBefore:        v.OriginBeforeRedirect,
 			methodChanged:       v.MethodChangedByRedirect,
 			insecureBefore:      v.InsecureBeforeRedirect,
+			crossSiteRedirect:   v.CrossSiteRedirect,
 		}
 		switch {
 		case cond == condition{}:

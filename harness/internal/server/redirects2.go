@@ -36,15 +36,16 @@ var Redirects2 = &Scenario{
 			},
 			runFor: 45 * time.Second,
 		},
+		steps: Redirects2Steps(),
 	},
 }
 
 // Values of Redirects2Step.Kind: how the page makes the step's first
 // request.
 const (
-	// RedirectForm submits a form (method POST, the default
-	// application/x-www-form-urlencoded) from a page of its own: a
-	// top-level navigation.
+	// RedirectForm submits a form (the step's Method, GET or POST; a
+	// POST's body the default application/x-www-form-urlencoded) from a
+	// page of its own: a top-level navigation.
 	RedirectForm = "form"
 	// RedirectNavigate is a top-level navigation by script (location.href)
 	// from a page of its own.
@@ -63,13 +64,16 @@ const (
 	RedirectScript = "script"
 )
 
-// Redirects2Step is one request of the redirects2 page: to /p/<Label> on
-// Host, answered Status with a Location to /p/<Label>.hop1 on HopHost,
-// which is answered the same way up to .hop<Hops>, which is answered 200.
+// Redirects2Step is one request of the redirects2 page (or of
+// nav-redirect-page, which has navigations only): to /p/<Label> on Host,
+// answered Status with a Location to /p/<Label>.hop1 on HopHost, which is
+// answered the same way up to .hop<Hops>, which is answered 200.
 type Redirects2Step struct {
 	// Label ends in the step's sites, as the kinds page's do: "so" (the
 	// page's origin), "ss" (another origin of its site), "cs" (another
-	// site), "cs-cs" (another site, whose redirect goes to a third).
+	// site), "cs-cs" (another site, whose redirect goes to a third): the
+	// first request's, then, for redirects to another host, the hops'
+	// ("so-cs": from the page's origin to another site).
 	Label string
 	Kind  string
 	Host  string
@@ -79,7 +83,7 @@ type Redirects2Step struct {
 	Method string
 	// Body is the first request's body ("" for none): fetch() sends a
 	// string as text/plain;charset=UTF-8; a form's is its one field,
-	// urlencoded.
+	// urlencoded (a GET form's goes in the query instead).
 	Body string
 	// Credentials is fetch()'s credentials mode; "" for the default
 	// (same-origin).
@@ -110,6 +114,10 @@ func (s Redirects2Step) Nav() bool {
 // redirChain is how many redirects the navigation chain is answered
 // with: more than any browser's fetch() follows (20).
 const redirChain = 25
+
+// navFollowed is the fewest redirects any browser's navigation follows
+// (Chrome's 19, redirects2): a longer chain ends on an error page.
+const navFollowed = 19
 
 // redirWatch is how long the watchdog waits after a navigation step
 // starts: its redirects, the page it lands on and the next step's page
@@ -229,8 +237,11 @@ func Redirects2Steps() []Redirects2Step {
 	})
 }
 
+// redirects2Page serves steps (Redirects2Steps, or NavRedirectPageSteps)
+// from its first host, the page's.
 type redirects2Page struct {
 	fixedHosts
+	steps []Redirects2Step
 }
 
 func (p redirects2Page) answer(req request) response {
@@ -238,20 +249,20 @@ func (p redirects2Page) answer(req request) response {
 	origin := originOn("https://", port)
 	path, _, _ := strings.Cut(req.path, "?")
 	notFound := response{status: 404, contentType: "text/plain", body: []byte("not found\n")}
-	steps := Redirects2Steps()
+	steps, home := p.steps, p.names[0]
 	switch {
 	case path == "/done":
 		return response{status: 200, contentType: "text/plain", body: []byte("ok\n")}
-	case host == redirHost && path == watchdogPath:
+	case host == home && path == watchdogPath:
 		return watchdogResponse()
-	case host == redirHost && path == "/":
+	case host == home && path == "/":
 		return htmlResponse(redirRootPage(steps, origin))
 	}
 	if label, ok := strings.CutPrefix(path, "/s/"); ok {
 		i := slices.IndexFunc(steps, func(s Redirects2Step) bool {
 			return s.Label == label
 		})
-		if host != redirHost || i < 0 || !steps[i].Nav() {
+		if host != home || i < 0 || !steps[i].Nav() {
 			return notFound
 		}
 		return htmlResponse(redirStartPage(steps[i], origin))
@@ -290,7 +301,7 @@ func (p redirects2Page) answer(req request) response {
 		return response{status: 204, contentType: "text/plain", headers: preflightAllow(cors, "GET, HEAD, POST, PUT, PATCH", req.preflightHeaders)}
 	}
 	if hop == s.Hops {
-		return redirLast(steps, i, req.method, cors, origin)
+		return redirLast(steps, i, home, req.method, cors, origin)
 	}
 	r := response{status: s.Status, contentType: "text/plain"}
 	switch {
@@ -313,14 +324,15 @@ func htmlResponse(body []byte) response {
 
 // redirLast answers step i's last hop: what its kind loads, readable by
 // the page (cors); a navigation's page goes on to the next navigation's
-// page, or, after the last, ends the watchdog and asks for /done.
-func redirLast(steps []Redirects2Step, i int, method string, cors []hpack.HeaderField, origin func(string) string) response {
+// page on home, or, after the last, ends the watchdog (of its own origin:
+// the last navigation lands on home) and asks for /done.
+func redirLast(steps []Redirects2Step, i int, home, method string, cors []hpack.HeaderField, origin func(string) string) response {
 	switch steps[i].Kind {
 	case RedirectForm, RedirectNavigate:
 		next := "await end();\nfetch(\"/done\");"
 		for _, s := range steps[i+1:] {
 			if s.Nav() {
-				next = fmt.Sprintf("location.href = %s;", strconv.Quote(origin(redirHost)+"/s/"+s.Label))
+				next = fmt.Sprintf("location.href = %s;", strconv.Quote(origin(home)+"/s/"+s.Label))
 				break
 			}
 		}
@@ -396,19 +408,23 @@ func redirFirstPage(steps []Redirects2Step, origin func(string) string) []string
 }
 
 // redirStartPage is a navigation step's page: it arms the watchdog, then
-// submits its form or navigates. Without the watchdog, the navigation
-// chain, which the browser may refuse, is skipped.
+// submits its form or navigates. Without the watchdog, a chain longer
+// than a browser follows (which ends on an error page) is skipped.
 func redirStartPage(s Redirects2Step, origin func(string) string) []byte {
 	u := redirURL(s, origin)
 	arm := fmt.Sprintf("await arm(%d)", redirWatch.Milliseconds())
 	if s.Kind == RedirectNavigate {
+		watch := arm + ";"
+		if s.Hops > navFollowed {
+			watch = "if (!(" + arm + ")) {\nfetch(\"/done\");\nreturn;\n}"
+		}
 		return htmlPage("redirects2", "", pageScript([]string{
-			"if (!(" + arm + ")) {\nfetch(\"/done\");\nreturn;\n}",
+			watch,
 			fmt.Sprintf("location.href = %s;", strconv.Quote(u)),
 		}))
 	}
 	name, value, _ := strings.Cut(s.Body, "=")
-	form := `<form method="post" action="` + html.EscapeString(u) + `"><input type="hidden" name="` + html.EscapeString(name) + `" value="` + html.EscapeString(value) + `"></form>` + "\n"
+	form := `<form method="` + strings.ToLower(s.Method) + `" action="` + html.EscapeString(u) + `"><input type="hidden" name="` + html.EscapeString(name) + `" value="` + html.EscapeString(value) + `"></form>` + "\n"
 	return htmlPage("redirects2", "", form+pageScript([]string{
 		arm + ";",
 		"document.forms[0].submit();",

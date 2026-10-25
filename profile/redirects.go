@@ -25,6 +25,14 @@ type Redirects struct {
 	// (Firefox, Safari: the GET a cross-site PATCH answered 303 became).
 	// Required.
 	HopPreflight string `json:"hop_preflight"`
+	// NavigationSite is the Sec-Fetch-Site of a navigation's hop after a
+	// redirect to another site: RedirectSiteChain is the whole chain's
+	// most distant relation to the page, as on every other redirect
+	// (Chrome, Firefox, Safari 26); RedirectSiteRestart counts only the
+	// URLs from that redirect on (Safari 27: a page's navigation sent to
+	// another site and back to the page's origin is same-origin;
+	// nav-redirect-page, two samples of three). Required.
+	NavigationSite string `json:"navigation_site"`
 }
 
 // Values of Redirects.MethodChangeOrigin.
@@ -37,6 +45,12 @@ const (
 const (
 	RedirectPreflightOwn     = "own"
 	RedirectPreflightInherit = "inherit"
+)
+
+// Values of Redirects.NavigationSite.
+const (
+	RedirectSiteChain   = "chain"
+	RedirectSiteRestart = "restart"
 )
 
 // checkRedirects checks the redirects section. Nil is valid: not measured,
@@ -54,5 +68,8 @@ func (c *checker) checkRedirects(r *Redirects) {
 	}
 	if r.HopPreflight != RedirectPreflightOwn && r.HopPreflight != RedirectPreflightInherit {
 		c.add("redirects.hop_preflight", "must be %q or %q", RedirectPreflightOwn, RedirectPreflightInherit)
+	}
+	if r.NavigationSite != RedirectSiteChain && r.NavigationSite != RedirectSiteRestart {
+		c.add("redirects.navigation_site", "must be %q or %q", RedirectSiteChain, RedirectSiteRestart)
 	}
 }

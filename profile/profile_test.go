@@ -700,6 +700,40 @@ func TestValidate(t *testing.T) {
 			want: "cross_origin_redirect, origin_before_redirect, method_changed_by_redirect and insecure_before_redirect need redirected",
 		},
 		{
+			name: "cross-site redirect not cross-origin",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.Variants = []Variant{
+					{
+						Redirected:        true,
+						CrossSiteRedirect: true,
+						Headers:           p.Headers,
+					},
+				}
+			},
+			path: "variants[0].cross_site_redirect",
+			want: "needs cross_origin_redirect",
+		},
+		{
+			name: "cross-site redirect on a kind",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.Kinds = map[string]*Kind{
+					KindImage: {
+						Headers: p.Headers,
+						Variants: []Variant{
+							{
+								Redirected:          true,
+								CrossOriginRedirect: true,
+								CrossSiteRedirect:   true,
+								Headers:             p.Headers,
+							},
+						},
+					},
+				}
+			},
+			path: "kinds.image.variants[0].cross_site_redirect",
+			want: "is a navigation's condition",
+		},
+		{
 			name: "name with an empty part",
 			mutate: func(_ *testing.T, p *Profile) {
 				p.Name = "chrome--macos"
@@ -1267,6 +1301,19 @@ func TestValidate(t *testing.T) {
 			},
 			path: "redirects.hop_preflight",
 			want: `must be "own" or "inherit"`,
+		},
+		{
+			name: "unknown navigation site rule",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.Redirects = &Redirects{
+					MethodChangeOrigin: RedirectOriginDrop,
+					NavigationLimit:    20,
+					HopPreflight:       RedirectPreflightOwn,
+					NavigationSite:     "sometimes",
+				}
+			},
+			path: "redirects.navigation_site",
+			want: `must be "chain" or "restart"`,
 		},
 		{
 			name: "no cookie rules",

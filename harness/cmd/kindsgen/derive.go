@@ -12,11 +12,14 @@ import (
 	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/harness/internal/h2trace"
 	"github.com/roachadam/mimicry/harness/internal/server"
+	"github.com/roachadam/mimicry/internal/site"
 	"github.com/roachadam/mimicry/profile"
 )
 
 // pages are a profile's captures kindsgen reads, each a page per sample.
 type pages struct {
+	// name is the profile's.
+	name string
 	// kinds is the kinds page over HTTP/2, kindsH1 over HTTP/1.1 and
 	// plain over plain HTTP (kinds, kinds-http1, kinds-plain).
 	kinds, kindsH1, plain []*capture.Page
@@ -27,14 +30,22 @@ type pages struct {
 	// page set, over HTTP/2 (so, cs) and HTTP/1.1 (h1).
 	headers []*capture.Page
 	// navRedirects are the navigation-redirect pages
-	// (nav-redirect-<x>, any number, maybe none), each a page per
-	// sample: navigations whose start URL redirects.
-	navRedirects [][]*capture.Page
+	// (nav-redirect-<x>, any number, maybe none): navigations whose start
+	// URL redirects.
+	navRedirects []scenarioPages
+}
+
+// scenarioPages are a scenario's capture, a page per sample.
+type scenarioPages struct {
+	scenario string
+	samples  []*capture.Page
 }
 
 // loadPages reads profile name's captures from dir.
 func loadPages(dir, name string) (*pages, error) {
-	out := &pages{}
+	out := &pages{
+		name: name,
+	}
 	for _, f := range []struct {
 		scenario string
 		into     *[]*capture.Page
@@ -63,7 +74,11 @@ func loadPages(dir, name string) (*pages, error) {
 		if err != nil {
 			return nil, err
 		}
-		out.navRedirects = append(out.navRedirects, got)
+		scenario := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(f), name+"."), ".pagetrace.json.gz")
+		out.navRedirects = append(out.navRedirects, scenarioPages{
+			scenario: scenario,
+			samples:  got,
+		})
 	}
 	return out, nil
 }
@@ -79,11 +94,12 @@ type request struct {
 	// host is the host it went to (the trace's), path its path without
 	// the query.
 	host, path string
-	// crossOriginRedirect, originBefore, methodChanged and insecureBefore
-	// are a hop's: it went to another origin than the request whose
-	// redirect it follows, which carried Origin, with another method, over
-	// plain HTTP (linkRedirects).
-	crossOriginRedirect, originBefore, methodChanged, insecureBefore bool
+	// crossOriginRedirect, crossSiteRedirect, originBefore, methodChanged
+	// and insecureBefore are a hop's: it went to another origin (and
+	// another schemeful site) than the request whose redirect it follows,
+	// which carried Origin, with another method, over plain HTTP
+	// (linkRedirects).
+	crossOriginRedirect, crossSiteRedirect, originBefore, methodChanged, insecureBefore bool
 	// plain is a request over plain HTTP (kinds-plain): HTTP/1.1 only,
 	// and to a non-secure origin.
 	plain bool
@@ -341,7 +357,7 @@ func collect(pg *pages) ([]*request, error) {
 		errs = append(errs, err)
 	}
 	out = append(out, r2...)
-	navs, err := navRedirectRequests(pg.navRedirects)
+	navs, err := navRedirectRequests(pg.name, pg.navRedirects)
 	if err != nil {
 		errs = append(errs, err)
 	}
@@ -384,6 +400,7 @@ func linkRedirects(page string, reqs []*request, prev func(*request) string) err
 		// Another host, or the same over the other scheme (a plain-HTTP
 		// request's hop to HTTPS).
 		q.crossOriginRedirect = p.host != q.host || p.plain != q.plain
+		q.crossSiteRedirect = schemefulSite(p) != schemefulSite(q)
 		q.originBefore = slices.ContainsFunc(slices.Concat(p.h2, p.h1), func(h profile.Header) bool {
 			return strings.EqualFold(h.Name, "origin")
 		})
@@ -391,6 +408,16 @@ func linkRedirects(page string, reqs []*request, prev func(*request) string) err
 		q.insecureBefore = p.plain
 	}
 	return errors.Join(errs...)
+}
+
+// schemefulSite is the schemeful site of q's URL ("https://example.com"),
+// as internal/site computes it for mimicry.
+func schemefulSite(q *request) string {
+	scheme := "https://"
+	if q.plain {
+		scheme = "http://"
+	}
+	return scheme + site.Registrable(q.host)
 }
 
 // corsEdgeRequests returns the cors-edge page's fetches (HTTP/2, all fetch()
@@ -471,7 +498,7 @@ func redirects2Requests(samples []*capture.Page) ([]*request, error) {
 			if q.method == "OPTIONS" {
 				// A preflight, the preflight kind's: for a hop's URL too, a
 				// request of its own (resolve).
-				q.hop, q.crossOriginRedirect, q.originBefore, q.methodChanged, q.insecureBefore = false, false, false, false, false
+				q.hop, q.crossOriginRedirect, q.crossSiteRedirect, q.originBefore, q.methodChanged, q.insecureBefore = false, false, false, false, false, false
 			}
 			if st.Nav() && !q.hop && q.method == "GET" {
 				continue
@@ -499,24 +526,58 @@ func previousHop(q *request) string {
 // navRedirectBase is the base of the nav-redirect pages' requests.
 const navRedirectBase = "nav-redirect"
 
+// sampleGap is a request of one sample of a capture: its scenario, the
+// sample (from 1) and its path.
+type sampleGap struct {
+	scenario string
+	sample   int
+	path     string
+}
+
+// sampleGaps are, per profile, requests left out of the derivation, with
+// why: forms the browser sent in one sample that no request condition
+// explains (browser state), where the other samples agree. The e2e tests
+// accept them as one of the browser's forms and log the variance.
+var sampleGaps = map[string]map[sampleGap]string{
+	"safari-27-macos": {
+		{scenario: "nav-redirect-page", sample: 1, path: "/p/nav-302.cs-so.hop1"}: "the run's first sample, on a cold Safari: the hop back to the page's site went on a new connection, " +
+			"with Referer after Sec-Fetch-Dest (as on a redirect within a site) and sec-fetch-site cross-site; the other two samples, on the page's connection, " +
+			"put Referer first, as on every other redirect to another site, and send same-origin (redirects.navigation_site restart)",
+	},
+	"safari-26-macos": {
+		{scenario: "nav-redirect-page", sample: 1, path: "/p/nav-302.cs-so.hop1"}: "the run's first sample, on a cold Safari: the hop back to the page's site went on a new connection, " +
+			"with Referer after Sec-Fetch-Dest (as on a redirect within a site); the other two samples, on the page's connection, " +
+			"put Referer first, as on every other redirect to another site",
+	},
+}
+
 // navRedirectRequests returns the nav-redirect pages' navigations (each a
-// slice of samples): /p/<label> and its redirects' /p/<label>.hop<n>, on
-// any host, each hop following .hop<n-1>'s redirect (.hop1: <label>'s),
-// over HTTP/2 or, to a plain-HTTP port, HTTP/1.1 (every browser's HTTPS
-// in these captures is HTTP/2, so an HTTP/1.1 request is a non-secure
-// one). A chain whose first request carries no Referer is typed: its
-// requests' relation is "none" (profile.SiteNone; sec-fetch-site stays
-// none along the chain), whatever its hosts and scheme (nav.http:
-// http:// to https:// on one host); otherwise it is the label's. A
-// secure GET first leg is left out: the profile's own navigation, which
-// its kinds captures describe. Requests of other paths (the page a chain
-// ends on, /done) are too.
-func navRedirectRequests(pages [][]*capture.Page) ([]*request, error) {
+// slice of samples): /p/<label> and its redirects' /p/<label>.hop<n>
+// (queries left out: a form GET's), on any host, each hop following
+// .hop<n-1>'s redirect (.hop1: <label>'s), over HTTP/2 or, to a
+// plain-HTTP port, HTTP/1.1 (every browser's HTTPS in these captures is
+// HTTP/2, so an HTTP/1.1 request is a non-secure one). A chain whose
+// first request carries no Referer is typed: its requests' relation is
+// "none" (profile.SiteNone; sec-fetch-site stays none along the chain),
+// whatever its hosts and scheme (nav.http: http:// to https:// on one
+// host); otherwise it is a page's (nav-redirect-page), and its relation
+// the label's. A secure GET first leg is left out: a typed one is the
+// profile's own navigation, which its kinds captures describe, and a
+// page's takes the navigation's lists as every page's GET navigation
+// does. Requests of other paths (the pages a chain starts from and ends
+// on, /done) are too, and so are profile name's sampleGaps, each of which
+// must be in its capture.
+func navRedirectRequests(name string, pages []scenarioPages) ([]*request, error) {
 	var out []*request
 	var errs []error
-	for _, samples := range pages {
-		for si, page := range samples {
+	seen := map[sampleGap]bool{}
+	for _, sp := range pages {
+		for si, page := range sp.samples {
 			qs := h2Requests(page, si, "/p/")
+			for _, q := range qs {
+				q.label, _, _ = strings.Cut(q.label, "?")
+				q.path, _, _ = strings.Cut(q.path, "?")
+			}
 			for _, r := range page.H1 {
 				method, rest, _ := strings.Cut(r.Line, " ")
 				target, _, _ := strings.Cut(rest, " ")
@@ -560,8 +621,22 @@ func navRedirectRequests(pages [][]*capture.Page) ([]*request, error) {
 				if !q.hop && !q.plain && q.method == "GET" {
 					continue
 				}
+				gap := sampleGap{
+					scenario: sp.scenario,
+					sample:   si + 1,
+					path:     q.path,
+				}
+				if _, ok := sampleGaps[name][gap]; ok {
+					seen[gap] = true
+					continue
+				}
 				out = append(out, q)
 			}
+		}
+	}
+	for gap := range sampleGaps[name] {
+		if !seen[gap] {
+			errs = append(errs, fmt.Errorf("%s sample %d: %s is in sampleGaps but not in the capture: drop it", gap.scenario, gap.sample, gap.path))
 		}
 	}
 	return out, errors.Join(errs...)
@@ -813,9 +888,11 @@ type condition struct {
 	cors       bool
 	pageSet    bool
 	redirected bool
-	// crossOrigin, originBefore, methodChanged and insecureBefore are a
-	// redirect's (the request's fields of those names).
+	// crossOrigin, crossSite, originBefore, methodChanged and
+	// insecureBefore are a redirect's (the request's fields of those
+	// names); crossSite a navigation's only (profile.Variant).
 	crossOrigin    bool
+	crossSite      bool
 	originBefore   bool
 	methodChanged  bool
 	insecureBefore bool
@@ -836,6 +913,7 @@ func (r *request) condition() condition {
 		}),
 		redirected:     r.hop,
 		crossOrigin:    r.crossOriginRedirect,
+		crossSite:      r.crossSiteRedirect && slices.Contains(navigations, r.base),
 		originBefore:   r.originBefore,
 		methodChanged:  r.methodChanged,
 		insecureBefore: r.insecureBefore,
@@ -1010,6 +1088,7 @@ func orders(own, all []*request, seed *orderPair, table *profile.HeaderTable, va
 			Redirected:              c.redirected,
 			Insecure:                c.insecure,
 			CrossOriginRedirect:     c.crossOrigin,
+			CrossSiteRedirect:       c.crossSite,
 			OriginBeforeRedirect:    c.originBefore,
 			MethodChangedByRedirect: c.methodChanged,
 			InsecureBeforeRedirect:  c.insecureBefore,

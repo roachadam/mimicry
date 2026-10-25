@@ -53,18 +53,30 @@ Transport's limit is the only one. Profile `redirects` holds:
 - `navigation_limit`;
 - `hop_preflight`: whether a hop after a preflighted request is
   preflighted again even when simple (`inherit`, Firefox and Safari) or
-  only by its own needs (`own`, Chrome).
+  only by its own needs (`own`, Chrome);
+- `navigation_site`: a navigation hop's `Sec-Fetch-Site` after a
+  redirect to another site: the whole chain's (`chain`: Chrome, Firefox,
+  Safari 26) or only from that redirect on (`restart`: Safari 27, whose
+  page navigation sent to another site and back is `same-origin`).
 
-Hop header order is chosen by redirect conditions on variants (0006).
-Typed navigations take site `none`. A hop the captures do not cover is
-`ErrNotMeasured` (0008).
+Hop header order is chosen by redirect conditions on variants (0006);
+a navigation's also by `cross_site_redirect` (Safari puts `Referer`
+before `Sec-Fetch-Dest` on a hop to another site than the URL before
+it). Typed navigations take site `none`. Each hop's Referer applies the
+policy to the Referer the request before sent, so a chain that left the
+page's origin sends only the origin back on it (every browser). A hop
+the captures do not cover is `ErrNotMeasured` (0008).
 
 ## Evidence
 
 The `cors-edge`, `redirects2` and `nav-redirect-*` captures
 ([reports](../../harness/reports/cors-edge-2026-10-24.md),
 [redirects2](../../harness/reports/redirects2-2026-10-24.md)), all four
-browsers, identical across samples.
+browsers, identical across samples but for one hop: in
+`nav-redirect-page`, each Safari's first (cold) sample sent the hop back
+to the page's site (`nav-302.cs-so.hop1`) on a new connection, ordered as
+a same-site hop (Safari 27: with `cross-site`). kindsgen leaves that one
+request out (`sampleGaps`); the e2e test accepts it and logs it.
 
 ## Consequences
 
@@ -78,9 +90,10 @@ browsers, identical across samples.
 
 ## Revisit when
 
-- A capture covers a navigation from a page redirected to another origin:
-  same-site or cross-site, by link or by script. Those hops are
-  `ErrNotMeasured` today.
+- A link's navigation (with user activation, so `Sec-Fetch-User`) is
+  redirected to another origin: the captures have script and form
+  navigations only, so those hops are `ErrNotMeasured` in Chrome and
+  Firefox.
 - Styles, fonts and preloads redirected without
   `Access-Control-Allow-Origin`: the CORS check is assumed from the spec
   there, not captured.
