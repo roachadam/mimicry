@@ -11,6 +11,11 @@
 // new connection reached, which is then declined (connect). A request
 // nothing of which was sent goes again on another connection.
 //
+// OpenWebSocket opens a WebSocket's transport: an extended CONNECT stream
+// on the pool's HTTP/2 connection to the host when its server allows
+// one, else an HTTP/1.1 connection of the socket's own, outside the pool,
+// its TLS hello the profile's tls.websocket_h1.
+//
 // Imports: any internal package, profile, clockwork, utls,
 // golang.org/x/net/http/httpguts and the standard library.
 package native

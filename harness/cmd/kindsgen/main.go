@@ -13,8 +13,12 @@
 // long chain), <name>.redirects2.pagetrace.json.gz (redirects of every
 // kind, form POSTs, a navigation chain, PATCH preflights), any
 // <name>.nav-redirect-*.pagetrace.json.gz (typed navigations whose start
-// URL redirects, and a page's navigations redirected to another origin)
-// and <name>.headers-order.pagetrace.json.gz (context.header_table).
+// URL redirects, and a page's navigations redirected to another origin),
+// <name>.headers-order.pagetrace.json.gz (context.header_table), and
+// <name>.websocket.pagetrace.json.gz and <name>.websocket-h2.pagetrace.json.gz
+// (the websocket kind: handshakes over HTTP/1.1 and as HTTP/2 extended
+// CONNECTs, whose :protocol must follow the profile's pseudo-header
+// order, and ws:// from a non-secure page).
 //
 // For each kind, the header order merges every captured request of its
 // resource type (so slots seen only on some, like origin with a crossorigin
@@ -85,6 +89,9 @@ func regenerate(data []byte, dir string) ([]byte, error) {
 		return nil, err
 	}
 	if p.Context.PreflightCache, err = preflightCache(pages.cors); err != nil {
+		return nil, err
+	}
+	if err := checkProtocolPlace(p, pages.websocketH2); err != nil {
 		return nil, err
 	}
 	if err := p.Validate(); err != nil {

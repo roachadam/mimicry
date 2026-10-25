@@ -30,6 +30,12 @@
 // from its last navigation unless they name their page, so parallel tasks
 // use a Transport (or client) each.
 //
+// DialWebSocket opens a WebSocket through a Transport as the profile's
+// browser opens one from a page: the handshake as the profile's websocket
+// kind, over HTTP/2 extended CONNECT where the server allows it or an
+// HTTP/1.1 connection of its own, and every frame, compression, pong and
+// close as the browser sends them.
+//
 // Imports: the standard library, profile, cookies, internal packages,
 // clockwork and the decompressors. Only internal/engine/native assembles
 // the request path.

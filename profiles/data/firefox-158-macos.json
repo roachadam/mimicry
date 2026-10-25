@@ -163,6 +163,14 @@
       "ech_payload_lengths": [
         400
       ]
+    },
+    "websocket_h1": {
+      "alpn": [
+        "http/1.1"
+      ],
+      "drop": [
+        "0x001b"
+      ]
     }
   },
   "http2": {
@@ -7928,6 +7936,193 @@
       ],
       "weight": 21
     },
+    "websocket": {
+      "headers": [
+        {
+          "name": "user-agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
+        },
+        {
+          "name": "accept",
+          "value": "*/*"
+        },
+        {
+          "name": "accept-language",
+          "value": "en-US,en;q=0.9"
+        },
+        {
+          "name": "accept-encoding",
+          "value": "gzip, deflate, br, zstd"
+        },
+        {
+          "name": "sec-websocket-version",
+          "value": "13"
+        },
+        {
+          "name": "origin"
+        },
+        {
+          "name": "sec-websocket-protocol"
+        },
+        {
+          "name": "sec-websocket-extensions"
+        },
+        {
+          "name": "sec-fetch-storage-access"
+        },
+        {
+          "name": "cookie"
+        },
+        {
+          "name": "sec-fetch-dest",
+          "value": "empty"
+        },
+        {
+          "name": "sec-fetch-mode",
+          "value": "websocket"
+        },
+        {
+          "name": "sec-fetch-site"
+        },
+        {
+          "name": "pragma",
+          "value": "no-cache"
+        },
+        {
+          "name": "cache-control",
+          "value": "no-cache"
+        }
+      ],
+      "http1": [
+        {
+          "name": "Host"
+        },
+        {
+          "name": "User-Agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
+        },
+        {
+          "name": "Accept",
+          "value": "*/*"
+        },
+        {
+          "name": "Accept-Language",
+          "value": "en-US,en;q=0.9"
+        },
+        {
+          "name": "Accept-Encoding",
+          "value": "gzip, deflate, br, zstd"
+        },
+        {
+          "name": "Sec-WebSocket-Version",
+          "value": "13"
+        },
+        {
+          "name": "Origin"
+        },
+        {
+          "name": "Sec-WebSocket-Protocol"
+        },
+        {
+          "name": "Sec-WebSocket-Extensions"
+        },
+        {
+          "name": "Sec-WebSocket-Key"
+        },
+        {
+          "name": "Sec-Fetch-Storage-Access"
+        },
+        {
+          "name": "Connection",
+          "value": "Upgrade"
+        },
+        {
+          "name": "Cookie"
+        },
+        {
+          "name": "Sec-Fetch-Dest",
+          "value": "empty"
+        },
+        {
+          "name": "Sec-Fetch-Mode",
+          "value": "websocket"
+        },
+        {
+          "name": "Sec-Fetch-Site"
+        },
+        {
+          "name": "Pragma",
+          "value": "no-cache"
+        },
+        {
+          "name": "Cache-Control",
+          "value": "no-cache"
+        },
+        {
+          "name": "Upgrade",
+          "value": "websocket"
+        }
+      ],
+      "variants": [
+        {
+          "insecure": true,
+          "http1": [
+            {
+              "name": "Host"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "Accept-Encoding",
+              "value": "gzip, deflate"
+            },
+            {
+              "name": "Sec-WebSocket-Version",
+              "value": "13"
+            },
+            {
+              "name": "Origin"
+            },
+            {
+              "name": "Sec-WebSocket-Extensions"
+            },
+            {
+              "name": "Sec-WebSocket-Key"
+            },
+            {
+              "name": "Connection",
+              "value": "Upgrade"
+            },
+            {
+              "name": "Cookie"
+            },
+            {
+              "name": "Pragma",
+              "value": "no-cache"
+            },
+            {
+              "name": "Cache-Control",
+              "value": "no-cache"
+            },
+            {
+              "name": "Upgrade",
+              "value": "websocket"
+            }
+          ]
+        }
+      ],
+      "weight": 21
+    },
     "xhr": {
       "headers": [
         {
@@ -8303,5 +8498,9 @@
   "connections": {
     "http1_per_host": 6,
     "coalesce": "connect"
+  },
+  "websocket": {
+    "extensions": "permessage-deflate",
+    "h2_data": "header_alone"
   }
 }

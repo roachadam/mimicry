@@ -30,6 +30,10 @@ type TLS struct {
 	// connection to a server it holds a ticket for. Nil: it does not
 	// (Safari), and every connection is a full handshake.
 	Resumption *Resumption `json:"resumption,omitempty"`
+	// WebSocketH1 is how the hello of a WebSocket's own HTTP/1.1
+	// connection differs from this one. Required with Profile.WebSocket;
+	// hellogen derives it.
+	WebSocketH1 *WebSocketHello `json:"websocket_h1,omitempty"`
 }
 
 // Resumption describes how a browser resumes sessions. With a TLS 1.3

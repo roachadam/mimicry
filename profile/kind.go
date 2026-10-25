@@ -29,6 +29,14 @@ const (
 	// itself before a fetch() or XHR that needs one; callers never ask for
 	// it.
 	KindPreflight = "preflight"
+	// KindWebSocket is a WebSocket's opening handshake (new WebSocket()):
+	// an HTTP/1.1 Upgrade, or an extended CONNECT over HTTP/2 (RFC 8441)
+	// whose :protocol follows the profile's pseudo_header_order. Its
+	// lists have slots for what the socket fills: Sec-WebSocket-Key
+	// (HTTP/1.1), Sec-WebSocket-Extensions (Profile.WebSocket's offer)
+	// and Sec-WebSocket-Protocol (the page's protocols). It is never
+	// CORS-checked: every handshake carries Origin.
+	KindWebSocket = "websocket"
 )
 
 // Kinds returns every kind a profile may describe, in a stable order.
@@ -52,6 +60,7 @@ var kinds = []string{
 	KindXHR,
 	KindBeacon,
 	KindPreflight,
+	KindWebSocket,
 }
 
 // OtherHeaders is a header name that, in a kind's lists, marks where headers

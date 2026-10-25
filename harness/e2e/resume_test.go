@@ -91,30 +91,39 @@ func checkResumption(t *testing.T, p *profile.Profile, sc *server.Scenario, want
 // every resumed connection of every sample picked from; nil if the browser
 // never resumed.
 func resumedHello(pages []*capture.Page) *profile.TLS {
-	var hello *profile.TLS
-	var ech *profile.ECH
+	var hellos []*profile.TLS
 	for _, page := range pages {
 		for _, c := range page.Connections {
-			if !c.Resumed {
+			if c.Resumed {
+				hellos = append(hellos, c.Hello)
+			}
+		}
+	}
+	return mergeHellos(hellos)
+}
+
+// mergeHellos returns the first of hellos, with GREASE ECH's cipher
+// suites and payload lengths every one of them picked from; nil for none.
+func mergeHellos(hellos []*profile.TLS) *profile.TLS {
+	var hello *profile.TLS
+	var ech *profile.ECH
+	for _, h := range hellos {
+		if hello == nil {
+			t := *h
+			t.Extensions = slices.Clone(t.Extensions)
+			hello = &t
+		}
+		for _, e := range h.Extensions {
+			if e.ECH == nil {
 				continue
 			}
-			if hello == nil {
-				t := *c.Hello
-				t.Extensions = slices.Clone(t.Extensions)
-				hello = &t
-			}
-			for _, e := range c.Hello.Extensions {
-				if e.ECH == nil {
-					continue
+			if ech == nil {
+				ech = &profile.ECH{
+					EncLength: e.ECH.EncLength,
 				}
-				if ech == nil {
-					ech = &profile.ECH{
-						EncLength: e.ECH.EncLength,
-					}
-				}
-				ech.CipherSuites = append(ech.CipherSuites, e.ECH.CipherSuites...)
-				ech.PayloadLengths = append(ech.PayloadLengths, e.ECH.PayloadLengths...)
 			}
+			ech.CipherSuites = append(ech.CipherSuites, e.ECH.CipherSuites...)
+			ech.PayloadLengths = append(ech.PayloadLengths, e.ECH.PayloadLengths...)
 		}
 	}
 	if hello == nil || ech == nil {

@@ -167,6 +167,14 @@
         208,
         240
       ]
+    },
+    "websocket_h1": {
+      "alpn": [
+        "http/1.1"
+      ],
+      "drop": [
+        "0x44cd"
+      ]
     }
   },
   "http2": {
@@ -8082,6 +8090,153 @@
       ],
       "weight": 255
     },
+    "websocket": {
+      "headers": [
+        {
+          "name": "pragma",
+          "value": "no-cache"
+        },
+        {
+          "name": "cache-control",
+          "value": "no-cache"
+        },
+        {
+          "name": "user-agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+        },
+        {
+          "name": "origin"
+        },
+        {
+          "name": "sec-websocket-version",
+          "value": "13"
+        },
+        {
+          "name": "accept-encoding",
+          "value": "gzip, deflate, br, zstd"
+        },
+        {
+          "name": "accept-language",
+          "value": "en-US,en;q=0.9"
+        },
+        {
+          "name": "cookie"
+        },
+        {
+          "name": "sec-websocket-extensions"
+        },
+        {
+          "name": "sec-websocket-protocol"
+        }
+      ],
+      "http1": [
+        {
+          "name": "Host"
+        },
+        {
+          "name": "Connection",
+          "value": "Upgrade"
+        },
+        {
+          "name": "Pragma",
+          "value": "no-cache"
+        },
+        {
+          "name": "Cache-Control",
+          "value": "no-cache"
+        },
+        {
+          "name": "User-Agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+        },
+        {
+          "name": "Upgrade",
+          "value": "websocket"
+        },
+        {
+          "name": "Origin"
+        },
+        {
+          "name": "Sec-WebSocket-Version",
+          "value": "13"
+        },
+        {
+          "name": "Accept-Encoding",
+          "value": "gzip, deflate, br, zstd"
+        },
+        {
+          "name": "Accept-Language",
+          "value": "en-US,en;q=0.9"
+        },
+        {
+          "name": "Cookie"
+        },
+        {
+          "name": "Sec-WebSocket-Key"
+        },
+        {
+          "name": "Sec-WebSocket-Extensions"
+        },
+        {
+          "name": "Sec-WebSocket-Protocol"
+        }
+      ],
+      "variants": [
+        {
+          "insecure": true,
+          "http1": [
+            {
+              "name": "Host"
+            },
+            {
+              "name": "Connection",
+              "value": "Upgrade"
+            },
+            {
+              "name": "Pragma",
+              "value": "no-cache"
+            },
+            {
+              "name": "Cache-Control",
+              "value": "no-cache"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+            },
+            {
+              "name": "Upgrade",
+              "value": "websocket"
+            },
+            {
+              "name": "Origin"
+            },
+            {
+              "name": "Sec-WebSocket-Version",
+              "value": "13"
+            },
+            {
+              "name": "Accept-Encoding",
+              "value": "gzip, deflate"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "Cookie"
+            },
+            {
+              "name": "Sec-WebSocket-Key"
+            },
+            {
+              "name": "Sec-WebSocket-Extensions"
+            }
+          ]
+        }
+      ],
+      "weight": 146
+    },
     "xhr": {
       "headers": [
         {
@@ -8454,5 +8609,13 @@
   "connections": {
     "http1_per_host": 6,
     "coalesce": "lookup"
+  },
+  "websocket": {
+    "extensions": "permessage-deflate; client_max_window_bits",
+    "compression": "zlib6",
+    "h2_data": "together",
+    "close_h1": "after_wait",
+    "close_wait_ms": 2000,
+    "close_h2": "end_stream"
   }
 }

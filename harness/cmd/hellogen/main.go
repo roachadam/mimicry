@@ -14,10 +14,14 @@
 // connection of every page capture (<name>.*.pagetrace.json.gz) that
 // recorded its hello's shape. A TLS 1.3 resumed hello (pre_shared_key)
 // pads its ECH payload for the ticket: its payload lengths are a set of
-// their own, tls.resumption.ech_payload_lengths. It refuses samples Combine
-// cannot reconcile, connections whose shape is not the samples', and a
-// profile or capture whose ClientHello, shape aside, is not the one the
-// samples show.
+// their own, tls.resumption.ech_payload_lengths. The hello of a WebSocket's
+// own HTTP/1.1 connection (every wss:// socket of
+// <name>.websocket.pagetrace.json.gz) is the profile's with another ALPN
+// list and without some extensions: tls.websocket_h1. It refuses samples
+// Combine cannot reconcile, connections whose shape is not the samples',
+// socket connections whose hello differs otherwise or from each other,
+// and a profile or capture whose ClientHello, shape aside, is not the one
+// the samples show.
 package main
 
 import (
@@ -92,6 +96,9 @@ func regenerate(data, captured []byte, dir, name string) ([]byte, []byte, error)
 	}
 	if err := apply(&p.TLS, derived); err != nil {
 		return nil, nil, fmt.Errorf("profile: %w", err)
+	}
+	if p.TLS.WebSocketH1, err = websocketHello(dir, name, &p.TLS); err != nil {
+		return nil, nil, fmt.Errorf("tls.websocket_h1: %w", err)
 	}
 	if err := apply(&c.TLS, derived); err != nil {
 		return nil, nil, fmt.Errorf("capture: %w", err)

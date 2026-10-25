@@ -16,6 +16,12 @@ type Cookies struct {
 	// ThirdParty is the policy for cookies of a cross-site context: a
 	// request whose site is not its top-level page's.
 	ThirdParty string `json:"third_party"`
+	// WebSocketUnpartitioned sends a cross-site WebSocket handshake its
+	// host's unpartitioned SameSite=Lax and None cookies too, besides the
+	// Partitioned ones of its page's partition, whatever ThirdParty says
+	// (Safari 26; not Safari 27). Strict ones are not measured and stay
+	// behind.
+	WebSocketUnpartitioned bool `json:"websocket_unpartitioned,omitempty"`
 	// Redirects is how a redirect chain affects which cookies go.
 	Redirects string `json:"redirects"`
 	// Nameless is what a Set-Cookie pair without "=" sets.
@@ -33,6 +39,10 @@ type Cookies struct {
 	// Firefox). Only with OrderRFC: OrderDomainName's cookies are not
 	// ordered by creation.
 	NewValueRenews bool `json:"new_value_renews,omitempty"`
+	// PartitionedFirst sends the Partitioned cookies of a request before
+	// its unpartitioned ones, each group in Order (Safari). Off, they
+	// take their place in Order with the rest.
+	PartitionedFirst bool `json:"partitioned_first,omitempty"`
 	// SameSiteScheme is whether a site, for SameSite, includes the scheme:
 	// SameSiteSchemeful makes http:// and https:// of one host cross-site
 	// (Chrome; RFC 6265bis), SameSiteSchemeless does not (Firefox,

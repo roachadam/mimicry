@@ -53,6 +53,26 @@ type Request struct {
 	Page *url.URL
 	// Redirects are the URLs that redirected to URL, first first.
 	Redirects []*url.URL
+	// WebSocket marks a WebSocket's opening handshake, made from Page: a
+	// credentialed subresource, unless the rules say otherwise
+	// (profile.Cookies.WebSocketUnpartitioned). A ws:// or wss:// URL
+	// counts as http:// or https:// (RFC 6455, section 4.1).
+	WebSocket bool
+}
+
+// httpSchemes returns r with a ws:// or wss:// URL as http:// or https://.
+func httpSchemes(r Request) Request {
+	scheme, ok := map[string]string{
+		"ws":  "http",
+		"wss": "https",
+	}[r.URL.Scheme]
+	if !ok {
+		return r
+	}
+	u := *r.URL
+	u.Scheme = scheme
+	r.URL = &u
+	return r
 }
 
 // Jar keeps cookies. It is safe for concurrent use.
@@ -190,6 +210,7 @@ func (j *Jar) effective(s SameSite) SameSite {
 // SetCookies stores the cookies of a response to r: its raw Set-Cookie
 // lines, as received.
 func (j *Jar) SetCookies(r Request, lines []string) {
+	r = httpSchemes(r)
 	ctx := j.contextOf(r)
 	now := j.clock.Now()
 	events := make([]Event, 0, len(lines))
@@ -417,6 +438,7 @@ func (j *Jar) store(key string, bucket []entry) {
 // Cookies returns the cookies the browser would send with r, in its order.
 // It updates their last-access times.
 func (j *Jar) Cookies(r Request) []*Cookie {
+	r = httpSchemes(r)
 	ctx := j.contextOf(r)
 	if ctx.blocked {
 		return nil
@@ -433,6 +455,9 @@ func (j *Jar) Cookies(r Request) []*Cookie {
 		return !e.c.Expires.IsZero() && !e.c.Expires.After(now)
 	})
 	j.store(key, bucket)
+	// socket: a WebSocket handshake that also carries its host's
+	// unpartitioned Lax and None cookies cross-site (Safari 26).
+	socket := r.WebSocket && j.rules.WebSocketUnpartitioned
 	var matched []entry
 	for _, e := range bucket {
 		c := e.c
@@ -450,7 +475,7 @@ func (j *Jar) Cookies(r Request) []*Cookie {
 			if c.Partition != ctx.topSite {
 				continue
 			}
-		} else if ctx.thirdParty && j.rules.ThirdParty != profile.ThirdPartySameSite {
+		} else if ctx.thirdParty && j.rules.ThirdParty != profile.ThirdPartySameSite && !socket {
 			continue // Firefox and Safari keep the unpartitioned jar first-party
 		}
 		if ctx.crossSite {
@@ -460,7 +485,8 @@ func (j *Jar) Cookies(r Request) []*Cookie {
 			case SameSiteLax:
 				unsafeOK := c.SameSite == SameSiteUnset && j.rules.LaxAllowsUnsafeSeconds > 0 &&
 					now.Sub(c.Created) < time.Duration(j.rules.LaxAllowsUnsafeSeconds)*time.Second
-				if !r.Navigation || (!safe && !unsafeOK) {
+				socketOK := socket && c.Partition == ""
+				if !socketOK && (!r.Navigation || (!safe && !unsafeOK)) {
 					continue
 				}
 			}
@@ -480,6 +506,12 @@ func (j *Jar) Cookies(r Request) []*Cookie {
 // sortForRequest puts cookies in the browser's order.
 func (j *Jar) sortForRequest(es []entry) {
 	slices.SortFunc(es, func(a, b entry) int {
+		if j.rules.PartitionedFirst && (a.c.Partition == "") != (b.c.Partition == "") {
+			if a.c.Partition != "" {
+				return -1
+			}
+			return 1
+		}
 		if d := len(b.c.Path) - len(a.c.Path); d != 0 {
 			return d
 		}

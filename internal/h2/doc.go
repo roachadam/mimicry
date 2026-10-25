@@ -5,7 +5,11 @@
 // (optionally chained as Chromium does), pseudo-header and header order,
 // cookie splitting, DATA frame cap (END_STREAM on the last frame of a body
 // of known length) and flow-control credit thresholds. A fully read
-// response is never reset: it waits for the peer's END_STREAM.
+// response is never reset: it waits for the peer's END_STREAM. Connect
+// opens an extended CONNECT stream (RFC 8441, :protocol after the
+// profile's pseudo-headers) when the peer's SETTINGS_ENABLE_CONNECT_PROTOCOL
+// allows it, a byte stream in DATA frames that its caller cuts, ends with
+// END_STREAM or resets, or forgets once the peer ended it.
 //
 // The peer is held to what the profile advertises: receive windows, frame
 // size and header list size. A request the peer cannot have processed

@@ -599,12 +599,12 @@ func TestValidate(t *testing.T) {
 			name: "unknown kind",
 			mutate: func(_ *testing.T, p *Profile) {
 				p.Kinds = map[string]*Kind{
-					"websocket": {
+					"eventsource": {
 						Headers: p.Headers,
 					},
 				}
 			},
-			path: "kinds.websocket",
+			path: "kinds.eventsource",
 			want: "is not a request kind",
 		},
 		{

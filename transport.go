@@ -294,7 +294,7 @@ func (t *Transport) prepare(req *http.Request, r Request, exact bool) (*sending,
 			},
 		}, nil
 	}
-	if r.Kind == kindPreflight {
+	if r.Kind == kindPreflight || r.Kind == kindWebSocket {
 		// The transport's own: callers never make one.
 		return nil, fmt.Errorf("mimicry: unknown request kind %d", int(r.Kind))
 	}

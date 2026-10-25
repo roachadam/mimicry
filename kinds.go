@@ -45,6 +45,10 @@ const (
 // that needs one; callers never make it.
 const kindPreflight Kind = -1
 
+// kindWebSocket is a WebSocket's opening handshake, which DialWebSocket
+// makes; callers never make it as a request.
+const kindWebSocket Kind = -2
+
 // profileKinds names each kind in profile.Profile.Kinds.
 var profileKinds = map[Kind]string{
 	Frame:          profile.KindFrame,
@@ -62,6 +66,7 @@ var profileKinds = map[Kind]string{
 	XHR:            profile.KindXHR,
 	Beacon:         profile.KindBeacon,
 	kindPreflight:  profile.KindPreflight,
+	kindWebSocket:  profile.KindWebSocket,
 }
 
 func (k Kind) String() string {
@@ -386,6 +391,7 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 			Navigation: r.Kind == Navigate,
 			Page:       from,
 			Redirects:  chain[:len(chain)-1],
+			WebSocket:  r.Kind == kindWebSocket,
 		},
 	}
 	if sendOrigin && mode == "cors" && (crossOrigin || tainted) && (r.Kind == Fetch || r.Kind == XHR || slices.Contains(elements, r.Kind)) {
@@ -430,11 +436,16 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 	// request (plain http:// to anything but loopback) never takes the
 	// secure lists: its exact variant, else the kind's non-secure one.
 	set := pageSet(h, list)
-	if r.Kind == kindPreflight {
+	switch r.Kind {
+	case kindPreflight:
 		// A preflight carries the page's headers by name only
 		// (Access-Control-Request-Headers): Safari orders one that does
 		// otherwise (kinds and cors pages, against redirects2's PATCH).
 		set = hasHeader(h, "Access-Control-Request-Headers")
+	case kindWebSocket:
+		// No page sets a WebSocket's headers, and its Origin is no CORS
+		// check: the kind's lists place every header it sends.
+		set = false
 	}
 	var table *profile.HeaderTable
 	if r.Kind == Fetch || r.Kind == XHR {
@@ -443,7 +454,7 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 	}
 	cond := profile.Variant{
 		Site:        map[string]string{"same-site": profile.SiteSameSite, "cross-site": profile.SiteCrossSite, "none": profile.SiteNone}[targetSite],
-		CORSChecked: sendOrigin || set,
+		CORSChecked: (sendOrigin || set) && r.Kind != kindWebSocket,
 		PageSet:     set,
 		// A preflight for a redirect's next URL is a request of its own.
 		Redirected: redirected && r.Kind != kindPreflight,
@@ -679,6 +690,10 @@ func originOf(p *profile.Profile, ctx *profile.Context, req *http.Request, r Req
 	tainted := isTainted(from, append(redirectsBefore(req), req.URL))
 	send := false
 	switch {
+	case r.Kind == kindWebSocket:
+		// Every WebSocket handshake carries its page's origin (RFC 6455,
+		// section 4.1; every browser's captures).
+		send = true
 	case req.Method != http.MethodGet && req.Method != http.MethodHead:
 		send = true
 	case mode == "cors" && (crossOrigin || tainted):

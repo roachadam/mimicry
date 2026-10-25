@@ -46,6 +46,10 @@ type Profile struct {
 	// Connections are how the browser shares connections: its HTTP/1.1
 	// connections per host and HTTP/2 coalescing. Required.
 	Connections *Connections `json:"connections,omitempty"`
+	// WebSocket is how the browser speaks on WebSockets: its extension
+	// offer, compression, framing over HTTP/2 and how it ends a socket's
+	// transport. Nil: not measured, so opening a WebSocket is an error.
+	WebSocket *WebSocket `json:"websocket,omitempty"`
 }
 
 // HTTP1 describes a browser's HTTP/1.1 requests.

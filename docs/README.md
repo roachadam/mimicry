@@ -45,6 +45,7 @@ Related, elsewhere in the repository:
 | [0022](decisions/0022-redirects-as-the-browser-follows-them.md) | Redirects follow the browser's rules, inside the Transport | Accepted |
 | [0023](decisions/0023-connection-limits-and-coalescing.md) | Per-host HTTP/1.1 limit and HTTP/2 coalescing, per browser | Accepted |
 | [0024](decisions/0024-clienthello-shape-in-profiles.md) | The ClientHello's whole shape is profile data | Accepted |
+| [0025](decisions/0025-websockets.md) | WebSockets as each browser opens and frames them | Accepted |
 
 New records copy [`decisions/template.md`](decisions/template.md).
 
@@ -54,3 +55,4 @@ New records copy [`decisions/template.md`](decisions/template.md).
 - [Cookies](concepts/cookies.md)
 - [Proxies](concepts/proxies.md)
 - [CORS preflights](concepts/cors-preflights.md)
+- [WebSockets](concepts/websockets.md)

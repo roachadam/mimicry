@@ -131,7 +131,12 @@
         "type": "GREASE",
         "data": "00"
       }
-    ]
+    ],
+    "websocket_h1": {
+      "alpn": [
+        "http/1.1"
+      ]
+    }
   },
   "http2": {
     "settings": [
@@ -10125,6 +10130,198 @@
         }
       ]
     },
+    "websocket": {
+      "headers": [
+        {
+          "name": "origin"
+        },
+        {
+          "name": "pragma",
+          "value": "no-cache"
+        },
+        {
+          "name": "sec-fetch-site"
+        },
+        {
+          "name": "sec-websocket-protocol"
+        },
+        {
+          "name": "sec-websocket-version",
+          "value": "13"
+        },
+        {
+          "name": "sec-fetch-mode",
+          "value": "websocket"
+        },
+        {
+          "name": "user-agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+        },
+        {
+          "name": "sec-websocket-extensions"
+        },
+        {
+          "name": "cache-control",
+          "value": "no-cache"
+        },
+        {
+          "name": "sec-fetch-dest",
+          "value": "websocket"
+        },
+        {
+          "name": "accept",
+          "value": "*/*"
+        },
+        {
+          "name": "accept-language",
+          "value": "en-US,en;q=0.9"
+        },
+        {
+          "name": "priority",
+          "value": "u=3, i"
+        },
+        {
+          "name": "accept-encoding",
+          "value": "gzip, deflate, br"
+        },
+        {
+          "name": "cookie"
+        }
+      ],
+      "http1": [
+        {
+          "name": "Host"
+        },
+        {
+          "name": "Origin"
+        },
+        {
+          "name": "Pragma",
+          "value": "no-cache"
+        },
+        {
+          "name": "Sec-Fetch-Site"
+        },
+        {
+          "name": "Sec-WebSocket-Protocol"
+        },
+        {
+          "name": "Sec-WebSocket-Version",
+          "value": "13"
+        },
+        {
+          "name": "Sec-Fetch-Mode",
+          "value": "websocket"
+        },
+        {
+          "name": "User-Agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+        },
+        {
+          "name": "Sec-WebSocket-Extensions"
+        },
+        {
+          "name": "Cache-Control",
+          "value": "no-cache"
+        },
+        {
+          "name": "Sec-Fetch-Dest",
+          "value": "websocket"
+        },
+        {
+          "name": "Accept",
+          "value": "*/*"
+        },
+        {
+          "name": "Accept-Language",
+          "value": "en-US,en;q=0.9"
+        },
+        {
+          "name": "Priority",
+          "value": "u=3, i"
+        },
+        {
+          "name": "Accept-Encoding",
+          "value": "gzip, deflate, br"
+        },
+        {
+          "name": "Cookie"
+        },
+        {
+          "name": "Sec-WebSocket-Key"
+        },
+        {
+          "name": "Connection",
+          "value": "Upgrade"
+        },
+        {
+          "name": "Upgrade",
+          "value": "websocket"
+        }
+      ],
+      "variants": [
+        {
+          "insecure": true,
+          "http1": [
+            {
+              "name": "Host"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "Cache-Control",
+              "value": "no-cache"
+            },
+            {
+              "name": "Sec-WebSocket-Version",
+              "value": "13"
+            },
+            {
+              "name": "Sec-WebSocket-Extensions"
+            },
+            {
+              "name": "Origin"
+            },
+            {
+              "name": "Pragma",
+              "value": "no-cache"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "Priority",
+              "value": "u=3, i"
+            },
+            {
+              "name": "Accept-Encoding",
+              "value": "gzip, deflate"
+            },
+            {
+              "name": "Cookie"
+            },
+            {
+              "name": "Sec-WebSocket-Key"
+            },
+            {
+              "name": "Connection",
+              "value": "Upgrade"
+            },
+            {
+              "name": "Upgrade",
+              "value": "websocket"
+            }
+          ]
+        }
+      ]
+    },
     "xhr": {
       "headers": [
         {
@@ -10571,11 +10768,13 @@
   "cookies": {
     "unset_samesite": "none",
     "third_party": "partitioned_only",
+    "websocket_unpartitioned": true,
     "redirects": "chain",
     "nameless": "drop",
     "empty_name": "drop",
     "latin1_values": true,
     "order": "domain_name",
+    "partitioned_first": true,
     "samesite_scheme": "schemeless",
     "host_prefix_path": "stored"
   },
@@ -10632,5 +10831,14 @@
   "connections": {
     "http1_per_host": 6,
     "coalesce": "lookup"
+  },
+  "websocket": {
+    "extensions": "permessage-deflate",
+    "compression": "zlib6",
+    "uncompressed_max": 5,
+    "compress_min": 4096,
+    "h2_data": "split_control",
+    "close_h1": "at_once",
+    "close_h2": "rst_stream"
   }
 }

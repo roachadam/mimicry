@@ -496,6 +496,19 @@ func (p *Pool[S, E]) SharedConns() []S {
 	return out
 }
 
+// Shared returns key's shared connection if it has one that can take a
+// new request, without waiting or dialing: for a caller that opens a
+// connection of its own otherwise, outside the pool (a WebSocket's).
+func (p *Pool[S, E]) Shared(key string) (S, bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if e := p.keys[key]; e != nil && e.hasShared && e.shared.CanTakeNewRequest() {
+		return e.shared, true
+	}
+	var zero S
+	return zero, false
+}
+
 // RemoveShared takes c out of the pool, if it is key's shared connection,
 // without closing it: requests in flight on it go on, and it closes itself
 // once they end (a server's GOAWAY) or it fails.

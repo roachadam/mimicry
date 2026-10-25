@@ -104,6 +104,9 @@ type Conn struct {
 	maxFrameSize  uint32
 	initialWindow int32
 	maxStreams    uint32
+	// connectProtocol is the peer's SETTINGS_ENABLE_CONNECT_PROTOCOL:
+	// extended CONNECT (RFC 8441) may open WebSockets on c.
+	connectProtocol bool
 	// sendWindow is the connection-level window for our DATA.
 	sendWindow int32
 	// Receive flow control: our advertised windows and bytes consumed by
@@ -374,7 +377,7 @@ func (c *Conn) RoundTrip(req *http.Request) (*http.Response, error) {
 			length = -1
 		}
 	}
-	head, err := c.head(req, length)
+	head, err := c.head(req, length, "")
 	if err != nil {
 		closeBody(req)
 		return nil, err
@@ -425,12 +428,18 @@ type requestHead struct {
 
 // head builds req's header list: pseudo-headers in the profile's order,
 // then its headers through headerorder. length is the body's: 0 for none,
-// -1 when unknown. A method, authority, path or header field that is not
-// valid on the wire is an error, as in net/http.
-func (c *Conn) head(req *http.Request, length int64) (requestHead, error) {
+// -1 when unknown. A protocol makes it an extended CONNECT (RFC 8441):
+// :method CONNECT, with :protocol after the profile's pseudo-headers, as
+// every browser places it, and the stream left open. A method,
+// authority, path or header field that is not valid on the wire is an
+// error, as in net/http.
+func (c *Conn) head(req *http.Request, length int64, protocol string) (requestHead, error) {
 	method := req.Method
 	if method == "" {
 		method = http.MethodGet
+	}
+	if protocol != "" {
+		method = http.MethodConnect
 	}
 	if !httpguts.ValidHeaderFieldName(method) {
 		return requestHead{}, fmt.Errorf("h2: invalid method %q", method)
@@ -476,7 +485,7 @@ func (c *Conn) head(req *http.Request, length int64) (requestHead, error) {
 	}
 	list := c.headers
 	head := requestHead{
-		endStream: length == 0,
+		endStream: length == 0 && protocol == "",
 	}
 	var table *profile.HeaderTable
 	if plan != nil {
@@ -484,11 +493,17 @@ func (c *Conn) head(req *http.Request, length int64) (requestHead, error) {
 		head.weight = plan.Weight
 	}
 	ordered := headerorder.Build(list, h, skipHeader, table)
-	head.fields = make([]hpack.Field, 0, len(c.h2.PseudoHeaderOrder)+len(ordered))
+	head.fields = make([]hpack.Field, 0, len(c.h2.PseudoHeaderOrder)+1+len(ordered))
 	for _, name := range c.h2.PseudoHeaderOrder {
 		head.fields = append(head.fields, hpack.Field{
 			Name:  name,
 			Value: pseudo[name],
+		})
+	}
+	if protocol != "" {
+		head.fields = append(head.fields, hpack.Field{
+			Name:  ":protocol",
+			Value: protocol,
 		})
 	}
 	for _, f := range ordered {
@@ -1133,6 +1148,12 @@ func (c *Conn) applySettings(f *http2.SettingsFrame) error {
 			c.initialWindow = int32(s.Val) //nolint:gosec // Valid: at most 2^31-1
 		case http2.SettingHeaderTableSize:
 			tableSize, haveTableSize = s.Val, true
+		case http2.SettingEnableConnectProtocol:
+			// RFC 8441, section 3: once 1, it may not go back to 0.
+			if s.Val == 0 && c.connectProtocol {
+				return http2.ConnectionError(http2.ErrCodeProtocol)
+			}
+			c.connectProtocol = s.Val == 1
 		}
 		return nil
 	})

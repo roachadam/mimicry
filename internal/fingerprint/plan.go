@@ -92,6 +92,24 @@ func (p *Plan) ResumedHello() Hello {
 	return h
 }
 
+// WebSocketHello returns h, a Hello or ResumedHello, as the hello of a
+// WebSocket's own HTTP/1.1 connection (profile tls.websocket_h1): ALPN
+// offering its protocols, and without the extensions it drops. Only for a
+// profile with tls.websocket_h1.
+func (p *Plan) WebSocketHello(h Hello) Hello {
+	ws := p.tls.WebSocketH1
+	h.Extensions = slices.DeleteFunc(h.Extensions, func(e profile.Extension) bool {
+		return slices.Contains(ws.Drop, e.Type)
+	})
+	for i := range h.Extensions {
+		if h.Extensions[i].Type == profile.ExtALPN {
+			// A copy of the extension: its values are the plan's.
+			h.Extensions[i].ALPN = ws.ALPN
+		}
+	}
+	return h
+}
+
 // hello builds a Hello, drawing the permutation with intn(n), which returns a
 // uniform integer in [0, n).
 func (p *Plan) hello(intn func(int) int) Hello {

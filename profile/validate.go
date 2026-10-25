@@ -102,6 +102,8 @@ func (p *Profile) Validate() error {
 	}
 	c.checkRedirects(p.Redirects)
 	c.checkConnections(p.Connections)
+	c.checkWebSocketHello(&p.TLS)
+	c.checkWebSocket(p)
 	return c.err()
 }
 

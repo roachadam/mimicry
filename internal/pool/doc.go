@@ -8,7 +8,8 @@
 // connection (HTTP/2 coalescing; the caller decides when). A key with no
 // connections is forgotten after the idle timeout. The pool never holds
 // its lock across network I/O. Connections are given to it, through
-// interfaces; it does not dial.
+// interfaces; it does not dial. Shared finds a key's shared connection
+// without dialing, for WebSockets, which otherwise open their own.
 //
 // Imports: clockwork and the standard library.
 package pool

@@ -29,6 +29,9 @@ type pages struct {
 	// headers is the headers-order page: fetch() and XHR with headers the
 	// page set, over HTTP/2 (so, cs) and HTTP/1.1 (h1).
 	headers []*capture.Page
+	// websocket and websocketH2 are the websocket pages: sockets over
+	// HTTP/1.1 (no extended CONNECT) and over HTTP/2.
+	websocket, websocketH2 []*capture.Page
 	// navRedirects are the navigation-redirect pages
 	// (nav-redirect-<x>, any number, maybe none): navigations whose start
 	// URL redirects.
@@ -58,6 +61,8 @@ func loadPages(dir, name string) (*pages, error) {
 		{scenario: "cors-edge", into: &out.corsEdge},
 		{scenario: "redirects2", into: &out.redirects2},
 		{scenario: "headers-order", into: &out.headers},
+		{scenario: "websocket", into: &out.websocket},
+		{scenario: "websocket-h2", into: &out.websocketH2},
 	} {
 		got, err := capture.LoadPages(filepath.Join(dir, name+"."+f.scenario+".pagetrace.json.gz"))
 		if err != nil {
@@ -115,12 +120,16 @@ type request struct {
 	h2     []profile.Header
 	h1     []profile.Header
 	weight uint8
+	stream uint32
 	conn   int
 	sample int
 	// pageOrder are the page's headers, lowercase, in the order the page
 	// set them where that is the order they reach the browser (XHR's
 	// setRequestHeader); nil: by name (fetch()'s Headers object).
 	pageOrder []string
+	// websocket is a WebSocket's handshake, which Origin does not make
+	// CORS-checked.
+	websocket bool
 }
 
 // labelSite is the site relation a kinds page label names: labels end in
@@ -179,6 +188,7 @@ func h2Requests(page *capture.Page, si int, prefix string) []*request {
 				path:   r.Path,
 				conn:   ci,
 				weight: weights[r.Stream],
+				stream: r.Stream,
 				sample: si,
 			}
 			for _, ins := range r.Instructions {
@@ -367,6 +377,11 @@ func collect(pg *pages) ([]*request, error) {
 		errs = append(errs, err)
 	}
 	out = append(out, hdrs...)
+	sockets, err := websocketRequests(pg.websocket, pg.websocketH2)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	out = append(out, sockets...)
 	return out, errors.Join(errs...)
 }
 
@@ -711,6 +726,9 @@ func headerValue(hs []profile.Header, name string) (string, bool) {
 var contextHeaders = []string{
 	"referer", "origin", "cookie", "sec-fetch-site", "sec-fetch-storage-access",
 	"content-type", "content-length", "host",
+	// A WebSocket's: the key is random, the protocols the page's, the
+	// extension offer the profile's websocket section's.
+	"sec-websocket-key", "sec-websocket-protocol", "sec-websocket-extensions",
 	"access-control-request-method", "access-control-request-headers",
 }
 
@@ -773,6 +791,7 @@ var kindSources = []kindSource{
 	// Preflights: the kinds page's, for headers the page set; the
 	// redirects2 page's, for PATCH alone.
 	{kind: profile.KindPreflight, own: []string{"fetch-json", "fetch-custom"}, all: []string{"fetch-json", "fetch-custom", "redir-" + server.RedirectFetch}, preflight: true},
+	{kind: profile.KindWebSocket, own: []string{wsBase}, all: []string{wsBase}},
 }
 
 var (
@@ -926,9 +945,9 @@ func (r *request) condition() condition {
 			return strings.EqualFold(h.Name, "access-control-request-headers")
 		})
 	}
-	c.cors = c.pageSet || slices.ContainsFunc(headers, func(h profile.Header) bool {
+	c.cors = !r.websocket && (c.pageSet || slices.ContainsFunc(headers, func(h profile.Header) bool {
 		return strings.EqualFold(h.Name, "origin")
-	})
+	}))
 	if r.method != "GET" {
 		c.method = r.method
 	}

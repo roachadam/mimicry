@@ -106,6 +106,14 @@ func (c *Conn) Close() error {
 	return c.conn.Close()
 }
 
+// Hijack returns c's connection and its reader, which may hold what the
+// server sent after a 101 response already: the connection is the
+// caller's from then on. Call it only once RoundTrip's 101 response has
+// been returned and its body closed.
+func (c *Conn) Hijack() (net.Conn, *bufio.Reader) {
+	return c.conn, c.br
+}
+
 // Usable reports whether an idle c can carry another request: the peer has
 // not closed it and has sent nothing since the last response. It does not
 // block. Call it only between requests, never during RoundTrip.

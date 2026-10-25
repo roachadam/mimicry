@@ -10,8 +10,10 @@
 // before anything is written. A body of unknown length (ContentLength -1,
 // or 0 with a body) is sent chunked; a sized body must be exactly
 // ContentLength bytes. Informational responses are skipped, except 101,
-// which is final and leaves the connection unreusable. A response body
-// closed before its end closes the connection rather than reading the rest.
+// which is final and leaves the connection unreusable (Hijack hands it,
+// with what the server sent after the 101, to a WebSocket). A response
+// body closed before its end closes the connection rather than reading
+// the rest.
 // Conn.Usable checks, without blocking, that an idle connection was not
 // closed by the peer and holds no unexpected bytes, before it is reused.
 //
