@@ -57,7 +57,9 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 			return err
 		}
 	}
-	log := &pageLog{}
+	log := &pageLog{
+		start: time.Now(),
+	}
 	if !sc.plainPort {
 		return s.accept(ctx, ln, func(conn net.Conn) error {
 			return s.handle(ctx, conn, cfg, sc, log, false)

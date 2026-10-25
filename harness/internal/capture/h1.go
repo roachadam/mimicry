@@ -27,12 +27,15 @@ type H1Request struct {
 }
 
 // Page is a whole page load across every connection and host it used:
-// each HTTP/2 connection's trace, every HTTP/1.1 request, and every
-// connection's handshake.
+// each HTTP/2 connection's trace, every HTTP/1.1 request, every
+// connection's handshake, and the WebSockets the page opened with what its
+// script saw of each (the websocket scenarios).
 type Page struct {
 	H2          []*h2trace.Trace `json:"h2"`
 	H1          []H1Request      `json:"h1,omitempty"`
 	Connections []Connection     `json:"connections,omitempty"`
+	WebSockets  []WebSocket      `json:"websockets,omitempty"`
+	WSResults   []WSResult       `json:"ws_results,omitempty"`
 }
 
 // Connection is one connection of a page, in the order their handshakes

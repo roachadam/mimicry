@@ -70,6 +70,14 @@ type request struct {
 	uploaded int
 	// ports are a PlainPort scenario's two ports (zero otherwise).
 	ports portPair
+	// upgrade is the protocol a WebSocket handshake asks for: an
+	// HTTP/1.1 Upgrade header, or an HTTP/2 extended CONNECT's :protocol.
+	// wsKey, wsProtocols and wsExtensions are its Sec-WebSocket-Key,
+	// -Protocol and -Extensions (repeated headers joined by ", ").
+	upgrade      string
+	wsKey        string
+	wsProtocols  string
+	wsExtensions string
 }
 
 // DefaultScenario is the capture page every profile comes from.
@@ -213,6 +221,8 @@ var Scenarios = []*Scenario{
 	NavRedirectCS,
 	NavRedirectHTTP,
 	NavRedirectPage,
+	WebSocket,
+	WebSocketH2,
 }
 
 // ScenarioByName finds a scenario.
@@ -286,6 +296,10 @@ type response struct {
 	// delay holds the response back, so a client's concurrent requests
 	// stay in flight together.
 	delay time.Duration
+	// websocket accepts a WebSocket handshake: HTTP/1.1 answers 101, an
+	// HTTP/2 extended CONNECT 200, and the socket runs as it says
+	// (status, contentType and body are unused).
+	websocket *wsAccept
 }
 
 // page is what a browser loads: subresources on the same connection, then a

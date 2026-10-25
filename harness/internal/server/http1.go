@@ -86,6 +86,14 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 				ask.preflightHeaders = value
 			case "proxy-authorization":
 				proxyAuth = value
+			case "upgrade":
+				ask.upgrade = value
+			case "sec-websocket-key":
+				ask.wsKey = value
+			case "sec-websocket-protocol":
+				ask.wsProtocols = joinValues(ask.wsProtocols, value)
+			case "sec-websocket-extensions":
+				ask.wsExtensions = joinValues(ask.wsExtensions, value)
 			}
 		}
 		// A plain connection has no server name: the Host header names
@@ -93,8 +101,9 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 		if req.Host == "" && (sc.Plain || sc.mixedScheme || sc.plainPort) {
 			req.Host, _, _ = strings.Cut(ask.host, ":")
 		}
+		index := -1
 		if !foreign {
-			log.add(req)
+			index = log.add(req)
 			log.request(c)
 			// After /done the capture belongs to its receiver.
 			if !c.Finished {
@@ -129,6 +138,9 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 		}
 
 		ask.uploaded = int(uploaded)
+		if !foreign {
+			sc.noteWSResult(log, ask, host)
+		}
 		r := sc.answer(ask)
 		challenged := false
 		switch {
@@ -149,6 +161,18 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 					},
 				},
 			}
+		}
+		if r.websocket != nil && !foreign && !challenged {
+			// The connection is the socket's from here on.
+			number := log.connectionNumber(c)
+			return serveWebSocketH1(conn, br, r.websocket, ask.wsKey, capture.WebSocket{
+				Host:       req.Host,
+				Path:       target,
+				Protocol:   "http/1.1",
+				Plain:      number == 0,
+				Connection: number,
+				Request:    index,
+			}, log)
 		}
 		if target == "/done" && !c.Finished && !foreign && !challenged {
 			if sc.multi != nil {

@@ -60,6 +60,13 @@ type h2conn struct {
 	sendWindows   map[uint32]*int64
 	sent          map[uint32]uint64
 	closed        bool
+	// websockets are the extended CONNECT streams carrying a WebSocket.
+	websockets map[uint32]*h2WebSocket
+
+	// host is the connection's server name, and traceIndex its trace's
+	// index in the page's H2.
+	host       string
+	traceIndex int
 }
 
 // serveHTTP2 records the client's connection preface frames and first request
@@ -92,6 +99,8 @@ func serveHTTP2(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 		maxFrame:      16384,
 		sendWindows:   map[uint32]*int64{},
 		sent:          map[uint32]uint64{},
+		websockets:    map[uint32]*h2WebSocket{},
+		host:          host,
 	}
 	// The client may move its encoder's table anywhere up to what we
 	// advertise; until it says so, it uses the default 4096. Frames larger
@@ -105,7 +114,7 @@ func serveHTTP2(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 	if sc.multi != nil {
 		s.trace.Host = host
 	}
-	log.addH2(s)
+	s.traceIndex = log.addH2(s)
 	// Senders blocked on flow control wait for credit the client will no
 	// longer send, and senders blocked writing to a client that stopped
 	// reading never finish: close the connection, mark it closed and wake
@@ -117,6 +126,9 @@ func serveHTTP2(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 		s.mu.Lock()
 		s.closed = true
 		s.cond.Broadcast()
+		for _, ws := range s.websockets {
+			ws.in.end(net.ErrClosed)
+		}
 		s.mu.Unlock()
 		senders.Wait()
 	}()
@@ -201,6 +213,8 @@ func serveHTTP2(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 					return err
 				}
 			}
+		case *http2.RSTStreamFrame:
+			s.onReset(f)
 		case *http2.GoAwayFrame:
 			return nil
 		}
@@ -309,12 +323,19 @@ func (s *h2conn) onHeaders(senders *sync.WaitGroup, emit func()) error {
 			st.method = ins.Value
 		case ":authority":
 			st.host = ins.Value
+		case ":protocol":
+			st.upgrade = ins.Value
 		case "origin":
 			st.origin = ins.Value
 		case "access-control-request-headers":
 			st.preflightHeaders = ins.Value
+		case "sec-websocket-protocol":
+			st.wsProtocols = joinValues(st.wsProtocols, ins.Value)
+		case "sec-websocket-extensions":
+			st.wsExtensions = joinValues(st.wsExtensions, ins.Value)
 		}
 	}
+	index := -1
 	s.traceMu.Lock()
 	if s.tracing {
 		s.trace.Requests = append(s.trace.Requests, h2trace.Request{
@@ -323,6 +344,7 @@ func (s *h2conn) onHeaders(senders *sync.WaitGroup, emit func()) error {
 			Block:        hex.EncodeToString(s.block),
 			Instructions: instructions,
 		})
+		index = len(s.trace.Requests) - 1
 	}
 	s.traceMu.Unlock()
 	if s.c.Profile.HTTP2 == nil && !s.c.Finished {
@@ -336,6 +358,9 @@ func (s *h2conn) onHeaders(senders *sync.WaitGroup, emit func()) error {
 	w := s.initialWindow
 	s.sendWindows[id] = &w
 	s.mu.Unlock()
+	if st.method == "CONNECT" && st.upgrade != "" {
+		return s.onConnect(id, st, index, senders)
+	}
 	if s.blockEnded {
 		s.respond(id, st, senders, emit)
 	}
@@ -381,6 +406,9 @@ func (s *h2conn) onData(f *http2.DataFrame, senders *sync.WaitGroup, emit func()
 			return err
 		}
 	}
+	if s.onWebSocketData(f) {
+		return nil
+	}
 	st := s.streams[f.StreamID]
 	if st == nil {
 		return nil
@@ -397,6 +425,7 @@ func (s *h2conn) onData(f *http2.DataFrame, senders *sync.WaitGroup, emit func()
 func (s *h2conn) respond(id uint32, st *request, senders *sync.WaitGroup, emit func()) {
 	delete(s.streams, id)
 	s.log.request(s.c)
+	s.scenario.noteWSResult(s.log, *st, s.host)
 	r := s.scenario.answer(*st)
 	s.traceMu.Lock()
 	done := st.path == "/done" && s.tracing

@@ -1,0 +1,506 @@
+package server
+
+import (
+	"encoding/json"
+	"fmt"
+	"net"
+	"slices"
+	"strconv"
+	"strings"
+	"time"
+
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/hpack"
+)
+
+// The websocket pages' hosts: the page's own, and a cross-site one.
+const (
+	wsHost      = "www.ws-a.test"
+	wsCrossSite = "www.ws-b.test"
+)
+
+// WebSocket is the websocket scenario: its HTTP/2 server does not
+// advertise SETTINGS_ENABLE_CONNECT_PROTOCOL, so a browser opens each
+// wss:// socket over HTTP/1.1 (on a connection of its own: see
+// capture.WebSocket.Connection). See WebSocketSteps.
+var WebSocket = &Scenario{
+	Name:      "websocket",
+	Doc:       "WebSockets over HTTP/1.1 (the HTTP/2 server has no extended CONNECT): handshakes (same-origin, cross-site with subprotocols, with Lax, None and Partitioned cookies on both hosts), the permessage-deflate offer and compressed frames, frame headers (masking, 7/16/64-bit lengths, fragmentation), ping/pong, client and server close and who closes TCP first, ws:// from an https:// page and from an http:// page",
+	multi:     wsPageOf(),
+	plainPort: true,
+}
+
+// WebSocketH2 is the websocket-h2 scenario: the websocket page with
+// SETTINGS_ENABLE_CONNECT_PROTOCOL advertised, so a browser that
+// supports RFC 8441 opens its wss:// sockets as extended CONNECT streams
+// on its HTTP/2 connections (and one that does not still uses HTTP/1.1).
+var WebSocketH2 = &Scenario{
+	Name: "websocket-h2",
+	Doc:  "the websocket page with SETTINGS_ENABLE_CONNECT_PROTOCOL advertised: which browsers carry wss:// over HTTP/2 extended CONNECT (RFC 8441), its HEADERS (pseudo-header order, priority, flags), DATA-carried frames, and how the stream ends",
+	Settings: []http2.Setting{
+		{
+			ID:  http2.SettingEnableConnectProtocol,
+			Val: 1,
+		},
+	},
+	multi:     wsPageOf(),
+	plainPort: true,
+}
+
+func wsPageOf() wsPage {
+	return wsPage{
+		fixedHosts: fixedHosts{
+			names: []string{
+				wsHost,
+				wsCrossSite,
+			},
+			runFor: 75 * time.Second,
+		},
+	}
+}
+
+// wsPattern is what text messages are made of: WSMessage.Data.
+const wsPattern = "mimicry-websocket-"
+
+// WSMessage is a message a websocket step sends: Size bytes of wsPattern
+// repeated (text), or of the bytes 0 to 255 repeated (Binary).
+type WSMessage struct {
+	Binary bool
+	Size   int
+}
+
+// Data is the message's payload.
+func (m WSMessage) Data() []byte {
+	b := make([]byte, m.Size)
+	for i := range b {
+		if m.Binary {
+			b[i] = byte(i)
+		} else {
+			b[i] = wsPattern[i%len(wsPattern)]
+		}
+	}
+	return b
+}
+
+// js is the page's expression for the message.
+func (m WSMessage) js() string {
+	if m.Binary {
+		return "binary(" + strconv.Itoa(m.Size) + ")"
+	}
+	return "text(" + strconv.Itoa(m.Size) + ")"
+}
+
+// WebSocketStep is one socket of the websocket pages: the page Page
+// (a WebSocketPageStep label) opens it at Host's /ws/<Label>, sends
+// Sends once open, waits for their echoes, and closes it with 1000 "bye"
+// if Close. Every step is bounded in time (wsStepTime) and reported to
+// the server (capture.WSResult), so a socket a browser refuses is a
+// result, not a stall.
+type WebSocketStep struct {
+	Label string
+	Page  string
+	Host  string
+	// Plain is a ws:// socket on the plain port; otherwise wss:// on the
+	// TLS port.
+	Plain bool
+	// Protocols are the subprotocols the page asks for (none: the
+	// constructor without them), Pick the one the server answers with
+	// when offered.
+	Protocols []string
+	Pick      string
+	// Deflate accepts permessage-deflate when offered (as
+	// "permessage-deflate": context takeover both ways, 15-bit windows);
+	// otherwise the server answers no extension. Browsers offer it on
+	// every socket, so every handshake records the offer.
+	Deflate bool
+	// Ping has the server ping right after the handshake, ServerClose
+	// send a close (1001 "going away") after its first echo.
+	Ping        bool
+	ServerClose bool
+	Sends       []WSMessage
+	Close       bool
+}
+
+// Path is the socket's path.
+func (s WebSocketStep) Path() string {
+	return "/ws/" + s.Label
+}
+
+// wsStepTime bounds each socket step on the page.
+const wsStepTime = 10 * time.Second
+
+// WebSocketSteps lists the websocket pages' sockets in the order the
+// pages open them, one after another:
+//
+//   - so-basic: same-origin wss://, no subprotocol, deflate declined; a
+//     ping from the server; text of 5 and 125 bytes (7-bit lengths), 126,
+//     200 and 65535 (16-bit), 65536 and 70 KiB (64-bit), binary of 256
+//     and 65536; closed with 1000 "bye";
+//   - cs-protocols: cross-site wss:// asking for chat and superchat, the
+//     server picking chat;
+//   - so-deflate: same-origin, permessage-deflate accepted, compressible
+//     text (two equal 4 KiB messages show context takeover);
+//   - so-server-close: the server closes first (1001);
+//   - mixed: ws:// from the https:// page to the plain port (mixed
+//     content: refused, or upgraded to wss:// which the plain port
+//     refuses);
+//   - plain-so: ws:// from the http:// page on the plain port
+//     (non-secure origin: which cookies go).
+func WebSocketSteps() []WebSocketStep {
+	short := []WSMessage{
+		{
+			Size: 5,
+		},
+	}
+	return []WebSocketStep{
+		{
+			Label: "so-basic",
+			Page:  "sockets",
+			Host:  wsHost,
+			Ping:  true,
+			Sends: []WSMessage{
+				{Size: 5},
+				{Size: 125},
+				{Size: 126},
+				{Size: 200},
+				{Size: 65535},
+				{Size: 65536},
+				{Size: 70 << 10},
+				{Binary: true, Size: 256},
+				{Binary: true, Size: 65536},
+			},
+			Close: true,
+		},
+		{
+			Label: "cs-protocols",
+			Page:  "sockets",
+			Host:  wsCrossSite,
+			Protocols: []string{
+				"chat",
+				"superchat",
+			},
+			Pick:  "chat",
+			Sends: short,
+			Close: true,
+		},
+		{
+			Label:   "so-deflate",
+			Page:    "sockets",
+			Host:    wsHost,
+			Deflate: true,
+			Sends: []WSMessage{
+				{Size: 5},
+				{Size: 4096},
+				{Size: 4096},
+				{Size: 70 << 10},
+			},
+			Close: true,
+		},
+		{
+			Label:       "so-server-close",
+			Page:        "sockets",
+			Host:        wsHost,
+			ServerClose: true,
+			Sends:       short,
+		},
+		{
+			Label: "mixed",
+			Page:  "sockets",
+			Host:  wsHost,
+			Plain: true,
+			Sends: short,
+			Close: true,
+		},
+		{
+			Label: "plain-so",
+			Page:  "plain",
+			Host:  wsHost,
+			Plain: true,
+			Sends: []WSMessage{
+				{Size: 5},
+				{Size: 200},
+			},
+			Close: true,
+		},
+	}
+}
+
+// WebSocketPageStep is one of the websocket pages' requests around their
+// sockets, in order: a top-level navigation by script (Nav) from the page
+// before, or a fetch() with credentials "include" from the navigation
+// before it, cross-origin when its host is not that page's (answered
+// with Access-Control-Allow-Origin and -Credentials). Plain steps go over
+// http:// to the plain port. A page opens its sockets (WebSocketStep.Page)
+// after its fetches.
+type WebSocketPageStep struct {
+	Label string
+	Host  string
+	Plain bool
+	Path  string
+	Nav   bool
+	// Sets are the Set-Cookie values its response carries, in order.
+	Sets []string
+}
+
+// The cookies set before the sockets: on each host one Lax, one None
+// (Secure) and one Partitioned, set first-party (the page's own on its
+// document, the cross-site host's on a navigation there), and one
+// Partitioned cookie of the cross-site host set from the page's site (a
+// cross-site fetch), which is the partition its cross-site socket is in.
+// Lax is not Secure, so the plain socket shows it too.
+var (
+	wsHostCookies = []string{
+		"ws_a_lax=1; Path=/; SameSite=Lax; Max-Age=600",
+		"ws_a_none=1; Path=/; Secure; SameSite=None; Max-Age=600",
+		"ws_a_part=1; Path=/; Secure; SameSite=None; Partitioned; Max-Age=600",
+	}
+	wsCrossCookies = []string{
+		"ws_b_lax=1; Path=/; SameSite=Lax; Max-Age=600",
+		"ws_b_none=1; Path=/; Secure; SameSite=None; Max-Age=600",
+		"ws_b_part=1; Path=/; Secure; SameSite=None; Partitioned; Max-Age=600",
+	}
+	wsCrossPartitioned = []string{
+		"ws_b_part3p=1; Path=/; Secure; SameSite=None; Partitioned; Max-Age=600",
+	}
+)
+
+// wsDeletions deletes each cookie set, with the attributes it was set
+// with (Partitioned and SameSite=None included, which deleting a
+// partitioned cookie, or one from a cross-site response, needs).
+func wsDeletions(set []string) []string {
+	out := make([]string, 0, len(set))
+	for _, c := range set {
+		parts := strings.Split(c, "; ")
+		name, _, _ := strings.Cut(parts[0], "=")
+		d := name + "="
+		for _, a := range parts[1:] {
+			if !strings.HasPrefix(a, "Max-Age=") {
+				d += "; " + a
+			}
+		}
+		out = append(out, d+"; Max-Age=0")
+	}
+	return out
+}
+
+// WebSocketPageSteps lists the websocket pages' requests other than the
+// sockets and the result reports, in order: the cookies are set, the
+// sockets opened (from sockets and plain) and the cookies deleted (Safari
+// keeps cookies between samples).
+func WebSocketPageSteps() []WebSocketPageStep {
+	return []WebSocketPageStep{
+		{Label: "doc", Host: wsHost, Path: "/", Nav: true, Sets: wsHostCookies},
+		{Label: "b-set", Host: wsCrossSite, Path: "/b/set", Nav: true, Sets: wsCrossCookies},
+		{Label: "sockets", Host: wsHost, Path: "/w/sockets", Nav: true},
+		{Label: "b-set-3p", Host: wsCrossSite, Path: "/b/set-3p", Sets: wsCrossPartitioned},
+		{Label: "plain", Host: wsHost, Plain: true, Path: "/w/plain", Nav: true},
+		{Label: "b-cleanup", Host: wsCrossSite, Path: "/b/cleanup", Nav: true, Sets: wsDeletions(wsCrossCookies)},
+		{Label: "end", Host: wsHost, Path: "/w/end", Nav: true, Sets: wsDeletions(wsHostCookies)},
+		{Label: "b-cleanup-3p", Host: wsCrossSite, Path: "/b/cleanup-3p", Sets: wsDeletions(wsCrossPartitioned)},
+	}
+}
+
+// wsAway is how long the watchdog waits after the page leaves its https://
+// origin: for the cross-site host's page and back, or for the plain page
+// (a socket step) and the two navigations back.
+const wsAway = 30 * time.Second
+
+type wsPage struct {
+	fixedHosts
+}
+
+func (p wsPage) answer(req request) response {
+	host, port := splitAuthority(req.host)
+	path, _, _ := strings.Cut(req.path, "?")
+	plain := req.ports.plain != "" && port == req.ports.plain
+	ok := response{status: 200, contentType: "text/plain", body: []byte("ok\n")}
+	switch {
+	case path == "/done", path == wsResultPath:
+		return ok
+	case path == watchdogPath:
+		return watchdogResponse()
+	case strings.HasPrefix(path, "/ws/"):
+		for _, s := range WebSocketSteps() {
+			if s.Host == host && s.Path() == path && s.Plain == plain {
+				return wsHandshake(s, req)
+			}
+		}
+	}
+	steps := WebSocketPageSteps()
+	for i, s := range steps {
+		if s.Host != host || s.Path != path || s.Plain != plain {
+			continue
+		}
+		r := ok
+		if s.Nav {
+			r = htmlResponse(htmlPage("websocket", "", pageScript(wsStatements(steps, i, req.ports))))
+		} else if req.origin != "" {
+			r.headers = corsAllow(req.origin)
+		}
+		for _, c := range s.Sets {
+			r.headers = append(r.headers, hpack.HeaderField{
+				Name:  "set-cookie",
+				Value: c,
+			})
+		}
+		return r
+	}
+	return response{status: 404, contentType: "text/plain", body: []byte("not found\n")}
+}
+
+// wsHandshake answers a request for a socket's path: a handshake is
+// accepted as the step says, anything else answered 400.
+func wsHandshake(s WebSocketStep, req request) response {
+	handshake := strings.EqualFold(req.upgrade, "websocket") &&
+		(req.method == "GET" && req.wsKey != "" || req.method == "CONNECT")
+	if !handshake {
+		return response{status: 400, contentType: "text/plain", body: []byte("not a websocket handshake\n")}
+	}
+	a := &wsAccept{
+		ping:        s.Ping,
+		serverClose: s.ServerClose,
+	}
+	if s.Pick != "" && slices.Contains(headerList(req.wsProtocols), s.Pick) {
+		a.subprotocol = s.Pick
+	}
+	if s.Deflate {
+		for _, ext := range headerList(req.wsExtensions) {
+			if name, _, _ := strings.Cut(ext, ";"); strings.TrimSpace(name) == "permessage-deflate" {
+				a.extensions = "permessage-deflate"
+			}
+		}
+	}
+	return response{
+		status:    101,
+		websocket: a,
+	}
+}
+
+// headerList splits a list-valued header into its trimmed elements.
+func headerList(v string) []string {
+	var out []string
+	for e := range strings.SplitSeq(v, ",") {
+		if e = strings.TrimSpace(e); e != "" {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// wsPageURL is a page step's URL.
+func wsPageURL(s WebSocketPageStep, ports portPair) string {
+	if s.Plain {
+		return "http://" + net.JoinHostPort(s.Host, ports.plain) + s.Path
+	}
+	return "https://" + net.JoinHostPort(s.Host, ports.tls) + s.Path
+}
+
+// wsSocketURL is a socket's URL.
+func wsSocketURL(s WebSocketStep, ports portPair) string {
+	if s.Plain {
+		return "ws://" + net.JoinHostPort(s.Host, ports.plain) + s.Path()
+	}
+	return "wss://" + net.JoinHostPort(s.Host, ports.tls) + s.Path()
+}
+
+// wsHelpers are the page's helpers: get(u) fetches with credentials (5 s
+// at most); text(n) and binary(n) are WSMessage payloads; socket(url,
+// protocols, sends, close) runs one socket step and resolves to what the
+// script saw of it (capture.WSResult), within wsStepTime; report sends
+// that to the server.
+var wsHelpers = `const get = u => within(fetch(u, {credentials: "include"}).then(r => r.text()), 5000);
+const pattern = ` + strconv.Quote(wsPattern) + `;
+const text = n => pattern.repeat(Math.ceil(n / pattern.length)).slice(0, n);
+const binary = n => Uint8Array.from({length: n}, (_, i) => i % 256);
+const report = (label, res) => get("` + wsResultPath + `?label=" + encodeURIComponent(label) + "&r=" + encodeURIComponent(JSON.stringify(res)));
+const socket = (url, protocols, sends, close) => {
+  const res = {open: false, sent: 0, echoes: 0, closed: false};
+  const run = new Promise(done => {
+    let ws;
+    try {
+      ws = protocols.length ? new WebSocket(url, protocols) : new WebSocket(url);
+    } catch (e) {
+      res.error = e.name + ": " + e.message;
+      return done();
+    }
+    ws.binaryType = "arraybuffer";
+    ws.onopen = () => {
+      res.open = true;
+      res.protocol = ws.protocol;
+      res.extensions = ws.extensions;
+      for (const m of sends) {
+        ws.send(m);
+        res.sent++;
+      }
+    };
+    ws.onmessage = () => {
+      res.echoes++;
+      if (close && res.echoes === sends.length) ws.close(1000, "bye");
+    };
+    ws.onerror = () => {
+      res.error = res.error || "error";
+    };
+    ws.onclose = e => {
+      res.closed = true;
+      res.code = e.code;
+      res.reason = e.reason;
+      res.clean = e.wasClean;
+      done();
+    };
+  });
+  return within(run.then(() => true), ` + strconv.FormatInt(wsStepTime.Milliseconds(), 10) + `).then(ok => {
+    if (!ok) res.timed_out = true;
+    return res;
+  });
+};
+`
+
+// wsStatements are page step i's script: it fetches the steps up to the
+// next navigation, runs its sockets one after another and reports each,
+// then goes there, or asks for /done. The watchdog lives on https:// of
+// wsHost: the first page registers it, the others disarm it on load, arm
+// it before leaving the origin and end it before /done.
+func wsStatements(steps []WebSocketPageStep, i int, ports portPair) []string {
+	page := steps[i]
+	watched := page.Host == wsHost && !page.Plain
+	out := []string{
+		wsHelpers,
+	}
+	switch {
+	case i == 0:
+		out = append(out, "await register();")
+	case watched:
+		out = append(out, "await arm(0);")
+	}
+	next := -1
+	for j := i + 1; j < len(steps); j++ {
+		if steps[j].Nav {
+			next = j
+			break
+		}
+		out = append(out, fmt.Sprintf("await get(%s);", strconv.Quote(wsPageURL(steps[j], ports))))
+	}
+	for _, s := range WebSocketSteps() {
+		if s.Page != page.Label {
+			continue
+		}
+		protocols, _ := json.Marshal(append([]string{}, s.Protocols...))
+		sends := make([]string, len(s.Sends))
+		for k, m := range s.Sends {
+			sends[k] = m.js()
+		}
+		out = append(out, fmt.Sprintf("await report(%s, await socket(%s, %s, [%s], %t));",
+			strconv.Quote(s.Label), strconv.Quote(wsSocketURL(s, ports)), protocols, strings.Join(sends, ", "), s.Close))
+	}
+	if next < 0 {
+		if watched {
+			out = append(out, "await end();")
+		}
+		return append(out, `fetch("/done");`)
+	}
+	n := steps[next]
+	if watched && (n.Host != wsHost || n.Plain) {
+		out = append(out, fmt.Sprintf("await arm(%d);", wsAway.Milliseconds()))
+	}
+	return append(out, fmt.Sprintf("location.href = %s;", strconv.Quote(wsPageURL(n, ports))))
+}
