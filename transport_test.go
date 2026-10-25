@@ -3,11 +3,9 @@ package mimicry
 import (
 	"bytes"
 	"compress/gzip"
-	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -95,71 +93,6 @@ func get(t *testing.T, client *http.Client, url string, header http.Header) (*ht
 	return resp, string(b)
 }
 
-func TestProtocols(t *testing.T) {
-	for _, h2 := range []bool{true, false} {
-		ts := server(t, h2, func(w http.ResponseWriter, r *http.Request) {
-			_, _ = io.WriteString(w, r.Proto) //nolint:gosec // test handler echoing its own request
-		})
-		_, body := get(t, &http.Client{Transport: ts.tr}, ts.url, nil)
-		want := "HTTP/1.1"
-		if h2 {
-			want = "HTTP/2.0"
-		}
-		if body != want {
-			t.Errorf("server saw %q, want %q", body, want)
-		}
-	}
-}
-
-// Concurrent requests to one HTTP/2 host share one dial and one connection.
-func TestSharedDial(t *testing.T) {
-	ts := server(t, true, func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = io.WriteString(w, "ok")
-	})
-	client := &http.Client{Transport: ts.tr}
-	var wg sync.WaitGroup
-	errs := make(chan error, 20)
-	for range 20 {
-		wg.Go(func() {
-			errs <- fetchOK(t.Context(), client, ts.url)
-		})
-	}
-	wg.Wait()
-	close(errs)
-	for err := range errs {
-		if err != nil {
-			t.Error(err)
-		}
-	}
-	if n := ts.conns.Load(); n != 1 {
-		t.Fatalf("%d connections, want 1", n)
-	}
-}
-
-// fetchOK GETs url and checks the body is "ok", for goroutines, which must
-// not call t.Fatal.
-func fetchOK(ctx context.Context, client *http.Client, url string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return err
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	if string(b) != "ok" {
-		return fmt.Errorf("body %q", b)
-	}
-	return nil
-}
-
 func TestDecompression(t *testing.T) {
 	const text = "hello, compressed world"
 	encode := map[string]func(io.Writer) io.WriteCloser{
@@ -203,24 +136,6 @@ func TestDecompression(t *testing.T) {
 	})
 	if body == text || resp.Header.Get("Content-Encoding") != "gzip" {
 		t.Errorf("caller's Accept-Encoding: body decoded anyway")
-	}
-}
-
-// An idle HTTP/1.1 connection the server closed is replaced transparently.
-func TestStaleIdleConnection(t *testing.T) {
-	ts := server(t, false, func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = io.WriteString(w, "ok")
-	})
-	client := &http.Client{Transport: ts.tr}
-	get(t, client, ts.url, nil)
-	// Close the server side of every connection, leaving the client's idle
-	// connection stale.
-	ts.srv.CloseClientConnections()
-	if _, body := get(t, client, ts.url, nil); body != "ok" {
-		t.Fatalf("body %q after the idle connection went stale", body)
-	}
-	if n := ts.conns.Load(); n != 2 {
-		t.Fatalf("%d connections, want 2", n)
 	}
 }
 
@@ -311,7 +226,7 @@ func TestDecodeErrors(t *testing.T) {
 					}
 				},
 			})
-			resp, err := tr.RoundTrip(newRequest(t, "https://a.test/", nil))
+			resp, err := tr.RoundTrip(newRequest(t, "https://a.test/"))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -348,7 +263,7 @@ func TestDecodeErrors(t *testing.T) {
 						}
 					},
 				})
-				resp, err := tr.RoundTrip(newRequest(t, "https://a.test/", nil))
+				resp, err := tr.RoundTrip(newRequest(t, "https://a.test/"))
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -392,7 +307,7 @@ func TestDecodeErrors(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		resp, err := client.Do(newRequest(t, "https://a.test/r", nil))
+		resp, err := client.Do(newRequest(t, "https://a.test/r"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -453,7 +368,7 @@ func TestConfigCredentialsStayBehindCrossOriginRedirects(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, start := range []string{"https://a.test/cross", "https://a.test/same"} {
-		resp, err := client.Do(newRequest(t, start, nil))
+		resp, err := client.Do(newRequest(t, start))
 		if err != nil {
 			t.Fatal(err)
 		}

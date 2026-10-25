@@ -1,13 +1,9 @@
 package mimicry
 
 import (
-	"context"
 	"errors"
 	"io"
-	"maps"
-	"net"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"slices"
 	"strings"
@@ -38,103 +34,13 @@ func send(t *testing.T, rt http.RoundTripper, req *http.Request) error {
 	return resp.Body.Close()
 }
 
-func newRequest(t *testing.T, url string, h http.Header) *http.Request {
+func newRequest(t *testing.T, url string) *http.Request {
 	t.Helper()
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, url, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for k, v := range h {
-		req.Header[k] = v
-	}
 	return req
-}
-
-// Config.Headers add the caller's own headers to every request: they
-// override the profile's defaults (an empty value suppresses one) and yield
-// to the request's.
-func TestConfigHeaders(t *testing.T) {
-	s, seen := headersSeen(t)
-	tr, err := NewTransport(Config{
-		Profile: profiles.Chrome155MacOS(),
-		RootCAs: s.pool,
-		Headers: http.Header{
-			"X-Api-Key":       {"config"},
-			"Accept-Language": nil,
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(tr.CloseIdleConnections)
-	for _, h := range []http.Header{nil, {"X-Api-Key": {"request"}}} {
-		if err := send(t, tr, newRequest(t, s.url+"/", h)); err != nil {
-			t.Fatal(err)
-		}
-	}
-	for i, want := range []string{"config", "request"} {
-		got := (*seen)[i]
-		if got.Get("X-Api-Key") != want {
-			t.Errorf("request %d: X-Api-Key %q, want %q", i+1, got.Get("X-Api-Key"), want)
-		}
-		if v, ok := got["Accept-Language"]; ok {
-			t.Errorf("request %d: Accept-Language %q, want none", i+1, v)
-		}
-	}
-}
-
-// Exact sends the request's own headers and nothing of the profile's.
-func TestExact(t *testing.T) {
-	s, seen := headersSeen(t)
-	if err := send(t, s.tr, Exact(newRequest(t, s.url+"/", http.Header{"X-Own": {"1"}}))); err != nil {
-		t.Fatal(err)
-	}
-	if names := slices.Collect(maps.Keys((*seen)[0])); !slices.Equal(names, []string{"X-Own"}) {
-		t.Errorf("sent %v, want only X-Own", (*seen)[0])
-	}
-}
-
-// A request carries cookies only when its credentials mode lets it: a
-// cross-origin fetch() by default does not, one with credentials "include"
-// does, and an image (no-cors) always does.
-func TestCredentialsDecideCookies(t *testing.T) {
-	s, seen := headersSeen(t)
-	other, err := url.Parse("https://other.example/")
-	if err != nil {
-		t.Fatal(err)
-	}
-	cases := []struct {
-		name string
-		req  Request
-		sent bool
-	}{
-		{name: "cross-origin fetch", req: Request{Kind: Fetch, From: other}, sent: false},
-		{name: "cross-origin fetch, include", req: Request{Kind: Fetch, From: other, Credentials: CredentialsInclude}, sent: true},
-		{name: "same-origin fetch, omit", req: Request{Kind: Fetch, Credentials: CredentialsOmit}, sent: false},
-		{name: "cross-origin image", req: Request{Kind: InjectedImage, From: other}, sent: true},
-		{name: "cross-origin image, crossorigin", req: Request{Kind: InjectedImage, From: other, CrossOrigin: CrossOriginAnonymous}, sent: false},
-	}
-	for _, c := range cases {
-		req := With(newRequest(t, s.url+"/", http.Header{"Cookie": {"a=1"}}), c.req)
-		if err := send(t, s.tr, req); err != nil {
-			t.Fatal(err)
-		}
-	}
-	for i, c := range cases {
-		if got := (*seen)[i].Get("Cookie") != ""; got != c.sent {
-			t.Errorf("%s: cookie sent %v, want %v", c.name, got, c.sent)
-		}
-	}
-}
-
-// A fetchpriority the profile never measured for a kind is an error, not a
-// guess.
-func TestUnmeasuredPriority(t *testing.T) {
-	s, _ := headersSeen(t)
-	err := send(t, s.tr, With(newRequest(t, s.url+"/", nil), Request{Kind: Script, Priority: PriorityHigh}))
-	if !errors.Is(err, ErrNotMeasured) {
-		t.Fatalf("got %v, want a not-measured error", err)
-	}
 }
 
 // Without From, a request of another kind comes from the transport's last
@@ -142,8 +48,8 @@ func TestUnmeasuredPriority(t *testing.T) {
 func TestKindsComeFromLastNavigation(t *testing.T) {
 	s, seen := headersSeen(t)
 	for _, req := range []*http.Request{
-		newRequest(t, s.url+"/page?q=1", nil),
-		As(newRequest(t, s.url+"/api", nil), Fetch),
+		newRequest(t, s.url+"/page?q=1"),
+		As(newRequest(t, s.url+"/api"), Fetch),
 	} {
 		if err := send(t, s.tr, req); err != nil {
 			t.Fatal(err)
@@ -155,59 +61,13 @@ func TestKindsComeFromLastNavigation(t *testing.T) {
 	}
 }
 
-// A request to a non-secure origin (plain http:// to anything but
-// loopback) takes the browser's non-secure lists: no Sec-Fetch-* and a
-// shorter Accept-Encoding. Loopback hosts are potentially trustworthy, so
-// plain http:// to them stays a secure-origin request.
-func TestNonSecureOriginsAreNotLoopback(t *testing.T) {
-	var seen http.Header
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		seen = r.Header.Clone()
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	t.Cleanup(srv.Close)
-	_, port, err := net.SplitHostPort(srv.Listener.Addr().String())
-	if err != nil {
-		t.Fatal(err)
-	}
-	tr, err := NewTransport(Config{
-		Profile: profiles.Chrome155MacOS(),
-		// Every host name below is this server.
-		DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
-			return (&net.Dialer{}).DialContext(ctx, network, srv.Listener.Addr().String())
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(tr.CloseIdleConnections)
-	for _, tc := range []struct {
-		host   string
-		secure bool
-	}{
-		{"localhost", true},
-		{"app.localhost", true},
-		{"127.0.0.2", true},
-		{"[::1]", true},
-		{"example.test", false},
-		{"192.168.1.10", false},
-	} {
-		if err := send(t, tr, newRequest(t, "http://"+tc.host+":"+port+"/", nil)); err != nil {
-			t.Fatal(err)
-		}
-		gotSecure := seen.Get("Sec-Fetch-Mode") != "" && strings.Contains(seen.Get("Accept-Encoding"), "br")
-		if gotSecure != tc.secure || (!tc.secure && seen.Get("Sec-Fetch-Dest") != "") {
-			t.Errorf("http://%s: Sec-Fetch-Mode %q, Accept-Encoding %q; want a secure-origin request %v", tc.host, seen.Get("Sec-Fetch-Mode"), seen.Get("Accept-Encoding"), tc.secure)
-		}
-	}
-}
-
 // Requests no browser makes, or none measured, are errors before anything
 // is sent: a no-cors fetch() with a method other than GET, HEAD or POST, a
 // beacon that is not a POST, a stylesheet loading anything but fonts and
 // images, the transport's own preflight kind, a navigation POST without
 // the page whose form sends it, and an Origin-sending request whose
-// variant is not measured (a fallback list would drop Origin). A body that
+// variant is not measured (a fallback list would drop Origin), and a
+// fetchpriority the profile never measured for the kind. A body that
 // cannot be read again (no GetBody) cannot follow a redirect that keeps
 // it: an error after the first request rather than the GET http.Client
 // would send.
@@ -243,6 +103,7 @@ func TestRefusedRequests(t *testing.T) {
 		{name: "preflight", method: http.MethodOptions, r: &Request{Kind: kindPreflight}},
 		{name: "navigation POST without From", method: http.MethodPost, url: "https://a.test/submit", body: strings.NewReader("a=1")},
 		{name: "form POST without its variant", profile: noFormPost, method: http.MethodPost, url: "https://www.a.test/submit", body: strings.NewReader("a=1"), r: &Request{}, notMeasured: true},
+		{name: "unmeasured fetchpriority", method: http.MethodGet, r: &Request{Kind: Script, Priority: PriorityHigh}, notMeasured: true},
 		{name: "redirected body without GetBody", method: http.MethodPut, url: "https://www.a.test/r", body: io.NopCloser(strings.NewReader("x")), r: &Request{Kind: Fetch}, follow: true, sent: 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

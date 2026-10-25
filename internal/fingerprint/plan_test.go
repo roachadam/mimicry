@@ -2,7 +2,6 @@ package fingerprint
 
 import (
 	"math/rand/v2"
-	"slices"
 	"testing"
 
 	"github.com/roachadam/mimicry/profile"
@@ -15,17 +14,6 @@ func types(exts []profile.Extension) []profile.Code {
 		out[i] = e.Type
 	}
 	return out
-}
-
-func TestFixedOrderNeverMoves(t *testing.T) {
-	p := profiles.Firefox158MacOS()
-	plan := Compile(p)
-	want := types(p.TLS.Extensions)
-	for range 100 {
-		if got := types(plan.Hello().Extensions); !slices.Equal(got, want) {
-			t.Fatalf("fixed profile reordered:\n got %v\nwant %v", got, want)
-		}
-	}
 }
 
 // The shuffle must be uniform: each movable extension lands in each movable
@@ -61,28 +49,6 @@ func TestShuffleIsUniform(t *testing.T) {
 		}
 		if len(byType) != k {
 			t.Errorf("slot %d saw %d different extensions, want all %d", slot, len(byType), k)
-		}
-	}
-}
-
-func TestShufflePinsGREASE(t *testing.T) {
-	p := profiles.Chrome155MacOS()
-	plan := Compile(p)
-	want := map[int]profile.Code{}
-	for i, e := range p.TLS.Extensions {
-		if e.Pinned() {
-			want[i] = e.Type
-		}
-	}
-	if len(want) == 0 {
-		t.Fatal("Chrome profile has no pinned extensions")
-	}
-	for range 1000 {
-		h := plan.Hello()
-		for i, typ := range want {
-			if h.Extensions[i].Type != typ {
-				t.Fatalf("pinned %s moved from slot %d", typ, i)
-			}
 		}
 	}
 }

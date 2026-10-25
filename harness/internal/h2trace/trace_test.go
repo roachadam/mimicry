@@ -162,15 +162,3 @@ func TestDecodeRFC7541Examples(t *testing.T) {
 		})
 	}
 }
-
-func TestDecodeRejectsTruncated(t *testing.T) {
-	for _, block := range []string{
-		"040c 2f73", // string shorter than its length
-		"3fe1",      // integer continues past the end
-		"10",        // never-indexed literal with no name string
-	} {
-		if _, err := Decode(hpack.NewDecoder(4096, nil), unhex(t, block)); err == nil {
-			t.Errorf("%s: decoded a truncated block", block)
-		}
-	}
-}

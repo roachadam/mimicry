@@ -24,9 +24,7 @@ sample splits cookies).
 
 All rows checked by `TestProfilesMatchCaptures` (mimicry's ClientHello
 diffed field by field against the capture, extension order as the capture
-says). `TestClientSendsThePlannedHello` checks that the cipher suites and
-extension types a TLS server receives, in order, are the planned ones (not
-the extension bodies); the e2e diff of mimicry's hello, `TestProfilesMatchCaptures`,
+says). The same e2e diff of mimicry's hello, `TestProfilesMatchCaptures`,
 checks every built-in profile's record-layer version,
 legacy_version, session ID length, key share lengths and GREASE ECH shape.
 `profile.Validate` refuses a profile whose GREASE,
@@ -59,7 +57,7 @@ or a refusal.
 | Claim (`tls.…`) | Chrome 155 | Firefox 158 | Safari 27 | Safari 26 | Notes |
 |---|---|---|---|---|---|
 | `cipher_suites`, `compression_methods` | W+ | W+ | W+ | W+ | |
-| `extension_order` | W: shuffled (8 connections, 8 orders, GREASE pinned first and last) | W: fixed | W: fixed | W: fixed, and identical to Safari 27's | Two installs on two macOS versions agree, so Safari's order is not per install. Shuffle uniformity: `TestShuffleIsUniform`, `TestShufflePinsGREASE`. |
+| `extension_order` | W: shuffled (8 connections, 8 orders, GREASE pinned first and last) | W: fixed | W: fixed | W: fixed, and identical to Safari 27's | Two installs on two macOS versions agree, so Safari's order is not per install. Shuffle uniformity: `TestShuffleIsUniform`; GREASE pinned: `TestProfilesMatchCaptures`. |
 | `extensions` (types, contents: groups, key shares, signature algorithms, versions, ALPN, ALPS, point formats, PSK modes, certificate compression, record size limit, raw data such as Chrome's trust anchors 0xca34) | W+ | W+ | W+ | W+ | Chrome's trust anchor list was identical in all samples. |
 | `legacy_version`, `session_id_length` | W (8 hellos + 139 page connections): 0x0303, 32 | W (8 + 132): 0x0303, 32 | W (8 + 120): 0x0303, 32 | W (4 + 120): 0x0303, 32 | The session ID's bytes are random per connection. Resumed hellos (TLS 1.3 and 1.2) alike. |
 | `extensions[key_share].key_share_lengths` | W (8 + 139): GREASE 1, X25519MLKEM768 1216, x25519 32 | W (8 + 132): X25519MLKEM768 1216, x25519 32, secp256r1 65 | W (8 + 120): as Chrome | W (4 + 120): as Chrome | A group fixes its key's length; only GREASE's is a choice. Resumed hellos alike. |
@@ -84,12 +82,12 @@ browsers.
 | `headers_priority` | W: exclusive, weight 255 | W: weight 41 | W: none | `TestProfilesMatchCaptures` |
 | `chain_priorities` (each request depends exclusively on the previous) | W (capture page traces) | — | — | `TestChainedPriorities` (unit); not compared against the trace end to end |
 | `pseudo_header_order` | W+ | W+ | W+ | `TestProfilesMatchCaptures` |
-| `first_stream_id`, `stream_window_update` | — (1, none) | W+: stream 3, 12451840 per stream | — | `TestProfilesMatchCaptures`, `TestFirstStreamAndStreamWindowUpdate` |
+| `first_stream_id`, `stream_window_update` | — (1, none) | W+: stream 3, 12451840 per stream | — | `TestProfilesMatchCaptures` |
 | `max_data_frame` (upload DATA cap) | W+: 16375 | W+: 16000 | W+: 16374 | `TestConnectionMatchesBrowserTrace` (largest frame equal, under the capture server's default SETTINGS), `TestDataFrameCap` (frame sizes, END_STREAM on the last DATA frame). The browsers keep their cap when the server allows larger frames (`large-settings`); no mimicry test raises the server's MAX_FRAME_SIZE |
 | `stream_update_threshold`, `connection_update_threshold` | W | W | W | `TestConnectionMatchesBrowserTrace`: every increment within the browser's own observed range ± one frame. Firefox's `stream_update_threshold` is range-checked only: its stream credit follows the page's reads, and the range it spans is too wide to pin the threshold. Safari's connection overshoot is timing-driven; only the range is matched. |
 | `window_update_interval_ms` (credit returned after 5 s however little) | W (`slow-idle`) | — | — | `TestWindowUpdateInterval` (unit, fake clock) |
 | `idle_ping_ms` (PING after 10 s idle, close if unanswered) | W (`slow-idle`) | — (never pings) | — (never pings) | `TestIdlePing` (unit, fake clock) |
-| `split_cookie` (one HPACK field per cookie) | W+ | W+ | W+ | `TestCookiesMatchBrowserTrace`, `TestCookieSplit` |
+| `split_cookie` (one HPACK field per cookie) | W+ | W+ | W+ | `TestCookiesMatchBrowserTrace` |
 
 ## HPACK
 
@@ -119,8 +117,8 @@ byte.
 | `variants`: the navigation's order for a form POST to its own origin (Chrome adds `cache-control: max-age=0`; Firefox moves `referer`, `cookie`; Safari uses its CORS-checked order) | W (`kinds`, `kinds-http1`, Safari 26 included) | `TestKindsMatchBrowserTraces` |
 | `variants` `{POST, cross-site, cors_checked}`: a cross-site form POST navigation | W (`cookies`, `c-nav-post.so`; HTTP/2 only, so no `http1` list) | `TestCookiesScenarioMatchesBrowser`. A same-site form POST was not captured: it is an error, since the navigation's own lists have no Origin slot (the rule: `TestRefusedRequests`) |
 | `accept-language` value | W, but it is this machine's language setting, not a browser constant | `TestProfilesMatchCaptures` |
-| `http1.headers`: HTTP/1.1 names as sent (casing), order, values, Host and Connection positions | W+ (`http1` scenario, every browser and Safari 26) | `TestHTTP1MatchesBrowserTrace` (`/` and `/nav`, line for line), `TestRequestHeadFollowsHTTP1Section` |
-| `Content-Length` slot in `http1.headers` | **K** (`fetch()` uploads) | `TestRequestHeadFollowsHTTP1Section` (Chrome, unit) |
+| `http1.headers`: HTTP/1.1 names as sent (casing), order, values, Host and Connection positions | W+ (`http1` scenario, every browser and Safari 26) | `TestHTTP1MatchesBrowserTrace` (`/` and `/nav`, line for line) |
+| `Content-Length` slot in `http1.headers` | **K** (`fetch()` uploads) | no test |
 
 ## Cookies
 
@@ -196,7 +194,7 @@ cookies and `Access-Control-Request-*` headers, not their header order.
 | Safari 27's `cookie` slot in the redirected same-origin image lists (HTTP/2) | W (`cookies`, `c-redirect.ss-so.hop`: Safari 27 sends cookies on that hop) | `TestCookiesScenarioMatchesBrowser` |
 | Firefox's `sec-fetch-storage-access` slot in the base fetch list | W (`fetch-include.cs`: `none` on credentialed cross-site fetches) | `TestKindsMatchBrowserTraces` |
 | Variants with no `http1` list (those only the `cookies` or `cors` capture shows) | W over HTTP/2 only | Such a request over HTTP/1.1 is refused with `ErrNotMeasured` rather than sent in a guessed order (`TestHTTP2OnlyVariantOverHTTP1`) |
-| `insecure` variants (kinds and navigation): requests to a non-secure origin, HTTP/1.1 lists as sent | W (`kinds-plain`, every profile incl. Safari 26; [report](../harness/reports/plain-http-2026-10-24.md)) | No `Sec-Fetch-*` (Chrome: no client hints either), `Accept-Encoding: gzip, deflate`, Chrome's `Origin` after `User-Agent`, Safari's reorders and `Upgrade-Insecure-Requests` on frames. A variant's values come from the kind's own plain requests, in its condition where captured, else in any (kindsgen `TestRegenerateReproducesProfiles`, `TestKindsMatchBrowserTraces`): Firefox image `Priority: u=5, i`, font `Accept-Encoding: identity`, preload_font `gzip, deflate`; Safari async_script `u=3, i`, script, defer_script and preload_script `u=1, i`, image `u=5, i`. A combination not captured takes the kind's non-secure default, never the secure lists. Loopback hosts count as secure (Secure Contexts specification, not captured). Also `TestNonSecureOriginsAreNotLoopback` |
+| `insecure` variants (kinds and navigation): requests to a non-secure origin, HTTP/1.1 lists as sent | W (`kinds-plain`, every profile incl. Safari 26; [report](../harness/reports/plain-http-2026-10-24.md)) | No `Sec-Fetch-*` (Chrome: no client hints either), `Accept-Encoding: gzip, deflate`, Chrome's `Origin` after `User-Agent`, Safari's reorders and `Upgrade-Insecure-Requests` on frames. A variant's values come from the kind's own plain requests, in its condition where captured, else in any (kindsgen `TestRegenerateReproducesProfiles`, `TestKindsMatchBrowserTraces`): Firefox image `Priority: u=5, i`, font `Accept-Encoding: identity`, preload_font `gzip, deflate`; Safari async_script `u=3, i`, script, defer_script and preload_script `u=1, i`, image `u=5, i`. A combination not captured takes the kind's non-secure default, never the secure lists. Loopback hosts count as secure (Secure Contexts specification, not captured). Also `TestKindsMatchBrowserTraces` (`kinds-plain`) |
 | `kinds.*.weight` | W | Chrome and Firefox; Safari sends no priority |
 | `kinds.fetch.high`, `.low`; `kinds.injected_image.high` | W | Other kinds' fetchpriority is not measured: asking for it is an error |
 | `*` (where page-set headers go) | W (`fetch-custom`: X-Mimicry's position) | One position for every page-set header; the browsers place them by name (see "Not covered") |

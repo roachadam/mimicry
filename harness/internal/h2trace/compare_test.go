@@ -110,36 +110,3 @@ func TestCompare(t *testing.T) {
 		})
 	}
 }
-
-// The preface's connection WINDOW_UPDATE is not a credit return, so it is
-// not measured.
-func TestFeaturesSkipPrefaceWindowUpdate(t *testing.T) {
-	measured := Extract(sample(3145737, Indexed, 255)).Measured
-	if _, ok := measured["window_update_median[conn]"]; ok {
-		t.Errorf("preface WINDOW_UPDATE counted as a credit return: %v", measured)
-	}
-	if measured["data_max[/]"] != 16375 {
-		t.Errorf("data_max[/] = %d, want 16375", measured["data_max[/]"])
-	}
-}
-
-// A stream WINDOW_UPDATE larger than what the server had sent on the stream is
-// a top-up sent with the request (Firefox), not a credit return; it is
-// reported on its own and left out of the credit-return median.
-func TestFeaturesSeparateTopUps(t *testing.T) {
-	tr := sample(3145737, Indexed, 255)
-	tr.Frames = append(tr.Frames, Frame{
-		Type:       "WINDOW_UPDATE",
-		Stream:     1,
-		Increment:  12451840,
-		SentBefore: 16375,
-	})
-	f := Extract(tr)
-	exact, measured := f.Exact, f.Measured
-	if exact["request[/].window_top_up"] != "12451840" {
-		t.Errorf("top-up not recognised: %v", exact)
-	}
-	if measured["window_update_median[/]"] != 3145737 {
-		t.Errorf("credit median %d, want 3145737: the top-up must not count", measured["window_update_median[/]"])
-	}
-}

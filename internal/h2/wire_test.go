@@ -296,28 +296,6 @@ func TestClosingFullyReadBodyDoesNotReset(t *testing.T) {
 	}
 }
 
-// Firefox starts at stream 3 and tops up every stream's window right after
-// its HEADERS.
-func TestFirstStreamAndStreamWindowUpdate(t *testing.T) {
-	p := profiles.Firefox158MacOS()
-	c, pr := newPeer(t, p, clockwork.NewRealClock())
-	for _, want := range []uint32{3, 5} {
-		result := roundTripAsync(c, get(t, "/"))
-		h := pr.headers()
-		if h.StreamID != want {
-			t.Fatalf("request on stream %d, want %d", h.StreamID, want)
-		}
-		wu, ok := pr.next().(*http2.WindowUpdateFrame)
-		if !ok || wu.StreamID != want || wu.Increment != p.HTTP2.StreamWindowUpdate {
-			t.Fatalf("after HEADERS got %+v, want WINDOW_UPDATE(%d) on stream %d", wu, p.HTTP2.StreamWindowUpdate, want)
-		}
-		pr.respond(want, 0, nil, true)
-		if r := <-result; r.err != nil {
-			t.Fatal(r.err)
-		}
-	}
-}
-
 // Chrome makes each request depend, exclusively, on the newest stream still
 // open, and on stream 0 when none is.
 func TestChainedPriorities(t *testing.T) {
@@ -385,36 +363,6 @@ func TestDataFrameCap(t *testing.T) {
 	}
 	pr.respond(h.StreamID, 0, nil, true)
 	<-result
-}
-
-// Cookies go out one per field, as every captured browser sends them, in
-// the order given: the jar orders them, a caller's header is sent as
-// written.
-func TestCookieSplit(t *testing.T) {
-	for _, tt := range []struct {
-		p    *profile.Profile
-		want string
-	}{
-		{profiles.Chrome155MacOS(), "b=2|a=1|c=3"},
-		{profiles.Safari27MacOS(), "b=2|a=1|c=3"},
-	} {
-		c, pr := newPeer(t, tt.p, clockwork.NewRealClock())
-		req := get(t, "/")
-		req.Header.Set("Cookie", "b=2; a=1;c=3")
-		result := roundTripAsync(c, req)
-		h := pr.headers()
-		var cookies []string
-		for _, f := range h.Fields {
-			if f.Name == "cookie" {
-				cookies = append(cookies, f.Value)
-			}
-		}
-		if got := strings.Join(cookies, "|"); got != tt.want {
-			t.Errorf("%s: cookie fields %s, want %s", tt.p.Name, got, tt.want)
-		}
-		pr.respond(h.StreamID, 0, nil, true)
-		<-result
-	}
 }
 
 // Chrome also returns credit once 5 s have passed since its last

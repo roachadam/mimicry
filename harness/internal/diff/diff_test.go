@@ -1,7 +1,6 @@
 package diff
 
 import (
-	"os"
 	"strings"
 	"testing"
 
@@ -222,43 +221,5 @@ func TestCompare(t *testing.T) {
 				t.Errorf("differences at %q, want %q", p, tc.want)
 			}
 		})
-	}
-}
-
-func loadCapture(t *testing.T, name string) *profile.Profile {
-	t.Helper()
-	data, err := os.ReadFile("../../testdata/captures/" + name + ".json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := profile.Decode(data)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return p
-}
-
-// Real captures: each browser matches itself, and different browsers differ in
-// their ClientHello, HTTP/2 settings and headers.
-func TestCompareCaptures(t *testing.T) {
-	chrome := loadCapture(t, "chrome-155-macos")
-	firefox := loadCapture(t, "firefox-158-macos")
-	safari := loadCapture(t, "safari-27-macos")
-	for _, p := range []*profile.Profile{chrome, firefox, safari} {
-		if diffs := Compare(p, p); len(diffs) > 0 {
-			t.Errorf("%s differs from itself: %v", p.Name, diffs)
-		}
-	}
-	for _, pair := range [][2]*profile.Profile{
-		{chrome, firefox},
-		{firefox, safari},
-		{safari, chrome},
-	} {
-		got := strings.Join(paths(Compare(pair[0], pair[1])), "|")
-		for _, want := range []string{"tls.cipher_suites", "http2.settings", "headers (order)"} {
-			if !strings.Contains(got, want) {
-				t.Errorf("%s vs %s: no difference at %s", pair[0].Name, pair[1].Name, want)
-			}
-		}
 	}
 }

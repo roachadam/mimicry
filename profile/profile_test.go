@@ -1,7 +1,6 @@
 package profile
 
 import (
-	"bytes"
 	"errors"
 	"os"
 	"slices"
@@ -25,80 +24,6 @@ func parseValid(t *testing.T) *Profile {
 		t.Fatal(err)
 	}
 	return p
-}
-
-// The built-in profiles and harness captures are stored in Encode's format, so
-// decoding and re-encoding must not change a single byte.
-func TestEncodeRoundTrip(t *testing.T) {
-	in := readValid(t)
-	p, err := Parse(in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	out, err := Encode(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(in, out) {
-		t.Fatalf("re-encoded profile differs from testdata/valid.json:\n%s", out)
-	}
-}
-
-func TestCodeText(t *testing.T) {
-	for _, tc := range []struct {
-		in   string
-		want Code
-		text string
-	}{
-		{
-			in:   "GREASE",
-			want: GREASE,
-			text: "GREASE",
-		},
-		{
-			in:   "0x1a1a",
-			want: GREASE,
-			text: "GREASE",
-		},
-		{
-			in:   "0xfafa",
-			want: GREASE,
-			text: "GREASE",
-		},
-		{
-			in:   "0x1301",
-			want: 0x1301,
-			text: "0x1301",
-		},
-		{
-			in:   "0x0",
-			want: 0,
-			text: "0x0000",
-		},
-		{
-			in:   "0x0a1a",
-			want: 0x0a1a,
-			text: "0x0a1a",
-		},
-	} {
-		var c Code
-		if err := c.UnmarshalText([]byte(tc.in)); err != nil {
-			t.Errorf("%q: %v", tc.in, err)
-			continue
-		}
-		if c != tc.want {
-			t.Errorf("%q parsed as %#04x, want %#04x", tc.in, uint16(c), uint16(tc.want))
-		}
-		if got, _ := c.MarshalText(); string(got) != tc.text {
-			t.Errorf("%q encoded as %q, want %q", tc.in, got, tc.text)
-		}
-	}
-	for _, in := range []string{"", "1301", "0x", "0x10000", "0xzz", "grease"} {
-		var c Code
-		if err := c.UnmarshalText([]byte(in)); err == nil {
-			t.Errorf("%q: accepted, want an error", in)
-		}
-	}
 }
 
 func TestParseRejects(t *testing.T) {

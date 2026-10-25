@@ -41,7 +41,7 @@ the mismatch at once.
 captures `<profile>.kinds-plain.pagetrace.json.gz` for all four profiles.
 `TestKindsMatchBrowserTraces` (`kinds-plain`: every request and the page's
 navigation, line for line), `TestProxyMatchesBrowser` (forwarded plain
-requests line for line), `TestNonSecureOriginsAreNotLoopback`.
+requests line for line).
 
 ## Consequences
 

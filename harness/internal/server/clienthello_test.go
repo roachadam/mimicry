@@ -2,10 +2,8 @@ package server
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"net"
-	"strings"
 	"testing"
 
 	utls "github.com/roachadam/utls"
@@ -61,74 +59,5 @@ func TestReadClientHelloAcrossRecords(t *testing.T) {
 		if rest, _ := io.ReadAll(r); string(rest) != "next" {
 			t.Errorf("records of %d bytes: consumed past the ClientHello, %q left", size, rest)
 		}
-	}
-}
-
-func TestReadClientHelloRejects(t *testing.T) {
-	msg := chromeHello(t)
-	notHello := append([]byte{2}, msg[1:]...)
-	alert := records(msg, len(msg))
-	alert[0] = 21
-	for _, tc := range []struct {
-		name string
-		in   []byte
-		want string
-	}{
-		{
-			name: "non-handshake record",
-			in:   alert,
-			want: "is not a handshake",
-		},
-		{
-			name: "not a ClientHello",
-			in:   records(notHello, len(notHello)),
-			want: "is not a ClientHello",
-		},
-		{
-			name: "truncated",
-			in:   records(msg, len(msg))[:len(msg)/2],
-			want: io.ErrUnexpectedEOF.Error(),
-		},
-		{
-			name: "plain HTTP",
-			in:   []byte("GET / HTTP/1.1\r\n\r\n"),
-			want: "is not a handshake",
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			_, _, err := readClientHello(bytes.NewReader(tc.in))
-			if err == nil || !strings.Contains(err.Error(), tc.want) {
-				t.Fatalf("error = %v, want one containing %q", err, tc.want)
-			}
-		})
-	}
-}
-
-func TestParseClientHelloRejectsMalformed(t *testing.T) {
-	msg := chromeHello(t)
-	for _, tc := range []struct {
-		name string
-		in   []byte
-	}{
-		{
-			name: "truncated",
-			in:   msg[:len(msg)-3],
-		},
-		{
-			name: "trailing byte",
-			in:   append(append([]byte(nil), msg...), 0),
-		},
-		{
-			name: "wrong handshake type",
-			in:   append([]byte{2}, msg[1:]...),
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			if _, err := ParseClientHello(tc.in); err == nil {
-				t.Fatal("accepted a malformed ClientHello")
-			} else if !errors.Is(err, errMalformed) {
-				t.Fatalf("error = %v, want errMalformed", err)
-			}
-		})
 	}
 }

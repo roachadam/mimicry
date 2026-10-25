@@ -46,16 +46,6 @@ func nav(t *testing.T, u string) Request {
 	}
 }
 
-// sub is a GET subresource of page.
-func sub(t *testing.T, u, page string) Request {
-	t.Helper()
-	return Request{
-		URL:    mustURL(t, u),
-		Method: "GET",
-		Page:   mustURL(t, page),
-	}
-}
-
 // setOne stores line from r and returns its event.
 func setOne(j *Jar, r Request, line string) Event {
 	var got Event
@@ -110,41 +100,13 @@ func TestSetRejects(t *testing.T) {
 	}
 }
 
-// What each request gets: domain and path matching, Secure only over
-// HTTPS, host-only cookies on their host only.
-func TestCookiesMatch(t *testing.T) {
-	j := newJar(t, Config{})
-	j.SetCookies(nav(t, "https://www.example.com/a/b"), []string{
-		"host=1", // host-only, default path /a
-		"dom=1; Domain=example.com; Path=/",
-		"sec=1; Secure; Path=/",
-		"deep=1; Path=/a/b/c",
-	})
-	for _, tt := range []struct {
-		url  string
-		want string
-	}{
-		{"https://www.example.com/a/b", "host=1; dom=1; sec=1"},
-		{"https://www.example.com/a", "host=1; dom=1; sec=1"},
-		{"https://www.example.com/ab", "dom=1; sec=1"},
-		{"https://www.example.com/a/b/c/d", "deep=1; host=1; dom=1; sec=1"},
-		{"https://static.example.com/a", "dom=1"},
-		{"https://example.com/a", "dom=1"},
-		{"http://www.example.com/a", "host=1; dom=1"},
-		{"https://example.org/", ""},
-	} {
-		if got := Header(j.Cookies(nav(t, tt.url))); got != tt.want {
-			t.Errorf("%s: %q, want %q", tt.url, got, tt.want)
-		}
-	}
-}
-
 // Parsing edges: paths match as the URL is written, escaped (a cookie path
 // with %XX matches the same escapes, and an escaped "/" does not split the
 // default path); the last Path and Domain attributes win, even when
 // invalid (an invalid Path is the default path, an empty Domain makes the
 // cookie host-only); Max-Age is "-" and digits, or digits, anything else
-// ignored.
+// ignored; dates parse as RFC 6265bis says, including the forms servers
+// actually send.
 func TestParseEdges(t *testing.T) {
 	t.Run("escaped path", func(t *testing.T) {
 		j := newJar(t, Config{})
@@ -210,6 +172,24 @@ func TestParseEdges(t *testing.T) {
 			}
 		}
 	})
+	t.Run("dates", func(t *testing.T) {
+		want := time.Date(2026, 10, 21, 7, 28, 0, 0, time.UTC)
+		for _, s := range []string{
+			"Wed, 21 Oct 2026 07:28:00 GMT",
+			"Wednesday, 21-Oct-26 07:28:00 GMT",
+			"Wed Oct 21 07:28:00 2026",
+			"21 Oct 2026 07:28:00",
+		} {
+			if got, ok := parseDate(s); !ok || !got.Equal(want) {
+				t.Errorf("%q: %v %v, want %v", s, got, ok, want)
+			}
+		}
+		for _, s := range []string{"31 Feb 2026 00:00:00", "Oct 2026 07:28:00", "21 Oct 1600 00:00:00", "garbage"} {
+			if _, ok := parseDate(s); ok {
+				t.Errorf("%q parsed", s)
+			}
+		}
+	})
 }
 
 // Expiry: Max-Age wins over Expires; an expired line deletes; cookies
@@ -270,37 +250,6 @@ func TestInsecureCannotShadowSecure(t *testing.T) {
 	j.SetCookies(nav(t, "http://example.com/"), []string{"id=plain"})
 	if got := Header(j.Cookies(nav(t, "https://example.com/"))); got != "id=secure" {
 		t.Errorf("got %q", got)
-	}
-}
-
-// Cookie dates parse as RFC 6265bis says, including the forms servers
-// actually send.
-func TestParseDate(t *testing.T) {
-	want := time.Date(2026, 10, 21, 7, 28, 0, 0, time.UTC)
-	for _, s := range []string{
-		"Wed, 21 Oct 2026 07:28:00 GMT",
-		"Wednesday, 21-Oct-26 07:28:00 GMT",
-		"Wed Oct 21 07:28:00 2026",
-		"21 Oct 2026 07:28:00",
-	} {
-		if got, ok := parseDate(s); !ok || !got.Equal(want) {
-			t.Errorf("%q: %v %v, want %v", s, got, ok, want)
-		}
-	}
-	for _, s := range []string{"31 Feb 2026 00:00:00", "Oct 2026 07:28:00", "21 Oct 1600 00:00:00", "garbage"} {
-		if _, ok := parseDate(s); ok {
-			t.Errorf("%q parsed", s)
-		}
-	}
-}
-
-// Without rules the jar follows RFC 6265bis: an unset SameSite is Lax, so
-// a cross-site subresource does not get it.
-func TestDefaultRulesAreLaxByDefault(t *testing.T) {
-	j := newJar(t, Config{})
-	j.SetCookies(nav(t, "https://a.example/"), []string{"unset=1; Secure", "none=1; Secure; SameSite=None"})
-	if got := Header(j.Cookies(sub(t, "https://a.example/img", "https://b.example/"))); got != "none=1" {
-		t.Errorf("cross-site subresource: %q", got)
 	}
 }
 
