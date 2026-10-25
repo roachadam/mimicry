@@ -46,8 +46,49 @@ type Target struct {
 	// protocol, Firefox over WebDriver BiDi, as a user typing them into the
 	// login dialog.
 	ProxyAuth *url.Userinfo
+	// H3LocalRoots lets Chrome and Firefox use QUIC with a certificate
+	// that does not chain to a root built into the browser, as the capture
+	// CA's: both otherwise abandon the QUIC handshake and stay on TCP. It
+	// is a capture condition (see Conditions).
+	H3LocalRoots bool
 	// debugPort is Firefox's remote debugging port when ProxyAuth is set.
 	debugPort int
+}
+
+// h3UnusedPort is the port of the origins Chrome is told to force QUIC on
+// (H3LocalRoots): none the page visits, so nothing is forced, but their
+// hosts are allowed a root that is not built in.
+const h3UnusedPort = 1
+
+// Conditions describes what b is set to differently from its defaults for
+// t, beyond resolving the capture hosts and accepting the capture
+// certificate, each with why; a capture records them.
+func (b *Browser) Conditions(t Target) []string {
+	if !t.H3LocalRoots {
+		return nil
+	}
+	switch b.Name {
+	case "chrome":
+		return []string{
+			"--origin-to-force-quic-on=" + chromeQUICOrigins(t) + ": Chrome refuses a QUIC certificate not issued by a known root (ERR_QUIC_CERT_ROOT_NOT_KNOWN, net/quic/crypto/proof_verifier_chromium.cc) unless its host is among these origins' hosts; it forces QUIC only on these origins, whose port the page never uses, so HTTP/3 is still discovered through Alt-Svc",
+		}
+	case "firefox":
+		return []string{
+			`network.http.http3.disable_when_third_party_roots_found=false: Firefox abandons an HTTP/3 connection whose certificate chain ends at a root that is not built in (Http3Session::Authenticated), as the capture CA's, trusted through security.enterprise_roots.enabled`,
+		}
+	}
+	return nil
+}
+
+// chromeQUICOrigins are the origins of --origin-to-force-quic-on for t:
+// every capture host on h3UnusedPort.
+func chromeQUICOrigins(t Target) string {
+	hosts := append([]string{t.Host}, t.Hosts...)
+	origins := make([]string, len(hosts))
+	for i, h := range hosts {
+		origins[i] = h + ":" + strconv.Itoa(h3UnusedPort)
+	}
+	return strings.Join(origins, ",")
 }
 
 func (t Target) url(host string) string {
@@ -348,6 +389,9 @@ func chromeArgs(dir string, t Target, headless bool) ([]string, error) {
 	if t.ProxyAuth != nil {
 		args = append(args, "--remote-debugging-port=0", "--remote-allow-origins="+debugOrigin)
 	}
+	if t.H3LocalRoots {
+		args = append(args, "--origin-to-force-quic-on="+chromeQUICOrigins(t))
+	}
 	if headless {
 		args = append(args, "--headless=new")
 	}
@@ -370,6 +414,9 @@ func firefoxProfile(dir string, t Target, headless bool) ([]string, error) {
 	}
 	if t.HostCerts {
 		prefs = append(prefs, `user_pref("security.enterprise_roots.enabled", true);`)
+	}
+	if t.H3LocalRoots {
+		prefs = append(prefs, `user_pref("network.http.http3.disable_when_third_party_roots_found", false);`)
 	}
 	if t.Proxy != nil {
 		host, port := t.Proxy.Hostname(), t.Proxy.Port()

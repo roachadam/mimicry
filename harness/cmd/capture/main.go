@@ -45,13 +45,14 @@ func main() {
 }
 
 type options struct {
-	headless  bool
-	samples   int
-	timeout   time.Duration
-	out       string
-	ca        *server.CA
-	cert      tls.Certificate
-	scenarios []*server.Scenario
+	headless     bool
+	samples      int
+	timeout      time.Duration
+	out          string
+	ca           *server.CA
+	cert         tls.Certificate
+	scenarios    []*server.Scenario
+	h3LocalRoots bool
 }
 
 func run() error {
@@ -64,6 +65,9 @@ func run() error {
 	scenarioNames := flag.String("scenarios", "", "comma-separated scenarios to capture (default: all but replays; see internal/server/scenario.go); "+
 		"replay-<site> replays -pages/<site>.json, replay all of them")
 	pages := flag.String("pages", "testdata/pages", "directory of recorded page shapes (cmd/pageshape) for replay scenarios")
+	h3LocalRoots := flag.Bool("h3-local-roots", false, "in scenarios serving HTTP/3, let Chrome and Firefox use QUIC with the capture CA's certificates, which they refuse by default "+
+		"(Chrome: --origin-to-force-quic-on with an unused port, Firefox: network.http.http3.disable_when_third_party_roots_found=false); "+
+		"the captures record the setting as a condition and are named <scenario>."+localRootsSuffix)
 	flag.Parse()
 	if *samples < 2 {
 		return errors.New("-samples must be at least 2")
@@ -112,13 +116,14 @@ func run() error {
 		return err
 	}
 	opts := options{
-		headless:  *headless,
-		samples:   *samples,
-		timeout:   *timeout,
-		out:       *out,
-		ca:        ca,
-		cert:      cert,
-		scenarios: scenarios,
+		headless:     *headless,
+		samples:      *samples,
+		timeout:      *timeout,
+		out:          *out,
+		ca:           ca,
+		cert:         cert,
+		scenarios:    scenarios,
+		h3LocalRoots: *h3LocalRoots,
 	}
 	// Safari resolves through the system: the stub answers its *.test
 	// lookups (Chrome and Firefox map the names themselves).
@@ -172,6 +177,12 @@ func run() error {
 				"It can only vouch for names under %s.", b.Name, b.Name, ca.CertPath, strings.Join(server.CADomains, " and "))
 			failed++
 			continue
+		}
+		if b.Name == "chrome" && slices.ContainsFunc(scenarios, (*server.Scenario).HTTP3) && !server.TrustedBySystem(cert, server.CaptureHost) {
+			// http_network_transaction.cc processes Alt-Svc only when the
+			// certificate verified without errors.
+			log.Printf("%s: the capture CA is not trusted, so %s will ignore every Alt-Svc and never try HTTP/3 (--ignore-certificate-errors loads the page, but its certificate status keeps the error). Trust it as for Safari:\n"+
+				"  security add-trusted-cert -r trustRoot -p ssl -k ~/Library/Keychains/login.keychain-db %q", b.Name, b.Name, ca.CertPath)
 		}
 		refused := 0
 		if mode == safariProxyManual {
@@ -270,7 +281,7 @@ func captureScenario(ctx context.Context, b *browser.Browser, sc *server.Scenari
 // sample runs a fresh capture server answering as sc, sends the browser to
 // it, and returns the first complete capture from that browser.
 func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts options) (*capture.Capture, error) {
-	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", "127.0.0.1:0")
+	ln, pc, err := listen(ctx, sc.HTTP3())
 	if err != nil {
 		return nil, err
 	}
@@ -299,6 +310,7 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 		Logf: func(format string, args ...any) {
 			log.Printf("%s: server: "+format, append([]any{b.Name}, args...)...)
 		},
+		PacketConn: pc,
 	}
 	// Behind a proxy the browser never dials this port, but the URL names
 	// it, so CONNECT and SOCKS5 requests carry a real-looking one.
@@ -378,6 +390,9 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 	if sc.ProxyAuth {
 		t.ProxyAuth = url.UserPassword(server.ProxyUser, server.ProxyPassword)
 	}
+	if sc.HTTP3() {
+		t.H3LocalRoots = opts.h3LocalRoots
+	}
 	timeout := opts.timeout
 	hosts, length, multi := sc.MultiHost()
 	if multi {
@@ -397,6 +412,10 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 		log.Printf("%s: when asked for proxy credentials, type user %q, password %q", b.Name, server.ProxyUser, server.ProxyPassword)
 		timeout += 2 * time.Minute
 	}
+	conditions := b.Conditions(t)
+	for _, c := range conditions {
+		log.Printf("%s: condition: %s", b.Name, c)
+	}
 	log.Printf("%s: opening %s", b.Name, b.URL(t))
 	session, err := b.Open(ctx, t, opts.headless)
 	if err != nil {
@@ -409,7 +428,39 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 	if c != nil && px != nil {
 		c.Proxy = px.Requests()
 	}
+	if c != nil && len(conditions) > 0 {
+		// A capture under other conditions is another capture.
+		c.Scenario += "." + localRootsSuffix
+		if c.Page != nil {
+			c.Page.Conditions = conditions
+		}
+	}
 	return c, err
+}
+
+// localRootsSuffix names the captures taken with -h3-local-roots.
+const localRootsSuffix = "local-roots"
+
+// listen opens the capture server's TCP listener on a free port and, for
+// a scenario serving HTTP/3, a UDP socket on the same port number, since
+// Alt-Svc's h3=":port" names it.
+func listen(ctx context.Context, udp bool) (net.Listener, net.PacketConn, error) {
+	for range 20 {
+		ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", "127.0.0.1:0")
+		if err != nil {
+			return nil, nil, err
+		}
+		if !udp {
+			return ln, nil, nil
+		}
+		pc, err := (&net.ListenConfig{}).ListenPacket(ctx, "udp", ln.Addr().String())
+		if err == nil {
+			return ln, pc, nil
+		}
+		// The port is taken for UDP; try another.
+		_ = ln.Close()
+	}
+	return nil, nil, errors.New("no port free for both TCP and UDP")
 }
 
 // await returns the first complete capture from the named browser. Captures

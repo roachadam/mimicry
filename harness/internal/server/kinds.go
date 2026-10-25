@@ -432,9 +432,9 @@ func (p kindsPage) document(port string) []byte {
 		"<script>"+script+"</script>\n")
 }
 
-const kindsScript = `(async () => {
-const steps = __STEPS__;
-function run(s) {
+// kindsRun makes one step's request (s is a KindsStep as JSON, its URL
+// filled in) and resolves once it completed, or after 5 s.
+const kindsRun = `function run(s) {
   return new Promise(done => {
     const fin = () => done();
     setTimeout(fin, 5000);
@@ -472,7 +472,11 @@ function run(s) {
     if (s.priority) init.priority = s.priority;
     fetch(s.url, init).then(r => r.arrayBuffer()).then(fin, fin);
   });
-}
+}`
+
+const kindsScript = `(async () => {
+const steps = __STEPS__;
+` + kindsRun + `
 for (const s of steps) await run(s);
 const f = document.createElement('form'); f.method = 'POST'; f.action = __FORM__;
 const i = document.createElement('input'); i.name = 'a'; i.value = '1'; f.appendChild(i);

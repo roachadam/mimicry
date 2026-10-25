@@ -46,6 +46,7 @@ Related, elsewhere in the repository:
 | [0023](decisions/0023-connection-limits-and-coalescing.md) | Per-host HTTP/1.1 limit and HTTP/2 coalescing, per browser | Accepted |
 | [0024](decisions/0024-clienthello-shape-in-profiles.md) | The ClientHello's whole shape is profile data | Accepted |
 | [0025](decisions/0025-websockets.md) | WebSockets as each browser opens and frames them | Accepted |
+| [0026](decisions/0026-http3-capture.md) | HTTP/3 is captured from the client's own packets | Accepted |
 
 New records copy [`decisions/template.md`](decisions/template.md).
 

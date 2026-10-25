@@ -31,11 +31,16 @@ type pageLog struct {
 	start      time.Time
 	websockets []*capture.WebSocket
 	results    []capture.WSResult
+	// quic is what the server's UDP socket received (the h3 scenarios):
+	// every client address's datagrams, the HTTP/3 connections served,
+	// and the key log that opens their packets.
+	quic quicLog
 }
 
 // connection records a connection whose handshake completed: its
-// ClientHello, and whether it offered and got a resumed session.
-func (l *pageLog) connection(c *capture.Capture, host string, accepted bool) {
+// ClientHello, which arrived at helloAt, and whether it offered and got a
+// resumed session.
+func (l *pageLog) connection(c *capture.Capture, host string, accepted bool, helloAt time.Time) {
 	o := resumptionOffer(c.ClientHello)
 	hello := c.Profile.TLS
 	l.mu.Lock()
@@ -43,6 +48,7 @@ func (l *pageLog) connection(c *capture.Capture, host string, accepted bool) {
 	l.connections = append(l.connections, capture.Connection{
 		Host:          host,
 		Protocol:      c.Protocol,
+		Millis:        helloAt.Sub(l.start).Milliseconds(),
 		Resumed:       o.pskIdentities > 0 || o.ticket != "",
 		Accepted:      accepted,
 		PSKIdentities: o.pskIdentities,
@@ -138,15 +144,17 @@ func (l *pageLog) result(r capture.WSResult) {
 }
 
 // page stops tracing every HTTP/2 connection and returns the whole page
-// load: each connection's trace, every HTTP/1.1 request, and the
-// WebSockets as recorded so far.
+// load: each connection's trace, every HTTP/1.1 request, the WebSockets
+// and the QUIC connections as recorded so far.
 func (l *pageLog) page() *capture.Page {
+	quic := l.quicConns()
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	p := &capture.Page{
 		H1:          append([]capture.H1Request(nil), l.requests...),
 		Connections: append([]capture.Connection(nil), l.connections...),
 		WSResults:   append([]capture.WSResult(nil), l.results...),
+		QUIC:        quic,
 	}
 	for _, s := range l.h2 {
 		p.H2 = append(p.H2, s.stopTracing())

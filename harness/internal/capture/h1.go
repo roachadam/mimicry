@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/roachadam/mimicry/harness/internal/h2trace"
+	"github.com/roachadam/mimicry/harness/internal/quictrace"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -28,14 +29,22 @@ type H1Request struct {
 
 // Page is a whole page load across every connection and host it used:
 // each HTTP/2 connection's trace, every HTTP/1.1 request, every
-// connection's handshake, and the WebSockets the page opened with what its
-// script saw of each (the websocket scenarios).
+// connection's handshake, the WebSockets the page opened with what its
+// script saw of each (the websocket scenarios), and every QUIC connection
+// with its HTTP/3 (the h3 scenarios).
 type Page struct {
 	H2          []*h2trace.Trace `json:"h2"`
 	H1          []H1Request      `json:"h1,omitempty"`
 	Connections []Connection     `json:"connections,omitempty"`
 	WebSockets  []WebSocket      `json:"websockets,omitempty"`
 	WSResults   []WSResult       `json:"ws_results,omitempty"`
+	// QUIC are the QUIC connections, in the order their first datagrams
+	// arrived; their handshakes are not in Connections, which are TCP's.
+	QUIC []*quictrace.Conn `json:"quic,omitempty"`
+	// Conditions are browser settings the capture tool changed for this
+	// capture beyond its defaults, each saying why (see cmd/capture's
+	// -h3-local-roots).
+	Conditions []string `json:"conditions,omitempty"`
 }
 
 // Connection is one connection of a page, in the order their handshakes
@@ -43,6 +52,11 @@ type Page struct {
 type Connection struct {
 	Host     string `json:"host"`
 	Protocol string `json:"protocol"`
+	// Millis is when its ClientHello arrived, since the server started
+	// serving the page (the clock of Page.QUIC), so a TCP connection and
+	// a QUIC one raced for the same host show as such. Zero in captures
+	// made before it was kept.
+	Millis int64 `json:"ms,omitempty"`
 	// Resumed reports a ClientHello offering an earlier session (TLS 1.3
 	// pre_shared_key, or a TLS 1.2 session ticket) instead of a full
 	// handshake.
