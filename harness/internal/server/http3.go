@@ -673,6 +673,15 @@ func (sc *Scenario) HTTP3() bool {
 	return sc.h3 != nil
 }
 
+// H3Settings are the SETTINGS the scenario's HTTP/3 server sends, in
+// order (id, value); none without HTTP/3.
+func (sc *Scenario) H3Settings() [][2]uint64 {
+	if sc.h3 == nil {
+		return nil
+	}
+	return slices.Clone(sc.h3.settings)
+}
+
 // altSvc advertises HTTP/3 on port, for a day.
 func altSvc(port string) hpack.HeaderField {
 	return hpack.HeaderField{

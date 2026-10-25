@@ -175,6 +175,84 @@
       "drop": [
         "0x44cd"
       ]
+    },
+    "quic": {
+      "cipher_suites": [
+        "0x1301",
+        "0x1302",
+        "0x1303"
+      ],
+      "session_id_length": 0,
+      "extension_order": "shuffled",
+      "drop": [
+        "GREASE",
+        "0x000b",
+        "0x0012",
+        "0x0017",
+        "0xff01",
+        "0x0023",
+        "0x0005"
+      ],
+      "replace": [
+        {
+          "type": "0x44cd",
+          "alps": [
+            "h3"
+          ]
+        },
+        {
+          "type": "0x0010",
+          "alpn": [
+            "h3"
+          ]
+        },
+        {
+          "type": "0x0033",
+          "key_shares": [
+            "0x11ec",
+            "0x001d"
+          ],
+          "key_share_lengths": [
+            1216,
+            32
+          ]
+        },
+        {
+          "type": "0x000a",
+          "groups": [
+            "0x11ec",
+            "0x001d",
+            "0x0017",
+            "0x0018"
+          ]
+        },
+        {
+          "type": "0x000d",
+          "signature_algorithms": [
+            "0x0403",
+            "0x0804",
+            "0x0401",
+            "0x0503",
+            "0x0805",
+            "0x0501",
+            "0x0806",
+            "0x0601",
+            "0x0201"
+          ]
+        },
+        {
+          "type": "0x002b",
+          "versions": [
+            "0x0304"
+          ]
+        }
+      ],
+      "resumed_ech_payload_lengths": [
+        144,
+        176,
+        208,
+        240
+      ]
     }
   },
   "http2": {
@@ -6285,6 +6363,10 @@
       "high": {
         "priority": "u=1, i",
         "weight": 219
+      },
+      "low": {
+        "priority": "i",
+        "weight": 146
       }
     },
     "injected_script": {
@@ -8512,6 +8594,70 @@
               "value": "en-US,en;q=0.9"
             }
           ]
+        },
+        {
+          "method": "POST",
+          "cors_checked": true,
+          "headers": [
+            {
+              "name": "content-length"
+            },
+            {
+              "name": "sec-ch-ua-platform",
+              "value": "\"macOS\""
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+            },
+            {
+              "name": "sec-ch-ua",
+              "value": "\"Google Chrome\";v=\"155\", \"Chromium\";v=\"155\", \"Not(A:Brand\";v=\"24\""
+            },
+            {
+              "name": "content-type"
+            },
+            {
+              "name": "sec-ch-ua-mobile",
+              "value": "?0"
+            },
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "cors"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "empty"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br, zstd"
+            },
+            {
+              "name": "accept-language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "cookie"
+            },
+            {
+              "name": "priority",
+              "value": "u=1, i"
+            }
+          ]
         }
       ],
       "weight": 219
@@ -8617,5 +8763,150 @@
     "close_h1": "after_wait",
     "close_wait_ms": 2000,
     "close_h2": "end_stream"
+  },
+  "quic": {
+    "version": 1,
+    "datagram_size": 1250,
+    "padding": "scattered",
+    "crypto": {
+      "split": "shuffle",
+      "head": {
+        "min": 55,
+        "max": 86
+      },
+      "added_frames": {
+        "min": 2,
+        "max": 10
+      },
+      "pings": {
+        "min": 2,
+        "max": 10
+      }
+    },
+    "packet_numbers": "shared",
+    "dcid_length": 8,
+    "scid_length": 0,
+    "transport_parameters": [
+      {
+        "id": "0x06",
+        "value": 6291456
+      },
+      {
+        "id": "0x07",
+        "value": 6291456
+      },
+      {
+        "id": "0x3128",
+        "data": "4f524947"
+      },
+      {
+        "id": "0x03",
+        "value": 1472
+      },
+      {
+        "id": "0x08",
+        "value": 100
+      },
+      {
+        "id": "0x01",
+        "value": 30000
+      },
+      {
+        "id": "0x20",
+        "value": 65536
+      },
+      {
+        "id": "0x04",
+        "value": 15728640
+      },
+      {
+        "id": "0x05",
+        "value": 6291456
+      },
+      {
+        "id": "0x11",
+        "versions": [
+          "0x00000001",
+          "0x00000001",
+          "GREASE"
+        ],
+        "shuffle_versions": true
+      },
+      {
+        "id": "GREASE",
+        "max_length": 15
+      },
+      {
+        "id": "0x0f"
+      },
+      {
+        "id": "0x09",
+        "value": 103
+      },
+      {
+        "id": "0x3127",
+        "resumed": true
+      }
+    ],
+    "transport_parameter_order": "shuffled",
+    "coalesce": true,
+    "ack_delay": "actual",
+    "ack_only_limit": 19,
+    "ack_only_frame": "MAX_DATA",
+    "spin_bit": "zero",
+    "tokens": true,
+    "zero_rtt": true
+  },
+  "http3": {
+    "settings": [
+      {
+        "id": 1,
+        "value": 65536
+      },
+      {
+        "id": 6,
+        "value": 262144
+      },
+      {
+        "id": 7,
+        "value": 100
+      },
+      {
+        "id": 51,
+        "value": 1
+      }
+    ],
+    "grease_setting": {
+      "id_bits": 32,
+      "value_bits": 32
+    },
+    "grease_frame": {
+      "id_bits": 32,
+      "max_length": 3
+    },
+    "uni_streams": [
+      {
+        "type": "control",
+        "open": "handshake"
+      },
+      {
+        "type": "qpack_decoder",
+        "open": "never"
+      },
+      {
+        "type": "qpack_encoder",
+        "open": "first_insert"
+      }
+    ],
+    "streams_with_finished": true,
+    "qpack": {
+      "encoder": "index_all",
+      "inserts_first": true,
+      "huffman": "shorter"
+    },
+    "priority_update": true,
+    "discovery": {
+      "switch": "next_request"
+    }
   }
 }

@@ -171,6 +171,65 @@
       "drop": [
         "0x001b"
       ]
+    },
+    "quic": {
+      "cipher_suites": [
+        "0x1301",
+        "0x1303",
+        "0x1302"
+      ],
+      "session_id_length": 0,
+      "extension_order": "shuffled",
+      "last": [
+        "0x0039",
+        "0xfe0d"
+      ],
+      "drop": [
+        "0x000b",
+        "0x0023",
+        "0x0012"
+      ],
+      "replace": [
+        {
+          "type": "0x0010",
+          "alpn": [
+            "h3"
+          ]
+        },
+        {
+          "type": "0x002b",
+          "versions": [
+            "0x0304"
+          ]
+        },
+        {
+          "type": "0x000d",
+          "signature_algorithms": [
+            "0x0403",
+            "0x0503",
+            "0x0603",
+            "0x0203",
+            "0x0804",
+            "0x0805",
+            "0x0806",
+            "0x0401",
+            "0x0501",
+            "0x0601",
+            "0x0201"
+          ]
+        },
+        {
+          "type": "0x001b",
+          "cert_compression": [
+            "0x0001",
+            "0x0003",
+            "0x0002"
+          ]
+        }
+      ],
+      "resumed_ech_payload_lengths": [
+        432
+      ]
     }
   },
   "http2": {
@@ -6155,6 +6214,10 @@
       "high": {
         "priority": "i",
         "weight": 31
+      },
+      "low": {
+        "priority": "u=6, i",
+        "weight": 1
       }
     },
     "injected_script": {
@@ -8415,6 +8478,61 @@
               "name": "Referer"
             }
           ]
+        },
+        {
+          "method": "POST",
+          "cors_checked": true,
+          "headers": [
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
+            },
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "accept-language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br, zstd"
+            },
+            {
+              "name": "content-type"
+            },
+            {
+              "name": "content-length"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "*"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "cookie"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "empty"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "cors"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "te",
+              "value": "trailers"
+            }
+          ]
         }
       ],
       "weight": 21
@@ -8502,5 +8620,174 @@
   "websocket": {
     "extensions": "permessage-deflate",
     "h2_data": "header_alone"
+  },
+  "quic": {
+    "version": 1,
+    "datagram_size": 1252,
+    "padding": "trailing",
+    "crypto": {
+      "split": "sni_cut"
+    },
+    "packet_numbers": "random_initial",
+    "dcid_length": 8,
+    "dcid_length_rule": "biased",
+    "scid_length": 3,
+    "new_connection_ids": 4,
+    "transport_parameters": [
+      {
+        "id": "0x01",
+        "value": 30000
+      },
+      {
+        "id": "0x04",
+        "value": 25165824
+      },
+      {
+        "id": "0x05",
+        "value": 12582912
+      },
+      {
+        "id": "0x06",
+        "value": 1048576
+      },
+      {
+        "id": "0x07",
+        "value": 1048576
+      },
+      {
+        "id": "0x08",
+        "value": 100
+      },
+      {
+        "id": "0x09",
+        "value": 100
+      },
+      {
+        "id": "0x0b",
+        "value": 20
+      },
+      {
+        "id": "0x0e",
+        "value": 8
+      },
+      {
+        "id": "0x0f"
+      },
+      {
+        "id": "0x11",
+        "versions": [
+          "0x00000001",
+          "GREASE",
+          "0x6b3343cf",
+          "0x00000001"
+        ]
+      },
+      {
+        "id": "0x1d"
+      },
+      {
+        "id": "0xff02de1a",
+        "value": 1000
+      },
+      {
+        "id": "0x20",
+        "value": 65535
+      }
+    ],
+    "transport_parameter_order": "fixed",
+    "ack_initial": true,
+    "ack_before_finished": true,
+    "coalesce": true,
+    "ack_delay": "actual",
+    "spin_bit": "random",
+    "tokens": true,
+    "zero_rtt": true,
+    "close_reply": true
+  },
+  "http3": {
+    "settings": [
+      {
+        "id": 1,
+        "value": 65536
+      },
+      {
+        "id": 7,
+        "value": 20
+      },
+      {
+        "id": 727725890,
+        "value": 0
+      },
+      {
+        "id": 16765559,
+        "value": 1
+      },
+      {
+        "id": 51,
+        "value": 1
+      },
+      {
+        "id": 8,
+        "value": 1
+      }
+    ],
+    "grease_frame": {
+      "max_length": 7
+    },
+    "uni_streams": [
+      {
+        "type": "control",
+        "open": "handshake"
+      },
+      {
+        "type": "qpack_encoder",
+        "open": "handshake"
+      },
+      {
+        "type": "qpack_decoder",
+        "open": "handshake"
+      }
+    ],
+    "early_request_first": true,
+    "qpack": {
+      "encoder": "new_names",
+      "huffman": "always"
+    },
+    "max_data_frame": 32768,
+    "first_data_frame": 32224,
+    "headers": {
+      "pseudo_header_order": [
+        ":method",
+        ":scheme",
+        ":authority",
+        ":path"
+      ],
+      "drop": [
+        "te"
+      ],
+      "alt_used": {
+        "async_script": "referer",
+        "beacon": "referer",
+        "fetch": "cookie",
+        "font": "referer",
+        "frame": "referer",
+        "image": "referer",
+        "injected_image": "referer",
+        "injected_script": "referer",
+        "script": "referer",
+        "style": "referer",
+        "xhr": "referer"
+      },
+      "alt_used_navigation": "referer"
+    },
+    "discovery": {
+      "switch": "on_alt_svc",
+      "goaway_tcp": true,
+      "race_after_goaway": true,
+      "race_delay_ms": {
+        "min": 6,
+        "max": 9
+      }
+    }
   }
 }

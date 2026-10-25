@@ -196,6 +196,11 @@ func (c *Conn) packetSent(now time.Time, space numberSpace, sent *sentPacket) {
 
 func (c *Conn) appendFrames(now time.Time, space numberSpace, pnum packetNumber, limit ccLimit) {
 	if c.lifetime.localErr != nil {
+		if _, ok := c.lifetime.localErr.(closeReply); ok {
+			// mimicry: a reply to the peer's close goes with an ACK
+			// (Firefox).
+			c.appendAckFrame(now, space)
+		}
 		c.appendConnectionCloseFrame(now, space, c.lifetime.localErr)
 		return
 	}
@@ -233,7 +238,10 @@ func (c *Conn) appendFrames(now time.Time, space numberSpace, pnum packetNumber,
 			// Either we are willing to send an ACK-only packet,
 			// or we've added additional frames.
 			c.acks[space].sentAck()
-			if !c.w.sent.ackEliciting && c.shouldMakePacketAckEliciting(space) {
+			if c.client != nil {
+				// mimicry: the browser's rule, not quiche's PING.
+				c.clientAckOnly(space)
+			} else if !c.w.sent.ackEliciting && c.shouldMakePacketAckEliciting(space) {
 				c.w.appendPingFrame()
 			}
 		}()
@@ -390,12 +398,23 @@ func (c *Conn) appendAckFrame(now time.Time, space numberSpace) bool {
 		return false
 	}
 	d := unscaledAckDelayFromDuration(delay, ackDelayExponent)
+	if c.client != nil && c.client.ackDelay >= 0 {
+		// mimicry: one ACK Delay value per connection for 1-RTT, zero
+		// before (Safari).
+		d = 0
+		if space == appDataSpace {
+			d = c.client.ackDelay
+		}
+	}
 	return c.w.appendAckFrame(seen, d, c.acks[space].ecn)
 }
 
 func (c *Conn) appendConnectionCloseFrame(now time.Time, space numberSpace, err error) {
 	c.sentConnectionClose(now)
 	switch e := err.(type) {
+	case closeReply:
+		// mimicry: NO_ERROR, naming the peer's CONNECTION_CLOSE frame.
+		c.w.appendConnectionCloseTransportFrame(errNo, e.frameType, "")
 	case localTransportError:
 		c.w.appendConnectionCloseTransportFrame(e.code, 0, e.reason)
 	case *ConnectionCloseError:

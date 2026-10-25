@@ -19,7 +19,9 @@ import (
 	"github.com/roachadam/mimicry/internal/fingerprint"
 	"github.com/roachadam/mimicry/internal/h1"
 	"github.com/roachadam/mimicry/internal/h2"
+	"github.com/roachadam/mimicry/internal/h3"
 	"github.com/roachadam/mimicry/internal/handshake"
+	"github.com/roachadam/mimicry/internal/headerorder"
 	"github.com/roachadam/mimicry/internal/pool"
 	"github.com/roachadam/mimicry/profile"
 )
@@ -51,10 +53,14 @@ type Config struct {
 	// Proxy picks each request's proxy, as http.Transport's does; nil, or
 	// a nil URL, connects directly.
 	Proxy func(*http.Request) (*url.URL, error)
+	// DisableHTTP3 keeps every request on TCP, whatever the profile's
+	// http3 section and servers' Alt-Svc say.
+	DisableHTTP3 bool
 }
 
 // Engine is the pure-Go engine: pooled connections, one dial path, uTLS
-// handshakes from the profile's plan, and HTTP/2 or HTTP/1.1 by ALPN.
+// handshakes from the profile's plan, HTTP/2 or HTTP/1.1 by ALPN, and
+// HTTP/3 where the profile's browser moves an origin to it.
 // It is safe for concurrent use.
 type Engine struct {
 	plan    *fingerprint.Plan
@@ -68,6 +74,9 @@ type Engine struct {
 	// tickets keeps TLS session tickets when the profile resumes.
 	tickets *handshake.Tickets
 	pool    *pool.Pool[*shared, *h1.Conn]
+	// quic is the engine's HTTP/3; nil when the profile has none (or
+	// Config.DisableHTTP3).
+	quic *quicState
 }
 
 // New builds an engine for cfg.Profile, which it takes ownership of.
@@ -112,6 +121,17 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 	}
 	if plan.Resumes() {
 		e.tickets = handshake.NewTickets(p.TLS.Resumption.TLS12, clock)
+	}
+	if p.HTTP3 != nil && p.QUIC != nil && !cfg.DisableHTTP3 {
+		e.quic = &quicState{
+			origins: map[string]*origin{},
+			pool: pool.New[*h3.Conn, noExclusive](pool.Config{
+				Clock:       clock,
+				IdleTimeout: idleTimeout,
+			}),
+			// QUIC sessions are TLS 1.3 only.
+			tickets: handshake.NewTickets("", clock),
+		}
 	}
 	return e, nil
 }
@@ -288,9 +308,25 @@ func userAgent(p *profile.Profile) string {
 	return ""
 }
 
-// try sends req once: on the pool's connection for the route, another
-// host's the profile's coalescing rule allows, or a new one.
+// try sends req once and learns the response's Alt-Svc: over HTTP/3 where
+// the origin's discovery rule takes it there, else on the pool's
+// connection for the route, another host's the profile's coalescing rule
+// allows, or a new one.
 func (e *Engine) try(ctx context.Context, req *http.Request, r route) (*http.Response, error) {
+	resp, err := e.tryOnce(ctx, req, r)
+	if err == nil && e.quic != nil {
+		e.learnAltSvc(req, r, resp) //nolint:contextcheck // a dial it starts outlives the request (Firefox dials on Alt-Svc)
+	}
+	return resp, err
+}
+
+func (e *Engine) tryOnce(ctx context.Context, req *http.Request, r route) (*http.Response, error) {
+	if resp, handled, err := e.tryH3(ctx, req, r); handled {
+		return resp, err
+	}
+	if plan := headerorder.PlanFrom(ctx); plan != nil && plan.HTTP3Only {
+		return nil, fmt.Errorf("%w: profile %s measured this request over HTTP/3 only, and it would go on TCP", headerorder.ErrNotMeasured, e.profile.Name)
+	}
 	got, err := e.pool.Get(ctx, r.key)
 	if err != nil {
 		return nil, err
@@ -407,10 +443,13 @@ func (e *Engine) roundTripH1(key string, c *h1.Conn, req *http.Request) (*http.R
 	})
 }
 
-// CloseIdleConnections closes idle HTTP/1.1 connections and HTTP/2
-// connections with no requests in flight.
+// CloseIdleConnections closes idle HTTP/1.1 connections, and HTTP/2 and
+// HTTP/3 connections with no requests in flight.
 func (e *Engine) CloseIdleConnections() {
 	e.pool.CloseIdle()
+	if e.quic != nil {
+		e.quic.pool.CloseIdle()
+	}
 }
 
 // replayable reports whether req can be sent again on a new connection:

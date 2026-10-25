@@ -94,6 +94,11 @@ func regenerate(data []byte, dir string) ([]byte, error) {
 	if err := checkProtocolPlace(p, pages.websocketH2); err != nil {
 		return nil, err
 	}
+	if p.HTTP3 != nil {
+		if err := deriveH3(p, dir); err != nil {
+			return nil, err
+		}
+	}
 	if err := p.Validate(); err != nil {
 		return nil, err
 	}

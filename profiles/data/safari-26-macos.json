@@ -136,6 +136,37 @@
       "alpn": [
         "http/1.1"
       ]
+    },
+    "quic": {
+      "cipher_suites": [
+        "GREASE",
+        "0x1302",
+        "0x1303",
+        "0x1301"
+      ],
+      "session_id_length": 0,
+      "extension_order": "fixed",
+      "drop": [
+        "0x0017",
+        "0xff01",
+        "0x000b"
+      ],
+      "replace": [
+        {
+          "type": "0x0010",
+          "alpn": [
+            "h3"
+          ]
+        },
+        {
+          "type": "0x002b",
+          "versions": [
+            "GREASE",
+            "0x0304"
+          ]
+        }
+      ],
+      "transport_parameters_before": "0x001b"
     }
   },
   "http2": {
@@ -7385,6 +7416,9 @@
       ],
       "high": {
         "priority": "u=3, i"
+      },
+      "low": {
+        "priority": "u=7, i"
       }
     },
     "injected_script": {
@@ -10741,6 +10775,58 @@
               "value": "keep-alive"
             }
           ]
+        },
+        {
+          "method": "POST",
+          "cors_checked": true,
+          "headers": [
+            {
+              "name": "accept",
+              "value": "*/*"
+            },
+            {
+              "name": "content-type"
+            },
+            {
+              "name": "origin"
+            },
+            {
+              "name": "sec-fetch-site"
+            },
+            {
+              "name": "sec-fetch-mode",
+              "value": "cors"
+            },
+            {
+              "name": "user-agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15"
+            },
+            {
+              "name": "referer"
+            },
+            {
+              "name": "sec-fetch-dest",
+              "value": "empty"
+            },
+            {
+              "name": "content-length"
+            },
+            {
+              "name": "accept-language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "priority",
+              "value": "u=3, i"
+            },
+            {
+              "name": "accept-encoding",
+              "value": "gzip, deflate, br"
+            },
+            {
+              "name": "cookie"
+            }
+          ]
         }
       ]
     }
@@ -10840,5 +10926,89 @@
     "h2_data": "split_control",
     "close_h1": "at_once",
     "close_h2": "rst_stream"
+  },
+  "quic": {
+    "version": 1,
+    "datagram_size": 1200,
+    "padding": "end",
+    "crypto": {
+      "split": "ordered",
+      "first_packet": 999
+    },
+    "packet_numbers": "per_space",
+    "dcid_length": 8,
+    "scid_length": 0,
+    "transport_parameters": [
+      {
+        "id": "0x04",
+        "value": 16777216
+      },
+      {
+        "id": "0x05",
+        "value": 2097152
+      },
+      {
+        "id": "0x06",
+        "value": 2097152
+      },
+      {
+        "id": "0x07",
+        "value": 2097152
+      },
+      {
+        "id": "0x09",
+        "value": 8
+      },
+      {
+        "id": "0x0e",
+        "value": 64
+      },
+      {
+        "id": "0x0f"
+      },
+      {
+        "id": "0xff080808",
+        "data": "07",
+        "last": true
+      }
+    ],
+    "transport_parameter_order": "rotated",
+    "ack_initial": true,
+    "ack_before_finished": true,
+    "ack_delay": "constant",
+    "ack_delay_constant": {
+      "min": 9,
+      "max": 27
+    },
+    "spin_bit": "spin"
+  },
+  "http3": {
+    "settings": [
+      {
+        "id": 1,
+        "value": 16383
+      },
+      {
+        "id": 7,
+        "value": 100
+      }
+    ],
+    "grease_setting": {
+      "id_bits": 32,
+      "value_bits": 32
+    },
+    "uni_streams": [
+      {
+        "type": "control",
+        "open": "handshake"
+      }
+    ],
+    "requests_after_confirmed": true,
+    "qpack": {
+      "huffman": "always"
+    },
+    "discovery": {
+      "switch": "new_connection"
+    }
   }
 }

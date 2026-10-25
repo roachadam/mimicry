@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"math/rand/v2"
 	"net/netip"
+	"sync/atomic"
 	"time"
 
 	tls "github.com/roachadam/utls"
@@ -61,6 +62,11 @@ type Conn struct {
 	testSendPingSpace numberSpace
 	testSendPing      sentVal
 
+	// mimicry: client is a client connection's profile behaviour (Dial),
+	// nil for upstream's; cork holds its packets (Cork).
+	client *clientState
+	cork   atomic.Int32
+
 	log *slog.Logger
 }
 
@@ -92,6 +98,7 @@ func newConn(now time.Time, side connSide, cids newServerConnIDs, peerHostname s
 		config:               config,
 		donec:                make(chan struct{}),
 		peerAckDelayExponent: -1,
+		client:               config.client, // mimicry
 	}
 	defer func() {
 		// If we hit an error in newConn, close donec so tests don't get stuck waiting for it.
@@ -147,13 +154,29 @@ func newConn(now time.Time, side connSide, cids newServerConnIDs, peerHostname s
 	// TODO: PMTU discovery.
 	c.logConnectionStarted(cids.originalDstConnID, peerAddr)
 	c.keysAppData.init()
-	c.loss.init(c.side, smallestMaxDatagramSize, now)
+	maxDatagramSize := smallestMaxDatagramSize
+	if c.client != nil {
+		// mimicry: the browser's datagram size, numbering, ACK delay;
+		// held until the application's first writes (Dial).
+		maxDatagramSize = c.client.p.DatagramSize
+		c.cork.Store(1)
+	}
+	c.loss.init(c.side, maxDatagramSize, now)
+	if c.client != nil {
+		c.loss.spaces[initialSpace].nextNum = c.client.initialPN
+		c.acks[appDataSpace].maxDelay = c.client.maxAckDelay()
+	}
 	c.streamsInit()
 	c.lifetimeInit()
 	c.restartIdleTimer(now)
 	c.skip.init(c)
 
-	if err := c.startTLS(now, initialConnID, peerHostname, transportParameters{
+	if c.client != nil {
+		// mimicry: the profile's ClientHello and transport parameters.
+		if err := c.startClientTLS(now, initialConnID); err != nil {
+			return nil, err
+		}
+	} else if err := c.startTLS(now, initialConnID, peerHostname, transportParameters{
 		initialSrcConnID:               c.connIDState.srcConnID(),
 		originalDstConnID:              cids.originalDstConnID,
 		retrySrcConnID:                 cids.retrySrcConnID,
@@ -174,6 +197,9 @@ func newConn(now time.Time, side connSide, cids newServerConnIDs, peerHostname s
 
 	if c.testHooks != nil {
 		c.testHooks.init(true)
+	}
+	if e.sole {
+		e.soleConn.Store(c) // mimicry: before the loop sends anything
 	}
 	go c.loop(now)
 	return c, nil
@@ -217,6 +243,10 @@ func (c *Conn) confirmHandshake(now time.Time) {
 		// to the received state, indicating that the handshake is confirmed and we
 		// don't need to send anything.
 		c.handshakeConfirmed.setReceived()
+		if c.client != nil {
+			// mimicry: Conn.Confirmed.
+			close(c.client.confirmed)
+		}
 	}
 	c.restartIdleTimer(now)
 	c.loss.confirmHandshake()
@@ -301,17 +331,35 @@ func (c *Conn) loop(now time.Time) {
 		c.sendMsg(timerEvent{})
 	})
 	defer timer.Stop()
+	// mimicry: readMore defers sending until every datagram already
+	// queued is processed, as browsers read what arrived before answering
+	// (Firefox's Initial and Handshake ACKs in one datagram).
+	readMore := false
 
 	for c.lifetime.state != connStateDone {
-		sendTimeout := c.maybeSend(now) // try sending
+		// mimicry: a client with a profile sends as its browser does.
+		var sendTimeout time.Time
+		switch {
+		case readMore:
+			readMore = false
+		case c.client != nil:
+			sendTimeout = c.maybeSendClient(now)
+		default:
+			sendTimeout = c.maybeSend(now) // try sending
+		}
 
 		// Note that we only need to consider the ack timer for the App Data space,
 		// since the Initial and Handshake spaces always ack immediately.
 		nextTimeout := sendTimeout
 		nextTimeout = firstTime(nextTimeout, c.idle.nextTimeout)
 		if c.isAlive() {
-			nextTimeout = firstTime(nextTimeout, c.loss.timer)
-			nextTimeout = firstTime(nextTimeout, c.acks[appDataSpace].nextAck)
+			// mimicry: while a Cork holds the packets, what the loss and
+			// ACK timers would send waits too: they fire after Uncork,
+			// rather than spinning the loop.
+			if c.client == nil || !c.corkHolds() {
+				nextTimeout = firstTime(nextTimeout, c.loss.timer)
+				nextTimeout = firstTime(nextTimeout, c.acks[appDataSpace].nextAck)
+			}
 		} else {
 			nextTimeout = firstTime(nextTimeout, c.lifetime.drainEndTime)
 		}
@@ -342,6 +390,7 @@ func (c *Conn) loop(now time.Time) {
 				}
 			}
 			m.recycle()
+			readMore = c.client != nil && len(c.msgc) > 0
 		case timerEvent:
 			// A connection timer has expired.
 			if c.idleAdvance(now) {

@@ -49,11 +49,12 @@ the mechanical import rewrites.
    - `tls.go`: a `tlsConn` interface (the six methods `Conn` calls:
      `Start`, `NextEvent`, `HandleData`, `SetTransportParameters`,
      `ConnectionState`, `Close`) that both `*utls.UQUICConn` and
-     `*utls.QUICConn` satisfy. The client is
-     `tls.UQUICClient(qconfig, tls.HelloGolang)`: crypto/tls's ClientHello
-     for now; browser presets come with the profiles. The server stays on
-     `tls.QUICServer` (uTLS's copy of crypto/tls's server; uTLS has no
-     server-side fingerprinting), used by `Endpoint.Listen` and the tests.
+     `*utls.QUICConn` satisfy. Upstream's own clients (the tests) are
+     `tls.UQUICClient(qconfig, tls.HelloGolang)`: crypto/tls's
+     ClientHello; clients from `Dial` apply the profile's spec (change 5).
+     The server stays on `tls.QUICServer` (uTLS's copy of crypto/tls's
+     server; uTLS has no server-side fingerprinting), used by
+     `Endpoint.Listen` and the tests.
    - `conn.go`: `Conn.tls` is a `tlsConn` instead of `*tls.QUICConn`.
    - The tests' TLS peers (`conn_test.go`, `endpoint_test.go`,
      `retry_test.go`) keep `tls.QUICClient`/`tls.QUICServer`, now uTLS's.
@@ -64,6 +65,45 @@ the mechanical import rewrites.
    package may import (AGENTS.md's package convention). `qlog`, `quicwire`
    and `testcert` each gain a `doc.go` with the same statement; their
    package comments stay upstream's.
+5. **Browser clients (`Dial`).** New files `client.go` (`Dial`,
+   `DialConfig`, `Cork`/`Uncork`, `EarlyData`, `Done`/`Err`,
+   `SmoothedRTT`, `ErrIdleTimeout`, the profile's draws, close reply,
+   extension frames), `client_send.go` (the client send path:
+   first-flight CRYPTO plans, packet numbers, coalescing, padding, spin
+   bit, ACK-only rule), `client_tls.go` (the uTLS preset, 0-RTT keys,
+   sessions with the server's transport parameters, rejected early data,
+   NEW_TOKEN) and `client_params.go` (transport parameters from the
+   profile). Hooks in upstream's files, each marked `mimicry:`; with no
+   `Config.client` (every upstream path and test) behaviour is upstream's:
+   - `config.go`: `Config.client`.
+   - `conn.go`: `Conn.client`, `Conn.cork`; `newConn` takes the profile's
+     datagram size, first Initial packet number and ACK delay and starts
+     TLS with `startClientTLS`; registers a sole endpoint's connection
+     before its loop starts; `loop` calls `maybeSendClient`, skips the
+     loss and ACK timers while a cork holds (they would spin the loop),
+     and processes every queued datagram before sending;
+     `confirmHandshake` closes the client's `Conn.Confirmed` channel.
+   - `tls.go`: `handleTLSEvents` passes events to `handleClientTLSEvent`
+     first.
+   - `acks.go`: `ackState.maxDelay`, the full max_ack_delay the client
+     sent (upstream: 25 ms less the timer granularity).
+   - `conn_send.go`: a close reply (`closeReply`) carries an ACK and
+     names the peer's frame type; the ACK Delay field is the profile's
+     constant when it has one; ACK-only packets follow the profile's rule
+     (`clientAckOnly`) instead of a PING every 20th.
+   - `conn_recv.go`: 1-RTT packets parsed with the local connection ID
+     length; the server's spin bit recorded; NEW_TOKEN passed on; the
+     peer's CONNECTION_CLOSE answered per profile (`clientPeerClosed`);
+     unknown frame types offered to `handleExtensionFrame` (DATAGRAM,
+     ACK_FREQUENCY, IMMEDIATE_ACK, when the client announced them).
+   - `conn_id.go`: the client's connection IDs from the profile (zero
+     length: none issued); as many issued as the profile does; the peer's
+     limit is the active_connection_id_limit sent (`newRandomConnIDLen`).
+   - `conn_streams.go`: a peer-opened stream's receive window is the
+     transport parameter for its type.
+   - `endpoint.go`: `Endpoint.sole`/`soleConn`: every datagram goes to the
+     one connection, whose end closes the socket.
+   - `packet_writer.go`: `packetWriter.spin`.
 
 ## Tests
 

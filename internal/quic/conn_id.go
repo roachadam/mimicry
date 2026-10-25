@@ -75,6 +75,9 @@ func (s *connIDState) initClient(c *Conn) error {
 	if err != nil {
 		return err
 	}
+	if c.client != nil {
+		locid = c.client.scid // mimicry: the profile's length, drawn by Dial
+	}
 	s.local = append(s.local, connID{
 		seq: 0,
 		cid: locid,
@@ -89,6 +92,9 @@ func (s *connIDState) initClient(c *Conn) error {
 	remid, err := c.newConnID(-1)
 	if err != nil {
 		return err
+	}
+	if c.client != nil {
+		remid = c.client.dcid // mimicry
 	}
 	s.remote = append(s.remote, remoteConnID{
 		connID: connID{
@@ -173,6 +179,14 @@ func (s *connIDState) setPeerActiveConnIDLimit(c *Conn, lim int64) error {
 
 func (s *connIDState) issueLocalIDs(c *Conn) error {
 	toIssue := min(int(s.peerActiveConnIDLimit), maxPeerActiveConnIDLimit)
+	if c.client != nil {
+		// mimicry: as many as the profile issues; none with zero-length
+		// IDs, which cannot be issued.
+		toIssue = min(int(s.peerActiveConnIDLimit), c.client.p.NewConnectionIDs)
+		if len(c.client.scid) == 0 {
+			toIssue = 0
+		}
+	}
 	for i := range s.local {
 		if s.local[i].seq != -1 {
 			toIssue--
@@ -357,7 +371,7 @@ func (s *connIDState) handleNewConnID(c *Conn, seq, retire int64, cid []byte, re
 		})
 	}
 
-	if len(s.remote) > activeConnIDLimit {
+	if len(s.remote) > c.localActiveConnIDLimit() { // mimicry: the limit sent
 		// Retired connection IDs (including newly-retired ones) do not count
 		// against the limit.
 		// https://www.rfc-editor.org/rfc/rfc9000.html#section-5.1.1-5
@@ -373,7 +387,7 @@ func (s *connIDState) handleNewConnID(c *Conn, seq, retire int64, cid []byte, re
 	//
 	// Set a limit of three times the active_connection_id_limit for
 	// the total number of remote connection IDs we keep retirement state for.
-	if s.remoteRetiring.size()+s.remoteRetiringSent.size() > 3*activeConnIDLimit {
+	if s.remoteRetiring.size()+s.remoteRetiringSent.size() > 3*int64(c.localActiveConnIDLimit()) {
 		return localTransportError{
 			code:   errConnectionIDLimit,
 			reason: "too many unacknowledged retired connection ids",
@@ -485,13 +499,22 @@ func (c *Conn) newConnID(seq int64) ([]byte, error) {
 	if c.testHooks != nil {
 		return c.testHooks.newConnID(seq)
 	}
+	if c.client != nil {
+		return newRandomConnIDLen(len(c.client.scid)) // mimicry
+	}
 	return newRandomConnID(seq)
 }
 
 func newRandomConnID(_ int64) ([]byte, error) {
+	return newRandomConnIDLen(connIDLen)
+}
+
+// newRandomConnIDLen makes a connection ID of n bytes. mimicry: profiles
+// set the length.
+func newRandomConnIDLen(n int) ([]byte, error) {
 	// It is not necessary for connection IDs to be cryptographically secure,
 	// but it doesn't hurt.
-	id := make([]byte, connIDLen)
+	id := make([]byte, n)
 	if _, err := rand.Read(id); err != nil {
 		// TODO: Surface this error as a metric or log event or something.
 		// rand.Read really shouldn't ever fail, but if it does, we should

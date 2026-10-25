@@ -104,6 +104,7 @@ func (p *Profile) Validate() error {
 	c.checkConnections(p.Connections)
 	c.checkWebSocketHello(&p.TLS)
 	c.checkWebSocket(p)
+	c.checkH3(p)
 	return c.err()
 }
 

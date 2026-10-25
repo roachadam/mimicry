@@ -100,6 +100,9 @@ func regenerate(data, captured []byte, dir, name string) ([]byte, []byte, error)
 	if p.TLS.WebSocketH1, err = websocketHello(dir, name, &p.TLS); err != nil {
 		return nil, nil, fmt.Errorf("tls.websocket_h1: %w", err)
 	}
+	if p.TLS.QUIC, err = quicHello(dir, name, &p.TLS); err != nil {
+		return nil, nil, fmt.Errorf("tls.quic: %w", err)
+	}
 	if err := apply(&c.TLS, derived); err != nil {
 		return nil, nil, fmt.Errorf("capture: %w", err)
 	}

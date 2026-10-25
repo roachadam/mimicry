@@ -440,6 +440,12 @@ func startPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *pageSessi
 		}
 		_, s.plainPort, _ = net.SplitHostPort(srv.PlainListener.Addr().String())
 	}
+	if sc.HTTP3() {
+		// QUIC on the TLS port's UDP twin, which the Alt-Svc names.
+		if srv.PacketConn, err = (&net.ListenConfig{}).ListenPacket(t.Context(), "udp", ln.Addr().String()); err != nil {
+			t.Fatal(err)
+		}
+	}
 	done := make(chan error, 1)
 	go func() {
 		done <- srv.Serve(ctx, ln)

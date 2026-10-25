@@ -58,3 +58,4 @@ New records copy [`decisions/template.md`](decisions/template.md).
 - [Proxies](concepts/proxies.md)
 - [CORS preflights](concepts/cors-preflights.md)
 - [WebSockets](concepts/websockets.md)
+- [HTTP/3](concepts/http3.md)

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"slices"
 
 	utls "github.com/roachadam/utls"
 
@@ -37,6 +38,28 @@ func Client(ctx context.Context, conn net.Conn, hello fingerprint.Hello, cfg Con
 		_ = conn.Close()
 		return nil, "", err
 	}
+	tlsConn := utls.UClient(conn, tlsConfig(cfg), utls.HelloCustom)
+	if err := tlsConn.ApplyPreset(spec); err != nil {
+		_ = conn.Close()
+		return nil, "", fmt.Errorf("handshake: applying ClientHello: %w", err)
+	}
+	if err := tlsConn.HandshakeContext(ctx); err != nil {
+		_ = conn.Close()
+		return nil, "", err
+	}
+	return tlsConn, tlsConn.ConnectionState().NegotiatedProtocol, nil
+}
+
+// QUICConfig is the TLS configuration of a QUIC connection's handshake
+// (internal/quic.DialConfig.TLS): cfg's server name and roots, and its
+// tickets. A QUIC connection stores the server's tickets itself, with
+// what it needs for 0-RTT, through the same cache.
+func QUICConfig(cfg Config) *utls.Config {
+	return tlsConfig(cfg)
+}
+
+// tlsConfig is the uTLS configuration for cfg.
+func tlsConfig(cfg Config) *utls.Config {
 	config := &utls.Config{
 		ServerName: cfg.ServerName,
 		RootCAs:    cfg.RootCAs,
@@ -63,16 +86,7 @@ func Client(ctx context.Context, conn net.Conn, hello fingerprint.Hello, cfg Con
 		// empty: leave it out and do a full handshake.
 		config.OmitEmptyPsk = true
 	}
-	tlsConn := utls.UClient(conn, config, utls.HelloCustom)
-	if err := tlsConn.ApplyPreset(spec); err != nil {
-		_ = conn.Close()
-		return nil, "", fmt.Errorf("handshake: applying ClientHello: %w", err)
-	}
-	if err := tlsConn.HandshakeContext(ctx); err != nil {
-		_ = conn.Close()
-		return nil, "", err
-	}
-	return tlsConn, tlsConn.ConnectionState().NegotiatedProtocol, nil
+	return config
 }
 
 // Spec turns a connection's ClientHello layout into a uTLS spec. GREASE
@@ -80,14 +94,17 @@ func Client(ctx context.Context, conn net.Conn, hello fingerprint.Hello, cfg Con
 // in by uTLS per connection, so a spec serves one connection.
 func Spec(h fingerprint.Hello) (*utls.ClientHelloSpec, error) {
 	// uTLS sends the first hello in TLS 1.0 records, caps legacy_version at
-	// TLS 1.2 and sends a 32-byte session ID; profile.Validate allows
-	// nothing else.
-	if h.RecordVersion != recordVersion {
-		return nil, fmt.Errorf("handshake: record version %s; uTLS sends the ClientHello in %s records", h.RecordVersion, recordVersion)
+	// TLS 1.2 and sends a 32-byte session ID, none over QUIC (RFC 9001,
+	// section 8.4); profile.Validate allows nothing else.
+	sid := sessionIDLength
+	if slices.ContainsFunc(h.Extensions, func(e profile.Extension) bool {
+		return e.Type == profile.ExtQUICTransportParameters
+	}) {
+		sid = 0
 	}
-	if h.LegacyVersion != legacyVersion || h.SessionIDLength != sessionIDLength {
+	if h.LegacyVersion != legacyVersion || h.SessionIDLength != sid {
 		return nil, fmt.Errorf("handshake: legacy_version %s with a %d-byte session ID; uTLS sends %s with %d bytes",
-			h.LegacyVersion, h.SessionIDLength, legacyVersion, sessionIDLength)
+			h.LegacyVersion, h.SessionIDLength, legacyVersion, sid)
 	}
 	spec := &utls.ClientHelloSpec{
 		CipherSuites:       codes16(h.CipherSuites),
@@ -140,6 +157,9 @@ func extension(e *profile.Extension) (utls.TLSExtension, error) {
 	case profile.ExtSessionTicket:
 		// Empty, or the TLS 1.2 ticket being resumed, filled by uTLS.
 		return &utls.SessionTicketExtension{}, nil
+	case profile.ExtQUICTransportParameters:
+		// The QUIC connection's transport parameters, which it sets.
+		return &utls.QUICTransportParametersExtension{}, nil
 	case profile.ExtSupportedGroups:
 		curves := make([]utls.CurveID, len(e.Groups))
 		for i, g := range e.Groups {

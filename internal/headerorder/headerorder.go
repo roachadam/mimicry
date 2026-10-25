@@ -23,6 +23,9 @@ var ErrNotMeasured = errors.New("mimicry: not measured for this profile")
 // its header lists, with request-dependent slots already filled, and its
 // HEADERS weight. The connections use it in place of the profile's lists.
 type Plan struct {
+	// Kind is the request's kind in the profile (Profile.Kinds); empty
+	// for the navigation and for Exact requests.
+	Kind string
 	// Headers is the HTTP/2 list (lowercase names); HTTP1 the HTTP/1.1 one,
 	// named as sent, or nil to write Headers after Host and Connection.
 	// Both empty sends only the request's own headers.
@@ -32,6 +35,10 @@ type Plan struct {
 	// HTTP/1.1 connection must refuse it (ErrNotMeasured) rather than
 	// guess the order.
 	NoHTTP1 bool
+	// HTTP3Only: part of the request (its fetchpriority's priority header)
+	// was measured over HTTP/3 only, so a TCP connection must refuse it
+	// (ErrNotMeasured).
+	HTTP3Only bool
 	// Weight is the HEADERS priority weight; zero keeps the profile's.
 	Weight uint8
 	// Table is the browser's header table for the page's own headers

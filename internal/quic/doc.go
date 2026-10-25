@@ -55,7 +55,17 @@
 // (decision 0027). Changes from upstream are listed in UPSTREAM.md and
 // marked "mimicry:" in the code.
 //
-// Imports: internal/quic/quicwire, utls, golang.org/x/crypto and the
-// standard library; its tests also internal/quic/qlog and
+// Dial opens a client connection that builds its packets as a browser
+// does, from the profile's QUIC section (profile.QUIC) and the ClientHello
+// the handshake package builds from the profile's tls.quic: datagram sizes
+// and padding, how the ClientHello is cut into CRYPTO frames, packet
+// numbers, connection IDs, coalescing, ACK timing and delays, the spin
+// bit, transport parameters, tokens, 0-RTT on resumption and the answer to
+// the server's close. Its code is in client*.go; upstream's files carry
+// hooks only. Unlike the limitations above, Dial's connections send 0-RTT
+// and set the spin bit.
+//
+// Imports: internal/quic/quicwire, profile, utls, golang.org/x/crypto and
+// the standard library; its tests also internal/quic/qlog and
 // internal/quic/testcert.
 package quic

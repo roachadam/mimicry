@@ -89,6 +89,13 @@ type Config struct {
 	// Cookie headers) when nil. A request that sets its own Cookie header
 	// sends that instead, and one set with no values sends none.
 	Cookies *cookies.Jar
+	// DisableHTTP3 keeps every request on TCP (HTTP/2 or HTTP/1.1). By
+	// default a profile with an http3 section speaks HTTP/3 as its
+	// browser does: to an origin that advertised it (Alt-Svc h3), moving
+	// to it when the browser does (profile http3.discovery), never through
+	// a proxy, and back to TCP when QUIC fails. QUIC is UDP to the
+	// address Resolver gives for the host; DialContext has no part in it.
+	DisableHTTP3 bool
 
 	// engine replaces the pure-Go engine (tests only).
 	engine engine
@@ -150,12 +157,13 @@ func NewTransport(cfg Config) (*Transport, error) {
 	}
 	if t.engine == nil {
 		e, err := native.New(native.Config{
-			Profile:     p,
-			RootCAs:     cfg.RootCAs,
-			DialTimeout: cfg.DialTimeout,
-			DialContext: cfg.DialContext,
-			Resolver:    cfg.Resolver,
-			Proxy:       cfg.Proxy,
+			Profile:      p,
+			RootCAs:      cfg.RootCAs,
+			DialTimeout:  cfg.DialTimeout,
+			DialContext:  cfg.DialContext,
+			Resolver:     cfg.Resolver,
+			Proxy:        cfg.Proxy,
+			DisableHTTP3: cfg.DisableHTTP3,
 		})
 		if err != nil {
 			return nil, err

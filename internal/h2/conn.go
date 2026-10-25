@@ -327,6 +327,31 @@ func (c *Conn) Close() error {
 	return c.conn.Close()
 }
 
+// GoAway sends GOAWAY (NO_ERROR, no server streams) and takes no more
+// requests: those in flight run to completion and the connection closes
+// after the last, or, idle, once the server has had declineLinger to
+// read the GOAWAY. Firefox does this to an origin's HTTP/2 connection
+// once its HTTP/3 connection is up (profile http3.discovery.goaway_tcp).
+func (c *Conn) GoAway() {
+	c.mu.Lock()
+	if c.err != nil || c.draining {
+		c.mu.Unlock()
+		return
+	}
+	c.draining = true
+	idle := c.active == 0
+	c.cond.Broadcast()
+	c.mu.Unlock()
+	c.wmu.Lock()
+	_ = c.fr.WriteGoAway(0, http2.ErrCodeNo, nil)
+	c.wmu.Unlock()
+	if idle {
+		c.clock.AfterFunc(declineLinger, func() {
+			_ = c.conn.Close()
+		})
+	}
+}
+
 // Done is closed once the connection has finished: closed by either side,
 // failed, or drained after GOAWAY.
 func (c *Conn) Done() <-chan struct{} {

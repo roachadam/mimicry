@@ -17,6 +17,8 @@ type Plan struct {
 	// resumedECH is GREASE ECH's shape in a resumed hello; nil without
 	// resumption or ECH.
 	resumedECH *profile.ECH
+	// quic is the hello sent over QUIC; nil without Profile.QUIC.
+	quic *quicPlan
 }
 
 // Compile turns p's ClientHello into a Plan. p must be valid (profile.Parse
@@ -42,6 +44,7 @@ func Compile(p *profile.Profile) *Plan {
 			}
 		}
 	}
+	plan.quic = compileQUIC(p)
 	return plan
 }
 

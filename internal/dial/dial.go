@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"strings"
 	"sync"
@@ -16,8 +17,8 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// Dialer opens TCP connections, directly or through a proxy. It is the one
-// place connections start.
+// Dialer opens TCP connections, directly or through a proxy, and UDP
+// sockets for QUIC. It is the one place connections start.
 type Dialer struct {
 	// Timeout bounds the connect (through a proxy: to the proxy, and the
 	// proxy's handshake), on top of the context's deadline.
@@ -59,6 +60,44 @@ func (d *Dialer) dial(ctx context.Context, addr string) (net.Conn, error) {
 		Resolver:  d.Resolver,
 	}
 	return nd.DialContext(ctx, "tcp", addr)
+}
+
+// ListenUDP looks host up and opens a UDP socket of its own for a QUIC
+// connection to its first address at port, which it returns with the
+// socket. Resolver does the lookup; DialContext, which opens TCP
+// connections, has no part in it. It honours ctx's cancellation and
+// deadline, bounded by Timeout.
+func (d *Dialer) ListenUDP(ctx context.Context, host string, port uint16) (net.PacketConn, netip.AddrPort, error) {
+	if d.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, d.Timeout)
+		defer cancel()
+	}
+	resolver := d.Resolver
+	if resolver == nil {
+		resolver = net.DefaultResolver
+	}
+	addr, err := netip.ParseAddr(host)
+	if err != nil {
+		addrs, err := resolver.LookupNetIP(ctx, "ip", host)
+		if err != nil {
+			return nil, netip.AddrPort{}, err
+		}
+		if len(addrs) == 0 {
+			return nil, netip.AddrPort{}, fmt.Errorf("dial: no address for %s", host)
+		}
+		addr = addrs[0]
+	}
+	addr = addr.Unmap()
+	network, local := "udp4", "0.0.0.0:0"
+	if addr.Is6() {
+		network, local = "udp6", "[::]:0"
+	}
+	pc, err := (&net.ListenConfig{}).ListenPacket(ctx, network, local)
+	if err != nil {
+		return nil, netip.AddrPort{}, err
+	}
+	return pc, netip.AddrPortFrom(addr, port), nil
 }
 
 // Supported proxy URL schemes.

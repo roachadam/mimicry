@@ -16,7 +16,9 @@
 // fails with ErrConnUnusable, its body unread; after GOAWAY the streams the
 // peer will answer run on and the connection closes after the last.
 // Decline sends a connection the preface and GOAWAY and closes it unused,
-// as Firefox does to one another connection made unnecessary.
+// as Firefox does to one another connection made unnecessary; GoAway
+// sends a live connection GOAWAY and lets its streams finish, as Firefox
+// does once the origin's HTTP/3 connection is up.
 //
 // Imports: profile, headerorder, hpack, golang.org/x/net and the standard
 // library.

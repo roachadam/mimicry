@@ -8,8 +8,8 @@ github.com/quic-go/go-ossfuzz-seeds v0.1.0 h1:APacT+iIaNF6fd8AGEiN3bT/Jtkd2jz4v4
 github.com/quic-go/go-ossfuzz-seeds v0.1.0/go.mod h1:3IOHRbJIc+L6YKMwfDtJAM9Vj9k0YY4muhuyUYk5tbk=
 github.com/quic-go/quic-go v0.64.1 h1:BCNTP+6x6++OPKrGST2FR3f1tycx8O3QOA3QQv09g70=
 github.com/quic-go/quic-go v0.64.1/go.mod h1:RAro2j2yN9a9EiPACLHT9IB2NXCvGQmmo/alT0yYI0w=
-github.com/roachadam/utls v0.0.0-20261022211723-53798658b88c h1:TpXixeS2hG8Sf2QJDUmXn8g/IiFp6Uv8PMQT6Z7XMiM=
-github.com/roachadam/utls v0.0.0-20261022211723-53798658b88c/go.mod h1:tYowH3Rjl8RTBCZkNEyYe9dEz+3jpbsobGtHUf7quuw=
+github.com/roachadam/utls v0.0.0-20261025174743-24d1f83b2f8a h1:RxRs9iYmG5TG2JqzH+gay1SNgibwmxX2WCGhw2GmGpI=
+github.com/roachadam/utls v0.0.0-20261025174743-24d1f83b2f8a/go.mod h1:tYowH3Rjl8RTBCZkNEyYe9dEz+3jpbsobGtHUf7quuw=
 github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWDWE=
 github.com/stretchr/testify v1.12.1/go.mod h1:MDEgiDPPsNp5cuIrHPPCyornHKgEVbtFUmoNlxoYthg=
 go.uber.org/mock v0.5.2 h1:LbtPTcP8A5k9WPXj54PPPbjcI4Y6lhyOZXn+VS7wNko=

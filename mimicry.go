@@ -1,6 +1,7 @@
 // Package mimicry is an HTTP client that reproduces real browsers' network
-// fingerprints: the TLS ClientHello, HTTP/2 frames and header order, and
-// HTTP/1.1 header lines.
+// fingerprints: the TLS ClientHello, HTTP/2 frames and header order,
+// HTTP/1.1 header lines, and HTTP/3 over QUIC where the browser moves an
+// origin to it (Config.DisableHTTP3 keeps everything on TCP).
 //
 // The core is Transport, an http.RoundTripper, so mimicry works anywhere an
 // *http.Client does. Profiles describe each browser and live in the profile and

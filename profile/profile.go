@@ -50,6 +50,12 @@ type Profile struct {
 	// offer, compression, framing over HTTP/2 and how it ends a socket's
 	// transport. Nil: not measured, so opening a WebSocket is an error.
 	WebSocket *WebSocket `json:"websocket,omitempty"`
+	// QUIC is how the browser speaks QUIC for HTTP/3, and HTTP3 what it
+	// sends over it and when it moves an origin there; TLS.QUIC is its
+	// ClientHello. Both or neither. Nil: not measured, so HTTP/3 is never
+	// used.
+	QUIC  *QUIC  `json:"quic,omitempty"`
+	HTTP3 *HTTP3 `json:"http3,omitempty"`
 }
 
 // HTTP1 describes a browser's HTTP/1.1 requests.

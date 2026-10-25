@@ -106,6 +106,10 @@ type Config struct {
 	// The qlog package contains a slog.Handler which serializes qlog events
 	// to a standard JSON representation.
 	QLogLogger *slog.Logger
+
+	// mimicry: client is a client connection's profile behaviour, set by
+	// Dial.
+	client *clientState
 }
 
 // Clone returns a shallow clone of c, or nil if c is nil.

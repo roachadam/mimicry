@@ -34,6 +34,12 @@ type Endpoint struct {
 	conns   map[*Conn]struct{}
 	closing bool          // set when Close is called
 	closec  chan struct{} // closed when the listen loop exits
+
+	// mimicry: sole marks an endpoint Dial made for one client
+	// connection, soleConn: every datagram is that connection's (its
+	// connection IDs may be empty), and the endpoint ends with it.
+	sole     bool
+	soleConn atomic.Pointer[Conn]
 }
 
 type endpointTestHooks interface {
@@ -243,6 +249,11 @@ func (e *Endpoint) connDrained(c *Conn) {
 	})
 	e.connsMu.Lock()
 	defer e.connsMu.Unlock()
+	if e.sole {
+		// mimicry: the endpoint's only connection is gone: release the
+		// socket below.
+		e.closing = true
+	}
 	delete(e.conns, c)
 	if e.closing && len(e.conns) == 0 {
 		e.packetConn.Close()
@@ -261,6 +272,15 @@ func (e *Endpoint) listen() {
 }
 
 func (e *Endpoint) handleDatagram(m *datagram) {
+	if e.sole {
+		// mimicry: the endpoint's only connection takes everything.
+		if c := e.soleConn.Load(); c != nil {
+			c.sendMsg(m)
+		} else {
+			m.recycle()
+		}
+		return
+	}
 	dstConnID, ok := dstConnIDForDatagram(m.b)
 	if !ok {
 		m.recycle()

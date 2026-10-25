@@ -404,6 +404,9 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 		s.partition = "anonymous"
 	}
 
+	// h3Only: the request's priority was measured over HTTP/3 only
+	// (http3.high, http3.low), so a TCP connection refuses it.
+	h3Only := false
 	switch r.Priority {
 	case PriorityHigh, PriorityLow:
 		var u *profile.Urgency
@@ -411,6 +414,18 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 			u = kind.High
 			if r.Priority == PriorityLow {
 				u = kind.Low
+			}
+		}
+		if u == nil && p.HTTP3 != nil {
+			byKind := p.HTTP3.High
+			if r.Priority == PriorityLow {
+				byKind = p.HTTP3.Low
+			}
+			if v, ok := byKind[profileKinds[r.Kind]]; ok {
+				u = &profile.Urgency{
+					Priority: v,
+				}
+				h3Only = true
 			}
 		}
 		if u == nil {
@@ -549,10 +564,13 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 		return s, nil
 	}
 	s.plan = &headerorder.Plan{
+		Kind:    profileKinds[r.Kind],
 		Headers: fill(list, values),
 		NoHTTP1: noHTTP1,
-		Weight:  weight,
-		Table:   table,
+		// Measured over HTTP/3 only: refused on TCP.
+		HTTP3Only: h3Only,
+		Weight:    weight,
+		Table:     table,
 		// fetch()'s Headers object lowercases names; XHR keeps the
 		// page's spelling (headers-order capture, over HTTP/1.1).
 		LowerOwn: r.Kind == Fetch,

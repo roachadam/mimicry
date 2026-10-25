@@ -138,7 +138,7 @@ func (c *Conn) handle1RTT(now time.Time, dgram *datagram, buf []byte) int {
 	}
 
 	pnumMax := c.acks[appDataSpace].largestSeen()
-	p, err := parse1RTTPacket(buf, &c.keysAppData, connIDLen, pnumMax)
+	p, err := parse1RTTPacket(buf, &c.keysAppData, c.localConnIDLen(), pnumMax) // mimicry: local CID length
 	if err != nil {
 		// A localTransportError terminates the connection.
 		// Other errors indicate an unparsable packet, but otherwise may be ignored.
@@ -168,6 +168,12 @@ func (c *Conn) handle1RTT(now time.Time, dgram *datagram, buf []byte) int {
 		c.log1RTTPacketReceived(p, buf)
 	}
 	ackEliciting := c.handleFrames(now, dgram, packetType1RTT, appDataSpace, p.payload)
+	if cc := c.client; cc != nil && c.handshakeConfirmed.isSet() && (!cc.spinSeen || p.num > pnumMax) {
+		// mimicry: the spin bit of the largest-numbered 1-RTT packet
+		// since the handshake was confirmed (that one included).
+		cc.spinRecv = buf[0]&spinBitMask != 0
+		cc.spinSeen = true
+	}
 	c.acks[appDataSpace].receive(now, appDataSpace, p.num, ackEliciting, dgram.ecn)
 	return len(buf)
 }
@@ -325,7 +331,11 @@ func (c *Conn) handleFrames(now time.Time, dgram *datagram, ptype packetType, sp
 			if !frameOK(c, ptype, ___1) {
 				return
 			}
-			_, n = consumeNewTokenFrame(payload)
+			token, tn := consumeNewTokenFrame(payload)
+			if tn >= 0 {
+				c.handleNewToken(token) // mimicry
+			}
+			n = tn
 		case 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f: // STREAM
 			if !frameOK(c, ptype, __01) {
 				return
@@ -394,6 +404,10 @@ func (c *Conn) handleFrames(now time.Time, dgram *datagram, ptype packetType, sp
 				return
 			}
 			n = c.handleHandshakeDoneFrame(now, space, payload)
+		default:
+			// mimicry: frames of extensions a profile's transport
+			// parameters announce.
+			n = c.handleExtensionFrame(now, ptype, payload)
 		}
 		if n < 0 {
 			c.abort(now, localTransportError{
@@ -585,6 +599,9 @@ func (c *Conn) handleConnectionCloseTransportFrame(now time.Time, payload []byte
 		return -1
 	}
 	c.handlePeerConnectionClose(now, peerTransportError{code: code, reason: reason})
+	if c.client != nil {
+		c.clientPeerClosed(now, frameTypeConnectionCloseTransport) // mimicry
+	}
 	return n
 }
 
@@ -594,6 +611,9 @@ func (c *Conn) handleConnectionCloseApplicationFrame(now time.Time, payload []by
 		return -1
 	}
 	c.handlePeerConnectionClose(now, &ConnectionCloseError{Code: code, Reason: reason})
+	if c.client != nil {
+		c.clientPeerClosed(now, frameTypeConnectionCloseApplication) // mimicry
+	}
 	return n
 }
 

@@ -31,6 +31,8 @@ type packetWriter struct {
 	payOff   int // offset of the payload of the current packet
 	b        []byte
 	sent     *sentPacket
+	// mimicry: spin sets the latency spin bit of the next 1-RTT packet.
+	spin bool
 }
 
 // reset prepares to write a datagram of at most lim bytes.
@@ -178,6 +180,9 @@ func (w *packetWriter) finish1RTTPacket(pnum, pnumMaxAcked packetNumber, dstConn
 	pnumLen := packetNumberLength(pnum, pnumMaxAcked)
 	hdr := w.b[:w.pktOff]
 	hdr = append(hdr, 0x40|byte(pnumLen-1))
+	if w.spin {
+		hdr[len(hdr)-1] |= spinBitMask // mimicry
+	}
 	hdr = append(hdr, dstConnID...)
 	pnumOff := len(hdr)
 	hdr = appendPacketNumber(hdr, pnum, pnumMaxAcked)

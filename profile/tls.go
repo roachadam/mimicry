@@ -34,6 +34,9 @@ type TLS struct {
 	// connection differs from this one. Required with Profile.WebSocket;
 	// hellogen derives it.
 	WebSocketH1 *WebSocketHello `json:"websocket_h1,omitempty"`
+	// QUIC is how the hello sent over QUIC differs from this one.
+	// Required with Profile.QUIC; hellogen derives it.
+	QUIC *QUICHello `json:"quic,omitempty"`
 }
 
 // Resumption describes how a browser resumes sessions. With a TLS 1.3

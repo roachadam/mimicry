@@ -28,6 +28,10 @@ type ackState struct {
 
 	// Total ECN counters for this packet number space.
 	ecn ecnCounts
+
+	// mimicry: maxDelay, when set, is how long an acknowledgement is
+	// delayed: the max_ack_delay a client with a profile sent, in full.
+	maxDelay time.Duration
 }
 
 type ecnCounts struct {
@@ -67,7 +71,11 @@ func (acks *ackState) receive(now time.Time, space numberSpace, num packetNumber
 			// expected delays in alarms firing.")
 			//
 			// https://www.rfc-editor.org/rfc/rfc9000#section-18.2-4.28.1
-			acks.nextAck = now.Add(maxAckDelay - timerGranularity)
+			delay := maxAckDelay - timerGranularity
+			if acks.maxDelay > 0 {
+				delay = acks.maxDelay // mimicry
+			}
+			acks.nextAck = now.Add(delay)
 		}
 		if num > acks.maxAckEliciting {
 			acks.maxAckEliciting = num

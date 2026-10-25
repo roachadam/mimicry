@@ -62,6 +62,16 @@ func (c *Conn) handleTLSEvents(now time.Time) error {
 		if c.testHooks != nil {
 			c.testHooks.handleTLSEvent(e)
 		}
+		// mimicry: 0-RTT, sessions and the profile's flight rules.
+		if c.client != nil {
+			handled, err := c.handleClientTLSEvent(now, e)
+			if err != nil {
+				return err
+			}
+			if handled {
+				continue
+			}
+		}
 		switch e.Kind {
 		case tls.QUICNoEvent:
 			return nil

@@ -200,6 +200,12 @@ func (c *Conn) streamForFrame(now time.Time, id streamID, ftype streamFrameType)
 	s := newStream(c, id)
 	s.inmaxbuf = c.config.maxStreamReadBufferSize()
 	s.inwin = c.config.maxStreamReadBufferSize()
+	if c.client != nil {
+		// mimicry: the window the client's transport parameters gave
+		// streams of this type.
+		s.inmaxbuf = c.client.streamWindow(id.streamType(), false)
+		s.inwin = s.inmaxbuf
+	}
 	if id.streamType() == bidiStream {
 		s.outmaxbuf = c.config.maxStreamWriteBufferSize()
 		s.outwin = c.streams.peerInitialMaxStreamDataBidiLocal
