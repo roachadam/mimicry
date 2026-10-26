@@ -53,6 +53,17 @@ type Stream struct {
 	inclosed     sentVal         // set by CloseRead
 	inclosedcode uint64          // code to send in STOP_SENDING
 	inresetcode  int64           // RESET_STREAM code received from the peer; -1 if not reset
+	// mimicry: a client counts its credit in the steps its data arrived
+	// in, one STREAM frame at a time, as a browser that consumes packets as
+	// they come: inends are the in-order received offsets after each
+	// frame, not yet consumed, incounted what was counted, increds the
+	// connection credit of the last Read in those steps, and inlimit the
+	// MAX_STREAM_DATA set at the frame end where the profile's share was
+	// crossed (client_flow.go).
+	inends    []int64
+	incounted int64
+	increds   []int64
+	inlimit   int64
 
 	// outgate's lock guards send-related state.
 	//
@@ -276,6 +287,15 @@ func (s *Stream) Read(b []byte) (n int, err error) {
 	// to the fast-path read buffer (s.inbuf).
 	var bytesRead int64
 	defer func() {
+		if s.conn.client != nil && bytesRead > 0 {
+			// mimicry: credit in the steps the frames arrived in.
+			s.clientConsumed(s.in.start + int64(len(s.inbuf)))
+			s.inUnlock()
+			for _, n := range s.increds {
+				s.conn.handleStreamBytesReadOffLoop(n)
+			}
+			return
+		}
 		s.inUnlock()
 		s.conn.handleStreamBytesReadOffLoop(bytesRead) // must be done with ingate unlocked
 	}()
@@ -320,7 +340,7 @@ func (s *Stream) Read(b []byte) (n int, err error) {
 		s.inbufmu.Unlock()
 		bytesRead += int64(len(s.inbuf))
 	}
-	if s.insize == -1 || s.insize > s.inwin {
+	if s.conn.client == nil && (s.insize == -1 || s.insize > s.inwin) {
 		newWindow := s.in.start + int64(len(s.inbuf)) + s.inmaxbuf
 		addedWindow := newWindow - s.inwin
 		if shouldUpdateFlowControl(s.inmaxbuf, addedWindow) {
@@ -847,6 +867,9 @@ func (s *Stream) handleData(off int64, b []byte, fin bool) error {
 	}
 	s.in.writeAt(b, off)
 	s.inset.add(off, end)
+	if s.conn.client != nil {
+		s.clientReceived() // mimicry
+	}
 	if fin {
 		s.insize = end
 		// The peer has enough flow control window to send the entire stream.
@@ -1023,11 +1046,19 @@ func (s *Stream) appendInFramesLocked(w *packetWriter, pnum packetNumber, pto bo
 	if s.insendmax.shouldSendPTO(pto) {
 		// MAX_STREAM_DATA
 		maxStreamData := s.in.start + s.inmaxbuf
+		if s.conn.client != nil && s.inlimit > 0 {
+			// mimicry: the limit set where the profile's share was
+			// crossed (clientConsumed), whatever was read since.
+			maxStreamData = s.inlimit
+		}
 		if !w.appendMaxStreamDataFrame(s.id, maxStreamData) {
 			return false
 		}
 		s.inwin = maxStreamData
 		s.insendmax.setSent(pnum)
+		// mimicry: MAX_DATA with it where the connection's limit follows
+		// what it received (Safari).
+		s.conn.appendWindowMaxData(w, pnum)
 	}
 	return true
 }

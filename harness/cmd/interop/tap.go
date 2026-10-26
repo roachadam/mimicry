@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/aes"
 	"crypto/sha256"
 	"crypto/sha512"
@@ -15,6 +16,7 @@ import (
 	"math/rand/v2"
 	"net"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -127,6 +129,50 @@ func newTap(pc net.PacketConn, imp impairment, scidLen int, seed uint64) *tap {
 
 // WriteTo sends b as the impairment allows.
 func (t *tap) WriteTo(b []byte, addr net.Addr) (int, error) {
+	return t.writeTo(t.PacketConn, b, addr)
+}
+
+// ReadFrom returns the next datagram the impairment lets through.
+func (t *tap) ReadFrom(p []byte) (int, net.Addr, error) {
+	return t.readFrom(t.PacketConn, p)
+}
+
+// tapPath is another socket of a tap's connection, which moved to a new
+// local port (quic.DialConfig.NewPath: Chrome's migration): watched,
+// counted and impaired as the first.
+type tapPath struct {
+	net.PacketConn
+	t *tap
+}
+
+// newPath opens a socket of the tap's network for its connection's next
+// path.
+func (t *tap) newPath(ctx context.Context) (net.PacketConn, error) {
+	addr := t.LocalAddr().(*net.UDPAddr) //nolint:errcheck,forcetypeassert // the tap's socket is UDP
+	network, local := "udp4", "0.0.0.0:0"
+	if addr.IP.To4() == nil {
+		network, local = "udp6", "[::]:0"
+	}
+	pc, err := (&net.ListenConfig{}).ListenPacket(ctx, network, local)
+	if err != nil {
+		return nil, err
+	}
+	return &tapPath{
+		PacketConn: pc,
+		t:          t,
+	}, nil
+}
+
+func (p *tapPath) WriteTo(b []byte, addr net.Addr) (int, error) {
+	return p.t.writeTo(p.PacketConn, b, addr)
+}
+
+func (p *tapPath) ReadFrom(b []byte) (int, net.Addr, error) {
+	return p.t.readFrom(p.PacketConn, b)
+}
+
+// writeTo sends b on pc as the impairment allows.
+func (t *tap) writeTo(pc net.PacketConn, b []byte, addr net.Addr) (int, error) {
 	now := time.Now()
 	t.mu.Lock()
 	pkts := t.parse(b, true)
@@ -145,17 +191,18 @@ func (t *tap) WriteTo(b []byte, addr net.Addr) (int, error) {
 	if delay > 0 {
 		c := bytes.Clone(b)
 		time.AfterFunc(delay, func() {
-			_, _ = t.PacketConn.WriteTo(c, addr)
+			_, _ = pc.WriteTo(c, addr)
 		})
 		return len(b), nil
 	}
-	return t.PacketConn.WriteTo(b, addr)
+	return pc.WriteTo(b, addr)
 }
 
-// ReadFrom returns the next datagram the impairment lets through.
-func (t *tap) ReadFrom(p []byte) (int, net.Addr, error) {
+// readFrom returns the next datagram from pc the impairment lets
+// through.
+func (t *tap) readFrom(pc net.PacketConn, p []byte) (int, net.Addr, error) {
 	for {
-		n, addr, err := t.PacketConn.ReadFrom(p)
+		n, addr, err := pc.ReadFrom(p)
 		if err != nil {
 			return n, addr, err
 		}
@@ -359,8 +406,14 @@ func (t *tap) stats() tapStats {
 func (t *tap) keyUpdates(suite uint16) (server, client int, ok bool) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	sk, err1 := hpMask(suite, t.keys.server)
-	ck, err2 := hpMask(suite, t.keys.client)
+	// A connection that ends in v2 protects its 1-RTT headers with v2's
+	// label (RFC 9369, section 3.3.2).
+	label := "quic hp"
+	if slices.Contains(t.st.Versions, 0x6b3343cf) {
+		label = "quicv2 hp"
+	}
+	sk, err1 := hpMask(suite, label, t.keys.server)
+	ck, err2 := hpMask(suite, label, t.keys.client)
 	if err1 != nil || err2 != nil {
 		return 0, 0, false
 	}
@@ -449,8 +502,9 @@ func (k *keyLog) add(p []byte) {
 }
 
 // hpMask returns the header protection mask function of a 1-RTT secret
-// for a TLS 1.3 cipher suite (RFC 9001, section 5.4).
-func hpMask(suite uint16, secret []byte) (func([16]byte) byte, error) {
+// for a TLS 1.3 cipher suite (RFC 9001, section 5.4), with the version's
+// hp label.
+func hpMask(suite uint16, label string, secret []byte) (func([16]byte) byte, error) {
 	if len(secret) == 0 {
 		return nil, fmt.Errorf("no secret")
 	}
@@ -466,7 +520,7 @@ func hpMask(suite uint16, secret []byte) (func([16]byte) byte, error) {
 	default:
 		return nil, fmt.Errorf("cipher suite %#04x", suite)
 	}
-	key, err := expandLabel(newHash, secret, "quic hp", keyLen)
+	key, err := expandLabel(newHash, secret, label, keyLen)
 	if err != nil {
 		return nil, err
 	}

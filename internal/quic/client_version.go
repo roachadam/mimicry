@@ -40,14 +40,15 @@ func (e *VersionNegotiationError) Is(target error) bool {
 }
 
 // RetryVersion is the version a profile's client starts a new connection
-// in after err, a Version Negotiation packet (RFC 9368, section 2.1): the
-// first of its Available Versions the packet lists, other than the one
-// it was in. Firefox does so 1 ms after the packet, in v2 (capture h3-vn);
-// Chrome and Safari, which list no other version, do not. The new
-// connection's DialConfig sets AfterVersionNegotiation.
+// in after err, a Version Negotiation packet (RFC 9368, section 2.1), when
+// its profile retries (QUICVersionNegotiation.Retry): the first of its
+// Available Versions the packet lists, other than the one it was in.
+// Firefox does so 1 ms after the packet, in v2 (capture h3-vn); Chrome
+// and Safari do not. The new connection's DialConfig sets
+// AfterVersionNegotiation.
 func RetryVersion(err error, p *profile.QUIC, from uint32) (uint32, bool) {
 	var vn *VersionNegotiationError
-	if !errors.As(err, &vn) {
+	if !p.VersionNegotiation.Retry || !errors.As(err, &vn) {
 		return 0, false
 	}
 	return chooseVersion(clientAvailable(p), vn.Versions, from)
@@ -91,10 +92,15 @@ func (c *Conn) clientVersionNegotiation(now time.Time, b []byte) {
 	c.abortImmediately(now, &VersionNegotiationError{Versions: versions})
 }
 
-// errVersionNegotiationError is QUIC's VERSION_NEGOTIATION_ERROR: 0x53f8,
-// the draft's codepoint, which Firefox sends (capture h3-vn), not RFC
-// 9368's 0x11. No other profile has been seen sending one.
-const errVersionNegotiationError = transportError(0x53f8)
+// errVersionNegotiationError is RFC 9368's VERSION_NEGOTIATION_ERROR, the
+// code of a failed version_information check for a profile that names
+// none (QUICVersionNegotiation.DowngradeError);
+// errVersionNegotiationDraft is the draft's, which Firefox sends (capture
+// h3-vn).
+const (
+	errVersionNegotiationError = transportError(0x11)
+	errVersionNegotiationDraft = transportError(0x53f8)
+)
 
 // clientVersions is what a client's version_information says: whether it
 // sends one and the Available Versions in it (GREASE left out: a server
@@ -171,7 +177,7 @@ func (c *Conn) clientCheckVersionInfo(p transportParameters) error {
 		// long headers, which an attacker could have forged.
 		if cc.afterVN || cc.version != cc.originalVersion {
 			return localTransportError{
-				code:   errVersionNegotiationError,
+				code:   cc.downgradeErr,
 				reason: "no version_information after a version change",
 			}
 		}
@@ -189,9 +195,9 @@ func (c *Conn) clientCheckVersionInfo(p transportParameters) error {
 	chosen := binary.BigEndian.Uint32(vi)
 	switch {
 	case cc.sentVersionInfo && !cc.offers(chosen):
-		return localTransportError{code: errVersionNegotiationError, reason: "server chose a version the client did not offer"}
+		return localTransportError{code: cc.downgradeErr, reason: "server chose a version the client did not offer"}
 	case chosen != cc.version:
-		return localTransportError{code: errVersionNegotiationError, reason: "server's chosen version is not the version in use"}
+		return localTransportError{code: cc.downgradeErr, reason: "server's chosen version is not the version in use"}
 	}
 	if cc.afterVN {
 		// The server's Available Versions must lead the client to the
@@ -201,7 +207,7 @@ func (c *Conn) clientCheckVersionInfo(p transportParameters) error {
 			offered = append(offered, binary.BigEndian.Uint32(b))
 		}
 		if v, ok := chooseVersion(cc.available, append(offered, chosen), 0); len(offered) == 0 || !ok || v != cc.version {
-			return localTransportError{code: errVersionNegotiationError, reason: "server's available versions do not match the Version Negotiation"}
+			return localTransportError{code: cc.downgradeErr, reason: "server's available versions do not match the Version Negotiation"}
 		}
 	}
 	return nil

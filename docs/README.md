@@ -48,6 +48,7 @@ Related, elsewhere in the repository:
 | [0025](decisions/0025-websockets.md) | WebSockets as each browser opens and frames them | Accepted |
 | [0026](decisions/0026-http3-capture.md) | HTTP/3 is captured from the client's own packets | Accepted |
 | [0027](decisions/0027-quic-base.md) | QUIC from a copy of x/net/quic; HTTP/3 and QPACK our own | Accepted |
+| [0028](decisions/0028-quic-failure-model.md) | QUIC and HTTP/3 fail as each browser's do | Accepted |
 
 New records copy [`decisions/template.md`](decisions/template.md).
 

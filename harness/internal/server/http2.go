@@ -142,9 +142,20 @@ func serveHTTP2(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 		return err
 	}
 	gotSettings := false
+	// goingAway: the client sent GOAWAY. It opens no more streams; those
+	// it opened are answered (RFC 9113, section 6.8), and then the
+	// connection ends: once every request is in (s.streams empty, all
+	// senders started on this goroutine), ending waits for the senders
+	// and unblocks ReadFrame. Ending it at once would fail a request whose
+	// response the GOAWAY overtook (Firefox's GOAWAY as its HTTP/3
+	// connection comes up, while the request on this one is in flight).
+	goingAway, ending := false, false
 	for {
 		f, err := s.fr.ReadFrame()
 		if err != nil {
+			if goingAway {
+				return nil
+			}
 			return err
 		}
 		s.record(f)
@@ -182,6 +193,9 @@ func serveHTTP2(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 				})
 			}
 		case *http2.HeadersFrame:
+			if goingAway {
+				return fmt.Errorf("HEADERS for stream %d after the client's GOAWAY", f.StreamID)
+			}
 			s.block, s.blockID = append(s.block[:0], f.HeaderBlockFragment()...), f.StreamID
 			s.blockEnded, s.blockPriority = f.StreamEnded(), nil
 			if f.HasPriority() {
@@ -219,7 +233,14 @@ func serveHTTP2(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 		case *http2.RSTStreamFrame:
 			s.onReset(f)
 		case *http2.GoAwayFrame:
-			return nil
+			goingAway = true
+		}
+		if goingAway && !ending && len(s.streams) == 0 {
+			ending = true
+			go func() {
+				senders.Wait()
+				_ = conn.SetReadDeadline(time.Now())
+			}()
 		}
 	}
 }

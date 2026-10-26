@@ -8855,7 +8855,49 @@
     "ack_only_frame": "MAX_DATA",
     "spin_bit": "zero",
     "tokens": true,
-    "zero_rtt": true
+    "zero_rtt": true,
+    "loss": {
+      "initial_pto_ms": 300,
+      "cached_rtt": true,
+      "pto_ack_delay": true,
+      "probe": "one_packet",
+      "skip_packet_number": true,
+      "fresh": {
+        "after_ms": 4000,
+        "close": "transport",
+        "reason": "25:No recent network activity after {elapsed_us}us. Timeout:4s num_undecryptable_packets: 0 {}",
+        "datagram_size": 1250
+      },
+      "resumed": {
+        "after_ms": 4000,
+        "close": "transport",
+        "reason": "25:No recent network activity after {elapsed_us}us. Timeout:4s num_undecryptable_packets: 0 {}",
+        "datagram_size": 1250
+      },
+      "path_degrading": {
+        "after_ptos": 4,
+        "action": "migrate"
+      }
+    },
+    "keep_alive": {
+      "period_ms": 15000,
+      "from": "sent"
+    },
+    "ack": {
+      "every": 10,
+      "warmup_packets": 100,
+      "warmup_every": 2
+    },
+    "credit": {
+      "stream_divisor": 2,
+      "connection_divisor": 2
+    },
+    "key_update": {
+      "initiate": false
+    },
+    "version_negotiation": {
+      "retry": false
+    }
   },
   "http3": {
     "settings": [
@@ -8906,7 +8948,17 @@
     },
     "priority_update": true,
     "discovery": {
-      "switch": "next_request"
+      "switch": "next_request",
+      "fallback": {
+        "mode": "race",
+        "tcp_delay_ms": {
+          "min": 305,
+          "max": 306
+        },
+        "zero_rtt_holds": true,
+        "broken_after": 1,
+        "pending": "tcp"
+      }
     }
   }
 }

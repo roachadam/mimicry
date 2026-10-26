@@ -4,21 +4,24 @@
 //	go run ./cmd/h3gen -captures testdata/captures -profile ../profiles/data/chrome-155-macos.json
 //
 // It reads every <name>.h3-discovery and <name>.h3-page capture, with and
-// without -h3-local-roots (server.H3ProfileCaptures; not the h3 edge
-// scenarios' failures and other versions). Every QUIC
+// without -h3-local-roots (server.H3ProfileCaptures). Every QUIC
 // connection's first flight counts, failed handshakes included (they show
 // the same Initial packets, ClientHello and transport parameters); what
 // follows the handshake comes from connections that completed it, and
-// discovery from the h3-discovery captures in which some did. Each value
-// is checked against every connection of every sample, and h3gen refuses
-// to write when one disagrees, unless the difference is pinned in
-// sampleGaps with why (and a pinned one that no longer appears is an
-// error too). http3.headers is kindsgen's and kept as it is. Run hellogen
-// first: tls.quic must describe the connections' ClientHellos.
+// discovery from the h3-discovery captures in which some did. What only
+// failure and long transfers show comes from the edge captures
+// (server.H3EdgeCaptures: h3-blackhole, h3-broken, h3-vn, h3-download):
+// quic.loss, keep_alive, ack, credit, key_update and version_negotiation,
+// and http3.discovery.fallback (edge*.go). Each value is checked against
+// every connection of every sample, and h3gen refuses to write when one
+// disagrees, unless the difference is pinned in sampleGaps with why (and
+// a pinned one that no longer appears is an error too). http3.headers is
+// kindsgen's and kept as it is. Run hellogen first: tls.quic must
+// describe the connections' ClientHellos.
 //
 // What it cannot measure stays out of the profile and is documented on
-// profile.QUIC and profile.HTTP3: credit growth, key updates, Safari's
-// QPACK with a dynamic table, its resumption and how it ends a connection.
+// profile.QUIC and profile.HTTP3: Safari's QPACK with a dynamic table,
+// its resumption, and what profile.QUIC lists as not measured.
 package main
 
 import (
@@ -82,6 +85,13 @@ func regenerate(data []byte, dir string) ([]byte, error) {
 			return nil, fmt.Errorf("http3: %w", err)
 		}
 		p.HTTP3.Headers, p.HTTP3.High, p.HTTP3.Low = kept.Headers, kept.High, kept.Low
+		edge, err := loadEdge(dir, set)
+		if err != nil {
+			return nil, err
+		}
+		if err := deriveEdge(edge, p.QUIC, p.HTTP3); err != nil {
+			return nil, fmt.Errorf("h3 edge captures: %w", err)
+		}
 		if err := set.unusedGaps(); err != nil {
 			return nil, err
 		}

@@ -23,6 +23,9 @@ type shared struct {
 	addr netip.Addr
 	// leaf is the server's certificate.
 	leaf *x509.Certificate
+	// sent is closed once the request that opened it has its response
+	// or failed: a GOAWAY the engine sends waits for it (goAwayTCP).
+	sent chan struct{}
 }
 
 // newShared wraps hc, open on conn (a TLS connection) for r.
@@ -32,6 +35,7 @@ func newShared(hc *h2.Conn, conn net.Conn, r route) *shared {
 		group: r.group,
 		addr:  remoteAddr(conn),
 		leaf:  leafCertificate(conn),
+		sent:  make(chan struct{}),
 	}
 }
 

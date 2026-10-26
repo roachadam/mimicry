@@ -71,7 +71,12 @@ func (c *Conn) handlePathChallenge(_ time.Time, dgram *datagram, data pathChalle
 	c.pstate.data = data
 }
 
-func (c *Conn) handlePathResponse(now time.Time, _ pathChallengeData) {
+func (c *Conn) handlePathResponse(now time.Time, data pathChallengeData) {
+	if c.client != nil {
+		// mimicry: the answer to a migrating client's challenge.
+		c.clientPathResponse(data)
+		return
+	}
 	// "If the content of a PATH_RESPONSE frame does not match the content of
 	// a PATH_CHALLENGE frame previously sent by the endpoint,
 	// the endpoint MAY generate a connection error of type PROTOCOL_VIOLATION."

@@ -340,15 +340,27 @@ func (c *Conn) GoAway() {
 	}
 	c.draining = true
 	idle := c.active == 0
+	// Counted as a stream until the frame is written: the last stream
+	// ending meanwhile must not close the connection under it (endStream
+	// closes a draining connection once nothing is active).
+	c.active++
 	c.cond.Broadcast()
 	c.mu.Unlock()
 	c.wmu.Lock()
 	_ = c.fr.WriteGoAway(0, http2.ErrCodeNo, nil)
 	c.wmu.Unlock()
-	if idle {
+	c.mu.Lock()
+	c.active--
+	ended := c.active == 0
+	c.mu.Unlock()
+	switch {
+	case idle:
 		c.clock.AfterFunc(declineLinger, func() {
 			_ = c.conn.Close()
 		})
+	case ended:
+		// The streams in flight ended while it was written.
+		_ = c.conn.Close()
 	}
 }
 

@@ -54,6 +54,11 @@ type DialConfig struct {
 	// requires the server's version_information and checks its Available
 	// Versions (RFC 9368, section 4), and ignores further such packets.
 	AfterVersionNegotiation bool
+	// NewPath opens another UDP socket to the same peer, for a
+	// connection that moves to a new local port when its path degrades
+	// (QUICPathDegrading's PathMigrate: Chrome). Required for such a
+	// profile; the socket is the connection's from then on.
+	NewPath func(ctx context.Context) (net.PacketConn, error)
 }
 
 // ErrIdleTimeout is the error of a connection closed by its idle timeout
@@ -74,15 +79,26 @@ var ErrIdleTimeout = errIdleTimeout
 // writes go with it. The caller must Uncork once it has written them.
 func Dial(ctx context.Context, pc net.PacketConn, peer netip.AddrPort, cfg DialConfig) (*Conn, error) {
 	cc, config, err := newClientConfig(cfg)
+	if err == nil && cc.path.degradePTOs > 0 && cfg.NewPath == nil {
+		err = errors.New("quic: the profile moves to a new port on a degrading path: DialConfig.NewPath is required")
+	}
 	if err != nil {
 		_ = pc.Close()
 		return nil, err
 	}
-	e, err := newSoleEndpoint(pc) //nolint:contextcheck // the endpoint runs for the connection's lifetime, not Dial's
+	sock, err := wrapPacketConn(pc)
 	if err != nil {
 		_ = pc.Close()
 		return nil, err
 	}
+	if cc.path.degradePTOs > 0 {
+		sw := &swapPacketConn{
+			cur: sock,
+		}
+		cc.pathState.socket, cc.pathState.newPath = sw, cfg.NewPath
+		sock = sw
+	}
+	e := newSoleEndpoint(sock) //nolint:contextcheck // the endpoint runs for the connection's lifetime, not Dial's
 	peer = netip.AddrPortFrom(peer.Addr().Unmap(), peer.Port())
 	config.client = cc
 	c, err := e.newConn(time.Now(), config, clientSide, newServerConnIDs{}, cfg.TLS.ServerName, peer) //nolint:contextcheck // as newSoleEndpoint
@@ -94,7 +110,13 @@ func Dial(ctx context.Context, pc net.PacketConn, peer netip.AddrPort, cfg DialC
 		return c, nil
 	}
 	if err := c.waitReady(ctx); err != nil {
-		c.Abort(nil)
+		if ctx.Err() != nil {
+			// A browser drops an attempt it no longer waits for without
+			// a word (Safari's when its TCP connection won the race).
+			c.exit()
+		}
+		// Otherwise the connection ended itself and sends its own close
+		// (Firefox's 0x53f8 after a version negotiation).
 		return nil, err
 	}
 	return c, nil
@@ -151,29 +173,20 @@ func (c *Conn) Confirmed() <-chan struct{} {
 	return c.client.confirmed
 }
 
-// clientKeepAlive is the longest a client connection with a request
-// outstanding stays silent: Chrome's ping alarm with open streams
-// (quiche's 15 s ping timeout); the keep-alive comes sooner, at half the
-// idle timeout, when that is shorter (neqo's stream keep-alive).
-const clientKeepAlive = 15 * time.Second
-
-// KeepAlive turns keep-alives on (while the application has a request
-// outstanding) or off: a PING once the connection has been silent for
-// clientKeepAlive or half its idle timeout. Without it a client waiting
-// for a response is silent, and a server that cannot reach it (its path
-// to the client changed, the probe of the new path lost) never learns of
-// it before the idle timeout. An idle connection without requests still
-// ends silently.
+// KeepAlive tells the connection whether the application has a request
+// waiting for its response. While one waits, the connection sends the
+// profile's keep-alive PINGs (QUICKeepAlive) and watches its path
+// (QUICPathDegrading's PathClose counts from it). Without them a client
+// waiting for a response is silent, and a server that cannot reach it
+// (its path to the client changed, the probe of the new path lost) never
+// learns of it before the idle timeout. An idle connection without
+// requests ends silently.
 func (c *Conn) KeepAlive(on bool) {
-	c.client.keepAlive.Store(on)
-}
-
-// keepAlivePeriod is the client's keep-alive period: zero while off.
-func (cc *clientState) keepAlivePeriod() time.Duration {
-	if !cc.keepAlive.Load() {
-		return 0
+	if on && !c.client.keepAlive.Load() {
+		c.client.keepAliveSince.Store(time.Now().UnixNano())
 	}
-	return clientKeepAlive
+	c.client.keepAlive.Store(on)
+	c.wake()
 }
 
 // clientState is a client connection's browser behaviour: the profile's
@@ -242,8 +255,34 @@ type clientState struct {
 	// peerMaxData is the server's initial_max_data, once its transport
 	// parameters arrived (clientResetFlowControl).
 	peerMaxData int64
-	// keepAlive: the application has a request outstanding (KeepAlive).
-	keepAlive atomic.Bool
+	// keepAlive: the application has a request waiting (KeepAlive),
+	// since keepAliveSince (Unix nanoseconds).
+	keepAlive      atomic.Bool
+	keepAliveSince atomic.Int64
+	// path is the profile's rules for a path that stops answering,
+	// pathState their state (client_path.go).
+	path      clientPath
+	pathState clientPathState
+
+	// started is when the connection was created.
+	started time.Time
+	// loss is the profile's loss recovery and give-up (client_loss.go).
+	// skipNext: the next packet is a PTO probe and one number is skipped
+	// first; probedThrough is the last Initial packet a probe resent
+	// (probeOldest); firstFlight is the first flight's layout, once a PTO
+	// needed it (probeFlight).
+	loss          clientLoss
+	skipNext      bool
+	probedThrough packetNumber
+	firstFlight   []plannedPacket
+	// closeSize is what the datagram of the client's own close is padded
+	// to (zero: the profile's datagram size); closeOnly0RTT: its close
+	// goes in a 0-RTT packet alone (Abandon).
+	closeSize     int
+	closeOnly0RTT bool
+	// downgradeErr is the error code of a failed version_information
+	// check (QUICVersionNegotiation.DowngradeError, or RFC 9368's).
+	downgradeErr transportError
 }
 
 // newClientConfig validates cfg and makes the connection's draws.
@@ -344,6 +383,9 @@ func newClientConfig(cfg DialConfig) (*clientState, *Config, error) {
 		// No max_idle_timeout: no local limit (the peer's applies).
 		config.MaxIdleTimeout = -1
 	}
+	if err := cc.applyLoss(p, cfg, config); err != nil {
+		return nil, nil, err
+	}
 	return cc, config, nil
 }
 
@@ -395,11 +437,6 @@ func (c *Conn) localConnIDLen() int {
 	}
 	return connIDLen
 }
-
-// clientKeyUpdateAfter is the packet number after which a client starts
-// its first key update: half the lowest AEAD confidentiality limit, 2^23
-// packets (RFC 9001, section 6.6), as upstream schedules every later one.
-const clientKeyUpdateAfter = 1 << 22
 
 // spinBitMask is the latency spin bit of a 1-RTT packet's first byte (RFC
 // 9000, section 17.4).
@@ -513,20 +550,9 @@ func (c *Conn) localActiveConnIDLimit() int {
 	return activeConnIDLimit
 }
 
-// newSoleEndpoint is NewEndpoint for one client connection (Endpoint.sole):
-// no listening, and no stateless resets.
-func newSoleEndpoint(conn net.PacketConn) (*Endpoint, error) {
-	var pc packetConn
-	var err error
-	switch conn := conn.(type) {
-	case *net.UDPConn:
-		pc, err = newNetUDPConn(conn)
-	default:
-		pc, err = newNetPacketConn(conn)
-	}
-	if err != nil {
-		return nil, err
-	}
+// newSoleEndpoint is NewEndpoint for one client connection (Endpoint.sole)
+// on pc: no listening, and no stateless resets.
+func newSoleEndpoint(pc packetConn) *Endpoint {
 	e := &Endpoint{
 		packetConn:  pc,
 		conns:       make(map[*Conn]struct{}),
@@ -537,5 +563,5 @@ func newSoleEndpoint(conn net.PacketConn) (*Endpoint, error) {
 	e.resetGen.init([32]byte{})
 	e.connsMap.init()
 	go e.listen()
-	return e, nil
+	return e
 }

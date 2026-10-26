@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/roachadam/mimicry/harness/internal/quictrace"
+	"github.com/roachadam/mimicry/internal/quic/quicwire"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -25,7 +26,7 @@ import (
 // values the samples agree on) is compared with the samples as features.
 
 // quicRuleViolations lists how c breaks p's rules for what is random per
-// connection.
+// connection or depends on timing.
 func quicRuleViolations(p *profile.Profile, c *quictrace.Conn) []string {
 	r := &ruleCheck{
 		p: p,
@@ -35,6 +36,7 @@ func quicRuleViolations(p *profile.Profile, c *quictrace.Conn) []string {
 	r.packetNumbers()
 	r.dcid()
 	r.crypto()
+	r.datagramPadding()
 	r.transportParameters()
 	r.spinBit()
 	r.ackDelays()
@@ -294,11 +296,49 @@ func (r *ruleCheck) crypto() {
 	}
 }
 
+// datagramPadding: every datagram carrying an Initial packet is padded to
+// QUIC.DatagramSize (one with the give-up's CONNECTION_CLOSE to its
+// size); with PaddingTrailing by PADDING ending a 1-RTT packet that ends
+// it, else after its packets. Whether a 1-RTT packet shares a datagram
+// with an Initial at all is timing, so whether a connection sends PADDING
+// is not compared with the samples (packetFeatures): Firefox's reply to
+// the server's Initial carries its Handshake and padded 1-RTT packets
+// only where it read the server's Handshake datagram first, which a
+// loaded machine's client may not.
+func (r *ruleCheck) datagramPadding() {
+	giveUp := r.q.Loss.Fresh
+	if r.c.Resumed {
+		giveUp = r.q.Loss.Resumed
+	}
+	for i := range r.c.Datagrams {
+		d := &r.c.Datagrams[i]
+		initial, closes := false, false
+		for _, pk := range d.Packets {
+			initial = initial || pk.Type == quictrace.PacketInitial
+			closes = closes || slices.ContainsFunc(pk.Frames, func(f quictrace.Frame) bool {
+				return f.Type == quictrace.FrameConnectionClose
+			})
+		}
+		if !initial {
+			continue
+		}
+		last := &d.Packets[len(d.Packets)-1]
+		switch {
+		case d.Size != r.q.DatagramSize && (!closes || d.Size != giveUp.DatagramSize):
+			r.add("padding: datagram %d carries an Initial packet in %d bytes, not %d", i+1, d.Size, r.q.DatagramSize)
+		case r.q.Padding == profile.PaddingTrailing && last.Type == quictrace.Packet1RTT &&
+			(d.Trailing > 0 || len(last.Frames) == 0 || last.Frames[len(last.Frames)-1].Type != quictrace.FramePadding):
+			r.add("padding: datagram %d's 1-RTT packet after its Initial does not end in the padding", i+1)
+		}
+	}
+}
+
 // sniCutRule checks neqo's SNI slicing: the first packet carries the tail
 // piece, then the head piece, of the ClientHello cut at the middle of its
 // server_name host, the longer piece shortened so that both make len/n
 // bytes (n packets); the tail piece gets what it was planned, the head
-// piece what fits after it; the rest follows in order, one frame per
+// piece what fits after it (filling the datagram, but for the byte
+// cryptoLeftover allows); the rest follows in order, one frame per
 // packet.
 func sniCutRule(hello []byte, host string, pkts []helloPacket, datagramSize int) error {
 	length := len(hello)
@@ -315,7 +355,7 @@ func sniCutRule(hello []byte, host string, pkts []helloPacket, datagramSize int)
 		return fmt.Errorf("the first packet's CRYPTO frames %v are not the tail, then the head", first)
 	}
 	right, left := first[0], first[1]
-	full := pkts[0].d.Size == datagramSize && pkts[0].d.Trailing == 0
+	full := pkts[0].d.Size == datagramSize && (pkts[0].d.Trailing == 0 || cryptoLeftover(pkts[0].d))
 	ok := false
 	for n := 1; n <= 4 && !ok; n++ {
 		limit := length / n
@@ -346,6 +386,25 @@ func sniCutRule(hello []byte, host string, pkts []helloPacket, datagramSize int)
 		return fmt.Errorf("the middle ends at %d, not %d", next, right.start)
 	}
 	return nil
+}
+
+// cryptoLeftover reports whether d's trailing bytes are only what the
+// CRYPTO frame ending its last packet could not use: too few for one more
+// byte of data, whose Length field would grow too (67 bytes take 63 bytes
+// of data in a 66-byte frame; 64 would need 68). neqo sizes the frame so
+// (write_chunk), puts no PADDING in long-header packets and pads the
+// datagram after them (pad_initial): its first packet ends a byte short
+// where the head piece's room falls there, a draw no sample made.
+func cryptoLeftover(d *quictrace.Datagram) bool {
+	if d.Trailing == 0 || len(d.Packets) == 0 {
+		return false
+	}
+	frames := d.Packets[len(d.Packets)-1].Frames
+	if len(frames) == 0 || frames[len(frames)-1].Type != quictrace.FrameCrypto {
+		return false
+	}
+	n := frames[len(frames)-1].Length
+	return d.Trailing < 1+quicwire.SizeVarint(n+1)-quicwire.SizeVarint(n)
 }
 
 // shuffleRule checks quiche's chaos protection: two packets, the first

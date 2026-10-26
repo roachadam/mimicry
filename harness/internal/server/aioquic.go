@@ -118,6 +118,9 @@ func (s *Server) serveAioquic(ctx context.Context, log *pageLog, issue func([]st
 		IP:   net.IPv4(127, 0, 0, 1),
 		Port: port,
 	}
+	if s.OnQUICReady != nil {
+		s.OnQUICReady()
+	}
 	return relayUDP(ctx, pc, upstream, &log.quic)
 }
 

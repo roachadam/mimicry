@@ -103,8 +103,9 @@ func (c *Conn) restartIdleTimer(now time.Time) {
 	c.idle.shouldSendKeepAlive = false
 	keepAlive := c.config.keepAlivePeriod()
 	if c.client != nil {
-		// mimicry: only while a request is outstanding (Conn.KeepAlive).
-		keepAlive = c.client.keepAlivePeriod()
+		// mimicry: the client's keep-alives are its profile's
+		// (clientPathTimer).
+		keepAlive = 0
 	}
 	switch {
 	case !c.handshakeConfirmed.isSet():
@@ -131,6 +132,9 @@ func (c *Conn) restartIdleTimer(now time.Time) {
 }
 
 func (c *Conn) appendKeepAlive() bool {
+	if c.client != nil {
+		return c.appendClientKeepAlive() // mimicry
+	}
 	if !c.idle.shouldSendKeepAlive {
 		return true
 	}
@@ -167,6 +171,11 @@ func (c *Conn) idleAdvance(now time.Time) (shouldExit bool) {
 			// enter the closing state rather than unceremoniously dropping
 			// the connection, since the peer might still be trying to
 			// complete the handshake.
+			if c.client != nil {
+				// mimicry: as the profile's browser gives up.
+				c.clientGiveUp(now)
+				return false
+			}
 			c.abort(now, errHandshakeTimeout)
 			return false
 		}
@@ -180,8 +189,7 @@ func (c *Conn) idleAdvance(now time.Time) (shouldExit bool) {
 	if next := c.idle.nextTimeout; !next.Equal(c.idle.idleTimeout) && !next.IsZero() && !now.Before(next) {
 		// Keep-alive timeout has expired.
 		// Queue a keep-alive and switch to the idle timeout.
-		// mimicry: not if the client's last request ended meanwhile.
-		c.idle.shouldSendKeepAlive = c.client == nil || c.client.keepAlive.Load()
+		c.idle.shouldSendKeepAlive = true
 		c.idle.nextTimeout = c.idle.idleTimeout
 		return false
 	}

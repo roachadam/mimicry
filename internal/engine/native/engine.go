@@ -19,7 +19,6 @@ import (
 	"github.com/roachadam/mimicry/internal/fingerprint"
 	"github.com/roachadam/mimicry/internal/h1"
 	"github.com/roachadam/mimicry/internal/h2"
-	"github.com/roachadam/mimicry/internal/h3"
 	"github.com/roachadam/mimicry/internal/handshake"
 	"github.com/roachadam/mimicry/internal/headerorder"
 	"github.com/roachadam/mimicry/internal/pool"
@@ -125,7 +124,7 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 	if p.HTTP3 != nil && p.QUIC != nil && !cfg.DisableHTTP3 {
 		e.quic = &quicState{
 			origins: map[string]*origin{},
-			pool: pool.New[*h3.Conn, noExclusive](pool.Config{
+			pool: pool.New[*quicConn, noExclusive](pool.Config{
 				Clock:       clock,
 				IdleTimeout: idleTimeout,
 			}),
@@ -197,6 +196,9 @@ func (e *Engine) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 		if !notSent && !errors.Is(err, errRetry) {
 			return resp, err
 		}
+		if errors.Is(err, errTCPOnly) {
+			r.tcpOnly = true
+		}
 		if attempt == maxAttempts {
 			return nil, fmt.Errorf("mimicry: no usable connection after %d attempts: %w", attempt, err)
 		}
@@ -260,6 +262,9 @@ type route struct {
 	// forward sends plain-HTTP requests to an HTTP proxy whole, instead of
 	// through a tunnel.
 	forward bool
+	// tcpOnly: the request's QUIC connection died with it pending, and it
+	// goes again on TCP whatever HTTP/3 says (Fallback.PendingTCP).
+	tcpOnly bool
 }
 
 // route picks req's proxy and pool. Connections and TLS sessions are
@@ -321,8 +326,14 @@ func (e *Engine) try(ctx context.Context, req *http.Request, r route) (*http.Res
 }
 
 func (e *Engine) tryOnce(ctx context.Context, req *http.Request, r route) (*http.Response, error) {
-	if resp, handled, err := e.tryH3(ctx, req, r); handled {
+	resp, handled, race, err := e.tryH3(ctx, req, r)
+	if handled {
 		return resp, err
+	}
+	if race != nil {
+		// The QUIC attempt racing this request starts no earlier than
+		// its response on TCP.
+		defer close(race)
 	}
 	if plan := headerorder.PlanFrom(ctx); plan != nil && plan.HTTP3Only {
 		return nil, fmt.Errorf("%w: profile %s measured this request over HTTP/3 only, and it would go on TCP", headerorder.ErrNotMeasured, e.profile.Name)
@@ -371,7 +382,14 @@ func (e *Engine) tryOnce(ctx context.Context, req *http.Request, r route) (*http
 		d.Fail(err)
 		return nil, err
 	}
-	return e.roundTripH2(r.key, d.Shared(newShared(hc, conn, r)), req)
+	c := newShared(hc, conn, r)
+	s := d.Shared(c)
+	if s != c {
+		return e.roundTripH2(r.key, s, req)
+	}
+	defer close(c.sent)
+	e.goAwayIfReplaced(req, r, c)
+	return e.roundTripH2(r.key, c, req)
 }
 
 // roundTripH2 sends req on c. A request c did not send (it is going away

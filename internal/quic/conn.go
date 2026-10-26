@@ -121,6 +121,11 @@ func newConn(now time.Time, side connSide, cids newServerConnIDs, peerHostname s
 	// A one-element buffer allows us to wake a Conn's event loop as a
 	// non-blocking operation.
 	c.msgc = make(chan any, 1)
+	if c.client != nil {
+		// mimicry: room for the datagrams of a burst, which a client
+		// whose browser batches its ACKs reads before answering.
+		c.msgc = make(chan any, clientMsgQueue)
+	}
 
 	if e.testHooks != nil {
 		e.testHooks.newConn(c, cids)
@@ -160,16 +165,21 @@ func newConn(now time.Time, side connSide, cids newServerConnIDs, peerHostname s
 		// held until the application's first writes (Dial).
 		maxDatagramSize = c.client.p.DatagramSize
 		c.cork.Store(1)
-		// No key update of its own until half the lowest AEAD
-		// confidentiality limit (upstream's later schedule): no browser
-		// started one in 50 MiB (capture h3-download); they follow the
-		// server's. Upstream starts one after 100 packets.
-		c.keysAppData.updateAfter = clientKeyUpdateAfter
+		if !c.client.p.KeyUpdate.Initiate {
+			// No key update of its own: no browser started one in 50
+			// MiB (capture h3-download); they follow the server's.
+			// Upstream starts one after 100 packets.
+			c.keysAppData.updateAfter = maxPacketNumber
+		}
 	}
 	c.loss.init(c.side, maxDatagramSize, now)
 	if c.client != nil {
 		c.loss.spaces[initialSpace].nextNum = c.client.initialPN
-		c.acks[appDataSpace].maxDelay = c.client.maxAckDelay()
+		a := &c.acks[appDataSpace]
+		a.maxDelay = c.client.maxAckDelay()
+		a.every = c.client.p.Ack.Every
+		a.warmupPackets, a.warmupEvery = c.client.p.Ack.WarmupPackets, c.client.p.Ack.WarmupEvery
+		c.clientInitLoss(now)
 	}
 	c.streamsInit()
 	c.lifetimeInit()
@@ -372,6 +382,10 @@ func (c *Conn) loop(now time.Time) {
 				nextTimeout = firstTime(nextTimeout, c.loss.timer)
 				nextTimeout = firstTime(nextTimeout, c.acks[appDataSpace].nextAck)
 			}
+			if c.client != nil {
+				// mimicry: keep-alives, a degrading or dead path.
+				nextTimeout = firstTime(nextTimeout, c.clientPathTimer())
+			}
 		} else {
 			nextTimeout = firstTime(nextTimeout, c.lifetime.drainEndTime)
 		}
@@ -402,7 +416,11 @@ func (c *Conn) loop(now time.Time) {
 				}
 			}
 			m.recycle()
-			readMore = c.client != nil && len(c.msgc) > 0
+			// Once the handshake is confirmed, only a browser that
+			// batches its ACKs reads on before answering; the others
+			// acknowledge at their rate (QUICAck).
+			readMore = c.client != nil && len(c.msgc) > 0 &&
+				(c.client.p.Ack.Batched || !c.handshakeConfirmed.isSet())
 		case timerEvent:
 			// A connection timer has expired.
 			if c.idleAdvance(now) {
@@ -413,8 +431,11 @@ func (c *Conn) loop(now time.Time) {
 			pto := c.loss.ptoExpired
 			c.loss.advance(now, c.handleAckOrLoss)
 			if c.client != nil && !pto && c.loss.ptoExpired {
-				// mimicry: the client's probes resend its CRYPTO data.
+				// mimicry: the client's probes, as its profile sends them.
 				c.clientPTOExpired()
+			}
+			if c.client != nil {
+				c.clientPathAdvance(now)
 			}
 			if c.lifetimeAdvance(now) {
 				// The connection has completed the draining period,

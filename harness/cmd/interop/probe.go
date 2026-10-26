@@ -153,6 +153,7 @@ func (pr *prober) dial(ctx context.Context, host string, peer netip.AddrPort, im
 		Hello:     spec,
 		TLS:       tlsConfig,
 		CachedRTT: rtt,
+		NewPath:   t.newPath,
 		OnToken: func(b []byte) {
 			pr.mu.Lock()
 			defer pr.mu.Unlock()

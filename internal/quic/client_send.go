@@ -51,6 +51,12 @@ func (c *Conn) maybeSendClient(now time.Time) (next time.Time) {
 			cc.planned = true
 			cc.flight = c.planFirstFlight()
 		}
+		// closeSize is what a datagram carrying an Initial packet is
+		// padded to: the profile's size, or its give-up close's.
+		closeSize := cc.p.DatagramSize
+		if c.lifetime.localErr != nil && cc.closeSize > 0 {
+			closeSize = cc.closeSize
+		}
 		c.w.reset(c.loss.maxSendSize())
 		dstConnID, ok := c.connIDState.dstConnID()
 		if !ok {
@@ -74,7 +80,7 @@ func (c *Conn) maybeSendClient(now time.Time) (next time.Time) {
 			initialNum   packetNumber
 			paddedIn1RTT bool
 			initialKeys  fixedKeys
-			sendInitial  = cc.p.AckInitial || !c.keysHandshake.canWrite() || c.lifetime.localErr != nil
+			sendInitial  = (cc.p.AckInitial || !c.keysHandshake.canWrite() || c.lifetime.localErr != nil) && !cc.closeOnly0RTT
 		)
 		if c.keysInitial.canWrite() && sendInitial {
 			pnum := c.clientPacketNumber(now, initialSpace)
@@ -105,7 +111,7 @@ func (c *Conn) maybeSendClient(now time.Time) (next time.Time) {
 			}
 			if !coalesce && cc.p.Padding != profile.PaddingTrailing && len(c.w.payload()) > 0 {
 				// The packet is the datagram: pad it now.
-				c.w.appendPaddingTo(cc.p.DatagramSize)
+				c.w.appendPaddingTo(closeSize)
 			}
 			if logPackets {
 				logSentPacket(c, packetTypeInitial, pnum, p.srcConnID, p.dstConnID, c.w.payload())
@@ -126,7 +132,7 @@ func (c *Conn) maybeSendClient(now time.Time) (next time.Time) {
 		}
 
 		// Handshake packet.
-		if c.keysHandshake.canWrite() && (coalesce || packets == 0) {
+		if c.keysHandshake.canWrite() && (coalesce || packets == 0) && !cc.closeOnly0RTT {
 			pnum := c.clientPacketNumber(now, handshakeSpace)
 			pnumMaxAcked := c.loss.spaces[handshakeSpace].maxAcked
 			p := longPacket{
@@ -192,7 +198,7 @@ func (c *Conn) maybeSendClient(now time.Time) (next time.Time) {
 			if sentInitial != nil && cc.p.Padding == profile.PaddingTrailing && len(c.w.payload()) > 0 {
 				// 1-RTT packets extend to the end of the datagram: the
 				// padding goes inside (Firefox).
-				c.w.appendPaddingTo(cc.p.DatagramSize)
+				c.w.appendPaddingTo(closeSize)
 				paddedIn1RTT = true
 			}
 			if logPackets {
@@ -223,7 +229,7 @@ func (c *Conn) maybeSendClient(now time.Time) (next time.Time) {
 			return next
 		}
 		if sentInitial != nil {
-			switch short := cc.p.DatagramSize - len(buf); {
+			switch short := closeSize - len(buf); {
 			case short <= 0 || paddedIn1RTT:
 			case cc.p.Padding == profile.PaddingTrailing:
 				// Zeros after the packets: not in any packet, but
@@ -249,30 +255,6 @@ func (c *Conn) maybeSendClient(now time.Time) (next time.Time) {
 	}
 }
 
-// clientProbesPerPTO is how many probe packets a client's PTO sends: the
-// two RFC 9002 (section 6.2.4) allows, so one lost datagram does not cost
-// another, doubled, timeout.
-const clientProbesPerPTO = 2
-
-// clientPTOExpired prepares a client's PTO probes: every unacknowledged
-// CRYPTO byte is queued again, so the probes carry a ClientHello longer
-// than one packet whole. Upstream's single probe resends the first
-// unacknowledged range alone, which a browser's ClientHello outgrows: with
-// the server's ACKs lost, its end would wait for loss detection forever.
-func (c *Conn) clientPTOExpired() {
-	c.loss.ptoProbes = clientProbesPerPTO
-	for space := range c.crypto {
-		s := &c.crypto[space]
-		if s.out.start == s.out.end {
-			continue
-		}
-		s.outunsent.add(s.out.start, s.out.end)
-		for _, a := range s.outacked {
-			s.outunsent.sub(a.start, a.end)
-		}
-	}
-}
-
 // corkHolds reports whether a Cork holds the connection's packets: from
 // the start when sending 0-RTT, otherwise once the handshake is complete.
 // A closing connection is never held.
@@ -294,8 +276,18 @@ func (c *Conn) initialToken() []byte {
 // clientPacketNumber returns the number of the next packet in space:
 // with shared numbers, the connection's next number.
 func (c *Conn) clientPacketNumber(now time.Time, space numberSpace) packetNumber {
-	if c.client.p.PacketNumbers == profile.PacketNumbersShared {
-		c.loss.alignNumber(now, space, c.client.nextPN)
+	cc := c.client
+	if cc.skipNext {
+		// A PTO probe follows: one number left out first (Chrome).
+		cc.skipNext = false
+		if cc.p.PacketNumbers == profile.PacketNumbersShared {
+			cc.nextPN++
+		} else {
+			c.loss.skipNumber(now, space)
+		}
+	}
+	if cc.p.PacketNumbers == profile.PacketNumbersShared {
+		c.loss.alignNumber(now, space, cc.nextPN)
 	}
 	return c.loss.nextNumber(space)
 }

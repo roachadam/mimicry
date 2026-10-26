@@ -192,6 +192,9 @@ func (c *Conn) maybeSend(now time.Time) (next time.Time) {
 func (c *Conn) packetSent(now time.Time, space numberSpace, sent *sentPacket) {
 	c.idleHandlePacketSent(now, sent)
 	c.loss.packetSent(now, c.log, space, sent)
+	if c.client != nil && sent.ackEliciting && space == appDataSpace {
+		c.clientSent(now) // mimicry: what the keep-alives count from
+	}
 }
 
 func (c *Conn) appendFrames(now time.Time, space numberSpace, pnum packetNumber, limit ccLimit) {
@@ -297,7 +300,11 @@ func (c *Conn) appendFrames(now time.Time, space numberSpace, pnum packetNumber,
 		if pad, ok := c.appendPathFrames(); !ok {
 			return
 		} else if pad {
-			defer c.w.appendPaddingTo(smallestMaxDatagramSize)
+			size := smallestMaxDatagramSize
+			if c.client != nil {
+				size = c.client.p.DatagramSize // mimicry: as its Initial datagrams (Chrome)
+			}
+			defer c.w.appendPaddingTo(size)
 		}
 
 		// All stream-related frames. This should come last in the packet,

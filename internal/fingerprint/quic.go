@@ -8,11 +8,14 @@ import (
 )
 
 // quicPlan is the ClientHello a browser sends over QUIC (profile
-// tls.quic), compiled for fresh and resumed connections.
+// tls.quic), compiled for fresh and resumed connections, and for one
+// retried after Version Negotiation.
 type quicPlan struct {
 	cipherSuites    []profile.Code
 	sessionIDLength uint8
 	fresh, resumed  quicHello
+	// retry is nil without tls.quic.version_negotiation.
+	retry *quicHello
 }
 
 // quicHello is one QUIC hello's extensions in their base order, and the
@@ -36,7 +39,42 @@ func compileQUIC(p *profile.Profile) *quicPlan {
 	if p.TLS.Resumption != nil {
 		plan.resumed = compileQUICHello(p, true)
 	}
+	if q.VersionNegotiation != nil {
+		retry := compileQUICRetry(plan.fresh, q.VersionNegotiation)
+		plan.retry = &retry
+	}
 	return plan
+}
+
+// compileQUICRetry lays out the hello of a connection retried after
+// Version Negotiation: the full one without r's drops, bodies replaced in
+// place, padding last where r pads (Firefox: 512 bytes in all).
+func compileQUICRetry(fresh quicHello, r *profile.QUICHelloRetry) quicHello {
+	out := quicHello{}
+	at := map[int]int{}
+	for i, e := range fresh.extensions {
+		if slices.Contains(r.Drop, e.Type) {
+			continue
+		}
+		for _, rep := range r.Replace {
+			if rep.Type == e.Type {
+				e = rep
+			}
+		}
+		at[i] = len(out.extensions)
+		out.extensions = append(out.extensions, e)
+	}
+	for _, i := range fresh.movable {
+		if j, ok := at[i]; ok {
+			out.movable = append(out.movable, j)
+		}
+	}
+	if r.Padding {
+		out.extensions = append(out.extensions, profile.Extension{
+			Type: profile.ExtPadding,
+		})
+	}
+	return out
 }
 
 // compileQUICHello lays out the QUIC hello's extensions: TLS's without
@@ -130,6 +168,16 @@ func (p *Plan) QUICHello() Hello {
 // Only for a plan that HasQUIC and Resumes.
 func (p *Plan) ResumedQUICHello() Hello {
 	return p.quicHello(p.quic.resumed, rand.IntN) //nolint:gosec // as QUICHello
+}
+
+// RetryQUICHello returns the ClientHello of a QUIC connection retried
+// after Version Negotiation (profile tls.quic.version_negotiation), a
+// shuffled one in a fresh order, and whether the profile has one.
+func (p *Plan) RetryQUICHello() (Hello, bool) {
+	if p.quic == nil || p.quic.retry == nil {
+		return Hello{}, false
+	}
+	return p.quicHello(*p.quic.retry, rand.IntN), true //nolint:gosec // as QUICHello
 }
 
 // quicHello builds a QUIC Hello from h, drawing the permutation with

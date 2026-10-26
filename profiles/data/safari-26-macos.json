@@ -10980,7 +10980,35 @@
       "min": 9,
       "max": 27
     },
-    "spin_bit": "spin"
+    "spin_bit": "spin",
+    "loss": {
+      "fresh": {},
+      "resumed": {},
+      "abandon_close": "zero_rtt",
+      "path_degrading": {
+        "after_ms": 12000,
+        "action": "close",
+        "close_reason": "keepalive limit reached"
+      }
+    },
+    "keep_alive": {
+      "period_ms": 2000,
+      "from": "received"
+    },
+    "ack": {
+      "every": 2,
+      "batched": true
+    },
+    "credit": {
+      "stream_divisor": 2,
+      "connection_stream_window": true
+    },
+    "key_update": {
+      "initiate": false
+    },
+    "version_negotiation": {
+      "retry": false
+    }
   },
   "http3": {
     "settings": [
@@ -11008,7 +11036,22 @@
       "huffman": "always"
     },
     "discovery": {
-      "switch": "new_connection"
+      "switch": "new_connection",
+      "fallback": {
+        "mode": "race",
+        "tcp_delay_ms": {
+          "min": 88,
+          "max": 109
+        },
+        "abandon_on_tcp": true,
+        "broken_after": 2,
+        "broken_counts_resumed": true,
+        "pending": "quic",
+        "reconnect_ms": {
+          "min": 7,
+          "max": 9
+        }
+      }
     }
   }
 }

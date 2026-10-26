@@ -229,7 +229,34 @@
       ],
       "resumed_ech_payload_lengths": [
         432
-      ]
+      ],
+      "version_negotiation": {
+        "drop": [
+          "0x001b",
+          "0xfe0d"
+        ],
+        "replace": [
+          {
+            "type": "0x000a",
+            "groups": [
+              "0x001d",
+              "0x0017",
+              "0x0018",
+              "0x0019"
+            ]
+          },
+          {
+            "type": "0x0033",
+            "key_shares": [
+              "0x001d"
+            ],
+            "key_share_lengths": [
+              32
+            ]
+          }
+        ],
+        "padding": true
+      }
     }
   },
   "http2": {
@@ -8702,7 +8729,37 @@
     "spin_bit": "random",
     "tokens": true,
     "zero_rtt": true,
-    "close_reply": true
+    "close_reply": true,
+    "loss": {
+      "initial_pto_ms": 300,
+      "cached_rtt": true,
+      "probe": "flight",
+      "fresh": {},
+      "resumed": {
+        "after_ms": 5000,
+        "close": "application",
+        "datagram_size": 255
+      }
+    },
+    "keep_alive": {
+      "period_ms": 15000,
+      "from": "idle"
+    },
+    "ack": {
+      "every": 2,
+      "batched": true
+    },
+    "credit": {
+      "stream_divisor": 4,
+      "connection_divisor": 4
+    },
+    "key_update": {
+      "initiate": false
+    },
+    "version_negotiation": {
+      "retry": true,
+      "downgrade_error": "0x53f8"
+    }
   },
   "http3": {
     "settings": [
@@ -8787,6 +8844,16 @@
       "race_delay_ms": {
         "min": 6,
         "max": 9
+      },
+      "fallback": {
+        "mode": "background",
+        "hold": true,
+        "broken_after": 1,
+        "revalidate_ms": {
+          "min": 797,
+          "max": 3020
+        },
+        "pending": "tcp"
       }
     }
   }

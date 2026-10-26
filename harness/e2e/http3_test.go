@@ -114,10 +114,59 @@ func h3Captures(t *testing.T, name string, sc *server.Scenario) []*capture.Page 
 
 // h3Steps are sc's steps.
 func h3Steps(sc *server.Scenario) []server.H3Step {
-	if sc == server.H3Page {
+	switch sc {
+	case server.H3Page:
 		return server.H3PageSteps()
+	case server.H3Blackhole:
+		return server.H3BlackholeSteps()
+	case server.H3Broken:
+		return server.H3BrokenSteps()
+	case server.H3VN:
+		return server.H3VNSteps()
+	case server.H3V2:
+		return server.H3V2Steps()
+	case server.H3Download:
+		return server.H3DownloadSteps()
 	}
 	return server.H3DiscoverySteps()
+}
+
+// firstPageDelay is how long after the first QUIC connection to host
+// started the browser's first page made its first request that went over
+// it: the markup's at once, a scripted one after the pauses before it.
+// It is the browser's parse of the page and start of its script, which
+// mimicry has none of; waiting as long before the page's requests has a
+// QUIC connection the page's Alt-Svc started up when they go, as the
+// browser's was (Firefox's, 49–76 ms after it started; it never holds a
+// request for one). Zero where they went on TCP.
+func firstPageDelay(browser *capture.Page, host string, steps []server.H3Step) time.Duration {
+	offset := map[string]int64{}
+	var pauses int64
+	for _, st := range steps {
+		if st.Page != "/" {
+			continue
+		}
+		if st.Tag == "" {
+			pauses += int64(st.PauseMillis)
+		}
+		offset[st.Path()] = pauses
+	}
+	for _, c := range browser.QUIC {
+		if c.Host != host {
+			continue
+		}
+		least, found := int64(0), false
+		if c.H3 != nil {
+			for _, r := range c.H3.Requests {
+				o, ok := offset[r.Path]
+				if d := r.Millis - c.Millis - o; ok && (!found || d < least) {
+					least, found = d, true
+				}
+			}
+		}
+		return time.Duration(max(least, 0)) * time.Millisecond
+	}
+	return 0
 }
 
 // h3ScriptTurn stands for the browser's script turn before fetch('/done'),
@@ -153,6 +202,13 @@ func runH3Page(t *testing.T, p *profile.Profile, sc *server.Scenario, browser *c
 		slices.SortStableFunc(markup, func(a, b server.H3Step) int {
 			return order[a.Path()] - order[b.Path()]
 		})
+		if path == "/" {
+			select {
+			case <-time.After(firstPageDelay(browser, host, steps)):
+			case <-t.Context().Done():
+				t.Fatal(t.Context().Err())
+			}
+		}
 		for _, st := range markup {
 			sendH3Step(s, st, page)
 		}
@@ -238,6 +294,15 @@ func sentOrder(browser *capture.Page) map[string]int {
 // sendH3Step makes st's request through mimicry from page, as the page's
 // markup or script makes it.
 func sendH3Step(s *pageSession, st server.H3Step, page *url.URL) {
+	s.t.Helper()
+	method, r, h := h3StepRequest(st, page)
+	s.send(method, s.url(st.Host, st.Path()), r, h, st.Body)
+}
+
+// h3StepRequest is how the page at page makes st's request: its method,
+// how mimicry sends it (kind, page, credentials, mode, priority), and the
+// page's own headers.
+func h3StepRequest(st server.H3Step, page *url.URL) (string, mimicry.Request, http.Header) {
 	kinds := map[string]mimicry.Kind{
 		"script": mimicry.InjectedScript,
 		"style":  mimicry.Style,
@@ -279,13 +344,13 @@ func sendH3Step(s *pageSession, st server.H3Step, page *url.URL) {
 		// standard's extract a body).
 		h.Set("Content-Type", "text/plain;charset=UTF-8")
 	}
-	s.send(method, s.url(st.Host, st.Path()), mimicry.Request{
+	return method, mimicry.Request{
 		Kind:        kind,
 		From:        page,
 		Credentials: map[string]mimicry.Credentials{"": mimicry.CredentialsSameOrigin, "include": mimicry.CredentialsInclude, "omit": mimicry.CredentialsOmit}[st.Credentials],
 		NoCORS:      st.Mode == "no-cors",
 		Priority:    map[string]mimicry.Priority{"": mimicry.PriorityAuto, "high": mimicry.PriorityHigh, "low": mimicry.PriorityLow}[st.Priority],
-	}, h, st.Body)
+	}, h
 }
 
 // h3Transport is how one request went: protocol, host, the connection of
@@ -744,57 +809,112 @@ func mapConns(conns []*quictrace.Conn, f func(*quictrace.Conn) features) []featu
 	return out
 }
 
-// probeAfter is when an Initial retransmission can only be a probe: the
-// first probe timeout is about 1 s (RFC 9002's 333 ms initial RTT).
-const probeAfter = 500 * time.Millisecond
-
-// firstFlight is the client's datagrams before its first ACK, without
-// probe retransmissions of its ClientHello (a loaded machine's server
-// answering later than the probe timeout; no browser capture has one).
+// firstFlight is the client's datagrams before it heard from the server
+// or its first probe timeout (PTO) expired, whichever came first. A trace
+// has no timers, and the PTO cannot be worked out from it: a resumed
+// connection's starts from the RTT of the one it resumes (about 1 ms
+// here, so a 3 ms PTO), which Firefox does not send, and Firefox's own
+// first flight may take 2.7 ms (h3-broken). The expiry shows in the probe
+// it sends, which, with nothing acknowledged, brings nothing new (RFC
+// 9002, section 6.2.4): CRYPTO or 0-RTT STREAM bytes already sent (every
+// profile's Initial probe: Firefox's flight again, Chrome's oldest packet
+// cut afresh) or a PING alone (Firefox's later probes). So the flight
+// ends at the first datagram with an ACK, with data already sent
+// (sentData), or with no frame but PINGs and PADDING. On the browser's
+// h3-blackhole and h3-broken captures that is its first probe, at its
+// first PTO (300–305 ms; resumed, Chrome's 30–33 ms, Firefox's 3.2 or
+// 306–308 ms); on its h3-discovery and h3-page captures, where the server
+// always answered first, all it sent before its first ACK. A loaded
+// machine's server answering after Firefox's ~3 ms resumed PTO leaves
+// mimicry's probes out, as it would the browser's.
 func firstFlight(c *quictrace.Conn) []quictrace.Datagram {
-	var out []quictrace.Datagram
-	var sent []bool
-	for _, d := range c.Datagrams {
-		late := time.Duration(d.Micros)*time.Microsecond >= probeAfter
-		resent, crypto := late, false
-		for _, pk := range d.Packets {
-			for _, fr := range pk.Frames {
-				switch fr.Type {
-				case quictrace.FrameAck:
-					return out
-				case quictrace.FrameCrypto:
-					crypto = true
-					for i := fr.Offset; i < fr.Offset+fr.Length; i++ {
-						resent = resent && i < uint64(len(sent)) && sent[i]
-					}
+	var sent sentData
+	for i := range c.Datagrams {
+		d := &c.Datagrams[i]
+		pings, fresh := false, false
+		for pi := range d.Packets {
+			pk := &d.Packets[pi]
+			for fi := range pk.Frames {
+				f := &pk.Frames[fi]
+				switch {
+				case f.Type == quictrace.FrameAck, sent.repeats(pk, f):
+					return c.Datagrams[:i]
+				case f.Type == quictrace.FramePing:
+					pings = true
+				case f.Type != quictrace.FramePadding:
+					fresh = true
 				}
 			}
 		}
-		if resent && crypto {
-			continue
+		if pings && !fresh {
+			return c.Datagrams[:i]
 		}
-		for _, pk := range d.Packets {
-			for _, fr := range pk.Frames {
-				if fr.Type != quictrace.FrameCrypto {
-					continue
-				}
-				for uint64(len(sent)) < fr.Offset+fr.Length {
-					sent = append(sent, false)
-				}
-				for i := fr.Offset; i < fr.Offset+fr.Length; i++ {
-					sent[i] = true
-				}
-			}
+		for pi := range d.Packets {
+			sent.addPacket(&d.Packets[pi])
 		}
-		out = append(out, d)
 	}
-	return out
+	return c.Datagrams
+}
+
+// sentData is what a client's frames carried so far, to tell data sent
+// again (a probe's, or loss recovery's) from new: CRYPTO and STREAM bytes,
+// by packet number space and stream, and NEW_CONNECTION_ID sequence
+// numbers.
+type sentData struct {
+	spans []sentSpan
+	ncids map[uint64]bool
+}
+
+// sentSpan is the bytes [start, end) of a CRYPTO frame's packet number
+// space or of a STREAM frame's stream.
+type sentSpan struct {
+	space      string
+	stream     uint64
+	start, end uint64
+}
+
+// frameSpan is the bytes f carries in pk; false for a frame without.
+func frameSpan(pk *quictrace.Packet, f *quictrace.Frame) (sentSpan, bool) {
+	switch {
+	case f.Type == quictrace.FrameCrypto:
+		return sentSpan{space: pnSpace(pk.Type), start: f.Offset, end: f.Offset + f.Length}, true
+	case f.Type == quictrace.FrameStream && f.Stream != nil:
+		return sentSpan{stream: *f.Stream, start: f.Offset, end: f.Offset + f.Length}, true
+	}
+	return sentSpan{}, false
+}
+
+// repeats reports whether f, in pk, carries something already sent.
+func (s *sentData) repeats(pk *quictrace.Packet, f *quictrace.Frame) bool {
+	if f.Type == quictrace.FrameNewConnectionID {
+		return s.ncids[f.Sequence]
+	}
+	x, ok := frameSpan(pk, f)
+	return ok && slices.ContainsFunc(s.spans, func(y sentSpan) bool {
+		return y.space == x.space && y.stream == x.stream && y.start < x.end && x.start < y.end
+	})
+}
+
+// addPacket records what pk's frames carry.
+func (s *sentData) addPacket(pk *quictrace.Packet) {
+	for i := range pk.Frames {
+		f := &pk.Frames[i]
+		if f.Type == quictrace.FrameNewConnectionID {
+			if s.ncids == nil {
+				s.ncids = map[uint64]bool{}
+			}
+			s.ncids[f.Sequence] = true
+		} else if x, ok := frameSpan(pk, f); ok {
+			s.spans = append(s.spans, x)
+		}
+	}
 }
 
 // flightFeatures describe the datagrams of the first flight that carry
 // Initial packets, and those packets' headers. Their packet numbers, DCID
-// lengths and how the ClientHello is cut into them are random per
-// connection in some browsers: quicRuleViolations checks those.
+// lengths and how the ClientHello is cut into them (with the byte a cut
+// can leave unused, cryptoLeftover) are random per connection in some
+// browsers: quicRuleViolations checks those.
 func flightFeatures(c *quictrace.Conn) features {
 	f := newFeatures()
 	initials := 0
@@ -813,7 +933,7 @@ func flightFeatures(c *quictrace.Conn) features {
 		dgrams++
 		f.num[dp+" size"] = d.Size
 		f.cat[dp+" packets"] = strings.Join(types, "+")
-		f.cat[dp+" trailing padding"] = strconv.FormatBool(d.Trailing > 0)
+		f.cat[dp+" trailing padding"] = strconv.FormatBool(d.Trailing > 0 && !cryptoLeftover(&d))
 		for _, pk := range d.Packets {
 			if pk.Type != quictrace.PacketInitial {
 				continue
@@ -877,7 +997,8 @@ func paramFeatures(c *quictrace.Conn) features {
 
 // packetFeatures describe the packets after the first flight: frame
 // types sent at all and credit values. ACK delays and the spin bit are
-// random per connection or timing: quicRuleViolations checks those.
+// random per connection or timing, and so is whether PADDING is sent at
+// all (where a datagram's padding goes): quicRuleViolations checks those.
 func packetFeatures(c *quictrace.Conn) features {
 	f := newFeatures()
 	types := map[string]bool{}
@@ -893,6 +1014,7 @@ func packetFeatures(c *quictrace.Conn) features {
 			}
 		}
 	}
+	delete(types, quictrace.FramePadding)
 	for typ := range types {
 		f.cat["sends "+typ] = "yes"
 	}
@@ -900,9 +1022,12 @@ func packetFeatures(c *quictrace.Conn) features {
 }
 
 // connFeatures describe a connection against the browser's at its place:
-// 0-RTT, its 0-RTT packets' frames, NEW_CONNECTION_IDs and how it ended.
-// (Whether its ACK delays are one value is quicRuleViolations': how many
-// ACKs a connection sends is timing.)
+// 0-RTT, its 0-RTT packets' frames, NEW_CONNECTION_IDs and how it ended;
+// data sent again is not counted twice (sentData), nor a 0-RTT packet
+// with nothing new: a probe's, where a loaded machine's server answers
+// after the PTO, which no sample's did. (Whether its ACK delays are one
+// value is quicRuleViolations': how many ACKs a connection sends is
+// timing.)
 func connFeatures(c *quictrace.Conn) features {
 	f := newFeatures()
 	f.cat["resumed"] = strconv.FormatBool(c.Resumed)
@@ -910,16 +1035,24 @@ func connFeatures(c *quictrace.Conn) features {
 	var early []string
 	ncids := 0
 	closes := "none"
-	for _, d := range c.Datagrams {
-		for _, pk := range d.Packets {
+	var sent sentData
+	for di := range c.Datagrams {
+		for pi := range c.Datagrams[di].Packets {
+			pk := &c.Datagrams[di].Packets[pi]
 			var frames []string
-			for _, fr := range pk.Frames {
+			fresh := len(pk.Frames) == 0
+			for fi := range pk.Frames {
+				fr := &pk.Frames[fi]
+				repeat := sent.repeats(pk, fr)
 				switch fr.Type {
 				case quictrace.FrameNewConnectionID:
-					ncids++
+					if !repeat {
+						ncids++
+					}
 				case quictrace.FrameConnectionClose:
 					closes = fmt.Sprintf("0x%x frame 0x%x", derefCode(fr.ErrorCode), fr.FrameType)
 				}
+				fresh = fresh || !repeat && fr.Type != quictrace.FramePadding && fr.Type != quictrace.FramePing
 				if pk.Type == quictrace.Packet0RTT && fr.Type != quictrace.FramePadding {
 					s := fr.Type
 					if fr.Stream != nil {
@@ -928,7 +1061,8 @@ func connFeatures(c *quictrace.Conn) features {
 					frames = append(frames, s)
 				}
 			}
-			if pk.Type == quictrace.Packet0RTT {
+			sent.addPacket(pk)
+			if pk.Type == quictrace.Packet0RTT && fresh {
 				early = append(early, strings.Join(frames, " "))
 			}
 		}

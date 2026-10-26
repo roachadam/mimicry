@@ -17,6 +17,9 @@ type quicConn struct {
 	at      string
 	hello   *profile.TLS
 	resumed bool
+	// length is the ClientHello's length in bytes, kept for retried
+	// hellos (their padding).
+	length int
 }
 
 // quicHello derives tls.quic from the ClientHello of every QUIC connection
@@ -84,7 +87,9 @@ func quicHello(dir, name string, t *profile.TLS) (*profile.QUICHello, error) {
 			errs = append(errs, fmt.Errorf("%s: %w", c.at, err))
 		}
 	}
-	return out, errors.Join(errs...)
+	retry, err := vnRetryHello(dir, name, t, out)
+	out.VersionNegotiation = retry
+	return out, errors.Join(append(errs, err)...)
 }
 
 // quicConns reads every QUIC connection's ClientHello from the h3

@@ -181,10 +181,11 @@ type H3Headers struct {
 // Discovery is when a browser moves an origin to HTTP/3 once a response
 // advertised it (Alt-Svc h3), and how. Browsers never use HTTP/3 through a
 // proxy. Once the origin has used HTTP/3, a request finding no QUIC
-// connection to it (the last one idled out or got the server's GOAWAY)
-// dials a new one, resumed with 0-RTT where QUIC.ZeroRTT, and goes on it
-// at once, even with an HTTP/2 connection to the origin open (Chrome;
-// Firefox after an idle timeout), unless RaceAfterGoAway says otherwise.
+// connection to it (the last one idled out, died or got the server's
+// GOAWAY) dials a new one, resumed with 0-RTT where QUIC.ZeroRTT, even
+// with an HTTP/2 connection to the origin open (Chrome; Safari; Firefox
+// after an idle timeout), unless RaceAfterGoAway says otherwise; Fallback
+// says what the request does while that connection is not up.
 type Discovery struct {
 	// Switch is SwitchNextRequest, SwitchOnAltSvc or SwitchNewConnection.
 	Switch string `json:"switch"`
@@ -195,13 +196,96 @@ type Discovery struct {
 	GoAwayTCP bool `json:"goaway_tcp,omitempty"`
 	// RaceAfterGoAway: after the server ended an HTTP/3 connection with
 	// GOAWAY, the next request to its origin dials TCP first and QUIC
-	// (resumed, 0-RTT) RaceDelayMillis later; the request goes on TCP, and
-	// once QUIC is up the TCP connection gets a GOAWAY (Firefox).
-	// Otherwise it dials QUIC alone (Chrome, Safari).
+	// (resumed, 0-RTT) RaceDelayMillis later, never before the request,
+	// which goes on TCP, is answered there; that TCP connection gets a
+	// GOAWAY once its request is answered, and later requests wait for
+	// the QUIC connection (Fallback.Hold) (Firefox). Otherwise it dials
+	// QUIC alone (Chrome, Safari).
 	RaceAfterGoAway bool `json:"race_after_goaway,omitempty"`
 	// RaceDelayMillis is the range of the delay between the two dials.
 	RaceDelayMillis *Range `json:"race_delay_ms,omitempty"`
+	// Fallback is what requests do while QUIC to their origin is not up,
+	// when it fails, and when a live QUIC connection dies.
+	Fallback Fallback `json:"fallback"`
 }
+
+// Fallback is how a browser falls back from QUIC to TCP (h3-blackhole,
+// h3-broken, h3-vn). An attempt fails when it gives up (QUIC.Loss), gets
+// Version Negotiation it does not retry, or is abandoned (AbandonOnTCP).
+// A request that falls back uses an open HTTP/2 connection to the origin
+// if there is one, else a new TCP connection.
+type Fallback struct {
+	// Mode is FallbackRace or FallbackBackground.
+	Mode string `json:"mode"`
+	// TCPDelayMillis: with FallbackRace, a request waiting for a QUIC
+	// attempt without 0-RTT falls back this long after it started
+	// waiting, even if the attempt fails sooner (Chrome: measured 305–306
+	// ms; Safari: about 100, also after an immediate Version
+	// Negotiation).
+	TCPDelayMillis *Range `json:"tcp_delay_ms,omitempty"`
+	// ZeroRTTHolds: a request sent in 0-RTT, and every request after it,
+	// waits for that attempt with no TCP until it gives up; then a fresh
+	// QUIC attempt and TCP start together, the held requests go on TCP,
+	// requests made while the fresh attempt runs go on TCP at once, and
+	// the two attempts count as one (Chrome: held 4.0 s).
+	ZeroRTTHolds bool `json:"zero_rtt_holds,omitempty"`
+	// AbandonOnTCP: once the request has gone on TCP, the QUIC attempt is
+	// dropped (QUIC.Loss.AbandonClose) and counts as failed (Safari).
+	// Otherwise it runs on to its give-up (Chrome, Firefox).
+	AbandonOnTCP bool `json:"abandon_on_tcp,omitempty"`
+	// Hold: with FallbackBackground, requests made while a resumed QUIC
+	// attempt after the server's close (RaceAfterGoAway) is pending wait
+	// for it, and go on a new TCP connection when it gives up (Firefox:
+	// 3.0–7.2 s).
+	Hold bool `json:"hold,omitempty"`
+	// BrokenAfter: this many failed attempts in a row mark the origin's
+	// HTTP/3 broken for the rest of the Transport's life: every request
+	// on TCP, no QUIC attempt (Chrome 1, Firefox 1, Safari 2; within a
+	// page: Chrome's 5 minutes are source only).
+	BrokenAfter int `json:"broken_after"`
+	// BrokenCountsResumed: a failed resumed attempt counts towards
+	// BrokenAfter (Safari). Otherwise only fresh ones count: after a
+	// resumed one fails, a fresh one follows (Chrome: at once,
+	// ZeroRTTHolds; Firefox: with a request RevalidateMillis later).
+	BrokenCountsResumed bool `json:"broken_counts_resumed,omitempty"`
+	// RevalidateMillis: with FallbackBackground, once a resumed attempt
+	// failed or a live connection died, a request at least this long
+	// after that starts a fresh QUIC attempt beside TCP (Firefox). The
+	// captures bound the threshold: a request 0.8 s after did not, 3.05
+	// s after did.
+	RevalidateMillis *Range `json:"revalidate_ms,omitempty"`
+	// Pending is where the requests waiting on a live QUIC connection go
+	// when it dies (its idle timeout, or QUIC.Loss.PathDegrading with
+	// PathClose): PendingTCP or PendingQUIC. Chrome's migration
+	// (PathMigrate) keeps them on their connection.
+	Pending string `json:"pending"`
+	// ReconnectMillis is the range of the delay between the close and
+	// the new connection with PendingQUIC (Safari: 8–16 ms).
+	ReconnectMillis *Range `json:"reconnect_ms,omitempty"`
+}
+
+// Values of Fallback.Mode.
+const (
+	// FallbackRace: a request that needs a QUIC connection to its origin
+	// waits for the attempt, and falls back to TCP after TCPDelayMillis
+	// (Chrome, Safari) or, with ZeroRTTHolds and 0-RTT, at its give-up.
+	FallbackRace = "race"
+	// FallbackBackground: a QUIC attempt is a validation in the
+	// background: no request waits for it but with Hold, requests go on
+	// TCP until it is up, then on QUIC (Firefox).
+	FallbackBackground = "background"
+)
+
+// Values of Fallback.Pending.
+const (
+	// PendingTCP retries them on TCP at once (Firefox, at the idle
+	// timeout: it opens a TCP connection per pending request and sends
+	// them all on the first).
+	PendingTCP = "tcp"
+	// PendingQUIC sends them on a new QUIC connection to the origin,
+	// resumed with 0-RTT where it can be (Safari: never TCP).
+	PendingQUIC = "quic"
+)
 
 // Values of Discovery.Switch.
 const (
@@ -211,8 +295,8 @@ const (
 	// is up use it.
 	SwitchNextRequest = "next_request"
 	// SwitchOnAltSvc (Firefox): the response that carries Alt-Svc starts
-	// the QUIC connection at once, before the next request; requests made
-	// once it is up use it.
+	// the QUIC connection at once, in the background
+	// (FallbackBackground); requests made once it is up use it.
 	SwitchOnAltSvc = "on_alt_svc"
 	// SwitchNewConnection (Safari): only a request that needs a new
 	// connection to the origin uses HTTP/3; an open HTTP/2 connection

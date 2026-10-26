@@ -8,6 +8,7 @@
 
 # Build output
 bin/
+/harness/interop
 
 # Local-only workspace for trying unmerged changes in ../utls (see AGENTS.md)
 go.work

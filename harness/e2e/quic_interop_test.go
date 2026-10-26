@@ -352,7 +352,9 @@ var interopCases = []interopCase{
 			e.relay.SetBoth(udprelay.Impairment{
 				Drop: 0.3,
 			})
-			e.warm()
+			if !e.warmImpaired() {
+				return
+			}
 			e.relay.SetBoth(udprelay.Impairment{})
 			e.download(256*kib, 15)
 		},
@@ -387,7 +389,9 @@ var interopCases = []interopCase{
 			e.relay.SetBoth(udprelay.Impairment{
 				Corrupt: 0.2,
 			})
-			e.warm()
+			if !e.warmImpaired() {
+				return
+			}
 			e.relay.SetBoth(udprelay.Impairment{})
 			e.download(256*kib, 20)
 		},
@@ -408,7 +412,9 @@ var interopCases = []interopCase{
 			e.relay.Set(udprelay.ToClient, udprelay.Impairment{
 				MinSize: 100,
 			})
-			e.warm()
+			if !e.warmImpaired() {
+				return
+			}
 			e.relay.SetBoth(udprelay.Impairment{})
 			e.download(64*kib, 35)
 		},
@@ -840,6 +846,59 @@ func (e *interopEnv) warm() connInfo {
 		case <-time.After(20 * time.Millisecond):
 		}
 	}
+}
+
+// warmImpaired is warm for a case whose relay impairs the handshake. A
+// profile whose browser drops its QUIC attempt once its request goes on
+// TCP (Fallback.AbandonOnTCP: Safari, TCP 100 ms after QUIC) loses that
+// race whenever the handshake needs a probe, and gives the origin up
+// after BrokenAfter such attempts, as Safari did in h3-broken: then every
+// request must go over TCP within the race, and no attempt follow the
+// last; false. Otherwise true, the origin on HTTP/3.
+func (e *interopEnv) warmImpaired() bool {
+	e.t.Helper()
+	fb := e.p.HTTP3.Discovery.Fallback
+	if !fb.AbandonOnTCP {
+		e.warm()
+		return true
+	}
+	// The race, and the TCP handshake after it.
+	limit := time.Duration(fb.TCPDelayMillis.Max)*time.Millisecond + 500*time.Millisecond
+	for e.relay.Stats().Sessions < fb.BrokenAfter {
+		start := time.Now()
+		resp, _, err := e.do(http.MethodGet, "/info", nil)
+		if err != nil {
+			e.t.Fatalf("warming up: %v", err)
+		}
+		if resp.ProtoMajor == 3 {
+			e.h3(resp, "GET /info")
+			return true
+		}
+		if d := time.Since(start); d > limit {
+			e.t.Errorf("a request took %v over TCP: it waited past the race (%v)", d, limit)
+		}
+		select {
+		case <-e.ctx.Done():
+			e.t.Fatal("no QUIC attempt")
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
+	for i := range 5 {
+		resp, _, err := e.do(http.MethodGet, "/info", nil)
+		if err != nil {
+			e.t.Fatalf("request %d after the attempts: %v", i, err)
+		}
+		if resp.ProtoMajor == 3 {
+			// The last attempt won its race after all.
+			e.h3(resp, "GET /info")
+			return true
+		}
+	}
+	e.t.Logf("every QUIC attempt lost the race to TCP; the origin is broken after %d", fb.BrokenAfter)
+	if st := e.relay.Stats(); st.Sessions != fb.BrokenAfter {
+		e.t.Errorf("%d QUIC attempts; the origin is broken after %d", st.Sessions, fb.BrokenAfter)
+	}
+	return false
 }
 
 // untilH3From asks until a response comes over HTTP/3 from backend name;

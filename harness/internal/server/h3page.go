@@ -75,12 +75,25 @@ var H3Page = &Scenario{
 // H3ProfileCaptures returns the paths of name's h3-discovery and h3-page
 // captures in dir, unforced and with -h3-local-roots, those that exist,
 // sorted: the captures a profile's QUIC and HTTP/3 sections are
-// generated from. The edge scenarios' (h3-blackhole, h3-broken, h3-v2,
-// h3-vn) record failures and other QUIC versions, which no profile field
-// describes.
+// generated from, but for what only the edge scenarios show
+// (H3EdgeCaptures).
 func H3ProfileCaptures(dir, name string) ([]string, error) {
+	return existingCaptures(dir, name, H3Discovery, H3Page)
+}
+
+// H3EdgeCaptures returns the paths of name's h3-blackhole, h3-broken,
+// h3-vn and h3-download captures in dir, as H3ProfileCaptures does: the
+// captures h3gen derives loss recovery, fallback, version negotiation,
+// acknowledgement, credit and key updates from. h3-v2 is left out: its
+// server is aioquic, whose upgrade only internal/quic's v2 support and
+// harness/e2e check.
+func H3EdgeCaptures(dir, name string) ([]string, error) {
+	return existingCaptures(dir, name, H3Blackhole, H3Broken, H3VN, H3Download)
+}
+
+func existingCaptures(dir, name string, scenarios ...*Scenario) ([]string, error) {
 	var out []string
-	for _, sc := range []*Scenario{H3Discovery, H3Page} {
+	for _, sc := range scenarios {
 		for _, cond := range []string{"", ".local-roots"} {
 			path := filepath.Join(dir, name+"."+sc.Name+cond+".pagetrace.json.gz")
 			_, err := os.Stat(path)

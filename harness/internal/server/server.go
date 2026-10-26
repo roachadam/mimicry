@@ -46,6 +46,11 @@ type Server struct {
 	// names the same port. Serve serves QUIC on it and closes it along
 	// with the listener. Other scenarios leave it nil.
 	PacketConn net.PacketConn
+	// OnQUICReady, if set, is called once QUIC on PacketConn is served:
+	// for an aioquic scenario (Scenario.NeedsAioquic) once its process
+	// is up, until when datagrams wait in the socket (and are recorded as
+	// arriving when it reads them). Not called for other scenarios.
+	OnQUICReady func()
 }
 
 // Serve handles connections from ln until ctx is canceled, then closes the

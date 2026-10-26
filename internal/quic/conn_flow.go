@@ -45,7 +45,19 @@ func (c *Conn) inflowInit() {
 //
 // This is called indirectly by the user, via Read or CloseRead.
 func (c *Conn) handleStreamBytesReadOffLoop(n int64) {
-	if n == 0 {
+	if n == 0 || c.streamWindowCredit() { // mimicry: the limit follows what arrived
+		return
+	}
+	if c.client != nil {
+		// mimicry: the limit is set where the share was crossed; what is
+		// read after counts towards the next (clientConsumed).
+		if c.shouldUpdateFlowControl(c.streams.inflow.credit.Add(n)) {
+			due := c.streams.inflow.credit.Swap(0)
+			c.sendMsg(func(_ time.Time, c *Conn) {
+				c.streams.inflow.newLimit += due
+				c.streams.inflow.sent.setUnsent()
+			})
+		}
 		return
 	}
 	if c.shouldUpdateFlowControl(c.streams.inflow.credit.Add(n)) {
@@ -65,6 +77,9 @@ func (c *Conn) handleStreamBytesReadOffLoop(n int64) {
 //
 // This is called on the conn's loop.
 func (c *Conn) handleStreamBytesReadOnLoop(n int64) {
+	if c.streamWindowCredit() {
+		return // mimicry: the limit follows what arrived
+	}
 	if c.shouldUpdateFlowControl(c.streams.inflow.credit.Add(n)) {
 		c.sendMaxDataUpdate()
 	}
@@ -81,6 +96,9 @@ func (c *Conn) sendMaxDataUpdate() {
 }
 
 func (c *Conn) shouldUpdateFlowControl(credit int64) bool {
+	if c.client != nil {
+		return c.clientConnCreditDue(credit) // mimicry
+	}
 	return shouldUpdateFlowControl(c.config.maxConnReadBufferSize(), credit)
 }
 
@@ -102,8 +120,11 @@ func (c *Conn) handleStreamBytesReceived(n int64) error {
 // false if it could not fit a frame in the current packet.
 func (c *Conn) appendMaxDataFrame(w *packetWriter, pnum packetNumber, pto bool) bool {
 	if c.streams.inflow.sent.shouldSendPTO(pto) {
-		// Add any unapplied credit to the new limit now.
-		c.streams.inflow.newLimit += c.streams.inflow.credit.Swap(0)
+		if c.client == nil {
+			// Add any unapplied credit to the new limit now.
+			// (mimicry: a client's limit was set at its crossing.)
+			c.streams.inflow.newLimit += c.streams.inflow.credit.Swap(0)
+		}
 		if !w.appendMaxDataFrame(c.streams.inflow.newLimit) {
 			return false
 		}

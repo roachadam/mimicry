@@ -111,21 +111,20 @@ the mechanical import rewrites.
      window on the loop. A 0-RTT connection opens streams before the
      server's transport parameters arrive, and the loop writes the window
      then: a data race (`-race`, rows `0rtt-accepted`, `goaway`).
-   - PTO probes of a client (`clientPTOExpired` in `client_send.go`):
-     two probe packets per PTO (`loss.go`: `lossState.ptoProbes`, set by
-     the hook in `conn.go`'s timer case), and every unacknowledged CRYPTO
-     byte queued again (`conn_send.go`: the client sends it as unsent
-     data). Upstream's one probe resends the CRYPTO stream's first
-     unacknowledged range only, so the end of a ClientHello longer than a
-     packet (every browser's) waited for loss detection, which never came
-     while the server's ACKs were lost (row `handshake-ack-loss`).
-   - Keep-alive while a request is outstanding (`client.go`:
-     `Conn.KeepAlive`, `clientKeepAlive`; `idle.go`: the period comes
-     from it, and an expired keep-alive sends nothing once the last
-     request ended). Upstream's is a fixed `Config.KeepAlivePeriod`, off
-     here as browsers send nothing on an idle connection; without one a
+   - PTO probes of a client: two probe packets per PTO (`loss.go`:
+     `lossState.ptoProbes`, set by the hook in `conn.go`'s timer case),
+     and every unacknowledged CRYPTO byte queued again (`conn_send.go`:
+     the client sends it as unsent data). Upstream's one probe resends the
+     CRYPTO stream's first unacknowledged range only, so the end of a
+     ClientHello longer than a packet (every browser's) waited for loss
+     detection, which never came while the server's ACKs were lost (row
+     `handshake-ack-loss`). A profile that lays its probes out replaces
+     this (change 8).
+   - Keep-alive while a request is outstanding (`Conn.KeepAlive`): a
      receiving client stayed silent after the server's probe of its new
      path was lost, until the idle timeout (row `rebinding-probe-loss`).
+     Its period is the profile's since change 8, at most half the
+     negotiated idle timeout.
    - 0-RTT flow control (`client_tls.go`, hook in `conn.go`'s
      `receiveTransportParameters`): streams opened in 0-RTT, on the
      remembered windows, take the server's larger ones when its transport
@@ -135,6 +134,13 @@ the mechanical import rewrites.
      stream's window and sent offset reset, everything flushed unsent
      (`clientResetFlowControl`, `Stream.resetSendWindow`; row
      `0rtt-rejected-smaller-windows`). Upstream has no 0-RTT.
+
+   - Key updates (`conn.go`): a profile client starts none of its own
+     (`QUICKeyUpdate.Initiate` false for every browser: capture
+     h3-download, 50 MiB, each only follows quic-go's), where upstream
+     starts one after 100 packets; aioquic cannot follow one in v2 (it
+     derives v2's with `quic ku`). It still follows the server's.
+     `TestHTTP3DownloadMatchesBrowser` checks it.
 
 7. **QUIC v2** (RFC 9369) by compatible version negotiation (RFC 9368),
    for a client whose profile lists v2 in `version_information` (Firefox).
@@ -194,6 +200,56 @@ the mechanical import rewrites.
      `testConn.version` (the peer's Version field and key labels), h3 as
      the synthetic server's ALPN for a profile client, and
      `cmp` in `conn_test.go`'s imports.
+
+8. **Failure and bulk behaviour** as each browser's (`profile.QUIC`'s
+   `loss`, `keep_alive`, `ack`, `credit`, `key_update` and
+   `version_negotiation`; captures h3-blackhole, h3-broken, h3-vn,
+   h3-download). New files `client_loss.go`, `client_path.go`,
+   `client_flow.go`; with no `Config.client` every path is upstream's.
+   - Probes and give-up (`client_loss.go`; `loss.go`:
+     `lossState.firstPTO`, the profile's first PTO until an RTT sample,
+     and `ptoAckDelay`, max_ack_delay in every PTO, both in
+     `ptoBasePeriod`): a resumed connection starts from the RTT cached
+     where the profile does; a probe of an unanswered first flight is
+     one Initial with the CRYPTO data of the oldest packet not yet probed,
+     chaos-protected again (Chrome), or the first flight's packets as
+     they were (Firefox); one packet number skipped before each probe
+     (Chrome; `clientPacketNumber` in `client_send.go`). The handshake
+     timeout is the profile's give-up (or the idle timeout), and ends
+     silently or with its close (`idle.go`'s hook: `clientGiveUp`),
+     padded to its datagram size; `ErrHandshakeTimeout`;
+     `Conn.WaitHandshake`. `Conn.Abandon` drops an attempt silently or
+     with a 0-RTT close alone (Safari); a `Dial` whose context ends drops
+     its attempt without a word.
+   - Paths (`client_path.go`): keep-alive PINGs while a request waits,
+     counted from the last ack-eliciting packet sent, the idle timer's
+     restart or the last packet received as the profile says (`idle.go`:
+     upstream's keep-alive off for a client, `appendKeepAlive` hook;
+     `conn_send.go`: `packetSent` records the sends); Chrome's move to a
+     new local port once the oldest unacknowledged packet is `after_ptos`
+     PTOs old (`DialConfig.NewPath`, a socket the endpoint can swap, the
+     server's next connection ID, the old one retired, a PATH_CHALLENGE
+     padded to the datagram size); Safari's close (`ErrPathDegraded`)
+     after `after_ms` without a packet. Hooks: `conn.go`'s loop (the
+     timer, `clientPathAdvance`), `path.go` (the client's PATH_RESPONSE
+     checked, not a protocol violation), `conn_send.go` (PATH_RESPONSE
+     padded to the datagram size).
+   - ACKs (`acks.go`: `ackState.every` and the warm-up, in
+     `mustAckImmediately`; `conn.go`: a 64-message queue for a client,
+     and only a batching one reads every queued datagram before
+     answering once the handshake is confirmed).
+   - Credit (`client_flow.go`; hooks in `stream.go`: a client counts
+     what it consumes in the steps its STREAM frames arrived in
+     (`inends`, `clientConsumed`), so a Read of any size changes nothing,
+     and sets MAX_STREAM_DATA at the step that crosses the profile's
+     share (`inlimit`); Safari's MAX_DATA with its MAX_STREAM_DATA;
+     `conn_flow.go`: the connection's threshold, its MAX_DATA likewise set
+     at the crossing, not topped up with what was read since; no consumed
+     credit for Safari, whose limit is the bytes received plus the stream
+     window).
+   - Version negotiation (`client_version.go`): `RetryVersion` only where
+     the profile retries; the downgrade error is the profile's (0x53f8
+     for Firefox), RFC 9368's 0x11 otherwise.
 
 ## Tests
 

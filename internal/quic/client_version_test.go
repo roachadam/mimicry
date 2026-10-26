@@ -8,12 +8,9 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
-	"net"
-	"net/netip"
 	"strings"
 	"testing"
 	"testing/synctest"
-	"time"
 
 	tls "github.com/roachadam/utls"
 
@@ -170,7 +167,7 @@ func TestVersionUpgradeMismatchedVersionInfo(t *testing.T) {
 				tc.serverFlight()
 				tc.readFlight()
 				var e localTransportError
-				if err := tc.conn.waitReady(canceledContext()); !errors.As(err, &e) || e.code != errVersionNegotiationError {
+				if err := tc.conn.waitReady(canceledContext()); !errors.As(err, &e) || e.code != errVersionNegotiationDraft {
 					t.Fatalf("waitReady = %v, want VERSION_NEGOTIATION_ERROR", err)
 				}
 			})
@@ -369,7 +366,7 @@ func TestVersionAfterNegotiation(t *testing.T) {
 				tc.readFlight()
 				err := tc.conn.waitReady(canceledContext())
 				var e localTransportError
-				gotFail := errors.As(err, &e) && e.code == errVersionNegotiationError
+				gotFail := errors.As(err, &e) && e.code == errVersionNegotiationDraft
 				if gotFail != tt.fail {
 					t.Fatalf("waitReady = %v; want VERSION_NEGOTIATION_ERROR %v", err, tt.fail)
 				}
@@ -378,43 +375,5 @@ func TestVersionAfterNegotiation(t *testing.T) {
 				}
 			})
 		})
-	}
-}
-
-// A browser client starts no key update of its own after 100 packets, as
-// upstream's does: browsers only follow the server's (capture
-// h3-download). Dialled for real: testConn turns key updates off.
-func TestClientKeyUpdateSchedule(t *testing.T) {
-	prof, err := profiles.ByName("chrome-155-macos")
-	if err != nil {
-		t.Fatal(err)
-	}
-	spec, err := handshake.Spec(fingerprint.Compile(prof).QUICHello())
-	if err != nil {
-		t.Fatal(err)
-	}
-	tlsConfig := newTestTLSConfig(clientSide)
-	tlsConfig.ServerName = "example.com"
-	cc, config, err := newClientConfig(DialConfig{Profile: prof.QUIC, Hello: spec, TLS: tlsConfig})
-	if err != nil {
-		t.Fatal(err)
-	}
-	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	e, err := newSoleEndpoint(pc)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer e.Close(canceledContext())
-	config.client = cc
-	c, err := e.newConn(time.Now(), config, clientSide, newServerConnIDs{}, "example.com", netip.MustParseAddrPort("127.0.0.1:9"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer c.Abort(nil)
-	if got := c.keysAppData.updateAfter; got != clientKeyUpdateAfter {
-		t.Fatalf("updateAfter = %d, want %d", got, clientKeyUpdateAfter)
 	}
 }

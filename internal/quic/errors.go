@@ -73,7 +73,7 @@ func (e transportError) String() string {
 		return "AEAD_LIMIT_REACHED"
 	case errNoViablePath:
 		return "NO_VIABLE_PATH"
-	case errVersionNegotiationError: // mimicry: Firefox's 0x53f8
+	case errVersionNegotiationError, errVersionNegotiationDraft: // mimicry: RFC 9368's, the draft's (Firefox)
 		return "VERSION_NEGOTIATION_ERROR"
 	}
 	if e >= 0x0100 && e <= 0x01ff {

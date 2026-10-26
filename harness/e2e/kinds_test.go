@@ -402,6 +402,9 @@ type pageSession struct {
 	plainPort string
 	scheme    string
 	captures  chan *capture.Capture
+	// quicReady is closed once an aioquic scenario's server serves QUIC
+	// (server.Server.OnQUICReady); nil for other scenarios.
+	quicReady chan struct{}
 }
 
 func startPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *pageSession {
@@ -410,10 +413,7 @@ func startPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *pageSessi
 	if err != nil {
 		t.Fatal(err)
 	}
-	ln, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
+	ln, pc := listenTwin(t, sc.HTTP3())
 	s := &pageSession{
 		t:        t,
 		scheme:   "https",
@@ -440,10 +440,15 @@ func startPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *pageSessi
 		}
 		_, s.plainPort, _ = net.SplitHostPort(srv.PlainListener.Addr().String())
 	}
-	if sc.HTTP3() {
+	if pc != nil {
 		// QUIC on the TLS port's UDP twin, which the Alt-Svc names.
-		if srv.PacketConn, err = (&net.ListenConfig{}).ListenPacket(t.Context(), "udp", ln.Addr().String()); err != nil {
-			t.Fatal(err)
+		srv.PacketConn = pc
+	}
+	if sc.NeedsAioquic() {
+		ready := make(chan struct{})
+		s.quicReady = ready
+		srv.OnQUICReady = func() {
+			close(ready)
 		}
 	}
 	done := make(chan error, 1)
@@ -483,6 +488,29 @@ func startPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *pageSessi
 	}
 	_, s.port, _ = net.SplitHostPort(ln.Addr().String())
 	return s
+}
+
+// listenTwin listens on a free loopback TCP port and, with udp, on its
+// UDP twin too, trying another port while the twin is taken (by a QUIC
+// client socket of a test running beside).
+func listenTwin(t *testing.T, udp bool) (net.Listener, net.PacketConn) {
+	t.Helper()
+	for range 20 {
+		ln, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !udp {
+			return ln, nil
+		}
+		pc, err := (&net.ListenConfig{}).ListenPacket(t.Context(), "udp", ln.Addr().String())
+		if err == nil {
+			return ln, pc
+		}
+		_ = ln.Close()
+	}
+	t.Fatal("no loopback port free for both TCP and UDP")
+	return nil, nil
 }
 
 func (s *pageSession) url(host, path string) string {

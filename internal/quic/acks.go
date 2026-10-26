@@ -32,6 +32,10 @@ type ackState struct {
 	// mimicry: maxDelay, when set, is how long an acknowledgement is
 	// delayed: the max_ack_delay a client with a profile sent, in full.
 	maxDelay time.Duration
+	// mimicry: every, when set, is after how many ack-eliciting packets a
+	// client with a profile acknowledges, warmupEvery until warmupPackets
+	// have arrived (clientAckEvery).
+	every, warmupPackets, warmupEvery int
 }
 
 type ecnCounts struct {
@@ -171,6 +175,9 @@ func (acks *ackState) mustAckImmediately(space numberSpace, num packetNumber, ec
 	packetsBeforeAck := 2
 	if acks.seen.max() > 100 {
 		packetsBeforeAck = 10
+	}
+	if acks.every > 0 {
+		packetsBeforeAck = acks.clientAckEvery(acks.seen.max()) // mimicry
 	}
 	return acks.unackedAckEliciting >= packetsBeforeAck
 }

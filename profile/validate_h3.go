@@ -46,6 +46,9 @@ func (c *checker) checkH3(p *Profile) {
 		c.add("tls.quic", "is required with quic")
 	}
 	c.checkQUIC(p.QUIC, p.TLS.Resumption != nil)
+	if p.TLS.QUIC != nil && (p.TLS.QUIC.VersionNegotiation != nil) != p.QUIC.VersionNegotiation.Retry {
+		c.add("tls.quic.version_negotiation", "is required with quic.version_negotiation.retry, and only then")
+	}
 	c.checkHTTP3(p)
 }
 
@@ -102,6 +105,84 @@ func (c *checker) checkQUIC(q *QUIC, resumes bool) {
 	}
 	if (q.AckOnlyLimit > 0) != (q.AckOnlyFrame != "") || q.AckOnlyLimit < 0 || q.AckOnlyFrame != "" && q.AckOnlyFrame != AckOnlyMaxData {
 		c.add(path+".ack_only_frame", "and ack_only_limit go together: a positive limit and %q, or neither", AckOnlyMaxData)
+	}
+	c.checkQUICLoss(q)
+	if k := q.KeepAlive; k.PeriodMillis <= 0 || !slices.Contains([]string{KeepAliveFromSent, KeepAliveFromIdle, KeepAliveFromReceived}, k.From) {
+		c.add(path+".keep_alive", "needs a positive period_ms, and from %q, %q or %q", KeepAliveFromSent, KeepAliveFromIdle, KeepAliveFromReceived)
+	}
+	if a := q.Ack; a.Every < 1 || (a.WarmupPackets > 0) != (a.WarmupEvery > 0) || a.WarmupPackets < 0 || a.WarmupEvery < 0 {
+		c.add(path+".ack", "needs every >= 1, and warmup_packets and warmup_every both positive or both absent")
+	}
+	if cr := q.Credit; cr.StreamDivisor < 1 || (cr.ConnectionDivisor > 0) == cr.ConnectionStreamWindow || cr.ConnectionDivisor < 0 {
+		c.add(path+".credit", "needs stream_divisor >= 1, and either connection_divisor >= 1 or connection_stream_window")
+	}
+	vn := q.VersionNegotiation
+	if vn.DowngradeError != 0 && !vn.Retry {
+		c.add(path+".version_negotiation.downgrade_error", "applies only with retry")
+	}
+	if vn.Retry && len(otherVersions(q)) == 0 {
+		c.add(path+".version_negotiation.retry", "needs version_information offering a version besides 1")
+	}
+}
+
+// otherVersions are the versions besides 1 that q's version_information
+// offers, GREASE left out.
+func otherVersions(q *QUIC) []QUICVersion {
+	var out []QUICVersion
+	for _, tp := range q.TransportParameters {
+		if tp.ID != TPVersionInformation {
+			continue
+		}
+		for _, v := range tp.Versions {
+			if v != quicVersion1 && v != GREASEVersion && !slices.Contains(out, v) {
+				out = append(out, v)
+			}
+		}
+	}
+	return out
+}
+
+func (c *checker) checkQUICLoss(q *QUIC) {
+	const path = "quic.loss"
+	l := &q.Loss
+	if l.InitialPTOMillis < 0 {
+		c.add(path+".initial_pto_ms", "must not be negative")
+	}
+	if !slices.Contains([]string{"", ProbeFlight, ProbeOnePacket}, l.Probe) {
+		c.add(path+".probe", "%q must be empty, %q or %q", l.Probe, ProbeFlight, ProbeOnePacket)
+	}
+	for name, g := range map[string]QUICGiveUp{
+		"fresh":   l.Fresh,
+		"resumed": l.Resumed,
+	} {
+		at := path + "." + name
+		switch {
+		case g.AfterMillis < 0:
+			c.add(at+".after_ms", "must not be negative")
+		case !slices.Contains([]string{"", CloseTransport, CloseApplication}, g.Close):
+			c.add(at+".close", "%q must be empty, %q or %q", g.Close, CloseTransport, CloseApplication)
+		case g.Close != "" && g.AfterMillis == 0:
+			c.add(at+".close", "needs after_ms: a close at the idle timeout is never sent")
+		case (g.Close == CloseTransport) != (g.Reason != ""):
+			c.add(at+".reason", "is required with close %q, and only then", CloseTransport)
+		case g.Close == "" && g.DatagramSize != 0, g.DatagramSize < 0, g.DatagramSize > q.DatagramSize:
+			c.add(at+".datagram_size", "%d must be from 0 to datagram_size, and only with a close", g.DatagramSize)
+		}
+	}
+	if l.AbandonClose != "" && l.AbandonClose != CloseZeroRTT {
+		c.add(path+".abandon_close", "%q must be empty or %q", l.AbandonClose, CloseZeroRTT)
+	}
+	if d := l.PathDegrading; d != nil {
+		at := path + ".path_degrading"
+		if (d.AfterPTOs > 0) == (d.AfterMillis > 0) || d.AfterPTOs < 0 || d.AfterMillis < 0 {
+			c.add(at, "needs exactly one of after_ptos and after_ms, positive")
+		}
+		if !slices.Contains([]string{PathMigrate, PathClose}, d.Action) {
+			c.add(at+".action", "%q must be %q or %q", d.Action, PathMigrate, PathClose)
+		}
+		if d.CloseReason != "" && d.Action != PathClose {
+			c.add(at+".close_reason", "applies only with action %q", PathClose)
+		}
 	}
 }
 
@@ -296,6 +377,28 @@ func (c *checker) checkQUICHello(t *TLS) {
 	case len(h.ResumedECHPayloadLengths) > 0:
 		c.add(path+".resumed_ech_payload_lengths", "applies only to a hello that resumes and sends encrypted_client_hello")
 	}
+	if r := h.VersionNegotiation; r != nil {
+		at := path + ".version_negotiation"
+		gone := map[Code]bool{}
+		for _, d := range r.Drop {
+			if gone[d] || !present(d) || d == ExtServerName || d == ExtQUICTransportParameters {
+				c.add(at+".drop", "%s is not an extension the full hello sends and may drop, or is listed twice", d)
+			}
+			gone[d] = true
+		}
+		seen := map[Code]bool{}
+		for i, e := range r.Replace {
+			eat := fmt.Sprintf("%s.replace[%d]", at, i)
+			if seen[e.Type] || !present(e.Type) || gone[e.Type] || e.Type == GREASE || generatedExtensions[e.Type] {
+				c.add(eat, "%s is not a body the retried hello sends, or is listed twice", e.Type)
+			}
+			seen[e.Type] = true
+			c.checkExtension(eat, &e)
+		}
+		if !r.Padding && len(r.Drop) == 0 && len(r.Replace) == 0 {
+			c.add(at, "changes nothing: leave it out")
+		}
+	}
 }
 
 func (c *checker) checkHTTP3(p *Profile) {
@@ -368,6 +471,58 @@ func (c *checker) checkHTTP3(p *Profile) {
 	}
 	if r := d.RaceDelayMillis; d.RaceAfterGoAway != (r != nil) || r != nil && (r.Min < 0 || r.Max < r.Min) {
 		c.add(path+".discovery.race_delay_ms", "is required with race_after_goaway, and only then: 0 <= min <= max")
+	}
+	c.checkFallback(p)
+}
+
+// badRange reports a range that is absent or not 0 <= min <= max.
+func badRange(r *Range) bool {
+	return r == nil || r.Min < 0 || r.Max < r.Min
+}
+
+func (c *checker) checkFallback(p *Profile) {
+	const path = "http3.discovery.fallback"
+	d := &p.HTTP3.Discovery
+	f := &d.Fallback
+	race := f.Mode == FallbackRace
+	switch f.Mode {
+	case FallbackRace:
+		if badRange(f.TCPDelayMillis) {
+			c.add(path+".tcp_delay_ms", "is required with mode %q: 0 <= min <= max", FallbackRace)
+		}
+	case FallbackBackground:
+		if f.TCPDelayMillis != nil {
+			c.add(path+".tcp_delay_ms", "applies only with mode %q", FallbackRace)
+		}
+	default:
+		c.add(path+".mode", "%q must be %q or %q", f.Mode, FallbackRace, FallbackBackground)
+	}
+	if f.ZeroRTTHolds && (!race || !p.QUIC.ZeroRTT) {
+		c.add(path+".zero_rtt_holds", "needs mode %q and quic.zero_rtt", FallbackRace)
+	}
+	if f.Hold && (race || !d.RaceAfterGoAway) {
+		c.add(path+".hold", "needs mode %q and race_after_goaway", FallbackBackground)
+	}
+	if r := f.RevalidateMillis; r != nil && (race || badRange(r)) {
+		c.add(path+".revalidate_ms", "applies only with mode %q: 0 <= min <= max", FallbackBackground)
+	}
+	if f.BrokenAfter < 1 {
+		c.add(path+".broken_after", "must be at least 1")
+	}
+	switch f.Pending {
+	case PendingTCP:
+		if f.ReconnectMillis != nil {
+			c.add(path+".reconnect_ms", "applies only with pending %q", PendingQUIC)
+		}
+	case PendingQUIC:
+		if badRange(f.ReconnectMillis) {
+			c.add(path+".reconnect_ms", "is required with pending %q: 0 <= min <= max", PendingQUIC)
+		}
+	default:
+		c.add(path+".pending", "%q must be %q or %q", f.Pending, PendingTCP, PendingQUIC)
+	}
+	if p.QUIC.Loss.AbandonClose != "" && !f.AbandonOnTCP {
+		c.add("quic.loss.abandon_close", "applies only with %s.abandon_on_tcp", path)
 	}
 }
 

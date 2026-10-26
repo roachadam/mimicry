@@ -37,6 +37,12 @@ type lossState struct {
 	// sends, when a client set more than upstream's one (clientPTOExpired).
 	ptoProbes int
 
+	// mimicry: a profile client's probe timeout: firstPTO before any RTT
+	// sample (zero: from the initial RTT), and ptoAckDelay counts the
+	// peer's max_ack_delay before the handshake is confirmed too.
+	firstPTO    time.Duration
+	ptoAckDelay bool
+
 	// Count of PTO expirations since the lack received acknowledgement.
 	// https://www.rfc-editor.org/rfc/rfc9002#section-6.2.1-9
 	ptoBackoffCount int
@@ -556,9 +562,12 @@ func (c *lossState) ptoPeriod() time.Duration {
 }
 
 func (c *lossState) ptoBasePeriod() time.Duration {
+	if c.firstPTO > 0 && c.rtt.minRTT < 0 {
+		return c.firstPTO // mimicry: the profile's, until an RTT sample
+	}
 	// https://www.rfc-editor.org/rfc/rfc9002.html#section-6.2.1
 	pto := c.rtt.smoothedRTT + max(4*c.rtt.rttvar, timerGranularity)
-	if c.handshakeConfirmed {
+	if c.handshakeConfirmed || c.ptoAckDelay { // mimicry: ptoAckDelay
 		// The max_ack_delay is the maximum amount of time the peer might delay sending
 		// an ack to us. We only take it into account for the Application Data space.
 		// https://www.rfc-editor.org/rfc/rfc9002.html#section-6.2.1-4
