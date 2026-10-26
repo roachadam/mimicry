@@ -66,3 +66,4 @@ New records copy [`decisions/template.md`](decisions/template.md).
 - [CORS preflights](concepts/cors-preflights.md)
 - [WebSockets](concepts/websockets.md)
 - [HTTP/3](concepts/http3.md)
+- [Coming from tls-client](concepts/coming-from-tls-client.md)
