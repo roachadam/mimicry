@@ -253,28 +253,10 @@ func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, 
 	} else {
 		args = append(args, b.URL(t))
 	}
-	var cmd *exec.Cmd
-	if b.App != "" {
-		// -n: a new instance even if the user's browser is open. -W: open
-		// exits when the browser does, so Wait tracks its lifetime.
-		cmd = exec.CommandContext(ctx, "open", append([]string{"-n", "-W", "-a", b.App, "--args"}, args...)...) //nolint:gosec // the app is a known browser location
-	} else {
-		cmd = exec.CommandContext(ctx, b.Path, args...) //nolint:gosec // the path is a known browser location
+	s, err := b.start(ctx, dir, args)
+	if err != nil {
+		return nil, err
 	}
-	if err := cmd.Start(); err != nil {
-		_ = os.RemoveAll(dir)
-		return nil, fmt.Errorf("starting %s: %w", b.Name, err)
-	}
-	s := &Session{
-		cmd:  cmd,
-		dir:  dir,
-		app:  b.App != "",
-		done: make(chan struct{}),
-	}
-	go func() {
-		_ = cmd.Wait()
-		close(s.done)
-	}()
 	if t.ProxyAuth != nil {
 		switch {
 		case bidi:
@@ -312,6 +294,34 @@ func (b *Browser) handOff(ctx context.Context, s *Session, dir, url string) erro
 		return fmt.Errorf("handing %s the capture URL: %w: %s", b.Name, err, strings.TrimSpace(string(out)))
 	}
 	return nil
+}
+
+// start launches b with args on the profile directory dir, which the
+// session removes when it closes (and start, if it fails).
+func (b *Browser) start(ctx context.Context, dir string, args []string) (*Session, error) {
+	var cmd *exec.Cmd
+	if b.App != "" {
+		// -n: a new instance even if the user's browser is open. -W: open
+		// exits when the browser does, so Wait tracks its lifetime.
+		cmd = exec.CommandContext(ctx, "open", append([]string{"-n", "-W", "-a", b.App, "--args"}, args...)...) //nolint:gosec // the app is a known browser location
+	} else {
+		cmd = exec.CommandContext(ctx, b.Path, args...) //nolint:gosec // the path is a known browser location
+	}
+	if err := cmd.Start(); err != nil {
+		_ = os.RemoveAll(dir)
+		return nil, fmt.Errorf("starting %s: %w", b.Name, err)
+	}
+	s := &Session{
+		cmd:  cmd,
+		dir:  dir,
+		app:  b.App != "",
+		done: make(chan struct{}),
+	}
+	go func() {
+		_ = cmd.Wait()
+		close(s.done)
+	}()
+	return s, nil
 }
 
 // Close stops the browser, killing it if it has not exited within five

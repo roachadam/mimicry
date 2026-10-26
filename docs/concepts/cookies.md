@@ -113,4 +113,5 @@ Contexts specification); the order of
 unpartitioned third-party cookies at store or send (the jar does both);
 the end of Chrome's two-minute window is Chromium's documented value, not
 captured. The ledger lists the gaps in
-[not covered](../../profiles/EVIDENCE.md#not-covered-by-any-claim).
+[not covered](../../profiles/EVIDENCE.md#not-covered-by-any-claim), and
+the [backlog](../backlog.md#cookies) what closing each would take.

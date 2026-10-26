@@ -162,7 +162,8 @@ type H3Headers struct {
 	// Drop are headers the HTTP/2 lists carry that HTTP/3 leaves out
 	// (Firefox: te).
 	Drop []string `json:"drop,omitempty"`
-	// AltUsed places alt-used: <host>:<port> (RFC 7838, section 5), by
+	// AltUsed places alt-used (RFC 7838, section 5: the alternative's
+	// host, with :<port> unless it is 443), by
 	// request kind, for the navigation under AltUsedNavigation: it goes
 	// before the first header the request sends whose name is the one
 	// given or comes after it in the HTTP/2 list the request takes (its

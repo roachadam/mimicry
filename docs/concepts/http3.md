@@ -122,8 +122,9 @@ after the browser's algorithm rather than a sampled distribution:
   every space; Firefox a random first Initial number and a biased random
   DCID length, and four NEW_CONNECTION_IDs; Safari each space from 0.
 - **Transport parameters:** the browser's set and values, in its order
-  (fixed, shuffled per connection, or Safari's rotation with `0xff080808`
-  last), GREASE where it sends one, Chrome's `initial_rtt` when resuming.
+  (fixed, shuffled per connection, or Safari's rotation, Safari 26's with
+  `0xff080808` last), GREASE where it sends one, Chrome's `initial_rtt`
+  when resuming.
 - **Afterwards:** coalescing as the browser does, its ACK delays (Safari a
   constant per connection), Chrome's MAX_DATA after 19 ACK-only packets,
   the spin bit (Chrome 0, Firefox random, Safari spinning), NEW_TOKEN
@@ -164,7 +165,8 @@ each request with a priority (Chrome), DATA frame sizes, and Safari's
 first request waiting until the handshake is confirmed
 (`requests_after_confirmed`). Header lists are the request's HTTP/2 list,
 with Firefox's HTTP/3 changes (`http3.headers`: pseudo-header order
-`:method :scheme :authority :path`, no `te`, `alt-used` placed per kind).
+`:method :scheme :authority :path`, no `te`, `alt-used` placed per kind,
+its value the alternative's host with `:<port>` unless the port is 443).
 A priority measured only over HTTP/3 (`http3.high`, `http3.low`) is
 `ErrNotMeasured` over TCP.
 
@@ -178,7 +180,9 @@ received packets, how long an origin stays broken beyond a page, what
 Safari does after more than two failed attempts, and a NEW_TOKEN from a v2
 connection used by a later one; for Safari also its resumption (above),
 QPACK with a dynamic table and any request kind but `fetch()` over
-HTTP/3. Kinds the profile has no HTTP/3 data for stay on TCP.
+HTTP/3. Kinds the profile has no HTTP/3 data for stay on TCP. Each item,
+with its detection relevance and what closing it takes, is in the
+[backlog](../backlog.md#http3-and-quic).
 
 ## Where the profile data comes from
 

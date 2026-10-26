@@ -10,8 +10,12 @@ release. Three kinds:
 - [`concepts/`](concepts/): how it works, for users and contributors.
 - `guides/` (later): how to do things with it.
 
-Related, elsewhere in the repository:
+Related:
 
+- [`backlog.md`](backlog.md): every known gap and deferred item, with its
+  detection relevance and what closing it takes
+  ([decision 0029](decisions/0029-scope-what-gets-modelled.md) says what
+  gets modelled).
 - [`profiles/EVIDENCE.md`](../profiles/EVIDENCE.md): every claim a built-in
   profile makes, its evidence and the test that keeps it true.
 - [`harness/reports/`](../harness/reports/): dated measurement reports.
@@ -49,11 +53,13 @@ Related, elsewhere in the repository:
 | [0026](decisions/0026-http3-capture.md) | HTTP/3 is captured from the client's own packets | Accepted |
 | [0027](decisions/0027-quic-base.md) | QUIC from a copy of x/net/quic; HTTP/3 and QPACK our own | Accepted |
 | [0028](decisions/0028-quic-failure-model.md) | QUIC and HTTP/3 fail as each browser's do | Accepted |
+| [0029](decisions/0029-scope-what-gets-modelled.md) | Model what anti-bot systems check or users notice | Accepted |
 
 New records copy [`decisions/template.md`](decisions/template.md).
 
 ## Concepts
 
+- [What mimicry does on the wire](concepts/what-mimicry-does.md)
 - [How a request is built](concepts/how-a-request-is-built.md)
 - [Cookies](concepts/cookies.md)
 - [Proxies](concepts/proxies.md)

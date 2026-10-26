@@ -173,8 +173,8 @@ func (c *Conn) buildHead(req *http.Request, length int64) (head, error) {
 	return out, nil
 }
 
-// placeAltUsed inserts alt-used: <host>:<port> of the connection's
-// alternative service where the profile's H3Headers.AltUsed says: before
+// placeAltUsed inserts alt-used, the connection's alternative service
+// (altUsedValue), where the profile's H3Headers.AltUsed says: before
 // the first field named the kind's anchor or a name after it in the list
 // the request takes (the kind's own where that lacks the anchor), else
 // last.
@@ -207,7 +207,7 @@ func (c *Conn) placeAltUsed(fields []headerorder.Field, plan *headerorder.Plan) 
 	}
 	alt := headerorder.Field{
 		Name:  "alt-used",
-		Value: net.JoinHostPort(c.altHost, c.altPort),
+		Value: altUsedValue(c.altHost, c.altPort),
 	}
 	fields = slices.DeleteFunc(fields, func(f headerorder.Field) bool {
 		return f.Name == "alt-used"
@@ -219,4 +219,14 @@ func (c *Conn) placeAltUsed(fields []headerorder.Field, plan *headerorder.Plan) 
 		at = len(fields)
 	}
 	return slices.Insert(fields, at, alt)
+}
+
+// altUsedValue is alt-used's value as Firefox writes it
+// (nsHttpChannel::BeginConnect): the alternative's host, and ":<port>"
+// unless the port is the default, 443.
+func altUsedValue(host, port string) string {
+	if port == "443" {
+		return host
+	}
+	return net.JoinHostPort(host, port)
 }

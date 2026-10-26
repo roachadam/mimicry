@@ -41,3 +41,14 @@ modelled: it changes the pool key for every request a page makes, and
 needs its own capture (which requests of a page share the top-level key,
 per browser) and decision. `TestRedirects2MatchesBrowser` compares those
 requests apart from their connections and lists the gap.
+
+Deferred (2026-10-25, [0029](0029-scope-what-gets-modelled.md)): no
+top-level-site partition until a capture or a vendor shows it matters
+for detection. A Transport represents one browsing session
+([0019](0019-transport-is-one-browsing-entity.md)). Callers who visit
+unrelated sites that share third-party hosts (a CDN, a payment provider,
+an analytics host) can use one Transport per site, so that no connection
+carries requests from two top-level sites; passing the same jar in
+`Config.Cookies` to each keeps one cookie store, as one browser profile
+has (the jar keys partitioned cookies by top-level site itself). The gap
+is listed in [the backlog](../backlog.md#connections-and-pool).

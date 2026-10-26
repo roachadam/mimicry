@@ -10942,11 +10942,6 @@
       },
       {
         "id": "0x0f"
-      },
-      {
-        "id": "0xff080808",
-        "data": "09",
-        "last": true
       }
     ],
     "transport_parameter_order": "rotated",
@@ -10954,8 +10949,8 @@
     "ack_before_finished": true,
     "ack_delay": "constant",
     "ack_delay_constant": {
-      "min": 19,
-      "max": 24
+      "min": 27,
+      "max": 29
     },
     "spin_bit": "spin",
     "loss": {
