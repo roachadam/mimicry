@@ -14,18 +14,22 @@ type WebSocket struct {
 	// Extensions is the Sec-WebSocket-Extensions offer, exactly as sent.
 	// Required.
 	Extensions string `json:"extensions"`
-	// Compression is how a message is compressed when the server accepts
-	// permessage-deflate: CompressionZlib6. Empty: not measured, and
-	// sending a message on a socket that negotiated it is an error.
-	Compression string `json:"compression,omitempty"`
-	// UncompressedMax is the longest message payload sent uncompressed
-	// (RSV1 clear), outside the compression context, on a socket that
-	// negotiated permessage-deflate (Safari: 5). CompressMin is the
-	// shortest compressed. Both zero: every message is compressed. A
-	// payload between the two is not measured, so sending one is an
-	// error. Need Compression.
-	UncompressedMax int `json:"uncompressed_max,omitempty"`
-	CompressMin     int `json:"compress_min,omitempty"`
+	// Compression is how the browser compresses a message once the server
+	// accepts permessage-deflate: its deflate implementation at level 6
+	// (CompressionChromiumZlib6, CompressionZlib6, CompressionZlibRS6),
+	// with the window the server allows (client_max_window_bits) and the
+	// context kept from message to message unless the server answers
+	// client_no_context_takeover. Required.
+	Compression string `json:"compression"`
+	// Uncompressed is which messages the browser sends uncompressed (RSV1
+	// clear) on such a socket: UncompressedNever,
+	// UncompressedEmptyOrLonger or UncompressedEmptyOrNotShorter.
+	// Required.
+	Uncompressed string `json:"uncompressed"`
+	// WindowBits8 is what the browser does when the server answers
+	// client_max_window_bits=8, which zlib cannot compress with:
+	// WindowBits8As9 or WindowBits8Fail. Required.
+	WindowBits8 string `json:"window_bits_8"`
 	// H2Data is how a socket over HTTP/2 writes its frames into DATA
 	// frames, each at most HTTP2.MaxDataFrame long: H2DataTogether,
 	// H2DataHeaderAlone or H2DataSplitControl. Required.
@@ -43,13 +47,42 @@ type WebSocket struct {
 	CloseH2 string `json:"close_h2,omitempty"`
 }
 
-// Values of WebSocket.Compression.
+// Values of WebSocket.Compression. Each is the library's raw deflate at
+// level 6, memLevel 8 and the default strategy, each message ended with a
+// sync flush whose 00 00 ff ff is cut, byte for byte.
 const (
-	// CompressionZlib6 is zlib's raw deflate at level 6 (window bits 15,
-	// memLevel 8, default strategy), each message ended with a sync flush
-	// whose 00 00 ff ff is cut, with the context kept across messages
-	// (Chrome, Safari: byte for byte).
+	// CompressionChromiumZlib6 is Chromium's fork of zlib, whose hash
+	// finds different matches than zlib's (Chrome).
+	CompressionChromiumZlib6 = "chromium_zlib6"
+	// CompressionZlib6 is zlib (Safari).
 	CompressionZlib6 = "zlib6"
+	// CompressionZlibRS6 is zlib-rs, a port of zlib-ng (Firefox).
+	CompressionZlibRS6 = "zlib_rs6"
+)
+
+// Values of WebSocket.Uncompressed.
+const (
+	// UncompressedNever compresses every message, an empty one as the
+	// single byte 00 (Chrome).
+	UncompressedNever = "never"
+	// UncompressedEmptyOrLonger sends an empty message uncompressed, and,
+	// with client_no_context_takeover, one whose compressed form is
+	// longer than it (Firefox).
+	UncompressedEmptyOrLonger = "empty_or_longer"
+	// UncompressedEmptyOrNotShorter sends an empty message uncompressed,
+	// and one whose compressed form is not shorter than it, after which
+	// the compression context starts over (Safari).
+	UncompressedEmptyOrNotShorter = "empty_or_not_shorter"
+)
+
+// Values of WebSocket.WindowBits8.
+const (
+	// WindowBits8As9 compresses with a 9-bit window (Chrome).
+	WindowBits8As9 = "as_9"
+	// WindowBits8Fail fails the socket once its handshake is done: the
+	// transport ends at once, as CloseH1 and CloseH2 end it, with
+	// nothing sent (Safari).
+	WindowBits8Fail = "fail"
 )
 
 // Values of WebSocket.H2Data.
@@ -58,8 +91,9 @@ const (
 	// into as few DATA frames as the cap allows (Chrome).
 	H2DataTogether = "together"
 	// H2DataHeaderAlone writes a frame's header (mask included) in a DATA
-	// frame of its own when its payload does not fit with it, then the
-	// payload in DATA frames of the cap (Firefox).
+	// frame of its own when its payload is longer than 1000 bytes
+	// (Firefox's kCopyBreak), then the payload in DATA frames of the cap
+	// (Firefox).
 	H2DataHeaderAlone = "header_alone"
 	// H2DataSplitControl writes frames as H2DataTogether, but its replies
 	// to the server's control frames, the pong and the close reply, as
@@ -112,17 +146,14 @@ func (c *checker) checkWebSocket(p *Profile) {
 	case strings.ContainsAny(ws.Extensions, "\r\n\x00"):
 		c.add(path+".extensions", "holds CR, LF or NUL")
 	}
-	switch ws.Compression {
-	case "":
-		if ws.UncompressedMax != 0 || ws.CompressMin != 0 {
-			c.add(path, "uncompressed_max and compress_min need compression")
-		}
-	case CompressionZlib6:
-	default:
-		c.add(path+".compression", "must be empty or %q", CompressionZlib6)
+	if ws.Compression != CompressionChromiumZlib6 && ws.Compression != CompressionZlib6 && ws.Compression != CompressionZlibRS6 {
+		c.add(path+".compression", "must be %q, %q or %q", CompressionChromiumZlib6, CompressionZlib6, CompressionZlibRS6)
 	}
-	if (ws.UncompressedMax != 0 || ws.CompressMin != 0) && (ws.UncompressedMax <= 0 || ws.CompressMin <= ws.UncompressedMax) {
-		c.add(path, "uncompressed_max and compress_min must be both zero, or 0 < uncompressed_max < compress_min")
+	if ws.Uncompressed != UncompressedNever && ws.Uncompressed != UncompressedEmptyOrLonger && ws.Uncompressed != UncompressedEmptyOrNotShorter {
+		c.add(path+".uncompressed", "must be %q, %q or %q", UncompressedNever, UncompressedEmptyOrLonger, UncompressedEmptyOrNotShorter)
+	}
+	if ws.WindowBits8 != WindowBits8As9 && ws.WindowBits8 != WindowBits8Fail {
+		c.add(path+".window_bits_8", "must be %q or %q", WindowBits8As9, WindowBits8Fail)
 	}
 	if ws.H2Data != H2DataTogether && ws.H2Data != H2DataHeaderAlone && ws.H2Data != H2DataSplitControl {
 		c.add(path+".h2_data", "must be %q, %q or %q", H2DataTogether, H2DataHeaderAlone, H2DataSplitControl)

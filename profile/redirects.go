@@ -33,6 +33,15 @@ type Redirects struct {
 	// another site and back to the page's origin is same-origin;
 	// nav-redirect-page, two samples of three). Required.
 	NavigationSite string `json:"navigation_site"`
+	// NavigationOrigin is when a navigation's Origin (a form POST's,
+	// kept by a 307 or 308) becomes "null" after a redirect:
+	// RedirectNavOriginTaint once the chain is tainted, as the Fetch
+	// standard has it (a redirect from another origin than the page's to
+	// a third: Firefox); RedirectNavOriginCrossOrigin once any redirect
+	// went to another origin than the URL before it (Chrome, Safari 27,
+	// 26: a POST from the page answered 307 to static.navr-a.test or to
+	// another site; nav-redirect-form and nav-redirect-click). Required.
+	NavigationOrigin string `json:"navigation_origin"`
 }
 
 // Values of Redirects.MethodChangeOrigin.
@@ -53,6 +62,12 @@ const (
 	RedirectSiteRestart = "restart"
 )
 
+// Values of Redirects.NavigationOrigin.
+const (
+	RedirectNavOriginTaint       = "taint"
+	RedirectNavOriginCrossOrigin = "cross_origin"
+)
+
 // checkRedirects checks the redirects section. Nil is valid: not measured,
 // so a redirect that changes a fetch()'s method, a navigation's 20th
 // redirect and a hop after a preflight are errors.
@@ -71,5 +86,8 @@ func (c *checker) checkRedirects(r *Redirects) {
 	}
 	if r.NavigationSite != RedirectSiteChain && r.NavigationSite != RedirectSiteRestart {
 		c.add("redirects.navigation_site", "must be %q or %q", RedirectSiteChain, RedirectSiteRestart)
+	}
+	if r.NavigationOrigin != RedirectNavOriginTaint && r.NavigationOrigin != RedirectNavOriginCrossOrigin {
+		c.add("redirects.navigation_origin", "must be %q or %q", RedirectNavOriginTaint, RedirectNavOriginCrossOrigin)
 	}
 }

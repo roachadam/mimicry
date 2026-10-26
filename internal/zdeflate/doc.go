@@ -1,11 +1,31 @@
-// Package zdeflate is permessage-deflate (RFC 7692) as the browsers that
-// use zlib speak it. Writer is a port of zlib 1.3.1's deflate (deflate.c,
-// trees.c: hash chains, longest_match, deflate_fast and deflate_slow with
-// zlib's configuration table, block splitting, Huffman tree building) at
-// window bits 15, memLevel 8 and the default strategy, so each message is
-// byte for byte what zlib's raw deflate with a sync flush produces, the
-// compression context kept from message to message. Reader inflates a
-// peer's messages with compress/flate, keeping the same context.
+// Package zdeflate is permessage-deflate (RFC 7692) as the browsers speak
+// it. Writer compresses each message byte for byte as its browser's
+// deflate library does, with a sync flush, at memLevel 8, the default
+// strategy and the socket's window bits (9 to 15; every library here
+// rejects a raw stream of 8), the context kept from message to message
+// until Reset (deflateReset, for client_no_context_takeover). Reader
+// inflates a peer's messages with compress/flate, keeping the same
+// context.
+//
+// Writer ports three libraries:
+//
+//   - zlib 1.3.1 (Safari; deflate.c, trees.c): hash chains,
+//     longest_match, deflate_fast and deflate_slow with zlib's
+//     configuration table (levels 1-9), block splitting, Huffman tree
+//     building. zlib 1.3.2 writes the same bytes.
+//   - Chromium's zlib (Chrome; third_party/zlib, zlib 1.3.2 with
+//     Chromium's changes): the same, but for its hash of 4 bytes
+//     (insert_string.h) and what follows from it in fill_window and
+//     longest_match, as built for x64 and arm64.
+//   - zlib-rs 0.6.3 (Firefox 158, which vendors it unmodified behind its
+//     zlib C API) at level 6, Firefox's Z_DEFAULT_COMPRESSION:
+//     deflate_medium, its 4-byte multiplicative hash and longest_match,
+//     fill_window, with zlib's trees, which zlib-rs keeps. deflate_medium
+//     forgets its look-ahead match when the output buffer fills, so the
+//     port also drives deflate as Firefox's WebSocketChannel does, into
+//     4096-byte buffers. zlib-rs picks SIMD code by CPU only for
+//     compare256 and slide_hash, which compute the same everywhere, so
+//     x86 and arm64 Firefox write the same bytes.
 //
 // Imports: the standard library.
 package zdeflate

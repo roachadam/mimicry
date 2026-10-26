@@ -267,7 +267,9 @@ sample.
   own after `WSLinger` (3 s), which suggests its pages finished (and the
   trace was written) before the linger fired; whether Firefox ever closes
   the TCP connection or stream itself is not measured.
-- Firefox's deflate output matches no zlib configuration tried.
+- Firefox's deflate output matches no zlib configuration tried
+  (explained 2026-10-26: zlib-rs; see the
+  [websocket-deflate report](websocket-deflate-2026-10-26.md)).
 - Firefox opens extra h2 connections that send only SETTINGS,
   WINDOW_UPDATE and GOAWAY (2 per sample in `websocket`, 2–3 in
   `websocket-h2`; resumed hellos with ALPN `h2, http/1.1`); Chrome has 2

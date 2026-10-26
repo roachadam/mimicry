@@ -21,9 +21,12 @@ var inflateTail = []byte{
 	0x01, 0x00, 0x00, 0xff, 0xff,
 }
 
+// dictSize is the most a peer's message can refer back to: a 32 KiB window.
+const dictSize = 1 << maxWBits
+
 // Reader inflates the messages of one permessage-deflate socket, keeping
 // the context from message to message: each message is inflated with the
-// last wSize bytes of the earlier ones as its dictionary, which is all a
+// last dictSize bytes of the earlier ones as its dictionary, which is all a
 // peer that keeps its context can refer to, and nothing to one that does
 // not. It is not safe for concurrent use.
 type Reader struct {
@@ -63,10 +66,10 @@ func (r *Reader) Message(p []byte, limit int) ([]byte, error) {
 	}
 
 	msg := out.Bytes()
-	if len(msg) >= wSize {
-		r.dict = append(r.dict[:0], msg[len(msg)-wSize:]...)
+	if len(msg) >= dictSize {
+		r.dict = append(r.dict[:0], msg[len(msg)-dictSize:]...)
 	} else {
-		if keep := wSize - len(msg); len(r.dict) > keep {
+		if keep := dictSize - len(msg); len(r.dict) > keep {
 			r.dict = r.dict[:copy(r.dict, r.dict[len(r.dict)-keep:])]
 		}
 		r.dict = append(r.dict, msg...)

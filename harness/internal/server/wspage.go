@@ -25,7 +25,7 @@ const (
 // capture.WebSocket.Connection). See WebSocketSteps.
 var WebSocket = &Scenario{
 	Name:      "websocket",
-	Doc:       "WebSockets over HTTP/1.1 (the HTTP/2 server has no extended CONNECT): handshakes (same-origin, cross-site with subprotocols, with Lax, None and Partitioned cookies on both hosts), the permessage-deflate offer and compressed frames, frame headers (masking, 7/16/64-bit lengths, fragmentation), ping/pong, client and server close and who closes TCP first, ws:// from an https:// page and from an http:// page",
+	Doc:       "WebSockets over HTTP/1.1 (the HTTP/2 server has no extended CONNECT): handshakes (same-origin, cross-site with subprotocols, with Lax, None and Partitioned cookies on both hosts), the permessage-deflate offer and compressed frames (varied text of every size, empty and incompressible messages, client_no_context_takeover, client_max_window_bits 8 to 15), frame headers (masking, 7/16/64-bit lengths, fragmentation), ping/pong, client and server close and who closes TCP first, ws:// from an https:// page and from an http:// page",
 	multi:     wsPageOf(),
 	plainPort: true,
 }
@@ -54,7 +54,7 @@ func wsPageOf() wsPage {
 				wsHost,
 				wsCrossSite,
 			},
-			runFor: 75 * time.Second,
+			runFor: 120 * time.Second,
 		},
 	}
 }
@@ -63,14 +63,25 @@ func wsPageOf() wsPage {
 const wsPattern = "mimicry-websocket-"
 
 // WSMessage is a message a websocket step sends: Size bytes of wsPattern
-// repeated (text), or of the bytes 0 to 255 repeated (Binary).
+// repeated (text), of the bytes 0 to 255 repeated (Binary), of wsProse
+// from At (Prose, text), or pseudo-random bytes seeded by At (Noise, with
+// Binary).
 type WSMessage struct {
 	Binary bool
 	Size   int
+	Prose  bool
+	Noise  bool
+	At     int
 }
 
 // Data is the message's payload.
 func (m WSMessage) Data() []byte {
+	switch {
+	case m.Prose:
+		return []byte((wsProse + wsProse)[m.At : m.At+m.Size])
+	case m.Noise:
+		return wsNoise(m.At, m.Size)
+	}
 	b := make([]byte, m.Size)
 	for i := range b {
 		if m.Binary {
@@ -84,7 +95,12 @@ func (m WSMessage) Data() []byte {
 
 // js is the page's expression for the message.
 func (m WSMessage) js() string {
-	if m.Binary {
+	switch {
+	case m.Prose:
+		return "prose(" + strconv.Itoa(m.At) + ", " + strconv.Itoa(m.Size) + ")"
+	case m.Noise:
+		return "noise(" + strconv.Itoa(m.At) + ", " + strconv.Itoa(m.Size) + ")"
+	case m.Binary:
 		return "binary(" + strconv.Itoa(m.Size) + ")"
 	}
 	return "text(" + strconv.Itoa(m.Size) + ")"
@@ -109,16 +125,23 @@ type WebSocketStep struct {
 	Protocols []string
 	Pick      string
 	// Deflate accepts permessage-deflate when offered (as
-	// "permessage-deflate": context takeover both ways, 15-bit windows);
+	// "permessage-deflate": context takeover both ways, 15-bit windows,
+	// unless DeflateParams adds client_no_context_takeover or
+	// client_max_window_bits=N, whether or not the browser offered them);
 	// otherwise the server answers no extension. Browsers offer it on
 	// every socket, so every handshake records the offer.
-	Deflate bool
+	Deflate       bool
+	DeflateParams []string
 	// Ping has the server ping right after the handshake, ServerClose
 	// send a close (1001 "going away") after its first echo.
 	Ping        bool
 	ServerClose bool
 	Sends       []WSMessage
 	Close       bool
+	// Hangs is a product token of the user agent ("Firefox/") of a
+	// browser this socket hangs: its page skips the step and reports it
+	// skipped (capture.WSResult.Skipped), so the rest of the page runs.
+	Hangs string
 }
 
 // Path is the socket's path.
@@ -140,6 +163,18 @@ const wsStepTime = 10 * time.Second
 //     server picking chat;
 //   - so-deflate: same-origin, permessage-deflate accepted, compressible
 //     text (two equal 4 KiB messages show context takeover);
+//   - so-deflate-sizes: deflate, with varied text (wsProse) of every size
+//     from 6 bytes to 4 KiB in growing steps, empty messages, small
+//     messages repeating earlier text, and incompressible binary: which
+//     messages a browser leaves uncompressed, what that does to the
+//     context, and the compressor (library and level);
+//   - so-deflate-nct: deflate with client_no_context_takeover: each
+//     message on its own, and whether one that compresses badly, or to
+//     exactly its own length, goes uncompressed;
+//   - so-deflate-w8 to so-deflate-w15: deflate with
+//     client_max_window_bits=8 to 15, messages repeating text at
+//     distances that tell the windows apart (Firefox skips w8, which
+//     hangs it);
 //   - so-server-close: the server closes first (1001);
 //   - mixed: ws:// from the https:// page to the plain port (mixed
 //     content: refused, or upgraded to wss:// which the plain port
@@ -152,7 +187,7 @@ func WebSocketSteps() []WebSocketStep {
 			Size: 5,
 		},
 	}
-	return []WebSocketStep{
+	steps := []WebSocketStep{
 		{
 			Label: "so-basic",
 			Page:  "sockets",
@@ -197,6 +232,62 @@ func WebSocketSteps() []WebSocketStep {
 			Close: true,
 		},
 		{
+			Label:   "so-deflate-sizes",
+			Page:    "sockets",
+			Host:    wsHost,
+			Deflate: true,
+			Sends:   wsSizeSweep(),
+			Close:   true,
+		},
+		{
+			Label:         "so-deflate-nct",
+			Page:          "sockets",
+			Host:          wsHost,
+			Deflate:       true,
+			DeflateParams: []string{"client_no_context_takeover"},
+			Sends: []WSMessage{
+				{Prose: true, At: 1000, Size: 4096},
+				{Prose: true, At: 1000, Size: 4096},
+				{Prose: true, At: 9000, Size: 200},
+				{Prose: true, At: 9000, Size: 6},
+				{Binary: true, Noise: true, At: 7, Size: 300},
+				{Size: 0},
+				{Size: 5},
+				// Each compresses to exactly its length on its own (zlib;
+				// zlib-rs too for the first): sent compressed or not?
+				{Prose: true, At: 98, Size: 10},
+				{Prose: true, At: 28, Size: 24},
+				{Prose: true, At: 20000, Size: 1000},
+			},
+			Close: true,
+		},
+	}
+	for bits := 8; bits <= 15; bits++ {
+		st := WebSocketStep{
+			Label:         "so-deflate-w" + strconv.Itoa(bits),
+			Page:          "sockets",
+			Host:          wsHost,
+			Deflate:       true,
+			DeflateParams: []string{"client_max_window_bits=" + strconv.Itoa(bits)},
+			Sends: []WSMessage{
+				{Prose: true, At: 3000, Size: 3000},
+				{Prose: true, At: 3000, Size: 3000},
+				{Prose: true, At: 12000, Size: 20000},
+				{Prose: true, At: 3500, Size: 1000},
+			},
+			Close: true,
+		}
+		if bits == 8 {
+			// zlib-rs refuses a raw 8-bit window, and Firefox's
+			// WebSocketChannel::HandleExtensions calls AbortSession
+			// holding mCompressorMutex, which DoStopSession takes again:
+			// its networking deadlocks and no page loads any more.
+			st.Hangs = "Firefox/"
+		}
+		steps = append(steps, st)
+	}
+	return append(steps, []WebSocketStep{
+		{
 			Label:       "so-server-close",
 			Page:        "sockets",
 			Host:        wsHost,
@@ -222,7 +313,48 @@ func WebSocketSteps() []WebSocketStep {
 			},
 			Close: true,
 		},
+	}...)
+}
+
+// wsSizeSweep is so-deflate-sizes's messages: a 4 KiB message every
+// browser compresses, then empty ones, then a repeat of some of its text
+// (whether an empty message leaves the context alone), wsProse messages
+// of every size from 6 to 40 bytes and in growing steps to 4095, each cut
+// at its own place, then small messages repeating the last one's text
+// (which the context makes compress well), incompressible binary, and
+// the first message again.
+func wsSizeSweep() []WSMessage {
+	out := []WSMessage{
+		{Prose: true, At: 0, Size: 4096},
+		{Size: 0},
+		{Binary: true, Size: 0},
+		{Prose: true, At: 100, Size: 200},
 	}
+	sizes := []int{}
+	for n := 6; n <= 40; n++ {
+		sizes = append(sizes, n)
+	}
+	sizes = append(sizes, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, 448, 512,
+		640, 768, 896, 1024, 1280, 1536, 1792, 2048, 2560, 3072, 3584, 4000, 4095)
+	for _, n := range sizes {
+		out = append(out, WSMessage{
+			Prose: true,
+			At:    n * 7919 % len(wsProse),
+			Size:  n,
+		})
+	}
+	// The last sweep message's text, close enough to be in the window.
+	last := out[len(out)-1].At
+	return append(out,
+		WSMessage{Prose: true, At: last + 100, Size: 12},
+		WSMessage{Prose: true, At: last + 100, Size: 30},
+		WSMessage{Prose: true, At: last + 100, Size: 200},
+		WSMessage{Binary: true, Noise: true, At: 1, Size: 6},
+		WSMessage{Binary: true, Noise: true, At: 2, Size: 64},
+		WSMessage{Binary: true, Noise: true, At: 3, Size: 1024},
+		WSMessage{Binary: true, Noise: true, At: 4, Size: 4096},
+		WSMessage{Prose: true, At: 0, Size: 4096},
+	)
 }
 
 // WebSocketPageStep is one of the websocket pages' requests around their
@@ -366,7 +498,8 @@ func wsHandshake(s WebSocketStep, req request) response {
 	if s.Deflate {
 		for _, ext := range headerList(req.wsExtensions) {
 			if name, _, _ := strings.Cut(ext, ";"); strings.TrimSpace(name) == "permessage-deflate" {
-				a.extensions = "permessage-deflate"
+				a.extensions = strings.Join(append([]string{"permessage-deflate"}, s.DeflateParams...), "; ")
+				a.clientNoContext = slices.Contains(s.DeflateParams, "client_no_context_takeover")
 			}
 		}
 	}
@@ -404,14 +537,20 @@ func wsSocketURL(s WebSocketStep, ports portPair) string {
 }
 
 // wsHelpers are the page's helpers: get(u) fetches with credentials (5 s
-// at most); text(n) and binary(n) are WSMessage payloads; socket(url,
-// protocols, sends, close) runs one socket step and resolves to what the
-// script saw of it (capture.WSResult), within wsStepTime; report sends
-// that to the server.
+// at most); text(n), binary(n), prose(at, n) and noise(at, n) are
+// WSMessage payloads; socket(url, protocols, sends, close) runs one
+// socket step and resolves to what the script saw of it
+// (capture.WSResult), within wsStepTime; report sends that to the server.
 var wsHelpers = `const get = u => within(fetch(u, {credentials: "include"}).then(r => r.text()), 5000);
 const pattern = ` + strconv.Quote(wsPattern) + `;
 const text = n => pattern.repeat(Math.ceil(n / pattern.length)).slice(0, n);
 const binary = n => Uint8Array.from({length: n}, (_, i) => i % 256);
+const corpus = ` + strconv.Quote(wsProse) + `;
+const prose = (at, n) => (corpus + corpus).slice(at, at + n);
+const noise = (seed, n) => {
+  let x = seed >>> 0;
+  return Uint8Array.from({length: n}, () => (x = (Math.imul(x, 1664525) + 1013904223) >>> 0) >>> 24);
+};
 const report = (label, res) => get("` + wsResultPath + `?label=" + encodeURIComponent(label) + "&r=" + encodeURIComponent(JSON.stringify(res)));
 const socket = (url, protocols, sends, close) => {
   const res = {open: false, sent: 0, echoes: 0, closed: false};
@@ -489,8 +628,11 @@ func wsStatements(steps []WebSocketPageStep, i int, ports portPair) []string {
 		for k, m := range s.Sends {
 			sends[k] = m.js()
 		}
-		out = append(out, fmt.Sprintf("await report(%s, await socket(%s, %s, [%s], %t));",
-			strconv.Quote(s.Label), strconv.Quote(wsSocketURL(s, ports)), protocols, strings.Join(sends, ", "), s.Close))
+		run := fmt.Sprintf("await socket(%s, %s, [%s], %t)", strconv.Quote(wsSocketURL(s, ports)), protocols, strings.Join(sends, ", "), s.Close)
+		if s.Hangs != "" {
+			run = fmt.Sprintf("(navigator.userAgent.includes(%s) ? {skipped: true} : %s)", strconv.Quote(s.Hangs), run)
+		}
+		out = append(out, fmt.Sprintf("await report(%s, %s);", strconv.Quote(s.Label), run))
 	}
 	if next < 0 {
 		if watched {

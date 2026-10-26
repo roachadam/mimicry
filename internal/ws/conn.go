@@ -14,7 +14,6 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
-	"github.com/roachadam/mimicry/internal/headerorder"
 	"github.com/roachadam/mimicry/internal/zdeflate"
 	"github.com/roachadam/mimicry/profile"
 )
@@ -111,7 +110,7 @@ type Conn struct {
 
 	// wmu serializes frames on the wire and guards deflater.
 	wmu      sync.Mutex
-	deflater *zdeflate.Writer
+	deflater *Compressor
 	inflater *zdeflate.Reader
 
 	msgs chan Message
@@ -148,8 +147,10 @@ func (c *Conn) markSent() {
 
 // New runs a socket on t, which carries what follows the handshake; r
 // reads it (an HTTP/1.1 connection's buffered reader, which may hold the
-// server's first frames already, or t itself).
-func New(t Transport, r io.Reader, cfg Config) *Conn {
+// server's first frames already, or t itself). It fails, sending
+// nothing, where the profile's browser fails a socket whose handshake it
+// accepted (a compression window it cannot use); the caller ends t.
+func New(t Transport, r io.Reader, cfg Config) (*Conn, error) {
 	c := &Conn{
 		t:       t,
 		cfg:     cfg,
@@ -159,14 +160,16 @@ func New(t Transport, r io.Reader, cfg Config) *Conn {
 		closing: make(chan struct{}),
 		ended:   make(chan struct{}),
 	}
-	if cfg.Deflate != nil {
-		c.inflater = zdeflate.NewReader()
-		if cfg.Profile.Compression == profile.CompressionZlib6 {
-			c.deflater = zdeflate.NewWriter(6)
+	if d := cfg.Deflate; d != nil {
+		w, err := NewCompressor(cfg.Profile, d)
+		if err != nil {
+			return nil, fmt.Errorf("ws: profile %s fails the socket: %w", cfg.Name, err)
 		}
+		c.deflater = w
+		c.inflater = zdeflate.NewReader()
 	}
 	go c.readLoop()
-	return c
+	return c, nil
 }
 
 // ReadMessage returns the next data message, or once the socket closed a
@@ -203,36 +206,13 @@ func (c *Conn) WriteMessage(ctx context.Context, opcode byte, p []byte) error {
 	}
 	var rsv byte
 	payload := p
-	if d := c.cfg.Deflate; d != nil {
-		compress, err := c.compresses(d, len(p))
-		if err != nil {
-			return err
-		}
-		if compress {
-			payload, rsv = c.deflater.Message(p), rsv1
+	if c.deflater != nil {
+		var compressed bool
+		if payload, compressed = c.deflater.Message(p); compressed {
+			rsv = rsv1
 		}
 	}
 	return c.writeFrame(ctx, opcode, rsv, payload, false, false)
-}
-
-// compresses reports whether a message of n bytes goes compressed on a
-// socket that negotiated d, as the profile says; one the profile's
-// browser was never seen sending is ErrNotMeasured.
-func (c *Conn) compresses(d *Deflate, n int) (bool, error) {
-	p := c.cfg.Profile
-	switch {
-	case p.Compression == "":
-		return false, fmt.Errorf("%w: profile %s does not describe its permessage-deflate compressor (the server accepted it)", headerorder.ErrNotMeasured, c.cfg.Name)
-	case d.ClientNoContextTakeover || d.ClientMaxWindowBits != 15:
-		return false, fmt.Errorf("%w: profile %s has no measured compression with client_no_context_takeover or a client_max_window_bits below 15", headerorder.ErrNotMeasured, c.cfg.Name)
-	case p.CompressMin > 0 && n <= p.UncompressedMax:
-		return false, nil
-	case n == 0:
-		return false, fmt.Errorf("%w: profile %s has no measured compression of an empty message", headerorder.ErrNotMeasured, c.cfg.Name)
-	case n >= p.CompressMin:
-		return true, nil
-	}
-	return false, fmt.Errorf("%w: profile %s has no measured compression of a %d-byte message (sent uncompressed up to %d bytes, compressed from %d)", headerorder.ErrNotMeasured, c.cfg.Name, n, p.UncompressedMax, p.CompressMin)
 }
 
 // writeFrame masks payload with a fresh key and writes it as one final
@@ -275,7 +255,10 @@ func (c *Conn) parts(frame []byte, head int, opcode byte, reply bool) [][]byte {
 	}
 	switch c.cfg.Profile.H2Data {
 	case profile.H2DataHeaderAlone:
-		if len(frame) > c.cfg.MaxData {
+		// Firefox copies a payload of up to kCopyBreak (1000) bytes after
+		// the header and writes them together; a longer one goes after
+		// the header in a write of its own.
+		if len(frame)-head > headerAloneAfter {
 			return [][]byte{frame[:head], frame[head:]}
 		}
 	case profile.H2DataSplitControl:
@@ -290,6 +273,10 @@ func (c *Conn) parts(frame []byte, head int, opcode byte, reply bool) [][]byte {
 	}
 	return [][]byte{frame}
 }
+
+// headerAloneAfter is the longest payload H2DataHeaderAlone writes with
+// its header (Firefox's WebSocketChannel kCopyBreak).
+const headerAloneAfter = 1000
 
 // closeEnds reports whether a close frame ends the client's side of an
 // HTTP/2 stream (CloseEndStream).

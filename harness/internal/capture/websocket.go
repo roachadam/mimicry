@@ -119,6 +119,9 @@ type WSResult struct {
 	Reason   string `json:"reason,omitempty"`
 	Clean    bool   `json:"clean,omitempty"`
 	TimedOut bool   `json:"timed_out,omitempty"`
+	// Skipped reports that the page did not open the socket: the step
+	// hangs this browser (server.WebSocketStep.Hangs).
+	Skipped bool `json:"skipped,omitempty"`
 	// Error is an exception the constructor threw (name: message), or
 	// "error" when onerror fired.
 	Error string `json:"error,omitempty"`

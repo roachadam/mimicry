@@ -185,7 +185,9 @@ func runRedirectsPage(t *testing.T, p *profile.Profile, sc *server.Scenario, ste
 				h = http.Header{"Content-Type": {"application/x-www-form-urlencoded"}}
 			}
 			var landed *url.URL
-			landed, err = redirectsSend(t, s, method, target, body, h, mimicry.Request{Kind: mimicry.Navigate, From: from}, true)
+			// A clicked navigation has user activation; the page's
+			// script's has none.
+			landed, err = redirectsSend(t, s, method, target, body, h, mimicry.Request{Kind: mimicry.Navigate, From: from}, !st.Click)
 			if landed != nil {
 				last = landed
 			}
@@ -279,14 +281,16 @@ func redirectsSend(t *testing.T, s *pageSession, method, target, body string, h 
 // (within its origin, apex to www, to another site, http:// to https://
 // of its host), made through mimicry as a typed URL (Navigate, no From):
 // the same requests on each connection, and every one with the browser's
-// header lines (and HTTP/2 weight). nav-redirect-page's navigations,
-// which a page makes and a redirect sends to another origin, are made
-// through mimicry from the page that makes them (Navigate, From the
-// page; no Sec-Fetch-User, as by script), as TestRedirects2MatchesBrowser
-// makes redirects2's: the same requests on each connection (those of a
-// navigation with a request to another site per host instead: mimicry's
-// pool is not partitioned by top-level site), every one with the
-// browser's header lines and weight.
+// header lines (and HTTP/2 weight). The navigations of nav-redirect-page,
+// nav-redirect-form (a page's, by script, redirected to another origin)
+// and nav-redirect-click (a user's clicked links and form submit buttons,
+// redirected within the page's origin and to others) are made through
+// mimicry from the page that makes them (Navigate, From the page; a
+// script's without Sec-Fetch-User, a click's with it), as
+// TestRedirects2MatchesBrowser makes redirects2's: the same requests on
+// each connection (those of a navigation with a request to another site
+// per host instead: mimicry's pool is not partitioned by top-level site),
+// every one with the browser's header lines and weight.
 func TestNavRedirectsMatchBrowser(t *testing.T) {
 	for _, name := range profiles.Names() {
 		for _, sc := range server.NavRedirects {
@@ -296,12 +300,8 @@ func TestNavRedirectsMatchBrowser(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				want, err := capture.LoadPages(captureDir + name + "." + sc.Name + ".pagetrace.json.gz")
-				if err != nil {
-					t.Fatal(err)
-				}
-				if sc == server.NavRedirectPage {
-					steps := server.NavRedirectPageSteps()
+				want := loadSamples[*capture.Page](t, name+"."+sc.Name+".pagetrace.json.gz")
+				if steps, ok := sc.RedirectSteps(); ok {
 					done := runRedirectsPage(t, p, sc, steps)
 					apart := redirectsApart(sc, steps)
 					got := redirectsConnections(t, done, false, apart)

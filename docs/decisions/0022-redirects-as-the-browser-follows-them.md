@@ -57,7 +57,14 @@ Transport's limit is the only one. Profile `redirects` holds:
 - `navigation_site`: a navigation hop's `Sec-Fetch-Site` after a
   redirect to another site: the whole chain's (`chain`: Chrome, Firefox,
   Safari 26) or only from that redirect on (`restart`: Safari 27, whose
-  page navigation sent to another site and back is `same-origin`).
+  page navigation sent to another site and back is `same-origin`);
+- `navigation_origin` (added 2026-10-26): when a form POST's `Origin`,
+  kept by a 307 or 308, becomes `null`: once any redirect went to another
+  origin than the URL before it (`cross_origin`: Chrome, Safari), or only
+  once the chain is tainted as the Fetch standard has it (`taint`:
+  Firefox). mimicry sent the page's origin before the `nav-redirect-form`
+  and `nav-redirect-click` captures showed this; the Fetch standard's
+  rule alone (one code path) would have been wrong for three profiles.
 
 Hop header order is chosen by redirect conditions on variants (0006);
 a navigation's also by `cross_site_redirect` (Safari puts `Referer`
@@ -67,16 +74,29 @@ policy to the Referer the request before sent, so a chain that left the
 page's origin sends only the origin back on it (every browser). A hop
 the captures do not cover is `ErrNotMeasured` (0008).
 
+A user's navigation (a clicked link or submit button, a typed URL) sends
+`Sec-Fetch-User` on its first leg and every hop; a script's sends none,
+and its caller says so with a nil `Sec-Fetch-User` header. The captures
+(`nav-redirect-click`, the capture tool clicking as a user does) show a
+click ordered as the script's navigation of the same condition with
+that one header added (Chrome, Firefox) or nothing added (Safari), so
+kindsgen merges both into one variant with a `sec-fetch-user` slot
+rather than adding an activation condition. A user's navigation whose
+variant has no slot (measured on a script's only) is `ErrNotMeasured`,
+and over HTTP/1.1 where its HTTP/1.1 list has none.
+
 ## Evidence
 
 The `cors-edge`, `redirects2` and `nav-redirect-*` captures
 ([reports](../../harness/reports/cors-edge-2026-10-24.md),
-[redirects2](../../harness/reports/redirects2-2026-10-24.md)), all four
-browsers, identical across samples but for one hop: in
-`nav-redirect-page`, each Safari's first (cold) sample sent the hop back
-to the page's site (`nav-302.cs-so.hop1`) on a new connection, ordered as
-a same-site hop (Safari 27: with `cross-site`). kindsgen leaves that one
-request out (`sampleGaps`); the e2e test accepts it and logs it.
+[redirects2](../../harness/reports/redirects2-2026-10-24.md),
+[nav-click](../../harness/reports/nav-click-2026-10-26.md)), all four
+browsers (Safari 26 without clicks), identical across samples but for
+one hop: in `nav-redirect-page`, each Safari's first (cold) sample sent
+the hop back to the page's site (`nav-302.cs-so.hop1`) on a new
+connection, ordered as a same-site hop (Safari 27: with `cross-site`).
+kindsgen leaves that one request out (`sampleGaps`); the e2e test
+accepts it and logs it.
 
 ## Consequences
 
@@ -90,10 +110,8 @@ request out (`sampleGaps`); the e2e test accepts it and logs it.
 
 ## Revisit when
 
-- A link's navigation (with user activation, so `Sec-Fetch-User`) is
-  redirected to another origin: the captures have script and form
-  navigations only, so those hops are `ErrNotMeasured` in Chrome and
-  Firefox.
+- A navigation chain changes origin more than once: `navigation_site`
+  and `navigation_origin` were measured on one redirect each.
 - Styles, fonts and preloads redirected without
   `Access-Control-Allow-Origin`: the CORS check is assumed from the spec
   there, not captured.

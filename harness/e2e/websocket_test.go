@@ -34,12 +34,14 @@ import (
 // (header lines verbatim, or HTTP/2 fields with pseudo-header order,
 // HEADERS flags, priority and stream WINDOW_UPDATE), every client frame
 // (FIN, RSV, opcode, mask bit, length form, payload, compressed bytes
-// included), the pong, how HTTP/2 DATA frames carry the frames, the close
+// included: deflate with every message size, empty messages, and the
+// server's client_no_context_takeover and client_max_window_bits 8 to
+// 15), the pong, how HTTP/2 DATA frames carry the frames, the close
 // frames and who ends the transport, and when. Where samples differ
 // (Chrome fragments its 70 KiB message in some), any sample's form passes
 // and the variance is logged. A ws:// socket from the https:// page is
-// refused before anything is sent; Firefox's compressed messages are
-// ErrNotMeasured.
+// refused before anything is sent; a socket the browser fails after its
+// handshake (a window its compressor refuses) fails to open.
 func TestWebSocketsMatchBrowser(t *testing.T) {
 	for _, name := range profiles.Names() {
 		for _, sc := range []*server.Scenario{server.WebSocket, server.WebSocketH2} {
@@ -209,26 +211,39 @@ func checkSocket(t *testing.T, p *profile.Profile, st server.WebSocketStep, got 
 		}
 		return
 	}
-	if run.dialErr != nil {
-		t.Fatalf("opening: %v", run.dialErr)
+	if skippedIn(st, want) {
+		// The step hangs this browser, whose page skipped it: mimicry's
+		// socket must not open either (the profile fails it).
+		if run.dialErr == nil {
+			t.Error("the step hangs the browser (its page skipped it); mimicry's socket opened")
+		}
+		return
 	}
 	g := socketOf(got, st)
 	if g == nil {
-		t.Fatal("mimicry's socket did not reach the server")
+		t.Fatalf("mimicry's socket did not reach the server (opening: %v)", run.dialErr)
 	}
 	samples := make([]*capture.WebSocket, len(want))
+	failed := true
 	for i, page := range want {
 		if samples[i] = socketOf(page, st); samples[i] == nil {
 			t.Fatalf("sample %d has no socket", i+1)
 		}
+		failed = failed && len(clientFrames(samples[i], false)) == 0
 	}
-	checkResult(t, st, want, run)
-	notMeasured := st.Deflate && p.WebSocket.Compression == ""
+	// A socket the browser failed after its handshake, sending nothing (a
+	// compression window its library refuses): mimicry's dial fails, and
+	// its transport ends as the browser's did.
 	switch {
-	case notMeasured && !errors.Is(run.writeErr, mimicry.ErrNotMeasured):
-		t.Errorf("sending on a compressed socket: got %v, want ErrNotMeasured", run.writeErr)
-	case !notMeasured && run.writeErr != nil:
-		t.Errorf("sending: %v", run.writeErr)
+	case failed && run.dialErr == nil:
+		t.Fatal("the browser failed the socket after its handshake; mimicry's opened")
+	case !failed && run.dialErr != nil:
+		t.Fatalf("opening: %v", run.dialErr)
+	case !failed:
+		checkResult(t, st, want, run)
+		if run.writeErr != nil {
+			t.Errorf("sending: %v", run.writeErr)
+		}
 	}
 
 	anyForm(t, "transport", socketTransport(got, g), func(i int) string {
@@ -244,23 +259,30 @@ func checkSocket(t *testing.T, p *profile.Profile, st server.WebSocketStep, got 
 		checkSocketHello(t, p, got, g, want, samples)
 	}
 	checkMasks(t, g)
-	if notMeasured {
-		// Nothing was sent but the close.
-		if f := clientFrames(g, false); len(f) != 1 || !strings.Contains(f[0], "op=8 ") {
-			t.Errorf("frames after ErrNotMeasured: %q", f)
-		}
-	} else {
-		matched := anyForm(t, "frames", strings.Join(clientFrames(g, false), "\n"), func(i int) string {
-			return strings.Join(clientFrames(samples[i], false), "\n")
-		}, len(want))
-		if matched >= 0 && g.Protocol == "h2" {
-			checkDATA(t, p, got, g, want, samples)
-		}
+	matched := anyForm(t, "frames", strings.Join(clientFrames(g, false), "\n"), func(i int) string {
+		return strings.Join(clientFrames(samples[i], false), "\n")
+	}, len(want))
+	if matched >= 0 && g.Protocol == "h2" {
+		checkDATA(t, p, got, g, want, samples)
 	}
 	anyForm(t, "pongs", strings.Join(clientFrames(g, true), "\n"), func(i int) string {
 		return strings.Join(clientFrames(samples[i], true), "\n")
 	}, len(want))
 	checkEnd(t, g, samples)
+}
+
+// skippedIn reports that every sample's page skipped step st, which
+// hangs its browser (server.WebSocketStep.Hangs).
+func skippedIn(st server.WebSocketStep, want []*capture.Page) bool {
+	for _, page := range want {
+		i := slices.IndexFunc(page.WSResults, func(r capture.WSResult) bool {
+			return r.Label == st.Label
+		})
+		if i < 0 || !page.WSResults[i].Skipped {
+			return false
+		}
+	}
+	return len(want) > 0
 }
 
 // socketOf returns page's socket for st, or nil.
@@ -299,7 +321,11 @@ func anyForm(t *testing.T, what, got string, sample func(i int) string, n int) i
 }
 
 // checkResult compares what mimicry's API reported with what the page's
-// script saw of the socket (capture.WSResult) in every sample.
+// script saw of the socket (capture.WSResult) in every sample, but for
+// Extensions: mimicry's is the server's answer as the sample's server
+// sent it (Firefox's extensions attribute names permessage-deflate
+// without the server's parameters, Chrome's and Safari's are the whole
+// answer).
 func checkResult(t *testing.T, st server.WebSocketStep, want []*capture.Page, run *socketRun) {
 	t.Helper()
 	g := capture.WSResult{
@@ -325,15 +351,11 @@ func checkResult(t *testing.T, st server.WebSocketStep, want []*capture.Page, ru
 		b := capture.WSResult{
 			Open:       w.Open,
 			Protocol:   w.Protocol,
-			Extensions: w.Extensions,
+			Extensions: socketOf(page, st).Extensions,
 			Echoes:     w.Echoes,
 			Closed:     w.Closed,
 			Code:       w.Code,
 			Reason:     w.Reason,
-		}
-		if run.writeErr != nil {
-			// The page sent what mimicry refused.
-			b.Echoes = g.Echoes
 		}
 		if g != b {
 			t.Errorf("sample %d: the socket as reported:\n got %+v\nwant %+v", i+1, g, b)

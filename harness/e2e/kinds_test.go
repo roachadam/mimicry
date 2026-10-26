@@ -353,8 +353,11 @@ func kindsRequests() []kindsRequest {
 		req: mimicry.Request{
 			Kind: mimicry.Navigate,
 		},
+		// The page's script submits it: no user activation, so no
+		// Sec-Fetch-User (the variant's slot is for a clicked form).
 		headers: http.Header{
-			"Content-Type": {"application/x-www-form-urlencoded"},
+			"Content-Type":   {"application/x-www-form-urlencoded"},
+			"Sec-Fetch-User": nil,
 		},
 		body: "a=1",
 	})

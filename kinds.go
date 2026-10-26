@@ -22,7 +22,11 @@ import (
 type Kind int
 
 // Request kinds. Navigate is the default: a request without a kind is a
-// top-level navigation, sent exactly as the profile describes it.
+// top-level navigation, sent exactly as the profile describes it: a
+// user's (typed URL, clicked link or submit button), with the profile's
+// Sec-Fetch-User on it and its redirects; a page script's navigation
+// (location.href, form.submit()) suppresses it with a nil Sec-Fetch-User
+// header.
 const (
 	Navigate       Kind = iota // a top-level navigation: typed URL, link, form
 	Frame                      // <iframe src>
@@ -519,14 +523,13 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 		// whole): no other list is this one.
 		return nil, fmt.Errorf("%w: profile %s has no %s request after a redirect for method %q, site %q, CORS-checked %v, page-set headers %v, cross-origin redirect %v, cross-site redirect %v, Origin before the redirect %v, method changed by the redirect %v, non-secure before the redirect %v, non-secure %v", ErrNotMeasured, p.Name, r.Kind, cond.Method, cond.Site, cond.CORSChecked, cond.PageSet, cond.CrossOriginRedirect, cond.CrossSiteRedirect, cond.OriginBeforeRedirect, cond.MethodChangedByRedirect, cond.InsecureBeforeRedirect, cond.Insecure)
 	}
-	if r.Kind == Navigate && cond.Redirected && i >= 0 && sentFetchUser(p, req.Response.Request) && !hasHeader(h, "Sec-Fetch-User") && !slices.ContainsFunc(variants[i].Headers, func(hd profile.Header) bool {
-		return strings.EqualFold(hd.Name, "sec-fetch-user")
-	}) {
-		// The request before sent Sec-Fetch-User (a user's navigation: a
-		// typed URL, a link), and the hop's variant was measured on
-		// navigations without it (a script's): where the browser keeps it
-		// on the hop is not measured.
-		return nil, fmt.Errorf("%w: profile %s has no redirect of a navigation sending Sec-Fetch-User (a typed URL or a link) for site %q, cross-origin redirect %v; a script's navigation suppresses it (a nil Sec-Fetch-User header)", ErrNotMeasured, p.Name, cond.Site, cond.CrossOriginRedirect)
+	// user: a user's navigation (a typed URL, a link, a clicked form),
+	// which sends Sec-Fetch-User, in a variant's condition.
+	user := r.Kind == Navigate && i >= 0 && !cond.Insecure && userNavigation(p, req, cond.Redirected, h)
+	if user && !placesHeader(variants[i].Headers, "sec-fetch-user") {
+		// The variant was measured on navigations without it (a
+		// script's): where the browser places it is not measured.
+		return nil, fmt.Errorf("%w: profile %s has no %s navigation sending Sec-Fetch-User (a typed URL, a link or a clicked form) for site %q, redirected %v, cross-origin redirect %v; a script's navigation suppresses it (a nil Sec-Fetch-User header)", ErrNotMeasured, p.Name, methodOf(req), cond.Site, cond.Redirected, cond.CrossOriginRedirect)
 	}
 	measured := i >= 0
 	if i < 0 && cond.Insecure {
@@ -540,9 +543,11 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 	if i >= 0 {
 		list, h1 = variants[i].Headers, variants[i].HTTP1
 	}
-	// A variant measured over HTTP/2 only has no HTTP/1.1 list: the
-	// connection refuses it if it turns out to be HTTP/1.1.
-	noHTTP1 := i >= 0 && len(h1) == 0 && p.HTTP1 != nil
+	// A variant measured over HTTP/2 only has no HTTP/1.1 list, and one
+	// measured over HTTP/1.1 only on a script's navigations no slot for a
+	// user's Sec-Fetch-User: the connection refuses it if it turns out to
+	// be HTTP/1.1.
+	noHTTP1 := i >= 0 && (len(h1) == 0 || user && !placesHeader(h1, "sec-fetch-user")) && p.HTTP1 != nil
 	if _, ok := values["origin"]; ok && !measured {
 		// A fallback list (the kind's own, or its non-secure one) without
 		// an Origin slot was measured only on requests without one: it
@@ -618,6 +623,14 @@ func valueOf(list []profile.Header, name string) string {
 	return ""
 }
 
+// placesHeader reports whether list has a slot for name, in any case
+// (HTTP/1.1 lists keep the browser's casing).
+func placesHeader(list []profile.Header, name string) bool {
+	return slices.ContainsFunc(list, func(hd profile.Header) bool {
+		return strings.EqualFold(hd.Name, name)
+	})
+}
+
 // pageSet reports whether h carries a header list does not name: one the
 // page set itself, which makes the browser CORS-check the request. A key
 // with no values suppresses a default and sends nothing: not one.
@@ -676,6 +689,21 @@ func sameCondition(v, cond profile.Variant) bool {
 	return v.Method == cond.Method && v.Site == cond.Site && v.CORSChecked == cond.CORSChecked && v.PageSet == cond.PageSet && v.Redirected == cond.Redirected && v.CrossOriginRedirect == cond.CrossOriginRedirect && v.CrossSiteRedirect == cond.CrossSiteRedirect && v.OriginBeforeRedirect == cond.OriginBeforeRedirect && v.MethodChangedByRedirect == cond.MethodChangedByRedirect && v.InsecureBeforeRedirect == cond.InsecureBeforeRedirect && v.Insecure == cond.Insecure
 }
 
+// userNavigation reports whether navigation req, with headers h, sends
+// Sec-Fetch-User, as a user's does (a typed URL, a link, a clicked form):
+// after a redirect, if the request before sent it; otherwise if the
+// profile's navigation sends it. Either way not if the caller suppressed
+// it (a script's navigation).
+func userNavigation(p *profile.Profile, req *http.Request, redirected bool, h http.Header) bool {
+	if hasHeader(h, "Sec-Fetch-User") {
+		return false
+	}
+	if redirected {
+		return sentFetchUser(p, req.Response.Request)
+	}
+	return valueOf(p.Headers, "sec-fetch-user") != ""
+}
+
 // sentFetchUser reports whether navigation req, as sent, carried
 // Sec-Fetch-User: its plan's list (none: the profile's navigation) has
 // it with a value, and the caller did not suppress it.
@@ -698,14 +726,15 @@ func methodOf(req *http.Request) string {
 // originOf returns the Origin req sends, made as r in mode (sec-fetch-mode)
 // from page from (nil: none sent): on every request but GET and HEAD, and
 // on CORS requests to another origin (or same-origin element ones, where
-// the browser does); "null" once its redirect chain is tainted; "" for
-// none.
+// the browser does); "null" once its redirect chain is tainted (a
+// navigation's: by redirects.navigation_origin); "" for none.
 func originOf(p *profile.Profile, ctx *profile.Context, req *http.Request, r Request, mode string, from *url.URL) (string, error) {
 	if from == nil {
 		return "", nil
 	}
 	_, crossOrigin := relation(from, req.URL)
-	tainted := isTainted(from, append(redirectsBefore(req), req.URL))
+	chain := append(redirectsBefore(req), req.URL)
+	tainted := isTainted(from, chain)
 	send := false
 	switch {
 	case r.Kind == kindWebSocket:
@@ -727,6 +756,16 @@ func originOf(p *profile.Profile, ctx *profile.Context, req *http.Request, r Req
 			return "", fmt.Errorf("%w: profile %s has no redirects rules, for a %s redirected to a GET", ErrNotMeasured, p.Name, r.Kind)
 		}
 		send = p.Redirects.MethodChangeOrigin == profile.RedirectOriginKeep
+	}
+	if send && r.Kind == Navigate && !tainted && slices.ContainsFunc(chain[1:], func(u *url.URL) bool {
+		return origin(u) != origin(chain[0])
+	}) {
+		// A navigation that kept its Origin (a form POST answered 307 or
+		// 308) after a redirect to another origin: the browser's rule.
+		if p.Redirects == nil {
+			return "", fmt.Errorf("%w: profile %s has no redirects rules, for a navigation's Origin after a redirect to another origin", ErrNotMeasured, p.Name)
+		}
+		tainted = p.Redirects.NavigationOrigin == profile.RedirectNavOriginCrossOrigin
 	}
 	switch {
 	case !send:

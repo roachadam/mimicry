@@ -64,21 +64,20 @@ Modelling:
 - The HTTP/1.1 socket's hello is `tls.websocket_h1` (`alpn`, `drop`),
   derived by hellogen.
 - Profile `websocket` holds the rest:
-  - `extensions` and `compression` (`zlib6`, or empty for not measured);
-  - `uncompressed_max` / `compress_min`: sizes between them are not
-    measured;
+  - `extensions`, and `compression` (the browser's deflate library at
+    level 6: `chromium_zlib6`, `zlib6`, `zlib_rs6`), `uncompressed`
+    (which messages go raw) and `window_bits_8` (amended 2026-10-26,
+    [websocket-deflate report](../../harness/reports/websocket-deflate-2026-10-26.md));
   - `h2_data` (`together`, `header_alone`, `split_control`), with DATA
     capped by `http2.max_data_frame`;
   - `close_h1` / `close_h2`.
 - Cookies: the jar treats `ws`/`wss` as `http`/`https`. Safari 26 also
   sends unpartitioned Lax and None cookies cross-site
   (`cookies.websocket_unpartitioned`).
-- Compression is a pure-Go port of zlib's deflate (`internal/zdeflate`):
-  `compress/flate` is not byte-identical to zlib.
+- Compression is a pure-Go port of each browser's library
+  (`internal/zdeflate`: zlib, Chromium's zlib, zlib-rs): `compress/flate`
+  is not byte-identical to any of them.
 - These are `ErrNotMeasured`:
-  - sending over a deflate socket with a Firefox profile;
-  - a Safari message between 6 and 4095 bytes when compressed;
-  - a server asking for a smaller window or no context takeover;
   - subprotocols on a non-secure socket;
   - WebSockets through a proxy.
 - A `ws://` socket from an `https://` page is refused before anything is
@@ -93,9 +92,6 @@ Modelling:
 
 ## Revisit when
 
-- Firefox's compressor is identified, or its transport end is captured.
-- A capture with varied text tells zlib level 6 from 7 (the regular
-  test text matches both).
-- Safari's threshold between 6 and 4095 bytes is measured.
+- Firefox's transport end is captured.
 - Partitioning by top-level site lands (0011): cross-site sockets would
   move with it.

@@ -40,14 +40,32 @@ typ, msg, err := ws.ReadMessage(ctx)
 
 - Every message is one frame: masked with a fresh random key, with the
   shortest length form.
-- **Compression** (permessage-deflate), when the server accepts it:
-  - Chrome compresses every message.
-  - Safari leaves messages of 5 bytes or less uncompressed, and out of
-    the compression context.
-  - Both match zlib level 6 byte for byte (`internal/zdeflate`).
-  - With a Firefox profile, sending on a compressed socket is
-    `ErrNotMeasured`: Firefox's compressor is not reproduced yet. So is a
-    Safari message between 6 and 4095 bytes.
+- **Compression** (permessage-deflate), when the server accepts it, is
+  the browser's own deflate library at level 6, byte for byte
+  (`internal/zdeflate`):
+  - Chrome: Chromium's fork of zlib, whose hash finds other matches than
+    zlib's;
+  - Safari: zlib;
+  - Firefox: zlib-rs, a Rust port of zlib-ng (its own match search, and
+    the 4096-byte output buffer Firefox feeds it, both show in the
+    bytes).
+- **Which messages go uncompressed:**
+  - Chrome compresses every one; an empty message is the single byte
+    `00`.
+  - Safari sends a message uncompressed when compressing does not make
+    it shorter (an empty one, a few bytes, incompressible data), and then
+    starts its compression context over.
+  - Firefox sends an empty message uncompressed, and, when the server
+    asks for `client_no_context_takeover`, one that compresses longer.
+- **The server's parameters:** `client_no_context_takeover` compresses
+  each message on its own; `client_max_window_bits` is accepted from 9
+  to 15 whether or not it was offered (Firefox and Safari offer none), as
+  every browser accepts it. At 8, which zlib cannot use, Chrome
+  compresses with 9 bits and Safari fails the socket once open (no
+  frame, the transport ended at once); `DialWebSocket` then returns an
+  error. Firefox hangs on it (see
+  [the report](../../harness/reports/websocket-deflate-2026-10-26.md));
+  mimicry fails the dial as for Safari.
 - Pings are answered at once.
 - `ReadMessage` returns a `*CloseError` once the close handshake is done.
 
@@ -71,5 +89,5 @@ and compares them with every browser sample:
 - pongs and HTTP/2 DATA packing;
 - how the transport ends.
 
-`TestDeflateReproducesBrowserMessages` checks the compressor against
-every captured compressed message.
+`TestDeflateReproducesBrowserMessages` replays every captured message
+through the profile's compressor and names the first byte that differs.

@@ -44,27 +44,22 @@ var errExtension = errors.New("ws: the server's Sec-WebSocket-Extensions")
 
 // ParseExtensions reads the server's Sec-WebSocket-Extensions answer to
 // offer, ours: nil for none, the accepted permessage-deflate, or an error
-// for anything not offered (RFC 6455, section 9.1; RFC 7692, section 7.1).
+// for anything not offered (RFC 6455, section 9.1; RFC 7692, section
+// 7.1). A client_max_window_bits we did not offer is accepted, as every
+// browser accepts it (Firefox and Safari offer none).
 func ParseExtensions(offer, answer string) (*Deflate, error) {
 	if strings.TrimSpace(answer) == "" {
 		return nil, nil //nolint:nilnil // no extension accepted
 	}
-	offered := map[string]bool{}
+	offered := false
 	for _, e := range strings.Split(offer, ",") {
-		params := strings.Split(e, ";")
-		if strings.TrimSpace(params[0]) != "permessage-deflate" {
-			continue
-		}
-		offered["permessage-deflate"] = true
-		for _, p := range params[1:] {
-			name, _, _ := strings.Cut(p, "=")
-			offered[strings.TrimSpace(name)] = true
-		}
+		name, _, _ := strings.Cut(e, ";")
+		offered = offered || strings.TrimSpace(name) == "permessage-deflate"
 	}
 	var d *Deflate
 	for _, e := range strings.Split(answer, ",") {
 		params := strings.Split(e, ";")
-		if name := strings.TrimSpace(params[0]); name != "permessage-deflate" || !offered[name] {
+		if strings.TrimSpace(params[0]) != "permessage-deflate" || !offered {
 			return nil, fmt.Errorf("%w %q accepts an extension not offered", errExtension, answer)
 		}
 		if d != nil {
@@ -93,8 +88,8 @@ func ParseExtensions(offer, answer string) (*Deflate, error) {
 				}
 			case "client_max_window_bits":
 				bits, err := windowBits(value)
-				if err != nil || !hasValue || !offered[name] {
-					return nil, fmt.Errorf("%w %q has a bad or unoffered %s", errExtension, answer, name)
+				if err != nil || !hasValue {
+					return nil, fmt.Errorf("%w %q has a bad %s", errExtension, answer, name)
 				}
 				d.ClientMaxWindowBits = bits
 			default:

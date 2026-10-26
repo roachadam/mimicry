@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/roachadam/mimicry/harness/internal/capture"
-	"github.com/roachadam/mimicry/internal/zdeflate"
+	"github.com/roachadam/mimicry/internal/ws"
 	"github.com/roachadam/mimicry/profile"
 	"github.com/roachadam/mimicry/profiles"
 )
@@ -19,6 +19,14 @@ type wsMessage struct {
 	compressed bool
 	payload    []byte
 	inflated   []byte
+}
+
+// data is what the page sent.
+func (m wsMessage) data() []byte {
+	if m.compressed {
+		return m.inflated
+	}
+	return m.payload
 }
 
 // wsMessages returns the client's text and binary messages on ws, control
@@ -52,12 +60,13 @@ func wsMessages(t *testing.T, ws *capture.WebSocket) []wsMessage {
 }
 
 // Every message a browser sent on a socket that negotiated
-// permessage-deflate is what the profile's websocket section says: left
-// uncompressed up to uncompressed_max bytes (and out of the compression
-// context), otherwise compressed by zdeflate at the profile's compression,
-// byte for byte, the context kept from message to message. A profile
-// without compression must have a reason: zlib level 6 does not reproduce
-// its browser's messages.
+// permessage-deflate is what the profile's websocket section makes of it
+// (ws.Compressor, with the window and context the server's answer
+// allowed): compressed by its library byte for byte, or sent
+// uncompressed where its rule says. Where the compressor cannot be made
+// (a window the browser's library refuses), the browser sent nothing.
+// TestWebSocketsMatchBrowser compares mimicry's frames with the same
+// captures; this test names the first message and byte that differ.
 func TestDeflateReproducesBrowserMessages(t *testing.T) {
 	for _, name := range profiles.Names() {
 		t.Run(name, func(t *testing.T) {
@@ -76,13 +85,13 @@ func TestDeflateReproducesBrowserMessages(t *testing.T) {
 				}
 				for i, page := range pages {
 					for k := range page.WebSockets {
-						ws := &page.WebSockets[k]
-						if !strings.Contains(ws.Extensions, "permessage-deflate") {
+						sock := &page.WebSockets[k]
+						if !strings.Contains(sock.Extensions, "permessage-deflate") {
 							continue
 						}
 						sockets++
-						t.Run(scenario+" sample "+strconv.Itoa(i+1)+" "+ws.Path, func(t *testing.T) {
-							checkDeflate(t, p.WebSocket, wsMessages(t, ws))
+						t.Run(scenario+" sample "+strconv.Itoa(i+1)+" "+sock.Path, func(t *testing.T) {
+							checkDeflate(t, p.WebSocket, sock)
 						})
 					}
 				}
@@ -94,38 +103,36 @@ func TestDeflateReproducesBrowserMessages(t *testing.T) {
 	}
 }
 
-// checkDeflate replays one socket's messages through the profile's rules.
-func checkDeflate(t *testing.T, ws *profile.WebSocket, msgs []wsMessage) {
+// checkDeflate replays one socket's messages through the profile's
+// compressor.
+func checkDeflate(t *testing.T, p *profile.WebSocket, sock *capture.WebSocket) {
 	t.Helper()
-	if ws.Compression == "" {
-		w := zdeflate.NewWriter(6)
-		for _, m := range msgs {
-			if m.compressed && !bytes.Equal(w.Message(m.inflated), m.payload) {
-				return
-			}
+	d, err := ws.ParseExtensions(p.Extensions, sock.Extensions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	msgs := wsMessages(t, sock)
+	c, err := ws.NewCompressor(p, d)
+	if err != nil {
+		if len(msgs) > 0 {
+			t.Fatalf("the profile fails the socket (%v), the browser sent %d messages", err, len(msgs))
 		}
-		t.Fatal("no compression in the profile, yet zlib level 6 reproduces every message")
+		return
 	}
-	if ws.Compression != profile.CompressionZlib6 {
-		t.Fatalf("compression %q not checked", ws.Compression)
+	if len(msgs) == 0 {
+		t.Fatal("the browser failed the socket, the profile does not")
 	}
-	w := zdeflate.NewWriter(6)
 	for i, m := range msgs {
-		if !m.compressed {
-			if len(m.payload) > ws.UncompressedMax {
-				t.Errorf("message %d: %d bytes sent uncompressed, uncompressed_max is %d", i, len(m.payload), ws.UncompressedMax)
-			}
-			continue
-		}
-		if ws.UncompressedMax != 0 && (len(m.inflated) <= ws.UncompressedMax || len(m.inflated) < ws.CompressMin) {
-			t.Errorf("message %d: %d bytes sent compressed, uncompressed_max is %d and compress_min %d", i, len(m.inflated), ws.UncompressedMax, ws.CompressMin)
-		}
-		if got := w.Message(m.inflated); !bytes.Equal(got, m.payload) {
+		got, compressed := c.Message(m.data())
+		switch {
+		case compressed != m.compressed:
+			t.Fatalf("message %d (%d bytes): compressed %v, the browser's %v", i, len(m.data()), compressed, m.compressed)
+		case !bytes.Equal(got, m.payload):
 			n := 0
 			for n < len(got) && n < len(m.payload) && got[n] == m.payload[n] {
 				n++
 			}
-			t.Fatalf("message %d (%d bytes): compressed to %d bytes, the browser's are %d; first difference at byte %d", i, len(m.inflated), len(got), len(m.payload), n)
+			t.Fatalf("message %d (%d bytes): compressed to %d bytes, the browser's are %d; first difference at byte %d", i, len(m.data()), len(got), len(m.payload), n)
 		}
 	}
 }

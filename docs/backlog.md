@@ -42,19 +42,15 @@ its ledger row and pinned gap entry in the same commit.
 
 These matter most under decision 0029:
 
-1. [Redirect of a link navigation](#redirects) (Chrome, Firefox): a
-   clicked link that redirects returns an error.
-2. [WebSocket compression](#websockets) (Firefox, Safari): sending on a
-   compressed socket returns an error for most real sockets.
-3. [The navigation's `referer` and `cookie` slots over HTTP/2](#http2)
+1. [The navigation's `referer` and `cookie` slots over HTTP/2](#http2)
    are not compared end to end. They appear on almost every navigation.
-4. [The TCP/IP fingerprint](#tls-and-below) is the host's, not the
+2. [The TCP/IP fingerprint](#tls-and-below) is the host's, not the
    profile's.
-5. [Partitioning connections by top-level site](#connections-and-pool)
+3. [Partitioning connections by top-level site](#connections-and-pool)
    (all browsers). The workaround is one Transport per site.
-6. [Unsafe methods in 0-RTT](#http3-and-quic): a POST can go in 0-RTT on
+4. [Unsafe methods in 0-RTT](#http3-and-quic): a POST can go in 0-RTT on
    a resumed QUIC connection.
-7. [The page's own header order](#headers-and-request-kinds) for XHR.
+5. [The page's own header order](#headers-and-request-kinds) for XHR.
 
 ## TLS and below
 
@@ -717,17 +713,25 @@ These matter most under decision 0029:
   - Source: [decision 0005](decisions/0005-request-kinds-api.md);
     [decision 0011](decisions/0011-connection-partitioning.md);
     [EVIDENCE.md, Not covered](../profiles/EVIDENCE.md#not-covered-by-any-claim).
-- **User activation and `Sec-Fetch-User`** (Chrome).
-  - Differs: a `Request` cannot say whether a user gesture came first.
-    One Chrome HTTP/1.1 sample sent `Sec-Fetch-User` on cross-origin
-    frames and on the form POST; the others did not. The tests accept
-    either.
-  - Shows: frames and forms after a click.
+- **User activation on frames and over HTTP/1.1** (Chrome, Firefox).
+  - Differs: a navigation says whether a user made it by its
+    `Sec-Fetch-User` (nil for a script's), measured with real clicks
+    over HTTP/2 (`nav-redirect-click`). A frame cannot say: one Chrome
+    HTTP/1.1 sample sent `Sec-Fetch-User` on cross-origin frames and on
+    the form POST, the others did not, and the tests accept either. No
+    clicked form POST was captured over HTTP/1.1: Firefox's list there
+    has no `Sec-Fetch-User` slot, so its user's form POST over HTTP/1.1
+    returns `ErrNotMeasured` (Chrome's has the slot that sample showed).
+  - Shows: frames after a click; a clicked form to a server that speaks
+    HTTP/1.1 only.
   - Detection: medium; `Sec-Fetch-User` is checked for consistency.
-    User-visible: no.
-  - Close: an activation field and a capture with user gestures; medium.
-  - Source: [EVIDENCE.md, Request kinds](../profiles/EVIDENCE.md#request-kinds);
-    [decision 0005](decisions/0005-request-kinds-api.md).
+    User-visible: yes for Firefox's form POST over HTTP/1.1 (an error).
+  - Close: a clicked form on `kinds-http1`, small; frames after a
+    click, medium.
+  - Source: `kinds.go` (`resolve`);
+    [EVIDENCE.md, Request kinds](../profiles/EVIDENCE.md#request-kinds);
+    [decision 0005](decisions/0005-request-kinds-api.md);
+    [nav-click report](../harness/reports/nav-click-2026-10-26.md).
 - **Pages at deeper paths** (all).
   - Differs: the kinds page is at `/`, where the full URL and the origin
     are the same. The full-path `Referer` of same-origin requests follows
@@ -967,26 +971,18 @@ These matter most under decision 0029:
 
 ## Redirects
 
-- **Redirect of a link navigation** (Chrome, Firefox).
-  - Differs: the captured navigation chains were made by script, without
-    user activation. A hop of a navigation that sent `Sec-Fetch-User` (a
-    typed URL or a clicked link) has no measured form and returns
-    `ErrNotMeasured`. Workaround: set `Sec-Fetch-User` to nil, which sends
-    the navigation as a script's.
-  - Shows: following a link that redirects, one of the most common
-    actions.
-  - Detection: none (nothing is sent). User-visible: yes, an error.
-  - Close: a `nav-redirect` capture of clicked links; small.
-  - Source: `kinds.go` (`resolve`);
-    [decision 0022](decisions/0022-redirects-as-the-browser-follows-them.md);
-    [EVIDENCE.md, Redirects](../profiles/EVIDENCE.md#redirects).
-- **A POST navigation's 307 or 308 to another origin** (all).
-  - Differs: not captured; returns `ErrNotMeasured`.
-  - Shows: a form POST answered with 307 or 308 to another origin
-    (payment and login flows do this).
-  - Detection: none. User-visible: yes, an error.
-  - Close: add it to `redirects2`; small.
-  - Source: [EVIDENCE.md, Redirects](../profiles/EVIDENCE.md#redirects).
+- **Safari 26's clicked navigations** (Safari 26).
+  - Differs: not captured: the capture tool clicks in Safari through the
+    system's mouse events, which need Accessibility access, and the
+    second Mac's captures run over ssh, which has none
+    (`missingCaptures`). Safari sends no `Sec-Fetch-User`, and Safari 27's
+    clicked navigations were sent as its script's, so Safari 26's follow
+    its script's captures (`nav-redirect-page`, `nav-redirect-form`).
+  - Detection: low. User-visible: no.
+  - Close: grant Terminal Accessibility access on the second Mac and run
+    the capture from Terminal there; small.
+  - Source: `missingCaptures` in [`proxy_test.go`](../harness/e2e/proxy_test.go);
+    [nav-click report](../harness/reports/nav-click-2026-10-26.md).
 - **Other hop combinations not captured** (all; Safari has the most).
   - Differs: once a kind's redirects were captured, a hop in a condition
     no variant matches returns `ErrNotMeasured` rather than guess an
@@ -994,10 +990,13 @@ These matter most under decision 0029:
     another site, a same-site fetch hop, Safari's GET hop of a fetch with
     page-set headers, a redirect after page-set headers where the header
     table was not captured redirected, and a typed navigation's later
-    hops that change origin or scheme otherwise than captured. Check the
-    current profiles before capturing: `redirects2` and the
-    `nav-redirect-*` captures closed several cases the earlier reports
-    list.
+    hops that change origin or scheme otherwise than captured. A page's
+    navigation (link or form POST, clicked or by script) is captured
+    redirected once from and to every relation (`nav-redirect-click`,
+    `nav-redirect-form`); a chain whose later hops change origin
+    otherwise than these is not. Check the current profiles before
+    capturing: `redirects2` and the `nav-redirect-*` captures closed
+    several cases the earlier reports list.
   - Shows: less common redirect chains.
   - Detection: none. User-visible: yes, an error.
   - Close: broader redirect captures; medium.
@@ -1074,24 +1073,19 @@ These matter most under decision 0029:
 
 ## WebSockets
 
-- **Compression** (Firefox, Safari, all).
-  - Differs: sending on a socket where the server accepted
-    permessage-deflate returns `ErrNotMeasured` for:
-    - Firefox, every message: its compressor matches no zlib setting;
-    - Safari, messages of 6 to 4095 bytes: whether it compresses them is
-      not measured (also whether a raw message after compressed ones
-      leaves the context alone);
-    - every profile, an empty message, and a server answering
-      `client_no_context_takeover` or `client_max_window_bits` under 15.
-  - Shows: most real sockets: servers usually accept deflate, and chat-size
-    messages fall in Safari's gap.
-  - Detection: none (nothing is sent). User-visible: yes, an error on
-    send.
-  - Close: Safari's threshold and the server-parameter cases are small
-    captures; Firefox's compressor needs reverse engineering, large.
-  - Source: [concepts/websockets.md](concepts/websockets.md);
-    [decision 0025](decisions/0025-websockets.md);
-    [websocket report](../harness/reports/websocket-2026-10-24.md).
+- **Firefox and an 8-bit compression window** (Firefox).
+  - Differs: a server answering `client_max_window_bits=8` hangs Firefox
+    158: zlib-rs refuses the window, and
+    `WebSocketChannel::HandleExtensions` calls `AbortSession` while holding
+    `mCompressorMutex`, which `DoStopSession` takes again (the capture
+    page then never finishes, so it skips that socket in Firefox).
+    mimicry fails the dial and ends the transport at once, as Safari does.
+  - Shows: only servers that answer 8, which RFC 7692 allows but no
+    common server sends.
+  - Detection: none (Firefox itself stops talking). User-visible: an
+    error instead of a hang.
+  - Close: nothing to close; revisit if Firefox fixes the deadlock.
+  - Source: [websocket-deflate report](../harness/reports/websocket-deflate-2026-10-26.md).
 - **WebSockets through a proxy** (all).
   - Differs: not measured; refused (`ErrNotMeasured`).
   - Shows: any `DialWebSocket` with `Config.Proxy` set.
@@ -1109,15 +1103,6 @@ These matter most under decision 0029:
   - Source: `websocket.go`;
     [EVIDENCE.md, Not covered](../profiles/EVIDENCE.md#not-covered-by-any-claim)
     (WebSockets).
-- **The zlib level** (Chrome, Safari).
-  - Differs: level 6 and level 7 produce the same bytes for the captured
-    text; level 6 is a guess.
-  - Shows: compressed messages with varied text.
-  - Detection: low to medium; compressed bytes would differ.
-    User-visible: no.
-  - Close: a capture with varied text; small.
-  - Source: [decision 0025](decisions/0025-websockets.md);
-    [EVIDENCE.md, WebSockets](../profiles/EVIDENCE.md#websockets).
 - **A cross-site socket's connection**: see
   [connections](#connections-and-pool) (top-level-site partitioning).
 - **Firefox's transport end** (Firefox).

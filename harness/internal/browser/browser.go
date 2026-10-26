@@ -51,7 +51,14 @@ type Target struct {
 	// CA's: both otherwise abandon the QUIC handshake and stay on TCP. It
 	// is a capture condition (see Conditions).
 	H3LocalRoots bool
-	// debugPort is Firefox's remote debugging port when ProxyAuth is set.
+	// ClickTitle, when set, has the tool click the middle of every page
+	// whose title it is, once per URL, as a user does (so the page gets
+	// user activation): Chrome over the DevTools protocol, Firefox over
+	// WebDriver BiDi, Safari through the system's mouse events (which
+	// needs Accessibility access).
+	ClickTitle string
+	// debugPort is Firefox's remote debugging port, for ProxyAuth or
+	// ClickTitle.
 	debugPort int
 }
 
@@ -209,8 +216,10 @@ type Session struct {
 	// tabURL is set for a shared browser: Close closes its tabs on this URL
 	// rather than stopping the user's browser.
 	tabURL string
-	// devtools is the debugging connection answering proxy challenges.
+	// devtools is the debugging connection answering proxy challenges,
+	// clicker the one clicking (Target.ClickTitle).
 	devtools io.Closer
+	clicker  io.Closer
 }
 
 // Open launches b on t. Chrome and Firefox get a new profile directory and
@@ -221,14 +230,26 @@ func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, 
 	// Safari takes its proxy from the system (the capture tool's PAC
 	// script) and asks the user for proxy credentials in a dialog: with
 	// ProxyAuth, someone at the screen types them.
+	if t.ProxyAuth != nil && t.ClickTitle != "" {
+		return nil, errors.New("a capture both answering proxy challenges and clicking is not supported")
+	}
 	if b.Shared {
+		if t.ClickTitle != "" {
+			if err := safariCanClick(ctx); err != nil {
+				return nil, err
+			}
+		}
 		url := b.URL(t)
 		if err := exec.CommandContext(ctx, "open", "-a", b.App, url).Run(); err != nil { //nolint:gosec // the app is a known browser location
 			return nil, fmt.Errorf("opening %s: %w", b.Name, err)
 		}
-		return &Session{
+		s := &Session{
 			tabURL: url,
-		}, nil
+		}
+		if t.ClickTitle != "" {
+			s.clicker = safariClicker(ctx, t.ClickTitle)
+		}
+		return s, nil
 	}
 	dir, err := os.MkdirTemp("", "mimicry-"+b.Name+"-")
 	if err != nil {
@@ -237,7 +258,7 @@ func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, 
 	// Firefox meets the proxy challenge on its first page, so with ProxyAuth
 	// it starts on about:blank and is navigated once the intercept is set.
 	bidi := t.ProxyAuth != nil && b.Name == "firefox"
-	if bidi {
+	if b.Name == "firefox" && (t.ProxyAuth != nil || t.ClickTitle != "") {
 		if t.debugPort, err = freePort(); err != nil {
 			_ = os.RemoveAll(dir)
 			return nil, err
@@ -273,6 +294,20 @@ func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, 
 	}
 	if b.warmup > 0 {
 		if err := b.handOff(ctx, s, dir, b.URL(t)); err != nil {
+			_ = s.Close()
+			return nil, err
+		}
+	}
+	if t.ClickTitle != "" {
+		switch b.Name {
+		case "chrome":
+			s.clicker, err = chromeClicker(ctx, dir, t.Host, t.ClickTitle)
+		case "firefox":
+			s.clicker, err = firefoxClicker(ctx, t.debugPort, t.ClickTitle)
+		default:
+			err = fmt.Errorf("%s cannot be clicked", b.Name)
+		}
+		if err != nil {
 			_ = s.Close()
 			return nil, err
 		}
@@ -327,9 +362,19 @@ func (b *Browser) start(ctx context.Context, dir string, args []string) (*Sessio
 // Close stops the browser, killing it if it has not exited within five
 // seconds, and removes its profile. For Safari it closes the capture tab.
 func (s *Session) Close() error {
+	var clickErr error
+	if s.clicker != nil {
+		clickErr = s.clicker.Close()
+	}
 	if s.devtools != nil {
 		_ = s.devtools.Close()
 	}
+	return errors.Join(clickErr, s.quit())
+}
+
+// quit closes Safari's capture tab, or stops the browser and removes its
+// profile.
+func (s *Session) quit() error {
 	if s.tabURL != "" {
 		script := `tell application "Safari" to close (every tab of every window whose URL starts with "` + s.tabURL + `")`
 		if out, err := exec.Command("osascript", "-e", script).CombinedOutput(); err != nil { //nolint:noctx,gosec // must run after the caller's context ends; the URL is ours
@@ -396,7 +441,7 @@ func chromeArgs(dir string, t Target, headless bool) ([]string, error) {
 	if t.Proxy != nil {
 		args = append(args, "--proxy-server="+t.Proxy.String())
 	}
-	if t.ProxyAuth != nil {
+	if t.ProxyAuth != nil || t.ClickTitle != "" {
 		args = append(args, "--remote-debugging-port=0", "--remote-allow-origins="+debugOrigin)
 	}
 	if t.H3LocalRoots {
@@ -447,7 +492,7 @@ func firefoxProfile(dir string, t Target, headless bool) ([]string, error) {
 			)
 		}
 	}
-	if t.ProxyAuth != nil {
+	if t.debugPort != 0 {
 		// The remote agent otherwise applies its "recommended" automation
 		// preferences, some of which change networking (speculative
 		// connections, captive-portal checks).
@@ -463,7 +508,7 @@ func firefoxProfile(dir string, t Target, headless bool) ([]string, error) {
 		"--profile", dir,
 		"--new-instance",
 	}
-	if t.ProxyAuth != nil {
+	if t.debugPort != 0 {
 		args = append(args, "--remote-debugging-port", strconv.Itoa(t.debugPort), "--remote-allow-origins", debugOrigin)
 	}
 	if headless {

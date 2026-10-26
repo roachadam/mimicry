@@ -224,6 +224,8 @@ var Scenarios = []*Scenario{
 	NavRedirectCS,
 	NavRedirectHTTP,
 	NavRedirectPage,
+	NavRedirectForm,
+	NavRedirectClick,
 	WebSocket,
 	WebSocketH2,
 	H3Discovery,

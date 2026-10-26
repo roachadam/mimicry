@@ -52,9 +52,13 @@ func wsAcceptKey(key string) string {
 type wsAccept struct {
 	// subprotocol and extensions are answered as Sec-WebSocket-Protocol
 	// and Sec-WebSocket-Extensions ("" for none); extensions is
-	// "permessage-deflate" when the server accepts compression.
-	subprotocol string
-	extensions  string
+	// "permessage-deflate", with any parameters, when the server accepts
+	// compression. clientNoContext: it answered
+	// client_no_context_takeover, so each client message is inflated on
+	// its own.
+	subprotocol     string
+	extensions      string
+	clientNoContext bool
 	// ping sends a ping right after the handshake, to record the pong.
 	ping bool
 	// serverClose sends a close (1001) after the first echo: the server
@@ -281,6 +285,9 @@ func (w *wsSession) run(r io.Reader) error {
 			if f.fin {
 				echo = message
 				if compressed {
+					if w.accept.clientNoContext {
+						w.inflater.window = nil
+					}
 					out, err := w.inflater.inflate(message)
 					if err != nil {
 						cf.InflateError = err.Error()

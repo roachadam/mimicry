@@ -355,6 +355,10 @@ func scenario(t *testing.T, name string) *server.Scenario {
 var missingCaptures = map[string]string{
 	"safari-26-macos.proxy-auth.proxytrace.json":    "Safari 26 proxy credentials were never captured",
 	"safari-26-macos.proxy-plain-auth.h1trace.json": "Safari 26 proxy credentials were never captured",
+	// The capture tool clicks in Safari through the system's mouse
+	// events, which need Accessibility access; the second Mac's
+	// captures run over ssh, which has none.
+	"safari-26-macos.nav-redirect-click.pagetrace.json.gz": "Safari 26 clicks were never captured (no Accessibility access over ssh)",
 }
 
 // loadSamples reads a capture's samples, skipping the test when the

@@ -165,33 +165,12 @@ func (l *Live) connect(ctx context.Context, b *Browser, dir string, port int) er
 		}); err != nil {
 			return err
 		}
-		tree, err := r.call(ctx, "browsingContext.getTree", map[string]any{})
-		if err != nil {
-			return err
-		}
-		var t struct {
-			Contexts []struct {
-				Context string `json:"context"`
-			} `json:"contexts"`
-		}
-		if err := json.Unmarshal(tree, &t); err != nil || len(t.Contexts) == 0 {
-			return fmt.Errorf("firefox reported no browsing context: %s", tree)
-		}
-		l.context = t.Contexts[0].Context
-		return nil
+		l.context, err = firefoxContext(ctx, r)
+		return err
 	}
-	var debugPort string
-	for {
-		data, err := os.ReadFile(filepath.Join(dir, "DevToolsActivePort"))
-		if lines := strings.Split(strings.TrimSpace(string(data)), "\n"); err == nil && len(lines) == 2 {
-			debugPort = lines[0]
-			break
-		}
-		select {
-		case <-ctx.Done():
-			return errors.New("chrome wrote no DevToolsActivePort")
-		case <-time.After(100 * time.Millisecond):
-		}
+	debugPort, _, err := devToolsPort(ctx, dir)
+	if err != nil {
+		return err
 	}
 	select {
 	case <-time.After(b.warmup):
@@ -300,49 +279,61 @@ func (l *Live) page(ctx context.Context, since float64) (*Page, error) {
 // evaluate runs pageScript in the page.
 func (l *Live) evaluate(ctx context.Context) (string, error) {
 	if l.name == "firefox" {
-		res, err := l.rpc.call(ctx, "script.evaluate", map[string]any{
-			"expression":   pageScript,
-			"target":       map[string]string{"context": l.context},
-			"awaitPromise": false,
-		})
-		if err != nil {
-			return "", err
-		}
-		var r struct {
-			Type   string `json:"type"`
-			Result struct {
-				Value string `json:"value"`
-			} `json:"result"`
-			ExceptionDetails json.RawMessage `json:"exceptionDetails"`
-		}
-		if err := json.Unmarshal(res, &r); err != nil {
-			return "", err
-		}
-		if r.Type != "success" {
-			return "", fmt.Errorf("script failed: %s", r.ExceptionDetails)
-		}
-		return r.Result.Value, nil
+		return evaluateBiDi(ctx, l.rpc, l.context, pageScript)
 	}
-	res, err := l.rpc.call(ctx, "Runtime.evaluate", map[string]any{
-		"expression":    pageScript,
-		"returnByValue": true,
+	return evaluateCDP(ctx, l.rpc, pageScript)
+}
+
+// evaluateBiDi runs expression, which returns a string, in browsing
+// context bc of a WebDriver BiDi session.
+func evaluateBiDi(ctx context.Context, r *rpc, bc, expression string) (string, error) {
+	res, err := r.call(ctx, "script.evaluate", map[string]any{
+		"expression":   expression,
+		"target":       map[string]string{"context": bc},
+		"awaitPromise": false,
 	})
 	if err != nil {
 		return "", err
 	}
-	var r struct {
+	var v struct {
+		Type   string `json:"type"`
 		Result struct {
 			Value string `json:"value"`
 		} `json:"result"`
 		ExceptionDetails json.RawMessage `json:"exceptionDetails"`
 	}
-	if err := json.Unmarshal(res, &r); err != nil {
+	if err := json.Unmarshal(res, &v); err != nil {
 		return "", err
 	}
-	if len(r.ExceptionDetails) > 0 {
-		return "", fmt.Errorf("script failed: %s", r.ExceptionDetails)
+	if v.Type != "success" {
+		return "", fmt.Errorf("script failed: %s", v.ExceptionDetails)
 	}
-	return r.Result.Value, nil
+	return v.Result.Value, nil
+}
+
+// evaluateCDP runs expression, which returns a string, in the page of a
+// DevTools connection.
+func evaluateCDP(ctx context.Context, r *rpc, expression string) (string, error) {
+	res, err := r.call(ctx, "Runtime.evaluate", map[string]any{
+		"expression":    expression,
+		"returnByValue": true,
+	})
+	if err != nil {
+		return "", err
+	}
+	var v struct {
+		Result struct {
+			Value string `json:"value"`
+		} `json:"result"`
+		ExceptionDetails json.RawMessage `json:"exceptionDetails"`
+	}
+	if err := json.Unmarshal(res, &v); err != nil {
+		return "", err
+	}
+	if len(v.ExceptionDetails) > 0 {
+		return "", fmt.Errorf("script failed: %s", v.ExceptionDetails)
+	}
+	return v.Result.Value, nil
 }
 
 // cookies lists the names of the cookies the browser holds for url.
@@ -469,7 +460,18 @@ func (l *Live) Close() error {
 
 // osascript runs an AppleScript and returns its output, trimmed.
 func osascript(ctx context.Context, script string) (string, error) {
-	out, err := exec.CommandContext(ctx, "osascript", "-e", script).Output() //nolint:gosec // our own scripts
+	return runOSA(ctx, "AppleScript", script)
+}
+
+// osascriptJS runs a JavaScript for Automation script (which reaches the
+// system's C APIs) and returns its output, trimmed.
+func osascriptJS(ctx context.Context, script string) (string, error) {
+	return runOSA(ctx, "JavaScript", script)
+}
+
+// runOSA runs script in OSA language lang.
+func runOSA(ctx context.Context, lang, script string) (string, error) {
+	out, err := exec.CommandContext(ctx, "osascript", "-l", lang, "-e", script).Output() //nolint:gosec // our own scripts
 	if err != nil {
 		var ee *exec.ExitError
 		if errors.As(err, &ee) {

@@ -65,8 +65,9 @@ func TestKindsComeFromLastNavigation(t *testing.T) {
 // is sent: a no-cors fetch() with a method other than GET, HEAD or POST, a
 // beacon that is not a POST, a stylesheet loading anything but fonts and
 // images, the transport's own preflight kind, a navigation POST without
-// the page whose form sends it, and an Origin-sending request whose
-// variant is not measured (a fallback list would drop Origin), and a
+// the page whose form sends it, an Origin-sending request whose variant
+// is not measured (a fallback list would drop Origin), a user's form POST
+// (Sec-Fetch-User) whose variant was measured only on a script's, and a
 // fetchpriority the profile never measured for the kind. A body that
 // cannot be read again (no GetBody) cannot follow a redirect that keeps
 // it: an error after the first request rather than the GET http.Client
@@ -82,6 +83,19 @@ func TestRefusedRequests(t *testing.T) {
 		p.Variants = slices.DeleteFunc(p.Variants, func(v profile.Variant) bool {
 			return v.Method == http.MethodPost && !v.Insecure
 		})
+		return p
+	}
+	// scriptFormPost: form POSTs measured only as a script submits them,
+	// without Sec-Fetch-User.
+	scriptFormPost := func() *profile.Profile {
+		p := profiles.Chrome155MacOS()
+		for i, v := range p.Variants {
+			if v.Method == http.MethodPost {
+				p.Variants[i].Headers = slices.DeleteFunc(slices.Clone(v.Headers), func(h profile.Header) bool {
+					return h.Name == "sec-fetch-user"
+				})
+			}
+		}
 		return p
 	}
 	for _, tc := range []struct {
@@ -103,6 +117,7 @@ func TestRefusedRequests(t *testing.T) {
 		{name: "preflight", method: http.MethodOptions, r: &Request{Kind: kindPreflight}},
 		{name: "navigation POST without From", method: http.MethodPost, url: "https://a.test/submit", body: strings.NewReader("a=1")},
 		{name: "form POST without its variant", profile: noFormPost, method: http.MethodPost, url: "https://www.a.test/submit", body: strings.NewReader("a=1"), r: &Request{}, notMeasured: true},
+		{name: "clicked form POST measured only by script", profile: scriptFormPost, method: http.MethodPost, url: "https://www.a.test/submit", body: strings.NewReader("a=1"), r: &Request{}, notMeasured: true},
 		{name: "unmeasured fetchpriority", method: http.MethodGet, r: &Request{Kind: Script, Priority: PriorityHigh}, notMeasured: true},
 		{name: "redirected body without GetBody", method: http.MethodPut, url: "https://www.a.test/r", body: io.NopCloser(strings.NewReader("x")), r: &Request{Kind: Fetch}, follow: true, sent: 1},
 	} {
@@ -165,27 +180,50 @@ func TestRefusedRequests(t *testing.T) {
 	}
 }
 
-// A variant measured over HTTP/2 only has no HTTP/1.1 list: on an
-// HTTP/1.1 connection the request is not measured, never sent in a guessed
-// order.
+// A variant measured over HTTP/2 only has no HTTP/1.1 list, and one whose
+// HTTP/1.1 list was measured on a script's navigations has no slot for a
+// user's Sec-Fetch-User: on an HTTP/1.1 connection the request is not
+// measured, never sent in a guessed order.
 func TestHTTP2OnlyVariantOverHTTP1(t *testing.T) {
 	var served atomic.Int32
 	s := server(t, false, func(w http.ResponseWriter, _ *http.Request) {
 		served.Add(1)
 		w.WriteHeader(http.StatusNoContent)
 	})
-	page, err := url.Parse("https://www.a.test/form")
-	if err != nil {
-		t.Fatal(err)
-	}
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, s.url+"/submit", strings.NewReader("a=1"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	// A cross-site form POST: every profile measured it over HTTP/2 only.
-	if err := send(t, s.tr, With(req, Request{From: page})); !errors.Is(err, ErrNotMeasured) {
-		t.Errorf("cross-site form POST over HTTP/1.1: got %v, want ErrNotMeasured", err)
+	for _, tc := range []struct {
+		name string
+		p    *profile.Profile
+		page string
+	}{
+		// A cross-site form POST: every profile measured it over HTTP/2
+		// only.
+		{name: "cross-site form POST", p: profiles.Chrome155MacOS(), page: "https://www.a.test/form"},
+		// Firefox's same-origin form POST over HTTP/1.1 was a script's
+		// (kinds-http1); its user's was measured over HTTP/2 only.
+		{name: "Firefox's clicked form POST", p: profiles.Firefox158MacOS(), page: s.url + "/form"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			page, err := url.Parse(tc.page)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, s.url+"/submit", strings.NewReader("a=1"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			tr, err := NewTransport(Config{
+				Profile: tc.p,
+				RootCAs: s.srv.Client().Transport.(*http.Transport).TLSClientConfig.RootCAs,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(tr.CloseIdleConnections)
+			if err := send(t, tr, With(req, Request{From: page})); !errors.Is(err, ErrNotMeasured) {
+				t.Errorf("got %v, want ErrNotMeasured", err)
+			}
+		})
 	}
 	if n := served.Load(); n != 0 {
 		t.Errorf("server saw %d requests, want none", n)

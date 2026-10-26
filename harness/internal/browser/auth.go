@@ -144,18 +144,9 @@ func chromeAuth(ctx context.Context, dir string, user *url.Userinfo) (io.Closer,
 	life := context.WithoutCancel(ctx)
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	var port, path string
-	for {
-		data, err := os.ReadFile(filepath.Join(dir, "DevToolsActivePort"))
-		if lines := strings.Split(strings.TrimSpace(string(data)), "\n"); err == nil && len(lines) == 2 {
-			port, path = lines[0], lines[1]
-			break
-		}
-		select {
-		case <-ctx.Done():
-			return nil, errors.New("chrome wrote no DevToolsActivePort")
-		case <-time.After(100 * time.Millisecond):
-		}
+	port, path, err := devToolsPort(ctx, dir)
+	if err != nil {
+		return nil, err
 	}
 	password, _ := user.Password()
 	var r *rpc
@@ -188,7 +179,7 @@ func chromeAuth(ctx context.Context, dir string, user *url.Userinfo) (io.Closer,
 			}
 		}
 	}
-	r, err := dialRPC(ctx, "ws://127.0.0.1:"+port+path, onEvent)
+	r, err = dialRPC(ctx, "ws://127.0.0.1:"+port+path, onEvent)
 	if err != nil {
 		return nil, err
 	}
@@ -258,9 +249,42 @@ func firefoxAuth(ctx context.Context, port int, pageURL string, user *url.Userin
 			return nil, errors.Join(err, r.Close())
 		}
 	}
-	tree, err := r.call(ctx, "browsingContext.getTree", map[string]any{})
+	bc, err := firefoxContext(ctx, r)
 	if err != nil {
 		return nil, errors.Join(err, r.Close())
+	}
+	if _, err := r.call(ctx, "browsingContext.navigate", map[string]string{
+		"context": bc,
+		"url":     pageURL,
+		"wait":    "none",
+	}); err != nil {
+		return nil, errors.Join(err, r.Close())
+	}
+	return r, nil
+}
+
+// devToolsPort waits for Chrome to name its debugging port and its
+// browser target's path in profile directory dir's DevToolsActivePort.
+func devToolsPort(ctx context.Context, dir string) (port, path string, err error) {
+	for {
+		data, err := os.ReadFile(filepath.Join(dir, "DevToolsActivePort"))
+		if lines := strings.Split(strings.TrimSpace(string(data)), "\n"); err == nil && len(lines) == 2 {
+			return lines[0], lines[1], nil
+		}
+		select {
+		case <-ctx.Done():
+			return "", "", errors.New("chrome wrote no DevToolsActivePort")
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+}
+
+// firefoxContext returns the first top-level browsing context of a
+// WebDriver BiDi session: the window's tab.
+func firefoxContext(ctx context.Context, r *rpc) (string, error) {
+	tree, err := r.call(ctx, "browsingContext.getTree", map[string]any{})
+	if err != nil {
+		return "", err
 	}
 	var t struct {
 		Contexts []struct {
@@ -268,16 +292,9 @@ func firefoxAuth(ctx context.Context, port int, pageURL string, user *url.Userin
 		} `json:"contexts"`
 	}
 	if err := json.Unmarshal(tree, &t); err != nil || len(t.Contexts) == 0 {
-		return nil, errors.Join(fmt.Errorf("firefox reported no browsing context: %s", tree), r.Close())
+		return "", fmt.Errorf("firefox reported no browsing context: %s", tree)
 	}
-	if _, err := r.call(ctx, "browsingContext.navigate", map[string]string{
-		"context": t.Contexts[0].Context,
-		"url":     pageURL,
-		"wait":    "none",
-	}); err != nil {
-		return nil, errors.Join(err, r.Close())
-	}
-	return r, nil
+	return t.Contexts[0].Context, nil
 }
 
 // freePort returns a TCP port free on 127.0.0.1 a moment ago.

@@ -401,6 +401,9 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 	if sc.HTTP3() {
 		t.H3LocalRoots = opts.h3LocalRoots
 	}
+	if sc.Clicks() {
+		t.ClickTitle = server.ClickTitle
+	}
 	timeout := opts.timeout
 	hosts, length, multi := sc.MultiHost()
 	if multi {

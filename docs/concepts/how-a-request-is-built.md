@@ -52,7 +52,12 @@ on anything but Fetch and XHR.
    for headers that depend on the request. A combination no variant
    matches takes the kind's default order (for a non-secure request, its
    non-secure default), except a redirect's request of a kind whose
-   redirects were captured (fetch, images): that is `ErrNotMeasured`.
+   redirects were captured (fetch, images): that is `ErrNotMeasured`. A
+   user's navigation (one that keeps the profile's `Sec-Fetch-User`: a
+   typed URL, a clicked link or submit button; a script's suppresses it
+   with a nil header) whose variant has no `sec-fetch-user` slot was
+   measured only on a script's, so it is `ErrNotMeasured` too, and over
+   HTTP/1.1 where the HTTP/1.1 list has no slot.
 3. **Compute what the page decides** and fill the slots:
    - `sec-fetch-site`: same-origin, same-site (public suffix list,
      schemeful) or cross-site; after a redirect, the most distant relation
@@ -69,7 +74,9 @@ on anything but Fetch and XHR.
    - `Origin`: on non-GET/HEAD, on CORS requests to another origin, on
      same-origin CORS element requests where the browser does
      (`context.same_origin_element_origin`); `null` once a redirect chain is
-     tainted.
+     tainted, and for a navigation (a form POST kept by a 307 or 308) by
+     `redirects.navigation_origin`: also once any redirect left its origin
+     (Chrome, Safari).
    - `Referer`: strict-origin-when-cross-origin from the page (or the
      stylesheet, where the browser does), applied hop by hop, so a chain
      that left the page's origin sends only the origin from then on;

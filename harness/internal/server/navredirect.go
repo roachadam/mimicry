@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net"
 	"strings"
 	"time"
@@ -9,12 +10,13 @@ import (
 )
 
 // The nav-redirect pages' hosts: a site's apex, www and static hosts, and
-// another site.
+// another site's www host and apex.
 const (
 	navrSite      = "navr-a.test"
 	navrHost      = "www.navr-a.test"
 	navrStatic    = "static.navr-a.test"
 	navrCrossSite = "www.navr-b.test"
+	navrCrossApex = "navr-b.test"
 )
 
 // The nav-redirect scenarios: the capture tool's start URL, a typed
@@ -62,8 +64,8 @@ var NavRedirectPage = &Scenario{
 // in order, each a top-level navigation from a page on www.navr-a.test
 // whose one redirect goes to another origin (a hop that mimicry refuses as
 // unmeasured without this capture). Each is made by script: none has user
-// activation, so none sends Sec-Fetch-User (the capture tool sends no
-// input events). Labels name the first request's site, then the hop's:
+// activation, so none sends Sec-Fetch-User (nav-redirect-click's are
+// clicked). Labels name the first request's site, then the hop's:
 //
 //   - nav-302.so-cs, nav-302.ss-cs: location.href to the page's origin and
 //     to static.navr-a.test (its site), answered 302 to another site;
@@ -89,14 +91,171 @@ func NavRedirectPageSteps() []Redirects2Step {
 	}
 }
 
+// NavRedirectForm is the nav-redirect-form scenario: form POSTs a page's
+// script submits, redirected (see NavRedirectFormSteps). It is served as
+// nav-redirect-page is.
+var NavRedirectForm = &Scenario{
+	Name: "nav-redirect-form",
+	Doc: "form POSTs a page's script submits answered " + navrFormStatus + ": " + navrFormDoc +
+		"; the page's form without user activation, as nav-redirect-click's with it",
+	multi: redirects2Page{
+		fixedHosts: fixedHosts{
+			names: []string{
+				navrHost,
+				navrSite,
+				navrStatic,
+				navrCrossSite,
+			},
+			runFor: 60 * time.Second,
+		},
+		steps: NavRedirectFormSteps(),
+	},
+}
+
+// navrForms are the form POSTs' first hosts and redirect targets
+// ("" for the first host), labelled by their sites (Redirects2Step.Label),
+// the last back on the page's origin.
+var navrForms = []struct {
+	sites, host, next string
+}{
+	{"so", navrHost, ""},
+	{"so-ss", navrHost, navrStatic},
+	{"so-cs", navrHost, navrCrossSite},
+	{"ss", navrStatic, ""},
+	{"ss-so", navrSite, navrHost},
+	{"cs", navrCrossSite, ""},
+	{"cs-ss", navrCrossSite, navrStatic},
+	{"cs-so", navrCrossSite, navrHost},
+}
+
+// navrFormDoc describes navrForms in the scenarios' Doc.
+const navrFormDoc = "to the page's origin within it, to static.navr-a.test (its site) and to another site; to static.navr-a.test within it; " +
+	"to the apex to www.navr-a.test (the page's origin); to another site within it, to static.navr-a.test and back to the page's origin"
+
+// navrFormStatuses are the statuses a form POST is answered with: 301 to
+// 303 turn it into a GET, 307 and 308 keep it, with its body.
+var navrFormStatuses = []int{301, 302, 303, 307, 308}
+
+// navrFormStatus names navrFormStatuses in the scenarios' Doc.
+const navrFormStatus = "301, 302, 303, 307 and 308"
+
+// navrFormSteps returns a form POST step (field a=1) for each of
+// navrForms and navrFormStatuses, labelled
+// <prefix>-<status>.<sites>, clicked or submitted by script.
+func navrFormSteps(prefix string, click bool) []Redirects2Step {
+	steps := make([]Redirects2Step, 0, len(navrForms)*len(navrFormStatuses))
+	for _, to := range navrForms {
+		for _, status := range navrFormStatuses {
+			steps = append(steps, Redirects2Step{
+				Label:  fmt.Sprintf("%s-%d.%s", prefix, status, to.sites),
+				Kind:   RedirectForm,
+				Host:   to.host,
+				Next:   to.next,
+				Method: "POST",
+				Body:   "a=1",
+				Status: status,
+				Hops:   1,
+				Click:  click,
+			})
+		}
+	}
+	return steps
+}
+
+// NavRedirectFormSteps returns the nav-redirect-form page's form POSTs
+// (field a=1), in order, each submitted by script from a page of its own
+// on www.navr-a.test (login and payment flows): form-<status>.<sites>,
+// for each of navrForms answered <status> (301, 302, 303, 307, 308). The
+// last lands on the page's origin and ends the watchdog.
+func NavRedirectFormSteps() []Redirects2Step {
+	return navrFormSteps("form", false)
+}
+
+// NavRedirectClick is the nav-redirect-click scenario: navigations a user
+// makes, clicking a link or a form's submit button (the capture tool
+// clicks as a user does: Chrome over the DevTools protocol, Firefox over
+// WebDriver BiDi, Safari through the system's mouse events), redirected
+// within an origin, to another origin of its site and to another site
+// (see NavRedirectClickSteps). It is served as nav-redirect-page is.
+var NavRedirectClick = &Scenario{
+	Name: "nav-redirect-click",
+	Doc: "navigations with user activation, clicked links and form submit buttons, redirected: links answered 301 or 302 within an origin, " +
+		"to another origin of its site and to another site, from the page's site and another site; form POSTs answered " + navrFormStatus +
+		": " + navrFormDoc,
+	multi: redirects2Page{
+		fixedHosts: fixedHosts{
+			names: []string{
+				navrHost,
+				navrSite,
+				navrStatic,
+				navrCrossSite,
+				navrCrossApex,
+			},
+			runFor: 120 * time.Second,
+		},
+		steps: NavRedirectClickSteps(),
+	},
+}
+
+// NavRedirectClickSteps returns the nav-redirect-click page's
+// navigations, in order, each clicked on a page of its own on
+// www.navr-a.test (Redirects2Step.Click), so each has user activation
+// and sends Sec-Fetch-User where the browser does. Between them, they
+// redirect a GET to each relation from each relation (an origin's own,
+// another origin of its site, another site):
+//
+//   - link-302.so, link-301.so-ss, link-302.so-cs: a link to the page's
+//     origin answered within it, to static.navr-a.test (its site) and to
+//     another site;
+//   - link-302.ss, link-301.ss-so: a link to static.navr-a.test answered
+//     within it, and to the apex answered 301 to www.navr-a.test (the
+//     page's origin);
+//   - link-302.cs, link-301.cs-cs, link-302.cs-ss: a link to another site
+//     answered within its origin, to its apex answered 301 to its www
+//     host, and answered to static.navr-a.test;
+//   - submit-<status>.<sites>: a form POST (a=1) for each of navrForms
+//     answered <status> (301, 302, 303, 307, 308), as nav-redirect-form's
+//     by script;
+//   - link-302.cs-so: a link to another site answered 302 back to the
+//     page's origin. Last: the page it lands on, on www.navr-a.test, ends
+//     the watchdog it armed.
+func NavRedirectClickSteps() []Redirects2Step {
+	link := func(label, host, next string, status int) Redirects2Step {
+		return Redirects2Step{
+			Label:  label,
+			Kind:   RedirectNavigate,
+			Host:   host,
+			Next:   next,
+			Status: status,
+			Hops:   1,
+			Click:  true,
+		}
+	}
+	steps := []Redirects2Step{
+		link("link-302.so", navrHost, "", 302),
+		link("link-301.so-ss", navrHost, navrStatic, 301),
+		link("link-302.so-cs", navrHost, navrCrossSite, 302),
+		link("link-302.ss", navrStatic, "", 302),
+		link("link-301.ss-so", navrSite, navrHost, 301),
+		link("link-302.cs", navrCrossSite, "", 302),
+		link("link-301.cs-cs", navrCrossApex, navrCrossSite, 301),
+		link("link-302.cs-ss", navrCrossSite, navrStatic, 302),
+	}
+	steps = append(steps, navrFormSteps("submit", true)...)
+	return append(steps, link("link-302.cs-so", navrCrossSite, navrHost, 302))
+}
+
 // NavRedirects are the nav-redirect scenarios: typed navigations
-// (NavRedirectStep) and the page's (NavRedirectPage).
+// (NavRedirectStep) and the pages' (NavRedirectPage, NavRedirectForm,
+// NavRedirectClick).
 var NavRedirects = []*Scenario{
 	NavRedirectSO,
 	NavRedirectSS,
 	NavRedirectCS,
 	NavRedirectHTTP,
 	NavRedirectPage,
+	NavRedirectForm,
+	NavRedirectClick,
 }
 
 // NavRedirectStep is a nav-redirect page: the typed navigation to

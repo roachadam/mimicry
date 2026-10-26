@@ -187,7 +187,7 @@ func TestReadingServerFrames(t *testing.T) {
 			tr := &fakeTransport{
 				r: bytes.NewReader(tc.in),
 			}
-			c := New(tr, tr, Config{
+			c, err := New(tr, tr, Config{
 				Profile: &profile.WebSocket{
 					Extensions: "permessage-deflate",
 					H2Data:     profile.H2DataTogether,
@@ -197,10 +197,12 @@ func TestReadingServerFrames(t *testing.T) {
 				Clock: clockwork.NewFakeClock(),
 				Rand:  rand.NewChaCha8([32]byte{}),
 			})
+			if err != nil {
+				t.Fatal(err)
+			}
 			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 			defer cancel()
 			var got []Message
-			var err error
 			for {
 				var m Message
 				if m, err = c.ReadMessage(ctx); err != nil {

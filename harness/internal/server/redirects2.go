@@ -96,6 +96,34 @@ type Redirects2Step struct {
 	// navigation's redirects carry neither.
 	NoACAO bool
 	NoACAC bool
+	// Click has a user make the navigation (a navigation step's): the
+	// capture tool clicks its link (RedirectNavigate) or its form's submit
+	// button (RedirectForm) as a user does, so the navigation has user
+	// activation (Sec-Fetch-User); otherwise the page's script makes it.
+	Click bool
+}
+
+// ClickTitle is the title a page takes once it waits for a user's click
+// (Redirects2Step.Click): the capture tool clicks the middle of a page
+// with this title, once per URL, as a user does, and the page's link or
+// submit button fills the window.
+const ClickTitle = "mimicry-click"
+
+// Clicks reports a scenario whose page waits for a user's clicks
+// (ClickTitle).
+func (sc *Scenario) Clicks() bool {
+	steps, _ := sc.RedirectSteps()
+	return slices.ContainsFunc(steps, func(s Redirects2Step) bool {
+		return s.Click
+	})
+}
+
+// RedirectSteps returns the steps of a page served as the redirects2 page
+// is (redirects2, nav-redirect-page, nav-redirect-form,
+// nav-redirect-click); ok is false for other scenarios.
+func (sc *Scenario) RedirectSteps() (steps []Redirects2Step, ok bool) {
+	p, ok := sc.multi.(redirects2Page)
+	return p.steps, ok
 }
 
 // HopHost is the host the step's redirects go to.
@@ -408,15 +436,25 @@ func redirFirstPage(steps []Redirects2Step, origin func(string) string) []string
 }
 
 // redirStartPage is a navigation step's page: it arms the watchdog, then
-// submits its form or navigates. Without the watchdog, a chain longer
-// than a browser follows (which ends on an error page) is skipped.
+// submits its form or navigates; for a Click step it shows its link or
+// submit button over the whole window and takes ClickTitle, and the
+// capture tool clicks. Without the watchdog, a chain longer than a
+// browser follows (which ends on an error page) is skipped.
 func redirStartPage(s Redirects2Step, origin func(string) string) []byte {
 	u := redirURL(s, origin)
 	arm := fmt.Sprintf("await arm(%d)", redirWatch.Milliseconds())
+	const fill = ` id="go" style="position: fixed; inset: 0; width: 100%; height: 100%"`
+	click := fmt.Sprintf("document.title = %s;", strconv.Quote(ClickTitle))
 	if s.Kind == RedirectNavigate {
 		watch := arm + ";"
 		if s.Hops > navFollowed {
 			watch = "if (!(" + arm + ")) {\nfetch(\"/done\");\nreturn;\n}"
+		}
+		if s.Click {
+			return htmlPage("redirects2", "", `<a`+fill+` href="`+html.EscapeString(u)+`">go</a>`+"\n"+pageScript([]string{
+				watch,
+				click,
+			}))
 		}
 		return htmlPage("redirects2", "", pageScript([]string{
 			watch,
@@ -424,9 +462,13 @@ func redirStartPage(s Redirects2Step, origin func(string) string) []byte {
 		}))
 	}
 	name, value, _ := strings.Cut(s.Body, "=")
-	form := `<form method="` + strings.ToLower(s.Method) + `" action="` + html.EscapeString(u) + `"><input type="hidden" name="` + html.EscapeString(name) + `" value="` + html.EscapeString(value) + `"></form>` + "\n"
+	submit, send := "", "document.forms[0].submit();"
+	if s.Click {
+		submit, send = `<button`+fill+`>go</button>`, click
+	}
+	form := `<form method="` + strings.ToLower(s.Method) + `" action="` + html.EscapeString(u) + `"><input type="hidden" name="` + html.EscapeString(name) + `" value="` + html.EscapeString(value) + `">` + submit + `</form>` + "\n"
 	return htmlPage("redirects2", "", form+pageScript([]string{
 		arm + ";",
-		"document.forms[0].submit();",
+		send,
 	}))
 }

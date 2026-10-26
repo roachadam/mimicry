@@ -192,7 +192,7 @@ func DialWebSocket(ctx context.Context, t *Transport, rawURL string, opts WebSoc
 	// The body is the socket's from here on, which outlives ctx: its
 	// pongs and close replies go out whatever ctx does.
 	resp.Body = http.NoBody
-	conn := ws.New(sock.Conn, sock.Reader, ws.Config{ //nolint:contextcheck // the socket outlives the dial's context
+	conn, err := ws.New(sock.Conn, sock.Reader, ws.Config{ //nolint:contextcheck // the socket outlives the dial's context
 		Profile: p.WebSocket,
 		Name:    p.Name,
 		H2:      sock.H2,
@@ -201,6 +201,11 @@ func DialWebSocket(ctx context.Context, t *Transport, rawURL string, opts WebSoc
 		Clock:   t.clock,
 		Rand:    rand.Reader,
 	})
+	if err != nil {
+		// The browser ends the transport at once, sending nothing.
+		_ = sock.Conn.Close()
+		return nil, resp, err
+	}
 	return &WebSocket{
 		conn:       conn,
 		protocol:   resp.Header.Get("Sec-WebSocket-Protocol"),
@@ -350,8 +355,9 @@ func (w *WebSocket) Protocol() string {
 	return w.protocol
 }
 
-// Extensions is the server's Sec-WebSocket-Extensions answer, as a
-// page's socket reports it, or "".
+// Extensions is the server's Sec-WebSocket-Extensions answer, its
+// parameters included, or "". (A page's extensions attribute is this in
+// Chrome and Safari; Firefox's names the extension alone.)
 func (w *WebSocket) Extensions() string {
 	return w.extensions
 }

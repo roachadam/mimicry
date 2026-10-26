@@ -1316,6 +1316,20 @@ func TestValidate(t *testing.T) {
 			want: `must be "chain" or "restart"`,
 		},
 		{
+			name: "unknown navigation origin rule",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.Redirects = &Redirects{
+					MethodChangeOrigin: RedirectOriginDrop,
+					NavigationLimit:    20,
+					HopPreflight:       RedirectPreflightOwn,
+					NavigationSite:     RedirectSiteChain,
+					NavigationOrigin:   "never",
+				}
+			},
+			path: "redirects.navigation_origin",
+			want: `must be "taint" or "cross_origin"`,
+		},
+		{
 			name: "no cookie rules",
 			mutate: func(_ *testing.T, p *Profile) {
 				p.Cookies = nil
