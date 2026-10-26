@@ -52,6 +52,7 @@ func TestCookiesScenarioMatchesBrowser(t *testing.T) {
 func runCookiesPage(t *testing.T, p *profile.Profile) *capture.Page {
 	t.Helper()
 	s := startPage(t, p, server.Cookies)
+	s.planEvery()
 	const (
 		siteA = "www.kinds-a.test"
 		same  = "static.kinds-a.test"

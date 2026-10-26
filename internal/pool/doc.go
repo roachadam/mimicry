@@ -9,7 +9,8 @@
 // connections is forgotten after the idle timeout. The pool never holds
 // its lock across network I/O. Connections are given to it, through
 // interfaces; it does not dial. Shared finds a key's shared connection
-// without dialing, for WebSockets, which otherwise open their own.
+// without dialing, for WebSockets, which otherwise open their own; Peek
+// reports what Get would find, changing nothing (the engine's plans).
 //
 // Imports: clockwork and the standard library.
 package pool

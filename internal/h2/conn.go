@@ -406,14 +406,7 @@ func skipHeader(name string) bool {
 func (c *Conn) RoundTrip(req *http.Request) (*http.Response, error) {
 	ctx := req.Context()
 	hasBody := req.Body != nil && req.Body != http.NoBody
-	// As in net/http, a body with ContentLength 0 has an unknown length (-1).
-	var length int64
-	if hasBody {
-		length = req.ContentLength
-		if length <= 0 {
-			length = -1
-		}
-	}
+	length := bodyLength(req)
 	head, err := c.head(req, length, "")
 	if err != nil {
 		closeBody(req)
@@ -463,14 +456,40 @@ type requestHead struct {
 	endStream bool
 }
 
-// head builds req's header list: pseudo-headers in the profile's order,
-// then its headers through headerorder. length is the body's: 0 for none,
-// -1 when unknown. A protocol makes it an extended CONNECT (RFC 8441):
-// :method CONNECT, with :protocol after the profile's pseudo-headers, as
-// every browser places it, and the stream left open. A method,
-// authority, path or header field that is not valid on the wire is an
-// error, as in net/http.
+// bodyLength is the length of req's body as RoundTrip sends it: 0 for
+// none, -1 when unknown (as in net/http, a body with ContentLength 0).
+func bodyLength(req *http.Request) int64 {
+	if req.Body == nil || req.Body == http.NoBody {
+		return 0
+	}
+	if req.ContentLength <= 0 {
+		return -1
+	}
+	return req.ContentLength
+}
+
+// Head returns the header list a connection for p sends for req
+// (RoundTrip), pseudo-headers first, built as RoundTrip builds it. An
+// error is one RoundTrip returns before sending anything.
+func Head(p *profile.Profile, req *http.Request) ([]hpack.Field, error) {
+	head, err := buildHead(p.Headers, p.HTTP2, req, bodyLength(req), "")
+	return head.fields, err
+}
+
+// head builds req's header list for c (buildHead).
 func (c *Conn) head(req *http.Request, length int64, protocol string) (requestHead, error) {
+	return buildHead(c.headers, c.h2, req, length, protocol)
+}
+
+// buildHead builds req's header list: pseudo-headers in the profile's
+// order (h2p), then its headers through headerorder (headers: the
+// profile's navigation list, unless the request's plan has its own).
+// length is the body's: 0 for none, -1 when unknown. A protocol makes it
+// an extended CONNECT (RFC 8441): :method CONNECT, with :protocol after
+// the profile's pseudo-headers, as every browser places it, and the
+// stream left open. A method, authority, path or header field that is
+// not valid on the wire is an error, as in net/http.
+func buildHead(headers []profile.Header, h2p *profile.HTTP2, req *http.Request, length int64, protocol string) (requestHead, error) {
 	method := req.Method
 	if method == "" {
 		method = http.MethodGet
@@ -520,7 +539,7 @@ func (c *Conn) head(req *http.Request, length int64, protocol string) (requestHe
 			h["Content-Length"] = nil
 		}
 	}
-	list := c.headers
+	list := headers
 	head := requestHead{
 		endStream: length == 0 && protocol == "",
 	}
@@ -533,8 +552,8 @@ func (c *Conn) head(req *http.Request, length int64, protocol string) (requestHe
 	if err != nil {
 		return requestHead{}, err
 	}
-	head.fields = make([]hpack.Field, 0, len(c.h2.PseudoHeaderOrder)+1+len(ordered))
-	for _, name := range c.h2.PseudoHeaderOrder {
+	head.fields = make([]hpack.Field, 0, len(h2p.PseudoHeaderOrder)+1+len(ordered))
+	for _, name := range h2p.PseudoHeaderOrder {
 		head.fields = append(head.fields, hpack.Field{
 			Name:  name,
 			Value: pseudo[name],
@@ -556,7 +575,7 @@ func (c *Conn) head(req *http.Request, length int64, protocol string) (requestHe
 		}
 		if f.Name == "cookie" {
 			crumbs := headerorder.Crumbs(f.Value)
-			if c.h2.SplitCookie {
+			if h2p.SplitCookie {
 				// One field per cookie (RFC 9113, 8.2.3), as browsers send
 				// them.
 				for _, crumb := range crumbs {

@@ -57,6 +57,7 @@ func Decode(start time.Time, datagrams []Received, cidLen int, keyLog *KeyLog) [
 			}
 			c.conn.Addr = r.Addr
 			c.conn.Millis = r.At.Sub(start).Milliseconds()
+			c.conn.Start = r.At
 			byAddr[r.Addr] = c
 			states = append(states, c)
 			conns = append(conns, c.conn)

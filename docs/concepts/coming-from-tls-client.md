@@ -60,7 +60,7 @@ client.CheckRedirect = func(*http.Request, []*http.Request) error {
 | `WithCertificatePinning`, `WithCertificatePinner` | `Config.Pins` (`sha256/<base64>` pins as tls-client takes them, hex, or certificate fingerprints; `FetchPins` or `go run github.com/roachadam/mimicry/cmd/pins URL` lists a site's), `Config.VerifyConnection` for your own check; `resp.TLS` on every response |
 | `WithForceHttp1()` | none |
 | `WithServerNameOverwrite`, `WithDisableIPV4/6`, `WithConnectHeaders` | none (`DialContext` can choose the address family) |
-| `WithPreHook`, `WithPostHook`, `WithDebug`, `WithBandwidthTracker` | none in mimicry; wrap the `http.RoundTripper`, or `cookies.Config.OnSetCookie` for cookies |
+| `WithPreHook`, `WithPostHook`, `WithDebug`, `WithBandwidthTracker` | `Transport.Plan(req)` shows what a request would send, without sending it (see [below](#seeing-what-will-be-sent)); otherwise none: wrap the `http.RoundTripper`, or `cookies.Config.OnSetCookie` for cookies |
 | `CloseIdleConnections()` | `Transport.CloseIdleConnections()` (`client.CloseIdleConnections()`) |
 
 `NewClient` returns a plain `*http.Client`, so anything that takes one
@@ -125,12 +125,12 @@ browser's own order for page-set headers). A cross-origin fetch that needs a
 CORS preflight gets one. See [how a request is built](how-a-request-is-built.md).
 
 Porting traps, each of which silently makes the request less like the
-browser's:
+browser's (`Transport.Plan` lists the first two: [below](#seeing-what-will-be-sent)):
 
 - **Do not copy the old header literals.** A header the request sets wins
   over the profile's computed one, so a ported `sec-fetch-site`, `Origin`,
   `Referer`, `Accept` or `sec-ch-ua` replaces the right value with a
-  hand-written one, and nothing reports it.
+  hand-written one; `Plan.Overrides` names each.
 - **Do not copy `HeaderOrderKey` lists.** mimicry's `HeaderOrderKey`
   replaces the order outright: profile headers it does not name are not
   sent, and request headers it does not name go last (over HTTP/1.1 that
@@ -151,6 +151,36 @@ browser's:
 - **A POST navigation needs its page.** A form POST is
   `mimicry.With(req, mimicry.Request{From: formPage})`; without `From` a
   navigation is a typed URL, which is GET or HEAD only.
+
+## Seeing what will be sent
+
+`Transport.Plan(req)` works out everything `RoundTrip` would send for
+`req` now and sends nothing: no connection, no lookup, the jar and the
+preflight cache untouched. It takes `RoundTrip`'s own path, the
+connections' header writers included, so what it shows is what goes on
+the wire:
+
+```go
+tr := client.Transport.(*mimicry.Transport)
+plan, err := tr.Plan(mimicry.As(api, mimicry.Fetch))
+if err != nil {
+	return err // ErrNotMeasured, ErrPlacement: RoundTrip would fail the same way
+}
+for _, o := range plan.Overrides {
+	log.Printf("%s: the browser sends %q, this request %q", o.Name, o.Mimicry, o.Caller)
+}
+log.Print(plan) // variant, protocol, preflight, every line per protocol
+```
+
+A plan has the kind and the profile list it takes (`Variant`, with the
+request's `Condition`), the header lines over HTTP/2, HTTP/1.1 and HTTP/3
+(each with its own error where that protocol cannot carry the request,
+such as a variant measured over HTTP/2 only), the protocol it would take
+given the open connections (`Protocol`, as `resp.Proto` names it; empty
+when the server decides on connecting), the CORS preflight if one would go
+first, the headers you set over computed ones (`Overrides`) and the
+profile headers a `HeaderOrderKey` drops (`Dropped`). See
+`ExampleTransport_Plan` and [decision 0034](../decisions/0034-request-plans.md).
 
 ## Navigations, fetches and the page
 
@@ -188,7 +218,7 @@ your own navigation, not the browser's redirect hop.
 
 | tls-client | mimicry |
 |---|---|
-| `client.GetCookies(u)` | `jar.String(domain)`: the cookies for a name and the names under it as a header string; `jar.Cookies(cookies.Request{URL: u, Method: "GET", Navigation: true})`: exactly what the browser would send to `u`; `jar.All()` for everything |
+| `client.GetCookies(u)` | `jar.String(domain)`: the cookies for a name and the names under it as a header string; `jar.Cookies(cookies.Request{URL: u, Method: "GET", Navigation: true})`: exactly what the browser would send to `u` (`jar.Peek`: the same, leaving last-access times as they were); `jar.All()` for everything |
 | `client.SetCookies(u, []*http.Cookie{...})` | `jar.SetHTTPCookies(u, cs)`, through the browser's rules as a response from `u`, with an error naming each cookie refused; `jar.Set(cookies.Cookie{...})` stores one as given; `jar.SetCookies(req, rawSetCookieLines)` for lines a response carried |
 | a `Cookie` header string kept in a database | `jar.SetString(domain, header)` (or `cookies.FromString`) for that name and every name under it, `jar.SetHostString(host, header)` for one host, in; `jar.String(domain)` out (see `ExampleJar_SetString`) |
 | a new jar to clear | `jar.Clear()`, `jar.ClearSession()`, `jar.Delete(func(*cookies.Cookie) bool)` |
@@ -316,41 +346,33 @@ ws, _, err := tr.DialWebSocket(ctx, "wss://www.shop.example/live", mimicry.WebSo
 2. **Proxy limits.** `https://` proxies are unsupported, and a WebSocket
    through a proxy is `ErrNotMeasured` for a Safari profile with proxy
    credentials and for `ws://` through SOCKS5.
-3. **No way to see what will be sent.** tls-client users can print their
-   own header literal; in mimicry the request's final header lines, its
-   variant and whether it will be preflighted exist only on the wire. Add
-   the porting traps above (a copied header silently replaces a computed
-   one) and the first weeks of porting are guesswork against a capture
-   proxy.
-4. **Cookie scope from a string is a name you choose.** A header string
+3. **Cookie scope from a string is a name you choose.** A header string
    carries no scope, so `SetString` needs the domain the cookies were for
    (`amazon.com` for the whole site, `www.amazon.com` for that host and
    below) and seeds a non-`Secure` session cookie per pair; a source
    browser's path-scoped or `Secure` cookies need `Set` or JSON to keep
    their attributes, and asking what goes to one URL still takes a
    `cookies.Request`.
-5. **Runtime `ErrNotMeasured` that depends on the server.** A variant
+4. **Runtime `ErrNotMeasured` that depends on the server.** A variant
    measured over HTTP/2 only fails on a server that speaks only
-   HTTP/1.1; you find out from the request, not up front.
-6. **Verbosity in small places.** `NewRequestWithContext` plus `As`/`With`
+   HTTP/1.1. `Plan` shows it up front as the HTTP/1.1 lines' error, but
+   which protocol a new connection takes is still the server's answer.
+5. **Verbosity in small places.** `NewRequestWithContext` plus `As`/`With`
    on every call, and the type assertion to reach `NewClient`'s Transport
-   (`DialWebSocket`, `Cookies`). (Moving one header is a `Place` in
+   (`DialWebSocket`, `Cookies`, `Plan`). (Moving one header is a `Place` in
    `HeaderPlacement`, not a full `HeaderOrderKey` list.)
-7. **Missing switches** that browsers do not have either: forcing
+6. **Missing switches** that browsers do not have either: forcing
    HTTP/1.1, skipping verification, overriding the SNI, binding a local
    address for QUIC.
+
+(Seeing what will be sent was weakness 3 here until `Transport.Plan`.)
 
 ## Proposed adjustments
 
 Candidates, not decisions; each would need a decision record.
 
-1. **A request plan you can inspect.** `Transport.Plan(req) (*Plan, error)`
-   returning what `RoundTrip` would send without sending it: the ordered
-   header lines for HTTP/2 and HTTP/1.1, the kind's variant, the
-   preflight if any, and `Overrides`, the computed headers the request's
-   own replaced. It answers "why does this differ from my capture", flags
-   ported header literals, and finds `ErrNotMeasured` up front. A
-   `Config.OnRequest` hook with the same plan would cover logging.
+1. **A `Config.OnRequest` hook** called with each request's plan as it
+   is sent, for logging without calling `Plan` yourself.
 2. **More profiles, and a way to make them.** iOS Safari and Android
    Chrome first, then Windows Chrome; the planned `profilegen derive` to
    start a new version from the last, and documentation of what a user

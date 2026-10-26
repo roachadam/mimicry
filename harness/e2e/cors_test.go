@@ -39,6 +39,7 @@ func TestCORSMatchesBrowser(t *testing.T) {
 				t.Fatal(err)
 			}
 			s := startPage(t, p, server.CORS)
+			s.planEvery()
 			hosts, _, _ := server.CORS.MultiHost()
 			page := s.url(hosts[0], "/")
 			s.send(http.MethodGet, page, mimicry.Request{}, nil, "")

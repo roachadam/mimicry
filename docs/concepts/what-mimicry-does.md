@@ -16,6 +16,14 @@ Where no option exists, the [backlog](../backlog.md#options-that-do-not-exist)
 lists it as a candidate. Browsers have no such switches either, so none is
 needed to look like one.
 
+To see what a request will send before sending it, `Transport.Plan(req)`
+returns its header lines for each protocol, the protocol it would take
+now, its preflight if one would go first, and the headers you set in
+place of the browser's own. It sends nothing and changes nothing: no
+connection, no DNS lookup, no cookie touched, no preflight cached
+([how a request is built](how-a-request-is-built.md#5-seeing-it-before-it-is-sent),
+[decision 0034](../decisions/0034-request-plans.md)).
+
 ## At a glance
 
 | Behaviour | Extra traffic | Turn it off or change it |

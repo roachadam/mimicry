@@ -26,10 +26,12 @@ type pageLog struct {
 	// index finds a connection's entry in connections by its capture.
 	index map[*capture.Capture]int
 	// start is when the server started serving the page; websockets are
-	// the sockets the page opened, and results what its script reported
-	// of each (the websocket scenarios).
+	// the sockets the page opened, settled each one's channel, closed once
+	// its transport has ended or the server stopped reading it, and results
+	// what its script reported of each (the websocket scenarios).
 	start      time.Time
 	websockets []*capture.WebSocket
+	settled    []chan struct{}
 	results    []capture.WSResult
 	// quic is what the server's UDP socket received (the h3 scenarios):
 	// every client address's datagrams, the HTTP/3 connections served,
@@ -128,11 +130,13 @@ func (l *pageLog) openWebSocket(ws capture.WebSocket) *wsRecorder {
 	ws.Millis = now.Sub(l.start).Milliseconds()
 	ws.Frames = []capture.WSFrame{}
 	r := &wsRecorder{
-		log:   l,
-		ws:    &ws,
-		start: now,
+		log:     l,
+		ws:      &ws,
+		start:   now,
+		settled: make(chan struct{}),
 	}
 	l.websockets = append(l.websockets, r.ws)
+	l.settled = append(l.settled, r.settled)
 	return r
 }
 
@@ -145,8 +149,10 @@ func (l *pageLog) result(r capture.WSResult) {
 
 // page stops tracing every HTTP/2 connection and returns the whole page
 // load: each connection's trace, every HTTP/1.1 request, the WebSockets
-// and the QUIC connections as recorded so far.
+// (once they settled: settleWebSockets) and the QUIC connections as
+// recorded so far.
 func (l *pageLog) page() *capture.Page {
+	l.settleWebSockets()
 	quic := l.quicConns()
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -155,6 +161,7 @@ func (l *pageLog) page() *capture.Page {
 		Connections: append([]capture.Connection(nil), l.connections...),
 		WSResults:   append([]capture.WSResult(nil), l.results...),
 		QUIC:        quic,
+		Start:       l.start,
 	}
 	for _, s := range l.h2 {
 		p.H2 = append(p.H2, s.stopTracing())
@@ -167,6 +174,32 @@ func (l *pageLog) page() *capture.Page {
 	return p
 }
 
+// settleWebSockets waits until every WebSocket's transport has ended (or
+// the server stopped reading it), for at most wsSettle. A client ends a
+// socket's transport before it asks for /done, but the goroutine reading
+// the socket may see that after /done is answered; and the server ends a
+// socket whose close handshake started within WSLinger. Waiting records
+// who ended each transport, and when, whatever order the server's
+// goroutines run in. A socket never closed holds the page wsSettle.
+func (l *pageLog) settleWebSockets() {
+	l.mu.Lock()
+	settled := slices.Clone(l.settled)
+	l.mu.Unlock()
+	timeout := time.NewTimer(wsSettle)
+	defer timeout.Stop()
+	for _, ch := range settled {
+		select {
+		case <-ch:
+		case <-timeout.C:
+			return
+		}
+	}
+}
+
+// wsSettle bounds settleWebSockets: WSLinger, the longest a lingering
+// socket stays open, and a second for a loaded machine's timer.
+const wsSettle = WSLinger + time.Second
+
 // wsRecorder records one WebSocket's frames and how it ended into the
 // page log.
 type wsRecorder struct {
@@ -174,6 +207,10 @@ type wsRecorder struct {
 	ws  *capture.WebSocket
 	// start is when the handshake arrived.
 	start time.Time
+	// settled is closed once the transport ended or the server stopped
+	// reading the socket (settle).
+	settled chan struct{}
+	once    sync.Once
 }
 
 // frame records f, timed from the handshake.
@@ -189,11 +226,20 @@ func (r *wsRecorder) frame(f capture.WSFrame) {
 func (r *wsRecorder) closed(by string) {
 	ms := time.Since(r.start).Milliseconds()
 	r.log.mu.Lock()
-	defer r.log.mu.Unlock()
 	if r.ws.ClosedBy == "" {
 		r.ws.ClosedBy = by
 		r.ws.ClosedMillis = ms
 	}
+	r.log.mu.Unlock()
+	r.settle()
+}
+
+// settle marks the socket settled: its transport ended, or the server
+// stopped reading it.
+func (r *wsRecorder) settle() {
+	r.once.Do(func() {
+		close(r.settled)
+	})
 }
 
 // streamEnd records how the client ended its h2 stream.

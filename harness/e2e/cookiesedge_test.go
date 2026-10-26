@@ -140,6 +140,7 @@ func edgeCookie(page *capture.Page, st server.CookiesEdgeStep, plain bool) (stri
 func runCookiesEdgePage(t *testing.T, p *profile.Profile, sc *server.Scenario, steps []server.CookiesEdgeStep, plain map[string]bool) *capture.Page {
 	t.Helper()
 	s := startPage(t, p, sc)
+	s.planEvery()
 	target := func(st server.CookiesEdgeStep) *url.URL {
 		scheme, port := "https", s.port
 		if plain[st.Label] {

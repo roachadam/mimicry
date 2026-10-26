@@ -165,11 +165,24 @@ func h3Key(r route) string {
 }
 
 // h3Route reports whether req on r may use HTTP/3: the engine speaks it
-// for the profile, the request is https and direct (browsers never use
-// HTTP/3 through a proxy), and the profile measured its kind over HTTP/3.
+// for the profile and h3Refusal has nothing against it.
 func (e *Engine) h3Route(req *http.Request, r route) bool {
-	return e.quic != nil && req.URL.Scheme == "https" && r.proxy == nil &&
-		h3.Measured(e.profile, headerorder.PlanFrom(req.Context()))
+	return e.quic != nil && e.h3Refusal(req, r) == nil
+}
+
+// h3Refusal says why req on r never uses HTTP/3, or is nil: it must be
+// https and direct (browsers never use HTTP/3 through a proxy), and the
+// profile must have measured its kind over HTTP/3.
+func (e *Engine) h3Refusal(req *http.Request, r route) error {
+	switch {
+	case req.URL.Scheme != "https":
+		return errors.New("mimicry: plain http:// never goes over HTTP/3")
+	case r.proxy != nil:
+		return errors.New("mimicry: requests through a proxy never go over HTTP/3")
+	case !h3.Measured(e.profile, headerorder.PlanFrom(req.Context())):
+		return fmt.Errorf("%w: profile %s has no HTTP/3 list for this request, which goes on TCP", headerorder.ErrNotMeasured, e.profile.Name)
+	}
+	return nil
 }
 
 // originState returns r's origin state; e.quic.mu must be held.
@@ -250,11 +263,57 @@ func (e *Engine) tryH3(ctx context.Context, req *http.Request, r route) (resp *h
 	return resp, handled, nil, err
 }
 
+// way is how quicFor sends a request to an origin whose alternative is
+// available and that has no QUIC connection up.
+type way int
+
+const (
+	// wayTCP: on TCP, nothing started.
+	wayTCP way = iota
+	// wayGoAwayRace: on TCP after the server's GOAWAY; a resumed QUIC
+	// connection follows its response (RaceAfterGoAway).
+	wayGoAwayRace
+	// wayRevalidate: on TCP after a failure; a fresh attempt beside it
+	// once RevalidateMillis have passed.
+	wayRevalidate
+	// wayResume: the origin used HTTP/3 before (FallbackBackground): a
+	// resumed attempt holds the request, without a ticket it goes on TCP
+	// and an attempt validates in the background.
+	wayResume
+	// wayRace: the request waits for the origin's attempt as Fallback
+	// says (FallbackRace).
+	wayRace
+	// wayBeside: on the open TCP connection, an attempt starting beside
+	// it (SwitchNextRequest).
+	wayBeside
+)
+
+// pickWay picks how a request to o goes, tcpOpen when its route has an
+// HTTP/2 connection that can take it, as the profile's Discovery and
+// Fallback say. It changes nothing. e.quic.mu must be held.
+func (e *Engine) pickWay(o *origin, tcpOpen bool) way {
+	d := e.profile.HTTP3.Discovery
+	fb := d.Fallback
+	switch {
+	case d.RaceAfterGoAway && o.last != nil && o.last.GoneAway():
+		return wayGoAwayRace
+	case !o.revalidate.IsZero():
+		return wayRevalidate
+	case fb.Mode == profile.FallbackBackground && o.used:
+		return wayResume
+	case fb.Mode == profile.FallbackRace && (o.used || !tcpOpen):
+		return wayRace
+	case d.Switch == profile.SwitchNextRequest && tcpOpen:
+		return wayBeside
+	}
+	return wayTCP
+}
+
 // quicFor returns the QUIC connection a request on r goes on, or nil for
-// TCP, as the profile's Discovery and Fallback say: the origin's pooled
-// connection, or one it waits for (and how long), or none, maybe with an
-// attempt started in the background; race is the gate of an attempt that
-// races the request's TCP connection (tryH3).
+// TCP, as the profile's Discovery and Fallback say (pickWay): the origin's
+// pooled connection, or one it waits for (and how long), or none, maybe
+// with an attempt started in the background; race is the gate of an
+// attempt that races the request's TCP connection (tryH3).
 func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan struct{}, err error) {
 	if pooled, ok := e.quic.pool.Shared(h3Key(r)); ok {
 		return pooled, nil, nil
@@ -283,8 +342,8 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 	_, tcpOpen := e.pool.Shared(r.key)
 	var a *attempt
 	hold := false
-	switch {
-	case d.RaceAfterGoAway && o.last != nil && o.last.GoneAway():
+	switch e.pickWay(o, tcpOpen) {
+	case wayGoAwayRace:
 		// The request goes on TCP; a resumed QUIC connection follows it
 		// (Firefox), which the requests after wait for (Fallback.Hold).
 		// It starts RaceDelayMillis later, and never before the request
@@ -301,7 +360,7 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 				ticket: e.takeTicket(r),
 			})
 		}
-	case !o.revalidate.IsZero():
+	case wayRevalidate:
 		// A resumed attempt failed or the last connection died: TCP, and
 		// a fresh attempt beside it once RevalidateMillis have passed
 		// (its middle: the captures bound the threshold, no more).
@@ -309,7 +368,7 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 			e.dropTicket(r)
 			e.startAttempt(o, r, dialSpec{}) //nolint:contextcheck // the attempt outlives the request
 		}
-	case fb.Mode == profile.FallbackBackground && o.used:
+	case wayResume:
 		// The origin's next connection resumes, and the request goes on
 		// it in 0-RTT (Firefox after an idle timeout); without a ticket
 		// it validates in the background.
@@ -326,7 +385,7 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 				e.startAttempt(o, r, dialSpec{}) //nolint:contextcheck // the attempt outlives the request
 			}
 		}
-	case fb.Mode == profile.FallbackRace && (o.used || !tcpOpen):
+	case wayRace:
 		// The request needs the origin's QUIC connection and waits for
 		// it as Fallback says.
 		if a = o.attempt; a == nil {
@@ -335,7 +394,7 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 				pending: true,
 			})
 		}
-	case d.Switch == profile.SwitchNextRequest && tcpOpen:
+	case wayBeside:
 		// Chrome: QUIC starts beside the request, which goes on the open
 		// HTTP/2 connection.
 		if o.attempt == nil {
@@ -343,6 +402,7 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 				ticket: e.takeTicket(r),
 			})
 		}
+	case wayTCP:
 	}
 	q.mu.Unlock()
 	if a == nil {
@@ -405,12 +465,24 @@ func (e *Engine) await(ctx context.Context, a *attempt) (*quicConn, error) {
 }
 
 // takeTicket takes r's QUIC session ticket where the profile resumes QUIC
-// (with 0-RTT, every time: Safari never did), or returns nil.
+// (resumesQUIC), or returns nil.
 func (e *Engine) takeTicket(r route) *handshake.Ticket {
-	if !e.plan.Resumes() || !e.profile.QUIC.ZeroRTT {
+	if !e.resumesQUIC() {
 		return nil
 	}
 	return e.quic.tickets.Take(h3Key(r))
+}
+
+// hasTicket reports whether takeTicket would return a ticket for r,
+// taking none.
+func (e *Engine) hasTicket(r route) bool {
+	return e.resumesQUIC() && e.quic.tickets.Has(h3Key(r))
+}
+
+// resumesQUIC reports whether the profile resumes QUIC connections: with
+// 0-RTT, every time (Safari never did).
+func (e *Engine) resumesQUIC() bool {
+	return e.plan.Resumes() && e.profile.QUIC.ZeroRTT
 }
 
 // dropTicket forgets r's QUIC session ticket: a fresh validation follows a

@@ -62,13 +62,35 @@ type head struct {
 	priority string
 }
 
-// buildHead builds req's field list: pseudo-headers in the profile's
-// HTTP/3 order, then its headers through headerorder, as HTTP/2 sends
-// them, changed as the profile's HTTP3.Headers says (headers dropped,
-// alt-used placed). length is the body's: 0 for none, -1 when unknown. A
-// method, authority, path or field that is not valid on the wire is an
-// error.
-func (c *Conn) buildHead(req *http.Request, length int64) (head, error) {
+// Head returns the field list a connection for p, to the alternative
+// service at altHost and altPort (Options), sends for req (RoundTrip),
+// pseudo-headers first, built as RoundTrip builds it. An error is one
+// RoundTrip returns before sending anything.
+func Head(p *profile.Profile, altHost, altPort string, req *http.Request) ([]qpack.Field, error) {
+	hd, err := buildHead(p, altHost, altPort, req, bodyLength(req))
+	return hd.fields, err
+}
+
+// bodyLength is the length of req's body as RoundTrip sends it: 0 for
+// none, -1 when unknown (as in net/http, a body with ContentLength 0).
+func bodyLength(req *http.Request) int64 {
+	if req.Body == nil || req.Body == http.NoBody {
+		return 0
+	}
+	if req.ContentLength <= 0 {
+		return -1
+	}
+	return req.ContentLength
+}
+
+// buildHead builds req's field list for profile p, on a connection to
+// the alternative service at altHost and altPort: pseudo-headers in the
+// profile's HTTP/3 order, then its headers through headerorder, as
+// HTTP/2 sends them, changed as the profile's HTTP3.Headers says
+// (headers dropped, alt-used placed). length is the body's: 0 for none,
+// -1 when unknown. A method, authority, path or field that is not valid
+// on the wire is an error.
+func buildHead(p *profile.Profile, altHost, altPort string, req *http.Request, length int64) (head, error) {
 	method := req.Method
 	if method == "" {
 		method = http.MethodGet
@@ -111,7 +133,7 @@ func (c *Conn) buildHead(req *http.Request, length int64) (head, error) {
 			h["Content-Length"] = nil
 		}
 	}
-	list := c.p.Headers
+	list := p.Headers
 	var table *profile.HeaderTable
 	if plan != nil {
 		list, table = plan.Headers, plan.Table
@@ -119,20 +141,20 @@ func (c *Conn) buildHead(req *http.Request, length int64) (head, error) {
 	ordered := headerorder.Build(list, h, func(name string) bool {
 		return hopByHop[name]
 	}, table)
-	hd := c.p.HTTP3.Headers
+	hd := p.HTTP3.Headers
 	if hd != nil && !exact(plan) {
 		ordered = slices.DeleteFunc(ordered, func(f headerorder.Field) bool {
 			return slices.Contains(hd.Drop, f.Name)
 		})
 		if sendsAltUsed(hd) {
-			ordered = c.placeAltUsed(ordered, plan)
+			ordered = placeAltUsed(p, altUsedValue(altHost, altPort), ordered, plan)
 		}
 	}
 	ordered, err := headerorder.Place(ordered, headerorder.PlacementsFrom(req.Context()))
 	if err != nil {
 		return head{}, err
 	}
-	order := c.p.HTTP2.PseudoHeaderOrder
+	order := p.HTTP2.PseudoHeaderOrder
 	if hd != nil {
 		order = hd.PseudoHeaderOrder
 	}
@@ -158,7 +180,7 @@ func (c *Conn) buildHead(req *http.Request, length int64) (head, error) {
 		}
 		if f.Name == "cookie" {
 			crumbs := headerorder.Crumbs(f.Value)
-			if c.p.HTTP2.SplitCookie {
+			if p.HTTP2.SplitCookie {
 				for _, crumb := range crumbs {
 					out.fields = append(out.fields, qpack.Field{
 						Name:  f.Name,
@@ -177,17 +199,17 @@ func (c *Conn) buildHead(req *http.Request, length int64) (head, error) {
 	return out, nil
 }
 
-// placeAltUsed inserts alt-used, the connection's alternative service
-// (altUsedValue), where the profile's H3Headers.AltUsed says: before
-// the first field named the kind's anchor or a name after it in the list
-// the request takes (the kind's own where that lacks the anchor), else
-// last.
-func (c *Conn) placeAltUsed(fields []headerorder.Field, plan *headerorder.Plan) []headerorder.Field {
-	hd := c.p.HTTP3.Headers
-	anchor, own := hd.AltUsedNavigation, c.p.Headers
+// placeAltUsed inserts alt-used with value alt, the connection's
+// alternative service (altUsedValue), where p's H3Headers.AltUsed says:
+// before the first field named the kind's anchor or a name after it in
+// the list the request takes (the kind's own where that lacks the
+// anchor), else last.
+func placeAltUsed(p *profile.Profile, alt string, fields []headerorder.Field, plan *headerorder.Plan) []headerorder.Field {
+	hd := p.HTTP3.Headers
+	anchor, own := hd.AltUsedNavigation, p.Headers
 	if plan != nil && plan.Kind != "" {
 		anchor = hd.AltUsed[plan.Kind]
-		if k := c.p.Kinds[plan.Kind]; k != nil {
+		if k := p.Kinds[plan.Kind]; k != nil {
 			own = k.Headers
 		}
 	}
@@ -209,9 +231,9 @@ func (c *Conn) placeAltUsed(fields []headerorder.Field, plan *headerorder.Plan) 
 			after[strings.ToLower(h.Name)] = true
 		}
 	}
-	alt := headerorder.Field{
+	field := headerorder.Field{
 		Name:  "alt-used",
-		Value: altUsedValue(c.altHost, c.altPort),
+		Value: alt,
 	}
 	fields = slices.DeleteFunc(fields, func(f headerorder.Field) bool {
 		return f.Name == "alt-used"
@@ -222,7 +244,7 @@ func (c *Conn) placeAltUsed(fields []headerorder.Field, plan *headerorder.Plan) 
 	if at < 0 {
 		at = len(fields)
 	}
-	return slices.Insert(fields, at, alt)
+	return slices.Insert(fields, at, field)
 }
 
 // altUsedValue is alt-used's value as Firefox writes it

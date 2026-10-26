@@ -368,6 +368,7 @@ func kindsRequests() []kindsRequest {
 func runKindsPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *capture.Page {
 	t.Helper()
 	s := startPage(t, p, sc)
+	s.planEvery()
 	hosts, _, _ := sc.MultiHost()
 	page := s.url(hosts[0], "/")
 	s.send(http.MethodGet, page, mimicry.Request{}, nil, "")
@@ -408,6 +409,8 @@ type pageSession struct {
 	// quicReady is closed once an aioquic scenario's server serves QUIC
 	// (server.Server.OnQUICReady); nil for other scenarios.
 	quicReady chan struct{}
+	// planning plans every request sent, once planEvery is called.
+	planning *planning
 }
 
 func startPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *pageSession {
@@ -541,7 +544,8 @@ func (s *pageSession) send(method, target string, r mimicry.Request, h http.Head
 	_ = resp.Body.Close()
 }
 
-// finish asks for done and returns the page capture.
+// finish asks for done and returns the page capture, having checked the
+// plans of its requests where s plans them (planEvery).
 func (s *pageSession) finish(done string) *capture.Page {
 	s.t.Helper()
 	s.send(http.MethodGet, done, mimicry.Request{}, nil, "")
@@ -549,6 +553,9 @@ func (s *pageSession) finish(done string) *capture.Page {
 		select {
 		case c := <-s.captures:
 			if c.Finished && c.Page != nil {
+				if s.planning != nil {
+					s.checkPlans(c.Page)
+				}
 				return c.Page
 			}
 		case <-time.After(10 * time.Second):

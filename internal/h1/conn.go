@@ -24,41 +24,65 @@ import (
 
 // Conn is a client HTTP/1.1 connection carrying one request at a time.
 type Conn struct {
-	conn    net.Conn
-	br      *bufio.Reader
-	bw      *bufio.Writer
-	headers []profile.Header
-	// From the profile's http1 section, when it has one: its header list
-	// with lowercase names (for headerorder) and each name's casing.
-	h1Order []profile.Header
-	h1Case  map[string]string
-	// forward, when set, sends requests whole to an HTTP proxy (Forward).
-	forward *profile.Proxy
+	conn net.Conn
+	br   *bufio.Reader
+	bw   *bufio.Writer
+	// w writes its request heads.
+	w Writer
 	// tls is the connection's TLS state, which responses carry; nil for
 	// plain HTTP.
 	tls *tls.ConnectionState
 }
 
-// New wraps conn, which carries HTTP/1.1, plain or over TLS, for profile p.
-func New(conn net.Conn, p *profile.Profile) *Conn {
-	c := &Conn{
-		conn:    conn,
-		br:      bufio.NewReader(conn),
-		bw:      bufio.NewWriter(conn),
+// Writer builds request heads as a profile's browser writes them over
+// HTTP/1.1. A Conn writes with one; a request's head can be built with
+// the same code without a connection (the engine's plans). Make one
+// with NewWriter.
+type Writer struct {
+	headers []profile.Header
+	// From the profile's http1 section, when it has one: its header list
+	// with lowercase names (for headerorder) and each name's casing.
+	h1Order []profile.Header
+	h1Case  map[string]string
+	// forward, when set, writes requests whole for an HTTP proxy
+	// (Forward).
+	forward *profile.Proxy
+}
+
+// NewWriter returns the Writer for profile p.
+func NewWriter(p *profile.Profile) Writer {
+	w := Writer{
 		headers: p.Headers,
 	}
 	if p.HTTP1 != nil {
-		c.h1Order, c.h1Case = lowerList(p.HTTP1.Headers)
+		w.h1Order, w.h1Case = lowerList(p.HTTP1.Headers)
 	}
-	return c
+	return w
+}
+
+// Forward returns w writing requests to an HTTP proxy as the profile's
+// browser does (p): absolute-form request lines, Connection under p's
+// ForwardConnection name, and a request's Proxy-Authorization header
+// where p's ForwardAuth places it.
+func (w Writer) Forward(p *profile.Proxy) Writer {
+	w.forward = p
+	return w
+}
+
+// New wraps conn, which carries HTTP/1.1, plain or over TLS, for profile p.
+func New(conn net.Conn, p *profile.Profile) *Conn {
+	return &Conn{
+		conn: conn,
+		br:   bufio.NewReader(conn),
+		bw:   bufio.NewWriter(conn),
+		w:    NewWriter(p),
+	}
 }
 
 // Forward makes c send its requests to an HTTP proxy as the profile's
-// browser does (p): absolute-form request lines, Connection under p's
-// ForwardConnection name, and a request's Proxy-Authorization header where
-// p's ForwardAuth places it.
+// browser does (Writer.Forward).
 func (c *Conn) Forward(p *profile.Proxy) {
-	c.forward = p
+	c.w = c.w.Forward(p)
 }
 
 // SetTLS gives c's responses s, the connection's TLS state (nil for plain
@@ -224,14 +248,17 @@ func contextError(ctx context.Context, err error) error {
 	return err
 }
 
-// head is a request's head, validated and ready to write.
-type head struct {
-	line   string
-	fields []headerLine
+// Head is a request's head as written: its request line and header
+// lines, in order, without line ends.
+type Head struct {
+	Line   string
+	Fields []Field
 }
 
-type headerLine struct {
-	name, value string
+// Field is one header line, its name as written.
+type Field struct {
+	Name  string
+	Value string
 }
 
 // validTarget reports whether a request target has no spaces or control
@@ -248,7 +275,35 @@ func validTarget(s string) bool {
 	return true
 }
 
-func (c *Conn) buildHead(req *http.Request, framing http.Header) (*head, error) {
+// Head returns the head w writes for req, its framing
+// (Content-Length, Transfer-Encoding) from req's body as RoundTrip sends
+// it. An error is one RoundTrip returns before writing anything.
+func (w Writer) Head(req *http.Request) (Head, error) {
+	h, _, err := w.head(req)
+	return h, err
+}
+
+// head is Head, and whether the body goes chunked.
+func (w Writer) head(req *http.Request) (Head, bool, error) {
+	// As net/http: a body with ContentLength 0 has an unknown length.
+	hasBody := req.Body != nil && req.Body != http.NoBody
+	chunked := hasBody && req.ContentLength <= 0
+	var framing http.Header
+	switch {
+	case chunked:
+		framing = http.Header{
+			"Transfer-Encoding": {"chunked"},
+		}
+	case req.ContentLength > 0 || req.Method == http.MethodPost || req.Method == http.MethodPut || req.Method == http.MethodPatch:
+		framing = http.Header{
+			"Content-Length": {strconv.FormatInt(max(req.ContentLength, 0), 10)},
+		}
+	}
+	h, err := w.build(req, framing)
+	return h, chunked, err
+}
+
+func (w Writer) build(req *http.Request, framing http.Header) (Head, error) {
 	host := req.Host
 	if host == "" {
 		host = req.URL.Host
@@ -256,15 +311,15 @@ func (c *Conn) buildHead(req *http.Request, framing http.Header) (*head, error) 
 	// "h:" is "h" with the scheme's default port, as browsers write it.
 	host = strings.TrimSuffix(host, ":")
 	if !httpguts.ValidHostHeader(host) {
-		return nil, fmt.Errorf("h1: invalid Host %q", host)
+		return Head{}, fmt.Errorf("h1: invalid Host %q", host)
 	}
 	if !httpguts.ValidHeaderFieldName(req.Method) {
-		return nil, fmt.Errorf("h1: invalid method %q", req.Method)
+		return Head{}, fmt.Errorf("h1: invalid method %q", req.Method)
 	}
 	target := req.URL.RequestURI()
 	reqHeader := req.Header
 	auth := ""
-	if c.forward != nil {
+	if w.forward != nil {
 		target = req.URL.Scheme + "://" + strings.TrimSuffix(req.URL.Host, ":") + target
 		if auth = reqHeader.Get("Proxy-Authorization"); auth != "" {
 			reqHeader = reqHeader.Clone()
@@ -272,16 +327,16 @@ func (c *Conn) buildHead(req *http.Request, framing http.Header) (*head, error) 
 		}
 	}
 	if !validTarget(target) {
-		return nil, fmt.Errorf("h1: invalid request target %q", target)
+		return Head{}, fmt.Errorf("h1: invalid request target %q", target)
 	}
-	headers, h1Order, h1Case := c.headers, c.h1Order, c.h1Case
+	headers, h1Order, h1Case := w.headers, w.h1Order, w.h1Case
 	var (
 		table    *profile.HeaderTable
 		lowerOwn bool
 	)
 	if plan := headerorder.PlanFrom(req.Context()); plan != nil {
 		if plan.NoHTTP1 {
-			return nil, fmt.Errorf("%w: no HTTP/1.1 header list for this request (measured over HTTP/2 only)", headerorder.ErrNotMeasured)
+			return Head{}, fmt.Errorf("%w: no HTTP/1.1 header list for this request (measured over HTTP/2 only)", headerorder.ErrNotMeasured)
 		}
 		headers, h1Order, h1Case, table, lowerOwn = plan.Headers, nil, nil, plan.Table, plan.LowerOwn
 		if len(plan.HTTP1) > 0 {
@@ -322,22 +377,22 @@ func (c *Conn) buildHead(req *http.Request, framing http.Header) (*head, error) 
 	// included; Proxy-Authorization is placed after them.
 	fields, err := headerorder.Place(fields, headerorder.PlacementsFrom(req.Context()))
 	if err != nil {
-		return nil, err
+		return Head{}, err
 	}
 	at := len(fields)
 	if auth != "" {
 		answering, _ := req.Context().Value(ChallengeAnswered{}).(bool)
-		at = authIndex(fields, c.forward.ForwardAuth, answering)
+		at = authIndex(fields, w.forward.ForwardAuth, answering)
 	}
-	h := &head{
-		line:   req.Method + " " + target + " HTTP/1.1\r\n",
-		fields: make([]headerLine, 0, len(fields)+1),
+	h := Head{
+		Line:   req.Method + " " + target + " HTTP/1.1",
+		Fields: make([]Field, 0, len(fields)+1),
 	}
 	for i, f := range fields {
 		if auth != "" && i == at {
-			h.fields = append(h.fields, headerLine{
-				name:  "Proxy-Authorization",
-				value: auth,
+			h.Fields = append(h.Fields, Field{
+				Name:  "Proxy-Authorization",
+				Value: auth,
 			})
 		}
 		name := h1Case[f.Name]
@@ -351,62 +406,48 @@ func (c *Conn) buildHead(req *http.Request, framing http.Header) (*head, error) 
 			// spelled it, as browsers send a page's own headers (XHR).
 			name = callerCase(reqHeader, f.Name)
 		}
-		if c.forward != nil && f.Name == "connection" && c.forward.ForwardConnection != "" {
-			name = c.forward.ForwardConnection
+		if w.forward != nil && f.Name == "connection" && w.forward.ForwardConnection != "" {
+			name = w.forward.ForwardConnection
 		}
-		h.fields = append(h.fields, headerLine{
-			name:  name,
-			value: f.Value,
+		h.Fields = append(h.Fields, Field{
+			Name:  name,
+			Value: f.Value,
 		})
 	}
 	if auth != "" && at == len(fields) {
-		h.fields = append(h.fields, headerLine{
-			name:  "Proxy-Authorization",
-			value: auth,
+		h.Fields = append(h.Fields, Field{
+			Name:  "Proxy-Authorization",
+			Value: auth,
 		})
 	}
-	for _, f := range h.fields {
-		if !httpguts.ValidHeaderFieldName(f.name) {
-			return nil, fmt.Errorf("h1: invalid header name %q", f.name)
+	for _, f := range h.Fields {
+		if !httpguts.ValidHeaderFieldName(f.Name) {
+			return Head{}, fmt.Errorf("h1: invalid header name %q", f.Name)
 		}
-		if !httpguts.ValidHeaderFieldValue(f.value) {
-			return nil, fmt.Errorf("h1: invalid value for header %q", f.name)
+		if !httpguts.ValidHeaderFieldValue(f.Value) {
+			return Head{}, fmt.Errorf("h1: invalid value for header %q", f.Name)
 		}
 	}
 	return h, nil
 }
 
 func (c *Conn) writeRequest(req *http.Request) error {
-	// As net/http: a body with ContentLength 0 has an unknown length.
-	hasBody := req.Body != nil && req.Body != http.NoBody
-	chunked := hasBody && req.ContentLength <= 0
-	var framing http.Header
-	switch {
-	case chunked:
-		framing = http.Header{
-			"Transfer-Encoding": {"chunked"},
-		}
-	case req.ContentLength > 0 || req.Method == http.MethodPost || req.Method == http.MethodPut || req.Method == http.MethodPatch:
-		framing = http.Header{
-			"Content-Length": {strconv.FormatInt(max(req.ContentLength, 0), 10)},
-		}
-	}
-	h, err := c.buildHead(req, framing)
+	h, chunked, err := c.w.head(req)
 	if err != nil {
 		return err
 	}
-	if _, err := c.bw.WriteString(h.line); err != nil {
+	if _, err := c.bw.WriteString(h.Line + "\r\n"); err != nil {
 		return err
 	}
-	for _, f := range h.fields {
-		if _, err := c.bw.WriteString(f.name + ": " + f.value + "\r\n"); err != nil {
+	for _, f := range h.Fields {
+		if _, err := c.bw.WriteString(f.Name + ": " + f.Value + "\r\n"); err != nil {
 			return err
 		}
 	}
 	if _, err := c.bw.WriteString("\r\n"); err != nil {
 		return err
 	}
-	if hasBody {
+	if req.Body != nil && req.Body != http.NoBody {
 		if err := c.writeBody(req, chunked); err != nil {
 			return err
 		}

@@ -72,7 +72,7 @@ func TestHTTP3MatchesBrowser(t *testing.T) {
 				t.Fatal("the profile has no quic section")
 			}
 			for _, c := range capturedConns(t, name) {
-				for _, v := range quicRuleViolations(p, c.c) {
+				for _, v := range quicRuleViolations(p, c.c, t.Logf) {
 					t.Errorf("%s: the profile's rule does not describe the browser: %s", c.at, v)
 				}
 			}
@@ -179,7 +179,10 @@ const h3ScriptTurn = 10 * time.Millisecond
 // ending a page, and fetch('/done') from the last page.
 func runH3Page(t *testing.T, p *profile.Profile, sc *server.Scenario, browser *capture.Page) *capture.Page {
 	t.Helper()
+	// Its connections' ACK delays are held net of the process's stalls.
+	stalls.watch()
 	s := startPage(t, p, sc)
+	s.planEvery()
 	steps := h3Steps(sc)
 	order := sentOrder(browser)
 	host := steps[0].Host
@@ -252,6 +255,7 @@ func runH3Page(t *testing.T, p *profile.Profile, sc *server.Scenario, browser *c
 		select {
 		case c := <-s.captures:
 			if c.Finished && c.Page != nil {
+				s.checkPlans(c.Page)
 				return c.Page
 			}
 		case <-time.After(10 * time.Second):
@@ -774,7 +778,7 @@ func flightRefs(t *testing.T, name string) map[bool][]*quictrace.Conn {
 // holds it to the profile's rules.
 func compareQUICConn(t *testing.T, p *profile.Profile, got *quictrace.Conn, refs, flights []*quictrace.Conn, skip func(string) bool) {
 	t.Helper()
-	for _, v := range quicRuleViolations(p, got) {
+	for _, v := range quicRuleViolations(p, got, t.Logf) {
 		t.Errorf("rule: %s", v)
 	}
 	if len(flights) == 0 {

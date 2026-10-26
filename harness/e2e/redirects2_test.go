@@ -135,6 +135,7 @@ func mergeHosts(rows [][]string, hosts map[string]string) [][]string {
 func runRedirectsPage(t *testing.T, p *profile.Profile, sc *server.Scenario, steps []server.Redirects2Step) *capture.Page {
 	t.Helper()
 	s := startPage(t, p, sc)
+	s.planEvery()
 	// As NewClient: the Transport stops chains where browsers do.
 	s.client.CheckRedirect = func(*http.Request, []*http.Request) error {
 		return nil
@@ -320,6 +321,7 @@ func TestNavRedirectsMatchBrowser(t *testing.T) {
 					t.Fatalf("%s is no nav-redirect scenario", sc.Name)
 				}
 				s := startPage(t, p, sc)
+				s.planEvery()
 				start := s.url(step.Host, step.StartPath())
 				if step.Plain {
 					start = "http://" + net.JoinHostPort(step.Host, s.plainPort) + step.StartPath()

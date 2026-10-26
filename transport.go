@@ -281,24 +281,11 @@ func NewClient(cfg Config) (*http.Client, error) {
 // for its own method and headers, and, where the profile says so
 // (redirects.hop_preflight), because the request before it was.
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
-	ctx := req.Context()
-	r, _ := ctx.Value(requestKey{}).(Request)
-	exact, _ := ctx.Value(exactKey{}).(bool)
+	r, exact := madeAs(req)
 	callerSet := hasHeader(req.Header, "Accept-Encoding") || hasHeader(t.headers, "Accept-Encoding")
-	if req.Response != nil {
-		next, err := browserHop(t.profile, req, exact || r.Kind == Navigate)
-		if err != nil {
-			if req.Body != nil && req.Body != http.NoBody {
-				_ = req.Body.Close()
-			}
-			return nil, err
-		}
-		req = next
-	}
-	places, err := t.placementsFor(req, r, exact)
-	var s *sending
-	if err == nil {
-		s, err = t.prepare(req, r, exact)
+	req, o, err := t.outgoing(req, r, exact, toSend)
+	if err == nil && o.preflight != nil {
+		err = t.sendPreflight(o.preflight, r.IgnoreCORS)
 	}
 	if err != nil {
 		// The RoundTripper contract: the body is closed, even on errors.
@@ -307,29 +294,10 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 		return nil, err
 	}
-	h := s.header
-	ctx = pool.WithPartition(ctx, s.partition)
-	if s.plan != nil {
-		ctx = headerorder.WithPlan(ctx, s.plan)
-	}
-	if s.preflighted {
-		// The next hop's preflight may depend on it (hopPreflight): it
-		// sees this request as its Response's.
-		ctx = context.WithValue(ctx, preflightedKey{}, true)
-	}
-	if len(places) > 0 {
-		// The caller's request only: its preflight went out above.
-		ctx = headerorder.WithPlacements(ctx, places)
-	}
-	if t.jar != nil && s.credentialed && !hasHeader(h, "Cookie") {
-		if line := cookies.Header(t.jar.Cookies(s.cookies)); line != "" {
-			h.Set("Cookie", line)
-		}
-	}
-	req = req.Clone(ctx)
-	req.Header = h
+	req = t.ready(req, o, toSend)
 	resp, err := t.engine.RoundTrip(req)
 	err = publicError(err)
+	s := o.s
 	if err == nil && t.jar != nil && s.credentialed {
 		t.jar.SetCookies(s.cookies, resp.Header.Values("Set-Cookie"))
 	}
@@ -341,9 +309,109 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.finish(req, r, exact, callerSet, resp, err)
 }
 
-// prepare returns how to send req, made as r describes (or Exact), after
-// its CORS preflight when it needs one.
-func (t *Transport) prepare(req *http.Request, r Request, exact bool) (*sending, error) {
+// madeAs returns how req is made: as With's Request describes (a
+// navigation by default), or Exact.
+func madeAs(req *http.Request) (r Request, exact bool) {
+	ctx := req.Context()
+	r, _ = ctx.Value(requestKey{}).(Request)
+	exact, _ = ctx.Value(exactKey{}).(bool)
+	return r, exact
+}
+
+// use is what a request is worked out for: to send it (RoundTrip) or
+// only to plan it (Plan). The two take the same path and differ only
+// where sending changes something: a redirect hop's body, taken from the
+// request before (browserHop), and the cookie jar's last-access times
+// and expired cookies (ready).
+type use int
+
+const (
+	toSend use = iota
+	toPlan
+)
+
+// out is how a request goes out: how it was resolved, its header
+// placements, and the CORS preflight to send before it (nil when it
+// needs none or a cached answer allows it).
+type out struct {
+	s         *sending
+	places    []headerorder.Placement
+	preflight *preflightSend
+}
+
+// outgoing works out how req, made as r describes (or exact), goes out,
+// up to its preflight: for a redirect's hop, the request the browser
+// sends (browserHop, returned in req's place, also with an error once
+// made), then its placements and how it is resolved (prepare). It sends
+// nothing; RoundTrip and Plan both start here.
+func (t *Transport) outgoing(req *http.Request, r Request, exact bool, u use) (*http.Request, out, error) {
+	if req.Response != nil {
+		next, err := browserHop(t.profile, req, exact || r.Kind == Navigate, u)
+		if err != nil {
+			return req, out{}, err
+		}
+		req = next
+	}
+	places, err := t.placementsFor(req, r, exact)
+	if err != nil {
+		return req, out{}, err
+	}
+	s, pf, err := t.prepare(req, r, exact)
+	if err != nil {
+		return req, out{}, err
+	}
+	return req, out{
+		s:         s,
+		places:    places,
+		preflight: pf,
+	}, nil
+}
+
+// ready returns req as the engine sends it, made as o says: on a context
+// carrying its partition, plan, placements and whether it was
+// preflighted, with its headers and the jar's cookies (read without
+// changing the jar when only planning).
+func (t *Transport) ready(req *http.Request, o out, u use) *http.Request {
+	s := o.s
+	h := s.header
+	ctx := pool.WithPartition(req.Context(), s.partition)
+	if s.plan != nil {
+		ctx = headerorder.WithPlan(ctx, s.plan)
+	}
+	if s.preflighted {
+		// The next hop's preflight may depend on it (hopPreflight): it
+		// sees this request as its Response's.
+		ctx = context.WithValue(ctx, preflightedKey{}, true)
+	}
+	if len(o.places) > 0 {
+		// The caller's request only: its preflight goes without.
+		ctx = headerorder.WithPlacements(ctx, o.places)
+	}
+	if line := t.cookieLine(s, u); line != "" {
+		h.Set("Cookie", line)
+	}
+	req = req.Clone(ctx)
+	req.Header = h
+	return req
+}
+
+// cookieLine is the Cookie line the jar adds to a request resolved as s:
+// "" without a jar, credentials, or cookies, or when the request sets
+// its own. Only to send does reading it update the jar (Cookies; Peek
+// otherwise).
+func (t *Transport) cookieLine(s *sending, u use) string {
+	if t.jar == nil || !s.credentialed || hasHeader(s.header, "Cookie") {
+		return ""
+	}
+	if u == toPlan {
+		return cookies.Header(t.jar.Peek(s.cookies))
+	}
+	return cookies.Header(t.jar.Cookies(s.cookies))
+}
+
+// prepare returns how to send req, made as r describes (or Exact), and
+// its CORS preflight when it needs one that no cached answer spares.
+func (t *Transport) prepare(req *http.Request, r Request, exact bool) (*sending, *preflightSend, error) {
 	if exact {
 		h := req.Header.Clone()
 		if h == nil {
@@ -363,11 +431,12 @@ func (t *Transport) prepare(req *http.Request, r Request, exact bool) (*sending,
 				Page:       r.From,
 				Redirects:  chain[:len(chain)-1],
 			},
-		}, nil
+			variant: -1,
+		}, nil, nil
 	}
 	if r.Kind == kindPreflight || r.Kind == kindWebSocket {
 		// The transport's own: callers never make one.
-		return nil, fmt.Errorf("mimicry: unknown request kind %d", int(r.Kind))
+		return nil, nil, fmt.Errorf("mimicry: unknown request kind %d", int(r.Kind))
 	}
 	from := r.From
 	if from == nil && r.Kind != Navigate {
@@ -382,12 +451,14 @@ func (t *Transport) prepare(req *http.Request, r Request, exact bool) (*sending,
 	}
 	s, err := resolve(t.profile, req, r, from, t.headers)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	if s.preflighted, err = t.preflight(req, r, from, s.credentialed, s.header); err != nil {
-		return nil, err
+	needed, pf, err := t.preflightFor(req, r, from, s.credentialed, s.header)
+	if err != nil {
+		return nil, nil, err
 	}
-	return s, nil
+	s.preflighted = needed
+	return s, pf, nil
 }
 
 // finish records the last navigation and decodes the body, as RoundTrip

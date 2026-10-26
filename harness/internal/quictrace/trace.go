@@ -1,6 +1,8 @@
 package quictrace
 
 import (
+	"time"
+
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -14,6 +16,10 @@ type Conn struct {
 	// started serving the page (the same clock as the page's other
 	// connections).
 	Millis int64 `json:"ms"`
+	// Start is when its first datagram arrived, on the recording
+	// process's clock: a test lines the trace up with its own by it. Not
+	// stored, so zero in a capture read from a file.
+	Start time.Time `json:"-"`
 	// Addr is the client address it started on (Received.Addr), for the
 	// server to match it with the connections it served; not stored.
 	Addr string `json:"-"`

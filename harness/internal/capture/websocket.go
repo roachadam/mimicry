@@ -42,9 +42,11 @@ type WebSocket struct {
 	Frames []WSFrame `json:"frames"`
 	// ClosedBy is the side that ended the transport first: "client" or
 	// "server" (the TCP connection for http/1.1, the stream for h2); ""
-	// while it was open. After a close handshake the server waits a few
-	// seconds before ending it (server.WSLinger), so a client that closes
-	// on its own shows. ClosedMillis is when, since the handshake.
+	// if it was still open when the page was taken, which the server
+	// delays until every socket's transport has ended (up to
+	// server.WSLinger and a second). After a close handshake the server
+	// waits WSLinger before ending it, so a client that closes on its own
+	// shows. ClosedMillis is when, since the handshake.
 	ClosedBy     string `json:"closed_by,omitempty"`
 	ClosedMillis int64  `json:"closed_ms,omitempty"`
 	// StreamEnd is how the client ended its h2 stream: "END_STREAM" or

@@ -756,6 +756,96 @@ func ExampleErrNotMeasured() {
 	// 200 OK
 }
 
+// Debugging a fetch() ported from tls-client: Plan shows what a request
+// would send, line by line, over the protocol it would take, without
+// sending it, and catches the header literals the port copied over the
+// browser's own values. (Plan.String prints all of it for a log.)
+func ExampleTransport_Plan() {
+	shop := startShop(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("server:", r.Method, r.URL.Path, "sec-fetch-site:", r.Header.Get("Sec-Fetch-Site"))
+		if r.URL.Path == "/p/42" {
+			w.Header().Set("Set-Cookie", "session=s1; Path=/; Secure; HttpOnly")
+		}
+	})
+	defer shop.Close()
+
+	client, err := mimicry.NewClient(mimicry.Config{
+		Profile: profiles.Chrome155MacOS(),
+		// Only to reach the local stand-in shop; nil for real sites.
+		RootCAs:     shop.RootCAs,
+		DialContext: shop.DialContext,
+	})
+	if err != nil {
+		panic(err)
+	}
+	tr := client.Transport.(*mimicry.Transport)
+	ctx := context.Background()
+	page, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://www.shop.test/p/42", nil)
+	if err != nil {
+		panic(err)
+	}
+	resp, err := client.Do(page)
+	if err != nil {
+		panic(err)
+	}
+	_ = resp.Body.Close()
+
+	// The stock API call as ported, with a header literal of the old
+	// code's left in.
+	api, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://www.shop.test/api/stock/42", nil)
+	if err != nil {
+		panic(err)
+	}
+	api.Header.Set("Sec-Fetch-Site", "none")
+	plan, err := tr.Plan(mimicry.As(api, mimicry.Fetch))
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("variant:", plan.Variant, plan.Condition)
+	for _, o := range plan.Overrides {
+		fmt.Printf("override: %s: %q replaced by %q\n", o.Name, o.Mimicry, o.Caller)
+	}
+
+	// Drop it, look again, and send what was planned.
+	api.Header.Del("Sec-Fetch-Site")
+	plan, err = tr.Plan(mimicry.As(api, mimicry.Fetch))
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("overrides:", len(plan.Overrides), "protocol:", plan.Protocol)
+	for _, h := range plan.HTTP2.Headers {
+		fmt.Printf("  %s: %s\n", h.Name, h.Value)
+	}
+	resp, err = client.Do(mimicry.As(api, mimicry.Fetch))
+	if err != nil {
+		panic(err)
+	}
+	_ = resp.Body.Close()
+	// Output:
+	// server: GET /p/42 sec-fetch-site: none
+	// variant: kinds.fetch.headers [method GET site same-origin]
+	// override: sec-fetch-site: "same-origin" replaced by ["none"]
+	// overrides: 0 protocol: HTTP/2.0
+	//   :method: GET
+	//   :authority: www.shop.test
+	//   :scheme: https
+	//   :path: /api/stock/42
+	//   sec-ch-ua-platform: "macOS"
+	//   user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36
+	//   sec-ch-ua: "Google Chrome";v="155", "Chromium";v="155", "Not(A:Brand";v="24"
+	//   sec-ch-ua-mobile: ?0
+	//   accept: */*
+	//   sec-fetch-site: same-origin
+	//   sec-fetch-mode: cors
+	//   sec-fetch-dest: empty
+	//   referer: https://www.shop.test/p/42
+	//   accept-encoding: gzip, deflate, br, zstd
+	//   accept-language: en-US,en;q=0.9
+	//   cookie: session=s1
+	//   priority: u=1, i
+	// server: GET /api/stock/42 sec-fetch-site: same-origin
+}
+
 // A WebSocket from the page, opened as the browser opens one: its
 // handshake, cookies and frames.
 func ExampleTransport_DialWebSocket() {

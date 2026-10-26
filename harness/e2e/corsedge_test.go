@@ -40,6 +40,7 @@ func TestCORSEdgeMatchesBrowser(t *testing.T) {
 				t.Fatal(err)
 			}
 			s := startPage(t, p, server.CORSEdge)
+			s.planEvery()
 			// As NewClient: the Transport stops chains where browsers do,
 			// not http.Client's default 10.
 			s.client.CheckRedirect = func(*http.Request, []*http.Request) error {

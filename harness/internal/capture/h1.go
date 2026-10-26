@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/roachadam/mimicry/harness/internal/h2trace"
 	"github.com/roachadam/mimicry/harness/internal/quictrace"
@@ -45,6 +46,11 @@ type Page struct {
 	// capture beyond its defaults, each saying why (see cmd/capture's
 	// -h3-local-roots).
 	Conditions []string `json:"conditions,omitempty"`
+	// Start is when the server started serving the page, the zero of its
+	// times in ms, on the recording process's clock: a test lines the page
+	// up with its own by it. Not stored, so zero in a capture read from a
+	// file.
+	Start time.Time `json:"-"`
 }
 
 // Connection is one connection of a page, in the order their handshakes

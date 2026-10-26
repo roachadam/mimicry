@@ -1373,14 +1373,12 @@ it.
   being retried; 80 reruns of the row then passed. Possibly a race
   between the reset and the retry decision in `internal/h3` or the engine.
   Unrun so far: the row in a loop under `-race` and CPU load. Small.
-- **Load flake: `TestHTTP3MatchesBrowser` `h3-page` (Chrome and
-  Firefox).** Once, in a full harness `go test -race` run (2026-10-26),
-  both failed with "rule: ACK delay ~110 ms, more than twice
-  max_ack_delay 20/25 ms": the whole suite starved mimicry's QUIC loop of
-  CPU, so its ACK went late. They passed 3 of 3 alone and in the next full
-  run. A fix bounds the check by the connection's own scheduling (how
-  late its loop actually ran, not wall time), never by loosening the
-  bound. Small to medium.
+- **Load flake: `TestResumptionMatchesBrowser/firefox-158-macos/resume-tls12`.**
+  Once, in a full harness `go test -race` run (2026-10-26):
+  `h1.kinds-a.test` 5 connections, 2 resumed where every sample has 1;
+  the next two full runs passed. Likely a TLS 1.2 ticket that arrived
+  (or did not) before the next HTTP/1.1 connection dialled, under load.
+  Not investigated yet. Small.
 - **Tests on a sleeping Mac.** A laptop on battery with its lid closed
   sleeps mid-run; the monotonic clock stops, so the e2e tests (and their
   `-timeout`) freeze rather than fail. Run long suites on AC power with

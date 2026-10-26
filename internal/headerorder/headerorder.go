@@ -186,6 +186,51 @@ func Build(prof []profile.Header, h http.Header, skip func(name string) bool, ta
 	return fields
 }
 
+// Replacement is a list header whose value Build takes from the
+// request's headers instead: the list's value, and the request's (none:
+// suppressed). Name is lowercase.
+type Replacement struct {
+	Name   string
+	List   string
+	Values []string
+}
+
+// Replaced reports, by Build's rules, what Build does to prof's values
+// for a request with headers h: each header prof gives a value that h
+// sets otherwise (other values, or none: suppressed) is replaced, and,
+// when h sets Key, each header prof gives a value that Key does not name
+// and h does not set is dropped. Both in prof's order, names lowercase.
+func Replaced(prof []profile.Header, h http.Header) (replaced []Replacement, dropped []string) {
+	values := make(map[string][]string, len(h))
+	var override []string
+	for k, v := range h {
+		if strings.EqualFold(k, Key) {
+			for _, name := range v {
+				override = append(override, strings.ToLower(name))
+			}
+			continue
+		}
+		name := strings.ToLower(k)
+		values[name] = append(values[name], v...)
+	}
+	for _, ph := range prof {
+		name := strings.ToLower(ph.Name)
+		v, set := values[name]
+		switch {
+		case ph.Value == "" || name == profile.OtherHeaders:
+		case set && !slices.Equal(v, []string{ph.Value}):
+			replaced = append(replaced, Replacement{
+				Name:   name,
+				List:   ph.Value,
+				Values: v,
+			})
+		case !set && len(override) > 0 && !slices.Contains(override, name):
+			dropped = append(dropped, name)
+		}
+	}
+	return replaced, dropped
+}
+
 // tableRun returns the run table sends for a request whose list is order
 // and whose own headers are rest, sends reporting which names go out: nil
 // without a table, a page header, a table name the list sends, or with an

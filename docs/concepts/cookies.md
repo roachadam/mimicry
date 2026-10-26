@@ -33,7 +33,10 @@ client, err := mimicry.NewClient(mimicry.Config{
 ```
 
 - `jar.Cookies(cookies.Request{…})` is exactly what a request would send,
-  in the browser's order; `cookies.Header` formats it.
+  in the browser's order, and updates those cookies' last-access times
+  (which the per-site limit evicts by); `jar.Peek` returns the same and
+  changes nothing (`Transport.Plan` reads the jar with it);
+  `cookies.Header` formats either.
 - `All`, `Set` (no URL needed), `Delete`, `Clear`, `ClearExpired`,
   `ClearSession`, `Clone`.
 - `SetString(domain, "a=1; b=2")` seeds cookies from a `Cookie` header

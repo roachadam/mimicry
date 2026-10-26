@@ -58,6 +58,7 @@ Related:
 | [0031](decisions/0031-cookies-for-any-site.md) | Seeding cookies from strings, and cookies for any site | Accepted |
 | [0032](decisions/0032-certificate-pinning.md) | Certificate pinning and VerifyConnection on every handshake | Accepted |
 | [0033](decisions/0033-proxy-errors.md) | Proxy failures are a `*ProxyError` | Accepted |
+| [0034](decisions/0034-request-plans.md) | Request plans: RoundTrip's path, without sending | Accepted |
 
 New records copy [`decisions/template.md`](decisions/template.md).
 

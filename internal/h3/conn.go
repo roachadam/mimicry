@@ -681,14 +681,8 @@ func (c *Conn) release() {
 func (c *Conn) RoundTrip(req *http.Request) (*http.Response, error) {
 	ctx := req.Context()
 	hasBody := req.Body != nil && req.Body != http.NoBody
-	var length int64
-	if hasBody {
-		length = req.ContentLength
-		if length <= 0 {
-			length = -1
-		}
-	}
-	hd, err := c.buildHead(req, length)
+	length := bodyLength(req)
+	hd, err := buildHead(c.p, c.altHost, c.altPort, req, length)
 	if err != nil {
 		closeBody(req)
 		return nil, err

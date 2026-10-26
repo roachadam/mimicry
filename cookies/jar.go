@@ -449,6 +449,20 @@ func (j *Jar) store(key string, bucket []entry) {
 // Cookies returns the cookies the browser would send with r, in its order.
 // It updates their last-access times.
 func (j *Jar) Cookies(r Request) []*Cookie {
+	return j.cookies(r, true)
+}
+
+// Peek returns the cookies Cookies would, changing nothing: their
+// last-access times stay, and expired cookies stay stored until a request
+// or ClearExpired removes them. mimicry.Transport.Plan reads the jar
+// with it.
+func (j *Jar) Peek(r Request) []*Cookie {
+	return j.cookies(r, false)
+}
+
+// cookies is Cookies, updating last-access times and dropping expired
+// cookies only with touch.
+func (j *Jar) cookies(r Request, touch bool) []*Cookie {
 	r = httpSchemes(r)
 	ctx := j.contextOf(r)
 	if ctx.blocked {
@@ -462,8 +476,12 @@ func (j *Jar) Cookies(r Request) []*Cookie {
 	key := domainKey(host)
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	bucket := j.live(key, now)
-	if anySite := j.live(AnySite, now); key != AnySite && len(anySite) > 0 {
+	live := j.live
+	if !touch {
+		live = j.unexpired
+	}
+	bucket := live(key, now)
+	if anySite := live(AnySite, now); key != AnySite && len(anySite) > 0 {
 		// Every site's request also looks at the AnySite cookies.
 		bucket = slices.Concat(bucket, anySite)
 	}
@@ -503,7 +521,9 @@ func (j *Jar) Cookies(r Request) []*Cookie {
 				}
 			}
 		}
-		c.LastAccess = now
+		if touch {
+			c.LastAccess = now
+		}
 		matched = append(matched, e)
 	}
 	j.sortForRequest(matched)
@@ -519,10 +539,27 @@ func (j *Jar) Cookies(r Request) []*Cookie {
 // Call with the lock held.
 func (j *Jar) live(key string, now time.Time) []entry {
 	bucket := slices.DeleteFunc(j.domains[key], func(e entry) bool {
-		return !e.c.Expires.IsZero() && !e.c.Expires.After(now)
+		return e.expired(now)
 	})
 	j.store(key, bucket)
 	return bucket
+}
+
+// unexpired returns the cookies kept under key that have not expired,
+// leaving the jar as it is. Call with the lock held.
+func (j *Jar) unexpired(key string, now time.Time) []entry {
+	var out []entry
+	for _, e := range j.domains[key] {
+		if !e.expired(now) {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// expired reports whether e's cookie has expired at now.
+func (e entry) expired(now time.Time) bool {
+	return !e.c.Expires.IsZero() && !e.c.Expires.After(now)
 }
 
 // sortForRequest puts cookies in the browser's order.

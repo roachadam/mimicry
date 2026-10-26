@@ -45,19 +45,20 @@ const h3PageHost = "www.h3-a.test"
 //     (the move's timing is checkPathMoves's rule, in the connection's
 //     own probe timeouts); for one the server never completed, its
 //     datagrams and when its last went (the give-up); when it started
-//     after the request before it (its trigger) and after the host's TCP
-//     connection before it;
+//     after the request before it (its trigger);
 //   - per TCP connection of each host that carried requests: when it
-//     started after the request before it and after the host's QUIC
-//     attempt before it (the race), and the GOAWAY the client sent on
-//     it; how many the client opened and declined.
+//     started after the request before it and after the QUIC attempt the
+//     same request started (the race; negative where TCP came first), and
+//     the GOAWAY the client sent on it; how many the client opened and
+//     declined.
 //
 // Times must lie within the browser's samples' range widened by
-// edgeSlack; categories and counts are held as TestHTTP3MatchesBrowser
-// holds its features. Known differences are pinned in h3EdgeGaps; a
-// listed gap that no longer appears fails. The profiles and scenarios run
-// in parallel; the test takes as long as the longest page (h3-broken,
-// about 75 s).
+// edgeSlack; one of mimicry's from a request on may lie above it by no
+// more than this process was stalled within it (compareTimes). Categories
+// and counts are held as TestHTTP3MatchesBrowser holds its features. Known
+// differences are pinned in h3EdgeGaps; a listed gap that no longer
+// appears fails. The profiles and scenarios run in parallel; the test
+// takes as long as the longest page (h3-broken, about 75 s).
 func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
 	for _, name := range profiles.Names() {
 		for _, sc := range []*server.Scenario{server.H3Blackhole, server.H3Broken, server.H3VN, server.H3V2} {
@@ -162,6 +163,8 @@ func edgeGapsFor(t *testing.T, name string) (skip func(key string) bool, unused 
 // when the page is taken is cancelled.
 func runH3Schedule(t *testing.T, p *profile.Profile, sc *server.Scenario, browser *capture.Page) *capture.Page {
 	t.Helper()
+	// Its times from a request on are net of the process's stalls.
+	stalls.watch()
 	s := startPage(t, p, sc)
 	if s.quicReady != nil {
 		// The browser's page loads long after aioquic is up; a datagram
@@ -287,8 +290,9 @@ func doneHost(browser *capture.Page) string {
 
 // edgeSlack is how far outside the browser's samples' range a time may
 // lie: loopback handshakes, timers and a loaded machine's scheduling.
+// hi may be negative (a race's signed gap).
 func edgeSlack(hi int) int {
-	return 50 + hi/20
+	return 50 + max(hi, -hi)/20
 }
 
 // raceWindow is how close a host's TCP connection and QUIC attempt must
@@ -481,18 +485,21 @@ func outcome(c *quictrace.Conn) string {
 }
 
 // edgeFeatures are what compareEdge compares: categories and counts
-// (features) and times in ms (ms).
-func edgeFeatures(page *capture.Page) (features, map[string]int) {
+// (features), times in ms (ms) and, for a time from when the page made a
+// request (a request's delay, a connection's start after its trigger),
+// how long this process was stalled within it (stalled: stalledIn).
+func edgeFeatures(page *capture.Page) (f features, ms, stalled map[string]int) {
 	v := viewEdge(page)
-	f := newFeatures()
-	ms := map[string]int{}
+	f = newFeatures()
+	ms, stalled = map[string]int{}, map[string]int{}
 	for _, r := range v.requests {
 		if r.label == "/" || r.label == "/done" {
 			continue
 		}
 		f.cat["request "+r.label+" sent"] = strings.Join(r.sent, ", ")
 		if r.delay >= 0 {
-			ms["request "+r.label+" delay"] = int(r.delay)
+			k := "request " + r.label + " delay"
+			ms[k], stalled[k] = int(r.delay), stalledIn(page, r.issued, r.delay)
 		}
 	}
 	// The TCP connection that carried the page itself has no trigger: it
@@ -522,7 +529,7 @@ func edgeFeatures(page *capture.Page) (features, map[string]int) {
 			if tr := v.trigger(c.Millis); tr != nil {
 				quicTrigger[c] = tr
 				f.cat[k+" trigger"] = tr.label
-				ms[k+" after its trigger"] = int(c.Millis - tr.issued)
+				ms[k+" after its trigger"], stalled[k+" after its trigger"] = int(c.Millis-tr.issued), stalledIn(page, tr.issued, c.Millis-tr.issued)
 			}
 			if o := outcome(c); o != "handshake" && len(c.Datagrams) > 0 {
 				f.num[k+" datagrams"] = len(c.Datagrams)
@@ -541,19 +548,22 @@ func edgeFeatures(page *capture.Page) (features, map[string]int) {
 			k := fmt.Sprintf("TCP %s #%d", host, j+1)
 			if r := tcpTrigger[tr]; r != nil {
 				f.cat[k+" trigger"] = r.label
-				ms[k+" after its trigger"] = int(tr.Millis - r.issued)
+				ms[k+" after its trigger"], stalled[k+" after its trigger"] = int(tr.Millis-r.issued), stalledIn(page, r.issued, tr.Millis-r.issued)
 			}
 			// A race: the request that started a QUIC attempt started
-			// this connection too.
+			// this connection too. The gap is signed (negative where the
+			// TCP connection came first): the two start side by side, so
+			// which arrives first by a few milliseconds is the client's
+			// scheduling (Chrome's attempt leads its TCP connection by 2–4
+			// ms; mimicry's hello is built while its TCP connects, and a
+			// loaded machine can put either first), not a rule; the
+			// order's weight is in the gap, held to the samples' range.
 			for i, c := range v.quic[host] {
 				if r := tcpTrigger[tr]; r == nil || quicTrigger[c] != r {
 					continue
 				}
-				switch d := tr.Millis - c.Millis; {
-				case d >= 0 && d <= raceWindow:
+				if d := tr.Millis - c.Millis; d >= -raceWindow && d <= raceWindow {
 					ms[fmt.Sprintf("%s after QUIC #%d", k, i+1)] = int(d)
-				case d < 0 && -d <= raceWindow:
-					ms[fmt.Sprintf("QUIC %s #%d after %s", host, i+1, k)] = int(-d)
 				}
 			}
 			goaway := "no"
@@ -568,7 +578,18 @@ func edgeFeatures(page *capture.Page) (features, map[string]int) {
 	for host, n := range v.declined {
 		f.num["TCP "+host+" declined"] = n
 	}
-	return f, ms
+	return f, ms, stalled
+}
+
+// stalledIn is how long this process was stalled (stalls) within the d ms
+// of page's clock from from on; 0 for a capture read from a file (the
+// browser's), which has no Start.
+func stalledIn(page *capture.Page, from, d int64) int {
+	if page.Start.IsZero() || d <= 0 {
+		return 0
+	}
+	at := page.Start.Add(time.Duration(from) * time.Millisecond)
+	return int(stalls.stalled(at, at.Add(time.Duration(d)*time.Millisecond)).Milliseconds())
 }
 
 // pathMove is how a QUIC connection moved to a new client address, in µs
@@ -783,16 +804,16 @@ func checkPathMoves(t *testing.T, p *profile.Profile, who string, page *capture.
 // sample's moves to a new path to the profile's rule (checkPathMoves).
 func compareEdge(t *testing.T, p *profile.Profile, got *capture.Page, want []*capture.Page, skip func(string) bool) {
 	t.Helper()
-	gf, gms := edgeFeatures(got)
+	gf, gms, stalled := edgeFeatures(got)
 	refs := make([]features, 0, len(want))
 	refMS := make([]map[string]int, 0, len(want))
 	for _, w := range want {
-		f, ms := edgeFeatures(w)
+		f, ms, _ := edgeFeatures(w)
 		refs = append(refs, f)
 		refMS = append(refMS, ms)
 	}
 	compareFeatures(t, "edge", gf, refs, skip)
-	compareTimes(t, gms, refMS, skip)
+	compareTimes(t, gms, stalled, refMS, skip)
 	checkPathMoves(t, p, "mimicry", got)
 	for i, w := range want {
 		checkPathMoves(t, p, fmt.Sprintf("browser sample %d", i+1), w)
@@ -828,8 +849,11 @@ func vnRetries(page *capture.Page) []*quictrace.Conn {
 }
 
 // compareTimes holds each of got's times to the refs' range widened by
-// edgeSlack: present where every ref has it, absent where none does.
-func compareTimes(t *testing.T, got map[string]int, refs []map[string]int, skip func(string) bool) {
+// edgeSlack: present where every ref has it, absent where none does. A
+// stall only lengthens a time, so one above the range passes if it is in
+// range less the time this process was stalled within it (stalled), and
+// one below never does.
+func compareTimes(t *testing.T, got, stalled map[string]int, refs []map[string]int, skip func(string) bool) {
 	t.Helper()
 	keys := map[string]bool{}
 	for k := range got {
@@ -858,14 +882,18 @@ func compareTimes(t *testing.T, got map[string]int, refs []map[string]int, skip 
 		g, ok := got[k]
 		slack := edgeSlack(hi)
 		label := "edge " + k + " ms"
+		under := ok && g < lo-slack
+		over := ok && g > hi+slack && g-stalled[k] > hi+slack
 		switch {
-		case (in == 0 || !ok && in == len(refs) || ok && (g < lo-slack || g > hi+slack)) && skip(label):
+		case (in == 0 || !ok && in == len(refs) || under || over) && skip(label):
 		case in == 0:
 			t.Errorf("%s: %d, the browser has none", label, g)
 		case !ok && in == len(refs):
 			t.Errorf("%s: none, the browser's %d..%d", label, lo, hi)
-		case ok && (g < lo-slack || g > hi+slack):
-			t.Errorf("%s: %d, the browser's %d..%d (± %d)", label, g, lo, hi, slack)
+		case under || over:
+			t.Errorf("%s: %d (%d of it with the process stalled), the browser's %d..%d (± %d)", label, g, stalled[k], lo, hi, slack)
+		case ok && g > hi+slack:
+			t.Logf("%s: %d, %d of it with the process stalled (browser %d..%d)", label, g, stalled[k], lo, hi)
 		case ok:
 			t.Logf("%s: %d (browser %d..%d)", label, g, lo, hi)
 		}

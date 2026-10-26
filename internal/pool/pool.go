@@ -496,6 +496,26 @@ func (p *Pool[S, E]) SharedConns() []S {
 	return out
 }
 
+// Peek reports what Get would find for key now, without taking it,
+// waiting or dialling: FoundShared for a shared connection that can take
+// a new request, FoundExclusive for an idle exclusive connection or a key
+// whose server is known to give only exclusive ones (it waits for one
+// then, or dials another), FoundDial otherwise. It changes nothing.
+func (p *Pool[S, E]) Peek(key string) Found {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	e := p.keys[key]
+	switch {
+	case e == nil:
+		return FoundDial
+	case e.hasShared && e.shared.CanTakeNewRequest():
+		return FoundShared
+	case len(e.idle) > 0 || e.exclusiveOnly:
+		return FoundExclusive
+	}
+	return FoundDial
+}
+
 // Shared returns key's shared connection if it has one that can take a
 // new request, without waiting or dialing: for a caller that opens a
 // connection of its own otherwise, outside the pool (a WebSocket's).

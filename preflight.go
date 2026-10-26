@@ -95,17 +95,28 @@ func needsPreflight(req *http.Request, r Request, from *url.URL, credentialed bo
 	}
 }
 
-// preflight sends req's CORS preflight when the profile's browser would
-// (needsPreflight, hopPreflight) and its answer is not cached, and checks
-// the answer: a *CORSError when it does not allow req, unless
-// r.IgnoreCORS. It reports whether req needed one.
-func (t *Transport) preflight(req *http.Request, r Request, from *url.URL, credentialed bool, h http.Header) (bool, error) {
+// preflightSend is a CORS preflight to send before a request: what it
+// asks for, the preflight request ready for the engine, how it was
+// resolved, and the profile's cache rule.
+type preflightSend struct {
+	need *preflightNeed
+	req  *http.Request
+	s    *sending
+	rule string
+}
+
+// preflightFor returns req's CORS preflight when the profile's browser
+// sends one (needsPreflight, hopPreflight) and no cached answer allows
+// req (pf, nil otherwise), and whether req needed one at all, sent or
+// cached. It sends nothing and changes nothing: RoundTrip sends pf
+// (sendPreflight), Plan only plans it.
+func (t *Transport) preflightFor(req *http.Request, r Request, from *url.URL, credentialed bool, h http.Header) (needed bool, pf *preflightSend, err error) {
 	need := needsPreflight(req, r, from, credentialed, h, false)
 	if need == nil {
 		forced := needsPreflight(req, r, from, credentialed, h, true)
 		inherit, err := t.hopPreflight(req, forced != nil)
 		if err != nil || !inherit {
-			return false, err
+			return false, nil, err
 		}
 		need = forced
 	}
@@ -114,10 +125,10 @@ func (t *Transport) preflight(req *http.Request, r Request, from *url.URL, crede
 		rule = t.profile.Context.PreflightCache
 	}
 	if rule == "" {
-		return true, fmt.Errorf("%w: profile %s has no CORS preflight cache rule", ErrNotMeasured, t.profile.Name)
+		return true, nil, fmt.Errorf("%w: profile %s has no CORS preflight cache rule", ErrNotMeasured, t.profile.Name)
 	}
 	if t.preflights.allows(need, t.clock.Now()) {
-		return true, nil
+		return true, nil, nil
 	}
 	ctx := req.Context()
 	// The same URL and redirect chain (Response, which decides the
@@ -136,7 +147,7 @@ func (t *Transport) preflight(req *http.Request, r Request, from *url.URL, crede
 		From: from,
 	}, from, t.preflightHeaders)
 	if err != nil {
-		return true, err
+		return true, nil, err
 	}
 	pctx := pool.WithPartition(ctx, s.partition)
 	if s.plan != nil {
@@ -144,25 +155,37 @@ func (t *Transport) preflight(req *http.Request, r Request, from *url.URL, crede
 	}
 	pre = pre.WithContext(pctx)
 	pre.Header = s.header
-	resp, err := t.engine.RoundTrip(pre)
+	return true, &preflightSend{
+		need: need,
+		req:  pre,
+		s:    s,
+		rule: rule,
+	}, nil
+}
+
+// sendPreflight sends pf and checks its answer: a *CORSError when it
+// does not allow the request, unless ignore (Request.IgnoreCORS); a
+// successful answer is cached.
+func (t *Transport) sendPreflight(pf *preflightSend, ignore bool) error {
+	resp, err := t.engine.RoundTrip(pf.req)
 	if err != nil {
-		return true, publicError(err)
+		return publicError(err)
 	}
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
 	_ = resp.Body.Close()
-	if reason := checkPreflight(resp, need); reason != "" {
-		if r.IgnoreCORS {
-			return true, nil
+	if reason := checkPreflight(resp, pf.need); reason != "" {
+		if ignore {
+			return nil
 		}
-		return true, &CORSError{
-			URL:    req.URL,
+		return &CORSError{
+			URL:    pf.req.URL,
 			Reason: reason,
 			Status: resp.StatusCode,
 			Header: resp.Header,
 		}
 	}
-	t.preflights.store(need, resp.Header, rule == profile.PreflightCacheReplace, t.clock.Now())
-	return true, nil
+	t.preflights.store(pf.need, resp.Header, pf.rule == profile.PreflightCacheReplace, t.clock.Now())
+	return nil
 }
 
 // hopPreflight reports whether req, when a redirect's hop that could be

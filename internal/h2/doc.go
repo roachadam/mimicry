@@ -20,6 +20,9 @@
 // sends a live connection GOAWAY and lets its streams finish, as Firefox
 // does once the origin's HTTP/3 connection is up.
 //
+// Head builds a request's header list with the code Conn.RoundTrip
+// writes it with, without a connection (the engine's plans).
+//
 // Imports: profile, headerorder, hpack, golang.org/x/net and the standard
 // library.
 package h2

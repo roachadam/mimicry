@@ -100,6 +100,15 @@ func (t *Tickets) Take(key string) *Ticket {
 	}
 }
 
+// Has reports whether Take would return a ticket for key, without taking
+// it or dropping an expired one.
+func (t *Tickets) Has(key string) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	s, ok := t.m[key]
+	return ok && !s.expired(t.clock.Now())
+}
+
 // expired reports whether uTLS would decline the ticket at now.
 func (s ticket) expired(now time.Time) bool {
 	return !s.expires.IsZero() && now.After(s.expires)

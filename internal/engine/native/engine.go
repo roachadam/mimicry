@@ -168,24 +168,9 @@ func (e *Engine) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 			_ = req.Body.Close()
 		}
 	}()
-	if req.URL == nil || req.URL.Host == "" {
-		return nil, errors.New("mimicry: request has no host")
-	}
-	if req.URL.Scheme != "https" && req.URL.Scheme != "http" {
-		return nil, fmt.Errorf("mimicry: unsupported scheme %q", req.URL.Scheme)
-	}
-	if !httpguts.ValidHostHeader(req.URL.Host) {
-		return nil, fmt.Errorf("mimicry: invalid host %q", req.URL.Host)
-	}
-	r, err := e.route(req)
+	r, req, unasked, err := e.begin(req)
 	if err != nil {
 		return nil, err
-	}
-	unasked := ""
-	if r.forward {
-		if unasked = e.dialer.ForwardAuthorization(r.proxy); unasked != "" {
-			req = withProxyAuth(ctx, req, unasked)
-		}
 	}
 	answered := false
 	for attempt := 1; ; attempt++ {
@@ -238,6 +223,39 @@ func (e *Engine) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 		}
 		req = next
 	}
+}
+
+// begin checks req's URL, picks its route, and returns req as the
+// connection writes it (req itself on an error): carrying the proxy's
+// credentials where the browser sends them unasked (unasked, "" for
+// none). RoundTrip and Plan both start here.
+func (e *Engine) begin(req *http.Request) (r route, out *http.Request, unasked string, err error) {
+	switch {
+	case req.URL == nil || req.URL.Host == "":
+		return route{}, req, "", errors.New("mimicry: request has no host")
+	case req.URL.Scheme != "https" && req.URL.Scheme != "http":
+		return route{}, req, "", fmt.Errorf("mimicry: unsupported scheme %q", req.URL.Scheme)
+	case !httpguts.ValidHostHeader(req.URL.Host):
+		return route{}, req, "", fmt.Errorf("mimicry: invalid host %q", req.URL.Host)
+	}
+	if r, err = e.route(req); err != nil {
+		return route{}, req, "", err
+	}
+	if r.forward {
+		if unasked = e.dialer.ForwardAuthorization(r.proxy); unasked != "" {
+			req = withProxyAuth(req.Context(), req, unasked)
+		}
+	}
+	return r, req, unasked, nil
+}
+
+// tcpRefusal is the error of a request on TCP that its plan says was
+// measured over HTTP/3 only, or nil.
+func (e *Engine) tcpRefusal(ctx context.Context) error {
+	if plan := headerorder.PlanFrom(ctx); plan != nil && plan.HTTP3Only {
+		return fmt.Errorf("%w: profile %s measured this request over HTTP/3 only, and it would go on TCP", headerorder.ErrNotMeasured, e.profile.Name)
+	}
+	return nil
 }
 
 // fresh returns req ready to send again: with a new copy of its body, on a
@@ -358,8 +376,8 @@ func (e *Engine) tryOnce(ctx context.Context, req *http.Request, r route) (*http
 		// its response on TCP.
 		defer close(race)
 	}
-	if plan := headerorder.PlanFrom(ctx); plan != nil && plan.HTTP3Only {
-		return nil, fmt.Errorf("%w: profile %s measured this request over HTTP/3 only, and it would go on TCP", headerorder.ErrNotMeasured, e.profile.Name)
+	if err := e.tcpRefusal(ctx); err != nil {
+		return nil, err
 	}
 	got, err := e.pool.Get(ctx, r.key)
 	if err != nil {

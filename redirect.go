@@ -34,8 +34,10 @@ var bodyHeaders = []string{"Content-Encoding", "Content-Language", "Content-Loca
 // browser fails the request rather than send it. That is maxRedirects,
 // but for a navigation (nav), whose limit is p's. The method and body
 // come from the request the redirect answered as it was sent
-// (req.Response.Request), so a chain keeps them hop after hop.
-func browserHop(p *profile.Profile, req *http.Request, nav bool) (*http.Request, error) {
+// (req.Response.Request), so a chain keeps them hop after hop. Only to
+// send (u) is that body opened (its GetBody) and req's own closed; a plan
+// carries a body nothing reads (unread) in its place.
+func browserHop(p *profile.Profile, req *http.Request, nav bool, u use) (*http.Request, error) {
 	prev := req.Response.Request
 	if prev == nil {
 		return req, nil
@@ -81,11 +83,14 @@ func browserHop(p *profile.Profile, req *http.Request, nav bool) (*http.Request,
 	}
 	next := req.Clone(req.Context())
 	next.Method = method
-	if reqBody {
+	if reqBody && u == toSend {
 		_ = req.Body.Close()
 	}
 	next.Body, next.GetBody, next.ContentLength = nil, nil, 0
-	if prevBody {
+	switch {
+	case prevBody && u == toPlan:
+		next.Body, next.GetBody, next.ContentLength = unread{}, prev.GetBody, prev.ContentLength
+	case prevBody:
 		body, err := prev.GetBody()
 		if err != nil {
 			return nil, err

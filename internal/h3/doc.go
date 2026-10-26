@@ -21,6 +21,9 @@
 // sections may use the dynamic table the profile offers; sections are
 // acknowledged on the decoder stream, opened on its first instruction.
 //
+// Head builds a request's field list with the code Conn.RoundTrip
+// writes it with, without a connection (the engine's plans).
+//
 // Imports: profile, headerorder, qpack, quic (and quicwire),
 // golang.org/x/net/http/httpguts and the standard library.
 package h3

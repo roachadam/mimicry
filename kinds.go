@@ -213,6 +213,11 @@ type sending struct {
 	// which a profile's later hops may inherit
 	// (redirects.hop_preflight).
 	preflighted bool
+	// cond is the request's condition, which picks its variant; variant
+	// is the index of the one it takes in the navigation's or kind's
+	// variants, -1 for their own lists (Plan.Variant).
+	cond    profile.Variant
+	variant int
 }
 
 // resolve returns how to send req as r describes it, from page from (nil:
@@ -550,6 +555,7 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 	if i >= 0 {
 		list, h1 = variants[i].Headers, variants[i].HTTP1
 	}
+	s.cond, s.variant = cond, i
 	// A variant measured over HTTP/2 only has no HTTP/1.1 list, and one
 	// measured over HTTP/1.1 only on a script's navigations no slot for a
 	// user's Sec-Fetch-User: the connection refuses it if it turns out to

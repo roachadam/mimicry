@@ -62,6 +62,7 @@ func TestHeadersOrderMatchesBrowser(t *testing.T) {
 				t.Fatal(err)
 			}
 			s := startPage(t, p, server.HeadersOrder)
+			s.planEvery()
 			hosts, _, _ := server.HeadersOrder.MultiHost()
 			page := s.url(hosts[0], "/")
 			s.send(http.MethodGet, page, mimicry.Request{}, nil, "")

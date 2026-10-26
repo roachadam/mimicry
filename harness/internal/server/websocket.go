@@ -221,8 +221,10 @@ type wsSession struct {
 var errWSStreamReset = errors.New("stream reset by the client")
 
 // run reads the client's frames from r until the transport ends,
-// answering them as the socket's wsAccept says.
+// answering them as the socket's wsAccept says, and settles its recorder
+// when it stops.
 func (w *wsSession) run(r io.Reader) error {
+	defer w.rec.settle()
 	defer w.stopLinger()
 	if w.accept.ping {
 		if err := w.send(capture.WSPing, []byte(wsServerPing)); err != nil {
@@ -396,6 +398,7 @@ func serveWebSocketH1(conn net.Conn, br *bufio.Reader, a *wsAccept, key string, 
 	}
 	b.WriteString("\r\n")
 	if _, err := io.WriteString(conn, b.String()); err != nil {
+		rec.settle()
 		return err
 	}
 	s := &wsSession{
@@ -586,6 +589,7 @@ func (s *h2conn) onConnect(id uint32, st *request, index int, senders *sync.Wait
 			s.mu.Unlock()
 		}()
 		if err := s.wsHeaders(id, a); err != nil {
+			ws.rec.settle()
 			return
 		}
 		var ended sync.Once

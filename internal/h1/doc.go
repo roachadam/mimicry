@@ -17,6 +17,9 @@
 // Conn.Usable checks, without blocking, that an idle connection was not
 // closed by the peer and holds no unexpected bytes, before it is reused.
 //
+// A Writer builds request heads (Writer.Head) and a Conn writes with
+// one, so the engine's plans (Engine.Plan) get the lines a Conn writes.
+//
 // Imports: profile, headerorder, golang.org/x/net/http/httpguts and the
 // standard library.
 package h1

@@ -2,7 +2,7 @@
 
 What happens between `client.Do(req)` and bytes on the wire. Rough draft;
 the code is the reference (`kinds.go`, `transport.go`, `preflight.go`,
-`internal/`).
+`plan.go`, `internal/`).
 
 ## 1. The request says how it is made
 
@@ -189,7 +189,46 @@ responses, 204 and 304 responses and those with `Content-Length: 0` are
 returned untouched. A navigation that succeeded becomes the transport's
 last navigation.
 
-## 5. What checks it
+## 5. Seeing it before it is sent
+
+`Transport.Plan(req)` takes the same path as `RoundTrip`, steps 1 to 3
+down to each connection's writer, and stops before anything goes out
+([0034](../decisions/0034-request-plans.md)). It returns:
+
+- the kind, the profile's list it took (`Variant`, a path in the
+  profile's JSON such as `kinds.fetch.variants[4]`, or
+  `kinds.fetch.headers` when no variant matched) and the request's
+  `Condition` (method, site, `cors_checked`, `page_set`, the redirect
+  flags, `insecure`);
+- the header lines over HTTP/2, HTTP/1.1 and HTTP/3 (when the Transport
+  speaks it), each as its writer would put them on the wire:
+  pseudo-headers, Host, Connection and framing, casing, cookies from the
+  jar, placements; or, per protocol, the error that protocol would give
+  (`ErrNotMeasured` for a variant measured over HTTP/2 only, sent over
+  HTTP/1.1) or why the request never goes there;
+- `Protocol`: the one the request would take now, named as `resp.Proto`
+  names it, from the open connections and the Alt-Svc seen (as `quicFor`
+  decides), or empty when the server's ALPN answer, a QUIC attempt the
+  request would wait for, or a DNS lookup (coalescing) decides it;
+- `Preflight`: the CORS preflight's own plan when one would be sent (nil
+  when none is needed or the cache allows the request);
+- `Overrides`: headers the request or `Config.Headers` set in place of a
+  profile default, a computed value (`Referer`, `Origin`,
+  `sec-fetch-*`) or the jar's cookies; `Dropped`: profile headers a
+  `HeaderOrderKey` leaves out.
+
+Plan changes nothing: it dials nothing and looks nothing up, reads the
+jar with `Peek` (no last-access times, expired cookies left), and leaves
+the last navigation, the preflight cache, connections and Alt-Svc state as
+they were. Its error is the one `RoundTrip` would return before sending:
+`ErrNotMeasured`, `ErrPlacement`, a request no browser makes, or a
+protocol error when every protocol the request may take now fails. A
+`*CORSError` is the server's answer, so Plan never returns one. A plan is
+a snapshot: a response setting cookies, a connection opened or closed, or
+a navigation in between changes what goes out. `Plan.String()` prints it
+all for a log (`ExampleTransport_Plan`).
+
+## 6. What checks it
 
 `harness/e2e`: `TestProfilesMatchCaptures` (first request),
 `TestHTTP1MatchesBrowserTrace`, `TestCookiesMatchBrowserTrace`,
@@ -198,7 +237,11 @@ preflights, redirects, connection sharing),
 `TestCookiesScenarioMatchesBrowser` (the cookies page),
 `TestCORSMatchesBrowser` (the preflight cache and refusals),
 `TestConnectionsMatchBrowser` (the per-host HTTP/1.1 cap and coalescing),
-`TestHPACKReproducesBrowserBlocks`. The resolver's rules by unit tests in
+`TestHPACKReproducesBrowserBlocks`. The page replays of the kinds,
+headers-order, cors, cors-edge, redirects2, nav-redirect, cookies,
+cookies-edge and h3 pages also plan every request just before sending it
+and check the plan against what the server received (`checkPlans`). The
+resolver's rules by unit tests in
 `kinds_test.go`, `transport_test.go` and `preflight_test.go`; the pool's by
 `internal/pool`'s, with fake connections and a fake clock; coalescing by
 `internal/engine/native`'s, with fake servers and lookups. Header placement

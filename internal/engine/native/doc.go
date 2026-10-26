@@ -63,6 +63,12 @@
 // carry their connection's TLS state. Handshake connects and verifies
 // without a request (FetchPins).
 //
+// Plan returns what RoundTrip would write for a request, with RoundTrip's
+// own steps (begin, tcpRefusal, h3Refusal) and each connection's head
+// builder (h1.Writer, h2.Head, h3.Head), and the protocols it may take
+// now (HTTP/3 as quicFor decides, through pickWay, then the pool's
+// connection or ALPN), dialling, looking up and changing nothing.
+//
 // Imports: any internal package, profile, clockwork,
 // golang.org/x/net/http/httpguts and the standard library (utls only in
 // tests, for the QUIC test server).

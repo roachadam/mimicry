@@ -26,12 +26,14 @@ import (
 // values the samples agree on) is compared with the samples as features.
 
 // quicRuleViolations lists how c breaks p's rules for what is random per
-// connection or depends on timing.
-func quicRuleViolations(p *profile.Profile, c *quictrace.Conn) []string {
+// connection or depends on timing; logf logs what a rule allowed only for
+// the process's stalls (stalls).
+func quicRuleViolations(p *profile.Profile, c *quictrace.Conn, logf func(format string, args ...any)) []string {
 	r := &ruleCheck{
-		p: p,
-		q: p.QUIC,
-		c: c,
+		p:    p,
+		q:    p.QUIC,
+		c:    c,
+		logf: logf,
 	}
 	r.packetNumbers()
 	r.dcid()
@@ -47,10 +49,11 @@ func quicRuleViolations(p *profile.Profile, c *quictrace.Conn) []string {
 }
 
 type ruleCheck struct {
-	p   *profile.Profile
-	q   *profile.QUIC
-	c   *quictrace.Conn
-	out []string
+	p    *profile.Profile
+	q    *profile.QUIC
+	c    *quictrace.Conn
+	logf func(format string, args ...any)
+	out  []string
 }
 
 func (r *ruleCheck) add(format string, args ...any) {
@@ -624,21 +627,34 @@ func (r *ruleCheck) spinBit() {
 
 // ackDelays: with AckDelayActual every 1-RTT ACK's delay is at most twice
 // the max_ack_delay the client announced (25 ms without one; browsers'
-// timers overshoot it by up to a fifth, a loaded test machine's by more);
-// with AckDelayConstant they are one value, from AckDelayConstant.
+// timers overshoot it by up to a fifth), less the time this process was
+// stalled while the client held it (stalls; a recorded connection's only,
+// mimicry's): a loaded machine holds the client's ACK timer, and the
+// client reports the delay it took; with AckDelayConstant they are one
+// value, from AckDelayConstant.
 func (r *ruleCheck) ackDelays() {
-	var delays []uint64
-	for _, pk := range r.packets() {
-		if pk.Type != quictrace.Packet1RTT {
-			continue
-		}
-		for _, f := range pk.Frames {
-			if f.Type == quictrace.FrameAck {
-				delays = append(delays, f.Delay)
+	type ack struct {
+		delay uint64
+		// at is when the datagram carrying it arrived (µs).
+		at int64
+	}
+	var acks []ack
+	for _, d := range r.c.Datagrams {
+		for _, pk := range d.Packets {
+			if pk.Type != quictrace.Packet1RTT {
+				continue
+			}
+			for _, f := range pk.Frames {
+				if f.Type == quictrace.FrameAck {
+					acks = append(acks, ack{
+						delay: f.Delay,
+						at:    d.Micros,
+					})
+				}
 			}
 		}
 	}
-	if len(delays) == 0 {
+	if len(acks) == 0 {
 		return
 	}
 	switch r.q.AckDelay {
@@ -652,14 +668,28 @@ func (r *ruleCheck) ackDelays() {
 				exponent = *tp.Value
 			}
 		}
-		for _, d := range delays {
-			if us := d << exponent; us > 2*maxDelay {
-				r.add("ACK delay %d µs, more than twice max_ack_delay %d µs", us, maxDelay)
+		for _, a := range acks {
+			us := a.delay << exponent
+			if us <= 2*maxDelay {
+				continue
+			}
+			var stalled uint64
+			if !r.c.Start.IsZero() {
+				sent := r.c.Start.Add(time.Duration(a.at) * time.Microsecond)
+				stalled = uint64(stalls.stalled(sent.Add(-time.Duration(us)*time.Microsecond), sent).Microseconds()) //nolint:gosec // not negative
+			}
+			if us-min(stalled, us) > 2*maxDelay {
+				r.add("ACK delay %d µs, %d µs of it with the process stalled, more than twice max_ack_delay %d µs", us, stalled, maxDelay)
 				return
 			}
+			r.logf("ACK delay %d µs, more than twice max_ack_delay %d µs, of which the process was stalled %d µs", us, maxDelay, stalled)
 		}
 	case profile.AckDelayConstant:
 		rg := r.q.AckDelayConstant
+		delays := make([]uint64, 0, len(acks))
+		for _, a := range acks {
+			delays = append(delays, a.delay)
+		}
 		for _, d := range delays {
 			if d != delays[0] || rg == nil || !rg.Contains(int(d)) { //nolint:gosec // small
 				r.add("ACK delays %v, not one value from %v", delays, rg)
