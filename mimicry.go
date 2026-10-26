@@ -23,7 +23,9 @@
 // request's page decides (sec-fetch-site, Origin, Referer, credentials),
 // then Config.Headers, then the request's own headers (a header set to nil
 // suppresses a default; HeaderOrderKey sets the order, dropping defaults it
-// does not name). Exact bypasses the profile's headers altogether. Asking
+// does not name), then Config.HeaderPlacement and Request.HeaderPlacement,
+// which move one header next to another and keep the rest of the
+// browser's order. Exact bypasses the profile's headers altogether. Asking
 // for what the profile never measured (a fetchpriority for a kind, a kind a
 // profile lacks) is an error wrapping ErrNotMeasured, not a guess.
 //
@@ -31,11 +33,16 @@
 // from its last navigation unless they name their page, so parallel tasks
 // use a Transport (or client) each.
 //
-// DialWebSocket opens a WebSocket through a Transport as the profile's
-// browser opens one from a page: the handshake as the profile's websocket
-// kind, over HTTP/2 extended CONNECT where the server allows it or an
-// HTTP/1.1 connection of its own, and every frame, compression, pong and
-// close as the browser sends them.
+// Transport.DialWebSocket opens a WebSocket as the profile's browser opens
+// one from a page: the handshake as the profile's websocket kind, over
+// HTTP/2 extended CONNECT where the server allows it or an HTTP/1.1
+// connection of its own, and every frame, compression, pong and close as
+// the browser sends them.
+//
+// Config.Pins pins hosts to keys (FetchPins and cmd/pins list a site's),
+// and Config.VerifyConnection checks every connection, resumed ones
+// included; responses carry their connection's TLS state. A proxy that
+// fails a request returns a *ProxyError. Neither changes a byte sent.
 //
 // Imports: the standard library, profile, cookies, internal packages,
 // clockwork and the decompressors. Only internal/engine/native assembles

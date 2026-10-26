@@ -51,13 +51,13 @@ client.CheckRedirect = func(*http.Request, []*http.Request) error {
 | `WithTimeoutSeconds(n)` | `http.Client.Timeout`, or the request's context; `Config.DialTimeout` for connecting |
 | `WithNotFollowRedirects()`, `SetFollowRedirect` | `http.Client.CheckRedirect` returning `http.ErrUseLastResponse` |
 | `WithCustomRedirectFunc(f)` | `http.Client.CheckRedirect` |
-| `WithCookieJar(jar)`, `SetCookieJar` | `Config.Cookies` (a `*cookies.Jar`); not the client's `Jar` |
+| `WithCookieJar(jar)`, `SetCookieJar` | `Config.Cookies` (a `*cookies.Jar`); not the client's `Jar`. `Transport.Cookies()` returns `NewClient`'s own |
 | `WithProxyUrl`, `SetProxy` | `Config.Proxy`, a function of the request |
 | `WithDisableHttp3()`, `WithProtocolRacing()` | `Config.DisableHTTP3`; racing is the profile's |
 | `WithDialer`, `WithDialContext`, `WithLocalAddr` | `Config.DialContext` (TCP only: QUIC does not use it) |
 | `WithDefaultHeaders(h)` | `Config.Headers` |
 | `WithInsecureSkipVerify()`, `WithCharlesProxy` | `Config.RootCAs` holding the intercepting proxy's CA, plus `Config.Proxy` |
-| `WithCertificatePinning`, `WithCertificatePinner` | none |
+| `WithCertificatePinning`, `WithCertificatePinner` | `Config.Pins` (`sha256/<base64>` pins as tls-client takes them, hex, or certificate fingerprints; `FetchPins` or `go run github.com/roachadam/mimicry/cmd/pins URL` lists a site's), `Config.VerifyConnection` for your own check; `resp.TLS` on every response |
 | `WithForceHttp1()` | none |
 | `WithServerNameOverwrite`, `WithDisableIPV4/6`, `WithConnectHeaders` | none (`DialContext` can choose the address family) |
 | `WithPreHook`, `WithPostHook`, `WithDebug`, `WithBandwidthTracker` | none in mimicry; wrap the `http.RoundTripper`, or `cookies.Config.OnSetCookie` for cookies |
@@ -135,7 +135,13 @@ browser's:
   replaces the order outright: profile headers it does not name are not
   sent, and request headers it does not name go last (over HTTP/1.1 that
   includes `Host` and `Connection`). tls-client users set it on every
-  request; in mimicry it is an escape hatch.
+  request; in mimicry it is an escape hatch. To move one header (an API
+  key a server expects after `User-Agent`), use a `mimicry.Place` in
+  `Config.HeaderPlacement` (every request) or `Request.HeaderPlacement`
+  (one): the rest stays the browser's order, and a header or anchor the
+  request does not send is an error (`ErrPlacement`), not a silent
+  change. A request with `HeaderOrderKey` takes no `Config` placements
+  (`ExampleConfig_headerPlacement`, [0030](../decisions/0030-header-placement.md)).
 - **Do not set `Accept-Encoding`.** Setting it yourself turns off
   decompression (you asked for the raw body); tls-client codebases set it
   on every request.
@@ -182,9 +188,9 @@ your own navigation, not the browser's redirect hop.
 
 | tls-client | mimicry |
 |---|---|
-| `client.GetCookies(u)` | `jar.Cookies(cookies.Request{URL: u, Method: "GET", Navigation: true})`, which says what the browser would send there; `jar.All()` for everything |
-| `client.SetCookies(u, []*http.Cookie{...})` | `jar.Set(cookies.Cookie{Name, Value, Domain, Path, Secure, ...})`, one at a time; `jar.SetCookies(req, rawSetCookieLines)` for lines a response carried |
-| a `Cookie` header string kept in a database | `cookies.Header(jar.Cookies(...))` out; in, split it and `Set` each (see `ExampleJar_Set`) |
+| `client.GetCookies(u)` | `jar.String(site)`: the site's cookies as a header string; `jar.Cookies(cookies.Request{URL: u, Method: "GET", Navigation: true})`: exactly what the browser would send to `u`; `jar.All()` for everything |
+| `client.SetCookies(u, []*http.Cookie{...})` | `jar.SetHTTPCookies(u, cs)`, through the browser's rules as a response from `u`, with an error naming each cookie refused; `jar.Set(cookies.Cookie{...})` stores one as given; `jar.SetCookies(req, rawSetCookieLines)` for lines a response carried |
+| a `Cookie` header string kept in a database | `jar.SetString(site, header)` (or `cookies.FromString`) in, `jar.String(site)` out (see `ExampleJar_SetString`) |
 | a new jar to clear | `jar.Clear()`, `jar.ClearSession()`, `jar.Delete(func(*cookies.Cookie) bool)` |
 | `SetCookieJar(shared)` on another client | the same `*cookies.Jar` in each `Config.Cookies` |
 | persistence: your own serialisation | `jar.WriteJSON`/`ReadJSON` (every attribute), `WriteNetscape`/`ReadNetscape` (curl's cookies.txt) |
@@ -196,12 +202,16 @@ hops too; the jar is safe for concurrent use and can be shared across
 Transports, which is the way to visit several sites with one identity
 (one Transport per site, one jar).
 
-What is awkward: the jar must be created up front to be reachable
-(`NewClient`'s own jar has no accessor), `Set` needs a `Domain` and asks
-you to choose host-only, path and attributes that a header string does not
-carry, and there is no bridge from `[]*http.Cookie` for a URL
-(`jar.CookieJar()` exists but is lossy and treats every request as a
-typed navigation).
+The jar `NewClient` made is `client.Transport.(*mimicry.Transport).Cookies()`.
+`SetString` makes each pair a cookie of the whole site (every host, path
+`/`, not `Secure`, the profile's SameSite default), since a header string
+carries no scope; cookies whose host, path or attributes matter go in
+with `Set`, `SetHTTPCookies` or `ReadJSON`. One cookie for every site is
+not something a browser has, so it takes `cookies.AnySite` as the site,
+written out in your code ([decision 0031](../decisions/0031-cookies-for-any-site.md)):
+every host the Transport talks to receives it, trackers included.
+`jar.CookieJar()` exists for code that wants an `http.CookieJar`, but is
+lossy and treats every request as a typed navigation.
 
 ## Proxies and rotation
 
@@ -231,9 +241,22 @@ time), and the CONNECT lines and SOCKS5 bytes are the browser's.
 
 Limits: `http`, `socks5` and `socks5h` proxies only (no `https://`
 proxies), Basic authentication only, no WebSocket through a proxy
-(`ErrNotMeasured`), and never HTTP/3 through a proxy. A proxy that
-refuses the tunnel is an error whose text names the proxy and its status;
-there is no error type to test for.
+(`ErrNotMeasured`), and never HTTP/3 through a proxy.
+
+A proxy that fails a request returns a `*mimicry.ProxyError`: unreachable,
+CONNECT refused (`StatusCode`, `Header`), credentials rejected after the
+browser's flow (407), a SOCKS5 refusal, or too slow (`errors.Is(err,
+context.DeadlineExceeded)` still holds). Its `Proxy` has the password
+removed, and so has its text. That is the rotation signal, as against the
+site refusing the request (see `ExampleConfig_proxy`):
+
+```go
+resp, err := client.Do(req)
+var pe *mimicry.ProxyError
+if errors.As(err, &pe) {
+	current.Store(proxies.Next())
+}
+```
 
 ## Bodies, errors and retries
 
@@ -250,7 +273,11 @@ Errors are returned, not encoded as a status code. Worth testing for:
   the request (nothing was sent); a programming or profile-choice error,
   not something to retry;
 - `errors.As(err, &corsErr)` with a `*mimicry.CORSError`: the browser
-  would not have sent it (a refused preflight or redirect).
+  would not have sent it (a refused preflight or redirect);
+- `errors.As(err, &proxyErr)` with a `*mimicry.ProxyError`: the proxy
+  failed, not the site (see above);
+- `errors.As(err, &pinErr)` with a `*mimicry.PinError`: the host's
+  certificate chain matched none of `Config.Pins` (nothing was sent).
 
 mimicry retries on another connection only where the browser would (a
 request nothing of which was sent, an idempotent one on a connection the
@@ -266,7 +293,7 @@ framing:
 
 ```go
 tr := client.Transport.(*mimicry.Transport)
-ws, _, err := mimicry.DialWebSocket(ctx, tr, "wss://www.shop.example/live", mimicry.WebSocketOptions{})
+ws, _, err := tr.DialWebSocket(ctx, "wss://www.shop.example/live", mimicry.WebSocketOptions{})
 ```
 
 ## Where mimicry is weaker, ranked for retail automation
@@ -278,30 +305,27 @@ ws, _, err := mimicry.DialWebSocket(ctx, tr, "wss://www.shop.example/live", mimi
    elsewhere (a solver, a harvested browser), needs a matching profile,
    and making one takes the harness and a real browser capture.
    `profile.Parse` loads your own JSON, but nothing helps you write it.
-2. **Proxy failures are not typed.** A rotation loop needs to tell "this
-   proxy is dead or refused me" from "the site refused me"; today that is
-   string matching on the error text. `https://` proxies are unsupported,
-   and a WebSocket through a proxy is `ErrNotMeasured`.
+2. **Proxy limits.** `https://` proxies are unsupported, and a WebSocket
+   through a proxy is `ErrNotMeasured`.
 3. **No way to see what will be sent.** tls-client users can print their
    own header literal; in mimicry the request's final header lines, its
    variant and whether it will be preflighted exist only on the wire. Add
    the porting traps above (a copied header silently replaces a computed
    one) and the first weeks of porting are guesswork against a capture
    proxy.
-4. **Cookie interoperability.** Seeding from a `Cookie` header string, a
-   solver's `[]*http.Cookie` or a harvested browser takes a loop and
-   choices the input does not carry; `NewClient`'s jar is unreachable;
-   asking "what goes to this URL" needs a `cookies.Request`.
-5. **No certificate pinning or connection inspection.** No hook to verify
-   the server's certificate chain beyond `RootCAs`, and `resp.TLS` is not
-   set. Codebases that pin to detect interception lose that.
-6. **Runtime `ErrNotMeasured` that depends on the server.** A variant
+4. **Cookie scope from a string is the whole site.** `SetString` seeds a
+   site-wide, non-`Secure` session cookie per pair, so a source browser's
+   host-only, path-scoped or `Secure` cookies need `Set` or JSON to keep
+   their scope, and asking what goes to one URL still takes a
+   `cookies.Request`.
+5. **Runtime `ErrNotMeasured` that depends on the server.** A variant
    measured over HTTP/2 only fails on a server that speaks only
    HTTP/1.1; you find out from the request, not up front.
-7. **Verbosity in small places.** `NewRequestWithContext` plus `As`/`With`
-   on every call, the type assertion for `DialWebSocket`, a full list for
-   `HeaderOrderKey` to move one header.
-8. **Missing switches** that browsers do not have either: forcing
+6. **Verbosity in small places.** `NewRequestWithContext` plus `As`/`With`
+   on every call, and the type assertion to reach `NewClient`'s Transport
+   (`DialWebSocket`, `Cookies`). (Moving one header is a `Place` in
+   `HeaderPlacement`, not a full `HeaderOrderKey` list.)
+7. **Missing switches** that browsers do not have either: forcing
    HTTP/1.1, skipping verification, overriding the SNI, binding a local
    address for QUIC.
 
@@ -309,33 +333,14 @@ ws, _, err := mimicry.DialWebSocket(ctx, tr, "wss://www.shop.example/live", mimi
 
 Candidates, not decisions; each would need a decision record.
 
-1. **Typed proxy errors.** `*mimicry.ProxyError{Proxy *url.URL` (without
-   the password)`, Status int, Header http.Header, Err error}` for a
-   refused CONNECT, failed credentials, a SOCKS5 refusal or an unreachable
-   proxy, so `errors.As` drives rotation.
-2. **A request plan you can inspect.** `Transport.Plan(req) (*Plan, error)`
+1. **A request plan you can inspect.** `Transport.Plan(req) (*Plan, error)`
    returning what `RoundTrip` would send without sending it: the ordered
    header lines for HTTP/2 and HTTP/1.1, the kind's variant, the
    preflight if any, and `Overrides`, the computed headers the request's
    own replaced. It answers "why does this differ from my capture", flags
    ported header literals, and finds `ErrNotMeasured` up front. A
    `Config.OnRequest` hook with the same plan would cover logging.
-3. **Cookie conveniences.** `Transport.Cookies() *cookies.Jar` (the jar
-   `NewClient` made); `Jar.SetHeader(u *url.URL, header string) error`
-   storing each pair as a host-only cookie for `u` (path `/`, Secure on
-   https), and `Jar.SetHTTPCookies(u *url.URL, cs []*http.Cookie) error`
-   applying the attributes each carries; `Jar.For(u *url.URL) []*Cookie`
-   as shorthand for a typed navigation's cookies.
-4. **More profiles, and a way to make them.** iOS Safari and Android
+2. **More profiles, and a way to make them.** iOS Safari and Android
    Chrome first, then Windows Chrome; the planned `profilegen derive` to
    start a new version from the last, and documentation of what a user
    capture needs to become a profile.
-5. **`Config.VerifyConnection func(tls.ConnectionState) error`**, called
-   for TCP and QUIC handshakes after verification against `RootCAs`
-   (pinning, logging), and `resp.TLS` filled in.
-6. **`DialWebSocket` as a method** (`tr.DialWebSocket(ctx, url, opts)`)
-   and a documented way to get the Transport from `NewClient`'s client.
-7. **A partial order.** A second pseudo-header (say `HeaderPlaceKey`) that
-   moves the headers it names into place while keeping the rest of the
-   profile's order and defaults, so moving one header does not mean
-   restating the list.

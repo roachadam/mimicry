@@ -49,8 +49,10 @@ browsers, three samples each:
 ## Decision
 
 The API is:
-- `DialWebSocket(ctx, t, url, WebSocketOptions{From, Protocols, Header})`
-  returns a `*WebSocket` and the handshake response;
+- `(*Transport).DialWebSocket(ctx, url, WebSocketOptions{From, Protocols, Header})`
+  returns a `*WebSocket` and the handshake response (a package function
+  taking the Transport until 2026-10-26; a method reads as the request
+  path it is);
 - the `*WebSocket` has `ReadMessage`, `WriteMessage`, `Close`, `Protocol`
   and `Extensions`;
 - mimicry masks, compresses, answers pings and runs the close handshake.

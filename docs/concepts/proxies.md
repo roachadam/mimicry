@@ -56,11 +56,38 @@ proxy. `Config.DialTimeout` bounds the connect to the proxy together with
 the proxy's handshake (CONNECT or SOCKS5), and the TLS handshake with the
 server separately; the request's context bounds both.
 
+## When the proxy fails
+
+A request the proxy fails returns a `*mimicry.ProxyError`, so a rotation
+loop can tell a dead or refusing proxy from a site refusing the request:
+
+```go
+resp, err := client.Do(req)
+var pe *mimicry.ProxyError
+if errors.As(err, &pe) {
+	current.Store(proxies.Next()) // pe.StatusCode: 0, 403, 407, ...
+}
+```
+
+It covers everything before the server is reached: the connect to the
+proxy, a CONNECT answered other than 2xx (a 407 once the URL's
+credentials were given as the browser gives them, or when it has none), a
+SOCKS5 handshake the proxy refused (no acceptable method, rejected
+credentials, a refused connection), and the deadline passing on the way
+(`errors.Is(err, context.DeadlineExceeded)` still holds). A plain-HTTP
+request sent to the proxy whole returns one only for a failed connect or a
+final 407; any other answer is the response, since it cannot be told from
+the server's. `ProxyError.Proxy` is the proxy's URL without its password,
+which `Error()` never shows; `StatusCode` and `Header` are the proxy's
+answer (0 and nil for SOCKS5, or when it gave none). Failures after the
+tunnel is up (the TLS handshake with the server, the request) are the
+server's. See `ExampleConfig_proxy`.
+
 ## Limits
 
 - `https://` proxies (TLS to the proxy) are not supported.
 - Chrome's speculative extra connections to the proxy are not made.
 - A CONNECT answer whose header is longer than 64 KiB fails the request
-  (`proxy.ErrAnswerTooLarge`, internal).
+  (a `*mimicry.ProxyError`).
 - A request whose host is not a valid `Host` header is refused before
   anything is dialled, proxy or not.

@@ -153,6 +153,13 @@ type Request struct {
 	// allow it, which a browser never does: RoundTrip otherwise returns a
 	// *CORSError and sends nothing more. The preflight is still sent.
 	IgnoreCORS bool
+	// HeaderPlacement moves headers of this request, and of every hop of
+	// its redirect chain, out of the profile's order (Place), after
+	// Config.HeaderPlacement has moved them; not its CORS preflight's.
+	// An invalid Place, or one on a request that sets its own order
+	// (Exact, HeaderOrderKey), is an error wrapping ErrPlacement before
+	// anything is sent.
+	HeaderPlacement []Place
 }
 
 type requestKey struct{}

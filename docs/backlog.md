@@ -670,7 +670,9 @@ These matter most under decision 0029:
     (Firefox in insertion order; Chrome and Safari keep the first place
     of a repeated name), and Firefox for `fetch()` given an object
     literal. `HeaderOrderKey` replaces the whole order, so it is no
-    substitute.
+    substitute; `Request.HeaderPlacement` can put the page's headers in
+    its order by hand ([decision 0030](decisions/0030-header-placement.md)),
+    one `Place` per header, but nothing does it from the page's own order.
   - Shows: XHR and fetch requests with two or more custom headers set out
     of name order.
   - Detection: medium; header order is fingerprinted, though custom

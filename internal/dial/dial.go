@@ -124,14 +124,61 @@ func (d *Dialer) CheckProxy(p *url.URL) error {
 	return nil
 }
 
+// ProxyError is a failure to reach a proxy or to open a tunnel through it:
+// the connect, a CONNECT answered other than 2xx (a 407 once the
+// credentials the browser would give are spent), a SOCKS5 refusal, or the
+// deadline passing on the way. The root package turns it into
+// mimicry.ProxyError.
+type ProxyError struct {
+	// Proxy is the proxy's URL, credentials included.
+	Proxy *url.URL
+	// StatusCode and Header are the proxy's answer to CONNECT (or to a
+	// plain-HTTP request sent to it whole, for a 407); zero and nil when
+	// there was none.
+	StatusCode int
+	Header     http.Header
+	Err        error
+}
+
+func (e *ProxyError) Error() string {
+	return fmt.Sprintf("mimicry: proxy %s: %v", e.Proxy.Redacted(), e.Err)
+}
+
+func (e *ProxyError) Unwrap() error {
+	return e.Err
+}
+
+// proxyError wraps err, a failure on the way to or through p.
+func proxyError(p *url.URL, err error) error {
+	return &ProxyError{
+		Proxy: p,
+		Err:   err,
+	}
+}
+
+// answerError is p's refusal of a CONNECT: its answer a, err saying why.
+func answerError(p *url.URL, a proxy.Answer, err error) error {
+	return &ProxyError{
+		Proxy:      p,
+		StatusCode: a.StatusCode,
+		Header:     a.Header,
+		Err:        err,
+	}
+}
+
 // DialProxy connects to the proxy p itself, for plain-HTTP requests sent
-// to it whole.
+// to it whole. A failure is a *ProxyError.
 func (d *Dialer) DialProxy(ctx context.Context, p *url.URL) (net.Conn, error) {
-	return d.Dial(ctx, proxyAddr(p))
+	conn, err := d.Dial(ctx, proxyAddr(p))
+	if err != nil {
+		return nil, proxyError(p, err)
+	}
+	return conn, nil
 }
 
 // DialVia connects to addr through the proxy p: an HTTP proxy's CONNECT
 // tunnel or a SOCKS5 connection, as the profile's browser asks for them.
+// A failure before the tunnel is up is a *ProxyError.
 func (d *Dialer) DialVia(ctx context.Context, p *url.URL, addr string) (net.Conn, error) {
 	if d.Timeout > 0 {
 		var cancel context.CancelFunc
@@ -140,7 +187,7 @@ func (d *Dialer) DialVia(ctx context.Context, p *url.URL, addr string) (net.Conn
 	}
 	conn, err := d.dial(ctx, proxyAddr(p))
 	if err != nil {
-		return nil, err
+		return nil, proxyError(p, err)
 	}
 	if p.Scheme == SchemeHTTP {
 		return d.connect(ctx, conn, p, addr)
@@ -160,7 +207,7 @@ func (d *Dialer) DialVia(ctx context.Context, p *url.URL, addr string) (net.Conn
 	}
 	if err := proxy.SOCKS5(ctx, conn, addr, methods, p.User); err != nil {
 		_ = conn.Close()
-		return nil, fmt.Errorf("mimicry: proxy %s: %w", p.Host, err)
+		return nil, proxyError(p, err)
 	}
 	return conn, nil
 }
@@ -181,33 +228,37 @@ func (d *Dialer) connect(ctx context.Context, conn net.Conn, p *url.URL, addr st
 	switch {
 	case err != nil:
 		_ = conn.Close()
-		return nil, fmt.Errorf("mimicry: proxy %s: %w", p.Host, err)
+		return nil, proxyError(p, err)
 	case answer.StatusCode/100 == 2:
 		return tunnel, nil
 	case answer.StatusCode != http.StatusProxyAuthRequired || unasked || p.User == nil:
 		_ = conn.Close()
-		return nil, fmt.Errorf("mimicry: proxy %s answered CONNECT with %s", p.Host, answer.Status)
+		what := "CONNECT"
+		if unasked {
+			what = "CONNECT with credentials"
+		}
+		return nil, answerError(p, answer, fmt.Errorf("answered %s with %s", what, answer.Status))
 	}
 	if err := basicChallenge(answer.Header); err != nil {
 		_ = conn.Close()
-		return nil, fmt.Errorf("mimicry: proxy %s: %w", p.Host, err)
+		return nil, answerError(p, answer, err)
 	}
 	d.asked.Store(p.String(), true)
 	conn = tunnel
 	if answer.Close {
 		_ = conn.Close()
 		if conn, err = d.dial(ctx, proxyAddr(p)); err != nil {
-			return nil, err
+			return nil, proxyError(p, err)
 		}
 	}
 	answer, tunnel, err = proxy.Connect(ctx, conn, addr, d.connectHeader(addr, d.Proxy.ConnectAuth, Credentials(p)))
 	switch {
 	case err != nil:
 		_ = conn.Close()
-		return nil, fmt.Errorf("mimicry: proxy %s: %w", p.Host, err)
+		return nil, proxyError(p, err)
 	case answer.StatusCode/100 != 2:
 		_ = conn.Close()
-		return nil, fmt.Errorf("mimicry: proxy %s answered CONNECT with credentials with %s", p.Host, answer.Status)
+		return nil, answerError(p, answer, fmt.Errorf("answered CONNECT with credentials with %s", answer.Status))
 	}
 	return tunnel, nil
 }

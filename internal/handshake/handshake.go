@@ -2,6 +2,7 @@ package handshake
 
 import (
 	"context"
+	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
@@ -27,6 +28,11 @@ type Config struct {
 	// Ticket is the session this connection resumes; the hello must then
 	// carry pre_shared_key (fingerprint.Plan.ResumedHello).
 	Ticket *Ticket
+	// VerifyConnection, when set, runs once the server's certificate is
+	// verified, on every handshake, resumed ones included (with the
+	// session's chains), before any ticket the connection receives is
+	// kept; an error fails the handshake.
+	VerifyConnection func(tls.ConnectionState) error
 }
 
 // Client performs the TLS handshake on conn with hello and returns the TLS
@@ -50,6 +56,39 @@ func Client(ctx context.Context, conn net.Conn, hello fingerprint.Hello, cfg Con
 	return tlsConn, tlsConn.ConnectionState().NegotiatedProtocol, nil
 }
 
+// ConnState is the TLS state of conn, a connection Client returned, as
+// crypto/tls describes it; nil for any other connection.
+func ConnState(conn net.Conn) *tls.ConnectionState {
+	tc, ok := conn.(*utls.UConn)
+	if !ok {
+		return nil
+	}
+	return State(tc.ConnectionState())
+}
+
+// State is cs as crypto/tls describes it. ExportKeyingMaterial is not
+// carried over: it fails on the result.
+func State(cs utls.ConnectionState) *tls.ConnectionState {
+	return &tls.ConnectionState{
+		Version:                     cs.Version,
+		HandshakeComplete:           cs.HandshakeComplete,
+		DidResume:                   cs.DidResume,
+		CipherSuite:                 cs.CipherSuite,
+		CurveID:                     tls.CurveID(cs.CurveID),
+		NegotiatedProtocol:          cs.NegotiatedProtocol,
+		NegotiatedProtocolIsMutual:  cs.NegotiatedProtocolIsMutual, //nolint:staticcheck // deprecated, always true; set as crypto/tls sets it
+		ServerName:                  cs.ServerName,
+		PeerCertificates:            cs.PeerCertificates,
+		VerifiedChains:              cs.VerifiedChains,
+		SignedCertificateTimestamps: cs.SignedCertificateTimestamps,
+		OCSPResponse:                cs.OCSPResponse,
+		TLSUnique:                   cs.TLSUnique,
+		ECHAccepted:                 cs.ECHAccepted,
+		HelloRetryRequest:           cs.HelloRetryRequest,
+		LocalCertificate:            cs.LocalCertificate,
+	}
+}
+
 // QUICConfig is the TLS configuration of a QUIC connection's handshake
 // (internal/quic.DialConfig.TLS): cfg's server name and roots, and its
 // tickets. A QUIC connection stores the server's tickets itself, with
@@ -66,25 +105,36 @@ func tlsConfig(cfg Config) *utls.Config {
 		// Without a ticket to resume, the hello has no pre_shared_key.
 		PreferSkipResumptionOnNilExtension: true,
 	}
+	var cache *connCache
 	if cfg.Tickets != nil {
-		cache := &connCache{
+		cache = &connCache{
 			ticket:  cfg.Ticket,
 			tickets: cfg.Tickets,
 			key:     cfg.TicketKey,
 		}
 		config.ClientSessionCache = cache
-		// Tickets keep their server certificate's expiry, past which uTLS
-		// declines them. It runs on resumed handshakes too, and before any
-		// ticket is stored.
-		config.VerifyConnection = func(cs utls.ConnectionState) error {
-			if len(cs.PeerCertificates) > 0 {
-				cache.notAfter = cs.PeerCertificates[0].NotAfter
-			}
-			return nil
-		}
 		// A ticket uTLS will not use (another name) leaves pre_shared_key
 		// empty: leave it out and do a full handshake.
 		config.OmitEmptyPsk = true
+	}
+	if cache == nil && cfg.VerifyConnection == nil {
+		return config
+	}
+	// It runs on resumed handshakes too (VerifyPeerCertificate does not),
+	// once verification has passed, and before any ticket is stored: a
+	// ticket comes only from a connection it accepted.
+	config.VerifyConnection = func(cs utls.ConnectionState) error {
+		if cfg.VerifyConnection != nil {
+			if err := cfg.VerifyConnection(*State(cs)); err != nil {
+				return err
+			}
+		}
+		// Tickets keep their server certificate's expiry, past which
+		// uTLS declines them.
+		if cache != nil && len(cs.PeerCertificates) > 0 {
+			cache.notAfter = cs.PeerCertificates[0].NotAfter
+		}
+		return nil
 	}
 	return config
 }

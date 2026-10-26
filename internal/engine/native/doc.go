@@ -52,6 +52,13 @@
 // one, else an HTTP/1.1 connection of the socket's own, outside the pool,
 // its TLS hello the profile's tls.websocket_h1.
 //
-// Imports: any internal package, profile, clockwork, utls,
-// golang.org/x/net/http/httpguts and the standard library.
+// Config.VerifyConnection (the root's pins and its own check) runs in
+// every TLS and QUIC handshake's verification, resumed ones included, and
+// before a request takes another host's HTTP/2 connection; responses
+// carry their connection's TLS state. Handshake connects and verifies
+// without a request (FetchPins).
+//
+// Imports: any internal package, profile, clockwork,
+// golang.org/x/net/http/httpguts and the standard library (utls only in
+// tests, for the QUIC test server).
 package native

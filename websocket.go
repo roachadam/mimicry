@@ -97,10 +97,9 @@ type webSocketEngine interface {
 // start of its body. A profile without a websocket section, a proxy, or
 // subprotocols where the profile's list has no place for them return
 // ErrNotMeasured.
-func DialWebSocket(ctx context.Context, t *Transport, rawURL string, opts WebSocketOptions) (*WebSocket, *http.Response, error) {
-	if t == nil {
-		return nil, nil, errors.New("mimicry: DialWebSocket needs a Transport")
-	}
+//
+// NewClient's Transport is client.Transport.(*mimicry.Transport).
+func (t *Transport) DialWebSocket(ctx context.Context, rawURL string, opts WebSocketOptions) (*WebSocket, *http.Response, error) {
 	p := t.profile
 	if p.WebSocket == nil {
 		return nil, nil, fmt.Errorf("%w: profile %s has no websocket section", ErrNotMeasured, p.Name)
@@ -173,7 +172,7 @@ func DialWebSocket(ctx context.Context, t *Transport, rawURL string, opts WebSoc
 
 	sock, err := e.OpenWebSocket(req, key)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, publicError(err)
 	}
 	resp := sock.Response
 	if t.jar != nil && s.credentialed {

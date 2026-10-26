@@ -146,7 +146,7 @@ func runSocket(t *testing.T, s *pageSession, tr *mimicry.Transport, page *url.UR
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 	defer cancel()
 	run := &socketRun{}
-	c, _, err := mimicry.DialWebSocket(ctx, tr, s.wsURL(st.Plain, "ws", st.Host, st.Path()), mimicry.WebSocketOptions{
+	c, _, err := tr.DialWebSocket(ctx, s.wsURL(st.Plain, "ws", st.Host, st.Path()), mimicry.WebSocketOptions{
 		From:      page,
 		Protocols: st.Protocols,
 	})

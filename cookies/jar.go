@@ -108,8 +108,12 @@ func compareCreated(a, b entry) int {
 // domainKey is the key a cookie with domain, or a request to host domain,
 // is kept under: its registrable domain. A cookie only ever goes to hosts
 // with its own registrable domain, since its Domain is never a public
-// suffix unless it is the host itself.
+// suffix unless it is the host itself. AnySite cookies are kept under
+// AnySite.
 func domainKey(domain string) string {
+	if domain == AnySite {
+		return AnySite
+	}
 	return site.Registrable(domain)
 }
 
@@ -210,6 +214,12 @@ func (j *Jar) effective(s SameSite) SameSite {
 // SetCookies stores the cookies of a response to r: its raw Set-Cookie
 // lines, as received.
 func (j *Jar) SetCookies(r Request, lines []string) {
+	j.setCookies(r, lines)
+}
+
+// setCookies is SetCookies, returning an event per line (in line order)
+// after telling OnSetCookie about them.
+func (j *Jar) setCookies(r Request, lines []string) []Event {
 	r = httpSchemes(r)
 	ctx := j.contextOf(r)
 	now := j.clock.Now()
@@ -228,6 +238,7 @@ func (j *Jar) SetCookies(r Request, lines []string) {
 			j.onSetCookie(e)
 		}
 	}
+	return events
 }
 
 // setRequest is a request whose response sets cookies, with what every
@@ -451,10 +462,11 @@ func (j *Jar) Cookies(r Request) []*Cookie {
 	key := domainKey(host)
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	bucket := slices.DeleteFunc(j.domains[key], func(e entry) bool {
-		return !e.c.Expires.IsZero() && !e.c.Expires.After(now)
-	})
-	j.store(key, bucket)
+	bucket := j.live(key, now)
+	if anySite := j.live(AnySite, now); key != AnySite && len(anySite) > 0 {
+		// Every site's request also looks at the AnySite cookies.
+		bucket = slices.Concat(bucket, anySite)
+	}
 	// socket: a WebSocket handshake that also carries its host's
 	// unpartitioned Lax and None cookies cross-site (Safari 26).
 	socket := r.WebSocket && j.rules.WebSocketUnpartitioned
@@ -464,7 +476,7 @@ func (j *Jar) Cookies(r Request) []*Cookie {
 		switch {
 		case c.HostOnly && host != c.Domain:
 			continue
-		case !c.HostOnly && !domainMatch(host, c.Domain):
+		case !c.HostOnly && c.Domain != AnySite && !domainMatch(host, c.Domain):
 			continue
 		case !pathMatch(reqPath, c.Path):
 			continue
@@ -501,6 +513,16 @@ func (j *Jar) Cookies(r Request) []*Cookie {
 		out[i] = &cp
 	}
 	return out
+}
+
+// live drops the expired cookies kept under key and returns the rest.
+// Call with the lock held.
+func (j *Jar) live(key string, now time.Time) []entry {
+	bucket := slices.DeleteFunc(j.domains[key], func(e entry) bool {
+		return !e.c.Expires.IsZero() && !e.c.Expires.After(now)
+	})
+	j.store(key, bucket)
+	return bucket
 }
 
 // sortForRequest puts cookies in the browser's order.

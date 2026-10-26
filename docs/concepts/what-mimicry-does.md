@@ -31,8 +31,9 @@ needed to look like one.
 | [QUIC failure and TCP fallback](#when-quic-fails-tcp-racing-and-fallback) | TCP connections racing QUIC | `Config.DisableHTTP3` |
 | [Keep-alive and housekeeping](#keep-alive-pings-and-housekeeping-frames) | PING, WINDOW_UPDATE, ACK frames | none |
 | [TLS resumption and 0-RTT](#tls-session-resumption-and-0-rtt) | none (a different ClientHello) | none; `Config.DisableHTTP3` stops 0-RTT |
-| [WebSockets](#websockets) | only when you call `DialWebSocket` | don't call it |
+| [WebSockets](#websockets) | only when you call `Transport.DialWebSocket` | don't call it |
 | [Proxies](#proxies) | CONNECT, SOCKS5, credential retries | `Config.Proxy` |
+| [Certificate pins and checks](#certificate-pins-and-checks) | none unless set; a refused connection ends with a TLS alert; `FetchPins` makes a handshake | `Config.Pins`, `Config.VerifyConnection` (both off by default) |
 | [The last navigation](#the-last-navigation) | none (header values) | `Request.From` |
 
 ## Redirects
@@ -119,8 +120,13 @@ them is one of the things anti-bot systems check.
 
 **To turn it off or change it.**
 - `NewClient` creates a jar with the profile's rules unless
-  `Config.Cookies` holds one; pass your own jar to share, inspect or
-  persist it.
+  `Config.Cookies` holds one; `Transport.Cookies()` returns it, to
+  inspect, seed or persist it, and passing your own shares it between
+  Transports.
+- Cookies you seed (`Set`, `SetString`, `SetHTTPCookies`) go only where
+  their site's own would; `cookies.AnySite` as `SetString`'s site sends
+  them to every site instead, a deviation no browser makes (decision
+  [0031](../decisions/0031-cookies-for-any-site.md)).
 - `NewTransport` with a nil `Config.Cookies` keeps no cookies: an
   `http.Client` `Jar` or your own `Cookie` headers are then up to you.
 - A request that sets its own `Cookie` header sends that instead; one set
@@ -307,17 +313,18 @@ Transport starts without tickets. `Config.DisableHTTP3` removes 0-RTT.
 
 ## WebSockets
 
-**What happens.** Only when you call `DialWebSocket`. The handshake is the
-profile's `websocket` request kind, over an extended CONNECT stream on the
-host's HTTP/2 connection when the server allows it, otherwise on an
-HTTP/1.1 connection of its own with the browser's socket ClientHello.
+**What happens.** Only when you call `Transport.DialWebSocket`. The
+handshake is the profile's `websocket` request kind, over an extended
+CONNECT stream on the host's HTTP/2 connection when the server allows it,
+otherwise on an HTTP/1.1 connection of its own with the browser's socket
+ClientHello.
 Then, as the browser: every frame masked, messages compressed when the
 server accepted permessage-deflate, pings answered at once, and the close
 handshake ending the transport Chrome's, Safari's or Firefox's way. See
 [WebSockets](websockets.md).
 
-**To turn it off.** Don't call `DialWebSocket`; mimicry never opens a
-socket by itself.
+**To turn it off.** Don't call `Transport.DialWebSocket`; mimicry never
+opens a socket by itself.
 
 ## Proxies
 
@@ -330,10 +337,36 @@ send the first request without them, answer the 407 once on the same
 connection, and send them unasked from then on; Safari waits for a 407 on
 every CONNECT, and sends them on plain-HTTP requests from the first.
 Each proxy has its own connections and TLS tickets, and HTTP/3 is never
-used through a proxy. See [proxies](proxies.md).
+used through a proxy. A proxy that fails a request (unreachable, refusing
+the tunnel or the credentials, too slow) returns a `*ProxyError`, so a
+rotation loop can move on; nothing more is sent through it for that
+request. See [proxies](proxies.md#when-the-proxy-fails).
 
 **To turn it off or change it.** `Config.Proxy`; a nil URL sends that
 request directly.
+
+## Certificate pins and checks
+
+**What happens.** Nothing, unless you set `Config.Pins` or
+`Config.VerifyConnection`; then every TLS and QUIC handshake (resumed
+ones too, WebSockets and proxied connections included) is checked after
+the certificate is verified, and before a request goes on another host's
+HTTP/2 connection (coalescing). A connection that fails the check is
+closed before any request goes on it: over TLS the server sees an alert
+(`bad_certificate`) where the browser would have gone on, and an HTTP/3
+attempt that fails falls back to TCP as a failed QUIC connection does
+(whose own handshake is checked too). `FetchPins`, and `cmd/pins` built
+on it, open one connection with the profile's hello and close it after
+the handshake, without a request. Every response carries its
+connection's state in `resp.TLS`. See
+[decision 0032](../decisions/0032-certificate-pinning.md).
+
+**Why.** Browsers do not pin, so this is your choice, not the browser's:
+it changes what mimicry accepts, never what it sends to a server that
+passes.
+
+**To turn it off or change it.** Leave `Config.Pins` and
+`Config.VerifyConnection` nil (the default).
 
 ## The last navigation
 
@@ -366,7 +399,7 @@ it never:
   `Config.RootCAs` nil, Go hands verification to the operating system's
   verifier, which on macOS may contact a certificate authority on its
   own; that traffic never goes to the site.)
-- opens a WebSocket unless you call `DialWebSocket`.
+- opens a WebSocket unless you call `Transport.DialWebSocket`.
 
 The traffic it does add on its own is connection-level: connections
 opened, coalesced, declined or closed, QUIC attempts and their TCP races,

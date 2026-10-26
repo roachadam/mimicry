@@ -128,6 +128,10 @@ func (c *Conn) buildHead(req *http.Request, length int64) (head, error) {
 			ordered = c.placeAltUsed(ordered, plan)
 		}
 	}
+	ordered, err := headerorder.Place(ordered, headerorder.PlacementsFrom(req.Context()))
+	if err != nil {
+		return head{}, err
+	}
 	order := c.p.HTTP2.PseudoHeaderOrder
 	if hd != nil {
 		order = hd.PseudoHeaderOrder

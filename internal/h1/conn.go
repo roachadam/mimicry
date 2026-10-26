@@ -3,6 +3,7 @@ package h1
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -33,6 +34,9 @@ type Conn struct {
 	h1Case  map[string]string
 	// forward, when set, sends requests whole to an HTTP proxy (Forward).
 	forward *profile.Proxy
+	// tls is the connection's TLS state, which responses carry; nil for
+	// plain HTTP.
+	tls *tls.ConnectionState
 }
 
 // New wraps conn, which carries HTTP/1.1, plain or over TLS, for profile p.
@@ -55,6 +59,12 @@ func New(conn net.Conn, p *profile.Profile) *Conn {
 // p's ForwardAuth places it.
 func (c *Conn) Forward(p *profile.Proxy) {
 	c.forward = p
+}
+
+// SetTLS gives c's responses s, the connection's TLS state (nil for plain
+// HTTP), as their TLS.
+func (c *Conn) SetTLS(s *tls.ConnectionState) {
+	c.tls = s
 }
 
 // ChallengeAnswered is the context key (value true) that marks a request
@@ -202,6 +212,7 @@ func (c *Conn) RoundTrip(req *http.Request, done func(reusable bool)) (*http.Res
 			finish(reusable && eof)
 		},
 	}
+	resp.TLS = c.tls
 	return resp, nil
 }
 
@@ -306,6 +317,12 @@ func (c *Conn) buildHead(req *http.Request, framing http.Header) (*head, error) 
 			})
 		}
 		fields = append(fields, headerorder.Build(headers, reqHeader, skipHeader, table)...)
+	}
+	// The caller's placements move lines the list wrote, Host and framing
+	// included; Proxy-Authorization is placed after them.
+	fields, err := headerorder.Place(fields, headerorder.PlacementsFrom(req.Context()))
+	if err != nil {
+		return nil, err
 	}
 	at := len(fields)
 	if auth != "" {

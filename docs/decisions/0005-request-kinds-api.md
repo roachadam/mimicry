@@ -51,7 +51,10 @@ visibly the caller's.** Precedence, lowest first:
    and `Cookie` are dropped once a redirect chain crossed origins;
 4. the request's own headers: a value wins, `nil` removes one header,
    `HeaderOrderKey` reorders (and drops the profile defaults it does not
-   name).
+   name);
+5. `Config.HeaderPlacement`, then `Request.HeaderPlacement`: one header
+   moved next to another, the rest in the profile's order
+   ([0030](0030-header-placement.md)).
 
 Without `From`, other kinds come from the transport's last navigation, else
 from the target's own origin: a Transport is one browsing entity

@@ -7,10 +7,12 @@ Rough draft. Reference: `cookies/` (the package), [decision 0009](../decisions/0
 ## Using it
 
 `mimicry.NewClient` gives the transport a jar with the profile's rules;
-nothing else is needed. To share, inspect or persist it, make your own and
-pass it in. `cookies.New` checks the rules it is given
-(`profile.Cookies.Validate`); nil rules are RFC 6265bis's
-(`profile.DefaultCookies`), for a jar used without a profile.
+nothing else is needed, and `Transport.Cookies()` returns it
+(`client.Transport.(*mimicry.Transport).Cookies()`). To share one jar
+between Transports, or set a hook, make your own and pass it in.
+`cookies.New` checks the rules it is given (`profile.Cookies.Validate`);
+nil rules are RFC 6265bis's (`profile.DefaultCookies`), for a jar used
+without a profile.
 
 ```go
 jar, err := cookies.New(cookies.Config{
@@ -34,6 +36,25 @@ client, err := mimicry.NewClient(mimicry.Config{
   in the browser's order; `cookies.Header` formats it.
 - `All`, `Set` (no URL needed), `Delete`, `Clear`, `ClearExpired`,
   `ClearSession`, `Clone`.
+- `SetString(site, "a=1; b=2")` seeds a site's cookies from a `Cookie`
+  header string, `FromString` makes a jar from one, and `String(site)`
+  gives them back as one ([decision 0031](../decisions/0031-cookies-for-any-site.md)).
+  `site` is a host, a URL or the domain; each pair becomes a cookie of its
+  registrable domain (every host of the site, no other site), path `/`,
+  session, not `Secure`, no `SameSite` (the profile's default). `String`
+  lists the site's unpartitioned cookies of every host and path in
+  creation order, dropping hosts, paths and attributes (`WriteJSON` keeps
+  them).
+- `cookies.AnySite` as the site stores cookies every site receives: no
+  browser has them, so this is opt-in and visible in your code. Every
+  host gets them where its own cookie would go (SameSite and third-party
+  rules still apply), trackers and CDNs included, and a site's cookie of
+  the same name goes as well. They count towards no site's limit and are
+  left out of `WriteNetscape`.
+- `SetHTTPCookies(u, []*http.Cookie)` stores cookies from a solver or
+  another library as `Set-Cookie` lines of a navigation to `u`, through
+  the browser's rules; the error names each cookie refused and why, and
+  the rest are stored.
 - `WriteJSON` / `ReadJSON`: lossless (every attribute, partitions, the raw
   `Set-Cookie` line). `WriteNetscape` / `ReadNetscape`: the cookies.txt
   format curl and wget use; it cannot hold SameSite, partitions or creation

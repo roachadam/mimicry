@@ -54,6 +54,10 @@ Related:
 | [0027](decisions/0027-quic-base.md) | QUIC from a copy of x/net/quic; HTTP/3 and QPACK our own | Accepted |
 | [0028](decisions/0028-quic-failure-model.md) | QUIC and HTTP/3 fail as each browser's do | Accepted |
 | [0029](decisions/0029-scope-what-gets-modelled.md) | Model what anti-bot systems check or users notice | Accepted |
+| [0030](decisions/0030-header-placement.md) | Header placement: move one header, keep the browser's order | Accepted |
+| [0031](decisions/0031-cookies-for-any-site.md) | Seeding cookies from strings, and cookies for any site | Accepted |
+| [0032](decisions/0032-certificate-pinning.md) | Certificate pinning and VerifyConnection on every handshake | Accepted |
+| [0033](decisions/0033-proxy-errors.md) | Proxy failures are a `*ProxyError` | Accepted |
 
 New records copy [`decisions/template.md`](decisions/template.md).
 

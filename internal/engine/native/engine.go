@@ -2,6 +2,7 @@ package native
 
 import (
 	"context"
+	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
@@ -55,6 +56,13 @@ type Config struct {
 	// DisableHTTP3 keeps every request on TCP, whatever the profile's
 	// http3 section and servers' Alt-Svc say.
 	DisableHTTP3 bool
+	// VerifyConnection, when set, checks a connection for a request to
+	// host after its certificate is verified: on every TLS and QUIC
+	// handshake (resumed ones included) and before a request to another
+	// host goes on an HTTP/2 connection (coalescing, with the state's
+	// ServerName set to that host). An error fails the handshake, or
+	// keeps the request off that connection.
+	VerifyConnection func(host string, cs tls.ConnectionState) error
 }
 
 // Engine is the pure-Go engine: pooled connections, one dial path, uTLS
@@ -70,6 +78,8 @@ type Engine struct {
 	proxy   func(*http.Request) (*url.URL, error)
 	// lookup returns a host's addresses, for coalescing on lookup.
 	lookup func(ctx context.Context, host string) ([]netip.Addr, error)
+	// verify is Config.VerifyConnection.
+	verify func(host string, cs tls.ConnectionState) error
 	// tickets keeps TLS session tickets when the profile resumes.
 	tickets *handshake.Tickets
 	pool    *pool.Pool[*shared, *h1.Conn]
@@ -111,6 +121,7 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 		},
 		proxy:  cfg.Proxy,
 		lookup: lookupFunc(cfg.Resolver),
+		verify: cfg.VerifyConnection,
 		pool: pool.New[*shared, *h1.Conn](pool.Config{
 			Clock:        clock,
 			IdleTimeout:  idleTimeout,
@@ -194,6 +205,18 @@ func (e *Engine) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 		}
 		notSent := errors.Is(err, errNotSent)
 		if !notSent && !errors.Is(err, errRetry) {
+			if err == nil && r.forward && resp.StatusCode == http.StatusProxyAuthRequired {
+				// The browser's credentials are spent (or it has none
+				// to give): the proxy refused the request, which never
+				// reached the server.
+				_ = resp.Body.Close()
+				return nil, &dial.ProxyError{
+					Proxy:      r.proxy,
+					StatusCode: resp.StatusCode,
+					Header:     resp.Header,
+					Err:        fmt.Errorf("answered %s with %s", req.Method, resp.Status),
+				}
+			}
 			return resp, err
 		}
 		if errors.Is(err, errTCPOnly) {
@@ -401,16 +424,31 @@ func (e *Engine) roundTripH2(key string, c *shared, req *http.Request) (*http.Re
 		e.pool.RemoveShared(key, c)
 		return nil, fmt.Errorf("%w: %w", errNotSent, err)
 	}
+	if err == nil {
+		resp.TLS = c.tls
+	}
 	return resp, err
 }
 
 // newH1 wraps conn, which carries HTTP/1.1, for the route's requests.
 func (e *Engine) newH1(conn net.Conn, r route) *h1.Conn {
 	c := h1.New(conn, e.profile)
+	c.SetTLS(handshake.ConnState(conn))
 	if r.forward {
 		c.Forward(e.profile.Proxy)
 	}
 	return c
+}
+
+// verifyFor is the handshake's VerifyConnection for a connection to host,
+// or nil.
+func (e *Engine) verifyFor(host string) func(tls.ConnectionState) error {
+	if e.verify == nil {
+		return nil
+	}
+	return func(cs tls.ConnectionState) error {
+		return e.verify(host, cs)
+	}
 }
 
 // dial connects, through the route's proxy if it has one, and, for https,
@@ -434,8 +472,9 @@ func (e *Engine) dial(ctx context.Context, req *http.Request, r route) (net.Conn
 		return conn, "http/1.1", nil
 	}
 	cfg := handshake.Config{
-		ServerName: req.URL.Hostname(),
-		RootCAs:    e.rootCAs,
+		ServerName:       req.URL.Hostname(),
+		RootCAs:          e.rootCAs,
+		VerifyConnection: e.verifyFor(req.URL.Hostname()),
 	}
 	hello := e.plan.Hello()
 	if e.tickets != nil {
@@ -459,6 +498,32 @@ func (e *Engine) roundTripH1(key string, c *h1.Conn, req *http.Request) (*http.R
 	return c.RoundTrip(req, func(reusable bool) {
 		e.pool.Release(key, c, reusable)
 	})
+}
+
+// Handshake connects to rawURL's host (https) as a request to it would,
+// through its proxy, with the profile's TLS hello, and returns the
+// connection's TLS state once the server's certificate is verified. It
+// sends no request and closes the connection.
+func (e *Engine) Handshake(ctx context.Context, rawURL string) (*tls.ConnectionState, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	if req.URL.Scheme != "https" || req.URL.Host == "" {
+		return nil, fmt.Errorf("mimicry: %q is not an https URL", rawURL)
+	}
+	r, err := e.route(req)
+	if err != nil {
+		return nil, err
+	}
+	conn, _, err := e.dial(ctx, req, r)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = conn.Close()
+	}()
+	return handshake.ConnState(conn), nil
 }
 
 // CloseIdleConnections closes idle HTTP/1.1 connections, and HTTP/2 and

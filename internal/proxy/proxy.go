@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -282,9 +283,15 @@ func watch(ctx context.Context, conn net.Conn) func() {
 }
 
 // contextError prefers the context's error when cancellation caused err.
+// The connection's deadline is the context's (watch), and can pass before
+// the context's own timer marks it done: a timeout at or after it is the
+// context's deadline too.
 func contextError(ctx context.Context, err error) error {
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return ctxErr
+	}
+	if d, ok := ctx.Deadline(); ok && errors.Is(err, os.ErrDeadlineExceeded) && !time.Now().Before(d) {
+		return context.DeadlineExceeded
 	}
 	return err
 }

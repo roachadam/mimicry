@@ -146,7 +146,7 @@ func (t *Transport) preflight(req *http.Request, r Request, from *url.URL, crede
 	pre.Header = s.header
 	resp, err := t.engine.RoundTrip(pre)
 	if err != nil {
-		return true, err
+		return true, publicError(err)
 	}
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
 	_ = resp.Body.Close()

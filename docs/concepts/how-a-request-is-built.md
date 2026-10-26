@@ -91,7 +91,12 @@ on anything but Fetch and XHR.
    defaults and `Config.Headers`; a header set to `nil` suppresses a
    default; `HeaderOrderKey` replaces the order, so a profile default it
    does not name is not sent (headers the request sets that it does not
-   name still go, after the named ones).
+   name still go, after the named ones). `Config.HeaderPlacement` and then
+   `Request.HeaderPlacement` (`Place`: one header directly after or before
+   another) ride along to the connection, which applies them last
+   ([0030](../decisions/0030-header-placement.md)); a request that sets
+   `HeaderOrderKey` takes no `Config` placements, and with placements of
+   its own is an error (`ErrPlacement`), as is an invalid `Place`.
 5. **Preflight it if the browser would.** A cross-origin `fetch()` or XHR
    with a non-safelisted method or header first gets an `OPTIONS`
    preflight (the `preflight` kind), unless a cached answer allows it. The
@@ -102,7 +107,9 @@ on anything but Fetch and XHR.
    [0017](../decisions/0017-cors-preflights.md)).
 
 `Exact(req)` skips steps 2, 3 and 5: only the request's own headers and
-`Config.Headers` are sent, in `HeaderOrderKey`'s order or sorted by name.
+`Config.Headers` are sent, in `HeaderOrderKey`'s order or sorted by name,
+without `Config.HeaderPlacement` (a `Request.HeaderPlacement` is an
+error).
 
 What the profile never measured is an error wrapping
 `mimicry.ErrNotMeasured`, not a guess
@@ -133,7 +140,8 @@ or holding bytes nobody asked for: it is closed instead) and closed after
 A request to a host with no HTTP/2 connection of its own may take another
 host's (coalescing), as the profile's `connections.coalesce` says: one in
 the same partition, to the same port, not through a proxy, whose
-certificate covers the host. With `lookup` (Chrome, Safari) the host is
+certificate covers the host and passes `Config.Pins` and
+`Config.VerifyConnection` for it. With `lookup` (Chrome, Safari) the host is
 looked up (`Config.Resolver`) and the connection must reach one of its
 addresses: no new connection is opened. With `connect` (Firefox) the host
 is dialled and handshaked first; if another connection reaches the same
@@ -141,10 +149,14 @@ address, the new one sends its preface and GOAWAY and closes, and the
 request goes on the other.
 
 A new connection is dialled (`internal/dial`, `Config.DialContext`, through
-the proxy if there is one) and handshaked with the profile's ClientHello
-(`internal/handshake`); `Config.DialTimeout` bounds the connect and,
-separately, the handshake. A request nothing of which was sent goes again
-on another connection. The request goes to:
+the proxy if there is one; a proxy's failure is a `*ProxyError`) and
+handshaked with the profile's ClientHello (`internal/handshake`), its
+certificate verified against `Config.RootCAs`, then `Config.Pins` and
+`Config.VerifyConnection` (every handshake, resumed ones and QUIC's
+included; [decision 0032](../decisions/0032-certificate-pinning.md));
+`Config.DialTimeout` bounds the connect and, separately, the handshake. A
+request nothing of which was sent goes again on another connection. The
+response's `TLS` is the connection's state. The request goes to:
 
 - HTTP/2 (`internal/h2`): pseudo-headers in the profile's order, then the
   plan's headers through `internal/headerorder` (page-set headers where the
@@ -154,6 +166,17 @@ on another connection. The request goes to:
   browser sends them, Host and framing placed; headers the profile does not
   name keep the caller's spelling. A plan from a variant without an
   `http1` list is refused here (`ErrNotMeasured`).
+- HTTP/3 (`internal/h3`): as HTTP/2, with the profile's `http3.headers`
+  changes (dropped headers, `alt-used`) and QPACK.
+
+Each writer then applies the request's header placements
+(`headerorder.Place`) to the lines it is about to send, whatever put them
+there: the profile's list with its page-set run, cookies, framing, and over
+HTTP/1.1 Host and Connection too (not `Proxy-Authorization`, which goes
+where the browser puts it afterwards). Pseudo-headers are never placed. A
+header or anchor the request does not send fails it with `ErrPlacement`
+before anything of it is written. Without placements the lines are
+untouched.
 
 ## 4. The response comes back
 
@@ -178,4 +201,9 @@ preflights, redirects, connection sharing),
 `TestHPACKReproducesBrowserBlocks`. The resolver's rules by unit tests in
 `kinds_test.go`, `transport_test.go` and `preflight_test.go`; the pool's by
 `internal/pool`'s, with fake connections and a fake clock; coalescing by
-`internal/engine/native`'s, with fake servers and lookups.
+`internal/engine/native`'s, with fake servers and lookups. Header placement
+by `TestHeaderPlacement` (`placement_test.go`): each placed request against
+the same one unplaced, over HTTP/1.1 and a raw HTTP/2 peer, and its error
+paths; over HTTP/3 by `TestHeaderPlacementOverHTTP3` in
+`internal/engine/native`, against a QUIC server decoding the field
+sections.

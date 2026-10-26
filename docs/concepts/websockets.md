@@ -5,7 +5,7 @@ message itself. See [decision 0025](../decisions/0025-websockets.md) and the
 [capture report](../../harness/reports/websocket-2026-10-24.md).
 
 ```go
-ws, resp, err := mimicry.DialWebSocket(ctx, transport, "wss://chat.example.com/socket",
+ws, resp, err := transport.DialWebSocket(ctx, "wss://chat.example.com/socket",
 	mimicry.WebSocketOptions{
 		From:      page, // the page that opens it: Origin, cookies
 		Protocols: []string{"chat"},

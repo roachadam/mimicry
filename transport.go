@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"compress/zlib"
 	"context"
+	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
@@ -30,7 +31,9 @@ import (
 // in the order to send them. It replaces the profile's order for the
 // request, so a profile default it does not name is not sent; headers the
 // request sets that it does not name are still sent, after the named ones.
-// It is never sent itself.
+// It is never sent itself. It wins over Config.HeaderPlacement, which the
+// request then ignores; to move one header and keep the profile's order,
+// use a Place instead.
 const HeaderOrderKey = headerorder.Key
 
 // engine sends requests: the pure-Go engine, or a test's fake.
@@ -72,7 +75,8 @@ type Config struct {
 	// one cannot use proxies); the server sees what it would without the
 	// proxy. Credentials in the URL go as the browser sends them: once the
 	// proxy asks (407), then unasked. Each proxy has its own connections and
-	// TLS sessions.
+	// TLS sessions. A proxy that fails a request (unreachable, refusing the
+	// tunnel or the credentials, too slow) returns a *ProxyError.
 	Proxy func(*http.Request) (*url.URL, error)
 	// Headers are added to every request: the caller's own, such as an API
 	// key, not the profile's. They take the place the request's kind gives
@@ -83,11 +87,21 @@ type Config struct {
 	// Accept-Language). Authorization and Cookie stop once a redirect chain
 	// has left an origin, as a browser drops Authorization.
 	Headers http.Header
+	// HeaderPlacement moves headers out of the profile's order on every
+	// request the Transport sends for the caller, redirect hops included
+	// (Place), before Request.HeaderPlacement moves them. It does not
+	// apply to CORS preflights and WebSocket handshakes (the
+	// Transport's own and the browser's, Headers aside), nor to requests
+	// that set their own order (Exact, HeaderOrderKey: that order wins).
+	// NewTransport refuses an invalid Place (ErrPlacement); a header or
+	// anchor a request does not send fails that request.
+	HeaderPlacement []Place
 	// Cookies is the cookie jar requests send from and responses store to,
-	// under the profile's cookie rules. NewClient creates one when nil;
-	// NewTransport leaves cookies to the caller (an http.Client Jar, or
-	// Cookie headers) when nil. A request that sets its own Cookie header
-	// sends that instead, and one set with no values sends none.
+	// under the profile's cookie rules. NewClient creates one when nil
+	// (Transport.Cookies returns it); NewTransport leaves cookies to the
+	// caller (an http.Client Jar, or Cookie headers) when nil. A request
+	// that sets its own Cookie header sends that instead, and one set with
+	// no values sends none.
 	Cookies *cookies.Jar
 	// DisableHTTP3 keeps every request on TCP (HTTP/2 or HTTP/1.1). By
 	// default a profile with an http3 section speaks HTTP/3 as its
@@ -96,6 +110,29 @@ type Config struct {
 	// a proxy, and back to TCP when QUIC fails. QUIC is UDP to the
 	// address Resolver gives for the host; DialContext has no part in it.
 	DisableHTTP3 bool
+	// Pins pins hosts to public keys (Pin): a request to a host a Pin
+	// covers goes only on a connection whose verified chain holds a
+	// certificate one of its values matches, else it fails with a
+	// *PinError and nothing is sent. Hosts no Pin covers are verified as
+	// usual. The check runs where VerifyConnection does. NewTransport
+	// refuses a malformed Pin. FetchPins lists a site's chain and its
+	// pins.
+	Pins []Pin
+	// VerifyConnection, when set, checks each connection after its
+	// certificate is verified (against RootCAs) and Pins are checked; an
+	// error fails the request with that error, and nothing is sent. It
+	// runs on every TLS handshake (HTTP/1.1, HTTP/2, WebSockets, through
+	// proxies) and QUIC handshake (HTTP/3), resumed ones included, with
+	// crypto/tls's VerifyConnection semantics rather than
+	// VerifyPeerCertificate's: the latter is skipped on a resumed
+	// session, which would let a connection by without the check (a
+	// resumed session carries the chain verified when its ticket was
+	// issued, and a ticket is only kept from a connection that passed).
+	// It also runs before a request to another host goes on an HTTP/2
+	// connection (coalescing), with ServerName set to that host; an
+	// error there opens a connection of the host's own instead. The state
+	// has no ExportKeyingMaterial.
+	VerifyConnection func(tls.ConnectionState) error
 
 	// engine replaces the pure-Go engine (tests only).
 	engine engine
@@ -116,6 +153,10 @@ type Transport struct {
 	headers          http.Header
 	preflightHeaders http.Header
 	jar              *cookies.Jar
+	// placements are Config.HeaderPlacement, lowercase.
+	placements []headerorder.Placement
+	// pins are Config.Pins by host.
+	pins pinSet
 	// decode is true when the profile sends Accept-Encoding by default.
 	decode bool
 	// lastNav is the URL of the last navigation sent: the page other kinds
@@ -147,23 +188,34 @@ func NewTransport(cfg Config) (*Transport, error) {
 		// A copy, and a key with no values stays present: it suppresses.
 		headers[k] = append(headers[k], v...)
 	}
+	places, err := placements("Config.HeaderPlacement", cfg.HeaderPlacement)
+	if err != nil {
+		return nil, err
+	}
+	pins, err := parsePins(cfg.Pins)
+	if err != nil {
+		return nil, err
+	}
 	t := &Transport{
 		engine:           cfg.engine,
 		profile:          p,
 		headers:          headers,
 		preflightHeaders: preflightConfig(p, headers),
 		jar:              cfg.Cookies,
+		placements:       places,
+		pins:             pins,
 		clock:            clockwork.NewRealClock(),
 	}
 	if t.engine == nil {
 		e, err := native.New(native.Config{
-			Profile:      p,
-			RootCAs:      cfg.RootCAs,
-			DialTimeout:  cfg.DialTimeout,
-			DialContext:  cfg.DialContext,
-			Resolver:     cfg.Resolver,
-			Proxy:        cfg.Proxy,
-			DisableHTTP3: cfg.DisableHTTP3,
+			Profile:          p,
+			RootCAs:          cfg.RootCAs,
+			DialTimeout:      cfg.DialTimeout,
+			DialContext:      cfg.DialContext,
+			Resolver:         cfg.Resolver,
+			Proxy:            cfg.Proxy,
+			DisableHTTP3:     cfg.DisableHTTP3,
+			VerifyConnection: t.verifier(cfg.VerifyConnection),
 		})
 		if err != nil {
 			return nil, err
@@ -179,7 +231,8 @@ func NewTransport(cfg Config) (*Transport, error) {
 }
 
 // NewClient returns an *http.Client using a new Transport and, unless
-// cfg.Cookies holds one, a new cookie jar with the profile's cookie rules.
+// cfg.Cookies holds one, a new cookie jar with the profile's cookie rules,
+// reachable as client.Transport.(*mimicry.Transport).Cookies().
 // The jar is the transport's, not the client's Jar: it needs what an
 // http.CookieJar never sees (the page, the request kind, redirects). The
 // client follows redirects as far as the browser does: the Transport
@@ -213,7 +266,8 @@ func NewClient(cfg Config) (*http.Client, error) {
 // (on the request or in Config.Headers), response bodies are decoded and
 // Content-Encoding and Content-Length removed, as a browser would; HEAD
 // responses, 204 and 304 responses, and those with Content-Length 0 are
-// left as they are.
+// left as they are. An https response's TLS is its connection's state
+// (HTTP/1.1, HTTP/2 or HTTP/3), shared by the connection's responses.
 //
 // A redirect http.Client follows goes out as the browser sends it: a PUT,
 // DELETE or PATCH answered 301 or 302 keeps its method and body (its
@@ -241,7 +295,11 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 		req = next
 	}
-	s, err := t.prepare(req, r, exact)
+	places, err := t.placementsFor(req, r, exact)
+	var s *sending
+	if err == nil {
+		s, err = t.prepare(req, r, exact)
+	}
 	if err != nil {
 		// The RoundTripper contract: the body is closed, even on errors.
 		if req.Body != nil && req.Body != http.NoBody {
@@ -259,6 +317,10 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		// sees this request as its Response's.
 		ctx = context.WithValue(ctx, preflightedKey{}, true)
 	}
+	if len(places) > 0 {
+		// The caller's request only: its preflight went out above.
+		ctx = headerorder.WithPlacements(ctx, places)
+	}
 	if t.jar != nil && s.credentialed && !hasHeader(h, "Cookie") {
 		if line := cookies.Header(t.jar.Cookies(s.cookies)); line != "" {
 			h.Set("Cookie", line)
@@ -267,6 +329,7 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	req = req.Clone(ctx)
 	req.Header = h
 	resp, err := t.engine.RoundTrip(req)
+	err = publicError(err)
 	if err == nil && t.jar != nil && s.credentialed {
 		t.jar.SetCookies(s.cookies, resp.Header.Values("Set-Cookie"))
 	}
@@ -391,6 +454,12 @@ func hasBody(req *http.Request, resp *http.Response) bool {
 // CloseIdleConnections closes connections with no requests in flight.
 func (t *Transport) CloseIdleConnections() {
 	t.engine.CloseIdleConnections()
+}
+
+// Cookies returns the transport's cookie jar: Config.Cookies, or the one
+// NewClient made; nil when it has none.
+func (t *Transport) Cookies() *cookies.Jar {
+	return t.jar
 }
 
 // decoder opens its decompressor on first Read, so RoundTrip never blocks

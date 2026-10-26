@@ -107,6 +107,8 @@ type interopCase struct {
 	// server configures the first backend, the one the relay starts
 	// with.
 	server backendOpts
+	// config, when set, changes the client's Config.
+	config func(cfg *mimicry.Config)
 	run    func(e *interopEnv)
 }
 
@@ -690,7 +692,7 @@ func newInteropEnv(t *testing.T, p *profile.Profile, pki *interopPKI, c interopC
 		}
 	})
 	tcp := e.altSvcServer()
-	tr, err := mimicry.NewTransport(mimicry.Config{
+	cfg := mimicry.Config{
 		Profile:     p,
 		RootCAs:     pki.roots,
 		DialTimeout: c.limit,
@@ -698,7 +700,11 @@ func newInteropEnv(t *testing.T, p *profile.Profile, pki *interopPKI, c interopC
 			return (&net.Dialer{}).DialContext(ctx, network, tcp)
 		},
 		Resolver: stubResolver(t),
-	})
+	}
+	if c.config != nil {
+		c.config(&cfg)
+	}
+	tr, err := mimicry.NewTransport(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}

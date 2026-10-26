@@ -291,8 +291,8 @@ func ExampleWith() {
 	// now on https://www.shop.test/orders/1001
 }
 
-// Cookies live in the Transport's jar: read them, seed one obtained
-// elsewhere, and delete one.
+// Cookies live in the Transport's jar: read them, seed some obtained
+// elsewhere, delete one, and save the site's as a string.
 func ExampleConfig_cookies() {
 	shop := startShop(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("server: %s cookie=%q\n", r.URL.Path, r.Header.Get("Cookie"))
@@ -303,18 +303,10 @@ func ExampleConfig_cookies() {
 	})
 	defer shop.Close()
 
-	// Pass a jar of your own to keep a handle on it; NewClient otherwise
-	// creates one you cannot reach. Its rules are the profile's.
-	p := profiles.Chrome155MacOS()
-	jar, err := cookies.New(cookies.Config{
-		Rules: p.Cookies,
-	})
-	if err != nil {
-		panic(err)
-	}
+	// NewClient makes a jar with the profile's rules; Transport.Cookies
+	// returns it. Pass Config.Cookies to share one between Transports.
 	client, err := mimicry.NewClient(mimicry.Config{
-		Profile: p,
-		Cookies: jar,
+		Profile: profiles.Chrome155MacOS(),
 		// Only to reach the local stand-in shop; nil for real sites.
 		RootCAs:     shop.RootCAs,
 		DialContext: shop.DialContext,
@@ -322,6 +314,7 @@ func ExampleConfig_cookies() {
 	if err != nil {
 		panic(err)
 	}
+	jar := client.Transport.(*mimicry.Transport).Cookies()
 	get := func(rawURL string) {
 		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, rawURL, nil)
 		if err != nil {
@@ -340,15 +333,9 @@ func ExampleConfig_cookies() {
 		fmt.Printf("jar: %s=%s domain=%s secure=%v session=%v\n", c.Name, c.Value, c.Domain, c.Secure, c.Expires.IsZero())
 	}
 
-	// A cookie from elsewhere (another tool, a saved session) goes in with
-	// Set: here for the whole site (a Domain, not HostOnly).
-	if err := jar.Set(cookies.Cookie{
-		Name:   "consent",
-		Value:  "yes",
-		Domain: "shop.test",
-		Path:   "/",
-		Secure: true,
-	}); err != nil {
+	// Cookies from elsewhere (another tool, a saved session) as a Cookie
+	// header string, for every host of the site.
+	if err := jar.SetString("shop.test", "consent=yes"); err != nil {
 		panic(err)
 	}
 	get("https://www.shop.test/cart")
@@ -357,12 +344,14 @@ func ExampleConfig_cookies() {
 		return c.Name == "region"
 	})
 	get("https://www.shop.test/cart")
+	fmt.Printf("saved: %q\n", jar.String("shop.test"))
 	// Output:
 	// server: / cookie=""
 	// jar: session=s1 domain=www.shop.test secure=true session=true
 	// jar: region=eu domain=www.shop.test secure=false session=false
 	// server: /cart cookie="session=s1; region=eu; consent=yes"
 	// server: /cart cookie="session=s1; consent=yes"
+	// saved: "session=s1; consent=yes"
 }
 
 // One Transport per site, all sharing one jar: each site gets its own
@@ -526,8 +515,10 @@ func ExampleHeaderOrderKey() {
 }
 
 // Proxies: Config.Proxy picks one per request, so rotating is changing what
-// it returns. Each proxy has its own connections; the cookies and the last
-// page stay the Transport's.
+// it returns. A *ProxyError says the proxy failed (unreachable, refused the
+// tunnel, rejected its credentials), not the site: take the next one. Each
+// proxy has its own connections; the cookies and the last page stay the
+// Transport's.
 func ExampleConfig_proxy() {
 	shop := startShop(func(_ http.ResponseWriter, r *http.Request) {
 		fmt.Println("server:", r.URL.Path)
@@ -537,9 +528,17 @@ func ExampleConfig_proxy() {
 	defer first.Close()
 	second := startProxy(shop, "", "")
 	defer second.Close()
+	// The first proxy again, with a password it no longer takes.
+	expired := *first.URL
+	expired.User = url.UserPassword("alice", "expired")
 
+	proxies := []*url.URL{&expired, first.URL, second.URL}
 	var current atomic.Pointer[url.URL]
-	current.Store(first.URL) // http://alice:secret@127.0.0.1:port
+	current.Store(proxies[0])
+	rotate := func() {
+		proxies = proxies[1:]
+		current.Store(proxies[0])
+	}
 	client, err := mimicry.NewClient(mimicry.Config{
 		Profile: profiles.Chrome155MacOS(),
 		Proxy: func(*http.Request) (*url.URL, error) {
@@ -553,21 +552,31 @@ func ExampleConfig_proxy() {
 		panic(err)
 	}
 	get := func(rawURL string) {
-		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, rawURL, nil)
-		if err != nil {
-			panic(err)
+		for {
+			req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, rawURL, nil)
+			if err != nil {
+				panic(err)
+			}
+			resp, err := client.Do(req)
+			var pe *mimicry.ProxyError
+			if errors.As(err, &pe) {
+				fmt.Printf("proxy failed: %d as %s (password in the error: %t)\n",
+					pe.StatusCode, pe.Proxy.User.Username(), strings.Contains(err.Error(), "expired"))
+				rotate()
+				continue
+			}
+			if err != nil {
+				panic(err)
+			}
+			_ = resp.Body.Close()
+			return
 		}
-		resp, err := client.Do(req)
-		if err != nil {
-			panic(err)
-		}
-		_ = resp.Body.Close()
 	}
 
 	// The credentials go as Chrome sends them: not until the proxy asks.
 	get("https://www.shop.test/")
 	get("https://www.shop.test/cart") // the same tunnel
-	current.Store(second.URL)         // say, after a 403
+	rotate()                          // say, after a 403 from the site
 	get("https://www.shop.test/cart") // a new tunnel, through the second proxy
 
 	for _, line := range first.Log() {
@@ -577,9 +586,12 @@ func ExampleConfig_proxy() {
 		fmt.Println("second proxy:", line)
 	}
 	// Output:
+	// proxy failed: 407 as alice (password in the error: false)
 	// server: /
 	// server: /cart
 	// server: /cart
+	// first proxy: CONNECT www.shop.test:443 without credentials: 407
+	// first proxy: CONNECT www.shop.test:443 as alice: 407
 	// first proxy: CONNECT www.shop.test:443 without credentials: 407
 	// first proxy: CONNECT www.shop.test:443 as alice: 200
 	// second proxy: CONNECT www.shop.test:443 without credentials: 200
@@ -621,6 +633,76 @@ func ExampleConfig_disableHTTP3() {
 	// HTTP/2.0
 	// HTTP/2.0
 	// HTTP/2.0
+}
+
+// Certificate pinning: FetchPins lists a site's verified chain (cmd/pins
+// prints it), and Config.Pins holds a host to keys from it, the
+// intermediate's being the usual choice (it outlives the leaf's
+// renewals). A connection whose chain has none of them fails with a
+// *PinError before anything is sent; every response carries its
+// connection's TLS state.
+func ExampleConfig_pins() {
+	shop := startShop(func(http.ResponseWriter, *http.Request) {})
+	defer shop.Close()
+	cfg := mimicry.Config{
+		Profile: profiles.Chrome155MacOS(),
+		// Only to reach the local stand-in shop; nil for real sites.
+		RootCAs:     shop.RootCAs,
+		DialContext: shop.DialContext,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	chain, err := mimicry.FetchPins(ctx, cfg, "https://www.shop.test/")
+	if err != nil {
+		panic(err)
+	}
+	var intermediate string
+	for _, c := range chain {
+		fmt.Println(c.Role, c.Subject)
+		if c.Role == mimicry.CertIntermediate {
+			intermediate = c.SPKI // "sha256/<base64>"
+		}
+	}
+
+	get := func(pin string) {
+		cfg.Pins = []mimicry.Pin{
+			{
+				Host:              "shop.test",
+				IncludeSubdomains: true,
+				SPKI: []string{
+					pin,
+				},
+			},
+		}
+		client, err := mimicry.NewClient(cfg)
+		if err != nil {
+			panic(err)
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://www.shop.test/", nil)
+		if err != nil {
+			panic(err)
+		}
+		resp, err := client.Do(req)
+		var pe *mimicry.PinError
+		if errors.As(err, &pe) {
+			fmt.Println("refused:", pe.Host, "presented", len(pe.Presented), "keys")
+			return
+		}
+		if err != nil {
+			panic(err)
+		}
+		_ = resp.Body.Close()
+		fmt.Println(resp.Status, "over", resp.TLS.NegotiatedProtocol, "from", resp.TLS.VerifiedChains[0][1].Subject.CommonName)
+	}
+	get(intermediate)
+	get("sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=") // someone else's key
+	// Output:
+	// leaf CN=shop.test
+	// intermediate CN=Shop Test Issuing CA
+	// root CN=Shop Test Root CA
+	// 200 OK over h2 from Shop Test Issuing CA
+	// refused: www.shop.test presented 3 keys
 }
 
 // A request the profile's browser was never captured making is an error
@@ -676,7 +758,7 @@ func ExampleErrNotMeasured() {
 
 // A WebSocket from the page, opened as the browser opens one: its
 // handshake, cookies and frames.
-func ExampleDialWebSocket() {
+func ExampleTransport_DialWebSocket() {
 	shop := startShop(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/live" {
 			fmt.Println("server: websocket from", r.Header.Get("Origin"), "cookie:", r.Header.Get("Cookie"))
@@ -711,7 +793,7 @@ func ExampleDialWebSocket() {
 
 	// The socket goes through the client's Transport, from its last page.
 	tr := client.Transport.(*mimicry.Transport)
-	ws, _, err := mimicry.DialWebSocket(ctx, tr, "wss://www.shop.test/live", mimicry.WebSocketOptions{})
+	ws, _, err := tr.DialWebSocket(ctx, "wss://www.shop.test/live", mimicry.WebSocketOptions{})
 	if err != nil {
 		panic(err)
 	}
@@ -729,4 +811,129 @@ func ExampleDialWebSocket() {
 	// Output:
 	// server: websocket from https://www.shop.test cookie: session=s1
 	// echo: position?
+}
+
+// Header placement: the browser's order with one deliberate change, where
+// a server expects a header somewhere the browser would not put it.
+// Config.HeaderPlacement applies to every request, Request.HeaderPlacement
+// to one, after Config's; every other line stays where the browser puts
+// it. (This shop speaks HTTP/1.1 so that its handler can print the header
+// lines in the order they arrived.)
+func ExampleConfig_headerPlacement() {
+	shop := startShopHTTP1(func(_ http.ResponseWriter, r *http.Request) {
+		lines := headerLines(r)
+		if r.URL.Path == "/" {
+			return
+		}
+		fmt.Println("server:", r.Method, r.URL.Path)
+		for _, line := range lines {
+			fmt.Println("server:  ", line)
+		}
+	})
+	defer shop.Close()
+
+	client, err := mimicry.NewClient(mimicry.Config{
+		Profile: profiles.Chrome155MacOS(),
+		Headers: http.Header{
+			"X-Api-Key": {"k3y"},
+		},
+		// Without it the key would go where Chrome puts a page's own
+		// headers; with it, directly after User-Agent, on every request.
+		HeaderPlacement: []mimicry.Place{
+			{
+				Header: "X-Api-Key",
+				After:  "User-Agent",
+			},
+		},
+		// Only to reach the local stand-in shop; nil for real sites.
+		RootCAs:     shop.RootCAs,
+		DialContext: shop.DialContext,
+	})
+	if err != nil {
+		panic(err)
+	}
+	newRequest := func(rawURL string) *http.Request {
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, rawURL, nil)
+		if err != nil {
+			panic(err)
+		}
+		req.Header.Set("X-CSRF-Token", "t0k3n")
+		return req
+	}
+	send := func(req *http.Request) error {
+		resp, err := client.Do(req)
+		if err != nil {
+			return err
+		}
+		return resp.Body.Close()
+	}
+
+	if err := send(newRequest("https://www.shop.test/")); err != nil {
+		panic(err)
+	}
+
+	// The page's own header where Chrome puts it.
+	if err := send(mimicry.As(newRequest("https://www.shop.test/api/cart"), mimicry.Fetch)); err != nil {
+		panic(err)
+	}
+
+	// The same request with its token moved to just before Accept.
+	if err := send(mimicry.With(newRequest("https://www.shop.test/api/cart"), mimicry.Request{
+		Kind: mimicry.Fetch,
+		HeaderPlacement: []mimicry.Place{
+			{
+				Header: "X-CSRF-Token",
+				Before: "Accept",
+			},
+		},
+	})); err != nil {
+		panic(err)
+	}
+
+	// An anchor the request does not send (this shop set no cookies) is
+	// an error, and nothing is sent.
+	err = send(mimicry.With(newRequest("https://www.shop.test/api/cart"), mimicry.Request{
+		Kind: mimicry.Fetch,
+		HeaderPlacement: []mimicry.Place{
+			{
+				Header: "X-CSRF-Token",
+				After:  "Cookie",
+			},
+		},
+	}))
+	fmt.Println("placement error:", errors.Is(err, mimicry.ErrPlacement))
+	// Output:
+	// server: GET /api/cart
+	// server:   Host: www.shop.test
+	// server:   Connection: keep-alive
+	// server:   sec-ch-ua-platform: "macOS"
+	// server:   x-csrf-token: t0k3n
+	// server:   User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36
+	// server:   x-api-key: k3y
+	// server:   sec-ch-ua: "Google Chrome";v="155", "Chromium";v="155", "Not(A:Brand";v="24"
+	// server:   sec-ch-ua-mobile: ?0
+	// server:   Accept: */*
+	// server:   Sec-Fetch-Site: same-origin
+	// server:   Sec-Fetch-Mode: cors
+	// server:   Sec-Fetch-Dest: empty
+	// server:   Referer: https://www.shop.test/
+	// server:   Accept-Encoding: gzip, deflate, br, zstd
+	// server:   Accept-Language: en-US,en;q=0.9
+	// server: GET /api/cart
+	// server:   Host: www.shop.test
+	// server:   Connection: keep-alive
+	// server:   sec-ch-ua-platform: "macOS"
+	// server:   User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36
+	// server:   x-api-key: k3y
+	// server:   sec-ch-ua: "Google Chrome";v="155", "Chromium";v="155", "Not(A:Brand";v="24"
+	// server:   sec-ch-ua-mobile: ?0
+	// server:   x-csrf-token: t0k3n
+	// server:   Accept: */*
+	// server:   Sec-Fetch-Site: same-origin
+	// server:   Sec-Fetch-Mode: cors
+	// server:   Sec-Fetch-Dest: empty
+	// server:   Referer: https://www.shop.test/
+	// server:   Accept-Encoding: gzip, deflate, br, zstd
+	// server:   Accept-Language: en-US,en;q=0.9
+	// placement error: true
 }

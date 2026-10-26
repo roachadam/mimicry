@@ -108,15 +108,28 @@ func (s *shop) Close() {
 	s.srv.Close()
 }
 
-// shopCertificate returns a self-signed certificate for the *.test names
-// the examples use, and a pool that trusts it.
+// shopCertificate returns a certificate for the *.test names the examples
+// use, issued as a real site's is (root, intermediate, leaf; the server
+// sends the leaf and the intermediate), and a pool that trusts the root.
+// Every call makes new keys.
 func shopCertificate() (tls.Certificate, *x509.CertPool) {
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		panic(err)
-	}
-	tmpl := &x509.Certificate{
-		SerialNumber: big.NewInt(1),
+	root, rootKey := issue(&x509.Certificate{
+		Subject: pkix.Name{
+			CommonName: "Shop Test Root CA",
+		},
+		KeyUsage:              x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}, nil, nil)
+	intermediate, intermediateKey := issue(&x509.Certificate{
+		Subject: pkix.Name{
+			CommonName: "Shop Test Issuing CA",
+		},
+		KeyUsage:              x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}, root, rootKey)
+	leaf, leafKey := issue(&x509.Certificate{
 		Subject: pkix.Name{
 			CommonName: "shop.test",
 		},
@@ -126,30 +139,47 @@ func shopCertificate() (tls.Certificate, *x509.CertPool) {
 			"outlet.test",
 			"*.outlet.test",
 		},
-		NotBefore:             time.Now().Add(-time.Hour),
-		NotAfter:              time.Now().Add(time.Hour),
-		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-	}
-	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
-	if err != nil {
-		panic(err)
-	}
-	leaf, err := x509.ParseCertificate(der)
-	if err != nil {
-		panic(err)
-	}
+		KeyUsage:    x509.KeyUsageDigitalSignature,
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}, intermediate, intermediateKey)
 	pool := x509.NewCertPool()
-	pool.AddCert(leaf)
+	pool.AddCert(root)
 	return tls.Certificate{
 		Certificate: [][]byte{
-			der,
+			leaf.Raw,
+			intermediate.Raw,
 		},
-		PrivateKey: key,
+		PrivateKey: leafKey,
 		Leaf:       leaf,
 	}, pool
+}
+
+// issue makes tmpl a certificate with a new key, signed by parent's key
+// (self-signed when parent is nil), valid for an hour either side of now.
+func issue(tmpl, parent *x509.Certificate, parentKey *ecdsa.PrivateKey) (*x509.Certificate, *ecdsa.PrivateKey) {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+	serial, err := rand.Int(rand.Reader, big.NewInt(1<<62))
+	if err != nil {
+		panic(err)
+	}
+	tmpl.SerialNumber = serial
+	tmpl.NotBefore = time.Now().Add(-time.Hour)
+	tmpl.NotAfter = time.Now().Add(time.Hour)
+	if parent == nil {
+		parent, parentKey = tmpl, key
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, parent, &key.PublicKey, parentKey)
+	if err != nil {
+		panic(err)
+	}
+	c, err := x509.ParseCertificate(der)
+	if err != nil {
+		panic(err)
+	}
+	return c, key
 }
 
 type connKey struct{}
@@ -204,6 +234,7 @@ func headerLines(r *http.Request) []string {
 }
 
 // proxy is a stand-in HTTP proxy that tunnels CONNECT requests to the shop.
+// A plain-HTTP request sent to it whole gets only its 407.
 type proxy struct {
 	// URL is the proxy's, with its credentials.
 	URL  *url.URL
@@ -213,6 +244,9 @@ type proxy struct {
 	pass string
 	mu   sync.Mutex
 	log  []string
+	// refuse, when set, is the status line answering every CONNECT that
+	// passes the credentials check.
+	refuse string
 }
 
 // startProxy starts a proxy in front of s that asks for user and pass, or
@@ -257,7 +291,7 @@ func (p *proxy) tunnel(c net.Conn) {
 	br := bufio.NewReader(c)
 	for {
 		req, err := http.ReadRequest(br)
-		if err != nil || req.Method != http.MethodConnect {
+		if err != nil {
 			return
 		}
 		user, pass, ok := parseProxyAuth(req.Header.Get("Proxy-Authorization"))
@@ -267,7 +301,19 @@ func (p *proxy) tunnel(c net.Conn) {
 		}
 		if p.user != "" && (!ok || user != p.user || pass != p.pass) {
 			p.record(fmt.Sprintf("%s %s %s: 407", req.Method, req.Host, who))
+			_, _ = io.Copy(io.Discard, req.Body)
 			_, _ = io.WriteString(c, "HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm=\"proxy\"\r\nContent-Length: 0\r\n\r\n")
+			continue
+		}
+		if req.Method != http.MethodConnect {
+			return
+		}
+		p.mu.Lock()
+		refuse := p.refuse
+		p.mu.Unlock()
+		if refuse != "" {
+			p.record(fmt.Sprintf("%s %s %s: %s", req.Method, req.Host, who, refuse))
+			_, _ = io.WriteString(c, "HTTP/1.1 "+refuse+"\r\nContent-Length: 0\r\n\r\n")
 			continue
 		}
 		p.record(fmt.Sprintf("%s %s %s: 200", req.Method, req.Host, who))
@@ -308,6 +354,14 @@ func (p *proxy) Log() []string {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return append([]string(nil), p.log...)
+}
+
+// Refuse makes the proxy answer every CONNECT it would let through with
+// status ("403 Forbidden").
+func (p *proxy) Refuse(status string) {
+	p.mu.Lock()
+	p.refuse = status
+	p.mu.Unlock()
 }
 
 // Close stops the proxy.

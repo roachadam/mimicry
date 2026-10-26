@@ -64,6 +64,9 @@ func (e *Engine) OpenWebSocket(req *http.Request, key string) (*WebSocket, error
 	if req.URL.Scheme == "https" {
 		if c, ok := e.pool.Shared(r.key); ok && c.ConnectProtocol() {
 			resp, st, err := c.Connect(ctx, req, "websocket") //nolint:bodyclose // the body is the socket's stream: the caller's
+			if err == nil {
+				resp.TLS = c.tls
+			}
 			switch {
 			case err == nil && st == nil:
 				// Refused: the body, still bound to ctx, is the answer.
@@ -98,6 +101,7 @@ func (e *Engine) openWebSocketH1(ctx context.Context, req *http.Request, r route
 	}
 	var upgraded atomic.Bool
 	c := h1.New(conn, e.profile)
+	c.SetTLS(handshake.ConnState(conn))
 	req = req.Clone(ctx)
 	req.Header.Set("Sec-WebSocket-Key", key)
 	resp, err := c.RoundTrip(req, func(bool) {
@@ -149,8 +153,9 @@ func (e *Engine) dialWebSocket(ctx context.Context, req *http.Request, r route) 
 		return nil, fmt.Errorf("%w: profile %s has no WebSocket hello (tls.websocket_h1)", headerorder.ErrNotMeasured, e.profile.Name)
 	}
 	cfg := handshake.Config{
-		ServerName: req.URL.Hostname(),
-		RootCAs:    e.rootCAs,
+		ServerName:       req.URL.Hostname(),
+		RootCAs:          e.rootCAs,
+		VerifyConnection: e.verifyFor(req.URL.Hostname()),
 	}
 	hello := e.plan.Hello()
 	if e.tickets != nil {

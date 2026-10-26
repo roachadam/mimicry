@@ -2,6 +2,7 @@ package native
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"math/rand/v2"
@@ -61,6 +62,21 @@ type quicConn struct {
 	// decided (Fallback.PendingTCP).
 	died  sync.Once
 	toTCP bool
+	// tls is the connection's TLS state once its handshake is complete,
+	// which responses carry (state).
+	tls atomic.Pointer[tls.ConnectionState]
+}
+
+// state is c's TLS state, kept once the handshake is complete.
+func (c *quicConn) state() *tls.ConnectionState {
+	if s := c.tls.Load(); s != nil {
+		return s
+	}
+	s := handshake.State(c.qc.ConnectionState())
+	if s.HandshakeComplete {
+		c.tls.Store(s)
+	}
+	return s
 }
 
 // attempt is a QUIC connection being dialled to an origin. Requests wait
@@ -442,6 +458,9 @@ func (e *Engine) roundTripH3(r route, c *quicConn, req *http.Request) (*http.Res
 		}
 		return nil, true, fmt.Errorf("%w: %w", errRetry, err)
 	}
+	if err == nil {
+		resp.TLS = c.state()
+	}
 	return resp, true, err
 }
 
@@ -690,8 +709,9 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 	dctx, cancel := context.WithTimeout(ctx, e.dialer.Timeout)
 	defer cancel()
 	cfg := handshake.Config{
-		ServerName: r.host,
-		RootCAs:    e.rootCAs,
+		ServerName:       r.host,
+		RootCAs:          e.rootCAs,
+		VerifyConnection: e.verifyFor(r.host),
 	}
 	hello := e.plan.QUICHello()
 	if e.plan.Resumes() && e.profile.QUIC.ZeroRTT {

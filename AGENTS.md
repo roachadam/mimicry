@@ -18,13 +18,13 @@ moon run harness:test       # the harness only
 
 ## Package boundaries
 
-The public surface is small: the root package (`Transport`, `NewClient`, `Config`, `HeaderOrderKey`, `ErrNotMeasured`, request kinds: `Kind`, `Request`, `As`, `With`, `Exact`, and `CORSError`; WebSockets: `DialWebSocket`, `WebSocket`, `WebSocketOptions`, `MessageType`, `CloseError`), `cookies` (the jar; `cookies.New` returns `(*Jar, error)`), `profile` and `profiles`. Everything else is in `internal/`, flat, one package per concern. Each package's `doc.go` states what it may import; keep to it.
+The public surface is small: the root package (`Transport`, `NewClient`, `Config`, `HeaderOrderKey`, `Place` and `ErrPlacement` (header placement), `ErrNotMeasured`, request kinds: `Kind`, `Request`, `As`, `With`, `Exact`, and `CORSError`; `ProxyError`; certificates: `Pin`, `PinError`, `FetchPins`, `CertPin`, `CertRole`; WebSockets: `Transport.DialWebSocket`, `WebSocket`, `WebSocketOptions`, `MessageType`, `CloseError`), `cookies` (the jar; `cookies.New` returns `(*Jar, error)`; `Transport.Cookies` returns a Transport's), `profile` and `profiles`; `cmd/pins` prints a site's pins. Everything else is in `internal/`, flat, one package per concern. Each package's `doc.go` states what it may import; keep to it.
 
 - Only `internal/handshake` and `internal/quic` (QUIC's TLS, decision 0027) import `github.com/roachadam/utls`.
 - Only `internal/engine/native` assembles the request path (pool → dial → handshake → h1/h2, or QUIC → h3).
 - `profile` imports the standard library only.
 - Public packages never import from `harness/`.
-- Use `net/http` types in the public API. Header order comes from the profile (the navigation, or the request's kind and its variant), with `HeaderOrderKey` as a per-request override; pseudo-header order comes from the profile only. Do not fork `net/http`.
+- Use `net/http` types in the public API. Header order comes from the profile (the navigation, or the request's kind and its variant), with `HeaderOrderKey` as a per-request override and `Config.HeaderPlacement`/`Request.HeaderPlacement` moving single headers within the profile's order (decision 0030); pseudo-header order comes from the profile only. Do not fork `net/http`.
 - One dial path (`internal/dial`), and every network step honours the context and its deadline.
 - Never hold a lock across network I/O.
 - Configuration is a struct (`Config`), not functional options or boolean parameters.

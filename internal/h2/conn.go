@@ -529,7 +529,10 @@ func (c *Conn) head(req *http.Request, length int64, protocol string) (requestHe
 		list, table = plan.Headers, plan.Table
 		head.weight = plan.Weight
 	}
-	ordered := headerorder.Build(list, h, skipHeader, table)
+	ordered, err := headerorder.Place(headerorder.Build(list, h, skipHeader, table), headerorder.PlacementsFrom(req.Context()))
+	if err != nil {
+		return requestHead{}, err
+	}
 	head.fields = make([]hpack.Field, 0, len(c.h2.PseudoHeaderOrder)+1+len(ordered))
 	for _, name := range c.h2.PseudoHeaderOrder {
 		head.fields = append(head.fields, hpack.Field{
