@@ -258,16 +258,17 @@ WebSockets: [report](../harness/reports/proxy-websocket-2026-10-26.md)).
 All checked by `TestProxyMatchesBrowser` (mimicry through the capture proxy
 against every browser's capture), `TestWebSocketsMatchBrowser` (its proxy
 scenarios) and `TestUnmeasuredProxyIsAnError`. Safari 26's credential rows
-are **C**: its `proxy-auth` and `proxy-plain-auth` captures were never
-taken (`missingCaptures` in the test), nor either Safari's
-`proxy-websocket-auth`.
+are **C**: its `proxy-auth`, `proxy-plain-auth` and `proxy-websocket-auth`
+captures were never taken (`missingCaptures` in the test). Safari 27's
+`proxy-websocket-auth` was taken on 2026-10-26 (device profile, macOS
+answering with remembered credentials).
 
 | Claim (`proxy.…`) | Chrome 155 | Firefox 158 | Safari 27 | Safari 26 |
 |---|---|---|---|---|
 | `connect` (CONNECT header names, order, values) | W: Host, Proxy-Connection, User-Agent | W: User-Agent, Proxy-Connection, Connection, Host | W: Host, Proxy-Connection, Connection | W: as Safari 27 |
 | `connect_auth` (CONNECT with credentials) | W: `connect` + Proxy-Authorization last (retry and unasked alike) | W: same | W: Host, Connection, Proxy-Authorization, Proxy-Connection | **C** from Safari 27 |
 | `connect_credentials` | W: `after_challenge` (preconnects aside, net log) | W: `after_challenge` | W: `on_challenge` (every tunnel) | **C** from Safari 27 |
-| `forward_credentials` | W: `after_challenge` | W: `after_challenge` | W: `always` (fresh Safari) | **C** from Safari 27 |
+| `forward_credentials` | W: `after_challenge` | W: `after_challenge` | W: `always` (fresh Safari; `proxy-websocket-auth` sample 0's first forwarded request was challenged: see the known-gap row below) | **C** from Safari 27 |
 | `forward_connection` (plain HTTP to the proxy) | W: Proxy-Connection | W: none (Connection) | W: none | W: none |
 | `forward_auth` | W: after connection, content-length | W: before connection; last on the challenged retry | W: after accept-encoding | **C** from Safari 27 |
 | `socks5` | W: `05 01 00`, host name | W: same | W: same | W: same |
@@ -275,7 +276,8 @@ taken (`missingCaptures` in the test), nor either Safari's
 | `connect_no_resume`: no session offered through an HTTP proxy's CONNECT tunnel (SOCKS5 and direct resume). Checked by `TestWebSocketsMatchBrowser` (the socket connections' hellos; setting Firefox to false fails it) | W: false (resumes through both) | W: true (`proxy-auth`: none of 12 connections; `proxy-websocket`: neither socket connection, 3 samples; `proxy-websocket-socks5`: both resume) | n/a (never resumes) | n/a |
 | `websocket.plain`: a ws:// socket through an HTTP proxy. Checked by `TestWebSocketsMatchBrowser` (setting Safari 27 to `tunnel` fails it) | W: `tunnel` (CONNECT host:port, `connect` lines) | W: `tunnel` | W: `forward` (`GET ws://host:port/path`, its direct header lines, a proxy connection of its own) | W: `forward` |
 | A wss:// socket through a proxy: an extended CONNECT stream on the page's HTTP/2 connection, in its tunnel, where the server allows it, else a tunnel of its own (`connect` lines, SOCKS5 bytes) with the `websocket_h1` hello. Checked by `TestWebSocketsMatchBrowser` (`checkProxyRoute`, transport, hello) | W (`proxy-websocket`, `-socks5`) | W | W | W |
-| `websocket.credentials`: socket tunnels give credentials as `connect_credentials` says. Checked by `TestWebSocketsMatchBrowser`, `TestUnmeasuredProxyIsAnError` | W: unasked after the page's challenge (`proxy-websocket-auth`) | W: same | **not captured**: refused (`ErrNotMeasured`) | **not captured**: refused |
+| `websocket.credentials`: socket tunnels give credentials as `connect_credentials` says; a ws:// handshake sent whole carries them unasked (needs `forward_credentials: always`), placed by `forward_auth`. Checked by `TestWebSocketsMatchBrowser` (setting Safari 27's `connect_credentials` to `after_challenge` fails `px-h1` and `px-h1-again`; its `forward_auth` after `accept-language` fails `px-plain`; unset, every socket is refused), `TestUnmeasuredProxyIsAnError` | W: unasked after the page's challenge (`proxy-websocket-auth`) | W: same | W: every socket tunnel challenged, then again on its connection with `connect_auth`; `px-h2` in the page's challenged tunnel; ws:// sent whole with Proxy-Authorization unasked after Accept-Encoding (3 samples) | **C** from Safari 27 (`proxy-websocket-auth` never taken; its `proxy-websocket` captures match Safari 27's on every other claim) |
+| Proxy-Authorization inside the tunnel, to the server (**known gap**) | W: never | W: never | W, not modelled: on every tunnelled request once Safari has answered a challenge to a forwarded request (`proxy-websocket-auth` samples 1 and 2 from their first request, sample 0 after its forwarded page's 407; sample 0's first forwarded request went without credentials; never in `proxy-auth`, which forwards nothing); mimicry never sends it | not captured |
 | ws:// through SOCKS5. Checked by `TestUnmeasuredProxyIsAnError` | not captured: refused (`ErrNotMeasured`) | same | same | same |
 
 ## Connections
@@ -450,7 +452,7 @@ field holds and the download test logs without checking.
 | Firefox's socket transport: left to the server, ended by mimicry 10 s after the close handshake (HTTP/1.1: TCP close; HTTP/2: RST_STREAM NO_ERROR); a stream the server ended is forgotten without a frame | Firefox's own end is not captured: an unmeasured fallback so a socket cannot leak | no test (known gap) |
 | A close handshake the server never answers ends the transport after 10 s | not captured | no test (known gap) |
 | Firefox's HTTP/2 segmenting that counts a frame header into its 16000 bytes (14 + 15986) | W, not modelled: only the cap and header-alone are | known gap |
-| `ErrNotMeasured`: an empty message on a compressing socket; a server answering `client_max_window_bits` under 15 or `client_no_context_takeover` (on sending); WebSockets through a proxy without `proxy.websocket`, Safari's with proxy credentials, ws:// through SOCKS5 | not captured | `TestWebSocketsMatchBrowser` (Firefox deflate); `TestUnmeasuredProxyIsAnError` (the proxy cases); the rest no test |
+| `ErrNotMeasured`: an empty message on a compressing socket; a server answering `client_max_window_bits` under 15 or `client_no_context_takeover` (on sending); WebSockets through a proxy without `proxy.websocket`, with proxy credentials without `proxy.websocket.credentials`, ws:// through SOCKS5 | not captured | `TestWebSocketsMatchBrowser` (Firefox deflate); `TestUnmeasuredProxyIsAnError` (the proxy cases); the rest no test |
 | A cross-site socket over HTTP/2 may share the cross-site host's own first-party connection (no top-level-site partition) | W: browsers use only the page's partition's connection (the one that carried `b-set-3p`) | known gap |
 | Read limits: 64 MiB per message, 64 queued messages | safety bounds, not captured | `TestReadingServerFrames` (server frames, hostile input) |
 
@@ -511,8 +513,9 @@ bullets below that later work has closed:
   (whether they try `wss://` on the plain port is only in the server's
   log).
 - Proxies: Chrome's speculative preconnects to a proxy; `https://`
-  proxies; Safari 26's credential flow (never captured, copied from Safari
-  27); WebSockets through a proxy with credentials for either Safari, and
+  proxies; Safari 26's credential flow, WebSockets included (never
+  captured, copied from Safari 27); Safari's `Proxy-Authorization` inside
+  tunnels once its credential state is on (see the Proxies table); and
   `ws://` through SOCKS5 for any browser (refused, `ErrNotMeasured`).
 - By decision ([0016](../docs/decisions/0016-literal-urls-no-https-upgrade.md)):
   Safari's HTTPS upgrade attempt (TLS on the same port) before a

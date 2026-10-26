@@ -145,15 +145,14 @@ func TestProxyMatchesBrowser(t *testing.T) {
 // for a profile without a proxy section, proxy credentials for one whose
 // browser's way with them is not measured (no connect_auth), and a
 // WebSocket through a proxy where its browser was not measured taking one
-// (no proxy.websocket, credentials without proxy.websocket.credentials:
-// Safari's, ws:// through SOCKS5).
+// (no proxy.websocket, credentials without proxy.websocket.credentials,
+// ws:// through SOCKS5). Every case takes Chrome's profile, stripped as
+// it says.
 func TestUnmeasuredProxyIsAnError(t *testing.T) {
 	for _, tc := range []struct {
-		name string
-		// profile is the profile's name; empty: Chrome's.
-		profile string
-		strip   func(p *profile.Proxy) *profile.Proxy
-		user    *url.Userinfo
+		name  string
+		strip func(p *profile.Proxy) *profile.Proxy
+		user  *url.Userinfo
 		// scheme is the proxy's; empty: http.
 		scheme string
 		// websocket dials target with DialWebSocket; empty target:
@@ -186,8 +185,11 @@ func TestUnmeasuredProxyIsAnError(t *testing.T) {
 			target:    "wss://example.test/socket",
 		},
 		{
-			name:      "WebSocket with credentials, never captured for Safari",
-			profile:   "safari-27-macos",
+			name: "WebSocket with credentials, proxy.websocket.credentials unset",
+			strip: func(p *profile.Proxy) *profile.Proxy {
+				p.WebSocket.Credentials = false
+				return p
+			},
 			user:      url.UserPassword("u", "p"),
 			websocket: true,
 			target:    "wss://example.test/socket",
@@ -200,11 +202,7 @@ func TestUnmeasuredProxyIsAnError(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			name := tc.profile
-			if name == "" {
-				name = "chrome-155-macos"
-			}
-			p, err := profiles.ByName(name)
+			p, err := profiles.ByName("chrome-155-macos")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -411,9 +409,9 @@ var missingCaptures = map[string]string{
 	"safari-26-macos.proxy-plain-auth.h1trace.json": "Safari 26 proxy credentials were never captured",
 	// Safari answers a proxy's 407 only with credentials macOS holds: a
 	// com.apple.proxy.http.global device profile and the system's login
-	// dialog, which need a person at the screen (AGENTS.md).
-	"safari-27-macos.proxy-websocket-auth.pagetrace.json.gz": "Safari 27 WebSockets through a proxy with credentials were never captured (macOS proxy credentials need a person at the screen)",
-	"safari-26-macos.proxy-websocket-auth.pagetrace.json.gz": "Safari 26 WebSockets through a proxy with credentials were never captured (macOS proxy credentials need a person at the screen)",
+	// dialog, which need a person at the screen (AGENTS.md). Safari 26's
+	// socket credential rules are copied from Safari 27's capture.
+	"safari-26-macos.proxy-websocket-auth.pagetrace.json.gz": "Safari 26 WebSockets through a proxy with credentials were never captured (macOS proxy credentials need a person at the screen); its rules are copied from Safari 27's",
 	// The capture tool clicks in Safari through the system's mouse
 	// events, which need Accessibility access; the second Mac's
 	// captures run over ssh, which has none.

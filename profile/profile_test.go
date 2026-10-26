@@ -1198,6 +1198,18 @@ func TestValidate(t *testing.T) {
 			want: "needs connect_auth",
 		},
 		{
+			name: "WebSocket proxy credentials on a forwarded handshake that waits for a challenge",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.Proxy = validProxy()
+				p.Proxy.WebSocket = &ProxyWebSocket{
+					Plain:       PlainWebSocketForward,
+					Credentials: true,
+				}
+			},
+			path: "proxy.websocket.credentials",
+			want: `needs forward_credentials "always"`,
+		},
+		{
 			name: "nil kind",
 			mutate: func(_ *testing.T, p *Profile) {
 				p.Kinds = map[string]*Kind{

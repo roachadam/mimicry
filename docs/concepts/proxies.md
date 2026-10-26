@@ -41,7 +41,10 @@ the profile's browser uses them:
   to that proxy sends them unasked.
 - Safari: every CONNECT goes without and is answered after its 407 (on the
   same connection, in a different header order); plain-HTTP requests carry
-  them from the first.
+  them from the first. Once Safari has answered a 407 to a plain-HTTP
+  request, it also puts `Proxy-Authorization` on requests inside its
+  tunnels, where the server reads it; mimicry never does (see the
+  [backlog](../backlog.md#proxies)).
 
 Only Basic authentication is supported. SOCKS5 credentials, which no
 browser sends, are offered when the URL has them; that part is visibly
@@ -66,9 +69,10 @@ does: a `wss://` socket as a stream on the host's HTTP/2 connection inside
 its tunnel when the server allows extended CONNECT, else in a tunnel of
 its own; a `ws://` socket through an HTTP proxy in a CONNECT tunnel
 (Chrome, Firefox) or sent to the proxy whole as `GET ws://…` (Safari).
-Credentials go as on other tunnels for Chrome and Firefox; with a Safari
-profile, credentials in the proxy URL are `ErrNotMeasured`, as is `ws://`
-through SOCKS5. See [WebSockets](websockets.md#through-a-proxy).
+Credentials go as on the browser's other tunnels and plain-HTTP requests
+(Safari's forwarded `ws://` handshake carries them unasked); `ws://`
+through SOCKS5 is `ErrNotMeasured`. See
+[WebSockets](websockets.md#through-a-proxy).
 
 ## When the proxy fails
 

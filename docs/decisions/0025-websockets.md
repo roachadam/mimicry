@@ -84,8 +84,8 @@ Modelling:
   - WebSockets through a proxy where not captured (amended 2026-10-26:
     the [proxy-websocket captures](../../harness/reports/proxy-websocket-2026-10-26.md)
     measured the rest, modelled as profile `proxy.websocket`, see
-    [0014](0014-proxies.md)): a Safari profile with proxy credentials,
-    and `ws://` through SOCKS5.
+    [0014](0014-proxies.md); Safari 27's with proxy credentials the same
+    day, Safari 26's copied from it): `ws://` through SOCKS5.
 - A `ws://` socket from an `https://` page is refused before anything is
   sent, as every browser refuses it.
 

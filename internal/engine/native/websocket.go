@@ -119,7 +119,8 @@ func (e *Engine) webSocketRoute(req *http.Request, r route) (route, error) {
 
 // openWebSocketH1 sends req on a new HTTP/1.1 connection of its own: to
 // the server, through a tunnel of its own, or to an HTTP proxy whole
-// (r.forward), where a 407 is the proxy refusing the socket.
+// (r.forward), carrying the proxy's credentials as the browser's other
+// requests sent whole do, where a 407 is the proxy refusing the socket.
 func (e *Engine) openWebSocketH1(ctx context.Context, req *http.Request, r route, key string) (*WebSocket, error) {
 	conn, err := e.dialWebSocket(ctx, req, r)
 	if err != nil {
@@ -134,6 +135,9 @@ func (e *Engine) openWebSocketH1(ctx context.Context, req *http.Request, r route
 		u := *req.URL
 		u.Scheme = "ws"
 		req.URL = &u
+		if auth := e.dialer.ForwardAuthorization(r.proxy); auth != "" {
+			req.Header.Set("Proxy-Authorization", auth)
+		}
 	}
 	resp, err := c.RoundTrip(req, func(bool) {
 		// Nothing else ever uses the connection.

@@ -1,0 +1,608 @@
+[
+  [
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 407,
+      "target": "www.ws-a.test:56832",
+      "lines": [
+        "CONNECT www.ws-a.test:56832 HTTP/1.1",
+        "Host: www.ws-a.test:56832",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 200,
+      "target": "www.ws-a.test:56832",
+      "lines": [
+        "CONNECT www.ws-a.test:56832 HTTP/1.1",
+        "Host: www.ws-a.test:56832",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 3,
+      "status": 407,
+      "target": "h1.ws-a.test:56832",
+      "lines": [
+        "CONNECT h1.ws-a.test:56832 HTTP/1.1",
+        "Host: h1.ws-a.test:56832",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 3,
+      "status": 200,
+      "target": "h1.ws-a.test:56832",
+      "lines": [
+        "CONNECT h1.ws-a.test:56832 HTTP/1.1",
+        "Host: h1.ws-a.test:56832",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 4,
+      "status": 407,
+      "target": "h1.ws-a.test:56832",
+      "lines": [
+        "CONNECT h1.ws-a.test:56832 HTTP/1.1",
+        "Host: h1.ws-a.test:56832",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 4,
+      "status": 200,
+      "target": "h1.ws-a.test:56832",
+      "lines": [
+        "CONNECT h1.ws-a.test:56832 HTTP/1.1",
+        "Host: h1.ws-a.test:56832",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 5,
+      "status": 407,
+      "target": "h1.ws-a.test:56832",
+      "lines": [
+        "CONNECT h1.ws-a.test:56832 HTTP/1.1",
+        "Host: h1.ws-a.test:56832",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 5,
+      "status": 200,
+      "target": "h1.ws-a.test:56832",
+      "lines": [
+        "CONNECT h1.ws-a.test:56832 HTTP/1.1",
+        "Host: h1.ws-a.test:56832",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 6,
+      "status": 407,
+      "target": "www.ws-a.test:56833",
+      "lines": [
+        "CONNECT www.ws-a.test:56833 HTTP/1.1",
+        "Host: www.ws-a.test:56833",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 6,
+      "status": 200,
+      "target": "www.ws-a.test:56833",
+      "lines": [
+        "CONNECT www.ws-a.test:56833 HTTP/1.1",
+        "Host: www.ws-a.test:56833",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 7,
+      "status": 407,
+      "target": "www.ws-a.test:56833",
+      "lines": [
+        "CONNECT www.ws-a.test:56833 HTTP/1.1",
+        "Host: www.ws-a.test:56833",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 7,
+      "status": 200,
+      "target": "www.ws-a.test:56833",
+      "lines": [
+        "CONNECT www.ws-a.test:56833 HTTP/1.1",
+        "Host: www.ws-a.test:56833",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 8,
+      "status": 407,
+      "target": "www.ws-a.test:56833",
+      "lines": [
+        "CONNECT www.ws-a.test:56833 HTTP/1.1",
+        "Host: www.ws-a.test:56833",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 8,
+      "status": 200,
+      "target": "www.ws-a.test:56833",
+      "lines": [
+        "CONNECT www.ws-a.test:56833 HTTP/1.1",
+        "Host: www.ws-a.test:56833",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 9,
+      "status": 407,
+      "target": "www.ws-a.test:56833",
+      "lines": [
+        "CONNECT www.ws-a.test:56833 HTTP/1.1",
+        "Host: www.ws-a.test:56833",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 9,
+      "status": 200,
+      "target": "www.ws-a.test:56833",
+      "lines": [
+        "CONNECT www.ws-a.test:56833 HTTP/1.1",
+        "Host: www.ws-a.test:56833",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 407,
+      "target": "www.ws-a.test:56846",
+      "lines": [
+        "CONNECT www.ws-a.test:56846 HTTP/1.1",
+        "Host: www.ws-a.test:56846",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 200,
+      "target": "www.ws-a.test:56846",
+      "lines": [
+        "CONNECT www.ws-a.test:56846 HTTP/1.1",
+        "Host: www.ws-a.test:56846",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 407,
+      "target": "h1.ws-a.test:56846",
+      "lines": [
+        "CONNECT h1.ws-a.test:56846 HTTP/1.1",
+        "Host: h1.ws-a.test:56846",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 200,
+      "target": "h1.ws-a.test:56846",
+      "lines": [
+        "CONNECT h1.ws-a.test:56846 HTTP/1.1",
+        "Host: h1.ws-a.test:56846",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 3,
+      "status": 407,
+      "target": "h1.ws-a.test:56846",
+      "lines": [
+        "CONNECT h1.ws-a.test:56846 HTTP/1.1",
+        "Host: h1.ws-a.test:56846",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 3,
+      "status": 200,
+      "target": "h1.ws-a.test:56846",
+      "lines": [
+        "CONNECT h1.ws-a.test:56846 HTTP/1.1",
+        "Host: h1.ws-a.test:56846",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 4,
+      "status": 407,
+      "target": "h1.ws-a.test:56846",
+      "lines": [
+        "CONNECT h1.ws-a.test:56846 HTTP/1.1",
+        "Host: h1.ws-a.test:56846",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 4,
+      "status": 200,
+      "target": "h1.ws-a.test:56846",
+      "lines": [
+        "CONNECT h1.ws-a.test:56846 HTTP/1.1",
+        "Host: h1.ws-a.test:56846",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 5,
+      "status": 407,
+      "target": "www.ws-a.test:56847",
+      "lines": [
+        "CONNECT www.ws-a.test:56847 HTTP/1.1",
+        "Host: www.ws-a.test:56847",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 5,
+      "status": 200,
+      "target": "www.ws-a.test:56847",
+      "lines": [
+        "CONNECT www.ws-a.test:56847 HTTP/1.1",
+        "Host: www.ws-a.test:56847",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 6,
+      "status": 407,
+      "target": "www.ws-a.test:56847",
+      "lines": [
+        "CONNECT www.ws-a.test:56847 HTTP/1.1",
+        "Host: www.ws-a.test:56847",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 6,
+      "status": 200,
+      "target": "www.ws-a.test:56847",
+      "lines": [
+        "CONNECT www.ws-a.test:56847 HTTP/1.1",
+        "Host: www.ws-a.test:56847",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 7,
+      "status": 407,
+      "target": "www.ws-a.test:56847",
+      "lines": [
+        "CONNECT www.ws-a.test:56847 HTTP/1.1",
+        "Host: www.ws-a.test:56847",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 7,
+      "status": 200,
+      "target": "www.ws-a.test:56847",
+      "lines": [
+        "CONNECT www.ws-a.test:56847 HTTP/1.1",
+        "Host: www.ws-a.test:56847",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 8,
+      "status": 407,
+      "target": "www.ws-a.test:56847",
+      "lines": [
+        "CONNECT www.ws-a.test:56847 HTTP/1.1",
+        "Host: www.ws-a.test:56847",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 8,
+      "status": 200,
+      "target": "www.ws-a.test:56847",
+      "lines": [
+        "CONNECT www.ws-a.test:56847 HTTP/1.1",
+        "Host: www.ws-a.test:56847",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 407,
+      "target": "www.ws-a.test:56858",
+      "lines": [
+        "CONNECT www.ws-a.test:56858 HTTP/1.1",
+        "Host: www.ws-a.test:56858",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 200,
+      "target": "www.ws-a.test:56858",
+      "lines": [
+        "CONNECT www.ws-a.test:56858 HTTP/1.1",
+        "Host: www.ws-a.test:56858",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 407,
+      "target": "h1.ws-a.test:56858",
+      "lines": [
+        "CONNECT h1.ws-a.test:56858 HTTP/1.1",
+        "Host: h1.ws-a.test:56858",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 200,
+      "target": "h1.ws-a.test:56858",
+      "lines": [
+        "CONNECT h1.ws-a.test:56858 HTTP/1.1",
+        "Host: h1.ws-a.test:56858",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 3,
+      "status": 407,
+      "target": "h1.ws-a.test:56858",
+      "lines": [
+        "CONNECT h1.ws-a.test:56858 HTTP/1.1",
+        "Host: h1.ws-a.test:56858",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 3,
+      "status": 200,
+      "target": "h1.ws-a.test:56858",
+      "lines": [
+        "CONNECT h1.ws-a.test:56858 HTTP/1.1",
+        "Host: h1.ws-a.test:56858",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 4,
+      "status": 407,
+      "target": "h1.ws-a.test:56858",
+      "lines": [
+        "CONNECT h1.ws-a.test:56858 HTTP/1.1",
+        "Host: h1.ws-a.test:56858",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 4,
+      "status": 200,
+      "target": "h1.ws-a.test:56858",
+      "lines": [
+        "CONNECT h1.ws-a.test:56858 HTTP/1.1",
+        "Host: h1.ws-a.test:56858",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 5,
+      "status": 407,
+      "target": "www.ws-a.test:56859",
+      "lines": [
+        "CONNECT www.ws-a.test:56859 HTTP/1.1",
+        "Host: www.ws-a.test:56859",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 5,
+      "status": 200,
+      "target": "www.ws-a.test:56859",
+      "lines": [
+        "CONNECT www.ws-a.test:56859 HTTP/1.1",
+        "Host: www.ws-a.test:56859",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 6,
+      "status": 407,
+      "target": "www.ws-a.test:56859",
+      "lines": [
+        "CONNECT www.ws-a.test:56859 HTTP/1.1",
+        "Host: www.ws-a.test:56859",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 6,
+      "status": 200,
+      "target": "www.ws-a.test:56859",
+      "lines": [
+        "CONNECT www.ws-a.test:56859 HTTP/1.1",
+        "Host: www.ws-a.test:56859",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 7,
+      "status": 407,
+      "target": "www.ws-a.test:56859",
+      "lines": [
+        "CONNECT www.ws-a.test:56859 HTTP/1.1",
+        "Host: www.ws-a.test:56859",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 7,
+      "status": 200,
+      "target": "www.ws-a.test:56859",
+      "lines": [
+        "CONNECT www.ws-a.test:56859 HTTP/1.1",
+        "Host: www.ws-a.test:56859",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 8,
+      "status": 407,
+      "target": "www.ws-a.test:56859",
+      "lines": [
+        "CONNECT www.ws-a.test:56859 HTTP/1.1",
+        "Host: www.ws-a.test:56859",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 8,
+      "status": 200,
+      "target": "www.ws-a.test:56859",
+      "lines": [
+        "CONNECT www.ws-a.test:56859 HTTP/1.1",
+        "Host: www.ws-a.test:56859",
+        "Connection: keep-alive",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl",
+        "Proxy-Connection: keep-alive"
+      ]
+    }
+  ]
+]

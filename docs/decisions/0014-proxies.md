@@ -104,6 +104,22 @@ The [proxy-websocket captures](../../harness/reports/proxy-websocket-2026-10-26.
   path (CFNetwork's WebSocket task) that differs from its page loads in
   the one case measured (`ws://`).
 
+## Amendment 2026-10-26: Safari's WebSockets with credentials
+
+Safari 27's `proxy-websocket-auth` capture (3 samples; the
+[report's addendum](../../harness/reports/proxy-websocket-2026-10-26.md#addendum-2026-10-26-safari-27-with-credentials))
+shows its sockets following its page rules: every socket tunnel
+challenged, then again on its connection (`on_challenge`), and the
+`ws://` handshake sent whole with credentials unasked, after
+`Accept-Encoding` (`forward_credentials: always`, `forward_auth`). Both
+Safaris now set `credentials`; Safari 26's is copied (not captured), as
+its other credential rules are. `credentials` with `plain: forward` now
+requires `forward_credentials: always`: no browser was measured answering
+a challenge to a handshake sent whole. The capture also shows Safari
+putting `Proxy-Authorization` on requests inside its tunnels, to the
+server, once it has answered a challenge to a plain-HTTP request; that is
+not modelled (backlog, Proxies).
+
 ## Revisit when
 
 Safari 26's credential flow is measured, a profile changes how Safari gets

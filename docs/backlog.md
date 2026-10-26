@@ -1088,23 +1088,16 @@ These matter most under decision 0029:
     error instead of a hang.
   - Close: nothing to close; revisit if Firefox fixes the deadlock.
   - Source: [websocket-deflate report](../harness/reports/websocket-deflate-2026-10-26.md).
-- **WebSockets through a proxy: Safari with credentials, ws:// through
-  SOCKS5** (Safari 27, 26; all for SOCKS5).
+- **WebSockets through a SOCKS5 proxy: ws://** (all).
   - Differs: not measured; refused (`ErrNotMeasured`). Everything else
     through a proxy is captured and replayed (proxy-websocket captures,
-    2026-10-26).
-  - Shows: `DialWebSocket` with a Safari profile and credentials in the
-    proxy URL; a `ws://` socket through a `socks5`/`socks5h` proxy.
+    2026-10-26; Safari 27 with credentials the same day, Safari 26's
+    copied from it: see [Safari 26's credential flow](#proxies)).
+  - Shows: a `ws://` socket through a `socks5`/`socks5h` proxy.
   - Detection: none. User-visible: yes, an error.
-  - Close: Safari's credentials need a person at the screen: install a
-    `com.apple.proxy.http.global` device profile (manual proxy at
-    `127.0.0.1:15354`, `ProxyUsername`/`ProxyPassword`,
-    `PayloadScope: System`), type the credentials into the proxy login
-    dialog macOS raises, then capture `proxy-websocket-auth` on each
-    Safari (manual proxies: the tool skips SOCKS5) and remove the
-    profile. ws:// through SOCKS5 needs Safari's proxy script to send a
-    second port to SOCKS5 (the page's plain port), which changes the
-    script every Mac has cached; small once the setup is there.
+  - Close: Safari's proxy script must send a second port to SOCKS5 (the
+    page's plain port), which changes the script every Mac has cached;
+    small once the setup is there.
   - Source: [proxy-websocket report](../harness/reports/proxy-websocket-2026-10-26.md);
     `internal/engine/native/websocket.go` (`webSocketRoute`).
 - **Subprotocols the handshake list cannot place** (all).
@@ -1300,14 +1293,45 @@ These matter most under decision 0029:
   - Source: [concepts/proxies.md](concepts/proxies.md#credentials).
 - **Chrome's preconnects to the proxy**: see
   [Chrome's preconnect](#connections-and-pool).
+- **Safari's Proxy-Authorization to the server** (Safari 27, 26).
+  - Differs: once Safari has answered a proxy's challenge to a
+    plain-HTTP request it sent the proxy whole, it puts
+    `Proxy-Authorization` on every later request through that proxy,
+    inside CONNECT tunnels too, where the server reads it (after
+    `Accept-Encoding`, over HTTP/1.1 and HTTP/2; WebSocket handshakes
+    and extended CONNECTs included), and the state outlives the page: in
+    the `proxy-websocket-auth` capture (2026-10-26) sample 0's tunnelled
+    requests carry none until its forwarded page was challenged and
+    every one after does, and samples 1 and 2 (the same Safari) carry it
+    from their first request. Sample 0's first forwarded request also
+    went without credentials and was challenged, where
+    `forward_credentials` says `always` (every `proxy-plain-auth` sample,
+    2026-10-24, sent them unasked from the first). mimicry never sends
+    `Proxy-Authorization` inside a tunnel: Safari's first state.
+    `TestWebSocketsMatchBrowser` takes any sample's handshake, so it
+    passes against sample 0 and logs the variance.
+  - Shows: Safari profiles through an authenticating HTTP proxy, every
+    HTTPS request, once the state is on.
+  - Detection: low; the server sees it, but only through an
+    authenticating proxy, and imitating it hands the proxy's credentials
+    to every server. User-visible: no.
+  - Close: captures that pin the trigger (Safari restarted, then
+    `proxy-auth`, `proxy-plain-auth`, `proxy-auth` again), and a
+    decision whether to send the caller's proxy credentials to servers;
+    medium.
+  - Source: [proxy-websocket report](../harness/reports/proxy-websocket-2026-10-26.md)
+    (addendum); [EVIDENCE.md, Proxies](../profiles/EVIDENCE.md#proxies).
 - **Safari 26's credential flow** (Safari 26).
-  - Differs: copied from Safari 27; the `proxy-auth` and
-    `proxy-plain-auth` captures were never taken (`missingCaptures`).
+  - Differs: copied from Safari 27, WebSockets included; the
+    `proxy-auth`, `proxy-plain-auth` and `proxy-websocket-auth` captures
+    were never taken (`missingCaptures`).
   - Shows: a Safari 26 profile through an authenticating proxy.
   - Detection: low; only the proxy sees it. User-visible: no.
-  - Close: the two captures on the macOS 26 machine; small.
+  - Close: the three captures on the macOS 26 machine, which need a
+    person at its screen for the proxy login dialog; small.
   - Source: [`proxy_test.go`](../harness/e2e/proxy_test.go);
     [proxies report](../harness/reports/proxies-2026-10-24.md);
+    [proxy-websocket report](../harness/reports/proxy-websocket-2026-10-26.md);
     [EVIDENCE.md, Proxies](../profiles/EVIDENCE.md#proxies).
 - **SOCKS5 credentials** (all).
   - Differs: no browser sends SOCKS5 credentials. mimicry offers them

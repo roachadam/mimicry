@@ -717,6 +717,9 @@ func (c *checker) checkProxy(p *Proxy, headers []Header) {
 		if w.Credentials && p.ConnectAuth == nil {
 			c.add("proxy.websocket.credentials", "needs connect_auth")
 		}
+		if w.Credentials && w.Plain == PlainWebSocketForward && p.ForwardCredentials != CredentialsAlways {
+			c.add("proxy.websocket.credentials", "with plain %q needs forward_credentials %q: no browser was measured answering a challenge to a handshake sent whole", PlainWebSocketForward, CredentialsAlways)
+		}
 	}
 }
 

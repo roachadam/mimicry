@@ -11626,7 +11626,8 @@
       "address": "domain"
     },
     "websocket": {
-      "plain": "forward"
+      "plain": "forward",
+      "credentials": true
     }
   },
   "redirects": {

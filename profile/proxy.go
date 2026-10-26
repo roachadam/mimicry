@@ -52,9 +52,11 @@ type ProxyWebSocket struct {
 	// PlainWebSocketTunnel or PlainWebSocketForward. Required.
 	Plain PlainWebSocket `json:"plain"`
 	// Credentials: the browser's way with proxy credentials was measured
-	// for sockets, whose tunnels give them as ConnectCredentials says.
-	// False: a WebSocket through a proxy URL with credentials is an error.
-	// Requires ConnectAuth.
+	// for sockets, whose tunnels give them as ConnectCredentials says, and
+	// whose handshake sent whole (PlainWebSocketForward) carries them
+	// unasked (ForwardCredentials must be CredentialsAlways), placed as
+	// ForwardAuth says. False: a WebSocket through a proxy URL with
+	// credentials is an error. Requires ConnectAuth.
 	Credentials bool `json:"credentials,omitempty"`
 }
 
