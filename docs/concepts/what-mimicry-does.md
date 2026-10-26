@@ -123,9 +123,14 @@ them is one of the things anti-bot systems check.
   `Config.Cookies` holds one; `Transport.Cookies()` returns it, to
   inspect, seed or persist it, and passing your own shares it between
   Transports.
-- Cookies you seed (`Set`, `SetString`, `SetHTTPCookies`) go only where
-  their site's own would; `cookies.AnySite` as `SetString`'s site sends
-  them to every site instead, a deviation no browser makes (decision
+- Cookies you seed (`Set`, `SetString`, `SetHostString`,
+  `SetHTTPCookies`) go only where a browser's cookie of that scope would:
+  `SetString`'s to the name given and the names under it (its `Domain`,
+  never widened to the site), `SetHostString`'s to one host. Their name
+  prefixes get what browsers require without being asked: a `__Host-`
+  cookie is stored host-only on the name given, `Secure`, path `/`; a
+  `__Secure-` one `Secure`. `cookies.AnySite` as `SetString`'s domain
+  sends them to every site instead, a deviation no browser makes (decision
   [0031](../decisions/0031-cookies-for-any-site.md)).
 - `NewTransport` with a nil `Config.Cookies` keeps no cookies: an
   `http.Client` `Jar` or your own `Cookie` headers are then up to you.

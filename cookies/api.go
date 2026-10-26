@@ -51,8 +51,8 @@ func (j *Jar) entries() []entry {
 // __Secure- or __Host- nor hold "="; Domain is required (AnySite for a
 // cookie sent to every site, with HostOnly false); an empty Path is "/"; a
 // zero Created is now. It replaces a cookie with the same name, domain,
-// path and partition. SetString seeds a site's cookies from a Cookie
-// header string.
+// path and partition. SetString and SetHostString seed cookies from a
+// Cookie header string.
 func (j *Jar) Set(c Cookie) error {
 	if err := checkPair(c.Name, c.Value); err != nil {
 		return fmt.Errorf("cookies: %w", err)
@@ -108,7 +108,7 @@ func isControl(r rune) bool {
 	return (r < 0x20 && r != '\t') || r == 0x7f
 }
 
-// AnySite stands for every site as SetString's or String's site: a
+// AnySite stands for every site as SetString's or String's domain: a
 // cookie stored for AnySite is sent to every host of every site, where
 // the request's context would carry that site's own cookie (SameSite and
 // third-party rules apply as to any cookie). No browser has such a cookie;
@@ -117,49 +117,111 @@ func isControl(r rune) bool {
 // trackers, CDNs and unrelated sites included, and a site that sets a
 // cookie of the same name gets both. Stored, it is a Cookie whose Domain
 // is AnySite (HostOnly false); WriteJSON and ReadJSON keep it,
-// WriteNetscape leaves it out, and it counts towards no site's limit.
+// WriteNetscape leaves it out, and it counts towards no site's limit. A
+// __Host- cookie belongs to one host, so it cannot be an AnySite cookie.
 const AnySite = "*"
 
 // SetString stores the pairs of a Cookie header string ("a=1; b=2"), as
 // another tool, a harvested browser or a saved session hands them over,
-// as cookies of site: "shop.example", any of its hosts
-// ("www.shop.example") or a URL ("https://www.shop.example/cart") give the
-// same registrable domain, shop.example. Each pair becomes a Domain
-// cookie of that domain (sent to every host of the site and no other),
-// with path /, no expiry, not Secure and no SameSite, so the profile's
-// default applies; it replaces a cookie of the same name the site had
-// that way. A pair without "=" is a nameless cookie, as Header writes it;
-// spaces around pairs, a missing space after ";" and empty pairs are
-// tolerated. Site AnySite stores cookies for every site (see AnySite).
+// as cookies of domain, exactly as a browser reads a cookie's Domain
+// attribute: each goes to domain and every name under it, and nowhere
+// else. "shop.example" reaches shop.example, www.shop.example and
+// api.shop.example; "www.shop.example" reaches www.shop.example (and
+// names under it), not api.shop.example or shop.example. domain is a host
+// name (a port is ignored) or a URL, whose host is taken
+// ("https://www.shop.example/cart" is www.shop.example); it is never
+// widened to the whole site. SetString(AnySite, ...) stores cookies for
+// every site (see AnySite).
 //
-// It stores nothing and returns an error when the site is not a host name,
-// IP address or URL, is a public suffix ("com", "co.uk"; a loopback name
-// such as localhost is its own site), or a pair is one Set refuses.
-func (j *Jar) SetString(site, cookies string) error {
-	domain, err := siteDomain(site)
+// Each pair becomes a cookie with path /, no expiry, not Secure and no
+// SameSite, so the profile's default applies; it replaces the jar's
+// cookie of the same name, Domain and path, as a later Set-Cookie line
+// would. A pair without "=" is a nameless cookie, as Header writes it;
+// spaces around pairs, a missing space after ";" and empty pairs are
+// tolerated.
+//
+// Cookie name prefixes get what browsers require of them, whatever their
+// case. A __Host- cookie is one a site pins to the single host that set it,
+// sent over HTTPS only and for every path: it is stored host-only on
+// domain itself (SetString("shop.example", ...) puts it on the bare
+// shop.example host, not www.shop.example), Secure, with path /. A
+// __Secure- cookie is stored Secure. Where the profile enforces them,
+// __Http- and __Host-Http- cookies are stored Secure and HttpOnly.
+//
+// It stores nothing and returns an error when domain is not a host name or
+// URL, is an IP address (which no Domain attribute may name: use
+// SetHostString), is a public suffix ("com", "co.uk", "localhost"), a pair
+// is one Set refuses, or a __Host- cookie is given for AnySite.
+func (j *Jar) SetString(domain, cookies string) error {
+	if domain == AnySite {
+		return j.setString(AnySite, false, cookies)
+	}
+	name, err := hostName(domain)
 	if err != nil {
 		return err
 	}
+	switch {
+	case net.ParseIP(name) != nil:
+		return fmt.Errorf("cookies: %q is an IP address, which no Domain cookie may name: use SetHostString for its cookies", domain)
+	case site.IsPublicSuffix(name):
+		return fmt.Errorf("cookies: %q is a public suffix, which no Domain cookie may name (SetHostString stores cookies for that one host)", domain)
+	}
+	return j.setString(name, false, cookies)
+}
+
+// SetHostString stores the pairs of a Cookie header string as host-only
+// cookies of host: sent to that host alone, not to names under it or
+// other hosts of its site, as a browser keeps a cookie set without a
+// Domain attribute. host is a host name, an IP address or a URL, whose
+// host is taken. The pairs are read, and their prefixes applied, as
+// SetString does (a __Host- cookie is host-only already); it returns an
+// error, storing nothing, when host is not a host name, IP address or URL
+// (AnySite included), or a pair is one Set refuses.
+func (j *Jar) SetHostString(host, cookies string) error {
+	name, err := hostName(host)
+	if err != nil {
+		return err
+	}
+	return j.setString(name, true, cookies)
+}
+
+// setString stores the pairs of cookies for name, host-only or as Domain
+// cookies, with the rules of their prefixes; nothing if any is refused.
+func (j *Jar) setString(name string, hostOnly bool, cookies string) error {
 	var cs []Cookie
 	for pair := range strings.SplitSeq(cookies, ";") {
 		pair = trimWSP(pair)
 		if pair == "" {
 			continue
 		}
-		name, value, ok := strings.Cut(pair, "=")
+		k, v, ok := strings.Cut(pair, "=")
 		if !ok {
-			name, value = "", pair
+			k, v = "", pair
 		}
-		name, value = trimWSP(name), trimWSP(value)
-		if err := checkPair(name, value); err != nil {
-			return fmt.Errorf("cookies: cookie %q: %w", name, err)
+		k, v = trimWSP(k), trimWSP(v)
+		if err := checkPair(k, v); err != nil {
+			return fmt.Errorf("cookies: cookie %q: %w", k, err)
 		}
-		cs = append(cs, Cookie{
-			Name:   name,
-			Value:  value,
-			Domain: domain,
-			Path:   "/",
-		})
+		c := Cookie{
+			Name:     k,
+			Value:    v,
+			Domain:   name,
+			HostOnly: hostOnly,
+			Path:     "/",
+		}
+		if hasPrefixFold(k, "__Host-") {
+			if name == AnySite {
+				return fmt.Errorf("cookies: cookie %q: a __Host- cookie belongs to one host, not to every site", k)
+			}
+			c.HostOnly, c.Secure = true, true
+		}
+		if hasPrefixFold(k, "__Secure-") {
+			c.Secure = true
+		}
+		if j.rules.HTTPPrefix && (hasPrefixFold(k, "__Http-") || hasPrefixFold(k, "__Host-Http-")) {
+			c.Secure, c.HTTPOnly = true, true
+		}
+		cs = append(cs, c)
 	}
 	for _, c := range cs {
 		if err := j.Set(c); err != nil {
@@ -169,27 +231,39 @@ func (j *Jar) SetString(site, cookies string) error {
 	return nil
 }
 
-// String returns site's cookies as a Cookie header string ("a=1; b=2"),
-// for SetString or another tool: every unexpired, unpartitioned cookie of
-// the site's registrable domain (site as SetString takes it), Domain or
-// host-only, of any host and path, in creation order; for AnySite, the
-// AnySite cookies. Hosts, paths and attributes are lost; WriteJSON keeps
-// them. It is empty for a site SetString would refuse.
-func (j *Jar) String(site string) string {
-	domain, err := siteDomain(site)
-	if err != nil {
-		return ""
+// String returns, as a Cookie header string ("a=1; b=2") for SetString or
+// another tool, every cookie the jar holds for name and the names under
+// it: host-only and Domain cookies whose domain is name or ends in
+// "."+name, of any path, unexpired and unpartitioned, in creation order.
+// String("shop.example") has www.shop.example's host-only cookies too;
+// String("www.shop.example") leaves out shop.example's Domain cookies,
+// which www.shop.example is sent but which are not its own. name is read
+// as SetString reads it (a host name or a URL's host); an IP address gives
+// the cookies SetHostString stored for it, AnySite the AnySite cookies.
+// Hosts, paths and attributes are lost; WriteJSON keeps them. It is empty
+// for a name that is not a host name, IP address or URL.
+func (j *Jar) String(name string) string {
+	if name != AnySite {
+		var err error
+		if name, err = hostName(name); err != nil {
+			return ""
+		}
 	}
 	now := j.clock.Now()
 	j.mu.Lock()
 	var es []entry
-	for _, e := range j.domains[domainKey(domain)] {
-		c := e.c
-		expired := !c.Expires.IsZero() && !c.Expires.After(now)
-		if expired || c.Partition != "" || (domain == AnySite && (c.Domain != AnySite || c.HostOnly)) {
+	for key, bucket := range j.domains {
+		if (key == AnySite) != (name == AnySite) {
 			continue
 		}
-		es = append(es, e)
+		for _, e := range bucket {
+			c := e.c
+			expired := !c.Expires.IsZero() && !c.Expires.After(now)
+			if expired || c.Partition != "" || (name == AnySite && c.HostOnly) || !domainMatch(c.Domain, name) {
+				continue
+			}
+			es = append(es, e)
+		}
 	}
 	slices.SortFunc(es, compareCreated)
 	pairs := make([]string, len(es))
@@ -200,30 +274,29 @@ func (j *Jar) String(site string) string {
 	return strings.Join(pairs, "; ")
 }
 
-// FromString returns a new jar (New(cfg)) holding site's cookies from a
-// Cookie header string (SetString).
-func FromString(site, cookies string, cfg Config) (*Jar, error) {
+// FromString returns a new jar (New(cfg)) holding domain's cookies from a
+// Cookie header string, stored as SetString stores them; for host-only
+// cookies, call SetHostString on a New jar.
+func FromString(domain, cookies string, cfg Config) (*Jar, error) {
 	j, err := New(cfg)
 	if err != nil {
 		return nil, err
 	}
-	if err := j.SetString(site, cookies); err != nil {
+	if err := j.SetString(domain, cookies); err != nil {
 		return nil, err
 	}
 	return j, nil
 }
 
-// siteDomain is the domain SetString keeps site's cookies under: the
-// registrable domain of a host name, IP address or URL, or AnySite.
-func siteDomain(s string) (string, error) {
-	if s == AnySite {
-		return AnySite, nil
-	}
+// hostName is the host SetString, SetHostString and String read s as: a
+// host name or IP address (a port allowed), or a URL's host; lower case,
+// without brackets or a trailing dot.
+func hostName(s string) (string, error) {
 	host := s
 	if strings.Contains(s, "://") {
 		u, err := url.Parse(s)
 		if err != nil {
-			return "", fmt.Errorf("cookies: site: %w", err)
+			return "", fmt.Errorf("cookies: %q: %w", s, err)
 		}
 		host = u.Hostname()
 	} else if h, _, err := net.SplitHostPort(s); err == nil {
@@ -231,13 +304,9 @@ func siteDomain(s string) (string, error) {
 	}
 	host = strings.ToLower(strings.TrimSuffix(strings.Trim(host, "[]"), "."))
 	if host == "" || (net.ParseIP(host) == nil && strings.ContainsFunc(host, notHostChar)) {
-		return "", fmt.Errorf("cookies: site %q is not a host name, IP address or URL", s)
+		return "", fmt.Errorf("cookies: %q is not a host name, IP address or URL", s)
 	}
-	domain := site.Registrable(host)
-	if site.IsPublicSuffix(domain) && !site.Loopback(domain) {
-		return "", fmt.Errorf("cookies: site %q is a public suffix, not a site", s)
-	}
-	return domain, nil
+	return host, nil
 }
 
 // notHostChar reports a character no (ASCII) host name holds.

@@ -334,7 +334,7 @@ func ExampleConfig_cookies() {
 	}
 
 	// Cookies from elsewhere (another tool, a saved session) as a Cookie
-	// header string, for every host of the site.
+	// header string, for shop.test and every name under it.
 	if err := jar.SetString("shop.test", "consent=yes"); err != nil {
 		panic(err)
 	}

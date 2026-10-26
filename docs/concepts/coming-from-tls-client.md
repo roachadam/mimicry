@@ -188,9 +188,9 @@ your own navigation, not the browser's redirect hop.
 
 | tls-client | mimicry |
 |---|---|
-| `client.GetCookies(u)` | `jar.String(site)`: the site's cookies as a header string; `jar.Cookies(cookies.Request{URL: u, Method: "GET", Navigation: true})`: exactly what the browser would send to `u`; `jar.All()` for everything |
+| `client.GetCookies(u)` | `jar.String(domain)`: the cookies for a name and the names under it as a header string; `jar.Cookies(cookies.Request{URL: u, Method: "GET", Navigation: true})`: exactly what the browser would send to `u`; `jar.All()` for everything |
 | `client.SetCookies(u, []*http.Cookie{...})` | `jar.SetHTTPCookies(u, cs)`, through the browser's rules as a response from `u`, with an error naming each cookie refused; `jar.Set(cookies.Cookie{...})` stores one as given; `jar.SetCookies(req, rawSetCookieLines)` for lines a response carried |
-| a `Cookie` header string kept in a database | `jar.SetString(site, header)` (or `cookies.FromString`) in, `jar.String(site)` out (see `ExampleJar_SetString`) |
+| a `Cookie` header string kept in a database | `jar.SetString(domain, header)` (or `cookies.FromString`) for that name and every name under it, `jar.SetHostString(host, header)` for one host, in; `jar.String(domain)` out (see `ExampleJar_SetString`) |
 | a new jar to clear | `jar.Clear()`, `jar.ClearSession()`, `jar.Delete(func(*cookies.Cookie) bool)` |
 | `SetCookieJar(shared)` on another client | the same `*cookies.Jar` in each `Config.Cookies` |
 | persistence: your own serialisation | `jar.WriteJSON`/`ReadJSON` (every attribute), `WriteNetscape`/`ReadNetscape` (curl's cookies.txt) |
@@ -203,12 +203,19 @@ Transports, which is the way to visit several sites with one identity
 (one Transport per site, one jar).
 
 The jar `NewClient` made is `client.Transport.(*mimicry.Transport).Cookies()`.
-`SetString` makes each pair a cookie of the whole site (every host, path
-`/`, not `Secure`, the profile's SameSite default), since a header string
-carries no scope; cookies whose host, path or attributes matter go in
-with `Set`, `SetHTTPCookies` or `ReadJSON`. One cookie for every site is
-not something a browser has, so it takes `cookies.AnySite` as the site,
-written out in your code ([decision 0031](../decisions/0031-cookies-for-any-site.md)):
+`SetString` makes each pair a cookie whose `Domain` is exactly the name you
+pass, as a browser reads one: `amazon.com` reaches `www.`, `api.` and
+`smile.amazon.com`, `www.amazon.com` reaches `www.amazon.com` but not
+`api.amazon.com`; nothing widens it to the site. Pass the name the source
+cookies were for. Path `/`, not `Secure`, the profile's SameSite default,
+since a header string carries no attributes; `SetHostString` stores
+host-only cookies (one host, IP addresses too). A public suffix or an IP
+address as `SetString`'s domain is an error. `__Host-` cookies are stored
+as browsers require (host-only on the name given, `Secure`, path `/`) and
+`__Secure-` ones `Secure`. Cookies whose path or other attributes matter
+go in with `Set`, `SetHTTPCookies` or `ReadJSON`. One cookie for every
+site is not something a browser has, so it takes `cookies.AnySite` as the
+domain, written out in your code ([decision 0031](../decisions/0031-cookies-for-any-site.md)):
 every host the Transport talks to receives it, trackers included.
 `jar.CookieJar()` exists for code that wants an `http.CookieJar`, but is
 lossy and treats every request as a typed navigation.
@@ -315,10 +322,12 @@ ws, _, err := tr.DialWebSocket(ctx, "wss://www.shop.example/live", mimicry.WebSo
    the porting traps above (a copied header silently replaces a computed
    one) and the first weeks of porting are guesswork against a capture
    proxy.
-4. **Cookie scope from a string is the whole site.** `SetString` seeds a
-   site-wide, non-`Secure` session cookie per pair, so a source browser's
-   host-only, path-scoped or `Secure` cookies need `Set` or JSON to keep
-   their scope, and asking what goes to one URL still takes a
+4. **Cookie scope from a string is a name you choose.** A header string
+   carries no scope, so `SetString` needs the domain the cookies were for
+   (`amazon.com` for the whole site, `www.amazon.com` for that host and
+   below) and seeds a non-`Secure` session cookie per pair; a source
+   browser's path-scoped or `Secure` cookies need `Set` or JSON to keep
+   their attributes, and asking what goes to one URL still takes a
    `cookies.Request`.
 5. **Runtime `ErrNotMeasured` that depends on the server.** A variant
    measured over HTTP/2 only fails on a server that speaks only

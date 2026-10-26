@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-26
-- Commits: (where it landed)
+- Commits: `68e2255` (first design), then the commit that adds `SetHostString` (the scope rework)
 
 ## Problem
 
@@ -25,16 +25,22 @@ and visible in the caller's code.
 ## Options
 
 - **A host-only cookie per URL** (`SetHeader(u, header)`, the earlier
-  proposal: path `/`, Secure on https). Close to what one response from
-  `u` would set, but a session string usually comes from a whole site:
-  the cookies would not reach `api.` or `cdn.` hosts the site's own
-  Domain cookies reach, and the caller has to call it once per host.
-- **A Domain cookie of the site's registrable domain** (chosen). The
-  string names no host, and the registrable domain is the widest scope a
-  browser ever gives a cookie, so every host of the site gets it and no
-  other site does. Not Secure (the string does not say; a non-Secure
-  cookie still goes over HTTPS), no SameSite (the profile's default
-  applies, as for a server that sets none), a session cookie.
+  proposal: path `/`, Secure on https) as the only way in. Close to what
+  one response from `u` would set, but a session string usually comes
+  from a whole site: the cookies would not reach `api.` or `cdn.` hosts
+  the site's own Domain cookies reach, and the caller has to call it once
+  per host. Kept as `SetHostString`, beside the Domain form.
+- **A Domain cookie of the name's registrable domain** (first landed in
+  68e2255, then reversed). `www.amazon.com` became `amazon.com`, so the
+  cookies reached `api.amazon.com` too: a scope the caller did not ask for
+  and no browser would give a cookie set for `www.amazon.com`, and no way
+  to say "this host and below". A caller who wants the whole site names
+  it.
+- **A Domain cookie of exactly the name given** (chosen). The name is read
+  as a browser reads a cookie's `Domain` attribute: that name and every
+  name under it, nothing wider. Not Secure (the string does not say; a
+  non-Secure cookie still goes over HTTPS), no SameSite (the profile's
+  default applies, as for a server that sets none), a session cookie.
 - **Cookies for every site by default, or a wildcard domain the caller
   types (`"*.com"`).** The first leaks a site's session to every host the
   Transport talks to without the caller asking; the second invites
@@ -53,29 +59,47 @@ and visible in the caller's code.
 
 - `Transport.Cookies()` returns the transport's jar (nil when none);
   `NewClient`'s is `client.Transport.(*mimicry.Transport).Cookies()`.
-- `Jar.SetString(site, cookies)` stores each pair of a `Cookie` header
-  string as a Domain cookie of `site`'s registrable domain (a host, a URL
-  or the domain itself; ports ignored), path `/`, session, not Secure, no
-  SameSite; it replaces the site's cookie of the same name, domain and
-  path. Parsing tolerates missing spaces, a trailing `;` and empty
-  pairs; a pair without `=` is a nameless cookie (as `Header` writes
-  one). A site that is a public suffix (except a loopback name such as
-  `localhost`, its own site), not a host, or a pair `Set` refuses is an
-  error, and nothing is stored. `FromString(site, cookies, cfg)` is
-  `New` plus `SetString`.
-- `Jar.String(site)` returns the site's unexpired, unpartitioned
-  cookies, of any host and path, as a header string in creation order:
-  the order `SetString` recreates them in. Creation order rather than a
-  send order, because the cookies of different paths and hosts never go
-  out together.
-- `cookies.AnySite` (`"*"`) as the site stores, or returns, cookies sent
+- `Jar.SetString(domain, cookies)` stores each pair of a `Cookie` header
+  string as a Domain cookie of exactly `domain` (a host name, ports
+  ignored, or a URL's host; never reduced to the registrable domain), so
+  it goes to that name and every name under it: `amazon.com` reaches
+  `www.`, `api.` and `smile.amazon.com`, `www.amazon.com` reaches
+  `www.amazon.com` and names under it, not `api.amazon.com`. Path `/`,
+  session, not Secure, no SameSite; it replaces the jar's cookie of the
+  same name, Domain and path. Parsing tolerates missing spaces, a
+  trailing `;` and empty pairs; a pair without `=` is a nameless cookie
+  (as `Header` writes one). A domain that is a public suffix (`com`,
+  `co.uk`, `localhost`) or an IP address (no `Domain` attribute may name
+  either; the error points to `SetHostString`), not a host, or a pair
+  `Set` refuses is an error, and nothing is stored. `FromString(domain,
+  cookies, cfg)` is `New` plus `SetString`; no host variant, as `New`
+  plus `SetHostString` is as short.
+- `Jar.SetHostString(host, cookies)` stores the pairs as host-only
+  cookies of exactly that host (a name, an IP address or a URL's host).
+- Name prefixes are applied as browsers require, case-blind: a `__Host-`
+  cookie is stored host-only on exactly the name given (`SetString`'s
+  domain too: `SetString("amazon.com", ...)` puts it on the bare
+  `amazon.com` host), `Secure`, path `/`; a `__Secure-` cookie `Secure`;
+  `__Http-` and `__Host-Http-` cookies `Secure` and `HttpOnly` where the
+  profile enforces them. A cookie a browser could not hold under its
+  prefix would otherwise be sent where no browser sends it (a `__Host-`
+  cookie to a subdomain, a `__Secure-` one over plain HTTP).
+- `Jar.String(domain)` returns every unexpired, unpartitioned cookie the
+  jar holds for that name and the names under it (host-only and Domain
+  cookies whose domain is the name or ends in `.name`), of any path, as a
+  header string in creation order: the order `SetString` recreates them
+  in. `domain` is read as `SetString` reads it; an IP address gives its
+  `SetHostString` cookies. Creation order rather than a send order,
+  because the cookies of different paths and hosts never go out together.
+- `cookies.AnySite` (`"*"`) as the domain stores, or returns, cookies sent
   to every host of every site: a `Cookie` with `Domain` `AnySite`, kept
   in a bucket of its own that every request's lookup also reads. They
   pass the request's SameSite and third-party rules like any cookie (as
   if each site had set it), count towards no site's per-site limit, sort
   with the site's own cookies by the browser's order, survive
   `WriteJSON`/`ReadJSON`, `Delete`, `All` and `Clone`, and are left out
-  of `WriteNetscape` (the format cannot name every site).
+  of `WriteNetscape` (the format cannot name every site). A `__Host-`
+  cookie for `AnySite` is an error: it belongs to one host.
 - `Jar.SetHTTPCookies(u, cs)` writes each `http.Cookie` from its fields
   (not `Raw`) as a `Set-Cookie` line, refusing one whose name, value,
   `Path` or `Domain` would change the line's meaning (`;`, control
@@ -88,25 +112,30 @@ and visible in the caller's code.
 No capture: these are API choices, not browser behaviour. What a browser
 does with the stored cookies is unchanged and covered by the cookie e2e
 tests. `TestSetString` and `TestSetHTTPCookies` (`cookies/api_test.go`)
-pin the scoping (every host of the site, no other site, URL and host
-reduced to the registrable domain, AnySite everywhere, both of two
-cookies of one name), parsing, refusals and the `String` round trip,
-with the jar's own `Cookies` as observer.
+pin the scoping (`amazon.com`, `www.amazon.com` and `api.amazon.com`
+against `walmart.com` for `SetString`, `SetHostString` and `AnySite`; a
+URL or `host:port` read as its host and never widened), the prefixes,
+the public-suffix and IP-address errors, both of two cookies of one
+name, parsing, refusals and the `String` round trip, with the jar's own
+`Cookies` as observer. Breaking the `__Host-` rule (no host-only, no
+`Secure`, allowed for `AnySite`) or reducing `SetString`'s or
+`String`'s name to its registrable domain fails the test.
 
 ## Consequences
 
 Porting a tls-client codebase's cookie handling is one call each way.
 Nothing changes on the wire unless the caller seeds cookies, and
-`AnySite` cookies only where the caller wrote `cookies.AnySite`. A
-seeded cookie that was host-only or path-scoped in the source browser
-becomes site-wide: harmless for session cookies, and `WriteJSON` or
-`Set` keep exact scopes when the source has them. An `AnySite` cookie
-reaches trackers, CDNs and every unrelated site the Transport visits,
-and a site that sets its own cookie of the same name receives both.
+`AnySite` cookies only where the caller wrote `cookies.AnySite`. The
+caller names the scope: the site's registrable domain for the whole
+site, a host for that host and below, `SetHostString` for one host; a
+string seeded for `www.amazon.com` does not reach `api.amazon.com`. A
+source browser's path-scoped or `Secure` cookies lose those attributes
+in a string; `WriteJSON` or `Set` keep them. An `AnySite` cookie reaches
+trackers, CDNs and every unrelated site the Transport visits, and a site
+that sets its own cookie of the same name receives both.
 
 ## Revisit when
 
-A site is found to check that a cookie arrives on one host only (a
-host-only cookie the string seeded site-wide), or users need exported
-strings per host; then `String` and `SetString` would take a URL and
-keep host-only cookies host-only.
+Users routinely pass a host when they mean its whole site (cookies
+missing on `api.` hosts after `SetString("www.…")`): then a separate,
+explicitly site-wide call, rather than widening `SetString` again.

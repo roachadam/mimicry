@@ -130,17 +130,23 @@ func TestDeleteMatchMayUseJar(t *testing.T) {
 	}
 }
 
-// SetString scopes a Cookie header string to a site: every host of its
-// registrable domain gets the cookies, no other site does, a host or URL
-// reduces to the registrable domain, and AnySite reaches every host of
-// every site. Parsing tolerates sloppy strings; input that is not a site
-// or a pair Set refuses stores nothing. String gives a site's cookies back
-// (any host and path, not partitioned ones), and SetString of that string
-// gives the same String: checked for every site of every case. The jar's
-// own Cookies is the observer.
+// SetString stores Domain cookies of exactly the name given, as a browser
+// reads a Domain attribute: that name and every name under it get them,
+// its parent and siblings do not, and nothing reduces it to the
+// registrable domain. SetHostString stores host-only cookies of exactly
+// one host, IP addresses included. AnySite reaches every host of every
+// site. Prefixes get what browsers require: __Host- host-only on the name
+// given and Secure, __Secure- and __Http- Secure; a __Host- cookie for
+// AnySite is refused. Parsing tolerates sloppy strings; an IP address or
+// a public suffix as SetString's domain, input that is not a host, or a
+// pair Set refuses stores nothing. String gives back every cookie for a
+// name and the names under it (not partitioned ones), and storing that
+// string again (SetString, or SetHostString for an IP address or
+// localhost) gives the same String: checked for every name of every case.
+// The jar's own Cookies is the observer.
 func TestSetString(t *testing.T) {
 	type set struct {
-		site, cookies, err string
+		method, name, cookies, err string
 	}
 	type response struct {
 		url   string
@@ -154,148 +160,215 @@ func TestSetString(t *testing.T) {
 		set   []set
 		// sends maps a URL to the Cookie header a navigation to it sends.
 		sends map[string]string
-		// strs maps a site to its String.
+		// strs maps a name to its String.
 		strs map[string]string
 	}{
 		{
-			name: "a site's cookies go to every host of the site, nowhere else",
+			name: "a domain's cookies go to it and every name under it, nowhere else",
 			set: []set{
-				{"shop.test", "a=1; b=2", ""},
+				{"SetString", "amazon.com", "a=1; b=2", ""},
 			},
 			sends: map[string]string{
-				"https://shop.test/":            "a=1; b=2",
-				"https://www.shop.test/deep/x":  "a=1; b=2",
-				"http://api.eu.shop.test:8080/": "a=1; b=2",
-				"https://shop.test.evil/":       "",
-				"https://outlet.test/":          "",
-				"https://shop.example/":         "",
+				"https://amazon.com/":               "a=1; b=2",
+				"https://www.amazon.com/deep/x":     "a=1; b=2",
+				"http://smile.api.amazon.com:8080/": "a=1; b=2",
+				"https://amazon.com.evil/":          "",
+				"https://walmart.com/":              "",
+				"https://www.walmart.com/":          "",
+				"https://amazon.co.uk/":             "",
 			},
 			strs: map[string]string{
-				"shop.test":   "a=1; b=2",
-				"outlet.test": "",
+				"amazon.com":     "a=1; b=2",
+				"www.amazon.com": "",
+				"walmart.com":    "",
 			},
 		},
 		{
-			name: "a host or URL is its registrable domain",
+			name: "a subdomain's cookies go to it and names under it, not its parent or siblings",
 			set: []set{
-				{"https://WWW.Shop.test:8443/cart?x=1#y", "a=1", ""},
-				{"www.shop.test", "b=2", ""},
-				{"shop.test.", "c=3", ""},
-				{"api.shop.test:443", "d=4", ""},
-				{"https://www.shop.co.uk/", "e=5", ""},
+				{"SetString", "www.amazon.com", "w=1", ""},
 			},
 			sends: map[string]string{
-				"https://cdn.shop.test/": "a=1; b=2; c=3; d=4",
-				"https://m.shop.co.uk/":  "e=5",
-				"https://other.co.uk/":   "",
+				"https://www.amazon.com/":   "w=1",
+				"https://m.www.amazon.com/": "w=1",
+				"https://amazon.com/":       "",
+				"https://api.amazon.com/":   "",
+				"https://walmart.com/":      "",
 			},
 			strs: map[string]string{
-				"shop.test":                   "a=1; b=2; c=3; d=4",
-				"https://img.shop.test/x.png": "a=1; b=2; c=3; d=4",
-				"shop.co.uk":                  "e=5",
+				"www.amazon.com": "w=1",
+				"amazon.com":     "w=1",
+				"api.amazon.com": "",
+			},
+		},
+		{
+			name: "a URL or host:port is read as its host, never widened",
+			set: []set{
+				{"SetString", "https://WWW.Amazon.com:8443/cart?x=1#y", "a=1", ""},
+				{"SetString", "www.amazon.com.", "b=2", ""},
+				{"SetString", "api.amazon.com:443", "c=3", ""},
+				{"SetString", "https://www.amazon.co.uk/", "d=4", ""},
+			},
+			sends: map[string]string{
+				"https://www.amazon.com/":   "a=1; b=2",
+				"https://api.amazon.com/":   "c=3",
+				"https://amazon.com/":       "",
+				"https://www.amazon.co.uk/": "d=4",
+				"https://amazon.co.uk/":     "",
+			},
+			strs: map[string]string{
+				"amazon.com":               "a=1; b=2; c=3",
+				"https://www.amazon.com/x": "a=1; b=2",
+				"amazon.co.uk":             "d=4",
+			},
+		},
+		{
+			name: "host-only cookies go to their host alone",
+			set: []set{
+				{"SetHostString", "amazon.com", "h=1", ""},
+				{"SetHostString", "https://www.amazon.com/x", "w=2", ""},
+				{"SetHostString", "http://127.0.0.1:8080/", "ip=3", ""},
+				{"SetHostString", "[::1]", "v6=4", ""},
+				{"SetHostString", "localhost", "l=5", ""},
+			},
+			sends: map[string]string{
+				"https://amazon.com/":       "h=1",
+				"https://www.amazon.com/":   "w=2",
+				"https://m.www.amazon.com/": "",
+				"https://api.amazon.com/":   "",
+				"https://walmart.com/":      "",
+				"http://127.0.0.1/":         "ip=3",
+				"http://127.0.0.2/":         "",
+				"http://[::1]/":             "v6=4",
+				"http://localhost:9000/":    "l=5",
+				"http://a.localhost/":       "",
+			},
+			strs: map[string]string{
+				"amazon.com":     "h=1; w=2",
+				"www.amazon.com": "w=2",
+				"api.amazon.com": "",
+				"walmart.com":    "",
+				"127.0.0.1":      "ip=3",
+				"[::1]":          "v6=4",
+				"localhost":      "l=5",
+			},
+		},
+		{
+			name: "prefixes: __Host- host-only on the name given and Secure, __Secure- and __Http- Secure",
+			set: []set{
+				{"SetString", "amazon.com", "__Host-id=1; __Secure-s=2; plain=3; __Http-h=4", ""},
+				{"SetString", "www.amazon.com", "__host-w=5", ""},
+				{"SetHostString", "http://api.amazon.com/", "__Secure-x=6", ""},
+			},
+			sends: map[string]string{
+				"https://amazon.com/":       "__Host-id=1; __Secure-s=2; plain=3; __Http-h=4",
+				"http://amazon.com/":        "plain=3",
+				"https://www.amazon.com/":   "__Secure-s=2; plain=3; __Http-h=4; __host-w=5",
+				"http://www.amazon.com/":    "plain=3",
+				"https://m.www.amazon.com/": "__Secure-s=2; plain=3; __Http-h=4",
+				"https://api.amazon.com/":   "__Secure-s=2; plain=3; __Http-h=4; __Secure-x=6",
+				"http://api.amazon.com/":    "plain=3",
+			},
+			strs: map[string]string{
+				"amazon.com":     "__Host-id=1; __Secure-s=2; plain=3; __Http-h=4; __host-w=5; __Secure-x=6",
+				"www.amazon.com": "__host-w=5",
 			},
 		},
 		{
 			name: "sloppy strings parse; a later value replaces",
 			set: []set{
-				{"shop.test", "  a=0;b=2 ;; c = 3 ; knoeq;", ""},
-				{"shop.test", "a=1", ""},
+				{"SetString", "amazon.com", "  a=0;b=2 ;; c = 3 ; knoeq;", ""},
+				{"SetString", "amazon.com", "a=1", ""},
 			},
 			sends: map[string]string{
-				"https://www.shop.test/": "a=1; b=2; c=3; knoeq",
+				"https://www.amazon.com/": "a=1; b=2; c=3; knoeq",
 			},
 			strs: map[string]string{
-				"shop.test": "a=1; b=2; c=3; knoeq",
-			},
-		},
-		{
-			name: "loopback names and IP addresses are sites of their own",
-			set: []set{
-				{"localhost", "a=1", ""},
-				{"http://127.0.0.1:8080/", "b=2", ""},
-				{"[::1]", "c=3", ""},
-			},
-			sends: map[string]string{
-				"http://localhost:9000/": "a=1",
-				"http://a.localhost/":    "",
-				"http://127.0.0.1/":      "b=2",
-				"http://127.0.0.2/":      "",
-				"http://[::1]/":          "c=3",
-			},
-			strs: map[string]string{
-				"localhost": "a=1",
-				"127.0.0.1": "b=2",
+				"amazon.com": "a=1; b=2; c=3; knoeq",
 			},
 		},
 		{
 			name: "AnySite cookies go to every host of every site",
 			set: []set{
-				{AnySite, "k=v", ""},
-				{"shop.test", "a=1", ""},
+				{"SetString", AnySite, "k=v; __Secure-g=1", ""},
+				{"SetString", "amazon.com", "a=1", ""},
 			},
 			sends: map[string]string{
-				"https://www.shop.test/": "k=v; a=1",
-				"https://outlet.test/x":  "k=v",
-				"http://10.0.0.1/":       "k=v",
-				"http://localhost/":      "k=v",
+				"https://www.amazon.com/": "k=v; __Secure-g=1; a=1",
+				"https://walmart.com/x":   "k=v; __Secure-g=1",
+				"http://walmart.com/x":    "k=v",
+				"http://10.0.0.1/":        "k=v",
+				"http://localhost/":       "k=v; __Secure-g=1",
 			},
 			strs: map[string]string{
-				AnySite:       "k=v",
-				"shop.test":   "a=1",
-				"outlet.test": "",
+				AnySite:       "k=v; __Secure-g=1",
+				"amazon.com":  "a=1",
+				"walmart.com": "",
 			},
 		},
 		{
 			name: "an AnySite cookie and a site's own of the same name both go",
 			set: []set{
-				{AnySite, "id=any", ""},
-				{"shop.test", "id=site", ""},
+				{"SetString", AnySite, "id=any", ""},
+				{"SetString", "amazon.com", "id=site", ""},
 			},
 			sends: map[string]string{
-				"https://www.shop.test/": "id=any; id=site",
-				"https://outlet.test/":   "id=any",
+				"https://www.amazon.com/": "id=any; id=site",
+				"https://walmart.com/":    "id=any",
 			},
 			strs: map[string]string{
-				AnySite:     "id=any",
-				"shop.test": "id=site",
+				AnySite:      "id=any",
+				"amazon.com": "id=site",
 			},
 		},
 		{
-			name: "String has every host and path of the site, not its partitioned cookies",
+			name: "String has every cookie for the name and names under it, of every path, not partitioned ones",
 			lines: []response{
-				{"https://www.shop.test/x/", []string{"h=1; Path=/x"}},
-				{"https://api.shop.test/", []string{"d=2; Domain=shop.test"}},
+				{"https://www.amazon.com/x/", []string{"h=1; Path=/x"}},
+				{"https://api.amazon.com/", []string{"d=2; Domain=amazon.com"}},
 			},
 			set: []set{
-				{"shop.test", "s=3", ""},
+				{"SetString", "amazon.com", "s=3", ""},
 			},
 			sends: map[string]string{
-				"https://www.shop.test/x/y": "h=1; d=2; s=3",
-				"https://www.shop.test/":    "d=2; s=3",
+				"https://www.amazon.com/x/y": "h=1; d=2; s=3",
+				"https://www.amazon.com/":    "d=2; s=3",
 			},
 			strs: map[string]string{
-				"shop.test":     "h=1; d=2; s=3",
-				"www.shop.test": "h=1; d=2; s=3",
+				"amazon.com":     "h=1; d=2; s=3",
+				"www.amazon.com": "h=1",
+				"api.amazon.com": "",
 			},
 		},
 		{
-			name: "input that is not a site, or a pair Set refuses, stores nothing",
+			name: "an IP address or public suffix as a domain, input that is not a host, or a pair Set refuses stores nothing",
 			set: []set{
-				{"com", "a=1", "public suffix"},
-				{"https://co.uk/", "a=1", "public suffix"},
-				{"", "a=1", "not a host"},
-				{"shop.test/x", "a=1", "not a host"},
-				{"https://[bad/", "a=1", "site"},
-				{"https://user@/", "a=1", "not a host"},
-				{"shop.test", "ok=1; b\x01=2", "control character"},
-				{"shop.test", "ok=1; =__Secure-x", "__Secure-"},
-				{"shop.test", "ok=1; =", "empty name and value"},
+				{"SetString", "com", "a=1", "public suffix"},
+				{"SetString", "https://co.uk/", "a=1", "public suffix"},
+				{"SetString", "localhost", "a=1", "public suffix"},
+				{"SetString", "127.0.0.1", "a=1", "use SetHostString"},
+				{"SetString", "[::1]:443", "a=1", "use SetHostString"},
+				{"SetString", "", "a=1", "not a host"},
+				{"SetString", "amazon.com/x", "a=1", "not a host"},
+				{"SetString", "https://[bad/", "a=1", "missing ']'"},
+				{"SetString", "https://user@/", "a=1", "not a host"},
+				{"SetString", "amazon.com", "ok=1; b\x01=2", "control character"},
+				{"SetString", "amazon.com", "ok=1; =__Secure-x", "__Secure-"},
+				{"SetString", "amazon.com", "ok=1; =", "empty name and value"},
+				{"SetString", AnySite, "ok=1; __Host-id=1", "__Host- cookie belongs to one host"},
+				{"SetHostString", AnySite, "a=1", "not a host"},
+				{"SetHostString", "", "a=1", "not a host"},
 			},
 			sends: map[string]string{
-				"https://www.shop.test/": "",
+				"https://amazon.com/":     "",
+				"https://www.amazon.com/": "",
+				"https://walmart.com/":    "",
+				"http://127.0.0.1/":       "",
+				"http://localhost/":       "",
 			},
 			strs: map[string]string{
-				"shop.test": "",
+				"amazon.com": "",
+				AnySite:      "",
 			},
 		},
 	} {
@@ -307,17 +380,21 @@ func TestSetString(t *testing.T) {
 			for _, r := range tt.lines {
 				j.SetCookies(nav(t, r.url), r.lines)
 			}
-			// The partitioned cookie of shop.test under outlet.test,
+			// The partitioned cookie of amazon.com under walmart.com,
 			// which String leaves out.
 			j.SetCookies(Request{
-				URL:    mustURL(t, "https://cdn.shop.test/"),
+				URL:    mustURL(t, "https://cdn.amazon.com/"),
 				Method: "GET",
-				Page:   mustURL(t, "https://outlet.test/"),
-			}, []string{"p=1; Secure; SameSite=None; Partitioned; Path=/"})
+				Page:   mustURL(t, "https://walmart.com/"),
+			}, []string{"part=1; Secure; SameSite=None; Partitioned; Path=/"})
 			for _, s := range tt.set {
-				err := j.SetString(s.site, s.cookies)
+				store := j.SetString
+				if s.method == "SetHostString" {
+					store = j.SetHostString
+				}
+				err := store(s.name, s.cookies)
 				if (err == nil) != (s.err == "") || (err != nil && !strings.Contains(err.Error(), s.err)) {
-					t.Errorf("SetString(%q, %q) = %v, want error %q", s.site, s.cookies, err, s.err)
+					t.Errorf("%s(%q, %q) = %v, want error %q", s.method, s.name, s.cookies, err, s.err)
 				}
 			}
 			for u, want := range tt.sends {
@@ -332,11 +409,15 @@ func TestSetString(t *testing.T) {
 				}
 				k, err := FromString(s, got, cfg)
 				if err != nil {
-					t.Errorf("FromString(%q, %q): %v", s, got, err)
-					continue
+					// An IP address or localhost: its own cookies.
+					k = newJar(t, cfg)
+					if err := k.SetHostString(s, got); err != nil {
+						t.Errorf("SetString and SetHostString(%q, %q): %v", s, got, err)
+						continue
+					}
 				}
 				if again := k.String(s); again != got {
-					t.Errorf("String(%q) through SetString = %q, want %q", s, again, got)
+					t.Errorf("String(%q) stored again = %q, want %q", s, again, got)
 				}
 			}
 		})

@@ -36,21 +36,37 @@ client, err := mimicry.NewClient(mimicry.Config{
   in the browser's order; `cookies.Header` formats it.
 - `All`, `Set` (no URL needed), `Delete`, `Clear`, `ClearExpired`,
   `ClearSession`, `Clone`.
-- `SetString(site, "a=1; b=2")` seeds a site's cookies from a `Cookie`
-  header string, `FromString` makes a jar from one, and `String(site)`
-  gives them back as one ([decision 0031](../decisions/0031-cookies-for-any-site.md)).
-  `site` is a host, a URL or the domain; each pair becomes a cookie of its
-  registrable domain (every host of the site, no other site), path `/`,
-  session, not `Secure`, no `SameSite` (the profile's default). `String`
-  lists the site's unpartitioned cookies of every host and path in
-  creation order, dropping hosts, paths and attributes (`WriteJSON` keeps
-  them).
-- `cookies.AnySite` as the site stores cookies every site receives: no
+- `SetString(domain, "a=1; b=2")` seeds cookies from a `Cookie` header
+  string, `FromString` makes a jar from one, and `String(domain)` gives
+  them back as one ([decision 0031](../decisions/0031-cookies-for-any-site.md)).
+  `domain` is a host name or a URL (its host), read as a browser reads a
+  cookie's `Domain` attribute and never widened to the site: each pair is
+  a cookie for that name and every name under it. `amazon.com` reaches
+  `www.`, `api.` and `smile.amazon.com`; `www.amazon.com` reaches
+  `www.amazon.com` (and names under it), not `api.amazon.com`. Path `/`,
+  session, not `Secure`, no `SameSite` (the profile's default). A public
+  suffix (`com`, `co.uk`, `localhost`) or an IP address is an error, as no
+  `Domain` may name one.
+- `SetHostString(host, "a=1; b=2")` stores host-only cookies: that one
+  host (a name, an IP address or a URL's host), not the names under it.
+- Prefixes get what browsers require, automatically. A `__Host-` cookie is
+  one a site pins to the single host that set it, HTTPS only, every path:
+  it is stored host-only on exactly the name given (`SetString("amazon.com",
+  …)` puts it on the bare `amazon.com` host), `Secure`, path `/`.
+  `__Secure-` cookies are stored `Secure`; `__Http-` and `__Host-Http-`
+  ones `Secure` and `HttpOnly` where the profile enforces them.
+- `String(domain)` lists every unpartitioned cookie the jar holds for that
+  name and the names under it, host-only and `Domain` alike, of every path,
+  in creation order: `String("www.amazon.com")` leaves out `amazon.com`'s
+  `Domain` cookies, which `www.amazon.com` is sent but which are not its
+  own. Hosts, paths and attributes are dropped (`WriteJSON` keeps them).
+- `cookies.AnySite` as the domain stores cookies every site receives: no
   browser has them, so this is opt-in and visible in your code. Every
   host gets them where its own cookie would go (SameSite and third-party
   rules still apply), trackers and CDNs included, and a site's cookie of
   the same name goes as well. They count towards no site's limit and are
-  left out of `WriteNetscape`.
+  left out of `WriteNetscape`. A `__Host-` cookie cannot be one (an
+  error): it belongs to one host.
 - `SetHTTPCookies(u, []*http.Cookie)` stores cookies from a solver or
   another library as `Set-Cookie` lines of a navigation to `u`, through
   the browser's rules; the error names each cookie refused and why, and
