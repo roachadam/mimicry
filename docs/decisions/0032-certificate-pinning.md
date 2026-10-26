@@ -88,7 +88,8 @@ others (HSTS's rule). The same host twice is a configuration error.
 `TestPins` (root): pin match and mismatch over HTTP/2 and HTTP/1.1, the
 three forms, subdomains, a resumed connection with changed pins
 (`SetPins`, test only), `VerifyConnection` order and resumed calls, a
-WebSocket's connection, through the CONNECT proxy, and coalescing on
+WebSocket's connection, through the CONNECT proxy (a request's, and since
+2026-10-26 a WebSocket's own tunnel), and coalescing on
 lookup allowed and refused. `TestHTTP3Pins` (harness, quic-go): an origin
 whose QUIC server's key no pin names stays on TCP; one whose pins name
 it moves to HTTP/3 with `resp.TLS` from the QUIC connection. Each of the

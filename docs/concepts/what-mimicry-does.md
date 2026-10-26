@@ -320,7 +320,9 @@ otherwise on an HTTP/1.1 connection of its own with the browser's socket
 ClientHello.
 Then, as the browser: every frame masked, messages compressed when the
 server accepted permessage-deflate, pings answered at once, and the close
-handshake ending the transport Chrome's, Safari's or Firefox's way. See
+handshake ending the transport Chrome's, Safari's or Firefox's way.
+Through `Config.Proxy`, a socket of its own gets a tunnel of its own (or,
+Safari's `ws://`, its handshake goes to the proxy whole). See
 [WebSockets](websockets.md).
 
 **To turn it off.** Don't call `Transport.DialWebSocket`; mimicry never
@@ -336,7 +338,9 @@ without the proxy. With credentials in the proxy URL, Chrome and Firefox
 send the first request without them, answer the 407 once on the same
 connection, and send them unasked from then on; Safari waits for a 407 on
 every CONNECT, and sends them on plain-HTTP requests from the first.
-Each proxy has its own connections and TLS tickets, and HTTP/3 is never
+Each proxy has its own connections and TLS tickets (a Firefox profile
+resumes no session through an HTTP proxy's CONNECT tunnel, as Firefox
+does not), and HTTP/3 is never
 used through a proxy. A proxy that fails a request (unreachable, refusing
 the tunnel or the credentials, too slow) returns a `*ProxyError`, so a
 rotation loop can move on; nothing more is sent through it for that

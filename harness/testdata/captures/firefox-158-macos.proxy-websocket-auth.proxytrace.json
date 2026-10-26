@@ -1,0 +1,257 @@
+[
+  [
+    {
+      "kind": "connect",
+      "conn": 12,
+      "status": 407,
+      "target": "www.ws-a.test:52728",
+      "lines": [
+        "CONNECT www.ws-a.test:52728 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:52728"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 12,
+      "status": 200,
+      "target": "www.ws-a.test:52728",
+      "lines": [
+        "CONNECT www.ws-a.test:52728 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:52728",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 16,
+      "status": 200,
+      "target": "h1.ws-a.test:52728",
+      "lines": [
+        "CONNECT h1.ws-a.test:52728 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:52728",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 17,
+      "status": 200,
+      "target": "h1.ws-a.test:52728",
+      "lines": [
+        "CONNECT h1.ws-a.test:52728 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:52728",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 18,
+      "status": 200,
+      "target": "h1.ws-a.test:52728",
+      "lines": [
+        "CONNECT h1.ws-a.test:52728 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:52728",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 21,
+      "status": 200,
+      "target": "www.ws-a.test:52730",
+      "lines": [
+        "CONNECT www.ws-a.test:52730 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:52730",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 12,
+      "status": 407,
+      "target": "www.ws-a.test:52761",
+      "lines": [
+        "CONNECT www.ws-a.test:52761 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:52761"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 12,
+      "status": 200,
+      "target": "www.ws-a.test:52761",
+      "lines": [
+        "CONNECT www.ws-a.test:52761 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:52761",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 16,
+      "status": 200,
+      "target": "h1.ws-a.test:52761",
+      "lines": [
+        "CONNECT h1.ws-a.test:52761 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:52761",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 17,
+      "status": 200,
+      "target": "h1.ws-a.test:52761",
+      "lines": [
+        "CONNECT h1.ws-a.test:52761 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:52761",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 18,
+      "status": 200,
+      "target": "h1.ws-a.test:52761",
+      "lines": [
+        "CONNECT h1.ws-a.test:52761 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:52761",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 23,
+      "status": 200,
+      "target": "www.ws-a.test:52763",
+      "lines": [
+        "CONNECT www.ws-a.test:52763 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:52763",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 12,
+      "status": 407,
+      "target": "www.ws-a.test:52799",
+      "lines": [
+        "CONNECT www.ws-a.test:52799 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:52799"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 12,
+      "status": 200,
+      "target": "www.ws-a.test:52799",
+      "lines": [
+        "CONNECT www.ws-a.test:52799 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:52799",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 17,
+      "status": 200,
+      "target": "h1.ws-a.test:52799",
+      "lines": [
+        "CONNECT h1.ws-a.test:52799 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:52799",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 18,
+      "status": 200,
+      "target": "h1.ws-a.test:52799",
+      "lines": [
+        "CONNECT h1.ws-a.test:52799 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:52799",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 19,
+      "status": 200,
+      "target": "h1.ws-a.test:52799",
+      "lines": [
+        "CONNECT h1.ws-a.test:52799 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:52799",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 24,
+      "status": 200,
+      "target": "www.ws-a.test:52801",
+      "lines": [
+        "CONNECT www.ws-a.test:52801 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:52801",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    }
+  ]
+]

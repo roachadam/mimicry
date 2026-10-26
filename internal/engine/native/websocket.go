@@ -13,11 +13,12 @@ import (
 
 	"golang.org/x/net/http/httpguts"
 
-	"github.com/roachadam/mimicry/internal/h1"
+	"github.com/roachadam/mimicry/internal/dial"
 	"github.com/roachadam/mimicry/internal/h2"
 	"github.com/roachadam/mimicry/internal/handshake"
 	"github.com/roachadam/mimicry/internal/headerorder"
 	"github.com/roachadam/mimicry/internal/ws"
+	"github.com/roachadam/mimicry/profile"
 )
 
 // WebSocket is the transport a WebSocket handshake opened, and the
@@ -44,8 +45,10 @@ type WebSocket struct {
 // when it has one whose server allows it (SETTINGS_ENABLE_CONNECT_PROTOCOL),
 // else on a new HTTP/1.1 connection of its own, never pooled, which for
 // https says the hello of tls.websocket_h1 (ALPN http/1.1). key is the
-// Sec-WebSocket-Key, which only HTTP/1.1 sends. Proxies were never
-// captured carrying a WebSocket: through one it is ErrNotMeasured.
+// Sec-WebSocket-Key, which only HTTP/1.1 sends. Through a proxy, the
+// HTTP/2 connection is the one in the route's tunnel, and a connection of
+// its own goes through a tunnel of its own, or for ws:// is sent to an
+// HTTP proxy whole, as proxy.websocket says.
 func (e *Engine) OpenWebSocket(req *http.Request, key string) (*WebSocket, error) {
 	ctx := req.Context()
 	if req.URL == nil || req.URL.Host == "" || !httpguts.ValidHostHeader(req.URL.Host) {
@@ -59,7 +62,9 @@ func (e *Engine) OpenWebSocket(req *http.Request, key string) (*WebSocket, error
 		return nil, err
 	}
 	if r.proxy != nil {
-		return nil, fmt.Errorf("%w: profile %s has no WebSocket through a proxy", headerorder.ErrNotMeasured, e.profile.Name)
+		if r, err = e.webSocketRoute(req, r); err != nil {
+			return nil, err
+		}
 	}
 	if req.URL.Scheme == "https" {
 		if c, ok := e.pool.Shared(r.key); ok && c.ConnectProtocol() {
@@ -93,17 +98,43 @@ func (e *Engine) OpenWebSocket(req *http.Request, key string) (*WebSocket, error
 	return e.openWebSocketH1(ctx, req, r, key)
 }
 
-// openWebSocketH1 sends req on a new HTTP/1.1 connection of its own.
+// webSocketRoute checks that the profile's browser was measured taking
+// req, a WebSocket handshake, through r's proxy, and returns r as the
+// socket goes: a ws:// socket through an HTTP proxy is sent to it whole
+// (r.forward) only where proxy.websocket.plain says so, and tunnelled
+// otherwise.
+func (e *Engine) webSocketRoute(req *http.Request, r route) (route, error) {
+	w := e.profile.Proxy.WebSocket
+	switch {
+	case w == nil:
+		return r, fmt.Errorf("%w: profile %s has no WebSocket through a proxy (proxy.websocket)", headerorder.ErrNotMeasured, e.profile.Name)
+	case r.proxy.User != nil && !w.Credentials:
+		return r, fmt.Errorf("%w: profile %s has no WebSocket through a proxy with credentials", headerorder.ErrNotMeasured, e.profile.Name)
+	case req.URL.Scheme == "http" && r.proxy.Scheme != dial.SchemeHTTP:
+		return r, fmt.Errorf("%w: no browser was measured opening a ws:// socket through a SOCKS5 proxy", headerorder.ErrNotMeasured)
+	}
+	r.forward = r.forward && w.Plain == profile.PlainWebSocketForward
+	return r, nil
+}
+
+// openWebSocketH1 sends req on a new HTTP/1.1 connection of its own: to
+// the server, through a tunnel of its own, or to an HTTP proxy whole
+// (r.forward), where a 407 is the proxy refusing the socket.
 func (e *Engine) openWebSocketH1(ctx context.Context, req *http.Request, r route, key string) (*WebSocket, error) {
 	conn, err := e.dialWebSocket(ctx, req, r)
 	if err != nil {
 		return nil, err
 	}
 	var upgraded atomic.Bool
-	c := h1.New(conn, e.profile)
-	c.SetTLS(handshake.ConnState(conn))
+	c := e.newH1(conn, r)
 	req = req.Clone(ctx)
 	req.Header.Set("Sec-WebSocket-Key", key)
+	if r.forward {
+		// The request line names the socket's own URL.
+		u := *req.URL
+		u.Scheme = "ws"
+		req.URL = &u
+	}
 	resp, err := c.RoundTrip(req, func(bool) {
 		// Nothing else ever uses the connection.
 		if !upgraded.Load() {
@@ -112,6 +143,16 @@ func (e *Engine) openWebSocketH1(ctx context.Context, req *http.Request, r route
 	})
 	if err != nil {
 		return nil, err
+	}
+	if r.forward && resp.StatusCode == http.StatusProxyAuthRequired {
+		// The proxy refused the socket; the server never saw it.
+		_ = resp.Body.Close()
+		return nil, &dial.ProxyError{
+			Proxy:      r.proxy,
+			StatusCode: resp.StatusCode,
+			Header:     resp.Header,
+			Err:        fmt.Errorf("answered the WebSocket handshake with %s", resp.Status),
+		}
 	}
 	if resp.StatusCode != http.StatusSwitchingProtocols {
 		return &WebSocket{
@@ -136,12 +177,22 @@ func (e *Engine) openWebSocketH1(ctx context.Context, req *http.Request, r route
 	}, nil
 }
 
-// dialWebSocket connects for a WebSocket of its own and, for https, says
-// the profile's WebSocket hello (tls.websocket_h1), resuming as the
-// profile's other connections do. The server must not pick h2, which the
-// hello does not offer.
+// dialWebSocket connects for a WebSocket of its own (through its own
+// tunnel, or to the proxy itself for r.forward) and, for https, says the
+// profile's WebSocket hello (tls.websocket_h1), resuming as the profile's
+// other connections on the route do. The server must not pick h2, which
+// the hello does not offer.
 func (e *Engine) dialWebSocket(ctx context.Context, req *http.Request, r route) (net.Conn, error) {
-	conn, err := e.dialer.Dial(ctx, r.addr)
+	var conn net.Conn
+	var err error
+	switch {
+	case r.proxy == nil:
+		conn, err = e.dialer.Dial(ctx, r.addr)
+	case r.forward:
+		conn, err = e.dialer.DialProxy(ctx, r.proxy)
+	default:
+		conn, err = e.dialer.DialVia(ctx, r.proxy, r.addr)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +209,7 @@ func (e *Engine) dialWebSocket(ctx context.Context, req *http.Request, r route) 
 		VerifyConnection: e.verifyFor(req.URL.Hostname()),
 	}
 	hello := e.plan.Hello()
-	if e.tickets != nil {
+	if e.resumes(r) {
 		cfg.Tickets, cfg.TicketKey = e.tickets, r.key
 		if cfg.Ticket = e.tickets.Take(cfg.TicketKey); cfg.Ticket != nil && cfg.Ticket.TLS13() {
 			hello = e.plan.ResumedHello()

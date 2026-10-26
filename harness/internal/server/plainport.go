@@ -26,12 +26,15 @@ func (sc *Scenario) StartsPlain() bool {
 	return sc.plainPort && sc.startPlain
 }
 
-// onPorts is the scenario as served on tlsAddr and plainAddr: its answers
-// learn both ports (request.ports).
+// onPorts is the scenario as served on tlsAddr and plainAddr (nil for a
+// scenario without a plain port): its answers learn both ports
+// (request.ports).
 func (sc *Scenario) onPorts(tlsAddr, plainAddr net.Addr) *Scenario {
 	on := *sc
 	_, on.ports.tls, _ = net.SplitHostPort(tlsAddr.String())
-	_, on.ports.plain, _ = net.SplitHostPort(plainAddr.String())
+	if plainAddr != nil {
+		_, on.ports.plain, _ = net.SplitHostPort(plainAddr.String())
+	}
 	return &on
 }
 

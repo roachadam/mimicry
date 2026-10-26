@@ -1088,13 +1088,25 @@ These matter most under decision 0029:
     error instead of a hang.
   - Close: nothing to close; revisit if Firefox fixes the deadlock.
   - Source: [websocket-deflate report](../harness/reports/websocket-deflate-2026-10-26.md).
-- **WebSockets through a proxy** (all).
-  - Differs: not measured; refused (`ErrNotMeasured`).
-  - Shows: any `DialWebSocket` with `Config.Proxy` set.
+- **WebSockets through a proxy: Safari with credentials, ws:// through
+  SOCKS5** (Safari 27, 26; all for SOCKS5).
+  - Differs: not measured; refused (`ErrNotMeasured`). Everything else
+    through a proxy is captured and replayed (proxy-websocket captures,
+    2026-10-26).
+  - Shows: `DialWebSocket` with a Safari profile and credentials in the
+    proxy URL; a `ws://` socket through a `socks5`/`socks5h` proxy.
   - Detection: none. User-visible: yes, an error.
-  - Close: a proxied WebSocket capture; small to medium.
-  - Source: [concepts/websockets.md](concepts/websockets.md);
-    `internal/engine/native/websocket.go`.
+  - Close: Safari's credentials need a person at the screen: install a
+    `com.apple.proxy.http.global` device profile (manual proxy at
+    `127.0.0.1:15354`, `ProxyUsername`/`ProxyPassword`,
+    `PayloadScope: System`), type the credentials into the proxy login
+    dialog macOS raises, then capture `proxy-websocket-auth` on each
+    Safari (manual proxies: the tool skips SOCKS5) and remove the
+    profile. ws:// through SOCKS5 needs Safari's proxy script to send a
+    second port to SOCKS5 (the page's plain port), which changes the
+    script every Mac has cached; small once the setup is there.
+  - Source: [proxy-websocket report](../harness/reports/proxy-websocket-2026-10-26.md);
+    `internal/engine/native/websocket.go` (`webSocketRoute`).
 - **Subprotocols the handshake list cannot place** (all).
   - Differs: asking for subprotocols where the profile's handshake list
     for that page condition has no place for `Sec-WebSocket-Protocol`

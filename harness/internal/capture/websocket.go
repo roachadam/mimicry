@@ -19,6 +19,11 @@ type WebSocket struct {
 	// Connection numbers the TLS connection in Page.Connections, from 1;
 	// 0 for a plain connection, which has no entry there.
 	Connection int `json:"connection,omitempty"`
+	// ProxyConn numbers the client's connection to the capture proxy
+	// whose tunnel (or forwarded request) carried the socket, as
+	// ProxyRequest.Conn does: its CONNECT or SOCKS5 request is the one
+	// with that Conn. 0 for a direct socket.
+	ProxyConn int `json:"proxy_conn,omitempty"`
 	// Request is the handshake's index: in Page.H1 for http/1.1, in
 	// Page.H2[Trace].Requests for h2 (-1 if that trace had already ended).
 	// Stream is the h2 stream that carried it.

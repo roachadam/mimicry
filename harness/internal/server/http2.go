@@ -136,7 +136,7 @@ func serveHTTP2(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 		senders.Wait()
 	}()
 	s.wmu.Lock()
-	err := s.fr.WriteSettings(sc.Settings...)
+	err := s.fr.WriteSettings(sc.settingsFor(host)...)
 	s.wmu.Unlock()
 	if err != nil {
 		return err

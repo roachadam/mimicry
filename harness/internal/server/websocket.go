@@ -538,7 +538,7 @@ func (b *wsBuffer) Read(p []byte) (int, error) {
 func (s *h2conn) onConnect(id uint32, st *request, index int, senders *sync.WaitGroup) error {
 	delete(s.streams, id)
 	s.log.request(s.c)
-	if v, _ := s.scenario.Setting(http2.SettingEnableConnectProtocol); v != 1 {
+	if v, _ := s.scenario.settingFor(s.host, http2.SettingEnableConnectProtocol); v != 1 {
 		s.mu.Lock()
 		delete(s.sendWindows, id)
 		s.mu.Unlock()
@@ -566,6 +566,7 @@ func (s *h2conn) onConnect(id uint32, st *request, index int, senders *sync.Wait
 			Path:        st.path,
 			Protocol:    "h2",
 			Connection:  s.log.connectionNumber(s.c),
+			ProxyConn:   s.c.ProxyConn,
 			Request:     index,
 			Trace:       s.traceIndex,
 			Stream:      id,

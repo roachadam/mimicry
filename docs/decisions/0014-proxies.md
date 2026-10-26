@@ -78,6 +78,32 @@ the request's own flow), and tunnels that change nothing. Ledger section
   with the browser's non-secure header set ([0015](0015-non-secure-origins.md)).
 - Chrome's speculative preconnects to the proxy are not made.
 
+## Amendment 2026-10-26: WebSockets, and Firefox's tunnels
+
+The [proxy-websocket captures](../../harness/reports/proxy-websocket-2026-10-26.md)
+(all four browsers; Safari without credentials) added:
+- `proxy.websocket`: `plain` is how a `ws://` socket goes through an
+  HTTP proxy, `tunnel` (CONNECT, Chrome and Firefox) or `forward` (the
+  handshake sent whole as `GET ws://…`, Safari); `credentials` that the
+  socket tunnels' credential flow was measured (Chrome, Firefox). A
+  `wss://` socket needs no field: every browser goes on the page's HTTP/2
+  connection in its tunnel or opens a tunnel of its own, as any request.
+  Without the section, with credentials but not `credentials`, and for
+  `ws://` through SOCKS5 (no capture: Safari's proxy script sends one
+  port to SOCKS5), a socket through a proxy is `ErrNotMeasured`.
+- `proxy.connect_no_resume`: Firefox resumes no session through an HTTP
+  proxy's CONNECT tunnel (every connection of `proxy-auth` and both
+  socket connections of `proxy-websocket`, while through SOCKS5 it
+  resumes). This was already in the `proxy-auth` captures and unmodelled;
+  it applies to every request, not only sockets. [INFERENCE] Firefox keys
+  its TLS session cache by the proxy for CONNECT tunnels in a way that
+  never matches; not established from source.
+- Considered: refusing every proxied socket until a capture shows each
+  combination (the earlier state), and inferring Safari's credential flow
+  from its CONNECT rule (`on_challenge`). The second would be a guess on a
+  path (CFNetwork's WebSocket task) that differs from its page loads in
+  the one case measured (`ws://`).
+
 ## Revisit when
 
 Safari 26's credential flow is measured, a profile changes how Safari gets

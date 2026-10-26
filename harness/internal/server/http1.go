@@ -43,9 +43,13 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 		// (update checks, captive-portal probes): those are answered 404 and
 		// not recorded.
 		foreign := false
+		// absolute: a request sent to a proxy whole, which a ProxyAuth
+		// scenario's proxy challenges (the capture server answers for it).
+		absolute := false
 		if u, err := url.Parse(target); err == nil && u.IsAbs() {
 			target = u.RequestURI()
 			foreign = !strings.HasSuffix(u.Hostname(), ".test")
+			absolute = true
 		}
 		req := capture.H1Request{
 			Conn: id,
@@ -149,7 +153,7 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 				status:      http.StatusNotFound,
 				contentType: "text/plain",
 			}
-		case sc.Plain && sc.ProxyAuth && proxyAuth != ProxyAuthorization():
+		case sc.ProxyAuth && absolute && proxyAuth != ProxyAuthorization():
 			challenged = true
 			r = response{
 				status:      http.StatusProxyAuthRequired,
@@ -171,6 +175,7 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 				Protocol:   "http/1.1",
 				Plain:      number == 0,
 				Connection: number,
+				ProxyConn:  c.ProxyConn,
 				Request:    index,
 			}, log)
 		}

@@ -49,6 +49,9 @@ type Capture struct {
 	// (proxy scenarios); SampleProxy holds every sample's (Combine).
 	Proxy       []ProxyRequest
 	SampleProxy [][]ProxyRequest
+	// ProxyConn numbers the client's connection to the capture proxy that
+	// carried this connection (ProxyRequest.Conn), or 0 for a direct one.
+	ProxyConn int
 	// Finished reports that the client asked for /done: a browser ran the
 	// capture page to the end. A browser's trace without it is truncated.
 	Finished bool

@@ -117,6 +117,8 @@ func TestPins(t *testing.T) {
 	defer h1.Close()
 	proxy := startProxy(h2, "", "")
 	defer proxy.Close()
+	proxyH1 := startProxy(h1, "", "")
+	defer proxyH1.Close()
 	dns := loopbackDNS(t)
 	errRejected := errors.New("rejected by VerifyConnection")
 	const other = "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
@@ -409,6 +411,36 @@ func TestPins(t *testing.T) {
 			},
 		},
 		{
+			name:  "WebSocket through a CONNECT proxy, the intermediate's key",
+			shop:  h1,
+			proxy: true,
+			pins: func(c []mimicry.CertPin) []mimicry.Pin {
+				return pin("www.shop.test", c[1].SPKI)
+			},
+			steps: []pinStep{
+				{
+					url:       "wss://www.shop.test/live",
+					ws:        true,
+					wantProto: "http/1.1",
+				},
+			},
+		},
+		{
+			name:  "WebSocket through a CONNECT proxy, another key",
+			shop:  h1,
+			proxy: true,
+			pins: func([]mimicry.CertPin) []mimicry.Pin {
+				return pin("www.shop.test", other)
+			},
+			steps: []pinStep{
+				{
+					url:        "wss://www.shop.test/live",
+					ws:         true,
+					wantPinErr: true,
+				},
+			},
+		},
+		{
 			name:     "coalesced onto another host's connection",
 			shop:     h2,
 			resolver: true,
@@ -456,8 +488,13 @@ func TestPins(t *testing.T) {
 				DisableHTTP3: true,
 			}
 			if tc.proxy {
+				// Through the proxy that tunnels to the row's shop.
+				via := proxy
+				if tc.shop == h1 {
+					via = proxyH1
+				}
 				cfg.DialContext = nil
-				cfg.Proxy = http.ProxyURL(proxy.URL)
+				cfg.Proxy = http.ProxyURL(via.URL)
 			}
 			if tc.resolver {
 				cfg.Resolver = dns

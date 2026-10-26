@@ -81,7 +81,11 @@ Modelling:
   is not byte-identical to any of them.
 - These are `ErrNotMeasured`:
   - subprotocols on a non-secure socket;
-  - WebSockets through a proxy.
+  - WebSockets through a proxy where not captured (amended 2026-10-26:
+    the [proxy-websocket captures](../../harness/reports/proxy-websocket-2026-10-26.md)
+    measured the rest, modelled as profile `proxy.websocket`, see
+    [0014](0014-proxies.md)): a Safari profile with proxy credentials,
+    and `ws://` through SOCKS5.
 - A `ws://` socket from an `https://` page is refused before anything is
   sent, as every browser refuses it.
 

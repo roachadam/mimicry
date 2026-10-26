@@ -50,7 +50,12 @@
 // OpenWebSocket opens a WebSocket's transport: an extended CONNECT stream
 // on the pool's HTTP/2 connection to the host when its server allows
 // one, else an HTTP/1.1 connection of the socket's own, outside the pool,
-// its TLS hello the profile's tls.websocket_h1.
+// its TLS hello the profile's tls.websocket_h1. Through a proxy the
+// stream is on the connection in the route's tunnel, and the socket's own
+// connection gets a tunnel of its own, or (proxy.websocket.plain forward)
+// its ws:// handshake goes to the HTTP proxy whole. TLS connections
+// through an HTTP proxy's tunnel resume nothing where
+// proxy.connect_no_resume says so.
 //
 // Config.VerifyConnection (the root's pins and its own check) runs in
 // every TLS and QUIC handshake's verification, resumed ones included, and

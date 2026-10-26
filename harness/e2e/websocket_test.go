@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -20,6 +22,7 @@ import (
 	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/harness/internal/diff"
 	"github.com/roachadam/mimicry/harness/internal/h2trace"
+	"github.com/roachadam/mimicry/harness/internal/proxy"
 	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/profile"
 	"github.com/roachadam/mimicry/profiles"
@@ -42,23 +45,48 @@ import (
 // and the variance is logged. A ws:// socket from the https:// page is
 // refused before anything is sent; a socket the browser fails after its
 // handshake (a window its compressor refuses) fails to open.
+//
+// The proxy websocket pages (server.ProxyWebSocketSteps) are checked the
+// same way through the capture proxy, and each socket also by what reached
+// the proxy for it: the CONNECT (lines, status, credentials) or SOCKS5
+// request of the tunnel it went through, the page's own for an HTTP/2
+// stream, or nothing for a handshake sent to the proxy whole (Safari's
+// ws://, whose absolute-form request line the handshake check compares).
 func TestWebSocketsMatchBrowser(t *testing.T) {
 	for _, name := range profiles.Names() {
-		for _, sc := range []*server.Scenario{server.WebSocket, server.WebSocketH2} {
+		for _, sc := range []*server.Scenario{server.WebSocket, server.WebSocketH2, server.ProxyWebSocket, server.ProxyWebSocketAuth, server.ProxyWebSocketSOCKS5} {
 			t.Run(name+"/"+sc.Name, func(t *testing.T) {
 				t.Parallel()
 				p, err := profiles.ByName(name)
 				if err != nil {
 					t.Fatal(err)
 				}
-				want, err := capture.LoadPages(captureDir + name + "." + sc.Name + ".pagetrace.json.gz")
-				if err != nil {
-					t.Fatal(err)
+				// A listed missing capture is skipped, an existing listed one fails.
+				want := loadSamples[*capture.Page](t, name+"."+sc.Name+".pagetrace.json.gz")
+				sockets, steps, ok := sc.WebSocketPage()
+				if !ok {
+					t.Fatalf("scenario %s serves no websocket page", sc.Name)
 				}
-				got, seen := runWebSocketPage(t, p, sc)
-				for _, st := range server.WebSocketSteps() {
+				var s *pageSession
+				var px *proxy.Proxy
+				var wantProxy [][]capture.ProxyRequest
+				if sc.Proxy == "" {
+					s = startPage(t, p, sc)
+				} else {
+					wantProxy = loadSamples[[]capture.ProxyRequest](t, name+"."+sc.Name+".proxytrace.json")
+					var user *url.Userinfo
+					if sc.ProxyAuth {
+						user = url.UserPassword(server.ProxyUser, server.ProxyPassword)
+					}
+					s, px = startProxiedPage(t, p, sc, user)
+				}
+				got, seen := runWebSocketPage(t, s, sockets, steps)
+				for _, st := range sockets {
 					t.Run(st.Label, func(t *testing.T) {
-						checkSocket(t, p, st, got, want, seen[st.Label])
+						checkSocket(t, p, st, steps, got, want, seen[st.Label])
+						if px != nil {
+							checkProxyRoute(t, st, px.Requests(), got, wantProxy, want)
+						}
 					})
 				}
 			})
@@ -76,13 +104,12 @@ type socketRun struct {
 	closed *mimicry.CloseError
 }
 
-// runWebSocketPage walks the websocket pages through mimicry as profile
-// p: each page step (navigations by script from the page before,
-// credentialed fetches from the page), then the page's sockets one after
-// another as its script runs them, then /done.
-func runWebSocketPage(t *testing.T, p *profile.Profile, sc *server.Scenario) (*capture.Page, map[string]*socketRun) {
+// runWebSocketPage walks a websocket page through mimicry on s: each
+// page step (navigations by script from the page before, credentialed
+// fetches from the page), then the page's sockets one after another as
+// its script runs them, then /done.
+func runWebSocketPage(t *testing.T, s *pageSession, sockets []server.WebSocketStep, steps []server.WebSocketPageStep) (*capture.Page, map[string]*socketRun) {
 	t.Helper()
-	s := startPage(t, p, sc)
 	tr, ok := s.client.Transport.(*mimicry.Transport)
 	if !ok {
 		t.Fatal("the page session's client has no mimicry Transport")
@@ -90,7 +117,6 @@ func runWebSocketPage(t *testing.T, p *profile.Profile, sc *server.Scenario) (*c
 	runs := map[string]*socketRun{}
 	var page *url.URL
 	label := ""
-	steps := server.WebSocketPageSteps()
 	for i, st := range steps {
 		target := s.wsURL(st.Plain, "http", st.Host, st.Path)
 		if st.Nav {
@@ -120,13 +146,138 @@ func runWebSocketPage(t *testing.T, p *profile.Profile, sc *server.Scenario) (*c
 			continue
 		}
 		// The page's fetches are done: its sockets.
-		for _, ws := range server.WebSocketSteps() {
+		for _, ws := range sockets {
 			if ws.Page == label {
 				runs[ws.Label] = runSocket(t, s, tr, page, ws)
 			}
 		}
 	}
 	return s.finish(s.url(steps[0].Host, "/done")), runs
+}
+
+// startProxiedPage is startPage behind the capture proxy, as sc
+// configures it: every host and port reached through the proxy at the
+// proxy URL's scheme, with user's credentials. The server's ports are only
+// named, never dialled.
+func startProxiedPage(t *testing.T, p *profile.Profile, sc *server.Scenario, user *url.Userinfo) (*pageSession, *proxy.Proxy) {
+	t.Helper()
+	ca, err := server.LoadOrCreateCA(t.TempDir(), server.CADomains, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &pageSession{
+		t:        t,
+		scheme:   "https",
+		port:     "8443",
+		captures: make(chan *capture.Capture, 64),
+	}
+	px := &proxy.Proxy{
+		Allow: func(host string) bool {
+			return strings.HasSuffix(host, ".test")
+		},
+		Port: 8443,
+		Logf: t.Logf,
+	}
+	if sc.ProxyAuth {
+		px.Auth = server.ProxyAuthorization()
+	}
+	srv := &server.Server{
+		Scenario:  sc,
+		TLSConfig: &tls.Config{},
+		IssueCert: func(hosts []string) (tls.Certificate, error) {
+			return ca.Issue(hosts, time.Now())
+		},
+		OnCapture: func(c *capture.Capture) {
+			s.captures <- c
+		},
+		Logf: t.Logf,
+	}
+	if sc.PlainPort() {
+		s.plainPort = "8080"
+		px.PlainPort = 8080
+		srv.PlainListener = px.PlainListener()
+	}
+	pln, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	served, proxied := make(chan error, 1), make(chan error, 1)
+	go func() {
+		proxied <- px.Serve(ctx, pln)
+	}()
+	go func() {
+		served <- srv.Serve(ctx, px.Listener())
+	}()
+	t.Cleanup(func() {
+		cancel()
+		for _, ch := range []chan error{served, proxied} {
+			if err := <-ch; err != nil && !errors.Is(err, net.ErrClosed) {
+				t.Error(err)
+			}
+		}
+	})
+	pool := x509.NewCertPool()
+	pool.AddCert(ca.Cert)
+	tr, err := mimicry.NewTransport(mimicry.Config{
+		Profile: p,
+		RootCAs: pool,
+		Cookies: newJar(t, p),
+		Proxy: http.ProxyURL(&url.URL{
+			Scheme: sc.Proxy,
+			Host:   pln.Addr().String(),
+			User:   user,
+		}),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(tr.CloseIdleConnections)
+	s.client = &http.Client{
+		Transport: tr,
+	}
+	return s, px
+}
+
+// checkProxyRoute compares what reached the proxy for mimicry's socket st
+// (got, its proxy's requests reqs) with every sample's (wantReqs).
+func checkProxyRoute(t *testing.T, st server.WebSocketStep, reqs []capture.ProxyRequest, got *capture.Page, wantReqs [][]capture.ProxyRequest, want []*capture.Page) {
+	t.Helper()
+	g := socketOf(got, st)
+	if g == nil {
+		return // checkSocket said why
+	}
+	if len(wantReqs) != len(want) {
+		t.Fatalf("%d samples of proxy requests, %d of pages", len(wantReqs), len(want))
+	}
+	anyForm(t, "proxy", proxyRoute(reqs, g), func(i int) string {
+		return proxyRoute(wantReqs[i], socketOf(want[i], st))
+	}, len(want))
+}
+
+// proxyRoute describes what reached the proxy for ws: the requests (each
+// CONNECT's status and lines, or SOCKS5 messages, ports elided) on the
+// proxy connection whose tunnel carried it, or that it was sent whole.
+func proxyRoute(reqs []capture.ProxyRequest, ws *capture.WebSocket) string {
+	if ws == nil {
+		return "no socket"
+	}
+	var out []string
+	for _, r := range reqs {
+		if r.Conn != ws.ProxyConn {
+			continue
+		}
+		switch r.Kind {
+		case capture.ProxyConnect:
+			out = append(out, fmt.Sprintf("CONNECT answered %d: %s", r.Status, strings.Join(portless(r.Lines), " | ")))
+		case capture.ProxySOCKS5:
+			out = append(out, "SOCKS5 "+r.Greeting+" "+socksPortless(r.Request))
+		}
+	}
+	if len(out) == 0 {
+		return "sent to the proxy whole"
+	}
+	return strings.Join(out, "\n")
 }
 
 // wsURL is a URL on the session's server: scheme+"s" on its TLS port, or
@@ -194,7 +345,7 @@ func runSocket(t *testing.T, s *pageSession, tr *mimicry.Transport, page *url.UR
 }
 
 // checkSocket compares mimicry's socket st (got, run) with every sample's.
-func checkSocket(t *testing.T, p *profile.Profile, st server.WebSocketStep, got *capture.Page, want []*capture.Page, run *socketRun) {
+func checkSocket(t *testing.T, p *profile.Profile, st server.WebSocketStep, steps []server.WebSocketPageStep, got *capture.Page, want []*capture.Page, run *socketRun) {
 	if run == nil {
 		t.Fatal("the step did not run")
 	}
@@ -250,7 +401,7 @@ func checkSocket(t *testing.T, p *profile.Profile, st server.WebSocketStep, got 
 		return socketTransport(want[i], samples[i])
 	}, len(want))
 	if g.Protocol == "h2" {
-		checkStreamConnection(t, got, g, want, samples)
+		checkStreamConnection(t, steps, got, g, want, samples)
 	}
 	anyForm(t, "handshake", handshakeLines(got, g), func(i int) string {
 		return handshakeLines(want[i], samples[i])
@@ -385,10 +536,10 @@ func socketTransport(page *capture.Page, ws *capture.WebSocket) string {
 
 // streamPaths returns the page steps' paths that went on ws's HTTP/2
 // connection.
-func streamPaths(page *capture.Page, ws *capture.WebSocket) []string {
+func streamPaths(steps []server.WebSocketPageStep, page *capture.Page, ws *capture.WebSocket) []string {
 	var on []string
 	for _, r := range page.H2[ws.Trace].Requests {
-		for _, st := range server.WebSocketPageSteps() {
+		for _, st := range steps {
 			if r.Path == st.Path && !slices.Contains(on, r.Path) {
 				on = append(on, r.Path)
 			}
@@ -402,11 +553,11 @@ func streamPaths(page *capture.Page, ws *capture.WebSocket) []string {
 // browser's did (the cross-site socket: the page's credentialed fetch's).
 // mimicry's may carry more: it keeps no connections apart by top-level
 // site, so the cross-site host's own navigations share it (logged).
-func checkStreamConnection(t *testing.T, got *capture.Page, g *capture.WebSocket, want []*capture.Page, samples []*capture.WebSocket) {
+func checkStreamConnection(t *testing.T, steps []server.WebSocketPageStep, got *capture.Page, g *capture.WebSocket, want []*capture.Page, samples []*capture.WebSocket) {
 	t.Helper()
-	on := streamPaths(got, g)
+	on := streamPaths(steps, got, g)
 	for i, page := range want {
-		w := streamPaths(page, samples[i])
+		w := streamPaths(steps, page, samples[i])
 		for _, path := range w {
 			if !slices.Contains(on, path) {
 				t.Errorf("sample %d: the stream's connection carried %q, mimicry's %q", i+1, w, on)

@@ -126,7 +126,8 @@ func closedAddr(t *testing.T) string {
 
 // TestProxyErrors: every way a proxy fails a request is a *ProxyError
 // naming it without its password, with the proxy's answer where there was
-// one, wrapping the deadline where that was the cause.
+// one, wrapping the deadline where that was the cause; a WebSocket's too,
+// through its own tunnel or sent to the proxy whole (Safari's ws://).
 func TestProxyErrors(t *testing.T) {
 	const password = "s3cr3t-pw"
 	shop := startShop(func(http.ResponseWriter, *http.Request) {
@@ -159,6 +160,10 @@ func TestProxyErrors(t *testing.T) {
 		wantDeadline  bool
 		// wantLog is what the CONNECT proxy was asked, when it was one.
 		wantLog []string
+		// websocket dials target, a ws:// or wss:// URL, with
+		// DialWebSocket; safari as Safari 27.
+		websocket bool
+		safari    bool
 	}{
 		{
 			name:   "unreachable",
@@ -240,14 +245,48 @@ func TestProxyErrors(t *testing.T) {
 			timeout:      300 * time.Millisecond,
 			wantDeadline: true,
 		},
+		{
+			name:          "WebSocket tunnel 407 after the credential flow",
+			proxy:         proxyURL("http", asking.URL.Host, wrong),
+			target:        "wss://www.shop.test/socket",
+			websocket:     true,
+			wantStatus:    http.StatusProxyAuthRequired,
+			wantChallenge: true,
+			wantLog: []string{
+				"CONNECT www.shop.test:443 without credentials: 407",
+				"CONNECT www.shop.test:443 as alice: 407",
+			},
+		},
+		{
+			name:          "WebSocket sent whole, 407",
+			proxy:         proxyURL("http", asking.URL.Host, nil),
+			target:        "ws://www.shop.test/socket",
+			websocket:     true,
+			safari:        true,
+			wantStatus:    http.StatusProxyAuthRequired,
+			wantChallenge: true,
+			wantLog: []string{
+				"GET www.shop.test without credentials: 407",
+			},
+		},
+		{
+			name:      "WebSocket SOCKS5 refused",
+			proxy:     proxyURL("socks5h", fakeSOCKS5(t, "refuse"), nil),
+			target:    "wss://www.shop.test/socket",
+			websocket: true,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			before := map[*proxy]int{
 				asking:   len(asking.Log()),
 				refusing: len(refusing.Log()),
 			}
-			client, err := mimicry.NewClient(mimicry.Config{
-				Profile: profiles.Chrome155MacOS(),
+			p := profiles.Chrome155MacOS()
+			if tc.safari {
+				p = profiles.Safari27MacOS()
+			}
+			tr, err := mimicry.NewTransport(mimicry.Config{
+				Profile: p,
 				Proxy:   http.ProxyURL(tc.proxy),
 				RootCAs: shop.RootCAs,
 			})
@@ -260,14 +299,23 @@ func TestProxyErrors(t *testing.T) {
 			}
 			ctx, cancel := context.WithTimeout(t.Context(), timeout)
 			defer cancel()
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, tc.target, nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			resp, err := client.Do(req)
-			if err == nil {
-				_ = resp.Body.Close()
-				t.Fatalf("got %s, want a *ProxyError", resp.Status)
+			if tc.websocket {
+				var ws *mimicry.WebSocket
+				var resp *http.Response
+				if ws, resp, err = tr.DialWebSocket(ctx, tc.target, mimicry.WebSocketOptions{}); err == nil {
+					_ = ws.Close(1000, "")
+					t.Fatalf("the socket opened (%s), want a *ProxyError", resp.Status)
+				}
+			} else {
+				req, rerr := http.NewRequestWithContext(ctx, http.MethodGet, tc.target, nil)
+				if rerr != nil {
+					t.Fatal(rerr)
+				}
+				var resp *http.Response
+				if resp, err = tr.RoundTrip(req); err == nil {
+					_ = resp.Body.Close()
+					t.Fatalf("got %s, want a *ProxyError", resp.Status)
+				}
 			}
 			var pe *mimicry.ProxyError
 			if !errors.As(err, &pe) {

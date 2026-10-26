@@ -710,6 +710,14 @@ func (c *checker) checkProxy(p *Proxy, headers []Header) {
 			c.add("proxy.socks5.address", "must be %q: other address types are not implemented", SOCKS5Domain)
 		}
 	}
+	if w := p.WebSocket; w != nil {
+		if w.Plain != PlainWebSocketTunnel && w.Plain != PlainWebSocketForward {
+			c.add("proxy.websocket.plain", "must be %q or %q", PlainWebSocketTunnel, PlainWebSocketForward)
+		}
+		if w.Credentials && p.ConnectAuth == nil {
+			c.add("proxy.websocket.credentials", "needs connect_auth")
+		}
+	}
 }
 
 // checkProxyUserAgent requires a user agent in the navigation headers when

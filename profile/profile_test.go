@@ -1174,6 +1174,30 @@ func TestValidate(t *testing.T) {
 			want: `must be "domain"`,
 		},
 		{
+			name: "WebSocket through a proxy, unknown ws:// way",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.Proxy = validProxy()
+				p.Proxy.WebSocket = &ProxyWebSocket{
+					Plain: "absolute",
+				}
+			},
+			path: "proxy.websocket.plain",
+			want: `must be "tunnel" or "forward"`,
+		},
+		{
+			name: "WebSocket proxy credentials without connect_auth",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.Proxy = validProxy()
+				p.Proxy.ConnectAuth, p.Proxy.ConnectCredentials, p.Proxy.ForwardCredentials, p.Proxy.ForwardAuth = nil, "", "", nil
+				p.Proxy.WebSocket = &ProxyWebSocket{
+					Plain:       PlainWebSocketTunnel,
+					Credentials: true,
+				}
+			},
+			path: "proxy.websocket.credentials",
+			want: "needs connect_auth",
+		},
+		{
 			name: "nil kind",
 			mutate: func(_ *testing.T, p *Profile) {
 				p.Kinds = map[string]*Kind{

@@ -477,7 +477,7 @@ func (e *Engine) dial(ctx context.Context, req *http.Request, r route) (net.Conn
 		VerifyConnection: e.verifyFor(req.URL.Hostname()),
 	}
 	hello := e.plan.Hello()
-	if e.tickets != nil {
+	if e.resumes(r) {
 		// Tickets are kept per connection pool, partition and proxy
 		// included: a browser's credential-less connections do not resume
 		// its others'.
@@ -490,6 +490,16 @@ func (e *Engine) dial(ctx context.Context, req *http.Request, r route) (net.Conn
 	hctx, cancel := context.WithTimeout(ctx, e.dialer.Timeout)
 	defer cancel()
 	return handshake.Client(hctx, conn, hello, cfg)
+}
+
+// resumes reports whether TLS connections on route r resume sessions:
+// the profile resumes some (TLS.Resumption), and none through an HTTP
+// proxy's CONNECT tunnel where Proxy.ConnectNoResume says so.
+func (e *Engine) resumes(r route) bool {
+	if e.tickets == nil {
+		return false
+	}
+	return r.proxy == nil || r.proxy.Scheme != dial.SchemeHTTP || !e.profile.Proxy.ConnectNoResume
 }
 
 // roundTripH1 sends req on c, which the pool gave or a dial made, and

@@ -1,0 +1,188 @@
+[
+  [
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 200,
+      "target": "www.ws-a.test:52941",
+      "lines": [
+        "CONNECT www.ws-a.test:52941 HTTP/1.1",
+        "Host: www.ws-a.test:52941",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 200,
+      "target": "h1.ws-a.test:52941",
+      "lines": [
+        "CONNECT h1.ws-a.test:52941 HTTP/1.1",
+        "Host: h1.ws-a.test:52941",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 3,
+      "status": 200,
+      "target": "h1.ws-a.test:52941",
+      "lines": [
+        "CONNECT h1.ws-a.test:52941 HTTP/1.1",
+        "Host: h1.ws-a.test:52941",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 4,
+      "status": 200,
+      "target": "h1.ws-a.test:52941",
+      "lines": [
+        "CONNECT h1.ws-a.test:52941 HTTP/1.1",
+        "Host: h1.ws-a.test:52941",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 5,
+      "status": 200,
+      "target": "www.ws-a.test:52942",
+      "lines": [
+        "CONNECT www.ws-a.test:52942 HTTP/1.1",
+        "Host: www.ws-a.test:52942",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 200,
+      "target": "www.ws-a.test:52951",
+      "lines": [
+        "CONNECT www.ws-a.test:52951 HTTP/1.1",
+        "Host: www.ws-a.test:52951",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 200,
+      "target": "h1.ws-a.test:52951",
+      "lines": [
+        "CONNECT h1.ws-a.test:52951 HTTP/1.1",
+        "Host: h1.ws-a.test:52951",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 3,
+      "status": 200,
+      "target": "h1.ws-a.test:52951",
+      "lines": [
+        "CONNECT h1.ws-a.test:52951 HTTP/1.1",
+        "Host: h1.ws-a.test:52951",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 4,
+      "status": 200,
+      "target": "h1.ws-a.test:52951",
+      "lines": [
+        "CONNECT h1.ws-a.test:52951 HTTP/1.1",
+        "Host: h1.ws-a.test:52951",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 5,
+      "status": 200,
+      "target": "www.ws-a.test:52952",
+      "lines": [
+        "CONNECT www.ws-a.test:52952 HTTP/1.1",
+        "Host: www.ws-a.test:52952",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 200,
+      "target": "www.ws-a.test:52961",
+      "lines": [
+        "CONNECT www.ws-a.test:52961 HTTP/1.1",
+        "Host: www.ws-a.test:52961",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 200,
+      "target": "h1.ws-a.test:52961",
+      "lines": [
+        "CONNECT h1.ws-a.test:52961 HTTP/1.1",
+        "Host: h1.ws-a.test:52961",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 3,
+      "status": 200,
+      "target": "h1.ws-a.test:52961",
+      "lines": [
+        "CONNECT h1.ws-a.test:52961 HTTP/1.1",
+        "Host: h1.ws-a.test:52961",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 4,
+      "status": 200,
+      "target": "h1.ws-a.test:52961",
+      "lines": [
+        "CONNECT h1.ws-a.test:52961 HTTP/1.1",
+        "Host: h1.ws-a.test:52961",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 5,
+      "status": 200,
+      "target": "www.ws-a.test:52962",
+      "lines": [
+        "CONNECT www.ws-a.test:52962 HTTP/1.1",
+        "Host: www.ws-a.test:52962",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ]
+    }
+  ]
+]

@@ -82,6 +82,9 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 	}
 	if sc.plainPort {
 		sc = sc.onPorts(ln.Addr(), s.PlainListener.Addr())
+	} else if _, ok := sc.multi.(wsPage); ok {
+		// Its script names the port in every URL.
+		sc = sc.onPorts(ln.Addr(), nil)
 	}
 	serves := []func(context.Context) error{
 		func(ctx context.Context) error {
@@ -214,6 +217,10 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 	}
 	c := &capture.Capture{
 		Scenario: sc.Name,
+	}
+	if p, ok := conn.(interface{ ProxyConn() int }); ok {
+		// A connection the capture proxy let through.
+		c.ProxyConn = p.ProxyConn()
 	}
 	emitted := false
 	emit := func() {

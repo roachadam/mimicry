@@ -240,8 +240,9 @@ and Firefox wait for the 407, then send them unasked; Safari waits every
 time), and the CONNECT lines and SOCKS5 bytes are the browser's.
 
 Limits: `http`, `socks5` and `socks5h` proxies only (no `https://`
-proxies), Basic authentication only, no WebSocket through a proxy
-(`ErrNotMeasured`), and never HTTP/3 through a proxy.
+proxies), Basic authentication only, never HTTP/3 through a proxy, and
+two WebSocket cases never measured (`ErrNotMeasured`): a Safari profile
+with proxy credentials, and `ws://` through SOCKS5.
 
 A proxy that fails a request returns a `*mimicry.ProxyError`: unreachable,
 CONNECT refused (`StatusCode`, `Header`), credentials rejected after the
@@ -306,7 +307,8 @@ ws, _, err := tr.DialWebSocket(ctx, "wss://www.shop.example/live", mimicry.WebSo
    and making one takes the harness and a real browser capture.
    `profile.Parse` loads your own JSON, but nothing helps you write it.
 2. **Proxy limits.** `https://` proxies are unsupported, and a WebSocket
-   through a proxy is `ErrNotMeasured`.
+   through a proxy is `ErrNotMeasured` for a Safari profile with proxy
+   credentials and for `ws://` through SOCKS5.
 3. **No way to see what will be sent.** tls-client users can print their
    own header literal; in mimicry the request's final header lines, its
    variant and whether it will be preflighted exist only on the wire. Add

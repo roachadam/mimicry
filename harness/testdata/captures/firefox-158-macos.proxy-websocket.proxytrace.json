@@ -1,0 +1,203 @@
+[
+  [
+    {
+      "kind": "connect",
+      "conn": 5,
+      "status": 200,
+      "target": "www.ws-a.test:52650",
+      "lines": [
+        "CONNECT www.ws-a.test:52650 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:52650"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 7,
+      "status": 200,
+      "target": "h1.ws-a.test:52650",
+      "lines": [
+        "CONNECT h1.ws-a.test:52650 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:52650"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 9,
+      "status": 200,
+      "target": "h1.ws-a.test:52650",
+      "lines": [
+        "CONNECT h1.ws-a.test:52650 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:52650"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 10,
+      "status": 200,
+      "target": "h1.ws-a.test:52650",
+      "lines": [
+        "CONNECT h1.ws-a.test:52650 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:52650"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 15,
+      "status": 200,
+      "target": "www.ws-a.test:52652",
+      "lines": [
+        "CONNECT www.ws-a.test:52652 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:52652"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 6,
+      "status": 200,
+      "target": "www.ws-a.test:52675",
+      "lines": [
+        "CONNECT www.ws-a.test:52675 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:52675"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 7,
+      "status": 200,
+      "target": "h1.ws-a.test:52675",
+      "lines": [
+        "CONNECT h1.ws-a.test:52675 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:52675"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 9,
+      "status": 200,
+      "target": "h1.ws-a.test:52675",
+      "lines": [
+        "CONNECT h1.ws-a.test:52675 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:52675"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 11,
+      "status": 200,
+      "target": "h1.ws-a.test:52675",
+      "lines": [
+        "CONNECT h1.ws-a.test:52675 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:52675"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 17,
+      "status": 200,
+      "target": "www.ws-a.test:52677",
+      "lines": [
+        "CONNECT www.ws-a.test:52677 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:52677"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 5,
+      "status": 200,
+      "target": "www.ws-a.test:52701",
+      "lines": [
+        "CONNECT www.ws-a.test:52701 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:52701"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 7,
+      "status": 200,
+      "target": "h1.ws-a.test:52701",
+      "lines": [
+        "CONNECT h1.ws-a.test:52701 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:52701"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 9,
+      "status": 200,
+      "target": "h1.ws-a.test:52701",
+      "lines": [
+        "CONNECT h1.ws-a.test:52701 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:52701"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 11,
+      "status": 200,
+      "target": "h1.ws-a.test:52701",
+      "lines": [
+        "CONNECT h1.ws-a.test:52701 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:52701"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 18,
+      "status": 200,
+      "target": "www.ws-a.test:52703",
+      "lines": [
+        "CONNECT www.ws-a.test:52703 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:52703"
+      ]
+    }
+  ]
+]

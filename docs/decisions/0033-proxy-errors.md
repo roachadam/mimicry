@@ -46,9 +46,10 @@ apart), and `Error()` prints that.
 `*mimicry.ProxyError` as above, made in the root package from the dial
 package's internal error (internal packages cannot import the root), on
 every path that reaches a proxy: requests, CORS preflights, redirect hops
-and `FetchPins`, over HTTP/1.1 and HTTP/2 (WebSockets through a proxy are
-refused before dialling, `ErrNotMeasured`). It replaces the errors that
-wrapped it (attempt counts), as it says all they did.
+and `FetchPins`, over HTTP/1.1 and HTTP/2, and (amended 2026-10-26, once
+they were measured) `DialWebSocket`: a socket's own tunnel, and a 407
+to a handshake sent to the proxy whole (Safari's `ws://`). It replaces
+the errors that wrapped it (attempt counts), as it says all they did.
 
 The SOCKS5 and CONNECT code now reports a timeout at the context's
 deadline as `context.DeadlineExceeded` even when the connection's
@@ -61,9 +62,10 @@ timer.
 and a fake SOCKS5 server: unreachable, CONNECT 403, 407 without
 credentials, 407 after the credential flow (CONNECT and plain HTTP), an
 unanswered CONNECT and SOCKS5 handshake (deadline), SOCKS5 refused, no
-acceptable method, rejected credentials; the password never in `Error()`
-or `Proxy`. `ExampleConfig_proxy` rotates on it. Removing the password
-strip, or the plain-HTTP 407 conversion, fails the test.
+acceptable method, rejected credentials, and a WebSocket's tunnel 407,
+forwarded handshake 407 and SOCKS5 refusal; the password never in
+`Error()` or `Proxy`. `ExampleConfig_proxy` rotates on it. Removing the
+password strip, or the plain-HTTP 407 conversion, fails the test.
 
 ## Consequences
 
@@ -72,5 +74,4 @@ must switch (the text changed: "mimicry: proxy URL: cause").
 
 ## Revisit when
 
-`https://` proxies land (a TLS failure to the proxy belongs here too), or
-WebSockets through proxies are measured.
+`https://` proxies land (a TLS failure to the proxy belongs here too).

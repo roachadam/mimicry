@@ -9617,6 +9617,11 @@
         0
       ],
       "address": "domain"
+    },
+    "connect_no_resume": true,
+    "websocket": {
+      "plain": "tunnel",
+      "credentials": true
     }
   },
   "redirects": {

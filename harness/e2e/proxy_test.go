@@ -142,13 +142,24 @@ func TestProxyMatchesBrowser(t *testing.T) {
 }
 
 // What a profile does not describe is an error, not a guess: any proxy
-// for a profile without a proxy section, and proxy credentials for one
-// whose browser's way with them is not measured (no connect_auth).
+// for a profile without a proxy section, proxy credentials for one whose
+// browser's way with them is not measured (no connect_auth), and a
+// WebSocket through a proxy where its browser was not measured taking one
+// (no proxy.websocket, credentials without proxy.websocket.credentials:
+// Safari's, ws:// through SOCKS5).
 func TestUnmeasuredProxyIsAnError(t *testing.T) {
 	for _, tc := range []struct {
-		name  string
-		strip func(p *profile.Proxy) *profile.Proxy
-		user  *url.Userinfo
+		name string
+		// profile is the profile's name; empty: Chrome's.
+		profile string
+		strip   func(p *profile.Proxy) *profile.Proxy
+		user    *url.Userinfo
+		// scheme is the proxy's; empty: http.
+		scheme string
+		// websocket dials target with DialWebSocket; empty target:
+		// https://example.test/ as a request.
+		websocket bool
+		target    string
 	}{
 		{
 			name: "no proxy section",
@@ -160,27 +171,70 @@ func TestUnmeasuredProxyIsAnError(t *testing.T) {
 			name: "credentials not measured",
 			strip: func(p *profile.Proxy) *profile.Proxy {
 				p.ConnectAuth, p.ConnectCredentials, p.ForwardCredentials, p.ForwardAuth = nil, "", "", nil
+				p.WebSocket.Credentials = false
 				return p
 			},
 			user: url.UserPassword("u", "p"),
 		},
+		{
+			name: "WebSocket without proxy.websocket",
+			strip: func(p *profile.Proxy) *profile.Proxy {
+				p.WebSocket = nil
+				return p
+			},
+			websocket: true,
+			target:    "wss://example.test/socket",
+		},
+		{
+			name:      "WebSocket with credentials, never captured for Safari",
+			profile:   "safari-27-macos",
+			user:      url.UserPassword("u", "p"),
+			websocket: true,
+			target:    "wss://example.test/socket",
+		},
+		{
+			name:      "ws:// through SOCKS5, never captured",
+			scheme:    "socks5h",
+			websocket: true,
+			target:    "ws://example.test/socket",
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			p, err := profiles.ByName("chrome-155-macos")
+			name := tc.profile
+			if name == "" {
+				name = "chrome-155-macos"
+			}
+			p, err := profiles.ByName(name)
 			if err != nil {
 				t.Fatal(err)
 			}
-			p.Proxy = tc.strip(p.Proxy)
+			if tc.strip != nil {
+				p.Proxy = tc.strip(p.Proxy)
+			}
+			scheme := tc.scheme
+			if scheme == "" {
+				scheme = "http"
+			}
 			tr, err := mimicry.NewTransport(mimicry.Config{
 				Profile: p,
 				Proxy: http.ProxyURL(&url.URL{
-					Scheme: "http",
+					Scheme: scheme,
 					Host:   "127.0.0.1:1",
 					User:   tc.user,
 				}),
 			})
 			if err != nil {
 				t.Fatal(err)
+			}
+			if tc.websocket {
+				ws, _, err := tr.DialWebSocket(t.Context(), tc.target, mimicry.WebSocketOptions{})
+				if err == nil {
+					_ = ws.Close(1000, "")
+				}
+				if !errors.Is(err, mimicry.ErrNotMeasured) {
+					t.Fatalf("got %v, want ErrNotMeasured", err)
+				}
+				return
 			}
 			req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "https://example.test/", nil)
 			if err != nil {
@@ -355,6 +409,11 @@ func scenario(t *testing.T, name string) *server.Scenario {
 var missingCaptures = map[string]string{
 	"safari-26-macos.proxy-auth.proxytrace.json":    "Safari 26 proxy credentials were never captured",
 	"safari-26-macos.proxy-plain-auth.h1trace.json": "Safari 26 proxy credentials were never captured",
+	// Safari answers a proxy's 407 only with credentials macOS holds: a
+	// com.apple.proxy.http.global device profile and the system's login
+	// dialog, which need a person at the screen (AGENTS.md).
+	"safari-27-macos.proxy-websocket-auth.pagetrace.json.gz": "Safari 27 WebSockets through a proxy with credentials were never captured (macOS proxy credentials need a person at the screen)",
+	"safari-26-macos.proxy-websocket-auth.pagetrace.json.gz": "Safari 26 WebSockets through a proxy with credentials were never captured (macOS proxy credentials need a person at the screen)",
 	// The capture tool clicks in Safari through the system's mouse
 	// events, which need Accessibility access; the second Mac's
 	// captures run over ssh, which has none.

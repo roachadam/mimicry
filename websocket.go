@@ -92,11 +92,20 @@ type webSocketEngine interface {
 // socket from an https:// page is refused before anything is sent (mixed
 // content), as Chrome refuses it.
 //
+// Through Config.Proxy a socket goes as the profile's browser takes one
+// through a proxy (profile proxy.websocket): a wss:// stream on the HTTP/2
+// connection in the host's tunnel, or a connection of its own in a tunnel
+// of its own; a ws:// socket in a tunnel of its own or sent to an HTTP
+// proxy whole. A proxy failure is a *ProxyError, and Config.Pins and
+// VerifyConnection apply to the server's TLS inside the tunnel.
+//
 // The server's answer is returned too: on success its headers (the body
 // is empty); when the handshake fails, with an error, its status and the
-// start of its body. A profile without a websocket section, a proxy, or
-// subprotocols where the profile's list has no place for them return
-// ErrNotMeasured.
+// start of its body. A profile without a websocket section, a proxy the
+// profile's browser was not measured taking sockets through (no
+// proxy.websocket; credentials without proxy.websocket.credentials; ws://
+// through SOCKS5), or subprotocols where the profile's list has no place
+// for them return ErrNotMeasured.
 //
 // NewClient's Transport is client.Transport.(*mimicry.Transport).
 func (t *Transport) DialWebSocket(ctx context.Context, rawURL string, opts WebSocketOptions) (*WebSocket, *http.Response, error) {

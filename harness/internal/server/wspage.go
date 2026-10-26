@@ -56,7 +56,19 @@ func wsPageOf() wsPage {
 			},
 			runFor: 120 * time.Second,
 		},
+		sockets: WebSocketSteps(),
+		steps:   WebSocketPageSteps(),
 	}
+}
+
+// WebSocketPage returns a websocket page's sockets and page steps (see
+// WebSocketSteps and WebSocketPageSteps), and whether sc serves one.
+func (sc *Scenario) WebSocketPage() (sockets []WebSocketStep, steps []WebSocketPageStep, ok bool) {
+	p, ok := sc.multi.(wsPage)
+	if !ok {
+		return nil, nil, false
+	}
+	return p.sockets, p.steps, true
 }
 
 // wsPattern is what text messages are made of: WSMessage.Data.
@@ -437,8 +449,11 @@ func WebSocketPageSteps() []WebSocketPageStep {
 // (a socket step) and the two navigations back.
 const wsAway = 30 * time.Second
 
+// wsPage is a websocket page: its hosts, sockets and page steps.
 type wsPage struct {
 	fixedHosts
+	sockets []WebSocketStep
+	steps   []WebSocketPageStep
 }
 
 func (p wsPage) answer(req request) response {
@@ -452,20 +467,20 @@ func (p wsPage) answer(req request) response {
 	case path == watchdogPath:
 		return watchdogResponse()
 	case strings.HasPrefix(path, "/ws/"):
-		for _, s := range WebSocketSteps() {
+		for _, s := range p.sockets {
 			if s.Host == host && s.Path() == path && s.Plain == plain {
 				return wsHandshake(s, req)
 			}
 		}
 	}
-	steps := WebSocketPageSteps()
+	steps := p.steps
 	for i, s := range steps {
 		if s.Host != host || s.Path != path || s.Plain != plain {
 			continue
 		}
 		r := ok
 		if s.Nav {
-			r = htmlResponse(htmlPage("websocket", "", pageScript(wsStatements(steps, i, req.ports))))
+			r = htmlResponse(htmlPage("websocket", "", pageScript(p.statements(i, req.ports))))
 		} else if req.origin != "" {
 			r.headers = corsAllow(req.origin)
 		}
@@ -594,12 +609,13 @@ const socket = (url, protocols, sends, close) => {
 };
 `
 
-// wsStatements are page step i's script: it fetches the steps up to the
+// statements are page step i's script: it fetches the steps up to the
 // next navigation, runs its sockets one after another and reports each,
 // then goes there, or asks for /done. The watchdog lives on https:// of
 // wsHost: the first page registers it, the others disarm it on load, arm
 // it before leaving the origin and end it before /done.
-func wsStatements(steps []WebSocketPageStep, i int, ports portPair) []string {
+func (p wsPage) statements(i int, ports portPair) []string {
+	steps := p.steps
 	page := steps[i]
 	watched := page.Host == wsHost && !page.Plain
 	out := []string{
@@ -619,7 +635,7 @@ func wsStatements(steps []WebSocketPageStep, i int, ports portPair) []string {
 		}
 		out = append(out, fmt.Sprintf("await get(%s);", strconv.Quote(wsPageURL(steps[j], ports))))
 	}
-	for _, s := range WebSocketSteps() {
+	for _, s := range p.sockets {
 		if s.Page != page.Label {
 			continue
 		}

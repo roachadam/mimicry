@@ -345,6 +345,7 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 			// Safari uses the system's proxy, which with a manual proxy
 			// carries everything the Mac sends.
 			PassThrough: b.Shared,
+			Port:        port,
 		}
 		if sc.ProxyAuth {
 			px.Auth = server.ProxyAuthorization()
@@ -365,6 +366,13 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 		if srv.PlainListener, err = (&net.ListenConfig{}).Listen(ctx, "tcp", "127.0.0.1:0"); err != nil {
 			_ = ln.Close()
 			return nil, err
+		}
+		if px != nil {
+			// Behind the proxy the port is only named: the proxy hands
+			// what is for it to the server's plain side.
+			px.PlainPort = srv.PlainListener.Addr().(*net.TCPAddr).Port
+			_ = srv.PlainListener.Close()
+			srv.PlainListener = px.PlainListener()
 		}
 		log.Printf("%s: plain HTTP on port %d", b.Name, srv.PlainListener.Addr().(*net.TCPAddr).Port)
 	}

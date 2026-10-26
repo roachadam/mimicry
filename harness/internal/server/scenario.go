@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/base64"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -23,6 +24,10 @@ type Scenario struct {
 	Doc string
 	// Settings are advertised in the server's SETTINGS frame.
 	Settings []http2.Setting
+	// connectHosts are server names whose HTTP/2 connections also
+	// advertise SETTINGS_ENABLE_CONNECT_PROTOCOL (see settingsFor), so
+	// one page has hosts with extended CONNECT and hosts without.
+	connectHosts []string
 	// HTTP1 offers only http/1.1 in ALPN, so browsers load the page over
 	// HTTP/1.1.
 	HTTP1 bool
@@ -228,6 +233,9 @@ var Scenarios = []*Scenario{
 	NavRedirectClick,
 	WebSocket,
 	WebSocketH2,
+	ProxyWebSocket,
+	ProxyWebSocketAuth,
+	ProxyWebSocketSOCKS5,
 	H3Discovery,
 	H3Page,
 	H3Blackhole,
@@ -284,6 +292,29 @@ func (sc *Scenario) maxFrameSize() uint32 {
 // whether it advertises it at all.
 func (sc *Scenario) Setting(id http2.SettingID) (uint32, bool) {
 	for _, s := range sc.Settings {
+		if s.ID == id {
+			return s.Val, true
+		}
+	}
+	return 0, false
+}
+
+// settingsFor are the SETTINGS the scenario's HTTP/2 server advertises on
+// a connection to host: Settings, and SETTINGS_ENABLE_CONNECT_PROTOCOL
+// for its connectHosts.
+func (sc *Scenario) settingsFor(host string) []http2.Setting {
+	if !slices.Contains(sc.connectHosts, host) {
+		return sc.Settings
+	}
+	return append(slices.Clone(sc.Settings), http2.Setting{
+		ID:  http2.SettingEnableConnectProtocol,
+		Val: 1,
+	})
+}
+
+// settingFor is Setting on a connection to host (settingsFor).
+func (sc *Scenario) settingFor(host string, id http2.SettingID) (uint32, bool) {
+	for _, s := range sc.settingsFor(host) {
 		if s.ID == id {
 			return s.Val, true
 		}

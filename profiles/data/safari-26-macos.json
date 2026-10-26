@@ -11488,6 +11488,9 @@
         0
       ],
       "address": "domain"
+    },
+    "websocket": {
+      "plain": "forward"
     }
   },
   "redirects": {

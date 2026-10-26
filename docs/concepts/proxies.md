@@ -51,15 +51,30 @@ yours.
 
 Each proxy URL has its own connections and TLS sessions (the pool key
 includes the proxy); nothing is shared with other proxies or with direct
-requests. `Config.DialContext`, when set, opens the connection to the
+requests. Firefox resumes no session through an HTTP proxy's CONNECT
+tunnel (none of its connections through one did; through SOCKS5 they
+resume), and a Firefox profile does the same (`proxy.connect_no_resume`).
+`Config.DialContext`, when set, opens the connection to the
 proxy. `Config.DialTimeout` bounds the connect to the proxy together with
 the proxy's handshake (CONNECT or SOCKS5), and the TLS handshake with the
 server separately; the request's context bounds both.
 
+## WebSockets
+
+`Transport.DialWebSocket` goes through the proxy as the browser's socket
+does: a `wss://` socket as a stream on the host's HTTP/2 connection inside
+its tunnel when the server allows extended CONNECT, else in a tunnel of
+its own; a `ws://` socket through an HTTP proxy in a CONNECT tunnel
+(Chrome, Firefox) or sent to the proxy whole as `GET ws://…` (Safari).
+Credentials go as on other tunnels for Chrome and Firefox; with a Safari
+profile, credentials in the proxy URL are `ErrNotMeasured`, as is `ws://`
+through SOCKS5. See [WebSockets](websockets.md#through-a-proxy).
+
 ## When the proxy fails
 
 A request the proxy fails returns a `*mimicry.ProxyError`, so a rotation
-loop can tell a dead or refusing proxy from a site refusing the request:
+loop can tell a dead or refusing proxy from a site refusing the request
+(a WebSocket's dial too):
 
 ```go
 resp, err := client.Do(req)

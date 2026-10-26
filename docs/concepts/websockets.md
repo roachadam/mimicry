@@ -33,8 +33,31 @@ typ, msg, err := ws.ReadMessage(ctx)
 - **Cookies.** The jar's rules for a credentialed request from `From`.
   Safari 26 also sends a cross-site host's unpartitioned Lax and None
   cookies.
-- **Refused before connecting:** `ws://` from an `https://` page, and
-  WebSockets through a proxy (not measured).
+- **Refused before connecting:** `ws://` from an `https://` page.
+
+## Through a proxy
+
+With `Config.Proxy`, a socket goes as the profile's browser takes one
+through a proxy (the [capture report](../../harness/reports/proxy-websocket-2026-10-26.md)):
+- **wss://, extended CONNECT allowed:** a stream on the host's HTTP/2
+  connection, the one inside the tunnel the page's requests used; nothing
+  new reaches the proxy.
+- **wss://, otherwise:** a tunnel of its own (the browser's CONNECT
+  lines or SOCKS5 bytes, as for any request), then the socket hello.
+  Firefox's socket connections through an HTTP proxy never resume a
+  session, as none of its connections through one do; through SOCKS5
+  they resume.
+- **ws:// through an HTTP proxy:** Chrome and Firefox open a CONNECT
+  tunnel to the host and port; Safari sends the handshake to the proxy
+  whole, on a connection of its own, as `GET ws://host:port/path
+  HTTP/1.1` with its usual header lines.
+- **Credentials:** Chrome's and Firefox's socket tunnels give them as
+  their other tunnels do (unasked once the proxy has asked).
+- **Errors:** a proxy that fails the socket is a `*ProxyError`;
+  `Config.Pins` and `VerifyConnection` check the server's TLS inside the
+  tunnel.
+- **Not measured (`ErrNotMeasured`):** a Safari profile with credentials
+  in the proxy URL, and `ws://` through SOCKS5.
 
 ## Messages
 
@@ -81,9 +104,12 @@ the browser does:
 
 ## What checks it
 
-`TestWebSocketsMatchBrowser` replays every socket of both capture pages
-and compares them with every browser sample:
+`TestWebSocketsMatchBrowser` replays every socket of both capture pages,
+and of the three proxy pages through the capture proxy, and compares
+them with every browser sample:
 - transport and TLS hello;
+- what reached the proxy for it (CONNECT, SOCKS5, or the handshake sent
+  whole);
 - handshake lines or fields;
 - every frame, including the compressed bytes;
 - pongs and HTTP/2 DATA packing;

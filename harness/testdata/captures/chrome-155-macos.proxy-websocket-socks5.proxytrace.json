@@ -1,0 +1,113 @@
+[
+  [
+    {
+      "kind": "socks5",
+      "conn": 14,
+      "target": "www.ws-a.test:52573",
+      "greeting": "050100",
+      "request": "050100030d7777772e77732d612e74657374cd5d"
+    },
+    {
+      "kind": "socks5",
+      "conn": 15,
+      "target": "www.ws-a.test:52573",
+      "greeting": "050100",
+      "request": "050100030d7777772e77732d612e74657374cd5d"
+    },
+    {
+      "kind": "socks5",
+      "conn": 18,
+      "target": "h1.ws-a.test:52573",
+      "greeting": "050100",
+      "request": "050100030c68312e77732d612e74657374cd5d"
+    },
+    {
+      "kind": "socks5",
+      "conn": 19,
+      "target": "h1.ws-a.test:52573",
+      "greeting": "050100",
+      "request": "050100030c68312e77732d612e74657374cd5d"
+    },
+    {
+      "kind": "socks5",
+      "conn": 21,
+      "target": "h1.ws-a.test:52573",
+      "greeting": "050100",
+      "request": "050100030c68312e77732d612e74657374cd5d"
+    }
+  ],
+  [
+    {
+      "kind": "socks5",
+      "conn": 14,
+      "target": "www.ws-a.test:52600",
+      "greeting": "050100",
+      "request": "050100030d7777772e77732d612e74657374cd78"
+    },
+    {
+      "kind": "socks5",
+      "conn": 15,
+      "target": "www.ws-a.test:52600",
+      "greeting": "050100",
+      "request": "050100030d7777772e77732d612e74657374cd78"
+    },
+    {
+      "kind": "socks5",
+      "conn": 18,
+      "target": "h1.ws-a.test:52600",
+      "greeting": "050100",
+      "request": "050100030c68312e77732d612e74657374cd78"
+    },
+    {
+      "kind": "socks5",
+      "conn": 19,
+      "target": "h1.ws-a.test:52600",
+      "greeting": "050100",
+      "request": "050100030c68312e77732d612e74657374cd78"
+    },
+    {
+      "kind": "socks5",
+      "conn": 21,
+      "target": "h1.ws-a.test:52600",
+      "greeting": "050100",
+      "request": "050100030c68312e77732d612e74657374cd78"
+    }
+  ],
+  [
+    {
+      "kind": "socks5",
+      "conn": 13,
+      "target": "www.ws-a.test:52624",
+      "greeting": "050100",
+      "request": "050100030d7777772e77732d612e74657374cd90"
+    },
+    {
+      "kind": "socks5",
+      "conn": 14,
+      "target": "www.ws-a.test:52624",
+      "greeting": "050100",
+      "request": "050100030d7777772e77732d612e74657374cd90"
+    },
+    {
+      "kind": "socks5",
+      "conn": 17,
+      "target": "h1.ws-a.test:52624",
+      "greeting": "050100",
+      "request": "050100030c68312e77732d612e74657374cd90"
+    },
+    {
+      "kind": "socks5",
+      "conn": 18,
+      "target": "h1.ws-a.test:52624",
+      "greeting": "050100",
+      "request": "050100030c68312e77732d612e74657374cd90"
+    },
+    {
+      "kind": "socks5",
+      "conn": 20,
+      "target": "h1.ws-a.test:52624",
+      "greeting": "050100",
+      "request": "050100030c68312e77732d612e74657374cd90"
+    }
+  ]
+]
