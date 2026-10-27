@@ -9800,6 +9800,15 @@
       }
     ],
     "early_request_first": true,
+    "early_data": {
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "held_with_finished": true,
+      "retry_too_early": true
+    },
     "qpack": {
       "encoder": "new_names",
       "huffman": "always"

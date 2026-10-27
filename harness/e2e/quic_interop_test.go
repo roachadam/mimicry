@@ -238,6 +238,42 @@ var interopCases = []interopCase{
 		},
 	},
 	{
+		// The server answers the request it received in 0-RTT with 425
+		// Too Early (RFC 8470): the client sends it again on the same
+		// connection, in 1-RTT, where its profile retries
+		// (http3.early_data.retry_too_early), and returns the 425
+		// otherwise.
+		name:    "0rtt-too-early",
+		limit:   15 * time.Second,
+		zeroRTT: true,
+		run: func(e *interopEnv) {
+			e.warm()
+			e.newConnection()
+			b := e.backends[0]
+			conns := b.conns.Load()
+			resp, _, err := e.do(http.MethodGet, "/too-early", nil)
+			if err != nil {
+				e.t.Fatalf("GET /too-early: %v", err)
+			}
+			info := e.h3(resp, "GET /too-early")
+			if n := b.tooEarly.Load(); n != 1 {
+				e.t.Fatalf("the server answered %d requests 425, want the one in 0-RTT (%+v)", n, info)
+			}
+			if ed := e.p.HTTP3.EarlyData; ed == nil || !ed.RetryTooEarly {
+				if resp.StatusCode != http.StatusTooEarly {
+					e.t.Errorf("status %d; the profile does not retry, want 425", resp.StatusCode)
+				}
+				return
+			}
+			if resp.StatusCode != http.StatusOK || info.Early || !info.Used0RTT {
+				e.t.Errorf("want a 200 on the resumed connection, after its handshake; got status %d, %+v", resp.StatusCode, info)
+			}
+			if n := b.conns.Load() - conns; n != 1 {
+				e.t.Errorf("%d new connections; the retry belongs on the one that got the 425", n)
+			}
+		},
+	},
+	{
 		// A stream opened in 0-RTT, on the remembered 16 KB stream
 		// window, takes B's larger one when its transport parameters
 		// arrive (RFC 9000, section 7.4.1): blocked at 16 KB in 0-RTT
@@ -1137,6 +1173,8 @@ type backend struct {
 	// streamBlocked counts the STREAM_DATA_BLOCKED frames received in
 	// 1-RTT packets.
 	streamBlocked atomic.Int64
+	// tooEarly counts the requests answered 425 Too Early.
+	tooEarly atomic.Int64
 }
 
 // backend starts a backend for the case, stopped when it ends.
@@ -1489,11 +1527,15 @@ const (
 //	/reset?n=        n bytes, then the stream reset (H3_REQUEST_CANCELLED)
 //	/reject          H3_REQUEST_REJECTED on the backend's first one
 //	/close           a response, then CONNECTION_CLOSE (H3_NO_ERROR)
+//	/too-early       425 Too Early if it arrived before the handshake completed
 func interopHandler(b *backend) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sc, _ := r.Context().Value(serverConnKey{}).(*serverConn)
+		var info connInfo
 		if sc != nil {
-			w.Header().Set("X-Info", infoHeader(b, sc))
+			info = infoOf(b, sc)
+			j, _ := json.Marshal(info)
+			w.Header().Set("X-Info", string(j))
 		}
 		q := r.URL.Query()
 		n, _ := strconv.Atoi(q.Get("n"))
@@ -1541,13 +1583,19 @@ func interopHandler(b *backend) http.Handler {
 					close(b.closed)
 				})
 			}()
+		case "/too-early":
+			if info.Early {
+				b.tooEarly.Add(1)
+				w.WriteHeader(http.StatusTooEarly)
+			}
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
 	})
 }
 
-func infoHeader(b *backend, sc *serverConn) string {
+// infoOf is sc's connInfo, as of now.
+func infoOf(b *backend, sc *serverConn) connInfo {
 	cs := sc.qc.ConnectionState()
 	info := connInfo{
 		Backend:  b.name,
@@ -1562,8 +1610,7 @@ func infoHeader(b *backend, sc *serverConn) string {
 	default:
 		info.Early = true
 	}
-	j, _ := json.Marshal(info)
-	return string(j)
+	return info
 }
 
 // interopPKI is the cases' certificates: a root the client trusts, the

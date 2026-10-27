@@ -1,7 +1,9 @@
 package e2e
 
 import (
+	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -27,18 +29,22 @@ import (
 // h3PageHost is the h3 pages' own host (the server's h3Host), where / is.
 const h3PageHost = "www.h3-a.test"
 
-// Every request of the h3-blackhole, h3-broken, h3-vn and h3-v2 pages
-// (server.H3BlackholeSteps and the rest; h3-v2 where python3 has
-// aioquic), made through mimicry on the browser's schedule (each step
-// starts at its time whatever the earlier ones take, its URL with ?t= as
-// the page's script adds it), against every sample of the browser's
-// capture (Chrome's and Firefox's -h3-local-roots captures where they
-// exist, as TestHTTP3MatchesBrowser):
+// Every request of the h3-blackhole, h3-broken, h3-vn, h3-v2, h3-early
+// and h3-too-early pages (server.H3BlackholeSteps and the rest; h3-v2
+// where python3 has aioquic), made through mimicry on the browser's
+// schedule (each step starts at its time whatever the earlier ones take,
+// its URL with ?t= as the page's script adds it), against every sample of
+// the browser's capture (Chrome's and Firefox's -h3-local-roots captures
+// where they exist, as TestHTTP3MatchesBrowser):
 //
 //   - per request: every connection it went on, in order (protocol, host,
 //     which of the host's connections, 0-RTT), and its delay (its last
 //     arrival less ?t=, less the sample's smallest such difference: how
-//     long the client held it, its connection's handshake included);
+//     long the client held it, its connection's handshake included); on
+//     a QUIC connection that sent 0-RTT, each of its streams: in 0-RTT,
+//     held for the handshake (with the client's Finished or after it), or
+//     sent again after a 425 Too Early, in which packet type
+//     (earlyStream);
 //   - per QUIC attempt of each host, in order: whether it resumed, its
 //     versions, what the server answered, how it ended, whether it moved
 //     to a new path and how many probes it sent on the old one first
@@ -56,12 +62,13 @@ const h3PageHost = "www.h3-a.test"
 // edgeSlack; one of mimicry's from a request on may lie above it by no
 // more than this process was stalled within it (compareTimes). Categories
 // and counts are held as TestHTTP3MatchesBrowser holds its features. Known
-// differences are pinned in h3EdgeGaps; a listed gap that no longer
-// appears fails. The profiles and scenarios run in parallel; the test
-// takes as long as the longest page (h3-broken, about 75 s).
+// differences are pinned in h3EdgeGaps, where a listed gap that no longer
+// appears fails, and in h3EdgeSchedulingGaps those this process's
+// scheduling shows or not. The profiles and scenarios run in parallel;
+// the test takes as long as the longest page (h3-broken, about 75 s).
 func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
 	for _, name := range profiles.Names() {
-		for _, sc := range []*server.Scenario{server.H3Blackhole, server.H3Broken, server.H3VN, server.H3V2} {
+		for _, sc := range []*server.Scenario{server.H3Blackhole, server.H3Broken, server.H3VN, server.H3V2, server.H3Early, server.H3TooEarly} {
 			t.Run(name+"/"+sc.Name, func(t *testing.T) {
 				t.Parallel()
 				if sc.NeedsAioquic() {
@@ -77,8 +84,8 @@ func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
 					t.Fatal("the profile has no http3 or quic section")
 				}
 				want := h3Captures(t, name, sc)
-				got := runH3Schedule(t, p, sc, want[0])
 				skip, unused := edgeGapsFor(t, name+"/"+sc.Name)
+				got := runH3Schedule(t, p, sc, want[0], skip)
 				compareEdge(t, p, got, want, skip)
 				unused()
 			})
@@ -104,6 +111,7 @@ var h3EdgeGaps = func() map[string]string {
 		"firefox-158-macos/h3-blackhole edge TCP www.h3-a.test #2 goaway":                   "as TCP #1's",
 		"firefox-158-macos/h3-vn edge TCP www.h3-a.test #1 goaway":                          "as h3-blackhole's",
 		"firefox-158-macos/h3-broken edge QUIC www.h3-b.test #2 datagrams":                  "Firefox's resumed probes vary between samples (pairs every PTO from a ~3 ms cached RTT, the 3-packet resumed first flight not repeated, lone 40-B 0-RTT datagrams); quic.loss's flight probe replays all 3 first-flight packets per PTO, and the profile has no resumed-probe rule; give-up time and close match",
+		"firefox-158-macos/h3-too-early edge TCP www.h3-a.test declined":                    "beside 3–4 of its 4 retries after 425 Too Early per sample (which ones varies), Firefox also opened a TCP connection to the host and closed it before any request; the retry itself goes on the QUIC connection, as mimicry's does. No profile field holds when Firefox opens these (report h3-early-2026-10-26)",
 	}
 	// Safari resumed QUIC with 0-RTT after closing a connection itself
 	// (its path's close, its own close on the server's GOAWAY), which no
@@ -124,26 +132,74 @@ var h3EdgeGaps = func() map[string]string {
 		}
 		for _, l := range []string{"silence", "silent1", "silent2", "silent3", "silent4", "silent5", "silent6"} {
 			gaps[name+"/h3-broken edge request /h3/"+l+".so sent"] = "replayed in 0-RTT on Safari's resumed connection; " + resumed
+			gaps[name+"/h3-broken edge request /h3/"+l+".so streams"] = "as its sending"
 		}
 		gaps[name+"/h3-broken edge QUIC www.h3-b.test #1 closed by"] = "Safari closes a QUIC connection itself when the server's GOAWAY arrives; no profile field describes it"
+		// On the h3-early pages Safari resumes with 0-RTT after an idle
+		// timeout too, by the method rule Chrome's profile holds (GET,
+		// HEAD and OPTIONS early, the rest held for HANDSHAKE_DONE; a 425
+		// sent again on its connection); mimicry's Safari connections are
+		// fresh, so none of it shows.
+		const idleResumed = "Safari resumed this QUIC connection with 0-RTT after the last idled out (GET, HEAD and OPTIONS in 0-RTT, the other methods held until HANDSHAKE_DONE, a 425 sent again on the connection: report h3-early-2026-10-26); no profile section describes Safari's resumption, so mimicry's is fresh"
+		const noOptions = "Safari's profile has no OPTIONS fetch (none in its kinds captures; kindsgen does not read the h3-early pages), so mimicry refuses it (ErrNotMeasured) and its form.so navigation goes on QUIC #9, not #10"
+		for _, sc := range []string{"h3-early", "h3-too-early"} {
+			for i := 2; i <= 8; i++ {
+				gaps[fmt.Sprintf("%s/%s edge QUIC www.h3-a.test #%d", name, sc, i)] = idleResumed
+			}
+			for _, l := range []string{"post", "put", "delete", "xhr-post", "pair-get", "pair-post", "get", "head", "form"} {
+				gaps[name+"/"+sc+" edge request /h3/"+l+".so sent"] = idleResumed
+				gaps[name+"/"+sc+" edge request /h3/"+l+".so streams"] = idleResumed
+			}
+			for _, k := range []string{
+				"request /h3/options.so not measured",
+				"request /h3/options.so sent",
+				"request /h3/options.so streams",
+				"request /h3/options.so delay ms",
+				"QUIC www.h3-a.test #9",
+				"QUIC www.h3-a.test #9 closed by",
+				"QUIC www.h3-a.test #9 trigger",
+				"QUIC www.h3-a.test #10",
+				"QUIC www.h3-a.test #10 trigger",
+				"QUIC www.h3-a.test #10 after its trigger ms",
+			} {
+				gaps[name+"/"+sc+" edge "+k] = noOptions
+			}
+		}
 	}
 	return gaps
 }()
 
-// edgeGapsFor is gapsFor for h3EdgeGaps.
+// h3EdgeSchedulingGaps are known differences that show or not by this
+// process's scheduling, keyed as h3EdgeGaps: skipped as those are, but
+// not required to appear.
+var h3EdgeSchedulingGaps = func() map[string]string {
+	gaps := map[string]string{}
+	for _, name := range []string{"safari-26-macos", "safari-27-macos"} {
+		for _, sc := range []string{"h3-early", "h3-too-early"} {
+			gaps[name+"/"+sc+" edge QUIC www.h3-a.test #6 trigger"] = "Safari made the pair's GET and POST together (0–1 ms apart) 5–9 ms before its connection started, so the POST is the later trigger; mimicry's GET starts its connection at once, before or after its POST is made as this process schedules the two"
+		}
+	}
+	return gaps
+}()
+
+// edgeGapsFor is gapsFor for h3EdgeGaps and h3EdgeSchedulingGaps.
 func edgeGapsFor(t *testing.T, name string) (skip func(key string) bool, unused func()) {
 	t.Helper()
 	var mu sync.Mutex
 	seen := map[string]bool{}
 	skip = func(key string) bool {
 		k := name + " " + key
-		if _, ok := h3EdgeGaps[k]; !ok {
+		why, ok := h3EdgeGaps[k]
+		if !ok {
+			why, ok = h3EdgeSchedulingGaps[k]
+		}
+		if !ok {
 			return false
 		}
 		mu.Lock()
 		seen[k] = true
 		mu.Unlock()
-		t.Logf("known gap: %s: %s", key, h3EdgeGaps[k])
+		t.Logf("known gap: %s: %s", key, why)
 		return true
 	}
 	unused = func() {
@@ -160,8 +216,10 @@ func edgeGapsFor(t *testing.T, name string) (skip func(key string) bool, unused 
 // navigation to /, then each step after its pause, those the page does
 // not wait for (NoWait) started on time beside the others, then
 // fetch('/done') where browser asked for it. A request still unanswered
-// when the page is taken is cancelled.
-func runH3Schedule(t *testing.T, p *profile.Profile, sc *server.Scenario, browser *capture.Page) *capture.Page {
+// when the page is taken is cancelled. A step mimicry refuses as not
+// measured (ErrNotMeasured) fails unless skip pins it ("edge request
+// <path> not measured").
+func runH3Schedule(t *testing.T, p *profile.Profile, sc *server.Scenario, browser *capture.Page, skip func(string) bool) *capture.Page {
 	t.Helper()
 	// Its times from a request on are net of the process's stalls.
 	stalls.watch()
@@ -189,6 +247,15 @@ func runH3Schedule(t *testing.T, p *profile.Profile, sc *server.Scenario, browse
 	case <-t.Context().Done():
 		t.Fatal(t.Context().Err())
 	}
+	// from is the page the step is made from, read when it is issued: a
+	// navigation step replaces page while earlier steps are still sending.
+	send := func(st server.H3Step, from *url.URL, target string) error {
+		err := sendScheduled(ctx, s, st, from, target)
+		if errors.Is(err, mimicry.ErrNotMeasured) && skip("edge request "+st.Path()+" not measured") {
+			return nil
+		}
+		return err
+	}
 	var wg sync.WaitGroup
 	for _, st := range steps {
 		select {
@@ -197,15 +264,28 @@ func runH3Schedule(t *testing.T, p *profile.Profile, sc *server.Scenario, browse
 			t.Fatal(t.Context().Err())
 		}
 		target := s.url(st.Host, st.Path())
+		if st.NoWait {
+			target += "?t=" + strconv.FormatInt(time.Since(start).Milliseconds(), 10)
+		}
+		if st.Kind == "navigate" {
+			// It ends the page's steps; the page it loads asks for /done.
+			if err := send(st, page, target); err != nil {
+				t.Fatalf("%s: %v", st.Label, err)
+			}
+			if page, err = url.Parse(target); err != nil {
+				t.Fatal(err)
+			}
+			break
+		}
 		if !st.NoWait {
-			if err := sendScheduled(ctx, s, st, page, target); err != nil {
+			if err := send(st, page, target); err != nil {
 				t.Fatalf("%s: %v", st.Label, err)
 			}
 			continue
 		}
-		target += "?t=" + strconv.FormatInt(time.Since(start).Milliseconds(), 10)
+		from := page
 		wg.Go(func() {
-			if err := sendScheduled(ctx, s, st, page, target); err != nil && ctx.Err() == nil {
+			if err := send(st, from, target); err != nil && ctx.Err() == nil {
 				t.Errorf("%s: %v", st.Label, err)
 			}
 		})
@@ -314,6 +394,10 @@ type edgeRequest struct {
 	delay int64
 	// sent are the connections it went on, in order of arrival.
 	sent []string
+	// streams are its streams on QUIC connections that sent 0-RTT, in
+	// order of arrival: the connection and how the stream went
+	// (earlyStream.describe).
+	streams []string
 }
 
 // edgeView is what compareEdge compares of a page.
@@ -331,6 +415,40 @@ type arrival struct {
 	at   int64
 	path string
 	via  string
+	// early is its stream, on a QUIC connection that sent 0-RTT; nil
+	// otherwise.
+	early *earlyStream
+}
+
+// earlyStream is a request stream on a QUIC connection that sent 0-RTT:
+// its packet type (of its first STREAM frame), whether that went in the
+// datagram with the client's Finished, when the Finished went (page
+// clock, ms), and whether an earlier stream of the connection carried the
+// same URL (its retry after 425 Too Early).
+type earlyStream struct {
+	packet       string
+	withFinished bool
+	finished     int64
+	again        bool
+}
+
+// describe is how s went, for a request issued at issued (page clock):
+// in 0-RTT; held for the handshake (in 1-RTT though made before the
+// Finished went, within triggerSlack: the page's clock is in whole ms),
+// in the Finished's datagram or after it; in 1-RTT, made later; or again
+// after a 425, in its packet type.
+func (s *earlyStream) describe(issued int64) string {
+	switch {
+	case s.again:
+		return "again after 425, " + s.packet
+	case s.packet == quictrace.Packet0RTT:
+		return "0-RTT"
+	case issued > s.finished+triggerSlack:
+		return s.packet
+	case s.withFinished:
+		return "held, with the Finished"
+	}
+	return "held, after the Finished"
 }
 
 // viewEdge reads page's requests and connections.
@@ -376,12 +494,29 @@ func viewEdge(page *capture.Page) edgeView {
 		if c.H3 == nil {
 			continue
 		}
-		for _, r := range c.H3.Requests {
-			arrivals = append(arrivals, arrival{
+		finished, finishedAt := c.FinishedDatagram()
+		starts := c.StreamStarts()
+		reqs := slices.Clone(c.H3.Requests)
+		slices.SortFunc(reqs, func(a, b quictrace.H3Request) int {
+			return cmp.Compare(a.Stream, b.Stream)
+		})
+		seen := map[string]bool{}
+		for _, r := range reqs {
+			a := arrival{
 				at:   r.Millis,
 				path: r.Path,
 				via:  via,
-			})
+			}
+			if s, ok := starts[r.Stream]; ok && c.EarlyData {
+				a.early = &earlyStream{
+					packet:       s.PacketType,
+					withFinished: s.Datagram == finished,
+					finished:     c.Millis + finishedAt/1000,
+					again:        seen[r.Path],
+				}
+			}
+			seen[r.Path] = true
+			arrivals = append(arrivals, a)
 		}
 	}
 	slices.SortStableFunc(arrivals, func(a, b arrival) int {
@@ -390,6 +525,7 @@ func viewEdge(page *capture.Page) edgeView {
 	byPath := map[string]*edgeRequest{}
 	last := map[string]int64{}
 	ts := map[string]int64{}
+	early := map[string][]arrival{}
 	for _, a := range arrivals {
 		r := byPath[a.path]
 		if r == nil {
@@ -409,6 +545,9 @@ func viewEdge(page *capture.Page) edgeView {
 			r.sent = append(r.sent, a.via)
 		}
 		last[a.path] = a.at
+		if a.early != nil {
+			early[a.path] = append(early[a.path], a)
+		}
 	}
 	offset, found := int64(0), false
 	for path, t := range ts {
@@ -420,6 +559,12 @@ func viewEdge(page *capture.Page) edgeView {
 		r := byPath[path]
 		r.issued = t + offset
 		r.delay = last[path] - r.issued
+	}
+	for path, as := range early {
+		r := byPath[path]
+		for _, a := range as {
+			r.streams = append(r.streams, a.via+": "+a.early.describe(r.issued))
+		}
 	}
 	slices.SortStableFunc(v.requests, func(a, b *edgeRequest) int {
 		return int(a.issued - b.issued)
@@ -497,6 +642,9 @@ func edgeFeatures(page *capture.Page) (f features, ms, stalled map[string]int) {
 			continue
 		}
 		f.cat["request "+r.label+" sent"] = strings.Join(r.sent, ", ")
+		if len(r.streams) > 0 {
+			f.cat["request "+r.label+" streams"] = strings.Join(r.streams, "; ")
+		}
 		if r.delay >= 0 {
 			k := "request " + r.label + " delay"
 			ms[k], stalled[k] = int(r.delay), stalledIn(page, r.issued, r.delay)

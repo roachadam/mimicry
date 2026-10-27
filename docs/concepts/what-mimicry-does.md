@@ -38,7 +38,7 @@ connection, no DNS lookup, no cookie touched, no preflight cached
 | [HTTP/3](#http3-alt-svc-and-the-switch) | a QUIC connection beside TCP, GOAWAY on TCP (Firefox) | `Config.DisableHTTP3` |
 | [QUIC failure and TCP fallback](#when-quic-fails-tcp-racing-and-fallback) | TCP connections racing QUIC | `Config.DisableHTTP3` |
 | [Keep-alive and housekeeping](#keep-alive-pings-and-housekeeping-frames) | PING, WINDOW_UPDATE, ACK frames | none |
-| [TLS resumption and 0-RTT](#tls-session-resumption-and-0-rtt) | none (a different ClientHello) | none; `Config.DisableHTTP3` stops 0-RTT |
+| [TLS resumption and 0-RTT](#tls-session-resumption-and-0-rtt) | none (a different ClientHello); a request answered `425 Too Early` sent again | none; `Config.DisableHTTP3` stops 0-RTT |
 | [WebSockets](#websockets) | only when you call `Transport.DialWebSocket` | don't call it |
 | [Proxies](#proxies) | CONNECT, SOCKS5, credential retries | `Config.Proxy` |
 | [Certificate pins and checks](#certificate-pins-and-checks) | none unless set; a refused connection ends with a TLS alert; `FetchPins` makes a handshake | `Config.Pins`, `Config.VerifyConnection` (both off by default) |
@@ -313,13 +313,23 @@ browser did. Over QUIC, Chrome and Firefox profiles resume and send their
 first requests in 0-RTT; Safari's QUIC connections are always fresh. See
 [decision 0013](../decisions/0013-tls-resumption.md).
 
-Any request can go in 0-RTT, a POST included, and a `425 Too Early`
-answer is returned to you as is. Whether browsers hold unsafe methods
-back is not measured yet; see the
-[backlog](../backlog.md#http3-and-quic).
+In 0-RTT go only the methods the profile's browser sends there (GET, HEAD
+and OPTIONS, `http3.early_data.methods`). A request with any other method
+(a POST, PUT or DELETE, a form submission) made while a resumed
+connection's handshake is in progress waits for it and leaves in 1-RTT:
+for Firefox in the datagram that carries the client's Finished, for
+Chrome in one of its own right after it. A request mimicry sent in 0-RTT
+that the server answers `425 Too Early` (RFC 8470) goes again on the same
+connection once the handshake is complete, and you get the response to
+that; you see the 425 only if the request's body cannot be read again
+(no `GetBody`). Chrome, Firefox and Safari all did both on the
+`h3-early` and `h3-too-early` pages
+([report](../../harness/reports/h3-early-2026-10-26.md)).
 
 **Why.** A client that never resumes looks unlike a browser on its second
-connection, and is slower.
+connection, and is slower. Browsers keep requests that change state out
+of early data, which an attacker can replay, and a POST in 0-RTT would
+stand out.
 
 **To turn it off or change it.** No option for TCP resumption; a new
 Transport starts without tickets. `Config.DisableHTTP3` removes 0-RTT.
@@ -420,4 +430,6 @@ it never:
 
 The traffic it does add on its own is connection-level: connections
 opened, coalesced, declined or closed, QUIC attempts and their TCP races,
-GOAWAY, PING, WINDOW_UPDATE and ACK frames, and the retries above.
+GOAWAY, PING, WINDOW_UPDATE and ACK frames, the retries above, and a
+request answered `425 Too Early` sent again
+([0-RTT](#tls-session-resumption-and-0-rtt)).

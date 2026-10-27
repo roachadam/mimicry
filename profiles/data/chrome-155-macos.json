@@ -10109,6 +10109,14 @@
       }
     ],
     "streams_with_finished": true,
+    "early_data": {
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "retry_too_early": true
+    },
     "qpack": {
       "encoder": "index_all",
       "inserts_first": true,

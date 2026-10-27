@@ -3,6 +3,7 @@ package profile
 import (
 	"fmt"
 	"slices"
+	"strings"
 )
 
 // QUIC limits: the varint maximum (RFC 9000, section 16), the connection ID
@@ -448,6 +449,7 @@ func (c *checker) checkHTTP3(p *Profile) {
 	if h.MaxDataFrame < 0 || h.FirstDataFrame < 0 || h.FirstDataFrame > h.MaxDataFrame {
 		c.add(path+".first_data_frame", "and max_data_frame must be 0 <= first_data_frame <= max_data_frame")
 	}
+	c.checkEarlyData(p)
 	c.checkH3Headers(p)
 	for level, m := range map[string]map[string]string{
 		"high": h.High,
@@ -478,6 +480,34 @@ func (c *checker) checkHTTP3(p *Profile) {
 // badRange reports a range that is absent or not 0 <= min <= max.
 func badRange(r *Range) bool {
 	return r == nil || r.Min < 0 || r.Max < r.Min
+}
+
+func (c *checker) checkEarlyData(p *Profile) {
+	const path = "http3.early_data"
+	d := p.HTTP3.EarlyData
+	switch {
+	case p.QUIC.ZeroRTT && d == nil:
+		c.add(path, "is required with quic.zero_rtt")
+		return
+	case d == nil:
+		return
+	case !p.QUIC.ZeroRTT:
+		c.add(path, "applies only with quic.zero_rtt")
+	}
+	if len(d.Methods) == 0 {
+		c.add(path+".methods", "is empty: list the methods sent in 0-RTT")
+	}
+	for i, m := range d.Methods {
+		at := fmt.Sprintf("%s.methods[%d]", path, i)
+		switch {
+		case m == "" || strings.ContainsFunc(m, func(r rune) bool {
+			return r < 'A' || r > 'Z'
+		}):
+			c.add(at, "%q is not an upper-case method name", m)
+		case slices.Contains(d.Methods[:i], m):
+			c.add(at, "repeats %q", m)
+		}
+	}
 }
 
 func (c *checker) checkFallback(p *Profile) {

@@ -252,17 +252,37 @@ func (c *Conn) maybeSendClient(now time.Time) (next time.Time) {
 			b:    buf,
 			path: pathAddrs{peer: c.path.peer},
 		})
+		c.noteFinishedSent()
 	}
 }
 
+// noteFinishedSent closes FinishedSent once the datagram just handed to
+// the socket left none of the client's Finished unsent: the handshake is
+// complete (the Finished written) and the Handshake CRYPTO stream has
+// nothing waiting.
+func (c *Conn) noteFinishedSent() {
+	cc := c.client
+	hs := &c.crypto[handshakeSpace]
+	if cc.finishedSentClosed || !cc.handshakeComplete || hs.out.end == 0 || hs.outunsent.numRanges() > 0 {
+		return
+	}
+	cc.finishedSentClosed = true
+	close(cc.finishedSent)
+}
+
 // corkHolds reports whether a Cork holds the connection's packets: from
-// the start when sending 0-RTT, otherwise once the handshake is complete.
-// A closing connection is never held.
+// the start when sending 0-RTT, otherwise once the handshake is complete;
+// or a HoldFinished does, once the handshake is complete. A closing
+// connection is never held.
 func (c *Conn) corkHolds() bool {
-	if c.cork.Load() <= 0 || c.lifetime.localErr != nil {
+	if c.lifetime.localErr != nil {
 		return false
 	}
-	return c.client.early || c.client.handshakeComplete
+	cc := c.client
+	if cc.handshakeComplete && cc.finishedHolds.Load() > 0 {
+		return true
+	}
+	return c.cork.Load() > 0 && (cc.early || cc.handshakeComplete)
 }
 
 // initialToken is the token of the connection's Initial packets.

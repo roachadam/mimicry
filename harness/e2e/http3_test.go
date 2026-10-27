@@ -127,6 +127,8 @@ func h3Steps(sc *server.Scenario) []server.H3Step {
 		return server.H3V2Steps()
 	case server.H3Download:
 		return server.H3DownloadSteps()
+	case server.H3Early, server.H3TooEarly:
+		return server.H3EarlySteps()
 	}
 	return server.H3DiscoverySteps()
 }
@@ -337,6 +339,14 @@ func h3StepRequest(st server.H3Step, page *url.URL) (string, mimicry.Request, ht
 		h[k] = []string{v}
 	}
 	switch {
+	case st.Kind == "navigate":
+		// The page's script navigates, without user activation; a POST
+		// submits a form.
+		kind = mimicry.Navigate
+		h["Sec-Fetch-User"] = nil
+		if st.Body != "" {
+			h.Set("Content-Type", "application/x-www-form-urlencoded")
+		}
 	case st.Kind == "beacon":
 		// sendBeacon's string body: the browser sets the type.
 		method = http.MethodPost

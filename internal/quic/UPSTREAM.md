@@ -66,7 +66,10 @@ the mechanical import rewrites.
    and `testcert` each gain a `doc.go` with the same statement; their
    package comments stay upstream's.
 5. **Browser clients (`Dial`).** New files `client.go` (`Dial`,
-   `DialConfig`, `Cork`/`Uncork`, `EarlyData`, `Done`/`Err`,
+   `DialConfig`, `Cork`/`Uncork`, `HoldFinished`/`ReleaseFinished`,
+   `EarlyData`, `HandshakeComplete`, `FinishedSent` (closed once the
+   datagram with the client's Finished went: a request held for the
+   handshake that must not share it waits for it), `Done`/`Err`,
    `SmoothedRTT`, `ErrIdleTimeout`, the profile's draws, close reply,
    extension frames), `client_send.go` (the client send path:
    first-flight CRYPTO plans, packet numbers, coalescing, padding, spin
@@ -84,7 +87,9 @@ the mechanical import rewrites.
      and processes every queued datagram before sending;
      `confirmHandshake` closes the client's `Conn.Confirmed` channel.
    - `tls.go`: `handleTLSEvents` passes events to `handleClientTLSEvent`
-     first.
+     first, and after `handshakeDone` closes a client's `FinishedSent` if
+     the Finished has gone already (`noteFinishedSent`, also called after
+     each datagram `maybeSendClient` sends).
    - `acks.go`: `ackState.maxDelay`, the full max_ack_delay the client
      sent (upstream: 25 ms less the timer granularity).
    - `conn_send.go`: a close reply (`closeReply`) carries an ACK and

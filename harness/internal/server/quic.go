@@ -259,14 +259,21 @@ func (s *Server) serveQUIC(ctx context.Context, sc *Scenario, log *pageLog, issu
 		},
 		ConnectionIDLength: quicCIDLen,
 	}
-	ln, err := tr.ListenEarly(cfg, &quic.Config{
-		MaxIdleTimeout: h3IdleTimeout,
+	qcfg := &quic.Config{
+		MaxIdleTimeout: cmp.Or(sc.h3.idleTimeout, h3IdleTimeout),
 		// Accepting 0-RTT shows what a resuming browser sends before its
 		// handshake completes.
 		Allow0RTT: true,
 		// nil is quic-go's own (versions 1 and 2, preferring 1).
 		Versions: slices.Clone(sc.h3.versions),
-	})
+	}
+	if sc.h3.tooEarly {
+		// Which requests came in 0-RTT, from quic-go's own handling of
+		// each packet.
+		tr.ConnContext = earlyContext
+		qcfg.Tracer = earlyTracer
+	}
+	ln, err := tr.ListenEarly(cfg, qcfg)
 	if err != nil {
 		_ = pc.Close()
 		return err

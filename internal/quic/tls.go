@@ -116,6 +116,11 @@ func (c *Conn) handleTLSEvents(now time.Time) error {
 				c.confirmHandshake(now)
 			}
 			c.handshakeDone()
+			if c.client != nil {
+				// mimicry: Conn.FinishedSent, once HandshakeComplete is
+				// closed, if the Finished has gone already.
+				c.noteFinishedSent()
+			}
 		case tls.QUICTransportParameters:
 			params, err := unmarshalTransportParams(e.Data)
 			if err != nil {

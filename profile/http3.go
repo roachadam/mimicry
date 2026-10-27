@@ -33,6 +33,10 @@ type HTTP3 struct {
 	// after the client's Finished (Safari). Not measured for Chrome and
 	// Firefox: no request of theirs was waiting for a full handshake.
 	RequestsAfterConfirmed bool `json:"requests_after_confirmed,omitempty"`
+	// EarlyData is which requests a resumed connection sends in 0-RTT
+	// (quic.zero_rtt) and what a 425 Too Early answer to one does.
+	// Required with quic.zero_rtt, and only then.
+	EarlyData *H3EarlyData `json:"early_data,omitempty"`
 	// QPACK is how field sections are encoded.
 	QPACK QPACK `json:"qpack"`
 	// PriorityUpdate sends, before each request that carries a priority
@@ -60,6 +64,26 @@ type HTTP3 struct {
 	Headers *H3Headers `json:"headers,omitempty"`
 	// Discovery is when the browser moves an origin to HTTP/3.
 	Discovery Discovery `json:"discovery"`
+}
+
+// H3EarlyData is how requests use a resumed connection's 0-RTT, as the
+// h3-early and h3-too-early captures show it.
+type H3EarlyData struct {
+	// Methods are the methods of the requests sent in 0-RTT (Chrome,
+	// Firefox: GET, HEAD and OPTIONS, the safe methods fetch() sends). A
+	// request with any other method made while the handshake is in
+	// progress waits for it to complete and leaves in 1-RTT, while the
+	// requests made with it go in 0-RTT.
+	Methods []string `json:"methods"`
+	// HeldWithFinished: a request that waited for the handshake leaves in
+	// the datagram that carries the client's Finished (Firefox); otherwise
+	// in one of its own right after it (Chrome).
+	HeldWithFinished bool `json:"held_with_finished,omitempty"`
+	// RetryTooEarly: a request sent in 0-RTT and answered 425 Too Early
+	// (RFC 8470) goes again on the same connection once the handshake is
+	// complete, in 1-RTT, and the response to that is the request's
+	// (Chrome, Firefox). Otherwise the 425 is.
+	RetryTooEarly bool `json:"retry_too_early,omitempty"`
 }
 
 // H3Setting is one HTTP/3 setting.

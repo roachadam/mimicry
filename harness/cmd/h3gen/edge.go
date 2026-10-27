@@ -21,6 +21,8 @@ const (
 	scenarioBroken    = "h3-broken"
 	scenarioVN        = "h3-vn"
 	scenarioDownload  = "h3-download"
+	scenarioEarly     = "h3-early"
+	scenarioTooEarly  = "h3-too-early"
 )
 
 // flightGapMicros separates a connection's client datagrams into
@@ -352,10 +354,10 @@ func edgeErr(e *collector, at, format string, args ...any) {
 
 // deriveEdge fills in what only the edge captures show: q's loss
 // recovery, keep-alive, acknowledgement, credit, key update and version
-// negotiation rules, and h's fallback.
+// negotiation rules, and h's fallback and early data.
 func deriveEdge(s *edgeSet, q *profile.QUIC, h *profile.HTTP3) error {
 	e := &collector{}
-	for _, sc := range []string{scenarioBlackhole, scenarioBroken, scenarioVN, scenarioDownload} {
+	for _, sc := range []string{scenarioBlackhole, scenarioBroken, scenarioVN, scenarioDownload, scenarioEarly, scenarioTooEarly} {
 		if len(s.scenario(sc)) == 0 {
 			edgeErr(e, s.set.name, "no %s capture", sc)
 		}
@@ -370,5 +372,6 @@ func deriveEdge(s *edgeSet, q *profile.QUIC, h *profile.HTTP3) error {
 	q.KeyUpdate = s.keyUpdate(e)
 	q.VersionNegotiation = s.versionNegotiation(e)
 	h.Discovery.Fallback = s.fallback(q, &h.Discovery, e)
+	h.EarlyData = s.earlyData(q, e)
 	return e.err()
 }

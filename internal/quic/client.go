@@ -173,6 +173,35 @@ func (c *Conn) Confirmed() <-chan struct{} {
 	return c.client.confirmed
 }
 
+// HandshakeComplete is closed once the TLS handshake is complete: the
+// client's Finished is ready, and what the application writes from then on
+// goes in 1-RTT packets.
+func (c *Conn) HandshakeComplete() <-chan struct{} {
+	return c.lifetime.readyc
+}
+
+// FinishedSent is closed once the datagram carrying the client's Finished
+// (all of its Handshake CRYPTO data) has been handed to the socket: what
+// the application writes from then on goes in a later datagram.
+func (c *Conn) FinishedSent() <-chan struct{} {
+	return c.client.finishedSent
+}
+
+// HoldFinished holds the client's Finished, once the handshake completes,
+// with every packet after it, until the matching ReleaseFinished: what the
+// application writes meanwhile leaves with it. Unlike Cork it holds nothing
+// before the handshake completes, so 0-RTT data leaves as it is written.
+func (c *Conn) HoldFinished() {
+	c.client.finishedHolds.Add(1)
+}
+
+// ReleaseFinished releases a HoldFinished.
+func (c *Conn) ReleaseFinished() {
+	if c.client.finishedHolds.Add(-1) == 0 {
+		c.wake()
+	}
+}
+
 // KeepAlive tells the connection whether the application has a request
 // waiting for its response. While one waits, the connection sends the
 // profile's keep-alive PINGs (QUICKeepAlive) and watches its path
@@ -238,6 +267,12 @@ type clientState struct {
 	spinSeen bool
 	// confirmed is closed once the handshake is confirmed.
 	confirmed chan struct{}
+	// finishedSent is closed once the Finished's datagram went
+	// (FinishedSent); finishedSentClosed once it is.
+	finishedSent       chan struct{}
+	finishedSentClosed bool
+	// finishedHolds counts HoldFinished calls not yet released.
+	finishedHolds atomic.Int32
 	// peerParams is the server's quic_transport_parameters body, stored
 	// with its tickets for 0-RTT.
 	peerParams []byte
@@ -308,13 +343,14 @@ func newClientConfig(cfg DialConfig) (*clientState, *Config, error) {
 	}
 	rng := rand.New(rand.NewChaCha8(seed)) //nolint:gosec // per-connection draws, seeded from crypto/rand
 	cc := &clientState{
-		p:         p,
-		hello:     cfg.Hello,
-		onToken:   cfg.OnToken,
-		rng:       rng,
-		ackDelay:  -1,
-		confirmed: make(chan struct{}),
-		version:   quicVersion1,
+		p:            p,
+		hello:        cfg.Hello,
+		onToken:      cfg.OnToken,
+		rng:          rng,
+		ackDelay:     -1,
+		confirmed:    make(chan struct{}),
+		finishedSent: make(chan struct{}),
+		version:      quicVersion1,
 	}
 	cc.sentVersionInfo, cc.available = clientVersions(p)
 	switch cfg.Version {

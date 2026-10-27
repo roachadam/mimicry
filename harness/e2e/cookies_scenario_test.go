@@ -3,6 +3,8 @@ package e2e
 import (
 	"net/http"
 	"net/url"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/roachadam/mimicry"
@@ -19,6 +21,10 @@ import (
 // same values and HTTP/2 weight, and so the browser's cookies in its
 // order: SameSite on cross-site navigations, partitions under another
 // top-level site, None without Secure, redirects, path and domain order.
+// The page's navigations back to A (by location.href and a form POST, over HTTP/2) carry
+// both Referer and Cookie in every browser sample, all alike: mimicry's
+// must be each sample's, HPACK-decoded line for line, which is where the
+// navigation's referer and cookie slots are compared end to end.
 func TestCookiesScenarioMatchesBrowser(t *testing.T) {
 	for _, name := range profiles.Names() {
 		t.Run(name, func(t *testing.T) {
@@ -44,8 +50,27 @@ func TestCookiesScenarioMatchesBrowser(t *testing.T) {
 			} {
 				compareKind(t, got, want, label, false, false)
 			}
+			for _, path := range []string{"/k/c-nav-get.so", "/k/c-nav-post.so"} {
+				g := requestFields(got, path, false, false)
+				if g == nil || !hasHeader(g.lines, "referer") || !hasHeader(g.lines, "cookie") {
+					t.Fatalf("%s: mimicry's navigation lacks referer or cookie", path)
+				}
+				for i, page := range want {
+					if w := requestFields(page, path, false, false); w == nil || !slices.Equal(g.lines, w.lines) {
+						t.Errorf("%s: sample %d differs", path, i+1)
+					}
+				}
+			}
 		})
 	}
+}
+
+// hasHeader reports whether lines carry a header named name.
+func hasHeader(lines []string, name string) bool {
+	return slices.ContainsFunc(lines, func(l string) bool {
+		n, _, _ := strings.Cut(l, ": ")
+		return strings.EqualFold(n, name)
+	})
 }
 
 // runCookiesPage walks the cookies page through mimicry as profile p.

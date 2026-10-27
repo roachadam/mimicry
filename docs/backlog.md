@@ -12,9 +12,9 @@ The ledger ([`profiles/EVIDENCE.md`](../profiles/EVIDENCE.md)) stays the
 record of what the profiles claim and the evidence behind each claim. This
 file is the to-do list. The pinned gap tables in the tests and generators
 (`sampleGaps`, `partitionGaps`, `headersOrderGaps`, `redirectsLineGaps`,
-`h3Gaps`, `h3EdgeGaps`, `h3PriorityGaps`, `raceCookieLabels`,
-`missingCaptures`) say which differences the tests tolerate; each one
-appears here too.
+`h3Gaps`, `h3EdgeGaps`, `h3EdgeSchedulingGaps`, `h3PriorityGaps`,
+`raceCookieLabels`, `missingCaptures`) say which differences the tests
+tolerate; each one appears here too.
 
 ## How to read an entry
 
@@ -42,15 +42,11 @@ its ledger row and pinned gap entry in the same commit.
 
 These matter most under decision 0029:
 
-1. [The navigation's `referer` and `cookie` slots over HTTP/2](#http2)
-   are not compared end to end. They appear on almost every navigation.
-2. [The TCP/IP fingerprint](#tls-and-below) is the host's, not the
+1. [The TCP/IP fingerprint](#tls-and-below) is the host's, not the
    profile's.
-3. [Partitioning connections by top-level site](#connections-and-pool)
+2. [Partitioning connections by top-level site](#connections-and-pool)
    (all browsers). The workaround is one Transport per site.
-4. [Unsafe methods in 0-RTT](#http3-and-quic): a POST can go in 0-RTT on
-   a resumed QUIC connection.
-5. [The page's own header order](#headers-and-request-kinds) for XHR.
+3. [The page's own header order](#headers-and-request-kinds) for XHR.
 
 ## TLS and below
 
@@ -200,15 +196,6 @@ These matter most under decision 0029:
 
 ## HTTP/2
 
-- **The navigation's `referer` and `cookie` slots** (all).
-  - Differs: where a navigation puts `Referer` and `Cookie` over HTTP/2 is
-    unit-tested only. End to end, it is compared over HTTP/1.1 only.
-  - Shows: almost every navigation after the first.
-  - Detection: medium; it would be high if wrong, since header order on
-    navigations is fingerprinted. User-visible: no.
-  - Close: compare `/nav` over HTTP/2 in an e2e test; small.
-  - Source: [EVIDENCE.md, Request headers](../profiles/EVIDENCE.md#request-headers);
-    HANDOFF.md (weakest claim).
 - **Chrome's re-prioritisation and chained dependencies** (Chrome).
   - Differs: Chrome sends a PRIORITY frame while a page loads (raising a
     script from weight 182 to 219, in 2 of 3 samples); mimicry never
@@ -314,24 +301,6 @@ These matter most under decision 0029:
 
 ## HTTP/3 and QUIC
 
-- **Unsafe methods in 0-RTT** (Chrome, Firefox).
-  - Differs: on a resumed QUIC connection, mimicry sends whatever request
-    comes first in 0-RTT, POST included; nothing in `internal/h3` or the
-    engine checks the method. Chromium's source waits for the handshake
-    before sending a request with an unsafe method ([INFERENCE], not
-    captured: every 0-RTT request in the captures was a GET). mimicry does
-    not retry a `425 Too Early` answer; the caller gets it.
-  - Shows: a POST (an XHR, for one) as the first request on a resumed
-    HTTP/3 connection.
-  - Detection: medium; a POST in early data is unusual, and servers that
-    refuse it answer 425. User-visible: yes, a 425 response, and a POST
-    that could be replayed.
-  - Close: an h3 capture with a POST right after resumption, per browser,
-    then a rule (wait for the handshake, or retry on 425); small to
-    medium.
-  - Source: `internal/h3/conn.go` (`start`) and
-    `internal/engine/native/h3.go`, found while writing
-    [what mimicry does](concepts/what-mimicry-does.md).
 - **Discovery through DNS HTTPS records** (all).
   - Differs: mimicry learns that an origin speaks HTTP/3 only from
     `Alt-Svc`. Browsers also read DNS HTTPS records and can use HTTP/3 on
@@ -362,18 +331,63 @@ These matter most under decision 0029:
     [http3 report](../harness/reports/http3-2026-10-25.md);
     [EVIDENCE.md, QUIC and HTTP/3](../profiles/EVIDENCE.md#quic-and-http3).
 - **Safari's QUIC resumption and 0-RTT** (Safari 27, 26).
-  - Differs: after closing a connection itself, Safari reconnects with
-    resumption and 0-RTT and replays the held requests in 0-RTT. Its
-    profile has no `tls.resumption`, so mimicry's reconnections are
-    fresh, in 1-RTT, with no 0-RTT close when such an attempt is dropped.
+  - Differs: Safari resumes QUIC with 0-RTT after closing a connection
+    itself (`h3-broken`: it replays the held requests in 0-RTT) and after
+    one idled out (`h3-early`, `h3-too-early`). In 0-RTT it sends GET,
+    HEAD and OPTIONS and holds every other method until the handshake is
+    confirmed (0.5–2.3 ms after its Finished, with HANDSHAKE_DONE), and a
+    request answered `425 Too Early` goes again on the same connection:
+    Chrome's `http3.early_data` rule but for when a held request leaves
+    (36 held and 24 early requests, 12 retries, per version). Its profile
+    has no `tls.resumption` and no `http3.early_data`, so mimicry's
+    reconnections are fresh, in 1-RTT, with no 0-RTT close when such an
+    attempt is dropped. Safari also starts each resumed connection 5–11 ms
+    after the request that needs it (one 22 ms), mimicry's at once, so of
+    a GET and a POST made together Safari's connection follows both and
+    mimicry's may start before the POST is made.
   - Shows: Safari reconnecting to an HTTP/3 origin.
   - Detection: low to medium; a returning Safari's hello lacks the
     pre-shared key. User-visible: no.
-  - Close: derive Safari's resumption rule (`h3-broken` already shows it;
-    more samples may be needed); medium.
-  - Source: `h3EdgeGaps` in [`http3_edge_test.go`](../harness/e2e/http3_edge_test.go);
+  - Close: derive Safari's resumption rule and its `http3.early_data`
+    (held until confirmed: a third way a held request leaves) from
+    `h3-broken` and the h3-early pages, already captured; medium.
+  - Source: `h3EdgeGaps` and `h3EdgeSchedulingGaps` in [`http3_edge_test.go`](../harness/e2e/http3_edge_test.go);
+    [h3-early report](../harness/reports/h3-early-2026-10-26.md);
     [decision 0028](decisions/0028-quic-failure-model.md);
     [concepts/http3.md](concepts/http3.md).
+- **Firefox's declined TCP connections beside a 425 retry** (Firefox).
+  - Differs: on 3–4 of the 4 requests answered `425 Too Early` per
+    sample, Firefox also opened a TCP connection to the origin and closed
+    it without a request, while the retry went on the QUIC connection.
+    Which retries get one varies between samples; mimicry opens none.
+  - Shows: a server answering 425 to Firefox's 0-RTT requests.
+  - Detection: low (rare server behaviour). User-visible: no.
+  - Close: more samples to find the rule (Firefox's connection
+    management on a 425); medium.
+  - Source: `h3EdgeGaps` in [`http3_edge_test.go`](../harness/e2e/http3_edge_test.go);
+    [h3-early report](../harness/reports/h3-early-2026-10-26.md).
+- **When Firefox's held request leaves** (Firefox).
+  - Differs: a request Firefox holds for the handshake left in the
+    datagram with its Finished in 31 of the 35 made before the Finished;
+    4 left 0.2–18.6 ms after it. mimicry's always rides with the Finished
+    (`held_with_finished`).
+  - Shows: a POST (or other unsafe method) as the first request on a
+    resumed HTTP/3 connection.
+  - Detection: low (packet layout). User-visible: no.
+  - Close: nothing likely; it is necko handing the request to neqo
+    against neqo writing the Finished (thread timing).
+  - Source: `sampleGaps` in `harness/cmd/h3gen/load.go`;
+    [h3-early report](../harness/reports/h3-early-2026-10-26.md).
+- **Safari's OPTIONS fetch** (Safari 27, 26).
+  - Differs: Safari's kinds captures have no `fetch()` with method
+    OPTIONS, so its profile has none and mimicry refuses one
+    (`ErrNotMeasured`). Safari sent it on the `h3-early` page, over
+    HTTP/3.
+  - Shows: a page's `fetch()` with method OPTIONS.
+  - Detection: low (rare). User-visible: yes, `ErrNotMeasured`.
+  - Close: an OPTIONS fetch in the kinds page, or kindsgen reading the
+    h3-early pages; small.
+  - Source: `h3EdgeGaps` in [`http3_edge_test.go`](../harness/e2e/http3_edge_test.go).
 - **Chrome's blackhole detection** (Chrome).
   - Differs: when the path Chrome migrated to dies too, Chrome closes
     with `85:Network blackhole detected` and sends the stuck request
@@ -1379,8 +1393,10 @@ it.
 - **Chrome's idle PING and credit timer**: fixed by the profile.
 - **The Alt-Svc cache and broken origins**: they cannot be read, seeded
   or cleared. `Config.DisableHTTP3` turns HTTP/3 off as a whole.
-- **0-RTT while keeping HTTP/3**: no switch; see
-  [unsafe methods in 0-RTT](#http3-and-quic).
+- **0-RTT while keeping HTTP/3**: no switch. A request the profile's
+  browser holds (any method but GET, HEAD and OPTIONS) waits for the
+  handshake, and a `425 Too Early` is retried as the browser does; see
+  [what mimicry does](concepts/what-mimicry-does.md#tls-session-resumption-and-0-rtt).
 - **Skipping a CORS preflight while keeping the profile's headers**:
   `Exact` skips it, but drops the profile's headers too; `NoCORS` changes
   the request's mode.

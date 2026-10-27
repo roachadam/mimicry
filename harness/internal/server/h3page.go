@@ -82,13 +82,13 @@ func H3ProfileCaptures(dir, name string) ([]string, error) {
 }
 
 // H3EdgeCaptures returns the paths of name's h3-blackhole, h3-broken,
-// h3-vn and h3-download captures in dir, as H3ProfileCaptures does: the
-// captures h3gen derives loss recovery, fallback, version negotiation,
-// acknowledgement, credit and key updates from. h3-v2 is left out: its
-// server is aioquic, whose upgrade only internal/quic's v2 support and
-// harness/e2e check.
+// h3-vn, h3-download, h3-early and h3-too-early captures in dir, as
+// H3ProfileCaptures does: the captures h3gen derives loss recovery,
+// fallback, version negotiation, acknowledgement, credit, key updates and
+// early data from. h3-v2 is left out: its server is aioquic, whose
+// upgrade only internal/quic's v2 support and harness/e2e check.
 func H3EdgeCaptures(dir, name string) ([]string, error) {
-	return existingCaptures(dir, name, H3Blackhole, H3Broken, H3VN, H3Download)
+	return existingCaptures(dir, name, H3Blackhole, H3Broken, H3VN, H3Download, H3Early, H3TooEarly)
 }
 
 func existingCaptures(dir, name string, scenarios ...*Scenario) ([]string, error) {
@@ -114,8 +114,8 @@ func existingCaptures(dir, name string, scenarios ...*Scenario) ([]string, error
 // its previous step completed (or, after a NoWait step, started). A step
 // with a Tag is in the document's markup instead; a "navigate" step loads
 // the document at its own URL (its steps are those whose Page is that
-// path) and ends its page's steps; a page whose steps end otherwise asks
-// for /done.
+// path; with Method POST, by submitting a form of Body's one field) and
+// ends its page's steps; a page whose steps end otherwise asks for /done.
 type H3Step struct {
 	KindsStep
 	Page        string `json:"-"`
@@ -265,6 +265,9 @@ func (p h3Page) answer(req request) response {
 	host, port := splitAuthority(req.host)
 	path, _, _ := strings.Cut(req.path, "?")
 	r := p.respond(host, port, path)
+	if req.method == "HEAD" {
+		r.body = nil
+	}
 	if req.origin != "" {
 		r.headers = append(r.headers, corsAllow(req.origin)...)
 	}
@@ -308,7 +311,7 @@ func (p h3Page) respond(host, port, path string) response {
 // the others one after another.
 func (p h3Page) document(path, port string) []byte {
 	var head, body strings.Builder
-	var steps []H3Step
+	steps := []H3Step{}
 	for _, s := range p.steps() {
 		if s.Page != path {
 			continue
@@ -331,8 +334,15 @@ func (p h3Page) document(path, port string) []byte {
 	script := "(async () => {\nconst steps = " + string(stepsJSON) + ";\n" + kindsRun + `
 for (const s of steps) {
   await new Promise(d => setTimeout(d, s.pause));
+  const url = s.nowait ? s.url + '?t=' + Math.round(performance.now()) : s.url;
+  if (s.kind === 'navigate' && s.method === 'POST') {
+    const f = document.createElement('form'); f.method = 'POST'; f.action = url;
+    const [name, value] = s.body.split('=');
+    const i = document.createElement('input'); i.name = name; i.value = value; f.appendChild(i);
+    document.body.appendChild(f); f.submit(); return;
+  }
   if (s.kind === 'navigate') { location.href = s.url; return; }
-  if (s.nowait) { run({...s, url: s.url + '?t=' + Math.round(performance.now())}); continue; }
+  if (s.nowait) { run({...s, url}); continue; }
   await run(s);
 }
 ` + done + `

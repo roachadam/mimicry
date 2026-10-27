@@ -243,6 +243,8 @@ var Scenarios = []*Scenario{
 	H3V2,
 	H3VN,
 	H3Download,
+	H3Early,
+	H3TooEarly,
 }
 
 // ScenarioByName finds a scenario.

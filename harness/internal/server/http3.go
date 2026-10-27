@@ -68,6 +68,10 @@ type h3conn struct {
 	wmu       sync.Mutex
 	control   *quic.SendStream
 	maxStream uint64
+
+	// early, in a tooEarly scenario, tells which streams started in
+	// 0-RTT.
+	early *earlyStreams
 }
 
 // serveH3 serves one QUIC connection until it ends, or until the server
@@ -93,6 +97,7 @@ func (s *Server) serveH3(serverCtx context.Context, conn *quic.Conn, sc *Scenari
 		table:      quictrace.NewTable(sc.h3.setting(quictrace.SettingQPACKMaxTableCapacity)),
 		decoderOut: make(chan []byte, 256),
 	}
+	h.early = earlyOf(conn)
 	h.qcond = sync.NewCond(&h.qmu)
 	var once sync.Once
 	h.emit = func() {
@@ -539,6 +544,11 @@ func (h *h3conn) firstRequest(fields []quictrace.FieldLine) {
 // the page over first.
 func (h *h3conn) respond(str *quic.Stream, st request) {
 	r := h.sc.answer(st)
+	if h.early != nil && h.early.early(int64(str.StreamID())) {
+		// Too early (RFC 8470), with the body it would have had: a
+		// navigation's page still asks for /done.
+		r.status = 425
+	}
 	if r.silence && h.log.quic.silence(h.addr) {
 		// The connection goes dark: no answer, and nothing more either
 		// way, as if the path had died.
@@ -669,12 +679,16 @@ func (h *h3conn) snapshot() (*quictrace.H3, *quictrace.Close) {
 // every datagram); versions are the QUIC versions quic-go accepts (nil:
 // its default, 1 and 2), others answered with Version Negotiation; aioquic
 // serves it with aioquic instead of quic-go (serveAioquic), a server that
-// upgrades compatibly to version 2.
+// upgrades compatibly to version 2; idleTimeout is its max_idle_timeout
+// (zero: h3IdleTimeout); tooEarly answers every request whose stream
+// started in a 0-RTT packet with 425 Too Early (earlyStreams).
 type h3Server struct {
-	settings  [][2]uint64
-	blackhole bool
-	versions  []quic.Version
-	aioquic   bool
+	settings    [][2]uint64
+	blackhole   bool
+	versions    []quic.Version
+	aioquic     bool
+	idleTimeout time.Duration
+	tooEarly    bool
 }
 
 // setting is the value of one of the server's settings, 0 if it sends

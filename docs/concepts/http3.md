@@ -150,9 +150,21 @@ after the browser's algorithm rather than a sampled distribution:
   on v1.
 - **0-RTT:** a connection resumes a ticket from the origin's last one and
   sends its first requests in 0-RTT, where the profile does (Chrome,
-  Firefox). Safari resumed QUIC only after closing a connection itself
-  (`h3-broken`), which mimicry does not model: its connections are all
-  fresh.
+  Firefox), but only those whose method the browser sends there
+  (`http3.early_data.methods`: GET, HEAD and OPTIONS). Any other request
+  made while the handshake runs (a POST, PUT, DELETE, a form submission)
+  waits for it and leaves in 1-RTT: Firefox's in the datagram with its
+  Finished (`held_with_finished`; 31 of 35, the rest a thread's timing),
+  Chrome's in a datagram of its own 0.05–2.1 ms after it. A GET and a
+  POST made together split: the GET in 0-RTT, the POST held. A Firefox
+  connection dialled for a held request sends its control and QPACK
+  streams in 0-RTT without it. A request the server answers `425 Too
+  Early` (RFC 8470) goes again on the same connection, new stream, in
+  1-RTT after the Finished (`retry_too_early`; 12 of 12 per browser),
+  never on a new one. Safari does the same but holds until the handshake
+  is confirmed, and resumes QUIC after closing a connection itself
+  (`h3-broken`) or after one idled out (`h3-early`); mimicry does not
+  model Safari's resumption: its connections are all fresh.
 
 ## HTTP/3
 
@@ -191,12 +203,13 @@ feed three generators, run in this order: `hellogen` (`tls.quic`),
 `h3gen` (`quic`, `http3` but its header lists and priorities), `kindsgen`
 (`http3.headers`, `http3.high`, `http3.low`, and the kinds the h3 pages
 add). `hellogen` and `h3gen` also read the `h3-blackhole`, `h3-broken`,
-`h3-vn` and `h3-download` captures (`server.H3EdgeCaptures`): hellogen for
-`tls.quic.version_negotiation` (Firefox's other hello after Version
-Negotiation), h3gen for `quic.loss`, `quic.keep_alive`, `quic.ack`,
-`quic.credit`, `quic.key_update`, `quic.version_negotiation` and
-`http3.discovery.fallback`. Each refuses a sample its rule does not
-describe.
+`h3-vn`, `h3-download`, `h3-early` and `h3-too-early` captures
+(`server.H3EdgeCaptures`): hellogen for `tls.quic.version_negotiation`
+(Firefox's other hello after Version Negotiation), h3gen for
+`quic.loss`, `quic.keep_alive`, `quic.ack`, `quic.credit`,
+`quic.key_update`, `quic.version_negotiation`,
+`http3.discovery.fallback` and `http3.early_data`. Each refuses a sample
+its rule does not describe.
 
 ## What checks it
 
@@ -207,15 +220,17 @@ describe.
   for every browser connection alike, so the test is deterministic and a
   rule the captures contradict fails.
 - `TestHTTP3EdgeMatchesBrowser` (`harness/e2e/http3_edge_test.go`) walks
-  the `h3-blackhole`, `h3-broken`, `h3-vn` and (with aioquic) `h3-v2`
-  pages through mimicry on the browser's schedule and compares, per
-  request, every connection it went on and how long it was held, per
-  QUIC attempt its versions, what the server answered, its datagrams and
-  give-up, and when it and each TCP connection started after the request
-  that caused them (the race), within the samples' range. A migration
-  must send the browser's probes first and come 4 of the connection's own
-  PTOs after the request, for mimicry and every browser sample, so it
-  holds on a loaded machine too.
+  the `h3-blackhole`, `h3-broken`, `h3-vn`, (with aioquic) `h3-v2`,
+  `h3-early` and `h3-too-early` pages through mimicry on the browser's
+  schedule and compares, per request, every connection it went on, how
+  long it was held and, on a connection that sent 0-RTT, each of its
+  streams (in 0-RTT, held with or after the Finished, or sent again after
+  a 425), per QUIC attempt its versions, what the server answered, its
+  datagrams and give-up, and when it and each TCP connection started
+  after the request that caused them (the race), within the samples'
+  range. A migration must send the browser's probes first and come 4 of
+  the connection's own PTOs after the request, for mimicry and every
+  browser sample, so it holds on a loaded machine too.
 - `TestHTTP3DownloadMatchesBrowser` replays `h3-download` and holds
   mimicry's acknowledgements and key phases to the profile's rules, which
   every sample must follow too, and its credit increases to the range of
@@ -229,10 +244,11 @@ describe.
   profile against quic-go's HTTP/3 server through a seeded relay
   (`harness/internal/udprelay`: loss, reordering, duplication,
   corruption, delay, blackholes, a small MTU, NAT rebinding): handshake,
-  large and concurrent transfers, Retry, resumption and 0-RTT (accepted
-  and rejected), ChaCha20, key updates, the anti-amplification limit,
-  GOAWAY, idle and server closes, stream resets and tiny flow control
-  windows, each checked byte for byte and against a time limit.
+  large and concurrent transfers, Retry, resumption and 0-RTT (accepted,
+  rejected, and answered 425 Too Early), ChaCha20, key updates, the
+  anti-amplification limit, GOAWAY, idle and server closes, stream resets
+  and tiny flow control windows, each checked byte for byte and against a
+  time limit.
 
 ## Under loss and failure
 

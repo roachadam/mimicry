@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -677,26 +678,71 @@ func (c *Conn) release() {
 // once its headers arrive. The body streams as it is read; closing it
 // early cancels the stream. The request context bounds the whole
 // exchange, body reads included. req.Body is closed, except with
-// ErrConnUnusable, which leaves it unread for the retry.
+// ErrConnUnusable, which leaves it unread for the retry. A request with a
+// method the profile does not send in 0-RTT (HTTP3.EarlyData) waits for
+// the handshake; one it sent in 0-RTT that the server answers 425 Too
+// Early (RFC 8470) goes again on this connection, in 1-RTT, where the
+// profile retries it (RetryTooEarly) and its body can be read again
+// (GetBody).
 func (c *Conn) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, early, err := c.roundTrip(req, c.earlyMethod(req.Method))
+	if err != nil || !early || resp.StatusCode != http.StatusTooEarly || c.h3.EarlyData == nil || !c.h3.EarlyData.RetryTooEarly {
+		return resp, err
+	}
+	again, ok := rewound(req)
+	if !ok {
+		return resp, nil
+	}
+	_ = resp.Body.Close()
+	resp, _, err = c.roundTrip(again, false)
+	return resp, err
+}
+
+// earlyMethod reports whether the profile sends a request with method in
+// 0-RTT (HTTP3.EarlyData.Methods).
+func (c *Conn) earlyMethod(method string) bool {
+	return c.h3.EarlyData == nil || slices.Contains(c.h3.EarlyData.Methods, method)
+}
+
+// rewound is req ready to send again, with a new copy of its body; false
+// if its body cannot be read again.
+func rewound(req *http.Request) (*http.Request, bool) {
+	if req.Body == nil || req.Body == http.NoBody {
+		return req, true
+	}
+	if req.GetBody == nil {
+		return nil, false
+	}
+	body, err := req.GetBody()
+	if err != nil {
+		return nil, false
+	}
+	req = req.Clone(req.Context())
+	req.Body = body
+	return req, true
+}
+
+// roundTrip is RoundTrip's one exchange, in 0-RTT only if mayEarly; early
+// reports that its request went in 0-RTT.
+func (c *Conn) roundTrip(req *http.Request, mayEarly bool) (resp *http.Response, early bool, err error) {
 	ctx := req.Context()
 	hasBody := req.Body != nil && req.Body != http.NoBody
 	length := bodyLength(req)
 	hd, err := buildHead(c.p, c.altHost, c.altPort, req, length)
 	if err != nil {
 		closeBody(req)
-		return nil, err
+		return nil, false, err
 	}
 	if !c.reserve() {
-		return nil, ErrConnUnusable
+		return nil, false, ErrConnUnusable
 	}
-	s, err := c.start(ctx, hd, !hasBody)
+	s, early, err := c.start(ctx, hd, !hasBody, mayEarly)
 	if err != nil {
 		c.release()
 		if !errors.Is(err, ErrConnUnusable) {
 			closeBody(req)
 		}
-		return nil, err
+		return nil, false, err
 	}
 	id := uint64(s.ID()) //nolint:gosec // stream IDs are non-negative
 	r := &requestStream{
@@ -711,27 +757,27 @@ func (c *Conn) RoundTrip(req *http.Request) (*http.Response, error) {
 	if hasBody {
 		go r.sendBody(req.Body, length)
 	}
-	resp, err := r.readResponse(ctx, req)
+	resp, err = r.readResponse(ctx, req)
 	if err != nil {
 		r.finish(err)
 		var se quic.StreamError
 		if ctx.Err() == nil && (c.rejected(id) || errors.As(err, &se) && uint64(se) == codeRequestRejected) {
 			// The server did not process it (RFC 9114, 4.1.1).
 			if hasBody {
-				return nil, fmt.Errorf("%w: %w", ErrRejected, err)
+				return nil, false, fmt.Errorf("%w: %w", ErrRejected, err)
 			}
-			return nil, fmt.Errorf("%w: %w", ErrConnUnusable, err)
+			return nil, false, fmt.Errorf("%w: %w", ErrConnUnusable, err)
 		}
 		if ctx.Err() == nil && !errors.Is(err, ErrConnLost) {
 			select {
 			case <-c.qc.Done():
-				return nil, fmt.Errorf("%w: %w", ErrConnLost, err)
+				return nil, false, fmt.Errorf("%w: %w", ErrConnLost, err)
 			default:
 			}
 		}
-		return nil, err
+		return nil, false, err
 	}
-	return resp, nil
+	return resp, early, nil
 }
 
 func closeBody(req *http.Request) {
@@ -742,8 +788,9 @@ func closeBody(req *http.Request) {
 
 // start opens the request's stream and sends its HEADERS (ending the
 // stream when end), with its encoder instructions and PRIORITY_UPDATE, in
-// the profile's order and in one flight.
-func (c *Conn) start(ctx context.Context, hd head, end bool) (*quic.Stream, error) {
+// the profile's order and in one flight; in 0-RTT only if mayEarly
+// (awaitHandshake). early reports that it went in 0-RTT.
+func (c *Conn) start(ctx context.Context, hd head, end, mayEarly bool) (s *quic.Stream, early bool, err error) {
 	if c.h3.RequestsAfterConfirmed && !c.qc.EarlyData() {
 		// Safari's request leaves once the handshake is confirmed; a
 		// connection that ends first fails NewStream below.
@@ -751,24 +798,31 @@ func (c *Conn) start(ctx context.Context, hd head, end bool) (*quic.Stream, erro
 		case <-c.qc.Confirmed():
 		case <-c.done:
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, false, ctx.Err()
 		}
+	}
+	if c.qc.EarlyData() && !mayEarly {
+		release, err := c.awaitHandshake(ctx)
+		if err != nil {
+			return nil, false, err
+		}
+		defer release()
 	}
 	c.startMu.Lock()
 	defer c.startMu.Unlock()
-	s, err := c.qc.NewStream(ctx)
+	s, err = c.qc.NewStream(ctx)
 	if err != nil {
 		select {
 		case <-c.qc.Done():
-			return nil, fmt.Errorf("%w: %w", ErrConnUnusable, err)
+			return nil, false, fmt.Errorf("%w: %w", ErrConnUnusable, err)
 		default:
 		}
-		return nil, err
+		return nil, false, err
 	}
 	id := uint64(s.ID()) //nolint:gosec // stream IDs are non-negative
 	if c.rejected(id) {
 		_ = s.Reset(codeRequestCancelled)
-		return nil, ErrConnUnusable
+		return nil, false, ErrConnUnusable
 	}
 	s.SetWriteContext(ctx)
 	s.SetReadContext(ctx)
@@ -789,6 +843,13 @@ func (c *Conn) start(ctx context.Context, hd head, end bool) (*quic.Stream, erro
 	}
 	if c.h3.QPACK.InsertsFirst {
 		c.writeEncoder(ins, false) //nolint:contextcheck // the encoder stream is the connection's: a request's end must not cut an instruction
+	}
+	// Before the handshake completes a request goes in 0-RTT; after it, in
+	// 1-RTT, even if still corked here.
+	select {
+	case <-c.qc.HandshakeComplete():
+	default:
+		early = c.qc.EarlyData()
 	}
 	_, err = s.Write(headers)
 	if end {
@@ -811,12 +872,58 @@ func (c *Conn) start(ctx context.Context, hd head, end bool) (*quic.Stream, erro
 		select {
 		case <-c.qc.Done():
 			// Part of the request may have gone before the end.
-			return nil, fmt.Errorf("%w: %w", ErrConnLost, err)
+			return nil, false, fmt.Errorf("%w: %w", ErrConnLost, err)
 		default:
 		}
-		return nil, err
+		return nil, false, err
 	}
-	return s, nil
+	return s, early, nil
+}
+
+// awaitHandshake holds a request the profile does not send in 0-RTT
+// (EarlyData.Methods) until the handshake completes, or the connection or
+// ctx ends; release, called once the request is written, lets it leave:
+// with the client's Finished where the profile sends it so
+// (HeldWithFinished), otherwise once the Finished's datagram has gone
+// (FinishedSent), so the request never shares it whatever the send loop
+// finds pending. A connection dialled for it (Options.Pending, its
+// streams not opened) sends its streams in 0-RTT first, without it, as
+// the browser does.
+func (c *Conn) awaitHandshake(ctx context.Context) (release func(), err error) {
+	release = func() {}
+	ready := c.qc.FinishedSent()
+	if c.h3.EarlyData.HeldWithFinished {
+		// Held first, so a handshake that completes meanwhile cannot send
+		// the Finished without the request.
+		c.qc.HoldFinished()
+		release = c.qc.ReleaseFinished
+		ready = c.qc.HandshakeComplete()
+	}
+	select {
+	case <-ready:
+		return release, nil
+	default:
+	}
+	select {
+	case <-c.qc.HandshakeComplete():
+		// Too late for 0-RTT: the streams go after the request (start).
+	default:
+		c.startMu.Lock()
+		if !c.opened {
+			c.openStreams() //nolint:contextcheck // the connection's streams, not the request's
+			c.qc.Uncork()
+		}
+		c.startMu.Unlock()
+	}
+	select {
+	case <-ready:
+	case <-c.done:
+		// NewStream fails after.
+	case <-ctx.Done():
+		release()
+		return func() {}, ctx.Err()
+	}
+	return release, nil
 }
 
 // ackSection acknowledges a decoded section on the decoder stream.

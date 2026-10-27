@@ -82,19 +82,56 @@ func (c *Conn) Rederive() {
 // HandshakeCompleted reports that the client finished its handshake: it
 // sent CRYPTO data (its Finished) in a Handshake packet.
 func (c *Conn) HandshakeCompleted() bool {
-	for _, d := range c.Datagrams {
+	i, _ := c.FinishedDatagram()
+	return i >= 0
+}
+
+// FinishedDatagram is the index of the client's datagram carrying its
+// Finished (its first Handshake packet with CRYPTO data) and when it went,
+// in µs from the connection's start; -1 for none.
+func (c *Conn) FinishedDatagram() (index int, micros int64) {
+	for di, d := range c.Datagrams {
 		for _, p := range d.Packets {
 			if p.Type != PacketHandshake {
 				continue
 			}
 			for _, f := range p.Frames {
 				if f.Type == FrameCrypto {
-					return true
+					return di, d.Micros
 				}
 			}
 		}
 	}
-	return false
+	return -1, 0
+}
+
+// StreamStart is where a stream's first STREAM frame went: its datagram's
+// index among the client's and its packet's type.
+type StreamStart struct {
+	Datagram   int
+	PacketType string
+}
+
+// StreamStarts finds each stream's first STREAM frame on the client's
+// wire.
+func (c *Conn) StreamStarts() map[uint64]StreamStart {
+	out := map[uint64]StreamStart{}
+	for di, d := range c.Datagrams {
+		for _, p := range d.Packets {
+			for _, f := range p.Frames {
+				if f.Type != FrameStream || f.Stream == nil {
+					continue
+				}
+				if _, ok := out[*f.Stream]; !ok {
+					out[*f.Stream] = StreamStart{
+						Datagram:   di,
+						PacketType: p.Type,
+					}
+				}
+			}
+		}
+	}
+	return out
 }
 
 // streamFrame is one STREAM frame and its position among every frame the
