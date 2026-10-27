@@ -168,20 +168,65 @@ func serveH1(after func(conn net.Conn) error) func(context.Context, net.Conn) er
 	}
 }
 
-// serveH2 serves conn with net/http's HTTP/2 server, answering 200 "ok".
+// serveH2 serves conn with net/http's HTTP/2 server, answering 200 "ok",
+// until the connection closes.
 func serveH2(ctx context.Context, conn net.Conn) error {
 	tc, err := tlsServer(ctx, conn)
 	if err != nil {
 		return err
 	}
-	//nolint:staticcheck // http.Server takes a listener, not one in-memory connection
-	(&http2.Server{}).ServeConn(tc, &http2.ServeConnOpts{
-		Context: ctx,
+	closed := make(chan struct{})
+	var once sync.Once
+	srv := &http.Server{
+		ReadHeaderTimeout: 10 * time.Second,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			_, _ = io.WriteString(w, "ok")
 		}),
+		BaseContext: func(net.Listener) context.Context {
+			return ctx
+		},
+		ConnState: func(_ net.Conn, s http.ConnState) {
+			if s == http.StateClosed || s == http.StateHijacked {
+				once.Do(func() {
+					close(closed)
+				})
+			}
+		},
+	}
+	_ = srv.Serve(&oneConnListener{
+		conn:   tc,
+		ctx:    ctx,
+		closed: closed,
 	})
 	return nil
+}
+
+// oneConnListener hands out conn once, then blocks until it has closed
+// or ctx ends, so http.Server.Serve returns after its one connection.
+type oneConnListener struct {
+	conn   net.Conn
+	ctx    context.Context
+	closed chan struct{}
+	taken  atomic.Bool
+}
+
+func (l *oneConnListener) Accept() (net.Conn, error) {
+	if !l.taken.Swap(true) {
+		return l.conn, nil
+	}
+	select {
+	case <-l.closed:
+	case <-l.ctx.Done():
+	}
+	return nil, net.ErrClosed
+}
+
+func (l *oneConnListener) Close() error {
+	return nil
+}
+
+func (l *oneConnListener) Addr() net.Addr {
+	return l.conn.LocalAddr()
 }
 
 // get sends a GET on t's context. It does not fail t, so goroutines may

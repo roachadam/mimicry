@@ -78,7 +78,9 @@ func CORSSteps() []CORSStep {
 // are ignored.
 func corsScript(cs string) string {
 	var b strings.Builder
-	b.WriteString("(async () => {\nconst f = (path, init) => fetch(" + strconv.Quote(cs) + " + path, init).then(r => r.text()).catch(() => {});\n")
+	b.WriteString("(async () => {\nconst f = (path, init) => fetch(")
+	b.WriteString(strconv.Quote(cs))
+	b.WriteString(" + path, init).then(r => r.text()).catch(() => {});\n")
 	for _, st := range CORSSteps() {
 		if st.Wait > 0 {
 			fmt.Fprintf(&b, "await new Promise(r => setTimeout(r, %d));\n", st.Wait.Milliseconds())

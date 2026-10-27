@@ -368,7 +368,12 @@ func redirRootPage(steps []Redirects2Step, origin func(string) string) []byte {
 	var markup strings.Builder
 	for _, s := range steps {
 		if s.Kind == RedirectImageMarkup {
-			markup.WriteString(`<img id="` + html.EscapeString(s.Label) + `" src="` + html.EscapeString(redirURL(s, origin)) + `" alt="">` + "\n")
+			markup.WriteString(`<img id="`)
+			markup.WriteString(html.EscapeString(s.Label))
+			markup.WriteString(`" src="`)
+			markup.WriteString(html.EscapeString(redirURL(s, origin)))
+			markup.WriteString(`" alt="">`)
+			markup.WriteString("\n")
 		}
 	}
 	return htmlPage("redirects2", "", markup.String()+pageScript(redirFirstPage(steps, origin)))

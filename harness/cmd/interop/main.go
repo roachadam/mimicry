@@ -257,12 +257,18 @@ func localMatrix(rs []result, nps []namedProfile) string {
 		short[i] = np.name
 	}
 	fmt.Fprintf(&b, "Cells: one mark per profile (%s): P pass, F fail, - n/a.\n\n", strings.Join(short, ", "))
-	b.WriteString("| Server | " + strings.Join(caseNames, " | ") + " |\n")
-	b.WriteString("|---" + strings.Repeat("|---", len(caseNames)) + "|\n")
+	b.WriteString("| Server | ")
+	b.WriteString(strings.Join(caseNames, " | "))
+	b.WriteString(" |\n")
+	b.WriteString("|---")
+	b.WriteString(strings.Repeat("|---", len(caseNames)))
+	b.WriteString("|\n")
 	for _, t := range targets {
-		b.WriteString("| " + t)
+		b.WriteString("| ")
+		b.WriteString(t)
 		for _, c := range caseNames {
-			b.WriteString(" | " + cell[[2]string{t, c}])
+			b.WriteString(" | ")
+			b.WriteString(cell[[2]string{t, c}])
 		}
 		b.WriteString(" |\n")
 	}

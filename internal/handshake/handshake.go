@@ -78,7 +78,6 @@ func State(cs utls.ConnectionState) *tls.ConnectionState {
 		CipherSuite:                 cs.CipherSuite,
 		CurveID:                     tls.CurveID(cs.CurveID),
 		NegotiatedProtocol:          cs.NegotiatedProtocol,
-		NegotiatedProtocolIsMutual:  cs.NegotiatedProtocolIsMutual, //nolint:staticcheck // deprecated, always true; set as crypto/tls sets it
 		ServerName:                  cs.ServerName,
 		PeerCertificates:            cs.PeerCertificates,
 		VerifiedChains:              cs.VerifiedChains,
@@ -291,11 +290,9 @@ func extension(e *profile.Extension) (utls.TLSExtension, error) {
 	}
 }
 
-// What uTLS sends regardless of the profile: the first record's version,
-// legacy_version, the session ID length, GREASE ECH's X25519 key and the
-// HPKE AEAD tag.
+// What uTLS sends regardless of the profile: legacy_version, the session ID
+// length, GREASE ECH's X25519 key and the HPKE AEAD tag.
 const (
-	recordVersion   profile.Code = 0x0301
 	legacyVersion   profile.Code = 0x0303
 	sessionIDLength uint8        = 32
 	echEncLength    uint16       = 32

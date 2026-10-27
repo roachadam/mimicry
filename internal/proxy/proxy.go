@@ -65,9 +65,12 @@ func (l *headerLimit) Read(p []byte) (int, error) {
 func Connect(ctx context.Context, conn net.Conn, target string, header []string) (Answer, net.Conn, error) {
 	defer watch(ctx, conn)()
 	var b strings.Builder
-	b.WriteString("CONNECT " + target + " HTTP/1.1\r\n")
+	b.WriteString("CONNECT ")
+	b.WriteString(target)
+	b.WriteString(" HTTP/1.1\r\n")
 	for _, h := range header {
-		b.WriteString(h + "\r\n")
+		b.WriteString(h)
+		b.WriteString("\r\n")
 	}
 	b.WriteString("\r\n")
 	if _, err := io.WriteString(conn, b.String()); err != nil {

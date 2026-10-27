@@ -324,22 +324,28 @@ func setCookieLine(c *http.Cookie) (string, error) {
 	b.WriteString(c.Name)
 	b.WriteByte('=')
 	if c.Quoted {
-		b.WriteString(`"` + c.Value + `"`)
+		b.WriteString(`"`)
+		b.WriteString(c.Value)
+		b.WriteString(`"`)
 	} else {
 		b.WriteString(c.Value)
 	}
 	if c.Path != "" {
-		b.WriteString("; Path=" + c.Path)
+		b.WriteString("; Path=")
+		b.WriteString(c.Path)
 	}
 	if c.Domain != "" {
-		b.WriteString("; Domain=" + c.Domain)
+		b.WriteString("; Domain=")
+		b.WriteString(c.Domain)
 	}
 	if !c.Expires.IsZero() {
-		b.WriteString("; Expires=" + c.Expires.UTC().Format(http.TimeFormat))
+		b.WriteString("; Expires=")
+		b.WriteString(c.Expires.UTC().Format(http.TimeFormat))
 	}
 	switch {
 	case c.MaxAge > 0:
-		b.WriteString("; Max-Age=" + strconv.Itoa(c.MaxAge))
+		b.WriteString("; Max-Age=")
+		b.WriteString(strconv.Itoa(c.MaxAge))
 	case c.MaxAge < 0:
 		b.WriteString("; Max-Age=0")
 	}

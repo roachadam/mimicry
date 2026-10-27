@@ -226,7 +226,8 @@ func funcName(name string) string {
 			b.WriteString(p)
 			continue
 		}
-		b.WriteString(strings.ToUpper(part[:1]) + part[1:])
+		b.WriteString(strings.ToUpper(part[:1]))
+		b.WriteString(part[1:])
 	}
 	return b.String()
 }

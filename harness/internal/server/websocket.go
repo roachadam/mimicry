@@ -387,10 +387,14 @@ func serveWebSocketH1(conn net.Conn, br *bufio.Reader, a *wsAccept, key string, 
 	b.WriteString(wsAcceptKey(key))
 	b.WriteString("\r\n")
 	if a.subprotocol != "" {
-		b.WriteString("Sec-WebSocket-Protocol: " + a.subprotocol + "\r\n")
+		b.WriteString("Sec-WebSocket-Protocol: ")
+		b.WriteString(a.subprotocol)
+		b.WriteString("\r\n")
 	}
 	if a.extensions != "" {
-		b.WriteString("Sec-WebSocket-Extensions: " + a.extensions + "\r\n")
+		b.WriteString("Sec-WebSocket-Extensions: ")
+		b.WriteString(a.extensions)
+		b.WriteString("\r\n")
 	}
 	b.WriteString("\r\n")
 	if _, err := io.WriteString(conn, b.String()); err != nil {

@@ -301,7 +301,8 @@ func compare(out string) error {
 			summary.WriteString("- none\n")
 		}
 	}
-	summary.WriteString("\n" + sitesTable(out))
+	summary.WriteString("\n")
+	summary.WriteString(sitesTable(out))
 	if err := os.WriteFile(filepath.Join(out, "compare.md"), []byte(summary.String()), 0o600); err != nil {
 		return err
 	}

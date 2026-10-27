@@ -375,10 +375,12 @@ func wsDeletions(set []string) []string {
 		parts := strings.Split(c, "; ")
 		name, _, _ := strings.Cut(parts[0], "=")
 		var d strings.Builder
-		d.WriteString(name + "=")
+		d.WriteString(name)
+		d.WriteString("=")
 		for _, a := range parts[1:] {
 			if !strings.HasPrefix(a, "Max-Age=") {
-				d.WriteString("; " + a)
+				d.WriteString("; ")
+				d.WriteString(a)
 			}
 		}
 		out = append(out, d.String()+"; Max-Age=0")

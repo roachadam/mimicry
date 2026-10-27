@@ -120,6 +120,9 @@ func (m *machine) stream(ctx context.Context, prefix, logFile, name string, args
 			log.Printf("[%s] %s", prefix, sc.Text())
 			_, _ = fmt.Fprintln(f, sc.Text())
 		}
+		if err := sc.Err(); err != nil {
+			log.Printf("[%s] reading output: %v", prefix, err)
+		}
 		_, _ = io.Copy(io.Discard, pr)
 	})
 	err = cmd.Run()

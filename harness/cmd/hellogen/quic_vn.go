@@ -68,7 +68,8 @@ func renderRetry(r *profile.QUICHelloRetry) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "drop %v, padding %v, replace", r.Drop, r.Padding)
 	for _, e := range r.Replace {
-		b.WriteString(" " + render(e))
+		b.WriteString(" ")
+		b.WriteString(render(e))
 	}
 	return b.String()
 }

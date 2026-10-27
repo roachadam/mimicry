@@ -76,16 +76,43 @@ func makeProse(n int) string {
 			for i := range words {
 				words[i] = r.pick(proseWords)
 			}
-			b.WriteString(`{"type":"chat","room":"` + r.pick(proseRooms) + `","user":"` + r.pick(proseUsers) +
-				`","text":"` + strings.Join(words, " ") + `","ts":` + strconv.FormatUint(ts, 10) + "}\n")
+			b.WriteString(`{"type":"chat","room":"`)
+			b.WriteString(r.pick(proseRooms))
+			b.WriteString(`","user":"`)
+			b.WriteString(r.pick(proseUsers))
+			b.WriteString(`","text":"`)
+			b.WriteString(strings.Join(words, " "))
+			b.WriteString(`","ts":`)
+			b.WriteString(strconv.FormatUint(ts, 10))
+			b.WriteString("}\n")
 		case 5, 6:
-			b.WriteString(`{"type":"search","q":"` + r.pick(proseQueries) + `","page":` + strconv.Itoa(int(r.n(5))+1) +
-				`,"filters":{"color":"` + r.pick(proseColors) + `","size":"` + r.pick(proseSizes) + `"}}` + "\n")
+			b.WriteString(`{"type":"search","q":"`)
+			b.WriteString(r.pick(proseQueries))
+			b.WriteString(`","page":`)
+			b.WriteString(strconv.Itoa(int(r.n(5)) + 1))
+			b.WriteString(`,"filters":{"color":"`)
+			b.WriteString(r.pick(proseColors))
+			b.WriteString(`","size":"`)
+			b.WriteString(r.pick(proseSizes))
+			b.WriteString(`"}}`)
+			b.WriteString("\n")
 		case 7, 8:
-			b.WriteString(`{"type":"cart","op":"` + r.pick(proseOps) + `","sku":"SKU-` + strconv.Itoa(int(r.n(90000))+10000) +
-				`","qty":` + strconv.Itoa(int(r.n(4))+1) + `,"price":` + strconv.Itoa(int(r.n(300))+1) + "." + strconv.Itoa(int(r.n(90))+10) + "}\n")
+			b.WriteString(`{"type":"cart","op":"`)
+			b.WriteString(r.pick(proseOps))
+			b.WriteString(`","sku":"SKU-`)
+			b.WriteString(strconv.Itoa(int(r.n(90000)) + 10000))
+			b.WriteString(`","qty":`)
+			b.WriteString(strconv.Itoa(int(r.n(4)) + 1))
+			b.WriteString(`,"price":`)
+			b.WriteString(strconv.Itoa(int(r.n(300)) + 1))
+			b.WriteString(".")
+			b.WriteString(strconv.Itoa(int(r.n(90)) + 10))
+			b.WriteString("}\n")
 		default:
-			b.WriteString(`{"type":"typing","user":"` + r.pick(proseUsers) + `"}` + "\n")
+			b.WriteString(`{"type":"typing","user":"`)
+			b.WriteString(r.pick(proseUsers))
+			b.WriteString(`"}`)
+			b.WriteString("\n")
 		}
 	}
 	return b.String()[:n]

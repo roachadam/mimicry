@@ -1444,6 +1444,11 @@ it.
 
 ## Tooling and tests
 
+- **Rare flake: `TestQUICInterop/chrome-156-macos/handshake-ack-loss`.**
+  Once, in a full harness `-race` run (2026-10-27): "warming up: context
+  deadline exceeded" after 15 s (relay dropped 30 server datagrams). 40
+  reruns of the row passed. Chrome gives up a fresh attempt at 4 s, so a
+  loaded machine may lose the race with the relay's drop schedule. Small.
 - **Rare flake: `TestQUICInterop/chrome-155-macos/stream-reset`.** Once,
   on the Mac mini (2026-10-26), the `GET /reject` request that quic-go
   resets with H3_REQUEST_REJECTED (0x10b) came back as an error instead of
