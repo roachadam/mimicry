@@ -13,10 +13,8 @@ import (
 )
 
 // multiHost is a page served across several hostnames from one listener,
-// each with its own certificate: the replay of a real page, the kinds,
-// cors, cookies, resume, cookies-edge, cors-edge, connections,
-// headers-order, cookies-edge2, redirects2 and nav-redirect pages. The
-// capture is the whole page (capture.Page).
+// each with its own certificate. The capture is the whole page
+// (capture.Page).
 type multiHost interface {
 	answer(r request) response
 	// hosts are the page's hostnames; the first is the one it starts on,
@@ -159,11 +157,9 @@ func preflightAllow(allow []hpack.HeaderField, methods, requested string) []hpac
 	return out
 }
 
-// cookieDeletions deletes each cookie set, in the form it was set: its
-// name (or, for a cookie without a name, its whole pair: browsers ignore a
-// Set-Cookie whose name and value are both empty) with an empty value, its
-// Path, Domain, Secure and HttpOnly (which __Http- requires), and
-// Max-Age=0.
+// cookieDeletions deletes each cookie in the form it was set (Path, Domain,
+// Secure, HttpOnly kept). A nameless cookie keeps its whole pair: browsers
+// ignore a Set-Cookie whose name and value are both empty.
 func cookieDeletions(set []string) []string {
 	out := make([]string, 0, len(set))
 	for _, c := range set {

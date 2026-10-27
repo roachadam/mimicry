@@ -17,10 +17,8 @@ type altSvc struct {
 	expires time.Time
 }
 
-// parseAltSvc reads Alt-Svc field values (RFC 7838, 3) for host: the
-// first h3 alternative on the same host, and whether the value is
-// "clear" (cleared). Alternatives on other hosts and other protocols are
-// ignored.
+// parseAltSvc returns the first same-host h3 alternative in Alt-Svc values
+// (RFC 7838) and whether the value is "clear".
 func parseAltSvc(values []string, host string, now time.Time) (alt altSvc, found, cleared bool) {
 	for _, v := range values {
 		for _, entry := range splitQuoted(v, ',') {

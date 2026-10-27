@@ -3,27 +3,10 @@
 //
 //	go run ./cmd/h3gen -captures testdata/captures -profile ../profiles/data/chrome-155-macos.json
 //
-// It reads every h3-discovery and h3-page capture the profile is checked
-// against, with and without -h3-local-roots (server.H3ProfileCaptures:
-// its own, or another profile's where its captures_from inherits the
-// scenario; read as captured, version strings and all). Every QUIC
-// connection's first flight counts, failed handshakes included (they show
-// the same Initial packets, ClientHello and transport parameters); what
-// follows the handshake comes from connections that completed it, and
-// discovery from the h3-discovery captures in which some did. What only
-// failure and long transfers show comes from the edge captures
-// (server.H3EdgeCaptures: h3-blackhole, h3-broken, h3-vn, h3-download):
-// quic.loss, keep_alive, ack, credit, key_update and version_negotiation,
-// and http3.discovery.fallback (edge*.go). Each value is checked against
-// every connection of every sample, and h3gen refuses to write when one
-// disagrees, unless the difference is pinned in sampleGaps with why (and
-// a pinned one that no longer appears is an error too). http3.headers is
-// kindsgen's and kept as it is. Run hellogen first: tls.quic must
-// describe the connections' ClientHellos.
-//
-// What it cannot measure stays out of the profile and is documented on
-// profile.QUIC and profile.HTTP3: Safari's QPACK with a dynamic table,
-// its resumption, and what profile.QUIC lists as not measured.
+// It reads the profile's h3 and edge captures (server.H3ProfileCaptures,
+// server.H3EdgeCaptures) and refuses to write when any connection
+// disagrees, unless the difference is pinned in sampleGaps. http3.headers
+// is left to kindsgen. Run hellogen first.
 package main
 
 import (

@@ -50,19 +50,15 @@ func wsAcceptKey(key string) string {
 // socket. Every text and binary message is echoed back, uncompressed; a
 // ping is answered with a pong, a close with a close carrying its code.
 type wsAccept struct {
-	// subprotocol and extensions are answered as Sec-WebSocket-Protocol
-	// and Sec-WebSocket-Extensions ("" for none); extensions is
-	// "permessage-deflate", with any parameters, when the server accepts
-	// compression. clientNoContext: it answered
-	// client_no_context_takeover, so each client message is inflated on
-	// its own.
+	// subprotocol and extensions are the answered headers ("" for none).
+	// clientNoContext: client_no_context_takeover was answered, so each
+	// client message is inflated on its own.
 	subprotocol     string
 	extensions      string
 	clientNoContext bool
 	// ping sends a ping right after the handshake, to record the pong.
 	ping bool
-	// serverClose sends a close (1001) after the first echo: the server
-	// closes first.
+	// serverClose sends a close (1001) after the first echo.
 	serverClose bool
 }
 
@@ -532,12 +528,10 @@ func (b *wsBuffer) Read(p []byte) (int, error) {
 	return 0, b.err
 }
 
-// onConnect answers an extended CONNECT. Without the scenario advertising
-// SETTINGS_ENABLE_CONNECT_PROTOCOL, a :protocol makes the request
-// malformed (RFC 8441, section 4), so the stream is reset; otherwise a
-// handshake the scenario accepts is answered 200 and its socket runs on
-// the stream, from a goroutine of its own (senders), and any other is
-// answered as the scenario says.
+// onConnect answers an extended CONNECT. Without
+// SETTINGS_ENABLE_CONNECT_PROTOCOL advertised, :protocol is malformed (RFC
+// 8441, section 4) and the stream is reset. An accepted handshake gets 200
+// and its socket runs on a goroutine of its own (senders).
 func (s *h2conn) onConnect(id uint32, st *request, index int, senders *sync.WaitGroup) error {
 	delete(s.streams, id)
 	s.log.request(s.c)

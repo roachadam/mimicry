@@ -24,14 +24,11 @@ import (
 	"github.com/roachadam/mimicry/profiles"
 )
 
-// mimicry asks proxies for connections as the browser does, against the
-// browser's own captures through the capture proxy: the CONNECT request
-// line for line; the SOCKS5 handshake byte for byte; with credentials, the
-// challenge first, the retry on the same connection and credentials unasked
-// from then on, with Proxy-Authorization where the browser puts it; and a
-// plain-HTTP request in absolute form, every line the browser's (with
-// credentials, where Proxy-Authorization goes). What goes through a tunnel
-// is the profile's direct ClientHello.
+// mimicry asks proxies for connections as the browser does, against its
+// captures through the capture proxy: CONNECT lines, SOCKS5 bytes, the
+// credential flow (challenge, retry on the same connection, unasked after),
+// and absolute-form plain-HTTP requests. A tunnel carries the profile's
+// direct ClientHello.
 func TestProxyMatchesBrowser(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
@@ -138,13 +135,9 @@ func TestProxyMatchesBrowser(t *testing.T) {
 	}
 }
 
-// What a profile does not describe is an error, not a guess: any proxy
-// for a profile without a proxy section, proxy credentials for one whose
-// browser's way with them is not measured (no connect_auth), and a
-// WebSocket through a proxy where its browser was not measured taking one
-// (no proxy.websocket, credentials without proxy.websocket.credentials,
-// ws:// through SOCKS5). Every case takes Chrome's profile, stripped as
-// it says.
+// What a profile does not describe is an error, not a guess: a proxy without
+// a proxy section, credentials without connect_auth, and a WebSocket through
+// a proxy its browser was not measured with.
 func TestUnmeasuredProxyIsAnError(t *testing.T) {
 	for _, tc := range []struct {
 		name  string

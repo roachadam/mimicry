@@ -1,3 +1,11 @@
+// Package h3 is mimicry's HTTP/3 client (RFC 9114) on internal/quic, with
+// field sections encoded by internal/qpack. It reproduces the profile's
+// HTTP/3 (profile.HTTP3): SETTINGS and GREASE, when each stream opens, QPACK
+// table use, PRIORITY_UPDATE, header lists and DATA framing.
+//
+// Each request's frames leave in one flight, in the browser's order
+// (quic.Conn.Cork). A request the server did not process fails with
+// ErrConnUnusable or ErrRejected so it can go on another connection.
 package h3
 
 import (
@@ -42,13 +50,10 @@ const maxFieldSection = 256 << 10
 // server offered exactly that.
 const maxQPACKCapacity = 64 << 10
 
-// settingsWait bounds how long a connection whose QPACK encoder stream
-// opens at the handshake waits, in round trips, for the server's
-// SETTINGS (which arrive with its handshake flight) to put Set Dynamic
-// Table Capacity on it; settingsMinWait is the least it waits, so that a
-// busy machine's scheduling of the goroutine reading the control stream
-// does not pass for SETTINGS missing (and the first request lose the
-// dynamic table the browser's uses).
+// settingsWait bounds, in round trips, how long a connection whose QPACK
+// encoder stream opens at the handshake waits for the server's SETTINGS, so
+// that stream can carry Set Dynamic Table Capacity. settingsMinWait keeps a
+// busy scheduler from passing for missing SETTINGS.
 const (
 	settingsWait    = 1
 	settingsMinWait = 20 * time.Millisecond
@@ -66,11 +71,9 @@ type Options struct {
 	Pending bool
 }
 
-// Conn is a client HTTP/3 connection (RFC 9114) on a QUIC connection, as
-// the profile's browser speaks it: its control stream's SETTINGS and
-// GREASE, its QPACK streams and encoder, PRIORITY_UPDATE, header lists,
-// request framing, and the order of all of these on the wire. It is safe
-// for concurrent use.
+// Conn is a client HTTP/3 connection on a QUIC connection, speaking as the
+// profile's browser does down to the order of its frames on the wire. It is
+// safe for concurrent use.
 type Conn struct {
 	qc      *quic.Conn
 	p       *profile.Profile
@@ -116,11 +119,10 @@ type Conn struct {
 	maxSection uint64
 }
 
-// New starts HTTP/3 on qc, which quic.Dial returned corked, for profile
-// p, which has HTTP3 and QUIC sections. It opens the streams the profile
-// opens at the handshake (with the client's Finished, or after it), unless
-// opts.Pending in 0-RTT where the request goes first, and serves the
-// server's streams until qc ends.
+// New starts HTTP/3 on qc, which quic.Dial returned corked, for profile p,
+// which has HTTP3 and QUIC sections. It opens the profile's handshake
+// streams (after the request, for opts.Pending in 0-RTT where the profile
+// sends it first) and serves the server's streams until qc ends.
 func New(qc *quic.Conn, p *profile.Profile, opts Options) (*Conn, error) {
 	h := p.HTTP3
 	c := &Conn{
@@ -674,16 +676,11 @@ func (c *Conn) release() {
 	}
 }
 
-// RoundTrip sends req on a new request stream and returns the response
-// once its headers arrive. The body streams as it is read; closing it
-// early cancels the stream. The request context bounds the whole
-// exchange, body reads included. req.Body is closed, except with
-// ErrConnUnusable, which leaves it unread for the retry. A request with a
-// method the profile does not send in 0-RTT (HTTP3.EarlyData) waits for
-// the handshake; one it sent in 0-RTT that the server answers 425 Too
-// Early (RFC 8470) goes again on this connection, in 1-RTT, where the
-// profile retries it (RetryTooEarly) and its body can be read again
-// (GetBody).
+// RoundTrip sends req on a new request stream and returns the response once
+// its headers arrive; req's context bounds the whole exchange, body reads
+// included. req.Body is closed, except with ErrConnUnusable, which leaves it
+// for the retry. A 0-RTT request answered 425 Too Early goes again in 1-RTT
+// where the profile retries it (HTTP3.EarlyData) and its body can be re-read.
 func (c *Conn) RoundTrip(req *http.Request) (*http.Response, error) {
 	resp, early, err := c.roundTrip(req, c.earlyMethod(req.Method))
 	if err != nil || !early || resp.StatusCode != http.StatusTooEarly || c.h3.EarlyData == nil || !c.h3.EarlyData.RetryTooEarly {
@@ -881,14 +878,11 @@ func (c *Conn) start(ctx context.Context, hd head, end, mayEarly bool) (s *quic.
 }
 
 // awaitHandshake holds a request the profile does not send in 0-RTT
-// (EarlyData.Methods) until the handshake completes, or the connection or
-// ctx ends; release, called once the request is written, lets it leave:
-// with the client's Finished where the profile sends it so
-// (HeldWithFinished), otherwise once the Finished's datagram has gone
-// (FinishedSent), so the request never shares it whatever the send loop
-// finds pending. A connection dialled for it (Options.Pending, its
-// streams not opened) sends its streams in 0-RTT first, without it, as
-// the browser does.
+// (EarlyData.Methods) until the handshake completes or the connection or ctx
+// ends. release, called once the request is written, lets it leave with the
+// client's Finished (HeldWithFinished) or after the Finished's datagram
+// (FinishedSent), never sharing it otherwise. A connection dialled for it
+// (Options.Pending) first sends its streams in 0-RTT without it.
 func (c *Conn) awaitHandshake(ctx context.Context) (release func(), err error) {
 	release = func() {}
 	ready := c.qc.FinishedSent()

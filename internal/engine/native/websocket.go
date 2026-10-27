@@ -39,16 +39,11 @@ type WebSocket struct {
 	MaxData int
 }
 
-// OpenWebSocket sends req, a WebSocket handshake to an https or http URL
-// with its headers resolved, as the profile's browser opens a socket: as
-// an extended CONNECT stream on the pool's HTTP/2 connection to the host
-// when it has one whose server allows it (SETTINGS_ENABLE_CONNECT_PROTOCOL),
-// else on a new HTTP/1.1 connection of its own, never pooled, which for
-// https says the hello of tls.websocket_h1 (ALPN http/1.1). key is the
-// Sec-WebSocket-Key, which only HTTP/1.1 sends. Through a proxy, the
-// HTTP/2 connection is the one in the route's tunnel, and a connection of
-// its own goes through a tunnel of its own, or for ws:// is sent to an
-// HTTP proxy whole, as proxy.websocket says.
+// OpenWebSocket sends req, a WebSocket handshake with its headers
+// resolved, as the profile's browser opens a socket: an extended CONNECT
+// stream on the pool's HTTP/2 connection when the server allows it, else a
+// new unpooled HTTP/1.1 connection. key is the Sec-WebSocket-Key (HTTP/1.1
+// only). See docs/concepts/websockets.md.
 func (e *Engine) OpenWebSocket(req *http.Request, key string) (*WebSocket, error) {
 	ctx := req.Context()
 	if req.URL == nil || req.URL.Host == "" || !httpguts.ValidHostHeader(req.URL.Host) {
@@ -98,11 +93,9 @@ func (e *Engine) OpenWebSocket(req *http.Request, key string) (*WebSocket, error
 	return e.openWebSocketH1(ctx, req, r, key)
 }
 
-// webSocketRoute checks that the profile's browser was measured taking
-// req, a WebSocket handshake, through r's proxy, and returns r as the
-// socket goes: a ws:// socket through an HTTP proxy is sent to it whole
-// (r.forward) only where proxy.websocket.plain says so, and tunnelled
-// otherwise.
+// webSocketRoute checks the browser was measured taking a WebSocket
+// through r's proxy, and returns the socket's route: ws:// goes whole to an
+// HTTP proxy (r.forward) only where proxy.websocket.plain says so.
 func (e *Engine) webSocketRoute(req *http.Request, r route) (route, error) {
 	w := e.profile.Proxy.WebSocket
 	switch {
@@ -117,10 +110,8 @@ func (e *Engine) webSocketRoute(req *http.Request, r route) (route, error) {
 	return r, nil
 }
 
-// openWebSocketH1 sends req on a new HTTP/1.1 connection of its own: to
-// the server, through a tunnel of its own, or to an HTTP proxy whole
-// (r.forward), carrying the proxy's credentials as the browser's other
-// requests sent whole do, where a 407 is the proxy refusing the socket.
+// openWebSocketH1 sends req on a new HTTP/1.1 connection of its own. A 407
+// from a forward proxy is the proxy refusing the socket.
 func (e *Engine) openWebSocketH1(ctx context.Context, req *http.Request, r route, key string) (*WebSocket, error) {
 	conn, err := e.dialWebSocket(ctx, req, r)
 	if err != nil {
@@ -181,11 +172,9 @@ func (e *Engine) openWebSocketH1(ctx context.Context, req *http.Request, r route
 	}, nil
 }
 
-// dialWebSocket connects for a WebSocket of its own (through its own
-// tunnel, or to the proxy itself for r.forward) and, for https, says the
-// profile's WebSocket hello (tls.websocket_h1), resuming as the profile's
-// other connections on the route do. The server must not pick h2, which
-// the hello does not offer.
+// dialWebSocket connects a socket's own connection and, for https, sends
+// tls.websocket_h1's hello, resuming as the route's other connections do.
+// The server must not pick h2, which the hello does not offer.
 func (e *Engine) dialWebSocket(ctx context.Context, req *http.Request, r route) (net.Conn, error) {
 	var conn net.Conn
 	var err error

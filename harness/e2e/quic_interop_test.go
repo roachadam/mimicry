@@ -46,20 +46,11 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// TestQUICInterop runs mimicry's QUIC and HTTP/3, as every profile, against
-// quic-go's HTTP/3 server (an independent implementation of QUIC, HTTP/3
-// and QPACK) through a seeded relay (udprelay) that impairs the path:
-// loss, reordering, duplication, corruption, delay, a blackhole, a small
-// MTU, NAT rebinding. The client is mimicry's public Transport: it learns
-// the origin's Alt-Svc over TCP and moves to HTTP/3 as its browser does,
-// so the engine's dial, pool and retry paths are in every case. Each case
-// checks every response byte for byte (or its SHA-256), that it came over
-// HTTP/3 where it must, and that the case ends within its time limit.
-//
-// No browser capture can reach these paths: they are the failures (a
-// stall, a broken transfer, a connection lost to a server's behaviour)
-// that interop exists to find. What the browser does differently from
-// the client under loss or migration is not compared.
+// TestQUICInterop runs every profile's QUIC and HTTP/3 against quic-go's
+// server through a seeded impairing relay (udprelay), via the public
+// Transport so dial, pool and retry paths are exercised. Each case checks
+// responses byte for byte, HTTP/3 use and its time limit. It covers the
+// failures no browser capture reaches.
 func TestQUICInterop(t *testing.T) {
 	pki := newInteropPKI(t)
 	for _, name := range testProfiles(t) {
@@ -866,11 +857,8 @@ func (e *interopEnv) get(path string) connInfo {
 	return e.h3(resp, "GET "+path)
 }
 
-// warm brings the origin onto HTTP/3 as the profile's browser moves: it
-// asks over TCP until a response comes over HTTP/3 (Firefox's second
-// request waits for the QUIC connection the first's Alt-Svc started;
-// Chrome's goes beside the QUIC dial it starts; Safari's needs a new
-// connection, which HTTP/1.1 always does).
+// warm asks over TCP until a response comes over HTTP/3, matching how each
+// browser moves to the Alt-Svc connection.
 func (e *interopEnv) warm() connInfo {
 	e.t.Helper()
 	for {
@@ -889,13 +877,10 @@ func (e *interopEnv) warm() connInfo {
 	}
 }
 
-// warmImpaired is warm for a case whose relay impairs the handshake. A
-// profile whose browser drops its QUIC attempt once its request goes on
-// TCP (Fallback.AbandonOnTCP: Safari, TCP 100 ms after QUIC) loses that
-// race whenever the handshake needs a probe, and gives the origin up
-// after BrokenAfter such attempts, as Safari did in h3-broken: then every
-// request must go over TCP within the race, and no attempt follow the
-// last; false. Otherwise true, the origin on HTTP/3.
+// warmImpaired is warm for a case that impairs the handshake. A profile
+// with Fallback.AbandonOnTCP (Safari) loses the race whenever the handshake
+// needs a probe and gives up after BrokenAfter attempts: then every request
+// must go over TCP and it returns false. Otherwise it returns true.
 func (e *interopEnv) warmImpaired() bool {
 	e.t.Helper()
 	fb := e.p.HTTP3.Discovery.Fallback

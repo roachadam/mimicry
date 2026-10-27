@@ -30,8 +30,7 @@ func (g *goAwayGate) Write(b []byte) (int, error) {
 }
 
 // A GOAWAY sent as the last stream in flight ends still goes out: the
-// stream's end does not close the connection under the frame being written
-// (Firefox's GOAWAY once a replaced connection's request is answered).
+// stream's end must not close the connection under the frame.
 func TestGoAwayAsTheLastStreamEnds(t *testing.T) {
 	gate := &goAwayGate{
 		writing: make(chan struct{}),

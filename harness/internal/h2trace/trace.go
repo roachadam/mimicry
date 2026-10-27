@@ -1,3 +1,7 @@
+// Package h2trace records what a client sends on an HTTP/2 connection below
+// the decoded header list: every frame, with timing, and each header block's
+// HPACK instructions. Two clients can send identical headers and still
+// differ here.
 package h2trace
 
 import (
@@ -13,10 +17,9 @@ type Trace struct {
 	// Host is the connection's server name, recorded when a page spans
 	// several hosts (replay scenarios).
 	Host string `json:"host,omitempty"`
-	// Millis is when the connection preface arrived, since the server
-	// started serving the page: recorded on the h3 pages, on the clock of
-	// their QUIC datagrams, so each request's time on the page is Millis
-	// plus its frame's.
+	// Millis is when the connection preface arrived on the page's clock
+	// (the h3 pages only), so a request's page time is Millis plus its
+	// frame's.
 	Millis   int64     `json:"ms,omitempty"`
 	Frames   []Frame   `json:"frames"`
 	Requests []Request `json:"requests"`

@@ -12,12 +12,9 @@ import (
 	"github.com/roachadam/mimicry/harness/internal/server"
 )
 
-// Cookies a server sets come back from mimicry, through its cookie jar, as
-// the browser sent them on its first request after: the same crumbs in the
-// same order, each with the same representation and Huffman use (Chrome
-// indexes every crumb; Firefox and Safari never index those under 20 bytes;
-// Safari orders them by name). Table indices are left out: the browser's
-// earlier subresource requests filled its table differently.
+// Cookies a server sets come back through mimicry's jar as the browser sent
+// them: same crumbs, order, HPACK representation and Huffman use. Table
+// indices are ignored: the browser's earlier requests filled its table.
 func TestCookiesMatchBrowserTrace(t *testing.T) {
 	sc, err := server.ScenarioByName("set-cookie")
 	if err != nil {

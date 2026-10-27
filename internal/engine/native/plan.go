@@ -28,12 +28,9 @@ type Field struct {
 	Value string
 }
 
-// Head is a request's head over one protocol: HTTP/1.1's request line
-// (Line; empty for the others) and the header lines in order,
-// pseudo-headers first over HTTP/2 and HTTP/3. Err is why the request
-// cannot go over the protocol, Line and Fields empty then: what the
-// connection would return before sending anything, or why the engine
-// never sends it there.
+// Head is a request's head over one protocol: the HTTP/1.1 request line
+// (Line; empty otherwise) and header lines in order. Err, when set, is why
+// the request cannot go over the protocol; Line and Fields are then empty.
 type Head struct {
 	Line   string
 	Fields []Field
@@ -42,11 +39,8 @@ type Head struct {
 
 // Plan is what the engine would write for a request.
 type Plan struct {
-	// Protocols are the protocols the request may take now, given the
-	// open connections and the origin's Alt-Svc: one when that is decided
-	// before connecting, else those it is decided between when
-	// connecting (ALPN, a QUIC attempt it waits for, another host's
-	// HTTP/2 connection found by lookup), the likeliest first.
+	// Protocols are the protocols the request may take now, likeliest
+	// first; several when the choice is made while connecting.
 	Protocols []string
 	HTTP2     Head
 	HTTP1     Head
@@ -55,13 +49,10 @@ type Plan struct {
 	HTTP3 *Head
 }
 
-// Plan returns what RoundTrip would write for req: each protocol's head,
-// built by the code that protocol's connection writes with (h1.Writer,
-// h2.Head, h3.Head) from the same route and request RoundTrip starts
-// from (begin), and the protocols it may take now. It dials nothing,
-// looks nothing up, and changes no connection, pool, ticket or HTTP/3
-// state. Its error is one RoundTrip returns whatever the protocol (a URL
-// it refuses, the proxy's).
+// Plan returns what RoundTrip would write for req over each protocol it
+// may take now, built by the same code the connections use. It dials,
+// looks up and changes nothing; its error is one RoundTrip would return
+// for any protocol. See decision 0034.
 func (e *Engine) Plan(req *http.Request) (*Plan, error) {
 	r, req, _, err := e.begin(req)
 	if err != nil {
@@ -111,10 +102,7 @@ func (e *Engine) Plan(req *http.Request) (*Plan, error) {
 	return p, nil
 }
 
-// protocolsNow are the protocols a request on r may take now
-// (Plan.Protocols): HTTP/3 as quicFor would decide it (h3Now), and on
-// TCP the pool's connection for the route, HTTP/1.1 for plain HTTP, or
-// either by ALPN.
+// protocolsNow is Plan.Protocols for a request on r.
 func (e *Engine) protocolsNow(req *http.Request, r route) []string {
 	var out []string
 	if e.h3Route(req, r) {
@@ -138,10 +126,8 @@ func (e *Engine) protocolsNow(req *http.Request, r route) []string {
 	return append(out, HTTP2, HTTP1)
 }
 
-// h3Now reports whether a request on r goes over HTTP/3 now, as quicFor
-// decides it, and whether that is decided before connecting: not while
-// it waits for an attempt (wayRace, a resumed attempt it holds for) or
-// for the origin's reconnect time. It changes nothing.
+// h3Now reports whether a request on r goes over HTTP/3 as quicFor would
+// decide, and whether that is decided before connecting. It changes nothing.
 func (e *Engine) h3Now(r route) (quic, decided bool) {
 	if _, ok := e.quic.pool.Shared(h3Key(r)); ok {
 		return true, true

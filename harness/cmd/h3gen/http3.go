@@ -146,11 +146,9 @@ func firstFrames(c *conn) map[uint64]position {
 	return out
 }
 
-// uniStreams derives the client's unidirectional streams by stream ID:
-// their types the same on every connection, a stream ID never used taking
-// the one type no other stream has; each opened at the handshake (with the
-// control stream, on every connection) or with the first request that
-// inserts into the dynamic table (on those connections only).
+// uniStreams derives the client's unidirectional streams by ID: types fixed
+// across connections, each opened at the handshake or with the first
+// dynamic-table insert.
 func uniStreams(done []*conn, e *collector) []profile.H3UniStream {
 	types := map[int]uint64{}
 	maxIndex := 0
@@ -197,10 +195,8 @@ func uniStreams(done []*conn, e *collector) []profile.H3UniStream {
 	return out
 }
 
-// openRule is when stream id opens: at the handshake if every connection
-// opens it in the control stream's packet, on the first insert if it opens
-// in the packet of the first request whose section uses the dynamic table
-// and only where one does.
+// openRule is when stream id opens: at the handshake, or on the first
+// request using the dynamic table and only where one does.
 func openRule(done []*conn, id, typ uint64, e *collector) string {
 	if typ == quictrace.StreamControl {
 		return profile.H3OpenAtHandshake
@@ -293,18 +289,14 @@ func earlyRequestFirst(done []*conn, e *collector) bool {
 	return allSame(vs, done[0], "0-RTT request before the control stream", e)
 }
 
-// pendingRequestMillis bounds how soon after the Finished a full
-// handshake's first request must leave to have been waiting for the
-// connection (Safari's 0.7–2.4 ms); the others' came from later script or
-// parsing, 47 ms on.
+// pendingRequestMillis bounds how soon after Finished a full handshake's
+// first request must leave to count as waiting (Safari: 0.7–2.4 ms;
+// script-driven ones start at 47 ms).
 const pendingRequestMillis = 20
 
-// requestsAfterConfirmed: on every completed full handshake whose first
-// request was waiting for it (sent within pendingRequestMillis of the
-// Finished), that request leaves in a packet acknowledging a 1-RTT packet
-// newer than any the client acknowledged before: one the server sent
-// after the client's Finished, its HANDSHAKE_DONE (Safari). None waiting:
-// not measured.
+// requestsAfterConfirmed: whether a waiting first request leaves only after
+// acknowledging a server packet sent after the client's Finished (Safari's
+// HANDSHAKE_DONE). Not measured without a waiting request.
 func requestsAfterConfirmed(done []*conn, e *collector) bool {
 	var vs []bool
 	for _, c := range done {
@@ -489,10 +481,9 @@ func huffman(done []*conn, e *collector) profile.HuffmanRule {
 	return profile.HuffmanShorter
 }
 
-// priorityUpdate: on every connection, each request with a priority
-// header has a PRIORITY_UPDATE for its stream with the same value, read no
-// later than its HEADERS (or later where sampleGaps pins
-// "priority_update <path>"), and no other; or no connection sends any.
+// priorityUpdate: each request with a priority header gets a matching
+// PRIORITY_UPDATE no later than its HEADERS (unless sampleGaps pins
+// "priority_update <path>"), or no connection sends any.
 func priorityUpdate(s *captureSet, done []*conn, e *collector) bool {
 	var vs []bool
 	for _, c := range done {

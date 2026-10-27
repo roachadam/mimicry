@@ -74,13 +74,9 @@ func frame(first byte, payload []byte) []byte {
 	}), payload...)
 }
 
-// What a server sends is read as RFC 6455 says (its section 5.7
-// examples: a text frame, a fragmented one with a ping inside, 16- and
-// 64-bit lengths), and what it may not send fails the socket before
-// anything is buffered: masked frames, lengths of 2^63 and more or past
-// MaxMessage, long or fragmented control frames, reserved opcodes and
-// bits, continuations out of place, a 1-byte close. A ping is answered
-// with its payload, a close with its code and reason.
+// What a server sends is read as RFC 6455 says (its section 5.7 examples),
+// and what it may not send fails the socket before anything is buffered.
+// Pings and closes are answered with their payload, code and reason.
 func TestReadingServerFrames(t *testing.T) {
 	hello := []byte("Hello")
 	long := func(n int) []byte {

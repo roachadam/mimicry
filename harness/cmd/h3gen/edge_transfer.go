@@ -84,11 +84,9 @@ func mode(vs []int) (value, count int) {
 	return value, count
 }
 
-// ack derives the bulk acknowledgement rule from every download. The
-// rule is exact when one advance makes up nine in ten of the ACKs after
-// the first run of shorter ones (Chrome's warm-up); batched otherwise,
-// its Every the smallest advance that makes up 5% of the ACKs, with
-// fewer than 1% shorter.
+// ack derives the bulk acknowledgement rule from every download: exact if
+// one advance makes up 90% of ACKs after Chrome's warm-up run, else
+// batched at the smallest advance covering 5% with under 1% shorter.
 func (s *edgeSet) ack(e *collector) profile.QUICAck {
 	var out profile.QUICAck
 	for i, d := range s.downloads(e) {
@@ -147,20 +145,14 @@ func (s *edgeSet) ack(e *collector) profile.QUICAck {
 // MiB and Firefox's 3 MiB stream steps at most).
 const creditSlack = 0.02
 
-// packetOverhead estimates the bytes of a server 1-RTT packet that are not
-// stream data: its header, AEAD tag and STREAM frame header. The recorder
-// does not open the server's 1-RTT payloads, so the bytes a client had
-// received when it sent a frame are its server packets' sizes less this
-// (Chrome's MAX_STREAM_DATA then reads 6.29–6.41 MB above them, its
-// window 6.29 MB).
+// packetOverhead estimates the non-stream bytes of a server 1-RTT packet.
+// The recorder can't decrypt server 1-RTT payloads, so received bytes are
+// packet sizes less this.
 const packetOverhead = 30
 
-// credit derives the credit rules from every download: each raise of
-// MAX_DATA and of the download stream's MAX_STREAM_DATA comes window /
-// divisor after the last (window the initial transport parameter), the
-// divisor from the median step over every sample; or, with
-// ConnectionStreamWindow, MAX_DATA is the bytes received then plus the
-// stream window (the median within 10%), not plus the connection's.
+// credit derives MAX_DATA and MAX_STREAM_DATA raise rules from every
+// download: a window/divisor step (median over samples), or with
+// ConnectionStreamWindow, MAX_DATA as received bytes plus stream window.
 func (s *edgeSet) credit(q *profile.QUIC, e *collector) profile.QUICCredit {
 	var out profile.QUICCredit
 	window := func(id profile.TransportParameterID) float64 {

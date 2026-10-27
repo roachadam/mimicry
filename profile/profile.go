@@ -1,3 +1,7 @@
+// Package profile defines a browser profile, split by concern (TLS, HTTP/2,
+// HTTP/1.1, headers by request kind, cookies, proxies, redirects, connection
+// sharing), and loads and validates it from JSON, the format the harness
+// writes browser captures in. It imports only the standard library.
 package profile
 
 import (
@@ -15,15 +19,12 @@ type Profile struct {
 	Version  string `json:"version"`
 	Platform string `json:"platform"`
 	// Deprecated marks a built-in profile older than the newest five
-	// versions of its browser on its platform (decision 0035): kept, and
-	// still tested in a full run, but no longer refreshed.
+	// versions of its browser on its platform. See decision 0035.
 	Deprecated bool `json:"deprecated,omitempty"`
-	// CapturesFrom names, per capture scenario ("cookies", "h3-page"),
-	// the earlier profile of the same browser and platform whose captures
-	// the harness checks this profile against instead of its own: the
-	// scenario was not recaptured for this version (decision 0035). The
-	// named profile holds its own captures for the scenario. Only the
-	// harness reads it; the client ignores it.
+	// CapturesFrom names, per capture scenario ("cookies", "h3-page"), the
+	// earlier profile whose captures the harness checks this one against,
+	// because the scenario was not recaptured. Only the harness reads it.
+	// See decision 0035.
 	CapturesFrom map[string]string `json:"captures_from,omitempty"`
 
 	TLS TLS `json:"tls"`
@@ -32,10 +33,9 @@ type Profile struct {
 	// Headers of a top-level navigation request over HTTP/2, in order: the
 	// profile's base request (KindNavigate in the client).
 	Headers []Header `json:"headers"`
-	// HTTP1 describes the same request over HTTP/1.1, which browsers send
-	// with a header set, order and casing of their own. Nil writes Headers
-	// in canonical casing after Host and Connection. Set, every kind needs
-	// its HTTP/1.1 list too.
+	// HTTP1 describes the same request over HTTP/1.1. Nil writes Headers in
+	// canonical casing after Host and Connection; set, every kind needs its
+	// HTTP/1.1 list too.
 	HTTP1 *HTTP1 `json:"http1,omitempty"`
 	// Variants are the orders the navigation takes otherwise (a form POST),
 	// as Kind.Variants.
@@ -57,12 +57,10 @@ type Profile struct {
 	// Connections are how the browser shares connections: its HTTP/1.1
 	// connections per host and HTTP/2 coalescing. Required.
 	Connections *Connections `json:"connections,omitempty"`
-	// WebSocket is how the browser speaks on WebSockets: its extension
-	// offer, compression, framing over HTTP/2 and how it ends a socket's
-	// transport. Nil: not measured, so opening a WebSocket is an error.
+	// WebSocket is how the browser speaks on WebSockets. Nil: not measured,
+	// so opening a WebSocket is an error.
 	WebSocket *WebSocket `json:"websocket,omitempty"`
-	// QUIC is how the browser speaks QUIC for HTTP/3, and HTTP3 what it
-	// sends over it and when it moves an origin there; TLS.QUIC is its
+	// QUIC and HTTP3 are how the browser speaks HTTP/3; TLS.QUIC is its
 	// ClientHello. Both or neither. Nil: not measured, so HTTP/3 is never
 	// used.
 	QUIC  *QUIC  `json:"quic,omitempty"`
@@ -89,10 +87,9 @@ func Parse(data []byte) (*Profile, error) {
 	return p, nil
 }
 
-// Decode decodes a profile from JSON without validating it, as Encode
-// writes one: for harness captures, which record one request and lack what
-// a complete profile needs. Unknown, miscased and repeated keys and trailing
-// data are errors, so a typo cannot silently drop a setting.
+// Decode decodes a profile from JSON without validating it, for harness
+// captures, which lack what a complete profile needs. Unknown, miscased and
+// repeated keys and trailing data are errors.
 func Decode(data []byte) (*Profile, error) {
 	var p Profile
 	if err := jsonv2.Unmarshal(data, &p, jsonv2.RejectUnknownMembers(true)); err != nil {
@@ -101,9 +98,8 @@ func Decode(data []byte) (*Profile, error) {
 	return &p, nil
 }
 
-// Encode writes p as indented JSON with a trailing newline, the format of the
-// built-in profiles and of harness captures. It does not validate p, so that a
-// capture of unusual browser behaviour can still be recorded.
+// Encode writes p as indented JSON with a trailing newline. It does not
+// validate p, so captures of unusual browser behaviour can be recorded.
 func Encode(p *Profile) ([]byte, error) {
 	out, err := json.MarshalIndent(p, "", "  ")
 	if err != nil {

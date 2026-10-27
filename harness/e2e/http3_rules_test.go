@@ -13,17 +13,11 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// What a browser draws per connection (Chrome's CRYPTO cuts, PINGs and
-// transport parameter order, Firefox's first packet number and DCID
-// length, Safari's parameter rotation, GREASE lengths, ECH payload
-// lengths, initial_rtt, ACK delays, the spin bit) cannot be held to the
-// three samples' values: one draw of mimicry's would fail at random. Each
-// is checked here against the rule the profile states instead, for
-// mimicry's connections and for every connection of the browser's h3
-// captures alike: a rule that does not describe the browser fails on its
-// captures, an implementation that breaks it fails on mimicry's, and
-// neither depends on a draw. The rest of the connection (sizes, layouts,
-// values the samples agree on) is compared with the samples as features.
+// What a browser draws per connection (CRYPTO cuts, PINGs, parameter order,
+// packet numbers, GREASE and ECH lengths, ACK delays, the spin bit) cannot
+// be compared with three samples without failing at random. Each is held to
+// the profile's rule instead, on mimicry's connections and on every browser
+// connection alike, so a wrong rule fails on the captures.
 
 // quicRuleViolations lists how c breaks p's rules for what is random per
 // connection or depends on timing; logf logs what a rule allowed only for
@@ -71,12 +65,10 @@ func (r *ruleCheck) packets() []*quictrace.Packet {
 	return out
 }
 
-// packetNumbers: PacketNumbersShared is one rising counter from 1, the
-// second Initial's number in 2 bytes without a token, else 1; otherwise
-// each space starts at 0 (1-RTT after the 0-RTT packets, which share its
-// space), the Initial space at 1 to 1024 with PacketNumbersRandomInitial,
-// and the first Initial's number is as long as nothing acknowledged
-// makes it.
+// packetNumbers: PacketNumbersShared is one rising counter from 1 (the
+// second Initial's number 2 bytes long without a token); otherwise each space
+// starts at 0, 1-RTT after 0-RTT's, the Initial at 1 to 1024 with
+// PacketNumbersRandomInitial; the first Initial's number is minimal length.
 func (r *ruleCheck) packetNumbers() {
 	pkts := r.packets()
 	if r.q.PacketNumbers == profile.PacketNumbersShared {
@@ -299,15 +291,10 @@ func (r *ruleCheck) crypto() {
 	}
 }
 
-// datagramPadding: every datagram carrying an Initial packet is padded to
-// QUIC.DatagramSize (one with the give-up's CONNECTION_CLOSE to its
-// size); with PaddingTrailing by PADDING ending a 1-RTT packet that ends
-// it, else after its packets. Whether a 1-RTT packet shares a datagram
-// with an Initial at all is timing, so whether a connection sends PADDING
-// is not compared with the samples (packetFeatures): Firefox's reply to
-// the server's Initial carries its Handshake and padded 1-RTT packets
-// only where it read the server's Handshake datagram first, which a
-// loaded machine's client may not.
+// datagramPadding: every datagram with an Initial packet is padded to
+// QUIC.DatagramSize, with PaddingTrailing inside a final 1-RTT packet, else
+// after the packets. Whether a 1-RTT packet shares the datagram is timing, so
+// PADDING presence is not compared with the samples.
 func (r *ruleCheck) datagramPadding() {
 	giveUp := r.q.Loss.Fresh
 	if r.c.Resumed {
@@ -336,13 +323,10 @@ func (r *ruleCheck) datagramPadding() {
 	}
 }
 
-// sniCutRule checks neqo's SNI slicing: the first packet carries the tail
-// piece, then the head piece, of the ClientHello cut at the middle of its
-// server_name host, the longer piece shortened so that both make len/n
-// bytes (n packets); the tail piece gets what it was planned, the head
-// piece what fits after it (filling the datagram, but for the byte
-// cryptoLeftover allows); the rest follows in order, one frame per
-// packet.
+// sniCutRule checks neqo's SNI slicing: the first packet carries the tail,
+// then the head, of the ClientHello cut mid server_name, both together
+// len/n bytes; the head piece fills the datagram (but for cryptoLeftover's
+// byte); the rest follows in order, one frame per packet.
 func sniCutRule(hello []byte, host string, pkts []helloPacket, datagramSize int) error {
 	length := len(hello)
 	at := bytes.Index(hello, []byte(host))
@@ -391,13 +375,10 @@ func sniCutRule(hello []byte, host string, pkts []helloPacket, datagramSize int)
 	return nil
 }
 
-// cryptoLeftover reports whether d's trailing bytes are only what the
-// CRYPTO frame ending its last packet could not use: too few for one more
-// byte of data, whose Length field would grow too (67 bytes take 63 bytes
-// of data in a 66-byte frame; 64 would need 68). neqo sizes the frame so
-// (write_chunk), puts no PADDING in long-header packets and pads the
-// datagram after them (pad_initial): its first packet ends a byte short
-// where the head piece's room falls there, a draw no sample made.
+// cryptoLeftover reports whether d's trailing bytes are too few for one more
+// byte of CRYPTO data, whose Length field would grow (67 bytes hold 63 data
+// bytes in a 66-byte frame). neqo then pads after the packets, leaving its
+// first packet a byte short.
 func cryptoLeftover(d *quictrace.Datagram) bool {
 	if d.Trailing == 0 || len(d.Packets) == 0 {
 		return false
@@ -410,12 +391,10 @@ func cryptoLeftover(d *quictrace.Datagram) bool {
 	return d.Trailing < 1+quicwire.SizeVarint(n+1)-quicwire.SizeVarint(n)
 }
 
-// shuffleRule checks quiche's chaos protection: two packets, the first
-// carrying the head [0, h) (h in Head) and the tail, floor((len-4)/2)
-// bytes in all, the second the middle; in each, at most AddedFrames.Max
-// more CRYPTO frames than regions and at most Pings.Max PINGs, and at
-// least Pings.Min PINGs while padding is left. (The added frames have no
-// lower bound: a draw that picks a 1-byte frame adds none.)
+// shuffleRule checks quiche's chaos protection: two packets, the first with
+// the head [0, h) and the tail, floor((len-4)/2) bytes in all, the second the
+// middle; each with at most AddedFrames.Max extra CRYPTO frames and
+// Pings.Min to Pings.Max PINGs while padding is left.
 func (r *ruleCheck) shuffleRule(length int, pkts []helloPacket) {
 	cr := r.q.Crypto
 	if cr.Head == nil || cr.AddedFrames == nil || cr.Pings == nil {
@@ -625,13 +604,9 @@ func (r *ruleCheck) spinBit() {
 	}
 }
 
-// ackDelays: with AckDelayActual every 1-RTT ACK's delay is at most twice
-// the max_ack_delay the client announced (25 ms without one; browsers'
-// timers overshoot it by up to a fifth), less the time this process was
-// stalled while the client held it (stalls; a recorded connection's only,
-// mimicry's): a loaded machine holds the client's ACK timer, and the
-// client reports the delay it took; with AckDelayConstant they are one
-// value, from AckDelayConstant.
+// ackDelays: with AckDelayActual every 1-RTT ACK delay is at most twice the
+// announced max_ack_delay (25 ms default; browser timers overshoot), less
+// mimicry's stall time; with AckDelayConstant they all equal it.
 func (r *ruleCheck) ackDelays() {
 	type ack struct {
 		delay uint64

@@ -1,14 +1,10 @@
 // Package testprofiles chooses the profiles the harness's tests check
-// against their captures (decision 0035), and builds the synthetic profile
-// that proves capture inheritance.
+// (decision 0035) and builds the synthetic profile that proves capture
+// inheritance.
 //
-// By default a test checks the newest profile of each browser
-// (profiles.Chrome, Firefox, Safari). MIMICRY_PROFILES=all checks every
-// supported one (profiles.Supported; moon run harness:test-full), and a
-// comma-separated list checks those named: built-in profile names, or paths
-// to profile files (ending in .json) for a profile that is not built in.
-//
-// Imports: the library's profile and profiles, the harness's capture.
+// By default it picks the newest profile of each browser;
+// MIMICRY_PROFILES=all picks every supported one, and a comma-separated list
+// picks built-in names or paths to .json profile files.
 package testprofiles
 
 import (
@@ -134,14 +130,10 @@ func builtinJSON(name string) ([]byte, error) {
 // profile's (chrome-156-macos is one since its refresh).
 const InheritingName = "chrome-999-macos"
 
-// Inheriting builds a synthetic profile that proves capture inheritance:
-// chrome-155-macos renamed chrome-999-macos, every version string in it
-// (Chrome/155.0.0.0 in each user-agent, each sec-ch-ua, whose brand order
-// and GREASE brand change with the major version) set to version 999's,
-// and every scenario chrome-155-macos has captures of but the default
-// (replays included) inherited from it, so each of its checks runs against
-// chrome-155's captures through the version rewriter. edit, if not nil,
-// changes the JSON text further. It returns the profile's JSON.
+// Inheriting builds chrome-155-macos as chrome-999-macos, every version
+// string set to 999's, inheriting every non-default scenario's captures from
+// chrome-155, so its checks run through the version rewriter. edit, if not
+// nil, changes the JSON further. It returns the profile's JSON.
 func Inheriting(edit func([]byte) []byte) ([]byte, error) {
 	const source = "chrome-155-macos"
 	data, err := builtinJSON(source)

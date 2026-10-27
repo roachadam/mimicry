@@ -1,3 +1,12 @@
+// Package zdeflate is permessage-deflate (RFC 7692) as the browsers write
+// it. Writer reproduces byte for byte the deflate of zlib (Safari),
+// Chromium's zlib (Chrome) or zlib-rs (Firefox), keeping the context from
+// message to message until Reset. Reader inflates a peer's messages with
+// compress/flate. Raw window bits are 9 to 15: every library rejects 8.
+//
+// This package is an altered version of zlib, Chromium's zlib and zlib-rs,
+// translated to Go and reduced to deflate; it is not the original software.
+// Their notices are in LICENSE-zlib, LICENSE-chromium and LICENSE-zlib-rs.
 package zdeflate
 
 import (
@@ -142,11 +151,10 @@ var syncTrailer = [4]byte{
 	0xff,
 }
 
-// Writer compresses the messages of one permessage-deflate socket, each as
-// its library's deflate called with the whole message and Z_SYNC_FLUSH on
-// a stream opened by deflateInit2(level, Z_DEFLATED, -windowBits, 8,
-// Z_DEFAULT_STRATEGY), the context kept from message to message unless
-// Reset is called. It is not safe for concurrent use.
+// Writer compresses the messages of one permessage-deflate socket as its
+// library's deflate with Z_SYNC_FLUSH, on a raw stream at memLevel 8 and
+// the default strategy. The context carries over until Reset. It is not
+// safe for concurrent use.
 type Writer struct {
 	c compressor
 }
@@ -161,10 +169,9 @@ type compressor interface {
 }
 
 // NewWriter returns a Writer for lib's deflateInit2(level, Z_DEFLATED,
-// -windowBits, 8, Z_DEFAULT_STRATEGY). It returns an error where the
-// library rejects the arguments, and for a level the port does not cover:
-// zlib's and Chromium's are 1-9, zlib-rs's only 6 (Firefox's
-// Z_DEFAULT_COMPRESSION).
+// -windowBits, 8, Z_DEFAULT_STRATEGY). It fails where the library rejects
+// the arguments, and for a level the port lacks: zlib and Chromium cover
+// 1-9, zlib-rs only 6 (Firefox's Z_DEFAULT_COMPRESSION).
 func NewWriter(lib Library, level, windowBits int) (*Writer, error) {
 	// Every deflateInit2 here takes window bits 8 to 15 but 8 only with a
 	// zlib header (where it becomes 9): a raw stream's are 9 to 15 (zlib's
@@ -191,14 +198,10 @@ func NewWriter(lib Library, level, windowBits int) (*Writer, error) {
 	return nil, fmt.Errorf("zdeflate: unknown library %d", lib)
 }
 
-// Message returns p compressed as one permessage-deflate message: the
-// output of deflate(Z_SYNC_FLUSH) with p as its input, the sync flush's
-// 00 00 ff ff cut. The compression context carries over to the next call.
-//
-// An empty p gives 00: the empty stored block a sync flush with no input
-// writes, which leaves the context as it was. Neither library writes it
-// after a sync flush (deflate returns Z_BUF_ERROR): Chrome writes it by
-// hand, and Firefox sends an empty message uncompressed.
+// Message returns p as one permessage-deflate message: deflate(Z_SYNC_FLUSH)
+// output with the trailing 00 00 ff ff cut. The context carries over to the
+// next call. An empty p gives 00, the empty stored block, which no library
+// writes after a sync flush: Chrome writes it by hand.
 func (w *Writer) Message(p []byte) []byte {
 	if len(p) == 0 {
 		return []byte{
@@ -215,11 +218,9 @@ func (w *Writer) Reset() {
 	w.c.reset()
 }
 
-// zlibWriter is zlib 1.3.1's deflate stream, or Chromium's: one
-// deflate(Z_SYNC_FLUSH) call per message, with all the output it needs.
-//
-// Fields follow zlib's deflate_state, with its unsigned types (uInt and
-// Pos as uint32, long as int64), so the arithmetic wraps where zlib's does.
+// zlibWriter is zlib 1.3.1's deflate stream, or Chromium's: one call per
+// message. Fields keep deflate_state's unsigned types (uInt and Pos as
+// uint32, long as int64), so the arithmetic wraps where zlib's does.
 type zlibWriter struct {
 	cfg config
 	// chromium selects Chromium's changes (chromium_zlib_hash): a hash
@@ -419,12 +420,10 @@ func (w *zlibWriter) fillWindow() {
 	// later was written as zlib writes it, so it holds the same values.
 }
 
-// longestMatch is zlib's longest_match: the longest match for the string
-// at strstart along the hash chain from curMatch, longer than prevLength,
-// with matchStart set to where it starts. Chromium's (with
-// DEFLATE_COMPARE256_64LE, as Chrome builds it for x64 and arm64)
-// measures a candidate from its third byte, which its hash does not
-// guarantee equal.
+// longestMatch is zlib's longest_match from curMatch along the hash chain,
+// longer than prevLength, setting matchStart. Chromium's (with
+// DEFLATE_COMPARE256_64LE, as built for x64 and arm64) measures a candidate
+// from its third byte, which its hash does not guarantee equal.
 func (w *zlibWriter) longestMatch(curMatch uint32) uint32 {
 	chainLength := w.cfg.maxChain
 	scan := int(w.strstart)

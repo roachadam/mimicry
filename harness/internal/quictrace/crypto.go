@@ -219,10 +219,8 @@ func (k *keys) next() (*keys, error) {
 	return n, nil
 }
 
-// initialKeys derives the keys protecting a client's Initial packets, or
-// with server the server's, from the Destination Connection ID of the
-// client's first Initial (RFC 9001, section 5.2), in a version's salt and
-// labels.
+// initialKeys derives the client's (or with server, the server's) Initial
+// keys from the client's first DCID (RFC 9001, section 5.2).
 func initialKeys(version uint32, dcid []byte, server bool) (*keys, error) {
 	salt, ok := initialSalts[version]
 	if !ok {
@@ -317,10 +315,8 @@ type opened struct {
 // sample.
 var errShortPacket = errors.New("packet too short for header protection")
 
-// unprotect removes header protection from p (a copy is made), decodes the
-// packet number against the largest one received in its space (-1 for
-// none), and opens the payload. pnOffset is where the packet number
-// starts; short is a short-header (1-RTT) packet.
+// unprotect removes header protection from a copy of p, decodes the packet
+// number against the space's largest (-1 for none), and opens the payload.
 func (k *keys) unprotect(p []byte, pnOffset int, short bool, largest int64) (opened, error) {
 	header, o, err := k.unmask(p, pnOffset, short, largest)
 	if err != nil {
@@ -337,9 +333,7 @@ func (k *keys) unprotect(p []byte, pnOffset int, short bool, largest int64) (ope
 	return o, nil
 }
 
-// unmask removes header protection from p (a copy is made) and decodes the
-// packet number as unprotect does, returning the unprotected header and
-// its fields, without the payload.
+// unmask is unprotect without opening the payload.
 func (k *keys) unmask(p []byte, pnOffset int, short bool, largest int64) ([]byte, opened, error) {
 	if len(p) < pnOffset+4+16 {
 		return nil, opened{}, errShortPacket

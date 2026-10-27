@@ -15,15 +15,10 @@ import (
 	"github.com/roachadam/mimicry/harness/internal/server"
 )
 
-// Over HTTP/1.1, mimicry's navigations are the browser's line for line:
-// header names in the browser's casing and order, the same values, and one
-// Cookie line in the browser's cookie order. The first navigation is a
-// typed URL; the second (/nav) a navigation from the page, with the
-// cookies the page set through the profile's jar. The page navigates by
-// script, without user activation, so the caller suppresses the one header
-// that cannot express (Sec-Fetch-User). Host and URLs are compared with
-// the authority replaced, since the browser was served on another name and
-// port.
+// Over HTTP/1.1, mimicry's two navigations (a typed URL, then /nav from the
+// page with its cookies) are the browser's line for line: casing, order,
+// values. Sec-Fetch-User is suppressed (script navigation); the authority is
+// normalised.
 func TestHTTP1MatchesBrowserTrace(t *testing.T) {
 	sc, err := server.ScenarioByName("http1")
 	if err != nil {

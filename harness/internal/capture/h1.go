@@ -29,10 +29,8 @@ type H1Request struct {
 }
 
 // Page is a whole page load across every connection and host it used:
-// each HTTP/2 connection's trace, every HTTP/1.1 request, every
-// connection's handshake, the WebSockets the page opened with what its
-// script saw of each (the websocket scenarios), and every QUIC connection
-// with its HTTP/3 (the h3 scenarios).
+// HTTP/2 traces, HTTP/1.1 requests, TLS handshakes, WebSockets and QUIC
+// connections.
 type Page struct {
 	H2          []*h2trace.Trace `json:"h2"`
 	H1          []H1Request      `json:"h1,omitempty"`
@@ -42,14 +40,11 @@ type Page struct {
 	// QUIC are the QUIC connections, in the order their first datagrams
 	// arrived; their handshakes are not in Connections, which are TCP's.
 	QUIC []*quictrace.Conn `json:"quic,omitempty"`
-	// Conditions are browser settings the capture tool changed for this
-	// capture beyond its defaults, each saying why (see cmd/capture's
-	// -h3-local-roots).
+	// Conditions are browser settings the capture tool changed from their
+	// defaults, each saying why (cmd/capture's -h3-local-roots).
 	Conditions []string `json:"conditions,omitempty"`
-	// Start is when the server started serving the page, the zero of its
-	// times in ms, on the recording process's clock: a test lines the page
-	// up with its own by it. Not stored, so zero in a capture read from a
-	// file.
+	// Start is the zero of the page's millisecond times, on the recording
+	// process's clock. Not stored: zero in a capture read from a file.
 	Start time.Time `json:"-"`
 }
 
@@ -58,10 +53,9 @@ type Page struct {
 type Connection struct {
 	Host     string `json:"host"`
 	Protocol string `json:"protocol"`
-	// Millis is when its ClientHello arrived, since the server started
-	// serving the page (the clock of Page.QUIC), so a TCP connection and
-	// a QUIC one raced for the same host show as such. Zero in captures
-	// made before it was kept.
+	// Millis is when its ClientHello arrived, on Page.QUIC's clock, so a
+	// TCP and a QUIC connection racing for one host show as such. Zero in
+	// older captures.
 	Millis int64 `json:"ms,omitempty"`
 	// Resumed reports a ClientHello offering an earlier session (TLS 1.3
 	// pre_shared_key, or a TLS 1.2 session ticket) instead of a full

@@ -4,10 +4,9 @@ import "context"
 
 type partitionKey struct{}
 
-// WithPartition returns ctx asking for connections of partition p only:
-// requests in different partitions never share a connection, as a browser
-// keeps credential-less requests or a cross-site frame's apart. Empty is
-// the default partition.
+// WithPartition returns ctx asking for connections of partition p only;
+// partitions never share connections (decision 0011). Empty is the
+// default partition.
 func WithPartition(ctx context.Context, p string) context.Context {
 	if p == "" {
 		return ctx

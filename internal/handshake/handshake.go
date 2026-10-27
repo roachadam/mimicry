@@ -1,3 +1,6 @@
+// Package handshake performs the TLS handshake and ALPN from a fingerprint
+// plan and keeps session tickets for resumption. Config.VerifyConnection
+// runs in every handshake, resumed ones included.
 package handshake
 
 import (
@@ -28,9 +31,8 @@ type Config struct {
 	// Ticket is the session this connection resumes; the hello must then
 	// carry pre_shared_key (fingerprint.Plan.ResumedHello).
 	Ticket *Ticket
-	// VerifyConnection, when set, runs once the server's certificate is
-	// verified, on every handshake, resumed ones included (with the
-	// session's chains), before any ticket the connection receives is
+	// VerifyConnection, when set, runs after certificate verification on
+	// every handshake, resumed ones included, before any received ticket is
 	// kept; an error fails the handshake.
 	VerifyConnection func(tls.ConnectionState) error
 }
@@ -89,10 +91,8 @@ func State(cs utls.ConnectionState) *tls.ConnectionState {
 	}
 }
 
-// QUICConfig is the TLS configuration of a QUIC connection's handshake
-// (internal/quic.DialConfig.TLS): cfg's server name and roots, and its
-// tickets. A QUIC connection stores the server's tickets itself, with
-// what it needs for 0-RTT, through the same cache.
+// QUICConfig is the TLS configuration of a QUIC handshake: cfg's server
+// name, roots and ticket cache, which QUIC uses for its 0-RTT tickets too.
 func QUICConfig(cfg Config) *utls.Config {
 	return tlsConfig(cfg)
 }
@@ -289,10 +289,9 @@ func extension(e *profile.Extension) (utls.TLSExtension, error) {
 	return dataExtension(e)
 }
 
-// What uTLS sends regardless of the profile: the first ClientHello's record
-// version (conn.go writes TLS 1.0 before a version is negotiated),
-// legacy_version, the session ID's length, GREASE ECH's X25519 encapsulated
-// key, and the AEAD tag every HPKE AEAD adds to the payload.
+// What uTLS sends regardless of the profile: the first record's version,
+// legacy_version, the session ID length, GREASE ECH's X25519 key and the
+// HPKE AEAD tag.
 const (
 	recordVersion   profile.Code = 0x0301
 	legacyVersion   profile.Code = 0x0303

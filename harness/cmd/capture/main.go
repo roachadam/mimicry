@@ -1,15 +1,11 @@
 // Command capture launches the installed browsers against the capture server
-// and writes each browser's capture to the output directory, logging its JA4
-// and Akamai fingerprints. A scenario whose capture exists is skipped after
-// its first sample, once the user agent names it. -summary records what each
-// scenario wrote and how long it took; -preflight only reports what a capture
-// here needs (cmd/refresh runs both, here and on another Mac over ssh).
+// and writes each browser's capture to the output directory. -summary records
+// what each scenario wrote; -preflight only reports what a capture here needs
+// (cmd/refresh runs both).
 //
-// Each browser is sampled several times (-samples, or name:samples in
-// -scenarios), each time on a fresh server and port so that no connection or
-// session carries over. If the samples differ only in extension order, the
-// browser shuffles its extensions; any other difference is an error, because
-// the profile could not describe it.
+// Each browser is sampled several times (-samples), each on a fresh server and
+// port. Samples differing only in extension order mean the browser shuffles;
+// any other difference is an error, since a profile cannot describe it.
 package main
 
 import (
@@ -254,10 +250,9 @@ func run() error {
 	return skipped
 }
 
-// captureBrowser captures each scenario. Profiles come from the default
-// scenario; every other scenario's first request is compared with it, since
-// a browser that sends it differently under other server behaviour is a
-// finding.
+// captureBrowser captures each scenario. Every scenario's first request is
+// compared with the default scenario's: a browser that varies it with server
+// behaviour is a finding.
 func captureBrowser(ctx context.Context, b *browser.Browser, opts options) error {
 	var base *capture.Capture
 	for _, sc := range opts.scenarios {
@@ -338,13 +333,10 @@ func captureScenario(ctx context.Context, b *browser.Browser, sc *server.Scenari
 	return c, nil
 }
 
-// errPageMoved is a sample whose page left the connection that carried its
-// navigation before finishing: Chrome retires every open connection when
-// it rebuilds its certificate verifiers, which a fresh profile does within
-// seconds of launch (chromeWarmup waits that out, but a cold Mac can take
-// longer). The connection that finished the page then starts with a
-// subresource, not the navigation the profile comes from, so the sample is
-// taken again rather than recorded.
+// errPageMoved is a sample whose page left its navigation's connection before
+// finishing. Chrome retires open connections when it rebuilds its certificate
+// verifiers soon after launch, sometimes after chromeWarmup on a cold Mac.
+// The sample is retaken, since the finishing connection lacks the navigation.
 var errPageMoved = errors.New("the page moved to another connection before /done")
 
 // maxRetakes is how many times a sample whose page moved is taken again.
@@ -546,10 +538,9 @@ func listen(ctx context.Context, udp bool) (net.Listener, net.PacketConn, error)
 	return nil, nil, errors.New("no port free for both TCP and UDP")
 }
 
-// await returns the first complete capture from the named browser. Captures
-// from other browsers, or with only a ClientHello, are skipped. A page
-// across several hosts spans many connections; only the one asking for
-// /done carries it.
+// await returns the first complete capture from the named browser, skipping
+// other browsers and hello-only captures. Only the connection asking for
+// /done carries a multi-host page.
 func await(ctx context.Context, name string, captures <-chan *capture.Capture, timeout time.Duration, page bool) (*capture.Capture, error) {
 	deadline := time.After(timeout)
 	for {

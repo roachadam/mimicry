@@ -8,8 +8,7 @@ import (
 
 // transportParameterNames are the transport parameters browsers send (RFC
 // 9000 section 18.2; RFC 9221; RFC 9287; RFC 9368; Google QUIC's;
-// draft-ietf-quic-ack-frequency's min_ack_delay: drafts 01 and 02's
-// 0xff02de1a, which Firefox sends, and later drafts' 0xff04de1b).
+// min_ack_delay: 0xff02de1a in ack-frequency drafts 01-02, 0xff04de1b later).
 var transportParameterNames = map[uint64]string{
 	0x00:       "original_destination_connection_id",
 	0x01:       "max_idle_timeout",
@@ -74,11 +73,9 @@ func IsGreaseTransportParameter(id uint64) bool {
 	return id >= 27 && (id-27)%31 == 0
 }
 
-// ParseTransportParameters decodes the body of a quic_transport_parameters
-// extension (0x39): every parameter in order. Integers are decoded where
-// the parameter is one; other values are kept as hex, connection IDs only
-// by length. An unknown parameter is kept as hex, with its value too if
-// its bytes are exactly one variable-length integer.
+// ParseTransportParameters decodes a quic_transport_parameters (0x39) body,
+// every parameter in order. Integer values are decoded, others kept as hex,
+// connection IDs only by length.
 func ParseTransportParameters(data []byte) ([]TransportParameter, error) {
 	var out []TransportParameter
 	r := &reader{

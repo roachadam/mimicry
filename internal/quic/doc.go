@@ -50,22 +50,7 @@
 //
 // # mimicry
 //
-// This is a copy of golang.org/x/net/quic (see UPSTREAM.md) with its TLS
-// handshake on the uTLS fork's QUIC API instead of crypto/tls's
-// (decision 0027). Changes from upstream are listed in UPSTREAM.md and
-// marked "mimicry:" in the code.
-//
-// Dial opens a client connection that builds its packets as a browser
-// does, from the profile's QUIC section (profile.QUIC) and the ClientHello
-// the handshake package builds from the profile's tls.quic: datagram sizes
-// and padding, how the ClientHello is cut into CRYPTO frames, packet
-// numbers, connection IDs, coalescing, ACK timing and delays, the spin
-// bit, transport parameters, tokens, 0-RTT on resumption and the answer to
-// the server's close. Its code is in client*.go; upstream's files carry
-// hooks only. Unlike the limitations above, Dial's connections send 0-RTT
-// and set the spin bit.
-//
-// Imports: internal/quic/quicwire, profile, utls, golang.org/x/crypto and
-// the standard library; its tests also internal/quic/qlog and
-// internal/quic/testcert.
+// A copy of golang.org/x/net/quic with uTLS for TLS (decision 0027); changes
+// are listed in UPSTREAM.md and marked "mimicry:". Dial's browser-shaped
+// client lives in client*.go.
 package quic

@@ -25,10 +25,8 @@ var CORSEdge = &Scenario{
 	},
 }
 
-// CORSEdgeStep is one fetch() of the cors-edge page: to /p/<label> on
-// Host, answered Status with a Location to the same host's
-// /p/<label>.hop1, which is answered the same way up to .hop<Hops>, which
-// is answered 200.
+// CORSEdgeStep is one fetch() of the cors-edge page to /p/<label> on Host,
+// redirected (Status) through .hop1 … .hop<Hops>, the last answered 200.
 type CORSEdgeStep struct {
 	Label string
 	Host  string
@@ -51,19 +49,10 @@ type CORSEdgeStep struct {
 // more than any browser follows (the Fetch standard: 20).
 const corsEdgeChain = 25
 
-// CORSEdgeSteps returns the cors-edge page's fetches, in order:
-//
-//   - acao-redirect.cs: a cross-site GET answered 302 with
-//     Access-Control-Allow-Origin, then 200: the control, whose hop is
-//     requested;
-//   - noacao-redirect.cs: the same 302 without Access-Control-Allow-Origin:
-//     is .hop1 requested at all? noacao-redirect-pf.cs: the same for a
-//     preflighted request (X-Mimicry), its preflight allowed;
-//   - m-<method>-<status>.so: same-origin PUT, DELETE and POST with a body,
-//     answered 301, 302 and 303: .hop1's method, and whether it has the
-//     body (its DATA frames and content-type);
-//   - chain.so: a same-origin GET answered 302 corsEdgeChain times: the
-//     last .hop<n> requested is where the browser stops.
+// CORSEdgeSteps returns the cors-edge page's fetches, in order: cross-site
+// redirects with and without Access-Control-Allow-Origin, same-origin
+// PUT/DELETE/POST redirected 301/302/303, and a corsEdgeChain-long chain.
+// See harness/reports/cors-edge-2026-10-24.md.
 func CORSEdgeSteps() []CORSEdgeStep {
 	steps := []CORSEdgeStep{
 		{Label: "acao-redirect.cs", Host: kindsCrossSite, Status: 302, Hops: 1},
@@ -144,8 +133,8 @@ func (p corsEdgePage) answer(req request) response {
 	return notFound
 }
 
-// corsEdgeScript makes each step's fetch in turn (5 s at most each); a
-// refused one is expected and ignored.
+// corsEdgeScript makes each step's fetch in turn, 5 s at most each;
+// refused ones are ignored.
 func corsEdgeScript(origin func(string) string) string {
 	var b strings.Builder
 	b.WriteString("(async () => {\nconst f = (u, init) => Promise.race([fetch(u, init).then(r => r.text()).catch(() => {}), new Promise(d => setTimeout(d, 5000))]);\n")

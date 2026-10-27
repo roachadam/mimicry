@@ -26,13 +26,10 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// prober opens QUIC connections and speaks HTTP/3 on them as the engine
-// does (internal/engine/native connectH3: the profile's QUIC hello, its
-// resumption and 0-RTT, NEW_TOKEN tokens, the cached RTT, h3.New), but on
-// a watched socket (tap) with a key log, so a run sees what the engine
-// keeps to itself: the server's version, Retry, 0-RTT acceptance, the
-// cipher suite, key updates and the exact error. One prober is one
-// origin's state, as the engine keeps per origin.
+// prober dials QUIC and speaks HTTP/3 as the engine does (native
+// connectH3), but on a tap with a key log so a run sees what the engine
+// hides: version, Retry, 0-RTT acceptance, cipher, key updates, errors.
+// One prober holds one origin's state.
 type prober struct {
 	p     *profile.Profile
 	plan  *fingerprint.Plan
@@ -73,12 +70,10 @@ func (pr *prober) resumes() bool {
 	return pr.plan.Resumes() && pr.p.QUIC.ZeroRTT
 }
 
-// probeConn is one QUIC connection with HTTP/3 on it.
 type probeConn struct {
-	qc  *quic.Conn
-	hc  *h3.Conn
-	tap *tap
-	// name labels its files in the prober's directory.
+	qc   *quic.Conn
+	hc   *h3.Conn
+	tap  *tap
 	name string
 	// offeredPSK: the hello resumed a ticket.
 	offeredPSK bool
@@ -87,14 +82,12 @@ type probeConn struct {
 	dialed time.Duration
 	host   string
 	port   string
-	// keys is the key log file, closed by save.
-	keys *os.File
+	keys   *os.File
 }
 
-// dial opens a connection to peer for host (its server name and
-// :authority), resuming the last ticket where the profile resumes. It is
-// always for a request about to be sent (h3.Options.Pending), as the
-// engine's dials for a request are.
+// dial opens a connection to peer for host, resuming the last ticket
+// where the profile resumes. Like the engine's, every dial is for a
+// pending request (h3.Options.Pending).
 func (pr *prober) dial(ctx context.Context, host string, peer netip.AddrPort, imp impairment) (*probeConn, error) {
 	network, local := "udp4", "0.0.0.0:0"
 	if peer.Addr().Is6() && !peer.Addr().Is4In6() {
@@ -281,7 +274,6 @@ func (c *probeConn) facts() connFacts {
 	return f
 }
 
-// fetched is one request's outcome.
 type fetched struct {
 	Path   string  `json:"path"`
 	Status int     `json:"status"`
@@ -289,8 +281,7 @@ type fetched struct {
 	Bytes  int64   `json:"bytes"`
 	MS     float64 `json:"ms"`
 	Err    string  `json:"error,omitempty"`
-	// sum is the body's SHA-256.
-	sum [32]byte
+	sum    [32]byte
 }
 
 // get sends a GET for path on c with the profile's navigation header

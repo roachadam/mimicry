@@ -7,11 +7,8 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// flight derives how the client answers the server's first flight, from
-// every completed connection: whether it acknowledges the server's
-// Initial packets, whether a full handshake acknowledges in datagrams
-// before its Finished (a resumed one never does: no certificate to check),
-// and whether it coalesces packets.
+// flight derives how the client answers the server's first flight: Initial
+// ACKs, ACKs before Finished on full handshakes, and packet coalescing.
 func flight(s *captureSet, e *collector) (ackInitial, ackBefore, coalesce bool) {
 	var acks, befores []bool
 	var ackConns, beforeConns []*conn
@@ -221,10 +218,8 @@ func closeReply(s *captureSet, e *collector) bool {
 	return closed > 0 && replies == closed
 }
 
-// ackOnly finds the run of ACK-only 1-RTT packets after which the
-// browser makes the next one ack-eliciting: every packet carrying only
-// ACK and MAX_DATA must follow a run of the same length, and no run may be
-// longer. Without such packets, none (Firefox's runs reach 24).
+// ackOnly finds the run length of ACK-only 1-RTT packets after which the
+// browser makes the next ack-eliciting; none without such packets.
 func ackOnly(s *captureSet, e *collector) (int, string) {
 	limit, longest := -1, 0
 	for _, c := range s.done() {

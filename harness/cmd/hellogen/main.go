@@ -1,30 +1,12 @@
-// Command hellogen derives the shape of a browser's ClientHello from its
-// captured ClientHellos, and writes it into the profile and into the
-// capture's own profile JSON:
+// Command hellogen derives the shape of a browser's ClientHello (record and
+// legacy versions, session ID length, key share lengths, ECH) from its
+// captured hellos and writes it into the profile and the capture's JSON.
 //
 //	go run ./cmd/hellogen -captures testdata/captures -profile ../profiles/data/chrome-155-macos.json
 //
-// It reads the default page's <name>.clienthello (every sample's
-// ClientHello, one per line; see capture.ReadClientHellos), parses each as
-// the capture server does and combines them as the capture tool does
-// (capture.Combine): the shape is tls.record_version, tls.legacy_version,
-// tls.session_id_length, key_share's key_share_lengths and
-// encrypted_client_hello's ech. GREASE ECH's cipher suites and payload
-// lengths are picked per connection, so their sets are every value any
-// connection shows: the samples', and every connection of every page
-// capture the profile is checked against (capture.Files: its own, and
-// those of the scenarios its captures_from inherits) that recorded its
-// hello's shape. A TLS 1.3 resumed hello (pre_shared_key) pads its ECH
-// payload for the ticket: its payload lengths are a set of their own,
-// tls.resumption.ech_payload_lengths. The hello of a WebSocket's own
-// HTTP/1.1 connection (every wss:// socket of the websocket capture) is
-// the profile's with another ALPN list and without some extensions:
-// tls.websocket_h1. Every capture is read from the profile it is taken
-// from (capture.Inherited); hellos carry no version strings, so none is
-// rewritten. It refuses samples Combine cannot reconcile, connections
-// whose shape is not the samples', socket connections whose hello differs
-// otherwise or from each other, and a profile or capture whose
-// ClientHello, shape aside, is not the one the samples show.
+// GREASE ECH draws suites and payload lengths per connection, so their sets
+// gather every connection of every capture the profile is checked against.
+// It refuses samples that disagree beyond that shape.
 package main
 
 import (
@@ -85,10 +67,9 @@ func run() error {
 	return os.WriteFile(capturePath, outCapture, 0o600) //nolint:gosec // and its capture's profile JSON
 }
 
-// regenerate returns the profile JSON data and the default page's capture
-// profile JSON captured with the ClientHello shape derived from the
-// profile's captures in dir. The profile is validated once the shape is
-// in: a profile without one yet cannot pass.
+// regenerate returns the profile and default-page capture JSON with the
+// derived ClientHello shape. Validation runs after the shape is in, since a
+// profile without one cannot pass.
 func regenerate(data, captured []byte, dir string) ([]byte, []byte, error) {
 	p, err := profile.Decode(data)
 	if err != nil {

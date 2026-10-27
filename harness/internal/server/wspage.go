@@ -118,12 +118,9 @@ func (m WSMessage) js() string {
 	return "text(" + strconv.Itoa(m.Size) + ")"
 }
 
-// WebSocketStep is one socket of the websocket pages: the page Page
-// (a WebSocketPageStep label) opens it at Host's /ws/<Label>, sends
-// Sends once open, waits for their echoes, and closes it with 1000 "bye"
-// if Close. Every step is bounded in time (wsStepTime) and reported to
-// the server (capture.WSResult), so a socket a browser refuses is a
-// result, not a stall.
+// WebSocketStep is one socket of the websocket pages: page Page opens it at
+// Host's /ws/<Label>, sends Sends, awaits the echoes and closes with 1000
+// "bye" if Close. Each step is time-bounded and reported (capture.WSResult).
 type WebSocketStep struct {
 	Label string
 	Page  string
@@ -131,17 +128,12 @@ type WebSocketStep struct {
 	// Plain is a ws:// socket on the plain port; otherwise wss:// on the
 	// TLS port.
 	Plain bool
-	// Protocols are the subprotocols the page asks for (none: the
-	// constructor without them), Pick the one the server answers with
-	// when offered.
+	// Protocols are the subprotocols the page asks for; Pick is the one the
+	// server answers with.
 	Protocols []string
 	Pick      string
-	// Deflate accepts permessage-deflate when offered (as
-	// "permessage-deflate": context takeover both ways, 15-bit windows,
-	// unless DeflateParams adds client_no_context_takeover or
-	// client_max_window_bits=N, whether or not the browser offered them);
-	// otherwise the server answers no extension. Browsers offer it on
-	// every socket, so every handshake records the offer.
+	// Deflate accepts permessage-deflate, with DeflateParams added to the
+	// answer; otherwise no extension is answered.
 	Deflate       bool
 	DeflateParams []string
 	// Ping has the server ping right after the handshake, ServerClose
@@ -150,9 +142,8 @@ type WebSocketStep struct {
 	ServerClose bool
 	Sends       []WSMessage
 	Close       bool
-	// Hangs is a product token of the user agent ("Firefox/") of a
-	// browser this socket hangs: its page skips the step and reports it
-	// skipped (capture.WSResult.Skipped), so the rest of the page runs.
+	// Hangs is a user-agent token ("Firefox/") of a browser this socket
+	// hangs; its page skips the step and reports it skipped.
 	Hangs string
 }
 
@@ -164,35 +155,18 @@ func (s WebSocketStep) Path() string {
 // wsStepTime bounds each socket step on the page.
 const wsStepTime = 10 * time.Second
 
-// WebSocketSteps lists the websocket pages' sockets in the order the
-// pages open them, one after another:
+// WebSocketSteps lists the websocket pages' sockets in the order the pages
+// open them:
 //
-//   - so-basic: same-origin wss://, no subprotocol, deflate declined; a
-//     ping from the server; text of 5 and 125 bytes (7-bit lengths), 126,
-//     200 and 65535 (16-bit), 65536 and 70 KiB (64-bit), binary of 256
-//     and 65536; closed with 1000 "bye";
-//   - cs-protocols: cross-site wss:// asking for chat and superchat, the
-//     server picking chat;
-//   - so-deflate: same-origin, permessage-deflate accepted, compressible
-//     text (two equal 4 KiB messages show context takeover);
-//   - so-deflate-sizes: deflate, with varied text (wsProse) of every size
-//     from 6 bytes to 4 KiB in growing steps, empty messages, small
-//     messages repeating earlier text, and incompressible binary: which
-//     messages a browser leaves uncompressed, what that does to the
-//     context, and the compressor (library and level);
-//   - so-deflate-nct: deflate with client_no_context_takeover: each
-//     message on its own, and whether one that compresses badly, or to
-//     exactly its own length, goes uncompressed;
-//   - so-deflate-w8 to so-deflate-w15: deflate with
-//     client_max_window_bits=8 to 15, messages repeating text at
-//     distances that tell the windows apart (Firefox skips w8, which
-//     hangs it);
+//   - so-basic: same-origin, server ping, 7/16/64-bit lengths, text and binary;
+//   - cs-protocols: cross-site, server picks chat of chat and superchat;
+//   - so-deflate: permessage-deflate, repeated 4 KiB shows context takeover;
+//   - so-deflate-sizes: the size sweep (wsSizeSweep);
+//   - so-deflate-nct: client_no_context_takeover;
+//   - so-deflate-w8 to w15: client_max_window_bits (Firefox skips w8: it hangs);
 //   - so-server-close: the server closes first (1001);
-//   - mixed: ws:// from the https:// page to the plain port (mixed
-//     content: refused, or upgraded to wss:// which the plain port
-//     refuses);
-//   - plain-so: ws:// from the http:// page on the plain port
-//     (non-secure origin: which cookies go).
+//   - mixed: ws:// from the https:// page to the plain port;
+//   - plain-so: ws:// from the http:// page (which cookies go).
 func WebSocketSteps() []WebSocketStep {
 	short := []WSMessage{
 		{
@@ -328,13 +302,8 @@ func WebSocketSteps() []WebSocketStep {
 	}...)
 }
 
-// wsSizeSweep is so-deflate-sizes's messages: a 4 KiB message every
-// browser compresses, then empty ones, then a repeat of some of its text
-// (whether an empty message leaves the context alone), wsProse messages
-// of every size from 6 to 40 bytes and in growing steps to 4095, each cut
-// at its own place, then small messages repeating the last one's text
-// (which the context makes compress well), incompressible binary, and
-// the first message again.
+// wsSizeSweep is so-deflate-sizes's messages. See
+// harness/reports/websocket-deflate-2026-10-26.md.
 func wsSizeSweep() []WSMessage {
 	out := []WSMessage{
 		{Prose: true, At: 0, Size: 4096},
@@ -370,12 +339,8 @@ func wsSizeSweep() []WSMessage {
 }
 
 // WebSocketPageStep is one of the websocket pages' requests around their
-// sockets, in order: a top-level navigation by script (Nav) from the page
-// before, or a fetch() with credentials "include" from the navigation
-// before it, cross-origin when its host is not that page's (answered
-// with Access-Control-Allow-Origin and -Credentials). Plain steps go over
-// http:// to the plain port. A page opens its sockets (WebSocketStep.Page)
-// after its fetches.
+// sockets: a scripted navigation (Nav) or a credentialed fetch() (CORS when
+// cross-origin). Plain steps go to the plain port over http://.
 type WebSocketPageStep struct {
 	Label string
 	Host  string
@@ -386,12 +351,8 @@ type WebSocketPageStep struct {
 	Sets []string
 }
 
-// The cookies set before the sockets: on each host one Lax, one None
-// (Secure) and one Partitioned, set first-party (the page's own on its
-// document, the cross-site host's on a navigation there), and one
-// Partitioned cookie of the cross-site host set from the page's site (a
-// cross-site fetch), which is the partition its cross-site socket is in.
-// Lax is not Secure, so the plain socket shows it too.
+// The cookies set before the sockets: Lax, None and Partitioned on each host
+// first-party, plus a cross-site Partitioned one in the page's partition.
 var (
 	wsHostCookies = []string{
 		"ws_a_lax=1; Path=/; SameSite=Lax; Max-Age=600",
@@ -408,9 +369,8 @@ var (
 	}
 )
 
-// wsDeletions deletes each cookie set, with the attributes it was set
-// with (Partitioned and SameSite=None included, which deleting a
-// partitioned cookie, or one from a cross-site response, needs).
+// wsDeletions deletes each cookie with the attributes it was set with, which
+// partitioned and cross-site cookies need.
 func wsDeletions(set []string) []string {
 	out := make([]string, 0, len(set))
 	for _, c := range set {
@@ -427,10 +387,8 @@ func wsDeletions(set []string) []string {
 	return out
 }
 
-// WebSocketPageSteps lists the websocket pages' requests other than the
-// sockets and the result reports, in order: the cookies are set, the
-// sockets opened (from sockets and plain) and the cookies deleted (Safari
-// keeps cookies between samples).
+// WebSocketPageSteps lists the websocket pages' requests other than sockets
+// and reports: set cookies, open sockets, delete cookies (Safari keeps them).
 func WebSocketPageSteps() []WebSocketPageStep {
 	return []WebSocketPageStep{
 		{Label: "doc", Host: wsHost, Path: "/", Nav: true, Sets: wsHostCookies},

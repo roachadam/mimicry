@@ -7,6 +7,224 @@ linters:
   # "standard" = errcheck, govet, ineffassign, staticcheck, unused.
   default: standard
   settings:
+    # Package import boundaries (AGENTS.md, "Package boundaries"). Each rule
+    # lists what a package's non-test files may import; tests are not checked.
+    # Repo packages end in `$` (exact match: `profile` must not admit
+    # `profiles`); module paths are prefixes. depguard checks only the sorted
+    # allow entry nearest below an import, so a prefix entry must not have
+    # another entry sorting between it and the packages it should admit.
+    depguard:
+      rules:
+        stdlib-only:
+          files:
+            - ${config-path}/profile/*.go
+            - ${config-path}/internal/proxy/*.go
+            - ${config-path}/internal/quic/qlog/*.go
+            - ${config-path}/internal/quic/quicwire/*.go
+            - ${config-path}/internal/quic/testcert/*.go
+            - ${config-path}/internal/testutil/*.go
+            - ${config-path}/internal/zdeflate/*.go
+            - ${config-path}/harness/internal/udprelay/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+        testutil-in-tests-only:
+          files:
+            - $all
+            - "!$test"
+          deny:
+            - pkg: github.com/roachadam/mimicry/internal/testutil
+              desc: test helpers; import them from _test.go files only
+        profiles:
+          files:
+            - ${config-path}/profiles/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/roachadam/mimicry/profile$
+        internal/dial:
+          files:
+            - ${config-path}/internal/dial/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/roachadam/mimicry/internal/proxy$
+            - github.com/roachadam/mimicry/profile$
+        internal/engine/native:
+          files:
+            - ${config-path}/internal/engine/native/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/jonboulle/clockwork
+            - github.com/roachadam/mimicry/internal
+            - github.com/roachadam/mimicry/profile$
+            - golang.org/x/net/http/httpguts
+        internal/fingerprint:
+          files:
+            - ${config-path}/internal/fingerprint/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/roachadam/mimicry/profile$
+        internal/h1:
+          files:
+            - ${config-path}/internal/h1/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/roachadam/mimicry/internal/headerorder$
+            - github.com/roachadam/mimicry/profile$
+            - golang.org/x/net/http/httpguts
+        internal/h2:
+          files:
+            - ${config-path}/internal/h2/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/jonboulle/clockwork
+            - github.com/roachadam/mimicry/internal/headerorder$
+            - github.com/roachadam/mimicry/internal/hpack$
+            - github.com/roachadam/mimicry/profile$
+            - golang.org/x/net
+        internal/h3:
+          files:
+            - ${config-path}/internal/h3/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/roachadam/mimicry/internal/headerorder$
+            - github.com/roachadam/mimicry/internal/qpack$
+            - github.com/roachadam/mimicry/internal/quic$
+            - github.com/roachadam/mimicry/internal/quic/quicwire$
+            - github.com/roachadam/mimicry/profile$
+            - golang.org/x/net/http/httpguts
+        internal/handshake:
+          files:
+            - ${config-path}/internal/handshake/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/jonboulle/clockwork
+            - github.com/roachadam/mimicry/internal/fingerprint$
+            - github.com/roachadam/mimicry/profile$
+            - github.com/roachadam/utls
+        internal/hpack:
+          files:
+            - ${config-path}/internal/hpack/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/roachadam/mimicry/profile$
+            - golang.org/x/net/http2/hpack
+        internal/pool:
+          files:
+            - ${config-path}/internal/pool/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/jonboulle/clockwork
+        internal/qpack:
+          files:
+            - ${config-path}/internal/qpack/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - golang.org/x/net/http2/hpack
+        internal/quic:
+          files:
+            - ${config-path}/internal/quic/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/roachadam/mimicry/internal/quic/quicwire$
+            - github.com/roachadam/mimicry/profile$
+            - github.com/roachadam/utls
+            - golang.org/x/crypto
+        internal/ws:
+          files:
+            - ${config-path}/internal/ws/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/jonboulle/clockwork
+            - github.com/roachadam/mimicry/internal/zdeflate$
+            - github.com/roachadam/mimicry/profile$
+        harness/internal/browser:
+          files:
+            - ${config-path}/harness/internal/browser/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - golang.org/x/net/websocket
+        harness/internal/capture:
+          files:
+            - ${config-path}/harness/internal/capture/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/roachadam/mimicry/harness/internal/diff$
+            - github.com/roachadam/mimicry/harness/internal/h2trace$
+            - github.com/roachadam/mimicry/harness/internal/quictrace$
+            - github.com/roachadam/mimicry/profile$
+            - github.com/roachadam/mimicry/profiles$
+        harness/internal/diff:
+          files:
+            - ${config-path}/harness/internal/diff/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/roachadam/mimicry/profile$
+        harness/internal/h2trace:
+          files:
+            - ${config-path}/harness/internal/h2trace/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - golang.org/x/net/http2/hpack
+        harness/internal/quictrace:
+          files:
+            - ${config-path}/harness/internal/quictrace/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/roachadam/mimicry/profile$
+            - golang.org/x/crypto
+            - golang.org/x/net/http2/hpack
+        harness/internal/server:
+          files:
+            - ${config-path}/harness/internal/server/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/quic-go/quic-go
+            - github.com/roachadam/mimicry/harness/internal/capture$
+            - github.com/roachadam/mimicry/harness/internal/h2trace$
+            - github.com/roachadam/mimicry/harness/internal/pageshape$
+            - github.com/roachadam/mimicry/harness/internal/quictrace$
+            - github.com/roachadam/mimicry/profile$
+            - golang.org/x/crypto
+            - golang.org/x/net
     gosec:
       excludes:
         # File paths are built by our own code and tests (capture names come
@@ -34,16 +252,40 @@ linters:
     - gocritic        # broad diagnostic/style/perf checks
     - prealloc        # preallocate slices in loops
     - revive          # golint replacement, default rules incl. exported and package-comments
+    - depguard        # package import boundaries (rules above)
   exclusions:
     # internal/quic is a copy of golang.org/x/net/quic (decision 0027) in
     # upstream's style, which these linters fault in ~500 places (unchecked
     # Close errors, math/rand, %v on errors, unused test helpers, init
     # functions). Fixing them would make every upstream sync a merge, so the
-    # copy is not linted; formatters still run on it. mimicry's own lines
-    # there are checked by hand: see "Lint" in internal/quic/UPSTREAM.md.
-    paths:
-      - ^internal/quic/
+    # copy is linted only by depguard; formatters still run on it. mimicry's
+    # own lines there are checked by hand: see "Lint" in
+    # internal/quic/UPSTREAM.md. A linter enabled later joins this list.
     rules:
+      - path: ^internal/quic/
+        linters:
+          - errcheck
+          - govet
+          - ineffassign
+          - staticcheck
+          - unused
+          - bodyclose
+          - unconvert
+          - misspell
+          - copyloopvar
+          - makezero
+          - nilerr
+          - errorlint
+          - noctx
+          - unparam
+          - nilnil
+          - wastedassign
+          - contextcheck
+          - gochecknoinits
+          - gosec
+          - gocritic
+          - prealloc
+          - revive
       # Tests close bodies through helpers and t.Cleanup, which bodyclose cannot
       # follow; product code is still checked.
       - path: _test\.go

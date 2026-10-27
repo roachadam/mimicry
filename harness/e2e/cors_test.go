@@ -16,15 +16,10 @@ import (
 	"github.com/roachadam/mimicry/harness/internal/server"
 )
 
-// The cors page's fetches, made through mimicry from the page, send the
-// browser's CORS preflights and requests: on each connection to the
-// cross-site host, the same requests in the same order (method, path,
-// cookie or not, Access-Control-Request-Method and -Headers). This covers
-// when a preflight is sent and when its answer is still cached (Max-Age,
-// the default 5 s, one entry per URL replaced or merged), that a refused
-// preflight's request is never sent (mimicry returns a *CORSError), and a
-// redirect's second preflight. The profiles run in parallel: the page
-// waits 6 s.
+// The cors page's fetches through mimicry send the browser's preflights and
+// requests, in order on each connection: preflight caching (Max-Age, the 5 s
+// default), no request after a refused preflight (*CORSError), a redirect's
+// second preflight. The profiles run in parallel: the page waits 6 s.
 func TestCORSMatchesBrowser(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {

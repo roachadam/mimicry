@@ -14,10 +14,8 @@ import (
 )
 
 // Safari takes its proxy from the system's automatic proxy configuration,
-// which only an administrator can set. The user points it once at
-// safariPACURL, served here: a script that never changes, so a cached copy
-// is never stale. It proxies only *.test URLs and sends everything else
-// direct.
+// which needs an administrator to set. The user points it once at
+// safariPACURL; the script never changes, so a cached copy is never stale.
 const (
 	safariPACAddr    = "127.0.0.1:15356"
 	safariPACURL     = "http://" + safariPACAddr + "/mimicry.pac"
@@ -68,11 +66,9 @@ const (
 	// safariProxyPAC: through safariPACURL, which sends SOCKS5 scenarios'
 	// URLs to safariSOCKSProxy and the rest to safariHTTPProxy.
 	safariProxyPAC
-	// safariProxyManual: through manual web and secure web proxies at
-	// safariHTTPProxy. Only a manual proxy can carry a saved password:
-	// macOS takes proxy credentials from System Settings, which has no
-	// field for them with a PAC script. It sends every URL to the HTTP
-	// proxy, so SOCKS5 scenarios cannot run.
+	// safariProxyManual: through manual proxies at safariHTTPProxy. Only a
+	// manual proxy can carry saved credentials on macOS, but it sends every
+	// URL to the HTTP proxy, so SOCKS5 scenarios cannot run.
 	safariProxyManual
 )
 

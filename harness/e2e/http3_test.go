@@ -24,41 +24,20 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// Every request of the h3 pages (server.H3DiscoverySteps, H3PageSteps),
-// made through mimicry from its page as the browser walked them, with the
-// browser's pauses (the 35 s idle included), against every sample of the
-// browser's capture: Chrome's and Firefox's taken with -h3-local-roots
-// (they refuse QUIC to a capture CA otherwise; mimicry trusts it through
-// RootCAs), Safari's unforced.
+// Every request of the h3-discovery and h3-page pages through mimicry, with
+// the browser's pauses (the 35 s idle included), against every sample
+// (Chrome's and Firefox's -h3-local-roots captures, Safari's unforced):
 //
-//   - Transport: each request goes over HTTP/2 or HTTP/3 as the browser
-//     sent it, on the same connection of its host (in order), in 0-RTT
-//     where the browser's was; the same QUIC connections exist, the first
-//     of a host started with its TCP connection where the browser's was
-//     (Firefox on Alt-Svc); an HTTP/2 connection the browser sent GOAWAY
-//     on gets one.
-//   - Each QUIC connection, against the browser's at the same place: its
-//     first flight (datagram sizes and padding, packets, header bytes,
-//     token) against every connection of the profile's h3 captures alike
-//     fresh or resumed; its ClientHello (diff.Compare, the transport
-//     parameters apart) and transport parameters; its 0-RTT packets;
-//     NEW_CONNECTION_IDs; credit frames the browser sent, at its values;
-//     how it closed.
-//   - HTTP/3: unidirectional streams, SETTINGS, the control stream's
-//     frames, every encoder and decoder stream instruction, and per
-//     request its field lines (header list, QPACK representation), frames
-//     (DATA cuts), PRIORITY_UPDATE and end.
+//   - transport: HTTP/2 or HTTP/3, which connection, 0-RTT, the TCP/QUIC
+//     start on Alt-Svc, GOAWAYs;
+//   - per QUIC connection: first flight, ClientHello, transport parameters,
+//     0-RTT packets, NEW_CONNECTION_IDs, credit frames, close;
+//   - HTTP/3: streams, SETTINGS, control frames, QPACK instructions, and per
+//     request field lines, frames, PRIORITY_UPDATE and end.
 //
-// A feature the browser's samples agree on must be the browser's; one
-// they differ on is logged; counts and sizes must lie within the samples'
-// range. What the browser draws per connection (packet numbers, DCID
-// lengths, how the ClientHello is cut into CRYPTO frames with PINGs and
-// padding, transport parameter order, GREASE and ECH lengths, initial_rtt,
-// ACK delays, the spin bit, Safari's request after HANDSHAKE_DONE) is held
-// to the profile's rule instead (quicRuleViolations), for mimicry's
-// connections and, in the rules subtest, for every connection of the
-// browser's h3 captures; compareDraws catches one draw repeated on every
-// connection. Port numbers in values are normalised.
+// Features the samples agree on must match; others are logged; numbers lie
+// within the samples' range. Per-connection draws are held to the profile's
+// rule instead (quicRuleViolations), and compareDraws catches a repeated draw.
 func TestHTTP3MatchesBrowser(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		t.Run(name+"/rules", func(t *testing.T) {
@@ -140,13 +119,9 @@ func h3Steps(sc *server.Scenario) []server.H3Step {
 }
 
 // firstPageDelay is how long after the first QUIC connection to host
-// started the browser's first page made its first request that went over
-// it: the markup's at once, a scripted one after the pauses before it.
-// It is the browser's parse of the page and start of its script, which
-// mimicry has none of; waiting as long before the page's requests has a
-// QUIC connection the page's Alt-Svc started up when they go, as the
-// browser's was (Firefox's, 49–76 ms after it started; it never holds a
-// request for one). Zero where they went on TCP.
+// started the browser's page sent its first request over it: the page's
+// parse and script start, which mimicry lacks. Waiting as long gives the
+// Alt-Svc connection the browser's head start. Zero where it went on TCP.
 func firstPageDelay(browser *capture.Page, host string, steps []server.H3Step) time.Duration {
 	offset := map[string]int64{}
 	var pauses int64
@@ -829,24 +804,12 @@ func mapConns(conns []*quictrace.Conn, f func(*quictrace.Conn) features) []featu
 	return out
 }
 
-// firstFlight is the client's datagrams before it heard from the server
-// or its first probe timeout (PTO) expired, whichever came first. A trace
-// has no timers, and the PTO cannot be worked out from it: a resumed
-// connection's starts from the RTT of the one it resumes (about 1 ms
-// here, so a 3 ms PTO), which Firefox does not send, and Firefox's own
-// first flight may take 2.7 ms (h3-broken). The expiry shows in the probe
-// it sends, which, with nothing acknowledged, brings nothing new (RFC
-// 9002, section 6.2.4): CRYPTO or 0-RTT STREAM bytes already sent (every
-// profile's Initial probe: Firefox's flight again, Chrome's oldest packet
-// cut afresh) or a PING alone (Firefox's later probes). So the flight
-// ends at the first datagram with an ACK, with data already sent
-// (sentData), or with no frame but PINGs and PADDING. On the browser's
-// h3-blackhole and h3-broken captures that is its first probe, at its
-// first PTO (300–305 ms; resumed, Chrome's 30–33 ms, Firefox's 3.2 or
-// 306–308 ms); on its h3-discovery and h3-page captures, where the server
-// always answered first, all it sent before its first ACK. A loaded
-// machine's server answering after Firefox's ~3 ms resumed PTO leaves
-// mimicry's probes out, as it would the browser's.
+// firstFlight is the client's datagrams before it heard from the server or
+// its first PTO expired. A trace has no timers, so the PTO shows as the first
+// probe, which brings nothing new (RFC 9002, 6.2.4): the flight ends at the
+// first datagram with an ACK, with data already sent (sentData), or with only
+// PINGs and PADDING. A loaded machine's late server leaves mimicry's probes
+// out, as it would the browser's.
 func firstFlight(c *quictrace.Conn) []quictrace.Datagram {
 	var sent sentData
 	for i := range c.Datagrams {
@@ -1042,12 +1005,9 @@ func packetFeatures(c *quictrace.Conn) features {
 }
 
 // connFeatures describe a connection against the browser's at its place:
-// 0-RTT, its 0-RTT packets' frames, NEW_CONNECTION_IDs and how it ended;
-// data sent again is not counted twice (sentData), nor a 0-RTT packet
-// with nothing new: a probe's, where a loaded machine's server answers
-// after the PTO, which no sample's did. (Whether its ACK delays are one
-// value is quicRuleViolations': how many ACKs a connection sends is
-// timing.)
+// 0-RTT, its 0-RTT packets' frames, NEW_CONNECTION_IDs and how it ended.
+// Data sent again counts once (sentData), and a 0-RTT probe with nothing new
+// not at all.
 func connFeatures(c *quictrace.Conn) features {
 	f := newFeatures()
 	f.cat["resumed"] = strconv.FormatBool(c.Resumed)
@@ -1248,12 +1208,9 @@ func h3Features(c *quictrace.Conn) features {
 	return f
 }
 
-// Replaying a browser's HTTP/3 requests through mimicry's QPACK encoder
-// with the profile's http3.qpack reproduces every field section and every
-// encoder stream instruction the browser sent, byte for byte, on every
-// connection of every sample of every h3 capture: the server's SETTINGS
-// (scenario) reach the encoder, and the server acknowledges each section
-// before the next request.
+// Replaying a browser's HTTP/3 requests through the profile's http3.qpack
+// encoder reproduces every field section and encoder instruction byte for
+// byte, on every connection of every h3 capture.
 func TestQPACKReproducesBrowserSections(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {

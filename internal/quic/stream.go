@@ -53,17 +53,12 @@ type Stream struct {
 	inclosed     sentVal         // set by CloseRead
 	inclosedcode uint64          // code to send in STOP_SENDING
 	inresetcode  int64           // RESET_STREAM code received from the peer; -1 if not reset
-	// mimicry: a client counts its credit in the steps its data arrived
-	// in, one STREAM frame at a time, as a browser that consumes packets as
-	// they come: inends are the in-order received offsets after each
-	// frame, not yet consumed, incounted what was counted, increds the
-	// connection credit of the last Read in those steps, and inlimit the
-	// MAX_STREAM_DATA set at the frame end where the profile's share was
-	// crossed (client_flow.go).
-	inends    []int64
-	incounted int64
-	increds   []int64
-	inlimit   int64
+	// mimicry: a client credits flow control per STREAM frame, as a browser
+	// consuming packets as they arrive (client_flow.go).
+	inends    []int64 // in-order end offset after each frame, not yet consumed
+	incounted int64   // offset already counted
+	increds   []int64 // connection credit of the last Read in those steps
+	inlimit   int64   // MAX_STREAM_DATA set where the profile's share was crossed
 
 	// outgate's lock guards send-related state.
 	//

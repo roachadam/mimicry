@@ -1,3 +1,11 @@
+// Package ws is the WebSocket protocol (RFC 6455) after the handshake, as
+// the profile's browser speaks it: framing, permessage-deflate through
+// internal/zdeflate, HTTP/2 DATA packing, pings and the close handshake.
+// It also makes and checks the handshake's keys and extension answer.
+//
+// Every client message is one final frame, masked with a fresh key, its
+// length in the shortest form. The transport underneath (an HTTP/1.1
+// connection or an HTTP/2 stream) is the caller's, behind Transport.
 package ws
 
 import (
@@ -47,11 +55,9 @@ const (
 	queued = 64
 )
 
-// Timeouts no capture measured: how long the socket waits for the
-// server's close frame once it sent its own, and, where the browser
-// leaves the server to end the transport (Firefox; Chrome's HTTP/2
-// stream, whose END_STREAM went with its close frame), how long before
-// it ends it itself.
+// Timeouts no capture measured: how long to wait for the server's close
+// frame after ours, and for the server to end the transport where the
+// browser leaves that to it.
 const (
 	closeTimeout = 10 * time.Second
 	serverLinger = 10 * time.Second
@@ -99,11 +105,9 @@ type Message struct {
 	Payload []byte
 }
 
-// Conn is one WebSocket after its handshake: it frames, masks and
-// compresses messages as the profile's browser, answers pings, and runs
-// the close handshake and the transport's end as the browser does. A
-// goroutine reads the server's frames from the start, so pings are
-// answered at once, whether or not ReadMessage is called.
+// Conn is one WebSocket after its handshake, framed, compressed and closed
+// as the profile's browser does. A goroutine reads the server's frames from
+// the start, so pings are answered even without ReadMessage.
 type Conn struct {
 	t   Transport
 	cfg Config
@@ -119,10 +123,9 @@ type Conn struct {
 	readErr error
 
 	mu sync.Mutex
-	// sentClose and gotClose track the close handshake; closing is
-	// closed once both happened, or the transport failed. stop is closed
-	// with sentClose: messages that come after it are dropped, as
-	// browsers no longer deliver them.
+	// sentClose and gotClose track the close handshake; closing is closed
+	// once both happened or the transport failed. stop closes with
+	// sentClose: browsers drop messages that arrive after it.
 	sentClose bool
 	gotClose  bool
 	stop      chan struct{}
@@ -146,11 +149,10 @@ func (c *Conn) markSent() {
 	}
 }
 
-// New runs a socket on t, which carries what follows the handshake; r
-// reads it (an HTTP/1.1 connection's buffered reader, which may hold the
-// server's first frames already, or t itself). It fails, sending
-// nothing, where the profile's browser fails a socket whose handshake it
-// accepted (a compression window it cannot use); the caller ends t.
+// New runs a socket on t. r reads what follows the handshake: an HTTP/1.1
+// connection's buffered reader, which may already hold server frames, or t.
+// It fails, sending nothing, where the browser fails the socket (a
+// compression window it cannot use); the caller ends t.
 func New(t Transport, r io.Reader, cfg Config) (*Conn, error) {
 	c := &Conn{
 		t:       t,
@@ -216,11 +218,10 @@ func (c *Conn) WriteMessage(ctx context.Context, opcode byte, p []byte) error {
 	return c.writeFrame(ctx, opcode, rsv, payload, false, false)
 }
 
-// writeFrame masks payload with a fresh key and writes it as one final
-// frame, packed into the transport as the profile's browser packs it.
-// reply marks a frame answering the server's (a pong, a close reply);
-// end ends the client's side of an HTTP/2 stream with it. wmu must be
-// held.
+// writeFrame masks payload with a fresh key and sends it as one final
+// frame, packed as the browser packs it. reply marks an answer to the
+// server (a pong, a close reply); end ends our side of an HTTP/2 stream.
+// wmu must be held.
 func (c *Conn) writeFrame(ctx context.Context, opcode, rsv byte, payload []byte, reply, end bool) error {
 	if c.failed != nil {
 		return c.failed
@@ -256,9 +257,7 @@ func (c *Conn) parts(frame []byte, head int, opcode byte, reply bool) [][]byte {
 	}
 	switch c.cfg.Profile.H2Data {
 	case profile.H2DataHeaderAlone:
-		// Firefox copies a payload of up to kCopyBreak (1000) bytes after
-		// the header and writes them together; a longer one goes after
-		// the header in a write of its own.
+		// Firefox writes a payload over kCopyBreak apart from its header.
 		if len(frame)-head > headerAloneAfter {
 			return [][]byte{frame[:head], frame[head:]}
 		}
@@ -285,11 +284,10 @@ func (c *Conn) closeEnds() bool {
 	return c.cfg.H2 && c.cfg.Profile.CloseH2 == profile.CloseEndStream
 }
 
-// Close starts the close handshake with code and reason, unless it has
-// started, and returns once it is done (the server's close frame came, or
-// the transport ended) and, where the profile's browser reports the close
-// only once the transport has ended, once it has. A server whose close
-// never comes has the transport ended after closeTimeout.
+// Close starts the close handshake, unless started, and returns once it is
+// done and, where the browser's close event waits for it, the transport
+// has ended. A server whose close never comes has the transport ended
+// after closeTimeout.
 func (c *Conn) Close(code int, reason string) error {
 	if code != 1000 && (code < 3000 || code > 4999) {
 		return fmt.Errorf("ws: close code %d: browsers send 1000 or 3000 to 4999", code)
@@ -333,13 +331,9 @@ func (c *Conn) Close(code int, reason string) error {
 	return nil
 }
 
-// waitsForEnd reports whether the profile's browser reports the close
-// (the page's close event) only once the transport has ended: where it
-// ends it itself (Chrome and Safari over HTTP/1.1, Safari over HTTP/2),
-// and Chrome over HTTP/2, whose END_STREAM went with its close frame, so
-// the stream ends with the server's (Chromium's WebSocketChannel waits for
-// the stream to close before its close event). Until then the stream is
-// open, and Chrome chains a new request's priority on it.
+// waitsForEnd reports whether the browser's close event waits for the
+// transport to end: where it ends it itself, and Chrome over HTTP/2, whose
+// stream stays open until the server ends it. See docs/concepts/websockets.md.
 func (c *Conn) waitsForEnd() bool {
 	if c.cfg.H2 {
 		return c.cfg.Profile.CloseH2 != ""
@@ -386,10 +380,9 @@ func (c *Conn) handshakeDone(err error) {
 	})
 }
 
-// drain ends the transport as the profile's browser does once the close
-// handshake is done: at once, or after leaving the server a while to end
-// it first, reading (and discarding) until it does. It returns io.EOF if
-// the server ended it.
+// drain ends the transport as the browser does after the close handshake:
+// at once, or after giving the server a while to end it first. It returns
+// io.EOF if the server ended it.
 func (c *Conn) drain() error {
 	wait := serverLinger
 	ws := c.cfg.Profile
@@ -489,10 +482,9 @@ func (c *Conn) read() error {
 	}
 }
 
-// control handles a control frame: a ping is answered with its payload,
-// a close completes the close handshake (done), answered first with the
-// server's code and reason if ours was not sent, as every browser echoes
-// them.
+// control answers a ping with its payload. A close completes the close
+// handshake (done), echoed first with the server's code and reason unless
+// ours was sent, as every browser does.
 func (c *Conn) control(opcode byte, payload []byte) (done bool, err error) {
 	switch opcode {
 	case OpPing:

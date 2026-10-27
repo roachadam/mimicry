@@ -28,43 +28,20 @@ import (
 // h3PageHost is the h3 pages' own host (the server's h3Host), where / is.
 const h3PageHost = "www.h3-a.test"
 
-// Every request of the h3-blackhole, h3-broken, h3-vn, h3-v2, h3-early
-// and h3-too-early pages (server.H3BlackholeSteps and the rest; h3-v2
-// where python3 has aioquic), made through mimicry on the browser's
-// schedule (each step starts at its time whatever the earlier ones take,
-// its URL with ?t= as the page's script adds it), against every sample of
-// the browser's capture (Chrome's and Firefox's -h3-local-roots captures
-// where they exist, as TestHTTP3MatchesBrowser):
+// Every request of the h3-blackhole, h3-broken, h3-vn, h3-v2 (where python3
+// has aioquic), h3-early and h3-too-early pages through mimicry on the
+// browser's schedule, against every sample:
 //
-//   - per request: every connection it went on, in order (protocol, host,
-//     which of the host's connections, 0-RTT), and its delay (its last
-//     arrival less ?t=, less the sample's smallest such difference: how
-//     long the client held it, its connection's handshake included); on
-//     a QUIC connection that sent 0-RTT, each of its streams: in 0-RTT,
-//     held for the handshake (with the client's Finished or after it), or
-//     sent again after a 425 Too Early, in which packet type
-//     (earlyStream);
-//   - per QUIC attempt of each host, in order: whether it resumed, its
-//     versions, what the server answered, how it ended, whether it moved
-//     to a new path and how many probes it sent on the old one first
-//     (the move's timing is checkPathMoves's rule, in the connection's
-//     own probe timeouts); for one the server never completed, its
-//     datagrams and when its last went (the give-up); when it started
-//     after the request before it (its trigger);
-//   - per TCP connection of each host that carried requests: when it
-//     started after the request before it and after the QUIC attempt the
-//     same request started (the race; negative where TCP came first), and
-//     the GOAWAY the client sent on it; how many the client opened and
-//     declined.
+//   - per request: its connections in order, its delay, and on a 0-RTT
+//     connection how each stream went (earlyStream);
+//   - per QUIC attempt: resumption, versions, the server's answer, how it
+//     ended, path moves (checkPathMoves), give-up datagrams, its trigger;
+//   - per TCP connection: its trigger, its race against the QUIC attempt,
+//     the GOAWAY sent, how many were declined.
 //
-// Times must lie within the browser's samples' range widened by
-// edgeSlack; one of mimicry's from a request on may lie above it by no
-// more than this process was stalled within it (compareTimes). Categories
-// and counts are held as TestHTTP3MatchesBrowser holds its features. Known
-// differences are pinned in h3EdgeGaps, where a listed gap that no longer
-// appears fails, and in h3EdgeSchedulingGaps those this process's
-// scheduling shows or not. The profiles and scenarios run in parallel;
-// the test takes as long as the longest page (h3-broken, about 75 s).
+// Times lie within the samples' range widened by edgeSlack, plus this
+// process's stalls (compareTimes). Known differences are in h3EdgeGaps and
+// h3EdgeSchedulingGaps. Subtests run in parallel (about 75 s).
 func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		for _, sc := range []*server.Scenario{server.H3Blackhole, server.H3Broken, server.H3VN, server.H3V2, server.H3Early, server.H3TooEarly} {
@@ -211,13 +188,10 @@ func edgeGapsFor(t *testing.T, name string) (skip func(key string) bool, unused 
 	return skip, unused
 }
 
-// runH3Schedule walks sc's page through mimicry as profile p: the typed
-// navigation to /, then each step after its pause, those the page does
-// not wait for (NoWait) started on time beside the others, then
-// fetch('/done') where browser asked for it. A request still unanswered
-// when the page is taken is cancelled. A step mimicry refuses as not
-// measured (ErrNotMeasured) fails unless skip pins it ("edge request
-// <path> not measured").
+// runH3Schedule walks sc's page through mimicry as p: the navigation to /,
+// each step after its pause (NoWait steps on time beside the others), then
+// fetch('/done') where browser did. Unanswered requests are cancelled; an
+// ErrNotMeasured step fails unless skip pins it.
 func runH3Schedule(t *testing.T, p *profile.Profile, sc *server.Scenario, browser *capture.Page, skip func(string) bool) *capture.Page {
 	t.Helper()
 	// Its times from a request on are net of the process's stalls.
@@ -740,12 +714,9 @@ func stalledIn(page *capture.Page, from, d int64) int {
 }
 
 // pathMove is how a QUIC connection moved to a new client address, in µs
-// from the first send of the last request before the move: when it
-// moved; the ack-eliciting datagrams it sent on the old path in between
-// (its probes) and how far each one's packet number is from the client's
-// packet before (steps: 2 where it skipped one, as Chrome does); its
-// probe timeout as those probes show it (probePTO) and as RFC 9002
-// computes it from the RTT samples the trace has (rttPTO).
+// from the last request's first send: when, its probes on the old path and
+// their packet-number steps (Chrome skips one), and its PTO as the probes
+// show it (probePTO) and as RFC 9002 computes it from the trace (rttPTO).
 type pathMove struct {
 	after    int64
 	probes   int
@@ -837,19 +808,11 @@ func movePath(c *quictrace.Conn) (pathMove, bool) {
 	return m, true
 }
 
-// tracePTO is the least probe timeout (µs, without back-off) RFC 9002
-// allows c's client at before (sections 5.3 and 6.2.1: smoothed RTT plus
-// four RTT variations, at least 1 ms, plus the server's max_ack_delay) on
-// the RTT samples its trace has. The trace opens the server's 1-RTT
-// headers only, not its ACK frames, so the samples are the round trips
-// the other way: from the server's packet to the client's ACK of it (its
-// largest newly acknowledged), less the delay that ACK reports, without
-// RFC 9002's guards on a peer's report (the cap at max_ack_delay, the
-// min_rtt check), which only lengthen a sample. The client's own samples
-// are on the server's ACKs, which the trace cannot show, and its PTO runs
-// above this one: Chrome's probes show 31–34 ms against 27–28 here,
-// mimicry's 70 ms under -race against 34. So this is a floor, not the
-// PTO.
+// tracePTO is the least PTO (µs, no back-off) RFC 9002 allows c's client
+// at before (sections 5.3, 6.2.1), from the trace's RTT samples. The trace
+// only shows server packets to client ACKs, so the samples are the reverse
+// round trip, without RFC 9002's guards (which only lengthen a sample). It is
+// a floor: Chrome's probes show 31–34 ms against 27–28 here.
 func tracePTO(c *quictrace.Conn, before int64) float64 {
 	exponent := transportParameter(c.TransportParameters, tpAckDelayExponent, 3)
 	sent := map[string]int64{}
@@ -906,14 +869,11 @@ func pnSpace(typ string) string {
 	return "application"
 }
 
-// checkPathMoves holds every QUIC connection of page that moved to a new
-// path to the profile's rule (quic.loss.path_degrading.after_ptos): it
-// moved that many of its own probe timeouts after its last request's
-// first send, within half a PTO (h3gen's rounding when it derives the
-// count), its PTO measured from its probes on the old path, which come no
-// sooner than RFC 9002 allows on the trace's RTT samples (tracePTO). In
-// the connection's own PTOs the rule holds on a loaded machine too, where
-// the client's RTT, and so its PTO, grows.
+// checkPathMoves holds every connection of page that moved path to
+// quic.loss.path_degrading.after_ptos: the move comes that many of its own
+// PTOs after its last request, within half a PTO (h3gen's rounding). The PTO
+// is measured from its probes, floored by tracePTO, so the rule holds under
+// load too.
 func checkPathMoves(t *testing.T, p *profile.Profile, who string, page *capture.Page) {
 	t.Helper()
 	for i, c := range page.QUIC {

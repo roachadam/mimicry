@@ -18,15 +18,9 @@ import (
 )
 
 // mimicry resumes TLS sessions as the browser does on the resume page, from
-// a TLS 1.3 server and a TLS 1.2-only one: per host, as many used
-// connections and as many of them resumed as in one of the browser's
-// samples (connections a browser opened speculatively and never used are
-// left out, and Chrome sometimes has no ticket yet for its second
-// connection). That covers ticket use: TLS 1.3 tickets once (one of three
-// parallel connections resumes); TLS 1.2 tickets shared (Chrome: all three)
-// or once with no ticket kept from a resumed connection (Firefox:
-// alternating). Every resumption offers one ticket, the server accepts it,
-// and every resumed ClientHello is the browser's. Safari never resumes.
+// TLS 1.3 and TLS 1.2-only servers: per host, as many used and resumed
+// connections as one browser sample, and every resumed ClientHello is the
+// browser's. Unused speculative connections are ignored.
 func TestResumptionMatchesBrowser(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		for _, sc := range []*server.Scenario{server.Resume, server.ResumeTLS12} {

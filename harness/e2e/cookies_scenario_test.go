@@ -13,17 +13,10 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// The cookies page, walked through mimicry as the browser walked it (page
-// A, a third-party setter, redirects across sites, a navigation to site C
-// and its requests, a link and a form POST back to A), sends every probe
-// as the browser did: the same header lines in the same order, with the
-// same values and HTTP/2 weight, and so the browser's cookies in its
-// order: SameSite on cross-site navigations, partitions under another
-// top-level site, None without Secure, redirects, path and domain order.
-// The page's navigations back to A (by location.href and a form POST, over HTTP/2) carry
-// both Referer and Cookie in every browser sample, all alike: mimicry's
-// must be each sample's, HPACK-decoded line for line, which is where the
-// navigation's referer and cookie slots are compared end to end.
+// Every probe of the cookies page through mimicry has the browser's header
+// lines, order, values and HTTP/2 weight, and so its cookies in its order
+// (SameSite, partitions, None without Secure, redirects, path and domain).
+// The navigations back to A compare the referer and cookie slots end to end.
 func TestCookiesScenarioMatchesBrowser(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {

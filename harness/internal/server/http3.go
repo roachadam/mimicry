@@ -674,14 +674,13 @@ func (h *h3conn) snapshot() (*quictrace.H3, *quictrace.Close) {
 	return rec, closed
 }
 
-// h3Server is how a scenario serves HTTP/3: the SETTINGS the server sends,
-// in order; with blackhole, nothing at all (the socket records and drops
-// every datagram); versions are the QUIC versions quic-go accepts (nil:
-// its default, 1 and 2), others answered with Version Negotiation; aioquic
-// serves it with aioquic instead of quic-go (serveAioquic), a server that
-// upgrades compatibly to version 2; idleTimeout is its max_idle_timeout
-// (zero: h3IdleTimeout); tooEarly answers every request whose stream
-// started in a 0-RTT packet with 425 Too Early (earlyStreams).
+// h3Server is how a scenario serves HTTP/3:
+//   - settings: the SETTINGS sent, in order.
+//   - blackhole: answer nothing; the socket records and drops every datagram.
+//   - versions: QUIC versions accepted (nil: quic-go's default, 1 and 2).
+//   - aioquic: serve with aioquic (serveAioquic), which upgrades compatibly to v2.
+//   - idleTimeout: max_idle_timeout (zero: h3IdleTimeout).
+//   - tooEarly: answer requests on 0-RTT streams with 425 (earlyStreams).
 type h3Server struct {
 	settings    [][2]uint64
 	blackhole   bool

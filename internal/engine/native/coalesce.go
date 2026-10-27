@@ -55,10 +55,8 @@ func remoteAddr(conn net.Conn) netip.Addr {
 }
 
 // covering returns the pool's HTTP/2 connections a request on r could
-// take: in r's group (scheme, port, partition; never through a proxy),
-// to a known address, with a certificate covering r's host, that
-// Config.VerifyConnection accepts for r's host (its pins). The
-// certificate was verified when the connection was made.
+// coalesce onto: same group, known address, a certificate covering r's
+// host, accepted by Config.VerifyConnection for that host.
 func (e *Engine) covering(r route) []*shared {
 	if r.group == "" {
 		return nil
@@ -86,10 +84,9 @@ func (e *Engine) verifyShared(host string, c *shared) bool {
 	return e.verify(host, cs) == nil
 }
 
-// coalesceOnLookup returns a connection r's request may take instead of
-// dialing (profile.CoalesceOnLookup): one covering r's host, to an
-// address the host resolves to. It looks the host up only when such a
-// connection exists; a failed lookup coalesces nothing.
+// coalesceOnLookup returns a covering connection at an address r's host
+// resolves to (profile.CoalesceOnLookup). It looks up only when a candidate
+// exists; a failed lookup coalesces nothing.
 func (e *Engine) coalesceOnLookup(ctx context.Context, r route) *shared {
 	conns := e.covering(r)
 	if len(conns) == 0 {

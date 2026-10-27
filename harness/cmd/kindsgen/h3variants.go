@@ -19,18 +19,10 @@ type h3Candidate struct {
 	fields []profile.Header
 }
 
-// h3Variants adds to each kind the method variants only the h3 pages
-// measured (the h3-page's XHR POST: no other capture sends one): from
-// their requests over HTTP/2 (Safari's h3-page went all over HTTP/2) and
-// over HTTP/3 in their HTTP/2 form (alt-used out, the headers HTTP/3 drops
-// back in after what precedes them in the kind's list: Firefox's te,
-// last in every list). Every sample's order must be the same; the
-// variant's list adds the kind's slots it lacks (cookie, page-set
-// headers) where the kind's list has them, keeps the kind's default values
-// the requests sent, and makes every other header a slot. Its condition is
-// the method, CORS-checked when it carries Origin; it has no HTTP/1.1
-// list (not measured). A method variant the kind already has must cover
-// the requests.
+// h3Variants adds the method variants only the h3 pages measured (an XHR
+// POST). HTTP/3 requests are compared in HTTP/2 form: alt-used removed,
+// dropped headers (Firefox's te) restored. Samples must agree. The
+// variant has no HTTP/1.1 list (not measured).
 func h3Variants(p *profile.Profile, dir string, reqs []h3Request, drop []string) error {
 	var cands []h3Candidate
 	for _, q := range reqs {

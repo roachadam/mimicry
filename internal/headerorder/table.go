@@ -8,13 +8,10 @@ import (
 )
 
 // TableOrder returns the order browser table t sends a request's table
-// headers in: members are the list's table names the request sends
-// (lowercase, in the list's order), page the names the page set itself
-// (lowercase, once each) in the order they enter the table: by name for
-// fetch(), whose Headers object sorts them; as the page set them for XHR.
-// t.AsPage members enter among the page's at their place by name. ok is
-// false when t cannot hold members as the list orders them, or more names
-// than it models.
+// headers in. members are the list's table names the request sends, page
+// the page's own names in insertion order (sorted for fetch(), as set for
+// XHR). ok is false when t cannot hold members in the list's order. See
+// decision 0021.
 func TableOrder(t *profile.HeaderTable, members, page []string) (order []string, ok bool) {
 	var own, late []string
 	pageNames := slices.Clone(page)
@@ -94,10 +91,9 @@ func occupied(buckets []string) []string {
 	return out
 }
 
-// blinkTable is WTF::HashTable as Blink's HTTPHeaderMap uses it
-// (third_party/blink/renderer/platform/wtf/hash_table.h): 8 buckets to
-// start, doubled when an insert leaves it half full, triangular probing
-// (i += 1, 2, 3, ...), rehashed in bucket order.
+// blinkTable is Blink's WTF::HashTable as HTTPHeaderMap uses it: 8
+// buckets, doubled at half full, triangular probing, rehashed in bucket
+// order.
 type blinkTable struct {
 	buckets []string
 	count   int

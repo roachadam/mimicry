@@ -77,12 +77,10 @@ func compileQUICRetry(fresh quicHello, r *profile.QUICHelloRetry) quicHello {
 	return out
 }
 
-// compileQUICHello lays out the QUIC hello's extensions: TLS's without
-// tls.quic's drops (and, resumed, tls.resumption's), bodies replaced,
-// quic_transport_parameters added; a fixed order puts it before
-// transport_parameters_before, a shuffled one keeps tls.quic.last at the
-// end. A resumed hello adds early_data when the browser sends 0-RTT and
-// ends with pre_shared_key.
+// compileQUICHello lays out the QUIC hello's extensions from TLS's, with
+// tls.quic's drops, replaced bodies and quic_transport_parameters placed as
+// the profile says; a resumed hello adds early_data where the browser sends
+// 0-RTT and ends with pre_shared_key.
 func compileQUICHello(p *profile.Profile, resumed bool) quicHello {
 	q := p.TLS.QUIC
 	shuffled := q.ExtensionOrder == profile.ExtensionOrderShuffled

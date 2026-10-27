@@ -439,12 +439,9 @@ func defaultResponse(path string, uploaded int) response {
 }
 
 // serverCookies is shaped like the first response of bot-protected sites
-// (sampled 2026-10-23: Nike, Ticketmaster, Zillow, Walmart): a mix of
-// attributes, lengths from 1 to 88 characters, one name set several times,
-// plus an Akamai _abck-sized value. The p19, p20 and p21 crumbs are 19, 20
-// and 21 bytes long, probing where Firefox and Safari stop never-indexing
-// short cookies. Values are synthetic. Every cookie expires in 10 minutes and
-// /done deletes them, so Safari, which cannot be isolated, keeps nothing.
+// (sampled 2026-10-23), with synthetic values. The p19–p21 crumbs probe where
+// Firefox and Safari stop never-indexing short cookies. All expire in 10
+// minutes and /done deletes them, since Safari cannot be isolated.
 var serverCookies = []struct {
 	name, attrs string
 	length      int

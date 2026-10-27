@@ -152,45 +152,24 @@ const navFollowed = 19
 // take well under a second.
 const redirWatch = 10 * time.Second
 
-// Redirects2Steps returns the redirects2 page's requests, in order. The
-// page at / makes the steps that are not navigations, one after another,
-// 5 s at most each (a refused one is expected and ignored; its markup
-// images load with the page, and it waits for them first); then each
-// navigation starts from a page of its own on the page's host,
-// /s/<Label>, and the page its last hop answers goes to the next one's.
-// Each question is one step, its label unique:
+// Redirects2Steps returns the redirects2 page's requests, in order: first the
+// non-navigation steps from / (5 s each at most; refusals are expected), then
+// each navigation from its own /s/<Label> page. Label suffixes say where the
+// redirect goes: .so same-origin, .ss same-site, .cs cross-site, .cs-cs on to
+// a third site. Each step asks what the browser sends for .hop1:
 //
-//   - img-markup.<so|ss>, img-new.<so|ss>: an <img> in the page's HTML
-//     and a new Image() (no crossorigin) answered 302 within the page's
-//     origin, and within static.redir-a.test (its site): .hop1's headers;
-//   - xhr-acao.cs, xhr-noacao.cs: a cross-site XHR GET answered 302 with
-//     and without Access-Control-Allow-Origin: is .hop1 requested?
-//   - img-*.cs, script-*.cs: the same for <img crossorigin> and
-//     <script crossorigin>;
-//   - fetch-acao.ss, fetch-noacao.ss: a same-site fetch() answered 302
-//     within static.redir-a.test, with and without
-//     Access-Control-Allow-Origin;
-//   - fetch-acao.cs-cs, fetch-noacao.cs-cs: a cross-site fetch() answered
-//     302 to the third site, with and without Access-Control-Allow-Origin:
-//     is .hop1 requested, with which Origin (a redirect to another origin
-//     taints it: "null")?
-//   - cred-acac.cs-cs, cred-noacac.cs-cs: the same with credentials
-//     "include", Access-Control-Allow-Origin, and with or without
-//     Access-Control-Allow-Credentials;
-//   - m-put-<307|308>.so: same-origin PUT with a body: .hop1's method,
-//     body and content-type; m-post-<307|308>.<so|cs>: the same for POST,
-//     same-origin and cross-site;
-//   - m-head-<301..303>.so: the same for HEAD;
-//   - m-patch-<301..308>.<so|cs>: PATCH with a body answered 301, 302,
-//     303, 307 and 308, same-origin and cross-site (preflighted: each
-//     PATCH hop's preflight is answered too);
-//   - form-<status>.<so|cs>: a form POST (field a=1) to the page's own
-//     origin or another site answered 301, 302, 303, 307 and 308: .hop1's
-//     method, body, Origin and Content-Type;
-//   - nav-chain.so: a navigation answered 302 redirChain times: the last
-//     .hop<n> requested is where the browser stops. A browser that stops
-//     shows an error page, so the watchdog asks for /done; without one
-//     (no service workers) the step is skipped.
+//   - img-*, script-*, xhr-*, fetch-*: whether a subresource redirect is
+//     followed with and without Access-Control-Allow-Origin, and with which
+//     Origin ("null" after a cross-origin hop);
+//   - cred-*: the same with credentials and Access-Control-Allow-Credentials;
+//   - m-<method>-<status>, form-<status>: method, body, Origin and
+//     Content-Type after each redirect status (cross-site PATCH hops are
+//     preflighted);
+//   - nav-chain.so: how many of redirChain redirects a navigation follows;
+//     a browser that stops shows an error page, so the watchdog asks for
+//     /done.
+//
+// See harness/reports/redirects2-2026-10-24.md.
 func Redirects2Steps() []Redirects2Step {
 	steps := []Redirects2Step{
 		{Label: "img-markup.so", Kind: RedirectImageMarkup, Host: redirHost, Status: 302, Hops: 1},

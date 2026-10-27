@@ -13,9 +13,7 @@ import (
 )
 
 // Over TCP, a server that sends its SETTINGS at once still reads every
-// frame Decline sent, then a clean end: Decline reads what the server
-// sent before closing, so its close is no reset that could overtake its
-// own frames.
+// frame Decline sent, then a clean end rather than a reset.
 func TestDeclineClosesWithoutReset(t *testing.T) {
 	ln, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	if err != nil {

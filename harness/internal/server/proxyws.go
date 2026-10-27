@@ -5,18 +5,14 @@ import (
 	"time"
 )
 
-// wsH1Host is the proxy websocket pages' second host: same-site with
-// wsHost, but its HTTP/2 connections do not advertise extended CONNECT,
-// so a socket to it goes on an HTTP/1.1 connection of its own.
+// wsH1Host is same-site with wsHost but does not advertise extended
+// CONNECT, so its sockets go on HTTP/1.1 connections of their own.
 const wsH1Host = "h1.ws-a.test"
 
 // ProxyWebSocket, ProxyWebSocketAuth and ProxyWebSocketSOCKS5 are the
-// proxy websocket scenarios: a websocket page (ProxyWebSocketSteps)
-// through the capture proxy as the other proxy scenarios configure it,
-// with an HTTP proxy, one demanding Basic credentials, and SOCKS5. They
-// record what goes to the proxy for each socket (a CONNECT or SOCKS5
-// request, or the handshake sent whole), which tunnel carries it
-// (capture.WebSocket.ProxyConn) and the handshake inside.
+// websocket page (ProxyWebSocketSteps) through an HTTP proxy, one demanding
+// Basic credentials, and SOCKS5. See
+// harness/reports/proxy-websocket-2026-10-26.md.
 var (
 	ProxyWebSocket = &Scenario{
 		Name:         "proxy-websocket",
@@ -61,14 +57,9 @@ func proxyWSPage(plain bool) wsPage {
 	}
 }
 
-// ProxyWebSocketSteps lists the proxy websocket page's sockets and page
-// steps: the page on wsHost (whose HTTP/2 connections allow extended
-// CONNECT) fetches from wsH1Host (whose do not), so each host has an
-// HTTP/2 connection, as on the websocket pages; then it opens px-h2 on
-// wsHost and px-h1 and px-h1-again on wsH1Host (whether the second
-// socket's TLS connection resumes the first's session); with plain, it
-// goes to its http:// page, which opens px-plain (ws://), and back. Each
-// socket sends text of 5 and 200 bytes and closes with 1000 "bye".
+// ProxyWebSocketSteps lists the proxy websocket page's sockets and steps:
+// px-h2 on wsHost, px-h1 and px-h1-again on wsH1Host (does the second
+// resume?), and with plain px-plain (ws://) from its http:// page.
 func ProxyWebSocketSteps(plain bool) ([]WebSocketStep, []WebSocketPageStep) {
 	sends := []WSMessage{
 		{

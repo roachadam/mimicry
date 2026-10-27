@@ -34,10 +34,9 @@ const (
 	roles
 )
 
-// tableCase is one captured list a table must explain: sent, as the
-// browser sent it, from base, the order of its condition without the
-// page's headers (nil: sent carries none of them, and the table must keep
-// its order), the page's in pageOrder (request.pageOrder).
+// tableCase is one captured list a table must explain: sent, built from
+// base (its condition's order without page headers; nil: keep sent's
+// order) plus the page's headers in pageOrder.
 type tableCase struct {
 	label      string
 	redirected bool
@@ -47,16 +46,10 @@ type tableCase struct {
 }
 
 // deriveTable derives the browser's header table from its fetch() and XHR
-// requests (kinds: each kind's, every condition and protocol): Own are the
-// browser's headers found between two of the page's; a list header inside
-// a run of the table's names elsewhere takes the first role (as the
-// page's, own, late) and the table the first shape (tableShapes) under
-// which every request not made by following a redirect, with the page's
-// headers, is its kind's base order with the table's run (tableExplains),
-// and every other keeps its order. Redirected when the table explains the
-// redirects' requests too. Nil when no browser header ever sits between
-// the page's: they are one run, which profile.OtherHeaders places
-// (Firefox).
+// requests: Own are browser headers found between page headers; the shape
+// is the first in tableShapes that explains every non-redirect request.
+// Redirected is set when it explains redirects too. Nil when page headers
+// always form one run, which profile.OtherHeaders places (Firefox).
 func deriveTable(kinds ...[]*request) (*profile.HeaderTable, error) {
 	ownSet, extraSet := map[string]bool{}, map[string]bool{}
 	var cases, redirects []tableCase
@@ -161,10 +154,8 @@ func deriveTable(kinds ...[]*request) (*profile.HeaderTable, error) {
 	return nil, fmt.Errorf("header table: own headers %q (extras %q) in no table explain the captures; first failure per table: %s", own, extras, strings.Join(failed, "; "))
 }
 
-// baseOrder returns, lowercase, the order of r's condition without the
-// page's headers over one protocol (list, h1), merged from groups; false
-// when that condition was not captured, its captures disagree, or its
-// order lacks a header r sends.
+// baseOrder returns, lowercase, the order of r's condition without page
+// headers; false when uncaptured, inconsistent, or missing a header r sends.
 func baseOrder(groups map[condition][]*request, r *request, list func(*request) []profile.Header, h1 bool) ([]string, bool) {
 	base := r.condition()
 	base.pageSet, base.cors = false, slices.ContainsFunc(list(r), func(h profile.Header) bool {
@@ -182,11 +173,8 @@ func baseOrder(groups map[condition][]*request, r *request, list func(*request) 
 }
 
 // tablePlaces reports whether table places the page's headers on every
-// request of group (one condition, with them) from the order of its
-// condition without them (from groups): then the group needs no variant.
-// False when the table does not order the group's requests (redirects',
-// unless table.Redirected), or that condition does not describe one
-// (baseOrder); an error when the table does not explain one it describes.
+// request of group, so the group needs no variant. It errors when the
+// table fails a group it should order.
 func tablePlaces(table *profile.HeaderTable, groups map[condition][]*request, group []*request) (bool, error) {
 	for _, r := range group {
 		if r.hop && !table.Redirected {
@@ -219,9 +207,8 @@ func describes(base, sent []string) bool {
 	})
 }
 
-// tableExplains reports whether table sends sent: from base (nil: sent
-// itself, carrying none of the page's headers) as headerorder.Build does,
-// the page's in pageOrder (nil: by name).
+// tableExplains reports whether table builds sent from base (nil: sent
+// itself) as headerorder.Build does.
 func tableExplains(table *profile.HeaderTable, base, sent, pageOrder []string) bool {
 	if base == nil {
 		base = sent
@@ -229,11 +216,9 @@ func tableExplains(table *profile.HeaderTable, base, sent, pageOrder []string) b
 	return slices.Equal(tableSent(table, base, sent, pageOrder), sent)
 }
 
-// tableSent is what headerorder.Build sends for a request whose list is base
-// and whose headers are sent's: base's names sent, the table's run, holding
-// the page's headers (in pageOrder, nil: by name), at its first table name;
-// without one, the page's after the rest, sorted. Nil when the table cannot
-// hold base's order.
+// tableSent is what headerorder.Build sends for base and sent: the page's
+// headers in the table's run at its first table name, else sorted at the
+// end. Nil when the table cannot hold base's order.
 func tableSent(table *profile.HeaderTable, base, sent, pageOrder []string) []string {
 	members, order := []string{}, []string{}
 	all := table.Members()

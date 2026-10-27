@@ -24,12 +24,10 @@ const (
 	h3CrossSite = "www.h3-b.test"
 )
 
-// H3Discovery is the h3-discovery scenario: a page over HTTPS whose every
-// response advertises HTTP/3 (Alt-Svc: h3=":<port>"; ma=86400), then
-// requests spaced in time, a second page, another site, a GOAWAY and an
-// idle spell: when each browser moves to HTTP/3, whether it races TCP and
-// QUIC, and what it sends first. See H3DiscoverySteps. Its server allows
-// no QPACK dynamic table (empty SETTINGS, as quic-go's HTTP/3 server).
+// H3Discovery is the h3-discovery scenario: every response advertises
+// HTTP/3, then spaced requests, a second page, another site, a GOAWAY and an
+// idle spell show when each browser moves to HTTP/3 and whether it races
+// TCP. Its server allows no QPACK dynamic table. See H3DiscoverySteps.
 var H3Discovery = &Scenario{
 	Name: "h3-discovery",
 	Doc:  "HTTP/3 discovery: Alt-Svc on every response, then subresources, fetches and a POST spaced in time, a second page, a cross-site host, a GOAWAY and a 35 s idle: when each browser switches to QUIC, whether it races TCP, its QUIC Initial, transport parameters, HTTP/3 SETTINGS and requests",
@@ -46,13 +44,10 @@ var H3Discovery = &Scenario{
 	h3: &h3Server{},
 }
 
-// H3Page is the h3-page scenario: after a warm-up that learns both hosts'
-// Alt-Svc, a navigation to a page making every request kind (see
-// H3PageSteps), over HTTP/3 where the browser takes it: each kind's
-// header list, priority (the priority header, PRIORITY_UPDATE) and QPACK
-// encoding. Its server allows a 64 KiB QPACK dynamic table and 100
-// blocked streams, the defaults of Google's QUIC server (quiche), so the
-// browser's QPACK encoder may use it.
+// H3Page is the h3-page scenario: every request kind over HTTP/3 (see
+// H3PageSteps), for header lists, priorities and QPACK encoding. Its server
+// allows a 64 KiB QPACK dynamic table and 100 blocked streams (quiche's
+// defaults), so the browser's encoder may use it.
 var H3Page = &Scenario{
 	Name: "h3-page",
 	Doc:  "request kinds over HTTP/3 (navigation, scripts, styles, images by priority, fetch GET/POST, XHR, beacon, iframe, font, cross-site): header lists, priorities and PRIORITY_UPDATE, QPACK with a 64 KiB dynamic table allowed",
@@ -74,29 +69,22 @@ var H3Page = &Scenario{
 	},
 }
 
-// H3ProfileCaptures returns p's h3-discovery and h3-page captures in dir,
-// unforced and with -h3-local-roots, those that exist, each the profile's
-// own or the one it inherits the scenario from (capture.Inherited), in
-// scenario order: the captures a profile's QUIC and HTTP/3 sections are
-// generated from, but for what only the edge scenarios show
-// (H3EdgeCaptures).
+// H3ProfileCaptures returns p's existing h3-discovery and h3-page captures
+// in dir (own or inherited, with and without -h3-local-roots): what a
+// profile's QUIC and HTTP/3 sections are generated from.
 func H3ProfileCaptures(dir string, p *profile.Profile) ([]capture.File, error) {
 	return existingCaptures(dir, p, H3Discovery, H3Page)
 }
 
-// H3EdgeCaptures returns p's h3-blackhole, h3-broken, h3-vn, h3-download,
-// h3-early and h3-too-early captures in dir, as H3ProfileCaptures does:
-// the captures h3gen derives loss recovery, fallback, version negotiation,
-// acknowledgement, credit, key updates and early data from. h3-v2 is left
-// out: its server is aioquic, whose upgrade only internal/quic's v2
-// support and harness/e2e check.
+// H3EdgeCaptures is H3ProfileCaptures for the edge scenarios h3gen reads
+// (loss recovery, fallback, version negotiation, credit, key updates, early
+// data). h3-v2 is left out: only internal/quic and harness/e2e check it.
 func H3EdgeCaptures(dir string, p *profile.Profile) ([]capture.File, error) {
 	return existingCaptures(dir, p, H3Blackhole, H3Broken, H3VN, H3Download, H3Early, H3TooEarly)
 }
 
-// existingCaptures returns the page captures of scenarios that exist in
-// dir for p, sorted by their names less their source's: by scenario, the
-// -h3-local-roots one first, whichever profile each comes from.
+// existingCaptures returns p's existing captures of scenarios in dir,
+// sorted by scenario, the -h3-local-roots one first.
 func existingCaptures(dir string, p *profile.Profile, scenarios ...*Scenario) ([]capture.File, error) {
 	var out []capture.File
 	for _, sc := range scenarios {
@@ -129,35 +117,27 @@ func existingCaptures(dir string, p *profile.Profile, scenarios ...*Scenario) ([
 	return out, nil
 }
 
-// H3Step is one request of the h3 pages: a KindsStep (Host's
-// /h3/<Label>) made by the document at Page (a path), PauseMillis after
-// its previous step completed (or, after a NoWait step, started). A step
-// with a Tag is in the document's markup instead; a "navigate" step loads
-// the document at its own URL (its steps are those whose Page is that
-// path; with Method POST, by submitting a form of Body's one field) and
-// ends its page's steps; a page whose steps end otherwise asks for /done.
+// H3Step is one request of the h3 pages: a KindsStep (Host's /h3/<Label>)
+// made by the document at Page, PauseMillis after the previous step
+// completed (or started, if NoWait). A step with a Tag is in the markup
+// instead. A "navigate" step loads its own URL as the next document (POST:
+// via a form of Body's one field); otherwise a page ends by asking for /done.
 type H3Step struct {
 	KindsStep
 	Page        string `json:"-"`
 	PauseMillis int    `json:"pause"`
-	// NoWait starts the next step's pause without waiting for this one to
-	// complete, so steps keep their schedule however long the browser
-	// takes; its URL gets ?t=<performance.now() in ms>, when the script
-	// made the request.
+	// NoWait starts the next step's pause without waiting, keeping the
+	// schedule; its URL gets ?t=<performance.now() ms>.
 	NoWait bool `json:"nowait,omitempty"`
-	// Delay holds the response back, so the browser can change the
-	// request's priority while it is in flight; CloseAfter ends the
-	// connection that carried it after answering (HTTP/3: GOAWAY, then
-	// CONNECTION_CLOSE H3_NO_ERROR; HTTP/2: GOAWAY), GoAwayTCP only an
-	// HTTP/2 one (over HTTP/3 it is answered as any other).
+	// Delay holds the response back so the browser can reprioritise it.
+	// CloseAfter closes the connection after answering (GOAWAY, plus
+	// CONNECTION_CLOSE over HTTP/3); GoAwayTCP does so only over HTTP/2.
 	Delay      time.Duration `json:"-"`
 	CloseAfter bool          `json:"-"`
 	GoAwayTCP  bool          `json:"-"`
-	// Silence, the first time it arrives over HTTP/3, leaves the request
-	// unanswered and drops every later datagram of its connection both
-	// ways (repeated on another connection, it is answered); Blackhole,
-	// with CloseAfter over HTTP/3, leaves every QUIC connection started
-	// after the close unanswered.
+	// Silence, first time over HTTP/3, leaves the request unanswered and
+	// drops its connection's datagrams. Blackhole, with CloseAfter, leaves
+	// every later QUIC connection unanswered.
 	Silence   bool `json:"-"`
 	Blackhole bool `json:"-"`
 	// Download, when set, answers with that many incompressible bytes.
@@ -173,15 +153,9 @@ func (s H3Step) Path() string {
 // timeout browsers announce (30 s), shorter than the server's.
 const h3Idle = 35 * time.Second
 
-// H3DiscoverySteps lists the h3-discovery page's requests in order. The
-// page at / (over TCP: nothing has advertised HTTP/3 yet) loads a
-// stylesheet, a script and an image from its markup, then with pauses: a
-// fetch, an image, a script, a POST of 8 KiB, a fetch, then navigates to
-// /h3/second.so, which loads an image from its markup, then: a fetch, a
-// fetch and an image from the other site (its first request learns its
-// Alt-Svc), a second fetch there, a fetch answered with a GOAWAY that
-// ends its connection, a fetch after it, and after h3Idle a fetch to each
-// site (the idle timeout has ended their QUIC connections).
+// H3DiscoverySteps lists the h3-discovery page's requests in order: markup
+// and spaced requests on / (over TCP), a navigation to /h3/second.so, the
+// other site, a GOAWAY, and after h3Idle a fetch to each site.
 func H3DiscoverySteps() []H3Step {
 	const second = "/h3/second.so"
 	upload := strings.Repeat("h3-discovery-", 8192/13+1)[:8192]
@@ -212,14 +186,9 @@ func H3DiscoverySteps() []H3Step {
 // while it is in flight.
 const h3ImageDelay = time.Second
 
-// H3PageSteps lists the h3-page's requests in order. The page at / makes a
-// fetch to each host, so both hosts' Alt-Svc is known, then navigates to
-// /h3/kinds.so. That page's markup loads a stylesheet, a blocking and an
-// async script, an image in the viewport and one far below it; its script
-// then makes every kind one after another: script, style, images at
-// default, high and low priority, fetch at default, high and low priority,
-// a JSON POST and a 64 KiB upload, XHR GET and POST, a beacon, an iframe, a
-// font, and a fetch, an image and a script from the other site.
+// H3PageSteps lists the h3-page's requests in order: a warm-up fetch to each
+// host, then /h3/kinds.so, whose markup and script make every request kind,
+// including from the other site.
 func H3PageSteps() []H3Step {
 	const kinds = "/h3/kinds.so"
 	upload := strings.Repeat("h3-page-upload-", 65536/15+1)[:65536]
@@ -270,10 +239,8 @@ func H3PageSteps() []H3Step {
 	}))
 }
 
-// h3Page serves an h3 page: the documents and requests of its steps,
-// each response advertising HTTP/3 on the port it came on, except from
-// plainHosts. With doneHost the page asks for /done there (a host whose
-// requests stay on TCP, when HTTP/3 is not this server's).
+// h3Page serves an h3 page's documents and steps, advertising HTTP/3 except
+// on plainHosts. With doneHost, /done goes there (a TCP-only host).
 type h3Page struct {
 	fixedHosts
 	steps      func() []H3Step

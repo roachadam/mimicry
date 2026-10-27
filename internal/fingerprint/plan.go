@@ -1,3 +1,10 @@
+// Package fingerprint compiles a profile once into an immutable plan, then
+// fills in per-connection randomness (GREASE, extension shuffle, key
+// shares) to produce each connection's ClientHello.
+//
+// The shuffle is drawn fresh per connection and reused for a second
+// ClientHello after HelloRetryRequest. The HRR cookie's placement is a known
+// gap; see profiles/EVIDENCE.md, "Behaviour in code, not in profiles".
 package fingerprint
 
 import (
@@ -75,10 +82,9 @@ func (p *Plan) Resumes() bool {
 	return p.tls.Resumption != nil
 }
 
-// ResumedHello returns a new connection's ClientHello offering a ticket: the
-// full one, shuffled alike, without the extensions the browser drops when
-// resuming, with GREASE ECH's payload lengths those of a resumed hello, and
-// with pre_shared_key last. Only for a plan that Resumes.
+// ResumedHello returns a new connection's ClientHello offering a ticket:
+// the full one, shuffled alike, minus the extensions the browser drops on
+// resumption, with pre_shared_key last. Only for a plan that Resumes.
 func (p *Plan) ResumedHello() Hello {
 	h := p.Hello()
 	h.Extensions = slices.DeleteFunc(h.Extensions, func(e profile.Extension) bool {
@@ -95,10 +101,9 @@ func (p *Plan) ResumedHello() Hello {
 	return h
 }
 
-// WebSocketHello returns h, a Hello or ResumedHello, as the hello of a
-// WebSocket's own HTTP/1.1 connection (profile tls.websocket_h1): ALPN
-// offering its protocols, and without the extensions it drops. Only for a
-// profile with tls.websocket_h1.
+// WebSocketHello returns h as the hello of a WebSocket's own HTTP/1.1
+// connection (profile tls.websocket_h1). Only for a profile with
+// tls.websocket_h1.
 func (p *Plan) WebSocketHello(h Hello) Hello {
 	ws := p.tls.WebSocketH1
 	h.Extensions = slices.DeleteFunc(h.Extensions, func(e profile.Extension) bool {

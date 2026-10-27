@@ -30,15 +30,10 @@ var connectionsPreconnects = map[string][]string{
 	},
 }
 
-// The connections page's steps, made through mimicry as the page makes
-// them (no-cors fetches with credentials), open the browser's connections:
-// the same hosts, protocols and request counts; on each HTTP/2 connection
-// the same requests in order (the host covered by the page's certificate
-// and the pair's second host coalesced onto the first; Firefox's declined
-// connections send only SETTINGS, WINDOW_UPDATE and GOAWAY); and the 10
-// parallel requests to the HTTP/1.1 host on 6 connections, the first six
-// made one per connection and the other four after them. Every sample is
-// compared. The profiles run in parallel.
+// The connections page through mimicry opens the browser's connections:
+// same hosts, protocols and requests per connection, the same coalescing
+// (Firefox's declined connections included), and the 10 parallel HTTP/1.1
+// requests spread over 6 connections.
 func TestConnectionsMatchBrowser(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {

@@ -209,10 +209,8 @@ func (s *edgeSet) probes(out *profile.QUICLoss, fresh, resumed []unanswered, e *
 	}
 }
 
-// probeKind is how a's probes repeat its first flight: ProbeFlight, every
-// Initial packet with its CRYPTO frames as they were; ProbeOnePacket, one
-// packet with the data of the first flight's packets in turn; "" for
-// neither.
+// probeKind is how a's probes repeat its first flight: ProbeFlight (every
+// Initial as sent), ProbeOnePacket (one packet cycling the data), or "".
 func probeKind(a *attempt) string {
 	first := initials(a.flights[0])
 	flight, one := true, true
@@ -433,10 +431,8 @@ func (sl silenced) clientClose() (*quictrace.Frame, float64) {
 	return nil, 0
 }
 
-// pathDegrading derives when the browser gives up on the silenced
-// connection's path and what it does: a datagram from a new port
-// (PathMigrate), a close with a reason (PathClose), or neither, until the
-// idle timeout ended it.
+// pathDegrading derives when the browser gives up on the silenced path
+// and whether it migrates, closes, or waits for the idle timeout.
 func (s *edgeSet) pathDegrading(q *profile.QUIC, e *collector) *profile.QUICPathDegrading {
 	var out *profile.QUICPathDegrading
 	for i, sl := range s.silencedConns(e) {
@@ -477,11 +473,9 @@ func (s *edgeSet) pathDegrading(q *profile.QUIC, e *collector) *profile.QUICPath
 	return out
 }
 
-// migration checks sl's move to a new port: a PATH_CHALLENGE padded to
-// the datagram size first, RETIRE_CONNECTION_ID soon after, and nothing
-// more on the old path; and derives how many probe timeouts after the
-// silenced request's first send it came (the first retransmission's
-// delay being one).
+// migration checks sl's move to a new port (padded PATH_CHALLENGE, then
+// RETIRE_CONNECTION_ID, nothing more on the old path) and derives after
+// how many probe timeouts it came.
 func migration(q *profile.QUIC, sl silenced, first int, at string, e *collector) *profile.QUICPathDegrading {
 	ds := sl.a.c.Datagrams
 	d := &ds[first]
@@ -529,11 +523,9 @@ func migration(q *profile.QUIC, sl silenced, first int, at string, e *collector)
 	return out
 }
 
-// keepAlive derives the keep-alive PING's period and what it counts
-// from: on every silenced connection, the first PING-only datagram sent
-// on its own (no other datagram within 5 ms: not a probe's PING) after
-// the request, measured from each candidate moment; the one moment every
-// sample puts within 50 ms after one round period.
+// keepAlive derives the keep-alive PING period and its start moment: the
+// candidate every sample puts within 50 ms of one period. PINGs within
+// 5 ms of another datagram are probes, not keep-alives.
 func (s *edgeSet) keepAlive(e *collector) profile.QUICKeepAlive {
 	var out profile.QUICKeepAlive
 	froms := []string{profile.KeepAliveFromSent, profile.KeepAliveFromIdle, profile.KeepAliveFromReceived}
@@ -642,11 +634,9 @@ func pingOnly(d *quictrace.Datagram) bool {
 	return ping
 }
 
-// versionNegotiation derives what the browser does on Version
-// Negotiation from h3-vn: a new connection in another version within 10
-// ms (Retry), and how that one closes on the server's transport
-// parameters without version_information (DowngradeError); or no other
-// attempt at all.
+// versionNegotiation derives the response to Version Negotiation from
+// h3-vn: a retry in another version within 10 ms (and whether it closes
+// on missing version_information), or no other attempt.
 func (s *edgeSet) versionNegotiation(e *collector) profile.QUICVersionNegotiation {
 	var out profile.QUICVersionNegotiation
 	for i, p := range s.scenario(scenarioVN) {

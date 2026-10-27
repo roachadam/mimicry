@@ -9,25 +9,10 @@ import (
 	"golang.org/x/net/http2/hpack"
 )
 
-// CORS is the cors scenario: what each browser does around CORS
-// preflights the kinds page does not show. From the kinds page's origin, in
-// order (paths /p/<label>):
-//
-//   - multi.cs: two custom headers (X-B, X-A): Access-Control-Request-Headers' form;
-//   - put.cs: a PUT: Access-Control-Request-Method;
-//   - setcookie.cs, include.cs: a credentialed preflighted fetch, after a
-//     cookie for its host: the preflight goes without it, and maybe on a
-//     connection of its own;
-//   - maxage.cs five times: its preflight answered with
-//     Access-Control-Max-Age 600, then the same request (cached?), another
-//     header, the first again (is the cache per URL, replaced by the latest
-//     answer, or per request?), another method;
-//   - default.cs three times: no Max-Age; the same request at once, then
-//     after 6 s;
-//   - denied-headers.cs: the preflight allows no headers; denied-status.cs:
-//     it answers 403: is the request sent anyway?
-//   - redirect.cs: the request is answered 307 to redirect-target.cs: a
-//     second preflight?
+// CORS is the cors scenario: CORS preflight behaviour the kinds page does
+// not show (header form, methods, credentials, the preflight cache, refused
+// preflights, redirects). See CORSSteps and
+// harness/reports/cors-2026-10-24.md.
 var CORS = &Scenario{
 	Name: "cors",
 	Doc:  "CORS preflights: Access-Control-Request-Headers' form, methods, credentials, the preflight cache, refused preflights, redirects",
@@ -89,8 +74,8 @@ func CORSSteps() []CORSStep {
 	}
 }
 
-// corsScript runs the steps against origin cs; each fetch's failure (a
-// refused preflight) is expected and ignored.
+// corsScript runs the steps against origin cs; refused preflights' failures
+// are ignored.
 func corsScript(cs string) string {
 	var b strings.Builder
 	b.WriteString("(async () => {\nconst f = (path, init) => fetch(" + strconv.Quote(cs) + " + path, init).then(r => r.text()).catch(() => {});\n")

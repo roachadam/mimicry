@@ -22,15 +22,11 @@ type quicConn struct {
 	length int
 }
 
-// quicHello derives tls.quic from the ClientHello of every QUIC connection
-// in the h3-discovery and h3-page captures p is checked against
-// (server.H3ProfileCaptures, forced or not): how it differs from p.TLS,
-// the TLS hello. Every full hello must be the TLS hello with the same
-// cipher suites, session ID, dropped extensions and replaced bodies, and
-// quic_transport_parameters added; their orders all alike (fixed) or not
-// (shuffled, keeping the extensions every one ends with last). Every
-// resumed hello must be a full one resumed as p.TLS.Resumption says, with
-// early_data. Nil without h3 captures.
+// quicHello derives tls.quic, how QUIC ClientHellos differ from p.TLS, from
+// every connection in p's h3 captures. Full hellos must all differ alike;
+// their order is fixed or shuffled with trailing extensions kept last.
+// Resumed hellos must follow p.TLS.Resumption plus early_data. Nil without
+// h3 captures.
 func quicHello(dir string, p *profile.Profile) (*profile.QUICHello, error) {
 	t := &p.TLS
 	conns, err := quicConns(dir, p)
@@ -75,9 +71,8 @@ func quicHello(dir string, p *profile.Profile) (*profile.QUICHello, error) {
 		}
 		slices.Sort(out.ResumedECHPayloadLengths)
 		out.ResumedECHPayloadLengths = slices.Compact(out.ResumedECHPayloadLengths)
-		// As for full hellos: lengths among the TLS hello's resumed set are
-		// picked from it (Chrome's nine resumed QUIC hellos showed two of
-		// its four).
+		// As for full hellos, lengths within the TLS hello's resumed set use that
+		// set: few samples show only part of it.
 		if within(out.ResumedECHPayloadLengths, t.Resumption.ECHPayloadLengths) {
 			out.ResumedECHPayloadLengths = slices.Clone(t.Resumption.ECHPayloadLengths)
 		}

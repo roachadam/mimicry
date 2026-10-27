@@ -28,12 +28,10 @@ import (
 )
 
 // HeaderOrderKey is a pseudo request header whose values are header names,
-// in the order to send them. It replaces the profile's order for the
-// request, so a profile default it does not name is not sent; headers the
-// request sets that it does not name are still sent, after the named ones.
-// It is never sent itself. It wins over Config.HeaderPlacement, which the
-// request then ignores; to move one header and keep the profile's order,
-// use a Place instead.
+// in the order to send them; it is never sent itself. It replaces the
+// profile's order, so profile defaults it does not name are not sent; the
+// request's own unnamed headers follow the named ones. It overrides
+// Config.HeaderPlacement; use a Place to move one header instead.
 const HeaderOrderKey = headerorder.Key
 
 // engine sends requests: the pure-Go engine, or a test's fake.
@@ -52,86 +50,60 @@ type Config struct {
 	// DialTimeout bounds TCP connects and TLS handshakes; zero means 30
 	// seconds.
 	DialTimeout time.Duration
-	// DialContext opens TCP connections, as http.Transport's does (to pin a
-	// host to an address, or dial through your own network code); TLS and
-	// everything above stay the profile's. Through a proxy it reaches the
-	// proxy. Nil uses net.Dialer.
+	// DialContext opens TCP connections (to the proxy, if any), as
+	// http.Transport's does; TLS and above stay the profile's. Nil uses
+	// net.Dialer.
 	DialContext func(ctx context.Context, network, addr string) (net.Conn, error)
-	// Resolver looks host names up: for connections when DialContext is
-	// nil, and, for a profile that coalesces on lookup (Chrome, Safari),
-	// to find whether another host's HTTP/2 connection reaches an address
-	// the request's host resolves to, which the request then takes, as the
-	// browser does, if that connection's certificate covers the host. A
-	// failed lookup only means a new connection. Nil uses
-	// net.DefaultResolver. Set it with DialContext when DialContext maps
-	// hosts to addresses DNS does not give.
+	// Resolver looks host names up, for dialing when DialContext is nil and,
+	// for profiles that coalesce on lookup (Chrome, Safari), to reuse
+	// another host's HTTP/2 connection to the same address when its
+	// certificate covers the host. Nil uses net.DefaultResolver. Set it with
+	// DialContext when DialContext maps hosts to addresses DNS does not give.
 	Resolver *net.Resolver
-	// Proxy returns the proxy for a request, as http.Transport's does
-	// (http.ProxyURL, http.ProxyFromEnvironment); nil, or a nil URL,
-	// connects directly. An "http" proxy tunnels https requests with
-	// CONNECT and takes http requests whole; "socks5" and "socks5h" tunnel
-	// both, the proxy resolving host names either way. The proxy sees what
-	// the profile's browser sends it (its proxy section; a profile without
-	// one cannot use proxies); the server sees what it would without the
-	// proxy. Credentials in the URL go as the browser sends them: once the
-	// proxy asks (407), then unasked. Each proxy has its own connections and
-	// TLS sessions. A proxy that fails a request (unreachable, refusing the
-	// tunnel or the credentials, too slow) returns a *ProxyError.
+	// Proxy returns the proxy for a request, as http.Transport's does; nil,
+	// or a nil URL, connects directly. Schemes: "http" (CONNECT for https,
+	// whole requests for http), "socks5" and "socks5h" (the proxy resolves
+	// names either way). The proxy sees what the profile's proxy section
+	// says the browser sends (a profile without one cannot use proxies); URL
+	// credentials go once the proxy answers 407. A failed proxy returns a
+	// *ProxyError.
 	Proxy func(*http.Request) (*url.URL, error)
-	// Headers are added to every request: the caller's own, such as an API
-	// key, not the profile's. They take the place the request's kind gives
-	// them (page-set headers), override the profile's defaults and computed
-	// headers, and yield to the request's own; a key with no values
-	// suppresses the profile's default. Names match in any case. CORS
-	// preflights get those their kind's header list names (User-Agent,
-	// Accept-Language). Authorization and Cookie stop once a redirect chain
-	// has left an origin, as a browser drops Authorization.
+	// Headers are the caller's own headers (an API key, say), added to every
+	// request where its kind places page-set headers. They override the
+	// profile's defaults and computed headers and yield to the request's
+	// own; a key with no values suppresses a default. CORS preflights get
+	// only those their kind's list names. Authorization and Cookie are
+	// dropped once a redirect chain leaves the origin.
 	Headers http.Header
-	// HeaderPlacement moves headers out of the profile's order on every
-	// request the Transport sends for the caller, redirect hops included
-	// (Place), before Request.HeaderPlacement moves them. It does not
-	// apply to CORS preflights and WebSocket handshakes (the
-	// Transport's own and the browser's, Headers aside), nor to requests
-	// that set their own order (Exact, HeaderOrderKey: that order wins).
-	// NewTransport refuses an invalid Place (ErrPlacement); a header or
-	// anchor a request does not send fails that request.
+	// HeaderPlacement moves headers within the profile's order on every
+	// caller request, redirect hops included, before Request.HeaderPlacement.
+	// It skips CORS preflights, WebSocket handshakes, and requests with
+	// their own order (Exact, HeaderOrderKey). NewTransport rejects an
+	// invalid Place (ErrPlacement); a missing header or anchor fails the
+	// request.
 	HeaderPlacement []Place
-	// Cookies is the cookie jar requests send from and responses store to,
-	// under the profile's cookie rules. NewClient creates one when nil
-	// (Transport.Cookies returns it); NewTransport leaves cookies to the
-	// caller (an http.Client Jar, or Cookie headers) when nil. A request
-	// that sets its own Cookie header sends that instead, and one set with
-	// no values sends none.
+	// Cookies is the jar requests send from and responses store to, under
+	// the profile's cookie rules. When nil, NewClient creates one and
+	// NewTransport leaves cookies to the caller. A request's own Cookie
+	// header (or an empty one) overrides the jar.
 	Cookies *cookies.Jar
-	// DisableHTTP3 keeps every request on TCP (HTTP/2 or HTTP/1.1). By
-	// default a profile with an http3 section speaks HTTP/3 as its
-	// browser does: to an origin that advertised it (Alt-Svc h3), moving
-	// to it when the browser does (profile http3.discovery), never through
-	// a proxy, and back to TCP when QUIC fails. QUIC is UDP to the
-	// address Resolver gives for the host; DialContext has no part in it.
+	// DisableHTTP3 keeps every request on TCP. Otherwise a profile with an
+	// http3 section moves to HTTP/3 as its browser does (Alt-Svc, profile
+	// http3.discovery), never through a proxy, falling back to TCP when QUIC
+	// fails. QUIC dials the Resolver's address directly, not DialContext.
 	DisableHTTP3 bool
-	// Pins pins hosts to public keys (Pin): a request to a host a Pin
-	// covers goes only on a connection whose verified chain holds a
-	// certificate one of its values matches, else it fails with a
-	// *PinError and nothing is sent. Hosts no Pin covers are verified as
-	// usual. The check runs where VerifyConnection does. NewTransport
-	// refuses a malformed Pin. FetchPins lists a site's chain and its
-	// pins.
+	// Pins pins hosts to public keys: a request to a covered host goes only
+	// on a connection whose verified chain matches one of the Pin's values,
+	// else it fails with a *PinError before anything is sent. NewTransport
+	// rejects a malformed Pin; FetchPins lists a site's pins.
 	Pins []Pin
-	// VerifyConnection, when set, checks each connection after its
-	// certificate is verified (against RootCAs) and Pins are checked; an
-	// error fails the request with that error, and nothing is sent. It
-	// runs on every TLS handshake (HTTP/1.1, HTTP/2, WebSockets, through
-	// proxies) and QUIC handshake (HTTP/3), resumed ones included, with
-	// crypto/tls's VerifyConnection semantics rather than
-	// VerifyPeerCertificate's: the latter is skipped on a resumed
-	// session, which would let a connection by without the check (a
-	// resumed session carries the chain verified when its ticket was
-	// issued, and a ticket is only kept from a connection that passed).
-	// It also runs before a request to another host goes on an HTTP/2
-	// connection (coalescing), with ServerName set to that host; an
-	// error there opens a connection of the host's own instead. The state
-	// has no ExportKeyingMaterial.
+	// VerifyConnection, when set, checks each connection after certificate
+	// verification and Pins; an error fails the request before anything is
+	// sent. It runs on every TLS and QUIC handshake, resumed ones included
+	// (crypto/tls VerifyConnection semantics, not VerifyPeerCertificate's),
+	// and before coalescing another host onto an HTTP/2 connection, with
+	// ServerName set to that host; an error there opens a new connection.
+	// The state has no ExportKeyingMaterial.
 	VerifyConnection func(tls.ConnectionState) error
 
 	// engine replaces the pure-Go engine (tests only).
@@ -141,10 +113,9 @@ type Config struct {
 // Transport is an http.RoundTripper that sends requests as the profile's
 // browser. It is safe for concurrent use.
 //
-// A Transport is one browsing entity, like one browser tab: requests of
-// other kinds than navigations come from its last navigation unless they
-// name their page (Request.From). Tasks browsing in parallel should each
-// use a Transport (or NewClient) of their own, or set Request.From.
+// A Transport is one browsing entity, like a browser tab: non-navigation
+// requests come from its last navigation unless they set Request.From.
+// Parallel tasks should each use their own Transport, or set Request.From.
 type Transport struct {
 	engine  engine
 	profile *profile.Profile
@@ -231,15 +202,12 @@ func NewTransport(cfg Config) (*Transport, error) {
 }
 
 // NewClient returns an *http.Client using a new Transport and, unless
-// cfg.Cookies holds one, a new cookie jar with the profile's cookie rules,
-// reachable as client.Transport.(*mimicry.Transport).Cookies().
-// The jar is the transport's, not the client's Jar: it needs what an
-// http.CookieJar never sees (the page, the request kind, redirects). The
-// client follows redirects as far as the browser does: the Transport
-// stops a chain after 20 (a navigation's after the profile's
-// redirects.navigation_limit), not http.Client's default 10. A CheckRedirect of
-// your own still applies, with the hops as http.Client built them (a PUT
-// answered 301 shows as the GET the Transport sends as a PUT).
+// cfg.Cookies is set, a new jar with the profile's cookie rules (see
+// Transport.Cookies). The jar is the transport's, not the client's Jar,
+// because it needs the page, kind and redirects. The client follows
+// redirects as far as the browser does (20, or the profile's
+// redirects.navigation_limit for navigations); a custom CheckRedirect
+// sees hops as http.Client built them.
 func NewClient(cfg Config) (*http.Client, error) {
 	t, err := NewTransport(cfg)
 	if err != nil {
@@ -262,24 +230,14 @@ func NewClient(cfg Config) (*http.Client, error) {
 
 // RoundTrip implements http.RoundTripper. It sends req as its kind (As,
 // With; a navigation by default) from its page, with Config.Headers added.
-// When the profile sends Accept-Encoding and the caller did not set it
-// (on the request or in Config.Headers), response bodies are decoded and
-// Content-Encoding and Content-Length removed, as a browser would; HEAD
-// responses, 204 and 304 responses, and those with Content-Length 0 are
-// left as they are. An https response's TLS is its connection's state
-// (HTTP/1.1, HTTP/2 or HTTP/3), shared by the connection's responses.
+// If the profile sends Accept-Encoding and the caller did not set it, the
+// body is decoded and Content-Encoding and Content-Length are removed.
+// Response.TLS is the connection's state.
 //
-// A redirect http.Client follows goes out as the browser sends it: a PUT,
-// DELETE or PATCH answered 301 or 302 keeps its method and body (its
-// GetBody resends it), and a chain stops with an error after 20 redirects
-// (a navigation's, or an Exact request's, after the profile's
-// redirects.navigation_limit). A request in CORS mode to another origin
-// (fetch(), XHR, an element with crossorigin, a font) whose redirect does
-// not allow its origin (Access-Control-Allow-Origin, and -Credentials
-// with credentials) returns a *CORSError instead of the redirect, so
-// nothing more is sent, unless Request.IgnoreCORS. A hop is preflighted
-// for its own method and headers, and, where the profile says so
-// (redirects.hop_preflight), because the request before it was.
+// Redirects go out as the browser sends them: 301/302 keep a PUT, DELETE
+// or PATCH method and body, and chains stop after the browser's limit. A
+// cross-origin CORS request whose redirect does not allow its origin
+// returns a *CORSError instead, unless Request.IgnoreCORS.
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	r, exact := madeAs(req)
 	callerSet := hasHeader(req.Header, "Accept-Encoding") || hasHeader(t.headers, "Accept-Encoding")
@@ -318,11 +276,9 @@ func madeAs(req *http.Request) (r Request, exact bool) {
 	return r, exact
 }
 
-// use is what a request is worked out for: to send it (RoundTrip) or
-// only to plan it (Plan). The two take the same path and differ only
-// where sending changes something: a redirect hop's body, taken from the
-// request before (browserHop), and the cookie jar's last-access times
-// and expired cookies (ready).
+// use is why a request is worked out: to send it (RoundTrip) or only to
+// plan it (Plan). They differ only where sending has effects: a hop's body
+// and the cookie jar's access times.
 type use int
 
 const (
@@ -339,11 +295,9 @@ type out struct {
 	preflight *preflightSend
 }
 
-// outgoing works out how req, made as r describes (or exact), goes out,
-// up to its preflight: for a redirect's hop, the request the browser
-// sends (browserHop, returned in req's place, also with an error once
-// made), then its placements and how it is resolved (prepare). It sends
-// nothing; RoundTrip and Plan both start here.
+// outgoing works out how req goes out, up to its preflight: the browser's
+// hop for a redirect (returned in req's place, even with an error), its
+// placements, and how it is resolved. It sends nothing.
 func (t *Transport) outgoing(req *http.Request, r Request, exact bool, u use) (*http.Request, out, error) {
 	if req.Response != nil {
 		next, err := browserHop(t.profile, req, exact || r.Kind == Navigate, u)

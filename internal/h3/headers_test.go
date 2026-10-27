@@ -7,11 +7,8 @@ import (
 	"github.com/roachadam/mimicry/profiles"
 )
 
-// Firefox writes alt-used without the port when the alternative is on 443
-// (nsHttpChannel::BeginConnect), and with it otherwise. Every capture
-// runs on an unprivileged port, so no capture reaches the first form;
-// realcheck saw it from Firefox 158 at fp.impersonate.pro over HTTP/3
-// (harness/reports/realcheck-2026-10-25.md), where mimicry sent ":443".
+// Firefox omits alt-used's port on 443 and writes it otherwise. No capture
+// runs on 443; realcheck caught it (harness/reports/realcheck-2026-10-25.md).
 func TestAltUsedPort(t *testing.T) {
 	tests := []struct {
 		port string

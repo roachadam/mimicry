@@ -38,12 +38,9 @@ func AioquicAvailable(ctx context.Context) error {
 	return nil
 }
 
-// serveAioquic serves sc's HTTP/3 with aioquic (aioquic_h3.py, run with
-// python3) behind s.PacketConn, which relays every datagram between each
-// client address and the server's port and records both directions, until
-// ctx is canceled. aioquic gets h3Host's certificate and logs its TLS
-// secrets to a file the page's quicLog reads (quicConns). The server's
-// HTTP/3 layer is aioquic's, so its connections have no H3 record.
+// serveAioquic serves sc's HTTP/3 with aioquic behind s.PacketConn, which
+// relays and records every datagram until ctx is canceled. aioquic logs TLS
+// secrets for quicConns; its connections have no H3 record.
 func (s *Server) serveAioquic(ctx context.Context, log *pageLog, issue func([]string) (tls.Certificate, error)) error {
 	pc := s.PacketConn
 	defer func() {

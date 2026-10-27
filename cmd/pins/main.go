@@ -1,16 +1,11 @@
-// Command pins prints the certificate chain a site presents to a profile's
-// browser, verified against the system's roots, with each certificate's
-// pins in the three forms mimicry.Pin takes, and marks the one to pin:
+// Command pins prints the verified certificate chain a site presents to a
+// profile's browser, with each certificate's pins, and marks the one to
+// pin (mimicry.FetchPins; no request is sent):
 //
 //	go run github.com/roachadam/mimicry/cmd/pins URL [-profile name]
 //
-// It connects as a request to URL would (the profile's TLS hello, over
-// TCP), sends no request, and closes the connection (mimicry.FetchPins).
-// The recommended pin is the intermediate nearest the root: it rotates
-// least often (a leaf's key usually changes with each renewal, every few
-// months) while naming one issuer rather than everything a root signs.
-// Pin more than one key, a backup included, so that a rotation does not
-// lock you out.
+// It recommends the intermediate nearest the root, which rotates less
+// than the leaf. Pin a backup key too.
 package main
 
 import (

@@ -8,8 +8,6 @@
 // top-level navigation, its redirect chain, its credentials mode. Use
 // Jar.CookieJar for code that needs an http.CookieJar; it cannot apply those
 // rules and loses values net/http alters.
-//
-// Imports: the standard library, clockwork, profile and internal/site.
 package cookies
 
 import (

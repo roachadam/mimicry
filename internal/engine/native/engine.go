@@ -1,3 +1,13 @@
+// Package native is the pure-Go engine: the one place that assembles the
+// request path (pool, dial, handshake, then h1 or h2 by ALPN, or h3 over
+// QUIC), routing each request to its pool key and retrying on another
+// connection a request nothing of which was sent.
+//
+// HTTP/2 coalescing, HTTP/3 discovery and fallback, and WebSocket
+// transports follow the profile's connections, http3 and websocket
+// sections; see docs/concepts/http3.md, docs/concepts/websockets.md and
+// decisions 0023 and 0028. Plan reuses RoundTrip's own steps and changes
+// nothing (decision 0034).
 package native
 
 import (
@@ -56,19 +66,16 @@ type Config struct {
 	// DisableHTTP3 keeps every request on TCP, whatever the profile's
 	// http3 section and servers' Alt-Svc say.
 	DisableHTTP3 bool
-	// VerifyConnection, when set, checks a connection for a request to
-	// host after its certificate is verified: on every TLS and QUIC
-	// handshake (resumed ones included) and before a request to another
-	// host goes on an HTTP/2 connection (coalescing, with the state's
-	// ServerName set to that host). An error fails the handshake, or
-	// keeps the request off that connection.
+	// VerifyConnection, when set, checks a verified connection for host on
+	// every TLS and QUIC handshake (resumed ones included) and before a request
+	// coalesces onto another host's HTTP/2 connection. An error fails the
+	// handshake or keeps the request off that connection.
 	VerifyConnection func(host string, cs tls.ConnectionState) error
 }
 
 // Engine is the pure-Go engine: pooled connections, one dial path, uTLS
-// handshakes from the profile's plan, HTTP/2 or HTTP/1.1 by ALPN, and
-// HTTP/3 where the profile's browser moves an origin to it.
-// It is safe for concurrent use.
+// handshakes and HTTP/1.1, HTTP/2 or HTTP/3 as the profile's browser
+// chooses. It is safe for concurrent use.
 type Engine struct {
 	plan    *fingerprint.Plan
 	profile *profile.Profile
@@ -225,10 +232,9 @@ func (e *Engine) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 	}
 }
 
-// begin checks req's URL, picks its route, and returns req as the
-// connection writes it (req itself on an error): carrying the proxy's
-// credentials where the browser sends them unasked (unasked, "" for
-// none). RoundTrip and Plan both start here.
+// begin checks req's URL, picks its route and returns req as the
+// connection writes it, with any proxy credentials the browser sends
+// unasked. RoundTrip and Plan both start here.
 func (e *Engine) begin(req *http.Request) (r route, out *http.Request, unasked string, err error) {
 	switch {
 	case req.URL == nil || req.URL.Host == "":
@@ -293,10 +299,9 @@ type route struct {
 	// addr is the server's host and port; host is the host alone.
 	addr string
 	host string
-	// group is what an HTTP/2 connection to another host must share for
-	// the request to go on it (coalescing): scheme, port and partition.
-	// Empty for requests that never take another host's connection:
-	// plain HTTP, or through a proxy.
+	// group is what another host's HTTP/2 connection must share for
+	// coalescing (scheme, port, partition). Empty when the request never
+	// coalesces: plain HTTP or through a proxy.
 	group string
 	// proxy is nil for a direct connection.
 	proxy *url.URL
@@ -354,10 +359,8 @@ func userAgent(p *profile.Profile) string {
 	return ""
 }
 
-// try sends req once and learns the response's Alt-Svc: over HTTP/3 where
-// the origin's discovery rule takes it there, else on the pool's
-// connection for the route, another host's the profile's coalescing rule
-// allows, or a new one.
+// try sends req once, over HTTP/3, the route's pooled or coalesced
+// connection or a new one, and learns the response's Alt-Svc.
 func (e *Engine) try(ctx context.Context, req *http.Request, r route) (*http.Response, error) {
 	resp, err := e.tryOnce(ctx, req, r)
 	if err == nil && e.quic != nil {
@@ -528,10 +531,9 @@ func (e *Engine) roundTripH1(key string, c *h1.Conn, req *http.Request) (*http.R
 	})
 }
 
-// Handshake connects to rawURL's host (https) as a request to it would,
-// through its proxy, with the profile's TLS hello, and returns the
-// connection's TLS state once the server's certificate is verified. It
-// sends no request and closes the connection.
+// Handshake connects to rawURL's host as a request would, with the
+// profile's TLS hello, and returns the verified TLS state. It sends no
+// request and closes the connection.
 func (e *Engine) Handshake(ctx context.Context, rawURL string) (*tls.ConnectionState, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {

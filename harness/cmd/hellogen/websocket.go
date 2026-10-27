@@ -13,12 +13,10 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// websocketHello derives tls.websocket_h1 from the websocket capture p is
-// checked against (<source>.websocket.pagetrace.json.gz, where the server
-// allows no extended CONNECT): the hello of every wss:// socket's own
-// HTTP/1.1 connection, in every sample, must be p's, resumed as
-// p.TLS.Resumption says when it offers a pre_shared_key, but with one ALPN
-// list and without the same extensions.
+// websocketHello derives tls.websocket_h1 from the websocket capture, where
+// the server refuses extended CONNECT so each wss:// socket opens its own
+// HTTP/1.1 connection. Those hellos must be p's with one ALPN list and the
+// same extensions dropped.
 func websocketHello(dir string, p *profile.Profile) (*profile.WebSocketHello, error) {
 	t := &p.TLS
 	source, _, err := capture.Inherited(p, server.WebSocket.Name)

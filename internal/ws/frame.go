@@ -74,9 +74,8 @@ func AppendHeader(b []byte, h Header) []byte {
 
 // ReadHeader reads a frame header from r. It returns io.EOF only when r
 // ends before the frame starts. Reserved opcodes, fragmented or long
-// control frames and lengths of 2^63 or more are errors (RFC 6455,
-// sections 5.2 and 5.5); a length in a longer form than needed is
-// accepted.
+// control frames and lengths of 2^63 or more are errors (RFC 6455, 5.2 and
+// 5.5); an overlong length form is accepted.
 func ReadHeader(r io.Reader) (Header, error) {
 	var b [8]byte
 	if _, err := io.ReadFull(r, b[:2]); err != nil {

@@ -1,3 +1,10 @@
+// Package h1 speaks HTTP/1.1 over an established connection, writing each
+// request head as the profile's browser does.
+//
+// With an HTTP/1.1 header list (the profile's http1, or the plan's), every
+// header, Host and framing included, follows that list's order and casing.
+// Without one, Host and Connection come first, then the HTTP/2 order. A plan
+// measured over HTTP/2 only is refused (headerorder.ErrNotMeasured).
 package h1
 
 import (
@@ -35,9 +42,8 @@ type Conn struct {
 }
 
 // Writer builds request heads as a profile's browser writes them over
-// HTTP/1.1. A Conn writes with one; a request's head can be built with
-// the same code without a connection (the engine's plans). Make one
-// with NewWriter.
+// HTTP/1.1, for a Conn or, without a connection, for the engine's plans.
+// Make one with NewWriter.
 type Writer struct {
 	headers []profile.Header
 	// From the profile's http1 section, when it has one: its header list
@@ -180,13 +186,11 @@ func skipHeader(name string) bool {
 	return framing[name]
 }
 
-// RoundTrip writes req and reads its response. done is called exactly once,
-// when the response body has been read to the end or closed, or when the
-// request fails: reusable reports whether another request may follow on c.
-// Cancelling req's context closes the connection. Informational (1xx)
-// responses are skipped, except 101 Switching Protocols, which is returned
-// as final and leaves the connection to the caller: never reusable.
-// RoundTrip always closes req.Body.
+// RoundTrip writes req, reads its response and always closes req.Body.
+// done is called exactly once, when the body is read to the end or closed
+// or the request fails; reusable reports whether c may carry another.
+// Cancelling req's context closes c. 1xx responses are skipped except 101,
+// which is final and hands the connection to the caller.
 func (c *Conn) RoundTrip(req *http.Request, done func(reusable bool)) (*http.Response, error) {
 	ctx := req.Context()
 	if req.Body != nil {

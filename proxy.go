@@ -9,22 +9,15 @@ import (
 	"github.com/roachadam/mimicry/internal/dial"
 )
 
-// ProxyError is a request's failure to reach its proxy (Config.Proxy) or
-// to open a tunnel through it, so nothing reached the server: the proxy
-// could not be connected to, answered CONNECT with other than 2xx (a 407
-// once the credentials in its URL were given as the browser gives them,
-// or when it has none), refused or failed a SOCKS5 handshake or its
-// username and password, or the deadline passed on the way. A plain-HTTP
-// request sent to an HTTP proxy whole returns one when the proxy cannot be
-// connected to or answers it 407 after the browser's credential flow; any
-// other answer is the response, since only a 407 is surely the proxy's.
-// What fails once the tunnel is up (the TLS handshake with the server, the
-// request) is the server's, not a ProxyError.
+// ProxyError reports that a request never reached the server because of
+// its proxy: unreachable, a non-2xx CONNECT answer, a failed SOCKS5
+// handshake or login, or the deadline passing on the way. For a
+// plain-HTTP request sent to an HTTP proxy whole, only a final 407 counts;
+// other answers are the response. Failures inside an open tunnel are the
+// server's, not a ProxyError.
 //
-// It is what a rotation loop tests for with errors.As: this proxy is
-// dead, unreachable or refusing, as against the site refusing the
-// request. It wraps the cause: errors.Is(err, context.DeadlineExceeded)
-// still reports a timeout.
+// A proxy-rotation loop tests for it with errors.As (see decision 0033).
+// It wraps the cause, so errors.Is(err, context.DeadlineExceeded) works.
 type ProxyError struct {
 	// Proxy is the proxy's URL with its password removed (the username
 	// stays).

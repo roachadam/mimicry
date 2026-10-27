@@ -13,12 +13,9 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// The cookies-edge page, walked through mimicry as the browser walked it
-// (its navigations and same-origin fetches, over http:// or https:// as the
-// browser sent each), sends every step the Cookie header each of the
-// browser's samples sent: the __Host- and __Http- prefixes, nameless
-// cookies, order after a value changes, schemeful SameSite, Secure cookies
-// on http://localhost and the per-site limit on 200 cookies.
+// Every step of the cookies-edge page through mimicry sends each sample's
+// Cookie header: prefixes, nameless cookies, order, schemeful SameSite,
+// Secure on http://localhost, and the per-site limit.
 func TestCookiesEdgeMatchesBrowser(t *testing.T) {
 	matchCookiesEdgePage(t, server.CookiesEdge, server.CookiesEdgeSteps())
 }

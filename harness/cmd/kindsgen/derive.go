@@ -16,27 +16,15 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// pages are a profile's captures kindsgen reads, each a page per sample,
-// with every header value at the profile's own version (inherited
-// captures rewritten: capture.Inherited).
+// pages are the captures kindsgen reads for a profile, one page per sample.
+// Inherited captures are rewritten to the profile's version.
 type pages struct {
-	// p is the profile.
-	p *profile.Profile
-	// kinds is the kinds page over HTTP/2, kindsH1 over HTTP/1.1 and
-	// plain over plain HTTP (kinds, kinds-http1, kinds-plain).
-	kinds, kindsH1, plain []*capture.Page
-	// cookies is the cookies page (HTTP/2), cors the cors page, corsEdge
-	// the cors-edge page and redirects2 the redirects2 page (HTTP/2).
+	p                                   *profile.Profile
+	kinds, kindsH1, plain               []*capture.Page
 	cookies, cors, corsEdge, redirects2 []*capture.Page
-	// headers is the headers-order page: fetch() and XHR with headers the
-	// page set, over HTTP/2 (so, cs) and HTTP/1.1 (h1).
-	headers []*capture.Page
-	// websocket and websocketH2 are the websocket pages: sockets over
-	// HTTP/1.1 (no extended CONNECT) and over HTTP/2.
-	websocket, websocketH2 []*capture.Page
-	// navRedirects are the navigation-redirect pages
-	// (nav-redirect-<x>, any number, maybe none): navigations whose start
-	// URL redirects.
+	headers                             []*capture.Page
+	websocket, websocketH2              []*capture.Page
+	// navRedirects are the nav-redirect-<x> pages, possibly none.
 	navRedirects []scenarioPages
 }
 
@@ -46,9 +34,8 @@ type scenarioPages struct {
 	samples  []*capture.Page
 }
 
-// loadPages reads the captures p is checked against from dir: its own, or
-// for a scenario its captures_from inherits that profile's, rewritten to
-// p's version.
+// loadPages reads p's captures from dir: its own, or for inherited
+// scenarios the source profile's, rewritten to p's version.
 func loadPages(dir string, p *profile.Profile) (*pages, error) {
 	out := &pages{
 		p: p,
@@ -121,52 +108,38 @@ func loadFile(f capture.File) ([]*capture.Page, error) {
 // request is one captured request of the kinds, cookies, cors, cors-edge,
 // redirects2 or headers-order page.
 type request struct {
-	// label is its step ("script-cors.cs"), base the part before the
-	// first dot ("script-cors").
+	// label is the step ("script-cors.cs"); base is before the first dot.
 	label, base string
 	method      string
 	hop         bool // the request after a redirect
-	// host is the host it went to (the trace's), path its path without
-	// the query.
+	// path excludes the query.
 	host, path string
-	// crossOriginRedirect, crossSiteRedirect, originBefore, methodChanged
-	// and insecureBefore are a hop's: it went to another origin (and
-	// another schemeful site) than the request whose redirect it follows,
-	// which carried Origin, with another method, over plain HTTP
-	// (linkRedirects).
+	// Redirect-hop facts relative to the request whose redirect it
+	// follows (set by linkRedirects).
 	crossOriginRedirect, crossSiteRedirect, originBefore, methodChanged, insecureBefore bool
-	// plain is a request over plain HTTP (kinds-plain): HTTP/1.1 only,
-	// and to a non-secure origin.
+	// plain is a kinds-plain request: HTTP/1.1 to a non-secure origin.
 	plain bool
-	// other is a request of another page than the kinds page: over one
-	// protocol only.
+	// other requests (not the kinds page) exist over one protocol only.
 	other bool
-	// site is the request URL's own relation to its page
-	// (profile.Site*).
+	// site is the URL's own relation to its page (profile.Site*).
 	site string
-	// h2 are its HTTP/2 header fields in order (cookie crumbs as one
-	// cookie), h1 its HTTP/1.1 lines; weight its HEADERS priority weight;
-	// conn its connection (trace index).
+	// h2 merges cookie crumbs into one cookie field.
 	h2     []profile.Header
 	h1     []profile.Header
 	weight uint8
 	stream uint32
 	conn   int
 	sample int
-	// pageOrder are the page's headers, lowercase, in the order the page
-	// set them where that is the order they reach the browser (XHR's
-	// setRequestHeader); nil: by name (fetch()'s Headers object).
+	// pageOrder is the page's set order where the browser keeps it (XHR);
+	// nil means by name (fetch()'s Headers).
 	pageOrder []string
-	// websocket is a WebSocket's handshake, which Origin does not make
-	// CORS-checked.
+	// Origin does not make a WebSocket handshake CORS-checked.
 	websocket bool
 }
 
-// labelSite is the site relation a kinds page label names: labels end in
-// their target, so (same origin), ss (same site) or cs (cross site); a
-// redirect's in its legs' ("so-cs"), the first leg going to the first, the
-// hop to the second. The kinds page is on the so host, and so is the
-// cookies page that follows redirects.
+// labelSite is the site relation a kinds page label names: so, ss or cs.
+// A redirect label ("so-cs") names first leg then hop. The kinds page and
+// the redirecting cookies page are on the so host.
 func labelSite(label string, hop bool) string {
 	_, target, _ := strings.Cut(label, ".")
 	if first, second, ok := strings.Cut(target, "-"); ok {
@@ -340,10 +313,8 @@ func collect(pg *pages) ([]*request, error) {
 		errs = append(errs, linkRedirects("cookies", qs, hopPrev))
 		for _, q := range qs {
 			q.other = true
-			// The cookies page's requests come from pages on several
-			// sites, so a label names its host, not its relation; but
-			// every redirect starts on the so page, and only a redirect
-			// makes sec-fetch-site (the chain's) differ from the URL's.
+			// Cookies-page labels name hosts, not relations. Every redirect
+			// starts on the so page, so only redirects change sec-fetch-site.
 			if q.hop {
 				q.site = labelSite(q.label, true)
 				out = append(out, q)
@@ -421,10 +392,8 @@ var corsRedirects = map[string]string{
 	"redirect-target.cs": "redirect.cs",
 }
 
-// linkRedirects sets the redirect conditions of each hop among reqs, one
-// sample of page's requests: whether it went to another host than its
-// previous request, the one at path prev(hop) whose redirect it follows,
-// whether that one carried Origin, and whether its method was another.
+// linkRedirects sets each hop's redirect conditions from the request whose
+// redirect it follows (path prev(hop)): host change, Origin, method change.
 func linkRedirects(page string, reqs []*request, prev func(*request) string) error {
 	byPath := map[string]*request{}
 	for _, q := range reqs {
@@ -465,11 +434,8 @@ func schemefulSite(q *request) string {
 	return scheme + site.Registrable(q.host)
 }
 
-// corsEdgeRequests returns the cors-edge page's fetches (HTTP/2, all fetch()
-// in CORS mode from the so page): /p/<label> and its redirects'
-// /p/<label>.hop<n>, each hop on its label's host (so or cs) and following
-// the redirect of .hop<n-1> (.hop1: of <label>'s). The OPTIONS are the
-// preflight kind's, which the kinds page describes.
+// corsEdgeRequests returns the cors-edge page's CORS fetches: /p/<label>
+// and its hops /p/<label>.hop<n>. OPTIONS belong to the preflight kind.
 func corsEdgeRequests(samples []*capture.Page) ([]*request, error) {
 	var out []*request
 	errs := make([]error, 0, len(samples))
@@ -495,18 +461,11 @@ func corsEdgeRequests(samples []*capture.Page) ([]*request, error) {
 	return out, errors.Join(errs...)
 }
 
-// redirects2Requests returns the redirects2 page's requests (HTTP/2,
-// server.Redirects2Steps, every step made from a page on its so host):
-// /p/<label> and its redirects' /p/<label>.hop<n>, each following the
-// redirect of .hop<n-1> (.hop1: of <label>'s). Each takes base
-// "redir-<step kind>"; its own relation is its host's, which the label
-// names (a cs-cs hop's is its second part). A navigation's GET first leg
-// is none of these: the hops are what the page measures, and a script's
-// navigation is not the profile's. A path requested a second time is no
-// redirect's: Chrome's error page reloads the navigation its redirect
-// limit stopped (nav-chain.so, with cache-control: max-age=0), so that
-// request and its step's later ones are left out. The OPTIONS are the
-// preflight kind's.
+// redirects2Requests returns the redirects2 page's requests
+// (server.Redirects2Steps), each with base "redir-<step kind>".
+// A navigation's GET first leg is skipped: a script navigation is not the
+// profile's. A repeated path is skipped with the rest of its step:
+// Chrome's error page reloads a navigation its redirect limit stopped.
 func redirects2Requests(samples []*capture.Page) ([]*request, error) {
 	steps := map[string]server.Redirects2Step{}
 	for _, st := range server.Redirects2Steps() {
@@ -541,8 +500,7 @@ func redirects2Requests(samples []*capture.Page) ([]*request, error) {
 		for _, q := range qs {
 			st := steps[q.label]
 			if q.method == "OPTIONS" {
-				// A preflight, the preflight kind's: for a hop's URL too, a
-				// request of its own (resolve).
+				// A hop's preflight is a request of its own (resolve).
 				q.hop, q.crossOriginRedirect, q.crossSiteRedirect, q.originBefore, q.methodChanged, q.insecureBefore = false, false, false, false, false, false
 			}
 			if st.Nav() && !q.hop && q.method == "GET" {
@@ -579,12 +537,9 @@ type sampleGap struct {
 	path     string
 }
 
-// sampleGaps are, per profile whose captures show them, requests left out
-// of the derivation, with why: forms the browser sent in one sample that
-// no request condition explains (browser state), where the other samples
-// agree. A profile that inherits the capture (captures_from) leaves them
-// out too. The e2e tests accept them as one of the browser's forms and log
-// the variance.
+// sampleGaps are, per profile, requests left out of the derivation: forms
+// sent in one sample that no condition explains (browser state) while the
+// other samples agree. Inheriting profiles leave them out too.
 var sampleGaps = map[string]map[sampleGap]string{
 	"safari-27-macos": {
 		{scenario: "nav-redirect-page", sample: 1, path: "/p/nav-302.cs-so.hop1"}: "the run's first sample, on a cold Safari: the hop back to the page's site went on a new connection, " +
@@ -598,23 +553,12 @@ var sampleGaps = map[string]map[sampleGap]string{
 	},
 }
 
-// navRedirectRequests returns the nav-redirect pages' navigations (each a
-// slice of samples): /p/<label> and its redirects' /p/<label>.hop<n>
-// (queries left out: a form GET's), on any host, each hop following
-// .hop<n-1>'s redirect (.hop1: <label>'s), over HTTP/2 or, to a
-// plain-HTTP port, HTTP/1.1 (every browser's HTTPS in these captures is
-// HTTP/2, so an HTTP/1.1 request is a non-secure one). A chain whose
-// first request carries no Referer is typed: its requests' relation is
-// "none" (profile.SiteNone; sec-fetch-site stays none along the chain),
-// whatever its hosts and scheme (nav.http: http:// to https:// on one
-// host); otherwise it is a page's (nav-redirect-page), and its relation
-// the label's. A secure GET first leg is left out: a typed one is the
-// profile's own navigation, which its kinds captures describe, and a
-// page's takes the navigation's lists as every page's GET navigation
-// does. Requests of other paths (the pages a chain starts from and ends
-// on, /done) are too, and so are the sampleGaps of the captures p is
-// checked against (its scenario's capture.Source's), each of which must
-// be in its capture.
+// navRedirectRequests returns the nav-redirect pages' navigations, one
+// slice per sample. HTTP/1.1 means non-secure: every captured HTTPS
+// request is HTTP/2. A chain whose first request has no Referer is typed:
+// relation "none" throughout. Otherwise it takes the label's relation.
+// Secure GET first legs, other paths and sampleGaps are left out; each
+// sampleGap must exist in its capture.
 func navRedirectRequests(p *profile.Profile, pages []scenarioPages) ([]*request, error) {
 	var out []*request
 	var errs []error
@@ -692,11 +636,9 @@ func navRedirectRequests(p *profile.Profile, pages []scenarioPages) ([]*request,
 	return out, errors.Join(errs...)
 }
 
-// headersRequests returns the headers-order page's fetches and XHRs, each
-// carrying headers the page set (server.HeadersSteps): over HTTP/2 to the
-// page's origin (so) and another site (cs), over HTTP/1.1 to another
-// origin of the page's site (h1). Their base is hdr-fetch or hdr-xhr. The
-// OPTIONS are the preflight kind's, which the kinds page describes.
+// headersRequests returns the headers-order page's fetches and XHRs with
+// page-set headers (server.HeadersSteps), base hdr-fetch or hdr-xhr.
+// OPTIONS belong to the preflight kind.
 func headersRequests(samples []*capture.Page) ([]*request, error) {
 	steps := map[string]server.HeadersStep{}
 	for _, st := range server.HeadersSteps() {
@@ -761,8 +703,7 @@ func headerValue(hs []profile.Header, name string) (string, bool) {
 var contextHeaders = []string{
 	"referer", "origin", "cookie", "sec-fetch-site", "sec-fetch-storage-access",
 	"content-type", "content-length", "host",
-	// A WebSocket's: the key is random, the protocols the page's, the
-	// extension offer the profile's websocket section's.
+	// WebSocket key, protocols and extensions vary per handshake.
 	"sec-websocket-key", "sec-websocket-protocol", "sec-websocket-extensions",
 	"access-control-request-method", "access-control-request-headers",
 }
@@ -796,10 +737,9 @@ func isPageSet(name string) bool {
 	return pageSetNames[strings.ToLower(name)]
 }
 
-// kindSource says which captured requests describe a kind: own give its
-// defaults and weight, all (its resource type) the header order; high and
-// low the fetchpriority variants where measured. A preflight kind takes
-// the OPTIONS requests, others never.
+// kindSource says which captured requests describe a kind: own gives
+// defaults and weight, all (its resource type) the header order, high and
+// low the fetchpriority variants. Only preflight kinds take OPTIONS.
 type kindSource struct {
 	kind      string
 	own, all  []string
@@ -807,7 +747,6 @@ type kindSource struct {
 	preflight bool
 }
 
-// kindSources are every kind's sources.
 var kindSources = []kindSource{
 	{kind: profile.KindFrame, own: []string{"iframe"}, all: []string{"iframe"}},
 	{kind: profile.KindScript, own: []string{"script-blocking"}, all: scripts},
@@ -832,30 +771,22 @@ var kindSources = []kindSource{
 var (
 	// scripts include the redirects2 page's <script crossorigin>.
 	scripts = []string{"script", "script-cors", "script-cors-cred", "script-blocking", "script-defer", "script-async", "preload-script", "redir-" + server.RedirectScript}
-	// images include the cookies page's: injected images, some from
-	// another site's page, and redirects to the page's own site; and the
-	// redirects2 page's (markup, new Image() and crossorigin ones,
-	// redirected).
+	// images include the cookies page's (cross-site, redirected to the
+	// page's site) and the redirects2 page's redirected ones.
 	images = []string{"image", "image-cors", "image-high", "image-markup", "image-setcookie", "image-redirect", "c-setcookie", "c-order", "c-redirect", "c-part", "c-third",
 		"redir-" + server.RedirectImageMarkup, "redir-" + server.RedirectImageNew, "redir-" + server.RedirectImage}
 	fonts = []string{"font", "font-css", "preload-font"}
-	// fetches include the cors page's (cors-*): PUTs, and fetches with
-	// and without a header the page set, to the cross-site host; the
-	// cors-edge and redirects2 pages' (methods, redirects); and the
-	// headers-order page's (hdr-fetch).
+	// fetches include the cors, cors-edge, redirects2 and headers-order
+	// pages' fetches.
 	fetches = []string{"fetch", "fetch-include", "fetch-omit", "fetch-nocors", "fetch-json", "fetch-custom", "fetch-high", "fetch-low", "fetch-redirect",
 		"cors-put", "cors-setcookie", "cors-include", "cors-maxage", "cors-default", "cors-redirect", "cors-redirect-target", "cors-cleanup", "cors-multi",
 		"cors-edge", "redir-" + server.RedirectFetch, "hdr-fetch"}
-	// navigations are the navigations a page makes, and typed ones: the
-	// kinds page's form POST to its own origin, the cookies page's from
-	// another site, the redirects2 page's form POSTs and navigation chain,
-	// and the nav-redirect pages' typed navigations, with their redirects.
+	// navigations include typed ones, form POSTs and redirect chains.
 	navigations = []string{"form-post", "c-nav-post", "redir-" + server.RedirectForm, "redir-" + server.RedirectNavigate, navRedirectBase}
 )
 
 func derive(p *profile.Profile, reqs []*request) error {
-	// pick takes the kinds' requests over TLS (plain false) or plain HTTP,
-	// the preflights (OPTIONS) or the rest.
+	// pick selects TLS or plain requests, preflights or the rest.
 	pick := func(bases []string, plain, preflight bool) []*request {
 		var out []*request
 		for _, r := range reqs {
@@ -942,9 +873,7 @@ type condition struct {
 	cors       bool
 	pageSet    bool
 	redirected bool
-	// crossOrigin, crossSite, originBefore, methodChanged and
-	// insecureBefore are a redirect's (the request's fields of those
-	// names); crossSite a navigation's only (profile.Variant).
+	// Redirect conditions; crossSite applies to navigations only.
 	crossOrigin    bool
 	crossSite      bool
 	originBefore   bool
@@ -1003,15 +932,11 @@ type orderPair struct {
 }
 
 // orders derives a kind's default order and its variants. all's requests
-// group by condition, each group's orders merging into one; a group whose
-// type-mates disagree keeps the kind's own requests' order. The default is
-// the plain GET's, or, for a kind never sent so (beacons POST), its own
-// requests' commonest condition. A non-nil seed is the default order
-// instead, every group checked against it. With a header table, a group of
-// requests carrying the page's headers needs no variant when the table
-// places them in the order of their condition without them
-// (tablePlaces); it never folds into the default. values gives a header's
-// default value.
+// group by condition and merge per group; a group whose type-mates
+// disagree keeps the kind's own order. The default is the plain GET's, or
+// the commonest condition for kinds never sent so (beacons). A non-nil
+// seed replaces the default. With a header table, page-set-header groups
+// the table already orders need no variant (tablePlaces).
 func orders(own, all []*request, seed *orderPair, table *profile.HeaderTable, values func(h1 bool) func(string) string) (h2, h1 []profile.Header, variants []profile.Variant, err error) {
 	var conds []condition
 	groups := map[condition][]*request{}
@@ -1086,10 +1011,8 @@ func orders(own, all []*request, seed *orderPair, table *profile.HeaderTable, va
 			if placed {
 				continue
 			}
-			// The table does not order them from a captured order without
-			// the page's headers: the browser's order as captured, the
-			// page's at the slot. Never folded: the slot would join the
-			// default, which the table orders.
+			// The table can't derive this order: keep the captured order
+			// with a slot. Never folded, or the slot would join the default.
 			o, err := orderFor(c)
 			if err != nil {
 				errs = append(errs, err)
@@ -1106,12 +1029,10 @@ func orders(own, all []*request, seed *orderPair, table *profile.HeaderTable, va
 		}
 		switch {
 		case c.insecure:
-			// A non-secure request's lists are exactly what the browser
-			// sent: without the headers it sends only to secure origins,
-			// with values of their own (Accept-Encoding). Always a variant.
+			// Non-secure lists are kept exactly as sent (no secure-only
+			// headers, own Accept-Encoding). Always a variant.
 		case seed != nil:
-			// The seed stays as measured: any group that differs from it
-			// is a variant, with the headers only it sends.
+			// The seed stays as measured; any differing group is a variant.
 			if slices.Equal(base.h2, o.h2) && slices.Equal(base.h1, o.h1) {
 				continue
 			}
@@ -1128,8 +1049,6 @@ func orders(own, all []*request, seed *orderPair, table *profile.HeaderTable, va
 		conflicting = append(conflicting, c)
 		others[c] = o
 	}
-	// ownPlain are the kind's own requests over plain HTTP, in any
-	// condition.
 	ownPlain := slices.DeleteFunc(slices.Clone(own), func(r *request) bool {
 		return !r.plain
 	})
@@ -1158,9 +1077,8 @@ func orders(own, all []*request, seed *orderPair, table *profile.HeaderTable, va
 }
 
 // insecureValue gives a non-secure variant's values from the plain
-// requests themselves: the kind's own in the variant's condition where
-// captured; else the kind's own in any condition; its type-mates' (group)
-// only for a header the kind's own plain requests never send.
+// requests: the kind's own, preferring the variant's condition; type-mates'
+// only for headers the kind never sends over plain HTTP.
 func insecureValue(mine, ownPlain, group []*request) func(string) string {
 	return func(name string) string {
 		if len(mine) > 0 {
@@ -1344,7 +1262,6 @@ func contextOf(reqs []*request) (*profile.Context, error) {
 
 // sampleContext derives the context rules from one sample's requests.
 func sampleContext(reqs []*request, sample int) (*profile.Context, error) {
-	// The sample's GET of label (the first leg, for a redirect).
 	find := func(label string) *request {
 		for _, r := range reqs {
 			if r.label == label && r.method == "GET" && !r.hop && r.sample == sample {
@@ -1396,9 +1313,8 @@ func navigationVariants(p *profile.Profile, navs []*request) error {
 	if len(posts) == 0 {
 		return errors.New("navigation: no captured form POST")
 	}
-	// A header the navigation's lists lack takes the value the form
-	// POSTs that send it agree on, else the other navigations that send
-	// it (a redirect's hop from http://: Upgrade-Insecure-Requests).
+	// Headers the navigation lacks take the form POSTs' agreed value, else
+	// other navigations' (Upgrade-Insecure-Requests on an http:// hop).
 	values := func(h1 bool) func(string) string {
 		base, list := p.Headers, (*request).h2Of
 		if h1 {
@@ -1445,12 +1361,10 @@ func names(hs []profile.Header) []string {
 	return out
 }
 
-// preflightCache derives profile.Context.PreflightCache from the cors
-// page: after a preflight for another header (X-Other) to maxage.cs and
-// its request, the first request (X-Mimicry, preflighted and cached
-// before) is preflighted again when the latest answer replaced the URL's
-// entry, and not when answers merge. Every sample must show one or the
-// other, on one connection (requests on several have no order), and agree.
+// preflightCache derives profile.Context.PreflightCache from the cors page:
+// after an X-Other preflight to maxage.cs, is the cached X-Mimicry request
+// preflighted again (replace) or not (merge)? All samples must agree, each
+// on one connection.
 func preflightCache(pages []*capture.Page) (string, error) {
 	var found string
 	for i, page := range pages {

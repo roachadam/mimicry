@@ -34,20 +34,16 @@ type Variation struct {
 }
 
 // Slack is how far two measurements may differ and still count as the same:
-// 2% and at least one 16384-byte frame. Credit is returned once a threshold
-// is crossed, so an increment depends on where the server's DATA frames fell
-// and, for Safari, on how many arrived between its checks (up to five,
-// measured).
+// 2% and at least one 16384-byte frame. Credit is returned at thresholds, so
+// increments depend on where the server's DATA frames fell.
 func Slack(v uint32) uint32 {
 	return max(16384, v/50)
 }
 
-// Compare lists the features on which the samples' traces disagree. Exact
-// features: the order of requests, each request's stream, HPACK instruction
-// shapes (values are left out, since :authority carries the port) and HEADERS
-// priority, and the order of every frame other than DATA and WINDOW_UPDATE.
-// Measured features, equal within Slack: each request's largest DATA frame
-// and median WINDOW_UPDATE, and the connection's median WINDOW_UPDATE.
+// Compare lists the features on which the samples' traces disagree: exactly
+// for request order and streams, HPACK instruction shapes, priorities and
+// non-DATA/WINDOW_UPDATE frame order; within Slack for each request's largest
+// DATA frame and the median WINDOW_UPDATEs.
 func Compare(samples []*Trace) []Variation {
 	exact := make([]map[string]string, len(samples))
 	measured := make([]map[string]uint32, len(samples))

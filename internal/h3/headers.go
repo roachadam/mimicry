@@ -25,11 +25,9 @@ var hopByHop = map[string]bool{
 	"host":              true,
 }
 
-// Measured reports whether p describes a request planned as plan over
-// HTTP/3: a profile with HTTP3 and QUIC sections, and, where its HTTP/3
-// lists add alt-used, an entry for the request's kind
-// (H3Headers.AltUsed). A request it does not cover goes on TCP as the
-// browser sends it there.
+// Measured reports whether p covers a request planned as plan over HTTP/3:
+// HTTP3 and QUIC sections and, where its HTTP/3 lists add alt-used, an entry
+// for the request's kind (H3Headers.AltUsed). Other requests go on TCP.
 func Measured(p *profile.Profile, plan *headerorder.Plan) bool {
 	if p.HTTP3 == nil || p.QUIC == nil {
 		return false
@@ -83,13 +81,10 @@ func bodyLength(req *http.Request) int64 {
 	return req.ContentLength
 }
 
-// buildHead builds req's field list for profile p, on a connection to
-// the alternative service at altHost and altPort: pseudo-headers in the
-// profile's HTTP/3 order, then its headers through headerorder, as
-// HTTP/2 sends them, changed as the profile's HTTP3.Headers says
-// (headers dropped, alt-used placed). length is the body's: 0 for none,
-// -1 when unknown. A method, authority, path or field that is not valid
-// on the wire is an error.
+// buildHead builds req's field list for p on a connection to the alternative
+// service at altHost and altPort: pseudo-headers in the profile's HTTP/3
+// order, then the HTTP/2 list as HTTP3.Headers changes it. length is the
+// body's (0 for none, -1 unknown). A field invalid on the wire is an error.
 func buildHead(p *profile.Profile, altHost, altPort string, req *http.Request, length int64) (head, error) {
 	method := req.Method
 	if method == "" {

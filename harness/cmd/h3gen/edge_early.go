@@ -10,14 +10,8 @@ import (
 )
 
 // earlyData derives http3.early_data from the h3-early and h3-too-early
-// captures, for a profile that resumes with 0-RTT (q.ZeroRTT); nil
-// otherwise. Every request the page made before its connection's
-// Finished, the first time its URL arrived, counts: one whose stream
-// started in a 0-RTT packet was sent early, any other was held, and each
-// method is the one or the other on every connection. A held request
-// leaves in the Finished's datagram or after it, the same on every
-// connection. On the h3-too-early page, whose server answers every 0-RTT
-// request 425, each went again on its connection in 1-RTT, or none did.
+// captures; nil unless q.ZeroRTT. Each method must be consistently sent
+// in 0-RTT or held until Finished, and 425 retries consistent too.
 func (s *edgeSet) earlyData(q *profile.QUIC, e *collector) *profile.H3EarlyData {
 	if !q.ZeroRTT {
 		return nil

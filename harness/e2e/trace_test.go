@@ -13,11 +13,9 @@ import (
 	"github.com/roachadam/mimicry/harness/internal/server"
 )
 
-// On one connection, mimicry encodes its first request, cuts its upload into
-// DATA frames and returns download credit as the browser did on the capture
-// page, in every sampled connection. Only what does not depend on the kind of
-// request is compared: the browser's subresource requests carry headers a
-// navigation profile does not.
+// On one connection, mimicry's first header block, upload DATA cuts and
+// download credit match every sample. Only kind-independent parts are
+// compared.
 func TestConnectionMatchesBrowserTrace(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {

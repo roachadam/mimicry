@@ -1,3 +1,5 @@
+// Package proxy connects through SOCKS5 and HTTP CONNECT proxies, bounded
+// by the caller's context.
 package proxy
 
 import (
@@ -57,11 +59,9 @@ func (l *headerLimit) Read(p []byte) (int, error) {
 	return n, err
 }
 
-// Connect asks an HTTP proxy, over conn, for a tunnel to target
-// ("host:port"): a CONNECT request with header lines as given, in order and
-// spelled as sent ("Host: example.com:443"). On a 2xx answer the returned
-// connection is the tunnel; otherwise it stays usable for another request
-// unless the answer closes it.
+// Connect asks an HTTP proxy over conn for a tunnel to target
+// ("host:port") with header lines sent as given. On 2xx the returned conn
+// is the tunnel; otherwise conn stays usable unless the answer closes it.
 func Connect(ctx context.Context, conn net.Conn, target string, header []string) (Answer, net.Conn, error) {
 	defer watch(ctx, conn)()
 	var b strings.Builder
@@ -93,10 +93,8 @@ func Connect(ctx context.Context, conn net.Conn, target string, header []string)
 		Header:     resp.Header,
 		Close:      resp.Close,
 	}
-	// A 2xx answer has no body: what follows is the tunnel (RFC 9110
-	// 9.3.6), which net/http would read, and its Close drain, as a body to
-	// EOF; it is left alone. Any other answer's body is read, leaving the
-	// connection at the next answer.
+	// A 2xx answer has no body: what follows is the tunnel (RFC 9110 9.3.6).
+	// Other answers' bodies are read so the connection is at the next answer.
 	if a.StatusCode/100 != 2 {
 		_, err = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
 		_ = resp.Body.Close()
@@ -125,10 +123,9 @@ const (
 	socksIPv6     = 4
 )
 
-// SOCKS5 asks a SOCKS5 proxy, over conn, for a connection to target
-// ("host:port"), offering methods in order. A host name goes to the proxy
-// to resolve; an IP address as such. user answers username/password
-// authentication when the proxy picks it.
+// SOCKS5 asks a SOCKS5 proxy over conn for a connection to target,
+// offering methods in order; host names are resolved by the proxy. user
+// answers username/password authentication.
 func SOCKS5(ctx context.Context, conn net.Conn, target string, methods []byte, user *url.Userinfo) error {
 	defer watch(ctx, conn)()
 	host, portStr, err := net.SplitHostPort(target)
@@ -282,10 +279,9 @@ func watch(ctx context.Context, conn net.Conn) func() {
 	}
 }
 
-// contextError prefers the context's error when cancellation caused err.
-// The connection's deadline is the context's (watch), and can pass before
-// the context's own timer marks it done: a timeout at or after it is the
-// context's deadline too.
+// contextError prefers ctx's error when cancellation caused err. The
+// conn deadline can pass before ctx's timer fires, so a timeout at or after
+// it counts as ctx's.
 func contextError(ctx context.Context, err error) error {
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return ctxErr

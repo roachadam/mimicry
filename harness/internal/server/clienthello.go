@@ -119,12 +119,9 @@ func resumptionOffer(msg []byte) offer {
 }
 
 // ParseClientHello turns a ClientHello handshake message into the TLS section
-// of a profile. GREASE values become profile.GREASE, and extension bodies are
-// decoded into the profile's typed fields where it has one. Values random per
-// connection (the random, the session ID's bytes, keys, ECH's config_id and
-// bytes) are left out, their lengths kept. A padding extension must be
-// zeros, as long as BoringSSL's rule makes it (the only rule a profile can
-// describe).
+// of a profile. Per-connection random values are left out, their lengths
+// kept. A padding extension must be zeros and follow BoringSSL's rule, the
+// only one a profile can describe.
 func ParseClientHello(msg []byte) (profile.TLS, error) {
 	s := cryptobyte.String(msg)
 	var msgType uint8

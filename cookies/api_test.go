@@ -130,20 +130,8 @@ func TestDeleteMatchMayUseJar(t *testing.T) {
 	}
 }
 
-// SetString stores Domain cookies of exactly the name given, as a browser
-// reads a Domain attribute: that name and every name under it get them,
-// its parent and siblings do not, and nothing reduces it to the
-// registrable domain. SetHostString stores host-only cookies of exactly
-// one host, IP addresses included. AnySite reaches every host of every
-// site. Prefixes get what browsers require: __Host- host-only on the name
-// given and Secure, __Secure- and __Http- Secure; a __Host- cookie for
-// AnySite is refused. Parsing tolerates sloppy strings; an IP address or
-// a public suffix as SetString's domain, input that is not a host, or a
-// pair Set refuses stores nothing. String gives back every cookie for a
-// name and the names under it (not partitioned ones), and storing that
-// string again (SetString, or SetHostString for an IP address or
-// localhost) gives the same String: checked for every name of every case.
-// The jar's own Cookies is the observer.
+// SetString, SetHostString and String store and return cookies for exactly
+// the names given, apply prefix rules, and round-trip; observed via Cookies.
 func TestSetString(t *testing.T) {
 	type set struct {
 		method, name, cookies, err string
@@ -424,10 +412,8 @@ func TestSetString(t *testing.T) {
 	}
 }
 
-// SetHTTPCookies stores http.Cookies through the browser's rules, as Set-
-// Cookie lines from a navigation to the URL: each attribute applies, every
-// cookie the rules refuse (or that would not be one line) is named in the
-// error, and the rest are stored.
+// SetHTTPCookies applies each attribute through the browser's rules, names
+// every refused cookie in the error, and stores the rest.
 //
 //nolint:gosec // the jar's rules judge the cookies' attributes under test
 func TestSetHTTPCookies(t *testing.T) {

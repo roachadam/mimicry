@@ -5,21 +5,16 @@ import (
 )
 
 // WebSocket is how the browser speaks on a WebSocket once its handshake is
-// sent (websocket and websocket-h2 captures). The handshake itself is the
-// profile's websocket kind (KindWebSocket): its header lists, with the
-// extended CONNECT's :protocol after the profile's pseudo_header_order,
-// and its HTTP/2 weight. The HTTP/1.1-only connection a socket opens when
-// the server allows no extended CONNECT says hello as TLS.WebSocketH1.
+// sent. The handshake itself is the websocket kind (KindWebSocket); the
+// HTTP/1.1-only connection opened when the server allows no extended
+// CONNECT says hello as TLS.WebSocketH1.
 type WebSocket struct {
 	// Extensions is the Sec-WebSocket-Extensions offer, exactly as sent.
 	// Required.
 	Extensions string `json:"extensions"`
-	// Compression is how the browser compresses a message once the server
-	// accepts permessage-deflate: its deflate implementation at level 6
-	// (CompressionChromiumZlib6, CompressionZlib6, CompressionZlibRS6),
-	// with the window the server allows (client_max_window_bits) and the
-	// context kept from message to message unless the server answers
-	// client_no_context_takeover. Required.
+	// Compression is the deflate implementation (level 6) used once the
+	// server accepts permessage-deflate: CompressionChromiumZlib6,
+	// CompressionZlib6 or CompressionZlibRS6. Required.
 	Compression string `json:"compression"`
 	// Uncompressed is which messages the browser sends uncompressed (RSV1
 	// clear) on such a socket: UncompressedNever,
@@ -91,14 +86,11 @@ const (
 	// into as few DATA frames as the cap allows (Chrome).
 	H2DataTogether = "together"
 	// H2DataHeaderAlone writes a frame's header (mask included) in a DATA
-	// frame of its own when its payload is longer than 1000 bytes
-	// (Firefox's kCopyBreak), then the payload in DATA frames of the cap
-	// (Firefox).
+	// frame of its own when its payload exceeds 1000 bytes (Firefox's
+	// kCopyBreak), then the payload.
 	H2DataHeaderAlone = "header_alone"
-	// H2DataSplitControl writes frames as H2DataTogether, but its replies
-	// to the server's control frames, the pong and the close reply, as
-	// three DATA frames: the 2-byte header, the 4-byte mask, the payload
-	// (Safari; a close it starts goes whole).
+	// H2DataSplitControl is H2DataTogether, except replies to control
+	// frames go as three DATA frames: header, mask, payload (Safari).
 	H2DataSplitControl = "split_control"
 )
 
@@ -119,10 +111,8 @@ const (
 )
 
 // WebSocketHello is how the ClientHello of a WebSocket's own HTTP/1.1
-// connection differs from TLS's: the browser opens one per socket when the
-// server allows no extended CONNECT. It resumes as TLS.Resumption says;
-// Chrome's and Firefox's were all resumed in the captures, so the same
-// changes on a full handshake are the profile's assumption.
+// connection differs from TLS's. It resumes as TLS.Resumption says; only
+// resumed ones were captured, so a full handshake is assumed alike.
 type WebSocketHello struct {
 	// ALPN replaces the ALPN extension's protocols (every browser:
 	// http/1.1 only). Required.

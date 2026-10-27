@@ -16,11 +16,9 @@ type Cookies struct {
 	// ThirdParty is the policy for cookies of a cross-site context: a
 	// request whose site is not its top-level page's.
 	ThirdParty string `json:"third_party"`
-	// WebSocketUnpartitioned sends a cross-site WebSocket handshake its
-	// host's unpartitioned SameSite=Lax and None cookies too, besides the
-	// Partitioned ones of its page's partition, whatever ThirdParty says
-	// (Safari 26; not Safari 27). Strict ones are not measured and stay
-	// behind.
+	// WebSocketUnpartitioned also sends a cross-site WebSocket handshake its
+	// host's unpartitioned Lax and None cookies, whatever ThirdParty says
+	// (Safari 26, not 27). Strict ones stay behind (not measured).
 	WebSocketUnpartitioned bool `json:"websocket_unpartitioned,omitempty"`
 	// Redirects is how a redirect chain affects which cookies go.
 	Redirects string `json:"redirects"`
@@ -34,10 +32,8 @@ type Cookies struct {
 	// Order is the order of cookies in the Cookie header.
 	Order string `json:"order"`
 	// NewValueRenews gives a cookie replaced with a different value a new
-	// creation time, which moves it after its peers in the order (Chrome);
-	// otherwise a replacement keeps the old cookie's (RFC 6265bis;
-	// Firefox). Only with OrderRFC: OrderDomainName's cookies are not
-	// ordered by creation.
+	// creation time, moving it later in the order (Chrome); otherwise it
+	// keeps the old one's. Only with OrderRFC.
 	NewValueRenews bool `json:"new_value_renews,omitempty"`
 	// PartitionedFirst sends the Partitioned cookies of a request before
 	// its unpartitioned ones, each group in Order (Safari). Off, they
@@ -55,15 +51,12 @@ type Cookies struct {
 	// Off, they are ordinary names, __Host-Http- still a __Host- name
 	// (Safari).
 	HTTPPrefix bool `json:"http_prefix,omitempty"`
-	// SecureLoopback makes plain http:// to a loopback host (localhost,
-	// *.localhost, 127.0.0.0/8, ::1) secure for cookies: Secure cookies
-	// are set from and sent to it (Chrome, Firefox, Safari 27; not Safari
-	// 26).
+	// SecureLoopback treats plain http:// to a loopback host (localhost,
+	// *.localhost, 127.0.0.0/8, ::1) as secure for cookies (not Safari 26).
 	SecureLoopback bool `json:"secure_loopback,omitempty"`
-	// MaxPerSite is how many cookies a registrable domain keeps (each
-	// partition apart): when a new cookie makes more, the least recently
-	// used are evicted until EvictTo remain (Chrome, Firefox: 180 and
-	// 150). Zero: no limit (Safari kept all 200 of the capture's).
+	// MaxPerSite is how many cookies a registrable domain keeps per
+	// partition: past it, the least recently used are evicted down to
+	// EvictTo (Chrome, Firefox: 180 and 150). Zero: no limit.
 	MaxPerSite int `json:"max_per_site,omitempty"`
 	EvictTo    int `json:"evict_to,omitempty"`
 }
@@ -132,11 +125,7 @@ const (
 )
 
 // DefaultCookies are RFC 6265bis's rules, for a jar used without a profile
-// (a profile must state its browser's): Lax by default, None needs Secure,
-// SameSite judged by the request URL and schemeful, Partitioned cookies
-// keyed by top-level site, a nameless pair is a value and so is "=x", RFC
-// order, the __Host- Path attribute and the __Http- prefixes enforced,
-// loopback secure (Secure Contexts), no cookie limit.
+// (a profile must state its browser's).
 func DefaultCookies() *Cookies {
 	return &Cookies{
 		UnsetSameSite:      SameSiteLax,

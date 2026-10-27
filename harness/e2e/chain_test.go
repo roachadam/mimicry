@@ -22,26 +22,14 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// Every HTTP/2 connection the profile is checked against (every sample of
-// every scenario, every connection of every page, the replayed real pages
-// included), its requests sent again in order through mimicry's HTTP/2
-// connection, each with the weight the browser gave it, has the browser's
-// HEADERS priority on every request: none, or which earlier request it
-// depends on (0 for none) and whether exclusively. For Chrome that is its
-// chain (http2.chain_priorities): the newest stream still open at the
-// nearest weight at or above the request's.
+// Every HTTP/2 connection the profile is checked against, replayed through
+// mimicry with the browser's weights, has the browser's HEADERS priority on
+// every request (Chrome: http2.chain_priorities).
 //
-// A trace records what the client sent, not when each response ended, so
-// the server here keeps each stream open exactly as long as the trace
-// needs it: until the last request that depends on it went out, then ends
-// it at once. Every stream gets its response headers when it opens (a
-// stream whose response has started stays in the chain), and ends in one
-// of two ways, alternately: a DATA frame with END_STREAM whose body the
-// caller never reads, the next request going once a PING shows the client
-// read it (the chain drops a stream at its END_STREAM, not when the body
-// is read or closed); or HEADERS with END_STREAM, the next request going
-// as soon as the caller has the response (the stream leaves the chain
-// before its end reaches the caller, whatever the scheduling).
+// The server holds each stream open until the last request depending on it
+// went out. Streams alternately end with an unread DATA END_STREAM (next
+// request after a PING shows the client read it) or a HEADERS END_STREAM,
+// since the chain drops a stream at its END_STREAM, not when its body is read.
 func TestChainedPrioritiesMatchBrowserTraces(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {

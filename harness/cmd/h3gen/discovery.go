@@ -21,12 +21,8 @@ type sent struct {
 }
 
 // discovery derives when the browser moves an origin to HTTP/3, from the
-// h3-discovery samples in which QUIC connections completed: per host,
-// before the server's GOAWAY (H3DiscoverySteps' CloseAfter step), where
-// the first QUIC connection starts relative to the host's first request
-// (which learnt its Alt-Svc) and the request after it; whether the
-// browser sends GOAWAY on HTTP/2 connections QUIC replaced; and what it
-// dials after the server's GOAWAY ends a QUIC connection.
+// h3-discovery samples where QUIC completed: the switch rule, GOAWAY on
+// replaced HTTP/2 connections, and what it dials after a QUIC GOAWAY.
 func discovery(s *captureSet, e *collector) profile.Discovery {
 	var out profile.Discovery
 	if len(s.discovery) == 0 {
@@ -175,13 +171,9 @@ func tracedConns(page *capture.Page) []capture.Connection {
 	return out
 }
 
-// switchRule is how host moved to HTTP/3 in page: on_alt_svc if the
-// request after the one that learnt Alt-Svc went on QUIC, its connection
-// started before it; next_request if that request went on TCP and the
-// QUIC connection started with it (within 100 ms: the TCP request's time
-// is estimated from its connection's ClientHello); new_connection if QUIC
-// started only after the server's GOAWAY ended the TCP connection; ""
-// with no QUIC at all.
+// switchRule is how host moved to HTTP/3 in page: on_alt_svc,
+// next_request (QUIC within 100 ms of the estimated TCP request time),
+// new_connection (only after GOAWAY), or "" with no QUIC.
 func switchRule(page *capture.Page, host, goaway string) (string, error) {
 	reqs := requests(page, host)
 	if len(reqs) < 2 || reqs[0].quic {

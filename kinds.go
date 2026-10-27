@@ -21,12 +21,9 @@ import (
 // it.
 type Kind int
 
-// Request kinds. Navigate is the default: a request without a kind is a
-// top-level navigation, sent exactly as the profile describes it: a
-// user's (typed URL, clicked link or submit button), with the profile's
-// Sec-Fetch-User on it and its redirects; a page script's navigation
-// (location.href, form.submit()) suppresses it with a nil Sec-Fetch-User
-// header.
+// Request kinds. Navigate, the default, is a user's top-level navigation
+// (typed URL, link, submit button) with the profile's Sec-Fetch-User; a
+// script's navigation suppresses it with a nil Sec-Fetch-User header.
 const (
 	Navigate       Kind = iota // a top-level navigation: typed URL, link, form
 	Frame                      // <iframe src>
@@ -128,14 +125,12 @@ const (
 type Request struct {
 	Kind Kind
 	// From is the page making the request: it decides sec-fetch-site,
-	// Origin and Referer. Nil: for a navigation, none (a typed URL); for
-	// other kinds, the transport's last navigation, or else the request's
-	// own origin. The last navigation is the transport's, shared by every
-	// goroutine using it: a Transport is one browsing entity, like one tab.
+	// Origin and Referer. Nil means none for a navigation (a typed URL),
+	// and for other kinds the transport's last navigation, else the
+	// request's own origin.
 	From *url.URL
-	// Priority is the request's fetchpriority. PriorityHigh and PriorityLow need the
-	// profile to have measured them for the kind; RoundTrip fails
-	// otherwise.
+	// Priority is the request's fetchpriority. RoundTrip fails if the
+	// profile never measured PriorityHigh or PriorityLow for the kind.
 	Priority Priority
 	// CrossOrigin is an element kind's crossorigin attribute.
 	CrossOrigin CrossOrigin
@@ -143,22 +138,18 @@ type Request struct {
 	Credentials Credentials
 	// NoCORS is fetch()'s mode: "no-cors".
 	NoCORS bool
-	// Stylesheet is the stylesheet loading the request, for the fonts
-	// (Font) and images (Image) CSS loads; other kinds take none. Browsers
-	// that refer such requests to their stylesheet (Chrome, Firefox;
-	// profile.Context.StylesheetReferrer) send its URL as Referer;
-	// sec-fetch-site and Origin stay From's.
+	// Stylesheet is the stylesheet loading a Font or Image. Browsers that
+	// refer such requests to it (profile.Context.StylesheetReferrer) send
+	// its URL as Referer; sec-fetch-site and Origin stay From's.
 	Stylesheet *url.URL
-	// IgnoreCORS sends a request whose CORS preflight's answer does not
-	// allow it, which a browser never does: RoundTrip otherwise returns a
-	// *CORSError and sends nothing more. The preflight is still sent.
+	// IgnoreCORS sends a request whose CORS preflight answer forbids it,
+	// which a browser never does; otherwise RoundTrip returns a
+	// *CORSError. The preflight is still sent.
 	IgnoreCORS bool
-	// HeaderPlacement moves headers of this request, and of every hop of
-	// its redirect chain, out of the profile's order (Place), after
-	// Config.HeaderPlacement has moved them; not its CORS preflight's.
-	// An invalid Place, or one on a request that sets its own order
-	// (Exact, HeaderOrderKey), is an error wrapping ErrPlacement before
-	// anything is sent.
+	// HeaderPlacement moves this request's headers, on every redirect hop
+	// but not its preflight, after Config.HeaderPlacement. An invalid Place,
+	// or any Place on a request with its own order (Exact, HeaderOrderKey),
+	// is an error wrapping ErrPlacement.
 	HeaderPlacement []Place
 }
 
@@ -300,14 +291,11 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 			h.Del("Referer")
 		}
 	}
-	// site is sec-fetch-site: the most distant relation along the chain
-	// (for a navigation under redirects.navigation_site restart, the
-	// chain from its last redirect to another site on). targetSite is
-	// this URL's own, which picks the order and decides
-	// sec-fetch-storage-access. tainted is the Fetch standard's tainted
-	// origin: the chain left another origin than the page's for a third,
-	// so Origin is "null". sameOrigin is a chain that never left the
-	// page's origin, which same-origin credentials need.
+	// site is sec-fetch-site, the most distant relation along the chain
+	// (from the last cross-site hop under redirects.navigation_site
+	// restart); targetSite is this URL's own, which picks the order.
+	// tainted means Origin: null (Fetch standard); sameOrigin is a chain
+	// that never left the page's origin.
 	site, targetSite := "none", "none"
 	crossOrigin, tainted, sameOrigin := false, false, true
 	if from != nil {
@@ -459,13 +447,10 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 		}
 	}
 
-	// The order: the variant for this method, site relation, CORS check,
-	// page-set headers, redirect (and whether it crossed origins, whether
-	// the request before it carried Origin, and whether it changed the
-	// method) and security, else the kind's own; a redirected request of a
-	// kind with redirected variants takes only its exact one. A non-secure
-	// request (plain http:// to anything but loopback) never takes the
-	// secure lists: its exact variant, else the kind's non-secure one.
+	// The order: the variant matching this request's conditions, else the
+	// kind's own. A redirected request of a kind with redirected variants
+	// takes only its exact one; a non-secure request never takes the
+	// secure lists.
 	set := pageSet(h, list)
 	switch r.Kind {
 	case kindPreflight:
@@ -702,11 +687,9 @@ func sameCondition(v, cond profile.Variant) bool {
 	return v.Method == cond.Method && v.Site == cond.Site && v.CORSChecked == cond.CORSChecked && v.PageSet == cond.PageSet && v.Redirected == cond.Redirected && v.CrossOriginRedirect == cond.CrossOriginRedirect && v.CrossSiteRedirect == cond.CrossSiteRedirect && v.OriginBeforeRedirect == cond.OriginBeforeRedirect && v.MethodChangedByRedirect == cond.MethodChangedByRedirect && v.InsecureBeforeRedirect == cond.InsecureBeforeRedirect && v.Insecure == cond.Insecure
 }
 
-// userNavigation reports whether navigation req, with headers h, sends
-// Sec-Fetch-User, as a user's does (a typed URL, a link, a clicked form):
-// after a redirect, if the request before sent it; otherwise if the
-// profile's navigation sends it. Either way not if the caller suppressed
-// it (a script's navigation).
+// userNavigation reports whether navigation req sends Sec-Fetch-User: after
+// a redirect, if the request before did; otherwise if the profile's
+// navigation does. Never if the caller suppressed it.
 func userNavigation(p *profile.Profile, req *http.Request, redirected bool, h http.Header) bool {
 	if hasHeader(h, "Sec-Fetch-User") {
 		return false
@@ -736,11 +719,10 @@ func methodOf(req *http.Request) string {
 	return req.Method
 }
 
-// originOf returns the Origin req sends, made as r in mode (sec-fetch-mode)
-// from page from (nil: none sent): on every request but GET and HEAD, and
-// on CORS requests to another origin (or same-origin element ones, where
-// the browser does); "null" once its redirect chain is tainted (a
-// navigation's: by redirects.navigation_origin); "" for none.
+// originOf returns the Origin req sends from page from ("" for none): on
+// methods other than GET and HEAD, and on cross-origin CORS requests (and
+// same-origin element ones where the browser sends it); "null" once the
+// redirect chain is tainted.
 func originOf(p *profile.Profile, ctx *profile.Context, req *http.Request, r Request, mode string, from *url.URL) (string, error) {
 	if from == nil {
 		return "", nil
@@ -809,11 +791,9 @@ func delHeader(h http.Header, name string) {
 	}
 }
 
-// addHeaders adds config's headers (Config.Headers) that h does not set,
-// in any case, to a request ending redirect chain chain. Once the chain
-// has left an origin, Authorization and Cookie stay behind: browsers drop
-// Authorization on a cross-origin redirect (Fetch standard), and
-// http.Client both on one to another domain.
+// addHeaders adds the config headers h lacks. Once chain has left an
+// origin, Authorization and Cookie are dropped, as browsers drop
+// Authorization (Fetch standard) and http.Client both.
 func addHeaders(h, config http.Header, chain []*url.URL) {
 	crossed := false
 	for i := 1; i < len(chain); i++ {
@@ -876,15 +856,11 @@ func origin(u *url.URL) string {
 	return strings.ToLower(u.Scheme) + "://" + host
 }
 
-// referrer is the Referer for a request from page from along chain (its
-// URLs, the request's last) under the browsers' default policy,
-// strict-origin-when-cross-origin: the page's URL (without fragment or
-// credentials) to its own origin, its origin to others, nothing from
-// HTTPS to HTTP. Each redirect's request applies the policy to the
-// referrer the request before it sent (the Fetch standard's main fetch),
-// so a chain that left the page's origin sends only the origin even back
-// on it, and none at all after an http:// URL (every browser:
-// nav-redirect-page's nav-302.cs-so.hop1 and nav-301.ss-so.hop1).
+// referrer is the Referer for a request from page from along chain under
+// strict-origin-when-cross-origin. Each hop applies the policy to the
+// previous hop's referrer (Fetch main fetch), so once the chain leaves the
+// page's origin only the origin is sent, and nothing after an http:// URL
+// (nav-redirect-page captures).
 func referrer(from *url.URL, chain []*url.URL) string {
 	if from == nil {
 		return ""

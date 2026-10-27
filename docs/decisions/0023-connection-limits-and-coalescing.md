@@ -35,7 +35,10 @@ A required profile section `connections`:
     connection whose certificate covers it and whose address matches;
   - `connect` (Firefox): dial and handshake, then decline the new
     connection the way Firefox does (`h2.Decline`) if an existing one
-    reaches the same address.
+    reaches the same address. `h2.Decline` drains what the server sent
+    (up to 1 s) before closing, so a TCP reset cannot overtake its frames:
+    every Firefox sample shows them all arriving. How Firefox's own close
+    looks on TCP is not captured.
 
 Conditions the capture could not vary are kept conservative: same port,
 same partition, no proxy. `Config.Resolver` lets callers (and the harness)

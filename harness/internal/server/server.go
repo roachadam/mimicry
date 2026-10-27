@@ -1,3 +1,8 @@
+// Package server is the capture server. It records what a client sends (the
+// ClientHello, HTTP/2 frames, HTTP/1.1 lines, WebSocket frames, and QUIC and
+// HTTP/3 through quictrace) on the capture page and the scenario pages.
+//
+// Everything is recorded as sent, before any parsing normalizes it.
 package server
 
 import (
@@ -37,19 +42,15 @@ type Server struct {
 	// IssueCert issues a certificate for hosts. Scenarios serving several
 	// hosts over TLS need it: each host has its own certificate.
 	IssueCert func(hosts []string) (tls.Certificate, error)
-	// PlainListener is the second port of a scenario that serves plain
-	// HTTP on a port of its own (Scenario.PlainPort); Serve serves and
-	// closes it along with the first. Other scenarios leave it nil.
+	// PlainListener is the second port of a Scenario.PlainPort scenario;
+	// Serve serves and closes it along with the first.
 	PlainListener net.Listener
 	// PacketConn is the UDP socket, on the listener's port number, of a
-	// scenario that serves HTTP/3 (Scenario.HTTP3): an Alt-Svc's h3=":port"
-	// names the same port. Serve serves QUIC on it and closes it along
-	// with the listener. Other scenarios leave it nil.
+	// Scenario.HTTP3 scenario; Serve serves QUIC on it and closes it.
 	PacketConn net.PacketConn
-	// OnQUICReady, if set, is called once QUIC on PacketConn is served:
-	// for an aioquic scenario (Scenario.NeedsAioquic) once its process
-	// is up, until when datagrams wait in the socket (and are recorded as
-	// arriving when it reads them). Not called for other scenarios.
+	// OnQUICReady, if set, is called once QUIC on PacketConn is served. For
+	// aioquic scenarios that is once its process is up; datagrams wait in
+	// the socket until then.
 	OnQUICReady func()
 }
 

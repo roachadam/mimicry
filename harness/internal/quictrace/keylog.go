@@ -19,14 +19,10 @@ const (
 	labelServerTraffic   = "SERVER_TRAFFIC_SECRET_0"
 )
 
-// KeyLog collects the TLS key log a server writes (tls.Config.KeyLogWriter,
-// NSS format, one line per write): every connection's traffic secrets, by
-// the client random of its ClientHello. Decode reads it to open the
-// client's Handshake and 1-RTT packets and the server's Handshake packets
-// (and its 1-RTT packets' headers).
-// A Go server logs no early traffic secret, so the PSKs of the tickets
-// clients resume with are kept too (AddTicket), from which Decode derives
-// it for 0-RTT packets.
+// KeyLog collects a server's TLS key log (NSS format), keyed by client
+// random, for Decode to open Handshake and 1-RTT packets. A Go server logs
+// no early traffic secret, so ticket PSKs are kept too (AddTicket) to
+// derive it for 0-RTT packets.
 type KeyLog struct {
 	mu      sync.Mutex
 	secrets map[string]map[string][]byte
@@ -39,11 +35,8 @@ type ticket struct {
 	psk   []byte
 }
 
-// AddTicket records the PSK of a ticket a client offered: identity is the
-// ticket as the ClientHello's pre_shared_key carries it, session the
-// server's state for it as crypto/tls encodes it (tls.SessionState.Bytes:
-// version, type, cipher suite, creation time, then the secret, which for
-// TLS 1.3 is the PSK).
+// AddTicket records the PSK of a ticket a client offered: identity as in
+// pre_shared_key, session as tls.SessionState.Bytes encodes it.
 func (k *KeyLog) AddTicket(identity, session []byte) error {
 	s := cryptobyte.String(session)
 	var version, suite uint16

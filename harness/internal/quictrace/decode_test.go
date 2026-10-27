@@ -73,11 +73,8 @@ func mustHex(t *testing.T, s string) []byte {
 	return b
 }
 
-// TestDecodeRFC9001Samples opens RFC 9001's sample packets: the client
-// Initial of appendix A.2, through Decode as the server's datagrams (keys
-// from its Destination Connection ID, header fields, frames, the
-// ClientHello reassembled from its CRYPTO frame), and the ChaCha20-Poly1305
-// short header packet of appendix A.5 with the keys of its secret.
+// TestDecodeRFC9001Samples opens RFC 9001's client Initial (appendix A.2)
+// through Decode and its ChaCha20-Poly1305 short header packet (A.5).
 func TestDecodeRFC9001Samples(t *testing.T) {
 	t.Run("client Initial", func(t *testing.T) {
 		start := time.Date(2026, 10, 25, 12, 0, 0, 0, time.UTC)
@@ -284,14 +281,9 @@ func checkPackets(t *testing.T, what string, datagrams []Datagram, want []string
 }
 
 // TestDecodeRFC9369Samples decodes QUIC version 2 (RFC 9369) and version
-// negotiation through Decode, server datagrams merged with the client's:
-// the appendix's client Initial, the server's Initial and Retry answering
-// it (and RFC 9001's version 1 Retry), a corrupted Retry; a compatible
-// upgrade from version 1 to 2 (RFC 9368) whose other packets are sealed
-// here (Handshake and 1-RTT secrets from a key log, the server's transport
-// parameters); the same connection migrating to a second client address;
-// the server's 1-RTT headers across a key update; and an incompatible
-// negotiation, which starts a new connection.
+// negotiation through Decode: the appendix samples, a compatible upgrade
+// (RFC 9368) with migration and a key update, and an incompatible
+// negotiation that starts a new connection.
 func TestDecodeRFC9369Samples(t *testing.T) {
 	start := time.Date(2026, 10, 25, 12, 0, 0, 0, time.UTC)
 	client := func(ms int, b []byte) Received {

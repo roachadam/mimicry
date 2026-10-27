@@ -21,12 +21,9 @@ const (
 )
 
 // CookiesEdge is the cookies-edge scenario: cookie rules the cookies and
-// kinds pages do not reach. Every cookie is set by a response's
-// Set-Cookie (never document.cookie), lives 10 minutes at most and is
-// deleted before /done, since Safari keeps its cookies between samples.
-// See CookiesEdgeSteps for which request answers what. Expires beyond 400
-// days against Max-Age is not here: the cap changes when a cookie expires,
-// which nothing on the wire shows within a capture.
+// kinds pages do not reach. Every cookie is set by Set-Cookie, lives 10
+// minutes at most and is deleted before /done, since Safari keeps cookies
+// between samples. See harness/reports/cookies-edge-2026-10-24.md.
 var CookiesEdge = &Scenario{
 	Name: "cookies-edge",
 	Doc:  "cookie edge rules: __Host- paths, nameless prefixed cookies, __Http- prefixes, order after a value changes, 200 cookies on one site, schemeful SameSite across http:// and https:// of one host, Secure cookies on http://localhost",
@@ -59,11 +56,9 @@ var edgePrefixCookies = []string{
 	"__Host-Http-e_nohh=1; Path=/; Secure; Max-Age=600",
 }
 
-// edgeNamelessCookies are cookies without a name whose value starts with a
-// prefix (RFC 6265bis rejects them), with and without a space after the
-// "=", and a nameless control. A browser keeps one nameless cookie per
-// path, so each has a path of its own, nested so that one request
-// (nameless-probe) carries every one kept, longest path first.
+// edgeNamelessCookies are nameless cookies whose value starts with a prefix,
+// plus a control. A browser keeps one nameless cookie per path, so each has
+// its own nested path and nameless-probe carries every one kept.
 var edgeNamelessCookies = []string{
 	"=e_nlctl=1; Path=/n; Secure; Max-Age=600",
 	"=__Secure-e_nls=1; Path=/n/1; Secure; Max-Age=600",
@@ -73,9 +68,7 @@ var edgeNamelessCookies = []string{
 }
 
 // edgeSchemeCookies are not Secure (but the last), so they may go to
-// http:// of the page's host: which of them a navigation from https:// to
-// http:// and back carries shows schemeful SameSite (and whether cookies
-// are bound to the scheme that set them).
+// http:// of the page's host; the sch-* steps probe schemeful SameSite.
 var edgeSchemeCookies = []string{
 	"e_sch_strict=1; Path=/; SameSite=Strict; Max-Age=600",
 	"e_sch_lax=1; Path=/; SameSite=Lax; Max-Age=600",
@@ -115,42 +108,23 @@ func edgeManyCookies() []string {
 type CookiesEdgeStep struct {
 	// Label names the step.
 	Label string
-	// Host is the step's host; Plain sends it over http://, otherwise it
-	// goes over https:// (HTTP/2).
+	// Host is the step's host; Plain sends it over http://, otherwise
+	// https:// (HTTP/2).
 	Host  string
 	Plain bool
 	// Path is the request's path: on each host, every step has its own.
 	Path string
-	// Nav is a top-level navigation by script (location.href) from the
-	// previous step's page; its page makes the fetches that follow, up to
-	// the next navigation. A step that is not one is a same-origin fetch()
-	// with credentials "include", from the page of the navigation before it.
+	// Nav is a top-level navigation by script from the previous step's page.
+	// Other steps are same-origin credentialed fetch()es from the last Nav's page.
 	Nav bool
 	// Sets are the Set-Cookie values its response carries, in order.
 	Sets []string
 }
 
 // CookiesEdgeSteps lists the cookies-edge page's requests in the order it
-// makes them. Each probe's Cookie header answers a question:
-//
-//   - prefix-probe (under /x, so a __Host- cookie with Path=/x would go
-//     too): which of edgePrefixCookies were kept: __Host- without Path or
-//     with Path=/x, __Http- and __Host-Http- with and without HttpOnly;
-//   - nameless-probe: which nameless cookies with a __Secure- or __Host-
-//     value were kept, with and without a space after "=";
-//   - rot-probe-1, after a, b, c were set in that order: the order of
-//     cookies of equal path; rot-probe-2, after a got a new value and b
-//     its old one again: whether either moved after c (re-dated);
-//   - sch-to-http, a navigation from https:// to http:// of the same host,
-//     and sch-http-probe, a same-origin fetch on the http:// page: which
-//     of edgeSchemeCookies go (schemeful SameSite: Strict not on the
-//     cross-scheme navigation; cookies bound to their scheme: none);
-//     sch-to-https, the navigation back, and sch-https-probe the same;
-//   - lo-probe: whether the Secure cookie http://localhost set (lo-page)
-//     was kept and is sent back to it;
-//   - many-probe: how many of 200 cookies set on one site go, which are
-//     dropped, and the Cookie header's size;
-//   - the cleanup requests delete everything, each in the form it was set.
+// makes them. What each probe's Cookie header answers is in
+// harness/reports/cookies-edge-2026-10-24.md; the cleanup requests delete
+// every cookie in the form it was set.
 func CookiesEdgeSteps() []CookiesEdgeStep {
 	doc := slices.Concat(edgePrefixCookies, edgeNamelessCookies, edgeSchemeCookies)
 	rotation := []string{

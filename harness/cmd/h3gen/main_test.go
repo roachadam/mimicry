@@ -33,10 +33,8 @@ func TestRegenerateReproducesProfiles(t *testing.T) {
 	}
 }
 
-// A profile that inherits every h3 scenario from chrome-155-macos
-// (testprofiles.Inheriting) reads that profile's captures, and its
-// sampleGaps pins, for them: it regenerates unchanged, as chrome-155-macos
-// does.
+// A profile inheriting every h3 scenario from chrome-155-macos reads its
+// captures and sampleGaps pins, and regenerates unchanged.
 func TestRegenerateReadsInheritedCaptures(t *testing.T) {
 	data, err := testprofiles.Inheriting(nil)
 	if err != nil {

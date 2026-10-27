@@ -59,10 +59,9 @@ func (c *checker) err() error {
 var profileName = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
 // Validate checks p and returns a *ValidationError listing every problem, or
-// nil. It rejects what is malformed, forbidden by the protocols, beyond what
-// mimicry can send, or not measured (decision 0008), not what is merely
-// unusual: real browsers do odd things, such as Safari listing a signature
-// algorithm twice, and a profile must be able to reproduce them.
+// nil. It rejects what is malformed, forbidden, beyond what mimicry can
+// send, or not measured (decision 0008), but not what is merely unusual:
+// real browsers do odd things a profile must reproduce.
 func (p *Profile) Validate() error {
 	c := &checker{}
 	switch {
@@ -113,11 +112,9 @@ func (p *Profile) Validate() error {
 // Profile.CapturesFrom: "cookies", "h3-page", "replay-nike.com".
 var scenarioName = regexp.MustCompile(`^[a-z0-9]+([.-][a-z0-9]+)*$`)
 
-// checkCapturesFrom checks what Validate can see of Profile.CapturesFrom:
-// each scenario names another profile of the same browser and platform
-// (named browser-version-platform, as the built-ins are). That the profile
-// exists, holds its own captures and is older is for whoever knows the
-// built-ins: cmd/profilegen and the harness.
+// checkCapturesFrom checks that each Profile.CapturesFrom scenario names
+// another browser-version-platform profile of the same browser and
+// platform. Whether it exists is for cmd/profilegen and the harness.
 func (c *checker) checkCapturesFrom(p *Profile) {
 	for _, sc := range slices.Sorted(maps.Keys(p.CapturesFrom)) {
 		path := "captures_from." + sc
@@ -690,10 +687,9 @@ func (c *checker) checkHTTP1Headers(path string, headers []Header, others bool) 
 	}
 }
 
-// checkProxy checks the proxy section: CONNECT header lists that place
-// Host (and, with credentials, Proxy-Authorization) and take a user agent
-// the navigation headers have, credential timing mimicry implements, and a
-// SOCKS5 handshake mimicry can send.
+// checkProxy checks the proxy section: CONNECT lists that place Host (and
+// Proxy-Authorization with credentials), and timing and SOCKS5 rules
+// mimicry implements.
 func (c *checker) checkProxy(p *Proxy, headers []Header) {
 	c.checkHTTP1Headers("proxy.connect", p.Connect, false)
 	c.checkProxyUserAgent("proxy.connect", p.Connect, headers)

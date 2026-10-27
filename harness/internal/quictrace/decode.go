@@ -22,19 +22,14 @@ type Received struct {
 	Addr string
 }
 
-// Decode turns the datagrams of client addresses, the client's and the
-// server's merged in time order, into the client's connections: usually
-// one per address; more if the client sent a new connection's Initial
-// from the same address. An address's current connection is the latest
-// started from it. A client datagram from an address without one joins
-// the connection whose 1-RTT keys open it, the most recent first (a
-// client migrating to a new path, RFC 9000 section 9), and the address
-// is that connection's from then on; one no connection opens is dropped.
-// Server datagrams go to their address's connection, if it has one yet.
-// start is when the server started serving the page; cidLen the length of
-// the connection IDs the server issues, which short headers carry without
-// a length; keyLog the server's key log, for every packet type but
-// Initial. Packets it cannot open keep their header and say why.
+// Decode turns the client's and server's datagrams, merged in time order,
+// into the client's connections: usually one per address, more if the
+// client started a new connection from the same address. A client datagram
+// from an unknown address joins the connection whose 1-RTT keys open it
+// (migration, RFC 9000 section 9); one no connection opens is dropped.
+// cidLen is the length of server-issued connection IDs; keyLog opens every
+// packet type but Initial. Packets it cannot open keep their header and
+// say why.
 func Decode(start time.Time, datagrams []Received, cidLen int, keyLog *KeyLog) []*Conn {
 	var conns []*Conn
 	var states []*connState
@@ -155,12 +150,10 @@ const (
 	spaceApp
 )
 
-// newConnection returns the state of a new connection if datagram data
-// starts one: an Initial that the current connection's keys (if any)
-// cannot open but keys from its own Destination Connection ID can; or,
-// after the server sent a Version Negotiation packet, one those keys open
-// in another version than the current connection's first (the client
-// starting over with a new ClientHello, RFC 9000 section 6.2).
+// newConnection returns a new connection's state if data starts one: an
+// Initial the current connection's keys cannot open but its own DCID's
+// can, or, after Version Negotiation, one in another version (RFC 9000
+// section 6.2).
 func (c *connState) newConnection(data []byte) *connState {
 	h, err := parseLongHeader(data)
 	if err != nil || h.typ != PacketInitial {
@@ -356,10 +349,7 @@ func (c *connState) packet(b []byte) (Packet, int, error) {
 }
 
 // serverPacket decodes the server's packet at the start of b and returns
-// it with its length: Initial and Handshake packets opened, a 1-RTT
-// packet's header only (header protection removed if the key log has its
-// secret), a Version Negotiation packet's versions, a Retry's integrity
-// tag checked.
+// it with its length. 1-RTT packets are decoded to the header only.
 func (c *connState) serverPacket(b []byte) (Packet, int, error) {
 	if b[0]&0x80 == 0 {
 		pnOffset := 1 + c.scidLen
@@ -459,10 +449,8 @@ func (c *connState) open(p *Packet, b []byte, pnOffset int, short bool, version 
 	}
 }
 
-// openServer removes the protection of the server's Initial or Handshake
-// packet with the keys of its type and version and reads its frames into
-// p, and its Handshake packets' CRYPTO stream until the server's transport
-// parameters.
+// openServer opens the server's Initial or Handshake packet into p, and
+// reads its Handshake CRYPTO stream up to the transport parameters.
 func (c *connState) openServer(p *Packet, b []byte, pnOffset int, version uint32) {
 	space, k := spaceInitial, c.initialKeys(version, true)
 	if p.Type == PacketHandshake {
@@ -497,10 +485,8 @@ func (c *connState) noKeys(p *Packet, b []byte, short bool) {
 	}
 }
 
-// readOpened records an opened packet's header fields and frames in p and
-// raises largest, its space's largest packet number, to its own; it
-// returns the CRYPTO frames' data, and false if err says the packet could
-// not be opened.
+// readOpened records an opened packet in p and raises largest to its
+// packet number; it returns the CRYPTO data, and false if err is set.
 func readOpened(p *Packet, o opened, err error, largest *int64) ([]cryptoData, bool) {
 	if err != nil {
 		p.FirstByte = 0
@@ -526,11 +512,10 @@ func (c *connState) appVersion() uint32 {
 	return c.initialVersion
 }
 
-// serverAppKeys returns the server's 1-RTT keys in a version, derived the
-// first time from the key log's SERVER_TRAFFIC_SECRET_0: in the
-// connection's cipher suite (of its other keys), or before any is known
-// the suite whose AEAD authenticates the server's packet b. Only their
-// header protection key is used, which key updates keep.
+// serverAppKeys returns the server's 1-RTT keys from SERVER_TRAFFIC_SECRET_0,
+// in the connection's cipher suite or, before one is known, the suite that
+// authenticates b. Only the header protection key is used; key updates
+// keep it.
 func (c *connState) serverAppKeys(version uint32, b []byte, pnOffset int) *keys {
 	if k := c.serverApp[version]; k != nil {
 		return k
@@ -627,9 +612,7 @@ func (c *connState) helloDone() {
 }
 
 // encryptedExtensions reads the server's transport parameters once its
-// Handshake CRYPTO stream holds all of its first message,
-// EncryptedExtensions; why they could not be goes to p, the packet that
-// completed it.
+// EncryptedExtensions is complete; failures go to p.
 func (c *connState) encryptedExtensions(p *Packet) {
 	msg := c.serverCrypto.message()
 	if msg == nil {

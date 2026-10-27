@@ -31,16 +31,11 @@ func (s *Stream) clientReceived() {
 	}
 }
 
-// clientConsumed counts a client stream's data handed to its reader up to
-// pos in the steps it arrived in, one STREAM frame at a time (inends), as
-// a browser that consumes each packet as it comes: how much a Read takes
-// at once changes nothing. The browsers' increases are the share plus
-// less than a few packets (Chrome's MAX_DATA 7,864,457–7,871,535 on a
-// 7,864,320 half window): a Read of tens of kilobytes counted at once
-// would overshoot by that much. Each step is checked against the stream's
-// rule, which sets the limit at the step that crosses it (inlimit), and
-// kept for the connection's (increds, counted once ingate is released).
-// s.ingate must be held.
+// clientConsumed counts a client stream's data read up to pos one STREAM
+// frame at a time (inends), as a browser consuming each packet as it comes,
+// so a large Read does not overshoot the browser's limit increases. The
+// limit is set at the step that crosses the share (inlimit); connection
+// credit is kept in increds. s.ingate must be held.
 func (s *Stream) clientConsumed(pos int64) {
 	s.increds = s.increds[:0]
 	i := 0

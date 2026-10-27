@@ -46,10 +46,8 @@ var policies = map[string]*profile.HPACK{
 	},
 }
 
-// A decoder must recover exactly what was encoded, block after block, while
-// the table fills, evicts and is resized: any disagreement between the
-// encoder's table and the one its representations imply shows up as a wrong
-// field or a decode error. Never-indexed fields arrive marked sensitive.
+// A decoder must recover every block exactly while the table fills, evicts
+// and resizes, and see never-indexed fields as sensitive.
 func TestDecoderAgreesUnderEvictionAndResize(t *testing.T) {
 	names := []string{":path", ":authority", "cookie", "accept", "user-agent", "content-length", "x-custom", "referer"}
 	for name, policy := range policies {
@@ -58,10 +56,9 @@ func TestDecoderAgreesUnderEvictionAndResize(t *testing.T) {
 			enc := NewEncoder(policy)
 			dec := xhpack.NewDecoder(maxTableSize, nil)
 			for block := range 300 {
-				// Resize now and then, including down and back up between two
-				// blocks, which needs two size updates. The dip is to 0 because
-				// x/net's decoder accepts a second update only after the first
-				// emptied the table; TestSizeUpdates covers other dips.
+				// Resize now and then, including a dip and back between two blocks
+				// (two size updates). The dip is to 0: x/net's decoder takes a
+				// second update only after the first emptied the table.
 				switch block % 50 {
 				case 10:
 					enc.SetPeerTableSize(256)

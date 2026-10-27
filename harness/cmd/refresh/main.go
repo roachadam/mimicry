@@ -1,53 +1,14 @@
 // Command refresh brings a browser's built-in profile up to the version
-// installed where that browser is captured:
+// installed where that browser is captured (chrome, firefox and safari-mini
+// on the Mac mini via -mini, safari here):
 //
-//	go run ./cmd/refresh -browser chrome -mode quick           # in harness/
-//	go run ./cmd/refresh -browser chrome,firefox -mode quick   # both at once on the Mac mini
-//	go run ./cmd/refresh -browser safari -mode full -dry-run   # the plan only
+//	go run ./cmd/refresh -browser chrome,firefox -mode quick   # in harness/
 //
-// Browsers (-browser) and where they run: chrome and firefox on the Mac mini
-// (-mini, an ssh host), safari on this Mac, safari-mini (the mini's Safari,
-// a macOS version behind) on the mini. Per browser it:
-//
-//  1. Preflight: builds cmd/capture for darwin/arm64 and runs its
-//     -preflight where the browser runs (copied there over ssh): the
-//     installed version, which names the profile (a new major is a new
-//     profile copied from the browser's newest; the same major refreshes it
-//     in place), the logged-in console user, the capture CA's trust,
-//     /etc/resolver/test, aioquic, Gatekeeper's first-launch approval. It
-//     prints the plan, the estimated time and any manual step, and asks
-//     before going on (-yes does not ask; -dry-run stops there).
-//  2. Capture: -mode quick takes server.QuickScenarios (the fingerprint
-//     layer: three samples where the browser picks per connection, one
-//     elsewhere), -mode full every scenario and replay, three samples each.
-//     Chrome and Firefox on the mini run at once in quick mode (their own
-//     processes, ports and windows; no quick scenario clicks or needs focus),
-//     one after the other in full mode (the click scenario moves the mouse).
-//     Everything lands in a staging directory (-staging), never in
-//     testdata/captures: every capture of a run must name the same browser
-//     version, and the installed version must not change during the run.
-//  3. Derive: the previous profile is copied, renamed, and given the new
-//     capture's ClientHello, HTTP/2 preface, navigation headers and HTTP/1.1
-//     navigation headers (slots such as Cookie keep their places); every
-//     scenario not recaptured is inherited through captures_from from the
-//     profile holding its captures. hellogen, h3gen and kindsgen then run on
-//     the staged profile over the committed captures with the staged ones on
-//     top; a refusal stops the refresh with the generator's message.
-//  4. Install: the staged captures go to testdata/captures (in place: the
-//     recaptured scenarios' old files go first), the profile to
-//     profiles/data; beyond five supported versions per browser the oldest
-//     is marked deprecated; go generate ./profiles.
-//  5. Verify: the e2e and regenerate tests for the profile
-//     (MIMICRY_PROFILES), and cmd/realcheck for the browser where it runs.
-//     The report, harness/reports/refresh-<name>-<date>.md, holds the plan,
-//     each scenario's measured capture time, captures_from, the profile's
-//     differences from the previous one (version tokens normalised;
-//     generated, captured and hand-written sections apart) and the results.
-//
-// -resume DIR derives, installs and verifies from a staging directory a
-// failed run left (after pinning a gap a generator refused, say);
-// -capture-only stops once the captures are staged, -derive-only once the
-// derived profile is in staging, before anything in the repository changes.
+// Per browser it preflights, captures into a staging directory, derives the
+// new profile and runs the generators, installs it, and verifies it with the
+// e2e tests and cmd/realcheck, writing harness/reports/refresh-<name>-<date>.md.
+// -dry-run stops after the plan; -resume DIR continues a failed run;
+// -capture-only and -derive-only stop before the repository changes.
 package main
 
 import (

@@ -22,12 +22,9 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// Every request of the kinds page, made through mimicry as its kind from
-// the page, is the browser's: the same header names in the same order, the
-// same values, the same HTTP/2 weight, and over HTTP/1.1 the same lines;
-// redirects' requests too, as http.Client follows them, the cookies each
-// sends through mimicry's jar, and the CORS preflights mimicry sends where
-// the browser did, and only there. Left out: FontFace loads (no kind).
+// Every request of the kinds page, made through mimicry as its kind, is the
+// browser's: header lines, HTTP/2 weight, redirects, cookies, and CORS
+// preflights exactly where the browser sent them. FontFace loads are left out.
 func TestKindsMatchBrowserTraces(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
@@ -174,14 +171,10 @@ func withoutRaceCookie(lines []string) []string {
 	return out
 }
 
-// partitionGaps are, per profile, the exact connection differences between
-// mimicry and every browser sample of the kinds page that are known and not
-// modelled: label to "mimicry with X, browser with Y". Any other
-// difference, or one of these no longer seen, fails.
-//
-// Firefox gives credential-less requests their own connection to the
-// same-site host only, sharing one connection to the page's own host and
-// to the cross-site one (all three samples); no rule found.
+// partitionGaps are the known, unmodelled connection differences on the
+// kinds page, label to "mimicry with X, browser with Y". Firefox gives
+// credential-less requests their own connection to the same-site host only;
+// no rule found.
 var partitionGaps = map[string]map[string]string{
 	"firefox-158-macos": {
 		"script-cors.ss":  "mimicry with script.ss, browser with script-cors.ss",

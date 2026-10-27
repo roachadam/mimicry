@@ -185,10 +185,9 @@ var servers = []server{
 	},
 }
 
-// lsquicOverrides runs lsquic as http3 in every mode: its other modes
-// add hq-interop to ALPN and then answer the h3 they negotiate as
-// HTTP/0.9 (the request stream read raw, closed with an empty FIN). Its
-// retry mode's LSQUIC_FORCE_RETRY is patched into the http3 branch.
+// lsquicOverrides runs lsquic as http3 in every mode: its hq modes answer
+// a negotiated h3 as HTTP/0.9. LSQUIC_FORCE_RETRY is patched into the
+// http3 branch for retry.
 func lsquicOverrides() map[string]override {
 	why := "http3: its hq modes answer negotiated h3 as HTTP/0.9"
 	ovs := map[string]override{}
@@ -221,12 +220,9 @@ type localSetup struct {
 	resolver *net.Resolver
 }
 
-// newLocalSetup writes, or reuses when dir has them, the CA and the
-// server's certificate (ECDSA P-256, as the runner's certs.sh), the
-// served files, and a setup.sh that replaces the image's: the runner's
-// routes through its simulator would cut the container off docker's own
-// network. Reuse lets a container started by hand (to reproduce a
-// failure, with -addr) keep its certificate across runs.
+// newLocalSetup writes the CA, server certificate (ECDSA P-256, as the
+// runner's certs.sh), served files and a replacement setup.sh, reusing
+// existing certificates so a hand-started container (-addr) keeps working.
 func newLocalSetup(ctx context.Context, dir string) (*localSetup, error) {
 	s := &localSetup{
 		dir:   dir,
@@ -262,7 +258,6 @@ func newLocalSetup(ctx context.Context, dir string) (*localSetup, error) {
 	return s, nil
 }
 
-// loadCerts loads the certificates an earlier run wrote.
 func (s *localSetup) loadCerts() error {
 	read := func(name string) ([]byte, error) {
 		return os.ReadFile(filepath.Join(s.dir, "certs", name))
@@ -523,7 +518,6 @@ func (c *container) stop() {
 	}
 }
 
-// altSvcHandler adds Alt-Svc: h3 on port to every response.
 func altSvcHandler(port uint16, h http.Handler) http.Handler {
 	alt := fmt.Sprintf(`h3=":%d"; ma=86400`, port)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -608,13 +602,10 @@ func (s *localSetup) runServer(ctx context.Context, srv server, selected []caseD
 	return results
 }
 
-// runGroup starts srv in the group's mode and runs its cases. When the
-// mode offers no h3 (the first handshake ends in a TLS alert: ALPN) or
-// the server does not run in it, and no override says how to get it with
-// h3, the server runs as http3 instead: a case whose server feature
-// (Retry, ChaCha20, 0-RTT) that mode lacks is then n/a. Each profile's
-// cases start with a plain handshake; when it fails, so do the profile's
-// cases in the group, with its error, unrun.
+// runGroup starts srv in the group's mode and runs its cases. If the mode
+// offers no h3 and no override fixes that, the server runs as http3 and
+// cases needing the mode's feature are n/a. A failed initial handshake
+// fails all of that profile's cases unrun.
 func (s *localSetup) runGroup(ctx context.Context, srv server, group []caseDef, profiles []namedProfile, out string, seed uint64) []result {
 	testcase := group[0].testcase
 	logs := filepath.Join(out, "local", srv.name, testcase)
@@ -654,10 +645,8 @@ func (s *localSetup) runGroup(ctx context.Context, srv server, group []caseDef, 
 	return s.runCases(ctx, c, srv.name, mode, fallback, group, profiles, logs, seed)
 }
 
-// runAddr runs the selected cases against a server already listening on
-// 127.0.0.1:port (started by hand to reproduce a failure, with this
-// run's -setup certificates and files), with a TCP front on the same
-// port when it is free.
+// runAddr runs the cases against a hand-started server on 127.0.0.1:port
+// that uses this run's -setup certificates and files.
 func (s *localSetup) runAddr(ctx context.Context, port uint16, selected []caseDef, profiles []namedProfile, out string, seed uint64) []result {
 	c := &container{
 		port: port,
@@ -671,9 +660,8 @@ func (s *localSetup) runAddr(ctx context.Context, port uint16, selected []caseDe
 	return s.runCases(ctx, c, "addr", "", "", selected, profiles, logs, seed)
 }
 
-// runCases runs the cases against c for each profile, starting with a
-// plain handshake per profile: when it fails, so do the profile's cases,
-// with its error, unrun.
+// runCases starts each profile with a plain handshake; if it fails, that
+// profile's cases fail unrun with its error.
 func (s *localSetup) runCases(ctx context.Context, c *container, target, mode, fallback string, group []caseDef, profiles []namedProfile, logs string, seed uint64) []result {
 	results := make([]result, 0, len(group)*len(profiles))
 	for _, np := range profiles {

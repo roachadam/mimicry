@@ -34,12 +34,10 @@ func PlacementsFrom(ctx context.Context) []Placement {
 	return ps
 }
 
-// Place applies ps to fields, the headers a connection is about to send in
-// their final order, one after another: every field named p.Header moves,
-// keeping its own order, to directly after the last field named p.Anchor
-// (After) or before the first. A header or anchor fields does not hold is
-// an ErrPlacement. fields' array is reused; without placements fields is
-// returned as it is.
+// Place applies ps to fields, in their final order, one by one: each
+// field named p.Header moves, keeping its order, right after the last
+// p.Anchor (After) or before the first. A missing header or anchor is an
+// ErrPlacement. fields' array is reused. See decision 0030.
 func Place(fields []Field, ps []Placement) ([]Field, error) {
 	var moved []Field
 	for _, p := range ps {

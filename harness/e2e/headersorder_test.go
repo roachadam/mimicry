@@ -12,14 +12,9 @@ import (
 	"github.com/roachadam/mimicry/harness/internal/server"
 )
 
-// headersOrderGaps are, per profile, the headers-order steps mimicry does
-// not send as the browser did, all for one reason: an XHR whose page set
-// its headers in another order than by name, where the browser's order
-// follows the page's (Firefox: XHR keeps it; Chrome and Safari: names that
-// collide in their header table take the first set's place). A mimicry
-// caller's headers are an http.Header, which has no order: mimicry takes
-// them by name, as fetch() hands them over. Any other difference, or one of
-// these no longer seen, fails.
+// headersOrderGaps are the headers-order steps mimicry cannot match: an XHR
+// whose page set headers out of name order, which the browser follows. An
+// http.Header has no order, so mimicry sorts by name as fetch() does.
 var headersOrderGaps = map[string][]string{
 	"chrome-155-macos": {
 		"letters-rev.xhr.so", "around-rev.xhr.so",
@@ -43,12 +38,9 @@ var headersOrderGaps = map[string][]string{
 	},
 }
 
-// Every request of the headers-order page, made through mimicry as the
-// page's fetch() or XHR, is the browser's: where each header the page set
-// goes among the browser's own (its header table, or the lists' slot),
-// one line for a name set twice, the page's spelling over HTTP/1.1 for XHR
-// and lowercase for fetch(), and the same preflights. The forbidden name
-// (sec-a), which browsers drop, is left out, as a page cannot set it.
+// Every request of the headers-order page, made as the page's fetch() or
+// XHR, is the browser's: where page-set headers go, one line per name, the
+// spelling, and the same preflights. The forbidden sec-a is left out.
 func TestHeadersOrderMatchesBrowser(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {

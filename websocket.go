@@ -50,12 +50,9 @@ type WebSocketOptions struct {
 	Header http.Header
 }
 
-// WebSocket is an open WebSocket that speaks as the profile's browser:
-// every frame masked with a fresh key and its length in the shortest
-// form, messages compressed as the browser compresses them when the server
-// accepted permessage-deflate, pings answered at once, and the close
-// handshake and the end of the connection or stream as the browser does
-// them. ReadMessage, WriteMessage and Close are safe for concurrent use.
+// WebSocket is an open WebSocket that frames, compresses, answers pings and
+// closes as the profile's browser does. ReadMessage, WriteMessage and Close
+// are safe for concurrent use.
 type WebSocket struct {
 	conn       *ws.Conn
 	protocol   string
@@ -80,34 +77,19 @@ type webSocketEngine interface {
 	OpenWebSocket(req *http.Request, key string) (*native.WebSocket, error)
 }
 
-// DialWebSocket opens a WebSocket to rawURL (ws:// or wss://) through t, as
-// the profile's browser opens one from opts.From. The handshake is the
-// profile's websocket request kind: its headers in their order, Origin,
-// sec-fetch-* and the jar's cookies as the browser sends them, and the
-// browser's extension offer. A wss:// socket goes as an extended CONNECT
-// stream (RFC 8441) on t's HTTP/2 connection to its host when there is one
-// and its server allows it, else on an HTTP/1.1 connection of its own
-// (never reused, its TLS hello offering only http/1.1), as every browser
-// does; a ws:// socket always on a TCP connection of its own. A ws://
-// socket from an https:// page is refused before anything is sent (mixed
-// content), as Chrome refuses it.
+// DialWebSocket opens a WebSocket to rawURL (ws:// or wss://) as the
+// profile's browser opens one from opts.From, with the profile's websocket
+// kind for the handshake. A wss:// socket uses an extended CONNECT stream
+// (RFC 8441) on an existing HTTP/2 connection that allows it, else its own
+// HTTP/1.1 connection; ws:// always gets its own connection, and is
+// refused from an https:// page (mixed content). Through Config.Proxy it
+// follows the profile's proxy.websocket; proxy failures are *ProxyError.
 //
-// Through Config.Proxy a socket goes as the profile's browser takes one
-// through a proxy (profile proxy.websocket): a wss:// stream on the HTTP/2
-// connection in the host's tunnel, or a connection of its own in a tunnel
-// of its own; a ws:// socket in a tunnel of its own or sent to an HTTP
-// proxy whole. A proxy failure is a *ProxyError, and Config.Pins and
-// VerifyConnection apply to the server's TLS inside the tunnel.
-//
-// The server's answer is returned too: on success its headers (the body
-// is empty); when the handshake fails, with an error, its status and the
-// start of its body. A profile without a websocket section, a proxy the
-// profile's browser was not measured taking sockets through (no
-// proxy.websocket; credentials without proxy.websocket.credentials; ws://
-// through SOCKS5), or subprotocols where the profile's list has no place
-// for them return ErrNotMeasured.
-//
-// NewClient's Transport is client.Transport.(*mimicry.Transport).
+// The server's response is returned too: its headers on success, or its
+// status and the start of its body on a failed handshake. Anything the
+// profile never measured (no websocket section, an unmeasured proxy path,
+// subprotocols its list cannot place) returns ErrNotMeasured. See
+// docs/concepts/websockets.md.
 func (t *Transport) DialWebSocket(ctx context.Context, rawURL string, opts WebSocketOptions) (*WebSocket, *http.Response, error) {
 	p := t.profile
 	if p.WebSocket == nil {
@@ -328,13 +310,10 @@ func (w *WebSocket) ReadMessage(ctx context.Context) (MessageType, []byte, error
 	return MessageType(m.Opcode), m.Payload, nil
 }
 
-// WriteMessage sends data as one message of type typ: in one frame, as
-// every browser sends a message (Chrome sometimes fragments one of about
-// 70 KiB; mimicry never does), compressed where the profile's browser
-// compresses it. A text message must be UTF-8. On a socket that
-// negotiated permessage-deflate, a message the profile's browser was never
-// seen compressing returns ErrNotMeasured (any, for Firefox, whose
-// compressor no setting of zlib reproduces) and is not sent.
+// WriteMessage sends data as one unfragmented message of type typ,
+// compressed as the profile's browser compresses it; text must be UTF-8.
+// With permessage-deflate, a message the browser was never seen
+// compressing (any, for Firefox) returns ErrNotMeasured and is not sent.
 func (w *WebSocket) WriteMessage(ctx context.Context, typ MessageType, data []byte) error {
 	if typ != TextMessage && typ != BinaryMessage {
 		return fmt.Errorf("mimicry: unknown WebSocket message type %d", typ)
@@ -342,20 +321,17 @@ func (w *WebSocket) WriteMessage(ctx context.Context, typ MessageType, data []by
 	return w.conn.WriteMessage(ctx, byte(typ), data)
 }
 
-// Close closes the socket with code (1000, or 3000 to 4999, as a page's
-// close() allows) and reason (at most 123 bytes), and returns once the
-// close handshake is done and the connection or stream has ended as the
-// browser ends it: Chrome closes its HTTP/1.1 connection 2 s after the
-// handshake unless the server did first, and sets END_STREAM on its
-// close frame's HTTP/2 DATA, then waits for the server's END_STREAM (its
-// close event comes once the stream has closed; mimicry resets a stream
-// the server has not ended after 10 s, not measured); Safari closes the
-// connection, or resets the stream (NO_ERROR), at once. Firefox ended
-// neither in any capture: mimicry leaves it to the server, and ends it
-// itself after 10 s (not measured), after Close has returned. A server
-// that never answers the close has the transport ended after 10 s (not
-// measured). After the server closed first (ReadMessage's *CloseError),
-// Close only waits for that end.
+// Close closes the socket with code (1000, or 3000 to 4999) and reason (at
+// most 123 bytes). It returns once the close handshake is done and the
+// connection or stream has ended as the browser ends it:
+//   - Chrome closes HTTP/1.1 2 s later, and over HTTP/2 waits for the
+//     server's END_STREAM (reset after 10 s);
+//   - Safari closes the connection or resets the stream at once;
+//   - Firefox leaves it to the server, ending it 10 s later, after Close
+//     returns.
+//
+// A server that never answers the close is cut off after 10 s. If the
+// server closed first, Close only waits for that end.
 func (w *WebSocket) Close(code int, reason string) error {
 	return closeError(w.conn.Close(code, reason))
 }

@@ -7,15 +7,10 @@ type Planned struct {
 	Samples  int
 }
 
-// QuickScenarios are the fingerprint layer, what a quick refresh recaptures
-// for every new browser version: the TLS hello, the HTTP/2 preface and
-// SETTINGS and the navigation's headers (the default page), the
-// navigation over HTTP/1.1, every request kind's headers over HTTP/2,
-// HTTP/1.1 and plain HTTP, the WebSocket handshakes, and the QUIC hello
-// and HTTP/3 SETTINGS. Three samples where a browser picks something per
-// connection (the TLS and QUIC hellos: extension order, GREASE, ECH
-// lengths), one elsewhere. Every other scenario's captures are inherited
-// from the browser's previous version through the profile's captures_from.
+// QuickScenarios are the fingerprint layer a quick refresh recaptures for
+// every new browser version: hellos, SETTINGS and request headers per
+// transport. Hellos get three samples (they vary per connection); other
+// scenarios inherit captures through the profile's captures_from.
 var QuickScenarios = []Planned{
 	{
 		Scenario: DefaultScenario,

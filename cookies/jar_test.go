@@ -100,13 +100,8 @@ func TestSetRejects(t *testing.T) {
 	}
 }
 
-// Parsing edges: paths match as the URL is written, escaped (a cookie path
-// with %XX matches the same escapes, and an escaped "/" does not split the
-// default path); the last Path and Domain attributes win, even when
-// invalid (an invalid Path is the default path, an empty Domain makes the
-// cookie host-only); Max-Age is "-" and digits, or digits, anything else
-// ignored; dates parse as RFC 6265bis says, including the forms servers
-// actually send.
+// Parsing edges: escaped paths, last Path/Domain wins even when invalid,
+// Max-Age syntax, and RFC 6265bis dates in the forms servers send.
 func TestParseEdges(t *testing.T) {
 	t.Run("escaped path", func(t *testing.T) {
 		j := newJar(t, Config{})

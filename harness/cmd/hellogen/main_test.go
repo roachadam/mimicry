@@ -50,10 +50,8 @@ func TestRegenerateReproducesProfiles(t *testing.T) {
 	}
 }
 
-// A profile that inherits every scenario but the default from
-// chrome-155-macos (testprofiles.Inheriting) reads that profile's captures
-// for them: given chrome-155-macos's default page as its own, it
-// regenerates unchanged, as chrome-155-macos does.
+// A profile inheriting every non-default scenario from chrome-155-macos
+// must read that profile's captures and regenerate unchanged.
 func TestRegenerateReadsInheritedCaptures(t *testing.T) {
 	const source = "chrome-155-macos"
 	data, err := testprofiles.Inheriting(nil)

@@ -112,7 +112,7 @@ These matter most under decision 0029:
   - Close: the fingerprint plan picks the cookie's slot in its
     permutation, and a fork hook places it there; small to medium.
   - Source: [EVIDENCE.md, Behaviour in code](../profiles/EVIDENCE.md#behaviour-in-code-not-in-profiles);
-    `internal/fingerprint/doc.go`; HANDOFF.md (known gaps).
+    `internal/fingerprint/plan.go`; HANDOFF.md (known gaps).
 - **Resumption forms never captured** (all).
   - Differs: 0-RTT over TCP TLS, several tickets in use at once, and
     session-ID resumption with a server that issues no tickets. mimicry
@@ -1520,19 +1520,18 @@ it.
   The uTLS sync job cannot open pull requests while "Allow GitHub Actions
   to create and approve pull requests" is off. Source: HANDOFF.md.
 - **`internal/quic` maintenance**: the upstream sync from x/net is manual,
-  the linter is off for the package (mimicry's lines there are checked by
-  hand), upstream's single PTO probe still applies to profiles that do
-  not lay out their own probes, and `UPSTREAM.md` does not yet say the
-  interop command dials through a wrapped `PacketConn`
+  the linters other than depguard are off for the package (mimicry's lines
+  there are checked by hand), upstream's single PTO probe still applies to
+  profiles that do not lay out their own probes, and `UPSTREAM.md` does
+  not yet say the interop command dials through a wrapped `PacketConn`
   (`udp_packetconn.go`). Source:
   [`internal/quic/UPSTREAM.md`](../internal/quic/UPSTREAM.md);
   [quic-interop report](../harness/reports/quic-interop-2026-10-25.md).
-- **Review items not done** (REVIEW-2026-10-24): `depguard` to enforce
-  each `doc.go`'s import rules (S7, small); one internal request value,
-  splitting the server package and moving the Fetch-standard logic to an
-  internal package (S2–S4, not done by the user's decision to limit the
-  refactor); `origin()` knows default ports for `http` and `https` only
-  (C14, harmless while WebSocket URLs are mapped first).
+- **Review items not done** (REVIEW-2026-10-24): one internal request
+  value, splitting the server package and moving the Fetch-standard logic
+  to an internal package (S2–S4, not done by the user's decision to limit
+  the refactor); `origin()` knows default ports for `http` and `https`
+  only (C14, harmless while WebSocket URLs are mapped first).
 - **The clients comparison is not independent evidence**: mimicry's
   profiles come from the same captures, and the comparison stops after
   the second request and has no HTTP/3. Source:

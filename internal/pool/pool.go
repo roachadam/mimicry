@@ -1,3 +1,9 @@
+// Package pool keeps connections by key (scheme, host and port, partition,
+// proxy): one shared HTTP/2 connection, idle HTTP/1.1 ones, the dial in
+// progress and the requests waiting for a slot under Config.MaxExclusive.
+//
+// The pool never dials and never holds its lock across network I/O; see
+// decisions 0020 and 0023.
 package pool
 
 import (
@@ -38,22 +44,18 @@ type Config struct {
 	// long a key with no connections keeps what the pool learned about it
 	// (that its server speaks HTTP/1.1 only).
 	IdleTimeout time.Duration
-	// MaxExclusive is the most exclusive connections a key has at once
-	// (in use, idle, or being dialed) once its server is known to speak
-	// HTTP/1.1 only: a browser's per-host limit. More requests wait for
-	// one, first come first served. Zero: no limit.
+	// MaxExclusive caps a key's exclusive connections (in use, idle or
+	// dialing) once its server is known to be HTTP/1.1-only: a browser's
+	// per-host limit. Further requests wait in order. Zero: no limit.
 	MaxExclusive int
-	// OnWait, when set, is called with a key when a Get starts waiting:
-	// for another request's dial to it, or for one of its connections. For
+	// OnWait, when set, is called with a key when a Get starts waiting. For
 	// tests.
 	OnWait func(key string)
 }
 
-// Pool keeps connections by key: per key, at most one shared connection, the
-// idle exclusive connections, the dial in progress, which concurrent
-// requests share, and the requests waiting their turn. It never holds its
-// lock across network I/O: closing connections and Usable run with it
-// released. Safe for concurrent use.
+// Pool keeps connections by key: at most one shared connection, idle
+// exclusive ones, the dial in progress and the waiting requests. Closing
+// and Usable run with the lock released. Safe for concurrent use.
 type Pool[S Shared, E Exclusive] struct {
 	cfg Config
 
@@ -145,15 +147,12 @@ type Got[S Shared, E Exclusive] struct {
 	Dial      *Dial[S, E]
 }
 
-// Get finds a connection for a request to key: the shared connection if it
-// can take the request, else the most recently used idle exclusive
-// connection that is still usable, else a dial. Requests to a key whose
-// server is not known to speak HTTP/1.1 only wait for a dial in progress
-// and share its result: its connection, or its error. Once it is known to,
-// requests dial in parallel up to Config.MaxExclusive connections, then
-// wait, in the order they came, for a connection another request releases
-// or a dial one gives up. Get returns ctx's error if ctx ends while it
-// waits.
+// Get finds a connection for key: the shared one if it can take the
+// request, else the most recently used usable idle exclusive one, else a
+// dial. Until the server is known to be HTTP/1.1-only, concurrent requests
+// share one dial and its result, error included; after, they dial in
+// parallel up to Config.MaxExclusive, then wait in order. Get returns ctx's
+// error if ctx ends while waiting.
 func (p *Pool[S, E]) Get(ctx context.Context, key string) (Got[S, E], error) {
 	for {
 		p.mu.Lock()
@@ -225,9 +224,8 @@ func (p *Pool[S, E]) dial(ctx context.Context, key string, shares bool) Got[S, E
 	}
 }
 
-// wait waits for w's turn and returns what it was handed; again asks Get
-// to look again. If ctx ends first, what w was handed meanwhile goes to
-// the next request.
+// wait waits for w's turn; again asks Get to look again. If ctx ends
+// first, whatever w was handed goes to the next request.
 func (p *Pool[S, E]) wait(ctx context.Context, key string, w *waiter[E]) (got Got[S, E], again bool, err error) {
 	select {
 	case <-w.ready:
@@ -319,9 +317,7 @@ func (e *entry[S, E]) wakeAll(h handed, err error) {
 }
 
 // serve hands the oldest waiters dials of their own while the key may
-// dial: no dial others wait for in progress (the first waiter's becomes
-// one if the server is not known to speak HTTP/1.1 only), and fewer than
-// MaxExclusive connections. p.mu must be held.
+// dial. p.mu must be held.
 func (p *Pool[S, E]) serve(e *entry[S, E]) {
 	for len(e.waiters) > 0 && !e.dialing && !p.full(e) {
 		w := e.nextWaiter()
@@ -343,9 +339,9 @@ type Dial[S Shared, E Exclusive] struct {
 	shares bool
 }
 
-// MayShare reports whether the dial is one other requests to the key wait
-// for, because its server is not known to speak HTTP/1.1 only: its
-// connection may be shared, or the request may take another key's (Adopt).
+// MayShare reports whether other requests wait for this dial (the server
+// is not known to be HTTP/1.1-only), so its connection may be shared or
+// another key's adopted.
 func (d *Dial[S, E]) MayShare() bool {
 	return d.shares
 }
@@ -361,18 +357,16 @@ func (d *Dial[S, E]) Shared(c S) S {
 	return got
 }
 
-// Adopt makes c, another key's shared connection, this key's too, instead
-// of dialing (connection coalescing), and returns the connection to send
-// on: c, or the shared connection another dial installed first. c is
-// never closed.
+// Adopt makes c, another key's shared connection, this key's too
+// (coalescing) and returns the connection to send on: c, or one another
+// dial installed first. c is never closed.
 func (d *Dial[S, E]) Adopt(c S) S {
 	got, _ := d.install(c)
 	return got
 }
 
-// install makes c the key's shared connection, unless another dial
-// installed one that can still take requests: then it returns that one.
-// The requests waiting look again.
+// install makes c the key's shared connection unless another usable one
+// is installed, which it returns; waiters look again.
 func (d *Dial[S, E]) install(c S) (S, bool) {
 	p := d.pool
 	p.mu.Lock()
@@ -390,9 +384,8 @@ func (d *Dial[S, E]) install(c S) (S, bool) {
 	return c, true
 }
 
-// Exclusive records that the dial produced an exclusive connection, which
-// the caller holds and hands back with Release: from now on, requests to
-// the key dial in parallel, up to MaxExclusive.
+// Exclusive records that the dial produced an exclusive connection, handed
+// back with Release; the key's requests now dial in parallel.
 func (d *Dial[S, E]) Exclusive() {
 	p := d.pool
 	p.mu.Lock()
@@ -403,10 +396,8 @@ func (d *Dial[S, E]) Exclusive() {
 	p.serve(e)
 }
 
-// Fail records that the dial failed with err: the requests waiting for it
-// fail with err too, unless the dialing request's own context ended, in
-// which case the oldest dials again. A dial that others did not wait for
-// gives its turn to the oldest waiting request.
+// Fail fails the dial's waiters with err, unless the dialing request's own
+// context ended, in which case the oldest waiter dials again.
 func (d *Dial[S, E]) Fail(err error) {
 	p := d.pool
 	p.mu.Lock()
@@ -496,11 +487,9 @@ func (p *Pool[S, E]) SharedConns() []S {
 	return out
 }
 
-// Peek reports what Get would find for key now, without taking it,
-// waiting or dialling: FoundShared for a shared connection that can take
-// a new request, FoundExclusive for an idle exclusive connection or a key
-// whose server is known to give only exclusive ones (it waits for one
-// then, or dials another), FoundDial otherwise. It changes nothing.
+// Peek reports what Get would find for key now (FoundShared,
+// FoundExclusive or FoundDial) without taking, waiting, dialing or
+// changing anything.
 func (p *Pool[S, E]) Peek(key string) Found {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -516,9 +505,9 @@ func (p *Pool[S, E]) Peek(key string) Found {
 	return FoundDial
 }
 
-// Shared returns key's shared connection if it has one that can take a
-// new request, without waiting or dialing: for a caller that opens a
-// connection of its own otherwise, outside the pool (a WebSocket's).
+// Shared returns key's shared connection if it can take a new request,
+// without waiting or dialing (for WebSockets, which otherwise dial
+// outside the pool).
 func (p *Pool[S, E]) Shared(key string) (S, bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -529,9 +518,8 @@ func (p *Pool[S, E]) Shared(key string) (S, bool) {
 	return zero, false
 }
 
-// RemoveShared takes c out of the pool, if it is key's shared connection,
-// without closing it: requests in flight on it go on, and it closes itself
-// once they end (a server's GOAWAY) or it fails.
+// RemoveShared unpools c if it is key's shared connection, without
+// closing it: in-flight requests go on, and c closes itself after them.
 func (p *Pool[S, E]) RemoveShared(key string, c S) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -575,9 +563,8 @@ func (e *entry[S, E]) empty() bool {
 	return !e.hasShared && len(e.idle) == 0 && e.busy == 0 && !e.dialing && len(e.waiters) == 0
 }
 
-// CloseIdle closes the idle exclusive connections and the shared ones with
-// no requests in flight, each once (an adopted connection is several
-// keys').
+// CloseIdle closes idle exclusive connections and shared ones with no
+// requests in flight, each once.
 func (p *Pool[S, E]) CloseIdle() {
 	var shared []S
 	var exclusive []E

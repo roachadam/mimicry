@@ -61,17 +61,9 @@ func TestKindsComeFromLastNavigation(t *testing.T) {
 	}
 }
 
-// Requests no browser makes, or none measured, are errors before anything
-// is sent: a no-cors fetch() with a method other than GET, HEAD or POST, a
-// beacon that is not a POST, a stylesheet loading anything but fonts and
-// images, the transport's own preflight kind, a navigation POST without
-// the page whose form sends it, an Origin-sending request whose variant
-// is not measured (a fallback list would drop Origin), a user's form POST
-// (Sec-Fetch-User) whose variant was measured only on a script's, and a
-// fetchpriority the profile never measured for the kind. A body that
-// cannot be read again (no GetBody) cannot follow a redirect that keeps
-// it: an error after the first request rather than the GET http.Client
-// would send.
+// Requests no browser makes, or none measured, fail before anything is
+// sent (each case names its reason); a body without GetBody fails at a
+// redirect that keeps it, rather than becoming http.Client's GET.
 func TestRefusedRequests(t *testing.T) {
 	page, err := url.Parse("https://www.a.test/")
 	if err != nil {

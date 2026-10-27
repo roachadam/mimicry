@@ -1,3 +1,12 @@
+// Package e2e proves the profiles against the real browsers: each test
+// replays a browser's captures (harness/testdata/captures) through mimicry
+// and fails on any difference not pinned as a known gap.
+//
+// Tests check the profiles MIMICRY_PROFILES selects (testprofiles, decision
+// 0035), against their own captures or those captures_from names. Gap tables
+// are keyed by the profile that took the capture and listed in
+// docs/backlog.md; a pinned gap that stops appearing fails. Timer-driven
+// behaviour is tested in internal/h2 with a fake clock, not here.
 package e2e
 
 import (

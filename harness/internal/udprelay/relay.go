@@ -1,3 +1,8 @@
+// Package udprelay is a UDP relay between QUIC clients and a server that
+// impairs what it forwards, per direction: drops, duplicates, corruption,
+// delay, reordering, a size cap and blackholing. Every choice comes from a
+// seeded source per connection, so the n-th datagram of a direction meets
+// the same fate on every run.
 package udprelay
 
 import (

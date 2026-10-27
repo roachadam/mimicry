@@ -1,9 +1,7 @@
 package quic
 
-// mimicry: what a client connection does when its path stops answering,
-// as its profile's browser does (profile.QUIC.Loss): Chrome moves to a
-// new local port, Safari closes after its keep-alives go unanswered,
-// Firefox waits for its idle timeout. Not in upstream; see UPSTREAM.md.
+// mimicry: a client's reaction to a dead path, per profile.QUIC.Loss
+// (Chrome migrates, Safari closes, Firefox idles out). Not in upstream.
 
 import (
 	"context"

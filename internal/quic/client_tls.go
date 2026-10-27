@@ -139,9 +139,8 @@ func (c *Conn) clientApplyPeerWindows(p transportParameters) {
 // clientResetFlowControl starts the send side of flow control again after
 // the server rejected 0-RTT: none of the 0-RTT data counts, and what is
 // sent again in 1-RTT is limited by the server's new transport parameters
-// alone, not the remembered ones (RFC 9001, section 4.6.2; RFC 9000,
-// section 7.4.1). Rejected after a HelloRetryRequest, before the server's
-// parameters, the windows are zero until those arrive.
+// alone (RFC 9001, section 4.6.2). After a HelloRetryRequest the windows
+// are zero until those parameters arrive.
 func (c *Conn) clientResetFlowControl() {
 	cc := c.client
 	if cc.peerParams == nil {

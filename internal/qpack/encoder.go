@@ -1,3 +1,10 @@
+// Package qpack is a QPACK (RFC 9204) encoder whose dynamic table use and
+// Huffman rule follow a browser's, and a decoder for the peer's field
+// sections and encoder stream.
+//
+// The encoder tracks the peer's acknowledgments (Known Received Count,
+// blocked streams) from its decoder stream and never evicts an entry the
+// peer may still need.
 package qpack
 
 import (
@@ -16,17 +23,13 @@ const (
 	// reference where one exists.
 	StrategyStatic Strategy = iota
 	// StrategyIndexAll is Chromium's (quiche's QpackEncoder): every field
-	// the static table does not match exactly is inserted, with a name
-	// reference where a table has the name, and referenced from the
-	// table; an entry in the oldest quarter of the table (draining) is
-	// duplicated instead of referenced. The section's base is its
-	// Required Insert Count, so every reference is relative.
+	// without an exact static match is inserted and referenced, except that
+	// entries in the draining oldest quarter are duplicated instead. The
+	// base is the Required Insert Count, so every reference is relative.
 	StrategyIndexAll
 	// StrategyNewNames is Firefox's (neqo's): only a field whose name
-	// neither table holds is inserted (name and value literal), and
-	// referenced after the section's base, which is the insert count the
-	// section started at; other fields are indexed on an exact match, or
-	// literals with a name reference.
+	// neither table holds is inserted, and referenced post-base; other
+	// fields are indexed on an exact match or literals with a name reference.
 	StrategyNewNames
 )
 

@@ -8,13 +8,10 @@ import (
 	"golang.org/x/net/http2/hpack"
 )
 
-// Rederive recomputes what a Conn records about the client from its wire
-// data (ClientHello and datagrams) rather than from the server's view: the
-// transport parameters, whether the handshake completed (H3 nil if not),
-// the order of H3's streams and requests, and each request's Blocked. The
-// capture server applies it to every connection it records, and LoadPages
-// to every stored one, so captures recorded before a change to these rules
-// read as if recorded after it.
+// Rederive recomputes a Conn's client-side facts from its wire data rather
+// than the server's view: transport parameters, handshake completion,
+// H3 stream and request order, and each request's Blocked. Applying it on
+// load keeps old captures consistent with current rules.
 func (c *Conn) Rederive() {
 	if b := c.ClientHelloBytes(); b != nil {
 		if h, err := readHello(b); err == nil && h.transportParameters != nil {
@@ -86,9 +83,8 @@ func (c *Conn) HandshakeCompleted() bool {
 	return i >= 0
 }
 
-// FinishedDatagram is the index of the client's datagram carrying its
-// Finished (its first Handshake packet with CRYPTO data) and when it went,
-// in µs from the connection's start; -1 for none.
+// FinishedDatagram is the index and µs offset of the client datagram
+// carrying its Finished; -1 for none.
 func (c *Conn) FinishedDatagram() (index int, micros int64) {
 	for di, d := range c.Datagrams {
 		for _, p := range d.Packets {

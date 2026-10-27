@@ -17,20 +17,15 @@ const navigation = "navigation"
 // altUsed is the header Firefox adds over HTTP/3 (RFC 7838, section 5).
 const altUsed = "alt-used"
 
-// h3PriorityGaps are the h3 pages' requests whose priority header differs
-// from their kind's for a reason the profile does not model, by the
-// profile whose capture shows them (a profile inheriting that capture
-// takes the pin too: capture.Source) and path, each with why. A pinned one
-// that matches again is an error.
+// h3PriorityGaps pins h3 requests ("<profile> <path>") whose priority
+// differs from their kind's for a reason the profile does not model.
+// Inheriting profiles take the pin too. A pin that matches again is an error.
 var h3PriorityGaps = map[string]string{
 	"firefox-158-macos /h3/markup-image2.so": "Firefox gave the second page's only image u=4, i (its kind's u=5, i): a layout-driven image priority, a known gap over HTTP/2 too (redirects2)",
 }
 
-// h3Request is one request of the h3 captures: the profile whose capture
-// it is (source), its kind (navigation for the navigation) and method, its
-// step's fetchpriority, its pseudo-header order, its headers in order
-// (names, and fields with their first values) and its priority header (""
-// for none).
+// h3Request is one HTTP/3 request of the h3 captures. priority is "" when
+// the header is absent.
 type h3Request struct {
 	at            string
 	source        string
@@ -44,12 +39,9 @@ type h3Request struct {
 	priority      string
 }
 
-// deriveH3 derives what HTTP/3 changes in p's request kinds from every
-// request of the h3-discovery and h3-page captures
-// (server.H3ProfileCaptures) sent over HTTP/3: http3.headers, and
-// http3.high and http3.low; and the variants
-// of a kind's HTTP/2 lists that only the h3 pages show (an XHR POST). An
-// error without such requests.
+// deriveH3 derives http3.headers, http3.high, http3.low and the h3-only
+// variants (an XHR POST) from the h3 captures' HTTP/3 requests
+// (server.H3ProfileCaptures). It errors when there are none.
 func deriveH3(p *profile.Profile, dir string) error {
 	reqs, err := h3Requests(dir, p)
 	if err != nil {
@@ -77,10 +69,9 @@ func deriveH3(p *profile.Profile, dir string) error {
 	return err
 }
 
-// h3Drop are the headers every measured kind's list sends with a value
-// that no request over HTTP/3 carries (not one only some lists have, such
-// as the navigation's sec-fetch-user, which needs user activation the h3
-// pages' script navigations lack).
+// h3Drop are the headers every measured kind's list sends that no HTTP/3
+// request carries. Headers only some lists have (sec-fetch-user, which
+// needs user activation) don't count.
 func h3Drop(p *profile.Profile, reqs []h3Request) []string {
 	sent := map[string]bool{}
 	kinds := map[string]bool{}
@@ -106,14 +97,10 @@ func h3Drop(p *profile.Profile, reqs []h3Request) []string {
 	return out
 }
 
-// h3Headers derives http3.headers: how a request's header list differs
-// from its kind's HTTP/2 list (Kind.Headers; Profile.Headers for the
-// navigation). Every request must have one pseudo-header order, send its
-// headers in its kind's order (one of its variants'), leave out the same
-// headers every kind's list sends with a value (Firefox: te), and add none
-// but alt-used, whose place in each kind's list every request of the kind
-// must agree on: after every header sent before it, before every header
-// sent after it. Nil when the lists are the HTTP/2 ones.
+// h3Headers derives http3.headers: how HTTP/3 lists differ from the
+// kind's HTTP/2 list. Requests must keep their kind's order, drop the same
+// headers (Firefox: te), and add only alt-used, at a place every request
+// of the kind agrees on. Nil when the lists are the HTTP/2 ones.
 func h3Headers(p *profile.Profile, reqs []h3Request) (*profile.H3Headers, error) {
 	var errs []error
 	out := &profile.H3Headers{
@@ -171,11 +158,9 @@ func h3Headers(p *profile.Profile, reqs []h3Request) (*profile.H3Headers, error)
 			errs = append(errs, fmt.Errorf("%s: alt-used goes after %q and before %q in different requests", kind, list[max(a.last, 0)], list[min(a.first, len(list)-1)]))
 			continue
 		}
-		// Between the last header seen before alt-used and the first seen
-		// after it, a header no request of the kind sent goes on the side
-		// requests of other kinds show it on; page-set headers (*) before,
-		// as fetch()'s are; one never sent over HTTP/3 (cookie: the h3
-		// pages set none) after.
+		// A header no request of the kind sent goes on the side other
+		// kinds show: page-set headers before, ones never sent over HTTP/3
+		// (cookie) after.
 		at := a.last + 1
 		for at < a.first && (list[at] == profile.OtherHeaders || before[list[at]] && !after[list[at]]) {
 			at++
@@ -384,11 +369,9 @@ func h3Kind(steps map[string]server.H3Step, path string) (string, error) {
 	return "", fmt.Errorf("step kind %q", st.Kind)
 }
 
-// h3Priorities checks every HTTP/3 request's priority header against its
-// kind's: the HTTP/2 list's default for a request without fetchpriority
-// (a variant's where one sets it), Kind.High or Kind.Low for one with it;
-// where the kind's High or Low was not measured over HTTP/2, the HTTP/3
-// requests' one value becomes http3.high or http3.low.
+// h3Priorities checks each HTTP/3 request's priority against its kind's
+// default, High or Low. Where High or Low was not measured over HTTP/2,
+// the HTTP/3 value becomes http3.high or http3.low.
 func h3Priorities(p *profile.Profile, reqs []h3Request) (high, low map[string]string, err error) {
 	var errs []error
 	measured := func(level string, got map[string]string, q h3Request, kind *profile.Kind) {
@@ -460,10 +443,9 @@ func defaultPriority(p *profile.Profile, q h3Request) bool {
 	return false
 }
 
-// h2Urgencies takes the fetchpriority high and low requests the h3 pages
-// sent over HTTP/2 (Safari's h3-page went all over HTTP/2) as their kind's
-// High and Low where the kinds captures did not measure them, and checks
-// them against the kind's where they did.
+// h2Urgencies takes the h3 pages' fetchpriority requests sent over HTTP/2
+// (all of Safari's) as their kind's High and Low where unmeasured, and
+// checks them otherwise.
 func h2Urgencies(p *profile.Profile, dir string) error {
 	files, err := server.H3ProfileCaptures(dir, p)
 	if err != nil {

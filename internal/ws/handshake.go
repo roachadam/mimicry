@@ -42,11 +42,10 @@ type Deflate struct {
 
 var errExtension = errors.New("ws: the server's Sec-WebSocket-Extensions")
 
-// ParseExtensions reads the server's Sec-WebSocket-Extensions answer to
-// offer, ours: nil for none, the accepted permessage-deflate, or an error
-// for anything not offered (RFC 6455, section 9.1; RFC 7692, section
-// 7.1). A client_max_window_bits we did not offer is accepted, as every
-// browser accepts it (Firefox and Safari offer none).
+// ParseExtensions reads the server's Sec-WebSocket-Extensions answer to our
+// offer: nil for none, the accepted permessage-deflate, or an error for
+// anything not offered (RFC 7692, section 7.1). An unoffered
+// client_max_window_bits is accepted, as every browser accepts it.
 func ParseExtensions(offer, answer string) (*Deflate, error) {
 	if strings.TrimSpace(answer) == "" {
 		return nil, nil //nolint:nilnil // no extension accepted

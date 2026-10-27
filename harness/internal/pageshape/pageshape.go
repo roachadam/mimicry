@@ -90,9 +90,8 @@ type Request struct {
 }
 
 // Field is a header's shape: its real name, and its value's length and
-// character class. Value is kept only for headers whose value is not
-// personal and changes what the browser does (content-type and accept
-// decide whether a cross-origin fetch needs a preflight).
+// character class. Value is kept only where it is not personal and changes
+// browser behaviour (content-type and accept decide CORS preflights).
 type Field struct {
 	Name  string `json:"name"`
 	Len   int    `json:"len"`
@@ -118,9 +117,8 @@ type Cookie struct {
 	Persistent bool   `json:"persistent,omitempty"`
 	// Delete is set when the cookie is being removed (expired, Max-Age 0).
 	Delete bool `json:"delete,omitempty"`
-	// Script marks a cookie the page set from script (document.cookie):
-	// it was sent without any Set-Cookie for it. Replay sets it on this
-	// response instead, the site's last before the cookie was first sent.
+	// Script marks a cookie set from script: sent without any Set-Cookie.
+	// Replay sets it on this response, its site's last before it was sent.
 	Script bool `json:"script,omitempty"`
 }
 

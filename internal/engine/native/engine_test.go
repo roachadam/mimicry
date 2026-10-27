@@ -365,10 +365,8 @@ func goAwayServer(onHeaders func(fr *http2.Framer, f *http2.MetaHeadersFrame) er
 		if err := fr.WriteSettings(); err != nil {
 			return err
 		}
-		// Read on while a handler waits (as a socket's buffer would let
-		// the client go on writing): a pipe blocks the client otherwise.
-		// Handlers use only what frames copy out (stream IDs, flags), so
-		// reading ahead is safe.
+		// Read ahead while a handler waits, as a socket buffer would; a pipe would
+		// block the client. Handlers use only what frames copy out.
 		frames := make(chan http2.Frame, 64)
 		go func() {
 			defer close(frames)

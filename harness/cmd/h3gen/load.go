@@ -14,11 +14,9 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// sampleGaps pin the connections whose behaviour differs from what the
-// rest of their browser's show, in a way no rule explains: timing or
-// browser state. Each key is the connection (as conn.at names it: by the
-// capture file, so a pin holds for every profile that inherits that
-// capture) and the feature (the profile field), each value why.
+// sampleGaps pin connections that differ from the rest of their browser's
+// for timing or state reasons. Keys are conn.at name plus profile field,
+// so a pin applies to every inheriting profile; values say why.
 var sampleGaps = map[string]string{ //nolint:gosec // pinned capture gaps, not credentials
 	"chrome-155-macos.h3-discovery.local-roots: sample 2, QUIC connection 2: ack_initial":                       "Chrome acknowledged the server's Initial in 1 of its 12 completed full handshakes: quiche drops its Initial keys when it sends its first Handshake packet, and acknowledges an Initial only if one arrives before it has Handshake keys to send with (timing)",
 	"chrome-155-macos.h3-discovery.local-roots: sample 2, QUIC connection 5: tokens":                            "Chrome's reconnection to www.h3-b.test after the 35 s idle carried no NEW_TOKEN token in 2 of 3 samples, though resumed with 0-RTT; its first connection there had received one (Chrome's token cache, not modelled)",
@@ -84,10 +82,8 @@ type discoveryPage struct {
 	page *capture.Page
 }
 
-// load reads the h3 captures p is checked against (its own, or those it
-// inherits: server.H3ProfileCaptures). They are read as captured: h3gen
-// measures how the browser encoded its fields (QPACK, Huffman), so no
-// value is rewritten to p's version.
+// load reads the h3 captures p is checked against, as captured: h3gen
+// measures the browser's field encoding, so nothing is rewritten.
 func load(dir string, p *profile.Profile) (*captureSet, error) {
 	files, err := server.H3ProfileCaptures(dir, p)
 	if err != nil {

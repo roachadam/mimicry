@@ -1,3 +1,7 @@
+// Package dial is the single path from an address to a connected socket,
+// directly or through an HTTP or SOCKS5 proxy, and to a UDP socket for
+// QUIC. Every step honours the context and its deadline (decision 0010);
+// no other package opens connections.
 package dial
 
 import (
@@ -62,11 +66,9 @@ func (d *Dialer) dial(ctx context.Context, addr string) (net.Conn, error) {
 	return nd.DialContext(ctx, "tcp", addr)
 }
 
-// ListenUDP looks host up and opens a UDP socket of its own for a QUIC
-// connection to its first address at port, which it returns with the
-// socket. Resolver does the lookup; DialContext, which opens TCP
-// connections, has no part in it. It honours ctx's cancellation and
-// deadline, bounded by Timeout.
+// ListenUDP resolves host with Resolver and opens a UDP socket for a QUIC
+// connection to its first address at port, returned with the socket. It
+// honours ctx, bounded by Timeout.
 func (d *Dialer) ListenUDP(ctx context.Context, host string, port uint16) (net.PacketConn, netip.AddrPort, error) {
 	if d.Timeout > 0 {
 		var cancel context.CancelFunc
@@ -124,17 +126,13 @@ func (d *Dialer) CheckProxy(p *url.URL) error {
 	return nil
 }
 
-// ProxyError is a failure to reach a proxy or to open a tunnel through it:
-// the connect, a CONNECT answered other than 2xx (a 407 once the
-// credentials the browser would give are spent), a SOCKS5 refusal, or the
-// deadline passing on the way. The root package turns it into
-// mimicry.ProxyError.
+// ProxyError is a failure to reach a proxy or open a tunnel through it
+// (connect, non-2xx CONNECT, SOCKS5 refusal, deadline). The root package
+// turns it into mimicry.ProxyError.
 type ProxyError struct {
 	// Proxy is the proxy's URL, credentials included.
 	Proxy *url.URL
-	// StatusCode and Header are the proxy's answer to CONNECT (or to a
-	// plain-HTTP request sent to it whole, for a 407); zero and nil when
-	// there was none.
+	// StatusCode and Header are the proxy's answer, if any.
 	StatusCode int
 	Header     http.Header
 	Err        error
@@ -212,11 +210,9 @@ func (d *Dialer) DialVia(ctx context.Context, p *url.URL, addr string) (net.Conn
 	return conn, nil
 }
 
-// connect opens a CONNECT tunnel on conn, closing it on failure, with
-// credentials as the profile's browser gives them: unasked once the proxy
-// has asked for them (after_challenge), or only in answer to a 407
-// (on_challenge), which is answered once, on the same connection (a new
-// one if the proxy closed it).
+// connect opens a CONNECT tunnel on conn, closing it on failure, giving
+// credentials as the profile says (after_challenge or on_challenge). A 407
+// is answered once, on a new connection if the proxy closed this one.
 func (d *Dialer) connect(ctx context.Context, conn net.Conn, p *url.URL, addr string) (net.Conn, error) {
 	_, asked := d.asked.Load(p.String())
 	unasked := p.User != nil && asked && d.Proxy.ConnectCredentials == profile.CredentialsAfterChallenge
@@ -274,10 +270,8 @@ func (d *Dialer) Challenged(p *url.URL, h http.Header) bool {
 	return true
 }
 
-// ForwardAuthorization returns the Proxy-Authorization value a plain-HTTP
-// request to p carries unasked: its Basic credentials from the first
-// request (always) or once p has asked for them (after_challenge); else
-// "". A request answering p's challenge carries Credentials instead.
+// ForwardAuthorization returns the Proxy-Authorization a plain-HTTP
+// request to p carries unasked, or "".
 func (d *Dialer) ForwardAuthorization(p *url.URL) string {
 	if p.User == nil {
 		return ""

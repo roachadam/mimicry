@@ -42,20 +42,15 @@ type Proxy struct {
 }
 
 // ProxyWebSocket is how a browser takes WebSockets through a proxy. A
-// wss:// socket goes as it does directly: an extended CONNECT stream on
-// the HTTP/2 connection the page's requests to the host went on, inside
-// that connection's tunnel, or else an HTTP/1.1 connection of its own in
-// a tunnel of its own, asked for as any other (Connect, SOCKS5). A ws://
+// wss:// socket goes as it does directly, inside the proxy tunnel. A ws://
 // socket through SOCKS5 was never measured.
 type ProxyWebSocket struct {
 	// Plain is how a ws:// socket goes through an HTTP proxy:
 	// PlainWebSocketTunnel or PlainWebSocketForward. Required.
 	Plain PlainWebSocket `json:"plain"`
 	// Credentials: the browser's way with proxy credentials was measured
-	// for sockets, whose tunnels give them as ConnectCredentials says, and
-	// whose handshake sent whole (PlainWebSocketForward) carries them
-	// unasked (ForwardCredentials must be CredentialsAlways), placed as
-	// ForwardAuth says. False: a WebSocket through a proxy URL with
+	// for sockets; PlainWebSocketForward then needs ForwardCredentials
+	// CredentialsAlways. False: a WebSocket through a proxy URL with
 	// credentials is an error. Requires ConnectAuth.
 	Credentials bool `json:"credentials,omitempty"`
 }
@@ -69,10 +64,8 @@ const (
 	// PlainWebSocketTunnel opens a CONNECT tunnel of its own to the
 	// host and port and sends the handshake through it (Chrome, Firefox).
 	PlainWebSocketTunnel PlainWebSocket = "tunnel"
-	// PlainWebSocketForward sends the handshake to the proxy whole, on a
-	// connection of its own, its request line naming the ws:// URL
-	// (GET ws://host:port/path HTTP/1.1), its header lines as sent
-	// directly (Safari).
+	// PlainWebSocketForward sends the handshake to the proxy whole on its
+	// own connection, the request line naming the ws:// URL (Safari).
 	PlainWebSocketForward PlainWebSocket = "forward"
 )
 

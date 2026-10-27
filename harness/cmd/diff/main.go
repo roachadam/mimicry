@@ -1,10 +1,6 @@
-// Command diff compares two captures of one connection, for example two
-// versions of a browser, or a capture of mimicry against the browser it
-// imitates, and lists every difference in what such a capture records: the
-// ClientHello, the HTTP/2 preface and the first request's headers. The rest of
-// a profile (http1, kinds, variants, context, cookies, proxy, hpack, flow
-// control) is not compared. Extension order is compared as the first file's
-// extension_order says. It exits 1 when the files differ.
+// Command diff compares two captures of one connection (ClientHello,
+// HTTP/2 preface, first request's headers) and lists every difference.
+// Other profile sections are not compared. It exits 1 when they differ.
 //
 //	go run ./cmd/diff WANT.json GOT.json
 package main

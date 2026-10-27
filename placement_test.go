@@ -133,13 +133,10 @@ func serveH2(c net.Conn, s *sentNames) {
 	}
 }
 
-// Header placement over HTTP/1.1 and HTTP/2: each placed request against
-// the same request sent without placements. A placed request differs only
-// where its runs say (the moved headers, directly where they were put);
-// an invalid Place fails NewTransport or the request, and a header or
-// anchor the request does not send fails it with nothing sent. HTTP/3 is
-// covered in internal/engine/native (TestHeaderPlacementOverHTTP3), where
-// a QUIC server can be reached.
+// Header placement over HTTP/1.1 and HTTP/2: a placed request differs from
+// the unplaced one only by the moves, and invalid or unmatched placements
+// fail with nothing sent. HTTP/3 is TestHeaderPlacementOverHTTP3 in
+// internal/engine/native.
 func TestHeaderPlacement(t *testing.T) {
 	sent := &sentNames{
 		paths: map[string][]string{},

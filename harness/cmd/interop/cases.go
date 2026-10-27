@@ -24,13 +24,12 @@ const (
 
 // result is one row: a case (or a site) against a target, for a profile.
 type result struct {
-	Target  string `json:"target"`
-	Case    string `json:"case"`
-	Profile string `json:"profile"`
-	Outcome string `json:"outcome"`
-	Note    string `json:"note,omitempty"`
-	Err     string `json:"error,omitempty"`
-	// ServerTestcase is the TESTCASE the server ran with.
+	Target         string        `json:"target"`
+	Case           string        `json:"case"`
+	Profile        string        `json:"profile"`
+	Outcome        string        `json:"outcome"`
+	Note           string        `json:"note,omitempty"`
+	Err            string        `json:"error,omitempty"`
 	ServerTestcase string        `json:"server_testcase,omitempty"`
 	Conns          []connFacts   `json:"conns,omitempty"`
 	Fetches        []fetched     `json:"fetches,omitempty"`
@@ -56,11 +55,8 @@ type caseEnv struct {
 	host  string
 	peer  netip.AddrPort
 	roots *x509.CertPool
-	// files are the files the server serves, by path, with their sums.
 	files map[string][32]byte
-	// origin is the TCP front's https://host:port, which serves the same
-	// files with Alt-Svc pointing at peer's port; resolver maps host to
-	// 127.0.0.1 for the engine flow.
+	// origin is the TCP front's URL; resolver maps host to 127.0.0.1.
 	origin   string
 	resolver *net.Resolver
 	dir      string
@@ -84,9 +80,7 @@ func (e *caseEnv) missing(what string) string {
 	return fmt.Sprintf("%s (its %s mode offers no h3, so it ran as http3)", what, e.fallback)
 }
 
-// caseDef is a runner test case as a client can take part in it: the
-// TESTCASE the server runs with, how long the case may take, and the
-// client's side.
+// caseDef is a runner test case from the client's side.
 type caseDef struct {
 	name     string
 	testcase string
@@ -368,10 +362,9 @@ func multiplexPath(i int) string {
 	return fmt.Sprintf("/m%04d", i)
 }
 
-// runResumption opens a connection, waits for its ticket, closes it and
-// opens a second one, which resumes it (and sends its request in 0-RTT:
-// the browsers that resume QUIC always offer early data). zeroRTT: the
-// server should accept the early data.
+// runResumption resumes a first connection's ticket on a second one. The
+// browsers that resume QUIC always send 0-RTT; zeroRTT says the server
+// should accept it.
 func runResumption(ctx context.Context, e *caseEnv, r *result, zeroRTT bool) {
 	pr := e.prober()
 	if !pr.resumes() {
@@ -434,9 +427,8 @@ func runResumption(ctx context.Context, e *caseEnv, r *result, zeroRTT bool) {
 	}
 }
 
-// manyConns opens handshakeRuns connections one after another under imp,
-// each GETting the small file. Later connections resume earlier ones'
-// tickets where the profile does, as the browser's would.
+// manyConns opens handshakeRuns sequential connections under imp, resuming
+// tickets where the profile does.
 func manyConns(ctx context.Context, e *caseEnv, r *result, imp impairment) {
 	pr := e.prober()
 	ok := 0
@@ -502,17 +494,13 @@ func runDiscovery(ctx context.Context, e *caseEnv, r *result) {
 	}
 }
 
-// stallLimit is the longest a request may wait for a QUIC connection
-// that never comes before it goes over TCP: the case fails past it.
-// [INFERENCE] Chrome races TCP beside QUIC (its alternative and main
-// jobs), so a browser shows no such wait; the limit only keeps a
-// timeout-sized stall from passing.
+// stallLimit is how long a request may wait for a QUIC connection that
+// never comes before falling back to TCP. Chrome races TCP beside QUIC,
+// so this only stops a timeout-sized stall from passing.
 const stallLimit = 5 * time.Second
 
-// runUDPBlocked walks, through mimicry's public API with the default dial
-// timeout, an origin whose Alt-Svc names a UDP port where every datagram
-// is dropped (a network that blocks UDP, or a broken alternative): every
-// request must still get its response, over TCP, and none may stall.
+// runUDPBlocked checks that when Alt-Svc names a UDP port that drops
+// everything, every request still completes over TCP without stalling.
 func runUDPBlocked(ctx context.Context, e *caseEnv, r *result) {
 	var lc net.ListenConfig
 	ln, err := lc.Listen(ctx, "tcp4", "127.0.0.1:0")

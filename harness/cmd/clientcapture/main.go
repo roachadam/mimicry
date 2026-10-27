@@ -4,12 +4,9 @@
 //	go run ./cmd/clientcapture -scenario set-cookie -out DIR -name curl-chrome152 -- \
 //	    curl_chrome152_macos -sk -c JAR -b JAR {url}/ {url}/again
 //
-// It serves the scenario on a fresh port, runs the command with every {url}
-// replaced by the server's https://localhost:<port>. Of each run it keeps the
-// first connection the client sent a request on (later ones are logged and
-// dropped), and once every run has exited it writes them as DIR/<name>.json
-// (the profile-format capture), .clienthello and .h2trace.json (or
-// .h1trace.json), one trace per run.
+// It serves the scenario on a fresh port, replaces {url} with the server's
+// https://localhost:<port>, keeps each run's first request-carrying
+// connection, and writes DIR/<name>.json plus its hello and trace files.
 package main
 
 import (

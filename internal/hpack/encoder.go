@@ -1,3 +1,8 @@
+// Package hpack is an HPACK encoder whose choices follow a browser's
+// (profile.HPACK): which fields enter the dynamic table, which entry a
+// literal's name refers to, and when strings are Huffman-coded. Decoding
+// stays with golang.org/x/net/http2/hpack; only what the client sends is
+// fingerprinted.
 package hpack
 
 import (

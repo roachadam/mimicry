@@ -13,28 +13,13 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// The h3-download page (server.H3DownloadSteps: a 50 MiB response over
-// HTTP/3, then small requests) made through mimicry as each browser made
-// it, against every sample of the browser's capture. The bulk receive's
-// rules hold for every browser sample and for mimicry's connection:
-//
-//   - Key updates: the client switches keys only after the server did
-//     (quic-go updates after 100 packets), never first, and follows each.
-//   - ACKs (QUICAck): once warm, a client that does not batch
-//     acknowledges exactly every Every-th packet (Chrome's 10 in 98.8% of
-//     its ACKs), one that batches (Firefox, Safari) at least that many;
-//     no ACK_FREQUENCY or IMMEDIATE_ACK frames.
-//
-// and mimicry's credit (QUICCredit) is the browser's: every increase of
-// its MAX_STREAM_DATA on the download stream lies within the range of the
-// browser's own increases over every sample, give or take creditSlack;
-// so does every increase of its MAX_DATA where the profile raises it by a
-// share of the connection's window (Chrome, Firefox). Where the
-// connection's limit follows what arrived (ConnectionStreamWindow,
-// Safari), how far one MAX_DATA raises the last is how much arrived in
-// between, timing: the rule is checked instead, on every browser sample
-// and on mimicry's connection (windowCreditViolations). The requests
-// after the download go on its connection.
+// The h3-download page (a 50 MiB HTTP/3 response, then small requests)
+// through mimicry, against every browser sample. On mimicry and every sample
+// alike: the client never starts a key update and follows each, ACKs every
+// QUICAck.Every packets (at least that many where it batches), and sends no
+// ACK_FREQUENCY or IMMEDIATE_ACK. MAX_STREAM_DATA increases, and share-based
+// MAX_DATA ones, lie within the browser's range ± creditSlack; Safari's
+// arrival-based MAX_DATA is checked by windowCreditViolations instead.
 func TestHTTP3DownloadMatchesBrowser(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
@@ -282,26 +267,16 @@ func connCredit(c *quictrace.Conn) []uint64 {
 	return increases(transportParameter(c.TransportParameters, tpInitialMaxData, 0), limits)
 }
 
-// windowCreditViolations checks a connection's MAX_DATA against the rule
-// of a client whose limit is the bytes received on the connection plus
-// the stream window (QUICCredit.ConnectionStreamWindow): what each raise
-// sets, what had arrived when it was sent plus the window, not how far it
-// moves (what arrived since the last, timing). What had arrived is read
-// from the client's own ACKs (ackedData): at least what it had
-// acknowledged by the packet, at most what its next ACK acknowledges;
-// both give or take the estimate's error and a packet (creditSlack).
+// windowCreditViolations checks MAX_DATA against the ConnectionStreamWindow
+// rule: each raise sets what had arrived plus the stream window. Arrival is
+// read from the client's ACKs (ackedData), ± its error and creditSlack.
 //
-//   - No raise runs ahead of what the next ACK acknowledges by more than
-//     the stream window. The window is the transport parameter's or,
-//     where the client grew it, as far as its own MAX_STREAM_DATA ran
-//     ahead (Safari 26's first sample: 1.1 MB more).
-//   - Half the raises or more run ahead of what was acknowledged by then
-//     by the window at least. Safari 27 sends a quarter to a third of its
-//     limits from what had arrived well before (up to 1.7 MB less), the
-//     rest on the rule.
+//   - No raise runs ahead of the next ACK by more than the window (grown
+//     where the client's MAX_STREAM_DATA ran further: Safari 26).
+//   - At least half the raises reach what was acked by then plus the window
+//     (Safari 27 sends a quarter to a third from older counts).
 //
-// Neither holds that each MAX_DATA rides with a MAX_STREAM_DATA: Safari
-// 26's first does not, nor 12–17 of Safari 27's 42–46 in each sample.
+// MAX_DATA need not ride with MAX_STREAM_DATA: Safari's often does not.
 func windowCreditViolations(c *quictrace.Conn) (out []string, summary string) {
 	window := float64(transportParameter(c.TransportParameters, tpInitialMaxStreamDataBidiLocal, 0))
 	last := transportParameter(c.TransportParameters, tpInitialMaxData, 0)
@@ -371,16 +346,11 @@ func median(vs []float64) float64 {
 	return vs[len(vs)/2]
 }
 
-// ackedData is, after each of the client's 1-RTT packets pks, how many
-// bytes of stream data its ACKs had acknowledged, and how far that may be
-// off. The recorder does not open the server's 1-RTT payloads: a packet's
-// data is its size less the connection's mean overhead, taken from every
-// data packet (dataPacketSize or more) the client acknowledged, all of
-// which carried the download (it and the other responses' bytes differ
-// by about 0.1%). A packet's overhead is its header, AEAD tag and STREAM
-// frame header (streamOverhead), plus whatever else it carries (ACK
-// frames): the error at any point is at most that extra summed over the
-// connection (4.6–5.8 KB in the Safari samples).
+// ackedData is, after each client 1-RTT packet in pks, how many stream bytes
+// its ACKs had acknowledged, and the maximum error. The recorder cannot open
+// server payloads, so a packet's data is its size less the connection's mean
+// overhead; the error is the extra (ACK frames) summed over the connection
+// (4.6–5.8 KB in the Safari samples).
 func ackedData(c *quictrace.Conn, pks []quictrace.Packet) (acked []float64, maxErr float64) {
 	type dataPacket struct{ size, least float64 }
 	data := map[uint64]dataPacket{}

@@ -8,10 +8,8 @@ import (
 	"time"
 )
 
-// The capture CA is meant to be trusted on a developer's machine, so it must
-// only ever vouch for capture names: anything under the reserved .test
-// domain or localhost. A certificate it issues for any other name, however
-// close, must fail verification.
+// The capture CA is trusted on developer machines, so a certificate it
+// issues for any name outside CADomains must fail verification.
 func TestCANameConstraints(t *testing.T) {
 	ca, err := LoadOrCreateCA(t.TempDir(), CADomains, time.Now())
 	if err != nil {

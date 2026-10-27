@@ -18,13 +18,9 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// serveHTTP1 answers HTTP/1.1 requests on conn as sc says, keeping the
-// connection open, and records each request verbatim into c.H1 and the
-// page log. The first request's headers become c's profile headers
-// (lowercased; the verbatim lines keep the casing). When the client asks for
-// /done, c gets the whole page load from the log, its profile headers come
-// from the page's first request, and emit hands it over. host is the
-// connection's server name.
+// serveHTTP1 answers HTTP/1.1 requests on conn as sc says and records each
+// verbatim into c.H1 and the page log. On /done, c gets the whole page load
+// and emit hands it over. host is the connection's server name.
 func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, log *pageLog, emit func()) error {
 	id := log.newConn()
 	br := bufio.NewReader(conn)

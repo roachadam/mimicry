@@ -25,18 +25,13 @@ const navigationRedirects = 19
 // drops whenever it drops the body.
 var bodyHeaders = []string{"Content-Encoding", "Content-Language", "Content-Location", "Content-Type"}
 
-// browserHop returns req, a hop http.Client built to follow a redirect, as
-// the browser sends it: a POST answered 301 or 302, and anything but GET
-// and HEAD answered 303, go on as a GET without their body (as http.Client
-// sends them); every other request keeps its method, body and body
-// headers, which http.Client drops for PUT, DELETE and others answered 301
-// or 302. A chain longer than the browser follows is an error: the
-// browser fails the request rather than send it. That is maxRedirects,
-// but for a navigation (nav), whose limit is p's. The method and body
-// come from the request the redirect answered as it was sent
-// (req.Response.Request), so a chain keeps them hop after hop. Only to
-// send (u) is that body opened (its GetBody) and req's own closed; a plan
-// carries a body nothing reads (unread) in its place.
+// browserHop returns the redirect hop req as the browser sends it. POST on
+// 301/302 and non-GET/HEAD on 303 become a body-less GET, as http.Client
+// does; any other request keeps the method, body and body headers that
+// http.Client drops. Method and body come from req.Response.Request, so
+// they carry across hops. A chain past the browser's limit (p's, for a
+// navigation) is an error. Only when sending is the body reopened; a plan
+// gets an unread body.
 func browserHop(p *profile.Profile, req *http.Request, nav bool, u use) (*http.Request, error) {
 	prev := req.Response.Request
 	if prev == nil {
@@ -107,15 +102,10 @@ func browserHop(p *profile.Profile, req *http.Request, nav bool, u use) (*http.R
 	return next, nil
 }
 
-// refusedRedirect returns the *CORSError for resp, the response to req
-// (sent as s says), when resp is a redirect the browser does not follow: a
-// request in CORS mode to another origin (fetch(), XHR, an element with
-// crossorigin, a font) needs its redirects to pass the CORS check too
-// (Access-Control-Allow-Origin, and -Credentials with credentials). Every
-// captured browser stopped there: fetch() with or without a preflight
-// before, with and without credentials (cors-edge, redirects2), XHR,
-// <img crossorigin> and <script crossorigin> (redirects2). It closes
-// resp's body then. Nil otherwise.
+// refusedRedirect returns a *CORSError, closing resp's body, when resp is
+// a redirect a cross-origin CORS-mode request may not follow because it
+// fails the CORS check. Every captured browser stopped there (cors-edge,
+// redirects2). Nil otherwise.
 func refusedRedirect(req *http.Request, resp *http.Response, s *sending) error {
 	if s.corsOrigin == "" || resp.Header.Get("Location") == "" {
 		return nil

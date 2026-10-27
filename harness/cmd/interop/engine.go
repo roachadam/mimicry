@@ -22,19 +22,16 @@ type engineStep struct {
 	Bytes  int64   `json:"bytes"`
 	MS     float64 `json:"ms"`
 	Err    string  `json:"error,omitempty"`
-	// altSvc is the response's Alt-Svc.
 	altSvc string
 }
 
 // engineSummary is what the engine flow showed.
 type engineSummary struct {
-	// AltSvc is the first response's Alt-Svc.
 	AltSvc string `json:"alt_svc,omitempty"`
 	// SwitchedAfter is the number of requests before the first one on
 	// HTTP/3 (0: never).
-	SwitchedAfter int `json:"switched_after"`
-	// H3 is true when any request went over HTTP/3.
-	H3 bool `json:"h3"`
+	SwitchedAfter int  `json:"switched_after"`
+	H3            bool `json:"h3"`
 	// Large and Resumed are the protocols of the larger download and the
 	// request on the second connection.
 	Large   string `json:"large,omitempty"`
@@ -44,15 +41,11 @@ type engineSummary struct {
 // switchAttempts bounds the requests the flow sends waiting for HTTP/3.
 const switchAttempts = 8
 
-// engineFlow walks an origin through mimicry's public API, as a page
-// would: a first request over TCP that learns Alt-Svc, then the same
-// request again until one goes over HTTP/3 the way the profile switches
-// (Safari only on a new connection, so its idle connections are closed
-// first), a larger download (large, when set), then all connections
-// closed and one more request: the second QUIC connection, resumed with
-// 0-RTT where the profile does. Every step is a navigation. The Alt-Svc
-// is the first one any response carried, redirects included: Firefox
-// may already follow a redirect over HTTP/3, on a response without one.
+// engineFlow walks an origin through mimicry's public API as a page would:
+// learn Alt-Svc over TCP, repeat until HTTP/3, a larger download, then a
+// resumed second connection. Safari switches only on a new connection, so
+// idle connections are closed first. Alt-Svc is taken from any response,
+// redirects included: Firefox may already follow a redirect over HTTP/3.
 func engineFlow(ctx context.Context, cfg mimicry.Config, home, large string) ([]engineStep, engineSummary) {
 	var steps []engineStep
 	var sum engineSummary
@@ -149,7 +142,6 @@ func (a *altSvcRecorder) first() string {
 	return a.h3
 }
 
-// fetchVia GETs url through client and reads the body.
 func fetchVia(ctx context.Context, client *http.Client, step, url string) (s engineStep) {
 	s = engineStep{
 		Step: step,

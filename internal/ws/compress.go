@@ -7,21 +7,18 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// Compressor compresses a socket's messages as the profile's browser
-// does once the server accepted permessage-deflate: its deflate
-// implementation, with the window and context the server allows, and
-// which messages it sends uncompressed instead. It is not safe for
-// concurrent use.
+// Compressor compresses a socket's messages as the profile's browser does
+// once the server accepted permessage-deflate, including which messages it
+// sends uncompressed. It is not safe for concurrent use.
 type Compressor struct {
 	w         *zdeflate.Writer
 	rule      string
 	noContext bool
 }
 
-// NewCompressor returns the compressor of p's browser for d. It fails
-// where the browser fails the socket: a window its library cannot use
-// (client_max_window_bits=8, which zlib refuses and Chrome alone raises
-// to 9).
+// NewCompressor returns the compressor of p's browser for d. It fails where
+// the browser fails the socket: client_max_window_bits=8, which zlib
+// refuses and only Chrome raises to 9.
 func NewCompressor(p *profile.WebSocket, d *Deflate) (*Compressor, error) {
 	var lib zdeflate.Library
 	switch p.Compression {

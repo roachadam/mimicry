@@ -105,11 +105,8 @@ func compareCreated(a, b entry) int {
 	return cmp.Compare(a.seq, b.seq)
 }
 
-// domainKey is the key a cookie with domain, or a request to host domain,
-// is kept under: its registrable domain. A cookie only ever goes to hosts
-// with its own registrable domain, since its Domain is never a public
-// suffix unless it is the host itself. AnySite cookies are kept under
-// AnySite.
+// domainKey is the bucket for a cookie domain or request host: its
+// registrable domain, since a cookie never reaches hosts outside it.
 func domainKey(domain string) string {
 	if domain == AnySite {
 		return AnySite
@@ -452,10 +449,8 @@ func (j *Jar) Cookies(r Request) []*Cookie {
 	return j.cookies(r, true)
 }
 
-// Peek returns the cookies Cookies would, changing nothing: their
-// last-access times stay, and expired cookies stay stored until a request
-// or ClearExpired removes them. mimicry.Transport.Plan reads the jar
-// with it.
+// Peek returns the cookies Cookies would, changing nothing: last-access
+// times stay, and expired cookies stay stored.
 func (j *Jar) Peek(r Request) []*Cookie {
 	return j.cookies(r, false)
 }

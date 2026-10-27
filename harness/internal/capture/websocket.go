@@ -19,10 +19,8 @@ type WebSocket struct {
 	// Connection numbers the TLS connection in Page.Connections, from 1;
 	// 0 for a plain connection, which has no entry there.
 	Connection int `json:"connection,omitempty"`
-	// ProxyConn numbers the client's connection to the capture proxy
-	// whose tunnel (or forwarded request) carried the socket, as
-	// ProxyRequest.Conn does: its CONNECT or SOCKS5 request is the one
-	// with that Conn. 0 for a direct socket.
+	// ProxyConn is the ProxyRequest.Conn of the capture-proxy connection
+	// that carried the socket; 0 for a direct socket.
 	ProxyConn int `json:"proxy_conn,omitempty"`
 	// Request is the handshake's index: in Page.H1 for http/1.1, in
 	// Page.H2[Trace].Requests for h2 (-1 if that trace had already ended).
@@ -40,13 +38,11 @@ type WebSocket struct {
 	// Frames are the client's frames and, for their order, the server's
 	// (Server, without payload), as they crossed the wire.
 	Frames []WSFrame `json:"frames"`
-	// ClosedBy is the side that ended the transport first: "client" or
-	// "server" (the TCP connection for http/1.1, the stream for h2); ""
-	// if it was still open when the page was taken, which the server
-	// delays until every socket's transport has ended (up to
-	// server.WSLinger and a second). After a close handshake the server
-	// waits WSLinger before ending it, so a client that closes on its own
-	// shows. ClosedMillis is when, since the handshake.
+	// ClosedBy is the side that ended the transport (TCP connection or h2
+	// stream) first: "client", "server", or "" if still open when the page
+	// was taken. After a close handshake the server waits WSLinger before
+	// ending it, so a client that closes on its own shows. ClosedMillis is
+	// when, since the handshake.
 	ClosedBy     string `json:"closed_by,omitempty"`
 	ClosedMillis int64  `json:"closed_ms,omitempty"`
 	// StreamEnd is how the client ended its h2 stream: "END_STREAM" or

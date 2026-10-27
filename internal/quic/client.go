@@ -65,18 +65,14 @@ type DialConfig struct {
 // (RFC 9000, section 10.1): Conn.Wait and Conn.Err return it.
 var ErrIdleTimeout = errIdleTimeout
 
-// Dial opens a client connection to peer over pc, which it owns: one
-// connection per socket, as browsers do (a zero-length connection ID
-// leaves nothing else to demultiplex on). pc is closed when the
-// connection ends.
+// Dial opens a client connection to peer over pc, which it owns and closes
+// when the connection ends (one connection per socket, as browsers do).
 //
-// The connection is returned corked (Conn.Cork): the application's first
-// writes leave together, as the browser sends them, at the first Uncork.
-// When Hello resumes a ticket that allows 0-RTT, Dial returns at once,
-// before anything is sent: streams written before Uncork go out in 0-RTT
-// packets with the Initial flight. Otherwise it returns when the handshake
-// completes, with the client's Finished held until Uncork, so the first
-// writes go with it. The caller must Uncork once it has written them.
+// The connection is returned corked: the caller must Uncork once it has
+// written its first requests, which then leave together. With a 0-RTT
+// ticket Dial returns before anything is sent and those writes go in 0-RTT;
+// otherwise it returns at handshake completion, with the Finished held
+// until Uncork.
 func Dial(ctx context.Context, pc net.PacketConn, peer netip.AddrPort, cfg DialConfig) (*Conn, error) {
 	cc, config, err := newClientConfig(cfg)
 	if err == nil && cc.path.degradePTOs > 0 && cfg.NewPath == nil {
@@ -202,14 +198,10 @@ func (c *Conn) ReleaseFinished() {
 	}
 }
 
-// KeepAlive tells the connection whether the application has a request
-// waiting for its response. While one waits, the connection sends the
-// profile's keep-alive PINGs (QUICKeepAlive) and watches its path
-// (QUICPathDegrading's PathClose counts from it). Without them a client
-// waiting for a response is silent, and a server that cannot reach it
-// (its path to the client changed, the probe of the new path lost) never
-// learns of it before the idle timeout. An idle connection without
-// requests ends silently.
+// KeepAlive tells the connection whether a request awaits its response.
+// While one does, the connection sends the profile's keep-alive PINGs
+// (QUICKeepAlive) and watches its path (QUICPathDegrading). An idle
+// connection without requests ends silently.
 func (c *Conn) KeepAlive(on bool) {
 	if on && !c.client.keepAlive.Load() {
 		c.client.keepAliveSince.Store(time.Now().UnixNano())
@@ -518,10 +510,9 @@ var minAckDelayParams = []profile.TransportParameterID{
 }
 
 // handleExtensionFrame consumes a frame of an extension the client
-// announced, and returns its length; -1 for any other frame type. The
-// client sends no DATAGRAM frames and keeps its own ACK timing, so it drops
-// DATAGRAM frames and ignores ACK_FREQUENCY and IMMEDIATE_ACK (what a
-// browser does with them is not measured).
+// announced, and returns its length; -1 for any other frame type. DATAGRAM
+// frames are dropped and ACK_FREQUENCY/IMMEDIATE_ACK ignored (browser
+// behaviour unmeasured).
 func (c *Conn) handleExtensionFrame(_ time.Time, ptype packetType, b []byte) int {
 	cc := c.client
 	if cc == nil || ptype&(packetType0RTT|packetType1RTT) == 0 {

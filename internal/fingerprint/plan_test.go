@@ -16,10 +16,9 @@ func types(exts []profile.Extension) []profile.Code {
 	return out
 }
 
-// The shuffle must be uniform: each movable extension lands in each movable
-// slot equally often. uTLS's ShuffleChromeTLSExtensions skips swaps that touch
-// a pinned slot, which leaves each extension in place about twice as often as
-// chance (~12.5% vs ~6.7% for Chrome); this test catches that kind of bias.
+// The shuffle must be uniform over movable slots. uTLS's
+// ShuffleChromeTLSExtensions is biased (it skips swaps touching pinned
+// slots); this catches that kind of bias.
 func TestShuffleIsUniform(t *testing.T) {
 	p := profiles.Chrome()
 	plan := Compile(p)

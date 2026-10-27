@@ -7,10 +7,9 @@ import (
 	"golang.org/x/net/dns/dnsmessage"
 )
 
-// loopbackResolver answers every A query with 127.0.0.1 and every other
-// query with no records, so the engine flow reaches the local servers
-// under the runner's name ("server", the name lsquic's certificates are
-// configured for) through Config.Resolver.
+// loopbackResolver resolves every A query to 127.0.0.1 so the engine flow
+// reaches local servers under the runner's name, which lsquic's
+// certificates are configured for.
 func loopbackResolver(ctx context.Context) (*net.Resolver, error) {
 	var lc net.ListenConfig
 	pc, err := lc.ListenPacket(ctx, "udp4", "127.0.0.1:0")

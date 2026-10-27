@@ -132,12 +132,10 @@ func (r *rpc) Close() error {
 	return err
 }
 
-// chromeAuth answers Chrome's proxy authentication challenges with user
-// over the DevTools protocol, as a user typing into the login dialog would.
-// Interception is enabled on the browser target, which sees every request,
-// browser-initiated navigations included (a tab's own session does not);
-// each paused request is let go unchanged. dir is the profile directory,
-// where Chrome names its debugging port.
+// chromeAuth answers Chrome's proxy authentication challenges with user over
+// the DevTools protocol, intercepting on the browser target: unlike a tab's
+// session, it also sees browser-initiated navigations. dir is the profile
+// directory, where Chrome names its debugging port.
 func chromeAuth(ctx context.Context, dir string, user *url.Userinfo) (io.Closer, error) {
 	// The answers to the browser's events live as long as the session;
 	// Close ends them.
@@ -198,9 +196,8 @@ func chromeAuth(ctx context.Context, dir string, user *url.Userinfo) (io.Closer,
 }
 
 // firefoxAuth answers Firefox's proxy authentication challenges with user
-// over WebDriver BiDi, then navigates to pageURL: Firefox, started on
-// about:blank, would otherwise meet the challenge before the intercept is
-// in place.
+// over WebDriver BiDi, then navigates to pageURL, so the intercept is in
+// place before the first challenge.
 func firefoxAuth(ctx context.Context, port int, pageURL string, user *url.Userinfo) (io.Closer, error) {
 	life := context.WithoutCancel(ctx)
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)

@@ -24,11 +24,9 @@ var inflateTail = []byte{
 // dictSize is the most a peer's message can refer back to: a 32 KiB window.
 const dictSize = 1 << maxWBits
 
-// Reader inflates the messages of one permessage-deflate socket, keeping
-// the context from message to message: each message is inflated with the
-// last dictSize bytes of the earlier ones as its dictionary, which is all a
-// peer that keeps its context can refer to, and nothing to one that does
-// not. It is not safe for concurrent use.
+// Reader inflates the messages of one permessage-deflate socket, each with
+// the last dictSize bytes of the earlier ones as its dictionary: all a peer
+// that keeps its context can refer to. It is not safe for concurrent use.
 type Reader struct {
 	fr   io.ReadCloser
 	src  bytes.Reader

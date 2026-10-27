@@ -31,11 +31,9 @@ const (
 
 // rsWriter is zlib-rs 0.6.3's deflate stream at level 6, driven as
 // Firefox's PMCECompression::Deflate drives it: deflate(Z_SYNC_FLUSH) into
-// a 4096-byte buffer, called again while input remains or the buffer came
-// back full.
-//
-// Positions are zlib-rs's Pos (u16) where it keeps them as such; the
-// window is at most 64 KiB, so they never wrap.
+// 4096-byte buffers while input remains or a buffer came back full.
+// Positions are u16 as in zlib-rs; the window is at most 64 KiB, so they
+// never wrap.
 type rsWriter struct {
 	// wSize is the window, 1 << windowBits; maxDist the farthest a match
 	// may lie (State::max_dist).
@@ -248,10 +246,9 @@ func (w *rsWriter) fillWindow() {
 }
 
 // longestMatch is zlib-rs's longest_match (deflate/longest_match.rs, not
-// the SLOW variant): the longest match for the string at strstart along
-// the hash chain from curMatch, cut to the lookahead, and where it starts.
-// A result under wantMinMatch is a literal to deflate_medium, whatever its
-// start.
+// SLOW): the longest match at strstart along the chain from curMatch, cut
+// to the lookahead, and where it starts. Under wantMinMatch it is a literal
+// to deflate_medium, whatever its start.
 func (w *rsWriter) longestMatch(curMatch uint16) (int, uint16) {
 	win := w.window
 	strstart := w.strstart

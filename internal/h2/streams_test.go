@@ -62,9 +62,8 @@ func setting(p *profile.Profile, id http2.SettingID) uint32 {
 	return 0
 }
 
-// A request cancelled after the read loop found its stream for the response
-// HEADERS, and before it delivered them, fails with the context's error and
-// leaves the read loop running.
+// A request cancelled while the read loop is delivering its response
+// HEADERS fails with the context's error and leaves the read loop running.
 func TestCancelAsResponseHeadersArrive(t *testing.T) {
 	c, pr := newPeer(t, profiles.Safari(), clockwork.NewRealClock())
 	ctx, cancel := context.WithCancel(t.Context())
@@ -89,9 +88,8 @@ func TestCancelAsResponseHeadersArrive(t *testing.T) {
 	}
 }
 
-// Response bytes nobody reads, because the body was closed early or after
-// the stream ended, go back to the connection window: otherwise a few
-// abandoned downloads stall every later response.
+// Response bytes nobody reads go back to the connection window; otherwise
+// a few abandoned downloads stall every later response.
 func TestClosedBodyReturnsConnectionCredit(t *testing.T) {
 	p := profiles.Safari()
 	c, pr := newPeer(t, p, clockwork.NewRealClock())
@@ -271,9 +269,8 @@ func TestStreamErrorResetsOnlyItsStream(t *testing.T) {
 	}
 }
 
-// After GOAWAY, a stream past LastStreamID fails with ErrConnUnusable, no
-// request starts, the streams the peer will process run to completion, and
-// the connection closes after the last.
+// After GOAWAY, a stream past LastStreamID fails with ErrConnUnusable while
+// the others run to completion, and then the connection closes.
 func TestGoAwayDrains(t *testing.T) {
 	c, pr := newPeer(t, profiles.Chrome(), clockwork.NewRealClock())
 	first := roundTripAsync(c, get(t, "/1"))

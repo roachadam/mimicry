@@ -1,8 +1,6 @@
 // Package site computes what browsers call a site: a scheme and a
 // registrable domain (public suffix list), the unit of SameSite cookies,
 // sec-fetch-site and cookie partitions.
-//
-// Imports: the standard library and golang.org/x/net/publicsuffix.
 package site
 
 import (

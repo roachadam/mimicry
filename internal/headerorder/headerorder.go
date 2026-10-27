@@ -1,7 +1,5 @@
 // Package headerorder merges a request's headers with a profile's defaults
 // and puts them in the profile's order. Both HTTP/1.1 and HTTP/2 use it.
-//
-// Imports: profile and the standard library.
 package headerorder
 
 import (
@@ -66,12 +64,10 @@ func PlanFrom(ctx context.Context) *Plan {
 	return p
 }
 
-// Key is the request header that sets the header list for one request: its
-// values are header names, in the order to send them. It replaces the
-// profile's order, so a profile default it does not name is not sent; a
-// header the request sets is still sent, after the named ones. Its name is
-// matched in any case. The trailing colon makes it an invalid header name,
-// so it can never be sent by mistake.
+// Key is the request header naming, in order, the headers to send for one
+// request. It replaces the profile's order: unnamed profile defaults are
+// dropped, unnamed request headers go after. The trailing colon makes it an
+// invalid header name, so it is never sent by mistake.
 const Key = "Header-Order:"
 
 // Field is one header to send. Name is lowercase.
@@ -80,22 +76,16 @@ type Field struct {
 	Value string
 }
 
-// Build returns the headers to send for a request with headers h, using the
-// profile's headers for order and defaults:
+// Build returns the headers to send for a request with headers h, using
+// the profile's headers for order and defaults:
 //
-//   - a profile header with a value is sent unless h sets that header; h's
-//     value wins;
-//   - a header in h with no values (h["Accept-Language"] = nil) suppresses the
-//     profile's default;
-//   - order is the profile's, or Key's if set (then profile defaults Key
-//     does not name are dropped); headers it does not list go where it
-//     lists profile.OtherHeaders, else, with a table and no Key, in the
-//     table's order together with the table's names the list sends, where
-//     the list has the first of those (TableOrder), else after the rest,
-//     sorted by name;
-//   - names are compared case-insensitively;
-//   - skip names headers never to send (connection-level ones the protocol
-//     handles itself).
+//   - h's value wins over a profile default; a header in h with no values
+//     suppresses the default;
+//   - order is the profile's, or Key's (dropping unnamed defaults); unlisted
+//     headers go at profile.OtherHeaders, else in table order (TableOrder),
+//     else after the rest, sorted by name;
+//   - names compare case-insensitively;
+//   - skip names headers never to send (connection-level ones).
 func Build(prof []profile.Header, h http.Header, skip func(name string) bool, table *profile.HeaderTable) []Field {
 	// A key present with no values suppresses the profile's default: it stays
 	// in the map with nothing to send.
@@ -195,11 +185,9 @@ type Replacement struct {
 	Values []string
 }
 
-// Replaced reports, by Build's rules, what Build does to prof's values
-// for a request with headers h: each header prof gives a value that h
-// sets otherwise (other values, or none: suppressed) is replaced, and,
-// when h sets Key, each header prof gives a value that Key does not name
-// and h does not set is dropped. Both in prof's order, names lowercase.
+// Replaced reports, by Build's rules, which of prof's valued headers h
+// replaces or suppresses and, when h sets Key, which it drops. Both in
+// prof's order, names lowercase.
 func Replaced(prof []profile.Header, h http.Header) (replaced []Replacement, dropped []string) {
 	values := make(map[string][]string, len(h))
 	var override []string
@@ -231,11 +219,9 @@ func Replaced(prof []profile.Header, h http.Header) (replaced []Replacement, dro
 	return replaced, dropped
 }
 
-// tableRun returns the run table sends for a request whose list is order
-// and whose own headers are rest, sends reporting which names go out: nil
-// without a table, a page header, a table name the list sends, or with an
-// OtherHeaders slot (the list places the page's headers itself), or when
-// the table cannot hold the list (TableOrder).
+// tableRun returns the table-ordered run for a request with list order
+// and own headers rest, or nil when no table applies (no table, an
+// OtherHeaders slot, or TableOrder cannot hold the list).
 func tableRun(table *profile.HeaderTable, order, rest []string, sends func(string) bool) []string {
 	if table == nil || slices.Contains(order, profile.OtherHeaders) {
 		return nil

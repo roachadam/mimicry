@@ -27,31 +27,13 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// Every socket of the websocket pages (server.WebSocketSteps), opened
-// through mimicry from its page as the browser walked them
-// (server.WebSocketPageSteps), is the browser's in both scenarios, against
-// every sample: its transport (HTTP/1.1 on a connection of its own, its
-// TLS hello the browser's, or an extended CONNECT stream on the
-// connection that carried the page's request to the host), its handshake
-// (header lines verbatim, or HTTP/2 fields with pseudo-header order,
-// HEADERS flags, priority and stream WINDOW_UPDATE), every client frame
-// (FIN, RSV, opcode, mask bit, length form, payload, compressed bytes
-// included: deflate with every message size, empty messages, and the
-// server's client_no_context_takeover and client_max_window_bits 8 to
-// 15), the pong, how HTTP/2 DATA frames carry the frames, the close
-// frames and who ends the transport, and when. Where samples differ, any
-// sample's form passes and the variance is logged; Chrome fragments its
-// 70 KiB message in some, so each sample also passes with its split
-// messages joined. A ws:// socket from the https:// page is
-// refused before anything is sent; a socket the browser fails after its
-// handshake (a window its compressor refuses) fails to open.
-//
-// The proxy websocket pages (server.ProxyWebSocketSteps) are checked the
-// same way through the capture proxy, and each socket also by what reached
-// the proxy for it: the CONNECT (lines, status, credentials) or SOCKS5
-// request of the tunnel it went through, the page's own for an HTTP/2
-// stream, or nothing for a handshake sent to the proxy whole (Safari's
-// ws://, whose absolute-form request line the handshake check compares).
+// Every socket of the websocket pages, opened through mimicry from its page,
+// is the browser's against every sample: transport (own HTTP/1.1 connection
+// or extended CONNECT stream), handshake, every client frame (compressed
+// bytes included), the pong, HTTP/2 DATA packing, close and transport end.
+// Where samples differ any sample's form passes; Chrome's fragmented 70 KiB
+// message also passes joined. The proxy pages also check what reached the
+// proxy for each socket.
 func TestWebSocketsMatchBrowser(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		for _, sc := range []*server.Scenario{server.WebSocket, server.WebSocketH2, server.ProxyWebSocket, server.ProxyWebSocketAuth, server.ProxyWebSocketSOCKS5} {
@@ -519,12 +501,9 @@ func anyForm(t *testing.T, what, got string, sample func(i int) string, n int) i
 	return match
 }
 
-// checkResult compares what mimicry's API reported with what the page's
-// script saw of the socket (capture.WSResult) in every sample, but for
-// Extensions: mimicry's is the server's answer as the sample's server
-// sent it (Firefox's extensions attribute names permessage-deflate
-// without the server's parameters, Chrome's and Safari's are the whole
-// answer).
+// checkResult compares mimicry's API result with what the page's script saw
+// (capture.WSResult), but Extensions is compared with the server's answer:
+// Firefox's attribute drops its parameters.
 func checkResult(t *testing.T, st server.WebSocketStep, want []*capture.Page, run *socketRun) {
 	t.Helper()
 	g := capture.WSResult{
@@ -596,11 +575,9 @@ func streamPaths(steps []server.WebSocketPageStep, page *capture.Page, ws *captu
 	return on
 }
 
-// checkStreamConnection checks that mimicry's stream went on the
-// connection that carried the page's requests to its host that the
-// browser's did (the cross-site socket: the page's credentialed fetch's).
-// mimicry's may carry more: it keeps no connections apart by top-level
-// site, so the cross-site host's own navigations share it (logged).
+// checkStreamConnection checks mimicry's stream used the connection the
+// browser's did. mimicry's may carry more: its pool is not partitioned by
+// top-level site (logged).
 func checkStreamConnection(t *testing.T, steps []server.WebSocketPageStep, got *capture.Page, g *capture.WebSocket, want []*capture.Page, samples []*capture.WebSocket) {
 	t.Helper()
 	on := streamPaths(steps, got, g)
@@ -667,12 +644,9 @@ func handshakeLines(page *capture.Page, ws *capture.WebSocket) string {
 	return strings.Join(lines, "\n")
 }
 
-// checkSocketHello compares the TLS hello of mimicry's socket connection
-// with the browser's (every sample's socket connections, GREASE ECH's
-// choices merged). GREASE ECH's cipher suite and payload length are
-// random draws, which a dozen sockets need not all show: the hello may
-// take any of the profile's (a resumed one, its resumed lengths), which
-// TestProfilesMatchCaptures and TestResumptionMatchesBrowser check.
+// checkSocketHello compares the socket connection's TLS hello with the
+// browser's, merging GREASE ECH choices across samples: those are random
+// draws, checked by TestProfilesMatchCaptures and TestResumptionMatchesBrowser.
 func checkSocketHello(t *testing.T, p *profile.Profile, got *capture.Page, g *capture.WebSocket, want []*capture.Page, samples []*capture.WebSocket) {
 	t.Helper()
 	hellos := make([]*profile.TLS, 0, len(want))
@@ -815,14 +789,10 @@ func headSize(f capture.WSFrame) uint32 {
 	return n
 }
 
-// checkDATA compares how mimicry's HTTP/2 DATA frames carry its socket's
-// frames with the browser's, frame by frame. A frame that fits one DATA
-// frame was cut the same way in every sample, and mimicry's must be too
-// (Safari's pong and close reply in three). A larger one goes where flow
-// control lets it, which varies: mimicry's DATA frames must stay within
-// the cap and carry the header alone where every sample does (Firefox)
-// or with the payload where none does. END_STREAM on the last DATA frame
-// as in every sample.
+// checkDATA compares how HTTP/2 DATA frames carry the socket's frames. A
+// frame fitting one DATA frame must be cut as every sample cut it; a larger
+// one must stay within the cap, header alone where every sample does so.
+// END_STREAM on the last DATA frame as in every sample.
 func checkDATA(t *testing.T, p *profile.Profile, got *capture.Page, g *capture.WebSocket, want []*capture.Page, samples []*capture.WebSocket) {
 	t.Helper()
 	gc, order, gEnd := dataCuts(got, g)

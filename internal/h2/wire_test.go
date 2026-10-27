@@ -297,14 +297,9 @@ func TestClosingFullyReadBodyDoesNotReset(t *testing.T) {
 }
 
 // A stream stops being a parent of Chrome's chained priorities as soon as
-// the frame carrying the peer's END_STREAM is read, before the response
-// reaches the caller: a request sent once the caller has the response
-// never chains on it, whichever goroutine runs first. Here the read loop
-// is held after it found the stream, before it delivers the response,
-// while the next request goes out. Which stream a request chains on is
-// checked against the browser's traces by the harness
-// (TestChainedPrioritiesMatchBrowserTraces); no capture can hold the
-// read loop.
+// the peer's END_STREAM is read, before the caller gets the response. The
+// harness checks chaining against traces
+// (TestChainedPrioritiesMatchBrowserTraces).
 func TestEndedStreamLeavesChainBeforeDelivery(t *testing.T) {
 	c, pr := newPeer(t, profiles.Chrome(), clockwork.NewRealClock())
 	first := roundTripAsync(c, get(t, "/1"))
@@ -340,10 +335,8 @@ func TestEndedStreamLeavesChainBeforeDelivery(t *testing.T) {
 	}
 }
 
-// Request bodies go out in DATA frames no larger than the profile's cap, cut
-// from 65535-byte chunks as Chrome cuts its own, and END_STREAM rides on the
-// last frame carrying data, as every captured browser sends it: no empty
-// DATA frame ends the stream.
+// Request bodies go out in DATA frames cut at the profile's cap from
+// 65535-byte chunks, with END_STREAM on the last data frame, as captured.
 func TestDataFrameCap(t *testing.T) {
 	p := profiles.Chrome()
 	c, pr := newPeer(t, p, clockwork.NewRealClock())
@@ -385,9 +378,8 @@ func TestDataFrameCap(t *testing.T) {
 	<-result
 }
 
-// Chrome also returns credit once 5 s have passed since its last
-// WINDOW_UPDATE, however little is owed, connection first (captured in the
-// slow-idle scenario).
+// Chrome returns any owed credit 5 s after its last WINDOW_UPDATE,
+// connection first, as in the slow-idle captures.
 func TestWindowUpdateInterval(t *testing.T) {
 	clock := clockwork.NewFakeClockAt(time.Date(2026, 10, 23, 0, 0, 0, 0, time.UTC))
 	c, pr := newPeer(t, profiles.Chrome(), clock)
@@ -432,10 +424,9 @@ func TestWindowUpdateInterval(t *testing.T) {
 	_ = r.resp.Body.Close()
 }
 
-// A Chrome request after 10 s without reading anything sends a PING after its
-// HEADERS, counting from 1 (captured in the slow-idle scenario). One that is
-// not answered within 10 s more closes the connection, and the request in
-// flight fails without being retried elsewhere. Safari sends no PING.
+// A Chrome request after 10 s idle sends a counting PING after its HEADERS,
+// and an unanswered PING closes the connection (slow-idle captures). Safari
+// sends no PING.
 func TestIdlePing(t *testing.T) {
 	clock := clockwork.NewFakeClockAt(time.Date(2026, 10, 23, 0, 0, 0, 0, time.UTC))
 	c, pr := newPeer(t, profiles.Chrome(), clock)
@@ -489,9 +480,8 @@ func TestIdlePing(t *testing.T) {
 	}
 }
 
-// When the server closes the connection, a request already sent may have
-// been processed: it fails with an error the engine does not retry, unlike a
-// request that had not started (ErrConnUnusable).
+// When the server closes the connection, a request already sent fails
+// with a non-retryable error, since it may have been processed.
 func TestInFlightRequestNotRetriedOnClose(t *testing.T) {
 	c, pr := newPeer(t, profiles.Chrome(), clockwork.NewRealClock())
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "https://example.com/pay", strings.NewReader("x"))

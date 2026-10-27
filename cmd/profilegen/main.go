@@ -1,12 +1,7 @@
-// Command profilegen generates profiles/profiles.gen.go from profiles/data/*.json:
-// one accessor per built-in profile, one per browser for its newest version
-// (Chrome, Firefox, Safari), the list of names and the list of supported
-// ones. It refuses to generate from a file that profile.Parse rejects, or
-// whose name does not match the profile's name field, and from a set that
-// breaks the version policy (decision 0035): within a browser and platform
-// the newest five versions are supported and older ones are deprecated, and
-// a scenario's captures are inherited only from an older built-in profile
-// that holds its own.
+// Command profilegen generates profiles/profiles.gen.go from
+// profiles/data/*.json: accessors per profile and per browser's newest
+// version, and the name lists. It refuses invalid or misnamed files and
+// sets that break the version policy (decision 0035).
 //
 // Run it with go generate ./profiles.
 package main

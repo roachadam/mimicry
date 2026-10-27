@@ -51,25 +51,19 @@ var H3TooEarly = &Scenario{
 	},
 }
 
-// h3EarlyIdle is the h3-early server's max_idle_timeout: the smaller of
-// it and the browser's ends a connection, silently on both sides, so
-// steps h3EarlyGap apart each find none and resume. (A server's close
-// does not do for Firefox: it sends the next request over TCP and
-// resumes QUIC beside it.)
+// h3EarlyIdle is the server's max_idle_timeout, so connections idle out
+// silently between steps h3EarlyGap apart and each step resumes. A server
+// close would not do: Firefox then sends the next request over TCP.
 const (
 	h3EarlyIdle = 3 * time.Second
 	h3EarlyGap  = 5000
 )
 
-// H3EarlySteps lists the h3-early page's requests, each started on a
-// fixed schedule (NoWait). The page at / learns h3-a's Alt-Svc; a fetch
-// ends its HTTP/2 connection (GOAWAY: Safari's way to HTTP/3), the next
-// goes over a new QUIC connection, whose session ticket the later ones
-// resume with. Each step after it comes once the connection before has
-// idled out, so it starts a resumed connection: a fetch POST, PUT and
-// DELETE, an XHR POST, a GET and a POST made together (pair-get.so,
-// pair-post.so), a GET, a HEAD and an OPTIONS fetch, and last a form POST
-// navigation to form.so, whose page asks for /done.
+// H3EarlySteps lists the h3-early page's requests on a fixed schedule
+// (NoWait). After a warm-up and a GOAWAY that moves the page to HTTP/3,
+// each step comes once the last connection idled out, so it opens a
+// resumed connection: fetch, XHR and form-POST navigation with assorted
+// methods. See harness/reports/h3-early-2026-10-26.md.
 func H3EarlySteps() []H3Step {
 	with := func(s H3Step, method, body string) H3Step {
 		s.Method, s.Body = method, body
@@ -101,10 +95,9 @@ func H3EarlySteps() []H3Step {
 // earlyKey keys a QUIC connection's earlyStreams in its context.
 type earlyKey struct{}
 
-// earlyStreams records, for one QUIC connection, whether each stream's
-// first STREAM frame arrived in a 0-RTT packet, as quic-go handles the
-// packets (its qlog trace), so the server knows which requests came in
-// early data however its goroutines are scheduled.
+// earlyStreams records, per QUIC connection, whether each stream's first
+// STREAM frame arrived in a 0-RTT packet. It reads quic-go's qlog trace, so
+// the answer does not depend on goroutine scheduling.
 type earlyStreams struct {
 	mu    sync.Mutex
 	cond  *sync.Cond
@@ -135,8 +128,7 @@ func earlyTracer(ctx context.Context, _ bool, _ quic.ConnectionID) qlogwriter.Tr
 	return nil
 }
 
-// earlyOf is conn's earlyStreams, nil without one: a value of the
-// connection's own context, which earlyContext gave it.
+// earlyOf is conn's earlyStreams, or nil.
 func earlyOf(conn *quic.Conn) *earlyStreams {
 	e, _ := conn.Context().Value(earlyKey{}).(*earlyStreams)
 	return e
@@ -187,10 +179,8 @@ func (e *earlyStreams) Close() error {
 	return nil
 }
 
-// early reports whether stream's first frame came in 0-RTT. The request
-// was read to its end, so the packet that carried its first frame was
-// handled; quic-go traces it right after handing the frames over, so the
-// wait is short, and bounded by earlyWait.
+// early reports whether stream's first frame came in 0-RTT. The request was
+// read fully, so quic-go traces that packet very soon; earlyWait bounds it.
 func (e *earlyStreams) early(stream int64) bool {
 	timedOut := false
 	stop := time.AfterFunc(earlyWait, func() {

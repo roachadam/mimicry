@@ -415,11 +415,9 @@ func ExampleConfig_sharedJar() {
 	// jar: www.outlet.test outlet_visitor
 }
 
-// Headers of your own and where they go: Config.Headers on every request,
-// the request's own on one, and HeaderOrderKey to set the order yourself.
-// (This shop speaks HTTP/1.1 so that its handler can print the header lines
-// in the order they arrived; over HTTP/2 the order is the same, without
-// Host and Connection.)
+// Headers of your own: Config.Headers on every request, the request's own
+// on one, and HeaderOrderKey to set the order yourself. The shop speaks
+// HTTP/1.1 so its handler can print lines in arrival order.
 func ExampleHeaderOrderKey() {
 	shop := startShopHTTP1(func(_ http.ResponseWriter, r *http.Request) {
 		lines := headerLines(r)
@@ -515,10 +513,8 @@ func ExampleHeaderOrderKey() {
 }
 
 // Proxies: Config.Proxy picks one per request, so rotating is changing what
-// it returns. A *ProxyError says the proxy failed (unreachable, refused the
-// tunnel, rejected its credentials), not the site: take the next one. Each
-// proxy has its own connections; the cookies and the last page stay the
-// Transport's.
+// it returns. A *ProxyError means the proxy failed, not the site: take the
+// next one. Cookies and the last page stay the Transport's.
 func ExampleConfig_proxy() {
 	shop := startShop(func(_ http.ResponseWriter, r *http.Request) {
 		fmt.Println("server:", r.URL.Path)
@@ -635,12 +631,9 @@ func ExampleConfig_disableHTTP3() {
 	// HTTP/2.0
 }
 
-// Certificate pinning: FetchPins lists a site's verified chain (cmd/pins
-// prints it), and Config.Pins holds a host to keys from it, the
-// intermediate's being the usual choice (it outlives the leaf's
-// renewals). A connection whose chain has none of them fails with a
-// *PinError before anything is sent; every response carries its
-// connection's TLS state.
+// Certificate pinning: FetchPins lists a site's verified chain, and
+// Config.Pins pins a host to keys from it (usually the intermediate's). A
+// connection matching none fails with a *PinError before anything is sent.
 func ExampleConfig_pins() {
 	shop := startShop(func(http.ResponseWriter, *http.Request) {})
 	defer shop.Close()
@@ -903,12 +896,10 @@ func ExampleTransport_DialWebSocket() {
 	// echo: position?
 }
 
-// Header placement: the browser's order with one deliberate change, where
-// a server expects a header somewhere the browser would not put it.
+// Header placement: the browser's order with one deliberate change.
 // Config.HeaderPlacement applies to every request, Request.HeaderPlacement
-// to one, after Config's; every other line stays where the browser puts
-// it. (This shop speaks HTTP/1.1 so that its handler can print the header
-// lines in the order they arrived.)
+// to one, after Config's. The shop speaks HTTP/1.1 so its handler can
+// print lines in arrival order.
 func ExampleConfig_headerPlacement() {
 	shop := startShopHTTP1(func(_ http.ResponseWriter, r *http.Request) {
 		lines := headerLines(r)

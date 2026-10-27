@@ -12,8 +12,8 @@ import (
 // peer (Stream.Release).
 var errStreamReleased = errors.New("h2: stream released")
 
-// ConnectProtocol reports whether the peer allows extended CONNECT (RFC
-// 8441): it sent SETTINGS_ENABLE_CONNECT_PROTOCOL 1.
+// ConnectProtocol reports whether the peer sent
+// SETTINGS_ENABLE_CONNECT_PROTOCOL 1, allowing extended CONNECT (RFC 8441).
 func (c *Conn) ConnectProtocol() bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -28,14 +28,10 @@ type Stream struct {
 }
 
 // Connect opens an extended CONNECT stream (RFC 8441) for req, with
-// :protocol protocol after the profile's pseudo-headers and req's headers
-// in its plan's order and weight, and returns the server's response once
-// its headers arrive, with the stream, open both ways, if the response is
-// 2xx. ctx then bounds only the wait for the response: the stream lives
-// until it is ended (Stream.Send's end, Close, Release, the peer).
-// Another response has no stream: its body is read as RoundTrip's, within
-// ctx. Errors are those of RoundTrip: ErrConnUnusable for a request the
-// peer cannot have seen.
+// :protocol after the profile's pseudo-headers, and returns the response
+// once its headers arrive. A 2xx response comes with the stream, which
+// outlives ctx until it is ended; any other response has no stream and its
+// body is read as RoundTrip's. Errors are those of RoundTrip.
 func (c *Conn) Connect(ctx context.Context, req *http.Request, protocol string) (*http.Response, *Stream, error) {
 	head, err := c.head(req, 0, protocol)
 	if err != nil {
@@ -75,9 +71,8 @@ func (st *Stream) Read(p []byte) (int, error) {
 	return st.s.body.Read(p)
 }
 
-// Send writes each part in DATA frames of its own, each cut at the
-// profile's DATA cap and the flow-control windows; end sets END_STREAM on
-// the last frame of the last part.
+// Send writes each part in DATA frames of its own, cut at the profile's
+// DATA cap and the flow-control windows; end sets END_STREAM on the last.
 func (st *Stream) Send(ctx context.Context, parts [][]byte, end bool) error {
 	for i, p := range parts {
 		if err := st.c.sendData(ctx, st.s, p, end && i == len(parts)-1); err != nil {
@@ -94,8 +89,8 @@ func (st *Stream) Close() error {
 	return nil
 }
 
-// Release forgets the stream without a frame: for one the peer ended,
-// whose end of ours the profile does not describe.
+// Release forgets the stream without sending a frame: for a stream the
+// peer ended, when the profile does not describe how the browser ends its.
 func (st *Stream) Release() {
 	st.c.endStream(st.s, ending{
 		err: errStreamReleased,

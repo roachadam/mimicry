@@ -43,12 +43,9 @@ func scenarioTraces(t *testing.T, p *profile.Profile) map[*server.Scenario][]*h2
 	return out
 }
 
-// Replaying a browser's requests through mimicry's encoder with the built-in
-// profile's HPACK policy reproduces every header block the browser sent, byte
-// for byte, on every sampled connection of every scenario, and on every
-// connection of every replayed real page (hundreds of requests, kilobytes of
-// cookies, a full table). The server's header table size reaches the encoder
-// where the browser acknowledged the server's SETTINGS.
+// Re-encoding the browser's requests with the profile's HPACK policy
+// reproduces every header block byte for byte, on every sampled and replayed
+// connection. http2.hpack cannot be captured; this keeps it honest.
 func TestHPACKReproducesBrowserBlocks(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {

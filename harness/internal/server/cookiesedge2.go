@@ -12,20 +12,17 @@ import (
 )
 
 // The cookies-edge2 page's hosts: one for schemeful SameSite, served over
-// https:// on the page's port and over http:// on a port of its own (the
-// same host, so the same cookies: cookies are not bound to a port), and one
-// for the nameless and __Http- cookies, so the schemeful cookies (Path=/)
-// stay off their probes and theirs off the schemeful ones.
+// https:// on the page's port and over http:// on its own port (cookies are
+// not bound to a port), and one for the nameless and __Http- cookies, so
+// each group stays off the other's probes.
 const (
 	edge2Host         = "www.cookies-s.test"
 	edge2NamelessHost = "www.cookies-n.test"
 )
 
 // CookiesEdge2 is the cookies-edge2 scenario: what cookies-edge left
-// unmeasured. Every cookie is set by a response's Set-Cookie, lives 10
-// minutes at most and is deleted before /done, since Safari keeps its
-// cookies between samples. See CookiesEdge2Steps for which request
-// answers what.
+// unmeasured. Cookies follow the same rules as CookiesEdge's. See
+// harness/reports/cookies-edge-2026-10-24.md.
 var CookiesEdge2 = &Scenario{
 	Name: "cookies-edge2",
 	Doc:  "cookie rules cookies-edge left open: schemeful SameSite across https:// and http:// of one host with http:// on a port without TLS (Safari's HTTPS upgrade fails and falls back), nameless cookies without a second \"=\", __Http- and __Host-Http- without Secure",
@@ -42,9 +39,7 @@ var CookiesEdge2 = &Scenario{
 }
 
 // edge2SchemeCookies are set from https:// and are not Secure (but the
-// last), so they may go to http:// of the same host: which of them the
-// navigation from https:// to http:// and back carries shows schemeful
-// SameSite.
+// last), so they may go to http:// of the same host.
 var edge2SchemeCookies = []string{
 	"e2_sch_strict=1; Path=/; SameSite=Strict; Max-Age=600",
 	"e2_sch_lax=1; Path=/; SameSite=Lax; Max-Age=600",
@@ -52,14 +47,10 @@ var edge2SchemeCookies = []string{
 	"e2_sch_secure=1; Path=/; Secure; SameSite=Lax; Max-Age=600",
 }
 
-// edge2NamelessCookies are cookies without a name and without a second
-// "=" (cookies-edge's all had one, which every browser refuses): a
-// control as Secure as the prefixed ones, values starting with
-// __Secure- and __Host- (after a space) and a lowercase __secure-, and a
-// bare =x without Secure. A browser keeps one nameless cookie per path, so
-// each has a path of its own, nested so that one request (nameless-probe)
-// carries every one kept, longest path first. A nameless cookie is sent as
-// its value alone, so each value names its cookie.
+// edge2NamelessCookies are nameless cookies without a second "=" (every
+// browser refused cookies-edge's, which had one). Each has its own nested
+// path, as in edgeNamelessCookies, and is sent as its value alone, so each
+// value names its cookie.
 var edge2NamelessCookies = []string{
 	"=ctl; Path=/n; Secure; Max-Age=600",
 	"=__Secure-x; Path=/n/1; Secure; Max-Age=600",
@@ -83,22 +74,9 @@ var edge2HTTPCookies = []string{
 const edge2PlainWatch = 15 * time.Second
 
 // CookiesEdge2Steps lists the cookies-edge2 page's requests in the order
-// it makes them (CookiesEdgeStep; a Plain step goes to the plain port,
-// which answers no TLS). Each probe's Cookie header answers a question:
-//
-//   - sch-start-probe, a same-origin fetch on the https:// page that set
-//     edge2SchemeCookies: the control, all four;
-//   - sch-to-http, a navigation from https:// to http:// of the same host,
-//     and sch-http-probe, a same-origin fetch on the http:// page: which of
-//     edge2SchemeCookies go (schemeful SameSite: Strict not on the
-//     cross-scheme navigation); sch-to-https, the navigation back, and
-//     sch-https-probe the same. A browser that tries https:// on the plain
-//     port first is refused there (the server logs it) and, falling back,
-//     still sends these over http://;
-//   - nameless-probe: which of edge2NamelessCookies were kept;
-//   - http-probe: which of edge2HTTPCookies were kept (does __Http- need
-//     Secure?);
-//   - the cleanup requests delete everything, each in the form it was set.
+// it makes them. A Plain step goes to the plain port, which answers no TLS:
+// a browser trying https:// there is refused and falls back to http://.
+// What each probe answers is in harness/reports/cookies-edge-2026-10-24.md.
 func CookiesEdge2Steps() []CookiesEdgeStep {
 	return []CookiesEdgeStep{
 		{Label: "doc", Host: edge2Host, Path: "/", Nav: true, Sets: edge2SchemeCookies},
@@ -159,11 +137,10 @@ func edge2URL(s CookiesEdgeStep, ports portPair) string {
 }
 
 // edge2Statements are step i's page: it fetches the steps up to the next
-// navigation one after another (by path, so on its own origin; 5 s at most
-// each), then goes there, or asks for /done. The watchdog lives on
-// https:// of edge2Host: its first page registers it, its others disarm it
-// on load, arm it before leaving for the plain port and end it before
-// leaving the host.
+// navigation (5 s at most each), then goes there, or asks for /done. The
+// watchdog lives on https:// of edge2Host: its first page registers it,
+// others disarm it on load, arm it before leaving for the plain port and
+// end it before leaving the host.
 func edge2Statements(steps []CookiesEdgeStep, i int, ports portPair) []string {
 	page := steps[i]
 	watched := page.Host == edge2Host && !page.Plain

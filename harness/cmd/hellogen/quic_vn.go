@@ -13,12 +13,9 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// vnRetryHello derives tls.quic.version_negotiation from the h3-vn
-// captures p is checked against (server.H3EdgeCaptures): the hello of
-// every connection that followed another's Version Negotiation in another
-// version, against the full hello q describes. Every such hello must
-// differ alike: extensions dropped, bodies replaced, padding added last.
-// Nil without such connections.
+// vnRetryHello derives tls.quic.version_negotiation: how hellos retried
+// after Version Negotiation differ from the full QUIC hello. All retries
+// must differ alike. Nil without such connections.
 func vnRetryHello(dir string, p *profile.Profile, q *profile.QUICHello) (*profile.QUICHelloRetry, error) {
 	t := &p.TLS
 	retries, err := vnRetries(dir, p)

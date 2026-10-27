@@ -151,11 +151,9 @@ func (q *quicLog) ended(h *h3conn) {
 	q.live[h.addr]--
 }
 
-// udpTap is the QUIC server's socket: it records every datagram it reads
-// and writes, and drops those the page's quicLog says to. It passes the
-// socket's buffer and syscall controls through (quic-go sizes buffers and
-// sets the don't-fragment bit with them), but not its batch reads or
-// writes, so every datagram goes through ReadFrom and WriteTo.
+// udpTap is the QUIC server's socket: it records and filters every datagram.
+// It hides the batch read/write interfaces so every datagram goes through
+// ReadFrom and WriteTo.
 type udpTap struct {
 	net.PacketConn
 	log *quicLog
@@ -198,13 +196,9 @@ func (t *udpTap) SyscallConn() (syscall.RawConn, error) {
 	return nil, errors.New("socket has no syscall connection")
 }
 
-// serveQUIC serves sc's HTTP/3 on s.PacketConn until ctx is canceled,
-// then closes it and waits for the connections' handlers. Each host gets
-// its TCP certificate (issue); ALPN offers only h3. The server accepts
-// 0-RTT, and keeps the PSK of every ticket a client resumes with, from
-// which the recorder derives the 0-RTT keys (crypto/tls logs none). A
-// blackhole scenario's socket answers nothing; an aioquic one relays to
-// aioquic (serveAioquic).
+// serveQUIC serves sc's HTTP/3 on s.PacketConn until ctx is canceled, then
+// waits for the handlers. It accepts 0-RTT and keeps each resumed ticket's
+// PSK, from which the recorder derives the 0-RTT keys (crypto/tls logs none).
 func (s *Server) serveQUIC(ctx context.Context, sc *Scenario, log *pageLog, issue func([]string) (tls.Certificate, error)) error {
 	pc := s.PacketConn
 	q := &log.quic
@@ -301,12 +295,9 @@ func (s *Server) serveQUIC(ctx context.Context, sc *Scenario, log *pageLog, issu
 	}
 }
 
-// quicConns decodes every client address's datagrams into its QUIC
-// connections, with the HTTP/3 the server read on each, ordered by their
-// first datagram. The addresses are decoded together, so a connection
-// the client moves to another address (a new port) keeps its datagrams.
-// Each is rederived from its wire data (Conn.Rederive). An aioquic
-// server's key log is read from its file first.
+// quicConns decodes the datagrams into QUIC connections, ordered by first
+// datagram. All addresses are decoded together so a connection that migrates
+// to a new port keeps its datagrams.
 func (l *pageLog) quicConns() []*quictrace.Conn {
 	q := &l.quic
 	q.mu.Lock()

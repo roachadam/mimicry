@@ -164,11 +164,9 @@ func (c *Conn) clientInitLoss(now time.Time) {
 }
 
 // clientPTOExpired prepares a client's PTO probes as its profile sends
-// them. Upstream's single probe resends the CRYPTO stream's first
-// unacknowledged range alone, which a browser's ClientHello outgrows: with
-// the server's ACKs lost, its end would wait for loss detection forever;
-// so unless the profile lays the probe out, every unacknowledged CRYPTO
-// byte is queued again.
+// them. Unless the profile lays the probe out, every unacknowledged CRYPTO
+// byte is queued again: upstream resends only the first range, and a large
+// ClientHello's tail would otherwise wait on loss detection forever.
 func (c *Conn) clientPTOExpired() {
 	cc := c.client
 	c.loss.ptoProbes = cc.loss.probes
@@ -314,12 +312,10 @@ func (c *Conn) clientGiveUp(now time.Time) {
 	c.enterClosing(now, err)
 }
 
-// Abandon ends the connection as a browser drops a QUIC attempt it no
-// longer needs, its TCP connection having won the race
-// (QUICLoss.AbandonClose): before the handshake completes it sends at
-// most an application CONNECTION_CLOSE (H3_NO_ERROR) in one 0-RTT packet
-// of its own, where the profile does and the attempt sent 0-RTT (Safari),
-// and ends at once; after, it is Abort(nil).
+// Abandon ends the connection as a browser drops a QUIC attempt that lost
+// the race to TCP (QUICLoss.AbandonClose). Before the handshake completes it
+// sends at most one 0-RTT CONNECTION_CLOSE (H3_NO_ERROR) and ends at once;
+// after, it is Abort(nil).
 func (c *Conn) Abandon() {
 	c.sendMsg(func(now time.Time, c *Conn) {
 		cc := c.client

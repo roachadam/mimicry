@@ -9,9 +9,7 @@ import (
 )
 
 // A hostile server's encoder stream or field section is an error, never a
-// panic or an entry it did not insert: indexes out of range, entries
-// evicted or not yet inserted, a capacity above what was advertised,
-// truncated and oversized literals, bad prefixes.
+// panic or an entry it did not insert.
 func TestDecoderRejectsHostileInput(t *testing.T) {
 	insertFoo := appendString(appendString(nil, 0x40, 5, "foo", false), 0x00, 7, "bar", false)
 	tests := []struct {
@@ -108,12 +106,8 @@ func TestDecoderRejectsHostileInput(t *testing.T) {
 	}
 }
 
-// Under any table pressure (a table far smaller than the fields, every
-// section unacknowledged or acknowledged as it goes, few or no blocked
-// streams allowed) every section the encoder writes decodes, with the
-// encoder stream it wrote, to the fields given: it never evicts an entry
-// a section or the peer may still need, and never refers to one it may
-// not.
+// Under any table pressure every section the encoder writes decodes to its
+// fields: it never evicts or refers to an entry the peer may not have.
 func TestEncoderOutputAlwaysDecodes(t *testing.T) {
 	requests := make([][]Field, 0, 40)
 	for i := range 40 {
@@ -140,9 +134,8 @@ func TestEncoderOutputAlwaysDecodes(t *testing.T) {
 						})
 						e.SetPeerSettings(capacity, blocked)
 						d := NewDecoder(capacity)
-						// Unacknowledged sections are decoded only at the end,
-						// after every later insert: what they refer to must
-						// still be there.
+						// Unacknowledged sections are decoded only at the end, so
+						// what they refer to must survive every later insert.
 						var late [][]byte
 						for i, fields := range requests {
 							stream := uint64(4 * i)

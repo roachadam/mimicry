@@ -18,11 +18,9 @@ import (
 	"github.com/roachadam/mimicry/profiles"
 )
 
-// quicServer accepts QUIC connections (ALPN h3) on every local address and
-// leaves them open, answering no request; with goAway, it opens its
-// control stream on each with SETTINGS and GOAWAY. It returns its port,
-// and a channel that gets a value per connection accepted. The
-// certificate is the running test's (newTestEngine sets it).
+// quicServer accepts h3 connections on every local address and answers
+// nothing; with goAway it sends SETTINGS and GOAWAY on each. It returns its
+// port and a channel signalled per accepted connection.
 func quicServer(t *testing.T, goAway bool) (uint16, <-chan struct{}) {
 	t.Helper()
 	pc, err := (&net.ListenConfig{}).ListenPacket(t.Context(), "udp", ":0")
@@ -72,10 +70,9 @@ func quicServer(t *testing.T, goAway bool) (uint16, <-chan struct{}) {
 	return ep.LocalAddr().Port(), accepted
 }
 
-// answerThenWatchGoAway serves an HTTP/2 connection: it answers the first
-// request once hold (if not nil) is closed, failing if the client's
-// GOAWAY comes first (within settle after that), then closes goaway when
-// the client's GOAWAY arrives.
+// answerThenWatchGoAway answers the first request once hold closes,
+// failing if the client's GOAWAY comes first (within settle), then closes
+// goaway when the client's GOAWAY arrives.
 func answerThenWatchGoAway(headers, goaway chan<- struct{}, hold <-chan struct{}, settle time.Duration) func(context.Context, net.Conn) error {
 	return func(ctx context.Context, conn net.Conn) error {
 		tc, err := tlsServer(ctx, conn)
@@ -158,13 +155,9 @@ func answerThenWatchGoAway(headers, goaway chan<- struct{}, hold <-chan struct{}
 
 var errGoAwayBeforeAnswer = errors.New("the client's GOAWAY came before the answer to its request")
 
-// Firefox replaces every HTTP/2 connection to an origin with a live
-// HTTP/3 one (goaway_tcp), established before it or not: a request that
-// went on TCP while the origin's QUIC connection came up (h3-broken (b):
-// closed1.cs beside its resumed attempt) gets its response, then its
-// connection a GOAWAY, and the origin's next request a new connection.
-// Here the TCP dial completes only once the QUIC connection is pooled, so
-// the connection is never in the pool when the attempt ends.
+// An HTTP/2 connection pooled after the origin's QUIC connection came up
+// still gets GOAWAY after its response (Firefox's goaway_tcp; h3-broken
+// capture). The TCP dial is held until QUIC is pooled.
 func TestGoAwayReachesTCPConnectionEstablishedAfterQUIC(t *testing.T) {
 	headers, goaway := make(chan struct{}), make(chan struct{})
 	n := newFakeNet(t, answerThenWatchGoAway(headers, goaway, nil, 50*time.Millisecond))
@@ -243,13 +236,9 @@ func dialQUIC(t *testing.T, e *Engine, target string, port uint16) (route, *atte
 	return r, a
 }
 
-// After the server's GOAWAY ends an origin's HTTP/3 connection, Firefox
-// sends the next request on a new TCP connection and a resumed QUIC
-// connection follows (race_after_goaway); in every sample the TCP
-// connection is up, the request sent and Firefox's GOAWAY on it out
-// before the QUIC connection's first datagram (h3-broken (b), closed1.cs;
-// h3-discovery, after-goaway.so). Here the request's response is held far
-// past race_delay_ms: the QUIC attempt waits for it, however long.
+// After the server's GOAWAY, Firefox's next request goes on TCP and the
+// resumed QUIC attempt waits for its response however long (race_after_goaway;
+// h3-broken and h3-discovery captures).
 func TestRaceAfterGoAwayWaitsForTheTCPResponse(t *testing.T) {
 	headers, goaway, hold := make(chan struct{}), make(chan struct{}), make(chan struct{})
 	var releaseHold sync.Once

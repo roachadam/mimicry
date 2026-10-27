@@ -44,10 +44,8 @@ func deriveQUIC(s *captureSet, p *profile.Profile) (*profile.QUIC, error) {
 	return q, e.err()
 }
 
-// padding is the size every datagram carrying an Initial packet has, the
-// largest any datagram has, and where its padding goes: after the packets
-// (trailing bytes, PADDING frames only in a coalesced 1-RTT packet), in one
-// run ending each padded Initial packet, or anywhere among its frames.
+// padding is the padded size of every Initial-carrying datagram and where
+// the padding goes: trailing, one run per Initial, or among its frames.
 func padding(s *captureSet, e *collector) (int, string) {
 	size := 0
 	for _, c := range s.conns {
@@ -199,12 +197,9 @@ func ordered(s *captureSet) (int, bool) {
 	return first, first > 0
 }
 
-// sniCut checks neqo's SNI slicing on c: the first packet carries the
-// tail piece, then the head piece, of the ClientHello cut at the middle
-// of its server_name host, the longer piece shortened so that both make
-// len/n bytes (n packets); the first piece written gets what it was
-// planned, the second what fits; the rest follows in order, one frame per
-// packet.
+// sniCut checks neqo's SNI slicing on c: the ClientHello is cut mid
+// server_name host, the tail piece sent before the head, sized to len/n
+// bytes over n packets, the rest in order one frame per packet.
 func sniCut(c *conn, datagramSize int) error {
 	hello := c.c.ClientHelloBytes()
 	length := len(hello)
@@ -255,10 +250,9 @@ func sniCut(c *conn, datagramSize int) error {
 	return nil
 }
 
-// shuffle checks quiche's chaos protection on every connection: two
-// packets, the first carrying the head [0, h) and the tail, the second
-// the middle, the first holding floor((len-4)/2) bytes; and measures h,
-// the added CRYPTO frames and the PINGs per packet.
+// shuffle checks quiche's chaos protection: two packets, the first holding
+// floor((len-4)/2) bytes (head [0, h) and tail), the second the middle;
+// it measures h, the added CRYPTO frames and PINGs.
 func shuffle(s *captureSet) (profile.QUICCrypto, []string) {
 	out := profile.QUICCrypto{
 		Split: profile.CryptoSplitShuffle,
@@ -576,11 +570,9 @@ func transportParameters(s *captureSet, scid int, e *collector) ([]profile.Trans
 	return out, order
 }
 
-// parameterOrder is fixed if every connection sends the reference order,
-// rotated if each sends a rotation of it with the same parameters last,
-// and shuffled otherwise. A rotated order is written starting at its
-// smallest ID, so that the profile does not depend on which sample came
-// first.
+// parameterOrder is fixed, rotated (same last parameter), or shuffled.
+// Rotated orders are written from the smallest ID so the result doesn't
+// depend on sample order.
 func parameterOrder(all [][]profile.TransportParameterID, reference []profile.TransportParameterID) (string, []profile.TransportParameterID, []profile.TransportParameterID) {
 	fixed := true
 	for _, ids := range all {

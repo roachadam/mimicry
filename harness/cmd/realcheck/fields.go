@@ -186,12 +186,9 @@ func (fs *fieldList) impersonate(root any) {
 	fs.extensions(exts)
 }
 
-// extensions adds each extension under its name, in name order (so a
-// shuffled order compares equal; the order is in JA3), its contents
-// reduced to their shape where they are random. ECH (GREASE: random
-// config ID, a payload length and cipher suite drawn per connection) is
-// split into its parts; QUIC transport parameters into the set and the
-// order (shuffled per connection by some browsers).
+// extensions adds each extension by name, in name order so a shuffle
+// compares equal (JA3 keeps the order). Random contents are reduced to their
+// shape; GREASE ECH and QUIC transport parameters are split into parts.
 func (fs *fieldList) extensions(exts []any) {
 	type ext struct {
 		name  string

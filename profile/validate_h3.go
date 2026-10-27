@@ -68,8 +68,6 @@ func (c *checker) checkQUIC(q *QUIC, resumes bool) {
 	if !slices.Contains([]string{PacketNumbersShared, PacketNumbersRandomInitial, PacketNumbersPerSpace}, q.PacketNumbers) {
 		c.add(path+".packet_numbers", "%q must be %q, %q or %q", q.PacketNumbers, PacketNumbersShared, PacketNumbersRandomInitial, PacketNumbersPerSpace)
 	}
-	// RFC 9000, section 7.2: the client's first Destination Connection ID
-	// is at least 8 bytes.
 	if q.DCIDLength < 8 || q.DCIDLength > maxCIDLength {
 		c.add(path+".dcid_length", "%d must be from 8 (RFC 9000, section 7.2) to %d", q.DCIDLength, maxCIDLength)
 	}

@@ -39,12 +39,9 @@ var headersTargets = []struct {
 	{resumeH1, "h1"},
 }
 
-// headersAround are names sorting just before, between and just after the
-// headers browsers send themselves (accept, accept-encoding,
-// accept-language, cache-control, connection, content-length,
-// content-type, cookie, host, origin, pragma, priority, referer, sec-ch-ua*,
-// sec-fetch-*, te, user-agent), in sorted order. sec-a is a forbidden name
-// (the sec- prefix): it shows the browser dropping it.
+// headersAround are sorted names falling just before, between and after
+// the headers browsers send themselves. sec-a is forbidden (sec- prefix),
+// to show the browser dropping it.
 var headersAround = []string{
 	"0",
 	"a",
@@ -86,9 +83,8 @@ type headersSet struct {
 	headers [][2]string
 }
 
-// headersSets are the header sets: each is sent with fetch() and XHR to
-// each target, the names in this order (the order the page sets them),
-// each with value "1" unless given.
+// headersSets are the header sets, each sent by fetch() and XHR to each
+// target in this order, values "1" unless given.
 func headersSets() []headersSet {
 	ones := func(names []string) [][2]string {
 		out := make([][2]string, 0, len(names))
@@ -116,8 +112,7 @@ func headersSets() []headersSet {
 		// Names around each browser header, in order and reversed.
 		{"around", ones(headersAround)},
 		{"around-rev", ones(reversed(headersAround))},
-		// Case: upper, lower and mixed spellings, and one name set twice
-		// in two spellings (combined into one header, under which?).
+		// Case spellings, and one name set twice in two spellings.
 		{"case", [][2]string{
 			{"X-Upper", "1"},
 			{"x-lower", "1"},
@@ -136,10 +131,8 @@ func reversed(s []string) []string {
 }
 
 // HeadersStep is one request of the headers-order page: to /h/<label> on
-// Host, by API ("fetch" or "xhr"), with the page's headers in the order
-// the page sets them (fetch(): a headers object of them; XHR:
-// setRequestHeader for each). fetch() is default mode and credentials, XHR
-// without credentials: cross-site requests go after a preflight.
+// Host by API ("fetch" or "xhr"), with Headers in the page's order. fetch()
+// uses default credentials, XHR none, so cross-site requests are preflighted.
 type HeadersStep struct {
 	Label   string      `json:"label"`
 	API     string      `json:"api"`
@@ -149,11 +142,9 @@ type HeadersStep struct {
 	URL string `json:"url"`
 }
 
-// HeadersSteps lists the headers-order page's requests in order: for each
-// target, each of headersSets by fetch() then XHR, labelled
-// <set>.<api>.<target>. Each answers where that set's names go among the
-// browser's own headers for that API and target (and, cross-site, the
-// preflight's Access-Control-Request-Headers).
+// HeadersSteps lists the headers-order page's requests: per target, each
+// headersSets entry by fetch() then XHR, labelled <set>.<api>.<target>. See
+// harness/reports/headers-order-2026-10-24.md.
 func HeadersSteps() []HeadersStep {
 	steps := make([]HeadersStep, 0, len(headersTargets)*len(headersSets())*2)
 	for _, t := range headersTargets {

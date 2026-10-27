@@ -26,16 +26,11 @@ const (
 	KindXHR            = "xhr"             // XMLHttpRequest
 	KindBeacon         = "beacon"          // navigator.sendBeacon
 	// KindPreflight is the CORS preflight (OPTIONS) the browser sends
-	// itself before a fetch() or XHR that needs one; callers never ask for
-	// it.
+	// itself; callers never ask for it.
 	KindPreflight = "preflight"
-	// KindWebSocket is a WebSocket's opening handshake (new WebSocket()):
-	// an HTTP/1.1 Upgrade, or an extended CONNECT over HTTP/2 (RFC 8441)
-	// whose :protocol follows the profile's pseudo_header_order. Its
-	// lists have slots for what the socket fills: Sec-WebSocket-Key
-	// (HTTP/1.1), Sec-WebSocket-Extensions (Profile.WebSocket's offer)
-	// and Sec-WebSocket-Protocol (the page's protocols). It is never
-	// CORS-checked: every handshake carries Origin.
+	// KindWebSocket is a WebSocket's opening handshake: an HTTP/1.1
+	// Upgrade or an RFC 8441 extended CONNECT. Its lists have slots for
+	// Sec-WebSocket-Key, -Extensions and -Protocol.
 	KindWebSocket = "websocket"
 )
 
@@ -91,14 +86,11 @@ type Kind struct {
 	Low  *Urgency `json:"low,omitempty"`
 }
 
-// Variant is the header order a browser uses for some requests of a kind:
-// browsers build headers along different paths, so a POST, a CORS-checked
-// request or one after a redirect can order them otherwise, and send
-// fewer. A request takes the variant whose condition it matches exactly,
-// else the kind's own order; but once a kind has a redirected variant (its
-// redirects were captured), a redirected request takes only an exact one.
-// A variant's lists are exactly what the browser sent: a header they lack
-// is not sent.
+// Variant is the header order a browser uses for some requests of a kind
+// (a POST, a CORS-checked request, a redirect). A request takes the variant
+// whose condition it matches exactly, else the kind's own order; once a
+// kind has a redirected variant, a redirected request takes only an exact
+// one. A header the variant's lists lack is not sent.
 type Variant struct {
 	// Method is the request's method; empty is GET.
 	Method string `json:"method,omitempty"`
@@ -142,11 +134,9 @@ type Variant struct {
 	// CrossOriginRedirect.
 	CrossSiteRedirect bool `json:"cross_site_redirect,omitempty"`
 	// Insecure is a request to a URL that is not potentially trustworthy
-	// (plain http:// to anything but loopback): browsers send no
-	// Sec-Fetch-* or client hints and fewer encodings, over HTTP/1.1 only,
-	// so such a variant has HTTP1 and no Headers. A non-secure request with
-	// no variant for its exact condition takes the kind's non-secure one
-	// (Insecure alone); a kind with none is not measured for it.
+	// (plain http:// to non-loopback). Such a variant has HTTP1 and no
+	// Headers. A non-secure request with no exact match takes the kind's
+	// Insecure-only variant.
 	Insecure bool     `json:"insecure,omitempty"`
 	Headers  []Header `json:"headers,omitempty"`
 	// HTTP1 is the variant over HTTP/1.1. Empty on a secure variant: not
@@ -208,12 +198,10 @@ type Context struct {
 	HeaderTable *HeaderTable `json:"header_table,omitempty"`
 }
 
-// HeaderTable is a browser's request header table: it keeps a fetch()'s or
-// XHR's headers, the page's and some of its own, in one hash table and
-// sends them in the table's order, so where a page's header goes depends
-// on its name and on every other name in the table (headers-order
-// capture). The table's names go out as one run, where the list puts its
-// first one.
+// HeaderTable models a browser's request header hash table: a fetch()'s or
+// XHR's headers go out in the table's order, so a page header's place
+// depends on every name in the table. The table's names go out as one run,
+// where the list puts its first one.
 type HeaderTable struct {
 	// Hash is the table: HashBlink or HashCF.
 	Hash string `json:"hash"`

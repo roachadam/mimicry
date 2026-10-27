@@ -27,10 +27,8 @@ type preflightReport struct {
 	User        string             `json:"user"`
 	ConsoleUser string             `json:"console_user"`
 	Browsers    []preflightBrowser `json:"browsers"`
-	// CAPath is the capture CA's certificate (created if it was missing);
-	// CATrusted whether this Mac's trust settings accept its certificates
-	// for the capture host (server.TrustedBySystem: Safari needs it, and
-	// Chrome processes Alt-Svc only then).
+	// CAPath is the capture CA's certificate (created if missing). Safari
+	// needs CATrusted, and Chrome processes Alt-Svc only then.
 	CAPath    string `json:"ca_path"`
 	CATrusted bool   `json:"ca_trusted"`
 	// Resolver says whether /etc/resolver/test sends *.test to the DNS

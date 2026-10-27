@@ -33,10 +33,8 @@ func TestRegenerateReproducesProfiles(t *testing.T) {
 	}
 }
 
-// A profile that inherits every scenario but the default from
-// chrome-155-macos (testprofiles.Inheriting) derives its kinds from that
-// profile's captures rewritten to its own version: it regenerates
-// unchanged, its own user-agent and sec-ch-ua in every derived list.
+// An inheriting profile (testprofiles.Inheriting) must regenerate
+// unchanged from chrome-155-macos captures rewritten to its version.
 func TestRegenerateReadsInheritedCaptures(t *testing.T) {
 	data, err := testprofiles.Inheriting(nil)
 	if err != nil {

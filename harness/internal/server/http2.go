@@ -69,12 +69,10 @@ type h2conn struct {
 	traceIndex int
 }
 
-// serveHTTP2 records the client's connection preface frames and first request
-// into c's profile, traces every frame and header block into c.Trace, and
-// answers requests as sc says until the client goes away. emit hands the
-// capture over; it is called when the client asks for /done (a browser that
-// ran the page's script) and, by the caller, when the connection ends. host
-// is the connection's server name; log collects the page across connections.
+// serveHTTP2 records the client's preface and first request into c's
+// profile and every frame into c.Trace, and answers as sc says until the
+// client goes away. emit hands the capture over: on /done, and from the
+// caller when the connection ends. log collects the page across connections.
 func serveHTTP2(conn net.Conn, host string, c *capture.Capture, sc *Scenario, log *pageLog, emit func()) error {
 	preface := make([]byte, len(http2.ClientPreface))
 	if _, err := io.ReadFull(conn, preface); err != nil {

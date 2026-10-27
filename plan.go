@@ -28,27 +28,18 @@ type Plan struct {
 	// Kind is the request's kind: Navigate by default; for a Preflight,
 	// the preflight's own ("preflight").
 	Kind Kind
-	// Variant names the profile's lists the request takes, as paths in
-	// the profile's JSON: "headers" (the navigation's own, with
-	// http1.headers), "variants[2]" (the navigation's third variant),
-	// "kinds.fetch.headers" (the kind's own lists), or
-	// "kinds.fetch.variants[4]"; empty for an Exact request, which takes
-	// none.
+	// Variant is the JSON path of the profile lists the request takes:
+	// "headers", "variants[2]", "kinds.fetch.headers" or
+	// "kinds.fetch.variants[4]"; empty for an Exact request.
 	Variant string
-	// Condition is the request's condition, which picks the variant
-	// (profile.Variant's JSON names): "method PUT", "site cross-site"
-	// (same-origin, same-site, cross-site, or none for a typed
-	// navigation), then each flag that holds ("cors_checked",
-	// "page_set", "redirected", ...). A variant for exactly this
-	// condition is taken; Variant shows when the kind's own lists (or its
-	// non-secure variant) were taken instead. Empty for an Exact request.
+	// Condition is what picks the variant, in profile.Variant's JSON
+	// names: "method PUT", "site cross-site", then each flag that holds
+	// ("cors_checked", "redirected", ...). Compare it with Variant to see
+	// whether an exact variant was found. Empty for an Exact request.
 	Condition []string
-	// Protocol is the protocol the request would go over now, given the
-	// Transport's open connections and the Alt-Svc it has seen, named as
-	// a response's Proto: "HTTP/2.0", "HTTP/1.1" or "HTTP/3.0". Empty
-	// when it is decided when connecting: by the server's ALPN answer on
-	// a new connection, by a QUIC attempt the request would wait for, or
-	// by another host's HTTP/2 connection a DNS lookup finds.
+	// Protocol is the protocol the request would use now, as a response's
+	// Proto ("HTTP/2.0", "HTTP/1.1", "HTTP/3.0"). Empty when only
+	// connecting decides it (ALPN, a QUIC attempt, coalescing by DNS).
 	Protocol string
 	// HTTP2, HTTP1 and HTTP3 are the request's lines over each protocol,
 	// whichever it goes over. HTTP3 is nil when the Transport speaks no
@@ -81,17 +72,14 @@ type Lines struct {
 	// RequestLine is HTTP/1.1's ("GET /path HTTP/1.1"); empty over
 	// HTTP/2 and HTTP/3, whose pseudo-headers carry it.
 	RequestLine string
-	// Headers are the header lines in order: pseudo-headers first over
-	// HTTP/2 and HTTP/3, lowercase there; over HTTP/1.1 as the browser
-	// spells them, Host, Connection and framing included. Cookie is as the
-	// jar would send it now, one line per cookie where the profile
-	// splits them.
+	// Headers are the header lines in order: pseudo-headers first and
+	// lowercase over HTTP/2 and HTTP/3; over HTTP/1.1 as the browser
+	// spells them, Host, Connection and framing included. Cookie is the
+	// jar's current value.
 	Headers []Header
-	// Err is why the request cannot go over the protocol, Headers empty
-	// then: the error RoundTrip returns if it does (ErrNotMeasured for a
-	// list measured over another protocol only, ErrPlacement, an invalid
-	// header), or why it never goes there (plain http:// over HTTP/2 and
-	// HTTP/3, a request through a proxy over HTTP/3).
+	// Err is why the request cannot use this protocol (Headers is then
+	// empty): the error RoundTrip would return, or why it never goes
+	// there (plain http:// over HTTP/2 and HTTP/3, proxies over HTTP/3).
 	Err error
 }
 
@@ -119,23 +107,15 @@ type planner interface {
 }
 
 // Plan returns what RoundTrip would send for req now, without sending
-// anything: no connection is opened, no name looked up, and nothing the
-// Transport keeps changes (the jar's cookies and their last-access times,
-// the last navigation, the preflight cache, connections, Alt-Svc). It
-// takes RoundTrip's own path, the connections' header writers included,
-// so the lines are those RoundTrip writes for req as long as nothing
-// changes in between: a response setting cookies, a connection opened or
-// closed, a navigation, a preflight answer cached or expired. Plan req
-// as RoundTrip gets it: made with As, With or Exact, and for a redirect's
-// hop with its Response (as http.Client's CheckRedirect sees it); its
-// body is never read.
+// anything, opening connections, resolving names, or changing any
+// Transport state. It takes RoundTrip's own path, so the lines match
+// what RoundTrip writes as long as nothing changes in between. Pass req
+// as RoundTrip gets it (As, With or Exact; a redirect hop with its
+// Response); its body is never read.
 //
-// An error is one RoundTrip returns without sending req: ErrNotMeasured,
-// ErrPlacement, a request no browser makes, or, when no protocol req may
-// take now can carry it, that protocol's error (its preflight's first).
-// A protocol it may not take shows its error in its Lines instead. A
-// *CORSError needs the server's answer, so Plan never returns one: its
-// Preflight is what decides.
+// Plan returns the errors RoundTrip would return before sending
+// (ErrNotMeasured, ErrPlacement, ...); per-protocol errors go in Lines.
+// It never returns a *CORSError, which needs the server's answer.
 func (t *Transport) Plan(req *http.Request) (*Plan, error) {
 	e, ok := t.engine.(planner)
 	if !ok {

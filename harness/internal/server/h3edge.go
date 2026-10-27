@@ -8,14 +8,12 @@ import (
 	"github.com/quic-go/quic-go"
 )
 
-// h3PlainHost is a host of the h3 edge pages that never advertises
-// HTTP/3, so the page's /done reaches this server over TCP whatever has
-// happened to QUIC.
+// h3PlainHost never advertises HTTP/3, so /done reaches the server over TCP
+// whatever happened to QUIC.
 const h3PlainHost = "www.h3-c.test"
 
-// h3DownloadSize is the h3-download page's large response: enough packets
-// (about 40,000) for credit to grow many times and for any key update a
-// browser makes on its own.
+// h3DownloadSize is the h3-download response's size: about 40,000 packets,
+// enough for repeated credit growth and browser-initiated key updates.
 const h3DownloadSize = 50 << 20
 
 // incompressible returns h3DownloadSize pseudo-random bytes, the same in
@@ -27,12 +25,10 @@ var incompressible = sync.OnceValue(func() []byte {
 	return b
 })
 
-// H3Download is the h3-download scenario: over HTTP/3, one 50 MiB
-// response of incompressible bytes, then small requests on the same
-// connection: how each browser grows flow-control credit, how often it
-// acknowledges during a bulk receive, and whether it starts a key update
-// itself (quic-go starts one after 100 packets, then not before 100,000).
-// See H3DownloadSteps.
+// H3Download is the h3-download scenario: a 50 MiB incompressible response
+// over HTTP/3, then small requests on the same connection, to show credit
+// growth, ACK frequency and browser-initiated key updates (quic-go itself
+// updates after 100 packets, then not before 100,000). See H3DownloadSteps.
 var H3Download = &Scenario{
 	Name: "h3-download",
 	Doc:  "a 50 MiB incompressible download over HTTP/3, then small requests on the connection: MAX_DATA and MAX_STREAM_DATA growth, ACK frequency and delay under bulk receive, key updates the browser starts",
@@ -48,11 +44,9 @@ var H3Download = &Scenario{
 	h3: &h3Server{},
 }
 
-// H3DownloadSteps lists the h3-download page's requests: from the page at
-// /, a fetch (Chrome moves to HTTP/3 on the next request), a GOAWAY on
-// the HTTP/2 connection (Safari's way to HTTP/3), a fetch, then the
-// download, waited for, and three fetches after it on the same
-// connection, 1 s apart.
+// H3DownloadSteps lists the h3-download page's requests: a fetch, a GOAWAY
+// moving Safari to HTTP/3, a fetch, the download, then three fetches 1 s
+// apart on the same connection.
 func H3DownloadSteps() []H3Step {
 	goAway := h3Fetch(h3Host, "goaway.so", 1000)
 	goAway.GoAwayTCP = true
@@ -114,11 +108,9 @@ var H3Broken = &Scenario{
 	h3: &h3Server{},
 }
 
-// H3V2 is the h3-v2 scenario: HTTP/3 from aioquic, which offers QUIC
-// versions 1 and 2 and moves a client that lists version 2 in its
-// version_information to it (compatible version negotiation, RFC 9368).
-// The server's socket relays to aioquic and records both directions. See
-// H3V2Steps.
+// H3V2 is the h3-v2 scenario: HTTP/3 from aioquic, which moves clients
+// listing version 2 in version_information to QUIC v2 (RFC 9368). The
+// server relays to aioquic and records both directions. See H3V2Steps.
 var H3V2 = &Scenario{
 	Name: "h3-v2",
 	Doc:  "HTTP/3 from a server (aioquic) that upgrades compatibly to QUIC version 2: every packet's version and type both ways, version_information both ways, and the resumed connection after an idle spell",
@@ -180,14 +172,11 @@ func h3Fetch(host, label string, pause int) H3Step {
 	return s
 }
 
-// H3BlackholeSteps lists the h3-blackhole page's requests, each started
-// on a fixed schedule (NoWait): from the page at / (whose response
-// carries the Alt-Svc), fetches 1 s apart, a GOAWAY on the HTTP/2
-// connection, so the next request needs a new connection while the first
-// QUIC attempt may still be running, more fetches, a second GOAWAY 22.5 s
-// in, when a first attempt has given up, and a last request 20 s later
-// (waited for), so the second attempt's end shows too. The labels say
-// when each starts.
+// H3BlackholeSteps lists the h3-blackhole page's requests on a fixed
+// schedule (NoWait): fetches 1 s apart, a GOAWAY forcing a new connection
+// while the first QUIC attempt may still run, more fetches, a second GOAWAY
+// 22.5 s in after that attempt gave up, and a last request 20 s later so
+// the second attempt's end shows. Labels say when each starts.
 func H3BlackholeSteps() []H3Step {
 	goAway := func(s H3Step) H3Step {
 		s.GoAwayTCP = true
@@ -210,18 +199,16 @@ func H3BlackholeSteps() []H3Step {
 	}
 }
 
-// H3BrokenSteps lists the h3-broken page's requests, each started on a
-// fixed schedule (NoWait). The page at / learns h3-a's Alt-Svc and a
-// fetch h3-b's; a fetch to each ends its HTTP/2 connection (GOAWAY, so
-// Safari, which moves to HTTP/3 only for a new connection, does too);
-// two fetches to each host then go over HTTP/3. (a) silence.so goes
-// unanswered and h3-a's QUIC connection goes dark; silent1–6 follow 1, 3,
-// 6, 11, 21 and 33 s after it (past the browsers' 30 s idle timeout),
-// while keep1.cs and keep2.cs, 8 and 23 s after it, keep h3-b's
-// connection in use. (b) close.cs is answered and its connection closed
-// (GOAWAY, then CONNECTION_CLOSE 1 s later), after which no new QUIC
-// connection is answered; closed1–6 follow 2, 4, 7, 12, 20 and 30 s
-// after it, the last waited for. /done goes to h3-c, which has no HTTP/3.
+// H3BrokenSteps lists the h3-broken page's requests on a fixed schedule
+// (NoWait). After warm-up and GOAWAYs (moving Safari to HTTP/3), both hosts
+// carry two HTTP/3 fetches. Then:
+//   - silence.so goes unanswered and h3-a's connection goes dark;
+//     silent1–6 follow over 33 s (past the 30 s idle timeout) while keep1/2.cs
+//     keep h3-b's connection busy;
+//   - close.cs closes h3-b's connection and no new QUIC connection is
+//     answered; closed1–6 follow over 30 s.
+//
+// /done goes to h3-c, which has no HTTP/3.
 func H3BrokenSteps() []H3Step {
 	with := func(s H3Step, f func(*H3Step)) H3Step {
 		f(&s)
@@ -264,12 +251,9 @@ func H3BrokenSteps() []H3Step {
 	}
 }
 
-// H3V2Steps lists the h3-v2 page's requests, each started on a fixed
-// schedule (NoWait): fetches 1 s apart from the page at /, a GOAWAY on
-// the HTTP/2 connection (Safari's way to HTTP/3), two more, then after
-// 35 s, when the browsers' 30 s idle timeout has ended the QUIC
-// connection, three more on a new (resumed) one. The fetches over HTTP/3
-// are aioquic's to answer; /done goes to h3-c, over TCP.
+// H3V2Steps lists the h3-v2 page's requests on a fixed schedule (NoWait):
+// fetches, a GOAWAY moving Safari to HTTP/3, two more, then after 35 s (past
+// the 30 s idle timeout) three on a resumed connection. /done goes to h3-c.
 func H3V2Steps() []H3Step {
 	goAway := h3Fetch(h3Host, "goaway.so", 1000)
 	goAway.GoAwayTCP = true
@@ -287,10 +271,8 @@ func H3V2Steps() []H3Step {
 	}
 }
 
-// H3VNSteps lists the h3-vn page's requests, each started on a fixed
-// schedule (NoWait): fetches 1 s apart from the page at /, a GOAWAY on
-// the HTTP/2 connection (Safari's way to HTTP/3), then fetches 2, 3, 8
-// and 18 s after it, the last waited for.
+// H3VNSteps lists the h3-vn page's requests on a fixed schedule (NoWait):
+// fetches, a GOAWAY moving Safari to HTTP/3, then fetches 2–18 s after it.
 func H3VNSteps() []H3Step {
 	goAway := h3Fetch(h3Host, "goaway.so", 1000)
 	goAway.GoAwayTCP = true

@@ -1,36 +1,14 @@
 // Command realcheck compares mimicry with the real browsers on this machine
-// as public fingerprinting services see them, and tries a few sites behind
-// bot-management vendors. It is opt-in and never part of go test: it needs
-// the network, and the browser part takes over the screen.
+// as public fingerprinting echo services see them, and tries a few sites
+// behind bot-management vendors. It is opt-in and never part of go test: it
+// needs the network, and driving browsers takes over the screen.
 //
 //	go run ./cmd/realcheck                                  # mimicry and the sites
 //	go run ./cmd/realcheck -browsers chrome,firefox,safari  # the real browsers too
 //	go run ./cmd/realcheck -echo=false -sites=false -profiles none   # compare only
 //
-// Echo endpoints (endpoints) answer with what they saw of the request:
-// JA3, JA4, peetprint, the Akamai HTTP/2 fingerprint, HTTP/2 frames,
-// header order and values, and over HTTP/3 the QUIC hello, transport
-// parameters and HTTP/3 settings. Every built-in profile and every browser
-// named in -browsers visits each one as a typed URL (mimicry: a plain
-// request, a navigation), and the HTTP/3 ones again until the echo reports
-// HTTP/3, as Alt-Svc moves each client there.
-//
-// Browsers: Chrome and Firefox run on throwaway profiles with their
-// defaults and are driven over DevTools and WebDriver BiDi; Safari opens a
-// window in the user's Safari, driven by AppleScript (it can read the
-// page's text, not its status or cookies). Run them in one short batch.
-//
-// Sites (sites) are plain homepage GETs, one per client per site and a few
-// seconds apart, from each browser named in -browsers, each profile with
-// a fresh client and cookie jar, then Go's net/http default client for
-// contrast. What each got back is classified by its challenge markers.
-//
-// Raw answers go to OUT/echo/<client>/<endpoint>.json and
-// OUT/sites/<client>.json, so runs can be split (browsers once, mimicry
-// again after a fix) and compared together: the comparison is always made
-// from everything in OUT, to OUT/compare.md (summary, mismatches) and
-// OUT/compare-full.md (every field). OUT holds this machine's public IP;
-// it is not meant to be committed.
+// Raw answers go under OUT and the comparison is always rebuilt from all of
+// OUT, so runs can be split. OUT holds this machine's public IP; don't commit it.
 package main
 
 import (

@@ -1,3 +1,6 @@
+// Package proxy is the capture proxy: HTTP (CONNECT and absolute-form) and
+// SOCKS5 on one port. It records how a client asks for each connection and
+// hands the connection on to the capture server.
 package proxy
 
 import (
@@ -35,17 +38,14 @@ type Proxy struct {
 	// capturing (Safari through a manual proxy).
 	PassThrough bool
 	// Plain means the server behind speaks plain HTTP: absolute-form
-	// requests for hosts Allow accepts are passed on (others are answered
-	// 403) and CONNECT is recorded, then answered 502 (a browser may try
-	// HTTPS first). Otherwise CONNECT tunnels are passed on
-	// and absolute-form requests answered 404, but for PlainPort.
+	// requests for allowed hosts are passed on (others get 403) and CONNECT
+	// is recorded, then answered 502. Otherwise CONNECT tunnels are passed
+	// on and absolute-form requests get 404, except for PlainPort.
 	Plain bool
 	// Port and PlainPort are the capture server's two ports, which the
-	// browser's URLs name but, behind the proxy, never dials: Listener's
-	// and PlainListener's addresses report them. A tunnel to PlainPort,
-	// and an absolute-form request to it (which only it serves), come out
-	// of PlainListener, as if the proxy had connected there. Zero: one
-	// port, every connection out of Listener.
+	// browser's URLs name but the proxy never dials. Connections for
+	// PlainPort come out of PlainListener. Zero: every connection comes out
+	// of Listener.
 	Port, PlainPort int
 	// Auth, when set, is the Proxy-Authorization value a CONNECT must
 	// carry: one without it is recorded and answered 407 (Basic), keeping
@@ -174,10 +174,9 @@ func portOf(target string) int {
 }
 
 // http reads requests until one is let through, and returns what to read
-// it from and the host and port it goes to. A CONNECT is recorded and
-// answered (407 and read on while Auth is missing); an absolute-form
-// request is passed on whole, or refused, as Plain and PlainPort say. id
-// numbers the connection.
+// it from and the host and port it goes to. CONNECT is recorded and answered
+// (407 while Auth is missing); absolute-form requests are passed on or
+// refused as Plain and PlainPort say. id numbers the connection.
 func (p *Proxy) http(conn net.Conn, br *bufio.Reader, id int) (io.Reader, string, error) {
 	for {
 		line, err := br.ReadString('\n')
@@ -458,9 +457,8 @@ func (c *passConn) Read(b []byte) (int, error) {
 	return c.r.Read(b)
 }
 
-// ProxyConn numbers the client's connection to the proxy that carries
-// this one, as ProxyRequest.Conn does: the capture server records which
-// tunnel carried what.
+// ProxyConn numbers the client's connection to the proxy that carries this
+// one (ProxyRequest.Conn).
 func (c *passConn) ProxyConn() int {
 	return c.id
 }
@@ -510,9 +508,8 @@ func (l *listener) Close() error {
 	return nil
 }
 
-// Addr names the port the listener stands for (Proxy.Port, PlainPort) on
-// the loopback address, or else the proxy: its connections come from the
-// proxy, not a port.
+// Addr is the loopback address with the port the listener stands for, or
+// else the proxy's address.
 func (l *listener) Addr() net.Addr {
 	if *l.port != 0 {
 		return &net.TCPAddr{

@@ -16,17 +16,10 @@ import (
 )
 
 // Replay returns a scenario that loads the shape of a recorded real page
-// (cmd/pageshape) with synthetic content. Each real host is served under
-// .test, with its site kept apart (www.nike.com becomes www.nike-com.test, a
-// site of its own), from one listener with a certificate per hostname.
-// Generated documents, the top one and every
-// iframe's, schedule the page's requests at their recorded times with the
-// element or API that gives the recorded fetch destination and mode;
-// responses have the recorded status, type, size and cookies (synthetic
-// names and values of the recorded lengths and character classes). When
-// the page is over, the top document asks every host with cookies to delete
-// them (/cleanup), then requests /done. The capture is the whole page:
-// every connection's trace (capture.Page).
+// (cmd/pageshape) with synthetic content, each real host served under .test
+// (see ReplayHost). Requests go out at their recorded times with the recorded
+// destination, mode, status, size and cookie shapes; the capture is the whole
+// page (capture.Page).
 func Replay(p *pageshape.Page) (*Scenario, error) {
 	if len(p.Requests) == 0 {
 		return nil, fmt.Errorf("page %s has no requests", p.Site)

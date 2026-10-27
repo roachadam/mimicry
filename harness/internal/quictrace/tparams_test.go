@@ -5,10 +5,8 @@ import (
 	"testing"
 )
 
-// TestParseTransportParameters decodes quic_transport_parameters bodies:
-// RFC 9001 appendix A.2's ClientHello's, and one with what browsers add
-// (a GREASE parameter, version_information, grease_quic_bit, Google's
-// parameters), every parameter in order; malformed bodies are errors.
+// TestParseTransportParameters decodes RFC 9001 appendix A.2's parameters
+// and a browser-style set, and rejects malformed bodies.
 func TestParseTransportParameters(t *testing.T) {
 	type tp = TransportParameter
 	for _, tc := range []struct {

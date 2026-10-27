@@ -60,12 +60,10 @@ type preflightNeed struct {
 	forced bool
 }
 
-// needsPreflight returns the preflight a browser sends before req, header
-// set h (the page's headers), from page from, or nil when it sends none:
-// a fetch() in CORS mode or an XHR to another origin than the request's,
-// with a method other than GET, HEAD and POST or a header the Fetch
-// standard does not safelist; with force, whatever its method and
-// headers (a hop inheriting its chain's preflight).
+// needsPreflight returns the preflight a browser sends before a
+// cross-origin CORS fetch() or XHR with a non-safelisted method or header,
+// or nil. With force it ignores method and headers (a hop inheriting its
+// chain's preflight).
 func needsPreflight(req *http.Request, r Request, from *url.URL, credentialed bool, h http.Header, force bool) *preflightNeed {
 	if from == nil || (r.Kind != Fetch && r.Kind != XHR) || r.NoCORS {
 		return nil
@@ -105,11 +103,9 @@ type preflightSend struct {
 	rule string
 }
 
-// preflightFor returns req's CORS preflight when the profile's browser
-// sends one (needsPreflight, hopPreflight) and no cached answer allows
-// req (pf, nil otherwise), and whether req needed one at all, sent or
-// cached. It sends nothing and changes nothing: RoundTrip sends pf
-// (sendPreflight), Plan only plans it.
+// preflightFor returns req's CORS preflight unless none is needed or a
+// cached answer allows req, and whether one was needed at all. It changes
+// nothing; RoundTrip sends pf, Plan only plans it.
 func (t *Transport) preflightFor(req *http.Request, r Request, from *url.URL, credentialed bool, h http.Header) (needed bool, pf *preflightSend, err error) {
 	need := needsPreflight(req, r, from, credentialed, h, false)
 	if need == nil {
@@ -188,11 +184,9 @@ func (t *Transport) sendPreflight(pf *preflightSend, ignore bool) error {
 	return nil
 }
 
-// hopPreflight reports whether req, when a redirect's hop that could be
-// preflighted (could), is because the request whose redirect it follows
-// needed a preflight: the profile's redirects.hop_preflight inherit
-// (Firefox, Safari preflighted the GET a cross-site PATCH answered 303
-// became; Chrome did not). Not measured without the rule.
+// hopPreflight reports whether a redirect hop that could be preflighted
+// is, because the request before it was (redirects.hop_preflight inherit:
+// Firefox and Safari, not Chrome). Without the rule it is not measured.
 func (t *Transport) hopPreflight(req *http.Request, could bool) (bool, error) {
 	if !could || req.Response == nil || req.Response.Request == nil {
 		return false, nil
@@ -368,12 +362,10 @@ func safelistedMethod(m string) bool {
 	return m == http.MethodGet || m == http.MethodHead || m == http.MethodPost
 }
 
-// unsafeHeaders returns h's CORS-unsafe request-header names (Fetch
-// standard), lowercase, sorted, once each: headers the page set that a
-// preflight must allow. Forbidden headers, which a page cannot set, are
-// never among them, nor is User-Agent, which Chrome still forbids. (The
-// standard's limit of 1024 bytes on safelisted values cannot be reached:
-// five names of at most 128 bytes each.)
+// unsafeHeaders returns h's CORS-unsafe header names (Fetch standard),
+// lowercase, sorted and unique. Forbidden headers and User-Agent (which
+// Chrome still forbids) are never among them. The 1024-byte safelist
+// limit is unreachable here.
 func unsafeHeaders(h http.Header) []string {
 	var unsafe []string
 	for name, values := range h {

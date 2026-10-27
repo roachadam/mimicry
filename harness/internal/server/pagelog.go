@@ -16,26 +16,20 @@ type pageLog struct {
 	conns    int
 	requests []capture.H1Request
 	h2       []*h2conn
-	// connections are every connection's host, protocol, resumption and
-	// parsed ClientHello; firstHello and firstRecords are the first one's
-	// raw ClientHello and the records that carried it: on a fresh server it
-	// cannot resume a session, so it is the browser's full handshake.
+	// firstHello and firstRecords are the first connection's raw
+	// ClientHello: on a fresh server it cannot resume, so it is the full one.
 	connections  []capture.Connection
 	firstHello   []byte
 	firstRecords []byte
 	// index finds a connection's entry in connections by its capture.
 	index map[*capture.Capture]int
-	// start is when the server started serving the page; websockets are
-	// the sockets the page opened, settled each one's channel, closed once
-	// its transport has ended or the server stopped reading it, and results
-	// what its script reported of each (the websocket scenarios).
+	// settled has a channel per websocket, closed once its transport ended
+	// or the server stopped reading it.
 	start      time.Time
 	websockets []*capture.WebSocket
 	settled    []chan struct{}
 	results    []capture.WSResult
-	// quic is what the server's UDP socket received (the h3 scenarios):
-	// every client address's datagrams, the HTTP/3 connections served,
-	// and the key log that opens their packets.
+	// quic is what the UDP socket received (the h3 scenarios).
 	quic quicLog
 }
 
@@ -148,9 +142,7 @@ func (l *pageLog) result(r capture.WSResult) {
 }
 
 // page stops tracing every HTTP/2 connection and returns the whole page
-// load: each connection's trace, every HTTP/1.1 request, the WebSockets
-// (once they settled: settleWebSockets) and the QUIC connections as
-// recorded so far.
+// load as recorded so far, WebSockets once settled (settleWebSockets).
 func (l *pageLog) page() *capture.Page {
 	l.settleWebSockets()
 	quic := l.quicConns()
@@ -174,13 +166,10 @@ func (l *pageLog) page() *capture.Page {
 	return p
 }
 
-// settleWebSockets waits until every WebSocket's transport has ended (or
-// the server stopped reading it), for at most wsSettle. A client ends a
-// socket's transport before it asks for /done, but the goroutine reading
-// the socket may see that after /done is answered; and the server ends a
-// socket whose close handshake started within WSLinger. Waiting records
-// who ended each transport, and when, whatever order the server's
-// goroutines run in. A socket never closed holds the page wsSettle.
+// settleWebSockets waits, at most wsSettle, until every WebSocket's
+// transport has ended or the server stopped reading it. The reader may see
+// a client's close only after /done is answered, so this records who ended
+// each transport, and when, whatever order the goroutines run in.
 func (l *pageLog) settleWebSockets() {
 	l.mu.Lock()
 	settled := slices.Clone(l.settled)
@@ -259,10 +248,9 @@ func (r *wsRecorder) fail(err error) {
 }
 
 // pageProfile trims a page's capture to what is the same in every sample:
-// the ClientHello of the page's first connection and the user agent that
-// names the browser. The connection that asked for /done may have resumed
-// a session, and its first request depends on timing and carries ports and
-// cookies; the page's data is its traces.
+// the first connection's ClientHello and the user agent. The /done
+// connection may have resumed and its request varies with timing, ports
+// and cookies; the page's data is its traces.
 func (l *pageLog) pageProfile(c *capture.Capture) {
 	l.mu.Lock()
 	if len(l.connections) > 0 {

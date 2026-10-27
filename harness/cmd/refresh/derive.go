@@ -17,19 +17,11 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// fromCapture copies prev into a profile named name at version, with what
-// the new captures show of the fingerprint layer: the default scenario's
-// ClientHello (tls but for what hellogen derives: resumption, websocket_h1,
-// quic), HTTP/2 preface (settings, window_update, priorities,
-// headers_priority, pseudo_header_order, first_stream_id,
-// stream_window_update) and navigation headers, and the http1 scenario's
-// HTTP/1.1 navigation (h1, nil if it was not recaptured: prev's lines then
-// keep their places with their version tokens rewritten). The navigation
-// lists keep prev's slots (headers without a value: Cookie, Referer,
-// Content-Length, Host) after the same header as before. Everything else is
-// prev's, to be regenerated (kinds, context, variants, quic, http3, the
-// hello's shape) or copied (cookies, proxy, redirects, connections,
-// websocket, hpack and the HTTP/2 flow-control values).
+// fromCapture copies prev into a profile named name at version, taking from
+// the captures the default scenario's ClientHello, HTTP/2 preface and
+// navigation headers, and the http1 navigation (h1; nil keeps prev's lines
+// with version tokens rewritten). Everything else stays prev's, to be
+// regenerated or copied.
 func fromCapture(prev *profile.Profile, name, version string, captured *profile.Profile, h1 []string, capturesFrom map[string]string) (*profile.Profile, error) {
 	p, err := clone(prev)
 	if err != nil {
@@ -96,10 +88,8 @@ func fromCapture(prev *profile.Profile, name, version string, captured *profile.
 	return p, nil
 }
 
-// withSlots is the captured header list with old's slots (headers without
-// a value, which the request fills in) in it: a captured header that is a
-// slot in old loses its value (Host), and a slot the capture lacks goes
-// after the nearest header before it in old that the list has, or first.
+// withSlots is the captured header list with old's slots (valueless headers
+// the request fills in) kept after the same preceding header as in old.
 func withSlots(old, captured []profile.Header) []profile.Header {
 	isSlot := func(name string) bool {
 		return slices.ContainsFunc(old, func(h profile.Header) bool {

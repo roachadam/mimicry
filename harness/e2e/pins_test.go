@@ -11,13 +11,9 @@ import (
 	"github.com/roachadam/mimicry"
 )
 
-// TestHTTP3Pins: Config.Pins holds QUIC handshakes as it holds TCP ones
-// (the root package's TestPins covers TCP). The origin's TCP server and
-// its HTTP/3 server (quic-go) present different keys under one root: an
-// origin whose pins name only the TCP server's key never moves to
-// HTTP/3, its requests answered over TCP after the refused QUIC attempts;
-// one whose pins name both moves, and its responses carry the QUIC
-// connection's TLS state.
+// TestHTTP3Pins checks Config.Pins holds QUIC handshakes as it holds TCP
+// ones: an origin pinned to the TCP server's key only never moves to HTTP/3;
+// one pinned to both does.
 func TestHTTP3Pins(t *testing.T) {
 	pki := newInteropPKI(t)
 	tcpPin := spkiPin(pki.leaf.Leaf)

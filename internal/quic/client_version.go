@@ -16,11 +16,9 @@ import (
 )
 
 // ErrVersionNegotiation is the error of a connection the server answered
-// with a Version Negotiation packet that does not list its version
-// (RFC 9000, section 6.2): Dial returns it at once, as a
-// *VersionNegotiationError, so the caller can try again in a version the
-// server lists (RetryVersion) or fall back to TCP without waiting for a
-// timeout. errors.Is matches it.
+// with a Version Negotiation packet that does not list its version (RFC
+// 9000, section 6.2). Dial returns it at once as a *VersionNegotiationError;
+// errors.Is matches it.
 var ErrVersionNegotiation = errVersionNegotiation
 
 // VersionNegotiationError is a Version Negotiation packet's answer.
@@ -42,10 +40,8 @@ func (e *VersionNegotiationError) Is(target error) bool {
 // RetryVersion is the version a profile's client starts a new connection
 // in after err, a Version Negotiation packet (RFC 9368, section 2.1), when
 // its profile retries (QUICVersionNegotiation.Retry): the first of its
-// Available Versions the packet lists, other than the one it was in.
-// Firefox does so 1 ms after the packet, in v2 (capture h3-vn); Chrome
-// and Safari do not. The new connection's DialConfig sets
-// AfterVersionNegotiation.
+// Available Versions the packet lists, other than the one it was in. The
+// new connection's DialConfig sets AfterVersionNegotiation.
 func RetryVersion(err error, p *profile.QUIC, from uint32) (uint32, bool) {
 	var vn *VersionNegotiationError
 	if !p.VersionNegotiation.Retry || !errors.As(err, &vn) {
@@ -142,12 +138,9 @@ func (c *Conn) quicVersion() uint32 {
 
 // clientUpgrade switches a client to v2 when the first packet of buf is
 // the server's v2 Initial (RFC 9369, section 4.1: "the first long header
-// Version field that differs from the original version"). Only a client
-// listing v2 switches, only before it has the server's ServerHello (a
-// CRYPTO frame in version 1 settles version 1), and only on a packet the
-// v2 Initial keys open: a forged Version field does not move it. The keys
-// are derived from the Destination Connection ID of the client's Initial
-// packets, as version 1's are.
+// Version field that differs from the original version"). It switches only
+// if it lists v2, before the ServerHello, and on a packet the v2 Initial
+// keys open, so a forged Version field does not move it.
 func (c *Conn) clientUpgrade(buf []byte) {
 	cc := c.client
 	if cc.version != quicVersion1 || !cc.offers(quicVersion2) ||

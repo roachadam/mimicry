@@ -2,10 +2,9 @@ package profile
 
 // TLS describes a browser's ClientHello.
 type TLS struct {
-	// RecordVersion is the record-layer version of the TLS records that
-	// carry the ClientHello: 0x0301 for every browser captured (RFC 8446,
-	// section 5.1, allows 0x0301 for the initial ClientHello). Zero in a
-	// capture whose records were not kept.
+	// RecordVersion is the record-layer version of the records carrying the
+	// ClientHello: 0x0301 for every browser captured. Zero in a capture
+	// whose records were not kept.
 	RecordVersion Code `json:"record_version,omitempty"`
 	// LegacyVersion is the ClientHello's legacy_version: 0x0303 in a TLS 1.3
 	// ClientHello (RFC 8446, section 4.1.2).
@@ -39,12 +38,10 @@ type TLS struct {
 	QUIC *QUICHello `json:"quic,omitempty"`
 }
 
-// Resumption describes how a browser resumes sessions. With a TLS 1.3
-// ticket, the resumed ClientHello is the full one, in the same order or
-// shuffled alike, minus Drop, with pre_shared_key last; each ticket is used
-// once (Chrome, Firefox), so concurrent new connections resume one at a
-// time. With a TLS 1.2 ticket, the ClientHello is the full one with the
-// ticket in session_ticket, used as TLS12 says.
+// Resumption describes how a browser resumes sessions. A TLS 1.3 resumed
+// ClientHello is the full one minus Drop, with pre_shared_key last; each
+// ticket is used once, so concurrent connections resume one at a time. A
+// TLS 1.2 ticket goes in session_ticket, used as TLS12 says.
 type Resumption struct {
 	// Drop are extensions a TLS 1.3 resumed ClientHello leaves out
 	// (Firefox: session_ticket).
@@ -52,11 +49,10 @@ type Resumption struct {
 	// TLS12 is how TLS 1.2 session tickets are used: TLS12Reuse or
 	// TLS12SingleUse. Empty: TLS 1.2 sessions are not resumed.
 	TLS12 string `json:"tls12,omitempty"`
-	// ECHPayloadLengths are the GREASE ECH payload lengths a TLS 1.3
-	// resumed ClientHello picks from, one per connection, in place of the
-	// full hello's ech.payload_lengths: the inner hello it pads for carries
-	// the ticket (Firefox: 400 bytes instead of 240). Required when the
-	// ClientHello has encrypted_client_hello.
+	// ECHPayloadLengths replace ech.payload_lengths in a TLS 1.3 resumed
+	// ClientHello, since the padded inner hello carries the ticket (Firefox:
+	// 400 instead of 240). Required when the ClientHello has
+	// encrypted_client_hello.
 	ECHPayloadLengths []uint16 `json:"ech_payload_lengths,omitempty"`
 }
 
@@ -134,13 +130,10 @@ type Extension struct {
 	RecordSizeLimit uint16 `json:"record_size_limit,omitempty"`
 }
 
-// ECH is the shape of the GREASE encrypted_client_hello extension a browser
-// sends to a server it holds no ECH configuration for: an outer ClientHello's
-// extension with an HPKE cipher suite, a config_id, an encapsulated key and
-// a payload, all but their lengths random. The config_id is a random byte
-// per connection; the cipher suite and the payload length are picked per
-// connection from CipherSuites and PayloadLengths, which list every value
-// the captures show (one each when the browser does not vary it).
+// ECH is the shape of the GREASE encrypted_client_hello extension sent to a
+// server with no known ECH configuration. All but its lengths are random;
+// the cipher suite and payload length are picked per connection from
+// CipherSuites and PayloadLengths.
 type ECH struct {
 	// CipherSuites are the HPKE symmetric cipher suites, sorted.
 	CipherSuites []HPKESuite `json:"cipher_suites"`

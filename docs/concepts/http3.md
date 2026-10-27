@@ -89,7 +89,9 @@ with 0x53f8 when the server's transport parameters lack
 `version_information`; that counts as one failed attempt. Chrome's source
 also delays its TCP job by 1.5 × the origin's smoothed RTT when it expects
 QUIC to work; no loopback capture can tell that from no delay, so it is not
-modelled.
+modelled. Firefox's re-validation (`revalidate_ms`) is bounded by the
+captures: a request 0.8 s after a failure did not start a fresh attempt,
+one 3.05 s after did.
 
 A live connection whose path stops answering: Chrome moves to a new UDP
 port once its oldest unacknowledged packet is 4 of its PTOs old
@@ -143,6 +145,12 @@ after the browser's algorithm rather than a sampled distribution:
   (`quic.key_update`): each browser only follows the server's (so against
   a server that never updates, a connection's keys outlive AES-GCM's
   2^23-packet limit after about 10 GB sent).
+  Measured detail: Firefox's batched ACKs cover 2–7 packets, Chrome's
+  exactly 10 in 97% of ACKs; Safari raises stream credit as its
+  application reads (62 B to 2.1 MB apart, median about 1 MB), its
+  connection limit first at 15.2–15.9 MB, Safari 27 sending a quarter to
+  a third of the raises in other packets; no browser started a key
+  update in 3,476–8,619 packets sent and 37,000 received.
 - **Versions:** Firefox lists v2 in `version_information` and moves to it
   when the server upgrades it compatibly (RFC 9368), then resumes that
   origin in v2; it answers Version Negotiation that lists v2 with a new
@@ -173,7 +181,8 @@ unidirectional streams open and when (with the Finished, after it, or at
 the first QPACK insert), the QPACK encoder's strategy and Huffman rule
 (Chrome indexes every field, Firefox inserts only names missing from the
 static table, Safari uses the static table only), PRIORITY_UPDATE before
-each request with a priority (Chrome), DATA frame sizes, and Safari's
+each request with a priority (Chrome), DATA frame sizes (Firefox caps
+them at 32768 bytes, the first at 32224), and Safari's
 first request waiting until the handshake is confirmed
 (`requests_after_confirmed`). Header lists are the request's HTTP/2 list,
 with Firefox's HTTP/3 changes (`http3.headers`: pseudo-header order

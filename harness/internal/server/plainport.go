@@ -12,10 +12,8 @@ type portPair struct {
 }
 
 // PlainPort reports a scenario that serves plain HTTP on a second port of
-// its own (Server.PlainListener), which refuses TLS: a browser that tries
-// an http:// URL of that port over TLS first (Safari's automatic HTTPS
-// upgrade keeps the port) fails there and falls back to plain HTTP. Hosts
-// map to the same address on either port.
+// its own (Server.PlainListener), which refuses TLS so a browser trying
+// HTTPS first there (Safari's automatic upgrade keeps the port) falls back.
 func (sc *Scenario) PlainPort() bool {
 	return sc.plainPort
 }
@@ -27,8 +25,7 @@ func (sc *Scenario) StartsPlain() bool {
 }
 
 // onPorts is the scenario as served on tlsAddr and plainAddr (nil for a
-// scenario without a plain port): its answers learn both ports
-// (request.ports).
+// scenario without a plain port), so its answers learn both ports.
 func (sc *Scenario) onPorts(tlsAddr, plainAddr net.Addr) *Scenario {
 	on := *sc
 	_, on.ports.tls, _ = net.SplitHostPort(tlsAddr.String())
@@ -41,9 +38,8 @@ func (sc *Scenario) onPorts(tlsAddr, plainAddr net.Addr) *Scenario {
 // errTLSRefused is a TLS handshake on a plain port.
 var errTLSRefused = errors.New("plain port: refused a TLS handshake (answered 400, as an HTTP-only server would)")
 
-// refuseTLS answers a TLS ClientHello on a plain port as an HTTP-only
-// server answers bytes that are not HTTP: 400 and close. The browser's TLS
-// handshake fails at once, rather than waiting for a ServerHello.
+// refuseTLS answers a TLS ClientHello on a plain port with 400 and close,
+// as an HTTP-only server would, so the handshake fails at once.
 func refuseTLS(conn net.Conn) error {
 	if err := writeResponse(conn, response{
 		status:      400,

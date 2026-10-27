@@ -134,10 +134,9 @@ type origin struct {
 	// together (Fallback.ZeroRTTHolds): its 0-RTT attempt gave up, so the
 	// next attempt starts beside TCP.
 	together bool
-	// revalidate (FallbackBackground): when a resumed attempt failed or a
-	// live connection died. Until an attempt succeeds again, requests go
-	// on TCP, and one Fallback.RevalidateMillis later starts a fresh
-	// attempt beside it. Zero: none.
+	// revalidate (FallbackBackground): after a failed resumed attempt or a dead
+	// connection, requests go on TCP and a fresh attempt starts RevalidateMillis
+	// later. Zero: none.
 	revalidate time.Time
 	// reconnect (Fallback.PendingQUIC): no dial starts before then, after
 	// a live connection died.
@@ -148,10 +147,9 @@ type origin struct {
 	rtt   time.Duration
 }
 
-// quicState is the engine's HTTP/3: what each origin advertised and how
-// its connections went, its connections (a pool keyed like the TCP
-// pool's, plus " h3") and its QUIC session tickets. Safe for concurrent
-// use.
+// quicState is the engine's HTTP/3 state: per-origin Alt-Svc and history,
+// the QUIC pool (route key plus " h3") and session tickets. Safe for
+// concurrent use.
 type quicState struct {
 	mu      sync.Mutex
 	origins map[string]*origin
@@ -201,12 +199,9 @@ func (o *origin) available(now time.Time) bool {
 	return o.hasAlt && !now.After(o.alt.expires) && !o.broken
 }
 
-// learnAltSvc records the Alt-Svc of a response to req on r, and starts
-// the origin's QUIC connection at once, in the background, where the
-// profile does (SwitchOnAltSvc), until the origin has used HTTP/3: after
-// that a request decides (a new connection, Firefox's race after a
-// GOAWAY, or its validation after a failure), not the Alt-Svc of the
-// response that came with the GOAWAY.
+// learnAltSvc records resp's Alt-Svc and, where the profile switches on
+// Alt-Svc, starts the origin's QUIC connection in the background. Once the
+// origin has used HTTP/3, requests decide instead.
 func (e *Engine) learnAltSvc(req *http.Request, r route, resp *http.Response) {
 	if !e.h3Route(req, r) {
 		return
@@ -242,12 +237,9 @@ func (e *Engine) mayDial(o *origin, r route, now time.Time) bool {
 	return !ok
 }
 
-// tryH3 sends req over HTTP/3 if the origin's discovery and fallback rules
-// say so now; handled is false when it goes on TCP instead (having maybe
-// started a QUIC connection in the background, as the browser does).
-// race, when not nil, is the gate of the QUIC attempt racing req's TCP
-// connection: the caller closes it once req has its response on TCP, or
-// failed there.
+// tryH3 sends req over HTTP/3 if discovery and fallback say so now; handled
+// is false when it goes on TCP. race, when not nil, gates the QUIC attempt
+// racing req's TCP connection: the caller closes it once req is done on TCP.
 func (e *Engine) tryH3(ctx context.Context, req *http.Request, r route) (resp *http.Response, handled bool, race chan struct{}, err error) {
 	if !e.h3Route(req, r) || r.tcpOnly {
 		return nil, false, nil, nil
@@ -310,10 +302,7 @@ func (e *Engine) pickWay(o *origin, tcpOpen bool) way {
 }
 
 // quicFor returns the QUIC connection a request on r goes on, or nil for
-// TCP, as the profile's Discovery and Fallback say (pickWay): the origin's
-// pooled connection, or one it waits for (and how long), or none, maybe
-// with an attempt started in the background; race is the gate of an
-// attempt that races the request's TCP connection (tryH3).
+// TCP, as pickWay decides; race is as in tryH3.
 func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan struct{}, err error) {
 	if pooled, ok := e.quic.pool.Shared(h3Key(r)); ok {
 		return pooled, nil, nil
@@ -344,13 +333,9 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 	hold := false
 	switch e.pickWay(o, tcpOpen) {
 	case wayGoAwayRace:
-		// The request goes on TCP; a resumed QUIC connection follows it
-		// (Firefox), which the requests after wait for (Fallback.Hold).
-		// It starts RaceDelayMillis later, and never before the request
-		// has its response on TCP: in every Firefox sample the TCP
-		// connection is up, the request sent and Firefox's GOAWAY on it
-		// (sent once its request is done) out before the QUIC
-		// connection's first datagram, an order no load may change.
+		// On TCP; a resumed QUIC connection follows RaceDelayMillis later, never
+		// before the TCP response (the order in every Firefox sample), and later
+		// requests wait for it (Fallback.Hold).
 		o.last = nil
 		if o.attempt == nil {
 			race = make(chan struct{})
@@ -423,12 +408,9 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 	return c, nil, err
 }
 
-// await waits for a, a race against TCP (FallbackRace): the attempt's
-// connection if it is up before Fallback.TCPDelayMillis (none while it is
-// a together attempt), else nil for TCP, even if it failed sooner. A
-// connection resumed in 0-RTT is up at once, so with ZeroRTTHolds the
-// request waits for its handshake there. With AbandonOnTCP the attempt
-// is dropped as the request goes on TCP.
+// await waits for a racing attempt (FallbackRace) up to TCPDelayMillis,
+// then returns nil for TCP. With ZeroRTTHolds a 0-RTT request waits for the
+// handshake; with AbandonOnTCP the attempt is dropped.
 func (e *Engine) await(ctx context.Context, a *attempt) (*quicConn, error) {
 	fb := e.profile.HTTP3.Discovery.Fallback
 	delay := drawMillis(fb.TCPDelayMillis)
@@ -504,12 +486,9 @@ func millis(n int) time.Duration {
 	return time.Duration(n) * time.Millisecond
 }
 
-// roundTripH3 sends req on c. A request the server did not process goes
-// to another connection, and c leaves the pool; so does a replayable one
-// whose connection ended before its response: the server closed it as
-// the request went out (as over a reused HTTP/1.1 connection), its 0-RTT
-// handshake gave up, or its path died, when the request goes where
-// Fallback.Pending says.
+// roundTripH3 sends req on c. A request the server did not process, or a
+// replayable one whose connection ended before its response, goes to another
+// connection and c leaves the pool.
 func (e *Engine) roundTripH3(r route, c *quicConn, req *http.Request) (*http.Response, bool, error) {
 	key := h3Key(r)
 	c.inFlight.Add(1)
@@ -536,15 +515,9 @@ func (e *Engine) roundTripH3(r route, c *quicConn, req *http.Request) (*http.Res
 	return resp, true, err
 }
 
-// diedPending handles c's death with requests pending, once, after its
-// handshake's outcome is recorded, and reports whether they go on TCP. A
-// connection that died after its handshake (its idle timeout, or its
-// path: QUIC.Loss.PathDegrading) sends them where Fallback.Pending says:
-// to TCP, a fresh validation following RevalidateMillis later (Firefox,
-// which opens a TCP connection for each and sends them all on the first),
-// or to a new QUIC connection ReconnectMillis later (Safari). Any other
-// end (the server's close, a 0-RTT handshake that gave up) leaves them to
-// the usual rules.
+// diedPending handles c's death with requests pending, once, and reports
+// whether they go on TCP. Only a death after the handshake (idle timeout or
+// path degrading) follows Fallback.Pending; other ends use the usual rules.
 func (e *Engine) diedPending(r route, c *quicConn, req *http.Request) bool {
 	select {
 	case <-c.qc.Done():
@@ -579,12 +552,9 @@ func (e *Engine) diedPending(r route, c *quicConn, req *http.Request) bool {
 	return c.toTCP
 }
 
-// declineExtra opens TCP connections beside the one pending requests
-// share, one per request up to the profile's per-host limit, and
-// declines each once its handshake is done (h2.Decline), as
-// Fallback.PendingTCP says: Firefox's, when its QUIC connection idled out
-// under 6 requests (h3-broken: 6 TCP connections in 3 ms, all requests on
-// one, GOAWAY on the others).
+// declineExtra opens and declines (h2.Decline) one extra TCP connection per
+// pending request up to the per-host limit, as Fallback.PendingTCP says
+// (Firefox, measured in the h3-broken capture).
 func (e *Engine) declineExtra(r route, req *http.Request, pending int) {
 	n := min(pending, e.profile.Connections.HTTP1PerHost) - 1
 	for range n {
@@ -688,16 +658,10 @@ func (e *Engine) runAttempt(ctx context.Context, o *origin, r route, a *attempt,
 	close(a.done)
 }
 
-// goAwayIfReplaced sends s, the HTTP/2 connection req just opened on r
-// and pooled, GOAWAY after req if the origin's QUIC connection came up
-// while it was being established (goaway_tcp). Firefox replaces every
-// HTTP/2 connection to an origin with a live HTTP/3 one, whenever it was
-// established: runAttempt sends GOAWAY on the one pooled when QUIC comes
-// up, this on one pooled after (a request that went on TCP beside the
-// attempt, its dial slower than the attempt). Each decides under
-// e.quic.mu after pooling its own connection, so one of them sees the
-// other's. Only for a request that may use HTTP/3: one whose kind the
-// profile never measured there keeps its connection.
+// goAwayIfReplaced sends GOAWAY on s, just pooled by req, if the origin's
+// QUIC connection came up while s was dialling (goaway_tcp). runAttempt
+// covers connections pooled before; both decide under e.quic.mu, so one
+// sees the other. Requests of a kind unmeasured over HTTP/3 keep s.
 func (e *Engine) goAwayIfReplaced(req *http.Request, r route, s *shared) {
 	if !e.h3Route(req, r) || !e.profile.HTTP3.Discovery.GoAwayTCP {
 		return
@@ -710,10 +674,8 @@ func (e *Engine) goAwayIfReplaced(req *http.Request, r route, s *shared) {
 	}
 }
 
-// goAwayTCP takes s, an HTTP/2 connection of r's, out of the pool and
-// sends it GOAWAY once the request that opened it has its response (one
-// in flight is never refused), as Firefox does to the origin's HTTP/2
-// connections its HTTP/3 one replaces. e.quic.mu must be held.
+// goAwayTCP unpools s and sends GOAWAY once its opening request has its
+// response. e.quic.mu must be held.
 func (e *Engine) goAwayTCP(r route, s *shared) {
 	e.pool.RemoveShared(r.key, s)
 	go func() {
@@ -743,11 +705,9 @@ func (e *Engine) succeeded(o *origin) {
 	o.used, o.failures, o.revalidate = true, 0, time.Time{}
 }
 
-// failed records an attempt that failed (resumed: it offered a ticket):
-// it counts towards Fallback.BrokenAfter unless it resumed and the
-// profile counts only fresh ones; after a failed resumed one, Chrome's
-// next attempt starts beside TCP (ZeroRTTHolds) and Firefox validates
-// afresh later (RevalidateMillis). e.quic.mu must be held.
+// failed records a failed attempt toward Fallback.BrokenAfter (resumed
+// ones only if counted) and sets up the next attempt (ZeroRTTHolds,
+// RevalidateMillis). e.quic.mu must be held.
 func (e *Engine) failed(o *origin, resumed bool) {
 	fb := e.profile.HTTP3.Discovery.Fallback
 	if resumed && !fb.BrokenCountsResumed {
@@ -765,10 +725,9 @@ func (e *Engine) failed(o *origin, resumed bool) {
 	}
 }
 
-// connectH3 dials r's origin's alternative as spec says and starts
-// HTTP/3 on it, bounded by the dial timeout. A Version Negotiation packet
-// that lists a version the profile retries in (Firefox: v2) starts a
-// second connection in it at once.
+// connectH3 dials r's alternative per spec and starts HTTP/3 on it. A
+// Version Negotiation listing a version the profile retries in starts a
+// second connection at once.
 func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicConn, error) {
 	q := e.quic
 	key := h3Key(r)

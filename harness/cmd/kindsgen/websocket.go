@@ -17,14 +17,10 @@ import (
 const wsBase = "ws"
 
 // websocketRequests returns the websocket pages' handshakes
-// (server.WebSocketSteps): each wss:// socket over HTTP/2 (an extended
-// CONNECT, websocket-h2) and HTTP/1.1 (an Upgrade, websocket) as one
-// request per sample, and each ws:// socket (plain-so, in either capture)
-// as a plain request. An extended CONNECT is the Upgrade's GET over HTTP/2,
-// so its method is GET. A socket is never CORS-checked: Origin is how
-// every handshake names its page. The transport is the one the scenario
-// leaves the browser (extended CONNECT once the server allows it, HTTP/1.1
-// otherwise); a socket on another, or captured twice, is an error.
+// (server.WebSocketSteps), one request per sample; ws:// ones are plain.
+// An extended CONNECT counts as GET. Origin never makes a socket
+// CORS-checked. A socket on an unexpected transport, or captured twice,
+// is an error.
 func websocketRequests(h1Pages, h2Pages []*capture.Page) ([]*request, error) {
 	steps := map[string]server.WebSocketStep{}
 	for _, st := range server.WebSocketSteps() {

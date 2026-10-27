@@ -5,14 +5,10 @@ import (
 	"strings"
 )
 
-// wsProse is the text varied messages are cut from (WSMessage.Prose):
-// the chat, search, cart and presence events a site's socket carries,
-// one JSON object per line, drawn from a fixed seed so the page and
-// mimicry send the same bytes. Unlike wsPattern it repeats irregularly,
-// at every distance, so compressors that differ only in how far they
-// search or how lazily they match (zlib levels 6 and 7, window sizes)
-// give different bytes. ASCII only: a JavaScript string's length is
-// then its UTF-8 length.
+// wsProse is the text varied messages are cut from (WSMessage.Prose): JSON
+// events from a fixed seed, so page and mimicry send the same bytes. It
+// repeats at every distance, so compressors differing in level or window
+// give different bytes. ASCII only, so JS length equals UTF-8 length.
 var wsProse = makeProse(48 << 10)
 
 // wsRand is the pseudo-random sequence of wsProse and wsNoise: a 32-bit

@@ -58,14 +58,9 @@ func wsMessages(t *testing.T, ws *capture.WebSocket) []wsMessage {
 	return out
 }
 
-// Every message a browser sent on a socket that negotiated
-// permessage-deflate is what the profile's websocket section makes of it
-// (ws.Compressor, with the window and context the server's answer
-// allowed): compressed by its library byte for byte, or sent
-// uncompressed where its rule says. Where the compressor cannot be made
-// (a window the browser's library refuses), the browser sent nothing.
-// TestWebSocketsMatchBrowser compares mimicry's frames with the same
-// captures; this test names the first message and byte that differ.
+// Every message a browser sent with permessage-deflate is what the profile's
+// ws.Compressor makes of it, byte for byte; where no compressor can be made,
+// the browser sent nothing. It names the first differing message and byte.
 func TestDeflateReproducesBrowserMessages(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {

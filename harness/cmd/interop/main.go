@@ -7,25 +7,11 @@
 //	go run ./cmd/interop -local -servers quic-go,ngtcp2 -cases handshake,retry \
 //	    -profiles chrome-155-macos
 //
-// Local runs start the QUIC interop runner's endpoint images
-// (quic-interop-runner implementations_quic.json, pulled beforehand) in
-// the server role, standalone: UDP 443 mapped to a local port, /www and
-// /certs mounted as run_endpoint.sh expects, and /setup.sh replaced, since
-// the simulator's routes would cut the container off docker's network.
-// Each runner case a browser client can take part in (see cases) runs on
-// a connection opened as the engine opens it, on a watched socket that
-// also applies the loss cases' impairments; "discovery" goes through
-// mimicry's public API, a TCP front with Alt-Svc moving it to the server.
-//
-// Public runs walk each site through the public API (TCP, Alt-Svc, the
-// profile's switch to HTTP/3, a larger download, a second connection),
-// then probe it directly: a fresh QUIC connection and a second one
-// resuming it in 0-RTT where the profile does.
-//
-// Results go to OUT/results.json (every row with its connections'
-// facts), OUT/results.md (the matrices), and per row OUT/local or
-// OUT/public: each connection's key log and datagram trace, and the
-// server's logs (qlog, key log, docker output).
+// Local runs start the QUIC interop runner's server images standalone
+// (pulled beforehand) and run each case a browser client can take part in.
+// Public runs walk each site through the public API, then probe it
+// directly. Results go to OUT/results.json, OUT/results.md, and per-row
+// key logs, datagram traces and server logs under OUT/local or OUT/public.
 package main
 
 import (

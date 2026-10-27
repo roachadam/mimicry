@@ -10,13 +10,9 @@ import (
 	"github.com/roachadam/mimicry/harness/internal/capture"
 )
 
-// The WebSocket recorder is the oracle for every websocket capture, so it
-// is checked against the RFCs' own examples: RFC 6455 section 5.7 (masking,
-// fragmentation, control frames, 16- and 64-bit lengths) and RFC 7692
-// section 7.2.3 (compressed messages, fragmented and with context
-// takeover). Each example is fed to a socket as the client's bytes; the
-// recorded frames must be the RFC's, and malformed input must be an error
-// recorded, never a frame.
+// The WebSocket recorder is the oracle for every websocket capture, so it is
+// checked against the examples of RFC 6455 section 5.7 and RFC 7692 section
+// 7.2.3; malformed input must record an error, never a frame.
 func TestWebSocketRecordsRFCExamples(t *testing.T) {
 	hello := []byte("Hello")
 	bin256 := bytes.Repeat([]byte{0xab}, 256)

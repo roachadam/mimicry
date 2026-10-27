@@ -35,9 +35,7 @@ func (r *h3Recorder) get(path string) ([]string, bool) {
 }
 
 // startH3Recorder serves r over QUIC on every local address and returns
-// its port. Its SETTINGS give the client no QPACK dynamic table, so each
-// field section decodes on its own. The certificate is the running
-// test's (newTestEngine sets it).
+// its port. It offers no QPACK dynamic table, so each section decodes alone.
 func startH3Recorder(t *testing.T, r *h3Recorder) uint16 {
 	t.Helper()
 	pc, err := (&net.ListenConfig{}).ListenPacket(t.Context(), "udp", ":0")
@@ -169,14 +167,10 @@ func readQUICVarint(r io.ByteReader) (uint64, error) {
 	return v, nil
 }
 
-// Header placement over HTTP/3: the h3 writer applies the request's
-// placements (the root package's Config.HeaderPlacement, then its
-// Request.HeaderPlacement, one list by then) to the fields it encodes, after
-// the pseudo-headers. Each placed request is compared with the same request
-// unplaced; a header or anchor not among the fields (a pseudo-header, which
-// the root package refuses before it gets here) fails the request with
-// nothing sent. The same table runs over HTTP/1.1 and HTTP/2 in the root
-// package (TestHeaderPlacement).
+// Header placement over HTTP/3: placed requests match their unplaced form
+// with the placements applied after the pseudo-headers, and a missing
+// header or anchor fails with nothing sent. TestHeaderPlacement in the root
+// package covers HTTP/1.1 and HTTP/2.
 func TestHeaderPlacementOverHTTP3(t *testing.T) {
 	// Every TCP dial fails: requests go on the QUIC connection or fail.
 	e := newTestEngine(t, options{

@@ -31,10 +31,9 @@ type endpoint struct {
 	want string
 }
 
-// endpoints, in visiting order: an HTTP/3 endpoint follows a visit to the
-// same host over TCP, whose Alt-Svc moves the client there. tls.peet.ws
-// advertises h3 too but answered no QUIC Initial (2026-10-25, from
-// quic-go as well), so it is visited over TCP only.
+// endpoints, in visiting order: each HTTP/3 endpoint follows a TCP visit to
+// the same host, whose Alt-Svc moves the client to h3. tls.peet.ws answered
+// no QUIC Initial (2026-10-25), so it is TCP only.
 var endpoints = []endpoint{
 	{
 		id:  "peet",

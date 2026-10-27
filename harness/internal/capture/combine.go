@@ -9,16 +9,11 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// Combine sets every sample's extension order from how the samples compare
-// (shuffled if any two orders differ, fixed otherwise), even when it then
-// returns an error, and folds the GREASE ECH cipher suites and payload
-// lengths every sample sent into the first's sets: a browser picks those per
-// connection. It checks the samples agree on everything else, the record
-// version included among the samples that kept their records, and gives the
-// first sample's TLS that record version. It returns the
-// first sample, holding every sample's ClientHello in SampleClientHellos and
-// trace in SampleTraces; how far those agree is h2trace.Compare's job, since
-// timing legitimately varies between connections.
+// Combine merges samples of one connection into the first and returns it.
+// It sets every sample's extension order (shuffled if any two differ, even
+// when it then fails) and folds every sample's GREASE ECH cipher suites and
+// payload lengths into the first's sets. Everything else, the record version
+// included, must agree. Traces are kept per sample for h2trace.Compare.
 func Combine(samples []*Capture) (*Capture, error) {
 	first := samples[0]
 	order := profile.ExtensionOrderFixed

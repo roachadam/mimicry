@@ -14,12 +14,10 @@ type HTTP2 struct {
 	// HeadersPriority is the priority carried on the request's HEADERS frame.
 	// Nil sends none.
 	HeadersPriority *PriorityParam `json:"headers_priority,omitempty"`
-	// ChainPriorities makes each request depend, exclusively, on another
+	// ChainPriorities makes each request depend exclusively on another
 	// stream as Chromium chains them, instead of on HeadersPriority.DependsOn:
-	// each HEADERS weight is a level, and the parent is the newest stream
-	// still open at the nearest level at or above the request's (0 when
-	// none is). A stream is open until the peer's END_STREAM or a reset ends
-	// it, whether or not its body was read. Needs HeadersPriority.
+	// the parent is the newest open stream at the nearest weight level at or
+	// above the request's (0 when none). Needs HeadersPriority.
 	ChainPriorities bool `json:"chain_priorities,omitempty"`
 	// PseudoHeaderOrder is the order of :method, :authority, :scheme, :path.
 	PseudoHeaderOrder []string `json:"pseudo_header_order"`
@@ -38,14 +36,12 @@ type HTTP2 struct {
 	StreamUpdateThreshold     uint32 `json:"stream_update_threshold,omitempty"`
 	ConnectionUpdateThreshold uint32 `json:"connection_update_threshold,omitempty"`
 	// WindowUpdateIntervalMillis also returns credit, however little, once
-	// this long has passed since the last WINDOW_UPDATE on the stream or
-	// connection; checked as the reader consumes data, as Chromium does
-	// (5000). Zero: thresholds only.
+	// this long has passed since the last WINDOW_UPDATE (Chromium: 5000).
+	// Zero: thresholds only.
 	WindowUpdateIntervalMillis uint32 `json:"window_update_interval_ms,omitempty"`
-	// IdlePingMillis: a request that starts after nothing was received for
-	// this long sends a PING right after its HEADERS, carrying a counter
-	// from 1, as Chromium does (10000). A PING unanswered for as long again
-	// closes the connection. Zero sends none.
+	// IdlePingMillis: a request starting after this long with nothing
+	// received sends a PING after its HEADERS (Chromium: 10000); one
+	// unanswered as long again closes the connection. Zero sends none.
 	IdlePingMillis uint32 `json:"idle_ping_ms,omitempty"`
 	// SplitCookie sends each cookie as its own header field (RFC 9113,
 	// 8.2.3), as every captured browser does, instead of one joined field.

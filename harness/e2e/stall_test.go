@@ -5,16 +5,10 @@ import (
 	"time"
 )
 
-// A loaded test machine (the whole suite under -race) can hold every
-// goroutine of this process, mimicry's QUIC loops and the capture
-// server's alike, for tens of milliseconds. A check of when mimicry acted
-// on a timer of its own then sees the timer late by the stall, not by the
-// rule it holds. stalls measures those stalls directly, from the process's
-// side: a goroutine sleeping stallTick at a time records how much later
-// than due it woke. A timing check subtracts the stall time inside the
-// interval it measures (stalled), so the rule holds on a loaded machine
-// while a wrong timer still fails on an idle one, and on a loaded one
-// wherever the process was not held as long.
+// stalls measures how long a loaded machine held this whole process: a
+// goroutine sleeping stallTick records how late it woke. Timing checks
+// subtract the stall inside their interval, so they hold under -race while
+// a wrong timer still fails.
 var stalls stallWatch
 
 // stallTick is how long the watcher sleeps at a time; stallFloor the

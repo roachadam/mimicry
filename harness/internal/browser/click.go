@@ -16,12 +16,9 @@ import (
 // clickPoll is how often a clicker looks at the page.
 const clickPoll = 100 * time.Millisecond
 
-// clickRetry is how long a page may still ask for a click after one
-// before it is clicked again: a click that took effect has left it by
-// then (a redirect and its page take a second or two here; at 3 s, Safari
-// once still showed a page whose cross-site form POST it had sent, and
-// sent it again), one that did not (a click on a window that was not yet
-// in front) has not. The watchdog gives a step 10 s.
+// clickRetry is how long a page may still ask for a click before it is
+// clicked again: long enough that a click that took effect has left the page
+// (Safari once resent a form POST at 3 s), within the watchdog's 10 s step.
 const clickRetry = 6 * time.Second
 
 // clickView returns, as JSON, the page's title and URL and the middle of
@@ -36,9 +33,8 @@ type pageView struct {
 }
 
 // clicker clicks the middle of each page whose title is Target.ClickTitle,
-// once per URL (again after clickRetry if the page is still there), as a
-// user does: the browser's own input path, so the page gets user
-// activation (a script's click() does not).
+// once per URL (again after clickRetry), through the browser's own input
+// path, so the page gets user activation (a script's click() does not).
 type clicker struct {
 	cancel context.CancelFunc
 	done   chan struct{}
@@ -46,10 +42,9 @@ type clicker struct {
 	err    error
 }
 
-// startClicker polls look until closed and clicks with click: look
-// reads the page (an error is a page between documents, read again), click
-// presses and releases the left button at a point. conn, if not nil, is
-// closed with the clicker.
+// startClicker polls look until closed and clicks with click. A look error
+// is a page between documents: it is read again. conn, if not nil, is closed
+// with the clicker.
 func startClicker(ctx context.Context, title string, look func(context.Context) (pageView, error), click func(ctx context.Context, x, y float64) error, conn io.Closer) *clicker {
 	// The clicker lives as long as the session; Close ends it.
 	ctx, cancel := context.WithCancel(context.WithoutCancel(ctx))

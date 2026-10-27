@@ -10,10 +10,9 @@ import (
 var errBodyClosed = errors.New("h2: response body closed")
 
 // pipe buffers a stream's response body between the read loop and the
-// caller. The connection holds the peer to the stream's receive window,
-// which bounds what it buffers. Every buffered byte leaves once: read
-// (onRead), or discarded by Close or an error end, which report how many so
-// the connection returns that credit.
+// caller; the stream's receive window bounds it. Every buffered byte leaves
+// once: read (onRead), or discarded by Close or an error end, which report
+// how many so the connection returns that credit.
 type pipe struct {
 	mu     sync.Mutex
 	cond   *sync.Cond
@@ -25,9 +24,9 @@ type pipe struct {
 	read     int64
 	expected int64
 	onRead   func(n int)
-	// onClose runs once, when the caller closes the body. complete reports
-	// that every declared byte was read, so only the peer's END_STREAM can
-	// be outstanding; discarded is how many buffered bytes nobody read.
+	// onClose runs once, when the caller closes the body. complete means
+	// every declared byte was read; discarded is how many buffered bytes
+	// nobody read.
 	onClose func(complete bool, discarded int)
 }
 

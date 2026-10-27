@@ -11,13 +11,11 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// Tickets keeps session tickets by key (host, port and connection
-// partition), used as the browser uses them: a TLS 1.3 ticket once (a
-// connection takes it, and the server's new tickets on that connection
-// replace it); a TLS 1.2 ticket by the profile's tls12 policy. A ticket
-// uTLS would decline is never handed out, so the ClientHello never takes the
-// resumed shape without resuming: a TLS 1.3 ticket past its lifetime, or any
-// ticket whose server certificate has expired. Safe for concurrent use.
+// Tickets keeps session tickets by key (host, port, partition) and uses
+// them as the browser does: a TLS 1.3 ticket once, TLS 1.2 tickets by the
+// profile's tls12 policy. A ticket uTLS would decline (expired lifetime or
+// certificate) is never handed out, so a hello never looks resumed without
+// resuming. Safe for concurrent use. See decision 0013.
 type Tickets struct {
 	// tls12 is profile.Resumption.TLS12; empty keeps no TLS 1.2 tickets.
 	tls12 string

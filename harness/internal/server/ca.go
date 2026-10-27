@@ -18,20 +18,14 @@ import (
 	"time"
 )
 
-// CaptureHost is the hostname browsers are pointed at. It resolves to
-// 127.0.0.1 through each browser's own settings (Chrome, Firefox) or the
-// capture tool's DNS stub for *.test (Safari, internal/dnsstub); a hostname
-// rather than an IP matters because browsers omit server_name for IP
-// addresses.
+// CaptureHost is the hostname browsers are pointed at; it resolves to
+// 127.0.0.1. A hostname, not an IP, because browsers omit server_name for
+// IP addresses.
 const CaptureHost = "capture.mimicry.test"
 
 // CADomains are the only domains the capture CA may issue for, with every
-// name under them. test is a reserved top-level domain: it holds the
-// capture host and the sites the kinds page and replays serve
-// (www.kinds-a.test, www.nike-com.test), each a real-looking site of its
-// own. localhost is kept for cmd/clientcapture, which points a client at
-// https://localhost:<port>. WebKit treats every *.localhost name as a site of
-// its own, so browser captures use *.test.
+// name under them. localhost is kept for cmd/clientcapture; browser
+// captures use *.test (see docs/capturing.md).
 var CADomains = []string{
 	"test",
 	"localhost",

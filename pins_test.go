@@ -100,11 +100,9 @@ type pinStep struct {
 	wantServerName string
 }
 
-// TestPins: a pinned host's connections must hold a key or certificate
-// one of its pins names, on every TLS handshake (HTTP/2, HTTP/1.1,
-// resumed, WebSocket, through a proxy) and before a request to it goes on
-// another host's HTTP/2 connection; VerifyConnection runs after the pins.
-// Responses carry the connection's TLS state.
+// TestPins checks pins on every TLS handshake path (HTTP/2, HTTP/1.1,
+// resumed, WebSocket, proxied) and before coalescing, with
+// VerifyConnection after the pins.
 func TestPins(t *testing.T) {
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/live" {

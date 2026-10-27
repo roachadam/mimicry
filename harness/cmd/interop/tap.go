@@ -33,10 +33,9 @@ const (
 	typeRetry     = 3
 )
 
-// impairment is what the tap does to datagrams in both directions, the
-// client's half of the interop runner's network simulator. Draws come
-// from the tap's seeded generator, so a run with the same seed and the
-// same packets drops the same ones.
+// impairment is the client's half of the runner's network simulator,
+// applied in both directions. Draws are seeded, so a rerun with the same
+// seed and packets drops the same ones.
 type impairment struct {
 	// Drop is the probability a datagram is dropped, each direction.
 	Drop float64
@@ -51,12 +50,9 @@ type impairment struct {
 	BlackholeFor   time.Duration
 }
 
-// tap is the client's UDP socket, watched: it counts datagrams and the
-// long header packets in them, reads the server's QUIC version, sees
-// Retry and Version Negotiation, keeps each 1-RTT packet's protected
-// header to find key updates once the key log gives the secrets, records
-// a trace of every datagram, and applies an impairment. quic.Dial takes
-// it as a net.PacketConn.
+// tap wraps the client's UDP socket: it counts packets, sees versions,
+// Retry and Version Negotiation, keeps 1-RTT headers to find key updates,
+// traces datagrams and applies an impairment.
 type tap struct {
 	net.PacketConn
 	start time.Time
@@ -79,14 +75,12 @@ type tap struct {
 	keys          keyLog
 }
 
-// tapStats is what a tap counted.
 type tapStats struct {
-	SentDatagrams int   `json:"sent_datagrams"`
-	SentBytes     int64 `json:"sent_bytes"`
-	RecvDatagrams int   `json:"recv_datagrams"`
-	RecvBytes     int64 `json:"recv_bytes"`
-	// Versions are the versions of the server's long header packets.
-	Versions []uint32 `json:"versions,omitempty"`
+	SentDatagrams int      `json:"sent_datagrams"`
+	SentBytes     int64    `json:"sent_bytes"`
+	RecvDatagrams int      `json:"recv_datagrams"`
+	RecvBytes     int64    `json:"recv_bytes"`
+	Versions      []uint32 `json:"versions,omitempty"`
 	// Sent and Received count long header packets by type name.
 	Sent     map[string]int `json:"sent"`
 	Received map[string]int `json:"received"`
@@ -104,7 +98,6 @@ type shortHeader struct {
 	sample [16]byte
 }
 
-// traceEntry is one datagram in a tap's trace.
 type traceEntry struct {
 	Millis  float64  `json:"ms"`
 	Dir     string   `json:"dir"`
@@ -171,7 +164,6 @@ func (p *tapPath) ReadFrom(b []byte) (int, net.Addr, error) {
 	return p.t.readFrom(p.PacketConn, b)
 }
 
-// writeTo sends b on pc as the impairment allows.
 func (t *tap) writeTo(pc net.PacketConn, b []byte, addr net.Addr) (int, error) {
 	now := time.Now()
 	t.mu.Lock()
@@ -198,8 +190,7 @@ func (t *tap) writeTo(pc net.PacketConn, b []byte, addr net.Addr) (int, error) {
 	return pc.WriteTo(b, addr)
 }
 
-// readFrom returns the next datagram from pc the impairment lets
-// through.
+// readFrom returns the next datagram from pc that the impairment passes.
 func (t *tap) readFrom(pc net.PacketConn, p []byte) (int, net.Addr, error) {
 	for {
 		n, addr, err := pc.ReadFrom(p)
@@ -382,7 +373,6 @@ func (t *tap) keepShort(b []byte, sent bool) {
 	}
 }
 
-// stats returns a copy of what the tap counted.
 func (t *tap) stats() tapStats {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -399,10 +389,9 @@ func (t *tap) stats() tapStats {
 	return st
 }
 
-// keyUpdates returns how many times the key phase changed in the 1-RTT
-// packets the server sent and in those the client sent, read with the
-// 1-RTT header protection keys of the key log; ok is false when the key
-// log has no secrets for the cipher suite.
+// keyUpdates counts key phase changes in the server's and client's 1-RTT
+// packets, using header protection keys from the key log; ok is false
+// when the log lacks the suite's secrets.
 func (t *tap) keyUpdates(suite uint16) (server, client int, ok bool) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -459,7 +448,6 @@ func (t *tap) keyLogWriter(w io.Writer) io.Writer {
 	})
 }
 
-// writeTrace writes the tap's datagram trace to path as JSON.
 func (t *tap) writeTrace(path string) error {
 	t.mu.Lock()
 	data, err := json.Marshal(t.trace)

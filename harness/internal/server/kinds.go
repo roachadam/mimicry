@@ -132,11 +132,9 @@ var KindsCookies = []string{
 	"knoeq; Path=/; Secure",
 }
 
-// KindsPlainCookies are set by the kinds-plain page's document after
-// KindsCookies, which are all Secure and so refused over http://: cookies a
-// non-secure origin keeps (Lax, SameSite unset, site-wide), so the Cookie
-// header's place on non-secure requests is measured. Its /cleanup deletes
-// them.
+// KindsPlainCookies are set by the kinds-plain page after KindsCookies (all
+// Secure, so refused over http://), to measure the Cookie header's place on
+// non-secure requests. Its /cleanup deletes them.
 var KindsPlainCookies = []string{
 	"kp_lax=1; Path=/; SameSite=Lax",
 	"kp_unset=1; Path=/",
@@ -153,12 +151,9 @@ var KindsThirdPartyCookies = []string{
 	"kb_part=1; Path=/; Secure; SameSite=None; Partitioned",
 }
 
-// KindsMarkup are the requests the kinds page's HTML makes while it is
-// parsed, before its script runs: browsers prioritise these by where they
-// sit (a blocking script in the head, a deferred one, a preload), not only
-// by kind. Tag is the element, with %s for the URL; the image comes last,
-// in the body. Steps without a Tag are requested by the page's CSS: the
-// fonts its @font-face rules declare, fetched because text uses them.
+// KindsMarkup are the requests the kinds page's HTML makes before its script
+// runs; browsers prioritise these by position, not only kind. Tag is the
+// element, with %s for the URL; steps without a Tag are fonts the CSS loads.
 func KindsMarkup() []KindsStep {
 	return []KindsStep{
 		{Label: "style-head.so", Kind: "style", Host: kindsHost, Tag: `<link rel="stylesheet" href="%s">`},

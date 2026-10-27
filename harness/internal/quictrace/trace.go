@@ -1,3 +1,10 @@
+// Package quictrace records what a client sends over QUIC and HTTP/3 below
+// the decoded requests: datagrams, packets, frames, the ClientHello,
+// transport parameters, HTTP/3 frames and QPACK instructions.
+//
+// Initial packets are decrypted with keys derived from the client's DCID
+// (RFC 9001 section 5.2); other packets with the server's TLS key log. The
+// server's datagrams are recorded too, for scenarios the client reacts to.
 package quictrace
 
 import (
@@ -6,34 +13,25 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// Conn is everything a client sent on one QUIC connection: its datagrams
-// as they arrived, packet by packet and frame by frame, the ClientHello its
-// Initial packets carried, and, if the handshake completed, its HTTP/3;
-// and what the server sent it, for when the server's behaviour is part of
-// the scenario (version negotiation, Retry).
+// Conn is everything a client sent on one QUIC connection, plus what the
+// server sent it (for scenarios such as version negotiation and Retry).
 type Conn struct {
 	// Millis is when its first datagram arrived, since the capture server
-	// started serving the page (the same clock as the page's other
-	// connections).
+	// started serving the page.
 	Millis int64 `json:"ms"`
-	// Start is when its first datagram arrived, on the recording
-	// process's clock: a test lines the trace up with its own by it. Not
-	// stored, so zero in a capture read from a file.
+	// Start is Millis on the recording process's clock; not stored.
 	Start time.Time `json:"-"`
-	// Addr is the client address it started on (Received.Addr), for the
-	// server to match it with the connections it served; not stored.
+	// Addr is the client address it started on; not stored.
 	Addr string `json:"-"`
 	// Host is the ClientHello's server_name.
 	Host string `json:"host"`
-	// Version is the QUIC version of the client's first packet, hex;
-	// NegotiatedVersion the one its handshake finished in (of its Handshake
-	// packets), set only if it differs (compatible version negotiation, RFC
-	// 9368).
+	// Version is the client's first packet's QUIC version, hex;
+	// NegotiatedVersion is set only if the handshake finished in another
+	// (RFC 9368).
 	Version           string `json:"version"`
 	NegotiatedVersion string `json:"negotiated_version,omitempty"`
-	// ClientHello is the ClientHello message its Initial packets' CRYPTO
-	// frames carried, reassembled, hex; Hello is it parsed (as a TCP
-	// connection's) and HelloError why it could not be.
+	// ClientHello is the reassembled ClientHello, hex; Hello is it parsed
+	// and HelloError why it could not be.
 	ClientHello string       `json:"client_hello,omitempty"`
 	Hello       *profile.TLS `json:"hello,omitempty"`
 	HelloError  string       `json:"hello_error,omitempty"`
@@ -50,33 +48,26 @@ type Conn struct {
 	// in order of arrival, from every address it used.
 	Datagrams []Datagram `json:"datagrams"`
 	// Server are the datagrams the server sent to the connection's
-	// addresses while they were its, in order. Its Initial and Handshake
-	// packets are opened; its 1-RTT packets only have their header
-	// protection removed, if the key log has SERVER_TRAFFIC_SECRET_0.
+	// addresses. Its 1-RTT packets only have header protection removed.
 	Server []Datagram `json:"server,omitempty"`
-	// H3 is what the client sent at the HTTP/3 layer; nil if the
-	// handshake never completed (a client that rejected the certificate):
-	// it sent no Handshake packet with CRYPTO data, its Finished.
+	// H3 is nil if the handshake never completed (no client Finished).
 	H3 *H3 `json:"h3,omitempty"`
-	// Close is how the connection ended, if it had by the time the page
-	// was taken.
+	// Close is how the connection ended, if it had by capture time.
 	Close *Close `json:"close,omitempty"`
 }
 
-// Datagram is one UDP datagram the client sent (or, in Conn.Server, the
-// server).
+// Datagram is one UDP datagram the client (or, in Conn.Server, the server)
+// sent.
 type Datagram struct {
 	// Micros since the connection's first client datagram.
 	Micros int64 `json:"us"`
 	Size   int   `json:"size"`
-	// Path is the index of its client address among the connection's, in
-	// order of first use: 0 the one it started on, more after the client
-	// migrated (RFC 9000, section 9).
+	// Path indexes the client addresses in order of first use; nonzero
+	// after migration (RFC 9000, section 9).
 	Path int `json:"path,omitempty"`
 	// Packets are the QUIC packets coalesced in it.
 	Packets []Packet `json:"packets"`
-	// Trailing counts bytes after the last packet that start none (a
-	// client padding the datagram rather than the packet).
+	// Trailing counts bytes after the last packet (padding outside packets).
 	Trailing int `json:"trailing,omitempty"`
 }
 
@@ -90,43 +81,35 @@ const (
 	PacketVN        = "VersionNegotiation"
 )
 
-// Packet is one QUIC packet: its header as sent, and its frames once its
-// protection is removed. Connection ID values are random per connection;
-// only their lengths are kept.
+// Packet is one QUIC packet: its header and, once unprotected, its frames.
+// Connection IDs are random, so only their lengths are kept.
 type Packet struct {
 	Type string `json:"type"`
-	// FirstByte is the header's first byte with header protection removed:
-	// header form, fixed bit, long packet type or spin bit, reserved bits,
-	// key phase, packet number length. Zero bits where the packet could not
-	// be opened.
+	// FirstByte is the header's first byte with header protection removed
+	// (protected bits zero if the packet could not be opened).
 	FirstByte uint8 `json:"first_byte"`
 	// Version of a long header packet, hex.
 	Version    string `json:"version,omitempty"`
 	DCIDLength int    `json:"dcid_length"`
-	// SCIDLength, TokenLength (Initial and Retry packets) and Length (the
-	// long header's Length field) are nil for packets without them.
+	// SCIDLength, TokenLength and Length are nil for packets without them.
 	SCIDLength  *int `json:"scid_length,omitempty"`
 	TokenLength *int `json:"token_length,omitempty"`
 	Length      *int `json:"length,omitempty"`
-	// Versions are a Version Negotiation packet's supported versions, hex,
-	// in order.
+	// Versions are a Version Negotiation packet's versions, hex.
 	Versions []string `json:"versions,omitempty"`
-	// PNLength and PN are the packet number's encoded length and full
-	// value.
+	// PNLength and PN are the packet number's encoded length and value.
 	PNLength int    `json:"pn_length,omitempty"`
 	PN       uint64 `json:"pn"`
 	// Size is the whole packet's, header and AEAD tag included.
 	Size   int     `json:"size"`
 	Frames []Frame `json:"frames,omitempty"`
-	// Error is why the payload could not be read: no keys for its packet
-	// number space, or failed authentication; of a Retry, that its
-	// integrity tag does not verify.
+	// Error is why the payload could not be read (no keys, failed
+	// authentication, or a bad Retry integrity tag).
 	Error string `json:"error,omitempty"`
 }
 
-// Frame types, as named in RFC 9000 section 19 and the extensions
-// browsers use (DATAGRAM, RFC 9221; ACK_FREQUENCY and IMMEDIATE_ACK,
-// draft-ietf-quic-ack-frequency).
+// Frame types (RFC 9000 section 19; DATAGRAM, RFC 9221; ACK_FREQUENCY and
+// IMMEDIATE_ACK, draft-ietf-quic-ack-frequency).
 const (
 	FramePadding            = "PADDING"
 	FramePing               = "PING"
@@ -153,35 +136,28 @@ const (
 	FrameImmediateAck       = "IMMEDIATE_ACK"
 )
 
-// Frame is one QUIC frame of a packet. Only the fields of its type are
-// set.
+// Frame is one QUIC frame. Only the fields of its type are set.
 type Frame struct {
 	Type string `json:"type"`
-	// Code is the frame type as sent: a STREAM frame's carries its OFF, LEN
-	// and FIN bits, an ACK's whether it has ECN counts, a MAX_STREAMS or
-	// STREAMS_BLOCKED frame's whether it is for bidirectional streams, a
-	// CONNECTION_CLOSE's whether it is the application's.
+	// Code is the frame type as sent, including flag bits (STREAM's
+	// OFF/LEN/FIN, ACK's ECN, and so on).
 	Code uint64 `json:"code"`
-	// Count is how many PADDING bytes a run of them has (one Frame per
-	// run).
+	// Count is the length of a PADDING run (one Frame per run).
 	Count int `json:"count,omitempty"`
-	// Stream of STREAM, RESET_STREAM, STOP_SENDING, MAX_STREAM_DATA and
-	// STREAM_DATA_BLOCKED frames.
+	// Stream is the stream ID of stream-scoped frames.
 	Stream *uint64 `json:"stream,omitempty"`
-	// Offset and Length of a CRYPTO or STREAM frame's data (Length also of
-	// NEW_TOKEN's token and DATAGRAM's payload); Fin of a STREAM frame.
+	// Offset and Length of CRYPTO or STREAM data (Length also of NEW_TOKEN
+	// and DATAGRAM); Fin of STREAM.
 	Offset uint64 `json:"offset,omitempty"`
 	Length uint64 `json:"length,omitempty"`
 	Fin    bool   `json:"fin,omitempty"`
-	// Largest, Delay (the ACK Delay field as sent, before scaling by
-	// ack_delay_exponent), Ranges (each [smallest, largest], from the
-	// largest down) and ECN (ECT0, ECT1, ECN-CE counts) of an ACK.
+	// ACK fields. Delay is unscaled; Ranges are [smallest, largest] from
+	// the largest down; ECN is ECT0, ECT1, ECN-CE.
 	Largest uint64      `json:"largest,omitempty"`
 	Delay   uint64      `json:"delay,omitempty"`
 	Ranges  [][2]uint64 `json:"ranges,omitempty"`
 	ECN     []uint64    `json:"ecn,omitempty"`
-	// Max is the limit of MAX_DATA, MAX_STREAM_DATA, MAX_STREAMS and of
-	// the BLOCKED frames.
+	// Max is the limit of MAX_* and *_BLOCKED frames.
 	Max uint64 `json:"max,omitempty"`
 	// ErrorCode of RESET_STREAM, STOP_SENDING and CONNECTION_CLOSE;
 	// FinalSize of RESET_STREAM; FrameType and Reason of CONNECTION_CLOSE.
@@ -189,43 +165,38 @@ type Frame struct {
 	FinalSize uint64  `json:"final_size,omitempty"`
 	FrameType uint64  `json:"frame_type,omitempty"`
 	Reason    string  `json:"reason,omitempty"`
-	// Sequence, RetirePriorTo and CIDLength of NEW_CONNECTION_ID
-	// (Sequence also of RETIRE_CONNECTION_ID and ACK_FREQUENCY).
+	// NEW_CONNECTION_ID fields (Sequence also of RETIRE_CONNECTION_ID and
+	// ACK_FREQUENCY).
 	Sequence      uint64 `json:"seq,omitempty"`
 	RetirePriorTo uint64 `json:"retire_prior_to,omitempty"`
 	CIDLength     int    `json:"cid_length,omitempty"`
 	// Data of PATH_CHALLENGE and PATH_RESPONSE, hex.
 	Data string `json:"data,omitempty"`
-	// Threshold (ack-eliciting threshold), MaxAckDelay (requested, in
-	// microseconds) and Reordering threshold of ACK_FREQUENCY.
+	// ACK_FREQUENCY fields; MaxAckDelay is in microseconds.
 	Threshold   uint64 `json:"threshold,omitempty"`
 	MaxAckDelay uint64 `json:"max_ack_delay,omitempty"`
 	Reordering  uint64 `json:"reordering,omitempty"`
 }
 
-// TransportParameter is one QUIC transport parameter (RFC 9000, section
-// 18) as the client (or server) sent it.
+// TransportParameter is one QUIC transport parameter (RFC 9000, section 18).
 type TransportParameter struct {
 	ID uint64 `json:"id"`
-	// Name is the parameter's name, for those known; Grease marks a
-	// reserved identifier (31 * N + 27).
+	// Grease marks a reserved identifier (31 * N + 27).
 	Name   string `json:"name,omitempty"`
 	Grease bool   `json:"grease,omitempty"`
 	Length int    `json:"length"`
 	// Value of a parameter whose value is one variable-length integer.
 	Value *uint64 `json:"value,omitempty"`
-	// Hex of any other value, except connection IDs (random: their length
-	// is kept).
+	// Hex of any other value, except random connection IDs.
 	Hex string `json:"hex,omitempty"`
-	// Versions of version_information (RFC 9368): the chosen version, then
-	// the available ones, hex.
+	// Versions of version_information (RFC 9368): chosen, then available.
 	Versions []string `json:"versions,omitempty"`
 }
 
 // Close is how a QUIC connection ended.
 type Close struct {
-	// By is "client" (its CONNECTION_CLOSE), "server", or "idle" (the idle
-	// timeout expired; RFC 9000 closes silently).
+	// By is "client", "server", or "idle" (idle timeout; RFC 9000 closes
+	// silently).
 	By string `json:"by"`
 	// Millis since the server started serving the page.
 	Millis int64 `json:"ms"`
@@ -233,12 +204,10 @@ type Close struct {
 	Error string `json:"error,omitempty"`
 }
 
-// H3 is what a client sent at the HTTP/3 layer of one connection (RFC
-// 9114), as the server read it from each stream.
+// H3 is what a client sent at the HTTP/3 layer (RFC 9114).
 type H3 struct {
-	// Streams are the client's unidirectional streams in wire order (of
-	// each stream's first STREAM frame; by stream ID for any without one):
-	// control, QPACK encoder and decoder, and any other (GREASE) types.
+	// Streams are the client's unidirectional streams in wire order of
+	// their first STREAM frame.
 	Streams []H3Stream `json:"streams"`
 	// Requests are its request streams in the same order.
 	Requests []H3Request `json:"requests"`
@@ -255,27 +224,22 @@ const (
 
 // H3Stream is one unidirectional stream the client opened.
 type H3Stream struct {
-	// Millis is when it arrived, since the server started serving the
-	// page.
+	// Millis since the server started serving the page.
 	Millis int64  `json:"ms"`
 	ID     uint64 `json:"id"`
 	Type   uint64 `json:"type"`
-	// Name is the type's name; Grease marks a reserved type (0x1f * N +
-	// 0x21).
+	// Grease marks a reserved type (0x1f * N + 0x21).
 	Name   string `json:"name,omitempty"`
 	Grease bool   `json:"grease,omitempty"`
 	// Bytes is how much the stream carried after its type.
 	Bytes int `json:"bytes"`
-	// Frames of a control stream; Encoder and Decoder are a QPACK encoder
-	// or decoder stream's instructions.
+	// Frames of a control stream; Encoder and Decoder of QPACK streams.
 	Frames  []H3Frame            `json:"frames,omitempty"`
 	Encoder []EncoderInstruction `json:"encoder,omitempty"`
 	Decoder []DecoderInstruction `json:"decoder,omitempty"`
-	// End is how the client ended it: "FIN" or "RESET <code>"; "" while
-	// open.
+	// End is "FIN" or "RESET <code>"; "" while open.
 	End string `json:"end,omitempty"`
-	// Error is why the server stopped reading it: bytes it could not
-	// parse.
+	// Error is why the server stopped reading it.
 	Error string `json:"error,omitempty"`
 }
 
@@ -294,19 +258,17 @@ const (
 
 // H3Frame is one HTTP/3 frame.
 type H3Frame struct {
-	// Millis is when it was read, since the server started serving the
-	// page.
+	// Millis since the server started serving the page.
 	Millis int64  `json:"ms"`
 	Type   uint64 `json:"type"`
-	// Name is the type's name; Grease marks a reserved type (0x1f * N +
-	// 0x21).
+	// Grease marks a reserved type (0x1f * N + 0x21).
 	Name   string `json:"name,omitempty"`
 	Grease bool   `json:"grease,omitempty"`
 	Length uint64 `json:"length"`
 	// Settings of a SETTINGS frame, in the order sent.
 	Settings []Setting `json:"settings,omitempty"`
-	// ID of GOAWAY, MAX_PUSH_ID and CANCEL_PUSH, and the prioritized
-	// element of PRIORITY_UPDATE, whose Priority Field Value is Priority.
+	// ID of GOAWAY, MAX_PUSH_ID, CANCEL_PUSH and PRIORITY_UPDATE; Priority
+	// is PRIORITY_UPDATE's Priority Field Value.
 	ID       *uint64 `json:"id,omitempty"`
 	Priority string  `json:"priority,omitempty"`
 }
@@ -321,23 +283,19 @@ type Setting struct {
 
 // H3Request is one request stream.
 type H3Request struct {
-	// Millis is when the stream's first frame was read, since the server
-	// started serving the page.
+	// Millis is when the stream's first frame was read.
 	Millis int64  `json:"ms"`
 	Stream uint64 `json:"stream"`
-	// Method and Path are the request's, for finding it.
+	// Method and Path identify the request.
 	Method string `json:"method"`
 	Path   string `json:"path"`
 	// Frames are its frames in order (HEADERS, DATA, trailers, others).
 	Frames []H3Frame `json:"frames"`
-	// Block is the HEADERS frame's payload, the encoded field section,
-	// hex; Section is it decoded.
+	// Block is the HEADERS field section, hex; Section is it decoded.
 	Block   string  `json:"block"`
 	Section Section `json:"section"`
-	// Blocked reports that the client sent the section referring to
-	// dynamic table entries before it sent their inserts: on the wire, the
-	// encoder stream data before the STREAM frame that starts the HEADERS
-	// frame does not complete Required Insert Count inserts.
+	// Blocked reports that the section referenced dynamic table entries
+	// whose inserts had not yet arrived on the encoder stream.
 	Blocked bool `json:"blocked,omitempty"`
 	// Trailers is a trailing HEADERS frame's section.
 	Trailers *Section `json:"trailers,omitempty"`

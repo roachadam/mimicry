@@ -20,25 +20,13 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// The redirects2 page, made through mimicry step by step as the browser's
-// page makes it, goes out as the browser's did: on each connection the
-// same requests in the same order (method, path, body length, Origin),
-// and every request (first legs, hops, preflights, the pages the
-// navigations start from) with the browser's header lines and HTTP/2
-// weight. That covers the CORS check of XHR, <img crossorigin> and
-// <script crossorigin> redirects and of credentialed fetch() chains
-// (*mimicry.CORSError, no next hop), the methods and bodies of PUT, POST,
-// HEAD and PATCH hops and of form POSTs answered 301 to 308, Firefox's and
-// Safari's preflight of a preflighted PATCH's GET hop, and the
-// navigation's redirect limit (Chrome 19, Firefox and Safari 20).
+// The redirects2 page through mimicry, step by step, sends the browser's
+// requests on each connection with its header lines and weight: CORS checks
+// on redirects (*mimicry.CORSError), methods and bodies on 301 to 308 hops,
+// the hop preflight, the navigation limit (Chrome 19, others 20).
 //
-// Left out: the watchdog service worker's script (no request kind), and
-// /done's header lines (Firefox's and Safari's come from the worker).
-// Chrome's error page reloads the navigation its limit stopped a second
-// later (cache-control: max-age=0, from the last URL requested) and
-// follows the rest of the chain: browser UI, not the request mimicry
-// fails, so those requests are left out of the browser's rows
-// (redirectsReload).
+// Left out: the watchdog worker's script, /done's header lines, and Chrome's
+// error-page reload after the limit (browser UI; redirectsReload).
 func TestRedirects2MatchesBrowser(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
@@ -279,20 +267,11 @@ func redirectsSend(t *testing.T, s *pageSession, method, target, body string, h 
 	return resp.Request.URL, resp.Body.Close()
 }
 
-// The nav-redirect pages, typed navigations whose start URL redirects
-// (within its origin, apex to www, to another site, http:// to https://
-// of its host), made through mimicry as a typed URL (Navigate, no From):
-// the same requests on each connection, and every one with the browser's
-// header lines (and HTTP/2 weight). The navigations of nav-redirect-page,
-// nav-redirect-form (a page's, by script, redirected to another origin)
-// and nav-redirect-click (a user's clicked links and form submit buttons,
-// redirected within the page's origin and to others) are made through
-// mimicry from the page that makes them (Navigate, From the page; a
-// script's without Sec-Fetch-User, a click's with it), as
-// TestRedirects2MatchesBrowser makes redirects2's: the same requests on
-// each connection (those of a navigation with a request to another site
-// per host instead: mimicry's pool is not partitioned by top-level site),
-// every one with the browser's header lines and weight.
+// The nav-redirect pages through mimicry: typed navigations whose start URL
+// redirects (Navigate, no From), and the page's script and click navigations
+// (From the page; Sec-Fetch-User only on a click). Each sends the browser's
+// requests per connection with its header lines and weight; navigations to
+// another site are compared per host, as mimicry's pool is not partitioned.
 func TestNavRedirectsMatchBrowser(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		for _, sc := range server.NavRedirects {
@@ -379,17 +358,11 @@ func redirectsPaths(rows [][]string) []string {
 	return out
 }
 
-// redirectsConnections lists, for each HTTP/2 connection of page, its host
-// and requests in stream order (corsEdgeConnections), and then for each
-// HTTP/1.1 connection its host and requests (method, path); the watchdog
-// worker's script is left out. With reload, a navigation's request for a
-// path already requested and the requests of that chain after it are left
-// out (an error page's reload), and there must be one. The requests of the
-// steps in apart (/p/<label>, and their hops) are listed per host, in
-// order, apart from their connections: the navigations to another site,
-// which every browser sends on a connection of their own (its pool is
-// partitioned by the top-level site) and mimicry's pool does not
-// (redirects2 report: a gap).
+// redirectsConnections lists page's HTTP/2 connections (host and requests in
+// stream order, as corsEdgeConnections), then its HTTP/1.1 ones, without the
+// watchdog script. With reload, the error page's reload chain is dropped and
+// must exist. Steps in apart are listed per host, not per connection: the
+// browser partitions by top-level site and mimicry does not (a gap).
 func redirectsConnections(t *testing.T, page *capture.Page, reload bool, apart map[string]bool) [][]string {
 	t.Helper()
 	reloaded := false

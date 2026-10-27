@@ -45,14 +45,11 @@ func (j *Jar) entries() []entry {
 	return es
 }
 
-// Set stores c as given, without a URL or a browser's rules: for restoring
-// a session or seeding a jar. Name and value must hold no control
-// characters or ";", and a nameless cookie's value must neither start with
-// __Secure- or __Host- nor hold "="; Domain is required (AnySite for a
-// cookie sent to every site, with HostOnly false); an empty Path is "/"; a
-// zero Created is now. It replaces a cookie with the same name, domain,
-// path and partition. SetString and SetHostString seed cookies from a
-// Cookie header string.
+// Set stores c as given, bypassing URL and browser rules, for restoring a
+// session or seeding a jar. Name and value must hold no control characters
+// or ";"; Domain is required (AnySite for every site); an empty Path is "/"
+// and a zero Created is now. It replaces a cookie with the same name,
+// domain, path and partition.
 func (j *Jar) Set(c Cookie) error {
 	if err := checkPair(c.Name, c.Value); err != nil {
 		return fmt.Errorf("cookies: %w", err)
@@ -108,50 +105,28 @@ func isControl(r rune) bool {
 	return (r < 0x20 && r != '\t') || r == 0x7f
 }
 
-// AnySite stands for every site as SetString's or String's domain: a
-// cookie stored for AnySite is sent to every host of every site, where
-// the request's context would carry that site's own cookie (SameSite and
-// third-party rules apply as to any cookie). No browser has such a cookie;
-// it is a deliberate deviation for the caller who wants one value
-// everywhere, and it leaks: every site the jar talks to receives it,
-// trackers, CDNs and unrelated sites included, and a site that sets a
-// cookie of the same name gets both. Stored, it is a Cookie whose Domain
-// is AnySite (HostOnly false); WriteJSON and ReadJSON keep it,
-// WriteNetscape leaves it out, and it counts towards no site's limit. A
-// __Host- cookie belongs to one host, so it cannot be an AnySite cookie.
+// AnySite as a domain stores a cookie sent to every host of every site. No
+// browser has such a cookie, and it leaks to every site the jar talks to.
+// WriteJSON and ReadJSON keep AnySite cookies, WriteNetscape omits them,
+// and they count towards no site's limit. A __Host- cookie cannot be one.
 const AnySite = "*"
 
-// SetString stores the pairs of a Cookie header string ("a=1; b=2"), as
-// another tool, a harvested browser or a saved session hands them over,
-// as cookies of domain, exactly as a browser reads a cookie's Domain
-// attribute: each goes to domain and every name under it, and nowhere
-// else. "shop.example" reaches shop.example, www.shop.example and
-// api.shop.example; "www.shop.example" reaches www.shop.example (and
-// names under it), not api.shop.example or shop.example. domain is a host
-// name (a port is ignored) or a URL, whose host is taken
-// ("https://www.shop.example/cart" is www.shop.example); it is never
-// widened to the whole site. SetString(AnySite, ...) stores cookies for
-// every site (see AnySite).
+// SetString stores the pairs of a Cookie header string ("a=1; b=2") as
+// Domain cookies of domain, sent to domain and every name under it.
+// domain is a host name (a port is ignored) or a URL whose host is taken;
+// it is never widened to the whole site. SetString(AnySite, ...) stores
+// cookies for every site.
 //
 // Each pair becomes a cookie with path /, no expiry, not Secure and no
-// SameSite, so the profile's default applies; it replaces the jar's
-// cookie of the same name, Domain and path, as a later Set-Cookie line
-// would. A pair without "=" is a nameless cookie, as Header writes it;
-// spaces around pairs, a missing space after ";" and empty pairs are
-// tolerated.
-//
-// Cookie name prefixes get what browsers require of them, whatever their
-// case. A __Host- cookie is one a site pins to the single host that set it,
-// sent over HTTPS only and for every path: it is stored host-only on
-// domain itself (SetString("shop.example", ...) puts it on the bare
-// shop.example host, not www.shop.example), Secure, with path /. A
-// __Secure- cookie is stored Secure. Where the profile enforces them,
-// __Http- and __Host-Http- cookies are stored Secure and HttpOnly.
+// SameSite, replacing any cookie with the same name, Domain and path. A
+// pair without "=" is a nameless cookie. Name prefixes are honoured
+// case-insensitively: __Host- is stored host-only on domain itself, Secure,
+// path /; __Secure- is stored Secure; __Http- and __Host-Http- are Secure
+// and HttpOnly where the profile enforces them.
 //
 // It stores nothing and returns an error when domain is not a host name or
-// URL, is an IP address (which no Domain attribute may name: use
-// SetHostString), is a public suffix ("com", "co.uk", "localhost"), a pair
-// is one Set refuses, or a __Host- cookie is given for AnySite.
+// URL, is an IP address (use SetHostString), is a public suffix, a pair is
+// one Set refuses, or a __Host- cookie is given for AnySite.
 func (j *Jar) SetString(domain, cookies string) error {
 	if domain == AnySite {
 		return j.setString(AnySite, false, cookies)
@@ -170,13 +145,9 @@ func (j *Jar) SetString(domain, cookies string) error {
 }
 
 // SetHostString stores the pairs of a Cookie header string as host-only
-// cookies of host: sent to that host alone, not to names under it or
-// other hosts of its site, as a browser keeps a cookie set without a
-// Domain attribute. host is a host name, an IP address or a URL, whose
-// host is taken. The pairs are read, and their prefixes applied, as
-// SetString does (a __Host- cookie is host-only already); it returns an
-// error, storing nothing, when host is not a host name, IP address or URL
-// (AnySite included), or a pair is one Set refuses.
+// cookies of host, as a browser keeps a cookie set without a Domain
+// attribute. host is a host name, IP address or URL. Pairs are read as
+// SetString reads them; on error nothing is stored.
 func (j *Jar) SetHostString(host, cookies string) error {
 	name, err := hostName(host)
 	if err != nil {
@@ -231,17 +202,11 @@ func (j *Jar) setString(name string, hostOnly bool, cookies string) error {
 	return nil
 }
 
-// String returns, as a Cookie header string ("a=1; b=2") for SetString or
-// another tool, every cookie the jar holds for name and the names under
-// it: host-only and Domain cookies whose domain is name or ends in
-// "."+name, of any path, unexpired and unpartitioned, in creation order.
-// String("shop.example") has www.shop.example's host-only cookies too;
-// String("www.shop.example") leaves out shop.example's Domain cookies,
-// which www.shop.example is sent but which are not its own. name is read
-// as SetString reads it (a host name or a URL's host); an IP address gives
-// the cookies SetHostString stored for it, AnySite the AnySite cookies.
-// Hosts, paths and attributes are lost; WriteJSON keeps them. It is empty
-// for a name that is not a host name, IP address or URL.
+// String returns, as a Cookie header string, every unexpired,
+// unpartitioned cookie whose domain is name or ends in "."+name, in
+// creation order. Domain cookies of a parent domain are not included.
+// name is read as SetString reads it. Hosts, paths and attributes are
+// lost; WriteJSON keeps them. It is empty for an invalid name.
 func (j *Jar) String(name string) string {
 	if name != AnySite {
 		var err error
@@ -315,13 +280,9 @@ func notHostChar(r rune) bool {
 }
 
 // SetHTTPCookies stores cs as if a top-level navigation to u had received
-// them as Set-Cookie lines, through the profile's rules: for cookies a
-// solver or another library hands over as []*http.Cookie. Each is written
-// from its fields (Raw is ignored); an http.Cookie has no host-only flag,
-// so a Domain makes a Domain cookie and none a host-only cookie for u's
-// host, as in a Set-Cookie line. It stores every cookie it can and returns
-// an error naming each one refused and why (also told to OnSetCookie,
-// unless its name, value, Path or Domain could not be written as a line).
+// them as Set-Cookie lines, through the profile's rules. Raw is ignored; a
+// Domain makes a Domain cookie and none a host-only cookie. It stores every
+// cookie it can and returns an error naming each one refused.
 func (j *Jar) SetHTTPCookies(u *url.URL, cs []*http.Cookie) error {
 	if u == nil || u.Hostname() == "" {
 		return errors.New("cookies: SetHTTPCookies needs a URL with a host")
@@ -350,10 +311,8 @@ func (j *Jar) SetHTTPCookies(u *url.URL, cs []*http.Cookie) error {
 	return errors.Join(errs...)
 }
 
-// setCookieLine writes c as a Set-Cookie line. Unlike http.Cookie.String,
-// it keeps the value as given (the jar's rules judge it) and refuses what
-// would change the line's meaning: ";" or a control character in the name,
-// value, Path or Domain, or "=" in the name.
+// setCookieLine writes c as a Set-Cookie line. Unlike http.Cookie.String, it
+// keeps the value as given and refuses what would change the line's meaning.
 func setCookieLine(c *http.Cookie) (string, error) {
 	if err := checkPair(c.Name, c.Value); err != nil {
 		return "", err
@@ -511,10 +470,8 @@ func (j *Jar) ReadJSON(r io.Reader) error {
 }
 
 // WriteNetscape writes the cookies in the Netscape cookies.txt format curl
-// and wget read. The format has no SameSite, partition, creation time or
-// way to name every site, and separates fields with tabs: partitioned and
-// AnySite cookies and cookies with a tab in a field are left out, and the
-// rest lose those attributes.
+// and wget read. Partitioned and AnySite cookies and cookies with a tab in
+// a field are left out; the rest lose SameSite and creation time.
 func (j *Jar) WriteNetscape(w io.Writer) error {
 	bw := bufio.NewWriter(w)
 	_, _ = bw.WriteString("# Netscape HTTP Cookie File\n")
@@ -591,14 +548,10 @@ func upperBool(b bool) string {
 	return "FALSE"
 }
 
-// CookieJar returns the jar as an http.CookieJar, for an http.Client or
-// other code that wants one. It is lossy, which is why mimicry's transport
-// does not use it: net/http hands it only the cookies it can parse (values
-// with backslashes, UTF-8 or inner quotes are dropped before the jar sees
-// them; the jar stores the raw lines of the rest), sends values with
-// spaces or commas re-quoted, and asks for cookies with only a URL, so
-// every request is treated as a navigation from nowhere (no SameSite or
-// third-party rules apply).
+// CookieJar returns the jar as an http.CookieJar. It is lossy, which is why
+// mimicry's transport does not use it: net/http drops values it cannot
+// parse, re-quotes others, and asks for cookies with only a URL, so every
+// request is treated as a navigation from nowhere.
 func (j *Jar) CookieJar() http.CookieJar {
 	return adapter{
 		j: j,

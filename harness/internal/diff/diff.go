@@ -1,3 +1,10 @@
+// Package diff compares two captures of one connection, such as a browser's
+// and mimicry's: the ClientHello, the HTTP/2 preface and the first request's
+// headers, reporting each difference with its path.
+//
+// Profiles hold no values that are random by design, so the comparison is
+// exact except for extension order the profile marks shuffled and GREASE ECH
+// cipher suites and payload lengths, which the browser picks per connection.
 package diff
 
 import (
@@ -51,17 +58,11 @@ func render(v any) string {
 	return string(b)
 }
 
-// Compare reports every difference between the parts of want and got that a
-// capture of one connection records: the ClientHello (tls, without
-// resumption), the HTTP/2 preface (settings, window update, priorities,
-// pseudo-header order, first stream) and the first request's headers. The
-// rest of a profile (http1, kinds, variants, context, cookies, proxy, hpack,
-// flow control) is derived from page traces and not compared. Extension
-// order is compared as want.TLS.ExtensionOrder says: exactly when fixed, and
-// only for pinned extensions when shuffled. GREASE ECH's cipher suites and
-// payload lengths are sets a browser picks from per connection: got's must
-// be among want's. Profile identity (name, browser, version, platform) is
-// not compared; the user-agent header covers it.
+// Compare reports every difference between want and got in the ClientHello
+// (without resumption), the HTTP/2 preface and the first request's headers.
+// The rest of a profile comes from page traces and is not compared, nor is
+// its identity: the user-agent header covers it. With a shuffled extension
+// order only pinned extensions' positions are compared.
 func Compare(want, got *profile.Profile) []Difference {
 	d := &differ{}
 	d.compareTLS(&want.TLS, &got.TLS)

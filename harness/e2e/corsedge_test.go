@@ -16,16 +16,10 @@ import (
 	"github.com/roachadam/mimicry/harness/internal/server"
 )
 
-// The cors-edge page's fetches, made through mimicry from the page, follow
-// their redirects as the browser did: on each connection, the same
-// requests in the same order (method, path, body length, Origin). This
-// covers the CORS check of a cross-site redirect without
-// Access-Control-Allow-Origin (no next hop, with or without a preflight:
-// mimicry returns a *CORSError), the method and body PUT, DELETE and POST
-// keep or lose on 301, 302 and 303 (and Safari's Origin on the GET), and
-// the 20-redirect limit (an error, no 21st hop). Every request, first legs
-// and hops (and preflights), has the browser's header lines and HTTP/2
-// weight.
+// The cors-edge page's fetches through mimicry follow redirects as the
+// browser did, in order on each connection: the CORS check of a cross-site
+// redirect (*CORSError), method and body on 301/302/303, the 20-redirect
+// limit; every request with the browser's header lines and weight.
 func TestCORSEdgeMatchesBrowser(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {

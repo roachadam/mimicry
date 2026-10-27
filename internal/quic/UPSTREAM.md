@@ -61,10 +61,8 @@ the mechanical import rewrites.
 3. **Formatting.** goimports with mimicry's local prefix regrouped import
    blocks, and gofmt `-s` shortened one literal (`qlog_test.go`:
    `[]byte{1, 2, 3, 4}` to `{1, 2, 3, 4}`).
-4. **Package docs.** `doc.go` gains a "mimicry" section stating what the
-   package may import (AGENTS.md's package convention). `qlog`, `quicwire`
-   and `testcert` each gain a `doc.go` with the same statement; their
-   package comments stay upstream's.
+4. **Package docs.** `doc.go` gains a short "mimicry" section pointing
+   here. `qlog`, `quicwire` and `testcert` are unchanged.
 5. **Browser clients (`Dial`).** New files `client.go` (`Dial`,
    `DialConfig`, `Cork`/`Uncork`, `HoldFinished`/`ReleaseFinished`,
    `EarlyData`, `HandshakeComplete`, `FinishedSent` (closed once the
@@ -267,10 +265,10 @@ cannot be checked anywhere but on the synthetic peer.
 
 ## Lint
 
-`.golangci.yml` excludes `internal/quic/` from the linters (about 500
-findings in upstream's style: unchecked `Close` errors, `math/rand`, `%v`
-on errors, unused test helpers, `init` functions). Formatters still run on
-it. mimicry's own lines here are checked by hand: run the linter with that
-exclusion removed and confirm no finding is on a line this file lists or
-marks `mimicry:`. Code mimicry adds later goes in its own files where it
-can, so the check stays small.
+`.golangci.yml` excludes `internal/quic/` from every linter but depguard
+(about 500 findings in upstream's style: unchecked `Close` errors,
+`math/rand`, `%v` on errors, unused test helpers, `init` functions).
+Formatters still run on it. mimicry's own lines here are checked by hand:
+run the linter with that exclusion removed and confirm no finding is on a
+line this file lists or marks `mimicry:`. Code mimicry adds later goes in
+its own files where it can, so the check stays small.

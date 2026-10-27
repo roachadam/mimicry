@@ -1,3 +1,5 @@
+// Package capture defines a recorded capture. It uses the JSON schema of
+// mimicry's profile package, with values that are random by design blanked.
 package capture
 
 import (
@@ -21,9 +23,8 @@ type Capture struct {
 	// ClientHello is the raw ClientHello handshake message, kept for debugging
 	// anything the profile schema does not describe.
 	ClientHello []byte
-	// Records are the TLS records that carried ClientHello, record headers
-	// included (the record-layer version, how the message was split). Nil
-	// in captures made before they were kept.
+	// Records are the TLS records that carried ClientHello, headers
+	// included. Nil in captures made before they were kept.
 	Records []byte
 	// SampleClientHellos are every sample's records (or, without them, its
 	// ClientHello) when this capture was combined from several (Combine),
@@ -169,14 +170,11 @@ type output struct {
 	encode func() ([]byte, error)
 }
 
-// Write stores c in dir. For the default scenario it writes <name>.json (the
-// profile) and <name>.clienthello (every sample's ClientHello records as
-// hex, one sample per line; see ReadClientHellos). Traces go to
-// <name>.h2trace.json and <name>.h1trace.json, JSON arrays with every
-// sample's trace (or c's alone); other scenarios write only their traces, as
-// <name>.<scenario>.h2trace.json and .h1trace.json, since profiles come from
-// the default page. It never overwrites: if any of the files exists it writes
-// none and returns ErrExists. It returns the path of the first file written.
+// Write stores c in dir and returns the path of the first file written. The
+// default scenario writes <name>.json (the profile) and <name>.clienthello
+// (see ReadClientHellos); other scenarios write only their traces, as
+// <name>.<scenario>.*. Trace files hold every sample's trace. Write never
+// overwrites: if any file exists it writes none and returns ErrExists.
 func Write(dir string, c *Capture) (string, error) {
 	outputs, err := outputsOf(dir, c)
 	if err != nil {
@@ -200,9 +198,8 @@ func Write(dir string, c *Capture) (string, error) {
 }
 
 // CheckNew returns ErrExists if any file Write would store for c in dir
-// exists. A capture holding one sample names the same files as one holding
-// every sample, so it tells after the first sample whether a scenario is
-// already captured.
+// exists. File names don't depend on the sample count, so it can be checked
+// after the first sample.
 func CheckNew(dir string, c *Capture) error {
 	outputs, err := outputsOf(dir, c)
 	if err != nil {
@@ -225,10 +222,8 @@ func checkNew(outputs []output) error {
 }
 
 // ReadClientHellos reads a <name>.clienthello file: one sample per line, in
-// hex, each either the TLS records that carried the ClientHello (starting
-// with the handshake record type, 0x16) or, in captures made before records
-// were kept, the ClientHello handshake message alone (starting with its type,
-// 0x01).
+// hex, each the TLS records that carried the ClientHello (starting 0x16) or,
+// in older captures, the ClientHello message alone (starting 0x01).
 func ReadClientHellos(path string) ([][]byte, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {

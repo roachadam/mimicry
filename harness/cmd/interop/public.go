@@ -97,12 +97,9 @@ var sites = []site{
 	},
 }
 
-// runSite walks st for a profile: the engine flow through mimicry's
-// public API (TCP, Alt-Svc, the profile's switch, the larger download, a
-// second connection), then the same origin probed directly for what the
-// engine does not show: a fresh connection (version, handshake time,
-// cipher), and a second one resuming its ticket in 0-RTT where the
-// profile does.
+// runSite runs the engine flow against st, then probes it directly for
+// what the engine hides: a fresh connection and a 0-RTT resumption where
+// the profile resumes.
 func runSite(ctx context.Context, st site, np namedProfile, out string, seed uint64) (r result) {
 	dir := filepath.Join(out, "public", st.host, np.name)
 	_ = os.MkdirAll(dir, 0o750)

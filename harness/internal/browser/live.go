@@ -15,15 +15,11 @@ import (
 	"time"
 )
 
-// Live is a browser on the public internet, driven one top-level
-// navigation at a time, for comparing what public fingerprinting services
-// report about it with what they report about mimicry (cmd/realcheck).
-// Chrome and Firefox run on a throwaway profile with their defaults
-// (nothing mapped, no certificate exceptions) and are driven over their
-// debugging protocols, DevTools and WebDriver BiDi, which change nothing
-// they send; Safari runs in a new window of the user's own Safari, driven
-// by AppleScript, which can read a page's text but not its status or
-// cookies.
+// Live is a browser on the public internet, driven one top-level navigation
+// at a time, for cmd/realcheck to compare against mimicry on public
+// fingerprinting services. Chrome and Firefox run on a throwaway profile with
+// their defaults; Safari runs in a new window of the user's own Safari and
+// cannot report a page's status or cookies.
 type Live struct {
 	name    string
 	session *Session

@@ -1,3 +1,5 @@
+// Package browser launches real release builds of Chrome, Firefox and Safari
+// against the capture server.
 package browser
 
 import (
@@ -16,20 +18,17 @@ import (
 
 // Target is the capture server browsers connect to.
 type Target struct {
-	// Host is the capture hostname, under .test. Chrome and Firefox resolve
-	// it to 127.0.0.1 through their own settings; Safari, which cannot be
-	// configured that way, through the system and the capture tool's DNS
-	// stub (internal/dnsstub). Either way it is a hostname: browsers omit
-	// server_name for IP addresses.
+	// Host is the capture hostname, under .test, so browsers send
+	// server_name. Chrome and Firefox map it to 127.0.0.1 themselves; Safari
+	// resolves it through the capture tool's DNS stub.
 	Host string
 	Port int
 	// Hosts are the other hostnames a replayed page reaches, all served
 	// on Port.
 	Hosts []string
-	// HostCerts says the server presents each host a certificate of its
-	// own from the capture CA (pages across hosts, even a page of one
-	// host), so Firefox trusts the system's roots, where the CA is
-	// trusted, rather than an exception for CertSHA256.
+	// HostCerts says the server gives each host its own certificate from
+	// the capture CA, so Firefox trusts the system roots instead of an
+	// exception for CertSHA256.
 	HostCerts bool
 	// CertSHA256 is the SHA-256 of the server certificate (DER), which Firefox
 	// is told to accept.
@@ -41,35 +40,28 @@ type Target struct {
 	Plain bool
 	// Path is the start URL's path; "" for "/".
 	Path string
-	// ProxyAuth, when set, are the credentials the browser answers its
-	// proxy's authentication challenges with: Chrome over the DevTools
-	// protocol, Firefox over WebDriver BiDi, as a user typing them into the
-	// login dialog.
+	// ProxyAuth, when set, are the credentials the browser answers proxy
+	// challenges with, as a user typing them into the login dialog.
 	ProxyAuth *url.Userinfo
 	// H3LocalRoots lets Chrome and Firefox use QUIC with a certificate
-	// that does not chain to a root built into the browser, as the capture
-	// CA's: both otherwise abandon the QUIC handshake and stay on TCP. It
-	// is a capture condition (see Conditions).
+	// from a root not built in, as the capture CA's. It is a capture
+	// condition; see decision 0026.
 	H3LocalRoots bool
 	// ClickTitle, when set, has the tool click the middle of every page
-	// whose title it is, once per URL, as a user does (so the page gets
-	// user activation): Chrome over the DevTools protocol, Firefox over
-	// WebDriver BiDi, Safari through the system's mouse events (which
-	// needs Accessibility access).
+	// with this title, once per URL, so the page gets user activation.
+	// Safari needs Accessibility access for it.
 	ClickTitle string
 	// debugPort is Firefox's remote debugging port, for ProxyAuth or
 	// ClickTitle.
 	debugPort int
 }
 
-// h3UnusedPort is the port of the origins Chrome is told to force QUIC on
-// (H3LocalRoots): none the page visits, so nothing is forced, but their
-// hosts are allowed a root that is not built in.
+// h3UnusedPort is the port of the origins Chrome forces QUIC on: one the
+// page never uses, so nothing is forced but the hosts may use a local root.
 const h3UnusedPort = 1
 
-// Conditions describes what b is set to differently from its defaults for
-// t, beyond resolving the capture hosts and accepting the capture
-// certificate, each with why; a capture records them.
+// Conditions describes, with reasons, what b changes from its defaults for
+// t beyond host mapping and certificate acceptance. A capture records them.
 func (b *Browser) Conditions(t Target) []string {
 	if !t.H3LocalRoots {
 		return nil
@@ -117,10 +109,8 @@ type Browser struct {
 	// Path is the executable, used where there is no App.
 	Path string
 	// App is the macOS application bundle. When set, the browser is launched
-	// through open(1), so it runs as its own application, as when a user
-	// starts it. Started as a child process instead, it inherits the caller's
-	// macOS privacy restrictions, and Firefox exits because it cannot read its
-	// own Application Support folder.
+	// through open(1) as its own application: as a child process it inherits
+	// our privacy restrictions, and Firefox exits.
 	App string
 	// Shared marks a browser that cannot run a separate instance or profile:
 	// it opens a tab in the user's own window. Only Safari.
@@ -128,20 +118,15 @@ type Browser struct {
 	// prepare writes any profile files into dir and returns the arguments.
 	prepare func(dir string, t Target, headless bool) ([]string, error)
 	// warmup, when set, starts the browser on about:blank and hands it the
-	// capture URL this much later through a second invocation of binary on
-	// the same profile, which the running instance takes over.
+	// capture URL this much later through a second invocation of binary.
 	warmup time.Duration
 	binary string
 }
 
 // chromeWarmup is how long a fresh Chrome profile settles before the capture
-// page. Within its first seconds it rebuilds its certificate verifiers (with
-// a new cookie store and server properties cache) and marks every open
-// connection as going away (net log: CERT_VERIFY_PROC_CREATED, then
-// QUIC_SESSION_POOL_MARK_ALL_ACTIVE_SESSIONS_GOING_AWAY), so a capture page
-// loaded at once moves to a second connection partway through. A
-// long-running Chrome never shows a server this; --disable-component-update
-// does not prevent it.
+// page. In its first seconds it rebuilds its certificate verifiers and marks
+// every open connection as going away (net log: CERT_VERIFY_PROC_CREATED),
+// which a long-running Chrome never does.
 const chromeWarmup = 5 * time.Second
 
 var macOSApps = map[string]string{
@@ -227,9 +212,8 @@ type Session struct {
 // user's own window, ignores headless, and must trust the server's
 // certificate.
 func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, error) {
-	// Safari takes its proxy from the system (the capture tool's PAC
-	// script) and asks the user for proxy credentials in a dialog: with
-	// ProxyAuth, someone at the screen types them.
+	// Safari takes its proxy from the system PAC script and asks for proxy
+	// credentials in a dialog, which someone at the screen fills in.
 	if t.ProxyAuth != nil && t.ClickTitle != "" {
 		return nil, errors.New("a capture both answering proxy challenges and clicking is not supported")
 	}
@@ -454,9 +438,8 @@ func chromeArgs(dir string, t Target, headless bool) ([]string, error) {
 }
 
 // firefoxProfile writes prefs that map the capture hosts to 127.0.0.1 and
-// silence first-run pages, plus a certificate exception for the server. A
-// page served with a certificate per host has Firefox trust the system's
-// roots instead, where the capture CA is trusted.
+// silence first-run pages, plus a certificate exception for the server (or,
+// with HostCerts, trust in the system roots).
 func firefoxProfile(dir string, t Target, headless bool) ([]string, error) {
 	prefs := []string{
 		`user_pref("network.dns.localDomains", "` + strings.Join(append([]string{t.Host}, t.Hosts...), ",") + `");`,
@@ -493,9 +476,8 @@ func firefoxProfile(dir string, t Target, headless bool) ([]string, error) {
 		}
 	}
 	if t.debugPort != 0 {
-		// The remote agent otherwise applies its "recommended" automation
-		// preferences, some of which change networking (speculative
-		// connections, captive-portal checks).
+		// Otherwise the remote agent applies automation prefs that change
+		// networking (speculative connections, captive-portal checks).
 		prefs = append(prefs, `user_pref("remote.prefs.recommended", false);`)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "user.js"), []byte(strings.Join(prefs, "\n")+"\n"), 0o600); err != nil {

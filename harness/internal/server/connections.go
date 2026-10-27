@@ -80,28 +80,15 @@ var Connections = &Scenario{
 }
 
 // ConnectionsStep is one step of the connections page: requests to Host,
-// one per label (path /c/<label>), made together; the page waits for them
-// and 300 ms more (so connections are up and tickets in) before the next.
-// Every request is fetch() with mode "no-cors" and credentials "include":
-// the requests a document's own connections carry (Chrome keeps
-// uncredentialed requests on connections of their own).
+// one per label (path /c/<label>), made together as no-cors credentialed
+// fetches; the page waits for them and 300 ms more before the next.
 type ConnectionsStep struct {
 	Host   string
 	Labels []string
 }
 
-// ConnectionsSteps are the connections page's steps in order. The page
-// itself is on connHost over HTTP/2; each step answers:
-//
-//   - coalesce.ss: static.conns-a.test, named on the page's certificate:
-//     a request on the page's connection (:authority static), or a new one;
-//   - pair.x, then pair.y: two other sites sharing a certificate; is y's
-//     request sent on x's connection?
-//   - solo: a host whose certificate names only itself: its own
-//     connection, the control;
-//   - par01 to par10 to the HTTP/1.1-only host at once, each answered after
-//     connParallelDelay: how many connections it opens, which request goes
-//     on which, in what order (the page log keeps arrival order).
+// ConnectionsSteps are the connections page's steps in order. What each
+// answers is in harness/reports/connections-2026-10-24.md.
 func ConnectionsSteps() []ConnectionsStep {
 	parallel := make([]string, 0, connParallel)
 	for i := 1; i <= connParallel; i++ {

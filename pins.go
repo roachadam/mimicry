@@ -14,12 +14,10 @@ import (
 	"time"
 )
 
-// Pin pins a host (and, with IncludeSubdomains, every host under it) to
-// public keys: a connection for a request to it must have a certificate
-// one of SPKI matches in its verified chain (the leaf, an intermediate or
-// the root the system or Config.RootCAs trusts). Pinning the
-// intermediate is the usual choice: it outlives the leaf's renewals and
-// is more specific than the root (FetchPins lists a site's chain).
+// Pin pins a host (and, with IncludeSubdomains, its subdomains) to public
+// keys: the verified chain (leaf, intermediate or trusted root) must
+// contain a certificate matching one of SPKI. Pinning the intermediate is
+// usual: it outlives leaf renewals. FetchPins lists a site's chain.
 type Pin struct {
 	// Host is a host name ("www.example.com") or IP address, in any case;
 	// no scheme, port or wildcard.
@@ -34,8 +32,7 @@ type Pin struct {
 	//   - that hash in hex (CertPin.SPKIHex);
 	//   - a certificate's SHA-256 fingerprint in hex, colons optional
 	//     (CertPin.Fingerprint, as browsers show it).
-	// A hex value matches either a key's hash or a certificate's
-	// fingerprint. At least one is required.
+	// Hex values match either form. At least one is required.
 	SPKI []string
 }
 
@@ -249,12 +246,10 @@ type CertPin struct {
 	Fingerprint string
 }
 
-// FetchPins connects to rawURL's host (https) as a request to it would
-// (cfg's proxy, dialer and roots; the profile's TLS hello; over TCP),
-// verifies the server's certificate as usual, and returns the verified
-// chain's certificates, leaf first, with their pins. It sends no request.
-// cfg.Pins and cfg.VerifyConnection are not applied: this is how to find
-// the pins to set.
+// FetchPins connects to rawURL's host over TCP as a request would (cfg's
+// proxy, dialer, roots and the profile's TLS hello) and returns the
+// verified chain, leaf first, with its pins. It sends no request and
+// ignores cfg.Pins and cfg.VerifyConnection.
 func FetchPins(ctx context.Context, cfg Config, rawURL string) ([]CertPin, error) {
 	cfg.Pins = nil
 	cfg.VerifyConnection = nil

@@ -13,10 +13,8 @@ import (
 )
 
 // Source names the profile whose captures of scenario a profile is checked
-// against: the one its captures_from names for it (a scenario not
-// recaptured for this version, decision 0035), or the profile itself. The
-// named profile holds its own captures of the scenario (cmd/profilegen
-// refuses a chain), so this never needs following further.
+// against: the one its captures_from names (decision 0035), or the profile
+// itself. cmd/profilegen refuses chains, so this never needs following.
 func Source(p *profile.Profile, scenario string) string {
 	if from, ok := p.CapturesFrom[scenario]; ok {
 		return from
@@ -134,10 +132,9 @@ func Files(dir string, p *profile.Profile, suffix string) ([]File, error) {
 	return out, nil
 }
 
-// Rewriter brings captures taken under one version of a browser to another
-// version's, for comparing a profile with the captures it inherits: only
-// the version tokens in header values change, so any other difference
-// still shows. A nil Rewriter changes nothing.
+// Rewriter brings captures taken under one browser version to another's by
+// changing only the version tokens in header values, so any other
+// difference still shows. A nil Rewriter changes nothing.
 type Rewriter struct {
 	tokens   *regexp.Regexp
 	replace  map[string]string
@@ -156,10 +153,9 @@ var versionTokens = map[string][]string{
 }
 
 // NewRewriter returns the Rewriter from the captures of from to to's
-// version, nil if from is nil or the same profile. The tokens are taken
-// from each profile's user-agent header, and sec-ch-ua (whose brand order
-// and GREASE brand change with Chrome's major version as well as its
-// numbers) maps whole from from's value to to's.
+// version, nil if from is nil or the same profile. Tokens come from each
+// profile's user-agent; sec-ch-ua, whose brand order also changes with the
+// major version, is mapped whole.
 func NewRewriter(from, to *profile.Profile) *Rewriter {
 	if from == nil || from.Name == to.Name {
 		return nil
@@ -248,10 +244,8 @@ func (r *Rewriter) Lines(lines []string) {
 	}
 }
 
-// Traces rewrites HTTP/2 traces in place: each decoded header value. The
-// header blocks as sent (Block) keep the captured bytes, so only a test that
-// compares decoded values may read rewritten traces; HPACK reproduction
-// reads them as captured.
+// Traces rewrites each decoded header value of HTTP/2 traces in place. The
+// encoded blocks keep their captured bytes, which HPACK reproduction reads.
 func (r *Rewriter) Traces(traces []*h2trace.Trace) {
 	if r == nil {
 		return
