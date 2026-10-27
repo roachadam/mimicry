@@ -26,7 +26,7 @@ the profile measured over HTTP/3, to an origin whose response carried
 - **Firefox (`on_alt_svc`):** the response carrying Alt-Svc starts the
   QUIC connection at once, as a validation in the background: requests
   go on TCP until it is up, never waiting for it. Once it is up, every
-  HTTP/2 connection to the origin gets a GOAWAY (`goaway_tcp`), once the
+  HTTP/2 connection to the origin gets a GOAWAY (`goawayTcp`), once the
   request that opened it has its response: one still being established
   as QUIC came up gets it too.
 - **Safari (`new_connection`):** HTTP/3 only for a request that needs a
@@ -35,7 +35,7 @@ the profile measured over HTTP/3, to an origin whose response carried
 Once an origin has used HTTP/3, a request finding no QUIC connection
 dials a new one, resumed with 0-RTT where the profile resumes, even with
 an HTTP/2 connection open, with one exception: after the server sent
-GOAWAY, Firefox **races** (`race_after_goaway`). The request goes on a new
+GOAWAY, Firefox **races** (`raceAfterGoaway`). The request goes on a new
 TCP connection, and a 0-RTT QUIC connection follows 6–9 ms later,
 carrying only its control and QPACK streams. In every sample the TCP
 connection is up, the request sent and Firefox's GOAWAY on it out
@@ -59,20 +59,20 @@ v2 ([report](../../harness/reports/http3-edge-2026-10-25.md); captures
 `h3-blackhole`, `h3-broken`, `h3-vn`):
 
 - **Chrome (`race`):** a request that needs a QUIC connection waits for
-  the attempt 300 ms (`tcp_delay_ms`; 305–306 measured), then goes on TCP
+  the attempt 300 ms (`tcpDelayMs`; 305–306 measured), then goes on TCP
   while the attempt runs on. A request sent in 0-RTT, and every request
   after it, waits for that attempt with no TCP until it gives up
-  (`zero_rtt_holds`: 4.0 s); then a fresh attempt and TCP start together,
+  (`zeroRttHolds`: 4.0 s); then a fresh attempt and TCP start together,
   and the requests made while it runs go on TCP at once.
 - **Firefox (`background`):** an attempt never holds a request, but for
   those made while its resumed attempt after the server's close is
   pending (`hold`): they go on it in 0-RTT and to a new TCP connection
   when it gives up (5 s). After a failed resumed attempt or a dead
-  connection, a request at least `revalidate_ms` later validates afresh
+  connection, a request at least `revalidateMs` later validates afresh
   beside TCP.
-- **Safari (`race`):** QUIC first, TCP after 100 ms (`tcp_delay_ms`,
+- **Safari (`race`):** QUIC first, TCP after 100 ms (`tcpDelayMs`,
   89–129 ms measured), and the attempt is dropped once the request goes
-  on TCP (`abandon_on_tcp`).
+  on TCP (`abandonOnTcp`).
 
 An attempt fails when it gives up (`quic.loss`: Chrome at 4 s with an
 Initial CONNECTION_CLOSE padded to 1250 bytes; Firefox silently at its
@@ -80,7 +80,7 @@ idle timeout for a fresh one, at 5 s with an Initial application close in
 255 bytes for a resumed one), gets Version Negotiation it does not retry
 (Chrome, Safari), or is dropped (Safari's, with a 0-RTT close if it sent
 0-RTT). Failed
-attempts in a row (`broken_after`: Chrome and Firefox 1, Safari 2,
+attempts in a row (`brokenAfter`: Chrome and Firefox 1, Safari 2,
 resumed ones counting for Safari only) leave the origin on TCP for the
 rest of the Transport's life: no browser tried again within a page
 (Chrome's source has a 5-minute back-off, not measured). Firefox answers
@@ -89,13 +89,13 @@ with 0x53f8 when the server's transport parameters lack
 `version_information`; that counts as one failed attempt. Chrome's source
 also delays its TCP job by 1.5 × the origin's smoothed RTT when it expects
 QUIC to work; no loopback capture can tell that from no delay, so it is not
-modelled. Firefox's re-validation (`revalidate_ms`) is bounded by the
+modelled. Firefox's re-validation (`revalidateMs`) is bounded by the
 captures: a request 0.8 s after a failure did not start a fresh attempt,
 one 3.05 s after did.
 
 A live connection whose path stops answering: Chrome moves to a new UDP
 port once its oldest unacknowledged packet is 4 of its PTOs old
-(`quic.loss.path_degrading`, migrate; a socket from the engine's dialer,
+(`quic.loss.pathDegrading`, migrate; a socket from the engine's dialer,
 `quic.DialConfig.NewPath`, which such a profile requires) and carries on
 (when that path dies too, Chrome closes with `85:Network blackhole
 detected` and sends the stuck request on TCP; not modelled); Safari closes
@@ -142,7 +142,7 @@ after the browser's algorithm rather than a sampled distribution:
   Chrome half of 6 MiB per stream and of 15 MiB per connection, Firefox a
   quarter of 12 and 24 MiB, Safari half of 2 MiB per stream, its
   connection limit the sum of its streams'); no key update of its own
-  (`quic.key_update`): each browser only follows the server's (so against
+  (`quic.keyUpdate`): each browser only follows the server's (so against
   a server that never updates, a connection's keys outlive AES-GCM's
   2^23-packet limit after about 10 GB sent).
   Measured detail: Firefox's batched ACKs cover 2–7 packets, Chrome's
@@ -154,21 +154,21 @@ after the browser's algorithm rather than a sampled distribution:
 - **Versions:** Firefox lists v2 in `version_information` and moves to it
   when the server upgrades it compatibly (RFC 9368), then resumes that
   origin in v2; it answers Version Negotiation that lists v2 with a new
-  connection in v2 (`quic.version_negotiation`). Chrome and Safari stay
+  connection in v2 (`quic.versionNegotiation`). Chrome and Safari stay
   on v1.
 - **0-RTT:** a connection resumes a ticket from the origin's last one and
   sends its first requests in 0-RTT, where the profile does (Chrome,
   Firefox), but only those whose method the browser sends there
-  (`http3.early_data.methods`: GET, HEAD and OPTIONS). Any other request
+  (`http3.earlyData.methods`: GET, HEAD and OPTIONS). Any other request
   made while the handshake runs (a POST, PUT, DELETE, a form submission)
   waits for it and leaves in 1-RTT: Firefox's in the datagram with its
-  Finished (`held_with_finished`; 31 of 35, the rest a thread's timing),
+  Finished (`heldWithFinished`; 31 of 35, the rest a thread's timing),
   Chrome's in a datagram of its own 0.05–2.1 ms after it. A GET and a
   POST made together split: the GET in 0-RTT, the POST held. A Firefox
   connection dialled for a held request sends its control and QPACK
   streams in 0-RTT without it. A request the server answers `425 Too
   Early` (RFC 8470) goes again on the same connection, new stream, in
-  1-RTT after the Finished (`retry_too_early`; 12 of 12 per browser),
+  1-RTT after the Finished (`retryTooEarly`; 12 of 12 per browser),
   never on a new one. Safari does the same but holds until the handshake
   is confirmed, and resumes QUIC after closing a connection itself
   (`h3-broken`) or after one idled out (`h3-early`); mimicry does not
@@ -184,7 +184,7 @@ static table, Safari uses the static table only), PRIORITY_UPDATE before
 each request with a priority (Chrome), DATA frame sizes (Firefox caps
 them at 32768 bytes, the first at 32224), and Safari's
 first request waiting until the handshake is confirmed
-(`requests_after_confirmed`). Header lists are the request's HTTP/2 list,
+(`requestsAfterConfirmed`). Header lists are the request's HTTP/2 list,
 with Firefox's HTTP/3 changes (`http3.headers`: pseudo-header order
 `:method :scheme :authority :path`, no `te`, `alt-used` placed per kind,
 its value the alternative's host with `:<port>` unless the port is 443).
@@ -213,11 +213,11 @@ feed three generators, run in this order: `hellogen` (`tls.quic`),
 (`http3.headers`, `http3.high`, `http3.low`, and the kinds the h3 pages
 add). `hellogen` and `h3gen` also read the `h3-blackhole`, `h3-broken`,
 `h3-vn`, `h3-download`, `h3-early` and `h3-too-early` captures
-(`server.H3EdgeCaptures`): hellogen for `tls.quic.version_negotiation`
+(`server.H3EdgeCaptures`): hellogen for `tls.quic.versionNegotiation`
 (Firefox's other hello after Version Negotiation), h3gen for
-`quic.loss`, `quic.keep_alive`, `quic.ack`, `quic.credit`,
-`quic.key_update`, `quic.version_negotiation`,
-`http3.discovery.fallback` and `http3.early_data`. Each refuses a sample
+`quic.loss`, `quic.keepAlive`, `quic.ack`, `quic.credit`,
+`quic.keyUpdate`, `quic.versionNegotiation`,
+`http3.discovery.fallback` and `http3.earlyData`. Each refuses a sample
 its rule does not describe.
 
 ## What checks it
@@ -262,7 +262,7 @@ its rule does not describe.
 ## Under loss and failure
 
 Measured where a server stopped answering (`quic.loss`,
-`quic.keep_alive`); beyond that, RFC 9002:
+`quic.keepAlive`); beyond that, RFC 9002:
 
 - An unanswered handshake probes after 300 ms (Chrome, Firefox; from the
   origin's last RTT when it has one), doubling: Chrome sends one
@@ -270,7 +270,7 @@ Measured where a server stopped answering (`quic.loss`,
   packet number before each probe, Firefox its whole first flight again.
   Safari's probes were never seen (TCP won first).
 - While a request waits on a quiet connection it sends PINGs
-  (`quic.keep_alive`: Chrome and Firefox after 15 s, Safari every 2 s, or
+  (`quic.keepAlive`: Chrome and Firefox after 15 s, Safari every 2 s, or
   half the negotiated idle timeout if that is shorter); an idle connection
   still ends silently.
 - A replayable request whose connection ended before its response (the

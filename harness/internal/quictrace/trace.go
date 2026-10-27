@@ -29,21 +29,21 @@ type Conn struct {
 	// NegotiatedVersion is set only if the handshake finished in another
 	// (RFC 9368).
 	Version           string `json:"version"`
-	NegotiatedVersion string `json:"negotiated_version,omitempty"`
+	NegotiatedVersion string `json:"negotiatedVersion,omitempty"`
 	// ClientHello is the reassembled ClientHello, hex; Hello is it parsed
 	// and HelloError why it could not be.
-	ClientHello string       `json:"client_hello,omitempty"`
+	ClientHello string       `json:"clientHello,omitempty"`
 	Hello       *profile.TLS `json:"hello,omitempty"`
-	HelloError  string       `json:"hello_error,omitempty"`
+	HelloError  string       `json:"helloError,omitempty"`
 	// TransportParameters are the ClientHello's quic_transport_parameters
 	// (extension 0x39), in the order sent; ServerTransportParameters the
 	// server's, from its EncryptedExtensions.
-	TransportParameters       []TransportParameter `json:"transport_parameters,omitempty"`
-	ServerTransportParameters []TransportParameter `json:"server_transport_parameters,omitempty"`
+	TransportParameters       []TransportParameter `json:"transportParameters,omitempty"`
+	ServerTransportParameters []TransportParameter `json:"serverTransportParameters,omitempty"`
 	// Resumed reports a ClientHello offering an earlier session
 	// (pre_shared_key); EarlyData that the client sent 0-RTT packets.
 	Resumed   bool `json:"resumed,omitempty"`
-	EarlyData bool `json:"early_data,omitempty"`
+	EarlyData bool `json:"earlyData,omitempty"`
 	// Datagrams are every UDP datagram the client sent on the connection,
 	// in order of arrival, from every address it used.
 	Datagrams []Datagram `json:"datagrams"`
@@ -87,18 +87,18 @@ type Packet struct {
 	Type string `json:"type"`
 	// FirstByte is the header's first byte with header protection removed
 	// (protected bits zero if the packet could not be opened).
-	FirstByte uint8 `json:"first_byte"`
+	FirstByte uint8 `json:"firstByte"`
 	// Version of a long header packet, hex.
 	Version    string `json:"version,omitempty"`
-	DCIDLength int    `json:"dcid_length"`
+	DCIDLength int    `json:"dcidLength"`
 	// SCIDLength, TokenLength and Length are nil for packets without them.
-	SCIDLength  *int `json:"scid_length,omitempty"`
-	TokenLength *int `json:"token_length,omitempty"`
+	SCIDLength  *int `json:"scidLength,omitempty"`
+	TokenLength *int `json:"tokenLength,omitempty"`
 	Length      *int `json:"length,omitempty"`
 	// Versions are a Version Negotiation packet's versions, hex.
 	Versions []string `json:"versions,omitempty"`
 	// PNLength and PN are the packet number's encoded length and value.
-	PNLength int    `json:"pn_length,omitempty"`
+	PNLength int    `json:"pnLength,omitempty"`
 	PN       uint64 `json:"pn"`
 	// Size is the whole packet's, header and AEAD tag included.
 	Size   int     `json:"size"`
@@ -161,20 +161,20 @@ type Frame struct {
 	Max uint64 `json:"max,omitempty"`
 	// ErrorCode of RESET_STREAM, STOP_SENDING and CONNECTION_CLOSE;
 	// FinalSize of RESET_STREAM; FrameType and Reason of CONNECTION_CLOSE.
-	ErrorCode *uint64 `json:"error_code,omitempty"`
-	FinalSize uint64  `json:"final_size,omitempty"`
-	FrameType uint64  `json:"frame_type,omitempty"`
+	ErrorCode *uint64 `json:"errorCode,omitempty"`
+	FinalSize uint64  `json:"finalSize,omitempty"`
+	FrameType uint64  `json:"frameType,omitempty"`
 	Reason    string  `json:"reason,omitempty"`
 	// NEW_CONNECTION_ID fields (Sequence also of RETIRE_CONNECTION_ID and
 	// ACK_FREQUENCY).
 	Sequence      uint64 `json:"seq,omitempty"`
-	RetirePriorTo uint64 `json:"retire_prior_to,omitempty"`
-	CIDLength     int    `json:"cid_length,omitempty"`
+	RetirePriorTo uint64 `json:"retirePriorTo,omitempty"`
+	CIDLength     int    `json:"cidLength,omitempty"`
 	// Data of PATH_CHALLENGE and PATH_RESPONSE, hex.
 	Data string `json:"data,omitempty"`
 	// ACK_FREQUENCY fields; MaxAckDelay is in microseconds.
 	Threshold   uint64 `json:"threshold,omitempty"`
-	MaxAckDelay uint64 `json:"max_ack_delay,omitempty"`
+	MaxAckDelay uint64 `json:"maxAckDelay,omitempty"`
 	Reordering  uint64 `json:"reordering,omitempty"`
 }
 

@@ -14,7 +14,7 @@ With request kinds in the profile, the navigation could move into
 - Move it: one representation for all kinds. Every capture file, the
   capture server, the diff tool and the profile generator treat the
   navigation as "the profile's request" and would all change.
-- Keep `headers`, `http1` and `http2.headers_priority` as the navigation and
+- Keep `headers`, `http1` and `http2.headersPriority` as the navigation and
   put other kinds in `kinds`.
 
 ## Decision

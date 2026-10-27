@@ -222,7 +222,7 @@ func (s *edgeSet) fallback(q *profile.QUIC, d *profile.Discovery, e *collector) 
 			edgeErr(e, ev.at, "%s waited %.0f ms for QUIC, other requests not at all", ev.label, ev.wait)
 		}
 		out.Mode = profile.FallbackRace
-		if _, ok := sampleGaps[ev.at+": tcp_delay_ms "+ev.label]; ok {
+		if _, ok := sampleGaps[ev.at+": tcpDelayMs "+ev.label]; ok {
 			pinned = append(pinned, ev)
 			continue
 		}
@@ -233,7 +233,7 @@ func (s *edgeSet) fallback(q *profile.QUIC, d *profile.Discovery, e *collector) 
 		// A pin holds only a wait the others' range leaves out.
 		for _, ev := range pinned {
 			if r := out.TCPDelayMillis; int(ev.wait) < r.Min || int(ev.wait) > r.Max {
-				s.gap(ev.at, "tcp_delay_ms "+ev.label)
+				s.gap(ev.at, "tcpDelayMs "+ev.label)
 			}
 		}
 	}
@@ -309,7 +309,7 @@ func (s *edgeSet) afterClose(d *profile.Discovery, out *profile.Fallback, e *col
 			s.checkArrivals(p, host, float64(a.start), end, end, 20, "held by the attempt after the close", e)
 		}
 		if i > 0 && (holds != out.ZeroRTTHolds || hold != out.Hold) {
-			edgeErr(e, p.at, "zero_rtt_holds %v hold %v, others %v %v", holds, hold, out.ZeroRTTHolds, out.Hold)
+			edgeErr(e, p.at, "zeroRttHolds %v hold %v, others %v %v", holds, hold, out.ZeroRTTHolds, out.Hold)
 		}
 		out.ZeroRTTHolds, out.Hold = holds, hold
 	}
@@ -413,7 +413,7 @@ func (s *edgeSet) broken(q *profile.QUIC, d *profile.Discovery, out *profile.Fal
 		}
 	}
 	if len(fits) != 1 {
-		edgeErr(e, s.set.name, "broken_after: %d rules fit the samples' failures (%+v), want 1", len(fits), fits)
+		edgeErr(e, s.set.name, "brokenAfter: %d rules fit the samples' failures (%+v), want 1", len(fits), fits)
 		if len(fits) == 0 {
 			return
 		}
@@ -470,7 +470,7 @@ func (s *edgeSet) revalidate(e *collector) *profile.Range {
 		}
 	}
 	if upper == math.MaxInt || lower > upper {
-		edgeErr(e, s.set.name, "revalidate_ms: no request after a failure started a fresh attempt, or bounds %d > %d", lower, upper)
+		edgeErr(e, s.set.name, "revalidateMs: no request after a failure started a fresh attempt, or bounds %d > %d", lower, upper)
 		return nil
 	}
 

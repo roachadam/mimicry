@@ -7,60 +7,60 @@ import "slices"
 type Cookies struct {
 	// UnsetSameSite is how a cookie without SameSite behaves: SameSiteLax
 	// (Chrome) or SameSiteNone (Firefox, Safari).
-	UnsetSameSite string `json:"unset_samesite"`
+	UnsetSameSite string `json:"unsetSamesite"`
 	// LaxAllowsUnsafeSeconds lets an unset-SameSite cookie younger than
 	// this go on a cross-site top-level navigation with an unsafe method
 	// (a form POST): Chrome's exception, 120. Zero: none.
-	LaxAllowsUnsafeSeconds int `json:"lax_allows_unsafe_seconds,omitempty"`
+	LaxAllowsUnsafeSeconds int `json:"laxAllowsUnsafeSeconds,omitempty"`
 	// NoneRequiresSecure rejects SameSite=None without Secure (Chrome,
 	// Firefox).
-	NoneRequiresSecure bool `json:"none_requires_secure,omitempty"`
+	NoneRequiresSecure bool `json:"noneRequiresSecure,omitempty"`
 	// ThirdParty is the policy for cookies of a cross-site context: a
 	// request whose site is not its top-level page's.
-	ThirdParty string `json:"third_party"`
+	ThirdParty string `json:"thirdParty"`
 	// WebSocketUnpartitioned also sends a cross-site WebSocket handshake its
 	// host's unpartitioned Lax and None cookies, whatever ThirdParty says
 	// (Safari 26, not 27). Strict ones stay behind (not measured).
-	WebSocketUnpartitioned bool `json:"websocket_unpartitioned,omitempty"`
+	WebSocketUnpartitioned bool `json:"websocketUnpartitioned,omitempty"`
 	// Redirects is how a redirect chain affects which cookies go.
 	Redirects string `json:"redirects"`
 	// Nameless is what a Set-Cookie pair without "=" sets.
 	Nameless string `json:"nameless"`
 	// EmptyName is what a pair with nothing before its "=" ("=x") sets.
-	EmptyName string `json:"empty_name"`
+	EmptyName string `json:"emptyName"`
 	// Latin1Values re-encodes non-ASCII value bytes as if each were a
 	// Latin-1 character (Safari: "café" in UTF-8 becomes "cafÃ©").
-	Latin1Values bool `json:"latin1_values,omitempty"`
+	Latin1Values bool `json:"latin1Values,omitempty"`
 	// Order is the order of cookies in the Cookie header.
 	Order string `json:"order"`
 	// NewValueRenews gives a cookie replaced with a different value a new
 	// creation time, moving it later in the order (Chrome); otherwise it
 	// keeps the old one's. Only with OrderRFC.
-	NewValueRenews bool `json:"new_value_renews,omitempty"`
+	NewValueRenews bool `json:"newValueRenews,omitempty"`
 	// PartitionedFirst sends the Partitioned cookies of a request before
 	// its unpartitioned ones, each group in Order (Safari). Off, they
 	// take their place in Order with the rest.
-	PartitionedFirst bool `json:"partitioned_first,omitempty"`
+	PartitionedFirst bool `json:"partitionedFirst,omitempty"`
 	// SameSiteScheme is whether a site, for SameSite, includes the scheme:
 	// SameSiteSchemeful makes http:// and https:// of one host cross-site
 	// (Chrome; RFC 6265bis), SameSiteSchemeless does not (Firefox,
 	// Safari).
-	SameSiteScheme string `json:"samesite_scheme"`
+	SameSiteScheme string `json:"samesiteScheme"`
 	// HostPrefixPath is what the __Host- prefix's Path=/ rule checks.
-	HostPrefixPath string `json:"host_prefix_path"`
+	HostPrefixPath string `json:"hostPrefixPath"`
 	// HTTPPrefix enforces the __Http- and __Host-Http- prefixes: Secure
 	// and HttpOnly, and __Host-'s rules for the latter (Chrome, Firefox).
 	// Off, they are ordinary names, __Host-Http- still a __Host- name
 	// (Safari).
-	HTTPPrefix bool `json:"http_prefix,omitempty"`
+	HTTPPrefix bool `json:"httpPrefix,omitempty"`
 	// SecureLoopback treats plain http:// to a loopback host (localhost,
 	// *.localhost, 127.0.0.0/8, ::1) as secure for cookies (not Safari 26).
-	SecureLoopback bool `json:"secure_loopback,omitempty"`
+	SecureLoopback bool `json:"secureLoopback,omitempty"`
 	// MaxPerSite is how many cookies a registrable domain keeps per
 	// partition: past it, the least recently used are evicted down to
 	// EvictTo (Chrome, Firefox: 180 and 150). Zero: no limit.
-	MaxPerSite int `json:"max_per_site,omitempty"`
-	EvictTo    int `json:"evict_to,omitempty"`
+	MaxPerSite int `json:"maxPerSite,omitempty"`
+	EvictTo    int `json:"evictTo,omitempty"`
 }
 
 // Cookie policy values.
@@ -167,29 +167,29 @@ func (c *checker) checkCookies(k *Cookies) {
 		}
 		c.add("cookies."+field, "must be one of %q", allowed)
 	}
-	oneOf("unset_samesite", k.UnsetSameSite, SameSiteLax, SameSiteNone)
-	oneOf("third_party", k.ThirdParty, ThirdPartySameSite, ThirdPartyPartitionAll, ThirdPartyPartitionedOnly)
+	oneOf("unsetSamesite", k.UnsetSameSite, SameSiteLax, SameSiteNone)
+	oneOf("thirdParty", k.ThirdParty, ThirdPartySameSite, ThirdPartyPartitionAll, ThirdPartyPartitionedOnly)
 	oneOf("redirects", k.Redirects, RedirectsIgnore, RedirectsChain, RedirectsBlockAfterCrossSite)
 	oneOf("nameless", k.Nameless, NamelessValue, NamelessName, NamelessDrop)
-	oneOf("empty_name", k.EmptyName, EmptyNameKeep, EmptyNameDrop)
+	oneOf("emptyName", k.EmptyName, EmptyNameKeep, EmptyNameDrop)
 	oneOf("order", k.Order, OrderRFC, OrderDomainName)
-	oneOf("samesite_scheme", k.SameSiteScheme, SameSiteSchemeful, SameSiteSchemeless)
-	oneOf("host_prefix_path", k.HostPrefixPath, HostPrefixPathAttribute, HostPrefixPathStored)
+	oneOf("samesiteScheme", k.SameSiteScheme, SameSiteSchemeful, SameSiteSchemeless)
+	oneOf("hostPrefixPath", k.HostPrefixPath, HostPrefixPathAttribute, HostPrefixPathStored)
 	if k.LaxAllowsUnsafeSeconds < 0 {
-		c.add("cookies.lax_allows_unsafe_seconds", "must not be negative")
+		c.add("cookies.laxAllowsUnsafeSeconds", "must not be negative")
 	}
 	if k.LaxAllowsUnsafeSeconds > 0 && k.UnsetSameSite != SameSiteLax {
-		c.add("cookies.lax_allows_unsafe_seconds", "applies only when unset_samesite is %q", SameSiteLax)
+		c.add("cookies.laxAllowsUnsafeSeconds", "applies only when unsetSamesite is %q", SameSiteLax)
 	}
 	if k.NewValueRenews && k.Order != OrderRFC {
-		c.add("cookies.new_value_renews", "applies only when order is %q", OrderRFC)
+		c.add("cookies.newValueRenews", "applies only when order is %q", OrderRFC)
 	}
 	switch {
 	case k.MaxPerSite < 0:
-		c.add("cookies.max_per_site", "must not be negative")
+		c.add("cookies.maxPerSite", "must not be negative")
 	case k.MaxPerSite == 0 && k.EvictTo != 0:
-		c.add("cookies.evict_to", "applies only with max_per_site")
+		c.add("cookies.evictTo", "applies only with maxPerSite")
 	case k.MaxPerSite > 0 && (k.EvictTo <= 0 || k.EvictTo >= k.MaxPerSite):
-		c.add("cookies.evict_to", "must be between 1 and max_per_site - 1")
+		c.add("cookies.evictTo", "must be between 1 and maxPerSite - 1")
 	}
 }

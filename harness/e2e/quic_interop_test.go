@@ -231,7 +231,7 @@ var interopCases = []interopCase{
 		// The server answers the request it received in 0-RTT with 425
 		// Too Early (RFC 8470): the client sends it again on the same
 		// connection, in 1-RTT, where its profile retries
-		// (http3.early_data.retry_too_early), and returns the 425
+		// (http3.earlyData.retryTooEarly), and returns the 425
 		// otherwise.
 		name:    "0rtt-too-early",
 		limit:   15 * time.Second,

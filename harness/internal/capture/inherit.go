@@ -13,7 +13,7 @@ import (
 )
 
 // Source names the profile whose captures of scenario a profile is checked
-// against: the one its captures_from names (decision 0035), or the profile
+// against: the one its capturesFrom names (decision 0035), or the profile
 // itself. cmd/profilegen refuses chains, so this never needs following.
 func Source(p *profile.Profile, scenario string) string {
 	if from, ok := p.CapturesFrom[scenario]; ok {

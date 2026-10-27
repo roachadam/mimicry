@@ -146,12 +146,13 @@ func jsonOf(text string) (json.RawMessage, error) {
 
 // echoProto is the protocol an echo reports ("h2", "h3"), or "".
 func echoProto(body json.RawMessage) string {
+	// The echo services' own JSON, not ours: their keys are snake_case.
 	var v struct {
-		HTTPVersion string `json:"http_version"`
+		HTTPVersion string `json:"http_version"` //nolint:tagliatelle // the echo service's key
 		Protocol    string `json:"protocol"`
 		// fp.impersonate.pro's /api/http3 answers a request over another
 		// protocol with actual_protocol only.
-		Actual string `json:"actual_protocol"`
+		Actual string `json:"actual_protocol"` //nolint:tagliatelle // the echo service's key
 	}
 	_ = json.Unmarshal(body, &v)
 	if v.HTTPVersion != "" {

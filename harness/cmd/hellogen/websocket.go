@@ -13,7 +13,7 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// websocketHello derives tls.websocket_h1 from the websocket capture, where
+// websocketHello derives tls.websocketH1 from the websocket capture, where
 // the server refuses extended CONNECT so each wss:// socket opens its own
 // HTTP/1.1 connection. Those hellos must be p's with one ALPN list and the
 // same extensions dropped.

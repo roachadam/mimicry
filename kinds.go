@@ -203,7 +203,7 @@ type sending struct {
 	corsOrigin string
 	// preflighted: the request needed a CORS preflight (sent or cached),
 	// which a profile's later hops may inherit
-	// (redirects.hop_preflight).
+	// (redirects.hopPreflight).
 	preflighted bool
 	// cond is the request's condition, which picks its variant; variant
 	// is the index of the one it takes in the navigation's or kind's
@@ -293,7 +293,7 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 		}
 	}
 	// site is sec-fetch-site, the most distant relation along the chain
-	// (from the last cross-site hop under redirects.navigation_site
+	// (from the last cross-site hop under redirects.navigationSite
 	// restart); targetSite is this URL's own, which picks the order.
 	// tainted means Origin: null (Fetch standard); sameOrigin is a chain
 	// that never left the page's origin.

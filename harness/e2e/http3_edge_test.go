@@ -892,7 +892,7 @@ func pnSpace(typ string) string {
 }
 
 // checkPathMoves holds every connection of page that moved path to
-// quic.loss.path_degrading.after_ptos: the move comes that many of its own
+// quic.loss.pathDegrading.afterPtos: the move comes that many of its own
 // PTOs after its last request, within half a PTO (h3gen's rounding). The PTO
 // is measured from its probes, floored by tracePTO, so the rule holds under
 // load too.
@@ -929,7 +929,7 @@ func checkPathMoves(t *testing.T, p *profile.Profile, who string, page *capture.
 // compareEdge holds mimicry's page to every browser sample, the ClientHello
 // and transport parameters of a connection retried after Version
 // Negotiation to the browser's retries (Firefox's: another hello than its
-// first flight's, tls.quic.version_negotiation), and mimicry's and every
+// first flight's, tls.quic.versionNegotiation), and mimicry's and every
 // sample's moves to a new path to the profile's rule (checkPathMoves).
 func compareEdge(t *testing.T, p *profile.Profile, got *capture.Page, want []*capture.Page, skip func(string) bool) {
 	t.Helper()

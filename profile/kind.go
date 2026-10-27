@@ -102,38 +102,38 @@ type Variant struct {
 	Site string `json:"site,omitempty"`
 	// CORSChecked is a request that carries Origin or headers the page
 	// set.
-	CORSChecked bool `json:"cors_checked,omitempty"`
+	CORSChecked bool `json:"corsChecked,omitempty"`
 	// PageSet is a request that carries a header the page set itself (not
 	// one the kind's list names). Such a request is CORS-checked, so
 	// PageSet needs CORSChecked.
-	PageSet bool `json:"page_set,omitempty"`
+	PageSet bool `json:"pageSet,omitempty"`
 	// Redirected is a request made by following a redirect.
 	Redirected bool `json:"redirected,omitempty"`
 	// CrossOriginRedirect is a redirected request to another origin than
 	// the URL whose redirect it follows (Safari then sends no
 	// Sec-Fetch-*). Needs Redirected.
-	CrossOriginRedirect bool `json:"cross_origin_redirect,omitempty"`
+	CrossOriginRedirect bool `json:"crossOriginRedirect,omitempty"`
 	// OriginBeforeRedirect is a redirected request whose previous request,
 	// the one the redirect answered, carried Origin (Chrome keeps that
 	// Origin's place; one the redirect adds goes after Sec-Fetch-*).
 	// Needs Redirected.
-	OriginBeforeRedirect bool `json:"origin_before_redirect,omitempty"`
+	OriginBeforeRedirect bool `json:"originBeforeRedirect,omitempty"`
 	// MethodChangedByRedirect is a redirected request whose method the
 	// redirect changed (a PATCH answered 303 goes on as a GET): Chrome
 	// drops the Origin the previous request carried and adds its own
 	// after Sec-Fetch-*. Needs Redirected.
-	MethodChangedByRedirect bool `json:"method_changed_by_redirect,omitempty"`
+	MethodChangedByRedirect bool `json:"methodChangedByRedirect,omitempty"`
 	// InsecureBeforeRedirect is a redirected request whose previous
 	// request went to a non-secure URL (a typed http:// answered with a
 	// redirect to https://): Safari carries Upgrade-Insecure-Requests over
 	// and orders the hop otherwise. Needs Redirected.
-	InsecureBeforeRedirect bool `json:"insecure_before_redirect,omitempty"`
+	InsecureBeforeRedirect bool `json:"insecureBeforeRedirect,omitempty"`
 	// CrossSiteRedirect is a redirected navigation to another site than
 	// the URL whose redirect it follows (schemeful sites): Safari sends
 	// Referer before Sec-Fetch-Dest on such a hop, after it on one that
 	// stays on its site (nav-redirect-page). Navigations only; needs
 	// CrossOriginRedirect.
-	CrossSiteRedirect bool `json:"cross_site_redirect,omitempty"`
+	CrossSiteRedirect bool `json:"crossSiteRedirect,omitempty"`
 	// Insecure is a request to a URL that is not potentially trustworthy
 	// (plain http:// to non-loopback). Such a variant has HTTP1 and no
 	// Headers. A non-secure request with no exact match takes the kind's
@@ -170,33 +170,33 @@ type Context struct {
 	// StorageAccess is the sec-fetch-storage-access value on cross-site
 	// requests that carry credentials ("active" in Chrome, "none" in
 	// Firefox); empty sends none (Safari).
-	StorageAccess string `json:"storage_access,omitempty"`
+	StorageAccess string `json:"storageAccess,omitempty"`
 	// SameOriginElementOrigin sends Origin on same-origin requests that
 	// elements make in CORS mode (a crossorigin attribute, fonts), as
 	// Chrome and Safari do; Firefox sends it on cross-origin ones only.
-	SameOriginElementOrigin bool `json:"same_origin_element_origin,omitempty"`
+	SameOriginElementOrigin bool `json:"sameOriginElementOrigin,omitempty"`
 	// StylesheetReferrer sends a stylesheet's URL as the Referer of the
 	// fonts and images it loads (Chrome, Firefox); otherwise the page's
 	// (Safari).
-	StylesheetReferrer bool `json:"stylesheet_referrer,omitempty"`
+	StylesheetReferrer bool `json:"stylesheetReferrer,omitempty"`
 	// AnonymousConnections keeps requests sent without credentials on
 	// connections of their own, separate from those that carry cookies
 	// (Chrome).
-	AnonymousConnections bool `json:"anonymous_connections,omitempty"`
+	AnonymousConnections bool `json:"anonymousConnections,omitempty"`
 	// FrameConnections keeps a cross-site frame's navigation on connections
 	// of its own (Chrome's network partitioning by frame site).
-	FrameConnections bool `json:"frame_connections,omitempty"`
+	FrameConnections bool `json:"frameConnections,omitempty"`
 	// PreflightCache is how successful CORS preflights are remembered, per
 	// page origin, URL and credentials mode: PreflightCacheReplace (Chrome,
 	// Safari: the latest answer replaces the URL's entry) or
 	// PreflightCacheMerge (Firefox: what every answer allowed). Empty: not
 	// measured, so requests that need a preflight are an error.
-	PreflightCache string `json:"preflight_cache,omitempty"`
+	PreflightCache string `json:"preflightCache,omitempty"`
 	// HeaderTable is how the browser orders the headers a page sets on a
 	// fetch() or XHR among its own, where the kind's list has no
 	// OtherHeaders slot. Nil: those lists place them after the rest,
 	// sorted by name (Firefox's lists all have the slot).
-	HeaderTable *HeaderTable `json:"header_table,omitempty"`
+	HeaderTable *HeaderTable `json:"headerTable,omitempty"`
 }
 
 // HeaderTable models a browser's request header hash table: a fetch()'s or
@@ -212,11 +212,11 @@ type HeaderTable struct {
 	// PageFirst: the page's headers enter the table first, then the
 	// browser's own (Chrome). Otherwise the browser's own are in the table
 	// as the list has them, and the page's enter after (Safari).
-	PageFirst bool `json:"page_first,omitempty"`
+	PageFirst bool `json:"pageFirst,omitempty"`
 	// AsPage are list headers that enter the table with the page's, sorted
 	// among them (Chrome's content-type, which a page sets in its fetch()
 	// headers).
-	AsPage []string `json:"as_page,omitempty"`
+	AsPage []string `json:"asPage,omitempty"`
 	// Late are list headers that enter the table after the page's
 	// (Safari's content-length, set once the body is).
 	Late []string `json:"late,omitempty"`
@@ -289,7 +289,7 @@ func (c *checker) checkHeaderTable(p *Profile) {
 		return
 	}
 	t := p.Context.HeaderTable
-	const path = "context.header_table"
+	const path = "context.headerTable"
 	if t.Hash != HashBlink && t.Hash != HashCF {
 		c.add(path+".hash", "must be %q or %q", HashBlink, HashCF)
 	}
@@ -384,16 +384,16 @@ func (c *checker) checkVariants(path string, vs []Variant, others bool) {
 			c.add(at+".site", "must be empty (same-origin), %q, %q or %q", SiteSameSite, SiteCrossSite, SiteNone)
 		}
 		if v.PageSet && !v.CORSChecked {
-			c.add(at+".page_set", "needs cors_checked: a request carrying headers the page set is CORS-checked")
+			c.add(at+".pageSet", "needs corsChecked: a request carrying headers the page set is CORS-checked")
 		}
 		if (v.CrossOriginRedirect || v.OriginBeforeRedirect || v.MethodChangedByRedirect || v.InsecureBeforeRedirect) && !v.Redirected {
-			c.add(at, "cross_origin_redirect, origin_before_redirect, method_changed_by_redirect and insecure_before_redirect need redirected")
+			c.add(at, "crossOriginRedirect, originBeforeRedirect, methodChangedByRedirect and insecureBeforeRedirect need redirected")
 		}
 		if v.CrossSiteRedirect && !v.CrossOriginRedirect {
-			c.add(at+".cross_site_redirect", "needs cross_origin_redirect: a redirect to another site goes to another origin")
+			c.add(at+".crossSiteRedirect", "needs crossOriginRedirect: a redirect to another site goes to another origin")
 		}
 		if v.CrossSiteRedirect && others {
-			c.add(at+".cross_site_redirect", "is a navigation's condition, not a request kind's")
+			c.add(at+".crossSiteRedirect", "is a navigation's condition, not a request kind's")
 		}
 		cond := condition{
 			method:              v.Method,

@@ -150,13 +150,13 @@ func checkPolicy(profiles []*profile.Profile) error {
 			from, ok := byName[p.CapturesFrom[sc]]
 			switch {
 			case !ok:
-				return fmt.Errorf("%s: captures_from.%s: %q is not a built-in profile", p.Name, sc, p.CapturesFrom[sc])
+				return fmt.Errorf("%s: capturesFrom.%s: %q is not a built-in profile", p.Name, sc, p.CapturesFrom[sc])
 			case from.Browser != p.Browser || from.Platform != p.Platform:
-				return fmt.Errorf("%s: captures_from.%s: %s is not %s on %s", p.Name, sc, from.Name, p.Browser, p.Platform)
+				return fmt.Errorf("%s: capturesFrom.%s: %s is not %s on %s", p.Name, sc, from.Name, p.Browser, p.Platform)
 			case compareVersions(from.Version, p.Version) >= 0:
-				return fmt.Errorf("%s: captures_from.%s: %s is not an older version", p.Name, sc, from.Name)
+				return fmt.Errorf("%s: capturesFrom.%s: %s is not an older version", p.Name, sc, from.Name)
 			case from.CapturesFrom[sc] != "":
-				return fmt.Errorf("%s: captures_from.%s: %s inherits that scenario itself; name %s, which holds the captures", p.Name, sc, from.Name, from.CapturesFrom[sc])
+				return fmt.Errorf("%s: capturesFrom.%s: %s inherits that scenario itself; name %s, which holds the captures", p.Name, sc, from.Name, from.CapturesFrom[sc])
 			}
 		}
 	}

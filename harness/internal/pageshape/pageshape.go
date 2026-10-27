@@ -27,7 +27,7 @@ type Page struct {
 	// ScriptCookiesDropped counts cookies the page set from script that
 	// replay cannot reproduce: no earlier response of their site to set
 	// them on.
-	ScriptCookiesDropped int `json:"script_cookies_dropped,omitempty"`
+	ScriptCookiesDropped int `json:"scriptCookiesDropped,omitempty"`
 }
 
 // Host is one hostname of the page.
@@ -45,7 +45,7 @@ type Request struct {
 	// Host indexes Page.Hosts.
 	Host int `json:"host"`
 	// At is when it started, in milliseconds after the navigation.
-	At int `json:"at_ms"`
+	At int `json:"atMs"`
 	// Method, and the Fetch metadata the browser sent with it.
 	Method string `json:"method"`
 	Dest   string `json:"dest,omitempty"`
@@ -57,8 +57,8 @@ type Request struct {
 	Conn int `json:"conn,omitempty"`
 	// PathLen and QueryLen are the lengths of the path and of the query
 	// (after "?", 0 without one).
-	PathLen  int `json:"path_len"`
-	QueryLen int `json:"query_len,omitempty"`
+	PathLen  int `json:"pathLen"`
+	QueryLen int `json:"queryLen,omitempty"`
 	// Headers are the headers the page set itself (not ones the browser
 	// adds), in the order sent.
 	Headers []Field `json:"headers,omitempty"`
@@ -66,27 +66,27 @@ type Request struct {
 	Body int `json:"body,omitempty"`
 	// CookieCrumbs is how many cookies the request carried, CookieBytes the
 	// length of its cookie header(s).
-	CookieCrumbs int `json:"cookie_crumbs,omitempty"`
-	CookieBytes  int `json:"cookie_bytes,omitempty"`
+	CookieCrumbs int `json:"cookieCrumbs,omitempty"`
+	CookieBytes  int `json:"cookieBytes,omitempty"`
 
 	// Status is the response status; 0 if none arrived.
 	Status int `json:"status"`
 	// RedirectTo indexes the host a redirect pointed at (-1 otherwise).
-	RedirectTo int `json:"redirect_to"`
+	RedirectTo int `json:"redirectTo"`
 	// RedirectFrom indexes the request whose redirect led here (-1
 	// otherwise): browsers follow it themselves, so replay does not
 	// schedule it.
-	RedirectFrom int `json:"redirect_from"`
+	RedirectFrom int `json:"redirectFrom"`
 	// Initiator indexes the host whose document made the request (-1 for
 	// the top-level navigation): requests from a third-party frame are
 	// replayed from a frame of that host.
 	Initiator int `json:"initiator"`
 	// ContentType is the response's media type, without parameters.
-	ContentType string `json:"content_type,omitempty"`
+	ContentType string `json:"contentType,omitempty"`
 	// Size is the response body's size in bytes, decoded.
 	Size int `json:"size"`
 	// SetCookies are the cookies set on this response.
-	SetCookies []Cookie `json:"set_cookies,omitempty"`
+	SetCookies []Cookie `json:"setCookies,omitempty"`
 }
 
 // Field is a header's shape: its real name, and its value's length and
@@ -104,16 +104,16 @@ type Cookie struct {
 	// ID identifies the cookie across the page: the same ID set again
 	// replaces it.
 	ID       int    `json:"id"`
-	NameLen  int    `json:"name_len"`
-	ValueLen int    `json:"value_len"`
+	NameLen  int    `json:"nameLen"`
+	ValueLen int    `json:"valueLen"`
 	Class    string `json:"class"`
 	// SiteWide is set when the cookie has a Domain attribute, covering
 	// every host of its site.
-	SiteWide   bool   `json:"site_wide,omitempty"`
+	SiteWide   bool   `json:"siteWide,omitempty"`
 	Path       string `json:"path,omitempty"`
 	Secure     bool   `json:"secure,omitempty"`
-	HTTPOnly   bool   `json:"http_only,omitempty"`
-	SameSite   string `json:"same_site,omitempty"`
+	HTTPOnly   bool   `json:"httpOnly,omitempty"`
+	SameSite   string `json:"sameSite,omitempty"`
 	Persistent bool   `json:"persistent,omitempty"`
 	// Delete is set when the cookie is being removed (expired, Max-Age 0).
 	Delete bool `json:"delete,omitempty"`

@@ -14,7 +14,7 @@ type summaryLine struct {
 	// capture tool added it.
 	Scenario  string  `json:"scenario"`
 	Name      string  `json:"name"`
-	UserAgent string  `json:"user_agent"`
+	UserAgent string  `json:"userAgent"`
 	Samples   int     `json:"samples"`
 	Seconds   float64 `json:"seconds"`
 	// File is the first file written, in the output directory.

@@ -8,44 +8,44 @@ type HTTP2 struct {
 	Settings []Setting `json:"settings"`
 	// WindowUpdate is the connection-level WINDOW_UPDATE increment sent after
 	// SETTINGS. Zero sends none.
-	WindowUpdate uint32 `json:"window_update,omitempty"`
+	WindowUpdate uint32 `json:"windowUpdate,omitempty"`
 	// Priorities are PRIORITY frames sent after SETTINGS, in order.
 	Priorities []Priority `json:"priorities,omitempty"`
 	// HeadersPriority is the priority carried on the request's HEADERS frame.
 	// Nil sends none.
-	HeadersPriority *PriorityParam `json:"headers_priority,omitempty"`
+	HeadersPriority *PriorityParam `json:"headersPriority,omitempty"`
 	// ChainPriorities makes each request depend exclusively on another
 	// stream as Chromium chains them, instead of on HeadersPriority.DependsOn:
 	// the parent is the newest open stream at the nearest weight level at or
 	// above the request's (0 when none). Needs HeadersPriority.
-	ChainPriorities bool `json:"chain_priorities,omitempty"`
+	ChainPriorities bool `json:"chainPriorities,omitempty"`
 	// PseudoHeaderOrder is the order of :method, :authority, :scheme, :path.
-	PseudoHeaderOrder []string `json:"pseudo_header_order"`
+	PseudoHeaderOrder []string `json:"pseudoHeaderOrder"`
 	// FirstStreamID is the first request's stream ID. Zero means 1; Firefox
 	// starts at 3.
-	FirstStreamID uint32 `json:"first_stream_id,omitempty"`
+	FirstStreamID uint32 `json:"firstStreamId,omitempty"`
 	// StreamWindowUpdate is a WINDOW_UPDATE increment sent on every stream
 	// right after its HEADERS, as Firefox does. Zero sends none.
-	StreamWindowUpdate uint32 `json:"stream_window_update,omitempty"`
+	StreamWindowUpdate uint32 `json:"streamWindowUpdate,omitempty"`
 	// MaxDataFrame caps the payload of the DATA frames carrying a request
 	// body. Zero uses the peer's SETTINGS_MAX_FRAME_SIZE; the smaller wins.
-	MaxDataFrame uint32 `json:"max_data_frame,omitempty"`
+	MaxDataFrame uint32 `json:"maxDataFrame,omitempty"`
 	// StreamUpdateThreshold and ConnectionUpdateThreshold are how many
 	// received bytes the reader consumes before a WINDOW_UPDATE returns them,
 	// per stream and for the connection. Zero means half the window.
-	StreamUpdateThreshold     uint32 `json:"stream_update_threshold,omitempty"`
-	ConnectionUpdateThreshold uint32 `json:"connection_update_threshold,omitempty"`
+	StreamUpdateThreshold     uint32 `json:"streamUpdateThreshold,omitempty"`
+	ConnectionUpdateThreshold uint32 `json:"connectionUpdateThreshold,omitempty"`
 	// WindowUpdateIntervalMillis also returns credit, however little, once
 	// this long has passed since the last WINDOW_UPDATE (Chromium: 5000).
 	// Zero: thresholds only.
-	WindowUpdateIntervalMillis uint32 `json:"window_update_interval_ms,omitempty"`
+	WindowUpdateIntervalMillis uint32 `json:"windowUpdateIntervalMs,omitempty"`
 	// IdlePingMillis: a request starting after this long with nothing
 	// received sends a PING after its HEADERS (Chromium: 10000); one
 	// unanswered as long again closes the connection. Zero sends none.
-	IdlePingMillis uint32 `json:"idle_ping_ms,omitempty"`
+	IdlePingMillis uint32 `json:"idlePingMs,omitempty"`
 	// SplitCookie sends each cookie as its own header field (RFC 9113,
 	// 8.2.3), as every captured browser does, instead of one joined field.
-	SplitCookie bool `json:"split_cookie,omitempty"`
+	SplitCookie bool `json:"splitCookie,omitempty"`
 	// HPACK is how header blocks are encoded. Required.
 	HPACK *HPACK `json:"hpack,omitempty"`
 }
@@ -56,29 +56,29 @@ type HTTP2 struct {
 type HPACK struct {
 	// WithoutIndexing names are sent as literals without indexing and never
 	// enter the dynamic table.
-	WithoutIndexing []string `json:"without_indexing,omitempty"`
+	WithoutIndexing []string `json:"withoutIndexing,omitempty"`
 	// NeverIndexed names are sent as never-indexed literals.
-	NeverIndexed []string `json:"never_indexed,omitempty"`
+	NeverIndexed []string `json:"neverIndexed,omitempty"`
 	// NeverIndexBelow sends fields with these names never-indexed when their
 	// value is shorter than the given number of bytes: Firefox and Safari
 	// never index cookie crumbs under 20 bytes (19 never, 20 indexed).
-	NeverIndexBelow map[string]int `json:"never_index_below,omitempty"`
+	NeverIndexBelow map[string]int `json:"neverIndexBelow,omitempty"`
 	// LiteralOnExactMatch sends a WithoutIndexing field that matches a table
 	// entry exactly as a literal naming that entry (Firefox), instead of as
 	// an indexed field (Chromium, Safari).
-	LiteralOnExactMatch bool `json:"literal_on_exact_match,omitempty"`
+	LiteralOnExactMatch bool `json:"literalOnExactMatch,omitempty"`
 	// NameMatch chooses which entry a literal's name refers to when several
 	// carry it: NameMatchStaticFirst or NameMatchHighestIndex.
-	NameMatch NameMatchRule `json:"name_match"`
+	NameMatch NameMatchRule `json:"nameMatch"`
 	// Huffman says when strings are Huffman-coded: HuffmanShorter or
 	// HuffmanAlways.
 	Huffman HuffmanRule `json:"huffman"`
 	// MaxTableSize caps the dynamic table the encoder announces and uses,
 	// whatever the server allows (Safari: 4096). Zero: the server's size.
-	MaxTableSize uint32 `json:"max_table_size,omitempty"`
+	MaxTableSize uint32 `json:"maxTableSize,omitempty"`
 	// SizeUpdates says when a table size the server sets is signalled:
 	// SizeUpdatesOnChange or SizeUpdatesAlways.
-	SizeUpdates SizeUpdateRule `json:"size_updates"`
+	SizeUpdates SizeUpdateRule `json:"sizeUpdates"`
 }
 
 // NameMatchRule is a value of HPACK.NameMatch.
@@ -119,7 +119,7 @@ type Setting struct {
 
 // Priority is a PRIORITY frame.
 type Priority struct {
-	StreamID uint32 `json:"stream_id"`
+	StreamID uint32 `json:"streamId"`
 	PriorityParam
 }
 
@@ -127,7 +127,7 @@ type Priority struct {
 // frame.
 type PriorityParam struct {
 	// DependsOn is the stream this one depends on.
-	DependsOn uint32 `json:"depends_on"`
+	DependsOn uint32 `json:"dependsOn"`
 	// Exclusive sets the exclusive flag.
 	Exclusive bool `json:"exclusive"`
 	// Weight as sent on the wire: the priority weight minus one, so 255 means
@@ -156,7 +156,7 @@ var pseudoHeaders = []string{
 // extendedPseudoHeaders are pseudo-headers only some requests carry:
 // `:protocol`, on an extended CONNECT (RFC 8441, WebSockets over HTTP/2).
 // They may appear in field lists such as the HPACK policy's, but not in
-// pseudo_header_order, which lists those every request carries.
+// pseudoHeaderOrder, which lists those every request carries.
 var extendedPseudoHeaders = []string{
 	":protocol",
 }

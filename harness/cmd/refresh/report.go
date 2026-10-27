@@ -76,7 +76,7 @@ func (rep *report) write() (string, error) {
 	if len(p.CapturesFrom) == 0 {
 		b.WriteString("None: the profile is checked against its own captures only.\n\n")
 	} else {
-		b.WriteString("Checked against these profiles' captures, version tokens rewritten (`captures_from`, decision 0035):\n\n")
+		b.WriteString("Checked against these profiles' captures, version tokens rewritten (`capturesFrom`, decision 0035):\n\n")
 		for _, sc := range slices.Sorted(maps.Keys(p.CapturesFrom)) {
 			fmt.Fprintf(&b, "- %s: %s\n", sc, p.CapturesFrom[sc])
 		}
@@ -128,7 +128,7 @@ func (rep *report) write() (string, error) {
 	b.WriteString("- Review the changes above; a hand-written section copied from the previous profile is unverified until the e2e tests pass against its inherited or new captures.\n")
 	b.WriteString("- `profiles/EVIDENCE.md`: add the profile's column (inherited rows marked as decision 0035 says), and `docs/backlog.md` for any new gap pinned.\n")
 	if !p.InPlace {
-		b.WriteString("- Gap tables keyed by profile name (generators' `sampleGaps`, the e2e tests' gap maps) apply to inherited scenarios through `captures_from`; a scenario recaptured for this version needs its own entry if the oddity recurs.\n")
+		b.WriteString("- Gap tables keyed by profile name (generators' `sampleGaps`, the e2e tests' gap maps) apply to inherited scenarios through `capturesFrom`; a scenario recaptured for this version needs its own entry if the oddity recurs.\n")
 	}
 
 	path := filepath.Join("reports", "refresh-"+p.Name+"-"+date+".md")
@@ -210,17 +210,17 @@ func navigationValue(p *profile.Profile, name string) string {
 
 // sortShuffled sorts, in a decoded profile, the lists the browser sends in
 // a new order on every connection, of which a profile holds one: the QUIC
-// transport parameters when quic.transport_parameter_order is "shuffled",
-// and a parameter's versions with shuffle_versions.
+// transport parameters when quic.transportParameterOrder is "shuffled",
+// and a parameter's versions with shuffleVersions.
 func sortShuffled(tree any) {
 	root, _ := tree.(map[string]any)
 	quic, _ := root["quic"].(map[string]any)
-	params, _ := quic["transport_parameters"].([]any)
-	if quic["transport_parameter_order"] != "shuffled" {
+	params, _ := quic["transportParameters"].([]any)
+	if quic["transportParameterOrder"] != "shuffled" {
 		return
 	}
 	for _, p := range params {
-		if m, ok := p.(map[string]any); ok && m["shuffle_versions"] == true {
+		if m, ok := p.(map[string]any); ok && m["shuffleVersions"] == true {
 			if vs, ok := m["versions"].([]any); ok {
 				slices.SortFunc(vs, func(a, b any) int {
 					return strings.Compare(compact(a), compact(b))
@@ -240,21 +240,21 @@ var sections = []struct {
 }{
 	{"identity", "Name, version, inheritance"},
 	{"captured", "From the new captures (cmd/refresh: tls base, http2 preface, headers, http1.headers)"},
-	{"generated", "Generated (hellogen: the hello's shape, tls.websocket_h1, tls.quic; h3gen: quic, http3; kindsgen: kinds, context, variants, http3 headers and priorities)"},
+	{"generated", "Generated (hellogen: the hello's shape, tls.websocketH1, tls.quic; h3gen: quic, http3; kindsgen: kinds, context, variants, http3 headers and priorities)"},
 	{"hand", "Hand-written, copied from the previous profile"},
 }
 
 // capturedHTTP2 are the http2 fields cmd/refresh takes from the capture.
-var capturedHTTP2 = []string{"settings", "window_update", "priorities", "headers_priority", "pseudo_header_order", "first_stream_id", "stream_window_update"}
+var capturedHTTP2 = []string{"settings", "windowUpdate", "priorities", "headersPriority", "pseudoHeaderOrder", "firstStreamId", "streamWindowUpdate"}
 
-// sectionOf names the section of a JSON path ("tls.cipher_suites[2]").
+// sectionOf names the section of a JSON path ("tls.cipherSuites[2]").
 func sectionOf(path string) string {
 	top, rest, _ := strings.Cut(path, ".")
 	top, _, _ = strings.Cut(top, "[")
 	second, _, _ := strings.Cut(rest, ".")
 	second, _, _ = strings.Cut(second, "[")
 	switch top {
-	case "name", "version", "browser", "platform", "deprecated", "captures_from":
+	case "name", "version", "browser", "platform", "deprecated", "capturesFrom":
 		return "identity"
 	case "kinds", "context", "variants", "quic", "http3":
 		return "generated"
@@ -270,14 +270,14 @@ func sectionOf(path string) string {
 		}
 	case "tls":
 		switch second {
-		case "websocket_h1", "quic":
+		case "websocketH1", "quic":
 			return "generated"
 		case "resumption":
-			if strings.HasPrefix(rest, "resumption.ech_payload_lengths") {
+			if strings.HasPrefix(rest, "resumption.echPayloadLengths") {
 				return "generated"
 			}
 		default:
-			if strings.Contains(rest, "key_share_lengths") || strings.Contains(rest, ".ech") {
+			if strings.Contains(rest, "keyShareLengths") || strings.Contains(rest, ".ech") {
 				return "generated"
 			}
 

@@ -159,7 +159,7 @@ func answerThenWatchGoAway(headers, goaway chan<- struct{}, hold <-chan struct{}
 var errGoAwayBeforeAnswer = errors.New("the client's GOAWAY came before the answer to its request")
 
 // An HTTP/2 connection pooled after the origin's QUIC connection came up
-// still gets GOAWAY after its response (Firefox's goaway_tcp; h3-broken
+// still gets GOAWAY after its response (Firefox's goawayTcp; h3-broken
 // capture). The TCP dial is held until QUIC is pooled.
 func TestGoAwayReachesTCPConnectionEstablishedAfterQUIC(t *testing.T) {
 	headers, goaway := make(chan struct{}), make(chan struct{})
@@ -241,7 +241,7 @@ func dialQUIC(t *testing.T, e *Engine, target string, port uint16) (route, *atte
 }
 
 // After the server's GOAWAY, Firefox's next request goes on TCP and the
-// resumed QUIC attempt waits for its response however long (race_after_goaway;
+// resumed QUIC attempt waits for its response however long (raceAfterGoaway;
 // h3-broken and h3-discovery captures).
 func TestRaceAfterGoAwayWaitsForTheTCPResponse(t *testing.T) {
 	headers, goaway, hold := make(chan struct{}), make(chan struct{}), make(chan struct{})

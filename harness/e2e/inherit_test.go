@@ -49,7 +49,7 @@ var (
 // inheritChildEnv marks the test binary run by TestInheritedProfile.
 const inheritChildEnv = "MIMICRY_INHERIT_CHILD"
 
-// TestInheritedProfile proves captures_from end to end (decision 0035): a
+// TestInheritedProfile proves capturesFrom end to end (decision 0035): a
 // synthetic profile inheriting chrome-155-macos's captures passes with only
 // version tokens rewritten, and fails with a header value of its own. Each
 // case reruns this test binary with MIMICRY_PROFILES naming it.
@@ -113,7 +113,7 @@ func TestInheritedProfile(t *testing.T) {
 					}
 				}
 				if !bytes.Contains(out, []byte("versions rewritten chrome-155-macos → "+testprofiles.InheritingName)) {
-					t.Error("no capture was read through captures_from")
+					t.Error("no capture was read through capturesFrom")
 				}
 
 				return
@@ -147,7 +147,7 @@ func failures(out []byte) string {
 	return strings.Join(keep, "\n")
 }
 
-// Every built-in profile's captures_from names known scenarios other than
+// Every built-in profile's capturesFrom names known scenarios other than
 // the default page (which a new version always recaptures), each held by
 // a profile with captures of it.
 func TestCapturesFromNamesCapturedScenarios(t *testing.T) {
@@ -158,18 +158,18 @@ func TestCapturesFromNamesCapturedScenarios(t *testing.T) {
 		}
 		for sc, from := range p.CapturesFrom {
 			if sc == capture.DefaultScenario {
-				t.Errorf("%s: captures_from.%s: the default page is never inherited", name, sc)
+				t.Errorf("%s: capturesFrom.%s: the default page is never inherited", name, sc)
 				continue
 			}
 			if _, err := server.ScenarioByName(sc); err != nil && !strings.HasPrefix(sc, "replay-") {
-				t.Errorf("%s: captures_from.%s: %v", name, sc, err)
+				t.Errorf("%s: capturesFrom.%s: %v", name, sc, err)
 			}
 			files, err := filepath.Glob(captureDir + from + "." + sc + ".*")
 			if err != nil {
 				t.Fatal(err)
 			}
 			if len(files) == 0 {
-				t.Errorf("%s: captures_from.%s: %s has no captures of it", name, sc, from)
+				t.Errorf("%s: capturesFrom.%s: %s has no captures of it", name, sc, from)
 			}
 		}
 	}

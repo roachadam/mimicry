@@ -77,7 +77,7 @@ func TestCheckPolicyRefuses(t *testing.T) {
 
 				return ps
 			},
-			want: `captures_from.cookies: "chrome-149-macos" is not a built-in profile`,
+			want: `capturesFrom.cookies: "chrome-149-macos" is not a built-in profile`,
 		},
 		{
 			name: "inherited from a newer version",

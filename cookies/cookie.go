@@ -74,13 +74,13 @@ type Cookie struct {
 	// Domain is the host for a host-only cookie, else the Domain
 	// attribute without its leading dot.
 	Domain   string `json:"domain"`
-	HostOnly bool   `json:"host_only,omitempty"`
+	HostOnly bool   `json:"hostOnly,omitempty"`
 	Path     string `json:"path"`
 	// Expires is when the cookie expires; zero for a session cookie.
 	Expires  time.Time `json:"expires,omitzero"`
 	Secure   bool      `json:"secure,omitempty"`
-	HTTPOnly bool      `json:"http_only,omitempty"`
-	SameSite SameSite  `json:"same_site,omitempty"`
+	HTTPOnly bool      `json:"httpOnly,omitempty"`
+	SameSite SameSite  `json:"sameSite,omitempty"`
 	// Partitioned is the attribute; Partition is the top-level site the
 	// cookie is kept under ("https://example.com"), set for Partitioned
 	// cookies and, in Firefox, for every cookie of a cross-site context.
@@ -88,7 +88,7 @@ type Cookie struct {
 	Partitioned bool      `json:"partitioned,omitempty"`
 	Partition   string    `json:"partition,omitempty"`
 	Created     time.Time `json:"created"`
-	LastAccess  time.Time `json:"last_access,omitzero"`
+	LastAccess  time.Time `json:"lastAccess,omitzero"`
 	// Raw is the Set-Cookie line that set it; empty for one set with
 	// Jar.Set.
 	Raw string `json:"raw,omitempty"`

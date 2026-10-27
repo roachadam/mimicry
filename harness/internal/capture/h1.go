@@ -36,7 +36,7 @@ type Page struct {
 	H1          []H1Request      `json:"h1,omitempty"`
 	Connections []Connection     `json:"connections,omitempty"`
 	WebSockets  []WebSocket      `json:"websockets,omitempty"`
-	WSResults   []WSResult       `json:"ws_results,omitempty"`
+	WSResults   []WSResult       `json:"wsResults,omitempty"`
 	// QUIC are the QUIC connections, in the order their first datagrams
 	// arrived; their handshakes are not in Connections, which are TCP's.
 	QUIC []*quictrace.Conn `json:"quic,omitempty"`
@@ -67,8 +67,8 @@ type Connection struct {
 	// PSKIdentities is how many tickets the ClientHello offered, and
 	// PSKIdentity a short hash of the first, to tell one ticket used twice
 	// from fresh ones.
-	PSKIdentities int    `json:"psk_identities,omitempty"`
-	PSKIdentity   string `json:"psk_identity,omitempty"`
+	PSKIdentities int    `json:"pskIdentities,omitempty"`
+	PSKIdentity   string `json:"pskIdentity,omitempty"`
 	// Ticket is a short hash of the TLS 1.2 session ticket offered.
 	Ticket string `json:"ticket,omitempty"`
 	// Requests is how many requests the connection carried; zero for one
@@ -78,7 +78,7 @@ type Connection struct {
 	Hello *profile.TLS `json:"hello,omitempty"`
 	// RecordVersion is the record-layer version of the records that
 	// carried it; zero in captures made before it was kept.
-	RecordVersion uint16 `json:"record_version,omitempty"`
+	RecordVersion uint16 `json:"recordVersion,omitempty"`
 }
 
 // LoadPages reads a replayed page capture written by Write

@@ -500,7 +500,7 @@ func huffman(done []*conn, e *collector) profile.HuffmanRule {
 
 // priorityUpdate: each request with a priority header gets a matching
 // PRIORITY_UPDATE no later than its HEADERS (unless sampleGaps pins
-// "priority_update <path>"), or no connection sends any.
+// "priorityUpdate <path>"), or no connection sends any.
 func priorityUpdate(s *captureSet, done []*conn, e *collector) bool {
 	var vs []bool
 	for _, c := range done {
@@ -528,7 +528,7 @@ func priorityUpdate(s *captureSet, done []*conn, e *collector) bool {
 			switch {
 			case ok != has:
 				e.add(c, "%s: priority header %v, PRIORITY_UPDATE %v", q.Path, ok, has)
-			case ok && u.Priority == value && u.Millis > q.Millis && s.gap(c, "priority_update "+q.Path):
+			case ok && u.Priority == value && u.Millis > q.Millis && s.gap(c, "priorityUpdate "+q.Path):
 				matched++
 			case ok && (u.Priority != value || u.Millis > q.Millis):
 				e.add(c, "%s: PRIORITY_UPDATE %q at %d ms for priority %q at %d ms", q.Path, u.Priority, u.Millis, value, q.Millis)

@@ -66,7 +66,7 @@ func TestExportRoundTrip(t *testing.T) {
 		if first.String() != again.String() {
 			t.Errorf("round trip changed cookies:\n%s\n%s", first.String(), again.String())
 		}
-		if !strings.Contains(first.String(), `"partition": "https://a.example"`) || !strings.Contains(first.String(), `"same_site": "Lax"`) {
+		if !strings.Contains(first.String(), `"partition": "https://a.example"`) || !strings.Contains(first.String(), `"sameSite": "Lax"`) {
 			t.Errorf("JSON lacks attributes:\n%s", first.String())
 		}
 	})

@@ -49,7 +49,7 @@ Option 3, the user's choice.
 - **Cache.** Each entry is keyed by origin, URL and credentials mode. It
   lasts for `Access-Control-Max-Age`, or 5 s without one. Chrome and Safari
   keep one entry per URL and replace it with each answer
-  (`context.preflight_cache: replace`). Firefox merges what each answer
+  (`context.preflightCache: replace`). Firefox merges what each answer
   allowed (`merge`).
 - **Check.** The preflight's status must be 2xx, and
   `Access-Control-Allow-Origin` must be the origin, or `*` for a request
@@ -93,7 +93,7 @@ response from the page's script, which mimicry has no counterpart for.
 - Requests that need a preflight cost a round trip more, as in the browser,
   and can fail with `*CORSError` where they used to succeed. Callers who
   must reach a server that answers preflights wrongly set `IgnoreCORS`.
-- A profile without `context.preflight_cache` cannot send such requests: an
+- A profile without `context.preflightCache` cannot send such requests: an
   error, as for anything not measured
   ([0008](0008-unmeasured-is-an-error.md)).
 - `Exact` requests are never preflighted.

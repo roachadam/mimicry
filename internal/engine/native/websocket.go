@@ -176,7 +176,7 @@ func (e *Engine) openWebSocketH1(ctx context.Context, req *http.Request, r route
 }
 
 // dialWebSocket connects a socket's own connection and, for https, sends
-// tls.websocket_h1's hello, resuming as the route's other connections do.
+// tls.websocketH1's hello, resuming as the route's other connections do.
 // The server must not pick h2, which the hello does not offer.
 func (e *Engine) dialWebSocket(ctx context.Context, req *http.Request, r route) (net.Conn, error) {
 	var conn net.Conn
@@ -197,7 +197,7 @@ func (e *Engine) dialWebSocket(ctx context.Context, req *http.Request, r route) 
 	}
 	if e.profile.TLS.WebSocketH1 == nil {
 		_ = conn.Close()
-		return nil, fmt.Errorf("%w: profile %s has no WebSocket hello (tls.websocket_h1)", headerorder.ErrNotMeasured, e.profile.Name)
+		return nil, fmt.Errorf("%w: profile %s has no WebSocket hello (tls.websocketH1)", headerorder.ErrNotMeasured, e.profile.Name)
 	}
 	cfg := handshake.Config{
 		ServerName:       req.URL.Hostname(),

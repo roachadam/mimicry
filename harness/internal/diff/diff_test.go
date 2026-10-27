@@ -166,7 +166,7 @@ func TestCompare(t *testing.T) {
 				c[1], c[2] = c[2], c[1]
 			},
 			want: []string{
-				"tls.cipher_suites",
+				"tls.cipherSuites",
 			},
 		},
 		{

@@ -13,7 +13,7 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// vnRetryHello derives tls.quic.version_negotiation: how hellos retried
+// vnRetryHello derives tls.quic.versionNegotiation: how hellos retried
 // after Version Negotiation differ from the full QUIC hello. All retries
 // must differ alike. Nil without such connections.
 func vnRetryHello(dir string, p *profile.Profile, q *profile.QUICHello) (*profile.QUICHelloRetry, error) {

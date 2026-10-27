@@ -31,7 +31,7 @@ request kinds is ~4,700 lines), which is fine for data.
 A new version starts as a copy of the previous one; whatever a capture
 cannot show stays marked copied in the ledger until its own captures pass.
 `cmd/refresh` (in `harness/`) does the copy: it takes the hand-copied
-fields from the new capture, sets `captures_from` for the scenarios it did
+fields from the new capture, sets `capturesFrom` for the scenarios it did
 not recapture (decision 0035) and runs the generators.
 
 ## Revisit when

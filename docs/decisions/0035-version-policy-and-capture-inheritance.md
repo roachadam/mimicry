@@ -67,7 +67,7 @@ For the version names in code, the options were:
   version matters to what they show. Examples whose output prints the user
   agent or the profile name keep `Chrome155MacOS()`.
 
-**Inherited captures.** `"captures_from": {"<scenario>": "<profile>"}`
+**Inherited captures.** `"capturesFrom": {"<scenario>": "<profile>"}`
 names, per capture scenario, the profile whose captures this profile is
 checked against.
 - `profile.Validate` checks:

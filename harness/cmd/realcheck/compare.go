@@ -78,7 +78,7 @@ type randomness struct {
 	// suite ("0x0001/0x0001") the profile's hellos choose from.
 	echLengths []string
 	echSuites  []string
-	// tpOrder is quic.transport_parameter_order; pnRandom a random first
+	// tpOrder is quic.transportParameterOrder; pnRandom a random first
 	// packet number.
 	tpOrder  string
 	pnRandom bool
@@ -108,10 +108,10 @@ func randomnessOf(p *profile.Profile) (randomness, error) {
 		switch t := v.(type) {
 		case map[string]any:
 			if ech, ok := t["ech"].(map[string]any); ok {
-				for _, l := range anyList(ech["payload_lengths"]) {
+				for _, l := range anyList(ech["payloadLengths"]) {
 					r.echLengths = append(r.echLengths, fmt.Sprint(l))
 				}
-				for _, s := range anyList(ech["cipher_suites"]) {
+				for _, s := range anyList(ech["cipherSuites"]) {
 					m, _ := s.(map[string]any)
 					r.echSuites = append(r.echSuites, fmt.Sprintf("%v/%v", m["kdf"], m["aead"]))
 				}

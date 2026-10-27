@@ -12,7 +12,7 @@ import (
 // maxRedirects is how many redirects a chain follows: every captured
 // browser's fetch() requested the 20th redirect's URL and not the 21st
 // (the cors-edge capture's chain.so, as the Fetch standard says). A
-// navigation's limit is the profile's (redirects.navigation_limit).
+// navigation's limit is the profile's (redirects.navigationLimit).
 const maxRedirects = 20
 
 // navigationRedirects is how many redirects every captured browser's

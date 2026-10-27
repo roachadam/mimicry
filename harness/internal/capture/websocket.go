@@ -21,7 +21,7 @@ type WebSocket struct {
 	Connection int `json:"connection,omitempty"`
 	// ProxyConn is the ProxyRequest.Conn of the capture-proxy connection
 	// that carried the socket; 0 for a direct socket.
-	ProxyConn int `json:"proxy_conn,omitempty"`
+	ProxyConn int `json:"proxyConn,omitempty"`
 	// Request is the handshake's index: in Page.H1 for http/1.1, in
 	// Page.H2[Trace].Requests for h2 (-1 if that trace had already ended).
 	// Stream is the h2 stream that carried it.
@@ -43,11 +43,11 @@ type WebSocket struct {
 	// was taken. After a close handshake the server waits WSLinger before
 	// ending it, so a client that closes on its own shows. ClosedMillis is
 	// when, since the handshake.
-	ClosedBy     string `json:"closed_by,omitempty"`
-	ClosedMillis int64  `json:"closed_ms,omitempty"`
+	ClosedBy     string `json:"closedBy,omitempty"`
+	ClosedMillis int64  `json:"closedMs,omitempty"`
 	// StreamEnd is how the client ended its h2 stream: "END_STREAM" or
 	// "RST_STREAM <code>"; "" if it did not, or for http/1.1.
-	StreamEnd string `json:"stream_end,omitempty"`
+	StreamEnd string `json:"streamEnd,omitempty"`
 	// Error is why the server stopped reading a socket the client had not
 	// closed: a frame it could not parse.
 	Error string `json:"error,omitempty"`
@@ -82,7 +82,7 @@ type WSFrame struct {
 	// LengthBits is the payload length's encoding as sent: 7 (in the
 	// second byte), 16 (126 and two bytes) or 64 (127 and eight bytes).
 	// Length is the payload length.
-	LengthBits int    `json:"length_bits"`
+	LengthBits int    `json:"lengthBits"`
 	Length     uint64 `json:"length"`
 	// Payload is the client's payload, unmasked, as on the wire (still
 	// compressed when Compressed).
@@ -94,11 +94,11 @@ type WSFrame struct {
 	// 7692, with the context of the socket's earlier messages), on its
 	// last frame; InflateError says why that failed.
 	Inflated     []byte `json:"inflated,omitempty"`
-	InflateError string `json:"inflate_error,omitempty"`
+	InflateError string `json:"inflateError,omitempty"`
 	// CloseCode and CloseReason are a close frame's status code (0 when
 	// its payload is empty) and reason.
-	CloseCode   uint16 `json:"close_code,omitempty"`
-	CloseReason string `json:"close_reason,omitempty"`
+	CloseCode   uint16 `json:"closeCode,omitempty"`
+	CloseReason string `json:"closeReason,omitempty"`
 }
 
 // WSResult is what a page's script saw of one WebSocket step, as it
@@ -121,7 +121,7 @@ type WSResult struct {
 	Code     int    `json:"code,omitempty"`
 	Reason   string `json:"reason,omitempty"`
 	Clean    bool   `json:"clean,omitempty"`
-	TimedOut bool   `json:"timed_out,omitempty"`
+	TimedOut bool   `json:"timedOut,omitempty"`
 	// Skipped reports that the page did not open the socket: the step
 	// hangs this browser (server.WebSocketStep.Hangs).
 	Skipped bool `json:"skipped,omitempty"`

@@ -27,10 +27,10 @@ type engineStep struct {
 
 // engineSummary is what the engine flow showed.
 type engineSummary struct {
-	AltSvc string `json:"alt_svc,omitempty"`
+	AltSvc string `json:"altSvc,omitempty"`
 	// SwitchedAfter is the number of requests before the first one on
 	// HTTP/3 (0: never).
-	SwitchedAfter int  `json:"switched_after"`
+	SwitchedAfter int  `json:"switchedAfter"`
 	H3            bool `json:"h3"`
 	// Large and Resumed are the protocols of the larger download and the
 	// request on the second connection.

@@ -156,7 +156,7 @@ func Spec(h fingerprint.Hello) (*utls.ClientHelloSpec, error) {
 		sid = 0
 	}
 	if h.LegacyVersion != legacyVersion || h.SessionIDLength != sid {
-		return nil, fmt.Errorf("handshake: legacy_version %s with a %d-byte session ID; uTLS sends %s with %d bytes",
+		return nil, fmt.Errorf("handshake: legacyVersion %s with a %d-byte session ID; uTLS sends %s with %d bytes",
 			h.LegacyVersion, h.SessionIDLength, legacyVersion, sid)
 	}
 	spec := &utls.ClientHelloSpec{

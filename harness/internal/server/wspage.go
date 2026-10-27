@@ -574,7 +574,7 @@ const socket = (url, protocols, sends, close) => {
     };
   });
   return within(run.then(() => true), ` + strconv.FormatInt(wsStepTime.Milliseconds(), 10) + `).then(ok => {
-    if (!ok) res.timed_out = true;
+    if (!ok) res.timedOut = true;
     return res;
   });
 };

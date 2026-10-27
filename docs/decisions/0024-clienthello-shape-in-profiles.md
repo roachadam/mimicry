@@ -9,7 +9,7 @@
 The capture parser kept extension types, cipher suites and similar
 lists. It dropped values that are constant per browser:
 - the record version;
-- `legacy_version`;
+- `legacyVersion`;
 - the session-ID length;
 - the key-share key lengths;
 - the GREASE ECH shape.
@@ -24,7 +24,7 @@ Every connection of every capture that records the hello's shape, plus
 ones per browser from git history)
 ([report](../../harness/reports/hello-record-2026-10-24.md)):
 - **Record version:** `0x0301` in every browser.
-- **`legacy_version`, session ID, key shares:** `0x0303`, 32 bytes, and
+- **`legacyVersion`, session ID, key shares:** `0x0303`, 32 bytes, and
   the key-share lengths are constant. They are the same in resumed hellos.
 - **ECH, Chrome:** AES-128-GCM; the payload is one of 144, 176, 208 or
   240 bytes, chosen per connection, resumed or not.
@@ -35,10 +35,10 @@ ones per browser from git history)
 ## Decision
 
 `profile.TLS` carries:
-- `record_version`, `legacy_version`, `session_id_length`;
-- `key_share_lengths`;
+- `recordVersion`, `legacyVersion`, `sessionIdLength`;
+- `keyShareLengths`;
 - a typed `ech` (cipher suites and payload lengths as observed sets);
-- `resumption.ech_payload_lengths` for resumed hellos.
+- `resumption.echPayloadLengths` for resumed hellos.
 
 These are required (0008). `harness/cmd/hellogen` derives them from every
 capture and refuses a connection that contradicts them; it is never

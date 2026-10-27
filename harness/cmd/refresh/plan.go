@@ -55,10 +55,10 @@ type plan struct {
 	// Previous is the profile the new one is copied from: the browser's
 	// newest older one, or the profile itself when InPlace.
 	Previous string    `json:"previous"`
-	InPlace  bool      `json:"in_place"`
+	InPlace  bool      `json:"inPlace"`
 	Captures []planned `json:"captures"`
-	// CapturesFrom is the profile's captures_from once refreshed.
-	CapturesFrom map[string]string `json:"captures_from,omitempty"`
+	// CapturesFrom is the profile's capturesFrom once refreshed.
+	CapturesFrom map[string]string `json:"capturesFrom,omitempty"`
 	Estimate     time.Duration     `json:"estimate"`
 	Problems     []string          `json:"problems,omitempty"`
 	Manual       []string          `json:"manual,omitempty"`
@@ -73,7 +73,7 @@ type plan struct {
 type planned struct {
 	Scenario   string        `json:"scenario"`
 	Samples    int           `json:"samples"`
-	LocalRoots bool          `json:"local_roots,omitempty"`
+	LocalRoots bool          `json:"localRoots,omitempty"`
 	Estimate   time.Duration `json:"estimate"`
 }
 
@@ -91,7 +91,7 @@ type summaryLine struct {
 	Browser   string  `json:"browser"`
 	Scenario  string  `json:"scenario"`
 	Name      string  `json:"name"`
-	UserAgent string  `json:"user_agent"`
+	UserAgent string  `json:"userAgent"`
 	Samples   int     `json:"samples"`
 	Seconds   float64 `json:"seconds"`
 	File      string  `json:"file"`
@@ -100,18 +100,18 @@ type summaryLine struct {
 // preflightReport is the capture tool's -preflight output.
 type preflightReport struct {
 	User        string `json:"user"`
-	ConsoleUser string `json:"console_user"`
+	ConsoleUser string `json:"consoleUser"`
 	Browsers    []struct {
 		Name       string `json:"name"`
 		App        string `json:"app"`
 		Version    string `json:"version"`
 		Unapproved bool   `json:"unapproved"`
 	} `json:"browsers"`
-	CAPath      string `json:"ca_path"`
-	CATrusted   bool   `json:"ca_trusted"`
+	CAPath      string `json:"caPath"`
+	CATrusted   bool   `json:"caTrusted"`
 	Resolver    bool   `json:"resolver"`
 	Aioquic     string `json:"aioquic"`
-	SafariProxy string `json:"safari_proxy"`
+	SafariProxy string `json:"safariProxy"`
 }
 
 // machine is where p's browser runs.
@@ -505,7 +505,7 @@ func estimate(sc *server.Scenario, browser string, samples int) time.Duration {
 	return time.Duration(samples) * (page + launch)
 }
 
-// inherit is captures_from for p: every scenario it does not capture, and
+// inherit is capturesFrom for p: every scenario it does not capture, and
 // every replay, from the profile holding the previous profile's captures
 // of it. The default scenario is always captured.
 func inherit(p *plan, builtins map[string]*profile.Profile) map[string]string {

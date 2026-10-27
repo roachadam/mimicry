@@ -44,7 +44,7 @@ the wire is the evidence.
 
 ## Decision
 
-Profile `context.header_table` (`hash`, `own`, `page_first`, `as_page`,
+Profile `context.headerTable` (`hash`, `own`, `pageFirst`, `asPage`,
 `late`, `redirected`), derived by kindsgen. Firefox has none: its lists
 keep the `*` slot. `internal/headerorder` orders the run.
 

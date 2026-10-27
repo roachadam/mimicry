@@ -35,7 +35,7 @@ Three samples where the browser picks something per connection (extension
 order, GREASE values, ECH lengths), one elsewhere. Chrome and Firefox take
 `h3-discovery` and `h3-page` twice, without and with `-h3-local-roots`, as
 their committed captures do. Every other scenario is inherited from the
-browser's previous version: the profile's `captures_from` names, per
+browser's previous version: the profile's `capturesFrom` names, per
 scenario, the profile holding its captures, and every generator and e2e
 test reads those instead, with the version tokens in header values
 rewritten to the new version's (anything else that differs still fails).
@@ -108,14 +108,14 @@ after a parallel run, recapture them with `-serial`.
    taken again, up to twice.
 3. **Derive.** The previous profile is copied and renamed; from the new
    captures it takes the ClientHello (`tls` but for what hellogen derives),
-   the HTTP/2 preface (`settings`, `window_update`, `priorities`,
-   `headers_priority`, `pseudo_header_order`, `first_stream_id`,
-   `stream_window_update`), the navigation's `headers` and the HTTP/1.1
+   the HTTP/2 preface (`settings`, `windowUpdate`, `priorities`,
+   `headersPriority`, `pseudoHeaderOrder`, `firstStreamId`,
+   `streamWindowUpdate`), the navigation's `headers` and the HTTP/1.1
    navigation's `http1.headers`. Headers the request fills in (slots:
    `cookie`, `referer`, `content-length`, `Host`) keep their places after
    the same header as before. A shuffling browser's extensions keep the
    previous profile's order when the types are the same, so only a real
-   change shows. `captures_from` lists every scenario not recaptured. Then
+   change shows. `capturesFrom` lists every scenario not recaptured. Then
    `hellogen`, `h3gen` and `kindsgen` run on the staged profile over an
    overlay of the committed captures with the staged ones on top. A
    generator that refuses a sample stops the run with its message; pin the

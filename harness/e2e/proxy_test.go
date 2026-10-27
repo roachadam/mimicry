@@ -136,7 +136,7 @@ func TestProxyMatchesBrowser(t *testing.T) {
 }
 
 // What a profile does not describe is an error, not a guess: a proxy without
-// a proxy section, credentials without connect_auth, and a WebSocket through
+// a proxy section, credentials without connectAuth, and a WebSocket through
 // a proxy its browser was not measured with.
 func TestUnmeasuredProxyIsAnError(t *testing.T) {
 	for _, tc := range []struct {
@@ -396,7 +396,7 @@ func scenario(t *testing.T, name string) *server.Scenario {
 // missingCaptures are the captures known not to exist, and why; a test
 // needing one is skipped. Any other missing capture fails. Keyed by the file
 // of the profile that holds the scenario's captures, so a profile that
-// inherits the scenario (captures_from) inherits the entry too.
+// inherits the scenario (capturesFrom) inherits the entry too.
 var missingCaptures = map[string]string{
 	"safari-26-macos.proxy-auth.proxytrace.json":    "Safari 26 proxy credentials were never captured",
 	"safari-26-macos.proxy-plain-auth.h1trace.json": "Safari 26 proxy credentials were never captured",

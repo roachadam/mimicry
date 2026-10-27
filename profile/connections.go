@@ -7,7 +7,7 @@ type Connections struct {
 	// HTTP1PerHost is the most HTTP/1.1 connections open at once to one
 	// host (scheme, host, port, partition, proxy), dials included. Busy
 	// requests wait in order. At least 1.
-	HTTP1PerHost int `json:"http1_per_host"`
+	HTTP1PerHost int `json:"http1PerHost"`
 	// Coalesce is when a request takes another host's HTTP/2 connection:
 	// CoalesceOnLookup or CoalesceOnConnect. The connection must be in the
 	// same partition, same port, unproxied, with a certificate covering
@@ -39,7 +39,7 @@ func (c *checker) checkConnections(conns *Connections) {
 		return
 	}
 	if conns.HTTP1PerHost < 1 {
-		c.add("connections.http1_per_host", "%d must be at least 1", conns.HTTP1PerHost)
+		c.add("connections.http1PerHost", "%d must be at least 1", conns.HTTP1PerHost)
 	}
 	if conns.Coalesce != CoalesceOnLookup && conns.Coalesce != CoalesceOnConnect {
 		c.add("connections.coalesce", "%q must be %q or %q", conns.Coalesce, CoalesceOnLookup, CoalesceOnConnect)

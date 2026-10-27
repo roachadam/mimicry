@@ -224,6 +224,21 @@ linters:
             - github.com/roachadam/mimicry/profile$
             - golang.org/x/crypto
             - golang.org/x/net
+    tagalign:
+      # Struct tags are aligned and ordered json first; tags not in the order
+      # list sort alphabetically after it.
+      align: true
+      sort: true
+      order: [json, yaml, mapstructure, env, envconfig]
+    tagliatelle:
+      # JSON keys are lowerCamelCase (profiles, captures, page shapes, reports).
+      case:
+        rules:
+          json: camel
+          yaml: camel
+          mapstructure: snake
+          env: upperSnake
+          envconfig: upperSnake
     nlreturn:
       # A return or branch in a block of more than 2 lines needs a blank line
       # before it.
@@ -272,6 +287,8 @@ linters:
     - usestdlibvars   # stdlib constants instead of literals
     - modernize       # newer stdlib idioms (gopls's modernize analyzers)
     - nlreturn        # blank line before return/branch in longer blocks
+    - tagalign        # struct tags aligned, json first
+    - tagliatelle     # struct tag key case (json camelCase)
   exclusions:
     # internal/quic is a copy of golang.org/x/net/quic (decision 0027) in
     # upstream's style, which these linters fault in ~500 places (unchecked
@@ -306,6 +323,8 @@ linters:
           - usestdlibvars
           - modernize
           - nlreturn
+          - tagalign
+          - tagliatelle
           - gosec
           - gocritic
           - prealloc

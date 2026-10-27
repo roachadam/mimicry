@@ -24,7 +24,7 @@ import (
 
 // Every HTTP/2 connection the profile is checked against, replayed through
 // mimicry with the browser's weights, has the browser's HEADERS priority on
-// every request (Chrome: http2.chain_priorities).
+// every request (Chrome: http2.chainPriorities).
 //
 // The server holds each stream open until the last request depending on it
 // went out. Streams alternately end with an unread DATA END_STREAM (next

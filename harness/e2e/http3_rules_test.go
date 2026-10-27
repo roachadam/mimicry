@@ -813,7 +813,7 @@ func (r *ruleCheck) requestsAfterConfirmed() {
 			if request {
 				waiting := time.Duration(d.Micros-finished)*time.Microsecond <= pendingRequest
 				if waiting && (first || !newer && largest <= base) {
-					r.add("HTTP/3: the first request left before the client acknowledged a packet the server sent after its Finished (requests_after_confirmed)")
+					r.add("HTTP/3: the first request left before the client acknowledged a packet the server sent after its Finished (requestsAfterConfirmed)")
 				}
 
 				return

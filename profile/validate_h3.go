@@ -48,7 +48,7 @@ func (c *checker) checkH3(p *Profile) {
 	}
 	c.checkQUIC(p.QUIC, p.TLS.Resumption != nil)
 	if p.TLS.QUIC != nil && (p.TLS.QUIC.VersionNegotiation != nil) != p.QUIC.VersionNegotiation.Retry {
-		c.add("tls.quic.version_negotiation", "is required with quic.version_negotiation.retry, and only then")
+		c.add("tls.quic.versionNegotiation", "is required with quic.versionNegotiation.retry, and only then")
 	}
 	c.checkHTTP3(p)
 }
@@ -59,68 +59,68 @@ func (c *checker) checkQUIC(q *QUIC, resumes bool) {
 		c.add(path+".version", "%d must be 1: QUIC version 1 is the only one implemented", q.Version)
 	}
 	if q.DatagramSize < minInitialSize || q.DatagramSize > maxUDPPayload {
-		c.add(path+".datagram_size", "%d must be from %d (RFC 9000, section 14.1) to %d", q.DatagramSize, minInitialSize, maxUDPPayload)
+		c.add(path+".datagramSize", "%d must be from %d (RFC 9000, section 14.1) to %d", q.DatagramSize, minInitialSize, maxUDPPayload)
 	}
 	if !slices.Contains([]string{PaddingScattered, PaddingTrailing, PaddingEnd}, q.Padding) {
 		c.add(path+".padding", "%q must be %q, %q or %q", q.Padding, PaddingScattered, PaddingTrailing, PaddingEnd)
 	}
 	c.checkQUICCrypto(&q.Crypto)
 	if !slices.Contains([]string{PacketNumbersShared, PacketNumbersRandomInitial, PacketNumbersPerSpace}, q.PacketNumbers) {
-		c.add(path+".packet_numbers", "%q must be %q, %q or %q", q.PacketNumbers, PacketNumbersShared, PacketNumbersRandomInitial, PacketNumbersPerSpace)
+		c.add(path+".packetNumbers", "%q must be %q, %q or %q", q.PacketNumbers, PacketNumbersShared, PacketNumbersRandomInitial, PacketNumbersPerSpace)
 	}
 	if q.DCIDLength < 8 || q.DCIDLength > maxCIDLength {
-		c.add(path+".dcid_length", "%d must be from 8 (RFC 9000, section 7.2) to %d", q.DCIDLength, maxCIDLength)
+		c.add(path+".dcidLength", "%d must be from 8 (RFC 9000, section 7.2) to %d", q.DCIDLength, maxCIDLength)
 	}
 	if q.DCIDLengthRule != "" && (q.DCIDLengthRule != DCIDLengthBiased || q.DCIDLength != 8) {
-		c.add(path+".dcid_length_rule", "must be empty, or %q with dcid_length 8", DCIDLengthBiased)
+		c.add(path+".dcidLengthRule", "must be empty, or %q with dcidLength 8", DCIDLengthBiased)
 	}
 	if q.SCIDLength < 0 || q.SCIDLength > maxCIDLength {
-		c.add(path+".scid_length", "%d must be from 0 to %d", q.SCIDLength, maxCIDLength)
+		c.add(path+".scidLength", "%d must be from 0 to %d", q.SCIDLength, maxCIDLength)
 	}
 	switch {
 	case q.NewConnectionIDs < 0:
-		c.add(path+".new_connection_ids", "must not be negative")
+		c.add(path+".newConnectionIds", "must not be negative")
 	case q.NewConnectionIDs > 0 && q.SCIDLength == 0:
-		c.add(path+".new_connection_ids", "needs a scid_length: a zero-length connection ID cannot be replaced (RFC 9000, section 5.1.1)")
+		c.add(path+".newConnectionIds", "needs a scidLength: a zero-length connection ID cannot be replaced (RFC 9000, section 5.1.1)")
 	}
 	c.checkTransportParameters(q)
 	if q.AckDelay == AckDelayConstant {
 		if r := q.AckDelayConstant; r == nil || r.Min < 0 || r.Max < r.Min {
-			c.add(path+".ack_delay_constant", "is required with %q, 0 <= min <= max", AckDelayConstant)
+			c.add(path+".ackDelayConstant", "is required with %q, 0 <= min <= max", AckDelayConstant)
 		}
 	} else {
 		if q.AckDelay != AckDelayActual {
-			c.add(path+".ack_delay", "%q must be %q or %q", q.AckDelay, AckDelayActual, AckDelayConstant)
+			c.add(path+".ackDelay", "%q must be %q or %q", q.AckDelay, AckDelayActual, AckDelayConstant)
 		}
 		if q.AckDelayConstant != nil {
-			c.add(path+".ack_delay_constant", "applies only with ack_delay %q", AckDelayConstant)
+			c.add(path+".ackDelayConstant", "applies only with ackDelay %q", AckDelayConstant)
 		}
 	}
 	if !slices.Contains([]string{SpinBitZero, SpinBitRandom, SpinBitSpin}, q.SpinBit) {
-		c.add(path+".spin_bit", "%q must be %q, %q or %q", q.SpinBit, SpinBitZero, SpinBitRandom, SpinBitSpin)
+		c.add(path+".spinBit", "%q must be %q, %q or %q", q.SpinBit, SpinBitZero, SpinBitRandom, SpinBitSpin)
 	}
 	if q.ZeroRTT && !resumes {
-		c.add(path+".zero_rtt", "needs tls.resumption: 0-RTT resumes a session")
+		c.add(path+".zeroRtt", "needs tls.resumption: 0-RTT resumes a session")
 	}
 	if (q.AckOnlyLimit > 0) != (q.AckOnlyFrame != "") || q.AckOnlyLimit < 0 || q.AckOnlyFrame != "" && q.AckOnlyFrame != AckOnlyMaxData {
-		c.add(path+".ack_only_frame", "and ack_only_limit go together: a positive limit and %q, or neither", AckOnlyMaxData)
+		c.add(path+".ackOnlyFrame", "and ackOnlyLimit go together: a positive limit and %q, or neither", AckOnlyMaxData)
 	}
 	c.checkQUICLoss(q)
 	if k := q.KeepAlive; k.PeriodMillis <= 0 || !slices.Contains([]string{KeepAliveFromSent, KeepAliveFromIdle, KeepAliveFromReceived}, k.From) {
-		c.add(path+".keep_alive", "needs a positive period_ms, and from %q, %q or %q", KeepAliveFromSent, KeepAliveFromIdle, KeepAliveFromReceived)
+		c.add(path+".keepAlive", "needs a positive periodMs, and from %q, %q or %q", KeepAliveFromSent, KeepAliveFromIdle, KeepAliveFromReceived)
 	}
 	if a := q.Ack; a.Every < 1 || (a.WarmupPackets > 0) != (a.WarmupEvery > 0) || a.WarmupPackets < 0 || a.WarmupEvery < 0 {
-		c.add(path+".ack", "needs every >= 1, and warmup_packets and warmup_every both positive or both absent")
+		c.add(path+".ack", "needs every >= 1, and warmupPackets and warmupEvery both positive or both absent")
 	}
 	if cr := q.Credit; cr.StreamDivisor < 1 || (cr.ConnectionDivisor > 0) == cr.ConnectionStreamWindow || cr.ConnectionDivisor < 0 {
-		c.add(path+".credit", "needs stream_divisor >= 1, and either connection_divisor >= 1 or connection_stream_window")
+		c.add(path+".credit", "needs streamDivisor >= 1, and either connectionDivisor >= 1 or connectionStreamWindow")
 	}
 	vn := q.VersionNegotiation
 	if vn.DowngradeError != 0 && !vn.Retry {
-		c.add(path+".version_negotiation.downgrade_error", "applies only with retry")
+		c.add(path+".versionNegotiation.downgradeError", "applies only with retry")
 	}
 	if vn.Retry && len(otherVersions(q)) == 0 {
-		c.add(path+".version_negotiation.retry", "needs version_information offering a version besides 1")
+		c.add(path+".versionNegotiation.retry", "needs version_information offering a version besides 1")
 	}
 }
 
@@ -146,7 +146,7 @@ func (c *checker) checkQUICLoss(q *QUIC) {
 	const path = "quic.loss"
 	l := &q.Loss
 	if l.InitialPTOMillis < 0 {
-		c.add(path+".initial_pto_ms", "must not be negative")
+		c.add(path+".initialPtoMs", "must not be negative")
 	}
 	if !slices.Contains([]string{"", ProbeFlight, ProbeOnePacket}, l.Probe) {
 		c.add(path+".probe", "%q must be empty, %q or %q", l.Probe, ProbeFlight, ProbeOnePacket)
@@ -158,30 +158,30 @@ func (c *checker) checkQUICLoss(q *QUIC) {
 		at := path + "." + name
 		switch {
 		case g.AfterMillis < 0:
-			c.add(at+".after_ms", "must not be negative")
+			c.add(at+".afterMs", "must not be negative")
 		case !slices.Contains([]string{"", CloseTransport, CloseApplication}, g.Close):
 			c.add(at+".close", "%q must be empty, %q or %q", g.Close, CloseTransport, CloseApplication)
 		case g.Close != "" && g.AfterMillis == 0:
-			c.add(at+".close", "needs after_ms: a close at the idle timeout is never sent")
+			c.add(at+".close", "needs afterMs: a close at the idle timeout is never sent")
 		case (g.Close == CloseTransport) != (g.Reason != ""):
 			c.add(at+".reason", "is required with close %q, and only then", CloseTransport)
 		case g.Close == "" && g.DatagramSize != 0, g.DatagramSize < 0, g.DatagramSize > q.DatagramSize:
-			c.add(at+".datagram_size", "%d must be from 0 to datagram_size, and only with a close", g.DatagramSize)
+			c.add(at+".datagramSize", "%d must be from 0 to datagramSize, and only with a close", g.DatagramSize)
 		}
 	}
 	if l.AbandonClose != "" && l.AbandonClose != CloseZeroRTT {
-		c.add(path+".abandon_close", "%q must be empty or %q", l.AbandonClose, CloseZeroRTT)
+		c.add(path+".abandonClose", "%q must be empty or %q", l.AbandonClose, CloseZeroRTT)
 	}
 	if d := l.PathDegrading; d != nil {
-		at := path + ".path_degrading"
+		at := path + ".pathDegrading"
 		if (d.AfterPTOs > 0) == (d.AfterMillis > 0) || d.AfterPTOs < 0 || d.AfterMillis < 0 {
-			c.add(at, "needs exactly one of after_ptos and after_ms, positive")
+			c.add(at, "needs exactly one of afterPtos and afterMs, positive")
 		}
 		if !slices.Contains([]string{PathMigrate, PathClose}, d.Action) {
 			c.add(at+".action", "%q must be %q or %q", d.Action, PathMigrate, PathClose)
 		}
 		if d.CloseReason != "" && d.Action != PathClose {
-			c.add(at+".close_reason", "applies only with action %q", PathClose)
+			c.add(at+".closeReason", "applies only with action %q", PathClose)
 		}
 	}
 }
@@ -192,23 +192,23 @@ func (c *checker) checkQUICCrypto(cr *QUICCrypto) {
 	switch cr.Split {
 	case CryptoSplitShuffle:
 		for name, r := range map[string]*Range{
-			"head":         cr.Head,
-			"added_frames": cr.AddedFrames,
-			"pings":        cr.Pings,
+			"head":        cr.Head,
+			"addedFrames": cr.AddedFrames,
+			"pings":       cr.Pings,
 		} {
 			if r == nil || r.Min < 0 || r.Max < r.Min {
 				c.add(path+"."+name, "is required with %q, 0 <= min <= max", CryptoSplitShuffle)
 			}
 		}
 		if cr.FirstPacket != 0 {
-			c.add(path+".first_packet", "applies only with %q", CryptoSplitOrdered)
+			c.add(path+".firstPacket", "applies only with %q", CryptoSplitOrdered)
 		}
 	case CryptoSplitSNICut, CryptoSplitOrdered:
 		if shuffle {
-			c.add(path, "head, added_frames and pings apply only with %q", CryptoSplitShuffle)
+			c.add(path, "head, addedFrames and pings apply only with %q", CryptoSplitShuffle)
 		}
 		if (cr.Split == CryptoSplitOrdered) != (cr.FirstPacket > 0) {
-			c.add(path+".first_packet", "is required with %q, and only then", CryptoSplitOrdered)
+			c.add(path+".firstPacket", "is required with %q, and only then", CryptoSplitOrdered)
 		}
 	default:
 		c.add(path+".split", "%q must be %q, %q or %q", cr.Split, CryptoSplitShuffle, CryptoSplitSNICut, CryptoSplitOrdered)
@@ -216,13 +216,13 @@ func (c *checker) checkQUICCrypto(cr *QUICCrypto) {
 }
 
 func (c *checker) checkTransportParameters(q *QUIC) {
-	const path = "quic.transport_parameters"
+	const path = "quic.transportParameters"
 	if len(q.TransportParameters) == 0 {
 		c.add(path, "is required")
 	}
 	order := q.TransportParameterOrder
 	if !slices.Contains([]string{TransportParameterOrderFixed, TransportParameterOrderShuffled, TransportParameterOrderRotated}, order) {
-		c.add("quic.transport_parameter_order", "%q must be %q, %q or %q", order, TransportParameterOrderFixed, TransportParameterOrderShuffled, TransportParameterOrderRotated)
+		c.add("quic.transportParameterOrder", "%q must be %q, %q or %q", order, TransportParameterOrderFixed, TransportParameterOrderShuffled, TransportParameterOrderRotated)
 	}
 	seen := map[TransportParameterID]bool{}
 	last := false
@@ -235,7 +235,7 @@ func (c *checker) checkTransportParameters(q *QUIC) {
 		switch {
 		case tp.Last:
 			if order != TransportParameterOrderRotated {
-				c.add(at+".last", "applies only with transport_parameter_order %q", TransportParameterOrderRotated)
+				c.add(at+".last", "applies only with transportParameterOrder %q", TransportParameterOrderRotated)
 			}
 			last = true
 		case last:
@@ -273,10 +273,10 @@ func (c *checker) checkTransportParameter(at string, q *QUIC, tp TransportParame
 	switch tp.ID {
 	case GREASETransportParameter:
 		if tp.Value != nil || len(tp.Data) > 0 {
-			c.add(at, "GREASE takes max_length, not a value")
+			c.add(at, "GREASE takes maxLength, not a value")
 		}
 		if tp.MaxLength < 0 || tp.MaxLength > 255 {
-			c.add(at+".max_length", "must be from 0 to 255")
+			c.add(at+".maxLength", "must be from 0 to 255")
 		}
 	case TPVersionInformation:
 		if len(tp.Versions) < 2 {
@@ -307,7 +307,7 @@ func (c *checker) checkTransportParameter(at string, q *QUIC, tp TransportParame
 		c.add(at+".versions", "only version_information (0x11) has versions")
 	}
 	if tp.ID != GREASETransportParameter && tp.MaxLength != 0 {
-		c.add(at+".max_length", "only a GREASE parameter has max_length")
+		c.add(at+".maxLength", "only a GREASE parameter has maxLength")
 	}
 }
 
@@ -316,11 +316,11 @@ func (c *checker) checkQUICHello(t *TLS) {
 	h := t.QUIC
 	const path = "tls.quic"
 	if len(h.CipherSuites) == 0 {
-		c.add(path+".cipher_suites", "is required")
+		c.add(path+".cipherSuites", "is required")
 	}
-	c.checkUnique(path+".cipher_suites", h.CipherSuites)
+	c.checkUnique(path+".cipherSuites", h.CipherSuites)
 	if h.SessionIDLength != 0 {
-		c.add(path+".session_id_length", "must be 0: a QUIC ClientHello has no session ID (RFC 9001, section 8.4)")
+		c.add(path+".sessionIdLength", "must be 0: a QUIC ClientHello has no session ID (RFC 9001, section 8.4)")
 	}
 	dropped := map[Code]bool{}
 	for _, d := range h.Drop {
@@ -357,11 +357,11 @@ func (c *checker) checkQUICHello(t *TLS) {
 			c.add(path+".last", "applies only to a shuffled order")
 		}
 		if b := h.TransportParametersBefore; b == nil || *b == ExtQUICTransportParameters || !present(*b) {
-			c.add(path+".transport_parameters_before", "is required with a fixed order: an extension the hello sends")
+			c.add(path+".transportParametersBefore", "is required with a fixed order: an extension the hello sends")
 		}
 	case ExtensionOrderShuffled:
 		if h.TransportParametersBefore != nil {
-			c.add(path+".transport_parameters_before", "applies only to a fixed order")
+			c.add(path+".transportParametersBefore", "applies only to a fixed order")
 		}
 		c.checkUnique(path+".last", h.Last)
 		for _, l := range h.Last {
@@ -370,17 +370,17 @@ func (c *checker) checkQUICHello(t *TLS) {
 			}
 		}
 	default:
-		c.add(path+".extension_order", "%q must be %q or %q", h.ExtensionOrder, ExtensionOrderFixed, ExtensionOrderShuffled)
+		c.add(path+".extensionOrder", "%q must be %q or %q", h.ExtensionOrder, ExtensionOrderFixed, ExtensionOrderShuffled)
 	}
 	ech := t.extension(ExtEncryptedClientHello) != nil && !dropped[ExtEncryptedClientHello]
 	switch {
 	case t.Resumption != nil && ech:
-		c.checkPayloadLengths(path+".resumed_ech_payload_lengths", h.ResumedECHPayloadLengths)
+		c.checkPayloadLengths(path+".resumedEchPayloadLengths", h.ResumedECHPayloadLengths)
 	case len(h.ResumedECHPayloadLengths) > 0:
-		c.add(path+".resumed_ech_payload_lengths", "applies only to a hello that resumes and sends encrypted_client_hello")
+		c.add(path+".resumedEchPayloadLengths", "applies only to a hello that resumes and sends encrypted_client_hello")
 	}
 	if r := h.VersionNegotiation; r != nil {
-		at := path + ".version_negotiation"
+		at := path + ".versionNegotiation"
 		gone := map[Code]bool{}
 		for _, d := range r.Drop {
 			if gone[d] || !present(d) || d == ExtServerName || d == ExtQUICTransportParameters {
@@ -413,7 +413,7 @@ func (c *checker) checkHTTP3(p *Profile) {
 		case ids[s.ID]:
 			c.add(at, "repeats setting %#x", s.ID)
 		case isGreaseH3(s.ID):
-			c.add(at, "%#x is reserved: use grease_setting", s.ID)
+			c.add(at, "%#x is reserved: use greaseSetting", s.ID)
 		// RFC 9114, section 7.2.4.1: HTTP/2's settings are reserved.
 		case s.ID == 0x00 || s.ID == 0x02 || s.ID == 0x03 || s.ID == 0x04 || s.ID == 0x05:
 			c.add(at, "%#x is reserved in HTTP/3 (RFC 9114, section 7.2.4.1)", s.ID)
@@ -424,15 +424,15 @@ func (c *checker) checkHTTP3(p *Profile) {
 		}
 	}
 	if g := h.GreaseSetting; g != nil {
-		c.checkH3Grease(path+".grease_setting", g)
+		c.checkH3Grease(path+".greaseSetting", g)
 		if g.ValueBits < 1 || g.ValueBits > 62 || g.MaxLength != 0 {
-			c.add(path+".grease_setting", "needs value_bits from 1 to 62, and no max_length")
+			c.add(path+".greaseSetting", "needs valueBits from 1 to 62, and no maxLength")
 		}
 	}
 	if g := h.GreaseFrame; g != nil {
-		c.checkH3Grease(path+".grease_frame", g)
+		c.checkH3Grease(path+".greaseFrame", g)
 		if g.ValueBits != 0 || g.MaxLength < 0 {
-			c.add(path+".grease_frame", "takes max_length, not value_bits")
+			c.add(path+".greaseFrame", "takes maxLength, not valueBits")
 		}
 	}
 	c.checkUniStreams(h)
@@ -442,13 +442,13 @@ func (c *checker) checkHTTP3(p *Profile) {
 		c.add(path+".qpack.encoder", "%q must be empty, %q or %q", h.QPACK.Encoder, QPACKIndexAll, QPACKNewNames)
 	}
 	if h.QPACK.Encoder == "" && h.QPACK.InsertsFirst {
-		c.add(path+".qpack.inserts_first", "needs an encoder")
+		c.add(path+".qpack.insertsFirst", "needs an encoder")
 	}
 	if h.QPACK.Huffman != HuffmanShorter && h.QPACK.Huffman != HuffmanAlways {
 		c.add(path+".qpack.huffman", "%q must be %q or %q", h.QPACK.Huffman, HuffmanShorter, HuffmanAlways)
 	}
 	if h.MaxDataFrame < 0 || h.FirstDataFrame < 0 || h.FirstDataFrame > h.MaxDataFrame {
-		c.add(path+".first_data_frame", "and max_data_frame must be 0 <= first_data_frame <= max_data_frame")
+		c.add(path+".firstDataFrame", "and maxDataFrame must be 0 <= firstDataFrame <= maxDataFrame")
 	}
 	c.checkEarlyData(p)
 	c.checkH3Headers(p)
@@ -473,7 +473,7 @@ func (c *checker) checkHTTP3(p *Profile) {
 		c.add(path+".discovery.switch", "%q must be %q, %q or %q", d.Switch, SwitchNextRequest, SwitchOnAltSvc, SwitchNewConnection)
 	}
 	if r := d.RaceDelayMillis; d.RaceAfterGoAway != (r != nil) || r != nil && (r.Min < 0 || r.Max < r.Min) {
-		c.add(path+".discovery.race_delay_ms", "is required with race_after_goaway, and only then: 0 <= min <= max")
+		c.add(path+".discovery.raceDelayMs", "is required with raceAfterGoaway, and only then: 0 <= min <= max")
 	}
 	c.checkFallback(p)
 }
@@ -484,16 +484,16 @@ func badRange(r *Range) bool {
 }
 
 func (c *checker) checkEarlyData(p *Profile) {
-	const path = "http3.early_data"
+	const path = "http3.earlyData"
 	d := p.HTTP3.EarlyData
 	switch {
 	case p.QUIC.ZeroRTT && d == nil:
-		c.add(path, "is required with quic.zero_rtt")
+		c.add(path, "is required with quic.zeroRtt")
 		return
 	case d == nil:
 		return
 	case !p.QUIC.ZeroRTT:
-		c.add(path, "applies only with quic.zero_rtt")
+		c.add(path, "applies only with quic.zeroRtt")
 	}
 	if len(d.Methods) == 0 {
 		c.add(path+".methods", "is empty: list the methods sent in 0-RTT")
@@ -519,41 +519,41 @@ func (c *checker) checkFallback(p *Profile) {
 	switch f.Mode {
 	case FallbackRace:
 		if badRange(f.TCPDelayMillis) {
-			c.add(path+".tcp_delay_ms", "is required with mode %q: 0 <= min <= max", FallbackRace)
+			c.add(path+".tcpDelayMs", "is required with mode %q: 0 <= min <= max", FallbackRace)
 		}
 	case FallbackBackground:
 		if f.TCPDelayMillis != nil {
-			c.add(path+".tcp_delay_ms", "applies only with mode %q", FallbackRace)
+			c.add(path+".tcpDelayMs", "applies only with mode %q", FallbackRace)
 		}
 	default:
 		c.add(path+".mode", "%q must be %q or %q", f.Mode, FallbackRace, FallbackBackground)
 	}
 	if f.ZeroRTTHolds && (!race || !p.QUIC.ZeroRTT) {
-		c.add(path+".zero_rtt_holds", "needs mode %q and quic.zero_rtt", FallbackRace)
+		c.add(path+".zeroRttHolds", "needs mode %q and quic.zeroRtt", FallbackRace)
 	}
 	if f.Hold && (race || !d.RaceAfterGoAway) {
-		c.add(path+".hold", "needs mode %q and race_after_goaway", FallbackBackground)
+		c.add(path+".hold", "needs mode %q and raceAfterGoaway", FallbackBackground)
 	}
 	if r := f.RevalidateMillis; r != nil && (race || badRange(r)) {
-		c.add(path+".revalidate_ms", "applies only with mode %q: 0 <= min <= max", FallbackBackground)
+		c.add(path+".revalidateMs", "applies only with mode %q: 0 <= min <= max", FallbackBackground)
 	}
 	if f.BrokenAfter < 1 {
-		c.add(path+".broken_after", "must be at least 1")
+		c.add(path+".brokenAfter", "must be at least 1")
 	}
 	switch f.Pending {
 	case PendingTCP:
 		if f.ReconnectMillis != nil {
-			c.add(path+".reconnect_ms", "applies only with pending %q", PendingQUIC)
+			c.add(path+".reconnectMs", "applies only with pending %q", PendingQUIC)
 		}
 	case PendingQUIC:
 		if badRange(f.ReconnectMillis) {
-			c.add(path+".reconnect_ms", "is required with pending %q: 0 <= min <= max", PendingQUIC)
+			c.add(path+".reconnectMs", "is required with pending %q: 0 <= min <= max", PendingQUIC)
 		}
 	default:
 		c.add(path+".pending", "%q must be %q or %q", f.Pending, PendingTCP, PendingQUIC)
 	}
 	if p.QUIC.Loss.AbandonClose != "" && !f.AbandonOnTCP {
-		c.add("quic.loss.abandon_close", "applies only with %s.abandon_on_tcp", path)
+		c.add("quic.loss.abandonClose", "applies only with %s.abandonOnTcp", path)
 	}
 }
 
@@ -564,12 +564,12 @@ func isGreaseH3(v uint64) bool {
 
 func (c *checker) checkH3Grease(path string, g *H3Grease) {
 	if g.IDBits < 0 || g.IDBits > h3GreaseMaxNBits {
-		c.add(path+".id_bits", "must be from 0 to %d: 0x1f * N + 0x21 must fit a variable-length integer", h3GreaseMaxNBits)
+		c.add(path+".idBits", "must be from 0 to %d: 0x1f * N + 0x21 must fit a variable-length integer", h3GreaseMaxNBits)
 	}
 }
 
 func (c *checker) checkUniStreams(h *HTTP3) {
-	const path = "http3.uni_streams"
+	const path = "http3.uniStreams"
 	if len(h.UniStreams) == 0 || h.UniStreams[0].Type != H3StreamControl || h.UniStreams[0].Open != H3OpenAtHandshake {
 		c.add(path, "must start with the control stream, opened at the handshake (RFC 9114, section 6.2.1)")
 	}
@@ -605,11 +605,11 @@ func (c *checker) checkH3Headers(p *Profile) {
 	}
 	const path = "http3.headers"
 	if len(hd.PseudoHeaderOrder) != len(pseudoH3) {
-		c.add(path+".pseudo_header_order", "must list %v once each", pseudoH3)
+		c.add(path+".pseudoHeaderOrder", "must list %v once each", pseudoH3)
 	} else {
 		for _, ph := range pseudoH3 {
 			if !slices.Contains(hd.PseudoHeaderOrder, ph) {
-				c.add(path+".pseudo_header_order", "must list %v once each", pseudoH3)
+				c.add(path+".pseudoHeaderOrder", "must list %v once each", pseudoH3)
 				break
 			}
 		}
@@ -625,14 +625,14 @@ func (c *checker) checkH3Headers(p *Profile) {
 		}
 	}
 	if hd.AltUsedNavigation != "" {
-		check(path+".alt_used_navigation", hd.AltUsedNavigation, p.Headers)
+		check(path+".altUsedNavigation", hd.AltUsedNavigation, p.Headers)
 	}
 	for kind, anchor := range hd.AltUsed {
 		k := p.Kinds[kind]
 		if k == nil {
-			c.add(path+".alt_used."+kind, "is not a kind of the profile")
+			c.add(path+".altUsed."+kind, "is not a kind of the profile")
 			continue
 		}
-		check(path+".alt_used."+kind, anchor, k.Headers)
+		check(path+".altUsed."+kind, anchor, k.Headers)
 	}
 }

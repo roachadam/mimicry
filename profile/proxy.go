@@ -13,29 +13,29 @@ type Proxy struct {
 	// credentials, Proxy-Authorization included, filled in as Connect's.
 	// Nil: the browser's way with proxy credentials is not measured, and a
 	// proxy URL with credentials is an error.
-	ConnectAuth []Header `json:"connect_auth,omitempty"`
+	ConnectAuth []Header `json:"connectAuth,omitempty"`
 	// ConnectCredentials is when a CONNECT carries credentials:
 	// CredentialsAfterChallenge or CredentialsOnChallenge. Required with
 	// ConnectAuth.
-	ConnectCredentials CredentialTiming `json:"connect_credentials,omitempty"`
+	ConnectCredentials CredentialTiming `json:"connectCredentials,omitempty"`
 	// ForwardCredentials is when a plain-HTTP request sent to a proxy
 	// carries them: CredentialsAfterChallenge or CredentialsAlways.
 	// Required with ConnectAuth.
-	ForwardCredentials CredentialTiming `json:"forward_credentials,omitempty"`
+	ForwardCredentials CredentialTiming `json:"forwardCredentials,omitempty"`
 	// ForwardConnection, when set, is the header that carries Connection's
 	// value, in its place, on a plain-HTTP request sent to a proxy
 	// ("Proxy-Connection": Chrome). Empty keeps Connection.
-	ForwardConnection string `json:"forward_connection,omitempty"`
+	ForwardConnection string `json:"forwardConnection,omitempty"`
 	// ForwardAuth places Proxy-Authorization in a plain-HTTP request sent
 	// to a proxy. Nil: last.
-	ForwardAuth *ForwardAuth `json:"forward_auth,omitempty"`
+	ForwardAuth *ForwardAuth `json:"forwardAuth,omitempty"`
 	// SOCKS5 is the browser's SOCKS5 handshake. Nil: not measured, so a
 	// SOCKS5 proxy is an error.
 	SOCKS5 *SOCKS5 `json:"socks5,omitempty"`
 	// ConnectNoResume: TLS connections through an HTTP proxy's CONNECT
 	// tunnel offer no earlier session; through SOCKS5, and directly, they
 	// resume as TLS.Resumption says (Firefox).
-	ConnectNoResume bool `json:"connect_no_resume,omitempty"`
+	ConnectNoResume bool `json:"connectNoResume,omitempty"`
 	// WebSocket is how the browser opens WebSockets through a proxy. Nil:
 	// not measured, and a WebSocket through a proxy is an error.
 	WebSocket *ProxyWebSocket `json:"websocket,omitempty"`
@@ -101,7 +101,7 @@ type ForwardAuth struct {
 	Before string `json:"before,omitempty"`
 	// RetryLast places it last instead on a request sent again because
 	// the proxy asked for credentials (Firefox).
-	RetryLast bool `json:"retry_last,omitempty"`
+	RetryLast bool `json:"retryLast,omitempty"`
 }
 
 // SOCKS5 is a browser's SOCKS5 (RFC 1928) handshake.

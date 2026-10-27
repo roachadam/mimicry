@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-24
-- Commits: `31bcd28`, `031ec2b`; extended in the 2026-10-24 review (`page_set`, variants measured over HTTP/2 only)
+- Commits: `31bcd28`, `031ec2b`; extended in the 2026-10-24 review (`pageSet`, variants measured over HTTP/2 only)
 
 ## Problem
 
@@ -55,12 +55,12 @@ measured, and the connection refuses it (0008).
 Redirect hops have conditions of their own, each found by testing which
 one explains every captured hop (`cors-edge`, `redirects2`,
 `nav-redirect-*`):
-- `cross_origin_redirect`: the redirect left the origin of the request it
+- `crossOriginRedirect`: the redirect left the origin of the request it
   answered;
-- `origin_before_redirect`: that request carried `Origin`;
-- `method_changed_by_redirect`: Chrome places `Origin` differently on a
+- `originBeforeRedirect`: that request carried `Origin`;
+- `methodChangedByRedirect`: Chrome places `Origin` differently on a
   GET a redirect made from another method;
-- `insecure_before_redirect`: the previous request was plain http.
+- `insecureBeforeRedirect`: the previous request was plain http.
 
 A typed navigation's hop has site `none`. For fetch, images and
 navigations, a hop whose combination was not captured is `ErrNotMeasured`,

@@ -14,7 +14,7 @@ type quicPlan struct {
 	cipherSuites    []profile.Code
 	sessionIDLength uint8
 	fresh, resumed  quicHello
-	// retry is nil without tls.quic.version_negotiation.
+	// retry is nil without tls.quic.versionNegotiation.
 	retry *quicHello
 }
 
@@ -172,7 +172,7 @@ func (p *Plan) ResumedQUICHello() Hello {
 }
 
 // RetryQUICHello returns the ClientHello of a QUIC connection retried
-// after Version Negotiation (profile tls.quic.version_negotiation), a
+// after Version Negotiation (profile tls.quic.versionNegotiation), a
 // shuffled one in a fresh order, and whether the profile has one.
 func (p *Plan) RetryQUICHello() (Hello, bool) {
 	if p.quic == nil || p.quic.retry == nil {

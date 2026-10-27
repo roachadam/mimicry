@@ -223,20 +223,20 @@ type connFacts struct {
 	Name        string   `json:"name"`
 	Version     string   `json:"version,omitempty"`
 	Handshake   bool     `json:"handshake"`
-	HandshakeMS float64  `json:"handshake_ms"`
+	HandshakeMS float64  `json:"handshakeMs"`
 	Cipher      string   `json:"cipher,omitempty"`
 	ALPN        string   `json:"alpn,omitempty"`
-	OfferedPSK  bool     `json:"offered_psk"`
+	OfferedPSK  bool     `json:"offeredPsk"`
 	Resumed     bool     `json:"resumed"`
-	Sent0RTT    int      `json:"sent_0rtt_packets"`
-	EarlyData   bool     `json:"early_data"`
+	Sent0RTT    int      `json:"sent0rttPackets"`
+	EarlyData   bool     `json:"earlyData"`
 	Retries     int      `json:"retries"`
-	VN          int      `json:"version_negotiations"`
-	ServerKU    int      `json:"server_key_updates"`
-	ClientKU    int      `json:"client_key_updates"`
-	KUKnown     bool     `json:"key_updates_known"`
+	VN          int      `json:"versionNegotiations"`
+	ServerKU    int      `json:"serverKeyUpdates"`
+	ClientKU    int      `json:"clientKeyUpdates"`
+	KUKnown     bool     `json:"keyUpdatesKnown"`
 	Stats       tapStats `json:"stats"`
-	CloseErr    string   `json:"close_error,omitempty"`
+	CloseErr    string   `json:"closeError,omitempty"`
 }
 
 // facts reads what c showed so far.

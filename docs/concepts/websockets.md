@@ -26,7 +26,7 @@ typ, msg, err := ws.ReadMessage(ctx)
   host allows extended CONNECT (the server sent
   `SETTINGS_ENABLE_CONNECT_PROTOCOL=1`), the socket is a stream on it.
   Otherwise it gets a new HTTP/1.1 connection of its own, never pooled,
-  whose ClientHello is the profile's `tls.websocket_h1` variant.
+  whose ClientHello is the profile's `tls.websocketH1` variant.
 - **Headers.** The `websocket` request kind gives the list: order,
   defaults and casing, with `Sec-WebSocket-Key`, `-Protocol` and
   `-Extensions` filled per socket. `Origin` is always sent.

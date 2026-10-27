@@ -10,7 +10,7 @@ import (
 )
 
 // Problem is one validation failure. Path locates the value, for example
-// "tls.extensions[3].key_shares".
+// "tls.extensions[3].keyShares".
 type Problem struct {
 	Path    string
 	Message string
@@ -96,7 +96,7 @@ func (p *Profile) Validate() error {
 	c.checkVariants("variants", p.Variants, false)
 	c.checkKinds(p)
 	if ctx := p.Context; ctx != nil && ctx.PreflightCache != "" && ctx.PreflightCache != PreflightCacheReplace && ctx.PreflightCache != PreflightCacheMerge {
-		c.add("context.preflight_cache", "must be empty, %q or %q", PreflightCacheReplace, PreflightCacheMerge)
+		c.add("context.preflightCache", "must be empty, %q or %q", PreflightCacheReplace, PreflightCacheMerge)
 	}
 	c.checkCookies(p.Cookies)
 	if p.Proxy != nil {
@@ -120,7 +120,7 @@ var scenarioName = regexp.MustCompile(`^[a-z0-9]+([.-][a-z0-9]+)*$`)
 // platform. Whether it exists is for cmd/profilegen and the harness.
 func (c *checker) checkCapturesFrom(p *Profile) {
 	for _, sc := range slices.Sorted(maps.Keys(p.CapturesFrom)) {
-		path := "captures_from." + sc
+		path := "capturesFrom." + sc
 		from := p.CapturesFrom[sc]
 		if !scenarioName.MatchString(sc) {
 			c.add(path, "%q must be a capture scenario's name: lowercase letters and digits in parts joined by dashes or dots", sc)
@@ -219,19 +219,19 @@ func (c *checker) checkTLS(t *TLS) {
 	// uTLS caps legacy_version at TLS 1.2 and always sends a 32-byte
 	// session ID; both are what a TLS 1.3 ClientHello carries.
 	if t.LegacyVersion != tls12 {
-		c.add("tls.legacy_version", "must be %s, the one the handshake sends, not %s", tls12, t.LegacyVersion)
+		c.add("tls.legacyVersion", "must be %s, the one the handshake sends, not %s", tls12, t.LegacyVersion)
 	}
 	if t.SessionIDLength != sessionIDLength {
-		c.add("tls.session_id_length", "must be %d, the length the handshake sends, not %d", sessionIDLength, t.SessionIDLength)
+		c.add("tls.sessionIdLength", "must be %d, the length the handshake sends, not %d", sessionIDLength, t.SessionIDLength)
 	}
 	if len(t.CipherSuites) == 0 {
-		c.add("tls.cipher_suites", "is required")
+		c.add("tls.cipherSuites", "is required")
 	}
 	if len(t.CompressionMethods) == 0 {
-		c.add("tls.compression_methods", "is required")
+		c.add("tls.compressionMethods", "is required")
 	}
 	if t.ExtensionOrder != ExtensionOrderFixed && t.ExtensionOrder != ExtensionOrderShuffled {
-		c.add("tls.extension_order", "must be %q or %q", ExtensionOrderFixed, ExtensionOrderShuffled)
+		c.add("tls.extensionOrder", "must be %q or %q", ExtensionOrderFixed, ExtensionOrderShuffled)
 	}
 	if len(t.Extensions) == 0 {
 		c.add("tls.extensions", "is required")
@@ -337,7 +337,7 @@ func (c *checker) checkExtension(path string, e *Extension) {
 		}
 	}
 	// RFC 8446, section 4.2.8: no two key shares for the same group.
-	c.checkUnique(path+".key_shares", e.KeyShares)
+	c.checkUnique(path+".keyShares", e.KeyShares)
 	if e.Type == ExtKeyShare && len(e.KeyShareLengths) > 0 {
 		c.checkKeyShareLengths(path, e)
 	}
@@ -350,12 +350,12 @@ func (c *checker) checkExtension(path string, e *Extension) {
 // handshake can send: its group's, or at least a byte for GREASE.
 func (c *checker) checkKeyShareLengths(path string, e *Extension) {
 	if len(e.KeyShareLengths) != len(e.KeyShares) {
-		c.add(path+".key_share_lengths", "has %d lengths for %d key shares", len(e.KeyShareLengths), len(e.KeyShares))
+		c.add(path+".keyShareLengths", "has %d lengths for %d key shares", len(e.KeyShareLengths), len(e.KeyShares))
 		return
 	}
 	for i, g := range e.KeyShares {
 		n := e.KeyShareLengths[i]
-		p := fmt.Sprintf("%s.key_share_lengths[%d]", path, i)
+		p := fmt.Sprintf("%s.keyShareLengths[%d]", path, i)
 		want, known := keyLengths[g]
 		switch {
 		case g == GREASE:
@@ -373,10 +373,10 @@ func (c *checker) checkKeyShareLengths(path string, e *Extension) {
 // checkECH checks a GREASE ECH shape against what uTLS can send.
 func (c *checker) checkECH(path string, ech *ECH) {
 	if len(ech.CipherSuites) == 0 {
-		c.add(path+".cipher_suites", "is required")
+		c.add(path+".cipherSuites", "is required")
 	}
 	for i, s := range ech.CipherSuites {
-		p := fmt.Sprintf("%s.cipher_suites[%d]", path, i)
+		p := fmt.Sprintf("%s.cipherSuites[%d]", path, i)
 		if s.KDF == 0 || s.KDF > hpkeMaxKDF {
 			c.add(p, "KDF %s is not an HPKE KDF the handshake can name", s.KDF)
 		}
@@ -388,12 +388,12 @@ func (c *checker) checkECH(path string, ech *ECH) {
 		}
 	}
 	if ech.EncLength != echEncLength {
-		c.add(path+".enc_length", "must be %d, the X25519 key the handshake encapsulates, not %d", echEncLength, ech.EncLength)
+		c.add(path+".encLength", "must be %d, the X25519 key the handshake encapsulates, not %d", echEncLength, ech.EncLength)
 	}
 	if len(ech.PayloadLengths) == 0 {
-		c.add(path+".payload_lengths", "is required")
+		c.add(path+".payloadLengths", "is required")
 	}
-	c.checkPayloadLengths(path+".payload_lengths", ech.PayloadLengths)
+	c.checkPayloadLengths(path+".payloadLengths", ech.PayloadLengths)
 }
 
 // checkPayloadLengths checks a set of GREASE ECH payload lengths: each longer
@@ -416,7 +416,7 @@ func (c *checker) checkHelloRecord(t *TLS) {
 	// uTLS (as Go's crypto/tls) sends the first ClientHello in TLS 1.0
 	// records.
 	if t.RecordVersion != recordVersion {
-		c.add("tls.record_version", "must be %s, the one the handshake sends, not %s", recordVersion, t.RecordVersion)
+		c.add("tls.recordVersion", "must be %s, the one the handshake sends, not %s", recordVersion, t.RecordVersion)
 	}
 	r := t.Resumption
 	if r == nil {
@@ -424,12 +424,12 @@ func (c *checker) checkHelloRecord(t *TLS) {
 	}
 	ech := t.extension(ExtEncryptedClientHello)
 	if ech != nil && len(r.ECHPayloadLengths) == 0 {
-		c.add("tls.resumption.ech_payload_lengths", "is required with encrypted_client_hello")
+		c.add("tls.resumption.echPayloadLengths", "is required with encrypted_client_hello")
 	}
 	if ech == nil && len(r.ECHPayloadLengths) > 0 {
-		c.add("tls.resumption.ech_payload_lengths", "needs encrypted_client_hello in the ClientHello")
+		c.add("tls.resumption.echPayloadLengths", "needs encrypted_client_hello in the ClientHello")
 	}
-	c.checkPayloadLengths("tls.resumption.ech_payload_lengths", r.ECHPayloadLengths)
+	c.checkPayloadLengths("tls.resumption.echPayloadLengths", r.ECHPayloadLengths)
 }
 
 // checkUnique reports repeated values.
@@ -492,52 +492,52 @@ func (c *checker) checkHTTP2(h *HTTP2) {
 		}
 	}
 	if initialWindow+uint64(h.WindowUpdate) > maxWindow {
-		c.add("http2.window_update", "with the initial 65535 exceeds the maximum window 2^31-1 (RFC 9113, section 6.9.1)")
+		c.add("http2.windowUpdate", "with the initial 65535 exceeds the maximum window 2^31-1 (RFC 9113, section 6.9.1)")
 	}
 	if streamWindow+uint64(h.StreamWindowUpdate) > maxWindow {
-		c.add("http2.stream_window_update", "with SETTINGS_INITIAL_WINDOW_SIZE exceeds the maximum window 2^31-1 (RFC 9113, section 6.9.1)")
+		c.add("http2.streamWindowUpdate", "with SETTINGS_INITIAL_WINDOW_SIZE exceeds the maximum window 2^31-1 (RFC 9113, section 6.9.1)")
 	}
 	for i, p := range h.Priorities {
 		path := fmt.Sprintf("http2.priorities[%d]", i)
 		if p.StreamID == 0 {
-			c.add(path, "stream_id must not be 0")
+			c.add(path, "streamId must not be 0")
 		}
 		if p.StreamID > maxStreamID {
-			c.add(path, "stream_id must be below 2^31")
+			c.add(path, "streamId must be below 2^31")
 		}
 		if p.DependsOn > maxStreamID {
-			c.add(path, "depends_on must be below 2^31")
+			c.add(path, "dependsOn must be below 2^31")
 		}
 		if p.DependsOn == p.StreamID {
 			c.add(path, "a stream cannot depend on itself")
 		}
 	}
 	if hp := h.HeadersPriority; hp != nil && hp.DependsOn > maxStreamID {
-		c.add("http2.headers_priority", "depends_on must be below 2^31")
+		c.add("http2.headersPriority", "dependsOn must be below 2^31")
 	}
 	order := slices.Clone(h.PseudoHeaderOrder)
 	slices.Sort(order)
 	want := slices.Clone(pseudoHeaders)
 	slices.Sort(want)
 	if !slices.Equal(order, want) {
-		c.add("http2.pseudo_header_order", "must list each of %s exactly once", strings.Join(pseudoHeaders, ", "))
+		c.add("http2.pseudoHeaderOrder", "must list each of %s exactly once", strings.Join(pseudoHeaders, ", "))
 	}
 	if h.ChainPriorities && h.HeadersPriority == nil {
-		c.add("http2.chain_priorities", "needs headers_priority")
+		c.add("http2.chainPriorities", "needs headersPriority")
 	}
 	if h.FirstStreamID != 0 && (h.FirstStreamID%2 == 0 || h.FirstStreamID > maxStreamID) {
-		c.add("http2.first_stream_id", "must be an odd stream ID below 2^31")
+		c.add("http2.firstStreamId", "must be an odd stream ID below 2^31")
 	}
 	for _, v := range []struct {
 		path  string
 		value uint32
 	}{
 		{
-			path:  "http2.stream_update_threshold",
+			path:  "http2.streamUpdateThreshold",
 			value: h.StreamUpdateThreshold,
 		},
 		{
-			path:  "http2.connection_update_threshold",
+			path:  "http2.connectionUpdateThreshold",
 			value: h.ConnectionUpdateThreshold,
 		},
 	} {
@@ -546,7 +546,7 @@ func (c *checker) checkHTTP2(h *HTTP2) {
 		}
 	}
 	if h.MaxDataFrame > maxMaxFrameSize {
-		c.add("http2.max_data_frame", "exceeds the largest frame 2^24-1")
+		c.add("http2.maxDataFrame", "exceeds the largest frame 2^24-1")
 	}
 	if h.HPACK == nil {
 		c.add("http2.hpack", "is required: how the browser encodes headers is not measured")
@@ -557,30 +557,30 @@ func (c *checker) checkHTTP2(h *HTTP2) {
 
 func (c *checker) checkHPACK(p *HPACK) {
 	if p.NameMatch != NameMatchStaticFirst && p.NameMatch != NameMatchHighestIndex {
-		c.add("http2.hpack.name_match", "must be %q or %q", NameMatchStaticFirst, NameMatchHighestIndex)
+		c.add("http2.hpack.nameMatch", "must be %q or %q", NameMatchStaticFirst, NameMatchHighestIndex)
 	}
 	if p.Huffman != HuffmanShorter && p.Huffman != HuffmanAlways {
 		c.add("http2.hpack.huffman", "must be %q or %q", HuffmanShorter, HuffmanAlways)
 	}
 	for i, n := range p.WithoutIndexing {
-		path := fmt.Sprintf("http2.hpack.without_indexing[%d]", i)
+		path := fmt.Sprintf("http2.hpack.withoutIndexing[%d]", i)
 		c.checkFieldName(path, n)
 		if slices.Contains(p.NeverIndexed, n) {
-			c.add(path, "%s is also in never_indexed", n)
+			c.add(path, "%s is also in neverIndexed", n)
 		}
 	}
 	for i, n := range p.NeverIndexed {
-		c.checkFieldName(fmt.Sprintf("http2.hpack.never_indexed[%d]", i), n)
+		c.checkFieldName(fmt.Sprintf("http2.hpack.neverIndexed[%d]", i), n)
 	}
 	for _, n := range slices.Sorted(maps.Keys(p.NeverIndexBelow)) {
-		path := "http2.hpack.never_index_below[" + n + "]"
+		path := "http2.hpack.neverIndexBelow[" + n + "]"
 		c.checkFieldName(path, n)
 		if p.NeverIndexBelow[n] <= 0 {
 			c.add(path, "must be a positive length")
 		}
 	}
 	if p.SizeUpdates != SizeUpdatesOnChange && p.SizeUpdates != SizeUpdatesAlways {
-		c.add("http2.hpack.size_updates", "must be %q or %q", SizeUpdatesOnChange, SizeUpdatesAlways)
+		c.add("http2.hpack.sizeUpdates", "must be %q or %q", SizeUpdatesOnChange, SizeUpdatesAlways)
 	}
 }
 
@@ -652,7 +652,7 @@ func (c *checker) checkHeaderList(path string, headers []Header, others bool) {
 		case h.Name == "":
 			c.add(at, "name is required")
 		case strings.HasPrefix(h.Name, ":"):
-			c.add(at, "pseudo-header %s belongs in http2.pseudo_header_order", h.Name)
+			c.add(at, "pseudo-header %s belongs in http2.pseudoHeaderOrder", h.Name)
 		case !isToken(h.Name):
 			c.add(at, "name %q is not a header name", h.Name)
 		case h.Name != strings.ToLower(h.Name):
@@ -701,35 +701,35 @@ func (c *checker) checkProxy(p *Proxy, headers []Header) {
 	c.checkProxyUserAgent("proxy.connect", p.Connect, headers)
 	if p.ConnectAuth == nil {
 		if p.ConnectCredentials != "" || p.ForwardCredentials != "" || p.ForwardAuth != nil {
-			c.add("proxy", "credential timing and placement need connect_auth")
+			c.add("proxy", "credential timing and placement need connectAuth")
 		}
 	} else {
-		c.checkHTTP1Headers("proxy.connect_auth", p.ConnectAuth, false)
-		c.checkProxyUserAgent("proxy.connect_auth", p.ConnectAuth, headers)
+		c.checkHTTP1Headers("proxy.connectAuth", p.ConnectAuth, false)
+		c.checkProxyUserAgent("proxy.connectAuth", p.ConnectAuth, headers)
 		if !slices.ContainsFunc(p.ConnectAuth, func(h Header) bool {
 			return strings.EqualFold(h.Name, "proxy-authorization")
 		}) {
-			c.add("proxy.connect_auth", "must place Proxy-Authorization")
+			c.add("proxy.connectAuth", "must place Proxy-Authorization")
 		}
 		if p.ConnectCredentials != CredentialsAfterChallenge && p.ConnectCredentials != CredentialsOnChallenge {
-			c.add("proxy.connect_credentials", "must be %q or %q", CredentialsAfterChallenge, CredentialsOnChallenge)
+			c.add("proxy.connectCredentials", "must be %q or %q", CredentialsAfterChallenge, CredentialsOnChallenge)
 		}
 		if p.ForwardCredentials != CredentialsAfterChallenge && p.ForwardCredentials != CredentialsAlways {
-			c.add("proxy.forward_credentials", "must be %q or %q", CredentialsAfterChallenge, CredentialsAlways)
+			c.add("proxy.forwardCredentials", "must be %q or %q", CredentialsAfterChallenge, CredentialsAlways)
 		}
 	}
 	if p.ForwardConnection != "" && !isToken(p.ForwardConnection) {
-		c.add("proxy.forward_connection", "%q is not a header name", p.ForwardConnection)
+		c.add("proxy.forwardConnection", "%q is not a header name", p.ForwardConnection)
 	}
 	if a := p.ForwardAuth; a != nil {
 		if len(a.After) > 0 && a.Before != "" {
-			c.add("proxy.forward_auth", "takes after or before, not both")
+			c.add("proxy.forwardAuth", "takes after or before, not both")
 		}
 		for i, n := range a.After {
-			c.checkHeaderName(fmt.Sprintf("proxy.forward_auth.after[%d]", i), n)
+			c.checkHeaderName(fmt.Sprintf("proxy.forwardAuth.after[%d]", i), n)
 		}
 		if a.Before != "" {
-			c.checkHeaderName("proxy.forward_auth.before", a.Before)
+			c.checkHeaderName("proxy.forwardAuth.before", a.Before)
 		}
 	}
 	if s := p.SOCKS5; s != nil {
@@ -745,10 +745,10 @@ func (c *checker) checkProxy(p *Proxy, headers []Header) {
 			c.add("proxy.websocket.plain", "must be %q or %q", PlainWebSocketTunnel, PlainWebSocketForward)
 		}
 		if w.Credentials && p.ConnectAuth == nil {
-			c.add("proxy.websocket.credentials", "needs connect_auth")
+			c.add("proxy.websocket.credentials", "needs connectAuth")
 		}
 		if w.Credentials && w.Plain == PlainWebSocketForward && p.ForwardCredentials != CredentialsAlways {
-			c.add("proxy.websocket.credentials", "with plain %q needs forward_credentials %q: no browser was measured answering a challenge to a handshake sent whole", PlainWebSocketForward, CredentialsAlways)
+			c.add("proxy.websocket.credentials", "with plain %q needs forwardCredentials %q: no browser was measured answering a challenge to a handshake sent whole", PlainWebSocketForward, CredentialsAlways)
 		}
 	}
 }

@@ -4,10 +4,10 @@
   "version": "158",
   "platform": "macos",
   "tls": {
-    "record_version": "0x0301",
-    "legacy_version": "0x0303",
-    "session_id_length": 32,
-    "cipher_suites": [
+    "recordVersion": "0x0301",
+    "legacyVersion": "0x0303",
+    "sessionIdLength": 32,
+    "cipherSuites": [
       "0x1301",
       "0x1303",
       "0x1302",
@@ -24,10 +24,10 @@
       "0x002f",
       "0x0035"
     ],
-    "compression_methods": [
+    "compressionMethods": [
       0
     ],
-    "extension_order": "fixed",
+    "extensionOrder": "fixed",
     "extensions": [
       {
         "type": "0x0000"
@@ -51,7 +51,7 @@
       },
       {
         "type": "0x000b",
-        "point_formats": [
+        "pointFormats": [
           0
         ]
       },
@@ -71,7 +71,7 @@
       },
       {
         "type": "0x0022",
-        "signature_algorithms": [
+        "signatureAlgorithms": [
           "0x0403",
           "0x0503",
           "0x0603",
@@ -83,12 +83,12 @@
       },
       {
         "type": "0x0033",
-        "key_shares": [
+        "keyShares": [
           "0x11ec",
           "0x001d",
           "0x0017"
         ],
-        "key_share_lengths": [
+        "keyShareLengths": [
           1216,
           32,
           65
@@ -103,7 +103,7 @@
       },
       {
         "type": "0x000d",
-        "signature_algorithms": [
+        "signatureAlgorithms": [
           "0x0403",
           "0x0503",
           "0x0603",
@@ -119,17 +119,17 @@
       },
       {
         "type": "0x002d",
-        "psk_modes": [
+        "pskModes": [
           1
         ]
       },
       {
         "type": "0x001c",
-        "record_size_limit": 16385
+        "recordSizeLimit": 16385
       },
       {
         "type": "0x001b",
-        "cert_compression": [
+        "certCompression": [
           "0x0001",
           "0x0002",
           "0x0003"
@@ -138,7 +138,7 @@
       {
         "type": "0xfe0d",
         "ech": {
-          "cipher_suites": [
+          "cipherSuites": [
             {
               "kdf": "0x0001",
               "aead": "0x0001"
@@ -148,8 +148,8 @@
               "aead": "0x0003"
             }
           ],
-          "enc_length": 32,
-          "payload_lengths": [
+          "encLength": 32,
+          "payloadLengths": [
             240
           ]
         }
@@ -160,11 +160,11 @@
         "0x0023"
       ],
       "tls12": "single_use",
-      "ech_payload_lengths": [
+      "echPayloadLengths": [
         400
       ]
     },
-    "websocket_h1": {
+    "websocketH1": {
       "alpn": [
         "http/1.1"
       ],
@@ -173,13 +173,13 @@
       ]
     },
     "quic": {
-      "cipher_suites": [
+      "cipherSuites": [
         "0x1301",
         "0x1303",
         "0x1302"
       ],
-      "session_id_length": 0,
-      "extension_order": "shuffled",
+      "sessionIdLength": 0,
+      "extensionOrder": "shuffled",
       "last": [
         "0x0039",
         "0xfe0d"
@@ -204,7 +204,7 @@
         },
         {
           "type": "0x000d",
-          "signature_algorithms": [
+          "signatureAlgorithms": [
             "0x0403",
             "0x0503",
             "0x0603",
@@ -220,17 +220,17 @@
         },
         {
           "type": "0x001b",
-          "cert_compression": [
+          "certCompression": [
             "0x0001",
             "0x0003",
             "0x0002"
           ]
         }
       ],
-      "resumed_ech_payload_lengths": [
+      "resumedEchPayloadLengths": [
         432
       ],
-      "version_negotiation": {
+      "versionNegotiation": {
         "drop": [
           "0x001b",
           "0xfe0d"
@@ -247,10 +247,10 @@
           },
           {
             "type": "0x0033",
-            "key_shares": [
+            "keyShares": [
               "0x001d"
             ],
-            "key_share_lengths": [
+            "keyShareLengths": [
               32
             ]
           }
@@ -278,38 +278,38 @@
         "value": 16384
       }
     ],
-    "window_update": 12517377,
-    "headers_priority": {
-      "depends_on": 0,
+    "windowUpdate": 12517377,
+    "headersPriority": {
+      "dependsOn": 0,
       "exclusive": false,
       "weight": 41
     },
-    "pseudo_header_order": [
+    "pseudoHeaderOrder": [
       ":method",
       ":path",
       ":authority",
       ":scheme"
     ],
-    "first_stream_id": 3,
-    "stream_window_update": 12451840,
-    "max_data_frame": 16000,
-    "stream_update_threshold": 4194304,
-    "connection_update_threshold": 4194304,
-    "split_cookie": true,
+    "firstStreamId": 3,
+    "streamWindowUpdate": 12451840,
+    "maxDataFrame": 16000,
+    "streamUpdateThreshold": 4194304,
+    "connectionUpdateThreshold": 4194304,
+    "splitCookie": true,
     "hpack": {
-      "without_indexing": [
+      "withoutIndexing": [
         ":path"
       ],
-      "never_indexed": [
+      "neverIndexed": [
         "authorization"
       ],
-      "never_index_below": {
+      "neverIndexBelow": {
         "cookie": 20
       },
-      "literal_on_exact_match": true,
-      "name_match": "highest_index",
+      "literalOnExactMatch": true,
+      "nameMatch": "highest_index",
       "huffman": "always",
-      "size_updates": "always"
+      "sizeUpdates": "always"
     }
   },
   "headers": [
@@ -430,7 +430,7 @@
   "variants": [
     {
       "method": "POST",
-      "cors_checked": true,
+      "corsChecked": true,
       "headers": [
         {
           "name": "user-agent",
@@ -554,7 +554,7 @@
     {
       "method": "POST",
       "site": "cross-site",
-      "cors_checked": true,
+      "corsChecked": true,
       "headers": [
         {
           "name": "user-agent",
@@ -618,8 +618,8 @@
     },
     {
       "redirected": true,
-      "origin_before_redirect": true,
-      "method_changed_by_redirect": true,
+      "originBeforeRedirect": true,
+      "methodChangedByRedirect": true,
       "headers": [
         {
           "name": "user-agent",
@@ -671,9 +671,9 @@
     },
     {
       "method": "POST",
-      "cors_checked": true,
+      "corsChecked": true,
       "redirected": true,
-      "origin_before_redirect": true,
+      "originBeforeRedirect": true,
       "headers": [
         {
           "name": "user-agent",
@@ -786,8 +786,8 @@
     {
       "site": "cross-site",
       "redirected": true,
-      "origin_before_redirect": true,
-      "method_changed_by_redirect": true,
+      "originBeforeRedirect": true,
+      "methodChangedByRedirect": true,
       "headers": [
         {
           "name": "user-agent",
@@ -840,9 +840,9 @@
     {
       "method": "POST",
       "site": "cross-site",
-      "cors_checked": true,
+      "corsChecked": true,
       "redirected": true,
-      "origin_before_redirect": true,
+      "originBeforeRedirect": true,
       "headers": [
         {
           "name": "user-agent",
@@ -903,7 +903,7 @@
     },
     {
       "redirected": true,
-      "cross_origin_redirect": true,
+      "crossOriginRedirect": true,
       "headers": [
         {
           "name": "user-agent",
@@ -955,9 +955,9 @@
     },
     {
       "redirected": true,
-      "cross_origin_redirect": true,
-      "origin_before_redirect": true,
-      "method_changed_by_redirect": true,
+      "crossOriginRedirect": true,
+      "originBeforeRedirect": true,
+      "methodChangedByRedirect": true,
       "headers": [
         {
           "name": "user-agent",
@@ -1009,10 +1009,10 @@
     },
     {
       "method": "POST",
-      "cors_checked": true,
+      "corsChecked": true,
       "redirected": true,
-      "cross_origin_redirect": true,
-      "origin_before_redirect": true,
+      "crossOriginRedirect": true,
+      "originBeforeRedirect": true,
       "headers": [
         {
           "name": "user-agent",
@@ -1073,10 +1073,10 @@
     },
     {
       "redirected": true,
-      "cross_origin_redirect": true,
-      "origin_before_redirect": true,
-      "method_changed_by_redirect": true,
-      "cross_site_redirect": true,
+      "crossOriginRedirect": true,
+      "originBeforeRedirect": true,
+      "methodChangedByRedirect": true,
+      "crossSiteRedirect": true,
       "headers": [
         {
           "name": "user-agent",
@@ -1128,11 +1128,11 @@
     },
     {
       "method": "POST",
-      "cors_checked": true,
+      "corsChecked": true,
       "redirected": true,
-      "cross_origin_redirect": true,
-      "origin_before_redirect": true,
-      "cross_site_redirect": true,
+      "crossOriginRedirect": true,
+      "originBeforeRedirect": true,
+      "crossSiteRedirect": true,
       "headers": [
         {
           "name": "user-agent",
@@ -1193,8 +1193,8 @@
     },
     {
       "redirected": true,
-      "cross_origin_redirect": true,
-      "cross_site_redirect": true,
+      "crossOriginRedirect": true,
+      "crossSiteRedirect": true,
       "headers": [
         {
           "name": "user-agent",
@@ -1247,7 +1247,7 @@
     {
       "site": "same-site",
       "redirected": true,
-      "cross_origin_redirect": true,
+      "crossOriginRedirect": true,
       "headers": [
         {
           "name": "user-agent",
@@ -1352,8 +1352,8 @@
     {
       "site": "same-site",
       "redirected": true,
-      "cross_origin_redirect": true,
-      "cross_site_redirect": true,
+      "crossOriginRedirect": true,
+      "crossSiteRedirect": true,
       "headers": [
         {
           "name": "user-agent",
@@ -1406,9 +1406,9 @@
     {
       "site": "same-site",
       "redirected": true,
-      "cross_origin_redirect": true,
-      "origin_before_redirect": true,
-      "method_changed_by_redirect": true,
+      "crossOriginRedirect": true,
+      "originBeforeRedirect": true,
+      "methodChangedByRedirect": true,
       "headers": [
         {
           "name": "user-agent",
@@ -1461,10 +1461,10 @@
     {
       "method": "POST",
       "site": "same-site",
-      "cors_checked": true,
+      "corsChecked": true,
       "redirected": true,
-      "cross_origin_redirect": true,
-      "origin_before_redirect": true,
+      "crossOriginRedirect": true,
+      "originBeforeRedirect": true,
       "headers": [
         {
           "name": "user-agent",
@@ -1526,7 +1526,7 @@
     {
       "method": "POST",
       "site": "same-site",
-      "cors_checked": true,
+      "corsChecked": true,
       "headers": [
         {
           "name": "user-agent",
@@ -1588,8 +1588,8 @@
     {
       "site": "same-site",
       "redirected": true,
-      "origin_before_redirect": true,
-      "method_changed_by_redirect": true,
+      "originBeforeRedirect": true,
+      "methodChangedByRedirect": true,
       "headers": [
         {
           "name": "user-agent",
@@ -1642,9 +1642,9 @@
     {
       "method": "POST",
       "site": "same-site",
-      "cors_checked": true,
+      "corsChecked": true,
       "redirected": true,
-      "origin_before_redirect": true,
+      "originBeforeRedirect": true,
       "headers": [
         {
           "name": "user-agent",
@@ -1706,10 +1706,10 @@
     {
       "site": "same-site",
       "redirected": true,
-      "cross_origin_redirect": true,
-      "origin_before_redirect": true,
-      "method_changed_by_redirect": true,
-      "cross_site_redirect": true,
+      "crossOriginRedirect": true,
+      "originBeforeRedirect": true,
+      "methodChangedByRedirect": true,
+      "crossSiteRedirect": true,
       "headers": [
         {
           "name": "user-agent",
@@ -1762,11 +1762,11 @@
     {
       "method": "POST",
       "site": "same-site",
-      "cors_checked": true,
+      "corsChecked": true,
       "redirected": true,
-      "cross_origin_redirect": true,
-      "origin_before_redirect": true,
-      "cross_site_redirect": true,
+      "crossOriginRedirect": true,
+      "originBeforeRedirect": true,
+      "crossSiteRedirect": true,
       "headers": [
         {
           "name": "user-agent",
@@ -1828,8 +1828,8 @@
     {
       "site": "cross-site",
       "redirected": true,
-      "cross_origin_redirect": true,
-      "cross_site_redirect": true,
+      "crossOriginRedirect": true,
+      "crossSiteRedirect": true,
       "headers": [
         {
           "name": "user-agent",
@@ -1934,7 +1934,7 @@
     {
       "site": "cross-site",
       "redirected": true,
-      "cross_origin_redirect": true,
+      "crossOriginRedirect": true,
       "headers": [
         {
           "name": "user-agent",
@@ -1987,10 +1987,10 @@
     {
       "site": "cross-site",
       "redirected": true,
-      "cross_origin_redirect": true,
-      "origin_before_redirect": true,
-      "method_changed_by_redirect": true,
-      "cross_site_redirect": true,
+      "crossOriginRedirect": true,
+      "originBeforeRedirect": true,
+      "methodChangedByRedirect": true,
+      "crossSiteRedirect": true,
       "headers": [
         {
           "name": "user-agent",
@@ -2043,11 +2043,11 @@
     {
       "method": "POST",
       "site": "cross-site",
-      "cors_checked": true,
+      "corsChecked": true,
       "redirected": true,
-      "cross_origin_redirect": true,
-      "origin_before_redirect": true,
-      "cross_site_redirect": true,
+      "crossOriginRedirect": true,
+      "originBeforeRedirect": true,
+      "crossSiteRedirect": true,
       "headers": [
         {
           "name": "user-agent",
@@ -2109,8 +2109,8 @@
     {
       "site": "none",
       "redirected": true,
-      "cross_origin_redirect": true,
-      "cross_site_redirect": true,
+      "crossOriginRedirect": true,
+      "crossSiteRedirect": true,
       "headers": [
         {
           "name": "user-agent",
@@ -2160,9 +2160,9 @@
     {
       "site": "none",
       "redirected": true,
-      "cross_origin_redirect": true,
-      "insecure_before_redirect": true,
-      "cross_site_redirect": true,
+      "crossOriginRedirect": true,
+      "insecureBeforeRedirect": true,
+      "crossSiteRedirect": true,
       "headers": [
         {
           "name": "user-agent",
@@ -2261,7 +2261,7 @@
     {
       "site": "none",
       "redirected": true,
-      "cross_origin_redirect": true,
+      "crossOriginRedirect": true,
       "headers": [
         {
           "name": "user-agent",
@@ -2346,7 +2346,7 @@
     },
     {
       "method": "POST",
-      "cors_checked": true,
+      "corsChecked": true,
       "insecure": true,
       "http1": [
         {
@@ -2539,9 +2539,9 @@
       "variants": [
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -2688,7 +2688,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -2727,7 +2727,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -2881,7 +2881,7 @@
       "variants": [
         {
           "method": "POST",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -2931,7 +2931,7 @@
         {
           "method": "POST",
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -2981,7 +2981,7 @@
         {
           "method": "POST",
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -3131,9 +3131,9 @@
       "variants": [
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -3280,7 +3280,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -3319,7 +3319,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -3478,10 +3478,10 @@
       ],
       "variants": [
         {
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "cross_origin_redirect": true,
-          "origin_before_redirect": true,
+          "crossOriginRedirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -3580,8 +3580,8 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
-          "page_set": true,
+          "corsChecked": true,
+          "pageSet": true,
           "headers": [
             {
               "name": "user-agent",
@@ -3686,9 +3686,9 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "cross_origin_redirect": true,
+          "crossOriginRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -3793,8 +3793,8 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
-          "page_set": true,
+          "corsChecked": true,
+          "pageSet": true,
           "headers": [
             {
               "name": "user-agent",
@@ -3894,7 +3894,7 @@
         {
           "method": "PUT",
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "user-agent",
@@ -3945,8 +3945,8 @@
         {
           "method": "PUT",
           "site": "cross-site",
-          "cors_checked": true,
-          "page_set": true,
+          "corsChecked": true,
+          "pageSet": true,
           "headers": [
             {
               "name": "user-agent",
@@ -3999,10 +3999,10 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
-          "page_set": true,
+          "corsChecked": true,
+          "pageSet": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -4052,9 +4052,9 @@
         },
         {
           "method": "PUT",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -4107,8 +4107,8 @@
         },
         {
           "redirected": true,
-          "origin_before_redirect": true,
-          "method_changed_by_redirect": true,
+          "originBeforeRedirect": true,
+          "methodChangedByRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -4152,9 +4152,9 @@
         },
         {
           "method": "DELETE",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -4250,9 +4250,9 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -4299,9 +4299,9 @@
         },
         {
           "method": "POST",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -4398,9 +4398,9 @@
         },
         {
           "method": "PATCH",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -4453,9 +4453,9 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -4503,9 +4503,9 @@
         {
           "method": "POST",
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -4559,9 +4559,9 @@
         {
           "method": "PATCH",
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -4614,10 +4614,10 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
-          "method_changed_by_redirect": true,
+          "originBeforeRedirect": true,
+          "methodChangedByRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -4664,10 +4664,10 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "cross_origin_redirect": true,
-          "origin_before_redirect": true,
+          "crossOriginRedirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -4752,7 +4752,7 @@
         },
         {
           "method": "POST",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -4800,8 +4800,8 @@
           ]
         },
         {
-          "cors_checked": true,
-          "page_set": true,
+          "corsChecked": true,
+          "pageSet": true,
           "insecure": true,
           "http1": [
             {
@@ -4844,7 +4844,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -4924,7 +4924,7 @@
         {
           "method": "POST",
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -4970,8 +4970,8 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
-          "page_set": true,
+          "corsChecked": true,
+          "pageSet": true,
           "insecure": true,
           "http1": [
             {
@@ -5014,7 +5014,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -5091,7 +5091,7 @@
         {
           "method": "POST",
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -5137,8 +5137,8 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
-          "page_set": true,
+          "corsChecked": true,
+          "pageSet": true,
           "insecure": true,
           "http1": [
             {
@@ -5181,10 +5181,10 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "cross_origin_redirect": true,
-          "insecure_before_redirect": true,
+          "crossOriginRedirect": true,
+          "insecureBeforeRedirect": true,
           "insecure": true,
           "http1": [
             {
@@ -5223,11 +5223,11 @@
           ]
         },
         {
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "cross_origin_redirect": true,
-          "origin_before_redirect": true,
-          "insecure_before_redirect": true,
+          "crossOriginRedirect": true,
+          "originBeforeRedirect": true,
+          "insecureBeforeRedirect": true,
           "insecure": true,
           "http1": [
             {
@@ -5406,7 +5406,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -5442,7 +5442,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -5817,7 +5817,7 @@
       "variants": [
         {
           "redirected": true,
-          "cross_origin_redirect": true,
+          "crossOriginRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -5911,7 +5911,7 @@
         {
           "site": "cross-site",
           "redirected": true,
-          "cross_origin_redirect": true,
+          "crossOriginRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -6011,7 +6011,7 @@
         {
           "site": "same-site",
           "redirected": true,
-          "cross_origin_redirect": true,
+          "crossOriginRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -6145,9 +6145,9 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -6307,7 +6307,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -6347,7 +6347,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -6388,8 +6388,8 @@
         {
           "site": "cross-site",
           "redirected": true,
-          "cross_origin_redirect": true,
-          "insecure_before_redirect": true,
+          "crossOriginRedirect": true,
+          "insecureBeforeRedirect": true,
           "insecure": true,
           "http1": [
             {
@@ -6426,8 +6426,8 @@
         },
         {
           "redirected": true,
-          "cross_origin_redirect": true,
-          "insecure_before_redirect": true,
+          "crossOriginRedirect": true,
+          "insecureBeforeRedirect": true,
           "insecure": true,
           "http1": [
             {
@@ -6573,7 +6573,7 @@
       "variants": [
         {
           "redirected": true,
-          "cross_origin_redirect": true,
+          "crossOriginRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -6667,7 +6667,7 @@
         {
           "site": "cross-site",
           "redirected": true,
-          "cross_origin_redirect": true,
+          "crossOriginRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -6767,7 +6767,7 @@
         {
           "site": "same-site",
           "redirected": true,
-          "cross_origin_redirect": true,
+          "crossOriginRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -6901,9 +6901,9 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -7063,7 +7063,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -7103,7 +7103,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -7144,8 +7144,8 @@
         {
           "site": "cross-site",
           "redirected": true,
-          "cross_origin_redirect": true,
-          "insecure_before_redirect": true,
+          "crossOriginRedirect": true,
+          "insecureBeforeRedirect": true,
           "insecure": true,
           "http1": [
             {
@@ -7182,8 +7182,8 @@
         },
         {
           "redirected": true,
-          "cross_origin_redirect": true,
-          "insecure_before_redirect": true,
+          "crossOriginRedirect": true,
+          "insecureBeforeRedirect": true,
           "insecure": true,
           "http1": [
             {
@@ -7335,9 +7335,9 @@
       "variants": [
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -7484,7 +7484,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -7523,7 +7523,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -7666,8 +7666,8 @@
         {
           "method": "OPTIONS",
           "site": "same-site",
-          "cors_checked": true,
-          "page_set": true,
+          "corsChecked": true,
+          "pageSet": true,
           "insecure": true,
           "http1": [
             {
@@ -7714,8 +7714,8 @@
         {
           "method": "OPTIONS",
           "site": "cross-site",
-          "cors_checked": true,
-          "page_set": true,
+          "corsChecked": true,
+          "pageSet": true,
           "insecure": true,
           "http1": [
             {
@@ -7855,7 +7855,7 @@
       "variants": [
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "user-agent",
@@ -7940,7 +7940,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "user-agent",
@@ -8063,7 +8063,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -8099,7 +8099,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -8241,9 +8241,9 @@
       "variants": [
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -8391,7 +8391,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -8430,7 +8430,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -8572,9 +8572,9 @@
       "variants": [
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -8722,7 +8722,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -8761,7 +8761,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -9295,9 +9295,9 @@
       "variants": [
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -9340,8 +9340,8 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
-          "page_set": true,
+          "corsChecked": true,
+          "pageSet": true,
           "headers": [
             {
               "name": "user-agent",
@@ -9421,7 +9421,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -9457,7 +9457,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -9493,7 +9493,7 @@
         },
         {
           "method": "POST",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "user-agent",
@@ -9551,24 +9551,24 @@
     }
   },
   "context": {
-    "storage_access": "none",
-    "stylesheet_referrer": true,
-    "preflight_cache": "merge"
+    "storageAccess": "none",
+    "stylesheetReferrer": true,
+    "preflightCache": "merge"
   },
   "cookies": {
-    "unset_samesite": "none",
-    "none_requires_secure": true,
-    "third_party": "partition_all",
+    "unsetSamesite": "none",
+    "noneRequiresSecure": true,
+    "thirdParty": "partition_all",
     "redirects": "chain",
     "nameless": "name",
-    "empty_name": "drop",
+    "emptyName": "drop",
     "order": "rfc",
-    "samesite_scheme": "schemeless",
-    "host_prefix_path": "attribute",
-    "http_prefix": true,
-    "secure_loopback": true,
-    "max_per_site": 180,
-    "evict_to": 150
+    "samesiteScheme": "schemeless",
+    "hostPrefixPath": "attribute",
+    "httpPrefix": true,
+    "secureLoopback": true,
+    "maxPerSite": 180,
+    "evictTo": 150
   },
   "proxy": {
     "connect": [
@@ -9587,7 +9587,7 @@
         "name": "Host"
       }
     ],
-    "connect_auth": [
+    "connectAuth": [
       {
         "name": "User-Agent"
       },
@@ -9606,11 +9606,11 @@
         "name": "Proxy-Authorization"
       }
     ],
-    "connect_credentials": "after_challenge",
-    "forward_credentials": "after_challenge",
-    "forward_auth": {
+    "connectCredentials": "after_challenge",
+    "forwardCredentials": "after_challenge",
+    "forwardAuth": {
       "before": "connection",
-      "retry_last": true
+      "retryLast": true
     },
     "socks5": {
       "methods": [
@@ -9618,43 +9618,43 @@
       ],
       "address": "domain"
     },
-    "connect_no_resume": true,
+    "connectNoResume": true,
     "websocket": {
       "plain": "tunnel",
       "credentials": true
     }
   },
   "redirects": {
-    "method_change_origin": "drop",
-    "navigation_limit": 20,
-    "hop_preflight": "inherit",
-    "navigation_site": "chain",
-    "navigation_origin": "taint"
+    "methodChangeOrigin": "drop",
+    "navigationLimit": 20,
+    "hopPreflight": "inherit",
+    "navigationSite": "chain",
+    "navigationOrigin": "taint"
   },
   "connections": {
-    "http1_per_host": 6,
+    "http1PerHost": 6,
     "coalesce": "connect"
   },
   "websocket": {
     "extensions": "permessage-deflate",
     "compression": "zlib_rs6",
     "uncompressed": "empty_or_longer",
-    "window_bits_8": "fail",
-    "h2_data": "header_alone"
+    "windowBits8": "fail",
+    "h2Data": "header_alone"
   },
   "quic": {
     "version": 1,
-    "datagram_size": 1252,
+    "datagramSize": 1252,
     "padding": "trailing",
     "crypto": {
       "split": "sni_cut"
     },
-    "packet_numbers": "random_initial",
-    "dcid_length": 8,
-    "dcid_length_rule": "biased",
-    "scid_length": 3,
-    "new_connection_ids": 4,
-    "transport_parameters": [
+    "packetNumbers": "random_initial",
+    "dcidLength": 8,
+    "dcidLengthRule": "biased",
+    "scidLength": 3,
+    "newConnectionIds": 4,
+    "transportParameters": [
       {
         "id": "0x01",
         "value": 30000
@@ -9715,28 +9715,28 @@
         "value": 65535
       }
     ],
-    "transport_parameter_order": "fixed",
-    "ack_initial": true,
-    "ack_before_finished": true,
+    "transportParameterOrder": "fixed",
+    "ackInitial": true,
+    "ackBeforeFinished": true,
     "coalesce": true,
-    "ack_delay": "actual",
-    "spin_bit": "random",
+    "ackDelay": "actual",
+    "spinBit": "random",
     "tokens": true,
-    "zero_rtt": true,
-    "close_reply": true,
+    "zeroRtt": true,
+    "closeReply": true,
     "loss": {
-      "initial_pto_ms": 300,
-      "cached_rtt": true,
+      "initialPtoMs": 300,
+      "cachedRtt": true,
       "probe": "flight",
       "fresh": {},
       "resumed": {
-        "after_ms": 5000,
+        "afterMs": 5000,
         "close": "application",
-        "datagram_size": 255
+        "datagramSize": 255
       }
     },
-    "keep_alive": {
-      "period_ms": 15000,
+    "keepAlive": {
+      "periodMs": 15000,
       "from": "idle"
     },
     "ack": {
@@ -9744,15 +9744,15 @@
       "batched": true
     },
     "credit": {
-      "stream_divisor": 4,
-      "connection_divisor": 4
+      "streamDivisor": 4,
+      "connectionDivisor": 4
     },
-    "key_update": {
+    "keyUpdate": {
       "initiate": false
     },
-    "version_negotiation": {
+    "versionNegotiation": {
       "retry": true,
-      "downgrade_error": "0x53f8"
+      "downgradeError": "0x53f8"
     }
   },
   "http3": {
@@ -9782,10 +9782,10 @@
         "value": 1
       }
     ],
-    "grease_frame": {
-      "max_length": 7
+    "greaseFrame": {
+      "maxLength": 7
     },
-    "uni_streams": [
+    "uniStreams": [
       {
         "type": "control",
         "open": "handshake"
@@ -9799,24 +9799,24 @@
         "open": "handshake"
       }
     ],
-    "early_request_first": true,
-    "early_data": {
+    "earlyRequestFirst": true,
+    "earlyData": {
       "methods": [
         "GET",
         "HEAD",
         "OPTIONS"
       ],
-      "held_with_finished": true,
-      "retry_too_early": true
+      "heldWithFinished": true,
+      "retryTooEarly": true
     },
     "qpack": {
       "encoder": "new_names",
       "huffman": "always"
     },
-    "max_data_frame": 32768,
-    "first_data_frame": 32224,
+    "maxDataFrame": 32768,
+    "firstDataFrame": 32224,
     "headers": {
-      "pseudo_header_order": [
+      "pseudoHeaderOrder": [
         ":method",
         ":scheme",
         ":authority",
@@ -9825,7 +9825,7 @@
       "drop": [
         "te"
       ],
-      "alt_used": {
+      "altUsed": {
         "async_script": "referer",
         "beacon": "referer",
         "fetch": "cookie",
@@ -9838,21 +9838,21 @@
         "style": "referer",
         "xhr": "referer"
       },
-      "alt_used_navigation": "referer"
+      "altUsedNavigation": "referer"
     },
     "discovery": {
       "switch": "on_alt_svc",
-      "goaway_tcp": true,
-      "race_after_goaway": true,
-      "race_delay_ms": {
+      "goawayTcp": true,
+      "raceAfterGoaway": true,
+      "raceDelayMs": {
         "min": 6,
         "max": 9
       },
       "fallback": {
         "mode": "background",
         "hold": true,
-        "broken_after": 1,
-        "revalidate_ms": {
+        "brokenAfter": 1,
+        "revalidateMs": {
           "min": 797,
           "max": 3020
         },

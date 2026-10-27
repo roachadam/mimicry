@@ -4,7 +4,7 @@
   "version": "155",
   "platform": "macos",
   "tls": {
-    "cipher_suites": [
+    "cipherSuites": [
       "GREASE",
       "0x1301",
       "0x1302",
@@ -22,10 +22,10 @@
       "0x002f",
       "0x0035"
     ],
-    "compression_methods": [
+    "compressionMethods": [
       0
     ],
-    "extension_order": "shuffled",
+    "extensionOrder": "shuffled",
     "extensions": [
       {
         "type": "GREASE"
@@ -36,7 +36,7 @@
       },
       {
         "type": "0x001b",
-        "cert_compression": [
+        "certCompression": [
           "0x0002"
         ]
       },
@@ -48,7 +48,7 @@
       },
       {
         "type": "0x0033",
-        "key_shares": [
+        "keyShares": [
           "GREASE",
           "0x11ec",
           "0x001d"
@@ -66,13 +66,13 @@
       },
       {
         "type": "0x002d",
-        "psk_modes": [
+        "pskModes": [
           1
         ]
       },
       {
         "type": "0x000d",
-        "signature_algorithms": [
+        "signatureAlgorithms": [
           "GREASE",
           "0x0904",
           "0x0905",
@@ -118,7 +118,7 @@
       },
       {
         "type": "0x000b",
-        "point_formats": [
+        "pointFormats": [
           0
         ]
       },
@@ -156,13 +156,13 @@
         "value": 262144
       }
     ],
-    "window_update": 15663105,
-    "headers_priority": {
-      "depends_on": 0,
+    "windowUpdate": 15663105,
+    "headersPriority": {
+      "dependsOn": 0,
       "exclusive": true,
       "weight": 255
     },
-    "pseudo_header_order": [
+    "pseudoHeaderOrder": [
       ":method",
       ":authority",
       ":scheme",

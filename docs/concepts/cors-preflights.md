@@ -111,7 +111,7 @@ How the next request goes out, every browser alike:
   `client.Do` returns an error. `NewClient`'s client lifts `http.Client`'s
   default limit of 10; a client of your own keeps its `CheckRedirect`.
 
-Where browsers differ, the profile says (`redirects.method_change_origin`):
+Where browsers differ, the profile says (`redirects.methodChangeOrigin`):
 the GET a redirect makes of a same-origin POST, PUT or DELETE `fetch()`
 carries the `Origin` the request sent in Safari (`keep`), none in Chrome
 and Firefox (`drop`). A profile without the rule cannot send that GET
@@ -129,7 +129,7 @@ mode. It lasts for `Access-Control-Max-Age` seconds as sent (browsers cap
 it, but their caps are not measured), or 5 s without one (`Max-Age: 0`:
 not at all). A later request that the remembered answer
 allows goes without a preflight. Browsers differ in what they remember
-(`context.preflight_cache`):
+(`context.preflightCache`):
 
 - `replace` (Chrome, Safari): the URL's latest answer only. After a
   preflight for `X-Other`, a request with `X-Mimicry` is preflighted again.

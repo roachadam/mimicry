@@ -3,7 +3,7 @@
 // and fails on any difference not pinned as a known gap.
 //
 // Tests check the profiles MIMICRY_PROFILES selects (testprofiles, decision
-// 0035), against their own captures or those captures_from names. Gap tables
+// 0035), against their own captures or those capturesFrom names. Gap tables
 // are keyed by the profile that took the capture and listed in
 // docs/backlog.md; a pinned gap that stops appearing fails. Timer-driven
 // behaviour is tested in internal/h2 with a fake clock, not here.
@@ -46,7 +46,7 @@ func loadProfile(name string) (*profile.Profile, error) {
 
 // capturePath resolves p's capture of scenario (rest is what follows the
 // scenario in the file name: ".pagetrace.json.gz", ".local-roots.h2trace.json")
-// through captures_from: its own, or the earlier profile's it inherits with
+// through capturesFrom: its own, or the earlier profile's it inherits with
 // the Rewriter to its version. It returns the file name too, the key of
 // missingCaptures.
 func capturePath(t testing.TB, p *profile.Profile, scenario, rest string) (string, string, *capture.Rewriter) {

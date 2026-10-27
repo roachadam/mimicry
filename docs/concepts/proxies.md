@@ -56,7 +56,7 @@ Each proxy URL has its own connections and TLS sessions (the pool key
 includes the proxy); nothing is shared with other proxies or with direct
 requests. Firefox resumes no session through an HTTP proxy's CONNECT
 tunnel (none of its connections through one did; through SOCKS5 they
-resume), and a Firefox profile does the same (`proxy.connect_no_resume`).
+resume), and a Firefox profile does the same (`proxy.connectNoResume`).
 `Config.DialContext`, when set, opens the connection to the
 proxy. `Config.DialTimeout` bounds the connect to the proxy together with
 the proxy's handshake (CONNECT or SOCKS5), and the TLS handshake with the

@@ -24,22 +24,22 @@ type WebSocket struct {
 	// WindowBits8 is what the browser does when the server answers
 	// client_max_window_bits=8, which zlib cannot compress with:
 	// WindowBits8As9 or WindowBits8Fail. Required.
-	WindowBits8 string `json:"window_bits_8"`
+	WindowBits8 string `json:"windowBits8"`
 	// H2Data is how a socket over HTTP/2 writes its frames into DATA
 	// frames, each at most HTTP2.MaxDataFrame long: H2DataTogether,
 	// H2DataHeaderAlone or H2DataSplitControl. Required.
-	H2Data string `json:"h2_data"`
+	H2Data string `json:"h2Data"`
 	// CloseH1 is what the browser does with the HTTP/1.1 connection once
 	// the close handshake is done: CloseAfterWait or CloseAtOnce. Empty:
 	// not measured, and the connection is left for the server to close.
-	CloseH1 string `json:"close_h1,omitempty"`
+	CloseH1 string `json:"closeH1,omitempty"`
 	// CloseWaitMillis is how long CloseAfterWait waits for the server to
 	// close first (Chrome: 2000).
-	CloseWaitMillis int `json:"close_wait_ms,omitempty"`
+	CloseWaitMillis int `json:"closeWaitMs,omitempty"`
 	// CloseH2 is how the browser ends the socket's HTTP/2 stream:
 	// CloseEndStream or CloseResetStream. Empty: not measured, and the
 	// stream is left for the server to end.
-	CloseH2 string `json:"close_h2,omitempty"`
+	CloseH2 string `json:"closeH2,omitempty"`
 }
 
 // Values of WebSocket.Compression. Each is the library's raw deflate at
@@ -143,31 +143,31 @@ func (c *checker) checkWebSocket(p *Profile) {
 		c.add(path+".uncompressed", "must be %q, %q or %q", UncompressedNever, UncompressedEmptyOrLonger, UncompressedEmptyOrNotShorter)
 	}
 	if ws.WindowBits8 != WindowBits8As9 && ws.WindowBits8 != WindowBits8Fail {
-		c.add(path+".window_bits_8", "must be %q or %q", WindowBits8As9, WindowBits8Fail)
+		c.add(path+".windowBits8", "must be %q or %q", WindowBits8As9, WindowBits8Fail)
 	}
 	if ws.H2Data != H2DataTogether && ws.H2Data != H2DataHeaderAlone && ws.H2Data != H2DataSplitControl {
-		c.add(path+".h2_data", "must be %q, %q or %q", H2DataTogether, H2DataHeaderAlone, H2DataSplitControl)
+		c.add(path+".h2Data", "must be %q, %q or %q", H2DataTogether, H2DataHeaderAlone, H2DataSplitControl)
 	}
 	switch ws.CloseH1 {
 	case CloseAfterWait:
 		if ws.CloseWaitMillis <= 0 {
-			c.add(path+".close_wait_ms", "is required with %q", CloseAfterWait)
+			c.add(path+".closeWaitMs", "is required with %q", CloseAfterWait)
 		}
 	case "", CloseAtOnce:
 		if ws.CloseWaitMillis != 0 {
-			c.add(path+".close_wait_ms", "applies only with close_h1 %q", CloseAfterWait)
+			c.add(path+".closeWaitMs", "applies only with closeH1 %q", CloseAfterWait)
 		}
 	default:
-		c.add(path+".close_h1", "must be empty, %q or %q", CloseAfterWait, CloseAtOnce)
+		c.add(path+".closeH1", "must be empty, %q or %q", CloseAfterWait, CloseAtOnce)
 	}
 	if ws.CloseH2 != "" && ws.CloseH2 != CloseEndStream && ws.CloseH2 != CloseResetStream {
-		c.add(path+".close_h2", "must be empty, %q or %q", CloseEndStream, CloseResetStream)
+		c.add(path+".closeH2", "must be empty, %q or %q", CloseEndStream, CloseResetStream)
 	}
 	if p.Kinds[KindWebSocket] == nil {
 		c.add("kinds."+KindWebSocket, "is required with websocket")
 	}
 	if p.TLS.WebSocketH1 == nil {
-		c.add("tls.websocket_h1", "is required with websocket")
+		c.add("tls.websocketH1", "is required with websocket")
 	}
 }
 
@@ -177,7 +177,7 @@ func (c *checker) checkWebSocketHello(t *TLS) {
 	if h == nil {
 		return
 	}
-	const path = "tls.websocket_h1"
+	const path = "tls.websocketH1"
 	if len(h.ALPN) == 0 {
 		c.add(path+".alpn", "is required")
 	}

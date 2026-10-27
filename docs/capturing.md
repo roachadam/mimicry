@@ -22,7 +22,7 @@ when `CI=true`.
 Each browser is sampled three times (`-samples`, or per scenario as
 `-scenarios page:3,http1:1`), each on a fresh server and port so no
 connection or TLS session carries over. If the samples differ only in
-extension order, the capture records `"extension_order": "shuffled"`
+extension order, the capture records `"extensionOrder": "shuffled"`
 (Chrome), otherwise `"fixed"` (so the default scenario needs at least two
 samples to tell). Any other difference between samples fails the capture:
 it is randomness a profile cannot describe and needs investigating.
@@ -280,7 +280,7 @@ A new version starts as a copy of the previous one
 captured field from the new capture, and treat everything copied that a
 capture cannot show (`http2.hpack`, header slots, `cookies`, `http1` slots)
 as unverified until the e2e tests pass against the new traces. `cmd/refresh`
-does the copy, sets `captures_from` and runs the generators below.
+does the copy, sets `capturesFrom` and runs the generators below.
 
 ### The generators
 
@@ -291,8 +291,8 @@ does not describe:
 
 1. `go run ./cmd/hellogen`: the ClientHello's shape; also `tls.quic`, the
    QUIC ClientHello, from every h3 connection's hello,
-   `tls.quic.version_negotiation`, Firefox's other hello after Version
-   Negotiation, from the `h3-vn` captures, and `tls.websocket_h1` from the
+   `tls.quic.versionNegotiation`, Firefox's other hello after Version
+   Negotiation, from the `h3-vn` captures, and `tls.websocketH1` from the
    `websocket` capture.
 2. `go run ./cmd/h3gen`: `quic`, and `http3` but for kindsgen's header lists
    and priorities. It checks every value against every connection and pins
@@ -303,9 +303,9 @@ does not describe:
 hellogen and h3gen read the edge captures too (`server.H3EdgeCaptures`:
 `h3-blackhole`, `h3-broken`, `h3-vn`, `h3-download`, `h3-early`,
 `h3-too-early`), from which h3gen derives `quic.loss` (probes, give-ups,
-abandon closes, path degrading), `quic.keep_alive`, `quic.ack`,
-`quic.credit`, `quic.key_update`, `quic.version_negotiation`,
-`http3.discovery.fallback` and `http3.early_data` (which methods go in
+abandon closes, path degrading), `quic.keepAlive`, `quic.ack`,
+`quic.credit`, `quic.keyUpdate`, `quic.versionNegotiation`,
+`http3.discovery.fallback` and `http3.earlyData` (which methods go in
 0-RTT, where a held request leaves, the retry after 425); kindsgen reads
 only `h3-discovery` and `h3-page` (`server.H3ProfileCaptures`). Each
 generator has its own `TestRegenerateReproducesProfiles`, which fails while
@@ -317,19 +317,19 @@ kindsgen's captures, and what each gives the profile:
 - `<name>.kinds.pagetrace.json.gz` and `<name>.kinds-http1.pagetrace.json.gz`:
   every kind over HTTP/2 and HTTP/1.1, and the context rules;
 - `<name>.kinds-plain.pagetrace.json.gz`: the non-secure variants;
-- `<name>.cors.pagetrace.json.gz`: `context.preflight_cache`, and the cors
+- `<name>.cors.pagetrace.json.gz`: `context.preflightCache`, and the cors
   page's fetches, merged into the Fetch kind (its PUT variants, and
   cross-site fetches with and without a header the page set: the
-  `page_set` condition);
+  `pageSet` condition);
 - `<name>.cookies.pagetrace.json.gz`: the cross-site form POST navigation
   variant (`c-nav-post.so`), the image and injected_image `{same-site,
-  redirected, cross_origin_redirect}` variants, and slots its requests add
+  redirected, crossOriginRedirect}` variants, and slots its requests add
   (Safari 27's `cookie` on a redirected same-origin image);
 - `<name>.cors-edge.pagetrace.json.gz`: fetch redirects merged into the
   Fetch kind (PUT/DELETE hops, the GET hops of 303s and POSTs, a
   same-origin chain, a cross-site hop within its origin); every redirect's
-  request takes its `cross_origin_redirect`, `origin_before_redirect`,
-  `method_changed_by_redirect` and `insecure_before_redirect` conditions
+  request takes its `crossOriginRedirect`, `originBeforeRedirect`,
+  `methodChangedByRedirect` and `insecureBeforeRedirect` conditions
   from the captured request it follows;
 - `<name>.redirects2.pagetrace.json.gz`: redirects of every kind
   (`redir-<kind>`: images, crossorigin scripts, XHR, fetch() methods and
@@ -345,12 +345,12 @@ kindsgen's captures, and what each gives the profile:
   request one sample sent in a form no condition explains (browser state)
   is left out only if pinned in `sampleGaps` with why, and a pinned one
   missing from its capture is an error;
-- `<name>.headers-order.pagetrace.json.gz`: `context.header_table`, and
+- `<name>.headers-order.pagetrace.json.gz`: `context.headerTable`, and
   fetch/XHR requests with headers the page set;
 - `<name>.websocket.pagetrace.json.gz` and
   `<name>.websocket-h2.pagetrace.json.gz`: the `websocket` kind (handshakes
   over HTTP/1.1 and as HTTP/2 extended CONNECTs, whose `:protocol` must
-  follow `http2.pseudo_header_order`, and `ws://` from the plain page as its
+  follow `http2.pseudoHeaderOrder`, and `ws://` from the plain page as its
   `insecure` variant);
 - `<name>.h3-discovery*.pagetrace.json.gz` and
   `<name>.h3-page*.pagetrace.json.gz` (unforced and `.local-roots`):
@@ -377,7 +377,7 @@ same traces.
 - `go run ./cmd/diff WANT.json GOT.json` lists every difference in what a
   single-connection capture records (the ClientHello, the HTTP/2 preface and
   the first request's headers), comparing extension order as WANT's
-  `extension_order` says, and exits 1 if there are any. The rest of a
+  `extensionOrder` says, and exits 1 if there are any. The rest of a
   profile (`http1`, kinds, variants, context, cookies, proxy, hpack, flow
   control) is not compared.
 - `go run ./cmd/clientcapture -scenario NAME -out DIR -name LABEL -- COMMAND {url}...`

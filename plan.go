@@ -34,7 +34,7 @@ type Plan struct {
 	Variant string
 	// Condition is what picks the variant, in profile.Variant's JSON
 	// names: "method PUT", "site cross-site", then each flag that holds
-	// ("cors_checked", "redirected", ...). Compare it with Variant to see
+	// ("corsChecked", "redirected", ...). Compare it with Variant to see
 	// whether an exact variant was found. Empty for an Exact request.
 	Condition []string
 	// Protocol is the protocol the request would use now, as a response's
@@ -238,14 +238,14 @@ func conditionOf(v profile.Variant) []string {
 		name string
 		set  bool
 	}{
-		{"cors_checked", v.CORSChecked},
-		{"page_set", v.PageSet},
+		{"corsChecked", v.CORSChecked},
+		{"pageSet", v.PageSet},
 		{"redirected", v.Redirected},
-		{"cross_origin_redirect", v.CrossOriginRedirect},
-		{"cross_site_redirect", v.CrossSiteRedirect},
-		{"origin_before_redirect", v.OriginBeforeRedirect},
-		{"method_changed_by_redirect", v.MethodChangedByRedirect},
-		{"insecure_before_redirect", v.InsecureBeforeRedirect},
+		{"crossOriginRedirect", v.CrossOriginRedirect},
+		{"crossSiteRedirect", v.CrossSiteRedirect},
+		{"originBeforeRedirect", v.OriginBeforeRedirect},
+		{"methodChangedByRedirect", v.MethodChangedByRedirect},
+		{"insecureBeforeRedirect", v.InsecureBeforeRedirect},
 		{"insecure", v.Insecure},
 	} {
 		if f.set {

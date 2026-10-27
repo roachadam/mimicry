@@ -4,10 +4,10 @@
   "version": "27",
   "platform": "macos",
   "tls": {
-    "record_version": "0x0301",
-    "legacy_version": "0x0303",
-    "session_id_length": 32,
-    "cipher_suites": [
+    "recordVersion": "0x0301",
+    "legacyVersion": "0x0303",
+    "sessionIdLength": 32,
+    "cipherSuites": [
       "GREASE",
       "0x1302",
       "0x1303",
@@ -30,10 +30,10 @@
       "0xc012",
       "0x000a"
     ],
-    "compression_methods": [
+    "compressionMethods": [
       0
     ],
-    "extension_order": "fixed",
+    "extensionOrder": "fixed",
     "extensions": [
       {
         "type": "GREASE"
@@ -61,7 +61,7 @@
       },
       {
         "type": "0x000b",
-        "point_formats": [
+        "pointFormats": [
           0
         ]
       },
@@ -78,7 +78,7 @@
       },
       {
         "type": "0x000d",
-        "signature_algorithms": [
+        "signatureAlgorithms": [
           "0x0403",
           "0x0804",
           "0x0401",
@@ -96,12 +96,12 @@
       },
       {
         "type": "0x0033",
-        "key_shares": [
+        "keyShares": [
           "GREASE",
           "0x11ec",
           "0x001d"
         ],
-        "key_share_lengths": [
+        "keyShareLengths": [
           1,
           1216,
           32
@@ -109,7 +109,7 @@
       },
       {
         "type": "0x002d",
-        "psk_modes": [
+        "pskModes": [
           1
         ]
       },
@@ -123,7 +123,7 @@
       },
       {
         "type": "0x001b",
-        "cert_compression": [
+        "certCompression": [
           "0x0001"
         ]
       },
@@ -132,20 +132,20 @@
         "data": "00"
       }
     ],
-    "websocket_h1": {
+    "websocketH1": {
       "alpn": [
         "http/1.1"
       ]
     },
     "quic": {
-      "cipher_suites": [
+      "cipherSuites": [
         "GREASE",
         "0x1302",
         "0x1303",
         "0x1301"
       ],
-      "session_id_length": 0,
-      "extension_order": "fixed",
+      "sessionIdLength": 0,
+      "extensionOrder": "fixed",
       "drop": [
         "0x0017",
         "0xff01",
@@ -166,7 +166,7 @@
           ]
         }
       ],
-      "transport_parameters_before": "0x001b"
+      "transportParametersBefore": "0x001b"
     }
   },
   "http2": {
@@ -188,32 +188,32 @@
         "value": 1
       }
     ],
-    "window_update": 10420225,
-    "pseudo_header_order": [
+    "windowUpdate": 10420225,
+    "pseudoHeaderOrder": [
       ":method",
       ":scheme",
       ":authority",
       ":path"
     ],
-    "max_data_frame": 16374,
-    "stream_update_threshold": 507904,
-    "connection_update_threshold": 5242880,
-    "split_cookie": true,
+    "maxDataFrame": 16374,
+    "streamUpdateThreshold": 507904,
+    "connectionUpdateThreshold": 5242880,
+    "splitCookie": true,
     "hpack": {
-      "without_indexing": [
+      "withoutIndexing": [
         ":path",
         "content-length"
       ],
-      "never_indexed": [
+      "neverIndexed": [
         "authorization"
       ],
-      "never_index_below": {
+      "neverIndexBelow": {
         "cookie": 20
       },
-      "name_match": "static_first",
+      "nameMatch": "static_first",
       "huffman": "shorter",
-      "max_table_size": 4096,
-      "size_updates": "always"
+      "maxTableSize": 4096,
+      "sizeUpdates": "always"
     }
   },
   "headers": [
@@ -314,7 +314,7 @@
   "variants": [
     {
       "method": "POST",
-      "cors_checked": true,
+      "corsChecked": true,
       "headers": [
         {
           "name": "accept",
@@ -422,7 +422,7 @@
     {
       "method": "POST",
       "site": "cross-site",
-      "cors_checked": true,
+      "corsChecked": true,
       "headers": [
         {
           "name": "accept",
@@ -474,8 +474,8 @@
     },
     {
       "redirected": true,
-      "origin_before_redirect": true,
-      "method_changed_by_redirect": true,
+      "originBeforeRedirect": true,
+      "methodChangedByRedirect": true,
       "headers": [
         {
           "name": "accept",
@@ -515,9 +515,9 @@
     },
     {
       "method": "POST",
-      "cors_checked": true,
+      "corsChecked": true,
       "redirected": true,
-      "origin_before_redirect": true,
+      "originBeforeRedirect": true,
       "headers": [
         {
           "name": "accept",
@@ -606,8 +606,8 @@
     {
       "site": "cross-site",
       "redirected": true,
-      "origin_before_redirect": true,
-      "method_changed_by_redirect": true,
+      "originBeforeRedirect": true,
+      "methodChangedByRedirect": true,
       "headers": [
         {
           "name": "accept",
@@ -648,9 +648,9 @@
     {
       "method": "POST",
       "site": "cross-site",
-      "cors_checked": true,
+      "corsChecked": true,
       "redirected": true,
-      "origin_before_redirect": true,
+      "originBeforeRedirect": true,
       "headers": [
         {
           "name": "accept",
@@ -699,7 +699,7 @@
     },
     {
       "redirected": true,
-      "cross_origin_redirect": true,
+      "crossOriginRedirect": true,
       "headers": [
         {
           "name": "accept",
@@ -739,9 +739,9 @@
     },
     {
       "redirected": true,
-      "cross_origin_redirect": true,
-      "origin_before_redirect": true,
-      "method_changed_by_redirect": true,
+      "crossOriginRedirect": true,
+      "originBeforeRedirect": true,
+      "methodChangedByRedirect": true,
       "headers": [
         {
           "name": "accept",
@@ -781,10 +781,10 @@
     },
     {
       "method": "POST",
-      "cors_checked": true,
+      "corsChecked": true,
       "redirected": true,
-      "cross_origin_redirect": true,
-      "origin_before_redirect": true,
+      "crossOriginRedirect": true,
+      "originBeforeRedirect": true,
       "headers": [
         {
           "name": "accept",
@@ -833,10 +833,10 @@
     },
     {
       "redirected": true,
-      "cross_origin_redirect": true,
-      "origin_before_redirect": true,
-      "method_changed_by_redirect": true,
-      "cross_site_redirect": true,
+      "crossOriginRedirect": true,
+      "originBeforeRedirect": true,
+      "methodChangedByRedirect": true,
+      "crossSiteRedirect": true,
       "headers": [
         {
           "name": "accept",
@@ -876,11 +876,11 @@
     },
     {
       "method": "POST",
-      "cors_checked": true,
+      "corsChecked": true,
       "redirected": true,
-      "cross_origin_redirect": true,
-      "origin_before_redirect": true,
-      "cross_site_redirect": true,
+      "crossOriginRedirect": true,
+      "originBeforeRedirect": true,
+      "crossSiteRedirect": true,
       "headers": [
         {
           "name": "accept",
@@ -929,8 +929,8 @@
     },
     {
       "redirected": true,
-      "cross_origin_redirect": true,
-      "cross_site_redirect": true,
+      "crossOriginRedirect": true,
+      "crossSiteRedirect": true,
       "headers": [
         {
           "name": "accept",
@@ -971,7 +971,7 @@
     {
       "site": "same-site",
       "redirected": true,
-      "cross_origin_redirect": true,
+      "crossOriginRedirect": true,
       "headers": [
         {
           "name": "accept",
@@ -1052,8 +1052,8 @@
     {
       "site": "same-site",
       "redirected": true,
-      "cross_origin_redirect": true,
-      "cross_site_redirect": true,
+      "crossOriginRedirect": true,
+      "crossSiteRedirect": true,
       "headers": [
         {
           "name": "accept",
@@ -1094,9 +1094,9 @@
     {
       "site": "same-site",
       "redirected": true,
-      "cross_origin_redirect": true,
-      "origin_before_redirect": true,
-      "method_changed_by_redirect": true,
+      "crossOriginRedirect": true,
+      "originBeforeRedirect": true,
+      "methodChangedByRedirect": true,
       "headers": [
         {
           "name": "accept",
@@ -1137,10 +1137,10 @@
     {
       "method": "POST",
       "site": "same-site",
-      "cors_checked": true,
+      "corsChecked": true,
       "redirected": true,
-      "cross_origin_redirect": true,
-      "origin_before_redirect": true,
+      "crossOriginRedirect": true,
+      "originBeforeRedirect": true,
       "headers": [
         {
           "name": "accept",
@@ -1190,7 +1190,7 @@
     {
       "method": "POST",
       "site": "same-site",
-      "cors_checked": true,
+      "corsChecked": true,
       "headers": [
         {
           "name": "accept",
@@ -1240,8 +1240,8 @@
     {
       "site": "same-site",
       "redirected": true,
-      "origin_before_redirect": true,
-      "method_changed_by_redirect": true,
+      "originBeforeRedirect": true,
+      "methodChangedByRedirect": true,
       "headers": [
         {
           "name": "accept",
@@ -1282,9 +1282,9 @@
     {
       "method": "POST",
       "site": "same-site",
-      "cors_checked": true,
+      "corsChecked": true,
       "redirected": true,
-      "origin_before_redirect": true,
+      "originBeforeRedirect": true,
       "headers": [
         {
           "name": "accept",
@@ -1334,10 +1334,10 @@
     {
       "site": "same-site",
       "redirected": true,
-      "cross_origin_redirect": true,
-      "origin_before_redirect": true,
-      "method_changed_by_redirect": true,
-      "cross_site_redirect": true,
+      "crossOriginRedirect": true,
+      "originBeforeRedirect": true,
+      "methodChangedByRedirect": true,
+      "crossSiteRedirect": true,
       "headers": [
         {
           "name": "accept",
@@ -1378,11 +1378,11 @@
     {
       "method": "POST",
       "site": "same-site",
-      "cors_checked": true,
+      "corsChecked": true,
       "redirected": true,
-      "cross_origin_redirect": true,
-      "origin_before_redirect": true,
-      "cross_site_redirect": true,
+      "crossOriginRedirect": true,
+      "originBeforeRedirect": true,
+      "crossSiteRedirect": true,
       "headers": [
         {
           "name": "accept",
@@ -1432,8 +1432,8 @@
     {
       "site": "cross-site",
       "redirected": true,
-      "cross_origin_redirect": true,
-      "cross_site_redirect": true,
+      "crossOriginRedirect": true,
+      "crossSiteRedirect": true,
       "headers": [
         {
           "name": "accept",
@@ -1514,7 +1514,7 @@
     {
       "site": "cross-site",
       "redirected": true,
-      "cross_origin_redirect": true,
+      "crossOriginRedirect": true,
       "headers": [
         {
           "name": "accept",
@@ -1555,10 +1555,10 @@
     {
       "site": "cross-site",
       "redirected": true,
-      "cross_origin_redirect": true,
-      "origin_before_redirect": true,
-      "method_changed_by_redirect": true,
-      "cross_site_redirect": true,
+      "crossOriginRedirect": true,
+      "originBeforeRedirect": true,
+      "methodChangedByRedirect": true,
+      "crossSiteRedirect": true,
       "headers": [
         {
           "name": "accept",
@@ -1599,11 +1599,11 @@
     {
       "method": "POST",
       "site": "cross-site",
-      "cors_checked": true,
+      "corsChecked": true,
       "redirected": true,
-      "cross_origin_redirect": true,
-      "origin_before_redirect": true,
-      "cross_site_redirect": true,
+      "crossOriginRedirect": true,
+      "originBeforeRedirect": true,
+      "crossSiteRedirect": true,
       "headers": [
         {
           "name": "accept",
@@ -1653,8 +1653,8 @@
     {
       "site": "none",
       "redirected": true,
-      "cross_origin_redirect": true,
-      "cross_site_redirect": true,
+      "crossOriginRedirect": true,
+      "crossSiteRedirect": true,
       "headers": [
         {
           "name": "accept",
@@ -1692,9 +1692,9 @@
     {
       "site": "none",
       "redirected": true,
-      "cross_origin_redirect": true,
-      "insecure_before_redirect": true,
-      "cross_site_redirect": true,
+      "crossOriginRedirect": true,
+      "insecureBeforeRedirect": true,
+      "crossSiteRedirect": true,
       "headers": [
         {
           "name": "accept",
@@ -1773,7 +1773,7 @@
     {
       "site": "none",
       "redirected": true,
-      "cross_origin_redirect": true,
+      "crossOriginRedirect": true,
       "headers": [
         {
           "name": "accept",
@@ -1846,7 +1846,7 @@
     },
     {
       "method": "POST",
-      "cors_checked": true,
+      "corsChecked": true,
       "insecure": true,
       "http1": [
         {
@@ -2024,7 +2024,7 @@
       ],
       "variants": [
         {
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -2119,7 +2119,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -2214,7 +2214,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -2309,9 +2309,9 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "accept",
@@ -2419,7 +2419,7 @@
           ]
         },
         {
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -2501,7 +2501,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -2544,7 +2544,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -2700,7 +2700,7 @@
         {
           "method": "POST",
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "accept",
@@ -2815,7 +2815,7 @@
         },
         {
           "method": "POST",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -2869,7 +2869,7 @@
         {
           "method": "POST",
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -2923,7 +2923,7 @@
         {
           "method": "POST",
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -3061,7 +3061,7 @@
       ],
       "variants": [
         {
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -3156,7 +3156,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -3251,7 +3251,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -3346,9 +3346,9 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "accept",
@@ -3456,7 +3456,7 @@
           ]
         },
         {
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -3538,7 +3538,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -3581,7 +3581,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -3710,7 +3710,7 @@
       "variants": [
         {
           "method": "POST",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "accept",
@@ -3816,10 +3816,10 @@
           ]
         },
         {
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "cross_origin_redirect": true,
-          "origin_before_redirect": true,
+          "crossOriginRedirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -3870,7 +3870,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -3966,7 +3966,7 @@
         {
           "method": "POST",
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "accept",
@@ -4067,9 +4067,9 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "cross_origin_redirect": true,
+          "crossOriginRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -4126,7 +4126,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -4222,7 +4222,7 @@
         {
           "method": "POST",
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "accept",
@@ -4324,7 +4324,7 @@
         {
           "method": "PUT",
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -4370,10 +4370,10 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
-          "page_set": true,
+          "corsChecked": true,
+          "pageSet": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "accept",
@@ -4411,7 +4411,7 @@
         },
         {
           "method": "PUT",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "accept",
@@ -4460,9 +4460,9 @@
         },
         {
           "method": "PUT",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "accept",
@@ -4510,10 +4510,10 @@
           ]
         },
         {
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
-          "method_changed_by_redirect": true,
+          "originBeforeRedirect": true,
+          "methodChangedByRedirect": true,
           "headers": [
             {
               "name": "accept",
@@ -4556,7 +4556,7 @@
         },
         {
           "method": "DELETE",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "accept",
@@ -4605,9 +4605,9 @@
         },
         {
           "method": "DELETE",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "accept",
@@ -4695,9 +4695,9 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "accept",
@@ -4732,9 +4732,9 @@
         },
         {
           "method": "POST",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "accept",
@@ -4823,7 +4823,7 @@
         },
         {
           "method": "PATCH",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "accept",
@@ -4872,9 +4872,9 @@
         },
         {
           "method": "PATCH",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "accept",
@@ -4923,9 +4923,9 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "accept",
@@ -4961,9 +4961,9 @@
         {
           "method": "POST",
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "accept",
@@ -5002,7 +5002,7 @@
         {
           "method": "PATCH",
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "accept",
@@ -5052,9 +5052,9 @@
         {
           "method": "PATCH",
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "accept",
@@ -5092,10 +5092,10 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
-          "method_changed_by_redirect": true,
+          "originBeforeRedirect": true,
+          "methodChangedByRedirect": true,
           "headers": [
             {
               "name": "accept",
@@ -5130,10 +5130,10 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "cross_origin_redirect": true,
-          "origin_before_redirect": true,
+          "crossOriginRedirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "user-agent",
@@ -5195,7 +5195,7 @@
         },
         {
           "method": "POST",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -5244,7 +5244,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -5324,7 +5324,7 @@
         {
           "method": "POST",
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -5370,7 +5370,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -5447,7 +5447,7 @@
         {
           "method": "POST",
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -5493,10 +5493,10 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "cross_origin_redirect": true,
-          "insecure_before_redirect": true,
+          "crossOriginRedirect": true,
+          "insecureBeforeRedirect": true,
           "insecure": true,
           "http1": [
             {
@@ -5527,11 +5527,11 @@
           ]
         },
         {
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "cross_origin_redirect": true,
-          "origin_before_redirect": true,
-          "insecure_before_redirect": true,
+          "crossOriginRedirect": true,
+          "originBeforeRedirect": true,
+          "insecureBeforeRedirect": true,
           "insecure": true,
           "http1": [
             {
@@ -5657,7 +5657,7 @@
       ],
       "variants": [
         {
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -5751,7 +5751,7 @@
           ]
         },
         {
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -6209,7 +6209,7 @@
       ],
       "variants": [
         {
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -6304,7 +6304,7 @@
         },
         {
           "redirected": true,
-          "cross_origin_redirect": true,
+          "crossOriginRedirect": true,
           "headers": [
             {
               "name": "accept",
@@ -6390,7 +6390,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -6480,7 +6480,7 @@
         {
           "site": "cross-site",
           "redirected": true,
-          "cross_origin_redirect": true,
+          "crossOriginRedirect": true,
           "headers": [
             {
               "name": "accept",
@@ -6569,7 +6569,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -6659,7 +6659,7 @@
         {
           "site": "same-site",
           "redirected": true,
-          "cross_origin_redirect": true,
+          "crossOriginRedirect": true,
           "headers": [
             {
               "name": "accept",
@@ -6778,9 +6778,9 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "accept",
@@ -6888,7 +6888,7 @@
           ]
         },
         {
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -6970,7 +6970,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -7010,7 +7010,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -7051,8 +7051,8 @@
         {
           "site": "cross-site",
           "redirected": true,
-          "cross_origin_redirect": true,
-          "insecure_before_redirect": true,
+          "crossOriginRedirect": true,
+          "insecureBeforeRedirect": true,
           "insecure": true,
           "http1": [
             {
@@ -7089,8 +7089,8 @@
         },
         {
           "redirected": true,
-          "cross_origin_redirect": true,
-          "insecure_before_redirect": true,
+          "crossOriginRedirect": true,
+          "insecureBeforeRedirect": true,
           "insecure": true,
           "http1": [
             {
@@ -7215,7 +7215,7 @@
       ],
       "variants": [
         {
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -7310,7 +7310,7 @@
         },
         {
           "redirected": true,
-          "cross_origin_redirect": true,
+          "crossOriginRedirect": true,
           "headers": [
             {
               "name": "accept",
@@ -7396,7 +7396,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -7486,7 +7486,7 @@
         {
           "site": "cross-site",
           "redirected": true,
-          "cross_origin_redirect": true,
+          "crossOriginRedirect": true,
           "headers": [
             {
               "name": "accept",
@@ -7575,7 +7575,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -7665,7 +7665,7 @@
         {
           "site": "same-site",
           "redirected": true,
-          "cross_origin_redirect": true,
+          "crossOriginRedirect": true,
           "headers": [
             {
               "name": "accept",
@@ -7784,9 +7784,9 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "accept",
@@ -7894,7 +7894,7 @@
           ]
         },
         {
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -7976,7 +7976,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -8016,7 +8016,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -8057,8 +8057,8 @@
         {
           "site": "cross-site",
           "redirected": true,
-          "cross_origin_redirect": true,
-          "insecure_before_redirect": true,
+          "crossOriginRedirect": true,
+          "insecureBeforeRedirect": true,
           "insecure": true,
           "http1": [
             {
@@ -8095,8 +8095,8 @@
         },
         {
           "redirected": true,
-          "cross_origin_redirect": true,
-          "insecure_before_redirect": true,
+          "crossOriginRedirect": true,
+          "insecureBeforeRedirect": true,
           "insecure": true,
           "http1": [
             {
@@ -8227,7 +8227,7 @@
       ],
       "variants": [
         {
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -8322,7 +8322,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -8417,7 +8417,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -8512,9 +8512,9 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "accept",
@@ -8622,7 +8622,7 @@
           ]
         },
         {
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -8704,7 +8704,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -8747,7 +8747,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -8895,7 +8895,7 @@
         {
           "method": "OPTIONS",
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -8945,8 +8945,8 @@
         {
           "method": "OPTIONS",
           "site": "same-site",
-          "cors_checked": true,
-          "page_set": true,
+          "corsChecked": true,
+          "pageSet": true,
           "insecure": true,
           "http1": [
             {
@@ -8996,8 +8996,8 @@
         {
           "method": "OPTIONS",
           "site": "cross-site",
-          "cors_checked": true,
-          "page_set": true,
+          "corsChecked": true,
+          "pageSet": true,
           "insecure": true,
           "http1": [
             {
@@ -9134,7 +9134,7 @@
       ],
       "variants": [
         {
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -9228,7 +9228,7 @@
           ]
         },
         {
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -9472,7 +9472,7 @@
       ],
       "variants": [
         {
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -9567,7 +9567,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -9662,7 +9662,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -9757,9 +9757,9 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "accept",
@@ -9867,7 +9867,7 @@
           ]
         },
         {
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -9949,7 +9949,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -9992,7 +9992,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -10120,7 +10120,7 @@
       ],
       "variants": [
         {
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -10215,7 +10215,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -10310,7 +10310,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -10405,9 +10405,9 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "accept",
@@ -10515,7 +10515,7 @@
           ]
         },
         {
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -10597,7 +10597,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -10640,7 +10640,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -11163,7 +11163,7 @@
       "variants": [
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -11252,7 +11252,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "sec-fetch-site"
@@ -11341,9 +11341,9 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "redirected": true,
-          "origin_before_redirect": true,
+          "originBeforeRedirect": true,
           "headers": [
             {
               "name": "accept",
@@ -11416,7 +11416,7 @@
         },
         {
           "site": "same-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -11456,7 +11456,7 @@
         },
         {
           "site": "cross-site",
-          "cors_checked": true,
+          "corsChecked": true,
           "insecure": true,
           "http1": [
             {
@@ -11496,7 +11496,7 @@
         },
         {
           "method": "POST",
-          "cors_checked": true,
+          "corsChecked": true,
           "headers": [
             {
               "name": "accept",
@@ -11550,9 +11550,9 @@
     }
   },
   "context": {
-    "same_origin_element_origin": true,
-    "preflight_cache": "replace",
-    "header_table": {
+    "sameOriginElementOrigin": true,
+    "preflightCache": "replace",
+    "headerTable": {
       "hash": "cf",
       "own": [
         "accept",
@@ -11570,17 +11570,17 @@
     }
   },
   "cookies": {
-    "unset_samesite": "none",
-    "third_party": "partitioned_only",
+    "unsetSamesite": "none",
+    "thirdParty": "partitioned_only",
     "redirects": "block_after_cross_site",
     "nameless": "drop",
-    "empty_name": "drop",
-    "latin1_values": true,
+    "emptyName": "drop",
+    "latin1Values": true,
     "order": "domain_name",
-    "partitioned_first": true,
-    "samesite_scheme": "schemeless",
-    "host_prefix_path": "stored",
-    "secure_loopback": true
+    "partitionedFirst": true,
+    "samesiteScheme": "schemeless",
+    "hostPrefixPath": "stored",
+    "secureLoopback": true
   },
   "proxy": {
     "connect": [
@@ -11596,7 +11596,7 @@
         "value": "keep-alive"
       }
     ],
-    "connect_auth": [
+    "connectAuth": [
       {
         "name": "Host"
       },
@@ -11612,9 +11612,9 @@
         "value": "keep-alive"
       }
     ],
-    "connect_credentials": "on_challenge",
-    "forward_credentials": "always",
-    "forward_auth": {
+    "connectCredentials": "on_challenge",
+    "forwardCredentials": "always",
+    "forwardAuth": {
       "after": [
         "accept-encoding"
       ]
@@ -11631,37 +11631,37 @@
     }
   },
   "redirects": {
-    "method_change_origin": "keep",
-    "navigation_limit": 20,
-    "hop_preflight": "inherit",
-    "navigation_site": "restart",
-    "navigation_origin": "cross_origin"
+    "methodChangeOrigin": "keep",
+    "navigationLimit": 20,
+    "hopPreflight": "inherit",
+    "navigationSite": "restart",
+    "navigationOrigin": "cross_origin"
   },
   "connections": {
-    "http1_per_host": 6,
+    "http1PerHost": 6,
     "coalesce": "lookup"
   },
   "websocket": {
     "extensions": "permessage-deflate",
     "compression": "zlib6",
     "uncompressed": "empty_or_not_shorter",
-    "window_bits_8": "fail",
-    "h2_data": "split_control",
-    "close_h1": "at_once",
-    "close_h2": "rst_stream"
+    "windowBits8": "fail",
+    "h2Data": "split_control",
+    "closeH1": "at_once",
+    "closeH2": "rst_stream"
   },
   "quic": {
     "version": 1,
-    "datagram_size": 1200,
+    "datagramSize": 1200,
     "padding": "end",
     "crypto": {
       "split": "ordered",
-      "first_packet": 999
+      "firstPacket": 999
     },
-    "packet_numbers": "per_space",
-    "dcid_length": 8,
-    "scid_length": 0,
-    "transport_parameters": [
+    "packetNumbers": "per_space",
+    "dcidLength": 8,
+    "scidLength": 0,
+    "transportParameters": [
       {
         "id": "0x01",
         "value": 300000
@@ -11694,27 +11694,27 @@
         "id": "0x0f"
       }
     ],
-    "transport_parameter_order": "rotated",
-    "ack_initial": true,
-    "ack_before_finished": true,
-    "ack_delay": "constant",
-    "ack_delay_constant": {
+    "transportParameterOrder": "rotated",
+    "ackInitial": true,
+    "ackBeforeFinished": true,
+    "ackDelay": "constant",
+    "ackDelayConstant": {
       "min": 27,
       "max": 29
     },
-    "spin_bit": "spin",
+    "spinBit": "spin",
     "loss": {
       "fresh": {},
       "resumed": {},
-      "abandon_close": "zero_rtt",
-      "path_degrading": {
-        "after_ms": 12000,
+      "abandonClose": "zero_rtt",
+      "pathDegrading": {
+        "afterMs": 12000,
         "action": "close",
-        "close_reason": "keepalive limit reached"
+        "closeReason": "keepalive limit reached"
       }
     },
-    "keep_alive": {
-      "period_ms": 2000,
+    "keepAlive": {
+      "periodMs": 2000,
       "from": "received"
     },
     "ack": {
@@ -11722,13 +11722,13 @@
       "batched": true
     },
     "credit": {
-      "stream_divisor": 2,
-      "connection_stream_window": true
+      "streamDivisor": 2,
+      "connectionStreamWindow": true
     },
-    "key_update": {
+    "keyUpdate": {
       "initiate": false
     },
-    "version_negotiation": {
+    "versionNegotiation": {
       "retry": false
     }
   },
@@ -11743,17 +11743,17 @@
         "value": 100
       }
     ],
-    "grease_setting": {
-      "id_bits": 32,
-      "value_bits": 32
+    "greaseSetting": {
+      "idBits": 32,
+      "valueBits": 32
     },
-    "uni_streams": [
+    "uniStreams": [
       {
         "type": "control",
         "open": "handshake"
       }
     ],
-    "requests_after_confirmed": true,
+    "requestsAfterConfirmed": true,
     "qpack": {
       "huffman": "always"
     },
@@ -11761,15 +11761,15 @@
       "switch": "new_connection",
       "fallback": {
         "mode": "race",
-        "tcp_delay_ms": {
+        "tcpDelayMs": {
           "min": 100,
           "max": 129
         },
-        "abandon_on_tcp": true,
-        "broken_after": 2,
-        "broken_counts_resumed": true,
+        "abandonOnTcp": true,
+        "brokenAfter": 2,
+        "brokenCountsResumed": true,
         "pending": "quic",
-        "reconnect_ms": {
+        "reconnectMs": {
           "min": 10,
           "max": 15
         }

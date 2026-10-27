@@ -91,7 +91,7 @@ These matter most under decision 0029:
     [decision 0024](decisions/0024-clienthello-shape-in-profiles.md).
 - **A WebSocket's full (not resumed) hello** (Chrome, Firefox).
   - Differs: the hello on a WebSocket's own HTTP/1.1 connection
-    (`tls.websocket_h1`) was captured only resumed. The full one is
+    (`tls.websocketH1`) was captured only resumed. The full one is
     assumed to make the same changes to the main hello.
   - Shows: the first WebSocket to a host mimicry holds no ticket for,
     where the server does not allow HTTP/2 extended CONNECT.
@@ -199,7 +199,7 @@ These matter most under decision 0029:
 - **Chrome's re-prioritisation** (Chrome).
   - Differs: Chrome sends a PRIORITY frame while a page loads (raising a
     script from weight 182 to 219, in 2 of 3 samples); mimicry never
-    does. Chained exclusive dependencies (`chain_priorities`) are compared
+    does. Chained exclusive dependencies (`chainPriorities`) are compared
     with every Chrome trace (`TestChainedPrioritiesMatchBrowserTraces`);
     no captured request depends on a stream Chrome re-prioritised, whose
     place in Chromium's lists the PRIORITY frame changes. Also from
@@ -262,7 +262,7 @@ These matter most under decision 0029:
   - Close: nothing to capture. Callers should set a request deadline.
   - Source: HANDOFF.md (HTTP/2 health checks);
     [EVIDENCE.md, HTTP/2 connection](../profiles/EVIDENCE.md#http2-connection)
-    (`idle_ping_ms`).
+    (`idlePingMs`).
 - **Upload DATA chunking after the first 64 KiB** (all; Firefox
   entirely).
   - Differs: bodies are read in 65535-byte chunks. That matches Chrome's
@@ -327,7 +327,7 @@ These matter most under decision 0029:
   - Differs: only Safari's `fetch()` was measured over HTTP/3, so its
     other kinds (navigations included) stay on TCP where Safari would use
     HTTP/3. Also not measured: its QPACK encoder with a dynamic table,
-    PRIORITY_UPDATE, request bodies (`max_data_frame`), its close reply,
+    PRIORITY_UPDATE, request bodies (`maxDataFrame`), its close reply,
     and whether it ever moves a live HTTP/2 connection to HTTP/3.
   - Shows: every Safari visit to an HTTP/3 origin beyond `fetch()`.
   - Detection: medium; Safari's page loads look like TCP-only clients.
@@ -344,9 +344,9 @@ These matter most under decision 0029:
     HEAD and OPTIONS and holds every other method until the handshake is
     confirmed (0.5–2.3 ms after its Finished, with HANDSHAKE_DONE), and a
     request answered `425 Too Early` goes again on the same connection:
-    Chrome's `http3.early_data` rule but for when a held request leaves
+    Chrome's `http3.earlyData` rule but for when a held request leaves
     (36 held and 24 early requests, 12 retries, per version). Its profile
-    has no `tls.resumption` and no `http3.early_data`, so mimicry's
+    has no `tls.resumption` and no `http3.earlyData`, so mimicry's
     reconnections are fresh, in 1-RTT, with no 0-RTT close when such an
     attempt is dropped. Safari also starts each resumed connection 5–11 ms
     after the request that needs it (one 22 ms), mimicry's at once, so of
@@ -355,7 +355,7 @@ These matter most under decision 0029:
   - Shows: Safari reconnecting to an HTTP/3 origin.
   - Detection: low to medium; a returning Safari's hello lacks the
     pre-shared key. User-visible: no.
-  - Close: derive Safari's resumption rule and its `http3.early_data`
+  - Close: derive Safari's resumption rule and its `http3.earlyData`
     (held until confirmed: a third way a held request leaves) from
     `h3-broken` and the h3-early pages, already captured; medium.
   - Source: `h3EdgeGaps` and `h3EdgeSchedulingGaps` in [`http3_edge_test.go`](../harness/e2e/http3_edge_test.go);
@@ -377,7 +377,7 @@ These matter most under decision 0029:
   - Differs: a request Firefox holds for the handshake left in the
     datagram with its Finished in 31 of the 35 made before the Finished;
     4 left 0.2–18.6 ms after it. mimicry's always rides with the Finished
-    (`held_with_finished`).
+    (`heldWithFinished`).
   - Shows: a POST (or other unsafe method) as the first request on a
     resumed HTTP/3 connection.
   - Detection: low (packet layout). User-visible: no.
@@ -560,7 +560,7 @@ These matter most under decision 0029:
   - Detection: low. User-visible: no.
   - Close: the datagram each frame came in, or more samples on both Macs;
     small.
-  - Source: `sampleGaps` (`priority_update <path>`) in
+  - Source: `sampleGaps` (`priorityUpdate <path>`) in
     `harness/cmd/h3gen/load.go`.
 - **ACK_FREQUENCY and IMMEDIATE_ACK** (Firefox advertises
   `min_ack_delay`).
@@ -617,14 +617,14 @@ These matter most under decision 0029:
   - Source: [concepts/http3.md](concepts/http3.md#under-loss-and-failure);
     [decision 0028](decisions/0028-quic-failure-model.md).
 - **Safari's other unmeasured QUIC values** (Safari).
-  - Differs: its ACK-only run limit, `zero_rtt`, `close_reply`, handshake
+  - Differs: its ACK-only run limit, `zeroRtt`, `closeReply`, handshake
     give-up and probe kind were never seen (TCP won first).
   - Shows: lossy networks and server closes.
   - Detection: low. User-visible: no.
   - Close: h3-edge captures where QUIC wins; medium.
   - Source: [EVIDENCE.md, QUIC and HTTP/3](../profiles/EVIDENCE.md#quic-and-http3);
     `internal/quic/client_loss.go`.
-- **`requests_after_confirmed` for Chrome and Firefox** (Chrome,
+- **`requestsAfterConfirmed` for Chrome and Firefox** (Chrome,
   Firefox).
   - Differs: no request of theirs waited for a full handshake, so whether
     one would is not measured. Chrome's sixth unidirectional stream is
@@ -940,7 +940,7 @@ These matter most under decision 0029:
   - Source: [EVIDENCE.md, Cookies](../profiles/EVIDENCE.md#cookies) and Not
     covered (WebSockets).
 - **Safari's partitioned cookies against path length** (Safari).
-  - Differs: `partitioned_first` puts the partition before path length;
+  - Differs: `partitionedFirst` puts the partition before path length;
     the two together were not captured (all cookies were at `/`).
   - Detection: low. User-visible: no.
   - Close: a capture with partitioned, path-scoped cookies; small.
@@ -1042,7 +1042,7 @@ These matter most under decision 0029:
     [EVIDENCE.md, Redirects](../profiles/EVIDENCE.md#redirects);
     [cors-edge report](../harness/reports/cors-edge-2026-10-24.md);
     [redirects2 report](../harness/reports/redirects2-2026-10-24.md).
-- **`navigation_site` on longer chains** (all).
+- **`navigationSite` on longer chains** (all).
   - Differs: how `sec-fetch-site` counts a navigation's chain was measured
     on one chain (to another site and back). Longer chains follow the rule
     unmeasured.
@@ -1061,7 +1061,7 @@ These matter most under decision 0029:
   - Close: by decision 0022, not planned.
   - Source: [decision 0022](decisions/0022-redirects-as-the-browser-follows-them.md);
     [redirects2 report](../harness/reports/redirects2-2026-10-24.md).
-- **`hop_preflight` to another cross-site origin** (Firefox, Safari).
+- **`hopPreflight` to another cross-site origin** (Firefox, Safari).
   - Differs: measured only for a hop to the same cross-site origin.
   - Detection: low. User-visible: no.
   - Close: a `redirects2` step; small.
@@ -1073,7 +1073,7 @@ These matter most under decision 0029:
   - Close: a `redirects2` addition; small.
   - Source: [EVIDENCE.md, Redirects](../profiles/EVIDENCE.md#redirects).
 - **Safari's `keep` Origin on tainted chains** (Safari).
-  - Differs: what `redirects.method_change_origin: keep` does on a chain
+  - Differs: what `redirects.methodChangeOrigin: keep` does on a chain
     through a third origin is not captured.
   - Detection: low. User-visible: no.
   - Close: a capture; small.
@@ -1185,7 +1185,7 @@ These matter most under decision 0029:
     frames cut short by flow control vary between samples and are not
     modelled either.
   - Detection: low. User-visible: no.
-  - Close: an `h2_data` rule; small.
+  - Close: an `h2Data` rule; small.
   - Source: [EVIDENCE.md, Behaviour in code](../profiles/EVIDENCE.md#behaviour-in-code-not-in-profiles).
 - **`ws://` from an `https://` page** (Firefox, Safari).
   - Differs: mimicry refuses it before connecting, as browsers fail it.
@@ -1356,7 +1356,7 @@ These matter most under decision 0029:
     every one after does, and samples 1 and 2 (the same Safari) carry it
     from their first request. Sample 0's first forwarded request also
     went without credentials and was challenged, where
-    `forward_credentials` says `always` (every `proxy-plain-auth` sample,
+    `forwardCredentials` says `always` (every `proxy-plain-auth` sample,
     2026-10-24, sent them unasked from the first). mimicry never sends
     `Proxy-Authorization` inside a tunnel: Safari's first state.
     `TestWebSocketsMatchBrowser` takes any sample's handshake, so it
@@ -1543,7 +1543,7 @@ it.
   [clients report](../harness/reports/clients-2026-10-23.md).
 - **Inherited captures miss rule changes until a full refresh.** A
   profile refreshed in quick mode is checked, for every scenario its
-  `captures_from` names (cookies, CORS, redirects, proxies, connections,
+  `capturesFrom` names (cookies, CORS, redirects, proxies, connections,
   resumption, the HTTP/3 failure model...), against an earlier version's
   captures with version strings rewritten, never against its own
   traffic. A rule the browser changed there is missed until that

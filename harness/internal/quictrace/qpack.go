@@ -27,8 +27,8 @@ type FieldLine struct {
 	// Never is the N bit: the field must never be added to a table by an
 	// intermediary.
 	Never        bool   `json:"never,omitempty"`
-	NameHuffman  bool   `json:"name_huffman,omitempty"`
-	ValueHuffman bool   `json:"value_huffman,omitempty"`
+	NameHuffman  bool   `json:"nameHuffman,omitempty"`
+	ValueHuffman bool   `json:"valueHuffman,omitempty"`
 	Name         string `json:"name"`
 	Value        string `json:"value"`
 }
@@ -37,10 +37,10 @@ type FieldLine struct {
 // decoded: its prefix as sent (RFC 9204, section 4.5.1) and its field
 // lines in order.
 type Section struct {
-	EncodedInsertCount  uint64      `json:"encoded_insert_count,omitempty"`
-	RequiredInsertCount uint64      `json:"required_insert_count,omitempty"`
+	EncodedInsertCount  uint64      `json:"encodedInsertCount,omitempty"`
+	RequiredInsertCount uint64      `json:"requiredInsertCount,omitempty"`
 	Sign                bool        `json:"sign,omitempty"`
-	DeltaBase           uint64      `json:"delta_base,omitempty"`
+	DeltaBase           uint64      `json:"deltaBase,omitempty"`
 	Fields              []FieldLine `json:"fields"`
 }
 
@@ -61,8 +61,8 @@ type EncoderInstruction struct {
 	// entry a duplicate copies).
 	Static       bool   `json:"static,omitempty"`
 	Index        uint64 `json:"index,omitempty"`
-	NameHuffman  bool   `json:"name_huffman,omitempty"`
-	ValueHuffman bool   `json:"value_huffman,omitempty"`
+	NameHuffman  bool   `json:"nameHuffman,omitempty"`
+	ValueHuffman bool   `json:"valueHuffman,omitempty"`
 	Name         string `json:"name,omitempty"`
 	Value        string `json:"value,omitempty"`
 }

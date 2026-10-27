@@ -19,7 +19,7 @@
         "flags": 37,
         "length": 284,
         "priority": {
-          "depends_on": 0,
+          "dependsOn": 0,
           "exclusive": false,
           "weight": 41
         }
@@ -37,7 +37,7 @@
         "flags": 37,
         "length": 706,
         "priority": {
-          "depends_on": 0,
+          "dependsOn": 0,
           "exclusive": false,
           "weight": 41
         }
@@ -66,7 +66,7 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:61106",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "indexed",
@@ -79,74 +79,74 @@
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:148.0) Gecko/20100101 Firefox/148.0",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 19,
             "name": "accept",
             "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "upgrade-insecure-requests",
             "value": "1",
-            "huffman_name": true
+            "huffmanName": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "document",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "navigate",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "none",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-user",
             "value": "?1",
-            "huffman_name": true
+            "huffmanName": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=0, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "te",
             "value": "trailers",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       },
@@ -166,7 +166,7 @@
             "index": 4,
             "name": ":path",
             "value": "/again",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "indexed",
@@ -251,63 +251,63 @@
             "index": 32,
             "name": "cookie",
             "value": "sid=tdi~-zfBKYTZY2DetUEY9o-DdAKI-Pm8fEl7-TByHNTphi0g47zu~EY-m8AIiQRfu2aorGoeKuqiqJai",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 32,
             "name": "cookie",
             "value": "bid=mT5QkUqdKFpXq02bb8weeW8DsFJO1A6fUyfn1918e8IUslVJ4UUZ~6Qp-MOYHwYBxmZgBuS6lnzYv16z",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 32,
             "name": "cookie",
             "value": "geoloc=bqKm2YeHYsnctfEkzaW671eeq8G6GClLC5kwRcwICS-eEqMk6S",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 32,
             "name": "cookie",
             "value": "aka_a2=3",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 32,
             "name": "cookie",
             "value": "_abck=AL0ZplGHeDLk-ZMVgMexKK0dyPdAoAD-zkBT9BgYrJay~EO99wv5X9aAJzt0Nkr14syqz1isX1l0yPN4AOjxC4xJcSGKpCn4Ey3xscMhX2i9wzGEJ3jiQbbZpwqVuujJQvYRv994RCALt91bQuutl8fzaWPdJTS-oEpBblEbVWeLndo8UTVC81n3IYjbl3sNh3XKvQIGj5VfVQhtj~Bj3RBx1SF2p7uhiDmFG3cimDuauyypXMuhQSj9asMQ4YZEb8seXR2z1Hs9k2v~a2vhX4mrPSDt3b-HKtXP2E1garDBpvySeEqVD9Iaj7rMFvL84AnnZ-byCceGp8XGnibFkStXOt1a4Xv9ENzBLCJRQNckPkDWCsSFoccJ1tT0vv~eOUlP3BMIO8ThB3eILn07YBF6wPcw6r0yI79OrBUA2-L0jvVjsCBlcc2b3uoIyaUTzcVQIJ0HzEDLXQavaSDH2BuzAw9whjza",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 32,
             "name": "cookie",
             "value": "ni_d=tr6Wyezyxy8ILbd9Yw2BSHqaqj6JrZc7L5PA",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 32,
             "name": "cookie",
             "value": "p19=ZWkLKV691u~uINH",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 32,
             "name": "cookie",
             "value": "p20=mf5vQ0pzGRG7ZBca",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 32,
             "name": "cookie",
             "value": "p21=ZRaQTzjdaVDSvlaUV",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       }
@@ -333,7 +333,7 @@
         "flags": 37,
         "length": 284,
         "priority": {
-          "depends_on": 0,
+          "dependsOn": 0,
           "exclusive": false,
           "weight": 41
         }
@@ -351,7 +351,7 @@
         "flags": 37,
         "length": 706,
         "priority": {
-          "depends_on": 0,
+          "dependsOn": 0,
           "exclusive": false,
           "weight": 41
         }
@@ -380,7 +380,7 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:61111",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "indexed",
@@ -393,74 +393,74 @@
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:148.0) Gecko/20100101 Firefox/148.0",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 19,
             "name": "accept",
             "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "upgrade-insecure-requests",
             "value": "1",
-            "huffman_name": true
+            "huffmanName": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "document",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "navigate",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "none",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-user",
             "value": "?1",
-            "huffman_name": true
+            "huffmanName": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=0, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "te",
             "value": "trailers",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       },
@@ -480,7 +480,7 @@
             "index": 4,
             "name": ":path",
             "value": "/again",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "indexed",
@@ -565,63 +565,63 @@
             "index": 32,
             "name": "cookie",
             "value": "sid=tdi~-zfBKYTZY2DetUEY9o-DdAKI-Pm8fEl7-TByHNTphi0g47zu~EY-m8AIiQRfu2aorGoeKuqiqJai",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 32,
             "name": "cookie",
             "value": "bid=mT5QkUqdKFpXq02bb8weeW8DsFJO1A6fUyfn1918e8IUslVJ4UUZ~6Qp-MOYHwYBxmZgBuS6lnzYv16z",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 32,
             "name": "cookie",
             "value": "geoloc=bqKm2YeHYsnctfEkzaW671eeq8G6GClLC5kwRcwICS-eEqMk6S",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 32,
             "name": "cookie",
             "value": "aka_a2=3",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 32,
             "name": "cookie",
             "value": "_abck=AL0ZplGHeDLk-ZMVgMexKK0dyPdAoAD-zkBT9BgYrJay~EO99wv5X9aAJzt0Nkr14syqz1isX1l0yPN4AOjxC4xJcSGKpCn4Ey3xscMhX2i9wzGEJ3jiQbbZpwqVuujJQvYRv994RCALt91bQuutl8fzaWPdJTS-oEpBblEbVWeLndo8UTVC81n3IYjbl3sNh3XKvQIGj5VfVQhtj~Bj3RBx1SF2p7uhiDmFG3cimDuauyypXMuhQSj9asMQ4YZEb8seXR2z1Hs9k2v~a2vhX4mrPSDt3b-HKtXP2E1garDBpvySeEqVD9Iaj7rMFvL84AnnZ-byCceGp8XGnibFkStXOt1a4Xv9ENzBLCJRQNckPkDWCsSFoccJ1tT0vv~eOUlP3BMIO8ThB3eILn07YBF6wPcw6r0yI79OrBUA2-L0jvVjsCBlcc2b3uoIyaUTzcVQIJ0HzEDLXQavaSDH2BuzAw9whjza",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 32,
             "name": "cookie",
             "value": "ni_d=tr6Wyezyxy8ILbd9Yw2BSHqaqj6JrZc7L5PA",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 32,
             "name": "cookie",
             "value": "p19=ZWkLKV691u~uINH",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 32,
             "name": "cookie",
             "value": "p20=mf5vQ0pzGRG7ZBca",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 32,
             "name": "cookie",
             "value": "p21=ZRaQTzjdaVDSvlaUV",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       }
@@ -647,7 +647,7 @@
         "flags": 37,
         "length": 284,
         "priority": {
-          "depends_on": 0,
+          "dependsOn": 0,
           "exclusive": false,
           "weight": 41
         }
@@ -665,7 +665,7 @@
         "flags": 37,
         "length": 706,
         "priority": {
-          "depends_on": 0,
+          "dependsOn": 0,
           "exclusive": false,
           "weight": 41
         }
@@ -694,7 +694,7 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:61116",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "indexed",
@@ -707,74 +707,74 @@
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:148.0) Gecko/20100101 Firefox/148.0",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 19,
             "name": "accept",
             "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "upgrade-insecure-requests",
             "value": "1",
-            "huffman_name": true
+            "huffmanName": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "document",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "navigate",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "none",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-user",
             "value": "?1",
-            "huffman_name": true
+            "huffmanName": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=0, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "te",
             "value": "trailers",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       },
@@ -794,7 +794,7 @@
             "index": 4,
             "name": ":path",
             "value": "/again",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "indexed",
@@ -879,63 +879,63 @@
             "index": 32,
             "name": "cookie",
             "value": "sid=tdi~-zfBKYTZY2DetUEY9o-DdAKI-Pm8fEl7-TByHNTphi0g47zu~EY-m8AIiQRfu2aorGoeKuqiqJai",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 32,
             "name": "cookie",
             "value": "bid=mT5QkUqdKFpXq02bb8weeW8DsFJO1A6fUyfn1918e8IUslVJ4UUZ~6Qp-MOYHwYBxmZgBuS6lnzYv16z",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 32,
             "name": "cookie",
             "value": "geoloc=bqKm2YeHYsnctfEkzaW671eeq8G6GClLC5kwRcwICS-eEqMk6S",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 32,
             "name": "cookie",
             "value": "aka_a2=3",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 32,
             "name": "cookie",
             "value": "_abck=AL0ZplGHeDLk-ZMVgMexKK0dyPdAoAD-zkBT9BgYrJay~EO99wv5X9aAJzt0Nkr14syqz1isX1l0yPN4AOjxC4xJcSGKpCn4Ey3xscMhX2i9wzGEJ3jiQbbZpwqVuujJQvYRv994RCALt91bQuutl8fzaWPdJTS-oEpBblEbVWeLndo8UTVC81n3IYjbl3sNh3XKvQIGj5VfVQhtj~Bj3RBx1SF2p7uhiDmFG3cimDuauyypXMuhQSj9asMQ4YZEb8seXR2z1Hs9k2v~a2vhX4mrPSDt3b-HKtXP2E1garDBpvySeEqVD9Iaj7rMFvL84AnnZ-byCceGp8XGnibFkStXOt1a4Xv9ENzBLCJRQNckPkDWCsSFoccJ1tT0vv~eOUlP3BMIO8ThB3eILn07YBF6wPcw6r0yI79OrBUA2-L0jvVjsCBlcc2b3uoIyaUTzcVQIJ0HzEDLXQavaSDH2BuzAw9whjza",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 32,
             "name": "cookie",
             "value": "ni_d=tr6Wyezyxy8ILbd9Yw2BSHqaqj6JrZc7L5PA",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 32,
             "name": "cookie",
             "value": "p19=ZWkLKV691u~uINH",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 32,
             "name": "cookie",
             "value": "p20=mf5vQ0pzGRG7ZBca",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 32,
             "name": "cookie",
             "value": "p21=ZRaQTzjdaVDSvlaUV",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       }

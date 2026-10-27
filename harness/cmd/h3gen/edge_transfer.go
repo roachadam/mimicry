@@ -195,7 +195,7 @@ func (s *edgeSet) credit(q *profile.QUIC, e *collector) profile.QUICCredit {
 						l.msd = append(l.msd, float64(fr.Max))
 					case fr.Type == quictrace.FrameMaxData:
 						// Chrome repeats its limit after 19
-						// ACK-only packets (ack_only_limit):
+						// ACK-only packets (ackOnlyLimit):
 						// only raises count.
 						if n := len(l.md); float64(fr.Max) > connWin && (n == 0 || float64(fr.Max) > l.md[n-1]) {
 							l.md = append(l.md, float64(fr.Max))

@@ -34,16 +34,16 @@ server sees. Decision 0010 left proxies to compose with `Config.DialContext`.
   `socks5h` (both send the host name for the proxy to resolve, as browsers
   do). `https` proxies are not supported yet.
 - `DialContext` reaches the proxy; everything above the tunnel is unchanged.
-- Profile section `proxy`: `connect` and `connect_auth` (the CONNECT header
+- Profile section `proxy`: `connect` and `connectAuth` (the CONNECT header
   lists without and with credentials; Host and User-Agent filled in),
-  `connect_credentials` (`after_challenge`: unasked once the proxy has
+  `connectCredentials` (`after_challenge`: unasked once the proxy has
   asked, Chrome and Firefox; `on_challenge`: every tunnel waits for its 407,
-  Safari), `forward_credentials` (`after_challenge`, or `always` from the
-  first request, Safari), `forward_connection` (Chrome's Proxy-Connection on
-  forwarded requests), `forward_auth` (where Proxy-Authorization goes on
+  Safari), `forwardCredentials` (`after_challenge`, or `always` from the
+  first request, Safari), `forwardConnection` (Chrome's Proxy-Connection on
+  forwarded requests), `forwardAuth` (where Proxy-Authorization goes on
   them: after or before named headers, and Firefox's last on the retry),
   `socks5` (methods offered, address type). A profile without the section
-  refuses proxies; without `connect_auth` it refuses HTTP-proxy credentials;
+  refuses proxies; without `connectAuth` it refuses HTTP-proxy credentials;
   without `socks5` it refuses SOCKS5 (decision 0008).
 - A 407 is answered once, on the same connection (a new one if the proxy
   closed it), Basic only. Whether a proxy has asked is kept per proxy URL,
@@ -91,7 +91,7 @@ The [proxy-websocket captures](../../harness/reports/proxy-websocket-2026-10-26.
   Without the section, with credentials but not `credentials`, and for
   `ws://` through SOCKS5 (no capture: Safari's proxy script sends one
   port to SOCKS5), a socket through a proxy is `ErrNotMeasured`.
-- `proxy.connect_no_resume`: Firefox resumes no session through an HTTP
+- `proxy.connectNoResume`: Firefox resumes no session through an HTTP
   proxy's CONNECT tunnel (every connection of `proxy-auth` and both
   socket connections of `proxy-websocket`, while through SOCKS5 it
   resumes). This was already in the `proxy-auth` captures and unmodelled;
@@ -111,10 +111,10 @@ Safari 27's `proxy-websocket-auth` capture (3 samples; the
 shows its sockets following its page rules: every socket tunnel
 challenged, then again on its connection (`on_challenge`), and the
 `ws://` handshake sent whole with credentials unasked, after
-`Accept-Encoding` (`forward_credentials: always`, `forward_auth`). Both
+`Accept-Encoding` (`forwardCredentials: always`, `forwardAuth`). Both
 Safaris now set `credentials`; Safari 26's is copied (not captured), as
 its other credential rules are. `credentials` with `plain: forward` now
-requires `forward_credentials: always`: no browser was measured answering
+requires `forwardCredentials: always`: no browser was measured answering
 a challenge to a handshake sent whole. The capture also shows Safari
 putting `Proxy-Authorization` on requests inside its tunnels, to the
 server, once it has answered a challenge to a plain-HTTP request; that is

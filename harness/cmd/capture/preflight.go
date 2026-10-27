@@ -25,12 +25,12 @@ type preflightReport struct {
 	// (/dev/console). Browsers opened over ssh show on that session, so
 	// they must be the same user.
 	User        string             `json:"user"`
-	ConsoleUser string             `json:"console_user"`
+	ConsoleUser string             `json:"consoleUser"`
 	Browsers    []preflightBrowser `json:"browsers"`
 	// CAPath is the capture CA's certificate (created if missing). Safari
 	// needs CATrusted, and Chrome processes Alt-Svc only then.
-	CAPath    string `json:"ca_path"`
-	CATrusted bool   `json:"ca_trusted"`
+	CAPath    string `json:"caPath"`
+	CATrusted bool   `json:"caTrusted"`
 	// Resolver says whether /etc/resolver/test sends *.test to the DNS
 	// stub (Safari needs it).
 	Resolver bool `json:"resolver"`
@@ -39,7 +39,7 @@ type preflightReport struct {
 	Aioquic string `json:"aioquic,omitempty"`
 	// SafariProxy is how the system sends Safari to the capture proxy
 	// (safariProxyConfig): "none", "pac" or "manual".
-	SafariProxy string `json:"safari_proxy"`
+	SafariProxy string `json:"safariProxy"`
 }
 
 // preflightBrowser is an installed browser.

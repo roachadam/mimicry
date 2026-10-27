@@ -4,7 +4,7 @@
   "version": "155",
   "platform": "windows",
   "tls": {
-    "cipher_suites": [
+    "cipherSuites": [
       "0x1301",
       "0x1303",
       "0x1302",
@@ -21,10 +21,10 @@
       "0x002f",
       "0x0035"
     ],
-    "compression_methods": [
+    "compressionMethods": [
       0
     ],
-    "extension_order": "fixed",
+    "extensionOrder": "fixed",
     "extensions": [
       {
         "type": "0x0000"
@@ -50,7 +50,7 @@
       },
       {
         "type": "0x000b",
-        "point_formats": [
+        "pointFormats": [
           0
         ]
       },
@@ -70,7 +70,7 @@
       },
       {
         "type": "0x0022",
-        "signature_algorithms": [
+        "signatureAlgorithms": [
           "0x0403",
           "0x0503",
           "0x0603",
@@ -82,7 +82,7 @@
       },
       {
         "type": "0x0033",
-        "key_shares": [
+        "keyShares": [
           "0x11ec",
           "0x001d",
           "0x0017"
@@ -97,7 +97,7 @@
       },
       {
         "type": "0x000d",
-        "signature_algorithms": [
+        "signatureAlgorithms": [
           "0x0403",
           "0x0503",
           "0x0603",
@@ -113,17 +113,17 @@
       },
       {
         "type": "0x002d",
-        "psk_modes": [
+        "pskModes": [
           1
         ]
       },
       {
         "type": "0x001c",
-        "record_size_limit": 16385
+        "recordSizeLimit": 16385
       },
       {
         "type": "0x001b",
-        "cert_compression": [
+        "certCompression": [
           "0x0001",
           "0x0002",
           "0x0003"
@@ -153,13 +153,13 @@
         "value": 16384
       }
     ],
-    "window_update": 12517377,
-    "headers_priority": {
-      "depends_on": 0,
+    "windowUpdate": 12517377,
+    "headersPriority": {
+      "dependsOn": 0,
       "exclusive": false,
       "weight": 21
     },
-    "pseudo_header_order": [
+    "pseudoHeaderOrder": [
       ":method",
       ":path",
       ":authority",

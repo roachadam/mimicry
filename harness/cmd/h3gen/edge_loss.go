@@ -166,7 +166,7 @@ func (s *edgeSet) probes(out *profile.QUICLoss, fresh, resumed []unanswered, e *
 			edgeErr(e, u.at(), "probes are %q, others' %q", got, out.Probe)
 		}
 		if got := skips(u.a); got != out.SkipPacketNumber {
-			edgeErr(e, u.at(), "skip_packet_number %v, others' %v", got, out.SkipPacketNumber)
+			edgeErr(e, u.at(), "skipPacketNumber %v, others' %v", got, out.SkipPacketNumber)
 		}
 	}
 	type resumedProbe struct {
@@ -204,7 +204,7 @@ func (s *edgeSet) probes(out *profile.QUICLoss, fresh, resumed []unanswered, e *
 		}
 	}
 	for _, f := range firsts {
-		if (f.cached != out.CachedRTT || f.ackWait != out.PTOAckDelay) && !s.gap(f.u.at(), "loss.cached_rtt") {
+		if (f.cached != out.CachedRTT || f.ackWait != out.PTOAckDelay) && !s.gap(f.u.at(), "loss.cachedRtt") {
 			edgeErr(e, f.u.at(), "first probe after %.1f ms, unlike the other resumed attempts", f.t)
 		}
 	}
@@ -590,7 +590,7 @@ func (s *edgeSet) keepAlive(e *collector) profile.QUICKeepAlive {
 		period := roundTo(slices.Min(ds), 100)
 		fits := true
 		for i, d := range ds {
-			if _, pinned := sampleGaps[ats[i]+": keep_alive"]; late(d, period) && !pinned {
+			if _, pinned := sampleGaps[ats[i]+": keepAlive"]; late(d, period) && !pinned {
 				fits = false
 			}
 		}
@@ -608,7 +608,7 @@ func (s *edgeSet) keepAlive(e *collector) profile.QUICKeepAlive {
 	}
 	for i, d := range deltas[out.From] {
 		if late(d, out.PeriodMillis) {
-			s.gap(ats[i], "keep_alive")
+			s.gap(ats[i], "keepAlive")
 		}
 	}
 

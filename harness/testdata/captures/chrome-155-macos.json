@@ -4,10 +4,10 @@
   "version": "155",
   "platform": "macos",
   "tls": {
-    "record_version": "0x0301",
-    "legacy_version": "0x0303",
-    "session_id_length": 32,
-    "cipher_suites": [
+    "recordVersion": "0x0301",
+    "legacyVersion": "0x0303",
+    "sessionIdLength": 32,
+    "cipherSuites": [
       "GREASE",
       "0x1301",
       "0x1302",
@@ -25,10 +25,10 @@
       "0x002f",
       "0x0035"
     ],
-    "compression_methods": [
+    "compressionMethods": [
       0
     ],
-    "extension_order": "shuffled",
+    "extensionOrder": "shuffled",
     "extensions": [
       {
         "type": "GREASE"
@@ -36,14 +36,14 @@
       {
         "type": "0xfe0d",
         "ech": {
-          "cipher_suites": [
+          "cipherSuites": [
             {
               "kdf": "0x0001",
               "aead": "0x0001"
             }
           ],
-          "enc_length": 32,
-          "payload_lengths": [
+          "encLength": 32,
+          "payloadLengths": [
             144,
             176,
             208,
@@ -66,7 +66,7 @@
       },
       {
         "type": "0x001b",
-        "cert_compression": [
+        "certCompression": [
           "0x0002"
         ]
       },
@@ -76,7 +76,7 @@
       },
       {
         "type": "0x002d",
-        "psk_modes": [
+        "pskModes": [
           1
         ]
       },
@@ -109,7 +109,7 @@
       },
       {
         "type": "0x000d",
-        "signature_algorithms": [
+        "signatureAlgorithms": [
           "GREASE",
           "0x0904",
           "0x0905",
@@ -130,12 +130,12 @@
       },
       {
         "type": "0x0033",
-        "key_shares": [
+        "keyShares": [
           "GREASE",
           "0x11ec",
           "0x001d"
         ],
-        "key_share_lengths": [
+        "keyShareLengths": [
           1,
           1216,
           32
@@ -150,7 +150,7 @@
       },
       {
         "type": "0x000b",
-        "point_formats": [
+        "pointFormats": [
           0
         ]
       },
@@ -179,13 +179,13 @@
         "value": 262144
       }
     ],
-    "window_update": 15663105,
-    "headers_priority": {
-      "depends_on": 0,
+    "windowUpdate": 15663105,
+    "headersPriority": {
+      "dependsOn": 0,
       "exclusive": true,
       "weight": 255
     },
-    "pseudo_header_order": [
+    "pseudoHeaderOrder": [
       ":method",
       ":authority",
       ":scheme",

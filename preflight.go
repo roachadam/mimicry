@@ -190,7 +190,7 @@ func (t *Transport) sendPreflight(pf *preflightSend, ignore bool) error {
 }
 
 // hopPreflight reports whether a redirect hop that could be preflighted
-// is, because the request before it was (redirects.hop_preflight inherit:
+// is, because the request before it was (redirects.hopPreflight inherit:
 // Firefox and Safari, not Chrome). Without the rule it is not measured.
 func (t *Transport) hopPreflight(req *http.Request, could bool) (bool, error) {
 	if !could || req.Response == nil || req.Response.Request == nil {

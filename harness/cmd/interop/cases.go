@@ -30,11 +30,11 @@ type result struct {
 	Outcome        string        `json:"outcome"`
 	Note           string        `json:"note,omitempty"`
 	Err            string        `json:"error,omitempty"`
-	ServerTestcase string        `json:"server_testcase,omitempty"`
+	ServerTestcase string        `json:"serverTestcase,omitempty"`
 	Conns          []connFacts   `json:"conns,omitempty"`
 	Fetches        []fetched     `json:"fetches,omitempty"`
 	Engine         []engineStep  `json:"engine,omitempty"`
-	EngineSummary  engineSummary `json:"engine_summary"`
+	EngineSummary  engineSummary `json:"engineSummary"`
 	MS             float64       `json:"ms"`
 	// Dir holds the run's key logs and datagram traces.
 	Dir string `json:"dir,omitempty"`

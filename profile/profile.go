@@ -25,7 +25,7 @@ type Profile struct {
 	// earlier profile whose captures the harness checks this one against,
 	// because the scenario was not recaptured. Only the harness reads it.
 	// See decision 0035.
-	CapturesFrom map[string]string `json:"captures_from,omitempty"`
+	CapturesFrom map[string]string `json:"capturesFrom,omitempty"`
 
 	TLS TLS `json:"tls"`
 	// HTTP2 is required when the profile offers h2 in ALPN.

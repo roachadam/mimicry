@@ -9,7 +9,7 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// earlyData derives http3.early_data from the h3-early and h3-too-early
+// earlyData derives http3.earlyData from the h3-early and h3-too-early
 // captures; nil unless q.ZeroRTT. Each method must be consistently sent
 // in 0-RTT or held until Finished, and 425 retries consistent too.
 func (s *edgeSet) earlyData(q *profile.QUIC, e *collector) *profile.H3EarlyData {
@@ -50,11 +50,11 @@ func (s *edgeSet) earlyData(q *profile.QUIC, e *collector) *profile.H3EarlyData 
 				switch was, ok := early[r.Method]; {
 				case !ok:
 					early[r.Method] = sent
-				case was != sent && !s.gap(p.at, "early_data.methods "+r.Method):
+				case was != sent && !s.gap(p.at, "earlyData.methods "+r.Method):
 					edgeErr(e, p.at, "%s %s sent in 0-RTT %v, another %s %v", r.Method, nameOf(l), sent, r.Method, was)
 				}
 				if !sent {
-					if !s.gap(p.at, "early_data.held_with_finished "+nameOf(l)) {
+					if !s.gap(p.at, "earlyData.heldWithFinished "+nameOf(l)) {
 						withFinished = append(withFinished, pos.Datagram == finished)
 						withFinishedAt = append(withFinishedAt, p.at+" "+nameOf(l))
 					}

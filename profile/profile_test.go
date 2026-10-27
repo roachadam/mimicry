@@ -42,8 +42,8 @@ func TestParseRejects(t *testing.T) {
 		},
 		{
 			name: "miscased key",
-			in:   strings.Replace(valid, `"extension_order"`, `"Extension_Order"`, 1),
-			want: `unknown object member name "Extension_Order"`,
+			in:   strings.Replace(valid, `"extensionOrder"`, `"ExtensionOrder"`, 1),
+			want: `unknown object member name "ExtensionOrder"`,
 		},
 		{
 			name: "repeated key",
@@ -52,9 +52,9 @@ func TestParseRejects(t *testing.T) {
 		},
 		{
 			name: "key repeated in a map",
-			in: strings.Replace(valid, `"size_updates": "on_change"
-    }`, `"size_updates": "on_change",
-      "never_index_below": {
+			in: strings.Replace(valid, `"sizeUpdates": "on_change"
+    }`, `"sizeUpdates": "on_change",
+      "neverIndexBelow": {
         "cookie": 20,
         "cookie": 21
       }
@@ -68,9 +68,9 @@ func TestParseRejects(t *testing.T) {
 		},
 		{
 			name: "byte out of range",
-			in: strings.Replace(valid, `"compression_methods": [
+			in: strings.Replace(valid, `"compressionMethods": [
       0
-    ]`, `"compression_methods": [
+    ]`, `"compressionMethods": [
       256
     ]`, 1),
 			want: "does not fit in a byte",
@@ -124,7 +124,7 @@ func TestValidate(t *testing.T) {
 					"cookies": p.Name,
 				}
 			},
-			path: "captures_from.cookies",
+			path: "capturesFrom.cookies",
 			want: "names the profile itself",
 		},
 		{
@@ -134,7 +134,7 @@ func TestValidate(t *testing.T) {
 					"cookies": "firefox-158-test",
 				}
 			},
-			path: "captures_from.cookies",
+			path: "capturesFrom.cookies",
 			want: "is not a chrome profile on test",
 		},
 		{
@@ -144,7 +144,7 @@ func TestValidate(t *testing.T) {
 					"Cookies": "chrome-155-test",
 				}
 			},
-			path: "captures_from.Cookies",
+			path: "capturesFrom.Cookies",
 			want: "must be a capture scenario's name",
 		},
 		{
@@ -152,7 +152,7 @@ func TestValidate(t *testing.T) {
 			mutate: func(_ *testing.T, p *Profile) {
 				p.TLS.CipherSuites = nil
 			},
-			path: "tls.cipher_suites",
+			path: "tls.cipherSuites",
 			want: "is required",
 		},
 		{
@@ -160,7 +160,7 @@ func TestValidate(t *testing.T) {
 			mutate: func(_ *testing.T, p *Profile) {
 				p.TLS.ExtensionOrder = "random"
 			},
-			path: "tls.extension_order",
+			path: "tls.extensionOrder",
 			want: `must be "fixed" or "shuffled"`,
 		},
 		{
@@ -169,7 +169,7 @@ func TestValidate(t *testing.T) {
 				ks := &p.TLS.Extensions[extIndex(t, p, ExtKeyShare)]
 				ks.KeyShares = append(ks.KeyShares, 0x001d)
 			},
-			path: "tls.extensions[11].key_shares",
+			path: "tls.extensions[11].keyShares",
 			want: "repeats 0x001d",
 		},
 		{
@@ -242,19 +242,19 @@ func TestValidate(t *testing.T) {
 			want: "group 0x0019 is not in supported_groups",
 		},
 		{
-			name: "legacy_version other than TLS 1.2's",
+			name: "legacyVersion other than TLS 1.2's",
 			mutate: func(_ *testing.T, p *Profile) {
 				p.TLS.LegacyVersion = 0x0301
 			},
-			path: "tls.legacy_version",
+			path: "tls.legacyVersion",
 			want: "must be 0x0303",
 		},
 		{
-			name: "no legacy_version",
+			name: "no legacyVersion",
 			mutate: func(_ *testing.T, p *Profile) {
 				p.TLS.LegacyVersion = 0
 			},
-			path: "tls.legacy_version",
+			path: "tls.legacyVersion",
 			want: "must be 0x0303",
 		},
 		{
@@ -262,7 +262,7 @@ func TestValidate(t *testing.T) {
 			mutate: func(_ *testing.T, p *Profile) {
 				p.TLS.RecordVersion = 0x0303
 			},
-			path: "tls.record_version",
+			path: "tls.recordVersion",
 			want: "must be 0x0301",
 		},
 		{
@@ -270,7 +270,7 @@ func TestValidate(t *testing.T) {
 			mutate: func(_ *testing.T, p *Profile) {
 				p.TLS.RecordVersion = 0
 			},
-			path: "tls.record_version",
+			path: "tls.recordVersion",
 			want: "must be 0x0301",
 		},
 		{
@@ -278,7 +278,7 @@ func TestValidate(t *testing.T) {
 			mutate: func(_ *testing.T, p *Profile) {
 				p.TLS.SessionIDLength = 0
 			},
-			path: "tls.session_id_length",
+			path: "tls.sessionIdLength",
 			want: "must be 32",
 		},
 		{
@@ -287,7 +287,7 @@ func TestValidate(t *testing.T) {
 				p.TLS.Extensions[extIndex(t, p, ExtKeyShare)].KeyShareLengths = nil
 			},
 			path: "tls.extensions[11]",
-			want: "needs key_share_lengths",
+			want: "needs keyShareLengths",
 		},
 		{
 			name: "fewer key share lengths than key shares",
@@ -295,7 +295,7 @@ func TestValidate(t *testing.T) {
 				ks := &p.TLS.Extensions[extIndex(t, p, ExtKeyShare)]
 				ks.KeyShareLengths = ks.KeyShareLengths[:2]
 			},
-			path: "tls.extensions[11].key_share_lengths",
+			path: "tls.extensions[11].keyShareLengths",
 			want: "has 2 lengths for 3 key shares",
 		},
 		{
@@ -303,7 +303,7 @@ func TestValidate(t *testing.T) {
 			mutate: func(t *testing.T, p *Profile) {
 				p.TLS.Extensions[extIndex(t, p, ExtKeyShare)].KeyShareLengths[2] = 33
 			},
-			path: "tls.extensions[11].key_share_lengths[2]",
+			path: "tls.extensions[11].keyShareLengths[2]",
 			want: "group 0x001d's key is 32 bytes, not 33",
 		},
 		{
@@ -311,7 +311,7 @@ func TestValidate(t *testing.T) {
 			mutate: func(t *testing.T, p *Profile) {
 				p.TLS.Extensions[extIndex(t, p, ExtKeyShare)].KeyShareLengths[0] = 0
 			},
-			path: "tls.extensions[11].key_share_lengths[0]",
+			path: "tls.extensions[11].keyShareLengths[0]",
 			want: "needs at least one byte",
 		},
 		{
@@ -322,7 +322,7 @@ func TestValidate(t *testing.T) {
 				ks.KeyShares = append(ks.KeyShares, 0x0100)
 				ks.KeyShareLengths = append(ks.KeyShareLengths, 256)
 			},
-			path: "tls.extensions[11].key_share_lengths[3]",
+			path: "tls.extensions[11].keyShareLengths[3]",
 			want: "cannot generate a key for group 0x0100",
 		},
 		{
@@ -346,7 +346,7 @@ func TestValidate(t *testing.T) {
 			mutate: func(t *testing.T, p *Profile) {
 				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.CipherSuites = nil
 			},
-			path: "tls.extensions[16].ech.cipher_suites",
+			path: "tls.extensions[16].ech.cipherSuites",
 			want: "is required",
 		},
 		{
@@ -354,7 +354,7 @@ func TestValidate(t *testing.T) {
 			mutate: func(t *testing.T, p *Profile) {
 				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.CipherSuites[0].AEAD = 0xffff
 			},
-			path: "tls.extensions[16].ech.cipher_suites[0]",
+			path: "tls.extensions[16].ech.cipherSuites[0]",
 			want: "AEAD 0xffff is not an HPKE AEAD",
 		},
 		{
@@ -362,7 +362,7 @@ func TestValidate(t *testing.T) {
 			mutate: func(t *testing.T, p *Profile) {
 				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.CipherSuites[0].KDF = 0
 			},
-			path: "tls.extensions[16].ech.cipher_suites[0]",
+			path: "tls.extensions[16].ech.cipherSuites[0]",
 			want: "KDF 0x0000 is not an HPKE KDF",
 		},
 		{
@@ -380,7 +380,7 @@ func TestValidate(t *testing.T) {
 					},
 				}
 			},
-			path: "tls.extensions[16].ech.cipher_suites[1]",
+			path: "tls.extensions[16].ech.cipherSuites[1]",
 			want: "sorted and unique",
 		},
 		{
@@ -388,7 +388,7 @@ func TestValidate(t *testing.T) {
 			mutate: func(t *testing.T, p *Profile) {
 				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.EncLength = 65
 			},
-			path: "tls.extensions[16].ech.enc_length",
+			path: "tls.extensions[16].ech.encLength",
 			want: "must be 32",
 		},
 		{
@@ -396,7 +396,7 @@ func TestValidate(t *testing.T) {
 			mutate: func(t *testing.T, p *Profile) {
 				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.PayloadLengths = nil
 			},
-			path: "tls.extensions[16].ech.payload_lengths",
+			path: "tls.extensions[16].ech.payloadLengths",
 			want: "is required",
 		},
 		{
@@ -404,7 +404,7 @@ func TestValidate(t *testing.T) {
 			mutate: func(t *testing.T, p *Profile) {
 				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.PayloadLengths[0] = 16
 			},
-			path: "tls.extensions[16].ech.payload_lengths[0]",
+			path: "tls.extensions[16].ech.payloadLengths[0]",
 			want: "no longer than the 16-byte AEAD tag",
 		},
 		{
@@ -412,7 +412,7 @@ func TestValidate(t *testing.T) {
 			mutate: func(t *testing.T, p *Profile) {
 				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.PayloadLengths[1] = 176
 			},
-			path: "tls.extensions[16].ech.payload_lengths[1]",
+			path: "tls.extensions[16].ech.payloadLengths[1]",
 			want: "sorted and unique",
 		},
 		{
@@ -440,7 +440,7 @@ func TestValidate(t *testing.T) {
 				// With the initial 65535, one past the largest window.
 				p.HTTP2.WindowUpdate = 1<<31 - 65535
 			},
-			path: "http2.window_update",
+			path: "http2.windowUpdate",
 			want: "exceeds",
 		},
 		{
@@ -461,7 +461,7 @@ func TestValidate(t *testing.T) {
 			mutate: func(_ *testing.T, p *Profile) {
 				p.HTTP2.PseudoHeaderOrder = p.HTTP2.PseudoHeaderOrder[:3]
 			},
-			path: "http2.pseudo_header_order",
+			path: "http2.pseudoHeaderOrder",
 			want: "exactly once",
 		},
 		{
@@ -469,7 +469,7 @@ func TestValidate(t *testing.T) {
 			mutate: func(_ *testing.T, p *Profile) {
 				p.HTTP2.FirstStreamID = 2
 			},
-			path: "http2.first_stream_id",
+			path: "http2.firstStreamId",
 			want: "odd stream ID",
 		},
 		{
@@ -478,15 +478,15 @@ func TestValidate(t *testing.T) {
 				p.HTTP2.ChainPriorities = true
 				p.HTTP2.HeadersPriority = nil
 			},
-			path: "http2.chain_priorities",
-			want: "needs headers_priority",
+			path: "http2.chainPriorities",
+			want: "needs headersPriority",
 		},
 		{
 			name: "update threshold beyond any window",
 			mutate: func(_ *testing.T, p *Profile) {
 				p.HTTP2.ConnectionUpdateThreshold = 1 << 31
 			},
-			path: "http2.connection_update_threshold",
+			path: "http2.connectionUpdateThreshold",
 			want: "maximum window",
 		},
 		{
@@ -497,7 +497,7 @@ func TestValidate(t *testing.T) {
 					Huffman:   HuffmanShorter,
 				}
 			},
-			path: "http2.hpack.name_match",
+			path: "http2.hpack.nameMatch",
 			want: `must be "static_first" or "highest_index"`,
 		},
 		{
@@ -514,8 +514,8 @@ func TestValidate(t *testing.T) {
 					Huffman:   HuffmanShorter,
 				}
 			},
-			path: "http2.hpack.without_indexing[0]",
-			want: "also in never_indexed",
+			path: "http2.hpack.withoutIndexing[0]",
+			want: "also in neverIndexed",
 		},
 		{
 			name: "non-positive never-index length",
@@ -529,7 +529,7 @@ func TestValidate(t *testing.T) {
 					SizeUpdates: SizeUpdatesOnChange,
 				}
 			},
-			path: "http2.hpack.never_index_below[cookie]",
+			path: "http2.hpack.neverIndexBelow[cookie]",
 			want: "positive length",
 		},
 		{
@@ -541,7 +541,7 @@ func TestValidate(t *testing.T) {
 					SizeUpdates: "sometimes",
 				}
 			},
-			path: "http2.hpack.size_updates",
+			path: "http2.hpack.sizeUpdates",
 			want: `must be "on_change" or "always"`,
 		},
 		{
@@ -550,7 +550,7 @@ func TestValidate(t *testing.T) {
 				p.Cookies = DefaultCookies()
 				p.Cookies.ThirdParty = "block_all"
 			},
-			path: "cookies.third_party",
+			path: "cookies.thirdParty",
 			want: "must be one of",
 		},
 		{
@@ -560,7 +560,7 @@ func TestValidate(t *testing.T) {
 				p.Cookies.UnsetSameSite = SameSiteNone
 				p.Cookies.LaxAllowsUnsafeSeconds = 120
 			},
-			path: "cookies.lax_allows_unsafe_seconds",
+			path: "cookies.laxAllowsUnsafeSeconds",
 			want: "applies only when",
 		},
 		{
@@ -624,7 +624,7 @@ func TestValidate(t *testing.T) {
 				p.Headers[0].Name = ":path"
 			},
 			path: "headers[0]",
-			want: "belongs in http2.pseudo_header_order",
+			want: "belongs in http2.pseudoHeaderOrder",
 		},
 		{
 			name: "unknown kind",
@@ -685,7 +685,7 @@ func TestValidate(t *testing.T) {
 			want: "must be empty (same-origin)",
 		},
 		{
-			name: "page-set headers without cors_checked",
+			name: "page-set headers without corsChecked",
 			mutate: func(_ *testing.T, p *Profile) {
 				p.Variants = []Variant{
 					{
@@ -695,8 +695,8 @@ func TestValidate(t *testing.T) {
 					},
 				}
 			},
-			path: "variants[0].page_set",
-			want: "needs cors_checked",
+			path: "variants[0].pageSet",
+			want: "needs corsChecked",
 		},
 		{
 			name: "two page-set variants with one condition",
@@ -728,7 +728,7 @@ func TestValidate(t *testing.T) {
 				}
 			},
 			path: "variants[1]",
-			want: "cross_origin_redirect, origin_before_redirect, method_changed_by_redirect and insecure_before_redirect need redirected",
+			want: "crossOriginRedirect, originBeforeRedirect, methodChangedByRedirect and insecureBeforeRedirect need redirected",
 		},
 		{
 			name: "cross-site redirect not cross-origin",
@@ -741,8 +741,8 @@ func TestValidate(t *testing.T) {
 					},
 				}
 			},
-			path: "variants[0].cross_site_redirect",
-			want: "needs cross_origin_redirect",
+			path: "variants[0].crossSiteRedirect",
+			want: "needs crossOriginRedirect",
 		},
 		{
 			name: "cross-site redirect on a kind",
@@ -761,7 +761,7 @@ func TestValidate(t *testing.T) {
 					},
 				}
 			},
-			path: "kinds.image.variants[0].cross_site_redirect",
+			path: "kinds.image.variants[0].crossSiteRedirect",
 			want: "is a navigation's condition",
 		},
 		{
@@ -918,7 +918,7 @@ func TestValidate(t *testing.T) {
 			mutate: func(_ *testing.T, p *Profile) {
 				p.TLS.Resumption = &Resumption{}
 			},
-			path: "tls.resumption.ech_payload_lengths",
+			path: "tls.resumption.echPayloadLengths",
 			want: "is required with encrypted_client_hello",
 		},
 		{
@@ -931,7 +931,7 @@ func TestValidate(t *testing.T) {
 					},
 				}
 			},
-			path: "tls.resumption.ech_payload_lengths",
+			path: "tls.resumption.echPayloadLengths",
 			want: "needs encrypted_client_hello",
 		},
 		{
@@ -944,7 +944,7 @@ func TestValidate(t *testing.T) {
 					},
 				}
 			},
-			path: "tls.resumption.ech_payload_lengths[1]",
+			path: "tls.resumption.echPayloadLengths[1]",
 			want: "sorted and unique",
 		},
 		{
@@ -991,7 +991,7 @@ func TestValidate(t *testing.T) {
 				// SETTINGS_INITIAL_WINDOW_SIZE is 6291456.
 				p.HTTP2.StreamWindowUpdate = 1<<31 - 6291456
 			},
-			path: "http2.stream_window_update",
+			path: "http2.streamWindowUpdate",
 			want: "exceeds the maximum window",
 		},
 		{
@@ -1004,7 +1004,7 @@ func TestValidate(t *testing.T) {
 				}
 			},
 			path: "http2.priorities[0]",
-			want: "stream_id must be below 2^31",
+			want: "streamId must be below 2^31",
 		},
 		{
 			name: "priority depending on a stream beyond 2^31",
@@ -1017,7 +1017,7 @@ func TestValidate(t *testing.T) {
 				}
 			},
 			path: "http2.priorities[0]",
-			want: "depends_on must be below 2^31",
+			want: "dependsOn must be below 2^31",
 		},
 		{
 			name: "HTTP/2 without HPACK rules",
@@ -1128,21 +1128,21 @@ func TestValidate(t *testing.T) {
 			want: "places User-Agent, but headers has no user-agent",
 		},
 		{
-			name: "credential timing without connect_auth",
+			name: "credential timing without connectAuth",
 			mutate: func(_ *testing.T, p *Profile) {
 				p.Proxy = validProxy()
 				p.Proxy.ConnectAuth = nil
 			},
 			path: "proxy",
-			want: "need connect_auth",
+			want: "need connectAuth",
 		},
 		{
-			name: "connect_auth without Proxy-Authorization",
+			name: "connectAuth without Proxy-Authorization",
 			mutate: func(_ *testing.T, p *Profile) {
 				p.Proxy = validProxy()
 				p.Proxy.ConnectAuth = p.Proxy.Connect
 			},
-			path: "proxy.connect_auth",
+			path: "proxy.connectAuth",
 			want: "must place Proxy-Authorization",
 		},
 		{
@@ -1151,7 +1151,7 @@ func TestValidate(t *testing.T) {
 				p.Proxy = validProxy()
 				p.Proxy.ConnectCredentials = CredentialsAlways
 			},
-			path: "proxy.connect_credentials",
+			path: "proxy.connectCredentials",
 			want: `must be "after_challenge" or "on_challenge"`,
 		},
 		{
@@ -1160,7 +1160,7 @@ func TestValidate(t *testing.T) {
 				p.Proxy = validProxy()
 				p.Proxy.ForwardCredentials = CredentialsOnChallenge
 			},
-			path: "proxy.forward_credentials",
+			path: "proxy.forwardCredentials",
 			want: `must be "after_challenge" or "always"`,
 		},
 		{
@@ -1169,7 +1169,7 @@ func TestValidate(t *testing.T) {
 				p.Proxy = validProxy()
 				p.Proxy.ForwardAuth.Before = "accept"
 			},
-			path: "proxy.forward_auth",
+			path: "proxy.forwardAuth",
 			want: "not both",
 		},
 		{
@@ -1178,7 +1178,7 @@ func TestValidate(t *testing.T) {
 				p.Proxy = validProxy()
 				p.Proxy.ForwardConnection = "X\r\nY"
 			},
-			path: "proxy.forward_connection",
+			path: "proxy.forwardConnection",
 			want: "is not a header name",
 		},
 		{
@@ -1214,7 +1214,7 @@ func TestValidate(t *testing.T) {
 			want: `must be "tunnel" or "forward"`,
 		},
 		{
-			name: "WebSocket proxy credentials without connect_auth",
+			name: "WebSocket proxy credentials without connectAuth",
 			mutate: func(_ *testing.T, p *Profile) {
 				p.Proxy = validProxy()
 				p.Proxy.ConnectAuth, p.Proxy.ConnectCredentials, p.Proxy.ForwardCredentials, p.Proxy.ForwardAuth = nil, "", "", nil
@@ -1224,7 +1224,7 @@ func TestValidate(t *testing.T) {
 				}
 			},
 			path: "proxy.websocket.credentials",
-			want: "needs connect_auth",
+			want: "needs connectAuth",
 		},
 		{
 			name: "WebSocket proxy credentials on a forwarded handshake that waits for a challenge",
@@ -1236,7 +1236,7 @@ func TestValidate(t *testing.T) {
 				}
 			},
 			path: "proxy.websocket.credentials",
-			want: `needs forward_credentials "always"`,
+			want: `needs forwardCredentials "always"`,
 		},
 		{
 			name: "nil kind",
@@ -1331,7 +1331,7 @@ func TestValidate(t *testing.T) {
 					PreflightCache: "forever",
 				}
 			},
-			path: "context.preflight_cache",
+			path: "context.preflightCache",
 			want: `must be empty, "replace" or "merge"`,
 		},
 		{
@@ -1341,7 +1341,7 @@ func TestValidate(t *testing.T) {
 					MethodChangeOrigin: "sometimes",
 				}
 			},
-			path: "redirects.method_change_origin",
+			path: "redirects.methodChangeOrigin",
 			want: `must be "keep" or "drop"`,
 		},
 		{
@@ -1352,7 +1352,7 @@ func TestValidate(t *testing.T) {
 					HopPreflight:       RedirectPreflightOwn,
 				}
 			},
-			path: "redirects.navigation_limit",
+			path: "redirects.navigationLimit",
 			want: "must be positive",
 		},
 		{
@@ -1364,7 +1364,7 @@ func TestValidate(t *testing.T) {
 					HopPreflight:       "always",
 				}
 			},
-			path: "redirects.hop_preflight",
+			path: "redirects.hopPreflight",
 			want: `must be "own" or "inherit"`,
 		},
 		{
@@ -1377,7 +1377,7 @@ func TestValidate(t *testing.T) {
 					NavigationSite:     "sometimes",
 				}
 			},
-			path: "redirects.navigation_site",
+			path: "redirects.navigationSite",
 			want: `must be "chain" or "restart"`,
 		},
 		{
@@ -1391,7 +1391,7 @@ func TestValidate(t *testing.T) {
 					NavigationOrigin:   "never",
 				}
 			},
-			path: "redirects.navigation_origin",
+			path: "redirects.navigationOrigin",
 			want: `must be "taint" or "cross_origin"`,
 		},
 		{

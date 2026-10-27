@@ -5,23 +5,23 @@ type TLS struct {
 	// RecordVersion is the record-layer version of the records carrying the
 	// ClientHello: 0x0301 for every browser captured. Zero in a capture
 	// whose records were not kept.
-	RecordVersion Code `json:"record_version,omitempty"`
+	RecordVersion Code `json:"recordVersion,omitempty"`
 	// LegacyVersion is the ClientHello's legacy_version: 0x0303 in a TLS 1.3
 	// ClientHello (RFC 8446, section 4.1.2).
-	LegacyVersion Code `json:"legacy_version"`
+	LegacyVersion Code `json:"legacyVersion"`
 	// SessionIDLength is the length of legacy_session_id, whose bytes are
 	// random per connection: 32 in TLS 1.3's middlebox compatibility mode
 	// (RFC 8446, appendix D.4).
-	SessionIDLength uint8 `json:"session_id_length"`
+	SessionIDLength uint8 `json:"sessionIdLength"`
 	// CipherSuites in the order the browser offers them.
-	CipherSuites []Code `json:"cipher_suites"`
+	CipherSuites []Code `json:"cipherSuites"`
 	// CompressionMethods, normally [0] (null).
-	CompressionMethods ByteList `json:"compression_methods"`
+	CompressionMethods ByteList `json:"compressionMethods"`
 	// ExtensionOrder says whether the browser sends Extensions in this exact
 	// order (ExtensionOrderFixed) or permutes them per connection
 	// (ExtensionOrderShuffled, Chrome since 110). Pinned extensions keep their
 	// position either way; see Extension.Pinned.
-	ExtensionOrder string `json:"extension_order"`
+	ExtensionOrder string `json:"extensionOrder"`
 	// Extensions in the order of one observed ClientHello: a full
 	// handshake's.
 	Extensions []Extension `json:"extensions"`
@@ -32,7 +32,7 @@ type TLS struct {
 	// WebSocketH1 is how the hello of a WebSocket's own HTTP/1.1
 	// connection differs from this one. Required with Profile.WebSocket;
 	// hellogen derives it.
-	WebSocketH1 *WebSocketHello `json:"websocket_h1,omitempty"`
+	WebSocketH1 *WebSocketHello `json:"websocketH1,omitempty"`
 	// QUIC is how the hello sent over QUIC differs from this one.
 	// Required with Profile.QUIC; hellogen derives it.
 	QUIC *QUICHello `json:"quic,omitempty"`
@@ -49,11 +49,11 @@ type Resumption struct {
 	// TLS12 is how TLS 1.2 session tickets are used: TLS12Reuse or
 	// TLS12SingleUse. Empty: TLS 1.2 sessions are not resumed.
 	TLS12 string `json:"tls12,omitempty"`
-	// ECHPayloadLengths replace ech.payload_lengths in a TLS 1.3 resumed
+	// ECHPayloadLengths replace ech.payloadLengths in a TLS 1.3 resumed
 	// ClientHello, since the padded inner hello carries the ticket (Firefox:
 	// 400 instead of 240). Required when the ClientHello has
 	// encrypted_client_hello.
-	ECHPayloadLengths []uint16 `json:"ech_payload_lengths,omitempty"`
+	ECHPayloadLengths []uint16 `json:"echPayloadLengths,omitempty"`
 }
 
 // Values of Resumption.TLS12.
@@ -104,16 +104,16 @@ type Extension struct {
 	Groups []Code `json:"groups,omitempty"`
 	// KeyShares lists the groups a key share is sent for, for key_share. Keys
 	// are generated per connection.
-	KeyShares []Code `json:"key_shares,omitempty"`
+	KeyShares []Code `json:"keyShares,omitempty"`
 	// KeyShareLengths are the lengths of the keys in KeyShares, in the same
 	// order, for key_share. A group fixes its key's length; a GREASE share's
 	// is the browser's choice (BoringSSL: one byte).
-	KeyShareLengths []uint16 `json:"key_share_lengths,omitempty"`
+	KeyShareLengths []uint16 `json:"keyShareLengths,omitempty"`
 	// ECH for encrypted_client_hello: the GREASE extension's shape.
 	ECH *ECH `json:"ech,omitempty"`
 	// SignatureAlgorithms for signature_algorithms, signature_algorithms_cert
 	// and delegated_credentials.
-	SignatureAlgorithms []Code `json:"signature_algorithms,omitempty"`
+	SignatureAlgorithms []Code `json:"signatureAlgorithms,omitempty"`
 	// Versions for supported_versions.
 	Versions []Code `json:"versions,omitempty"`
 	// ALPN protocols for application_layer_protocol_negotiation.
@@ -121,13 +121,13 @@ type Extension struct {
 	// ALPS protocols for application_settings (either codepoint).
 	ALPS []string `json:"alps,omitempty"`
 	// PointFormats for ec_point_formats.
-	PointFormats ByteList `json:"point_formats,omitempty"`
+	PointFormats ByteList `json:"pointFormats,omitempty"`
 	// PSKModes for psk_key_exchange_modes.
-	PSKModes ByteList `json:"psk_modes,omitempty"`
+	PSKModes ByteList `json:"pskModes,omitempty"`
 	// CertCompression algorithms for compress_certificate.
-	CertCompression []Code `json:"cert_compression,omitempty"`
+	CertCompression []Code `json:"certCompression,omitempty"`
 	// RecordSizeLimit for record_size_limit.
-	RecordSizeLimit uint16 `json:"record_size_limit,omitempty"`
+	RecordSizeLimit uint16 `json:"recordSizeLimit,omitempty"`
 }
 
 // ECH is the shape of the GREASE encrypted_client_hello extension sent to a
@@ -136,12 +136,12 @@ type Extension struct {
 // CipherSuites and PayloadLengths.
 type ECH struct {
 	// CipherSuites are the HPKE symmetric cipher suites, sorted.
-	CipherSuites []HPKESuite `json:"cipher_suites"`
+	CipherSuites []HPKESuite `json:"cipherSuites"`
 	// EncLength is the encapsulated key's length: 32 for X25519.
-	EncLength uint16 `json:"enc_length"`
+	EncLength uint16 `json:"encLength"`
 	// PayloadLengths are the payload's lengths, the AEAD tag included,
 	// sorted.
-	PayloadLengths []uint16 `json:"payload_lengths"`
+	PayloadLengths []uint16 `json:"payloadLengths"`
 }
 
 // HPKESuite is an HPKE symmetric cipher suite (RFC 9180, section 7).
@@ -201,20 +201,20 @@ var typedFields = map[Code][]string{
 		"groups",
 	},
 	ExtKeyShare: {
-		"key_shares",
-		"key_share_lengths",
+		"keyShares",
+		"keyShareLengths",
 	},
 	ExtEncryptedClientHello: {
 		"ech",
 	},
 	ExtSignatureAlgorithms: {
-		"signature_algorithms",
+		"signatureAlgorithms",
 	},
 	ExtSignatureAlgorithmsCert: {
-		"signature_algorithms",
+		"signatureAlgorithms",
 	},
 	ExtDelegatedCredentials: {
-		"signature_algorithms",
+		"signatureAlgorithms",
 	},
 	ExtSupportedVersions: {
 		"versions",
@@ -229,16 +229,16 @@ var typedFields = map[Code][]string{
 		"alps",
 	},
 	ExtECPointFormats: {
-		"point_formats",
+		"pointFormats",
 	},
 	ExtPSKKeyExchangeModes: {
-		"psk_modes",
+		"pskModes",
 	},
 	ExtCompressCertificate: {
-		"cert_compression",
+		"certCompression",
 	},
 	ExtRecordSizeLimit: {
-		"record_size_limit",
+		"recordSizeLimit",
 	},
 }
 
@@ -252,16 +252,16 @@ func (e *Extension) setFields() []string {
 		fields = append(fields, "groups")
 	}
 	if len(e.KeyShares) > 0 {
-		fields = append(fields, "key_shares")
+		fields = append(fields, "keyShares")
 	}
 	if len(e.KeyShareLengths) > 0 {
-		fields = append(fields, "key_share_lengths")
+		fields = append(fields, "keyShareLengths")
 	}
 	if e.ECH != nil {
 		fields = append(fields, "ech")
 	}
 	if len(e.SignatureAlgorithms) > 0 {
-		fields = append(fields, "signature_algorithms")
+		fields = append(fields, "signatureAlgorithms")
 	}
 	if len(e.Versions) > 0 {
 		fields = append(fields, "versions")
@@ -273,16 +273,16 @@ func (e *Extension) setFields() []string {
 		fields = append(fields, "alps")
 	}
 	if len(e.PointFormats) > 0 {
-		fields = append(fields, "point_formats")
+		fields = append(fields, "pointFormats")
 	}
 	if len(e.PSKModes) > 0 {
-		fields = append(fields, "psk_modes")
+		fields = append(fields, "pskModes")
 	}
 	if len(e.CertCompression) > 0 {
-		fields = append(fields, "cert_compression")
+		fields = append(fields, "certCompression")
 	}
 	if e.RecordSizeLimit != 0 {
-		fields = append(fields, "record_size_limit")
+		fields = append(fields, "recordSizeLimit")
 	}
 
 	return fields

@@ -41,27 +41,27 @@ in kind, not only in degree:
 
 | Field | Values |
 |---|---|
-| `unset_samesite` | `lax`, `none` |
-| `lax_allows_unsafe_seconds` | Chrome's exception window (120) |
-| `none_requires_secure` | bool |
-| `third_party` | `samesite` (Chrome), `partition_all` (Firefox), `partitioned_only` (Safari) |
+| `unsetSamesite` | `lax`, `none` |
+| `laxAllowsUnsafeSeconds` | Chrome's exception window (120) |
+| `noneRequiresSecure` | bool |
+| `thirdParty` | `samesite` (Chrome), `partition_all` (Firefox), `partitioned_only` (Safari) |
 | `redirects` | `ignore` (Chrome), `chain` (Firefox, Safari 26), `block_after_cross_site` (Safari 27) |
 | `nameless` | `value` (Chrome), `name` (Firefox), `drop` (Safari) |
-| `latin1_values` | bool (Safari) |
+| `latin1Values` | bool (Safari) |
 | `order` | `rfc` (Chrome, Firefox), `domain_name` (Safari) |
-| `new_value_renews` | a cookie whose value changes moves to the end of its order (Chrome) |
-| `samesite_scheme` | `schemeful` (Chrome), `schemeless` (Firefox, Safari) |
-| `host_prefix_path` | `attribute`: `__Host-` needs `Path=/` as sent (Chrome, Firefox); `stored`: the stored path, default included (Safari) |
-| `http_prefix` | enforce `__Http-` and `__Host-Http-` (Chrome, Firefox) |
-| `secure_loopback` | a `Secure` cookie set over `http://localhost` is kept and sent (Chrome, Firefox, Safari 27; not Safari 26) |
-| `max_per_site`, `evict_to` | 180 and 150 (Chrome, Firefox); Safari: no limit seen at 200 |
-| `empty_name` | `keep` (Chrome: `=x` is a nameless cookie `x`), `drop` (Firefox, Safari) |
+| `newValueRenews` | a cookie whose value changes moves to the end of its order (Chrome) |
+| `samesiteScheme` | `schemeful` (Chrome), `schemeless` (Firefox, Safari) |
+| `hostPrefixPath` | `attribute`: `__Host-` needs `Path=/` as sent (Chrome, Firefox); `stored`: the stored path, default included (Safari) |
+| `httpPrefix` | enforce `__Http-` and `__Host-Http-` (Chrome, Firefox) |
+| `secureLoopback` | a `Secure` cookie set over `http://localhost` is kept and sent (Chrome, Firefox, Safari 27; not Safari 26) |
+| `maxPerSite`, `evictTo` | 180 and 150 (Chrome, Firefox); Safari: no limit seen at 200 |
+| `emptyName` | `keep` (Chrome: `=x` is a nameless cookie `x`), `drop` (Firefox, Safari) |
 
 These rows come from the `cookies-edge` and `cookies-edge2` captures
 ([report](../../harness/reports/cookies-edge-2026-10-24.md)). The wire shows
 169 of 200 cookies kept in Chrome and Firefox, which 180/150 explains
 exactly (150 left after the purge, plus the 19 set after it); the numbers
-themselves are the browsers' sources. Safari's `samesite_scheme` needed a
+themselves are the browsers' sources. Safari's `samesiteScheme` needed a
 plain-only port: on a port that also answers TLS, Safari's HTTPS upgrade
 succeeded and its plain steps never ran. Measured there, it is
 `schemeless`, the opposite of the value it had been given before the

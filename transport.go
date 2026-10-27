@@ -207,7 +207,7 @@ func NewTransport(cfg Config) (*Transport, error) {
 // Transport.Cookies). The jar is the transport's, not the client's Jar,
 // because it needs the page, kind and redirects. The client follows
 // redirects as far as the browser does (20, or the profile's
-// redirects.navigation_limit for navigations); a custom CheckRedirect
+// redirects.navigationLimit for navigations); a custom CheckRedirect
 // sees hops as http.Client built them.
 func NewClient(cfg Config) (*http.Client, error) {
 	t, err := NewTransport(cfg)

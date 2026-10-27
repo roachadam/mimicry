@@ -39,7 +39,7 @@ The Transport corrects each hop. It:
   rules: 301/302 keep every method but POST, 303 makes a GET (HEAD stays
   HEAD), 307/308 keep everything;
 - refuses a request beyond the limit: 20 redirects for fetches, and for
-  navigations `redirects.navigation_limit` (19 in Chrome, 20 in Firefox
+  navigations `redirects.navigationLimit` (19 in Chrome, 20 in Firefox
   and Safari);
 - returns `*CORSError` (with `Redirect` set) for a refused CORS 3xx,
   unless `IgnoreCORS`. This covers fetch(), XHR, elements with
@@ -48,17 +48,17 @@ The Transport corrects each hop. It:
 
 `NewClient` sets a `CheckRedirect` that allows every redirect, so the
 Transport's limit is the only one. Profile `redirects` holds:
-- `method_change_origin`: the `Origin` rule on a hop that became a GET
+- `methodChangeOrigin`: the `Origin` rule on a hop that became a GET
   (`keep` Safari, `drop` Chrome and Firefox);
-- `navigation_limit`;
-- `hop_preflight`: whether a hop after a preflighted request is
+- `navigationLimit`;
+- `hopPreflight`: whether a hop after a preflighted request is
   preflighted again even when simple (`inherit`, Firefox and Safari) or
   only by its own needs (`own`, Chrome);
-- `navigation_site`: a navigation hop's `Sec-Fetch-Site` after a
+- `navigationSite`: a navigation hop's `Sec-Fetch-Site` after a
   redirect to another site: the whole chain's (`chain`: Chrome, Firefox,
   Safari 26) or only from that redirect on (`restart`: Safari 27, whose
   page navigation sent to another site and back is `same-origin`);
-- `navigation_origin` (added 2026-10-26): when a form POST's `Origin`,
+- `navigationOrigin` (added 2026-10-26): when a form POST's `Origin`,
   kept by a 307 or 308, becomes `null`: once any redirect went to another
   origin than the URL before it (`cross_origin`: Chrome, Safari), or only
   once the chain is tainted as the Fetch standard has it (`taint`:
@@ -67,7 +67,7 @@ Transport's limit is the only one. Profile `redirects` holds:
   rule alone (one code path) would have been wrong for three profiles.
 
 Hop header order is chosen by redirect conditions on variants (0006);
-a navigation's also by `cross_site_redirect` (Safari puts `Referer`
+a navigation's also by `crossSiteRedirect` (Safari puts `Referer`
 before `Sec-Fetch-Dest` on a hop to another site than the URL before
 it). Typed navigations take site `none`. Each hop's Referer applies the
 policy to the Referer the request before sent, so a chain that left the
@@ -110,8 +110,8 @@ accepts it and logs it.
 
 ## Revisit when
 
-- A navigation chain changes origin more than once: `navigation_site`
-  and `navigation_origin` were measured on one redirect each.
+- A navigation chain changes origin more than once: `navigationSite`
+  and `navigationOrigin` were measured on one redirect each.
 - Styles, fonts and preloads redirected without
   `Access-Control-Allow-Origin`: the CORS check is assumed from the spec
   there, not captured.

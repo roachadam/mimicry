@@ -68,7 +68,7 @@ type siteRecord struct {
 	// Timing reports them (none for Safari).
 	Status   int    `json:"status,omitempty"`
 	Proto    string `json:"proto,omitempty"`
-	FinalURL string `json:"final_url,omitempty"`
+	FinalURL string `json:"finalUrl,omitempty"`
 	Title    string `json:"title,omitempty"`
 	Bytes    int    `json:"bytes"`
 	// Cookies are the names of the cookies set (a browser's: those it

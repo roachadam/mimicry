@@ -59,7 +59,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507895,
-        "sent_before": 655360
+        "sentBefore": 655360
       },
       {
         "ms": 52,
@@ -67,7 +67,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 1081344
+        "sentBefore": 1081344
       },
       {
         "ms": 53,
@@ -75,7 +75,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 1605632
+        "sentBefore": 1605632
       },
       {
         "ms": 54,
@@ -83,7 +83,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 2113536
+        "sentBefore": 2113536
       },
       {
         "ms": 55,
@@ -91,7 +91,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 2621440
+        "sentBefore": 2621440
       },
       {
         "ms": 56,
@@ -99,7 +99,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 3178496
+        "sentBefore": 3178496
       },
       {
         "ms": 57,
@@ -107,7 +107,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 3604480
+        "sentBefore": 3604480
       },
       {
         "ms": 58,
@@ -115,7 +115,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 4194304
+        "sentBefore": 4194304
       },
       {
         "ms": 59,
@@ -123,7 +123,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 4636672
+        "sentBefore": 4636672
       },
       {
         "ms": 60,
@@ -131,7 +131,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 5177344
+        "sentBefore": 5177344
       },
       {
         "ms": 60,
@@ -145,7 +145,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 5718016
+        "sentBefore": 5718016
       },
       {
         "ms": 61,
@@ -153,7 +153,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 6242304
+        "sentBefore": 6242304
       },
       {
         "ms": 62,
@@ -161,7 +161,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 6914048
+        "sentBefore": 6914048
       },
       {
         "ms": 63,
@@ -169,7 +169,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 7847936
+        "sentBefore": 7847936
       },
       {
         "ms": 64,
@@ -177,7 +177,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 9207799
+        "sentBefore": 9207799
       },
       {
         "ms": 65,
@@ -185,7 +185,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 9420791
+        "sentBefore": 9420791
       },
       {
         "ms": 66,
@@ -193,7 +193,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 10223607
+        "sentBefore": 10223607
       },
       {
         "ms": 67,
@@ -201,7 +201,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 10731511
+        "sentBefore": 10731511
       },
       {
         "ms": 68,
@@ -215,7 +215,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507895,
-        "sent_before": 11239415
+        "sentBefore": 11239415
       },
       {
         "ms": 68,
@@ -223,7 +223,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 11239415
+        "sentBefore": 11239415
       },
       {
         "ms": 68,
@@ -231,7 +231,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 11730935
+        "sentBefore": 11730935
       },
       {
         "ms": 68,
@@ -239,7 +239,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 11730935
+        "sentBefore": 11730935
       },
       {
         "ms": 69,
@@ -247,7 +247,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 13172727
+        "sentBefore": 13172727
       },
       {
         "ms": 70,
@@ -255,7 +255,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 13778926
+        "sentBefore": 13778926
       },
       {
         "ms": 72,
@@ -263,7 +263,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 14286830
+        "sentBefore": 14286830
       },
       {
         "ms": 72,
@@ -271,7 +271,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 14286830
+        "sentBefore": 14286830
       },
       {
         "ms": 72,
@@ -279,7 +279,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 15302638
+        "sentBefore": 15302638
       },
       {
         "ms": 72,
@@ -287,7 +287,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507895,
-        "sent_before": 15302638
+        "sentBefore": 15302638
       },
       {
         "ms": 74,
@@ -295,7 +295,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 16318437
+        "sentBefore": 16318437
       },
       {
         "ms": 75,
@@ -303,7 +303,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 16777216
+        "sentBefore": 16777216
       },
       {
         "ms": 75,
@@ -311,7 +311,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 16777216
+        "sentBefore": 16777216
       },
       {
         "ms": 75,
@@ -319,7 +319,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 16777216
+        "sentBefore": 16777216
       },
       {
         "ms": 75,
@@ -486,7 +486,7 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:58815",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "indexed",
@@ -498,57 +498,57 @@
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "document",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 19,
             "name": "accept",
             "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "none",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "navigate",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=0, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       },
@@ -574,77 +574,77 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:58815",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "without",
             "index": 4,
             "name": ":path",
             "value": "/style.css",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "style",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 19,
             "name": "accept",
             "value": "text/css,*/*;q=0.1",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 51,
             "name": "referer",
             "value": "https://localhost:58815/",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "same-origin",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "no-cors",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=1, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       },
@@ -670,77 +670,77 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:58815",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "without",
             "index": 4,
             "name": ":path",
             "value": "/img.png",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "image",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 19,
             "name": "accept",
             "value": "image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 51,
             "name": "referer",
             "value": "https://localhost:58815/",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "same-origin",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "no-cors",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=5, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       },
@@ -766,28 +766,28 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:58815",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "without",
             "index": 4,
             "name": ":path",
             "value": "/app.js",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "script",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
@@ -800,42 +800,42 @@
             "index": 51,
             "name": "referer",
             "value": "https://localhost:58815/",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "same-origin",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "no-cors",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=1, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       },
@@ -861,28 +861,28 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:58815",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "without",
             "index": 4,
             "name": ":path",
             "value": "/big",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "empty",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
@@ -895,42 +895,42 @@
             "index": 51,
             "name": "referer",
             "value": "https://localhost:58815/",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "same-origin",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "cors",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=3, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       },
@@ -956,14 +956,14 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:58815",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "without",
             "index": 4,
             "name": ":path",
             "value": "/upload",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
@@ -975,71 +975,71 @@
             "rep": "incremental",
             "name": "origin",
             "value": "https://localhost:58815",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "same-origin",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "cors",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 51,
             "name": "referer",
             "value": "https://localhost:58815/",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "empty",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "without",
             "index": 28,
             "name": "content-length",
             "value": "200000",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=3, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       },
@@ -1065,14 +1065,14 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:58815",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "without",
             "index": 4,
             "name": ":path",
             "value": "/again",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
@@ -1084,63 +1084,63 @@
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "same-origin",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "cors",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "x-mimicry-huffman",
             "value": "{^}~",
-            "huffman_name": true
+            "huffmanName": true
           },
           {
             "rep": "incremental",
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 51,
             "name": "referer",
             "value": "https://localhost:58815/",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "empty",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=3, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       },
@@ -1166,91 +1166,91 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:58815",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "without",
             "index": 4,
             "name": ":path",
             "value": "/nav",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "document",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 19,
             "name": "accept",
             "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 51,
             "name": "referer",
             "value": "https://localhost:58815/",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "same-origin",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "navigate",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=0, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "never",
             "index": 32,
             "name": "cookie",
             "value": "mimicry_a=1",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "never",
             "index": 32,
             "name": "cookie",
             "value": "mimicry_b=2",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       },
@@ -1276,28 +1276,28 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:58815",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "without",
             "index": 4,
             "name": ":path",
             "value": "/done",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "empty",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
@@ -1310,42 +1310,42 @@
             "index": 51,
             "name": "referer",
             "value": "https://localhost:58815/nav",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "same-origin",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "cors",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=3, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       }
@@ -1411,7 +1411,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507895,
-        "sent_before": 884736
+        "sentBefore": 884736
       },
       {
         "ms": 54,
@@ -1419,7 +1419,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 1081344
+        "sentBefore": 1081344
       },
       {
         "ms": 55,
@@ -1427,7 +1427,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 1605632
+        "sentBefore": 1605632
       },
       {
         "ms": 56,
@@ -1435,7 +1435,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 2113536
+        "sentBefore": 2113536
       },
       {
         "ms": 58,
@@ -1443,7 +1443,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 2555904
+        "sentBefore": 2555904
       },
       {
         "ms": 59,
@@ -1451,7 +1451,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 3112960
+        "sentBefore": 3112960
       },
       {
         "ms": 60,
@@ -1459,7 +1459,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 3637248
+        "sentBefore": 3637248
       },
       {
         "ms": 61,
@@ -1467,7 +1467,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 4145152
+        "sentBefore": 4145152
       },
       {
         "ms": 62,
@@ -1475,7 +1475,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 4669440
+        "sentBefore": 4669440
       },
       {
         "ms": 63,
@@ -1483,7 +1483,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 5193728
+        "sentBefore": 5193728
       },
       {
         "ms": 63,
@@ -1497,7 +1497,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 5668864
+        "sentBefore": 5668864
       },
       {
         "ms": 64,
@@ -1505,7 +1505,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 6160384
+        "sentBefore": 6160384
       },
       {
         "ms": 65,
@@ -1513,7 +1513,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 6684672
+        "sentBefore": 6684672
       },
       {
         "ms": 66,
@@ -1521,7 +1521,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 7258112
+        "sentBefore": 7258112
       },
       {
         "ms": 68,
@@ -1529,7 +1529,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 9207799
+        "sentBefore": 9207799
       },
       {
         "ms": 68,
@@ -1537,7 +1537,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 9207799
+        "sentBefore": 9207799
       },
       {
         "ms": 69,
@@ -1545,7 +1545,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 10174455
+        "sentBefore": 10174455
       },
       {
         "ms": 69,
@@ -1553,7 +1553,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 10174455
+        "sentBefore": 10174455
       },
       {
         "ms": 69,
@@ -1561,7 +1561,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507895,
-        "sent_before": 10665975
+        "sentBefore": 10665975
       },
       {
         "ms": 70,
@@ -1569,7 +1569,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 11665399
+        "sentBefore": 11665399
       },
       {
         "ms": 70,
@@ -1583,7 +1583,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 12255214
+        "sentBefore": 12255214
       },
       {
         "ms": 72,
@@ -1591,7 +1591,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 12763118
+        "sentBefore": 12763118
       },
       {
         "ms": 72,
@@ -1599,7 +1599,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 12763118
+        "sentBefore": 12763118
       },
       {
         "ms": 72,
@@ -1607,7 +1607,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 13041646
+        "sentBefore": 13041646
       },
       {
         "ms": 72,
@@ -1615,7 +1615,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507895,
-        "sent_before": 13041646
+        "sentBefore": 13041646
       },
       {
         "ms": 74,
@@ -1623,7 +1623,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 14794725
+        "sentBefore": 14794725
       },
       {
         "ms": 74,
@@ -1631,7 +1631,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 14794725
+        "sentBefore": 14794725
       },
       {
         "ms": 75,
@@ -1639,7 +1639,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 15810533
+        "sentBefore": 15810533
       },
       {
         "ms": 75,
@@ -1647,7 +1647,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 15810533
+        "sentBefore": 15810533
       },
       {
         "ms": 76,
@@ -1661,7 +1661,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507895,
-        "sent_before": 16777216
+        "sentBefore": 16777216
       },
       {
         "ms": 76,
@@ -1669,7 +1669,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 16777216
+        "sentBefore": 16777216
       },
       {
         "ms": 80,
@@ -1830,7 +1830,7 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:58818",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "indexed",
@@ -1842,57 +1842,57 @@
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "document",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 19,
             "name": "accept",
             "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "none",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "navigate",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=0, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       },
@@ -1918,77 +1918,77 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:58818",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "without",
             "index": 4,
             "name": ":path",
             "value": "/style.css",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "style",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 19,
             "name": "accept",
             "value": "text/css,*/*;q=0.1",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 51,
             "name": "referer",
             "value": "https://localhost:58818/",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "same-origin",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "no-cors",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=1, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       },
@@ -2014,77 +2014,77 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:58818",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "without",
             "index": 4,
             "name": ":path",
             "value": "/img.png",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "image",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 19,
             "name": "accept",
             "value": "image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 51,
             "name": "referer",
             "value": "https://localhost:58818/",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "same-origin",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "no-cors",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=5, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       },
@@ -2110,28 +2110,28 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:58818",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "without",
             "index": 4,
             "name": ":path",
             "value": "/app.js",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "script",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
@@ -2144,42 +2144,42 @@
             "index": 51,
             "name": "referer",
             "value": "https://localhost:58818/",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "same-origin",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "no-cors",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=1, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       },
@@ -2205,28 +2205,28 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:58818",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "without",
             "index": 4,
             "name": ":path",
             "value": "/big",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "empty",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
@@ -2239,42 +2239,42 @@
             "index": 51,
             "name": "referer",
             "value": "https://localhost:58818/",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "same-origin",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "cors",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=3, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       },
@@ -2300,14 +2300,14 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:58818",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "without",
             "index": 4,
             "name": ":path",
             "value": "/upload",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
@@ -2319,71 +2319,71 @@
             "rep": "incremental",
             "name": "origin",
             "value": "https://localhost:58818",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "same-origin",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "cors",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 51,
             "name": "referer",
             "value": "https://localhost:58818/",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "empty",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "without",
             "index": 28,
             "name": "content-length",
             "value": "200000",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=3, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       },
@@ -2409,14 +2409,14 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:58818",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "without",
             "index": 4,
             "name": ":path",
             "value": "/again",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
@@ -2428,63 +2428,63 @@
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "same-origin",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "cors",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "x-mimicry-huffman",
             "value": "{^}~",
-            "huffman_name": true
+            "huffmanName": true
           },
           {
             "rep": "incremental",
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 51,
             "name": "referer",
             "value": "https://localhost:58818/",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "empty",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=3, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       },
@@ -2510,91 +2510,91 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:58818",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "without",
             "index": 4,
             "name": ":path",
             "value": "/nav",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "document",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 19,
             "name": "accept",
             "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 51,
             "name": "referer",
             "value": "https://localhost:58818/",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "same-origin",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "navigate",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=0, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "never",
             "index": 32,
             "name": "cookie",
             "value": "mimicry_a=1",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "never",
             "index": 32,
             "name": "cookie",
             "value": "mimicry_b=2",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       },
@@ -2620,28 +2620,28 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:58818",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "without",
             "index": 4,
             "name": ":path",
             "value": "/done",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "empty",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
@@ -2654,42 +2654,42 @@
             "index": 51,
             "name": "referer",
             "value": "https://localhost:58818/nav",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "same-origin",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "cors",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=3, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       }
@@ -2755,7 +2755,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507895,
-        "sent_before": 606208
+        "sentBefore": 606208
       },
       {
         "ms": 54,
@@ -2763,7 +2763,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 1081344
+        "sentBefore": 1081344
       },
       {
         "ms": 55,
@@ -2771,7 +2771,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 1589248
+        "sentBefore": 1589248
       },
       {
         "ms": 57,
@@ -2779,7 +2779,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 2097152
+        "sentBefore": 2097152
       },
       {
         "ms": 58,
@@ -2787,7 +2787,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 2654208
+        "sentBefore": 2654208
       },
       {
         "ms": 59,
@@ -2795,7 +2795,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 3112960
+        "sentBefore": 3112960
       },
       {
         "ms": 60,
@@ -2803,7 +2803,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 3620864
+        "sentBefore": 3620864
       },
       {
         "ms": 60,
@@ -2811,7 +2811,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 4128768
+        "sentBefore": 4128768
       },
       {
         "ms": 61,
@@ -2819,7 +2819,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 4636672
+        "sentBefore": 4636672
       },
       {
         "ms": 62,
@@ -2827,7 +2827,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 5177344
+        "sentBefore": 5177344
       },
       {
         "ms": 62,
@@ -2841,7 +2841,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 5685248
+        "sentBefore": 5685248
       },
       {
         "ms": 64,
@@ -2849,7 +2849,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 6225920
+        "sentBefore": 6225920
       },
       {
         "ms": 64,
@@ -2857,7 +2857,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 6668288
+        "sentBefore": 6668288
       },
       {
         "ms": 65,
@@ -2865,7 +2865,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 7323648
+        "sentBefore": 7323648
       },
       {
         "ms": 66,
@@ -2873,7 +2873,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 8781824
+        "sentBefore": 8781824
       },
       {
         "ms": 67,
@@ -2881,7 +2881,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 9224192
+        "sentBefore": 9224192
       },
       {
         "ms": 67,
@@ -2889,7 +2889,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 9863168
+        "sentBefore": 9863168
       },
       {
         "ms": 68,
@@ -2903,7 +2903,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 10731511
+        "sentBefore": 10731511
       },
       {
         "ms": 68,
@@ -2911,7 +2911,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 10731511
+        "sentBefore": 10731511
       },
       {
         "ms": 69,
@@ -2919,7 +2919,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 11173879
+        "sentBefore": 11173879
       },
       {
         "ms": 69,
@@ -2927,7 +2927,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 11173879
+        "sentBefore": 11173879
       },
       {
         "ms": 71,
@@ -2935,7 +2935,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507895,
-        "sent_before": 12763127
+        "sentBefore": 12763127
       },
       {
         "ms": 71,
@@ -2943,7 +2943,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 12763127
+        "sentBefore": 12763127
       },
       {
         "ms": 72,
@@ -2951,7 +2951,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 13778926
+        "sentBefore": 13778926
       },
       {
         "ms": 72,
@@ -2959,7 +2959,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 13778926
+        "sentBefore": 13778926
       },
       {
         "ms": 73,
@@ -2967,7 +2967,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 14794734
+        "sentBefore": 14794734
       },
       {
         "ms": 73,
@@ -2975,7 +2975,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 14794734
+        "sentBefore": 14794734
       },
       {
         "ms": 73,
@@ -2983,7 +2983,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507895,
-        "sent_before": 15646702
+        "sentBefore": 15646702
       },
       {
         "ms": 73,
@@ -2991,7 +2991,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 15646702
+        "sentBefore": 15646702
       },
       {
         "ms": 75,
@@ -2999,7 +2999,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 16777216
+        "sentBefore": 16777216
       },
       {
         "ms": 75,
@@ -3007,7 +3007,7 @@
         "stream": 9,
         "length": 4,
         "increment": 507904,
-        "sent_before": 16777216
+        "sentBefore": 16777216
       },
       {
         "ms": 75,
@@ -3180,7 +3180,7 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:58821",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "indexed",
@@ -3192,57 +3192,57 @@
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "document",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 19,
             "name": "accept",
             "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "none",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "navigate",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=0, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       },
@@ -3268,77 +3268,77 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:58821",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "without",
             "index": 4,
             "name": ":path",
             "value": "/style.css",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "style",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 19,
             "name": "accept",
             "value": "text/css,*/*;q=0.1",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 51,
             "name": "referer",
             "value": "https://localhost:58821/",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "same-origin",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "no-cors",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=1, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       },
@@ -3364,77 +3364,77 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:58821",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "without",
             "index": 4,
             "name": ":path",
             "value": "/img.png",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "image",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 19,
             "name": "accept",
             "value": "image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 51,
             "name": "referer",
             "value": "https://localhost:58821/",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "same-origin",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "no-cors",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=5, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       },
@@ -3460,28 +3460,28 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:58821",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "without",
             "index": 4,
             "name": ":path",
             "value": "/app.js",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "script",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
@@ -3494,42 +3494,42 @@
             "index": 51,
             "name": "referer",
             "value": "https://localhost:58821/",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "same-origin",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "no-cors",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=1, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       },
@@ -3555,28 +3555,28 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:58821",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "without",
             "index": 4,
             "name": ":path",
             "value": "/big",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "empty",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
@@ -3589,42 +3589,42 @@
             "index": 51,
             "name": "referer",
             "value": "https://localhost:58821/",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "same-origin",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "cors",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=3, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       },
@@ -3650,14 +3650,14 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:58821",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "without",
             "index": 4,
             "name": ":path",
             "value": "/upload",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
@@ -3669,71 +3669,71 @@
             "rep": "incremental",
             "name": "origin",
             "value": "https://localhost:58821",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "same-origin",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "cors",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 51,
             "name": "referer",
             "value": "https://localhost:58821/",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "empty",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "without",
             "index": 28,
             "name": "content-length",
             "value": "200000",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=3, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       },
@@ -3759,14 +3759,14 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:58821",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "without",
             "index": 4,
             "name": ":path",
             "value": "/again",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
@@ -3778,63 +3778,63 @@
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "same-origin",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "cors",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "x-mimicry-huffman",
             "value": "{^}~",
-            "huffman_name": true
+            "huffmanName": true
           },
           {
             "rep": "incremental",
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 51,
             "name": "referer",
             "value": "https://localhost:58821/",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "empty",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=3, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       },
@@ -3860,91 +3860,91 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:58821",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "without",
             "index": 4,
             "name": ":path",
             "value": "/nav",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "document",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 19,
             "name": "accept",
             "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 51,
             "name": "referer",
             "value": "https://localhost:58821/",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "same-origin",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "navigate",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=0, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "never",
             "index": 32,
             "name": "cookie",
             "value": "mimicry_a=1",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "never",
             "index": 32,
             "name": "cookie",
             "value": "mimicry_b=2",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       },
@@ -3970,28 +3970,28 @@
             "index": 1,
             "name": ":authority",
             "value": "localhost:58821",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "without",
             "index": 4,
             "name": ":path",
             "value": "/done",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-dest",
             "value": "empty",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 58,
             "name": "user-agent",
             "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
@@ -4004,42 +4004,42 @@
             "index": 51,
             "name": "referer",
             "value": "https://localhost:58821/nav",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-site",
             "value": "same-origin",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "sec-fetch-mode",
             "value": "cors",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 17,
             "name": "accept-language",
             "value": "en-US,en;q=0.9",
-            "huffman_value": true
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "name": "priority",
             "value": "u=3, i",
-            "huffman_name": true,
-            "huffman_value": true
+            "huffmanName": true,
+            "huffmanValue": true
           },
           {
             "rep": "incremental",
             "index": 16,
             "name": "accept-encoding",
             "value": "gzip, deflate, br, zstd",
-            "huffman_value": true
+            "huffmanValue": true
           }
         ]
       }

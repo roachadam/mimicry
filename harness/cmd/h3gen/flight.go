@@ -40,8 +40,8 @@ func flight(s *captureSet, e *collector) (ackInitial, ackBefore, coalesce bool) 
 		befores = append(befores, before)
 		beforeConns = append(beforeConns, c)
 	}
-	ackInitial = majority(s, acks, ackConns, "ack_initial", e)
-	ackBefore = majority(s, befores, beforeConns, "ack_before_finished", e)
+	ackInitial = majority(s, acks, ackConns, "ackInitial", e)
+	ackBefore = majority(s, befores, beforeConns, "ackBeforeFinished", e)
 	for _, c := range s.conns {
 		for _, d := range c.c.Datagrams {
 			coalesce = coalesce || len(d.Packets) > 1

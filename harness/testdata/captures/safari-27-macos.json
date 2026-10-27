@@ -4,10 +4,10 @@
   "version": "27",
   "platform": "macos",
   "tls": {
-    "record_version": "0x0301",
-    "legacy_version": "0x0303",
-    "session_id_length": 32,
-    "cipher_suites": [
+    "recordVersion": "0x0301",
+    "legacyVersion": "0x0303",
+    "sessionIdLength": 32,
+    "cipherSuites": [
       "GREASE",
       "0x1302",
       "0x1303",
@@ -30,10 +30,10 @@
       "0xc012",
       "0x000a"
     ],
-    "compression_methods": [
+    "compressionMethods": [
       0
     ],
-    "extension_order": "fixed",
+    "extensionOrder": "fixed",
     "extensions": [
       {
         "type": "GREASE"
@@ -61,7 +61,7 @@
       },
       {
         "type": "0x000b",
-        "point_formats": [
+        "pointFormats": [
           0
         ]
       },
@@ -78,7 +78,7 @@
       },
       {
         "type": "0x000d",
-        "signature_algorithms": [
+        "signatureAlgorithms": [
           "0x0403",
           "0x0804",
           "0x0401",
@@ -96,12 +96,12 @@
       },
       {
         "type": "0x0033",
-        "key_shares": [
+        "keyShares": [
           "GREASE",
           "0x11ec",
           "0x001d"
         ],
-        "key_share_lengths": [
+        "keyShareLengths": [
           1,
           1216,
           32
@@ -109,7 +109,7 @@
       },
       {
         "type": "0x002d",
-        "psk_modes": [
+        "pskModes": [
           1
         ]
       },
@@ -123,7 +123,7 @@
       },
       {
         "type": "0x001b",
-        "cert_compression": [
+        "certCompression": [
           "0x0001"
         ]
       },
@@ -152,8 +152,8 @@
         "value": 1
       }
     ],
-    "window_update": 10420225,
-    "pseudo_header_order": [
+    "windowUpdate": 10420225,
+    "pseudoHeaderOrder": [
       ":method",
       ":scheme",
       ":authority",

@@ -2,8 +2,8 @@
 
 - Status: Accepted
 - Date: 2026-10-25
-- Commits: (the commit that adds `quic.loss`, `quic.keep_alive`, `quic.ack`,
-  `quic.credit`, `quic.key_update`, `quic.version_negotiation` and
+- Commits: (the commit that adds `quic.loss`, `quic.keepAlive`, `quic.ack`,
+  `quic.credit`, `quic.keyUpdate`, `quic.versionNegotiation` and
   `http3.discovery.fallback`)
 
 ## Problem
@@ -29,9 +29,9 @@ browser does; a model had to choose which of it to reproduce, and how.
   when TCP connects: a server sees a different client.
 - **Per-browser fallback as profile data** (`http3.discovery.fallback`),
   derived by h3gen from the captures and checked against every sample: the
-  mode (`race`: wait `tcp_delay_ms`, then TCP; `background`: never wait;
-  plus Chrome's `zero_rtt_holds` and Firefox's `hold`), `abandon_on_tcp`,
-  `broken_after`, `broken_counts_resumed`, `revalidate_ms`, `pending`.
+  mode (`race`: wait `tcpDelayMs`, then TCP; `background`: never wait;
+  plus Chrome's `zeroRttHolds` and Firefox's `hold`), `abandonOnTcp`,
+  `brokenAfter`, `brokenCountsResumed`, `revalidateMs`, `pending`.
   More engine code, one rule per browser behaviour seen.
 - **How long an origin stays broken**: Chrome's source backs off for 5
   minutes (doubling); no capture shows a browser trying QUIC again for an
@@ -54,7 +54,7 @@ browser does; a model had to choose which of it to reproduce, and how.
 ## Decision
 
 Each browser's failure behaviour is profile data, derived by h3gen
-(`quic.*`) and hellogen (`tls.quic.version_negotiation`) from the edge
+(`quic.*`) and hellogen (`tls.quic.versionNegotiation`) from the edge
 captures, as decision [0024](0024-clienthello-shape-in-profiles.md) made the
 ClientHello's shape profile data.
 
@@ -66,24 +66,24 @@ ClientHello's shape profile data.
   100 ms head start and drops the attempt when the request goes on TCP.
   Requests pending on a dead connection go where the browser sent them
   (`pending`: TCP for Chrome and Firefox, a new QUIC connection for Safari).
-- **Broken for the Transport's life.** After `broken_after` failed attempts
+- **Broken for the Transport's life.** After `brokenAfter` failed attempts
   in a row (Chrome and Firefox 1, Safari 2 with resumed ones counting) the
   origin stays on TCP until the Transport is closed. The 5 minutes are
   source, not measured; a Transport is one browsing entity (decision
   [0019](0019-transport-is-one-browsing-entity.md)), and a page-length
   capture is all the evidence there is.
 - **No client-initiated key updates.** A profile client follows the
-  server's key updates and starts none (`quic.key_update.initiate` false
+  server's key updates and starts none (`quic.keyUpdate.initiate` false
   for every browser).
 - **Give-up and abandon closes per profile** (`quic.loss.fresh`,
-  `.resumed`, `.abandon_close`): Chrome at 4.0 s with an Initial
+  `.resumed`, `.abandonClose`): Chrome at 4.0 s with an Initial
   CONNECTION_CLOSE (NO_ERROR, quiche's idle-timeout reason) padded to 1250
   bytes; Firefox silent at its idle timeout for a fresh attempt and at 5.0 s
   with an Initial application close (0x0c) in 255 bytes for a resumed one;
   Safari's dropped attempt sends a 0-RTT close only if it sent 0-RTT. A
   `Dial` whose context ends drops its attempt without a word.
 - **Chrome's port migration.** Once the oldest unacknowledged packet is
-  `quic.loss.path_degrading.after_ptos` (4) of its PTOs old, the connection
+  `quic.loss.pathDegrading.afterPtos` (4) of its PTOs old, the connection
   moves to a new UDP socket with the server's next connection ID (the old one
   retired, a PATH_CHALLENGE padded to 1250 bytes). The socket comes from
   `quic.DialConfig.NewPath`, which the engine fills from its dialer, and a
@@ -91,10 +91,10 @@ ClientHello's shape profile data.
   connection 12 s after the last packet received ("keepalive limit
   reached"); Firefox keeps it until its idle timeout.
 - **Keep-alive capped at half the idle timeout.** The PING period is the
-  profile's (`quic.keep_alive`: Chrome and Firefox 15 s, Safari 2 s), or
+  profile's (`quic.keepAlive`: Chrome and Firefox 15 s, Safari 2 s), or
   half the negotiated idle timeout if that is shorter.
 - **Chrome's 1.5 × SRTT main-job delay is not modelled.** The race delay
-  (`tcp_delay_ms`) and the 0-RTT hold describe every capture.
+  (`tcpDelayMs`) and the 0-RTT hold describe every capture.
 
 ## Evidence
 

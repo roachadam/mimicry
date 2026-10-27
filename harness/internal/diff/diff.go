@@ -77,13 +77,13 @@ func (d *differ) compareTLS(want, got *profile.TLS) {
 	// Zero: the records were not kept (older captures, page connections,
 	// whose record version is capture.Connection's).
 	if want.RecordVersion != 0 && got.RecordVersion != 0 {
-		d.check("tls.record_version", want.RecordVersion, got.RecordVersion)
+		d.check("tls.recordVersion", want.RecordVersion, got.RecordVersion)
 	}
-	d.check("tls.legacy_version", want.LegacyVersion, got.LegacyVersion)
-	d.check("tls.session_id_length", want.SessionIDLength, got.SessionIDLength)
-	d.check("tls.cipher_suites", want.CipherSuites, got.CipherSuites)
-	d.check("tls.compression_methods", []uint8(want.CompressionMethods), []uint8(got.CompressionMethods))
-	d.check("tls.extension_order", want.ExtensionOrder, got.ExtensionOrder)
+	d.check("tls.legacyVersion", want.LegacyVersion, got.LegacyVersion)
+	d.check("tls.sessionIdLength", want.SessionIDLength, got.SessionIDLength)
+	d.check("tls.cipherSuites", want.CipherSuites, got.CipherSuites)
+	d.check("tls.compressionMethods", []uint8(want.CompressionMethods), []uint8(got.CompressionMethods))
+	d.check("tls.extensionOrder", want.ExtensionOrder, got.ExtensionOrder)
 
 	if want.ExtensionOrder == profile.ExtensionOrderShuffled {
 		d.check("tls.extensions (pinned positions)", pinned(want.Extensions), pinned(got.Extensions))
@@ -128,12 +128,12 @@ func (d *differ) compareECH(path string, want, got profile.Extension) {
 	w, g := *want.ECH, *got.ECH
 	want.ECH, got.ECH = nil, nil
 	d.check(path, render(want), render(got))
-	d.check(path+".ech.enc_length", w.EncLength, g.EncLength)
+	d.check(path+".ech.encLength", w.EncLength, g.EncLength)
 	if !subset(g.CipherSuites, w.CipherSuites) {
-		d.check(path+".ech.cipher_suites (one of)", w.CipherSuites, g.CipherSuites)
+		d.check(path+".ech.cipherSuites (one of)", w.CipherSuites, g.CipherSuites)
 	}
 	if !subset(g.PayloadLengths, w.PayloadLengths) {
-		d.check(path+".ech.payload_lengths (one of)", w.PayloadLengths, g.PayloadLengths)
+		d.check(path+".ech.payloadLengths (one of)", w.PayloadLengths, g.PayloadLengths)
 	}
 }
 
@@ -195,12 +195,12 @@ func (d *differ) compareHTTP2(want, got *profile.HTTP2) {
 		return
 	}
 	d.check("http2.settings", want.Settings, got.Settings)
-	d.check("http2.window_update", want.WindowUpdate, got.WindowUpdate)
+	d.check("http2.windowUpdate", want.WindowUpdate, got.WindowUpdate)
 	d.check("http2.priorities", want.Priorities, got.Priorities)
-	d.check("http2.headers_priority", want.HeadersPriority, got.HeadersPriority)
-	d.check("http2.pseudo_header_order", strings.Join(want.PseudoHeaderOrder, ","), strings.Join(got.PseudoHeaderOrder, ","))
-	d.check("http2.first_stream_id", firstStream(want), firstStream(got))
-	d.check("http2.stream_window_update", want.StreamWindowUpdate, got.StreamWindowUpdate)
+	d.check("http2.headersPriority", want.HeadersPriority, got.HeadersPriority)
+	d.check("http2.pseudoHeaderOrder", strings.Join(want.PseudoHeaderOrder, ","), strings.Join(got.PseudoHeaderOrder, ","))
+	d.check("http2.firstStreamId", firstStream(want), firstStream(got))
+	d.check("http2.streamWindowUpdate", want.StreamWindowUpdate, got.StreamWindowUpdate)
 }
 
 // firstStream is the first request's stream ID; zero means the default 1.

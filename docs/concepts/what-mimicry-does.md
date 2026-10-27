@@ -60,7 +60,7 @@ browser does:
   own.
 
 A chain stops with an error after 20 redirects, or after the profile's
-`redirects.navigation_limit` for a navigation (Chrome 19, the others 20).
+`redirects.navigationLimit` for a navigation (Chrome 19, the others 20).
 A `Fetch`, `XHR` or CORS-mode element request to another origin whose
 redirect does not allow its origin returns a `*CORSError`, and the next
 URL is never requested. See
@@ -95,7 +95,7 @@ header the page set that the Fetch standard does not safelist (a JSON
 allow the request, `client.Do` returns a `*CORSError` and the request is
 never sent. Answers are cached per Transport, for `Access-Control-Max-Age`
 or 5 s. Firefox and Safari also preflight a redirect hop because the
-request before it was (`redirects.hop_preflight`). See
+request before it was (`redirects.hopPreflight`). See
 [CORS preflights](cors-preflights.md) and
 [decision 0017](../decisions/0017-cors-preflights.md).
 
@@ -166,7 +166,7 @@ partition and proxy:
 - One HTTP/2 connection per host carries every request to it.
 - HTTP/1.1 connections are reused one request at a time. Once a host is
   known to speak HTTP/1.1 only, at most 6 are open to it at once (the
-  profile's `connections.http1_per_host`, 6 in every browser); further
+  profile's `connections.http1PerHost`, 6 in every browser); further
   requests wait, first come, first served.
 - An idle HTTP/1.1 connection is checked before reuse and closed after
   90 s idle.
@@ -314,7 +314,7 @@ first requests in 0-RTT; Safari's QUIC connections are always fresh. See
 [decision 0013](../decisions/0013-tls-resumption.md).
 
 In 0-RTT go only the methods the profile's browser sends there (GET, HEAD
-and OPTIONS, `http3.early_data.methods`). A request with any other method
+and OPTIONS, `http3.earlyData.methods`). A request with any other method
 (a POST, PUT or DELETE, a form submission) made while a resumed
 connection's handshake is in progress waits for it and leaves in 1-RTT:
 for Firefox in the datagram that carries the client's Finished, for

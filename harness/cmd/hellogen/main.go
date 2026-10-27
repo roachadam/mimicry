@@ -88,7 +88,7 @@ func regenerate(data, captured []byte, dir string) ([]byte, []byte, error) {
 		return nil, nil, fmt.Errorf("profile: %w", err)
 	}
 	if p.TLS.WebSocketH1, err = websocketHello(dir, p); err != nil {
-		return nil, nil, fmt.Errorf("tls.websocket_h1: %w", err)
+		return nil, nil, fmt.Errorf("tls.websocketH1: %w", err)
 	}
 	if p.TLS.QUIC, err = quicHello(dir, p); err != nil {
 		return nil, nil, fmt.Errorf("tls.quic: %w", err)
@@ -189,7 +189,7 @@ func (sh *shape) add(conn *capture.Connection) error {
 		return fmt.Errorf("record version %#04x, the samples' %s", conn.RecordVersion, full.RecordVersion)
 	}
 	if h.LegacyVersion != full.LegacyVersion || h.SessionIDLength != full.SessionIDLength {
-		return fmt.Errorf("legacy_version %s with a %d-byte session ID, the samples' %s with %d bytes",
+		return fmt.Errorf("legacyVersion %s with a %d-byte session ID, the samples' %s with %d bytes",
 			h.LegacyVersion, h.SessionIDLength, full.LegacyVersion, full.SessionIDLength)
 	}
 	if got, want := extension(h, profile.ExtKeyShare), extension(full, profile.ExtKeyShare); (got == nil) != (want == nil) ||
@@ -204,7 +204,7 @@ func (sh *shape) add(conn *capture.Connection) error {
 		return nil
 	}
 	if got.ECH.EncLength != want.ECH.EncLength {
-		return fmt.Errorf("ECH enc_length %d, the samples' %d", got.ECH.EncLength, want.ECH.EncLength)
+		return fmt.Errorf("ECH encLength %d, the samples' %d", got.ECH.EncLength, want.ECH.EncLength)
 	}
 	// Combine gave the combined hello an ECH of its own (mergeECH): its
 	// sets grow in place.

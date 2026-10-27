@@ -556,7 +556,7 @@ var sampleGaps = map[string]map[sampleGap]string{
 	"safari-27-macos": {
 		{scenario: "nav-redirect-page", sample: 1, path: "/p/nav-302.cs-so.hop1"}: "the run's first sample, on a cold Safari: the hop back to the page's site went on a new connection, " +
 			"with Referer after Sec-Fetch-Dest (as on a redirect within a site) and sec-fetch-site cross-site; the other two samples, on the page's connection, " +
-			"put Referer first, as on every other redirect to another site, and send same-origin (redirects.navigation_site restart)",
+			"put Referer first, as on every other redirect to another site, and send same-origin (redirects.navigationSite restart)",
 	},
 	"safari-26-macos": {
 		{scenario: "nav-redirect-page", sample: 1, path: "/p/nav-302.cs-so.hop1"}: "the run's first sample, on a cold Safari: the hop back to the page's site went on a new connection, " +

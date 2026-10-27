@@ -23,8 +23,8 @@ Kinds captures, three samples each, stable:
 
 ## Decision
 
-Model Chrome (profile `context.anonymous_connections`,
-`frame_connections`; a partition in the pool key). Safari needs nothing.
+Model Chrome (profile `context.anonymousConnections`,
+`frameConnections`; a partition in the pool key). Safari needs nothing.
 Do not model Firefox: guessing a rule from one page would be wrong
 somewhere else. `TestKindsMatchBrowserTraces` checks which requests share a
 connection and logs Firefox's difference as a known gap.

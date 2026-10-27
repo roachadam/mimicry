@@ -61,21 +61,21 @@ Modelling:
 - The handshake is the `websocket` request kind, derived by kindsgen.
   Priority is the kind's weight. Its only variant is non-secure `ws://`.
   Extensions is a slot whose value comes from the `websocket` section.
-- `:protocol` follows `pseudo_header_order`, a fixed rule that kindsgen
+- `:protocol` follows `pseudoHeaderOrder`, a fixed rule that kindsgen
   checks.
-- The HTTP/1.1 socket's hello is `tls.websocket_h1` (`alpn`, `drop`),
+- The HTTP/1.1 socket's hello is `tls.websocketH1` (`alpn`, `drop`),
   derived by hellogen.
 - Profile `websocket` holds the rest:
   - `extensions`, and `compression` (the browser's deflate library at
     level 6: `chromium_zlib6`, `zlib6`, `zlib_rs6`), `uncompressed`
-    (which messages go raw) and `window_bits_8` (amended 2026-10-26,
+    (which messages go raw) and `windowBits8` (amended 2026-10-26,
     [websocket-deflate report](../../harness/reports/websocket-deflate-2026-10-26.md));
-  - `h2_data` (`together`, `header_alone`, `split_control`), with DATA
-    capped by `http2.max_data_frame`;
-  - `close_h1` / `close_h2`.
+  - `h2Data` (`together`, `header_alone`, `split_control`), with DATA
+    capped by `http2.maxDataFrame`;
+  - `closeH1` / `closeH2`.
 - Cookies: the jar treats `ws`/`wss` as `http`/`https`. Safari 26 also
   sends unpartitioned Lax and None cookies cross-site
-  (`cookies.websocket_unpartitioned`).
+  (`cookies.websocketUnpartitioned`).
 - Compression is a pure-Go port of each browser's library
   (`internal/zdeflate`: zlib, Chromium's zlib, zlib-rs): `compress/flate`
   is not byte-identical to any of them.

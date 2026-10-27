@@ -677,7 +677,7 @@ func (e *Engine) runAttempt(ctx context.Context, o *origin, r route, a *attempt,
 }
 
 // goAwayIfReplaced sends GOAWAY on s, just pooled by req, if the origin's
-// QUIC connection came up while s was dialling (goaway_tcp). runAttempt
+// QUIC connection came up while s was dialling (goawayTcp). runAttempt
 // covers connections pooled before; both decide under e.quic.mu, so one
 // sees the other. Requests of a kind unmeasured over HTTP/3 keep s.
 func (e *Engine) goAwayIfReplaced(req *http.Request, r route, s *shared) {
@@ -795,7 +795,7 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 	}
 	if v, ok := quic.RetryVersion(err, e.profile.QUIC, from); ok {
 		// Firefox: a new connection in v at once, with its retry hello
-		// (tls.quic.version_negotiation), offering no ticket.
+		// (tls.quic.versionNegotiation), offering no ticket.
 		if retry, ok := e.plan.RetryQUICHello(); ok {
 			cfg.Ticket = nil
 			dc.Version, dc.AfterVersionNegotiation, dc.Token, dc.CachedRTT = v, true, nil, 0

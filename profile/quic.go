@@ -15,7 +15,7 @@ type QUIC struct {
 	Version uint32 `json:"version"`
 	// DatagramSize is the length Initial-carrying datagrams are padded to,
 	// and the longest datagram the browser sends.
-	DatagramSize int `json:"datagram_size"`
+	DatagramSize int `json:"datagramSize"`
 	// Padding is where a datagram carrying an Initial packet is padded:
 	// PaddingScattered, PaddingTrailing or PaddingEnd.
 	Padding string `json:"padding"`
@@ -25,74 +25,74 @@ type QUIC struct {
 	// PacketNumbers is how packet numbers are assigned:
 	// PacketNumbersShared, PacketNumbersRandomInitial or
 	// PacketNumbersPerSpace.
-	PacketNumbers string `json:"packet_numbers"`
+	PacketNumbers string `json:"packetNumbers"`
 	// DCIDLength is the length of the first Initial's random Destination
 	// Connection ID; with DCIDLengthBiased, the shortest length it picks.
-	DCIDLength int `json:"dcid_length"`
+	DCIDLength int `json:"dcidLength"`
 	// DCIDLengthRule is how DCIDLength is picked per connection: empty is
 	// always DCIDLength; DCIDLengthBiased.
-	DCIDLengthRule string `json:"dcid_length_rule,omitempty"`
+	DCIDLengthRule string `json:"dcidLengthRule,omitempty"`
 	// SCIDLength is the length of the client's own connection IDs. Zero
 	// means it issues none.
-	SCIDLength int `json:"scid_length"`
+	SCIDLength int `json:"scidLength"`
 	// NewConnectionIDs is how many connection IDs the client issues with
 	// NEW_CONNECTION_ID to a server whose active_connection_id_limit is 4.
 	// Zero with SCIDLength 0.
-	NewConnectionIDs int `json:"new_connection_ids,omitempty"`
+	NewConnectionIDs int `json:"newConnectionIds,omitempty"`
 	// TransportParameters are the ClientHello's quic_transport_parameters
 	// (RFC 9000, section 18) in one observed order, permuted as
 	// TransportParameterOrder says.
-	TransportParameters []TransportParameter `json:"transport_parameters"`
+	TransportParameters []TransportParameter `json:"transportParameters"`
 	// TransportParameterOrder is TransportParameterOrderFixed,
 	// TransportParameterOrderShuffled or TransportParameterOrderRotated.
-	TransportParameterOrder string `json:"transport_parameter_order"`
+	TransportParameterOrder string `json:"transportParameterOrder"`
 	// AckInitial acknowledges the server's Initial packets. Otherwise the
 	// Initial keys are dropped at the first Handshake packet.
-	AckInitial bool `json:"ack_initial,omitempty"`
+	AckInitial bool `json:"ackInitial,omitempty"`
 	// AckBeforeFinished acknowledges the server's first flight in
 	// datagrams before the one carrying the Finished; otherwise the
 	// Handshake ACK goes with the Finished.
-	AckBeforeFinished bool `json:"ack_before_finished,omitempty"`
+	AckBeforeFinished bool `json:"ackBeforeFinished,omitempty"`
 	// Coalesce puts packets of different spaces that are ready together in
 	// one datagram (RFC 9000, section 12.2); otherwise one per datagram.
 	Coalesce bool `json:"coalesce,omitempty"`
 	// AckDelay is what an ACK frame's ACK Delay says: AckDelayActual or
 	// AckDelayConstant.
-	AckDelay string `json:"ack_delay"`
+	AckDelay string `json:"ackDelay"`
 	// AckDelayConstant is the range a connection's constant ACK Delay is
 	// drawn from, as sent (before ack_delay_exponent).
-	AckDelayConstant *Range `json:"ack_delay_constant,omitempty"`
+	AckDelayConstant *Range `json:"ackDelayConstant,omitempty"`
 	// AckOnlyLimit: after this many consecutive ACK-only 1-RTT packets,
 	// the next carries AckOnlyFrame to make it ack-eliciting. Zero: never.
-	AckOnlyLimit int    `json:"ack_only_limit,omitempty"`
-	AckOnlyFrame string `json:"ack_only_frame,omitempty"`
+	AckOnlyLimit int    `json:"ackOnlyLimit,omitempty"`
+	AckOnlyFrame string `json:"ackOnlyFrame,omitempty"`
 	// SpinBit is how the latency spin bit of 1-RTT packets is set:
 	// SpinBitZero, SpinBitRandom or SpinBitSpin.
-	SpinBit string `json:"spin_bit"`
+	SpinBit string `json:"spinBit"`
 	// Tokens sends the server's last NEW_TOKEN token on a new connection.
 	Tokens bool `json:"tokens,omitempty"`
 	// ZeroRTT sends a resumed connection's first requests in 0-RTT. False
 	// with TLS.Resumption: not measured.
-	ZeroRTT bool `json:"zero_rtt,omitempty"`
+	ZeroRTT bool `json:"zeroRtt,omitempty"`
 	// CloseReply answers the server's CONNECTION_CLOSE with a NO_ERROR
 	// CONNECTION_CLOSE (frame type 0x1d) plus ACK; otherwise silence.
 	// Unused connections end by max_idle_timeout.
-	CloseReply bool `json:"close_reply,omitempty"`
+	CloseReply bool `json:"closeReply,omitempty"`
 	// Loss is handshake probing, give-up, and path degrading.
 	Loss QUICLoss `json:"loss"`
 	// KeepAlive is the PING sent while a request waits on a quiet
 	// connection.
-	KeepAlive QUICKeepAlive `json:"keep_alive"`
+	KeepAlive QUICKeepAlive `json:"keepAlive"`
 	// Ack is how often the client acknowledges a bulk receive.
 	Ack QUICAck `json:"ack"`
 	// Credit is how the client returns flow-control credit.
 	Credit QUICCredit `json:"credit"`
 	// KeyUpdate is how the client takes part in 1-RTT key updates (RFC
 	// 9001, section 6).
-	KeyUpdate QUICKeyUpdate `json:"key_update"`
+	KeyUpdate QUICKeyUpdate `json:"keyUpdate"`
 	// VersionNegotiation is what a Version Negotiation packet makes the
 	// client do.
-	VersionNegotiation QUICVersionNegotiation `json:"version_negotiation"`
+	VersionNegotiation QUICVersionNegotiation `json:"versionNegotiation"`
 }
 
 // QUICLoss is how a client recovers from loss where it differs from RFC
@@ -100,29 +100,29 @@ type QUIC struct {
 type QUICLoss struct {
 	// InitialPTOMillis is the first probe timeout with no RTT sample.
 	// Zero: not measured.
-	InitialPTOMillis int `json:"initial_pto_ms,omitempty"`
+	InitialPTOMillis int `json:"initialPtoMs,omitempty"`
 	// CachedRTT starts a resumed connection from the RTT of the connection
 	// whose ticket it resumes (RFC 9002, section 6.2.2).
-	CachedRTT bool `json:"cached_rtt,omitempty"`
+	CachedRTT bool `json:"cachedRtt,omitempty"`
 	// PTOAckDelay counts max_ack_delay in the probe timeout before the
 	// handshake completes too, not only in 1-RTT as RFC 9002 does.
-	PTOAckDelay bool `json:"pto_ack_delay,omitempty"`
+	PTOAckDelay bool `json:"ptoAckDelay,omitempty"`
 	// Probe is what a handshake probe sends: ProbeFlight or
 	// ProbeOnePacket. Empty: not measured (Safari).
 	Probe string `json:"probe,omitempty"`
 	// SkipPacketNumber skips one packet number before every probe, in the
 	// handshake and 1-RTT, but not before a close.
-	SkipPacketNumber bool `json:"skip_packet_number,omitempty"`
+	SkipPacketNumber bool `json:"skipPacketNumber,omitempty"`
 	// Fresh and Resumed are when a handshake without and with a resumed
 	// ticket gives up, and how it ends.
 	Fresh   QUICGiveUp `json:"fresh"`
 	Resumed QUICGiveUp `json:"resumed"`
 	// AbandonClose is how the client ends an attempt dropped because TCP
 	// won (HTTP3.Discovery.Fallback.AbandonOnTCP): CloseZeroRTT or empty.
-	AbandonClose string `json:"abandon_close,omitempty"`
+	AbandonClose string `json:"abandonClose,omitempty"`
 	// PathDegrading is when a live connection's path counts as dead and
 	// what follows. Nil: never; the connection runs to its idle timeout.
-	PathDegrading *QUICPathDegrading `json:"path_degrading,omitempty"`
+	PathDegrading *QUICPathDegrading `json:"pathDegrading,omitempty"`
 }
 
 // Values of QUICLoss.Probe.
@@ -141,7 +141,7 @@ type QUICGiveUp struct {
 	// AfterMillis ends the attempt this long after it started if the
 	// handshake is incomplete. Zero: it lasts until max_idle_timeout, or
 	// is not measured.
-	AfterMillis int `json:"after_ms,omitempty"`
+	AfterMillis int `json:"afterMs,omitempty"`
 	// Close is what the client sends at AfterMillis: CloseTransport,
 	// CloseApplication, or empty for nothing (Firefox fresh).
 	Close string `json:"close,omitempty"`
@@ -150,7 +150,7 @@ type QUICGiveUp struct {
 	Reason string `json:"reason,omitempty"`
 	// DatagramSize is the close datagram's padded size: inside the Initial
 	// packet, or trailing zeros with CloseApplication.
-	DatagramSize int `json:"datagram_size,omitempty"`
+	DatagramSize int `json:"datagramSize,omitempty"`
 }
 
 // Values of QUICGiveUp.Close and QUICLoss.AbandonClose.
@@ -172,14 +172,14 @@ const (
 type QUICPathDegrading struct {
 	// AfterPTOs: the path is degrading once the oldest unacknowledged
 	// ack-eliciting packet is this many PTOs old, without back-off.
-	AfterPTOs int `json:"after_ptos,omitempty"`
+	AfterPTOs int `json:"afterPtos,omitempty"`
 	// AfterMillis: the path is dead once nothing has arrived for this
 	// long while a request waits.
-	AfterMillis int `json:"after_ms,omitempty"`
+	AfterMillis int `json:"afterMs,omitempty"`
 	// Action is PathMigrate or PathClose.
 	Action string `json:"action"`
 	// CloseReason is PathClose's CONNECTION_CLOSE reason phrase.
-	CloseReason string `json:"close_reason,omitempty"`
+	CloseReason string `json:"closeReason,omitempty"`
 }
 
 // Values of QUICPathDegrading.Action.
@@ -198,7 +198,7 @@ const (
 // then every PeriodMillis. An idle connection sends none.
 type QUICKeepAlive struct {
 	// PeriodMillis is the PING period.
-	PeriodMillis int `json:"period_ms"`
+	PeriodMillis int `json:"periodMs"`
 	// From is KeepAliveFromSent, KeepAliveFromIdle or
 	// KeepAliveFromReceived.
 	From string `json:"from"`
@@ -223,8 +223,8 @@ type QUICAck struct {
 	Every int `json:"every"`
 	// WarmupPackets: until this many packets have arrived, acknowledge
 	// every WarmupEvery-th instead.
-	WarmupPackets int `json:"warmup_packets,omitempty"`
-	WarmupEvery   int `json:"warmup_every,omitempty"`
+	WarmupPackets int `json:"warmupPackets,omitempty"`
+	WarmupEvery   int `json:"warmupEvery,omitempty"`
 	// Batched waits until arrived packets are all read, so one ACK may
 	// cover more than Every; otherwise exactly Every.
 	Batched bool `json:"batched,omitempty"`
@@ -237,14 +237,14 @@ type QUICAck struct {
 type QUICCredit struct {
 	// StreamDivisor sends MAX_STREAM_DATA once the bytes received since
 	// the last update reach window / StreamDivisor.
-	StreamDivisor int `json:"stream_divisor"`
+	StreamDivisor int `json:"streamDivisor"`
 	// ConnectionDivisor: MAX_DATA likewise for the connection. Zero with
 	// ConnectionStreamWindow.
-	ConnectionDivisor int `json:"connection_divisor,omitempty"`
+	ConnectionDivisor int `json:"connectionDivisor,omitempty"`
 	// ConnectionStreamWindow sets the connection limit to bytes received
 	// plus the stream window once that passes the initial limit, then
 	// with every MAX_STREAM_DATA.
-	ConnectionStreamWindow bool `json:"connection_stream_window,omitempty"`
+	ConnectionStreamWindow bool `json:"connectionStreamWindow,omitempty"`
 }
 
 // QUICKeyUpdate is how a client takes part in key updates.
@@ -265,7 +265,7 @@ type QUICVersionNegotiation struct {
 	// (0x1c) once the server's transport parameters lack
 	// version_information (RFC 9368's downgrade check). Zero with Retry:
 	// no check.
-	DowngradeError QUICErrorCode `json:"downgrade_error,omitempty"`
+	DowngradeError QUICErrorCode `json:"downgradeError,omitempty"`
 }
 
 // QUICErrorCode is a QUIC transport error code. In JSON it is a hex
@@ -304,13 +304,13 @@ type QUICCrypto struct {
 	Split string `json:"split"`
 	// FirstPacket is how many ClientHello bytes the first Initial packet
 	// carries with CryptoSplitOrdered.
-	FirstPacket int `json:"first_packet,omitempty"`
+	FirstPacket int `json:"firstPacket,omitempty"`
 	// Head is the range of the length of the ClientHello's head that
 	// stays in the first packet with CryptoSplitShuffle.
 	Head *Range `json:"head,omitempty"`
 	// AddedFrames is the range of how many times a packet's CRYPTO data is
 	// split further with CryptoSplitShuffle, while padding lasts.
-	AddedFrames *Range `json:"added_frames,omitempty"`
+	AddedFrames *Range `json:"addedFrames,omitempty"`
 	// Pings is the range of how many PING frames a packet gets with
 	// CryptoSplitShuffle, while padding lasts.
 	Pings *Range `json:"pings,omitempty"`
@@ -438,10 +438,10 @@ type TransportParameter struct {
 	Versions []QUICVersion `json:"versions,omitempty"`
 	// ShuffleVersions sends the available versions in a random order per
 	// connection (Chrome).
-	ShuffleVersions bool `json:"shuffle_versions,omitempty"`
+	ShuffleVersions bool `json:"shuffleVersions,omitempty"`
 	// MaxLength is the longest random value of a GREASE parameter; its
 	// length is uniform in [0, MaxLength].
-	MaxLength int `json:"max_length,omitempty"`
+	MaxLength int `json:"maxLength,omitempty"`
 	// Resumed sends the parameter only on a resumed connection.
 	Resumed bool `json:"resumed,omitempty"`
 	// Last keeps the parameter last, in order, whatever
@@ -577,13 +577,13 @@ func (v *QUICVersion) UnmarshalText(text []byte) error {
 // harness/cmd/hellogen.
 type QUICHello struct {
 	// CipherSuites replaces TLS.CipherSuites. Required.
-	CipherSuites []Code `json:"cipher_suites"`
+	CipherSuites []Code `json:"cipherSuites"`
 	// SessionIDLength is legacy_session_id's length (RFC 9001, section
 	// 8.4).
-	SessionIDLength uint8 `json:"session_id_length"`
+	SessionIDLength uint8 `json:"sessionIdLength"`
 	// ExtensionOrder is ExtensionOrderFixed or ExtensionOrderShuffled,
 	// independent of TLS's.
-	ExtensionOrder string `json:"extension_order"`
+	ExtensionOrder string `json:"extensionOrder"`
 	// Last are extensions a shuffled hello keeps last, in this order,
 	// before pre_shared_key.
 	Last []Code `json:"last,omitempty"`
@@ -595,15 +595,15 @@ type QUICHello struct {
 	Replace []Extension `json:"replace,omitempty"`
 	// TransportParametersBefore is the extension quic_transport_parameters
 	// precedes in a fixed order. Required with ExtensionOrderFixed.
-	TransportParametersBefore *Code `json:"transport_parameters_before,omitempty"`
+	TransportParametersBefore *Code `json:"transportParametersBefore,omitempty"`
 	// ResumedECHPayloadLengths are GREASE ECH's payload lengths in a
 	// resumed hello. Required with TLS.Resumption and
 	// encrypted_client_hello.
-	ResumedECHPayloadLengths []uint16 `json:"resumed_ech_payload_lengths,omitempty"`
+	ResumedECHPayloadLengths []uint16 `json:"resumedEchPayloadLengths,omitempty"`
 	// VersionNegotiation is how the hello of a connection retried after
 	// Version Negotiation differs from a full one. Nil: the profile does
 	// not retry.
-	VersionNegotiation *QUICHelloRetry `json:"version_negotiation,omitempty"`
+	VersionNegotiation *QUICHelloRetry `json:"versionNegotiation,omitempty"`
 }
 
 // QUICHelloRetry is how a retried QUIC hello differs from a full one.

@@ -28,7 +28,7 @@ three identical samples per browser:
 ## Decision
 
 A required profile section `connections`:
-- `http1_per_host`: 6 everywhere. Requests above it wait first come,
+- `http1PerHost`: 6 everywhere. Requests above it wait first come,
   first served.
 - `coalesce`:
   - `lookup` (Chrome, Safari): resolve the host, and use an existing

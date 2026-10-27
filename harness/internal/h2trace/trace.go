@@ -39,9 +39,9 @@ type Frame struct {
 	// SentBefore, for a stream's WINDOW_UPDATE, is how many DATA bytes the
 	// server had committed to that stream when it arrived. An increment
 	// above it cannot be credit for data received: it is a top-up.
-	SentBefore uint64 `json:"sent_before,omitempty"`
+	SentBefore uint64 `json:"sentBefore,omitempty"`
 	// ErrCode of an RST_STREAM or GOAWAY.
-	ErrCode string `json:"err_code,omitempty"`
+	ErrCode string `json:"errCode,omitempty"`
 	// Data of a PING, hex.
 	Data string `json:"data,omitempty"`
 	// Priority of a PRIORITY frame or HEADERS frame.
@@ -50,7 +50,7 @@ type Frame struct {
 
 // Priority is a stream's priority as sent.
 type Priority struct {
-	DependsOn uint32 `json:"depends_on"`
+	DependsOn uint32 `json:"dependsOn"`
 	Exclusive bool   `json:"exclusive"`
 	Weight    uint8  `json:"weight"`
 }
@@ -87,8 +87,8 @@ type Instruction struct {
 	Name  string `json:"name,omitempty"`
 	Value string `json:"value,omitempty"`
 	// HuffmanName and HuffmanValue report Huffman-coded literal strings.
-	HuffmanName  bool `json:"huffman_name,omitempty"`
-	HuffmanValue bool `json:"huffman_value,omitempty"`
+	HuffmanName  bool `json:"huffmanName,omitempty"`
+	HuffmanValue bool `json:"huffmanValue,omitempty"`
 }
 
 // Decode splits a header block into instructions, decoding names and values

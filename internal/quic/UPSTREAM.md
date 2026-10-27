@@ -205,8 +205,8 @@ the mechanical import rewrites.
      `cmp` in `conn_test.go`'s imports.
 
 8. **Failure and bulk behaviour** as each browser's (`profile.QUIC`'s
-   `loss`, `keep_alive`, `ack`, `credit`, `key_update` and
-   `version_negotiation`; captures h3-blackhole, h3-broken, h3-vn,
+   `loss`, `keepAlive`, `ack`, `credit`, `keyUpdate` and
+   `versionNegotiation`; captures h3-blackhole, h3-broken, h3-vn,
    h3-download). New files `client_loss.go`, `client_path.go`,
    `client_flow.go`; with no `Config.client` every path is upstream's.
    - Probes and give-up (`client_loss.go`; `loss.go`:
@@ -229,11 +229,11 @@ the mechanical import rewrites.
      restart or the last packet received as the profile says (`idle.go`:
      upstream's keep-alive off for a client, `appendKeepAlive` hook;
      `conn_send.go`: `packetSent` records the sends); Chrome's move to a
-     new local port once the oldest unacknowledged packet is `after_ptos`
+     new local port once the oldest unacknowledged packet is `afterPtos`
      PTOs old (`DialConfig.NewPath`, a socket the endpoint can swap, the
      server's next connection ID, the old one retired, a PATH_CHALLENGE
      padded to the datagram size); Safari's close (`ErrPathDegraded`)
-     after `after_ms` without a packet. Hooks: `conn.go`'s loop (the
+     after `afterMs` without a packet. Hooks: `conn.go`'s loop (the
      timer, `clientPathAdvance`), `path.go` (the client's PATH_RESPONSE
      checked, not a protocol violation), `conn_send.go` (PATH_RESPONSE
      padded to the datagram size).

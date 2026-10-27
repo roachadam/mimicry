@@ -77,16 +77,16 @@ type tap struct {
 }
 
 type tapStats struct {
-	SentDatagrams int      `json:"sent_datagrams"`
-	SentBytes     int64    `json:"sent_bytes"`
-	RecvDatagrams int      `json:"recv_datagrams"`
-	RecvBytes     int64    `json:"recv_bytes"`
+	SentDatagrams int      `json:"sentDatagrams"`
+	SentBytes     int64    `json:"sentBytes"`
+	RecvDatagrams int      `json:"recvDatagrams"`
+	RecvBytes     int64    `json:"recvBytes"`
 	Versions      []uint32 `json:"versions,omitempty"`
 	// Sent and Received count long header packets by type name.
 	Sent     map[string]int `json:"sent"`
 	Received map[string]int `json:"received"`
 	Retries  int            `json:"retries"`
-	VN       int            `json:"version_negotiations"`
+	VN       int            `json:"versionNegotiations"`
 	// Dropped and Corrupted count what the impairment did.
 	Dropped   int `json:"dropped"`
 	Corrupted int `json:"corrupted"`

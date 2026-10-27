@@ -39,11 +39,11 @@ on anything but Fetch and XHR.
 2. **Pick the lists.** The navigation's (`headers`, `http1`) or the kind's
    (`kinds.<kind>`); then the variant matching the request's method, its
    URL's relation to the page, whether it is CORS-checked, whether it
-   carries a header the page set (one the list does not name: `page_set`),
+   carries a header the page set (one the list does not name: `pageSet`),
    whether it follows a redirect (and then whether the redirect went to
-   another origin, `cross_origin_redirect`, for a navigation whether to
-   another site, `cross_site_redirect`, and whether the request it
-   answered carried `Origin`, `origin_before_redirect`)
+   another origin, `crossOriginRedirect`, for a navigation whether to
+   another site, `crossSiteRedirect`, and whether the request it
+   answered carried `Origin`, `originBeforeRedirect`)
    ([0006](../decisions/0006-header-order-variants.md)), and whether its URL
    is a non-secure origin (plain `http://` to anything but loopback, which
    takes the browser's non-secure lists:
@@ -63,7 +63,7 @@ on anything but Fetch and XHR.
      schemeful) or cross-site; after a redirect, the most distant relation
      along the chain (`http.Client` sets `req.Response` on each hop, which
      is how the chain is found); for a navigation under
-     `redirects.navigation_site` `restart` (Safari 27), only from its last
+     `redirects.navigationSite` `restart` (Safari 27), only from its last
      redirect to another site on.
    - `sec-fetch-mode`: the kind's, `cors` with a crossorigin attribute,
      `no-cors` for a no-cors fetch.
@@ -73,9 +73,9 @@ on anything but Fetch and XHR.
      credentials the `Cookie` header is removed.
    - `Origin`: on non-GET/HEAD, on CORS requests to another origin, on
      same-origin CORS element requests where the browser does
-     (`context.same_origin_element_origin`); `null` once a redirect chain is
+     (`context.sameOriginElementOrigin`); `null` once a redirect chain is
      tainted, and for a navigation (a form POST kept by a 307 or 308) by
-     `redirects.navigation_origin`: also once any redirect left its origin
+     `redirects.navigationOrigin`: also once any redirect left its origin
      (Chrome, Safari).
    - `Referer`: strict-origin-when-cross-origin from the page (or the
      stylesheet, where the browser does), applied hop by hop, so a chain
@@ -118,7 +118,7 @@ lacks; a fetchpriority the kind has no measurement for; a non-secure
 request with neither a matching variant nor a non-secure default; a request
 that sends Origin when no variant matches and the fallback list has no
 Origin slot (a same-site form POST navigation, for one); a CORS preflight
-for a profile without `context.preflight_cache`; a variant measured over
+for a profile without `context.preflightCache`; a variant measured over
 HTTP/2 only (no `http1` list) sent on an HTTP/1.1 connection.
 
 ## 3. The connection writes it
@@ -131,7 +131,7 @@ partition, and proxy. Per key the pool holds one shared HTTP/2 connection,
 the idle HTTP/1.1 ones, and the dial in progress, which concurrent
 requests wait for and share, its error included. Once a key's server is
 known to speak HTTP/1.1 only, requests dial in parallel up to the
-profile's `connections.http1_per_host` (6 in every browser); more wait,
+profile's `connections.http1PerHost` (6 in every browser); more wait,
 first come first served, for a connection to come back. An idle HTTP/1.1
 connection is checked without blocking before reuse (closed by the peer,
 or holding bytes nobody asked for: it is closed instead) and closed after
@@ -162,7 +162,7 @@ response's `TLS` is the connection's state. The request goes to:
   plan's headers through `internal/headerorder` (page-set headers where the
   list's `*` puts them), cookies split per the profile, HPACK encoded by the
   profile's policy, HEADERS priority with the plan's weight (for Chrome,
-  `chain_priorities`: depending exclusively on the newest stream still
+  `chainPriorities`: depending exclusively on the newest stream still
   open at the nearest weight at or above it, as Chromium's lists do).
 - HTTP/1.1 (`internal/h1`): the plan's HTTP/1.1 list, names cased as the
   browser sends them, Host and framing placed; headers the profile does not
@@ -200,7 +200,7 @@ down to each connection's writer, and stops before anything goes out
 - the kind, the profile's list it took (`Variant`, a path in the
   profile's JSON such as `kinds.fetch.variants[4]`, or
   `kinds.fetch.headers` when no variant matched) and the request's
-  `Condition` (method, site, `cors_checked`, `page_set`, the redirect
+  `Condition` (method, site, `corsChecked`, `pageSet`, the redirect
   flags, `insecure`);
 - the header lines over HTTP/2, HTTP/1.1 and HTTP/3 (when the Transport
   speaks it), each as its writer would put them on the wire:

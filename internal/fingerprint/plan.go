@@ -104,8 +104,8 @@ func (p *Plan) ResumedHello() Hello {
 }
 
 // WebSocketHello returns h as the hello of a WebSocket's own HTTP/1.1
-// connection (profile tls.websocket_h1). Only for a profile with
-// tls.websocket_h1.
+// connection (profile tls.websocketH1). Only for a profile with
+// tls.websocketH1.
 func (p *Plan) WebSocketHello(h Hello) Hello {
 	ws := p.tls.WebSocketH1
 	h.Extensions = slices.DeleteFunc(h.Extensions, func(e profile.Extension) bool {

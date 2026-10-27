@@ -9,36 +9,36 @@ type HTTP3 struct {
 	Settings []H3Setting `json:"settings"`
 	// GreaseSetting is a reserved setting sent after Settings. Nil: none
 	// (Firefox).
-	GreaseSetting *H3Grease `json:"grease_setting,omitempty"`
+	GreaseSetting *H3Grease `json:"greaseSetting,omitempty"`
 	// GreaseFrame is a reserved frame sent on the control stream right
 	// after SETTINGS. Nil: none (Safari).
-	GreaseFrame *H3Grease `json:"grease_frame,omitempty"`
+	GreaseFrame *H3Grease `json:"greaseFrame,omitempty"`
 	// UniStreams are the client's unidirectional streams, in the order of
 	// their stream IDs (2, 6, 10, ...). The control stream is first.
-	UniStreams []H3UniStream `json:"uni_streams"`
+	UniStreams []H3UniStream `json:"uniStreams"`
 	// StreamsWithFinished coalesces the handshake-time streams with the
 	// client's Finished; otherwise they follow in their own datagram.
-	StreamsWithFinished bool `json:"streams_with_finished,omitempty"`
+	StreamsWithFinished bool `json:"streamsWithFinished,omitempty"`
 	// EarlyRequestFirst puts a 0-RTT request's stream before the
 	// unidirectional streams on a connection dialled for it.
-	EarlyRequestFirst bool `json:"early_request_first,omitempty"`
+	EarlyRequestFirst bool `json:"earlyRequestFirst,omitempty"`
 	// RequestsAfterConfirmed holds a request waiting for a full handshake
 	// until the handshake is confirmed (HANDSHAKE_DONE acked), not the
 	// client's Finished (Safari).
-	RequestsAfterConfirmed bool `json:"requests_after_confirmed,omitempty"`
+	RequestsAfterConfirmed bool `json:"requestsAfterConfirmed,omitempty"`
 	// EarlyData is which requests go in 0-RTT and how 425 is handled.
-	// Required with quic.zero_rtt, and only then.
-	EarlyData *H3EarlyData `json:"early_data,omitempty"`
+	// Required with quic.zeroRtt, and only then.
+	EarlyData *H3EarlyData `json:"earlyData,omitempty"`
 	// QPACK is how field sections are encoded.
 	QPACK QPACK `json:"qpack"`
 	// PriorityUpdate sends a PRIORITY_UPDATE frame (RFC 9218) on the
 	// control stream before each request carrying a priority header, in
 	// the same packet (Chrome).
-	PriorityUpdate bool `json:"priority_update,omitempty"`
+	PriorityUpdate bool `json:"priorityUpdate,omitempty"`
 	// MaxDataFrame caps a request body's DATA frames and FirstDataFrame
 	// the first one. Zero sends the body in one DATA frame.
-	MaxDataFrame   int `json:"max_data_frame,omitempty"`
-	FirstDataFrame int `json:"first_data_frame,omitempty"`
+	MaxDataFrame   int `json:"maxDataFrame,omitempty"`
+	FirstDataFrame int `json:"firstDataFrame,omitempty"`
 	// High and Low are the priority header values (empty: none) for
 	// fetchpriority high and low, by kind, where only HTTP/3 measured them.
 	// Derived by kindsgen.
@@ -58,10 +58,10 @@ type H3EarlyData struct {
 	Methods []string `json:"methods"`
 	// HeldWithFinished sends a held request in the client's Finished
 	// datagram; otherwise in its own right after it.
-	HeldWithFinished bool `json:"held_with_finished,omitempty"`
+	HeldWithFinished bool `json:"heldWithFinished,omitempty"`
 	// RetryTooEarly resends a 0-RTT request answered 425 Too Early (RFC
 	// 8470) in 1-RTT on the same connection; otherwise the 425 stands.
-	RetryTooEarly bool `json:"retry_too_early,omitempty"`
+	RetryTooEarly bool `json:"retryTooEarly,omitempty"`
 }
 
 // H3Setting is one HTTP/3 setting.
@@ -82,12 +82,12 @@ const (
 // 0x1f * N + 0x21 (RFC 9114, 7.2.4.1 and 7.2.8), N uniform below 2^IDBits;
 // IDBits 0 spans every N that fits a varint.
 type H3Grease struct {
-	IDBits int `json:"id_bits,omitempty"`
+	IDBits int `json:"idBits,omitempty"`
 	// ValueBits: a setting's value is uniform below 2^ValueBits.
-	ValueBits int `json:"value_bits,omitempty"`
+	ValueBits int `json:"valueBits,omitempty"`
 	// MaxLength: a frame's payload is random bytes, its length uniform in
 	// [0, MaxLength].
-	MaxLength int `json:"max_length,omitempty"`
+	MaxLength int `json:"maxLength,omitempty"`
 }
 
 // H3UniStream is one unidirectional stream the client opens.
@@ -127,7 +127,7 @@ type QPACK struct {
 	Encoder string `json:"encoder,omitempty"`
 	// InsertsFirst sends a request's inserts ahead of its HEADERS in the
 	// same packet; otherwise after them.
-	InsertsFirst bool `json:"inserts_first,omitempty"`
+	InsertsFirst bool `json:"insertsFirst,omitempty"`
 	// Huffman is when strings are Huffman-coded: HuffmanShorter or
 	// HuffmanAlways.
 	Huffman HuffmanRule `json:"huffman"`
@@ -147,16 +147,16 @@ const (
 // ones (Firefox).
 type H3Headers struct {
 	// PseudoHeaderOrder replaces HTTP2.PseudoHeaderOrder.
-	PseudoHeaderOrder []string `json:"pseudo_header_order"`
+	PseudoHeaderOrder []string `json:"pseudoHeaderOrder"`
 	// Drop are HTTP/2 headers HTTP/3 leaves out.
 	Drop []string `json:"drop,omitempty"`
 	// AltUsed places alt-used (RFC 7838, section 5) by request kind: before
 	// the first header the request sends that is the named one or follows
 	// it in the request's HTTP/2 list; last if none. A kind without an
 	// entry was not measured over HTTP/3.
-	AltUsed map[string]string `json:"alt_used,omitempty"`
+	AltUsed map[string]string `json:"altUsed,omitempty"`
 	// AltUsedNavigation is AltUsed for the navigation.
-	AltUsedNavigation string `json:"alt_used_navigation,omitempty"`
+	AltUsedNavigation string `json:"altUsedNavigation,omitempty"`
 }
 
 // Discovery is when and how a browser moves an origin to HTTP/3 after an
@@ -168,14 +168,14 @@ type Discovery struct {
 	Switch string `json:"switch"`
 	// GoAwayTCP sends GOAWAY on the origin's HTTP/2 connection once QUIC
 	// is up; otherwise it stays open and unused.
-	GoAwayTCP bool `json:"goaway_tcp,omitempty"`
+	GoAwayTCP bool `json:"goawayTcp,omitempty"`
 	// RaceAfterGoAway: after a server GOAWAY on HTTP/3, the next request
 	// goes on TCP while QUIC is dialled RaceDelayMillis later; later
 	// requests wait for QUIC (Fallback.Hold). Otherwise QUIC is dialled
 	// alone.
-	RaceAfterGoAway bool `json:"race_after_goaway,omitempty"`
+	RaceAfterGoAway bool `json:"raceAfterGoaway,omitempty"`
 	// RaceDelayMillis is the range of the delay between the two dials.
-	RaceDelayMillis *Range `json:"race_delay_ms,omitempty"`
+	RaceDelayMillis *Range `json:"raceDelayMs,omitempty"`
 	// Fallback is what requests do while QUIC to their origin is not up,
 	// when it fails, and when a live QUIC connection dies.
 	Fallback Fallback `json:"fallback"`
@@ -190,34 +190,34 @@ type Fallback struct {
 	Mode string `json:"mode"`
 	// TCPDelayMillis: with FallbackRace, a request waiting for a non-0-RTT
 	// attempt falls back this long after it started waiting.
-	TCPDelayMillis *Range `json:"tcp_delay_ms,omitempty"`
+	TCPDelayMillis *Range `json:"tcpDelayMs,omitempty"`
 	// ZeroRTTHolds: a 0-RTT request and those after it wait with no TCP
 	// until the attempt gives up; then a fresh attempt and TCP start
 	// together, counted with it as one.
-	ZeroRTTHolds bool `json:"zero_rtt_holds,omitempty"`
+	ZeroRTTHolds bool `json:"zeroRttHolds,omitempty"`
 	// AbandonOnTCP drops the QUIC attempt (QUIC.Loss.AbandonClose) once the
 	// request went on TCP, counting it as failed; otherwise it runs on.
-	AbandonOnTCP bool `json:"abandon_on_tcp,omitempty"`
+	AbandonOnTCP bool `json:"abandonOnTcp,omitempty"`
 	// Hold: with FallbackBackground, requests made while a resumed attempt
 	// after the server's close is pending wait for it, then go on TCP if
 	// it gives up.
 	Hold bool `json:"hold,omitempty"`
 	// BrokenAfter is how many failed attempts in a row mark the origin's
 	// HTTP/3 broken for the Transport's life.
-	BrokenAfter int `json:"broken_after"`
+	BrokenAfter int `json:"brokenAfter"`
 	// BrokenCountsResumed counts failed resumed attempts towards
 	// BrokenAfter; otherwise a fresh attempt follows a failed resumed one.
-	BrokenCountsResumed bool `json:"broken_counts_resumed,omitempty"`
+	BrokenCountsResumed bool `json:"brokenCountsResumed,omitempty"`
 	// RevalidateMillis: with FallbackBackground, a request at least this
 	// long after a failed resumed attempt or dead connection starts a
 	// fresh QUIC attempt beside TCP.
-	RevalidateMillis *Range `json:"revalidate_ms,omitempty"`
+	RevalidateMillis *Range `json:"revalidateMs,omitempty"`
 	// Pending is where requests waiting on a dying QUIC connection go:
 	// PendingTCP or PendingQUIC.
 	Pending string `json:"pending"`
 	// ReconnectMillis is the delay before the new connection with
 	// PendingQUIC.
-	ReconnectMillis *Range `json:"reconnect_ms,omitempty"`
+	ReconnectMillis *Range `json:"reconnectMs,omitempty"`
 }
 
 // Values of Fallback.Mode.
