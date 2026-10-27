@@ -2,7 +2,7 @@
 
 Rough draft. Reference: `cookies/` (the package), [decision 0009](../decisions/0009-own-cookie-jar.md)
 (why our own jar), [decision 0012](../decisions/0012-cookie-rules-in-profiles.md)
-(the profile's rules), [the measurements](../../harness/reports/cookies-2026-10-24.md).
+(the profile's rules), [the measurements](../../internal/harness/reports/cookies-2026-10-24.md).
 
 ## Using it
 

@@ -35,7 +35,7 @@ The harness serves QUIC with quic-go (v0.64.1, harness module only; the
 library is untouched) and records from below it:
 
 - A tap on the UDP socket keeps every datagram the client sends, with its
-  arrival time. The recorder (`harness/internal/quictrace`) splits each
+  arrival time. The recorder (`internal/harness/internal/quictrace`) splits each
   into its coalesced packets, removes header and packet protection itself
   (Initial keys from the client's first Destination Connection ID, RFC 9001
   section 5.2; Handshake and 1-RTT keys from the server's TLS key log,

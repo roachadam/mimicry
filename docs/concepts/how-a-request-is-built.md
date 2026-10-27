@@ -234,7 +234,7 @@ all for a log (`ExampleTransport_Plan`).
 
 ## 6. What checks it
 
-`harness/e2e`: `TestProfilesMatchCaptures` (first request),
+`internal/harness/e2e`: `TestProfilesMatchCaptures` (first request),
 `TestHTTP1MatchesBrowserTrace`, `TestCookiesMatchBrowserTrace`,
 `TestKindsMatchBrowserTraces` (every request of the kinds page and its
 preflights, redirects, connection sharing),

@@ -19,7 +19,7 @@ else and gets every frame wrong.
 ## Evidence
 
 The `websocket` and `websocket-h2` captures
-([report](../../harness/reports/websocket-2026-10-24.md)), all four
+([report](../../internal/harness/reports/websocket-2026-10-24.md)), all four
 browsers, three samples each:
 - **Transport:** every browser uses extended CONNECT on the page's
   existing HTTP/2 connection when the server allows it. Otherwise each
@@ -69,7 +69,7 @@ Modelling:
   - `extensions`, and `compression` (the browser's deflate library at
     level 6: `chromium_zlib6`, `zlib6`, `zlib_rs6`), `uncompressed`
     (which messages go raw) and `windowBits8` (amended 2026-10-26,
-    [websocket-deflate report](../../harness/reports/websocket-deflate-2026-10-26.md));
+    [websocket-deflate report](../../internal/harness/reports/websocket-deflate-2026-10-26.md));
   - `h2Data` (`together`, `header_alone`, `split_control`), with DATA
     capped by `http2.maxDataFrame`;
   - `closeH1` / `closeH2`.
@@ -82,7 +82,7 @@ Modelling:
 - These are `ErrNotMeasured`:
   - subprotocols on a non-secure socket;
   - WebSockets through a proxy where not captured (amended 2026-10-26:
-    the [proxy-websocket captures](../../harness/reports/proxy-websocket-2026-10-26.md)
+    the [proxy-websocket captures](../../internal/harness/reports/proxy-websocket-2026-10-26.md)
     measured the rest, modelled as profile `proxy.websocket`, see
     [0014](0014-proxies.md); Safari 27's with proxy credentials the same
     day, Safari 26's copied from it): `ws://` through SOCKS5.

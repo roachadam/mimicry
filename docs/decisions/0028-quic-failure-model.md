@@ -18,7 +18,7 @@ acknowledges, returns credit and changes keys. The interop report's bug 2
 was the cost: a request waited 10 s on a blackholed QUIC dial where every
 browser went on TCP within about 300 ms. The captures `h3-blackhole`,
 `h3-broken`, `h3-vn` and `h3-download`
-([report](../../harness/reports/http3-edge-2026-10-25.md)) show what each
+([report](../../internal/harness/reports/http3-edge-2026-10-25.md)) show what each
 browser does; a model had to choose which of it to reproduce, and how.
 
 ## Options
@@ -98,7 +98,7 @@ ClientHello's shape profile data.
 
 ## Evidence
 
-- `harness/reports/http3-edge-2026-10-25.md`, §1–3 and its corrections:
+- `internal/harness/reports/http3-edge-2026-10-25.md`, §1–3 and its corrections:
   Chrome's TCP after 305–306 ms and its 4.0 s hold behind a 0-RTT attempt;
   Firefox's requests never waiting but in the re-validation (held 3.0–7.2 s);
   Safari's TCP 89–129 ms after QUIC; no browser trying QUIC again for a broken

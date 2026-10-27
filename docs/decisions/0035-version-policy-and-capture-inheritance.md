@@ -83,7 +83,7 @@ checked against.
 - A key covers the scenario's `.local-roots` capture too. Replays are
   keyed `replay-<site>`.
 - Everything that loads captures resolves through `capture.Inherited` and
-  `capture.Files` (in `harness/internal/capture`): hellogen, h3gen,
+  `capture.Files` (in `internal/harness/internal/capture`): hellogen, h3gen,
   kindsgen, and every e2e test.
 - Gap tables keyed by profile name are looked up by the profile that took
   the capture. A gap pinned on chrome-155's cookies capture therefore
@@ -110,7 +110,7 @@ captures.
   the profile's own user agent.
 - Any other difference still fails.
 
-**Test selection** (`harness/internal/testprofiles`). By default each
+**Test selection** (`internal/harness/internal/testprofiles`). By default each
 harness test checks the newest profile of each browser.
 - `MIMICRY_PROFILES=all` (`moon run :test-full`) checks every supported
   one.

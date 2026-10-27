@@ -9,7 +9,7 @@
 Browsers often never send a plain-HTTP request for an `http://` URL:
 
 - Safari first opens TLS to the same host and port (seen in the
-  `kinds-plain` captures, [report](../../harness/reports/plain-http-2026-10-24.md)),
+  `kinds-plain` captures, [report](../../internal/harness/reports/plain-http-2026-10-24.md)),
   falling back to plain HTTP when it fails.
 - Chrome's HTTPS-Upgrades try `https://` first for navigations to `http://`
   on port 80 (not on other ports, as captured). [INFERENCE] Safari and

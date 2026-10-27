@@ -6,7 +6,7 @@
 ## Problem
 
 Cookies are where every other client differs from browsers
-(`harness/reports/clients-2026-10-23.md`). Browser cookie rules depend on
+(`internal/harness/reports/clients-2026-10-23.md`). Browser cookie rules depend on
 the request's kind and page (SameSite, third-party policies, partitioned
 cookies), which `http.Client.Jar` never sees. `net/http` also changes values
 before a jar sees them: it re-quotes values with spaces or commas and drops

@@ -12,7 +12,7 @@ does is visible, and slower.
 
 ## Evidence
 
-`harness/reports/resume-2026-10-24.md`: Chrome and Firefox resume each new
+`internal/harness/reports/resume-2026-10-24.md`: Chrome and Firefox resume each new
 connection with one ticket, never the same ticket twice, so of three
 connections opened together only one resumes. Their resumed ClientHello is
 the full one plus `pre_shared_key` last; Firefox also leaves

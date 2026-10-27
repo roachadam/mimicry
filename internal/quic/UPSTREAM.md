@@ -108,7 +108,7 @@ the mechanical import rewrites.
      one connection, whose end closes the socket.
    - `packet_writer.go`: `packetWriter.spin`.
 
-6. **Interop fixes** (found by `TestQUICInterop` in `harness/e2e`, each
+6. **Interop fixes** (found by `TestQUICInterop` in `internal/harness/e2e`, each
    with the row that fails without it):
    - `conn_streams.go`: `newLocalStream` reads the peer's initial stream
      window on the loop. A 0-RTT connection opens streams before the

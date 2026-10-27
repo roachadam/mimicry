@@ -14,7 +14,7 @@ elsewhere than `x-mimicry`, so one slot was wrong for most names
 
 ## Evidence
 
-The `headers-order` capture ([report](../../harness/reports/headers-order-2026-10-24.md)):
+The `headers-order` capture ([report](../../internal/harness/reports/headers-order-2026-10-24.md)):
 ten header sets (single names, pairs in both orders, a to z and reversed,
 names sorting around every browser header, case and duplicates), by
 `fetch()` and XHR, same-origin, cross-site and HTTP/1.1. Three samples per

@@ -2,7 +2,7 @@
 
 mimicry opens WebSockets as the profile's browser does, and frames every
 message itself. See [decision 0025](../decisions/0025-websockets.md) and the
-[capture report](../../harness/reports/websocket-2026-10-24.md).
+[capture report](../../internal/harness/reports/websocket-2026-10-24.md).
 
 ```go
 ws, resp, err := transport.DialWebSocket(ctx, "wss://chat.example.com/socket",
@@ -38,7 +38,7 @@ typ, msg, err := ws.ReadMessage(ctx)
 ## Through a proxy
 
 With `Config.Proxy`, a socket goes as the profile's browser takes one
-through a proxy (the [capture report](../../harness/reports/proxy-websocket-2026-10-26.md)):
+through a proxy (the [capture report](../../internal/harness/reports/proxy-websocket-2026-10-26.md)):
 - **wss://, extended CONNECT allowed:** a stream on the host's HTTP/2
   connection, the one inside the tunnel the page's requests used; nothing
   new reaches the proxy.
@@ -89,7 +89,7 @@ through a proxy (the [capture report](../../harness/reports/proxy-websocket-2026
   compresses with 9 bits and Safari fails the socket once open (no
   frame, the transport ended at once); `DialWebSocket` then returns an
   error. Firefox hangs on it (see
-  [the report](../../harness/reports/websocket-deflate-2026-10-26.md));
+  [the report](../../internal/harness/reports/websocket-deflate-2026-10-26.md));
   mimicry fails the dial as for Safari.
 - Pings are answered at once.
 - `ReadMessage` returns a `*CloseError` once the close handshake is done.

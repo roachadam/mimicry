@@ -86,7 +86,7 @@ These matter most under decision 0029:
     known to compare it with the ticket size. User-visible: no.
   - Close: a `resume` capture against servers issuing tickets of several
     sizes (small), plus a profile rule if it varies (medium).
-  - Source: [hello-record report](../harness/reports/hello-record-2026-10-24.md);
+  - Source: [hello-record report](../internal/harness/reports/hello-record-2026-10-24.md);
     [EVIDENCE.md, TLS ClientHello](../profiles/EVIDENCE.md#tls-clienthello);
     [decision 0024](decisions/0024-clienthello-shape-in-profiles.md).
 - **A WebSocket's full (not resumed) hello** (Chrome, Firefox).
@@ -139,7 +139,7 @@ These matter most under decision 0029:
   - Shows: resumed connections.
   - Detection: none. User-visible: no.
   - Close: add the record version to the resumed-hello diff; small.
-  - Source: [hello-record report](../harness/reports/hello-record-2026-10-24.md).
+  - Source: [hello-record report](../internal/harness/reports/hello-record-2026-10-24.md).
 
 ## HTTP/1.1
 
@@ -171,8 +171,8 @@ These matter most under decision 0029:
   - Close: captures on ports 80 and 443 per browser, keeping the server's
     refused hellos, then an opt-in `Config` option (decision 0016);
     medium.
-  - Source: [plain-http report](../harness/reports/plain-http-2026-10-24.md);
-    [cookies-edge report](../harness/reports/cookies-edge-2026-10-24.md);
+  - Source: [plain-http report](../internal/harness/reports/plain-http-2026-10-24.md);
+    [cookies-edge report](../internal/harness/reports/cookies-edge-2026-10-24.md);
     [EVIDENCE.md, Not covered](../profiles/EVIDENCE.md#not-covered-by-any-claim)
     ("By decision").
 - **Where `Cookie` goes on a non-secure origin** (all).
@@ -223,7 +223,7 @@ These matter most under decision 0029:
     User-visible: no.
   - Close: one profile flag, already captured (`h3-blackhole`, `h3-vn`);
     small.
-  - Source: `h3EdgeGaps` in [`http3_edge_test.go`](../harness/e2e/http3_edge_test.go).
+  - Source: `h3EdgeGaps` in [`http3_edge_test.go`](../internal/harness/e2e/http3_edge_test.go).
 - **An upload of unknown length** (all).
   - Differs: a body of unknown length ends with an empty DATA frame
     carrying END_STREAM. Browsers set END_STREAM on the last data frame.
@@ -240,7 +240,7 @@ These matter most under decision 0029:
   - Shows: after an HTTP/3 failure, pauses of 6 s or more.
   - Detection: low. User-visible: no.
   - Close: captures to find the cause; medium.
-  - Source: `h3EdgeGaps` in [`http3_edge_test.go`](../harness/e2e/http3_edge_test.go).
+  - Source: `h3EdgeGaps` in [`http3_edge_test.go`](../internal/harness/e2e/http3_edge_test.go).
 - **How long an idle HTTP/2 connection stays open** (all).
   - Differs: mimicry keeps an HTTP/2 connection until the server closes
     it, a Chrome idle PING goes unanswered, or the caller calls
@@ -321,7 +321,7 @@ These matter most under decision 0029:
     asks for them (shared with [real ECH](#tls-and-below)); medium to
     large.
   - Source: [concepts/http3.md, Not measured](concepts/http3.md#not-measured);
-    [http3 report](../harness/reports/http3-2026-10-25.md);
+    [http3 report](../internal/harness/reports/http3-2026-10-25.md);
     [decision 0026](decisions/0026-http3-capture.md).
 - **Safari over HTTP/3** (Safari 27, 26).
   - Differs: only Safari's `fetch()` was measured over HTTP/3, so its
@@ -335,7 +335,7 @@ These matter most under decision 0029:
   - Close: an `h3-page` capture where Safari uses QUIC for more kinds,
     against a server offering a QPACK table; medium.
   - Source: [concepts/http3.md, Not measured](concepts/http3.md#not-measured);
-    [http3 report](../harness/reports/http3-2026-10-25.md);
+    [http3 report](../internal/harness/reports/http3-2026-10-25.md);
     [EVIDENCE.md, QUIC and HTTP/3](../profiles/EVIDENCE.md#quic-and-http3).
 - **Safari's QUIC resumption and 0-RTT** (Safari 27, 26).
   - Differs: Safari resumes QUIC with 0-RTT after closing a connection
@@ -358,8 +358,8 @@ These matter most under decision 0029:
   - Close: derive Safari's resumption rule and its `http3.earlyData`
     (held until confirmed: a third way a held request leaves) from
     `h3-broken` and the h3-early pages, already captured; medium.
-  - Source: `h3EdgeGaps` and `h3EdgeSchedulingGaps` in [`http3_edge_test.go`](../harness/e2e/http3_edge_test.go);
-    [h3-early report](../harness/reports/h3-early-2026-10-26.md);
+  - Source: `h3EdgeGaps` and `h3EdgeSchedulingGaps` in [`http3_edge_test.go`](../internal/harness/e2e/http3_edge_test.go);
+    [h3-early report](../internal/harness/reports/h3-early-2026-10-26.md);
     [decision 0028](decisions/0028-quic-failure-model.md);
     [concepts/http3.md](concepts/http3.md).
 - **Firefox's declined TCP connections beside a 425 retry** (Firefox).
@@ -371,8 +371,8 @@ These matter most under decision 0029:
   - Detection: low (rare server behaviour). User-visible: no.
   - Close: more samples to find the rule (Firefox's connection
     management on a 425); medium.
-  - Source: `h3EdgeGaps` in [`http3_edge_test.go`](../harness/e2e/http3_edge_test.go);
-    [h3-early report](../harness/reports/h3-early-2026-10-26.md).
+  - Source: `h3EdgeGaps` in [`http3_edge_test.go`](../internal/harness/e2e/http3_edge_test.go);
+    [h3-early report](../internal/harness/reports/h3-early-2026-10-26.md).
 - **When Firefox's held request leaves** (Firefox).
   - Differs: a request Firefox holds for the handshake left in the
     datagram with its Finished in 31 of the 35 made before the Finished;
@@ -383,8 +383,8 @@ These matter most under decision 0029:
   - Detection: low (packet layout). User-visible: no.
   - Close: nothing likely; it is necko handing the request to neqo
     against neqo writing the Finished (thread timing).
-  - Source: `sampleGaps` in `harness/cmd/h3gen/load.go`;
-    [h3-early report](../harness/reports/h3-early-2026-10-26.md).
+  - Source: `sampleGaps` in `internal/harness/cmd/h3gen/load.go`;
+    [h3-early report](../internal/harness/reports/h3-early-2026-10-26.md).
 - **Safari's OPTIONS fetch** (Safari 27, 26).
   - Differs: Safari's kinds captures have no `fetch()` with method
     OPTIONS, so its profile has none and mimicry refuses one
@@ -394,7 +394,7 @@ These matter most under decision 0029:
   - Detection: low (rare). User-visible: yes, `ErrNotMeasured`.
   - Close: an OPTIONS fetch in the kinds page, or kindsgen reading the
     h3-early pages; small.
-  - Source: `h3EdgeGaps` in [`http3_edge_test.go`](../harness/e2e/http3_edge_test.go).
+  - Source: `h3EdgeGaps` in [`http3_edge_test.go`](../internal/harness/e2e/http3_edge_test.go).
 - **Chrome's blackhole detection** (Chrome).
   - Differs: when the path Chrome migrated to dies too, Chrome closes
     with `85:Network blackhole detected` and sends the stuck request
@@ -403,7 +403,7 @@ These matter most under decision 0029:
   - Detection: low (failure path). User-visible: yes, the request hangs
     until its context ends instead of recovering over TCP.
   - Close: model it from `h3-broken`, already captured; medium.
-  - Source: `h3EdgeGaps` in [`http3_edge_test.go`](../harness/e2e/http3_edge_test.go);
+  - Source: `h3EdgeGaps` in [`http3_edge_test.go`](../internal/harness/e2e/http3_edge_test.go);
     [decision 0028](decisions/0028-quic-failure-model.md).
 - **How long an origin stays broken** (all; Chrome by source).
   - Differs: after its failed attempts, an origin stays on TCP for the
@@ -416,7 +416,7 @@ These matter most under decision 0029:
   - Close: a capture spanning several pages and minutes; small, slow to
     run.
   - Source: [concepts/http3.md](concepts/http3.md#when-quic-fails);
-    [http3-edge report](../harness/reports/http3-edge-2026-10-25.md);
+    [http3-edge report](../internal/harness/reports/http3-edge-2026-10-25.md);
     [decision 0028](decisions/0028-quic-failure-model.md).
 - **Captures with locally trusted roots** (Chrome, Firefox).
   - Differs: Chrome and Firefox refuse QUIC to a locally trusted CA, so
@@ -425,7 +425,7 @@ These matter most under decision 0029:
   - Shows: all HTTP/3 behaviour of those profiles.
   - Detection: low to medium (unknown). User-visible: no.
   - Close: a capture against a publicly trusted certificate; medium.
-  - Source: [http3 report](../harness/reports/http3-2026-10-25.md);
+  - Source: [http3 report](../internal/harness/reports/http3-2026-10-25.md);
     [EVIDENCE.md, QUIC and HTTP/3](../profiles/EVIDENCE.md#quic-and-http3).
 - **HTTP/3 header lists not captured with cookies** (all).
   - Differs: no cookie went over HTTP/3 in the captures, so the `cookie`
@@ -447,7 +447,7 @@ These matter most under decision 0029:
     elements, over HTTP/3.
   - Detection: low; one header. User-visible: no.
   - Close: those kinds in `h3-page`; small.
-  - Source: [realcheck report](../harness/reports/realcheck-2026-10-25.md).
+  - Source: [realcheck report](../internal/harness/reports/realcheck-2026-10-25.md).
 - **Safari's handshake loss timing** (Safari).
   - Differs: Safari's first probe was never seen (TCP always won), so its
     profile uses the QUIC stack's default 333 ms initial RTT: probes at
@@ -460,7 +460,7 @@ These matter most under decision 0029:
   - Close: a Safari capture with QUIC blackholed and no TCP alternative;
     medium. Check the two 30 s runs' traces with the key log first
     (small).
-  - Source: [quic-interop report](../harness/reports/quic-interop-2026-10-25.md);
+  - Source: [quic-interop report](../internal/harness/reports/quic-interop-2026-10-25.md);
     `profile/quic.go`.
 - **Firefox's v2 resumption against older lsquic** (Firefox).
   - Differs: on www.litespeedtech.com a resumed v2 connection fails:
@@ -471,20 +471,20 @@ These matter most under decision 0029:
   - Detection: low. User-visible: yes, a stall on that origin until TCP
     takes over.
   - Close: capture real Firefox against such a server; small to medium.
-  - Source: [quic-interop report](../harness/reports/quic-interop-2026-10-25.md).
+  - Source: [quic-interop report](../internal/harness/reports/quic-interop-2026-10-25.md).
 - **The error of a 0-RTT request whose handshake never finishes** (all).
   - Differs: the request fails after 10 s with `read from closed stream`
     instead of the cause (the connection was lost).
   - Shows: heavy loss.
   - Detection: none. User-visible: yes, a confusing error.
   - Close: map the error in `internal/h3`; small.
-  - Source: [quic-interop report](../harness/reports/quic-interop-2026-10-25.md).
+  - Source: [quic-interop report](../internal/harness/reports/quic-interop-2026-10-25.md).
 - **An unexplained close by www.akamai.com** (Safari 26).
   - Differs: once, the server closed the second probe connection right
     after its handshake. Not reproduced.
   - Detection: unknown. User-visible: yes, once.
   - Close: rerun `interop -public`; small.
-  - Source: [quic-interop report](../harness/reports/quic-interop-2026-10-25.md).
+  - Source: [quic-interop report](../internal/harness/reports/quic-interop-2026-10-25.md).
 - **Server bugs real browsers hit too** (Chrome).
   - Differs: nothing; mimicry does what Chrome does. lsquic before 4.10
     rejects Chrome's shuffled CRYPTO frames (occasional INTERNAL_ERROR);
@@ -493,7 +493,7 @@ These matter most under decision 0029:
     be kwik's bug, not decrypted to confirm).
   - Detection: none. User-visible: yes, occasionally, as in Chrome.
   - Close: nothing, except confirming the kwik trace (small).
-  - Source: [quic-interop report](../harness/reports/quic-interop-2026-10-25.md);
+  - Source: [quic-interop report](../internal/harness/reports/quic-interop-2026-10-25.md);
     HANDOFF.md (step 18).
 - **Retry from the browser's side** (all).
   - Differs: no capture shows a browser answering a server's Retry.
@@ -502,7 +502,7 @@ These matter most under decision 0029:
   - Detection: low to medium. User-visible: no.
   - Close: a capture against a Retry-forcing server; small to medium.
   - Source: [concepts/http3.md, Not measured](concepts/http3.md#not-measured);
-    [http3-edge report](../harness/reports/http3-edge-2026-10-25.md).
+    [http3-edge report](../internal/harness/reports/http3-edge-2026-10-25.md).
 - **PMTU probing, ECN and DATAGRAM frames** (all).
   - Differs: not measured; loopback shows none of them. The QUIC stack
     does no path MTU discovery and ignores ECN feedback.
@@ -525,7 +525,7 @@ These matter most under decision 0029:
   - Shows: servers that send HTTP/3 GOAWAY.
   - Detection: low. User-visible: no.
   - Close: one profile field, already captured; small.
-  - Source: `h3EdgeGaps` in [`http3_edge_test.go`](../harness/e2e/http3_edge_test.go).
+  - Source: `h3EdgeGaps` in [`http3_edge_test.go`](../internal/harness/e2e/http3_edge_test.go).
 - **Resumed attempts' probes** (Chrome, Firefox).
   - Differs: Chrome's resumed attempt first probes with 4 Initials (the
     whole hello, cut afresh) and later sends lone 0-RTT datagrams;
@@ -537,7 +537,7 @@ These matter most under decision 0029:
     match.
   - Close: resumed-probe rules from `h3-broken`, already captured;
     medium.
-  - Source: `h3EdgeGaps` in [`http3_edge_test.go`](../harness/e2e/http3_edge_test.go);
+  - Source: `h3EdgeGaps` in [`http3_edge_test.go`](../internal/harness/e2e/http3_edge_test.go);
     HANDOFF.md (step 18).
 - **Chrome's NEW_TOKEN cache** (Chrome).
   - Differs: Chrome's 0-RTT reconnection after 35 s idle carried no
@@ -549,7 +549,7 @@ These matter most under decision 0029:
   - Shows: QUIC reconnections after idle.
   - Detection: low. User-visible: no.
   - Close: captures of Chrome's token cache rules; medium.
-  - Source: `sampleGaps` in `harness/cmd/h3gen/load.go`; `profile/quic.go`.
+  - Source: `sampleGaps` in `internal/harness/cmd/h3gen/load.go`; `profile/quic.go`.
 - **Chrome's late PRIORITY_UPDATE on the Mac mini** (Chrome 156).
   - Differs: in 3 of the mini's `h3-discovery` samples the server read a
     request's PRIORITY_UPDATE 1 ms after its HEADERS (another datagram);
@@ -561,7 +561,7 @@ These matter most under decision 0029:
   - Close: the datagram each frame came in, or more samples on both Macs;
     small.
   - Source: `sampleGaps` (`priorityUpdate <path>`) in
-    `harness/cmd/h3gen/load.go`.
+    `internal/harness/cmd/h3gen/load.go`.
 - **ACK_FREQUENCY and IMMEDIATE_ACK** (Firefox advertises
   `min_ack_delay`).
   - Differs: no capture server sent them; mimicry ignores both frames.
@@ -569,7 +569,7 @@ These matter most under decision 0029:
   - Detection: low. User-visible: no.
   - Close: a capture against a server sending ACK_FREQUENCY; small to
     medium.
-  - Source: [http3 report](../harness/reports/http3-2026-10-25.md);
+  - Source: [http3 report](../internal/harness/reports/http3-2026-10-25.md);
     `internal/quic/client.go`.
 - **Chrome's TCP delay from the smoothed RTT** (Chrome).
   - Differs: Chrome's source delays its TCP job by 1.5 × the origin's
@@ -599,7 +599,7 @@ These matter most under decision 0029:
   - Close: longer and throttled download and upload captures; small to
     medium.
   - Source: [concepts/http3.md](concepts/http3.md);
-    [http3-edge report](../harness/reports/http3-edge-2026-10-25.md).
+    [http3-edge report](../internal/harness/reports/http3-edge-2026-10-25.md).
 - **Congestion control** (all).
   - Differs: the QUIC stack uses NewReno; the browsers' algorithms (Cubic,
     BBR) are timing no capture measured.
@@ -639,14 +639,14 @@ These matter most under decision 0029:
     it on.
   - Detection: low. User-visible: no.
   - Close: a v2 server that sends NEW_TOKEN; small.
-  - Source: [http3-edge report](../harness/reports/http3-edge-2026-10-25.md);
+  - Source: [http3-edge report](../internal/harness/reports/http3-edge-2026-10-25.md);
     [`internal/quic/UPSTREAM.md`](../internal/quic/UPSTREAM.md).
 - **A v2-only server that sends `version_information`** (Firefox).
   - Differs: untested; mimicry's Firefox should reach HTTP/3 there
     ([INFERENCE]).
   - Detection: low. User-visible: no.
   - Close: an interop run against such a server; small.
-  - Source: [quic-interop report](../harness/reports/quic-interop-2026-10-25.md).
+  - Source: [quic-interop report](../internal/harness/reports/quic-interop-2026-10-25.md).
 - **Firefox's resumed SNI cut** (Firefox).
   - Differs: where Firefox cuts a resumed hello varies (4 of 9 cut inside
     the host name); the profile's rule covers fresh hellos.
@@ -673,8 +673,8 @@ These matter most under decision 0029:
   - Detection: none while the profile follows the browser; the set is in
     HTTP/3 fingerprints (fp.impersonate.pro's perk). User-visible: no.
   - Close: source research; small.
-  - Source: [http3 report](../harness/reports/http3-2026-10-25.md),
-    [realcheck report](../harness/reports/realcheck-2026-10-25.md).
+  - Source: [http3 report](../internal/harness/reports/http3-2026-10-25.md),
+    [realcheck report](../internal/harness/reports/realcheck-2026-10-25.md).
 - **Sample outliers left out** (Chrome, Firefox, Safari).
   - Differs: pinned and not modelled, each seen once or by timing:
     Chrome's ACK of the server's Initial (1 of 12); Firefox's sample-3
@@ -684,7 +684,7 @@ These matter most under decision 0029:
     batching browsers (machine timing, logged only).
   - Detection: none. User-visible: no.
   - Close: more samples, if ever.
-  - Source: `sampleGaps` in `harness/cmd/h3gen/load.go`;
+  - Source: `sampleGaps` in `internal/harness/cmd/h3gen/load.go`;
     [EVIDENCE.md, QUIC and HTTP/3](../profiles/EVIDENCE.md#quic-and-http3).
 
 ## Headers and request kinds
@@ -716,8 +716,8 @@ These matter most under decision 0029:
   - Close: a `Request` field for the page's order, already captured;
     small to medium (API change, by decision
     [0021](decisions/0021-page-headers-hash-table-order.md)).
-  - Source: `headersOrderGaps` in [`headersorder_test.go`](../harness/e2e/headersorder_test.go);
-    [headers-order report](../harness/reports/headers-order-2026-10-24.md).
+  - Source: `headersOrderGaps` in [`headersorder_test.go`](../internal/harness/e2e/headersorder_test.go);
+    [headers-order report](../internal/harness/reports/headers-order-2026-10-24.md).
 - **Caller-set forbidden headers are sent** (all).
   - Differs: a browser drops a header a page may not set (`Sec-*`,
     `Proxy-*` and the other forbidden names); mimicry sends one if the
@@ -727,7 +727,7 @@ These matter most under decision 0029:
   - Close: drop or refuse forbidden names in the resolver (the list
     exists in `internal/cors`); small.
   - Source: [EVIDENCE.md, Request kinds](../profiles/EVIDENCE.md#request-kinds);
-    [headers-order report](../harness/reports/headers-order-2026-10-24.md).
+    [headers-order report](../internal/harness/reports/headers-order-2026-10-24.md).
 - **Safari's placement of `Authorization` and other common names**
   (Safari).
   - Differs: page-set headers that are among WebKit's common names
@@ -738,7 +738,7 @@ These matter most under decision 0029:
   - Detection: medium; header order. User-visible: no.
   - Close: a `headers-order` capture with those names; small.
   - Source: [decision 0021](decisions/0021-page-headers-hash-table-order.md);
-    [headers-order report](../harness/reports/headers-order-2026-10-24.md).
+    [headers-order report](../internal/harness/reports/headers-order-2026-10-24.md).
 - **Requests a cross-site frame makes** (all).
   - Differs: a frame's own navigation is modelled, but not what the frame
     then loads: its top-level site for cookies and connections, and its
@@ -769,7 +769,7 @@ These matter most under decision 0029:
   - Source: `resolve.go` (`resolve`);
     [EVIDENCE.md, Request kinds](../profiles/EVIDENCE.md#request-kinds);
     [decision 0005](decisions/0005-request-kinds-api.md);
-    [nav-click report](../harness/reports/nav-click-2026-10-26.md).
+    [nav-click report](../internal/harness/reports/nav-click-2026-10-26.md).
 - **Pages at deeper paths** (all).
   - Differs: the kinds page is at `/`, where the full URL and the origin
     are the same. The full-path `Referer` of same-origin requests follows
@@ -830,8 +830,8 @@ These matter most under decision 0029:
   - Close: add both to the kinds page (FontFace is already captured);
     small to medium.
   - Source: [EVIDENCE.md, Not covered](../profiles/EVIDENCE.md#not-covered-by-any-claim)
-    (Headers); [kinds report](../harness/reports/kinds-2026-10-23.md);
-    [`http3_test.go`](../harness/e2e/http3_test.go).
+    (Headers); [kinds report](../internal/harness/reports/kinds-2026-10-23.md);
+    [`http3_test.go`](../internal/harness/e2e/http3_test.go).
 - **Chrome's `content-type` role** (Chrome).
   - Differs: whether Chrome's `content-type` counts as a page header or its
     own in the hash-table order is a tie no capture resolves; kindsgen
@@ -840,7 +840,7 @@ These matter most under decision 0029:
   - Detection: low to medium. User-visible: no.
   - Close: a `headers-order` capture with `content-type` beside other
     names; small.
-  - Source: [headers-order report](../harness/reports/headers-order-2026-10-24.md);
+  - Source: [headers-order report](../internal/harness/reports/headers-order-2026-10-24.md);
     [EVIDENCE.md, Request kinds](../profiles/EVIDENCE.md#request-kinds).
 - **Layout-driven image priorities** (Firefox, Chrome).
   - Differs: Firefox gives some images in the HTML `u=4` (weight 13) where
@@ -850,10 +850,10 @@ These matter most under decision 0029:
   - Detection: low; it depends on layout, so vendors cannot expect a
     value. User-visible: no.
   - Close: captures of images placed above and below the fold; medium.
-  - Source: `redirectsLineGaps` in [`redirects2_test.go`](../harness/e2e/redirects2_test.go);
-    `h3Gaps` in [`http3_test.go`](../harness/e2e/http3_test.go);
-    `h3PriorityGaps` in `harness/cmd/kindsgen/http3.go`;
-    [redirects2 report](../harness/reports/redirects2-2026-10-24.md).
+  - Source: `redirectsLineGaps` in [`redirects2_test.go`](../internal/harness/e2e/redirects2_test.go);
+    `h3Gaps` in [`http3_test.go`](../internal/harness/e2e/http3_test.go);
+    `h3PriorityGaps` in `internal/harness/cmd/kindsgen/http3.go`;
+    [redirects2 report](../internal/harness/reports/redirects2-2026-10-24.md).
 - **HTTP/3-only priorities refused over TCP** (latent).
   - Differs: a priority measured only over HTTP/3 (`http3.high`,
     `http3.low`) returns `ErrNotMeasured` when the request goes over TCP.
@@ -867,13 +867,13 @@ These matter most under decision 0029:
     test accepts it (`raceCookieLabels`).
   - Detection: none (timing). User-visible: no.
   - Close: nothing practical.
-  - Source: [`kinds_test.go`](../harness/e2e/kinds_test.go);
+  - Source: [`kinds_test.go`](../internal/harness/e2e/kinds_test.go);
     [EVIDENCE.md, Request kinds](../profiles/EVIDENCE.md#request-kinds).
 - **Safari's hash tables at extreme sizes** (Safari).
   - Differs: tables past 1732 names, and the hash of names over 96
     characters, come from CoreFoundation's source only.
   - Detection: none. User-visible: no.
-  - Source: [headers-order report](../harness/reports/headers-order-2026-10-24.md).
+  - Source: [headers-order report](../internal/harness/reports/headers-order-2026-10-24.md).
 - **The navigation's `content-length` slot** (all).
   - Differs: placed as on `fetch()` uploads, but no request reaches it: a
     POST navigation takes a variant.
@@ -888,7 +888,7 @@ These matter most under decision 0029:
     and a subdomain, common on shops.
   - Detection: low to medium; cookie order. User-visible: no.
   - Close: a `cookies-edge` step; small.
-  - Source: [cookies report](../harness/reports/cookies-2026-10-24.md);
+  - Source: [cookies report](../internal/harness/reports/cookies-2026-10-24.md);
     [concepts/cookies.md](concepts/cookies.md#not-modelled).
 - **Limits and eviction** (all).
   - Differs: no total jar limit; Chrome's priority-aware and
@@ -901,7 +901,7 @@ These matter most under decision 0029:
   - Detection: low. User-visible: no.
   - Close: `cookies-edge` captures with priorities, `Secure` mixes and
     staggered setting; medium.
-  - Source: [cookies-edge report](../harness/reports/cookies-edge-2026-10-24.md);
+  - Source: [cookies-edge report](../internal/harness/reports/cookies-edge-2026-10-24.md);
     [concepts/cookies.md](concepts/cookies.md#not-modelled).
 - **Chrome's two-minute Lax window** (Chrome).
   - Differs: the end of the window in which a cookie without `SameSite`
@@ -911,7 +911,7 @@ These matter most under decision 0029:
     cookie was set.
   - Detection: low. User-visible: no.
   - Close: a timed capture; small.
-  - Source: [cookies report](../harness/reports/cookies-2026-10-24.md);
+  - Source: [cookies report](../internal/harness/reports/cookies-2026-10-24.md);
     [concepts/cookies.md](concepts/cookies.md#not-modelled).
 - **`Expires` and the server's clock** (all).
   - Differs: `Expires` is judged by the local clock, with no correction
@@ -950,7 +950,7 @@ These matter most under decision 0029:
     was not captured.
   - Detection: low. User-visible: no.
   - Close: a `prefix-probe` from a deep path; small.
-  - Source: [cookies-edge report](../harness/reports/cookies-edge-2026-10-24.md).
+  - Source: [cookies-edge report](../internal/harness/reports/cookies-edge-2026-10-24.md).
 - **Loopback hosts other than `localhost`** (all).
   - Differs: `127.0.0.1`, `::1` and `*.localhost` count as secure from the
     Secure Contexts specification, for cookies and for non-secure lists;
@@ -964,7 +964,7 @@ These matter most under decision 0029:
     with `__Http-` is not captured; the jar does not.
   - Detection: none. User-visible: no.
   - Close: add it to the nameless probe; small.
-  - Source: [cookies-edge report](../harness/reports/cookies-edge-2026-10-24.md).
+  - Source: [cookies-edge report](../internal/harness/reports/cookies-edge-2026-10-24.md).
 
 ## CORS
 
@@ -977,7 +977,7 @@ These matter most under decision 0029:
   - Detection: low to medium; preflight cadence on long sessions.
     User-visible: no.
   - Close: a long-session capture; small, slow to run.
-  - Source: [cors report](../harness/reports/cors-2026-10-24.md);
+  - Source: [cors report](../internal/harness/reports/cors-2026-10-24.md);
     [decision 0017](decisions/0017-cors-preflights.md).
 - **Safelist and refusal edges** (all).
   - Differs: long values, ranges and language values in the safelist, the
@@ -995,7 +995,7 @@ These matter most under decision 0029:
   - Shows: the same API called from two sites within the cache lifetime.
   - Detection: low. User-visible: no.
   - Close: a two-site `cors` capture; small.
-  - Source: [cors report](../harness/reports/cors-2026-10-24.md);
+  - Source: [cors report](../internal/harness/reports/cors-2026-10-24.md);
     [decision 0017](decisions/0017-cors-preflights.md).
 - **A hop's preflight over plain HTTP** (all).
   - Differs: whether a redirect hop's preflight over plain HTTP uses
@@ -1019,8 +1019,8 @@ These matter most under decision 0029:
   - Detection: low. User-visible: no.
   - Close: grant Terminal Accessibility access on the second Mac and run
     the capture from Terminal there; small.
-  - Source: `missingCaptures` in [`proxy_test.go`](../harness/e2e/proxy_test.go);
-    [nav-click report](../harness/reports/nav-click-2026-10-26.md).
+  - Source: `missingCaptures` in [`proxy_test.go`](../internal/harness/e2e/proxy_test.go);
+    [nav-click report](../internal/harness/reports/nav-click-2026-10-26.md).
 - **Other hop combinations not captured** (all; Safari has the most).
   - Differs: once a kind's redirects were captured, a hop in a condition
     no variant matches returns `ErrNotMeasured` rather than guess an
@@ -1040,8 +1040,8 @@ These matter most under decision 0029:
   - Close: broader redirect captures; medium.
   - Source: `resolve.go` (`resolve`);
     [EVIDENCE.md, Redirects](../profiles/EVIDENCE.md#redirects);
-    [cors-edge report](../harness/reports/cors-edge-2026-10-24.md);
-    [redirects2 report](../harness/reports/redirects2-2026-10-24.md).
+    [cors-edge report](../internal/harness/reports/cors-edge-2026-10-24.md);
+    [redirects2 report](../internal/harness/reports/redirects2-2026-10-24.md).
 - **`navigationSite` on longer chains** (all).
   - Differs: how `sec-fetch-site` counts a navigation's chain was measured
     on one chain (to another site and back). Longer chains follow the rule
@@ -1060,7 +1060,7 @@ These matter most under decision 0029:
     on; deferred as browser UI.
   - Close: by decision 0022, not planned.
   - Source: [decision 0022](decisions/0022-redirects-as-the-browser-follows-them.md);
-    [redirects2 report](../harness/reports/redirects2-2026-10-24.md).
+    [redirects2 report](../internal/harness/reports/redirects2-2026-10-24.md).
 - **`hopPreflight` to another cross-site origin** (Firefox, Safari).
   - Differs: measured only for a hop to the same cross-site origin.
   - Detection: low. User-visible: no.
@@ -1077,7 +1077,7 @@ These matter most under decision 0029:
     through a third origin is not captured.
   - Detection: low. User-visible: no.
   - Close: a capture; small.
-  - Source: [cors-edge report](../harness/reports/cors-edge-2026-10-24.md).
+  - Source: [cors-edge report](../internal/harness/reports/cors-edge-2026-10-24.md).
 - **Safari's cold first sample** (Safari 27, 26).
   - Differs: in the first sample of a run, Safari sent a hop back to the
     page's site on a new connection with another header order (Safari 27
@@ -1085,7 +1085,7 @@ These matter most under decision 0029:
     the sample out (`sampleGaps`).
   - Detection: low; browser state. User-visible: no.
   - Close: cold-start captures; medium.
-  - Source: `harness/cmd/kindsgen/derive.go`;
+  - Source: `internal/harness/cmd/kindsgen/derive.go`;
     [decision 0022](decisions/0022-redirects-as-the-browser-follows-them.md).
 - **Firefox's `www.redir-c.test` connections**: see
   [connections](#connections-and-pool).
@@ -1107,7 +1107,7 @@ These matter most under decision 0029:
     GET), while the requests sent are the browser's. Documented on
     `NewClient`.
   - Detection: none. User-visible: possibly confusing.
-  - Source: [cors-edge report](../harness/reports/cors-edge-2026-10-24.md).
+  - Source: [cors-edge report](../internal/harness/reports/cors-edge-2026-10-24.md).
 
 ## WebSockets
 
@@ -1123,7 +1123,7 @@ These matter most under decision 0029:
   - Detection: none (Firefox itself stops talking). User-visible: an
     error instead of a hang.
   - Close: nothing to close; revisit if Firefox fixes the deadlock.
-  - Source: [websocket-deflate report](../harness/reports/websocket-deflate-2026-10-26.md).
+  - Source: [websocket-deflate report](../internal/harness/reports/websocket-deflate-2026-10-26.md).
 - **WebSockets through a SOCKS5 proxy: ws://** (all).
   - Differs: not measured; refused (`ErrNotMeasured`). Everything else
     through a proxy is captured and replayed (proxy-websocket captures,
@@ -1134,7 +1134,7 @@ These matter most under decision 0029:
   - Close: Safari's proxy script must send a second port to SOCKS5 (the
     page's plain port), which changes the script every Mac has cached;
     small once the setup is there.
-  - Source: [proxy-websocket report](../harness/reports/proxy-websocket-2026-10-26.md);
+  - Source: [proxy-websocket report](../internal/harness/reports/proxy-websocket-2026-10-26.md);
     `internal/engine/native/websocket.go` (`webSocketRoute`).
 - **Subprotocols the handshake list cannot place** (all).
   - Differs: asking for subprotocols where the profile's handshake list
@@ -1177,8 +1177,8 @@ These matter most under decision 0029:
     quick refresh's) is enough.
   - Detection: low; both forms occur. User-visible: no.
   - Close: more sizes to find the rule; small to medium.
-  - Source: [`websocket_test.go`](../harness/e2e/websocket_test.go);
-    [websocket report](../harness/reports/websocket-2026-10-24.md).
+  - Source: [`websocket_test.go`](../internal/harness/e2e/websocket_test.go);
+    [websocket report](../internal/harness/reports/websocket-2026-10-24.md).
 - **Firefox's HTTP/2 DATA segmenting** (Firefox).
   - Differs: Firefox counts the frame header into its 16000 bytes
     (14 + 15986); not modelled, only the cap and header-alone are. DATA
@@ -1193,7 +1193,7 @@ These matter most under decision 0029:
     only in the server's log, not the trace.
   - Detection: low. User-visible: yes, refused (as in the browser).
   - Close: keep the server log with captures; small.
-  - Source: [websocket report](../harness/reports/websocket-2026-10-24.md).
+  - Source: [websocket report](../internal/harness/reports/websocket-2026-10-24.md).
 - **Unexplained but modelled** (Firefox, Safari 26).
   - Differs: nothing; recorded so nobody "fixes" them. Firefox's
     HTTP/1.1 socket hello drops `compress_certificate` while its other
@@ -1201,7 +1201,7 @@ These matter most under decision 0029:
     unpartitioned None cookies on cross-site sockets where Safari 27 does
     not. Both are compared against every sample.
   - Detection: none. User-visible: no.
-  - Source: [websocket report](../harness/reports/websocket-2026-10-24.md).
+  - Source: [websocket report](../internal/harness/reports/websocket-2026-10-24.md).
 - **Read limits** (all).
   - Differs: 64 MiB per message and 64 queued messages are safety bounds,
     not browser values.
@@ -1228,9 +1228,9 @@ These matter most under decision 0029:
     browser, a decision, and a pool-key change; large.
   - Source: [decision 0011](decisions/0011-connection-partitioning.md);
     [decision 0025](decisions/0025-websockets.md);
-    `redirectsApart` in [`redirects2_test.go`](../harness/e2e/redirects2_test.go);
-    [`websocket_test.go`](../harness/e2e/websocket_test.go);
-    [redirects2 report](../harness/reports/redirects2-2026-10-24.md).
+    `redirectsApart` in [`redirects2_test.go`](../internal/harness/e2e/redirects2_test.go);
+    [`websocket_test.go`](../internal/harness/e2e/websocket_test.go);
+    [redirects2 report](../internal/harness/reports/redirects2-2026-10-24.md).
 - **Chrome's preconnect** (Chrome).
   - Differs: Chrome opens one more TLS connection to the page's host (a
     handshake, no request) on every page load, and sometimes uses it
@@ -1241,9 +1241,9 @@ These matter most under decision 0029:
   - Detection: low to medium; the connection count per page differs from
     Chrome's. User-visible: no.
   - Close: model it (already captured); small to medium.
-  - Source: [`connections_test.go`](../harness/e2e/connections_test.go)
-    (the pinned difference); [`proxy_test.go`](../harness/e2e/proxy_test.go);
-    [connections report](../harness/reports/connections-2026-10-24.md);
+  - Source: [`connections_test.go`](../internal/harness/e2e/connections_test.go)
+    (the pinned difference); [`proxy_test.go`](../internal/harness/e2e/proxy_test.go);
+    [connections report](../internal/harness/reports/connections-2026-10-24.md);
     [decision 0023](decisions/0023-connection-limits-and-coalescing.md).
 - **Firefox's connections for credential-less requests** (Firefox).
   - Differs: Firefox puts credential-less requests on a connection of
@@ -1258,10 +1258,10 @@ These matter most under decision 0029:
     checked. User-visible: no.
   - Close: a capture designed to find the rule (more hosts, orders,
     timings); medium.
-  - Source: `partitionGaps` in [`kinds_test.go`](../harness/e2e/kinds_test.go);
-    [`redirects2_test.go`](../harness/e2e/redirects2_test.go);
+  - Source: `partitionGaps` in [`kinds_test.go`](../internal/harness/e2e/kinds_test.go);
+    [`redirects2_test.go`](../internal/harness/e2e/redirects2_test.go);
     [decision 0011](decisions/0011-connection-partitioning.md);
-    [kinds report](../harness/reports/kinds-2026-10-23.md).
+    [kinds report](../internal/harness/reports/kinds-2026-10-23.md).
 - **Several tabs of one browser** (all).
   - Differs: a Transport is one browsing session
     ([decision 0019](decisions/0019-transport-is-one-browsing-entity.md)).
@@ -1286,7 +1286,7 @@ These matter most under decision 0029:
     coalesced, or the reverse. User-visible: no.
   - Close: a `connections` capture varying address, port, partition and
     proxy; medium.
-  - Source: [connections report](../harness/reports/connections-2026-10-24.md);
+  - Source: [connections report](../internal/harness/reports/connections-2026-10-24.md);
     [decision 0023](decisions/0023-connection-limits-and-coalescing.md);
     [EVIDENCE.md, Connections](../profiles/EVIDENCE.md#connections).
 - **Connection limits beyond the per-host cap** (all).
@@ -1300,7 +1300,7 @@ These matter most under decision 0029:
   - Detection: low. User-visible: possibly, in queueing.
   - Close: `connections` captures over plain HTTP, through a proxy and
     with mixed priorities; small to medium.
-  - Source: [connections report](../harness/reports/connections-2026-10-24.md);
+  - Source: [connections report](../internal/harness/reports/connections-2026-10-24.md);
     [EVIDENCE.md, Not covered](../profiles/EVIDENCE.md#not-covered-by-any-claim)
     (Connections).
 - **Connections per page** (all).
@@ -1317,7 +1317,7 @@ These matter most under decision 0029:
     and Chrome had 2 unused connections. Not analysed.
   - Detection: low. User-visible: no.
   - Close: analyse them against the coalescing rules; small.
-  - Source: [websocket report](../harness/reports/websocket-2026-10-24.md).
+  - Source: [websocket report](../internal/harness/reports/websocket-2026-10-24.md).
 - **State kept per key** (all).
   - Differs: nothing on the wire. TLS tickets (swept when expired) and
     proxy credential state are kept per key for the Transport's life.
@@ -1370,7 +1370,7 @@ These matter most under decision 0029:
     `proxy-auth`, `proxy-plain-auth`, `proxy-auth` again), and a
     decision whether to send the caller's proxy credentials to servers;
     medium.
-  - Source: [proxy-websocket report](../harness/reports/proxy-websocket-2026-10-26.md)
+  - Source: [proxy-websocket report](../internal/harness/reports/proxy-websocket-2026-10-26.md)
     (addendum); [EVIDENCE.md, Proxies](../profiles/EVIDENCE.md#proxies).
 - **Safari 26's credential flow** (Safari 26).
   - Differs: copied from Safari 27, WebSockets included; the
@@ -1380,9 +1380,9 @@ These matter most under decision 0029:
   - Detection: low; only the proxy sees it. User-visible: no.
   - Close: the three captures on the macOS 26 machine, which need a
     person at its screen for the proxy login dialog; small.
-  - Source: [`proxy_test.go`](../harness/e2e/proxy_test.go);
-    [proxies report](../harness/reports/proxies-2026-10-24.md);
-    [proxy-websocket report](../harness/reports/proxy-websocket-2026-10-26.md);
+  - Source: [`proxy_test.go`](../internal/harness/e2e/proxy_test.go);
+    [proxies report](../internal/harness/reports/proxies-2026-10-24.md);
+    [proxy-websocket report](../internal/harness/reports/proxy-websocket-2026-10-26.md);
     [EVIDENCE.md, Proxies](../profiles/EVIDENCE.md#proxies).
 - **SOCKS5 credentials** (all).
   - Differs: no browser sends SOCKS5 credentials. mimicry offers them
@@ -1504,8 +1504,8 @@ it.
   - Safari 27's `h3-page` capture holds a second TCP connection from
     another system client (a capture artefact).
 
-  Source: HANDOFF.md; [kinds report](../harness/reports/kinds-2026-10-23.md);
-  [`http3_test.go`](../harness/e2e/http3_test.go).
+  Source: HANDOFF.md; [kinds report](../internal/harness/reports/kinds-2026-10-23.md);
+  [`http3_test.go`](../internal/harness/e2e/http3_test.go).
 - **Capture ergonomics**: browsers come to the front during captures.
   `cmd/refresh` runs Chrome and Firefox on the Mac mini, so only Safari 27
   still takes this Mac's screen (options: `open -g`, batching runs); closing
@@ -1531,7 +1531,7 @@ it.
   not yet say the interop command dials through a wrapped `PacketConn`
   (`udp_packetconn.go`). Source:
   [`internal/quic/UPSTREAM.md`](../internal/quic/UPSTREAM.md);
-  [quic-interop report](../harness/reports/quic-interop-2026-10-25.md).
+  [quic-interop report](../internal/harness/reports/quic-interop-2026-10-25.md).
 - **Review items not done** (REVIEW-2026-10-24): one internal request
   value, splitting the server package and moving the Fetch-standard logic
   to an internal package (S2–S4, not done by the user's decision to limit
@@ -1540,7 +1540,7 @@ it.
 - **The clients comparison is not independent evidence**: mimicry's
   profiles come from the same captures, and the comparison stops after
   the second request and has no HTTP/3. Source:
-  [clients report](../harness/reports/clients-2026-10-23.md).
+  [clients report](../internal/harness/reports/clients-2026-10-23.md).
 - **Inherited captures miss rule changes until a full refresh.** A
   profile refreshed in quick mode is checked, for every scenario its
   `capturesFrom` names (cookies, CORS, redirects, proxies, connections,

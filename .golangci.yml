@@ -1,7 +1,7 @@
 version: "2"
 
-# Runs per Go module (repo root and harness/) through the moon `lint` task; see
-# .moon/tasks/go.yml.
+# Runs per Go module (repo root and internal/harness/) through the moon `lint`
+# task; see .moon/tasks/go.yml.
 linters:
   # "standard" = errcheck, govet, ineffassign, staticcheck, unused.
   default: standard
@@ -17,6 +17,7 @@ linters:
         stdlib-only:
           files:
             - ${config-path}/profile/*.go
+            - ${config-path}/internal/harness/internal/udprelay/*.go
             - ${config-path}/internal/pins/*.go
             - ${config-path}/internal/proxy/*.go
             - ${config-path}/internal/quic/qlog/*.go
@@ -24,7 +25,6 @@ linters:
             - ${config-path}/internal/quic/testcert/*.go
             - ${config-path}/internal/testutil/*.go
             - ${config-path}/internal/zdeflate/*.go
-            - ${config-path}/harness/internal/udprelay/*.go
             - "!$test"
           list-mode: strict
           allow:
@@ -127,6 +127,67 @@ linters:
             - github.com/roachadam/mimicry/internal/fingerprint$
             - github.com/roachadam/mimicry/profile$
             - github.com/roachadam/utls
+        internal/harness/internal/browser:
+          files:
+            - ${config-path}/internal/harness/internal/browser/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - golang.org/x/net/websocket
+        internal/harness/internal/capture:
+          files:
+            - ${config-path}/internal/harness/internal/capture/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/roachadam/mimicry/internal/harness/internal/diff$
+            - github.com/roachadam/mimicry/internal/harness/internal/h2trace$
+            - github.com/roachadam/mimicry/internal/harness/internal/quictrace$
+            - github.com/roachadam/mimicry/profile$
+            - github.com/roachadam/mimicry/profiles$
+        internal/harness/internal/diff:
+          files:
+            - ${config-path}/internal/harness/internal/diff/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/roachadam/mimicry/profile$
+        internal/harness/internal/h2trace:
+          files:
+            - ${config-path}/internal/harness/internal/h2trace/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - golang.org/x/net/http2/hpack
+        internal/harness/internal/quictrace:
+          files:
+            - ${config-path}/internal/harness/internal/quictrace/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/roachadam/mimicry/profile$
+            - golang.org/x/crypto
+            - golang.org/x/net/http2/hpack
+        internal/harness/internal/server:
+          files:
+            - ${config-path}/internal/harness/internal/server/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/quic-go/quic-go
+            - github.com/roachadam/mimicry/internal/harness/internal/capture$
+            - github.com/roachadam/mimicry/internal/harness/internal/h2trace$
+            - github.com/roachadam/mimicry/internal/harness/internal/pageshape$
+            - github.com/roachadam/mimicry/internal/harness/internal/quictrace$
+            - github.com/roachadam/mimicry/profile$
+            - golang.org/x/crypto
+            - golang.org/x/net
         internal/hpack:
           files:
             - ${config-path}/internal/hpack/*.go
@@ -174,67 +235,6 @@ linters:
             - github.com/roachadam/mimicry/internal/zdeflate$
             - github.com/roachadam/mimicry/profile$
             - golang.org/x/net/http/httpguts
-        harness/internal/browser:
-          files:
-            - ${config-path}/harness/internal/browser/*.go
-            - "!$test"
-          list-mode: strict
-          allow:
-            - $gostd
-            - golang.org/x/net/websocket
-        harness/internal/capture:
-          files:
-            - ${config-path}/harness/internal/capture/*.go
-            - "!$test"
-          list-mode: strict
-          allow:
-            - $gostd
-            - github.com/roachadam/mimicry/harness/internal/diff$
-            - github.com/roachadam/mimicry/harness/internal/h2trace$
-            - github.com/roachadam/mimicry/harness/internal/quictrace$
-            - github.com/roachadam/mimicry/profile$
-            - github.com/roachadam/mimicry/profiles$
-        harness/internal/diff:
-          files:
-            - ${config-path}/harness/internal/diff/*.go
-            - "!$test"
-          list-mode: strict
-          allow:
-            - $gostd
-            - github.com/roachadam/mimicry/profile$
-        harness/internal/h2trace:
-          files:
-            - ${config-path}/harness/internal/h2trace/*.go
-            - "!$test"
-          list-mode: strict
-          allow:
-            - $gostd
-            - golang.org/x/net/http2/hpack
-        harness/internal/quictrace:
-          files:
-            - ${config-path}/harness/internal/quictrace/*.go
-            - "!$test"
-          list-mode: strict
-          allow:
-            - $gostd
-            - github.com/roachadam/mimicry/profile$
-            - golang.org/x/crypto
-            - golang.org/x/net/http2/hpack
-        harness/internal/server:
-          files:
-            - ${config-path}/harness/internal/server/*.go
-            - "!$test"
-          list-mode: strict
-          allow:
-            - $gostd
-            - github.com/quic-go/quic-go
-            - github.com/roachadam/mimicry/harness/internal/capture$
-            - github.com/roachadam/mimicry/harness/internal/h2trace$
-            - github.com/roachadam/mimicry/harness/internal/pageshape$
-            - github.com/roachadam/mimicry/harness/internal/quictrace$
-            - github.com/roachadam/mimicry/profile$
-            - golang.org/x/crypto
-            - golang.org/x/net
     tagalign:
       # Struct tags are aligned and ordered json first; tags not in the order
       # list sort alphabetically after it.

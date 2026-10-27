@@ -1,7 +1,7 @@
 # Third-party notices
 
 mimicry is licensed under the MIT licence ([`LICENSE`](LICENSE)); that covers
-both modules in this repository, the library at the root and `harness/`.
+both modules in this repository, the library at the root and `internal/harness/`.
 This file lists the code from other projects that mimicry bundles and the
 Go modules it depends on.
 
@@ -42,7 +42,7 @@ Direct dependencies of the library (`go.mod`):
 | `golang.org/x/sys` (indirect) | v0.49.0 | BSD-3-Clause |
 | `golang.org/x/text` (indirect) | v0.43.0 | BSD-3-Clause |
 
-The harness (`harness/go.mod`) adds, for capture and interop only (never
+The harness (`internal/harness/go.mod`) adds, for capture and interop only (never
 imported by the library):
 
 | Module | Version | Licence |
@@ -60,6 +60,6 @@ Apache-2.0), `golang.org/x/mod`, `x/sync`, `x/term`, `x/tools`
 ## Tools not shipped
 
 The harness's HTTP/3 version-negotiation server
-(`harness/internal/server/aioquic_h3.py`) runs on Python's `aioquic`
+(`internal/harness/internal/server/aioquic_h3.py`) runs on Python's `aioquic`
 (BSD-3-Clause), installed separately at capture time. Nothing from it is in
 this repository or in the library.

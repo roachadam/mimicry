@@ -22,7 +22,7 @@ profile also sent BoringSSL's GREASE ECH, Firefox's included.
 Every connection of every capture that records the hello's shape, plus
 `.clienthello` samples (new ones with their TLS records, and four older
 ones per browser from git history)
-([report](../../harness/reports/hello-record-2026-10-24.md)):
+([report](../../internal/harness/reports/hello-record-2026-10-24.md)):
 - **Record version:** `0x0301` in every browser.
 - **`legacyVersion`, session ID, key shares:** `0x0303`, 32 bytes, and
   the key-share lengths are constant. They are the same in resumed hellos.
@@ -40,7 +40,7 @@ ones per browser from git history)
 - a typed `ech` (cipher suites and payload lengths as observed sets);
 - `resumption.echPayloadLengths` for resumed hellos.
 
-These are required (0008). `harness/cmd/hellogen` derives them from every
+These are required (0008). `internal/harness/cmd/hellogen` derives them from every
 capture and refuses a connection that contradicts them; it is never
 hand-edited. The parser, `capture.Combine` and `diff.Compare` record and
 compare them. The handshake sends them: Firefox's own GREASE ECH,

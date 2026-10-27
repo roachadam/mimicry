@@ -7,7 +7,7 @@
 ## Problem
 
 HTTP/3 runs on QUIC. The HTTP/3 captures
-([report](../../harness/reports/http3-2026-10-25.md)) show the QUIC
+([report](../../internal/harness/reports/http3-2026-10-25.md)) show the QUIC
 fingerprint is mostly in how packets are built:
 - datagram sizes and where padding goes;
 - how the ClientHello is split across CRYPTO frames and packets (Chrome

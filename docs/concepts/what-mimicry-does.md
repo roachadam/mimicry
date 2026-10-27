@@ -324,7 +324,7 @@ connection once the handshake is complete, and you get the response to
 that; you see the 425 only if the request's body cannot be read again
 (no `GetBody`). Chrome, Firefox and Safari all did both on the
 `h3-early` and `h3-too-early` pages
-([report](../../harness/reports/h3-early-2026-10-26.md)).
+([report](../../internal/harness/reports/h3-early-2026-10-26.md)).
 
 **Why.** A client that never resumes looks unlike a browser on its second
 connection, and is slower. Browsers keep requests that change state out

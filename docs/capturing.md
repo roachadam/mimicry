@@ -1,8 +1,8 @@
 # Capturing browsers and deriving profiles
 
-How the `harness/` module captures the real browsers, how a profile's
+How the `internal/harness/` module captures the real browsers, how a profile's
 generated sections are derived from those captures, and the harness's other
-tools. Commands run in `harness/` unless they say otherwise. For the routine
+tools. Commands run in `internal/harness/` unless they say otherwise. For the routine
 job of bringing a profile up to a new browser version, use `cmd/refresh`
 ([Refreshing profiles](concepts/refreshing-profiles.md)); this page is what
 it runs underneath and what to do by hand. Why captures are the evidence:
@@ -14,7 +14,7 @@ captures: [decision 0035](decisions/0035-version-policy-and-capture-inheritance.
 
 `moon run harness:capture` launches every installed browser (Chrome,
 Firefox, Safari) against an in-process capture server and writes new
-captures to `harness/testdata/captures/`. It never overwrites; delete a
+captures to `internal/harness/testdata/captures/`. It never overwrites; delete a
 capture to retake it. Use visible windows for captures you commit: headless
 Chrome reports `HeadlessChrome` in its user agent. moon skips this task
 when `CI=true`.
@@ -155,7 +155,7 @@ Safari's window: leave the machine alone while it runs.
 
 ### Proxy scenarios
 
-Proxy scenarios (`proxy-*`) put the capture proxy (`harness/internal/proxy`:
+Proxy scenarios (`proxy-*`) put the capture proxy (`internal/harness/internal/proxy`:
 HTTP CONNECT, absolute-form, SOCKS5, all recorded) in front of the server;
 a scenario with a plain port gets what goes to that port (tunnels and
 absolute-form requests) on the server's plain side, as if the proxy had
@@ -192,7 +192,7 @@ For Safari's credential flow (`proxy-auth`, `proxy-plain-auth`,
 `127.0.0.1:15354`, `ProxyUsername`/`ProxyPassword`, `PayloadScope:
 System`), then type the credentials into the proxy login dialog macOS
 raises; saving them in System Settings, `networksetup` or the keychain was
-not enough (see [the proxies report](../harness/reports/proxies-2026-10-24.md)).
+not enough (see [the proxies report](../internal/harness/reports/proxies-2026-10-24.md)).
 Remove the profile afterwards. `cmd/refresh` leaves these scenarios out of
 Safari's runs: capture them by hand.
 
@@ -259,8 +259,8 @@ Chrome and Firefox need `-h3-local-roots` for all but `h3-blackhole` (no
 certificate ever arrives). hellogen and h3gen read all but `h3-v2`
 (`server.H3EdgeCaptures`); `TestHTTP3EdgeMatchesBrowser` and
 `TestHTTP3DownloadMatchesBrowser` replay them. Results:
-[http3-edge](../harness/reports/http3-edge-2026-10-25.md),
-[h3-early](../harness/reports/h3-early-2026-10-26.md).
+[http3-edge](../internal/harness/reports/http3-edge-2026-10-25.md),
+[h3-early](../internal/harness/reports/h3-early-2026-10-26.md).
 
 ## Deriving a profile
 
@@ -273,7 +273,7 @@ built-in through `profiles.ByName`, which parses it
 (`TestCapturesFromNamesCapturedScenarios`). Captures record one connection
 and are not complete profiles, so the harness loads them with
 `profile.Decode`. A profile without a matching capture in
-`harness/testdata/captures/` is not finished.
+`internal/harness/testdata/captures/` is not finished.
 
 A new version starts as a copy of the previous one
 ([decision 0004](decisions/0004-complete-profile-files.md)): replace every
@@ -286,7 +286,7 @@ does the copy, sets `capturesFrom` and runs the generators below.
 
 Sections derived from captures are regenerated, never hand-edited. Run the
 three generators in this order, each with
-`-profile ../profiles/data/<name>.json` and each refusing a sample its rule
+`-profile ../../profiles/data/<name>.json` and each refusing a sample its rule
 does not describe:
 
 1. `go run ./cmd/hellogen`: the ClientHello's shape; also `tls.quic`, the
@@ -384,7 +384,7 @@ same traces.
   captures any other client: it runs the command three times, each against
   a fresh server, keeps each run's first connection that carried a
   request, and writes the combined capture (logging, not failing, when the
-  client varies where browsers do not). `harness/reports/` holds
+  client varies where browsers do not). `internal/harness/reports/` holds
   comparisons made with it; date them, name the client versions, and keep
   the captures in `testdata/clients/`.
 - `go run ./cmd/interop -local` or `-public` (opt-in, never part of
@@ -397,7 +397,7 @@ same traces.
   fresh and a resumed QUIC connection). `-servers`, `-cases`, `-sites` and
   `-profiles` narrow a run; `-addr PORT -setup DIR` reruns the cases
   against a container started by hand. Results go to
-  `harness/reports/quic-interop-<date>.md`.
+  `internal/harness/reports/quic-interop-<date>.md`.
 - `go run ./cmd/realcheck` (opt-in, never part of `go test`; needs the
   network) compares mimicry with the real browsers as public
   fingerprinting services see them: every supported profile (or those
@@ -418,4 +418,4 @@ same traces.
   (shuffled extension and transport parameter order, GREASE ECH lengths and
   suites, random packet numbers) told apart from differences.
   `-echo=false -sites=false -profiles none` only compares. Results go to
-  `harness/reports/realcheck-<date>.md`.
+  `internal/harness/reports/realcheck-<date>.md`.

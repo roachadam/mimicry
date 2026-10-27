@@ -76,7 +76,7 @@ response from the page's script, which mimicry has no counterpart for.
   lists, values and weight, per browser, over HTTP/2, HTTP/1.1 and plain
   HTTP (`fetch-json`, `fetch-custom`, same-site and cross-site).
 - **The new `cors` scenario**
-  ([report](../../harness/reports/cors-2026-10-24.md)): three samples per
+  ([report](../../internal/harness/reports/cors-2026-10-24.md)): three samples per
   browser, identical within each browser, Safari 26 included. It measured:
   - the joiner and order of `Access-Control-Request-Headers` (`x-a,x-b`);
   - `PUT`;

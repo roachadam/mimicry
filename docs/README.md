@@ -18,7 +18,7 @@ Related:
   gets modelled).
 - [`profiles/EVIDENCE.md`](../profiles/EVIDENCE.md): every claim a built-in
   profile makes, its evidence and the test that keeps it true.
-- [`harness/reports/`](../harness/reports/): dated measurement reports.
+- [`internal/harness/reports/`](../internal/harness/reports/): dated measurement reports.
 - [`capturing.md`](capturing.md): capturing the browsers, deriving a
   profile's generated sections, and the harness's other tools.
 - [`AGENTS.md`](../AGENTS.md): working conventions.

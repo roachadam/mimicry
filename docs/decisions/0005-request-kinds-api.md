@@ -63,7 +63,7 @@ a GET needs `From`, the page whose form sends it (0008).
 
 ## Evidence
 
-The kinds capture page (`harness/reports/kinds-2026-10-23.md`).
+The kinds capture page (`internal/harness/reports/kinds-2026-10-23.md`).
 `TestKindsMatchBrowserTraces` makes every request of that page through
 mimicry and compares it with the browser's.
 

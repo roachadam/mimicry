@@ -7,7 +7,7 @@
 ## Problem
 
 The jar (0009) must reproduce each browser's cookie behaviour. The
-captures (`harness/reports/cookies-2026-10-24.md`) show the browsers differ
+captures (`internal/harness/reports/cookies-2026-10-24.md`) show the browsers differ
 in kind, not only in degree:
 
 - an unset SameSite is Lax in Chrome (with a two-minute exception for
@@ -58,7 +58,7 @@ in kind, not only in degree:
 | `emptyName` | `keep` (Chrome: `=x` is a nameless cookie `x`), `drop` (Firefox, Safari) |
 
 These rows come from the `cookies-edge` and `cookies-edge2` captures
-([report](../../harness/reports/cookies-edge-2026-10-24.md)). The wire shows
+([report](../../internal/harness/reports/cookies-edge-2026-10-24.md)). The wire shows
 169 of 200 cookies kept in Chrome and Firefox, which 180/150 explains
 exactly (150 left after the purge, plus the 19 set after it); the numbers
 themselves are the browsers' sources. Safari's `samesiteScheme` needed a

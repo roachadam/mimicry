@@ -97,7 +97,7 @@ Alt-Svc is known, the HTTP/3 lines name the origin's own port in
 
 ## Evidence
 
-`harness/e2e`'s page replays plan every request just before sending it
+`internal/harness/e2e`'s page replays plan every request just before sending it
 (`planEvery`, `checkPlans`): the kinds, headers-order, cors, cors-edge,
 redirects2 and nav-redirect, cookies, cookies-edge and h3 pages, every
 profile. For each request the plan's lines for the protocol the server

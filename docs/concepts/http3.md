@@ -7,7 +7,7 @@ sections. See decisions [0026](../decisions/0026-http3-capture.md) (how the
 browsers were captured), [0027](../decisions/0027-quic-base.md) (the
 QUIC stack) and [0028](../decisions/0028-quic-failure-model.md) (how it
 fails), and the
-[capture report](../../harness/reports/http3-2026-10-25.md).
+[capture report](../../internal/harness/reports/http3-2026-10-25.md).
 
 It is on by default for a profile with `quic` and `http3` sections (every
 built-in one). `Config.DisableHTTP3` keeps every request on TCP.
@@ -55,7 +55,7 @@ What a request does while its origin's QUIC connection is not up, and
 when an attempt or a live connection fails, is
 `http3.discovery.fallback`, measured against servers that answer nothing,
 go silent mid-request, close and then answer nothing, or speak only QUIC
-v2 ([report](../../harness/reports/http3-edge-2026-10-25.md); captures
+v2 ([report](../../internal/harness/reports/http3-edge-2026-10-25.md); captures
 `h3-blackhole`, `h3-broken`, `h3-vn`):
 
 - **Chrome (`race`):** a request that needs a QUIC connection waits for
@@ -207,7 +207,7 @@ with its detection relevance and what closing it takes, is in the
 
 ## Where the profile data comes from
 
-The h3 captures (`harness/testdata/captures/<name>.h3-{discovery,page}*`)
+The h3 captures (`internal/harness/testdata/captures/<name>.h3-{discovery,page}*`)
 feed three generators, run in this order: `hellogen` (`tls.quic`),
 `h3gen` (`quic`, `http3` but its header lists and priorities), `kindsgen`
 (`http3.headers`, `http3.high`, `http3.low`, and the kinds the h3 pages
@@ -228,7 +228,7 @@ its rule does not describe.
   connection is held to the profile's rule, for mimicry's connections and
   for every browser connection alike, so the test is deterministic and a
   rule the captures contradict fails.
-- `TestHTTP3EdgeMatchesBrowser` (`harness/e2e/http3_edge_test.go`) walks
+- `TestHTTP3EdgeMatchesBrowser` (`internal/harness/e2e/http3_edge_test.go`) walks
   the `h3-blackhole`, `h3-broken`, `h3-vn`, (with aioquic) `h3-v2`,
   `h3-early` and `h3-too-early` pages through mimicry on the browser's
   schedule and compares, per request, every connection it went on, how
@@ -249,9 +249,9 @@ its rule does not describe.
   acknowledged, plus the window).
 - `TestQPACKReproducesBrowserSections` re-encodes every captured field
   list and must reproduce the browser's bytes.
-- `TestQUICInterop` (`harness/e2e/quic_interop_test.go`) runs every
+- `TestQUICInterop` (`internal/harness/e2e/quic_interop_test.go`) runs every
   profile against quic-go's HTTP/3 server through a seeded relay
-  (`harness/internal/udprelay`: loss, reordering, duplication,
+  (`internal/harness/internal/udprelay`: loss, reordering, duplication,
   corruption, delay, blackholes, a small MTU, NAT rebinding): handshake,
   large and concurrent transfers, Retry, resumption and 0-RTT (accepted,
   rejected, and answered 425 Too Early), ChaCha20, key updates, the

@@ -302,7 +302,7 @@ lists each behaviour, why the browser does it, and the option that changes it.
 ## Evidence and limits
 
 Each profile is one complete JSON file in `profiles/data/`, derived from
-captures of the real browser: the `harness/` module drives Chrome, Firefox
+captures of the real browser: the `internal/harness/` module drives Chrome, Firefox
 and Safari on macOS against its own capture server, usually three samples
 per scenario. Its tests replay the captures through mimicry and fail on any
 difference not pinned as a known gap: the ClientHello, HTTP/2 and HTTP/3
@@ -344,7 +344,7 @@ onto mimicry, and says where mimicry is weaker.
 ## Development
 
 [`AGENTS.md`](AGENTS.md) has the conventions and commands
-(`moon run :test :vet :lint`). `harness/` is a separate module that captures
+(`moon run :test :vet :lint`). `internal/harness/` is a separate module that captures
 the browsers and checks the profiles against them
 ([docs/capturing.md](docs/capturing.md)); its `go run ./cmd/refresh`
 brings a profile up to the installed browser version

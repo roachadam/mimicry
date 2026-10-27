@@ -37,7 +37,7 @@ the mismatch at once.
 
 ## Evidence
 
-[`harness/reports/plain-http-2026-10-24.md`](../../harness/reports/plain-http-2026-10-24.md),
+[`internal/harness/reports/plain-http-2026-10-24.md`](../../internal/harness/reports/plain-http-2026-10-24.md),
 captures `<profile>.kinds-plain.pagetrace.json.gz` for all four profiles.
 `TestKindsMatchBrowserTraces` (`kinds-plain`: every request and the page's
 navigation, line for line), `TestProxyMatchesBrowser` (forwarded plain

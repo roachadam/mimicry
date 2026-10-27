@@ -60,7 +60,7 @@ server sees. Decision 0010 left proxies to compose with `Config.DialContext`.
 
 ## Evidence
 
-[`harness/reports/proxies-2026-10-24.md`](../../harness/reports/proxies-2026-10-24.md):
+[`internal/harness/reports/proxies-2026-10-24.md`](../../internal/harness/reports/proxies-2026-10-24.md):
 CONNECT header sets per browser, identical SOCKS5 handshakes, plain-HTTP
 framing, the credential flow (Chrome's net log separates its preconnects from
 the request's own flow), and tunnels that change nothing. Ledger section
@@ -80,7 +80,7 @@ the request's own flow), and tunnels that change nothing. Ledger section
 
 ## Amendment 2026-10-26: WebSockets, and Firefox's tunnels
 
-The [proxy-websocket captures](../../harness/reports/proxy-websocket-2026-10-26.md)
+The [proxy-websocket captures](../../internal/harness/reports/proxy-websocket-2026-10-26.md)
 (all four browsers; Safari without credentials) added:
 - `proxy.websocket`: `plain` is how a `ws://` socket goes through an
   HTTP proxy, `tunnel` (CONNECT, Chrome and Firefox) or `forward` (the
@@ -107,7 +107,7 @@ The [proxy-websocket captures](../../harness/reports/proxy-websocket-2026-10-26.
 ## Amendment 2026-10-26: Safari's WebSockets with credentials
 
 Safari 27's `proxy-websocket-auth` capture (3 samples; the
-[report's addendum](../../harness/reports/proxy-websocket-2026-10-26.md#addendum-2026-10-26-safari-27-with-credentials))
+[report's addendum](../../internal/harness/reports/proxy-websocket-2026-10-26.md#addendum-2026-10-26-safari-27-with-credentials))
 shows its sockets following its page rules: every socket tunnel
 challenged, then again on its connection (`on_challenge`), and the
 `ws://` handshake sent whole with credentials unasked, after

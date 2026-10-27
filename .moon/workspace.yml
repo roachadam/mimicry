@@ -9,4 +9,4 @@ projects:
   # The library module lives at the repo root so users import
   # github.com/roachadam/mimicry directly.
   mimicry: '.'
-  harness: 'harness'
+  harness: 'internal/harness'

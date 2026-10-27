@@ -8,7 +8,8 @@ import (
 )
 
 // Firefox omits alt-used's port on 443 and writes it otherwise. No capture
-// runs on 443; realcheck caught it (harness/reports/realcheck-2026-10-25.md).
+// runs on 443; realcheck caught it
+// (internal/harness/reports/realcheck-2026-10-25.md).
 func TestAltUsedPort(t *testing.T) {
 	tests := []struct {
 		port string

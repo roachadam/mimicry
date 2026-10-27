@@ -67,7 +67,7 @@ navigations, a hop whose combination was not captured is `ErrNotMeasured`,
 never the kind's default order: every browser reorders hops. Page-set
 headers follow 0021's table where the browser uses one.
 
-`harness/cmd/kindsgen` derives all of this and refuses captures it cannot
+`internal/harness/cmd/kindsgen` derives all of this and refuses captures it cannot
 reconcile. Profile `context.fetch_redirect_drops` was removed: the redirect
 variants encode it.
 

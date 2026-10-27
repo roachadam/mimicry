@@ -11,7 +11,7 @@
 - it stops after 10 hops;
 - it follows a cross-origin 3xx that a browser's CORS check would refuse.
 
-The `cors-edge` capture ([report](../../harness/reports/cors-edge-2026-10-24.md))
+The `cors-edge` capture ([report](../../internal/harness/reports/cors-edge-2026-10-24.md))
 shows all four browsers:
 - keeping PUT/DELETE and their body on 301/302;
 - turning only 303, and POST on 301/302, into GET;
@@ -88,9 +88,9 @@ and over HTTP/1.1 where its HTTP/1.1 list has none.
 ## Evidence
 
 The `cors-edge`, `redirects2` and `nav-redirect-*` captures
-([reports](../../harness/reports/cors-edge-2026-10-24.md),
-[redirects2](../../harness/reports/redirects2-2026-10-24.md),
-[nav-click](../../harness/reports/nav-click-2026-10-26.md)), all four
+([reports](../../internal/harness/reports/cors-edge-2026-10-24.md),
+[redirects2](../../internal/harness/reports/redirects2-2026-10-24.md),
+[nav-click](../../internal/harness/reports/nav-click-2026-10-26.md)), all four
 browsers (Safari 26 without clicks), identical across samples but for
 one hop: in `nav-redirect-page`, each Safari's first (cold) sample sent
 the hop back to the page's site (`nav-302.cs-so.hop1`) on a new

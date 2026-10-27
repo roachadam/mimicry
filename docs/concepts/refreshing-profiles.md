@@ -5,7 +5,7 @@ Browsers ship a new version every few weeks. `profiles.Chrome()`,
 built-in version, the newest five versions per browser are supported, and
 older ones stay in the repository, deprecated
 ([decision 0035](../decisions/0035-version-policy-and-capture-inheritance.md)). Keeping up is one
-command, run in `harness/`:
+command, run in `internal/harness/`:
 
 ```sh
 go run ./cmd/refresh -browser chrome,firefox -mode quick   # both at once, on the Mac mini
@@ -41,7 +41,7 @@ test reads those instead, with the version tokens in header values
 rewritten to the new version's (anything else that differs still fails).
 A quick refresh of one browser takes under ten minutes of capturing
 (Chrome 156 on the Mac mini: 8 min 24 s, against the plan's ceiling of
-19 min; [report](../../harness/reports/refresh-chrome-156-macos-2026-10-26.md)).
+19 min; [report](../../internal/harness/reports/refresh-chrome-156-macos-2026-10-26.md)).
 
 **Full** recaptures every scenario and replay, three samples each: before a
 release, when a quick refresh shows a change beyond version strings, or
@@ -95,7 +95,7 @@ after a parallel run, recapture them with `-serial`.
    commands that fix them, and asks before capturing (`-yes` does not;
    `-dry-run` stops here). The plan is saved as `plan.json` in the staging
    directory.
-2. **Capture**, into `harness/.refresh/<stamp>/<browser>/captures/`
+2. **Capture**, into `internal/harness/.refresh/<stamp>/<browser>/captures/`
    (gitignored); committed captures are not touched. The capture tool takes
    per-scenario sample counts (`-scenarios page:3,http1:1`) and writes a
    summary line per scenario (`-summary`: profile name, user agent, samples,
@@ -129,7 +129,7 @@ after a parallel run, recapture them with `-serial`.
 5. **Verify.** `MIMICRY_PROFILES=<name>` e2e and regenerate tests (under
    `caffeinate -i`), then `cmd/realcheck` with the browser where it runs
    (it takes over that machine's screen for a few minutes).
-6. **Report**, `harness/reports/refresh-<name>-<date>.md`: the measured
+6. **Report**, `internal/harness/reports/refresh-<name>-<date>.md`: the measured
    time of every scenario against the estimate, the inherited scenarios,
    the version strings, every value that differs from the previous profile
    once its version tokens are rewritten (from the captures, generated, or

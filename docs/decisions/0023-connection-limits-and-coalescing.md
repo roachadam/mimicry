@@ -12,7 +12,7 @@ Chrome sharing connections between hosts.
 
 ## Evidence
 
-The `connections` capture ([report](../../harness/reports/connections-2026-10-24.md)),
+The `connections` capture ([report](../../internal/harness/reports/connections-2026-10-24.md)),
 three identical samples per browser:
 - 10 parallel requests to an HTTP/1.1 host open 6 connections in every
   browser. The first six requests each open one; the rest queue behind

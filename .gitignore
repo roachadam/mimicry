@@ -8,10 +8,10 @@
 
 # Build output
 bin/
-/harness/interop
+/internal/harness/interop
 
 # cmd/refresh's staging: builds, captures before they are installed, logs
-/harness/.refresh/
+/internal/harness/.refresh/
 
 # Local-only workspace for trying unmerged changes in ../utls (see AGENTS.md)
 go.work

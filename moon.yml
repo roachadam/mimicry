@@ -9,8 +9,8 @@ fileGroups:
     - '**/*.go'
     - 'go.mod'
     - 'go.sum'
-    - '!harness/**'
+    - '!internal/harness/**'
   testdata:
     - 'profiles/data/**'
     - '**/testdata/**'
-    - '!harness/**'
+    - '!internal/harness/**'
