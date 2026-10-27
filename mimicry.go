@@ -43,7 +43,6 @@ import (
 	"github.com/roachadam/mimicry/internal/headerorder"
 	"github.com/roachadam/mimicry/internal/pins"
 	"github.com/roachadam/mimicry/internal/pool"
-	"github.com/roachadam/mimicry/internal/request"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -254,7 +253,7 @@ func NewClient(cfg Config) (*http.Client, error) {
 }
 
 // followRedirects is NewClient's CheckRedirect: the Transport stops a chain
-// where the browser does (request.Hop), not http.Client's default of 10.
+// where the browser does (browserHop), not http.Client's default of 10.
 func followRedirects(*http.Request, []*http.Request) error {
 	return nil
 }
@@ -271,8 +270,8 @@ func followRedirects(*http.Request, []*http.Request) error {
 // returns a *CORSError instead, unless Request.IgnoreCORS.
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	r, exact := madeAs(req)
-	callerSet := request.HasHeader(req.Header, "Accept-Encoding") || request.HasHeader(t.headers, "Accept-Encoding")
-	req, o, err := t.outgoing(req, r, exact, request.ToSend)
+	callerSet := hasHeader(req.Header, "Accept-Encoding") || hasHeader(t.headers, "Accept-Encoding")
+	req, o, err := t.outgoing(req, r, exact, toSend)
 
 	if err == nil && o.preflight != nil {
 		err = t.sendPreflight(o.preflight, r.IgnoreCORS)
@@ -287,7 +286,7 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 
-	req = t.ready(req, o, request.ToSend)
+	req = t.ready(req, o, toSend)
 
 	resp, err := t.engine.RoundTrip(req)
 
@@ -295,8 +294,8 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	s := o.s
 
-	if err == nil && t.jar != nil && s.Credentialed {
-		t.jar.SetCookies(s.Cookies, resp.Header.Values("Set-Cookie"))
+	if err == nil && t.jar != nil && s.credentialed {
+		t.jar.SetCookies(s.cookies, resp.Header.Values("Set-Cookie"))
 	}
 
 	if err == nil && !r.IgnoreCORS {
@@ -308,31 +307,11 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.finish(req, r, exact, callerSet, resp, err)
 }
 
-// refusedRedirect returns a *CORSError, closing resp's body, when resp is
-// a redirect req may not follow (request.RefusedRedirect); nil otherwise.
-func refusedRedirect(req *http.Request, resp *http.Response, s *request.Sending) error {
-	reason := request.RefusedRedirect(resp, s)
-	if reason == "" {
-		return nil
-	}
-
-	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
-	_ = resp.Body.Close()
-
-	return &CORSError{
-		URL:      req.URL,
-		Redirect: true,
-		Reason:   reason,
-		Status:   resp.StatusCode,
-		Header:   resp.Header,
-	}
-}
-
 // out is how a request goes out: how it was resolved, its header
 // placements, and the CORS preflight to send before it (nil when it
 // needs none or a cached answer allows it).
 type out struct {
-	s         *request.Sending
+	s         *sending
 	places    []headerorder.Placement
 	preflight *preflightSend
 }
@@ -340,9 +319,9 @@ type out struct {
 // outgoing works out how req goes out, up to its preflight: the browser's
 // hop for a redirect (returned in req's place, even with an error), its
 // placements, and how it is resolved. It sends nothing.
-func (t *Transport) outgoing(req *http.Request, r Request, exact bool, u request.Use) (*http.Request, out, error) {
+func (t *Transport) outgoing(req *http.Request, r Request, exact bool, u use) (*http.Request, out, error) {
 	if req.Response != nil {
-		next, err := request.Hop(t.profile, req, exact || r.Kind == Navigate, u)
+		next, err := browserHop(t.profile, req, exact || r.Kind == Navigate, u)
 		if err != nil {
 			return req, out{}, err
 		}
@@ -371,7 +350,7 @@ func (t *Transport) outgoing(req *http.Request, r Request, exact bool, u request
 // request that sets its own order takes none, and is an error if it has
 // placements of its own.
 func (t *Transport) placementsFor(req *http.Request, r Request, exact bool) ([]headerorder.Placement, error) {
-	if exact || request.SetsOrder(req.Header) || request.SetsOrder(t.headers) {
+	if exact || setsOrder(req.Header) || setsOrder(t.headers) {
 		if len(r.HeaderPlacement) > 0 {
 			return nil, fmt.Errorf("%w: Request.HeaderPlacement on a request that sets its own order (Exact or HeaderOrderKey)", ErrPlacement)
 		}
@@ -395,16 +374,16 @@ func (t *Transport) placementsFor(req *http.Request, r Request, exact bool) ([]h
 // carrying its partition, plan, placements and whether it was
 // preflighted, with its headers and the jar's cookies (read without
 // changing the jar when only planning).
-func (t *Transport) ready(req *http.Request, o out, u request.Use) *http.Request {
+func (t *Transport) ready(req *http.Request, o out, u use) *http.Request {
 	s := o.s
-	h := s.Header
-	ctx := pool.WithPartition(req.Context(), s.Partition)
+	h := s.header
+	ctx := pool.WithPartition(req.Context(), s.partition)
 
-	if s.Plan != nil {
-		ctx = headerorder.WithPlan(ctx, s.Plan)
+	if s.plan != nil {
+		ctx = headerorder.WithPlan(ctx, s.plan)
 	}
 
-	if s.Preflighted {
+	if s.preflighted {
 		// The next hop's preflight may depend on it (hopPreflight): it
 		// sees this request as its Response's.
 		ctx = context.WithValue(ctx, preflightedKey{}, true)
@@ -433,23 +412,23 @@ type preflightedKey struct{}
 // "" without a jar, credentials, or cookies, or when the request sets
 // its own. Only to send does reading it update the jar (Cookies; Peek
 // otherwise).
-func (t *Transport) cookieLine(s *request.Sending, u request.Use) string {
-	if t.jar == nil || !s.Credentialed || request.HasHeader(s.Header, "Cookie") {
+func (t *Transport) cookieLine(s *sending, u use) string {
+	if t.jar == nil || !s.credentialed || hasHeader(s.header, "Cookie") {
 		return ""
 	}
 
-	if u == request.ToPlan {
-		return cookies.Header(t.jar.Peek(s.Cookies))
+	if u == toPlan {
+		return cookies.Header(t.jar.Peek(s.cookies))
 	}
 
-	return cookies.Header(t.jar.Cookies(s.Cookies))
+	return cookies.Header(t.jar.Cookies(s.cookies))
 }
 
 // prepare returns how to send req, made as r describes (or Exact), and
 // its CORS preflight when it needs one that no cached answer spares.
-func (t *Transport) prepare(req *http.Request, r Request, exact bool) (*request.Sending, *preflightSend, error) {
+func (t *Transport) prepare(req *http.Request, r Request, exact bool) (*sending, *preflightSend, error) {
 	if exact {
-		return request.Exact(req, r.From, t.headers), nil, nil
+		return exactSending(req, r.From, t.headers), nil, nil
 	}
 
 	if r.Kind == kindPreflight || r.Kind == kindWebSocket {
@@ -469,17 +448,17 @@ func (t *Transport) prepare(req *http.Request, r Request, exact bool) (*request.
 		}
 	}
 
-	s, err := request.Resolve(t.profile, req, r.made(), from, t.headers)
+	s, err := resolve(t.profile, req, r, from, t.headers)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	needed, pf, err := t.preflightFor(req, r, from, s.Credentialed, s.Header)
+	needed, pf, err := t.preflightFor(req, r, from, s.credentialed, s.header)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	s.Preflighted = needed
+	s.preflighted = needed
 
 	return s, pf, nil
 }
@@ -490,7 +469,7 @@ func (t *Transport) prepare(req *http.Request, r Request, exact bool) (*request.
 type preflightSend struct {
 	need *cors.Need
 	req  *http.Request
-	s    *request.Sending
+	s    *sending
 	rule string
 }
 
@@ -498,7 +477,7 @@ type preflightSend struct {
 // cached answer allows req, and whether one was needed at all. It changes
 // nothing; RoundTrip sends pf, Plan only plans it.
 func (t *Transport) preflightFor(req *http.Request, r Request, from *url.URL, credentialed bool, h http.Header) (needed bool, pf *preflightSend, err error) {
-	origin := request.PreflightOrigin(req, r.made(), from)
+	origin := preflightOrigin(req, r, from)
 
 	need := cors.Preflight(req, origin, credentialed, h, false)
 	if need == nil {
@@ -540,20 +519,20 @@ func (t *Transport) preflightFor(req *http.Request, r Request, from *url.URL, cr
 		pre.Header.Set("Access-Control-Request-Headers", strings.Join(need.Headers, ","))
 	}
 
-	s, err := request.Resolve(t.profile, pre, request.Made{
-		Kind: request.Preflight,
+	s, err := resolve(t.profile, pre, Request{
+		Kind: kindPreflight,
 	}, from, t.preflightHeaders)
 	if err != nil {
 		return true, nil, err
 	}
 
-	pctx := pool.WithPartition(ctx, s.Partition)
-	if s.Plan != nil {
-		pctx = headerorder.WithPlan(pctx, s.Plan)
+	pctx := pool.WithPartition(ctx, s.partition)
+	if s.plan != nil {
+		pctx = headerorder.WithPlan(pctx, s.plan)
 	}
 
 	pre = pre.WithContext(pctx)
-	pre.Header = s.Header
+	pre.Header = s.header
 
 	return true, &preflightSend{
 		need: need,

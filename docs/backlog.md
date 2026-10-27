@@ -766,7 +766,7 @@ These matter most under decision 0029:
     User-visible: yes for Firefox's form POST over HTTP/1.1 (an error).
   - Close: a clicked form on `kinds-http1`, small; frames after a
     click, medium.
-  - Source: `internal/request` (`Resolve`);
+  - Source: `resolve.go` (`resolve`);
     [EVIDENCE.md, Request kinds](../profiles/EVIDENCE.md#request-kinds);
     [decision 0005](decisions/0005-request-kinds-api.md);
     [nav-click report](../harness/reports/nav-click-2026-10-26.md).
@@ -797,7 +797,7 @@ These matter most under decision 0029:
     cross-origin requests in conditions no capture showed.
   - Detection: none. User-visible: yes, an error.
   - Close: a capture per condition met in practice; small each.
-  - Source: `internal/request` (`Resolve`);
+  - Source: `resolve.go` (`resolve`);
     [how a request is built](concepts/how-a-request-is-built.md).
 - **`fetchpriority` on other kinds** (all).
   - Differs: high and low priorities are measured for `Fetch` (both) and
@@ -807,7 +807,7 @@ These matter most under decision 0029:
   - Detection: none. User-visible: yes, an error.
   - Close: extend the kinds page with `fetchpriority` per kind; small.
   - Source: [EVIDENCE.md, Request kinds](../profiles/EVIDENCE.md#request-kinds);
-    `internal/request`.
+    `resolve.go`.
 - **No HTTP cache** (all).
   - Differs: mimicry keeps no cache, so it never adds `If-None-Match` or
     `If-Modified-Since`, and a reload looks like a first visit unless the
@@ -1038,7 +1038,7 @@ These matter most under decision 0029:
   - Shows: less common redirect chains.
   - Detection: none. User-visible: yes, an error.
   - Close: broader redirect captures; medium.
-  - Source: `internal/request` (`Resolve`);
+  - Source: `resolve.go` (`resolve`);
     [EVIDENCE.md, Redirects](../profiles/EVIDENCE.md#redirects);
     [cors-edge report](../harness/reports/cors-edge-2026-10-24.md);
     [redirects2 report](../harness/reports/redirects2-2026-10-24.md).

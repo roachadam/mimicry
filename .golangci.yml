@@ -163,19 +163,6 @@ linters:
             - github.com/roachadam/mimicry/profile$
             - github.com/roachadam/utls
             - golang.org/x/crypto
-        internal/request:
-          files:
-            - ${config-path}/internal/request/*.go
-            - "!$test"
-          list-mode: strict
-          allow:
-            - $gostd
-            - github.com/roachadam/mimicry/cookies$
-            - github.com/roachadam/mimicry/internal/cors$
-            - github.com/roachadam/mimicry/internal/headerorder$
-            - github.com/roachadam/mimicry/internal/site$
-            - github.com/roachadam/mimicry/profile$
-            - golang.org/x/net/http/httpguts
         internal/ws:
           files:
             - ${config-path}/internal/ws/*.go

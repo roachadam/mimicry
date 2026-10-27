@@ -1,4 +1,4 @@
-package request
+package mimicry
 
 import (
 	"fmt"
@@ -27,14 +27,14 @@ const navigationRedirects = 19
 // drops whenever it drops the body.
 var bodyHeaders = []string{"Content-Encoding", "Content-Language", "Content-Location", "Content-Type"}
 
-// Hop returns the redirect hop req as the browser sends it. POST on
+// browserHop returns the redirect hop req as the browser sends it. POST on
 // 301/302 and non-GET/HEAD on 303 become a body-less GET, as http.Client
 // does; any other request keeps the method, body and body headers that
 // http.Client drops. Method and body come from req.Response.Request, so
 // they carry across hops. A chain past the browser's limit (p's, for a
 // navigation) is an error. Only when sending is the body reopened; a plan
 // gets an unread body.
-func Hop(p *profile.Profile, req *http.Request, nav bool, u Use) (*http.Request, error) {
+func browserHop(p *profile.Profile, req *http.Request, nav bool, u use) (*http.Request, error) {
 	prev := req.Response.Request
 	if prev == nil {
 		return req, nil
@@ -93,13 +93,13 @@ func Hop(p *profile.Profile, req *http.Request, nav bool, u Use) (*http.Request,
 
 	next.Method = method
 
-	if reqBody && u == ToSend {
+	if reqBody && u == toSend {
 		_ = req.Body.Close()
 	}
 
 	next.Body, next.GetBody, next.ContentLength = nil, nil, 0
 	switch {
-	case prevBody && u == ToPlan:
+	case prevBody && u == toPlan:
 		next.Body, next.GetBody, next.ContentLength = unread{}, prev.GetBody, prev.ContentLength
 	case prevBody:
 		body, err := prev.GetBody()
@@ -112,7 +112,7 @@ func Hop(p *profile.Profile, req *http.Request, nav bool, u Use) (*http.Request,
 
 	for k, v := range prev.Header {
 		for _, name := range bodyHeaders {
-			if strings.EqualFold(k, name) && !HasHeader(next.Header, name) {
+			if strings.EqualFold(k, name) && !hasHeader(next.Header, name) {
 				next.Header[k] = v
 			}
 		}
@@ -121,26 +121,40 @@ func Hop(p *profile.Profile, req *http.Request, nav bool, u Use) (*http.Request,
 	return next, nil
 }
 
-// RefusedRedirect returns why resp, the answer to a request resolved as
-// s, is a redirect it may not follow: s is a cross-origin CORS-mode
-// request and resp fails the CORS check. Every captured browser stopped
-// there (cors-edge, redirects2). "" otherwise.
-func RefusedRedirect(resp *http.Response, s *Sending) string {
-	if s.CORSOrigin == "" || resp.Header.Get("Location") == "" {
-		return ""
+// refusedRedirect returns a *CORSError, closing resp's body, when resp,
+// the answer to req resolved as s, is a redirect it may not follow: s is a
+// cross-origin CORS-mode request and resp fails the CORS check. Every
+// captured browser stopped there (cors-edge, redirects2). nil otherwise.
+func refusedRedirect(req *http.Request, resp *http.Response, s *sending) error {
+	if s.corsOrigin == "" || resp.Header.Get("Location") == "" {
+		return nil
 	}
 
 	switch resp.StatusCode {
 	case http.StatusMovedPermanently, http.StatusFound, http.StatusSeeOther, http.StatusTemporaryRedirect, http.StatusPermanentRedirect:
 	default:
-		return ""
+		return nil
 	}
 
-	return cors.Check(resp.Header, s.CORSOrigin, s.Credentialed)
+	reason := cors.Check(resp.Header, s.corsOrigin, s.credentialed)
+	if reason == "" {
+		return nil
+	}
+
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
+	_ = resp.Body.Close()
+
+	return &CORSError{
+		URL:      req.URL,
+		Redirect: true,
+		Reason:   reason,
+		Status:   resp.StatusCode,
+		Header:   resp.Header,
+	}
 }
 
 // unread stands for a redirect hop's body when only planning
-// (Hop): nothing reads it.
+// (browserHop): nothing reads it.
 type unread struct{}
 
 func (unread) Read([]byte) (int, error) {

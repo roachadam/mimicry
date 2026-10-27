@@ -1,8 +1,8 @@
 # How a request is built
 
 What happens between `client.Do(req)` and bytes on the wire. Rough draft;
-the code is the reference (the root's `mimicry.go`, `request.go` and
-`plan.go`; `internal/request`, `internal/cors` and the rest of
+the code is the reference (the root's `mimicry.go`, `request.go`,
+`resolve.go`, `redirect.go` and `plan.go`; `internal/cors` and the rest of
 `internal/`).
 
 ## 1. The request says how it is made
@@ -29,8 +29,8 @@ on anything but Fetch and XHR.
 
 ## 2. The transport resolves it against the profile
 
-`Transport.RoundTrip` turns the request into a plan (`request.Resolve`, in
-`internal/request`):
+`Transport.RoundTrip` turns the request into a plan (`resolve`, in the
+root's `resolve.go`):
 
 1. **Add `Config.Headers`.** Each one the request does not set itself (in
    any case) is added first, so from here on it counts as a header the

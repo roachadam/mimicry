@@ -35,8 +35,7 @@ moon run :test-full         # every supported profile, not only each browser's n
 
 The public packages are the root package, `cookies`, `profile`, `profiles` and `cmd/pins`; everything else is in `internal/`, flat, one package per concern. Import boundaries are `depguard` rules in `.golangci.yml`: each says what a package's non-test files may import, and lint fails on anything else. Change a rule on purpose, never just to quiet the linter.
 
-- The root package is the public API and thin methods over `internal/`, which never imports it: the root converts its public types to the internal packages' inputs and never aliases their types.
-- `internal/request`: how a request goes out as its browser sends it: the kind's lists and variant, the headers the page decides, credentials, partition, redirect hops, header placements.
+- The root package is the public API, thin methods over `internal/`, and how a request goes out as its browser sends it (`resolve.go`, `redirect.go`): each kind's lists and variant, the headers the page decides, credentials, partition, redirect hops, header placements. `internal/` never imports it: the root converts its public types to the internal packages' inputs and never aliases their types.
 - `internal/cors`: when a CORS preflight is needed, whether a preflight's answer or a redirect allows the request, and the preflight cache.
 - `internal/pins`: `Config.Pins` parsed, looked up by host and matched against verified chains.
 - Only `internal/handshake` and `internal/quic` (QUIC's TLS, decision 0027) import `github.com/roachadam/utls`.

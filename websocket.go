@@ -13,7 +13,6 @@ import (
 	"github.com/roachadam/mimicry/internal/engine/native"
 	"github.com/roachadam/mimicry/internal/headerorder"
 	"github.com/roachadam/mimicry/internal/pool"
-	"github.com/roachadam/mimicry/internal/request"
 	"github.com/roachadam/mimicry/internal/site"
 	"github.com/roachadam/mimicry/internal/ws"
 )
@@ -129,20 +128,20 @@ func (t *Transport) DialWebSocket(ctx context.Context, rawURL string, opts WebSo
 		req.Header.Set("Sec-WebSocket-Protocol", strings.Join(opts.Protocols, ", "))
 	}
 
-	s, err := request.Resolve(p, req, request.Made{
-		Kind: request.WebSocket,
+	s, err := resolve(p, req, Request{
+		Kind: kindWebSocket,
 	}, from, t.headers)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	if len(opts.Protocols) > 0 && (s.Plan == nil || !ws.PlacesProtocols(s.Plan.Headers, s.Plan.HTTP1)) {
+	if len(opts.Protocols) > 0 && (s.plan == nil || !ws.PlacesProtocols(s.plan.Headers, s.plan.HTTP1)) {
 		return nil, nil, fmt.Errorf("%w: profile %s has no WebSocket handshake with subprotocols for this page (site, non-secure)", ErrNotMeasured, p.Name)
 	}
 
-	h := s.Header
-	if t.jar != nil && s.Credentialed && !request.HasHeader(h, "Cookie") {
-		if line := cookies.Header(t.jar.Cookies(s.Cookies)); line != "" {
+	h := s.header
+	if t.jar != nil && s.credentialed && !hasHeader(h, "Cookie") {
+		if line := cookies.Header(t.jar.Cookies(s.cookies)); line != "" {
 			h.Set("Cookie", line)
 		}
 	}
@@ -152,7 +151,7 @@ func (t *Transport) DialWebSocket(ctx context.Context, rawURL string, opts WebSo
 		return nil, nil, err
 	}
 
-	sctx := headerorder.WithPlan(pool.WithPartition(ctx, s.Partition), s.Plan)
+	sctx := headerorder.WithPlan(pool.WithPartition(ctx, s.partition), s.plan)
 
 	req = req.Clone(sctx)
 	req.Header = h
@@ -163,8 +162,8 @@ func (t *Transport) DialWebSocket(ctx context.Context, rawURL string, opts WebSo
 	}
 
 	resp := sock.Response
-	if t.jar != nil && s.Credentialed {
-		t.jar.SetCookies(s.Cookies, resp.Header.Values("Set-Cookie"))
+	if t.jar != nil && s.credentialed {
+		t.jar.SetCookies(s.cookies, resp.Header.Values("Set-Cookie"))
 	}
 
 	deflate, err := ws.CheckHandshake(sock.Response, sock.H2, key, offer, opts.Protocols)

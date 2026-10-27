@@ -2,11 +2,16 @@ package mimicry
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
+	"golang.org/x/net/http/httpguts"
+
+	"github.com/roachadam/mimicry/cookies"
 	"github.com/roachadam/mimicry/internal/headerorder"
-	"github.com/roachadam/mimicry/internal/request"
+	"github.com/roachadam/mimicry/profile"
 )
 
 // Kind is how a page makes a request, named after the HTML or JavaScript
@@ -38,14 +43,49 @@ const (
 
 // kindPreflight is the CORS preflight the transport sends before a request
 // that needs one; callers never make it.
-const kindPreflight = Kind(request.Preflight)
+const kindPreflight Kind = -1
 
 // kindWebSocket is a WebSocket's opening handshake, which DialWebSocket
 // makes; callers never make it as a request.
-const kindWebSocket = Kind(request.WebSocket)
+const kindWebSocket Kind = -2
+
+// profileKinds names each kind in profile.Profile.Kinds.
+var profileKinds = map[Kind]string{
+	Frame:          profile.KindFrame,
+	Script:         profile.KindScript,
+	AsyncScript:    profile.KindAsyncScript,
+	DeferScript:    profile.KindDeferScript,
+	InjectedScript: profile.KindInjectedScript,
+	PreloadScript:  profile.KindPreloadScript,
+	Style:          profile.KindStyle,
+	Image:          profile.KindImage,
+	InjectedImage:  profile.KindInjectedImage,
+	Font:           profile.KindFont,
+	PreloadFont:    profile.KindPreloadFont,
+	Fetch:          profile.KindFetch,
+	XHR:            profile.KindXHR,
+	Beacon:         profile.KindBeacon,
+	kindPreflight:  profile.KindPreflight,
+	kindWebSocket:  profile.KindWebSocket,
+}
 
 func (k Kind) String() string {
-	return request.Kind(k).String()
+	if k == Navigate {
+		return "navigate"
+	}
+
+	if name, ok := profileKinds[k]; ok {
+		return name
+	}
+
+	return fmt.Sprintf("Kind(%d)", int(k))
+}
+
+// elements are the kinds an HTML element makes: those that take a
+// crossorigin attribute, and fonts, which load in CORS mode without one.
+var elements = []Kind{
+	Script, AsyncScript, DeferScript, InjectedScript, PreloadScript,
+	Style, Image, InjectedImage, Font, PreloadFont,
 }
 
 // Priority is the fetchpriority a page gives a request.
@@ -114,50 +154,6 @@ type Request struct {
 	HeaderPlacement []Place
 }
 
-// internal/request mirrors these enums: each line fails to compile (a negative constant converted to uint) unless the pair, or the last value and the count, agree.
-const (
-	_ = uint(Navigate-Kind(request.Navigate)) + uint(Kind(request.Navigate)-Navigate)
-	_ = uint(Frame-Kind(request.Frame)) + uint(Kind(request.Frame)-Frame)
-	_ = uint(Script-Kind(request.Script)) + uint(Kind(request.Script)-Script)
-	_ = uint(AsyncScript-Kind(request.AsyncScript)) + uint(Kind(request.AsyncScript)-AsyncScript)
-	_ = uint(DeferScript-Kind(request.DeferScript)) + uint(Kind(request.DeferScript)-DeferScript)
-	_ = uint(InjectedScript-Kind(request.InjectedScript)) + uint(Kind(request.InjectedScript)-InjectedScript)
-	_ = uint(PreloadScript-Kind(request.PreloadScript)) + uint(Kind(request.PreloadScript)-PreloadScript)
-	_ = uint(Style-Kind(request.Style)) + uint(Kind(request.Style)-Style)
-	_ = uint(Image-Kind(request.Image)) + uint(Kind(request.Image)-Image)
-	_ = uint(InjectedImage-Kind(request.InjectedImage)) + uint(Kind(request.InjectedImage)-InjectedImage)
-	_ = uint(Font-Kind(request.Font)) + uint(Kind(request.Font)-Font)
-	_ = uint(PreloadFont-Kind(request.PreloadFont)) + uint(Kind(request.PreloadFont)-PreloadFont)
-	_ = uint(Fetch-Kind(request.Fetch)) + uint(Kind(request.Fetch)-Fetch)
-	_ = uint(XHR-Kind(request.XHR)) + uint(Kind(request.XHR)-XHR)
-	_ = uint(Beacon-Kind(request.Beacon)) + uint(Kind(request.Beacon)-Beacon)
-	_ = uint(int(Beacon)+1-request.KindCount) + uint(request.KindCount-int(Beacon)-1)
-	_ = uint(PriorityAuto-Priority(request.PriorityAuto)) + uint(Priority(request.PriorityAuto)-PriorityAuto)
-	_ = uint(PriorityHigh-Priority(request.PriorityHigh)) + uint(Priority(request.PriorityHigh)-PriorityHigh)
-	_ = uint(PriorityLow-Priority(request.PriorityLow)) + uint(Priority(request.PriorityLow)-PriorityLow)
-	_ = uint(int(PriorityLow)+1-request.PriorityCount) + uint(request.PriorityCount-int(PriorityLow)-1)
-	_ = uint(CrossOriginNone-CrossOrigin(request.CrossOriginNone)) + uint(CrossOrigin(request.CrossOriginNone)-CrossOriginNone)
-	_ = uint(CrossOriginAnonymous-CrossOrigin(request.CrossOriginAnonymous)) + uint(CrossOrigin(request.CrossOriginAnonymous)-CrossOriginAnonymous)
-	_ = uint(CrossOriginUseCredentials-CrossOrigin(request.CrossOriginUseCredentials)) + uint(CrossOrigin(request.CrossOriginUseCredentials)-CrossOriginUseCredentials)
-	_ = uint(int(CrossOriginUseCredentials)+1-request.CrossOriginCount) + uint(request.CrossOriginCount-int(CrossOriginUseCredentials)-1)
-	_ = uint(CredentialsSameOrigin-Credentials(request.CredentialsSameOrigin)) + uint(Credentials(request.CredentialsSameOrigin)-CredentialsSameOrigin)
-	_ = uint(CredentialsInclude-Credentials(request.CredentialsInclude)) + uint(Credentials(request.CredentialsInclude)-CredentialsInclude)
-	_ = uint(CredentialsOmit-Credentials(request.CredentialsOmit)) + uint(Credentials(request.CredentialsOmit)-CredentialsOmit)
-	_ = uint(int(CredentialsOmit)+1-request.CredentialsCount) + uint(request.CredentialsCount-int(CredentialsOmit)-1)
-)
-
-// made is r as internal/request takes it.
-func (r Request) made() request.Made {
-	return request.Made{
-		Kind:        request.Kind(r.Kind),
-		Priority:    request.Priority(r.Priority),
-		CrossOrigin: request.CrossOrigin(r.CrossOrigin),
-		Credentials: request.Credentials(r.Credentials),
-		NoCORS:      r.NoCORS,
-		Stylesheet:  r.Stylesheet,
-	}
-}
-
 type requestKey struct{}
 
 type exactKey struct{}
@@ -196,6 +192,71 @@ func madeAs(req *http.Request) (r Request, exact bool) {
 	return r, exact
 }
 
+// sending is how to send one request: the plan (nil: the profile's
+// navigation, unchanged), its headers, the connection partition, and how
+// the cookie jar sees it.
+type sending struct {
+	plan      *headerorder.Plan
+	header    http.Header
+	partition string
+	// credentialed: the request sends and keeps cookies.
+	credentialed bool
+	cookies      cookies.Request
+	// corsOrigin is the Origin a request in CORS mode to another origin
+	// (fetch(), XHR, an element with crossorigin, a font) sends, which its
+	// redirects must allow (Access-Control-Allow-Origin) for the browser
+	// to follow them; "" for other requests.
+	corsOrigin string
+	// preflighted: the request needed a CORS preflight (sent or cached),
+	// which a profile's later hops may inherit
+	// (redirects.hopPreflight).
+	preflighted bool
+	// cond is the request's condition, which picks its variant; variant
+	// is the index of the one it takes in the navigation's or kind's
+	// variants, -1 for their own lists (Plan.Variant).
+	cond    profile.Variant
+	variant int
+}
+
+// exactSending returns how to send req as Exact does: exactly its own
+// headers plus config (Config.Headers, keys canonical), in its own order,
+// keeping cookies as a navigation from page.
+func exactSending(req *http.Request, page *url.URL, config http.Header) *sending {
+	h := req.Header.Clone()
+	if h == nil {
+		h = http.Header{}
+	}
+
+	chain := append(redirectsBefore(req), req.URL)
+	addHeaders(h, config, chain)
+
+	return &sending{
+		plan:   &headerorder.Plan{},
+		header: h,
+		// Exact still keeps cookies, as a navigation from its page.
+		credentialed: true,
+		cookies: cookies.Request{
+			URL:        req.URL,
+			Method:     req.Method,
+			Navigation: true,
+			Page:       page,
+			Redirects:  chain[:len(chain)-1],
+		},
+		variant: -1,
+	}
+}
+
+// use is why a request is worked out: to send it (RoundTrip) or only to
+// plan it (Plan). They differ only where sending has effects: a hop's body
+// and the cookie jar's access times.
+type use int
+
+// Uses.
+const (
+	toSend use = iota
+	toPlan
+)
+
 // HeaderOrderKey is a pseudo request header whose values are header names,
 // in the order to send them; it is never sent itself. It replaces the
 // profile's order, so profile defaults it does not name are not sent; the
@@ -224,12 +285,48 @@ type Place struct {
 }
 
 // placements checks ps, named field in errors, and returns them for the
-// connections, lowercase (request.Placements).
+// connections, lowercase.
 func placements(field string, ps []Place) ([]headerorder.Placement, error) {
-	in := make([]request.Place, len(ps))
+	out := make([]headerorder.Placement, 0, len(ps))
 	for i, p := range ps {
-		in[i] = request.Place(p)
+		anchor, after := p.After, true
+		if p.Before != "" {
+			anchor, after = p.Before, false
+		}
+
+		var reason string
+		switch {
+		case (p.After == "") == (p.Before == ""):
+			reason = "set exactly one of After and Before"
+		case strings.HasPrefix(p.Header, ":") || strings.HasPrefix(anchor, ":"):
+			reason = "pseudo-headers are in the profile's order and cannot be placed or anchored"
+		case !httpguts.ValidHeaderFieldName(p.Header) || !httpguts.ValidHeaderFieldName(anchor):
+			reason = "not a header name"
+		case strings.EqualFold(p.Header, anchor):
+			reason = "a header cannot be its own anchor"
+		}
+
+		if reason != "" {
+			return nil, fmt.Errorf("%w: %s[%d] (Header %q, After %q, Before %q): %s", headerorder.ErrPlacement, field, i, p.Header, p.After, p.Before, reason)
+		}
+
+		out = append(out, headerorder.Placement{
+			Header: strings.ToLower(p.Header),
+			Anchor: strings.ToLower(anchor),
+			After:  after,
+		})
 	}
 
-	return request.Placements(field, in)
+	return out, nil
+}
+
+// setsOrder reports whether h sets HeaderOrderKey (headerorder.Key).
+func setsOrder(h http.Header) bool {
+	for k, v := range h {
+		if len(v) > 0 && strings.EqualFold(k, headerorder.Key) {
+			return true
+		}
+	}
+
+	return false
 }

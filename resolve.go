@@ -1,4 +1,4 @@
-package request
+package mimicry
 
 import (
 	"errors"
@@ -15,9 +15,9 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// Resolve returns how to send req as r describes it, from page from (nil:
+// resolve returns how to send req as r describes it, from page from (nil:
 // none), with config (Config.Headers, keys canonical) added.
-func Resolve(p *profile.Profile, req *http.Request, r Made, from *url.URL, config http.Header) (*Sending, error) {
+func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, config http.Header) (*sending, error) {
 	h := req.Header.Clone()
 	if h == nil {
 		h = http.Header{}
@@ -62,7 +62,7 @@ func Resolve(p *profile.Profile, req *http.Request, r Made, from *url.URL, confi
 			h1 = p.HTTP1.Headers
 		}
 	} else {
-		name, ok := names[r.Kind]
+		name, ok := profileKinds[r.Kind]
 		if !ok {
 			return nil, fmt.Errorf("mimicry: unknown request kind %d", int(r.Kind))
 		}
@@ -171,7 +171,7 @@ func Resolve(p *profile.Profile, req *http.Request, r Made, from *url.URL, confi
 	// crossorigin="use-credentials"; navigations, frames and beacons always.
 	var credentialed bool
 	switch {
-	case r.Kind == Preflight:
+	case r.Kind == kindPreflight:
 		// A preflight never carries credentials (Fetch standard), as
 		// every browser's captures show.
 		credentialed = false
@@ -213,7 +213,7 @@ func Resolve(p *profile.Profile, req *http.Request, r Made, from *url.URL, confi
 		values["sec-fetch-storage-access"] = ctx.StorageAccess
 	}
 
-	if r.Kind == Preflight {
+	if r.Kind == kindPreflight {
 		// Safari sends an empty preflight's length; lists without the
 		// slot drop it.
 		values["content-length"] = "0"
@@ -221,27 +221,27 @@ func Resolve(p *profile.Profile, req *http.Request, r Made, from *url.URL, confi
 
 	// Connections: Chrome keeps credential-less requests, and a cross-site
 	// frame's navigation, on connections of their own.
-	s := &Sending{
-		Header:       h,
-		Credentialed: credentialed,
-		Cookies: cookies.Request{
+	s := &sending{
+		header:       h,
+		credentialed: credentialed,
+		cookies: cookies.Request{
 			URL:        target,
 			Method:     req.Method,
 			Navigation: r.Kind == Navigate,
 			Page:       from,
 			Redirects:  chain[:len(chain)-1],
-			WebSocket:  r.Kind == WebSocket,
+			WebSocket:  r.Kind == kindWebSocket,
 		},
 	}
 	if sendOrigin && mode == "cors" && (crossOrigin || tainted) && (r.Kind == Fetch || r.Kind == XHR || slices.Contains(elements, r.Kind)) {
-		s.CORSOrigin = values["origin"]
+		s.corsOrigin = values["origin"]
 	}
 
 	switch {
 	case ctx.FrameConnections && r.Kind == Frame && targetSite == "cross-site":
-		s.Partition = framePartition(target)
+		s.partition = framePartition(target)
 	case ctx.AnonymousConnections && !credentialed:
-		s.Partition = "anonymous"
+		s.partition = "anonymous"
 	}
 
 	// h3Only: the request's priority was measured over HTTP/3 only
@@ -263,7 +263,7 @@ func Resolve(p *profile.Profile, req *http.Request, r Made, from *url.URL, confi
 				byKind = p.HTTP3.Low
 			}
 
-			if v, ok := byKind[names[r.Kind]]; ok {
+			if v, ok := byKind[profileKinds[r.Kind]]; ok {
 				u = &profile.Urgency{
 					Priority: v,
 				}
@@ -278,7 +278,7 @@ func Resolve(p *profile.Profile, req *http.Request, r Made, from *url.URL, confi
 		values["priority"] = u.Priority
 		if u.Priority == "" {
 			// The browser sends none: suppress the kind's default.
-			if !HasHeader(h, "Priority") {
+			if !hasHeader(h, "Priority") {
 				h["Priority"] = nil
 			}
 		}
@@ -297,12 +297,12 @@ func Resolve(p *profile.Profile, req *http.Request, r Made, from *url.URL, confi
 	// secure lists.
 	set := pageSet(h, list)
 	switch r.Kind {
-	case Preflight:
+	case kindPreflight:
 		// A preflight carries the page's headers by name only
 		// (Access-Control-Request-Headers): Safari orders one that does
 		// otherwise (kinds and cors pages, against redirects2's PATCH).
-		set = HasHeader(h, "Access-Control-Request-Headers")
-	case WebSocket:
+		set = hasHeader(h, "Access-Control-Request-Headers")
+	case kindWebSocket:
 		// No page sets a WebSocket's headers, and its Origin is no CORS
 		// check: the kind's lists place every header it sends.
 		set = false
@@ -319,10 +319,10 @@ func Resolve(p *profile.Profile, req *http.Request, r Made, from *url.URL, confi
 
 	cond := profile.Variant{
 		Site:        map[string]string{"same-site": profile.SiteSameSite, "cross-site": profile.SiteCrossSite, "none": profile.SiteNone}[targetSite],
-		CORSChecked: (sendOrigin || set) && r.Kind != WebSocket,
+		CORSChecked: (sendOrigin || set) && r.Kind != kindWebSocket,
 		PageSet:     set,
 		// A preflight for a redirect's next URL is a request of its own.
-		Redirected: redirected && r.Kind != Preflight,
+		Redirected: redirected && r.Kind != kindPreflight,
 		Insecure:   insecure,
 	}
 	if req.Method != http.MethodGet {
@@ -340,7 +340,7 @@ func Resolve(p *profile.Profile, req *http.Request, r Made, from *url.URL, confi
 		}
 
 		cond.OriginBeforeRedirect = before != ""
-		cond.MethodChangedByRedirect = Method(prev) != Method(req)
+		cond.MethodChangedByRedirect = methodOf(prev) != methodOf(req)
 		cond.InsecureBeforeRedirect = insecureBefore
 
 		if r.Kind == Navigate {
@@ -386,7 +386,7 @@ func Resolve(p *profile.Profile, req *http.Request, r Made, from *url.URL, confi
 	if user && !placesHeader(variants[i].Headers, "sec-fetch-user") {
 		// The variant was measured on navigations without it (a
 		// script's): where the browser places it is not measured.
-		return nil, fmt.Errorf("%w: profile %s has no %s navigation sending Sec-Fetch-User (a typed URL, a link or a clicked form) for site %q, redirected %v, cross-origin redirect %v; a script's navigation suppresses it (a nil Sec-Fetch-User header)", headerorder.ErrNotMeasured, p.Name, Method(req), cond.Site, cond.Redirected, cond.CrossOriginRedirect)
+		return nil, fmt.Errorf("%w: profile %s has no %s navigation sending Sec-Fetch-User (a typed URL, a link or a clicked form) for site %q, redirected %v, cross-origin redirect %v; a script's navigation suppresses it (a nil Sec-Fetch-User header)", headerorder.ErrNotMeasured, p.Name, methodOf(req), cond.Site, cond.Redirected, cond.CrossOriginRedirect)
 	}
 
 	measured := i >= 0
@@ -403,7 +403,7 @@ func Resolve(p *profile.Profile, req *http.Request, r Made, from *url.URL, confi
 		list, h1 = variants[i].Headers, variants[i].HTTP1
 	}
 
-	s.Cond, s.Variant = cond, i
+	s.cond, s.variant = cond, i
 	// A variant measured over HTTP/2 only has no HTTP/1.1 list, and one
 	// measured over HTTP/1.1 only on a script's navigations no slot for a
 	// user's Sec-Fetch-User: the connection refuses it if it turns out to
@@ -431,8 +431,8 @@ func Resolve(p *profile.Profile, req *http.Request, r Made, from *url.URL, confi
 		return s, nil
 	}
 
-	s.Plan = &headerorder.Plan{
-		Kind:    names[r.Kind],
+	s.plan = &headerorder.Plan{
+		Kind:    profileKinds[r.Kind],
 		Headers: fill(list, values),
 		NoHTTP1: noHTTP1,
 		// Measured over HTTP/3 only: refused on TCP.
@@ -449,7 +449,7 @@ func Resolve(p *profile.Profile, req *http.Request, r Made, from *url.URL, confi
 		}),
 	}
 	if len(h1) > 0 {
-		s.Plan.HTTP1 = fill(h1, values)
+		s.plan.HTTP1 = fill(h1, values)
 	}
 
 	return s, nil
@@ -567,7 +567,7 @@ func sameCondition(v, cond profile.Variant) bool {
 // a redirect, if the request before did; otherwise if the profile's
 // navigation does. Never if the caller suppressed it.
 func userNavigation(p *profile.Profile, req *http.Request, redirected bool, h http.Header) bool {
-	if HasHeader(h, "Sec-Fetch-User") {
+	if hasHeader(h, "Sec-Fetch-User") {
 		return false
 	}
 
@@ -587,11 +587,11 @@ func sentFetchUser(p *profile.Profile, req *http.Request) bool {
 		list = plan.Headers
 	}
 
-	return valueOf(list, "sec-fetch-user") != "" && !HasHeader(req.Header, "Sec-Fetch-User")
+	return valueOf(list, "sec-fetch-user") != "" && !hasHeader(req.Header, "Sec-Fetch-User")
 }
 
-// Method is req's method, GET when empty.
-func Method(req *http.Request) string {
+// methodOf is req's method, GET when empty.
+func methodOf(req *http.Request) string {
 	if req.Method == "" {
 		return http.MethodGet
 	}
@@ -603,7 +603,7 @@ func Method(req *http.Request) string {
 // methods other than GET and HEAD, and on cross-origin CORS requests (and
 // same-origin element ones where the browser sends it); "null" once the
 // redirect chain is tainted.
-func originOf(p *profile.Profile, ctx *profile.Context, req *http.Request, r Made, mode string, from *url.URL) (string, error) {
+func originOf(p *profile.Profile, ctx *profile.Context, req *http.Request, r Request, mode string, from *url.URL) (string, error) {
 	if from == nil {
 		return "", nil
 	}
@@ -614,7 +614,7 @@ func originOf(p *profile.Profile, ctx *profile.Context, req *http.Request, r Mad
 	send := false
 
 	switch {
-	case r.Kind == WebSocket:
+	case r.Kind == kindWebSocket:
 		// Every WebSocket handshake carries its page's origin (RFC 6455,
 		// section 4.1; every browser's captures).
 		send = true
@@ -659,11 +659,11 @@ func originOf(p *profile.Profile, ctx *profile.Context, req *http.Request, r Mad
 	return origin(from), nil
 }
 
-// PreflightOrigin returns the origin a CORS preflight for req, made as r
+// preflightOrigin returns the origin a CORS preflight for req, made as r
 // from page from, comes from ("null" once its redirect chain is tainted),
 // or "" when req is never preflighted: not a fetch() or XHR in CORS mode,
 // no page, or to the page's own origin. cors.Preflight decides the rest.
-func PreflightOrigin(req *http.Request, r Made, from *url.URL) string {
+func preflightOrigin(req *http.Request, r Request, from *url.URL) string {
 	if from == nil || (r.Kind != Fetch && r.Kind != XHR) || r.NoCORS {
 		return ""
 	}
@@ -680,9 +680,9 @@ func PreflightOrigin(req *http.Request, r Made, from *url.URL) string {
 	return o
 }
 
-// HasHeader reports whether h has name, in any case, even with no values
+// hasHeader reports whether h has name, in any case, even with no values
 // (a suppressed default).
-func HasHeader(h http.Header, name string) bool {
+func hasHeader(h http.Header, name string) bool {
 	for k := range h {
 		if strings.EqualFold(k, name) {
 			return true
@@ -715,7 +715,7 @@ func addHeaders(h, config http.Header, chain []*url.URL) {
 			continue
 		}
 
-		if !HasHeader(h, k) {
+		if !hasHeader(h, k) {
 			h[k] = v
 		}
 	}
@@ -822,7 +822,7 @@ func redirectsBefore(req *http.Request) []*url.URL {
 }
 
 // redirectedToGet reports a GET that a redirect made of a request with
-// another method than GET or HEAD (Hop's rules).
+// another method than GET or HEAD (browserHop's rules).
 func redirectedToGet(req *http.Request) bool {
 	if (req.Method != "" && req.Method != http.MethodGet) || req.Response == nil || req.Response.Request == nil {
 		return false

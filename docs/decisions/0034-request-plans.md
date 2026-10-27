@@ -32,17 +32,17 @@ How the preview is computed:
   hop's body opened from `GetBody`).
 - **Refactor so both call the same functions, and let them differ only
   where sending changes state.** Chosen. In the root: `outgoing` (the
-  redirect hop, placements, `request.Resolve`, the preflight decision) and
-  `ready` (context, headers, cookies), with a `request.Use` that is
-  `ToSend` or `ToPlan` at the two places they must differ: `request.Hop`
-  opens the previous request's body only to send (a plan carries an
-  unread stand-in with the same length), and the jar is read with
-  `Cookies` or `Peek`. The preflight is decided by `preflightFor` (need,
-  cache, resolve) and sent by `sendPreflight`. In the engine: `begin` (URL
-  checks, route, unasked proxy credentials) and `tcpRefusal`, `h3Refusal`
-  and `pickWay` (quicFor's decision, now a pure function it switches on).
-  In the connections: `h1.Writer.Head`, `h2.Head`, `h3.Head`, the same
-  builders `Conn.RoundTrip` writes with.
+  redirect hop, placements, `resolve`, the preflight decision) and `ready`
+  (context, headers, cookies), with a `use` that is `toSend` or `toPlan`
+  at the two places they must differ: `browserHop` opens the previous
+  request's body only to send (a plan carries an unread stand-in with the
+  same length), and the jar is read with `Cookies` or `Peek`. The
+  preflight is decided by `preflightFor` (need, cache, resolve) and sent
+  by `sendPreflight`. In the engine: `begin` (URL checks, route, unasked
+  proxy credentials) and `tcpRefusal`, `h3Refusal` and `pickWay` (quicFor's
+  decision, now a pure function it switches on). In the connections:
+  `h1.Writer.Head`, `h2.Head`, `h3.Head`, the same builders
+  `Conn.RoundTrip` writes with.
 
 What it returns:
 

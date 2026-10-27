@@ -26,7 +26,7 @@ type Need struct {
 }
 
 // Preflight returns the preflight a browser sends before a CORS request
-// from origin (request.PreflightOrigin; "" for none, which is nil) with a
+// from origin (the root's preflightOrigin; "" for none, which is nil) with a
 // non-safelisted method or header, or nil. With force it ignores method
 // and headers (a hop inheriting its chain's preflight).
 func Preflight(req *http.Request, origin string, credentialed bool, h http.Header, force bool) *Need {
