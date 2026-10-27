@@ -266,6 +266,7 @@ linters:
     - depguard        # package import boundaries (rules above)
     - nolintlint      # nolint directives are specific, explained, and used
     - usestdlibvars   # stdlib constants instead of literals
+    - modernize       # newer stdlib idioms (gopls's modernize analyzers)
   exclusions:
     # internal/quic is a copy of golang.org/x/net/quic (decision 0027) in
     # upstream's style, which these linters fault in ~500 places (unchecked
@@ -298,6 +299,7 @@ linters:
           - exhaustive
           - nolintlint
           - usestdlibvars
+          - modernize
           - gosec
           - gocritic
           - prealloc

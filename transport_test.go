@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"io"
+	"maps"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -76,9 +77,7 @@ func get(t *testing.T, client *http.Client, url string, header http.Header) (*ht
 	if err != nil {
 		t.Fatal(err)
 	}
-	for k, v := range header {
-		req.Header[k] = v
-	}
+	maps.Copy(req.Header, header)
 	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatal(err)

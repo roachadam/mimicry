@@ -60,7 +60,7 @@ func run() error {
 		for _, b := range browser.Find() {
 			found[b.Name] = b
 		}
-		for _, n := range strings.Split(*browserList, ",") {
+		for n := range strings.SplitSeq(*browserList, ",") {
 			b := found[n]
 			if b == nil {
 				return fmt.Errorf("browser %q is not installed", n)

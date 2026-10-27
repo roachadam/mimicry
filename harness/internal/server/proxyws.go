@@ -45,13 +45,11 @@ var (
 func proxyWSPage(plain bool) wsPage {
 	sockets, steps := ProxyWebSocketSteps(plain)
 	return wsPage{
-		fixedHosts: fixedHosts{
-			names: []string{
-				wsHost,
-				wsH1Host,
-			},
-			runFor: 60 * time.Second,
+		names: []string{
+			wsHost,
+			wsH1Host,
 		},
+		runFor:  60 * time.Second,
 		sockets: sockets,
 		steps:   steps,
 	}

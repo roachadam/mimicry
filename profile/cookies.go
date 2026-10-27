@@ -1,5 +1,7 @@
 package profile
 
+import "slices"
+
 // Cookies are a browser's cookie rules where browsers differ; the rules
 // they share (RFC 6265bis) are the jar's own. See docs/decisions/0012.
 type Cookies struct {
@@ -159,10 +161,8 @@ func (c *checker) checkCookies(k *Cookies) {
 		return
 	}
 	oneOf := func(field, v string, allowed ...string) {
-		for _, a := range allowed {
-			if v == a {
-				return
-			}
+		if slices.Contains(allowed, v) {
+			return
 		}
 		c.add("cookies."+field, "must be one of %q", allowed)
 	}

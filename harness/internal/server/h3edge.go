@@ -157,11 +157,9 @@ var H3VN = &Scenario{
 // labels) or another site (no-cors with credentials).
 func h3Fetch(host, label string, pause int) H3Step {
 	s := H3Step{
-		KindsStep: KindsStep{
-			Label: label,
-			Kind:  "fetch",
-			Host:  host,
-		},
+		Label:       label,
+		Kind:        "fetch",
+		Host:        host,
 		Page:        "/",
 		PauseMillis: pause,
 		NoWait:      true,

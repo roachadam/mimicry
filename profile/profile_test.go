@@ -445,10 +445,8 @@ func TestValidate(t *testing.T) {
 			mutate: func(_ *testing.T, p *Profile) {
 				p.HTTP2.Priorities = []Priority{
 					{
-						StreamID: 3,
-						PriorityParam: PriorityParam{
-							DependsOn: 3,
-						},
+						StreamID:  3,
+						DependsOn: 3,
 					},
 				}
 			},
@@ -1010,10 +1008,8 @@ func TestValidate(t *testing.T) {
 			mutate: func(_ *testing.T, p *Profile) {
 				p.HTTP2.Priorities = []Priority{
 					{
-						StreamID: 3,
-						PriorityParam: PriorityParam{
-							DependsOn: 1<<31 + 1,
-						},
+						StreamID:  3,
+						DependsOn: 1<<31 + 1,
 					},
 				}
 			},

@@ -154,8 +154,8 @@ func (e *Encoder) exactIndex(f Field) uint64 {
 func (e *Encoder) nameIndex(name string) uint64 {
 	switch e.policy.NameMatch {
 	case profile.NameMatchHighestIndex:
-		for i := len(e.dynamic) - 1; i >= 0; i-- {
-			if e.dynamic[i].name == name {
+		for i, v := range slices.Backward(e.dynamic) {
+			if v.name == name {
 				return uint64(len(staticTable) + 1 + i)
 			}
 		}

@@ -206,10 +206,10 @@ func compare(out string) error {
 	full.WriteString("# Echo endpoints: every field\n")
 	var ps []pair
 	for c := range echoes {
-		if strings.HasPrefix(c, "browser-") {
+		if after, ok := strings.CutPrefix(c, "browser-"); ok {
 			ps = append(ps, pair{
 				browser: c,
-				profile: strings.TrimPrefix(c, "browser-") + "-macos",
+				profile: after + "-macos",
 			})
 		}
 	}

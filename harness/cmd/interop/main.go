@@ -186,7 +186,7 @@ func selectNamed[T any](all []T, list string, name func(T) string) ([]T, error) 
 		return all, nil
 	}
 	var out []T
-	for _, n := range strings.Split(list, ",") {
+	for n := range strings.SplitSeq(list, ",") {
 		i := slices.IndexFunc(all, func(t T) bool {
 			return name(t) == n
 		})

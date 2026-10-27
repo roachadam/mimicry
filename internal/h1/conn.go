@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -355,9 +356,7 @@ func (w Writer) build(req *http.Request, framing http.Header) (Head, error) {
 			h = http.Header{}
 		}
 		h.Set("Host", host)
-		for k, v := range framing {
-			h[k] = v
-		}
+		maps.Copy(h, framing)
 		fields = headerorder.Build(h1Order, h, func(string) bool {
 			return false
 		}, table)

@@ -16,6 +16,7 @@ import (
 	"maps"
 	"os"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/roachadam/mimicry/harness/internal/pageshape"
@@ -61,10 +62,11 @@ func summary(p *pageshape.Page) string {
 		}
 	}
 	keys := slices.SortedFunc(maps.Keys(protocols), cmp.Compare)
-	s := fmt.Sprintf("%s: %d requests, %d hosts, %d cookies (largest cookie header %d bytes, %d script cookies unplaceable); protocols:",
+	var s strings.Builder
+	fmt.Fprintf(&s, "%s: %d requests, %d hosts, %d cookies (largest cookie header %d bytes, %d script cookies unplaceable); protocols:",
 		p.Site, len(p.Requests), len(p.Hosts), len(cookies), maxCookie, p.ScriptCookiesDropped)
 	for _, k := range keys {
-		s += fmt.Sprintf(" %s=%d", k, protocols[k])
+		fmt.Fprintf(&s, " %s=%d", k, protocols[k])
 	}
-	return s
+	return s.String()
 }

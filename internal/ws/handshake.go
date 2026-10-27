@@ -51,12 +51,12 @@ func ParseExtensions(offer, answer string) (*Deflate, error) {
 		return nil, nil //nolint:nilnil // no extension accepted
 	}
 	offered := false
-	for _, e := range strings.Split(offer, ",") {
+	for e := range strings.SplitSeq(offer, ",") {
 		name, _, _ := strings.Cut(e, ";")
 		offered = offered || strings.TrimSpace(name) == "permessage-deflate"
 	}
 	var d *Deflate
-	for _, e := range strings.Split(answer, ",") {
+	for e := range strings.SplitSeq(answer, ",") {
 		params := strings.Split(e, ";")
 		if strings.TrimSpace(params[0]) != "permessage-deflate" || !offered {
 			return nil, fmt.Errorf("%w %q accepts an extension not offered", errExtension, answer)

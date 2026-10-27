@@ -323,8 +323,7 @@ func (c *Conn) Close(code int, reason string) error {
 	if c.waitsForEnd() {
 		<-c.ended
 	}
-	var ce *CloseError
-	if !errors.As(c.readErr, &ce) {
+	if _, ok := errors.AsType[*CloseError](c.readErr); !ok {
 		// The transport ended without the server's close frame.
 		return c.readErr
 	}
@@ -346,8 +345,7 @@ func (c *Conn) waitsForEnd() bool {
 // handshake is done.
 func (c *Conn) readLoop() {
 	err := c.read()
-	var ce *CloseError
-	if errors.As(err, &ce) {
+	if ce, ok := errors.AsType[*CloseError](err); ok {
 		// The close handshake is done: end the transport as the browser
 		// does, reading on to see whether the server ends it first.
 		c.handshakeDone(ce)

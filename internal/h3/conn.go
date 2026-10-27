@@ -366,8 +366,7 @@ func (c *Conn) fail(err error) {
 	default:
 	}
 	code := uint64(codeInternalError)
-	var ce *connError
-	if errors.As(err, &ce) {
+	if ce, ok := errors.AsType[*connError](err); ok {
 		code = ce.code
 	}
 	c.qc.Abort(&quic.ConnectionCloseError{

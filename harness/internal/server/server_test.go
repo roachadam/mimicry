@@ -267,8 +267,7 @@ func TestClientHelloAgreesWithStdlib(t *testing.T) {
 					Name: "accept",
 				},
 			}
-			var verr *profile.ValidationError
-			if errors.As(p.Validate(), &verr) {
+			if verr, ok := errors.AsType[*profile.ValidationError](p.Validate()); ok {
 				for _, problem := range verr.Problems {
 					if strings.HasPrefix(problem.Path, "tls") {
 						t.Errorf("captured TLS section is invalid: %s", problem)
@@ -437,19 +436,15 @@ func TestHTTP2Recording(t *testing.T) {
 		WindowUpdate: 15663105,
 		Priorities: []profile.Priority{
 			{
-				StreamID: 3,
-				PriorityParam: profile.PriorityParam{
-					DependsOn: 0,
-					Weight:    200,
-				},
+				StreamID:  3,
+				DependsOn: 0,
+				Weight:    200,
 			},
 			{
-				StreamID: 5,
-				PriorityParam: profile.PriorityParam{
-					DependsOn: 3,
-					Exclusive: true,
-					Weight:    100,
-				},
+				StreamID:  5,
+				DependsOn: 3,
+				Exclusive: true,
+				Weight:    100,
 			},
 		},
 		HeadersPriority: &profile.PriorityParam{

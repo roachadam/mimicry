@@ -160,24 +160,24 @@ func H3DiscoverySteps() []H3Step {
 	const second = "/h3/second.so"
 	upload := strings.Repeat("h3-discovery-", 8192/13+1)[:8192]
 	return []H3Step{
-		{KindsStep: KindsStep{Label: "markup-style.so", Kind: "style", Host: h3Host, Tag: `<link rel="stylesheet" href="%s">`}, Page: "/"},
-		{KindsStep: KindsStep{Label: "markup-script.so", Kind: "script", Host: h3Host, Tag: `<script src="%s"></script>`}, Page: "/"},
-		{KindsStep: KindsStep{Label: "markup-image.so", Kind: "image", Host: h3Host, Tag: `<img src="%s" alt="">`}, Page: "/"},
-		{KindsStep: KindsStep{Label: "fetch1.so", Kind: "fetch", Host: h3Host}, Page: "/", PauseMillis: 1000},
-		{KindsStep: KindsStep{Label: "image1.so", Kind: "image", Host: h3Host}, Page: "/", PauseMillis: 1000},
-		{KindsStep: KindsStep{Label: "script1.so", Kind: "script", Host: h3Host}, Page: "/", PauseMillis: 1000},
-		{KindsStep: KindsStep{Label: "post1.so", Kind: "fetch", Host: h3Host, Method: "POST", Body: upload}, Page: "/", PauseMillis: 1000},
-		{KindsStep: KindsStep{Label: "fetch2.so", Kind: "fetch", Host: h3Host}, Page: "/", PauseMillis: 2000},
-		{KindsStep: KindsStep{Label: "second.so", Kind: "navigate", Host: h3Host}, Page: "/", PauseMillis: 1000},
-		{KindsStep: KindsStep{Label: "markup-image2.so", Kind: "image", Host: h3Host, Tag: `<img src="%s" alt="">`}, Page: second},
-		{KindsStep: KindsStep{Label: "fetch3.so", Kind: "fetch", Host: h3Host}, Page: second, PauseMillis: 1000},
-		{KindsStep: KindsStep{Label: "xfetch1.cs", Kind: "fetch", Host: h3CrossSite, Mode: "no-cors", Credentials: "include"}, Page: second, PauseMillis: 1000},
-		{KindsStep: KindsStep{Label: "ximage1.cs", Kind: "image", Host: h3CrossSite}, Page: second, PauseMillis: 1000},
-		{KindsStep: KindsStep{Label: "xfetch2.cs", Kind: "fetch", Host: h3CrossSite, Mode: "no-cors", Credentials: "include"}, Page: second, PauseMillis: 2000},
-		{KindsStep: KindsStep{Label: "goaway.so", Kind: "fetch", Host: h3Host}, Page: second, PauseMillis: 1000, CloseAfter: true},
-		{KindsStep: KindsStep{Label: "after-goaway.so", Kind: "fetch", Host: h3Host}, Page: second, PauseMillis: 2000},
-		{KindsStep: KindsStep{Label: "after-idle.so", Kind: "fetch", Host: h3Host}, Page: second, PauseMillis: int(h3Idle / time.Millisecond)},
-		{KindsStep: KindsStep{Label: "xafter-idle.cs", Kind: "fetch", Host: h3CrossSite, Mode: "no-cors", Credentials: "include"}, Page: second},
+		{Label: "markup-style.so", Kind: "style", Host: h3Host, Tag: `<link rel="stylesheet" href="%s">`, Page: "/"},
+		{Label: "markup-script.so", Kind: "script", Host: h3Host, Tag: `<script src="%s"></script>`, Page: "/"},
+		{Label: "markup-image.so", Kind: "image", Host: h3Host, Tag: `<img src="%s" alt="">`, Page: "/"},
+		{Label: "fetch1.so", Kind: "fetch", Host: h3Host, Page: "/", PauseMillis: 1000},
+		{Label: "image1.so", Kind: "image", Host: h3Host, Page: "/", PauseMillis: 1000},
+		{Label: "script1.so", Kind: "script", Host: h3Host, Page: "/", PauseMillis: 1000},
+		{Label: "post1.so", Kind: "fetch", Host: h3Host, Method: "POST", Body: upload, Page: "/", PauseMillis: 1000},
+		{Label: "fetch2.so", Kind: "fetch", Host: h3Host, Page: "/", PauseMillis: 2000},
+		{Label: "second.so", Kind: "navigate", Host: h3Host, Page: "/", PauseMillis: 1000},
+		{Label: "markup-image2.so", Kind: "image", Host: h3Host, Tag: `<img src="%s" alt="">`, Page: second},
+		{Label: "fetch3.so", Kind: "fetch", Host: h3Host, Page: second, PauseMillis: 1000},
+		{Label: "xfetch1.cs", Kind: "fetch", Host: h3CrossSite, Mode: "no-cors", Credentials: "include", Page: second, PauseMillis: 1000},
+		{Label: "ximage1.cs", Kind: "image", Host: h3CrossSite, Page: second, PauseMillis: 1000},
+		{Label: "xfetch2.cs", Kind: "fetch", Host: h3CrossSite, Mode: "no-cors", Credentials: "include", Page: second, PauseMillis: 2000},
+		{Label: "goaway.so", Kind: "fetch", Host: h3Host, Page: second, PauseMillis: 1000, CloseAfter: true},
+		{Label: "after-goaway.so", Kind: "fetch", Host: h3Host, Page: second, PauseMillis: 2000},
+		{Label: "after-idle.so", Kind: "fetch", Host: h3Host, Page: second, PauseMillis: int(h3Idle / time.Millisecond)},
+		{Label: "xafter-idle.cs", Kind: "fetch", Host: h3CrossSite, Mode: "no-cors", Credentials: "include", Page: second},
 	}
 }
 
@@ -207,14 +207,14 @@ func H3PageSteps() []H3Step {
 	}
 	// first are the warm-up page's steps and the kinds page's markup.
 	first := []H3Step{
-		{KindsStep: KindsStep{Label: "warm.so", Kind: "fetch", Host: h3Host}, Page: "/"},
-		{KindsStep: KindsStep{Label: "warm.cs", Kind: "fetch", Host: h3CrossSite, Mode: "no-cors", Credentials: "include"}, Page: "/"},
-		{KindsStep: KindsStep{Label: "kinds.so", Kind: "navigate", Host: h3Host}, Page: "/", PauseMillis: 2000},
-		{KindsStep: KindsStep{Label: "style-head.so", Kind: "style", Host: h3Host, Tag: `<link rel="stylesheet" href="%s">`}, Page: kinds},
-		{KindsStep: KindsStep{Label: "script-blocking.so", Kind: "script", Host: h3Host, Tag: `<script src="%s"></script>`}, Page: kinds},
-		{KindsStep: KindsStep{Label: "script-async.so", Kind: "script", Host: h3Host, Tag: `<script async src="%s"></script>`}, Page: kinds},
-		{KindsStep: KindsStep{Label: "image-markup.so", Kind: "image", Host: h3Host, Tag: `<img src="%s" alt="">`}, Page: kinds, Delay: h3ImageDelay},
-		{KindsStep: KindsStep{Label: "image-offscreen.so", Kind: "image", Host: h3Host, Tag: `<div style="height: 5000px"></div><img src="%s" alt="">`}, Page: kinds, Delay: h3ImageDelay},
+		{Label: "warm.so", Kind: "fetch", Host: h3Host, Page: "/"},
+		{Label: "warm.cs", Kind: "fetch", Host: h3CrossSite, Mode: "no-cors", Credentials: "include", Page: "/"},
+		{Label: "kinds.so", Kind: "navigate", Host: h3Host, Page: "/", PauseMillis: 2000},
+		{Label: "style-head.so", Kind: "style", Host: h3Host, Tag: `<link rel="stylesheet" href="%s">`, Page: kinds},
+		{Label: "script-blocking.so", Kind: "script", Host: h3Host, Tag: `<script src="%s"></script>`, Page: kinds},
+		{Label: "script-async.so", Kind: "script", Host: h3Host, Tag: `<script async src="%s"></script>`, Page: kinds},
+		{Label: "image-markup.so", Kind: "image", Host: h3Host, Tag: `<img src="%s" alt="">`, Page: kinds, Delay: h3ImageDelay},
+		{Label: "image-offscreen.so", Kind: "image", Host: h3Host, Tag: `<div style="height: 5000px"></div><img src="%s" alt="">`, Page: kinds, Delay: h3ImageDelay},
 	}
 	return slices.Concat(first, scripted(h3Host, []KindsStep{
 		{Label: "script.so", Kind: "script"},

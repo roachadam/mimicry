@@ -358,8 +358,7 @@ func errString(err error) string {
 	if err == nil {
 		return ""
 	}
-	var ce *quic.ConnectionCloseError
-	if errors.As(err, &ce) {
+	if ce, ok := errors.AsType[*quic.ConnectionCloseError](err); ok {
 		return fmt.Sprintf("peer application close %#x: %s", ce.Code, ce.Reason)
 	}
 	return err.Error()

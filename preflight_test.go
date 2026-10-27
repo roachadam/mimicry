@@ -3,6 +3,7 @@ package mimicry
 import (
 	"errors"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"strings"
@@ -77,9 +78,7 @@ func corsDo(t *testing.T, tr *Transport, method, target string, h http.Header, r
 	if err != nil {
 		t.Fatal(err)
 	}
-	for k, v := range h {
-		req.Header[k] = v
-	}
+	maps.Copy(req.Header, h)
 	if r.From == nil {
 		r.From, _ = url.Parse(corsPage)
 	}

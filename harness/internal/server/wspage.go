@@ -49,13 +49,11 @@ var WebSocketH2 = &Scenario{
 
 func wsPageOf() wsPage {
 	return wsPage{
-		fixedHosts: fixedHosts{
-			names: []string{
-				wsHost,
-				wsCrossSite,
-			},
-			runFor: 120 * time.Second,
+		names: []string{
+			wsHost,
+			wsCrossSite,
 		},
+		runFor:  120 * time.Second,
 		sockets: WebSocketSteps(),
 		steps:   WebSocketPageSteps(),
 	}
@@ -376,13 +374,14 @@ func wsDeletions(set []string) []string {
 	for _, c := range set {
 		parts := strings.Split(c, "; ")
 		name, _, _ := strings.Cut(parts[0], "=")
-		d := name + "="
+		var d strings.Builder
+		d.WriteString(name + "=")
 		for _, a := range parts[1:] {
 			if !strings.HasPrefix(a, "Max-Age=") {
-				d += "; " + a
+				d.WriteString("; " + a)
 			}
 		}
-		out = append(out, d+"; Max-Age=0")
+		out = append(out, d.String()+"; Max-Age=0")
 	}
 	return out
 }

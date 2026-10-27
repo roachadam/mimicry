@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"maps"
 	"math/rand/v2"
 	"net"
 	"os"
@@ -346,10 +347,8 @@ func (t *tap) parse(b []byte, sent bool) []string {
 
 // noteVersion records a version the server used; t.mu must be held.
 func (t *tap) noteVersion(v uint32) {
-	for _, have := range t.st.Versions {
-		if have == v {
-			return
-		}
+	if slices.Contains(t.st.Versions, v) {
+		return
 	}
 	t.st.Versions = append(t.st.Versions, v)
 }
@@ -383,12 +382,8 @@ func (t *tap) stats() tapStats {
 	st.Versions = append([]uint32(nil), t.st.Versions...)
 	st.Sent = map[string]int{}
 	st.Received = map[string]int{}
-	for k, v := range t.st.Sent {
-		st.Sent[k] = v
-	}
-	for k, v := range t.st.Received {
-		st.Received[k] = v
-	}
+	maps.Copy(st.Sent, t.st.Sent)
+	maps.Copy(st.Received, t.st.Received)
 	return st
 }
 

@@ -415,7 +415,7 @@ func str(v any) string {
 
 // get follows a dotted path of object keys.
 func get(v any, path string) any {
-	for _, k := range strings.Split(path, ".") {
+	for k := range strings.SplitSeq(path, ".") {
 		m, ok := v.(map[string]any)
 		if !ok {
 			return nil

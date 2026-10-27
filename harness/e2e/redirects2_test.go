@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"net/http"
 	"net/url"
@@ -253,9 +254,7 @@ func redirectsSend(t *testing.T, s *pageSession, method, target, body string, h 
 	if err != nil {
 		t.Fatal(err)
 	}
-	for k, v := range h {
-		req.Header[k] = v
-	}
+	maps.Copy(req.Header, h)
 	if script {
 		req.Header["Sec-Fetch-User"] = nil
 	}

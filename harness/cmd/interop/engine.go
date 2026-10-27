@@ -177,7 +177,7 @@ func fetchVia(ctx context.Context, client *http.Client, step, url string) (s eng
 // h3Port returns the port of an Alt-Svc value's h3 alternative on the
 // same host, or 0.
 func h3Port(altSvc string) uint16 {
-	for _, alt := range strings.Split(altSvc, ",") {
+	for alt := range strings.SplitSeq(altSvc, ",") {
 		alt = strings.TrimSpace(alt)
 		v, ok := strings.CutPrefix(alt, "h3=")
 		if !ok {

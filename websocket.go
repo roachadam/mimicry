@@ -350,8 +350,7 @@ func (w *WebSocket) Extensions() string {
 
 // closeError turns the socket's close error into a *CloseError.
 func closeError(err error) error {
-	var ce *ws.CloseError
-	if errors.As(err, &ce) {
+	if ce, ok := errors.AsType[*ws.CloseError](err); ok {
 		return &CloseError{
 			Code:   ce.Code,
 			Reason: ce.Reason,

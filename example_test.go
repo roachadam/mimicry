@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -276,8 +277,8 @@ func ExampleWith() {
 		chain = append(chain, r.Response.Status)
 		r = r.Response.Request
 	}
-	for i := len(chain) - 1; i >= 0; i-- {
-		fmt.Println(chain[i])
+	for _, c := range slices.Backward(chain) {
+		fmt.Println(c)
 	}
 	fmt.Println("now on", resp.Request.URL)
 	// Output:
@@ -558,8 +559,7 @@ func ExampleConfig_proxy() {
 				panic(err)
 			}
 			resp, err := client.Do(req)
-			var pe *mimicry.ProxyError
-			if errors.As(err, &pe) {
+			if pe, ok := errors.AsType[*mimicry.ProxyError](err); ok {
 				fmt.Printf("proxy failed: %d as %s (password in the error: %t)\n",
 					pe.StatusCode, pe.Proxy.User.Username(), strings.Contains(err.Error(), "expired"))
 				rotate()
@@ -681,8 +681,7 @@ func ExampleConfig_pins() {
 			panic(err)
 		}
 		resp, err := client.Do(req)
-		var pe *mimicry.PinError
-		if errors.As(err, &pe) {
+		if pe, ok := errors.AsType[*mimicry.PinError](err); ok {
 			fmt.Println("refused:", pe.Host, "presented", len(pe.Presented), "keys")
 			return
 		}

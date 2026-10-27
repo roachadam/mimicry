@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"net/http"
 	"slices"
@@ -420,9 +421,7 @@ func TestHeaderPlacement(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				for k, v := range tt.header {
-					req.Header[k] = v
-				}
+				maps.Copy(req.Header, tt.header)
 				req = mimicry.With(req, mimicry.Request{
 					HeaderPlacement: request,
 				})

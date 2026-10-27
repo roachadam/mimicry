@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 )
 
 // Strategy is how an encoder uses the dynamic table.
@@ -282,9 +283,9 @@ func (e *Encoder) lookup(f Field, usable func(uint64) bool) match {
 			index:  i,
 		}
 	}
-	for i := len(e.t.entries) - 1; i >= 0; i-- {
+	for i, v := range slices.Backward(e.t.entries) {
 		abs := e.t.dropped + uint64(i)
-		en := e.t.entries[i]
+		en := v
 		if en.Name != f.Name || !usable(abs) {
 			continue
 		}
@@ -315,8 +316,8 @@ func (e *Encoder) lookupName(name string) match {
 			index:  i,
 		}
 	}
-	for i := len(e.t.entries) - 1; i >= 0; i-- {
-		if e.t.entries[i].Name == name {
+	for i, v := range slices.Backward(e.t.entries) {
+		if v.Name == name {
 			return match{
 				found: true,
 				index: e.t.dropped + uint64(i),

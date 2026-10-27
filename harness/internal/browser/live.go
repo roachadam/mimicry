@@ -469,8 +469,7 @@ func osascriptJS(ctx context.Context, script string) (string, error) {
 func runOSA(ctx context.Context, lang, script string) (string, error) {
 	out, err := exec.CommandContext(ctx, "osascript", "-l", lang, "-e", script).Output() //nolint:gosec // our own scripts
 	if err != nil {
-		var ee *exec.ExitError
-		if errors.As(err, &ee) {
+		if ee, ok := errors.AsType[*exec.ExitError](err); ok {
 			return "", fmt.Errorf("osascript: %w: %s", err, strings.TrimSpace(string(ee.Stderr)))
 		}
 		return "", err
