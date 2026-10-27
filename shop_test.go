@@ -44,6 +44,7 @@ type shop struct {
 func startShop(handler http.HandlerFunc) *shop {
 	cert, pool := shopCertificate()
 	srv := httptest.NewUnstartedServer(handler)
+
 	srv.EnableHTTP2 = true
 	srv.TLS = &tls.Config{
 		Certificates: []tls.Certificate{
@@ -64,11 +65,14 @@ func startShop(handler http.HandlerFunc) *shop {
 // server keeps no order.
 func startShopHTTP1(handler http.HandlerFunc) *shop {
 	cert, pool := shopCertificate()
+
 	ln, err := new(net.ListenConfig).Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		panic(err)
 	}
+
 	srv := httptest.NewUnstartedServer(handler)
+
 	srv.Listener = recordingListener{
 		Listener: tls.NewListener(ln, &tls.Config{
 			Certificates: []tls.Certificate{
@@ -98,9 +102,11 @@ func (s *shop) DialContext(ctx context.Context, network, addr string) (net.Conn,
 	if err != nil {
 		return nil, err
 	}
+
 	if strings.HasSuffix(host, ".test") {
 		addr = s.addr
 	}
+
 	var d net.Dialer
 
 	return d.DialContext(ctx, network, addr)
@@ -165,20 +171,25 @@ func issue(tmpl, parent *x509.Certificate, parentKey *ecdsa.PrivateKey) (*x509.C
 	if err != nil {
 		panic(err)
 	}
+
 	serial, err := rand.Int(rand.Reader, big.NewInt(1<<62))
 	if err != nil {
 		panic(err)
 	}
+
 	tmpl.SerialNumber = serial
 	tmpl.NotBefore = time.Now().Add(-time.Hour)
 	tmpl.NotAfter = time.Now().Add(time.Hour)
+
 	if parent == nil {
 		parent, parentKey = tmpl, key
 	}
+
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, parent, &key.PublicKey, parentKey)
 	if err != nil {
 		panic(err)
 	}
+
 	c, err := x509.ParseCertificate(der)
 	if err != nil {
 		panic(err)
@@ -214,6 +225,7 @@ type recordingConn struct {
 func (c *recordingConn) Read(p []byte) (int, error) {
 	n, err := c.Conn.Read(p)
 	c.mu.Lock()
+
 	c.buf = append(c.buf, p[:n]...)
 	c.mu.Unlock()
 
@@ -227,18 +239,24 @@ func headerLines(r *http.Request) []string {
 	if !ok {
 		panic("headerLines: request is not from a startShopHTTP1 shop")
 	}
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	start := bytes.LastIndex(c.buf, []byte(r.Method+" "+r.RequestURI+" HTTP/1.1\r\n"))
 	if start < 0 {
 		return nil
 	}
+
 	block := c.buf[start:]
 	end := bytes.Index(block, []byte("\r\n\r\n"))
+
 	if end < 0 {
 		return nil
 	}
+
 	lines := strings.Split(string(block[:end]), "\r\n")
+
 	c.buf = c.buf[start+end+4:]
 
 	return lines[1:]
@@ -267,6 +285,7 @@ func startProxy(s *shop, user, pass string) *proxy {
 	if err != nil {
 		panic(err)
 	}
+
 	u := &url.URL{
 		Scheme: "http",
 		Host:   ln.Addr().String(),
@@ -274,6 +293,7 @@ func startProxy(s *shop, user, pass string) *proxy {
 	if user != "" {
 		u.User = url.UserPassword(user, pass)
 	}
+
 	p := &proxy{
 		URL:  u,
 		ln:   ln,
@@ -281,6 +301,7 @@ func startProxy(s *shop, user, pass string) *proxy {
 		user: user,
 		pass: pass,
 	}
+
 	go p.serve()
 
 	return p
@@ -292,6 +313,7 @@ func (p *proxy) serve() {
 		if err != nil {
 			return
 		}
+
 		go p.tunnel(c)
 	}
 }
@@ -300,46 +322,61 @@ func (p *proxy) tunnel(c net.Conn) {
 	defer func() {
 		_ = c.Close()
 	}()
+
 	br := bufio.NewReader(c)
 	for {
 		req, err := http.ReadRequest(br)
 		if err != nil {
 			return
 		}
+
 		user, pass, ok := parseProxyAuth(req.Header.Get("Proxy-Authorization"))
 		who := "without credentials"
+
 		if ok {
 			who = "as " + user
 		}
+
 		if p.user != "" && (!ok || user != p.user || pass != p.pass) {
 			p.record(fmt.Sprintf("%s %s %s: 407", req.Method, req.Host, who))
+
 			_, _ = io.Copy(io.Discard, req.Body)
 			_, _ = io.WriteString(c, "HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm=\"proxy\"\r\nContent-Length: 0\r\n\r\n")
 
 			continue
 		}
+
 		if req.Method != http.MethodConnect {
 			return
 		}
+
 		p.mu.Lock()
+
 		refuse := p.refuse
 		p.mu.Unlock()
+
 		if refuse != "" {
 			p.record(fmt.Sprintf("%s %s %s: %s", req.Method, req.Host, who, refuse))
+
 			_, _ = io.WriteString(c, "HTTP/1.1 "+refuse+"\r\nContent-Length: 0\r\n\r\n")
 
 			continue
 		}
+
 		p.record(fmt.Sprintf("%s %s %s: 200", req.Method, req.Host, who))
+
 		upstream, err := new(net.Dialer).DialContext(req.Context(), "tcp", p.shop.addr)
 		if err != nil {
 			return
 		}
+
 		_, _ = io.WriteString(c, "HTTP/1.1 200 Connection established\r\n\r\n")
+
 		go func() {
 			_, _ = io.Copy(upstream, br)
 			_ = upstream.Close()
 		}()
+
 		_, _ = io.Copy(c, upstream)
 
 		return
@@ -351,6 +388,7 @@ func parseProxyAuth(h string) (string, string, bool) {
 	if !ok {
 		return "", "", false
 	}
+
 	b, err := base64.StdEncoding.DecodeString(enc)
 	if err != nil {
 		return "", "", false
@@ -361,6 +399,7 @@ func parseProxyAuth(h string) (string, string, bool) {
 
 func (p *proxy) record(line string) {
 	p.mu.Lock()
+
 	p.log = append(p.log, line)
 	p.mu.Unlock()
 }
@@ -377,6 +416,7 @@ func (p *proxy) Log() []string {
 // status ("403 Forbidden").
 func (p *proxy) Refuse(status string) {
 	p.mu.Lock()
+
 	p.refuse = status
 	p.mu.Unlock()
 }
@@ -393,21 +433,26 @@ func echoWebSocket(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+
 	defer func() {
 		_ = c.Close()
 	}()
+
 	_, _ = fmt.Fprintf(brw, "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: %s\r\n\r\n", ws.AcceptKey(r.Header.Get("Sec-WebSocket-Key")))
 	_ = brw.Flush()
+
 	for {
 		op, payload, err := readFrame(brw.Reader)
 		if err != nil {
 			return
 		}
+
 		switch op {
 		case 0x1:
 			writeFrame(brw.Writer, 0x1, append([]byte("echo: "), payload...))
 		case 0x8:
 			writeFrame(brw.Writer, 0x8, payload)
+
 			return
 		}
 	}
@@ -419,22 +464,27 @@ func readFrame(r *bufio.Reader) (byte, []byte, error) {
 	if _, err := io.ReadFull(r, h[:]); err != nil {
 		return 0, nil, err
 	}
+
 	n := int(h[1] & 0x7f)
 	if n == 126 {
 		var ext [2]byte
 		if _, err := io.ReadFull(r, ext[:]); err != nil {
 			return 0, nil, err
 		}
+
 		n = int(binary.BigEndian.Uint16(ext[:]))
 	}
+
 	var mask [4]byte
 	if _, err := io.ReadFull(r, mask[:]); err != nil {
 		return 0, nil, err
 	}
+
 	payload := make([]byte, n)
 	if _, err := io.ReadFull(r, payload); err != nil {
 		return 0, nil, err
 	}
+
 	for i := range payload {
 		payload[i] ^= mask[i%4]
 	}

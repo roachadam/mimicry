@@ -85,6 +85,7 @@ func newRSWriter(windowBits int) *rsWriter {
 func (w *rsWriter) reset() {
 	w.trees.initBlock()
 	clear(w.head[:])
+
 	w.strstart = 0
 	w.blockStart = 0
 	w.lookahead = 0
@@ -99,14 +100,18 @@ func (w *rsWriter) message(p []byte) []byte {
 	w.out.buf = make([]byte, 0, len(p)/2+16)
 	w.sent = 0
 	w.in = p
+
 	for {
 		w.avail = rsOutLen
 		w.deflate()
+
 		if len(w.in) == 0 && w.avail != 0 {
 			break
 		}
 	}
+
 	out := w.out.buf
+
 	w.out.buf = nil
 
 	return out
@@ -117,13 +122,16 @@ func (w *rsWriter) message(p []byte) []byte {
 func (w *rsWriter) deflate() {
 	if w.pending() != 0 {
 		w.flushPending()
+
 		if w.avail == 0 {
 			return
 		}
 	}
+
 	if w.deflateMedium() {
 		return
 	}
+
 	// BlockState::BlockDone: the sync flush's empty stored block. When
 	// the buffer fills here, Firefox calls again and gets another one.
 	w.trees.storedBlock(&w.out, nil)
@@ -141,7 +149,9 @@ func (w *rsWriter) pending() int {
 // as the buffer holds.
 func (w *rsWriter) flushPending() {
 	n := min(w.pending(), w.avail)
+
 	w.sent += n
+
 	w.avail -= n
 }
 
@@ -153,9 +163,11 @@ func (w *rsWriter) flushBlock() bool {
 	if w.blockStart >= 0 {
 		stored = w.window[w.blockStart:w.strstart]
 	}
+
 	// zng_tr_flush_block is zlib's _tr_flush_block but for a block of no
 	// symbols, which deflate_medium never flushes.
 	w.trees.flushBlock(&w.out, stored, uint64(w.strstart-w.blockStart))
+
 	w.blockStart = w.strstart
 	w.flushPending()
 
@@ -175,6 +187,7 @@ func (w *rsWriter) hash(s int) uint32 {
 func (w *rsWriter) quickInsertString(s int) uint16 {
 	h := w.hash(s)
 	head := w.head[h]
+
 	if head != uint16(s) {
 		w.prev[s&w.wMask] = head
 		w.head[h] = uint16(s)
@@ -198,6 +211,7 @@ func (w *rsWriter) slideHash() {
 	for i, m := range w.head {
 		w.head[i] = uint16(max(int(m)-w.wSize, 0))
 	}
+
 	for i, m := range w.prev {
 		w.prev[i] = uint16(max(int(m)-w.wSize, 0))
 	}
@@ -212,20 +226,27 @@ func (w *rsWriter) fillWindow() {
 		more := w.windowSize - w.lookahead - w.strstart
 		if w.strstart >= w.wSize+w.maxDist {
 			copy(w.window[:w.wSize], w.window[w.wSize:])
+
 			// match_start and prev_length move too; deflate_medium
 			// reads neither.
 			w.strstart -= w.wSize
 			w.blockStart -= w.wSize
+
 			w.insert = min(w.insert, w.strstart)
 			w.slideHash()
+
 			more += w.wSize
 		}
+
 		if len(w.in) == 0 {
 			break
 		}
+
 		start := w.strstart + w.lookahead
 		n := copy(w.window[start:start+more], w.in)
+
 		w.in = w.in[n:]
+
 		w.lookahead += n
 
 		// Hash the strings the previous call left uninserted.
@@ -234,15 +255,19 @@ func (w *rsWriter) fillWindow() {
 			if str >= 1 {
 				w.quickInsertString(str + 2 - minMatch)
 			}
+
 			count := w.insert
 			if w.lookahead == 1 {
 				count--
 			}
+
 			if count > 0 {
 				w.insertString(str, count)
+
 				w.insert -= count
 			}
 		}
+
 		if w.lookahead >= minLookahead || len(w.in) == 0 {
 			break
 		}
@@ -256,6 +281,7 @@ func (w *rsWriter) fillWindow() {
 func (w *rsWriter) longestMatch(curMatch uint16) (int, uint16) {
 	win := w.window
 	strstart := w.strstart
+
 	var matchStart uint16
 	// prev_length is 0 under deflate_medium, so best_len starts at
 	// STD_MIN_MATCH - 1, below good_match: the chain is never quartered.
@@ -274,6 +300,7 @@ func (w *rsWriter) longestMatch(curMatch uint16) (int, uint16) {
 		if chainLength == 0 {
 			return false
 		}
+
 		curMatch = w.prev[int(curMatch)&w.wMask]
 
 		return curMatch > limit
@@ -291,10 +318,12 @@ func (w *rsWriter) longestMatch(curMatch uint16) (int, uint16) {
 				if cmp == 0 {
 					break
 				}
+
 				if n := bits.TrailingZeros64(cmp) / 8; n > bestLen {
 					length = n
 					break
 				}
+
 				if !next() {
 					return bestLen, matchStart
 				}
@@ -306,19 +335,23 @@ func (w *rsWriter) longestMatch(curMatch uint16) (int, uint16) {
 				}
 			}
 		}
+
 		if length == 0 {
 			length = compare256(win[strstart+2:], win[int(curMatch)+2:]) + 2
 		}
+
 		if length > bestLen {
 			matchStart = curMatch
 			// A match reaching the end of the input ends the search.
 			if length >= w.lookahead {
 				return w.lookahead, matchStart
 			}
+
 			bestLen = length
 			if bestLen >= rsNiceMatch {
 				return bestLen, matchStart
 			}
+
 			offset = bestLen - 1
 			if bestLen >= 4 {
 				offset -= 2
@@ -327,6 +360,7 @@ func (w *rsWriter) longestMatch(curMatch uint16) (int, uint16) {
 				}
 			}
 		}
+
 		if !next() {
 			return bestLen, matchStart
 		}
@@ -373,9 +407,11 @@ func (w *rsWriter) deflateMedium() bool {
 	for {
 		if w.lookahead < minLookahead {
 			w.fillWindow()
+
 			if w.lookahead == 0 {
 				break
 			}
+
 			next.matchLength = 0
 		}
 
@@ -387,6 +423,7 @@ func (w *rsWriter) deflateMedium() bool {
 			if w.lookahead >= wantMinMatch {
 				hashHead = w.quickInsertString(w.strstart)
 			}
+
 			current = w.findMatch(hashHead)
 			if current.matchLength < wantMinMatch || current.matchStart >= current.strstart {
 				current.matchLength = 1
@@ -400,22 +437,27 @@ func (w *rsWriter) deflateMedium() bool {
 		if w.lookahead > minLookahead && end < w.windowSize-minLookahead {
 			w.strstart = end
 			next = w.findMatch(w.quickInsertString(w.strstart))
+
 			if next.matchStart >= next.strstart || next.matchLength < wantMinMatch {
 				next.matchLength = 1
 			} else {
 				w.fizzleMatches(&current, &next)
 			}
+
 			w.strstart = int(current.strstart)
 		} else {
 			next.matchLength = 0
 		}
 
 		flush := w.emitMatch(current)
+
 		w.strstart += int(current.matchLength)
+
 		if flush && w.flushBlock() {
 			return true
 		}
 	}
+
 	w.insert = min(w.strstart, minMatch-1)
 
 	return w.trees.symNext != 0 && w.flushBlock()
@@ -432,6 +474,7 @@ func (w *rsWriter) findMatch(hashHead uint16) rsMatch {
 	// Position 0 is never matched: it would match itself at the start.
 	if dist := w.strstart - int(hashHead); dist <= w.maxDist && dist > 0 && hashHead != 0 {
 		length, start := w.longestMatch(hashHead)
+
 		m.matchLength = uint16(length)
 		m.matchStart = start
 	}
@@ -452,6 +495,7 @@ func (w *rsWriter) emitMatch(m rsMatch) bool {
 	} else {
 		flush = w.trees.tally(uint32(m.strstart-m.matchStart), uint32(m.matchLength)-minMatch)
 	}
+
 	w.lookahead -= int(m.matchLength)
 
 	return flush
@@ -465,9 +509,12 @@ func (w *rsWriter) insertMatch(m rsMatch) {
 	if w.lookahead <= int(m.matchLength)+wantMinMatch || m.matchLength < wantMinMatch {
 		return
 	}
+
 	if int(m.matchLength) <= 16*rsMaxLazy && w.lookahead >= wantMinMatch {
 		m.matchLength-- // the string at strstart is in the table
+
 		m.strstart++
+
 		switch {
 		case m.strstart >= m.orgstart && m.strstart+m.matchLength > m.orgstart:
 			w.insertString(int(m.strstart), int(m.matchLength))
@@ -479,6 +526,7 @@ func (w *rsWriter) insertMatch(m rsMatch) {
 
 		return
 	}
+
 	m.strstart += m.matchLength
 	if m.strstart >= minMatch-2 {
 		w.quickInsertString(int(m.strstart) + 2 - minMatch)
@@ -490,11 +538,13 @@ func (w *rsWriter) insertMatch(m rsMatch) {
 // current, kept only if current is left a literal or nothing.
 func (w *rsWriter) fizzleMatches(current, next *rsMatch) {
 	win := w.window
+
 	if current.matchLength <= 1 ||
 		current.matchLength > 1+next.matchStart ||
 		current.matchLength > 1+next.strstart {
 		return
 	}
+
 	// Quick exit: the first byte current would give up.
 	if win[int(next.matchStart)+1-int(current.matchLength)] != win[int(next.strstart)+1-int(current.matchLength)] {
 		return
@@ -510,17 +560,25 @@ func (w *rsWriter) fizzleMatches(current, next *rsMatch) {
 		if c.matchLength < 1 || n.strstart <= limit || n.matchLength >= 256 || n.matchStart <= 1 {
 			break
 		}
+
 		n.strstart--
+
 		n.matchStart--
+
 		n.matchLength++
+
 		c.matchLength--
+
 		changed++
 	}
+
 	if changed == 0 {
 		return
 	}
+
 	if c.matchLength <= 1 && n.matchLength != 2 {
 		n.orgstart++
+
 		*current = c
 		*next = n
 	}

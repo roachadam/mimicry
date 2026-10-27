@@ -30,6 +30,7 @@ import (
 
 func main() {
 	log.SetFlags(log.Ltime)
+
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "refresh:", err)
 		os.Exit(1)
@@ -55,7 +56,9 @@ type config struct {
 
 func run() error {
 	var cfg config
+
 	browsers := flag.String("browser", "", "comma-separated browsers to refresh: chrome, firefox (on -mini), safari (this Mac), safari-mini (the mini's Safari)")
+
 	flag.StringVar(&cfg.mode, "mode", modeQuick, "quick (the fingerprint layer; the rest inherited from the previous version) or full (every scenario and replay)")
 	flag.StringVar(&cfg.mini, "mini", "mac-mini", "ssh host of the Mac mini")
 	flag.StringVar(&cfg.staging, "staging", ".refresh", "directory for staged builds, captures, profiles and logs (a new subdirectory per run)")
@@ -69,13 +72,16 @@ func run() error {
 	flag.BoolVar(&cfg.verify, "verify", true, "run the profile's e2e tests after installing it")
 	flag.BoolVar(&cfg.realcheck, "realcheck", true, "run cmd/realcheck for the browser after installing the profile")
 	flag.Parse()
+
 	if *browsers == "" && cfg.resume == "" {
 		flag.Usage()
 		os.Exit(2)
 	}
+
 	if cfg.mode != modeQuick && cfg.mode != modeFull {
 		return fmt.Errorf("-mode %q: quick or full", cfg.mode)
 	}
+
 	if *browsers != "" {
 		cfg.targets = strings.Split(*browsers, ",")
 		for _, t := range cfg.targets {
@@ -84,12 +90,14 @@ func run() error {
 			}
 		}
 	}
+
 	if _, err := os.Stat("testdata/captures"); err != nil {
 		return errors.New("run refresh in harness/")
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
 	if cfg.resume != "" {
 		r, err := loadRun(cfg.resume)
 		if err != nil {
@@ -103,6 +111,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
+
 	r := &refreshRun{
 		Dir:    dir,
 		Mode:   cfg.mode,
@@ -113,25 +122,34 @@ func run() error {
 	if err := r.preflight(ctx, cfg); err != nil {
 		return err
 	}
+
 	fmt.Print(r.planText())
+
 	if err := r.save(); err != nil {
 		return err
 	}
+
 	if r.blocked() {
 		return errors.New("preflight found problems; fix them and run again")
 	}
+
 	if cfg.dryRun {
 		log.Printf("dry run: plan saved in %s", r.Dir)
+
 		return nil
 	}
+
 	if !cfg.yes && !confirm(os.Stdin) {
 		return errors.New("not confirmed")
 	}
+
 	if err := r.capture(ctx); err != nil {
 		return err
 	}
+
 	if cfg.captureOnly {
 		log.Printf("captures staged in %s; resume with -resume %s", r.Dir, r.Dir)
+
 		return nil
 	}
 
@@ -141,10 +159,12 @@ func run() error {
 // confirm asks on standard output and reads the answer from in.
 func confirm(in *os.File) bool {
 	fmt.Print("Capture now? [y/N] ")
+
 	answer, err := bufio.NewReader(in).ReadString('\n')
 	if err != nil {
 		return false
 	}
+
 	answer = strings.ToLower(strings.TrimSpace(answer))
 
 	return answer == "y" || answer == "yes"
@@ -157,9 +177,11 @@ func (r *refreshRun) finish(ctx context.Context, cfg config) error {
 	for _, p := range r.Plans {
 		if err := r.finishPlan(ctx, cfg, p); err != nil {
 			log.Printf("%s: %v", p.Target, err)
+
 			failed = append(failed, p.Target)
 		}
 	}
+
 	if len(failed) > 0 {
 		return fmt.Errorf("failed: %s (staged in %s; fix and run -resume %s)", strings.Join(failed, ", "), r.Dir, r.Dir)
 	}
@@ -172,28 +194,35 @@ func (r *refreshRun) finishPlan(ctx context.Context, cfg config, p *plan) error 
 		plan: p,
 		run:  r,
 	}
+
 	derived, err := r.derive(ctx, p, rep)
 	if err != nil {
 		return err
 	}
+
 	rep.derived = derived
 	if !cfg.deriveOnly {
 		if err := r.install(ctx, p, derived, rep); err != nil {
 			return err
 		}
+
 		rep.installed = true
 		if cfg.verify {
 			rep.tests = r.runTests(ctx, p)
 		}
+
 		if cfg.realcheck {
 			rep.realcheck = r.runRealcheck(ctx, p)
 		}
 	}
+
 	path, err := rep.write()
 	if err != nil {
 		return err
 	}
+
 	log.Printf("%s: report in %s", p.Target, path)
+
 	if rep.tests != nil && rep.tests.err != nil {
 		return fmt.Errorf("tests failed: %w", rep.tests.err)
 	}

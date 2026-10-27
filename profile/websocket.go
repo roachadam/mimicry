@@ -129,6 +129,7 @@ func (c *checker) checkWebSocket(p *Profile) {
 	if ws == nil {
 		return
 	}
+
 	const path = "websocket"
 	switch {
 	case ws.Extensions == "":
@@ -136,36 +137,46 @@ func (c *checker) checkWebSocket(p *Profile) {
 	case strings.ContainsAny(ws.Extensions, "\r\n\x00"):
 		c.add(path+".extensions", "holds CR, LF or NUL")
 	}
+
 	if ws.Compression != CompressionChromiumZlib6 && ws.Compression != CompressionZlib6 && ws.Compression != CompressionZlibRS6 {
 		c.add(path+".compression", "must be %q, %q or %q", CompressionChromiumZlib6, CompressionZlib6, CompressionZlibRS6)
 	}
+
 	if ws.Uncompressed != UncompressedNever && ws.Uncompressed != UncompressedEmptyOrLonger && ws.Uncompressed != UncompressedEmptyOrNotShorter {
 		c.add(path+".uncompressed", "must be %q, %q or %q", UncompressedNever, UncompressedEmptyOrLonger, UncompressedEmptyOrNotShorter)
 	}
+
 	if ws.WindowBits8 != WindowBits8As9 && ws.WindowBits8 != WindowBits8Fail {
 		c.add(path+".windowBits8", "must be %q or %q", WindowBits8As9, WindowBits8Fail)
 	}
+
 	if ws.H2Data != H2DataTogether && ws.H2Data != H2DataHeaderAlone && ws.H2Data != H2DataSplitControl {
 		c.add(path+".h2Data", "must be %q, %q or %q", H2DataTogether, H2DataHeaderAlone, H2DataSplitControl)
 	}
+
 	switch ws.CloseH1 {
 	case CloseAfterWait:
 		if ws.CloseWaitMillis <= 0 {
 			c.add(path+".closeWaitMs", "is required with %q", CloseAfterWait)
 		}
+
 	case "", CloseAtOnce:
 		if ws.CloseWaitMillis != 0 {
 			c.add(path+".closeWaitMs", "applies only with closeH1 %q", CloseAfterWait)
 		}
+
 	default:
 		c.add(path+".closeH1", "must be empty, %q or %q", CloseAfterWait, CloseAtOnce)
 	}
+
 	if ws.CloseH2 != "" && ws.CloseH2 != CloseEndStream && ws.CloseH2 != CloseResetStream {
 		c.add(path+".closeH2", "must be empty, %q or %q", CloseEndStream, CloseResetStream)
 	}
+
 	if p.Kinds[KindWebSocket] == nil {
 		c.add("kinds."+KindWebSocket, "is required with websocket")
 	}
+
 	if p.TLS.WebSocketH1 == nil {
 		c.add("tls.websocketH1", "is required with websocket")
 	}
@@ -177,13 +188,16 @@ func (c *checker) checkWebSocketHello(t *TLS) {
 	if h == nil {
 		return
 	}
+
 	const path = "tls.websocketH1"
 	if len(h.ALPN) == 0 {
 		c.add(path+".alpn", "is required")
 	}
+
 	if t.extension(ExtALPN) == nil {
 		c.add(path+".alpn", "needs the hello's ALPN extension")
 	}
+
 	seen := map[Code]bool{}
 	for _, d := range h.Drop {
 		switch {
@@ -194,6 +208,7 @@ func (c *checker) checkWebSocketHello(t *TLS) {
 		case t.extension(d) == nil:
 			c.add(path+".drop", "%s is not in the hello", d)
 		}
+
 		seen[d] = true
 	}
 }

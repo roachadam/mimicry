@@ -55,6 +55,7 @@ func TestDecoderAgreesUnderEvictionAndResize(t *testing.T) {
 			rng := rand.New(rand.NewPCG(1, 2)) //nolint:gosec // seeded on purpose: deterministic test data
 			enc := NewEncoder(policy)
 			dec := xhpack.NewDecoder(maxTableSize, nil)
+
 			for block := range 300 {
 				// Resize now and then, including a dip and back between two blocks
 				// (two size updates). The dip is to 0: x/net's decoder takes a
@@ -65,9 +66,11 @@ func TestDecoderAgreesUnderEvictionAndResize(t *testing.T) {
 				case 20:
 					enc.SetPeerTableSize(0)
 					enc.SetPeerTableSize(8192)
+
 				case 30:
 					enc.SetPeerTableSize(defaultTableSize)
 				}
+
 				fields := make([]Field, 1+rng.IntN(8))
 				for i := range fields {
 					fields[i] = Field{
@@ -75,17 +78,21 @@ func TestDecoderAgreesUnderEvictionAndResize(t *testing.T) {
 						Value: strconv.Itoa(rng.IntN(20)) + "{^}" + string("abcdefghijklmnopqrstuvwxyz"[rng.IntN(26)]),
 					}
 				}
+
 				got, err := dec.DecodeFull(enc.AppendBlock(nil, fields))
 				if err != nil {
 					t.Fatalf("block %d: %v", block, err)
 				}
+
 				if len(got) != len(fields) {
 					t.Fatalf("block %d: decoded %d fields, sent %d", block, len(got), len(fields))
 				}
+
 				for i, f := range fields {
 					if got[i].Name != f.Name || got[i].Value != f.Value {
 						t.Fatalf("block %d field %d: decoded %s: %s, sent %s: %s", block, i, got[i].Name, got[i].Value, f.Name, f.Value)
 					}
+
 					wantSensitive := slices.Contains(policy.NeverIndexed, f.Name)
 					if got[i].Sensitive != wantSensitive {
 						t.Fatalf("block %d: %s sensitive %v, want %v", block, f.Name, got[i].Sensitive, wantSensitive)
@@ -170,12 +177,14 @@ func TestSizeUpdates(t *testing.T) {
 			want:   "3fe13f" + "82",
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			enc := NewEncoder(tt.policy)
 			for _, s := range tt.sizes {
 				enc.SetPeerTableSize(s)
 			}
+
 			block := enc.AppendBlock(nil, []Field{
 				{
 					Name:  ":method",
@@ -185,6 +194,7 @@ func TestSizeUpdates(t *testing.T) {
 			if got := hex.EncodeToString(block); got != tt.want {
 				t.Errorf("block %s, want %s", got, tt.want)
 			}
+
 			// Size updates are emitted once.
 			if got := hex.EncodeToString(enc.AppendBlock(nil, []Field{{Name: ":method", Value: "GET"}})); got != "82" {
 				t.Errorf("second block %s, want 82", got)

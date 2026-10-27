@@ -36,59 +36,72 @@ func TestProxyMatchesBrowser(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			t.Run("connect", func(t *testing.T) {
 				want := loadSamples[[]capture.ProxyRequest](t, p, "proxy-connect", ".proxytrace.json")
 				s := startProxied(t, p, scenario(t, "proxy-connect"), nil)
 				s.get("https", server.CaptureHost, "/")
+
 				got := s.proxy.Requests()
 				if len(got) != 1 {
 					t.Fatalf("%d proxy requests, want 1: %v", len(got), got)
 				}
+
 				if !slices.ContainsFunc(want, func(sample []capture.ProxyRequest) bool {
 					return slices.Equal(portless(nthOK(sample, 0).Lines), portless(got[0].Lines))
 				}) {
 					t.Errorf("CONNECT:\n got %q\nwant %q", portless(got[0].Lines), portless(nthOK(want[0], 0).Lines))
 				}
+
 				s.checkTunnelledHello(p)
 			})
 			t.Run("socks5", func(t *testing.T) {
 				want := loadSamples[[]capture.ProxyRequest](t, p, "proxy-socks5", ".proxytrace.json")
 				s := startProxied(t, p, scenario(t, "proxy-socks5"), nil)
 				s.get("https", server.CaptureHost, "/")
+
 				got := s.proxy.Requests()
 				if len(got) != 1 {
 					t.Fatalf("%d proxy requests, want 1: %v", len(got), got)
 				}
+
 				w := want[0][0]
 				if got[0].Greeting != w.Greeting || socksPortless(got[0].Request) != socksPortless(w.Request) {
 					t.Errorf("SOCKS5:\n got %s %s\nwant %s %s", got[0].Greeting, got[0].Request, w.Greeting, w.Request)
 				}
+
 				s.checkTunnelledHello(p)
 			})
 			t.Run("auth", func(t *testing.T) {
 				wantFlow := loadSamples[[]capture.ProxyRequest](t, p, "proxy-auth", ".proxytrace.json")
 				sc := scenario(t, "proxy-auth")
 				hosts, _, ok := sc.MultiHost()
+
 				if !ok || len(hosts) == 0 {
 					t.Fatalf("scenario %s serves no hosts", sc.Name)
 				}
+
 				s := startProxied(t, p, sc, url.UserPassword(server.ProxyUser, server.ProxyPassword))
 				// A new tunnel each time.
 				for range 3 {
 					s.get("https", hosts[0], "/")
 					s.tr.CloseIdleConnections()
 				}
+
 				got := connectFlow(s.proxy.Requests())
 				for i, sample := range wantFlow {
 					w := connectFlow(sample)
 					if len(w) < len(got) {
 						t.Errorf("CONNECT flow against sample %d: mimicry made %d steps, the browser %d:\n got %v\nwant %v", i+1, len(got), len(w), got, w)
+
 						continue
 					}
+
 					if w = w[:len(got)]; !slices.Equal(got, w) {
 						t.Errorf("CONNECT flow (connection, status, credentials) against sample %d:\n got %v\nwant %v", i+1, got, w)
 					}
 				}
+
 				// The first tunnel's CONNECT answering the challenge, and the
 				// second's (unasked, for browsers that send them so).
 				for n := range 2 {
@@ -102,6 +115,7 @@ func TestProxyMatchesBrowser(t *testing.T) {
 				want := loadSamples[[]capture.H1Request](t, p, "proxy-plain", ".h1trace.json")
 				s := startProxied(t, p, scenario(t, "proxy-plain"), nil)
 				s.get("http", server.CaptureHost, "/")
+
 				got := s.h1()
 				if g, w := forwarded(got[0]), forwarded(want[0][0]); !slices.Equal(g, w) {
 					t.Errorf("forwarded request:\n got %q\nwant %q", g, w)
@@ -112,13 +126,16 @@ func TestProxyMatchesBrowser(t *testing.T) {
 				s := startProxied(t, p, scenario(t, "proxy-plain-auth"), url.UserPassword(server.ProxyUser, server.ProxyPassword))
 				s.get("http", server.CaptureHost, "/")
 				s.get("http", server.CaptureHost, "/nav")
+
 				got := s.h1()
 				g, w := forwardAuthFlow(got), forwardAuthFlow(want[0])
+
 				if len(w) < len(g) {
 					t.Errorf("forwarded requests: mimicry made %d, the browser %d:\n got %v\nwant %v", len(g), len(w), g, w)
 				} else if w = w[:len(g)]; !slices.Equal(g, w) {
 					t.Errorf("forwarded requests (connection, credentials):\n got %v\nwant %v", g, w)
 				}
+
 				// The first navigation with credentials (for most browsers, the
 				// one answering the challenge), and the second (unasked).
 				for _, path := range []string{"/", "/nav"} {
@@ -126,6 +143,7 @@ func TestProxyMatchesBrowser(t *testing.T) {
 					if g == nil || w == nil {
 						t.Fatalf("%s: no request with credentials (mimicry %v, browser %v)", path, g != nil, w != nil)
 					}
+
 					if gp, wp := authPlace(g.Headers), authPlace(w.Headers); gp != wp {
 						t.Errorf("%s: Proxy-Authorization %s, want %s", path, gp, wp)
 					}
@@ -197,10 +215,12 @@ func TestUnmeasuredProxyIsAnError(t *testing.T) {
 			if tc.strip != nil {
 				p.Proxy = tc.strip(p.Proxy)
 			}
+
 			scheme := tc.scheme
 			if scheme == "" {
 				scheme = "http"
 			}
+
 			tr, err := mimicry.NewTransport(mimicry.Config{
 				Profile: p,
 				Proxy: http.ProxyURL(&url.URL{
@@ -212,21 +232,25 @@ func TestUnmeasuredProxyIsAnError(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if tc.websocket {
 				ws, _, err := tr.DialWebSocket(t.Context(), tc.target, mimicry.WebSocketOptions{})
 				if err == nil {
 					_ = ws.Close(1000, "")
 				}
+
 				if !errors.Is(err, mimicry.ErrNotMeasured) {
 					t.Fatalf("got %v, want ErrNotMeasured", err)
 				}
 
 				return
 			}
+
 			req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "https://example.test/", nil)
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if _, err := tr.RoundTrip(req); err == nil || !strings.Contains(err.Error(), "not measured") {
 				t.Fatalf("got %v, want an error saying it is not measured", err)
 			}
@@ -247,14 +271,17 @@ type proxySession struct {
 
 func startProxied(t *testing.T, p *profile.Profile, sc *server.Scenario, user *url.Userinfo) *proxySession {
 	t.Helper()
+
 	ca, err := server.LoadOrCreateCA(t.TempDir(), server.CADomains, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	cert, err := ca.Issue(server.CAHosts, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	s := &proxySession{
 		t:        t,
 		pool:     x509.NewCertPool(),
@@ -272,7 +299,9 @@ func startProxied(t *testing.T, p *profile.Profile, sc *server.Scenario, user *u
 	if sc.ProxyAuth {
 		s.proxy.Auth = server.ProxyAuthorization()
 	}
+
 	s.pool.AddCert(ca.Cert)
+
 	srv := &server.Server{
 		Scenario: sc,
 		TLSConfig: &tls.Config{
@@ -288,26 +317,32 @@ func startProxied(t *testing.T, p *profile.Profile, sc *server.Scenario, user *u
 		},
 		Logf: t.Logf,
 	}
+
 	pln, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	ctx, cancel := context.WithCancel(t.Context())
 	served, proxied := make(chan error, 1), make(chan error, 1)
+
 	go func() {
 		proxied <- s.proxy.Serve(ctx, pln)
 	}()
 	go func() {
 		served <- srv.Serve(ctx, s.proxy.Listener())
 	}()
+
 	t.Cleanup(func() {
 		cancel()
+
 		for _, ch := range []chan error{served, proxied} {
 			if err := <-ch; err != nil && !errors.Is(err, net.ErrClosed) {
 				t.Error(err)
 			}
 		}
 	})
+
 	s.tr, err = mimicry.NewTransport(mimicry.Config{
 		Profile: p,
 		RootCAs: s.pool,
@@ -320,6 +355,7 @@ func startProxied(t *testing.T, p *profile.Profile, sc *server.Scenario, user *u
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Cleanup(s.tr.CloseIdleConnections)
 
 	return s
@@ -328,16 +364,20 @@ func startProxied(t *testing.T, p *profile.Profile, sc *server.Scenario, user *u
 // get requests path on host over scheme and reads it.
 func (s *proxySession) get(scheme, host, path string) {
 	s.t.Helper()
+
 	req, err := http.NewRequestWithContext(s.t.Context(), http.MethodGet, scheme+"://"+net.JoinHostPort(host, s.port)+path, nil)
 	if err != nil {
 		s.t.Fatal(err)
 	}
+
 	resp, err := s.tr.RoundTrip(req)
 	if err != nil {
 		s.t.Fatal(err)
 	}
+
 	_, _ = io.Copy(io.Discard, resp.Body)
 	_ = resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
 		s.t.Fatalf("%s: %s", req.URL, resp.Status)
 	}
@@ -348,12 +388,14 @@ func (s *proxySession) get(scheme, host, path string) {
 func (s *proxySession) capture() *capture.Capture {
 	s.t.Helper()
 	s.tr.CloseIdleConnections()
+
 	for {
 		select {
 		case c := <-s.captures:
 			if c.Complete() {
 				return c
 			}
+
 		case <-time.After(10 * time.Second):
 			s.t.Fatal("no capture")
 		}
@@ -363,6 +405,7 @@ func (s *proxySession) capture() *capture.Capture {
 // h1 returns the HTTP/1.1 requests the server recorded.
 func (s *proxySession) h1() []capture.H1Request {
 	s.t.Helper()
+
 	return s.capture().H1
 }
 
@@ -370,6 +413,7 @@ func (s *proxySession) h1() []capture.H1Request {
 // the profile's.
 func (s *proxySession) checkTunnelledHello(p *profile.Profile) {
 	s.t.Helper()
+
 	c := s.capture()
 	got := profile.Profile{
 		TLS: c.Profile.TLS,
@@ -377,7 +421,9 @@ func (s *proxySession) checkTunnelledHello(p *profile.Profile) {
 	want := profile.Profile{
 		TLS: p.TLS,
 	}
+
 	got.TLS.ExtensionOrder, want.TLS.ExtensionOrder = p.TLS.ExtensionOrder, p.TLS.ExtensionOrder
+
 	for _, d := range diff.Compare(&want, &got) {
 		s.t.Errorf("ClientHello through the tunnel: %s", d)
 	}
@@ -385,6 +431,7 @@ func (s *proxySession) checkTunnelledHello(p *profile.Profile) {
 
 func scenario(t *testing.T, name string) *server.Scenario {
 	t.Helper()
+
 	sc, err := server.ScenarioByName(name)
 	if err != nil {
 		t.Fatal(err)
@@ -417,9 +464,11 @@ func nthOK(sample []capture.ProxyRequest, n int) capture.ProxyRequest {
 		if r.Status != http.StatusOK {
 			continue
 		}
+
 		if n == 0 {
 			return r
 		}
+
 		n--
 	}
 
@@ -465,21 +514,27 @@ func connectFlow(sample []capture.ProxyRequest) []string {
 			ok[r.Conn] = true
 		}
 	}
+
 	number := map[int]int{}
+
 	var out []string
+
 	for _, r := range sample {
 		if !ok[r.Conn] {
 			continue
 		}
+
 		if number[r.Conn] == 0 {
 			number[r.Conn] = len(number) + 1
 		}
+
 		auth := "-"
 		if slices.ContainsFunc(r.Lines, func(l string) bool {
 			return strings.HasPrefix(strings.ToLower(l), "proxy-authorization:")
 		}) {
 			auth = "credentials"
 		}
+
 		out = append(out, fmt.Sprintf("conn %d %d %s", number[r.Conn], r.Status, auth))
 	}
 
@@ -497,14 +552,17 @@ func forwarded(r capture.H1Request) []string {
 func forwardAuthFlow(sample []capture.H1Request) []string {
 	number := map[int]int{}
 	out := make([]string, 0, len(sample))
+
 	for _, r := range sample {
 		if number[r.Conn] == 0 {
 			number[r.Conn] = len(number) + 1
 		}
+
 		auth := "-"
 		if authPlace(r.Headers) != "none" {
 			auth = "credentials"
 		}
+
 		out = append(out, fmt.Sprintf("conn %d %s", number[r.Conn], auth))
 	}
 
@@ -518,12 +576,15 @@ func authPlace(headers []string) string {
 		if !strings.HasPrefix(strings.ToLower(h), "proxy-authorization:") {
 			continue
 		}
+
 		if i == len(headers)-1 {
 			return "last"
 		}
+
 		if i == 0 {
 			return "first"
 		}
+
 		name, _, _ := strings.Cut(headers[i-1], ":")
 
 		return "after " + name

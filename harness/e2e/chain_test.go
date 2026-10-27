@@ -37,6 +37,7 @@ func TestChainedPrioritiesMatchBrowserTraces(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			for sc, traces := range scenarioTraces(t, p) {
 				for i, tr := range traces {
 					t.Run(sc.Name+" sample "+strconv.Itoa(i+1), func(t *testing.T) {
@@ -45,6 +46,7 @@ func TestChainedPrioritiesMatchBrowserTraces(t *testing.T) {
 					})
 				}
 			}
+
 			for scenario, samples := range pageTraces(t, p) {
 				for i, page := range samples {
 					for k, tr := range page.H2 {
@@ -64,36 +66,45 @@ func TestChainedPrioritiesMatchBrowserTraces(t *testing.T) {
 // compares each request's HEADERS priority with the browser's.
 func replayPriorities(t *testing.T, p *profile.Profile, tr *h2trace.Trace) {
 	t.Helper()
+
 	var heads []h2trace.Frame
 	for _, f := range tr.Frames {
 		if f.Type == "HEADERS" {
 			heads = append(heads, f)
 		}
 	}
+
 	if len(heads) == 0 {
 		return
 	}
+
 	paths := map[uint32]string{}
 	for _, r := range tr.Requests {
 		paths[r.Stream] = r.Path
 	}
+
 	// request maps a trace's stream to its request's index; last is, for
 	// each request, the last request that depends on it (its own index
 	// when none does).
 	request := map[uint32]int{}
 	last := make([]int, len(heads))
+
 	for k, f := range heads {
 		request[f.Stream] = k
 		last[k] = k
+
 		if f.Priority == nil || f.Priority.DependsOn == 0 {
 			continue
 		}
+
 		parent, ok := request[f.Priority.DependsOn]
 		if !ok {
 			t.Fatalf("%s depends on stream %d, which no earlier request opened", paths[f.Stream], f.Priority.DependsOn)
 		}
+
 		last[parent] = k
 	}
+
 	want := func(k int) string {
 		return describePriority(heads[k].Priority, func(stream uint32) (int, bool) {
 			i, ok := request[stream]
@@ -103,24 +114,33 @@ func replayPriorities(t *testing.T, p *profile.Profile, tr *h2trace.Trace) {
 
 	pr, c := newChainPeer(t, p)
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+
 	defer cancel()
+
 	ids := make([]uint32, len(heads))
 	mine := map[uint32]int{}
 	results := make([]<-chan error, len(heads))
 	open := map[int]bool{}
+
 	for k, f := range heads {
 		var weight uint8
 		if f.Priority != nil {
 			weight = f.Priority.Weight
 		}
+
 		results[k] = roundTripChain(ctx, c, k, weight)
+
 		h := pr.headers(ctx)
+
 		if h == nil {
 			t.Fatalf("request %d (%s): no HEADERS from mimicry", k, paths[f.Stream])
 		}
+
 		ids[k] = h.StreamID
 		mine[h.StreamID] = k
+
 		var got *h2trace.Priority
+
 		if h.HasPriority() {
 			got = &h2trace.Priority{
 				DependsOn: h.Priority.StreamDep,
@@ -128,41 +148,52 @@ func replayPriorities(t *testing.T, p *profile.Profile, tr *h2trace.Trace) {
 				Weight:    h.Priority.Weight,
 			}
 		}
+
 		if g, w := describePriority(got, func(stream uint32) (int, bool) {
 			i, ok := mine[stream]
 			return i, ok
 		}), want(k); g != w {
 			t.Errorf("request %d (%s): %s, the browser's %s", k, paths[f.Stream], g, w)
 		}
+
 		open[k] = true
 		if k%2 == 0 {
 			// Its response starts at once; the stream stays open.
 			pr.respond(ids[k], false)
+
 			if err := <-results[k]; err != nil {
 				t.Fatalf("request %d: %v", k, err)
 			}
 		}
+
 		// End every stream no later request depends on.
 		synced := true
 		for j := range k + 1 {
 			if !open[j] || last[j] > k {
 				continue
 			}
+
 			delete(open, j)
+
 			if j%2 == 0 {
 				pr.endData(ids[j])
+
 				synced = false
 
 				continue
 			}
+
 			pr.respond(ids[j], true)
+
 			if err := <-results[j]; err != nil {
 				t.Fatalf("request %d: %v", j, err)
 			}
 		}
+
 		if !synced {
 			pr.sync(ctx)
 		}
+
 		if t.Failed() {
 			return
 		}
@@ -176,6 +207,7 @@ func describePriority(p *h2trace.Priority, index func(stream uint32) (int, bool)
 	if p == nil {
 		return "no priority"
 	}
+
 	parent := "nothing"
 	if p.DependsOn != 0 {
 		parent = "stream " + strconv.FormatUint(uint64(p.DependsOn), 10) + ", opened by no request"
@@ -192,6 +224,7 @@ func describePriority(p *h2trace.Priority, index func(stream uint32) (int, bool)
 // body is never read.
 func roundTripChain(ctx context.Context, c *h2.Conn, k int, weight uint8) <-chan error {
 	done := make(chan error, 1)
+
 	req, err := http.NewRequestWithContext(headerorder.WithPlan(ctx, &headerorder.Plan{
 		Weight: weight,
 	}), http.MethodGet, "https://chain.test/r"+strconv.Itoa(k), nil)
@@ -199,6 +232,7 @@ func roundTripChain(ctx context.Context, c *h2.Conn, k int, weight uint8) <-chan
 		done <- err
 		return done
 	}
+
 	go func() {
 		_, err := c.RoundTrip(req)
 		done <- err
@@ -223,25 +257,31 @@ type chainPeer struct {
 // The clock never moves: no credit timer or idle PING fires.
 func newChainPeer(t *testing.T, p *profile.Profile) (*chainPeer, *h2.Conn) {
 	t.Helper()
+
 	client, server := net.Pipe()
 	pr := &chainPeer{
 		t:      t,
 		fr:     http2.NewFramer(server, server),
 		frames: make(chan http2.Frame, 64),
 	}
+
 	pr.fr.ReadMetaHeaders = xhpack.NewDecoder(4096, nil)
 	pr.enc = xhpack.NewEncoder(&pr.buf)
+
 	go func() {
 		defer close(pr.frames)
+
 		preface := make([]byte, len(http2.ClientPreface))
 		if _, err := io.ReadFull(server, preface); err != nil {
 			return
 		}
+
 		for {
 			f, err := pr.fr.ReadFrame()
 			if err != nil {
 				return
 			}
+
 			switch f := f.(type) {
 			case *http2.MetaHeadersFrame:
 				pr.frames <- f
@@ -252,10 +292,12 @@ func newChainPeer(t *testing.T, p *profile.Profile) (*chainPeer, *h2.Conn) {
 			}
 		}
 	}()
+
 	c, err := h2.New(client, p, clockwork.NewFakeClock())
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Cleanup(func() {
 		_ = c.Close()
 		_ = server.Close()
@@ -272,9 +314,11 @@ func (p *chainPeer) headers(ctx context.Context) *http2.MetaHeadersFrame {
 			if !ok {
 				return nil
 			}
+
 			if h, isHeaders := f.(*http2.MetaHeadersFrame); isHeaders {
 				return h
 			}
+
 		case <-ctx.Done():
 			return nil
 		}
@@ -285,6 +329,7 @@ func (p *chainPeer) headers(ctx context.Context) *http2.MetaHeadersFrame {
 func (p *chainPeer) respond(stream uint32, end bool) {
 	p.t.Helper()
 	p.buf.Reset()
+
 	_ = p.enc.WriteField(xhpack.HeaderField{
 		Name:  ":status",
 		Value: "200",
@@ -302,6 +347,7 @@ func (p *chainPeer) respond(stream uint32, end bool) {
 // endData ends stream with a one-byte DATA frame.
 func (p *chainPeer) endData(stream uint32) {
 	p.t.Helper()
+
 	if err := p.fr.WriteData(stream, true, []byte("x")); err != nil {
 		p.t.Fatal(err)
 	}
@@ -311,22 +357,29 @@ func (p *chainPeer) endData(stream uint32) {
 // every frame sent before it.
 func (p *chainPeer) sync(ctx context.Context) {
 	p.t.Helper()
+
 	p.pings++
+
 	var data [8]byte
 	binary.BigEndian.PutUint64(data[:], p.pings)
+
 	if err := p.fr.WritePing(false, data); err != nil {
 		p.t.Fatal(err)
 	}
+
 	for {
 		select {
 		case f, ok := <-p.frames:
 			if !ok {
 				p.t.Fatal("the client closed the connection")
 			}
+
 			if ping, isPing := f.(*http2.PingFrame); isPing && ping.Data == data {
 				return
 			}
+
 			p.t.Fatalf("unexpected %T before the PING ACK", f)
+
 		case <-ctx.Done():
 			p.t.Fatal("no PING ACK from the client")
 		}

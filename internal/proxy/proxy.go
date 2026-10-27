@@ -48,13 +48,17 @@ func (l *headerLimit) Read(p []byte) (int, error) {
 	if l.left < 0 {
 		return l.r.Read(p)
 	}
+
 	if l.left == 0 {
 		return 0, ErrAnswerTooLarge
 	}
+
 	if len(p) > l.left {
 		p = p[:l.left]
 	}
+
 	n, err := l.r.Read(p)
+
 	l.left -= n
 
 	return n, err
@@ -65,32 +69,40 @@ func (l *headerLimit) Read(p []byte) (int, error) {
 // is the tunnel; otherwise conn stays usable unless the answer closes it.
 func Connect(ctx context.Context, conn net.Conn, target string, header []string) (Answer, net.Conn, error) {
 	defer watch(ctx, conn)()
+
 	var b strings.Builder
 	b.WriteString("CONNECT ")
 	b.WriteString(target)
 	b.WriteString(" HTTP/1.1\r\n")
+
 	for _, h := range header {
 		b.WriteString(h)
 		b.WriteString("\r\n")
 	}
+
 	b.WriteString("\r\n")
+
 	if _, err := io.WriteString(conn, b.String()); err != nil {
 		return Answer{}, nil, contextError(ctx, err)
 	}
+
 	limit := &headerLimit{
 		r:    conn,
 		left: maxAnswerHeader,
 	}
 	br := bufio.NewReader(limit)
+
 	resp, err := http.ReadResponse(br, &http.Request{
 		Method: http.MethodConnect,
 	})
 	if err != nil {
 		return Answer{}, nil, contextError(ctx, fmt.Errorf("reading the proxy's answer to CONNECT: %w", err))
 	}
+
 	// The header is read: the body (bounded below) and the tunnel are not
 	// limited.
 	limit.left = -1
+
 	a := Answer{
 		StatusCode: resp.StatusCode,
 		Status:     resp.Status,
@@ -102,10 +114,12 @@ func Connect(ctx context.Context, conn net.Conn, target string, header []string)
 	if a.StatusCode/100 != 2 {
 		_, err = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
 		_ = resp.Body.Close()
+
 		if err != nil {
 			return Answer{}, nil, contextError(ctx, err)
 		}
 	}
+
 	if br.Buffered() > 0 {
 		return a, &bufferedConn{
 			Conn: conn,
@@ -133,14 +147,17 @@ const (
 // answers username/password authentication.
 func SOCKS5(ctx context.Context, conn net.Conn, target string, methods []byte, user *url.Userinfo) error {
 	defer watch(ctx, conn)()
+
 	host, portStr, err := net.SplitHostPort(target)
 	if err != nil {
 		return err
 	}
+
 	port, err := strconv.ParseUint(portStr, 10, 16)
 	if err != nil {
 		return fmt.Errorf("SOCKS5 target port %q: %w", portStr, err)
 	}
+
 	if err := socks5(conn, host, uint16(port), methods, user); err != nil {
 		return contextError(ctx, err)
 	}
@@ -153,26 +170,32 @@ func socks5(conn net.Conn, host string, port uint16, methods []byte, user *url.U
 	if err != nil {
 		return err
 	}
+
 	greeting := append([]byte{socksVersion, n}, methods...)
 	if _, err := conn.Write(greeting); err != nil {
 		return err
 	}
+
 	reply := make([]byte, 2)
 	if _, err := io.ReadFull(conn, reply); err != nil {
 		return fmt.Errorf("SOCKS5 method selection: %w", err)
 	}
+
 	if reply[0] != socksVersion {
 		return fmt.Errorf("SOCKS5 proxy answered version %d", reply[0])
 	}
+
 	switch reply[1] {
 	case MethodNone:
 	case MethodUser:
 		if user == nil {
 			return errors.New("SOCKS5 proxy asks for a username and password; the proxy URL has none")
 		}
+
 		if err := socksUser(conn, user); err != nil {
 			return err
 		}
+
 	case socksNoMethod:
 		return errors.New("SOCKS5 proxy accepts none of the authentication methods offered")
 	default:
@@ -191,19 +214,24 @@ func socks5(conn net.Conn, host string, port uint16, methods []byte, user *url.U
 		if err != nil {
 			return err
 		}
+
 		req = append(append(req, socksDomain, n), host...)
 	}
+
 	req = binary.BigEndian.AppendUint16(req, port)
 	if _, err := conn.Write(req); err != nil {
 		return err
 	}
+
 	head := make([]byte, 4)
 	if _, err := io.ReadFull(conn, head); err != nil {
 		return fmt.Errorf("SOCKS5 reply: %w", err)
 	}
+
 	if head[1] != 0 {
 		return fmt.Errorf("SOCKS5 proxy refused the connection: %s", socksReplies[head[1]])
 	}
+
 	// The bound address, which a client does not need.
 	var skip int
 	switch head[3] {
@@ -216,10 +244,13 @@ func socks5(conn net.Conn, host string, port uint16, methods []byte, user *url.U
 		if _, err := io.ReadFull(conn, n); err != nil {
 			return err
 		}
+
 		skip = int(n[0])
+
 	default:
 		return fmt.Errorf("SOCKS5 reply address type %d", head[3])
 	}
+
 	_, err = io.ReadFull(conn, make([]byte, skip+2))
 
 	return err
@@ -229,23 +260,30 @@ func socks5(conn net.Conn, host string, port uint16, methods []byte, user *url.U
 func socksUser(conn net.Conn, user *url.Userinfo) error {
 	name := user.Username()
 	password, _ := user.Password()
+
 	nameLen, err := lengthByte(len(name), "username")
 	if err != nil {
 		return err
 	}
+
 	passwordLen, err := lengthByte(len(password), "password")
 	if err != nil {
 		return err
 	}
+
 	msg := append([]byte{1, nameLen}, name...)
+
 	msg = append(append(msg, passwordLen), password...)
+
 	if _, err := conn.Write(msg); err != nil {
 		return err
 	}
+
 	reply := make([]byte, 2)
 	if _, err := io.ReadFull(conn, reply); err != nil {
 		return fmt.Errorf("SOCKS5 authentication: %w", err)
 	}
+
 	if reply[1] != 0 {
 		return errors.New("SOCKS5 proxy rejected the username and password")
 	}
@@ -279,12 +317,14 @@ func watch(ctx context.Context, conn net.Conn) func() {
 	if d, ok := ctx.Deadline(); ok {
 		_ = conn.SetDeadline(d)
 	}
+
 	stop := context.AfterFunc(ctx, func() {
 		_ = conn.SetDeadline(time.Unix(1, 0))
 	})
 
 	return func() {
 		stop()
+
 		_ = conn.SetDeadline(time.Time{})
 	}
 }
@@ -296,6 +336,7 @@ func contextError(ctx context.Context, err error) error {
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return ctxErr
 	}
+
 	if d, ok := ctx.Deadline(); ok && errors.Is(err, os.ErrDeadlineExceeded) && !time.Now().Before(d) {
 		return context.DeadlineExceeded
 	}

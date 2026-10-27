@@ -8,6 +8,7 @@ import (
 // per key.
 func newLimitedFixture(t *testing.T, limit int) *fixture {
 	f := newFixture(t)
+
 	f.pool = New[*fakeShared, *fakeExclusive](Config{
 		Clock:        f.clock,
 		IdleTimeout:  idleTimeout,
@@ -23,6 +24,7 @@ func newLimitedFixture(t *testing.T, limit int) *fixture {
 // want reads r and wants found, without an error.
 func want(t *testing.T, r result, found Found) {
 	t.Helper()
+
 	if r.err != nil || r.got.Found != found {
 		t.Fatalf("waiter got %+v, %v; want found %d", r.got, r.err, found)
 	}
@@ -31,6 +33,7 @@ func want(t *testing.T, r result, found Found) {
 // pending fails the test if a waiter has been handed anything.
 func pending(t *testing.T, waiters ...<-chan result) {
 	t.Helper()
+
 	for i, w := range waiters {
 		select {
 		case r := <-w:

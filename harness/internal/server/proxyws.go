@@ -44,6 +44,7 @@ var (
 // socket when plain.
 func proxyWSPage(plain bool) wsPage {
 	sockets, steps := ProxyWebSocketSteps(plain)
+
 	return wsPage{
 		names: []string{
 			wsHost,
@@ -103,6 +104,7 @@ func ProxyWebSocketSteps(plain bool) ([]WebSocketStep, []WebSocketPageStep) {
 			Path:  "/px/warm",
 		},
 	}
+
 	if !plain {
 		return sockets, steps
 	}

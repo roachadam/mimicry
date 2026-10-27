@@ -32,16 +32,20 @@ func (s *sentNames) record(path string, lines []string) {
 	names := make([]string, 0, len(lines))
 	for _, line := range lines {
 		name, _, _ := strings.Cut(line, ":")
+
 		names = append(names, strings.ToLower(name))
 	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	s.paths[path] = names
 }
 
 func (s *sentNames) get(path string) ([]string, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	names, ok := s.paths[path]
 
 	return names, ok
@@ -52,14 +56,18 @@ func (s *sentNames) get(path string) ([]string, bool) {
 // 200; Go's own server keeps no order. It returns the shop to dial it.
 func startH2Recorder(t *testing.T, s *sentNames) *shop {
 	t.Helper()
+
 	cert, pool := shopCertificate()
+
 	ln, err := new(net.ListenConfig).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Cleanup(func() {
 		_ = ln.Close()
 	})
+
 	tl := tls.NewListener(ln, &tls.Config{
 		Certificates: []tls.Certificate{
 			cert,
@@ -68,12 +76,14 @@ func startH2Recorder(t *testing.T, s *sentNames) *shop {
 			"h2",
 		},
 	})
+
 	go func() {
 		for {
 			c, err := tl.Accept()
 			if err != nil {
 				return
 			}
+
 			go serveH2(c, s)
 		}
 	}()
@@ -88,22 +98,30 @@ func serveH2(c net.Conn, s *sentNames) {
 	defer func() {
 		_ = c.Close()
 	}()
+
 	preface := make([]byte, len(http2.ClientPreface))
 	if _, err := io.ReadFull(c, preface); err != nil {
 		return
 	}
+
 	fr := http2.NewFramer(c, c)
+
 	fr.ReadMetaHeaders = hpack.NewDecoder(4096, nil)
+
 	if err := fr.WriteSettings(); err != nil {
 		return
 	}
+
 	var block bytes.Buffer
+
 	enc := hpack.NewEncoder(&block)
+
 	for {
 		f, err := fr.ReadFrame()
 		if err != nil {
 			return
 		}
+
 		switch f := f.(type) {
 		case *http2.SettingsFrame:
 			if !f.IsAck() {
@@ -111,19 +129,23 @@ func serveH2(c net.Conn, s *sentNames) {
 					return
 				}
 			}
+
 		case *http2.MetaHeadersFrame:
 			var lines []string
 			for _, hf := range f.RegularFields() {
 				lines = append(lines, hf.Name+": "+hf.Value)
 			}
+
 			s.record(f.PseudoValue("path"), lines)
 			block.Reset()
+
 			if err := enc.WriteField(hpack.HeaderField{
 				Name:  ":status",
 				Value: "200",
 			}); err != nil {
 				return
 			}
+
 			if err := fr.WriteHeaders(http2.HeadersFrameParam{
 				StreamID:      f.StreamID,
 				BlockFragment: block.Bytes(),
@@ -148,6 +170,7 @@ func TestHeaderPlacement(t *testing.T) {
 		sent.record(r.URL.Path, headerLines(r))
 	})
 	t.Cleanup(h1.Close)
+
 	h2 := startH2Recorder(t, sent)
 	apiKey := http.Header{
 		"X-Api-Key": {"k"},
@@ -406,6 +429,7 @@ func TestHeaderPlacement(t *testing.T) {
 			if tt.h2 {
 				s = h2
 			}
+
 			send := func(path string, config, request []mimicry.Place) error {
 				tr, err := mimicry.NewTransport(mimicry.Config{
 					Profile:         profiles.Chrome(),
@@ -419,17 +443,21 @@ func TestHeaderPlacement(t *testing.T) {
 					return err
 				}
 				defer tr.CloseIdleConnections()
+
 				req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "https://www.shop.test"+path, nil)
 				if err != nil {
 					t.Fatal(err)
 				}
+
 				maps.Copy(req.Header, tt.header)
+
 				req = mimicry.With(req, mimicry.Request{
 					HeaderPlacement: request,
 				})
 				if tt.exact {
 					req = mimicry.Exact(req)
 				}
+
 				resp, err := tr.RoundTrip(req)
 				if err != nil {
 					return err
@@ -439,28 +467,35 @@ func TestHeaderPlacement(t *testing.T) {
 			}
 			path := fmt.Sprintf("/placed/%d", i)
 			err := send(path, tt.config, tt.request)
+
 			if tt.configErr || tt.sendErr {
 				if !errors.Is(err, mimicry.ErrPlacement) {
 					t.Fatalf("error %v, want ErrPlacement", err)
 				}
+
 				if _, ok := sent.get(path); ok {
 					t.Fatal("the request was sent")
 				}
+
 				if tt.configErr && !strings.Contains(err.Error(), "Config.HeaderPlacement[0]") {
 					t.Errorf("error %q does not name Config.HeaderPlacement[0]", err)
 				}
 
 				return
 			}
+
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			base := fmt.Sprintf("/base/%d", i)
 			if err := send(base, nil, nil); err != nil {
 				t.Fatal(err)
 			}
+
 			got, _ := sent.get(path)
 			want, _ := sent.get(base)
+
 			if tt.unchanged {
 				if !slices.Equal(got, want) {
 					t.Fatalf("sent\n%q\nwant, as without placements,\n%q", got, want)
@@ -468,10 +503,12 @@ func TestHeaderPlacement(t *testing.T) {
 
 				return
 			}
+
 			var moved []string
 			for _, p := range slices.Concat(tt.config, tt.request) {
 				moved = append(moved, strings.ToLower(p.Header))
 			}
+
 			others := func(names []string) []string {
 				return slices.DeleteFunc(slices.Clone(names), func(n string) bool {
 					return slices.Contains(moved, n)
@@ -480,6 +517,7 @@ func TestHeaderPlacement(t *testing.T) {
 			if !slices.Equal(others(got), others(want)) {
 				t.Errorf("headers that were not moved:\n%q\nwant\n%q", others(got), others(want))
 			}
+
 			for _, run := range tt.runs {
 				if !containsRun(got, run) {
 					t.Errorf("sent %q, want the run %q", got, run)

@@ -258,26 +258,34 @@ func (c *checker) checkKinds(p *Profile) {
 	for _, name := range slices.Sorted(maps.Keys(p.Kinds)) {
 		k := p.Kinds[name]
 		path := "kinds." + name
+
 		if !slices.Contains(kinds, name) {
 			c.add(path, "is not a request kind (have %s)", strings.Join(kinds, ", "))
 		}
+
 		if k == nil {
 			c.add(path, "is empty")
+
 			continue
 		}
+
 		c.checkHeaderList(path+".headers", k.Headers, true)
+
 		if len(k.HTTP1) > 0 {
 			c.checkHTTP1Headers(path+".http1", k.HTTP1, true)
 		} else if p.HTTP1 != nil {
 			c.add(path+".http1", "is required because the profile has http1")
 		}
+
 		c.checkVariants(path+".variants", k.Variants, true)
+
 		for which, u := range map[string]*Urgency{"high": k.High, "low": k.Low} {
 			if u != nil && u.Priority == "" && u.Weight == 0 {
 				c.add(fmt.Sprintf("%s.%s", path, which), "changes nothing; leave it out")
 			}
 		}
 	}
+
 	c.checkHeaderTable(p)
 }
 
@@ -288,14 +296,19 @@ func (c *checker) checkHeaderTable(p *Profile) {
 	if p.Context == nil || p.Context.HeaderTable == nil {
 		return
 	}
+
 	t := p.Context.HeaderTable
+
 	const path = "context.headerTable"
+
 	if t.Hash != HashBlink && t.Hash != HashCF {
 		c.add(path+".hash", "must be %q or %q", HashBlink, HashCF)
 	}
+
 	if len(t.Own) == 0 {
 		c.add(path+".own", "is required")
 	}
+
 	seen := map[string]bool{}
 	for _, name := range t.Members() {
 		switch {
@@ -304,13 +317,16 @@ func (c *checker) checkHeaderTable(p *Profile) {
 		case seen[name]:
 			c.add(path, "names %s twice", name)
 		}
+
 		seen[name] = true
 	}
+
 	for _, kind := range []string{KindFetch, KindXHR} {
 		k := p.Kinds[kind]
 		if k == nil {
 			continue
 		}
+
 		lists := map[string][]Header{
 			"headers": k.Headers,
 			"http1":   k.HTTP1,
@@ -320,9 +336,11 @@ func (c *checker) checkHeaderTable(p *Profile) {
 				// The table does not order these.
 				continue
 			}
+
 			lists[fmt.Sprintf("variants[%d].headers", i)] = v.Headers
 			lists[fmt.Sprintf("variants[%d].http1", i)] = v.HTTP1
 		}
+
 		for _, at := range slices.Sorted(maps.Keys(lists)) {
 			if !tableRun(lists[at], seen) {
 				c.add("kinds."+kind+"."+at, "splits the header table's names %v: they go out as one run", t.Members())
@@ -339,10 +357,12 @@ func tableRun(list []Header, members map[string]bool) bool {
 		if h.Name == OtherHeaders {
 			return true
 		}
+
 		if members[strings.ToLower(h.Name)] {
 			if first < 0 {
 				first = i
 			}
+
 			last = i
 			n++
 		}
@@ -361,40 +381,51 @@ func (c *checker) checkVariants(path string, vs []Variant, others bool) {
 		crossOriginRedirect, originBefore, methodChanged bool
 		insecureBefore, crossSiteRedirect                bool
 	}
+
 	seen := map[condition]bool{}
+
 	for i, v := range vs {
 		at := fmt.Sprintf("%s[%d]", path, i)
 		if v.Insecure {
 			if len(v.Headers) > 0 {
 				c.add(at+".headers", "must be empty: browsers send non-secure requests over HTTP/1.1 only")
 			}
+
 			if len(v.HTTP1) == 0 {
 				c.add(at+".http1", "is required for a non-secure variant")
 			}
 		} else {
 			c.checkHeaderList(at+".headers", v.Headers, others)
 		}
+
 		if len(v.HTTP1) > 0 {
 			c.checkHTTP1Headers(at+".http1", v.HTTP1, others)
 		}
+
 		if v.Method == http.MethodGet || strings.ContainsAny(v.Method, " \r\n") {
 			c.add(at+".method", "must be empty for GET, or a method")
 		}
+
 		if v.Site != SiteSameOrigin && v.Site != SiteSameSite && v.Site != SiteCrossSite && v.Site != SiteNone {
 			c.add(at+".site", "must be empty (same-origin), %q, %q or %q", SiteSameSite, SiteCrossSite, SiteNone)
 		}
+
 		if v.PageSet && !v.CORSChecked {
 			c.add(at+".pageSet", "needs corsChecked: a request carrying headers the page set is CORS-checked")
 		}
+
 		if (v.CrossOriginRedirect || v.OriginBeforeRedirect || v.MethodChangedByRedirect || v.InsecureBeforeRedirect) && !v.Redirected {
 			c.add(at, "crossOriginRedirect, originBeforeRedirect, methodChangedByRedirect and insecureBeforeRedirect need redirected")
 		}
+
 		if v.CrossSiteRedirect && !v.CrossOriginRedirect {
 			c.add(at+".crossSiteRedirect", "needs crossOriginRedirect: a redirect to another site goes to another origin")
 		}
+
 		if v.CrossSiteRedirect && others {
 			c.add(at+".crossSiteRedirect", "is a navigation's condition, not a request kind's")
 		}
+
 		cond := condition{
 			method:              v.Method,
 			site:                v.Site,
@@ -414,6 +445,7 @@ func (c *checker) checkVariants(path string, vs []Variant, others bool) {
 		case seen[cond]:
 			c.add(at, "repeats an earlier variant's condition")
 		}
+
 		seen[cond] = true
 	}
 }

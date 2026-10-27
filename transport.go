@@ -143,30 +143,36 @@ func NewTransport(cfg Config) (*Transport, error) {
 	if cfg.Profile == nil {
 		return nil, errors.New("mimicry: Config.Profile is required")
 	}
+
 	// A private copy, validated once and shared with the engine, so later
 	// changes to the caller's profile have no effect.
 	data, err := profile.Encode(cfg.Profile)
 	if err != nil {
 		return nil, err
 	}
+
 	p, err := profile.Parse(data)
 	if err != nil {
 		return nil, err
 	}
+
 	headers := make(http.Header, len(cfg.Headers))
 	for k, v := range cfg.Headers {
 		k = http.CanonicalHeaderKey(k)
 		// A copy, and a key with no values stays present: it suppresses.
 		headers[k] = append(headers[k], v...)
 	}
+
 	places, err := placements("Config.HeaderPlacement", cfg.HeaderPlacement)
 	if err != nil {
 		return nil, err
 	}
+
 	pins, err := parsePins(cfg.Pins)
 	if err != nil {
 		return nil, err
 	}
+
 	t := &Transport{
 		engine:           cfg.engine,
 		profile:          p,
@@ -191,8 +197,10 @@ func NewTransport(cfg Config) (*Transport, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		t.engine = e
 	}
+
 	for _, h := range p.Headers {
 		if strings.EqualFold(h.Name, "accept-encoding") {
 			t.decode = true
@@ -214,6 +222,7 @@ func NewClient(cfg Config) (*http.Client, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if t.jar == nil {
 		jar, err := cookies.New(cookies.Config{
 			Rules: t.profile.Cookies,
@@ -221,6 +230,7 @@ func NewClient(cfg Config) (*http.Client, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		t.jar = jar
 	}
 
@@ -244,9 +254,11 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	r, exact := madeAs(req)
 	callerSet := hasHeader(req.Header, "Accept-Encoding") || hasHeader(t.headers, "Accept-Encoding")
 	req, o, err := t.outgoing(req, r, exact, toSend)
+
 	if err == nil && o.preflight != nil {
 		err = t.sendPreflight(o.preflight, r.IgnoreCORS)
 	}
+
 	if err != nil {
 		// The RoundTripper contract: the body is closed, even on errors.
 		if req.Body != nil && req.Body != http.NoBody {
@@ -255,13 +267,19 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 		return nil, err
 	}
+
 	req = t.ready(req, o, toSend)
+
 	resp, err := t.engine.RoundTrip(req)
+
 	err = publicError(err)
+
 	s := o.s
+
 	if err == nil && t.jar != nil && s.credentialed {
 		t.jar.SetCookies(s.cookies, resp.Header.Values("Set-Cookie"))
 	}
+
 	if err == nil && !r.IgnoreCORS {
 		if cerr := refusedRedirect(req, resp, s); cerr != nil {
 			return nil, cerr
@@ -275,6 +293,7 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 // navigation by default), or Exact.
 func madeAs(req *http.Request) (r Request, exact bool) {
 	ctx := req.Context()
+
 	r, _ = ctx.Value(requestKey{}).(Request)
 	exact, _ = ctx.Value(exactKey{}).(bool)
 
@@ -309,12 +328,15 @@ func (t *Transport) outgoing(req *http.Request, r Request, exact bool, u use) (*
 		if err != nil {
 			return req, out{}, err
 		}
+
 		req = next
 	}
+
 	places, err := t.placementsFor(req, r, exact)
 	if err != nil {
 		return req, out{}, err
 	}
+
 	s, pf, err := t.prepare(req, r, exact)
 	if err != nil {
 		return req, out{}, err
@@ -335,21 +357,26 @@ func (t *Transport) ready(req *http.Request, o out, u use) *http.Request {
 	s := o.s
 	h := s.header
 	ctx := pool.WithPartition(req.Context(), s.partition)
+
 	if s.plan != nil {
 		ctx = headerorder.WithPlan(ctx, s.plan)
 	}
+
 	if s.preflighted {
 		// The next hop's preflight may depend on it (hopPreflight): it
 		// sees this request as its Response's.
 		ctx = context.WithValue(ctx, preflightedKey{}, true)
 	}
+
 	if len(o.places) > 0 {
 		// The caller's request only: its preflight goes without.
 		ctx = headerorder.WithPlacements(ctx, o.places)
 	}
+
 	if line := t.cookieLine(s, u); line != "" {
 		h.Set("Cookie", line)
 	}
+
 	req = req.Clone(ctx)
 	req.Header = h
 
@@ -364,6 +391,7 @@ func (t *Transport) cookieLine(s *sending, u use) string {
 	if t.jar == nil || !s.credentialed || hasHeader(s.header, "Cookie") {
 		return ""
 	}
+
 	if u == toPlan {
 		return cookies.Header(t.jar.Peek(s.cookies))
 	}
@@ -379,6 +407,7 @@ func (t *Transport) prepare(req *http.Request, r Request, exact bool) (*sending,
 		if h == nil {
 			h = http.Header{}
 		}
+
 		chain := append(redirectsBefore(req), req.URL)
 		addHeaders(h, t.headers, chain)
 
@@ -397,10 +426,12 @@ func (t *Transport) prepare(req *http.Request, r Request, exact bool) (*sending,
 			variant: -1,
 		}, nil, nil
 	}
+
 	if r.Kind == kindPreflight || r.Kind == kindWebSocket {
 		// The transport's own: callers never make one.
 		return nil, nil, fmt.Errorf("mimicry: unknown request kind %d", int(r.Kind))
 	}
+
 	from := r.From
 	if from == nil && r.Kind != Navigate {
 		from = t.lastNav.Load()
@@ -412,14 +443,17 @@ func (t *Transport) prepare(req *http.Request, r Request, exact bool) (*sending,
 			}
 		}
 	}
+
 	s, err := resolve(t.profile, req, r, from, t.headers)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	needed, pf, err := t.preflightFor(req, r, from, s.credentialed, s.header)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	s.preflighted = needed
 
 	return s, pf, nil
@@ -431,11 +465,15 @@ func (t *Transport) finish(req *http.Request, r Request, exact, callerSet bool, 
 	if err == nil && r.Kind == Navigate && !exact {
 		t.lastNav.Store(req.URL)
 	}
+
 	if err != nil || !t.decode || callerSet || !hasBody(req, resp) {
 		return resp, err
 	}
+
 	enc := strings.ToLower(strings.TrimSpace(resp.Header.Get("Content-Encoding")))
+
 	var open func(io.Reader) (io.ReadCloser, error)
+
 	switch enc {
 	case "gzip", "x-gzip":
 		open = func(r io.Reader) (io.ReadCloser, error) {
@@ -447,12 +485,14 @@ func (t *Transport) finish(req *http.Request, r Request, exact, callerSet bool, 
 
 			return zr, nil
 		}
+
 	case "deflate":
 		open = zlib.NewReader
 	case "br":
 		open = func(r io.Reader) (io.ReadCloser, error) {
 			return brrr.NewReader(r), nil
 		}
+
 	case "zstd":
 		open = func(r io.Reader) (io.ReadCloser, error) {
 			d, err := zstd.NewReader(r, zstd.WithDecoderConcurrency(1))
@@ -462,15 +502,18 @@ func (t *Transport) finish(req *http.Request, r Request, exact, callerSet bool, 
 
 			return d.IOReadCloser(), nil
 		}
+
 	default:
 		return resp, nil
 	}
+
 	resp.Body = &decoder{
 		src:  resp.Body,
 		open: open,
 	}
 	resp.Header.Del("Content-Encoding")
 	resp.Header.Del("Content-Length")
+
 	resp.ContentLength = -1
 	resp.Uncompressed = true
 
@@ -519,6 +562,7 @@ func (d *decoder) Read(p []byte) (int, error) {
 			d.dec = dec
 		}
 	}
+
 	if d.err != nil {
 		return 0, d.err
 	}

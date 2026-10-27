@@ -21,12 +21,16 @@ import (
 // to their domain or ClearExpired removes them, in creation order.
 func (j *Jar) All() []*Cookie {
 	j.mu.Lock()
+
 	es := j.entries()
 	out := make([]*Cookie, len(es))
+
 	for i, e := range es {
 		cp := *e.c
+
 		out[i] = &cp
 	}
+
 	j.mu.Unlock()
 
 	return out
@@ -38,10 +42,12 @@ func (j *Jar) entries() []entry {
 	for _, bucket := range j.domains {
 		n += len(bucket)
 	}
+
 	es := make([]entry, 0, n)
 	for _, bucket := range j.domains {
 		es = append(es, bucket...)
 	}
+
 	slices.SortFunc(es, compareCreated)
 
 	return es
@@ -56,23 +62,30 @@ func (j *Jar) Set(c Cookie) error {
 	if err := checkPair(c.Name, c.Value); err != nil {
 		return fmt.Errorf("cookies: %w", err)
 	}
+
 	if c.Domain == "" {
 		return errors.New("cookies: Domain is required")
 	}
+
 	c.Domain = strings.ToLower(strings.TrimPrefix(c.Domain, "."))
 	if c.Path == "" {
 		c.Path = "/"
 	}
+
 	now := j.clock.Now()
 	if c.Created.IsZero() {
 		c.Created = now
 	}
+
 	if c.LastAccess.IsZero() {
 		c.LastAccess = c.Created
 	}
+
 	key := domainKey(c.Domain)
+
 	j.mu.Lock()
 	defer j.mu.Unlock()
+
 	bucket := j.domains[key]
 	if i := slices.IndexFunc(bucket, func(old entry) bool {
 		return sameKey(old.c, &c)
@@ -80,6 +93,7 @@ func (j *Jar) Set(c Cookie) error {
 		bucket[i].c = &c
 		return nil
 	}
+
 	// Among cookies created at the same time, the new one goes last.
 	j.domains[key] = append(bucket, j.newEntry(&c))
 
@@ -92,12 +106,15 @@ func checkPair(name, value string) error {
 	if strings.ContainsAny(name, ";=") || strings.ContainsFunc(name+value, isControl) || strings.Contains(value, ";") {
 		return errors.New("name or value holds a control character, \";\" or \"=\" in the name")
 	}
+
 	if name == "" && hiddenPrefix(value) {
 		return errors.New("a nameless cookie's value starts with __Secure- or __Host-")
 	}
+
 	if name == "" && strings.Contains(value, "=") {
 		return errors.New("a nameless cookie's value holds \"=\"")
 	}
+
 	if name == "" && value == "" {
 		return errors.New("empty name and value")
 	}
@@ -135,10 +152,12 @@ func (j *Jar) SetString(domain, cookies string) error {
 	if domain == AnySite {
 		return j.setString(AnySite, false, cookies)
 	}
+
 	name, err := hostName(domain)
 	if err != nil {
 		return err
 	}
+
 	switch {
 	case net.ParseIP(name) != nil:
 		return fmt.Errorf("cookies: %q is an IP address, which no Domain cookie may name: use SetHostString for its cookies", domain)
@@ -171,14 +190,17 @@ func (j *Jar) setString(name string, hostOnly bool, cookies string) error {
 		if pair == "" {
 			continue
 		}
+
 		k, v, ok := strings.Cut(pair, "=")
 		if !ok {
 			k, v = "", pair
 		}
+
 		k, v = trimWSP(k), trimWSP(v)
 		if err := checkPair(k, v); err != nil {
 			return fmt.Errorf("cookies: cookie %q: %w", k, err)
 		}
+
 		c := Cookie{
 			Name:     k,
 			Value:    v,
@@ -190,16 +212,21 @@ func (j *Jar) setString(name string, hostOnly bool, cookies string) error {
 			if name == AnySite {
 				return fmt.Errorf("cookies: cookie %q: a __Host- cookie belongs to one host, not to every site", k)
 			}
+
 			c.HostOnly, c.Secure = true, true
 		}
+
 		if hasPrefixFold(k, "__Secure-") {
 			c.Secure = true
 		}
+
 		if j.rules.HTTPPrefix && (hasPrefixFold(k, "__Http-") || hasPrefixFold(k, "__Host-Http-")) {
 			c.Secure, c.HTTPOnly = true, true
 		}
+
 		cs = append(cs, c)
 	}
+
 	for _, c := range cs {
 		if err := j.Set(c); err != nil {
 			return err
@@ -221,27 +248,35 @@ func (j *Jar) String(name string) string {
 			return ""
 		}
 	}
+
 	now := j.clock.Now()
 	j.mu.Lock()
+
 	var es []entry
 	for key, bucket := range j.domains {
 		if (key == AnySite) != (name == AnySite) {
 			continue
 		}
+
 		for _, e := range bucket {
 			c := e.c
 			expired := !c.Expires.IsZero() && !c.Expires.After(now)
+
 			if expired || c.Partition != "" || (name == AnySite && c.HostOnly) || !domainMatch(c.Domain, name) {
 				continue
 			}
+
 			es = append(es, e)
 		}
 	}
+
 	slices.SortFunc(es, compareCreated)
+
 	pairs := make([]string, len(es))
 	for i, e := range es {
 		pairs[i] = e.c.pair()
 	}
+
 	j.mu.Unlock()
 
 	return strings.Join(pairs, "; ")
@@ -255,6 +290,7 @@ func FromString(domain, cookies string, cfg Config) (*Jar, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if err := j.SetString(domain, cookies); err != nil {
 		return nil, err
 	}
@@ -272,10 +308,12 @@ func hostName(s string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("cookies: %q: %w", s, err)
 		}
+
 		host = u.Hostname()
 	} else if h, _, err := net.SplitHostPort(s); err == nil {
 		host = h
 	}
+
 	host = strings.ToLower(strings.TrimSuffix(strings.Trim(host, "[]"), "."))
 	if host == "" || (net.ParseIP(host) == nil && strings.ContainsFunc(host, notHostChar)) {
 		return "", fmt.Errorf("cookies: %q is not a host name, IP address or URL", s)
@@ -297,18 +335,23 @@ func (j *Jar) SetHTTPCookies(u *url.URL, cs []*http.Cookie) error {
 	if u == nil || u.Hostname() == "" {
 		return errors.New("cookies: SetHTTPCookies needs a URL with a host")
 	}
+
 	var errs []error
+
 	names := make([]string, 0, len(cs))
 	lines := make([]string, 0, len(cs))
+
 	for _, c := range cs {
 		line, err := setCookieLine(c)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("cookies: cookie %q: %w", c.Name, err))
 			continue
 		}
+
 		names = append(names, c.Name)
 		lines = append(lines, line)
 	}
+
 	for i, e := range j.setCookies(Request{
 		URL:        u,
 		Method:     http.MethodGet,
@@ -328,12 +371,15 @@ func setCookieLine(c *http.Cookie) (string, error) {
 	if err := checkPair(c.Name, c.Value); err != nil {
 		return "", err
 	}
+
 	if strings.ContainsFunc(c.Path+c.Domain, isControl) || strings.Contains(c.Path+c.Domain, ";") {
 		return "", errors.New("the Path or Domain holds a control character or \";\"")
 	}
+
 	var b strings.Builder
 	b.WriteString(c.Name)
 	b.WriteByte('=')
+
 	if c.Quoted {
 		b.WriteString(`"`)
 		b.WriteString(c.Value)
@@ -341,31 +387,39 @@ func setCookieLine(c *http.Cookie) (string, error) {
 	} else {
 		b.WriteString(c.Value)
 	}
+
 	if c.Path != "" {
 		b.WriteString("; Path=")
 		b.WriteString(c.Path)
 	}
+
 	if c.Domain != "" {
 		b.WriteString("; Domain=")
 		b.WriteString(c.Domain)
 	}
+
 	if !c.Expires.IsZero() {
 		b.WriteString("; Expires=")
 		b.WriteString(c.Expires.UTC().Format(http.TimeFormat))
 	}
+
 	switch {
 	case c.MaxAge > 0:
 		b.WriteString("; Max-Age=")
 		b.WriteString(strconv.Itoa(c.MaxAge))
+
 	case c.MaxAge < 0:
 		b.WriteString("; Max-Age=0")
 	}
+
 	if c.Secure {
 		b.WriteString("; Secure")
 	}
+
 	if c.HttpOnly {
 		b.WriteString("; HttpOnly")
 	}
+
 	switch c.SameSite {
 	case http.SameSiteLaxMode:
 		b.WriteString("; SameSite=Lax")
@@ -376,6 +430,7 @@ func setCookieLine(c *http.Cookie) (string, error) {
 	case http.SameSiteDefaultMode:
 		// No attribute: the cookie was set without one.
 	}
+
 	if c.Partitioned {
 		b.WriteString("; Partitioned")
 	}
@@ -388,23 +443,30 @@ func setCookieLine(c *http.Cookie) (string, error) {
 // jar. A cookie replaced while match runs stays.
 func (j *Jar) Delete(match func(*Cookie) bool) int {
 	j.mu.Lock()
+
 	es := j.entries()
 	copies := make([]Cookie, len(es))
+
 	for i, e := range es {
 		copies[i] = *e.c
 	}
+
 	j.mu.Unlock()
+
 	doomed := map[*Cookie]bool{}
 	for i, e := range es {
 		if match(&copies[i]) {
 			doomed[e.c] = true
 		}
 	}
+
 	if len(doomed) == 0 {
 		return 0
 	}
+
 	j.mu.Lock()
 	defer j.mu.Unlock()
+
 	n := 0
 	for key, bucket := range j.domains {
 		j.store(key, slices.DeleteFunc(bucket, func(e entry) bool {
@@ -424,12 +486,14 @@ func (j *Jar) Delete(match func(*Cookie) bool) int {
 func (j *Jar) Clear() {
 	j.mu.Lock()
 	defer j.mu.Unlock()
+
 	j.domains = map[string][]entry{}
 }
 
 // ClearExpired removes expired cookies, and returns how many.
 func (j *Jar) ClearExpired() int {
 	now := j.clock.Now()
+
 	return j.Delete(func(c *Cookie) bool {
 		return !c.Expires.IsZero() && !c.Expires.After(now)
 	})
@@ -448,6 +512,7 @@ func (j *Jar) ClearSession() int {
 func (j *Jar) Clone() *Jar {
 	j.mu.Lock()
 	defer j.mu.Unlock()
+
 	c := &Jar{
 		rules:       j.rules,
 		clock:       j.clock,
@@ -459,11 +524,13 @@ func (j *Jar) Clone() *Jar {
 		es := make([]entry, len(bucket))
 		for i, e := range bucket {
 			cp := *e.c
+
 			es[i] = entry{
 				c:   &cp,
 				seq: e.seq,
 			}
 		}
+
 		c.domains[key] = es
 	}
 
@@ -485,6 +552,7 @@ func (j *Jar) ReadJSON(r io.Reader) error {
 	if err := json.NewDecoder(r).Decode(&cs); err != nil {
 		return fmt.Errorf("cookies: %w", err)
 	}
+
 	for i, c := range cs {
 		if err := j.Set(c); err != nil {
 			return fmt.Errorf("cookie %d: %w", i, err)
@@ -499,22 +567,28 @@ func (j *Jar) ReadJSON(r io.Reader) error {
 // a field are left out; the rest lose SameSite and creation time.
 func (j *Jar) WriteNetscape(w io.Writer) error {
 	bw := bufio.NewWriter(w)
+
 	_, _ = bw.WriteString("# Netscape HTTP Cookie File\n")
+
 	for _, c := range j.All() {
 		if c.Partition != "" || (c.Domain == AnySite && !c.HostOnly) || strings.Contains(c.Name+c.Value+c.Path+c.Domain, "\t") {
 			continue
 		}
+
 		domain := c.Domain
 		if !c.HostOnly {
 			domain = "." + domain
 		}
+
 		if c.HTTPOnly {
 			domain = "#HttpOnly_" + domain
 		}
+
 		var expires int64
 		if !c.Expires.IsZero() {
 			expires = c.Expires.Unix()
 		}
+
 		if _, err := fmt.Fprintf(bw, "%s\t%s\t%s\t%s\t%d\t%s\t%s\n",
 			domain, upperBool(!c.HostOnly), c.Path, upperBool(c.Secure), expires, c.Name, c.Value); err != nil {
 			return err
@@ -529,24 +603,30 @@ func (j *Jar) WriteNetscape(w io.Writer) error {
 func (j *Jar) ReadNetscape(r io.Reader) error {
 	sc := bufio.NewScanner(r)
 	sc.Buffer(nil, 1<<20)
+
 	now := j.clock.Now()
 	for n := 1; sc.Scan(); n++ {
 		line := strings.TrimRight(sc.Text(), "\r")
 		httpOnly := false
+
 		if rest, ok := strings.CutPrefix(line, "#HttpOnly_"); ok {
 			line, httpOnly = rest, true
 		}
+
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
+
 		f := strings.Split(line, "\t")
 		if len(f) != 7 {
 			return fmt.Errorf("cookies: line %d: %d fields, want 7", n, len(f))
 		}
+
 		expires, err := strconv.ParseInt(f[4], 10, 64)
 		if err != nil {
 			return fmt.Errorf("cookies: line %d: expiry %q", n, f[4])
 		}
+
 		c := Cookie{
 			Name:     f[5],
 			Value:    f[6],
@@ -560,6 +640,7 @@ func (j *Jar) ReadNetscape(r io.Reader) error {
 		if expires > 0 {
 			c.Expires = time.Unix(expires, 0)
 		}
+
 		if err := j.Set(c); err != nil {
 			return fmt.Errorf("cookies: line %d: %w", n, err)
 		}
@@ -599,10 +680,12 @@ func (a adapter) SetCookies(u *url.URL, cs []*http.Cookie) {
 		if line == "" {
 			line = c.String()
 		}
+
 		if line != "" {
 			lines = append(lines, line)
 		}
 	}
+
 	a.j.SetCookies(Request{
 		URL:        u,
 		Method:     http.MethodGet,
@@ -617,6 +700,7 @@ func (a adapter) Cookies(u *url.URL) []*http.Cookie {
 		Navigation: true,
 	})
 	out := make([]*http.Cookie, len(cs))
+
 	for i, c := range cs {
 		// net/http drops '"' from a value and quotes it again when told
 		// it was quoted.
@@ -624,6 +708,7 @@ func (a adapter) Cookies(u *url.URL) []*http.Cookie {
 		if len(value) >= 2 && value[0] == '"' && value[len(value)-1] == '"' {
 			value, quoted = value[1:len(value)-1], true
 		}
+
 		out[i] = &http.Cookie{ //nolint:gosec // a request cookie: only name and value are sent
 			Name:   c.Name,
 			Value:  value,

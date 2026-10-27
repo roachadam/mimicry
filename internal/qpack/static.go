@@ -110,10 +110,12 @@ var staticExact, staticName = staticIndexes()
 func staticIndexes() (map[[2]string]uint64, map[string]uint64) {
 	exact := make(map[[2]string]uint64, len(staticTable))
 	name := make(map[string]uint64, len(staticTable))
+
 	for i, e := range staticTable {
 		if _, ok := exact[e]; !ok {
 			exact[e] = uint64(i)
 		}
+
 		if _, ok := name[e[0]]; !ok {
 			name[e[0]] = uint64(i)
 		}

@@ -29,12 +29,14 @@ func h3Variants(p *profile.Profile, dir string, reqs []h3Request, drop []string)
 		if q.method == "" || q.method == "GET" || q.kind == navigation {
 			continue
 		}
+
 		fields := slices.DeleteFunc(slices.Clone(q.fields), func(h profile.Header) bool {
 			return h.Name == altUsed
 		})
 		for _, d := range drop {
 			fields = insertAfterPredecessor(fields, h2List(p, q.kind), d)
 		}
+
 		cands = append(cands, h3Candidate{
 			at:     q.at,
 			kind:   q.kind,
@@ -42,27 +44,36 @@ func h3Variants(p *profile.Profile, dir string, reqs []h3Request, drop []string)
 			fields: fields,
 		})
 	}
+
 	over2, err := h2Candidates(p, dir)
 	if err != nil {
 		return err
 	}
+
 	cands = append(cands, over2...)
+
 	type key struct {
 		kind, method string
 	}
+
 	groups := map[key][]h3Candidate{}
+
 	var order []key
+
 	for _, c := range cands {
 		kind := p.Kinds[c.kind]
 		if kind == nil || covered(kind, c) {
 			continue
 		}
+
 		k := key{c.kind, c.method}
 		if _, ok := groups[k]; !ok {
 			order = append(order, k)
 		}
+
 		groups[k] = append(groups[k], c)
 	}
+
 	var errs []error
 	for _, k := range order {
 		v, err := methodVariant(p.Kinds[k.kind], groups[k])
@@ -70,6 +81,7 @@ func h3Variants(p *profile.Profile, dir string, reqs []h3Request, drop []string)
 			errs = append(errs, err)
 			continue
 		}
+
 		p.Kinds[k.kind].Variants = append(p.Kinds[k.kind].Variants, v)
 	}
 
@@ -85,6 +97,7 @@ func covered(kind *profile.Kind, c h3Candidate) bool {
 	})) {
 		return true
 	}
+
 	for _, v := range kind.Variants {
 		if v.Method == c.method && len(v.Headers) > 0 && subsequence(got, slices.DeleteFunc(names(v.Headers), func(n string) bool {
 			return n == profile.OtherHeaders
@@ -105,6 +118,7 @@ func methodVariant(kind *profile.Kind, cands []h3Candidate) (profile.Variant, er
 			return profile.Variant{}, fmt.Errorf("%s: %s %s headers %v, another sample's %v", c.at, c.kind, c.method, got, first)
 		}
 	}
+
 	// The kind's slots the requests did not fill go after the last header
 	// that precedes them in the kind's list: their place is assumed.
 	merged := slices.Clone(cands[0].fields)
@@ -113,6 +127,7 @@ func methodVariant(kind *profile.Kind, cands []h3Candidate) (profile.Variant, er
 			merged = insertAfterPredecessor(merged, kind.Headers, h.Name)
 		}
 	}
+
 	v := profile.Variant{
 		Method: cands[0].method,
 		CORSChecked: slices.ContainsFunc(cands[0].fields, func(h profile.Header) bool {
@@ -129,6 +144,7 @@ func methodVariant(kind *profile.Kind, cands []h3Candidate) (profile.Variant, er
 				}
 			}
 		}
+
 		v.Headers = append(v.Headers, profile.Header{
 			Name:  name,
 			Value: value,
@@ -147,6 +163,7 @@ func insertAfterPredecessor(fields, list []profile.Header, name string) []profil
 	if at < 0 {
 		return fields
 	}
+
 	pos := 0
 	for i, f := range fields {
 		if j := slices.IndexFunc(list, func(h profile.Header) bool {
@@ -165,23 +182,30 @@ func h2Candidates(p *profile.Profile, dir string) ([]h3Candidate, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	steps := h3Steps()
+
 	var out []h3Candidate
+
 	for _, f := range files {
 		path := f.Path
+
 		pages, err := loadFile(f)
 		if err != nil {
 			return nil, err
 		}
+
 		for si, page := range pages {
 			for _, q := range h2Requests(page, si, "/h3/") {
 				if q.method == "GET" || q.method == "" {
 					continue
 				}
+
 				kind, err := h3Kind(steps, q.path)
 				if err != nil || kind == navigation {
 					continue
 				}
+
 				out = append(out, h3Candidate{
 					at:     fmt.Sprintf("%s: sample %d, %s over HTTP/2", filepath.Base(path), si+1, q.path),
 					kind:   kind,

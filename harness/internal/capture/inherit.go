@@ -32,6 +32,7 @@ func Inherited(p *profile.Profile, scenario string) (string, *Rewriter, error) {
 	if source == p.Name {
 		return source, nil, nil
 	}
+
 	from, err := profiles.ByName(source)
 	if err != nil {
 		return "", nil, fmt.Errorf("%s inherits %s: %w", p.Name, scenario, err)
@@ -69,6 +70,7 @@ func splitFile(name, file string) (string, string, bool) {
 	if !ok {
 		return "", "", false
 	}
+
 	rest = "." + rest
 	for _, s := range suffixes {
 		if sc, ok := strings.CutSuffix(rest, s); ok {
@@ -104,24 +106,29 @@ func Files(dir string, p *profile.Profile, suffix string) ([]File, error) {
 			names = append(names, from)
 		}
 	}
+
 	var out []File
 	for _, name := range names {
 		matches, err := filepath.Glob(filepath.Join(dir, name+".*"+strings.TrimPrefix(suffix, ".")))
 		if err != nil {
 			return nil, err
 		}
+
 		for _, path := range matches {
 			sc, kind, ok := splitFile(name, path)
 			if !ok || kind != suffix {
 				continue
 			}
+
 			source, rw, err := Inherited(p, sc)
 			if err != nil {
 				return nil, err
 			}
+
 			if source != name {
 				continue
 			}
+
 			out = append(out, File{
 				Path:     path,
 				Scenario: sc,
@@ -130,6 +137,7 @@ func Files(dir string, p *profile.Profile, suffix string) ([]File, error) {
 			})
 		}
 	}
+
 	slices.SortFunc(out, func(a, b File) int {
 		return strings.Compare(a.Path, b.Path)
 	})
@@ -165,6 +173,7 @@ func NewRewriter(from, to *profile.Profile) *Rewriter {
 	if from == nil || from.Name == to.Name {
 		return nil
 	}
+
 	r := &Rewriter{
 		replace:  make(map[string]string),
 		chFrom:   headerValue(from, "sec-ch-ua"),
@@ -173,15 +182,20 @@ func NewRewriter(from, to *profile.Profile) *Rewriter {
 		toName:   to.Name,
 	}
 	fromUA, toUA := headerValue(from, "user-agent"), headerValue(to, "user-agent")
+
 	var patterns []string
+
 	for _, pattern := range versionTokens[to.Browser] {
 		re := regexp.MustCompile(pattern)
 		old, cur := re.FindString(fromUA), re.FindString(toUA)
+
 		if old != "" && cur != "" && old != cur {
 			r.replace[old] = cur
+
 			patterns = append(patterns, pattern)
 		}
 	}
+
 	if len(patterns) > 0 {
 		r.tokens = regexp.MustCompile(strings.Join(patterns, "|"))
 	}
@@ -202,6 +216,7 @@ func headerValue(p *profile.Profile, name string) string {
 	if p.HTTP1 != nil {
 		lists = append(lists, p.HTTP1.Headers)
 	}
+
 	for _, list := range lists {
 		for _, h := range list {
 			if strings.EqualFold(h.Name, name) && h.Value != "" {
@@ -228,9 +243,11 @@ func (r *Rewriter) Value(s string) string {
 	if r == nil {
 		return s
 	}
+
 	if r.chFrom != "" && r.chTo != "" && r.chFrom != r.chTo {
 		s = strings.ReplaceAll(s, r.chFrom, r.chTo)
 	}
+
 	if r.tokens != nil {
 		s = r.tokens.ReplaceAllStringFunc(s, func(m string) string {
 			if to, ok := r.replace[m]; ok {
@@ -249,6 +266,7 @@ func (r *Rewriter) Lines(lines []string) {
 	if r == nil {
 		return
 	}
+
 	for i := range lines {
 		lines[i] = r.Value(lines[i])
 	}
@@ -260,6 +278,7 @@ func (r *Rewriter) Traces(traces []*h2trace.Trace) {
 	if r == nil {
 		return
 	}
+
 	for _, t := range traces {
 		for i := range t.Requests {
 			ins := t.Requests[i].Instructions
@@ -275,6 +294,7 @@ func (r *Rewriter) H1(reqs []H1Request) {
 	if r == nil {
 		return
 	}
+
 	for i := range reqs {
 		reqs[i].Line = r.Value(reqs[i].Line)
 		r.Lines(reqs[i].Headers)
@@ -286,6 +306,7 @@ func (r *Rewriter) Proxy(reqs []ProxyRequest) {
 	if r == nil {
 		return
 	}
+
 	for i := range reqs {
 		r.Lines(reqs[i].Lines)
 	}
@@ -298,24 +319,29 @@ func (r *Rewriter) Pages(pages []*Page) {
 	if r == nil {
 		return
 	}
+
 	for _, p := range pages {
 		r.Traces(p.H2)
 		r.H1(p.H1)
+
 		for _, c := range p.QUIC {
 			if c.H3 == nil {
 				continue
 			}
+
 			for i := range c.H3.Streams {
 				enc := c.H3.Streams[i].Encoder
 				for j := range enc {
 					enc[j].Value = r.Value(enc[j].Value)
 				}
 			}
+
 			for i := range c.H3.Requests {
 				req := &c.H3.Requests[i]
 				for j := range req.Section.Fields {
 					req.Section.Fields[j].Value = r.Value(req.Section.Fields[j].Value)
 				}
+
 				if req.Trailers != nil {
 					for j := range req.Trailers.Fields {
 						req.Trailers.Fields[j].Value = r.Value(req.Trailers.Fields[j].Value)

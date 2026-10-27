@@ -21,6 +21,7 @@ const h3DownloadSize = 50 << 20
 var incompressible = sync.OnceValue(func() []byte {
 	b := make([]byte, h3DownloadSize)
 	r := rand.NewChaCha8([32]byte{'m', 'i', 'm', 'i', 'c', 'r', 'y'})
+
 	_, _ = r.Read(b)
 
 	return b
@@ -50,10 +51,15 @@ var H3Download = &Scenario{
 // apart on the same connection.
 func H3DownloadSteps() []H3Step {
 	goAway := h3Fetch(h3Host, "goaway.so", 1000)
+
 	goAway.GoAwayTCP = true
+
 	download := h3Fetch(h3Host, "download.so", 1500)
+
 	download.NoWait, download.Download = false, h3DownloadSize
+
 	last := h3Fetch(h3Host, "after3.so", 1000)
+
 	last.NoWait = false
 
 	return []H3Step{
@@ -184,6 +190,7 @@ func H3BlackholeSteps() []H3Step {
 		return s
 	}
 	last := h3Fetch(h3Host, "last.so", 20000)
+
 	last.NoWait = false
 
 	return []H3Step{
@@ -214,9 +221,11 @@ func H3BlackholeSteps() []H3Step {
 func H3BrokenSteps() []H3Step {
 	with := func(s H3Step, f func(*H3Step)) H3Step {
 		f(&s)
+
 		return s
 	}
 	last := h3Fetch(h3CrossSite, "closed6.cs", 10000)
+
 	last.NoWait = false
 
 	return []H3Step{
@@ -259,8 +268,11 @@ func H3BrokenSteps() []H3Step {
 // the 30 s idle timeout) three on a resumed connection. /done goes to h3-c.
 func H3V2Steps() []H3Step {
 	goAway := h3Fetch(h3Host, "goaway.so", 1000)
+
 	goAway.GoAwayTCP = true
+
 	last := h3Fetch(h3Host, "after-idle3.so", 1000)
+
 	last.NoWait = false
 
 	return []H3Step{
@@ -279,8 +291,11 @@ func H3V2Steps() []H3Step {
 // fetches, a GOAWAY moving Safari to HTTP/3, then fetches 2–18 s after it.
 func H3VNSteps() []H3Step {
 	goAway := h3Fetch(h3Host, "goaway.so", 1000)
+
 	goAway.GoAwayTCP = true
+
 	last := h3Fetch(h3Host, "vn-6.so", 10000)
+
 	last.NoWait = false
 
 	return []H3Step{

@@ -46,11 +46,13 @@ func Client(ctx context.Context, conn net.Conn, hello fingerprint.Hello, cfg Con
 		_ = conn.Close()
 		return nil, "", err
 	}
+
 	tlsConn := utls.UClient(conn, tlsConfig(cfg), utls.HelloCustom)
 	if err := tlsConn.ApplyPreset(spec); err != nil {
 		_ = conn.Close()
 		return nil, "", fmt.Errorf("handshake: applying ClientHello: %w", err)
 	}
+
 	if err := tlsConn.HandshakeContext(ctx); err != nil {
 		_ = conn.Close()
 		return nil, "", err
@@ -106,7 +108,9 @@ func tlsConfig(cfg Config) *utls.Config {
 		// Without a ticket to resume, the hello has no pre_shared_key.
 		PreferSkipResumptionOnNilExtension: true,
 	}
+
 	var cache *connCache
+
 	if cfg.Tickets != nil {
 		cache = &connCache{
 			ticket:  cfg.Ticket,
@@ -118,9 +122,11 @@ func tlsConfig(cfg Config) *utls.Config {
 		// empty: leave it out and do a full handshake.
 		config.OmitEmptyPsk = true
 	}
+
 	if cache == nil && cfg.VerifyConnection == nil {
 		return config
 	}
+
 	// It runs on resumed handshakes too (VerifyPeerCertificate does not),
 	// once verification has passed, and before any ticket is stored: a
 	// ticket comes only from a connection it accepted.
@@ -130,6 +136,7 @@ func tlsConfig(cfg Config) *utls.Config {
 				return err
 			}
 		}
+
 		// Tickets keep their server certificate's expiry, past which
 		// uTLS declines them.
 		if cache != nil && len(cs.PeerCertificates) > 0 {
@@ -155,33 +162,40 @@ func Spec(h fingerprint.Hello) (*utls.ClientHelloSpec, error) {
 	}) {
 		sid = 0
 	}
+
 	if h.LegacyVersion != legacyVersion || h.SessionIDLength != sid {
 		return nil, fmt.Errorf("handshake: legacyVersion %s with a %d-byte session ID; uTLS sends %s with %d bytes",
 			h.LegacyVersion, h.SessionIDLength, legacyVersion, sid)
 	}
+
 	spec := &utls.ClientHelloSpec{
 		CipherSuites:       codes16(h.CipherSuites),
 		CompressionMethods: append([]uint8(nil), h.CompressionMethods...),
 	}
 	for i := range h.Extensions {
 		e := &h.Extensions[i]
+
 		ext, err := extension(e)
 		if err != nil {
 			return nil, fmt.Errorf("handshake: extension %s: %w", e.Type, err)
 		}
+
 		spec.Extensions = append(spec.Extensions, ext)
 		if e.Type == profile.ExtSupportedVersions {
 			for _, v := range e.Versions {
 				if v == profile.GREASE {
 					continue
 				}
+
 				if spec.TLSVersMin == 0 || uint16(v) < spec.TLSVersMin {
 					spec.TLSVersMin = uint16(v)
 				}
+
 				spec.TLSVersMax = max(spec.TLSVersMax, uint16(v))
 			}
 		}
 	}
+
 	if spec.TLSVersMax == 0 {
 		return nil, errors.New("handshake: profile has no supported_versions; TLS 1.2-only profiles are not supported")
 	}
@@ -203,6 +217,7 @@ func extension(e *profile.Extension) (utls.TLSExtension, error) {
 		return &utls.UtlsPaddingExtension{
 			GetPaddingLen: utls.BoringPaddingStyle,
 		}, nil
+
 	case profile.ExtEncryptedClientHello:
 		return greaseECH(e.ECH)
 	case profile.ExtPreSharedKey:
@@ -223,10 +238,12 @@ func extension(e *profile.Extension) (utls.TLSExtension, error) {
 		return &utls.SupportedCurvesExtension{
 			Curves: curves,
 		}, nil
+
 	case profile.ExtKeyShare:
 		if len(e.KeyShareLengths) != len(e.KeyShares) {
 			return nil, fmt.Errorf("%d key share lengths for %d key shares", len(e.KeyShareLengths), len(e.KeyShares))
 		}
+
 		shares := make([]utls.KeyShare, len(e.KeyShares))
 		for i, g := range e.KeyShares {
 			shares[i] = utls.KeyShare{
@@ -243,42 +260,52 @@ func extension(e *profile.Extension) (utls.TLSExtension, error) {
 		return &utls.KeyShareExtension{
 			KeyShares: shares,
 		}, nil
+
 	case profile.ExtSignatureAlgorithms:
 		return &utls.SignatureAlgorithmsExtension{
 			SupportedSignatureAlgorithms: schemes(e.SignatureAlgorithms),
 		}, nil
+
 	case profile.ExtSignatureAlgorithmsCert:
 		return &utls.SignatureAlgorithmsCertExtension{
 			SupportedSignatureAlgorithms: schemes(e.SignatureAlgorithms),
 		}, nil
+
 	case profile.ExtDelegatedCredentials:
 		return &utls.DelegatedCredentialsExtension{
 			SupportedSignatureAlgorithms: schemes(e.SignatureAlgorithms),
 		}, nil
+
 	case profile.ExtSupportedVersions:
 		return &utls.SupportedVersionsExtension{
 			Versions: codes16(e.Versions),
 		}, nil
+
 	case profile.ExtALPN:
 		return &utls.ALPNExtension{
 			AlpnProtocols: append([]string(nil), e.ALPN...),
 		}, nil
+
 	case profile.ExtApplicationSettings:
 		return &utls.ApplicationSettingsExtensionNew{
 			SupportedProtocols: append([]string(nil), e.ALPS...),
 		}, nil
+
 	case profile.ExtApplicationSettingsOld:
 		return &utls.ApplicationSettingsExtension{
 			SupportedProtocols: append([]string(nil), e.ALPS...),
 		}, nil
+
 	case profile.ExtECPointFormats:
 		return &utls.SupportedPointsExtension{
 			SupportedPoints: append([]uint8(nil), e.PointFormats...),
 		}, nil
+
 	case profile.ExtPSKKeyExchangeModes:
 		return &utls.PSKKeyExchangeModesExtension{
 			Modes: append([]uint8(nil), e.PSKModes...),
 		}, nil
+
 	case profile.ExtCompressCertificate:
 		algs := make([]utls.CertCompressionAlgo, len(e.CertCompression))
 		for i, a := range e.CertCompression {
@@ -288,10 +315,12 @@ func extension(e *profile.Extension) (utls.TLSExtension, error) {
 		return &utls.UtlsCompressCertExtension{
 			Algorithms: algs,
 		}, nil
+
 	case profile.ExtRecordSizeLimit:
 		return &utls.FakeRecordSizeLimitExtension{
 			Limit: e.RecordSizeLimit,
 		}, nil
+
 	default:
 		// The profile holds the rest as raw bytes.
 		return dataExtension(e)
@@ -314,9 +343,11 @@ func greaseECH(ech *profile.ECH) (utls.TLSExtension, error) {
 	if ech == nil {
 		return nil, errors.New("no GREASE ECH shape")
 	}
+
 	if ech.EncLength != echEncLength {
 		return nil, fmt.Errorf("encapsulated key of %d bytes; uTLS sends %d", ech.EncLength, echEncLength)
 	}
+
 	ext := &utls.GREASEEncryptedClientHelloExtension{
 		CandidateCipherSuites: make([]utls.HPKESymmetricCipherSuite, len(ech.CipherSuites)),
 		CandidatePayloadLens:  make([]uint16, len(ech.PayloadLengths)),
@@ -327,15 +358,18 @@ func greaseECH(ech *profile.ECH) (utls.TLSExtension, error) {
 		if s.AEAD < 1 || s.AEAD > 3 {
 			return nil, fmt.Errorf("HPKE AEAD %s is not one uTLS can size", s.AEAD)
 		}
+
 		ext.CandidateCipherSuites[i] = utls.HPKESymmetricCipherSuite{
 			KdfId:  uint16(s.KDF),
 			AeadId: uint16(s.AEAD),
 		}
 	}
+
 	for i, n := range ech.PayloadLengths {
 		if n <= hpkeTagLength {
 			return nil, fmt.Errorf("payload of %d bytes is no longer than the AEAD tag", n)
 		}
+
 		// uTLS takes the plaintext's length and adds the tag.
 		ext.CandidatePayloadLens[i] = n - hpkeTagLength
 	}
@@ -373,6 +407,7 @@ func dataExtension(e *profile.Extension) (utls.TLSExtension, error) {
 		return want([]byte{0}, &utls.RenegotiationInfoExtension{
 			Renegotiation: utls.RenegotiateOnceAsClient,
 		})
+
 	default:
 		return &utls.GenericExtension{
 			Id:   uint16(e.Type),

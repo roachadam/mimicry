@@ -128,6 +128,7 @@ func Load(path string) (*Page, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	var p Page
 	if err := json.Unmarshal(data, &p); err != nil {
 		return nil, err

@@ -92,21 +92,29 @@ func controlStream(h *profile.HTTP3) []byte {
 		settings = quicwire.AppendVarint(settings, s.ID)
 		settings = quicwire.AppendVarint(settings, s.Value)
 	}
+
 	if g := h.GreaseSetting; g != nil {
 		settings = quicwire.AppendVarint(settings, greaseID(g))
+
 		value := uint64(0)
+
 		if g.ValueBits > 0 && g.ValueBits < 63 {
 			value = rand.Uint64N(1 << g.ValueBits) //nolint:gosec // GREASE needs no secrecy
 		}
+
 		settings = quicwire.AppendVarint(settings, value)
 	}
+
 	b := quicwire.AppendVarint(nil, streamControl)
+
 	b = appendFrame(b, frameSettings, settings)
+
 	if g := h.GreaseFrame; g != nil {
 		payload := make([]byte, rand.IntN(g.MaxLength+1)) //nolint:gosec // GREASE needs no secrecy
 		for i := range payload {
 			payload[i] = byte(rand.Uint32()) //nolint:gosec // GREASE needs no secrecy
 		}
+
 		b = appendFrame(b, greaseID(g), payload)
 	}
 
@@ -117,6 +125,7 @@ func controlStream(h *profile.HTTP3) []byte {
 // priority field value v (RFC 9218, section 7.1).
 func priorityUpdate(id uint64, v string) []byte {
 	payload := quicwire.AppendVarint(nil, id)
+
 	payload = append(payload, v...)
 
 	return appendFrame(nil, framePriorityUpdate, payload)
@@ -128,13 +137,16 @@ func readVarint(r io.ByteReader) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
+
 	n := 1 << (b >> 6)
 	v := uint64(b & 0x3f)
+
 	for range n - 1 {
 		b, err := r.ReadByte()
 		if err != nil {
 			return 0, unexpectedEOF(err)
 		}
+
 		v = v<<8 | uint64(b)
 	}
 
@@ -157,6 +169,7 @@ func readFrameHeader(r io.ByteReader) (typ, length uint64, err error) {
 	if typ, err = readVarint(r); err != nil {
 		return 0, 0, err
 	}
+
 	if length, err = readVarint(r); err != nil {
 		return 0, 0, unexpectedEOF(err)
 	}
@@ -172,6 +185,7 @@ func readPayload(r io.Reader, length, limit uint64) ([]byte, error) {
 			msg:  fmt.Sprintf("frame of %d bytes, above %d", length, limit),
 		}
 	}
+
 	b := make([]byte, length)
 	if _, err := io.ReadFull(r, b); err != nil {
 		return nil, unexpectedEOF(err)

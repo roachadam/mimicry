@@ -13,6 +13,7 @@ import (
 // uTLS's Chrome profile without a network.
 func chromeHello(t *testing.T) []byte {
 	t.Helper()
+
 	u := utls.UClient(&net.TCPConn{}, &utls.Config{
 		ServerName: "example.com",
 	}, utls.HelloChrome_155)
@@ -28,6 +29,7 @@ func records(payload []byte, size int) []byte {
 	var out []byte
 	for len(payload) > 0 {
 		n := min(size, len(payload))
+
 		out = append(out, recordTypeHandshake, 3, 1, byte(n>>8), byte(n))
 		out = append(out, payload[:n]...)
 		payload = payload[n:]
@@ -48,16 +50,20 @@ func TestReadClientHelloAcrossRecords(t *testing.T) {
 	} {
 		wire := records(msg, size)
 		r := bytes.NewReader(append(wire, "next"...))
+
 		raw, got, err := readClientHello(r)
 		if err != nil {
 			t.Fatalf("records of %d bytes: %v", size, err)
 		}
+
 		if !bytes.Equal(got, msg) {
 			t.Errorf("records of %d bytes: reassembled message differs", size)
 		}
+
 		if !bytes.Equal(raw, wire) {
 			t.Errorf("records of %d bytes: raw bytes differ from what was read", size)
 		}
+
 		if rest, _ := io.ReadAll(r); string(rest) != "next" {
 			t.Errorf("records of %d bytes: consumed past the ClientHello, %q left", size, rest)
 		}

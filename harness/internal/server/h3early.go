@@ -70,10 +70,15 @@ func H3EarlySteps() []H3Step {
 		return s
 	}
 	goAway := h3Fetch(h3Host, "goaway.so", 1000)
+
 	goAway.GoAwayTCP = true
+
 	xhr := h3Fetch(h3Host, "xhr-post.so", h3EarlyGap)
+
 	xhr.Kind = "xhr"
+
 	form := h3Fetch(h3Host, "form.so", h3EarlyGap)
+
 	form.Kind = "navigate"
 
 	return []H3Step{
@@ -110,6 +115,7 @@ func newEarlyStreams() *earlyStreams {
 	e := &earlyStreams{
 		first: map[int64]bool{},
 	}
+
 	e.cond = sync.NewCond(&e.mu)
 
 	return e
@@ -159,17 +165,21 @@ func (e *earlyStreams) RecordEvent(ev qlogwriter.Event) {
 	default:
 		return
 	}
+
 	e.mu.Lock()
 	defer e.mu.Unlock()
+
 	for _, f := range p.Frames {
 		s, ok := f.Frame.(*qlog.StreamFrame)
 		if !ok {
 			continue
 		}
+
 		if _, seen := e.first[int64(s.StreamID)]; !seen {
 			e.first[int64(s.StreamID)] = p.Header.PacketType == qlog.PacketType0RTT
 		}
 	}
+
 	e.cond.Broadcast()
 }
 
@@ -177,6 +187,7 @@ func (e *earlyStreams) RecordEvent(ev qlogwriter.Event) {
 func (e *earlyStreams) Close() error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+
 	e.done = true
 	e.cond.Broadcast()
 
@@ -190,19 +201,26 @@ func (e *earlyStreams) early(stream int64) bool {
 	stop := time.AfterFunc(earlyWait, func() {
 		e.mu.Lock()
 		defer e.mu.Unlock()
+
 		timedOut = true
+
 		e.cond.Broadcast()
 	})
+
 	defer stop.Stop()
+
 	e.mu.Lock()
 	defer e.mu.Unlock()
+
 	for {
 		if v, ok := e.first[stream]; ok {
 			return v
 		}
+
 		if e.done || timedOut {
 			return false
 		}
+
 		e.cond.Wait()
 	}
 }

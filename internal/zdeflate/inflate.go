@@ -45,6 +45,7 @@ func NewReader() *Reader {
 func (r *Reader) Message(p []byte, limit int) ([]byte, error) {
 	r.in = append(append(r.in[:0], p...), inflateTail...)
 	r.src.Reset(r.in)
+
 	if r.fr == nil {
 		r.fr = flate.NewReaderDict(&r.src, r.dict)
 	} else {
@@ -53,6 +54,7 @@ func (r *Reader) Message(p []byte, limit int) ([]byte, error) {
 		if !ok {
 			panic("zdeflate: flate reader is not a flate.Resetter")
 		}
+
 		if err := rs.Reset(&r.src, r.dict); err != nil {
 			return nil, fmt.Errorf("zdeflate: %w", err)
 		}
@@ -62,6 +64,7 @@ func (r *Reader) Message(p []byte, limit int) ([]byte, error) {
 	if _, err := out.ReadFrom(io.LimitReader(r.fr, int64(limit))); err != nil {
 		return nil, fmt.Errorf("zdeflate: %w", err)
 	}
+
 	var one [1]byte
 	switch n, err := io.ReadFull(r.fr, one[:]); {
 	case n != 0:
@@ -77,6 +80,7 @@ func (r *Reader) Message(p []byte, limit int) ([]byte, error) {
 		if keep := dictSize - len(msg); len(r.dict) > keep {
 			r.dict = r.dict[:copy(r.dict, r.dict[len(r.dict)-keep:])]
 		}
+
 		r.dict = append(r.dict, msg...)
 	}
 

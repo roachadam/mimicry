@@ -14,7 +14,9 @@ import (
 // decision 0021.
 func TableOrder(t *profile.HeaderTable, members, page []string) (order []string, ok bool) {
 	var own, late []string
+
 	pageNames := slices.Clone(page)
+
 	for _, name := range members {
 		switch {
 		case slices.Contains(pageNames, name):
@@ -25,7 +27,9 @@ func TableOrder(t *profile.HeaderTable, members, page []string) (order []string,
 			if at < 0 {
 				at = len(pageNames)
 			}
+
 			pageNames = slices.Insert(pageNames, at, name)
+
 		case slices.Contains(t.Late, name):
 			late = append(late, name)
 		default:
@@ -35,13 +39,16 @@ func TableOrder(t *profile.HeaderTable, members, page []string) (order []string,
 
 	tb := newHashTable(t.Hash)
 	entering := slices.Concat(pageNames, own, late)
+
 	if !t.PageFirst {
 		// The browser's own are in the table as the list has them.
 		if !tb.layout(own) {
 			return nil, false
 		}
+
 		entering = slices.Concat(pageNames, late)
 	}
+
 	for _, name := range entering {
 		if !tb.insert(name) {
 			return nil, false
@@ -107,13 +114,17 @@ func (t *blinkTable) insert(name string) bool {
 	if t.buckets == nil {
 		t.buckets = make([]string, blinkMinimumSize)
 	}
+
 	if !t.place(name) {
 		return true
 	}
+
 	t.count++
 	if t.count*2 >= len(t.buckets) {
 		old := t.buckets
+
 		t.buckets = make([]string, 2*len(old))
+
 		for _, b := range old {
 			if b != "" {
 				t.place(b)
@@ -128,12 +139,15 @@ func (t *blinkTable) insert(name string) bool {
 func (t *blinkTable) place(name string) bool {
 	mask := uint32(len(t.buckets) - 1)
 	i := blinkHash(name) & mask
+
 	for probe := uint32(1); t.buckets[i] != ""; probe++ {
 		if t.buckets[i] == name {
 			return false
 		}
+
 		i = (i + probe) & mask
 	}
+
 	t.buckets[i] = name
 
 	return true
@@ -144,6 +158,7 @@ func (t *blinkTable) layout(names []string) bool {
 	for len(names)*2 >= size {
 		size *= 2
 	}
+
 	t.buckets, t.count = make([]string, size), len(names)
 
 	return placeAll(t.buckets, names, func(name string) {
@@ -191,8 +206,11 @@ func blinkHash(name string) uint32 {
 		return ch(i) | ch(i+1)<<16 | ch(i+2)<<32 | ch(i+3)<<48
 	}
 	seed := uint64(rapidSeed)
+
 	seed ^= rapidMix(seed^rapid0, rapid1) ^ length
+
 	var a, b uint64
+
 	switch {
 	case length > 16:
 		// Offsets count bytes of UTF-16, two per character.
@@ -203,31 +221,45 @@ func blinkHash(name string) uint32 {
 				seed = rapidMix(read64(p)^rapid0, read64(p+4)^seed)
 				see1 = rapidMix(read64(p+8)^rapid1, read64(p+12)^see1)
 				see2 = rapidMix(read64(p+16)^rapid2, read64(p+20)^see2)
+
 				p += 24
+
 				left -= 48
 			}
+
 			seed ^= see1 ^ see2
 		}
+
 		if left > 16 {
 			seed = rapidMix(read64(p)^rapid2, read64(p+4)^seed^rapid1)
 			if left > 32 {
 				seed = rapidMix(read64(p+8)^rapid2, read64(p+12)^seed)
 			}
 		}
+
 		a = read64(p + (left-16)/2)
 		b = read64(p + (left-8)/2)
+
 	case length >= 4:
 		last := n - 2
+
 		a = read32(0)<<32 | read32(last)
+
 		delta := (((2 * n) & 24) >> ((2 * n) >> 3)) / 2
+
 		b = read32(delta)<<32 | read32(last-delta)
+
 	case length > 0:
 		a = ch(0)
 	}
+
 	a ^= rapid1
 	b ^= seed
+
 	b, a = bits.Mul64(a, b)
+
 	h := uint32(rapidMix(a^rapid0^length, b^rapid1) & (1<<24 - 1))
+
 	if h == 0 {
 		h = 1 << 23
 	}
@@ -267,20 +299,26 @@ func (t *cfTable) insert(name string) bool {
 	if slices.Contains(t.buckets, name) {
 		return true
 	}
+
 	size := cfSizeFor(t.count + 1)
 	if size == 0 {
 		return false
 	}
+
 	if size > len(t.buckets) {
 		old := t.buckets
+
 		t.buckets = make([]string, size)
+
 		for _, b := range old {
 			if b != "" {
 				t.place(b)
 			}
 		}
 	}
+
 	t.place(name)
+
 	t.count++
 
 	return true
@@ -290,9 +328,11 @@ func (t *cfTable) insert(name string) bool {
 func (t *cfTable) place(name string) {
 	n := uint64(len(t.buckets))
 	i := cfHash(name) % n
+
 	for t.buckets[i] != "" {
 		i = (i + 1) % n
 	}
+
 	t.buckets[i] = name
 }
 
@@ -300,10 +340,12 @@ func (t *cfTable) layout(names []string) bool {
 	if len(names) == 0 {
 		return true
 	}
+
 	size := cfSizeFor(len(names))
 	if size == 0 {
 		return false
 	}
+
 	t.buckets, t.count = make([]string, size), len(names)
 
 	return placeAll(t.buckets, names, t.place)
@@ -332,11 +374,13 @@ func cfHash(name string) uint64 {
 			r = r*67503105 + ch(i)*16974593 + ch(i+1)*66049 + ch(i+2)*257 + ch(i+3)
 		}
 	}
+
 	if n <= 96 {
 		i := 0
 		for ; i+4 <= n; i += 4 {
 			r = r*67503105 + ch(i)*16974593 + ch(i+1)*66049 + ch(i+2)*257 + ch(i+3)
 		}
+
 		for ; i < n; i++ {
 			r = r*257 + ch(i)
 		}

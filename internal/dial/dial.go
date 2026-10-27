@@ -49,7 +49,9 @@ type Dialer struct {
 func (d *Dialer) Dial(ctx context.Context, addr string) (net.Conn, error) {
 	if d.Timeout > 0 {
 		var cancel context.CancelFunc
+
 		ctx, cancel = context.WithTimeout(ctx, d.Timeout)
+
 		defer cancel()
 	}
 
@@ -60,6 +62,7 @@ func (d *Dialer) dial(ctx context.Context, addr string) (net.Conn, error) {
 	if d.DialContext != nil {
 		return d.DialContext(ctx, "tcp", addr)
 	}
+
 	nd := net.Dialer{
 		KeepAlive: 30 * time.Second,
 		Resolver:  d.Resolver,
@@ -74,29 +77,39 @@ func (d *Dialer) dial(ctx context.Context, addr string) (net.Conn, error) {
 func (d *Dialer) ListenUDP(ctx context.Context, host string, port uint16) (net.PacketConn, netip.AddrPort, error) {
 	if d.Timeout > 0 {
 		var cancel context.CancelFunc
+
 		ctx, cancel = context.WithTimeout(ctx, d.Timeout)
+
 		defer cancel()
 	}
+
 	resolver := d.Resolver
 	if resolver == nil {
 		resolver = net.DefaultResolver
 	}
+
 	addr, err := netip.ParseAddr(host)
 	if err != nil {
 		addrs, err := resolver.LookupNetIP(ctx, "ip", host)
 		if err != nil {
 			return nil, netip.AddrPort{}, err
 		}
+
 		if len(addrs) == 0 {
 			return nil, netip.AddrPort{}, fmt.Errorf("dial: no address for %s", host)
 		}
+
 		addr = addrs[0]
 	}
+
 	addr = addr.Unmap()
+
 	network, local := "udp4", "0.0.0.0:0"
+
 	if addr.Is6() {
 		network, local = "udp6", "[::]:0"
 	}
+
 	pc, err := (&net.ListenConfig{}).ListenPacket(ctx, network, local)
 	if err != nil {
 		return nil, netip.AddrPort{}, err
@@ -185,29 +198,37 @@ func (d *Dialer) DialProxy(ctx context.Context, p *url.URL) (net.Conn, error) {
 func (d *Dialer) DialVia(ctx context.Context, p *url.URL, addr string) (net.Conn, error) {
 	if d.Timeout > 0 {
 		var cancel context.CancelFunc
+
 		ctx, cancel = context.WithTimeout(ctx, d.Timeout)
+
 		defer cancel()
 	}
+
 	conn, err := d.dial(ctx, proxyAddr(p))
 	if err != nil {
 		return nil, proxyError(p, err)
 	}
+
 	if p.Scheme == SchemeHTTP {
 		return d.connect(ctx, conn, p, addr)
 	}
+
 	methods := make([]byte, 0, len(d.Proxy.SOCKS5.Methods)+1)
 	for _, m := range d.Proxy.SOCKS5.Methods {
 		if m < 0 || m > 255 {
 			_ = conn.Close()
 			return nil, fmt.Errorf("mimicry: SOCKS5 method %d is not a byte", m)
 		}
+
 		methods = append(methods, byte(m))
 	}
+
 	if p.User != nil {
 		// Browsers do not authenticate to SOCKS5 proxies: with credentials
 		// in the URL, username and password are offered too.
 		methods = append(methods, proxy.MethodUser)
 	}
+
 	if err := proxy.SOCKS5(ctx, conn, addr, methods, p.User); err != nil {
 		_ = conn.Close()
 		return nil, proxyError(p, err)
@@ -223,30 +244,38 @@ func (d *Dialer) connect(ctx context.Context, conn net.Conn, p *url.URL, addr st
 	_, asked := d.asked.Load(p.String())
 	unasked := p.User != nil && asked && d.Proxy.ConnectCredentials == profile.CredentialsAfterChallenge
 	header := d.connectHeader(addr, d.Proxy.Connect, "")
+
 	if unasked {
 		header = d.connectHeader(addr, d.Proxy.ConnectAuth, Credentials(p))
 	}
+
 	answer, tunnel, err := proxy.Connect(ctx, conn, addr, header)
 	switch {
 	case err != nil:
 		_ = conn.Close()
 		return nil, proxyError(p, err)
+
 	case answer.StatusCode/100 == 2:
 		return tunnel, nil
 	case answer.StatusCode != http.StatusProxyAuthRequired || unasked || p.User == nil:
 		_ = conn.Close()
+
 		what := "CONNECT"
+
 		if unasked {
 			what = "CONNECT with credentials"
 		}
 
 		return nil, answerError(p, answer, fmt.Errorf("answered %s with %s", what, answer.Status))
 	}
+
 	if err := basicChallenge(answer.Header); err != nil {
 		_ = conn.Close()
 		return nil, answerError(p, answer, err)
 	}
+
 	d.asked.Store(p.String(), true)
+
 	conn = tunnel
 	if answer.Close {
 		_ = conn.Close()
@@ -254,11 +283,13 @@ func (d *Dialer) connect(ctx context.Context, conn net.Conn, p *url.URL, addr st
 			return nil, proxyError(p, err)
 		}
 	}
+
 	answer, tunnel, err = proxy.Connect(ctx, conn, addr, d.connectHeader(addr, d.Proxy.ConnectAuth, Credentials(p)))
 	switch {
 	case err != nil:
 		_ = conn.Close()
 		return nil, proxyError(p, err)
+
 	case answer.StatusCode/100 != 2:
 		_ = conn.Close()
 		return nil, answerError(p, answer, fmt.Errorf("answered CONNECT with credentials with %s", answer.Status))
@@ -274,6 +305,7 @@ func (d *Dialer) Challenged(p *url.URL, h http.Header) bool {
 	if p.User == nil || basicChallenge(h) != nil {
 		return false
 	}
+
 	d.asked.Store(p.String(), true)
 
 	return true
@@ -285,6 +317,7 @@ func (d *Dialer) ForwardAuthorization(p *url.URL) string {
 	if p.User == nil {
 		return ""
 	}
+
 	if _, asked := d.asked.Load(p.String()); asked || d.Proxy.ForwardCredentials == profile.CredentialsAlways {
 		return Credentials(p)
 	}
@@ -297,6 +330,7 @@ func Credentials(p *url.URL) string {
 	if p.User == nil {
 		return ""
 	}
+
 	password, _ := p.User.Password()
 
 	return "Basic " + base64.StdEncoding.EncodeToString([]byte(p.User.Username()+":"+password))
@@ -315,9 +349,11 @@ func (d *Dialer) connectHeader(addr string, list []profile.Header, auth string) 
 			if value == "" {
 				value = d.UserAgent
 			}
+
 		case "proxy-authorization":
 			value = auth
 		}
+
 		lines = append(lines, h.Name+": "+value)
 	}
 
@@ -341,6 +377,7 @@ func proxyAddr(p *url.URL) string {
 	if p.Port() != "" {
 		return p.Host
 	}
+
 	port := "1080"
 	if p.Scheme == SchemeHTTP {
 		port = "80"

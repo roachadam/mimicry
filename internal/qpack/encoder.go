@@ -77,7 +77,9 @@ func (t *table) entry(abs uint64) (Field, bool) {
 func (t *table) insert(f Field) uint64 {
 	size := entrySize(f.Name, f.Value)
 	t.evictTo(t.capacity - size)
+
 	t.entries = append(t.entries, f)
+
 	t.size += size
 
 	return t.inserted() - 1
@@ -91,9 +93,12 @@ func (t *table) evictTo(limit uint64) {
 		t.size -= entrySize(t.entries[n].Name, t.entries[n].Value)
 		n++
 	}
+
 	if n > 0 {
 		clear(t.entries[:n])
+
 		t.entries = t.entries[n:]
+
 		t.dropped += uint64(n)
 	}
 }
@@ -140,10 +145,13 @@ func NewEncoder(cfg Config) *Encoder {
 // StrategyStatic, set by the encoder stream's first instruction.
 func (e *Encoder) SetPeerSettings(maxCapacity, blockedStreams uint64) {
 	e.peerMax, e.maxBlocked = maxCapacity, blockedStreams
+
 	capacity := min(maxCapacity, e.cfg.MaxCapacity)
+
 	if e.cfg.Strategy == StrategyStatic {
 		capacity = 0
 	}
+
 	if capacity != e.t.capacity {
 		e.t.capacity = capacity
 		e.setCapacity = true
@@ -157,6 +165,7 @@ func (e *Encoder) TakeCapacity() []byte {
 	if !e.setCapacity {
 		return nil
 	}
+
 	e.setCapacity = false
 
 	return appendInt(nil, 0x20, 5, e.t.capacity)
@@ -187,8 +196,11 @@ func (e *Encoder) Encode(stream uint64, fields []Field) (instructions, block []b
 		instructions = appendInt(instructions, 0x20, 5, e.t.capacity)
 		e.setCapacity = false
 	}
+
 	start := e.t.inserted()
+
 	var reps []rep
+
 	switch e.cfg.Strategy {
 	case StrategyIndexAll:
 		reps, instructions = e.indexAll(stream, fields, instructions)
@@ -197,6 +209,7 @@ func (e *Encoder) Encode(stream uint64, fields []Field) (instructions, block []b
 	default:
 		reps = staticOnly(fields)
 	}
+
 	ric, minRef := uint64(0), uint64(math.MaxUint64)
 	for _, r := range reps {
 		if r.kind != repLiteral && !r.static {
@@ -204,14 +217,17 @@ func (e *Encoder) Encode(stream uint64, fields []Field) (instructions, block []b
 			minRef = min(minRef, r.index)
 		}
 	}
+
 	base := ric
 	if e.cfg.Strategy == StrategyNewNames && ric > 0 {
 		base = start
 	}
+
 	block = e.appendPrefix(nil, ric, base)
 	for _, r := range reps {
 		block = e.appendRep(block, r, base)
 	}
+
 	if ric > 0 {
 		e.sections[stream] = append(e.sections[stream], section{
 			ric:    ric,
@@ -242,6 +258,7 @@ func staticRep(f Field) rep {
 			index:  i,
 		}
 	}
+
 	if i, ok := staticName[f.Name]; ok {
 		return rep{
 			kind:   repNameRef,
@@ -281,6 +298,7 @@ func (e *Encoder) lookup(f Field, usable func(uint64) bool) match {
 			index:  i,
 		}
 	}
+
 	var name match
 	if i, ok := staticName[f.Name]; ok {
 		name = match{
@@ -289,12 +307,15 @@ func (e *Encoder) lookup(f Field, usable func(uint64) bool) match {
 			index:  i,
 		}
 	}
+
 	for i, v := range slices.Backward(e.t.entries) {
 		abs := e.t.dropped + uint64(i)
 		en := v
+
 		if en.Name != f.Name || !usable(abs) {
 			continue
 		}
+
 		if en.Value == f.Value {
 			return match{
 				found: true,
@@ -302,6 +323,7 @@ func (e *Encoder) lookup(f Field, usable func(uint64) bool) match {
 				index: abs,
 			}
 		}
+
 		if !name.found {
 			name = match{
 				found: true,
@@ -323,6 +345,7 @@ func (e *Encoder) lookupName(name string) match {
 			index:  i,
 		}
 	}
+
 	for i, v := range slices.Backward(e.t.entries) {
 		if v.Name == name {
 			return match{
@@ -348,9 +371,11 @@ func (e *Encoder) indexAll(stream uint64, fields []Field, ins []byte) ([]rep, []
 	keep := min(e.smallestBlocking(), known)
 	drain := e.drainingIndex()
 	blocking := e.blockingAllowed(stream)
+
 	for _, f := range fields {
 		size := entrySize(f.Name, f.Value)
 		m := e.lookup(f, anyEntry)
+
 		if m.found && m.exact {
 			if m.static {
 				reps = append(reps, rep{
@@ -361,6 +386,7 @@ func (e *Encoder) indexAll(stream uint64, fields []Field, ins []byte) ([]rep, []
 
 				continue
 			}
+
 			if m.index >= drain {
 				if blocking || m.index < known {
 					reps = append(reps, rep{
@@ -374,7 +400,9 @@ func (e *Encoder) indexAll(stream uint64, fields []Field, ins []byte) ([]rep, []
 			} else if blocking && size <= e.maxInsertSize(min(keep, m.index)) {
 				// Draining: a copy at the table's new end instead.
 				ins = appendInt(ins, 0x00, 5, e.t.inserted()-1-m.index)
+
 				abs := e.t.insert(f)
+
 				reps = append(reps, rep{
 					kind:  repIndexed,
 					index: abs,
@@ -383,20 +411,25 @@ func (e *Encoder) indexAll(stream uint64, fields []Field, ins []byte) ([]rep, []
 
 				continue
 			}
+
 			// The exact match cannot be used: try its name.
 			n := e.lookupName(f.Name)
 			if !n.found || (n.static == m.static && n.index == m.index) {
 				reps = append(reps, literal(f))
 				continue
 			}
+
 			m = n
 		}
+
 		switch {
 		case !m.found:
 			if blocking && size <= e.maxInsertSize(keep) {
 				ins = appendString(ins, 0x40, 5, f.Name, e.cfg.HuffmanAlways)
 				ins = appendString(ins, 0x00, 7, f.Value, e.cfg.HuffmanAlways)
+
 				abs := e.t.insert(f)
+
 				reps = append(reps, rep{
 					kind:  repIndexed,
 					index: abs,
@@ -405,12 +438,16 @@ func (e *Encoder) indexAll(stream uint64, fields []Field, ins []byte) ([]rep, []
 
 				continue
 			}
+
 			reps = append(reps, literal(f))
+
 		case m.static:
 			if blocking && size <= e.maxInsertSize(keep) {
 				ins = appendInt(ins, 0xc0, 6, m.index)
 				ins = appendString(ins, 0x00, 7, f.Value, e.cfg.HuffmanAlways)
+
 				abs := e.t.insert(f)
+
 				reps = append(reps, rep{
 					kind:  repIndexed,
 					index: abs,
@@ -419,17 +456,21 @@ func (e *Encoder) indexAll(stream uint64, fields []Field, ins []byte) ([]rep, []
 
 				continue
 			}
+
 			reps = append(reps, rep{
 				kind:   repNameRef,
 				static: true,
 				index:  m.index,
 				value:  f.Value,
 			})
+
 		default:
 			if blocking && size <= e.maxInsertSize(min(keep, m.index)) {
 				ins = appendInt(ins, 0x80, 6, e.t.inserted()-1-m.index)
 				ins = appendString(ins, 0x00, 7, f.Value, e.cfg.HuffmanAlways)
+
 				abs := e.t.insert(f)
+
 				reps = append(reps, rep{
 					kind:  repIndexed,
 					index: abs,
@@ -438,6 +479,7 @@ func (e *Encoder) indexAll(stream uint64, fields []Field, ins []byte) ([]rep, []
 
 				continue
 			}
+
 			if (blocking || m.index < known) && m.index >= drain {
 				reps = append(reps, rep{
 					kind:  repNameRef,
@@ -448,6 +490,7 @@ func (e *Encoder) indexAll(stream uint64, fields []Field, ins []byte) ([]rep, []
 
 				continue
 			}
+
 			reps = append(reps, literal(f))
 		}
 	}
@@ -464,12 +507,14 @@ func (e *Encoder) newNames(stream uint64, fields []Field, ins []byte) ([]rep, []
 	}
 	keep := min(e.smallestBlocking(), e.known)
 	full := false
+
 	for _, f := range fields {
 		if m := e.lookup(f, usable); m.found {
 			kind := repNameRef
 			if m.exact {
 				kind = repIndexed
 			}
+
 			reps = append(reps, rep{
 				kind:   kind,
 				static: m.static,
@@ -482,10 +527,13 @@ func (e *Encoder) newNames(stream uint64, fields []Field, ins []byte) ([]rep, []
 
 			continue
 		}
+
 		if blocking && !full && entrySize(f.Name, f.Value) <= e.maxInsertSize(keep) {
 			ins = appendString(ins, 0x40, 5, f.Name, e.cfg.HuffmanAlways)
 			ins = appendString(ins, 0x00, 7, f.Value, e.cfg.HuffmanAlways)
+
 			abs := e.t.insert(f)
+
 			reps = append(reps, rep{
 				kind:  repIndexed,
 				index: abs,
@@ -494,8 +542,10 @@ func (e *Encoder) newNames(stream uint64, fields []Field, ins []byte) ([]rep, []
 
 			continue
 		}
+
 		// The table is full: no more inserts in this section.
 		full = blocking
+
 		reps = append(reps, literal(f))
 	}
 
@@ -518,11 +568,13 @@ func (e *Encoder) maxInsertSize(keep uint64) uint64 {
 	if keep > t.inserted() {
 		return t.capacity
 	}
+
 	room := t.capacity - t.size
 	for i, en := range t.entries {
 		if t.dropped+uint64(i) >= keep {
 			break
 		}
+
 		room += entrySize(en.Name, en.Value)
 	}
 
@@ -536,14 +588,17 @@ func (e *Encoder) drainingIndex() uint64 {
 	t := &e.t
 	required := uint64(draining * float64(t.capacity))
 	free := t.capacity - t.size
+
 	if len(t.entries) == 0 || free >= required {
 		return t.dropped
 	}
+
 	index := t.dropped
 	for _, en := range t.entries {
 		if free >= required {
 			break
 		}
+
 		free += entrySize(en.Name, en.Value)
 		index++
 	}
@@ -575,6 +630,7 @@ func (e *Encoder) blockingAllowed(stream uint64) bool {
 				if s == stream {
 					return true
 				}
+
 				blocked++
 
 				break
@@ -590,8 +646,11 @@ func (e *Encoder) appendPrefix(dst []byte, ric, base uint64) []byte {
 	if ric == 0 {
 		return append(dst, 0, 0)
 	}
+
 	maxEntries := e.peerMax / 32
+
 	dst = appendInt(dst, 0x00, 8, ric%(2*maxEntries)+1)
+
 	if base >= ric {
 		return appendInt(dst, 0x00, 7, base-ric)
 	}
@@ -632,36 +691,46 @@ var ErrDecoderStream = errors.New("qpack: decoder stream error")
 func (e *Encoder) OnDecoderStream(b []byte) error {
 	e.in = append(e.in, b...)
 	for len(e.in) > 0 {
-		var n int
-		var err error
+		var (
+			n   int
+			err error
+		)
+
 		switch c := e.in[0]; {
 		case c&0x80 != 0:
 			var stream uint64
 			if stream, n, err = readInt(e.in, 7); err == nil {
 				err = e.acknowledged(stream)
 			}
+
 		case c&0x40 != 0:
 			var stream uint64
 			if stream, n, err = readInt(e.in, 6); err == nil {
 				delete(e.sections, stream)
 			}
+
 		default:
 			var inc uint64
 			if inc, n, err = readInt(e.in, 6); err == nil {
 				if inc == 0 || e.known+inc > e.t.inserted() {
 					err = fmt.Errorf("%w: insert count increment %d", ErrDecoderStream, inc)
 				}
+
 				e.known += inc
 			}
 		}
+
 		if errors.Is(err, errIncomplete) {
 			return nil
 		}
+
 		if err != nil {
 			return err
 		}
+
 		e.in = e.in[n:]
 	}
+
 	e.in = nil
 
 	return nil
@@ -674,6 +743,7 @@ func (e *Encoder) acknowledged(stream uint64) error {
 	if len(secs) == 0 {
 		return fmt.Errorf("%w: acknowledgment for stream %d, which has no section outstanding", ErrDecoderStream, stream)
 	}
+
 	e.known = max(e.known, secs[0].ric)
 	if len(secs) == 1 {
 		delete(e.sections, stream)

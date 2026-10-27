@@ -31,11 +31,13 @@ func TestAltUsedPort(t *testing.T) {
 			},
 		}, nil)
 		got := ""
+
 		for _, f := range fields {
 			if f.Name == "alt-used" {
 				got = f.Value
 			}
 		}
+
 		if got != tt.want {
 			t.Errorf("port %s: alt-used %q, want %q", tt.port, got, tt.want)
 		}

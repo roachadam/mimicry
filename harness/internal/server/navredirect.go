@@ -191,6 +191,7 @@ func NavRedirectClickSteps() []Redirects2Step {
 		link("link-301.cs-cs", navrCrossApex, navrCrossSite, 301),
 		link("link-302.cs-ss", navrCrossSite, navrStatic, 302),
 	}
+
 	steps = append(steps, navrFormSteps("submit", true)...)
 
 	return append(steps, link("link-302.cs-so", navrCrossSite, navrHost, 302))
@@ -278,6 +279,7 @@ func (p navRedirectPage) answer(req request) response {
 	path, _, _ := strings.Cut(req.path, "?")
 	plain := req.ports.plain != "" && port == req.ports.plain
 	s := p.step
+
 	switch {
 	case path == "/done":
 		return response{status: 200, contentType: "text/plain", body: []byte("ok\n")}
@@ -296,6 +298,7 @@ func (p navRedirectPage) answer(req request) response {
 				},
 			},
 		}
+
 	case host == s.Next && path == s.HopPath() && !plain:
 		return htmlResponse(htmlPage("nav-redirect", "", "<script>fetch(\"/done\");</script>\n"))
 	}

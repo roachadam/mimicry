@@ -32,74 +32,97 @@ type report struct {
 // write writes the report and returns its path.
 func (rep *report) write() (string, error) {
 	p := rep.plan
+
 	var b strings.Builder
+
 	date := time.Now().Format("2006-01-02")
 	fmt.Fprintf(&b, "# Refresh of %s, %s\n\n", p.Name, date)
+
 	how := "new profile, copied from " + p.Previous
 	if p.InPlace {
 		how = "refreshed in place"
 	}
+
 	fmt.Fprintf(&b, "%s %s on %s, %s mode: %s. Made by `go run ./cmd/refresh` (staging `%s`).\n\n",
 		p.Browser, p.Installed, rep.run.machine(p), rep.run.Mode, how, rep.run.Dir)
 
 	b.WriteString("## Captures\n\n")
 	fmt.Fprintf(&b, "Every capture names %s with one user agent, and the browser's version was %s before and after the run.\n\n", p.Name, p.Installed)
+
 	if len(p.Measured) > 0 {
 		fmt.Fprintf(&b, "User agent: `%s`\n\n", p.Measured[0].UserAgent)
 	}
+
 	b.WriteString("| Scenario | Samples | Measured | Estimated |\n|---|---|---|---|\n")
+
 	measured := map[string]summaryLine{}
+
 	var total float64
+
 	for _, l := range p.Measured {
 		sc := l.Scenario
 		if sc == "" {
 			sc = capture.DefaultScenario
 		}
+
 		measured[sc] = l
+
 		total += l.Seconds
 	}
+
 	var estimated time.Duration
 	for _, c := range p.Captures {
 		m := "not captured"
 		if l, ok := measured[c.label()]; ok {
 			m = (time.Duration(l.Seconds) * time.Second).String()
 		}
+
 		estimated += c.Estimate
 		fmt.Fprintf(&b, "| %s | %d | %s | %s |\n", c.label(), c.Samples, m, c.Estimate.Round(time.Second))
 	}
+
 	fmt.Fprintf(&b, "| total | | %s | %s |\n\n", (time.Duration(total) * time.Second).String(), estimated.Round(time.Second))
+
 	if !p.Started.IsZero() && !p.Finished.IsZero() {
 		fmt.Fprintf(&b, "Wall time of the capture run (launches, copies and checks included): %s.\n\n", p.Finished.Sub(p.Started).Round(time.Second))
 	}
 
 	b.WriteString("## Inherited scenarios\n\n")
+
 	if len(p.CapturesFrom) == 0 {
 		b.WriteString("None: the profile is checked against its own captures only.\n\n")
 	} else {
 		b.WriteString("Checked against these profiles' captures, version tokens rewritten (`capturesFrom`, decision 0035):\n\n")
+
 		for _, sc := range slices.Sorted(maps.Keys(p.CapturesFrom)) {
 			fmt.Fprintf(&b, "- %s: %s\n", sc, p.CapturesFrom[sc])
 		}
+
 		b.WriteString("\n")
 	}
 
 	fmt.Fprintf(&b, "## Changes from %s\n\n", p.Previous)
+
 	if err := rep.writeDiff(&b); err != nil {
 		return "", err
 	}
 
 	b.WriteString("## Deprecation\n\n")
+
 	if len(rep.deprecated) == 0 {
 		fmt.Fprintf(&b, "No %s profile beyond the newest %d supported ones; none deprecated.\n\n", p.Browser, supported)
 	}
+
 	for _, name := range rep.deprecated {
 		fmt.Fprintf(&b, "- %s marked `deprecated`: more than %d supported %s versions.\n", name, supported, p.Browser)
 	}
+
 	if len(rep.deprecated) > 0 {
 		b.WriteString("\n")
 	}
 
 	b.WriteString("## Verification\n\n")
+
 	for _, s := range []struct {
 		title string
 		res   *result
@@ -109,16 +132,21 @@ func (rep *report) write() (string, error) {
 	} {
 		if s.res == nil {
 			fmt.Fprintf(&b, "%s: not run.\n\n", s.title)
+
 			continue
 		}
+
 		status := "passed"
 		if s.res.err != nil {
 			status = "failed: " + s.res.err.Error()
 		}
+
 		if s.title == "realcheck" && s.res.err == nil {
 			status = "ran"
 		}
+
 		fmt.Fprintf(&b, "%s (`%s`, %s): %s. Output: `%s`.\n\n", s.title, s.res.command, s.res.duration.Round(time.Second), status, s.res.output)
+
 		if strings.TrimSpace(s.res.summary) != "" {
 			fmt.Fprintf(&b, "```\n%s\n```\n\n", strings.TrimSpace(s.res.summary))
 		}
@@ -127,6 +155,7 @@ func (rep *report) write() (string, error) {
 	b.WriteString("## To do by hand\n\n")
 	b.WriteString("- Review the changes above; a hand-written section copied from the previous profile is unverified until the e2e tests pass against its inherited or new captures.\n")
 	b.WriteString("- `profiles/EVIDENCE.md`: add the profile's column (inherited rows marked as decision 0035 says), and `docs/backlog.md` for any new gap pinned.\n")
+
 	if !p.InPlace {
 		b.WriteString("- Gap tables keyed by profile name (generators' `sampleGaps`, the e2e tests' gap maps) apply to inherited scenarios through `capturesFrom`; a scenario recaptured for this version needs its own entry if the oddity recurs.\n")
 	}
@@ -147,49 +176,65 @@ func (rep *report) writeDiff(b *strings.Builder) error {
 	if err != nil {
 		return err
 	}
+
 	cur, err := profile.Decode(data)
 	if err != nil {
 		return err
 	}
+
 	prevData, err := profile.Encode(rep.previous)
 	if err != nil {
 		return err
 	}
+
 	var prevTree, curTree any
 	if err := json.Unmarshal(prevData, &prevTree); err != nil {
 		return err
 	}
+
 	if err := json.Unmarshal(data, &curTree); err != nil {
 		return err
 	}
+
 	rw := capture.NewRewriter(rep.previous, cur)
+
 	b.WriteString("Version strings, rewritten in the previous profile before comparing (`capture.NewRewriter`):\n\n")
+
 	for _, name := range []string{"user-agent", "sec-ch-ua"} {
 		if old, now := navigationValue(rep.previous, name), navigationValue(cur, name); old != "" || now != "" {
 			fmt.Fprintf(b, "- %s: `%s` → `%s`\n", name, old, now)
 		}
 	}
+
 	b.WriteString("\nLists the browser shuffles on every connection (the QUIC transport parameters, their shuffled versions) are compared as sets.\n\n")
+
 	prevTree = rewriteStrings(prevTree, rw.Value)
 	// One sample's order of what the browser shuffles is no change.
 	sortShuffled(prevTree)
 	sortShuffled(curTree)
+
 	var diffs []difference
 	diffTrees("", prevTree, curTree, &diffs)
+
 	groups := map[string][]difference{}
 	for _, d := range diffs {
 		groups[sectionOf(d.path)] = append(groups[sectionOf(d.path)], d)
 	}
+
 	for _, section := range sections {
 		ds := groups[section.name]
 		fmt.Fprintf(b, "### %s\n\n", section.title)
+
 		if len(ds) == 0 {
 			b.WriteString("No change.\n\n")
+
 			continue
 		}
+
 		for _, d := range ds {
 			fmt.Fprintf(b, "- `%s`: %s → %s\n", d.path, d.old, d.cur)
 		}
+
 		b.WriteString("\n")
 	}
 
@@ -216,9 +261,11 @@ func sortShuffled(tree any) {
 	root, _ := tree.(map[string]any)
 	quic, _ := root["quic"].(map[string]any)
 	params, _ := quic["transportParameters"].([]any)
+
 	if quic["transportParameterOrder"] != "shuffled" {
 		return
 	}
+
 	for _, p := range params {
 		if m, ok := p.(map[string]any); ok && m["shuffleVersions"] == true {
 			if vs, ok := m["versions"].([]any); ok {
@@ -228,6 +275,7 @@ func sortShuffled(tree any) {
 			}
 		}
 	}
+
 	slices.SortFunc(params, func(a, b any) int {
 		return strings.Compare(compact(a), compact(b))
 	})
@@ -250,9 +298,13 @@ var capturedHTTP2 = []string{"settings", "windowUpdate", "priorities", "headersP
 // sectionOf names the section of a JSON path ("tls.cipherSuites[2]").
 func sectionOf(path string) string {
 	top, rest, _ := strings.Cut(path, ".")
+
 	top, _, _ = strings.Cut(top, "[")
+
 	second, _, _ := strings.Cut(rest, ".")
+
 	second, _, _ = strings.Cut(second, "[")
+
 	switch top {
 	case "name", "version", "browser", "platform", "deprecated", "capturesFrom":
 		return "identity"
@@ -264,10 +316,12 @@ func sectionOf(path string) string {
 		if second == "headers" {
 			return "captured"
 		}
+
 	case "http2":
 		if slices.Contains(capturedHTTP2, second) {
 			return "captured"
 		}
+
 	case "tls":
 		switch second {
 		case "websocketH1", "quic":
@@ -276,6 +330,7 @@ func sectionOf(path string) string {
 			if strings.HasPrefix(rest, "resumption.echPayloadLengths") {
 				return "generated"
 			}
+
 		default:
 			if strings.Contains(rest, "keyShareLengths") || strings.Contains(rest, ".ech") {
 				return "generated"
@@ -305,17 +360,21 @@ func diffTrees(path string, a, b any, out *[]difference) {
 					keys = append(keys, k)
 				}
 			}
+
 			slices.Sort(keys)
+
 			for _, k := range keys {
 				child := k
 				if path != "" {
 					child = path + "." + k
 				}
+
 				diffTrees(child, av[k], bv[k], out)
 			}
 
 			return
 		}
+
 	case []any:
 		if bv, ok := b.([]any); ok && len(av) == len(bv) {
 			for i := range av {
@@ -325,6 +384,7 @@ func diffTrees(path string, a, b any, out *[]difference) {
 			return
 		}
 	}
+
 	ja, jb := compact(a), compact(b)
 	if ja != jb {
 		*out = append(*out, difference{
@@ -340,10 +400,12 @@ func compact(v any) string {
 	if v == nil {
 		return "(none)"
 	}
+
 	data, err := json.Marshal(v)
 	if err != nil {
 		return fmt.Sprint(v)
 	}
+
 	s := string(data)
 	if len(s) > 300 {
 		s = s[:300] + "…"
@@ -361,6 +423,7 @@ func rewriteStrings(v any, f func(string) string) any {
 		for k, x := range t {
 			t[k] = rewriteStrings(x, f)
 		}
+
 	case []any:
 		for i, x := range t {
 			t[i] = rewriteStrings(x, f)

@@ -24,16 +24,20 @@ import (
 func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, log *pageLog, emit func()) error {
 	id := log.newConn()
 	br := bufio.NewReader(conn)
+
 	for {
 		line, err := readLine(br)
 		if err != nil {
 			return err
 		}
+
 		method, rest, ok := strings.Cut(line, " ")
 		target, _, ok2 := strings.Cut(rest, " ")
+
 		if !ok || !ok2 {
 			return fmt.Errorf("bad request line %q", line)
 		}
+
 		// A request to a proxy names the whole URL (absolute form). Through
 		// the capture proxy a browser also sends its own background requests
 		// (update checks, captive-portal probes): those are answered 404 and
@@ -47,6 +51,7 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 			foreign = !strings.HasSuffix(u.Hostname(), ".test")
 			absolute = true
 		}
+
 		req := capture.H1Request{
 			Conn: id,
 			Host: host,
@@ -56,23 +61,30 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 			method: method,
 			path:   target,
 		}
+
 		var length int64
+
 		chunked := false
 		proxyAuth := ""
+
 		for {
 			h, err := readLine(br)
 			if err != nil {
 				return err
 			}
+
 			if h == "" {
 				break
 			}
+
 			name, value, ok := strings.Cut(h, ":")
 			if !ok {
 				return fmt.Errorf("bad header line %q", h)
 			}
+
 			req.Headers = append(req.Headers, h)
 			value = strings.TrimSpace(value)
+
 			switch strings.ToLower(strings.TrimSpace(name)) {
 			case "content-length":
 				length, _ = strconv.ParseInt(value, 10, 64)
@@ -96,15 +108,18 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 				ask.wsExtensions = joinValues(ask.wsExtensions, value)
 			}
 		}
+
 		// A plain connection has no server name: the Host header names
 		// the host.
 		if req.Host == "" && (sc.Plain || sc.mixedScheme || sc.plainPort) {
 			req.Host, _, _ = strings.Cut(ask.host, ":")
 		}
+
 		index := -1
 		if !foreign {
 			index = log.add(req)
 			log.request(c)
+
 			// After /done the capture belongs to its receiver.
 			if !c.Finished {
 				c.H1 = append(c.H1, req)
@@ -120,6 +135,7 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 			if uploaded, err = io.Copy(io.Discard, httputil.NewChunkedReader(br)); err != nil {
 				return err
 			}
+
 			// The chunked reader stops at the last chunk; the trailer
 			// section ends with an empty line.
 			for {
@@ -127,10 +143,12 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 				if err != nil {
 					return err
 				}
+
 				if t == "" {
 					break
 				}
 			}
+
 		case length > 0:
 			if uploaded, err = io.CopyN(io.Discard, br, length); err != nil {
 				return err
@@ -141,14 +159,17 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 		if !foreign {
 			sc.noteWSResult(log, ask, host)
 		}
+
 		r := sc.answer(ask)
 		challenged := false
+
 		switch {
 		case foreign:
 			r = response{
 				status:      http.StatusNotFound,
 				contentType: "text/plain",
 			}
+
 		case sc.ProxyAuth && absolute && proxyAuth != ProxyAuthorization():
 			challenged = true
 			r = response{
@@ -162,9 +183,11 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 				},
 			}
 		}
+
 		if r.websocket != nil && !foreign && !challenged {
 			// The connection is the socket's from here on.
 			number := log.connectionNumber(c)
+
 			return serveWebSocketH1(conn, br, r.websocket, ask.wsKey, capture.WebSocket{
 				Host:       req.Host,
 				Path:       target,
@@ -175,6 +198,7 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 				Request:    index,
 			}, log)
 		}
+
 		if target == "/done" && !c.Finished && !foreign && !challenged {
 			if sc.multi != nil {
 				c.Page = log.page()
@@ -184,13 +208,18 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 				c.H1 = log.snapshot()
 				c.Profile.Headers = profileHeaders(c.H1[0].Headers)
 			}
+
 			c.Finished = true
+
 			emit()
 		}
+
 		time.Sleep(r.delay)
+
 		if err := writeResponse(conn, r); err != nil {
 			return err
 		}
+
 		if r.closeAfter {
 			return nil
 		}
@@ -205,6 +234,7 @@ func readLine(br *bufio.Reader) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	text, ok := strings.CutSuffix(line, "\r\n")
 	if !ok {
 		return "", fmt.Errorf("line %q does not end in CRLF", line)
@@ -224,9 +254,11 @@ func profileHeaders(lines []string) []profile.Header {
 			Name:  strings.ToLower(strings.TrimSpace(name)),
 			Value: strings.TrimSpace(value),
 		}
+
 		if h.Name == "host" {
 			h.Value = ""
 		}
+
 		out = append(out, h)
 	}
 
@@ -237,14 +269,18 @@ func profileHeaders(lines []string) []profile.Header {
 // its first error and returns it from Flush, so only that is checked.
 func writeResponse(w io.Writer, r response) error {
 	bw := bufio.NewWriter(w)
+
 	_, _ = fmt.Fprintf(bw, "HTTP/1.1 %d %s\r\nContent-Type: %s\r\nContent-Length: %d\r\nCache-Control: no-store\r\n",
 		r.status, http.StatusText(r.status), r.contentType, len(r.body))
+
 	if r.closeAfter {
 		_, _ = bw.WriteString("Connection: close\r\n")
 	}
+
 	for _, h := range r.headers {
 		_, _ = fmt.Fprintf(bw, "%s: %s\r\n", h.Name, h.Value)
 	}
+
 	_, _ = bw.WriteString("\r\n")
 	_, _ = bw.Write(r.body)
 

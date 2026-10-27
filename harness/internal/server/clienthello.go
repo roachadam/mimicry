@@ -29,29 +29,37 @@ const (
 // and the ClientHello message itself (handshake header included).
 func readClientHello(r io.Reader) (raw, msg []byte, err error) {
 	var header [recordHeaderLen]byte
+
 	need := -1
+
 	for need < 0 || len(msg) < need {
 		if _, err := io.ReadFull(r, header[:]); err != nil {
 			return nil, nil, fmt.Errorf("reading record header: %w", err)
 		}
+
 		if header[0] != recordTypeHandshake {
 			return nil, nil, fmt.Errorf("record type %d is not a handshake", header[0])
 		}
+
 		n := int(header[3])<<8 | int(header[4])
 		if n == 0 || n > maxRecordLen {
 			return nil, nil, fmt.Errorf("record length %d out of range", n)
 		}
+
 		fragment := make([]byte, n)
 		if _, err := io.ReadFull(r, fragment); err != nil {
 			return nil, nil, fmt.Errorf("reading record: %w", err)
 		}
+
 		raw = append(raw, header[:]...)
 		raw = append(raw, fragment...)
 		msg = append(msg, fragment...)
+
 		if need < 0 && len(msg) >= 4 {
 			if msg[0] != handshakeClientHello {
 				return nil, nil, fmt.Errorf("handshake type %d is not a ClientHello", msg[0])
 			}
+
 			need = 4 + (int(msg[1])<<16 | int(msg[2])<<8 | int(msg[3]))
 			if need > maxClientHelloLen {
 				return nil, nil, fmt.Errorf("ClientHello length %d exceeds %d", need, maxClientHelloLen)
@@ -76,44 +84,57 @@ type offer struct {
 // resumptionOffer reads msg's offer; zero for a full handshake.
 func resumptionOffer(msg []byte) offer {
 	var o offer
+
 	s := cryptobyte.String(msg)
+
 	var body, sessionID, suites, compression, exts cryptobyte.String
+
 	if !s.Skip(1) || !s.ReadUint24LengthPrefixed(&body) ||
 		!body.Skip(2+32) || !body.ReadUint8LengthPrefixed(&sessionID) ||
 		!body.ReadUint16LengthPrefixed(&suites) || !body.ReadUint8LengthPrefixed(&compression) ||
 		!body.ReadUint16LengthPrefixed(&exts) {
 		return o
 	}
+
 	short := func(b []byte) string {
 		sum := sha256.Sum256(b)
 		return hex.EncodeToString(sum[:6])
 	}
 	for !exts.Empty() {
-		var typ uint16
-		var data cryptobyte.String
+		var (
+			typ  uint16
+			data cryptobyte.String
+		)
+
 		if !exts.ReadUint16(&typ) || !exts.ReadUint16LengthPrefixed(&data) {
 			return offer{}
 		}
+
 		switch code(typ) {
 		case profile.ExtSessionTicket:
 			if len(data) > 0 {
 				o.ticket = short(data)
 			}
+
 		case profile.ExtPreSharedKey:
 			var ids cryptobyte.String
 			if !data.ReadUint16LengthPrefixed(&ids) {
 				return offer{}
 			}
+
 			for !ids.Empty() {
 				var id cryptobyte.String
 				if !ids.ReadUint16LengthPrefixed(&id) || !ids.Skip(4) {
 					return offer{}
 				}
+
 				if o.pskIdentities == 0 {
 					o.pskIdentity = short(id)
 				}
+
 				o.pskIdentities++
 			}
+
 		default:
 			// Only the resumption extensions make the offer.
 		}
@@ -128,14 +149,22 @@ func resumptionOffer(msg []byte) offer {
 // only one a profile can describe.
 func ParseClientHello(msg []byte) (profile.TLS, error) {
 	s := cryptobyte.String(msg)
-	var msgType uint8
-	var body cryptobyte.String
+
+	var (
+		msgType uint8
+		body    cryptobyte.String
+	)
+
 	if !s.ReadUint8(&msgType) || msgType != handshakeClientHello ||
 		!s.ReadUint24LengthPrefixed(&body) || !s.Empty() {
 		return profile.TLS{}, errMalformed
 	}
-	var legacyVersion uint16
-	var sessionID, suites, compression cryptobyte.String
+
+	var (
+		legacyVersion                  uint16
+		sessionID, suites, compression cryptobyte.String
+	)
+
 	if !body.ReadUint16(&legacyVersion) ||
 		!body.Skip(32) ||
 		!body.ReadUint8LengthPrefixed(&sessionID) ||
@@ -143,38 +172,51 @@ func ParseClientHello(msg []byte) (profile.TLS, error) {
 		!body.ReadUint8LengthPrefixed(&compression) {
 		return profile.TLS{}, errMalformed
 	}
+
 	t := profile.TLS{
 		LegacyVersion:      profile.Code(legacyVersion),
 		SessionIDLength:    uint8(len(sessionID)),
 		CompressionMethods: profile.ByteList(append([]byte(nil), compression...)),
 	}
+
 	var err error
+
 	if t.CipherSuites, err = readCodes(&suites); err != nil {
 		return profile.TLS{}, fmt.Errorf("cipher suites: %w", err)
 	}
+
 	if body.Empty() {
 		return t, nil
 	}
+
 	var exts cryptobyte.String
 	if !body.ReadUint16LengthPrefixed(&exts) || !body.Empty() {
 		return profile.TLS{}, errMalformed
 	}
+
 	padding := -1
 	for !exts.Empty() {
-		var typ uint16
-		var data cryptobyte.String
+		var (
+			typ  uint16
+			data cryptobyte.String
+		)
+
 		if !exts.ReadUint16(&typ) || !exts.ReadUint16LengthPrefixed(&data) {
 			return profile.TLS{}, errMalformed
 		}
+
 		if typ == uint16(profile.ExtPadding) {
 			padding = len(data)
 		}
+
 		e, err := parseExtension(code(typ), data)
 		if err != nil {
 			return profile.TLS{}, fmt.Errorf("extension %s: %w", code(typ), err)
 		}
+
 		t.Extensions = append(t.Extensions, e)
 	}
+
 	if padding >= 0 {
 		if want, pads := boringPadding(len(msg) - 4 - padding); !pads || want != padding {
 			return profile.TLS{}, fmt.Errorf("extension %s: %d bytes of padding are not BoringSSL's for a %d-byte ClientHello, and a profile cannot describe another rule",
@@ -193,6 +235,7 @@ func boringPadding(unpadded int) (int, bool) {
 	if unpadded <= 0xff || unpadded >= 0x200 {
 		return 0, false
 	}
+
 	n := 0x200 - unpadded
 	if n >= 4+1 {
 		return n - 4, true
@@ -209,14 +252,17 @@ func ParseRecords(records []byte) (uint16, []byte, error) {
 	if err != nil {
 		return 0, nil, err
 	}
+
 	if len(raw) != len(records) {
 		return 0, nil, fmt.Errorf("%d bytes follow the ClientHello's records", len(records)-len(raw))
 	}
+
 	version := uint16(raw[1])<<8 | uint16(raw[2])
 	for rest := raw; len(rest) > 0; {
 		if v := uint16(rest[1])<<8 | uint16(rest[2]); v != version {
 			return 0, nil, fmt.Errorf("records carry versions %#04x and %#04x", version, v)
 		}
+
 		rest = rest[recordHeaderLen+(int(rest[3])<<8|int(rest[4])):]
 	}
 
@@ -227,7 +273,9 @@ func parseExtension(typ profile.Code, data cryptobyte.String) (profile.Extension
 	e := profile.Extension{
 		Type: typ,
 	}
+
 	var err error
+
 	switch typ {
 	case profile.ExtServerName, profile.ExtSessionTicket, profile.ExtPreSharedKey:
 		// Generated per connection; the profile records only the position.
@@ -241,6 +289,7 @@ func parseExtension(typ profile.Code, data cryptobyte.String) (profile.Extension
 		}
 
 		return e, nil
+
 	case profile.ExtEncryptedClientHello:
 		e.ECH, err = readGREASEECH(&data)
 	case profile.ExtSupportedGroups:
@@ -254,15 +303,20 @@ func parseExtension(typ profile.Code, data cryptobyte.String) (profile.Extension
 		if !data.ReadUint8LengthPrefixed(&list) {
 			return e, errMalformed
 		}
+
 		e.Versions, err = readCodes(&list)
+
 	case profile.ExtALPN, profile.ExtApplicationSettingsOld, profile.ExtApplicationSettings:
 		var protocols []string
+
 		protocols, err = readProtocols(&data)
+
 		if typ == profile.ExtALPN {
 			e.ALPN = protocols
 		} else {
 			e.ALPS = protocols
 		}
+
 	case profile.ExtECPointFormats:
 		e.PointFormats, err = readByteList8(&data)
 	case profile.ExtPSKKeyExchangeModes:
@@ -272,11 +326,14 @@ func parseExtension(typ profile.Code, data cryptobyte.String) (profile.Extension
 		if !data.ReadUint8LengthPrefixed(&list) {
 			return e, errMalformed
 		}
+
 		e.CertCompression, err = readCodes(&list)
+
 	case profile.ExtRecordSizeLimit:
 		if !data.ReadUint16(&e.RecordSizeLimit) {
 			return e, errMalformed
 		}
+
 	default:
 		if len(data) > 0 {
 			e.Data = profile.Bytes(append([]byte(nil), data...))
@@ -284,9 +341,11 @@ func parseExtension(typ profile.Code, data cryptobyte.String) (profile.Extension
 
 		return e, nil
 	}
+
 	if err != nil {
 		return e, err
 	}
+
 	if !data.Empty() {
 		return e, errors.New("trailing bytes in extension body")
 	}
@@ -311,6 +370,7 @@ func readCodes(s *cryptobyte.String) ([]profile.Code, error) {
 		if !s.ReadUint16(&v) {
 			return nil, errMalformed
 		}
+
 		codes = append(codes, code(v))
 	}
 
@@ -334,14 +394,22 @@ func readKeyShares(s *cryptobyte.String) ([]profile.Code, []uint16, error) {
 	if !s.ReadUint16LengthPrefixed(&shares) {
 		return nil, nil, errMalformed
 	}
-	var groups []profile.Code
-	var lengths []uint16
+
+	var (
+		groups  []profile.Code
+		lengths []uint16
+	)
+
 	for !shares.Empty() {
-		var group uint16
-		var key cryptobyte.String
+		var (
+			group uint16
+			key   cryptobyte.String
+		)
+
 		if !shares.ReadUint16(&group) || !shares.ReadUint16LengthPrefixed(&key) {
 			return nil, nil, errMalformed
 		}
+
 		groups = append(groups, code(group))
 		lengths = append(lengths, uint16(len(key)))
 	}
@@ -357,15 +425,20 @@ const echOuter = 0
 // suite, and the lengths of its encapsulated key and payload. The config_id
 // and the bytes are random per connection and not kept.
 func readGREASEECH(s *cryptobyte.String) (*profile.ECH, error) {
-	var typ uint8
-	var kdf, aead uint16
-	var enc, payload cryptobyte.String
+	var (
+		typ          uint8
+		kdf, aead    uint16
+		enc, payload cryptobyte.String
+	)
+
 	if !s.ReadUint8(&typ) {
 		return nil, errMalformed
 	}
+
 	if typ != echOuter {
 		return nil, fmt.Errorf("ECH type %d is not an outer ClientHello's", typ)
 	}
+
 	if !s.ReadUint16(&kdf) || !s.ReadUint16(&aead) ||
 		!s.Skip(1) || // config_id
 		!s.ReadUint16LengthPrefixed(&enc) ||
@@ -394,12 +467,14 @@ func readProtocols(s *cryptobyte.String) ([]string, error) {
 	if !s.ReadUint16LengthPrefixed(&list) {
 		return nil, errMalformed
 	}
+
 	var protocols []string
 	for !list.Empty() {
 		var name cryptobyte.String
 		if !list.ReadUint8LengthPrefixed(&name) {
 			return nil, errMalformed
 		}
+
 		protocols = append(protocols, string(name))
 	}
 

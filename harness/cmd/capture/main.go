@@ -82,15 +82,20 @@ func run() error {
 		"the captures record the setting as a condition and are named <scenario>."+localRootsSuffix)
 	summary := flag.String("summary", "", "append one JSON line per written scenario to this file: browser, scenario, profile name, user agent, samples, seconds, files")
 	preflight := flag.Bool("preflight", false, "print what a capture here needs as JSON (browsers and versions, console user, capture CA trust, /etc/resolver/test, aioquic) and exit")
+
 	flag.Parse()
+
 	if *preflight {
 		return printPreflight(*caDir)
 	}
+
 	if *samples < 1 {
 		return errors.New("-samples must be at least 1")
 	}
+
 	scenarios := server.Scenarios
 	samplesOf := map[string]int{}
+
 	if *scenarioNames != "" {
 		scenarios = nil
 		for entry := range strings.SplitSeq(*scenarioNames, ",") {
@@ -98,15 +103,18 @@ func run() error {
 			if err != nil {
 				return err
 			}
+
 			found, err := scenariosNamed(name, *pages)
 			if err != nil {
 				return err
 			}
+
 			if count > 0 {
 				for _, sc := range found {
 					samplesOf[sc.Name] = count
 				}
 			}
+
 			scenarios = append(scenarios, found...)
 		}
 	}
@@ -114,34 +122,42 @@ func run() error {
 	browsers := browser.Find()
 	if *only != "" {
 		names := strings.Split(*only, ",")
+
 		browsers = slices.DeleteFunc(browsers, func(b *browser.Browser) bool {
 			return !slices.Contains(names, b.Name)
 		})
 	}
+
 	if len(browsers) == 0 {
 		return errors.New("no supported browser found")
 	}
+
 	if err := os.MkdirAll(*out, 0o750); err != nil {
 		return err
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
 	if *caDir == "" {
 		dir, err := server.DefaultCADir()
 		if err != nil {
 			return err
 		}
+
 		*caDir = dir
 	}
+
 	ca, err := server.LoadOrCreateCA(*caDir, server.CADomains, time.Now())
 	if err != nil {
 		return err
 	}
+
 	cert, err := ca.Issue(server.CAHosts, time.Now())
 	if err != nil {
 		return err
 	}
+
 	opts := options{
 		headless:     *headless,
 		samples:      *samples,
@@ -157,6 +173,7 @@ func run() error {
 	if slices.Contains(scenarios, server.DefaultScenario) && opts.samplesFor(server.DefaultScenario) < 2 {
 		log.Printf("warning: one sample of the default scenario cannot tell whether a browser shuffles its extensions; its capture says %q", profile.ExtensionOrderFixed)
 	}
+
 	// Safari resolves through the system: the stub answers its *.test
 	// lookups (Chrome and Firefox map the names themselves).
 	dns, err := (&net.ListenConfig{}).ListenPacket(ctx, "udp", dnsstub.Addr)
@@ -188,45 +205,56 @@ func run() error {
 		if err := server.AioquicAvailable(ctx); err != nil {
 			skipped = fmt.Errorf("skipped the scenarios serving HTTP/3 with aioquic: they need %w", err)
 			log.Print(skipped)
+
 			opts.scenarios = slices.DeleteFunc(slices.Clone(scenarios), (*server.Scenario).NeedsAioquic)
 		}
 	}
+
 	failed := 0
 	for _, b := range browsers {
 		bopts := opts
 		mode := safariProxyNone
+
 		if b.Shared && proxied {
 			mode = safariProxyConfig(ctx)
 		}
+
 		if b.Shared && proxied && mode == safariProxyNone {
 			log.Printf("%s: the system does not send %s to the capture proxy. Point the active network service at the tool's proxy script (an administrator's password), and turn it off after:\n"+
 				"  sudo networksetup -setautoproxyurl <service> %s\n  sudo networksetup -setautoproxystate <service> off\n"+
 				"(networksetup -listallnetworkservices lists services). The script proxies only *.test. For proxy credentials, use manual web and secure web proxies at %s with a password instead.", b.Name, b.Name, safariPACURL, safariHTTPProxy)
+
 			failed++
 
 			continue
 		}
+
 		if b.Shared && !dnsstub.ResolverInstalled() {
 			log.Printf("%s: %s does not send *.test lookups to the capture tool, so %s cannot reach the capture hosts. Create it once:\n  %s",
 				b.Name, dnsstub.ResolverFile, b.Name, dnsstub.InstallCommand)
+
 			failed++
 
 			continue
 		}
+
 		if b.Shared && !server.TrustedBySystem(cert, server.CaptureHost) {
 			log.Printf("%s: the capture CA is not trusted, so %s would stop at a certificate warning. Trust it once (macOS asks for your password):\n"+
 				"  security add-trusted-cert -r trustRoot -p ssl -k ~/Library/Keychains/login.keychain-db %q\n"+
 				"It can only vouch for names under %s.", b.Name, b.Name, ca.CertPath, strings.Join(server.CADomains, " and "))
+
 			failed++
 
 			continue
 		}
+
 		if b.Name == "chrome" && slices.ContainsFunc(scenarios, (*server.Scenario).HTTP3) && !server.TrustedBySystem(cert, server.CaptureHost) {
 			// http_network_transaction.cc processes Alt-Svc only when the
 			// certificate verified without errors.
 			log.Printf("%s: the capture CA is not trusted, so %s will ignore every Alt-Svc and never try HTTP/3 (--ignore-certificate-errors loads the page, but its certificate status keeps the error). Trust it as for Safari:\n"+
 				"  security add-trusted-cert -r trustRoot -p ssl -k ~/Library/Keychains/login.keychain-db %q", b.Name, b.Name, ca.CertPath)
 		}
+
 		refused := 0
 		if mode == safariProxyManual {
 			// A manual proxy sends SOCKS5 scenarios' URLs to the HTTP
@@ -235,20 +263,25 @@ func run() error {
 				if sc.Proxy != server.ProxySOCKS5 {
 					return false
 				}
+
 				log.Printf("%s: skipping scenario %s: the system uses manual web proxies, which send everything to the HTTP proxy at %s. Use the proxy script for SOCKS5 scenarios:\n"+
 					"  sudo networksetup -setautoproxyurl <service> %s", b.Name, sc.Name, safariHTTPProxy, safariPACURL)
+
 				refused++
 
 				return true
 			})
 		}
+
 		if err := captureBrowser(ctx, b, bopts); err != nil {
 			log.Printf("%s: %v", b.Name, err)
+
 			failed++
 		} else if refused > 0 {
 			failed++
 		}
 	}
+
 	if failed > 0 {
 		return errors.Join(fmt.Errorf("%d of %d browsers failed", failed, len(browsers)), skipped)
 	}
@@ -264,18 +297,23 @@ func captureBrowser(ctx context.Context, b *browser.Browser, opts options) error
 	for _, sc := range opts.scenarios {
 		start := time.Now()
 		c, err := captureScenario(ctx, b, sc, opts)
+
 		if errors.Is(err, capture.ErrExists) {
 			log.Printf("%s: scenario %s: %v; delete it to capture again", b.Name, sc.Name, err)
+
 			continue
 		}
+
 		if err != nil {
 			return fmt.Errorf("scenario %s: %w", sc.Name, err)
 		}
+
 		if sc == server.DefaultScenario {
 			base = c
 			if !c.HasExtension(profile.ExtServerName) {
 				log.Printf("%s: warning: no server_name in the ClientHello", c.Profile.Name)
 			}
+
 			f := capture.Compute(&c.Profile)
 			log.Printf("%s: extension order %s across %d samples", c.Profile.Name, c.Profile.TLS.ExtensionOrder, opts.samplesFor(sc))
 			log.Printf("%s: JA4 %s", c.Profile.Name, f.JA4)
@@ -285,15 +323,20 @@ func captureBrowser(ctx context.Context, b *browser.Browser, opts options) error
 				log.Printf("%s: scenario %s changes the first request: %s", c.Profile.Name, sc.Name, d)
 			}
 		}
+
 		path, err := capture.Write(opts.out, c)
 		if errors.Is(err, capture.ErrExists) {
 			log.Printf("%s: %v; delete it to capture again", c.Profile.Name, err)
+
 			continue
 		}
+
 		if err != nil {
 			return err
 		}
+
 		log.Printf("%s: wrote %s", c.Profile.Name, path)
+
 		if err := appendSummary(opts.summary, summaryLine{
 			Browser:   b.Name,
 			Scenario:  c.Scenario,
@@ -313,29 +356,37 @@ func captureBrowser(ctx context.Context, b *browser.Browser, opts options) error
 func captureScenario(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts options) (*capture.Capture, error) {
 	n := opts.samplesFor(sc)
 	samples := make([]*capture.Capture, 0, n)
+
 	for i := range n {
 		c, err := sample(ctx, b, sc, opts)
 		for retake := 1; errors.Is(err, errPageMoved) && retake <= maxRetakes; retake++ {
 			log.Printf("%s: scenario %s, sample %d: %v; taking it again (%d of %d)", b.Name, sc.Name, i+1, err, retake, maxRetakes)
+
 			c, err = sample(ctx, b, sc, opts)
 		}
+
 		if err != nil {
 			return nil, fmt.Errorf("sample %d: %w", i+1, err)
 		}
+
 		if i == 0 {
 			// The first sample names the capture: stop here if it exists
 			// rather than after every sample.
 			c.Identify()
+
 			if err := capture.CheckNew(opts.out, c); err != nil {
 				return nil, err
 			}
 		}
+
 		samples = append(samples, c)
 	}
+
 	c, err := capture.Combine(samples)
 	if err != nil {
 		return nil, err
 	}
+
 	c.Identify()
 
 	return c, nil
@@ -367,6 +418,7 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 	if err != nil {
 		return nil, err
 	}
+
 	// A replayed page opens a connection per host, each handing over a
 	// capture; the buffer holds them all so the one asking for /done is
 	// never dropped.
@@ -401,20 +453,26 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 		_ = ln.Close()
 		return nil, err
 	}
-	var px *proxy.Proxy
-	var proxyURL *url.URL
-	var pln net.Listener
-	var plainPort int
+
+	var (
+		px        *proxy.Proxy
+		proxyURL  *url.URL
+		pln       net.Listener
+		plainPort int
+	)
+
 	if sc.Proxy != "" {
 		addr := "127.0.0.1:0"
 		if b.Shared {
 			// Safari reaches the proxy the system's PAC script names.
 			addr, port = safariProxyListen(sc, port)
 		}
+
 		if pln, err = (&net.ListenConfig{}).Listen(ctx, "tcp", addr); err != nil {
 			_ = ln.Close()
 			return nil, err
 		}
+
 		px = &proxy.Proxy{
 			// Only the capture hosts; a browser's background traffic is refused.
 			Allow: func(host string) bool {
@@ -429,6 +487,7 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 		if sc.ProxyAuth {
 			px.Auth = server.ProxyAuthorization()
 		}
+
 		px.Logf = func(format string, args ...any) {
 			log.Printf("%s: proxy: "+format, append([]any{b.Name}, args...)...)
 		}
@@ -439,6 +498,7 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 		_ = ln.Close()
 		ln = px.Listener()
 	}
+
 	if sc.PlainPort() {
 		// The page's http:// URLs name a second port, which answers no
 		// TLS; every host resolves to this address on either port.
@@ -446,12 +506,14 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 			_ = ln.Close()
 			return nil, err
 		}
+
 		if plainPort, err = tcpPort(srv.PlainListener); err != nil {
 			_ = ln.Close()
 			_ = srv.PlainListener.Close()
 
 			return nil, err
 		}
+
 		if px != nil {
 			// Behind the proxy the port is only named: the proxy hands
 			// what is for it to the server's plain side.
@@ -459,22 +521,29 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 			_ = srv.PlainListener.Close()
 			srv.PlainListener = px.PlainListener()
 		}
+
 		log.Printf("%s: plain HTTP on port %d", b.Name, plainPort)
 	}
+
 	serveCtx, stopServer := context.WithCancel(ctx)
 	served, proxied := make(chan struct{}), make(chan struct{})
+
 	if px != nil {
 		go func() {
 			_ = px.Serve(serveCtx, pln)
+
 			close(proxied)
 		}()
 	} else {
 		close(proxied)
 	}
+
 	go func() {
 		_ = srv.Serve(serveCtx, ln)
+
 		close(served)
 	}()
+
 	defer func() {
 		stopServer()
 		<-served
@@ -491,47 +560,61 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 	if sc.ProxyAuth {
 		t.ProxyAuth = url.UserPassword(server.ProxyUser, server.ProxyPassword)
 	}
+
 	if sc.HTTP3() {
 		t.H3LocalRoots = opts.h3LocalRoots
 	}
+
 	if sc.Clicks() {
 		t.ClickTitle = server.ClickTitle
 	}
+
 	timeout := opts.timeout
 	hosts, length, multi := sc.MultiHost()
+
 	if multi {
 		t.Host = hosts[0]
 		t.Hosts = hosts[1:]
 		t.HostCerts = true
 		t.Path = sc.StartPath()
+
 		timeout += length
 	}
+
 	if sc.StartsPlain() {
 		// The page starts at http:// on its plain port.
 		t.Plain = true
 		t.Port = plainPort
 	}
+
 	if b.Shared && t.ProxyAuth != nil {
 		// Nothing can answer Safari's login dialog but a person.
 		log.Printf("%s: when asked for proxy credentials, type user %q, password %q", b.Name, server.ProxyUser, server.ProxyPassword)
+
 		timeout += 2 * time.Minute
 	}
+
 	conditions := b.Conditions(t)
 	for _, c := range conditions {
 		log.Printf("%s: condition: %s", b.Name, c)
 	}
+
 	log.Printf("%s: opening %s", b.Name, b.URL(t))
+
 	session, err := b.Open(ctx, t, opts.headless)
 	if err != nil {
 		return nil, err
 	}
+
 	c, err := await(ctx, b.Name, captures, timeout, multi)
 	if closeErr := session.Close(); closeErr != nil {
 		log.Printf("%s: cleaning up: %v", b.Name, closeErr)
 	}
+
 	if c != nil && px != nil {
 		c.Proxy = px.Requests()
 	}
+
 	if c != nil && len(conditions) > 0 {
 		// A capture under other conditions is another capture.
 		c.Scenario += "." + localRootsSuffix
@@ -555,13 +638,16 @@ func listen(ctx context.Context, udp bool) (net.Listener, net.PacketConn, error)
 		if err != nil {
 			return nil, nil, err
 		}
+
 		if !udp {
 			return ln, nil, nil
 		}
+
 		pc, err := (&net.ListenConfig{}).ListenPacket(ctx, "udp", ln.Addr().String())
 		if err == nil {
 			return ln, pc, nil
 		}
+
 		// The port is taken for UDP; try another.
 		_ = ln.Close()
 	}
@@ -582,14 +668,18 @@ func await(ctx context.Context, name string, captures <-chan *capture.Capture, t
 				// and gave up. Logged because it is the first thing to check
 				// when a browser times out.
 				log.Printf("%s: a connection ended without a request (ALPN %q)", name, c.Protocol)
+
 				continue
 			}
+
 			if browserName, _, _ := capture.ParseUserAgent(c.UserAgent()); browserName != name {
 				continue
 			}
+
 			if page && !c.Finished {
 				continue
 			}
+
 			if c.Trace != nil && !c.Finished {
 				// The connection ended before the page asked for /done, so
 				// its trace stops partway; the page carries on elsewhere.
@@ -597,21 +687,26 @@ func await(ctx context.Context, name string, captures <-chan *capture.Capture, t
 				for _, r := range c.Trace.Requests {
 					paths = append(paths, r.Path)
 				}
+
 				frames := c.Trace.Frames[max(0, len(c.Trace.Frames)-6):]
 				last := make([]string, len(frames))
+
 				for i, f := range frames {
 					last[i] = fmt.Sprintf("%s@%d+%dms", f.Type, f.Stream, f.Millis)
 				}
+
 				log.Printf("%s: an HTTP/2 connection ended before /done after %v; its last frames: %s; waiting for the rest",
 					name, paths, strings.Join(last, " "))
 
 				continue
 			}
+
 			if len(c.H1) > 0 && !c.Finished {
 				// One of the page's HTTP/1.1 connections; the one that asks
 				// for /done carries the whole page load.
 				continue
 			}
+
 			if !page && c.Trace != nil && len(c.Trace.Requests) > 0 && c.Trace.Requests[0].Path != "/" {
 				// The connection that finished the page did not carry its
 				// navigation (errPageMoved).
@@ -619,6 +714,7 @@ func await(ctx context.Context, name string, captures <-chan *capture.Capture, t
 			}
 
 			return c, nil
+
 		case <-deadline:
 			return nil, fmt.Errorf("no request within %s", timeout)
 		case <-ctx.Done():
@@ -634,6 +730,7 @@ func scenarioEntry(entry string) (string, int, error) {
 	if !ok {
 		return name, 0, nil
 	}
+
 	n, err := strconv.Atoi(count)
 	if err != nil || n < 1 {
 		return "", 0, fmt.Errorf("-scenarios %q: samples must be a positive number", entry)
@@ -652,13 +749,16 @@ func scenariosNamed(name, pages string) ([]*server.Scenario, error) {
 		if files, err = filepath.Glob(filepath.Join(pages, "*.json")); err != nil {
 			return nil, err
 		}
+
 		if len(files) == 0 {
 			return nil, fmt.Errorf("no page shapes in %s", pages)
 		}
+
 	case strings.HasPrefix(name, "replay-"):
 		files = []string{
 			filepath.Join(pages, strings.TrimPrefix(name, "replay-")+".json"),
 		}
+
 	default:
 		sc, err := server.ScenarioByName(name)
 		if err != nil {
@@ -669,17 +769,21 @@ func scenariosNamed(name, pages string) ([]*server.Scenario, error) {
 			sc,
 		}, nil
 	}
+
 	out := make([]*server.Scenario, 0, len(files))
 	for _, f := range files {
 		p, err := pageshape.Load(f)
 		if err != nil {
 			return nil, err
 		}
+
 		sc, err := server.Replay(p)
 		if err != nil {
 			return nil, err
 		}
+
 		log.Print(sc.Doc)
+
 		out = append(out, sc)
 	}
 

@@ -101,22 +101,27 @@ type cookiesEdge2Page struct {
 func (p cookiesEdge2Page) answer(req request) response {
 	host, port := splitAuthority(req.host)
 	path, _, _ := strings.Cut(req.path, "?")
+
 	switch path {
 	case "/done":
 		return response{status: 200, contentType: "text/plain", body: []byte("ok\n")}
 	case watchdogPath:
 		return watchdogResponse()
 	}
+
 	plain := port == req.ports.plain
 	steps := CookiesEdge2Steps()
+
 	for i, s := range steps {
 		if s.Host != host || s.Path != path || s.Plain != plain {
 			continue
 		}
+
 		r := response{status: 200, contentType: "text/plain", body: []byte("ok\n")}
 		if s.Nav {
 			r = response{status: 200, contentType: "text/html; charset=utf-8", body: htmlPage("cookies-edge2", "", pageScript(edge2Statements(steps, i, req.ports)))}
 		}
+
 		for _, c := range s.Sets {
 			r.headers = append(r.headers, hpack.HeaderField{
 				Name:  "set-cookie",
@@ -150,17 +155,20 @@ func edge2Statements(steps []CookiesEdgeStep, i int, ports portPair) []string {
 	out := []string{
 		`const get = u => within(fetch(u, {credentials: "include"}).then(r => r.text()), 5000);`,
 	}
+
 	switch {
 	case i == 0:
 		out = append(out, "await register();")
 	case watched:
 		out = append(out, "await arm(0);")
 	}
+
 	for _, s := range steps[i+1:] {
 		if !s.Nav {
 			out = append(out, fmt.Sprintf("await get(%s);", strconv.Quote(s.Path)))
 			continue
 		}
+
 		switch {
 		case watched && s.Plain:
 			out = append(out, fmt.Sprintf("await arm(%d);", edge2PlainWatch.Milliseconds()))

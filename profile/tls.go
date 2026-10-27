@@ -248,39 +248,51 @@ func (e *Extension) setFields() []string {
 	if len(e.Data) > 0 {
 		fields = append(fields, "data")
 	}
+
 	if len(e.Groups) > 0 {
 		fields = append(fields, "groups")
 	}
+
 	if len(e.KeyShares) > 0 {
 		fields = append(fields, "keyShares")
 	}
+
 	if len(e.KeyShareLengths) > 0 {
 		fields = append(fields, "keyShareLengths")
 	}
+
 	if e.ECH != nil {
 		fields = append(fields, "ech")
 	}
+
 	if len(e.SignatureAlgorithms) > 0 {
 		fields = append(fields, "signatureAlgorithms")
 	}
+
 	if len(e.Versions) > 0 {
 		fields = append(fields, "versions")
 	}
+
 	if len(e.ALPN) > 0 {
 		fields = append(fields, "alpn")
 	}
+
 	if len(e.ALPS) > 0 {
 		fields = append(fields, "alps")
 	}
+
 	if len(e.PointFormats) > 0 {
 		fields = append(fields, "pointFormats")
 	}
+
 	if len(e.PSKModes) > 0 {
 		fields = append(fields, "pskModes")
 	}
+
 	if len(e.CertCompression) > 0 {
 		fields = append(fields, "certCompression")
 	}
+
 	if e.RecordSizeLimit != 0 {
 		fields = append(fields, "recordSizeLimit")
 	}

@@ -9,6 +9,7 @@ import (
 // and a browser-style set, and rejects malformed bodies.
 func TestParseTransportParameters(t *testing.T) {
 	type tp = TransportParameter
+
 	for _, tc := range []struct {
 		name    string
 		body    string
@@ -70,9 +71,11 @@ func TestParseTransportParameters(t *testing.T) {
 			if (err != nil) != tc.wantErr {
 				t.Fatalf("error %v; want error %v", err, tc.wantErr)
 			}
+
 			if tc.wantErr {
 				return
 			}
+
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Errorf("got\n%+v\nwant\n%+v", got, tc.want)
 			}

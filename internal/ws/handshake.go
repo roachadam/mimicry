@@ -51,30 +51,40 @@ func ParseExtensions(offer, answer string) (*Deflate, error) {
 	if strings.TrimSpace(answer) == "" {
 		return nil, nil //nolint:nilnil // no extension accepted
 	}
+
 	offered := false
 	for e := range strings.SplitSeq(offer, ",") {
 		name, _, _ := strings.Cut(e, ";")
+
 		offered = offered || strings.TrimSpace(name) == "permessage-deflate"
 	}
+
 	var d *Deflate
 	for e := range strings.SplitSeq(answer, ",") {
 		params := strings.Split(e, ";")
 		if strings.TrimSpace(params[0]) != "permessage-deflate" || !offered {
 			return nil, fmt.Errorf("%w %q accepts an extension not offered", errExtension, answer)
 		}
+
 		if d != nil {
 			return nil, fmt.Errorf("%w %q accepts permessage-deflate twice", errExtension, answer)
 		}
+
 		d = &Deflate{
 			ClientMaxWindowBits: 15,
 		}
+
 		seen := map[string]bool{}
+
 		for _, p := range params[1:] {
 			name, value, hasValue := strings.Cut(p, "=")
+
 			name, value = strings.TrimSpace(name), strings.Trim(strings.TrimSpace(value), `"`)
+
 			if seen[name] {
 				return nil, fmt.Errorf("%w %q repeats %s", errExtension, answer, name)
 			}
+
 			seen[name] = true
 			switch name {
 			case "server_no_context_takeover":
@@ -86,15 +96,19 @@ func ParseExtensions(offer, answer string) (*Deflate, error) {
 				if _, err := windowBits(value); err != nil || !hasValue {
 					return nil, fmt.Errorf("%w %q has a bad %s", errExtension, answer, name)
 				}
+
 			case "client_max_window_bits":
 				bits, err := windowBits(value)
 				if err != nil || !hasValue {
 					return nil, fmt.Errorf("%w %q has a bad %s", errExtension, answer, name)
 				}
+
 				d.ClientMaxWindowBits = bits
+
 			default:
 				return nil, fmt.Errorf("%w %q has an unknown parameter %s", errExtension, answer, name)
 			}
+
 			if hasValue != (name == "server_max_window_bits" || name == "client_max_window_bits") {
 				return nil, fmt.Errorf("%w %q: %s with a value it does not take", errExtension, answer, name)
 			}

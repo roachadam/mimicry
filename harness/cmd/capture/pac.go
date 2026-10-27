@@ -40,17 +40,22 @@ func servePAC(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	srv := &http.Server{
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "application/x-ns-proxy-autoconfig")
+
 			_, _ = w.Write([]byte(safariPAC))
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
+
 	go func() {
 		<-ctx.Done()
+
 		_ = srv.Close()
 	}()
+
 	if err := srv.Serve(ln); !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
@@ -80,6 +85,7 @@ func safariProxyConfig(ctx context.Context) safariProxy {
 	if err != nil {
 		return safariProxyNone
 	}
+
 	s := string(out)
 	if strings.Contains(s, "ProxyAutoConfigEnable : 1") {
 		if strings.Contains(s, "ProxyAutoConfigURLString : "+safariPACURL) {
@@ -88,6 +94,7 @@ func safariProxyConfig(ctx context.Context) safariProxy {
 
 		return safariProxyNone
 	}
+
 	host, port, _ := net.SplitHostPort(safariHTTPProxy)
 	if strings.Contains(s, "HTTPSEnable : 1") && strings.Contains(s, "HTTPSProxy : "+host) && strings.Contains(s, "HTTPSPort : "+port) {
 		return safariProxyManual

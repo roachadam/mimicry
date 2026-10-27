@@ -94,20 +94,26 @@ func prefixInt(b []byte, n uint) (uint64, int, error) {
 	if len(b) == 0 {
 		return 0, 0, errIncomplete
 	}
+
 	limit := uint64(1)<<n - 1
 	v := uint64(b[0]) & limit
+
 	if v < limit {
 		return v, 1, nil
 	}
+
 	for i, shift := 1, uint(0); ; i++ {
 		if i >= len(b) {
 			return 0, 0, errIncomplete
 		}
+
 		if shift > 56 {
 			return 0, 0, errors.New("integer overflow")
 		}
+
 		v += uint64(b[i]&0x7f) << shift
 		shift += 7
+
 		if b[i]&0x80 == 0 {
 			return v, i + 1, nil
 		}
@@ -120,14 +126,18 @@ func prefixString(b []byte, n uint) (s string, huffman bool, consumed int, err e
 	if len(b) == 0 {
 		return "", false, 0, errIncomplete
 	}
+
 	huffman = b[0]&(1<<n) != 0
+
 	length, k, err := prefixInt(b, n)
 	if err != nil {
 		return "", false, 0, err
 	}
+
 	if uint64(len(b)-k) < length {
 		return "", false, 0, errIncomplete
 	}
+
 	data := b[k : k+int(length)]
 	if huffman {
 		if s, err = hpack.HuffmanDecodeToString(data); err != nil {
@@ -288,10 +298,13 @@ func (t *Table) evict(room uint64) error {
 	if room > t.capacity {
 		return fmt.Errorf("entry of %d bytes larger than the table's capacity %d", room, t.capacity)
 	}
+
 	for t.size+room > t.capacity {
 		e := t.entries[0]
+
 		t.entries = t.entries[1:]
 		t.dropped++
+
 		t.size -= entrySize(e)
 	}
 
@@ -306,7 +319,9 @@ func (t *Table) insert(e [2]string) error {
 	if err := t.evict(entrySize(e)); err != nil {
 		return err
 	}
+
 	t.entries = append(t.entries, e)
+
 	t.size += entrySize(e)
 
 	return nil
@@ -317,16 +332,21 @@ func (t *Table) insert(e [2]string) error {
 // incomplete instruction at the end is left for the next call.
 func (t *Table) ReadEncoderStream(b []byte) ([]EncoderInstruction, int, error) {
 	var out []EncoderInstruction
+
 	read := 0
+
 	for read < len(b) {
 		in, n, err := t.encoderInstruction(b[read:])
 		if errors.Is(err, errIncomplete) {
 			break
 		}
+
 		if err != nil {
 			return out, read, err
 		}
+
 		out = append(out, in)
+
 		read += n
 	}
 
@@ -338,16 +358,21 @@ func (t *Table) encoderInstruction(b []byte) (EncoderInstruction, int, error) {
 	switch {
 	case b[0]&0x80 != 0:
 		in.Op, in.Static = OpInsertNameRef, b[0]&0x40 != 0
+
 		index, n, err := prefixInt(b, 6)
 		if err != nil {
 			return in, 0, err
 		}
+
 		value, huff, m, err := prefixString(b[n:], 7)
 		if err != nil {
 			return in, 0, err
 		}
+
 		in.Index, in.Value, in.ValueHuffman = index, value, huff
+
 		var name [2]string
+
 		switch {
 		case in.Static:
 			name, err = staticEntry(index)
@@ -356,50 +381,65 @@ func (t *Table) encoderInstruction(b []byte) (EncoderInstruction, int, error) {
 		default:
 			name, err = t.entry(t.Inserted() - 1 - index)
 		}
+
 		if err != nil {
 			return in, 0, err
 		}
+
 		in.Name = name[0]
 
 		return in, n + m, t.insert([2]string{in.Name, in.Value})
+
 	case b[0]&0x40 != 0:
 		in.Op = OpInsertLiteral
+
 		name, nameHuff, n, err := prefixString(b, 5)
 		if err != nil {
 			return in, 0, err
 		}
+
 		value, valueHuff, m, err := prefixString(b[n:], 7)
 		if err != nil {
 			return in, 0, err
 		}
+
 		in.Name, in.NameHuffman, in.Value, in.ValueHuffman = name, nameHuff, value, valueHuff
 
 		return in, n + m, t.insert([2]string{name, value})
+
 	case b[0]&0x20 != 0:
 		in.Op = OpSetCapacity
+
 		capacity, n, err := prefixInt(b, 5)
 		if err != nil {
 			return in, 0, err
 		}
+
 		if capacity > t.maxCapacity {
 			return in, 0, fmt.Errorf("capacity %d above the %d allowed", capacity, t.maxCapacity)
 		}
+
 		in.Capacity, t.capacity = capacity, capacity
 
 		return in, n, t.evict(0)
 	}
+
 	in.Op = OpDuplicate
+
 	index, n, err := prefixInt(b, 5)
 	if err != nil {
 		return in, 0, err
 	}
+
 	if index >= t.Inserted() {
 		return in, 0, fmt.Errorf("duplicate of relative index %d of %d entries", index, t.Inserted())
 	}
+
 	e, err := t.entry(t.Inserted() - 1 - index)
 	if err != nil {
 		return in, 0, err
 	}
+
 	in.Index, in.Name, in.Value = index, e[0], e[1]
 
 	return in, n, t.insert(e)
@@ -410,40 +450,51 @@ func (t *Table) encoderInstruction(b []byte) (EncoderInstruction, int, error) {
 // entries not yet inserted.
 func (t *Table) DecodeSection(block []byte) (Section, error) {
 	var s Section
+
 	encoded, n, err := prefixInt(block, 8)
 	if err != nil {
 		return s, err
 	}
+
 	block = block[n:]
 	if len(block) == 0 {
 		return s, errIncomplete
 	}
+
 	s.Sign = block[0]&0x80 != 0
+
 	delta, n, err := prefixInt(block, 7)
 	if err != nil {
 		return s, err
 	}
+
 	block = block[n:]
 	s.EncodedInsertCount, s.DeltaBase = encoded, delta
+
 	if s.RequiredInsertCount, err = t.requiredInsertCount(encoded); err != nil {
 		return s, err
 	}
+
 	if s.RequiredInsertCount > t.Inserted() {
 		return s, ErrBlocked
 	}
+
 	base := s.RequiredInsertCount + delta
 	if s.Sign {
 		if delta >= s.RequiredInsertCount {
 			return s, errors.New("negative base")
 		}
+
 		base = s.RequiredInsertCount - delta - 1
 	}
+
 	s.Fields = []FieldLine{}
 	for len(block) > 0 {
 		f, n, err := t.fieldLine(block, base)
 		if err != nil {
 			return s, err
 		}
+
 		s.Fields = append(s.Fields, f)
 		block = block[n:]
 	}
@@ -457,19 +508,25 @@ func (t *Table) requiredInsertCount(encoded uint64) (uint64, error) {
 	if encoded == 0 {
 		return 0, nil
 	}
+
 	maxEntries := t.maxCapacity / 32
 	fullRange := 2 * maxEntries
+
 	if encoded > fullRange {
 		return 0, fmt.Errorf("encoded insert count %d above %d", encoded, fullRange)
 	}
+
 	maxValue := t.Inserted() + maxEntries
 	ric := maxValue/fullRange*fullRange + encoded - 1
+
 	if ric > maxValue {
 		if ric <= fullRange {
 			return 0, errors.New("bad encoded insert count")
 		}
+
 		ric -= fullRange
 	}
+
 	if ric == 0 {
 		return 0, errors.New("bad encoded insert count")
 	}
@@ -478,71 +535,91 @@ func (t *Table) requiredInsertCount(encoded uint64) (uint64, error) {
 }
 
 func (t *Table) fieldLine(b []byte, base uint64) (FieldLine, int, error) {
-	var f FieldLine
-	var name [2]string
-	var n int
-	var err error
+	var (
+		f    FieldLine
+		name [2]string
+		n    int
+		err  error
+	)
+
 	dynamic := func(absolute uint64, ok bool) {
 		if !ok {
 			err = errors.New("dynamic reference outside the table")
 			return
 		}
+
 		name, err = t.entry(absolute)
 	}
+
 	switch {
 	case b[0]&0x80 != 0:
 		f.Rep, f.Static = RepIndexed, b[0]&0x40 != 0
 		if f.Index, n, err = prefixInt(b, 6); err != nil {
 			return f, 0, err
 		}
+
 		if f.Static {
 			name, err = staticEntry(f.Index)
 		} else {
 			dynamic(base-1-f.Index, f.Index < base)
 		}
+
 		f.Name, f.Value = name[0], name[1]
 
 		return f, n, err
+
 	case b[0]&0x40 != 0:
 		f.Rep, f.Never, f.Static = RepLiteralRef, b[0]&0x20 != 0, b[0]&0x10 != 0
 		if f.Index, n, err = prefixInt(b, 4); err != nil {
 			return f, 0, err
 		}
+
 		if f.Static {
 			name, err = staticEntry(f.Index)
 		} else {
 			dynamic(base-1-f.Index, f.Index < base)
 		}
+
 	case b[0]&0x20 != 0:
 		f.Rep, f.Never = RepLiteral, b[0]&0x10 != 0
 		if f.Name, f.NameHuffman, n, err = prefixString(b, 3); err != nil {
 			return f, 0, err
 		}
+
 		name[0] = f.Name
+
 	case b[0]&0x10 != 0:
 		f.Rep = RepIndexedPostBase
 		if f.Index, n, err = prefixInt(b, 4); err != nil {
 			return f, 0, err
 		}
+
 		dynamic(base+f.Index, true)
+
 		f.Name, f.Value = name[0], name[1]
 
 		return f, n, err
+
 	default:
 		f.Rep, f.Never = RepLiteralPostBaseRef, b[0]&0x08 != 0
 		if f.Index, n, err = prefixInt(b, 3); err != nil {
 			return f, 0, err
 		}
+
 		dynamic(base+f.Index, true)
 	}
+
 	if err != nil {
 		return f, 0, err
 	}
+
 	f.Name = name[0]
+
 	value, huff, m, err := prefixString(b[n:], 7)
 	if err != nil {
 		return f, 0, err
 	}
+
 	f.Value, f.ValueHuffman = value, huff
 
 	return f, n + m, nil
@@ -552,33 +629,44 @@ func (t *Table) fieldLine(b []byte, base uint64) (FieldLine, int, error) {
 // of b and returns them with the bytes they took.
 func ReadDecoderStream(b []byte) ([]DecoderInstruction, int, error) {
 	var out []DecoderInstruction
+
 	read := 0
+
 	for read < len(b) {
-		var in DecoderInstruction
-		var v uint64
-		var n int
-		var err error
+		var (
+			in  DecoderInstruction
+			v   uint64
+			n   int
+			err error
+		)
+
 		switch c := b[read]; {
 		case c&0x80 != 0:
 			in.Op = OpSectionAck
 			v, n, err = prefixInt(b[read:], 7)
 			in.Stream = v
+
 		case c&0x40 != 0:
 			in.Op = OpStreamCancel
 			v, n, err = prefixInt(b[read:], 6)
 			in.Stream = v
+
 		default:
 			in.Op = OpInsertCountIncrement
 			v, n, err = prefixInt(b[read:], 6)
 			in.Increment = v
 		}
+
 		if errors.Is(err, errIncomplete) {
 			break
 		}
+
 		if err != nil {
 			return out, read, err
 		}
+
 		out = append(out, in)
+
 		read += n
 	}
 
@@ -592,6 +680,7 @@ func appendPrefixInt(dst []byte, first byte, n uint, v uint64) []byte {
 	if v < limit {
 		return append(dst, first|byte(v))
 	}
+
 	dst = append(dst, first|byte(limit))
 	for v -= limit; v >= 0x80; v >>= 7 {
 		dst = append(dst, byte(v)|0x80)
@@ -623,24 +712,29 @@ func EncodeSection(fields [][2]string) []byte {
 			if e[0] != f[0] {
 				continue
 			}
+
 			if named < 0 {
 				named = i
 			}
+
 			if e[1] == f[1] {
 				exact = i
 				break
 			}
 		}
+
 		switch {
 		case exact >= 0:
 			out = appendPrefixInt(out, 0xc0, 6, uint64(exact))
 			continue
+
 		case named >= 0:
 			out = appendPrefixInt(out, 0x50, 4, uint64(named))
 		default:
 			out = appendPrefixInt(out, 0x20, 3, uint64(len(f[0])))
 			out = append(out, f[0]...)
 		}
+
 		out = appendPrefixInt(out, 0x00, 7, uint64(len(f[1])))
 		out = append(out, f[1]...)
 	}

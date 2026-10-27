@@ -48,19 +48,24 @@ func TestHeadersOrderMatchesBrowser(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			want, err := loadPages(t, p, "headers-order", ".pagetrace.json.gz")
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			s := startPage(t, p, server.HeadersOrder)
 			s.planEvery()
+
 			hosts, _, _ := server.HeadersOrder.MultiHost()
 			page := s.url(hosts[0], "/")
 			s.send(http.MethodGet, page, mimicry.Request{}, nil, "")
+
 			from, err := url.Parse(page)
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			kinds := map[string]mimicry.Kind{
 				"fetch": mimicry.Fetch,
 				"xhr":   mimicry.XHR,
@@ -73,23 +78,30 @@ func TestHeadersOrderMatchesBrowser(t *testing.T) {
 						h[nv[0]] = append(h[nv[0]], nv[1])
 					}
 				}
+
 				s.send(http.MethodGet, s.url(st.Host, "/h/"+st.Label), mimicry.Request{
 					Kind: kinds[st.API],
 					From: from,
 				}, h, "")
 			}
+
 			got := s.finish(s.url(hosts[0], "/done"))
 			gaps := headersOrderGaps[capture.Source(p, "headers-order")]
+
 			for _, st := range server.HeadersSteps() {
 				h1 := strings.HasSuffix(st.Label, ".h1")
 				path := "/h/" + st.Label
+
 				for _, preflight := range []bool{false, true} {
 					g := requestFields(got, path, h1, preflight)
 					w := requestFields(want[0], path, h1, preflight)
+
 					if preflight && (g == nil) != (w == nil) {
 						t.Errorf("%s preflight: mimicry sent one %v, the browser %v", st.Label, g != nil, w != nil)
+
 						continue
 					}
+
 					if g == nil {
 						if !preflight {
 							t.Errorf("%s: mimicry sent no request", st.Label)
@@ -97,11 +109,13 @@ func TestHeadersOrderMatchesBrowser(t *testing.T) {
 
 						continue
 					}
+
 					forms := browserForms(t, want, path, h1, preflight)
 					same := slices.ContainsFunc(forms, func(w *kindsSent) bool {
 						return slices.Equal(g.lines, w.lines)
 					})
 					known := !preflight && slices.Contains(gaps, st.Label)
+
 					switch {
 					case same && known:
 						t.Errorf("%s: known gap no longer seen", st.Label)
@@ -112,6 +126,7 @@ func TestHeadersOrderMatchesBrowser(t *testing.T) {
 						if preflight {
 							name += " preflight"
 						}
+
 						t.Errorf("%s:\n got %q\nwant %q", name, g.lines, forms[0].lines)
 					}
 				}

@@ -65,10 +65,13 @@ var resumeHosts = fixedHosts{
 func (p resumePage) answer(req request) response {
 	host, port := splitAuthority(req.host)
 	origin := originOn("https://", port)
+
 	var cors []hpack.HeaderField
+
 	if req.origin != "" {
 		cors = corsAllow(req.origin)
 	}
+
 	path, _, _ := strings.Cut(req.path, "?")
 	switch {
 	case host == kindsHost && path == "/":
@@ -76,10 +79,12 @@ func (p resumePage) answer(req request) response {
 	case path == "/done":
 		return response{status: 200, contentType: "text/plain", body: []byte("ok\n")}
 	}
+
 	label, ok := strings.CutPrefix(path, "/k/")
 	if !ok {
 		return response{status: 404, contentType: "text/plain", body: []byte("not found\n"), headers: cors}
 	}
+
 	r := response{status: 200, contentType: "text/plain", body: []byte("ok\n"), headers: cors}
 	if strings.HasPrefix(label, "p") {
 		r.delay = 500 * time.Millisecond
@@ -99,12 +104,15 @@ func (resumePage) document(origin func(string) string) []byte {
 		"h1": resumeH1,
 	}
 	steps := make([]string, 0, len(ResumeSteps))
+
 	for _, step := range ResumeSteps {
 		var urls []string
 		for label := range strings.SplitSeq(step, "|") {
 			_, suffix, _ := strings.Cut(label, ".")
+
 			urls = append(urls, strconv.Quote(origin(hostOf[suffix])+"/k/"+label))
 		}
+
 		steps = append(steps, "["+strings.Join(urls, ", ")+"]")
 	}
 

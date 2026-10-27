@@ -24,13 +24,16 @@ import (
 // lookup).
 func loopbackDNS(t *testing.T) *net.Resolver {
 	t.Helper()
+
 	pc, err := new(net.ListenConfig).ListenPacket(t.Context(), "udp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Cleanup(func() {
 		_ = pc.Close()
 	})
+
 	go func() {
 		buf := make([]byte, 512)
 		for {
@@ -38,15 +41,19 @@ func loopbackDNS(t *testing.T) *net.Resolver {
 			if err != nil {
 				return
 			}
+
 			var p dnsmessage.Parser
+
 			h, err := p.Start(buf[:n])
 			if err != nil {
 				continue
 			}
+
 			q, err := p.Question()
 			if err != nil {
 				continue
 			}
+
 			b := dnsmessage.NewBuilder(nil, dnsmessage.Header{
 				ID:                 h.ID,
 				Response:           true,
@@ -55,9 +62,11 @@ func loopbackDNS(t *testing.T) *net.Resolver {
 				RecursionAvailable: true,
 			})
 			b.EnableCompression()
+
 			_ = b.StartQuestions()
 			_ = b.Question(q)
 			_ = b.StartAnswers()
+
 			if q.Type == dnsmessage.TypeA {
 				_ = b.AResource(dnsmessage.ResourceHeader{
 					Name:  q.Name,
@@ -67,13 +76,16 @@ func loopbackDNS(t *testing.T) *net.Resolver {
 					A: [4]byte{127, 0, 0, 1},
 				})
 			}
+
 			msg, err := b.Finish()
 			if err != nil {
 				continue
 			}
+
 			_, _ = pc.WriteTo(msg, from)
 		}
 	}()
+
 	addr := pc.LocalAddr().String()
 
 	return &net.Resolver{
@@ -111,15 +123,24 @@ func TestPins(t *testing.T) {
 		}
 	}
 	h2 := startShop(handler)
+
 	defer h2.Close()
+
 	h1 := startShopHTTP1(handler)
+
 	defer h1.Close()
+
 	proxy := startProxy(h2, "", "")
+
 	defer proxy.Close()
+
 	proxyH1 := startProxy(h1, "", "")
+
 	defer proxyH1.Close()
+
 	dns := loopbackDNS(t)
 	errRejected := errors.New("rejected by VerifyConnection")
+
 	const other = "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 
 	pin := func(host string, spki ...string) []mimicry.Pin {
@@ -311,6 +332,7 @@ func TestPins(t *testing.T) {
 						if err := mimicry.SetPins(tr, pin("www.shop.test", other)); err != nil {
 							t.Fatal(err)
 						}
+
 						tr.CloseIdleConnections()
 					},
 					wantPinErr: true,
@@ -493,52 +515,70 @@ func TestPins(t *testing.T) {
 				if tc.shop == h1 {
 					via = proxyH1
 				}
+
 				cfg.DialContext = nil
 				cfg.Proxy = http.ProxyURL(via.URL)
 			}
+
 			if tc.resolver {
 				cfg.Resolver = dns
 			}
+
 			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+
 			defer cancel()
+
 			chain, err := mimicry.FetchPins(ctx, cfg, "https://www.shop.test/")
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			roles := make([]string, len(chain))
 			presented := make([]string, len(chain))
+
 			for i, c := range chain {
 				roles[i] = c.Role.String()
 				presented[i] = c.SPKI
 			}
+
 			if want := []string{"leaf", "intermediate", "root"}; !slices.Equal(roles, want) {
 				t.Fatalf("FetchPins roles %q, want %q", roles, want)
 			}
+
 			cfg.Pins = tc.pins(chain)
+
 			var mu sync.Mutex
+
 			calls := 0
+
 			if tc.verify != nil {
 				cfg.VerifyConnection = func(cs tls.ConnectionState) error {
 					mu.Lock()
+
 					calls++
 					mu.Unlock()
 
 					return tc.verify(cs)
 				}
 			}
+
 			client, err := mimicry.NewClient(cfg)
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			tr, ok := client.Transport.(*mimicry.Transport)
 			if !ok {
 				t.Fatalf("client.Transport is %T", client.Transport)
 			}
+
 			defer tr.CloseIdleConnections()
+
 			for i, st := range tc.steps {
 				if st.before != nil {
 					st.before(t, tr, chain)
 				}
+
 				var state *tls.ConnectionState
 				if st.ws {
 					ws, resp, err := tr.DialWebSocket(ctx, st.url, mimicry.WebSocketOptions{})
@@ -546,23 +586,29 @@ func TestPins(t *testing.T) {
 						state = resp.TLS
 						_ = ws.Close(1000, "")
 					}
+
 					checkPinStep(t, i, st, err, state, presented)
 
 					continue
 				}
+
 				req, err := http.NewRequestWithContext(ctx, http.MethodGet, st.url, nil)
 				if err != nil {
 					t.Fatal(err)
 				}
+
 				resp, err := client.Do(req)
 				if err == nil {
 					state = resp.TLS
 					_ = resp.Body.Close()
 				}
+
 				checkPinStep(t, i, st, err, state, presented)
 			}
+
 			mu.Lock()
 			defer mu.Unlock()
+
 			if calls != tc.verifyCalls {
 				t.Errorf("VerifyConnection ran %d times, want %d", calls, tc.verifyCalls)
 			}
@@ -573,38 +619,50 @@ func TestPins(t *testing.T) {
 // checkPinStep checks step i's outcome: err, or the response's TLS state.
 func checkPinStep(t *testing.T, i int, st pinStep, err error, state *tls.ConnectionState, presented []string) {
 	t.Helper()
+
 	var pe *mimicry.PinError
 	switch {
 	case st.wantPinErr:
 		if !errors.As(err, &pe) {
 			t.Errorf("step %d: got %v, want a *PinError", i, err)
+
 			return
 		}
+
 		host := strings.TrimPrefix(strings.TrimPrefix(st.url, "https://"), "wss://")
+
 		host, _, _ = strings.Cut(host, "/")
+
 		if pe.Host != host || !slices.Equal(pe.Presented, presented) {
 			t.Errorf("step %d: PinError{%q, %q}, want {%q, %q}", i, pe.Host, pe.Presented, host, presented)
 		}
 
 		return
+
 	case st.wantErr != nil:
 		if !errors.Is(err, st.wantErr) {
 			t.Errorf("step %d: got %v, want %v", i, err, st.wantErr)
 		}
 
 		return
+
 	case err != nil:
 		t.Errorf("step %d: %v", i, err)
+
 		return
 	}
+
 	if state == nil {
 		t.Errorf("step %d: the response has no TLS state", i)
+
 		return
 	}
+
 	if !state.HandshakeComplete || len(state.VerifiedChains) == 0 || state.NegotiatedProtocol != st.wantProto || state.DidResume != st.wantResumed {
 		t.Errorf("step %d: TLS state complete %t, %d verified chains, protocol %q, resumed %t; want complete, a chain, %q, resumed %t",
 			i, state.HandshakeComplete, len(state.VerifiedChains), state.NegotiatedProtocol, state.DidResume, st.wantProto, st.wantResumed)
 	}
+
 	if st.wantServerName != "" && state.ServerName != st.wantServerName {
 		t.Errorf("step %d: the response came on a connection to %q, want %q", i, state.ServerName, st.wantServerName)
 	}

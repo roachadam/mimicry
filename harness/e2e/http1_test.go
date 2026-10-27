@@ -24,33 +24,41 @@ func TestHTTP1MatchesBrowserTrace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
 			p, err := loadProfile(name)
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			samples := loadSamples[[]capture.H1Request](t, p, "http1", ".h1trace.json")
 			jar := newJar(t, p)
 			base, tr, captures := captureClientWith(t, p, sc, jar)
+
 			page, err := url.Parse(base + "/")
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			client := &http.Client{
 				Transport: tr,
 			}
 			get := func(path string, r mimicry.Request, h http.Header) {
 				t.Helper()
+
 				req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, base+path, nil)
 				if err != nil {
 					t.Fatal(err)
 				}
+
 				maps.Copy(req.Header, h)
+
 				resp, err := client.Do(mimicry.With(req, r))
 				if err != nil {
 					t.Fatal(err)
 				}
+
 				_, _ = io.Copy(io.Discard, resp.Body)
 				_ = resp.Body.Close()
 			}
@@ -71,10 +79,12 @@ func TestHTTP1MatchesBrowserTrace(t *testing.T) {
 				"Sec-Fetch-User": nil,
 			})
 			get("/done", mimicry.Request{}, nil)
+
 			c := <-captures
 			if c.Protocol != "http/1.1" {
 				t.Fatalf("negotiated %q, want http/1.1", c.Protocol)
 			}
+
 			got := [][]string{
 				normalize(c.H1[0].Headers),
 				normalize(c.H1[1].Headers),
@@ -93,6 +103,7 @@ func TestHTTP1MatchesBrowserTrace(t *testing.T) {
 // navigations returns a sample's first navigation and its /nav, normalized.
 func navigations(t *testing.T, sample []capture.H1Request) [][]string {
 	t.Helper()
+
 	out := make([][]string, 0, 2)
 	for _, path := range []string{"/", "/nav"} {
 		i := slices.IndexFunc(sample, func(r capture.H1Request) bool {
@@ -101,6 +112,7 @@ func navigations(t *testing.T, sample []capture.H1Request) [][]string {
 		if i < 0 {
 			t.Fatalf("sample has no GET %s", path)
 		}
+
 		out = append(out, normalize(sample[i].Headers))
 	}
 
@@ -116,6 +128,7 @@ func normalize(lines []string) []string {
 			host = strings.TrimSpace(value)
 		}
 	}
+
 	out := make([]string, len(lines))
 	for i, l := range lines {
 		out[i] = strings.ReplaceAll(l, host, "{host}")

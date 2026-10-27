@@ -159,12 +159,15 @@ func (k *Cookies) Validate() error {
 func (c *checker) checkCookies(k *Cookies) {
 	if k == nil {
 		c.add("cookies", "is required")
+
 		return
 	}
+
 	oneOf := func(field, v string, allowed ...string) {
 		if slices.Contains(allowed, v) {
 			return
 		}
+
 		c.add("cookies."+field, "must be one of %q", allowed)
 	}
 	oneOf("unsetSamesite", k.UnsetSameSite, SameSiteLax, SameSiteNone)
@@ -175,15 +178,19 @@ func (c *checker) checkCookies(k *Cookies) {
 	oneOf("order", k.Order, OrderRFC, OrderDomainName)
 	oneOf("samesiteScheme", k.SameSiteScheme, SameSiteSchemeful, SameSiteSchemeless)
 	oneOf("hostPrefixPath", k.HostPrefixPath, HostPrefixPathAttribute, HostPrefixPathStored)
+
 	if k.LaxAllowsUnsafeSeconds < 0 {
 		c.add("cookies.laxAllowsUnsafeSeconds", "must not be negative")
 	}
+
 	if k.LaxAllowsUnsafeSeconds > 0 && k.UnsetSameSite != SameSiteLax {
 		c.add("cookies.laxAllowsUnsafeSeconds", "applies only when unsetSamesite is %q", SameSiteLax)
 	}
+
 	if k.NewValueRenews && k.Order != OrderRFC {
 		c.add("cookies.newValueRenews", "applies only when order is %q", OrderRFC)
 	}
+
 	switch {
 	case k.MaxPerSite < 0:
 		c.add("cookies.maxPerSite", "must not be negative")

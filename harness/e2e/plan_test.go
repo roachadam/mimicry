@@ -44,11 +44,14 @@ func (p *planning) RoundTrip(req *http.Request) (*http.Response, error) {
 		jarChanged: !reflect.DeepEqual(before, jar.All()),
 	}
 	resp, err := p.tr.RoundTrip(req)
+
 	got.err = err
 	if err == nil {
 		got.proto = resp.Proto
 	}
+
 	p.mu.Lock()
+
 	p.plans = append(p.plans, got)
 	p.mu.Unlock()
 
@@ -62,6 +65,7 @@ func (s *pageSession) planEvery() {
 	if !ok {
 		panic("planEvery: session client's Transport is not a *mimicry.Transport")
 	}
+
 	s.planning = &planning{tr: tr}
 	s.client.Transport = s.planning
 }
@@ -96,11 +100,14 @@ func wireRequests(page *capture.Page) []*wireRequest {
 				case ":authority":
 					w.host = ins.Value
 				}
+
 				w.lines = append(w.lines, ins.Name+": "+ins.Value)
 			}
+
 			out = append(out, w)
 		}
 	}
+
 	for _, r := range page.H1 {
 		method, rest, _ := strings.Cut(r.Line, " ")
 		target, _, _ := strings.Cut(rest, " ")
@@ -110,17 +117,21 @@ func wireRequests(page *capture.Page) []*wireRequest {
 			path:   target,
 			lines:  append([]string{r.Line}, r.Headers...),
 		}
+
 		for _, l := range r.Headers {
 			if name, value, _ := strings.Cut(l, ": "); strings.EqualFold(name, "Host") {
 				w.host = value
 			}
 		}
+
 		out = append(out, w)
 	}
+
 	for _, qc := range page.QUIC {
 		if qc.H3 == nil {
 			continue
 		}
+
 		for _, r := range qc.H3.Requests {
 			w := &wireRequest{
 				proto:  "HTTP/3.0",
@@ -131,8 +142,10 @@ func wireRequests(page *capture.Page) []*wireRequest {
 				if f.Name == ":authority" {
 					w.host = f.Value
 				}
+
 				w.lines = append(w.lines, f.Name+": "+f.Value)
 			}
+
 			out = append(out, w)
 		}
 	}
@@ -149,15 +162,19 @@ func planLines(p *mimicry.Plan, proto string) (lines []string, err error) {
 	case "HTTP/3.0":
 		l = p.HTTP3
 	}
+
 	if l == nil {
 		return nil, errors.New("no HTTP/3 lines")
 	}
+
 	if l.Err != nil {
 		return nil, l.Err
 	}
+
 	if l.RequestLine != "" {
 		lines = append(lines, l.RequestLine)
 	}
+
 	for _, h := range l.Headers {
 		lines = append(lines, h.Name+": "+h.Value)
 	}
@@ -174,6 +191,7 @@ func planLines(p *mimicry.Plan, proto string) (lines []string, err error) {
 func (s *pageSession) checkPlans(page *capture.Page) {
 	t := s.t
 	t.Helper()
+
 	wire := wireRequests(page)
 	// take returns the first request of page not taken yet that p
 	// describes, over proto (any, if empty).
@@ -191,47 +209,65 @@ func (s *pageSession) checkPlans(page *capture.Page) {
 	decided := 0
 	compare := func(p *mimicry.Plan, w *wireRequest) {
 		t.Helper()
+
 		counts[w.proto]++
+
 		name := p.Method + " " + p.URL.String()
+
 		if p.Protocol != "" {
 			decided++
 		}
+
 		if p.Protocol != "" && p.Protocol != w.proto {
 			t.Errorf("%s: planned over %s, sent over %s", name, p.Protocol, w.proto)
 		}
+
 		want, err := planLines(p, w.proto)
 		if err != nil {
 			t.Errorf("%s: sent over %s, planned as not possible there: %v", name, w.proto, err)
+
 			return
 		}
+
 		if !slices.Equal(w.lines, want) {
 			t.Errorf("%s over %s:\nplanned %q\n   sent %q", name, w.proto, want, w.lines)
 		}
 	}
+
 	s.planning.mu.Lock()
+
 	plans := slices.Clone(s.planning.plans)
 	s.planning.mu.Unlock()
+
 	if len(plans) == 0 {
 		t.Error("no request was planned")
 	}
+
 	for _, pl := range plans {
 		if pl.jarChanged {
 			t.Errorf("Plan changed the cookie jar (planned %v)", pl.plan != nil)
 		}
+
 		var cors *mimicry.CORSError
 		switch {
 		case pl.planErr != nil && pl.err == nil:
 			t.Errorf("Plan failed, RoundTrip sent it: %v", pl.planErr)
+
 			continue
+
 		case pl.planErr != nil && pl.planErr.Error() != pl.err.Error():
 			t.Errorf("Plan failed with %v, RoundTrip with %v", pl.planErr, pl.err)
+
 			continue
+
 		case pl.planErr != nil:
 			continue
 		case pl.err != nil && !errors.As(pl.err, &cors):
 			t.Errorf("%s %s: planned, RoundTrip failed: %v", pl.plan.Method, pl.plan.URL, pl.err)
+
 			continue
 		}
+
 		if pre := pl.plan.Preflight; pre != nil {
 			if w := take(pre, pre.Protocol); w != nil {
 				compare(pre, w)
@@ -239,10 +275,12 @@ func (s *pageSession) checkPlans(page *capture.Page) {
 				t.Errorf("%s %s: its planned preflight was never received", pl.plan.Method, pl.plan.URL)
 			}
 		}
+
 		if pl.err != nil && !cors.Redirect {
 			// The preflight refused it: nothing more was sent.
 			continue
 		}
+
 		// A refused redirect's request was sent, over the protocol of
 		// whichever request it is (pl.proto is empty then).
 		if w := take(pl.plan, pl.proto); w != nil {
@@ -251,10 +289,12 @@ func (s *pageSession) checkPlans(page *capture.Page) {
 			t.Errorf("%s %s: never received over %s", pl.plan.Method, pl.plan.URL, pl.proto)
 		}
 	}
+
 	for _, w := range wire {
 		if !w.taken {
 			t.Errorf("%s %s%s over %s: received, never planned", w.method, w.host, w.path, w.proto)
 		}
 	}
+
 	t.Logf("plans checked against the wire: %v, %d with the protocol decided before sending", counts, decided)
 }

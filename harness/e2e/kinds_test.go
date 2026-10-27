@@ -32,23 +32,29 @@ func TestKindsMatchBrowserTraces(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if p.Kinds == nil {
 				t.Fatalf("%s describes no request kinds", name)
 			}
+
 			for _, sc := range []*server.Scenario{server.Kinds, server.KindsHTTP1, server.KindsPlain} {
 				t.Run(sc.Name, func(t *testing.T) {
 					want, err := loadPages(t, p, sc.Name, ".pagetrace.json.gz")
 					if err != nil {
 						t.Fatal(err)
 					}
+
 					got := runKindsPage(t, p, sc)
 					h1 := sc != server.Kinds
+
 					var all []string
+
 					for _, step := range kindsRequests() {
 						labels := []string{step.label}
 						if step.redirect {
 							labels = append(labels, step.label+".hop")
 						}
+
 						all = append(all, labels...)
 						for _, label := range labels {
 							for _, preflight := range []bool{false, true} {
@@ -56,9 +62,11 @@ func TestKindsMatchBrowserTraces(t *testing.T) {
 							}
 						}
 					}
+
 					if !h1 {
 						checkConnections(t, capture.Source(p, sc.Name), got, want, all)
 					}
+
 					if sc.Plain {
 						// The page itself: a typed navigation to a non-secure
 						// origin, line for line.
@@ -87,29 +95,38 @@ func compareKind(t *testing.T, got *capture.Page, want []*capture.Page, label st
 // weight. race: the browser's samples were captured without raceCookie.
 func comparePath(t *testing.T, got *capture.Page, want []*capture.Page, path string, race, h1, preflight bool) {
 	t.Helper()
+
 	g := requestFields(got, path, h1, preflight)
 	name := path
+
 	if preflight {
 		name += " preflight"
 		if browser := requestFields(want[0], path, h1, true) != nil; browser != (g != nil) {
 			t.Errorf("%s: mimicry sent one %v, the browser %v", name, g != nil, browser)
+
 			return
 		}
+
 		if g == nil {
 			return
 		}
 	}
+
 	if g == nil {
 		t.Errorf("%s: mimicry sent no request", name)
+
 		return
 	}
+
 	forms := browserForms(t, want, path, h1, preflight)
 	same := func(w *kindsSent) bool {
 		return slices.Equal(g.lines, w.lines) && g.weight == w.weight
 	}
+
 	if slices.ContainsFunc(forms, same) {
 		return
 	}
+
 	// kb_part is set by a response during the page, so a browser request
 	// racing it may go without; mimicry's, made in order, never does. Only
 	// where the race was captured, and only in that direction.
@@ -117,8 +134,10 @@ func comparePath(t *testing.T, got *capture.Page, want []*capture.Page, path str
 		return !hasRaceCookie(w.lines) && slices.Equal(withoutRaceCookie(g.lines), w.lines) && g.weight == w.weight
 	}) {
 		t.Logf("%s: matches but for %s, which the browser had not yet received", name, raceCookie)
+
 		return
 	}
+
 	t.Errorf("%s:\n got %q weight %d\nwant %q weight %d", name, g.lines, g.weight, forms[0].lines, forms[0].weight)
 }
 
@@ -162,6 +181,7 @@ func withoutRaceCookie(lines []string) []string {
 			out = append(out, l)
 			continue
 		}
+
 		crumbs := slices.DeleteFunc(strings.Split(value, "; "), func(c string) bool {
 			return c == raceCookie
 		})
@@ -199,19 +219,24 @@ var partitionGaps = map[string]map[string]string{
 // partitionGaps apply.
 func checkConnections(t *testing.T, source string, got *capture.Page, want []*capture.Page, labels []string) {
 	t.Helper()
+
 	g := connGroups(got, labels)
 	known := partitionGaps[source]
+
 	for i, page := range want {
 		w := connGroups(page, labels)
 		diffs := map[string]string{}
+
 		for _, l := range labels {
 			if g[l] != w[l] {
 				diffs[l] = "mimicry with " + g[l] + ", browser with " + w[l]
 			}
 		}
+
 		for _, l := range labels {
 			d, isDiff := diffs[l]
 			k, isKnown := known[l]
+
 			switch {
 			case isDiff && d != k:
 				t.Errorf("connections, sample %d: %s: %s", i+1, l, d)
@@ -236,16 +261,20 @@ func connGroups(page *capture.Page, labels []string) map[string]string {
 			}
 		}
 	}
+
 	first := map[int]string{}
 	out := map[string]string{}
+
 	for _, l := range labels {
 		c, ok := conn[l]
 		if !ok {
 			continue
 		}
+
 		if _, ok := first[c]; !ok {
 			first[c] = l
 		}
+
 		out[l] = first[c]
 	}
 
@@ -287,7 +316,9 @@ func kindsRequests() []kindsRequest {
 		"xhr":    mimicry.XHR,
 		"beacon": mimicry.Beacon,
 	}
+
 	var out, fonts []kindsRequest
+
 	for _, s := range server.KindsMarkup() {
 		base, _, _ := strings.Cut(s.Label, ".")
 		r := kindsRequest{
@@ -297,17 +328,21 @@ func kindsRequests() []kindsRequest {
 				Kind: markup[base],
 			},
 		}
+
 		if s.Tag == "" {
 			fonts = append(fonts, r)
 			continue
 		}
+
 		out = append(out, r)
 	}
+
 	for _, s := range server.KindsSteps() {
 		kind, ok := scripted[s.Kind]
 		if !ok {
 			continue // FontFace loads
 		}
+
 		r := kindsRequest{
 			label:  s.Label,
 			method: http.MethodGet,
@@ -325,15 +360,18 @@ func kindsRequests() []kindsRequest {
 		if s.Method != "" {
 			r.method = s.Method
 		}
+
 		for k, v := range s.Headers {
 			// As the page spelled it: browsers keep a page's spelling.
 			r.headers[k] = []string{v}
 		}
+
 		if s.Kind == "beacon" {
 			// sendBeacon's string body: the browser sets the type.
 			r.method = http.MethodPost
 			r.headers.Set("Content-Type", "text/plain;charset=UTF-8")
 		}
+
 		out = append(out, r)
 		if len(fonts) > 0 {
 			// The CSS fonts load when their text renders: in most browser
@@ -364,29 +402,36 @@ func kindsRequests() []kindsRequest {
 // mimicry as profile p, from the page, and returns the server's capture.
 func runKindsPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *capture.Page {
 	t.Helper()
+
 	s := startPage(t, p, sc)
 	s.planEvery()
+
 	hosts, _, _ := sc.MultiHost()
 	page := s.url(hosts[0], "/")
 	s.send(http.MethodGet, page, mimicry.Request{}, nil, "")
+
 	from, err := url.Parse(page)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	steps := map[string]server.KindsStep{}
 	for _, st := range slices.Concat(server.KindsMarkup(), server.KindsSteps()) {
 		steps[st.Label] = st
 	}
+
 	for _, r := range kindsRequests() {
 		host := hosts[0]
 		if st, ok := steps[r.label]; ok {
 			host = st.Host
 		}
+
 		r.req.From = from
 		if strings.HasPrefix(r.label, "font-css.") {
 			// The stylesheet that declares the font loads it.
 			r.req.Stylesheet = from.JoinPath("k", "style-fonts.so")
 		}
+
 		s.send(r.method, s.url(host, "/k/"+r.label), r.req, r.headers, r.body)
 	}
 
@@ -413,19 +458,23 @@ type pageSession struct {
 
 func startPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *pageSession {
 	t.Helper()
+
 	ca, err := server.LoadOrCreateCA(t.TempDir(), server.CADomains, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	ln, pc := listenTwin(t, sc.HTTP3())
 	s := &pageSession{
 		t:        t,
 		scheme:   "https",
 		captures: make(chan *capture.Capture, 64),
 	}
+
 	if sc.Plain {
 		s.scheme = "http"
 	}
+
 	ctx, cancel := context.WithCancel(t.Context())
 	srv := &server.Server{
 		Scenario:  sc,
@@ -438,35 +487,46 @@ func startPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *pageSessi
 		},
 		Logf: t.Logf,
 	}
+
 	if sc.PlainPort() {
 		if srv.PlainListener, err = (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0"); err != nil {
 			t.Fatal(err)
 		}
+
 		_, s.plainPort, _ = net.SplitHostPort(srv.PlainListener.Addr().String())
 	}
+
 	if pc != nil {
 		// QUIC on the TLS port's UDP twin, which the Alt-Svc names.
 		srv.PacketConn = pc
 	}
+
 	if sc.NeedsAioquic() {
 		ready := make(chan struct{})
+
 		s.quicReady = ready
 		srv.OnQUICReady = func() {
 			close(ready)
 		}
 	}
+
 	done := make(chan error, 1)
+
 	go func() {
 		done <- srv.Serve(ctx, ln)
 	}()
+
 	t.Cleanup(func() {
 		cancel()
+
 		if err := <-done; err != nil {
 			t.Error(err)
 		}
 	})
+
 	pool := x509.NewCertPool()
 	pool.AddCert(ca.Cert)
+
 	tr, err := mimicry.NewTransport(mimicry.Config{
 		Profile: p,
 		RootCAs: pool,
@@ -487,7 +547,9 @@ func startPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *pageSessi
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Cleanup(tr.CloseIdleConnections)
+
 	s.client = &http.Client{
 		Transport: tr,
 	}
@@ -501,20 +563,25 @@ func startPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *pageSessi
 // client socket of a test running beside).
 func listenTwin(t *testing.T, udp bool) (net.Listener, net.PacketConn) {
 	t.Helper()
+
 	for range 20 {
 		ln, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if !udp {
 			return ln, nil
 		}
+
 		pc, err := (&net.ListenConfig{}).ListenPacket(t.Context(), "udp", ln.Addr().String())
 		if err == nil {
 			return ln, pc
 		}
+
 		_ = ln.Close()
 	}
+
 	t.Fatal("no loopback port free for both TCP and UDP")
 
 	return nil, nil
@@ -528,19 +595,24 @@ func (s *pageSession) url(host, path string) string {
 // body, and reads the response.
 func (s *pageSession) send(method, target string, r mimicry.Request, h http.Header, body string) {
 	s.t.Helper()
+
 	var rd io.Reader
 	if body != "" {
 		rd = strings.NewReader(body)
 	}
+
 	req, err := http.NewRequestWithContext(s.t.Context(), method, target, rd)
 	if err != nil {
 		s.t.Fatal(err)
 	}
+
 	maps.Copy(req.Header, h)
+
 	resp, err := s.client.Do(mimicry.With(req, r))
 	if err != nil {
 		s.t.Fatal(err)
 	}
+
 	_, _ = io.Copy(io.Discard, resp.Body)
 	_ = resp.Body.Close()
 }
@@ -550,6 +622,7 @@ func (s *pageSession) send(method, target string, r mimicry.Request, h http.Head
 func (s *pageSession) finish(done string) *capture.Page {
 	s.t.Helper()
 	s.send(http.MethodGet, done, mimicry.Request{}, nil, "")
+
 	for {
 		select {
 		case c := <-s.captures:
@@ -560,6 +633,7 @@ func (s *pageSession) finish(done string) *capture.Page {
 
 				return c.Page
 			}
+
 		case <-time.After(10 * time.Second):
 			s.t.Fatal("no page capture")
 		}
@@ -582,9 +656,11 @@ func requestFields(page *capture.Page, path string, h1, preflight bool) *kindsSe
 		for _, r := range page.H1 {
 			method, rest, _ := strings.Cut(r.Line, " ")
 			target, _, _ := strings.Cut(rest, " ")
+
 			if target != path || (method == http.MethodOptions) != preflight {
 				continue
 			}
+
 			s := &kindsSent{}
 			for _, l := range r.Headers {
 				s.lines = append(s.lines, testPort.ReplaceAllString(l, ".test:PORT"))
@@ -595,13 +671,16 @@ func requestFields(page *capture.Page, path string, h1, preflight bool) *kindsSe
 
 		return nil
 	}
+
 	for _, tr := range page.H2 {
 		for _, r := range tr.Requests {
 			if r.Path != path {
 				continue
 			}
+
 			s := &kindsSent{}
 			method := ""
+
 			for _, ins := range r.Instructions {
 				switch {
 				case ins.Name == ":method":
@@ -611,9 +690,11 @@ func requestFields(page *capture.Page, path string, h1, preflight bool) *kindsSe
 					s.lines = append(s.lines, ins.Name+": "+testPort.ReplaceAllString(ins.Value, ".test:PORT"))
 				}
 			}
+
 			if (method == http.MethodOptions) != preflight {
 				continue
 			}
+
 			for _, f := range tr.Frames {
 				if f.Type == "HEADERS" && f.Stream == r.Stream && f.Priority != nil {
 					s.weight = f.Priority.Weight
@@ -634,28 +715,37 @@ func requestFields(page *capture.Page, path string, h1, preflight bool) *kindsSe
 // variance is logged.
 func browserForms(t *testing.T, samples []*capture.Page, path string, h1, preflight bool) []*kindsSent {
 	t.Helper()
+
 	counts := map[string]int{}
 	forms := map[string]*kindsSent{}
+
 	var keys []string
+
 	for i, page := range samples {
 		s := requestFields(page, path, h1, preflight)
 		if s == nil {
 			t.Fatalf("%s: sample %d has no browser request", path, i+1)
 		}
+
 		key := strings.Join(s.lines, "\n") + "\n" + strconv.Itoa(int(s.weight))
 		if counts[key] == 0 {
 			keys = append(keys, key)
 		}
+
 		counts[key]++
+
 		forms[key] = s
 	}
+
 	slices.SortStableFunc(keys, func(a, b string) int {
 		return counts[b] - counts[a]
 	})
+
 	out := make([]*kindsSent, len(keys))
 	for i, k := range keys {
 		out[i] = forms[k]
 	}
+
 	if len(out) > 1 {
 		t.Logf("%s: the browser's samples differ; %d of %d: %q", path, counts[keys[1]], len(samples), out[1].lines)
 	}

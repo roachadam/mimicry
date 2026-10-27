@@ -84,16 +84,21 @@ end tell`)
 		if err != nil {
 			return nil, err
 		}
+
 		l.window = out
 
 		return l, nil
 	}
+
 	dir, err := os.MkdirTemp("", "mimicry-live-"+b.Name+"-")
 	if err != nil {
 		return nil, err
 	}
+
 	var args []string
+
 	port := 0
+
 	switch b.Name {
 	case "chrome":
 		args = []string{
@@ -104,11 +109,13 @@ end tell`)
 			"--remote-allow-origins=" + debugOrigin,
 			"about:blank",
 		}
+
 	case "firefox":
 		if port, err = freePort(); err != nil {
 			_ = os.RemoveAll(dir)
 			return nil, err
 		}
+
 		prefs := []string{
 			`user_pref("browser.shell.checkDefaultBrowser", false);`,
 			`user_pref("browser.startup.homepage_override.mstone", "ignore");`,
@@ -123,6 +130,7 @@ end tell`)
 			_ = os.RemoveAll(dir)
 			return nil, err
 		}
+
 		args = []string{
 			"--profile", dir,
 			"--new-instance",
@@ -130,14 +138,17 @@ end tell`)
 			"--remote-allow-origins", debugOrigin,
 			"about:blank",
 		}
+
 	default:
 		_ = os.RemoveAll(dir)
 		return nil, fmt.Errorf("%s cannot be driven", b.Name)
 	}
+
 	s, err := b.start(ctx, dir, args)
 	if err != nil {
 		return nil, err
 	}
+
 	l.session = s
 	if err := l.connect(ctx, b, dir, port); err != nil {
 		return nil, errors.Join(err, l.Close())
@@ -151,42 +162,51 @@ end tell`)
 func (l *Live) connect(ctx context.Context, b *Browser, dir string, port int) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second+b.warmup)
 	defer cancel()
+
 	ignore := func(rpcMessage) {}
 	if l.name == "firefox" {
 		r, err := dialRPC(ctx, "ws://"+net.JoinHostPort("127.0.0.1", strconv.Itoa(port))+"/session", ignore)
 		if err != nil {
 			return err
 		}
+
 		l.rpc = r
 		if _, err := r.call(ctx, "session.new", map[string]any{
 			"capabilities": map[string]any{},
 		}); err != nil {
 			return err
 		}
+
 		l.context, err = firefoxContext(ctx, r)
 
 		return err
 	}
+
 	debugPort, _, err := devToolsPort(ctx, dir)
 	if err != nil {
 		return err
 	}
+
 	select {
 	case <-time.After(b.warmup):
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://127.0.0.1:"+debugPort+"/json/list", nil)
 	if err != nil {
 		return err
 	}
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
 	}
+
 	defer func() {
 		_ = resp.Body.Close()
 	}()
+
 	var targets []struct {
 		Type string `json:"type"`
 		WS   string `json:"webSocketDebuggerUrl"`
@@ -194,6 +214,7 @@ func (l *Live) connect(ctx context.Context, b *Browser, dir string, port int) er
 	if err := json.NewDecoder(resp.Body).Decode(&targets); err != nil {
 		return err
 	}
+
 	for _, t := range targets {
 		if t.Type == "page" {
 			l.rpc, err = dialRPC(ctx, t.WS, ignore)
@@ -209,6 +230,7 @@ func (l *Live) connect(ctx context.Context, b *Browser, dir string, port int) er
 func (l *Live) Visit(ctx context.Context, url string) (*Page, error) {
 	ctx, cancel := context.WithTimeout(ctx, liveTimeout)
 	defer cancel()
+
 	switch l.name {
 	case "safari":
 		return l.visitSafari(ctx, url)
@@ -222,14 +244,17 @@ func (l *Live) Visit(ctx context.Context, url string) (*Page, error) {
 		}
 
 		return l.page(ctx, 0)
+
 	default:
 		start := float64(time.Now().UnixMilli())
+
 		res, err := l.rpc.call(ctx, "Page.navigate", map[string]string{
 			"url": url,
 		})
 		if err != nil {
 			return nil, err
 		}
+
 		var nav struct {
 			ErrorText string `json:"errorText"`
 		}
@@ -245,6 +270,7 @@ func (l *Live) Visit(ctx context.Context, url string) (*Page, error) {
 func (l *Live) Read(ctx context.Context) (*Page, error) {
 	ctx, cancel := context.WithTimeout(ctx, liveTimeout)
 	defer cancel()
+
 	if l.name == "safari" {
 		return readSafari(ctx, "current tab of window id "+l.window)
 	}
@@ -262,16 +288,20 @@ func (l *Live) page(ctx context.Context, since float64) (*Page, error) {
 			Ready  string  `json:"ready"`
 			Origin float64 `json:"origin"`
 		}
+
 		s, err := l.evaluate(ctx)
 		if err == nil {
 			err = json.Unmarshal([]byte(s), &p)
 		}
+
 		if err == nil && p.Ready != "loading" && p.Origin >= since-1000 {
 			page := p.Page
+
 			page.Cookies, err = l.cookies(ctx, page.URL)
 
 			return &page, err
 		}
+
 		select {
 		case <-ctx.Done():
 			return nil, fmt.Errorf("waiting for the page: %w (last: %w)", ctx.Err(), err)
@@ -300,6 +330,7 @@ func evaluateBiDi(ctx context.Context, r *rpc, bc, expression string) (string, e
 	if err != nil {
 		return "", err
 	}
+
 	var v struct {
 		Type   string `json:"type"`
 		Result struct {
@@ -310,6 +341,7 @@ func evaluateBiDi(ctx context.Context, r *rpc, bc, expression string) (string, e
 	if err := json.Unmarshal(res, &v); err != nil {
 		return "", err
 	}
+
 	if v.Type != "success" {
 		return "", fmt.Errorf("script failed: %s", v.ExceptionDetails)
 	}
@@ -327,6 +359,7 @@ func evaluateCDP(ctx context.Context, r *rpc, expression string) (string, error)
 	if err != nil {
 		return "", err
 	}
+
 	var v struct {
 		Result struct {
 			Value string `json:"value"`
@@ -336,6 +369,7 @@ func evaluateCDP(ctx context.Context, r *rpc, expression string) (string, error)
 	if err := json.Unmarshal(res, &v); err != nil {
 		return "", err
 	}
+
 	if len(v.ExceptionDetails) > 0 {
 		return "", fmt.Errorf("script failed: %s", v.ExceptionDetails)
 	}
@@ -345,8 +379,11 @@ func evaluateCDP(ctx context.Context, r *rpc, expression string) (string, error)
 
 // cookies lists the names of the cookies the browser holds for url.
 func (l *Live) cookies(ctx context.Context, url string) ([]string, error) {
-	var res json.RawMessage
-	var err error
+	var (
+		res json.RawMessage
+		err error
+	)
+
 	if l.name == "firefox" {
 		res, err = l.rpc.call(ctx, "storage.getCookies", map[string]any{
 			"partition": map[string]string{
@@ -359,9 +396,11 @@ func (l *Live) cookies(ctx context.Context, url string) ([]string, error) {
 			"urls": []string{url},
 		})
 	}
+
 	if err != nil {
 		return nil, err
 	}
+
 	var r struct {
 		Cookies []struct {
 			Name string `json:"name"`
@@ -370,6 +409,7 @@ func (l *Live) cookies(ctx context.Context, url string) ([]string, error) {
 	if err := json.Unmarshal(res, &r); err != nil {
 		return nil, err
 	}
+
 	names := make([]string, len(r.Cookies))
 	for i, c := range r.Cookies {
 		names[i] = c.Name
@@ -386,20 +426,24 @@ func (l *Live) visitSafari(ctx context.Context, url string) (*Page, error) {
 	if _, err := osascript(ctx, `tell application "Safari" to set URL of `+tab+` to "about:blank"`); err != nil {
 		return nil, err
 	}
+
 	for {
 		p, err := safariTab(ctx, tab)
 		if err != nil {
 			return nil, err
 		}
+
 		if p.URL == "about:blank" && strings.TrimSpace(p.Text) == "" {
 			break
 		}
+
 		select {
 		case <-ctx.Done():
 			return nil, fmt.Errorf("waiting for about:blank: %w", ctx.Err())
 		case <-time.After(200 * time.Millisecond):
 		}
 	}
+
 	if _, err := osascript(ctx, `tell application "Safari" to set URL of `+tab+` to "`+url+`"`); err != nil {
 		return nil, err
 	}
@@ -418,16 +462,20 @@ func readSafari(ctx context.Context, tab string) (*Page, error) {
 			return nil, fmt.Errorf("waiting for the page: %w", ctx.Err())
 		case <-time.After(500 * time.Millisecond):
 		}
+
 		p, err := safariTab(ctx, tab)
 		if err != nil {
 			return nil, err
 		}
+
 		if p.URL == "about:blank" || p.URL == "" || strings.TrimSpace(p.Text+p.Title) == "" {
 			continue
 		}
+
 		if last != nil && last.URL == p.URL && last.Title == p.Title && last.Text == p.Text {
 			return p, nil
 		}
+
 		last = p
 	}
 }
@@ -441,6 +489,7 @@ end tell`)
 	if err != nil {
 		return nil, err
 	}
+
 	at, rest, _ := strings.Cut(out, "\n")
 	title, text, _ := strings.Cut(rest, "\n")
 
@@ -458,11 +507,14 @@ func (l *Live) Close() error {
 	if l.rpc != nil {
 		errs = append(errs, l.rpc.Close())
 	}
+
 	if l.session != nil {
 		errs = append(errs, l.session.Close())
 	}
+
 	if l.window != "" {
 		_, err := osascript(context.Background(), `tell application "Safari" to close window id `+l.window)
+
 		errs = append(errs, err)
 	}
 

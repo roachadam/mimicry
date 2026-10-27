@@ -39,22 +39,30 @@ type ticket struct {
 // pre_shared_key, session as tls.SessionState.Bytes encodes it.
 func (k *KeyLog) AddTicket(identity, session []byte) error {
 	s := cryptobyte.String(session)
-	var version, suite uint16
-	var typ uint8
-	var created uint64
-	var secret []byte
+
+	var (
+		version, suite uint16
+		typ            uint8
+		created        uint64
+		secret         []byte
+	)
+
 	if !s.ReadUint16(&version) || !s.ReadUint8(&typ) || !s.ReadUint16(&suite) ||
 		!s.ReadUint64(&created) || !s.ReadUint8LengthPrefixed((*cryptobyte.String)(&secret)) {
 		return errors.New("malformed session state")
 	}
+
 	if version != 0x0304 {
 		return nil
 	}
+
 	k.mu.Lock()
 	defer k.mu.Unlock()
+
 	if k.tickets == nil {
 		k.tickets = map[string]ticket{}
 	}
+
 	k.tickets[hex.EncodeToString(identity)] = ticket{
 		suite: suite,
 		psk:   append([]byte(nil), secret...),
@@ -70,12 +78,16 @@ func (k *KeyLog) earlySecret(identity, clientHello []byte) []byte {
 	if k == nil || identity == nil {
 		return nil
 	}
+
 	k.mu.Lock()
+
 	t, ok := k.tickets[hex.EncodeToString(identity)]
 	k.mu.Unlock()
+
 	if !ok {
 		return nil
 	}
+
 	secret, err := clientEarlyTrafficSecret(t.suite, t.psk, clientHello)
 	if err != nil {
 		return nil
@@ -89,22 +101,27 @@ func (k *KeyLog) earlySecret(identity, clientHello []byte) []byte {
 func (k *KeyLog) Write(p []byte) (int, error) {
 	k.mu.Lock()
 	defer k.mu.Unlock()
+
 	if k.secrets == nil {
 		k.secrets = map[string]map[string][]byte{}
 	}
+
 	for line := range bytes.SplitSeq(p, []byte("\n")) {
 		f := bytes.Fields(line)
 		if len(f) != 3 {
 			continue
 		}
+
 		secret, err := hex.DecodeString(string(f[2]))
 		if err != nil {
 			continue
 		}
+
 		random := string(bytes.ToLower(f[1]))
 		if k.secrets[random] == nil {
 			k.secrets[random] = map[string][]byte{}
 		}
+
 		k.secrets[random][string(f[0])] = secret
 	}
 
@@ -117,6 +134,7 @@ func (k *KeyLog) secret(random []byte, label string) []byte {
 	if k == nil {
 		return nil
 	}
+
 	k.mu.Lock()
 	defer k.mu.Unlock()
 

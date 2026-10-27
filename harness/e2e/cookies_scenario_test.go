@@ -24,13 +24,16 @@ func TestCookiesScenarioMatchesBrowser(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if p.Kinds == nil {
 				t.Fatalf("%s describes no request kinds", name)
 			}
+
 			want, err := loadPages(t, p, "cookies", ".pagetrace.json.gz")
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			got := runCookiesPage(t, p)
 			for _, label := range []string{
 				"c-setcookie.cs", "c-order.so",
@@ -42,11 +45,13 @@ func TestCookiesScenarioMatchesBrowser(t *testing.T) {
 			} {
 				compareKind(t, got, want, label, false, false)
 			}
+
 			for _, path := range []string{"/k/c-nav-get.so", "/k/c-nav-post.so"} {
 				g := requestFields(got, path, false, false)
 				if g == nil || !hasHeader(g.lines, "referer") || !hasHeader(g.lines, "cookie") {
 					t.Fatalf("%s: mimicry's navigation lacks referer or cookie", path)
 				}
+
 				for i, page := range want {
 					if w := requestFields(page, path, false, false); w == nil || !slices.Equal(g.lines, w.lines) {
 						t.Errorf("%s: sample %d differs", path, i+1)
@@ -68,14 +73,17 @@ func hasHeader(lines []string, name string) bool {
 // runCookiesPage walks the cookies page through mimicry as profile p.
 func runCookiesPage(t *testing.T, p *profile.Profile) *capture.Page {
 	t.Helper()
+
 	s := startPage(t, p, server.Cookies)
 	s.planEvery()
+
 	const (
 		siteA = "www.kinds-a.test"
 		same  = "static.kinds-a.test"
 		cross = "cdn.kinds-b.test"
 		siteC = "www.kinds-c.test"
 	)
+
 	parse := func(u string) *url.URL {
 		v, err := url.Parse(u)
 		if err != nil {
@@ -92,8 +100,10 @@ func runCookiesPage(t *testing.T, p *profile.Profile) *capture.Page {
 			if h == nil {
 				h = http.Header{}
 			}
+
 			h["Sec-Fetch-User"] = nil
 		}
+
 		s.send(method, target, mimicry.Request{
 			Kind: mimicry.Navigate,
 			From: from,
@@ -114,9 +124,11 @@ func runCookiesPage(t *testing.T, p *profile.Profile) *capture.Page {
 	image(s.url(cross, "/k/c-redirect.cs-ss"), pageA)
 	image(s.url(same, "/k/c-redirect.ss-so"), pageA)
 	image(s.url(cross, "/k/c-redirect.cs-so"), pageA)
+
 	pageC := nav(http.MethodGet, s.url(siteC, "/c"), pageA, nil, "")
 	image(s.url(cross, "/k/c-part.cs"), pageC)
 	image(s.url(siteA, "/k/c-third.so"), pageC)
+
 	pageGet := nav(http.MethodGet, s.url(siteA, "/k/c-nav-get.so"), pageC, nil, "")
 	pagePost := nav(http.MethodGet, s.url(siteC, "/c-post"), pageGet, nil, "")
 	nav(http.MethodPost, s.url(siteA, "/k/c-nav-post.so"), pagePost, http.Header{

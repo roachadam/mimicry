@@ -146,10 +146,12 @@ func (t *tap) newPath(ctx context.Context) (net.PacketConn, error) {
 	if !ok {
 		return nil, fmt.Errorf("tap socket address %v is not UDP", t.LocalAddr())
 	}
+
 	network, local := "udp4", "0.0.0.0:0"
 	if addr.IP.To4() == nil {
 		network, local = "udp6", "[::]:0"
 	}
+
 	pc, err := (&net.ListenConfig{}).ListenPacket(ctx, network, local)
 	if err != nil {
 		return nil, err
@@ -171,20 +173,26 @@ func (p *tapPath) ReadFrom(b []byte) (int, net.Addr, error) {
 
 func (t *tap) writeTo(pc net.PacketConn, b []byte, addr net.Addr) (int, error) {
 	now := time.Now()
+
 	t.mu.Lock()
+
 	pkts := t.parse(b, true)
 	fate := t.fate(now)
 	t.st.SentDatagrams++
+
 	t.st.SentBytes += int64(len(b))
 	t.record(now, "out", len(b), pkts, fate)
+
 	delay := t.imp.Delay
 	t.mu.Unlock()
+
 	switch fate {
 	case "dropped":
 		return len(b), nil
 	case "corrupted":
 		b = t.corrupt(b)
 	}
+
 	if delay > 0 {
 		c := bytes.Clone(b)
 		time.AfterFunc(delay, func() {
@@ -204,23 +212,35 @@ func (t *tap) readFrom(pc net.PacketConn, p []byte) (int, net.Addr, error) {
 		if err != nil {
 			return n, addr, err
 		}
+
 		now := time.Now()
+
 		t.mu.Lock()
+
 		t.st.RecvDatagrams++
+
 		t.st.RecvBytes += int64(n)
+
 		fate := t.fate(now)
+
 		var pkts []string
+
 		if fate != "dropped" {
 			if fate == "corrupted" {
 				t.flip(p[:n])
 			}
+
 			pkts = t.parse(p[:n], false)
 		}
+
 		t.record(now, "in", n, pkts, fate)
+
 		if t.imp.BlackholeAfter > 0 && t.blackholeEnd.IsZero() && t.st.RecvBytes >= t.imp.BlackholeAfter {
 			t.blackholeEnd = now.Add(t.imp.BlackholeFor)
 		}
+
 		t.mu.Unlock()
+
 		if fate == "dropped" {
 			continue
 		}
@@ -235,9 +255,11 @@ func (t *tap) fate(now time.Time) string {
 	case !t.blackholeEnd.IsZero() && now.Before(t.blackholeEnd):
 		t.st.Dropped++
 		return "dropped"
+
 	case t.imp.Drop > 0 && t.rng.Float64() < t.imp.Drop:
 		t.st.Dropped++
 		return "dropped"
+
 	case t.imp.Corrupt > 0 && t.rng.Float64() < t.imp.Corrupt:
 		t.st.Corrupted++
 		return "corrupted"
@@ -249,6 +271,7 @@ func (t *tap) fate(now time.Time) string {
 // corrupt returns a copy of b with one byte flipped.
 func (t *tap) corrupt(b []byte) []byte {
 	c := bytes.Clone(b)
+
 	t.mu.Lock()
 	t.flip(c)
 	t.mu.Unlock()
@@ -284,23 +307,31 @@ func (t *tap) parse(b []byte, sent bool) []string {
 			// (Firefox fills its Initial datagrams with zeros).
 			return append(names, "padding")
 		}
+
 		if b[0]&0x80 == 0 {
 			names = append(names, "1rtt")
+
 			t.keepShort(b, sent)
 
 			return names
 		}
+
 		if len(b) < 7 {
 			return append(names, "short-long")
 		}
+
 		version := binary.BigEndian.Uint32(b[1:5])
 		dcidLen := int(b[5])
 		off := 6 + dcidLen
+
 		if off >= len(b) {
 			return append(names, "truncated")
 		}
+
 		scidLen := int(b[off])
+
 		off += 1 + scidLen
+
 		if version == 0 {
 			if !sent {
 				t.st.VN++
@@ -308,25 +339,32 @@ func (t *tap) parse(b []byte, sent bool) []string {
 
 			return append(names, "vn")
 		}
+
 		if !sent {
 			t.noteVersion(version)
+
 			if !t.sawServer {
 				t.sawServer = true
 				t.serverSCIDLen = scidLen
 			}
 		}
+
 		typ := int(b[0]>>4) & 3
 		if version == 0x6b3343cf {
 			// QUIC version 2 rotates the types (RFC 9369, section 3.2).
 			typ = (typ + 3) & 3
 		}
+
 		name := [4]string{"initial", "0rtt", "handshake", "retry"}[typ]
+
 		names = append(names, name)
+
 		if sent {
 			t.st.Sent[name]++
 		} else {
 			t.st.Received[name]++
 		}
+
 		if typ == typeRetry {
 			if !sent {
 				t.st.Retries++
@@ -334,21 +372,26 @@ func (t *tap) parse(b []byte, sent bool) []string {
 
 			return names
 		}
+
 		if typ == typeInitial {
 			n, l := readVarint(b[min(off, len(b)):])
 			if l == 0 {
 				return names
 			}
+
 			off += l + int(n)
 		}
+
 		n, l := readVarint(b[min(off, len(b)):])
 		if l == 0 {
 			return names
 		}
+
 		end := off + l + int(n)
 		if end > len(b) {
 			return names
 		}
+
 		b = b[end:]
 	}
 
@@ -360,6 +403,7 @@ func (t *tap) noteVersion(v uint32) {
 	if slices.Contains(t.st.Versions, v) {
 		return
 	}
+
 	t.st.Versions = append(t.st.Versions, v)
 }
 
@@ -370,14 +414,17 @@ func (t *tap) keepShort(b []byte, sent bool) {
 	if sent {
 		dcidLen = t.serverSCIDLen
 	}
+
 	pnOff := 1 + dcidLen
 	if len(b) < pnOff+4+16 {
 		return
 	}
+
 	h := shortHeader{
 		first: b[0],
 	}
 	copy(h.sample[:], b[pnOff+4:pnOff+20])
+
 	if sent {
 		t.sent = append(t.sent, h)
 	} else {
@@ -388,7 +435,9 @@ func (t *tap) keepShort(b []byte, sent bool) {
 func (t *tap) stats() tapStats {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
 	st := t.st
+
 	st.Versions = append([]uint32(nil), t.st.Versions...)
 	st.Sent = map[string]int{}
 	st.Received = map[string]int{}
@@ -404,14 +453,17 @@ func (t *tap) stats() tapStats {
 func (t *tap) keyUpdates(suite uint16) (server, client int, ok bool) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
 	// A connection that ends in v2 protects its 1-RTT headers with v2's
 	// label (RFC 9369, section 3.3.2).
 	label := "quic hp"
 	if slices.Contains(t.st.Versions, 0x6b3343cf) {
 		label = "quicv2 hp"
 	}
+
 	sk, err1 := hpMask(suite, label, t.keys.server)
 	ck, err2 := hpMask(suite, label, t.keys.client)
+
 	if err1 != nil || err2 != nil {
 		return 0, 0, false
 	}
@@ -427,15 +479,19 @@ func phaseChanges(hs []shortHeader, mask func([16]byte) byte) int {
 	for i, h := range hs {
 		phases[i] = ((h.first ^ (mask(h.sample) & 0x1f)) >> 2) & 1
 	}
+
 	n := 0
 	cur := byte(0)
+
 	for i, p := range phases {
 		if p == cur {
 			continue
 		}
+
 		if i+1 < len(phases) && phases[i+1] != p {
 			continue
 		}
+
 		cur = p
 		n++
 	}
@@ -450,6 +506,7 @@ func (t *tap) keyLogWriter(w io.Writer) io.Writer {
 		t.mu.Lock()
 		t.keys.add(p)
 		t.mu.Unlock()
+
 		if w != nil {
 			// A key log error would fail the handshake: the file is a
 			// convenience, never a reason to.
@@ -462,8 +519,10 @@ func (t *tap) keyLogWriter(w io.Writer) io.Writer {
 
 func (t *tap) writeTrace(path string) error {
 	t.mu.Lock()
+
 	data, err := json.Marshal(t.trace)
 	t.mu.Unlock()
+
 	if err != nil {
 		return err
 	}
@@ -489,10 +548,12 @@ func (k *keyLog) add(p []byte) {
 		if len(f) != 3 {
 			continue
 		}
+
 		secret, err := hex.DecodeString(f[2])
 		if err != nil {
 			continue
 		}
+
 		switch f[0] {
 		case "CLIENT_TRAFFIC_SECRET_0":
 			k.client = secret
@@ -509,8 +570,11 @@ func hpMask(suite uint16, label string, secret []byte) (func([16]byte) byte, err
 	if len(secret) == 0 {
 		return nil, fmt.Errorf("no secret")
 	}
+
 	var newHash func() hash.Hash
+
 	keyLen := 16
+
 	switch suite {
 	case 0x1301:
 		newHash = sha256.New
@@ -521,23 +585,28 @@ func hpMask(suite uint16, label string, secret []byte) (func([16]byte) byte, err
 	default:
 		return nil, fmt.Errorf("cipher suite %#04x", suite)
 	}
+
 	key, err := expandLabel(newHash, secret, label, keyLen)
 	if err != nil {
 		return nil, err
 	}
+
 	if suite == 0x1303 {
 		return func(sample [16]byte) byte {
 			c, err := chacha20.NewUnauthenticatedCipher(key, sample[4:16])
 			if err != nil {
 				return 0
 			}
+
 			c.SetCounter(binary.LittleEndian.Uint32(sample[:4]))
+
 			var m [1]byte
 			c.XORKeyStream(m[:], m[:])
 
 			return m[0]
 		}, nil
 	}
+
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -555,11 +624,14 @@ func hpMask(suite uint16, label string, secret []byte) (func([16]byte) byte, err
 func expandLabel(newHash func() hash.Hash, secret []byte, label string, n int) ([]byte, error) {
 	full := "tls13 " + label
 	info := make([]byte, 0, 4+len(full))
+
 	info = binary.BigEndian.AppendUint16(info, uint16(n))
 	info = append(info, byte(len(full)))
 	info = append(info, full...)
 	info = append(info, 0)
+
 	out := make([]byte, n)
+
 	if _, err := io.ReadFull(hkdf.Expand(newHash, secret, info), out); err != nil {
 		return nil, err
 	}
@@ -573,10 +645,12 @@ func readVarint(b []byte) (uint64, int) {
 	if len(b) == 0 {
 		return 0, 0
 	}
+
 	l := 1 << (b[0] >> 6)
 	if len(b) < l {
 		return 0, 0
 	}
+
 	v := uint64(b[0] & 0x3f)
 	for _, c := range b[1:l] {
 		v = v<<8 | uint64(c)

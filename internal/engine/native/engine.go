@@ -106,13 +106,16 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 	if p == nil {
 		return nil, errors.New("mimicry: Config.Profile is required")
 	}
+
 	if p.Connections == nil {
 		return nil, errors.New("mimicry: the profile has no connections section")
 	}
+
 	timeout := cfg.DialTimeout
 	if timeout == 0 {
 		timeout = defaultDialTimeout
 	}
+
 	plan := fingerprint.Compile(p)
 	e := &Engine{
 		plan:    plan,
@@ -136,9 +139,11 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 			OnWait:       onWait,
 		}),
 	}
+
 	if plan.Resumes() {
 		e.tickets = handshake.NewTickets(p.TLS.Resumption.TLS12, clock)
 	}
+
 	if p.HTTP3 != nil && p.QUIC != nil && !cfg.DisableHTTP3 {
 		e.quic = &quicState{
 			origins: map[string]*origin{},
@@ -176,10 +181,12 @@ func (e *Engine) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 			_ = req.Body.Close()
 		}
 	}()
+
 	r, req, unasked, err := e.begin(req)
 	if err != nil {
 		return nil, err
 	}
+
 	answered := false
 	for attempt := 1; ; attempt++ {
 		resp, err := e.try(ctx, req, r)
@@ -190,13 +197,16 @@ func (e *Engine) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 			answered = true
 			_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
 			_ = resp.Body.Close()
+
 			if req, err = fresh(req); err != nil {
 				return nil, err
 			}
+
 			req = withProxyAuth(context.WithValue(ctx, h1.ChallengeAnswered{}, true), req, dial.Credentials(r.proxy))
 
 			continue
 		}
+
 		notSent := errors.Is(err, errNotSent)
 		if !notSent && !errors.Is(err, errRetry) {
 			if err == nil && r.forward && resp.StatusCode == http.StatusProxyAuthRequired {
@@ -204,6 +214,7 @@ func (e *Engine) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 				// to give): the proxy refused the request, which never
 				// reached the server.
 				_ = resp.Body.Close()
+
 				return nil, &dial.ProxyError{
 					Proxy:      r.proxy,
 					StatusCode: resp.StatusCode,
@@ -214,23 +225,29 @@ func (e *Engine) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 
 			return resp, err
 		}
+
 		if errors.Is(err, errTCPOnly) {
 			r.tcpOnly = true
 		}
+
 		if attempt == maxAttempts {
 			return nil, fmt.Errorf("mimicry: no usable connection after %d attempts: %w", attempt, err)
 		}
+
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
+
 		if notSent {
 			continue
 		}
+
 		// The failed attempt may have consumed the body: send a fresh copy.
 		next, err := fresh(req)
 		if err != nil {
 			return nil, err
 		}
+
 		req = next
 	}
 }
@@ -247,9 +264,11 @@ func (e *Engine) begin(req *http.Request) (r route, out *http.Request, unasked s
 	case !httpguts.ValidHostHeader(req.URL.Host):
 		return route{}, req, "", fmt.Errorf("mimicry: invalid host %q", req.URL.Host)
 	}
+
 	if r, err = e.route(req); err != nil {
 		return route{}, req, "", err
 	}
+
 	if r.forward {
 		if unasked = e.dialer.ForwardAuthorization(r.proxy); unasked != "" {
 			req = withProxyAuth(req.Context(), req, unasked)
@@ -275,13 +294,16 @@ func fresh(req *http.Request) (*http.Request, error) {
 	if req.Body == nil || req.Body == http.NoBody {
 		return req, nil
 	}
+
 	if req.GetBody == nil {
 		return nil, errors.New("mimicry: the request must be sent again and its body cannot be resent")
 	}
+
 	body, err := req.GetBody()
 	if err != nil {
 		return nil, err
 	}
+
 	req = req.Clone(req.Context())
 	req.Body = body
 
@@ -330,25 +352,33 @@ func (e *Engine) route(req *http.Request) (route, error) {
 		host: req.URL.Hostname(),
 	}
 	partition := pool.Partition(req.Context())
+
 	if partition != "" {
 		r.key += " " + partition
 	}
+
 	if req.URL.Scheme == "https" {
 		_, port, _ := net.SplitHostPort(addr)
+
 		r.group = "https :" + port + " " + partition
 	}
+
 	if e.proxy == nil {
 		return r, nil
 	}
+
 	p, err := e.proxy(req)
 	if err != nil || p == nil {
 		return r, err
 	}
+
 	if err := e.dialer.CheckProxy(p); err != nil {
 		return r, err
 	}
+
 	r.proxy = p
 	r.forward = p.Scheme == dial.SchemeHTTP && req.URL.Scheme == "http"
+
 	r.key += " via " + p.String()
 	// Coalescing through a proxy was never captured; the proxy resolves
 	// names, so the address condition cannot be checked either.
@@ -384,18 +414,22 @@ func (e *Engine) tryOnce(ctx context.Context, req *http.Request, r route) (*http
 	if handled {
 		return resp, err
 	}
+
 	if race != nil {
 		// The QUIC attempt racing this request starts no earlier than
 		// its response on TCP.
 		defer close(race)
 	}
+
 	if err := e.tcpRefusal(ctx); err != nil {
 		return nil, err
 	}
+
 	got, err := e.pool.Get(ctx, r.key)
 	if err != nil {
 		return nil, err
 	}
+
 	switch got.Found {
 	case pool.FoundShared:
 		return e.roundTripH2(r.key, got.Shared, req)
@@ -408,24 +442,31 @@ func (e *Engine) tryOnce(ctx context.Context, req *http.Request, r route) (*http
 		}
 
 		return resp, err
+
 	case pool.FoundDial:
 		// Dialed below.
 	}
+
 	d := got.Dial
 	if d.MayShare() && e.profile.Connections.Coalesce == profile.CoalesceOnLookup {
 		if c := e.coalesceOnLookup(ctx, r); c != nil {
 			return e.roundTripH2(r.key, d.Adopt(c), req)
 		}
 	}
+
 	conn, proto, err := e.dial(ctx, req, r)
 	if err != nil {
 		d.Fail(err)
+
 		return nil, err
 	}
+
 	if proto != "h2" {
 		d.Exclusive()
+
 		return e.roundTripH1(r.key, e.newH1(conn, r), req)
 	}
+
 	if e.profile.Connections.Coalesce == profile.CoalesceOnConnect {
 		if c := e.coalesceOnConnect(r, conn); c != nil {
 			// The browser opens the connection, then lets it go.
@@ -433,19 +474,25 @@ func (e *Engine) tryOnce(ctx context.Context, req *http.Request, r route) (*http
 			return e.roundTripH2(r.key, d.Adopt(c), req)
 		}
 	}
+
 	hc, err := h2.New(conn, e.profile, e.clock)
 	if err != nil {
 		_ = conn.Close()
+
 		d.Fail(err)
 
 		return nil, err
 	}
+
 	c := newShared(hc, conn, r)
 	s := d.Shared(c)
+
 	if s != c {
 		return e.roundTripH2(r.key, s, req)
 	}
+
 	defer close(c.sent)
+
 	e.goAwayIfReplaced(req, r, c)
 
 	return e.roundTripH2(r.key, c, req)
@@ -458,8 +505,10 @@ func (e *Engine) roundTripH2(key string, c *shared, req *http.Request) (*http.Re
 	resp, err := c.RoundTrip(req)
 	if errors.Is(err, h2.ErrConnUnusable) {
 		e.pool.RemoveShared(key, c)
+
 		return nil, fmt.Errorf("%w: %w", errNotSent, err)
 	}
+
 	if err == nil {
 		resp.TLS = c.tls
 	}
@@ -471,6 +520,7 @@ func (e *Engine) roundTripH2(key string, c *shared, req *http.Request) (*http.Re
 func (e *Engine) newH1(conn net.Conn, r route) *h1.Conn {
 	c := h1.New(conn, e.profile)
 	c.SetTLS(handshake.ConnState(conn))
+
 	if r.forward {
 		c.Forward(e.profile.Proxy)
 	}
@@ -494,8 +544,11 @@ func (e *Engine) verifyFor(host string) func(tls.ConnectionState) error {
 // performs the profile's TLS handshake, bounded by the dial timeout. It
 // returns the negotiated protocol ("h2", or HTTP/1.1 otherwise).
 func (e *Engine) dial(ctx context.Context, req *http.Request, r route) (net.Conn, string, error) {
-	var conn net.Conn
-	var err error
+	var (
+		conn net.Conn
+		err  error
+	)
+
 	switch {
 	case r.proxy == nil:
 		conn, err = e.dialer.Dial(ctx, r.addr)
@@ -504,18 +557,22 @@ func (e *Engine) dial(ctx context.Context, req *http.Request, r route) (net.Conn
 	default:
 		conn, err = e.dialer.DialVia(ctx, r.proxy, r.addr)
 	}
+
 	if err != nil {
 		return nil, "", err
 	}
+
 	if req.URL.Scheme == "http" {
 		return conn, "http/1.1", nil
 	}
+
 	cfg := handshake.Config{
 		ServerName:       req.URL.Hostname(),
 		RootCAs:          e.rootCAs,
 		VerifyConnection: e.verifyFor(req.URL.Hostname()),
 	}
 	hello := e.plan.Hello()
+
 	if e.resumes(r) {
 		// Tickets are kept per connection pool, partition and proxy
 		// included: a browser's credential-less connections do not resume
@@ -526,7 +583,9 @@ func (e *Engine) dial(ctx context.Context, req *http.Request, r route) (net.Conn
 			hello = e.plan.ResumedHello()
 		}
 	}
+
 	hctx, cancel := context.WithTimeout(ctx, e.dialer.Timeout)
+
 	defer cancel()
 
 	return handshake.Client(hctx, conn, hello, cfg)
@@ -559,17 +618,21 @@ func (e *Engine) Handshake(ctx context.Context, rawURL string) (*tls.ConnectionS
 	if err != nil {
 		return nil, err
 	}
+
 	if req.URL.Scheme != "https" || req.URL.Host == "" {
 		return nil, fmt.Errorf("mimicry: %q is not an https URL", rawURL)
 	}
+
 	r, err := e.route(req)
 	if err != nil {
 		return nil, err
 	}
+
 	conn, _, err := e.dial(ctx, req, r)
 	if err != nil {
 		return nil, err
 	}
+
 	defer func() {
 		_ = conn.Close()
 	}()
@@ -581,6 +644,7 @@ func (e *Engine) Handshake(ctx context.Context, rawURL string) (*tls.ConnectionS
 // HTTP/3 connections with no requests in flight.
 func (e *Engine) CloseIdleConnections() {
 	e.pool.CloseIdle()
+
 	if e.quic != nil {
 		e.quic.pool.CloseIdle()
 	}

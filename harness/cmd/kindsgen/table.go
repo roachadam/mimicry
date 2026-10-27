@@ -52,22 +52,27 @@ type tableCase struct {
 // always form one run, which profile.OtherHeaders places (Firefox).
 func deriveTable(kinds ...[]*request) (*profile.HeaderTable, error) {
 	ownSet, extraSet := map[string]bool{}, map[string]bool{}
+
 	var cases, redirects []tableCase
+
 	for _, reqs := range kinds {
 		groups := map[condition][]*request{}
 		for _, r := range reqs {
 			groups[r.condition()] = append(groups[r.condition()], r)
 		}
+
 		for _, r := range reqs {
 			for _, h1 := range []bool{false, true} {
 				list := (*request).h2Of
 				if h1 {
 					list = (*request).h1Of
 				}
+
 				sent := lowerNames(list(r))
 				if len(sent) == 0 {
 					continue
 				}
+
 				c := tableCase{
 					label:      fmt.Sprintf("%s %s (sample %d, %s)", r.method, r.label, r.sample+1, map[bool]string{false: "HTTP/2", true: "HTTP/1.1"}[h1]),
 					redirected: r.hop,
@@ -82,12 +87,15 @@ func deriveTable(kinds ...[]*request) (*profile.HeaderTable, error) {
 							}
 						}
 					}
+
 					order, ok := baseOrder(groups, r, list, h1)
 					if !ok {
 						continue
 					}
+
 					c.base = order
 				}
+
 				if r.hop {
 					redirects = append(redirects, c)
 				} else {
@@ -96,9 +104,11 @@ func deriveTable(kinds ...[]*request) (*profile.HeaderTable, error) {
 			}
 		}
 	}
+
 	if len(ownSet) == 0 {
 		return nil, nil //nolint:nilnil // no table: the lists' OtherHeaders slot places the page's headers
 	}
+
 	// Names inside a run of the table's, own or the page's.
 	for _, c := range cases {
 		first, last := -1, -1
@@ -107,22 +117,27 @@ func deriveTable(kinds ...[]*request) (*profile.HeaderTable, error) {
 				if first < 0 {
 					first = i
 				}
+
 				last = i
 			}
 		}
+
 		for i := first + 1; i < last; i++ {
 			if n := c.sent[i]; !ownSet[n] && !isPageSet(n) {
 				extraSet[n] = true
 			}
 		}
 	}
+
 	own, extras := sortedKeys(ownSet), sortedKeys(extraSet)
 	explained := func(t *profile.HeaderTable, cs []tableCase) int {
 		return slices.IndexFunc(cs, func(c tableCase) bool {
 			return !tableExplains(t, c.base, c.sent, c.pageOrder)
 		})
 	}
+
 	var failed []string
+
 	for _, shape := range tableShapes {
 		for combo := range pow(roles, len(extras)) {
 			t := &profile.HeaderTable{
@@ -140,12 +155,15 @@ func deriveTable(kinds ...[]*request) (*profile.HeaderTable, error) {
 					t.Late = append(t.Late, n)
 				}
 			}
+
 			slices.Sort(t.Own)
+
 			bad := explained(t, cases)
 			if bad < 0 {
 				t.Redirected = explained(t, redirects) < 0
 				return t, nil
 			}
+
 			if combo == 0 {
 				failed = append(failed, fmt.Sprintf("%s (page first %v): %s %q", shape.hash, shape.pageFirst, cases[bad].label, cases[bad].sent))
 			}
@@ -159,16 +177,20 @@ func deriveTable(kinds ...[]*request) (*profile.HeaderTable, error) {
 // headers; false when uncaptured, inconsistent, or missing a header r sends.
 func baseOrder(groups map[condition][]*request, r *request, list func(*request) []profile.Header, h1 bool) ([]string, bool) {
 	base := r.condition()
+
 	base.pageSet, base.cors = false, slices.ContainsFunc(list(r), func(h profile.Header) bool {
 		return strings.EqualFold(h.Name, "origin")
 	})
+
 	if groups[base] == nil {
 		return nil, false
 	}
+
 	order, err := orderOf(groups[base], list, h1)
 	if err != nil {
 		return nil, false
 	}
+
 	order = lowerAll(order)
 
 	return order, describes(order, lowerNames(list(r)))
@@ -182,18 +204,22 @@ func tablePlaces(table *profile.HeaderTable, groups map[condition][]*request, gr
 		if r.hop && !table.Redirected {
 			return false, nil
 		}
+
 		for _, h1 := range []bool{false, true} {
 			list := (*request).h2Of
 			if h1 {
 				list = (*request).h1Of
 			}
+
 			if len(list(r)) == 0 {
 				continue
 			}
+
 			base, ok := baseOrder(groups, r, list, h1)
 			if !ok {
 				return false, nil
 			}
+
 			if sent := lowerNames(list(r)); !tableExplains(table, base, sent, r.pageOrder) {
 				return false, fmt.Errorf("header table: %s %s (sample %d) sends %q; the table makes it %q", r.method, r.label, r.sample+1, sent, tableSent(table, base, sent, r.pageOrder))
 			}
@@ -226,6 +252,7 @@ func tableExplains(table *profile.HeaderTable, base, sent, pageOrder []string) b
 func tableSent(table *profile.HeaderTable, base, sent, pageOrder []string) []string {
 	members, order := []string{}, []string{}
 	all := table.Members()
+
 	for _, n := range base {
 		if slices.Contains(sent, n) {
 			order = append(order, n)
@@ -234,26 +261,34 @@ func tableSent(table *profile.HeaderTable, base, sent, pageOrder []string) []str
 			}
 		}
 	}
+
 	var page []string
 	for _, i := range pageIndexes(sent) {
 		page = append(page, sent[i])
 	}
+
 	slices.Sort(page)
+
 	if pageOrder != nil {
 		page = slices.DeleteFunc(slices.Clone(pageOrder), func(n string) bool {
 			return !slices.Contains(sent, n)
 		})
 	}
+
 	if len(members) == 0 {
 		slices.Sort(page)
+
 		return append(order, page...)
 	}
+
 	run, ok := headerorder.TableOrder(table, members, page)
 	if !ok {
 		return nil
 	}
+
 	out := make([]string, 0, len(sent))
 	placed := false
+
 	for _, n := range order {
 		switch {
 		case !slices.Contains(members, n):
@@ -302,6 +337,7 @@ func sortedKeys(m map[string]bool) []string {
 	for k := range m {
 		out = append(out, k)
 	}
+
 	slices.Sort(out)
 
 	return out

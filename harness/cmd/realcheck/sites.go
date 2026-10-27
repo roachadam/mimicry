@@ -100,26 +100,32 @@ func sitesClients(ctx context.Context, names []string, withGo bool, out string) 
 			if err != nil {
 				return err
 			}
+
 			c, err := mimicry.NewClient(mimicry.Config{
 				Profile: p,
 			})
 			if err != nil {
 				return err
 			}
+
 			recs[n] = append(recs[n], getSite(ctx, n, c, s))
 			c.CloseIdleConnections()
 			time.Sleep(siteGap)
 		}
+
 		if withGo {
 			c := &http.Client{}
+
 			recs["go-net-http"] = append(recs["go-net-http"], getSite(ctx, "go-net-http", c, s))
 			c.CloseIdleConnections()
 			time.Sleep(siteGap)
 		}
+
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
 	}
+
 	for client, rs := range recs {
 		if err := save(filepath.Join(out, "sites", client+".json"), rs); err != nil {
 			return err
@@ -140,34 +146,43 @@ func getSite(ctx context.Context, client string, c *http.Client, s site) (r site
 	defer func() {
 		log.Printf("%-20s %-50s %d %-8s %v %s", client, s.url, r.Status, r.Proto, r.Markers, r.Err)
 	}()
+
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+
 	defer cancel()
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.url, nil)
 	if err != nil {
 		r.Err = err.Error()
 		return r
 	}
+
 	resp, err := c.Do(req)
 	if err != nil {
 		r.Err = err.Error()
 		return r
 	}
+
 	defer func() {
 		_ = resp.Body.Close()
 	}()
+
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	if err != nil {
 		r.Err = err.Error()
 	}
+
 	r.Status, r.Proto, r.FinalURL, r.Bytes = resp.StatusCode, resp.Proto, resp.Request.URL.String(), len(body)
 	if m := titleRE.FindSubmatch(body); m != nil {
 		r.Title = strings.TrimSpace(string(m[1]))
 	}
+
 	// Every response of the chain set cookies; the final one is enough
 	// to tell a vendor's.
 	for _, ck := range resp.Cookies() {
 		r.Cookies = append(r.Cookies, ck.Name)
 	}
+
 	r.Markers = markers(resp.StatusCode, resp.Header, r.Cookies, string(body))
 
 	return r
@@ -185,6 +200,7 @@ func sitesBrowser(ctx context.Context, client string, l *browser.Live, out strin
 			Vendor: s.vendor,
 			At:     time.Now().UTC(),
 		}
+
 		p, err := l.Visit(ctx, s.url)
 		if err != nil {
 			r.Err = err.Error()
@@ -193,6 +209,7 @@ func sitesBrowser(ctx context.Context, client string, l *browser.Live, out strin
 			r.Markers = markers(p.Status, nil, nil, p.Title+"\n"+p.Text)
 			// Let a challenge run as it would while a user glances at it.
 			time.Sleep(siteGap)
+
 			if q, err := l.Read(ctx); err != nil {
 				r.Err = "reading the settled page: " + err.Error()
 			} else {
@@ -204,8 +221,11 @@ func sitesBrowser(ctx context.Context, client string, l *browser.Live, out strin
 				}
 			}
 		}
+
 		log.Printf("%-20s %-50s %d %-8s %v %s", client, s.url, r.Status, r.Proto, r.Markers, r.Err)
+
 		recs = append(recs, r)
+
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
@@ -220,26 +240,32 @@ func sitesBrowser(ctx context.Context, client string, l *browser.Live, out strin
 // status.
 func markers(status int, h http.Header, cookies []string, body string) []string {
 	var m []string
+
 	add := func(s string) {
 		if !slices.Contains(m, s) {
 			m = append(m, s)
 		}
 	}
+
 	if v := h.Get("Cf-Mitigated"); v != "" {
 		add("cf-mitigated:" + v)
 	}
+
 	if h.Get("X-Datadome") != "" || h.Get("X-Dd-B") != "" {
 		add("datadome-header")
 	}
+
 	if h.Get("X-Kpsdk-Ct") != "" || h.Get("X-Kpsdk-R") != "" {
 		add("kasada-header")
 	}
+
 	lower := strings.ToLower(body)
 	for _, b := range bodyMarkers {
 		if strings.Contains(lower, b.text) {
 			add(b.marker)
 		}
 	}
+
 	for _, c := range cookies {
 		for _, v := range vendorCookies {
 			if c == v || (strings.HasSuffix(v, "*") && strings.HasPrefix(c, strings.TrimSuffix(v, "*"))) {
@@ -247,6 +273,7 @@ func markers(status int, h http.Header, cookies []string, body string) []string 
 			}
 		}
 	}
+
 	switch status {
 	case http.StatusForbidden, http.StatusTooManyRequests, http.StatusServiceUnavailable, http.StatusUnauthorized:
 		add(fmt.Sprintf("status:%d", status))

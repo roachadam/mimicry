@@ -46,6 +46,7 @@ func newFakeNet(t *testing.T, servers ...func(ctx context.Context, conn net.Conn
 	t.Cleanup(func() {
 		n.wg.Wait()
 		close(n.errs)
+
 		for err := range n.errs {
 			t.Error(err)
 		}
@@ -57,15 +58,20 @@ func newFakeNet(t *testing.T, servers ...func(ctx context.Context, conn net.Conn
 func (n *fakeNet) dial(ctx context.Context, _, addr string) (net.Conn, error) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
+
 	n.dialed = append(n.dialed, addr)
 	if len(n.servers) == 0 {
 		return nil, errors.New("no more connections expected")
 	}
+
 	serve := n.servers[0]
+
 	n.servers = n.servers[1:]
+
 	client, server := net.Pipe()
 	// The server outlives the dial; the pipes close when the test ends.
 	ctx = context.WithoutCancel(ctx)
+
 	n.t.Cleanup(func() {
 		_ = client.Close()
 		_ = server.Close()
@@ -98,18 +104,22 @@ type options struct {
 
 func newTestEngine(t *testing.T, o options) *Engine {
 	t.Helper()
+
 	hosts := o.certHosts
 	if hosts == nil {
 		hosts = []string{
 			"localhost",
 		}
 	}
+
 	cert, roots := testutil.Certificate(t, hosts...)
 	serverCert.Store(&cert)
+
 	p := o.profile
 	if p == nil {
 		p = profiles.Chrome()
 	}
+
 	e, err := newEngine(Config{
 		Profile:     p,
 		RootCAs:     roots,
@@ -119,6 +129,7 @@ func newTestEngine(t *testing.T, o options) *Engine {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Cleanup(e.CloseIdleConnections)
 
 	return e
@@ -152,10 +163,12 @@ func serveH1(after func(conn net.Conn) error) func(context.Context, net.Conn) er
 		if err != nil {
 			return err
 		}
+
 		body, err := io.ReadAll(req.Body)
 		if err != nil {
 			return err
 		}
+
 		resp := &http.Response{
 			StatusCode:    http.StatusOK,
 			ProtoMajor:    1,
@@ -166,6 +179,7 @@ func serveH1(after func(conn net.Conn) error) func(context.Context, net.Conn) er
 		if err := resp.Write(conn); err != nil {
 			return err
 		}
+
 		if after != nil {
 			return after(conn)
 		}
@@ -181,8 +195,11 @@ func serveH2(ctx context.Context, conn net.Conn) error {
 	if err != nil {
 		return err
 	}
+
 	closed := make(chan struct{})
+
 	var once sync.Once
+
 	srv := &http.Server{
 		ReadHeaderTimeout: 10 * time.Second,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -199,6 +216,7 @@ func serveH2(ctx context.Context, conn net.Conn) error {
 			}
 		},
 	}
+
 	_ = srv.Serve(&oneConnListener{
 		conn:   tc,
 		ctx:    ctx,
@@ -221,6 +239,7 @@ func (l *oneConnListener) Accept() (net.Conn, error) {
 	if !l.taken.Swap(true) {
 		return l.conn, nil
 	}
+
 	select {
 	case <-l.closed:
 	case <-l.ctx.Done():
@@ -251,8 +270,11 @@ func get(t *testing.T, e *Engine, target string) (*http.Response, error) {
 // readAll reads and closes resp's body.
 func readAll(t *testing.T, resp *http.Response) string {
 	t.Helper()
+
 	b, err := io.ReadAll(resp.Body)
+
 	_ = resp.Body.Close()
+
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -267,6 +289,7 @@ func postOnce(t *testing.T, e *Engine, target, data string) (*http.Response, err
 	if err != nil {
 		return nil, err
 	}
+
 	req.ContentLength = int64(len(data))
 
 	return e.RoundTrip(req)
@@ -276,23 +299,28 @@ func TestDeadIdleConnectionIsNotReused(t *testing.T) {
 	closed := make(chan struct{})
 	n := newFakeNet(t, serveH1(func(conn net.Conn) error {
 		defer close(closed)
+
 		return conn.Close()
 	}), serveH1(nil))
 	e := newTestEngine(t, options{
 		dial: n.dial,
 	})
+
 	resp, err := get(t, e, "http://example.test/")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	readAll(t, resp)
 	<-closed
+
 	// The server closed the idle connection: a POST, which is never sent
 	// twice, must go on a new one.
 	resp, err = postOnce(t, e, "http://example.test/", "data")
 	if err != nil {
 		t.Fatalf("POST after the server closed the idle connection: %v", err)
 	}
+
 	if got := readAll(t, resp); got != "data" {
 		t.Fatalf("body %q", got)
 	}
@@ -302,12 +330,14 @@ func TestDeadIdleConnectionIsNotReused(t *testing.T) {
 // fails with err or connects to n.
 func blockingDial(n *fakeNet, err error) (dial func(context.Context, string, string) (net.Conn, error), dialing, release chan struct{}) {
 	dialing, release = make(chan struct{}), make(chan struct{})
+
 	var first atomic.Bool
 
 	return func(ctx context.Context, network, addr string) (net.Conn, error) {
 		if first.CompareAndSwap(false, true) {
 			close(dialing)
 			<-release
+
 			if err != nil {
 				return nil, err
 			}
@@ -328,29 +358,38 @@ func TestWaiterSendsABodyThatCannotBeResent(t *testing.T) {
 		},
 	})
 	first := make(chan error, 1)
+
 	go func() {
 		resp, err := get(t, e, "http://example.test/")
 		if err == nil {
 			_, _ = io.Copy(io.Discard, resp.Body)
 			_ = resp.Body.Close()
 		}
+
 		first <- err
 	}()
+
 	<-dialing
+
 	post := make(chan error, 1)
+
 	go func() {
 		resp, err := postOnce(t, e, "http://example.test/", "data")
 		if err == nil {
 			_, _ = io.Copy(io.Discard, resp.Body)
 			_ = resp.Body.Close()
 		}
+
 		post <- err
 	}()
+
 	<-waiting
 	close(release)
+
 	if err := <-first; err != nil {
 		t.Fatal(err)
 	}
+
 	if err := <-post; err != nil {
 		t.Fatalf("POST that waited for another request's dial: %v", err)
 	}
@@ -368,22 +407,28 @@ func TestWaitersGetTheSharedDialsError(t *testing.T) {
 		},
 	})
 	errs := make(chan error, 2)
+
 	go func() {
 		_, err := get(t, e, "https://localhost/")
 		errs <- err
 	}()
+
 	<-dialing
+
 	go func() {
 		_, err := get(t, e, "https://localhost/")
 		errs <- err
 	}()
+
 	<-waiting
 	close(release)
+
 	for range 2 {
 		if err := <-errs; !errors.Is(err, refused) {
 			t.Fatalf("err = %v, want the dial's error", err)
 		}
 	}
+
 	if d := n.dials(); len(d) != 0 {
 		t.Fatalf("dialed again after the shared dial failed: %v", d)
 	}
@@ -406,37 +451,47 @@ func goAwayServer(onHeaders func(fr *http2.Framer, f *http2.MetaHeadersFrame) er
 		if err != nil {
 			return err
 		}
+
 		if _, err := io.ReadFull(tc, make([]byte, len(http2.ClientPreface))); err != nil {
 			return err
 		}
+
 		// The pipe has no buffer and the client writes its whole opening
 		// before it reads: queue the server's frames.
 		out := make(chan []byte, 64)
 		defer close(out)
+
 		go func() {
 			for b := range out {
 				_, _ = tc.Write(b)
 			}
 		}()
+
 		fr := http2.NewFramer(queueWriter(out), tc)
+
 		fr.ReadMetaHeaders = hpack.NewDecoder(4096, nil)
+
 		if err := fr.WriteSettings(); err != nil {
 			return err
 		}
+
 		// Read ahead while a handler waits, as a socket buffer would; a pipe would
 		// block the client. Handlers use only what frames copy out.
 		frames := make(chan http2.Frame, 64)
 		go func() {
 			defer close(frames)
+
 			for {
 				f, err := fr.ReadFrame()
 				if err != nil {
 					// The client closed the connection.
 					return
 				}
+
 				frames <- f
 			}
 		}()
+
 		for f := range frames {
 			switch f := f.(type) {
 			case *http2.SettingsFrame:
@@ -445,6 +500,7 @@ func goAwayServer(onHeaders func(fr *http2.Framer, f *http2.MetaHeadersFrame) er
 						return err
 					}
 				}
+
 			case *http2.MetaHeadersFrame:
 				if err := onHeaders(fr, f); err != nil {
 					return err
@@ -459,7 +515,9 @@ func goAwayServer(onHeaders func(fr *http2.Framer, f *http2.MetaHeadersFrame) er
 // writeOK answers stream with 200 and no body.
 func writeOK(fr *http2.Framer, stream uint32) error {
 	var block strings.Builder
+
 	enc := hpack.NewEncoder(&block)
+
 	if err := enc.WriteField(hpack.HeaderField{
 		Name:  ":status",
 		Value: "200",
@@ -480,13 +538,16 @@ func TestGoAwayLetsStartedStreamsFinish(t *testing.T) {
 	n := newFakeNet(t, goAwayServer(func(fr *http2.Framer, f *http2.MetaHeadersFrame) error {
 		if f.StreamID == 1 {
 			close(first)
+
 			return nil
 		}
+
 		// A second request: refuse it and every later one, then finish
 		// the first as promised.
 		if err := fr.WriteGoAway(1, http2.ErrCodeNo, nil); err != nil {
 			return err
 		}
+
 		<-answer
 
 		return writeOK(fr, 1)
@@ -495,21 +556,27 @@ func TestGoAwayLetsStartedStreamsFinish(t *testing.T) {
 		dial: n.dial,
 	})
 	started := make(chan error, 1)
+
 	go func() {
 		resp, err := get(t, e, "https://localhost/slow")
 		if err == nil {
 			_, err = io.Copy(io.Discard, resp.Body)
 			_ = resp.Body.Close()
 		}
+
 		started <- err
 	}()
+
 	<-first
+
 	resp, err := get(t, e, "https://localhost/")
 	if err != nil {
 		t.Fatalf("request refused by GOAWAY: %v", err)
 	}
+
 	readAll(t, resp)
 	close(answer)
+
 	if err := <-started; err != nil {
 		t.Fatalf("stream the GOAWAY promised to finish: %v", err)
 	}
@@ -526,6 +593,7 @@ func TestHandshakeIsBoundedByTheDialTimeout(t *testing.T) {
 		dialTimeout: 50 * time.Millisecond,
 	})
 	done := make(chan error, 1)
+
 	go func() {
 		// No deadline on the request: only the dial timeout ends it.
 		req, err := http.NewRequestWithContext(context.WithoutCancel(t.Context()), http.MethodGet, "https://localhost/", nil)
@@ -533,14 +601,17 @@ func TestHandshakeIsBoundedByTheDialTimeout(t *testing.T) {
 			done <- err
 			return
 		}
+
 		_, err = e.RoundTrip(req)
 		done <- err
 	}()
+
 	select {
 	case err := <-done:
 		if err == nil {
 			t.Fatal("handshake with a silent server succeeded")
 		}
+
 	case <-time.After(10 * time.Second):
 		t.Fatal("the TLS handshake outlived the dial timeout")
 	}

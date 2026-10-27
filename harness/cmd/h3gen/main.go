@@ -27,15 +27,19 @@ func main() {
 func run() error {
 	captures := flag.String("captures", "testdata/captures", "directory with the profile's h3-discovery and h3-page captures")
 	path := flag.String("profile", "", "profile JSON to update (required); its name picks the captures")
+
 	flag.Parse()
+
 	if *path == "" {
 		flag.Usage()
 		os.Exit(2)
 	}
+
 	data, err := os.ReadFile(*path)
 	if err != nil {
 		return err
 	}
+
 	out, err := regenerate(data, *captures)
 	if err != nil {
 		return err
@@ -52,10 +56,12 @@ func regenerate(data []byte, dir string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	set, err := load(dir, p)
 	if err != nil {
 		return nil, err
 	}
+
 	if len(set.conns) == 0 {
 		p.QUIC, p.HTTP3 = nil, nil
 	} else {
@@ -64,24 +70,31 @@ func regenerate(data []byte, dir string) ([]byte, error) {
 		if p.HTTP3 != nil {
 			kept = *p.HTTP3
 		}
+
 		if p.QUIC, err = deriveQUIC(set, p); err != nil {
 			return nil, fmt.Errorf("quic: %w", err)
 		}
+
 		if p.HTTP3, err = deriveHTTP3(set); err != nil {
 			return nil, fmt.Errorf("http3: %w", err)
 		}
+
 		p.HTTP3.Headers, p.HTTP3.High, p.HTTP3.Low = kept.Headers, kept.High, kept.Low
+
 		edge, err := loadEdge(dir, set)
 		if err != nil {
 			return nil, err
 		}
+
 		if err := deriveEdge(edge, p.QUIC, p.HTTP3); err != nil {
 			return nil, fmt.Errorf("h3 edge captures: %w", err)
 		}
+
 		if err := set.unusedGaps(); err != nil {
 			return nil, err
 		}
 	}
+
 	if err := p.Validate(); err != nil {
 		return nil, err
 	}

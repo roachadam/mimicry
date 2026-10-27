@@ -48,24 +48,32 @@ func TestGoAwayAsTheLastStreamEnds(t *testing.T) {
 	result := roundTripAsync(c, get(t, "/"))
 	h := pr.headers()
 	pr.respond(h.StreamID, 0, nil, false)
+
 	r := <-result
 	if r.err != nil {
 		t.Fatal(r.err)
 	}
+
 	go c.GoAway()
+
 	<-gate.writing
+
 	// The stream ends while the GOAWAY is being written.
 	if err := pr.fr.WriteData(h.StreamID, true, nil); err != nil {
 		t.Fatal(err)
 	}
+
 	if _, err := io.ReadAll(r.resp.Body); err != nil {
 		t.Fatal(err)
 	}
+
 	select {
 	case <-c.Done():
 	case <-time.After(200 * time.Millisecond):
 	}
+
 	close(gate.release)
+
 	frames := pr.closed()
 	if _, ok := find(frames, func(*http2.GoAwayFrame) bool { return true }); !ok {
 		t.Fatalf("no GOAWAY before the connection closed: %d frames", len(frames))

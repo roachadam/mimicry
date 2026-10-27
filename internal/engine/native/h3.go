@@ -72,6 +72,7 @@ func (c *quicConn) state() *tls.ConnectionState {
 	if s := c.tls.Load(); s != nil {
 		return s
 	}
+
 	s := handshake.State(c.qc.ConnectionState())
 	if s.HandshakeComplete {
 		c.tls.Store(s)
@@ -209,15 +210,18 @@ func (e *Engine) learnAltSvc(req *http.Request, r route, resp *http.Response) {
 	if !e.h3Route(req, r) {
 		return
 	}
+
 	values := resp.Header.Values("Alt-Svc")
 	if len(values) == 0 {
 		return
 	}
+
 	now := e.clock.Now()
 	alt, found, cleared := parseAltSvc(values, r.host, now)
 	q := e.quic
 	q.mu.Lock()
 	defer q.mu.Unlock()
+
 	o := e.originState(r)
 	switch {
 	case cleared:
@@ -225,6 +229,7 @@ func (e *Engine) learnAltSvc(req *http.Request, r route, resp *http.Response) {
 	case found:
 		o.alt, o.hasAlt = alt, true
 	}
+
 	if found && e.profile.HTTP3.Discovery.Switch == profile.SwitchOnAltSvc && !o.used && o.revalidate.IsZero() && e.mayDial(o, r, now) {
 		e.startAttempt(o, r, dialSpec{})
 	}
@@ -236,6 +241,7 @@ func (e *Engine) mayDial(o *origin, r route, now time.Time) bool {
 	if !o.available(now) || o.attempt != nil {
 		return false
 	}
+
 	_, ok := e.quic.pool.Shared(h3Key(r))
 
 	return !ok
@@ -248,6 +254,7 @@ func (e *Engine) tryH3(ctx context.Context, req *http.Request, r route) (resp *h
 	if !e.h3Route(req, r) || r.tcpOnly {
 		return nil, false, nil, nil
 	}
+
 	c, race, err := e.quicFor(ctx, r)
 	switch {
 	case errors.Is(err, errTCP):
@@ -255,6 +262,7 @@ func (e *Engine) tryH3(ctx context.Context, req *http.Request, r route) (resp *h
 	case err != nil:
 		return nil, true, nil, err
 	}
+
 	resp, handled, err = e.roundTripH3(r, c, req)
 
 	return resp, handled, nil, err
@@ -291,6 +299,7 @@ const (
 func (e *Engine) pickWay(o *origin, tcpOpen bool) way {
 	d := e.profile.HTTP3.Discovery
 	fb := d.Fallback
+
 	switch {
 	case d.RaceAfterGoAway && o.last != nil && o.last.GoneAway():
 		return wayGoAwayRace
@@ -313,20 +322,26 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 	if pooled, ok := e.quic.pool.Shared(h3Key(r)); ok {
 		return pooled, nil, nil
 	}
+
 	d := e.profile.HTTP3.Discovery
 	fb := d.Fallback
 	q := e.quic
 	q.mu.Lock()
+
 	o := e.originState(r)
 	now := e.clock.Now()
+
 	if !o.available(now) {
 		q.mu.Unlock()
+
 		return nil, nil, errTCP
 	}
+
 	if wait := o.reconnect.Sub(now); wait > 0 {
 		// The new connection follows the dead one's close by
 		// ReconnectMillis (Safari).
 		q.mu.Unlock()
+
 		select {
 		case <-e.clock.After(wait):
 		case <-ctx.Done():
@@ -335,9 +350,13 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 
 		return e.quicFor(ctx, r)
 	}
+
 	_, tcpOpen := e.pool.Shared(r.key)
+
 	var a *attempt
+
 	hold := false
+
 	switch e.pickWay(o, tcpOpen) {
 	case wayGoAwayRace:
 		// On TCP; a resumed QUIC connection follows RaceDelayMillis later, never
@@ -352,6 +371,7 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 				ticket: e.takeTicket(r),
 			})
 		}
+
 	case wayRevalidate:
 		// A resumed attempt failed or the last connection died: TCP, and
 		// a fresh attempt beside it once RevalidateMillis have passed
@@ -360,6 +380,7 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 			e.dropTicket(r)
 			e.startAttempt(o, r, dialSpec{})
 		}
+
 	case wayResume:
 		// The origin's next connection resumes, and the request goes on
 		// it in 0-RTT (Firefox after an idle timeout); without a ticket
@@ -377,6 +398,7 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 				e.startAttempt(o, r, dialSpec{})
 			}
 		}
+
 	case wayRace:
 		// The request needs the origin's QUIC connection and waits for
 		// it as Fallback says.
@@ -386,6 +408,7 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 				pending: true,
 			})
 		}
+
 	case wayBeside:
 		// Chrome: QUIC starts beside the request, which goes on the open
 		// HTTP/2 connection.
@@ -394,12 +417,16 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 				ticket: e.takeTicket(r),
 			})
 		}
+
 	case wayTCP:
 	}
+
 	q.mu.Unlock()
+
 	if a == nil {
 		return nil, race, errTCP
 	}
+
 	if hold {
 		select {
 		case <-a.done:
@@ -408,10 +435,12 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 			}
 
 			return a.conn, nil, nil
+
 		case <-ctx.Done():
 			return nil, nil, ctx.Err()
 		}
 	}
+
 	c, err = e.await(ctx, a)
 
 	return c, nil, err
@@ -423,11 +452,15 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 func (e *Engine) await(ctx context.Context, a *attempt) (*quicConn, error) {
 	fb := e.profile.HTTP3.Discovery.Fallback
 	delay := drawMillis(fb.TCPDelayMillis)
+
 	if a.together {
 		delay = 0
 	}
+
 	t := e.clock.NewTimer(delay)
+
 	defer t.Stop()
+
 	done := a.done
 	for {
 		select {
@@ -435,14 +468,17 @@ func (e *Engine) await(ctx context.Context, a *attempt) (*quicConn, error) {
 			if a.conn != nil {
 				return a.conn, nil
 			}
+
 			// A failed attempt: TCP once the delay has passed.
 			done = nil
+
 		case <-t.Chan():
 			select {
 			case <-a.done:
 				if a.conn != nil {
 					return a.conn, nil
 				}
+
 			default:
 				if fb.AbandonOnTCP {
 					a.cancel()
@@ -450,6 +486,7 @@ func (e *Engine) await(ctx context.Context, a *attempt) (*quicConn, error) {
 			}
 
 			return nil, errTCP
+
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		}
@@ -503,25 +540,34 @@ func millis(n int) time.Duration {
 // connection and c leaves the pool.
 func (e *Engine) roundTripH3(r route, c *quicConn, req *http.Request) (*http.Response, bool, error) {
 	key := h3Key(r)
+
 	c.inFlight.Add(1)
+
 	defer c.inFlight.Add(-1)
+
 	resp, err := c.RoundTrip(req)
 	switch {
 	case errors.Is(err, h3.ErrConnUnusable):
 		e.quic.pool.RemoveShared(key, c)
+
 		return nil, true, fmt.Errorf("%w: %w", errNotSent, err)
+
 	case errors.Is(err, h3.ErrRejected):
 		// Its body was read: it goes again with a fresh copy.
 		e.quic.pool.RemoveShared(key, c)
+
 		return nil, true, fmt.Errorf("%w: %w", errRetry, err)
+
 	case errors.Is(err, h3.ErrConnLost) && replayable(req):
 		e.quic.pool.RemoveShared(key, c)
+
 		if e.diedPending(r, c, req) {
 			return nil, true, fmt.Errorf("%w: %w", errTCPOnly, err)
 		}
 
 		return nil, true, fmt.Errorf("%w: %w", errRetry, err)
 	}
+
 	if err == nil {
 		resp.TLS = c.state()
 	}
@@ -538,27 +584,36 @@ func (e *Engine) diedPending(r route, c *quicConn, req *http.Request) bool {
 	default:
 		return false
 	}
+
 	<-c.handshake
+
 	err := c.qc.Err()
 	if !c.handshook.Load() || !errors.Is(err, quic.ErrIdleTimeout) && !errors.Is(err, quic.ErrPathDegraded) {
 		return false
 	}
+
 	c.died.Do(func() {
 		fb := e.profile.HTTP3.Discovery.Fallback
 		q := e.quic
 		q.mu.Lock()
+
 		o := e.originState(r)
 		now := e.clock.Now()
+
 		switch fb.Pending {
 		case profile.PendingTCP:
 			c.toTCP = true
+
 			if fb.Mode == profile.FallbackBackground {
 				o.revalidate = now
 			}
+
 		case profile.PendingQUIC:
 			o.reconnect = now.Add(drawMillis(fb.ReconnectMillis))
 		}
+
 		q.mu.Unlock()
+
 		if c.toTCP {
 			e.declineExtra(r, req, int(c.inFlight.Load()))
 		}
@@ -576,14 +631,17 @@ func (e *Engine) declineExtra(r route, req *http.Request, pending int) {
 		go func() {
 			ctx, cancel := context.WithTimeout(context.Background(), e.dialer.Timeout)
 			defer cancel()
+
 			conn, proto, err := e.dial(ctx, req, r)
 			if err != nil {
 				return
 			}
+
 			if proto != "h2" {
 				_ = conn.Close()
 				return
 			}
+
 			_ = h2.Decline(conn, e.profile)
 		}()
 	}
@@ -600,8 +658,10 @@ func (e *Engine) startAttempt(o *origin, r route, spec dialSpec) *attempt {
 		resumed:  spec.ticket != nil,
 		cancel:   cancel,
 	}
+
 	o.together = false
 	o.attempt = a
+
 	go e.runAttempt(ctx, o, r, a, spec)
 
 	return a
@@ -611,6 +671,7 @@ func (e *Engine) startAttempt(o *origin, r route, spec dialSpec) *attempt {
 // the failure counts as Fallback says.
 func (e *Engine) runAttempt(ctx context.Context, o *origin, r route, a *attempt, spec dialSpec) {
 	defer a.cancel()
+
 	q := e.quic
 	if spec.delay > 0 {
 		select {
@@ -618,14 +679,17 @@ func (e *Engine) runAttempt(ctx context.Context, o *origin, r route, a *attempt,
 		case <-ctx.Done():
 		}
 	}
+
 	if spec.after != nil {
 		select {
 		case <-spec.after:
 		case <-ctx.Done():
 		}
 	}
+
 	c, err := e.connectH3(ctx, r, spec)
 	ours := err == nil
+
 	if ours {
 		// Pooled before the attempt ends, so that no request starts
 		// another meanwhile. Another connection pooled first (none
@@ -637,15 +701,19 @@ func (e *Engine) runAttempt(ctx context.Context, o *origin, r route, a *attempt,
 			if pooled := got.Dial.Shared(c); pooled != c {
 				c, ours = pooled, false
 			}
+
 		case got.Found == pool.FoundShared:
 			_ = c.Close()
 			c, ours = got.Shared, false
 		}
 	}
+
 	q.mu.Lock()
+
 	if o.attempt == a {
 		o.attempt = nil
 	}
+
 	if err != nil {
 		e.failed(o, a.resumed)
 		q.mu.Unlock()
@@ -653,6 +721,7 @@ func (e *Engine) runAttempt(ctx context.Context, o *origin, r route, a *attempt,
 
 		return
 	}
+
 	a.conn = c
 	if !ours {
 		q.mu.Unlock()
@@ -660,19 +729,24 @@ func (e *Engine) runAttempt(ctx context.Context, o *origin, r route, a *attempt,
 
 		return
 	}
+
 	o.last = c
 	if !c.resumed {
 		e.succeeded(o)
 	}
+
 	if e.profile.HTTP3.Discovery.GoAwayTCP {
 		if s, ok := e.pool.Shared(r.key); ok {
 			e.goAwayTCP(r, s)
 		}
 	}
+
 	q.mu.Unlock()
+
 	if c.resumed {
 		go e.watchHandshake(o, c) //nolint:gosec // watched for the connection's lifetime, not the attempt's
 	}
+
 	close(a.done)
 }
 
@@ -684,9 +758,11 @@ func (e *Engine) goAwayIfReplaced(req *http.Request, r route, s *shared) {
 	if !e.h3Route(req, r) || !e.profile.HTTP3.Discovery.GoAwayTCP {
 		return
 	}
+
 	q := e.quic
 	q.mu.Lock()
 	defer q.mu.Unlock()
+
 	if _, ok := q.pool.Shared(h3Key(r)); ok {
 		e.goAwayTCP(r, s)
 	}
@@ -696,6 +772,7 @@ func (e *Engine) goAwayIfReplaced(req *http.Request, r route, s *shared) {
 // response. e.quic.mu must be held.
 func (e *Engine) goAwayTCP(r route, s *shared) {
 	e.pool.RemoveShared(r.key, s)
+
 	go func() {
 		<-s.sent
 		s.GoAway()
@@ -706,13 +783,16 @@ func (e *Engine) goAwayTCP(r route, s *shared) {
 // once it completes or c ends first.
 func (e *Engine) watchHandshake(o *origin, c *quicConn) {
 	err := c.qc.WaitHandshake(context.Background())
+
 	e.quic.mu.Lock()
+
 	if err == nil {
 		c.handshook.Store(true)
 		e.succeeded(o)
 	} else {
 		e.failed(o, true)
 	}
+
 	e.quic.mu.Unlock()
 	close(c.handshake)
 }
@@ -738,6 +818,7 @@ func (e *Engine) failed(o *origin, resumed bool) {
 
 		return
 	}
+
 	o.failures++
 	if o.failures >= fb.BrokenAfter {
 		o.broken = true
@@ -750,20 +831,26 @@ func (e *Engine) failed(o *origin, resumed bool) {
 func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicConn, error) {
 	q := e.quic
 	key := h3Key(r)
+
 	q.mu.Lock()
+
 	o := e.originState(r)
 	port := o.alt.port
 	token := o.token
 	rtt := o.rtt
 	q.mu.Unlock()
+
 	dctx, cancel := context.WithTimeout(ctx, e.dialer.Timeout)
+
 	defer cancel()
+
 	cfg := handshake.Config{
 		ServerName:       r.host,
 		RootCAs:          e.rootCAs,
 		VerifyConnection: e.verifyFor(r.host),
 	}
 	hello := e.plan.QUICHello()
+
 	if e.plan.Resumes() && e.profile.QUIC.ZeroRTT {
 		cfg.Tickets, cfg.TicketKey = q.tickets, key
 		if cfg.Ticket = spec.ticket; cfg.Ticket != nil {
@@ -772,27 +859,33 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 			rtt = 0
 		}
 	}
+
 	dc := quic.DialConfig{
 		Profile:   e.profile.QUIC,
 		CachedRTT: rtt,
 		OnToken: func(t []byte) {
 			q.mu.Lock()
 			defer q.mu.Unlock()
+
 			e.originState(r).token = t
 		},
 	}
 	if e.profile.QUIC.Tokens {
 		dc.Token = token
 	}
+
 	if cfg.Ticket != nil {
 		// A v2 connection's ticket starts its resumption in v2 (Firefox).
 		dc.Version = quic.TicketVersion(cfg.Ticket.Extra())
 	}
+
 	qc, err := e.dialQUIC(dctx, r, port, hello, cfg, dc)
 	from := dc.Version
+
 	if from == 0 {
 		from = 1
 	}
+
 	if v, ok := quic.RetryVersion(err, e.profile.QUIC, from); ok {
 		// Firefox: a new connection in v at once, with its retry hello
 		// (tls.quic.versionNegotiation), offering no ticket.
@@ -802,9 +895,11 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 			qc, err = e.dialQUIC(dctx, r, port, retry, cfg, dc)
 		}
 	}
+
 	if err != nil {
 		return nil, err
 	}
+
 	c, err := h3.New(qc, e.profile, h3.Options{
 		AltHost: r.host,
 		AltPort: strconv.Itoa(int(port)),
@@ -813,6 +908,7 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 	if err != nil {
 		return nil, err
 	}
+
 	qcn := &quicConn{
 		Conn:      c,
 		qc:        qc,
@@ -823,6 +919,7 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 		qcn.handshook.Store(true)
 		close(qcn.handshake)
 	}
+
 	go e.watchH3(r, qc)
 
 	return qcn, nil
@@ -835,11 +932,13 @@ func (e *Engine) dialQUIC(ctx context.Context, r route, port uint16, hello finge
 	if err != nil {
 		return nil, err
 	}
+
 	spec, err := handshake.Spec(hello)
 	if err != nil {
 		_ = pc.Close()
 		return nil, err
 	}
+
 	dc.Hello = spec
 	dc.TLS = handshake.QUICConfig(cfg)
 	dc.NewPath = func(ctx context.Context) (net.PacketConn, error) {
@@ -856,13 +955,16 @@ func (e *Engine) dialQUIC(ctx context.Context, r route, port uint16, hello finge
 func (e *Engine) watchH3(r route, qc *quic.Conn) {
 	t := e.clock.NewTicker(time.Second)
 	defer t.Stop()
+
 	for {
 		rtt := qc.SmoothedRTT()
 		if rtt > 0 {
 			e.quic.mu.Lock()
+
 			e.originState(r).rtt = rtt
 			e.quic.mu.Unlock()
 		}
+
 		select {
 		case <-qc.Done():
 			return

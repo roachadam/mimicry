@@ -91,6 +91,7 @@ func readWSFrame(r io.Reader) (wsFrame, error) {
 	if _, err := io.ReadFull(r, h[:]); err != nil {
 		return wsFrame{}, err
 	}
+
 	f := wsFrame{
 		fin:        h[0]&0x80 != 0,
 		rsv:        h[0] >> 4 & 0x7,
@@ -99,34 +100,42 @@ func readWSFrame(r io.Reader) (wsFrame, error) {
 		lengthBits: 7,
 	}
 	n := uint64(h[1] & 0x7f)
+
 	switch n {
 	case 126:
 		var b [2]byte
 		if _, err := io.ReadFull(r, b[:]); err != nil {
 			return f, noEOF(err)
 		}
+
 		n = uint64(binary.BigEndian.Uint16(b[:]))
 		f.lengthBits = 16
+
 	case 127:
 		var b [8]byte
 		if _, err := io.ReadFull(r, b[:]); err != nil {
 			return f, noEOF(err)
 		}
+
 		n = binary.BigEndian.Uint64(b[:])
 		f.lengthBits = 64
 	}
+
 	if n > wsMaxPayload {
 		return f, fmt.Errorf("websocket frame of %d bytes, more than %d", n, wsMaxPayload)
 	}
+
 	if f.masked {
 		if _, err := io.ReadFull(r, f.mask[:]); err != nil {
 			return f, noEOF(err)
 		}
 	}
+
 	f.payload = make([]byte, n)
 	if _, err := io.ReadFull(r, f.payload); err != nil {
 		return f, noEOF(err)
 	}
+
 	if f.masked {
 		for i := range f.payload {
 			f.payload[i] ^= f.mask[i%4]
@@ -155,6 +164,7 @@ func appendWSFrame(b []byte, opcode uint8, payload []byte) []byte {
 	case n <= 0xffff:
 		b = append(b, 126)
 		b = binary.BigEndian.AppendUint16(b, uint16(n))
+
 	default:
 		b = append(b, 127)
 		b = binary.BigEndian.AppendUint64(b, uint64(n))
@@ -194,6 +204,7 @@ func (z *wsInflater) inflate(compressed []byte) ([]byte, error) {
 	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) {
 		return out, err
 	}
+
 	z.window = append(z.window, out...)
 	if over := len(z.window) - 32<<10; over > 0 {
 		z.window = slices.Clone(z.window[over:])
@@ -227,12 +238,15 @@ var errWSStreamReset = errors.New("stream reset by the client")
 func (w *wsSession) run(r io.Reader) error {
 	defer w.rec.settle()
 	defer w.stopLinger()
+
 	if w.accept.ping {
 		if err := w.send(capture.WSPing, []byte(wsServerPing)); err != nil {
 			return err
 		}
 	}
+
 	br := bufio.NewReader(r)
+
 	var (
 		message    []byte
 		msgOpcode  uint8
@@ -240,23 +254,27 @@ func (w *wsSession) run(r io.Reader) error {
 		echoes     int
 		closeSent  bool
 	)
+
 	for {
 		f, err := readWSFrame(br)
 		if err != nil {
 			if clientEnded(err) {
 				w.rec.closed("client")
+
 				if errors.Is(err, io.ErrUnexpectedEOF) {
 					w.rec.fail(errors.New("the transport ended inside a frame"))
 				}
 
 				return nil
 			}
+
 			if !isClosed(err) {
 				w.rec.fail(err)
 			}
 
 			return err
 		}
+
 		cf := capture.WSFrame{
 			Fin:        f.fin,
 			RSV:        f.rsv,
@@ -269,6 +287,7 @@ func (w *wsSession) run(r io.Reader) error {
 		if f.masked {
 			cf.Mask = hex.EncodeToString(f.mask[:])
 		}
+
 		data := f.opcode < capture.WSClose
 		switch f.opcode {
 		case capture.WSContinuation:
@@ -278,12 +297,14 @@ func (w *wsSession) run(r io.Reader) error {
 			message = message[:0]
 			compressed = w.accept.extensions != "" && f.rsv&0x4 != 0
 			cf.Compressed = compressed
+
 		case capture.WSClose:
 			if len(f.payload) >= 2 {
 				cf.CloseCode = binary.BigEndian.Uint16(f.payload)
 				cf.CloseReason = string(f.payload[2:])
 			}
 		}
+
 		var echo []byte
 		if data {
 			message = append(message, f.payload...)
@@ -293,6 +314,7 @@ func (w *wsSession) run(r io.Reader) error {
 					if w.accept.clientNoContext {
 						w.inflater.window = nil
 					}
+
 					out, err := w.inflater.inflate(message)
 					if err != nil {
 						cf.InflateError = err.Error()
@@ -303,36 +325,48 @@ func (w *wsSession) run(r io.Reader) error {
 				}
 			}
 		}
+
 		w.rec.frame(cf)
+
 		switch {
 		case data && f.fin:
 			if err := w.send(msgOpcode, echo); err != nil {
 				return err
 			}
+
 			echoes++
 			if w.accept.serverClose && echoes == 1 && !closeSent {
 				closeSent = true
+
 				payload := binary.BigEndian.AppendUint16(nil, wsServerCloseCode)
+
 				if err := w.send(capture.WSClose, append(payload, wsServerCloseReason...)); err != nil {
 					return err
 				}
+
 				w.startLinger()
 			}
+
 		case f.opcode == capture.WSPing:
 			if err := w.send(capture.WSPong, f.payload); err != nil {
 				return err
 			}
+
 		case f.opcode == capture.WSClose:
 			if !closeSent {
 				closeSent = true
+
 				var payload []byte
+
 				if cf.CloseCode != 0 {
 					payload = binary.BigEndian.AppendUint16(nil, cf.CloseCode)
 				}
+
 				if err := w.send(capture.WSClose, payload); err != nil {
 					return err
 				}
 			}
+
 			w.startLinger()
 		}
 	}
@@ -343,6 +377,7 @@ func (w *wsSession) send(opcode uint8, payload []byte) error {
 	if err := w.write(appendWSFrame(nil, opcode, payload)); err != nil {
 		return err
 	}
+
 	w.rec.frame(capture.WSFrame{
 		Server:     true,
 		Fin:        true,
@@ -360,6 +395,7 @@ func (w *wsSession) startLinger() {
 	w.once.Do(func() {
 		w.linger = time.AfterFunc(WSLinger, func() {
 			w.rec.closed("server")
+
 			_ = w.end()
 		})
 	})
@@ -367,6 +403,7 @@ func (w *wsSession) startLinger() {
 
 func (w *wsSession) stopLinger() {
 	w.once.Do(func() {})
+
 	if w.linger != nil {
 		w.linger.Stop()
 	}
@@ -389,26 +426,34 @@ func serveWebSocketH1(conn net.Conn, br *bufio.Reader, a *wsAccept, key string, 
 	ws.Status = 101
 	ws.Subprotocol = a.subprotocol
 	ws.Extensions = a.extensions
+
 	rec := log.openWebSocket(ws)
+
 	var b strings.Builder
 	b.WriteString("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ")
 	b.WriteString(wsAcceptKey(key))
 	b.WriteString("\r\n")
+
 	if a.subprotocol != "" {
 		b.WriteString("Sec-WebSocket-Protocol: ")
 		b.WriteString(a.subprotocol)
 		b.WriteString("\r\n")
 	}
+
 	if a.extensions != "" {
 		b.WriteString("Sec-WebSocket-Extensions: ")
 		b.WriteString(a.extensions)
 		b.WriteString("\r\n")
 	}
+
 	b.WriteString("\r\n")
+
 	if _, err := io.WriteString(conn, b.String()); err != nil {
 		rec.settle()
+
 		return err
 	}
+
 	s := &wsSession{
 		rec:    rec,
 		accept: a,
@@ -419,6 +464,7 @@ func serveWebSocketH1(conn net.Conn, br *bufio.Reader, a *wsAccept, key string, 
 		end: conn.Close,
 	}
 	err := s.run(br)
+
 	if isClosed(err) || errors.Is(err, syscall.ECONNRESET) {
 		return nil
 	}
@@ -436,14 +482,17 @@ func (sc *Scenario) noteWSResult(log *pageLog, r request, connHost string) {
 	if _, ok := sc.multi.(wsPage); !ok {
 		return
 	}
+
 	path, query, _ := strings.Cut(r.path, "?")
 	if path != wsResultPath {
 		return
 	}
+
 	host := connHost
 	if host == "" {
 		host, _ = splitAuthority(r.host)
 	}
+
 	q, err := url.ParseQuery(query)
 	if err != nil {
 		log.result(capture.WSResult{
@@ -453,14 +502,18 @@ func (sc *Scenario) noteWSResult(log *pageLog, r request, connHost string) {
 
 		return
 	}
+
 	var res capture.WSResult
+
 	dec := json.NewDecoder(strings.NewReader(q.Get("r")))
 	dec.DisallowUnknownFields()
+
 	if err := dec.Decode(&res); err != nil {
 		res = capture.WSResult{
 			Raw: q.Get("r"),
 		}
 	}
+
 	res.Label = q.Get("label")
 	res.Host = host
 	log.result(res)
@@ -496,6 +549,7 @@ type wsBuffer struct {
 
 func newWSBuffer() *wsBuffer {
 	b := &wsBuffer{}
+
 	b.cond = sync.NewCond(&b.mu)
 
 	return b
@@ -506,6 +560,7 @@ func newWSBuffer() *wsBuffer {
 func (b *wsBuffer) write(p []byte) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
 	if b.err == nil {
 		b.data = append(b.data, p...)
 		b.cond.Broadcast()
@@ -517,6 +572,7 @@ func (b *wsBuffer) write(p []byte) {
 func (b *wsBuffer) end(err error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
 	if b.err == nil {
 		b.err = err
 		b.cond.Broadcast()
@@ -534,11 +590,14 @@ func (b *wsBuffer) reset() bool {
 func (b *wsBuffer) Read(p []byte) (int, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
 	for len(b.data) == 0 && b.err == nil {
 		b.cond.Wait()
 	}
+
 	if len(b.data) > 0 {
 		n := copy(p, b.data)
+
 		b.data = b.data[n:]
 
 		return n, nil
@@ -554,6 +613,7 @@ func (b *wsBuffer) Read(p []byte) (int, error) {
 func (s *h2conn) onConnect(id uint32, st *request, index int, senders *sync.WaitGroup) error {
 	delete(s.streams, id)
 	s.log.request(s.c)
+
 	if v, _ := s.scenario.settingFor(s.host, http2.SettingEnableConnectProtocol); v != 1 {
 		s.mu.Lock()
 		delete(s.sendWindows, id)
@@ -563,12 +623,15 @@ func (s *h2conn) onConnect(id uint32, st *request, index int, senders *sync.Wait
 
 		return s.fr.WriteRSTStream(id, http2.ErrCodeProtocol)
 	}
+
 	r := s.scenario.answer(*st)
 	a := r.websocket
+
 	if a == nil {
 		senders.Go(func() {
 			if err := s.send(id, r); err != nil {
 				s.mu.Lock()
+
 				s.closed = true
 				s.cond.Broadcast()
 				s.mu.Unlock()
@@ -577,6 +640,7 @@ func (s *h2conn) onConnect(id uint32, st *request, index int, senders *sync.Wait
 
 		return nil
 	}
+
 	ws := &h2WebSocket{
 		in: newWSBuffer(),
 		rec: s.log.openWebSocket(capture.WebSocket{
@@ -594,6 +658,7 @@ func (s *h2conn) onConnect(id uint32, st *request, index int, senders *sync.Wait
 		}),
 	}
 	s.mu.Lock()
+
 	s.websockets[id] = ws
 	s.mu.Unlock()
 	senders.Go(func() {
@@ -603,16 +668,21 @@ func (s *h2conn) onConnect(id uint32, st *request, index int, senders *sync.Wait
 			delete(s.sendWindows, id)
 			s.mu.Unlock()
 		}()
+
 		if err := s.wsHeaders(id, a); err != nil {
 			ws.rec.settle()
+
 			return
 		}
+
 		var ended sync.Once
+
 		end := func() error {
 			var err error
 			ended.Do(func() {
 				s.wmu.Lock()
 				defer s.wmu.Unlock()
+
 				err = s.fr.WriteData(id, true, nil)
 			})
 
@@ -641,7 +711,9 @@ func (s *h2conn) onConnect(id uint32, st *request, index int, senders *sync.Wait
 func (s *h2conn) wsHeaders(id uint32, a *wsAccept) error {
 	s.wmu.Lock()
 	defer s.wmu.Unlock()
+
 	s.buf.Reset()
+
 	fields := []hpack.HeaderField{
 		{
 			Name:  ":status",
@@ -654,12 +726,14 @@ func (s *h2conn) wsHeaders(id uint32, a *wsAccept) error {
 			Value: a.subprotocol,
 		})
 	}
+
 	if a.extensions != "" {
 		fields = append(fields, hpack.HeaderField{
 			Name:  "sec-websocket-extensions",
 			Value: a.extensions,
 		})
 	}
+
 	for _, f := range fields {
 		_ = s.enc.WriteField(f)
 	}
@@ -679,12 +753,16 @@ func (s *h2conn) writeStream(id uint32, p []byte) error {
 		if err != nil {
 			return err
 		}
+
 		s.wmu.Lock()
+
 		err = s.fr.WriteData(id, false, p[:n])
 		s.wmu.Unlock()
+
 		if err != nil {
 			return err
 		}
+
 		p = p[n:]
 	}
 
@@ -695,12 +773,16 @@ func (s *h2conn) writeStream(id uint32, p []byte) error {
 // reports whether f was on one.
 func (s *h2conn) onWebSocketData(f *http2.DataFrame) bool {
 	s.mu.Lock()
+
 	ws := s.websockets[f.StreamID]
 	s.mu.Unlock()
+
 	if ws == nil {
 		return false
 	}
+
 	ws.in.write(f.Data())
+
 	if f.StreamEnded() {
 		ws.rec.streamEnd("END_STREAM")
 		ws.in.end(io.EOF)
@@ -712,11 +794,14 @@ func (s *h2conn) onWebSocketData(f *http2.DataFrame) bool {
 // onReset ends a WebSocket stream the client reset.
 func (s *h2conn) onReset(f *http2.RSTStreamFrame) {
 	s.mu.Lock()
+
 	ws := s.websockets[f.StreamID]
 	s.mu.Unlock()
+
 	if ws == nil {
 		return
 	}
+
 	ws.rec.streamEnd("RST_STREAM " + f.ErrCode.String())
 	ws.in.end(errWSStreamReset)
 }

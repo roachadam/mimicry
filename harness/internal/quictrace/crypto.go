@@ -115,14 +115,17 @@ func chachaMask(key []byte) (headerMask, error) {
 	if len(key) != chacha20.KeySize {
 		return nil, errors.New("bad ChaCha20 key length")
 	}
+
 	k := append([]byte(nil), key...)
 
 	return func(sample []byte) [5]byte {
 		var out [5]byte
+
 		c, err := chacha20.NewUnauthenticatedCipher(k, sample[4:16])
 		if err != nil {
 			return out
 		}
+
 		c.SetCounter(binary.LittleEndian.Uint32(sample[:4]))
 		c.XORKeyStream(out[:], out[:])
 
@@ -140,6 +143,7 @@ func expandLabel(h func() hash.Hash, secret []byte, label string, length int) ([
 func expandLabelContext(h func() hash.Hash, secret []byte, label string, context []byte, length int) ([]byte, error) {
 	full := "tls13 " + label
 	info := make([]byte, 0, 4+len(full)+len(context))
+
 	info = binary.BigEndian.AppendUint16(info, uint16(length))
 	info = append(info, byte(len(full)))
 	info = append(info, full...)
@@ -157,10 +161,12 @@ func clientEarlyTrafficSecret(suiteID uint16, psk, clientHello []byte) ([]byte, 
 	if !ok {
 		return nil, fmt.Errorf("unknown cipher suite %#04x", suiteID)
 	}
+
 	early, err := hkdf.Extract(s.hash, psk, nil)
 	if err != nil {
 		return nil, err
 	}
+
 	transcript := s.hash()
 	transcript.Write(clientHello)
 
@@ -182,22 +188,27 @@ type keys struct {
 // section 5.1).
 func newKeys(s suite, version uint32, secret []byte) (*keys, error) {
 	prefix := labelPrefix(version)
+
 	key, err := expandLabel(s.hash, secret, prefix+"key", s.keyLen)
 	if err != nil {
 		return nil, err
 	}
+
 	iv, err := expandLabel(s.hash, secret, prefix+"iv", 12)
 	if err != nil {
 		return nil, err
 	}
+
 	hpKey, err := expandLabel(s.hash, secret, prefix+"hp", s.keyLen)
 	if err != nil {
 		return nil, err
 	}
+
 	aead, err := s.aead(key)
 	if err != nil {
 		return nil, err
 	}
+
 	mask, err := s.hp(hpKey)
 	if err != nil {
 		return nil, err
@@ -220,10 +231,12 @@ func (k *keys) next() (*keys, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	n, err := newKeys(k.suite, k.version, secret)
 	if err != nil {
 		return nil, err
 	}
+
 	n.mask = k.mask
 
 	return n, nil
@@ -236,14 +249,17 @@ func initialKeys(version uint32, dcid []byte, server bool) (*keys, error) {
 	if !ok {
 		return nil, fmt.Errorf("no Initial salt for version %#08x", version)
 	}
+
 	initial, err := hkdf.Extract(sha256.New, dcid, salt)
 	if err != nil {
 		return nil, err
 	}
+
 	label := "client in"
 	if server {
 		label = "server in"
 	}
+
 	secret, err := expandLabel(sha256.New, initial, label, sha256.Size)
 	if err != nil {
 		return nil, err
@@ -276,18 +292,23 @@ func verifyRetry(version uint32, retry, odcid []byte) error {
 	if !ok {
 		return fmt.Errorf("no Retry integrity key for version %#08x", version)
 	}
+
 	if len(retry) < 16 {
 		return errShortPacket
 	}
+
 	aead, err := aesGCM(ki[0])
 	if err != nil {
 		return err
 	}
+
 	body := retry[:len(retry)-16]
 	pseudo := make([]byte, 0, 1+len(odcid)+len(body))
+
 	pseudo = append(pseudo, byte(len(odcid)))
 	pseudo = append(pseudo, odcid...)
 	pseudo = append(pseudo, body...)
+
 	if _, err := aead.Open(nil, ki[1], retry[len(body):], pseudo); err != nil {
 		return errRetryTag
 	}
@@ -304,10 +325,12 @@ func keysForSecret(version uint32, secret []byte, p []byte, pnOffset int, short 
 		if s.hash().Size() != len(secret) {
 			continue
 		}
+
 		k, err := newKeys(s, version, secret)
 		if err != nil {
 			continue
 		}
+
 		if _, err := k.unprotect(p, pnOffset, short, largest); err == nil {
 			return k
 		}
@@ -335,10 +358,12 @@ func (k *keys) unprotect(p []byte, pnOffset int, short bool, largest int64) (ope
 	if err != nil {
 		return opened{}, err
 	}
+
 	nonce := append([]byte(nil), k.iv...)
 	for i := range 8 {
 		nonce[len(nonce)-1-i] ^= byte(o.pn >> (8 * i))
 	}
+
 	o.payload, err = k.aead.Open(nil, nonce, p[len(header):], header)
 	if err != nil {
 		return opened{}, err
@@ -352,21 +377,29 @@ func (k *keys) unmask(p []byte, pnOffset int, short bool, largest int64) ([]byte
 	if len(p) < pnOffset+4+16 {
 		return nil, opened{}, errShortPacket
 	}
+
 	mask := k.mask(p[pnOffset+4 : pnOffset+4+16])
 	first := p[0]
+
 	if short {
 		first ^= mask[0] & 0x1f
 	} else {
 		first ^= mask[0] & 0x0f
 	}
+
 	pnLen := int(first&0x03) + 1
 	header := append([]byte(nil), p[:pnOffset+pnLen]...)
+
 	header[0] = first
+
 	var truncated uint64
+
 	for i := range pnLen {
 		header[pnOffset+i] ^= mask[1+i] //nolint:gosec // pnLen is at most 4, mask has 5 bytes
+
 		truncated = truncated<<8 | uint64(header[pnOffset+i])
 	}
+
 	o := opened{
 		firstByte: first,
 		pnLen:     pnLen,
@@ -384,6 +417,7 @@ func decodePacketNumber(largest int64, truncated uint64, pnLen int) uint64 {
 	hwin := win / 2
 	mask := win - 1
 	candidate := (expected &^ mask) | truncated
+
 	switch {
 	case candidate+hwin <= expected && candidate < (1<<62)-win:
 		return candidate + win

@@ -47,18 +47,22 @@ func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
 		for _, sc := range []*server.Scenario{server.H3Blackhole, server.H3Broken, server.H3VN, server.H3V2, server.H3Early, server.H3TooEarly} {
 			t.Run(name+"/"+sc.Name, func(t *testing.T) {
 				t.Parallel()
+
 				if sc.NeedsAioquic() {
 					if err := server.AioquicAvailable(t.Context()); err != nil {
 						t.Skipf("%s needs aioquic: %v", sc.Name, err)
 					}
 				}
+
 				p, err := loadProfile(name)
 				if err != nil {
 					t.Fatal(err)
 				}
+
 				if p.HTTP3 == nil || p.QUIC == nil {
 					t.Fatal("the profile has no http3 or quic section")
 				}
+
 				want := h3Captures(t, p, sc)
 				skip, unused := edgeGapsFor(t, capture.Source(p, sc.Name)+"/"+sc.Name)
 				got := runH3Schedule(t, p, sc, want[0], skip)
@@ -106,26 +110,33 @@ var h3EdgeGaps = func() map[string]string {
 		} {
 			gaps[name+"/h3-broken "+k] = resumed
 		}
+
 		for _, l := range []string{"silence", "silent1", "silent2", "silent3", "silent4", "silent5", "silent6"} {
 			gaps[name+"/h3-broken edge request /h3/"+l+".so sent"] = "replayed in 0-RTT on Safari's resumed connection; " + resumed
 			gaps[name+"/h3-broken edge request /h3/"+l+".so streams"] = "as its sending"
 		}
+
 		gaps[name+"/h3-broken edge QUIC www.h3-b.test #1 closed by"] = "Safari closes a QUIC connection itself when the server's GOAWAY arrives; no profile field describes it"
 		// On the h3-early pages Safari resumes with 0-RTT after an idle
 		// timeout too, by the method rule Chrome's profile holds (GET,
 		// HEAD and OPTIONS early, the rest held for HANDSHAKE_DONE; a 425
 		// sent again on its connection); mimicry's Safari connections are
 		// fresh, so none of it shows.
-		const idleResumed = "Safari resumed this QUIC connection with 0-RTT after the last idled out (GET, HEAD and OPTIONS in 0-RTT, the other methods held until HANDSHAKE_DONE, a 425 sent again on the connection: report h3-early-2026-10-26); no profile section describes Safari's resumption, so mimicry's is fresh"
-		const noOptions = "Safari's profile has no OPTIONS fetch (none in its kinds captures; kindsgen does not read the h3-early pages), so mimicry refuses it (ErrNotMeasured) and its form.so navigation goes on QUIC #9, not #10"
+		const (
+			idleResumed = "Safari resumed this QUIC connection with 0-RTT after the last idled out (GET, HEAD and OPTIONS in 0-RTT, the other methods held until HANDSHAKE_DONE, a 425 sent again on the connection: report h3-early-2026-10-26); no profile section describes Safari's resumption, so mimicry's is fresh"
+			noOptions   = "Safari's profile has no OPTIONS fetch (none in its kinds captures; kindsgen does not read the h3-early pages), so mimicry refuses it (ErrNotMeasured) and its form.so navigation goes on QUIC #9, not #10"
+		)
+
 		for _, sc := range []string{"h3-early", "h3-too-early"} {
 			for i := 2; i <= 8; i++ {
 				gaps[fmt.Sprintf("%s/%s edge QUIC www.h3-a.test #%d", name, sc, i)] = idleResumed
 			}
+
 			for _, l := range []string{"post", "put", "delete", "xhr-post", "pair-get", "pair-post", "get", "head", "form"} {
 				gaps[name+"/"+sc+" edge request /h3/"+l+".so sent"] = idleResumed
 				gaps[name+"/"+sc+" edge request /h3/"+l+".so streams"] = idleResumed
 			}
+
 			for _, k := range []string{
 				"request /h3/options.so not measured",
 				"request /h3/options.so sent",
@@ -163,18 +174,25 @@ var h3EdgeSchedulingGaps = func() map[string]string {
 // edgeGapsFor is gapsFor for h3EdgeGaps and h3EdgeSchedulingGaps.
 func edgeGapsFor(t *testing.T, name string) (skip func(key string) bool, unused func()) {
 	t.Helper()
+
 	var mu sync.Mutex
+
 	seen := map[string]bool{}
+
 	skip = func(key string) bool {
 		k := name + " " + key
 		why, ok := h3EdgeGaps[k]
+
 		if !ok {
 			why, ok = h3EdgeSchedulingGaps[k]
 		}
+
 		if !ok {
 			return false
 		}
+
 		mu.Lock()
+
 		seen[k] = true
 		mu.Unlock()
 		t.Logf("known gap: %s: %s", key, why)
@@ -200,6 +218,7 @@ func runH3Schedule(t *testing.T, p *profile.Profile, sc *server.Scenario, browse
 	t.Helper()
 	// Its times from a request on are net of the process's stalls.
 	stalls.watch()
+
 	s := startPage(t, p, sc)
 	if s.quicReady != nil {
 		// The browser's page loads long after aioquic is up; a datagram
@@ -210,20 +229,27 @@ func runH3Schedule(t *testing.T, p *profile.Profile, sc *server.Scenario, browse
 			t.Fatal("aioquic did not start")
 		}
 	}
+
 	page, err := url.Parse(s.url(h3PageHost, "/"))
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	start := time.Now()
+
 	s.send(http.MethodGet, page.String(), mimicry.Request{}, nil, "")
+
 	ctx, cancel := context.WithCancel(t.Context())
+
 	defer cancel()
+
 	steps := h3Steps(sc)
 	select {
 	case <-time.After(scriptStart(browser, steps[0])):
 	case <-t.Context().Done():
 		t.Fatal(t.Context().Err())
 	}
+
 	// from is the page the step is made from, read when it is issued: a
 	// navigation step replaces page while earlier steps are still sending.
 	send := func(st server.H3Step, from *url.URL, target string) error {
@@ -234,28 +260,34 @@ func runH3Schedule(t *testing.T, p *profile.Profile, sc *server.Scenario, browse
 
 		return err
 	}
+
 	var wg sync.WaitGroup
+
 	for _, st := range steps {
 		select {
 		case <-time.After(time.Duration(st.PauseMillis) * time.Millisecond):
 		case <-t.Context().Done():
 			t.Fatal(t.Context().Err())
 		}
+
 		target := s.url(st.Host, st.Path())
 		if st.NoWait {
 			target += "?t=" + strconv.FormatInt(time.Since(start).Milliseconds(), 10)
 		}
+
 		if st.Kind == "navigate" {
 			// It ends the page's steps; the page it loads asks for /done.
 			if err := send(st, page, target); err != nil {
 				t.Fatalf("%s: %v", st.Label, err)
 			}
+
 			if page, err = url.Parse(target); err != nil {
 				t.Fatal(err)
 			}
 
 			break
 		}
+
 		if !st.NoWait {
 			if err := send(st, page, target); err != nil {
 				t.Fatalf("%s: %v", st.Label, err)
@@ -263,6 +295,7 @@ func runH3Schedule(t *testing.T, p *profile.Profile, sc *server.Scenario, browse
 
 			continue
 		}
+
 		from := page
 		wg.Go(func() {
 			if err := send(st, from, target); err != nil && ctx.Err() == nil {
@@ -270,13 +303,16 @@ func runH3Schedule(t *testing.T, p *profile.Profile, sc *server.Scenario, browse
 			}
 		})
 	}
+
 	time.Sleep(h3ScriptTurn)
+
 	done := doneHost(browser)
 	s.send(http.MethodGet, s.url(done, "/done"), mimicry.Request{
 		Kind:   mimicry.Fetch,
 		From:   page,
 		NoCORS: done != h3PageHost,
 	}, nil, "")
+
 	for {
 		select {
 		case c := <-s.captures:
@@ -286,6 +322,7 @@ func runH3Schedule(t *testing.T, p *profile.Profile, sc *server.Scenario, browse
 
 				return c.Page
 			}
+
 		case <-time.After(10 * time.Second):
 			t.Fatal("no page capture")
 		}
@@ -299,7 +336,9 @@ func runH3Schedule(t *testing.T, p *profile.Profile, sc *server.Scenario, browse
 // page's first request, as the browser's did.
 func scriptStart(browser *capture.Page, first server.H3Step) time.Duration {
 	v := viewEdge(browser)
+
 	var nav, step *edgeRequest
+
 	for _, r := range v.requests {
 		switch r.label {
 		case "/":
@@ -308,6 +347,7 @@ func scriptStart(browser *capture.Page, first server.H3Step) time.Duration {
 			step = r
 		}
 	}
+
 	if nav == nil || step == nil || step.delay < 0 {
 		return 0
 	}
@@ -319,19 +359,25 @@ func scriptStart(browser *capture.Page, first server.H3Step) time.Duration {
 // its response.
 func sendScheduled(ctx context.Context, s *pageSession, st server.H3Step, page *url.URL, target string) error {
 	method, r, h := h3StepRequest(st, page)
+
 	var body io.Reader
+
 	if st.Body != "" {
 		body = strings.NewReader(st.Body)
 	}
+
 	req, err := http.NewRequestWithContext(ctx, method, target, body)
 	if err != nil {
 		return err
 	}
+
 	maps.Copy(req.Header, h)
+
 	resp, err := s.client.Do(mimicry.With(req, r))
 	if err != nil {
 		return err
 	}
+
 	_, err = io.Copy(io.Discard, resp.Body)
 	_ = resp.Body.Close()
 
@@ -447,14 +493,18 @@ func viewEdge(page *capture.Page) edgeView {
 	slices.SortStableFunc(traces, func(a, b *h2trace.Trace) int {
 		return int(a.Millis - b.Millis)
 	})
+
 	var arrivals []arrival
 	for _, tr := range traces {
 		if len(tr.Requests) == 0 {
 			v.declined[tr.Host]++
 			continue
 		}
+
 		v.tcp[tr.Host] = append(v.tcp[tr.Host], tr)
+
 		via := fmt.Sprintf("h2 %s #%d", tr.Host, len(v.tcp[tr.Host]))
+
 		for _, r := range tr.Requests {
 			at := tr.Millis
 			for _, f := range tr.Frames {
@@ -463,6 +513,7 @@ func viewEdge(page *capture.Page) edgeView {
 					break
 				}
 			}
+
 			arrivals = append(arrivals, arrival{
 				at:   at,
 				path: r.Path,
@@ -470,21 +521,27 @@ func viewEdge(page *capture.Page) edgeView {
 			})
 		}
 	}
+
 	for _, c := range page.QUIC {
 		v.quic[c.Host] = append(v.quic[c.Host], c)
+
 		via := fmt.Sprintf("h3 %s #%d", c.Host, len(v.quic[c.Host]))
+
 		if c.EarlyData {
 			via += " 0-RTT"
 		}
+
 		if c.H3 == nil {
 			continue
 		}
+
 		finished, finishedAt := c.FinishedDatagram()
 		starts := c.StreamStarts()
 		reqs := slices.Clone(c.H3.Requests)
 		slices.SortFunc(reqs, func(a, b quictrace.H3Request) int {
 			return cmp.Compare(a.Stream, b.Stream)
 		})
+
 		seen := map[string]bool{}
 		for _, r := range reqs {
 			a := arrival{
@@ -500,57 +557,72 @@ func viewEdge(page *capture.Page) edgeView {
 					again:        seen[r.Path],
 				}
 			}
+
 			seen[r.Path] = true
+
 			arrivals = append(arrivals, a)
 		}
 	}
+
 	slices.SortStableFunc(arrivals, func(a, b arrival) int {
 		return int(a.at - b.at)
 	})
+
 	byPath := map[string]*edgeRequest{}
 	last := map[string]int64{}
 	ts := map[string]int64{}
 	early := map[string][]arrival{}
+
 	for _, a := range arrivals {
 		r := byPath[a.path]
 		if r == nil {
 			label, t := splitT(a.path)
+
 			r = &edgeRequest{
 				label:  label,
 				issued: a.at,
 				delay:  -1,
 			}
+
 			if t >= 0 {
 				ts[a.path] = t
 			}
+
 			byPath[a.path] = r
 			v.requests = append(v.requests, r)
 		}
+
 		if len(r.sent) == 0 || r.sent[len(r.sent)-1] != a.via {
 			r.sent = append(r.sent, a.via)
 		}
+
 		last[a.path] = a.at
 		if a.early != nil {
 			early[a.path] = append(early[a.path], a)
 		}
 	}
+
 	offset, found := int64(0), false
 	for path, t := range ts {
 		if d := last[path] - t; !found || d < offset {
 			offset, found = d, true
 		}
 	}
+
 	for path, t := range ts {
 		r := byPath[path]
+
 		r.issued = t + offset
 		r.delay = last[path] - r.issued
 	}
+
 	for path, as := range early {
 		r := byPath[path]
 		for _, a := range as {
 			r.streams = append(r.streams, a.via+": "+a.early.describe(r.issued))
 		}
 	}
+
 	slices.SortStableFunc(v.requests, func(a, b *edgeRequest) int {
 		return int(a.issued - b.issued)
 	})
@@ -562,9 +634,11 @@ func viewEdge(page *capture.Page) edgeView {
 func splitT(path string) (string, int64) {
 	p, query, _ := strings.Cut(path, "?")
 	q, err := url.ParseQuery(query)
+
 	if err != nil || q.Get("t") == "" {
 		return p, -1
 	}
+
 	t, err := strconv.ParseInt(q.Get("t"), 10, 64)
 	if err != nil {
 		return p, -1
@@ -588,6 +662,7 @@ func (v edgeView) trigger(at int64) *edgeRequest {
 			other = r
 		}
 	}
+
 	if timed != nil {
 		return timed
 	}
@@ -624,21 +699,27 @@ func outcome(c *quictrace.Conn) string {
 // how long this process was stalled within it (stalled: stalledIn).
 func edgeFeatures(page *capture.Page) (f features, ms, stalled map[string]int) {
 	v := viewEdge(page)
+
 	f = newFeatures()
 	ms, stalled = map[string]int{}, map[string]int{}
+
 	for _, r := range v.requests {
 		if r.label == "/" || r.label == "/done" {
 			continue
 		}
+
 		f.cat["request "+r.label+" sent"] = strings.Join(r.sent, ", ")
 		if len(r.streams) > 0 {
 			f.cat["request "+r.label+" streams"] = strings.Join(r.streams, "; ")
 		}
+
 		if r.delay >= 0 {
 			k := "request " + r.label + " delay"
+
 			ms[k], stalled[k] = int(r.delay), stalledIn(page, r.issued, r.delay)
 		}
 	}
+
 	// The TCP connection that carried the page itself has no trigger: it
 	// is the page's start.
 	tcpTrigger := map[*h2trace.Trace]*edgeRequest{}
@@ -651,28 +732,34 @@ func edgeFeatures(page *capture.Page) (f features, ms, stalled map[string]int) {
 			}
 		}
 	}
+
 	quicTrigger := map[*quictrace.Conn]*edgeRequest{}
 	for host, conns := range v.quic {
 		for i, c := range conns {
 			k := fmt.Sprintf("QUIC %s #%d", host, i+1)
 			version := c.Version
+
 			if c.NegotiatedVersion != "" {
 				version += " to " + c.NegotiatedVersion
 			}
+
 			f.cat[k] = fmt.Sprintf("resumed %v, version %s, server sent %s", c.Resumed, version, outcome(c))
 			if c.Close != nil {
 				f.cat[k+" closed by"] = c.Close.By
 			}
+
 			if tr := v.trigger(c.Millis); tr != nil {
 				quicTrigger[c] = tr
 				f.cat[k+" trigger"] = tr.label
 				ms[k+" after its trigger"], stalled[k+" after its trigger"] = int(c.Millis-tr.issued), stalledIn(page, tr.issued, c.Millis-tr.issued)
 			}
+
 			if o := outcome(c); o != "handshake" && len(c.Datagrams) > 0 {
 				f.num[k+" datagrams"] = len(c.Datagrams)
 				f.cat[k+" Initial packet number steps"] = initialSteps(c)
 				ms[k+" last datagram"] = int(c.Datagrams[len(c.Datagrams)-1].Micros / 1000)
 			}
+
 			if m, ok := movePath(c); ok {
 				f.cat[k+" new path"] = "yes"
 				f.num[k+" probes before new path"] = m.probes
@@ -680,6 +767,7 @@ func edgeFeatures(page *capture.Page) (f features, ms, stalled map[string]int) {
 			}
 		}
 	}
+
 	for host, traces := range v.tcp {
 		for j, tr := range traces {
 			k := fmt.Sprintf("TCP %s #%d", host, j+1)
@@ -687,6 +775,7 @@ func edgeFeatures(page *capture.Page) (f features, ms, stalled map[string]int) {
 				f.cat[k+" trigger"] = r.label
 				ms[k+" after its trigger"], stalled[k+" after its trigger"] = int(tr.Millis-r.issued), stalledIn(page, r.issued, tr.Millis-r.issued)
 			}
+
 			// A race: the request that started a QUIC attempt started
 			// this connection too. The gap is signed (negative where the
 			// TCP connection came first): the two start side by side, so
@@ -699,19 +788,23 @@ func edgeFeatures(page *capture.Page) (f features, ms, stalled map[string]int) {
 				if r := tcpTrigger[tr]; r == nil || quicTrigger[c] != r {
 					continue
 				}
+
 				if d := tr.Millis - c.Millis; d >= -raceWindow && d <= raceWindow {
 					ms[fmt.Sprintf("%s after QUIC #%d", k, i+1)] = int(d)
 				}
 			}
+
 			goaway := "no"
 			for _, fr := range tr.Frames {
 				if fr.Type == "GOAWAY" {
 					goaway = fr.ErrCode
 				}
 			}
+
 			f.cat[k+" goaway"] = goaway
 		}
 	}
+
 	for host, n := range v.declined {
 		f.num["TCP "+host+" declined"] = n
 	}
@@ -726,6 +819,7 @@ func stalledIn(page *capture.Page, from, d int64) int {
 	if page.Start.IsZero() || d <= 0 {
 		return 0
 	}
+
 	at := page.Start.Add(time.Duration(from) * time.Millisecond)
 
 	return int(stalls.stalled(at, at.Add(time.Duration(d)*time.Millisecond)).Milliseconds())
@@ -747,17 +841,23 @@ type pathMove struct {
 // the one before: Chrome skips one before each probe (1 2 2 2 1, the last
 // its close), the others none.
 func initialSteps(c *quictrace.Conn) string {
-	var steps []string
-	var prev uint64
+	var (
+		steps []string
+		prev  uint64
+	)
+
 	first := true
+
 	for _, d := range c.Datagrams {
 		for _, p := range d.Packets {
 			if p.Type != quictrace.PacketInitial {
 				continue
 			}
+
 			if !first {
 				steps = append(steps, strconv.FormatUint(p.PN-prev, 10))
 			}
+
 			prev, first = p.PN, false
 		}
 	}
@@ -774,6 +874,7 @@ func movePath(c *quictrace.Conn) (pathMove, bool) {
 	if moved < 0 {
 		return pathMove{}, false
 	}
+
 	// The last request's first send: the last client-initiated
 	// bidirectional stream's first datagram.
 	sent, seen := -1, map[uint64]bool{}
@@ -787,17 +888,23 @@ func movePath(c *quictrace.Conn) (pathMove, bool) {
 			}
 		}
 	}
+
 	if sent < 0 {
 		return pathMove{}, false
 	}
+
 	start := c.Datagrams[sent].Micros
 	m := pathMove{
 		after:  c.Datagrams[moved].Micros - start,
 		rttPTO: tracePTO(c, start),
 	}
 	last := start
-	var prev uint64
-	var steps []string
+
+	var (
+		prev  uint64
+		steps []string
+	)
+
 	for i, d := range c.Datagrams[sent:moved] {
 		probe := i > 0 && slices.ContainsFunc(d.Packets, func(p quictrace.Packet) bool {
 			return slices.ContainsFunc(p.Frames, func(f quictrace.Frame) bool {
@@ -808,15 +915,19 @@ func movePath(c *quictrace.Conn) (pathMove, bool) {
 			if p.Type != quictrace.Packet1RTT {
 				continue
 			}
+
 			if probe {
 				steps = append(steps, strconv.FormatUint(p.PN-prev, 10))
 				probe = false
 				m.probes++
+
 				last = d.Micros
 			}
+
 			prev = p.PN
 		}
 	}
+
 	m.steps = strings.Join(steps, " ")
 	// The k-th probe goes 1 + 2 + … + 2^(k-1) = 2^k - 1 PTOs after the
 	// request (RFC 9002, section 6.2.1: the timer doubles on each); each
@@ -836,47 +947,61 @@ func movePath(c *quictrace.Conn) (pathMove, bool) {
 func tracePTO(c *quictrace.Conn, before int64) float64 {
 	exponent := transportParameter(c.TransportParameters, tpAckDelayExponent, 3)
 	sent := map[string]int64{}
+
 	for _, d := range c.Server {
 		for _, p := range d.Packets {
 			sent[pnSpace(p.Type)+" "+strconv.FormatUint(p.PN, 10)] = d.Micros
 		}
 	}
+
 	largest := map[string]uint64{}
+
 	var smoothed, variation float64
+
 	sampled := false
+
 	for _, d := range c.Datagrams {
 		if d.Micros >= before {
 			break
 		}
+
 		for _, p := range d.Packets {
 			space := pnSpace(p.Type)
 			for _, f := range p.Frames {
 				if l, ok := largest[space]; f.Type != quictrace.FrameAck || ok && f.Largest <= l {
 					continue
 				}
+
 				largest[space] = f.Largest
+
 				at, ok := sent[space+" "+strconv.FormatUint(f.Largest, 10)]
+
 				if !ok {
 					continue
 				}
+
 				latest := float64(d.Micros - at)
 				if !sampled {
 					smoothed, variation, sampled = latest, latest/2, true
 					continue
 				}
+
 				adjusted := latest
 				if delay := float64(f.Delay << exponent); delay < latest {
 					adjusted -= delay
 				}
+
 				variation = 0.75*variation + 0.25*math.Abs(smoothed-adjusted)
 				smoothed = 0.875*smoothed + 0.125*adjusted
 			}
 		}
 	}
+
 	if !sampled {
 		// RFC 9002's initial RTT, 333 ms.
 		smoothed, variation = 333000, 333000/2
 	}
+
 	maxAckDelay := float64(transportParameter(c.ServerTransportParameters, tpMaxAckDelay, 25) * 1000)
 
 	return smoothed + max(4*variation, 1000) + maxAckDelay
@@ -898,23 +1023,31 @@ func pnSpace(typ string) string {
 // load too.
 func checkPathMoves(t *testing.T, p *profile.Profile, who string, page *capture.Page) {
 	t.Helper()
+
 	for i, c := range page.QUIC {
 		m, ok := movePath(c)
 		if !ok {
 			continue
 		}
+
 		conn := fmt.Sprintf("%s: QUIC %s (connection %d)", who, c.Host, i+1)
 		d := p.QUIC.Loss.PathDegrading
+
 		switch {
 		case d == nil || d.Action != profile.PathMigrate:
 			t.Errorf("%s moved to a new path; the profile never migrates", conn)
+
 			continue
+
 		case m.probes == 0:
 			t.Errorf("%s moved to a new path %.1f ms after its last request without a probe first", conn, float64(m.after)/1000)
+
 			continue
 		}
+
 		ratio := float64(m.after) / m.probePTO
 		report := fmt.Sprintf("%s moved to a new path %.1f ms after its last request: %.2f of its %.1f ms PTOs (%d probes; RFC 9002 on its trace's RTT samples: at least %.1f ms)", conn, float64(m.after)/1000, ratio, m.probePTO/1000, m.probes, m.rttPTO/1000)
+
 		switch {
 		case math.Abs(ratio-float64(d.AfterPTOs)) > 0.5:
 			t.Errorf("%s; want %d", report, d.AfterPTOs)
@@ -933,33 +1066,42 @@ func checkPathMoves(t *testing.T, p *profile.Profile, who string, page *capture.
 // sample's moves to a new path to the profile's rule (checkPathMoves).
 func compareEdge(t *testing.T, p *profile.Profile, got *capture.Page, want []*capture.Page, skip func(string) bool) {
 	t.Helper()
+
 	gf, gms, stalled := edgeFeatures(got)
 	refs := make([]features, 0, len(want))
 	refMS := make([]map[string]int, 0, len(want))
+
 	for _, w := range want {
 		f, ms, _ := edgeFeatures(w)
+
 		refs = append(refs, f)
 		refMS = append(refMS, ms)
 	}
+
 	compareFeatures(t, "edge", gf, refs, skip)
 	compareTimes(t, gms, stalled, refMS, skip)
 	checkPathMoves(t, p, "mimicry", got)
+
 	for i, w := range want {
 		checkPathMoves(t, p, fmt.Sprintf("browser sample %d", i+1), w)
 	}
+
 	retries := make([]*quictrace.Conn, 0, len(want))
 	for _, w := range want {
 		retries = append(retries, vnRetries(w)...)
 	}
+
 	for _, c := range vnRetries(got) {
 		t.Run("retry after Version Negotiation", func(t *testing.T) {
 			if len(retries) == 0 {
 				t.Fatal("the browser retried no connection after Version Negotiation")
 			}
+
 			compareHello(t, p, c, retries)
 			compareFeatures(t, "transport parameters", paramFeatures(c), mapConns(retries, paramFeatures), skip)
 		})
 	}
+
 	if len(retries) > 0 && len(vnRetries(got)) == 0 {
 		t.Error("no connection retried after Version Negotiation; the browser retried")
 	}
@@ -985,15 +1127,18 @@ func vnRetries(page *capture.Page) []*quictrace.Conn {
 // one below never does.
 func compareTimes(t *testing.T, got, stalled map[string]int, refs []map[string]int, skip func(string) bool) {
 	t.Helper()
+
 	keys := map[string]bool{}
 	for k := range got {
 		keys[k] = true
 	}
+
 	for _, r := range refs {
 		for k := range r {
 			keys[k] = true
 		}
 	}
+
 	for _, k := range slices.Sorted(maps.Keys(keys)) {
 		lo, hi, in := 0, 0, 0
 		for _, r := range refs {
@@ -1001,19 +1146,24 @@ func compareTimes(t *testing.T, got, stalled map[string]int, refs []map[string]i
 			if !ok {
 				continue
 			}
+
 			if in == 0 || v < lo {
 				lo = v
 			}
+
 			if in == 0 || v > hi {
 				hi = v
 			}
+
 			in++
 		}
+
 		g, ok := got[k]
 		slack := edgeSlack(hi)
 		label := "edge " + k + " ms"
 		under := ok && g < lo-slack
 		over := ok && g > hi+slack && g-stalled[k] > hi+slack
+
 		switch {
 		case (in == 0 || !ok && in == len(refs) || under || over) && skip(label):
 		case in == 0:

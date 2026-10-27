@@ -110,6 +110,7 @@ func authIndex(fields []headerorder.Field, a *profile.ForwardAuth, answering boo
 	if a == nil || (answering && a.RetryLast) {
 		return len(fields)
 	}
+
 	if a.Before != "" {
 		if i := slices.IndexFunc(fields, func(f headerorder.Field) bool {
 			return f.Name == a.Before
@@ -119,6 +120,7 @@ func authIndex(fields []headerorder.Field, a *profile.ForwardAuth, answering boo
 
 		return len(fields)
 	}
+
 	at := len(fields)
 	for i, f := range fields {
 		if slices.Contains(a.After, f.Name) {
@@ -134,8 +136,10 @@ func authIndex(fields []headerorder.Field, a *profile.ForwardAuth, answering boo
 func lowerList(headers []profile.Header) ([]profile.Header, map[string]string) {
 	order := make([]profile.Header, 0, len(headers))
 	cases := make(map[string]string, len(headers))
+
 	for _, h := range headers {
 		lower := strings.ToLower(h.Name)
+
 		order = append(order, profile.Header{
 			Name:  lower,
 			Value: h.Value,
@@ -166,15 +170,18 @@ func (c *Conn) Usable() bool {
 	if c.br.Buffered() > 0 {
 		return false
 	}
+
 	// A deadline in the past makes the read return at once: a timeout
 	// means nothing is waiting, EOF or data means the connection is done.
 	if err := c.conn.SetReadDeadline(time.Unix(1, 0)); err != nil {
 		return false
 	}
+
 	_, err := c.br.Peek(1)
 	if resetErr := c.conn.SetReadDeadline(time.Time{}); resetErr != nil {
 		return false
 	}
+
 	var netErr net.Error
 
 	return errors.As(err, &netErr) && netErr.Timeout()
@@ -204,10 +211,13 @@ func (c *Conn) RoundTrip(req *http.Request, done func(reusable bool)) (*http.Res
 			_ = req.Body.Close()
 		}()
 	}
+
 	stop := context.AfterFunc(ctx, func() {
 		_ = c.conn.Close()
 	})
+
 	var once sync.Once
+
 	finish := func(reusable bool) {
 		once.Do(func() {
 			// AfterFunc reports false if it already fired: the connection is
@@ -215,27 +225,35 @@ func (c *Conn) RoundTrip(req *http.Request, done func(reusable bool)) (*http.Res
 			if !stop() {
 				reusable = false
 			}
+
 			done(reusable)
 		})
 	}
 
 	if err := c.writeRequest(req); err != nil {
 		finish(false)
+
 		return nil, contextError(ctx, err)
 	}
+
 	var resp *http.Response
 	for {
 		var err error
+
 		resp, err = http.ReadResponse(c.br, req)
 		if err != nil {
 			finish(false)
+
 			return nil, contextError(ctx, err)
 		}
+
 		if resp.StatusCode < 100 || resp.StatusCode > 199 || resp.StatusCode == http.StatusSwitchingProtocols {
 			break
 		}
 	}
+
 	reusable := !resp.Close && !req.Close && resp.StatusCode != http.StatusSwitchingProtocols
+
 	resp.Body = &body{
 		ReadCloser: resp.Body,
 		conn:       c.conn,
@@ -279,6 +297,7 @@ func validTarget(s string) bool {
 	if s == "" {
 		return false
 	}
+
 	for i := range len(s) {
 		if s[i] <= ' ' || s[i] == 0x7f {
 			return false
@@ -301,17 +320,21 @@ func (w Writer) head(req *http.Request) (Head, bool, error) {
 	// As net/http: a body with ContentLength 0 has an unknown length.
 	hasBody := req.Body != nil && req.Body != http.NoBody
 	chunked := hasBody && req.ContentLength <= 0
+
 	var framing http.Header
+
 	switch {
 	case chunked:
 		framing = http.Header{
 			"Transfer-Encoding": {"chunked"},
 		}
+
 	case req.ContentLength > 0 || req.Method == http.MethodPost || req.Method == http.MethodPut || req.Method == http.MethodPatch:
 		framing = http.Header{
 			"Content-Length": {strconv.FormatInt(max(req.ContentLength, 0), 10)},
 		}
 	}
+
 	h, err := w.build(req, framing)
 
 	return h, chunked, err
@@ -322,41 +345,52 @@ func (w Writer) build(req *http.Request, framing http.Header) (Head, error) {
 	if host == "" {
 		host = req.URL.Host
 	}
+
 	// "h:" is "h" with the scheme's default port, as browsers write it.
 	host = strings.TrimSuffix(host, ":")
 	if !httpguts.ValidHostHeader(host) {
 		return Head{}, fmt.Errorf("h1: invalid Host %q", host)
 	}
+
 	if !httpguts.ValidHeaderFieldName(req.Method) {
 		return Head{}, fmt.Errorf("h1: invalid method %q", req.Method)
 	}
+
 	target := req.URL.RequestURI()
 	reqHeader := req.Header
 	auth := ""
+
 	if w.forward != nil {
 		target = req.URL.Scheme + "://" + strings.TrimSuffix(req.URL.Host, ":") + target
+
 		if auth = reqHeader.Get("Proxy-Authorization"); auth != "" {
 			reqHeader = reqHeader.Clone()
 			reqHeader.Del("Proxy-Authorization")
 		}
 	}
+
 	if !validTarget(target) {
 		return Head{}, fmt.Errorf("h1: invalid request target %q", target)
 	}
+
 	headers, h1Order, h1Case := w.headers, w.h1Order, w.h1Case
+
 	var (
 		table    *profile.HeaderTable
 		lowerOwn bool
 	)
+
 	if plan := headerorder.PlanFrom(req.Context()); plan != nil {
 		if plan.NoHTTP1 {
 			return Head{}, fmt.Errorf("%w: no HTTP/1.1 header list for this request (measured over HTTP/2 only)", headerorder.ErrNotMeasured)
 		}
+
 		headers, h1Order, h1Case, table, lowerOwn = plan.Headers, nil, nil, plan.Table, plan.LowerOwn
 		if len(plan.HTTP1) > 0 {
 			h1Order, h1Case = lowerList(plan.HTTP1)
 		}
 	}
+
 	var fields []headerorder.Field
 	if h1Order != nil {
 		// The profile places every header, Host and framing included.
@@ -364,8 +398,10 @@ func (w Writer) build(req *http.Request, framing http.Header) (Head, error) {
 		if h == nil {
 			h = http.Header{}
 		}
+
 		h.Set("Host", host)
 		maps.Copy(h, framing)
+
 		fields = headerorder.Build(h1Order, h, func(string) bool {
 			return false
 		}, table)
@@ -383,19 +419,24 @@ func (w Writer) build(req *http.Request, framing http.Header) (Head, error) {
 				Value: v[0],
 			})
 		}
+
 		fields = append(fields, headerorder.Build(headers, reqHeader, skipHeader, table)...)
 	}
+
 	// The caller's placements move lines the list wrote, Host and framing
 	// included; Proxy-Authorization is placed after them.
 	fields, err := headerorder.Place(fields, headerorder.PlacementsFrom(req.Context()))
 	if err != nil {
 		return Head{}, err
 	}
+
 	at := len(fields)
 	if auth != "" {
 		answering, _ := req.Context().Value(ChallengeAnswered{}).(bool)
+
 		at = authIndex(fields, w.forward.ForwardAuth, answering)
 	}
+
 	h := Head{
 		Line:   req.Method + " " + target + " HTTP/1.1",
 		Fields: make([]Field, 0, len(fields)+1),
@@ -407,6 +448,7 @@ func (w Writer) build(req *http.Request, framing http.Header) (Head, error) {
 				Value: auth,
 			})
 		}
+
 		name := h1Case[f.Name]
 		switch {
 		case name != "":
@@ -418,24 +460,29 @@ func (w Writer) build(req *http.Request, framing http.Header) (Head, error) {
 			// spelled it, as browsers send a page's own headers (XHR).
 			name = callerCase(reqHeader, f.Name)
 		}
+
 		if w.forward != nil && f.Name == "connection" && w.forward.ForwardConnection != "" {
 			name = w.forward.ForwardConnection
 		}
+
 		h.Fields = append(h.Fields, Field{
 			Name:  name,
 			Value: f.Value,
 		})
 	}
+
 	if auth != "" && at == len(fields) {
 		h.Fields = append(h.Fields, Field{
 			Name:  "Proxy-Authorization",
 			Value: auth,
 		})
 	}
+
 	for _, f := range h.Fields {
 		if !httpguts.ValidHeaderFieldName(f.Name) {
 			return Head{}, fmt.Errorf("h1: invalid header name %q", f.Name)
 		}
+
 		if !httpguts.ValidHeaderFieldValue(f.Value) {
 			return Head{}, fmt.Errorf("h1: invalid value for header %q", f.Name)
 		}
@@ -449,17 +496,21 @@ func (c *Conn) writeRequest(req *http.Request) error {
 	if err != nil {
 		return err
 	}
+
 	if _, err := c.bw.WriteString(h.Line + "\r\n"); err != nil {
 		return err
 	}
+
 	for _, f := range h.Fields {
 		if _, err := c.bw.WriteString(f.Name + ": " + f.Value + "\r\n"); err != nil {
 			return err
 		}
 	}
+
 	if _, err := c.bw.WriteString("\r\n"); err != nil {
 		return err
 	}
+
 	if req.Body != nil && req.Body != http.NoBody {
 		if err := c.writeBody(req, chunked); err != nil {
 			return err
@@ -477,20 +528,25 @@ func (c *Conn) writeBody(req *http.Request, chunked bool) error {
 		if _, err := io.Copy(cw, req.Body); err != nil {
 			return err
 		}
+
 		if err := cw.Close(); err != nil {
 			return err
 		}
+
 		_, err := c.bw.WriteString("\r\n")
 
 		return err
 	}
+
 	n, err := io.CopyN(c.bw, req.Body, req.ContentLength)
 	if errors.Is(err, io.EOF) {
 		return fmt.Errorf("h1: body is %d bytes, ContentLength %d", n, req.ContentLength)
 	}
+
 	if err != nil {
 		return err
 	}
+
 	var extra [1]byte
 	if m, _ := io.ReadFull(req.Body, extra[:]); m > 0 {
 		return fmt.Errorf("h1: body longer than ContentLength %d", req.ContentLength)
@@ -522,8 +578,10 @@ func (b *body) Close() error {
 	if !b.eof {
 		_ = b.conn.Close()
 	}
+
 	err := b.ReadCloser.Close()
 	b.finish(b.eof)
+
 	if !b.eof {
 		// The connection's read error from the abandoned rest is expected.
 		return nil

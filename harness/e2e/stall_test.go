@@ -38,8 +38,10 @@ func (w *stallWatch) watch() {
 			for {
 				due := time.Now().Add(stallTick)
 				time.Sleep(stallTick)
+
 				if woke := time.Now(); woke.Sub(due) >= stallFloor {
 					w.mu.Lock()
+
 					w.spans = append(w.spans, stallSpan{
 						due:  due,
 						woke: woke,
@@ -56,15 +58,18 @@ func (w *stallWatch) watch() {
 func (w *stallWatch) stalled(from, to time.Time) time.Duration {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+
 	var d time.Duration
 	for _, s := range w.spans {
 		lo, hi := s.due, s.woke
 		if lo.Before(from) {
 			lo = from
 		}
+
 		if hi.After(to) {
 			hi = to
 		}
+
 		if hi.After(lo) {
 			d += hi.Sub(lo)
 		}

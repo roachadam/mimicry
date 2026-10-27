@@ -57,17 +57,21 @@ type preflightBrowser struct {
 func printPreflight(caDir string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
+
 	r := preflightReport{
 		Resolver: dnsstub.ResolverInstalled(),
 	}
+
 	u, err := user.Current()
 	if err != nil {
 		return err
 	}
+
 	r.User = u.Username
 	if r.ConsoleUser, err = consoleUser(); err != nil {
 		return err
 	}
+
 	for _, b := range browser.Find() {
 		pb := preflightBrowser{
 			Name: b.Name,
@@ -77,33 +81,42 @@ func printPreflight(caDir string) error {
 			if pb.Version, err = bundleVersion(ctx, b.App); err != nil {
 				return fmt.Errorf("%s: %w", b.Name, err)
 			}
+
 			pb.Unapproved = quarantined(ctx, b.App)
 		}
+
 		r.Browsers = append(r.Browsers, pb)
 	}
+
 	if caDir == "" {
 		if caDir, err = server.DefaultCADir(); err != nil {
 			return err
 		}
 	}
+
 	ca, err := server.LoadOrCreateCA(caDir, server.CADomains, time.Now())
 	if err != nil {
 		return err
 	}
+
 	cert, err := ca.Issue(server.CAHosts, time.Now())
 	if err != nil {
 		return err
 	}
+
 	r.CAPath = ca.CertPath
 	r.CATrusted = server.TrustedBySystem(cert, server.CaptureHost)
+
 	if err := server.AioquicAvailable(ctx); err != nil {
 		r.Aioquic = err.Error()
 	}
+
 	r.SafariProxy = [...]string{
 		safariProxyNone:   "none",
 		safariProxyPAC:    "pac",
 		safariProxyManual: "manual",
 	}[safariProxyConfig(ctx)]
+
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 
@@ -117,10 +130,12 @@ func consoleUser() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	st, ok := fi.Sys().(*syscall.Stat_t)
 	if !ok {
 		return "", errors.New("/dev/console: no owner")
 	}
+
 	u, err := user.LookupId(strconv.FormatUint(uint64(st.Uid), 10))
 	if err != nil {
 		return "", err
@@ -147,6 +162,7 @@ func quarantined(ctx context.Context, app string) bool {
 	if err != nil {
 		return false
 	}
+
 	flags, _, _ := strings.Cut(strings.TrimSpace(string(out)), ";")
 	v, err := strconv.ParseUint(flags, 16, 32)
 

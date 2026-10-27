@@ -24,20 +24,24 @@ import (
 // rewritten to p's version.
 func scenarioTraces(t *testing.T, p *profile.Profile) map[*server.Scenario][]*h2trace.Trace {
 	t.Helper()
+
 	files, err := capture.Files(captureDir, p, ".h2trace.json")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	out := map[*server.Scenario][]*h2trace.Trace{}
 	for _, f := range files {
 		sc, err := server.ScenarioByName(f.Scenario)
 		if err != nil {
 			t.Fatalf("%s: %v", f.Path, err)
 		}
+
 		traces, err := h2trace.Load(f.Path)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		out[sc] = traces
 	}
 
@@ -54,6 +58,7 @@ func TestHPACKReproducesBrowserBlocks(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			for sc, traces := range scenarioTraces(t, p) {
 				for i, tr := range traces {
 					t.Run(sc.Name+" sample "+strconv.Itoa(i+1), func(t *testing.T) {
@@ -61,6 +66,7 @@ func TestHPACKReproducesBrowserBlocks(t *testing.T) {
 					})
 				}
 			}
+
 			for scenario, samples := range pageTraces(t, p) {
 				for i, page := range samples {
 					for k, tr := range page.H2 {
@@ -80,17 +86,21 @@ func TestHPACKReproducesBrowserBlocks(t *testing.T) {
 // its profile and suffix ("kinds", "h3-page.local-roots").
 func pageTraces(t *testing.T, p *profile.Profile) map[string][]*capture.Page {
 	t.Helper()
+
 	files, err := capture.Files(captureDir, p, ".pagetrace.json.gz")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	out := map[string][]*capture.Page{}
 	for _, f := range files {
 		pages, err := pagesOnce(f.Path)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		scenario := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(f.Path), f.Source+"."), ".pagetrace.json.gz")
+
 		out[scenario] = pages
 	}
 
@@ -109,13 +119,16 @@ var (
 func pagesOnce(path string) ([]*capture.Page, error) {
 	loadedMu.Lock()
 	defer loadedMu.Unlock()
+
 	if pages, ok := loadedPages[path]; ok {
 		return pages, nil
 	}
+
 	pages, err := capture.LoadPages(path)
 	if err != nil {
 		return nil, err
 	}
+
 	loadedPages[path] = pages
 
 	return pages, nil
@@ -127,11 +140,13 @@ func pagesOnce(path string) ([]*capture.Page, error) {
 // block that differs is reported by its first differing instruction.
 func replay(t *testing.T, policy *profile.HPACK, sc *server.Scenario, tr *h2trace.Trace) {
 	t.Helper()
+
 	enc := hpack.NewEncoder(policy)
 	tableSize, advertised := sc.Setting(http2.SettingHeaderTableSize)
 	// Decodes our own blocks, to say how one differs.
 	dec := xhpack.NewDecoder(4096, nil)
 	dec.SetAllowedMaxDynamicTableSize(max(4096, tableSize))
+
 	next := 0
 	for _, f := range tr.Frames {
 		switch {
@@ -140,7 +155,9 @@ func replay(t *testing.T, policy *profile.HPACK, sc *server.Scenario, tr *h2trac
 		case f.Type == "HEADERS":
 			r := tr.Requests[next]
 			next++
+
 			var fields []hpack.Field
+
 			for _, ins := range r.Instructions {
 				if ins.Rep != h2trace.SizeUpdate {
 					fields = append(fields, hpack.Field{
@@ -149,26 +166,33 @@ func replay(t *testing.T, policy *profile.HPACK, sc *server.Scenario, tr *h2trac
 					})
 				}
 			}
+
 			block := enc.AppendBlock(nil, fields)
+
 			got, err := h2trace.Decode(dec, block)
 			if err != nil {
 				t.Fatalf("%s (stream %d): decoding our block: %v", r.Path, r.Stream, err)
 			}
+
 			if hex.EncodeToString(block) == r.Block {
 				continue
 			}
+
 			for i := range max(len(got), len(r.Instructions)) {
 				var g, w h2trace.Instruction
 				if i < len(got) {
 					g = got[i]
 				}
+
 				if i < len(r.Instructions) {
 					w = r.Instructions[i]
 				}
+
 				if g != w {
 					t.Fatalf("%s (stream %d), instruction %d of %d:\n got %+v\nwant %+v", r.Path, r.Stream, i, len(r.Instructions), g, w)
 				}
 			}
+
 			t.Fatalf("%s (stream %d): same instructions, different bytes:\n got %x\nwant %s", r.Path, r.Stream, block, r.Block)
 		}
 	}

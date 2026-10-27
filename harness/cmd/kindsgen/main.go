@@ -27,15 +27,19 @@ func main() {
 func run() error {
 	captures := flag.String("captures", "testdata/captures", "directory with the profile's kinds, kinds-http1, kinds-plain, cookies and cors page captures (<name>.<scenario>.pagetrace.json.gz)")
 	path := flag.String("profile", "", "profile JSON to update (required); its name picks the captures")
+
 	flag.Parse()
+
 	if *path == "" {
 		flag.Usage()
 		os.Exit(2)
 	}
+
 	data, err := os.ReadFile(*path)
 	if err != nil {
 		return err
 	}
+
 	out, err := regenerate(data, *captures)
 	if err != nil {
 		return err
@@ -51,28 +55,35 @@ func regenerate(data []byte, dir string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	pages, err := loadPages(dir, p)
 	if err != nil {
 		return nil, err
 	}
+
 	reqs, err := collect(pages)
 	if err != nil {
 		return nil, err
 	}
+
 	if err := derive(p, reqs); err != nil {
 		return nil, err
 	}
+
 	if p.Context.PreflightCache, err = preflightCache(pages.cors); err != nil {
 		return nil, err
 	}
+
 	if err := checkProtocolPlace(p, pages.websocketH2); err != nil {
 		return nil, err
 	}
+
 	if p.HTTP3 != nil {
 		if err := deriveH3(p, dir); err != nil {
 			return nil, err
 		}
 	}
+
 	if err := p.Validate(); err != nil {
 		return nil, err
 	}

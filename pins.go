@@ -69,12 +69,15 @@ func parsePins(pins []Pin) (pinSet, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		if set[host] != nil {
 			return nil, fmt.Errorf("mimicry: Config.Pins has %s twice", host)
 		}
+
 		if len(p.SPKI) == 0 {
 			return nil, fmt.Errorf("mimicry: the pin for %s has no SPKI", host)
 		}
+
 		e := &pinEntry{
 			subdomains: p.IncludeSubdomains,
 			spki:       map[[sha256.Size]byte]bool{},
@@ -85,11 +88,13 @@ func parsePins(pins []Pin) (pinSet, error) {
 			if err != nil {
 				return nil, fmt.Errorf("mimicry: pin %q for %s: %w", v, host, err)
 			}
+
 			e.spki[sum] = true
 			if hexForm {
 				e.certs[sum] = true
 			}
 		}
+
 		set[host] = e
 	}
 
@@ -102,6 +107,7 @@ func pinHost(h string) (string, error) {
 	if ip := net.ParseIP(strings.Trim(host, "[]")); ip != nil {
 		return ip.String(), nil
 	}
+
 	if host == "" || strings.ContainsAny(host, ":/*@ ") {
 		return "", fmt.Errorf("mimicry: pin host %q is not a host name or IP address", h)
 	}
@@ -117,12 +123,14 @@ func parsePin(v string) (sum [sha256.Size]byte, hexForm bool, err error) {
 		if err != nil {
 			return sum, false, fmt.Errorf("not base64: %w", err)
 		}
+
 		if len(b) != sha256.Size {
 			return sum, false, fmt.Errorf("%d bytes, not a SHA-256 hash", len(b))
 		}
 
 		return [sha256.Size]byte(b), false, nil
 	}
+
 	b, err := hex.DecodeString(strings.ReplaceAll(v, ":", ""))
 	if err != nil || len(b) != sha256.Size {
 		return sum, false, errors.New(`neither "sha256/<base64>" nor a SHA-256 hash in hex`)
@@ -137,21 +145,26 @@ func (s pinSet) lookup(host string) *pinEntry {
 	if len(s) == 0 {
 		return nil
 	}
+
 	host = strings.TrimSuffix(strings.ToLower(host), ".")
 	if ip := net.ParseIP(host); ip != nil {
 		return s[ip.String()]
 	}
+
 	if e := s[host]; e != nil {
 		return e
 	}
+
 	for {
 		_, parent, ok := strings.Cut(host, ".")
 		if !ok {
 			return nil
 		}
+
 		if e := s[parent]; e != nil && e.subdomains {
 			return e
 		}
+
 		host = parent
 	}
 }
@@ -184,6 +197,7 @@ func (t *Transport) verifier(user func(tls.ConnectionState) error) func(host str
 				Presented: presented(cs),
 			}
 		}
+
 		if user != nil {
 			return user(cs)
 		}
@@ -199,6 +213,7 @@ func presented(cs tls.ConnectionState) []string {
 	if len(cs.VerifiedChains) > 0 {
 		chain = cs.VerifiedChains[0]
 	}
+
 	out := make([]string, len(chain))
 	for i, c := range chain {
 		out[i] = spkiPin(c)
@@ -262,26 +277,32 @@ type CertPin struct {
 func FetchPins(ctx context.Context, cfg Config, rawURL string) ([]CertPin, error) {
 	cfg.Pins = nil
 	cfg.VerifyConnection = nil
+
 	t, err := NewTransport(cfg)
 	if err != nil {
 		return nil, err
 	}
 	defer t.CloseIdleConnections()
+
 	e, ok := t.engine.(interface {
 		Handshake(ctx context.Context, rawURL string) (*tls.ConnectionState, error)
 	})
 	if !ok {
 		return nil, errors.New("mimicry: the transport's engine makes no bare handshakes")
 	}
+
 	cs, err := e.Handshake(ctx, rawURL)
 	if err != nil {
 		return nil, publicError(err)
 	}
+
 	if len(cs.VerifiedChains) == 0 {
 		return nil, errors.New("mimicry: the connection has no verified chain")
 	}
+
 	chain := cs.VerifiedChains[0]
 	out := make([]CertPin, len(chain))
+
 	for i, c := range chain {
 		role := CertIntermediate
 		switch {
@@ -290,12 +311,15 @@ func FetchPins(ctx context.Context, cfg Config, rawURL string) ([]CertPin, error
 		case i == len(chain)-1:
 			role = CertRoot
 		}
+
 		spki := sha256.Sum256(c.RawSubjectPublicKeyInfo)
 		fp := sha256.Sum256(c.Raw)
 		hexes := make([]string, len(fp))
+
 		for j, b := range fp {
 			hexes[j] = fmt.Sprintf("%02X", b)
 		}
+
 		out[i] = CertPin{
 			Role:        role,
 			Subject:     c.Subject.String(),

@@ -15,14 +15,18 @@ import (
 // error, if any, fails the test once it is done.
 func peer(t *testing.T, serve func(conn net.Conn) error) net.Conn {
 	t.Helper()
+
 	client, server := net.Pipe()
 	errs := make(chan error, 1)
+
 	go func() {
 		errs <- serve(server)
 	}()
+
 	t.Cleanup(func() {
 		_ = client.Close()
 		_ = server.Close()
+
 		if err := <-errs; err != nil {
 			t.Error(err)
 		}
@@ -39,7 +43,9 @@ func readRequest(br *bufio.Reader) (string, error) {
 		if err != nil {
 			return b.String(), err
 		}
+
 		b.WriteString(line)
+
 		if line == "\r\n" {
 			return b.String(), nil
 		}
@@ -52,6 +58,7 @@ func expect(r io.Reader, want []byte) error {
 	if _, err := io.ReadFull(r, got); err != nil {
 		return err
 	}
+
 	if !bytes.Equal(got, want) {
 		return errors.New("peer read " + string(got) + ", want " + string(want))
 	}
@@ -65,6 +72,7 @@ func TestConnectBoundsTheAnswerHeader(t *testing.T) {
 		if _, err := readRequest(br); err != nil {
 			return err
 		}
+
 		// Write until the client stops reading; the pipe then fails.
 		_, _ = io.WriteString(conn, "HTTP/1.1 200 OK\r\nX-Long: ")
 		_, _ = io.Copy(conn, strings.NewReader(strings.Repeat("a", 1<<20)))
@@ -72,9 +80,11 @@ func TestConnectBoundsTheAnswerHeader(t *testing.T) {
 		return nil
 	})
 	_, _, err := Connect(t.Context(), conn, "example.com:443", nil)
+
 	if !errors.Is(err, ErrAnswerTooLarge) {
 		t.Fatalf("err = %v, want ErrAnswerTooLarge", err)
 	}
+
 	_ = conn.Close()
 }
 
@@ -90,27 +100,35 @@ type socksPeer struct {
 
 func (p socksPeer) serve(conn net.Conn) error {
 	greeting := append([]byte{5, 0}, p.methods...)
+
 	greeting[1] = uint8(len(p.methods))
+
 	if err := expect(conn, greeting); err != nil {
 		return err
 	}
+
 	if _, err := conn.Write([]byte{5, p.pick}); err != nil {
 		return err
 	}
+
 	if p.pick == 0xff {
 		return nil
 	}
+
 	if p.auth != nil {
 		if err := p.auth(conn); err != nil {
 			return err
 		}
 	}
+
 	if p.request == nil {
 		return nil
 	}
+
 	if err := expect(conn, p.request); err != nil {
 		return err
 	}
+
 	// A client stops reading an error reply after its code, so the write
 	// may fail; the client's result is what the test checks.
 	_, _ = conn.Write(p.reply)
@@ -158,6 +176,7 @@ func TestSOCKS5Failures(t *testing.T) {
 					if err := expect(conn, []byte("\x01\x01u\x01p")); err != nil {
 						return err
 					}
+
 					_, err := conn.Write([]byte{1, 1})
 
 					return err
@@ -181,6 +200,7 @@ func TestSOCKS5Failures(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			conn := peer(t, tt.peer.serve)
 			err := SOCKS5(t.Context(), conn, "example.com:443", tt.peer.methods, tt.user)
+
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("err = %v, want %q", err, tt.want)
 			}

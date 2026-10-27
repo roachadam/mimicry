@@ -36,11 +36,14 @@ const (
 func (c *checker) checkConnections(conns *Connections) {
 	if conns == nil {
 		c.add("connections", "is required")
+
 		return
 	}
+
 	if conns.HTTP1PerHost < 1 {
 		c.add("connections.http1PerHost", "%d must be at least 1", conns.HTTP1PerHost)
 	}
+
 	if conns.Coalesce != CoalesceOnLookup && conns.Coalesce != CoalesceOnConnect {
 		c.add("connections.coalesce", "%q must be %q or %q", conns.Coalesce, CoalesceOnLookup, CoalesceOnConnect)
 	}

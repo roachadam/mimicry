@@ -47,18 +47,22 @@ func (c *Code) UnmarshalText(text []byte) error {
 		*c = GREASE
 		return nil
 	}
+
 	digits, ok := strings.CutPrefix(s, "0x")
 	if !ok || digits == "" || len(digits) > 4 {
 		return fmt.Errorf("invalid code %q: want \"GREASE\" or 0x followed by 1-4 hex digits", s)
 	}
+
 	v, err := strconv.ParseUint(digits, 16, 16)
 	if err != nil {
 		return fmt.Errorf("invalid code %q: %w", s, err)
 	}
+
 	if IsGREASE(uint16(v)) {
 		*c = GREASE
 		return nil
 	}
+
 	*c = Code(v)
 
 	return nil
@@ -78,6 +82,7 @@ func (b *Bytes) UnmarshalText(text []byte) error {
 	if err != nil {
 		return fmt.Errorf("invalid hex %q: %w", text, err)
 	}
+
 	*b = decoded
 
 	return nil
@@ -103,13 +108,16 @@ func (l *ByteList) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &values); err != nil {
 		return err
 	}
+
 	out := make(ByteList, len(values))
 	for i, v := range values {
 		if v < 0 || v > 0xff {
 			return fmt.Errorf("value %d does not fit in a byte", v)
 		}
+
 		out[i] = uint8(v)
 	}
+
 	*l = out
 
 	return nil

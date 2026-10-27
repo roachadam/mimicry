@@ -37,9 +37,11 @@ type testServer struct {
 
 func server(t *testing.T, h2 bool, handler http.HandlerFunc) testServer {
 	t.Helper()
+
 	cert, pool := testutil.Certificate(t, "localhost")
 	srv := httptest.NewUnstartedServer(handler)
 	conns := &atomic.Int32{}
+
 	srv.Config.ConnState = func(_ net.Conn, s http.ConnState) {
 		if s == http.StateNew {
 			conns.Add(1)
@@ -53,7 +55,9 @@ func server(t *testing.T, h2 bool, handler http.HandlerFunc) testServer {
 	}
 	srv.StartTLS()
 	t.Cleanup(srv.Close)
+
 	_, port, _ := net.SplitHostPort(srv.Listener.Addr().String())
+
 	tr, err := NewTransport(Config{
 		Profile: profiles.Chrome(),
 		RootCAs: pool,
@@ -61,6 +65,7 @@ func server(t *testing.T, h2 bool, handler http.HandlerFunc) testServer {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Cleanup(tr.CloseIdleConnections)
 
 	return testServer{
@@ -74,18 +79,23 @@ func server(t *testing.T, h2 bool, handler http.HandlerFunc) testServer {
 
 func get(t *testing.T, client *http.Client, url string, header http.Header) (*http.Response, string) {
 	t.Helper()
+
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, url, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	maps.Copy(req.Header, header)
+
 	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	defer func() {
 		_ = resp.Body.Close()
 	}()
+
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatal(err)
@@ -96,6 +106,7 @@ func get(t *testing.T, client *http.Client, url string, header http.Header) (*ht
 
 func TestDecompression(t *testing.T) {
 	const text = "hello, compressed world"
+
 	encode := map[string]func(io.Writer) io.WriteCloser{
 		"gzip": func(w io.Writer) io.WriteCloser {
 			return gzip.NewWriter(w)
@@ -119,20 +130,27 @@ func TestDecompression(t *testing.T) {
 	}
 	ts := server(t, true, func(w http.ResponseWriter, r *http.Request) {
 		enc := r.URL.Query().Get("enc")
+
 		var buf bytes.Buffer
+
 		cw := encode[enc](&buf)
+
 		_, _ = io.WriteString(cw, text)
 		_ = cw.Close()
+
 		w.Header().Set("Content-Encoding", enc)
+
 		_, _ = w.Write(buf.Bytes())
 	})
 	client := &http.Client{Transport: ts.tr}
+
 	for enc := range encode {
 		resp, body := get(t, client, ts.url+"/?enc="+enc, nil)
 		if body != text || resp.Header.Get("Content-Encoding") != "" {
 			t.Errorf("%s: body %q, Content-Encoding %q", enc, body, resp.Header.Get("Content-Encoding"))
 		}
 	}
+
 	// A caller that set Accept-Encoding gets the encoded body.
 	resp, body := get(t, client, ts.url+"/?enc=gzip", http.Header{
 		"Accept-Encoding": {"gzip"},
@@ -152,8 +170,10 @@ type fakeEngine struct {
 
 func (e *fakeEngine) RoundTrip(req *http.Request) (*http.Response, error) {
 	e.mu.Lock()
+
 	e.sent = append(e.sent, req)
 	e.mu.Unlock()
+
 	if e.answer != nil {
 		if resp := e.answer(req); resp != nil {
 			return resp, nil
@@ -173,10 +193,13 @@ func (*fakeEngine) CloseIdleConnections() {}
 // fakeTransport is a Transport for cfg sending through e.
 func fakeTransport(t *testing.T, cfg Config, e *fakeEngine) *Transport {
 	t.Helper()
+
 	if cfg.Profile == nil {
 		cfg.Profile = profiles.Chrome()
 	}
+
 	cfg.engine = e
+
 	tr, err := NewTransport(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -231,18 +254,22 @@ func TestDecodeErrors(t *testing.T) {
 					}
 				},
 			})
+
 			resp, err := tr.RoundTrip(newRequest(t, "https://a.test/"))
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if _, err := io.ReadAll(resp.Body); err == nil {
 				t.Error("read a body that cannot be decoded")
 			}
+
 			if err := resp.Body.Close(); err != nil {
 				t.Errorf("close: %v", err)
 			}
 		})
 	}
+
 	for _, enc := range []string{"gzip", "deflate", "br", "zstd"} {
 		t.Run("empty/"+enc, func(t *testing.T) {
 			for _, tc := range []struct {
@@ -269,23 +296,28 @@ func TestDecodeErrors(t *testing.T) {
 						}
 					},
 				})
+
 				resp, err := tr.RoundTrip(newRequest(t, "https://a.test/"))
 				if err != nil {
 					t.Fatal(err)
 				}
+
 				b, err := io.ReadAll(resp.Body)
 				if err != nil || len(b) != 0 {
 					t.Errorf("status %d: read %q, %v", tc.status, b, err)
 				}
+
 				if err := resp.Body.Close(); err != nil {
 					t.Errorf("status %d: close: %v", tc.status, err)
 				}
+
 				if resp.ContentLength != tc.length || (tc.length == 0 && resp.Header.Get("Content-Length") != "0") {
 					t.Errorf("status %d: length %d (%q), want %d", tc.status, resp.ContentLength, resp.Header.Get("Content-Length"), tc.length)
 				}
 			}
 		})
 	}
+
 	// Typed navigations' redirects are not measured: the redirect's order
 	// is beside the point here.
 	t.Run("empty redirect", func(t *testing.T) {
@@ -307,6 +339,7 @@ func TestDecodeErrors(t *testing.T) {
 				}
 			},
 		}
+
 		client, err := NewClient(Config{
 			Profile: anyRedirectOrder(profiles.Chrome()),
 			engine:  e,
@@ -314,10 +347,12 @@ func TestDecodeErrors(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		resp, err := client.Do(newRequest(t, "https://a.test/r"))
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		_ = resp.Body.Close()
 		if resp.Request.URL.Path != "/done" {
 			t.Errorf("ended at %s, want /done", resp.Request.URL)
@@ -333,7 +368,9 @@ func anyRedirectOrder(p *profile.Profile) *profile.Profile {
 	redirected := func(v profile.Variant) bool {
 		return v.Redirected
 	}
+
 	p.Variants = slices.DeleteFunc(p.Variants, redirected)
+
 	for _, k := range p.Kinds {
 		k.Variants = slices.DeleteFunc(k.Variants, redirected)
 	}
@@ -365,6 +402,7 @@ func TestConfigCredentialsStayBehindCrossOriginRedirects(t *testing.T) {
 			}
 		},
 	}
+
 	client, err := NewClient(Config{
 		Profile: anyRedirectOrder(profiles.Chrome()),
 		Headers: http.Header{
@@ -376,17 +414,21 @@ func TestConfigCredentialsStayBehindCrossOriginRedirects(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	for _, start := range []string{"https://a.test/cross", "https://a.test/same"} {
 		resp, err := client.Do(newRequest(t, start))
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		_ = resp.Body.Close()
 	}
+
 	want := []bool{true, false, false, true, true}
 	if len(e.sent) != len(want) {
 		t.Fatalf("%d requests, want %d", len(e.sent), len(want))
 	}
+
 	for i, req := range e.sent {
 		auth, cookie := req.Header.Get("Authorization") != "", req.Header.Get("Cookie") != ""
 		if auth != want[i] || cookie != want[i] {

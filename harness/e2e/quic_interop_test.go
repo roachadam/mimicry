@@ -58,22 +58,29 @@ func TestQUICInterop(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if p.QUIC == nil || p.HTTP3 == nil {
 			continue
 		}
+
 		for _, c := range interopCases {
 			t.Run(name+"/"+c.name, func(t *testing.T) {
 				t.Parallel()
+
 				if c.zeroRTT && !p.QUIC.ZeroRTT {
 					t.Skip("the profile never resumes QUIC (0-RTT not measured)")
 				}
+
 				p, err := loadProfile(name)
 				if err != nil {
 					t.Fatal(err)
 				}
+
 				e := newInteropEnv(t, p, pki, c)
 				start := time.Now()
+
 				c.run(e)
+
 				if d := time.Since(start); d > c.limit {
 					t.Errorf("took %v, over the case's limit of %v", d, c.limit)
 				}
@@ -128,6 +135,7 @@ var interopCases = []interopCase{
 			if info.Cipher != tls.TLS_AES_128_GCM_SHA256 {
 				e.t.Errorf("cipher suite %#04x, want TLS_AES_128_GCM_SHA256", info.Cipher)
 			}
+
 			e.download(64*kib, 1)
 		},
 	},
@@ -166,6 +174,7 @@ var interopCases = []interopCase{
 		run: func(e *interopEnv) {
 			e.warm()
 			e.download(256*kib, 4)
+
 			if n := e.relay.Stats().Retries; n == 0 {
 				e.t.Error("the server sent no Retry")
 			}
@@ -178,10 +187,12 @@ var interopCases = []interopCase{
 		run: func(e *interopEnv) {
 			first := e.warm()
 			e.newConnection()
+
 			info, _ := e.download(64*kib, 5)
 			if !info.Resumed {
 				e.t.Error("the second connection did not resume the first's session")
 			}
+
 			if info.Conn == first.Conn {
 				e.t.Error("the request after CloseIdleConnections went on the first connection")
 			}
@@ -194,10 +205,12 @@ var interopCases = []interopCase{
 		run: func(e *interopEnv) {
 			e.warm()
 			e.newConnection()
+
 			info, _ := e.download(256*kib, 6)
 			if !info.Used0RTT || !info.Early {
 				e.t.Errorf("the request on the resumed connection was not sent in 0-RTT (accepted %t, before the handshake completed %t)", info.Used0RTT, info.Early)
 			}
+
 			e.upload(256*kib, 7)
 			// Requests that find the connection while its handshake is
 			// still in progress, from goroutines of their own.
@@ -220,10 +233,12 @@ var interopCases = []interopCase{
 				no0RTT: true,
 			}).target)
 			e.newConnection()
+
 			info, _ := e.download(256*kib, 8)
 			if info.Backend != "B" || !info.Resumed || info.Used0RTT || info.Early {
 				e.t.Errorf("want B to resume without 0-RTT, got %+v", info)
 			}
+
 			e.upload(256*kib, 9)
 		},
 	},
@@ -239,16 +254,20 @@ var interopCases = []interopCase{
 		run: func(e *interopEnv) {
 			e.warm()
 			e.newConnection()
+
 			b := e.backends[0]
 			conns := b.conns.Load()
+
 			resp, _, err := e.do(http.MethodGet, "/too-early", nil)
 			if err != nil {
 				e.t.Fatalf("GET /too-early: %v", err)
 			}
+
 			info := e.h3(resp, "GET /too-early")
 			if n := b.tooEarly.Load(); n != 1 {
 				e.t.Fatalf("the server answered %d requests 425, want the one in 0-RTT (%+v)", n, info)
 			}
+
 			if ed := e.p.HTTP3.EarlyData; ed == nil || !ed.RetryTooEarly {
 				if resp.StatusCode != http.StatusTooEarly {
 					e.t.Errorf("status %d; the profile does not retry, want 425", resp.StatusCode)
@@ -256,9 +275,11 @@ var interopCases = []interopCase{
 
 				return
 			}
+
 			if resp.StatusCode != http.StatusOK || info.Early || !info.Used0RTT {
 				e.t.Errorf("want a 200 on the resumed connection, after its handshake; got status %d, %+v", resp.StatusCode, info)
 			}
+
 			if n := b.conns.Load() - conns; n != 1 {
 				e.t.Errorf("%d new connections; the retry belongs on the one that got the 425", n)
 			}
@@ -278,15 +299,18 @@ var interopCases = []interopCase{
 		},
 		run: func(e *interopEnv) {
 			e.warm()
+
 			b := e.backend(backendOpts{
 				name: "B",
 			})
 			e.relay.SetTarget(b.target)
 			e.newConnection()
+
 			info := e.upload(256*kib, 34)
 			if info.Backend != "B" || !info.Used0RTT {
 				e.t.Errorf("want B to accept 0-RTT, got %+v", info)
 			}
+
 			if n := b.streamBlocked.Load(); n != 0 {
 				e.t.Errorf("B received %d STREAM_DATA_BLOCKED frames in 1-RTT: the stream kept the remembered window", n)
 			}
@@ -309,6 +333,7 @@ var interopCases = []interopCase{
 				connWindow:   16 * kib,
 			}).target)
 			e.newConnection()
+
 			info := e.upload(256*kib, 35)
 			if info.Backend != "B" || !info.Resumed || info.Used0RTT {
 				e.t.Errorf("want B to resume without 0-RTT, got %+v", info)
@@ -328,18 +353,23 @@ var interopCases = []interopCase{
 		run: func(e *interopEnv) {
 			for i := range 6 {
 				start := time.Now()
+
 				resp, _, err := e.do(http.MethodGet, "/info", nil)
 				if err != nil {
 					e.t.Fatalf("request %d: %v", i, err)
 				}
+
 				if resp.ProtoMajor == 3 {
 					e.t.Fatalf("request %d went over HTTP/3 to a v2-only server", i)
 				}
+
 				if d := time.Since(start); d > time.Second {
 					e.t.Errorf("request %d took %v: it waited for the QUIC dial", i, d)
 				}
+
 				time.Sleep(50 * time.Millisecond)
 			}
+
 			if st := e.relay.Stats(); st.Forwarded[1] == 0 {
 				e.t.Errorf("the server never answered the client's Initial: %+v", st)
 			}
@@ -356,6 +386,7 @@ var interopCases = []interopCase{
 			if info.Cipher != tls.TLS_CHACHA20_POLY1305_SHA256 {
 				e.t.Fatalf("cipher suite %#04x, want TLS_CHACHA20_POLY1305_SHA256", info.Cipher)
 			}
+
 			e.download(2*mib, 10)
 			e.upload(512*kib, 11)
 		},
@@ -367,9 +398,11 @@ var interopCases = []interopCase{
 			e.warm()
 			// quic-go updates its keys after 100 packets.
 			e.download(2*mib, 12)
+
 			if e.server.keyUpdates.Load() == 0 {
 				e.t.Fatal("the server never updated its keys")
 			}
+
 			e.download(1*mib, 13)
 			e.upload(512*kib, 14)
 		},
@@ -381,9 +414,11 @@ var interopCases = []interopCase{
 			e.relay.SetBoth(udprelay.Impairment{
 				Drop: 0.3,
 			})
+
 			if !e.warmImpaired() {
 				return
 			}
+
 			e.relay.SetBoth(udprelay.Impairment{})
 			e.download(256*kib, 15)
 		},
@@ -418,9 +453,11 @@ var interopCases = []interopCase{
 			e.relay.SetBoth(udprelay.Impairment{
 				Corrupt: 0.2,
 			})
+
 			if !e.warmImpaired() {
 				return
 			}
+
 			e.relay.SetBoth(udprelay.Impairment{})
 			e.download(256*kib, 20)
 		},
@@ -441,9 +478,11 @@ var interopCases = []interopCase{
 			e.relay.Set(udprelay.ToClient, udprelay.Impairment{
 				MinSize: 100,
 			})
+
 			if !e.warmImpaired() {
 				return
 			}
+
 			e.relay.SetBoth(udprelay.Impairment{})
 			e.download(64*kib, 35)
 		},
@@ -469,7 +508,9 @@ var interopCases = []interopCase{
 			e.relay.SetBoth(udprelay.Impairment{
 				Delay: 2 * time.Millisecond,
 			})
+
 			start := time.Now()
+
 			e.downloadWith(4*mib, 23, 512*kib, func() {
 				e.relay.SetBoth(udprelay.Impairment{
 					Blackhole: true,
@@ -478,9 +519,11 @@ var interopCases = []interopCase{
 					e.relay.SetBoth(udprelay.Impairment{})
 				})
 			})
+
 			if d := time.Since(start); d < 2*time.Second {
 				e.t.Errorf("the download ended %v after it started, inside the blackhole", d)
 			}
+
 			e.download(64*kib, 24)
 		},
 	},
@@ -493,6 +536,7 @@ var interopCases = []interopCase{
 		run: func(e *interopEnv) {
 			e.warm()
 			e.download(256*kib, 25)
+
 			// The chain is over three times the client's first flight,
 			// so the server stops at its limit (quic-go checks it before
 			// each packet, so it may pass 3 by one packet) and the client
@@ -551,13 +595,16 @@ var interopCases = []interopCase{
 				e.relay.Set(udprelay.ToClient, udprelay.Impairment{
 					Blackhole: true,
 				})
+
 				if err := e.relay.RebindPort(); err != nil {
 					e.t.Error(err)
 				}
+
 				time.AfterFunc(300*time.Millisecond, func() {
 					e.relay.Set(udprelay.ToClient, delay)
 				})
 			})
+
 			if info := e.get("/info"); info.Conn != first.Conn {
 				e.t.Error("the connection did not survive the rebinding")
 			}
@@ -571,16 +618,20 @@ var interopCases = []interopCase{
 			e.relay.SetBoth(udprelay.Impairment{
 				Delay: 2 * time.Millisecond,
 			})
+
 			b := e.backend(backendOpts{
 				name: "B",
 			})
 			info, _ := e.downloadWith(4*mib, 28, 512*kib, func() {
 				e.relay.SetTarget(b.target)
+
 				go e.server.shutdown()
 			})
+
 			if info.Backend != "A" {
 				e.t.Errorf("the download in flight went to %s", info.Backend)
 			}
+
 			// Firefox sends the request after a GOAWAY over TCP and
 			// races a QUIC connection beside it; the others dial QUIC.
 			e.untilH3From("B")
@@ -594,7 +645,9 @@ var interopCases = []interopCase{
 		},
 		run: func(e *interopEnv) {
 			first := e.warm()
+
 			time.Sleep(2 * time.Second)
+
 			info, _ := e.download(64*kib, 29)
 			if info.Conn == first.Conn {
 				e.t.Error("the request after the idle timeout went on the timed-out connection")
@@ -614,6 +667,7 @@ var interopCases = []interopCase{
 			})
 			e.get("/close")
 			<-e.server.closed
+
 			info, _ := e.download(64*kib, 30)
 			if info.Conn == first.Conn {
 				e.t.Error("the request after the server's CONNECTION_CLOSE went on the closed connection")
@@ -625,17 +679,20 @@ var interopCases = []interopCase{
 		limit: 20 * time.Second,
 		run: func(e *interopEnv) {
 			first := e.warm()
+
 			resp, body, err := e.do(http.MethodGet, "/reset?n=300000", nil)
 			if err == nil {
 				e.t.Errorf("a response the server reset after %d bytes read as complete", len(body))
 			} else if resp != nil && resp.StatusCode != http.StatusOK {
 				e.t.Errorf("reset response: status %d", resp.StatusCode)
 			}
+
 			// The connection stays usable.
 			info, _ := e.download(256*kib, 31)
 			if info.Conn != first.Conn {
 				e.t.Error("a stream reset cost the connection")
 			}
+
 			// H3_REQUEST_REJECTED: sent again, on a new connection.
 			info = e.get("/reject")
 			if info.Conn == first.Conn {
@@ -656,8 +713,10 @@ var interopCases = []interopCase{
 			e.parallel(20, func(e *interopEnv, i int) {
 				if i%2 == 0 {
 					e.upload(64*kib, uint64(300+i))
+
 					return
 				}
+
 				e.download(64*kib, uint64(300+i))
 			})
 		},
@@ -685,10 +744,14 @@ type interopEnv struct {
 
 func newInteropEnv(t *testing.T, p *profile.Profile, pki *interopPKI, c interopCase) *interopEnv {
 	t.Helper()
+
 	ctx, cancel := context.WithTimeout(t.Context(), c.limit)
 	t.Cleanup(cancel)
+
 	h := fnv.New64a()
+
 	_, _ = h.Write([]byte(p.Name + "/" + c.name))
+
 	e := &interopEnv{
 		t:    t,
 		ctx:  ctx,
@@ -697,27 +760,34 @@ func newInteropEnv(t *testing.T, p *profile.Profile, pki *interopPKI, c interopC
 		seed: h.Sum64(),
 	}
 	opts := c.server
+
 	opts.name = "A"
 	e.server = e.backend(opts)
+
 	relay, err := udprelay.New(e.server.target, e.seed)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Cleanup(func() {
 		_ = relay.Close()
 	})
+
 	e.relay = relay
 	t.Cleanup(func() {
 		if !t.Failed() {
 			return
 		}
+
 		t.Logf("relay: %+v", relay.Stats())
+
 		for _, b := range e.backends {
 			b.mu.Lock()
 			t.Logf("backend %s: %d connections, ended: %q", b.name, b.conns.Load(), b.ends)
 			b.mu.Unlock()
 		}
 	})
+
 	tcp := e.altSvcServer()
 	cfg := mimicry.Config{
 		Profile:     p,
@@ -728,20 +798,27 @@ func newInteropEnv(t *testing.T, p *profile.Profile, pki *interopPKI, c interopC
 		},
 		Resolver: stubResolver(t),
 	}
+
 	if c.config != nil {
 		c.config(&cfg)
 	}
+
 	tr, err := mimicry.NewTransport(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Cleanup(tr.CloseIdleConnections)
+
 	e.tr = tr
 	e.client = &http.Client{
 		Transport: tr,
 	}
+
 	_, port, _ := net.SplitHostPort(tcp)
+
 	e.origin = "https://" + interopHost + ":" + port
+
 	if e.page, err = url.Parse(e.origin + "/"); err != nil {
 		t.Fatal(err)
 	}
@@ -754,10 +831,12 @@ func newInteropEnv(t *testing.T, p *profile.Profile, pki *interopPKI, c interopC
 // advertises the relay as the origin's HTTP/3, and returns its address.
 func (e *interopEnv) altSvcServer() string {
 	t := e.t
+
 	ln, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	alt := fmt.Sprintf(`h3=":%d"; ma=86400`, e.relay.Addr().Port())
 	h := interopHandler(nil)
 	srv := &http.Server{
@@ -777,11 +856,14 @@ func (e *interopEnv) altSvcServer() string {
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	done := make(chan error, 1)
+
 	go func() {
 		done <- srv.ServeTLS(ln, "", "")
 	}()
+
 	t.Cleanup(func() {
 		_ = srv.Close()
+
 		if err := <-done; err != nil && !errors.Is(err, http.ErrServerClosed) {
 			t.Error(err)
 		}
@@ -818,17 +900,21 @@ func (e *interopEnv) do(method, path string, body []byte) (*http.Response, []byt
 	if body != nil {
 		rd = bytes.NewReader(body)
 	}
+
 	req, err := http.NewRequestWithContext(e.ctx, method, e.origin+path, rd)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	resp, err := e.send(req)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	defer func() {
 		_ = resp.Body.Close()
 	}()
+
 	b, err := io.ReadAll(resp.Body)
 
 	return resp, b, err
@@ -838,9 +924,11 @@ func (e *interopEnv) do(method, path string, body []byte) (*http.Response, []byt
 // connection.
 func (e *interopEnv) h3(resp *http.Response, what string) connInfo {
 	e.t.Helper()
+
 	if resp.ProtoMajor != 3 {
 		e.t.Fatalf("%s went over %s, not HTTP/3", what, resp.Proto)
 	}
+
 	var info connInfo
 	if err := json.Unmarshal([]byte(resp.Header.Get("X-Info")), &info); err != nil {
 		e.t.Fatalf("%s: X-Info: %v", what, err)
@@ -852,10 +940,12 @@ func (e *interopEnv) h3(resp *http.Response, what string) connInfo {
 // get sends GET path, which must succeed over HTTP/3.
 func (e *interopEnv) get(path string) connInfo {
 	e.t.Helper()
+
 	resp, _, err := e.do(http.MethodGet, path, nil)
 	if err != nil {
 		e.t.Fatalf("GET %s: %v", path, err)
 	}
+
 	if resp.StatusCode != http.StatusOK {
 		e.t.Fatalf("GET %s: status %d", path, resp.StatusCode)
 	}
@@ -867,14 +957,17 @@ func (e *interopEnv) get(path string) connInfo {
 // browser moves to the Alt-Svc connection.
 func (e *interopEnv) warm() connInfo {
 	e.t.Helper()
+
 	for {
 		resp, _, err := e.do(http.MethodGet, "/info", nil)
 		if err != nil {
 			e.t.Fatalf("warming up: %v", err)
 		}
+
 		if resp.ProtoMajor == 3 {
 			return e.h3(resp, "GET /info")
 		}
+
 		select {
 		case <-e.ctx.Done():
 			e.t.Fatal("the origin never moved to HTTP/3")
@@ -889,44 +982,57 @@ func (e *interopEnv) warm() connInfo {
 // must go over TCP and it returns false. Otherwise it returns true.
 func (e *interopEnv) warmImpaired() bool {
 	e.t.Helper()
+
 	fb := e.p.HTTP3.Discovery.Fallback
 	if !fb.AbandonOnTCP {
 		e.warm()
+
 		return true
 	}
+
 	// The race, and the TCP handshake after it.
 	limit := time.Duration(fb.TCPDelayMillis.Max)*time.Millisecond + 500*time.Millisecond
 	for e.relay.Stats().Sessions < fb.BrokenAfter {
 		start := time.Now()
+
 		resp, _, err := e.do(http.MethodGet, "/info", nil)
 		if err != nil {
 			e.t.Fatalf("warming up: %v", err)
 		}
+
 		if resp.ProtoMajor == 3 {
 			e.h3(resp, "GET /info")
+
 			return true
 		}
+
 		if d := time.Since(start); d > limit {
 			e.t.Errorf("a request took %v over TCP: it waited past the race (%v)", d, limit)
 		}
+
 		select {
 		case <-e.ctx.Done():
 			e.t.Fatal("no QUIC attempt")
 		case <-time.After(20 * time.Millisecond):
 		}
 	}
+
 	for i := range 5 {
 		resp, _, err := e.do(http.MethodGet, "/info", nil)
 		if err != nil {
 			e.t.Fatalf("request %d after the attempts: %v", i, err)
 		}
+
 		if resp.ProtoMajor == 3 {
 			// The last attempt won its race after all.
 			e.h3(resp, "GET /info")
+
 			return true
 		}
 	}
+
 	e.t.Logf("every QUIC attempt lost the race to TCP; the origin is broken after %d", fb.BrokenAfter)
+
 	if st := e.relay.Stats(); st.Sessions != fb.BrokenAfter {
 		e.t.Errorf("%d QUIC attempts; the origin is broken after %d", st.Sessions, fb.BrokenAfter)
 	}
@@ -938,19 +1044,23 @@ func (e *interopEnv) warmImpaired() bool {
 // every response must be the backend's or the TCP server's.
 func (e *interopEnv) untilH3From(name string) {
 	e.t.Helper()
+
 	for {
 		resp, body, err := e.do(http.MethodGet, "/bytes?n=1000&seed=7", nil)
 		if err != nil {
 			e.t.Fatalf("waiting for HTTP/3 from %s: %v", name, err)
 		}
+
 		if !bytes.Equal(body, interopBytes(1000, 7)) {
 			e.t.Fatalf("waiting for HTTP/3 from %s: wrong body over %s", name, resp.Proto)
 		}
+
 		if resp.ProtoMajor == 3 {
 			if info := e.h3(resp, "GET"); info.Backend == name {
 				return
 			}
 		}
+
 		select {
 		case <-e.ctx.Done():
 			e.t.Fatalf("no response over HTTP/3 from %s", name)
@@ -971,26 +1081,34 @@ func (e *interopEnv) newConnection() {
 // download fetches n bytes of seed's stream over HTTP/3 and checks them.
 func (e *interopEnv) download(n int, seed uint64) (connInfo, []byte) {
 	e.t.Helper()
+
 	return e.downloadWith(n, seed, -1, nil)
 }
 
 // downloadWith is download, calling fn once the body has reached at bytes.
 func (e *interopEnv) downloadWith(n int, seed uint64, at int, fn func()) (connInfo, []byte) {
 	e.t.Helper()
+
 	what := fmt.Sprintf("download of %d bytes", n)
+
 	req, err := http.NewRequestWithContext(e.ctx, http.MethodGet, fmt.Sprintf("%s/bytes?n=%d&seed=%d", e.origin, n, seed), nil)
 	if err != nil {
 		e.t.Fatal(err)
 	}
+
 	resp, err := e.send(req)
 	if err != nil {
 		e.t.Fatalf("%s: %v", what, err)
 	}
+
 	defer func() {
 		_ = resp.Body.Close()
 	}()
+
 	info := e.h3(resp, what)
+
 	var r io.Reader = resp.Body
+
 	if fn != nil {
 		r = &trigger{
 			r:  resp.Body,
@@ -998,10 +1116,12 @@ func (e *interopEnv) downloadWith(n int, seed uint64, at int, fn func()) (connIn
 			fn: fn,
 		}
 	}
+
 	got, err := io.ReadAll(r)
 	if err != nil {
 		e.t.Fatalf("%s: after %d bytes: %v", what, len(got), err)
 	}
+
 	if want := interopBytes(n, seed); !bytes.Equal(got, want) {
 		e.t.Fatalf("%s: got %d bytes, %s", what, len(got), firstDiff(got, want))
 	}
@@ -1012,14 +1132,18 @@ func (e *interopEnv) downloadWith(n int, seed uint64, at int, fn func()) (connIn
 // upload posts n bytes of seed's stream and checks the server's digest.
 func (e *interopEnv) upload(n int, seed uint64) connInfo {
 	e.t.Helper()
+
 	what := fmt.Sprintf("upload of %d bytes", n)
 	data := interopBytes(n, seed)
+
 	resp, body, err := e.do(http.MethodPost, "/upload", data)
 	if err != nil {
 		e.t.Fatalf("%s: %v", what, err)
 	}
+
 	info := e.h3(resp, what)
 	sum := sha256.Sum256(data)
+
 	if want := fmt.Sprintf("%d %x", n, sum); string(body) != want {
 		e.t.Fatalf("%s: the server read %q, want %q", what, body, want)
 	}
@@ -1037,7 +1161,9 @@ func (e *interopEnv) parallel(n int, fn func(e *interopEnv, i int)) {
 		for i := range n {
 			t.Run(strconv.Itoa(i), func(t *testing.T) {
 				t.Parallel()
+
 				sub := *e
+
 				sub.t = t
 				fn(&sub, i)
 			})
@@ -1050,6 +1176,7 @@ func (e *interopEnv) parallel(n int, fn func(e *interopEnv, i int)) {
 // moves to it only once the client answered.
 func (e *interopEnv) rebinding(address bool) {
 	e.t.Helper()
+
 	first := e.warm()
 	e.relay.SetBoth(udprelay.Impairment{
 		Delay: 2 * time.Millisecond,
@@ -1061,21 +1188,26 @@ func (e *interopEnv) rebinding(address bool) {
 		} else {
 			err = e.relay.RebindPort()
 		}
+
 		if err != nil {
 			e.t.Error(err)
 		}
 	})
+
 	info := e.get("/info")
 	if info.Conn != first.Conn {
 		e.t.Fatal("the connection did not survive the rebinding")
 	}
+
 	if info.Remote == first.Remote {
 		e.t.Fatalf("the server still sends to %s: the new path was never validated", info.Remote)
 	}
+
 	want := "127.0.0.1"
 	if address {
 		want = "::1"
 	}
+
 	if ap, err := netip.ParseAddrPort(info.Remote); err != nil || ap.Addr().Unmap().String() != want {
 		e.t.Fatalf("the server's path is %s, want an address %s", info.Remote, want)
 	}
@@ -1092,7 +1224,9 @@ type trigger struct {
 
 func (t *trigger) Read(p []byte) (int, error) {
 	n, err := t.r.Read(p)
+
 	t.n += n
+
 	if !t.done && t.n >= t.at {
 		t.done = true
 		t.fn()
@@ -1105,7 +1239,9 @@ func (t *trigger) Read(p []byte) (int, error) {
 func interopBytes(n int, seed uint64) []byte {
 	var key [32]byte
 	binary.LittleEndian.PutUint64(key[:8], seed)
+
 	b := make([]byte, n)
+
 	_, _ = mrand.NewChaCha8(key).Read(b)
 
 	return b
@@ -1177,21 +1313,27 @@ type backend struct {
 func (e *interopEnv) backend(opts backendOpts) *backend {
 	t := e.t
 	t.Helper()
+
 	if opts.chacha {
 		b := e.childBackend(opts)
+
 		e.backends = append(e.backends, b)
 
 		return b
 	}
+
 	cert := e.pki.leaf
 	if opts.bigChain {
 		cert = e.pki.bigChain
 	}
+
 	b, stop, err := startBackend(opts, cert, e.pki.ticketKey)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Cleanup(stop)
+
 	e.backends = append(e.backends, b)
 
 	return b
@@ -1219,6 +1361,7 @@ func startBackend(opts backendOpts, cert tls.Certificate, ticketKey [32]byte) (*
 	if err != nil {
 		return nil, nil, err
 	}
+
 	b := &backend{
 		name: opts.name,
 		target: udprelay.Target{
@@ -1226,7 +1369,9 @@ func startBackend(opts backendOpts, cert tls.Certificate, ticketKey [32]byte) (*
 		},
 		closed: make(chan struct{}),
 	}
+
 	var pc net.PacketConn = v4
+
 	if opts.dualStack {
 		v6, err := net.ListenUDP("udp6", &net.UDPAddr{
 			IP: net.IPv6loopback,
@@ -1235,9 +1380,11 @@ func startBackend(opts backendOpts, cert tls.Certificate, ticketKey [32]byte) (*
 			_ = v4.Close()
 			return nil, nil, err
 		}
+
 		b.target.IPv6 = netip.MustParseAddrPort(v6.LocalAddr().String())
 		pc = newDualConn(v4, v6)
 	}
+
 	tlsConf := http3.ConfigureTLSConfig(&tls.Config{
 		Certificates: []tls.Certificate{
 			cert,
@@ -1247,6 +1394,7 @@ func startBackend(opts backendOpts, cert tls.Certificate, ticketKey [32]byte) (*
 	tlsConf.SetSessionTicketKeys([][32]byte{
 		ticketKey,
 	})
+
 	qconf := &quic.Config{
 		MaxIdleTimeout: cmp.Or(opts.idle, 30*time.Second),
 		Allow0RTT:      !opts.no0RTT,
@@ -1257,10 +1405,12 @@ func startBackend(opts backendOpts, cert tls.Certificate, ticketKey [32]byte) (*
 		qconf.InitialStreamReceiveWindow = uint64(opts.streamWindow)
 		qconf.MaxStreamReceiveWindow = uint64(opts.streamWindow)
 	}
+
 	if opts.connWindow > 0 {
 		qconf.InitialConnectionReceiveWindow = uint64(opts.connWindow)
 		qconf.MaxConnectionReceiveWindow = uint64(opts.connWindow)
 	}
+
 	if opts.tiny {
 		qconf.InitialStreamReceiveWindow = 8 * kib
 		qconf.MaxStreamReceiveWindow = 8 * kib
@@ -1268,6 +1418,7 @@ func startBackend(opts backendOpts, cert tls.Certificate, ticketKey [32]byte) (*
 		qconf.MaxConnectionReceiveWindow = 16 * kib
 		qconf.MaxIncomingStreams = 2
 	}
+
 	tr := &quic.Transport{
 		Conn: pc,
 	}
@@ -1276,11 +1427,13 @@ func startBackend(opts backendOpts, cert tls.Certificate, ticketKey [32]byte) (*
 			return true
 		}
 	}
+
 	ln, err := tr.ListenEarly(tlsConf, qconf)
 	if err != nil {
 		_ = pc.Close()
 		return nil, nil, err
 	}
+
 	b.srv = &http3.Server{
 		Handler: interopHandler(b),
 		ConnContext: func(ctx context.Context, c *quic.Conn) context.Context {
@@ -1290,16 +1443,21 @@ func startBackend(opts backendOpts, cert tls.Certificate, ticketKey [32]byte) (*
 			})
 		},
 	}
+
 	done := make(chan struct{})
+
 	go func() {
 		defer close(done)
+
 		_ = b.srv.ServeListener(ln)
 	}()
+
 	stop := func() {
 		_ = b.srv.Close()
 		_ = ln.Close()
 		_ = tr.Close()
 		_ = pc.Close()
+
 		<-done
 	}
 
@@ -1337,10 +1495,12 @@ func newDualConn(v4, v6 *net.UDPConn) *dualConn {
 		go func() {
 			for {
 				buf := make([]byte, 64*kib)
+
 				n, from, err := s.ReadFrom(buf)
 				if err != nil {
 					return
 				}
+
 				select {
 				case c.in <- dualPacket{
 					b:    buf[:n],
@@ -1369,18 +1529,24 @@ func (c *dualConn) ReadFrom(p []byte) (int, net.Addr, error) {
 // deadline changed meanwhile.
 func (c *dualConn) readOnce(p []byte) (n int, from net.Addr, again bool, err error) {
 	c.mu.Lock()
+
 	deadline, wake := c.deadline, c.wake
 	c.mu.Unlock()
+
 	var expired <-chan time.Time
 	if !deadline.IsZero() {
 		d := time.Until(deadline)
 		if d <= 0 {
 			return 0, nil, false, os.ErrDeadlineExceeded
 		}
+
 		t := time.NewTimer(d)
+
 		defer t.Stop()
+
 		expired = t.C
 	}
+
 	select {
 	case pkt := <-c.in:
 		return copy(p, pkt.b), pkt.from, false, nil
@@ -1398,6 +1564,7 @@ func (c *dualConn) WriteTo(p []byte, addr net.Addr) (int, error) {
 	if !ok {
 		return 0, fmt.Errorf("dualConn: address %v", addr)
 	}
+
 	if ua.IP.To4() != nil {
 		return c.v4.WriteTo(p, addr)
 	}
@@ -1425,8 +1592,10 @@ func (c *dualConn) SetDeadline(t time.Time) error {
 func (c *dualConn) SetReadDeadline(t time.Time) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	c.deadline = t
 	close(c.wake)
+
 	c.wake = make(chan struct{})
 
 	return nil
@@ -1450,6 +1619,7 @@ func (c *dualConn) SetWriteBuffer(n int) error {
 func (b *backend) shutdown() {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
+
 	_ = b.srv.Shutdown(ctx)
 }
 
@@ -1494,20 +1664,25 @@ func (r *serverRecorder) RecordEvent(ev qlogwriter.Event) {
 		if ev.KeyType == qlog.KeyTypeServer1RTT && ev.Trigger == qlog.KeyUpdateLocal {
 			r.b.keyUpdates.Add(1)
 		}
+
 	case qlog.PacketReceived:
 		if ev.Header.PacketType != qlog.PacketType1RTT {
 			break
 		}
+
 		for _, f := range ev.Frames {
 			if _, ok := f.Frame.(*qlog.StreamDataBlockedFrame); ok {
 				r.b.streamBlocked.Add(1)
 			}
 		}
+
 	case qlog.ConnectionClosed:
 		r.b.mu.Lock()
+
 		r.b.ends = append(r.b.ends, fmt.Sprintf("%s %s %q", ev.Initiator, ev.Trigger, ev.Reason))
 		r.b.mu.Unlock()
 	}
+
 	if r.inner != nil {
 		r.inner.RecordEvent(ev)
 	}
@@ -1547,63 +1722,88 @@ const (
 func interopHandler(b *backend) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sc, _ := r.Context().Value(serverConnKey{}).(*serverConn)
+
 		var info connInfo
+
 		if sc != nil {
 			info = infoOf(b, sc)
+
 			j, _ := json.Marshal(info)
 			w.Header().Set("X-Info", string(j))
 		}
+
 		q := r.URL.Query()
 		n, _ := strconv.Atoi(q.Get("n"))
+
 		switch r.URL.Path {
 		case "/info":
 		case "/bytes":
 			seed, _ := strconv.ParseUint(q.Get("seed"), 10, 64)
+
 			w.Header().Set("Content-Length", strconv.Itoa(n))
+
 			_, _ = w.Write(interopBytes(n, seed))
+
 		case "/upload":
 			h := sha256.New()
+
 			m, err := io.Copy(h, r.Body)
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)
+
 				return
 			}
+
 			_, _ = fmt.Fprintf(w, "%d %x", m, h.Sum(nil))
+
 		case "/reset":
 			if sc == nil {
 				w.WriteHeader(http.StatusNotFound)
+
 				return
 			}
+
 			w.WriteHeader(http.StatusOK)
+
 			_, _ = w.Write(interopBytes(n, 1))
 			_ = http.NewResponseController(w).Flush()
+
 			str := h3Stream(w)
 			str.CancelWrite(h3RequestCancelled)
 			str.CancelRead(h3RequestCancelled)
+
 		case "/reject":
 			if sc != nil && b.rejected.CompareAndSwap(false, true) {
 				str := h3Stream(w)
 				str.CancelWrite(h3RequestRejected)
 				str.CancelRead(h3RequestRejected)
 			}
+
 		case "/close":
 			if sc == nil {
 				w.WriteHeader(http.StatusNotFound)
+
 				return
 			}
+
 			_ = http.NewResponseController(w).Flush()
+
 			go func() {
 				time.Sleep(50 * time.Millisecond)
+
 				_ = sc.qc.CloseWithError(h3NoError, "")
+
 				b.closeOnce.Do(func() {
 					close(b.closed)
 				})
 			}()
+
 		case "/too-early":
 			if info.Early {
 				b.tooEarly.Add(1)
 				w.WriteHeader(http.StatusTooEarly)
 			}
+
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -1621,6 +1821,7 @@ func infoOf(b *backend, sc *serverConn) connInfo {
 		Cipher:   cs.TLS.CipherSuite,
 		Remote:   sc.qc.RemoteAddr().String(),
 	}
+
 	select {
 	case <-sc.qc.HandshakeComplete():
 	default:
@@ -1651,6 +1852,7 @@ const (
 
 func newInteropPKI(t *testing.T) *interopPKI {
 	t.Helper()
+
 	now := time.Now()
 	rootKey, rootCert := mustCert(t, nil, nil, "interop root", nil, true, 0, now)
 	pki := &interopPKI{
@@ -1658,10 +1860,13 @@ func newInteropPKI(t *testing.T) *interopPKI {
 		dir:   t.TempDir(),
 	}
 	pki.roots.AddCert(rootCert)
+
 	if _, err := rand.Read(pki.ticketKey[:]); err != nil {
 		t.Fatal(err)
 	}
+
 	leafKey, leafCert := mustCert(t, rootKey, rootCert, interopHost, []string{interopHost}, false, 0, now)
+
 	pki.leaf = tls.Certificate{
 		Certificate: [][]byte{
 			leafCert.Raw,
@@ -1671,21 +1876,27 @@ func newInteropPKI(t *testing.T) *interopPKI {
 	}
 	// leaf <- intermediate n <- ... <- intermediate 1 <- root.
 	parentKey, parentCert := rootKey, rootCert
+
 	var chain [][]byte
+
 	for i := range bigChainIntermediates {
 		parentKey, parentCert = mustCert(t, parentKey, parentCert, fmt.Sprintf("interop intermediate %d", i+1), nil, true, bigChainPad, now)
 		chain = append([][]byte{parentCert.Raw}, chain...)
 	}
+
 	bigKey, bigLeaf := mustCert(t, parentKey, parentCert, interopHost, []string{interopHost}, false, bigChainPad, now)
+
 	pki.bigChain = tls.Certificate{
 		Certificate: append([][]byte{bigLeaf.Raw}, chain...),
 		PrivateKey:  bigKey,
 		Leaf:        bigLeaf,
 	}
+
 	keyDER, err := x509.MarshalECPrivateKey(leafKey)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	certPEM := pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: leafCert.Raw,
@@ -1694,6 +1905,7 @@ func newInteropPKI(t *testing.T) *interopPKI {
 		Type:  "EC PRIVATE KEY",
 		Bytes: keyDER,
 	})
+
 	for name, data := range map[string][]byte{
 		"cert.pem": certPEM,
 		"key.pem":  keyPEM,
@@ -1710,14 +1922,17 @@ func newInteropPKI(t *testing.T) *interopPKI {
 // padded with a non-critical extension of pad bytes.
 func mustCert(t *testing.T, parentKey *ecdsa.PrivateKey, parent *x509.Certificate, cn string, dns []string, ca bool, pad int, now time.Time) (*ecdsa.PrivateKey, *x509.Certificate) {
 	t.Helper()
+
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	serial, err := rand.Int(rand.Reader, big.NewInt(1<<62))
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	tmpl := &x509.Certificate{
 		SerialNumber: serial,
 		Subject: pkix.Name{
@@ -1737,6 +1952,7 @@ func mustCert(t *testing.T, parentKey *ecdsa.PrivateKey, parent *x509.Certificat
 			x509.ExtKeyUsageServerAuth,
 		}
 	}
+
 	if pad > 0 {
 		tmpl.ExtraExtensions = []pkix.Extension{
 			{
@@ -1746,13 +1962,16 @@ func mustCert(t *testing.T, parentKey *ecdsa.PrivateKey, parent *x509.Certificat
 			},
 		}
 	}
+
 	if parent == nil {
 		parent, parentKey = tmpl, key
 	}
+
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, parent, &key.PublicKey, parentKey)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	cert, err := x509.ParseCertificate(der)
 	if err != nil {
 		t.Fatal(err)
@@ -1772,27 +1991,34 @@ const interopChildEnv = "MIMICRY_INTEROP_BACKEND"
 func (e *interopEnv) childBackend(opts backendOpts) *backend {
 	t := e.t
 	cmd := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^$") //nolint:gosec // the test binary itself
+
 	cmd.Env = append(os.Environ(), interopChildEnv+"="+e.pki.dir, "GODEBUG=cpu.aes=off", "MIMICRY_INTEROP_NAME="+opts.name)
+
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
+
 	t.Cleanup(func() {
 		_ = stdin.Close()
 		_ = cmd.Wait()
 	})
+
 	line, err := bufio.NewReader(stdout).ReadString('\n')
 	if err != nil {
 		t.Fatalf("child backend: %v", err)
 	}
+
 	port, err := strconv.ParseUint(strings.TrimSpace(line), 10, 16)
 	if err != nil {
 		t.Fatalf("child backend said %q", line)
@@ -1814,22 +2040,29 @@ func runChildBackend(dir string) int {
 	cert, err := tls.LoadX509KeyPair(filepath.Join(dir, "cert.pem"), filepath.Join(dir, "key.pem"))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
+
 		return 1
 	}
+
 	var key [32]byte
 	if _, err := rand.Read(key[:]); err != nil {
 		fmt.Fprintln(os.Stderr, err)
+
 		return 1
 	}
+
 	b, stop, err := startBackend(backendOpts{
 		name: os.Getenv("MIMICRY_INTEROP_NAME"),
 	}, cert, key)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
+
 		return 1
 	}
 	defer stop()
+
 	fmt.Println(b.target.IPv4.Port())
+
 	_, _ = io.Copy(io.Discard, os.Stdin)
 
 	return 0
@@ -1839,5 +2072,6 @@ func TestMain(m *testing.M) {
 	if dir := os.Getenv(interopChildEnv); dir != "" {
 		os.Exit(runChildBackend(dir))
 	}
+
 	os.Exit(m.Run())
 }

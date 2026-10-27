@@ -26,11 +26,14 @@ type field struct {
 // reported it.
 func fieldsOf(endpoint string, body json.RawMessage) ([]field, error) {
 	var root any
+
 	d := json.NewDecoder(bytes.NewReader(body))
 	d.UseNumber()
+
 	if err := d.Decode(&root); err != nil {
 		return nil, err
 	}
+
 	var fs fieldList
 	switch {
 	case strings.HasPrefix(endpoint, "peet"):
@@ -39,11 +42,14 @@ func fieldsOf(endpoint string, body json.RawMessage) ([]field, error) {
 		for _, k := range []string{"user_agent", "ja4", "ja4_r", "ja4_o", "ja4_ro", "ja3_hash", "ja3_text", "ja3n_hash", "ja3n_text", "akamai_hash", "akamai_text"} {
 			fs.add(k, str(get(root, k)))
 		}
+
 	case endpoint == "browserleaks-h2":
 		fs.add("akamai_text", str(get(root, "akamai_text")))
 		fs.add("akamai_hash", str(get(root, "akamai_hash")))
+
 		frames, _ := get(root, "http2").([]any)
 		rawFrames := rawList(body, "http2")
+
 		for i, f := range frames {
 			m, _ := f.(map[string]any)
 			if m["name"] == "HEADERS" && i < len(rawFrames) {
@@ -51,8 +57,10 @@ func fieldsOf(endpoint string, body json.RawMessage) ([]field, error) {
 				delete(m, "headers")
 				delete(m, "length")
 			}
+
 			fs.add(fmt.Sprintf("frame %d", i), canon(m))
 		}
+
 	case strings.HasPrefix(endpoint, "impersonate"):
 		fs.impersonate(root)
 	default:
@@ -75,16 +83,20 @@ func (fs *fieldList) add(name, value string) {
 func (fs *fieldList) headers(prefix string, pairs [][2]string) {
 	names := make([]string, len(pairs))
 	values := map[string][]string{}
+
 	for i, p := range pairs {
 		names[i] = p[0]
 		values[p[0]] = append(values[p[0]], p[1])
 	}
+
 	fs.add(prefix+"header order", strings.Join(names, ","))
+
 	seen := map[string]bool{}
 	for _, n := range names {
 		if seen[n] {
 			continue
 		}
+
 		seen[n] = true
 		fs.add(prefix+"header "+n, strings.Join(values[n], " | "))
 	}
@@ -100,6 +112,7 @@ func headersPrefix(i int, frames []any) string {
 			n++
 		}
 	}
+
 	if n <= 1 {
 		return "h2 "
 	}
@@ -110,16 +123,21 @@ func headersPrefix(i int, frames []any) string {
 // peet adds tls.peet.ws's /api/all fields.
 func (fs *fieldList) peet(root any) {
 	fs.add("http_version", str(get(root, "http_version")))
+
 	for _, k := range []string{"tls_version_negotiated", "ja3", "ja3_hash", "ja4", "ja4_r", "peetprint", "peetprint_hash"} {
 		fs.add("tls."+k, str(get(root, "tls."+k)))
 	}
+
 	fs.add("tls.ja3 (extensions sorted)", sortedJA3(str(get(root, "tls.ja3"))))
 	fs.add("tls.ciphers", canon(get(root, "tls.ciphers")))
+
 	exts, _ := get(root, "tls.extensions").([]any)
 	fs.extensions(exts)
+
 	for _, k := range []string{"akamai_fingerprint", "akamai_fingerprint_hash"} {
 		fs.add("http2."+k, str(get(root, "http2."+k)))
 	}
+
 	frames, _ := get(root, "http2.sent_frames").([]any)
 	for i, f := range frames {
 		m, _ := f.(map[string]any)
@@ -130,19 +148,25 @@ func (fs *fieldList) peet(root any) {
 				// Pseudo-headers come as ":method: GET".
 				if strings.HasPrefix(str(h), ":") {
 					n2, v2, _ := strings.Cut(str(h)[1:], ": ")
+
 					n, v = ":"+n2, v2
 				}
+
 				pairs = append(pairs, [2]string{n, v})
 			}
+
 			fs.headers(headersPrefix(i, frames), pairs)
 			delete(m, "headers")
 			delete(m, "length")
 		}
+
 		fs.add(fmt.Sprintf("frame %d", i), canon(m))
 	}
+
 	if h3 := get(root, "http3"); h3 != nil {
 		fs.add("http3", canon(h3))
 	}
+
 	for _, k := range []string{"p0f", "tcp_syn.window", "tcp_syn.mss", "tcp_syn.window_scale", "tcp_syn.option_order", "tcp_syn.ttl", "tcp_syn.df", "tcp_syn.ecn"} {
 		if v := get(root, "tcpip."+k); v != nil {
 			fs.add("tcpip."+k, str(v))
@@ -153,37 +177,48 @@ func (fs *fieldList) peet(root any) {
 // impersonate adds fp.impersonate.pro's /api/http2 and /api/http3 fields.
 func (fs *fieldList) impersonate(root any) {
 	fs.add("protocol", str(get(root, "protocol")))
+
 	for _, sec := range []string{"http2", "http3"} {
 		m, _ := get(root, sec).(map[string]any)
 		if m == nil {
 			continue
 		}
+
 		for _, k := range sortedKeys(m) {
 			switch k {
 			case "headers", "header_order":
 				continue
 			}
+
 			fs.add(sec+"."+k, canon(m[k]))
 		}
+
 		hs, _ := m["headers"].([]any)
 		pairs := make([][2]string, 0, len(hs))
+
 		for _, h := range hs {
 			hm, _ := h.(map[string]any)
+
 			pairs = append(pairs, [2]string{str(hm["name"]), str(hm["value"])})
 		}
+
 		fs.headers(sec+" ", pairs)
 	}
+
 	if q, _ := get(root, "quic").(map[string]any); q != nil {
 		for _, k := range sortedKeys(q) {
 			fs.add("quic."+k, canon(q[k]))
 		}
 	}
+
 	for _, k := range []string{"ja3.text", "ja3.hash", "ja3n.text", "ja3n.hash", "version", "alpn"} {
 		if v := get(root, "tls."+k); v != nil {
 			fs.add("tls."+k, str(v))
 		}
 	}
+
 	fs.add("tls.cipher_suites", canon(get(root, "tls.cipher_suites")))
+
 	exts, _ := get(root, "tls.extensions").([]any)
 	fs.extensions(exts)
 }
@@ -196,43 +231,56 @@ func (fs *fieldList) extensions(exts []any) {
 		name  string
 		value string
 	}
+
 	list := make([]ext, 0, len(exts))
 	count := map[string]int{}
+
 	for _, e := range exts {
 		m, _ := e.(map[string]any)
 		n := greaseText(str(m["name"]))
+
 		switch {
 		case echExtension.MatchString(n):
 			raw := str(m["data"])
 			if d, ok := m["data"].(map[string]any); ok {
 				raw = str(d["raw"])
 			}
+
 			fs.ech(raw)
 
 			continue
+
 		case n == "quic_transport_parameters":
 			fs.transportParameters(m["data"])
+
 			continue
+
 		case randomExtension.MatchString(n):
 			shaped, ok := shapeOf(m).(map[string]any)
 			if !ok {
 				panic("shapeOf turns a map into a map")
 			}
+
 			m = shaped
 		}
+
 		delete(m, "name")
+
 		count[n]++
 		if count[n] > 1 {
 			n += " #" + strconv.Itoa(count[n])
 		}
+
 		list = append(list, ext{
 			name:  n,
 			value: canon(m),
 		})
 	}
+
 	slices.SortStableFunc(list, func(a, b ext) int {
 		return strings.Compare(a.name, b.name)
 	})
+
 	for _, e := range list {
 		fs.add("ext "+e.name, e.value)
 	}
@@ -245,13 +293,17 @@ func (fs *fieldList) ech(raw string) {
 	b, err := hex.DecodeString(raw)
 	if err != nil || len(b) < 10 || b[0] != 0 {
 		fs.add("ext ECH", fmt.Sprintf("unparsed (%d bytes)", len(raw)/2))
+
 		return
 	}
+
 	enc := int(binary.BigEndian.Uint16(b[6:8]))
 	if len(b) < 10+enc {
 		fs.add("ext ECH", fmt.Sprintf("unparsed (%d bytes)", len(b)))
+
 		return
 	}
+
 	fs.add("ext ECH cipher suite", fmt.Sprintf("0x%04x/0x%04x", binary.BigEndian.Uint16(b[1:3]), binary.BigEndian.Uint16(b[3:5])))
 	fs.add("ext ECH enc length", strconv.Itoa(enc))
 	fs.add("ext ECH payload length", strconv.Itoa(int(binary.BigEndian.Uint16(b[8+enc:10+enc]))))
@@ -262,16 +314,21 @@ func (fs *fieldList) ech(raw string) {
 // of their IDs.
 func (fs *fieldList) transportParameters(v any) {
 	params, _ := v.([]any)
+
 	var order []string
+
 	set := make([]string, 0, len(params))
+
 	for _, p := range params {
 		m, _ := p.(map[string]any)
 		n := str(m["name"])
+
 		if strings.Contains(n, "GREASE") {
 			order = append(order, "GREASE")
 		} else {
 			order = append(order, str(m["id"]))
 		}
+
 		if vi, ok := m["value"].(map[string]any); ok {
 			// Chrome shuffles its available versions too.
 			if av, ok := vi["available_versions"].([]any); ok {
@@ -280,8 +337,10 @@ func (fs *fieldList) transportParameters(v any) {
 				})
 			}
 		}
+
 		set = append(set, canon(m))
 	}
+
 	slices.Sort(set)
 	fs.add("ext quic_transport_parameters", "["+strings.Join(set, ",")+"]")
 	fs.add("ext quic_transport_parameters order", strings.Join(order, ","))
@@ -308,6 +367,7 @@ func shapeOf(v any) any {
 		}
 
 		return out
+
 	case []any:
 		out := make([]any, len(t))
 		for i, x := range t {
@@ -315,6 +375,7 @@ func shapeOf(v any) any {
 		}
 
 		return out
+
 	case string:
 		if hexRun.MatchString(t) {
 			return fmt.Sprintf("<%d bytes>", len(strings.TrimPrefix(t, "0x"))/2)
@@ -333,11 +394,13 @@ var (
 
 func greaseText(s string) string {
 	s = greaseNamed.ReplaceAllString(s, "TLS_GREASE")
+
 	return greaseHex.ReplaceAllStringFunc(s, func(m string) string {
 		v, err := strconv.ParseUint(m[2:], 16, 32)
 		if err != nil {
 			return m
 		}
+
 		if isGREASE(v) {
 			return "GREASE"
 		}
@@ -363,19 +426,24 @@ func greaseValues(v any) any {
 	case map[string]any:
 		out := make(map[string]any, len(t))
 		named := strings.Contains(str(t["name"]), "GREASE")
+
 		for k, x := range t {
 			if named && (k == "id" || k == "value") {
 				continue
 			}
+
 			nk := greaseText(k)
+
 			out[nk] = greaseValues(x)
 		}
+
 		// fp.impersonate.pro: a QUIC connection ID's value is random.
 		if n := str(t["name"]); strings.HasSuffix(n, "connection_id") {
 			out["value"] = fmt.Sprintf("<%d bytes>", len(strings.TrimPrefix(str(t["value"]), "0x"))/2)
 		}
 
 		return out
+
 	case []any:
 		out := make([]any, len(t))
 		for i, x := range t {
@@ -383,6 +451,7 @@ func greaseValues(v any) any {
 		}
 
 		return out
+
 	case string:
 		return greaseText(t)
 	case json.Number:
@@ -399,9 +468,11 @@ func canon(v any) string {
 	if v == nil {
 		return ""
 	}
+
 	if s, ok := v.(string); ok {
 		return greaseText(s)
 	}
+
 	b, err := json.Marshal(greaseValues(v))
 	if err != nil {
 		return fmt.Sprint(v)
@@ -433,6 +504,7 @@ func get(v any, path string) any {
 		if !ok {
 			return nil
 		}
+
 		v = m[k]
 	}
 
@@ -444,6 +516,7 @@ func sortedKeys(m map[string]any) []string {
 	for k := range m {
 		keys = append(keys, k)
 	}
+
 	slices.Sort(keys)
 
 	return keys
@@ -457,6 +530,7 @@ func sortedJA3(ja3 string) string {
 	if len(parts) != 5 {
 		return ja3
 	}
+
 	exts := strings.Split(parts[2], "-")
 	slices.SortFunc(exts, func(a, b string) int {
 		x, _ := strconv.Atoi(a)
@@ -464,6 +538,7 @@ func sortedJA3(ja3 string) string {
 
 		return x - y
 	})
+
 	parts[2] = strings.Join(exts, "-")
 
 	return strings.Join(parts, ",")
@@ -476,7 +551,9 @@ func rawList(body json.RawMessage, key string) []json.RawMessage {
 	if json.Unmarshal(body, &m) != nil {
 		return nil
 	}
+
 	var list []json.RawMessage
+
 	_ = json.Unmarshal(m[key], &list)
 
 	return list
@@ -499,16 +576,19 @@ func orderedPairs(obj json.RawMessage) [][2]string {
 	if t, err := d.Token(); err != nil || t != json.Delim('{') {
 		return nil
 	}
+
 	var pairs [][2]string
 	for d.More() {
 		k, err := d.Token()
 		if err != nil {
 			return pairs
 		}
+
 		var v any
 		if err := d.Decode(&v); err != nil {
 			return pairs
 		}
+
 		pairs = append(pairs, [2]string{fmt.Sprint(k), str(v)})
 	}
 

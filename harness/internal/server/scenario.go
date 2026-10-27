@@ -254,6 +254,7 @@ func ScenarioByName(name string) (*Scenario, error) {
 			return s, nil
 		}
 	}
+
 	names := make([]string, len(Scenarios))
 	for i, s := range Scenarios {
 		names[i] = s.Name
@@ -267,6 +268,7 @@ func (sc *Scenario) answer(r request) response {
 	if sc.multi != nil {
 		return sc.multi.answer(r)
 	}
+
 	if sc.respond != nil {
 		if resp, ok := sc.respond(r.path, r.uploaded); ok {
 			return resp
@@ -470,11 +472,15 @@ var serverCookies = []struct {
 // cookie-value alphabet real sites use.
 func cookieValue(seed string, n int) string {
 	const alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz~-_"
+
 	var b strings.Builder
+
 	h := uint32(2166136261)
+
 	for i := range len(seed) {
 		h = (h ^ uint32(seed[i])) * 16777619
 	}
+
 	for range n {
 		h = h*1664525 + 1013904223
 		b.WriteByte(alphabet[h>>26])
@@ -502,6 +508,7 @@ func setCookieResponse(path string, _ int) (response, bool) {
 		}
 
 		return r, true
+
 	case "/app.js":
 		return response{status: 200, contentType: "text/javascript", body: []byte(cookieScript)}, true
 	case "/done":

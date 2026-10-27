@@ -97,9 +97,12 @@ func (s *Server) serveH3(serverCtx context.Context, conn *quic.Conn, sc *Scenari
 		table:      quictrace.NewTable(sc.h3.setting(quictrace.SettingQPACKMaxTableCapacity)),
 		decoderOut: make(chan []byte, 256),
 	}
+
 	h.early = earlyOf(conn)
 	h.qcond = sync.NewCond(&h.qmu)
+
 	var once sync.Once
+
 	h.emit = func() {
 		once.Do(func() {
 			if s.OnCapture != nil {
@@ -107,23 +110,33 @@ func (s *Server) serveH3(serverCtx context.Context, conn *quic.Conn, sc *Scenari
 			}
 		})
 	}
+
 	defer h.emit()
+
 	log.quic.add(h)
+
 	defer log.quic.ended(h)
+
 	// ctx ends with the connection, or when the server stops, which closes
 	// the connection.
 	ctx, cancel := context.WithCancelCause(serverCtx)
 	defer cancel(nil)
+
 	connCtx := conn.Context()
 	stopConn := context.AfterFunc(connCtx, func() {
 		cancel(context.Cause(connCtx))
 	})
+
 	defer stopConn()
+
 	stop := context.AfterFunc(serverCtx, func() {
 		_ = conn.CloseWithError(h3NoError, "")
 	})
+
 	defer stop()
+
 	var wg sync.WaitGroup
+
 	decoder, err := h.openStreams()
 	if err == nil {
 		wg.Go(func() {
@@ -138,13 +151,16 @@ func (s *Server) serveH3(serverCtx context.Context, conn *quic.Conn, sc *Scenari
 	} else {
 		_ = conn.CloseWithError(h3GeneralError, "")
 	}
+
 	<-ctx.Done()
 	h.recordClose(context.Cause(ctx))
 	h.qmu.Lock()
+
 	h.qdone = true
 	h.qcond.Broadcast()
 	h.qmu.Unlock()
 	wg.Wait()
+
 	if isClosed(err) {
 		return nil
 	}
@@ -160,6 +176,7 @@ func (h *h3conn) openStreams() (*quic.SendStream, error) {
 		settings = quictrace.AppendVarint(settings, st[0])
 		settings = quictrace.AppendVarint(settings, st[1])
 	}
+
 	var decoder *quic.SendStream
 	for _, typ := range []uint64{
 		quictrace.StreamControl,
@@ -170,14 +187,17 @@ func (h *h3conn) openStreams() (*quic.SendStream, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		first := quictrace.AppendVarint(nil, typ)
 		switch typ {
 		case quictrace.StreamControl:
 			first = quictrace.AppendFrame(first, quictrace.FrameH3Settings, settings)
 			h.control = str
+
 		case quictrace.StreamQPACKDecoder:
 			decoder = str
 		}
+
 		if _, err := str.Write(first); err != nil {
 			return nil, err
 		}
@@ -195,6 +215,7 @@ func (h *h3conn) writeDecoderStream(ctx context.Context, str *quic.SendStream) {
 			if _, err := str.Write(b); err != nil {
 				return
 			}
+
 		case <-ctx.Done():
 			return
 		}
@@ -222,6 +243,7 @@ func (h *h3conn) acceptUni(ctx context.Context, wg *sync.WaitGroup) {
 		if err != nil {
 			return
 		}
+
 		wg.Go(func() {
 			h.uniStream(str)
 		})
@@ -235,7 +257,9 @@ func (h *h3conn) acceptRequests(ctx context.Context, wg *sync.WaitGroup) {
 		if err != nil {
 			return
 		}
+
 		h.wmu.Lock()
+
 		h.maxStream = max(h.maxStream, uint64(str.StreamID()))
 		h.wmu.Unlock()
 		wg.Go(func() {
@@ -252,6 +276,7 @@ type countingReader struct {
 
 func (c *countingReader) Read(p []byte) (int, error) {
 	n, err := c.r.Read(p)
+
 	c.n += n
 
 	return n, err
@@ -279,10 +304,12 @@ func (h *h3conn) uniStream(str *quic.ReceiveStream) {
 		r: str,
 	}
 	r := bufio.NewReader(counter)
+
 	typ, err := quictrace.ReadVarint(r)
 	if err != nil {
 		return
 	}
+
 	typeLen := len(quictrace.AppendVarint(nil, typ))
 	index := h.addStream(quictrace.H3Stream{
 		Millis: h.millis(),
@@ -294,10 +321,13 @@ func (h *h3conn) uniStream(str *quic.ReceiveStream) {
 	update := func(f func(*quictrace.H3Stream)) {
 		h.mu.Lock()
 		defer h.mu.Unlock()
+
 		s := &h.rec.Streams[index]
 		f(s)
+
 		s.Bytes = counter.n - typeLen - r.Buffered()
 	}
+
 	switch typ {
 	case quictrace.StreamControl:
 		err = h.controlStream(r, update)
@@ -311,6 +341,7 @@ func (h *h3conn) uniStream(str *quic.ReceiveStream) {
 			err = io.EOF
 		}
 	}
+
 	update(func(s *quictrace.H3Stream) {
 		s.End = streamEnd(err)
 		if s.End == "" && err != nil && !isClosed(err) && !isConnClosed(err) {
@@ -321,9 +352,11 @@ func (h *h3conn) uniStream(str *quic.ReceiveStream) {
 
 // isConnClosed reports an error that means the QUIC connection ended.
 func isConnClosed(err error) bool {
-	var app *quic.ApplicationError
-	var tr *quic.TransportError
-	var idle *quic.IdleTimeoutError
+	var (
+		app  *quic.ApplicationError
+		tr   *quic.TransportError
+		idle *quic.IdleTimeoutError
+	)
 
 	return errors.As(err, &app) || errors.As(err, &tr) || errors.As(err, &idle) || errors.Is(err, quic.ErrTransportClosed)
 }
@@ -331,6 +364,7 @@ func isConnClosed(err error) bool {
 func (h *h3conn) addStream(s quictrace.H3Stream) int {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+
 	h.rec.Streams = append(h.rec.Streams, s)
 
 	return len(h.rec.Streams) - 1
@@ -343,11 +377,13 @@ func (h *h3conn) controlStream(r *bufio.Reader, update func(func(*quictrace.H3St
 		if err != nil {
 			return err
 		}
+
 		f := quictrace.NewFrame(h.millis(), typ, length)
 		perr := quictrace.ParseControlFrame(&f, payload)
 		update(func(s *quictrace.H3Stream) {
 			s.Frames = append(s.Frames, f)
 		})
+
 		if perr != nil {
 			return perr
 		}
@@ -360,27 +396,38 @@ func (h *h3conn) controlStream(r *bufio.Reader, update func(func(*quictrace.H3St
 // refer to them.
 func (h *h3conn) encoderStream(r *bufio.Reader, update func(func(*quictrace.H3Stream))) error {
 	var pending []byte
+
 	buf := make([]byte, 4096)
+
 	for {
 		n, err := r.Read(buf)
+
 		pending = append(pending, buf[:n]...)
+
 		h.qmu.Lock()
+
 		ins, used, perr := h.table.ReadEncoderStream(pending)
 		if inserted := h.table.Inserted(); inserted > h.known {
 			h.toDecoder(quictrace.AppendInsertCountIncrement(nil, inserted-h.known))
+
 			h.known = inserted
 		}
+
 		h.qcond.Broadcast()
 		h.qmu.Unlock()
+
 		pending = pending[used:]
+
 		if len(ins) > 0 {
 			update(func(s *quictrace.H3Stream) {
 				s.Encoder = append(s.Encoder, ins...)
 			})
 		}
+
 		if perr != nil {
 			return perr
 		}
+
 		if err != nil {
 			return err
 		}
@@ -390,20 +437,28 @@ func (h *h3conn) encoderStream(r *bufio.Reader, update func(func(*quictrace.H3St
 // decoderStream records the client's QPACK decoder stream.
 func decoderStream(r *bufio.Reader, update func(func(*quictrace.H3Stream))) error {
 	var pending []byte
+
 	buf := make([]byte, 4096)
+
 	for {
 		n, err := r.Read(buf)
+
 		pending = append(pending, buf[:n]...)
+
 		ins, used, perr := quictrace.ReadDecoderStream(pending)
+
 		pending = pending[used:]
+
 		if len(ins) > 0 {
 			update(func(s *quictrace.H3Stream) {
 				s.Decoder = append(s.Decoder, ins...)
 			})
 		}
+
 		if perr != nil {
 			return perr
 		}
+
 		if err != nil {
 			return err
 		}
@@ -418,16 +473,19 @@ func decoderStream(r *bufio.Reader, update func(func(*quictrace.H3Stream))) erro
 func (h *h3conn) decodeSection(stream uint64, block []byte) (quictrace.Section, error) {
 	h.qmu.Lock()
 	defer h.qmu.Unlock()
+
 	for {
 		s, err := h.table.DecodeSection(block)
 		if !errors.Is(err, quictrace.ErrBlocked) || h.qdone {
 			if err == nil && s.RequiredInsertCount > 0 {
 				h.toDecoder(quictrace.AppendSectionAck(nil, stream))
+
 				h.known = max(h.known, s.RequiredInsertCount)
 			}
 
 			return s, err
 		}
+
 		h.qcond.Wait()
 	}
 }
@@ -444,22 +502,32 @@ func (h *h3conn) request(str *quic.Stream) {
 	update := func(f func(*quictrace.H3Request)) {
 		h.mu.Lock()
 		defer h.mu.Unlock()
+
 		f(&h.rec.Requests[index])
 	}
 	r := bufio.NewReader(str)
+
 	var st request
+
 	headers := false
+
 	var err error
+
 	for {
-		var typ, length uint64
-		var payload []byte
+		var (
+			typ, length uint64
+			payload     []byte
+		)
+
 		if typ, length, payload, err = quictrace.ReadFrame(r); err != nil {
 			break
 		}
+
 		f := quictrace.NewFrame(h.millis(), typ, length)
 		update(func(q *quictrace.H3Request) {
 			q.Frames = append(q.Frames, f)
 		})
+
 		switch typ {
 		case quictrace.FrameH3Headers:
 			s, derr := h.decodeSection(id, payload)
@@ -467,6 +535,7 @@ func (h *h3conn) request(str *quic.Stream) {
 				err = derr
 				break
 			}
+
 			if headers {
 				update(func(q *quictrace.H3Request) {
 					q.Trailers = &s
@@ -474,6 +543,7 @@ func (h *h3conn) request(str *quic.Stream) {
 
 				continue
 			}
+
 			headers = true
 			st = requestOf(s.Fields)
 			update(func(q *quictrace.H3Request) {
@@ -482,13 +552,16 @@ func (h *h3conn) request(str *quic.Stream) {
 				q.Section = s
 			})
 			h.firstRequest(s.Fields)
+
 		case quictrace.FrameH3Data:
 			st.uploaded += int(length)
 		}
+
 		if err != nil {
 			break
 		}
 	}
+
 	end := streamEnd(err)
 	update(func(q *quictrace.H3Request) {
 		q.End, q.Uploaded = end, st.uploaded
@@ -496,16 +569,20 @@ func (h *h3conn) request(str *quic.Stream) {
 			q.Error = err.Error()
 		}
 	})
+
 	if end != "FIN" || !headers {
 		str.CancelWrite(h3GeneralError)
+
 		return
 	}
+
 	h.respond(str, st)
 }
 
 func (h *h3conn) addRequest(q quictrace.H3Request) int {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+
 	h.rec.Requests = append(h.rec.Requests, q)
 
 	return len(h.rec.Requests) - 1
@@ -537,9 +614,11 @@ func requestOf(fields []quictrace.FieldLine) request {
 func (h *h3conn) firstRequest(fields []quictrace.FieldLine) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+
 	if len(h.c.Profile.Headers) > 0 || h.c.Finished {
 		return
 	}
+
 	for _, f := range fields {
 		if !strings.HasPrefix(f.Name, ":") {
 			h.c.Profile.Headers = append(h.c.Profile.Headers, profile.Header{
@@ -559,36 +638,45 @@ func (h *h3conn) respond(str *quic.Stream, st request) {
 		// navigation's page still asks for /done.
 		r.status = 425
 	}
+
 	if r.silence && h.log.quic.silence(h.addr) {
 		// The connection goes dark: no answer, and nothing more either
 		// way, as if the path had died.
 		return
 	}
+
 	if st.path == "/done" {
 		// page() snapshots this connection too, so it runs before h.mu is
 		// taken.
 		page := h.log.page()
 		h.mu.Lock()
+
 		h.c.Page = page
 		h.c.Finished = true
 		h.log.pageProfile(h.c)
 		h.mu.Unlock()
 		h.emit()
 	}
+
 	time.Sleep(r.delay)
+
 	fields := make([][2]string, 0, 4+len(r.headers))
+
 	fields = append(fields,
 		[2]string{":status", strconv.Itoa(r.status)},
 		[2]string{"content-type", r.contentType},
 		[2]string{"content-length", strconv.Itoa(len(r.body))},
 		[2]string{"cache-control", "no-store"},
 	)
+
 	for _, f := range r.headers {
 		fields = append(fields, [2]string{strings.ToLower(f.Name), f.Value})
 	}
+
 	if _, err := str.Write(quictrace.AppendFrame(nil, quictrace.FrameH3Headers, quictrace.EncodeSection(fields))); err != nil {
 		return
 	}
+
 	body := r.body
 	for first := true; len(body) > 0; first = false {
 		n := len(body)
@@ -598,14 +686,18 @@ func (h *h3conn) respond(str *quic.Stream, st request) {
 				time.Sleep(r.dripEvery)
 			}
 		}
+
 		if _, err := str.Write(quictrace.AppendFrame(nil, quictrace.FrameH3Data, body[:n])); err != nil {
 			return
 		}
+
 		body = body[n:]
 	}
+
 	if err := str.Close(); err != nil {
 		return
 	}
+
 	if r.closeAfter && !r.tcpOnly {
 		h.goAway(r.blackhole)
 	}
@@ -616,11 +708,14 @@ func (h *h3conn) respond(str *quic.Stream, st request) {
 // QUIC connection started after that is answered.
 func (h *h3conn) goAway(blackhole bool) {
 	h.wmu.Lock()
+
 	_, err := h.control.Write(quictrace.AppendFrame(nil, quictrace.FrameH3GoAway, quictrace.AppendVarint(nil, h.maxStream+4)))
 	h.wmu.Unlock()
+
 	if err != nil {
 		return
 	}
+
 	time.AfterFunc(h3GoAwayGrace, func() {
 		_ = h.conn.CloseWithError(h3NoError, "")
 		if blackhole {
@@ -639,9 +734,13 @@ func (h *h3conn) recordClose(cause error) {
 		By:     "server",
 		Millis: h.millis(),
 	}
-	var idle *quic.IdleTimeoutError
-	var app *quic.ApplicationError
-	var tr *quic.TransportError
+
+	var (
+		idle *quic.IdleTimeoutError
+		app  *quic.ApplicationError
+		tr   *quic.TransportError
+	)
+
 	switch {
 	case errors.As(cause, &idle):
 		c.By = "idle"
@@ -649,16 +748,20 @@ func (h *h3conn) recordClose(cause error) {
 		if app.Remote {
 			c.By = "client"
 		}
+
 	case errors.As(cause, &tr):
 		if tr.Remote {
 			c.By = "client"
 		}
 	}
+
 	if cause != nil {
 		c.Error = cause.Error()
 	}
+
 	h.mu.Lock()
 	defer h.mu.Unlock()
+
 	h.closed = c
 }
 
@@ -666,17 +769,21 @@ func (h *h3conn) recordClose(cause error) {
 func (h *h3conn) snapshot() (*quictrace.H3, *quictrace.Close) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+
 	rec := &quictrace.H3{
 		Streams:  slices.Clone(h.rec.Streams),
 		Requests: slices.Clone(h.rec.Requests),
 	}
 	for i := range rec.Streams {
 		s := &rec.Streams[i]
+
 		s.Frames, s.Encoder, s.Decoder = slices.Clone(s.Frames), slices.Clone(s.Encoder), slices.Clone(s.Decoder)
 	}
+
 	for i := range rec.Requests {
 		rec.Requests[i].Frames = slices.Clone(rec.Requests[i].Frames)
 	}
+
 	var closed *quictrace.Close
 	if h.closed != nil {
 		closed = new(*h.closed)

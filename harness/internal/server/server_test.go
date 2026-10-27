@@ -36,21 +36,26 @@ type testServer struct {
 // ClientHello is delivered on infos, as an independent check of ours.
 func startServer(t *testing.T) *testServer {
 	t.Helper()
+
 	hosts := []string{
 		"localhost",
 	}
+
 	ca, err := LoadOrCreateCA(t.TempDir(), hosts, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	cert, err := ca.Issue(hosts, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	ln, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	ts := &testServer{
 		addr:     ln.Addr().String(),
 		pool:     x509.NewCertPool(),
@@ -58,6 +63,7 @@ func startServer(t *testing.T) *testServer {
 		infos:    make(chan *tls.ClientHelloInfo, 4),
 	}
 	ts.pool.AddCert(ca.Cert)
+
 	srv := &Server{
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{
@@ -76,11 +82,14 @@ func startServer(t *testing.T) *testServer {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
+
 	go func() {
 		done <- srv.Serve(ctx, ln)
 	}()
+
 	t.Cleanup(func() {
 		cancel()
+
 		if err := <-done; err != nil {
 			t.Errorf("Serve: %v", err)
 		}
@@ -91,10 +100,12 @@ func startServer(t *testing.T) *testServer {
 
 func (ts *testServer) dial(t *testing.T) net.Conn {
 	t.Helper()
+
 	conn, err := (&net.Dialer{}).DialContext(t.Context(), "tcp", ts.addr)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Cleanup(func() {
 		_ = conn.Close()
 	})
@@ -104,6 +115,7 @@ func (ts *testServer) dial(t *testing.T) net.Conn {
 
 func (ts *testServer) dialTLS(t *testing.T, protos ...string) *tls.Conn {
 	t.Helper()
+
 	conn := tls.Client(ts.dial(t), &tls.Config{
 		ServerName: "localhost",
 		RootCAs:    ts.pool,
@@ -118,11 +130,13 @@ func (ts *testServer) dialTLS(t *testing.T, protos ...string) *tls.Conn {
 
 func receive[T any](t *testing.T, ch <-chan T) T {
 	t.Helper()
+
 	select {
 	case v := <-ch:
 		return v
 	case <-time.After(10 * time.Second):
 		t.Fatal("timed out waiting for the capture server")
+
 		var zero T
 
 		return zero
@@ -155,8 +169,10 @@ func TestClientHelloAgreesWithStdlib(t *testing.T) {
 		name      string
 		handshake func(t *testing.T, conn net.Conn) []byte // returns the ClientHello it sent, if known
 	}
+
 	ts := startServer(t)
 	clients := make([]client, 0, 5)
+
 	clients = append(clients, client{
 		name: "crypto/tls",
 		handshake: func(t *testing.T, conn net.Conn) []byte {
@@ -175,6 +191,7 @@ func TestClientHelloAgreesWithStdlib(t *testing.T) {
 			return nil
 		},
 	})
+
 	for _, id := range []utls.ClientHelloID{
 		utls.HelloChrome_155,
 		utls.HelloFirefox_148,
@@ -196,28 +213,35 @@ func TestClientHelloAgreesWithStdlib(t *testing.T) {
 			},
 		})
 	}
+
 	for _, cl := range clients {
 		t.Run(cl.name, func(t *testing.T) {
 			conn := ts.dial(t)
 			sent := cl.handshake(t, conn)
+
 			_ = conn.Close()
+
 			info := receive(t, ts.infos)
 			c := receive(t, ts.captures)
 
 			if sent != nil && !bytes.Equal(c.ClientHello, sent) {
 				t.Error("recorded ClientHello differs from the bytes the client sent")
 			}
+
 			// Go and uTLS send the first ClientHello in TLS 1.0 records.
 			if version, msg, err := ParseRecords(c.Records); err != nil || version != 0x0301 || !bytes.Equal(msg, c.ClientHello) {
 				t.Errorf("recorded records: version %#04x, carry the ClientHello %v, error %v", version, bytes.Equal(msg, c.ClientHello), err)
 			}
+
 			if c.RecordVersion() != 0x0301 {
 				t.Errorf("record version %#04x, want 0x0301", c.RecordVersion())
 			}
+
 			exts := make([]profile.Code, 0, len(c.Profile.TLS.Extensions))
 			for _, e := range c.Profile.TLS.Extensions {
 				exts = append(exts, e.Type)
 			}
+
 			checks := []struct {
 				field     string
 				got, want any
@@ -268,6 +292,7 @@ func TestClientHelloAgreesWithStdlib(t *testing.T) {
 			// user agent, a request, several samples); fill them in so only
 			// the parsed TLS section is judged.
 			p := c.Profile
+
 			p.Name, p.Browser, p.Version, p.Platform = "x", "x", "x", "x"
 			p.TLS.ExtensionOrder = profile.ExtensionOrderFixed
 			p.Headers = []profile.Header{
@@ -275,6 +300,7 @@ func TestClientHelloAgreesWithStdlib(t *testing.T) {
 					Name: "accept",
 				},
 			}
+
 			if verr, ok := errors.AsType[*profile.ValidationError](p.Validate()); ok {
 				for _, problem := range verr.Problems {
 					if strings.HasPrefix(problem.Path, "tls") {
@@ -301,10 +327,13 @@ func equalOrBothEmpty(got, want any) bool {
 func TestHTTP2Recording(t *testing.T) {
 	ts := startServer(t)
 	conn := ts.dialTLS(t, "h2")
+
 	if _, err := io.WriteString(conn, http2.ClientPreface); err != nil {
 		t.Fatal(err)
 	}
+
 	fr := http2.NewFramer(conn, conn)
+
 	fr.ReadMetaHeaders = hpack.NewDecoder(4096, nil)
 
 	settings := []http2.Setting{
@@ -355,13 +384,17 @@ func TestHTTP2Recording(t *testing.T) {
 			Value: "en-US",
 		},
 	}
+
 	var block bytes.Buffer
+
 	enc := hpack.NewEncoder(&block)
+
 	for _, f := range fields {
 		if err := enc.WriteField(f); err != nil {
 			t.Fatal(err)
 		}
 	}
+
 	headerPriority := http2.PriorityParam{
 		StreamDep: 0,
 		Exclusive: true,
@@ -400,6 +433,7 @@ func TestHTTP2Recording(t *testing.T) {
 			return fr.WriteContinuation(1, true, block.Bytes()[split:])
 		},
 	}
+
 	for _, w := range writes {
 		if err := w(); err != nil {
 			t.Fatal(err)
@@ -409,6 +443,7 @@ func TestHTTP2Recording(t *testing.T) {
 	if status := readResponse(t, fr, 1); status != "200" {
 		t.Errorf("first request status %s, want 200", status)
 	}
+
 	if err := fr.WriteHeaders(http2.HeadersFrameParam{
 		StreamID:      3,
 		BlockFragment: block.Bytes(),
@@ -417,11 +452,14 @@ func TestHTTP2Recording(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+
 	if status := readResponse(t, fr, 3); status != "200" {
 		t.Errorf("second request status %s, want 200: the server answers every request", status)
 	}
+
 	// A client that does not ask for /done completes its capture by closing.
 	_ = conn.Close()
+
 	c := receive(t, ts.captures)
 	want := &profile.HTTP2{
 		Settings: []profile.Setting{
@@ -468,9 +506,11 @@ func TestHTTP2Recording(t *testing.T) {
 			":path",
 		},
 	}
+
 	if !reflect.DeepEqual(c.Profile.HTTP2, want) {
 		t.Errorf("HTTP/2:\n got %+v\nwant %+v", c.Profile.HTTP2, want)
 	}
+
 	wantHeaders := []profile.Header{
 		{
 			Name:  "user-agent",
@@ -488,6 +528,7 @@ func TestHTTP2Recording(t *testing.T) {
 	if !slices.Equal(c.Profile.Headers, wantHeaders) {
 		t.Errorf("headers:\n got %+v\nwant %+v", c.Profile.Headers, wantHeaders)
 	}
+
 	if c.Protocol != "h2" {
 		t.Errorf("protocol %q, want h2", c.Protocol)
 	}
@@ -497,21 +538,25 @@ func TestHTTP2Recording(t *testing.T) {
 // :status.
 func readResponse(t *testing.T, fr *http2.Framer, stream uint32) string {
 	t.Helper()
+
 	status := ""
 	for {
 		f, err := fr.ReadFrame()
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if f.Header().StreamID != stream {
 			continue
 		}
+
 		switch f := f.(type) {
 		case *http2.MetaHeadersFrame:
 			status = f.PseudoValue("status")
 			if f.StreamEnded() {
 				return status
 			}
+
 		case *http2.DataFrame:
 			if f.StreamEnded() {
 				return status
@@ -532,15 +577,19 @@ func TestHTTP1Recording(t *testing.T) {
 	secondReader := bufio.NewReader(second)
 	send := func(conn io.Writer, r *bufio.Reader, request string) {
 		t.Helper()
+
 		if _, err := io.WriteString(conn, request); err != nil {
 			t.Fatal(err)
 		}
+
 		resp, err := http.ReadResponse(r, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		_, _ = io.Copy(io.Discard, resp.Body)
 		_ = resp.Body.Close()
+
 		if resp.StatusCode != http.StatusOK {
 			line, _, _ := strings.Cut(request, "\r")
 			t.Fatalf("%q: status %s", line, resp.Status)
@@ -556,17 +605,21 @@ func TestHTTP1Recording(t *testing.T) {
 	if !c.Finished {
 		t.Fatal("capture not finished at /done")
 	}
+
 	got := make([]string, 0, len(c.H1))
 	for _, r := range c.H1 {
 		got = append(got, fmt.Sprintf("%d %s", r.Conn, r.Line))
 	}
+
 	want := []string{"1 GET / HTTP/1.1", "1 POST /upload HTTP/1.1", "1 GET /again HTTP/1.1", "2 GET /done HTTP/1.1"}
 	if !slices.Equal(got, want) {
 		t.Errorf("requests\n got %v\nwant %v", got, want)
 	}
+
 	if !slices.Equal(c.H1[0].Headers, []string{"Host: localhost", "User-Agent: test-agent/1", "sec-ch-ua: x"}) {
 		t.Errorf("header lines not verbatim: %q", c.H1[0].Headers)
 	}
+
 	wantProfile := []profile.Header{
 		{
 			Name: "host",
@@ -583,6 +636,7 @@ func TestHTTP1Recording(t *testing.T) {
 	if !slices.Equal(c.Profile.Headers, wantProfile) {
 		t.Errorf("profile headers:\n got %+v\nwant %+v", c.Profile.Headers, wantProfile)
 	}
+
 	if c.Profile.HTTP2 != nil {
 		t.Error("HTTP/1.1 capture has an HTTP/2 section")
 	}

@@ -59,6 +59,7 @@ func loadPages(dir string, p *profile.Profile) (*pages, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		got, err := loadFile(capture.File{
 			Path:     filepath.Join(dir, source+"."+f.scenario+".pagetrace.json.gz"),
 			Scenario: f.scenario,
@@ -68,12 +69,15 @@ func loadPages(dir string, p *profile.Profile) (*pages, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		*f.into = got
 	}
+
 	files, err := capture.Files(dir, p, ".pagetrace.json.gz")
 	if err != nil {
 		return nil, err
 	}
+
 	files = slices.DeleteFunc(files, func(f capture.File) bool {
 		return !strings.HasPrefix(f.Scenario, "nav-redirect-")
 	})
@@ -81,11 +85,13 @@ func loadPages(dir string, p *profile.Profile) (*pages, error) {
 	slices.SortStableFunc(files, func(a, b capture.File) int {
 		return strings.Compare(a.Scenario, b.Scenario)
 	})
+
 	for _, f := range files {
 		got, err := loadFile(f)
 		if err != nil {
 			return nil, err
 		}
+
 		out.navRedirects = append(out.navRedirects, scenarioPages{
 			scenario: f.Scenario,
 			samples:  got,
@@ -102,6 +108,7 @@ func loadFile(f capture.File) ([]*capture.Page, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	f.Rewriter.Pages(got)
 
 	return got, nil
@@ -150,6 +157,7 @@ func labelSite(label string, hop bool) string {
 			target = second
 		}
 	}
+
 	switch {
 	case strings.HasPrefix(target, "ss"):
 		return profile.SiteSameSite
@@ -165,6 +173,7 @@ func h1Fields(lines []string) []profile.Header {
 	out := make([]profile.Header, 0, len(lines))
 	for _, l := range lines {
 		name, value, _ := strings.Cut(l, ":")
+
 		out = append(out, profile.Header{
 			Name:  name,
 			Value: strings.TrimSpace(value),
@@ -185,11 +194,13 @@ func h2Requests(page *capture.Page, si int, prefix string) []*request {
 				weights[f.Stream] = f.Priority.Weight
 			}
 		}
+
 		for _, r := range tr.Requests {
 			label, ok := strings.CutPrefix(r.Path, prefix)
 			if !ok {
 				continue
 			}
+
 			q := &request{
 				host:   tr.Host,
 				path:   r.Path,
@@ -212,6 +223,7 @@ func h2Requests(page *capture.Page, si int, prefix string) []*request {
 					})
 				}
 			}
+
 			q.label, q.hop = strings.CutSuffix(label, ".hop")
 			q.base, _, _ = strings.Cut(q.label, ".")
 			out = append(out, q)
@@ -226,8 +238,11 @@ func h2Requests(page *capture.Page, si int, prefix string) []*request {
 // as label "page". Every kinds request must be captured over both HTTP/2
 // and HTTP/1.1, once per sample.
 func collect(pg *pages) ([]*request, error) {
-	var out []*request
-	var errs []error
+	var (
+		out  []*request
+		errs []error
+	)
+
 	byKey := map[string]*request{}
 	key := func(sample int, label, method string) string {
 		return fmt.Sprint(sample, " ", method, " ", label)
@@ -239,64 +254,82 @@ func collect(pg *pages) ([]*request, error) {
 	}
 	for si, page := range pg.kinds {
 		qs := h2Requests(page, si, "/k/")
+
 		errs = append(errs, linkRedirects("kinds", qs, hopPrev))
+
 		for _, q := range qs {
 			q.site = labelSite(q.label, q.hop)
+
 			label := q.label
+
 			if q.hop {
 				label += ".hop"
 			}
+
 			k := key(si, label, q.method)
 			if byKey[k] != nil {
 				errs = append(errs, fmt.Errorf("kinds sample %d: %s %s captured twice over HTTP/2", si+1, q.method, label))
 				continue
 			}
+
 			byKey[k] = q
 			out = append(out, q)
 		}
 	}
+
 	for si, page := range pg.kindsH1 {
 		for _, r := range page.H1 {
 			method, rest, _ := strings.Cut(r.Line, " ")
 			target, _, _ := strings.Cut(rest, " ")
 			label, ok := strings.CutPrefix(target, "/k/")
+
 			if !ok {
 				continue
 			}
+
 			q := byKey[key(si, label, method)]
 			switch {
 			case q == nil:
 				errs = append(errs, fmt.Errorf("kinds sample %d: %s %s captured over HTTP/1.1 only", si+1, method, label))
 				continue
+
 			case q.h1 != nil:
 				errs = append(errs, fmt.Errorf("kinds sample %d: %s %s captured twice over HTTP/1.1", si+1, method, label))
 				continue
 			}
+
 			q.h1 = h1Fields(r.Headers)
 		}
 	}
+
 	for _, q := range out {
 		if q.h1 == nil {
 			label := q.label
 			if q.hop {
 				label += ".hop"
 			}
+
 			errs = append(errs, fmt.Errorf("kinds sample %d: %s %s captured over HTTP/2 only", q.sample+1, q.method, label))
 		}
 	}
+
 	for si, page := range pg.plain {
 		var qs []*request
 		for _, r := range page.H1 {
 			method, rest, _ := strings.Cut(r.Line, " ")
 			target, _, _ := strings.Cut(rest, " ")
+
 			target, _, _ = strings.Cut(target, "?")
+
 			label, ok := strings.CutPrefix(target, "/k/")
+
 			switch {
 			case target == "/":
 				label = "page"
 			case !ok:
 				continue
 			}
+
 			q := &request{
 				method: method,
 				host:   r.Host,
@@ -305,17 +338,22 @@ func collect(pg *pages) ([]*request, error) {
 				plain:  true,
 				h1:     h1Fields(r.Headers),
 			}
+
 			q.label, q.hop = strings.CutSuffix(label, ".hop")
 			q.base, _, _ = strings.Cut(q.label, ".")
 			q.site = labelSite(q.label, q.hop)
 			qs = append(qs, q)
 		}
+
 		errs = append(errs, linkRedirects("kinds-plain", qs, hopPrev))
 		out = append(out, qs...)
 	}
+
 	for si, page := range pg.cookies {
 		qs := h2Requests(page, si, "/k/")
+
 		errs = append(errs, linkRedirects("cookies", qs, hopPrev))
+
 		for _, q := range qs {
 			q.other = true
 			// Cookies-page labels name hosts, not relations. Every redirect
@@ -326,6 +364,7 @@ func collect(pg *pages) ([]*request, error) {
 
 				continue
 			}
+
 			v, ok := headerValue(q.h2, "sec-fetch-site")
 			switch v {
 			case "same-origin":
@@ -336,13 +375,16 @@ func collect(pg *pages) ([]*request, error) {
 				errs = append(errs, fmt.Errorf("cookies sample %d: %s has sec-fetch-site %q (sent %v)", si+1, q.label, v, ok))
 				continue
 			}
+
 			out = append(out, q)
 		}
 	}
+
 	steps := map[string]bool{}
 	for _, st := range server.CORSSteps() {
 		steps[st.Label] = true
 	}
+
 	for si, page := range pg.cors {
 		qs := h2Requests(page, si, "/p/")
 		for _, q := range qs {
@@ -350,6 +392,7 @@ func collect(pg *pages) ([]*request, error) {
 			// it; a label no step has is a redirect's target.
 			q.hop = q.method != "OPTIONS" && !steps[q.label]
 		}
+
 		errs = append(errs, linkRedirects("cors", qs, func(q *request) string {
 			return "/p/" + corsRedirects[q.label]
 		}))
@@ -358,36 +401,47 @@ func collect(pg *pages) ([]*request, error) {
 			if q.method == "OPTIONS" {
 				continue
 			}
+
 			q.other = true
 			q.base = "cors-" + q.base
 			q.site = labelSite(q.label, q.hop)
 			out = append(out, q)
 		}
 	}
+
 	edge, err := corsEdgeRequests(pg.corsEdge)
 	if err != nil {
 		errs = append(errs, err)
 	}
+
 	out = append(out, edge...)
+
 	r2, err := redirects2Requests(pg.redirects2)
 	if err != nil {
 		errs = append(errs, err)
 	}
+
 	out = append(out, r2...)
+
 	navs, err := navRedirectRequests(pg.p, pg.navRedirects)
 	if err != nil {
 		errs = append(errs, err)
 	}
+
 	out = append(out, navs...)
+
 	hdrs, err := headersRequests(pg.headers)
 	if err != nil {
 		errs = append(errs, err)
 	}
+
 	out = append(out, hdrs...)
+
 	sockets, err := websocketRequests(pg.websocket, pg.websocketH2)
 	if err != nil {
 		errs = append(errs, err)
 	}
+
 	out = append(out, sockets...)
 
 	return out, errors.Join(errs...)
@@ -408,16 +462,19 @@ func linkRedirects(page string, reqs []*request, prev func(*request) string) err
 			byPath[q.path] = q
 		}
 	}
+
 	var errs []error
 	for _, q := range reqs {
 		if !q.hop {
 			continue
 		}
+
 		p := byPath[prev(q)]
 		if p == nil {
 			errs = append(errs, fmt.Errorf("%s sample %d: %s %s follows a redirect from %s, which was not captured", page, q.sample+1, q.method, q.path, prev(q)))
 			continue
 		}
+
 		// Another host, or the same over the other scheme (a plain-HTTP
 		// request's hop to HTTPS).
 		q.crossOriginRedirect = p.host != q.host || p.plain != q.plain
@@ -447,18 +504,23 @@ func schemefulSite(q *request) string {
 // and its hops /p/<label>.hop<n>. OPTIONS belong to the preflight kind.
 func corsEdgeRequests(samples []*capture.Page) ([]*request, error) {
 	var out []*request
+
 	errs := make([]error, 0, len(samples))
+
 	for si, page := range samples {
 		qs := h2Requests(page, si, "/p/")
 		for _, q := range qs {
 			label, hop, _ := strings.Cut(q.label, ".hop")
+
 			q.label, q.hop = label, hop != ""
 		}
+
 		errs = append(errs, linkRedirects("cors-edge", qs, previousHop))
 		for _, q := range qs {
 			if q.method == "OPTIONS" {
 				continue
 			}
+
 			q.other = true
 			q.base = "cors-edge"
 			// A hop stays on its label's host: its own relation is the
@@ -481,31 +543,42 @@ func redirects2Requests(samples []*capture.Page) ([]*request, error) {
 	for _, st := range server.Redirects2Steps() {
 		steps[st.Label] = st
 	}
-	var out []*request
-	var errs []error
+
+	var (
+		out  []*request
+		errs []error
+	)
+
 	for si, page := range samples {
 		var qs []*request
+
 		seen, reloaded := map[string]bool{}, map[string]bool{}
+
 		for _, q := range h2Requests(page, si, "/p/") {
 			label, hop, _ := strings.Cut(q.label, ".hop")
 			st, ok := steps[label]
+
 			if !ok {
 				errs = append(errs, fmt.Errorf("redirects2 sample %d: %s is no step", si+1, q.path))
 				continue
 			}
+
 			if q.method != "OPTIONS" {
 				reloaded[label] = reloaded[label] || seen[q.path]
 				seen[q.path] = true
 			}
+
 			if reloaded[label] {
 				continue
 			}
+
 			q.label, q.hop = label, hop != ""
 			q.base = "redir-" + st.Kind
 			q.site = labelSite(q.label, q.hop)
 			q.other = true
 			qs = append(qs, q)
 		}
+
 		errs = append(errs, linkRedirects("redirects2", qs, previousHop))
 		for _, q := range qs {
 			st := steps[q.label]
@@ -513,9 +586,11 @@ func redirects2Requests(samples []*capture.Page) ([]*request, error) {
 				// A hop's preflight is a request of its own (resolve).
 				q.hop, q.crossOriginRedirect, q.crossSiteRedirect, q.originBefore, q.methodChanged, q.insecureBefore = false, false, false, false, false, false
 			}
+
 			if st.Nav() && !q.hop && q.method == "GET" {
 				continue
 			}
+
 			out = append(out, q)
 		}
 	}
@@ -530,6 +605,7 @@ func previousHop(q *request) string {
 	if n == "1" {
 		return path
 	}
+
 	i, err := strconv.Atoi(n)
 	if err != nil {
 		return ""
@@ -572,9 +648,13 @@ var sampleGaps = map[string]map[sampleGap]string{
 // Secure GET first legs, other paths and sampleGaps are left out; each
 // sampleGap must exist in its capture.
 func navRedirectRequests(p *profile.Profile, pages []scenarioPages) ([]*request, error) {
-	var out []*request
-	var errs []error
+	var (
+		out  []*request
+		errs []error
+	)
+
 	seen := map[sampleGap]bool{}
+
 	for _, sp := range pages {
 		for si, page := range sp.samples {
 			qs := h2Requests(page, si, "/p/")
@@ -582,18 +662,24 @@ func navRedirectRequests(p *profile.Profile, pages []scenarioPages) ([]*request,
 				q.label, _, _ = strings.Cut(q.label, "?")
 				q.path, _, _ = strings.Cut(q.path, "?")
 			}
+
 			for _, r := range page.H1 {
 				method, rest, _ := strings.Cut(r.Line, " ")
 				target, _, _ := strings.Cut(rest, " ")
+
 				target, _, _ = strings.Cut(target, "?")
+
 				label, ok := strings.CutPrefix(target, "/p/")
+
 				if !ok {
 					continue
 				}
+
 				host := r.Host
 				if h, _, err := net.SplitHostPort(host); err == nil {
 					host = h
 				}
+
 				qs = append(qs, &request{
 					label:  label,
 					method: method,
@@ -604,27 +690,33 @@ func navRedirectRequests(p *profile.Profile, pages []scenarioPages) ([]*request,
 					h1:     h1Fields(r.Headers),
 				})
 			}
+
 			typed := map[string]bool{}
 			for _, q := range qs {
 				label, hop, _ := strings.Cut(q.label, ".hop")
+
 				q.label, q.hop = label, hop != ""
 				q.base = navRedirectBase
 				q.other = true
+
 				if !q.hop {
 					typed[label] = !slices.ContainsFunc(slices.Concat(q.h2, q.h1), func(h profile.Header) bool {
 						return strings.EqualFold(h.Name, "referer")
 					})
 				}
 			}
+
 			errs = append(errs, linkRedirects(navRedirectBase, qs, previousHop))
 			for _, q := range qs {
 				q.site = labelSite(q.label, q.hop)
 				if typed[q.label] {
 					q.site = profile.SiteNone
 				}
+
 				if !q.hop && !q.plain && q.method == "GET" {
 					continue
 				}
+
 				gap := sampleGap{
 					scenario: sp.scenario,
 					sample:   si + 1,
@@ -634,10 +726,12 @@ func navRedirectRequests(p *profile.Profile, pages []scenarioPages) ([]*request,
 					seen[gap] = true
 					continue
 				}
+
 				out = append(out, q)
 			}
 		}
 	}
+
 	for source, gaps := range sampleGaps {
 		for gap := range gaps {
 			if capture.Source(p, gap.scenario) == source && !seen[gap] {
@@ -657,18 +751,25 @@ func headersRequests(samples []*capture.Page) ([]*request, error) {
 	for _, st := range server.HeadersSteps() {
 		steps[st.Label] = st
 	}
-	var out []*request
-	var errs []error
+
+	var (
+		out  []*request
+		errs []error
+	)
+
 	add := func(q *request, si int) {
 		st, ok := steps[q.label]
 		if !ok {
 			errs = append(errs, fmt.Errorf("headers-order sample %d: %s is no step", si+1, q.label))
 			return
 		}
+
 		target := q.label[strings.LastIndex(q.label, ".")+1:]
+
 		q.other = true
 		q.base = "hdr-" + st.API
 		q.site = map[string]string{"so": profile.SiteSameOrigin, "cs": profile.SiteCrossSite, "h1": profile.SiteSameSite}[target]
+
 		if st.API == "xhr" {
 			for _, h := range st.Headers {
 				if name := strings.ToLower(h[0]); !slices.Contains(q.pageOrder, name) {
@@ -676,21 +777,26 @@ func headersRequests(samples []*capture.Page) ([]*request, error) {
 				}
 			}
 		}
+
 		out = append(out, q)
 	}
+
 	for si, page := range samples {
 		for _, q := range h2Requests(page, si, "/h/") {
 			if q.method != "OPTIONS" {
 				add(q, si)
 			}
 		}
+
 		for _, r := range page.H1 {
 			method, rest, _ := strings.Cut(r.Line, " ")
 			target, _, _ := strings.Cut(rest, " ")
 			label, ok := strings.CutPrefix(target, "/h/")
+
 			if !ok || method == "OPTIONS" {
 				continue
 			}
+
 			add(&request{
 				label:  label,
 				method: method,
@@ -733,16 +839,19 @@ var pageSetNames = func() map[string]bool {
 			out[strings.ToLower(k)] = true
 		}
 	}
+
 	for _, st := range server.CORSSteps() {
 		for _, h := range st.Headers {
 			out[strings.ToLower(h[0])] = true
 		}
 	}
+
 	for _, st := range server.HeadersSteps() {
 		for _, h := range st.Headers {
 			out[strings.ToLower(h[0])] = true
 		}
 	}
+
 	delete(out, "content-type")
 
 	return out
@@ -813,8 +922,11 @@ func derive(p *profile.Profile, reqs []*request) error {
 
 		return out
 	}
+
 	p.Kinds = map[string]*profile.Kind{}
+
 	var errs []error
+
 	all := func(kind string) []*request {
 		i := slices.IndexFunc(kindSources, func(s kindSource) bool {
 			return s.kind == kind
@@ -822,16 +934,19 @@ func derive(p *profile.Profile, reqs []*request) error {
 
 		return slices.Concat(pick(kindSources[i].all, false, false), pick(kindSources[i].all, true, false))
 	}
+
 	table, err := deriveTable(all(profile.KindFetch), all(profile.KindXHR))
 	if err != nil {
 		errs = append(errs, err)
 	}
+
 	for _, src := range kindSources {
 		own := pick(src.own, false, src.preflight)
 		if len(own) == 0 {
 			errs = append(errs, fmt.Errorf("%s: no captured requests", src.kind))
 			continue
 		}
+
 		k := &profile.Kind{}
 		values := func(h1 bool) func(string) string {
 			list := (*request).h2Of
@@ -843,10 +958,13 @@ func derive(p *profile.Profile, reqs []*request) error {
 				return commonValue(own, list, name)
 			}
 		}
+
 		var t *profile.HeaderTable
+
 		if slices.Contains(tableKinds, src.kind) {
 			t = table
 		}
+
 		k.Headers, k.HTTP1, k.Variants, err = orders(
 			slices.Concat(own, pick(src.own, true, src.preflight)),
 			slices.Concat(pick(src.all, false, src.preflight), pick(src.all, true, src.preflight)),
@@ -854,21 +972,27 @@ func derive(p *profile.Profile, reqs []*request) error {
 		if err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", src.kind, err))
 		}
+
 		if k.Weight, err = weightOf(own); err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", src.kind, err))
 		}
+
 		for which, base := range map[**profile.Urgency]string{&k.High: src.high, &k.Low: src.low} {
 			if base == "" {
 				continue
 			}
+
 			u, err := urgencyOf(pick([]string{base}, false, false))
 			if err != nil {
 				errs = append(errs, fmt.Errorf("%s %s: %w", src.kind, base, err))
 			}
+
 			*which = u
 		}
+
 		p.Kinds[src.kind] = k
 	}
+
 	ctx, err := contextOf(slices.DeleteFunc(slices.Clone(reqs), func(r *request) bool {
 		return r.plain || r.other
 	}))
@@ -877,8 +1001,11 @@ func derive(p *profile.Profile, reqs []*request) error {
 	} else {
 		ctx.HeaderTable = table
 	}
+
 	p.Context = ctx
+
 	navs := slices.Concat(pick(navigations, false, false), pick([]string{"form-post", "page", navRedirectBase}, true, false))
+
 	if err := navigationVariants(p, navs); err != nil {
 		errs = append(errs, err)
 	}
@@ -909,6 +1036,7 @@ func (r *request) condition() condition {
 		// HTTP/1.1 host.
 		headers = r.h1
 	}
+
 	c := condition{
 		site: r.site,
 		pageSet: slices.ContainsFunc(headers, func(h profile.Header) bool {
@@ -929,6 +1057,7 @@ func (r *request) condition() condition {
 			return strings.EqualFold(h.Name, "access-control-request-headers")
 		})
 	}
+
 	c.cors = !r.websocket && (c.pageSet || slices.ContainsFunc(headers, func(h profile.Header) bool {
 		return strings.EqualFold(h.Name, "origin")
 	}))
@@ -960,18 +1089,22 @@ type orderPair struct {
 // the table already orders need no variant (tablePlaces).
 func orders(own, all []*request, seed *orderPair, table *profile.HeaderTable, values func(h1 bool) func(string) string) (h2, h1 []profile.Header, variants []profile.Variant, err error) {
 	var conds []condition
+
 	groups := map[condition][]*request{}
 	mine := map[condition][]*request{}
+
 	for _, r := range all {
 		c := r.condition()
 		if groups[c] == nil {
 			conds = append(conds, c)
 		}
+
 		groups[c] = append(groups[c], r)
 		if slices.Contains(own, r) {
 			mine[c] = append(mine[c], r)
 		}
 	}
+
 	def := condition{}
 	if groups[def] == nil {
 		for _, c := range conds {
@@ -980,6 +1113,7 @@ func orders(own, all []*request, seed *orderPair, table *profile.HeaderTable, va
 			}
 		}
 	}
+
 	orderFor := func(c condition) (orderPair, error) {
 		var o orderPair
 		for _, p := range []struct {
@@ -994,9 +1128,11 @@ func orders(own, all []*request, seed *orderPair, table *profile.HeaderTable, va
 			if err != nil && len(mine[c]) > 0 {
 				order, err = orderOf(mine[c], p.list, p.h1)
 			}
+
 			if err != nil {
 				return o, fmt.Errorf("%+v over %s: %w", c, map[bool]string{false: "HTTP/2", true: "HTTP/1.1"}[p.h1], err)
 			}
+
 			*p.out = order
 		}
 
@@ -1007,33 +1143,44 @@ func orders(own, all []*request, seed *orderPair, table *profile.HeaderTable, va
 		if len(a) == 0 || len(b) == 0 {
 			return append(a, b...), true
 		}
+
 		m, err := mergeOrder([][]string{a, b})
 
 		return m, err == nil
 	}
+
 	base, err := orderFor(def)
 	if err != nil {
 		return nil, nil, nil, err
 	}
+
 	if seed != nil {
 		def, base = condition{method: "seed"}, *seed
 	}
-	var errs []error
-	var conflicting []condition
+
+	var (
+		errs        []error
+		conflicting []condition
+	)
+
 	others := map[condition]orderPair{}
+
 	for _, c := range conds {
 		if c == def {
 			continue
 		}
+
 		if table != nil && c.pageSet {
 			placed, err := tablePlaces(table, groups, groups[c])
 			if err != nil {
 				errs = append(errs, err)
 				continue
 			}
+
 			if placed {
 				continue
 			}
+
 			// The table can't derive this order: keep the captured order
 			// with a slot. Never folded, or the slot would join the default.
 			o, err := orderFor(c)
@@ -1041,16 +1188,19 @@ func orders(own, all []*request, seed *orderPair, table *profile.HeaderTable, va
 				errs = append(errs, err)
 				continue
 			}
+
 			conflicting = append(conflicting, c)
 			others[c] = o
 
 			continue
 		}
+
 		o, err := orderFor(c)
 		if err != nil {
 			errs = append(errs, err)
 			continue
 		}
+
 		switch {
 		case c.insecure:
 			// Non-secure lists are kept exactly as sent (no secure-only
@@ -1060,19 +1210,23 @@ func orders(own, all []*request, seed *orderPair, table *profile.HeaderTable, va
 			if slices.Equal(base.h2, o.h2) && slices.Equal(base.h1, o.h1) {
 				continue
 			}
+
 		case !c.redirected:
 			// A redirect's order is never folded: its lists may rightly
 			// lack headers the kind sends otherwise (Safari's hops).
 			h2, ok2 := fold(slices.Clone(base.h2), o.h2)
 			h1, ok1 := fold(slices.Clone(base.h1), o.h1)
+
 			if ok2 && ok1 {
 				base.h2, base.h1 = h2, h1
 				continue
 			}
 		}
+
 		conflicting = append(conflicting, c)
 		others[c] = o
 	}
+
 	ownPlain := slices.DeleteFunc(slices.Clone(own), func(r *request) bool {
 		return !r.plain
 	})
@@ -1095,6 +1249,7 @@ func orders(own, all []*request, seed *orderPair, table *profile.HeaderTable, va
 		if c.insecure {
 			v.HTTP1 = fill(others[c].h1, insecureValue(mine[c], ownPlain, groups[c]))
 		}
+
 		variants = append(variants, v)
 	}
 
@@ -1109,6 +1264,7 @@ func insecureValue(mine, ownPlain, group []*request) func(string) string {
 		if len(mine) > 0 {
 			return commonValue(mine, (*request).h1Of, name)
 		}
+
 		if slices.ContainsFunc(ownPlain, func(r *request) bool {
 			_, ok := headerValue(r.h1, name)
 			return ok
@@ -1133,16 +1289,19 @@ func orderOf(rs []*request, list func(*request) []profile.Header, h1 bool) ([]st
 				if len(seq) == 0 || seq[len(seq)-1] != profile.OtherHeaders {
 					seq = append(seq, profile.OtherHeaders)
 				}
+
 			case h1:
 				seq = append(seq, h.Name)
 			default:
 				seq = append(seq, strings.ToLower(h.Name))
 			}
 		}
+
 		if len(seq) > 0 {
 			seqs = append(seqs, seq)
 		}
 	}
+
 	if len(seqs) == 0 {
 		return nil, nil
 	}
@@ -1156,6 +1315,7 @@ func fill(order []string, value func(string) string) []profile.Header {
 	if len(order) == 0 {
 		return nil
 	}
+
 	out := make([]profile.Header, 0, len(order))
 	for _, name := range order {
 		h := profile.Header{
@@ -1164,6 +1324,7 @@ func fill(order []string, value func(string) string) []profile.Header {
 		if name != profile.OtherHeaders && !slices.Contains(contextHeaders, strings.ToLower(name)) {
 			h.Value = value(name)
 		}
+
 		out = append(out, h)
 	}
 
@@ -1179,10 +1340,12 @@ func commonValue(own []*request, list func(*request) []profile.Header, name stri
 		if len(list(r)) == 0 {
 			continue // no capture over this protocol
 		}
+
 		got, found := headerValue(list(r), name)
 		if !found || (!first && got != value) {
 			return ""
 		}
+
 		value, first = got, false
 	}
 
@@ -1193,22 +1356,28 @@ func commonValue(own []*request, list func(*request) []profile.Header, name stri
 // ties by first appearance; an order no sequence agrees on is an error.
 func mergeOrder(seqs [][]string) ([]string, error) {
 	var names []string
+
 	after := map[string]map[string]bool{} // name -> names that must come after it
 	before := map[string]int{}            // name -> how many must come before it
+
 	for _, seq := range seqs {
 		for i, n := range seq {
 			if !slices.Contains(names, n) {
 				names = append(names, n)
 				after[n] = map[string]bool{}
 			}
+
 			if i > 0 && !after[seq[i-1]][n] {
 				after[seq[i-1]][n] = true
 				before[n]++
 			}
 		}
 	}
+
 	var out []string
+
 	done := map[string]bool{}
+
 	for len(out) < len(names) {
 		next := ""
 		for _, n := range names {
@@ -1217,6 +1386,7 @@ func mergeOrder(seqs [][]string) ([]string, error) {
 				break
 			}
 		}
+
 		if next == "" {
 			var stuck []string
 			for _, n := range names {
@@ -1227,8 +1397,10 @@ func mergeOrder(seqs [][]string) ([]string, error) {
 
 			return nil, fmt.Errorf("the captures order %v inconsistently", stuck)
 		}
+
 		done[next] = true
 		out = append(out, next)
+
 		for n := range after[next] {
 			before[n]--
 		}
@@ -1243,6 +1415,7 @@ func weightOf(own []*request) (uint8, error) {
 		if i > 0 && r.weight != w {
 			return 0, fmt.Errorf("weights differ: %d and %d", w, r.weight)
 		}
+
 		w = r.weight
 	}
 
@@ -1253,10 +1426,12 @@ func urgencyOf(reqs []*request) (*profile.Urgency, error) {
 	if len(reqs) == 0 {
 		return nil, errors.New("no captured requests")
 	}
+
 	w, err := weightOf(reqs)
 	if err != nil {
 		return nil, err
 	}
+
 	u := &profile.Urgency{
 		Weight:   w,
 		Priority: commonValue(reqs, (*request).h2Of, "priority"),
@@ -1275,19 +1450,24 @@ func contextOf(reqs []*request) (*profile.Context, error) {
 			samples = append(samples, r.sample)
 		}
 	}
+
 	slices.Sort(samples)
+
 	if len(samples) == 0 {
 		return nil, errors.New("context: no captured requests")
 	}
+
 	var out *profile.Context
 	for _, s := range samples {
 		c, err := sampleContext(reqs, s)
 		if err != nil {
 			return nil, fmt.Errorf("context, sample %d: %w", s+1, err)
 		}
+
 		if out != nil && *c != *out {
 			return nil, fmt.Errorf("context: samples disagree (%+v in sample %d, %+v in sample %d)", *out, samples[0]+1, *c, s+1)
 		}
+
 		out = c
 	}
 
@@ -1306,12 +1486,15 @@ func sampleContext(reqs []*request, sample int) (*profile.Context, error) {
 		return nil
 	}
 	c := &profile.Context{}
+
 	var access []string
+
 	for _, r := range reqs {
 		if v, ok := headerValue(r.h2, "sec-fetch-storage-access"); ok && r.sample == sample && !slices.Contains(access, v) {
 			access = append(access, v)
 		}
 	}
+
 	switch len(access) {
 	case 0:
 	case 1:
@@ -1319,15 +1502,20 @@ func sampleContext(reqs []*request, sample int) (*profile.Context, error) {
 	default:
 		return nil, fmt.Errorf("sec-fetch-storage-access takes several values: %q", access)
 	}
+
 	corsSO := find("image-cors.so")
 	fetchSO, omitSO := find("fetch.so"), find("fetch-omit.so")
 	frameCS, scriptCS := find("iframe.cs"), find("script.cs")
 	cssFont := find("font-css.so")
+
 	if corsSO == nil || fetchSO == nil || omitSO == nil || frameCS == nil || scriptCS == nil || cssFont == nil {
 		return nil, errors.New("the captures lack the requests that show it")
 	}
+
 	_, c.SameOriginElementOrigin = headerValue(corsSO.h2, "origin")
+
 	ref, _ := headerValue(cssFont.h2, "referer")
+
 	c.StylesheetReferrer = strings.HasSuffix(ref, "/k/style-fonts.so")
 	c.AnonymousConnections = omitSO.conn != fetchSO.conn
 	c.FrameConnections = frameCS.conn != scriptCS.conn
@@ -1346,9 +1534,11 @@ func navigationVariants(p *profile.Profile, navs []*request) error {
 	posts := slices.DeleteFunc(slices.Clone(secure), func(r *request) bool {
 		return r.method != "POST"
 	})
+
 	if len(posts) == 0 {
 		return errors.New("navigation: no captured form POST")
 	}
+
 	// Headers the navigation lacks take the form POSTs' agreed value, else
 	// other navigations' (Upgrade-Insecure-Requests on an http:// hop).
 	values := func(h1 bool) func(string) string {
@@ -1364,6 +1554,7 @@ func navigationVariants(p *profile.Profile, navs []*request) error {
 			if v, ok := headerValue(base, name); ok {
 				return v
 			}
+
 			for _, set := range [][]*request{posts, secure} {
 				sending := slices.DeleteFunc(slices.Clone(set), func(r *request) bool {
 					_, ok := headerValue(list(r), name)
@@ -1380,13 +1571,16 @@ func navigationVariants(p *profile.Profile, navs []*request) error {
 	seed := &orderPair{
 		h2: names(p.Headers),
 	}
+
 	if p.HTTP1 != nil {
 		seed.h1 = names(p.HTTP1.Headers)
 	}
+
 	_, _, variants, err := orders(nil, navs, seed, nil, values)
 	if err != nil {
 		return fmt.Errorf("navigation: %w", err)
 	}
+
 	p.Variants = variants
 
 	return nil
@@ -1409,17 +1603,21 @@ func preflightCache(pages []*capture.Page) (string, error) {
 	var found string
 	for i, page := range pages {
 		var seq []string
+
 		conns := 0
+
 		for _, tr := range page.H2 {
 			reqs := slices.Clone(tr.Requests)
 			slices.SortFunc(reqs, func(a, b h2trace.Request) int {
 				return int(a.Stream) - int(b.Stream)
 			})
+
 			n := len(seq)
 			for _, r := range reqs {
 				if r.Path != "/p/maxage.cs" {
 					continue
 				}
+
 				method, acrh := "", ""
 				for _, ins := range r.Instructions {
 					switch ins.Name {
@@ -1429,19 +1627,24 @@ func preflightCache(pages []*capture.Page) (string, error) {
 						acrh = ins.Value
 					}
 				}
+
 				seq = append(seq, method+" "+acrh)
 			}
+
 			if len(seq) > n {
 				conns++
 			}
 		}
+
 		if conns > 1 {
 			return "", fmt.Errorf("preflight cache: cors sample %d sends maxage.cs on %d connections, in no known order", i+1, conns)
 		}
+
 		at := slices.Index(seq, "OPTIONS x-other")
 		if at < 0 || at+2 >= len(seq) || seq[at+1] != "GET " {
 			return "", fmt.Errorf("preflight cache: cors sample %d lacks the requests that show it: %q", i+1, seq)
 		}
+
 		// seq[at+1] is the X-Other request; then the X-Mimicry one again,
 		// preflighted or not.
 		var got string
@@ -1453,11 +1656,14 @@ func preflightCache(pages []*capture.Page) (string, error) {
 		default:
 			return "", fmt.Errorf("preflight cache: cors sample %d sends %q after the X-Other request: %q", i+1, seq[at+2], seq)
 		}
+
 		if found != "" && got != found {
 			return "", fmt.Errorf("preflight cache: cors samples disagree (%s, %s)", found, got)
 		}
+
 		found = got
 	}
+
 	if found == "" {
 		return "", errors.New("preflight cache: no cors samples")
 	}

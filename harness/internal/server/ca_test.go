@@ -15,8 +15,10 @@ func TestCANameConstraints(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	roots := x509.NewCertPool()
 	roots.AddCert(ca.Cert)
+
 	verify := func(host string) error {
 		cert, err := ca.Issue([]string{
 			host,
@@ -24,6 +26,7 @@ func TestCANameConstraints(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		_, err = cert.Leaf.Verify(x509.VerifyOptions{
 			DNSName: host,
 			Roots:   roots,
@@ -36,9 +39,12 @@ func TestCANameConstraints(t *testing.T) {
 			t.Errorf("certificate for %s rejected: %v", host, err)
 		}
 	}
+
 	for _, host := range []string{"example.com", "www.nike.com", "test.example.com", "latest.com", "localhost.example.com"} {
 		err := verify(host)
+
 		var invalid x509.CertificateInvalidError
+
 		if !errors.As(err, &invalid) || invalid.Reason != x509.CANotAuthorizedForThisName {
 			t.Errorf("a certificate for %s was not refused by the name constraints: %v", host, err)
 		}

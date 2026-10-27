@@ -26,14 +26,17 @@ func appendSummary(path string, l summaryLine) error {
 	if path == "" {
 		return nil
 	}
+
 	data, err := json.Marshal(l)
 	if err != nil {
 		return err
 	}
+
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600)
 	if err != nil {
 		return err
 	}
+
 	if _, err := f.Write(append(data, '\n')); err != nil {
 		_ = f.Close()
 		return err

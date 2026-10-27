@@ -20,13 +20,16 @@ func (c *Conn) Rederive() {
 			}
 		}
 	}
+
 	if !c.HandshakeCompleted() {
 		c.H3 = nil
 		return
 	}
+
 	if c.H3 == nil {
 		return
 	}
+
 	w := c.wire()
 	pos := func(stream uint64) int {
 		if s, ok := w.first[stream]; ok {
@@ -41,15 +44,21 @@ func (c *Conn) Rederive() {
 	slices.SortStableFunc(c.H3.Requests, func(a, b H3Request) int {
 		return cmp.Or(cmp.Compare(pos(a.Stream), pos(b.Stream)), cmp.Compare(a.Stream, b.Stream))
 	})
+
 	var ends []uint64 // encoder stream offset after each insert
+
 	var encoder *uint64
+
 	for i := range c.H3.Streams {
 		s := &c.H3.Streams[i]
 		if s.Type != StreamQPACKEncoder {
 			continue
 		}
+
 		encoder = &s.ID
+
 		end := uint64(len(AppendVarint(nil, s.Type)))
+
 		for _, in := range s.Encoder {
 			end += in.size()
 			if in.Op != OpSetCapacity {
@@ -59,21 +68,28 @@ func (c *Conn) Rederive() {
 
 		break
 	}
+
 	for i := range c.H3.Requests {
 		q := &c.H3.Requests[i]
+
 		q.Blocked = false
+
 		if q.Section.RequiredInsertCount == 0 {
 			continue
 		}
+
 		arrived := uint64(len(ends))
 		if at, ok := w.headersAt(q); ok {
 			reached := uint64(0)
 			if encoder != nil {
 				reached = w.reachedBefore(*encoder, at)
 			}
+
 			n, _ := slices.BinarySearch(ends, reached+1)
+
 			arrived = uint64(n)
 		}
+
 		q.Blocked = q.Section.RequiredInsertCount > arrived
 	}
 }
@@ -93,6 +109,7 @@ func (c *Conn) FinishedDatagram() (index int, micros int64) {
 			if p.Type != PacketHandshake {
 				continue
 			}
+
 			for _, f := range p.Frames {
 				if f.Type == FrameCrypto {
 					return di, d.Micros
@@ -121,6 +138,7 @@ func (c *Conn) StreamStarts() map[uint64]StreamStart {
 				if f.Type != FrameStream || f.Stream == nil {
 					continue
 				}
+
 				if _, ok := out[*f.Stream]; !ok {
 					out[*f.Stream] = StreamStart{
 						Datagram:   di,
@@ -154,13 +172,16 @@ func (c *Conn) wire() wireFrames {
 		first: map[uint64]int{},
 	}
 	pos := 0
+
 	for _, d := range c.Datagrams {
 		for _, p := range d.Packets {
 			for _, f := range p.Frames {
 				pos++
+
 				if f.Type != FrameStream || f.Stream == nil {
 					continue
 				}
+
 				w.frames = append(w.frames, streamFrame{
 					pos:    pos,
 					stream: *f.Stream,
@@ -182,16 +203,20 @@ func (c *Conn) wire() wireFrames {
 func (w wireFrames) headersAt(q *H3Request) (int, bool) {
 	offset := uint64(0)
 	found := false
+
 	for _, f := range q.Frames {
 		if f.Type == FrameH3Headers {
 			found = true
 			break
 		}
+
 		offset += uint64(len(AppendVarint(AppendVarint(nil, f.Type), f.Length))) + f.Length
 	}
+
 	if !found {
 		return 0, false
 	}
+
 	for _, f := range w.frames {
 		if f.stream == q.Stream && f.offset <= offset && offset < f.offset+f.length {
 			return f.pos, true
@@ -209,6 +234,7 @@ func (w wireFrames) reachedBefore(stream uint64, at int) uint64 {
 		if f.pos >= at {
 			break
 		}
+
 		if f.stream == stream {
 			reached = max(reached, f.offset+f.length)
 		}

@@ -97,28 +97,37 @@ func visitEchoes(ctx context.Context, client string, v visitor, out string) erro
 				v.fresh()
 				time.Sleep(time.Second)
 			}
+
 			r.Tries++
+
 			text, err := v.visit(ctx, e.url)
 			if err != nil {
 				r.Err = err.Error()
 				break
 			}
+
 			body, err := jsonOf(text)
 			if err != nil {
 				r.Err = err.Error()
 				break
 			}
+
 			r.Body, r.Err = body, ""
 			r.Proto = echoProto(body)
+
 			if e.want == "" || r.Proto == e.want {
 				break
 			}
+
 			r.Err = fmt.Sprintf("the echo reported %s, not %s", r.Proto, e.want)
 		}
+
 		log.Printf("%-20s %-17s %-3s tries %d %s", client, e.id, r.Proto, r.Tries, r.Err)
+
 		if err := save(filepath.Join(out, "echo", client, e.id+".json"), r); err != nil {
 			return err
 		}
+
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
@@ -134,9 +143,11 @@ func jsonOf(text string) (json.RawMessage, error) {
 	if json.Valid(b) {
 		return b, nil
 	}
+
 	if i, j := bytes.IndexByte(b, '{'), bytes.LastIndexByte(b, '}'); i >= 0 && j > i && json.Valid(b[i:j+1]) {
 		return b[i : j+1], nil
 	}
+
 	if len(b) > 300 {
 		b = b[:300]
 	}
@@ -154,13 +165,17 @@ func echoProto(body json.RawMessage) string {
 		// protocol with actual_protocol only.
 		Actual string `json:"actual_protocol"` //nolint:tagliatelle // the echo service's key
 	}
+
 	_ = json.Unmarshal(body, &v)
+
 	if v.HTTPVersion != "" {
 		return v.HTTPVersion
 	}
+
 	if v.Protocol == "" {
 		v.Protocol = v.Actual
 	}
+
 	switch v.Protocol {
 	case "http3":
 		return "h3"
@@ -200,21 +215,26 @@ type mimicryVisitor struct {
 func (m *mimicryVisitor) visit(ctx context.Context, url string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return "", err
 	}
+
 	resp, err := m.c.Do(req)
 	if err != nil {
 		return "", err
 	}
+
 	defer func() {
 		_ = resp.Body.Close()
 	}()
+
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
+
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("%s: %s", url, resp.Status)
 	}
@@ -225,6 +245,7 @@ func (m *mimicryVisitor) visit(ctx context.Context, url string) (string, error) 
 func (m *mimicryVisitor) fresh() bool {
 	if m.newConnOnly {
 		m.c.CloseIdleConnections()
+
 		return true
 	}
 
@@ -256,16 +277,21 @@ func runBrowser(ctx context.Context, b *browser.Browser, out string, echo, doSit
 	if err != nil {
 		return err
 	}
+
 	client := browserClient(b)
+
 	var errs []error
+
 	if echo {
 		errs = append(errs, visitEchoes(ctx, client, liveVisitor{
 			l: l,
 		}, out))
 	}
+
 	if doSites {
 		errs = append(errs, sitesBrowser(ctx, client, l, out))
 	}
+
 	errs = append(errs, l.Close())
 
 	return errors.Join(errs...)
@@ -279,10 +305,12 @@ func browserClient(b *browser.Browser) string {
 	if b.App == "" {
 		return name
 	}
+
 	out, err := exec.Command("plutil", "-extract", "CFBundleShortVersionString", "raw", filepath.Join(b.App, "Contents", "Info.plist")).Output() //nolint:noctx,gosec // a local file of a known application
 	if err != nil {
 		return name
 	}
+
 	major, _, _ := strings.Cut(strings.TrimSpace(string(out)), ".")
 
 	return name + "-" + major
@@ -293,6 +321,7 @@ func save(path string, v any) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return err
 	}
+
 	data, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		return err

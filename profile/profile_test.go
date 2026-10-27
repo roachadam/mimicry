@@ -10,6 +10,7 @@ import (
 
 func readValid(t *testing.T) []byte {
 	t.Helper()
+
 	data, err := os.ReadFile("testdata/valid.json")
 	if err != nil {
 		t.Fatal(err)
@@ -20,6 +21,7 @@ func readValid(t *testing.T) []byte {
 
 func parseValid(t *testing.T) *Profile {
 	t.Helper()
+
 	p, err := Parse(readValid(t))
 	if err != nil {
 		t.Fatal(err)
@@ -90,6 +92,7 @@ func TestParseRejects(t *testing.T) {
 			if tc.in == valid {
 				t.Fatal("test input was not modified; the replacement target is missing")
 			}
+
 			_, err := Parse([]byte(tc.in))
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("Parse error = %v, want one containing %q", err, tc.want)
@@ -100,11 +103,13 @@ func TestParseRejects(t *testing.T) {
 
 func extIndex(t *testing.T, p *Profile, typ Code) int {
 	t.Helper()
+
 	for i := range p.TLS.Extensions {
 		if p.TLS.Extensions[i].Type == typ {
 			return i
 		}
 	}
+
 	t.Fatalf("extension %s not in test profile", typ)
 
 	return -1
@@ -167,6 +172,7 @@ func TestValidate(t *testing.T) {
 			name: "repeated key share group",
 			mutate: func(t *testing.T, p *Profile) {
 				ks := &p.TLS.Extensions[extIndex(t, p, ExtKeyShare)]
+
 				ks.KeyShares = append(ks.KeyShares, 0x001d)
 			},
 			path: "tls.extensions[11].keyShares",
@@ -236,6 +242,7 @@ func TestValidate(t *testing.T) {
 			name: "key share outside supported_groups",
 			mutate: func(t *testing.T, p *Profile) {
 				ks := &p.TLS.Extensions[extIndex(t, p, ExtKeyShare)]
+
 				ks.KeyShares = append(ks.KeyShares, 0x0019)
 			},
 			path: "tls.extensions.key_share",
@@ -293,6 +300,7 @@ func TestValidate(t *testing.T) {
 			name: "fewer key share lengths than key shares",
 			mutate: func(t *testing.T, p *Profile) {
 				ks := &p.TLS.Extensions[extIndex(t, p, ExtKeyShare)]
+
 				ks.KeyShareLengths = ks.KeyShareLengths[:2]
 			},
 			path: "tls.extensions[11].keyShareLengths",
@@ -318,7 +326,9 @@ func TestValidate(t *testing.T) {
 			name: "key share for a group without key generation",
 			mutate: func(t *testing.T, p *Profile) {
 				p.TLS.Extensions[extIndex(t, p, ExtSupportedGroups)].Groups = append(p.TLS.Extensions[extIndex(t, p, ExtSupportedGroups)].Groups, 0x0100)
+
 				ks := &p.TLS.Extensions[extIndex(t, p, ExtKeyShare)]
+
 				ks.KeyShares = append(ks.KeyShares, 0x0100)
 				ks.KeyShareLengths = append(ks.KeyShareLengths, 256)
 			},
@@ -369,6 +379,7 @@ func TestValidate(t *testing.T) {
 			name: "ECH cipher suites out of order",
 			mutate: func(t *testing.T, p *Profile) {
 				ech := p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH
+
 				ech.CipherSuites = []HPKESuite{
 					{
 						KDF:  1,
@@ -666,6 +677,7 @@ func TestValidate(t *testing.T) {
 					Site:    SiteCrossSite,
 					Headers: p.Headers,
 				}
+
 				p.Variants = []Variant{v, v}
 			},
 			path: "variants[1]",
@@ -706,6 +718,7 @@ func TestValidate(t *testing.T) {
 					PageSet:     true,
 					Headers:     p.Headers,
 				}
+
 				p.Variants = []Variant{v, v}
 			},
 			path: "variants[1]",
@@ -887,6 +900,7 @@ func TestValidate(t *testing.T) {
 			name: "resumption without psk_key_exchange_modes",
 			mutate: func(_ *testing.T, p *Profile) {
 				removeExtension(p, ExtPSKKeyExchangeModes)
+
 				p.TLS.Resumption = &Resumption{}
 			},
 			path: "tls.resumption",
@@ -896,6 +910,7 @@ func TestValidate(t *testing.T) {
 			name: "TLS 1.2 tickets without session_ticket",
 			mutate: func(_ *testing.T, p *Profile) {
 				removeExtension(p, ExtSessionTicket)
+
 				p.TLS.Resumption = &Resumption{
 					TLS12: TLS12Reuse,
 				}
@@ -925,6 +940,7 @@ func TestValidate(t *testing.T) {
 			name: "resumed ECH payload lengths without encrypted_client_hello",
 			mutate: func(_ *testing.T, p *Profile) {
 				removeExtension(p, ExtEncryptedClientHello)
+
 				p.TLS.Resumption = &Resumption{
 					ECHPayloadLengths: []uint16{
 						400,
@@ -1406,16 +1422,21 @@ func TestValidate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			p := parseValid(t)
 			tc.mutate(t, p)
+
 			err := p.Validate()
+
 			var verr *ValidationError
+
 			if !errors.As(err, &verr) {
 				t.Fatalf("Validate() = %v, want a *ValidationError", err)
 			}
+
 			for _, problem := range verr.Problems {
 				if problem.Path == tc.path && strings.Contains(problem.Message, tc.want) {
 					return
 				}
 			}
+
 			t.Fatalf("no problem at %s containing %q; got:\n%v", tc.path, tc.want, err)
 		})
 	}

@@ -66,6 +66,7 @@ const (
 
 func mustHex(t *testing.T, s string) []byte {
 	t.Helper()
+
 	b, err := hex.DecodeString(strings.ReplaceAll(s, " ", ""))
 	if err != nil {
 		t.Fatal(err)
@@ -86,25 +87,31 @@ func TestDecodeRFC9001Samples(t *testing.T) {
 				Data: datagram,
 			},
 		}, 8, nil)
+
 		if len(conns) != 1 {
 			t.Fatalf("got %d connections, want 1", len(conns))
 		}
+
 		c := conns[0]
 		if c.Millis != 1500 || c.Version != "00000001" || c.Host != "example.com" {
 			t.Errorf("connection: ms %d, version %s, host %q; want 1500, 00000001, example.com", c.Millis, c.Version, c.Host)
 		}
+
 		if len(c.Datagrams) != 1 || c.Datagrams[0].Size != 1200 || c.Datagrams[0].Trailing != 0 || len(c.Datagrams[0].Packets) != 1 {
 			t.Fatalf("datagrams: %+v; want one of 1200 bytes holding one packet", c.Datagrams)
 		}
+
 		p := c.Datagrams[0].Packets[0]
 		if p.Error != "" {
 			t.Fatalf("packet not opened: %s", p.Error)
 		}
+
 		if p.Type != PacketInitial || p.FirstByte != 0xc3 || p.Version != "00000001" || p.DCIDLength != 8 ||
 			p.SCIDLength == nil || *p.SCIDLength != 0 || p.TokenLength == nil || *p.TokenLength != 0 ||
 			p.Length == nil || *p.Length != 1182 || p.PNLength != 4 || p.PN != 2 || p.Size != 1200 {
 			t.Errorf("header: %+v; want the appendix's c3, version 1, 8-byte DCID, no SCID or token, length 1182, 4-byte packet number 2", p)
 		}
+
 		want := []Frame{
 			{
 				Type:   FrameCrypto,
@@ -119,40 +126,49 @@ func TestDecodeRFC9001Samples(t *testing.T) {
 		if len(p.Frames) != len(want) {
 			t.Fatalf("frames: %+v; want %+v", p.Frames, want)
 		}
+
 		for i := range want {
 			if p.Frames[i].Type != want[i].Type || p.Frames[i].Code != want[i].Code || p.Frames[i].Offset != want[i].Offset ||
 				p.Frames[i].Length != want[i].Length || p.Frames[i].Count != want[i].Count {
 				t.Errorf("frame %d: %+v; want %+v", i, p.Frames[i], want[i])
 			}
 		}
+
 		frame := mustHex(t, rfc9001CryptoFrame)
 		if got, want := c.ClientHello, hex.EncodeToString(frame[4:]); got != want {
 			t.Errorf("ClientHello %s; want the CRYPTO frame's data %s", got, want)
 		}
+
 		if len(c.TransportParameters) != 8 {
 			t.Errorf("got %d transport parameters, want the ClientHello's 8", len(c.TransportParameters))
 		}
 	})
 	t.Run("ChaCha20 short header", func(t *testing.T) {
 		secret := mustHex(t, "9ac312a7f877468ebe69422748ad00a15443f18203a07d6060f688f30f21632b")
+
 		k, err := newKeys(suites[tlsChaCha20Poly1305SHA256], Version1, secret)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if got := hex.EncodeToString(k.iv); got != "e0459b3474bdd0e44a41c144" {
 			t.Errorf("iv %s; want e0459b3474bdd0e44a41c144", got)
 		}
+
 		next, err := k.next()
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if got := hex.EncodeToString(next.secret); got != "1223504755036d556342ee9361d253421a826c9ecdf3c7148684b36b714881f9" {
 			t.Errorf("ku %s; want the appendix's", got)
 		}
+
 		o, err := k.unprotect(mustHex(t, "4cfe4189655e5cd55c41f69080575d7999c25a5bfb"), 1, true, 654360563)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if o.firstByte != 0x42 || o.pnLen != 3 || o.pn != 654360564 || !slices.Equal(o.payload, []byte{0x01}) {
 			t.Errorf("opened first byte %#x, %d-byte packet number %d, payload %x; want 0x42, 3, 654360564, 01", o.firstByte, o.pnLen, o.pn, o.payload)
 		}
@@ -220,21 +236,27 @@ const (
 func sealPacket(k *keys, header, payload []byte, short bool) []byte {
 	pnLen := int(header[0]&0x03) + 1
 	pnOffset := len(header) - pnLen
+
 	var pn uint64
+
 	for _, b := range header[pnOffset:] {
 		pn = pn<<8 | uint64(b)
 	}
+
 	nonce := append([]byte(nil), k.iv...)
 	for i := range 8 {
 		nonce[len(nonce)-1-i] ^= byte(pn >> (8 * i))
 	}
+
 	p := k.aead.Seal(append([]byte(nil), header...), nonce, payload, header)
 	mask := k.mask(p[pnOffset+4 : pnOffset+4+16])
+
 	if short {
 		p[0] ^= mask[0] & 0x1f
 	} else {
 		p[0] ^= mask[0] & 0x0f
 	}
+
 	for i := range pnLen {
 		p[pnOffset+i] ^= mask[1+i] //nolint:gosec // pnLen is at most 4, mask has 5 bytes
 	}
@@ -246,14 +268,17 @@ func sealPacket(k *keys, header, payload []byte, short bool) []byte {
 // number pn, for a payload of n bytes; an Initial's has an empty token.
 func longPacketHeader(typ byte, version uint32, dcid, scid []byte, initial bool, pn uint16, n int) []byte {
 	h := []byte{0xc0 | typ<<4 | 0x01}
+
 	h = binary.BigEndian.AppendUint32(h, version)
 	h = append(h, byte(len(dcid)))
 	h = append(h, dcid...)
 	h = append(h, byte(len(scid)))
 	h = append(h, scid...)
+
 	if initial {
 		h = append(h, 0)
 	}
+
 	h = binary.BigEndian.AppendUint16(h, 0x4000|uint16(2+n+16))
 
 	return binary.BigEndian.AppendUint16(h, pn)
@@ -268,6 +293,7 @@ func cryptoFrame(data []byte) []byte {
 // with want, one "type version error: frames" line per packet.
 func checkPackets(t *testing.T, what string, datagrams []Datagram, want []string) {
 	t.Helper()
+
 	var got []string
 	for _, d := range datagrams {
 		for _, p := range d.Packets {
@@ -275,9 +301,11 @@ func checkPackets(t *testing.T, what string, datagrams []Datagram, want []string
 			for _, f := range p.Frames {
 				frames = append(frames, f.Type)
 			}
+
 			got = append(got, fmt.Sprintf("%s %s %q: %s", p.Type, p.Version, p.Error, strings.Join(frames, " ")))
 		}
 	}
+
 	if !slices.Equal(got, want) {
 		t.Errorf("%s packets:\n%s\nwant:\n%s", what, strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
@@ -315,6 +343,7 @@ func TestDecodeRFC9369Samples(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	secrets := map[string][]byte{
 		labelClientHandshake: bytes.Repeat([]byte{0x01}, 32),
 		labelServerHandshake: bytes.Repeat([]byte{0x02}, 32),
@@ -333,6 +362,7 @@ func TestDecodeRFC9369Samples(t *testing.T) {
 	}
 	seal := func(k *keys, err error, header, payload []byte, short bool) []byte {
 		t.Helper()
+
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -352,12 +382,18 @@ func TestDecodeRFC9369Samples(t *testing.T) {
 	tp := []byte{0x11, 0x0c, 0x6b, 0x33, 0x43, 0xcf, 0x6b, 0x33, 0x43, 0xcf, 0x00, 0x00, 0x00, 0x01, 0x04, 0x02, 0x44, 0x00}
 	ee := []byte{0x08, 0x00, 0x00, byte(6 + len(tp)), 0x00, byte(4 + len(tp)), 0x00, 0x39, 0x00, byte(len(tp))}
 	payload := cryptoFrame(slices.Concat(ee, tp))
+
 	k, err = traffic(labelServerHandshake, Version2)
+
 	serverHandshake := seal(k, err, longPacketHeader(0x03, Version2, nil, serverCID, false, 0, len(payload)), payload, false)
+
 	payload = cryptoFrame(append([]byte{0x14, 0x00, 0x00, 0x20}, make([]byte, 32)...))
 	k, err = traffic(labelClientHandshake, Version2)
+
 	clientHandshake := seal(k, err, longPacketHeader(0x03, Version2, serverCID, nil, false, 0, len(payload)), payload, false)
+
 	k, err = traffic(labelClientTraffic, Version2)
+
 	client1RTT := seal(k, err, append(append([]byte{0x41}, serverCID...), 0x00, 0x00), []byte{0x01, 0x00}, true)
 	upgrade := []Received{
 		client(0, v1Initial),
@@ -386,29 +422,35 @@ func TestDecodeRFC9369Samples(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if got := hex.EncodeToString(keys.iv); got != k.iv {
 				t.Errorf("server %v: iv %s; want %s", k.server, got, k.iv)
 			}
 		}
+
 		conns := Decode(start, []Received{
 			client(1500, v2Initial),
 		}, 8, nil)
 		if len(conns) != 1 {
 			t.Fatalf("got %d connections, want 1", len(conns))
 		}
+
 		c := conns[0]
 		if c.Millis != 1500 || c.Version != "6b3343cf" || c.NegotiatedVersion != "" || c.Host != "example.com" {
 			t.Errorf("connection: ms %d, version %s, negotiated %q, host %q; want 1500, 6b3343cf, none, example.com", c.Millis, c.Version, c.NegotiatedVersion, c.Host)
 		}
+
 		checkPackets(t, "client", c.Datagrams, []string{
 			`Initial 6b3343cf "": CRYPTO PADDING`,
 		})
+
 		p := c.Datagrams[0].Packets[0]
 		if p.FirstByte != 0xd3 || p.DCIDLength != 8 || p.SCIDLength == nil || *p.SCIDLength != 0 ||
 			p.TokenLength == nil || *p.TokenLength != 0 || p.Length == nil || *p.Length != 1182 ||
 			p.PNLength != 4 || p.PN != 2 || p.Size != 1200 || p.Frames[0].Length != 241 || p.Frames[1].Count != 1162-245 {
 			t.Errorf("packet: %+v; want the appendix's d3, 8-byte DCID, no SCID or token, length 1182, 4-byte packet number 2, CRYPTO of 241 bytes, padding", p)
 		}
+
 		if got, want := c.ClientHello, hex.EncodeToString(frame[4:]); got != want {
 			t.Errorf("ClientHello %s; want the CRYPTO frame's data %s", got, want)
 		}
@@ -422,6 +464,7 @@ func TestDecodeRFC9369Samples(t *testing.T) {
 		if len(conns) != 1 || len(conns[0].Server) != 1 {
 			t.Fatalf("got %d connections; want 1 with one server datagram", len(conns))
 		}
+
 		c := conns[0]
 		checkPackets(t, "client", c.Datagrams, []string{
 			`Initial 6b3343cf "": CRYPTO PADDING`,
@@ -429,8 +472,10 @@ func TestDecodeRFC9369Samples(t *testing.T) {
 		checkPackets(t, "server", c.Server, []string{
 			`Initial 6b3343cf "": ACK CRYPTO`,
 		})
+
 		d := c.Server[0]
 		p := d.Packets[0]
+
 		if d.Micros != 3000 || d.Size != 135 || p.FirstByte != 0xd1 || p.DCIDLength != 0 || p.SCIDLength == nil || *p.SCIDLength != 8 ||
 			p.TokenLength == nil || *p.TokenLength != 0 || p.Length == nil || *p.Length != 117 ||
 			p.PNLength != 2 || p.PN != 1 || p.Size != 135 || p.Frames[1].Length != 90 {
@@ -440,7 +485,9 @@ func TestDecodeRFC9369Samples(t *testing.T) {
 
 	t.Run("Retry", func(t *testing.T) {
 		corrupted := mustHex(t, rfc9369Retry)
+
 		corrupted[len(corrupted)-1] ^= 0x01
+
 		for _, tt := range []struct {
 			name    string
 			initial []byte
@@ -476,9 +523,11 @@ func TestDecodeRFC9369Samples(t *testing.T) {
 				if len(conns) != 1 {
 					t.Fatalf("got %d connections, want 1", len(conns))
 				}
+
 				checkPackets(t, "server", conns[0].Server, []string{
 					fmt.Sprintf("Retry %s %q: ", tt.version, tt.err),
 				})
+
 				p := conns[0].Server[0].Packets[0]
 				if p.DCIDLength != 0 || p.SCIDLength == nil || *p.SCIDLength != 8 || p.TokenLength == nil || *p.TokenLength != 5 || p.Size != len(tt.retry) {
 					t.Errorf("packet %+v; want no DCID, 8-byte SCID, 5-byte token, %d bytes", p, len(tt.retry))
@@ -489,6 +538,7 @@ func TestDecodeRFC9369Samples(t *testing.T) {
 
 	t.Run("compatible upgrade", func(t *testing.T) {
 		keyLog := keyLogOf(labelClientHandshake, labelServerHandshake, labelClientTraffic)
+
 		server1RTT := append([]byte{0x41}, make([]byte, 24)...)
 		datagrams := append(slices.Clone(upgrade), server(8, server1RTT))
 
@@ -496,6 +546,7 @@ func TestDecodeRFC9369Samples(t *testing.T) {
 		if len(conns) != 1 || conns[0].NegotiatedVersion != "" {
 			t.Fatalf("before any Handshake packet: %d connections; want 1 without a negotiated version", len(conns))
 		}
+
 		checkPackets(t, "client", conns[0].Datagrams, []string{
 			`Initial 00000001 "": CRYPTO PADDING`,
 			`Initial 6b3343cf "": ACK PADDING`,
@@ -505,10 +556,12 @@ func TestDecodeRFC9369Samples(t *testing.T) {
 		if len(conns) != 1 {
 			t.Fatalf("got %d connections, want 1", len(conns))
 		}
+
 		c := conns[0]
 		if c.Version != "00000001" || c.NegotiatedVersion != "6b3343cf" {
 			t.Errorf("version %s, negotiated %q; want 00000001, 6b3343cf", c.Version, c.NegotiatedVersion)
 		}
+
 		checkPackets(t, "client", c.Datagrams, []string{
 			`Initial 00000001 "": CRYPTO PADDING`,
 			`Initial 6b3343cf "": ACK PADDING`,
@@ -520,12 +573,15 @@ func TestDecodeRFC9369Samples(t *testing.T) {
 			`Handshake 6b3343cf "": CRYPTO`,
 			`1-RTT  "": `,
 		})
+
 		if p := c.Datagrams[1].Packets[0]; p.PN != 3 || p.DCIDLength != 8 {
 			t.Errorf("client's version 2 Initial: packet number %d, %d-byte DCID; want 3, 8", p.PN, p.DCIDLength)
 		}
+
 		if p := c.Server[2].Packets[0]; p.DCIDLength != 0 || p.Size != 25 || p.FirstByte != 0x40 {
 			t.Errorf("server's 1-RTT packet: %+v; want no DCID, 25 bytes, first byte 40", p)
 		}
+
 		tps := c.ServerTransportParameters
 		if len(tps) != 2 || tps[0].Name != "version_information" || !slices.Equal(tps[0].Versions, []string{"6b3343cf", "6b3343cf", "00000001"}) ||
 			tps[1].Name != "initial_max_data" || tps[1].Value == nil || *tps[1].Value != 1024 {
@@ -540,12 +596,16 @@ func TestDecodeRFC9369Samples(t *testing.T) {
 		}
 		k, err := traffic(labelClientTraffic, Version2)
 		migrated := seal(k, err, append(append([]byte{0x41}, serverCID...), 0x00, 0x01), []byte{0x01, 0x00}, true)
+
 		k, err = traffic(labelServerTraffic, Version2)
+
 		toNewPath := seal(k, err, []byte{0x41, 0x00, 0x00}, []byte{0x01, 0x00}, true)
 		datagrams := make([]Received, 0, len(upgrade)+4)
+
 		for _, r := range upgrade {
 			datagrams = append(datagrams, from("a", r))
 		}
+
 		datagrams = append(datagrams,
 			// To an address no connection uses yet: dropped.
 			from("c", server(8, toNewPath)),
@@ -554,10 +614,13 @@ func TestDecodeRFC9369Samples(t *testing.T) {
 			// From an address no connection uses, opened by none: dropped.
 			from("c", client(11, append([]byte{0x41}, make([]byte, 30)...))),
 		)
+
 		conns := Decode(start, datagrams, 8, keyLogOf(labelClientHandshake, labelServerHandshake, labelClientTraffic, labelServerTraffic))
+
 		if len(conns) != 1 {
 			t.Fatalf("got %d connections, want 1", len(conns))
 		}
+
 		c := conns[0]
 		checkPackets(t, "client", c.Datagrams, []string{
 			`Initial 00000001 "": CRYPTO PADDING`,
@@ -571,6 +634,7 @@ func TestDecodeRFC9369Samples(t *testing.T) {
 			`Handshake 6b3343cf "": CRYPTO`,
 			`1-RTT  "": `,
 		})
+
 		paths := func(ds []Datagram) []int {
 			out := make([]int, 0, len(ds))
 			for _, d := range ds {
@@ -582,12 +646,15 @@ func TestDecodeRFC9369Samples(t *testing.T) {
 		if got := paths(c.Datagrams); c.Addr != "a" || !slices.Equal(got, []int{0, 0, 0, 0, 1}) {
 			t.Errorf("started on %q, client paths %v; want a, 0 0 0 0 1", c.Addr, got)
 		}
+
 		if got := paths(c.Server); !slices.Equal(got, []int{0, 0, 1}) {
 			t.Errorf("server paths %v; want 0 0 1", got)
 		}
+
 		if p := c.Datagrams[4].Packets[0]; p.PN != 1 {
 			t.Errorf("client's packet on the new path: packet number %d; want 1", p.PN)
 		}
+
 		if p := c.Server[2].Packets[0]; p.FirstByte != 0x41 || p.PNLength != 2 || p.PN != 0 || p.DCIDLength != 0 {
 			t.Errorf("server's packet on the new path: %+v; want first byte 41, 2-byte packet number 0, no DCID", p)
 		}
@@ -598,6 +665,7 @@ func TestDecodeRFC9369Samples(t *testing.T) {
 		phase0 := seal(k, err, []byte{0x41, 0x00, 0x07}, []byte{0x01, 0x00}, true)
 		next, err := k.next()
 		phase1 := seal(next, err, []byte{0x44, 0x08}, []byte{0x01, 0x00, 0x00}, true)
+
 		for _, tt := range []struct {
 			name   string
 			keyLog *KeyLog
@@ -631,6 +699,7 @@ func TestDecodeRFC9369Samples(t *testing.T) {
 				if len(conns) != 1 {
 					t.Fatalf("got %d connections, want 1", len(conns))
 				}
+
 				var got []string
 				for _, d := range conns[0].Server {
 					for _, p := range d.Packets {
@@ -640,6 +709,7 @@ func TestDecodeRFC9369Samples(t *testing.T) {
 						}
 					}
 				}
+
 				if !slices.Equal(got, tt.want) {
 					t.Errorf("server 1-RTT headers %q; want %q", got, tt.want)
 				}
@@ -682,7 +752,9 @@ func TestDecodeRFC9369Samples(t *testing.T) {
 		} {
 			t.Run(tt.name, func(t *testing.T) {
 				conns := Decode(start, tt.datagrams, 8, nil)
+
 				var got []string
+
 				for _, c := range conns {
 					got = append(got, fmt.Sprintf("%s %d %d", c.Version, len(c.Datagrams), len(c.Server)))
 					for _, d := range c.Datagrams {
@@ -691,12 +763,15 @@ func TestDecodeRFC9369Samples(t *testing.T) {
 						}
 					}
 				}
+
 				if !slices.Equal(got, tt.versions) {
 					t.Fatalf("connections %q; want %q", got, tt.versions)
 				}
+
 				if len(conns[0].Server) == 0 {
 					return
 				}
+
 				p := conns[0].Server[0].Packets[0]
 				if p.Type != PacketVN || p.Error != "" || p.DCIDLength != 0 || p.SCIDLength == nil || *p.SCIDLength != 8 ||
 					!slices.Equal(p.Versions, []string{"00000001", "ff00001d"}) {

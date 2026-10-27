@@ -69,7 +69,9 @@ func httpSchemes(r Request) Request {
 	if !ok {
 		return r
 	}
+
 	u := *r.URL
+
 	u.Scheme = scheme
 	r.URL = &u
 
@@ -129,10 +131,12 @@ func New(cfg Config) (*Jar, error) {
 		if err := cfg.Rules.Validate(); err != nil {
 			return nil, err
 		}
+
 		j.rules = *cfg.Rules
 	} else {
 		j.rules = *profile.DefaultCookies()
 	}
+
 	if j.clock == nil {
 		j.clock = clockwork.NewRealClock()
 	}
@@ -162,19 +166,25 @@ func (j *Jar) contextOf(r Request) context {
 	if !r.Navigation && r.Page != nil {
 		c.topSite = site.Of(r.Page)
 	}
+
 	if ref == nil {
 		return c
 	}
+
 	c.thirdParty = !r.Navigation && !site.Same(r.URL, ref)
+
 	urls := []*url.URL{r.URL}
+
 	if j.rules.Redirects == profile.RedirectsChain {
 		urls = append(urls, r.Redirects...)
 	}
+
 	for _, u := range urls {
 		if !j.sameSite(u, ref) {
 			c.crossSite = true
 		}
 	}
+
 	if j.rules.Redirects == profile.RedirectsBlockAfterCrossSite {
 		for _, u := range r.Redirects {
 			if !j.sameSite(u, ref) {
@@ -208,6 +218,7 @@ func (j *Jar) effective(s SameSite) SameSite {
 	if s != SameSiteUnset {
 		return s
 	}
+
 	if j.rules.UnsetSameSite == profile.SameSiteNone {
 		return SameSiteNone
 	}
@@ -225,10 +236,13 @@ func (j *Jar) SetCookies(r Request, lines []string) {
 // after telling OnSetCookie about them.
 func (j *Jar) setCookies(r Request, lines []string) []Event {
 	r = httpSchemes(r)
+
 	ctx := j.contextOf(r)
 	now := j.clock.Now()
 	events := make([]Event, 0, len(lines))
+
 	j.mu.Lock()
+
 	for _, line := range lines {
 		events = append(events, j.set(setRequest{
 			Request: r,
@@ -236,7 +250,9 @@ func (j *Jar) setCookies(r Request, lines []string) []Event {
 			now:     now,
 		}, line))
 	}
+
 	j.mu.Unlock()
+
 	if j.onSetCookie != nil {
 		for _, e := range events {
 			j.onSetCookie(e)
@@ -264,13 +280,16 @@ func (j *Jar) set(r setRequest, line string) Event {
 		return e
 	}
 	now := r.now
+
 	p, err := parse(line, &j.rules, now)
 	if err != nil {
 		return reject(err.Error())
 	}
+
 	if r.ctx.blocked {
 		return reject("set after a cross-site redirect, which this browser blocks")
 	}
+
 	host := strings.ToLower(r.URL.Hostname())
 	secureURL := j.secure(r.URL)
 	c := &Cookie{
@@ -286,9 +305,11 @@ func (j *Jar) set(r setRequest, line string) Event {
 		LastAccess:  now,
 		Raw:         line,
 	}
+
 	if j.rules.Latin1Values {
 		c.Value = latin1(c.Value)
 	}
+
 	switch {
 	case p.domain == "":
 		c.Domain, c.HostOnly = host, true
@@ -301,44 +322,56 @@ func (j *Jar) set(r setRequest, line string) Event {
 	default:
 		c.Domain = p.domain
 	}
+
 	if c.Path == "" {
 		c.Path = defaultPath(r.URL.EscapedPath())
 	}
+
 	if c.Secure && !secureURL {
 		return reject("Secure from an insecure URL")
 	}
+
 	if c.Name == "" && hiddenPrefix(c.Value) {
 		return reject("a nameless cookie whose value starts with __Secure- or __Host-")
 	}
+
 	// A server would read the pair as a name (every browser refuses it).
 	if c.Name == "" && strings.Contains(c.Value, "=") {
 		return reject("a nameless cookie whose value holds \"=\"")
 	}
+
 	if hasPrefixFold(c.Name, "__Secure-") && !c.Secure {
 		return reject("__Secure- prefix without Secure")
 	}
+
 	// __Host- needs Path=/: as the attribute sent (RFC 6265bis), or as
 	// stored, the default path counting (Safari).
 	hostPath := p.pathAttr
 	if j.rules.HostPrefixPath == profile.HostPrefixPathStored {
 		hostPath = c.Path
 	}
+
 	if hasPrefixFold(c.Name, "__Host-") && (!c.Secure || !c.HostOnly || hostPath != "/") {
 		return reject("__Host- prefix needs Secure, no Domain and Path=/")
 	}
+
 	// __Host-Http- also meets __Host-'s rules, above.
 	if j.rules.HTTPPrefix && (hasPrefixFold(c.Name, "__Http-") || hasPrefixFold(c.Name, "__Host-Http-")) && (!c.Secure || !c.HTTPOnly) {
 		return reject("__Http- prefix needs Secure and HttpOnly")
 	}
+
 	if c.SameSite == SameSiteNone && !c.Secure && j.rules.NoneRequiresSecure {
 		return reject("SameSite=None without Secure")
 	}
+
 	if c.Partitioned && !c.Secure {
 		return reject("Partitioned without Secure")
 	}
+
 	if !r.Navigation && r.ctx.crossSite && j.effective(c.SameSite) != SameSiteNone {
 		return reject("SameSite=" + j.effective(c.SameSite).String() + " from a cross-site response")
 	}
+
 	switch {
 	case r.ctx.thirdParty && j.rules.ThirdParty == profile.ThirdPartyPartitionAll:
 		c.Partition = r.ctx.topSite
@@ -347,8 +380,10 @@ func (j *Jar) set(r setRequest, line string) Event {
 	case c.Partitioned:
 		c.Partition = r.ctx.topSite
 	}
+
 	key := domainKey(c.Domain)
 	bucket := j.domains[key]
+
 	if !secureURL {
 		// An insecure URL cannot shadow a Secure cookie (RFC 6265bis 5.7).
 		for _, old := range bucket {
@@ -357,6 +392,7 @@ func (j *Jar) set(r setRequest, line string) Event {
 			}
 		}
 	}
+
 	i := slices.IndexFunc(bucket, func(old entry) bool {
 		return sameKey(old.c, c)
 	})
@@ -364,10 +400,12 @@ func (j *Jar) set(r setRequest, line string) Event {
 		if i >= 0 {
 			j.store(key, slices.Delete(bucket, i, i+1))
 		}
+
 		e.Deleted = true
 
 		return e
 	}
+
 	switch {
 	case i >= 0 && j.rules.NewValueRenews && bucket[i].c.Value != c.Value:
 		// A new value makes a new cookie, the newest (Chrome).
@@ -376,11 +414,14 @@ func (j *Jar) set(r setRequest, line string) Event {
 		// A replacement keeps the old cookie's creation time and place.
 		c.Created = bucket[i].c.Created
 		bucket[i].c = c
+
 	default:
 		j.domains[key] = append(bucket, j.newEntry(c))
 		j.evict(key, c.Partition, now)
 	}
+
 	cp := *c
+
 	e.Cookie = &cp
 
 	return e
@@ -389,6 +430,7 @@ func (j *Jar) set(r setRequest, line string) Event {
 // newEntry numbers c as the jar's newest cookie. Call with the lock held.
 func (j *Jar) newEntry(c *Cookie) entry {
 	j.seq++
+
 	return entry{
 		c:   c,
 		seq: j.seq,
@@ -403,6 +445,7 @@ func (j *Jar) evict(key, partition string, now time.Time) {
 	if j.rules.MaxPerSite == 0 {
 		return
 	}
+
 	bucket := j.domains[key]
 	count := func() int {
 		n := 0
@@ -414,9 +457,11 @@ func (j *Jar) evict(key, partition string, now time.Time) {
 
 		return n
 	}
+
 	if count() <= j.rules.MaxPerSite {
 		return
 	}
+
 	bucket = slices.DeleteFunc(bucket, func(e entry) bool {
 		return !e.c.Expires.IsZero() && !e.c.Expires.After(now)
 	})
@@ -427,6 +472,7 @@ func (j *Jar) evict(key, partition string, now time.Time) {
 				lru = append(lru, e)
 			}
 		}
+
 		slices.SortFunc(lru, func(a, b entry) int {
 			if d := a.c.LastAccess.Compare(b.c.LastAccess); d != 0 {
 				return d
@@ -434,14 +480,17 @@ func (j *Jar) evict(key, partition string, now time.Time) {
 
 			return cmp.Compare(a.seq, b.seq)
 		})
+
 		evicted := make(map[uint64]bool, excess)
 		for _, e := range lru[:excess] {
 			evicted[e.seq] = true
 		}
+
 		bucket = slices.DeleteFunc(bucket, func(e entry) bool {
 			return evicted[e.seq]
 		})
 	}
+
 	j.store(key, bucket)
 }
 
@@ -450,8 +499,10 @@ func (j *Jar) evict(key, partition string, now time.Time) {
 func (j *Jar) store(key string, bucket []entry) {
 	if len(bucket) == 0 {
 		delete(j.domains, key)
+
 		return
 	}
+
 	j.domains[key] = bucket
 }
 
@@ -471,31 +522,40 @@ func (j *Jar) Peek(r Request) []*Cookie {
 // cookies only with touch.
 func (j *Jar) cookies(r Request, touch bool) []*Cookie {
 	r = httpSchemes(r)
+
 	ctx := j.contextOf(r)
+
 	if ctx.blocked {
 		return nil
 	}
+
 	now := j.clock.Now()
 	host := strings.ToLower(r.URL.Hostname())
 	secureURL := j.secure(r.URL)
 	safe := r.Method == "" || r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions || r.Method == http.MethodTrace
 	reqPath := r.URL.EscapedPath()
 	key := domainKey(host)
+
 	j.mu.Lock()
 	defer j.mu.Unlock()
+
 	live := j.live
 	if !touch {
 		live = j.unexpired
 	}
+
 	bucket := live(key, now)
 	if anySite := live(AnySite, now); key != AnySite && len(anySite) > 0 {
 		// Every site's request also looks at the AnySite cookies.
 		bucket = slices.Concat(bucket, anySite)
 	}
+
 	// socket: a WebSocket handshake that also carries its host's
 	// unpartitioned Lax and None cookies cross-site (Safari 26).
 	socket := r.WebSocket && j.rules.WebSocketUnpartitioned
+
 	var matched []entry
+
 	for _, e := range bucket {
 		c := e.c
 		switch {
@@ -508,6 +568,7 @@ func (j *Jar) cookies(r Request, touch bool) []*Cookie {
 		case c.Secure && !secureURL:
 			continue
 		}
+
 		if c.Partition != "" {
 			if c.Partition != ctx.topSite {
 				continue
@@ -515,6 +576,7 @@ func (j *Jar) cookies(r Request, touch bool) []*Cookie {
 		} else if ctx.thirdParty && j.rules.ThirdParty != profile.ThirdPartySameSite && !socket {
 			continue // Firefox and Safari keep the unpartitioned jar first-party
 		}
+
 		if ctx.crossSite {
 			switch j.effective(c.SameSite) {
 			case SameSiteStrict:
@@ -523,22 +585,29 @@ func (j *Jar) cookies(r Request, touch bool) []*Cookie {
 				unsafeOK := c.SameSite == SameSiteUnset && j.rules.LaxAllowsUnsafeSeconds > 0 &&
 					now.Sub(c.Created) < time.Duration(j.rules.LaxAllowsUnsafeSeconds)*time.Second
 				socketOK := socket && c.Partition == ""
+
 				if !socketOK && (!r.Navigation || (!safe && !unsafeOK)) {
 					continue
 				}
+
 			case SameSiteNone, SameSiteUnset:
 				// None is sent cross-site; effective never returns Unset.
 			}
 		}
+
 		if touch {
 			c.LastAccess = now
 		}
+
 		matched = append(matched, e)
 	}
+
 	j.sortForRequest(matched)
+
 	out := make([]*Cookie, len(matched))
 	for i, e := range matched {
 		cp := *e.c
+
 		out[i] = &cp
 	}
 
@@ -584,13 +653,16 @@ func (j *Jar) sortForRequest(es []entry) {
 
 			return 1
 		}
+
 		if d := len(b.c.Path) - len(a.c.Path); d != 0 {
 			return d
 		}
+
 		if j.rules.Order == profile.OrderDomainName {
 			if d := strings.Compare(storedDomain(a.c), storedDomain(b.c)); d != 0 {
 				return d
 			}
+
 			if d := strings.Compare(a.c.Name, b.c.Name); d != 0 {
 				return d
 			}
@@ -627,6 +699,7 @@ func domainMatch(host, domain string) bool {
 	if host == domain {
 		return true
 	}
+
 	if net.ParseIP(host) != nil {
 		return false
 	}
@@ -640,9 +713,11 @@ func pathMatch(reqPath, cookiePath string) bool {
 	if reqPath == "" {
 		reqPath = "/"
 	}
+
 	if reqPath == cookiePath {
 		return true
 	}
+
 	if !strings.HasPrefix(reqPath, cookiePath) {
 		return false
 	}
@@ -656,6 +731,7 @@ func defaultPath(p string) string {
 	if p == "" || p[0] != '/' {
 		return "/"
 	}
+
 	i := strings.LastIndex(p, "/")
 	if i == 0 {
 		return "/"
@@ -670,6 +746,7 @@ func hasPrefixFold(s, prefix string) bool {
 	if len(s) < len(prefix) {
 		return false
 	}
+
 	lower := func(b byte) byte {
 		if 'A' <= b && b <= 'Z' {
 			return b + 'a' - 'A'
@@ -704,9 +781,11 @@ func latin1(v string) string {
 			break
 		}
 	}
+
 	if ascii {
 		return v
 	}
+
 	var b strings.Builder
 	for i := range len(v) {
 		if v[i] < 0x80 {

@@ -28,18 +28,22 @@ func (e *corsEngine) RoundTrip(req *http.Request) (*http.Response, error) {
 	if req.Method == http.MethodOptions {
 		line += " " + req.Header.Get("Access-Control-Request-Method") + " " + req.Header.Get("Access-Control-Request-Headers")
 	}
+
 	e.sent = append(e.sent, line)
+
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
 		Header:     http.Header{},
 		Body:       io.NopCloser(strings.NewReader("")),
 		Request:    req,
 	}
+
 	if req.Method == http.MethodOptions {
 		resp.StatusCode = http.StatusNoContent
 		if e.status != 0 {
 			resp.StatusCode = e.status
 		}
+
 		resp.Header = e.answer.Clone()
 	}
 
@@ -62,6 +66,7 @@ func allowAll() http.Header {
 
 func corsTransport(t *testing.T, e *corsEngine, extra http.Header) *Transport {
 	t.Helper()
+
 	tr, err := NewTransport(Config{
 		Profile: profiles.Chrome(),
 		engine:  e,
@@ -76,14 +81,18 @@ func corsTransport(t *testing.T, e *corsEngine, extra http.Header) *Transport {
 
 func corsDo(t *testing.T, tr *Transport, method, target string, h http.Header, r Request) error {
 	t.Helper()
+
 	req, err := http.NewRequestWithContext(t.Context(), method, target, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	maps.Copy(req.Header, h)
+
 	if r.From == nil {
 		r.From, _ = url.Parse(corsPage)
 	}
+
 	resp, err := tr.RoundTrip(With(req, r))
 	if err != nil {
 		return err
@@ -132,16 +141,20 @@ func TestPreflightWhenNeeded(t *testing.T) {
 				answer: allowAll(),
 			}
 			method := tc.method
+
 			if method == "" {
 				method = http.MethodGet
 			}
+
 			if err := corsDo(t, corsTransport(t, e, tc.extra), method, tc.target, tc.h, tc.r); err != nil {
 				t.Fatal(err)
 			}
+
 			want := []string{method + " " + "/x"}
 			if tc.want != "" {
 				want = append([]string{tc.want}, want...)
 			}
+
 			if strings.Join(e.sent, "\n") != strings.Join(want, "\n") {
 				t.Errorf("sent %q, want %q", e.sent, want)
 			}
@@ -165,12 +178,15 @@ func TestPreflightCacheLifetime(t *testing.T) {
 			if tc.maxAge != "" {
 				answer.Set("Access-Control-Max-Age", tc.maxAge)
 			}
+
 			e := &corsEngine{
 				answer: answer,
 			}
 			tr := corsTransport(t, e, nil)
 			clock := clockwork.NewFakeClock()
+
 			tr.clock = clock
+
 			preflights := func() int {
 				n := 0
 				for _, s := range e.sent {
@@ -187,15 +203,20 @@ func TestPreflightCacheLifetime(t *testing.T) {
 				}
 			}
 			send()
+
 			if tc.fresh > 0 {
 				clock.Advance(tc.fresh - time.Millisecond)
 				send()
+
 				if n := preflights(); n != 1 {
 					t.Fatalf("%d preflights before %v, want 1", n, tc.fresh)
 				}
+
 				clock.Advance(time.Millisecond)
 			}
+
 			send()
+
 			if n := preflights(); n != 2 {
 				t.Errorf("%d preflights at %v, want 2", n, tc.fresh)
 			}
@@ -234,6 +255,7 @@ func TestPreflightRefused(t *testing.T) {
 				if tc.answer != nil {
 					tc.answer(answer)
 				}
+
 				e := &corsEngine{
 					status: tc.status,
 					answer: answer,
@@ -242,14 +264,19 @@ func TestPreflightRefused(t *testing.T) {
 					Kind:       Fetch,
 					IgnoreCORS: ignore,
 				}
+
 				if tc.include {
 					r.Credentials = CredentialsInclude
 				}
+
 				err := corsDo(t, corsTransport(t, e, nil), http.MethodGet, "https://api.b.test/x", tc.h, r)
+
 				var cerr *CORSError
+
 				if refused := tc.refused && !ignore; refused != errors.As(err, &cerr) {
 					t.Fatalf("got %v, refused %v", err, refused)
 				}
+
 				if sent := len(e.sent) == 2; sent != (!tc.refused || ignore) {
 					t.Errorf("sent %q", e.sent)
 				}

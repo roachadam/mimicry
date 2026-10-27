@@ -118,20 +118,24 @@ func (p connectionsPage) answer(req request) response {
 	host, port := splitAuthority(req.host)
 	origin := originOn("https://", port)
 	path, _, _ := strings.Cut(req.path, "?")
+
 	switch {
 	case host == connHost && path == "/":
 		return response{status: 200, contentType: "text/html; charset=utf-8", body: connectionsDocument(origin)}
 	case path == "/done":
 		return response{status: 200, contentType: "text/plain", body: []byte("ok\n")}
 	}
+
 	label, ok := strings.CutPrefix(path, "/c/")
 	if !ok {
 		return response{status: 404, contentType: "text/plain", body: []byte("not found\n")}
 	}
+
 	for _, s := range ConnectionsSteps() {
 		if s.Host != host || !slices.Contains(s.Labels, label) {
 			continue
 		}
+
 		r := response{status: 200, contentType: "text/plain", body: []byte("ok\n")}
 		if host == connH1 {
 			r.delay = connParallelDelay
@@ -152,6 +156,7 @@ func connectionsDocument(origin func(string) string) []byte {
 		for _, l := range s.Labels {
 			urls = append(urls, strconv.Quote(origin(s.Host)+"/c/"+l))
 		}
+
 		steps = append(steps, "["+strings.Join(urls, ", ")+"]")
 	}
 

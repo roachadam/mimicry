@@ -12,13 +12,16 @@ import (
 // certificates are configured for.
 func loopbackResolver(ctx context.Context) (*net.Resolver, error) {
 	var lc net.ListenConfig
+
 	pc, err := lc.ListenPacket(ctx, "udp4", "127.0.0.1:0")
 	if err != nil {
 		return nil, err
 	}
+
 	context.AfterFunc(ctx, func() {
 		_ = pc.Close()
 	})
+
 	go func() {
 		buf := make([]byte, 1500)
 		for {
@@ -26,11 +29,13 @@ func loopbackResolver(ctx context.Context) (*net.Resolver, error) {
 			if err != nil {
 				return
 			}
+
 			if resp, err := loopbackAnswer(buf[:n]); err == nil {
 				_, _ = pc.WriteTo(resp, addr)
 			}
 		}
 	}()
+
 	stub := pc.LocalAddr().String()
 
 	return &net.Resolver{
@@ -44,14 +49,17 @@ func loopbackResolver(ctx context.Context) (*net.Resolver, error) {
 
 func loopbackAnswer(query []byte) ([]byte, error) {
 	var p dnsmessage.Parser
+
 	h, err := p.Start(query)
 	if err != nil {
 		return nil, err
 	}
+
 	q, err := p.Question()
 	if err != nil {
 		return nil, err
 	}
+
 	b := dnsmessage.NewBuilder(nil, dnsmessage.Header{
 		ID:                 h.ID,
 		Response:           true,
@@ -62,12 +70,15 @@ func loopbackAnswer(query []byte) ([]byte, error) {
 	if err := b.StartQuestions(); err != nil {
 		return nil, err
 	}
+
 	if err := b.Question(q); err != nil {
 		return nil, err
 	}
+
 	if err := b.StartAnswers(); err != nil {
 		return nil, err
 	}
+
 	if q.Type == dnsmessage.TypeA {
 		err := b.AResource(dnsmessage.ResourceHeader{
 			Name:  q.Name,

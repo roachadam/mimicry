@@ -20,6 +20,7 @@ func TestWebSocketRecordsRFCExamples(t *testing.T) {
 	join := func(parts ...[]byte) []byte {
 		return bytes.Join(parts, nil)
 	}
+
 	for _, tc := range []struct {
 		name    string
 		deflate bool
@@ -205,10 +206,13 @@ func TestWebSocketRecordsRFCExamples(t *testing.T) {
 			log := &pageLog{}
 			rec := log.openWebSocket(capture.WebSocket{})
 			a := &wsAccept{}
+
 			if tc.deflate {
 				a.extensions = "permessage-deflate"
 			}
+
 			var sent bytes.Buffer
+
 			s := &wsSession{
 				rec:    rec,
 				accept: a,
@@ -222,26 +226,33 @@ func TestWebSocketRecordsRFCExamples(t *testing.T) {
 			}
 			err := s.run(bytes.NewReader(tc.in))
 			ws := log.page().WebSockets[0]
+
 			var got []capture.WSFrame
+
 			for _, f := range ws.Frames {
 				if !f.Server {
 					f.Millis = 0
 					got = append(got, f)
 				}
 			}
+
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Errorf("frames:\n got %+v\nwant %+v", got, tc.want)
 			}
+
 			closedBy := "client"
 			if tc.stopped {
 				closedBy = ""
+
 				if err == nil {
 					t.Errorf("run = nil, want the error it stopped reading on")
 				}
 			}
+
 			if tc.wantErr == "" && ws.Error != "" || !strings.Contains(ws.Error, tc.wantErr) {
 				t.Errorf("recorded error %q, want %q", ws.Error, tc.wantErr)
 			}
+
 			if ws.ClosedBy != closedBy {
 				t.Errorf("closed by %q, want %q", ws.ClosedBy, closedBy)
 			}

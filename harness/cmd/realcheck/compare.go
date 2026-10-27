@@ -91,19 +91,24 @@ func randomnessOf(p *profile.Profile) (randomness, error) {
 	if p.TLS.QUIC != nil {
 		r.quicShuffled = p.TLS.QUIC.ExtensionOrder == profile.ExtensionOrderShuffled
 	}
+
 	if p.QUIC != nil {
 		r.tpOrder = p.QUIC.TransportParameterOrder
 		r.pnRandom = p.QUIC.PacketNumbers == profile.PacketNumbersRandomInitial
 	}
+
 	data, err := profile.Encode(p)
 	if err != nil {
 		return r, err
 	}
+
 	var v any
 	if err := json.Unmarshal(data, &v); err != nil {
 		return r, err
 	}
+
 	var walk func(v any)
+
 	walk = func(v any) {
 		switch t := v.(type) {
 		case map[string]any:
@@ -111,14 +116,18 @@ func randomnessOf(p *profile.Profile) (randomness, error) {
 				for _, l := range anyList(ech["payloadLengths"]) {
 					r.echLengths = append(r.echLengths, fmt.Sprint(l))
 				}
+
 				for _, s := range anyList(ech["cipherSuites"]) {
 					m, _ := s.(map[string]any)
+
 					r.echSuites = append(r.echSuites, fmt.Sprintf("%v/%v", m["kdf"], m["aead"]))
 				}
 			}
+
 			for _, x := range t {
 				walk(x)
 			}
+
 		case []any:
 			for _, x := range t {
 				walk(x)
@@ -142,30 +151,37 @@ func (r randomness) byDesign(endpoint, name string, bv, mv map[string]string) st
 	if strings.HasSuffix(endpoint, "-h3") {
 		shuffled = r.quicShuffled
 	}
+
 	if twin, ok := sortedTwin[name]; ok && shuffled && bv[twin] != "" && bv[twin] == mv[twin] {
 		return "extension order, shuffled per connection"
 	}
+
 	switch name {
 	case "ext ECH payload length":
 		if slices.Contains(r.echLengths, bv[name]) && slices.Contains(r.echLengths, mv[name]) {
 			return "GREASE ECH payload length, one of " + strings.Join(slices.Compact(slices.Sorted(slices.Values(r.echLengths))), "/")
 		}
+
 	case "ext ECH cipher suite":
 		if slices.Contains(r.echSuites, bv[name]) && slices.Contains(r.echSuites, mv[name]) {
 			return "GREASE ECH cipher suite, one of " + strings.Join(slices.Compact(slices.Sorted(slices.Values(r.echSuites))), ", ")
 		}
+
 	case "ext quic_transport_parameters order", "http3.perk_text", "http3.perk_hash":
 		same := bv["ext quic_transport_parameters"] == mv["ext quic_transport_parameters"]
 		if name != "ext quic_transport_parameters order" {
 			same = same && bv["http3.perk_text_normalized"] == mv["http3.perk_text_normalized"]
 		}
+
 		if same && (r.tpOrder == profile.TransportParameterOrderShuffled || r.tpOrder == profile.TransportParameterOrderRotated) {
 			return "QUIC transport parameter order, " + r.tpOrder + " per connection"
 		}
+
 	case "quic.initial_packet_number":
 		if r.pnRandom {
 			return "random first packet number"
 		}
+
 	case "http3.perk_text_normalized", "http3.perk_hash_normalized":
 		// The echo sorts version_information's versions by value, GREASE
 		// (a random value) included, so its place in the list is random.
@@ -187,6 +203,7 @@ func perkVersionsSorted(perk string) string {
 			list, rest, _ := strings.Cut(list, "|")
 			vs := strings.Split(list, ",")
 			slices.Sort(vs)
+
 			parts[i] = head + "@" + strings.Join(vs, ",")
 			if rest != "" {
 				parts[i] += "|" + rest
@@ -204,9 +221,11 @@ func compare(out string) error {
 	if err != nil {
 		return err
 	}
+
 	var summary, full strings.Builder
 	summary.WriteString("# Echo endpoints: browser vs mimicry\n")
 	full.WriteString("# Echo endpoints: every field\n")
+
 	var ps []pair
 	for c := range echoes {
 		if after, ok := strings.CutPrefix(c, "browser-"); ok {
@@ -216,56 +235,74 @@ func compare(out string) error {
 			})
 		}
 	}
+
 	slices.SortFunc(ps, func(a, b pair) int {
 		return strings.Compare(a.browser, b.browser)
 	})
+
 	for _, p := range ps {
 		b, m := echoes[p.browser], echoes[p.profile]
 		if m == nil {
 			fmt.Fprintf(&summary, "\n## %s: no answers from profile %s\n", p.browser, p.profile)
+
 			continue
 		}
+
 		prof, err := profiles.ByName(p.profile)
 		if err != nil {
 			return err
 		}
+
 		rnd, err := randomnessOf(prof)
 		if err != nil {
 			return err
 		}
+
 		fmt.Fprintf(&summary, "\n## %s vs %s\n\n", p.browser, p.profile)
 		fmt.Fprintf(&full, "\n## %s vs %s\n", p.browser, p.profile)
+
 		rows := map[string][]row{}
+
 		summary.WriteString("| Endpoint | Browser proto (tries) | mimicry proto (tries) | Fields | Same | Random by design | Differ | One side only |\n|---|---|---|---|---|---|---|---|\n")
+
 		for _, e := range endpoints {
 			br, mr := b[e.id], m[e.id]
 			if br == nil || mr == nil {
 				continue
 			}
+
 			if br.Proto != mr.Proto {
 				fmt.Fprintf(&summary, "| %s | %s (%d)%s | %s (%d)%s | not compared: different protocols | | | | |\n", e.id,
 					br.Proto, br.Tries, errNote(br.Err), mr.Proto, mr.Tries, errNote(mr.Err))
 
 				continue
 			}
+
 			rs, err := compareRecords(e.id, br, mr, rnd)
 			if err != nil {
 				return fmt.Errorf("%s %s: %w", p.browser, e.id, err)
 			}
+
 			rows[e.id] = rs
+
 			count := map[string]int{}
+
 			for _, r := range rs {
 				count[r.result]++
 			}
+
 			fmt.Fprintf(&summary, "| %s | %s (%d)%s | %s (%d)%s | %d | %d | %d | %d | %d |\n", e.id,
 				br.Proto, br.Tries, errNote(br.Err), mr.Proto, mr.Tries, errNote(mr.Err),
 				len(rs), count["same"], count["random"], count["differs"], count["browser only"]+count["mimicry only"])
 			fmt.Fprintf(&full, "\n### %s\n\n| Field | Browser | mimicry | Result |\n|---|---|---|---|\n", e.id)
+
 			for _, r := range rs {
 				fmt.Fprintf(&full, "| %s | %s | %s | %s |\n", r.name, cell(r.browser, 0), cell(r.mimicry, 0), mark(r))
 			}
 		}
+
 		summary.WriteString("\n| Field | Browser | mimicry | |\n|---|---|---|---|\n")
+
 		for _, h := range headline {
 			for _, r := range rows[h.endpoint] {
 				if r.name == h.field {
@@ -273,40 +310,54 @@ func compare(out string) error {
 				}
 			}
 		}
+
 		summary.WriteString("\nRandom by design (the browser's value among the profile's choices):\n\n")
+
 		notes := map[string][]string{}
+
 		var order []string
+
 		for _, e := range endpoints {
 			for _, r := range rows[e.id] {
 				if r.result != "random" {
 					continue
 				}
+
 				if notes[r.note] == nil {
 					order = append(order, r.note)
 				}
+
 				notes[r.note] = append(notes[r.note], e.id+" "+r.name)
 			}
 		}
+
 		for _, n := range order {
 			fmt.Fprintf(&summary, "- %s: %s\n", n, strings.Join(notes[n], ", "))
 		}
+
 		summary.WriteString("\nDifferences:\n\n")
+
 		n := 0
 		for _, e := range endpoints {
 			for _, r := range rows[e.id] {
 				if r.result == "same" || r.result == "random" {
 					continue
 				}
+
 				n++
+
 				fmt.Fprintf(&summary, "- %s `%s` (%s): browser %s, mimicry %s\n", e.id, r.name, r.result, cell(r.browser, 400), cell(r.mimicry, 400))
 			}
 		}
+
 		if n == 0 {
 			summary.WriteString("- none\n")
 		}
 	}
+
 	summary.WriteString("\n")
 	summary.WriteString(sitesTable(out))
+
 	if err := os.WriteFile(filepath.Join(out, "compare.md"), []byte(summary.String()), 0o600); err != nil {
 		return err
 	}
@@ -320,16 +371,21 @@ func compareRecords(endpoint string, b, m *echoRecord, rnd randomness) ([]row, e
 	if len(b.Body) == 0 || len(m.Body) == 0 {
 		return nil, nil
 	}
+
 	bf, err := fieldsOf(endpoint, b.Body)
 	if err != nil {
 		return nil, err
 	}
+
 	mf, err := fieldsOf(endpoint, m.Body)
 	if err != nil {
 		return nil, err
 	}
+
 	bv, mv := values(bf), values(mf)
+
 	var rows []row
+
 	for _, f := range bf {
 		r := row{
 			endpoint: endpoint,
@@ -337,6 +393,7 @@ func compareRecords(endpoint string, b, m *echoRecord, rnd randomness) ([]row, e
 			browser:  f.value,
 		}
 		v, ok := mv[f.name]
+
 		switch {
 		case !ok:
 			r.result = "browser only"
@@ -348,8 +405,10 @@ func compareRecords(endpoint string, b, m *echoRecord, rnd randomness) ([]row, e
 				r.result, r.note = "random", note
 			}
 		}
+
 		rows = append(rows, r)
 	}
+
 	for _, f := range mf {
 		if _, ok := bv[f.name]; !ok {
 			rows = append(rows, row{
@@ -380,21 +439,26 @@ func loadEchoes(out string) (map[string]map[string]*echoRecord, error) {
 		if err != nil || d.IsDir() || filepath.Ext(path) != ".json" {
 			return err
 		}
+
 		data, err := os.ReadFile(path) //nolint:gosec // our own output directory
 		if err != nil {
 			return err
 		}
+
 		var r echoRecord
 		if err := json.Unmarshal(data, &r); err != nil {
 			return fmt.Errorf("%s: %w", path, err)
 		}
+
 		if all[r.Client] == nil {
 			all[r.Client] = map[string]*echoRecord{}
 		}
+
 		all[r.Client][r.Endpoint] = &r
 
 		return nil
 	})
+
 	if errors.Is(err, fs.ErrNotExist) {
 		return all, nil
 	}
@@ -407,26 +471,32 @@ func loadEchoes(out string) (map[string]map[string]*echoRecord, error) {
 func sitesTable(out string) string {
 	files, _ := filepath.Glob(filepath.Join(out, "sites", "*.json"))
 	bySite := map[string][]siteRecord{}
+
 	for _, f := range files {
 		data, err := os.ReadFile(f)
 		if err != nil {
 			continue
 		}
+
 		var rs []siteRecord
 		if json.Unmarshal(data, &rs) != nil {
 			continue
 		}
+
 		for _, r := range rs {
 			bySite[r.URL] = append(bySite[r.URL], r)
 		}
 	}
+
 	var b strings.Builder
 	b.WriteString("# Protected sites\n\n| Site (vendor) | Client | Status | Proto | Markers | Vendor cookies | Title | Bytes | Settled (browser) |\n|---|---|---|---|---|---|---|---|---|\n")
+
 	for _, s := range sites {
 		rs := bySite[s.url]
 		slices.SortFunc(rs, func(a, b siteRecord) int {
 			return strings.Compare(clientOrder(a.Client), clientOrder(b.Client))
 		})
+
 		for _, r := range rs {
 			var vc []string
 			for _, m := range r.Markers {
@@ -434,12 +504,14 @@ func sitesTable(out string) string {
 					vc = append(vc, c)
 				}
 			}
+
 			var ms []string
 			for _, m := range r.Markers {
 				if !strings.HasPrefix(m, "cookie:") {
 					ms = append(ms, m)
 				}
 			}
+
 			for _, c := range r.Cookies {
 				for _, m := range markers(0, nil, []string{c}, "") {
 					if c2, ok := strings.CutPrefix(m, "cookie:"); ok && !slices.Contains(vc, c2) {
@@ -447,6 +519,7 @@ func sitesTable(out string) string {
 					}
 				}
 			}
+
 			settledCell := ""
 			if r.Settled != nil {
 				var sm []string
@@ -455,15 +528,19 @@ func sitesTable(out string) string {
 						sm = append(sm, m)
 					}
 				}
+
 				settledCell = cell(r.Settled.Title, 40) + " " + strings.Join(sm, " ")
 			}
+
 			status := fmt.Sprint(r.Status)
 			if r.Status == 0 {
 				status = "–"
 			}
+
 			if r.Err != "" {
 				status += " error: " + cell(r.Err, 80)
 			}
+
 			fmt.Fprintf(&b, "| %s (%s) | %s | %s | %s | %s | %s | %s | %d | %s |\n", s.url, s.vendor, r.Client, status, r.Proto,
 				strings.Join(ms, " "), strings.Join(vc, " "), cell(r.Title, 50), r.Bytes, settledCell)
 		}
@@ -490,9 +567,11 @@ func cell(s string, n int) string {
 	if s == "" {
 		return "–"
 	}
+
 	if n > 0 && len(s) > n {
 		s = s[:n] + "…"
 	}
+
 	s = strings.ReplaceAll(s, "|", `\|`)
 	s = strings.ReplaceAll(s, "`", "'")
 

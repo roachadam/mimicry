@@ -191,12 +191,14 @@ var servers = []server{
 func lsquicOverrides() map[string]override {
 	why := "http3: its hq modes answer negotiated h3 as HTTP/0.9"
 	ovs := map[string]override{}
+
 	for _, tc := range []string{"handshake", "transfer", "multiconnect", "resumption", "zerortt", "chacha20"} {
 		ovs[tc] = override{
 			testcase: "http3",
 			why:      why,
 		}
 	}
+
 	ovs["retry"] = override{
 		testcase: "http3",
 		prelude:  `sed -i "s/^\( *VERSIONS='-o version=h3-29 -o version=h3'\)$/\1; FORCE_RETRY=1/" /run_endpoint.sh`,
@@ -234,14 +236,17 @@ func newLocalSetup(ctx context.Context, dir string) (*localSetup, error) {
 			return nil, err
 		}
 	}
+
 	if err := s.loadCerts(); err != nil {
 		if err := s.writeCerts(); err != nil {
 			return nil, err
 		}
 	}
+
 	if err := s.writeFiles(); err != nil {
 		return nil, err
 	}
+
 	// The simulator's routes would cut the container off docker's own
 	// network; the runner's addresses (lsquic binds server4's) are put
 	// on the loopback interface instead.
@@ -252,6 +257,7 @@ func newLocalSetup(ctx context.Context, dir string) (*localSetup, error) {
 	if err := os.WriteFile(filepath.Join(dir, "setup.sh"), []byte(setup), 0o755); err != nil { //nolint:gosec // the containers execute it
 		return nil, err
 	}
+
 	var err error
 	if s.resolver, err = loopbackResolver(ctx); err != nil {
 		return nil, err
@@ -264,24 +270,30 @@ func (s *localSetup) loadCerts() error {
 	read := func(name string) ([]byte, error) {
 		return os.ReadFile(filepath.Join(s.dir, "certs", name))
 	}
+
 	caPEM, err := read("ca.pem")
 	if err != nil {
 		return err
 	}
+
 	certPEM, err := read("cert.pem")
 	if err != nil {
 		return err
 	}
+
 	keyPEM, err := read("priv.key")
 	if err != nil {
 		return err
 	}
+
 	if s.cert, err = tls.X509KeyPair(certPEM, keyPEM); err != nil {
 		return err
 	}
+
 	if time.Now().After(s.cert.Leaf.NotAfter) {
 		return errors.New("expired")
 	}
+
 	s.roots = x509.NewCertPool()
 	if !s.roots.AppendCertsFromPEM(caPEM) {
 		return errors.New("no CA")
@@ -292,10 +304,12 @@ func (s *localSetup) loadCerts() error {
 
 func (s *localSetup) writeCerts() error {
 	now := time.Now()
+
 	caKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return err
 	}
+
 	caTmpl := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
@@ -307,18 +321,22 @@ func (s *localSetup) writeCerts() error {
 		KeyUsage:              x509.KeyUsageCertSign,
 		BasicConstraintsValid: true,
 	}
+
 	caDER, err := x509.CreateCertificate(rand.Reader, caTmpl, caTmpl, &caKey.PublicKey, caKey)
 	if err != nil {
 		return err
 	}
+
 	ca, err := x509.ParseCertificate(caDER)
 	if err != nil {
 		return err
 	}
+
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return err
 	}
+
 	tmpl := &x509.Certificate{
 		SerialNumber: big.NewInt(2),
 		Subject: pkix.Name{
@@ -331,14 +349,17 @@ func (s *localSetup) writeCerts() error {
 		KeyUsage:    x509.KeyUsageDigitalSignature,
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 	}
+
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, ca, &key.PublicKey, caKey)
 	if err != nil {
 		return err
 	}
+
 	keyDER, err := x509.MarshalPKCS8PrivateKey(key)
 	if err != nil {
 		return err
 	}
+
 	certPEM := pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: der,
@@ -351,6 +372,7 @@ func (s *localSetup) writeCerts() error {
 		Type:  "CERTIFICATE",
 		Bytes: caDER,
 	})
+
 	for name, data := range map[string][]byte{
 		"cert.pem": certPEM,
 		"priv.key": keyPEM,
@@ -360,8 +382,10 @@ func (s *localSetup) writeCerts() error {
 			return err
 		}
 	}
+
 	s.roots = x509.NewCertPool()
 	s.roots.AddCert(ca)
+
 	s.cert, err = tls.X509KeyPair(certPEM, keyPEM)
 
 	return err
@@ -378,18 +402,22 @@ func (s *localSetup) writeFiles() error {
 	for i := range multiplexFiles {
 		sizes[multiplexPath(i)] = multiplexSize
 	}
+
 	for p, n := range sizes {
 		path := filepath.Join(s.dir, "www", p)
 		b, err := os.ReadFile(path)
+
 		if err != nil || len(b) != n {
 			b = make([]byte, n)
 			if _, err := rand.Read(b); err != nil {
 				return err
 			}
+
 			if err := os.WriteFile(path, b, 0o644); err != nil { //nolint:gosec // the containers' users read them
 				return err
 			}
 		}
+
 		s.files[p] = sha256.Sum256(b)
 	}
 
@@ -418,10 +446,12 @@ func (s *localSetup) startServer(ctx context.Context, srv server, testcase, logs
 	if err := os.MkdirAll(logs, 0o750); err != nil {
 		return nil, err
 	}
+
 	ln, port, err := listenPair(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	ov := srv.overrides[testcase]
 	c := &container{
 		name:     fmt.Sprintf("mimicry-interop-%s-%s-%d", srv.name, testcase, port),
@@ -430,9 +460,11 @@ func (s *localSetup) startServer(ctx context.Context, srv server, testcase, logs
 		testcase: testcase,
 		override: ov.why,
 	}
+
 	if ov.testcase != "" {
 		c.testcase = ov.testcase
 	}
+
 	args := []string{
 		"run", "-d", "--name", c.name, "--cap-add", "NET_ADMIN",
 		"-e", "REQUESTS=",
@@ -451,25 +483,32 @@ func (s *localSetup) startServer(ctx context.Context, srv server, testcase, logs
 	for _, kv := range ov.env {
 		args = append(args, "-e", kv)
 	}
+
 	if srv.platform != "" {
 		args = append(args, "--platform", srv.platform)
 	}
+
 	if ov.prelude != "" {
 		out, err := exec.CommandContext(ctx, "docker", "inspect", "-f", `{{join .Config.Entrypoint " "}}`, srv.image).Output() //nolint:gosec // an image from this tool's own list
 		if err != nil {
 			_ = ln.Close()
 			return nil, fmt.Errorf("docker inspect %s: %w", srv.image, err)
 		}
+
 		args = append(args, "--entrypoint", "/bin/bash", srv.image, "-c", ov.prelude+" && exec "+strings.TrimSpace(string(out)))
 	} else {
 		args = append(args, srv.image)
 	}
+
 	if out, err := exec.CommandContext(ctx, "docker", args...).CombinedOutput(); err != nil { //nolint:gosec // arguments from this tool's own server list
 		_ = ln.Close()
 		return nil, fmt.Errorf("docker run %s: %w: %s", srv.image, err, bytes.TrimSpace(out))
 	}
+
 	c.front = s.startFront(ln, port)
+
 	peer := netip.AddrPortFrom(netip.MustParseAddr("127.0.0.1"), port)
+
 	for range 15 {
 		if c.ready = waitReady(ctx, peer, 2*time.Second); c.ready || c.exited(ctx) != "" {
 			break
@@ -503,10 +542,12 @@ func (c *container) exited(ctx context.Context) string {
 	if c.name == "" {
 		return ""
 	}
+
 	out, err := exec.CommandContext(ctx, "docker", "inspect", "-f", "{{.State.Running}} {{.State.ExitCode}}", c.name).Output() //nolint:gosec // a container this tool named
 	if err != nil || strings.HasPrefix(string(out), "true") {
 		return ""
 	}
+
 	logs, _ := exec.CommandContext(ctx, "docker", "logs", "--tail", "2", c.name).CombinedOutput() //nolint:gosec // a container this tool named
 
 	return fmt.Sprintf("exit %s: %s", strings.Fields(string(out))[1], strings.Join(strings.Fields(string(logs)), " "))
@@ -516,11 +557,14 @@ func (c *container) exited(ctx context.Context) string {
 func (c *container) stop() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+
 	if c.name != "" {
 		out, _ := exec.CommandContext(ctx, "docker", "logs", c.name).CombinedOutput() //nolint:gosec // a container this tool named
+
 		_ = os.WriteFile(filepath.Join(c.logs, "docker.log"), out, 0o600)
 		_ = exec.CommandContext(ctx, "docker", "rm", "-f", c.name).Run() //nolint:gosec // a container this tool named
 	}
+
 	if c.front != nil {
 		_ = c.front.Close()
 	}
@@ -528,6 +572,7 @@ func (c *container) stop() {
 
 func altSvcHandler(port uint16, h http.Handler) http.Handler {
 	alt := fmt.Sprintf(`h3=":%d"; ma=86400`, port)
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Alt-Svc", alt)
 		h.ServeHTTP(w, r)
@@ -552,16 +597,19 @@ func listenPair(ctx context.Context) (net.Listener, uint16, error) {
 		if err != nil {
 			return nil, 0, err
 		}
+
 		port, err := tcpPort(ln)
 		if err != nil {
 			_ = ln.Close()
 			return nil, 0, err
 		}
+
 		pc, err := lc.ListenPacket(ctx, "udp4", "127.0.0.1:"+strconv.Itoa(port))
 		if err != nil {
 			_ = ln.Close()
 			continue
 		}
+
 		_ = pc.Close()
 
 		return ln, uint16(port), nil
@@ -578,20 +626,28 @@ func waitReady(ctx context.Context, peer netip.AddrPort, d time.Duration) bool {
 	if err != nil {
 		return false
 	}
+
 	defer func() {
 		_ = pc.Close()
 	}()
+
 	probe := make([]byte, 1200)
+
 	probe[0] = 0xc0
 	copy(probe[1:5], []byte{0x1a, 0x2a, 0x3a, 0x4a})
+
 	probe[5] = 8
 	copy(probe[6:14], "mimicry!")
+
 	buf := make([]byte, 1500)
 	deadline := time.Now().Add(d)
+
 	for time.Now().Before(deadline) && ctx.Err() == nil {
 		_, _ = pc.WriteToUDPAddrPort(probe, peer)
 		_ = pc.SetReadDeadline(time.Now().Add(300 * time.Millisecond))
+
 		n, _, err := pc.ReadFromUDPAddrPort(buf)
+
 		if err == nil && n >= 5 && buf[0]&0x80 != 0 && bytes.Equal(buf[1:5], []byte{0, 0, 0, 0}) {
 			return true
 		}
@@ -612,6 +668,7 @@ func localGroups(selected []caseDef) [][]caseDef {
 			groups = append(groups, []caseDef{c})
 			continue
 		}
+
 		groups[i] = append(groups[i], c)
 	}
 
@@ -636,10 +693,12 @@ func (s *localSetup) runServer(ctx context.Context, srv server, selected []caseD
 func (s *localSetup) runGroup(ctx context.Context, srv server, group []caseDef, profiles []namedProfile, out string, seed uint64) []result {
 	testcase := group[0].testcase
 	logs := filepath.Join(out, "local", srv.name, testcase)
+
 	c, err := s.startServer(ctx, srv, testcase, filepath.Join(logs, "server"))
 	if err != nil {
 		return groupResults(srv, group, profiles, testcase, fail, err.Error())
 	}
+
 	fallback := ""
 	if _, overridden := srv.overrides[testcase]; c.testcase != "http3" && !overridden {
 		why := ""
@@ -648,24 +707,31 @@ func (s *localSetup) runGroup(ctx context.Context, srv server, group []caseDef, 
 		} else if r := s.check(ctx, c, profiles[0], filepath.Join(logs, "alpn-check"), seed); strings.Contains(r.Err, "CRYPTO_ERROR(") {
 			why = "offers no h3 (" + r.Err + ")"
 		}
+
 		if why != "" {
 			c.stop()
 			log.Printf("%s: %s mode %s; running it as http3", srv.name, testcase, why)
+
 			fallback = testcase
 			logs = filepath.Join(out, "local", srv.name, fallback+"-as-http3")
+
 			if c, err = s.startServer(ctx, srv, "http3", filepath.Join(logs, "server")); err != nil {
 				return groupResults(srv, group, profiles, "http3", fail, err.Error())
 			}
 		}
 	}
+
 	defer c.stop()
+
 	mode := c.testcase
 	if c.override != "" {
 		mode += " (override: " + c.override + ")"
 	}
+
 	if exit := c.exited(ctx); exit != "" {
 		return groupResults(srv, group, profiles, mode, na, "the server does not run in "+c.testcase+" mode ("+exit+")")
 	}
+
 	if !c.ready {
 		log.Printf("%s/%s: no Version Negotiation reply within 30 s; running anyway", srv.name, c.testcase)
 	}
@@ -679,11 +745,15 @@ func (s *localSetup) runAddr(ctx context.Context, port uint16, selected []caseDe
 	c := &container{
 		port: port,
 	}
+
 	var lc net.ListenConfig
+
 	if ln, err := lc.Listen(ctx, "tcp4", net.JoinHostPort("127.0.0.1", strconv.Itoa(int(port)))); err == nil {
 		c.front = s.startFront(ln, port)
 	}
+
 	defer c.stop()
+
 	logs := filepath.Join(out, "local", "addr")
 
 	return s.runCases(ctx, c, "addr", "", "", selected, profiles, logs, seed)
@@ -697,7 +767,9 @@ func (s *localSetup) runCases(ctx context.Context, c *container, target, mode, f
 		first := s.check(ctx, c, np, filepath.Join(logs, "check", np.name), seed)
 		for _, cd := range group {
 			dir := filepath.Join(logs, cd.name, np.name)
+
 			_ = os.MkdirAll(dir, 0o750)
+
 			r := result{
 				Target:         target,
 				Case:           cd.name,
@@ -706,6 +778,7 @@ func (s *localSetup) runCases(ctx context.Context, c *container, target, mode, f
 				ServerTestcase: mode,
 				Dir:            dir,
 			}
+
 			if first.Outcome != pass {
 				r.Outcome, r.Err, r.Conns = fail, "first handshake: "+first.Err, first.Conns
 				if strings.Contains(first.Err, "CRYPTO_ERROR(120)") {
@@ -727,14 +800,19 @@ func (s *localSetup) runCases(ctx context.Context, c *container, target, mode, f
 				}
 				cctx, cancel := context.WithTimeout(ctx, cd.timeout)
 				start := time.Now()
+
 				cd.run(cctx, env, &r)
+
 				r.MS = ms(time.Since(start))
 				if r.Outcome == fail && cctx.Err() != nil && !strings.Contains(r.Err, "deadline") {
 					r.Err += fmt.Sprintf(" (case timed out after %s)", cd.timeout)
 				}
+
 				cancel()
 			}
+
 			log.Printf("%-9s %-20s %-17s %-4s %s %s", target, cd.name, np.name, r.Outcome, r.Note, r.Err)
+
 			results = append(results, r)
 		}
 	}
@@ -745,6 +823,7 @@ func (s *localSetup) runCases(ctx context.Context, c *container, target, mode, f
 // check is a plain handshake and GET of the small file.
 func (s *localSetup) check(ctx context.Context, c *container, np namedProfile, dir string, seed uint64) result {
 	_ = os.MkdirAll(dir, 0o750)
+
 	r := result{
 		Outcome: pass,
 	}
@@ -758,7 +837,9 @@ func (s *localSetup) check(ctx context.Context, c *container, np namedProfile, d
 		seed:    seed,
 	}
 	cctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+
 	defer cancel()
+
 	oneConn(cctx, env, &r, impairment{}, false, fileSmall)
 
 	return r
@@ -781,6 +862,7 @@ func groupResults(srv server, group []caseDef, profiles []namedProfile, testcase
 			} else {
 				r.Note = note
 			}
+
 			results = append(results, r)
 		}
 	}

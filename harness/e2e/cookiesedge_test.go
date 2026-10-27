@@ -25,24 +25,30 @@ func TestCookiesEdgeMatchesBrowser(t *testing.T) {
 // header with every sample of the browser's capture of sc.
 func matchCookiesEdgePage(t *testing.T, sc *server.Scenario, steps []server.CookiesEdgeStep) {
 	t.Helper()
+
 	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
 			p, err := loadProfile(name)
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			want, err := loadPages(t, p, sc.Name, ".pagetrace.json.gz")
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			plain := edgeSchemes(t, want, steps)
 			got := runCookiesEdgePage(t, p, sc, steps, plain)
+
 			for _, st := range steps {
 				g, ok := edgeCookie(got, st, plain[st.Label])
 				if !ok {
 					t.Errorf("%s: mimicry did not send it", st.Label)
+
 					continue
 				}
+
 				for i, w := range want {
 					if wc, _ := edgeCookie(w, st, plain[st.Label]); wc != g {
 						t.Errorf("%s: Cookie\n%q\nbrowser sample %d:\n%q", st.Label, g, i, wc)
@@ -60,19 +66,24 @@ func matchCookiesEdgePage(t *testing.T, sc *server.Scenario, steps []server.Cook
 // logged.
 func edgeSchemes(t *testing.T, pages []*capture.Page, steps []server.CookiesEdgeStep) map[string]bool {
 	t.Helper()
+
 	out := map[string]bool{}
 	for _, st := range steps {
 		for i, page := range pages {
 			_, h1 := edgeCookie(page, st, true)
 			_, h2 := edgeCookie(page, st, false)
+
 			if h1 == h2 {
 				t.Fatalf("%s: browser sample %d sent it over plain HTTP %v and HTTPS %v", st.Label, i, h1, h2)
 			}
+
 			if prev, ok := out[st.Label]; ok && prev != h1 {
 				t.Fatalf("%s: browser samples differ in scheme", st.Label)
 			}
+
 			out[st.Label] = h1
 		}
+
 		if st.Plain && !out[st.Label] {
 			t.Logf("%s: the browser upgraded it to https://, replayed so", st.Label)
 		}
@@ -96,9 +107,11 @@ func edgeCookie(page *capture.Page, st server.CookiesEdgeStep, plain bool) (stri
 		for _, r := range page.H1 {
 			_, rest, _ := strings.Cut(r.Line, " ")
 			target, _, _ := strings.Cut(rest, " ")
+
 			if target != st.Path || !sameHost(r.Host) {
 				continue
 			}
+
 			var crumbs []string
 			for _, l := range r.Headers {
 				if k, v, _ := strings.Cut(l, ":"); strings.EqualFold(k, "cookie") {
@@ -111,14 +124,17 @@ func edgeCookie(page *capture.Page, st server.CookiesEdgeStep, plain bool) (stri
 
 		return "", false
 	}
+
 	for _, tr := range page.H2 {
 		if !sameHost(tr.Host) {
 			continue
 		}
+
 		for _, r := range tr.Requests {
 			if r.Path != st.Path {
 				continue
 			}
+
 			var crumbs []string
 			for _, ins := range r.Instructions {
 				if ins.Name == "cookie" {
@@ -141,19 +157,24 @@ func edgeCookie(page *capture.Page, st server.CookiesEdgeStep, plain bool) (stri
 // plain port if it has one.
 func runCookiesEdgePage(t *testing.T, p *profile.Profile, sc *server.Scenario, steps []server.CookiesEdgeStep, plain map[string]bool) *capture.Page {
 	t.Helper()
+
 	s := startPage(t, p, sc)
 	s.planEvery()
+
 	target := func(st server.CookiesEdgeStep) *url.URL {
 		scheme, port := "https", s.port
 		if plain[st.Label] {
 			scheme = "http"
 		}
+
 		if st.Plain && s.plainPort != "" {
 			if !plain[st.Label] {
 				t.Fatalf("%s: the capture has it over https://, on a port without TLS", st.Label)
 			}
+
 			port = s.plainPort
 		}
+
 		u, err := url.Parse(scheme + "://" + net.JoinHostPort(st.Host, port) + st.Path)
 		if err != nil {
 			t.Fatal(err)
@@ -161,7 +182,9 @@ func runCookiesEdgePage(t *testing.T, p *profile.Profile, sc *server.Scenario, s
 
 		return u
 	}
+
 	var page *url.URL
+
 	for _, st := range steps {
 		u := target(st)
 		if st.Nav {
@@ -171,14 +194,17 @@ func runCookiesEdgePage(t *testing.T, p *profile.Profile, sc *server.Scenario, s
 					"Sec-Fetch-User": nil,
 				}
 			}
+
 			s.send(http.MethodGet, u.String(), mimicry.Request{
 				Kind: mimicry.Navigate,
 				From: page,
 			}, h, "")
+
 			page = u
 
 			continue
 		}
+
 		s.send(http.MethodGet, u.String(), mimicry.Request{
 			Kind:        mimicry.Fetch,
 			From:        page,

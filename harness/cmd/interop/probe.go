@@ -94,10 +94,12 @@ func (pr *prober) dial(ctx context.Context, host string, peer netip.AddrPort, im
 	if peer.Addr().Is6() && !peer.Addr().Is4In6() {
 		network, local = "udp6", "[::]:0"
 	}
+
 	pc, err := (&net.ListenConfig{}).ListenPacket(ctx, network, local)
 	if err != nil {
 		return nil, err
 	}
+
 	seed := pr.seed.Add(1)
 	t := newTap(pc, imp, pr.p.QUIC.SCIDLength, seed)
 	c := &probeConn{
@@ -112,15 +114,19 @@ func (pr *prober) dial(ctx context.Context, host string, peer netip.AddrPort, im
 	}
 	hello := pr.plan.QUICHello()
 	pr.mu.Lock()
+
 	rtt, token := pr.rtt, pr.token
 	held := pr.held
+
 	pr.held = nil
 	pr.mu.Unlock()
+
 	if pr.resumes() {
 		cfg.Tickets, cfg.TicketKey = pr.tickets, ticketKey
 		if cfg.Ticket = held; cfg.Ticket == nil {
 			cfg.Ticket = pr.tickets.Take(ticketKey)
 		}
+
 		if cfg.Ticket != nil {
 			hello = pr.plan.ResumedQUICHello()
 			c.offeredPSK = true
@@ -128,20 +134,26 @@ func (pr *prober) dial(ctx context.Context, host string, peer netip.AddrPort, im
 			rtt = 0
 		}
 	}
+
 	spec, err := handshake.Spec(hello)
 	if err != nil {
 		_ = pc.Close()
 		return nil, err
 	}
+
 	tlsConfig := handshake.QUICConfig(cfg)
+
 	var keyLog io.Writer
+
 	if pr.dir != "" {
 		f, err := os.Create(filepath.Join(pr.dir, c.name+".keys"))
 		if err == nil {
 			keyLog, c.keys = f, f
 		}
 	}
+
 	tlsConfig.KeyLogWriter = t.keyLogWriter(keyLog)
+
 	dc := quic.DialConfig{
 		Profile:   pr.p.QUIC,
 		Hello:     spec,
@@ -151,23 +163,32 @@ func (pr *prober) dial(ctx context.Context, host string, peer netip.AddrPort, im
 		OnToken: func(b []byte) {
 			pr.mu.Lock()
 			defer pr.mu.Unlock()
+
 			pr.token = b
 		},
 	}
+
 	if pr.p.QUIC.Tokens {
 		dc.Token = token
 	}
+
 	if cfg.Ticket != nil {
 		dc.Version = quic.TicketVersion(cfg.Ticket.Extra())
 	}
+
 	start := time.Now()
 	qc, err := quic.Dial(ctx, t, peer, dc)
+
 	c.dialed = time.Since(start)
+
 	if err != nil {
 		pr.save(c)
+
 		return c, err
 	}
+
 	c.qc = qc
+
 	hc, err := h3.New(qc, pr.p, h3.Options{
 		AltHost: host,
 		AltPort: c.port,
@@ -175,8 +196,10 @@ func (pr *prober) dial(ctx context.Context, host string, peer netip.AddrPort, im
 	})
 	if err != nil {
 		pr.save(c)
+
 		return c, err
 	}
+
 	c.hc = hc
 
 	return c, nil
@@ -188,21 +211,26 @@ func (pr *prober) close(c *probeConn) {
 	if c == nil {
 		return
 	}
+
 	if c.qc != nil {
 		select {
 		case <-c.qc.Done():
 		default:
 			rtt := c.qc.SmoothedRTT()
+
 			pr.mu.Lock()
+
 			pr.rtt = rtt
 			pr.mu.Unlock()
 		}
 	}
+
 	if c.hc != nil {
 		_ = c.hc.Close()
 	} else if c.qc != nil {
 		_ = c.qc.Close()
 	}
+
 	pr.save(c)
 }
 
@@ -211,6 +239,7 @@ func (pr *prober) save(c *probeConn) {
 	if pr.dir == "" || c == nil {
 		return
 	}
+
 	_ = c.tap.writeTrace(filepath.Join(pr.dir, c.name+".trace.json"))
 	if c.keys != nil {
 		_ = c.keys.Close()
@@ -251,26 +280,34 @@ func (c *probeConn) facts() connFacts {
 		VN:          st.VN,
 		Stats:       st,
 	}
+
 	if len(st.Versions) > 0 {
 		f.Version = fmt.Sprintf("%#08x", st.Versions[len(st.Versions)-1])
 	}
+
 	if c.qc == nil {
 		return f
 	}
+
 	cs := c.qc.ConnectionState()
+
 	f.Handshake = cs.HandshakeComplete
 	f.Resumed = cs.DidResume
 	f.ALPN = cs.NegotiatedProtocol
+
 	if cs.CipherSuite != 0 {
 		f.Cipher = fmt.Sprintf("%#04x", cs.CipherSuite)
 	}
+
 	f.EarlyData = c.qc.EarlyData()
 	f.ServerKU, f.ClientKU, f.KUKnown = c.tap.keyUpdates(cs.CipherSuite)
+
 	select {
 	case <-c.qc.Done():
 		if err := c.qc.Err(); err != nil {
 			f.CloseErr = err.Error()
 		}
+
 	default:
 	}
 
@@ -293,34 +330,44 @@ func (pr *prober) get(ctx context.Context, c *probeConn, path string) (out fetch
 	out = fetched{
 		Path: path,
 	}
+
 	start := time.Now()
+
 	defer func() {
 		out.MS = ms(time.Since(start))
 	}()
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://"+authority(c.host, c.port)+path, nil)
 	if err != nil {
 		out.Err = err.Error()
 		return out
 	}
+
 	for _, h := range pr.p.Headers {
 		if h.Value != "" {
 			req.Header.Set(h.Name, h.Value)
 		}
 	}
+
 	resp, err := c.hc.RoundTrip(req)
 	if err != nil {
 		out.Err = err.Error()
 		return out
 	}
+
 	defer func() {
 		_ = resp.Body.Close()
 	}()
+
 	out.Status, out.Proto = resp.StatusCode, resp.Proto
+
 	h := sha256.New()
+
 	out.Bytes, err = io.Copy(h, resp.Body)
 	if err != nil {
 		out.Err = err.Error()
 	}
+
 	copy(out.sum[:], h.Sum(nil))
 
 	return out
@@ -341,15 +388,18 @@ func (pr *prober) waitTicket(ctx context.Context, d time.Duration) bool {
 	if !pr.resumes() {
 		return false
 	}
+
 	deadline := time.Now().Add(d)
 	for time.Now().Before(deadline) && ctx.Err() == nil {
 		if t := pr.tickets.Take(ticketKey); t != nil {
 			pr.mu.Lock()
+
 			pr.held = t
 			pr.mu.Unlock()
 
 			return true
 		}
+
 		time.Sleep(20 * time.Millisecond)
 	}
 
@@ -365,6 +415,7 @@ func errString(err error) string {
 	if err == nil {
 		return ""
 	}
+
 	if ce, ok := errors.AsType[*quic.ConnectionCloseError](err); ok {
 		return fmt.Sprintf("peer application close %#x: %s", ce.Code, ce.Reason)
 	}

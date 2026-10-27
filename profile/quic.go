@@ -288,10 +288,12 @@ func (c *QUICErrorCode) UnmarshalText(text []byte) error {
 	if !ok || s == "" {
 		return fmt.Errorf("QUIC error code %q: want 0x and hex digits", text)
 	}
+
 	v, err := strconv.ParseUint(s, 16, 62)
 	if err != nil {
 		return fmt.Errorf("QUIC error code %q: %w", text, err)
 	}
+
 	*c = QUICErrorCode(v)
 
 	return nil
@@ -504,14 +506,17 @@ func (id *TransportParameterID) UnmarshalText(text []byte) error {
 		*id = GREASETransportParameter
 		return nil
 	}
+
 	digits, ok := strings.CutPrefix(s, "0x")
 	if !ok || digits == "" || len(digits) > 16 {
 		return fmt.Errorf("invalid transport parameter %q: want \"GREASE\" or 0x followed by hex digits", s)
 	}
+
 	v, err := strconv.ParseUint(digits, 16, 62)
 	if err != nil {
 		return fmt.Errorf("invalid transport parameter %q: %w", s, err)
 	}
+
 	*id = TransportParameterID(v)
 
 	return nil
@@ -552,18 +557,22 @@ func (v *QUICVersion) UnmarshalText(text []byte) error {
 		*v = GREASEVersion
 		return nil
 	}
+
 	digits, ok := strings.CutPrefix(s, "0x")
 	if !ok || digits == "" || len(digits) > 8 {
 		return fmt.Errorf("invalid QUIC version %q: want \"GREASE\" or 0x followed by 1-8 hex digits", s)
 	}
+
 	n, err := strconv.ParseUint(digits, 16, 32)
 	if err != nil {
 		return fmt.Errorf("invalid QUIC version %q: %w", s, err)
 	}
+
 	if IsGREASEVersion(uint32(n)) {
 		*v = GREASEVersion
 		return nil
 	}
+
 	*v = QUICVersion(n)
 
 	return nil

@@ -66,11 +66,13 @@ func (b *Browser) Conditions(t Target) []string {
 	if !t.H3LocalRoots {
 		return nil
 	}
+
 	switch b.Name {
 	case "chrome":
 		return []string{
 			"--origin-to-force-quic-on=" + chromeQUICOrigins(t) + ": Chrome refuses a QUIC certificate not issued by a known root (ERR_QUIC_CERT_ROOT_NOT_KNOWN, net/quic/crypto/proof_verifier_chromium.cc) unless its host is among these origins' hosts; it forces QUIC only on these origins, whose port the page never uses, so HTTP/3 is still discovered through Alt-Svc",
 		}
+
 	case "firefox":
 		return []string{
 			`network.http.http3.disable_when_third_party_roots_found=false: Firefox abandons an HTTP/3 connection whose certificate chain ends at a root that is not built in (Http3Session::Authenticated), as the capture CA's, trusted through security.enterprise_roots.enabled`,
@@ -85,6 +87,7 @@ func (b *Browser) Conditions(t Target) []string {
 func chromeQUICOrigins(t Target) string {
 	hosts := append([]string{t.Host}, t.Hosts...)
 	origins := make([]string, len(hosts))
+
 	for i, h := range hosts {
 		origins[i] = h + ":" + strconv.Itoa(h3UnusedPort)
 	}
@@ -97,6 +100,7 @@ func (t Target) url(host string) string {
 	if t.Plain {
 		scheme = "http://"
 	}
+
 	path := t.Path
 	if path == "" {
 		path = "/"
@@ -161,6 +165,7 @@ func Find() []*Browser {
 				b.App = app
 			}
 		}
+
 		if b.App == "" {
 			for _, cmd := range linuxCommands[name] {
 				if p, err := exec.LookPath(cmd); err == nil {
@@ -169,22 +174,27 @@ func Find() []*Browser {
 				}
 			}
 		}
+
 		if b.App == "" && b.Path == "" {
 			continue
 		}
+
 		switch name {
 		case "chrome":
 			b.prepare = chromeArgs
 			b.warmup = chromeWarmup
 			b.binary = b.Path
+
 			if b.App != "" {
 				b.binary = filepath.Join(b.App, "Contents", "MacOS", "Google Chrome")
 			}
+
 		case "firefox":
 			b.prepare = firefoxProfile
 		case "safari":
 			b.Shared = true
 		}
+
 		found = append(found, b)
 	}
 
@@ -221,16 +231,19 @@ func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, 
 	if t.ProxyAuth != nil && t.ClickTitle != "" {
 		return nil, errors.New("a capture both answering proxy challenges and clicking is not supported")
 	}
+
 	if b.Shared {
 		if t.ClickTitle != "" {
 			if err := safariCanClick(ctx); err != nil {
 				return nil, err
 			}
 		}
+
 		url := b.URL(t)
 		if err := exec.CommandContext(ctx, "open", "-a", b.App, url).Run(); err != nil { //nolint:gosec // the app is a known browser location
 			return nil, fmt.Errorf("opening %s: %w", b.Name, err)
 		}
+
 		s := &Session{
 			tabURL: url,
 		}
@@ -240,10 +253,12 @@ func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, 
 
 		return s, nil
 	}
+
 	dir, err := os.MkdirTemp("", "mimicry-"+b.Name+"-")
 	if err != nil {
 		return nil, err
 	}
+
 	// Firefox meets the proxy challenge on its first page, so with ProxyAuth
 	// it starts on about:blank and is navigated once the intercept is set.
 	bidi := t.ProxyAuth != nil && b.Name == "firefox"
@@ -253,20 +268,24 @@ func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, 
 			return nil, err
 		}
 	}
+
 	args, err := b.prepare(dir, t, headless)
 	if err != nil {
 		_ = os.RemoveAll(dir)
 		return nil, err
 	}
+
 	if b.warmup > 0 || bidi {
 		args = append(args, "about:blank")
 	} else {
 		args = append(args, b.URL(t))
 	}
+
 	s, err := b.start(ctx, dir, args)
 	if err != nil {
 		return nil, err
 	}
+
 	if t.ProxyAuth != nil {
 		switch {
 		case bidi:
@@ -276,17 +295,20 @@ func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, 
 		default:
 			err = fmt.Errorf("%s cannot be given proxy credentials", b.Name)
 		}
+
 		if err != nil {
 			_ = s.Close()
 			return nil, err
 		}
 	}
+
 	if b.warmup > 0 {
 		if err := b.handOff(ctx, s, dir, b.URL(t)); err != nil {
 			_ = s.Close()
 			return nil, err
 		}
 	}
+
 	if t.ClickTitle != "" {
 		switch b.Name {
 		case "chrome":
@@ -296,6 +318,7 @@ func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, 
 		default:
 			err = fmt.Errorf("%s cannot be clicked", b.Name)
 		}
+
 		if err != nil {
 			_ = s.Close()
 			return nil, err
@@ -315,6 +338,7 @@ func (b *Browser) handOff(ctx context.Context, s *Session, dir, url string) erro
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+
 	if out, err := exec.CommandContext(ctx, b.binary, "--user-data-dir="+dir, url).CombinedOutput(); err != nil { //nolint:gosec // the binary is a known browser location; dir is our own
 		return fmt.Errorf("handing %s the capture URL: %w: %s", b.Name, err, strings.TrimSpace(string(out)))
 	}
@@ -333,18 +357,22 @@ func (b *Browser) start(ctx context.Context, dir string, args []string) (*Sessio
 	} else {
 		cmd = exec.CommandContext(ctx, b.Path, args...) //nolint:gosec // the path is a known browser location
 	}
+
 	if err := cmd.Start(); err != nil {
 		_ = os.RemoveAll(dir)
 		return nil, fmt.Errorf("starting %s: %w", b.Name, err)
 	}
+
 	s := &Session{
 		cmd:  cmd,
 		dir:  dir,
 		app:  b.App != "",
 		done: make(chan struct{}),
 	}
+
 	go func() {
 		_ = cmd.Wait()
+
 		close(s.done)
 	}()
 
@@ -358,6 +386,7 @@ func (s *Session) Close() error {
 	if s.clicker != nil {
 		clickErr = s.clicker.Close()
 	}
+
 	if s.devtools != nil {
 		_ = s.devtools.Close()
 	}
@@ -376,13 +405,16 @@ func (s *Session) quit() error {
 
 		return nil
 	}
+
 	s.stop(false)
+
 	select {
 	case <-s.done:
 	case <-time.After(5 * time.Second):
 		s.stop(true)
 		<-s.done
 	}
+
 	// Helper processes (Chrome's renderers, Firefox's content processes) can
 	// outlive the main one by a moment and keep writing to the profile.
 	if s.app {
@@ -390,6 +422,7 @@ func (s *Session) quit() error {
 			if exec.Command("pgrep", "-f", s.dir).Run() != nil { //nolint:noctx,gosec // bounded by the loop; s.dir is our own temp directory
 				break
 			}
+
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
@@ -405,6 +438,7 @@ func (s *Session) stop(kill bool) {
 		if kill {
 			signal = "-KILL"
 		}
+
 		_ = exec.Command("pkill", signal, "-f", s.dir).Run() //nolint:noctx,gosec // must run after the caller's context ends; s.dir is our own temp directory
 		if kill {
 			_ = s.cmd.Process.Kill()
@@ -412,10 +446,12 @@ func (s *Session) stop(kill bool) {
 
 		return
 	}
+
 	if kill {
 		_ = s.cmd.Process.Kill()
 		return
 	}
+
 	if err := s.cmd.Process.Signal(os.Interrupt); err != nil && !errors.Is(err, os.ErrProcessDone) {
 		_ = s.cmd.Process.Kill()
 	}
@@ -426,6 +462,7 @@ func chromeArgs(dir string, t Target, headless bool) ([]string, error) {
 	for _, h := range append([]string{t.Host}, t.Hosts...) {
 		rules = append(rules, "MAP "+h+" 127.0.0.1")
 	}
+
 	args := []string{
 		"--user-data-dir=" + dir,
 		"--no-first-run",
@@ -437,12 +474,15 @@ func chromeArgs(dir string, t Target, headless bool) ([]string, error) {
 	if t.Proxy != nil {
 		args = append(args, "--proxy-server="+t.Proxy.String())
 	}
+
 	if t.ProxyAuth != nil || t.ClickTitle != "" {
 		args = append(args, "--remote-debugging-port=0", "--remote-allow-origins="+debugOrigin)
 	}
+
 	if t.H3LocalRoots {
 		args = append(args, "--origin-to-force-quic-on="+chromeQUICOrigins(t))
 	}
+
 	if headless {
 		args = append(args, "--headless=new")
 	}
@@ -466,12 +506,16 @@ func firefoxProfile(dir string, t Target, headless bool) ([]string, error) {
 	if t.HostCerts {
 		prefs = append(prefs, `user_pref("security.enterprise_roots.enabled", true);`)
 	}
+
 	if t.H3LocalRoots {
 		prefs = append(prefs, `user_pref("network.http.http3.disable_when_third_party_roots_found", false);`)
 	}
+
 	if t.Proxy != nil {
 		host, port := t.Proxy.Hostname(), t.Proxy.Port()
+
 		prefs = append(prefs, `user_pref("network.proxy.type", 1);`)
+
 		switch t.Proxy.Scheme {
 		case "socks5":
 			prefs = append(prefs,
@@ -479,6 +523,7 @@ func firefoxProfile(dir string, t Target, headless bool) ([]string, error) {
 				`user_pref("network.proxy.socks_port", `+port+`);`,
 				`user_pref("network.proxy.socks_version", 5);`,
 			)
+
 		default:
 			prefs = append(prefs,
 				`user_pref("network.proxy.http", "`+host+`");`,
@@ -488,17 +533,21 @@ func firefoxProfile(dir string, t Target, headless bool) ([]string, error) {
 			)
 		}
 	}
+
 	if t.debugPort != 0 {
 		// Otherwise the remote agent applies automation prefs that change
 		// networking (speculative connections, captive-portal checks).
 		prefs = append(prefs, `user_pref("remote.prefs.recommended", false);`)
 	}
+
 	if err := os.WriteFile(filepath.Join(dir, "user.js"), []byte(strings.Join(prefs, "\n")+"\n"), 0o600); err != nil {
 		return nil, err
 	}
+
 	if err := os.WriteFile(filepath.Join(dir, "cert_override.txt"), []byte(firefoxOverride(t)), 0o600); err != nil {
 		return nil, err
 	}
+
 	args := []string{
 		"--profile", dir,
 		"--new-instance",
@@ -506,6 +555,7 @@ func firefoxProfile(dir string, t Target, headless bool) ([]string, error) {
 	if t.debugPort != 0 {
 		args = append(args, "--remote-debugging-port", strconv.Itoa(t.debugPort), "--remote-allow-origins", debugOrigin)
 	}
+
 	if headless {
 		args = append(args, "--headless")
 	}

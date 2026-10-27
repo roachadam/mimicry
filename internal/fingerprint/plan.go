@@ -42,15 +42,18 @@ func Compile(p *profile.Profile) *Plan {
 			}
 		}
 	}
+
 	if r := p.TLS.Resumption; r != nil {
 		for _, e := range p.TLS.Extensions {
 			if e.ECH != nil {
 				resumed := *e.ECH
+
 				resumed.PayloadLengths = r.ECHPayloadLengths
 				plan.resumedECH = &resumed
 			}
 		}
 	}
+
 	plan.quic = compileQUIC(p)
 
 	return plan
@@ -88,14 +91,17 @@ func (p *Plan) Resumes() bool {
 // resumption, with pre_shared_key last. Only for a plan that Resumes.
 func (p *Plan) ResumedHello() Hello {
 	h := p.Hello()
+
 	h.Extensions = slices.DeleteFunc(h.Extensions, func(e profile.Extension) bool {
 		return slices.Contains(p.tls.Resumption.Drop, e.Type)
 	})
+
 	for i := range h.Extensions {
 		if h.Extensions[i].ECH != nil {
 			h.Extensions[i].ECH = p.resumedECH
 		}
 	}
+
 	h.Extensions = append(h.Extensions, profile.Extension{
 		Type: profile.ExtPreSharedKey,
 	})
@@ -108,9 +114,11 @@ func (p *Plan) ResumedHello() Hello {
 // tls.websocketH1.
 func (p *Plan) WebSocketHello(h Hello) Hello {
 	ws := p.tls.WebSocketH1
+
 	h.Extensions = slices.DeleteFunc(h.Extensions, func(e profile.Extension) bool {
 		return slices.Contains(ws.Drop, e.Type)
 	})
+
 	for i := range h.Extensions {
 		if h.Extensions[i].Type == profile.ExtALPN {
 			// A copy of the extension: its values are the plan's.
@@ -135,11 +143,13 @@ func (p *Plan) hello(intn func(int) int) Hello {
 	// Extension values share slices with the plan; they are never modified
 	// after Compile, and the handshake only reads them.
 	copy(h.Extensions, p.tls.Extensions)
+
 	// Fisher-Yates over the movable slots only: every permutation of the
 	// movable extensions is equally likely, and pinned ones never move.
 	m := p.movable
 	for i := len(m) - 1; i > 0; i-- {
 		j := intn(i + 1)
+
 		h.Extensions[m[i]], h.Extensions[m[j]] = h.Extensions[m[j]], h.Extensions[m[i]]
 	}
 

@@ -67,12 +67,15 @@ func (e *Encoder) SetPeerTableSize(size uint32) {
 	if e.policy.MaxTableSize > 0 {
 		size = min(size, e.policy.MaxTableSize)
 	}
+
 	if size == e.peerSize && !e.pending && e.policy.SizeUpdates != profile.SizeUpdatesAlways {
 		return
 	}
+
 	if !e.pending {
 		e.blockSize, e.pendingMin = e.peerSize, e.peerSize
 	}
+
 	e.pendingMin = min(e.pendingMin, size)
 	e.pending = true
 	e.peerSize = size
@@ -91,9 +94,11 @@ func (e *Encoder) AppendBlock(dst []byte, fields []Field) []byte {
 		if e.pendingMin < e.blockSize && e.pendingMin < e.peerSize {
 			dst = appendInt(dst, 0x20, 5, uint64(e.pendingMin))
 		}
+
 		dst = appendInt(dst, 0x20, 5, uint64(e.peerSize))
 		e.pending = false
 	}
+
 	for _, f := range fields {
 		dst = e.appendField(dst, f)
 	}
@@ -104,17 +109,21 @@ func (e *Encoder) AppendBlock(dst []byte, fields []Field) []byte {
 func (e *Encoder) appendField(dst []byte, f Field) []byte {
 	without := slices.Contains(e.policy.WithoutIndexing, f.Name)
 	never := slices.Contains(e.policy.NeverIndexed, f.Name)
+
 	if n, ok := e.policy.NeverIndexBelow[f.Name]; ok && len(f.Value) < n {
 		never = true
 	}
+
 	exact := e.exactIndex(f)
 	if exact != 0 && !never && (!without || !e.policy.LiteralOnExactMatch) {
 		return appendInt(dst, 0x80, 7, exact)
 	}
+
 	nameIdx := exact
 	if nameIdx == 0 {
 		nameIdx = e.nameIndex(f.Name)
 	}
+
 	switch {
 	case never:
 		dst = appendInt(dst, 0x10, 4, nameIdx)
@@ -123,9 +132,11 @@ func (e *Encoder) appendField(dst []byte, f Field) []byte {
 	default:
 		dst = appendInt(dst, 0x40, 6, nameIdx)
 	}
+
 	if nameIdx == 0 {
 		dst = e.appendString(dst, f.Name)
 	}
+
 	dst = e.appendString(dst, f.Value)
 	if !never && !without {
 		e.insert(entry{
@@ -144,6 +155,7 @@ func (e *Encoder) exactIndex(f Field) uint64 {
 			return uint64(i + 1)
 		}
 	}
+
 	for i, d := range e.dynamic {
 		if d.name == f.Name && d.value == f.Value {
 			return uint64(len(staticTable) + 1 + i)
@@ -162,17 +174,20 @@ func (e *Encoder) nameIndex(name string) uint64 {
 				return uint64(len(staticTable) + 1 + i)
 			}
 		}
+
 		for i := len(staticTable) - 1; i >= 0; i-- {
 			if staticTable[i].name == name {
 				return uint64(i + 1)
 			}
 		}
+
 	default:
 		for i, s := range staticTable {
 			if s.name == name {
 				return uint64(i + 1)
 			}
 		}
+
 		for i, d := range e.dynamic {
 			if d.name == name {
 				return uint64(len(staticTable) + 1 + i)
@@ -190,8 +205,11 @@ func (e *Encoder) insert(en entry) {
 		e.dynamic, e.size = e.dynamic[:0], 0
 		return
 	}
+
 	e.evict(size)
+
 	e.dynamic = slices.Insert(e.dynamic, 0, en)
+
 	e.size += size
 }
 
@@ -199,7 +217,9 @@ func (e *Encoder) insert(en entry) {
 func (e *Encoder) evict(room uint32) {
 	for len(e.dynamic) > 0 && e.size+room > e.maxSize {
 		last := e.dynamic[len(e.dynamic)-1]
+
 		e.dynamic = e.dynamic[:len(e.dynamic)-1]
+
 		e.size -= last.size()
 	}
 }
@@ -211,10 +231,14 @@ func appendInt(dst []byte, first byte, n uint8, v uint64) []byte {
 	if v < limit {
 		return append(dst, first|byte(v))
 	}
+
 	dst = append(dst, first|byte(limit))
+
 	v -= limit
+
 	for v >= 0x80 {
 		dst = append(dst, byte(v)|0x80)
+
 		v >>= 7
 	}
 
@@ -229,6 +253,7 @@ func (e *Encoder) appendString(dst []byte, s string) []byte {
 		dst = appendInt(dst, 0x80, 7, hl)
 		return xhpack.AppendHuffmanString(dst, s)
 	}
+
 	dst = appendInt(dst, 0x00, 7, uint64(len(s)))
 
 	return append(dst, s...)

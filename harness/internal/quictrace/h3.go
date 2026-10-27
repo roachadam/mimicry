@@ -99,8 +99,10 @@ func ReadVarint(r io.ByteReader) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
+
 	n := 1 << (first >> 6)
 	v := uint64(first & 0x3f)
+
 	for range n - 1 {
 		b, err := r.ReadByte()
 		if err != nil {
@@ -110,6 +112,7 @@ func ReadVarint(r io.ByteReader) (uint64, error) {
 
 			return 0, err
 		}
+
 		v = v<<8 | uint64(b)
 	}
 
@@ -151,9 +154,11 @@ func ReadFrame(r *bufio.Reader) (typ, length uint64, payload []byte, err error) 
 	if typ, err = ReadVarint(r); err != nil {
 		return 0, 0, nil, err
 	}
+
 	if length, err = ReadVarint(r); err != nil {
 		return 0, 0, nil, unexpected(err)
 	}
+
 	if typ == FrameH3Data || length > maxFramePayload {
 		if _, err := r.Discard(int(min(length, 1<<62))); err != nil {
 			return 0, 0, nil, unexpected(err)
@@ -161,6 +166,7 @@ func ReadFrame(r *bufio.Reader) (typ, length uint64, payload []byte, err error) 
 
 		return typ, length, nil, nil
 	}
+
 	payload = make([]byte, length)
 	if _, err := io.ReadFull(r, payload); err != nil {
 		return 0, 0, nil, unexpected(err)
@@ -180,14 +186,17 @@ func unexpected(err error) error {
 // ParseSettings reads a SETTINGS frame's payload.
 func ParseSettings(payload []byte) ([]Setting, error) {
 	var out []Setting
+
 	r := &reader{
 		b: payload,
 	}
+
 	for len(r.b) > 0 {
 		id, value := r.varint(), r.varint()
 		if r.err != nil {
 			return out, fmt.Errorf("SETTINGS: %w", r.err)
 		}
+
 		out = append(out, Setting{
 			ID:     id,
 			Name:   SettingName(id),
@@ -206,20 +215,25 @@ func ParseControlFrame(f *H3Frame, payload []byte) error {
 	switch f.Type {
 	case FrameH3Settings:
 		s, err := ParseSettings(payload)
+
 		f.Settings = s
 
 		return err
+
 	case FrameH3GoAway, FrameH3MaxPushID, FrameH3CancelPush:
 		v, n := varint(payload)
 		if n == 0 || n != len(payload) {
 			return fmt.Errorf("%s: malformed", FrameTypeName(f.Type))
 		}
+
 		f.ID = new(v)
+
 	case FrameH3PriorityUpdateRequest, FrameH3PriorityUpdatePush:
 		v, n := varint(payload)
 		if n == 0 {
 			return errors.New("PRIORITY_UPDATE: malformed")
 		}
+
 		f.ID, f.Priority = new(v), string(payload[n:])
 	}
 

@@ -95,18 +95,22 @@ func (t *Transport) DialWebSocket(ctx context.Context, rawURL string, opts WebSo
 	if p.WebSocket == nil {
 		return nil, nil, fmt.Errorf("%w: profile %s has no websocket section", ErrNotMeasured, p.Name)
 	}
+
 	e, ok := t.engine.(webSocketEngine)
 	if !ok {
 		return nil, nil, errors.New("mimicry: the transport's engine opens no WebSockets")
 	}
+
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	target, err := webSocketTarget(u)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	from := opts.From
 	if from == nil {
 		from = t.lastNav.Load()
@@ -118,9 +122,11 @@ func (t *Transport) DialWebSocket(ctx context.Context, rawURL string, opts WebSo
 			}
 		}
 	}
+
 	if from.Scheme == "https" && !site.Trustworthy(u) {
 		return nil, nil, fmt.Errorf("mimicry: an insecure WebSocket connection (%s) may not be opened from a page loaded over HTTPS", u.Redacted())
 	}
+
 	if err := checkProtocols(opts.Protocols); err != nil {
 		return nil, nil, err
 	}
@@ -129,14 +135,18 @@ func (t *Transport) DialWebSocket(ctx context.Context, rawURL string, opts WebSo
 	if err != nil {
 		return nil, nil, err
 	}
+
 	for k, v := range opts.Header {
 		req.Header[k] = append([]string(nil), v...)
 	}
+
 	offer := p.WebSocket.Extensions
 	req.Header.Set("Sec-WebSocket-Extensions", offer)
+
 	if len(opts.Protocols) > 0 {
 		req.Header.Set("Sec-WebSocket-Protocol", strings.Join(opts.Protocols, ", "))
 	}
+
 	s, err := resolve(p, req, Request{
 		Kind: kindWebSocket,
 		From: from,
@@ -144,20 +154,25 @@ func (t *Transport) DialWebSocket(ctx context.Context, rawURL string, opts WebSo
 	if err != nil {
 		return nil, nil, err
 	}
+
 	if len(opts.Protocols) > 0 && !placesProtocols(s.plan) {
 		return nil, nil, fmt.Errorf("%w: profile %s has no WebSocket handshake with subprotocols for this page (site, non-secure)", ErrNotMeasured, p.Name)
 	}
+
 	h := s.header
 	if t.jar != nil && s.credentialed && !hasHeader(h, "Cookie") {
 		if line := cookies.Header(t.jar.Cookies(s.cookies)); line != "" {
 			h.Set("Cookie", line)
 		}
 	}
+
 	key, err := ws.NewKey(rand.Reader)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	sctx := headerorder.WithPlan(pool.WithPartition(ctx, s.partition), s.plan)
+
 	req = req.Clone(sctx)
 	req.Header = h
 
@@ -165,10 +180,12 @@ func (t *Transport) DialWebSocket(ctx context.Context, rawURL string, opts WebSo
 	if err != nil {
 		return nil, nil, publicError(err)
 	}
+
 	resp := sock.Response
 	if t.jar != nil && s.credentialed {
 		t.jar.SetCookies(s.cookies, resp.Header.Values("Set-Cookie"))
 	}
+
 	deflate, err := checkHandshake(sock, key, offer, opts.Protocols)
 	if err != nil {
 		if sock.Conn != nil {
@@ -181,9 +198,11 @@ func (t *Transport) DialWebSocket(ctx context.Context, rawURL string, opts WebSo
 
 		return nil, failedResponse(resp), err
 	}
+
 	// The body is the socket's from here on, which outlives ctx: its
 	// pongs and close replies go out whatever ctx does.
 	resp.Body = http.NoBody
+
 	conn, err := ws.New(sock.Conn, sock.Reader, ws.Config{
 		Profile: p.WebSocket,
 		Name:    p.Name,
@@ -219,6 +238,7 @@ func webSocketTarget(u *url.URL) (*url.URL, error) {
 	default:
 		return nil, fmt.Errorf("mimicry: a WebSocket URL is ws:// or wss://, not %q", u.Scheme)
 	}
+
 	switch {
 	case u.Host == "" || !httpguts.ValidHostHeader(u.Host):
 		return nil, fmt.Errorf("mimicry: WebSocket URL %s has no valid host", u.Redacted())
@@ -238,6 +258,7 @@ func checkProtocols(protocols []string) error {
 		if pr == "" || !httpguts.ValidHeaderFieldName(pr) {
 			return fmt.Errorf("mimicry: WebSocket subprotocol %q is not a token", pr)
 		}
+
 		if slices.Contains(protocols[:i], pr) {
 			return fmt.Errorf("mimicry: WebSocket subprotocol %q given twice", pr)
 		}
@@ -252,6 +273,7 @@ func placesProtocols(plan *headerorder.Plan) bool {
 	if plan == nil {
 		return false
 	}
+
 	places := func(list []profile.Header) bool {
 		return len(list) == 0 || slices.ContainsFunc(list, func(h profile.Header) bool {
 			return strings.EqualFold(h.Name, "sec-websocket-protocol")
@@ -282,6 +304,7 @@ func checkHandshake(sock *native.WebSocket, key, offer string, protocols []strin
 			return nil, errors.New("mimicry: WebSocket handshake answered with a wrong Sec-WebSocket-Accept")
 		}
 	}
+
 	if got := resp.Header.Values("Sec-WebSocket-Protocol"); len(got) > 0 {
 		if len(got) > 1 || !slices.Contains(protocols, got[0]) {
 			return nil, fmt.Errorf("mimicry: WebSocket handshake answered subprotocol %q, not one asked for", strings.Join(got, ", "))
@@ -300,7 +323,9 @@ func failedResponse(resp *http.Response) *http.Response {
 	if resp.Body == nil || resp.Body == http.NoBody {
 		return resp
 	}
+
 	b, _ := io.ReadAll(io.LimitReader(resp.Body, failedBody))
+
 	_ = resp.Body.Close()
 	resp.Body = io.NopCloser(bytes.NewReader(b))
 

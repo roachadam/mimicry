@@ -92,13 +92,16 @@ func TestDecoderRejectsHostileInput(t *testing.T) {
 			want:    ErrEncoderStream,
 		},
 	}
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			d := NewDecoder(4096)
 			err := d.OnEncoderStream(tc.encoder)
+
 			if err == nil && tc.section != nil {
 				_, _, err = d.Decode(tc.section)
 			}
+
 			if !errors.Is(err, tc.want) {
 				t.Fatalf("got %v, want %v", err, tc.want)
 			}
@@ -122,6 +125,7 @@ func TestEncoderOutputAlwaysDecodes(t *testing.T) {
 			{Name: "cookie", Value: fmt.Sprintf("c=%d", i%3)},
 		})
 	}
+
 	for _, strategy := range []Strategy{StrategyIndexAll, StrategyNewNames, StrategyStatic} {
 		for _, capacity := range []uint64{0, 64, 220, 500, 4096} {
 			for _, blocked := range []uint64{0, 1, 100} {
@@ -133,6 +137,7 @@ func TestEncoderOutputAlwaysDecodes(t *testing.T) {
 							MaxCapacity: 1 << 16,
 						})
 						e.SetPeerSettings(capacity, blocked)
+
 						d := NewDecoder(capacity)
 						// Unacknowledged sections are decoded only at the end, so
 						// what they refer to must survive every later insert.
@@ -140,19 +145,23 @@ func TestEncoderOutputAlwaysDecodes(t *testing.T) {
 						for i, fields := range requests {
 							stream := uint64(4 * i)
 							ins, block := e.Encode(stream, fields)
+
 							if err := d.OnEncoderStream(ins); err != nil {
 								t.Fatalf("request %d: encoder stream: %v", i, err)
 							}
+
 							if !ack {
 								late = append(late, block)
 								continue
 							}
+
 							if decodes(t, d, i, block, fields) > 0 {
 								if err := e.OnDecoderStream(AppendSectionAck(nil, stream)); err != nil {
 									t.Fatal(err)
 								}
 							}
 						}
+
 						for i, block := range late {
 							decodes(t, d, i, block, requests[i])
 						}
@@ -167,10 +176,12 @@ func TestEncoderOutputAlwaysDecodes(t *testing.T) {
 // Count.
 func decodes(t *testing.T, d *Decoder, i int, block []byte, want []Field) uint64 {
 	t.Helper()
+
 	got, ric, err := d.Decode(block)
 	if err != nil {
 		t.Fatalf("request %d: %v", i, err)
 	}
+
 	if !slices.Equal(got, want) {
 		t.Fatalf("request %d: decoded %v, want %v", i, got, want)
 	}

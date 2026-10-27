@@ -38,32 +38,40 @@ func TestConnectionsMatchBrowser(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+
 			p, err := loadProfile(name)
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			want, err := loadPages(t, p, "connections", ".pagetrace.json.gz")
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			s := startPage(t, p, server.Connections)
 			hosts, _, _ := server.Connections.MultiHost()
 			page := s.url(hosts[0], "/")
 			s.send(http.MethodGet, page, mimicry.Request{}, nil, "")
+
 			from, err := url.Parse(page)
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			for _, st := range server.ConnectionsSteps() {
 				time.Sleep(300 * time.Millisecond)
 				connectionsStep(t, s, from, st)
 			}
+
 			got := s.finish(s.url(hosts[0], "/done"))
 			gotConns, gotGroups := connectionsSeen(got, nil), connectionsGrouping(got)
+
 			for i, w := range want {
 				if wc := connectionsSeen(w, connectionsPreconnects[capture.Source(p, "connections")]); !slices.Equal(gotConns, wc) {
 					t.Errorf("sample %d: connections differ:\n got %q\nwant %q", i+1, gotConns, wc)
 				}
+
 				if wg := connectionsGrouping(w); !slices.Equal(gotGroups, wg) {
 					t.Errorf("sample %d: requests per connection differ:\n got %q\nwant %q", i+1, gotGroups, wg)
 				}
@@ -78,6 +86,7 @@ func TestConnectionsMatchBrowser(t *testing.T) {
 // (the page makes them in one synchronous loop).
 func connectionsStep(t *testing.T, s *pageSession, from *url.URL, st server.ConnectionsStep) {
 	t.Helper()
+
 	var wg sync.WaitGroup
 	for _, label := range st.Labels {
 		target := s.url(st.Host, "/c/"+label)
@@ -85,8 +94,10 @@ func connectionsStep(t *testing.T, s *pageSession, from *url.URL, st server.Conn
 			req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, target, nil)
 			if err != nil {
 				t.Error(err)
+
 				return
 			}
+
 			resp, err := s.client.Do(mimicry.With(req, mimicry.Request{
 				Kind:        mimicry.Fetch,
 				From:        from,
@@ -95,13 +106,16 @@ func connectionsStep(t *testing.T, s *pageSession, from *url.URL, st server.Conn
 			}))
 			if err != nil {
 				t.Errorf("%s: %v", label, err)
+
 				return
 			}
+
 			_, _ = io.Copy(io.Discard, resp.Body)
 			_ = resp.Body.Close()
 		})
 		time.Sleep(20 * time.Millisecond)
 	}
+
 	wg.Wait()
 }
 
@@ -109,14 +123,18 @@ func connectionsStep(t *testing.T, s *pageSession, from *url.URL, st server.Conn
 // sorted, leaving out one unused connection to each host in skip.
 func connectionsSeen(page *capture.Page, skip []string) []string {
 	skip = slices.Clone(skip)
+
 	var out []string
+
 	for _, c := range page.Connections {
 		if i := slices.Index(skip, c.Host); i >= 0 && c.Requests == 0 {
 			skip = slices.Delete(skip, i, i+1)
 			continue
 		}
+
 		out = append(out, fmt.Sprintf("%s %s %d", c.Host, c.Protocol, c.Requests))
 	}
+
 	slices.Sort(out)
 
 	return out
@@ -129,20 +147,26 @@ func connectionsSeen(page *capture.Page, skip []string) []string {
 // the four after ("late"), which go out as connections free up.
 func connectionsGrouping(page *capture.Page) []string {
 	labels := map[int][]string{}
+
 	var conns []int
+
 	for _, r := range page.H1 {
 		_, rest, _ := strings.Cut(r.Line, " ")
 		target, _, _ := strings.Cut(rest, " ")
 		label := strings.TrimPrefix(target, "/c/")
+
 		if !slices.Contains(conns, r.Conn) {
 			conns = append(conns, r.Conn)
 		}
+
 		labels[r.Conn] = append(labels[r.Conn], label)
 	}
+
 	out := make([]string, 0, len(page.H2)+len(conns))
 	for _, tr := range page.H2 {
 		out = append(out, tr.Host+": "+strings.Join(h2Requests(tr), ", "))
 	}
+
 	parallel := server.ConnectionsSteps()[len(server.ConnectionsSteps())-1].Labels
 	for _, c := range conns {
 		var row []string
@@ -156,8 +180,10 @@ func connectionsGrouping(page *capture.Page) []string {
 				row = append(row, "late")
 			}
 		}
+
 		out = append(out, "http/1.1: "+strings.Join(row, " "))
 	}
+
 	slices.Sort(out)
 
 	return out
@@ -176,10 +202,12 @@ func h2Requests(tr *h2trace.Trace) []string {
 			"no requests (" + strings.Join(frames, " ") + ")",
 		}
 	}
+
 	reqs := slices.Clone(tr.Requests)
 	slices.SortFunc(reqs, func(a, b h2trace.Request) int {
 		return int(a.Stream) - int(b.Stream)
 	})
+
 	out := make([]string, 0, len(reqs))
 	for _, r := range reqs {
 		authority := ""
@@ -188,10 +216,12 @@ func h2Requests(tr *h2trace.Trace) []string {
 				authority = ins.Value
 			}
 		}
+
 		host, _, err := net.SplitHostPort(authority)
 		if err != nil {
 			host = authority
 		}
+
 		out = append(out, host+" "+r.Path)
 	}
 
@@ -203,20 +233,25 @@ func h2Requests(tr *h2trace.Trace) []string {
 // listen.
 func stubResolver(t *testing.T) *net.Resolver {
 	t.Helper()
+
 	pc, err := (&net.ListenConfig{}).ListenPacket(t.Context(), "udp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	done := make(chan error, 1)
+
 	go func() {
 		// Serve stops as the test ends, before its cleanups run.
 		done <- dnsstub.Serve(t.Context(), pc)
 	}()
+
 	t.Cleanup(func() {
 		if err := <-done; err != nil {
 			t.Error(err)
 		}
 	})
+
 	addr := pc.LocalAddr().String()
 
 	return &net.Resolver{

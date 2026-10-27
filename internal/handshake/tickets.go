@@ -82,14 +82,18 @@ func (t *Ticket) Extra() [][]byte {
 func (t *Tickets) Take(key string) *Ticket {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
 	s, ok := t.m[key]
 	if !ok {
 		return nil
 	}
+
 	if s.expired(t.clock.Now()) {
 		delete(t.m, key)
+
 		return nil
 	}
+
 	if s.tls13 || t.tls12 != profile.TLS12Reuse {
 		delete(t.m, key)
 	}
@@ -105,6 +109,7 @@ func (t *Tickets) Take(key string) *Ticket {
 func (t *Tickets) Has(key string) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
 	s, ok := t.m[key]
 
 	return ok && !s.expired(t.clock.Now())
@@ -123,23 +128,28 @@ func (t *Tickets) keep(key string, s *utls.ClientSessionState, used *Ticket, not
 		state:   s,
 		expires: notAfter,
 	}
+
 	switch version(enc) {
 	case utls.VersionTLS13:
 		tk.tls13 = true
 		if useBy, ok := useBy(enc); ok && (tk.expires.IsZero() || useBy.Before(tk.expires)) {
 			tk.expires = useBy
 		}
+
 	case utls.VersionTLS12:
 		// The TLS 1.2 ticket lifetime hint is not used: how long the
 		// browser keeps such a ticket is not measured.
 		if t.tls12 == "" || (t.tls12 == profile.TLS12SingleUse && used != nil) {
 			return
 		}
+
 	default:
 		return
 	}
+
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
 	t.m[key] = tk
 	if len(t.m) >= t.sweepAt {
 		now := t.clock.Now()
@@ -148,6 +158,7 @@ func (t *Tickets) keep(key string, s *utls.ClientSessionState, used *Ticket, not
 				delete(t.m, k)
 			}
 		}
+
 		t.sweepAt = max(minSweep, 2*len(t.m))
 	}
 }
@@ -184,6 +195,7 @@ func encoding(s *utls.ClientSessionState) []byte {
 	if err != nil || state == nil {
 		return nil
 	}
+
 	b, err := state.Bytes()
 	if err != nil {
 		return nil
@@ -209,6 +221,7 @@ func useBy(enc []byte) (time.Time, bool) {
 	if len(enc) < 12 {
 		return time.Time{}, false
 	}
+
 	secs := binary.BigEndian.Uint64(enc[len(enc)-12:])
 
 	return time.Unix(int64(secs), 0), true

@@ -63,6 +63,7 @@ func (e *Engine) covering(r route) []*shared {
 	if r.group == "" {
 		return nil
 	}
+
 	var out []*shared
 	for _, c := range e.pool.SharedConns() {
 		if c.group == r.group && c.addr.IsValid() && c.leaf != nil && c.leaf.VerifyHostname(r.host) == nil && e.verifyShared(r.host, c) {
@@ -79,10 +80,13 @@ func (e *Engine) verifyShared(host string, c *shared) bool {
 	if e.verify == nil {
 		return true
 	}
+
 	if c.tls == nil {
 		return false
 	}
+
 	cs := *c.tls
+
 	cs.ServerName = host
 
 	return e.verify(host, cs) == nil
@@ -96,12 +100,16 @@ func (e *Engine) coalesceOnLookup(ctx context.Context, r route) *shared {
 	if len(conns) == 0 {
 		return nil
 	}
+
 	lctx, cancel := context.WithTimeout(ctx, e.dialer.Timeout)
+
 	defer cancel()
+
 	addrs, err := e.lookup(lctx, r.host)
 	if err != nil {
 		return nil
 	}
+
 	for _, c := range conns {
 		for _, a := range addrs {
 			if a.Unmap() == c.addr {
@@ -121,6 +129,7 @@ func (e *Engine) coalesceOnConnect(r route, conn net.Conn) *shared {
 	if !addr.IsValid() {
 		return nil
 	}
+
 	for _, c := range e.covering(r) {
 		if c.addr == addr {
 			return c

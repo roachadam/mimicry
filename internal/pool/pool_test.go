@@ -21,6 +21,7 @@ type testClock struct {
 func (c *testClock) AfterFunc(d time.Duration, f func()) clockwork.Timer {
 	return c.FakeClock.AfterFunc(d, func() {
 		f()
+
 		c.fired <- struct{}{}
 	})
 }
@@ -91,10 +92,13 @@ func (c *fakeExclusive) isClosed() bool {
 // connection does I/O. Tests that use it run the pool from one goroutine.
 func checkUnlocked(t *testing.T, p *Pool[*fakeShared, *fakeExclusive], what string) {
 	t.Helper()
+
 	if !p.mu.TryLock() {
 		t.Errorf("%s called with the pool locked", what)
+
 		return
 	}
+
 	p.mu.Unlock()
 }
 
@@ -115,6 +119,7 @@ func newFixture(t *testing.T) *fixture {
 		},
 		waiting: make(chan string, 16),
 	}
+
 	f.pool = New[*fakeShared, *fakeExclusive](Config{
 		Clock:       f.clock,
 		IdleTimeout: idleTimeout,
@@ -140,10 +145,12 @@ func (f *fixture) exclusive() *fakeExclusive {
 // get calls Get and wants found.
 func (f *fixture) get(key string, found Found) Got[*fakeShared, *fakeExclusive] {
 	f.t.Helper()
+
 	got, err := f.pool.Get(f.t.Context(), key)
 	if err != nil {
 		f.t.Fatalf("Get(%q): %v", key, err)
 	}
+
 	if got.Found != found {
 		f.t.Fatalf("Get(%q) found %d, want %d", key, got.Found, found)
 	}
@@ -154,6 +161,7 @@ func (f *fixture) get(key string, found Found) Got[*fakeShared, *fakeExclusive] 
 // dialExclusive gets a dial for key and makes it an exclusive connection.
 func (f *fixture) dialExclusive(key string) *fakeExclusive {
 	f.t.Helper()
+
 	got := f.get(key, FoundDial)
 	got.Dial.Exclusive()
 
@@ -164,6 +172,7 @@ func (f *fixture) dialExclusive(key string) *fakeExclusive {
 func (f *fixture) advance(d time.Duration, n int) {
 	f.t.Helper()
 	f.clock.Advance(d)
+
 	for range n {
 		select {
 		case <-f.clock.fired:
@@ -177,7 +186,9 @@ func (f *fixture) advance(d time.Duration, n int) {
 // the Get waits for a dial.
 func (f *fixture) getWaiting(ctx context.Context, key string) <-chan result {
 	f.t.Helper()
+
 	out := make(chan result, 1)
+
 	go func() {
 		got, err := f.pool.Get(ctx, key)
 		out <- result{
@@ -185,11 +196,13 @@ func (f *fixture) getWaiting(ctx context.Context, key string) <-chan result {
 			err: err,
 		}
 	}()
+
 	select {
 	case k := <-f.waiting:
 		if k != key {
 			f.t.Fatalf("waiting for %q, want %q", k, key)
 		}
+
 	case r := <-out:
 		f.t.Fatalf("Get returned %+v without waiting for the dial", r)
 	}
@@ -207,12 +220,16 @@ func TestIdleConnectionIsReapedAfterTheIdleTimeout(t *testing.T) {
 	c := f.dialExclusive("a")
 	f.pool.Release("a", c, true)
 	f.clock.Advance(idleTimeout - time.Second)
+
 	if c.isClosed() {
 		t.Fatal("closed before the idle timeout")
 	}
+
 	f.advance(time.Second, 1)
+
 	if !c.isClosed() {
 		t.Fatal("not closed after the idle timeout")
 	}
+
 	f.get("a", FoundDial)
 }

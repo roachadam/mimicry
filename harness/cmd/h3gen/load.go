@@ -89,6 +89,7 @@ func load(dir string, p *profile.Profile) (*captureSet, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	set := &captureSet{
 		name:     p.Name,
 		p:        p,
@@ -97,10 +98,12 @@ func load(dir string, p *profile.Profile) (*captureSet, error) {
 	for _, f := range files {
 		base := strings.TrimSuffix(filepath.Base(f.Path), ".pagetrace.json.gz")
 		scenario := f.Scenario
+
 		pages, err := capture.LoadPages(f.Path)
 		if err != nil {
 			return nil, err
 		}
+
 		for si, page := range pages {
 			anyDone := false
 			for ci, c := range page.QUIC {
@@ -113,9 +116,11 @@ func load(dir string, p *profile.Profile) (*captureSet, error) {
 					resumed:  c.Resumed,
 					done:     c.H3 != nil,
 				}
+
 				anyDone = anyDone || cn.done
 				set.conns = append(set.conns, cn)
 			}
+
 			if scenario == "h3-discovery" && anyDone {
 				set.discovery = append(set.discovery, discoveryPage{
 					at:   fmt.Sprintf("%s: sample %d", base, si+1),
@@ -135,6 +140,7 @@ func (s *captureSet) gap(c *conn, feature string) bool {
 	if _, ok := sampleGaps[key]; !ok {
 		return false
 	}
+
 	s.usedGaps[key] = true
 
 	return true
@@ -149,6 +155,7 @@ func (s *captureSet) unusedGaps() error {
 			errs = append(errs, fmt.Errorf("sampleGaps pins %q, which no longer appears: remove it", key))
 		}
 	}
+
 	slices.SortFunc(errs, func(a, b error) int {
 		return strings.Compare(a.Error(), b.Error())
 	})
@@ -165,6 +172,7 @@ func (s *captureSet) pins(key string) bool {
 		if !strings.HasPrefix(file, name+".") {
 			continue
 		}
+
 		if sc, ok := capture.ScenarioOf(name, file+".pagetrace.json.gz"); ok && capture.Source(s.p, sc) == name {
 			return true
 		}

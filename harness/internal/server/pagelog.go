@@ -39,8 +39,10 @@ type pageLog struct {
 func (l *pageLog) connection(c *capture.Capture, host string, accepted bool, helloAt time.Time) {
 	o := resumptionOffer(c.ClientHello)
 	hello := c.Profile.TLS
+
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
 	l.connections = append(l.connections, capture.Connection{
 		Host:          host,
 		Protocol:      c.Protocol,
@@ -56,6 +58,7 @@ func (l *pageLog) connection(c *capture.Capture, host string, accepted bool, hel
 	if l.index == nil {
 		l.index = map[*capture.Capture]int{}
 	}
+
 	l.index[c] = len(l.connections) - 1
 	if len(l.connections) == 1 {
 		l.firstHello = c.ClientHello
@@ -67,6 +70,7 @@ func (l *pageLog) connection(c *capture.Capture, host string, accepted bool, hel
 func (l *pageLog) newConn() int {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
 	l.conns++
 
 	return l.conns
@@ -77,6 +81,7 @@ func (l *pageLog) newConn() int {
 func (l *pageLog) request(c *capture.Capture) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
 	if i, ok := l.index[c]; ok {
 		l.connections[i].Requests++
 	}
@@ -86,6 +91,7 @@ func (l *pageLog) request(c *capture.Capture) {
 func (l *pageLog) add(r capture.H1Request) int {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
 	l.requests = append(l.requests, r)
 
 	return len(l.requests) - 1
@@ -103,6 +109,7 @@ func (l *pageLog) snapshot() []capture.H1Request {
 func (l *pageLog) addH2(s *h2conn) int {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
 	l.h2 = append(l.h2, s)
 
 	return len(l.h2) - 1
@@ -113,6 +120,7 @@ func (l *pageLog) addH2(s *h2conn) int {
 func (l *pageLog) connectionNumber(c *capture.Capture) int {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
 	if i, ok := l.index[c]; ok {
 		return i + 1
 	}
@@ -124,16 +132,20 @@ func (l *pageLog) connectionNumber(c *capture.Capture) int {
 // and returns the recorder of its frames.
 func (l *pageLog) openWebSocket(ws capture.WebSocket) *wsRecorder {
 	now := time.Now()
+
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
 	ws.Millis = now.Sub(l.start).Milliseconds()
 	ws.Frames = []capture.WSFrame{}
+
 	r := &wsRecorder{
 		log:     l,
 		ws:      &ws,
 		start:   now,
 		settled: make(chan struct{}),
 	}
+
 	l.websockets = append(l.websockets, r.ws)
 	l.settled = append(l.settled, r.settled)
 
@@ -144,6 +156,7 @@ func (l *pageLog) openWebSocket(ws capture.WebSocket) *wsRecorder {
 func (l *pageLog) result(r capture.WSResult) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
 	l.results = append(l.results, r)
 }
 
@@ -151,9 +164,11 @@ func (l *pageLog) result(r capture.WSResult) {
 // load as recorded so far, WebSockets once settled (settleWebSockets).
 func (l *pageLog) page() *capture.Page {
 	l.settleWebSockets()
+
 	quic := l.quicConns()
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
 	p := &capture.Page{
 		H1:          append([]capture.H1Request(nil), l.requests...),
 		Connections: append([]capture.Connection(nil), l.connections...),
@@ -164,8 +179,10 @@ func (l *pageLog) page() *capture.Page {
 	for _, s := range l.h2 {
 		p.H2 = append(p.H2, s.stopTracing())
 	}
+
 	for _, ws := range l.websockets {
 		w := *ws
+
 		w.Frames = slices.Clone(ws.Frames)
 		p.WebSockets = append(p.WebSockets, w)
 	}
@@ -179,10 +196,14 @@ func (l *pageLog) page() *capture.Page {
 // each transport, and when, whatever order the goroutines run in.
 func (l *pageLog) settleWebSockets() {
 	l.mu.Lock()
+
 	settled := slices.Clone(l.settled)
 	l.mu.Unlock()
+
 	timeout := time.NewTimer(wsSettle)
+
 	defer timeout.Stop()
+
 	for _, ch := range settled {
 		select {
 		case <-ch:
@@ -214,6 +235,7 @@ func (r *wsRecorder) frame(f capture.WSFrame) {
 	f.Millis = time.Since(r.start).Milliseconds()
 	r.log.mu.Lock()
 	defer r.log.mu.Unlock()
+
 	r.ws.Frames = append(r.ws.Frames, f)
 }
 
@@ -222,10 +244,12 @@ func (r *wsRecorder) frame(f capture.WSFrame) {
 func (r *wsRecorder) closed(by string) {
 	ms := time.Since(r.start).Milliseconds()
 	r.log.mu.Lock()
+
 	if r.ws.ClosedBy == "" {
 		r.ws.ClosedBy = by
 		r.ws.ClosedMillis = ms
 	}
+
 	r.log.mu.Unlock()
 	r.settle()
 }
@@ -242,6 +266,7 @@ func (r *wsRecorder) settle() {
 func (r *wsRecorder) streamEnd(how string) {
 	r.log.mu.Lock()
 	defer r.log.mu.Unlock()
+
 	if r.ws.StreamEnd == "" {
 		r.ws.StreamEnd = how
 	}
@@ -251,6 +276,7 @@ func (r *wsRecorder) streamEnd(how string) {
 func (r *wsRecorder) fail(err error) {
 	r.log.mu.Lock()
 	defer r.log.mu.Unlock()
+
 	r.ws.Error = err.Error()
 }
 
@@ -260,13 +286,17 @@ func (r *wsRecorder) fail(err error) {
 // and cookies; the page's data is its traces.
 func (l *pageLog) pageProfile(c *capture.Capture) {
 	l.mu.Lock()
+
 	if len(l.connections) > 0 {
 		c.ClientHello = l.firstHello
 		c.Records = l.firstRecords
 		c.Profile.TLS = *l.connections[0].Hello
 	}
+
 	l.mu.Unlock()
+
 	ua := c.UserAgent()
+
 	c.Profile.HTTP2 = nil
 	c.Profile.Headers = []profile.Header{
 		{

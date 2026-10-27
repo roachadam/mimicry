@@ -32,13 +32,16 @@ func Measured(p *profile.Profile, plan *headerorder.Plan) bool {
 	if p.HTTP3 == nil || p.QUIC == nil {
 		return false
 	}
+
 	hd := p.HTTP3.Headers
 	if !sendsAltUsed(hd) || exact(plan) {
 		return true
 	}
+
 	if plan == nil || plan.Kind == "" {
 		return hd.AltUsedNavigation != ""
 	}
+
 	_, ok := hd.AltUsed[plan.Kind]
 
 	return ok
@@ -76,6 +79,7 @@ func bodyLength(req *http.Request) int64 {
 	if req.Body == nil || req.Body == http.NoBody {
 		return 0
 	}
+
 	if req.ContentLength <= 0 {
 		return -1
 	}
@@ -92,21 +96,26 @@ func buildHead(p *profile.Profile, altHost, altPort string, req *http.Request, l
 	if method == "" {
 		method = http.MethodGet
 	}
+
 	if !httpguts.ValidHeaderFieldName(method) || method == http.MethodConnect {
 		return head{}, fmt.Errorf("h3: invalid method %q", method)
 	}
+
 	host := req.Host
 	if host == "" {
 		host = req.URL.Host
 	}
+
 	host = strings.TrimSuffix(host, ":")
 	if !httpguts.ValidHostHeader(host) {
 		return head{}, fmt.Errorf("h3: invalid host %q", host)
 	}
+
 	path := req.URL.RequestURI()
 	if (!strings.HasPrefix(path, "/") && path != "*") || !httpguts.ValidHeaderFieldValue(path) {
 		return head{}, fmt.Errorf("h3: invalid path %q", path)
 	}
+
 	pseudo := map[string]string{
 		":method":    method,
 		":authority": host,
@@ -114,9 +123,11 @@ func buildHead(p *profile.Profile, altHost, altPort string, req *http.Request, l
 		":path":      path,
 	}
 	h := req.Header.Clone()
+
 	if h == nil {
 		h = http.Header{}
 	}
+
 	plan := headerorder.PlanFrom(req.Context())
 	if length != 0 {
 		for name := range h {
@@ -124,21 +135,27 @@ func buildHead(p *profile.Profile, altHost, altPort string, req *http.Request, l
 				delete(h, name)
 			}
 		}
+
 		if length > 0 && (plan == nil || !plan.NoContentLength) {
 			h.Set("Content-Length", strconv.FormatInt(length, 10))
 		} else {
 			h["Content-Length"] = nil
 		}
 	}
+
 	list := p.Headers
+
 	var table *profile.HeaderTable
+
 	if plan != nil {
 		list, table = plan.Headers, plan.Table
 	}
+
 	ordered := headerorder.Build(list, h, func(name string) bool {
 		return hopByHop[name]
 	}, table)
 	hd := p.HTTP3.Headers
+
 	if hd != nil && !exact(plan) {
 		ordered = slices.DeleteFunc(ordered, func(f headerorder.Field) bool {
 			return slices.Contains(hd.Drop, f.Name)
@@ -147,14 +164,17 @@ func buildHead(p *profile.Profile, altHost, altPort string, req *http.Request, l
 			ordered = placeAltUsed(p, altUsedValue(altHost, altPort), ordered, plan)
 		}
 	}
+
 	ordered, err := headerorder.Place(ordered, headerorder.PlacementsFrom(req.Context()))
 	if err != nil {
 		return head{}, err
 	}
+
 	order := p.HTTP2.PseudoHeaderOrder
 	if hd != nil {
 		order = hd.PseudoHeaderOrder
 	}
+
 	out := head{
 		fields: make([]qpack.Field, 0, len(order)+len(ordered)),
 	}
@@ -164,17 +184,21 @@ func buildHead(p *profile.Profile, altHost, altPort string, req *http.Request, l
 			Value: pseudo[name],
 		})
 	}
+
 	for _, f := range ordered {
 		if !httpguts.ValidHeaderFieldName(f.Name) {
 			return head{}, fmt.Errorf("h3: invalid header field name %q", f.Name)
 		}
+
 		if !httpguts.ValidHeaderFieldValue(f.Value) {
 			// The value is not quoted: it may be a secret.
 			return head{}, fmt.Errorf("h3: invalid value for header field %q", f.Name)
 		}
+
 		if f.Name == "priority" && out.priority == "" {
 			out.priority = f.Value
 		}
+
 		if f.Name == "cookie" {
 			crumbs := headerorder.Crumbs(f.Value)
 			if p.HTTP2.SplitCookie {
@@ -187,8 +211,10 @@ func buildHead(p *profile.Profile, altHost, altPort string, req *http.Request, l
 
 				continue
 			}
+
 			f.Value = strings.Join(crumbs, "; ")
 		}
+
 		out.fields = append(out.fields, qpack.Field{
 			Name:  f.Name,
 			Value: f.Value,
@@ -206,12 +232,14 @@ func buildHead(p *profile.Profile, altHost, altPort string, req *http.Request, l
 func placeAltUsed(p *profile.Profile, alt string, fields []headerorder.Field, plan *headerorder.Plan) []headerorder.Field {
 	hd := p.HTTP3.Headers
 	anchor, own := hd.AltUsedNavigation, p.Headers
+
 	if plan != nil && plan.Kind != "" {
 		anchor = hd.AltUsed[plan.Kind]
 		if k := p.Kinds[plan.Kind]; k != nil {
 			own = k.Headers
 		}
 	}
+
 	// The list the request takes (its variant's), or the kind's own when
 	// that lacks the anchor.
 	list := own
@@ -220,6 +248,7 @@ func placeAltUsed(p *profile.Profile, alt string, fields []headerorder.Field, pl
 	}) {
 		list = plan.Headers
 	}
+
 	after := map[string]bool{
 		anchor: true,
 	}
@@ -230,16 +259,20 @@ func placeAltUsed(p *profile.Profile, alt string, fields []headerorder.Field, pl
 			after[strings.ToLower(h.Name)] = true
 		}
 	}
+
 	field := headerorder.Field{
 		Name:  "alt-used",
 		Value: alt,
 	}
+
 	fields = slices.DeleteFunc(fields, func(f headerorder.Field) bool {
 		return f.Name == "alt-used"
 	})
+
 	at := slices.IndexFunc(fields, func(f headerorder.Field) bool {
 		return after[f.Name]
 	})
+
 	if at < 0 {
 		at = len(fields)
 	}

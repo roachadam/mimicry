@@ -33,12 +33,17 @@ func (m wsMessage) data() []byte {
 // frames left out.
 func wsMessages(t *testing.T, ws *capture.WebSocket) []wsMessage {
 	t.Helper()
-	var out []wsMessage
-	var cur *wsMessage
+
+	var (
+		out []wsMessage
+		cur *wsMessage
+	)
+
 	for i, f := range ws.Frames {
 		if f.Server || f.Opcode >= capture.WSClose {
 			continue
 		}
+
 		if f.Opcode != capture.WSContinuation {
 			out = append(out, wsMessage{
 				compressed: f.RSV&0x4 != 0,
@@ -47,9 +52,11 @@ func wsMessages(t *testing.T, ws *capture.WebSocket) []wsMessage {
 		} else if cur == nil {
 			t.Fatalf("frame %d: continuation without a message", i)
 		}
+
 		if f.InflateError != "" {
 			t.Fatalf("frame %d: %s", i, f.InflateError)
 		}
+
 		cur.payload = append(cur.payload, f.Payload...)
 		if f.Fin {
 			cur.inflated = f.Inflated
@@ -70,28 +77,34 @@ func TestDeflateReproducesBrowserMessages(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if p.WebSocket == nil {
 				t.Fatal("no websocket section")
 			}
+
 			sockets := 0
 			for _, scenario := range []string{"websocket", "websocket-h2"} {
 				pages, err := loadPages(t, p, scenario, ".pagetrace.json.gz")
 				if err != nil {
 					t.Fatal(err)
 				}
+
 				for i, page := range pages {
 					for k := range page.WebSockets {
 						sock := &page.WebSockets[k]
 						if !strings.Contains(sock.Extensions, "permessage-deflate") {
 							continue
 						}
+
 						sockets++
+
 						t.Run(scenario+" sample "+strconv.Itoa(i+1)+" "+sock.Path, func(t *testing.T) {
 							checkDeflate(t, p.WebSocket, sock)
 						})
 					}
 				}
 			}
+
 			if sockets == 0 {
 				t.Fatal("no socket negotiated permessage-deflate")
 			}
@@ -103,11 +116,14 @@ func TestDeflateReproducesBrowserMessages(t *testing.T) {
 // compressor.
 func checkDeflate(t *testing.T, p *profile.WebSocket, sock *capture.WebSocket) {
 	t.Helper()
+
 	d, err := ws.ParseExtensions(p.Extensions, sock.Extensions)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	msgs := wsMessages(t, sock)
+
 	c, err := ws.NewCompressor(p, d)
 	if err != nil {
 		if len(msgs) > 0 {
@@ -116,9 +132,11 @@ func checkDeflate(t *testing.T, p *profile.WebSocket, sock *capture.WebSocket) {
 
 		return
 	}
+
 	if len(msgs) == 0 {
 		t.Fatal("the browser failed the socket, the profile does not")
 	}
+
 	for i, m := range msgs {
 		got, compressed := c.Message(m.data())
 		switch {
@@ -129,6 +147,7 @@ func checkDeflate(t *testing.T, p *profile.WebSocket, sock *capture.WebSocket) {
 			for n < len(got) && n < len(m.payload) && got[n] == m.payload[n] {
 				n++
 			}
+
 			t.Fatalf("message %d (%d bytes): compressed to %d bytes, the browser's are %d; first difference at byte %d", i, len(m.data()), len(got), len(m.payload), n)
 		}
 	}

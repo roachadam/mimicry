@@ -26,9 +26,11 @@ func fill(t *testing.T, j *Jar) {
 		Method: "GET",
 		Page:   mustURL(t, "https://www.a.example/"),
 	}, []string{"part=1; Secure; SameSite=None; Partitioned; Path=/"})
+
 	if err := j.SetString(AnySite, "everywhere=1"); err != nil {
 		t.Fatal(err)
 	}
+
 	if got := len(j.All()); got != 5 {
 		t.Fatalf("filled %d cookies, want 5", got)
 	}
@@ -45,27 +47,33 @@ func TestExportRoundTrip(t *testing.T) {
 			Clock: clock,
 		})
 		fill(t, j)
+
 		var buf bytes.Buffer
 		if err := j.WriteJSON(&buf); err != nil {
 			t.Fatal(err)
 		}
+
 		k := newJar(t, Config{
 			Clock: clock,
 		})
 		if err := k.ReadJSON(&buf); err != nil {
 			t.Fatal(err)
 		}
+
 		var again bytes.Buffer
 		if err := k.WriteJSON(&again); err != nil {
 			t.Fatal(err)
 		}
+
 		var first bytes.Buffer
 		if err := j.WriteJSON(&first); err != nil {
 			t.Fatal(err)
 		}
+
 		if first.String() != again.String() {
 			t.Errorf("round trip changed cookies:\n%s\n%s", first.String(), again.String())
 		}
+
 		if !strings.Contains(first.String(), `"partition": "https://a.example"`) || !strings.Contains(first.String(), `"sameSite": "Lax"`) {
 			t.Errorf("JSON lacks attributes:\n%s", first.String())
 		}
@@ -76,10 +84,12 @@ func TestExportRoundTrip(t *testing.T) {
 			Clock: clock,
 		})
 		fill(t, j)
+
 		var buf bytes.Buffer
 		if err := j.WriteNetscape(&buf); err != nil {
 			t.Fatal(err)
 		}
+
 		text := buf.String()
 		for _, want := range []string{
 			"www.a.example\tFALSE\t/\tFALSE\t1792846800\thost\t\"x y\"\n",
@@ -90,15 +100,18 @@ func TestExportRoundTrip(t *testing.T) {
 				t.Errorf("missing %q in:\n%s", want, text)
 			}
 		}
+
 		if strings.Contains(text, "part") || strings.Contains(text, "everywhere") {
 			t.Errorf("partitioned or AnySite cookie written:\n%s", text)
 		}
+
 		k := newJar(t, Config{
 			Clock: clock,
 		})
 		if err := k.ReadNetscape(strings.NewReader(text)); err != nil {
 			t.Fatal(err)
 		}
+
 		for _, u := range []string{"https://www.a.example/p", "https://x.a.example/p"} {
 			sent := slices.DeleteFunc(j.Cookies(nav(t, u)), func(c *Cookie) bool {
 				return c.Domain == AnySite
@@ -115,8 +128,10 @@ func TestExportRoundTrip(t *testing.T) {
 func TestDeleteMatchMayUseJar(t *testing.T) {
 	j := newJar(t, Config{})
 	fill(t, j)
+
 	n := j.Delete(func(c *Cookie) bool {
 		others := j.All()
+
 		c.Value = "changed"
 
 		return len(others) == 5 && c.Name == "sess"
@@ -124,6 +139,7 @@ func TestDeleteMatchMayUseJar(t *testing.T) {
 	if n != 1 {
 		t.Errorf("Delete removed %d, want 1", n)
 	}
+
 	for _, c := range j.All() {
 		if c.Name == "sess" || c.Value == "changed" {
 			t.Errorf("after Delete: %+v", c)
@@ -137,10 +153,12 @@ func TestSetString(t *testing.T) {
 	type set struct {
 		method, name, cookies, err string
 	}
+
 	type response struct {
 		url   string
 		lines []string
 	}
+
 	for _, tt := range []struct {
 		name string
 		// lines are Set-Cookie lines from a navigation to a URL, stored
@@ -366,9 +384,11 @@ func TestSetString(t *testing.T) {
 				Clock: clockwork.NewFakeClockAt(time.Date(2026, 10, 26, 12, 0, 0, 0, time.UTC)),
 			}
 			j := newJar(t, cfg)
+
 			for _, r := range tt.lines {
 				j.SetCookies(nav(t, r.url), r.lines)
 			}
+
 			// The partitioned cookie of amazon.com under walmart.com,
 			// which String leaves out.
 			j.SetCookies(Request{
@@ -376,35 +396,42 @@ func TestSetString(t *testing.T) {
 				Method: "GET",
 				Page:   mustURL(t, "https://walmart.com/"),
 			}, []string{"part=1; Secure; SameSite=None; Partitioned; Path=/"})
+
 			for _, s := range tt.set {
 				store := j.SetString
 				if s.method == "SetHostString" {
 					store = j.SetHostString
 				}
+
 				err := store(s.name, s.cookies)
 				if (err == nil) != (s.err == "") || (err != nil && !strings.Contains(err.Error(), s.err)) {
 					t.Errorf("%s(%q, %q) = %v, want error %q", s.method, s.name, s.cookies, err, s.err)
 				}
 			}
+
 			for u, want := range tt.sends {
 				if got := Header(j.Cookies(nav(t, u))); got != want {
 					t.Errorf("%s sends %q, want %q", u, got, want)
 				}
 			}
+
 			for s, want := range tt.strs {
 				got := j.String(s)
 				if got != want {
 					t.Errorf("String(%q) = %q, want %q", s, got, want)
 				}
+
 				k, err := FromString(s, got, cfg)
 				if err != nil {
 					// An IP address or localhost: its own cookies.
 					k = newJar(t, cfg)
 					if err := k.SetHostString(s, got); err != nil {
 						t.Errorf("SetString and SetHostString(%q, %q): %v", s, got, err)
+
 						continue
 					}
 				}
+
 				if again := k.String(s); again != got {
 					t.Errorf("String(%q) stored again = %q, want %q", s, again, got)
 				}
@@ -560,6 +587,7 @@ func TestSetHTTPCookies(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var events int
+
 			j := newJar(t, Config{
 				Clock: clockwork.NewFakeClockAt(time.Date(2026, 10, 26, 12, 0, 0, 0, time.UTC)),
 				OnSetCookie: func(Event) {
@@ -567,24 +595,29 @@ func TestSetHTTPCookies(t *testing.T) {
 				},
 			})
 			err := j.SetHTTPCookies(mustURL(t, tt.url), tt.cookies)
+
 			if (err == nil) != (len(tt.errs) == 0) {
 				t.Fatalf("error %v, want one holding %q", err, tt.errs)
 			}
+
 			for _, want := range tt.errs {
 				if !strings.Contains(err.Error(), want) {
 					t.Errorf("error %q lacks %q", err, want)
 				}
 			}
+
 			for u, want := range tt.sends {
 				if got := Header(j.Cookies(nav(t, u))); got != want {
 					t.Errorf("%s sends %q, want %q", u, got, want)
 				}
 			}
+
 			if events != tt.told {
 				t.Errorf("OnSetCookie told %d times, want %d", events, tt.told)
 			}
 		})
 	}
+
 	if err := newJar(t, Config{}).SetHTTPCookies(nil, nil); err == nil {
 		t.Error("SetHTTPCookies(nil URL) succeeded")
 	}

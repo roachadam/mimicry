@@ -193,9 +193,11 @@ type ending struct {
 func New(conn net.Conn, p *profile.Profile, clock clockwork.Clock) (*Conn, error) {
 	h2 := p.HTTP2
 	firstID := h2.FirstStreamID
+
 	if firstID == 0 {
 		firstID = 1
 	}
+
 	now := clock.Now()
 	c := &Conn{
 		conn:             conn,
@@ -218,11 +220,14 @@ func New(conn net.Conn, p *profile.Profile, clock clockwork.Clock) (*Conn, error
 		idlePing:         time.Duration(h2.IdlePingMillis) * time.Millisecond,
 		lastRead:         now,
 	}
+
 	c.recvConnAvail = int64(c.recvConnWindow)
 	c.cond = sync.NewCond(&c.mu)
+
 	tableSize := uint32(defaultTableSize)
 	readFrameSize := uint32(defaultFrameSize)
 	headerListSize := uint32(defaultHeaderListSize)
+
 	for _, s := range h2.Settings {
 		switch http2.SettingID(s.ID) {
 		case http2.SettingInitialWindowSize:
@@ -237,23 +242,30 @@ func New(conn net.Conn, p *profile.Profile, clock clockwork.Clock) (*Conn, error
 			// The rest of the profile's SETTINGS change nothing locally.
 		}
 	}
+
 	c.recvStreamWindow += h2.StreamWindowUpdate
+
 	c.streamThreshold = h2.StreamUpdateThreshold
+
 	if c.streamThreshold == 0 {
 		c.streamThreshold = c.recvStreamWindow / 2
 	}
+
 	c.connThreshold = h2.ConnectionUpdateThreshold
 	if c.connThreshold == 0 {
 		c.connThreshold = c.recvConnWindow / 2
 	}
+
 	// The peer is held to what we advertise.
 	c.fr.SetMaxReadFrameSize(readFrameSize)
+
 	c.fr.ReadMetaHeaders = xhpack.NewDecoder(tableSize, nil)
 	c.fr.MaxHeaderListSize = headerListSize
 
 	if err := writePreface(conn, c.fr, h2); err != nil {
 		return nil, err
 	}
+
 	go c.readLoop()
 
 	return c, nil
@@ -265,6 +277,7 @@ func writePreface(conn net.Conn, fr *http2.Framer, h2 *profile.HTTP2) error {
 	if _, err := io.WriteString(conn, http2.ClientPreface); err != nil {
 		return err
 	}
+
 	settings := make([]http2.Setting, len(h2.Settings))
 	for i, s := range h2.Settings {
 		settings[i] = http2.Setting{
@@ -272,14 +285,17 @@ func writePreface(conn net.Conn, fr *http2.Framer, h2 *profile.HTTP2) error {
 			Val: s.Value,
 		}
 	}
+
 	if err := fr.WriteSettings(settings...); err != nil {
 		return err
 	}
+
 	if h2.WindowUpdate > 0 {
 		if err := fr.WriteWindowUpdate(0, h2.WindowUpdate); err != nil {
 			return err
 		}
 	}
+
 	for _, p := range h2.Priorities {
 		if err := fr.WritePriority(p.StreamID, priorityParam(p.PriorityParam)); err != nil {
 			return err
@@ -295,14 +311,17 @@ func writePreface(conn net.Conn, fr *http2.Framer, h2 *profile.HTTP2) error {
 // closed on errors too.
 func Decline(conn net.Conn, p *profile.Profile) error {
 	fr := http2.NewFramer(conn, conn)
+
 	err := writePreface(conn, fr, p.HTTP2)
 	if err == nil {
 		err = fr.WriteGoAway(0, http2.ErrCodeNo, nil)
 	}
+
 	if err != nil {
 		_ = conn.Close()
 		return err
 	}
+
 	go func() {
 		_ = conn.SetReadDeadline(time.Now().Add(declineLinger))
 		_, _ = io.Copy(io.Discard, conn)
@@ -336,11 +355,15 @@ func (c *Conn) Close() error {
 // connection is up; see concepts/http3.md.
 func (c *Conn) GoAway() {
 	c.mu.Lock()
+
 	if c.err != nil || c.draining {
 		c.mu.Unlock()
+
 		return
 	}
+
 	c.draining = true
+
 	idle := c.active == 0
 	// Counted as a stream until the frame is written, so the last stream
 	// ending meanwhile does not close the connection under it.
@@ -348,17 +371,22 @@ func (c *Conn) GoAway() {
 	c.cond.Broadcast()
 	c.mu.Unlock()
 	c.wmu.Lock()
+
 	_ = c.fr.WriteGoAway(0, http2.ErrCodeNo, nil)
 	c.wmu.Unlock()
 	c.mu.Lock()
+
 	c.active--
+
 	ended := c.active == 0
 	c.mu.Unlock()
+
 	switch {
 	case idle:
 		c.clock.AfterFunc(declineLinger, func() {
 			_ = c.conn.Close()
 		})
+
 	case ended:
 		// The streams in flight ended while it was written.
 		_ = c.conn.Close()
@@ -409,11 +437,14 @@ func (c *Conn) RoundTrip(req *http.Request) (*http.Response, error) {
 	ctx := req.Context()
 	hasBody := req.Body != nil && req.Body != http.NoBody
 	length := bodyLength(req)
+
 	head, err := c.head(req, length, "")
 	if err != nil {
 		closeBody(req)
+
 		return nil, err
 	}
+
 	s, err := c.newStream(ctx)
 	if err != nil {
 		if !errors.Is(err, ErrConnUnusable) {
@@ -422,10 +453,12 @@ func (c *Conn) RoundTrip(req *http.Request) (*http.Response, error) {
 
 		return nil, err
 	}
+
 	if err := c.writeHeaders(s, head); err != nil {
 		c.endStream(s, ending{
 			err: err,
 		})
+
 		// The first ending wins: a cancel may have come first.
 		r := <-s.resp
 		if !errors.Is(r.err, ErrConnUnusable) {
@@ -434,13 +467,16 @@ func (c *Conn) RoundTrip(req *http.Request) (*http.Response, error) {
 
 		return nil, r.err
 	}
+
 	if hasBody {
 		go c.sendBody(ctx, s, req.Body, length)
 	}
+
 	r := <-s.resp
 	if r.err != nil {
 		return nil, r.err
 	}
+
 	r.resp.Request = req
 
 	return r.resp, nil
@@ -467,6 +503,7 @@ func bodyLength(req *http.Request) int64 {
 	if req.Body == nil || req.Body == http.NoBody {
 		return 0
 	}
+
 	if req.ContentLength <= 0 {
 		return -1
 	}
@@ -496,25 +533,31 @@ func buildHead(headers []profile.Header, h2p *profile.HTTP2, req *http.Request, 
 	if method == "" {
 		method = http.MethodGet
 	}
+
 	if protocol != "" {
 		method = http.MethodConnect
 	}
+
 	if !httpguts.ValidHeaderFieldName(method) {
 		return requestHead{}, fmt.Errorf("h2: invalid method %q", method)
 	}
+
 	host := req.Host
 	if host == "" {
 		host = req.URL.Host
 	}
+
 	// "h:" is "h" with the scheme's default port, as browsers write it.
 	host = strings.TrimSuffix(host, ":")
 	if !httpguts.ValidHostHeader(host) {
 		return requestHead{}, fmt.Errorf("h2: invalid host %q", host)
 	}
+
 	path := req.URL.RequestURI()
 	if (!strings.HasPrefix(path, "/") && path != "*") || !httpguts.ValidHeaderFieldValue(path) {
 		return requestHead{}, fmt.Errorf("h2: invalid path %q", path)
 	}
+
 	pseudo := map[string]string{
 		":method":    method,
 		":authority": host,
@@ -522,9 +565,11 @@ func buildHead(headers []profile.Header, h2p *profile.HTTP2, req *http.Request, 
 		":path":      path,
 	}
 	h := req.Header.Clone()
+
 	if h == nil {
 		h = http.Header{}
 	}
+
 	plan := headerorder.PlanFrom(req.Context())
 	if length != 0 {
 		// A body's length is the one declared, never the caller's header.
@@ -533,6 +578,7 @@ func buildHead(headers []profile.Header, h2p *profile.HTTP2, req *http.Request, 
 				delete(h, name)
 			}
 		}
+
 		if length > 0 && (plan == nil || !plan.NoContentLength) {
 			h.Set("Content-Length", strconv.FormatInt(length, 10))
 		} else {
@@ -541,19 +587,24 @@ func buildHead(headers []profile.Header, h2p *profile.HTTP2, req *http.Request, 
 			h["Content-Length"] = nil
 		}
 	}
+
 	list := headers
 	head := requestHead{
 		endStream: length == 0 && protocol == "",
 	}
+
 	var table *profile.HeaderTable
+
 	if plan != nil {
 		list, table = plan.Headers, plan.Table
 		head.weight = plan.Weight
 	}
+
 	ordered, err := headerorder.Place(headerorder.Build(list, h, skipHeader, table), headerorder.PlacementsFrom(req.Context()))
 	if err != nil {
 		return requestHead{}, err
 	}
+
 	head.fields = make([]hpack.Field, 0, len(h2p.PseudoHeaderOrder)+1+len(ordered))
 	for _, name := range h2p.PseudoHeaderOrder {
 		head.fields = append(head.fields, hpack.Field{
@@ -561,20 +612,24 @@ func buildHead(headers []profile.Header, h2p *profile.HTTP2, req *http.Request, 
 			Value: pseudo[name],
 		})
 	}
+
 	if protocol != "" {
 		head.fields = append(head.fields, hpack.Field{
 			Name:  ":protocol",
 			Value: protocol,
 		})
 	}
+
 	for _, f := range ordered {
 		if !httpguts.ValidHeaderFieldName(f.Name) {
 			return requestHead{}, fmt.Errorf("h2: invalid header field name %q", f.Name)
 		}
+
 		if !httpguts.ValidHeaderFieldValue(f.Value) {
 			// The value is not quoted: it may be a secret.
 			return requestHead{}, fmt.Errorf("h2: invalid value for header field %q", f.Name)
 		}
+
 		if f.Name == "cookie" {
 			crumbs := headerorder.Crumbs(f.Value)
 			if h2p.SplitCookie {
@@ -588,8 +643,10 @@ func buildHead(headers []profile.Header, h2p *profile.HTTP2, req *http.Request, 
 
 				continue
 			}
+
 			f.Value = strings.Join(crumbs, "; ")
 		}
+
 		head.fields = append(head.fields, hpack.Field{
 			Name:  f.Name,
 			Value: f.Value,
@@ -604,24 +661,31 @@ func buildHead(headers []profile.Header, h2p *profile.HTTP2, req *http.Request, 
 func (c *Conn) newStream(ctx context.Context) (*stream, error) {
 	stop := context.AfterFunc(ctx, c.broadcast)
 	defer stop()
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	for {
 		if c.err != nil || c.draining {
 			return nil, ErrConnUnusable
 		}
+
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
+
 		if c.active < c.maxStreams {
 			break
 		}
+
 		c.cond.Wait()
 	}
+
 	s := &stream{
 		resp:       make(chan responseOrError, 1),
 		recvWindow: int64(c.recvStreamWindow),
 	}
+
 	s.body = newPipe(func(n int) {
 		c.consumed(s, n)
 	}, func(complete bool, discarded int) {
@@ -648,7 +712,9 @@ func (c *Conn) broadcast() {
 func (c *Conn) writeHeaders(s *stream, head requestHead) error {
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
+
 	c.mu.Lock()
+
 	if s.done {
 		// Cancelled before it was sent.
 		err := s.err
@@ -656,16 +722,22 @@ func (c *Conn) writeHeaders(s *stream, head requestHead) error {
 
 		return err
 	}
+
 	if c.err != nil || c.draining {
 		c.mu.Unlock()
+
 		return ErrConnUnusable
 	}
+
 	id := c.nextID
+
 	c.nextID += 2
+
 	if c.nextID >= 1<<31 {
 		// No ID is left for another stream.
 		c.draining = true
 	}
+
 	// The weight places the stream in Chromium's dependency lists.
 	var weight uint8
 	if p := c.h2.HeadersPriority; p != nil {
@@ -674,10 +746,12 @@ func (c *Conn) writeHeaders(s *stream, head requestHead) error {
 			weight = head.weight
 		}
 	}
+
 	var parent uint32
 	if c.h2.HeadersPriority != nil && c.h2.ChainPriorities {
 		parent = c.parent(weight)
 	}
+
 	s.weight = weight
 	s.id = id
 	s.lastUpdate = c.clock.Now()
@@ -685,15 +759,19 @@ func (c *Conn) writeHeaders(s *stream, head requestHead) error {
 	// SETTINGS adjust it with the other open streams.
 	s.sendWindow = c.initialWindow
 	c.streams[id] = s
+
 	frameSize := int(c.maxFrameSize)
 	c.mu.Unlock()
 
 	c.hblock = c.henc.AppendBlock(c.hblock[:0], head.fields)
+
 	block := c.hblock
 	first := block
+
 	if len(first) > frameSize {
 		first = block[:frameSize]
 	}
+
 	param := http2.HeadersFrameParam{
 		StreamID:      id,
 		BlockFragment: first,
@@ -709,19 +787,23 @@ func (c *Conn) writeHeaders(s *stream, head requestHead) error {
 			param.Priority.Exclusive = true
 		}
 	}
+
 	if err := c.fr.WriteHeaders(param); err != nil {
 		return c.headersFailed(id, err)
 	}
+
 	for rest := block[len(first):]; len(rest) > 0; {
 		chunk := rest
 		if len(chunk) > frameSize {
 			chunk = rest[:frameSize]
 		}
+
 		rest = rest[len(chunk):]
 		if err := c.fr.WriteContinuation(id, len(rest) == 0, chunk); err != nil {
 			return c.headersFailed(id, err)
 		}
 	}
+
 	// From here the request is out: a failed write closes the connection
 	// and the read loop fails the stream as lost.
 	if inc := c.h2.StreamWindowUpdate; inc > 0 {
@@ -729,6 +811,7 @@ func (c *Conn) writeHeaders(s *stream, head requestHead) error {
 			return nil
 		}
 	}
+
 	c.maybePing()
 
 	return nil
@@ -740,12 +823,16 @@ func (c *Conn) writeHeaders(s *stream, head requestHead) error {
 // stops being a candidate once the peer's END_STREAM, a reset or a failure
 // ends it, whether or not its body was read. c.mu must be held.
 func (c *Conn) parent(weight uint8) uint32 {
-	var id uint32
-	var level uint8
+	var (
+		id    uint32
+		level uint8
+	)
+
 	for open, s := range c.streams {
 		if s.peerEnded || s.weight < weight {
 			continue
 		}
+
 		if id == 0 || s.weight < level || (s.weight == level && open > id) {
 			id, level = open, s.weight
 		}
@@ -762,11 +849,14 @@ func (c *Conn) parent(weight uint8) uint32 {
 func (c *Conn) headersFailed(id uint32, err error) error {
 	c.mu.Lock()
 	delete(c.streams, id)
+
 	if c.err == nil {
 		c.err = ErrConnUnusable
 	}
+
 	c.cond.Broadcast()
 	c.mu.Unlock()
+
 	_ = c.conn.Close()
 
 	return fmt.Errorf("%w: %w", ErrConnUnusable, err)
@@ -789,27 +879,36 @@ func (c *Conn) maybePing() {
 	if c.idlePing == 0 {
 		return
 	}
+
 	c.mu.Lock()
+
 	send := c.pingTimer == nil && c.clock.Since(c.lastRead) >= c.idlePing
 	if send {
 		c.pingCount++
+
 		c.pingTimer = c.clock.AfterFunc(c.idlePing, c.pingTimedOut)
 	}
+
 	count := c.pingCount
 	c.mu.Unlock()
+
 	if !send {
 		return
 	}
+
 	var data [8]byte
 	binary.BigEndian.PutUint64(data[:], count)
+
 	_ = c.broken(c.fr.WritePing(false, data))
 }
 
 // pingTimedOut closes a connection whose PING went unanswered: it is dead.
 func (c *Conn) pingTimedOut() {
 	c.mu.Lock()
+
 	hung := c.pingTimer != nil
 	c.mu.Unlock()
+
 	if hung {
 		_ = c.conn.Close()
 	}
@@ -820,20 +919,25 @@ func (c *Conn) pingTimedOut() {
 // for the retry.
 func (c *Conn) sendBody(ctx context.Context, s *stream, body io.ReadCloser, length int64) {
 	c.mu.Lock()
+
 	if s.done {
 		err := s.err
 		c.mu.Unlock()
+
 		if !errors.Is(err, ErrConnUnusable) {
 			_ = body.Close()
 		}
 
 		return
 	}
+
 	s.bodyStarted = true
 	c.mu.Unlock()
+
 	defer func() {
 		_ = body.Close()
 	}()
+
 	if err := c.writeBody(ctx, s, body, length); err != nil {
 		c.reset(s, http2.ErrCodeCancel, err)
 	}
@@ -846,17 +950,22 @@ func (c *Conn) sendBody(ctx context.Context, s *stream, body io.ReadCloser, leng
 // unknown length, END_STREAM goes on the read that reports EOF.
 func (c *Conn) writeBody(ctx context.Context, s *stream, body io.Reader, length int64) error {
 	buf := make([]byte, uploadChunk)
+
 	var sent int64
+
 	for {
 		b := buf
 		if length >= 0 {
 			b = buf[:min(int64(len(buf)), length-sent)]
 		}
+
 		n, err := body.Read(b)
 		eof := errors.Is(err, io.EOF)
+
 		if err != nil && !eof {
 			return err
 		}
+
 		sent += int64(n)
 		if length >= 0 {
 			if sent == length && !eof {
@@ -864,18 +973,23 @@ func (c *Conn) writeBody(ctx context.Context, s *stream, body io.Reader, length 
 				if err != nil {
 					return err
 				}
+
 				if more {
 					return errBodyTooLong
 				}
+
 				eof = true
 			}
+
 			if eof && sent != length {
 				return errBodyTooShort
 			}
 		}
+
 		if err := c.sendData(ctx, s, b[:n], eof); err != nil {
 			return err
 		}
+
 		if eof {
 			return nil
 		}
@@ -890,9 +1004,11 @@ func hasMore(body io.Reader) (bool, error) {
 		if n > 0 {
 			return true, nil
 		}
+
 		if errors.Is(err, io.EOF) {
 			return false, nil
 		}
+
 		if err != nil {
 			return false, err
 		}
@@ -904,29 +1020,39 @@ func hasMore(body io.Reader) (bool, error) {
 func (c *Conn) sendData(ctx context.Context, s *stream, data []byte, end bool) error {
 	if len(data) == 0 && end {
 		c.mu.Lock()
+
 		done := s.done
 		c.mu.Unlock()
+
 		if done {
 			return errStreamClosed
 		}
 	}
+
 	for len(data) > 0 || end {
 		var n int
 		if len(data) > 0 {
 			var err error
+
 			n, err = c.reserveSend(ctx, s, len(data))
 			if err != nil {
 				return err
 			}
 		}
+
 		last := end && n == len(data)
+
 		c.wmu.Lock()
+
 		err := c.broken(c.fr.WriteData(s.id, last, data[:n]))
 		c.wmu.Unlock()
+
 		if err != nil {
 			return err
 		}
+
 		data = data[n:]
+
 		if last {
 			return nil
 		}
@@ -940,22 +1066,28 @@ func (c *Conn) sendData(ctx context.Context, s *stream, data []byte, end bool) e
 func (c *Conn) reserveSend(ctx context.Context, s *stream, want int) (int, error) {
 	stop := context.AfterFunc(ctx, c.broadcast)
 	defer stop()
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	for {
 		if c.err != nil {
 			return 0, c.err
 		}
+
 		if s.done {
 			return 0, errStreamClosed
 		}
+
 		if err := ctx.Err(); err != nil {
 			return 0, err
 		}
+
 		limit := c.maxFrameSize
 		if c.h2.MaxDataFrame > 0 {
 			limit = min(limit, c.h2.MaxDataFrame)
 		}
+
 		n := min(int32(want), s.sendWindow, c.sendWindow, int32(limit))
 		if n > 0 {
 			s.sendWindow -= n
@@ -963,6 +1095,7 @@ func (c *Conn) reserveSend(ctx context.Context, s *stream, want int) (int, error
 
 			return int(n), nil
 		}
+
 		c.cond.Wait()
 	}
 }
@@ -973,26 +1106,37 @@ func (c *Conn) reserveSend(ctx context.Context, s *stream, want int) (int, error
 func (c *Conn) consumed(s *stream, n int) {
 	now := c.clock.Now()
 	c.mu.Lock()
+
 	s.unacked += uint32(n)
 	c.recvConnUnacked += uint32(n)
+
 	var streamInc, connInc uint32
+
 	if !s.done && c.due(s.unacked, c.streamThreshold, s.lastUpdate, now) {
 		streamInc, s.unacked, s.lastUpdate = s.unacked, 0, now
+
 		s.recvWindow += int64(streamInc)
 	}
+
 	if c.due(c.recvConnUnacked, c.connThreshold, c.connLastUpdate, now) {
 		connInc, c.recvConnUnacked, c.connLastUpdate = c.recvConnUnacked, 0, now
+
 		c.recvConnAvail += int64(connInc)
 	}
+
 	c.mu.Unlock()
+
 	if streamInc == 0 && connInc == 0 {
 		return
 	}
+
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
+
 	if connInc > 0 {
 		_ = c.broken(c.fr.WriteWindowUpdate(0, connInc))
 	}
+
 	if streamInc > 0 {
 		_ = c.broken(c.fr.WriteWindowUpdate(s.id, streamInc))
 	}
@@ -1013,6 +1157,7 @@ func (c *Conn) bodyClosed(s *stream, complete bool, discarded int) {
 	} else {
 		c.reset(s, http2.ErrCodeCancel, errBodyClosed)
 	}
+
 	if discarded > 0 {
 		_ = c.returnConnCredit(uint32(discarded))
 	}
@@ -1025,10 +1170,13 @@ func (c *Conn) bodyClosed(s *stream, complete bool, discarded int) {
 func (c *Conn) linger(s *stream) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	if s.done {
 		return
 	}
+
 	s.stopCtx()
+
 	s.linger = c.clock.AfterFunc(lingerTimeout, func() {
 		c.reset(s, http2.ErrCodeCancel, errBodyClosed)
 	})
@@ -1048,45 +1196,62 @@ func (c *Conn) reset(s *stream, code http2.ErrCode, err error) {
 // the body, and closes a draining connection once its last stream is gone.
 func (c *Conn) endStream(s *stream, e ending) {
 	err := e.err
+
 	c.mu.Lock()
+
 	if s.done {
 		c.mu.Unlock()
+
 		return
 	}
+
 	if s.bodyStarted && errors.Is(err, ErrConnUnusable) {
 		// Not wrapped: it must no longer match ErrConnUnusable.
 		err = fmt.Errorf("%w: %s", errRefusedAfterBody, err.Error())
 	}
+
 	s.done, s.err = true, err
+
 	id := s.id
+
 	if id != 0 {
 		delete(c.streams, id)
 	}
+
 	if s.linger != nil {
 		s.linger.Stop()
 	}
+
 	s.stopCtx()
+
 	// Whoever sets delivered owns the one send on s.resp, so it may happen
 	// outside mu.
 	deliver := !s.delivered
+
 	s.delivered = true
 	c.active--
+
 	idle := c.draining && c.active == 0
 	c.cond.Broadcast()
 	c.mu.Unlock()
+
 	if e.rst && id != 0 {
 		c.wmu.Lock()
+
 		_ = c.broken(c.fr.WriteRSTStream(id, e.code))
 		c.wmu.Unlock()
 	}
+
 	if deliver {
 		s.resp <- responseOrError{
 			err: err,
 		}
 	}
+
 	if n := s.body.end(err); n > 0 {
 		_ = c.returnConnCredit(uint32(n))
 	}
+
 	if idle {
 		_ = c.conn.Close()
 	}
@@ -1094,33 +1259,43 @@ func (c *Conn) endStream(s *stream, e ending) {
 
 func (c *Conn) readLoop() {
 	defer close(c.done)
+
 	err := c.read()
 	streamErr := err
+
 	if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
 		// New requests may go elsewhere; requests already sent may have
 		// been processed, so they are not retried.
 		err, streamErr = ErrConnUnusable, errConnLost
 	}
+
 	c.mu.Lock()
+
 	if c.err == nil {
 		c.err = err
 	}
+
 	c.cond.Broadcast()
 	c.mu.Unlock()
+
 	if ce, ok := errors.AsType[http2.ConnectionError](err); ok {
 		c.writeGoAway(http2.ErrCode(ce))
 	}
+
 	_ = c.conn.Close()
 	// A header block being written goes out, or fails and leaves c.streams,
 	// before the streams in flight are failed.
 	c.wmu.Lock()
 	c.mu.Lock()
+
 	streams := make([]*stream, 0, len(c.streams))
 	for _, s := range c.streams {
 		streams = append(streams, s)
 	}
+
 	c.mu.Unlock()
 	c.wmu.Unlock()
+
 	for _, s := range streams {
 		c.endStream(s, ending{
 			err: streamErr,
@@ -1135,8 +1310,10 @@ func (c *Conn) writeGoAway(code http2.ErrCode) {
 		_ = c.conn.Close()
 	})
 	defer t.Stop()
+
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
+
 	_ = c.fr.WriteGoAway(0, code, nil)
 }
 
@@ -1151,53 +1328,69 @@ func (c *Conn) read() error {
 
 			continue
 		}
+
 		if errors.Is(err, http2.ErrFrameTooLarge) {
 			// Larger than our SETTINGS_MAX_FRAME_SIZE (RFC 9113, 4.2).
 			return http2.ConnectionError(http2.ErrCodeFrameSize)
 		}
+
 		if err != nil {
 			return err
 		}
+
 		c.mu.Lock()
+
 		c.lastRead = c.clock.Now()
 		c.mu.Unlock()
+
 		switch f := f.(type) {
 		case *http2.SettingsFrame:
 			if f.IsAck() {
 				continue
 			}
+
 			if err := c.applySettings(f); err != nil {
 				return err
 			}
+
 		case *http2.WindowUpdateFrame:
 			if err := c.onWindowUpdate(f); err != nil {
 				return err
 			}
+
 		case *http2.MetaHeadersFrame:
 			c.onHeaders(f)
 		case *http2.DataFrame:
 			if err := c.onData(f); err != nil {
 				return err
 			}
+
 		case *http2.RSTStreamFrame:
 			c.onReset(f)
 		case *http2.PingFrame:
 			if f.IsAck() {
 				c.mu.Lock()
+
 				if c.pingTimer != nil {
 					c.pingTimer.Stop()
+
 					c.pingTimer = nil
 				}
+
 				c.mu.Unlock()
 
 				continue
 			}
+
 			c.wmu.Lock()
+
 			err := c.broken(c.fr.WritePing(true, f.Data))
 			c.wmu.Unlock()
+
 			if err != nil {
 				return err
 			}
+
 		case *http2.GoAwayFrame:
 			c.onGoAway(f)
 		}
@@ -1213,12 +1406,16 @@ func (c *Conn) stream(id uint32) *stream {
 
 func (c *Conn) applySettings(f *http2.SettingsFrame) error {
 	var tableSize uint32
+
 	haveTableSize := false
+
 	c.mu.Lock()
+
 	err := f.ForeachSetting(func(s http2.Setting) error {
 		if err := s.Valid(); err != nil {
 			return err
 		}
+
 		switch s.ID {
 		case http2.SettingMaxFrameSize:
 			c.maxFrameSize = s.Val
@@ -1231,9 +1428,12 @@ func (c *Conn) applySettings(f *http2.SettingsFrame) error {
 				if w > maxWindow {
 					return http2.ConnectionError(http2.ErrCodeFlowControl)
 				}
+
 				st.sendWindow = int32(w)
 			}
+
 			c.initialWindow = int32(s.Val)
+
 		case http2.SettingHeaderTableSize:
 			tableSize, haveTableSize = s.Val, true
 		case http2.SettingEnableConnectProtocol:
@@ -1241,28 +1441,35 @@ func (c *Conn) applySettings(f *http2.SettingsFrame) error {
 			if s.Val == 0 && c.connectProtocol {
 				return http2.ConnectionError(http2.ErrCodeProtocol)
 			}
+
 			c.connectProtocol = s.Val == 1
+
 		case http2.SettingEnablePush:
 			// RFC 9113, section 6.5.2: a server enabling push is a
 			// PROTOCOL_ERROR.
 			if s.Val != 0 {
 				return http2.ConnectionError(http2.ErrCodeProtocol)
 			}
+
 		default:
 			// The rest (advisory or informational) change nothing here.
 		}
 
 		return nil
 	})
+
 	c.cond.Broadcast()
 	c.mu.Unlock()
+
 	if err != nil {
 		return err
 	}
+
 	// Lock order is wmu then mu, so the encoder is updated after mu is
 	// released.
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
+
 	if haveTableSize {
 		c.henc.SetPeerTableSize(tableSize)
 	}
@@ -1274,23 +1481,29 @@ func (c *Conn) applySettings(f *http2.SettingsFrame) error {
 // FLOW_CONTROL_ERROR: for the connection, or for the stream only.
 func (c *Conn) onWindowUpdate(f *http2.WindowUpdateFrame) error {
 	c.mu.Lock()
+
 	if f.StreamID == 0 {
 		w := int64(c.sendWindow) + int64(f.Increment)
 		if w > maxWindow {
 			c.mu.Unlock()
+
 			return http2.ConnectionError(http2.ErrCodeFlowControl)
 		}
+
 		c.sendWindow = int32(w)
 		c.cond.Broadcast()
 		c.mu.Unlock()
 
 		return nil
 	}
+
 	s := c.streams[f.StreamID]
 	if s == nil {
 		c.mu.Unlock()
+
 		return nil
 	}
+
 	w := int64(s.sendWindow) + int64(f.Increment)
 	if w > maxWindow {
 		c.mu.Unlock()
@@ -1301,7 +1514,9 @@ func (c *Conn) onWindowUpdate(f *http2.WindowUpdateFrame) error {
 
 		return nil
 	}
+
 	s.sendWindow = int32(w)
+
 	c.cond.Broadcast()
 	c.mu.Unlock()
 
@@ -1310,25 +1525,34 @@ func (c *Conn) onWindowUpdate(f *http2.WindowUpdateFrame) error {
 
 func (c *Conn) onHeaders(f *http2.MetaHeadersFrame) {
 	c.mu.Lock()
+
 	s := c.streams[f.StreamID]
 	if s != nil && f.StreamEnded() {
 		// No longer a parent, before the caller can see the response.
 		s.peerEnded = true
 	}
+
 	c.mu.Unlock()
+
 	if s == nil {
 		return
 	}
+
 	if c.onHeadersHook != nil {
 		c.onHeadersHook()
 	}
+
 	if f.Truncated {
 		c.reset(s, http2.ErrCodeProtocol, errHeaderListSize)
+
 		return
 	}
+
 	c.mu.Lock()
+
 	trailers := s.delivered
 	c.mu.Unlock()
+
 	if trailers {
 		// Trailers are not exposed, but may end the stream.
 		if f.StreamEnded() {
@@ -1339,12 +1563,16 @@ func (c *Conn) onHeaders(f *http2.MetaHeadersFrame) {
 
 		return
 	}
+
 	status := f.PseudoValue("status")
+
 	code, err := strconv.Atoi(status)
 	if err != nil {
 		c.reset(s, http2.ErrCodeProtocol, fmt.Errorf("h2: bad :status %q", status))
+
 		return
 	}
+
 	if code >= 100 && code < 200 {
 		// Informational; the final response follows.
 		if f.StreamEnded() {
@@ -1353,11 +1581,14 @@ func (c *Conn) onHeaders(f *http2.MetaHeadersFrame) {
 
 		return
 	}
+
 	h := make(http.Header, len(f.Fields))
 	for _, field := range f.RegularFields() {
 		key := http.CanonicalHeaderKey(field.Name)
+
 		h[key] = append(h[key], field.Value)
 	}
+
 	resp := &http.Response{
 		Status:        status + " " + http.StatusText(code),
 		StatusCode:    code,
@@ -1372,18 +1603,23 @@ func (c *Conn) onHeaders(f *http2.MetaHeadersFrame) {
 			resp.ContentLength = n
 		}
 	}
+
 	s.body.setExpected(resp.ContentLength)
 	c.mu.Lock()
+
 	if s.done {
 		// Ended meanwhile (a cancel): RoundTrip has its error.
 		c.mu.Unlock()
+
 		return
 	}
+
 	s.delivered = true
 	s.resp <- responseOrError{
 		resp: resp,
 	}
 	c.mu.Unlock()
+
 	if f.StreamEnded() {
 		c.endStream(s, ending{
 			err: io.EOF,
@@ -1395,39 +1631,54 @@ func (c *Conn) onHeaders(f *http2.MetaHeadersFrame) {
 // frame, padding included, counts against both receive windows.
 func (c *Conn) onData(f *http2.DataFrame) error {
 	size := f.Length
+
 	c.mu.Lock()
+
 	c.recvConnAvail -= int64(size)
 	if c.recvConnAvail < 0 {
 		c.mu.Unlock()
+
 		return http2.ConnectionError(http2.ErrCodeFlowControl)
 	}
+
 	s := c.streams[f.StreamID]
+
 	var streamErr error
+
 	code := http2.ErrCodeFlowControl
+
 	if s != nil {
 		// Before its data reaches the reader (see onHeaders).
 		s.peerEnded = s.peerEnded || f.StreamEnded()
+
 		s.recvWindow -= int64(size)
+
 		switch {
 		case s.recvWindow < 0:
 			streamErr = http2.StreamError{
 				StreamID: f.StreamID,
 				Code:     code,
 			}
+
 		case !s.delivered:
 			code = http2.ErrCodeProtocol
 			streamErr = errors.New("h2: DATA before the response headers")
 		}
 	}
+
 	c.mu.Unlock()
+
 	if s == nil {
 		// A stream we already closed: still return the connection credit.
 		return c.returnConnCredit(size)
 	}
+
 	if streamErr != nil {
 		c.reset(s, code, streamErr)
+
 		return c.returnConnCredit(size)
 	}
+
 	if data := f.Data(); len(data) > 0 && !s.body.write(data) {
 		// The body was closed or ended: nobody will read these bytes.
 		if err := c.returnConnCredit(size); err != nil {
@@ -1436,6 +1687,7 @@ func (c *Conn) onData(f *http2.DataFrame) error {
 	} else if pad := int(size) - len(f.Data()); pad > 0 {
 		c.consumed(s, pad)
 	}
+
 	if f.StreamEnded() {
 		c.endStream(s, ending{
 			err: io.EOF,
@@ -1450,20 +1702,29 @@ func (c *Conn) onData(f *http2.DataFrame) error {
 func (c *Conn) returnConnCredit(size uint32) error {
 	now := c.clock.Now()
 	c.mu.Lock()
+
 	if c.err != nil {
 		c.mu.Unlock()
+
 		return nil
 	}
+
 	c.recvConnUnacked += size
+
 	var inc uint32
+
 	if c.due(c.recvConnUnacked, c.connThreshold, c.connLastUpdate, now) {
 		inc, c.recvConnUnacked, c.connLastUpdate = c.recvConnUnacked, 0, now
+
 		c.recvConnAvail += int64(inc)
 	}
+
 	c.mu.Unlock()
+
 	if inc == 0 {
 		return nil
 	}
+
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
 
@@ -1478,16 +1739,20 @@ func (c *Conn) onReset(f *http2.RSTStreamFrame) {
 	if s == nil {
 		return
 	}
+
 	var err error = http2.StreamError{
 		StreamID: f.StreamID,
 		Code:     f.ErrCode,
 	}
 	if f.ErrCode == http2.ErrCodeRefusedStream {
 		c.mu.Lock()
+
 		c.draining = true
 		c.mu.Unlock()
+
 		err = fmt.Errorf("%w: %w", ErrConnUnusable, err)
 	}
+
 	c.endStream(s, ending{
 		err: err,
 	})
@@ -1497,21 +1762,27 @@ func (c *Conn) onReset(f *http2.RSTStreamFrame) {
 // ErrConnUnusable; the others run to completion, then the connection closes.
 func (c *Conn) onGoAway(f *http2.GoAwayFrame) {
 	c.mu.Lock()
+
 	c.draining = true
+
 	var refused []*stream
+
 	for id, s := range c.streams {
 		if id > f.LastStreamID {
 			refused = append(refused, s)
 		}
 	}
+
 	idle := c.active == 0
 	c.cond.Broadcast()
 	c.mu.Unlock()
+
 	for _, s := range refused {
 		c.endStream(s, ending{
 			err: fmt.Errorf("%w: GOAWAY after stream %d", ErrConnUnusable, f.LastStreamID),
 		})
 	}
+
 	if idle {
 		_ = c.conn.Close()
 	}

@@ -11,6 +11,7 @@ import (
 
 func unhex(t *testing.T, s string) []byte {
 	t.Helper()
+
 	b, err := hex.DecodeString(strings.ReplaceAll(s, " ", ""))
 	if err != nil {
 		t.Fatal(err)
@@ -156,6 +157,7 @@ func TestDecodeRFC7541Examples(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
+
 				if !reflect.DeepEqual(got, tt.want[i]) {
 					t.Errorf("block %d\n got %+v\nwant %+v", i+1, got, tt.want[i])
 				}

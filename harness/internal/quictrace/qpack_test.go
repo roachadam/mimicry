@@ -12,6 +12,7 @@ import (
 // which is blocked), and the decoder stream's instructions.
 func TestQPACKRFC9204Examples(t *testing.T) {
 	table := NewTable(220)
+
 	type step struct {
 		name string
 		// encoder is encoder stream bytes, section a field section's,
@@ -23,6 +24,7 @@ func TestQPACKRFC9204Examples(t *testing.T) {
 		wantErr                   error
 		wantInserted              uint64
 	}
+
 	for _, s := range []step{
 		{
 			name:       "B.1 literal with static name reference",
@@ -104,15 +106,19 @@ func TestQPACKRFC9204Examples(t *testing.T) {
 		case s.encoder != "":
 			b := mustHex(t, s.encoder)
 			got, n, err := table.ReadEncoderStream(b)
+
 			if err != nil || n != len(b) {
 				t.Fatalf("%s: read %d of %d bytes: %v", s.name, n, len(b), err)
 			}
+
 			if !reflect.DeepEqual(got, s.wantEncoder) {
 				t.Errorf("%s: encoder instructions\n%+v\nwant\n%+v", s.name, got, s.wantEncoder)
 			}
+
 			if table.Inserted() != s.wantInserted {
 				t.Errorf("%s: %d inserted; want %d", s.name, table.Inserted(), s.wantInserted)
 			}
+
 		case s.section != "":
 			got, err := table.DecodeSection(mustHex(t, s.section))
 			if s.wantErr != nil {
@@ -122,18 +128,23 @@ func TestQPACKRFC9204Examples(t *testing.T) {
 
 				continue
 			}
+
 			if err != nil {
 				t.Fatalf("%s: %v", s.name, err)
 			}
+
 			if !reflect.DeepEqual(got.Fields, s.wantFields) {
 				t.Errorf("%s: fields\n%+v\nwant\n%+v", s.name, got.Fields, s.wantFields)
 			}
+
 		default:
 			b := mustHex(t, s.decoder)
 			got, n, err := ReadDecoderStream(b)
+
 			if err != nil || n != len(b) {
 				t.Fatalf("%s: read %d of %d bytes: %v", s.name, n, len(b), err)
 			}
+
 			if !reflect.DeepEqual(got, s.wantDecoder) {
 				t.Errorf("%s: decoder instructions %+v; want %+v", s.name, got, s.wantDecoder)
 			}

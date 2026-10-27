@@ -45,31 +45,40 @@ func (sc *Scenario) MultiHost() (hosts []string, length time.Duration, ok bool) 
 // certificate and ALPN.
 func multiHostTLS(m multiHost, base *tls.Config, issue func([]string) (tls.Certificate, error)) *tls.Config {
 	var mu sync.Mutex
+
 	configs := map[string]*tls.Config{}
 	cfg := base.Clone()
+
 	cfg.GetConfigForClient = func(hello *tls.ClientHelloInfo) (*tls.Config, error) {
 		mu.Lock()
 		defer mu.Unlock()
+
 		if c, ok := configs[hello.ServerName]; ok {
 			return c, nil
 		}
+
 		names, ok := m.certNames(hello.ServerName)
 		if !ok {
 			return nil, fmt.Errorf("no host %q here", hello.ServerName)
 		}
+
 		cert, err := issue(names)
 		if err != nil {
 			return nil, err
 		}
+
 		c := base.Clone()
+
 		c.Certificates = []tls.Certificate{
 			cert,
 		}
+
 		if m.h1Only(hello.ServerName) {
 			c.NextProtos = []string{
 				"http/1.1",
 			}
 		}
+
 		configs[hello.ServerName] = c
 
 		return c, nil
@@ -171,14 +180,17 @@ func cookieDeletions(set []string) []string {
 	for _, c := range set {
 		pair, _, _ := strings.Cut(c, ";")
 		d := pair
+
 		if name := setCookieName(c); name != "" {
 			d = name + "="
 		}
+
 		for _, a := range strings.Split(c, "; ")[1:] {
 			if strings.HasPrefix(a, "Path=") || strings.HasPrefix(a, "Domain=") || a == "Secure" || a == "HttpOnly" {
 				d += "; " + a
 			}
 		}
+
 		out = append(out, d+"; Max-Age=0")
 	}
 

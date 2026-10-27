@@ -69,18 +69,23 @@ func needsPreflight(req *http.Request, r Request, from *url.URL, credentialed bo
 	if from == nil || (r.Kind != Fetch && r.Kind != XHR) || r.NoCORS {
 		return nil
 	}
+
 	o := origin(from)
 	if isTainted(from, append(redirectsBefore(req), req.URL)) {
 		o = "null"
 	}
+
 	if o == origin(req.URL) {
 		return nil
 	}
+
 	headers := unsafeHeaders(h)
 	if !force && safelistedMethod(req.Method) && len(headers) == 0 {
 		return nil
 	}
+
 	u := *req.URL
+
 	u.Fragment, u.RawFragment = "", ""
 
 	return &preflightNeed{
@@ -113,33 +118,42 @@ func (t *Transport) preflightFor(req *http.Request, r Request, from *url.URL, cr
 	if need == nil {
 		forced := needsPreflight(req, r, from, credentialed, h, true)
 		inherit, err := t.hopPreflight(req, forced != nil)
+
 		if err != nil || !inherit {
 			return false, nil, err
 		}
+
 		need = forced
 	}
+
 	var rule string
 	if t.profile.Context != nil {
 		rule = t.profile.Context.PreflightCache
 	}
+
 	if rule == "" {
 		return true, nil, fmt.Errorf("%w: profile %s has no CORS preflight cache rule", ErrNotMeasured, t.profile.Name)
 	}
+
 	if t.preflights.allows(need, t.clock.Now()) {
 		return true, nil, nil
 	}
+
 	ctx := req.Context()
 	// The same URL and redirect chain (Response, which decides the
 	// Origin), with nothing of the request's own.
 	pre := req.Clone(ctx)
+
 	pre.Method = http.MethodOptions
 	pre.Header = http.Header{}
 	pre.Body, pre.GetBody, pre.ContentLength = http.NoBody, nil, 0
 	pre.TransferEncoding, pre.Trailer = nil, nil
 	pre.Header.Set("Access-Control-Request-Method", need.method)
+
 	if len(need.headers) > 0 {
 		pre.Header.Set("Access-Control-Request-Headers", strings.Join(need.headers, ","))
 	}
+
 	s, err := resolve(t.profile, pre, Request{
 		Kind: kindPreflight,
 		From: from,
@@ -147,10 +161,12 @@ func (t *Transport) preflightFor(req *http.Request, r Request, from *url.URL, cr
 	if err != nil {
 		return true, nil, err
 	}
+
 	pctx := pool.WithPartition(ctx, s.partition)
 	if s.plan != nil {
 		pctx = headerorder.WithPlan(pctx, s.plan)
 	}
+
 	pre = pre.WithContext(pctx)
 	pre.Header = s.header
 
@@ -170,8 +186,10 @@ func (t *Transport) sendPreflight(pf *preflightSend, ignore bool) error {
 	if err != nil {
 		return publicError(err)
 	}
+
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
 	_ = resp.Body.Close()
+
 	if reason := checkPreflight(resp, pf.need); reason != "" {
 		if ignore {
 			return nil
@@ -184,6 +202,7 @@ func (t *Transport) sendPreflight(pf *preflightSend, ignore bool) error {
 			Header: resp.Header,
 		}
 	}
+
 	t.preflights.store(pf.need, resp.Header, pf.rule == profile.PreflightCacheReplace, t.clock.Now())
 
 	return nil
@@ -196,9 +215,11 @@ func (t *Transport) hopPreflight(req *http.Request, could bool) (bool, error) {
 	if !could || req.Response == nil || req.Response.Request == nil {
 		return false, nil
 	}
+
 	if before, _ := req.Response.Request.Context().Value(preflightedKey{}).(bool); !before {
 		return false, nil
 	}
+
 	if t.profile.Redirects == nil {
 		return false, fmt.Errorf("%w: profile %s has no redirects rules, for a hop after a CORS preflight", ErrNotMeasured, t.profile.Name)
 	}
@@ -216,18 +237,22 @@ func checkPreflight(resp *http.Response, need *preflightNeed) string {
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return fmt.Sprintf("status %d is not ok", resp.StatusCode)
 	}
+
 	cred := need.key.credentialed
 	if reason := checkCORS(resp.Header, need.key.origin, cred); reason != "" {
 		return reason
 	}
+
 	methods := headerList(resp.Header, "Access-Control-Allow-Methods")
 	if !safelistedMethod(need.method) && !slices.Contains(methods, need.method) && (cred || !slices.Contains(methods, "*")) {
 		return fmt.Sprintf("Access-Control-Allow-Methods does not allow %s", need.method)
 	}
+
 	names := headerList(resp.Header, "Access-Control-Allow-Headers")
 	for i := range names {
 		names[i] = strings.ToLower(names[i])
 	}
+
 	wildcard := !cred && slices.Contains(names, "*")
 	for _, name := range need.headers {
 		if !slices.Contains(names, name) && (!wildcard || name == "authorization") {
@@ -250,6 +275,7 @@ func checkCORS(h http.Header, origin string, credentialed bool) string {
 	case acao[0] != "*" && acao[0] != origin:
 		return fmt.Sprintf("Access-Control-Allow-Origin %q is not %q", acao[0], origin)
 	}
+
 	if credentialed && h.Get("Access-Control-Allow-Credentials") != "true" {
 		return "no Access-Control-Allow-Credentials: true on a request with credentials"
 	}
@@ -295,20 +321,24 @@ const minPrune = 64
 func (c *preflightCache) allows(need *preflightNeed, now time.Time) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	items := c.entries[need.key]
 	has := func(item string) bool {
 		until, ok := items[item]
 		return ok && now.Before(until)
 	}
 	cred := need.key.credentialed
+
 	if need.forced && !slices.ContainsFunc(slices.Collect(maps.Keys(items)), has) {
 		// Nothing in the method and headers needs allowing: only an
 		// earlier answer for the URL, still live, spares this one.
 		return false
 	}
+
 	if !safelistedMethod(need.method) && !has("m:"+need.method) && (cred || !has("m:*")) {
 		return false
 	}
+
 	for _, name := range need.headers {
 		if !has("h:"+name) && (cred || name == "authorization" || !has("h:*")) {
 			return false
@@ -328,12 +358,16 @@ func (c *preflightCache) store(need *preflightNeed, h http.Header, replace bool,
 			age = time.Duration(secs) * time.Second
 		}
 	}
+
 	until := now.Add(age)
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	if c.entries == nil {
 		c.entries = map[preflightKey]map[string]time.Time{}
 	}
+
 	// Drop what has expired once the cache has doubled since it last did,
 	// so it stays within twice its live entries at an amortised constant
 	// cost per store. (Browsers cap their caches too; by how much is not
@@ -345,22 +379,28 @@ func (c *preflightCache) store(need *preflightNeed, h http.Header, replace bool,
 					delete(items, item)
 				}
 			}
+
 			if len(items) == 0 {
 				delete(c.entries, key)
 			}
 		}
+
 		c.pruneAt = max(2*len(c.entries), minPrune)
 	}
+
 	items := c.entries[need.key]
 	if items == nil || replace {
 		items = map[string]time.Time{}
 	}
+
 	for _, m := range headerList(h, "Access-Control-Allow-Methods") {
 		items["m:"+m] = until
 	}
+
 	for _, name := range headerList(h, "Access-Control-Allow-Headers") {
 		items["h:"+strings.ToLower(name)] = until
 	}
+
 	// Max-Age 0 stores items already expired: under replace, the answer
 	// still displaces the URL's earlier entry.
 	c.entries[need.key] = items
@@ -382,14 +422,17 @@ func unsafeHeaders(h http.Header) []string {
 		if len(values) == 0 {
 			continue // a suppressed profile header
 		}
+
 		lower := strings.ToLower(name)
 		if forbiddenHeader(lower) || lower == strings.ToLower(HeaderOrderKey) {
 			continue
 		}
+
 		if !safelistedHeader(lower, strings.Join(values, ", ")) {
 			unsafe = append(unsafe, lower)
 		}
 	}
+
 	slices.Sort(unsafe)
 
 	return slices.Compact(unsafe)
@@ -415,6 +458,7 @@ func safelistedHeader(lower, value string) bool {
 	if len(value) > 128 {
 		return false
 	}
+
 	switch lower {
 	case "accept":
 		return !strings.ContainsFunc(value, corsUnsafeByte)
@@ -422,16 +466,19 @@ func safelistedHeader(lower, value string) bool {
 		return !strings.ContainsFunc(value, func(c rune) bool {
 			return !languageByte(c)
 		})
+
 	case "content-type":
 		if strings.ContainsFunc(value, corsUnsafeByte) {
 			return false
 		}
+
 		switch mimeEssence(value) {
 		case "application/x-www-form-urlencoded", "multipart/form-data", "text/plain":
 			return true
 		}
 
 		return false
+
 	case "range":
 		return simpleRange(value)
 	}
@@ -448,11 +495,15 @@ func preflightConfig(p *profile.Profile, config http.Header) http.Header {
 	if kind == nil {
 		return nil
 	}
+
 	lists := make([][]profile.Header, 0, 2+2*len(kind.Variants))
+
 	lists = append(lists, kind.Headers, kind.HTTP1)
+
 	for _, v := range kind.Variants {
 		lists = append(lists, v.Headers, v.HTTP1)
 	}
+
 	out := http.Header{}
 	for k, v := range config {
 		for _, list := range lists {
@@ -478,12 +529,17 @@ func corsUnsafeByte(c rune) bool {
 // Parameters cannot make it fail: the standard skips invalid ones.
 func mimeEssence(value string) string {
 	value = strings.Trim(value, " \t\r\n")
+
 	typ, rest, ok := strings.Cut(value, "/")
+
 	if !ok {
 		return ""
 	}
+
 	sub, _, _ := strings.Cut(rest, ";")
+
 	sub = strings.TrimRight(sub, " \t\r\n")
+
 	if !token(typ) || !token(sub) {
 		return ""
 	}
@@ -511,18 +567,22 @@ func simpleRange(value string) bool {
 	if !ok {
 		return false
 	}
+
 	start, end, ok := strings.Cut(spec, "-")
 	if !ok {
 		return false
 	}
+
 	// ParseUint takes digits only: no sign, no space, not empty.
 	a, err := strconv.ParseUint(start, 10, 64)
 	if err != nil {
 		return false
 	}
+
 	if end == "" {
 		return true
 	}
+
 	b, err := strconv.ParseUint(end, 10, 64)
 
 	return err == nil && a <= b

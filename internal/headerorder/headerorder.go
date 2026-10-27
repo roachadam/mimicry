@@ -90,26 +90,35 @@ func Build(prof []profile.Header, h http.Header, skip func(name string) bool, ta
 	// A key present with no values suppresses the profile's default: it stays
 	// in the map with nothing to send.
 	values := make(map[string][]string, len(h))
+
 	var override []string
+
 	for k, v := range h {
 		if strings.EqualFold(k, Key) {
 			override = append(override, v...)
 			continue
 		}
+
 		name := strings.ToLower(k)
+
 		values[name] = append(values[name], v...)
 	}
+
 	defaults := make(map[string]string, len(prof))
 	order := make([]string, 0, len(prof))
+
 	for _, ph := range prof {
 		name := strings.ToLower(ph.Name)
+
 		defaults[name] = ph.Value
 		order = append(order, name)
 	}
+
 	if len(override) > 0 {
 		// The caller's own order: no browser placed anything.
 		table = nil
 		order = order[:0]
+
 		for _, name := range override {
 			order = append(order, strings.ToLower(name))
 		}
@@ -121,6 +130,7 @@ func Build(prof []profile.Header, h http.Header, skip func(name string) bool, ta
 		if sent[name] || skip(name) {
 			return
 		}
+
 		sent[name] = true
 		if v, set := values[name]; set {
 			for _, value := range v {
@@ -132,6 +142,7 @@ func Build(prof []profile.Header, h http.Header, skip func(name string) bool, ta
 
 			return
 		}
+
 		if d := defaults[name]; d != "" {
 			fields = append(fields, Field{
 				Name:  name,
@@ -140,16 +151,20 @@ func Build(prof []profile.Header, h http.Header, skip func(name string) bool, ta
 		}
 	}
 	rest := make([]string, 0, len(values))
+
 	for name := range values {
 		if !slices.Contains(order, name) {
 			rest = append(rest, name)
 		}
 	}
+
 	slices.Sort(rest)
+
 	tabled := tableRun(table, order, rest, func(name string) bool {
 		if skip(name) {
 			return false
 		}
+
 		if v, set := values[name]; set {
 			return len(v) > 0
 		}
@@ -164,6 +179,7 @@ func Build(prof []profile.Header, h http.Header, skip func(name string) bool, ta
 
 			continue
 		}
+
 		if slices.Contains(tabled, name) {
 			// The table's run, at its first name the list sends.
 			for _, t := range tabled {
@@ -172,8 +188,10 @@ func Build(prof []profile.Header, h http.Header, skip func(name string) bool, ta
 
 			continue
 		}
+
 		emit(name)
 	}
+
 	for _, name := range rest {
 		emit(name)
 	}
@@ -195,7 +213,9 @@ type Replacement struct {
 // prof's order, names lowercase.
 func Replaced(prof []profile.Header, h http.Header) (replaced []Replacement, dropped []string) {
 	values := make(map[string][]string, len(h))
+
 	var override []string
+
 	for k, v := range h {
 		if strings.EqualFold(k, Key) {
 			for _, name := range v {
@@ -204,12 +224,16 @@ func Replaced(prof []profile.Header, h http.Header) (replaced []Replacement, dro
 
 			continue
 		}
+
 		name := strings.ToLower(k)
+
 		values[name] = append(values[name], v...)
 	}
+
 	for _, ph := range prof {
 		name := strings.ToLower(ph.Name)
 		v, set := values[name]
+
 		switch {
 		case ph.Value == "" || name == profile.OtherHeaders:
 		case set && !slices.Equal(v, []string{ph.Value}):
@@ -218,6 +242,7 @@ func Replaced(prof []profile.Header, h http.Header) (replaced []Replacement, dro
 				List:   ph.Value,
 				Values: v,
 			})
+
 		case !set && len(override) > 0 && !slices.Contains(override, name):
 			dropped = append(dropped, name)
 		}
@@ -233,24 +258,29 @@ func tableRun(table *profile.HeaderTable, order, rest []string, sends func(strin
 	if table == nil || slices.Contains(order, profile.OtherHeaders) {
 		return nil
 	}
+
 	var page, members []string
 	for _, name := range rest {
 		if sends(name) {
 			page = append(page, name)
 		}
 	}
+
 	if len(page) == 0 {
 		return nil
 	}
+
 	all := table.Members()
 	for _, name := range order {
 		if slices.Contains(all, name) && sends(name) && !slices.Contains(members, name) {
 			members = append(members, name)
 		}
 	}
+
 	if len(members) == 0 {
 		return nil
 	}
+
 	run, ok := TableOrder(table, members, page)
 	if !ok {
 		return nil

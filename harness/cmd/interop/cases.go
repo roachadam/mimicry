@@ -160,6 +160,7 @@ var cases = []caseDef{
 		timeout:  30 * time.Second,
 		run: func(ctx context.Context, e *caseEnv, r *result) {
 			oneConn(ctx, e, r, impairment{}, false, fileSmall)
+
 			if r.Outcome == pass && len(r.Conns) > 0 && r.Conns[0].Retries == 0 {
 				r.Outcome, r.Note = na, e.missing("the server sent no Retry")
 			}
@@ -187,6 +188,7 @@ var cases = []caseDef{
 		timeout:  30 * time.Second,
 		run: func(ctx context.Context, e *caseEnv, r *result) {
 			oneConn(ctx, e, r, impairment{}, false, fileSmall)
+
 			if r.Outcome == pass && len(r.Conns) > 0 && r.Conns[0].Cipher != "0x1303" {
 				r.Outcome, r.Note = na, e.missing("the server chose "+r.Conns[0].Cipher)
 			}
@@ -198,9 +200,11 @@ var cases = []caseDef{
 		timeout:  90 * time.Second,
 		run: func(ctx context.Context, e *caseEnv, r *result) {
 			oneConn(ctx, e, r, impairment{}, false, fileTen)
+
 			if r.Outcome != pass || len(r.Conns) == 0 {
 				return
 			}
+
 			c := r.Conns[0]
 			switch {
 			case !c.KUKnown:
@@ -278,18 +282,23 @@ var cases = []caseDef{
 // once when concurrent.
 func oneConn(ctx context.Context, e *caseEnv, r *result, imp impairment, concurrent bool, paths ...string) {
 	pr := e.prober()
+
 	c, err := pr.dial(ctx, e.host, e.peer, imp)
 	if err != nil {
 		if c != nil {
 			r.Conns = append(r.Conns, c.facts())
 		}
+
 		r.failf("dial: %s", errString(err))
 
 		return
 	}
+
 	fs := getAll(ctx, pr, c, paths, concurrent)
+
 	r.Conns = append(r.Conns, c.facts())
 	pr.close(c)
+
 	r.Fetches = append(r.Fetches, fs...)
 	e.verify(r, fs)
 }
@@ -304,12 +313,14 @@ func getAll(ctx context.Context, pr *prober, c *probeConn, paths []string, concu
 
 		return fs
 	}
+
 	var wg sync.WaitGroup
 	for i, p := range paths {
 		wg.Go(func() {
 			fs[i] = pr.get(ctx, c, p)
 		})
 	}
+
 	wg.Wait()
 
 	return fs
@@ -333,33 +344,41 @@ func (e *caseEnv) verify(r *result, fs []fetched) {
 // streams than any server allows at first.
 func runMultiplexing(ctx context.Context, e *caseEnv, r *result) {
 	pr := e.prober()
+
 	c, err := pr.dial(ctx, e.host, e.peer, impairment{})
 	if err != nil {
 		if c != nil {
 			r.Conns = append(r.Conns, c.facts())
 		}
+
 		r.failf("dial: %s", errString(err))
 
 		return
 	}
+
 	paths := make([]string, multiplexFiles)
 	for i := range paths {
 		paths[i] = multiplexPath(i)
 	}
+
 	fs := getAll(ctx, pr, c, paths, true)
+
 	r.Conns = append(r.Conns, c.facts())
 	pr.close(c)
 	e.verify(r, fs)
+
 	ok := 0
 	for _, f := range fs {
 		if f.Err == "" && f.Status == 200 && f.sum == e.files[f.Path] {
 			ok++
 			continue
 		}
+
 		if len(r.Fetches) < 10 {
 			r.Fetches = append(r.Fetches, f)
 		}
 	}
+
 	r.Note = fmt.Sprintf("%d/%d files", ok, len(fs))
 }
 
@@ -376,46 +395,63 @@ func runResumption(ctx context.Context, e *caseEnv, r *result, zeroRTT bool) {
 		r.Outcome, r.Note = na, "the profile never resumes QUIC (Safari)"
 		return
 	}
+
 	c, err := pr.dial(ctx, e.host, e.peer, impairment{})
 	if err != nil {
 		if c != nil {
 			r.Conns = append(r.Conns, c.facts())
 		}
+
 		r.failf("dial: %s", errString(err))
 
 		return
 	}
+
 	fs := getAll(ctx, pr, c, []string{fileSmall}, false)
 	ticket := pr.waitTicket(ctx, 2*time.Second)
+
 	r.Conns = append(r.Conns, c.facts())
 	pr.close(c)
+
 	r.Fetches = append(r.Fetches, fs...)
 	e.verify(r, fs)
+
 	if r.Outcome == fail {
 		return
 	}
+
 	if !ticket {
 		r.failf("no session ticket within 2 s")
+
 		return
 	}
+
 	c, err = pr.dial(ctx, e.host, e.peer, impairment{})
 	if err != nil {
 		if c != nil {
 			r.Conns = append(r.Conns, c.facts())
 		}
+
 		r.failf("resumed dial: %s", errString(err))
 
 		return
 	}
+
 	fs = getAll(ctx, pr, c, []string{fileSmall}, false)
+
 	f := c.facts()
+
 	r.Conns = append(r.Conns, f)
+
 	pr.close(c)
+
 	r.Fetches = append(r.Fetches, fs...)
 	e.verify(r, fs)
+
 	if r.Outcome == fail {
 		return
 	}
+
 	switch {
 	case !f.Resumed:
 		r.failf("the second connection did not resume")
@@ -439,35 +475,44 @@ func runResumption(ctx context.Context, e *caseEnv, r *result, zeroRTT bool) {
 func manyConns(ctx context.Context, e *caseEnv, r *result, imp impairment) {
 	pr := e.prober()
 	ok := 0
+
 	for i := range handshakeRuns {
 		one := result{
 			Outcome: pass,
 		}
 		cctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		c, err := pr.dial(cctx, e.host, e.peer, imp)
+
 		var fs []fetched
+
 		if err != nil {
 			one.failf("dial: %s", errString(err))
 		} else {
 			fs = getAll(cctx, pr, c, []string{fileSmall}, false)
 			e.verify(&one, fs)
 		}
+
 		var f connFacts
 		if c != nil {
 			f = c.facts()
 		}
+
 		pr.close(c)
 		cancel()
+
 		if one.Outcome == pass {
 			ok++
 			continue
 		}
+
 		if r.Outcome != fail {
 			r.failf("connection %d: %s", i+1, one.Err)
+
 			r.Conns = append(r.Conns, f)
 			r.Fetches = append(r.Fetches, fs...)
 		}
 	}
+
 	r.Note = fmt.Sprintf("%d/%d connections", ok, handshakeRuns)
 }
 
@@ -482,12 +527,15 @@ func runDiscovery(ctx context.Context, e *caseEnv, r *result) {
 		DialTimeout: 10 * time.Second,
 	}
 	steps, sum := engineFlow(ctx, cfg, e.origin+fileSmall, e.origin+fileFive)
+
 	r.Engine, r.EngineSummary = steps, sum
+
 	for _, s := range steps {
 		if s.Err != "" {
 			r.failf("%s: %s", s.Step, s.Err)
 		}
 	}
+
 	switch {
 	case r.Outcome == fail:
 	case !sum.H3:
@@ -510,28 +558,36 @@ const stallLimit = 5 * time.Second
 // everything, every request still completes over TCP without stalling.
 func runUDPBlocked(ctx context.Context, e *caseEnv, r *result) {
 	var lc net.ListenConfig
+
 	ln, err := lc.Listen(ctx, "tcp4", "127.0.0.1:0")
 	if err != nil {
 		r.failf("listen: %v", err)
+
 		return
 	}
+
 	port, err := tcpPort(ln)
 	if err != nil {
 		_ = ln.Close()
+
 		r.failf("listen: %v", err)
 
 		return
 	}
+
 	sink, err := lc.ListenPacket(ctx, "udp4", "127.0.0.1:"+strconv.Itoa(port))
 	if err != nil {
 		_ = ln.Close()
+
 		r.failf("listen: %v", err)
 
 		return
 	}
+
 	defer func() {
 		_ = sink.Close()
 	}()
+
 	go func() {
 		buf := make([]byte, 1500)
 		for {
@@ -540,26 +596,34 @@ func runUDPBlocked(ctx context.Context, e *caseEnv, r *result) {
 			}
 		}
 	}()
+
 	front := e.front(ln, uint16(port))
+
 	defer func() {
 		_ = front.Close()
 	}()
+
 	origin := "https://" + net.JoinHostPort(e.host, strconv.Itoa(port))
 	steps, sum := engineFlow(ctx, mimicry.Config{
 		Profile:  e.profile,
 		RootCAs:  e.roots,
 		Resolver: e.resolver,
 	}, origin+fileSmall, origin+fileTwo)
+
 	r.Engine, r.EngineSummary = steps, sum
+
 	worst := engineStep{}
+
 	for _, s := range steps {
 		if s.Err != "" {
 			r.failf("%s: %s", s.Step, s.Err)
 		}
+
 		if s.MS > worst.MS {
 			worst = s
 		}
 	}
+
 	r.Note = fmt.Sprintf("slowest request: %s, %.0f ms", worst.Step, worst.MS)
 	if r.Outcome != fail && worst.MS > ms(stallLimit) {
 		r.failf("request %s waited %.1f s for QUIC before going over %s", worst.Step, worst.MS/1000, worst.Proto)

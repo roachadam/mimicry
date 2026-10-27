@@ -22,30 +22,37 @@ import (
 // rejects them), "silent" (never answers).
 func fakeSOCKS5(t *testing.T, mode string) string {
 	t.Helper()
+
 	ln, err := new(net.ListenConfig).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Cleanup(func() {
 		_ = ln.Close()
 	})
+
 	go func() {
 		for {
 			c, err := ln.Accept()
 			if err != nil {
 				return
 			}
+
 			go func() {
 				defer func() {
 					_ = c.Close()
 				}()
+
 				head := make([]byte, 2)
 				if _, err := io.ReadFull(c, head); err != nil {
 					return
 				}
+
 				if _, err := io.ReadFull(c, make([]byte, head[1])); err != nil {
 					return
 				}
+
 				switch mode {
 				case "silent":
 					_, _ = io.Copy(io.Discard, c)
@@ -59,10 +66,13 @@ func fakeSOCKS5(t *testing.T, mode string) string {
 					if _, err := io.ReadFull(c, req); err != nil {
 						return
 					}
+
 					if _, err := io.ReadFull(c, make([]byte, int(req[4])+2)); err != nil {
 						return
 					}
+
 					_, _ = c.Write([]byte{5, 5, 0, 1, 0, 0, 0, 0, 0, 0})
+
 				case "bad-auth":
 					_, _ = c.Write([]byte{5, 2})
 					// VER ULEN UNAME PLEN PASSWD.
@@ -70,15 +80,19 @@ func fakeSOCKS5(t *testing.T, mode string) string {
 					if _, err := io.ReadFull(c, n); err != nil {
 						return
 					}
+
 					if _, err := io.ReadFull(c, make([]byte, n[1])); err != nil {
 						return
 					}
+
 					if _, err := io.ReadFull(c, n[:1]); err != nil {
 						return
 					}
+
 					if _, err := io.ReadFull(c, make([]byte, n[0])); err != nil {
 						return
 					}
+
 					_, _ = c.Write([]byte{1, 1})
 				}
 			}()
@@ -91,19 +105,23 @@ func fakeSOCKS5(t *testing.T, mode string) string {
 // silentListener accepts connections and never answers.
 func silentListener(t *testing.T) string {
 	t.Helper()
+
 	ln, err := new(net.ListenConfig).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Cleanup(func() {
 		_ = ln.Close()
 	})
+
 	go func() {
 		for {
 			c, err := ln.Accept()
 			if err != nil {
 				return
 			}
+
 			go func() {
 				_, _ = io.Copy(io.Discard, c)
 				_ = c.Close()
@@ -117,11 +135,14 @@ func silentListener(t *testing.T) string {
 // closedAddr is an address nothing listens on.
 func closedAddr(t *testing.T) string {
 	t.Helper()
+
 	ln, err := new(net.ListenConfig).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	addr := ln.Addr().String()
+
 	_ = ln.Close()
 
 	return addr
@@ -133,14 +154,21 @@ func closedAddr(t *testing.T) string {
 // through its own tunnel or sent to the proxy whole (Safari's ws://).
 func TestProxyErrors(t *testing.T) {
 	const password = "s3cr3t-pw"
+
 	shop := startShop(func(http.ResponseWriter, *http.Request) {
 		t.Error("the request reached the server")
 	})
+
 	defer shop.Close()
+
 	asking := startProxy(shop, "alice", "right")
+
 	defer asking.Close()
+
 	refusing := startProxy(shop, "", "")
+
 	defer refusing.Close()
+
 	refusing.Refuse("403 Forbidden")
 
 	proxyURL := func(scheme, addr string, user *url.Userinfo) *url.URL {
@@ -151,6 +179,7 @@ func TestProxyErrors(t *testing.T) {
 		}
 	}
 	wrong := url.UserPassword("alice", password)
+
 	for _, tc := range []struct {
 		name   string
 		proxy  *url.URL
@@ -285,9 +314,11 @@ func TestProxyErrors(t *testing.T) {
 				refusing: len(refusing.Log()),
 			}
 			p := profiles.Chrome()
+
 			if tc.safari {
 				p = profiles.Safari()
 			}
+
 			tr, err := mimicry.NewTransport(mimicry.Config{
 				Profile: p,
 				Proxy:   http.ProxyURL(tc.proxy),
@@ -296,17 +327,25 @@ func TestProxyErrors(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			timeout := tc.timeout
 			if timeout == 0 {
 				timeout = 10 * time.Second
 			}
+
 			ctx, cancel := context.WithTimeout(t.Context(), timeout)
+
 			defer cancel()
+
 			if tc.websocket {
-				var ws *mimicry.WebSocket
-				var resp *http.Response
+				var (
+					ws   *mimicry.WebSocket
+					resp *http.Response
+				)
+
 				if ws, resp, err = tr.DialWebSocket(ctx, tc.target, mimicry.WebSocketOptions{}); err == nil {
 					_ = ws.Close(1000, "")
+
 					t.Fatalf("the socket opened (%s), want a *ProxyError", resp.Status)
 				}
 			} else {
@@ -314,37 +353,47 @@ func TestProxyErrors(t *testing.T) {
 				if rerr != nil {
 					t.Fatal(rerr)
 				}
+
 				var resp *http.Response
 				if resp, err = tr.RoundTrip(req); err == nil {
 					_ = resp.Body.Close()
 					t.Fatalf("got %s, want a *ProxyError", resp.Status)
 				}
 			}
+
 			var pe *mimicry.ProxyError
 			if !errors.As(err, &pe) {
 				t.Fatalf("got %v (%T), want a *ProxyError", err, err)
 			}
+
 			if strings.Contains(err.Error(), password) {
 				t.Errorf("the error shows the password: %v", err)
 			}
+
 			if _, ok := pe.Proxy.User.Password(); ok {
 				t.Errorf("ProxyError.Proxy keeps the password: %v", pe.Proxy)
 			}
+
 			if pe.Proxy.Host != tc.proxy.Host || pe.Proxy.User.Username() != tc.proxy.User.Username() {
 				t.Errorf("ProxyError.Proxy = %v, want %v without its password", pe.Proxy, tc.proxy.Redacted())
 			}
+
 			if pe.StatusCode != tc.wantStatus {
 				t.Errorf("StatusCode = %d, want %d (%v)", pe.StatusCode, tc.wantStatus, err)
 			}
+
 			if got := pe.Header.Get("Proxy-Authenticate") != ""; got != tc.wantChallenge {
 				t.Errorf("Header = %v, want Proxy-Authenticate: %t", pe.Header, tc.wantChallenge)
 			}
+
 			if tc.wantStatus == 0 && pe.Header != nil {
 				t.Errorf("Header = %v with no answer", pe.Header)
 			}
+
 			if got := errors.Is(err, context.DeadlineExceeded); got != tc.wantDeadline {
 				t.Errorf("errors.Is(err, context.DeadlineExceeded) = %t, want %t (%v)", got, tc.wantDeadline, err)
 			}
+
 			if tc.wantLog != nil {
 				for p, n := range before {
 					if p.URL.Host == tc.proxy.Host {

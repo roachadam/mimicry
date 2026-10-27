@@ -17,16 +17,19 @@ import (
 // day, and a pool that trusts it.
 func Certificate(t testing.TB, hosts ...string) (tls.Certificate, *x509.CertPool) {
 	t.Helper()
+
 	return CertificateValidFor(t, 24*time.Hour, hosts...)
 }
 
 // CertificateValidFor is Certificate valid for validity from now.
 func CertificateValidFor(t testing.TB, validity time.Duration, hosts ...string) (tls.Certificate, *x509.CertPool) {
 	t.Helper()
+
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	tmpl := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
@@ -40,14 +43,17 @@ func CertificateValidFor(t testing.TB, validity time.Duration, hosts ...string) 
 		BasicConstraintsValid: true,
 		IsCA:                  true,
 	}
+
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	leaf, err := x509.ParseCertificate(der)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	pool := x509.NewCertPool()
 	pool.AddCert(leaf)
 

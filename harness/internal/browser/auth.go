@@ -51,23 +51,27 @@ func dialRPC(ctx context.Context, endpoint string, onEvent func(rpcMessage)) (*r
 	if err != nil {
 		return nil, err
 	}
+
 	var ws *websocket.Conn
 	for {
 		if ws, err = cfg.DialContext(ctx); err == nil {
 			break
 		}
+
 		select {
 		case <-ctx.Done():
 			return nil, fmt.Errorf("connecting to %s: %w", endpoint, err)
 		case <-time.After(200 * time.Millisecond):
 		}
 	}
+
 	r := &rpc{
 		ws:      ws,
 		pending: map[int]chan rpcMessage{},
 		onEvent: onEvent,
 		done:    make(chan struct{}),
 	}
+
 	go r.read()
 
 	return r, nil
@@ -75,22 +79,27 @@ func dialRPC(ctx context.Context, endpoint string, onEvent func(rpcMessage)) (*r
 
 func (r *rpc) read() {
 	defer close(r.done)
+
 	for {
 		var m rpcMessage
 		if err := websocket.JSON.Receive(r.ws, &m); err != nil {
 			return
 		}
+
 		if m.ID != 0 {
 			r.mu.Lock()
+
 			ch := r.pending[m.ID]
 			delete(r.pending, m.ID)
 			r.mu.Unlock()
+
 			if ch != nil {
 				ch <- m
 			}
 
 			continue
 		}
+
 		go r.onEvent(m)
 	}
 }
@@ -101,12 +110,18 @@ func (r *rpc) call(ctx context.Context, method string, params any) (json.RawMess
 	if err != nil {
 		return nil, err
 	}
+
 	ch := make(chan rpcMessage, 1)
+
 	r.mu.Lock()
+
 	r.next++
+
 	id := r.next
+
 	r.pending[id] = ch
 	r.mu.Unlock()
+
 	err = websocket.JSON.Send(r.ws, rpcMessage{
 		ID:     id,
 		Method: method,
@@ -115,6 +130,7 @@ func (r *rpc) call(ctx context.Context, method string, params any) (json.RawMess
 	if err != nil {
 		return nil, err
 	}
+
 	select {
 	case m := <-ch:
 		if len(m.Error) > 0 {
@@ -122,6 +138,7 @@ func (r *rpc) call(ctx context.Context, method string, params any) (json.RawMess
 		}
 
 		return m.Result, nil
+
 	case <-r.done:
 		return nil, fmt.Errorf("%s: connection closed", method)
 	case <-ctx.Done():
@@ -145,16 +162,22 @@ func chromeAuth(ctx context.Context, dir string, user *url.Userinfo) (io.Closer,
 	// Close ends them.
 	life := context.WithoutCancel(ctx)
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+
 	defer cancel()
+
 	port, path, err := devToolsPort(ctx, dir)
 	if err != nil {
 		return nil, err
 	}
+
 	password, _ := user.Password()
+
 	var r *rpc
+
 	ready := make(chan struct{})
 	onEvent := func(m rpcMessage) {
 		<-ready
+
 		switch m.Method {
 		case "Fetch.requestPaused":
 			var p struct {
@@ -165,6 +188,7 @@ func chromeAuth(ctx context.Context, dir string, user *url.Userinfo) (io.Closer,
 					"requestId": p.RequestID,
 				})
 			}
+
 		case "Fetch.authRequired":
 			var p struct {
 				RequestID string `json:"requestId"`
@@ -181,11 +205,14 @@ func chromeAuth(ctx context.Context, dir string, user *url.Userinfo) (io.Closer,
 			}
 		}
 	}
+
 	r, err = dialRPC(ctx, "ws://127.0.0.1:"+port+path, onEvent)
 	if err != nil {
 		return nil, err
 	}
+
 	close(ready)
+
 	if _, err := r.call(ctx, "Fetch.enable", map[string]any{
 		"handleAuthRequests": true,
 		"patterns": []map[string]string{
@@ -206,15 +233,21 @@ func chromeAuth(ctx context.Context, dir string, user *url.Userinfo) (io.Closer,
 func firefoxAuth(ctx context.Context, port int, pageURL string, user *url.Userinfo) (io.Closer, error) {
 	life := context.WithoutCancel(ctx)
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+
 	defer cancel()
+
 	password, _ := user.Password()
+
 	var r *rpc
+
 	ready := make(chan struct{})
 	onEvent := func(m rpcMessage) {
 		<-ready
+
 		if m.Method != "network.authRequired" {
 			return
 		}
+
 		var p struct {
 			Request struct {
 				Request string `json:"request"`
@@ -223,6 +256,7 @@ func firefoxAuth(ctx context.Context, port int, pageURL string, user *url.Userin
 		if json.Unmarshal(m.Params, &p) != nil {
 			return
 		}
+
 		_, _ = r.call(life, "network.continueWithAuth", map[string]any{
 			"request": p.Request.Request,
 			"action":  "provideCredentials",
@@ -233,11 +267,14 @@ func firefoxAuth(ctx context.Context, port int, pageURL string, user *url.Userin
 			},
 		})
 	}
+
 	r, err := dialRPC(ctx, "ws://"+net.JoinHostPort("127.0.0.1", strconv.Itoa(port))+"/session", onEvent)
 	if err != nil {
 		return nil, err
 	}
+
 	close(ready)
+
 	steps := []struct {
 		method string
 		params any
@@ -251,10 +288,12 @@ func firefoxAuth(ctx context.Context, port int, pageURL string, user *url.Userin
 			return nil, errors.Join(err, r.Close())
 		}
 	}
+
 	bc, err := firefoxContext(ctx, r)
 	if err != nil {
 		return nil, errors.Join(err, r.Close())
 	}
+
 	if _, err := r.call(ctx, "browsingContext.navigate", map[string]string{
 		"context": bc,
 		"url":     pageURL,
@@ -274,6 +313,7 @@ func devToolsPort(ctx context.Context, dir string) (port, path string, err error
 		if lines := strings.Split(strings.TrimSpace(string(data)), "\n"); err == nil && len(lines) == 2 {
 			return lines[0], lines[1], nil
 		}
+
 		select {
 		case <-ctx.Done():
 			return "", "", errors.New("chrome wrote no DevToolsActivePort")
@@ -289,6 +329,7 @@ func firefoxContext(ctx context.Context, r *rpc) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	var t struct {
 		Contexts []struct {
 			Context string `json:"context"`
@@ -307,6 +348,7 @@ func freePort() (int, error) {
 	if err != nil {
 		return 0, err
 	}
+
 	addr, ok := ln.Addr().(*net.TCPAddr)
 	if !ok {
 		_ = ln.Close()

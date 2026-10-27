@@ -121,11 +121,14 @@ func (t *Transport) Plan(req *http.Request) (*Plan, error) {
 	if !ok {
 		return nil, errors.New("mimicry: the transport's engine plans nothing")
 	}
+
 	r, exact := madeAs(req)
+
 	req, o, err := t.outgoing(req, r, exact, toPlan)
 	if err != nil {
 		return nil, err
 	}
+
 	var pre *Plan
 	if pf := o.preflight; pf != nil {
 		pre = t.plan(Request{
@@ -135,10 +138,12 @@ func (t *Transport) Plan(req *http.Request) (*Plan, error) {
 			return nil, err
 		}
 	}
+
 	p := t.plan(r, exact, o.s)
 	if err := p.fill(e, t.ready(req, o, toPlan)); err != nil {
 		return nil, err
 	}
+
 	p.Preflight = pre
 
 	return p, nil
@@ -155,17 +160,22 @@ func (t *Transport) plan(r Request, exact bool, s *sending) *Plan {
 		p.Overrides = t.cookieOverride(s, nil)
 		return p
 	}
+
 	prefix := ""
 	if r.Kind != Navigate {
 		prefix = "kinds." + profileKinds[r.Kind] + "."
 	}
+
 	if s.variant < 0 {
 		p.Variant = prefix + "headers"
 	} else {
 		p.Variant = prefix + "variants[" + strconv.Itoa(s.variant) + "]"
 	}
+
 	p.Condition = conditionOf(s.cond)
+
 	var lists [][]profile.Header
+
 	if s.plan != nil {
 		lists = append(lists, s.plan.Headers, s.plan.HTTP1)
 	} else {
@@ -174,6 +184,7 @@ func (t *Transport) plan(r Request, exact bool, s *sending) *Plan {
 			lists = append(lists, t.profile.HTTP1.Headers)
 		}
 	}
+
 	for _, list := range lists {
 		replaced, dropped := headerorder.Replaced(list, s.header)
 		for _, rp := range replaced {
@@ -187,12 +198,14 @@ func (t *Transport) plan(r Request, exact bool, s *sending) *Plan {
 				})
 			}
 		}
+
 		for _, name := range dropped {
 			if !slices.Contains(p.Dropped, name) {
 				p.Dropped = append(p.Dropped, name)
 			}
 		}
 	}
+
 	p.Overrides = t.cookieOverride(s, p.Overrides)
 
 	return p
@@ -206,13 +219,17 @@ func (t *Transport) cookieOverride(s *sending, overrides []Override) []Override 
 	}) {
 		return overrides
 	}
+
 	jar := cookies.Header(t.jar.Peek(s.cookies))
+
 	var caller []string
+
 	for k, v := range s.header {
 		if strings.EqualFold(k, "Cookie") {
 			caller = append(caller, v...)
 		}
 	}
+
 	if jar == "" || slices.Equal(caller, []string{jar}) {
 		return overrides
 	}
@@ -230,9 +247,11 @@ func conditionOf(v profile.Variant) []string {
 	if method == "" {
 		method = http.MethodGet
 	}
+
 	if site == profile.SiteSameOrigin {
 		site = "same-origin"
 	}
+
 	out := []string{"method " + method, "site " + site}
 	for _, f := range []struct {
 		name string
@@ -265,25 +284,32 @@ func (p *Plan) fill(e planner, req *http.Request) error {
 	if err != nil {
 		return publicError(err)
 	}
+
 	p.Method, p.URL = methodOf(req), req.URL
 	p.protocols = ep.Protocols
+
 	if len(ep.Protocols) == 1 {
 		p.Protocol = ep.Protocols[0]
 	}
+
 	p.HTTP2, p.HTTP1 = linesOf(ep.HTTP2), linesOf(ep.HTTP1)
 	if ep.HTTP3 != nil {
 		l := linesOf(*ep.HTTP3)
+
 		p.HTTP3 = &l
 	}
+
 	var first error
 	for i, name := range p.protocols {
 		l := p.lines(name)
 		if l == nil {
 			continue
 		}
+
 		if l.Err == nil {
 			return nil
 		}
+
 		if i == 0 {
 			first = l.Err
 		}
@@ -336,35 +362,44 @@ func (p *Plan) write(w io.Writer, indent string) {
 		_, _ = fmt.Fprintf(w, indent+format+"\n", args...)
 	}
 	target := ""
+
 	if p.URL != nil {
 		target = p.URL.Redacted()
 	}
+
 	line("%s %s", p.Method, target)
 	line("kind: %s", p.Kind)
+
 	if p.Variant == "" {
 		line("variant: none (Exact)")
 	} else {
 		line("variant: %s (%s)", p.Variant, strings.Join(p.Condition, ", "))
 	}
+
 	if p.Protocol != "" {
 		line("protocol: %s", p.Protocol)
 	} else {
 		line("protocol: decided when connecting (%s)", strings.Join(p.protocols, " or "))
 	}
+
 	for _, o := range p.Overrides {
 		caller := "suppressed"
 		if len(o.Caller) > 0 {
 			caller = strconv.Quote(strings.Join(o.Caller, ", "))
 		}
+
 		line("override: %s: %q replaced by %s", o.Name, o.Mimicry, caller)
 	}
+
 	if len(p.Dropped) > 0 {
 		line("dropped by %s: %s", HeaderOrderKey, strings.Join(p.Dropped, ", "))
 	}
+
 	if p.Preflight != nil {
 		line("preflight:")
 		p.Preflight.write(w, indent+"  ")
 	}
+
 	protocols := []struct {
 		name string
 		l    *Lines
@@ -377,14 +412,19 @@ func (p *Plan) write(w io.Writer, indent string) {
 		if pr.l == nil {
 			continue
 		}
+
 		if pr.l.Err != nil {
 			line("%s: %v", pr.name, pr.l.Err)
+
 			continue
 		}
+
 		line("%s:", pr.name)
+
 		if pr.l.RequestLine != "" {
 			line("  %s", pr.l.RequestLine)
 		}
+
 		for _, h := range pr.l.Headers {
 			line("  %s: %s", h.Name, h.Value)
 		}

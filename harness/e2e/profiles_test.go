@@ -26,6 +26,7 @@ import (
 // arrive on.
 func captureClient(t *testing.T, p *profile.Profile, sc *server.Scenario) (string, *mimicry.Transport, <-chan *capture.Capture) {
 	t.Helper()
+
 	return captureClientWith(t, p, sc, nil)
 }
 
@@ -33,11 +34,14 @@ func captureClient(t *testing.T, p *profile.Profile, sc *server.Scenario) (strin
 // jar (nil: none).
 func captureClientWith(t *testing.T, p *profile.Profile, sc *server.Scenario, jar *cookies.Jar) (string, *mimicry.Transport, <-chan *capture.Capture) {
 	t.Helper()
+
 	cert, pool := testutil.Certificate(t, "localhost")
+
 	ln, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	captures := make(chan *capture.Capture, 8)
 	ctx, cancel := context.WithCancel(t.Context())
 	srv := &server.Server{
@@ -53,16 +57,21 @@ func captureClientWith(t *testing.T, p *profile.Profile, sc *server.Scenario, ja
 		Logf: t.Logf,
 	}
 	done := make(chan error, 1)
+
 	go func() {
 		done <- srv.Serve(ctx, ln)
 	}()
+
 	t.Cleanup(func() {
 		cancel()
+
 		if err := <-done; err != nil {
 			t.Error(err)
 		}
 	})
+
 	_, port, _ := net.SplitHostPort(ln.Addr().String())
+
 	tr, err := mimicry.NewTransport(mimicry.Config{
 		Profile: p,
 		RootCAs: pool,
@@ -71,6 +80,7 @@ func captureClientWith(t *testing.T, p *profile.Profile, sc *server.Scenario, ja
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Cleanup(tr.CloseIdleConnections)
 
 	return "https://localhost:" + port, tr, captures
@@ -79,6 +89,7 @@ func captureClientWith(t *testing.T, p *profile.Profile, sc *server.Scenario, ja
 // newJar returns an empty cookie jar with p's cookie rules.
 func newJar(t *testing.T, p *profile.Profile) *cookies.Jar {
 	t.Helper()
+
 	j, err := cookies.New(cookies.Config{
 		Rules: p.Cookies,
 	})
@@ -95,23 +106,28 @@ func newJar(t *testing.T, p *profile.Profile) *cookies.Jar {
 // capture server recorded.
 func captureRequests(t *testing.T, p *profile.Profile, n int) []*capture.Capture {
 	t.Helper()
+
 	got := make([]*capture.Capture, 0, n)
 	for range n {
 		base, tr, captures := captureClient(t, p, server.DefaultScenario)
 		client := &http.Client{Transport: tr}
+
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, base+"/", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		resp, err := client.Do(req)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		_, _ = io.Copy(io.Discard, resp.Body)
 		_ = resp.Body.Close()
 		// Closing the connection completes the capture (mimicry runs no page
 		// script to ask for /done).
 		tr.CloseIdleConnections()
+
 		got = append(got, <-captures)
 	}
 
@@ -121,11 +137,14 @@ func captureRequests(t *testing.T, p *profile.Profile, n int) []*capture.Capture
 // loadCapture reads the default page's capture p is checked against.
 func loadCapture(t *testing.T, p *profile.Profile) *profile.Profile {
 	t.Helper()
+
 	path, _, _ := capturePath(t, p, capture.DefaultScenario, ".json")
+
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	c, err := profile.Decode(data)
 	if err != nil {
 		t.Fatal(err)
@@ -145,16 +164,19 @@ func TestProfilesMatchCaptures(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			samples := captureRequests(t, p, 3)
 			for i, c := range samples {
 				if c.Protocol != "h2" {
 					t.Errorf("connection %d negotiated %q, want h2", i+1, c.Protocol)
 				}
 			}
+
 			got, err := capture.Combine(samples)
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			for _, d := range diff.Compare(loadCapture(t, p), &got.Profile) {
 				t.Error(d)
 			}

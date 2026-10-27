@@ -31,9 +31,13 @@ type Received struct {
 // packet type but Initial. Packets it cannot open keep their header and
 // say why.
 func Decode(start time.Time, datagrams []Received, cidLen int, keyLog *KeyLog) []*Conn {
-	var conns []*Conn
-	var states []*connState
+	var (
+		conns  []*Conn
+		states []*connState
+	)
+
 	byAddr := map[string]*connState{}
+
 	for _, r := range datagrams {
 		c := byAddr[r.Addr]
 		if r.Server {
@@ -43,6 +47,7 @@ func Decode(start time.Time, datagrams []Received, cidLen int, keyLog *KeyLog) [
 
 			continue
 		}
+
 		if next := c.newConnection(r.Data); next != nil {
 			c = next
 			c.keyLog = keyLog
@@ -58,15 +63,18 @@ func Decode(start time.Time, datagrams []Received, cidLen int, keyLog *KeyLog) [
 			states = append(states, c)
 			conns = append(conns, c.conn)
 		}
+
 		if c == nil {
 			c = migrated(states, r.Data)
 			if c == nil {
 				// Nothing to attribute it to.
 				continue
 			}
+
 			c.addrs = append(c.addrs, r.Addr)
 			byAddr[r.Addr] = c
 		}
+
 		c.conn.Datagrams = append(c.conn.Datagrams, c.datagram(r, c.packet))
 	}
 
@@ -80,19 +88,24 @@ func migrated(states []*connState, data []byte) *connState {
 	if len(data) == 0 || data[0]&0x80 != 0 {
 		return nil
 	}
+
 	for _, c := range slices.Backward(states) {
 		pnOffset := 1 + c.cidLen
 		if len(data) < pnOffset {
 			continue
 		}
+
 		version := c.appVersion()
 		k := c.trafficKeys(c.app, labelClientTraffic, version, data, pnOffset, true, c.largest[spaceApp])
+
 		if k == nil {
 			continue
 		}
+
 		if _, err := k.unprotect(data, pnOffset, true, c.largest[spaceApp]); err == nil {
 			return c
 		}
+
 		if next, err := k.next(); err == nil {
 			if _, err := next.unprotect(data, pnOffset, true, c.largest[spaceApp]); err == nil {
 				return c
@@ -162,6 +175,7 @@ func (c *connState) newConnection(data []byte) *connState {
 	if err != nil || h.typ != PacketInitial {
 		return nil
 	}
+
 	if c != nil && (!c.vnSent || h.version == c.version) {
 		if k := c.initialKeys(h.version, false); k != nil {
 			if _, err := k.unprotect(data[:h.end], h.pnOffset, false, c.largest[spaceInitial]); err == nil {
@@ -169,10 +183,12 @@ func (c *connState) newConnection(data []byte) *connState {
 			}
 		}
 	}
+
 	k, err := initialKeys(h.version, h.dcid, false)
 	if err != nil {
 		return nil
 	}
+
 	if _, err := k.unprotect(data[:h.end], h.pnOffset, false, -1); err != nil {
 		return nil
 	}
@@ -208,13 +224,16 @@ func (c *connState) initialKeys(version uint32, server bool) *keys {
 	if server {
 		m = c.serverInitial
 	}
+
 	if k, ok := m[version]; ok {
 		return k
 	}
+
 	k, err := initialKeys(version, c.odcid, server)
 	if err != nil {
 		k = nil
 	}
+
 	m[version] = k
 
 	return k
@@ -229,6 +248,7 @@ func (c *connState) datagram(r Received, packet func([]byte) (Packet, int, error
 		Path:   slices.Index(c.addrs, r.Addr),
 	}
 	rest := r.Data
+
 	for len(rest) > 0 {
 		// A packet must have its fixed bit set; zeros after the
 		// datagram's packets are padding.
@@ -236,11 +256,13 @@ func (c *connState) datagram(r Received, packet func([]byte) (Packet, int, error
 			d.Trailing = len(rest)
 			break
 		}
+
 		p, n, err := packet(rest)
 		if err != nil {
 			d.Trailing = len(rest)
 			break
 		}
+
 		d.Packets = append(d.Packets, p)
 		rest = rest[n:]
 	}
@@ -275,22 +297,27 @@ func parseLongHeader(b []byte) (longHeader, error) {
 	if len(b) < 7 || b[0]&0x80 == 0 {
 		return longHeader{}, errHeader
 	}
+
 	h := longHeader{
 		version: binary.BigEndian.Uint32(b[1:5]),
 	}
 	r := &reader{
 		b: b[5:],
 	}
+
 	h.dcid = r.bytes(uint64(r.byte()))
 	h.scidLen = len(r.bytes(uint64(r.byte())))
+
 	if r.err != nil {
 		return longHeader{}, errHeader
 	}
+
 	h.idsEnd = len(b) - len(r.b)
 	if h.version == 0 {
 		h.typ, h.end = PacketVN, len(b)
 		return h, nil
 	}
+
 	types, ok := longTypes[h.version]
 	if !ok {
 		// Its type bits mean nothing to us; the rest of the datagram is
@@ -298,18 +325,22 @@ func parseLongHeader(b []byte) (longHeader, error) {
 		h.typ, h.end = "unknown", len(b)
 		return h, nil
 	}
+
 	h.typ = types[(b[0]>>4)&0x03]
 	if h.typ == PacketRetry {
 		h.end = len(b)
 		return h, nil
 	}
+
 	if h.typ == PacketInitial {
 		h.tokenLen = new(len(r.bytes(r.varint())))
 	}
+
 	length := r.varint()
 	if r.err != nil || length > uint64(len(r.b)) {
 		return longHeader{}, errHeader
 	}
+
 	h.length = new(int(length))
 	h.pnOffset = len(b) - len(r.b)
 	h.end = h.pnOffset + int(length)
@@ -324,6 +355,7 @@ func (c *connState) packet(b []byte) (Packet, int, error) {
 		if len(b) < 1+c.cidLen {
 			return Packet{}, 0, errHeader
 		}
+
 		p := Packet{
 			Type:       Packet1RTT,
 			DCIDLength: c.cidLen,
@@ -333,20 +365,24 @@ func (c *connState) packet(b []byte) (Packet, int, error) {
 
 		return p, len(b), nil
 	}
+
 	h, p, err := longPacket(b)
 	if err != nil {
 		return Packet{}, 0, err
 	}
+
 	switch h.typ {
 	case PacketInitial:
 		c.initialVersion = h.version
 	case PacketHandshake:
 		c.handshakeVersion = h.version
 		c.conn.NegotiatedVersion = ""
+
 		if h.version != c.version {
 			c.conn.NegotiatedVersion = versionHex(h.version)
 		}
 	}
+
 	switch h.typ {
 	case PacketInitial, PacketHandshake, Packet0RTT:
 		c.open(&p, b[:h.end], h.pnOffset, false, h.version)
@@ -365,6 +401,7 @@ func (c *connState) serverPacket(b []byte) (Packet, int, error) {
 		if len(b) < pnOffset {
 			return Packet{}, 0, errHeader
 		}
+
 		p := Packet{
 			Type:       Packet1RTT,
 			FirstByte:  b[0] & 0xe0,
@@ -380,27 +417,34 @@ func (c *connState) serverPacket(b []byte) (Packet, int, error) {
 
 		return p, len(b), nil
 	}
+
 	h, p, err := longPacket(b)
 	if err != nil {
 		return Packet{}, 0, err
 	}
+
 	switch h.typ {
 	case PacketInitial, PacketHandshake:
 		c.openServer(&p, b[:h.end], h.pnOffset, h.version)
 	case PacketVN:
 		c.vnSent = true
+
 		list := b[h.idsEnd:h.end]
+
 		for ; len(list) >= 4; list = list[4:] {
 			p.Versions = append(p.Versions, versionHex(binary.BigEndian.Uint32(list)))
 		}
+
 		if len(list) > 0 {
 			p.Error = "version list not a multiple of 4 bytes"
 		}
+
 	case PacketRetry:
 		p.TokenLength = new(max(0, h.end-h.idsEnd-16))
 		if err := verifyRetry(h.version, b[:h.end], c.odcid); err != nil {
 			p.Error = err.Error()
 		}
+
 	default:
 		p.Error = "not a packet a server protects"
 	}
@@ -414,6 +458,7 @@ func longPacket(b []byte) (longHeader, Packet, error) {
 	if err != nil {
 		return longHeader{}, Packet{}, err
 	}
+
 	p := Packet{
 		Type:        h.typ,
 		FirstByte:   b[0],
@@ -434,8 +479,10 @@ func (c *connState) open(p *Packet, b []byte, pnOffset int, short bool, version 
 	space, k := c.keysFor(p.Type, version, b, pnOffset, short)
 	if k == nil {
 		c.noKeys(p, b, short)
+
 		return
 	}
+
 	o, err := k.unprotect(b, pnOffset, short, c.largest[space])
 	if err != nil && short {
 		// A new key phase (RFC 9001, section 6).
@@ -446,17 +493,21 @@ func (c *connState) open(p *Packet, b []byte, pnOffset int, short bool, version 
 			}
 		}
 	}
+
 	crypto, ok := readOpened(p, o, err, &c.largest[space])
 	if !ok {
 		return
 	}
+
 	if p.Type == Packet0RTT {
 		c.conn.EarlyData = true
 	}
+
 	if p.Type == PacketInitial {
 		for _, d := range crypto {
 			c.hello.add(d)
 		}
+
 		c.helloDone()
 	}
 }
@@ -469,18 +520,24 @@ func (c *connState) openServer(p *Packet, b []byte, pnOffset int, version uint32
 		space = spaceHandshake
 		k = c.trafficKeys(c.serverHandshake, labelServerHandshake, version, b, pnOffset, false, c.serverLargest[space])
 	}
+
 	if k == nil {
 		c.noKeys(p, b, false)
+
 		return
 	}
+
 	o, err := k.unprotect(b, pnOffset, false, c.serverLargest[space])
 	crypto, ok := readOpened(p, o, err, &c.serverLargest[space])
+
 	if !ok || p.Type != PacketHandshake || c.serverDone {
 		return
 	}
+
 	for _, d := range crypto {
 		c.serverCrypto.add(d)
 	}
+
 	c.encryptedExtensions(p)
 }
 
@@ -491,6 +548,7 @@ func (c *connState) noKeys(p *Packet, b []byte, short bool) {
 	if short {
 		p.FirstByte = b[0] & 0xe0
 	}
+
 	p.Error = "no keys"
 	if c.random == nil {
 		p.Error = "no keys: the ClientHello was not complete"
@@ -506,10 +564,14 @@ func readOpened(p *Packet, o opened, err error, largest *int64) ([]cryptoData, b
 
 		return nil, false
 	}
+
 	p.FirstByte, p.PNLength, p.PN = o.firstByte, o.pnLen, o.pn
 	*largest = max(*largest, int64(o.pn))
+
 	frames, crypto, err := parseFrames(o.payload)
+
 	p.Frames = frames
+
 	if err != nil {
 		p.Error = "frames: " + err.Error()
 	}
@@ -535,10 +597,12 @@ func (c *connState) serverAppKeys(version uint32, b []byte, pnOffset int) *keys 
 	if k := c.serverApp[version]; k != nil {
 		return k
 	}
+
 	secret := c.keyLog.secret(c.random, labelServerTraffic)
 	if secret == nil {
 		return nil
 	}
+
 	var k *keys
 	if s, ok := c.suite(); ok {
 		var err error
@@ -548,6 +612,7 @@ func (c *connState) serverAppKeys(version uint32, b []byte, pnOffset int) *keys 
 	} else if k = keysForSecret(version, secret, b, pnOffset, true, c.serverLargest[spaceApp]); k == nil {
 		return nil
 	}
+
 	c.serverApp[version] = k
 
 	return k
@@ -589,13 +654,16 @@ func (c *connState) trafficKeys(m map[uint32]*keys, label string, version uint32
 	if k := m[version]; k != nil {
 		return k
 	}
+
 	secret := c.keyLog.secret(c.random, label)
 	if secret == nil && label == labelClientEarly {
 		secret = c.keyLog.earlySecret(c.pskIdentity, c.helloMsg)
 	}
+
 	if secret == nil {
 		return nil
 	}
+
 	k := keysForSecret(version, secret, b, pnOffset, short, largest)
 	if k != nil {
 		m[version] = k
@@ -610,19 +678,24 @@ func (c *connState) helloDone() {
 	if c.random != nil {
 		return
 	}
+
 	msg := c.hello.message()
 	if msg == nil {
 		return
 	}
+
 	c.conn.ClientHello = hex.EncodeToString(msg)
+
 	h, err := readHello(msg)
 	if err != nil {
 		c.conn.HelloError = err.Error()
 		return
 	}
+
 	c.random, c.helloMsg, c.pskIdentity = h.random, msg, h.pskIdentity
 	c.conn.Host = h.serverName
 	c.conn.Resumed = h.pskIdentity != nil
+
 	if h.transportParameters != nil {
 		if c.conn.TransportParameters, err = ParseTransportParameters(h.transportParameters); err != nil {
 			c.conn.HelloError = err.Error()
@@ -637,12 +710,15 @@ func (c *connState) encryptedExtensions(p *Packet) {
 	if msg == nil {
 		return
 	}
+
 	c.serverDone = true
 	c.serverCrypto = cryptoStream{}
+
 	params, err := readEncryptedExtensions(msg)
 	if err == nil {
 		c.conn.ServerTransportParameters, err = ParseTransportParameters(params)
 	}
+
 	if err != nil && p.Error == "" {
 		p.Error = "EncryptedExtensions: " + err.Error()
 	}
@@ -673,11 +749,14 @@ func (s *cryptoStream) add(d cryptoData) {
 	if end > maxHello {
 		return
 	}
+
 	if int(end) > len(s.data) {
 		s.data = append(s.data, make([]byte, int(end)-len(s.data))...)
 		s.covered = append(s.covered, make([]bool, int(end)-len(s.covered))...)
 	}
+
 	copy(s.data[d.offset:], d.data)
+
 	for i := d.offset; i < end; i++ {
 		s.covered[i] = true
 	}
@@ -688,10 +767,12 @@ func (s *cryptoStream) message() []byte {
 	if len(s.data) < 4 || !s.covered[0] || !s.covered[1] || !s.covered[2] || !s.covered[3] {
 		return nil
 	}
+
 	n := 4 + (int(s.data[1])<<16 | int(s.data[2])<<8 | int(s.data[3]))
 	if len(s.data) < n {
 		return nil
 	}
+
 	for _, ok := range s.covered[:n] {
 		if !ok {
 			return nil
@@ -720,9 +801,13 @@ const (
 // Decode needs.
 func readHello(msg []byte) (hello, error) {
 	s := cryptobyte.String(msg)
-	var typ uint8
-	var body, sessionID, suites, compression, exts cryptobyte.String
-	var h hello
+
+	var (
+		typ                                        uint8
+		body, sessionID, suites, compression, exts cryptobyte.String
+		h                                          hello
+	)
+
 	if !s.ReadUint8(&typ) || typ != 1 || !s.ReadUint24LengthPrefixed(&body) ||
 		!body.Skip(2) || !body.ReadBytes(&h.random, 32) ||
 		!body.ReadUint8LengthPrefixed(&sessionID) ||
@@ -731,27 +816,39 @@ func readHello(msg []byte) (hello, error) {
 		!body.ReadUint16LengthPrefixed(&exts) {
 		return hello{}, errors.New("malformed ClientHello")
 	}
+
 	h.random = append([]byte(nil), h.random...)
 	for !exts.Empty() {
-		var typ uint16
-		var data cryptobyte.String
+		var (
+			typ  uint16
+			data cryptobyte.String
+		)
+
 		if !exts.ReadUint16(&typ) || !exts.ReadUint16LengthPrefixed(&data) {
 			return hello{}, errors.New("malformed ClientHello extensions")
 		}
+
 		switch typ {
 		case extServerName:
-			var list, name cryptobyte.String
-			var nameType uint8
+			var (
+				list, name cryptobyte.String
+				nameType   uint8
+			)
+
 			if !data.ReadUint16LengthPrefixed(&list) || !list.ReadUint8(&nameType) || !list.ReadUint16LengthPrefixed(&name) {
 				return hello{}, fmt.Errorf("malformed server_name")
 			}
+
 			h.serverName = string(name)
+
 		case extPreSharedKey:
 			var identities, identity cryptobyte.String
 			if !data.ReadUint16LengthPrefixed(&identities) || !identities.ReadUint16LengthPrefixed(&identity) {
 				return hello{}, fmt.Errorf("malformed pre_shared_key")
 			}
+
 			h.pskIdentity = append([]byte{}, identity...)
+
 		case extTransportParameters:
 			h.transportParameters = append([]byte{}, data...)
 		}
@@ -764,23 +861,34 @@ func readHello(msg []byte) (hello, error) {
 // message's quic_transport_parameters extension (RFC 9001, section 8.2).
 func readEncryptedExtensions(msg []byte) ([]byte, error) {
 	s := cryptobyte.String(msg)
-	var typ uint8
-	var body, exts cryptobyte.String
+
+	var (
+		typ        uint8
+		body, exts cryptobyte.String
+	)
+
 	if !s.ReadUint8(&typ) {
 		return nil, errors.New("empty handshake message")
 	}
+
 	if typ != 8 {
 		return nil, fmt.Errorf("the first handshake message is of type %d, not EncryptedExtensions", typ)
 	}
+
 	if !s.ReadUint24LengthPrefixed(&body) || !body.ReadUint16LengthPrefixed(&exts) {
 		return nil, errors.New("malformed EncryptedExtensions")
 	}
+
 	for !exts.Empty() {
-		var ext uint16
-		var data cryptobyte.String
+		var (
+			ext  uint16
+			data cryptobyte.String
+		)
+
 		if !exts.ReadUint16(&ext) || !exts.ReadUint16LengthPrefixed(&data) {
 			return nil, errors.New("malformed EncryptedExtensions extensions")
 		}
+
 		if ext == extTransportParameters {
 			return append([]byte(nil), data...), nil
 		}

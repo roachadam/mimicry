@@ -51,6 +51,7 @@ func render(v any) string {
 	case fmt.Stringer:
 		return v.String()
 	}
+
 	b, err := json.Marshal(v)
 	if err != nil {
 		return fmt.Sprintf("%v", v)
@@ -79,6 +80,7 @@ func (d *differ) compareTLS(want, got *profile.TLS) {
 	if want.RecordVersion != 0 && got.RecordVersion != 0 {
 		d.check("tls.recordVersion", want.RecordVersion, got.RecordVersion)
 	}
+
 	d.check("tls.legacyVersion", want.LegacyVersion, got.LegacyVersion)
 	d.check("tls.sessionIdLength", want.SessionIDLength, got.SessionIDLength)
 	d.check("tls.cipherSuites", want.CipherSuites, got.CipherSuites)
@@ -94,17 +96,21 @@ func (d *differ) compareTLS(want, got *profile.TLS) {
 	// Contents, matched by type. GREASE may appear more than once; its
 	// occurrences are matched in order.
 	wantByType, gotByType := byType(want.Extensions), byType(got.Extensions)
+
 	var all []profile.Code
+
 	for _, e := range want.Extensions {
 		if !slices.Contains(all, e.Type) {
 			all = append(all, e.Type)
 		}
 	}
+
 	for _, e := range got.Extensions {
 		if !slices.Contains(all, e.Type) {
 			all = append(all, e.Type)
 		}
 	}
+
 	for _, typ := range all {
 		w, g := wantByType[typ], gotByType[typ]
 		for i := range max(len(w), len(g)) {
@@ -112,10 +118,13 @@ func (d *differ) compareTLS(want, got *profile.TLS) {
 			if len(w) > 1 || len(g) > 1 {
 				path += fmt.Sprintf("#%d", i+1)
 			}
+
 			if i < len(w) && i < len(g) && w[i].ECH != nil && g[i].ECH != nil {
 				d.compareECH(path, w[i], g[i])
+
 				continue
 			}
+
 			d.check(path, extensionOrMissing(w, i), extensionOrMissing(g, i))
 		}
 	}
@@ -126,12 +135,15 @@ func (d *differ) compareTLS(want, got *profile.TLS) {
 // want's.
 func (d *differ) compareECH(path string, want, got profile.Extension) {
 	w, g := *want.ECH, *got.ECH
+
 	want.ECH, got.ECH = nil, nil
 	d.check(path, render(want), render(got))
 	d.check(path+".ech.encLength", w.EncLength, g.EncLength)
+
 	if !subset(g.CipherSuites, w.CipherSuites) {
 		d.check(path+".ech.cipherSuites (one of)", w.CipherSuites, g.CipherSuites)
 	}
+
 	if !subset(g.PayloadLengths, w.PayloadLengths) {
 		d.check(path+".ech.payloadLengths (one of)", w.PayloadLengths, g.PayloadLengths)
 	}
@@ -194,6 +206,7 @@ func (d *differ) compareHTTP2(want, got *profile.HTTP2) {
 
 		return
 	}
+
 	d.check("http2.settings", want.Settings, got.Settings)
 	d.check("http2.windowUpdate", want.WindowUpdate, got.WindowUpdate)
 	d.check("http2.priorities", want.Priorities, got.Priorities)
@@ -230,6 +243,7 @@ func (d *differ) compareHeaders(want, got []profile.Header) {
 		return strings.Join(out, ", ")
 	}
 	d.check("headers (order)", names(want), names(got))
+
 	// Values are matched by name, and a repeated name's occurrences in order,
 	// so a name sent twice is compared value by value.
 	values := func(hs []profile.Header) map[string][]string {
@@ -241,12 +255,15 @@ func (d *differ) compareHeaders(want, got []profile.Header) {
 		return m
 	}
 	wv, gv := values(want), values(got)
+
 	var all []string
+
 	for _, h := range slices.Concat(want, got) {
 		if !slices.Contains(all, h.Name) {
 			all = append(all, h.Name)
 		}
 	}
+
 	for _, name := range all {
 		w, g := wv[name], gv[name]
 		for i := range max(len(w), len(g)) {
@@ -254,6 +271,7 @@ func (d *differ) compareHeaders(want, got []profile.Header) {
 			if len(w) > 1 || len(g) > 1 {
 				path += fmt.Sprintf("#%d", i+1)
 			}
+
 			d.check(path, valueOrMissing(w, i), valueOrMissing(g, i))
 		}
 	}

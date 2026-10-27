@@ -18,10 +18,12 @@ func TestGeneratedFileUpToDate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	got, err := os.ReadFile("../../profiles/profiles.gen.go")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if !bytes.Equal(got, want) {
 		t.Fatal("profiles/profiles.gen.go is stale; run go generate ./profiles")
 	}
@@ -61,6 +63,7 @@ func TestCheckPolicyRefuses(t *testing.T) {
 			name: "newest version deprecated",
 			profiles: func() []*profile.Profile {
 				ps := versions(2, 0)
+
 				ps[1].Deprecated = true
 
 				return ps
@@ -71,6 +74,7 @@ func TestCheckPolicyRefuses(t *testing.T) {
 			name: "inherited from a profile that is not built in",
 			profiles: func() []*profile.Profile {
 				ps := versions(2, 0)
+
 				ps[1].CapturesFrom = map[string]string{
 					"cookies": "chrome-149-macos",
 				}
@@ -83,6 +87,7 @@ func TestCheckPolicyRefuses(t *testing.T) {
 			name: "inherited from a newer version",
 			profiles: func() []*profile.Profile {
 				ps := versions(2, 0)
+
 				ps[0].CapturesFrom = map[string]string{
 					"cookies": "chrome-151-macos",
 				}
@@ -95,6 +100,7 @@ func TestCheckPolicyRefuses(t *testing.T) {
 			name: "inherited from a profile that inherits it too",
 			profiles: func() []*profile.Profile {
 				ps := versions(3, 0)
+
 				ps[1].CapturesFrom = map[string]string{
 					"cookies": "chrome-150-macos",
 				}
@@ -114,6 +120,7 @@ func TestCheckPolicyRefuses(t *testing.T) {
 			}
 		})
 	}
+
 	if err := checkPolicy(versions(7, 2)); err != nil {
 		t.Fatalf("checkPolicy(five supported, two deprecated) = %v", err)
 	}

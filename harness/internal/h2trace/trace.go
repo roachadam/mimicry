@@ -99,24 +99,31 @@ func Decode(dec *hpack.Decoder, block []byte) ([]Instruction, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	var out []Instruction
+
 	p := parser{
 		b: block,
 	}
+
 	for len(p.b) > 0 {
 		ins, err := p.next()
 		if err != nil {
 			return nil, err
 		}
+
 		if ins.Rep != SizeUpdate {
 			if len(fields) == 0 {
 				return nil, errors.New("h2trace: more instructions than decoded fields")
 			}
+
 			ins.Name, ins.Value = fields[0].Name, fields[0].Value
 			fields = fields[1:]
 		}
+
 		out = append(out, ins)
 	}
+
 	if len(fields) > 0 {
 		return nil, errors.New("h2trace: fewer instructions than decoded fields")
 	}
@@ -133,18 +140,22 @@ func (p *parser) next() (Instruction, error) {
 	switch {
 	case first&0x80 != 0:
 		i, err := p.integer(7)
+
 		return Instruction{
 			Rep:   Indexed,
 			Index: i,
 		}, err
+
 	case first&0xc0 == 0x40:
 		return p.literal(Incremental, 6)
 	case first&0xe0 == 0x20:
 		s, err := p.integer(5)
+
 		return Instruction{
 			Rep:  SizeUpdate,
 			Size: s,
 		}, err
+
 	case first&0xf0 == 0x10:
 		return p.literal(Never, 4)
 	default:
@@ -156,16 +167,19 @@ func (p *parser) literal(rep Representation, prefix uint8) (Instruction, error) 
 	ins := Instruction{
 		Rep: rep,
 	}
+
 	idx, err := p.integer(prefix)
 	if err != nil {
 		return ins, err
 	}
+
 	ins.Index = idx
 	if idx == 0 {
 		if ins.HuffmanName, err = p.str(); err != nil {
 			return ins, err
 		}
 	}
+
 	ins.HuffmanValue, err = p.str()
 
 	return ins, err
@@ -176,14 +190,18 @@ func (p *parser) str() (bool, error) {
 	if len(p.b) == 0 {
 		return false, errors.New("h2trace: truncated string")
 	}
+
 	huffman := p.b[0]&0x80 != 0
+
 	n, err := p.integer(7)
 	if err != nil {
 		return false, err
 	}
+
 	if uint64(len(p.b)) < n {
 		return false, errors.New("h2trace: truncated string")
 	}
+
 	p.b = p.b[n:]
 
 	return huffman, nil
@@ -193,21 +211,29 @@ func (p *parser) str() (bool, error) {
 func (p *parser) integer(n uint8) (uint64, error) {
 	limit := uint64(1)<<n - 1
 	v := uint64(p.b[0]) & limit
+
 	p.b = p.b[1:]
+
 	if v < limit {
 		return v, nil
 	}
+
 	var shift uint
 	for {
 		if len(p.b) == 0 {
 			return 0, errors.New("h2trace: truncated integer")
 		}
+
 		c := p.b[0]
+
 		p.b = p.b[1:]
+
 		v += uint64(c&0x7f) << shift
+
 		if c&0x80 == 0 {
 			return v, nil
 		}
+
 		shift += 7
 		if shift > 56 {
 			return 0, fmt.Errorf("h2trace: integer too long")

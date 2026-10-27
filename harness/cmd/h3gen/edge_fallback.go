@@ -55,20 +55,26 @@ func race(p *edgePage, r *edgeReq) raceEvent {
 	}
 	made := float64(r.made)
 	started := p.attemptsTo(r.host, made-5, made+50)
+
 	if len(started) == 0 {
 		for _, a := range p.attemptsTo(r.host, math.Inf(-1), made) {
 			ev.attempt = ev.attempt || a.end() >= made && !a.answered
 		}
+
 		ev.wait = float64(r.delay())
 
 		return ev
 	}
+
 	a := started[0]
+
 	ev.attempt, ev.started, ev.zeroRTT = true, true, sendsZeroRTT(a)
+
 	if before := p.tcpHellos(r.host, made-5, float64(a.start)); len(before) > 0 {
 		ev.tcpFirst = true
 		return ev
 	}
+
 	if tcp := p.tcpHellos(r.host, float64(a.start), float64(a.start)+10000); len(tcp) > 0 && float64(tcp[0]) <= float64(r.arrival) {
 		ev.wait = float64(tcp[0] - a.start)
 	} else {
@@ -94,12 +100,15 @@ func (s *edgeSet) raceEvents(e *collector) []raceEvent {
 		case scenarioBroken:
 			labels = []string{"closed1.cs", "closed2.cs"}
 		}
+
 		for _, l := range labels {
 			r := p.request(l)
 			if r == nil {
 				edgeErr(e, p.at, "no request %s", l)
+
 				continue
 			}
+
 			ev := race(p, r)
 			if ev.attempt && (p.scenario != scenarioBroken || ev.started) {
 				out = append(out, ev)
@@ -129,35 +138,42 @@ func (s *edgeSet) failures(q *profile.QUIC, p *edgePage, host string, after floa
 			idle = float64(*tp.Value)
 		}
 	}
+
 	pageEnd := 0.0
 	for _, r := range p.reqs {
 		pageEnd = max(pageEnd, float64(r.arrival))
 	}
+
 	for _, a := range p.attemptsTo(host, after, math.Inf(1)) {
 		if a.answered && a.c.H3 != nil {
 			more = true
 			continue
 		}
+
 		u := unanswered{
 			p: p,
 			a: a,
 		}
 		end := float64(a.start) + idle
+
 		switch f := a.closeFlight(); {
 		case f != nil:
 			end = a.millis(f[0].Micros)
 		case a.vn || u.abandoned():
 			end = a.end()
 		}
+
 		if n := len(fs); n > 0 && fs[n-1].end >= float64(a.start)-10 && float64(a.start)-fs[n-1].end <= 10 && !a.resumed && s.vnRetry(p, a) {
 			// A Version Negotiation's retry is the same attempt.
 			fs[n-1].end = end
 			continue
 		}
+
 		if end > pageEnd {
 			more = true
 			continue
 		}
+
 		fs = append(fs, failure{
 			resumed: a.resumed,
 			end:     end,
@@ -201,33 +217,45 @@ func counted(fs []failure, countsResumed bool) int {
 // fallback derives http3.discovery.fallback.
 func (s *edgeSet) fallback(q *profile.QUIC, d *profile.Discovery, e *collector) profile.Fallback {
 	var out profile.Fallback
+
 	events := s.raceEvents(e)
-	var waits []int
-	var pinned []raceEvent
+
+	var (
+		waits  []int
+		pinned []raceEvent
+	)
+
 	for _, ev := range events {
 		if ev.tcpFirst || ev.zeroRTT && ev.wait > 1000 {
 			// Discovery.RaceAfterGoAway's, or a 0-RTT attempt's
 			// hold (afterClose).
 			continue
 		}
+
 		if ev.wait < backgroundMillis {
 			if out.Mode == profile.FallbackRace {
 				edgeErr(e, ev.at, "%s waited %.0f ms for QUIC, other requests longer", ev.label, ev.wait)
 			}
+
 			out.Mode = profile.FallbackBackground
 
 			continue
 		}
+
 		if out.Mode == profile.FallbackBackground {
 			edgeErr(e, ev.at, "%s waited %.0f ms for QUIC, other requests not at all", ev.label, ev.wait)
 		}
+
 		out.Mode = profile.FallbackRace
+
 		if _, ok := sampleGaps[ev.at+": tcpDelayMs "+ev.label]; ok {
 			pinned = append(pinned, ev)
 			continue
 		}
+
 		waits = append(waits, int(ev.wait))
 	}
+
 	if out.Mode == profile.FallbackRace && len(waits) > 0 {
 		out.TCPDelayMillis = span(waits)
 		// A pin holds only a wait the others' range leaves out.
@@ -237,13 +265,16 @@ func (s *edgeSet) fallback(q *profile.QUIC, d *profile.Discovery, e *collector) 
 			}
 		}
 	}
+
 	fresh, resumed := s.unansweredAttempts()
 	abandoned := 0
+
 	for _, u := range append(fresh, resumed...) {
 		if u.abandoned() {
 			abandoned++
 		}
 	}
+
 	out.AbandonOnTCP = abandoned > 0
 	s.afterClose(d, &out, e)
 	s.broken(q, d, &out, e)
@@ -259,6 +290,7 @@ func closedHost(p *edgePage) (string, float64, error) {
 	if r == nil || r.quic < 0 {
 		return "", 0, fmt.Errorf("close.cs did not go over QUIC")
 	}
+
 	c := p.attempts[r.quic].c
 	if c.Close == nil {
 		return "", 0, fmt.Errorf("close.cs's connection did not close")
@@ -275,26 +307,35 @@ func (s *edgeSet) afterClose(d *profile.Discovery, out *profile.Fallback, e *col
 		host, closed, err := closedHost(p)
 		if err != nil {
 			edgeErr(e, p.at, "%v", err)
+
 			continue
 		}
+
 		r := p.request("closed1.cs")
 		as := p.attemptsTo(host, closed, math.Inf(1))
+
 		if r == nil || len(as) == 0 {
 			edgeErr(e, p.at, "no QUIC attempt after the server's close")
+
 			continue
 		}
+
 		a := as[0]
 		end := a.end()
+
 		if f := a.closeFlight(); f != nil {
 			end = a.millis(f[0].Micros)
 		}
+
 		holds, hold := false, false
 		switch ev := race(p, r); {
 		case ev.zeroRTT && !ev.tcpFirst && ev.wait > 1000:
 			holds = true
+
 			if tcp := p.tcpHellos(host, float64(a.start), end-5); len(tcp) > 0 {
 				edgeErr(e, p.at, "TCP at %d while the 0-RTT attempt held closed1.cs", tcp[0])
 			}
+
 			if len(as) < 2 || math.Abs(float64(as[1].start)-end) > 5 || as[1].resumed {
 				edgeErr(e, p.at, "no fresh attempt when the 0-RTT one gave up at %.0f", end)
 			} else if tcp := p.tcpHellos(host, end-5, end+5); len(tcp) == 0 {
@@ -302,15 +343,19 @@ func (s *edgeSet) afterClose(d *profile.Discovery, out *profile.Fallback, e *col
 			} else {
 				s.checkArrivals(p, host, float64(as[1].start), as[1].end(), 0, 20, "made while the fresh attempt ran", e)
 			}
+
 		case ev.tcpFirst:
 			hold = d.RaceAfterGoAway
 		}
+
 		if holds || hold {
 			s.checkArrivals(p, host, float64(a.start), end, end, 20, "held by the attempt after the close", e)
 		}
+
 		if i > 0 && (holds != out.ZeroRTTHolds || hold != out.Hold) {
 			edgeErr(e, p.at, "zeroRttHolds %v hold %v, others %v %v", holds, hold, out.ZeroRTTHolds, out.Hold)
 		}
+
 		out.ZeroRTTHolds, out.Hold = holds, hold
 	}
 }
@@ -324,10 +369,12 @@ func (s *edgeSet) checkArrivals(p *edgePage, host string, from, to, base, within
 		if r.host != host || r.made < 0 || made < from || made >= to {
 			continue
 		}
+
 		b := base
 		if b == 0 {
 			b = made
 		}
+
 		if r.quic >= 0 || float64(r.arrival) < b-1 || float64(r.arrival) > b+within {
 			edgeErr(e, p.at, "%s, %s arrived at %d (QUIC %v), want TCP within %.0f ms of %.0f", what, r.label, r.arrival, r.quic >= 0, within, b)
 		}
@@ -341,8 +388,10 @@ func (s *edgeSet) broken(q *profile.QUIC, d *profile.Discovery, out *profile.Fal
 	var seqs []brokenSeq
 	for _, p := range s.pages {
 		var host string
+
 		after := math.Inf(-1)
 		used := false
+
 		switch p.scenario {
 		case scenarioBlackhole, scenarioVN:
 			host = "www.h3-a.test"
@@ -351,20 +400,25 @@ func (s *edgeSet) broken(q *profile.QUIC, d *profile.Discovery, out *profile.Fal
 			if err != nil {
 				continue
 			}
+
 			host, after, used = h, closed, true
+
 		default:
 			continue
 		}
+
 		fs, more := s.failures(q, p, host, after)
 		if len(fs) == 0 {
 			continue
 		}
+
 		seq := brokenSeq{
 			at:   p.at,
 			fs:   fs,
 			more: more,
 		}
 		last := fs[len(fs)-1].end
+
 		if !more {
 			for _, r := range p.reqs {
 				// A request that could have started an attempt: any
@@ -376,13 +430,17 @@ func (s *edgeSet) broken(q *profile.QUIC, d *profile.Discovery, out *profile.Fal
 				}
 			}
 		}
+
 		seqs = append(seqs, seq)
 	}
+
 	type rule struct {
 		n             int
 		countsResumed bool
 	}
+
 	var fits []rule
+
 	for _, cr := range []bool{false, true} {
 		for n := 1; n <= 5; n++ {
 			ok := true
@@ -402,6 +460,7 @@ func (s *edgeSet) broken(q *profile.QUIC, d *profile.Discovery, out *profile.Fal
 					}
 				}
 			}
+
 			if ok {
 				fits = append(fits, rule{
 					n:             n,
@@ -412,12 +471,15 @@ func (s *edgeSet) broken(q *profile.QUIC, d *profile.Discovery, out *profile.Fal
 			}
 		}
 	}
+
 	if len(fits) != 1 {
 		edgeErr(e, s.set.name, "brokenAfter: %d rules fit the samples' failures (%+v), want 1", len(fits), fits)
+
 		if len(fits) == 0 {
 			return
 		}
 	}
+
 	out.BrokenAfter, out.BrokenCountsResumed = fits[0].n, fits[0].countsResumed
 	if out.Mode == profile.FallbackBackground {
 		out.RevalidateMillis = s.revalidate(e)
@@ -434,7 +496,9 @@ func (s *edgeSet) revalidate(e *collector) *profile.Range {
 			host string
 			at   float64
 		}
+
 		var events []event
+
 		if host, closed, err := closedHost(p); err == nil {
 			for _, a := range p.attemptsTo(host, closed, math.Inf(1)) {
 				if f := a.closeFlight(); f != nil && a.resumed {
@@ -447,6 +511,7 @@ func (s *edgeSet) revalidate(e *collector) *profile.Range {
 				break
 			}
 		}
+
 		for _, sl := range s.silencedConns(e) {
 			if sl.p == p && sl.a.c.Close != nil && sl.a.c.Close.By == "idle" {
 				events = append(events, event{
@@ -455,22 +520,27 @@ func (s *edgeSet) revalidate(e *collector) *profile.Range {
 				})
 			}
 		}
+
 		for _, ev := range events {
 			for _, r := range p.reqs {
 				made := float64(r.made)
 				if r.host != ev.host || r.made < 0 || made <= ev.at {
 					continue
 				}
+
 				if as := p.attemptsTo(ev.host, made-5, made+50); len(as) > 0 && !as[0].resumed {
 					upper = min(upper, int(made-ev.at))
 					break
 				}
+
 				lower = max(lower, int(made-ev.at)+1)
 			}
 		}
 	}
+
 	if upper == math.MaxInt || lower > upper {
 		edgeErr(e, s.set.name, "revalidateMs: no request after a failure started a fresh attempt, or bounds %d > %d", lower, upper)
+
 		return nil
 	}
 
@@ -489,28 +559,37 @@ func (s *edgeSet) pending(out *profile.Fallback, e *collector) {
 		p := sl.p
 		host := sl.a.c.Host
 		cl, died := sl.clientClose()
+
 		if cl == nil {
 			if sl.a.c.Close == nil || sl.a.c.Close.By != "idle" {
 				edgeErr(e, p.at, "the silenced connection did not die")
+
 				continue
 			}
+
 			died = float64(sl.a.c.Close.Millis)
 		}
+
 		var waiting []edgeReq
 		for _, r := range p.reqs {
 			if r.host == host && r.made >= 0 && float64(r.made) < died && float64(r.arrival) >= died-1 {
 				waiting = append(waiting, r)
 			}
 		}
+
 		if len(waiting) == 0 {
 			edgeErr(e, p.at, "no request waiting when the silenced connection died at %.0f", died)
+
 			continue
 		}
+
 		got := profile.PendingTCP
 		if as := p.attemptsTo(host, died, died+50); len(as) > 0 && waiting[0].quic == as[0].index {
 			got = profile.PendingQUIC
+
 			reconnects = append(reconnects, int(float64(as[0].start)-died))
 		}
+
 		for _, r := range waiting {
 			switch {
 			case got == profile.PendingQUIC && (r.quic < 0 || p.attempts[r.quic] != p.attemptsTo(host, died, died+50)[0]):
@@ -519,14 +598,18 @@ func (s *edgeSet) pending(out *profile.Fallback, e *collector) {
 				edgeErr(e, p.at, "%s arrived at %d, not on TCP within 50 ms of %.0f", r.label, r.arrival, died)
 			}
 		}
+
 		if n := len(p.tcpHellos(host, died-1, died+20)); got == profile.PendingTCP && n != len(waiting) {
 			edgeErr(e, p.at, "%d TCP connections for %d waiting requests", n, len(waiting))
 		}
+
 		if i > 0 && got != out.Pending {
 			edgeErr(e, p.at, "pending requests went %q, others %q", got, out.Pending)
 		}
+
 		out.Pending = got
 	}
+
 	if out.Pending == profile.PendingQUIC && len(reconnects) > 0 {
 		out.ReconnectMillis = span(reconnects)
 	}

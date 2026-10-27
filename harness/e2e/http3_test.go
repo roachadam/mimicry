@@ -42,29 +42,36 @@ func TestHTTP3MatchesBrowser(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		t.Run(name+"/rules", func(t *testing.T) {
 			t.Parallel()
+
 			p, err := loadProfile(name)
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if p.QUIC == nil {
 				t.Fatal("the profile has no quic section")
 			}
+
 			for _, c := range capturedConns(t, p) {
 				for _, v := range quicRuleViolations(p, c.c, t.Logf) {
 					t.Errorf("%s: the profile's rule does not describe the browser: %s", c.at, v)
 				}
 			}
 		})
+
 		for _, sc := range []*server.Scenario{server.H3Discovery, server.H3Page} {
 			t.Run(name+"/"+sc.Name, func(t *testing.T) {
 				t.Parallel()
+
 				p, err := loadProfile(name)
 				if err != nil {
 					t.Fatal(err)
 				}
+
 				if p.HTTP3 == nil || p.QUIC == nil {
 					t.Fatal("the profile has no http3 or quic section")
 				}
+
 				want := h3Captures(t, p, sc)
 				got := runH3Page(t, p, sc, want[0])
 				skip, unused := gapsFor(t, capture.Source(p, sc.Name)+"/"+sc.Name)
@@ -80,10 +87,12 @@ func TestHTTP3MatchesBrowser(t *testing.T) {
 // one (Safari), rewritten to p's version where inherited.
 func h3Captures(t *testing.T, p *profile.Profile, sc *server.Scenario) []*capture.Page {
 	t.Helper()
+
 	rest := ".local-roots.pagetrace.json.gz"
 	if path, _, _ := capturePath(t, p, sc.Name, rest); !exists(path) {
 		rest = ".pagetrace.json.gz"
 	}
+
 	pages, err := loadPages(t, p, sc.Name, rest)
 	if err != nil {
 		t.Fatal(err)
@@ -126,20 +135,26 @@ func h3Steps(sc *server.Scenario) []server.H3Step {
 // Alt-Svc connection the browser's head start. Zero where it went on TCP.
 func firstPageDelay(browser *capture.Page, host string, steps []server.H3Step) time.Duration {
 	offset := map[string]int64{}
+
 	var pauses int64
+
 	for _, st := range steps {
 		if st.Page != "/" {
 			continue
 		}
+
 		if st.Tag == "" {
 			pauses += int64(st.PauseMillis)
 		}
+
 		offset[st.Path()] = pauses
 	}
+
 	for _, c := range browser.QUIC {
 		if c.Host != host {
 			continue
 		}
+
 		least, found := int64(0), false
 		if c.H3 != nil {
 			for _, r := range c.H3.Requests {
@@ -168,16 +183,21 @@ func runH3Page(t *testing.T, p *profile.Profile, sc *server.Scenario, browser *c
 	t.Helper()
 	// Its connections' ACK delays are held net of the process's stalls.
 	stalls.watch()
+
 	s := startPage(t, p, sc)
 	s.planEvery()
+
 	steps := h3Steps(sc)
 	order := sentOrder(browser)
 	host := steps[0].Host
+
 	page, err := url.Parse(s.url(host, "/"))
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	s.send(http.MethodGet, page.String(), mimicry.Request{}, nil, "")
+
 	for path := "/"; path != ""; {
 		var markup, scripted []server.H3Step
 		for _, st := range steps {
@@ -189,9 +209,11 @@ func runH3Page(t *testing.T, p *profile.Profile, sc *server.Scenario, browser *c
 				scripted = append(scripted, st)
 			}
 		}
+
 		slices.SortStableFunc(markup, func(a, b server.H3Step) int {
 			return order[a.Path()] - order[b.Path()]
 		})
+
 		if path == "/" {
 			select {
 			case <-time.After(firstPageDelay(browser, host, steps)):
@@ -199,9 +221,11 @@ func runH3Page(t *testing.T, p *profile.Profile, sc *server.Scenario, browser *c
 				t.Fatal(t.Context().Err())
 			}
 		}
+
 		for _, st := range markup {
 			sendH3Step(s, st, page)
 		}
+
 		next := ""
 		for _, st := range scripted {
 			select {
@@ -209,6 +233,7 @@ func runH3Page(t *testing.T, p *profile.Profile, sc *server.Scenario, browser *c
 			case <-t.Context().Done():
 				t.Fatal(t.Context().Err())
 			}
+
 			if st.Kind == "navigate" {
 				target := s.url(st.Host, st.Path())
 				// The page navigates by script, without user activation.
@@ -217,17 +242,22 @@ func runH3Page(t *testing.T, p *profile.Profile, sc *server.Scenario, browser *c
 				}, http.Header{
 					"Sec-Fetch-User": nil,
 				}, "")
+
 				if page, err = url.Parse(target); err != nil {
 					t.Fatal(err)
 				}
+
 				next = st.Path()
 
 				break
 			}
+
 			sendH3Step(s, st, page)
 		}
+
 		path = next
 	}
+
 	// The page's script asks for /done a few milliseconds after the last
 	// response (2–3 ms in the captures); mimicry has no script turn, and
 	// the server snapshots every connection when /done arrives, so a
@@ -239,13 +269,16 @@ func runH3Page(t *testing.T, p *profile.Profile, sc *server.Scenario, browser *c
 		Kind: mimicry.Fetch,
 		From: page,
 	}, nil, "")
+
 	for {
 		select {
 		case c := <-s.captures:
 			if c.Finished && c.Page != nil {
 				s.checkPlans(c.Page)
+
 				return c.Page
 			}
+
 		case <-time.After(10 * time.Second):
 			t.Fatal("no page capture")
 		}
@@ -257,26 +290,32 @@ func runH3Page(t *testing.T, p *profile.Profile, sc *server.Scenario, browser *c
 func sentOrder(browser *capture.Page) map[string]int {
 	out := map[string]int{}
 	n := 0
+
 	for _, tr := range browser.H2 {
 		for _, r := range tr.Requests {
 			if _, ok := out[r.Path]; !ok {
 				out[r.Path] = n
 			}
+
 			n++
 		}
 	}
+
 	for _, c := range browser.QUIC {
 		if c.H3 == nil {
 			continue
 		}
+
 		reqs := slices.Clone(c.H3.Requests)
 		slices.SortFunc(reqs, func(a, b quictrace.H3Request) int {
 			return int(a.Stream) - int(b.Stream)
 		})
+
 		for _, r := range reqs {
 			if _, ok := out[r.Path]; !ok {
 				out[r.Path] = n
 			}
+
 			n++
 		}
 	}
@@ -288,6 +327,7 @@ func sentOrder(browser *capture.Page) map[string]int {
 // markup or script makes it.
 func sendH3Step(s *pageSession, st server.H3Step, page *url.URL) {
 	s.t.Helper()
+
 	method, r, h := h3StepRequest(st, page)
 	s.send(method, s.url(st.Host, st.Path()), r, h, st.Body)
 }
@@ -307,6 +347,7 @@ func h3StepRequest(st server.H3Step, page *url.URL) (string, mimicry.Request, ht
 		"beacon": mimicry.Beacon,
 	}
 	kind := kinds[st.Kind]
+
 	if st.Tag != "" {
 		kind = map[string]mimicry.Kind{
 			"script": mimicry.Script,
@@ -317,27 +358,34 @@ func h3StepRequest(st server.H3Step, page *url.URL) (string, mimicry.Request, ht
 			kind = mimicry.AsyncScript
 		}
 	}
+
 	method := http.MethodGet
 	if st.Method != "" {
 		method = st.Method
 	}
+
 	h := http.Header{}
 	for k, v := range st.Headers {
 		h[k] = []string{v}
 	}
+
 	switch {
 	case st.Kind == "navigate":
 		// The page's script navigates, without user activation; a POST
 		// submits a form.
 		kind = mimicry.Navigate
 		h["Sec-Fetch-User"] = nil
+
 		if st.Body != "" {
 			h.Set("Content-Type", "application/x-www-form-urlencoded")
 		}
+
 	case st.Kind == "beacon":
 		// sendBeacon's string body: the browser sets the type.
 		method = http.MethodPost
+
 		h.Set("Content-Type", "text/plain;charset=UTF-8")
+
 	case st.Body != "" && !slices.ContainsFunc(slices.Collect(maps.Keys(h)), func(k string) bool {
 		return strings.EqualFold(k, "Content-Type")
 	}):
@@ -377,9 +425,11 @@ func (x h3Transport) String() string {
 func transports(page *capture.Page) map[string]h3Transport {
 	out := map[string]h3Transport{}
 	seen := map[string]int{}
+
 	for _, tr := range page.H2 {
 		i := seen[tr.Host]
 		seen[tr.Host]++
+
 		for _, r := range tr.Requests {
 			if _, ok := out[r.Path]; !ok {
 				out[r.Path] = h3Transport{
@@ -390,13 +440,16 @@ func transports(page *capture.Page) map[string]h3Transport {
 			}
 		}
 	}
+
 	seen = map[string]int{}
 	for _, c := range page.QUIC {
 		i := seen[c.Host]
 		seen[c.Host]++
+
 		if c.H3 == nil {
 			continue
 		}
+
 		for _, r := range c.H3.Requests {
 			if _, ok := out[r.Path]; !ok {
 				out[r.Path] = h3Transport{
@@ -419,9 +472,11 @@ func quicConn(page *capture.Page, host string, n int) *quictrace.Conn {
 		if c.Host != host {
 			continue
 		}
+
 		if n == 0 {
 			return c
 		}
+
 		n--
 	}
 
@@ -431,6 +486,7 @@ func quicConn(page *capture.Page, host string, n int) *quictrace.Conn {
 // compareH3Page compares mimicry's page with every browser sample.
 func compareH3Page(t *testing.T, p *profile.Profile, got *capture.Page, want []*capture.Page, flights map[bool][]*quictrace.Conn, skip func(string) bool) {
 	t.Helper()
+
 	gotT := transports(got)
 	for path, w := range transports(want[0]) {
 		var forms []string
@@ -439,6 +495,7 @@ func compareH3Page(t *testing.T, p *profile.Profile, got *capture.Page, want []*
 				forms = append(forms, x.String())
 			}
 		}
+
 		g, ok := gotT[path]
 		switch {
 		case (!ok || !slices.Contains(forms, g.String())) && skip("transport "+path):
@@ -448,32 +505,42 @@ func compareH3Page(t *testing.T, p *profile.Profile, got *capture.Page, want []*
 			t.Errorf("%s: went %s, browser %s", path, g, strings.Join(forms, " or "))
 		}
 	}
+
 	for path := range gotT {
 		if _, ok := transports(want[0])[path]; !ok {
 			t.Errorf("%s: sent, the browser did not", path)
 		}
 	}
+
 	compareFeatures(t, "TCP", tcpFeatures(got), mapEach(want, tcpFeatures), skip)
 	compareFeatures(t, "QUIC", quicHosts(got), mapEach(want, quicHosts), skip)
+
 	seen := map[string]int{}
 	for _, c := range got.QUIC {
 		n := seen[c.Host]
 		seen[c.Host]++
+
 		label := fmt.Sprintf("QUIC %s #%d", c.Host, n+1)
+
 		var refs []*quictrace.Conn
+
 		for _, sample := range want {
 			if w := quicConn(sample, c.Host, n); w != nil {
 				refs = append(refs, w)
 			}
 		}
+
 		if len(refs) == 0 {
 			t.Errorf("%s: the browser opened no such connection", label)
+
 			continue
 		}
+
 		t.Run(fmt.Sprintf("%s#%d", c.Host, n+1), func(t *testing.T) {
 			compareQUICConn(t, p, c, refs, flights[c.Resumed], skip)
 		})
 	}
+
 	compareDraws(t, p, got)
 }
 
@@ -484,6 +551,7 @@ func compareH3Page(t *testing.T, p *profile.Profile, got *capture.Page, want []*
 // profile's range; this catches the same draw on every connection.
 func compareDraws(t *testing.T, p *profile.Profile, page *capture.Page) {
 	t.Helper()
+
 	draws := map[string][]string{}
 	for _, c := range page.QUIC {
 		// A resumed hello and its parameters differ from a full one's.
@@ -493,9 +561,12 @@ func compareDraws(t *testing.T, p *profile.Profile, page *capture.Page) {
 			for _, tp := range c.TransportParameters {
 				order = append(order, tpName(tp.ID, tp.Grease))
 			}
+
 			k := "transport parameter order" + group
+
 			draws[k] = append(draws[k], strings.Join(order, " "))
 		}
+
 		if p.QUIC.Crypto.Split == profile.CryptoSplitShuffle {
 			var layout []string
 			for _, d := range firstFlight(c) {
@@ -507,10 +578,13 @@ func compareDraws(t *testing.T, p *profile.Profile, page *capture.Page) {
 					}
 				}
 			}
+
 			k := "CRYPTO layout" + group
+
 			draws[k] = append(draws[k], strings.Join(layout, ", "))
 		}
 	}
+
 	for what, vs := range draws {
 		if len(vs) >= 2 && !slices.ContainsFunc(vs, func(v string) bool {
 			return v != vs[0]
@@ -544,14 +618,19 @@ var h3Gaps = map[string]string{
 // function that fails the test for each of the profile's gaps not seen.
 func gapsFor(t *testing.T, name string) (skip func(key string) bool, unused func()) {
 	t.Helper()
+
 	var mu sync.Mutex
+
 	seen := map[string]bool{}
+
 	skip = func(key string) bool {
 		k := name + " " + key
 		if _, ok := h3Gaps[k]; !ok {
 			return false
 		}
+
 		mu.Lock()
+
 		seen[k] = true
 		mu.Unlock()
 		t.Logf("known gap: %s: %s", key, h3Gaps[k])
@@ -589,15 +668,18 @@ func newFeatures() features {
 // range, and be absent where every ref lacks it.
 func compareFeatures(t *testing.T, label string, got features, refs []features, skip func(string) bool) {
 	t.Helper()
+
 	keys := map[string]bool{}
 	for k := range got.cat {
 		keys[k] = true
 	}
+
 	for _, r := range refs {
 		for k := range r.cat {
 			keys[k] = true
 		}
 	}
+
 	for _, k := range slices.Sorted(maps.Keys(keys)) {
 		var values []string
 		for _, r := range refs {
@@ -605,14 +687,17 @@ func compareFeatures(t *testing.T, label string, got features, refs []features, 
 			if !ok {
 				v = "<none>"
 			}
+
 			if !slices.Contains(values, v) {
 				values = append(values, v)
 			}
 		}
+
 		g, ok := got.cat[k]
 		if !ok {
 			g = "<none>"
 		}
+
 		switch {
 		case len(values) == 1 && g != values[0] && !skip(label+" "+k):
 			t.Errorf("%s %s:\n%s", label, k, firstDifference(g, values[0]))
@@ -620,15 +705,18 @@ func compareFeatures(t *testing.T, label string, got features, refs []features, 
 			t.Logf("%s %s varies in the browser's samples (%d forms); mimicry's is none of them", label, k, len(values))
 		}
 	}
+
 	nums := map[string]bool{}
 	for k := range got.num {
 		nums[k] = true
 	}
+
 	for _, r := range refs {
 		for k := range r.num {
 			nums[k] = true
 		}
 	}
+
 	for _, k := range slices.Sorted(maps.Keys(nums)) {
 		lo, hi, in := 0, 0, 0
 		for _, r := range refs {
@@ -636,14 +724,18 @@ func compareFeatures(t *testing.T, label string, got features, refs []features, 
 			if !ok {
 				continue
 			}
+
 			if in == 0 || v < lo {
 				lo = v
 			}
+
 			if in == 0 || v > hi {
 				hi = v
 			}
+
 			in++
 		}
+
 		g, ok := got.num[k]
 		switch {
 		case (in == 0 || !ok && in == len(refs) || ok && (g < lo || g > hi)) && skip(label+" "+k):
@@ -664,14 +756,17 @@ func firstDifference(got, want string) string {
 	if len(g) == 1 && len(w) == 1 {
 		return " got " + got + "\nwant " + want
 	}
+
 	for i := range max(len(g), len(w)) {
 		var gl, wl string
 		if i < len(g) {
 			gl = g[i]
 		}
+
 		if i < len(w) {
 			wl = w[i]
 		}
+
 		if gl != wl {
 			return fmt.Sprintf(" line %d of %d (want %d):\n got %s\nwant %s", i+1, len(g), len(w), gl, wl)
 		}
@@ -685,18 +780,23 @@ func firstDifference(got, want string) string {
 func tcpFeatures(page *capture.Page) features {
 	f := newFeatures()
 	seen := map[string]int{}
+
 	for _, tr := range page.H2 {
 		if len(tr.Requests) == 0 {
 			continue
 		}
+
 		n := seen[tr.Host]
 		seen[tr.Host]++
+
 		goaway := "no"
+
 		for _, fr := range tr.Frames {
 			if fr.Type == "GOAWAY" {
 				goaway = fr.ErrCode
 			}
 		}
+
 		f.cat[fmt.Sprintf("%s #%d goaway", tr.Host, n+1)] = goaway
 	}
 
@@ -715,6 +815,7 @@ const quicWithTCP = 500 * time.Millisecond
 func quicHosts(page *capture.Page) features {
 	f := newFeatures()
 	n := map[string]int{}
+
 	for _, c := range page.QUIC {
 		if n[c.Host] == 0 {
 			tcp := int64(-1)
@@ -723,10 +824,13 @@ func quicHosts(page *capture.Page) features {
 					tcp = tc.Millis
 				}
 			}
+
 			f.cat[c.Host+" QUIC #1 starts with its TCP connection"] = strconv.FormatBool(tcp >= 0 && time.Duration(c.Millis-tcp)*time.Millisecond <= quicWithTCP)
 		}
+
 		n[c.Host]++
 	}
+
 	for h, k := range n {
 		f.cat[h+" connections"] = strconv.Itoa(k)
 	}
@@ -746,16 +850,19 @@ type capturedConn struct {
 // rewritten to p's version where inherited.
 func capturedConns(t *testing.T, p *profile.Profile) []capturedConn {
 	t.Helper()
+
 	var out []capturedConn
 	for _, sc := range []string{"h3-discovery", "h3-page"} {
 		for _, cond := range []string{"", ".local-roots"} {
 			if path, _, _ := capturePath(t, p, sc, cond+".pagetrace.json.gz"); !exists(path) {
 				continue
 			}
+
 			pages, err := loadPages(t, p, sc, cond+".pagetrace.json.gz")
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			for i, p := range pages {
 				for j, c := range p.QUIC {
 					out = append(out, capturedConn{
@@ -774,6 +881,7 @@ func capturedConns(t *testing.T, p *profile.Profile) []capturedConn {
 // whether it resumed: what the first flight is held to.
 func flightRefs(t *testing.T, p *profile.Profile) map[bool][]*quictrace.Conn {
 	t.Helper()
+
 	out := map[bool][]*quictrace.Conn{}
 	for _, c := range capturedConns(t, p) {
 		out[c.c.Resumed] = append(out[c.c.Resumed], c.c)
@@ -787,9 +895,11 @@ func flightRefs(t *testing.T, p *profile.Profile) map[bool][]*quictrace.Conn {
 // holds it to the profile's rules.
 func compareQUICConn(t *testing.T, p *profile.Profile, got *quictrace.Conn, refs, flights []*quictrace.Conn, skip func(string) bool) {
 	t.Helper()
+
 	for _, v := range quicRuleViolations(p, got, t.Logf) {
 		t.Errorf("rule: %s", v)
 	}
+
 	if len(flights) == 0 {
 		t.Errorf("the browser has no connection resumed %v", got.Resumed)
 	} else {
@@ -798,7 +908,9 @@ func compareQUICConn(t *testing.T, p *profile.Profile, got *quictrace.Conn, refs
 		compareFeatures(t, "packets", packetFeatures(got), mapConns(flights, packetFeatures), skip)
 		compareHello(t, p, got, flights)
 	}
+
 	compareFeatures(t, "connection", connFeatures(got), mapConns(refs, connFeatures), skip)
+
 	if got.H3 == nil {
 		if refs[0].H3 != nil {
 			t.Error("no HTTP/3: the handshake did not complete")
@@ -806,12 +918,14 @@ func compareQUICConn(t *testing.T, p *profile.Profile, got *quictrace.Conn, refs
 
 		return
 	}
+
 	var h3refs []*quictrace.Conn
 	for _, r := range refs {
 		if r.H3 != nil {
 			h3refs = append(h3refs, r)
 		}
 	}
+
 	compareFeatures(t, "HTTP/3", h3Features(got), mapConns(h3refs, h3Features), skip)
 }
 
@@ -835,6 +949,7 @@ func firstFlight(c *quictrace.Conn) []quictrace.Datagram {
 	for i := range c.Datagrams {
 		d := &c.Datagrams[i]
 		pings, fresh := false, false
+
 		for pi := range d.Packets {
 			pk := &d.Packets[pi]
 			for fi := range pk.Frames {
@@ -849,9 +964,11 @@ func firstFlight(c *quictrace.Conn) []quictrace.Datagram {
 				}
 			}
 		}
+
 		if pings && !fresh {
 			return c.Datagrams[:i]
 		}
+
 		for pi := range d.Packets {
 			sent.addPacket(&d.Packets[pi])
 		}
@@ -894,6 +1011,7 @@ func (s *sentData) repeats(pk *quictrace.Packet, f *quictrace.Frame) bool {
 	if f.Type == quictrace.FrameNewConnectionID {
 		return s.ncids[f.Sequence]
 	}
+
 	x, ok := frameSpan(pk, f)
 
 	return ok && slices.ContainsFunc(s.spans, func(y sentSpan) bool {
@@ -909,6 +1027,7 @@ func (s *sentData) addPacket(pk *quictrace.Packet) {
 			if s.ncids == nil {
 				s.ncids = map[uint64]bool{}
 			}
+
 			s.ncids[f.Sequence] = true
 		} else if x, ok := frameSpan(pk, f); ok {
 			s.spans = append(s.spans, x)
@@ -925,25 +1044,32 @@ func flightFeatures(c *quictrace.Conn) features {
 	f := newFeatures()
 	initials := 0
 	dgrams := 0
+
 	for _, d := range firstFlight(c) {
 		types := make([]string, 0, len(d.Packets))
 		hasInitial := false
+
 		for _, pk := range d.Packets {
 			types = append(types, pk.Type)
 			hasInitial = hasInitial || pk.Type == quictrace.PacketInitial
 		}
+
 		if !hasInitial {
 			continue
 		}
+
 		dp := fmt.Sprintf("datagram %d", dgrams+1)
 		dgrams++
+
 		f.num[dp+" size"] = d.Size
 		f.cat[dp+" packets"] = strings.Join(types, "+")
 		f.cat[dp+" trailing padding"] = strconv.FormatBool(d.Trailing > 0 && !cryptoLeftover(&d))
+
 		for _, pk := range d.Packets {
 			if pk.Type != quictrace.PacketInitial {
 				continue
 			}
+
 			ip := fmt.Sprintf("Initial %d", initials+1)
 			initials++
 			// The low bits are the packet number's length.
@@ -951,11 +1077,13 @@ func flightFeatures(c *quictrace.Conn) features {
 			if pk.SCIDLength != nil {
 				f.cat[ip+" scid length"] = strconv.Itoa(*pk.SCIDLength)
 			}
+
 			if pk.TokenLength != nil {
 				f.num[ip+" token length"] = *pk.TokenLength
 			}
 		}
 	}
+
 	f.num["datagrams with Initials"] = dgrams
 
 	return f
@@ -967,16 +1095,23 @@ func flightFeatures(c *quictrace.Conn) features {
 // connection in some browsers: quicRuleViolations checks those.
 func paramFeatures(c *quictrace.Conn) features {
 	f := newFeatures()
+
 	var ids []string
+
 	grease := 0
+
 	for _, tp := range c.TransportParameters {
 		if tp.Grease {
 			grease++
 			continue
 		}
+
 		id := fmt.Sprintf("0x%x", tp.ID)
+
 		ids = append(ids, id)
+
 		v := tp.Hex
+
 		switch {
 		case tp.ID == uint64(profile.TPInitialRTT):
 			v = "the cached RTT"
@@ -989,14 +1124,20 @@ func paramFeatures(c *quictrace.Conn) features {
 					rest[i] = "G"
 				}
 			}
+
 			slices.Sort(rest)
+
 			v = tp.Versions[0] + " " + strings.Join(rest, ",")
+
 		case tp.Name == "initial_source_connection_id":
 			v = "length " + strconv.Itoa(tp.Length)
 		}
+
 		f.cat[id] = v
 	}
+
 	slices.Sort(ids)
+
 	f.cat["set"] = strings.Join(ids, " ")
 	f.num["GREASE parameters"] = grease
 
@@ -1010,6 +1151,7 @@ func paramFeatures(c *quictrace.Conn) features {
 func packetFeatures(c *quictrace.Conn) features {
 	f := newFeatures()
 	types := map[string]bool{}
+
 	for _, d := range c.Datagrams {
 		for _, pk := range d.Packets {
 			for _, fr := range pk.Frames {
@@ -1022,7 +1164,9 @@ func packetFeatures(c *quictrace.Conn) features {
 			}
 		}
 	}
+
 	delete(types, quictrace.FramePadding)
+
 	for typ := range types {
 		f.cat["sends "+typ] = "yes"
 	}
@@ -1036,46 +1180,62 @@ func packetFeatures(c *quictrace.Conn) features {
 // not at all.
 func connFeatures(c *quictrace.Conn) features {
 	f := newFeatures()
+
 	f.cat["resumed"] = strconv.FormatBool(c.Resumed)
 	f.cat["0-RTT"] = strconv.FormatBool(c.EarlyData)
+
 	var early []string
+
 	ncids := 0
 	closes := "none"
+
 	var sent sentData
+
 	for di := range c.Datagrams {
 		for pi := range c.Datagrams[di].Packets {
 			pk := &c.Datagrams[di].Packets[pi]
+
 			var frames []string
+
 			fresh := len(pk.Frames) == 0
+
 			for fi := range pk.Frames {
 				fr := &pk.Frames[fi]
 				repeat := sent.repeats(pk, fr)
+
 				switch fr.Type {
 				case quictrace.FrameNewConnectionID:
 					if !repeat {
 						ncids++
 					}
+
 				case quictrace.FrameConnectionClose:
 					closes = fmt.Sprintf("0x%x frame 0x%x", derefCode(fr.ErrorCode), fr.FrameType)
 				}
+
 				fresh = fresh || !repeat && fr.Type != quictrace.FramePadding && fr.Type != quictrace.FramePing
 				if pk.Type == quictrace.Packet0RTT && fr.Type != quictrace.FramePadding {
 					s := fr.Type
 					if fr.Stream != nil {
 						s += fmt.Sprintf("(%d)", *fr.Stream)
 					}
+
 					frames = append(frames, s)
 				}
 			}
+
 			sent.addPacket(pk)
+
 			if pk.Type == quictrace.Packet0RTT && fresh {
 				early = append(early, strings.Join(frames, " "))
 			}
 		}
 	}
+
 	f.cat["0-RTT packets"] = strings.Join(early, " | ")
 	f.num["NEW_CONNECTION_IDs"] = ncids
 	f.cat["client CONNECTION_CLOSE"] = closes
+
 	if c.Close != nil {
 		f.cat["ended by"] = c.Close.By
 	}
@@ -1097,29 +1257,38 @@ func derefCode(c *uint64) uint64 {
 // from at least one of them.
 func compareHello(t *testing.T, p *profile.Profile, got *quictrace.Conn, flights []*quictrace.Conn) {
 	t.Helper()
+
 	if got.Hello == nil {
 		t.Errorf("ClientHello not parsed: %s", got.HelloError)
+
 		return
 	}
+
 	g := profile.Profile{
 		TLS: helloWithoutParams(got.Hello, p),
 	}
+
 	var first []diff.Difference
+
 	for _, w := range flights {
 		if w.Hello == nil {
 			continue
 		}
+
 		want := profile.Profile{
 			TLS: helloWithoutParams(w.Hello, p),
 		}
 		d := diff.Compare(&want, &g)
+
 		if len(d) == 0 {
 			return
 		}
+
 		if first == nil {
 			first = d
 		}
 	}
+
 	for _, d := range first {
 		t.Errorf("ClientHello: %s", d)
 	}
@@ -1131,7 +1300,9 @@ func compareHello(t *testing.T, p *profile.Profile, got *quictrace.Conn, flights
 // order the profile's QUIC hello has.
 func helloWithoutParams(h *profile.TLS, p *profile.Profile) profile.TLS {
 	out := *h
+
 	out.Extensions = slices.Clone(h.Extensions)
+
 	for i := range out.Extensions {
 		e := &out.Extensions[i]
 		switch {
@@ -1139,12 +1310,15 @@ func helloWithoutParams(h *profile.TLS, p *profile.Profile) profile.TLS {
 			*e = profile.Extension{
 				Type: profile.ExtQUICTransportParameters,
 			}
+
 		case e.ECH != nil:
 			ech := *e.ECH
+
 			ech.CipherSuites, ech.PayloadLengths = nil, nil
 			e.ECH = &ech
 		}
 	}
+
 	out.ExtensionOrder = p.TLS.QUIC.ExtensionOrder
 
 	return out
@@ -1161,8 +1335,11 @@ func normalisePort(s string) string {
 func h3Features(c *quictrace.Conn) features {
 	f := newFeatures()
 	uni := make([]string, 0, len(c.H3.Streams))
+
 	var control []string
+
 	priority := map[uint64]string{}
+
 	for _, s := range c.H3.Streams {
 		uni = append(uni, fmt.Sprintf("%d:%s", s.ID, s.Name))
 		switch s.Type {
@@ -1179,61 +1356,83 @@ func h3Features(c *quictrace.Conn) features {
 
 					continue
 				}
+
 				control = append(control, name)
+
 				var settings []string
+
 				greaseSettings := 0
+
 				for _, st := range fr.Settings {
 					if st.Grease {
 						greaseSettings++
 						continue
 					}
+
 					settings = append(settings, fmt.Sprintf("0x%x=%d", st.ID, st.Value))
 				}
+
 				if fr.Type == quictrace.FrameH3Settings {
 					f.cat["SETTINGS"] = strings.Join(settings, " ")
 					f.cat["GREASE settings"] = strconv.Itoa(greaseSettings)
 				}
 			}
+
 		case quictrace.StreamQPACKEncoder:
 			var ins []string
 			for _, in := range s.Encoder {
 				ins = append(ins, normalisePort(fmt.Sprintf("%+v", in)))
 			}
+
 			f.cat["encoder stream"] = strings.Join(ins, "\n")
+
 		case quictrace.StreamQPACKDecoder:
 			var ins []string
 			for _, in := range s.Decoder {
 				ins = append(ins, fmt.Sprintf("%+v", in))
 			}
+
 			f.cat["decoder stream"] = strings.Join(ins, " ")
 		}
 	}
+
 	f.cat["unidirectional streams"] = strings.Join(uni, " ")
 	f.cat["control stream"] = strings.Join(control, " ")
+
 	paths := make([]string, 0, len(c.H3.Requests))
+
 	for _, r := range c.H3.Requests {
 		paths = append(paths, r.Path)
+
 		rp := r.Path + " "
+
 		var lines, reps []string
+
 		for _, fl := range r.Section.Fields {
 			lines = append(lines, normalisePort(fl.Name+": "+fl.Value))
 			reps = append(reps, normalisePort(fmt.Sprintf("%s static=%v index=%d %s: %s", fl.Rep, fl.Static, fl.Index, fl.Name, fl.Value)))
 		}
+
 		f.cat[rp+"header list"] = strings.Join(lines, "\n")
 		f.cat[rp+"field lines"] = strings.Join(reps, "\n")
 		f.cat[rp+"section prefix"] = fmt.Sprintf("ric=%d sign=%v delta=%d", r.Section.RequiredInsertCount, r.Section.Sign, r.Section.DeltaBase)
+
 		var frames []string
+
 		for _, fr := range r.Frames {
 			s := fr.Name
 			if fr.Type == quictrace.FrameH3Data {
 				s += fmt.Sprintf("(%d)", fr.Length)
 			}
+
 			frames = append(frames, s)
 		}
+
 		f.cat[rp+"frames"] = strings.Join(frames, " ")
 		f.cat[rp+"PRIORITY_UPDATE"] = priority[r.Stream]
 		f.cat[rp+"end"] = r.End
 	}
+
 	f.cat["requests"] = strings.Join(paths, " ")
 
 	return f
@@ -1249,9 +1448,11 @@ func TestQPACKReproducesBrowserSections(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if p.HTTP3 == nil {
 				t.Fatal("the profile has no http3 section")
 			}
+
 			for _, sc := range []*server.Scenario{server.H3Discovery, server.H3Page} {
 				for _, cond := range []string{"", ".local-roots"} {
 					// As captured: the encoded bytes are compared.
@@ -1259,15 +1460,18 @@ func TestQPACKReproducesBrowserSections(t *testing.T) {
 					if !exists(path) {
 						continue
 					}
+
 					pages, err := capture.LoadPages(path)
 					if err != nil {
 						t.Fatal(err)
 					}
+
 					for i, page := range pages {
 						for j, c := range page.QUIC {
 							if c.H3 == nil || len(c.H3.Requests) == 0 {
 								continue
 							}
+
 							t.Run(fmt.Sprintf("%s%s sample %d connection %d", sc.Name, cond, i+1, j+1), func(t *testing.T) {
 								reencode(t, p.HTTP3, sc, c)
 							})
@@ -1283,8 +1487,10 @@ func TestQPACKReproducesBrowserSections(t *testing.T) {
 // each section and the encoder stream against the browser's.
 func reencode(t *testing.T, h *profile.HTTP3, sc *server.Scenario, c *quictrace.Conn) {
 	t.Helper()
+
 	enc := qpack.NewEncoder(h3.QPACKConfig(h))
 	capacity, blocked := uint64(0), uint64(0)
+
 	for _, st := range sc.H3Settings() {
 		switch st[0] {
 		case quictrace.SettingQPACKMaxTableCapacity:
@@ -1293,17 +1499,23 @@ func reencode(t *testing.T, h *profile.HTTP3, sc *server.Scenario, c *quictrace.
 			blocked = st[1]
 		}
 	}
+
 	enc.SetPeerSettings(capacity, blocked)
+
 	var want []quictrace.EncoderInstruction
 	for _, s := range c.H3.Streams {
 		want = append(want, s.Encoder...)
 	}
+
 	decoded := quictrace.NewTable(capacity)
+
 	var got []quictrace.EncoderInstruction
+
 	reqs := slices.Clone(c.H3.Requests)
 	slices.SortFunc(reqs, func(a, b quictrace.H3Request) int {
 		return int(a.Stream) - int(b.Stream)
 	})
+
 	for _, r := range reqs {
 		fields := make([]qpack.Field, 0, len(r.Section.Fields))
 		for _, fl := range r.Section.Fields {
@@ -1312,30 +1524,38 @@ func reencode(t *testing.T, h *profile.HTTP3, sc *server.Scenario, c *quictrace.
 				Value: fl.Value,
 			})
 		}
+
 		ins, block := enc.Encode(r.Stream, fields)
 		read, n, err := decoded.ReadEncoderStream(ins)
+
 		if err != nil || n != len(ins) {
 			t.Fatalf("%s: encoder stream unreadable (%d of %d bytes): %v", r.Path, n, len(ins), err)
 		}
+
 		got = append(got, read...)
+
 		if hex.EncodeToString(block) != r.Block {
 			sec, err := decoded.DecodeSection(block)
 			t.Fatalf("%s: section differs (%v)\n got %+v\nwant %+v", r.Path, err, sec, r.Section)
 		}
+
 		if r.Section.RequiredInsertCount > 0 {
 			if err := enc.OnDecoderStream(qpack.AppendSectionAck(nil, r.Stream)); err != nil {
 				t.Fatal(err)
 			}
 		}
 	}
+
 	for i := range max(len(got), len(want)) {
 		var g, w string
 		if i < len(got) {
 			g = fmt.Sprintf("%+v", got[i])
 		}
+
 		if i < len(want) {
 			w = fmt.Sprintf("%+v", want[i])
 		}
+
 		if g != w {
 			t.Fatalf("encoder instruction %d:\n got %s\nwant %s", i+1, g, w)
 		}

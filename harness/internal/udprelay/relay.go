@@ -121,6 +121,7 @@ func New(target Target, seed uint64) (*Relay, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	r := &Relay{
 		pc:       pc,
 		seed:     seed,
@@ -148,6 +149,7 @@ func (r *Relay) Addr() netip.AddrPort {
 func (r *Relay) Set(d Dir, im Impairment) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
 	r.imp[d] = im
 }
 
@@ -162,6 +164,7 @@ func (r *Relay) SetBoth(im Impairment) {
 func (r *Relay) SetTarget(t Target) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
 	r.target = t
 }
 
@@ -188,18 +191,23 @@ func (r *Relay) RebindAddress() error {
 func (r *Relay) rebind(family bool) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
 	for _, s := range r.sessions {
 		v6 := s.v6 != family
 		if v6 && !s.target.IPv6.IsValid() {
 			return errors.New("udprelay: the target has no IPv6 address")
 		}
+
 		up, err := listenUpstream(v6)
 		if err != nil {
 			return err
 		}
+
 		old := s.up
+
 		s.up, s.v6 = up, v6
 		_ = old.Close()
+
 		r.wg.Go(func() {
 			r.readServer(s, up)
 		})
@@ -211,11 +219,15 @@ func (r *Relay) rebind(family bool) error {
 // Close stops the relay and closes its sockets.
 func (r *Relay) Close() error {
 	r.mu.Lock()
+
 	r.closed = true
+
 	err := r.pc.Close()
+
 	for _, s := range r.sessions {
 		_ = s.up.Close()
 	}
+
 	r.mu.Unlock()
 	r.sched.stop()
 	r.wg.Wait()
@@ -245,10 +257,12 @@ func (r *Relay) readClients() {
 		if err != nil {
 			return
 		}
+
 		s, err := r.session(from)
 		if err != nil {
 			continue
 		}
+
 		r.forward(s, ToServer, buf[:n])
 	}
 }
@@ -257,16 +271,20 @@ func (r *Relay) readClients() {
 func (r *Relay) session(from netip.AddrPort) (*session, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
 	if s := r.sessions[from]; s != nil {
 		return s, nil
 	}
+
 	if r.closed {
 		return nil, net.ErrClosed
 	}
+
 	up, err := listenUpstream(false)
 	if err != nil {
 		return nil, err
 	}
+
 	n := uint64(len(r.sessions))
 	s := &session{
 		client: from,
@@ -277,6 +295,7 @@ func (r *Relay) session(from netip.AddrPort) (*session, error) {
 			rand.New(rand.NewPCG(r.seed, 2*n+1)), //nolint:gosec // impairments are seeded on purpose
 		},
 	}
+
 	r.sessions[from] = s
 	r.stats.Sessions++
 	r.wg.Go(func() {
@@ -293,6 +312,7 @@ func (r *Relay) readServer(s *session, up *net.UDPConn) {
 		if err != nil {
 			return
 		}
+
 		r.forward(s, ToClient, buf[:n])
 	}
 }
@@ -302,6 +322,7 @@ func (r *Relay) readServer(s *session, up *net.UDPConn) {
 // impairment, so a direction's n-th datagram always gets the same draws.
 func (r *Relay) forward(s *session, d Dir, b []byte) {
 	r.mu.Lock()
+
 	im := r.imp[d]
 	rng := s.rng[d]
 	drop, dup, corrupt, reorder := rng.Float64(), rng.Float64(), rng.Float64(), rng.Float64()
@@ -309,33 +330,41 @@ func (r *Relay) forward(s *session, d Dir, b []byte) {
 	bit := byte(1) << rng.IntN(8)
 	n := s.seen[d]
 	s.seen[d]++
+
 	if im.Blackhole || drop < im.Drop || (im.MaxSize > 0 && len(b) > im.MaxSize) || len(b) < im.MinSize || slices.Contains(im.DropAt, n) {
 		r.stats.Dropped[d]++
 		r.mu.Unlock()
 
 		return
 	}
+
 	r.mu.Unlock()
+
 	out := append([]byte(nil), b...)
 	if corrupt < im.Corrupt {
 		out[pos] ^= bit
 	}
+
 	delay := im.Delay
 	if reorder < im.Reorder {
 		delay += im.ReorderBy
 	}
+
 	copies := 1
 	if dup < im.Duplicate {
 		copies = 2
 	}
+
 	send := func(p []byte) {
 		r.send(s, d, p)
 	}
 	for range copies {
 		if delay == 0 {
 			send(out)
+
 			continue
 		}
+
 		r.sched.add(time.Now().Add(delay), out, send)
 	}
 }
@@ -343,10 +372,16 @@ func (r *Relay) forward(s *session, d Dir, b []byte) {
 // send writes p in direction d, accounting for it.
 func (r *Relay) send(s *session, d Dir, p []byte) {
 	r.mu.Lock()
+
 	r.stats.Forwarded[d]++
+
 	types := longTypes(p)
-	var up *net.UDPConn
-	var to netip.AddrPort
+
+	var (
+		up *net.UDPConn
+		to netip.AddrPort
+	)
+
 	switch d {
 	case ToServer:
 		if !s.validated {
@@ -357,16 +392,19 @@ func (r *Relay) send(s *session, d Dir, p []byte) {
 				}
 			}
 		}
+
 		up, to = s.up, s.target.IPv4
 		if s.v6 {
 			to = s.target.IPv6
 		}
+
 	case ToClient:
 		for _, t := range types {
 			if t == typeRetry {
 				r.stats.Retries++
 			}
 		}
+
 		if !s.validated {
 			s.serverBytes += len(p)
 			if s.clientBytes > 0 {
@@ -374,11 +412,14 @@ func (r *Relay) send(s *session, d Dir, p []byte) {
 			}
 		}
 	}
+
 	r.mu.Unlock()
+
 	if d == ToServer {
 		_, _ = up.WriteToUDPAddrPort(p, to)
 		return
 	}
+
 	_, _ = r.pc.WriteToUDPAddrPort(p, s.client)
 }
 
@@ -397,36 +438,47 @@ func longTypes(b []byte) []byte {
 		if len(b) < 6 {
 			break
 		}
+
 		t := (b[0] >> 4) & 3
+
 		types = append(types, t)
+
 		if t == typeRetry {
 			break
 		}
+
 		off := 5
 		for range 2 {
 			if off >= len(b) {
 				return types
 			}
+
 			off += 1 + int(b[off])
 		}
+
 		if t == typeInitial {
 			n, l := varint(b[min(off, len(b)):])
 			if l == 0 || n > uint64(len(b)) {
 				return types
 			}
+
 			off += l + int(n)
 		}
+
 		if off > len(b) {
 			return types
 		}
+
 		n, l := varint(b[off:])
 		if l == 0 || n > uint64(len(b)) {
 			return types
 		}
+
 		off += l + int(n)
 		if off > len(b) {
 			return types
 		}
+
 		b = b[off:]
 	}
 
@@ -438,10 +490,12 @@ func varint(b []byte) (v uint64, l int) {
 	if len(b) == 0 {
 		return 0, 0
 	}
+
 	l = 1 << (b[0] >> 6)
 	if len(b) < l {
 		return 0, 0
 	}
+
 	v = uint64(b[0] & 0x3f)
 	for _, c := range b[1:l] {
 		v = v<<8 | uint64(c)
@@ -491,12 +545,14 @@ func (h *items) Push(x any) {
 	if !ok {
 		panic("udprelay: heap pushed a non-item")
 	}
+
 	*h = append(*h, it)
 }
 
 func (h *items) Pop() any {
 	old := *h
 	it := old[len(old)-1]
+
 	*h = old[:len(old)-1]
 
 	return it
@@ -514,6 +570,7 @@ func (s *scheduler) stop() {
 
 func (s *scheduler) add(due time.Time, data []byte, send func([]byte)) {
 	s.mu.Lock()
+
 	s.seq++
 	heap.Push(&s.items, item{
 		due:  due,
@@ -522,6 +579,7 @@ func (s *scheduler) add(due time.Time, data []byte, send func([]byte)) {
 		send: send,
 	})
 	s.mu.Unlock()
+
 	select {
 	case s.wake <- struct{}{}:
 	default:
@@ -531,27 +589,37 @@ func (s *scheduler) add(due time.Time, data []byte, send func([]byte)) {
 func (s *scheduler) run() {
 	t := time.NewTimer(time.Hour)
 	defer t.Stop()
+
 	for {
 		s.mu.Lock()
+
 		now := time.Now()
+
 		var due []item
+
 		for len(s.items) > 0 && !s.items[0].due.After(now) {
 			// items holds only items (see Push).
 			it, ok := heap.Pop(&s.items).(item)
 			if !ok {
 				panic("udprelay: heap popped a non-item")
 			}
+
 			due = append(due, it)
 		}
+
 		wait := time.Hour
 		if len(s.items) > 0 {
 			wait = s.items[0].due.Sub(now)
 		}
+
 		s.mu.Unlock()
+
 		for _, it := range due {
 			it.send(it.data)
 		}
+
 		t.Reset(wait)
+
 		select {
 		case <-s.done:
 			return

@@ -31,6 +31,7 @@ func compileQUIC(p *profile.Profile) *quicPlan {
 	if q == nil || p.QUIC == nil {
 		return nil
 	}
+
 	plan := &quicPlan{
 		cipherSuites:    q.CipherSuites,
 		sessionIDLength: q.SessionIDLength,
@@ -39,8 +40,10 @@ func compileQUIC(p *profile.Profile) *quicPlan {
 	if p.TLS.Resumption != nil {
 		plan.resumed = compileQUICHello(p, true)
 	}
+
 	if q.VersionNegotiation != nil {
 		retry := compileQUICRetry(plan.fresh, q.VersionNegotiation)
+
 		plan.retry = &retry
 	}
 
@@ -53,23 +56,28 @@ func compileQUIC(p *profile.Profile) *quicPlan {
 func compileQUICRetry(fresh quicHello, r *profile.QUICHelloRetry) quicHello {
 	out := quicHello{}
 	at := map[int]int{}
+
 	for i, e := range fresh.extensions {
 		if slices.Contains(r.Drop, e.Type) {
 			continue
 		}
+
 		for _, rep := range r.Replace {
 			if rep.Type == e.Type {
 				e = rep
 			}
 		}
+
 		at[i] = len(out.extensions)
 		out.extensions = append(out.extensions, e)
 	}
+
 	for _, i := range fresh.movable {
 		if j, ok := at[i]; ok {
 			out.movable = append(out.movable, j)
 		}
 	}
+
 	if r.Padding {
 		out.extensions = append(out.extensions, profile.Extension{
 			Type: profile.ExtPadding,
@@ -89,39 +97,51 @@ func compileQUICHello(p *profile.Profile, resumed bool) quicHello {
 	tp := profile.Extension{
 		Type: profile.ExtQUICTransportParameters,
 	}
+
 	var exts []profile.Extension
+
 	placed := false
+
 	for _, e := range p.TLS.Extensions {
 		if slices.Contains(q.Drop, e.Type) || e.Type == profile.ExtPreSharedKey {
 			continue
 		}
+
 		if resumed && slices.Contains(p.TLS.Resumption.Drop, e.Type) {
 			continue
 		}
+
 		for _, r := range q.Replace {
 			if r.Type == e.Type {
 				e = r
 			}
 		}
+
 		if resumed && e.ECH != nil && len(q.ResumedECHPayloadLengths) > 0 {
 			ech := *e.ECH
+
 			ech.PayloadLengths = q.ResumedECHPayloadLengths
 			e.ECH = &ech
 		}
+
 		if !shuffled && !placed && q.TransportParametersBefore != nil && e.Type == *q.TransportParametersBefore {
 			exts = append(exts, tp)
 			placed = true
 		}
+
 		exts = append(exts, e)
 	}
+
 	if !placed {
 		exts = append(exts, tp)
 	}
+
 	if resumed && p.QUIC.ZeroRTT {
 		exts = append(exts, profile.Extension{
 			Type: profile.ExtEarlyData,
 		})
 	}
+
 	h := quicHello{}
 	if shuffled {
 		// The extensions kept last go to the end, in tls.quic.last's
@@ -136,18 +156,22 @@ func compileQUICHello(p *profile.Profile, resumed bool) quicHello {
 				exts = slices.Delete(exts, i, i+1)
 			}
 		}
+
 		for i := range exts {
 			if !exts[i].Pinned() {
 				h.movable = append(h.movable, i)
 			}
 		}
+
 		exts = append(exts, last...)
 	}
+
 	if resumed {
 		exts = append(exts, profile.Extension{
 			Type: profile.ExtPreSharedKey,
 		})
 	}
+
 	h.extensions = exts
 
 	return h
@@ -194,9 +218,11 @@ func (p *Plan) quicHello(h quicHello, intn func(int) int) Hello {
 		Extensions:         make([]profile.Extension, len(h.extensions)),
 	}
 	copy(out.Extensions, h.extensions)
+
 	m := h.movable
 	for i := len(m) - 1; i > 0; i-- {
 		j := intn(i + 1)
+
 		out.Extensions[m[i]], out.Extensions[m[j]] = out.Extensions[m[j]], out.Extensions[m[i]]
 	}
 

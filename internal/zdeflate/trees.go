@@ -88,6 +88,7 @@ func buildStatic() *staticTables {
 	t := &staticTables{}
 	length := 0
 	code := 0
+
 	for ; code < lengthCodes-1; code++ {
 		t.baseLength[code] = length
 		for range 1 << extraLBits[code] {
@@ -95,6 +96,7 @@ func buildStatic() *staticTables {
 			length++
 		}
 	}
+
 	// Length 258 has a code of its own: 285 rather than 284 with 31.
 	t.lengthCode[length-1] = uint8(code)
 
@@ -106,6 +108,7 @@ func buildStatic() *staticTables {
 			dist++
 		}
 	}
+
 	dist >>= 7 // from here on, distances are divided by 128
 	for ; code < dCodes; code++ {
 		t.baseDist[code] = dist << 7
@@ -116,24 +119,31 @@ func buildStatic() *staticTables {
 	}
 
 	var blCount [maxBits + 1]uint16
+
 	n := 0
+
 	for ; n <= 143; n++ {
 		t.ltree[n].dl = 8
 		blCount[8]++
 	}
+
 	for ; n <= 255; n++ {
 		t.ltree[n].dl = 9
 		blCount[9]++
 	}
+
 	for ; n <= 279; n++ {
 		t.ltree[n].dl = 7
 		blCount[7]++
 	}
+
 	for ; n <= 287; n++ {
 		t.ltree[n].dl = 8
 		blCount[8]++
 	}
+
 	genCodes(t.ltree[:], lCodes+1, &blCount)
+
 	for n := range dCodes {
 		t.dtree[n] = ct{
 			fc: reverseBits(uint16(n), 5),
@@ -177,6 +187,7 @@ func reverseBits(code uint16, n int) uint16 {
 	var res uint16
 	for range n {
 		res = res<<1 | code&1
+
 		code >>= 1
 	}
 
@@ -186,17 +197,22 @@ func reverseBits(code uint16, n int) uint16 {
 // genCodes is zlib's gen_codes: canonical codes for the bit lengths of
 // tree[0..maxCode], given how many codes have each length.
 func genCodes(tree []ct, maxCode int, blCount *[maxBits + 1]uint16) {
-	var nextCode [maxBits + 1]uint16
-	var code uint16
+	var (
+		nextCode [maxBits + 1]uint16
+		code     uint16
+	)
+
 	for bits := 1; bits <= maxBits; bits++ {
 		code = (code + blCount[bits-1]) << 1
 		nextCode[bits] = code
 	}
+
 	for n := 0; n <= maxCode; n++ {
 		length := tree[n].dl
 		if length == 0 {
 			continue
 		}
+
 		tree[n].fc = reverseBits(nextCode[length], int(length))
 		nextCode[length]++
 	}
@@ -256,12 +272,15 @@ func (t *trees) initBlock() {
 	for n := range lCodes {
 		t.dynLTree[n].fc = 0
 	}
+
 	for n := range dCodes {
 		t.dynDTree[n].fc = 0
 	}
+
 	for n := range blCodes {
 		t.blTree[n].fc = 0
 	}
+
 	t.dynLTree[endBlock].fc = 1
 	t.optLen = 0
 	t.staticLen = 0
@@ -277,11 +296,14 @@ func (t *trees) tally(dist, lc uint32) bool {
 		lc:   uint8(lc),
 	}
 	t.symNext++
+
 	if dist == 0 {
 		t.dynLTree[lc].fc++
 	} else {
 		dist--
+
 		t.dynLTree[int(static.lengthCode[lc])+literals+1].fc++
+
 		t.dynDTree[dCode(dist)].fc++
 	}
 
@@ -298,23 +320,29 @@ func (t *trees) smaller(tree []ct, n, m int) bool {
 func (t *trees) pqDownHeap(tree []ct, k int) {
 	v := t.heap[k]
 	j := k << 1
+
 	for j <= t.heapLen {
 		if j < t.heapLen && t.smaller(tree, t.heap[j+1], t.heap[j]) {
 			j++
 		}
+
 		if t.smaller(tree, v, t.heap[j]) {
 			break
 		}
+
 		t.heap[k] = t.heap[j]
 		k = j
+
 		j <<= 1
 	}
+
 	t.heap[k] = v
 }
 
 // pqRemove is zlib's pqremove: it takes the smallest element off the heap.
 func (t *trees) pqRemove(tree []ct) int {
 	top := t.heap[1]
+
 	t.heap[1] = t.heap[t.heapLen]
 	t.heapLen--
 	t.pqDownHeap(tree, 1)
@@ -341,29 +369,40 @@ func (t *trees) genBitLen(desc *treeDesc) {
 	// The root has length 0; every other node one more than its parent,
 	// parents coming first in the sorted part of the heap.
 	tree[t.heap[t.heapMax]].dl = 0
+
 	h := t.heapMax + 1
+
 	for ; h < heapSize; h++ {
 		n := t.heap[h]
 		bits := int(tree[tree[n].dl].dl) + 1
+
 		if bits > maxLength {
 			bits = maxLength
 			overflow++
 		}
+
 		tree[n].dl = uint16(bits)
 		if n > maxCode {
 			continue // not a leaf
 		}
+
 		t.blCount[bits]++
+
 		xbits := 0
+
 		if n >= base {
 			xbits = extra[n-base]
 		}
+
 		f := uint64(tree[n].fc)
+
 		t.optLen += f * uint64(bits+xbits)
+
 		if stree != nil {
 			t.staticLen += f * uint64(int(stree[n].dl)+xbits)
 		}
 	}
+
 	if overflow == 0 {
 		return
 	}
@@ -375,9 +414,12 @@ func (t *trees) genBitLen(desc *treeDesc) {
 		for t.blCount[bits] == 0 {
 			bits--
 		}
+
 		t.blCount[bits]--
+
 		t.blCount[bits+1] += 2
 		t.blCount[maxLength]--
+
 		overflow -= 2
 	}
 
@@ -387,14 +429,19 @@ func (t *trees) genBitLen(desc *treeDesc) {
 		n := int(t.blCount[bits])
 		for n != 0 {
 			h--
+
 			m := t.heap[h]
+
 			if m > maxCode {
 				continue
 			}
+
 			if int(tree[m].dl) != bits {
 				t.optLen += uint64(int64(bits)-int64(tree[m].dl)) * uint64(tree[m].fc)
+
 				tree[m].dl = uint16(bits)
 			}
+
 			n--
 		}
 	}
@@ -410,9 +457,11 @@ func (t *trees) buildTree(desc *treeDesc) {
 
 	t.heapLen = 0
 	t.heapMax = heapSize
+
 	for n := range elems {
 		if tree[n].fc != 0 {
 			t.heapLen++
+
 			t.heap[t.heapLen] = n
 			maxCode = n
 			t.depth[n] = 0
@@ -427,17 +476,22 @@ func (t *trees) buildTree(desc *treeDesc) {
 		node := 0
 		if maxCode < 2 {
 			maxCode++
+
 			node = maxCode
 		}
+
 		t.heapLen++
+
 		t.heap[t.heapLen] = node
 		tree[node].fc = 1
 		t.depth[node] = 0
 		t.optLen--
+
 		if stree != nil {
 			t.staticLen -= uint64(stree[node].dl)
 		}
 	}
+
 	desc.maxCode = maxCode
 
 	for n := t.heapLen / 2; n >= 1; n-- {
@@ -451,8 +505,10 @@ func (t *trees) buildTree(desc *treeDesc) {
 		m := t.heap[1]
 
 		t.heapMax--
+
 		t.heap[t.heapMax] = n
 		t.heapMax--
+
 		t.heap[t.heapMax] = m
 
 		tree[node].fc = tree[n].fc + tree[m].fc
@@ -461,12 +517,16 @@ func (t *trees) buildTree(desc *treeDesc) {
 		tree[m].dl = uint16(node)
 		t.heap[1] = node
 		node++
+
 		t.pqDownHeap(tree, 1)
+
 		if t.heapLen < 2 {
 			break
 		}
 	}
+
 	t.heapMax--
+
 	t.heap[t.heapMax] = t.heap[1]
 
 	t.genBitLen(desc)
@@ -480,15 +540,19 @@ func (t *trees) scanTree(tree []ct, maxCode int) {
 	nextLen := int(tree[0].dl)
 	count := 0
 	maxCount, minCount := 7, 4
+
 	if nextLen == 0 {
 		maxCount, minCount = 138, 3
 	}
+
 	tree[maxCode+1].dl = 0xffff // guard
 
 	for n := 0; n <= maxCode; n++ {
 		curLen := nextLen
+
 		nextLen = int(tree[n+1].dl)
 		count++
+
 		switch {
 		case count < maxCount && curLen == nextLen:
 			continue
@@ -498,14 +562,18 @@ func (t *trees) scanTree(tree []ct, maxCode int) {
 			if curLen != prevLen {
 				t.blTree[curLen].fc++
 			}
+
 			t.blTree[rep3To6].fc++
+
 		case count <= 10:
 			t.blTree[repz3To10].fc++
 		default:
 			t.blTree[repz11To138].fc++
 		}
+
 		count = 0
 		prevLen = curLen
+
 		switch {
 		case nextLen == 0:
 			maxCount, minCount = 138, 3
@@ -523,14 +591,17 @@ func (t *trees) sendTree(out *bitWriter, tree []ct, maxCode int) {
 	nextLen := int(tree[0].dl)
 	count := 0
 	maxCount, minCount := 7, 4
+
 	if nextLen == 0 {
 		maxCount, minCount = 138, 3
 	}
 
 	for n := 0; n <= maxCode; n++ {
 		curLen := nextLen
+
 		nextLen = int(tree[n+1].dl)
 		count++
+
 		switch {
 		case count < maxCount && curLen == nextLen:
 			continue
@@ -538,22 +609,29 @@ func (t *trees) sendTree(out *bitWriter, tree []ct, maxCode int) {
 			for ; count != 0; count-- {
 				out.code(t.blTree[curLen])
 			}
+
 		case curLen != 0:
 			if curLen != prevLen {
 				out.code(t.blTree[curLen])
+
 				count--
 			}
+
 			out.code(t.blTree[rep3To6])
 			out.bits(uint32(count-3), 2)
+
 		case count <= 10:
 			out.code(t.blTree[repz3To10])
 			out.bits(uint32(count-3), 3)
+
 		default:
 			out.code(t.blTree[repz11To138])
 			out.bits(uint32(count-11), 7)
 		}
+
 		count = 0
 		prevLen = curLen
+
 		switch {
 		case nextLen == 0:
 			maxCount, minCount = 138, 3
@@ -579,6 +657,7 @@ func (t *trees) buildBLTree() int {
 			break
 		}
 	}
+
 	t.optLen += 3*(uint64(maxBLIndex)+1) + 5 + 5 + 4
 
 	return maxBLIndex
@@ -589,9 +668,11 @@ func (t *trees) sendAllTrees(out *bitWriter, lcodes, dcodes, blcodes int) {
 	out.bits(uint32(lcodes-257), 5)
 	out.bits(uint32(dcodes-1), 5)
 	out.bits(uint32(blcodes-4), 4)
+
 	for rank := range blcodes {
 		out.bits(uint32(t.blTree[blOrder[rank]].dl), 3)
 	}
+
 	t.sendTree(out, t.dynLTree[:], lcodes-1)
 	t.sendTree(out, t.dynDTree[:], dcodes-1)
 }
@@ -602,21 +683,27 @@ func (t *trees) compressBlock(out *bitWriter, ltree, dtree []ct) {
 	for _, s := range t.syms[:t.symNext] {
 		if s.dist == 0 {
 			out.code(ltree[s.lc])
+
 			continue
 		}
+
 		lc := int(s.lc)
 		code := int(static.lengthCode[lc])
 		out.code(ltree[code+literals+1])
+
 		if extra := extraLBits[code]; extra != 0 {
 			out.bits(uint32(lc-static.baseLength[code]), extra)
 		}
+
 		dist := uint32(s.dist) - 1
 		dcode := int(dCode(dist))
 		out.code(dtree[dcode])
+
 		if extra := extraDBits[dcode]; extra != 0 {
 			out.bits(dist-uint32(static.baseDist[dcode]), extra)
 		}
 	}
+
 	out.code(ltree[endBlock])
 }
 
@@ -625,7 +712,9 @@ func (t *trees) compressBlock(out *bitWriter, ltree, dtree []ct) {
 func (t *trees) storedBlock(out *bitWriter, buf []byte) {
 	out.bits(storedBlock<<1, 3)
 	out.windup()
+
 	n := uint16(len(buf))
+
 	out.buf = binary.LittleEndian.AppendUint16(out.buf, n)
 	out.buf = binary.LittleEndian.AppendUint16(out.buf, ^n)
 	out.buf = append(out.buf, buf...)
@@ -638,10 +727,12 @@ func (t *trees) storedBlock(out *bitWriter, buf []byte) {
 func (t *trees) flushBlock(out *bitWriter, stored []byte, storedLen uint64) {
 	t.buildTree(&t.lDesc)
 	t.buildTree(&t.dDesc)
+
 	maxBLIndex := t.buildBLTree()
 
 	optLenB := (t.optLen + 3 + 7) >> 3
 	staticLenB := (t.staticLen + 3 + 7) >> 3
+
 	if staticLenB <= optLenB {
 		optLenB = staticLenB
 	}
@@ -652,11 +743,13 @@ func (t *trees) flushBlock(out *bitWriter, stored []byte, storedLen uint64) {
 	case staticLenB == optLenB:
 		out.bits(staticTrees<<1, 3)
 		t.compressBlock(out, static.ltree[:], static.dtree[:])
+
 	default:
 		out.bits(dynTrees<<1, 3)
 		t.sendAllTrees(out, t.lDesc.maxCode+1, t.dDesc.maxCode+1, maxBLIndex+1)
 		t.compressBlock(out, t.dynLTree[:], t.dynDTree[:])
 	}
+
 	t.initBlock()
 }
 
@@ -670,10 +763,14 @@ type bitWriter struct {
 
 func (b *bitWriter) bits(value uint32, n int) {
 	b.acc |= uint64(value) << b.nbits
+
 	b.nbits += n
+
 	if b.nbits >= 32 {
 		b.buf = binary.LittleEndian.AppendUint32(b.buf, uint32(b.acc))
+
 		b.acc >>= 32
+
 		b.nbits -= 32
 	}
 }
@@ -686,9 +783,12 @@ func (b *bitWriter) code(c ct) {
 func (b *bitWriter) windup() {
 	for b.nbits > 0 {
 		b.buf = append(b.buf, byte(b.acc))
+
 		b.acc >>= 8
+
 		b.nbits -= 8
 	}
+
 	b.acc = 0
 	b.nbits = 0
 }

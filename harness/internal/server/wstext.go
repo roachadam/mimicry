@@ -67,7 +67,9 @@ var (
 func makeProse(n int) string {
 	r := wsRand(20261026)
 	ts := uint64(1792900000000)
+
 	var b strings.Builder
+
 	for b.Len() < n {
 		ts += uint64(r.n(5000)) + 1
 		switch r.n(10) {
@@ -76,6 +78,7 @@ func makeProse(n int) string {
 			for i := range words {
 				words[i] = r.pick(proseWords)
 			}
+
 			b.WriteString(`{"type":"chat","room":"`)
 			b.WriteString(r.pick(proseRooms))
 			b.WriteString(`","user":"`)
@@ -85,6 +88,7 @@ func makeProse(n int) string {
 			b.WriteString(`","ts":`)
 			b.WriteString(strconv.FormatUint(ts, 10))
 			b.WriteString("}\n")
+
 		case 5, 6:
 			b.WriteString(`{"type":"search","q":"`)
 			b.WriteString(r.pick(proseQueries))
@@ -96,6 +100,7 @@ func makeProse(n int) string {
 			b.WriteString(r.pick(proseSizes))
 			b.WriteString(`"}}`)
 			b.WriteString("\n")
+
 		case 7, 8:
 			b.WriteString(`{"type":"cart","op":"`)
 			b.WriteString(r.pick(proseOps))
@@ -108,6 +113,7 @@ func makeProse(n int) string {
 			b.WriteString(".")
 			b.WriteString(strconv.Itoa(int(r.n(90)) + 10))
 			b.WriteString("}\n")
+
 		default:
 			b.WriteString(`{"type":"typing","user":"`)
 			b.WriteString(r.pick(proseUsers))
@@ -123,6 +129,7 @@ func makeProse(n int) string {
 func wsNoise(seed, n int) []byte {
 	r := wsRand(seed)
 	b := make([]byte, n)
+
 	for i := range b {
 		b[i] = byte(r.next() >> 24)
 	}

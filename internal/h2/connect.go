@@ -38,26 +38,32 @@ func (c *Conn) Connect(ctx context.Context, req *http.Request, protocol string) 
 	if err != nil {
 		return nil, nil, err
 	}
+
 	s, err := c.newStream(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	if err := c.writeHeaders(s, head); err != nil {
 		c.endStream(s, ending{
 			err: err,
 		})
+
 		r := <-s.resp
 
 		return nil, nil, r.err
 	}
+
 	r := <-s.resp
 	if r.err != nil {
 		return nil, nil, r.err
 	}
+
 	r.resp.Request = req
 	if r.resp.StatusCode < 200 || r.resp.StatusCode > 299 {
 		return r.resp, nil, nil
 	}
+
 	// From here on, only the stream's own end ends it.
 	c.mu.Lock()
 	s.stopCtx()
@@ -90,6 +96,7 @@ func (st *Stream) Send(ctx context.Context, parts [][]byte, end bool) error {
 // it already.
 func (st *Stream) Close() error {
 	st.c.reset(st.s, http2.ErrCodeNo, errStreamClosed)
+
 	return nil
 }
 
@@ -106,6 +113,7 @@ func (st *Stream) Release() {
 func (st *Stream) MaxData() int {
 	st.c.mu.Lock()
 	defer st.c.mu.Unlock()
+
 	limit := st.c.maxFrameSize
 	if m := st.c.h2.MaxDataFrame; m > 0 {
 		limit = min(limit, m)

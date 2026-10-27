@@ -13,6 +13,7 @@ import (
 
 func mustURL(t *testing.T, s string) *url.URL {
 	t.Helper()
+
 	u, err := url.Parse(s)
 	if err != nil {
 		t.Fatal(err)
@@ -23,6 +24,7 @@ func mustURL(t *testing.T, s string) *url.URL {
 
 func newJar(t *testing.T, cfg Config) *Jar {
 	t.Helper()
+
 	j, err := New(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -42,6 +44,7 @@ func rules(edit func(*profile.Cookies)) *profile.Cookies {
 // nav is a typed-URL navigation to u.
 func nav(t *testing.T, u string) Request {
 	t.Helper()
+
 	return Request{
 		URL:        mustURL(t, u),
 		Method:     "GET",
@@ -52,11 +55,14 @@ func nav(t *testing.T, u string) Request {
 // setOne stores line from r and returns its event.
 func setOne(j *Jar, r Request, line string) Event {
 	var got Event
+
 	hook := j.onSetCookie
+
 	j.onSetCookie = func(e Event) {
 		got = e
 	}
 	j.SetCookies(r, []string{line})
+
 	j.onSetCookie = hook
 
 	return got
@@ -114,6 +120,7 @@ func TestParseEdges(t *testing.T) {
 			"space=1; Path=/a%20b",
 		})
 		j.SetCookies(nav(t, "https://example.com/x%2Fy/z"), []string{"slash=1"})
+
 		for _, tt := range []struct {
 			url  string
 			want string
@@ -142,8 +149,10 @@ func TestParseEdges(t *testing.T) {
 			got := setOne(newJar(t, Config{}), nav(t, "https://www.example.com/d/e"), tt.line)
 			if got.Cookie == nil {
 				t.Errorf("%s rejected: %s", tt.line, got.Rejected)
+
 				continue
 			}
+
 			if got.Cookie.Path != tt.path || got.Cookie.HostOnly != tt.hostOnly {
 				t.Errorf("%s: path %q host-only %v, want %q %v", tt.line, got.Cookie.Path, got.Cookie.HostOnly, tt.path, tt.hostOnly)
 			}
@@ -166,6 +175,7 @@ func TestParseEdges(t *testing.T) {
 			if got.Deleted != tt.deleted {
 				t.Errorf("%s: deleted %v, want %v (%+v)", tt.line, got.Deleted, tt.deleted, got)
 			}
+
 			if !tt.deleted && (got.Cookie == nil || !got.Cookie.Expires.IsZero()) {
 				t.Errorf("%s: want a session cookie, got %+v", tt.line, got)
 			}
@@ -183,6 +193,7 @@ func TestParseEdges(t *testing.T) {
 				t.Errorf("%q: %v %v, want %v", s, got, ok, want)
 			}
 		}
+
 		for _, s := range []string{"31 Feb 2026 00:00:00", "Oct 2026 07:28:00", "21 Oct 1600 00:00:00", "garbage"} {
 			if _, ok := parseDate(s); ok {
 				t.Errorf("%q parsed", s)
@@ -205,15 +216,20 @@ func TestExpiryAndReplacement(t *testing.T) {
 		"c=1; Expires=Wed, 21 Oct 2099 07:28:00 GMT",
 		"d=1; expires=Thu, 01-Jan-1970 00:00:00 GMT",
 	})
+
 	if got := Header(j.Cookies(r)); got != "a=1; b=1; c=1" {
 		t.Fatalf("stored %q", got)
 	}
+
 	clock.Advance(61 * time.Second)
 	j.SetCookies(r, []string{"a=2", "c=; Max-Age=0"})
+
 	if got := Header(j.Cookies(r)); got != "a=2" {
 		t.Errorf("after expiry, replacement and deletion: %q", got)
 	}
+
 	j.SetCookies(r, []string{"z=1", "a=3"})
+
 	if got := Header(j.Cookies(r)); got != "a=3; z=1" {
 		t.Errorf("a replaced cookie keeps its creation order: %q", got)
 	}
@@ -223,6 +239,7 @@ func TestExpiryAndReplacement(t *testing.T) {
 func TestExpiryCappedAt400Days(t *testing.T) {
 	now := time.Date(2026, 10, 24, 12, 0, 0, 0, time.UTC)
 	limit := now.Add(400 * 24 * time.Hour)
+
 	for _, tt := range []struct {
 		line string
 		want time.Time
@@ -236,6 +253,7 @@ func TestExpiryCappedAt400Days(t *testing.T) {
 			Clock: clockwork.NewFakeClockAt(now),
 		})
 		got := setOne(j, nav(t, "https://example.com/"), tt.line)
+
 		if got.Cookie == nil || !got.Cookie.Expires.Equal(tt.want) {
 			t.Errorf("%s: %+v, want expiry %v", tt.line, got, tt.want)
 		}
@@ -247,6 +265,7 @@ func TestInsecureCannotShadowSecure(t *testing.T) {
 	j := newJar(t, Config{})
 	j.SetCookies(nav(t, "https://example.com/"), []string{"id=secure; Secure"})
 	j.SetCookies(nav(t, "http://example.com/"), []string{"id=plain"})
+
 	if got := Header(j.Cookies(nav(t, "https://example.com/"))); got != "id=secure" {
 		t.Errorf("got %q", got)
 	}
@@ -263,22 +282,30 @@ func TestLaxAllowsUnsafeWindow(t *testing.T) {
 		Clock: clock,
 	})
 	j.SetCookies(nav(t, "https://a.example/"), []string{"unset=1", "lax=1; SameSite=Lax"})
+
 	post := Request{
 		URL:        mustURL(t, "https://a.example/form"),
 		Method:     "POST",
 		Navigation: true,
 		Page:       mustURL(t, "https://b.example/"),
 	}
+
 	clock.Advance(119 * time.Second)
+
 	if got := Header(j.Cookies(post)); got != "unset=1" {
 		t.Errorf("at 119 s: %q, want unset=1", got)
 	}
+
 	clock.Advance(time.Second)
+
 	if got := Header(j.Cookies(post)); got != "" {
 		t.Errorf("at 120 s: %q, want none", got)
 	}
+
 	get := post
+
 	get.Method = "GET"
+
 	if got := Header(j.Cookies(get)); got != "unset=1; lax=1" {
 		t.Errorf("cross-site GET navigation: %q", got)
 	}

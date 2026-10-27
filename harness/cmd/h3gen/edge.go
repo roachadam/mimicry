@@ -159,26 +159,32 @@ func loadEdge(dir string, set *captureSet) (*edgeSet, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	out := &edgeSet{
 		set: set,
 	}
 	for _, f := range files {
 		base := strings.TrimSuffix(filepath.Base(f.Path), ".pagetrace.json.gz")
 		scenario := f.Scenario
+
 		pages, err := capture.LoadPages(f.Path)
 		if err != nil {
 			return nil, err
 		}
+
 		for si, page := range pages {
 			ep := &edgePage{
 				at:       fmt.Sprintf("%s: sample %d", base, si+1),
 				scenario: scenario,
 				page:     page,
 			}
+
 			ep.reqs = edgeRequests(page)
+
 			for i, c := range page.QUIC {
 				ep.attempts = append(ep.attempts, newAttempt(i, c))
 			}
+
 			out.pages = append(out.pages, ep)
 		}
 	}
@@ -205,6 +211,7 @@ func (s *edgeSet) gap(at, feature string) bool {
 	if _, ok := sampleGaps[key]; !ok {
 		return false
 	}
+
 	s.set.usedGaps[key] = true
 
 	return true
@@ -226,12 +233,14 @@ func newAttempt(i int, c *quictrace.Conn) *attempt {
 			a.answered = true
 		}
 	}
+
 	var last int64 = math.MinInt64
 	for di := range c.Datagrams {
 		d := &c.Datagrams[di]
 		if len(a.flights) == 0 || d.Micros-last >= flightGapMicros {
 			a.flights = append(a.flights, nil)
 		}
+
 		a.flights[len(a.flights)-1] = append(a.flights[len(a.flights)-1], d)
 		last = d.Micros
 	}
@@ -243,18 +252,22 @@ func newAttempt(i int, c *quictrace.Conn) *attempt {
 // arrived, each with when it was made.
 func edgeRequests(page *capture.Page) []edgeReq {
 	var out []edgeReq
+
 	conns := tracedConns(page)
+
 	for i, tr := range page.H2 {
 		base := tr.Millis
 		if base == 0 && i < len(conns) {
 			base = conns[i].Millis
 		}
+
 		at := map[uint32]int64{}
 		for _, f := range tr.Frames {
 			if _, ok := at[f.Stream]; f.Type == "HEADERS" && !ok {
 				at[f.Stream] = f.Millis
 			}
 		}
+
 		for ri, r := range tr.Requests {
 			out = append(out, edgeReq{
 				label:   label(r.Path),
@@ -266,10 +279,12 @@ func edgeRequests(page *capture.Page) []edgeReq {
 			})
 		}
 	}
+
 	for qi, q := range page.QUIC {
 		if q.H3 == nil {
 			continue
 		}
+
 		for _, r := range q.H3.Requests {
 			out = append(out, edgeReq{
 				label:   label(r.Path),
@@ -280,17 +295,20 @@ func edgeRequests(page *capture.Page) []edgeReq {
 			})
 		}
 	}
+
 	offset := int64(math.MaxInt64)
 	for _, r := range out {
 		if r.made >= 0 {
 			offset = min(offset, r.arrival-r.made)
 		}
 	}
+
 	for i := range out {
 		if out[i].made >= 0 {
 			out[i].made += offset
 		}
 	}
+
 	slices.SortStableFunc(out, func(a, b edgeReq) int {
 		return int(a.arrival - b.arrival)
 	})
@@ -304,10 +322,12 @@ func madeAt(path string) int64 {
 	if !ok {
 		return -1
 	}
+
 	v, err := url.ParseQuery(query)
 	if err != nil {
 		return -1
 	}
+
 	t, err := strconv.ParseFloat(v.Get("t"), 64)
 	if err != nil {
 		return -1
@@ -350,6 +370,7 @@ func (p *edgePage) tcpHellos(host string, from, to float64) []int64 {
 			out = append(out, c.Millis)
 		}
 	}
+
 	slices.Sort(out)
 
 	return out
@@ -376,9 +397,11 @@ func deriveEdge(s *edgeSet, q *profile.QUIC, h *profile.HTTP3) error {
 			edgeErr(e, s.set.name, "no %s capture", sc)
 		}
 	}
+
 	if err := e.err(); err != nil {
 		return err
 	}
+
 	q.Loss = s.loss(q, e)
 	q.KeepAlive = s.keepAlive(e)
 	q.Ack = s.ack(e)

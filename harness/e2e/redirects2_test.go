@@ -32,14 +32,17 @@ func TestRedirects2MatchesBrowser(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+
 			p, err := loadProfile(name)
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			want, err := loadPages(t, p, "redirects2", ".pagetrace.json.gz")
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			steps := server.Redirects2Steps()
 			done := runRedirectsPage(t, p, server.Redirects2, steps)
 			apart := redirectsApart(server.Redirects2, steps)
@@ -47,16 +50,20 @@ func TestRedirects2MatchesBrowser(t *testing.T) {
 			src := capture.Source(p, "redirects2")
 			got := mergeHosts(redirectsConnections(t, done, false, apart), redirectsMerged[src])
 			wantRows := redirectsConnections(t, want[0], redirectsReload[src], apart)
+
 			for i, w := range want {
 				if d := rowsDiff(got, mergeHosts(redirectsConnections(t, w, redirectsReload[src], apart), redirectsMerged[src])); d != "" {
 					t.Errorf("sample %d: connections differ: %s", i+1, d)
 				}
 			}
+
 			for _, path := range redirectsPaths(wantRows) {
 				if why, ok := redirectsLineGaps[src][path]; ok {
 					t.Logf("%s: not compared: %s", path, why)
+
 					continue
 				}
+
 				for _, preflight := range []bool{false, true} {
 					comparePath(t, done, want, path, false, false, preflight)
 				}
@@ -103,16 +110,20 @@ var redirectsLineGaps = map[string]map[string]string{
 // order.
 func mergeHosts(rows [][]string, hosts map[string]string) [][]string {
 	var out [][]string
+
 	merged := map[string]int{}
+
 	for _, conn := range rows {
 		if _, ok := hosts[conn[0]]; !ok {
 			out = append(out, conn)
 			continue
 		}
+
 		if i, ok := merged[conn[0]]; ok {
 			out[i] = append(out[i], conn[1:]...)
 			continue
 		}
+
 		merged[conn[0]] = len(out)
 		out = append(out, slices.Clone(conn))
 	}
@@ -125,19 +136,24 @@ func mergeHosts(rows [][]string, hosts map[string]string) [][]string {
 // (steps), and returns the server's capture.
 func runRedirectsPage(t *testing.T, p *profile.Profile, sc *server.Scenario, steps []server.Redirects2Step) *capture.Page {
 	t.Helper()
+
 	s := startPage(t, p, sc)
 	s.planEvery()
+
 	// As NewClient: the Transport stops chains where browsers do.
 	s.client.CheckRedirect = func(*http.Request, []*http.Request) error {
 		return nil
 	}
+
 	hosts, _, _ := sc.MultiHost()
 	pageURL := s.url(hosts[0], "/")
 	s.send(http.MethodGet, pageURL, mimicry.Request{}, nil, "")
+
 	root, err := url.Parse(pageURL)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	// The page's markup images load with it, before its script.
 	ordered := slices.Concat(
 		slices.DeleteFunc(slices.Clone(steps), func(st server.Redirects2Step) bool {
@@ -152,30 +168,40 @@ func runRedirectsPage(t *testing.T, p *profile.Profile, sc *server.Scenario, ste
 	last := root
 	for _, st := range ordered {
 		target := s.url(st.Host, "/p/"+st.Label)
+
 		var err error
+
 		if st.Nav() {
 			start := s.url(hosts[0], "/s/"+st.Label)
 			if _, err := redirectsSend(t, s, http.MethodGet, start, "", nil, mimicry.Request{Kind: mimicry.Navigate, From: last}, true); err != nil {
 				t.Fatalf("%s: %v", start, err)
 			}
+
 			from, perr := url.Parse(start)
 			if perr != nil {
 				t.Fatal(perr)
 			}
+
 			var h http.Header
+
 			body := st.Body
 			method := st.Method
+
 			if method == "" {
 				method = http.MethodGet
 			}
+
 			switch {
 			case method == http.MethodGet && body != "":
 				// A GET form sends its field in the query.
 				target += "?" + body
+
 				body = ""
+
 			case body != "":
 				h = http.Header{"Content-Type": {"application/x-www-form-urlencoded"}}
 			}
+
 			var landed *url.URL
 			// A clicked navigation has user activation; the page's
 			// script's has none.
@@ -186,16 +212,19 @@ func runRedirectsPage(t *testing.T, p *profile.Profile, sc *server.Scenario, ste
 		} else {
 			err = redirects2Subresource(t, s, root, st, target)
 		}
+
 		var cerr *mimicry.CORSError
 		switch {
 		case st.NoACAO || st.NoACAC:
 			if !errors.As(err, &cerr) || !cerr.Redirect {
 				t.Errorf("%s: got %v, want a redirect's *mimicry.CORSError", st.Label, err)
 			}
+
 		case st.Hops > p.Redirects.NavigationLimit:
 			if want := "stopped after " + strconv.Itoa(p.Redirects.NavigationLimit) + " redirects"; err == nil || !strings.Contains(err.Error(), want) {
 				t.Errorf("%s: got %v, want %s", st.Label, err, want)
 			}
+
 		case err != nil:
 			t.Errorf("%s: %v", st.Label, err)
 		}
@@ -208,6 +237,7 @@ func runRedirectsPage(t *testing.T, p *profile.Profile, sc *server.Scenario, ste
 // root, as the page's script (or markup) does.
 func redirects2Subresource(t *testing.T, s *pageSession, root *url.URL, st server.Redirects2Step, target string) error {
 	t.Helper()
+
 	r := mimicry.Request{
 		From: root,
 	}
@@ -227,18 +257,22 @@ func redirects2Subresource(t *testing.T, s *pageSession, root *url.URL, st serve
 		if st.Credentials == "include" {
 			r.Credentials = mimicry.CredentialsInclude
 		}
+
 	default:
 		t.Fatalf("%s: kind %q", st.Label, st.Kind)
 	}
+
 	method := st.Method
 	if method == "" {
 		method = http.MethodGet
 	}
+
 	var h http.Header
 	if st.Body != "" {
 		// fetch() sends a string body so.
 		h = http.Header{"Content-Type": {"text/plain;charset=UTF-8"}}
 	}
+
 	_, err := redirectsSend(t, s, method, target, st.Body, h, r, false)
 
 	return err
@@ -249,22 +283,28 @@ func redirects2Subresource(t *testing.T, s *pageSession, root *url.URL, st serve
 // script's navigation (script) carries no Sec-Fetch-User.
 func redirectsSend(t *testing.T, s *pageSession, method, target, body string, h http.Header, r mimicry.Request, script bool) (*url.URL, error) {
 	t.Helper()
+
 	var rd io.Reader
 	if body != "" {
 		rd = strings.NewReader(body)
 	}
+
 	req, err := http.NewRequestWithContext(t.Context(), method, target, rd)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	maps.Copy(req.Header, h)
+
 	if script {
 		req.Header["Sec-Fetch-User"] = nil
 	}
+
 	resp, err := s.client.Do(mimicry.With(req, r))
 	if err != nil {
 		return nil, err
 	}
+
 	_, _ = io.Copy(io.Discard, resp.Body)
 
 	return resp.Request.URL, resp.Body.Close()
@@ -280,43 +320,53 @@ func TestNavRedirectsMatchBrowser(t *testing.T) {
 		for _, sc := range server.NavRedirects {
 			t.Run(name+"/"+sc.Name, func(t *testing.T) {
 				t.Parallel()
+
 				p, err := loadProfile(name)
 				if err != nil {
 					t.Fatal(err)
 				}
+
 				want := loadSamples[*capture.Page](t, p, sc.Name, ".pagetrace.json.gz")
 				if steps, ok := sc.RedirectSteps(); ok {
 					done := runRedirectsPage(t, p, sc, steps)
 					apart := redirectsApart(sc, steps)
 					got := redirectsConnections(t, done, false, apart)
+
 					for i, w := range want {
 						if d := rowsDiff(got, redirectsConnections(t, w, false, apart)); d != "" {
 							t.Errorf("sample %d: connections differ: %s", i+1, d)
 						}
 					}
+
 					for _, path := range redirectsPaths(redirectsConnections(t, want[0], false, apart)) {
 						comparePath(t, done, want, path, false, false, false)
 					}
 
 					return
 				}
+
 				step, ok := sc.NavRedirectStep()
 				if !ok {
 					t.Fatalf("%s is no nav-redirect scenario", sc.Name)
 				}
+
 				s := startPage(t, p, sc)
 				s.planEvery()
+
 				start := s.url(step.Host, step.StartPath())
 				if step.Plain {
 					start = "http://" + net.JoinHostPort(step.Host, s.plainPort) + step.StartPath()
 				}
+
 				landed, err := redirectsSend(t, s, http.MethodGet, start, "", nil, mimicry.Request{}, false)
 				if err != nil {
 					t.Fatal(err)
 				}
+
 				if landed.Path != step.HopPath() {
 					t.Errorf("landed on %s, want %s", landed, step.HopPath())
 				}
+
 				done := s.finish(s.url(step.Next, "/done"))
 				// /done is the landing page's own fetch, not the
 				// navigation's: Safari sends it on a connection of its own.
@@ -334,11 +384,13 @@ func TestNavRedirectsMatchBrowser(t *testing.T) {
 					return out
 				}
 				got := noDone(redirectsConnections(t, done, false, nil))
+
 				for i, w := range want {
 					if d := rowsDiff(got, noDone(redirectsConnections(t, w, false, nil))); d != "" {
 						t.Errorf("sample %d: connections differ: %s", i+1, d)
 					}
 				}
+
 				comparePath(t, done, want, step.StartPath(), false, step.Plain, false)
 				comparePath(t, done, want, step.HopPath(), false, false, false)
 			})
@@ -359,6 +411,7 @@ func redirectsPaths(rows [][]string) []string {
 			}
 		}
 	}
+
 	slices.Sort(out)
 
 	return out
@@ -371,46 +424,62 @@ func redirectsPaths(rows [][]string) []string {
 // browser partitions by top-level site and mimicry does not (a gap).
 func redirectsConnections(t *testing.T, page *capture.Page, reload bool, apart map[string]bool) [][]string {
 	t.Helper()
+
 	reloaded := false
+
 	var out [][]string
+
 	moved := map[string][]string{}
+
 	var movedHosts []string
+
 	for _, rows := range corsEdgeConnections(page) {
 		kept := []string{rows[0]}
 		seen := map[string]bool{}
 		chain := ""
+
 		for _, row := range rows[1:] {
 			fields := strings.Fields(row)
 			method, path := fields[0], fields[1]
 			label, _, _ := strings.Cut(path, "?")
+
 			label, _, _ = strings.Cut(label, ".hop")
+
 			switch {
 			case path == "/sw/watchdog.js":
 				continue
 			case reload && method != http.MethodOptions && seen[path]:
 				reloaded, chain = true, label
 				continue
+
 			case chain != "" && label == chain:
 				continue
 			}
+
 			seen[path] = seen[path] || method != http.MethodOptions
+
 			if apart[label] {
 				if moved[rows[0]] == nil {
 					movedHosts = append(movedHosts, rows[0])
 				}
+
 				moved[rows[0]] = append(moved[rows[0]], row)
 
 				continue
 			}
+
 			kept = append(kept, row)
 		}
+
 		if len(kept) > 1 {
 			out = append(out, kept)
 		}
 	}
+
 	for _, host := range movedHosts {
 		out = append(out, append([]string{host + " (navigations to another site)"}, moved[host]...))
 	}
+
 	slices.SortStableFunc(out, func(a, b []string) int {
 		if c := strings.Compare(a[0], b[0]); c != 0 {
 			return c
@@ -418,24 +487,33 @@ func redirectsConnections(t *testing.T, page *capture.Page, reload bool, apart m
 
 		return len(b) - len(a)
 	})
+
 	h1 := map[int][]string{}
+
 	var conns []int
+
 	for _, r := range page.H1 {
 		if h1[r.Conn] == nil {
 			conns = append(conns, r.Conn)
+
 			host, _, err := net.SplitHostPort(r.Host)
 			if err != nil {
 				host = r.Host
 			}
+
 			h1[r.Conn] = []string{"h1 " + host}
 		}
+
 		method, rest, _ := strings.Cut(r.Line, " ")
 		target, _, _ := strings.Cut(rest, " ")
+
 		h1[r.Conn] = append(h1[r.Conn], method+" "+target)
 	}
+
 	for _, c := range conns {
 		out = append(out, h1[c])
 	}
+
 	if reload && !reloaded {
 		t.Errorf("no reload of a stopped navigation in the browser's capture: drop it from redirectsReload")
 	}
@@ -457,6 +535,7 @@ func redirectsApart(sc *server.Scenario, steps []server.Redirects2Step) map[stri
 		return s
 	}
 	out := map[string]bool{}
+
 	for _, st := range steps {
 		if st.Nav() && (site(st.Host) != site(hosts[0]) || site(st.HopHost()) != site(hosts[0])) {
 			out["/p/"+st.Label] = true
@@ -476,14 +555,17 @@ func rowsDiff(got, want [][]string) string {
 		case i >= len(want):
 			return fmt.Sprintf("the browser has no connection %d, mimicry %q", i+1, got[i])
 		}
+
 		for j := range max(len(got[i]), len(want[i])) {
 			g, w := "(none)", "(none)"
 			if j < len(got[i]) {
 				g = got[i][j]
 			}
+
 			if j < len(want[i]) {
 				w = want[i][j]
 			}
+
 			if g != w {
 				return fmt.Sprintf("connection %d (%s), row %d: got %q, want %q", i+1, want[i][0], j, g, w)
 			}

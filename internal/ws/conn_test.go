@@ -32,6 +32,7 @@ func (f *fakeTransport) Read(p []byte) (int, error) {
 func (f *fakeTransport) Send(_ context.Context, parts [][]byte, _ bool) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+
 	f.sent = append(f.sent, bytes.Join(parts, nil))
 
 	return nil
@@ -49,15 +50,19 @@ func (f *fakeTransport) frames(t *testing.T) []Message {
 	t.Helper()
 	f.mu.Lock()
 	defer f.mu.Unlock()
+
 	out := make([]Message, 0, len(f.sent))
 	for _, b := range f.sent {
 		r := bytes.NewReader(b)
 		h, err := ReadHeader(r)
+
 		if err != nil || !h.Masked {
 			t.Fatalf("the socket sent %x: %v, masked %v", b, err, h.Masked)
 		}
+
 		payload, _ := io.ReadAll(r)
 		MaskBytes(h.Mask, 0, payload)
+
 		out = append(out, Message{
 			Opcode:  h.Opcode,
 			Payload: payload,
@@ -87,6 +92,7 @@ func TestReadingServerFrames(t *testing.T) {
 	lengthOnly := func(first byte, n uint64) []byte {
 		return binary.BigEndian.AppendUint64([]byte{first, 127}, n)
 	}
+
 	closeFrame := append(binary.BigEndian.AppendUint16(nil, 1001), "going away"...)
 	tests := []struct {
 		name string
@@ -180,11 +186,13 @@ func TestReadingServerFrames(t *testing.T) {
 			end:  "fail",
 		},
 	}
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			tr := &fakeTransport{
 				r: bytes.NewReader(tc.in),
 			}
+
 			c, err := New(tr, tr, Config{
 				Profile: &profile.WebSocket{
 					Extensions: "permessage-deflate",
@@ -198,24 +206,31 @@ func TestReadingServerFrames(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+
 			defer cancel()
+
 			var got []Message
 			for {
 				var m Message
 				if m, err = c.ReadMessage(ctx); err != nil {
 					break
 				}
+
 				got = append(got, m)
 			}
+
 			if len(got) != len(tc.want) {
 				t.Fatalf("messages: got %d, want %d", len(got), len(tc.want))
 			}
+
 			for i := range got {
 				if got[i].Opcode != tc.want[i].Opcode || !bytes.Equal(got[i].Payload, tc.want[i].Payload) {
 					t.Errorf("message %d: got opcode %#x, %d bytes", i, got[i].Opcode, len(got[i].Payload))
 				}
 			}
+
 			var ce *CloseError
 			switch {
 			case tc.end == "eof" && !errors.Is(err, io.ErrUnexpectedEOF):
@@ -225,11 +240,14 @@ func TestReadingServerFrames(t *testing.T) {
 			case tc.end == "fail" && (errors.Is(err, io.ErrUnexpectedEOF) || errors.As(err, &ce) || errors.Is(err, context.DeadlineExceeded)):
 				t.Errorf("ended with %v, want a failure", err)
 			}
+
 			<-c.ended
+
 			sent := tr.frames(t)
 			if len(sent) != len(tc.sent) {
 				t.Fatalf("the socket sent %d frames, want %d", len(sent), len(tc.sent))
 			}
+
 			for i := range sent {
 				if sent[i].Opcode != tc.sent[i].Opcode || !bytes.Equal(sent[i].Payload, tc.sent[i].Payload) {
 					t.Errorf("sent frame %d: opcode %#x payload %q", i, sent[i].Opcode, sent[i].Payload)

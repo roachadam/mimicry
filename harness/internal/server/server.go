@@ -62,31 +62,39 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 	if sc == nil {
 		sc = DefaultScenario
 	}
+
 	issue := cachedIssuer(s.IssueCert)
+
 	var cfg *tls.Config
+
 	if !sc.Plain {
 		var err error
 		if cfg, err = s.tlsConfig(sc, issue); err != nil {
 			return err
 		}
 	}
+
 	log := &pageLog{
 		start: time.Now(),
 	}
+
 	if sc.plainPort && s.PlainListener == nil {
 		_ = ln.Close()
 		return errors.New("scenario " + sc.Name + " serves plain HTTP on a port of its own and needs Server.PlainListener")
 	}
+
 	if sc.h3 != nil && s.PacketConn == nil {
 		_ = ln.Close()
 		return errors.New("scenario " + sc.Name + " serves HTTP/3 and needs Server.PacketConn")
 	}
+
 	if sc.plainPort {
 		sc = sc.onPorts(ln.Addr(), s.PlainListener.Addr())
 	} else if _, ok := sc.multi.(wsPage); ok {
 		// Its script names the port in every URL.
 		sc = sc.onPorts(ln.Addr(), nil)
 	}
+
 	serves := []func(context.Context) error{
 		func(ctx context.Context) error {
 			return s.accept(ctx, ln, func(conn net.Conn) error {
@@ -101,25 +109,33 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 			})
 		})
 	}
+
 	if sc.h3 != nil {
 		serves = append(serves, func(ctx context.Context) error {
 			return s.serveQUIC(ctx, sc, log, issue)
 		})
 	}
+
 	if len(serves) == 1 {
 		return serves[0](ctx)
 	}
+
 	// Any listener failing stops the others.
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
 	errs := make([]error, len(serves))
+
 	var wg sync.WaitGroup
+
 	for i, serve := range serves {
 		wg.Go(func() {
 			defer cancel()
+
 			errs[i] = serve(ctx)
 		})
 	}
+
 	wg.Wait()
 
 	return errors.Join(errs...)
@@ -132,8 +148,11 @@ func (s *Server) accept(ctx context.Context, ln net.Listener, handle func(net.Co
 		_ = ln.Close()
 	})
 	defer stop()
+
 	var wg sync.WaitGroup
+
 	defer wg.Wait()
+
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -143,6 +162,7 @@ func (s *Server) accept(ctx context.Context, ln net.Listener, handle func(net.Co
 
 			return err
 		}
+
 		wg.Go(func() {
 			if err := handle(conn); err != nil && s.Logf != nil {
 				s.Logf("%s: %v", conn.RemoteAddr(), err)
@@ -155,22 +175,27 @@ func (s *Server) accept(ctx context.Context, ln net.Listener, handle func(net.Co
 // issue issues the certificates of a page across several hosts.
 func (s *Server) tlsConfig(sc *Scenario, issue func([]string) (tls.Certificate, error)) (*tls.Config, error) {
 	cfg := s.TLSConfig.Clone()
+
 	cfg.NextProtos = []string{
 		"h2",
 		"http/1.1",
 	}
+
 	if sc.HTTP1 {
 		cfg.NextProtos = []string{
 			"http/1.1",
 		}
 	}
+
 	cfg.MinVersion = tls.VersionTLS12
 	if sc.maxVersion != 0 {
 		cfg.MaxVersion = sc.maxVersion
 	}
+
 	if sc.multi == nil {
 		return cfg, nil
 	}
+
 	if issue == nil {
 		return nil, errors.New("scenario " + sc.Name + " serves several hosts and needs Server.IssueCert")
 	}
@@ -184,20 +209,26 @@ func cachedIssuer(issue func([]string) (tls.Certificate, error)) func([]string) 
 	if issue == nil {
 		return nil
 	}
+
 	var mu sync.Mutex
+
 	certs := map[string]tls.Certificate{}
 
 	return func(names []string) (tls.Certificate, error) {
 		key := strings.Join(names, " ")
+
 		mu.Lock()
 		defer mu.Unlock()
+
 		if c, ok := certs[key]; ok {
 			return c, nil
 		}
+
 		c, err := issue(names)
 		if err != nil {
 			return tls.Certificate{}, err
 		}
+
 		certs[key] = c
 
 		return c, nil
@@ -212,15 +243,19 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 	})
 	defer func() {
 		stop()
+
 		_ = conn.Close()
 	}()
+
 	timeout := s.ConnTimeout
 	if timeout == 0 {
 		timeout = time.Minute
 	}
+
 	if err := conn.SetDeadline(time.Now().Add(timeout)); err != nil {
 		return err
 	}
+
 	c := &capture.Capture{
 		Scenario: sc.Name,
 	}
@@ -228,14 +263,18 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 		// A connection the capture proxy let through.
 		c.ProxyConn = p.ProxyConn()
 	}
+
 	emitted := false
 	emit := func() {
 		if !emitted && s.OnCapture != nil {
 			emitted = true
+
 			s.OnCapture(c)
 		}
 	}
+
 	defer emit()
+
 	// A mixed-scheme scenario serves http:// and https:// on one port: a
 	// connection that does not start with a TLS handshake record is plain
 	// HTTP/1.1. A plain port tells them apart only to refuse TLS.
@@ -249,15 +288,18 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 
 			return err
 		}
+
 		conn = &replayConn{
 			Conn: conn,
 			r:    io.MultiReader(bytes.NewReader(first[:]), conn),
 		}
 		plain = first[0] != recordTypeHandshake
 	}
+
 	if plainOnly && !plain {
 		return refuseTLS(conn)
 	}
+
 	if plain {
 		c.Protocol = "http/1.1"
 		if err := serveHTTP1(conn, "", c, sc, log, emit); !isClosed(err) {
@@ -266,15 +308,19 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 
 		return nil
 	}
+
 	raw, msg, err := readClientHello(conn)
 	if err != nil {
 		return err
 	}
+
 	helloAt := time.Now()
+
 	t, err := ParseClientHello(msg)
 	if err != nil {
 		return err
 	}
+
 	c.ClientHello = msg
 	c.Records = raw
 	c.Profile.TLS = t
@@ -289,14 +335,18 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 		// they reject the certificate.
 		return err
 	}
+
 	state := tlsConn.ConnectionState()
+
 	c.Protocol = state.NegotiatedProtocol
 	log.connection(c, state.ServerName, state.DidResume, helloAt)
+
 	if c.Protocol == "h2" {
 		err = serveHTTP2(tlsConn, state.ServerName, c, sc, log, emit)
 	} else {
 		err = serveHTTP1(tlsConn, state.ServerName, c, sc, log, emit)
 	}
+
 	if isClosed(err) {
 		return nil
 	}

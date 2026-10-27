@@ -39,13 +39,19 @@ func run() error {
 	browserList := flag.String("browsers", "", "comma-separated installed browsers to drive (chrome, firefox, safari); takes over the screen")
 	profileList := flag.String("profiles", "", "comma-separated built-in profile names (default every supported one; \"none\" for none)")
 	noGo := flag.Bool("no-go", false, "skip Go's net/http default client on the sites")
+
 	flag.Parse()
+
 	if err := os.MkdirAll(*out, 0o750); err != nil {
 		return err
 	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+
 	defer stop()
+
 	log.Printf("writing to %s", *out)
+
 	names := profiles.Supported()
 	switch *profileList {
 	case "":
@@ -54,20 +60,24 @@ func run() error {
 	default:
 		names = strings.Split(*profileList, ",")
 	}
+
 	var bs []*browser.Browser
 	if *browserList != "" {
 		found := map[string]*browser.Browser{}
 		for _, b := range browser.Find() {
 			found[b.Name] = b
 		}
+
 		for n := range strings.SplitSeq(*browserList, ",") {
 			b := found[n]
 			if b == nil {
 				return fmt.Errorf("browser %q is not installed", n)
 			}
+
 			bs = append(bs, b)
 		}
 	}
+
 	// Browsers first, so no earlier client's requests from this address
 	// colour what a site shows them; Go's client, the one most likely to
 	// be flagged, last.
@@ -76,17 +86,20 @@ func run() error {
 			return fmt.Errorf("%s: %w", b.Name, err)
 		}
 	}
+
 	for _, n := range names {
 		p, err := profiles.ByName(n)
 		if err != nil {
 			return err
 		}
+
 		if *echo {
 			if err := echoProfile(ctx, n, p, *out); err != nil {
 				return err
 			}
 		}
 	}
+
 	if *doSites {
 		if err := sitesClients(ctx, names, !*noGo, *out); err != nil {
 			return err

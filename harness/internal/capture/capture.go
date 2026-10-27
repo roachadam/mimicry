@@ -114,6 +114,7 @@ func (c *Capture) UserAgent() string {
 // from the user agent. Unrecognised values become "unknown".
 func (c *Capture) Identify() {
 	browser, version, platform := ParseUserAgent(c.UserAgent())
+
 	c.Profile.Browser = browser
 	c.Profile.Version = version
 	c.Profile.Platform = platform
@@ -134,6 +135,7 @@ func ParseUserAgent(ua string) (browser, version, platform string) {
 	case strings.Contains(ua, "Safari/") && strings.Contains(ua, "Version/"):
 		browser, version = "safari", majorAfter(ua, "Version/")
 	}
+
 	platform = "unknown"
 	switch {
 	case strings.Contains(ua, "iPhone"), strings.Contains(ua, "iPad"):
@@ -157,9 +159,11 @@ func ParseUserAgent(ua string) (browser, version, platform string) {
 func majorAfter(ua, marker string) string {
 	_, rest, _ := strings.Cut(ua, marker)
 	end := 0
+
 	for end < len(rest) && rest[end] >= '0' && rest[end] <= '9' {
 		end++
 	}
+
 	if end == 0 {
 		return "unknown"
 	}
@@ -186,15 +190,18 @@ func Write(dir string, c *Capture) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	if err := checkNew(outputs); err != nil {
 		return "", err
 	}
+
 	data := make([][]byte, len(outputs))
 	for i, o := range outputs {
 		if data[i], err = o.encode(); err != nil {
 			return "", err
 		}
 	}
+
 	for i, o := range outputs {
 		if err := writeNew(o.path, data[i]); err != nil {
 			return "", err
@@ -222,6 +229,7 @@ func checkNew(outputs []output) error {
 		if err == nil {
 			return fmt.Errorf("%s: %w", o.path, ErrExists)
 		}
+
 		if !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
@@ -238,15 +246,18 @@ func ReadClientHellos(path string) ([][]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	var hellos [][]byte
 	for i, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
 		b, err := hex.DecodeString(strings.TrimSpace(line))
 		if err != nil {
 			return nil, fmt.Errorf("%s:%d: %w", path, i+1, err)
 		}
+
 		if len(b) == 0 || (b[0] != recordTypeHandshake && b[0] != handshakeClientHello) {
 			return nil, fmt.Errorf("%s:%d: neither TLS records nor a ClientHello message", path, i+1)
 		}
+
 		hellos = append(hellos, b)
 	}
 
@@ -265,8 +276,11 @@ func outputsOf(dir string, c *Capture) ([]output, error) {
 	if c.Profile.Name == "" {
 		return nil, errors.New("capture has no name; call Identify first")
 	}
+
 	prefix := filepath.Join(dir, c.Profile.Name)
+
 	var outputs []output
+
 	if c.Scenario == "" || c.Scenario == DefaultScenario {
 		outputs = append(outputs, output{
 			path: prefix + ".json",
@@ -282,6 +296,7 @@ func outputsOf(dir string, c *Capture) ([]output, error) {
 						c.hello(),
 					}
 				}
+
 				var out []byte
 				for _, h := range hellos {
 					out = hex.AppendEncode(out, h)
@@ -294,30 +309,35 @@ func outputsOf(dir string, c *Capture) ([]output, error) {
 	} else {
 		prefix += "." + c.Scenario
 	}
+
 	h2 := c.SampleTraces
 	if len(h2) == 0 && c.Trace != nil {
 		h2 = []*h2trace.Trace{
 			c.Trace,
 		}
 	}
+
 	h1 := c.SampleH1
 	if len(h1) == 0 && len(c.H1) > 0 {
 		h1 = [][]H1Request{
 			c.H1,
 		}
 	}
+
 	pages := c.SamplePages
 	if len(pages) == 0 && c.Page != nil {
 		pages = []*Page{
 			c.Page,
 		}
 	}
+
 	proxy := c.SampleProxy
 	if len(proxy) == 0 && len(c.Proxy) > 0 {
 		proxy = [][]ProxyRequest{
 			c.Proxy,
 		}
 	}
+
 	for _, trace := range []struct {
 		path    string
 		samples any
@@ -332,6 +352,7 @@ func outputsOf(dir string, c *Capture) ([]output, error) {
 		if !trace.present {
 			continue
 		}
+
 		outputs = append(outputs, output{
 			path: trace.path,
 			encode: func() ([]byte, error) {
@@ -339,6 +360,7 @@ func outputsOf(dir string, c *Capture) ([]output, error) {
 				if err != nil {
 					return nil, err
 				}
+
 				data = append(data, '\n')
 				if strings.HasSuffix(trace.path, ".gz") {
 					return gzipped(data)
@@ -348,6 +370,7 @@ func outputsOf(dir string, c *Capture) ([]output, error) {
 			},
 		})
 	}
+
 	if len(outputs) == 0 {
 		return nil, fmt.Errorf("scenario %s captured no trace (protocol %q)", c.Scenario, c.Protocol)
 	}
@@ -360,9 +383,11 @@ func writeNew(path string, data []byte) error {
 	if errors.Is(err, os.ErrExist) {
 		return fmt.Errorf("%s: %w", path, ErrExists)
 	}
+
 	if err != nil {
 		return err
 	}
+
 	if _, err := f.Write(data); err != nil {
 		_ = f.Close()
 		return err

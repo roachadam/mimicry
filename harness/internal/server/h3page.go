@@ -92,9 +92,11 @@ func existingCaptures(dir string, p *profile.Profile, scenarios ...*Scenario) ([
 		if err != nil {
 			return nil, err
 		}
+
 		for _, cond := range []string{"", ".local-roots"} {
 			path := filepath.Join(dir, source+"."+sc.Name+cond+".pagetrace.json.gz")
 			_, err := os.Stat(path)
+
 			switch {
 			case err == nil:
 				out = append(out, capture.File{
@@ -103,11 +105,13 @@ func existingCaptures(dir string, p *profile.Profile, scenarios ...*Scenario) ([
 					Source:   source,
 					Rewriter: rw,
 				})
+
 			case !errors.Is(err, fs.ErrNotExist):
 				return nil, err
 			}
 		}
 	}
+
 	slices.SortFunc(out, func(a, b capture.File) int {
 		return strings.Compare(
 			strings.TrimPrefix(filepath.Base(a.Path), a.Source+"."),
@@ -159,6 +163,7 @@ const h3Idle = 35 * time.Second
 // other site, a GOAWAY, and after h3Idle a fetch to each site.
 func H3DiscoverySteps() []H3Step {
 	const second = "/h3/second.so"
+
 	upload := strings.Repeat("h3-discovery-", 8192/13+1)[:8192]
 
 	return []H3Step{
@@ -193,6 +198,7 @@ const h3ImageDelay = time.Second
 // including from the other site.
 func H3PageSteps() []H3Step {
 	const kinds = "/h3/kinds.so"
+
 	upload := strings.Repeat("h3-page-upload-", 65536/15+1)[:65536]
 	// scripted are the kinds page's script steps to host, 300 ms apart.
 	scripted := func(host string, kindsSteps []KindsStep) []H3Step {
@@ -256,12 +262,15 @@ func (p h3Page) answer(req request) response {
 	host, port := splitAuthority(req.host)
 	path, _, _ := strings.Cut(req.path, "?")
 	r := p.respond(host, port, path)
+
 	if req.method == "HEAD" {
 		r.body = nil
 	}
+
 	if req.origin != "" {
 		r.headers = append(r.headers, corsAllow(req.origin)...)
 	}
+
 	if !slices.Contains(p.plainHosts, host) {
 		r.headers = append(r.headers, altSvc(port))
 	}
@@ -276,13 +285,16 @@ func (p h3Page) respond(host, port, path string) response {
 	case path == "/done":
 		return response{status: 200, contentType: "text/plain", body: []byte("ok\n")}
 	}
+
 	for _, s := range p.steps() {
 		if s.Host != host || s.Path() != path {
 			continue
 		}
+
 		if s.Kind == "navigate" {
 			return response{status: 200, contentType: "text/html; charset=utf-8", body: p.document(path, port)}
 		}
+
 		r := kindsBody(s.Kind)
 		if s.Download > 0 {
 			r = response{
@@ -291,6 +303,7 @@ func (p h3Page) respond(host, port, path string) response {
 				body:        incompressible()[:s.Download],
 			}
 		}
+
 		r.delay = s.Delay
 		r.closeAfter, r.tcpOnly, r.blackhole = s.CloseAfter || s.GoAwayTCP, s.GoAwayTCP, s.Blackhole
 		r.silence = s.Silence
@@ -305,11 +318,14 @@ func (p h3Page) respond(host, port, path string) response {
 // the others one after another.
 func (p h3Page) document(path, port string) []byte {
 	var head, body strings.Builder
+
 	steps := []H3Step{}
+
 	for _, s := range p.steps() {
 		if s.Page != path {
 			continue
 		}
+
 		s.URL = "https://" + net.JoinHostPort(s.Host, port) + s.Path()
 		switch {
 		case s.Tag == "":
@@ -320,11 +336,14 @@ func (p h3Page) document(path, port string) []byte {
 			fmt.Fprintf(&head, s.Tag+"\n", s.URL)
 		}
 	}
+
 	stepsJSON, _ := json.Marshal(steps)
 	done := "fetch('/done');"
+
 	if p.doneHost != "" {
 		done = "fetch('https://" + net.JoinHostPort(p.doneHost, port) + "/done', {mode: 'no-cors'});"
 	}
+
 	script := "(async () => {\nconst steps = " + string(stepsJSON) + ";\n" + kindsRun + `
 for (const s of steps) {
   await new Promise(d => setTimeout(d, s.pause));

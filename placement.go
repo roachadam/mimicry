@@ -46,6 +46,7 @@ func placements(field string, ps []Place) ([]headerorder.Placement, error) {
 		if p.Before != "" {
 			anchor, after = p.Before, false
 		}
+
 		var reason string
 		switch {
 		case (p.After == "") == (p.Before == ""):
@@ -57,9 +58,11 @@ func placements(field string, ps []Place) ([]headerorder.Placement, error) {
 		case strings.EqualFold(p.Header, anchor):
 			reason = "a header cannot be its own anchor"
 		}
+
 		if reason != "" {
 			return nil, fmt.Errorf("%w: %s[%d] (Header %q, After %q, Before %q): %s", ErrPlacement, field, i, p.Header, p.After, p.Before, reason)
 		}
+
 		out = append(out, headerorder.Placement{
 			Header: strings.ToLower(p.Header),
 			Anchor: strings.ToLower(anchor),
@@ -81,9 +84,11 @@ func (t *Transport) placementsFor(req *http.Request, r Request, exact bool) ([]h
 
 		return nil, nil
 	}
+
 	if len(r.HeaderPlacement) == 0 {
 		return t.placements, nil
 	}
+
 	own, err := placements("Request.HeaderPlacement", r.HeaderPlacement)
 	if err != nil {
 		return nil, err

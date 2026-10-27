@@ -156,6 +156,7 @@ type Got[S Shared, E Exclusive] struct {
 func (p *Pool[S, E]) Get(ctx context.Context, key string) (Got[S, E], error) {
 	for {
 		p.mu.Lock()
+
 		e := p.entry(key)
 		if e.hasShared {
 			if e.shared.CanTakeNewRequest() {
@@ -167,32 +168,40 @@ func (p *Pool[S, E]) Get(ctx context.Context, key string) (Got[S, E], error) {
 
 				return got, nil
 			}
+
 			// Going away or dead: no new requests. It finishes its
 			// streams and closes itself.
 			p.dropShared(key, e)
 		}
+
 		if ic := e.popIdle(); ic != nil {
 			e.busy++
 			p.mu.Unlock()
+
 			if ic.conn.Usable() {
 				return Got[S, E]{
 					Found:     FoundExclusive,
 					Exclusive: ic.conn,
 				}, nil
 			}
+
 			p.Release(key, ic.conn, false)
 
 			continue
 		}
+
 		if e.dialing || len(e.waiters) > 0 || p.full(e) {
 			w := &waiter[E]{
 				ready: make(chan struct{}),
 			}
+
 			e.waiters = append(e.waiters, w)
 			p.mu.Unlock()
+
 			if p.cfg.OnWait != nil {
 				p.cfg.OnWait(key)
 			}
+
 			got, again, err := p.wait(ctx, key, w)
 			if again {
 				continue
@@ -200,7 +209,9 @@ func (p *Pool[S, E]) Get(ctx context.Context, key string) (Got[S, E], error) {
 
 			return got, err
 		}
+
 		shares := !e.exclusiveOnly
+
 		e.dialing = shares
 		e.busy++
 		p.mu.Unlock()
@@ -235,6 +246,7 @@ func (p *Pool[S, E]) wait(ctx context.Context, key string, w *waiter[E]) (got Go
 	case <-w.ready:
 	case <-ctx.Done():
 		p.mu.Lock()
+
 		if e := p.keys[key]; e != nil {
 			if i := slices.Index(e.waiters, w); i >= 0 {
 				e.waiters = slices.Delete(e.waiters, i, i+1)
@@ -244,7 +256,9 @@ func (p *Pool[S, E]) wait(ctx context.Context, key string, w *waiter[E]) (got Go
 				return got, false, ctx.Err()
 			}
 		}
+
 		p.mu.Unlock()
+
 		// It was handed something as ctx ended (ready is closed).
 		switch w.handed {
 		case handedConn:
@@ -257,6 +271,7 @@ func (p *Pool[S, E]) wait(ctx context.Context, key string, w *waiter[E]) (got Go
 
 		return got, false, ctx.Err()
 	}
+
 	switch w.handed {
 	case handedConn:
 		if w.conn.Usable() {
@@ -265,10 +280,12 @@ func (p *Pool[S, E]) wait(ctx context.Context, key string, w *waiter[E]) (got Go
 				Exclusive: w.conn,
 			}, false, nil
 		}
+
 		// Dead: dial in its place, keeping the turn.
 		_ = w.conn.Close()
 
 		return p.dial(ctx, key, false), false, nil
+
 	case handedDial:
 		return p.dial(ctx, key, w.shares), false, nil
 	case handedErr:
@@ -288,8 +305,10 @@ func (p *Pool[S, E]) entry(key string) *entry[S, E] {
 		e = &entry[S, E]{}
 		p.keys[key] = e
 	}
+
 	if e.evict != nil {
 		e.evict.Stop()
+
 		e.evict = nil
 	}
 
@@ -302,7 +321,9 @@ func (e *entry[S, E]) popIdle() *idleConn[E] {
 	if n == 0 {
 		return nil
 	}
+
 	ic := e.idle[n-1]
+
 	e.idle[n-1] = nil
 	e.idle = e.idle[:n-1]
 	ic.taken = true
@@ -316,7 +337,9 @@ func (e *entry[S, E]) nextWaiter() *waiter[E] {
 	if len(e.waiters) == 0 {
 		return nil
 	}
+
 	w := e.waiters[0]
+
 	e.waiters[0] = nil
 	e.waiters = e.waiters[1:]
 
@@ -336,9 +359,11 @@ func (e *entry[S, E]) wakeAll(h handed, err error) {
 func (p *Pool[S, E]) serve(e *entry[S, E]) {
 	for len(e.waiters) > 0 && !e.dialing && !p.full(e) {
 		w := e.nextWaiter()
+
 		w.handed, w.shares = handedDial, !e.exclusiveOnly
 		e.dialing = w.shares
 		e.busy++
+
 		close(w.ready)
 	}
 }
@@ -387,15 +412,20 @@ func (d *Dial[S, E]) install(c S) (S, bool) {
 	p := d.pool
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
 	e := p.entry(d.key)
 	e.busy--
+
 	e.exclusiveOnly = false
 	d.finish(e)
 	e.wakeAll(handedRetry, nil)
+
 	if e.hasShared && e.shared.CanTakeNewRequest() {
 		return e.shared, false
 	}
+
 	e.shared, e.hasShared = c, true
+
 	go p.watch(d.key, c)
 
 	return c, true
@@ -407,7 +437,9 @@ func (d *Dial[S, E]) Exclusive() {
 	p := d.pool
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
 	e := p.entry(d.key)
+
 	e.exclusiveOnly = true
 	d.finish(e)
 	p.serve(e)
@@ -419,13 +451,17 @@ func (d *Dial[S, E]) Fail(err error) {
 	p := d.pool
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
 	e := p.entry(d.key)
 	e.busy--
+
 	shared := d.shares
 	d.finish(e)
+
 	if shared && d.ctx.Err() == nil {
 		e.wakeAll(handedErr, err)
 	}
+
 	p.serve(e)
 	p.maybeEvict(d.key, e)
 }
@@ -443,6 +479,7 @@ func (d *Dial[S, E]) finish(e *entry[S, E]) {
 // closed, and the oldest waiting request may dial in its place.
 func (p *Pool[S, E]) Release(key string, c E, reusable bool) {
 	p.mu.Lock()
+
 	e := p.entry(key)
 	if reusable {
 		if w := e.nextWaiter(); w != nil {
@@ -452,10 +489,13 @@ func (p *Pool[S, E]) Release(key string, c E, reusable bool) {
 
 			return
 		}
+
 		e.busy--
+
 		ic := &idleConn[E]{
 			conn: c,
 		}
+
 		ic.reap = p.cfg.Clock.AfterFunc(p.cfg.IdleTimeout, func() {
 			p.reap(key, ic)
 		})
@@ -464,10 +504,12 @@ func (p *Pool[S, E]) Release(key string, c E, reusable bool) {
 
 		return
 	}
+
 	e.busy--
 	p.serve(e)
 	p.maybeEvict(key, e)
 	p.mu.Unlock()
+
 	_ = c.Close()
 }
 
@@ -475,20 +517,26 @@ func (p *Pool[S, E]) Release(key string, c E, reusable bool) {
 // it first.
 func (p *Pool[S, E]) reap(key string, ic *idleConn[E]) {
 	p.mu.Lock()
+
 	e := p.keys[key]
 	if e == nil || ic.taken {
 		p.mu.Unlock()
+
 		return
 	}
+
 	for i, other := range e.idle {
 		if other == ic {
 			e.idle = append(e.idle[:i], e.idle[i+1:]...)
 			break
 		}
 	}
+
 	ic.taken = true
+
 	p.maybeEvict(key, e)
 	p.mu.Unlock()
+
 	_ = ic.conn.Close()
 }
 
@@ -497,6 +545,7 @@ func (p *Pool[S, E]) reap(key string, ic *idleConn[E]) {
 func (p *Pool[S, E]) SharedConns() []S {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
 	var out []S
 	for _, e := range p.keys {
 		if e.hasShared && e.shared.CanTakeNewRequest() && !slices.Contains(out, e.shared) {
@@ -513,6 +562,7 @@ func (p *Pool[S, E]) SharedConns() []S {
 func (p *Pool[S, E]) Peek(key string) Found {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
 	e := p.keys[key]
 	switch {
 	case e == nil:
@@ -532,9 +582,11 @@ func (p *Pool[S, E]) Peek(key string) Found {
 func (p *Pool[S, E]) Shared(key string) (S, bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
 	if e := p.keys[key]; e != nil && e.hasShared && e.shared.CanTakeNewRequest() {
 		return e.shared, true
 	}
+
 	var zero S
 
 	return zero, false
@@ -545,10 +597,12 @@ func (p *Pool[S, E]) Shared(key string) (S, bool) {
 func (p *Pool[S, E]) RemoveShared(key string, c S) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
 	e := p.keys[key]
 	if e == nil || !e.hasShared || e.shared != c {
 		return
 	}
+
 	p.dropShared(key, e)
 }
 
@@ -561,6 +615,7 @@ func (p *Pool[S, E]) watch(key string, c S) {
 // dropShared forgets e's shared connection. p.mu must be held.
 func (p *Pool[S, E]) dropShared(key string, e *entry[S, E]) {
 	var zero S
+
 	e.shared, e.hasShared = zero, false
 	p.maybeEvict(key, e)
 }
@@ -571,9 +626,11 @@ func (p *Pool[S, E]) maybeEvict(key string, e *entry[S, E]) {
 	if !e.empty() || e.evict != nil {
 		return
 	}
+
 	e.evict = p.cfg.Clock.AfterFunc(p.cfg.IdleTimeout, func() {
 		p.mu.Lock()
 		defer p.mu.Unlock()
+
 		if p.keys[key] == e && e.empty() {
 			delete(p.keys, key)
 		}
@@ -588,29 +645,41 @@ func (e *entry[S, E]) empty() bool {
 // CloseIdle closes idle exclusive connections and shared ones with no
 // requests in flight, each once.
 func (p *Pool[S, E]) CloseIdle() {
-	var shared []S
-	var exclusive []E
+	var (
+		shared    []S
+		exclusive []E
+	)
+
 	p.mu.Lock()
+
 	for key, e := range p.keys {
 		for _, ic := range e.idle {
 			ic.taken = true
 			ic.reap.Stop()
+
 			exclusive = append(exclusive, ic.conn)
 		}
+
 		e.idle = nil
 		if e.hasShared && e.shared.Idle() {
 			if !slices.Contains(shared, e.shared) {
 				shared = append(shared, e.shared)
 			}
+
 			var zero S
+
 			e.shared, e.hasShared = zero, false
 		}
+
 		p.maybeEvict(key, e)
 	}
+
 	p.mu.Unlock()
+
 	for _, c := range exclusive {
 		_ = c.Close()
 	}
+
 	for _, c := range shared {
 		_ = c.Close()
 	}

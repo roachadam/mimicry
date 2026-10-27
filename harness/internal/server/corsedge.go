@@ -88,43 +88,55 @@ func (p corsEdgePage) answer(req request) response {
 	host, port := splitAuthority(req.host)
 	origin := originOn("https://", port)
 	path, _, _ := strings.Cut(req.path, "?")
+
 	if host == kindsHost && path == "/" {
 		return response{status: 200, contentType: "text/html; charset=utf-8", body: htmlPage("cors-edge", "", "<script>"+corsEdgeScript(origin)+"</script>\n")}
 	}
+
 	if path == "/done" {
 		return response{status: 200, contentType: "text/plain", body: []byte("ok\n")}
 	}
+
 	notFound := response{status: 404, contentType: "text/plain", body: []byte("not found\n")}
 	target, ok := strings.CutPrefix(path, "/p/")
+
 	if !ok {
 		return notFound
 	}
+
 	label, hop := target, 0
 	if l, n, ok := strings.Cut(target, ".hop"); ok {
 		var err error
 		if hop, err = strconv.Atoi(n); err != nil || hop < 1 {
 			return notFound
 		}
+
 		label = l
 	}
+
 	var cors []hpack.HeaderField
 	if req.origin != "" {
 		cors = corsAllow(req.origin)
 	}
+
 	for _, s := range CORSEdgeSteps() {
 		if s.Label != label || s.Host != host || hop > s.Hops {
 			continue
 		}
+
 		if req.method == "OPTIONS" {
 			return response{status: 204, contentType: "text/plain", headers: preflightAllow(cors, "GET, POST, PUT, DELETE", req.preflightHeaders)}
 		}
+
 		if hop == s.Hops {
 			return response{status: 200, contentType: "application/json", body: []byte("{}\n"), headers: cors}
 		}
+
 		r := response{status: s.Status, contentType: "text/plain"}
 		if !s.NoACAO {
 			r.headers = cors
 		}
+
 		r.headers = append(r.headers, hpack.HeaderField{
 			Name:  "location",
 			Value: origin(host) + "/p/" + label + ".hop" + strconv.Itoa(hop+1),
@@ -141,23 +153,29 @@ func (p corsEdgePage) answer(req request) response {
 func corsEdgeScript(origin func(string) string) string {
 	var b strings.Builder
 	b.WriteString("(async () => {\nconst f = (u, init) => Promise.race([fetch(u, init).then(r => r.text()).catch(() => {}), new Promise(d => setTimeout(d, 5000))]);\n")
+
 	for _, s := range CORSEdgeSteps() {
 		var init []string
 		if s.Method != "" {
 			init = append(init, "method: "+strconv.Quote(s.Method))
 		}
+
 		if len(s.Headers) > 0 {
 			hs := make([]string, 0, len(s.Headers))
 			for _, h := range s.Headers {
 				hs = append(hs, strconv.Quote(h[0])+": "+strconv.Quote(h[1]))
 			}
+
 			init = append(init, "headers: {"+strings.Join(hs, ", ")+"}")
 		}
+
 		if s.Body != "" {
 			init = append(init, "body: "+strconv.Quote(s.Body))
 		}
+
 		fmt.Fprintf(&b, "await f(%s, {%s});\n", strconv.Quote(origin(s.Host)+"/p/"+s.Label), strings.Join(init, ", "))
 	}
+
 	b.WriteString("fetch(\"/done\");\n})();")
 
 	return b.String()

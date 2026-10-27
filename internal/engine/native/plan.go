@@ -58,10 +58,12 @@ func (e *Engine) Plan(req *http.Request) (*Plan, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	p := &Plan{
 		Protocols: e.protocolsNow(req, r),
 	}
 	tcpErr := e.tcpRefusal(req.Context())
+
 	switch {
 	case req.URL.Scheme != "https":
 		p.HTTP2.Err = errPlainHTTP
@@ -69,11 +71,14 @@ func (e *Engine) Plan(req *http.Request) (*Plan, error) {
 		p.HTTP2.Err = tcpErr
 	default:
 		fields, err := h2.Head(e.profile, req)
+
 		p.HTTP2.Err = err
+
 		for _, f := range fields {
 			p.HTTP2.Fields = append(p.HTTP2.Fields, Field(f))
 		}
 	}
+
 	if tcpErr != nil {
 		p.HTTP1.Err = tcpErr
 	} else {
@@ -81,19 +86,25 @@ func (e *Engine) Plan(req *http.Request) (*Plan, error) {
 		if r.forward {
 			w = w.Forward(e.profile.Proxy)
 		}
+
 		h, err := w.Head(req)
+
 		p.HTTP1.Line, p.HTTP1.Err = h.Line, err
+
 		for _, f := range h.Fields {
 			p.HTTP1.Fields = append(p.HTTP1.Fields, Field(f))
 		}
 	}
+
 	if e.quic != nil {
 		p.HTTP3 = &Head{}
 		if err := e.h3Refusal(req, r); err != nil {
 			p.HTTP3.Err = err
 		} else {
 			fields, err := h3.Head(e.profile, r.host, e.altPort(r), req)
+
 			p.HTTP3.Err = err
+
 			for _, f := range fields {
 				p.HTTP3.Fields = append(p.HTTP3.Fields, Field(f))
 			}
@@ -111,13 +122,16 @@ func (e *Engine) protocolsNow(req *http.Request, r route) []string {
 		if quic || !decided {
 			out = append(out, HTTP3)
 		}
+
 		if decided && quic {
 			return out
 		}
 	}
+
 	if req.URL.Scheme != "https" {
 		return append(out, HTTP1)
 	}
+
 	switch e.pool.Peek(r.key) {
 	case pool.FoundShared:
 		return append(out, HTTP2)
@@ -136,17 +150,21 @@ func (e *Engine) h3Now(r route) (quic, decided bool) {
 	if _, ok := e.quic.pool.Shared(h3Key(r)); ok {
 		return true, true
 	}
+
 	q := e.quic
 	q.mu.Lock()
 	defer q.mu.Unlock()
+
 	o := q.origins[r.key]
 	now := e.clock.Now()
+
 	switch {
 	case o == nil || !o.available(now):
 		return false, true
 	case o.reconnect.After(now):
 		return false, false
 	}
+
 	_, tcpOpen := e.pool.Shared(r.key)
 	switch e.pickWay(o, tcpOpen) {
 	case wayRace:
@@ -156,6 +174,7 @@ func (e *Engine) h3Now(r route) (quic, decided bool) {
 		if (o.attempt != nil && o.attempt.resumed && hold) || (o.attempt == nil && e.hasTicket(r)) {
 			return false, false
 		}
+
 	case wayTCP, wayGoAwayRace, wayRevalidate, wayBeside:
 		// The request goes on TCP whatever QUIC does beside it.
 	}
@@ -170,9 +189,11 @@ func (e *Engine) altPort(r route) string {
 	q := e.quic
 	q.mu.Lock()
 	defer q.mu.Unlock()
+
 	if o := q.origins[r.key]; o != nil && o.hasAlt {
 		return strconv.Itoa(int(o.alt.port))
 	}
+
 	_, port, _ := net.SplitHostPort(r.addr)
 
 	return port

@@ -89,17 +89,21 @@ func LoadPages(path string) ([]*Page, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	defer func() {
 		_ = f.Close()
 	}()
+
 	r, err := gzip.NewReader(f)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
+
 	var pages []*Page
 	if err := json.NewDecoder(r).Decode(&pages); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
+
 	for _, p := range pages {
 		for _, c := range p.QUIC {
 			c.Rederive()
@@ -111,13 +115,16 @@ func LoadPages(path string) ([]*Page, error) {
 
 func gzipped(data []byte) ([]byte, error) {
 	var b bytes.Buffer
+
 	w, err := gzip.NewWriterLevel(&b, gzip.BestCompression)
 	if err != nil {
 		return nil, err
 	}
+
 	if _, err := w.Write(data); err != nil {
 		return nil, err
 	}
+
 	if err := w.Close(); err != nil {
 		return nil, err
 	}

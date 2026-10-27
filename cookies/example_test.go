@@ -21,6 +21,7 @@ func ExampleJar_Set() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	// For every host of shop.test, over HTTPS only. SameSite is left
 	// unset, which Chrome treats as Lax.
 	if err := jar.Set(cookies.Cookie{
@@ -60,6 +61,7 @@ func ExampleJar_Set() {
 		Method:     "GET",
 		Navigation: true,
 	})))
+
 	// Output:
 	// "session=s1"
 	// "session=s1"
@@ -78,10 +80,12 @@ func ExampleJar_SetString() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	// www.shop.test and names under it only: not shop.test or api.shop.test.
 	if err := jar.SetString("www.shop.test", "lang=en"); err != nil {
 		log.Fatal(err)
 	}
+
 	// shop.test's cookies reach every name under it, but __Host-sid stays
 	// on the bare shop.test host, as a __Host- cookie must.
 	for _, u := range []string{"https://shop.test/", "https://www.shop.test/cart", "https://api.shop.test/v1/stock", "https://www.outlet.test/"} {
@@ -107,6 +111,7 @@ func ExampleJar_SetString() {
 	// www.shop.test's own, without the shop.test cookies it is also sent.
 	fmt.Printf("%q\n", jar.String("shop.test"))
 	fmt.Printf("%q\n", jar.String("www.shop.test"))
+
 	// Output:
 	// https://shop.test/ "session=s1; cart=c9; __Host-sid=h1"
 	// https://www.shop.test/cart "session=s1; cart=c9; lang=en"
@@ -126,12 +131,15 @@ func ExampleJar_SetHostString() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	if err := jar.SetHostString("https://shop.test/", "visit=1"); err != nil {
 		log.Fatal(err)
 	}
+
 	if err := jar.SetHostString("127.0.0.1:8080", "dev=1"); err != nil {
 		log.Fatal(err)
 	}
+
 	for _, u := range []string{"https://shop.test/", "https://www.shop.test/", "http://127.0.0.1:8080/"} {
 		fmt.Printf("%s %q\n", u, cookies.Header(jar.Cookies(cookies.Request{
 			URL:        mustParse(u),
@@ -139,6 +147,7 @@ func ExampleJar_SetHostString() {
 			Navigation: true,
 		})))
 	}
+
 	// Output:
 	// https://shop.test/ "visit=1"
 	// https://www.shop.test/ ""
@@ -156,12 +165,15 @@ func ExampleJar_SetString_anySite() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	if err := jar.SetString(cookies.AnySite, "debug=1"); err != nil {
 		log.Fatal(err)
 	}
+
 	if err := jar.SetString("shop.test", "debug=0"); err != nil {
 		log.Fatal(err)
 	}
+
 	for _, u := range []string{"https://www.shop.test/", "https://cdn.tracker.test/pixel.gif"} {
 		fmt.Printf("%s %q\n", u, cookies.Header(jar.Cookies(cookies.Request{
 			URL:        mustParse(u),
@@ -169,9 +181,11 @@ func ExampleJar_SetString_anySite() {
 			Navigation: true,
 		})))
 	}
+
 	fmt.Printf("%q\n", jar.String(cookies.AnySite))
 	// A __Host- cookie belongs to one host, so it cannot go to every site.
 	fmt.Println(jar.SetString(cookies.AnySite, "__Host-id=1"))
+
 	// Output:
 	// https://www.shop.test/ "debug=1; debug=0"
 	// https://cdn.tracker.test/pixel.gif "debug=1"
@@ -182,12 +196,14 @@ func ExampleJar_SetString_anySite() {
 // Save a jar between runs and restore it, every attribute kept.
 func ExampleJar_WriteJSON() {
 	rules := profiles.Chrome().Cookies
+
 	jar, err := cookies.New(cookies.Config{
 		Rules: rules,
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	home := mustParse("https://www.shop.test/")
 	jar.SetCookies(cookies.Request{
 		URL:        home,
@@ -209,12 +225,15 @@ func ExampleJar_WriteJSON() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	if err := restored.ReadJSON(&saved); err != nil {
 		log.Fatal(err)
 	}
+
 	for _, c := range restored.All() {
 		fmt.Printf("%s=%s domain=%s host-only=%v same-site=%q\n", c.Name, c.Value, c.Domain, c.HostOnly, c.SameSite)
 	}
+
 	// Output:
 	// session=s1 domain=www.shop.test host-only=true same-site="Lax"
 	// cart=c9 domain=shop.test host-only=false same-site=""

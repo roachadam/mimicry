@@ -59,18 +59,23 @@ func (c *checker) checkRedirects(r *Redirects) {
 	if r == nil {
 		return
 	}
+
 	if r.MethodChangeOrigin != RedirectOriginKeep && r.MethodChangeOrigin != RedirectOriginDrop {
 		c.add("redirects.methodChangeOrigin", "must be %q or %q", RedirectOriginKeep, RedirectOriginDrop)
 	}
+
 	if r.NavigationLimit < 1 {
 		c.add("redirects.navigationLimit", "must be positive")
 	}
+
 	if r.HopPreflight != RedirectPreflightOwn && r.HopPreflight != RedirectPreflightInherit {
 		c.add("redirects.hopPreflight", "must be %q or %q", RedirectPreflightOwn, RedirectPreflightInherit)
 	}
+
 	if r.NavigationSite != RedirectSiteChain && r.NavigationSite != RedirectSiteRestart {
 		c.add("redirects.navigationSite", "must be %q or %q", RedirectSiteChain, RedirectSiteRestart)
 	}
+
 	if r.NavigationOrigin != RedirectNavOriginTaint && r.NavigationOrigin != RedirectNavOriginCrossOrigin {
 		c.add("redirects.navigationOrigin", "must be %q or %q", RedirectNavOriginTaint, RedirectNavOriginCrossOrigin)
 	}

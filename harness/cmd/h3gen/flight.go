@@ -10,11 +10,15 @@ import (
 // flight derives how the client answers the server's first flight: Initial
 // ACKs, ACKs before Finished on full handshakes, and packet coalescing.
 func flight(s *captureSet, e *collector) (ackInitial, ackBefore, coalesce bool) {
-	var acks, befores []bool
-	var ackConns, beforeConns []*conn
+	var (
+		acks, befores         []bool
+		ackConns, beforeConns []*conn
+	)
+
 	for _, c := range s.done() {
 		acked := false
 		ackAt, finishedAt := -1, -1
+
 		for _, pk := range c.packets() {
 			long := pk.p.Type == quictrace.PacketInitial || pk.p.Type == quictrace.PacketHandshake
 			if long && hasFrame(pk.p, quictrace.FrameAck) {
@@ -23,13 +27,17 @@ func flight(s *captureSet, e *collector) (ackInitial, ackBefore, coalesce bool) 
 					ackAt = pk.datagram
 				}
 			}
+
 			if pk.p.Type == quictrace.PacketHandshake && hasFrame(pk.p, quictrace.FrameCrypto) && finishedAt == -1 {
 				finishedAt = pk.datagram
 			}
 		}
+
 		acks = append(acks, acked)
 		ackConns = append(ackConns, c)
+
 		before := ackAt != -1 && ackAt < finishedAt
+
 		if c.resumed {
 			if before {
 				e.add(c, "a resumed handshake acknowledges before its Finished")
@@ -37,11 +45,14 @@ func flight(s *captureSet, e *collector) (ackInitial, ackBefore, coalesce bool) 
 
 			continue
 		}
+
 		befores = append(befores, before)
 		beforeConns = append(beforeConns, c)
 	}
+
 	ackInitial = majority(s, acks, ackConns, "ackInitial", e)
 	ackBefore = majority(s, befores, beforeConns, "ackBeforeFinished", e)
+
 	for _, c := range s.conns {
 		for _, d := range c.c.Datagrams {
 			coalesce = coalesce || len(d.Packets) > 1
@@ -60,6 +71,7 @@ func majority(s *captureSet, vs []bool, conns []*conn, feature string, e *collec
 			yes++
 		}
 	}
+
 	out := yes*2 > len(vs)
 	for i, v := range vs {
 		if v != out && !s.gap(conns[i], feature) {
@@ -81,17 +93,21 @@ func ackDelay(s *captureSet) (string, *profile.Range) {
 			if pk.p.Type != quictrace.Packet1RTT {
 				continue
 			}
+
 			for _, f := range pk.p.Frames {
 				if f.Type == quictrace.FrameAck && !slices.Contains(delays, int(f.Delay)) {
 					delays = append(delays, int(f.Delay))
 				}
 			}
 		}
+
 		if len(delays) != 1 {
 			return profile.AckDelayActual, nil
 		}
+
 		constants = append(constants, delays[0])
 	}
+
 	if len(constants) == 0 {
 		return profile.AckDelayActual, nil
 	}
@@ -111,14 +127,17 @@ func spinBit(s *captureSet) string {
 				bits = append(bits, pk.p.FirstByte&0x20 != 0)
 			}
 		}
+
 		if slices.Contains(bits, true) {
 			zero = false
 		}
+
 		i := slices.Index(bits, true)
 		if i < 1 || slices.Contains(bits[i:], false) {
 			spin = false
 		}
 	}
+
 	switch {
 	case zero:
 		return profile.SpinBitZero
@@ -139,9 +158,11 @@ func tokens(s *captureSet, e *collector) bool {
 			used = true
 		}
 	}
+
 	if !used {
 		return false
 	}
+
 	for _, c := range s.conns {
 		earlier := earlierToken(s, c)
 		switch got := token(c) > 0; {
@@ -184,14 +205,17 @@ func zeroRTT(s *captureSet, p *profile.Profile, e *collector) bool {
 	for _, c := range s.conns {
 		if c.resumed {
 			resumed++
+
 			if c.c.EarlyData {
 				early++
 			}
 		}
 	}
+
 	if resumed > 0 && p.TLS.Resumption == nil {
 		e.add(s.conns[0], "connections resume, but tls.resumption is empty")
 	}
+
 	if early != 0 && early != resumed {
 		e.add(s.conns[0], "%d of %d resumed connections sent 0-RTT", early, resumed)
 	}
@@ -208,19 +232,24 @@ func closeReply(s *captureSet, e *collector) bool {
 		if c.c.Close == nil || c.c.Close.By != "server" {
 			continue
 		}
+
 		closed++
+
 		for _, pk := range c.packets() {
 			for _, f := range pk.p.Frames {
 				if f.Type != quictrace.FrameConnectionClose {
 					continue
 				}
+
 				if f.Code != 0x1c || f.ErrorCode == nil || *f.ErrorCode != 0 || f.FrameType != 0x1d {
 					e.add(c, "replies to the server's close with CONNECTION_CLOSE %#x, error %v, frame type %#x", f.Code, f.ErrorCode, f.FrameType)
 				}
+
 				replies++
 			}
 		}
 	}
+
 	if replies != 0 && replies != closed {
 		e.add(s.conns[0], "%d of %d connections the server closed got a reply", replies, closed)
 	}
@@ -238,6 +267,7 @@ func ackOnly(s *captureSet, e *collector) (int, string) {
 			if pk.p.Type != quictrace.Packet1RTT {
 				continue
 			}
+
 			acks, maxData, other := 0, 0, 0
 			for _, f := range pk.p.Frames {
 				switch f.Type {
@@ -250,24 +280,31 @@ func ackOnly(s *captureSet, e *collector) (int, string) {
 					other++
 				}
 			}
+
 			switch {
 			case acks == 1 && maxData == 0 && other == 0:
 				run++
+
 				longest = max(longest, run)
 
 				continue
+
 			case acks == 1 && maxData == 1 && other == 0:
 				if limit != -1 && run != limit {
 					e.add(c, "ACK and MAX_DATA after %d ACK-only packets, elsewhere after %d", run, limit)
 				}
+
 				limit = run
 			}
+
 			run = 0
 		}
 	}
+
 	if limit == -1 {
 		return 0, ""
 	}
+
 	if longest > limit {
 		e.add(s.conns[0], "a run of %d ACK-only packets, though MAX_DATA ends runs of %d", longest, limit)
 	}

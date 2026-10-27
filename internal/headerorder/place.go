@@ -42,33 +42,42 @@ func Place(fields []Field, ps []Placement) ([]Field, error) {
 	var moved []Field
 	for _, p := range ps {
 		moved = moved[:0]
+
 		kept := fields[:0]
+
 		for _, f := range fields {
 			if f.Name == p.Header {
 				moved = append(moved, f)
 				continue
 			}
+
 			kept = append(kept, f)
 		}
+
 		if len(moved) == 0 {
 			return nil, fmt.Errorf("%w: %s is not sent on this request", ErrPlacement, p.Header)
 		}
+
 		at := -1
 		for i, f := range kept {
 			if f.Name != p.Anchor {
 				continue
 			}
+
 			if p.After {
 				at = i + 1
 				continue
 			}
+
 			at = i
 
 			break
 		}
+
 		if at < 0 {
 			return nil, fmt.Errorf("%w: %s, the anchor for %s, is not sent on this request", ErrPlacement, p.Anchor, p.Header)
 		}
+
 		fields = slices.Insert(kept, at, moved...)
 	}
 

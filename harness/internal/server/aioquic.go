@@ -47,19 +47,23 @@ func (s *Server) serveAioquic(ctx context.Context, log *pageLog, issue func([]st
 	defer func() {
 		_ = pc.Close()
 	}()
+
 	dir, err := os.MkdirTemp("", "mimicry-aioquic-")
 	if err != nil {
 		return err
 	}
+
 	defer func() {
 		_ = os.RemoveAll(dir)
 	}()
+
 	cert, err := issue([]string{
 		h3Host,
 	})
 	if err != nil {
 		return err
 	}
+
 	var certPEM []byte
 	for _, der := range cert.Certificate {
 		certPEM = append(certPEM, pem.EncodeToMemory(&pem.Block{
@@ -67,10 +71,12 @@ func (s *Server) serveAioquic(ctx context.Context, log *pageLog, issue func([]st
 			Bytes: der,
 		})...)
 	}
+
 	key, err := x509.MarshalPKCS8PrivateKey(cert.PrivateKey)
 	if err != nil {
 		return err
 	}
+
 	files := map[string][]byte{
 		"cert.pem": certPEM,
 		"key.pem": pem.EncodeToMemory(&pem.Block{
@@ -84,38 +90,50 @@ func (s *Server) serveAioquic(ctx context.Context, log *pageLog, issue func([]st
 			return err
 		}
 	}
+
 	keyLog := filepath.Join(dir, "keys.log")
+
 	log.quic.mu.Lock()
+
 	log.quic.keyLogFile = keyLog
 	log.quic.mu.Unlock()
+
 	cmd := exec.CommandContext(ctx, "python3", filepath.Join(dir, "server.py"), //nolint:gosec // our own embedded script
 		"--certificate", filepath.Join(dir, "cert.pem"),
 		"--private-key", filepath.Join(dir, "key.pem"),
 		"--secrets-log", keyLog)
+
 	cmd.Stderr = os.Stderr
+
 	out, err := cmd.StdoutPipe()
 	if err != nil {
 		return err
 	}
+
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("aioquic: %w (h3-v2 needs python3 with aioquic: pip install aioquic)", err)
 	}
+
 	defer func() {
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()
 	}()
+
 	line, err := bufio.NewReader(out).ReadString('\n')
 	if err != nil {
 		return fmt.Errorf("aioquic did not start: %w (h3-v2 needs python3 with aioquic: pip install aioquic)", err)
 	}
+
 	port, err := strconv.Atoi(strings.TrimSpace(line))
 	if err != nil {
 		return fmt.Errorf("aioquic: port %q: %w", line, err)
 	}
+
 	upstream := &net.UDPAddr{
 		IP:   net.IPv4(127, 0, 0, 1),
 		Port: port,
 	}
+
 	if s.OnQUICReady != nil {
 		s.OnQUICReady()
 	}
@@ -132,17 +150,24 @@ func relayUDP(ctx context.Context, pc net.PacketConn, upstream *net.UDPAddr, q *
 		_ = pc.Close()
 	})
 	defer stop()
+
 	var mu sync.Mutex
+
 	ups := map[string]*net.UDPConn{}
+
 	var wg sync.WaitGroup
+
 	defer func() {
 		mu.Lock()
+
 		for _, u := range ups {
 			_ = u.Close()
 		}
+
 		mu.Unlock()
 		wg.Wait()
 	}()
+
 	buf := make([]byte, 1<<16)
 	for {
 		n, addr, err := pc.ReadFrom(buf)
@@ -153,18 +178,23 @@ func relayUDP(ctx context.Context, pc net.PacketConn, upstream *net.UDPAddr, q *
 
 			return err
 		}
+
 		client := addr.String()
 		if q.received(client, time.Now(), buf[:n]) {
 			continue
 		}
+
 		mu.Lock()
+
 		up, ok := ups[client]
 		if !ok {
 			up, err = net.DialUDP("udp", nil, upstream)
 			if err != nil {
 				mu.Unlock()
+
 				return err
 			}
+
 			ups[client] = up
 			wg.Go(func() {
 				b := make([]byte, 1<<16)
@@ -173,13 +203,16 @@ func relayUDP(ctx context.Context, pc net.PacketConn, upstream *net.UDPAddr, q *
 					if err != nil {
 						return
 					}
+
 					if !q.sent(client, time.Now(), b[:m]) {
 						_, _ = pc.WriteTo(b[:m], addr)
 					}
 				}
 			})
 		}
+
 		mu.Unlock()
+
 		_, _ = up.Write(buf[:n])
 	}
 }

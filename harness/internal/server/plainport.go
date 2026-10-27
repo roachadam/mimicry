@@ -28,7 +28,9 @@ func (sc *Scenario) StartsPlain() bool {
 // scenario without a plain port), so its answers learn both ports.
 func (sc *Scenario) onPorts(tlsAddr, plainAddr net.Addr) *Scenario {
 	on := *sc
+
 	_, on.ports.tls, _ = net.SplitHostPort(tlsAddr.String())
+
 	if plainAddr != nil {
 		_, on.ports.plain, _ = net.SplitHostPort(plainAddr.String())
 	}

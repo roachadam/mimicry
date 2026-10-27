@@ -60,12 +60,15 @@ type quicLog struct {
 func (q *quicLog) received(addr string, at time.Time, data []byte) bool {
 	q.mu.Lock()
 	defer q.mu.Unlock()
+
 	if q.datagrams == nil {
 		q.datagrams = map[string][]quictrace.Received{}
 	}
+
 	if _, ok := q.datagrams[addr]; !ok {
 		q.clients = append(q.clients, addr)
 	}
+
 	q.datagrams[addr] = append(q.datagrams[addr], quictrace.Received{
 		At:   at,
 		Data: append([]byte(nil), data...),
@@ -79,13 +82,16 @@ func (q *quicLog) received(addr string, at time.Time, data []byte) bool {
 func (q *quicLog) sent(addr string, at time.Time, data []byte) bool {
 	q.mu.Lock()
 	defer q.mu.Unlock()
+
 	if q.droppedLocked(addr) {
 		return true
 	}
+
 	if _, ok := q.datagrams[addr]; !ok {
 		// Nothing came from there first; not a client of this page.
 		return false
 	}
+
 	q.datagrams[addr] = append(q.datagrams[addr], quictrace.Received{
 		At:     at,
 		Data:   append([]byte(nil), data...),
@@ -99,8 +105,10 @@ func (q *quicLog) droppedLocked(addr string) bool {
 	if q.silenced[addr] {
 		return true
 	}
+
 	if q.blackholed && q.live[addr] == 0 {
 		q.silenceLocked(addr)
+
 		return true
 	}
 
@@ -111,6 +119,7 @@ func (q *quicLog) silenceLocked(addr string) {
 	if q.silenced == nil {
 		q.silenced = map[string]bool{}
 	}
+
 	q.silenced[addr] = true
 }
 
@@ -120,9 +129,11 @@ func (q *quicLog) silenceLocked(addr string) {
 func (q *quicLog) silence(addr string) bool {
 	q.mu.Lock()
 	defer q.mu.Unlock()
+
 	if q.silencedOnce {
 		return false
 	}
+
 	q.silencedOnce = true
 	q.silenceLocked(addr)
 
@@ -134,17 +145,21 @@ func (q *quicLog) silence(addr string) bool {
 func (q *quicLog) blackhole(addr string) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
+
 	q.silenceLocked(addr)
+
 	q.blackholed = true
 }
 
 func (q *quicLog) add(h *h3conn) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
+
 	q.conns = append(q.conns, h)
 	if q.live == nil {
 		q.live = map[string]int{}
 	}
+
 	q.live[h.addr]++
 }
 
@@ -152,6 +167,7 @@ func (q *quicLog) add(h *h3conn) {
 func (q *quicLog) ended(h *h3conn) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
+
 	q.live[h.addr]--
 }
 
@@ -210,15 +226,20 @@ func (t *udpTap) SyscallConn() (syscall.RawConn, error) {
 func (s *Server) serveQUIC(ctx context.Context, sc *Scenario, log *pageLog, issue func([]string) (tls.Certificate, error)) error {
 	pc := s.PacketConn
 	q := &log.quic
+
 	if sc.h3.aioquic {
 		return s.serveAioquic(ctx, log, issue)
 	}
+
 	if sc.h3.blackhole {
 		q.mu.Lock()
+
 		q.blackholed = true
 		q.mu.Unlock()
 	}
+
 	base := s.TLSConfig.Clone()
+
 	base.NextProtos = []string{
 		"h3",
 	}
@@ -231,14 +252,17 @@ func (s *Server) serveQUIC(ctx context.Context, sc *Scenario, log *pageLog, issu
 		_ = pc.Close()
 		return err
 	}
+
 	base.SetSessionTicketKeys([][32]byte{
 		ticketKey,
 	})
+
 	base.UnwrapSession = func(identity []byte, cs tls.ConnectionState) (*tls.SessionState, error) {
 		state, err := base.DecryptTicket(identity, cs)
 		if err != nil || state == nil {
 			return state, err
 		}
+
 		if b, err := state.Bytes(); err == nil {
 			if err := q.keyLog.AddTicket(identity, b); err != nil && s.Logf != nil {
 				s.Logf("QUIC session ticket: %v", err)
@@ -247,14 +271,18 @@ func (s *Server) serveQUIC(ctx context.Context, sc *Scenario, log *pageLog, issu
 
 		return state, nil
 	}
+
 	cfg := base
+
 	if sc.multi != nil {
 		if issue == nil {
 			_ = pc.Close()
 			return errors.New("scenario " + sc.Name + " serves several hosts and needs Server.IssueCert")
 		}
+
 		cfg = multiHostTLS(sc.multi, base, issue)
 	}
+
 	tr := &quic.Transport{
 		Conn: &udpTap{
 			PacketConn: pc,
@@ -270,24 +298,29 @@ func (s *Server) serveQUIC(ctx context.Context, sc *Scenario, log *pageLog, issu
 		// nil is quic-go's own (versions 1 and 2, preferring 1).
 		Versions: slices.Clone(sc.h3.versions),
 	}
+
 	if sc.h3.tooEarly {
 		// Which requests came in 0-RTT, from quic-go's own handling of
 		// each packet.
 		tr.ConnContext = earlyContext
 		qcfg.Tracer = earlyTracer
 	}
+
 	ln, err := tr.ListenEarly(cfg, qcfg)
 	if err != nil {
 		_ = pc.Close()
 		return err
 	}
+
 	var wg sync.WaitGroup
+
 	defer wg.Wait()
 	defer func() {
 		_ = ln.Close()
 		_ = tr.Close()
 		_ = pc.Close()
 	}()
+
 	for {
 		conn, err := ln.Accept(ctx)
 		if err != nil {
@@ -297,6 +330,7 @@ func (s *Server) serveQUIC(ctx context.Context, sc *Scenario, log *pageLog, issu
 
 			return err
 		}
+
 		wg.Go(func() {
 			if err := s.serveH3(ctx, conn, sc, log); err != nil && s.Logf != nil {
 				s.Logf("%s (QUIC): %v", conn.RemoteAddr(), err)
@@ -311,6 +345,7 @@ func (s *Server) serveQUIC(ctx context.Context, sc *Scenario, log *pageLog, issu
 func (l *pageLog) quicConns() []*quictrace.Conn {
 	q := &l.quic
 	q.mu.Lock()
+
 	var datagrams []quictrace.Received
 	for _, a := range q.clients {
 		for _, r := range q.datagrams[a] {
@@ -318,17 +353,21 @@ func (l *pageLog) quicConns() []*quictrace.Conn {
 			datagrams = append(datagrams, r)
 		}
 	}
+
 	served := slices.Clone(q.conns)
 	keyLogFile := q.keyLogFile
 	q.mu.Unlock()
+
 	if keyLogFile != "" {
 		if b, err := os.ReadFile(keyLogFile); err == nil {
 			_, _ = q.keyLog.Write(b)
 		}
 	}
+
 	slices.SortStableFunc(datagrams, func(a, b quictrace.Received) int {
 		return a.At.Compare(b.At)
 	})
+
 	decoded := quictrace.Decode(l.start, datagrams, quicCIDLen, &q.keyLog)
 	for _, h := range served {
 		// The served connection is the latest decoded one from its address
@@ -339,12 +378,15 @@ func (l *pageLog) quicConns() []*quictrace.Conn {
 				match = d
 			}
 		}
+
 		if match != nil && match.H3 == nil {
 			match.H3, match.Close = h.snapshot()
 		}
 	}
+
 	for _, d := range decoded {
 		d.Rederive()
+
 		if b := d.ClientHelloBytes(); b != nil {
 			t, err := ParseClientHello(b)
 			switch {
@@ -355,6 +397,7 @@ func (l *pageLog) quicConns() []*quictrace.Conn {
 			}
 		}
 	}
+
 	slices.SortStableFunc(decoded, func(a, b *quictrace.Conn) int {
 		return cmp.Compare(a.Millis, b.Millis)
 	})

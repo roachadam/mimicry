@@ -93,6 +93,7 @@ func (m WSMessage) Data() []byte {
 	case m.Noise:
 		return wsNoise(m.At, m.Size)
 	}
+
 	b := make([]byte, m.Size)
 	for i := range b {
 		if m.Binary {
@@ -249,6 +250,7 @@ func WebSocketSteps() []WebSocketStep {
 			Close: true,
 		},
 	}
+
 	for bits := 8; bits <= 15; bits++ {
 		st := WebSocketStep{
 			Label:         "so-deflate-w" + strconv.Itoa(bits),
@@ -271,6 +273,7 @@ func WebSocketSteps() []WebSocketStep {
 			// its networking deadlocks and no page loads any more.
 			st.Hangs = "Firefox/"
 		}
+
 		steps = append(steps, st)
 	}
 
@@ -314,9 +317,11 @@ func wsSizeSweep() []WSMessage {
 		{Prose: true, At: 100, Size: 200},
 	}
 	sizes := []int{}
+
 	for n := 6; n <= 40; n++ {
 		sizes = append(sizes, n)
 	}
+
 	sizes = append(sizes, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, 448, 512,
 		640, 768, 896, 1024, 1280, 1536, 1792, 2048, 2560, 3072, 3584, 4000, 4095)
 	for _, n := range sizes {
@@ -326,6 +331,7 @@ func wsSizeSweep() []WSMessage {
 			Size:  n,
 		})
 	}
+
 	// The last sweep message's text, close enough to be in the window.
 	last := out[len(out)-1].At
 
@@ -379,15 +385,18 @@ func wsDeletions(set []string) []string {
 	for _, c := range set {
 		parts := strings.Split(c, "; ")
 		name, _, _ := strings.Cut(parts[0], "=")
+
 		var d strings.Builder
 		d.WriteString(name)
 		d.WriteString("=")
+
 		for _, a := range parts[1:] {
 			if !strings.HasPrefix(a, "Max-Age=") {
 				d.WriteString("; ")
 				d.WriteString(a)
 			}
 		}
+
 		out = append(out, d.String()+"; Max-Age=0")
 	}
 
@@ -426,6 +435,7 @@ func (p wsPage) answer(req request) response {
 	path, _, _ := strings.Cut(req.path, "?")
 	plain := req.ports.plain != "" && port == req.ports.plain
 	ok := response{status: 200, contentType: "text/plain", body: []byte("ok\n")}
+
 	switch {
 	case path == "/done", path == wsResultPath:
 		return ok
@@ -438,17 +448,20 @@ func (p wsPage) answer(req request) response {
 			}
 		}
 	}
+
 	steps := p.steps
 	for i, s := range steps {
 		if s.Host != host || s.Path != path || s.Plain != plain {
 			continue
 		}
+
 		r := ok
 		if s.Nav {
 			r = htmlResponse(htmlPage("websocket", "", pageScript(p.statements(i, req.ports))))
 		} else if req.origin != "" {
 			r.headers = corsAllow(req.origin)
 		}
+
 		for _, c := range s.Sets {
 			r.headers = append(r.headers, hpack.HeaderField{
 				Name:  "set-cookie",
@@ -470,6 +483,7 @@ func wsHandshake(s WebSocketStep, req request) response {
 	if !handshake {
 		return response{status: 400, contentType: "text/plain", body: []byte("not a websocket handshake\n")}
 	}
+
 	a := &wsAccept{
 		ping:        s.Ping,
 		serverClose: s.ServerClose,
@@ -477,6 +491,7 @@ func wsHandshake(s WebSocketStep, req request) response {
 	if s.Pick != "" && slices.Contains(headerList(req.wsProtocols), s.Pick) {
 		a.subprotocol = s.Pick
 	}
+
 	if s.Deflate {
 		for _, ext := range headerList(req.wsExtensions) {
 			if name, _, _ := strings.Cut(ext, ";"); strings.TrimSpace(name) == "permessage-deflate" {
@@ -592,35 +607,44 @@ func (p wsPage) statements(i int, ports portPair) []string {
 	out := []string{
 		wsHelpers,
 	}
+
 	switch {
 	case i == 0:
 		out = append(out, "await register();")
 	case watched:
 		out = append(out, "await arm(0);")
 	}
+
 	next := -1
 	for j := i + 1; j < len(steps); j++ {
 		if steps[j].Nav {
 			next = j
 			break
 		}
+
 		out = append(out, fmt.Sprintf("await get(%s);", strconv.Quote(wsPageURL(steps[j], ports))))
 	}
+
 	for _, s := range p.sockets {
 		if s.Page != page.Label {
 			continue
 		}
+
 		protocols, _ := json.Marshal(append([]string{}, s.Protocols...))
 		sends := make([]string, len(s.Sends))
+
 		for k, m := range s.Sends {
 			sends[k] = m.js()
 		}
+
 		run := fmt.Sprintf("await socket(%s, %s, [%s], %t)", strconv.Quote(wsSocketURL(s, ports)), protocols, strings.Join(sends, ", "), s.Close)
 		if s.Hangs != "" {
 			run = fmt.Sprintf("(navigator.userAgent.includes(%s) ? {skipped: true} : %s)", strconv.Quote(s.Hangs), run)
 		}
+
 		out = append(out, fmt.Sprintf("await report(%s, %s);", strconv.Quote(s.Label), run))
 	}
+
 	if next < 0 {
 		if watched {
 			out = append(out, "await end();")
@@ -628,6 +652,7 @@ func (p wsPage) statements(i int, ports portPair) []string {
 
 		return append(out, `fetch("/done");`)
 	}
+
 	n := steps[next]
 	if watched && (n.Host != wsHost || n.Plain) {
 		out = append(out, fmt.Sprintf("await arm(%d);", wsAway.Milliseconds()))

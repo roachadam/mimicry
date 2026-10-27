@@ -90,10 +90,12 @@ func KindsSteps() []KindsStep {
 			{Label: "beacon", Kind: "beacon", Body: "x"},
 		} {
 			s.Label += "." + t.suffix
+
 			s.Host = t.host
 			steps = append(steps, s)
 		}
 	}
+
 	// Redirects across sites: sec-fetch-site after a hop.
 	return append(steps,
 		KindsStep{Label: "fetch-redirect.so-cs", Kind: "fetch", Credentials: "include", Host: kindsHost, RedirectTo: kindsCrossSite},
@@ -250,24 +252,31 @@ func (p kindsPage) scheme() string {
 func (p kindsPage) answer(req request) response {
 	host, port := splitAuthority(req.host)
 	origin := originOn(p.scheme(), port)
+
 	var cors []hpack.HeaderField
+
 	if req.origin != "" {
 		cors = corsAllow(req.origin)
 	}
+
 	if req.method == "OPTIONS" {
 		return response{status: 204, contentType: "text/plain", headers: preflightAllow(cors, "GET, POST", req.preflightHeaders)}
 	}
+
 	path, _, _ := strings.Cut(req.path, "?")
 	switch path {
 	case "/":
 		if host != kindsHost {
 			break
 		}
+
 		r := response{status: 200, contentType: "text/html; charset=utf-8", body: p.document(port)}
 		cookies := KindsCookies
+
 		if p.plain {
 			cookies = slices.Concat(KindsCookies, KindsPlainCookies)
 		}
+
 		for _, c := range cookies {
 			r.headers = append(r.headers, hpack.HeaderField{
 				Name:  "set-cookie",
@@ -276,9 +285,12 @@ func (p kindsPage) answer(req request) response {
 		}
 
 		return r
+
 	case "/cleanup", "/done":
 		r := response{status: 200, contentType: "text/plain", body: []byte("ok\n"), headers: cors}
+
 		r.headers = append(r.headers, kindsDeletions(host)...)
+
 		if p.plain && host == kindsHost {
 			for _, d := range cookieDeletions(KindsPlainCookies) {
 				r.headers = append(r.headers, hpack.HeaderField{
@@ -290,23 +302,28 @@ func (p kindsPage) answer(req request) response {
 
 		return r
 	}
+
 	label, ok := strings.CutPrefix(path, "/k/")
 	if !ok {
 		return response{status: 404, contentType: "text/plain", body: []byte("not found\n"), headers: cors}
 	}
+
 	switch label {
 	case kindsFormLabel:
 		return response{status: 200, contentType: "text/html; charset=utf-8", body: kindsLanding(origin)}
 	case "style-fonts.so":
 		return response{status: 200, contentType: "text/css", body: kindsFontCSS(origin)}
 	}
+
 	hop := strings.HasSuffix(label, ".hop")
 	for _, s := range append(KindsMarkup(), KindsSteps()...) {
 		if s.Label != strings.TrimSuffix(label, ".hop") {
 			continue
 		}
+
 		if s.RedirectTo != "" && !hop {
 			r := response{status: 302, contentType: "text/plain", headers: cors}
+
 			r.headers = append(r.headers, hpack.HeaderField{
 				Name:  "location",
 				Value: origin(s.RedirectTo) + "/k/" + s.Label + ".hop",
@@ -314,8 +331,11 @@ func (p kindsPage) answer(req request) response {
 
 			return r
 		}
+
 		r := kindsBody(s.Kind)
+
 		r.headers = append(r.headers, cors...)
+
 		if s.Label == "image-setcookie.cs" {
 			for _, c := range KindsThirdPartyCookies {
 				r.headers = append(r.headers, hpack.HeaderField{
@@ -359,7 +379,9 @@ func kindsDeletions(host string) []hpack.HeaderField {
 		// Set-Cookie whose name and value are both empty.
 		pair, attrs string
 	}
+
 	var dels []deletion
+
 	switch host {
 	case kindsHost:
 		for _, c := range KindsCookies {
@@ -370,12 +392,15 @@ func kindsDeletions(host string) []hpack.HeaderField {
 				dels = append(dels, deletion{deletionPair(c), ""})
 			}
 		}
+
 	case kindsCrossSite:
 		for _, c := range KindsThirdPartyCookies {
 			dels = append(dels, deletion{deletionPair(c), ""})
 		}
+
 		dels = append(dels, deletion{"kb_part=", "; SameSite=None; Partitioned"})
 	}
+
 	out := make([]hpack.HeaderField, 0, len(dels))
 	for _, d := range dels {
 		out = append(out, hpack.HeaderField{
@@ -404,6 +429,7 @@ func deletionPair(setCookie string) string {
 func setCookieName(setCookie string) string {
 	pair, _, _ := strings.Cut(setCookie, ";")
 	name, _, ok := strings.Cut(pair, "=")
+
 	if !ok {
 		return ""
 	}
@@ -417,16 +443,20 @@ func (p kindsPage) document(port string) []byte {
 	url := func(s KindsStep) string {
 		return p.scheme() + net.JoinHostPort(s.Host, port) + "/k/" + s.Label
 	}
+
 	var markup strings.Builder
+
 	for _, s := range KindsMarkup() {
 		if s.Tag != "" {
 			fmt.Fprintf(&markup, s.Tag+"\n", url(s))
 		}
 	}
+
 	steps := KindsSteps()
 	for i := range steps {
 		steps[i].URL = url(steps[i])
 	}
+
 	stepsJSON, _ := json.Marshal(steps) //nolint:gosec // Credentials is fetch()'s credentials mode, not a secret
 	script := strings.NewReplacer(
 		"__STEPS__", string(stepsJSON),

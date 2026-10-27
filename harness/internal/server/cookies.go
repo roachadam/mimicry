@@ -79,6 +79,7 @@ func (p cookiesPage) answer(req request) response {
 	}
 	image := response{status: 200, contentType: "image/png", body: png}
 	path, _, _ := strings.Cut(req.path, "?")
+
 	switch {
 	case host == kindsHost && path == "/":
 		r := html(`await load("` + origin(kindsCrossSite) + `/k/c-setcookie.cs");
@@ -92,16 +93,19 @@ location.href = "` + origin(cookiesSiteC) + `/c";`)
 		}
 
 		return r
+
 	case host == cookiesSiteC && path == "/c":
 		return html(`await load("` + origin(kindsCrossSite) + `/k/c-part.cs");
 await load("` + origin(kindsHost) + `/k/c-third.so");
 location.href = "` + origin(kindsHost) + `/k/c-nav-get.so";`)
+
 	case host == kindsHost && path == "/k/c-nav-get.so":
 		return html(`location.href = "` + origin(cookiesSiteC) + `/c-post";`)
 	case host == cookiesSiteC && path == "/c-post":
 		return html(`const f = document.createElement("form"); f.method = "POST"; f.action = "` + origin(kindsHost) + `/k/c-nav-post.so";
 const i = document.createElement("input"); i.name = "a"; i.value = "1"; f.appendChild(i);
 document.body.appendChild(f); f.submit();`)
+
 	case host == kindsHost && path == "/k/c-nav-post.so":
 		var cleanup []string
 		for _, h := range p.hosts() {
@@ -110,6 +114,7 @@ document.body.appendChild(f); f.submit();`)
 
 		return html(`await Promise.all([` + strings.Join(cleanup, ", ") + `].map(u => fetch(u, {credentials: "include", mode: "no-cors"}).catch(() => {})));
 fetch("/done");`)
+
 	case path == "/cleanup" || path == "/done":
 		return response{status: 200, contentType: "text/plain", body: []byte("ok\n"), headers: cookiesDeletions(host)}
 	case host == kindsCrossSite && path == "/k/c-setcookie.cs":
@@ -119,10 +124,12 @@ fetch("/done");`)
 
 		return image
 	}
+
 	label, ok := strings.CutPrefix(path, "/k/")
 	if !ok {
 		return response{status: 404, contentType: "text/plain", body: []byte("not found\n")}
 	}
+
 	if to, ok := CookiesRedirects[label]; ok {
 		return response{status: 302, contentType: "text/plain", headers: []hpack.HeaderField{
 			{Name: "location", Value: origin(to) + "/k/" + label + ".hop"},
@@ -146,10 +153,12 @@ func cookiesDeletions(host string) []hpack.HeaderField {
 	case kindsCrossSite:
 		set = CookiesThirdParty
 	}
+
 	out := make([]hpack.HeaderField, 0, len(set))
 	for _, c := range set {
 		name := setCookieName(c)
 		path, domain, partitioned := "/", "", ""
+
 		for _, a := range strings.Split(c, "; ")[1:] {
 			switch {
 			case strings.HasPrefix(a, "Path="):
@@ -160,6 +169,7 @@ func cookiesDeletions(host string) []hpack.HeaderField {
 				partitioned = "; SameSite=None; Partitioned"
 			}
 		}
+
 		out = append(out, hpack.HeaderField{
 			Name:  "set-cookie",
 			Value: name + "=; Path=" + path + domain + partitioned + "; Secure; Max-Age=0",

@@ -53,23 +53,31 @@ func startClicker(ctx context.Context, title string, look func(context.Context) 
 		done:   make(chan struct{}),
 		conn:   conn,
 	}
+
 	go func() {
 		defer close(c.done)
-		var clicked string
-		var at time.Time
+
+		var (
+			clicked string
+			at      time.Time
+		)
+
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-time.After(clickPoll):
 			}
+
 			v, err := look(ctx)
 			if err != nil || v.title != title || (v.url == clicked && time.Since(at) < clickRetry) {
 				continue
 			}
+
 			if err := click(ctx, v.x, v.y); err != nil && ctx.Err() == nil {
 				c.err = errors.Join(c.err, fmt.Errorf("clicking %s: %w", v.url, err))
 			}
+
 			clicked, at = v.url, time.Now()
 		}
 	}()
@@ -81,6 +89,7 @@ func startClicker(ctx context.Context, title string, look func(context.Context) 
 func (c *clicker) Close() error {
 	c.cancel()
 	<-c.done
+
 	err := c.err
 	if c.conn != nil {
 		err = errors.Join(err, c.conn.Close())
@@ -95,9 +104,11 @@ func parseView(s string) (pageView, error) {
 	if err := json.Unmarshal([]byte(s), &raw); err != nil {
 		return pageView{}, err
 	}
+
 	if len(raw) != 4 {
 		return pageView{}, fmt.Errorf("page view %s", s)
 	}
+
 	var v pageView
 	for i, into := range []any{&v.title, &v.url, &v.x, &v.y} {
 		if err := json.Unmarshal(raw[i], into); err != nil {
@@ -114,18 +125,22 @@ func parseView(s string) (pageView, error) {
 func chromeClicker(ctx context.Context, dir, host, title string) (io.Closer, error) {
 	setup, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
+
 	port, _, err := devToolsPort(setup, dir)
 	if err != nil {
 		return nil, err
 	}
+
 	ws, err := chromeTab(setup, port, host)
 	if err != nil {
 		return nil, err
 	}
+
 	r, err := dialRPC(setup, ws, func(rpcMessage) {})
 	if err != nil {
 		return nil, err
 	}
+
 	look := func(ctx context.Context) (pageView, error) {
 		s, err := evaluateCDP(ctx, r, clickView)
 		if err != nil {
@@ -159,21 +174,25 @@ func chromeTab(ctx context.Context, port, host string) (string, error) {
 		if err != nil {
 			return "", err
 		}
+
 		var targets []struct {
 			Type string `json:"type"`
 			URL  string `json:"url"`
 			WS   string `json:"webSocketDebuggerUrl"`
 		}
+
 		resp, err := http.DefaultClient.Do(req)
 		if err == nil {
 			err = json.NewDecoder(resp.Body).Decode(&targets)
 			_ = resp.Body.Close()
 		}
+
 		for _, t := range targets {
 			if t.Type == "page" && strings.Contains(t.URL, "://"+host+":") {
 				return t.WS, nil
 			}
 		}
+
 		select {
 		case <-ctx.Done():
 			return "", fmt.Errorf("chrome has no page on %s (last: %w)", host, err)
@@ -188,19 +207,23 @@ func chromeTab(ctx context.Context, port, host string) (string, error) {
 func firefoxClicker(ctx context.Context, port int, title string) (io.Closer, error) {
 	setup, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
+
 	r, err := dialRPC(setup, "ws://"+net.JoinHostPort("127.0.0.1", strconv.Itoa(port))+"/session", func(rpcMessage) {})
 	if err != nil {
 		return nil, err
 	}
+
 	if _, err := r.call(setup, "session.new", map[string]any{
 		"capabilities": map[string]any{},
 	}); err != nil {
 		return nil, errors.Join(err, r.Close())
 	}
+
 	bc, err := firefoxContext(setup, r)
 	if err != nil {
 		return nil, errors.Join(err, r.Close())
 	}
+
 	look := func(ctx context.Context) (pageView, error) {
 		s, err := evaluateBiDi(ctx, r, bc, clickView)
 		if err != nil {
@@ -260,14 +283,17 @@ end tell`)
 		if err != nil || out == "" {
 			return pageView{}, err
 		}
+
 		lines := strings.Split(out, "\n")
 		if len(lines) != 3 {
 			return pageView{}, fmt.Errorf("safari window %q", out)
 		}
+
 		x, err := strconv.ParseFloat(lines[1], 64)
 		if err != nil {
 			return pageView{}, err
 		}
+
 		y, err := strconv.ParseFloat(lines[2], 64)
 		if err != nil {
 			return pageView{}, err
@@ -307,6 +333,7 @@ func safariCanClick(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	if out != "true" {
 		return errors.New("clicking in Safari posts the system's mouse events, which needs Accessibility access for the app running the capture tool " +
 			"(System Settings > Privacy & Security > Accessibility; over ssh the session has none)")

@@ -18,16 +18,19 @@ func deriveQUIC(s *captureSet, p *profile.Profile) (*profile.QUIC, error) {
 		Version: 1,
 	}
 	e := &collector{}
+
 	for _, c := range s.conns {
 		if c.c.Version != "00000001" {
 			e.add(c, "QUIC version %s, not 1", c.c.Version)
 		}
+
 		for _, pk := range c.packets() {
 			if pk.p.Version != "" && pk.p.Version != "00000001" {
 				e.add(c, "a %s packet of version %s", pk.p.Type, pk.p.Version)
 			}
 		}
 	}
+
 	q.DatagramSize, q.Padding = padding(s, e)
 	q.Crypto = crypto(s, q.DatagramSize, e)
 	q.PacketNumbers = packetNumbers(s, e)
@@ -54,6 +57,7 @@ func padding(s *captureSet, e *collector) (int, string) {
 			size = max(size, d.Size)
 		}
 	}
+
 	trailing, end := false, true
 	for _, c := range s.conns {
 		for di, d := range c.c.Datagrams {
@@ -61,29 +65,35 @@ func padding(s *captureSet, e *collector) (int, string) {
 			for _, p := range d.Packets {
 				initial = initial || p.Type == quictrace.PacketInitial
 			}
+
 			if !initial {
 				continue
 			}
+
 			if d.Size != size {
 				e.add(c, "datagram %d carries an Initial packet in %d bytes, not %d", di+1, d.Size, size)
 			}
+
 			trailing = trailing || d.Trailing > 0
 			for _, p := range d.Packets {
 				if p.Type != quictrace.PacketInitial {
 					continue
 				}
+
 				runs := 0
 				for _, f := range p.Frames {
 					if f.Type == quictrace.FramePadding {
 						runs++
 					}
 				}
+
 				if runs > 1 || runs == 1 && p.Frames[len(p.Frames)-1].Type != quictrace.FramePadding {
 					end = false
 				}
 			}
 		}
 	}
+
 	if !trailing {
 		if end {
 			return size, profile.PaddingEnd
@@ -91,6 +101,7 @@ func padding(s *captureSet, e *collector) (int, string) {
 
 		return size, profile.PaddingScattered
 	}
+
 	// Trailing: no PADDING frame but in a 1-RTT packet.
 	for _, c := range s.conns {
 		for di, d := range c.c.Datagrams {
@@ -130,11 +141,14 @@ func cryptoFrames(p *quictrace.Packet) []cryptoRange {
 func helloPackets(c *conn) []packet {
 	length := c.helloLength()
 	covered := map[int]bool{}
+
 	var out []packet
+
 	for _, pk := range c.cryptoInitials() {
 		if len(covered) == length {
 			break
 		}
+
 		out = append(out, pk)
 		for _, r := range cryptoFrames(pk.p) {
 			for i := r.start; i < r.end; i++ {
@@ -155,21 +169,25 @@ func crypto(s *captureSet, datagramSize int, e *collector) profile.QUICCrypto {
 			FirstPacket: first,
 		}
 	}
+
 	var sniErrs []string
 	for _, c := range s.conns {
 		if err := sniCut(c, datagramSize); err != nil {
 			sniErrs = append(sniErrs, c.at+": "+err.Error())
 		}
 	}
+
 	if len(sniErrs) == 0 {
 		return profile.QUICCrypto{
 			Split: profile.CryptoSplitSNICut,
 		}
 	}
+
 	out, shuffleErrs := shuffle(s)
 	if len(shuffleErrs) == 0 {
 		return out
 	}
+
 	for _, c := range s.conns[:1] {
 		e.add(c, "the ClientHello's CRYPTO frames follow no rule:\nsni_cut: %v\nshuffle: %v", sniErrs, shuffleErrs)
 	}
@@ -188,14 +206,18 @@ func ordered(s *captureSet) (int, bool) {
 			if len(frames) != 1 || frames[0].start != next {
 				return 0, false
 			}
+
 			if i == 0 {
 				if first != 0 && first != frames[0].end {
 					return 0, false
 				}
+
 				first = frames[0].end
 			}
+
 			next = frames[0].end
 		}
+
 		if next != c.helloLength() {
 			return 0, false
 		}
@@ -211,21 +233,27 @@ func sniCut(c *conn, datagramSize int) error {
 	hello := c.c.ClientHelloBytes()
 	length := len(hello)
 	at := bytes.Index(hello, []byte(c.c.Host))
+
 	if at < 0 {
 		return errors.New("its server_name is not in its ClientHello")
 	}
+
 	mid := at + len(c.c.Host)/2
 	pkts := helloPackets(c)
+
 	if len(pkts) < 2 {
 		return fmt.Errorf("%d Initial packets", len(pkts))
 	}
+
 	first := cryptoFrames(pkts[0].p)
 	if len(first) != 2 || first[0].end != length || first[1].start != 0 {
 		return fmt.Errorf("first packet's CRYPTO frames %v are not the tail, then the head", first)
 	}
+
 	right, left := first[0], first[1]
 	full := pkts[0].d.Size == datagramSize && pkts[0].d.Trailing == 0
 	ok := false
+
 	for n := 1; n <= 4 && !ok; n++ {
 		limit := length / n
 		switch {
@@ -233,24 +261,30 @@ func sniCut(c *conn, datagramSize int) error {
 			// The tail piece is whole; the head was planned to fill the
 			// limit and got that or what fit.
 			planned := limit - (length - mid)
+
 			ok = left.end == planned || left.end < planned && full
+
 		case left.end == mid || left.end < mid && full:
 			// The head piece is whole, or as much of it as fit; the tail
 			// was cut to fill the limit.
 			ok = length-right.start == limit-mid
 		}
 	}
+
 	if !ok {
 		return fmt.Errorf("first packet's CRYPTO frames %v do not cut %d bytes at the host's middle %d", first, length, mid)
 	}
+
 	next := left.end
 	for i, pk := range pkts[1:] {
 		frames := cryptoFrames(pk.p)
 		if len(frames) != 1 || frames[0].start != next {
 			return fmt.Errorf("packet %d's CRYPTO frames %v do not continue at %d", i+2, frames, next)
 		}
+
 		next = frames[0].end
 	}
+
 	if next != right.start {
 		return fmt.Errorf("the middle ends at %d, not %d", next, right.start)
 	}
@@ -265,27 +299,36 @@ func shuffle(s *captureSet) (profile.QUICCrypto, []string) {
 	out := profile.QUICCrypto{
 		Split: profile.CryptoSplitShuffle,
 	}
-	var errs []string
-	var heads, added, pings, cappedPings []int
+
+	var (
+		errs                             []string
+		heads, added, pings, cappedPings []int
+	)
+
 	for _, c := range s.conns {
 		length := c.helloLength()
 		pkts := helloPackets(c)
+
 		if len(pkts) != 2 {
 			errs = append(errs, fmt.Sprintf("%s: %d Initial packets carry the ClientHello", c.at, len(pkts)))
 			continue
 		}
+
 		regions := [2][]cryptoRange{}
 		for i, pk := range pkts {
 			regions[i] = merge(cryptoFrames(pk.p))
 		}
+
 		r1, r2 := regions[0], regions[1]
 		if len(r1) != 2 || len(r2) != 1 || r1[0].start != 0 || r1[0].end != r2[0].start || r2[0].end != r1[1].start || r1[1].end != length {
 			errs = append(errs, fmt.Sprintf("%s: packets carry %v and %v, not head and tail, then the middle", c.at, r1, r2))
 			continue
 		}
+
 		if got := r1[0].end + length - r1[1].start; got != (length-4)/2 {
 			errs = append(errs, fmt.Sprintf("%s: the first packet carries %d bytes, not %d", c.at, got, (length-4)/2))
 		}
+
 		heads = append(heads, r1[0].end)
 		for i, pk := range pkts {
 			frames, padded, ping := 0, 0, 0
@@ -299,6 +342,7 @@ func shuffle(s *captureSet) (profile.QUICCrypto, []string) {
 					ping++
 				}
 			}
+
 			base := len(regions[i])
 			if padded > 0 {
 				// Splits and PINGs stop only when padding runs out.
@@ -309,12 +353,15 @@ func shuffle(s *captureSet) (profile.QUICCrypto, []string) {
 			}
 		}
 	}
+
 	if len(heads) == 0 || len(added) == 0 {
 		return out, append(errs, "no packet to measure")
 	}
+
 	out.Head = span(heads)
 	out.AddedFrames = span(added)
 	out.Pings = span(pings)
+
 	for _, n := range cappedPings {
 		if n > out.Pings.Max {
 			errs = append(errs, fmt.Sprintf("an unpadded packet has %d PINGs, more than %d", n, out.Pings.Max))
@@ -330,12 +377,14 @@ func merge(rs []cryptoRange) []cryptoRange {
 	slices.SortFunc(rs, func(a, b cryptoRange) int {
 		return cmp.Compare(a.start, b.start)
 	})
+
 	var out []cryptoRange
 	for _, r := range rs {
 		if n := len(out); n > 0 && out[n-1].end == r.start {
 			out[n-1].end = r.end
 			continue
 		}
+
 		out = append(out, r)
 	}
 
@@ -363,7 +412,9 @@ func packetNumbers(s *captureSet, e *collector) string {
 			return perSpace(c, true)
 		}},
 	}
+
 	var tried []string
+
 	for _, r := range rules {
 		var errs []string
 		for _, c := range s.conns {
@@ -371,11 +422,14 @@ func packetNumbers(s *captureSet, e *collector) string {
 				errs = append(errs, c.at+": "+err.Error())
 			}
 		}
+
 		if len(errs) == 0 {
 			return r.name
 		}
+
 		tried = append(tried, fmt.Sprintf("%s: %v", r.name, errs[0]))
 	}
+
 	e.add(s.conns[0], "packet numbers follow no rule: %v", tried)
 
 	return ""
@@ -386,23 +440,28 @@ func packetNumbers(s *captureSet, e *collector) string {
 func sharedNumbers(c *conn) error {
 	next := uint64(1)
 	initials := 0
+
 	for _, pk := range c.packets() {
 		if pk.p.PN < next {
 			return fmt.Errorf("%s packet %d after %d", pk.p.Type, pk.p.PN, next-1)
 		}
+
 		next = pk.p.PN + 1
 		if pk.p.Type != quictrace.PacketInitial {
 			continue
 		}
+
 		initials++
 		if initials == 1 && pk.p.PN != 1 {
 			return fmt.Errorf("first packet number %d", pk.p.PN)
 		}
+
 		if initials == 2 {
 			want := 1
 			if pk.p.TokenLength == nil || *pk.p.TokenLength == 0 {
 				want = 2
 			}
+
 			if pk.p.PNLength != want {
 				return fmt.Errorf("second Initial's packet number in %d bytes, not %d", pk.p.PNLength, want)
 			}
@@ -417,22 +476,28 @@ func sharedNumbers(c *conn) error {
 func perSpace(c *conn, randomInitial bool) error {
 	firsts := map[string]uint64{}
 	early := uint64(0)
+
 	for _, pk := range c.packets() {
 		t := pk.p.Type
 		if t == quictrace.Packet0RTT {
 			early++
 		}
+
 		if _, ok := firsts[t]; !ok {
 			firsts[t] = pk.p.PN
+
 			want := uint64(0)
+
 			if t == quictrace.Packet1RTT {
 				want = early
 			}
+
 			switch {
 			case t == quictrace.PacketInitial && randomInitial:
 				if pk.p.PN < 1 || pk.p.PN > 1024 {
 					return fmt.Errorf("first Initial packet number %d is not from 1 to 1024", pk.p.PN)
 				}
+
 			case pk.p.PN != want:
 				return fmt.Errorf("first %s packet number %d, not %d", t, pk.p.PN, want)
 			}
@@ -446,32 +511,40 @@ func perSpace(c *conn, randomInitial bool) error {
 // pick) and the SCID's.
 func connectionIDs(s *captureSet, e *collector) (int, string, int) {
 	var dcids []int
+
 	scid := -1
+
 	for _, c := range s.conns {
 		for i, pk := range c.packets() {
 			if i == 0 {
 				dcids = append(dcids, pk.p.DCIDLength)
 			}
+
 			if pk.p.SCIDLength == nil {
 				continue
 			}
+
 			if scid == -1 {
 				scid = *pk.p.SCIDLength
 			}
+
 			if *pk.p.SCIDLength != scid {
 				e.add(c, "a %d-byte SCID, not %d", *pk.p.SCIDLength, scid)
 			}
 		}
 	}
+
 	if slices.Min(dcids) == slices.Max(dcids) {
 		return dcids[0], "", scid
 	}
+
 	eights := 0
 	for _, n := range dcids {
 		if n == 8 {
 			eights++
 		}
 	}
+
 	// neqo picks max(8, 5 + (v & v>>4)): 8 at least 9 times in 16, up to 20.
 	if slices.Min(dcids) != 8 || slices.Max(dcids) > 20 || eights*2 < len(dcids) {
 		e.add(s.conns[0], "first DCID lengths %v are neither one length nor neqo's biased pick", dcids)
@@ -491,21 +564,26 @@ func newConnectionIDs(s *captureSet, scid int, e *collector) int {
 				if f.Type != quictrace.FrameNewConnectionID {
 					continue
 				}
+
 				seqs = append(seqs, f.Sequence)
 				if f.CIDLength != scid || f.RetirePriorTo != 0 {
 					e.add(c, "NEW_CONNECTION_ID %d of %d bytes retiring below %d", f.Sequence, f.CIDLength, f.RetirePriorTo)
 				}
 			}
 		}
+
 		for i, seq := range seqs {
 			if seq != uint64(i)+1 {
 				e.add(c, "NEW_CONNECTION_ID sequence numbers %v", seqs)
+
 				break
 			}
 		}
+
 		if count == -1 {
 			count = len(seqs)
 		}
+
 		if len(seqs) != count {
 			e.add(c, "%d NEW_CONNECTION_IDs, another connection %d", len(seqs), count)
 		}
@@ -518,23 +596,33 @@ func newConnectionIDs(s *captureSet, scid int, e *collector) int {
 // connection: one value per parameter, the same set in every full
 // handshake and the resumed ones adding the same.
 func transportParameters(s *captureSet, scid int, e *collector) ([]profile.TransportParameter, string) {
-	var full, resumed [][]profile.TransportParameterID
-	var fullConns []*conn
+	var (
+		full, resumed [][]profile.TransportParameterID
+		fullConns     []*conn
+	)
+
 	byID := map[profile.TransportParameterID]*profile.TransportParameter{}
+
 	var resumedOnly []profile.TransportParameterID
+
 	for _, c := range s.conns {
 		var ids []profile.TransportParameterID
 		for _, tp := range c.c.TransportParameters {
 			id := tpID(tp)
+
 			ids = append(ids, id)
+
 			got := profileParameter(c, tp, scid, e)
 			want, ok := byID[id]
+
 			if !ok {
 				byID[id] = got
 				continue
 			}
+
 			mergeParameter(c, want, got, e)
 		}
+
 		if c.resumed {
 			resumed = append(resumed, ids)
 		} else {
@@ -542,16 +630,20 @@ func transportParameters(s *captureSet, scid int, e *collector) ([]profile.Trans
 			fullConns = append(fullConns, c)
 		}
 	}
+
 	if len(full) == 0 {
 		e.add(s.conns[0], "no full handshake")
+
 		return nil, ""
 	}
+
 	reference := full[0]
 	for i, ids := range full {
 		if !sameSet(ids, reference) {
 			e.add(fullConns[i], "transport parameters %v, another full handshake's %v", ids, reference)
 		}
 	}
+
 	for _, ids := range resumed {
 		for _, id := range ids {
 			if !slices.Contains(reference, id) && !slices.Contains(resumedOnly, id) {
@@ -559,26 +651,34 @@ func transportParameters(s *captureSet, scid int, e *collector) ([]profile.Trans
 			}
 		}
 	}
+
 	for _, ids := range resumed {
 		if !sameSet(ids, append(slices.Clone(reference), resumedOnly...)) {
 			e.add(s.conns[0], "resumed transport parameters %v are not %v and %v", ids, reference, resumedOnly)
 		}
 	}
+
 	all := slices.Concat(full, resumed)
 	stripped := make([][]profile.TransportParameterID, len(all))
+
 	for i, ids := range all {
 		stripped[i] = slices.DeleteFunc(slices.Clone(ids), func(id profile.TransportParameterID) bool {
 			return slices.Contains(resumedOnly, id)
 		})
 	}
+
 	order, reference, last := parameterOrder(stripped, reference)
+
 	var out []profile.TransportParameter
+
 	for _, id := range slices.Concat(reference, resumedOnly) {
 		tp := *byID[id]
+
 		tp.Resumed = slices.Contains(resumedOnly, id)
 		tp.Last = slices.Contains(last, id)
 		out = append(out, tp)
 	}
+
 	if order == profile.TransportParameterOrderFixed && len(resumedOnly) > 0 {
 		e.add(s.conns[0], "a fixed order with parameters %v only resumed connections send: their place is not modelled", resumedOnly)
 	}
@@ -594,9 +694,11 @@ func parameterOrder(all [][]profile.TransportParameterID, reference []profile.Tr
 	for _, ids := range all {
 		fixed = fixed && slices.Equal(ids, reference)
 	}
+
 	if fixed {
 		return profile.TransportParameterOrderFixed, reference, nil
 	}
+
 	// The longest suffix every connection ends with stays last.
 	n := len(reference)
 	for _, ids := range all {
@@ -604,14 +706,18 @@ func parameterOrder(all [][]profile.TransportParameterID, reference []profile.Tr
 		for k < n && k < len(ids) && ids[len(ids)-1-k] == reference[len(reference)-1-k] {
 			k++
 		}
+
 		n = min(n, k)
 	}
+
 	last := reference[len(reference)-n:]
 	cycle := reference[:len(reference)-n]
 	rotated := len(cycle) > 1
+
 	for _, ids := range all {
 		rotated = rotated && isRotation(ids[:len(ids)-n], cycle)
 	}
+
 	if rotated {
 		start := slices.Index(cycle, slices.Min(cycle))
 		return profile.TransportParameterOrderRotated, slices.Concat(cycle[start:], cycle[:start], last), last
@@ -624,10 +730,12 @@ func isRotation(ids, cycle []profile.TransportParameterID) bool {
 	if len(ids) != len(cycle) {
 		return false
 	}
+
 	start := slices.Index(cycle, ids[0])
 	if start < 0 {
 		return false
 	}
+
 	for i, id := range ids {
 		if cycle[(start+i)%len(cycle)] != id {
 			return false
@@ -655,6 +763,7 @@ func profileParameter(c *conn, tp quictrace.TransportParameter, scid int, e *col
 		if tp.Length != scid {
 			e.add(c, "initial_source_connection_id of %d bytes, its SCID's %d", tp.Length, scid)
 		}
+
 	case out.ID == profile.TPInitialRTT:
 	case tp.Grease:
 		out.MaxLength = tp.Length
@@ -664,8 +773,10 @@ func profileParameter(c *conn, tp quictrace.TransportParameter, scid int, e *col
 			if err := version.UnmarshalText([]byte("0x" + v)); err != nil {
 				e.add(c, "version_information: %v", err)
 			}
+
 			out.Versions = append(out.Versions, version)
 		}
+
 	case tp.Value != nil && tp.Hex == "":
 		out.Value = tp.Value
 	default:
@@ -688,17 +799,22 @@ func mergeParameter(c *conn, want, got *profile.TransportParameter, e *collector
 	case want.ID == profile.TPVersionInformation:
 		if len(want.Versions) == 0 || len(got.Versions) != len(want.Versions) || got.Versions[0] != want.Versions[0] {
 			e.add(c, "version_information %v, another connection's %v", got.Versions, want.Versions)
+
 			return
 		}
+
 		if !slices.Equal(got.Versions, want.Versions) {
 			a, b := slices.Clone(got.Versions[1:]), slices.Clone(want.Versions[1:])
 			slices.Sort(a)
 			slices.Sort(b)
+
 			if !slices.Equal(a, b) {
 				e.add(c, "version_information %v, another connection's %v", got.Versions, want.Versions)
 			}
+
 			want.ShuffleVersions = true
 		}
+
 	case (want.Value == nil) != (got.Value == nil) || want.Value != nil && *want.Value != *got.Value || !bytes.Equal(want.Data, got.Data):
 		e.add(c, "transport parameter %s is %s, another connection's %s", want.ID, describe(got), describe(want))
 	}

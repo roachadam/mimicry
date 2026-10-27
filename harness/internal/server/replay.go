@@ -25,6 +25,7 @@ func Replay(p *pageshape.Page) (*Scenario, error) {
 	if len(p.Requests) == 0 {
 		return nil, fmt.Errorf("page %s has no requests", p.Site)
 	}
+
 	rp := newReplay(p)
 
 	return &Scenario{
@@ -116,34 +117,45 @@ func newReplay(p *pageshape.Page) *replay {
 	}
 	for i, h := range p.Hosts {
 		name := ReplayHost(h)
+
 		rp.names = append(rp.names, name)
 		rp.byName[name] = i
 	}
+
 	h2 := make([]bool, len(p.Hosts))
+
 	var last int
+
 	for i, r := range p.Requests {
 		if r.RedirectFrom >= 0 {
 			rp.next[r.RedirectFrom] = i
 		}
+
 		if r.Protocol != "h1" {
 			h2[r.Host] = true
 		}
+
 		if len(r.SetCookies) > 0 {
 			rp.cookies[r.Host] = append(rp.cookies[r.Host], r.SetCookies...)
 		}
+
 		last = max(last, r.At)
 	}
+
 	for i := range p.Hosts {
 		rp.onlyH1[i] = !h2[i]
 	}
+
 	rp.runFor = min(time.Duration(last)*time.Millisecond, maxLength)
 	rp.top = rp.end(0)
 	rp.docs[rp.top] = true
+
 	for i, r := range p.Requests {
 		if r.Dest == "iframe" && r.RedirectFrom < 0 {
 			rp.docs[rp.end(i)] = true
 		}
 	}
+
 	for i, r := range p.Requests {
 		switch {
 		case i == 0:
@@ -155,8 +167,10 @@ func newReplay(p *pageshape.Page) *replay {
 			rp.stats.skipped[r.Dest]++
 		default:
 			doc := rp.frameOf(i)
+
 			rp.jobs[doc] = append(rp.jobs[doc], i)
 			rp.stats.scheduled++
+
 			if !elementDests[r.Dest] && r.Dest != "empty" {
 				rp.stats.approximated[r.Dest]++
 			}
@@ -179,6 +193,7 @@ func (rp *replay) end(i int) int {
 		if !ok {
 			return i
 		}
+
 		i = j
 	}
 }
@@ -191,15 +206,18 @@ func (rp *replay) frameOf(i int) int {
 	r := rp.page.Requests[i]
 	initiator := r.Initiator
 	topHost := rp.page.Requests[rp.top].Host
+
 	if initiator < 0 || initiator == topHost {
 		return rp.top
 	}
+
 	best := -1
 	for d := range rp.docs {
 		if d != rp.top && d < i && rp.page.Requests[d].Host == initiator && d > best {
 			best = d
 		}
 	}
+
 	if best < 0 {
 		rp.stats.reparented++
 		return rp.top
@@ -214,6 +232,7 @@ func (rp *replay) hosts() []string {
 	out := []string{
 		start,
 	}
+
 	for _, n := range rp.names {
 		if n != start {
 			out = append(out, n)
@@ -230,6 +249,7 @@ func (rp *replay) certNames(host string) ([]string, bool) {
 	if !ok {
 		return nil, false
 	}
+
 	names := []string{
 		host,
 	}
@@ -262,11 +282,14 @@ func (rp *replay) path(i int) string {
 	if i == 0 {
 		return "/"
 	}
+
 	r := rp.page.Requests[i]
 	p := "/r" + strconv.Itoa(i)
+
 	if r.PathLen > len(p)+1 {
 		p += "/" + synthetic("alnum", r.PathLen-len(p)-1, "path "+strconv.Itoa(i))
 	}
+
 	if r.QueryLen > 0 {
 		p += "?" + synthetic("text", r.QueryLen, "query "+strconv.Itoa(i))
 	}
@@ -280,16 +303,21 @@ func (rp *replay) request(host, path string) (int, bool) {
 	if !ok {
 		return 0, false
 	}
+
 	path, _, _ = strings.Cut(path, "?")
 	if path == "/" {
 		return 0, h == rp.page.Requests[0].Host
 	}
+
 	rest, ok := strings.CutPrefix(path, "/r")
 	if !ok {
 		return 0, false
 	}
+
 	rest, _, _ = strings.Cut(rest, "/")
+
 	i, err := strconv.Atoi(rest)
+
 	if err != nil || i <= 0 || i >= len(rp.page.Requests) || rp.page.Requests[i].Host != h {
 		return 0, false
 	}
@@ -299,13 +327,17 @@ func (rp *replay) request(host, path string) (int, bool) {
 
 func (rp *replay) answer(req request) response {
 	host, port := splitAuthority(req.host)
+
 	var cors []hpack.HeaderField
+
 	if req.origin != "" {
 		cors = corsAllow(req.origin)
 	}
+
 	if req.method == "OPTIONS" {
 		return response{status: 204, contentType: "text/plain", headers: preflightAllow(cors, "GET, POST, PUT, PATCH, DELETE, OPTIONS", req.preflightHeaders)}
 	}
+
 	switch req.path {
 	case "/done", "/cleanup":
 		r := response{status: 200, contentType: "text/plain", body: []byte("ok\n"), headers: cors}
@@ -315,15 +347,19 @@ func (rp *replay) answer(req request) response {
 
 		return r
 	}
+
 	i, ok := rp.request(host, req.path)
 	if !ok {
 		return response{status: 404, contentType: "text/plain", body: []byte("not found\n"), headers: cors}
 	}
+
 	rec := rp.page.Requests[i]
 	r := response{status: rec.Status, contentType: rec.ContentType, headers: cors}
+
 	if r.status < 200 || r.status == 304 {
 		r.status = 200
 	}
+
 	if r.status >= 300 && r.status < 400 {
 		if j, ok := rp.next[i]; ok {
 			r.headers = append(r.headers, hpack.HeaderField{
@@ -334,21 +370,25 @@ func (rp *replay) answer(req request) response {
 			r.status = 200
 		}
 	}
+
 	for k, c := range rec.SetCookies {
 		r.headers = append(r.headers, hpack.HeaderField{
 			Name:  "set-cookie",
 			Value: rp.setCookie(rec.Host, c, "cookie "+strconv.Itoa(i)+" "+strconv.Itoa(k)),
 		})
 	}
+
 	switch {
 	case rp.docs[i]:
 		r.contentType = "text/html; charset=utf-8"
 		r.body = rp.document(i, port)
+
 	case r.status == 204 || (r.status >= 300 && r.status < 400):
 	default:
 		if r.contentType == "" {
 			r.contentType = "application/octet-stream"
 		}
+
 		r.body = filler(rec.Dest, r.contentType, min(rec.Size, maxBody))
 	}
 
@@ -376,12 +416,15 @@ func (rp *replay) setCookie(host int, c pageshape.Cookie, seed string) string {
 	if c.SiteWide {
 		v += "; Domain=" + rp.siteName(host)
 	}
+
 	if c.HTTPOnly {
 		v += "; HttpOnly"
 	}
+
 	if c.SameSite != "" {
 		v += "; SameSite=" + c.SameSite
 	}
+
 	switch {
 	case c.Delete:
 		v += "; Max-Age=0"
@@ -395,6 +438,7 @@ func (rp *replay) setCookie(host int, c pageshape.Cookie, seed string) string {
 // siteName is the replay name of host's site.
 func (rp *replay) siteName(host int) string {
 	h := rp.page.Hosts[host]
+
 	return ReplayHost(pageshape.Host{
 		Name: h.Site,
 		Site: h.Site,
@@ -404,12 +448,15 @@ func (rp *replay) siteName(host int) string {
 // deleteCookies deletes every cookie set from host, in each form it was set.
 func (rp *replay) deleteCookies(host int) []hpack.HeaderField {
 	var out []hpack.HeaderField
+
 	seen := map[string]bool{}
+
 	for _, c := range rp.cookies[host] {
 		v := cookieName(c) + "=; Path=/; Secure; Max-Age=0"
 		if c.SiteWide {
 			v += "; Domain=" + rp.siteName(host)
 		}
+
 		if !seen[v] {
 			seen[v] = true
 			out = append(out, hpack.HeaderField{
@@ -442,6 +489,7 @@ type job struct {
 func (rp *replay) document(doc int, port string) []byte {
 	start := rp.page.Requests[doc].At
 	jobs := make([]job, 0, len(rp.jobs[doc]))
+
 	for _, i := range rp.jobs[doc] {
 		r := rp.page.Requests[i]
 		j := job{
@@ -453,29 +501,39 @@ func (rp *replay) document(doc int, port string) []byte {
 			Body:        r.Body,
 			At:          max(0, r.At-start),
 		}
+
 		for k, h := range r.Headers {
 			if j.Headers == nil {
 				j.Headers = map[string]string{}
 			}
+
 			v := h.Value
 			if v == "" {
 				v = synthetic(h.Class, h.Len, "header "+strconv.Itoa(i)+" "+strconv.Itoa(k))
 			}
+
 			j.Headers[h.Name] = v
 		}
+
 		jobs = append(jobs, j)
 	}
+
 	slices.SortStableFunc(jobs, func(a, b job) int {
 		return a.At - b.At
 	})
+
 	jobsJSON, _ := json.Marshal(jobs)
+
 	var cleanup []string
+
 	if doc == rp.top {
 		for h := range rp.cookies {
 			cleanup = append(cleanup, "https://"+net.JoinHostPort(rp.names[h], port)+"/cleanup")
 		}
+
 		slices.Sort(cleanup)
 	}
+
 	cleanupJSON, _ := json.Marshal(cleanup)
 	script := strings.NewReplacer(
 		"__JOBS__", string(jobsJSON),
@@ -552,6 +610,7 @@ func filler(dest, contentType string, n int) []byte {
 		}
 
 		return []byte("/*" + strings.Repeat("x", n-4) + "*/")
+
 	case strings.Contains(contentType, "html"):
 		if n < 7 {
 			return []byte(strings.Repeat(" ", n))
@@ -572,7 +631,9 @@ func synthetic(class string, n int, seed string) string {
 		hex    = "0123456789abcdef"
 		alnum  = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	)
+
 	chars := alnum
+
 	switch class {
 	case "digits":
 		chars = digits
@@ -587,14 +648,19 @@ func synthetic(class string, n int, seed string) string {
 	case "text":
 		chars = alnum + ".:|-_"
 	}
+
 	h := fnv.New64a()
+
 	_, _ = h.Write([]byte(seed))
+
 	x := h.Sum64() | 1
 	b := make([]byte, n)
+
 	for i := range b {
 		x ^= x << 13
 		x ^= x >> 7
 		x ^= x << 17
+
 		b[i] = chars[x%uint64(len(chars))]
 	}
 

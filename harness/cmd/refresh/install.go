@@ -22,18 +22,22 @@ const supported = 5
 // five and regenerates the accessors.
 func (r *refreshRun) install(ctx context.Context, p *plan, derived string, rep *report) error {
 	overlay := filepath.Join(r.Dir, p.Target, "overlay")
+
 	staged, err := os.ReadDir(r.stagedCaptures(p))
 	if err != nil {
 		return err
 	}
+
 	recaptured := map[string]bool{}
 	for _, c := range p.Captures {
 		recaptured[c.Scenario] = true
 	}
+
 	committed, err := os.ReadDir(capturesDir)
 	if err != nil {
 		return err
 	}
+
 	for _, e := range committed {
 		if sc, ok := capture.ScenarioOf(p.Name, e.Name()); ok && recaptured[sc] {
 			if err := os.Remove(filepath.Join(capturesDir, e.Name())); err != nil {
@@ -41,19 +45,24 @@ func (r *refreshRun) install(ctx context.Context, p *plan, derived string, rep *
 			}
 		}
 	}
+
 	for _, e := range staged {
 		// The overlay's copy: hellogen rewrote the default scenario's.
 		if err := copyFile(filepath.Join(overlay, e.Name()), filepath.Join(capturesDir, e.Name())); err != nil {
 			return err
 		}
 	}
+
 	if err := copyFile(derived, filepath.Join(profilesDir, p.Name+".json")); err != nil {
 		return err
 	}
+
 	log.Printf("%s: installed %s and %d captures", p.Target, p.Name, len(staged))
+
 	if rep.deprecated, err = deprecate(p.Browser); err != nil {
 		return err
 	}
+
 	for _, name := range rep.deprecated {
 		log.Printf("%s: deprecated %s (more than %d supported %s versions)", p.Target, name, supported, p.Browser)
 	}
@@ -68,32 +77,40 @@ func deprecate(browser string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	byPlatform := map[string][]*profile.Profile{}
 	for _, p := range builtins {
 		if p.Browser == browser {
 			byPlatform[p.Platform] = append(byPlatform[p.Platform], p)
 		}
 	}
+
 	var marked []string
 	for _, ps := range byPlatform {
 		slices.SortFunc(ps, func(a, b *profile.Profile) int {
 			return versionNumber(b) - versionNumber(a)
 		})
+
 		for _, p := range ps[min(supported, len(ps)):] {
 			if p.Deprecated {
 				continue
 			}
+
 			p.Deprecated = true
+
 			data, err := profile.Encode(p)
 			if err != nil {
 				return nil, err
 			}
+
 			if err := os.WriteFile(filepath.Join(profilesDir, p.Name+".json"), data, 0o600); err != nil {
 				return nil, err
 			}
+
 			marked = append(marked, p.Name)
 		}
 	}
+
 	slices.Sort(marked)
 
 	return marked, nil

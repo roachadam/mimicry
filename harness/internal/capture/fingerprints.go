@@ -79,23 +79,28 @@ func ja4(t *profile.TLS) string {
 	if version == 0 {
 		version = legacyVersion
 	}
+
 	if e := extension(t, profile.ExtSupportedVersions); e != nil {
 		for _, v := range withoutGREASE(e.Versions) {
 			version = max(version, int(v))
 		}
 	}
+
 	sni := "i"
 	if slices.Contains(exts, profile.ExtServerName) {
 		sni = "d"
 	}
+
 	alpn := "00"
 	if e := extension(t, profile.ExtALPN); e != nil && len(e.ALPN) > 0 {
 		alpn = alpnChars(e.ALPN[0])
 	}
+
 	a := fmt.Sprintf("t%s%s%02d%02d%s", tlsVersion(version), sni, min(len(ciphers), 99), min(len(exts), 99), alpn)
 
 	sortedCiphers := hexList(ciphers)
 	slices.Sort(sortedCiphers)
+
 	b := strings.Join(sortedCiphers, ",")
 
 	var rest []profile.Code
@@ -104,8 +109,10 @@ func ja4(t *profile.TLS) string {
 			rest = append(rest, x)
 		}
 	}
+
 	sortedExts := hexList(rest)
 	slices.Sort(sortedExts)
+
 	c := strings.Join(sortedExts, ",")
 	if e := extension(t, profile.ExtSignatureAlgorithms); e != nil {
 		if algs := withoutGREASE(e.SignatureAlgorithms); len(algs) > 0 {
@@ -139,6 +146,7 @@ func alpnChars(v string) string {
 	if v == "" {
 		return "00"
 	}
+
 	first, last := v[0], v[len(v)-1]
 	if isAlnum(first) && isAlnum(last) {
 		return string([]byte{
@@ -146,6 +154,7 @@ func alpnChars(v string) string {
 			last,
 		})
 	}
+
 	h := hex.EncodeToString([]byte(v))
 
 	return string([]byte{
@@ -171,6 +180,7 @@ func truncatedHash(s string, empty bool) string {
 	if empty {
 		return "000000000000"
 	}
+
 	sum := sha256.Sum256([]byte(s))
 
 	return hex.EncodeToString(sum[:])[:12]
@@ -183,10 +193,12 @@ func akamai(h *profile.HTTP2) string {
 	for i, s := range h.Settings {
 		settings[i] = fmt.Sprintf("%d:%d", s.ID, s.Value)
 	}
+
 	window := "00"
 	if h.WindowUpdate != 0 {
 		window = strconv.FormatUint(uint64(h.WindowUpdate), 10)
 	}
+
 	priorities := "0"
 	if len(h.Priorities) > 0 {
 		parts := make([]string, len(h.Priorities))
@@ -195,10 +207,13 @@ func akamai(h *profile.HTTP2) string {
 			if p.Exclusive {
 				exclusive = 1
 			}
+
 			parts[i] = fmt.Sprintf("%d:%d:%d:%d", p.StreamID, exclusive, p.DependsOn, int(p.Weight)+1)
 		}
+
 		priorities = strings.Join(parts, ",")
 	}
+
 	pseudo := make([]string, len(h.PseudoHeaderOrder))
 	for i, name := range h.PseudoHeaderOrder {
 		pseudo[i] = name[1:2]

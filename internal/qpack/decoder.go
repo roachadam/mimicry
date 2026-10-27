@@ -49,11 +49,14 @@ func (d *Decoder) OnEncoderStream(b []byte) error {
 		if errors.Is(err, errIncomplete) {
 			return nil
 		}
+
 		if err != nil {
 			return fmt.Errorf("%w: %w", ErrEncoderStream, err)
 		}
+
 		d.in = d.in[n:]
 	}
+
 	d.in = nil
 
 	return nil
@@ -68,21 +71,25 @@ func (d *Decoder) instruction(b []byte) (int, error) {
 		if err != nil {
 			return 0, err
 		}
+
 		value, m, err := readString(b[n:], 7)
 		if err != nil {
 			return 0, err
 		}
+
 		var name string
 		if c&0x40 != 0 {
 			if index >= uint64(len(staticTable)) {
 				return 0, fmt.Errorf("static index %d", index)
 			}
+
 			name = staticTable[index][0]
 		} else {
 			en, err := d.relative(index)
 			if err != nil {
 				return 0, err
 			}
+
 			name = en.Name
 		}
 
@@ -90,11 +97,13 @@ func (d *Decoder) instruction(b []byte) (int, error) {
 			Name:  name,
 			Value: value,
 		})
+
 	case c&0x40 != 0:
 		name, n, err := readString(b, 5)
 		if err != nil {
 			return 0, err
 		}
+
 		value, m, err := readString(b[n:], 7)
 		if err != nil {
 			return 0, err
@@ -104,23 +113,28 @@ func (d *Decoder) instruction(b []byte) (int, error) {
 			Name:  name,
 			Value: value,
 		})
+
 	case c&0x20 != 0:
 		capacity, n, err := readInt(b, 5)
 		if err != nil {
 			return 0, err
 		}
+
 		if capacity > d.max {
 			return 0, fmt.Errorf("capacity %d above the maximum %d", capacity, d.max)
 		}
+
 		d.t.capacity = capacity
 		d.t.evictTo(capacity)
 
 		return n, nil
+
 	default:
 		index, n, err := readInt(b, 5)
 		if err != nil {
 			return 0, err
 		}
+
 		en, err := d.relative(index)
 		if err != nil {
 			return 0, err
@@ -136,6 +150,7 @@ func (d *Decoder) relative(index uint64) (Field, error) {
 	if index >= d.t.inserted() {
 		return Field{}, fmt.Errorf("relative index %d", index)
 	}
+
 	en, ok := d.t.entry(d.t.inserted() - 1 - index)
 	if !ok {
 		return Field{}, fmt.Errorf("relative index %d is evicted", index)
@@ -148,6 +163,7 @@ func (d *Decoder) insert(f Field) error {
 	if entrySize(f.Name, f.Value) > d.t.capacity {
 		return errors.New("entry larger than the table")
 	}
+
 	d.t.insert(f)
 
 	return nil
@@ -162,15 +178,18 @@ func (d *Decoder) Decode(block []byte) ([]Field, uint64, error) {
 	if err != nil {
 		return nil, 0, err
 	}
+
 	if ric > d.t.inserted() {
 		return nil, ric, ErrBlocked
 	}
+
 	var fields []Field
 	for b := block[n:]; len(b) > 0; {
 		f, n, err := d.line(b, ric, base)
 		if err != nil {
 			return nil, ric, fmt.Errorf("%w: %w", ErrDecompression, err)
 		}
+
 		fields = append(fields, f)
 		b = b[n:]
 	}
@@ -185,37 +204,50 @@ func (d *Decoder) prefix(block []byte) (ric, base uint64, n int, err error) {
 	if err != nil {
 		return 0, 0, 0, fmt.Errorf("%w: %w", ErrDecompression, err)
 	}
+
 	if n >= len(block) {
 		return 0, 0, 0, fmt.Errorf("%w: truncated prefix", ErrDecompression)
 	}
+
 	sign := block[n]&0x80 != 0
+
 	delta, m, err := readInt(block[n:], 7)
 	if err != nil {
 		return 0, 0, 0, fmt.Errorf("%w: %w", ErrDecompression, err)
 	}
+
 	n += m
 	if enc == 0 {
 		return 0, 0, n, nil
 	}
+
 	maxEntries := d.max / 32
 	full := 2 * maxEntries
+
 	if enc > full {
 		return 0, 0, 0, fmt.Errorf("%w: encoded insert count %d", ErrDecompression, enc)
 	}
+
 	maxValue := d.t.inserted() + maxEntries
+
 	ric = maxValue/full*full + enc - 1
+
 	if ric > maxValue {
 		if ric <= full {
 			return 0, 0, 0, fmt.Errorf("%w: encoded insert count %d", ErrDecompression, enc)
 		}
+
 		ric -= full
 	}
+
 	if ric == 0 {
 		return 0, 0, 0, fmt.Errorf("%w: encoded insert count %d", ErrDecompression, enc)
 	}
+
 	if !sign {
 		return ric, ric + delta, n, nil
 	}
+
 	if delta >= ric {
 		return 0, 0, 0, fmt.Errorf("%w: delta base %d", ErrDecompression, delta)
 	}
@@ -229,6 +261,7 @@ func (d *Decoder) line(b []byte, ric, base uint64) (Field, int, error) {
 		if abs >= ric {
 			return Field{}, fmt.Errorf("index %d at or above the required insert count %d", abs, ric)
 		}
+
 		en, ok := d.t.entry(abs)
 		if !ok {
 			return Field{}, fmt.Errorf("index %d is evicted", abs)
@@ -253,15 +286,20 @@ func (d *Decoder) line(b []byte, ric, base uint64) (Field, int, error) {
 			Value: staticTable[index][1],
 		}, nil
 	}
-	var f Field
-	var n int
-	var err error
+
+	var (
+		f   Field
+		n   int
+		err error
+	)
+
 	switch c := b[0]; {
 	case c&0x80 != 0:
 		var index uint64
 		if index, n, err = readInt(b, 6); err != nil {
 			return Field{}, 0, err
 		}
+
 		if c&0x40 != 0 {
 			f, err = static(index)
 		} else {
@@ -269,42 +307,52 @@ func (d *Decoder) line(b []byte, ric, base uint64) (Field, int, error) {
 		}
 
 		return f, n, err
+
 	case c&0x40 != 0:
 		var index uint64
 		if index, n, err = readInt(b, 4); err != nil {
 			return Field{}, 0, err
 		}
+
 		if c&0x10 != 0 {
 			f, err = static(index)
 		} else {
 			f, err = relative(index)
 		}
+
 	case c&0x20 != 0:
 		if f.Name, n, err = readString(b, 3); err != nil {
 			return Field{}, 0, err
 		}
+
 	case c&0x10 != 0:
 		var index uint64
 		if index, n, err = readInt(b, 4); err != nil {
 			return Field{}, 0, err
 		}
+
 		f, err = dynamic(base + index)
 
 		return f, n, err
+
 	default:
 		var index uint64
 		if index, n, err = readInt(b, 3); err != nil {
 			return Field{}, 0, err
 		}
+
 		f, err = dynamic(base + index)
 	}
+
 	if err != nil {
 		return Field{}, 0, err
 	}
+
 	value, m, err := readString(b[n:], 7)
 	if err != nil {
 		return Field{}, 0, err
 	}
+
 	f.Value = value
 
 	return f, n + m, nil

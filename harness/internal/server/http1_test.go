@@ -41,12 +41,16 @@ func TestHTTP1RejectsBareLF(t *testing.T) {
 				_, _ = io.WriteString(client, tc.request)
 				_ = client.Close()
 			}()
+
 			c := &capture.Capture{}
 			err := serveHTTP1(srv, "x.test", c, DefaultScenario, &pageLog{}, func() {})
+
 			_ = srv.Close()
+
 			if err == nil || !strings.Contains(err.Error(), "CRLF") {
 				t.Errorf("serveHTTP1 error = %v, want a CRLF error", err)
 			}
+
 			if len(c.H1) != 0 {
 				t.Errorf("recorded %+v", c.H1)
 			}

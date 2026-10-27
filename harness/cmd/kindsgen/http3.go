@@ -47,24 +47,30 @@ func deriveH3(p *profile.Profile, dir string) error {
 	if err != nil {
 		return err
 	}
+
 	if len(reqs) == 0 {
 		return errors.New("no request over HTTP/3 in the h3 captures")
 	}
+
 	if err := h3Variants(p, dir, reqs, h3Drop(p, reqs)); err != nil {
 		return err
 	}
+
 	h, err := h3Headers(p, reqs)
 	if err != nil {
 		return fmt.Errorf("http3.headers: %w", err)
 	}
+
 	// Lists that are the HTTP/2 ones: no headers section.
 	if slices.Equal(h.PseudoHeaderOrder, p.HTTP2.PseudoHeaderOrder) && len(h.Drop) == 0 && h.AltUsed == nil && h.AltUsedNavigation == "" {
 		h = nil
 	}
+
 	p.HTTP3.Headers = h
 	if err := h2Urgencies(p, dir); err != nil {
 		return err
 	}
+
 	p.HTTP3.High, p.HTTP3.Low, err = h3Priorities(p, reqs)
 
 	return err
@@ -76,12 +82,14 @@ func deriveH3(p *profile.Profile, dir string) error {
 func h3Drop(p *profile.Profile, reqs []h3Request) []string {
 	sent := map[string]bool{}
 	kinds := map[string]bool{}
+
 	for _, q := range reqs {
 		kinds[q.kind] = true
 		for _, n := range q.names {
 			sent[n] = true
 		}
 	}
+
 	var out []string
 	for _, h := range h2List(p, reqs[0].kind) {
 		everywhere := h.Value != "" && !sent[h.Name]
@@ -90,10 +98,12 @@ func h3Drop(p *profile.Profile, reqs []h3Request) []string {
 				return o.Name == h.Name && o.Value != ""
 			})
 		}
+
 		if everywhere {
 			out = append(out, h.Name)
 		}
 	}
+
 	slices.Sort(out)
 
 	return out
@@ -105,15 +115,19 @@ func h3Drop(p *profile.Profile, reqs []h3Request) []string {
 // of the kind agrees on. Nil when the lists are the HTTP/2 ones.
 func h3Headers(p *profile.Profile, reqs []h3Request) (*profile.H3Headers, error) {
 	var errs []error
+
 	out := &profile.H3Headers{
 		PseudoHeaderOrder: reqs[0].pseudo,
 	}
+
 	for _, q := range reqs {
 		if !slices.Equal(q.pseudo, out.PseudoHeaderOrder) {
 			errs = append(errs, fmt.Errorf("%s: pseudo-headers %v, another request's %v", q.at, q.pseudo, out.PseudoHeaderOrder))
 		}
 	}
+
 	out.Drop = h3Drop(p, reqs)
+
 	anchors := map[string]*anchorSpan{}
 	// before and after are the headers some request sent before alt-used,
 	// and after it.
@@ -128,14 +142,17 @@ func h3Headers(p *profile.Profile, reqs []h3Request) (*profile.H3Headers, error)
 			}
 		}
 	}
+
 	for _, q := range reqs {
 		if err := checkH3Order(p, q, out.Drop); err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", q.at, err))
 			continue
 		}
+
 		if !slices.Contains(q.names, altUsed) {
 			continue
 		}
+
 		a := anchors[q.kind]
 		if a == nil {
 			a = &anchorSpan{
@@ -144,22 +161,27 @@ func h3Headers(p *profile.Profile, reqs []h3Request) (*profile.H3Headers, error)
 			}
 			anchors[q.kind] = a
 		}
+
 		a.add(names(h2List(p, q.kind)), q.names)
 	}
+
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)
 	}
+
 	for _, q := range reqs {
 		if (anchors[q.kind] != nil) != slices.Contains(q.names, altUsed) {
 			errs = append(errs, fmt.Errorf("%s: alt-used sent by some requests of %s only", q.at, q.kind))
 		}
 	}
+
 	for kind, a := range anchors {
 		list := names(h2List(p, kind))
 		if a.last >= a.first || a.last+1 >= len(list) {
 			errs = append(errs, fmt.Errorf("%s: alt-used goes after %q and before %q in different requests", kind, list[max(a.last, 0)], list[min(a.first, len(list)-1)]))
 			continue
 		}
+
 		// A header no request of the kind sent goes on the side other
 		// kinds show: page-set headers before, ones never sent over HTTP/3
 		// (cookie) after.
@@ -167,16 +189,20 @@ func h3Headers(p *profile.Profile, reqs []h3Request) (*profile.H3Headers, error)
 		for at < a.first && (list[at] == profile.OtherHeaders || before[list[at]] && !after[list[at]]) {
 			at++
 		}
+
 		anchor := list[at]
 		if kind == navigation {
 			out.AltUsedNavigation = anchor
 			continue
 		}
+
 		if out.AltUsed == nil {
 			out.AltUsed = map[string]string{}
 		}
+
 		out.AltUsed[kind] = anchor
 	}
+
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)
 	}
@@ -197,6 +223,7 @@ func (a *anchorSpan) add(list, got []string) {
 		if pos < 0 {
 			continue
 		}
+
 		if j < i {
 			a.last = max(a.last, pos)
 		} else if j > i {
@@ -210,6 +237,7 @@ func h2List(p *profile.Profile, kind string) []profile.Header {
 	if kind == navigation {
 		return p.Headers
 	}
+
 	if k := p.Kinds[kind]; k != nil {
 		return k.Headers
 	}
@@ -228,19 +256,23 @@ func checkH3Order(p *profile.Profile, q h3Request, drop []string) error {
 		h2List(p, q.kind),
 	}
 	variants := p.Variants
+
 	if q.kind != navigation {
 		if k := p.Kinds[q.kind]; k != nil {
 			variants = k.Variants
 		}
 	}
+
 	for _, v := range variants {
 		if len(v.Headers) > 0 {
 			lists = append(lists, v.Headers)
 		}
 	}
+
 	if lists[0] == nil {
 		return fmt.Errorf("the profile has no kind %s", q.kind)
 	}
+
 	for _, list := range lists {
 		order := slices.DeleteFunc(names(list), func(n string) bool {
 			return slices.Contains(drop, n) || n == profile.OtherHeaders
@@ -262,6 +294,7 @@ func subsequence(got, order []string) bool {
 		if j < 0 {
 			return false
 		}
+
 		i += j + 1
 	}
 
@@ -285,27 +318,37 @@ func h3Requests(dir string, p *profile.Profile) ([]h3Request, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	steps := h3Steps()
-	var out []h3Request
-	var errs []error
+
+	var (
+		out  []h3Request
+		errs []error
+	)
+
 	for _, f := range files {
 		path := f.Path
+
 		pages, err := loadFile(f)
 		if err != nil {
 			return nil, err
 		}
+
 		for si, page := range pages {
 			for ci, c := range page.QUIC {
 				if c.H3 == nil {
 					continue
 				}
+
 				for _, r := range c.H3.Requests {
 					at := fmt.Sprintf("%s: sample %d, QUIC connection %d, %s", filepath.Base(path), si+1, ci+1, r.Path)
+
 					kind, err := h3Kind(steps, r.Path)
 					if err != nil {
 						errs = append(errs, fmt.Errorf("%s: %w", at, err))
 						continue
 					}
+
 					q := h3Request{
 						at:            at,
 						source:        f.Source,
@@ -325,10 +368,12 @@ func h3Requests(dir string, p *profile.Profile) ([]h3Request, error) {
 								Value: f.Value,
 							})
 						}
+
 						if f.Name == "priority" {
 							q.priority = f.Value
 						}
 					}
+
 					out = append(out, q)
 				}
 			}
@@ -347,10 +392,12 @@ func h3Kind(steps map[string]server.H3Step, path string) (string, error) {
 	case "/done":
 		return profile.KindFetch, nil
 	}
+
 	st, ok := steps[path]
 	if !ok {
 		return "", errors.New("no h3 step makes it")
 	}
+
 	switch st.Kind {
 	case "navigate":
 		return navigation, nil
@@ -365,12 +412,14 @@ func h3Kind(steps map[string]server.H3Step, path string) (string, error) {
 		}
 
 		return profile.KindScript, nil
+
 	case "image":
 		if st.Tag == "" {
 			return profile.KindInjectedImage, nil
 		}
 
 		return profile.KindImage, nil
+
 	case "iframe":
 		return profile.KindFrame, nil
 	case "font", "fetch", "xhr", "beacon":
@@ -385,6 +434,7 @@ func h3Kind(steps map[string]server.H3Step, path string) (string, error) {
 // the HTTP/3 value becomes http3.high or http3.low.
 func h3Priorities(p *profile.Profile, reqs []h3Request) (high, low map[string]string, err error) {
 	var errs []error
+
 	measured := func(level string, got map[string]string, q h3Request, kind *profile.Kind) {
 		var u *profile.Urgency
 		if kind != nil {
@@ -393,6 +443,7 @@ func h3Priorities(p *profile.Profile, reqs []h3Request) (high, low map[string]st
 				u = kind.Low
 			}
 		}
+
 		switch v, seen := got[q.kind]; {
 		case u != nil && u.Priority != q.priority:
 			errs = append(errs, fmt.Errorf("%s: fetchpriority %s with priority %q, the kind's %q", q.at, level, q.priority, u.Priority))
@@ -403,7 +454,9 @@ func h3Priorities(p *profile.Profile, reqs []h3Request) (high, low map[string]st
 			got[q.kind] = q.priority
 		}
 	}
+
 	high, low = map[string]string{}, map[string]string{}
+
 	for _, q := range reqs {
 		kind := p.Kinds[q.kind]
 		switch q.fetchPriority {
@@ -421,9 +474,11 @@ func h3Priorities(p *profile.Profile, reqs []h3Request) (high, low map[string]st
 			}
 		}
 	}
+
 	if len(high) == 0 {
 		high = nil
 	}
+
 	if len(low) == 0 {
 		low = nil
 	}
@@ -438,14 +493,17 @@ func defaultPriority(p *profile.Profile, q h3Request) bool {
 		h2List(p, q.kind),
 	}
 	variants := p.Variants
+
 	if q.kind != navigation {
 		variants = p.Kinds[q.kind].Variants
 	}
+
 	for _, v := range variants {
 		if len(v.Headers) > 0 {
 			lists = append(lists, v.Headers)
 		}
 	}
+
 	for _, list := range lists {
 		value, ok := headerValue(list, "priority")
 		if ok && value == q.priority || !ok && q.priority == "" {
@@ -464,36 +522,47 @@ func h2Urgencies(p *profile.Profile, dir string) error {
 	if err != nil {
 		return err
 	}
+
 	steps := h3Steps()
+
 	type key struct {
 		kind, level string
 	}
+
 	groups := map[key][]*request{}
+
 	var order []key
+
 	for _, f := range files {
 		path := f.Path
+
 		pages, err := loadFile(f)
 		if err != nil {
 			return err
 		}
+
 		for si, page := range pages {
 			for _, q := range h2Requests(page, si, "/h3/") {
 				st, ok := steps[q.path]
 				if !ok || st.Priority == "" {
 					continue
 				}
+
 				kind, err := h3Kind(steps, q.path)
 				if err != nil {
 					return fmt.Errorf("%s: %w", path, err)
 				}
+
 				k := key{kind, st.Priority}
 				if _, seen := groups[k]; !seen {
 					order = append(order, k)
 				}
+
 				groups[k] = append(groups[k], q)
 			}
 		}
 	}
+
 	var errs []error
 	for _, k := range order {
 		got, err := urgencyOf(groups[k])
@@ -501,15 +570,18 @@ func h2Urgencies(p *profile.Profile, dir string) error {
 			errs = append(errs, fmt.Errorf("%s fetchpriority %s over HTTP/2 in the h3 pages: %w", k.kind, k.level, err))
 			continue
 		}
+
 		kind := p.Kinds[k.kind]
 		if kind == nil {
 			errs = append(errs, fmt.Errorf("the profile has no kind %s", k.kind))
 			continue
 		}
+
 		have := &kind.High
 		if k.level == "low" {
 			have = &kind.Low
 		}
+
 		switch {
 		case *have == nil:
 			*have = got

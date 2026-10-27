@@ -102,6 +102,7 @@ var sites = []site{
 // the profile resumes.
 func runSite(ctx context.Context, st site, np namedProfile, out string, seed uint64) (r result) {
 	dir := filepath.Join(out, "public", st.host, np.name)
+
 	_ = os.MkdirAll(dir, 0o750)
 	r = result{
 		Target:  st.host,
@@ -110,33 +111,43 @@ func runSite(ctx context.Context, st site, np namedProfile, out string, seed uin
 		Outcome: pass,
 		Dir:     dir,
 	}
+
 	start := time.Now()
+
 	defer func() {
 		r.MS = ms(time.Since(start))
 	}()
+
 	origin := "https://" + st.host
 	large := ""
+
 	if st.large != "" {
 		large = origin + st.large
 	}
+
 	steps, sum := engineFlow(ctx, mimicry.Config{
 		Profile:     np.p,
 		DialTimeout: 15 * time.Second,
 	}, origin+st.home, large)
+
 	r.Engine, r.EngineSummary = steps, sum
+
 	for _, s := range steps {
 		if s.Err != "" {
 			r.failf("engine %s: %s", s.Step, s.Err)
 		}
 	}
+
 	port := h3Port(sum.AltSvc)
 	if port == 0 {
 		r.Outcome, r.Note = na, "no Alt-Svc h3 on the first response"
 		return r
 	}
+
 	if !sum.H3 {
 		r.failf("engine: no request went over HTTP/3")
 	}
+
 	probeSite(ctx, st, np, dir, seed, port, &r)
 
 	return r
@@ -147,42 +158,53 @@ func probeSite(ctx context.Context, st site, np namedProfile, dir string, seed u
 	addrs, err := net.DefaultResolver.LookupNetIP(ctx, "ip", st.host)
 	if err != nil || len(addrs) == 0 {
 		r.failf("probe: lookup: %v", err)
+
 		return
 	}
+
 	peer := netip.AddrPortFrom(addrs[0].Unmap(), port)
 	pr := newProber(np.p, nil, dir, seed)
 	paths := []string{st.home}
+
 	if st.large != "" {
 		paths = append(paths, st.large)
 	}
+
 	for i := range 2 {
 		cctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+
 		c, err := pr.dial(cctx, st.host, peer, impairment{})
 		if err != nil {
 			if c != nil {
 				r.Conns = append(r.Conns, c.facts())
 			}
+
 			r.failf("probe connection %d: %s", i+1, errString(err))
 			pr.close(c)
 			cancel()
 
 			return
 		}
+
 		fs := getAll(cctx, pr, c, paths, false)
 		if i == 0 {
 			pr.waitTicket(cctx, 2*time.Second)
 		}
+
 		r.Conns = append(r.Conns, c.facts())
 		pr.close(c)
 		cancel()
+
 		r.Fetches = append(r.Fetches, fs...)
 		for _, f := range fs {
 			if f.Err != "" {
 				r.failf("probe connection %d: GET %s: %s", i+1, f.Path, f.Err)
 			}
 		}
+
 		paths = []string{st.home}
 	}
+
 	second := r.Conns[len(r.Conns)-1]
 	switch {
 	case !pr.resumes():

@@ -168,9 +168,11 @@ func New(t Transport, r io.Reader, cfg Config) (*Conn, error) {
 		if err != nil {
 			return nil, fmt.Errorf("ws: profile %s fails the socket: %w", cfg.Name, err)
 		}
+
 		c.deflater = w
 		c.inflater = zdeflate.NewReader()
 	}
+
 	go c.readLoop()
 
 	return c, nil
@@ -186,6 +188,7 @@ func (c *Conn) ReadMessage(ctx context.Context) (Message, error) {
 		}
 
 		return m, nil
+
 	case <-ctx.Done():
 		return Message{}, ctx.Err()
 	}
@@ -198,19 +201,27 @@ func (c *Conn) WriteMessage(ctx context.Context, opcode byte, p []byte) error {
 	if opcode != OpText && opcode != OpBinary {
 		return fmt.Errorf("ws: opcode %#x is not a data message", opcode)
 	}
+
 	if opcode == OpText && !utf8.Valid(p) {
 		return errors.New("ws: a text message must be UTF-8")
 	}
+
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
+
 	c.mu.Lock()
+
 	closing := c.sentClose || c.gotClose
 	c.mu.Unlock()
+
 	if closing {
 		return ErrClosing
 	}
+
 	var rsv byte
+
 	payload := p
+
 	if c.deflater != nil {
 		var compressed bool
 		if payload, compressed = c.deflater.Message(p); compressed {
@@ -229,6 +240,7 @@ func (c *Conn) writeFrame(ctx context.Context, opcode, rsv byte, payload []byte,
 	if c.failed != nil {
 		return c.failed
 	}
+
 	h := Header{
 		Fin:    true,
 		RSV:    rsv,
@@ -239,10 +251,13 @@ func (c *Conn) writeFrame(ctx context.Context, opcode, rsv byte, payload []byte,
 	if _, err := io.ReadFull(c.cfg.Rand, h.Mask[:]); err != nil {
 		return err
 	}
+
 	frame := AppendHeader(make([]byte, 0, 14+len(payload)), h)
 	head := len(frame)
+
 	frame = append(frame, payload...)
 	MaskBytes(h.Mask, 0, frame[head:])
+
 	if err := c.t.Send(ctx, c.parts(frame, head, opcode, reply), end); err != nil {
 		// Part of the frame may be on the wire: nothing can follow it.
 		c.failed = fmt.Errorf("ws: writing a frame failed: %w", err)
@@ -260,12 +275,14 @@ func (c *Conn) parts(frame []byte, head int, opcode byte, reply bool) [][]byte {
 	if !c.cfg.H2 {
 		return [][]byte{frame}
 	}
+
 	switch c.cfg.Profile.H2Data {
 	case profile.H2DataHeaderAlone:
 		// Firefox writes a payload over kCopyBreak apart from its header.
 		if len(frame)-head > headerAloneAfter {
 			return [][]byte{frame[:head], frame[head:]}
 		}
+
 	case profile.H2DataSplitControl:
 		if reply && opcode >= OpClose {
 			// Control frames have a 2-byte header and a 4-byte mask.
@@ -299,37 +316,50 @@ func (c *Conn) Close(code int, reason string) error {
 	if code != 1000 && (code < 3000 || code > 4999) {
 		return fmt.Errorf("ws: close code %d: browsers send 1000 or 3000 to 4999", code)
 	}
+
 	if len(reason) > maxControl-2 || !utf8.ValidString(reason) {
 		return errors.New("ws: a close reason is at most 123 bytes of UTF-8")
 	}
+
 	c.wmu.Lock()
 	c.mu.Lock()
+
 	send := !c.sentClose && !c.gotClose
 	c.markSent()
 	c.mu.Unlock()
+
 	var err error
 	if send {
 		payload := binary.BigEndian.AppendUint16(nil, uint16(code))
+
 		payload = append(payload, reason...)
+
 		err = c.writeFrame(context.Background(), OpClose, 0, payload, false, c.closeEnds())
 		if err == nil {
 			c.mu.Lock()
+
 			if !c.gotClose {
 				c.abort = c.cfg.Clock.AfterFunc(closeTimeout, func() {
 					_ = c.t.Close()
 				})
 			}
+
 			c.mu.Unlock()
 		}
 	}
+
 	c.wmu.Unlock()
+
 	if err != nil {
 		return err
 	}
+
 	<-c.closing
+
 	if c.waitsForEnd() {
 		<-c.ended
 	}
+
 	if _, ok := errors.AsType[*CloseError](c.readErr); !ok {
 		// The transport ended without the server's close frame.
 		return c.readErr
@@ -358,19 +388,24 @@ func (c *Conn) readLoop() {
 		// The close handshake is done: end the transport as the browser
 		// does, reading on to see whether the server ends it first.
 		c.handshakeDone(ce)
+
 		err = c.drain()
 	} else {
 		c.handshakeDone(err)
 	}
+
 	if errors.Is(err, io.EOF) {
 		c.t.Release()
 	} else {
 		_ = c.t.Close()
 	}
+
 	c.mu.Lock()
+
 	if c.abort != nil {
 		c.abort.Stop()
 	}
+
 	c.mu.Unlock()
 	close(c.ended)
 }
@@ -381,6 +416,7 @@ func (c *Conn) handshakeDone(err error) {
 		if errors.Is(err, io.EOF) {
 			err = io.ErrUnexpectedEOF
 		}
+
 		c.readErr = err
 		close(c.msgs)
 		close(c.closing)
@@ -393,20 +429,25 @@ func (c *Conn) handshakeDone(err error) {
 func (c *Conn) drain() error {
 	wait := serverLinger
 	ws := c.cfg.Profile
+
 	switch {
 	case c.cfg.H2 && ws.CloseH2 == profile.CloseResetStream, !c.cfg.H2 && ws.CloseH1 == profile.CloseAtOnce:
 		wait = 0
 	case !c.cfg.H2 && ws.CloseH1 == profile.CloseAfterWait:
 		wait = time.Duration(ws.CloseWaitMillis) * time.Millisecond
 	}
+
 	if wait == 0 {
 		_ = c.t.Close()
 		return nil
 	}
+
 	t := c.cfg.Clock.AfterFunc(wait, func() {
 		_ = c.t.Close()
 	})
+
 	defer t.Stop()
+
 	_, err := io.Copy(io.Discard, c.br)
 	if err == nil && t.Stop() {
 		// The server ended the transport before the wait was over.
@@ -430,9 +471,11 @@ func (c *Conn) read() error {
 		if err != nil {
 			return err
 		}
+
 		if h.Masked {
 			return fmt.Errorf("%w: a masked frame from the server", errProtocol)
 		}
+
 		data := h.Opcode < OpClose
 		switch {
 		case h.RSV&^rsv1 != 0, h.RSV != 0 && (c.cfg.Deflate == nil || h.Opcode != OpText && h.Opcode != OpBinary):
@@ -444,43 +487,55 @@ func (c *Conn) read() error {
 		case data && int64(message.Len())+h.Length > MaxMessage:
 			return fmt.Errorf("ws: a message of more than %d bytes", MaxMessage)
 		}
+
 		if !data {
 			payload := make([]byte, h.Length)
 			if _, err := io.ReadFull(c.br, payload); err != nil {
 				return unexpected(err)
 			}
+
 			if done, err := c.control(h.Opcode, payload); done || err != nil {
 				return err
 			}
 
 			continue
 		}
+
 		if h.Opcode != OpContinuation {
 			inMessage, opcode, compressed = true, h.Opcode, h.RSV&rsv1 != 0
+
 			message.Reset()
 		}
+
 		if _, err := io.CopyN(&message, c.br, h.Length); err != nil {
 			return unexpected(err)
 		}
+
 		if !h.Fin {
 			continue
 		}
+
 		inMessage = false
+
 		payload := bytes.Clone(message.Bytes())
+
 		if compressed {
 			if c.cfg.Deflate.ServerNoContextTakeover {
 				c.inflater = zdeflate.NewReader()
 			}
+
 			if payload, err = c.inflater.Message(payload, MaxMessage); err != nil {
 				return err
 			}
 		}
+
 		select {
 		case <-c.stop:
 			// Our close went out: browsers deliver nothing after it.
 			continue
 		default:
 		}
+
 		select {
 		case <-c.stop:
 		case c.msgs <- Message{
@@ -499,14 +554,18 @@ func (c *Conn) control(opcode byte, payload []byte) (done bool, err error) {
 	case OpPing:
 		c.wmu.Lock()
 		defer c.wmu.Unlock()
+
 		c.mu.Lock()
+
 		closing := c.sentClose
 		c.mu.Unlock()
+
 		if closing {
 			return false, nil
 		}
 
 		return false, c.writeFrame(context.Background(), OpPong, 0, payload, true, false)
+
 	case OpClose:
 		ce := &CloseError{
 			Code: 1005,
@@ -517,20 +576,27 @@ func (c *Conn) control(opcode byte, payload []byte) (done bool, err error) {
 		case len(payload) >= 2:
 			ce.Code = int(binary.BigEndian.Uint16(payload))
 			ce.Reason = string(payload[2:])
+
 			if !utf8.ValidString(ce.Reason) {
 				return false, fmt.Errorf("%w: a close reason that is not UTF-8", errProtocol)
 			}
 		}
+
 		c.wmu.Lock()
 		defer c.wmu.Unlock()
+
 		c.mu.Lock()
+
 		reply := !c.sentClose
 		c.markSent()
+
 		c.gotClose = true
 		if c.abort != nil {
 			c.abort.Stop()
 		}
+
 		c.mu.Unlock()
+
 		if reply {
 			if err := c.writeFrame(context.Background(), OpClose, 0, payload, true, c.closeEnds()); err != nil {
 				return false, err
@@ -539,6 +605,7 @@ func (c *Conn) control(opcode byte, payload []byte) (done bool, err error) {
 
 		return true, ce
 	}
+
 	// A pong: nothing to do.
 	return false, nil
 }

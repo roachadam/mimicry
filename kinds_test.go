@@ -17,9 +17,12 @@ import (
 // headersSeen serves h2 and records each request's headers.
 func headersSeen(t *testing.T) (testServer, *[]http.Header) {
 	t.Helper()
+
 	var seen []http.Header
+
 	s := server(t, true, func(w http.ResponseWriter, r *http.Request) {
 		seen = append(seen, r.Header.Clone())
+
 		w.WriteHeader(http.StatusNoContent)
 	})
 
@@ -28,6 +31,7 @@ func headersSeen(t *testing.T) (testServer, *[]http.Header) {
 
 func send(t *testing.T, rt http.RoundTripper, req *http.Request) error {
 	t.Helper()
+
 	resp, err := rt.RoundTrip(req)
 	if err != nil {
 		return err
@@ -38,6 +42,7 @@ func send(t *testing.T, rt http.RoundTripper, req *http.Request) error {
 
 func newRequest(t *testing.T, url string) *http.Request {
 	t.Helper()
+
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, url, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -58,6 +63,7 @@ func TestKindsComeFromLastNavigation(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+
 	got := (*seen)[1]
 	if got.Get("Referer") != s.url+"/page?q=1" || got.Get("Sec-Fetch-Site") != "same-origin" || got.Get("Sec-Fetch-Dest") != "empty" {
 		t.Errorf("fetch after navigating to /page?q=1: Referer %q, Sec-Fetch-Site %q, Sec-Fetch-Dest %q", got.Get("Referer"), got.Get("Sec-Fetch-Site"), got.Get("Sec-Fetch-Dest"))
@@ -72,9 +78,11 @@ func TestRefusedRequests(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	css := page.JoinPath("style.css")
 	noFormPost := func() *profile.Profile {
 		p := profiles.Chrome()
+
 		p.Variants = slices.DeleteFunc(p.Variants, func(v profile.Variant) bool {
 			return v.Method == http.MethodPost && !v.Insecure
 		})
@@ -123,6 +131,7 @@ func TestRefusedRequests(t *testing.T) {
 			if tc.profile != nil {
 				p = tc.profile()
 			}
+
 			e := &fakeEngine{answer: func(req *http.Request) *http.Response {
 				if req.URL.Path != "/r" {
 					return nil
@@ -136,29 +145,36 @@ func TestRefusedRequests(t *testing.T) {
 				}
 			}}
 			target := tc.url
+
 			if target == "" {
 				target = "https://www.a.test/x"
 			}
+
 			req, err := http.NewRequestWithContext(t.Context(), tc.method, target, tc.body)
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if tc.body != nil {
 				req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 			}
+
 			if tc.r != nil {
 				tc.r.From = page
 				req = With(req, *tc.r)
 			}
+
 			if tc.follow {
 				client, err := NewClient(Config{Profile: p, engine: e})
 				if err != nil {
 					t.Fatal(err)
 				}
+
 				resp, err := client.Do(req)
 				if err == nil {
 					_ = resp.Body.Close()
 				}
+
 				if err == nil || !strings.Contains(err.Error(), "GetBody") {
 					t.Errorf("got %v, want the missing GetBody", err)
 				}
@@ -167,10 +183,12 @@ func TestRefusedRequests(t *testing.T) {
 				if err == nil {
 					t.Error("sent, want an error")
 				}
+
 				if tc.notMeasured && !errors.Is(err, ErrNotMeasured) {
 					t.Errorf("got %v, want ErrNotMeasured", err)
 				}
 			}
+
 			if len(e.sent) != tc.sent {
 				t.Errorf("%d sent, want %d", len(e.sent), tc.sent)
 			}
@@ -184,10 +202,12 @@ func TestRefusedRequests(t *testing.T) {
 // measured, never sent in a guessed order.
 func TestHTTP2OnlyVariantOverHTTP1(t *testing.T) {
 	var served atomic.Int32
+
 	s := server(t, false, func(w http.ResponseWriter, _ *http.Request) {
 		served.Add(1)
 		w.WriteHeader(http.StatusNoContent)
 	})
+
 	for _, tc := range []struct {
 		name string
 		p    *profile.Profile
@@ -205,15 +225,19 @@ func TestHTTP2OnlyVariantOverHTTP1(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, s.url+"/submit", strings.NewReader("a=1"))
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 			srvTr, ok := s.srv.Client().Transport.(*http.Transport)
 			if !ok {
 				t.Fatalf("httptest client Transport is %T", s.srv.Client().Transport)
 			}
+
 			tr, err := NewTransport(Config{
 				Profile: tc.p,
 				RootCAs: srvTr.TLSClientConfig.RootCAs,
@@ -221,12 +245,15 @@ func TestHTTP2OnlyVariantOverHTTP1(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			t.Cleanup(tr.CloseIdleConnections)
+
 			if err := send(t, tr, With(req, Request{From: page})); !errors.Is(err, ErrNotMeasured) {
 				t.Errorf("got %v, want ErrNotMeasured", err)
 			}
 		})
 	}
+
 	if n := served.Load(); n != 0 {
 		t.Errorf("server saw %d requests, want none", n)
 	}

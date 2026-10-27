@@ -113,6 +113,7 @@ const ClickTitle = "mimicry-click"
 // (ClickTitle).
 func (sc *Scenario) Clicks() bool {
 	steps, _ := sc.RedirectSteps()
+
 	return slices.ContainsFunc(steps, func(s Redirects2Step) bool {
 		return s.Click
 	})
@@ -207,22 +208,27 @@ func Redirects2Steps() []Redirects2Step {
 			Hops:   1,
 		}
 	}
+
 	for _, status := range []int{307, 308} {
 		steps = append(steps, withMethod("PUT", "x", "so", redirHost, status))
 	}
+
 	for _, site := range sites {
 		for _, status := range []int{307, 308} {
 			steps = append(steps, withMethod("POST", "x", site.name, site.host, status))
 		}
 	}
+
 	for _, status := range []int{301, 302, 303} {
 		steps = append(steps, withMethod("HEAD", "", "so", redirHost, status))
 	}
+
 	for _, site := range sites {
 		for _, status := range []int{301, 302, 303, 307, 308} {
 			steps = append(steps, withMethod("PATCH", "x", site.name, site.host, status))
 		}
 	}
+
 	for _, site := range sites {
 		for _, status := range []int{301, 302, 303, 307, 308} {
 			steps = append(steps, Redirects2Step{
@@ -259,6 +265,7 @@ func (p redirects2Page) answer(req request) response {
 	path, _, _ := strings.Cut(req.path, "?")
 	notFound := response{status: 404, contentType: "text/plain", body: []byte("not found\n")}
 	steps, home := p.steps, p.names[0]
+
 	switch {
 	case path == "/done":
 		return response{status: 200, contentType: "text/plain", body: []byte("ok\n")}
@@ -267,6 +274,7 @@ func (p redirects2Page) answer(req request) response {
 	case host == home && path == "/":
 		return htmlResponse(redirRootPage(steps, origin))
 	}
+
 	if label, ok := strings.CutPrefix(path, "/s/"); ok {
 		i := slices.IndexFunc(steps, func(s Redirects2Step) bool {
 			return s.Label == label
@@ -277,42 +285,53 @@ func (p redirects2Page) answer(req request) response {
 
 		return htmlResponse(redirStartPage(steps[i], origin))
 	}
+
 	target, ok := strings.CutPrefix(path, "/p/")
 	if !ok {
 		return notFound
 	}
+
 	label, hop := target, 0
 	if l, n, ok := strings.Cut(target, ".hop"); ok {
 		var err error
 		if hop, err = strconv.Atoi(n); err != nil || hop < 1 {
 			return notFound
 		}
+
 		label = l
 	}
+
 	i := slices.IndexFunc(steps, func(s Redirects2Step) bool {
 		return s.Label == label
 	})
 	if i < 0 {
 		return notFound
 	}
+
 	s := steps[i]
 	want := s.Host
+
 	if hop > 0 {
 		want = s.HopHost()
 	}
+
 	if host != want || hop > s.Hops {
 		return notFound
 	}
+
 	var cors []hpack.HeaderField
 	if req.origin != "" && !s.Nav() {
 		cors = corsAllow(req.origin)
 	}
+
 	if req.method == "OPTIONS" {
 		return response{status: 204, contentType: "text/plain", headers: preflightAllow(cors, "GET, HEAD, POST, PUT, PATCH", req.preflightHeaders)}
 	}
+
 	if hop == s.Hops {
 		return redirLast(steps, i, home, req.method, cors, origin)
 	}
+
 	r := response{status: s.Status, contentType: "text/plain"}
 	switch {
 	case s.NoACAO:
@@ -321,6 +340,7 @@ func (p redirects2Page) answer(req request) response {
 	default:
 		r.headers = cors
 	}
+
 	r.headers = append(slices.Clone(r.headers), hpack.HeaderField{
 		Name:  "location",
 		Value: origin(s.HopHost()) + "/p/" + s.Label + ".hop" + strconv.Itoa(hop+1),
@@ -349,11 +369,13 @@ func redirLast(steps []Redirects2Step, i int, home, method string, cors []hpack.
 		}
 
 		return htmlResponse(htmlPage("redirects2", "", pageScript([]string{next})))
+
 	case RedirectImage, RedirectImageMarkup, RedirectImageNew:
 		return response{status: 200, contentType: "image/png", body: png, headers: cors}
 	case RedirectScript:
 		return response{status: 200, contentType: "text/javascript", body: []byte(";\n"), headers: cors}
 	}
+
 	r := response{status: 200, contentType: "application/json", body: []byte("{}\n"), headers: cors}
 	if method == "HEAD" {
 		r.body = nil
@@ -412,13 +434,17 @@ func redirFirstPage(steps []Redirects2Step, origin func(string) string) []string
 			if s.Method != "" {
 				init = append(init, "method: "+strconv.Quote(s.Method))
 			}
+
 			if s.Body != "" {
 				init = append(init, "body: "+strconv.Quote(s.Body))
 			}
+
 			if s.Credentials != "" {
 				init = append(init, "credentials: "+strconv.Quote(s.Credentials))
 			}
+
 			out = append(out, fmt.Sprintf("await f(%s, {%s});", u, strings.Join(init, ", ")))
+
 		default:
 			return append(out, fmt.Sprintf("location.href = %s;", strconv.Quote("/s/"+s.Label)))
 		}
@@ -435,13 +461,17 @@ func redirFirstPage(steps []Redirects2Step, origin func(string) string) []string
 func redirStartPage(s Redirects2Step, origin func(string) string) []byte {
 	u := redirURL(s, origin)
 	arm := fmt.Sprintf("await arm(%d)", redirWatch.Milliseconds())
+
 	const fill = ` id="go" style="position: fixed; inset: 0; width: 100%; height: 100%"`
+
 	click := fmt.Sprintf("document.title = %s;", strconv.Quote(ClickTitle))
+
 	if s.Kind == RedirectNavigate {
 		watch := arm + ";"
 		if s.Hops > navFollowed {
 			watch = "if (!(" + arm + ")) {\nfetch(\"/done\");\nreturn;\n}"
 		}
+
 		if s.Click {
 			return htmlPage("redirects2", "", `<a`+fill+` href="`+html.EscapeString(u)+`">go</a>`+"\n"+pageScript([]string{
 				watch,
@@ -454,11 +484,14 @@ func redirStartPage(s Redirects2Step, origin func(string) string) []byte {
 			fmt.Sprintf("location.href = %s;", strconv.Quote(u)),
 		}))
 	}
+
 	name, value, _ := strings.Cut(s.Body, "=")
 	submit, send := "", "document.forms[0].submit();"
+
 	if s.Click {
 		submit, send = `<button`+fill+`>go</button>`, click
 	}
+
 	form := `<form method="` + strings.ToLower(s.Method) + `" action="` + html.EscapeString(u) + `"><input type="hidden" name="` + html.EscapeString(name) + `" value="` + html.EscapeString(value) + `">` + submit + `</form>` + "\n"
 
 	return htmlPage("redirects2", "", form+pageScript([]string{

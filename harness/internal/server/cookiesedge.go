@@ -99,6 +99,7 @@ func edgeManyCookies() []string {
 	out := make([]string, 0, edgeManyCount)
 	for i := range edgeManyCount {
 		name := fmt.Sprintf("e_m%03d", i)
+
 		out = append(out, name+"="+cookieValue(name, 16)+"; Path=/; Max-Age=600")
 	}
 
@@ -169,18 +170,22 @@ type cookiesEdgePage struct {
 func (p cookiesEdgePage) answer(req request) response {
 	host, port := splitAuthority(req.host)
 	path, _, _ := strings.Cut(req.path, "?")
+
 	if path == "/done" {
 		return response{status: 200, contentType: "text/plain", body: []byte("ok\n")}
 	}
+
 	steps := CookiesEdgeSteps()
 	for i, s := range steps {
 		if s.Host != host || s.Path != path {
 			continue
 		}
+
 		r := response{status: 200, contentType: "text/plain", body: []byte("ok\n")}
 		if s.Nav {
 			r = response{status: 200, contentType: "text/html; charset=utf-8", body: htmlPage("cookies-edge", "", "<script>"+edgeScript(steps[i+1:], port)+"</script>\n")}
 		}
+
 		for _, c := range s.Sets {
 			r.headers = append(r.headers, hpack.HeaderField{
 				Name:  "set-cookie",
@@ -200,18 +205,22 @@ func (p cookiesEdgePage) answer(req request) response {
 func edgeScript(rest []CookiesEdgeStep, port string) string {
 	var b strings.Builder
 	b.WriteString("(async () => {\nconst get = u => Promise.race([fetch(u, {credentials: \"include\"}).then(r => r.text()).catch(() => {}), new Promise(d => setTimeout(d, 5000))]);\n")
+
 	for _, s := range rest {
 		if s.Nav {
 			scheme := "https://"
 			if s.Plain {
 				scheme = "http://"
 			}
+
 			fmt.Fprintf(&b, "location.href = %s;\n})();", strconv.Quote(scheme+net.JoinHostPort(s.Host, port)+s.Path))
 
 			return b.String()
 		}
+
 		fmt.Fprintf(&b, "await get(%s);\n", strconv.Quote(s.Path))
 	}
+
 	b.WriteString("fetch(\"/done\");\n})();")
 
 	return b.String()

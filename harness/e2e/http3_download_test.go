@@ -24,44 +24,61 @@ func TestHTTP3DownloadMatchesBrowser(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+
 			p, err := loadProfile(name)
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if p.HTTP3 == nil || p.QUIC == nil {
 				t.Fatal("the profile has no http3 or quic section")
 			}
+
 			want := h3Captures(t, p, server.H3Download)
 			byWindow := p.QUIC.Credit.ConnectionStreamWindow
 			refs := make([]*quictrace.Conn, 0, len(want))
+
 			for i, page := range want {
 				c := downloadConn(t, page)
+
 				refs = append(refs, c)
+
 				violations, summary := bulkRuleViolations(p.QUIC, c)
+
 				if byWindow {
 					v, s := windowCreditViolations(c)
+
 					violations, summary = append(violations, v...), summary+"; "+s
 				}
+
 				for _, v := range violations {
 					t.Errorf("sample %d: the profile's rule does not describe the browser: %s", i+1, v)
 				}
+
 				t.Logf("sample %d: %s", i+1, summary)
 			}
+
 			got := runH3Page(t, p, server.H3Download, want[0])
 			c := downloadConn(t, got)
 			violations, summary := bulkRuleViolations(p.QUIC, c)
+
 			if byWindow {
 				v, s := windowCreditViolations(c)
+
 				violations, summary = append(violations, v...), summary+"; "+s
 			}
+
 			for _, v := range violations {
 				t.Errorf("mimicry: %s", v)
 			}
+
 			t.Logf("mimicry: %s", summary)
 			compareCredit(t, "MAX_STREAM_DATA", streamCredit(c), mapEachConn(refs, streamCredit))
+
 			if !byWindow {
 				compareCredit(t, "MAX_DATA", connCredit(c), mapEachConn(refs, connCredit))
 			}
+
 			afterDownload(t, got)
 		})
 	}
@@ -71,12 +88,14 @@ func TestHTTP3DownloadMatchesBrowser(t *testing.T) {
 // the one the server sent most to.
 func downloadConn(t *testing.T, page *capture.Page) *quictrace.Conn {
 	t.Helper()
+
 	var best *quictrace.Conn
 	for _, c := range page.QUIC {
 		if best == nil || len(c.Server) > len(best.Server) {
 			best = c
 		}
 	}
+
 	if best == nil || len(best.Server) < downloadPackets {
 		t.Fatal("no QUIC connection carried the download")
 	}
@@ -109,12 +128,14 @@ type bulkEvent struct {
 // (opened) and the server's (header protection removed).
 func bulkEvents(c *quictrace.Conn) []bulkEvent {
 	var out []bulkEvent
+
 	add := func(dgs []quictrace.Datagram, client bool) {
 		for _, dg := range dgs {
 			for _, pk := range dg.Packets {
 				if pk.Type != quictrace.Packet1RTT || pk.Error != "" {
 					continue
 				}
+
 				out = append(out, bulkEvent{
 					micros: dg.Micros,
 					client: client,
@@ -141,21 +162,27 @@ const keyPhaseBit = 0x04
 // update and ACK rules during the download, and sums up what it did.
 func bulkRuleViolations(q *profile.QUIC, c *quictrace.Conn) (out []string, summary string) {
 	events := bulkEvents(c)
+
 	var serverPhase, clientPhase bool
+
 	serverFlips, clientFlips := 0, 0
+
 	for _, e := range events {
 		switch {
 		case !e.client && e.phase != serverPhase:
 			serverPhase = e.phase
 			serverFlips++
+
 		case e.client && e.phase != clientPhase:
 			if e.phase != serverPhase && !q.KeyUpdate.Initiate {
 				out = append(out, fmt.Sprintf("the client started a key update at %d µs", e.micros))
 			}
+
 			clientPhase = e.phase
 			clientFlips++
 		}
 	}
+
 	switch {
 	case serverFlips == 0:
 		out = append(out, "the server never updated its keys (quic-go does after 100 packets): the rule is not exercised")
@@ -163,8 +190,11 @@ func bulkRuleViolations(q *profile.QUIC, c *quictrace.Conn) (out []string, summa
 		out = append(out, fmt.Sprintf("the client followed %d of the server's %d key updates", clientFlips, serverFlips))
 	}
 
-	var largest []uint64
-	var maxServer uint64
+	var (
+		largest   []uint64
+		maxServer uint64
+	)
+
 	for _, dg := range c.Server {
 		for _, pk := range dg.Packets {
 			if pk.Type == quictrace.Packet1RTT {
@@ -172,10 +202,12 @@ func bulkRuleViolations(q *profile.QUIC, c *quictrace.Conn) (out []string, summa
 			}
 		}
 	}
+
 	for _, e := range events {
 		if !e.client {
 			continue
 		}
+
 		for _, f := range e.frames {
 			switch f.Type {
 			case quictrace.FrameAckFrequency, quictrace.FrameImmediateAck:
@@ -185,36 +217,49 @@ func bulkRuleViolations(q *profile.QUIC, c *quictrace.Conn) (out []string, summa
 			}
 		}
 	}
+
 	a := q.Ack
 	// Past the warm-up and before the tail, where the server's sending
 	// slows.
 	from := uint64(max(a.WarmupPackets, 0)) + bulkMargin
-	var n, match int
-	var advanced uint64
+
+	var (
+		n, match int
+		advanced uint64
+	)
+
 	for i := 1; i < len(largest); i++ {
 		prev, cur := largest[i-1], largest[i]
 		if cur <= prev || prev < from || cur+bulkMargin > maxServer {
 			continue
 		}
+
 		n++
+
 		d := cur - prev
+
 		advanced += d
+
 		if every := uint64(max(a.Every, 0)); d == every || a.Batched && d > every {
 			match++
 		}
 	}
+
 	rule := fmt.Sprintf("every %d", a.Every)
 	need := ackShareExact
+
 	if a.Batched {
 		rule = fmt.Sprintf("every %d or more", a.Every)
 		need = ackShareBatched
 	}
+
 	switch {
 	case n == 0:
 		out = append(out, "no ACK during the bulk receive")
 	case float64(match) < need*float64(n):
 		out = append(out, fmt.Sprintf("%d of %d ACKs during the bulk receive acknowledge %s new packets; want %.0f%%", match, n, rule, need*100))
 	}
+
 	// How far a batching client's ACKs advance on average is not held to
 	// the browser's: it is how many packets arrive while the client works
 	// through the last (Firefox 5.0–5.7, Safari 27 4.3–4.6, Safari 26 on
@@ -238,13 +283,16 @@ const (
 // the stream that got most of them, from its initial window.
 func streamCredit(c *quictrace.Conn) []uint64 {
 	limits := map[uint64][]uint64{}
+
 	var stream uint64
+
 	for _, dg := range c.Datagrams {
 		for _, pk := range dg.Packets {
 			for _, f := range pk.Frames {
 				if f.Type != quictrace.FrameMaxStreamData || f.Stream == nil {
 					continue
 				}
+
 				limits[*f.Stream] = append(limits[*f.Stream], f.Max)
 				if len(limits[*f.Stream]) > len(limits[stream]) {
 					stream = *f.Stream
@@ -286,7 +334,9 @@ func connCredit(c *quictrace.Conn) []uint64 {
 func windowCreditViolations(c *quictrace.Conn) (out []string, summary string) {
 	window := float64(transportParameter(c.TransportParameters, tpInitialMaxStreamDataBidiLocal, 0))
 	last := transportParameter(c.TransportParameters, tpInitialMaxData, 0)
+
 	var pks []quictrace.Packet
+
 	for _, dg := range c.Datagrams {
 		for _, pk := range dg.Packets {
 			if pk.Type == quictrace.Packet1RTT && pk.Error == "" {
@@ -294,20 +344,25 @@ func windowCreditViolations(c *quictrace.Conn) (out []string, summary string) {
 			}
 		}
 	}
+
 	acked, estimateErr := ackedData(c, pks)
 	if len(acked) == 0 {
 		return []string{"no 1-RTT packet from the client"}, ""
 	}
+
 	slack := estimateErr + creditSlack
 	// next[k] is what the first ACK from packet k on acknowledged.
 	next := make([]float64, len(pks))
 	after := acked[len(acked)-1]
+
 	for k := len(pks) - 1; k >= 0; k-- {
 		if slices.ContainsFunc(pks[k].Frames, func(f quictrace.Frame) bool { return f.Type == quictrace.FrameAck }) {
 			after = acked[k]
 		}
+
 		next[k] = after
 	}
+
 	streamWindow := window
 	for k, pk := range pks {
 		for _, f := range pk.Frames {
@@ -316,32 +371,44 @@ func windowCreditViolations(c *quictrace.Conn) (out []string, summary string) {
 			}
 		}
 	}
+
 	var leads []float64
+
 	ahead, worst := 0, math.Inf(-1)
+
 	for k, pk := range pks {
 		for _, f := range pk.Frames {
 			if f.Type != quictrace.FrameMaxData || f.Max <= last {
 				continue
 			}
+
 			last = f.Max
+
 			over := float64(f.Max) - next[k] - streamWindow
+
 			worst = max(worst, over)
+
 			if over > slack {
 				ahead++
 			}
+
 			leads = append(leads, float64(f.Max)-acked[k]-window)
 		}
 	}
+
 	if len(leads) == 0 {
 		return []string{"MAX_DATA never raised"}, ""
 	}
+
 	if ahead > 0 {
 		out = append(out, fmt.Sprintf("%d of %d MAX_DATA raises run ahead of what the next ACK acknowledged by more than the stream window (%.0f), up to %.0f more (%.0f allowed)", ahead, len(leads), streamWindow, worst, slack))
 	}
+
 	behind := median(leads)
 	if behind < -slack {
 		out = append(out, fmt.Sprintf("the median of %d MAX_DATA raises falls %.0f short of what was acknowledged by then plus the window (%.0f; %.0f allowed)", len(leads), -behind, window, slack))
 	}
+
 	summary = fmt.Sprintf("%d MAX_DATA raises, at most %.0f past what the next ACK acknowledged plus the stream window (%.0f); the median %.0f past what was acknowledged by then plus %.0f (the estimate within %.0f)", len(leads), worst, streamWindow, behind, window, estimateErr)
 
 	return out, summary
@@ -360,7 +427,9 @@ func median(vs []float64) float64 {
 // (4.6–5.8 KB in the Safari samples).
 func ackedData(c *quictrace.Conn, pks []quictrace.Packet) (acked []float64, maxErr float64) {
 	type dataPacket struct{ size, least float64 }
+
 	data := map[uint64]dataPacket{}
+
 	for _, dg := range c.Server {
 		for _, pk := range dg.Packets {
 			if pk.Type == quictrace.Packet1RTT && pk.Size >= dataPacketSize {
@@ -368,6 +437,7 @@ func ackedData(c *quictrace.Conn, pks []quictrace.Packet) (acked []float64, maxE
 			}
 		}
 	}
+
 	ranges := func(f func(lo, hi uint64)) {
 		for _, pk := range pks {
 			for _, fr := range pk.Frames {
@@ -379,8 +449,12 @@ func ackedData(c *quictrace.Conn, pks []quictrace.Packet) (acked []float64, maxE
 			}
 		}
 	}
-	var all pnSet
-	var sum, least float64
+
+	var (
+		all        pnSet
+		sum, least float64
+	)
+
 	n := 0
 	ranges(func(lo, hi uint64) {
 		all.add(lo, hi, func(pn uint64) {
@@ -391,19 +465,27 @@ func ackedData(c *quictrace.Conn, pks []quictrace.Packet) (acked []float64, maxE
 			}
 		})
 	})
+
 	if n == 0 {
 		return make([]float64, len(pks)), 0
 	}
+
 	overhead := (sum - downloadSize()) / float64(n)
+
 	maxErr = max(sum-least-downloadSize(), 0)
+
 	var seen pnSet
+
 	total := 0.0
+
 	acked = make([]float64, 0, len(pks))
+
 	for _, pk := range pks {
 		for _, fr := range pk.Frames {
 			if fr.Type != quictrace.FrameAck {
 				continue
 			}
+
 			for _, r := range fr.Ranges {
 				seen.add(r[0], r[1], func(pn uint64) {
 					if d, ok := data[pn]; ok {
@@ -412,6 +494,7 @@ func ackedData(c *quictrace.Conn, pks []quictrace.Packet) (acked []float64, maxE
 				})
 			}
 		}
+
 		acked = append(acked, total)
 	}
 
@@ -455,16 +538,20 @@ func (s *pnSet) add(lo, hi uint64, f func(pn uint64)) {
 	})
 	merged := [2]uint64{lo, hi}
 	pn, j := lo, i
+
 	for ; j < len(iv) && iv[j][0] <= hi+1; j++ {
 		for ; pn < iv[j][0]; pn++ {
 			f(pn)
 		}
+
 		pn = max(pn, iv[j][1]+1)
 		merged = [2]uint64{min(merged[0], iv[j][0]), max(merged[1], iv[j][1])}
 	}
+
 	for ; pn <= hi; pn++ {
 		f(pn)
 	}
+
 	*s = slices.Replace(iv, i, j, merged)
 }
 
@@ -491,7 +578,9 @@ func transportParameter(params []quictrace.TransportParameter, id, def uint64) u
 // increases are the steps by which limits rise from first, in order.
 func increases(first uint64, limits []uint64) []uint64 {
 	var out []uint64
+
 	last := first
+
 	for _, l := range limits {
 		if l > last {
 			out = append(out, l-last)
@@ -513,17 +602,22 @@ const creditSlack = 1500
 // the browser's.
 func compareCredit(t *testing.T, what string, got []uint64, refs [][]uint64) {
 	t.Helper()
+
 	var lo, hi uint64
+
 	n := 0
+
 	for _, r := range refs {
 		n += len(r)
 		for _, v := range r {
 			if lo == 0 || v < lo {
 				lo = v
 			}
+
 			hi = max(hi, v)
 		}
 	}
+
 	if hi == 0 {
 		if len(got) > 0 {
 			t.Errorf("%s: mimicry raised it %d times; the browser never did", what, len(got))
@@ -531,15 +625,19 @@ func compareCredit(t *testing.T, what string, got []uint64, refs [][]uint64) {
 
 		return
 	}
+
 	if len(got) == 0 {
 		t.Errorf("%s: mimicry never raised it; the browser did by %d–%d", what, lo, hi)
+
 		return
 	}
+
 	for i, v := range got {
 		if v+creditSlack < lo || v > hi+creditSlack {
 			t.Errorf("%s: mimicry's increase %d of %d is %d; the browser's are %d–%d", what, i+1, len(got), v, lo, hi)
 		}
 	}
+
 	sorted := slices.Sorted(slices.Values(got))
 	t.Logf("%s: mimicry raised it %d times by %d–%d (median %d); the browser %d times over %d samples, by %d–%d", what, len(got), sorted[0], sorted[len(sorted)-1], sorted[len(sorted)/2], n, len(refs), lo, hi)
 }
@@ -548,6 +646,7 @@ func compareCredit(t *testing.T, what string, got []uint64, refs [][]uint64) {
 // QUIC connection, as in every browser's sample.
 func afterDownload(t *testing.T, page *capture.Page) {
 	t.Helper()
+
 	x := transports(page)
 	find := func(label string) (h3Transport, bool) {
 		for path, tr := range x {
@@ -559,9 +658,11 @@ func afterDownload(t *testing.T, page *capture.Page) {
 		return h3Transport{}, false
 	}
 	download, ok := find("download.so")
+
 	if !ok || download.proto != "h3" {
 		t.Fatalf("the download went %v, not over HTTP/3", download)
 	}
+
 	for _, label := range []string{"after1.so", "after2.so", "after3.so"} {
 		if tr, ok := find(label); !ok || tr != download {
 			t.Errorf("%s went %v; the download's connection was %v", label, tr, download)

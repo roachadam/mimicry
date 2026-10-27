@@ -25,10 +25,13 @@ func (s *edgeSet) downloads(e *collector) []download {
 				best = a
 			}
 		}
+
 		if best == nil || len(best.c.Server) < 10000 {
 			edgeErr(e, p.at, "no connection carried the download")
+
 			continue
 		}
+
 		out = append(out, download{
 			p: p,
 			a: best,
@@ -47,6 +50,7 @@ func (d download) frames1RTT(f func(p *quictrace.Packet, fr *quictrace.Frame)) {
 			if p.Type != quictrace.Packet1RTT {
 				continue
 			}
+
 			for fi := range p.Frames {
 				f(p, &p.Frames[fi])
 			}
@@ -57,15 +61,19 @@ func (d download) frames1RTT(f func(p *quictrace.Packet, fr *quictrace.Frame)) {
 // advances are how far each ACK's largest acknowledged moved past the
 // last one's, in order.
 func (d download) advances() []int {
-	var out []int
-	var last uint64
+	var (
+		out  []int
+		last uint64
+	)
 	d.frames1RTT(func(_ *quictrace.Packet, fr *quictrace.Frame) {
 		if fr.Type != quictrace.FrameAck {
 			return
 		}
+
 		if last > 0 && fr.Largest > last {
 			out = append(out, int(fr.Largest-last))
 		}
+
 		last = max(last, fr.Largest)
 	})
 
@@ -78,6 +86,7 @@ func mode(vs []int) (value, count int) {
 	for _, v := range vs {
 		n[v]++
 	}
+
 	for v, c := range n {
 		if c > count || c == count && v < value {
 			value, count = v, c
@@ -96,11 +105,15 @@ func (s *edgeSet) ack(e *collector) profile.QUICAck {
 		adv := d.advances()
 		if len(adv) < 1000 {
 			edgeErr(e, d.p.at, "only %d ACKs during the download", len(adv))
+
 			continue
 		}
+
 		var got profile.QUICAck
+
 		m, c := mode(adv)
 		warm := slices.Index(adv, m)
+
 		if rest := adv[warm:]; c*10 >= len(rest)*9 {
 			got.Every = m
 			if warm > 0 {
@@ -111,33 +124,41 @@ func (s *edgeSet) ack(e *collector) profile.QUICAck {
 				for _, a := range adv[:warm] {
 					sum += a
 				}
+
 				got.WarmupPackets = roundTo(float64(sum), 50)
 			}
 		} else {
 			got.Batched = true
+
 			n := map[int]int{}
+
 			for _, a := range adv {
 				n[a]++
 			}
+
 			for v := 1; v <= m; v++ {
 				if n[v]*20 >= len(adv) {
 					got.Every = v
 					break
 				}
 			}
+
 			short := 0
 			for _, a := range adv {
 				if a < got.Every {
 					short++
 				}
 			}
+
 			if short*100 >= len(adv) {
 				edgeErr(e, d.p.at, "%d of %d ACKs cover fewer than %d packets", short, len(adv), got.Every)
 			}
 		}
+
 		if i > 0 && got != out {
 			edgeErr(e, d.p.at, "ACKs every %+v, others %+v", got, out)
 		}
+
 		out = got
 	}
 
@@ -159,6 +180,7 @@ const packetOverhead = 30
 // ConnectionStreamWindow, MAX_DATA as received bytes plus stream window.
 func (s *edgeSet) credit(q *profile.QUIC, e *collector) profile.QUICCredit {
 	var out profile.QUICCredit
+
 	window := func(id profile.TransportParameterID) float64 {
 		for _, tp := range q.TransportParameters {
 			if tp.ID == id && tp.Value != nil {
@@ -169,6 +191,7 @@ func (s *edgeSet) credit(q *profile.QUIC, e *collector) profile.QUICCredit {
 		return 0
 	}
 	streamWin, connWin := window(profile.TPInitialMaxStreamDataBidiLocal), window(profile.TPInitialMaxData)
+
 	type limits struct {
 		at      string
 		msd, md []float64
@@ -176,19 +199,25 @@ func (s *edgeSet) credit(q *profile.QUIC, e *collector) profile.QUICCredit {
 		// received when it was sent.
 		ahead []float64
 	}
-	var all []limits
-	var msdSteps, mdSteps, ahead []float64
+
+	var (
+		all                      []limits
+		msdSteps, mdSteps, ahead []float64
+	)
+
 	for _, d := range s.downloads(e) {
 		l := limits{
 			at: d.p.at,
 		}
 		stream := downloadStream(d)
 		received := receivedBy(d)
+
 		for _, dg := range d.a.c.Datagrams {
 			for _, p := range dg.Packets {
 				if p.Type != quictrace.Packet1RTT {
 					continue
 				}
+
 				for _, fr := range p.Frames {
 					switch {
 					case fr.Type == quictrace.FrameMaxStreamData && fr.Stream != nil && *fr.Stream == stream:
@@ -205,22 +234,29 @@ func (s *edgeSet) credit(q *profile.QUIC, e *collector) profile.QUICCredit {
 				}
 			}
 		}
+
 		if len(l.msd) < 2 || len(l.md) < 1 {
 			edgeErr(e, d.p.at, "%d MAX_STREAM_DATA and %d MAX_DATA raises during the download", len(l.msd), len(l.md))
+
 			continue
 		}
+
 		msdSteps = append(msdSteps, steps(l.msd, streamWin)...)
 		mdSteps = append(mdSteps, steps(l.md, connWin)...)
 		ahead = append(ahead, l.ahead...)
 		all = append(all, l)
 	}
+
 	if len(all) == 0 {
 		return out
 	}
+
 	out.StreamDivisor = divisor(msdSteps, streamWin)
+
 	near := func(v, w float64) bool {
 		return math.Abs(v-w) <= w/10
 	}
+
 	switch m := median(ahead); {
 	case near(m, streamWin) && !near(m, connWin):
 		out.ConnectionStreamWindow = true
@@ -229,11 +265,13 @@ func (s *edgeSet) credit(q *profile.QUIC, e *collector) profile.QUICCredit {
 	default:
 		edgeErr(e, s.set.name, "MAX_DATA runs %.0f ahead of the bytes received: neither the stream window (%.0f) nor the connection's (%.0f)", m, streamWin, connWin)
 	}
+
 	for _, l := range all {
 		bad := badStep("MAX_STREAM_DATA", l.msd, streamWin, out.StreamDivisor)
 		if out.ConnectionDivisor > 0 && bad == "" {
 			bad = badStep("MAX_DATA", l.md, connWin, out.ConnectionDivisor)
 		}
+
 		if bad != "" && !s.gap(l.at, "credit") {
 			edgeErr(e, l.at, "%s", bad)
 		}
@@ -248,12 +286,14 @@ func receivedBy(d download) func(us int64) float64 {
 	at := make([]int64, 0, len(d.a.c.Server))
 	sum := make([]float64, 0, len(d.a.c.Server))
 	total := 0.0
+
 	for _, sd := range d.a.c.Server {
 		for _, p := range sd.Packets {
 			if p.Type == quictrace.Packet1RTT {
 				total += float64(max(p.Size-packetOverhead, 0))
 			}
 		}
+
 		at = append(at, sd.Micros)
 		sum = append(sum, total)
 	}
@@ -263,6 +303,7 @@ func receivedBy(d download) func(us int64) float64 {
 		if found {
 			i++
 		}
+
 		if i == 0 {
 			return 0
 		}
@@ -298,6 +339,7 @@ func downloadStream(d download) uint64 {
 			n[*fr.Stream]++
 		}
 	})
+
 	var best uint64
 	for s, c := range n {
 		if c > n[best] {
@@ -321,10 +363,12 @@ func divisor(steps []float64, window float64) int {
 func badStep(frame string, limits []float64, window float64, div int) string {
 	want := window / float64(div)
 	prev := window
+
 	for i, l := range limits {
 		if step := l - prev; step < want || step > want*(1+creditSlack) {
 			return fmt.Sprintf("%s %d raised the limit by %.0f, want %.0f (%.0f%% more at most)", frame, i+1, step, want, creditSlack*100)
 		}
+
 		prev = l
 	}
 
@@ -339,18 +383,24 @@ func (s *edgeSet) keyUpdate(e *collector) profile.QUICKeyUpdate {
 	for _, d := range s.downloads(e) {
 		client := phaseChanges(d.a.c.Datagrams, d.a)
 		server := phaseChanges(d.a.c.Server, d.a)
+
 		switch {
 		case len(client) != len(server):
 			edgeErr(e, d.p.at, "%d client key updates, %d server ones", len(client), len(server))
+
 			out.Initiate = len(client) > len(server)
+
 		case len(server) == 0:
 			edgeErr(e, d.p.at, "no key update during the download")
 		}
+
 		for i := range min(len(client), len(server)) {
 			if client[i].first < server[i].first {
 				edgeErr(e, d.p.at, "client key update %d at %.1f ms, before the server's (%.1f ms)", i+1, client[i].first, server[i].first)
+
 				out.Initiate = true
 			}
+
 			if client[i].lastOld > server[i].first+5 {
 				edgeErr(e, d.p.at, "client still sent the old key phase %.1f ms after the server's update", client[i].lastOld-server[i].first)
 			}
@@ -368,13 +418,17 @@ type phaseChange struct {
 
 func phaseChanges(ds []quictrace.Datagram, a *attempt) []phaseChange {
 	var out []phaseChange
+
 	phase := -1
+
 	var last float64
+
 	for _, d := range ds {
 		for _, p := range d.Packets {
 			if p.Type != quictrace.Packet1RTT {
 				continue
 			}
+
 			t := a.millis(d.Micros)
 			if kp := int(p.FirstByte>>2) & 1; phase >= 0 && kp != phase {
 				out = append(out, phaseChange{
@@ -385,6 +439,7 @@ func phaseChanges(ds []quictrace.Datagram, a *attempt) []phaseChange {
 			} else if phase < 0 {
 				phase = kp
 			}
+
 			last = t
 		}
 	}

@@ -99,6 +99,7 @@ func TestCompare(t *testing.T) {
 			order: profile.ExtensionOrderShuffled,
 			mutate: func(p *profile.Profile) {
 				e := p.TLS.Extensions
+
 				e[1], e[3] = e[3], e[1]
 			},
 			want: nil,
@@ -108,6 +109,7 @@ func TestCompare(t *testing.T) {
 			order: profile.ExtensionOrderFixed,
 			mutate: func(p *profile.Profile) {
 				e := p.TLS.Extensions
+
 				e[1], e[3] = e[3], e[1]
 			},
 			want: []string{
@@ -119,6 +121,7 @@ func TestCompare(t *testing.T) {
 			order: profile.ExtensionOrderShuffled,
 			mutate: func(p *profile.Profile) {
 				e := p.TLS.Extensions
+
 				e[0], e[1] = e[1], e[0]
 			},
 			want: []string{
@@ -163,6 +166,7 @@ func TestCompare(t *testing.T) {
 			order: profile.ExtensionOrderShuffled,
 			mutate: func(p *profile.Profile) {
 				c := p.TLS.CipherSuites
+
 				c[1], c[2] = c[2], c[1]
 			},
 			want: []string{
@@ -218,6 +222,7 @@ func TestCompare(t *testing.T) {
 			want := sample(tc.order)
 			got := sample(tc.order)
 			tc.mutate(got)
+
 			if p := paths(Compare(want, got)); strings.Join(p, "|") != strings.Join(tc.want, "|") {
 				t.Errorf("differences at %q, want %q", p, tc.want)
 			}

@@ -37,8 +37,10 @@ func browserHop(p *profile.Profile, req *http.Request, nav bool, u use) (*http.R
 	if prev == nil {
 		return req, nil
 	}
+
 	n := len(redirectsBefore(req))
 	limit := maxRedirects
+
 	if nav {
 		switch {
 		case p.Redirects != nil:
@@ -47,40 +49,52 @@ func browserHop(p *profile.Profile, req *http.Request, nav bool, u use) (*http.R
 			return nil, fmt.Errorf("%w: profile %s has no redirects rules, for a navigation's redirect %d (every browser follows %d)", ErrNotMeasured, p.Name, n, navigationRedirects)
 		}
 	}
+
 	if n > limit {
 		return nil, fmt.Errorf("mimicry: stopped after %d redirects", limit)
 	}
+
 	status := req.Response.StatusCode
 	method := prev.Method
+
 	if method == "" {
 		method = http.MethodGet
 	}
+
 	switch {
 	case (status == http.StatusMovedPermanently || status == http.StatusFound) && method == http.MethodPost:
 		method = http.MethodGet
 	case status == http.StatusSeeOther && method != http.MethodGet && method != http.MethodHead:
 		method = http.MethodGet
 	}
+
 	if method != prev.Method && method == http.MethodGet {
 		// http.Client changes the method and drops the body and its
 		// headers alike.
 		return req, nil
 	}
+
 	prevBody := prev.Body != nil && prev.Body != http.NoBody
 	reqBody := req.Body != nil && req.Body != http.NoBody
+
 	if req.Method == method && (reqBody || !prevBody) {
 		return req, nil
 	}
+
 	// http.Client turned the request into a GET, or dropped its body on an
 	// earlier hop for good; the browser keeps both.
 	if prevBody && prev.GetBody == nil {
 		return nil, fmt.Errorf("mimicry: cannot follow the %d redirect from %s %s as the browser does, with the body: the request has no GetBody", status, method, prev.URL.Redacted())
 	}
+
 	next := req.Clone(req.Context())
+
 	next.Method = method
+
 	if reqBody && u == toSend {
 		_ = req.Body.Close()
 	}
+
 	next.Body, next.GetBody, next.ContentLength = nil, nil, 0
 	switch {
 	case prevBody && u == toPlan:
@@ -90,8 +104,10 @@ func browserHop(p *profile.Profile, req *http.Request, nav bool, u use) (*http.R
 		if err != nil {
 			return nil, err
 		}
+
 		next.Body, next.GetBody, next.ContentLength = body, prev.GetBody, prev.ContentLength
 	}
+
 	for k, v := range prev.Header {
 		for _, name := range bodyHeaders {
 			if strings.EqualFold(k, name) && !hasHeader(next.Header, name) {
@@ -111,15 +127,18 @@ func refusedRedirect(req *http.Request, resp *http.Response, s *sending) error {
 	if s.corsOrigin == "" || resp.Header.Get("Location") == "" {
 		return nil
 	}
+
 	switch resp.StatusCode {
 	case http.StatusMovedPermanently, http.StatusFound, http.StatusSeeOther, http.StatusTemporaryRedirect, http.StatusPermanentRedirect:
 	default:
 		return nil
 	}
+
 	reason := checkCORS(resp.Header, s.corsOrigin, s.credentialed)
 	if reason == "" {
 		return nil
 	}
+
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
 	_ = resp.Body.Close()
 

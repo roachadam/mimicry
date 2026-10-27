@@ -30,20 +30,27 @@ type helloExtension struct {
 
 func splitHello(t *testing.T, msg []byte) helloParts {
 	t.Helper()
+
 	b := msg[4:]
 	h := helloParts{
 		version: binary.BigEndian.Uint16(b),
 		random:  b[2:34],
 	}
+
 	b = b[34:]
 	h.sessionID, b = b[1:1+int(b[0])], b[1+int(b[0]):]
+
 	n := 2 + int(binary.BigEndian.Uint16(b))
+
 	h.suites, b = b[:n], b[n:]
 	n = 1 + int(b[0])
 	h.compression, b = b[:n], b[n:]
+
 	exts := b[2 : 2+int(binary.BigEndian.Uint16(b))]
+
 	for len(exts) > 0 {
 		n := int(binary.BigEndian.Uint16(exts[2:]))
+
 		h.extensions = append(h.extensions, helloExtension{
 			typ:  binary.BigEndian.Uint16(exts),
 			data: exts[4 : 4+n],
@@ -61,7 +68,9 @@ func (h helloParts) bytes() []byte {
 		exts = binary.BigEndian.AppendUint16(exts, uint16(len(e.data)))
 		exts = append(exts, e.data...)
 	}
+
 	var body []byte
+
 	body = binary.BigEndian.AppendUint16(body, h.version)
 	body = append(body, h.random...)
 	body = append(body, byte(len(h.sessionID)))
@@ -79,12 +88,14 @@ func (h helloParts) bytes() []byte {
 // withExtension returns h with the body of its extension typ changed by f.
 func (h helloParts) withExtension(t *testing.T, typ uint16, f func([]byte) []byte) helloParts {
 	t.Helper()
+
 	i := slices.IndexFunc(h.extensions, func(e helloExtension) bool {
 		return e.typ == typ
 	})
 	if i < 0 {
 		t.Fatalf("no extension %#04x", typ)
 	}
+
 	h.extensions = slices.Clone(h.extensions)
 	h.extensions[i].data = f(slices.Clone(h.extensions[i].data))
 
@@ -94,15 +105,21 @@ func (h helloParts) withExtension(t *testing.T, typ uint16, f func([]byte) []byt
 // keyShares rewrites a key_share body, changing each key's length by f.
 func keyShares(data []byte, f func(i, n int) int) []byte {
 	var out []byte
+
 	list := data[2:]
+
 	for i := 0; len(list) > 0; i++ {
 		n := int(binary.BigEndian.Uint16(list[2:]))
+
 		out = append(out, list[:2]...)
+
 		m := f(i, n)
+
 		out = binary.BigEndian.AppendUint16(out, uint16(m))
 		out = append(out, make([]byte, m)...)
 		list = list[4+n:]
 	}
+
 	out = append(binary.BigEndian.AppendUint16(nil, uint16(len(out))), out...)
 
 	return out
@@ -114,6 +131,7 @@ func echBody(data []byte, kdf, aead uint16, enc, payload int) []byte {
 	out := []byte{
 		data[0],
 	}
+
 	out = binary.BigEndian.AppendUint16(out, kdf)
 	out = binary.BigEndian.AppendUint16(out, aead)
 	out = append(out, data[5])
@@ -133,18 +151,21 @@ const (
 // capturedHellos returns the first captured ClientHello of every browser.
 func capturedHellos(t *testing.T) map[string][]byte {
 	t.Helper()
+
 	hellos := map[string][]byte{}
 	for _, name := range profiles.Names() {
 		samples, err := capture.ReadClientHellos("../../testdata/captures/" + name + ".clienthello")
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		hello := samples[0]
 		if hello[0] == recordTypeHandshake {
 			if _, hello, err = ParseRecords(hello); err != nil {
 				t.Fatal(err)
 			}
 		}
+
 		hellos[name] = hello
 	}
 
@@ -211,14 +232,17 @@ func TestParseClientHelloSeesEveryShapeChange(t *testing.T) {
 		if got := h.bytes(); string(got) != string(msg) {
 			t.Fatalf("%s: taking the hello apart and back changes it", name)
 		}
+
 		original, err := ParseClientHello(msg)
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
+
 		mutations := slices.Clone(common)
 		ks := slices.IndexFunc(h.extensions, func(e helloExtension) bool {
 			return e.typ == extKeyShare
 		})
+
 		for i := range countShares(h.extensions[ks].data) {
 			mutations = append(mutations, helloMutation{
 				name: fmt.Sprintf("key share %d one byte shorter", i+1),
@@ -235,17 +259,20 @@ func TestParseClientHelloSeesEveryShapeChange(t *testing.T) {
 				},
 			})
 		}
+
 		if slices.ContainsFunc(h.extensions, func(e helloExtension) bool {
 			return e.typ == extECH
 		}) {
 			mutations = append(mutations, echMutations()...)
 		}
+
 		for _, m := range mutations {
 			t.Run(name+"/"+m.name, func(t *testing.T) {
 				mutated, err := ParseClientHello(m.mutate(t, h).bytes())
 				if err != nil {
 					return
 				}
+
 				diffs := diff.Compare(&profile.Profile{
 					TLS: original,
 				}, &profile.Profile{

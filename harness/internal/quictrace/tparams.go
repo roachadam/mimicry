@@ -78,15 +78,19 @@ func IsGreaseTransportParameter(id uint64) bool {
 // connection IDs only by length.
 func ParseTransportParameters(data []byte) ([]TransportParameter, error) {
 	var out []TransportParameter
+
 	r := &reader{
 		b: data,
 	}
+
 	for len(r.b) > 0 {
 		id := r.varint()
 		value := r.bytes(r.varint())
+
 		if r.err != nil {
 			return out, fmt.Errorf("transport parameter %d: %w", len(out)+1, r.err)
 		}
+
 		p := TransportParameter{
 			ID:     id,
 			Name:   transportParameterNames[id],
@@ -94,26 +98,32 @@ func ParseTransportParameters(data []byte) ([]TransportParameter, error) {
 			Length: len(value),
 		}
 		v, n := varint(value)
+
 		switch {
 		case connectionIDParameters[id]:
 		case varintParameters[id]:
 			if n == 0 || n != len(value) {
 				return out, fmt.Errorf("transport parameter %#x: %d bytes are not one integer", id, len(value))
 			}
+
 			p.Value = new(v)
+
 		case id == 0x11:
 			if len(value)%4 != 0 {
 				return out, fmt.Errorf("version_information of %d bytes", len(value))
 			}
+
 			for i := 0; i < len(value); i += 4 {
 				p.Versions = append(p.Versions, versionHex(binary.BigEndian.Uint32(value[i:])))
 			}
+
 		default:
 			p.Hex = hex.EncodeToString(value)
 			if !p.Grease && n > 0 && n == len(value) {
 				p.Value = new(v)
 			}
 		}
+
 		out = append(out, p)
 	}
 

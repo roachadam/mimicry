@@ -179,6 +179,7 @@ func NewWriter(lib Library, level, windowBits int) (*Writer, error) {
 	if windowBits < 9 || windowBits > maxWBits {
 		return nil, fmt.Errorf("zdeflate: raw window bits %d rejected by deflateInit2", windowBits)
 	}
+
 	switch lib {
 	case Zlib, Chromium:
 		if level < 1 || level > 9 {
@@ -188,6 +189,7 @@ func NewWriter(lib Library, level, windowBits int) (*Writer, error) {
 		return &Writer{
 			c: newZlibWriter(lib, level, windowBits),
 		}, nil
+
 	case ZlibRS:
 		if level != 6 {
 			return nil, fmt.Errorf("zdeflate: zlib-rs level %d not supported", level)
@@ -211,6 +213,7 @@ func (w *Writer) Message(p []byte) []byte {
 			0x00,
 		}
 	}
+
 	out := w.c.message(p)
 
 	return out[:len(out)-len(syncTrailer)]
@@ -296,6 +299,7 @@ func (w *zlibWriter) reset() {
 // lmInit is zlib's lm_init.
 func (w *zlibWriter) lmInit() {
 	clear(w.head[:])
+
 	w.strstart = 0
 	w.blockStart = 0
 	w.lookahead = 0
@@ -310,15 +314,19 @@ func (w *zlibWriter) lmInit() {
 func (w *zlibWriter) message(p []byte) []byte {
 	w.out.buf = make([]byte, 0, len(p)/2+16)
 	w.in = p
+
 	if w.cfg.lazy {
 		w.deflateSlow()
 	} else {
 		w.deflateFast()
 	}
+
 	w.in = nil
 	// The sync flush: an empty stored block.
 	w.trees.storedBlock(&w.out, nil)
+
 	out := w.out.buf
+
 	w.out.buf = nil
 
 	return out
@@ -335,11 +343,14 @@ func updateHash(h uint32, c byte) uint32 {
 func (w *zlibWriter) insertString(str uint32) uint32 {
 	if w.chromium {
 		v := binary.LittleEndian.Uint32(w.window[str:])
+
 		w.insH = ((v*66521 + 66521) >> 16) & hashMask
 	} else {
 		w.insH = updateHash(w.insH, w.window[str+minMatch-1])
 	}
+
 	head := w.head[w.insH]
+
 	w.prev[str&w.wMask] = head
 	w.head[w.insH] = str
 
@@ -356,6 +367,7 @@ func (w *zlibWriter) slideHash() {
 			w.head[i] = nilPos
 		}
 	}
+
 	for i, m := range w.prev {
 		if m >= w.wSize {
 			w.prev[i] = m - w.wSize
@@ -372,21 +384,29 @@ func (w *zlibWriter) fillWindow() {
 		more := w.windowSize - w.lookahead - w.strstart
 		if w.strstart >= w.wSize+w.maxDist {
 			copy(w.window[:w.wSize-more], w.window[w.wSize:])
+
 			w.matchStart -= w.wSize
 			w.strstart -= w.wSize
 			w.blockStart -= int64(w.wSize)
+
 			if w.insert > w.strstart {
 				w.insert = w.strstart
 			}
+
 			w.slideHash()
+
 			more += w.wSize
 		}
+
 		if len(w.in) == 0 {
 			break
 		}
+
 		start := w.strstart + w.lookahead
 		n := copy(w.window[start:start+more], w.in)
+
 		w.in = w.in[n:]
+
 		w.lookahead += uint32(n)
 
 		// Hash the strings the previous call left uninserted. Chromium's
@@ -397,31 +417,41 @@ func (w *zlibWriter) fillWindow() {
 			str := w.strstart - w.insert
 			for w.insert != 0 {
 				w.insertString(str)
+
 				str++
+
 				w.insert--
+
 				if w.lookahead+w.insert <= minMatch {
 					break
 				}
 			}
+
 		case !w.chromium && w.lookahead+w.insert >= minMatch:
 			str := w.strstart - w.insert
+
 			w.insH = uint32(w.window[str])
 			w.insH = updateHash(w.insH, w.window[str+1])
+
 			for w.insert != 0 {
 				w.insH = updateHash(w.insH, w.window[str+minMatch-1])
 				w.prev[str&w.wMask] = w.head[w.insH]
 				w.head[w.insH] = str
 				str++
+
 				w.insert--
+
 				if w.lookahead+w.insert < minMatch {
 					break
 				}
 			}
 		}
+
 		if w.lookahead >= minLookahead || len(w.in) == 0 {
 			break
 		}
 	}
+
 	// zlib zeroes the bytes past the data that longest_match may read
 	// (WIN_INIT); the Go window starts zeroed, and every byte it may read
 	// later was written as zlib writes it, so it holds the same values.
@@ -436,10 +466,13 @@ func (w *zlibWriter) longestMatch(curMatch uint32) uint32 {
 	scan := int(w.strstart)
 	bestLen := int(w.prevLength)
 	niceMatch := w.cfg.niceLength
+
 	var limit uint32 = nilPos
+
 	if w.strstart > w.maxDist {
 		limit = w.strstart - w.maxDist
 	}
+
 	strend := scan + maxMatch
 	scanEnd1 := w.window[scan+bestLen-1]
 	scanEnd := w.window[scan+bestLen]
@@ -447,6 +480,7 @@ func (w *zlibWriter) longestMatch(curMatch uint32) uint32 {
 	if w.prevLength >= w.cfg.goodLength {
 		chainLength >>= 2
 	}
+
 	if uint32(niceMatch) > w.lookahead {
 		niceMatch = int(w.lookahead)
 	}
@@ -466,32 +500,41 @@ func (w *zlibWriter) longestMatch(curMatch uint32) uint32 {
 				s, m := scan+2, match+2
 				for {
 					s++
+
 					m++
+
 					if win[s] != win[m] || s >= strend {
 						break
 					}
 				}
+
 				length = maxMatch - (strend - s)
 			}
+
 			if length > bestLen {
 				w.matchStart = curMatch
 				bestLen = length
+
 				if length >= niceMatch {
 					break
 				}
+
 				scanEnd1 = win[scan+bestLen-1]
 				scanEnd = win[scan+bestLen]
 			}
 		}
+
 		curMatch = w.prev[curMatch&w.wMask]
 		if curMatch <= limit {
 			break
 		}
+
 		chainLength--
 		if chainLength == 0 {
 			break
 		}
 	}
+
 	if uint32(bestLen) <= w.lookahead {
 		return uint32(bestLen)
 	}
@@ -506,7 +549,9 @@ func (w *zlibWriter) flushBlock() {
 	if w.blockStart >= 0 {
 		stored = w.window[w.blockStart:w.strstart]
 	}
+
 	w.trees.flushBlock(&w.out, stored, uint64(int64(w.strstart)-w.blockStart))
+
 	w.blockStart = int64(w.strstart)
 }
 
@@ -516,34 +561,43 @@ func (w *zlibWriter) deflateFast() {
 	for {
 		if w.lookahead < minLookahead {
 			w.fillWindow()
+
 			if w.lookahead == 0 {
 				break
 			}
 		}
+
 		var hashHead uint32 = nilPos
 		if w.lookahead >= minMatch {
 			hashHead = w.insertString(w.strstart)
 		}
+
 		if hashHead != nilPos && w.strstart-hashHead <= w.maxDist {
 			w.matchLength = w.longestMatch(hashHead)
 		}
+
 		var flush bool
 		if w.matchLength >= minMatch {
 			flush = w.trees.tally(w.strstart-w.matchStart, w.matchLength-minMatch)
+
 			w.lookahead -= w.matchLength
+
 			if w.matchLength <= w.cfg.maxLazy && w.lookahead >= minMatch {
 				w.matchLength-- // the string at strstart is in the table
 				for {
 					w.strstart++
 					w.insertString(w.strstart)
+
 					w.matchLength--
 					if w.matchLength == 0 {
 						break
 					}
 				}
+
 				w.strstart++
 			} else {
 				w.strstart += w.matchLength
+
 				w.matchLength = 0
 				// Chromium skips this: its hash does not roll.
 				if !w.chromium {
@@ -554,12 +608,15 @@ func (w *zlibWriter) deflateFast() {
 		} else {
 			flush = w.trees.tally(0, uint32(w.window[w.strstart]))
 			w.lookahead--
+
 			w.strstart++
 		}
+
 		if flush {
 			w.flushBlock()
 		}
 	}
+
 	w.insert = min(w.strstart, minMatch-1)
 	if w.trees.symNext != 0 {
 		w.flushBlock()
@@ -572,10 +629,12 @@ func (w *zlibWriter) deflateSlow() {
 	for {
 		if w.lookahead < minLookahead {
 			w.fillWindow()
+
 			if w.lookahead == 0 {
 				break
 			}
 		}
+
 		var hashHead uint32 = nilPos
 		if w.lookahead >= minMatch {
 			hashHead = w.insertString(w.strstart)
@@ -583,6 +642,7 @@ func (w *zlibWriter) deflateSlow() {
 
 		w.prevLength, w.prevMatch = w.matchLength, w.matchStart
 		w.matchLength = minMatch - 1
+
 		if hashHead != nilPos && w.prevLength < w.cfg.maxLazy && w.strstart-hashHead <= w.maxDist {
 			w.matchLength = w.longestMatch(hashHead)
 			if w.matchLength == minMatch && w.strstart-w.matchStart > tooFar {
@@ -601,41 +661,53 @@ func (w *zlibWriter) deflateSlow() {
 			// and strstart are in already, and none past maxInsert.
 			w.lookahead -= w.prevLength - 1
 			w.prevLength -= 2
+
 			for {
 				w.strstart++
 				if w.strstart <= maxInsert {
 					w.insertString(w.strstart)
 				}
+
 				w.prevLength--
 				if w.prevLength == 0 {
 					break
 				}
 			}
+
 			w.matchAvailable = false
 			w.matchLength = minMatch - 1
 			w.strstart++
+
 			if flush {
 				w.flushBlock()
 			}
+
 		case w.matchAvailable:
 			// No match at the previous position, or a longer one here:
 			// the previous byte is a literal.
 			if w.trees.tally(0, uint32(w.window[w.strstart-1])) {
 				w.flushBlock()
 			}
+
 			w.strstart++
+
 			w.lookahead--
+
 		default:
 			// Nothing to compare with yet: decide at the next position.
 			w.matchAvailable = true
 			w.strstart++
+
 			w.lookahead--
 		}
 	}
+
 	if w.matchAvailable {
 		w.trees.tally(0, uint32(w.window[w.strstart-1]))
+
 		w.matchAvailable = false
 	}
+
 	w.insert = min(w.strstart, minMatch-1)
 	if w.trees.symNext != 0 {
 		w.flushBlock()

@@ -17,26 +17,32 @@ func main() {
 		fmt.Fprintln(os.Stderr, "usage: tracestat TRACE.h2trace.json...")
 		os.Exit(2)
 	}
+
 	failed := false
 	for _, path := range os.Args[1:] {
 		samples, err := h2trace.Load(path)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "tracestat:", err)
+
 			failed = true
 
 			continue
 		}
+
 		variations := h2trace.Compare(samples)
 		f := h2trace.Extract(samples[0])
 		exact, measured := f.Exact, f.Measured
 		fmt.Printf("%s: %d samples, %d features, %d vary\n", path, len(samples), len(exact)+len(measured), len(variations))
+
 		for _, v := range variations {
 			fmt.Printf("  %s\n", v.Feature)
+
 			for i, value := range v.Values {
 				fmt.Printf("    sample %d: %s\n", i+1, truncate(value, 160))
 			}
 		}
 	}
+
 	if failed {
 		os.Exit(1)
 	}

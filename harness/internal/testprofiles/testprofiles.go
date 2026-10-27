@@ -45,31 +45,38 @@ func choose(env string) (*selection, error) {
 		for _, p := range []*profile.Profile{profiles.Chrome(), profiles.Firefox(), profiles.Safari()} {
 			s.names = append(s.names, p.Name)
 		}
+
 		slices.Sort(s.names)
 
 		return s, nil
+
 	case "all":
 		s.names = profiles.Supported()
 		return s, nil
 	}
+
 	for item := range strings.SplitSeq(env, ",") {
 		item = strings.TrimSpace(item)
 		if !strings.HasSuffix(item, ".json") {
 			if _, err := profiles.ByName(item); err != nil {
 				return nil, fmt.Errorf("%s: %w", Env, err)
 			}
+
 			s.names = append(s.names, item)
 
 			continue
 		}
+
 		data, err := os.ReadFile(item)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", Env, err)
 		}
+
 		p, err := profile.Parse(data)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %s: %w", Env, item, err)
 		}
+
 		s.names = append(s.names, p.Name)
 		s.files[p.Name] = data
 	}
@@ -95,12 +102,14 @@ func Load(name string) (*profile.Profile, []byte, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+
 	data, ok := s.files[name]
 	if !ok {
 		if data, err = builtinJSON(name); err != nil {
 			return nil, nil, err
 		}
 	}
+
 	p, err := profile.Parse(data)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s: %w", name, err)
@@ -124,6 +133,7 @@ func builtinJSON(name string) ([]byte, error) {
 	if _, err := profiles.ByName(name); err != nil {
 		return nil, err
 	}
+
 	dir, err := repoDir()
 	if err != nil {
 		return nil, err
@@ -143,10 +153,12 @@ const InheritingName = "chrome-999-macos"
 // nil, changes the JSON further. It returns the profile's JSON.
 func Inheriting(edit func([]byte) []byte) ([]byte, error) {
 	const source = "chrome-155-macos"
+
 	data, err := builtinJSON(source)
 	if err != nil {
 		return nil, err
 	}
+
 	for _, r := range [][2]string{
 		{`"name": "chrome-155-macos"`, `"name": "` + InheritingName + `"`},
 		{`"version": "155"`, `"version": "999"`},
@@ -156,38 +168,47 @@ func Inheriting(edit func([]byte) []byte) ([]byte, error) {
 		if !bytes.Contains(data, []byte(r[0])) {
 			return nil, fmt.Errorf("chrome-155-macos no longer contains %s; update testprofiles.Inheriting", r[0])
 		}
+
 		data = bytes.ReplaceAll(data, []byte(r[0]), []byte(r[1]))
 	}
+
 	for _, old := range []string{`Chrome/155`, `v=\"155\"`} {
 		if bytes.Contains(data, []byte(old)) {
 			return nil, fmt.Errorf("%s has a version string (%s) testprofiles.Inheriting does not rewrite", source, old)
 		}
 	}
+
 	dir, err := repoDir()
 	if err != nil {
 		return nil, err
 	}
+
 	files, err := filepath.Glob(filepath.Join(dir, "harness", "testdata", "captures", source+".*"))
 	if err != nil {
 		return nil, err
 	}
+
 	from := map[string]string{}
 	for _, f := range files {
 		if sc, ok := capture.ScenarioOf(source, f); ok && sc != capture.DefaultScenario {
 			from[sc] = source
 		}
 	}
+
 	q, err := profile.Parse(data)
 	if err != nil {
 		return nil, err
 	}
+
 	q.CapturesFrom = from
 	if data, err = profile.Encode(q); err != nil {
 		return nil, err
 	}
+
 	if edit != nil {
 		data = edit(data)
 	}
+
 	if _, err := profile.Parse(data); err != nil {
 		return nil, err
 	}

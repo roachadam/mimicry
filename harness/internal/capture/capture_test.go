@@ -28,21 +28,26 @@ func TestWriteNeverOverwrites(t *testing.T) {
 			2,
 		},
 	}
+
 	path, err := Write(dir, c)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if path != filepath.Join(dir, "chrome-155-macos.json") {
 		t.Errorf("path %s", path)
 	}
+
 	first, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	hello, err := os.ReadFile(filepath.Join(dir, "chrome-155-macos.clienthello"))
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if string(hello) != "0102\n" {
 		t.Errorf("clienthello file %q, want hex of the raw message", hello)
 	}
@@ -51,10 +56,12 @@ func TestWriteNeverOverwrites(t *testing.T) {
 	if _, err := Write(dir, c); !errors.Is(err, ErrExists) {
 		t.Fatalf("second Write error = %v, want ErrExists", err)
 	}
+
 	after, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if string(after) != string(first) {
 		t.Error("second Write changed the existing capture")
 	}

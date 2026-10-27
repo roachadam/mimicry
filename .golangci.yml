@@ -239,6 +239,13 @@ linters:
           mapstructure: snake
           env: upperSnake
           envconfig: upperSnake
+    wsl_v5:
+      default: all
+      allow-whole-block: true
+      branch-max-lines: 3
+      case-max-lines: 2
+      disable:
+        - after-decl
     nlreturn:
       # A return or branch in a block of more than 2 lines needs a blank line
       # before it.
@@ -287,6 +294,7 @@ linters:
     - usestdlibvars   # stdlib constants instead of literals
     - modernize       # newer stdlib idioms (gopls's modernize analyzers)
     - nlreturn        # blank line before return/branch in longer blocks
+    - wsl_v5          # whitespace: statement grouping and blank lines
     - tagalign        # struct tags aligned, json first
     - tagliatelle     # struct tag key case (json camelCase)
   exclusions:
@@ -323,6 +331,7 @@ linters:
           - usestdlibvars
           - modernize
           - nlreturn
+          - wsl_v5
           - tagalign
           - tagliatelle
           - gosec

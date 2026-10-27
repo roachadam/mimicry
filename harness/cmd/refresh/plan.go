@@ -151,6 +151,7 @@ func loadRun(dir string) (*refreshRun, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	var r refreshRun
 	if err := json.Unmarshal(data, &r); err != nil {
 		return nil, fmt.Errorf("%s: %w", dir, err)
@@ -171,15 +172,19 @@ func (r *refreshRun) preflight(ctx context.Context, cfg config) error {
 	if err := os.MkdirAll(r.Dir, 0o750); err != nil {
 		return err
 	}
+
 	log.Printf("building the capture tool")
+
 	bin, err := build(ctx, r.Dir, "capture")
 	if err != nil {
 		return err
 	}
+
 	builtins, err := loadProfiles(profilesDir)
 	if err != nil {
 		return err
 	}
+
 	reports := map[string]*preflightReport{}
 	for _, name := range cfg.targets {
 		t := targets[name]
@@ -187,22 +192,30 @@ func (r *refreshRun) preflight(ctx context.Context, cfg config) error {
 			Target:  name,
 			Browser: t.browser,
 		}
+
 		if t.onMini {
 			p.Host = cfg.mini
 		}
+
 		r.Plans = append(r.Plans, p)
+
 		rep, ok := reports[p.Host]
+
 		if !ok {
 			m := r.machine(p)
 			if err := m.put(ctx, bin); err != nil {
 				return err
 			}
+
 			log.Printf("preflight on %s", m)
+
 			if rep, err = runPreflight(ctx, m); err != nil {
 				return err
 			}
+
 			reports[p.Host] = rep
 		}
+
 		if err := r.planTarget(p, rep, builtins, cfg); err != nil {
 			return err
 		}
@@ -216,6 +229,7 @@ func runPreflight(ctx context.Context, m *machine) (*preflightReport, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	var rep preflightReport
 	if err := json.Unmarshal(out, &rep); err != nil {
 		return nil, fmt.Errorf("preflight on %s: %w", m, err)
@@ -241,16 +255,19 @@ func loadProfiles(dir string) (map[string]*profile.Profile, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	out := map[string]*profile.Profile{}
 	for _, f := range files {
 		data, err := os.ReadFile(f)
 		if err != nil {
 			return nil, err
 		}
+
 		p, err := profile.Decode(data)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", f, err)
 		}
+
 		out[p.Name] = p
 	}
 
@@ -268,18 +285,23 @@ func major(version string) (int, bool) {
 // planTarget fills in p from the preflight of its machine.
 func (r *refreshRun) planTarget(p *plan, rep *preflightReport, builtins map[string]*profile.Profile, cfg config) error {
 	m := r.machine(p)
+
 	p.Installed = rep.installedVersion(p.Browser)
+
 	if p.Installed == "" {
 		p.Problems = append(p.Problems, fmt.Sprintf("%s is not installed on %s", p.Browser, m))
 		return nil
 	}
+
 	v, ok := major(p.Installed)
 	if !ok {
 		p.Problems = append(p.Problems, fmt.Sprintf("%s's version %q on %s has no major number", p.Browser, p.Installed, m))
 		return nil
 	}
+
 	p.Version = strconv.Itoa(v)
 	p.Name = p.Browser + "-" + p.Version + "-macos"
+
 	if _, ok := builtins[p.Name]; ok {
 		p.InPlace = true
 		p.Previous = p.Name
@@ -290,11 +312,13 @@ func (r *refreshRun) planTarget(p *plan, rep *preflightReport, builtins map[stri
 			if err != nil || b.Browser != p.Browser || b.Platform != "macos" {
 				continue
 			}
+
 			if bv > newest {
 				newest = bv
 				p.Previous = b.Name
 			}
 		}
+
 		switch {
 		case p.Previous == "":
 			p.Problems = append(p.Problems, fmt.Sprintf("no built-in %s profile to start %s from", p.Browser, p.Name))
@@ -302,20 +326,24 @@ func (r *refreshRun) planTarget(p *plan, rep *preflightReport, builtins map[stri
 			p.Problems = append(p.Problems, fmt.Sprintf("%s %s on %s is older than the newest profile, %s: update it", p.Browser, p.Installed, m, p.Previous))
 		}
 	}
+
 	for _, b := range rep.Browsers {
 		if b.Name == p.Browser && b.Unapproved {
 			p.Problems = append(p.Problems, fmt.Sprintf("Gatekeeper has not approved %s's first launch on %s, so opening it shows a dialog: open it once at that Mac's screen, or run\n    %s",
 				b.App, m, onMachine(p.Host, "xattr -d com.apple.quarantine "+shellQuote(b.App))))
 		}
 	}
+
 	if p.Host != "" && rep.ConsoleUser != rep.User {
 		p.Problems = append(p.Problems, fmt.Sprintf("%s's screen belongs to %q, not %s (\"root\": the login window); browsers opened over ssh show on the logged-in session: log in as %s there (Screen Sharing works)",
 			m, rep.ConsoleUser, rep.User, rep.User))
 	}
+
 	if !rep.CATrusted {
 		p.Problems = append(p.Problems, fmt.Sprintf("the capture CA is not trusted on %s (Safari stops at a warning, Firefox's pages across hosts fail, Chrome ignores Alt-Svc); at that Mac's screen (it asks for the password):\n    security add-trusted-cert -r trustRoot -p ssl -k ~/Library/Keychains/login.keychain-db %s",
 			m, shellQuote(rep.CAPath)))
 	}
+
 	if !rep.Resolver {
 		msg := fmt.Sprintf("/etc/resolver/test does not send *.test to the capture tool on %s; create it once:\n    %s", m, onMachine(p.Host, "sudo mkdir -p /etc/resolver && printf 'nameserver 127.0.0.1\\nport 15353\\n' | sudo tee /etc/resolver/test"))
 		if p.Browser == "safari" {
@@ -324,9 +352,11 @@ func (r *refreshRun) planTarget(p *plan, rep *preflightReport, builtins map[stri
 			p.Warnings = append(p.Warnings, msg+" (only Safari needs it)")
 		}
 	}
+
 	if err := r.planCaptures(p, rep, cfg); err != nil {
 		return err
 	}
+
 	p.CapturesFrom = inherit(p, builtins)
 	if p.Browser != "safari" {
 		p.Warnings = append(p.Warnings, fmt.Sprintf("%s updates itself; an update applied between two launches splits the run, which the tool then refuses (every capture must name %s, and the version must still be %s afterwards)",
@@ -353,29 +383,35 @@ func (r *refreshRun) planCaptures(p *plan, rep *preflightReport, cfg config) err
 		for entry := range strings.SplitSeq(cfg.scenarios, ",") {
 			name, n, _ := strings.Cut(entry, ":")
 			samples := 3
+
 			if n != "" {
 				var err error
 				if samples, err = strconv.Atoi(n); err != nil || samples < 1 {
 					return fmt.Errorf("-scenarios %q: samples must be a positive number", entry)
 				}
 			}
+
 			sc, err := scenarioFor(name)
 			if err != nil {
 				return err
 			}
+
 			set = append(set, server.Planned{
 				Scenario: sc,
 				Samples:  samples,
 			})
 		}
+
 	case r.Mode == modeQuick:
 		set = server.QuickScenarios
 	default:
 		set = server.FullScenarios()
+
 		replays, err := replayScenarios()
 		if err != nil {
 			return err
 		}
+
 		for _, sc := range replays {
 			set = append(set, server.Planned{
 				Scenario: sc,
@@ -383,6 +419,7 @@ func (r *refreshRun) planCaptures(p *plan, rep *preflightReport, cfg config) err
 			})
 		}
 	}
+
 	shared := p.Browser == "safari"
 	for _, s := range set {
 		sc := s.Scenario
@@ -390,12 +427,15 @@ func (r *refreshRun) planCaptures(p *plan, rep *preflightReport, cfg config) err
 		case shared && p.Host != "" && sc.Clicks():
 			p.Warnings = append(p.Warnings, fmt.Sprintf("skipping %s: Safari is clicked through the system's mouse events, which an ssh session cannot send; the profile keeps or inherits what it has", sc.Name))
 			continue
+
 		case shared && sc.ProxyAuth:
 			p.Warnings = append(p.Warnings, fmt.Sprintf("skipping %s: Safari's proxy credentials need the com.apple.proxy.http.global device profile and a person typing them (docs/capturing.md, Proxy scenarios); the profile keeps or inherits what it has, capture it by hand", sc.Name))
 			continue
+
 		case sc.NeedsAioquic() && rep.Aioquic != "":
 			p.Problems = append(p.Problems, fmt.Sprintf("%s needs python3 with aioquic on %s: %s; install it with\n    %s", sc.Name, r.machine(p), rep.Aioquic, onMachine(p.Host, "python3 -m pip install --user aioquic")))
 		}
+
 		// Chrome and Firefox refuse QUIC with the capture CA's
 		// certificates unless told otherwise (-h3-local-roots). The
 		// committed captures keep both kinds for h3-discovery and
@@ -403,20 +443,25 @@ func (r *refreshRun) planCaptures(p *plan, rep *preflightReport, cfg config) err
 		// answers) and the forced one for the rest.
 		forced := !shared && sc.HTTP3() && sc != server.H3Blackhole
 		unforced := shared || !sc.HTTP3() || sc == server.H3Discovery || sc == server.H3Page || sc == server.H3Blackhole
+
 		for _, lr := range []bool{false, true} {
 			if (lr && !forced) || (!lr && !unforced) {
 				continue
 			}
+
 			c := planned{
 				Scenario:   sc.Name,
 				Samples:    s.Samples,
 				LocalRoots: lr,
 				Estimate:   estimate(sc, p.Browser, s.Samples),
 			}
+
 			p.Captures = append(p.Captures, c)
+
 			p.Estimate += c.Estimate
 		}
 	}
+
 	// Unforced runs first, then the forced ones: one capture tool run each.
 	slices.SortStableFunc(p.Captures, func(a, b planned) int {
 		switch {
@@ -428,11 +473,13 @@ func (r *refreshRun) planCaptures(p *plan, rep *preflightReport, cfg config) err
 			return -1
 		}
 	})
+
 	if !slices.ContainsFunc(p.Captures, func(c planned) bool {
 		return c.Scenario == capture.DefaultScenario
 	}) && !cfg.captureOnly {
 		return fmt.Errorf("%s: the default scenario (%s) must be captured: the profile comes from it", p.Target, capture.DefaultScenario)
 	}
+
 	if shared {
 		p.Manual = append(p.Manual, fmt.Sprintf("Safari on %s: no content blocker or other extension enabled, default privacy settings; it opens tabs in your own window", r.machine(p)))
 		if slices.ContainsFunc(set, func(s server.Planned) bool {
@@ -443,6 +490,7 @@ func (r *refreshRun) planCaptures(p *plan, rep *preflightReport, cfg config) err
 				onMachine(p.Host, "sudo networksetup -setautoproxyurl <service> http://127.0.0.1:15356/mimicry.pac"),
 				onMachine(p.Host, "sudo networksetup -setautoproxystate <service> off")))
 		}
+
 		if p.Host == "" && slices.ContainsFunc(set, func(s server.Planned) bool {
 			return s.Scenario.Clicks()
 		}) {
@@ -460,6 +508,7 @@ func scenarioFor(name string) (*server.Scenario, error) {
 	if !ok {
 		return server.ScenarioByName(name)
 	}
+
 	shape, err := pageshape.Load(filepath.Join(pagesDir, site+".json"))
 	if err != nil {
 		return nil, err
@@ -474,12 +523,14 @@ func replayScenarios() ([]*server.Scenario, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	out := make([]*server.Scenario, 0, len(files))
 	for _, f := range files {
 		sc, err := scenarioFor("replay-" + strings.TrimSuffix(filepath.Base(f), ".json"))
 		if err != nil {
 			return nil, err
 		}
+
 		out = append(out, sc)
 	}
 
@@ -494,9 +545,11 @@ func estimate(sc *server.Scenario, browser string, samples int) time.Duration {
 	if _, length, multi := sc.MultiHost(); multi {
 		page = length
 	}
+
 	if sc.Name == "slow-idle" {
 		page = 30 * time.Second
 	}
+
 	launch := 6 * time.Second
 	if browser == "chrome" {
 		launch += 5 * time.Second
@@ -513,28 +566,34 @@ func inherit(p *plan, builtins map[string]*profile.Profile) map[string]string {
 	if prev == nil {
 		return nil
 	}
+
 	captured := map[string]bool{}
 	for _, c := range p.Captures {
 		captured[c.Scenario] = true
 	}
+
 	names := make([]string, 0, len(server.Scenarios))
 	for _, sc := range server.Scenarios {
 		names = append(names, sc.Name)
 	}
+
 	if replays, err := filepath.Glob(filepath.Join(pagesDir, "*.json")); err == nil {
 		for _, f := range replays {
 			names = append(names, "replay-"+strings.TrimSuffix(filepath.Base(f), ".json"))
 		}
 	}
+
 	out := map[string]string{}
 	for _, name := range names {
 		if name == capture.DefaultScenario || captured[name] {
 			continue
 		}
+
 		if src := capture.Source(prev, name); src != p.Name {
 			out[name] = src
 		}
 	}
+
 	if len(out) == 0 {
 		return nil
 	}
@@ -546,8 +605,10 @@ func inherit(p *plan, builtins map[string]*profile.Profile) map[string]string {
 func (r *refreshRun) planText() string {
 	var w strings.Builder
 	fmt.Fprintf(&w, "\nRefresh plan (%s mode), staging in %s\n", r.Mode, r.Dir)
+
 	for _, p := range r.Plans {
 		fmt.Fprintf(&w, "\n%s on %s: installed %s", p.Target, r.machine(p), p.Installed)
+
 		switch {
 		case p.Name == "":
 			w.WriteString("\n")
@@ -556,29 +617,37 @@ func (r *refreshRun) planText() string {
 		default:
 			fmt.Fprintf(&w, ", new profile %s from %s\n", p.Name, p.Previous)
 		}
+
 		for _, c := range p.Captures {
 			fmt.Fprintf(&w, "  capture %-34s %d sample(s), about %s\n", c.label(), c.Samples, c.Estimate.Round(time.Second))
 		}
+
 		bySource := map[string][]string{}
 		for sc, src := range p.CapturesFrom {
 			bySource[src] = append(bySource[src], sc)
 		}
+
 		for _, src := range slices.Sorted(maps.Keys(bySource)) {
 			scs := bySource[src]
 			slices.Sort(scs)
 			fmt.Fprintf(&w, "  inherit from %s (%d): %s\n", src, len(scs), strings.Join(scs, ", "))
 		}
+
 		fmt.Fprintf(&w, "  estimated capture time: %s\n", p.Estimate.Round(time.Second))
+
 		for _, s := range p.Manual {
 			fmt.Fprintf(&w, "  manual: %s\n", s)
 		}
+
 		for _, s := range p.Warnings {
 			fmt.Fprintf(&w, "  warning: %s\n", s)
 		}
+
 		for _, s := range p.Problems {
 			fmt.Fprintf(&w, "  PROBLEM: %s\n", s)
 		}
 	}
+
 	var total time.Duration
 	for _, steps := range r.schedule() {
 		var d time.Duration
@@ -587,13 +656,17 @@ func (r *refreshRun) planText() string {
 			for _, p := range step {
 				longest = max(longest, p.Estimate)
 			}
+
 			if len(step) > 1 {
 				fmt.Fprintf(&w, "\n%s capture at once on %s (-serial: one after the other).", planTargets(step), r.machine(step[0]))
 			}
+
 			d += longest
 		}
+
 		total = max(total, d)
 	}
+
 	fmt.Fprintf(&w, "\nEstimated capture time: about %s (a ceiling: pages often finish early), then per profile the generators and tests (several minutes) and realcheck (a few minutes, on its machine's screen).\n\n",
 		total.Round(time.Second))
 
@@ -608,11 +681,13 @@ func (r *refreshRun) schedule() map[string][][]*plan {
 	for _, p := range r.Plans {
 		steps := out[p.Host]
 		i := -1
+
 		if r.Mode == modeQuick && !r.Serial && p.Browser != "safari" {
 			i = slices.IndexFunc(steps, func(step []*plan) bool {
 				return step[0].Browser != "safari"
 			})
 		}
+
 		if i >= 0 {
 			steps[i] = append(steps[i], p)
 		} else {
@@ -620,6 +695,7 @@ func (r *refreshRun) schedule() map[string][][]*plan {
 				p,
 			})
 		}
+
 		out[p.Host] = steps
 	}
 

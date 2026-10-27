@@ -66,22 +66,26 @@ func LoadOrCreateCA(dir string, domains []string, now time.Time) (*CA, error) {
 	keyPath := filepath.Join(dir, "ca-key.pem")
 	certPEM, certErr := os.ReadFile(certPath)
 	keyPEM, keyErr := os.ReadFile(keyPath)
+
 	switch {
 	case certErr == nil && keyErr == nil:
 		ca, err := parseCA(certPEM, keyPEM)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", dir, err)
 		}
+
 		ca.CertPath = certPath
 		if !sameHosts(ca.Cert.PermittedDNSDomains, domains) {
 			return nil, fmt.Errorf("%s: the CA permits %v, not %v; delete the directory (and untrust the old CA) to replace it",
 				dir, ca.Cert.PermittedDNSDomains, domains)
 		}
+
 		if now.After(ca.Cert.NotAfter) {
 			return nil, fmt.Errorf("%s: the CA expired on %s; delete the directory (and untrust the old CA) to replace it", dir, ca.Cert.NotAfter)
 		}
 
 		return ca, nil
+
 	case errors.Is(certErr, os.ErrNotExist) && errors.Is(keyErr, os.ErrNotExist):
 		return createCA(dir, certPath, keyPath, domains, now)
 	default:
@@ -94,10 +98,12 @@ func createCA(dir, certPath, keyPath string, domains []string, now time.Time) (*
 	if err != nil {
 		return nil, err
 	}
+
 	serial, err := randomSerial()
 	if err != nil {
 		return nil, err
 	}
+
 	_, allIPv4, _ := net.ParseCIDR("0.0.0.0/0")
 	_, allIPv6, _ := net.ParseCIDR("::/0")
 	tmpl := &x509.Certificate{
@@ -118,17 +124,21 @@ func createCA(dir, certPath, keyPath string, domains []string, now time.Time) (*
 			allIPv6,
 		},
 	}
+
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
 	if err != nil {
 		return nil, err
 	}
+
 	keyDER, err := x509.MarshalPKCS8PrivateKey(key)
 	if err != nil {
 		return nil, err
 	}
+
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, err
 	}
+
 	keyPEM := pem.EncodeToMemory(&pem.Block{
 		Type:  "PRIVATE KEY",
 		Bytes: keyDER,
@@ -136,6 +146,7 @@ func createCA(dir, certPath, keyPath string, domains []string, now time.Time) (*
 	if err := os.WriteFile(keyPath, keyPEM, 0o600); err != nil {
 		return nil, err
 	}
+
 	certPEM := pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: der,
@@ -143,6 +154,7 @@ func createCA(dir, certPath, keyPath string, domains []string, now time.Time) (*
 	if err := os.WriteFile(certPath, certPEM, 0o600); err != nil {
 		return nil, err
 	}
+
 	cert, err := x509.ParseCertificate(der)
 	if err != nil {
 		return nil, err
@@ -158,17 +170,21 @@ func createCA(dir, certPath, keyPath string, domains []string, now time.Time) (*
 func parseCA(certPEM, keyPEM []byte) (*CA, error) {
 	certBlock, _ := pem.Decode(certPEM)
 	keyBlock, _ := pem.Decode(keyPEM)
+
 	if certBlock == nil || keyBlock == nil {
 		return nil, errors.New("CA files are not PEM")
 	}
+
 	cert, err := x509.ParseCertificate(certBlock.Bytes)
 	if err != nil {
 		return nil, err
 	}
+
 	parsed, err := x509.ParsePKCS8PrivateKey(keyBlock.Bytes)
 	if err != nil {
 		return nil, err
 	}
+
 	key, ok := parsed.(*ecdsa.PrivateKey)
 	if !ok || !key.PublicKey.Equal(cert.PublicKey) {
 		return nil, errors.New("CA key does not match the certificate")
@@ -195,10 +211,12 @@ func (ca *CA) Issue(hosts []string, now time.Time) (tls.Certificate, error) {
 	if err != nil {
 		return tls.Certificate{}, err
 	}
+
 	serial, err := randomSerial()
 	if err != nil {
 		return tls.Certificate{}, err
 	}
+
 	tmpl := &x509.Certificate{
 		SerialNumber: serial,
 		Subject: pkix.Name{
@@ -210,10 +228,12 @@ func (ca *CA) Issue(hosts []string, now time.Time) (tls.Certificate, error) {
 		KeyUsage:    x509.KeyUsageDigitalSignature,
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 	}
+
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, ca.Cert, &key.PublicKey, ca.key)
 	if err != nil {
 		return tls.Certificate{}, err
 	}
+
 	leaf, err := x509.ParseCertificate(der)
 	if err != nil {
 		return tls.Certificate{}, err

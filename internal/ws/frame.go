@@ -51,10 +51,12 @@ func AppendHeader(b []byte, h Header) []byte {
 	if h.Fin {
 		first |= 0x80
 	}
+
 	var mask byte
 	if h.Masked {
 		mask = 0x80
 	}
+
 	b = append(b, first)
 	switch n := h.Length; {
 	case n < 126:
@@ -62,10 +64,12 @@ func AppendHeader(b []byte, h Header) []byte {
 	case n <= 0xffff:
 		b = append(b, mask|126)
 		b = binary.BigEndian.AppendUint16(b, uint16(n))
+
 	default:
 		b = append(b, mask|127)
 		b = binary.BigEndian.AppendUint64(b, uint64(n))
 	}
+
 	if h.Masked {
 		b = append(b, h.Mask[:]...)
 	}
@@ -82,6 +86,7 @@ func ReadHeader(r io.Reader) (Header, error) {
 	if _, err := io.ReadFull(r, b[:2]); err != nil {
 		return Header{}, err
 	}
+
 	h := Header{
 		Fin:    b[0]&0x80 != 0,
 		RSV:    b[0] & 0x70,
@@ -94,28 +99,35 @@ func ReadHeader(r io.Reader) (Header, error) {
 		if _, err := io.ReadFull(r, b[:2]); err != nil {
 			return h, unexpected(err)
 		}
+
 		h.Length = int64(binary.BigEndian.Uint16(b[:2]))
+
 	case 127:
 		if _, err := io.ReadFull(r, b[:8]); err != nil {
 			return h, unexpected(err)
 		}
+
 		n := binary.BigEndian.Uint64(b[:8])
 		if n>>63 != 0 {
 			return h, errLength
 		}
+
 		h.Length = int64(n)
 	}
+
 	if h.Masked {
 		if _, err := io.ReadFull(r, h.Mask[:]); err != nil {
 			return h, unexpected(err)
 		}
 	}
+
 	switch h.Opcode {
 	case OpContinuation, OpText, OpBinary:
 	case OpClose, OpPing, OpPong:
 		if !h.Fin || h.Length > maxControl {
 			return h, errControlFrame
 		}
+
 	default:
 		return h, fmt.Errorf("%w %#x", errReservedOpcode, h.Opcode)
 	}

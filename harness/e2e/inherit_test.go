@@ -57,10 +57,12 @@ func TestInheritedProfile(t *testing.T) {
 	if os.Getenv(inheritChildEnv) != "" {
 		t.Skip("the inheriting run itself")
 	}
+
 	tests := inheritedTests
 	if os.Getenv(testprofiles.Env) == "all" {
 		tests = slices.Concat(inheritedTests, inheritedTestsFull)
 	}
+
 	for _, tc := range []struct {
 		name  string
 		tests []string
@@ -88,39 +90,49 @@ func TestInheritedProfile(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+
 			data, err := testprofiles.Inheriting(tc.edit)
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			path := filepath.Join(t.TempDir(), testprofiles.InheritingName+".json")
 			if err := os.WriteFile(path, data, 0o600); err != nil {
 				t.Fatal(err)
 			}
+
 			cmd := exec.CommandContext(t.Context(), os.Args[0], //nolint:gosec // this test binary
 				"-test.run=^("+strings.Join(tc.tests, "|")+")$",
 				"-test.count=1",
 				"-test.v",
 			)
+
 			cmd.Env = append(os.Environ(), testprofiles.Env+"="+path, inheritChildEnv+"=1")
+
 			out, err := cmd.CombinedOutput()
+
 			if tc.fail == nil {
 				if err != nil {
 					t.Fatalf("%s against chrome-155-macos's captures: %v\n%s", testprofiles.InheritingName, err, failures(out))
 				}
+
 				for _, name := range tc.tests {
 					if !bytes.Contains(out, []byte("--- PASS: "+name+" ")) {
 						t.Errorf("%s did not pass:\n%s", name, failures(out))
 					}
 				}
+
 				if !bytes.Contains(out, []byte("versions rewritten chrome-155-macos → "+testprofiles.InheritingName)) {
 					t.Error("no capture was read through capturesFrom")
 				}
 
 				return
 			}
+
 			if err == nil {
 				t.Fatalf("passed with a header value the browser did not send")
 			}
+
 			for _, want := range tc.fail {
 				if !bytes.Contains(out, []byte(want)) {
 					t.Errorf("the run's output lacks %q:\n%s", want, failures(out))
@@ -140,6 +152,7 @@ func failures(out []byte) string {
 			keep = append(keep, line)
 		}
 	}
+
 	if len(keep) > 200 {
 		keep = append(keep[:200], "...")
 	}
@@ -156,18 +169,23 @@ func TestCapturesFromNamesCapturedScenarios(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		for sc, from := range p.CapturesFrom {
 			if sc == capture.DefaultScenario {
 				t.Errorf("%s: capturesFrom.%s: the default page is never inherited", name, sc)
+
 				continue
 			}
+
 			if _, err := server.ScenarioByName(sc); err != nil && !strings.HasPrefix(sc, "replay-") {
 				t.Errorf("%s: capturesFrom.%s: %v", name, sc, err)
 			}
+
 			files, err := filepath.Glob(captureDir + from + "." + sc + ".*")
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if len(files) == 0 {
 				t.Errorf("%s: capturesFrom.%s: %s has no captures of it", name, sc, from)
 			}

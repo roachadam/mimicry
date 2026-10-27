@@ -30,6 +30,7 @@ func ExampleNewClient() {
 		fmt.Println("server:", r.Proto, r.Method, r.URL.Path)
 		fmt.Println("server: user-agent:", r.Header.Get("User-Agent"))
 		fmt.Println("server: sec-fetch-mode:", r.Header.Get("Sec-Fetch-Mode"), "sec-fetch-site:", r.Header.Get("Sec-Fetch-Site"))
+
 		_, _ = io.WriteString(w, "<title>Shop</title>")
 	})
 	defer shop.Close()
@@ -43,6 +44,7 @@ func ExampleNewClient() {
 	if err != nil {
 		panic(err)
 	}
+
 	// A deadline for the whole exchange, as with any http.Client (or the
 	// request's context). Config.DialTimeout bounds connecting alone.
 	client.Timeout = 30 * time.Second
@@ -53,16 +55,22 @@ func ExampleNewClient() {
 	if err != nil {
 		panic(err)
 	}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		panic(err)
 	}
+
 	body, err := io.ReadAll(resp.Body) // decompressed, as the browser would
+
 	_ = resp.Body.Close()
+
 	if err != nil {
 		panic(err)
 	}
+
 	fmt.Println(resp.Proto, resp.Status, string(body))
+
 	// Output:
 	// server: HTTP/2.0 GET /
 	// server: user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36
@@ -76,10 +84,13 @@ func ExampleAs() {
 	shop := startShop(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("server: %s %s sec-fetch-mode=%s referer=%q cookie=%q\n", r.Method, r.URL.Path,
 			r.Header.Get("Sec-Fetch-Mode"), r.Header.Get("Referer"), r.Header.Get("Cookie"))
+
 		switch r.URL.Path {
 		case "/p/42":
 			w.Header().Set("Set-Cookie", "session=s1; Path=/; Secure; HttpOnly")
+
 			_, _ = io.WriteString(w, "<title>Kettle</title>")
+
 		case "/api/stock/42":
 			_, _ = io.WriteString(w, `{"sku":42,"inStock":true}`)
 		}
@@ -95,16 +106,19 @@ func ExampleAs() {
 	if err != nil {
 		panic(err)
 	}
+
 	ctx := context.Background()
 
 	page, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://www.shop.test/p/42", nil)
 	if err != nil {
 		panic(err)
 	}
+
 	resp, err := client.Do(page)
 	if err != nil {
 		panic(err)
 	}
+
 	_, _ = io.Copy(io.Discard, resp.Body)
 	_ = resp.Body.Close()
 
@@ -114,20 +128,26 @@ func ExampleAs() {
 	if err != nil {
 		panic(err)
 	}
+
 	resp, err = client.Do(mimicry.As(api, mimicry.Fetch))
 	if err != nil {
 		panic(err)
 	}
+
 	var stock struct {
 		SKU     int  `json:"sku"`
 		InStock bool `json:"inStock"`
 	}
+
 	err = json.NewDecoder(resp.Body).Decode(&stock)
 	_ = resp.Body.Close()
+
 	if err != nil {
 		panic(err)
 	}
+
 	fmt.Printf("sku %d in stock: %v\n", stock.SKU, stock.InStock)
+
 	// Output:
 	// server: GET /p/42 sec-fetch-mode=navigate referer="" cookie=""
 	// server: GET /api/stock/42 sec-fetch-mode=cors referer="https://www.shop.test/p/42" cookie="session=s1"
@@ -147,6 +167,7 @@ func ExampleAs_addToCart() {
 			fmt.Println("server: origin:", r.Header.Get("Origin"), "content-type:", r.Header.Get("Content-Type"),
 				"x-csrf-token:", r.Header.Get("X-CSRF-Token"))
 			w.Header().Set("Content-Type", "application/json")
+
 			_, _ = io.WriteString(w, `{"items":1}`)
 		}
 	})
@@ -161,21 +182,27 @@ func ExampleAs_addToCart() {
 	if err != nil {
 		panic(err)
 	}
+
 	ctx := context.Background()
 
 	page, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://www.shop.test/p/42", nil)
 	if err != nil {
 		panic(err)
 	}
+
 	resp, err := client.Do(page)
 	if err != nil {
 		panic(err)
 	}
+
 	html, err := io.ReadAll(resp.Body)
+
 	_ = resp.Body.Close()
+
 	if err != nil {
 		panic(err)
 	}
+
 	token := regexp.MustCompile(`name="csrf-token" content="([^"]+)"`).FindSubmatch(html)[1]
 
 	// Headers the page's script sets go on the request; the profile adds
@@ -185,18 +212,25 @@ func ExampleAs_addToCart() {
 	if err != nil {
 		panic(err)
 	}
+
 	add.Header.Set("Content-Type", "application/json")
 	add.Header.Set("X-CSRF-Token", string(token))
+
 	resp, err = client.Do(mimicry.As(add, mimicry.Fetch))
 	if err != nil {
 		panic(err)
 	}
+
 	body, err := io.ReadAll(resp.Body)
+
 	_ = resp.Body.Close()
+
 	if err != nil {
 		panic(err)
 	}
+
 	fmt.Println(resp.Status, string(body))
+
 	// Output:
 	// server: POST /api/cart {"sku":42,"qty":1}
 	// server: origin: https://www.shop.test content-type: application/json x-csrf-token: t0k3n
@@ -209,6 +243,7 @@ func ExampleWith() {
 	shop := startShop(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("server: %s %s sec-fetch-site=%s origin=%q referer=%q\n", r.Method, r.URL.Path,
 			r.Header.Get("Sec-Fetch-Site"), r.Header.Get("Origin"), r.Header.Get("Referer"))
+
 		switch r.URL.Path {
 		case "/cart":
 			_, _ = io.WriteString(w, `<form method="post" action="/checkout">`)
@@ -216,6 +251,7 @@ func ExampleWith() {
 			_ = r.ParseForm()
 			fmt.Println("server: form:", r.PostForm.Encode())
 			http.Redirect(w, r, "/orders/1001", http.StatusSeeOther)
+
 		case "/orders/1001":
 			_, _ = io.WriteString(w, "<title>Order 1001</title>")
 		}
@@ -231,16 +267,19 @@ func ExampleWith() {
 	if err != nil {
 		panic(err)
 	}
+
 	ctx := context.Background()
 
 	cart, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://www.shop.test/cart", nil)
 	if err != nil {
 		panic(err)
 	}
+
 	resp, err := client.Do(cart)
 	if err != nil {
 		panic(err)
 	}
+
 	_, _ = io.Copy(io.Discard, resp.Body)
 	_ = resp.Body.Close()
 
@@ -250,11 +289,14 @@ func ExampleWith() {
 		"shipping": {"standard"},
 		"agree":    {"on"},
 	}
+
 	checkout, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://www.shop.test/checkout", strings.NewReader(form.Encode()))
 	if err != nil {
 		panic(err)
 	}
+
 	checkout.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 	resp, err = client.Do(mimicry.With(checkout, mimicry.Request{
 		Kind: mimicry.Navigate,
 		From: cart.URL,
@@ -262,6 +304,7 @@ func ExampleWith() {
 	if err != nil {
 		panic(err)
 	}
+
 	_ = resp.Body.Close()
 
 	// The client followed the 303 with a GET, as the browser does. Each
@@ -274,13 +317,17 @@ func ExampleWith() {
 		if r.Response == nil {
 			break
 		}
+
 		chain = append(chain, r.Response.Status)
 		r = r.Response.Request
 	}
+
 	for _, c := range slices.Backward(chain) {
 		fmt.Println(c)
 	}
+
 	fmt.Println("now on", resp.Request.URL)
+
 	// Output:
 	// server: GET /cart sec-fetch-site=none origin="" referer=""
 	// server: POST /checkout sec-fetch-site=same-origin origin="https://www.shop.test" referer="https://www.shop.test/cart"
@@ -297,6 +344,7 @@ func ExampleWith() {
 func ExampleConfig_cookies() {
 	shop := startShop(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("server: %s cookie=%q\n", r.URL.Path, r.Header.Get("Cookie"))
+
 		if r.URL.Path == "/" {
 			w.Header().Add("Set-Cookie", "session=s1; Path=/; Secure; HttpOnly")
 			w.Header().Add("Set-Cookie", "region=eu; Path=/; Max-Age=3600")
@@ -315,25 +363,30 @@ func ExampleConfig_cookies() {
 	if err != nil {
 		panic(err)
 	}
+
 	tr, ok := client.Transport.(*mimicry.Transport)
 	if !ok {
 		panic("NewClient's Transport is a *mimicry.Transport")
 	}
+
 	jar := tr.Cookies()
 	get := func(rawURL string) {
 		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, rawURL, nil)
 		if err != nil {
 			panic(err)
 		}
+
 		resp, err := client.Do(req)
 		if err != nil {
 			panic(err)
 		}
+
 		_, _ = io.Copy(io.Discard, resp.Body)
 		_ = resp.Body.Close()
 	}
 
 	get("https://www.shop.test/")
+
 	for _, c := range jar.All() {
 		fmt.Printf("jar: %s=%s domain=%s secure=%v session=%v\n", c.Name, c.Value, c.Domain, c.Secure, c.Expires.IsZero())
 	}
@@ -343,6 +396,7 @@ func ExampleConfig_cookies() {
 	if err := jar.SetString("shop.test", "consent=yes"); err != nil {
 		panic(err)
 	}
+
 	get("https://www.shop.test/cart")
 
 	jar.Delete(func(c *cookies.Cookie) bool {
@@ -350,6 +404,7 @@ func ExampleConfig_cookies() {
 	})
 	get("https://www.shop.test/cart")
 	fmt.Printf("saved: %q\n", jar.String("shop.test"))
+
 	// Output:
 	// server: / cookie=""
 	// jar: session=s1 domain=www.shop.test secure=true session=true
@@ -364,18 +419,21 @@ func ExampleConfig_cookies() {
 func ExampleConfig_sharedJar() {
 	shop := startShop(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("server: %s cookie=%q\n", r.Host, r.Header.Get("Cookie"))
+
 		site, _, _ := strings.Cut(strings.TrimPrefix(r.Host, "www."), ".")
 		w.Header().Set("Set-Cookie", site+"_visitor=1; Path=/; Secure")
 	})
 	defer shop.Close()
 
 	p := profiles.Chrome()
+
 	jar, err := cookies.New(cookies.Config{
 		Rules: p.Cookies,
 	})
 	if err != nil {
 		panic(err)
 	}
+
 	newClient := func() *http.Client {
 		client, err := mimicry.NewClient(mimicry.Config{
 			Profile: p,
@@ -403,15 +461,19 @@ func ExampleConfig_sharedJar() {
 		if err != nil {
 			panic(err)
 		}
+
 		resp, err := sites[u].Do(req)
 		if err != nil {
 			panic(err)
 		}
+
 		_ = resp.Body.Close()
 	}
+
 	for _, c := range jar.All() {
 		fmt.Println("jar:", c.Domain, c.Name)
 	}
+
 	// Output:
 	// server: www.shop.test cookie=""
 	// server: www.outlet.test cookie=""
@@ -430,7 +492,9 @@ func ExampleHeaderOrderKey() {
 		if r.URL.Path == "/" {
 			return
 		}
+
 		fmt.Println("server:", r.Method, r.URL.Path)
+
 		for _, line := range lines {
 			fmt.Println("server:  ", line)
 		}
@@ -450,6 +514,7 @@ func ExampleHeaderOrderKey() {
 	if err != nil {
 		panic(err)
 	}
+
 	newRequest := func(rawURL string) *http.Request {
 		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, rawURL, nil)
 		if err != nil {
@@ -463,6 +528,7 @@ func ExampleHeaderOrderKey() {
 		if err != nil {
 			panic(err)
 		}
+
 		_ = resp.Body.Close()
 	}
 
@@ -480,12 +546,14 @@ func ExampleHeaderOrderKey() {
 	// HTTP/1.1. Needed only to copy an order the profile does not have.
 	custom := newRequest("https://www.shop.test/api/cart")
 	custom.Header.Set("X-CSRF-Token", "t0k3n")
+
 	custom.Header[mimicry.HeaderOrderKey] = []string{
 		"host", "connection", "sec-ch-ua-platform", "user-agent", "sec-ch-ua", "sec-ch-ua-mobile", "accept",
 		"sec-fetch-site", "sec-fetch-mode", "sec-fetch-dest", "referer", "accept-encoding", "accept-language",
 		"x-csrf-token",
 	}
 	send(mimicry.As(custom, mimicry.Fetch))
+
 	// Output:
 	// server: GET /api/cart
 	// server:   Host: www.shop.test
@@ -527,21 +595,30 @@ func ExampleConfig_proxy() {
 		fmt.Println("server:", r.URL.Path)
 	})
 	defer shop.Close()
+
 	first := startProxy(shop, "alice", "secret")
+
 	defer first.Close()
+
 	second := startProxy(shop, "", "")
+
 	defer second.Close()
+
 	// The first proxy again, with a password it no longer takes.
 	expired := *first.URL
+
 	expired.User = url.UserPassword("alice", "expired")
 
 	proxies := []*url.URL{&expired, first.URL, second.URL}
+
 	var current atomic.Pointer[url.URL]
 	current.Store(proxies[0])
+
 	rotate := func() {
 		proxies = proxies[1:]
 		current.Store(proxies[0])
 	}
+
 	client, err := mimicry.NewClient(mimicry.Config{
 		Profile: profiles.Chrome(),
 		Proxy: func(*http.Request) (*url.URL, error) {
@@ -554,12 +631,14 @@ func ExampleConfig_proxy() {
 	if err != nil {
 		panic(err)
 	}
+
 	get := func(rawURL string) {
 		for {
 			req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, rawURL, nil)
 			if err != nil {
 				panic(err)
 			}
+
 			resp, err := client.Do(req)
 			if pe, ok := errors.AsType[*mimicry.ProxyError](err); ok {
 				fmt.Printf("proxy failed: %d as %s (password in the error: %t)\n",
@@ -568,9 +647,11 @@ func ExampleConfig_proxy() {
 
 				continue
 			}
+
 			if err != nil {
 				panic(err)
 			}
+
 			_ = resp.Body.Close()
 
 			return
@@ -586,9 +667,11 @@ func ExampleConfig_proxy() {
 	for _, line := range first.Log() {
 		fmt.Println("first proxy:", line)
 	}
+
 	for _, line := range second.Log() {
 		fmt.Println("second proxy:", line)
 	}
+
 	// Output:
 	// proxy failed: 407 as alice (password in the error: false)
 	// server: /
@@ -621,18 +704,22 @@ func ExampleConfig_disableHTTP3() {
 	if err != nil {
 		panic(err)
 	}
+
 	for range 3 {
 		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://www.shop.test/", nil)
 		if err != nil {
 			panic(err)
 		}
+
 		resp, err := client.Do(req)
 		if err != nil {
 			panic(err)
 		}
+
 		_ = resp.Body.Close()
 		fmt.Println(resp.Proto)
 	}
+
 	// Output:
 	// HTTP/2.0
 	// HTTP/2.0
@@ -645,6 +732,7 @@ func ExampleConfig_disableHTTP3() {
 func ExampleConfig_pins() {
 	shop := startShop(func(http.ResponseWriter, *http.Request) {})
 	defer shop.Close()
+
 	cfg := mimicry.Config{
 		Profile: profiles.Chrome(),
 		// Only to reach the local stand-in shop; nil for real sites.
@@ -652,15 +740,18 @@ func ExampleConfig_pins() {
 		DialContext: shop.DialContext,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
 	defer cancel()
 
 	chain, err := mimicry.FetchPins(ctx, cfg, "https://www.shop.test/")
 	if err != nil {
 		panic(err)
 	}
+
 	var intermediate string
 	for _, c := range chain {
 		fmt.Println(c.Role, c.Subject)
+
 		if c.Role == mimicry.CertIntermediate {
 			intermediate = c.SPKI // "sha256/<base64>"
 		}
@@ -676,27 +767,34 @@ func ExampleConfig_pins() {
 				},
 			},
 		}
+
 		client, err := mimicry.NewClient(cfg)
 		if err != nil {
 			panic(err)
 		}
+
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://www.shop.test/", nil)
 		if err != nil {
 			panic(err)
 		}
+
 		resp, err := client.Do(req)
 		if pe, ok := errors.AsType[*mimicry.PinError](err); ok {
 			fmt.Println("refused:", pe.Host, "presented", len(pe.Presented), "keys")
+
 			return
 		}
+
 		if err != nil {
 			panic(err)
 		}
+
 		_ = resp.Body.Close()
 		fmt.Println(resp.Status, "over", resp.TLS.NegotiatedProtocol, "from", resp.TLS.VerifiedChains[0][1].Subject.CommonName)
 	}
 	get(intermediate)
 	get("sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=") // someone else's key
+
 	// Output:
 	// leaf CN=shop.test
 	// intermediate CN=Shop Test Issuing CA
@@ -735,21 +833,27 @@ func ExampleErrNotMeasured() {
 		},
 		Priority: mimicry.PriorityHigh,
 	}
+
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://www.shop.test/hero.avif", nil)
 	if err != nil {
 		panic(err)
 	}
+
 	resp, err := client.Do(mimicry.With(req, hero))
 	if errors.Is(err, mimicry.ErrNotMeasured) {
 		fmt.Println(err)
+
 		hero.Priority = mimicry.PriorityAuto
 		resp, err = client.Do(mimicry.With(req, hero))
 	}
+
 	if err != nil {
 		panic(err)
 	}
+
 	_ = resp.Body.Close()
 	fmt.Println(resp.Status)
+
 	// Output:
 	// Get "https://www.shop.test/hero.avif": mimicry: not measured for this profile: profile chrome-155-macos has no measured fetchpriority high for image requests
 	// server: /hero.avif priority: u=2, i
@@ -763,6 +867,7 @@ func ExampleErrNotMeasured() {
 func ExampleTransport_Plan() {
 	shop := startShop(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("server:", r.Method, r.URL.Path, "sec-fetch-site:", r.Header.Get("Sec-Fetch-Site"))
+
 		if r.URL.Path == "/p/42" {
 			w.Header().Set("Set-Cookie", "session=s1; Path=/; Secure; HttpOnly")
 		}
@@ -778,19 +883,24 @@ func ExampleTransport_Plan() {
 	if err != nil {
 		panic(err)
 	}
+
 	tr, ok := client.Transport.(*mimicry.Transport)
 	if !ok {
 		panic("NewClient's Transport is a *mimicry.Transport")
 	}
+
 	ctx := context.Background()
+
 	page, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://www.shop.test/p/42", nil)
 	if err != nil {
 		panic(err)
 	}
+
 	resp, err := client.Do(page)
 	if err != nil {
 		panic(err)
 	}
+
 	_ = resp.Body.Close()
 
 	// The stock API call as ported, with a header literal of the old
@@ -799,30 +909,39 @@ func ExampleTransport_Plan() {
 	if err != nil {
 		panic(err)
 	}
+
 	api.Header.Set("Sec-Fetch-Site", "none")
+
 	plan, err := tr.Plan(mimicry.As(api, mimicry.Fetch))
 	if err != nil {
 		panic(err)
 	}
+
 	fmt.Println("variant:", plan.Variant, plan.Condition)
+
 	for _, o := range plan.Overrides {
 		fmt.Printf("override: %s: %q replaced by %q\n", o.Name, o.Mimicry, o.Caller)
 	}
 
 	// Drop it, look again, and send what was planned.
 	api.Header.Del("Sec-Fetch-Site")
+
 	plan, err = tr.Plan(mimicry.As(api, mimicry.Fetch))
 	if err != nil {
 		panic(err)
 	}
+
 	fmt.Println("overrides:", len(plan.Overrides), "protocol:", plan.Protocol)
+
 	for _, h := range plan.HTTP2.Headers {
 		fmt.Printf("  %s: %s\n", h.Name, h.Value)
 	}
+
 	resp, err = client.Do(mimicry.As(api, mimicry.Fetch))
 	if err != nil {
 		panic(err)
 	}
+
 	_ = resp.Body.Close()
 	// Output:
 	// server: GET /p/42 sec-fetch-site: none
@@ -859,6 +978,7 @@ func ExampleTransport_DialWebSocket() {
 
 			return
 		}
+
 		w.Header().Set("Set-Cookie", "session=s1; Path=/; Secure")
 	})
 	defer shop.Close()
@@ -872,17 +992,21 @@ func ExampleTransport_DialWebSocket() {
 	if err != nil {
 		panic(err)
 	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://www.shop.test/queue", nil)
 	if err != nil {
 		panic(err)
 	}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		panic(err)
 	}
+
 	_ = resp.Body.Close()
 
 	// The socket goes through the client's Transport, from its last page.
@@ -890,21 +1014,27 @@ func ExampleTransport_DialWebSocket() {
 	if !ok {
 		panic("NewClient's Transport is a *mimicry.Transport")
 	}
+
 	ws, _, err := tr.DialWebSocket(ctx, "wss://www.shop.test/live", mimicry.WebSocketOptions{})
 	if err != nil {
 		panic(err)
 	}
+
 	if err := ws.WriteMessage(ctx, mimicry.TextMessage, []byte("position?")); err != nil {
 		panic(err)
 	}
+
 	_, msg, err := ws.ReadMessage(ctx)
 	if err != nil {
 		panic(err)
 	}
+
 	fmt.Println(string(msg))
+
 	if err := ws.Close(1000, ""); err != nil {
 		panic(err)
 	}
+
 	// Output:
 	// server: websocket from https://www.shop.test cookie: session=s1
 	// echo: position?
@@ -920,7 +1050,9 @@ func ExampleConfig_headerPlacement() {
 		if r.URL.Path == "/" {
 			return
 		}
+
 		fmt.Println("server:", r.Method, r.URL.Path)
+
 		for _, line := range lines {
 			fmt.Println("server:  ", line)
 		}
@@ -947,11 +1079,13 @@ func ExampleConfig_headerPlacement() {
 	if err != nil {
 		panic(err)
 	}
+
 	newRequest := func(rawURL string) *http.Request {
 		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, rawURL, nil)
 		if err != nil {
 			panic(err)
 		}
+
 		req.Header.Set("X-CSRF-Token", "t0k3n")
 
 		return req
@@ -999,6 +1133,7 @@ func ExampleConfig_headerPlacement() {
 		},
 	}))
 	fmt.Println("placement error:", errors.Is(err, mimicry.ErrPlacement))
+
 	// Output:
 	// server: GET /api/cart
 	// server:   Host: www.shop.test

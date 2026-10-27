@@ -30,6 +30,7 @@ const captureDir = "../testdata/captures/"
 // (testprofiles, decision 0035).
 func testProfiles(t testing.TB) []string {
 	t.Helper()
+
 	names, err := testprofiles.Names()
 	if err != nil {
 		t.Fatal(err)
@@ -51,14 +52,17 @@ func loadProfile(name string) (*profile.Profile, error) {
 // missingCaptures.
 func capturePath(t testing.TB, p *profile.Profile, scenario, rest string) (string, string, *capture.Rewriter) {
 	t.Helper()
+
 	source, rw, err := capture.Inherited(p, scenario)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	file := source + rest
 	if scenario != capture.DefaultScenario {
 		file = source + "." + scenario + rest
 	}
+
 	if rw != nil {
 		t.Logf("%s: %s inherited, versions rewritten %s", scenario, file, rw)
 	}
@@ -70,11 +74,14 @@ func capturePath(t testing.TB, p *profile.Profile, scenario, rest string) (strin
 // to p's version where inherited.
 func loadPages(t testing.TB, p *profile.Profile, scenario, rest string) ([]*capture.Page, error) {
 	t.Helper()
+
 	path, _, rw := capturePath(t, p, scenario, rest)
+
 	pages, err := capture.LoadPages(path)
 	if err != nil {
 		return nil, err
 	}
+
 	rw.Pages(pages)
 
 	return pages, nil
@@ -84,11 +91,14 @@ func loadPages(t testing.TB, p *profile.Profile, scenario, rest string) ([]*capt
 // where inherited (not for HPACK reproduction, which needs them as sent).
 func loadH2Traces(t testing.TB, p *profile.Profile, scenario string) ([]*h2trace.Trace, error) {
 	t.Helper()
+
 	path, _, rw := capturePath(t, p, scenario, ".h2trace.json")
+
 	traces, err := h2trace.Load(path)
 	if err != nil {
 		return nil, err
 	}
+
 	rw.Traces(traces)
 
 	return traces, nil
@@ -101,11 +111,17 @@ func loadH2Traces(t testing.TB, p *profile.Profile, scenario string) ([]*h2trace
 // proxy's and HTTP/1.1 traces.
 func loadSamples[T any](t *testing.T, p *profile.Profile, scenario, rest string) []T {
 	t.Helper()
+
 	path, file, rw := capturePath(t, p, scenario, rest)
-	var data []byte
-	var err error
+
+	var (
+		data []byte
+		err  error
+	)
+
 	if strings.HasSuffix(file, ".gz") {
 		var pages []*capture.Page
+
 		pages, err = capture.LoadPages(path)
 		if err == nil {
 			data, err = json.Marshal(pages)
@@ -113,25 +129,32 @@ func loadSamples[T any](t *testing.T, p *profile.Profile, scenario, rest string)
 	} else {
 		data, err = os.ReadFile(path)
 	}
+
 	if why, ok := missingCaptures[file]; ok {
 		if err == nil {
 			t.Fatalf("capture %s exists but is listed missing (%s)", file, why)
 		}
+
 		t.Skipf("no capture %s: %s", file, why)
 	}
+
 	if errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("no capture %s", file)
 	}
+
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	var samples []T
 	if err := json.Unmarshal(data, &samples); err != nil {
 		t.Fatal(err)
 	}
+
 	if rw == nil {
 		return samples
 	}
+
 	switch s := any(samples).(type) {
 	case []*capture.Page:
 		rw.Pages(s)
@@ -139,10 +162,12 @@ func loadSamples[T any](t *testing.T, p *profile.Profile, scenario, rest string)
 		for _, sample := range s {
 			rw.Proxy(sample)
 		}
+
 	case [][]capture.H1Request:
 		for _, sample := range s {
 			rw.H1(sample)
 		}
+
 	default:
 		t.Fatalf("%s is inherited, but loadSamples cannot rewrite a %T", file, samples)
 	}

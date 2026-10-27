@@ -47,8 +47,11 @@ const switchAttempts = 8
 // idle connections are closed first. Alt-Svc is taken from any response,
 // redirects included: Firefox may already follow a redirect over HTTP/3.
 func engineFlow(ctx context.Context, cfg mimicry.Config, home, large string) ([]engineStep, engineSummary) {
-	var steps []engineStep
-	var sum engineSummary
+	var (
+		steps []engineStep
+		sum   engineSummary
+	)
+
 	client, err := mimicry.NewClient(cfg)
 	if err != nil {
 		return []engineStep{{
@@ -56,49 +59,66 @@ func engineFlow(ctx context.Context, cfg mimicry.Config, home, large string) ([]
 			Err:  err.Error(),
 		}}, sum
 	}
+
 	rec := &altSvcRecorder{
 		rt: client.Transport,
 	}
+
 	client.Transport = rec
+
 	defer client.CloseIdleConnections()
+
 	get := func(step, url string) engineStep {
 		s := fetchVia(ctx, client, step, url)
+
 		steps = append(steps, s)
 
 		return s
 	}
 	first := get("tcp", home)
+
 	sum.AltSvc = rec.first()
+
 	if first.Err != "" {
 		return steps, sum
 	}
+
 	if !strings.Contains(sum.AltSvc, "h3=") {
 		return steps, sum
 	}
+
 	if first.Proto == "HTTP/3.0" {
 		sum.SwitchedAfter = 1
 	}
+
 	if cfg.Profile.HTTP3.Discovery.Switch == profile.SwitchNewConnection {
 		client.CloseIdleConnections()
 	}
+
 	for i := range switchAttempts {
 		if sum.SwitchedAfter != 0 {
 			break
 		}
+
 		s := get("switch-"+strconv.Itoa(i+1), home)
 		if s.Proto == "HTTP/3.0" {
 			sum.SwitchedAfter = i + 2
 			break
 		}
+
 		if s.Err != "" || ctx.Err() != nil {
 			break
 		}
+
 		time.Sleep(250 * time.Millisecond)
 	}
+
 	if large != "" {
 		sum.Large = get("large", large).Proto
 	}
+
 	client.CloseIdleConnections()
+
 	sum.Resumed = get("second-connection", home).Proto
 	for _, s := range steps {
 		if s.Proto == "HTTP/3.0" {
@@ -122,9 +142,11 @@ func (a *altSvcRecorder) RoundTrip(req *http.Request) (*http.Response, error) {
 	if err == nil {
 		if v := resp.Header.Get("Alt-Svc"); strings.Contains(v, "h3=") {
 			a.mu.Lock()
+
 			if a.h3 == "" {
 				a.h3 = v
 			}
+
 			a.mu.Unlock()
 		}
 	}
@@ -151,26 +173,35 @@ func fetchVia(ctx context.Context, client *http.Client, step, url string) (s eng
 		Step: step,
 		URL:  url,
 	}
+
 	start := time.Now()
+
 	defer func() {
 		s.MS = ms(time.Since(start))
 	}()
+
 	rctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+
 	defer cancel()
+
 	req, err := http.NewRequestWithContext(rctx, http.MethodGet, url, nil)
 	if err != nil {
 		s.Err = err.Error()
 		return s
 	}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		s.Err = err.Error()
 		return s
 	}
+
 	defer func() {
 		_ = resp.Body.Close()
 	}()
+
 	s.Proto, s.Status, s.altSvc = resp.Proto, resp.StatusCode, resp.Header.Get("Alt-Svc")
+
 	s.Bytes, err = io.Copy(io.Discard, resp.Body)
 	if err != nil {
 		s.Err = err.Error()
@@ -184,16 +215,22 @@ func fetchVia(ctx context.Context, client *http.Client, step, url string) (s eng
 func h3Port(altSvc string) uint16 {
 	for alt := range strings.SplitSeq(altSvc, ",") {
 		alt = strings.TrimSpace(alt)
+
 		v, ok := strings.CutPrefix(alt, "h3=")
+
 		if !ok {
 			continue
 		}
+
 		v, _, _ = strings.Cut(v, ";")
 		v = strings.Trim(strings.TrimSpace(v), `"`)
+
 		host, port, ok := strings.Cut(v, ":")
+
 		if !ok || host != "" {
 			continue
 		}
+
 		n, err := strconv.ParseUint(port, 10, 16)
 		if err == nil {
 			return uint16(n)

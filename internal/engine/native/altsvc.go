@@ -26,26 +26,34 @@ func parseAltSvc(values []string, host string, now time.Time) (alt altSvc, found
 			if entry == "clear" {
 				return altSvc{}, false, true
 			}
+
 			params := splitQuoted(entry, ';')
 			proto, authority, ok := strings.Cut(strings.TrimSpace(params[0]), "=")
+
 			if !ok || strings.TrimSpace(proto) != "h3" {
 				continue
 			}
+
 			authority = strings.Trim(strings.TrimSpace(authority), `"`)
+
 			h, p, err := net.SplitHostPort(authority)
+
 			if err != nil || (h != "" && !strings.EqualFold(h, host)) {
 				continue
 			}
+
 			port, err := strconv.ParseUint(p, 10, 16)
 			if err != nil || port == 0 {
 				continue
 			}
+
 			maxAge := altSvcMaxAge
 			for _, param := range params[1:] {
 				name, value, _ := strings.Cut(strings.TrimSpace(param), "=")
 				if strings.TrimSpace(name) != "ma" {
 					continue
 				}
+
 				if s, err := strconv.ParseUint(strings.Trim(strings.TrimSpace(value), `"`), 10, 32); err == nil {
 					maxAge = time.Duration(s) * time.Second
 				}
@@ -64,7 +72,9 @@ func parseAltSvc(values []string, host string, now time.Time) (alt altSvc, found
 // splitQuoted splits s at each sep outside double quotes.
 func splitQuoted(s string, sep byte) []string {
 	var out []string
+
 	start, quoted := 0, false
+
 	for i := 0; i < len(s); i++ {
 		switch {
 		case s[i] == '"':

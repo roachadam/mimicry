@@ -36,6 +36,7 @@ func newPipe(onRead func(n int), onClose func(complete bool, discarded int)) *pi
 		onRead:   onRead,
 		onClose:  onClose,
 	}
+
 	p.cond = sync.NewCond(&p.mu)
 
 	return p
@@ -44,6 +45,7 @@ func newPipe(onRead func(n int), onClose func(complete bool, discarded int)) *pi
 // setExpected records the response's Content-Length (-1 when unknown).
 func (p *pipe) setExpected(n int64) {
 	p.mu.Lock()
+
 	p.expected = n
 	p.mu.Unlock()
 }
@@ -51,21 +53,27 @@ func (p *pipe) setExpected(n int64) {
 // Read implements io.Reader for the response body.
 func (p *pipe) Read(b []byte) (int, error) {
 	p.mu.Lock()
+
 	for p.buf.Len() == 0 && p.err == nil && !p.closed {
 		p.cond.Wait()
 	}
+
 	if p.closed {
 		p.mu.Unlock()
+
 		return 0, errBodyClosed
 	}
+
 	if p.buf.Len() > 0 {
 		n, _ := p.buf.Read(b)
+
 		p.read += int64(n)
 		p.mu.Unlock()
 		p.onRead(n)
 
 		return n, nil
 	}
+
 	err := p.err
 	p.mu.Unlock()
 
@@ -76,11 +84,15 @@ func (p *pipe) Read(b []byte) (int, error) {
 // time, calls onClose.
 func (p *pipe) Close() error {
 	p.mu.Lock()
+
 	if p.closed {
 		p.mu.Unlock()
+
 		return nil
 	}
+
 	p.closed = true
+
 	discarded := p.buf.Len()
 	complete := p.expected >= 0 && p.read == p.expected && discarded == 0
 	p.buf.Reset()
@@ -96,9 +108,11 @@ func (p *pipe) Close() error {
 func (p *pipe) write(b []byte) bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
 	if p.closed || p.err != nil {
 		return false
 	}
+
 	p.buf.Write(b)
 	p.cond.Broadcast()
 
@@ -111,15 +125,20 @@ func (p *pipe) write(b []byte) bool {
 func (p *pipe) end(err error) int {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
 	if p.err != nil {
 		return 0
 	}
+
 	p.err = err
+
 	var discarded int
+
 	if !errors.Is(err, io.EOF) {
 		discarded = p.buf.Len()
 		p.buf.Reset()
 	}
+
 	p.cond.Broadcast()
 
 	return discarded

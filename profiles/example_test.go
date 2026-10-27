@@ -15,6 +15,7 @@ func ExampleByName() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	fmt.Println(p.Browser, p.Version, p.Platform)
 
 	if _, err := mimicry.NewClient(mimicry.Config{
@@ -25,6 +26,7 @@ func ExampleByName() {
 
 	_, err = profiles.ByName("chrome-133")
 	fmt.Println(err)
+
 	// Output:
 	// safari 27 macos
 	// profiles: "chrome-133" is not a built-in profile

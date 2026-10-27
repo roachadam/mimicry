@@ -94,7 +94,9 @@ func headersSets() []headersSet {
 
 		return out
 	}
+
 	var letters []string
+
 	for c := 'a'; c <= 'z'; c++ {
 		letters = append(letters, string(c))
 	}
@@ -174,22 +176,27 @@ func (p headersPage) answer(req request) response {
 	host, port := splitAuthority(req.host)
 	origin := originOn("https://", port)
 	path, _, _ := strings.Cut(req.path, "?")
+
 	if host == kindsHost && path == "/" {
 		return response{status: 200, contentType: "text/html; charset=utf-8", body: headersDocument(origin)}
 	}
+
 	if path == "/done" {
 		return response{status: 200, contentType: "text/plain", body: []byte("ok\n")}
 	}
+
 	label, ok := strings.CutPrefix(path, "/h/")
 	if !ok || !slices.ContainsFunc(HeadersSteps(), func(s HeadersStep) bool {
 		return s.Label == label && s.Host == host
 	}) {
 		return response{status: 404, contentType: "text/plain", body: []byte("not found\n")}
 	}
+
 	r := response{status: 200, contentType: "application/json", body: []byte("{}\n")}
 	if req.origin != "" {
 		r.headers = corsAllow(req.origin)
 	}
+
 	if req.method == "OPTIONS" {
 		return response{status: 204, contentType: "text/plain", headers: preflightAllow(r.headers, "GET", req.preflightHeaders)}
 	}
@@ -204,6 +211,7 @@ func headersDocument(origin func(string) string) []byte {
 	for i := range steps {
 		steps[i].URL = origin(steps[i].Host) + "/h/" + steps[i].Label
 	}
+
 	list, _ := json.Marshal(steps)
 
 	return htmlPage("headers-order", "", "<script>(async () => {\nconst steps = "+string(list)+";\n"+headersScript+"\n})();</script>\n")
