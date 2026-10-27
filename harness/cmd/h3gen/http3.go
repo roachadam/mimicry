@@ -28,7 +28,7 @@ func deriveHTTP3(s *captureSet) (*profile.HTTP3, error) {
 	h.EarlyRequestFirst = earlyRequestFirst(done, e)
 	h.RequestsAfterConfirmed = requestsAfterConfirmed(done, e)
 	h.QPACK = qpackRules(done, e)
-	h.PriorityUpdate = priorityUpdate(done, e)
+	h.PriorityUpdate = priorityUpdate(s, done, e)
 	h.FirstDataFrame, h.MaxDataFrame = dataFrames(done, e)
 	h.Discovery = discovery(s, e)
 	return h, e.err()
@@ -491,8 +491,9 @@ func huffman(done []*conn, e *collector) profile.HuffmanRule {
 
 // priorityUpdate: on every connection, each request with a priority
 // header has a PRIORITY_UPDATE for its stream with the same value, read no
-// later than its HEADERS, and no other; or no connection sends any.
-func priorityUpdate(done []*conn, e *collector) bool {
+// later than its HEADERS (or later where sampleGaps pins
+// "priority_update <path>"), and no other; or no connection sends any.
+func priorityUpdate(s *captureSet, done []*conn, e *collector) bool {
 	var vs []bool
 	for _, c := range done {
 		updates := map[uint64]quictrace.H3Frame{}
@@ -519,6 +520,8 @@ func priorityUpdate(done []*conn, e *collector) bool {
 			switch {
 			case ok != has:
 				e.add(c, "%s: priority header %v, PRIORITY_UPDATE %v", q.Path, ok, has)
+			case ok && u.Priority == value && u.Millis > q.Millis && s.gap(c, "priority_update "+q.Path):
+				matched++
 			case ok && (u.Priority != value || u.Millis > q.Millis):
 				e.add(c, "%s: PRIORITY_UPDATE %q at %d ms for priority %q at %d ms", q.Path, u.Priority, u.Millis, value, q.Millis)
 			case ok:

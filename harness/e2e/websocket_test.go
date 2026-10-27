@@ -39,9 +39,10 @@ import (
 // included: deflate with every message size, empty messages, and the
 // server's client_no_context_takeover and client_max_window_bits 8 to
 // 15), the pong, how HTTP/2 DATA frames carry the frames, the close
-// frames and who ends the transport, and when. Where samples differ
-// (Chrome fragments its 70 KiB message in some), any sample's form passes
-// and the variance is logged. A ws:// socket from the https:// page is
+// frames and who ends the transport, and when. Where samples differ, any
+// sample's form passes and the variance is logged; Chrome fragments its
+// 70 KiB message in some, so each sample also passes with its split
+// messages joined. A ws:// socket from the https:// page is
 // refused before anything is sent; a socket the browser fails after its
 // handshake (a window its compressor refuses) fails to open.
 //
@@ -409,9 +410,20 @@ func checkSocket(t *testing.T, p *profile.Profile, st server.WebSocketStep, step
 		checkSocketHello(t, p, got, g, want, samples)
 	}
 	checkMasks(t, g)
+	// Chrome splits a large message into a frame and a continuation in some
+	// samples, by chance (backlog: Chrome's fragmented large message); mimicry
+	// sends it whole, which each sample also offers with its split messages
+	// joined, so one sample is enough.
+	forms := len(want)
+	if p.Browser == "chrome" {
+		forms *= 2
+	}
 	matched := anyForm(t, "frames", strings.Join(clientFrames(g, false), "\n"), func(i int) string {
+		if i >= len(want) {
+			return strings.Join(clientFrames(joinFragments(samples[i-len(want)]), false), "\n")
+		}
 		return strings.Join(clientFrames(samples[i], false), "\n")
-	}, len(want))
+	}, forms)
 	if matched >= 0 && g.Protocol == "h2" {
 		checkDATA(t, p, got, g, want, samples)
 	}
@@ -419,6 +431,43 @@ func checkSocket(t *testing.T, p *profile.Profile, st server.WebSocketStep, step
 		return strings.Join(clientFrames(samples[i], true), "\n")
 	}, len(want))
 	checkEnd(t, g, samples)
+}
+
+// joinFragments returns ws with each fragmented client message (a data frame
+// without FIN and its continuations) as one frame: the first's header bits,
+// FIN set, every fragment's payload, the length field sized for the total.
+func joinFragments(ws *capture.WebSocket) *capture.WebSocket {
+	out := *ws
+	out.Frames = nil
+	open := -1
+	for _, f := range ws.Frames {
+		switch {
+		case f.Server || f.Opcode >= 8:
+			out.Frames = append(out.Frames, f)
+		case f.Opcode == 0 && open >= 0:
+			m := &out.Frames[open]
+			m.Payload = append(slices.Clip(m.Payload), f.Payload...)
+			m.Length += f.Length
+			if f.Fin {
+				m.Fin = true
+				open = -1
+			}
+			switch {
+			case m.Length < 126:
+				m.LengthBits = 7
+			case m.Length < 1<<16:
+				m.LengthBits = 16
+			default:
+				m.LengthBits = 64
+			}
+		default:
+			out.Frames = append(out.Frames, f)
+			if !f.Fin {
+				open = len(out.Frames) - 1
+			}
+		}
+	}
+	return &out
 }
 
 // skippedIn reports that every sample's page skipped step st, which

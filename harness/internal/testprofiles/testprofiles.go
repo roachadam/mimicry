@@ -129,13 +129,15 @@ func builtinJSON(name string) ([]byte, error) {
 	return os.ReadFile(filepath.Join(dir, "profiles", "data", name+".json")) //nolint:gosec // a built-in profile's file
 }
 
-// InheritingName is the synthetic profile Inheriting builds.
-const InheritingName = "chrome-156-macos"
+// InheritingName is the synthetic profile Inheriting builds: a version far
+// beyond any built-in one, so its captures and gap pins never meet a real
+// profile's (chrome-156-macos is one since its refresh).
+const InheritingName = "chrome-999-macos"
 
 // Inheriting builds a synthetic profile that proves capture inheritance:
-// chrome-155-macos renamed chrome-156-macos, every version string in it
+// chrome-155-macos renamed chrome-999-macos, every version string in it
 // (Chrome/155.0.0.0 in each user-agent, each sec-ch-ua, whose brand order
-// and GREASE brand change with the major version) set to a version 156's,
+// and GREASE brand change with the major version) set to version 999's,
 // and every scenario chrome-155-macos has captures of but the default
 // (replays included) inherited from it, so each of its checks runs against
 // chrome-155's captures through the version rewriter. edit, if not nil,
@@ -148,9 +150,9 @@ func Inheriting(edit func([]byte) []byte) ([]byte, error) {
 	}
 	for _, r := range [][2]string{
 		{`"name": "chrome-155-macos"`, `"name": "` + InheritingName + `"`},
-		{`"version": "155"`, `"version": "156"`},
-		{`Chrome/155.0.0.0`, `Chrome/156.0.0.0`},
-		{`\"Google Chrome\";v=\"155\", \"Chromium\";v=\"155\", \"Not(A:Brand\";v=\"24\"`, `\"Chromium\";v=\"156\", \"Not-A.Brand\";v=\"8\", \"Google Chrome\";v=\"156\"`},
+		{`"version": "155"`, `"version": "999"`},
+		{`Chrome/155.0.0.0`, `Chrome/999.0.0.0`},
+		{`\"Google Chrome\";v=\"155\", \"Chromium\";v=\"155\", \"Not(A:Brand\";v=\"24\"`, `\"Chromium\";v=\"999\", \"Not-A.Brand\";v=\"8\", \"Google Chrome\";v=\"999\"`},
 	} {
 		if !bytes.Contains(data, []byte(r[0])) {
 			return nil, fmt.Errorf("chrome-155-macos no longer contains %s; update testprofiles.Inheriting", r[0])

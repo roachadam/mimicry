@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 )
@@ -55,7 +56,10 @@ func (r *refreshRun) runTests(ctx context.Context, p *plan) *result {
 		out, err := cmd.CombinedOutput()
 		appendFile(logFile, fmt.Sprintf("$ (in %s) %s %s\n%s\n", step.dir, name, strings.Join(args, " "), out))
 		if err != nil {
-			errs = append(errs, fmt.Sprintf("%s: %v", strings.Join(step.args[2:], " "), err))
+			pkgs := slices.DeleteFunc(slices.Clone(step.args[1:]), func(a string) bool {
+				return strings.HasPrefix(a, "-")
+			})
+			errs = append(errs, fmt.Sprintf("%s: %v", strings.Join(pkgs, " "), err))
 			res.summary += failures(string(out))
 		}
 	}

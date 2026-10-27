@@ -56,7 +56,7 @@ const inheritChildEnv = "MIMICRY_INHERIT_CHILD"
 // version passes the e2e tests against that version's captures, with only
 // version tokens rewritten, and a header value of its own that the
 // browser did not send fails them. The profile is synthetic
-// (testprofiles.Inheriting: chrome-155-macos as chrome-156-macos, every
+// (testprofiles.Inheriting: chrome-155-macos as chrome-999-macos, every
 // version string changed); each case runs this test binary again with
 // MIMICRY_PROFILES naming it, on the tests that read inherited captures.
 func TestInheritedProfile(t *testing.T) {

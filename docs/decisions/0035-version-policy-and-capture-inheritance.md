@@ -121,10 +121,11 @@ harness test checks the newest profile of each browser.
 ## Evidence
 
 The proof is a synthetic profile, `testprofiles.Inheriting`: chrome-155-macos
-renamed chrome-156-macos, with all 187 `Chrome/155.0.0.0` and 103
-`v="155"` strings rewritten to 156 and a different `sec-ch-ua` brand order
-and GREASE brand. It inherits every scenario chrome-155 captured except the
-default page.
+renamed chrome-999-macos (first chrome-156-macos, renamed once the real
+Chrome 156 profile arrived so the two never share captures), with all 187
+`Chrome/155.0.0.0` and 103 `v="155"` strings rewritten to 999 and a
+different `sec-ch-ua` brand order and GREASE brand. It inherits every
+scenario chrome-155 captured except the default page.
 
 - **`TestInheritedProfile` (e2e).** It reruns the test binary on it.
   - It passes the 18 e2e tests that read non-default captures. In a full

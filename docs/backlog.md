@@ -535,11 +535,26 @@ These matter most under decision 0029:
 - **Chrome's NEW_TOKEN cache** (Chrome).
   - Differs: Chrome's 0-RTT reconnection after 35 s idle carried no
     NEW_TOKEN token in 2 of 3 samples, though the first connection had
-    received one. mimicry always presents the token.
+    received one. Chrome 156 presents it even less: on 3 of 9
+    reconnections whose host had given it one (captured on the Mac mini;
+    3 of 6 in a check on the other Mac), which ones varying between
+    samples. mimicry always presents the token.
   - Shows: QUIC reconnections after idle.
   - Detection: low. User-visible: no.
   - Close: captures of Chrome's token cache rules; medium.
   - Source: `sampleGaps` in `harness/cmd/h3gen/load.go`; `profile/quic.go`.
+- **Chrome's late PRIORITY_UPDATE on the Mac mini** (Chrome 156).
+  - Differs: in 3 of the mini's `h3-discovery` samples the server read a
+    request's PRIORITY_UPDATE 1 ms after its HEADERS (another datagram);
+    everywhere else, and in a 2-sample check on the other Mac, it came
+    first. mimicry always sends it first. Likely the slower Mac's packet
+    flushing (unconfirmed).
+  - Shows: HTTP/3 requests on a busy or slow client.
+  - Detection: low. User-visible: no.
+  - Close: the datagram each frame came in, or more samples on both Macs;
+    small.
+  - Source: `sampleGaps` (`priority_update <path>`) in
+    `harness/cmd/h3gen/load.go`.
 - **ACK_FREQUENCY and IMMEDIATE_ACK** (Firefox advertises
   `min_ack_delay`).
   - Differs: no capture server sent them; mimicry ignores both frames.
@@ -1136,8 +1151,11 @@ These matter most under decision 0029:
   - Close: a longer `websocket` capture; small.
   - Source: [EVIDENCE.md, Behaviour in code](../profiles/EVIDENCE.md#behaviour-in-code-not-in-profiles).
 - **Chrome's fragmented large message** (Chrome).
-  - Differs: Chrome split a 70 KiB message into two frames in 3 of 6
-    samples; mimicry always sends one frame. The test accepts either.
+  - Differs: Chrome split a 70 KiB message into two frames (65464 bytes
+    and a continuation) in 3 of 6 Chrome 155 samples and 2 of 3 Chrome 156
+    ones; mimicry always sends one frame. The test accepts mimicry's whole
+    frame against any sample, its split messages joined, so one sample (a
+    quick refresh's) is enough.
   - Detection: low; both forms occur. User-visible: no.
   - Close: more sizes to find the rule; small to medium.
   - Source: [`websocket_test.go`](../harness/e2e/websocket_test.go);

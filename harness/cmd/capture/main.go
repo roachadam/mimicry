@@ -313,6 +313,10 @@ func captureScenario(ctx context.Context, b *browser.Browser, sc *server.Scenari
 	samples := make([]*capture.Capture, 0, n)
 	for i := range n {
 		c, err := sample(ctx, b, sc, opts)
+		for retake := 1; errors.Is(err, errPageMoved) && retake <= maxRetakes; retake++ {
+			log.Printf("%s: scenario %s, sample %d: %v; taking it again (%d of %d)", b.Name, sc.Name, i+1, err, retake, maxRetakes)
+			c, err = sample(ctx, b, sc, opts)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("sample %d: %w", i+1, err)
 		}
@@ -333,6 +337,18 @@ func captureScenario(ctx context.Context, b *browser.Browser, sc *server.Scenari
 	c.Identify()
 	return c, nil
 }
+
+// errPageMoved is a sample whose page left the connection that carried its
+// navigation before finishing: Chrome retires every open connection when
+// it rebuilds its certificate verifiers, which a fresh profile does within
+// seconds of launch (chromeWarmup waits that out, but a cold Mac can take
+// longer). The connection that finished the page then starts with a
+// subresource, not the navigation the profile comes from, so the sample is
+// taken again rather than recorded.
+var errPageMoved = errors.New("the page moved to another connection before /done")
+
+// maxRetakes is how many times a sample whose page moved is taken again.
+const maxRetakes = 2
 
 // sample runs a fresh capture server answering as sc, sends the browser to
 // it, and returns the first complete capture from that browser.
@@ -572,6 +588,11 @@ func await(ctx context.Context, name string, captures <-chan *capture.Capture, t
 				// One of the page's HTTP/1.1 connections; the one that asks
 				// for /done carries the whole page load.
 				continue
+			}
+			if !page && c.Trace != nil && len(c.Trace.Requests) > 0 && c.Trace.Requests[0].Path != "/" {
+				// The connection that finished the page did not carry its
+				// navigation (errPageMoved).
+				return nil, fmt.Errorf("%w: the connection that finished it starts with %s", errPageMoved, c.Trace.Requests[0].Path)
 			}
 			return c, nil
 		case <-deadline:

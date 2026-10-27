@@ -39,8 +39,9 @@ browser's previous version: the profile's `captures_from` names, per
 scenario, the profile holding its captures, and every generator and e2e
 test reads those instead, with the version tokens in header values
 rewritten to the new version's (anything else that differs still fails).
-A quick refresh of one browser takes about 20 minutes of capturing
-(estimate; the report records the measured times).
+A quick refresh of one browser takes under ten minutes of capturing
+(Chrome 156 on the Mac mini: 8 min 24 s, against the plan's ceiling of
+19 min; [report](../../harness/reports/refresh-chrome-156-macos-2026-10-26.md)).
 
 **Full** recaptures every scenario and replay, three samples each: before a
 release, when a quick refresh shows a change beyond version strings, or
@@ -99,7 +100,10 @@ after a parallel run, recapture them with `-serial`.
    seconds). The run is refused if any capture names another profile or
    user agent, or the installed version differs afterwards: Chrome and
    Firefox update themselves, and an update applied between two launches
-   would split the run.
+   would split the run. A sample whose page moved to another connection
+   before finishing (a cold Mac's Chrome rebuilding its certificate
+   verifiers after the 5 s warm-up retires every open connection) is
+   taken again, up to twice.
 3. **Derive.** The previous profile is copied and renamed; from the new
    captures it takes the ClientHello (`tls` but for what hellogen derives),
    the HTTP/2 preface (`settings`, `window_update`, `priorities`,

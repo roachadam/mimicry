@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/roachadam/mimicry/harness/internal/capture"
@@ -69,6 +70,11 @@ func TestRegenerateReadsInheritedCaptures(t *testing.T) {
 	}
 	dir := t.TempDir()
 	for _, e := range entries {
+		// Its own files are written below, never through a link into the
+		// repository's captures.
+		if strings.HasPrefix(e.Name(), testprofiles.InheritingName+".") {
+			continue
+		}
 		if err := os.Symlink(filepath.Join(from, e.Name()), filepath.Join(dir, e.Name())); err != nil {
 			t.Fatal(err)
 		}

@@ -3,7 +3,19 @@
 Every claim the built-in profiles make, where it comes from, and what keeps
 it true. Profiles: `chrome-155-macos`, `firefox-158-macos`, `safari-27-macos`
 (captured on this Mac), `safari-26-macos` (captured on a second Mac, macOS
-26.2). Last reviewed 2026-10-24.
+26.2), `chrome-156-macos` (quick refresh on the second Mac, 2026-10-26; see
+below). Last reviewed 2026-10-24.
+
+**`chrome-156-macos`** has no column of its own in the tables below; read its
+class from `chrome-155-macos`'s column by this rule. Rows whose evidence is a
+quick-refresh scenario (`page`, `http1`, `kinds`, `kinds-http1`, `kinds-plain`,
+`websocket`, `websocket-h2`, `h3-discovery`, `h3-page`) are its own **W**,
+from its own captures: three samples for `page`, `h3-discovery` and `h3-page`
+(the TLS and QUIC hellos, where Chrome shuffles), one sample for the others.
+Every other row is `I: from chrome-155` with chrome-155's class (its
+`captures_from`). The refresh found no difference beyond the user agent and
+`sec-ch-ua` ([report](../harness/reports/refresh-chrome-156-macos-2026-10-26.md)),
+and `realcheck` showed none against the real Chrome 156.
 
 ## Evidence classes
 

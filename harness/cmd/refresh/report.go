@@ -168,8 +168,11 @@ func (rep *report) writeDiff(b *strings.Builder) error {
 			fmt.Fprintf(b, "- %s: `%s` → `%s`\n", name, old, now)
 		}
 	}
-	b.WriteString("\n")
+	b.WriteString("\nLists the browser shuffles on every connection (the QUIC transport parameters, their shuffled versions) are compared as sets.\n\n")
 	prevTree = rewriteStrings(prevTree, rw.Value)
+	// One sample's order of what the browser shuffles is no change.
+	sortShuffled(prevTree)
+	sortShuffled(curTree)
 	var diffs []difference
 	diffTrees("", prevTree, curTree, &diffs)
 	groups := map[string][]difference{}
@@ -200,6 +203,31 @@ func navigationValue(p *profile.Profile, name string) string {
 		}
 	}
 	return ""
+}
+
+// sortShuffled sorts, in a decoded profile, the lists the browser sends in
+// a new order on every connection, of which a profile holds one: the QUIC
+// transport parameters when quic.transport_parameter_order is "shuffled",
+// and a parameter's versions with shuffle_versions.
+func sortShuffled(tree any) {
+	root, _ := tree.(map[string]any)
+	quic, _ := root["quic"].(map[string]any)
+	params, _ := quic["transport_parameters"].([]any)
+	if quic["transport_parameter_order"] != "shuffled" {
+		return
+	}
+	for _, p := range params {
+		if m, ok := p.(map[string]any); ok && m["shuffle_versions"] == true {
+			if vs, ok := m["versions"].([]any); ok {
+				slices.SortFunc(vs, func(a, b any) int {
+					return strings.Compare(compact(a), compact(b))
+				})
+			}
+		}
+	}
+	slices.SortFunc(params, func(a, b any) int {
+		return strings.Compare(compact(a), compact(b))
+	})
 }
 
 // sections are where the values of a profile come from.
