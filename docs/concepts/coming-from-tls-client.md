@@ -336,9 +336,10 @@ ws, _, err := tr.DialWebSocket(ctx, "wss://www.shop.example/live", mimicry.WebSo
 
 ## Where mimicry is weaker, ranked for retail automation
 
-1. **The profile catalogue.** Four desktop profiles, all macOS (Chrome
-   155, Firefox 158, Safari 26 and 27): no iOS Safari, no Android Chrome,
-   no Windows, no older or newer versions. A site whose mobile endpoints
+1. **The profile catalogue.** Five desktop profiles, all macOS (Chrome
+   155 and 156, Firefox 158, Safari 26 and 27): no iOS Safari, no Android
+   Chrome, no Windows. New versions come from `cmd/refresh` (the latest
+   five per browser are kept). A site whose mobile endpoints
    or app traffic you imitate, or a session tied to a user agent minted
    elsewhere (a solver, a harvested browser), needs a matching profile,
    and making one takes the harness and a real browser capture.

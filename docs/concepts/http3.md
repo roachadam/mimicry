@@ -9,8 +9,8 @@ QUIC stack) and [0028](../decisions/0028-quic-failure-model.md) (how it
 fails), and the
 [capture report](../../harness/reports/http3-2026-10-25.md).
 
-It is on by default for a profile with `quic` and `http3` sections (all
-four built-in ones). `Config.DisableHTTP3` keeps every request on TCP.
+It is on by default for a profile with `quic` and `http3` sections (every
+built-in one). `Config.DisableHTTP3` keeps every request on TCP.
 
 ## When a request goes over HTTP/3
 
