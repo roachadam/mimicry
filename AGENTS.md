@@ -6,7 +6,7 @@ mimicry is a Go HTTP client that reproduces real browsers' network fingerprints,
 
 ## Commands
 
-Go and moon are pinned in `.prototools`. golangci-lint is pinned in `.moon/tasks/go.yml` and run with `go run`, so it is built with the pinned Go: run it through moon, never a system install.
+Go and moon are pinned in `.prototools`. golangci-lint is pinned in `.moon/tasks/go.yml` and run with `go run`, so it is built with the pinned Go: run it through moon, never a system install. `:lint` then runs gopls's analyzers (`.moon/scripts/gopls-check.sh`, gopls pinned there): anything an editor underlines fails lint.
 
 ```sh
 moon run :vet :lint :test   # the gate, every project (mimicry:test or harness:test for one)
