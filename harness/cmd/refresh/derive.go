@@ -85,6 +85,7 @@ func fromCapture(prev *profile.Profile, name, version string, captured *profile.
 			p.HTTP1.Headers = withSlots(prev.HTTP1.Headers, lines)
 		}
 	}
+
 	return p, nil
 }
 
@@ -123,6 +124,7 @@ func withSlots(old, captured []profile.Header) []profile.Header {
 			Name: h.Name,
 		})
 	}
+
 	return out
 }
 
@@ -154,6 +156,7 @@ func inOrderOf(order, captured []profile.Extension) ([]profile.Extension, bool) 
 		used[i] = true
 		out = append(out, captured[i])
 	}
+
 	return out, true
 }
 
@@ -162,6 +165,7 @@ func clone(p *profile.Profile) (*profile.Profile, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return profile.Decode(data)
 }
 
@@ -184,6 +188,7 @@ func http1Navigation(path string) ([]string, error) {
 			return req.Headers, nil
 		}
 	}
+
 	return nil, fmt.Errorf("%s: no GET / in its first sample", path)
 }
 
@@ -239,6 +244,7 @@ func (r *refreshRun) derive(ctx context.Context, p *plan, rep *report) (string, 
 			return "", fmt.Errorf("%s refused (the sample it names is in %s; pin a gap or fix the rule, then -resume %s): %w", gen, overlay, r.Dir, err)
 		}
 	}
+
 	return path, nil
 }
 
@@ -282,6 +288,7 @@ func buildOverlay(dir, staged string, p *plan) error {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -302,6 +309,7 @@ func copyFile(from, to string) error {
 		_ = out.Close()
 		return err
 	}
+
 	return out.Close()
 }
 
@@ -324,6 +332,7 @@ func runLogged(ctx context.Context, logFile, dir, name string, args ...string) e
 	if err != nil {
 		return fmt.Errorf("%w:\n%s", err, tail(string(out), 40))
 	}
+
 	return errors.Join(ferr)
 }
 

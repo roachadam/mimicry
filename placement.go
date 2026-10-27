@@ -66,6 +66,7 @@ func placements(field string, ps []Place) ([]headerorder.Placement, error) {
 			After:  after,
 		})
 	}
+
 	return out, nil
 }
 
@@ -77,6 +78,7 @@ func (t *Transport) placementsFor(req *http.Request, r Request, exact bool) ([]h
 		if len(r.HeaderPlacement) > 0 {
 			return nil, fmt.Errorf("%w: Request.HeaderPlacement on a request that sets its own order (Exact or HeaderOrderKey)", ErrPlacement)
 		}
+
 		return nil, nil
 	}
 	if len(r.HeaderPlacement) == 0 {
@@ -86,6 +88,7 @@ func (t *Transport) placementsFor(req *http.Request, r Request, exact bool) ([]h
 	if err != nil {
 		return nil, err
 	}
+
 	return append(slices.Clip(t.placements), own...), nil
 }
 
@@ -96,5 +99,6 @@ func setsOrder(h http.Header) bool {
 			return true
 		}
 	}
+
 	return false
 }

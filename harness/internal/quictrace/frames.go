@@ -20,6 +20,7 @@ func varint(b []byte) (v uint64, n int) {
 	for _, c := range b[1:n] {
 		v = v<<8 | uint64(c)
 	}
+
 	return v, n
 }
 
@@ -41,6 +42,7 @@ func (r *reader) varint() uint64 {
 		return 0
 	}
 	r.b = r.b[n:]
+
 	return v
 }
 
@@ -54,6 +56,7 @@ func (r *reader) bytes(n uint64) []byte {
 	}
 	out := r.b[:n]
 	r.b = r.b[n:]
+
 	return out
 }
 
@@ -62,6 +65,7 @@ func (r *reader) byte() byte {
 	if b == nil {
 		return 0
 	}
+
 	return b[0]
 }
 
@@ -218,5 +222,6 @@ func parseFrames(payload []byte) ([]Frame, []cryptoData, error) {
 		}
 		frames = append(frames, f)
 	}
+
 	return frames, crypto, nil
 }

@@ -68,6 +68,7 @@ func (l *pageLog) newConn() int {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.conns++
+
 	return l.conns
 }
 
@@ -86,12 +87,14 @@ func (l *pageLog) add(r capture.H1Request) int {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.requests = append(l.requests, r)
+
 	return len(l.requests) - 1
 }
 
 func (l *pageLog) snapshot() []capture.H1Request {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
 	return append([]capture.H1Request(nil), l.requests...)
 }
 
@@ -101,6 +104,7 @@ func (l *pageLog) addH2(s *h2conn) int {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.h2 = append(l.h2, s)
+
 	return len(l.h2) - 1
 }
 
@@ -112,6 +116,7 @@ func (l *pageLog) connectionNumber(c *capture.Capture) int {
 	if i, ok := l.index[c]; ok {
 		return i + 1
 	}
+
 	return 0
 }
 
@@ -131,6 +136,7 @@ func (l *pageLog) openWebSocket(ws capture.WebSocket) *wsRecorder {
 	}
 	l.websockets = append(l.websockets, r.ws)
 	l.settled = append(l.settled, r.settled)
+
 	return r
 }
 
@@ -163,6 +169,7 @@ func (l *pageLog) page() *capture.Page {
 		w.Frames = slices.Clone(ws.Frames)
 		p.WebSockets = append(p.WebSockets, w)
 	}
+
 	return p
 }
 

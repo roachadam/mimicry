@@ -52,6 +52,7 @@ func (d *Dialer) Dial(ctx context.Context, addr string) (net.Conn, error) {
 		ctx, cancel = context.WithTimeout(ctx, d.Timeout)
 		defer cancel()
 	}
+
 	return d.dial(ctx, addr)
 }
 
@@ -63,6 +64,7 @@ func (d *Dialer) dial(ctx context.Context, addr string) (net.Conn, error) {
 		KeepAlive: 30 * time.Second,
 		Resolver:  d.Resolver,
 	}
+
 	return nd.DialContext(ctx, "tcp", addr)
 }
 
@@ -99,6 +101,7 @@ func (d *Dialer) ListenUDP(ctx context.Context, host string, port uint16) (net.P
 	if err != nil {
 		return nil, netip.AddrPort{}, err
 	}
+
 	return pc, netip.AddrPortFrom(addr, port), nil
 }
 
@@ -123,6 +126,7 @@ func (d *Dialer) CheckProxy(p *url.URL) error {
 	case p.Scheme == SchemeHTTP && p.User != nil && d.Proxy.ConnectAuth == nil:
 		return errors.New("mimicry: the profile does not describe how its browser gives a proxy credentials (not measured)")
 	}
+
 	return nil
 }
 
@@ -171,6 +175,7 @@ func (d *Dialer) DialProxy(ctx context.Context, p *url.URL) (net.Conn, error) {
 	if err != nil {
 		return nil, proxyError(p, err)
 	}
+
 	return conn, nil
 }
 
@@ -207,6 +212,7 @@ func (d *Dialer) DialVia(ctx context.Context, p *url.URL, addr string) (net.Conn
 		_ = conn.Close()
 		return nil, proxyError(p, err)
 	}
+
 	return conn, nil
 }
 
@@ -233,6 +239,7 @@ func (d *Dialer) connect(ctx context.Context, conn net.Conn, p *url.URL, addr st
 		if unasked {
 			what = "CONNECT with credentials"
 		}
+
 		return nil, answerError(p, answer, fmt.Errorf("answered %s with %s", what, answer.Status))
 	}
 	if err := basicChallenge(answer.Header); err != nil {
@@ -256,6 +263,7 @@ func (d *Dialer) connect(ctx context.Context, conn net.Conn, p *url.URL, addr st
 		_ = conn.Close()
 		return nil, answerError(p, answer, fmt.Errorf("answered CONNECT with credentials with %s", answer.Status))
 	}
+
 	return tunnel, nil
 }
 
@@ -267,6 +275,7 @@ func (d *Dialer) Challenged(p *url.URL, h http.Header) bool {
 		return false
 	}
 	d.asked.Store(p.String(), true)
+
 	return true
 }
 
@@ -279,6 +288,7 @@ func (d *Dialer) ForwardAuthorization(p *url.URL) string {
 	if _, asked := d.asked.Load(p.String()); asked || d.Proxy.ForwardCredentials == profile.CredentialsAlways {
 		return Credentials(p)
 	}
+
 	return ""
 }
 
@@ -288,6 +298,7 @@ func Credentials(p *url.URL) string {
 		return ""
 	}
 	password, _ := p.User.Password()
+
 	return "Basic " + base64.StdEncoding.EncodeToString([]byte(p.User.Username()+":"+password))
 }
 
@@ -309,6 +320,7 @@ func (d *Dialer) connectHeader(addr string, list []profile.Header, auth string) 
 		}
 		lines = append(lines, h.Name+": "+value)
 	}
+
 	return lines
 }
 
@@ -320,6 +332,7 @@ func basicChallenge(h http.Header) error {
 			return nil
 		}
 	}
+
 	return fmt.Errorf("proxy asks for authentication by %q, and only Basic is supported", h.Values("Proxy-Authenticate"))
 }
 
@@ -332,5 +345,6 @@ func proxyAddr(p *url.URL) string {
 	if p.Scheme == SchemeHTTP {
 		port = "80"
 	}
+
 	return net.JoinHostPort(p.Hostname(), port)
 }

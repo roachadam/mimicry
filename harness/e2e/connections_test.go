@@ -118,6 +118,7 @@ func connectionsSeen(page *capture.Page, skip []string) []string {
 		out = append(out, fmt.Sprintf("%s %s %d", c.Host, c.Protocol, c.Requests))
 	}
 	slices.Sort(out)
+
 	return out
 }
 
@@ -158,6 +159,7 @@ func connectionsGrouping(page *capture.Page) []string {
 		out = append(out, "http/1.1: "+strings.Join(row, " "))
 	}
 	slices.Sort(out)
+
 	return out
 }
 
@@ -169,6 +171,7 @@ func h2Requests(tr *h2trace.Trace) []string {
 		for _, f := range tr.Frames {
 			frames = append(frames, f.Type)
 		}
+
 		return []string{
 			"no requests (" + strings.Join(frames, " ") + ")",
 		}
@@ -191,6 +194,7 @@ func h2Requests(tr *h2trace.Trace) []string {
 		}
 		out = append(out, host+" "+r.Path)
 	}
+
 	return out
 }
 
@@ -214,6 +218,7 @@ func stubResolver(t *testing.T) *net.Resolver {
 		}
 	})
 	addr := pc.LocalAddr().String()
+
 	return &net.Resolver{
 		PreferGo: true,
 		Dial: func(ctx context.Context, _, _ string) (net.Conn, error) {

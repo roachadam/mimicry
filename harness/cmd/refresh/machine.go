@@ -55,6 +55,7 @@ func (m *machine) String() string {
 	if m.host == "" {
 		return "this Mac"
 	}
+
 	return m.host
 }
 
@@ -75,6 +76,7 @@ func (m *machine) command(ctx context.Context, name string, args ...string) *exe
 	if m.host == "" {
 		cmd := exec.CommandContext(ctx, name, args...) //nolint:gosec // the tool's own binaries and fixed commands
 		cmd.Dir = m.dir
+
 		return cmd
 	}
 	words := make([]string, 0, 1+len(args))
@@ -82,6 +84,7 @@ func (m *machine) command(ctx context.Context, name string, args ...string) *exe
 	for _, a := range args {
 		words = append(words, shellQuote(a))
 	}
+
 	return ssh(ctx, m.host, "cd "+shellQuote(m.dir)+" && "+strings.Join(words, " "))
 }
 
@@ -94,6 +97,7 @@ func (m *machine) output(ctx context.Context, name string, args ...string) ([]by
 	if err != nil {
 		return nil, fmt.Errorf("%s on %s: %w: %s", name, m, err, strings.TrimSpace(stderr.String()))
 	}
+
 	return out, nil
 }
 
@@ -134,6 +138,7 @@ func (m *machine) stream(ctx context.Context, prefix, logFile, name string, args
 	if err != nil {
 		return fmt.Errorf("%s on %s: %w", name, m, err)
 	}
+
 	return nil
 }
 
@@ -151,6 +156,7 @@ func (m *machine) put(ctx context.Context, files ...string) error {
 	if out, err := exec.CommandContext(ctx, "scp", args...).CombinedOutput(); err != nil { //nolint:gosec // the tool's own files and host
 		return fmt.Errorf("copying to %s: %w: %s", m, err, out)
 	}
+
 	return nil
 }
 
@@ -184,6 +190,7 @@ func (m *machine) fetch(ctx context.Context, remote, local string) error {
 	if err := src.Wait(); err != nil {
 		return fmt.Errorf("packing %s on %s: %w: %s", remote, m, err, srcErr.String())
 	}
+
 	return nil
 }
 
@@ -192,6 +199,7 @@ func (m *machine) path(name string) string {
 	if m.host == "" {
 		return filepath.Join(m.dir, name)
 	}
+
 	return name
 }
 
@@ -200,6 +208,7 @@ func shellQuote(s string) string {
 	if s != "" && strings.Trim(s, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_./:=,@+") == "" {
 		return s
 	}
+
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
@@ -212,5 +221,6 @@ func build(ctx context.Context, dir, name string) (string, error) {
 	if b, err := cmd.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("building %s: %w: %s", name, err, b)
 	}
+
 	return out, nil
 }

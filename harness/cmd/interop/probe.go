@@ -61,6 +61,7 @@ func newProber(p *profile.Profile, roots *x509.CertPool, dir string, seed uint64
 		dir:     dir,
 	}
 	pr.seed.Store(seed)
+
 	return pr
 }
 
@@ -177,6 +178,7 @@ func (pr *prober) dial(ctx context.Context, host string, peer netip.AddrPort, im
 		return c, err
 	}
 	c.hc = hc
+
 	return c, nil
 }
 
@@ -271,6 +273,7 @@ func (c *probeConn) facts() connFacts {
 		}
 	default:
 	}
+
 	return f
 }
 
@@ -319,6 +322,7 @@ func (pr *prober) get(ctx context.Context, c *probeConn, path string) (out fetch
 		out.Err = err.Error()
 	}
 	copy(out.sum[:], h.Sum(nil))
+
 	return out
 }
 
@@ -327,6 +331,7 @@ func authority(host, port string) string {
 	if port == "443" {
 		return host
 	}
+
 	return net.JoinHostPort(host, port)
 }
 
@@ -342,10 +347,12 @@ func (pr *prober) waitTicket(ctx context.Context, d time.Duration) bool {
 			pr.mu.Lock()
 			pr.held = t
 			pr.mu.Unlock()
+
 			return true
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
+
 	return false
 }
 
@@ -361,5 +368,6 @@ func errString(err error) string {
 	if ce, ok := errors.AsType[*quic.ConnectionCloseError](err); ok {
 		return fmt.Sprintf("peer application close %#x: %s", ce.Code, ce.Reason)
 	}
+
 	return err.Error()
 }

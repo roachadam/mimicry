@@ -28,6 +28,7 @@ func (j *Jar) All() []*Cookie {
 		out[i] = &cp
 	}
 	j.mu.Unlock()
+
 	return out
 }
 
@@ -42,6 +43,7 @@ func (j *Jar) entries() []entry {
 		es = append(es, bucket...)
 	}
 	slices.SortFunc(es, compareCreated)
+
 	return es
 }
 
@@ -80,6 +82,7 @@ func (j *Jar) Set(c Cookie) error {
 	}
 	// Among cookies created at the same time, the new one goes last.
 	j.domains[key] = append(bucket, j.newEntry(&c))
+
 	return nil
 }
 
@@ -98,6 +101,7 @@ func checkPair(name, value string) error {
 	if name == "" && value == "" {
 		return errors.New("empty name and value")
 	}
+
 	return nil
 }
 
@@ -141,6 +145,7 @@ func (j *Jar) SetString(domain, cookies string) error {
 	case site.IsPublicSuffix(name):
 		return fmt.Errorf("cookies: %q is a public suffix, which no Domain cookie may name (SetHostString stores cookies for that one host)", domain)
 	}
+
 	return j.setString(name, false, cookies)
 }
 
@@ -153,6 +158,7 @@ func (j *Jar) SetHostString(host, cookies string) error {
 	if err != nil {
 		return err
 	}
+
 	return j.setString(name, true, cookies)
 }
 
@@ -199,6 +205,7 @@ func (j *Jar) setString(name string, hostOnly bool, cookies string) error {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -236,6 +243,7 @@ func (j *Jar) String(name string) string {
 		pairs[i] = e.c.pair()
 	}
 	j.mu.Unlock()
+
 	return strings.Join(pairs, "; ")
 }
 
@@ -250,6 +258,7 @@ func FromString(domain, cookies string, cfg Config) (*Jar, error) {
 	if err := j.SetString(domain, cookies); err != nil {
 		return nil, err
 	}
+
 	return j, nil
 }
 
@@ -271,6 +280,7 @@ func hostName(s string) (string, error) {
 	if host == "" || (net.ParseIP(host) == nil && strings.ContainsFunc(host, notHostChar)) {
 		return "", fmt.Errorf("cookies: %q is not a host name, IP address or URL", s)
 	}
+
 	return host, nil
 }
 
@@ -308,6 +318,7 @@ func (j *Jar) SetHTTPCookies(u *url.URL, cs []*http.Cookie) error {
 			errs = append(errs, fmt.Errorf("cookies: cookie %q: %s", names[i], e.Rejected))
 		}
 	}
+
 	return errors.Join(errs...)
 }
 
@@ -368,6 +379,7 @@ func setCookieLine(c *http.Cookie) (string, error) {
 	if c.Partitioned {
 		b.WriteString("; Partitioned")
 	}
+
 	return b.String(), nil
 }
 
@@ -400,9 +412,11 @@ func (j *Jar) Delete(match func(*Cookie) bool) int {
 				n++
 				return true
 			}
+
 			return false
 		}))
 	}
+
 	return n
 }
 
@@ -452,6 +466,7 @@ func (j *Jar) Clone() *Jar {
 		}
 		c.domains[key] = es
 	}
+
 	return c
 }
 
@@ -460,6 +475,7 @@ func (j *Jar) Clone() *Jar {
 func (j *Jar) WriteJSON(w io.Writer) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
+
 	return enc.Encode(j.All())
 }
 
@@ -474,6 +490,7 @@ func (j *Jar) ReadJSON(r io.Reader) error {
 			return fmt.Errorf("cookie %d: %w", i, err)
 		}
 	}
+
 	return nil
 }
 
@@ -503,6 +520,7 @@ func (j *Jar) WriteNetscape(w io.Writer) error {
 			return err
 		}
 	}
+
 	return bw.Flush()
 }
 
@@ -546,6 +564,7 @@ func (j *Jar) ReadNetscape(r io.Reader) error {
 			return fmt.Errorf("cookies: line %d: %w", n, err)
 		}
 	}
+
 	return sc.Err()
 }
 
@@ -553,6 +572,7 @@ func upperBool(b bool) string {
 	if b {
 		return "TRUE"
 	}
+
 	return "FALSE"
 }
 
@@ -610,5 +630,6 @@ func (a adapter) Cookies(u *url.URL) []*http.Cookie {
 			Quoted: quoted,
 		}
 	}
+
 	return out
 }

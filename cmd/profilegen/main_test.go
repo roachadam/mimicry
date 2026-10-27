@@ -42,6 +42,7 @@ func TestCheckPolicyRefuses(t *testing.T) {
 				Deprecated: i < deprecated,
 			})
 		}
+
 		return out
 	}
 	for _, tc := range []struct {
@@ -61,6 +62,7 @@ func TestCheckPolicyRefuses(t *testing.T) {
 			profiles: func() []*profile.Profile {
 				ps := versions(2, 0)
 				ps[1].Deprecated = true
+
 				return ps
 			},
 			want: "chrome-151-macos is deprecated but among the newest 5",
@@ -72,6 +74,7 @@ func TestCheckPolicyRefuses(t *testing.T) {
 				ps[1].CapturesFrom = map[string]string{
 					"cookies": "chrome-149-macos",
 				}
+
 				return ps
 			},
 			want: `captures_from.cookies: "chrome-149-macos" is not a built-in profile`,
@@ -83,6 +86,7 @@ func TestCheckPolicyRefuses(t *testing.T) {
 				ps[0].CapturesFrom = map[string]string{
 					"cookies": "chrome-151-macos",
 				}
+
 				return ps
 			},
 			want: "chrome-151-macos is not an older version",
@@ -97,6 +101,7 @@ func TestCheckPolicyRefuses(t *testing.T) {
 				ps[2].CapturesFrom = map[string]string{
 					"cookies": "chrome-151-macos",
 				}
+
 				return ps
 			},
 			want: "chrome-151-macos inherits that scenario itself; name chrome-150-macos",

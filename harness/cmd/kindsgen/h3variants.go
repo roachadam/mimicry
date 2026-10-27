@@ -72,6 +72,7 @@ func h3Variants(p *profile.Profile, dir string, reqs []h3Request, drop []string)
 		}
 		p.Kinds[k.kind].Variants = append(p.Kinds[k.kind].Variants, v)
 	}
+
 	return errors.Join(errs...)
 }
 
@@ -91,6 +92,7 @@ func covered(kind *profile.Kind, c h3Candidate) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -132,6 +134,7 @@ func methodVariant(kind *profile.Kind, cands []h3Candidate) (profile.Variant, er
 			Value: value,
 		})
 	}
+
 	return v, nil
 }
 
@@ -152,6 +155,7 @@ func insertAfterPredecessor(fields, list []profile.Header, name string) []profil
 			pos = i + 1
 		}
 	}
+
 	return slices.Insert(fields, pos, list[at])
 }
 
@@ -187,5 +191,6 @@ func h2Candidates(p *profile.Profile, dir string) ([]h3Candidate, error) {
 			}
 		}
 	}
+
 	return out, nil
 }

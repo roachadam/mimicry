@@ -11,6 +11,7 @@ func WithPartition(ctx context.Context, p string) context.Context {
 	if p == "" {
 		return ctx
 	}
+
 	return context.WithValue(ctx, partitionKey{}, p)
 }
 

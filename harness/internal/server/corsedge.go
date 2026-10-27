@@ -71,6 +71,7 @@ func CORSEdgeSteps() []CORSEdgeStep {
 			})
 		}
 	}
+
 	return append(steps, CORSEdgeStep{
 		Label:  "chain.so",
 		Host:   kindsHost,
@@ -128,8 +129,10 @@ func (p corsEdgePage) answer(req request) response {
 			Name:  "location",
 			Value: origin(host) + "/p/" + label + ".hop" + strconv.Itoa(hop+1),
 		})
+
 		return r
 	}
+
 	return notFound
 }
 
@@ -156,5 +159,6 @@ func corsEdgeScript(origin func(string) string) string {
 		fmt.Fprintf(&b, "await f(%s, {%s});\n", strconv.Quote(origin(s.Host)+"/p/"+s.Label), strings.Join(init, ", "))
 	}
 	b.WriteString("fetch(\"/done\");\n})();")
+
 	return b.String()
 }

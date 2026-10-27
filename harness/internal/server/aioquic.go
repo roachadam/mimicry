@@ -35,6 +35,7 @@ func AioquicAvailable(ctx context.Context) error {
 	if out, err := exec.CommandContext(ctx, "python3", "-c", "import aioquic").CombinedOutput(); err != nil {
 		return fmt.Errorf("python3 with aioquic (pip install aioquic): %w: %s", err, strings.TrimSpace(string(out)))
 	}
+
 	return nil
 }
 
@@ -118,6 +119,7 @@ func (s *Server) serveAioquic(ctx context.Context, log *pageLog, issue func([]st
 	if s.OnQUICReady != nil {
 		s.OnQUICReady()
 	}
+
 	return relayUDP(ctx, pc, upstream, &log.quic)
 }
 
@@ -148,6 +150,7 @@ func relayUDP(ctx context.Context, pc net.PacketConn, upstream *net.UDPAddr, q *
 			if ctx.Err() != nil || errors.Is(err, net.ErrClosed) {
 				return nil
 			}
+
 			return err
 		}
 		client := addr.String()

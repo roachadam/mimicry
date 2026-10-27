@@ -99,6 +99,7 @@ func (e *Engine) Plan(req *http.Request) (*Plan, error) {
 			}
 		}
 	}
+
 	return p, nil
 }
 
@@ -125,6 +126,7 @@ func (e *Engine) protocolsNow(req *http.Request, r route) []string {
 	case pool.FoundDial:
 		// A new connection: ALPN picks between them.
 	}
+
 	return append(out, HTTP2, HTTP1)
 }
 
@@ -157,6 +159,7 @@ func (e *Engine) h3Now(r route) (quic, decided bool) {
 	case wayTCP, wayGoAwayRace, wayRevalidate, wayBeside:
 		// The request goes on TCP whatever QUIC does beside it.
 	}
+
 	return false, true
 }
 
@@ -171,5 +174,6 @@ func (e *Engine) altPort(r route) string {
 		return strconv.Itoa(int(o.alt.port))
 	}
 	_, port, _ := net.SplitHostPort(r.addr)
+
 	return port
 }

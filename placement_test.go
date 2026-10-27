@@ -43,6 +43,7 @@ func (s *sentNames) get(path string) ([]string, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	names, ok := s.paths[path]
+
 	return names, ok
 }
 
@@ -76,6 +77,7 @@ func startH2Recorder(t *testing.T, s *sentNames) *shop {
 			go serveH2(c, s)
 		}
 	}()
+
 	return &shop{
 		addr:    ln.Addr().String(),
 		RootCAs: pool,
@@ -432,6 +434,7 @@ func TestHeaderPlacement(t *testing.T) {
 				if err != nil {
 					return err
 				}
+
 				return resp.Body.Close()
 			}
 			path := fmt.Sprintf("/placed/%d", i)
@@ -446,6 +449,7 @@ func TestHeaderPlacement(t *testing.T) {
 				if tt.configErr && !strings.Contains(err.Error(), "Config.HeaderPlacement[0]") {
 					t.Errorf("error %q does not name Config.HeaderPlacement[0]", err)
 				}
+
 				return
 			}
 			if err != nil {
@@ -461,6 +465,7 @@ func TestHeaderPlacement(t *testing.T) {
 				if !slices.Equal(got, want) {
 					t.Fatalf("sent\n%q\nwant, as without placements,\n%q", got, want)
 				}
+
 				return
 			}
 			var moved []string
@@ -491,5 +496,6 @@ func containsRun(names, run []string) bool {
 			return true
 		}
 	}
+
 	return false
 }

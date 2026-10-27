@@ -75,5 +75,6 @@ func cookieShapes(r h2trace.Request) []string {
 			out = append(out, name+" "+string(ins.Rep)+" huffman="+strconv.FormatBool(ins.HuffmanValue))
 		}
 	}
+
 	return out
 }

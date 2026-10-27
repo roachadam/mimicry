@@ -140,6 +140,7 @@ func (t *Transport) Plan(req *http.Request) (*Plan, error) {
 		return nil, err
 	}
 	p.Preflight = pre
+
 	return p, nil
 }
 
@@ -193,6 +194,7 @@ func (t *Transport) plan(r Request, exact bool, s *sending) *Plan {
 		}
 	}
 	p.Overrides = t.cookieOverride(s, p.Overrides)
+
 	return p
 }
 
@@ -214,6 +216,7 @@ func (t *Transport) cookieOverride(s *sending, overrides []Override) []Override 
 	if jar == "" || slices.Equal(caller, []string{jar}) {
 		return overrides
 	}
+
 	return append(overrides, Override{
 		Name:    "cookie",
 		Mimicry: jar,
@@ -249,6 +252,7 @@ func conditionOf(v profile.Variant) []string {
 			out = append(out, f.name)
 		}
 	}
+
 	return out
 }
 
@@ -284,6 +288,7 @@ func (p *Plan) fill(e planner, req *http.Request) error {
 			first = l.Err
 		}
 	}
+
 	return first
 }
 
@@ -296,6 +301,7 @@ func linesOf(h native.Head) Lines {
 	for _, f := range h.Fields {
 		l.Headers = append(l.Headers, Header(f))
 	}
+
 	return l
 }
 
@@ -309,6 +315,7 @@ func (p *Plan) lines(name string) *Lines {
 	case native.HTTP3:
 		return p.HTTP3
 	}
+
 	return nil
 }
 
@@ -319,6 +326,7 @@ func (p *Plan) lines(name string) *Lines {
 func (p *Plan) String() string {
 	var b strings.Builder
 	p.write(&b, "")
+
 	return b.String()
 }
 

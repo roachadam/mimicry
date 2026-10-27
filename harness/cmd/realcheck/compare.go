@@ -126,6 +126,7 @@ func randomnessOf(p *profile.Profile) (randomness, error) {
 		}
 	}
 	walk(v)
+
 	return r, nil
 }
 
@@ -172,6 +173,7 @@ func (r randomness) byDesign(endpoint, name string, bv, mv map[string]string) st
 			return "the random GREASE version's place in the echo's sorted version list"
 		}
 	}
+
 	return ""
 }
 
@@ -191,6 +193,7 @@ func perkVersionsSorted(perk string) string {
 			}
 		}
 	}
+
 	return strings.Join(parts, ";")
 }
 
@@ -242,6 +245,7 @@ func compare(out string) error {
 			if br.Proto != mr.Proto {
 				fmt.Fprintf(&summary, "| %s | %s (%d)%s | %s (%d)%s | not compared: different protocols | | | | |\n", e.id,
 					br.Proto, br.Tries, errNote(br.Err), mr.Proto, mr.Tries, errNote(mr.Err))
+
 				continue
 			}
 			rs, err := compareRecords(e.id, br, mr, rnd)
@@ -306,6 +310,7 @@ func compare(out string) error {
 	if err := os.WriteFile(filepath.Join(out, "compare.md"), []byte(summary.String()), 0o600); err != nil {
 		return err
 	}
+
 	return os.WriteFile(filepath.Join(out, "compare-full.md"), []byte(full.String()), 0o600)
 }
 
@@ -355,6 +360,7 @@ func compareRecords(endpoint string, b, m *echoRecord, rnd randomness) ([]row, e
 			})
 		}
 	}
+
 	return rows, nil
 }
 
@@ -363,6 +369,7 @@ func values(fs []field) map[string]string {
 	for _, f := range fs {
 		m[f.name] = f.value
 	}
+
 	return m
 }
 
@@ -385,11 +392,13 @@ func loadEchoes(out string) (map[string]map[string]*echoRecord, error) {
 			all[r.Client] = map[string]*echoRecord{}
 		}
 		all[r.Client][r.Endpoint] = &r
+
 		return nil
 	})
 	if errors.Is(err, fs.ErrNotExist) {
 		return all, nil
 	}
+
 	return all, err
 }
 
@@ -459,6 +468,7 @@ func sitesTable(out string) string {
 				strings.Join(ms, " "), strings.Join(vc, " "), cell(r.Title, 50), r.Bytes, settledCell)
 		}
 	}
+
 	return b.String()
 }
 
@@ -470,6 +480,7 @@ func clientOrder(c string) string {
 	case c == "go-net-http":
 		return "2"
 	}
+
 	return "1" + c
 }
 
@@ -484,6 +495,7 @@ func cell(s string, n int) string {
 	}
 	s = strings.ReplaceAll(s, "|", `\|`)
 	s = strings.ReplaceAll(s, "`", "'")
+
 	return "`" + s + "`"
 }
 
@@ -494,6 +506,7 @@ func mark(r row) string {
 	case "random":
 		return "✓ random: " + r.note
 	}
+
 	return "✗ " + r.result
 }
 
@@ -501,5 +514,6 @@ func errNote(err string) string {
 	if err == "" {
 		return ""
 	}
+
 	return " " + cell(err, 60)
 }

@@ -112,6 +112,7 @@ func generate(dir string) ([]byte, error) {
 		}
 	}
 	b.WriteString("}\n")
+
 	return format.Source(b.Bytes())
 }
 
@@ -159,6 +160,7 @@ func checkPolicy(profiles []*profile.Profile) error {
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -180,6 +182,7 @@ func newest(profiles []*profile.Profile) (map[string]*profile.Profile, error) {
 			return nil, fmt.Errorf("%s and %s are both the newest %s; %s() cannot choose", cur.Name, p.Name, p.Browser, browserFunc(p.Browser))
 		}
 	}
+
 	return latest, nil
 }
 
@@ -193,6 +196,7 @@ func parseVersion(v string) ([]int, error) {
 		}
 		out = append(out, n)
 	}
+
 	return out, nil
 }
 
@@ -201,6 +205,7 @@ func parseVersion(v string) ([]int, error) {
 func compareVersions(a, b string) int {
 	va, _ := parseVersion(a)
 	vb, _ := parseVersion(b)
+
 	return slices.Compare(va, vb)
 }
 
@@ -229,5 +234,6 @@ func funcName(name string) string {
 		b.WriteString(strings.ToUpper(part[:1]))
 		b.WriteString(part[1:])
 	}
+
 	return b.String()
 }

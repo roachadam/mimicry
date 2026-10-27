@@ -152,6 +152,7 @@ func replayPriorities(t *testing.T, p *profile.Profile, tr *h2trace.Trace) {
 			if j%2 == 0 {
 				pr.endData(ids[j])
 				synced = false
+
 				continue
 			}
 			pr.respond(ids[j], true)
@@ -182,6 +183,7 @@ func describePriority(p *h2trace.Priority, index func(stream uint32) (int, bool)
 			parent = "request " + strconv.Itoa(i)
 		}
 	}
+
 	return fmt.Sprintf("depends on %s, exclusive %t", parent, p.Exclusive)
 }
 
@@ -201,6 +203,7 @@ func roundTripChain(ctx context.Context, c *h2.Conn, k int, weight uint8) <-chan
 		_, err := c.RoundTrip(req)
 		done <- err
 	}()
+
 	return done
 }
 
@@ -257,6 +260,7 @@ func newChainPeer(t *testing.T, p *profile.Profile) (*chainPeer, *h2.Conn) {
 		_ = c.Close()
 		_ = server.Close()
 	})
+
 	return pr, c
 }
 

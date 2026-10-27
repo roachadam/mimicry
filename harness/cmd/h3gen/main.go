@@ -40,6 +40,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
+
 	return os.WriteFile(*path, out, 0o600) //nolint:gosec // rewriting the profile named on the command line is the point
 }
 
@@ -84,5 +85,6 @@ func regenerate(data []byte, dir string) ([]byte, error) {
 	if err := p.Validate(); err != nil {
 		return nil, err
 	}
+
 	return profile.Encode(p)
 }

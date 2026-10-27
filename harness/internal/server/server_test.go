@@ -85,6 +85,7 @@ func startServer(t *testing.T) *testServer {
 			t.Errorf("Serve: %v", err)
 		}
 	})
+
 	return ts
 }
 
@@ -97,6 +98,7 @@ func (ts *testServer) dial(t *testing.T) net.Conn {
 	t.Cleanup(func() {
 		_ = conn.Close()
 	})
+
 	return conn
 }
 
@@ -110,6 +112,7 @@ func (ts *testServer) dialTLS(t *testing.T, protos ...string) *tls.Conn {
 	if err := conn.HandshakeContext(t.Context()); err != nil {
 		t.Fatal(err)
 	}
+
 	return conn
 }
 
@@ -121,6 +124,7 @@ func receive[T any](t *testing.T, ch <-chan T) T {
 	case <-time.After(10 * time.Second):
 		t.Fatal("timed out waiting for the capture server")
 		var zero T
+
 		return zero
 	}
 }
@@ -130,6 +134,7 @@ func codes[T ~uint16](values []T) []profile.Code {
 	for i, v := range values {
 		out[i] = code(uint16(v))
 	}
+
 	return out
 }
 
@@ -139,6 +144,7 @@ func extension(c *capture.Capture, typ profile.Code) *profile.Extension {
 			return &c.Profile.TLS.Extensions[i]
 		}
 	}
+
 	return &profile.Extension{}
 }
 
@@ -165,6 +171,7 @@ func TestClientHelloAgreesWithStdlib(t *testing.T) {
 			if err := c.HandshakeContext(t.Context()); err != nil {
 				t.Fatalf("handshake: %v", err)
 			}
+
 			return nil
 		},
 	})
@@ -184,6 +191,7 @@ func TestClientHelloAgreesWithStdlib(t *testing.T) {
 				if err := u.HandshakeContext(t.Context()); err != nil {
 					t.Fatalf("handshake: %v", err)
 				}
+
 				return u.HandshakeState.Hello.Raw
 			},
 		})
@@ -283,6 +291,7 @@ func equalOrBothEmpty(got, want any) bool {
 	if g.Len() == 0 && w.Len() == 0 {
 		return true
 	}
+
 	return reflect.DeepEqual(got, want)
 }
 

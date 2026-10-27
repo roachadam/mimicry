@@ -174,5 +174,6 @@ func decodes(t *testing.T, d *Decoder, i int, block []byte, want []Field) uint64
 	if !slices.Equal(got, want) {
 		t.Fatalf("request %d: decoded %v, want %v", i, got, want)
 	}
+
 	return ric
 }

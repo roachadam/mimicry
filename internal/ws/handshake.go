@@ -19,6 +19,7 @@ func NewKey(rand io.Reader) (string, error) {
 	if _, err := io.ReadFull(rand, b[:]); err != nil {
 		return "", err
 	}
+
 	return base64.StdEncoding.EncodeToString(b[:]), nil
 }
 
@@ -99,6 +100,7 @@ func ParseExtensions(offer, answer string) (*Deflate, error) {
 			}
 		}
 	}
+
 	return d, nil
 }
 
@@ -108,5 +110,6 @@ func windowBits(v string) (int, error) {
 	if err != nil || bits < 8 || bits > 15 || strconv.Itoa(bits) != v {
 		return 0, fmt.Errorf("bad window bits %q", v)
 	}
+
 	return bits, nil
 }

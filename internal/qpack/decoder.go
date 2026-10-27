@@ -55,6 +55,7 @@ func (d *Decoder) OnEncoderStream(b []byte) error {
 		d.in = d.in[n:]
 	}
 	d.in = nil
+
 	return nil
 }
 
@@ -84,6 +85,7 @@ func (d *Decoder) instruction(b []byte) (int, error) {
 			}
 			name = en.Name
 		}
+
 		return n + m, d.insert(Field{
 			Name:  name,
 			Value: value,
@@ -97,6 +99,7 @@ func (d *Decoder) instruction(b []byte) (int, error) {
 		if err != nil {
 			return 0, err
 		}
+
 		return n + m, d.insert(Field{
 			Name:  name,
 			Value: value,
@@ -111,6 +114,7 @@ func (d *Decoder) instruction(b []byte) (int, error) {
 		}
 		d.t.capacity = capacity
 		d.t.evictTo(capacity)
+
 		return n, nil
 	default:
 		index, n, err := readInt(b, 5)
@@ -121,6 +125,7 @@ func (d *Decoder) instruction(b []byte) (int, error) {
 		if err != nil {
 			return 0, err
 		}
+
 		return n, d.insert(en)
 	}
 }
@@ -135,6 +140,7 @@ func (d *Decoder) relative(index uint64) (Field, error) {
 	if !ok {
 		return Field{}, fmt.Errorf("relative index %d is evicted", index)
 	}
+
 	return en, nil
 }
 
@@ -143,6 +149,7 @@ func (d *Decoder) insert(f Field) error {
 		return errors.New("entry larger than the table")
 	}
 	d.t.insert(f)
+
 	return nil
 }
 
@@ -167,6 +174,7 @@ func (d *Decoder) Decode(block []byte) ([]Field, uint64, error) {
 		fields = append(fields, f)
 		b = b[n:]
 	}
+
 	return fields, ric, nil
 }
 
@@ -211,6 +219,7 @@ func (d *Decoder) prefix(block []byte) (ric, base uint64, n int, err error) {
 	if delta >= ric {
 		return 0, 0, 0, fmt.Errorf("%w: delta base %d", ErrDecompression, delta)
 	}
+
 	return ric, ric - delta - 1, n, nil
 }
 
@@ -224,18 +233,21 @@ func (d *Decoder) line(b []byte, ric, base uint64) (Field, int, error) {
 		if !ok {
 			return Field{}, fmt.Errorf("index %d is evicted", abs)
 		}
+
 		return en, nil
 	}
 	relative := func(index uint64) (Field, error) {
 		if index >= base {
 			return Field{}, fmt.Errorf("relative index %d with base %d", index, base)
 		}
+
 		return dynamic(base - 1 - index)
 	}
 	static := func(index uint64) (Field, error) {
 		if index >= uint64(len(staticTable)) {
 			return Field{}, fmt.Errorf("static index %d", index)
 		}
+
 		return Field{
 			Name:  staticTable[index][0],
 			Value: staticTable[index][1],
@@ -255,6 +267,7 @@ func (d *Decoder) line(b []byte, ric, base uint64) (Field, int, error) {
 		} else {
 			f, err = relative(index)
 		}
+
 		return f, n, err
 	case c&0x40 != 0:
 		var index uint64
@@ -276,6 +289,7 @@ func (d *Decoder) line(b []byte, ric, base uint64) (Field, int, error) {
 			return Field{}, 0, err
 		}
 		f, err = dynamic(base + index)
+
 		return f, n, err
 	default:
 		var index uint64
@@ -292,5 +306,6 @@ func (d *Decoder) line(b []byte, ric, base uint64) (Field, int, error) {
 		return Field{}, 0, err
 	}
 	f.Value = value
+
 	return f, n + m, nil
 }

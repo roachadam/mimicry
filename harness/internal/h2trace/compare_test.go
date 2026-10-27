@@ -55,6 +55,7 @@ func features(vs []Variation) []string {
 	for i, v := range vs {
 		out[i] = v.Feature
 	}
+
 	return out
 }
 

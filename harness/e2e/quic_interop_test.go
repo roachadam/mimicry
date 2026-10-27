@@ -253,6 +253,7 @@ var interopCases = []interopCase{
 				if resp.StatusCode != http.StatusTooEarly {
 					e.t.Errorf("status %d; the profile does not retry, want 425", resp.StatusCode)
 				}
+
 				return
 			}
 			if resp.StatusCode != http.StatusOK || info.Early || !info.Used0RTT {
@@ -744,6 +745,7 @@ func newInteropEnv(t *testing.T, p *profile.Profile, pki *interopPKI, c interopC
 	if e.page, err = url.Parse(e.origin + "/"); err != nil {
 		t.Fatal(err)
 	}
+
 	return e
 }
 
@@ -784,6 +786,7 @@ func (e *interopEnv) altSvcServer() string {
 			t.Error(err)
 		}
 	})
+
 	return ln.Addr().String()
 }
 
@@ -827,6 +830,7 @@ func (e *interopEnv) do(method, path string, body []byte) (*http.Response, []byt
 		_ = resp.Body.Close()
 	}()
 	b, err := io.ReadAll(resp.Body)
+
 	return resp, b, err
 }
 
@@ -841,6 +845,7 @@ func (e *interopEnv) h3(resp *http.Response, what string) connInfo {
 	if err := json.Unmarshal([]byte(resp.Header.Get("X-Info")), &info); err != nil {
 		e.t.Fatalf("%s: X-Info: %v", what, err)
 	}
+
 	return info
 }
 
@@ -854,6 +859,7 @@ func (e *interopEnv) get(path string) connInfo {
 	if resp.StatusCode != http.StatusOK {
 		e.t.Fatalf("GET %s: status %d", path, resp.StatusCode)
 	}
+
 	return e.h3(resp, "GET "+path)
 }
 
@@ -924,6 +930,7 @@ func (e *interopEnv) warmImpaired() bool {
 	if st := e.relay.Stats(); st.Sessions != fb.BrokenAfter {
 		e.t.Errorf("%d QUIC attempts; the origin is broken after %d", st.Sessions, fb.BrokenAfter)
 	}
+
 	return false
 }
 
@@ -998,6 +1005,7 @@ func (e *interopEnv) downloadWith(n int, seed uint64, at int, fn func()) (connIn
 	if want := interopBytes(n, seed); !bytes.Equal(got, want) {
 		e.t.Fatalf("%s: got %d bytes, %s", what, len(got), firstDiff(got, want))
 	}
+
 	return info, got
 }
 
@@ -1015,6 +1023,7 @@ func (e *interopEnv) upload(n int, seed uint64) connInfo {
 	if want := fmt.Sprintf("%d %x", n, sum); string(body) != want {
 		e.t.Fatalf("%s: the server read %q, want %q", what, body, want)
 	}
+
 	return info
 }
 
@@ -1088,6 +1097,7 @@ func (t *trigger) Read(p []byte) (int, error) {
 		t.done = true
 		t.fn()
 	}
+
 	return n, err
 }
 
@@ -1097,6 +1107,7 @@ func interopBytes(n int, seed uint64) []byte {
 	binary.LittleEndian.PutUint64(key[:8], seed)
 	b := make([]byte, n)
 	_, _ = mrand.NewChaCha8(key).Read(b)
+
 	return b
 }
 
@@ -1106,6 +1117,7 @@ func firstDiff(got, want []byte) string {
 			return fmt.Sprintf("first difference at byte %d of %d", i, len(want))
 		}
 	}
+
 	return fmt.Sprintf("want %d", len(want))
 }
 
@@ -1168,6 +1180,7 @@ func (e *interopEnv) backend(opts backendOpts) *backend {
 	if opts.chacha {
 		b := e.childBackend(opts)
 		e.backends = append(e.backends, b)
+
 		return b
 	}
 	cert := e.pki.leaf
@@ -1180,6 +1193,7 @@ func (e *interopEnv) backend(opts backendOpts) *backend {
 	}
 	t.Cleanup(stop)
 	e.backends = append(e.backends, b)
+
 	return b
 }
 
@@ -1190,6 +1204,7 @@ func h3Stream(w http.ResponseWriter) *http3.Stream {
 	if !ok {
 		panic(fmt.Sprintf("h3Stream: %T is not an http3.HTTPStreamer", w))
 	}
+
 	return s.HTTPStream()
 }
 
@@ -1287,6 +1302,7 @@ func startBackend(opts backendOpts, cert tls.Certificate, ticketKey [32]byte) (*
 		_ = pc.Close()
 		<-done
 	}
+
 	return b, stop, nil
 }
 
@@ -1336,6 +1352,7 @@ func newDualConn(v4, v6 *net.UDPConn) *dualConn {
 			}
 		}()
 	}
+
 	return c
 }
 
@@ -1384,6 +1401,7 @@ func (c *dualConn) WriteTo(p []byte, addr net.Addr) (int, error) {
 	if ua.IP.To4() != nil {
 		return c.v4.WriteTo(p, addr)
 	}
+
 	return c.v6.WriteTo(p, addr)
 }
 
@@ -1391,6 +1409,7 @@ func (c *dualConn) Close() error {
 	c.once.Do(func() {
 		close(c.done)
 	})
+
 	return errors.Join(c.v4.Close(), c.v6.Close())
 }
 
@@ -1409,6 +1428,7 @@ func (c *dualConn) SetReadDeadline(t time.Time) error {
 	c.deadline = t
 	close(c.wake)
 	c.wake = make(chan struct{})
+
 	return nil
 }
 
@@ -1455,6 +1475,7 @@ func (t *serverTrace) AddProducer() qlogwriter.Recorder {
 	if t.inner != nil {
 		r.inner = t.inner.AddProducer()
 	}
+
 	return r
 }
 
@@ -1496,6 +1517,7 @@ func (r *serverRecorder) Close() error {
 	if r.inner != nil {
 		return r.inner.Close()
 	}
+
 	return nil
 }
 
@@ -1604,6 +1626,7 @@ func infoOf(b *backend, sc *serverConn) connInfo {
 	default:
 		info.Early = true
 	}
+
 	return info
 }
 
@@ -1679,6 +1702,7 @@ func newInteropPKI(t *testing.T) *interopPKI {
 			t.Fatal(err)
 		}
 	}
+
 	return pki
 }
 
@@ -1733,6 +1757,7 @@ func mustCert(t *testing.T, parentKey *ecdsa.PrivateKey, parent *x509.Certificat
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return key, cert
 }
 
@@ -1772,6 +1797,7 @@ func (e *interopEnv) childBackend(opts backendOpts) *backend {
 	if err != nil {
 		t.Fatalf("child backend said %q", line)
 	}
+
 	return &backend{
 		name: opts.name,
 		target: udprelay.Target{
@@ -1805,6 +1831,7 @@ func runChildBackend(dir string) int {
 	defer stop()
 	fmt.Println(b.target.IPv4.Port())
 	_, _ = io.Copy(io.Discard, os.Stdin)
+
 	return 0
 }
 

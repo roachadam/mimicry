@@ -68,5 +68,6 @@ func summary(p *pageshape.Page) string {
 	for _, k := range keys {
 		fmt.Fprintf(&s, " %s=%d", k, protocols[k])
 	}
+
 	return s.String()
 }

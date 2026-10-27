@@ -69,5 +69,6 @@ func (w *stallWatch) stalled(from, to time.Time) time.Duration {
 			d += hi.Sub(lo)
 		}
 	}
+
 	return d
 }

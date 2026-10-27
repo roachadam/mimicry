@@ -73,6 +73,7 @@ func startClicker(ctx context.Context, title string, look func(context.Context) 
 			clicked, at = v.url, time.Now()
 		}
 	}()
+
 	return c
 }
 
@@ -84,6 +85,7 @@ func (c *clicker) Close() error {
 	if c.conn != nil {
 		err = errors.Join(err, c.conn.Close())
 	}
+
 	return err
 }
 
@@ -102,6 +104,7 @@ func parseView(s string) (pageView, error) {
 			return pageView{}, err
 		}
 	}
+
 	return v, nil
 }
 
@@ -128,6 +131,7 @@ func chromeClicker(ctx context.Context, dir, host, title string) (io.Closer, err
 		if err != nil {
 			return pageView{}, err
 		}
+
 		return parseView(s)
 	}
 	click := func(ctx context.Context, x, y float64) error {
@@ -140,8 +144,10 @@ func chromeClicker(ctx context.Context, dir, host, title string) (io.Closer, err
 				return err
 			}
 		}
+
 		return nil
 	}
+
 	return startClicker(ctx, title, look, click, r), nil
 }
 
@@ -200,6 +206,7 @@ func firefoxClicker(ctx context.Context, port int, title string) (io.Closer, err
 		if err != nil {
 			return pageView{}, err
 		}
+
 		return parseView(s)
 	}
 	click := func(ctx context.Context, x, y float64) error {
@@ -220,8 +227,10 @@ func firefoxClicker(ctx context.Context, port int, title string) (io.Closer, err
 				},
 			},
 		})
+
 		return err
 	}
+
 	return startClicker(ctx, title, look, click, r), nil
 }
 
@@ -263,6 +272,7 @@ end tell`)
 		if err != nil {
 			return pageView{}, err
 		}
+
 		return pageView{
 			title: title,
 			url:   lines[0],
@@ -283,8 +293,10 @@ for (const type of [5, 1, 2]) {
 	$.CGEventPost(0, e);
 	delay(0.05);
 }`, x, y))
+
 		return err
 	}
+
 	return startClicker(ctx, title, look, click, nil)
 }
 
@@ -299,5 +311,6 @@ func safariCanClick(ctx context.Context) error {
 		return errors.New("clicking in Safari posts the system's mouse events, which needs Accessibility access for the app running the capture tool " +
 			"(System Settings > Privacy & Security > Accessibility; over ssh the session has none)")
 	}
+
 	return nil
 }

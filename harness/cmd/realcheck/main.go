@@ -92,5 +92,6 @@ func run() error {
 			return err
 		}
 	}
+
 	return compare(*out)
 }

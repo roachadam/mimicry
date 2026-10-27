@@ -43,6 +43,7 @@ func compileQUIC(p *profile.Profile) *quicPlan {
 		retry := compileQUICRetry(plan.fresh, q.VersionNegotiation)
 		plan.retry = &retry
 	}
+
 	return plan
 }
 
@@ -74,6 +75,7 @@ func compileQUICRetry(fresh quicHello, r *profile.QUICHelloRetry) quicHello {
 			Type: profile.ExtPadding,
 		})
 	}
+
 	return out
 }
 
@@ -147,6 +149,7 @@ func compileQUICHello(p *profile.Profile, resumed bool) quicHello {
 		})
 	}
 	h.extensions = exts
+
 	return h
 }
 
@@ -175,6 +178,7 @@ func (p *Plan) RetryQUICHello() (Hello, bool) {
 	if p.quic == nil || p.quic.retry == nil {
 		return Hello{}, false
 	}
+
 	return p.quicHello(*p.quic.retry, rand.IntN), true
 }
 
@@ -195,5 +199,6 @@ func (p *Plan) quicHello(h quicHello, intn func(int) int) Hello {
 		j := intn(i + 1)
 		out.Extensions[m[i]], out.Extensions[m[j]] = out.Extensions[m[j]], out.Extensions[m[i]]
 	}
+
 	return out
 }

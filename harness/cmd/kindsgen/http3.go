@@ -66,6 +66,7 @@ func deriveH3(p *profile.Profile, dir string) error {
 		return err
 	}
 	p.HTTP3.High, p.HTTP3.Low, err = h3Priorities(p, reqs)
+
 	return err
 }
 
@@ -94,6 +95,7 @@ func h3Drop(p *profile.Profile, reqs []h3Request) []string {
 		}
 	}
 	slices.Sort(out)
+
 	return out
 }
 
@@ -178,6 +180,7 @@ func h3Headers(p *profile.Profile, reqs []h3Request) (*profile.H3Headers, error)
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)
 	}
+
 	return out, nil
 }
 
@@ -210,6 +213,7 @@ func h2List(p *profile.Profile, kind string) []profile.Header {
 	if k := p.Kinds[kind]; k != nil {
 		return k.Headers
 	}
+
 	return nil
 }
 
@@ -245,6 +249,7 @@ func checkH3Order(p *profile.Profile, q h3Request, drop []string) error {
 			return nil
 		}
 	}
+
 	return fmt.Errorf("headers %v are in no order of %s's HTTP/2 lists", got, q.kind)
 }
 
@@ -259,6 +264,7 @@ func subsequence(got, order []string) bool {
 		}
 		i += j + 1
 	}
+
 	return true
 }
 
@@ -268,6 +274,7 @@ func h3Steps() map[string]server.H3Step {
 	for _, st := range slices.Concat(server.H3DiscoverySteps(), server.H3PageSteps()) {
 		steps[st.Path()] = st
 	}
+
 	return steps
 }
 
@@ -327,6 +334,7 @@ func h3Requests(dir string, p *profile.Profile) ([]h3Request, error) {
 			}
 		}
 	}
+
 	return out, errors.Join(errs...)
 }
 
@@ -355,17 +363,20 @@ func h3Kind(steps map[string]server.H3Step, path string) (string, error) {
 		case strings.Contains(st.Tag, " async "):
 			return profile.KindAsyncScript, nil
 		}
+
 		return profile.KindScript, nil
 	case "image":
 		if st.Tag == "" {
 			return profile.KindInjectedImage, nil
 		}
+
 		return profile.KindImage, nil
 	case "iframe":
 		return profile.KindFrame, nil
 	case "font", "fetch", "xhr", "beacon":
 		return st.Kind, nil
 	}
+
 	return "", fmt.Errorf("step kind %q", st.Kind)
 }
 
@@ -416,6 +427,7 @@ func h3Priorities(p *profile.Profile, reqs []h3Request) (high, low map[string]st
 	if len(low) == 0 {
 		low = nil
 	}
+
 	return high, low, errors.Join(errs...)
 }
 
@@ -440,6 +452,7 @@ func defaultPriority(p *profile.Profile, q h3Request) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -504,5 +517,6 @@ func h2Urgencies(p *profile.Profile, dir string) error {
 			errs = append(errs, fmt.Errorf("%s fetchpriority %s over HTTP/2 in the h3 pages is %+v, the kinds captures' %+v", k.kind, k.level, *got, **have))
 		}
 	}
+
 	return errors.Join(errs...)
 }

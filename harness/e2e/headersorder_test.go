@@ -94,6 +94,7 @@ func TestHeadersOrderMatchesBrowser(t *testing.T) {
 						if !preflight {
 							t.Errorf("%s: mimicry sent no request", st.Label)
 						}
+
 						continue
 					}
 					forms := browserForms(t, want, path, h1, preflight)

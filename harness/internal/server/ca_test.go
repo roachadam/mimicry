@@ -28,6 +28,7 @@ func TestCANameConstraints(t *testing.T) {
 			DNSName: host,
 			Roots:   roots,
 		})
+
 		return err
 	}
 	for _, host := range append(slices.Clone(CAHosts), "www.kinds-a.test", "static.kinds-a.test", "www.nike-com.test", "a.localhost") {

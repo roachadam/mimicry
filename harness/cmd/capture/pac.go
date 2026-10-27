@@ -54,6 +54,7 @@ func servePAC(ctx context.Context) error {
 	if err := srv.Serve(ln); !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
+
 	return nil
 }
 
@@ -84,12 +85,14 @@ func safariProxyConfig(ctx context.Context) safariProxy {
 		if strings.Contains(s, "ProxyAutoConfigURLString : "+safariPACURL) {
 			return safariProxyPAC
 		}
+
 		return safariProxyNone
 	}
 	host, port, _ := net.SplitHostPort(safariHTTPProxy)
 	if strings.Contains(s, "HTTPSEnable : 1") && strings.Contains(s, "HTTPSProxy : "+host) && strings.Contains(s, "HTTPSPort : "+port) {
 		return safariProxyManual
 	}
+
 	return safariProxyNone
 }
 
@@ -99,5 +102,6 @@ func safariProxyListen(sc *server.Scenario, port int) (string, int) {
 	if sc.Proxy == server.ProxySOCKS5 {
 		return safariSOCKSProxy, safariSOCKSPort
 	}
+
 	return safariHTTPProxy, port
 }

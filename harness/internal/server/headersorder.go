@@ -91,12 +91,14 @@ func headersSets() []headersSet {
 		for _, n := range names {
 			out = append(out, [2]string{n, "1"})
 		}
+
 		return out
 	}
 	var letters []string
 	for c := 'a'; c <= 'z'; c++ {
 		letters = append(letters, string(c))
 	}
+
 	return []headersSet{
 		// Alone: where one name goes with nothing else set.
 		{"single-a", ones([]string{"a"})},
@@ -127,6 +129,7 @@ func headersSets() []headersSet {
 func reversed(s []string) []string {
 	out := slices.Clone(s)
 	slices.Reverse(out)
+
 	return out
 }
 
@@ -159,6 +162,7 @@ func HeadersSteps() []HeadersStep {
 			}
 		}
 	}
+
 	return steps
 }
 
@@ -189,6 +193,7 @@ func (p headersPage) answer(req request) response {
 	if req.method == "OPTIONS" {
 		return response{status: 204, contentType: "text/plain", headers: preflightAllow(r.headers, "GET", req.preflightHeaders)}
 	}
+
 	return r
 }
 
@@ -200,6 +205,7 @@ func headersDocument(origin func(string) string) []byte {
 		steps[i].URL = origin(steps[i].Host) + "/h/" + steps[i].Label
 	}
 	list, _ := json.Marshal(steps)
+
 	return htmlPage("headers-order", "", "<script>(async () => {\nconst steps = "+string(list)+";\n"+headersScript+"\n})();</script>\n")
 }
 

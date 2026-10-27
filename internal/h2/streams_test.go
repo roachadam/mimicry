@@ -35,6 +35,7 @@ func find[T http2.Frame](frames []http2.Frame, match func(T) bool) (T, bool) {
 		}
 	}
 	var zero T
+
 	return zero, false
 }
 
@@ -42,6 +43,7 @@ func hasReset(frames []http2.Frame, stream uint32, code http2.ErrCode) bool {
 	_, ok := find(frames, func(f *http2.RSTStreamFrame) bool {
 		return f.StreamID == stream && f.ErrCode == code
 	})
+
 	return ok
 }
 
@@ -50,6 +52,7 @@ func streamErrCode(err error) (http2.ErrCode, bool) {
 	if !errors.As(err, &se) {
 		return 0, false
 	}
+
 	return se.Code, true
 }
 
@@ -59,6 +62,7 @@ func setting(p *profile.Profile, id http2.SettingID) uint32 {
 			return s.Value
 		}
 	}
+
 	return 0
 }
 

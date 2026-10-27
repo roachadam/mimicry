@@ -97,6 +97,7 @@ func (e *Encoder) AppendBlock(dst []byte, fields []Field) []byte {
 	for _, f := range fields {
 		dst = e.appendField(dst, f)
 	}
+
 	return dst
 }
 
@@ -132,6 +133,7 @@ func (e *Encoder) appendField(dst []byte, f Field) []byte {
 			value: f.Value,
 		})
 	}
+
 	return dst
 }
 
@@ -147,6 +149,7 @@ func (e *Encoder) exactIndex(f Field) uint64 {
 			return uint64(len(staticTable) + 1 + i)
 		}
 	}
+
 	return 0
 }
 
@@ -176,6 +179,7 @@ func (e *Encoder) nameIndex(name string) uint64 {
 			}
 		}
 	}
+
 	return 0
 }
 
@@ -213,6 +217,7 @@ func appendInt(dst []byte, first byte, n uint8, v uint64) []byte {
 		dst = append(dst, byte(v)|0x80)
 		v >>= 7
 	}
+
 	return append(dst, byte(v))
 }
 
@@ -225,5 +230,6 @@ func (e *Encoder) appendString(dst []byte, s string) []byte {
 		return xhpack.AppendHuffmanString(dst, s)
 	}
 	dst = appendInt(dst, 0x00, 7, uint64(len(s)))
+
 	return append(dst, s...)
 }

@@ -150,6 +150,7 @@ func DefaultCookies() *Cookies {
 func (k *Cookies) Validate() error {
 	c := &checker{}
 	c.checkCookies(k)
+
 	return c.err()
 }
 

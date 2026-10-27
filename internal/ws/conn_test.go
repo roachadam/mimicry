@@ -33,6 +33,7 @@ func (f *fakeTransport) Send(_ context.Context, parts [][]byte, _ bool) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.sent = append(f.sent, bytes.Join(parts, nil))
+
 	return nil
 }
 
@@ -62,6 +63,7 @@ func (f *fakeTransport) frames(t *testing.T) []Message {
 			Payload: payload,
 		})
 	}
+
 	return out
 }
 

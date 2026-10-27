@@ -187,6 +187,7 @@ func New(qc *quic.Conn, p *profile.Profile, opts Options) (*Conn, error) {
 	}
 	c.openStreams()
 	qc.Uncork()
+
 	return c, nil
 }
 
@@ -204,6 +205,7 @@ func QPACKConfig(h *profile.HTTP3) qpack.Config {
 	case profile.QPACKNewNames:
 		cfg.Strategy = qpack.StrategyNewNames
 	}
+
 	return cfg
 }
 
@@ -305,6 +307,7 @@ func (c *Conn) Close() error {
 	c.qc.Abort(&quic.ConnectionCloseError{
 		Code: codeNoError,
 	})
+
 	return nil
 }
 
@@ -327,6 +330,7 @@ func (c *Conn) Err() error {
 func (c *Conn) GoneAway() bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	return c.goaway
 }
 
@@ -340,6 +344,7 @@ func (c *Conn) CanTakeNewRequest() bool {
 		return false
 	default:
 	}
+
 	return !c.goaway && c.failed == nil
 }
 
@@ -347,6 +352,7 @@ func (c *Conn) CanTakeNewRequest() bool {
 func (c *Conn) Idle() bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	return c.active == 0
 }
 
@@ -401,6 +407,7 @@ func (c *Conn) serve() {
 				code: codeStreamCreationError,
 				msg:  "server opened a bidirectional stream",
 			})
+
 			return
 		}
 		go c.serveUni(s, seen)
@@ -424,6 +431,7 @@ func (c *Conn) serveUni(s *quic.Stream, seen map[uint64]bool) {
 				code: codeStreamCreationError,
 				msg:  fmt.Sprintf("second stream of type %d", typ),
 			})
+
 			return
 		}
 	case streamPush:
@@ -433,6 +441,7 @@ func (c *Conn) serveUni(s *quic.Stream, seen map[uint64]bool) {
 			code: codeIDError,
 			msg:  "push stream without MAX_PUSH_ID",
 		})
+
 		return
 	default:
 		// Unknown (GREASE) types are ignored (RFC 9114, 6.2.3).
@@ -569,6 +578,7 @@ func (c *Conn) applySettings(b []byte) error {
 	c.settingsOnce.Do(func() {
 		close(c.settings)
 	})
+
 	return nil
 }
 
@@ -597,6 +607,7 @@ func (c *Conn) goAway(id uint64) {
 func (c *Conn) rejected(id uint64) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	return c.goaway && id >= c.goawayID
 }
 
@@ -663,6 +674,7 @@ func (c *Conn) reserve() bool {
 	if c.active == 1 {
 		c.qc.KeepAlive(true)
 	}
+
 	return true
 }
 
@@ -691,6 +703,7 @@ func (c *Conn) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	_ = resp.Body.Close()
 	resp, _, err = c.roundTrip(again, false)
+
 	return resp, err
 }
 
@@ -715,6 +728,7 @@ func rewound(req *http.Request) (*http.Request, bool) {
 	}
 	req = req.Clone(req.Context())
 	req.Body = body
+
 	return req, true
 }
 
@@ -738,6 +752,7 @@ func (c *Conn) roundTrip(req *http.Request, mayEarly bool) (resp *http.Response,
 		if !errors.Is(err, ErrConnUnusable) {
 			closeBody(req)
 		}
+
 		return nil, false, err
 	}
 	id := uint64(s.ID())
@@ -762,6 +777,7 @@ func (c *Conn) roundTrip(req *http.Request, mayEarly bool) (resp *http.Response,
 			if hasBody {
 				return nil, false, fmt.Errorf("%w: %w", ErrRejected, err)
 			}
+
 			return nil, false, fmt.Errorf("%w: %w", ErrConnUnusable, err)
 		}
 		if ctx.Err() == nil && !errors.Is(err, ErrConnLost) {
@@ -771,8 +787,10 @@ func (c *Conn) roundTrip(req *http.Request, mayEarly bool) (resp *http.Response,
 			default:
 			}
 		}
+
 		return nil, false, err
 	}
+
 	return resp, early, nil
 }
 
@@ -813,6 +831,7 @@ func (c *Conn) start(ctx context.Context, hd head, end, mayEarly bool) (s *quic.
 			return nil, false, fmt.Errorf("%w: %w", ErrConnUnusable, err)
 		default:
 		}
+
 		return nil, false, err
 	}
 	id := uint64(s.ID())
@@ -871,8 +890,10 @@ func (c *Conn) start(ctx context.Context, hd head, end, mayEarly bool) (s *quic.
 			return nil, false, fmt.Errorf("%w: %w", ErrConnLost, err)
 		default:
 		}
+
 		return nil, false, err
 	}
+
 	return s, early, nil
 }
 
@@ -916,6 +937,7 @@ func (c *Conn) awaitHandshake(ctx context.Context) (release func(), err error) {
 		release()
 		return func() {}, ctx.Err()
 	}
+
 	return release, nil
 }
 
@@ -962,11 +984,13 @@ func (c *Conn) decode(ctx context.Context, id uint64, block []byte) ([]qpack.Fie
 			code: codeQPACKDecompressionFailed,
 			msg:  err.Error(),
 		})
+
 		return nil, err
 	}
 	if ric > 0 {
 		c.ackSection(id)
 	}
+
 	return fields, nil
 }
 
@@ -1032,6 +1056,7 @@ func (r *requestStream) writeBody(body io.Reader, length int64) error {
 		if n != length {
 			return fmt.Errorf("h3: request body is %d bytes, not %d", n, length)
 		}
+
 		return nil
 	}
 	size := h.MaxDataFrame
@@ -1062,6 +1087,7 @@ func (r *requestStream) writeBody(body io.Reader, length int64) error {
 	if length > 0 && sent != length {
 		return fmt.Errorf("h3: request body is %d bytes, not %d", sent, length)
 	}
+
 	return nil
 }
 
@@ -1087,6 +1113,7 @@ func (r *requestStream) readResponse(ctx context.Context, req *http.Request) (*h
 				msg:  fmt.Sprintf("frame type %d on a request stream", typ),
 			}
 			r.c.fail(err)
+
 			return nil, err
 		default:
 			// PUSH_PROMISE is refused by never allowing pushes; unknown
@@ -1094,6 +1121,7 @@ func (r *requestStream) readResponse(ctx context.Context, req *http.Request) (*h
 			if err := skip(r.s, length); err != nil {
 				return nil, err
 			}
+
 			continue
 		}
 		block, err := readPayload(r.s, length, r.c.maxSection)
@@ -1119,6 +1147,7 @@ func (r *requestStream) readResponse(ctx context.Context, req *http.Request) (*h
 		if req.Method == http.MethodHead || resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusNotModified {
 			resp.ContentLength = 0
 		}
+
 		return resp, nil
 	}
 }
@@ -1143,6 +1172,7 @@ func response(fields []qpack.Field) (*http.Response, error) {
 			}
 			resp.StatusCode = code
 			resp.Status = f.Value + " " + http.StatusText(code)
+
 			continue
 		}
 		regular = true
@@ -1156,6 +1186,7 @@ func response(fields []qpack.Field) (*http.Response, error) {
 			resp.ContentLength = n
 		}
 	}
+
 	return resp, nil
 }
 
@@ -1179,6 +1210,7 @@ func (b *body) Read(p []byte) (int, error) {
 				return 0, io.EOF
 			}
 			b.end(err)
+
 			return 0, err
 		}
 		switch typ {
@@ -1213,8 +1245,10 @@ func (b *body) Read(p []byte) (int, error) {
 			err = unexpectedEOF(err)
 		}
 		b.end(err)
+
 		return n, err
 	}
+
 	return n, nil
 }
 
@@ -1234,5 +1268,6 @@ func (b *body) Close() error {
 	if b.err == nil {
 		b.end(errors.New("h3: response body closed"))
 	}
+
 	return nil
 }

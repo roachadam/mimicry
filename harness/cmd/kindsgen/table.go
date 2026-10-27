@@ -151,6 +151,7 @@ func deriveTable(kinds ...[]*request) (*profile.HeaderTable, error) {
 			}
 		}
 	}
+
 	return nil, fmt.Errorf("header table: own headers %q (extras %q) in no table explain the captures; first failure per table: %s", own, extras, strings.Join(failed, "; "))
 }
 
@@ -169,6 +170,7 @@ func baseOrder(groups map[condition][]*request, r *request, list func(*request) 
 		return nil, false
 	}
 	order = lowerAll(order)
+
 	return order, describes(order, lowerNames(list(r)))
 }
 
@@ -197,6 +199,7 @@ func tablePlaces(table *profile.HeaderTable, groups map[condition][]*request, gr
 			}
 		}
 	}
+
 	return true, nil
 }
 
@@ -213,6 +216,7 @@ func tableExplains(table *profile.HeaderTable, base, sent, pageOrder []string) b
 	if base == nil {
 		base = sent
 	}
+
 	return slices.Equal(tableSent(table, base, sent, pageOrder), sent)
 }
 
@@ -259,6 +263,7 @@ func tableSent(table *profile.HeaderTable, base, sent, pageOrder []string) []str
 			placed = true
 		}
 	}
+
 	return out
 }
 
@@ -270,6 +275,7 @@ func pageIndexes(names []string) []int {
 			out = append(out, i)
 		}
 	}
+
 	return out
 }
 
@@ -278,6 +284,7 @@ func lowerNames(hs []profile.Header) []string {
 	for i, h := range hs {
 		out[i] = strings.ToLower(h.Name)
 	}
+
 	return out
 }
 
@@ -286,6 +293,7 @@ func lowerAll(names []string) []string {
 	for i, n := range names {
 		out[i] = strings.ToLower(n)
 	}
+
 	return out
 }
 
@@ -295,6 +303,7 @@ func sortedKeys(m map[string]bool) []string {
 		out = append(out, k)
 	}
 	slices.Sort(out)
+
 	return out
 }
 
@@ -304,5 +313,6 @@ func pow(b, e int) int {
 	for range e {
 		out *= b
 	}
+
 	return out
 }

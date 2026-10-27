@@ -50,12 +50,14 @@ func parseAltSvc(values []string, host string, now time.Time) (alt altSvc, found
 					maxAge = time.Duration(s) * time.Second
 				}
 			}
+
 			return altSvc{
 				port:    uint16(port),
 				expires: now.Add(maxAge),
 			}, true, false
 		}
 	}
+
 	return altSvc{}, false, false
 }
 
@@ -75,5 +77,6 @@ func splitQuoted(s string, sep byte) []string {
 			start = i + 1
 		}
 	}
+
 	return append(out, s[start:])
 }

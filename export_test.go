@@ -8,5 +8,6 @@ func SetPins(t *Transport, pins []Pin) error {
 		return err
 	}
 	t.pins = set
+
 	return nil
 }

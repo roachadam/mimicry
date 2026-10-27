@@ -87,6 +87,7 @@ func (p *Proxy) listeners() {
 func (p *Proxy) Requests() []capture.ProxyRequest {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
 	return append([]capture.ProxyRequest(nil), p.requests...)
 }
 
@@ -107,6 +108,7 @@ func (p *Proxy) Serve(ctx context.Context, ln net.Listener) error {
 			if ctx.Err() != nil {
 				return nil
 			}
+
 			return err
 		}
 		wg.Go(func() {
@@ -156,6 +158,7 @@ func (p *Proxy) handle(ctx context.Context, conn net.Conn) error {
 	if p.PlainPort != 0 && portOf(target) == p.PlainPort {
 		out = p.plainLn
 	}
+
 	return out.hand(ctx, &passConn{
 		Conn: conn,
 		r:    pass,
@@ -170,6 +173,7 @@ func portOf(target string) int {
 		return 0
 	}
 	n, _ := strconv.Atoi(port)
+
 	return n
 }
 
@@ -204,6 +208,7 @@ func (p *Proxy) http(conn net.Conn, br *bufio.Reader, id int) (io.Reader, string
 			if err == nil {
 				host = u.Host
 			}
+
 			return io.MultiReader(strings.NewReader(line), br), host, nil
 		}
 		target, _, _ := strings.Cut(rest, " ")
@@ -239,6 +244,7 @@ func (p *Proxy) http(conn net.Conn, br *bufio.Reader, id int) (io.Reader, string
 				return nil, "", tunnel(conn, br, target)
 			}
 			_, err := io.WriteString(conn, "HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+
 			return nil, "", errors.Join(err, conn.Close())
 		}
 		switch {
@@ -248,11 +254,13 @@ func (p *Proxy) http(conn net.Conn, br *bufio.Reader, id int) (io.Reader, string
 			if _, err := io.WriteString(conn, "HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm=\"mimicry capture\"\r\nContent-Length: 0\r\n\r\n"); err != nil {
 				return nil, "", err
 			}
+
 			continue
 		case p.Plain:
 			req.Status = http.StatusBadGateway
 			p.record(req)
 			_, err := io.WriteString(conn, "HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+
 			return nil, "", errors.Join(err, conn.Close())
 		}
 		req.Status = http.StatusOK
@@ -260,6 +268,7 @@ func (p *Proxy) http(conn net.Conn, br *bufio.Reader, id int) (io.Reader, string
 		if _, err := io.WriteString(conn, "HTTP/1.1 200 Connection established\r\n\r\n"); err != nil {
 			return nil, "", err
 		}
+
 		return br, target, nil
 	}
 }
@@ -287,6 +296,7 @@ func tunnel(conn net.Conn, br *bufio.Reader, target string) error {
 	_, _ = io.Copy(conn, dst)
 	_ = conn.Close()
 	<-done
+
 	return nil
 }
 
@@ -421,6 +431,7 @@ func (p *Proxy) socks5(conn net.Conn, br *bufio.Reader, id int) (io.Reader, stri
 	if err := reply(socksSucceeded); err != nil {
 		return nil, "", err
 	}
+
 	return br, req.Target, nil
 }
 
@@ -436,6 +447,7 @@ func (k *keeper) take(n int) ([]byte, error) {
 		return nil, err
 	}
 	k.kept = append(k.kept, b...)
+
 	return b, nil
 }
 
@@ -505,6 +517,7 @@ func (l *listener) Close() error {
 	l.closeOnce.Do(func() {
 		close(l.closed)
 	})
+
 	return nil
 }
 
@@ -517,6 +530,7 @@ func (l *listener) Addr() net.Addr {
 			Port: *l.port,
 		}
 	}
+
 	return proxyAddr{}
 }
 

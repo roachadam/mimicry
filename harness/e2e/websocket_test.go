@@ -134,6 +134,7 @@ func runWebSocketPage(t *testing.T, s *pageSession, sockets []server.WebSocketSt
 			}
 		}
 	}
+
 	return s.finish(s.url(steps[0].Host, "/done")), runs
 }
 
@@ -218,6 +219,7 @@ func startProxiedPage(t *testing.T, p *profile.Profile, sc *server.Scenario, use
 	s.client = &http.Client{
 		Transport: tr,
 	}
+
 	return s, px
 }
 
@@ -259,6 +261,7 @@ func proxyRoute(reqs []capture.ProxyRequest, ws *capture.WebSocket) string {
 	if len(out) == 0 {
 		return "sent to the proxy whole"
 	}
+
 	return strings.Join(out, "\n")
 }
 
@@ -268,6 +271,7 @@ func (s *pageSession) wsURL(plain bool, scheme, host, path string) string {
 	if plain {
 		return scheme + "://" + net.JoinHostPort(host, s.plainPort) + path
 	}
+
 	return scheme + "s://" + net.JoinHostPort(host, s.port) + path
 }
 
@@ -323,6 +327,7 @@ func runSocket(t *testing.T, s *pageSession, tr *mimicry.Transport, page *url.UR
 	if run.closed == nil {
 		read()
 	}
+
 	return run
 }
 
@@ -342,6 +347,7 @@ func checkSocket(t *testing.T, p *profile.Profile, st server.WebSocketStep, step
 				t.Error("a ws:// socket from the https:// page reached the server")
 			}
 		}
+
 		return
 	}
 	if skippedIn(st, want) {
@@ -350,6 +356,7 @@ func checkSocket(t *testing.T, p *profile.Profile, st server.WebSocketStep, step
 		if run.dialErr == nil {
 			t.Error("the step hangs the browser (its page skipped it); mimicry's socket opened")
 		}
+
 		return
 	}
 	g := socketOf(got, st)
@@ -404,6 +411,7 @@ func checkSocket(t *testing.T, p *profile.Profile, st server.WebSocketStep, step
 		if i >= len(want) {
 			return strings.Join(clientFrames(joinFragments(samples[i-len(want)]), false), "\n")
 		}
+
 		return strings.Join(clientFrames(samples[i], false), "\n")
 	}, forms)
 	if matched >= 0 && g.Protocol == "h2" {
@@ -449,6 +457,7 @@ func joinFragments(ws *capture.WebSocket) *capture.WebSocket {
 			}
 		}
 	}
+
 	return &out
 }
 
@@ -463,6 +472,7 @@ func skippedIn(st server.WebSocketStep, want []*capture.Page) bool {
 			return false
 		}
 	}
+
 	return len(want) > 0
 }
 
@@ -473,6 +483,7 @@ func socketOf(page *capture.Page, st server.WebSocketStep) *capture.WebSocket {
 			return &page.WebSockets[i]
 		}
 	}
+
 	return nil
 }
 
@@ -498,6 +509,7 @@ func anyForm(t *testing.T, what, got string, sample func(i int) string, n int) i
 	if match < 0 {
 		t.Errorf("%s:\n got %s\nwant %s", what, got, strings.Join(forms, "\n  or "))
 	}
+
 	return match
 }
 
@@ -555,9 +567,11 @@ func socketTransport(page *capture.Page, ws *capture.WebSocket) string {
 				others++
 			}
 		}
+
 		return fmt.Sprintf("plain http/1.1 with %d other requests on its connection", others)
 	}
 	c := page.Connections[ws.Connection-1]
+
 	return fmt.Sprintf("%s, %d requests on its connection", c.Protocol, c.Requests)
 }
 
@@ -572,6 +586,7 @@ func streamPaths(steps []server.WebSocketPageStep, page *capture.Page, ws *captu
 			}
 		}
 	}
+
 	return on
 }
 
@@ -641,6 +656,7 @@ func handshakeLines(page *capture.Page, ws *capture.WebSocket) string {
 	for i, l := range lines {
 		lines[i] = wsPorts.ReplaceAllString(l, ".test:PORT")
 	}
+
 	return strings.Join(lines, "\n")
 }
 
@@ -696,6 +712,7 @@ func clientFrames(ws *capture.WebSocket, pongs bool) []string {
 		sum := sha256.Sum256(f.Payload)
 		out = append(out, fmt.Sprintf("fin=%v rsv=%d op=%d masked=%v len=%d/%d payload=%s", f.Fin, f.RSV, f.Opcode, f.Masked, f.LengthBits, f.Length, hex.EncodeToString(sum[:8])))
 	}
+
 	return out
 }
 
@@ -771,6 +788,7 @@ func dataCuts(page *capture.Page, ws *capture.WebSocket) (cuts map[frameKey][]ui
 		cuts[k] = c
 		order = append(order, k)
 	}
+
 	return cuts, order, ended
 }
 
@@ -786,6 +804,7 @@ func headSize(f capture.WSFrame) uint32 {
 	if f.Masked {
 		n += 4
 	}
+
 	return n
 }
 
@@ -823,6 +842,7 @@ func checkDATA(t *testing.T, p *profile.Profile, got *capture.Page, g *capture.W
 			if !slices.Equal(cut, forms[0]) {
 				t.Errorf("frame %+v in DATA frames of %v, want %v", k, cut, forms[0])
 			}
+
 			continue
 		}
 		alone := 0
@@ -893,5 +913,6 @@ func endDelay(ws *capture.WebSocket) int64 {
 			last = f.Millis
 		}
 	}
+
 	return ws.ClosedMillis - last
 }

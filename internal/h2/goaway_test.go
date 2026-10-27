@@ -26,6 +26,7 @@ func (g *goAwayGate) Write(b []byte) (int, error) {
 		close(g.writing)
 		<-g.release
 	}
+
 	return g.Conn.Write(b)
 }
 

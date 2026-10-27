@@ -123,8 +123,10 @@ func (p cookiesEdge2Page) answer(req request) response {
 				Value: c,
 			})
 		}
+
 		return r
 	}
+
 	return response{status: 404, contentType: "text/plain", body: []byte("not found\n")}
 }
 
@@ -133,6 +135,7 @@ func edge2URL(s CookiesEdgeStep, ports portPair) string {
 	if s.Plain {
 		return "http://" + net.JoinHostPort(s.Host, ports.plain) + s.Path
 	}
+
 	return "https://" + net.JoinHostPort(s.Host, ports.tls) + s.Path
 }
 
@@ -164,7 +167,9 @@ func edge2Statements(steps []CookiesEdgeStep, i int, ports portPair) []string {
 		case watched && s.Host != page.Host:
 			out = append(out, "await end();")
 		}
+
 		return append(out, fmt.Sprintf("location.href = %s;", strconv.Quote(edge2URL(s, ports))))
 	}
+
 	return append(out, `fetch("/done");`)
 }

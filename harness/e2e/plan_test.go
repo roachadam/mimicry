@@ -51,6 +51,7 @@ func (p *planning) RoundTrip(req *http.Request) (*http.Response, error) {
 	p.mu.Lock()
 	p.plans = append(p.plans, got)
 	p.mu.Unlock()
+
 	return resp, err
 }
 
@@ -135,6 +136,7 @@ func wireRequests(page *capture.Page) []*wireRequest {
 			out = append(out, w)
 		}
 	}
+
 	return out
 }
 
@@ -159,6 +161,7 @@ func planLines(p *mimicry.Plan, proto string) (lines []string, err error) {
 	for _, h := range l.Headers {
 		lines = append(lines, h.Name+": "+h.Value)
 	}
+
 	return lines, nil
 }
 
@@ -181,6 +184,7 @@ func (s *pageSession) checkPlans(page *capture.Page) {
 				return w
 			}
 		}
+
 		return nil
 	}
 	counts := map[string]int{}

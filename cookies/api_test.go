@@ -118,6 +118,7 @@ func TestDeleteMatchMayUseJar(t *testing.T) {
 	n := j.Delete(func(c *Cookie) bool {
 		others := j.All()
 		c.Value = "changed"
+
 		return len(others) == 5 && c.Name == "sess"
 	})
 	if n != 1 {

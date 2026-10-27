@@ -26,6 +26,7 @@ func appendInt(dst []byte, first byte, n uint8, v uint64) []byte {
 		dst = append(dst, byte(v)|0x80)
 		v >>= 7
 	}
+
 	return append(dst, byte(v))
 }
 
@@ -65,6 +66,7 @@ func appendString(dst []byte, first byte, n uint8, s string, always bool) []byte
 		return xhpack.AppendHuffmanString(dst, s)
 	}
 	dst = appendInt(dst, first, n, uint64(len(s)))
+
 	return append(dst, s...)
 }
 
@@ -93,6 +95,7 @@ func readString(b []byte, n uint8) (string, int, error) {
 	if err != nil {
 		return "", 0, err
 	}
+
 	return s, k + len(data), nil
 }
 

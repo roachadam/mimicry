@@ -45,6 +45,7 @@ func (u unanswered) abandoned() bool {
 			}
 		}
 	}
+
 	return true
 }
 
@@ -70,6 +71,7 @@ func (s *edgeSet) unansweredAttempts() (fresh, resumed []unanswered) {
 			}
 		}
 	}
+
 	return fresh, resumed
 }
 
@@ -101,6 +103,7 @@ func (s *edgeSet) loss(q *profile.QUIC, e *collector) profile.QUICLoss {
 		edgeErr(e, s.set.name, "%d of %d unanswered attempts dropped before their first probe, the others not", abandoned, len(all))
 	}
 	out.PathDegrading = s.pathDegrading(q, e)
+
 	return out
 }
 
@@ -128,6 +131,7 @@ func abandonClose(fresh, resumed []unanswered, e *collector) string {
 		}
 		out = got
 	}
+
 	return out
 }
 
@@ -235,6 +239,7 @@ func probeKind(a *attempt) string {
 	case one:
 		return profile.ProbeOnePacket
 	}
+
 	return ""
 }
 
@@ -253,6 +258,7 @@ func skips(a *attempt) bool {
 		}
 		last = ps[len(ps)-1].PN
 	}
+
 	return skip
 }
 
@@ -266,6 +272,7 @@ func initials(f []*quictrace.Datagram) []*quictrace.Packet {
 			}
 		}
 	}
+
 	return out
 }
 
@@ -284,6 +291,7 @@ func covered(p *quictrace.Packet) []cryptoRange {
 		}
 		out = append(out, r)
 	}
+
 	return out
 }
 
@@ -314,6 +322,7 @@ func giveUp(q *profile.QUIC, us []unanswered, feature string, s *edgeSet, e *col
 			if end := u.a.end() - float64(u.a.start); end >= idle {
 				edgeErr(e, u.at(), "sent its last datagram %.0f ms in, past max_idle_timeout", end)
 			}
+
 			continue
 		}
 		p, fr := closeFrame(f)
@@ -367,6 +376,7 @@ func giveUp(q *profile.QUIC, us []unanswered, feature string, s *edgeSet, e *col
 			edgeErr(e, c.u.at(), "%s: gave up %.1f ms in, not within 20 ms of %d", feature, c.at, out.AfterMillis)
 		}
 	}
+
 	return out
 }
 
@@ -402,6 +412,7 @@ func (s *edgeSet) silencedConns(e *collector) []silenced {
 		}
 		out = append(out, sl)
 	}
+
 	return out
 }
 
@@ -414,6 +425,7 @@ func (sl silenced) lastReceived(t float64) float64 {
 			last = max(last, at)
 		}
 	}
+
 	return last
 }
 
@@ -428,6 +440,7 @@ func (sl silenced) clientClose() (*quictrace.Frame, float64) {
 			}
 		}
 	}
+
 	return nil, 0
 }
 
@@ -470,6 +483,7 @@ func (s *edgeSet) pathDegrading(q *profile.QUIC, e *collector) *profile.QUICPath
 			edgeErr(e, at, "path degrading %+v, others %+v", *got, *out)
 		}
 	}
+
 	return out
 }
 
@@ -520,6 +534,7 @@ func migration(q *profile.QUIC, sl silenced, first int, at string, e *collector)
 	if math.Abs(ratio-float64(out.AfterPTOs)) > 0.5 {
 		edgeErr(e, at, "migrated %.2f probe timeouts after the request", ratio)
 	}
+
 	return out
 }
 
@@ -557,6 +572,7 @@ func (s *edgeSet) keepAlive(e *collector) profile.QUICKeepAlive {
 			deltas[profile.KeepAliveFromReceived] = append(deltas[profile.KeepAliveFromReceived], t-received)
 			ats = append(ats, sl.p.at)
 			found = true
+
 			break
 		}
 		if !found {
@@ -595,6 +611,7 @@ func (s *edgeSet) keepAlive(e *collector) profile.QUICKeepAlive {
 			s.gap(ats[i], "keep_alive")
 		}
 	}
+
 	return out
 }
 
@@ -610,6 +627,7 @@ func ackEliciting(d *quictrace.Datagram) bool {
 			}
 		}
 	}
+
 	return false
 }
 
@@ -631,6 +649,7 @@ func pingOnly(d *quictrace.Datagram) bool {
 			}
 		}
 	}
+
 	return ping
 }
 
@@ -682,5 +701,6 @@ func (s *edgeSet) versionNegotiation(e *collector) profile.QUICVersionNegotiatio
 		}
 		out = got
 	}
+
 	return out
 }

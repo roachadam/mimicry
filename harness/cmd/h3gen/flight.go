@@ -34,6 +34,7 @@ func flight(s *captureSet, e *collector) (ackInitial, ackBefore, coalesce bool) 
 			if before {
 				e.add(c, "a resumed handshake acknowledges before its Finished")
 			}
+
 			continue
 		}
 		befores = append(befores, before)
@@ -46,6 +47,7 @@ func flight(s *captureSet, e *collector) (ackInitial, ackBefore, coalesce bool) 
 			coalesce = coalesce || len(d.Packets) > 1
 		}
 	}
+
 	return ackInitial, ackBefore, coalesce
 }
 
@@ -64,6 +66,7 @@ func majority(s *captureSet, vs []bool, conns []*conn, feature string, e *collec
 			e.add(conns[i], "%s is %v, %d of %d connections' %v", feature, v, max(yes, len(vs)-yes), len(vs), out)
 		}
 	}
+
 	return out
 }
 
@@ -92,6 +95,7 @@ func ackDelay(s *captureSet) (string, *profile.Range) {
 	if len(constants) == 0 {
 		return profile.AckDelayActual, nil
 	}
+
 	return profile.AckDelayConstant, span(constants)
 }
 
@@ -121,6 +125,7 @@ func spinBit(s *captureSet) string {
 	case spin:
 		return profile.SpinBitSpin
 	}
+
 	return profile.SpinBitRandom
 }
 
@@ -146,6 +151,7 @@ func tokens(s *captureSet, e *collector) bool {
 			e.add(c, "no token, though an earlier connection to %s received one", c.c.Host)
 		}
 	}
+
 	return true
 }
 
@@ -155,6 +161,7 @@ func token(c *conn) int {
 			return *pk.p.TokenLength
 		}
 	}
+
 	return 0
 }
 
@@ -167,6 +174,7 @@ func earlierToken(s *captureSet, c *conn) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -187,6 +195,7 @@ func zeroRTT(s *captureSet, p *profile.Profile, e *collector) bool {
 	if early != 0 && early != resumed {
 		e.add(s.conns[0], "%d of %d resumed connections sent 0-RTT", early, resumed)
 	}
+
 	return resumed > 0 && early == resumed
 }
 
@@ -215,6 +224,7 @@ func closeReply(s *captureSet, e *collector) bool {
 	if replies != 0 && replies != closed {
 		e.add(s.conns[0], "%d of %d connections the server closed got a reply", replies, closed)
 	}
+
 	return closed > 0 && replies == closed
 }
 
@@ -244,6 +254,7 @@ func ackOnly(s *captureSet, e *collector) (int, string) {
 			case acks == 1 && maxData == 0 && other == 0:
 				run++
 				longest = max(longest, run)
+
 				continue
 			case acks == 1 && maxData == 1 && other == 0:
 				if limit != -1 && run != limit {
@@ -260,5 +271,6 @@ func ackOnly(s *captureSet, e *collector) (int, string) {
 	if longest > limit {
 		e.add(s.conns[0], "a run of %d ACK-only packets, though MAX_DATA ends runs of %d", longest, limit)
 	}
+
 	return limit, profile.AckOnlyMaxData
 }

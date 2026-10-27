@@ -14,6 +14,7 @@ func readValid(t *testing.T) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return data
 }
 
@@ -23,6 +24,7 @@ func parseValid(t *testing.T) *Profile {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return p
 }
 
@@ -104,6 +106,7 @@ func extIndex(t *testing.T, p *Profile, typ Code) int {
 		}
 	}
 	t.Fatalf("extension %s not in test profile", typ)
+
 	return -1
 }
 

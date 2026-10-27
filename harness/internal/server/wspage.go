@@ -66,6 +66,7 @@ func (sc *Scenario) WebSocketPage() (sockets []WebSocketStep, steps []WebSocketP
 	if !ok {
 		return nil, nil, false
 	}
+
 	return p.sockets, p.steps, true
 }
 
@@ -100,6 +101,7 @@ func (m WSMessage) Data() []byte {
 			b[i] = wsPattern[i%len(wsPattern)]
 		}
 	}
+
 	return b
 }
 
@@ -113,6 +115,7 @@ func (m WSMessage) js() string {
 	case m.Binary:
 		return "binary(" + strconv.Itoa(m.Size) + ")"
 	}
+
 	return "text(" + strconv.Itoa(m.Size) + ")"
 }
 
@@ -270,6 +273,7 @@ func WebSocketSteps() []WebSocketStep {
 		}
 		steps = append(steps, st)
 	}
+
 	return append(steps, []WebSocketStep{
 		{
 			Label:       "so-server-close",
@@ -324,6 +328,7 @@ func wsSizeSweep() []WSMessage {
 	}
 	// The last sweep message's text, close enough to be in the window.
 	last := out[len(out)-1].At
+
 	return append(out,
 		WSMessage{Prose: true, At: last + 100, Size: 12},
 		WSMessage{Prose: true, At: last + 100, Size: 30},
@@ -385,6 +390,7 @@ func wsDeletions(set []string) []string {
 		}
 		out = append(out, d.String()+"; Max-Age=0")
 	}
+
 	return out
 }
 
@@ -449,8 +455,10 @@ func (p wsPage) answer(req request) response {
 				Value: c,
 			})
 		}
+
 		return r
 	}
+
 	return response{status: 404, contentType: "text/plain", body: []byte("not found\n")}
 }
 
@@ -477,6 +485,7 @@ func wsHandshake(s WebSocketStep, req request) response {
 			}
 		}
 	}
+
 	return response{
 		status:    101,
 		websocket: a,
@@ -491,6 +500,7 @@ func headerList(v string) []string {
 			out = append(out, e)
 		}
 	}
+
 	return out
 }
 
@@ -499,6 +509,7 @@ func wsPageURL(s WebSocketPageStep, ports portPair) string {
 	if s.Plain {
 		return "http://" + net.JoinHostPort(s.Host, ports.plain) + s.Path
 	}
+
 	return "https://" + net.JoinHostPort(s.Host, ports.tls) + s.Path
 }
 
@@ -507,6 +518,7 @@ func wsSocketURL(s WebSocketStep, ports portPair) string {
 	if s.Plain {
 		return "ws://" + net.JoinHostPort(s.Host, ports.plain) + s.Path()
 	}
+
 	return "wss://" + net.JoinHostPort(s.Host, ports.tls) + s.Path()
 }
 
@@ -613,11 +625,13 @@ func (p wsPage) statements(i int, ports portPair) []string {
 		if watched {
 			out = append(out, "await end();")
 		}
+
 		return append(out, `fetch("/done");`)
 	}
 	n := steps[next]
 	if watched && (n.Host != wsHost || n.Plain) {
 		out = append(out, fmt.Sprintf("await arm(%d);", wsAway.Milliseconds()))
 	}
+
 	return append(out, fmt.Sprintf("location.href = %s;", strconv.Quote(wsPageURL(n, ports))))
 }

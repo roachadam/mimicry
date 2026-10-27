@@ -164,6 +164,7 @@ func (p *Pool[S, E]) Get(ctx context.Context, key string) (Got[S, E], error) {
 					Shared: e.shared,
 				}
 				p.mu.Unlock()
+
 				return got, nil
 			}
 			// Going away or dead: no new requests. It finishes its
@@ -180,6 +181,7 @@ func (p *Pool[S, E]) Get(ctx context.Context, key string) (Got[S, E], error) {
 				}, nil
 			}
 			p.Release(key, ic.conn, false)
+
 			continue
 		}
 		if e.dialing || len(e.waiters) > 0 || p.full(e) {
@@ -195,12 +197,14 @@ func (p *Pool[S, E]) Get(ctx context.Context, key string) (Got[S, E], error) {
 			if again {
 				continue
 			}
+
 			return got, err
 		}
 		shares := !e.exclusiveOnly
 		e.dialing = shares
 		e.busy++
 		p.mu.Unlock()
+
 		return p.dial(ctx, key, shares), nil
 	}
 }
@@ -236,6 +240,7 @@ func (p *Pool[S, E]) wait(ctx context.Context, key string, w *waiter[E]) (got Go
 				e.waiters = slices.Delete(e.waiters, i, i+1)
 				p.maybeEvict(key, e)
 				p.mu.Unlock()
+
 				return got, false, ctx.Err()
 			}
 		}
@@ -249,6 +254,7 @@ func (p *Pool[S, E]) wait(ctx context.Context, key string, w *waiter[E]) (got Go
 		case handedRetry, handedErr:
 			// Nothing to give back.
 		}
+
 		return got, false, ctx.Err()
 	}
 	switch w.handed {
@@ -261,6 +267,7 @@ func (p *Pool[S, E]) wait(ctx context.Context, key string, w *waiter[E]) (got Go
 		}
 		// Dead: dial in its place, keeping the turn.
 		_ = w.conn.Close()
+
 		return p.dial(ctx, key, false), false, nil
 	case handedDial:
 		return p.dial(ctx, key, w.shares), false, nil
@@ -269,6 +276,7 @@ func (p *Pool[S, E]) wait(ctx context.Context, key string, w *waiter[E]) (got Go
 	case handedRetry:
 		// Look again (below).
 	}
+
 	return got, true, nil
 }
 
@@ -284,6 +292,7 @@ func (p *Pool[S, E]) entry(key string) *entry[S, E] {
 		e.evict.Stop()
 		e.evict = nil
 	}
+
 	return e
 }
 
@@ -298,6 +307,7 @@ func (e *entry[S, E]) popIdle() *idleConn[E] {
 	e.idle = e.idle[:n-1]
 	ic.taken = true
 	ic.reap.Stop()
+
 	return ic
 }
 
@@ -309,6 +319,7 @@ func (e *entry[S, E]) nextWaiter() *waiter[E] {
 	w := e.waiters[0]
 	e.waiters[0] = nil
 	e.waiters = e.waiters[1:]
+
 	return w
 }
 
@@ -358,6 +369,7 @@ func (d *Dial[S, E]) Shared(c S) S {
 	if !installed {
 		_ = c.Close()
 	}
+
 	return got
 }
 
@@ -385,6 +397,7 @@ func (d *Dial[S, E]) install(c S) (S, bool) {
 	}
 	e.shared, e.hasShared = c, true
 	go p.watch(d.key, c)
+
 	return c, true
 }
 
@@ -436,6 +449,7 @@ func (p *Pool[S, E]) Release(key string, c E, reusable bool) {
 			w.handed, w.conn = handedConn, c
 			close(w.ready)
 			p.mu.Unlock()
+
 			return
 		}
 		e.busy--
@@ -447,6 +461,7 @@ func (p *Pool[S, E]) Release(key string, c E, reusable bool) {
 		})
 		e.idle = append(e.idle, ic)
 		p.mu.Unlock()
+
 		return
 	}
 	e.busy--
@@ -488,6 +503,7 @@ func (p *Pool[S, E]) SharedConns() []S {
 			out = append(out, e.shared)
 		}
 	}
+
 	return out
 }
 
@@ -506,6 +522,7 @@ func (p *Pool[S, E]) Peek(key string) Found {
 	case len(e.idle) > 0 || e.exclusiveOnly:
 		return FoundExclusive
 	}
+
 	return FoundDial
 }
 
@@ -519,6 +536,7 @@ func (p *Pool[S, E]) Shared(key string) (S, bool) {
 		return e.shared, true
 	}
 	var zero S
+
 	return zero, false
 }
 

@@ -97,6 +97,7 @@ func newPeerWith(t *testing.T, cfg peerConfig) (*Conn, *peer) {
 		_ = c.Close()
 		_ = serverSide.Close()
 	})
+
 	return c, pr
 }
 
@@ -187,6 +188,7 @@ func (p *peer) next() http2.Frame {
 					continue
 				}
 			}
+
 			return f
 		case <-time.After(5 * time.Second):
 			p.t.Fatal("no frame from the client")
@@ -201,6 +203,7 @@ func (p *peer) headers() *http2.MetaHeadersFrame {
 	if !ok {
 		p.t.Fatalf("got %T, want HEADERS", f)
 	}
+
 	return h
 }
 
@@ -238,6 +241,7 @@ func get(t *testing.T, path string) *http.Request {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return req
 }
 
@@ -251,6 +255,7 @@ func roundTripAsync(c *Conn, req *http.Request) <-chan responseOrError {
 			err:  err,
 		}
 	}()
+
 	return ch
 }
 

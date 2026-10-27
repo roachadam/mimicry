@@ -47,6 +47,7 @@ func TableOrder(t *profile.HeaderTable, members, page []string) (order []string,
 			return nil, false
 		}
 	}
+
 	return tb.names(), true
 }
 
@@ -68,6 +69,7 @@ func newHashTable(hash string) hashTable {
 	if hash == profile.HashCF {
 		return &cfTable{}
 	}
+
 	return &blinkTable{}
 }
 
@@ -77,6 +79,7 @@ func placeAll(buckets []string, names []string, place func(string)) bool {
 	for _, name := range names {
 		place(name)
 	}
+
 	return slices.Equal(occupied(buckets), names)
 }
 
@@ -88,6 +91,7 @@ func occupied(buckets []string) []string {
 			out = append(out, b)
 		}
 	}
+
 	return out
 }
 
@@ -116,6 +120,7 @@ func (t *blinkTable) insert(name string) bool {
 			}
 		}
 	}
+
 	return true
 }
 
@@ -130,6 +135,7 @@ func (t *blinkTable) place(name string) bool {
 		i = (i + probe) & mask
 	}
 	t.buckets[i] = name
+
 	return true
 }
 
@@ -139,6 +145,7 @@ func (t *blinkTable) layout(names []string) bool {
 		size *= 2
 	}
 	t.buckets, t.count = make([]string, size), len(names)
+
 	return placeAll(t.buckets, names, func(name string) {
 		t.place(name)
 	})
@@ -174,6 +181,7 @@ func blinkHash(name string) uint32 {
 		if 'A' <= c && c <= 'Z' {
 			c += 'a' - 'A'
 		}
+
 		return uint64(c)
 	}
 	read32 := func(i int) uint64 {
@@ -223,6 +231,7 @@ func blinkHash(name string) uint32 {
 	if h == 0 {
 		h = 1 << 23
 	}
+
 	return h
 }
 
@@ -250,6 +259,7 @@ func cfSizeFor(n int) int {
 			return cfSizes[i]
 		}
 	}
+
 	return 0
 }
 
@@ -272,6 +282,7 @@ func (t *cfTable) insert(name string) bool {
 	}
 	t.place(name)
 	t.count++
+
 	return true
 }
 
@@ -294,6 +305,7 @@ func (t *cfTable) layout(names []string) bool {
 		return false
 	}
 	t.buckets, t.count = make([]string, size), len(names)
+
 	return placeAll(t.buckets, names, t.place)
 }
 
@@ -311,6 +323,7 @@ func cfHash(name string) uint64 {
 		if 'A' <= c && c <= 'Z' {
 			c += 'a' - 'A'
 		}
+
 		return uint64(c)
 	}
 	r := uint64(n)
@@ -332,5 +345,6 @@ func cfHash(name string) uint64 {
 		four(n/2 - 16)
 		four(n - 32)
 	}
+
 	return r + r<<(uint(n)&31)
 }

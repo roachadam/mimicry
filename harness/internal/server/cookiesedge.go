@@ -101,6 +101,7 @@ func edgeManyCookies() []string {
 		name := fmt.Sprintf("e_m%03d", i)
 		out = append(out, name+"="+cookieValue(name, 16)+"; Path=/; Max-Age=600")
 	}
+
 	return out
 }
 
@@ -133,6 +134,7 @@ func CookiesEdgeSteps() []CookiesEdgeStep {
 		edgeRotate("e_rot_c", "1"),
 	}
 	many := edgeManyCookies()
+
 	return []CookiesEdgeStep{
 		{Label: "doc", Host: edgeHost, Path: "/", Nav: true, Sets: doc},
 		{Label: "prefix-probe", Host: edgeHost, Path: "/x/prefix-probe"},
@@ -185,8 +187,10 @@ func (p cookiesEdgePage) answer(req request) response {
 				Value: c,
 			})
 		}
+
 		return r
 	}
+
 	return response{status: 404, contentType: "text/plain", body: []byte("not found\n")}
 }
 
@@ -203,10 +207,12 @@ func edgeScript(rest []CookiesEdgeStep, port string) string {
 				scheme = "http://"
 			}
 			fmt.Fprintf(&b, "location.href = %s;\n})();", strconv.Quote(scheme+net.JoinHostPort(s.Host, port)+s.Path))
+
 			return b.String()
 		}
 		fmt.Fprintf(&b, "await get(%s);\n", strconv.Quote(s.Path))
 	}
 	b.WriteString("fetch(\"/done\");\n})();")
+
 	return b.String()
 }

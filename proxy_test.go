@@ -84,6 +84,7 @@ func fakeSOCKS5(t *testing.T, mode string) string {
 			}()
 		}
 	}()
+
 	return ln.Addr().String()
 }
 
@@ -109,6 +110,7 @@ func silentListener(t *testing.T) string {
 			}()
 		}
 	}()
+
 	return ln.Addr().String()
 }
 
@@ -121,6 +123,7 @@ func closedAddr(t *testing.T) string {
 	}
 	addr := ln.Addr().String()
 	_ = ln.Close()
+
 	return addr
 }
 

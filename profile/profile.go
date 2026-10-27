@@ -84,6 +84,7 @@ func Parse(data []byte) (*Profile, error) {
 	if err := p.Validate(); err != nil {
 		return nil, err
 	}
+
 	return p, nil
 }
 
@@ -95,6 +96,7 @@ func Decode(data []byte) (*Profile, error) {
 	if err := jsonv2.Unmarshal(data, &p, jsonv2.RejectUnknownMembers(true)); err != nil {
 		return nil, fmt.Errorf("profile: %w", err)
 	}
+
 	return &p, nil
 }
 
@@ -105,5 +107,6 @@ func Encode(p *Profile) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("profile: %w", err)
 	}
+
 	return append(out, '\n'), nil
 }

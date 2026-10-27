@@ -70,6 +70,7 @@ func (q *quicLog) received(addr string, at time.Time, data []byte) bool {
 		At:   at,
 		Data: append([]byte(nil), data...),
 	})
+
 	return q.droppedLocked(addr)
 }
 
@@ -90,6 +91,7 @@ func (q *quicLog) sent(addr string, at time.Time, data []byte) bool {
 		Data:   append([]byte(nil), data...),
 		Server: true,
 	})
+
 	return false
 }
 
@@ -101,6 +103,7 @@ func (q *quicLog) droppedLocked(addr string) bool {
 		q.silenceLocked(addr)
 		return true
 	}
+
 	return false
 }
 
@@ -122,6 +125,7 @@ func (q *quicLog) silence(addr string) bool {
 	}
 	q.silencedOnce = true
 	q.silenceLocked(addr)
+
 	return true
 }
 
@@ -172,6 +176,7 @@ func (t *udpTap) WriteTo(p []byte, addr net.Addr) (int, error) {
 	if t.log.sent(addr.String(), time.Now(), p) {
 		return len(p), nil
 	}
+
 	return t.PacketConn.WriteTo(p, addr)
 }
 
@@ -179,6 +184,7 @@ func (t *udpTap) SetReadBuffer(n int) error {
 	if c, ok := t.PacketConn.(interface{ SetReadBuffer(int) error }); ok {
 		return c.SetReadBuffer(n)
 	}
+
 	return errors.New("socket has no read buffer to set")
 }
 
@@ -186,6 +192,7 @@ func (t *udpTap) SetWriteBuffer(n int) error {
 	if c, ok := t.PacketConn.(interface{ SetWriteBuffer(int) error }); ok {
 		return c.SetWriteBuffer(n)
 	}
+
 	return errors.New("socket has no write buffer to set")
 }
 
@@ -193,6 +200,7 @@ func (t *udpTap) SyscallConn() (syscall.RawConn, error) {
 	if c, ok := t.PacketConn.(syscall.Conn); ok {
 		return c.SyscallConn()
 	}
+
 	return nil, errors.New("socket has no syscall connection")
 }
 
@@ -236,6 +244,7 @@ func (s *Server) serveQUIC(ctx context.Context, sc *Scenario, log *pageLog, issu
 				s.Logf("QUIC session ticket: %v", err)
 			}
 		}
+
 		return state, nil
 	}
 	cfg := base
@@ -285,6 +294,7 @@ func (s *Server) serveQUIC(ctx context.Context, sc *Scenario, log *pageLog, issu
 			if ctx.Err() != nil {
 				return nil
 			}
+
 			return err
 		}
 		wg.Go(func() {
@@ -348,5 +358,6 @@ func (l *pageLog) quicConns() []*quictrace.Conn {
 	slices.SortStableFunc(decoded, func(a, b *quictrace.Conn) int {
 		return cmp.Compare(a.Millis, b.Millis)
 	})
+
 	return decoded
 }

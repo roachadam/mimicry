@@ -76,6 +76,7 @@ func newRSWriter(windowBits int) *rsWriter {
 		prev:       make([]uint16, wSize),
 	}
 	w.trees.init()
+
 	return w
 }
 
@@ -107,6 +108,7 @@ func (w *rsWriter) message(p []byte) []byte {
 	}
 	out := w.out.buf
 	w.out.buf = nil
+
 	return out
 }
 
@@ -156,6 +158,7 @@ func (w *rsWriter) flushBlock() bool {
 	w.trees.flushBlock(&w.out, stored, uint64(w.strstart-w.blockStart))
 	w.blockStart = w.strstart
 	w.flushPending()
+
 	return w.avail == 0
 }
 
@@ -176,6 +179,7 @@ func (w *rsWriter) quickInsertString(s int) uint16 {
 		w.prev[s&w.wMask] = head
 		w.head[h] = uint16(s)
 	}
+
 	return head
 }
 
@@ -271,6 +275,7 @@ func (w *rsWriter) longestMatch(curMatch uint16) (int, uint16) {
 			return false
 		}
 		curMatch = w.prev[int(curMatch)&w.wMask]
+
 		return curMatch > limit
 	}
 
@@ -326,6 +331,7 @@ func (w *rsWriter) longestMatch(curMatch uint16) (int, uint16) {
 			return bestLen, matchStart
 		}
 	}
+
 	return bestLen, matchStart
 }
 
@@ -344,6 +350,7 @@ func compare256(a, b []byte) int {
 			return i + bits.TrailingZeros64(cmp)/8
 		}
 	}
+
 	return 256
 }
 
@@ -410,6 +417,7 @@ func (w *rsWriter) deflateMedium() bool {
 		}
 	}
 	w.insert = min(w.strstart, minMatch-1)
+
 	return w.trees.symNext != 0 && w.flushBlock()
 }
 
@@ -427,6 +435,7 @@ func (w *rsWriter) findMatch(hashHead uint16) rsMatch {
 		m.matchLength = uint16(length)
 		m.matchStart = start
 	}
+
 	return m
 }
 
@@ -444,6 +453,7 @@ func (w *rsWriter) emitMatch(m rsMatch) bool {
 		flush = w.trees.tally(uint32(m.strstart-m.matchStart), uint32(m.matchLength)-minMatch)
 	}
 	w.lookahead -= int(m.matchLength)
+
 	return flush
 }
 
@@ -466,6 +476,7 @@ func (w *rsWriter) insertMatch(m rsMatch) {
 		case m.orgstart < m.strstart+m.matchLength:
 			w.insertString(int(m.orgstart), int(m.strstart+m.matchLength-m.orgstart))
 		}
+
 		return
 	}
 	m.strstart += m.matchLength

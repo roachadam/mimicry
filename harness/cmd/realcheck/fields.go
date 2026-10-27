@@ -58,6 +58,7 @@ func fieldsOf(endpoint string, body json.RawMessage) ([]field, error) {
 	default:
 		return nil, fmt.Errorf("no fields for endpoint %q", endpoint)
 	}
+
 	return fs, nil
 }
 
@@ -102,6 +103,7 @@ func headersPrefix(i int, frames []any) string {
 	if n <= 1 {
 		return "h2 "
 	}
+
 	return "h2 #" + strconv.Itoa(n) + " "
 }
 
@@ -206,6 +208,7 @@ func (fs *fieldList) extensions(exts []any) {
 				raw = str(d["raw"])
 			}
 			fs.ech(raw)
+
 			continue
 		case n == "quic_transport_parameters":
 			fs.transportParameters(m["data"])
@@ -303,18 +306,21 @@ func shapeOf(v any) any {
 		for k, x := range t {
 			out[k] = shapeOf(x)
 		}
+
 		return out
 	case []any:
 		out := make([]any, len(t))
 		for i, x := range t {
 			out[i] = shapeOf(x)
 		}
+
 		return out
 	case string:
 		if hexRun.MatchString(t) {
 			return fmt.Sprintf("<%d bytes>", len(strings.TrimPrefix(t, "0x"))/2)
 		}
 	}
+
 	return v
 }
 
@@ -335,6 +341,7 @@ func greaseText(s string) string {
 		if isGREASE(v) {
 			return "GREASE"
 		}
+
 		return m
 	})
 }
@@ -345,6 +352,7 @@ func isGREASE(v uint64) bool {
 	if v <= 0xffff {
 		return v&0x0f0f == 0x0a0a && v>>12 == (v>>4)&0xf
 	}
+
 	return v&0x0f0f0f0f == 0x0a0a0a0a
 }
 
@@ -366,12 +374,14 @@ func greaseValues(v any) any {
 		if n := str(t["name"]); strings.HasSuffix(n, "connection_id") {
 			out["value"] = fmt.Sprintf("<%d bytes>", len(strings.TrimPrefix(str(t["value"]), "0x"))/2)
 		}
+
 		return out
 	case []any:
 		out := make([]any, len(t))
 		for i, x := range t {
 			out[i] = greaseValues(x)
 		}
+
 		return out
 	case string:
 		return greaseText(t)
@@ -380,6 +390,7 @@ func greaseValues(v any) any {
 			return "GREASE"
 		}
 	}
+
 	return v
 }
 
@@ -395,6 +406,7 @@ func canon(v any) string {
 	if err != nil {
 		return fmt.Sprint(v)
 	}
+
 	return string(b)
 }
 
@@ -410,6 +422,7 @@ func str(v any) string {
 	case bool:
 		return strconv.FormatBool(t)
 	}
+
 	return canon(v)
 }
 
@@ -422,6 +435,7 @@ func get(v any, path string) any {
 		}
 		v = m[k]
 	}
+
 	return v
 }
 
@@ -431,6 +445,7 @@ func sortedKeys(m map[string]any) []string {
 		keys = append(keys, k)
 	}
 	slices.Sort(keys)
+
 	return keys
 }
 
@@ -446,9 +461,11 @@ func sortedJA3(ja3 string) string {
 	slices.SortFunc(exts, func(a, b string) int {
 		x, _ := strconv.Atoi(a)
 		y, _ := strconv.Atoi(b)
+
 		return x - y
 	})
 	parts[2] = strings.Join(exts, "-")
+
 	return strings.Join(parts, ",")
 }
 
@@ -461,6 +478,7 @@ func rawList(body json.RawMessage, key string) []json.RawMessage {
 	}
 	var list []json.RawMessage
 	_ = json.Unmarshal(m[key], &list)
+
 	return list
 }
 
@@ -470,6 +488,7 @@ func rawObject(body json.RawMessage, key string) json.RawMessage {
 	if json.Unmarshal(body, &m) != nil {
 		return nil
 	}
+
 	return m[key]
 }
 
@@ -492,5 +511,6 @@ func orderedPairs(obj json.RawMessage) [][2]string {
 		}
 		pairs = append(pairs, [2]string{fmt.Sprint(k), str(v)})
 	}
+
 	return pairs
 }

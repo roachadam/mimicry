@@ -62,6 +62,7 @@ func server(t *testing.T, h2 bool, handler http.HandlerFunc) testServer {
 		t.Fatal(err)
 	}
 	t.Cleanup(tr.CloseIdleConnections)
+
 	return testServer{
 		url:   "https://localhost:" + port,
 		srv:   srv,
@@ -89,6 +90,7 @@ func get(t *testing.T, client *http.Client, url string, header http.Header) (*ht
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return resp, string(b)
 }
 
@@ -103,6 +105,7 @@ func TestDecompression(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			return bw
 		},
 		"zstd": func(w io.Writer) io.WriteCloser {
@@ -110,6 +113,7 @@ func TestDecompression(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			return zw
 		},
 	}
@@ -155,6 +159,7 @@ func (e *fakeEngine) RoundTrip(req *http.Request) (*http.Response, error) {
 			return resp, nil
 		}
 	}
+
 	return &http.Response{
 		StatusCode: http.StatusOK,
 		Header:     http.Header{},
@@ -176,6 +181,7 @@ func fakeTransport(t *testing.T, cfg Config, e *fakeEngine) *Transport {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return tr
 }
 
@@ -253,6 +259,7 @@ func TestDecodeErrors(t *testing.T) {
 						if tc.length == 0 {
 							h.Set("Content-Length", "0")
 						}
+
 						return &http.Response{
 							StatusCode:    tc.status,
 							Header:        h,
@@ -287,6 +294,7 @@ func TestDecodeErrors(t *testing.T) {
 				if req.URL.Path != "/r" {
 					return nil
 				}
+
 				return &http.Response{
 					StatusCode: http.StatusFound,
 					Header: http.Header{
@@ -329,6 +337,7 @@ func anyRedirectOrder(p *profile.Profile) *profile.Profile {
 	for _, k := range p.Kinds {
 		k.Variants = slices.DeleteFunc(k.Variants, redirected)
 	}
+
 	return p
 }
 
@@ -347,6 +356,7 @@ func TestConfigCredentialsStayBehindCrossOriginRedirects(t *testing.T) {
 			if next == "" {
 				return nil
 			}
+
 			return &http.Response{
 				StatusCode: http.StatusFound,
 				Header:     http.Header{"Location": {next}},

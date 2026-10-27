@@ -72,6 +72,7 @@ func httpSchemes(r Request) Request {
 	u := *r.URL
 	u.Scheme = scheme
 	r.URL = &u
+
 	return r
 }
 
@@ -102,6 +103,7 @@ func compareCreated(a, b entry) int {
 	if d := a.c.Created.Compare(b.c.Created); d != 0 {
 		return d
 	}
+
 	return cmp.Compare(a.seq, b.seq)
 }
 
@@ -111,6 +113,7 @@ func domainKey(domain string) string {
 	if domain == AnySite {
 		return AnySite
 	}
+
 	return site.Registrable(domain)
 }
 
@@ -133,6 +136,7 @@ func New(cfg Config) (*Jar, error) {
 	if j.clock == nil {
 		j.clock = clockwork.NewRealClock()
 	}
+
 	return j, nil
 }
 
@@ -178,6 +182,7 @@ func (j *Jar) contextOf(r Request) context {
 			}
 		}
 	}
+
 	return c
 }
 
@@ -188,6 +193,7 @@ func (j *Jar) sameSite(a, b *url.URL) bool {
 	if j.rules.SameSiteScheme == profile.SameSiteSchemeless {
 		return site.Registrable(a.Hostname()) == site.Registrable(b.Hostname())
 	}
+
 	return site.Same(a, b)
 }
 
@@ -205,6 +211,7 @@ func (j *Jar) effective(s SameSite) SameSite {
 	if j.rules.UnsetSameSite == profile.SameSiteNone {
 		return SameSiteNone
 	}
+
 	return SameSiteLax
 }
 
@@ -235,6 +242,7 @@ func (j *Jar) setCookies(r Request, lines []string) []Event {
 			j.onSetCookie(e)
 		}
 	}
+
 	return events
 }
 
@@ -357,6 +365,7 @@ func (j *Jar) set(r setRequest, line string) Event {
 			j.store(key, slices.Delete(bucket, i, i+1))
 		}
 		e.Deleted = true
+
 		return e
 	}
 	switch {
@@ -373,6 +382,7 @@ func (j *Jar) set(r setRequest, line string) Event {
 	}
 	cp := *c
 	e.Cookie = &cp
+
 	return e
 }
 
@@ -401,6 +411,7 @@ func (j *Jar) evict(key, partition string, now time.Time) {
 				n++
 			}
 		}
+
 		return n
 	}
 	if count() <= j.rules.MaxPerSite {
@@ -420,6 +431,7 @@ func (j *Jar) evict(key, partition string, now time.Time) {
 			if d := a.c.LastAccess.Compare(b.c.LastAccess); d != 0 {
 				return d
 			}
+
 			return cmp.Compare(a.seq, b.seq)
 		})
 		evicted := make(map[uint64]bool, excess)
@@ -529,6 +541,7 @@ func (j *Jar) cookies(r Request, touch bool) []*Cookie {
 		cp := *e.c
 		out[i] = &cp
 	}
+
 	return out
 }
 
@@ -539,6 +552,7 @@ func (j *Jar) live(key string, now time.Time) []entry {
 		return e.expired(now)
 	})
 	j.store(key, bucket)
+
 	return bucket
 }
 
@@ -551,6 +565,7 @@ func (j *Jar) unexpired(key string, now time.Time) []entry {
 			out = append(out, e)
 		}
 	}
+
 	return out
 }
 
@@ -566,6 +581,7 @@ func (j *Jar) sortForRequest(es []entry) {
 			if a.c.Partition != "" {
 				return -1
 			}
+
 			return 1
 		}
 		if d := len(b.c.Path) - len(a.c.Path); d != 0 {
@@ -579,6 +595,7 @@ func (j *Jar) sortForRequest(es []entry) {
 				return d
 			}
 		}
+
 		return compareCreated(a, b)
 	})
 }
@@ -589,6 +606,7 @@ func storedDomain(c *Cookie) string {
 	if c.HostOnly {
 		return c.Domain
 	}
+
 	return "." + c.Domain
 }
 
@@ -599,6 +617,7 @@ func Header(cs []*Cookie) string {
 	for i, c := range cs {
 		parts[i] = c.pair()
 	}
+
 	return strings.Join(parts, "; ")
 }
 
@@ -611,6 +630,7 @@ func domainMatch(host, domain string) bool {
 	if net.ParseIP(host) != nil {
 		return false
 	}
+
 	return strings.HasSuffix(host, "."+domain)
 }
 
@@ -626,6 +646,7 @@ func pathMatch(reqPath, cookiePath string) bool {
 	if !strings.HasPrefix(reqPath, cookiePath) {
 		return false
 	}
+
 	return strings.HasSuffix(cookiePath, "/") || reqPath[len(cookiePath)] == '/'
 }
 
@@ -639,6 +660,7 @@ func defaultPath(p string) string {
 	if i == 0 {
 		return "/"
 	}
+
 	return p[:i]
 }
 
@@ -652,6 +674,7 @@ func hasPrefixFold(s, prefix string) bool {
 		if 'A' <= b && b <= 'Z' {
 			return b + 'a' - 'A'
 		}
+
 		return b
 	}
 	for i := range len(prefix) {
@@ -659,6 +682,7 @@ func hasPrefixFold(s, prefix string) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -691,5 +715,6 @@ func latin1(v string) string {
 			b.WriteRune(rune(v[i]))
 		}
 	}
+
 	return b.String()
 }

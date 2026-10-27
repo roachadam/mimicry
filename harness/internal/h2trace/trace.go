@@ -120,6 +120,7 @@ func Decode(dec *hpack.Decoder, block []byte) ([]Instruction, error) {
 	if len(fields) > 0 {
 		return nil, errors.New("h2trace: fewer instructions than decoded fields")
 	}
+
 	return out, nil
 }
 
@@ -166,6 +167,7 @@ func (p *parser) literal(rep Representation, prefix uint8) (Instruction, error) 
 		}
 	}
 	ins.HuffmanValue, err = p.str()
+
 	return ins, err
 }
 
@@ -183,6 +185,7 @@ func (p *parser) str() (bool, error) {
 		return false, errors.New("h2trace: truncated string")
 	}
 	p.b = p.b[n:]
+
 	return huffman, nil
 }
 

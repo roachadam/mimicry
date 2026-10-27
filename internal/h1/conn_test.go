@@ -25,6 +25,7 @@ func dial(t *testing.T, addr string) *Conn {
 	t.Cleanup(func() {
 		_ = c.Close()
 	})
+
 	return c
 }
 
@@ -34,6 +35,7 @@ func newRequest(t *testing.T, method, url string, body io.Reader) *http.Request 
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return req
 }
 
@@ -53,6 +55,7 @@ func do(t *testing.T, c *Conn, req *http.Request) (string, bool) {
 		t.Fatal(err)
 	}
 	_ = resp.Body.Close()
+
 	return string(b), <-released
 }
 
@@ -94,6 +97,7 @@ func TestNotReusable(t *testing.T) {
 		if r.URL.Path == "/close" {
 			w.Header().Set("Connection", "close")
 			_, _ = io.WriteString(w, "done")
+
 			return
 		}
 		chunk := bytes.Repeat([]byte("x"), 1<<16)

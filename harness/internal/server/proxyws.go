@@ -106,6 +106,7 @@ func ProxyWebSocketSteps(plain bool) ([]WebSocketStep, []WebSocketPageStep) {
 	if !plain {
 		return sockets, steps
 	}
+
 	return slices.Concat(sockets, []WebSocketStep{
 			{
 				Label: "px-plain",

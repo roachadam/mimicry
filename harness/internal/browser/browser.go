@@ -76,6 +76,7 @@ func (b *Browser) Conditions(t Target) []string {
 			`network.http.http3.disable_when_third_party_roots_found=false: Firefox abandons an HTTP/3 connection whose certificate chain ends at a root that is not built in (Http3Session::Authenticated), as the capture CA's, trusted through security.enterprise_roots.enabled`,
 		}
 	}
+
 	return nil
 }
 
@@ -87,6 +88,7 @@ func chromeQUICOrigins(t Target) string {
 	for i, h := range hosts {
 		origins[i] = h + ":" + strconv.Itoa(h3UnusedPort)
 	}
+
 	return strings.Join(origins, ",")
 }
 
@@ -99,6 +101,7 @@ func (t Target) url(host string) string {
 	if path == "" {
 		path = "/"
 	}
+
 	return scheme + host + ":" + strconv.Itoa(t.Port) + path
 }
 
@@ -184,6 +187,7 @@ func Find() []*Browser {
 		}
 		found = append(found, b)
 	}
+
 	return found
 }
 
@@ -233,6 +237,7 @@ func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, 
 		if t.ClickTitle != "" {
 			s.clicker = safariClicker(ctx, t.ClickTitle)
 		}
+
 		return s, nil
 	}
 	dir, err := os.MkdirTemp("", "mimicry-"+b.Name+"-")
@@ -296,6 +301,7 @@ func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, 
 			return nil, err
 		}
 	}
+
 	return s, nil
 }
 
@@ -312,6 +318,7 @@ func (b *Browser) handOff(ctx context.Context, s *Session, dir, url string) erro
 	if out, err := exec.CommandContext(ctx, b.binary, "--user-data-dir="+dir, url).CombinedOutput(); err != nil { //nolint:gosec // the binary is a known browser location; dir is our own
 		return fmt.Errorf("handing %s the capture URL: %w: %s", b.Name, err, strings.TrimSpace(string(out)))
 	}
+
 	return nil
 }
 
@@ -340,6 +347,7 @@ func (b *Browser) start(ctx context.Context, dir string, args []string) (*Sessio
 		_ = cmd.Wait()
 		close(s.done)
 	}()
+
 	return s, nil
 }
 
@@ -353,6 +361,7 @@ func (s *Session) Close() error {
 	if s.devtools != nil {
 		_ = s.devtools.Close()
 	}
+
 	return errors.Join(clickErr, s.quit())
 }
 
@@ -364,6 +373,7 @@ func (s *Session) quit() error {
 		if out, err := exec.Command("osascript", "-e", script).CombinedOutput(); err != nil { //nolint:noctx,gosec // must run after the caller's context ends; the URL is ours
 			return fmt.Errorf("closing the Safari tab: %w: %s", err, strings.TrimSpace(string(out)))
 		}
+
 		return nil
 	}
 	s.stop(false)
@@ -383,6 +393,7 @@ func (s *Session) quit() error {
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
+
 	return os.RemoveAll(s.dir)
 }
 
@@ -398,6 +409,7 @@ func (s *Session) stop(kill bool) {
 		if kill {
 			_ = s.cmd.Process.Kill()
 		}
+
 		return
 	}
 	if kill {
@@ -434,6 +446,7 @@ func chromeArgs(dir string, t Target, headless bool) ([]string, error) {
 	if headless {
 		args = append(args, "--headless=new")
 	}
+
 	return args, nil
 }
 
@@ -496,6 +509,7 @@ func firefoxProfile(dir string, t Target, headless bool) ([]string, error) {
 	if headless {
 		args = append(args, "--headless")
 	}
+
 	return args, nil
 }
 
@@ -506,6 +520,7 @@ func firefoxOverride(t Target) string {
 	for i, b := range t.CertSHA256 {
 		pairs[i] = fmt.Sprintf("%02X", b)
 	}
+
 	return "# PSM Certificate Override Settings file\n" +
 		"# This is a generated file!  Do not edit.\n" +
 		t.Host + ":" + strconv.Itoa(t.Port) + ":\tOID.2.16.840.1.101.3.4.2.1\t" + strings.Join(pairs, ":") + "\t\n"

@@ -66,6 +66,7 @@ func (e *connError) Error() string {
 func appendFrame(dst []byte, typ uint64, payload []byte) []byte {
 	dst = quicwire.AppendVarint(dst, typ)
 	dst = quicwire.AppendVarint(dst, uint64(len(payload)))
+
 	return append(dst, payload...)
 }
 
@@ -78,6 +79,7 @@ func greaseID(g *profile.H3Grease) uint64 {
 	if g.IDBits > 0 && g.IDBits < 64 {
 		return 0x1f*rand.Uint64N(1<<g.IDBits) + 0x21 //nolint:gosec // GREASE needs no secrecy
 	}
+
 	return 0x1f*rand.Uint64N((maxVarint-0x21)/0x1f+1) + 0x21 //nolint:gosec // GREASE needs no secrecy
 }
 
@@ -107,6 +109,7 @@ func controlStream(h *profile.HTTP3) []byte {
 		}
 		b = appendFrame(b, greaseID(g), payload)
 	}
+
 	return b
 }
 
@@ -115,6 +118,7 @@ func controlStream(h *profile.HTTP3) []byte {
 func priorityUpdate(id uint64, v string) []byte {
 	payload := quicwire.AppendVarint(nil, id)
 	payload = append(payload, v...)
+
 	return appendFrame(nil, framePriorityUpdate, payload)
 }
 
@@ -133,6 +137,7 @@ func readVarint(r io.ByteReader) (uint64, error) {
 		}
 		v = v<<8 | uint64(b)
 	}
+
 	return v, nil
 }
 
@@ -142,6 +147,7 @@ func unexpectedEOF(err error) error {
 	if errors.Is(err, io.EOF) {
 		return io.ErrUnexpectedEOF
 	}
+
 	return err
 }
 
@@ -154,6 +160,7 @@ func readFrameHeader(r io.ByteReader) (typ, length uint64, err error) {
 	if length, err = readVarint(r); err != nil {
 		return 0, 0, unexpectedEOF(err)
 	}
+
 	return typ, length, nil
 }
 
@@ -169,6 +176,7 @@ func readPayload(r io.Reader, length, limit uint64) ([]byte, error) {
 	if _, err := io.ReadFull(r, b); err != nil {
 		return nil, unexpectedEOF(err)
 	}
+
 	return b, nil
 }
 

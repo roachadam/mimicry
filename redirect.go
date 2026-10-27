@@ -99,6 +99,7 @@ func browserHop(p *profile.Profile, req *http.Request, nav bool, u use) (*http.R
 			}
 		}
 	}
+
 	return next, nil
 }
 
@@ -121,6 +122,7 @@ func refusedRedirect(req *http.Request, resp *http.Response, s *sending) error {
 	}
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
 	_ = resp.Body.Close()
+
 	return &CORSError{
 		URL:      req.URL,
 		Redirect: true,

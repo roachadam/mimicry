@@ -142,6 +142,7 @@ var h3EdgeGaps = func() map[string]string {
 			}
 		}
 	}
+
 	return gaps
 }()
 
@@ -155,6 +156,7 @@ var h3EdgeSchedulingGaps = func() map[string]string {
 			gaps[name+"/"+sc+" edge QUIC www.h3-a.test #6 trigger"] = "Safari made the pair's GET and POST together (0–1 ms apart) 5–9 ms before its connection started, so the POST is the later trigger; mimicry's GET starts its connection at once, before or after its POST is made as this process schedules the two"
 		}
 	}
+
 	return gaps
 }()
 
@@ -176,6 +178,7 @@ func edgeGapsFor(t *testing.T, name string) (skip func(key string) bool, unused 
 		seen[k] = true
 		mu.Unlock()
 		t.Logf("known gap: %s: %s", key, why)
+
 		return true
 	}
 	unused = func() {
@@ -185,6 +188,7 @@ func edgeGapsFor(t *testing.T, name string) (skip func(key string) bool, unused 
 			}
 		}
 	}
+
 	return skip, unused
 }
 
@@ -227,6 +231,7 @@ func runH3Schedule(t *testing.T, p *profile.Profile, sc *server.Scenario, browse
 		if errors.Is(err, mimicry.ErrNotMeasured) && skip("edge request "+st.Path()+" not measured") {
 			return nil
 		}
+
 		return err
 	}
 	var wg sync.WaitGroup
@@ -248,12 +253,14 @@ func runH3Schedule(t *testing.T, p *profile.Profile, sc *server.Scenario, browse
 			if page, err = url.Parse(target); err != nil {
 				t.Fatal(err)
 			}
+
 			break
 		}
 		if !st.NoWait {
 			if err := send(st, page, target); err != nil {
 				t.Fatalf("%s: %v", st.Label, err)
 			}
+
 			continue
 		}
 		from := page
@@ -276,6 +283,7 @@ func runH3Schedule(t *testing.T, p *profile.Profile, sc *server.Scenario, browse
 			if c.Finished && c.Page != nil {
 				cancel()
 				wg.Wait()
+
 				return c.Page
 			}
 		case <-time.After(10 * time.Second):
@@ -303,6 +311,7 @@ func scriptStart(browser *capture.Page, first server.H3Step) time.Duration {
 	if nav == nil || step == nil || step.delay < 0 {
 		return 0
 	}
+
 	return max(0, time.Duration(step.issued-nav.issued-int64(first.PauseMillis))*time.Millisecond)
 }
 
@@ -325,6 +334,7 @@ func sendScheduled(ctx context.Context, s *pageSession, st server.H3Step, page *
 	}
 	_, err = io.Copy(io.Discard, resp.Body)
 	_ = resp.Body.Close()
+
 	return err
 }
 
@@ -338,6 +348,7 @@ func doneHost(browser *capture.Page) string {
 			}
 		}
 	}
+
 	return h3PageHost
 }
 
@@ -421,6 +432,7 @@ func (s *earlyStream) describe(issued int64) string {
 	case s.withFinished:
 		return "held, with the Finished"
 	}
+
 	return "held, after the Finished"
 }
 
@@ -542,6 +554,7 @@ func viewEdge(page *capture.Page) edgeView {
 	slices.SortStableFunc(v.requests, func(a, b *edgeRequest) int {
 		return int(a.issued - b.issued)
 	})
+
 	return v
 }
 
@@ -556,6 +569,7 @@ func splitT(path string) (string, int64) {
 	if err != nil {
 		return p, -1
 	}
+
 	return p, t
 }
 
@@ -577,6 +591,7 @@ func (v edgeView) trigger(at int64) *edgeRequest {
 	if timed != nil {
 		return timed
 	}
+
 	return other
 }
 
@@ -599,6 +614,7 @@ func outcome(c *quictrace.Conn) string {
 			}
 		}
 	}
+
 	return out
 }
 
@@ -699,6 +715,7 @@ func edgeFeatures(page *capture.Page) (f features, ms, stalled map[string]int) {
 	for host, n := range v.declined {
 		f.num["TCP "+host+" declined"] = n
 	}
+
 	return f, ms, stalled
 }
 
@@ -710,6 +727,7 @@ func stalledIn(page *capture.Page, from, d int64) int {
 		return 0
 	}
 	at := page.Start.Add(time.Duration(from) * time.Millisecond)
+
 	return int(stalls.stalled(at, at.Add(time.Duration(d)*time.Millisecond)).Milliseconds())
 }
 
@@ -743,6 +761,7 @@ func initialSteps(c *quictrace.Conn) string {
 			prev, first = p.PN, false
 		}
 	}
+
 	return strings.Join(steps, " ")
 }
 
@@ -805,6 +824,7 @@ func movePath(c *quictrace.Conn) (pathMove, bool) {
 	if m.probes > 0 {
 		m.probePTO = float64(last-start) / float64(int(1)<<m.probes-1)
 	}
+
 	return m, true
 }
 
@@ -858,6 +878,7 @@ func tracePTO(c *quictrace.Conn, before int64) float64 {
 		smoothed, variation = 333000, 333000/2
 	}
 	maxAckDelay := float64(transportParameter(c.ServerTransportParameters, tpMaxAckDelay, 25) * 1000)
+
 	return smoothed + max(4*variation, 1000) + maxAckDelay
 }
 
@@ -866,6 +887,7 @@ func pnSpace(typ string) string {
 	if typ == quictrace.PacketInitial || typ == quictrace.PacketHandshake {
 		return typ
 	}
+
 	return "application"
 }
 
@@ -952,6 +974,7 @@ func vnRetries(page *capture.Page) []*quictrace.Conn {
 			out = append(out, c)
 		}
 	}
+
 	return out
 }
 

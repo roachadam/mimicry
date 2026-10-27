@@ -132,6 +132,7 @@ func Load(path string) (*Page, error) {
 	if err := json.Unmarshal(data, &p); err != nil {
 		return nil, err
 	}
+
 	return &p, nil
 }
 
@@ -141,5 +142,6 @@ func Write(path string, p *Page) error {
 	if err != nil {
 		return err
 	}
+
 	return os.WriteFile(path, append(data, '\n'), 0o600)
 }

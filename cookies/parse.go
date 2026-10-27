@@ -124,6 +124,7 @@ func parse(line string, rules *profile.Cookies, now time.Time) (*parsed, error) 
 	if limit := now.Add(maxExpiry); p.expires.After(limit) {
 		p.expires = limit
 	}
+
 	return p, nil
 }
 
@@ -151,6 +152,7 @@ func parseMaxAge(v string, now time.Time) (time.Time, bool) {
 	if n == 0 {
 		return time.Unix(0, 0), true
 	}
+
 	return now.Add(time.Duration(min(n, int64(maxExpiry/time.Second))) * time.Second), true
 }
 
@@ -173,6 +175,7 @@ func parseDate(s string) (time.Time, bool) {
 			return 0, "", false
 		}
 		v, _ := strconv.Atoi(tok[:n])
+
 		return v, tok[n:], true
 	}
 	for _, tok := range strings.FieldsFunc(s, isDelim) {
@@ -221,5 +224,6 @@ func parseDate(s string) (time.Time, bool) {
 	if t.Day() != day {
 		return time.Time{}, false // 31 February and the like
 	}
+
 	return t, true
 }

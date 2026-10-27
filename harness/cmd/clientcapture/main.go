@@ -94,6 +94,7 @@ func run() error {
 		return err
 	}
 	log.Printf("%s: %s, extension order %s across %d samples, wrote %s", *name, c.Protocol, c.Profile.TLS.ExtensionOrder, *samples, path)
+
 	return nil
 }
 
@@ -167,5 +168,6 @@ func sample(sc *server.Scenario, cert tls.Certificate, command []string) (*captu
 	if first == nil {
 		return nil, errors.New("the client sent no request")
 	}
+
 	return first, nil
 }

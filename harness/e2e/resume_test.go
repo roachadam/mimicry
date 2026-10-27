@@ -92,6 +92,7 @@ func resumedHello(pages []*capture.Page) *profile.TLS {
 			}
 		}
 	}
+
 	return mergeHellos(hellos)
 }
 
@@ -131,6 +132,7 @@ func mergeHellos(hellos []*profile.TLS) *profile.TLS {
 			hello.Extensions[i].ECH = ech
 		}
 	}
+
 	return hello
 }
 
@@ -155,6 +157,7 @@ func resumeCounts(page *capture.Page) string {
 	for i, h := range hosts {
 		parts[i] = fmt.Sprintf("%s %d/%d", h, total[h], resumed[h])
 	}
+
 	return strings.Join(parts, ", ")
 }
 
@@ -210,5 +213,6 @@ func runResumePage(t *testing.T, p *profile.Profile, sc *server.Scenario) *captu
 			}
 		}
 	}
+
 	return s.finish(s.url(hosts[0], "/done"))
 }

@@ -61,6 +61,7 @@ func FullScenarios() []Planned {
 			Samples:  3,
 		}
 	}
+
 	return out
 }
 
@@ -70,5 +71,6 @@ func scenarioNamed(name string) *Scenario {
 	if err != nil {
 		panic(err)
 	}
+
 	return sc
 }

@@ -22,6 +22,7 @@ func headersSeen(t *testing.T) (testServer, *[]http.Header) {
 		seen = append(seen, r.Header.Clone())
 		w.WriteHeader(http.StatusNoContent)
 	})
+
 	return s, &seen
 }
 
@@ -31,6 +32,7 @@ func send(t *testing.T, rt http.RoundTripper, req *http.Request) error {
 	if err != nil {
 		return err
 	}
+
 	return resp.Body.Close()
 }
 
@@ -40,6 +42,7 @@ func newRequest(t *testing.T, url string) *http.Request {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return req
 }
 
@@ -75,6 +78,7 @@ func TestRefusedRequests(t *testing.T) {
 		p.Variants = slices.DeleteFunc(p.Variants, func(v profile.Variant) bool {
 			return v.Method == http.MethodPost && !v.Insecure
 		})
+
 		return p
 	}
 	// scriptFormPost: form POSTs measured only as a script submits them,
@@ -88,6 +92,7 @@ func TestRefusedRequests(t *testing.T) {
 				})
 			}
 		}
+
 		return p
 	}
 	for _, tc := range []struct {
@@ -122,6 +127,7 @@ func TestRefusedRequests(t *testing.T) {
 				if req.URL.Path != "/r" {
 					return nil
 				}
+
 				return &http.Response{
 					StatusCode: http.StatusMovedPermanently,
 					Header:     http.Header{"Location": {"/r.next"}},

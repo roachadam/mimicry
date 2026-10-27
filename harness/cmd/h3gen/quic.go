@@ -41,6 +41,7 @@ func deriveQUIC(s *captureSet, p *profile.Profile) (*profile.QUIC, error) {
 	q.Tokens = tokens(s, e)
 	q.ZeroRTT = zeroRTT(s, p, e)
 	q.CloseReply = closeReply(s, e)
+
 	return q, e.err()
 }
 
@@ -87,6 +88,7 @@ func padding(s *captureSet, e *collector) (int, string) {
 		if end {
 			return size, profile.PaddingEnd
 		}
+
 		return size, profile.PaddingScattered
 	}
 	// Trailing: no PADDING frame but in a 1-RTT packet.
@@ -99,6 +101,7 @@ func padding(s *captureSet, e *collector) (int, string) {
 			}
 		}
 	}
+
 	return size, profile.PaddingTrailing
 }
 
@@ -118,6 +121,7 @@ func cryptoFrames(p *quictrace.Packet) []cryptoRange {
 			})
 		}
 	}
+
 	return out
 }
 
@@ -138,6 +142,7 @@ func helloPackets(c *conn) []packet {
 			}
 		}
 	}
+
 	return out
 }
 
@@ -168,6 +173,7 @@ func crypto(s *captureSet, datagramSize int, e *collector) profile.QUICCrypto {
 	for _, c := range s.conns[:1] {
 		e.add(c, "the ClientHello's CRYPTO frames follow no rule:\nsni_cut: %v\nshuffle: %v", sniErrs, shuffleErrs)
 	}
+
 	return out
 }
 
@@ -194,6 +200,7 @@ func ordered(s *captureSet) (int, bool) {
 			return 0, false
 		}
 	}
+
 	return first, first > 0
 }
 
@@ -247,6 +254,7 @@ func sniCut(c *conn, datagramSize int) error {
 	if next != right.start {
 		return fmt.Errorf("the middle ends at %d, not %d", next, right.start)
 	}
+
 	return nil
 }
 
@@ -312,6 +320,7 @@ func shuffle(s *captureSet) (profile.QUICCrypto, []string) {
 			errs = append(errs, fmt.Sprintf("an unpadded packet has %d PINGs, more than %d", n, out.Pings.Max))
 		}
 	}
+
 	return out, errs
 }
 
@@ -329,6 +338,7 @@ func merge(rs []cryptoRange) []cryptoRange {
 		}
 		out = append(out, r)
 	}
+
 	return out
 }
 
@@ -367,6 +377,7 @@ func packetNumbers(s *captureSet, e *collector) string {
 		tried = append(tried, fmt.Sprintf("%s: %v", r.name, errs[0]))
 	}
 	e.add(s.conns[0], "packet numbers follow no rule: %v", tried)
+
 	return ""
 }
 
@@ -397,6 +408,7 @@ func sharedNumbers(c *conn) error {
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -426,6 +438,7 @@ func perSpace(c *conn, randomInitial bool) error {
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -463,6 +476,7 @@ func connectionIDs(s *captureSet, e *collector) (int, string, int) {
 	if slices.Min(dcids) != 8 || slices.Max(dcids) > 20 || eights*2 < len(dcids) {
 		e.add(s.conns[0], "first DCID lengths %v are neither one length nor neqo's biased pick", dcids)
 	}
+
 	return 8, profile.DCIDLengthBiased, scid
 }
 
@@ -496,6 +510,7 @@ func newConnectionIDs(s *captureSet, scid int, e *collector) int {
 			e.add(c, "%d NEW_CONNECTION_IDs, another connection %d", len(seqs), count)
 		}
 	}
+
 	return max(count, 0)
 }
 
@@ -567,6 +582,7 @@ func transportParameters(s *captureSet, scid int, e *collector) ([]profile.Trans
 	if order == profile.TransportParameterOrderFixed && len(resumedOnly) > 0 {
 		e.add(s.conns[0], "a fixed order with parameters %v only resumed connections send: their place is not modelled", resumedOnly)
 	}
+
 	return out, order
 }
 
@@ -600,6 +616,7 @@ func parameterOrder(all [][]profile.TransportParameterID, reference []profile.Tr
 		start := slices.Index(cycle, slices.Min(cycle))
 		return profile.TransportParameterOrderRotated, slices.Concat(cycle[start:], cycle[:start], last), last
 	}
+
 	return profile.TransportParameterOrderShuffled, reference, nil
 }
 
@@ -616,6 +633,7 @@ func isRotation(ids, cycle []profile.TransportParameterID) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -623,6 +641,7 @@ func sameSet(a, b []profile.TransportParameterID) bool {
 	a, b = slices.Clone(a), slices.Clone(b)
 	slices.Sort(a)
 	slices.Sort(b)
+
 	return slices.Equal(a, b)
 }
 
@@ -655,6 +674,7 @@ func profileParameter(c *conn, tp quictrace.TransportParameter, scid int, e *col
 			e.add(c, "transport parameter %s: %v", out.ID, err)
 		}
 	}
+
 	return out
 }
 
@@ -688,5 +708,6 @@ func describe(tp *profile.TransportParameter) string {
 	if tp.Value != nil {
 		return fmt.Sprint(*tp.Value)
 	}
+
 	return fmt.Sprintf("%x", []byte(tp.Data))
 }

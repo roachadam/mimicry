@@ -35,6 +35,7 @@ func names(fields []Field) []string {
 	for i, f := range fields {
 		out[i] = f.Name + "=" + f.Value
 	}
+
 	return out
 }
 

@@ -50,6 +50,7 @@ func newFakeNet(t *testing.T, servers ...func(ctx context.Context, conn net.Conn
 			t.Error(err)
 		}
 	})
+
 	return n
 }
 
@@ -74,12 +75,14 @@ func (n *fakeNet) dial(ctx context.Context, _, addr string) (net.Conn, error) {
 			n.errs <- err
 		}
 	})
+
 	return client, nil
 }
 
 func (n *fakeNet) dials() []string {
 	n.mu.Lock()
 	defer n.mu.Unlock()
+
 	return append([]string(nil), n.dialed...)
 }
 
@@ -117,6 +120,7 @@ func newTestEngine(t *testing.T, o options) *Engine {
 		t.Fatal(err)
 	}
 	t.Cleanup(e.CloseIdleConnections)
+
 	return e
 }
 
@@ -136,6 +140,7 @@ func tlsServer(ctx context.Context, conn net.Conn) (*tls.Conn, error) {
 			"http/1.1",
 		},
 	})
+
 	return srv, srv.HandshakeContext(ctx)
 }
 
@@ -164,6 +169,7 @@ func serveH1(after func(conn net.Conn) error) func(context.Context, net.Conn) er
 		if after != nil {
 			return after(conn)
 		}
+
 		return nil
 	}
 }
@@ -198,6 +204,7 @@ func serveH2(ctx context.Context, conn net.Conn) error {
 		ctx:    ctx,
 		closed: closed,
 	})
+
 	return nil
 }
 
@@ -218,6 +225,7 @@ func (l *oneConnListener) Accept() (net.Conn, error) {
 	case <-l.closed:
 	case <-l.ctx.Done():
 	}
+
 	return nil, net.ErrClosed
 }
 
@@ -236,6 +244,7 @@ func get(t *testing.T, e *Engine, target string) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return e.RoundTrip(req)
 }
 
@@ -247,6 +256,7 @@ func readAll(t *testing.T, resp *http.Response) string {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return string(b)
 }
 
@@ -258,6 +268,7 @@ func postOnce(t *testing.T, e *Engine, target, data string) (*http.Response, err
 		return nil, err
 	}
 	req.ContentLength = int64(len(data))
+
 	return e.RoundTrip(req)
 }
 
@@ -292,6 +303,7 @@ func TestDeadIdleConnectionIsNotReused(t *testing.T) {
 func blockingDial(n *fakeNet, err error) (dial func(context.Context, string, string) (net.Conn, error), dialing, release chan struct{}) {
 	dialing, release = make(chan struct{}), make(chan struct{})
 	var first atomic.Bool
+
 	return func(ctx context.Context, network, addr string) (net.Conn, error) {
 		if first.CompareAndSwap(false, true) {
 			close(dialing)
@@ -300,6 +312,7 @@ func blockingDial(n *fakeNet, err error) (dial func(context.Context, string, str
 				return nil, err
 			}
 		}
+
 		return n.dial(ctx, network, addr)
 	}, dialing, release
 }
@@ -438,6 +451,7 @@ func goAwayServer(onHeaders func(fr *http2.Framer, f *http2.MetaHeadersFrame) er
 				}
 			}
 		}
+
 		return nil
 	}
 }
@@ -452,6 +466,7 @@ func writeOK(fr *http2.Framer, stream uint32) error {
 	}); err != nil {
 		return err
 	}
+
 	return fr.WriteHeaders(http2.HeadersFrameParam{
 		StreamID:      stream,
 		BlockFragment: []byte(block.String()),
@@ -473,6 +488,7 @@ func TestGoAwayLetsStartedStreamsFinish(t *testing.T) {
 			return err
 		}
 		<-answer
+
 		return writeOK(fr, 1)
 	}), serveH2)
 	e := newTestEngine(t, options{

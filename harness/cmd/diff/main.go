@@ -53,5 +53,6 @@ func load(path string) (*profile.Profile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
+
 	return p, nil
 }

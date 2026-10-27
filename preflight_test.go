@@ -42,6 +42,7 @@ func (e *corsEngine) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 		resp.Header = e.answer.Clone()
 	}
+
 	return resp, nil
 }
 
@@ -69,6 +70,7 @@ func corsTransport(t *testing.T, e *corsEngine, extra http.Header) *Transport {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return tr
 }
 
@@ -86,6 +88,7 @@ func corsDo(t *testing.T, tr *Transport, method, target string, h http.Header, r
 	if err != nil {
 		return err
 	}
+
 	return resp.Body.Close()
 }
 
@@ -175,6 +178,7 @@ func TestPreflightCacheLifetime(t *testing.T) {
 						n++
 					}
 				}
+
 				return n
 			}
 			send := func() {

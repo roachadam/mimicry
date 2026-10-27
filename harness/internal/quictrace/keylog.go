@@ -59,6 +59,7 @@ func (k *KeyLog) AddTicket(identity, session []byte) error {
 		suite: suite,
 		psk:   append([]byte(nil), secret...),
 	}
+
 	return nil
 }
 
@@ -79,6 +80,7 @@ func (k *KeyLog) earlySecret(identity, clientHello []byte) []byte {
 	if err != nil {
 		return nil
 	}
+
 	return secret
 }
 
@@ -105,6 +107,7 @@ func (k *KeyLog) Write(p []byte) (int, error) {
 		}
 		k.secrets[random][string(f[0])] = secret
 	}
+
 	return len(p), nil
 }
 
@@ -116,5 +119,6 @@ func (k *KeyLog) secret(random []byte, label string) []byte {
 	}
 	k.mu.Lock()
 	defer k.mu.Unlock()
+
 	return k.secrets[hex.EncodeToString(random)][label]
 }

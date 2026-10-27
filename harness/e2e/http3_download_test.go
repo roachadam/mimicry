@@ -80,6 +80,7 @@ func downloadConn(t *testing.T, page *capture.Page) *quictrace.Conn {
 	if best == nil || len(best.Server) < downloadPackets {
 		t.Fatal("no QUIC connection carried the download")
 	}
+
 	return best
 }
 
@@ -91,6 +92,7 @@ func mapEachConn(conns []*quictrace.Conn, f func(*quictrace.Conn) []uint64) [][]
 	for _, c := range conns {
 		out = append(out, f(c))
 	}
+
 	return out
 }
 
@@ -127,6 +129,7 @@ func bulkEvents(c *quictrace.Conn) []bulkEvent {
 	slices.SortStableFunc(out, func(a, b bulkEvent) int {
 		return int(a.micros - b.micros)
 	})
+
 	return out
 }
 
@@ -219,6 +222,7 @@ func bulkRuleViolations(q *profile.QUIC, c *quictrace.Conn) (out []string, summa
 	// fixed count or interval), the machine's timing, not a rule a profile
 	// can hold.
 	summary = fmt.Sprintf("%d of %d ACKs during the bulk receive acknowledge %s new packets (%.1f%%), %.2f on average; the server updated its keys %d times, the client %d", match, n, rule, 100*float64(match)/float64(max(n, 1)), float64(advanced)/float64(max(n, 1)), serverFlips, clientFlips)
+
 	return out, summary
 }
 
@@ -248,6 +252,7 @@ func streamCredit(c *quictrace.Conn) []uint64 {
 			}
 		}
 	}
+
 	return increases(transportParameter(c.TransportParameters, tpInitialMaxStreamDataBidiLocal, 0), limits[stream])
 }
 
@@ -264,6 +269,7 @@ func connCredit(c *quictrace.Conn) []uint64 {
 			}
 		}
 	}
+
 	return increases(transportParameter(c.TransportParameters, tpInitialMaxData, 0), limits)
 }
 
@@ -337,6 +343,7 @@ func windowCreditViolations(c *quictrace.Conn) (out []string, summary string) {
 		out = append(out, fmt.Sprintf("the median of %d MAX_DATA raises falls %.0f short of what was acknowledged by then plus the window (%.0f; %.0f allowed)", len(leads), -behind, window, slack))
 	}
 	summary = fmt.Sprintf("%d MAX_DATA raises, at most %.0f past what the next ACK acknowledged plus the stream window (%.0f); the median %.0f past what was acknowledged by then plus %.0f (the estimate within %.0f)", len(leads), worst, streamWindow, behind, window, estimateErr)
+
 	return out, summary
 }
 
@@ -407,6 +414,7 @@ func ackedData(c *quictrace.Conn, pks []quictrace.Packet) (acked []float64, maxE
 		}
 		acked = append(acked, total)
 	}
+
 	return acked, maxErr
 }
 
@@ -427,6 +435,7 @@ func downloadSize() float64 {
 			return float64(s.Download)
 		}
 	}
+
 	return 0
 }
 
@@ -441,6 +450,7 @@ func (s *pnSet) add(lo, hi uint64, f func(pn uint64)) {
 		if r[1]+1 < lo {
 			return -1
 		}
+
 		return 1
 	})
 	merged := [2]uint64{lo, hi}
@@ -474,6 +484,7 @@ func transportParameter(params []quictrace.TransportParameter, id, def uint64) u
 			return *tp.Value
 		}
 	}
+
 	return def
 }
 
@@ -487,6 +498,7 @@ func increases(first uint64, limits []uint64) []uint64 {
 			last = l
 		}
 	}
+
 	return out
 }
 
@@ -516,6 +528,7 @@ func compareCredit(t *testing.T, what string, got []uint64, refs [][]uint64) {
 		if len(got) > 0 {
 			t.Errorf("%s: mimicry raised it %d times; the browser never did", what, len(got))
 		}
+
 		return
 	}
 	if len(got) == 0 {
@@ -542,6 +555,7 @@ func afterDownload(t *testing.T, page *capture.Page) {
 				return tr, true
 			}
 		}
+
 		return h3Transport{}, false
 	}
 	download, ok := find("download.so")

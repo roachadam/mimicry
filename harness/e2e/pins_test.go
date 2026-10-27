@@ -78,6 +78,7 @@ func TestHTTP3Pins(t *testing.T) {
 						len(resp.TLS.VerifiedChains) == 0 || !resp.TLS.VerifiedChains[0][0].Equal(pki.bigChain.Leaf) {
 						t.Errorf("the HTTP/3 response's TLS state is %+v, want the QUIC connection's", resp.TLS)
 					}
+
 					return
 				}
 				// Every request answered over TCP, through at least one

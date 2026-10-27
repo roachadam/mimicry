@@ -69,6 +69,7 @@ func AppendHeader(b []byte, h Header) []byte {
 	if h.Masked {
 		b = append(b, h.Mask[:]...)
 	}
+
 	return b
 }
 
@@ -118,6 +119,7 @@ func ReadHeader(r io.Reader) (Header, error) {
 	default:
 		return h, fmt.Errorf("%w %#x", errReservedOpcode, h.Opcode)
 	}
+
 	return h, nil
 }
 
@@ -127,6 +129,7 @@ func unexpected(err error) error {
 	if errors.Is(err, io.EOF) {
 		return io.ErrUnexpectedEOF
 	}
+
 	return err
 }
 

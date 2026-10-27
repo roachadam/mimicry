@@ -32,6 +32,7 @@ func Combine(samples []*Capture) (*Capture, error) {
 			for j, d := range diffs {
 				lines[j] = d.String()
 			}
+
 			return nil, fmt.Errorf("sample %d differs from sample 1 beyond extension order and ECH's per-connection choices, which a profile cannot describe:\n%s",
 				i+2, strings.Join(lines, "\n"))
 		}
@@ -73,6 +74,7 @@ func Combine(samples []*Capture) (*Capture, error) {
 			first.SampleProxy = append(first.SampleProxy, s.Proxy)
 		}
 	}
+
 	return first, nil
 }
 

@@ -81,6 +81,7 @@ func runCookiesPage(t *testing.T, p *profile.Profile) *capture.Page {
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		return v
 	}
 	// nav navigates from page from; the page's script does (location.href,
@@ -97,6 +98,7 @@ func runCookiesPage(t *testing.T, p *profile.Profile) *capture.Page {
 			Kind: mimicry.Navigate,
 			From: from,
 		}, h, body)
+
 		return parse(target)
 	}
 	image := func(target string, from *url.URL) {
@@ -120,5 +122,6 @@ func runCookiesPage(t *testing.T, p *profile.Profile) *capture.Page {
 	nav(http.MethodPost, s.url(siteA, "/k/c-nav-post.so"), pagePost, http.Header{
 		"Content-Type": {"application/x-www-form-urlencoded"},
 	}, "a=1")
+
 	return s.finish(s.url(siteA, "/done"))
 }

@@ -148,6 +148,7 @@ func (s *Server) serveH3(serverCtx context.Context, conn *quic.Conn, sc *Scenari
 	if isClosed(err) {
 		return nil
 	}
+
 	return err
 }
 
@@ -181,6 +182,7 @@ func (h *h3conn) openStreams() (*quic.SendStream, error) {
 			return nil, err
 		}
 	}
+
 	return decoder, nil
 }
 
@@ -251,6 +253,7 @@ type countingReader struct {
 func (c *countingReader) Read(p []byte) (int, error) {
 	n, err := c.r.Read(p)
 	c.n += n
+
 	return n, err
 }
 
@@ -264,6 +267,7 @@ func streamEnd(err error) string {
 	case errors.As(err, &se) && se.Remote:
 		return "RESET " + strconv.FormatUint(uint64(se.ErrorCode), 10)
 	}
+
 	return ""
 }
 
@@ -320,6 +324,7 @@ func isConnClosed(err error) bool {
 	var app *quic.ApplicationError
 	var tr *quic.TransportError
 	var idle *quic.IdleTimeoutError
+
 	return errors.As(err, &app) || errors.As(err, &tr) || errors.As(err, &idle) || errors.Is(err, quic.ErrTransportClosed)
 }
 
@@ -327,6 +332,7 @@ func (h *h3conn) addStream(s quictrace.H3Stream) int {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.rec.Streams = append(h.rec.Streams, s)
+
 	return len(h.rec.Streams) - 1
 }
 
@@ -419,6 +425,7 @@ func (h *h3conn) decodeSection(stream uint64, block []byte) (quictrace.Section, 
 				h.toDecoder(quictrace.AppendSectionAck(nil, stream))
 				h.known = max(h.known, s.RequiredInsertCount)
 			}
+
 			return s, err
 		}
 		h.qcond.Wait()
@@ -464,6 +471,7 @@ func (h *h3conn) request(str *quic.Stream) {
 				update(func(q *quictrace.H3Request) {
 					q.Trailers = &s
 				})
+
 				continue
 			}
 			headers = true
@@ -499,6 +507,7 @@ func (h *h3conn) addRequest(q quictrace.H3Request) int {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.rec.Requests = append(h.rec.Requests, q)
+
 	return len(h.rec.Requests) - 1
 }
 
@@ -519,6 +528,7 @@ func requestOf(fields []quictrace.FieldLine) request {
 			st.preflightHeaders = f.Value
 		}
 	}
+
 	return st
 }
 
@@ -671,6 +681,7 @@ func (h *h3conn) snapshot() (*quictrace.H3, *quictrace.Close) {
 	if h.closed != nil {
 		closed = new(*h.closed)
 	}
+
 	return rec, closed
 }
 
@@ -698,6 +709,7 @@ func (s *h3Server) setting(id uint64) uint64 {
 			return st[1]
 		}
 	}
+
 	return 0
 }
 
@@ -713,6 +725,7 @@ func (sc *Scenario) H3Settings() [][2]uint64 {
 	if sc.h3 == nil {
 		return nil
 	}
+
 	return slices.Clone(sc.h3.settings)
 }
 

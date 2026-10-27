@@ -70,6 +70,7 @@ func (r *refreshRun) runTests(ctx context.Context, p *plan) *result {
 	} else {
 		log.Printf("%s: tests passed in %s", p.Target, res.duration.Round(time.Second))
 	}
+
 	return res
 }
 
@@ -85,6 +86,7 @@ func failures(out string) string {
 	if len(keep) > 200 {
 		keep = keep[:200]
 	}
+
 	return strings.Join(keep, "\n") + "\n"
 }
 
@@ -144,5 +146,6 @@ func (r *refreshRun) runRealcheck(ctx context.Context, p *plan) *result {
 	// The echo comparison only: the sites' table is in compare.md.
 	summary, _, _ := strings.Cut(string(data), "# Protected sites")
 	res.summary = ipv4.ReplaceAllString(summary, "<ip>")
+
 	return res
 }

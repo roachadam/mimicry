@@ -42,6 +42,7 @@ func newShared(hc *h2.Conn, conn net.Conn, r route) *shared {
 	if s.tls != nil && len(s.tls.PeerCertificates) > 0 {
 		s.leaf = s.tls.PeerCertificates[0]
 	}
+
 	return s
 }
 
@@ -51,6 +52,7 @@ func remoteAddr(conn net.Conn) netip.Addr {
 	if err != nil {
 		return netip.Addr{}
 	}
+
 	return ap.Addr().Unmap()
 }
 
@@ -67,6 +69,7 @@ func (e *Engine) covering(r route) []*shared {
 			out = append(out, c)
 		}
 	}
+
 	return out
 }
 
@@ -81,6 +84,7 @@ func (e *Engine) verifyShared(host string, c *shared) bool {
 	}
 	cs := *c.tls
 	cs.ServerName = host
+
 	return e.verify(host, cs) == nil
 }
 
@@ -105,6 +109,7 @@ func (e *Engine) coalesceOnLookup(ctx context.Context, r route) *shared {
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -121,6 +126,7 @@ func (e *Engine) coalesceOnConnect(r route, conn net.Conn) *shared {
 			return c
 		}
 	}
+
 	return nil
 }
 
@@ -129,6 +135,7 @@ func lookupFunc(resolver *net.Resolver) func(ctx context.Context, host string) (
 	if resolver == nil {
 		resolver = net.DefaultResolver
 	}
+
 	return func(ctx context.Context, host string) ([]netip.Addr, error) {
 		return resolver.LookupNetIP(ctx, "ip", host)
 	}

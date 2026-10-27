@@ -54,6 +54,7 @@ func CORSSteps() []CORSStep {
 	custom := [][2]string{
 		{"X-Mimicry", "1"},
 	}
+
 	return []CORSStep{
 		{Label: "multi.cs", Headers: [][2]string{{"X-B", "1"}, {"X-A", "1"}}},
 		{Label: "put.cs", Method: "PUT"},
@@ -102,6 +103,7 @@ func corsScript(cs string) string {
 		fmt.Fprintf(&b, "await f(%q, {%s});\n", "/p/"+st.Label, strings.Join(init, ", "))
 	}
 	b.WriteString("fetch(\"/done\");\n})();")
+
 	return b.String()
 }
 
@@ -137,6 +139,7 @@ func (p corsPage) answer(req request) response {
 		case "denied-status.cs":
 			status = 403
 		}
+
 		return response{status: status, contentType: "text/plain", headers: allow}
 	}
 	r := response{status: 200, contentType: "application/json", body: []byte("{}\n"), headers: allow}
@@ -157,5 +160,6 @@ func (p corsPage) answer(req request) response {
 			Value: origin(kindsCrossSite) + "/p/redirect-target.cs",
 		})}
 	}
+
 	return r
 }

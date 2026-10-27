@@ -58,6 +58,7 @@ func readClientHello(r io.Reader) (raw, msg []byte, err error) {
 			}
 		}
 	}
+
 	return raw, msg[:need], nil
 }
 
@@ -117,6 +118,7 @@ func resumptionOffer(msg []byte) offer {
 			// Only the resumption extensions make the offer.
 		}
 	}
+
 	return o
 }
 
@@ -179,6 +181,7 @@ func ParseClientHello(msg []byte) (profile.TLS, error) {
 				profile.ExtPadding, padding, len(msg)-4-padding)
 		}
 	}
+
 	return t, nil
 }
 
@@ -194,6 +197,7 @@ func boringPadding(unpadded int) (int, bool) {
 	if n >= 4+1 {
 		return n - 4, true
 	}
+
 	return 1, true
 }
 
@@ -215,6 +219,7 @@ func ParseRecords(records []byte) (uint16, []byte, error) {
 		}
 		rest = rest[recordHeaderLen+(int(rest[3])<<8|int(rest[4])):]
 	}
+
 	return version, msg, nil
 }
 
@@ -234,6 +239,7 @@ func parseExtension(typ profile.Code, data cryptobyte.String) (profile.Extension
 				return e, errors.New("padding that is not zeros")
 			}
 		}
+
 		return e, nil
 	case profile.ExtEncryptedClientHello:
 		e.ECH, err = readGREASEECH(&data)
@@ -275,6 +281,7 @@ func parseExtension(typ profile.Code, data cryptobyte.String) (profile.Extension
 		if len(data) > 0 {
 			e.Data = profile.Bytes(append([]byte(nil), data...))
 		}
+
 		return e, nil
 	}
 	if err != nil {
@@ -283,6 +290,7 @@ func parseExtension(typ profile.Code, data cryptobyte.String) (profile.Extension
 	if !data.Empty() {
 		return e, errors.New("trailing bytes in extension body")
 	}
+
 	return e, nil
 }
 
@@ -291,6 +299,7 @@ func code(v uint16) profile.Code {
 	if profile.IsGREASE(v) {
 		return profile.GREASE
 	}
+
 	return profile.Code(v)
 }
 
@@ -304,6 +313,7 @@ func readCodes(s *cryptobyte.String) ([]profile.Code, error) {
 		}
 		codes = append(codes, code(v))
 	}
+
 	return codes, nil
 }
 
@@ -313,6 +323,7 @@ func readCodeList16(s *cryptobyte.String) ([]profile.Code, error) {
 	if !s.ReadUint16LengthPrefixed(&list) {
 		return nil, errMalformed
 	}
+
 	return readCodes(&list)
 }
 
@@ -334,6 +345,7 @@ func readKeyShares(s *cryptobyte.String) ([]profile.Code, []uint16, error) {
 		groups = append(groups, code(group))
 		lengths = append(lengths, uint16(len(key)))
 	}
+
 	return groups, lengths, nil
 }
 
@@ -360,6 +372,7 @@ func readGREASEECH(s *cryptobyte.String) (*profile.ECH, error) {
 		!s.ReadUint16LengthPrefixed(&payload) {
 		return nil, errMalformed
 	}
+
 	return &profile.ECH{
 		CipherSuites: []profile.HPKESuite{
 			{
@@ -389,6 +402,7 @@ func readProtocols(s *cryptobyte.String) ([]string, error) {
 		}
 		protocols = append(protocols, string(name))
 	}
+
 	return protocols, nil
 }
 
@@ -398,5 +412,6 @@ func readByteList8(s *cryptobyte.String) (profile.ByteList, error) {
 	if !s.ReadUint8LengthPrefixed(&list) {
 		return nil, errMalformed
 	}
+
 	return profile.ByteList(append([]byte(nil), list...)), nil
 }

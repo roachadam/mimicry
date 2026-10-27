@@ -97,6 +97,7 @@ func closing(f []*quictrace.Datagram) bool {
 			}
 		}
 	}
+
 	return false
 }
 
@@ -112,6 +113,7 @@ func closeFrame(f []*quictrace.Datagram) (*quictrace.Packet, *quictrace.Frame) {
 			}
 		}
 	}
+
 	return nil, nil
 }
 
@@ -123,6 +125,7 @@ func (a *attempt) probes() [][]*quictrace.Datagram {
 			out = append(out, f)
 		}
 	}
+
 	return out
 }
 
@@ -133,6 +136,7 @@ func (a *attempt) closeFlight() []*quictrace.Datagram {
 			return f
 		}
 	}
+
 	return nil
 }
 
@@ -178,6 +182,7 @@ func loadEdge(dir string, set *captureSet) (*edgeSet, error) {
 			out.pages = append(out.pages, ep)
 		}
 	}
+
 	return out, nil
 }
 
@@ -189,6 +194,7 @@ func (s *edgeSet) scenario(name string) []*edgePage {
 			out = append(out, p)
 		}
 	}
+
 	return out
 }
 
@@ -200,6 +206,7 @@ func (s *edgeSet) gap(at, feature string) bool {
 		return false
 	}
 	s.set.usedGaps[key] = true
+
 	return true
 }
 
@@ -228,6 +235,7 @@ func newAttempt(i int, c *quictrace.Conn) *attempt {
 		a.flights[len(a.flights)-1] = append(a.flights[len(a.flights)-1], d)
 		last = d.Micros
 	}
+
 	return a
 }
 
@@ -286,6 +294,7 @@ func edgeRequests(page *capture.Page) []edgeReq {
 	slices.SortStableFunc(out, func(a, b edgeReq) int {
 		return int(a.arrival - b.arrival)
 	})
+
 	return out
 }
 
@@ -303,6 +312,7 @@ func madeAt(path string) int64 {
 	if err != nil {
 		return -1
 	}
+
 	return int64(t)
 }
 
@@ -314,6 +324,7 @@ func (p *edgePage) request(l string) *edgeReq {
 			return &p.reqs[i]
 		}
 	}
+
 	return nil
 }
 
@@ -326,6 +337,7 @@ func (p *edgePage) attemptsTo(host string, from, to float64) []*attempt {
 			out = append(out, a)
 		}
 	}
+
 	return out
 }
 
@@ -339,6 +351,7 @@ func (p *edgePage) tcpHellos(host string, from, to float64) []int64 {
 		}
 	}
 	slices.Sort(out)
+
 	return out
 }
 
@@ -374,5 +387,6 @@ func deriveEdge(s *edgeSet, q *profile.QUIC, h *profile.HTTP3) error {
 	q.VersionNegotiation = s.versionNegotiation(e)
 	h.Discovery.Fallback = s.fallback(q, &h.Discovery, e)
 	h.EarlyData = s.earlyData(q, e)
+
 	return e.err()
 }

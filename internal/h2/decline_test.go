@@ -54,6 +54,7 @@ func TestDeclineClosesWithoutReset(t *testing.T) {
 				// Everything arrived; the end must be clean too.
 				_, err := br.ReadByte()
 				result <- err
+
 				return
 			}
 		}

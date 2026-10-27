@@ -132,6 +132,7 @@ func navrFormSteps(prefix string, click bool) []Redirects2Step {
 			})
 		}
 	}
+
 	return steps
 }
 
@@ -191,6 +192,7 @@ func NavRedirectClickSteps() []Redirects2Step {
 		link("link-302.cs-ss", navrCrossSite, navrStatic, 302),
 	}
 	steps = append(steps, navrFormSteps("submit", true)...)
+
 	return append(steps, link("link-302.cs-so", navrCrossSite, navrHost, 302))
 }
 
@@ -238,6 +240,7 @@ func (sc *Scenario) StartPath() string {
 	if s, ok := sc.NavRedirectStep(); ok {
 		return s.StartPath()
 	}
+
 	return "/"
 }
 
@@ -249,6 +252,7 @@ func navRedirect(name, doc string, step NavRedirectStep) *Scenario {
 	if step.Next != step.Host {
 		hosts = append(hosts, step.Next)
 	}
+
 	return &Scenario{
 		Name: name,
 		Doc:  doc,
@@ -281,6 +285,7 @@ func (p navRedirectPage) answer(req request) response {
 		if req.ports.tls != "" {
 			port = req.ports.tls
 		}
+
 		return response{
 			status:      s.Status,
 			contentType: "text/html; charset=utf-8",
@@ -294,5 +299,6 @@ func (p navRedirectPage) answer(req request) response {
 	case host == s.Next && path == s.HopPath() && !plain:
 		return htmlResponse(htmlPage("nav-redirect", "", "<script>fetch(\"/done\");</script>\n"))
 	}
+
 	return response{status: 404, contentType: "text/plain", body: []byte("not found\n")}
 }

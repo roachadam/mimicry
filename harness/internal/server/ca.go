@@ -55,6 +55,7 @@ func DefaultCADir() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return filepath.Join(dir, "mimicry", "capture-ca"), nil
 }
 
@@ -79,6 +80,7 @@ func LoadOrCreateCA(dir string, domains []string, now time.Time) (*CA, error) {
 		if now.After(ca.Cert.NotAfter) {
 			return nil, fmt.Errorf("%s: the CA expired on %s; delete the directory (and untrust the old CA) to replace it", dir, ca.Cert.NotAfter)
 		}
+
 		return ca, nil
 	case errors.Is(certErr, os.ErrNotExist) && errors.Is(keyErr, os.ErrNotExist):
 		return createCA(dir, certPath, keyPath, domains, now)
@@ -145,6 +147,7 @@ func createCA(dir, certPath, keyPath string, domains []string, now time.Time) (*
 	if err != nil {
 		return nil, err
 	}
+
 	return &CA{
 		Cert:     cert,
 		key:      key,
@@ -170,6 +173,7 @@ func parseCA(certPEM, keyPEM []byte) (*CA, error) {
 	if !ok || !key.PublicKey.Equal(cert.PublicKey) {
 		return nil, errors.New("CA key does not match the certificate")
 	}
+
 	return &CA{
 		Cert: cert,
 		key:  key,
@@ -180,6 +184,7 @@ func sameHosts(a, b []string) bool {
 	a, b = slices.Clone(a), slices.Clone(b)
 	slices.Sort(a)
 	slices.Sort(b)
+
 	return slices.Equal(a, b)
 }
 
@@ -213,6 +218,7 @@ func (ca *CA) Issue(hosts []string, now time.Time) (tls.Certificate, error) {
 	if err != nil {
 		return tls.Certificate{}, err
 	}
+
 	return tls.Certificate{
 		Certificate: [][]byte{
 			der,
@@ -229,6 +235,7 @@ func TrustedBySystem(cert tls.Certificate, host string) bool {
 	_, err := cert.Leaf.Verify(x509.VerifyOptions{
 		DNSName: host,
 	})
+
 	return err == nil
 }
 

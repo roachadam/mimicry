@@ -39,6 +39,7 @@ func NewCompressor(p *profile.WebSocket, d *Deflate) (*Compressor, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ws: a %d-bit compression window: %w", d.ClientMaxWindowBits, err)
 	}
+
 	return &Compressor{
 		w:         w,
 		rule:      p.Uncompressed,
@@ -57,6 +58,7 @@ func (c *Compressor) Message(p []byte) ([]byte, bool) {
 				0x00,
 			}, true
 		}
+
 		return p, false
 	}
 	out := c.w.Message(p)
@@ -71,5 +73,6 @@ func (c *Compressor) Message(p []byte) ([]byte, bool) {
 		c.w.Reset()
 		return p, false
 	}
+
 	return out, true
 }

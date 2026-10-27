@@ -82,6 +82,7 @@ func (c planned) label() string {
 	if c.LocalRoots {
 		return c.Scenario + ".local-roots"
 	}
+
 	return c.Scenario
 }
 
@@ -120,6 +121,7 @@ func (r *refreshRun) machine(p *plan) *machine {
 			dir: r.Dir,
 		}
 	}
+
 	return &machine{
 		host: p.Host,
 		dir:  "mimicry-capture/refresh-" + r.Stamp,
@@ -131,6 +133,7 @@ func (m *machine) bin(name string) string {
 	if m.host == "" {
 		return filepath.Join(m.dir, name)
 	}
+
 	return "./" + name
 }
 
@@ -139,6 +142,7 @@ func (r *refreshRun) save() error {
 	if err != nil {
 		return err
 	}
+
 	return os.WriteFile(filepath.Join(r.Dir, "plan.json"), append(data, '\n'), 0o600)
 }
 
@@ -151,6 +155,7 @@ func loadRun(dir string) (*refreshRun, error) {
 	if err := json.Unmarshal(data, &r); err != nil {
 		return nil, fmt.Errorf("%s: %w", dir, err)
 	}
+
 	return &r, nil
 }
 
@@ -202,6 +207,7 @@ func (r *refreshRun) preflight(ctx context.Context, cfg config) error {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -214,6 +220,7 @@ func runPreflight(ctx context.Context, m *machine) (*preflightReport, error) {
 	if err := json.Unmarshal(out, &rep); err != nil {
 		return nil, fmt.Errorf("preflight on %s: %w", m, err)
 	}
+
 	return &rep, nil
 }
 
@@ -224,6 +231,7 @@ func (rep *preflightReport) installedVersion(browser string) string {
 			return b.Version
 		}
 	}
+
 	return ""
 }
 
@@ -245,6 +253,7 @@ func loadProfiles(dir string) (map[string]*profile.Profile, error) {
 		}
 		out[p.Name] = p
 	}
+
 	return out, nil
 }
 
@@ -252,6 +261,7 @@ func loadProfiles(dir string) (map[string]*profile.Profile, error) {
 func major(version string) (int, bool) {
 	head, _, _ := strings.Cut(version, ".")
 	v, err := strconv.Atoi(head)
+
 	return v, err == nil
 }
 
@@ -322,6 +332,7 @@ func (r *refreshRun) planTarget(p *plan, rep *preflightReport, builtins map[stri
 		p.Warnings = append(p.Warnings, fmt.Sprintf("%s updates itself; an update applied between two launches splits the run, which the tool then refuses (every capture must name %s, and the version must still be %s afterwards)",
 			p.Browser, p.Name, p.Installed))
 	}
+
 	return nil
 }
 
@@ -330,6 +341,7 @@ func onMachine(host, line string) string {
 	if host == "" {
 		return line
 	}
+
 	return "ssh -t " + host + " " + shellQuote(line)
 }
 
@@ -437,6 +449,7 @@ func (r *refreshRun) planCaptures(p *plan, rep *preflightReport, cfg config) err
 			p.Manual = append(p.Manual, "nav-redirect-click clicks Safari through the system's mouse events: the app running the tool needs Accessibility access, and hands off the mouse")
 		}
 	}
+
 	return nil
 }
 
@@ -451,6 +464,7 @@ func scenarioFor(name string) (*server.Scenario, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return server.Replay(shape)
 }
 
@@ -468,6 +482,7 @@ func replayScenarios() ([]*server.Scenario, error) {
 		}
 		out = append(out, sc)
 	}
+
 	return out, nil
 }
 
@@ -486,6 +501,7 @@ func estimate(sc *server.Scenario, browser string, samples int) time.Duration {
 	if browser == "chrome" {
 		launch += 5 * time.Second
 	}
+
 	return time.Duration(samples) * (page + launch)
 }
 
@@ -522,6 +538,7 @@ func inherit(p *plan, builtins map[string]*profile.Profile) map[string]string {
 	if len(out) == 0 {
 		return nil
 	}
+
 	return out
 }
 
@@ -579,6 +596,7 @@ func (r *refreshRun) planText() string {
 	}
 	fmt.Fprintf(&w, "\nEstimated capture time: about %s (a ceiling: pages often finish early), then per profile the generators and tests (several minutes) and realcheck (a few minutes, on its machine's screen).\n\n",
 		total.Round(time.Second))
+
 	return w.String()
 }
 
@@ -604,6 +622,7 @@ func (r *refreshRun) schedule() map[string][][]*plan {
 		}
 		out[p.Host] = steps
 	}
+
 	return out
 }
 
@@ -612,5 +631,6 @@ func planTargets(ps []*plan) string {
 	for i, p := range ps {
 		names[i] = p.Target
 	}
+
 	return strings.Join(names, " and ")
 }

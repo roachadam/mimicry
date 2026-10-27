@@ -85,6 +85,7 @@ end tell`)
 			return nil, err
 		}
 		l.window = out
+
 		return l, nil
 	}
 	dir, err := os.MkdirTemp("", "mimicry-live-"+b.Name+"-")
@@ -141,6 +142,7 @@ end tell`)
 	if err := l.connect(ctx, b, dir, port); err != nil {
 		return nil, errors.Join(err, l.Close())
 	}
+
 	return l, nil
 }
 
@@ -162,6 +164,7 @@ func (l *Live) connect(ctx context.Context, b *Browser, dir string, port int) er
 			return err
 		}
 		l.context, err = firefoxContext(ctx, r)
+
 		return err
 	}
 	debugPort, _, err := devToolsPort(ctx, dir)
@@ -197,6 +200,7 @@ func (l *Live) connect(ctx context.Context, b *Browser, dir string, port int) er
 			return err
 		}
 	}
+
 	return errors.New("chrome has no page to drive")
 }
 
@@ -216,6 +220,7 @@ func (l *Live) Visit(ctx context.Context, url string) (*Page, error) {
 		}); err != nil {
 			return nil, err
 		}
+
 		return l.page(ctx, 0)
 	default:
 		start := float64(time.Now().UnixMilli())
@@ -231,6 +236,7 @@ func (l *Live) Visit(ctx context.Context, url string) (*Page, error) {
 		if json.Unmarshal(res, &nav) == nil && nav.ErrorText != "" {
 			return nil, fmt.Errorf("navigating to %s: %s", url, nav.ErrorText)
 		}
+
 		return l.page(ctx, start)
 	}
 }
@@ -242,6 +248,7 @@ func (l *Live) Read(ctx context.Context) (*Page, error) {
 	if l.name == "safari" {
 		return readSafari(ctx, "current tab of window id "+l.window)
 	}
+
 	return l.page(ctx, 0)
 }
 
@@ -262,6 +269,7 @@ func (l *Live) page(ctx context.Context, since float64) (*Page, error) {
 		if err == nil && p.Ready != "loading" && p.Origin >= since-1000 {
 			page := p.Page
 			page.Cookies, err = l.cookies(ctx, page.URL)
+
 			return &page, err
 		}
 		select {
@@ -277,6 +285,7 @@ func (l *Live) evaluate(ctx context.Context) (string, error) {
 	if l.name == "firefox" {
 		return evaluateBiDi(ctx, l.rpc, l.context, pageScript)
 	}
+
 	return evaluateCDP(ctx, l.rpc, pageScript)
 }
 
@@ -304,6 +313,7 @@ func evaluateBiDi(ctx context.Context, r *rpc, bc, expression string) (string, e
 	if v.Type != "success" {
 		return "", fmt.Errorf("script failed: %s", v.ExceptionDetails)
 	}
+
 	return v.Result.Value, nil
 }
 
@@ -329,6 +339,7 @@ func evaluateCDP(ctx context.Context, r *rpc, expression string) (string, error)
 	if len(v.ExceptionDetails) > 0 {
 		return "", fmt.Errorf("script failed: %s", v.ExceptionDetails)
 	}
+
 	return v.Result.Value, nil
 }
 
@@ -363,6 +374,7 @@ func (l *Live) cookies(ctx context.Context, url string) ([]string, error) {
 	for i, c := range r.Cookies {
 		names[i] = c.Name
 	}
+
 	return names, nil
 }
 
@@ -391,6 +403,7 @@ func (l *Live) visitSafari(ctx context.Context, url string) (*Page, error) {
 	if _, err := osascript(ctx, `tell application "Safari" to set URL of `+tab+` to "`+url+`"`); err != nil {
 		return nil, err
 	}
+
 	return readSafari(ctx, tab)
 }
 
@@ -430,6 +443,7 @@ end tell`)
 	}
 	at, rest, _ := strings.Cut(out, "\n")
 	title, text, _ := strings.Cut(rest, "\n")
+
 	return &Page{
 		URL:   at,
 		Title: title,
@@ -451,6 +465,7 @@ func (l *Live) Close() error {
 		_, err := osascript(context.Background(), `tell application "Safari" to close window id `+l.window)
 		errs = append(errs, err)
 	}
+
 	return errors.Join(errs...)
 }
 
@@ -472,7 +487,9 @@ func runOSA(ctx context.Context, lang, script string) (string, error) {
 		if ee, ok := errors.AsType[*exec.ExitError](err); ok {
 			return "", fmt.Errorf("osascript: %w: %s", err, strings.TrimSpace(string(ee.Stderr)))
 		}
+
 		return "", err
 	}
+
 	return strings.TrimRight(string(out), "\n"), nil
 }

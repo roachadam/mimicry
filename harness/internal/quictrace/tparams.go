@@ -116,6 +116,7 @@ func ParseTransportParameters(data []byte) ([]TransportParameter, error) {
 		}
 		out = append(out, p)
 	}
+
 	return out, nil
 }
 

@@ -83,6 +83,7 @@ func discovery(s *captureSet, e *collector) profile.Discovery {
 		out.RaceAfterGoAway = true
 		out.RaceDelayMillis = span(delays)
 	}
+
 	return out
 }
 
@@ -101,6 +102,7 @@ func agreed(switches []string, s *captureSet, e *collector) string {
 			break
 		}
 	}
+
 	return rule
 }
 
@@ -112,6 +114,7 @@ func hosts(page *capture.Page) []string {
 			out = append(out, c.Host)
 		}
 	}
+
 	return out
 }
 
@@ -155,6 +158,7 @@ func requests(page *capture.Page, host string) []sent {
 	slices.SortStableFunc(out, func(a, b sent) int {
 		return int(a.millis - b.millis)
 	})
+
 	return out
 }
 
@@ -168,6 +172,7 @@ func tracedConns(page *capture.Page) []capture.Connection {
 			out = append(out, c)
 		}
 	}
+
 	return out
 }
 
@@ -210,6 +215,7 @@ func switchRule(page *capture.Page, host, goaway string) (string, error) {
 	if !sawGoAway {
 		return "", fmt.Errorf("QUIC started at %d ms, after %s on TCP, not after the server's GOAWAY", start, next.label)
 	}
+
 	return profile.SwitchNewConnection, nil
 }
 
@@ -235,6 +241,7 @@ func tcpGoAways(page *capture.Page) (goAways, replaced int) {
 			}
 		}
 	}
+
 	return goAways, replaced
 }
 
@@ -252,5 +259,6 @@ func nextDials(page *capture.Page, host string, after int64) (tcp, quic int64) {
 			quic = q.Millis
 		}
 	}
+
 	return tcp, quic
 }

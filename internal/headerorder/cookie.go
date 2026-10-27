@@ -14,5 +14,6 @@ func Crumbs(value string) []string {
 			out = append(out, crumb)
 		}
 	}
+
 	return out
 }

@@ -115,6 +115,7 @@ func TestInheritedProfile(t *testing.T) {
 				if !bytes.Contains(out, []byte("versions rewritten chrome-155-macos → "+testprofiles.InheritingName)) {
 					t.Error("no capture was read through captures_from")
 				}
+
 				return
 			}
 			if err == nil {
@@ -142,6 +143,7 @@ func failures(out []byte) string {
 	if len(keep) > 200 {
 		keep = append(keep[:200], "...")
 	}
+
 	return strings.Join(keep, "\n")
 }
 

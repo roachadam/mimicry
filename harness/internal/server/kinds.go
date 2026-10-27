@@ -234,6 +234,7 @@ func kindsHosts(http1 bool) fixedHosts {
 	if http1 {
 		f.http1 = f.names
 	}
+
 	return f
 }
 
@@ -242,6 +243,7 @@ func (p kindsPage) scheme() string {
 	if p.plain {
 		return "http://"
 	}
+
 	return "https://"
 }
 
@@ -272,6 +274,7 @@ func (p kindsPage) answer(req request) response {
 				Value: c,
 			})
 		}
+
 		return r
 	case "/cleanup", "/done":
 		r := response{status: 200, contentType: "text/plain", body: []byte("ok\n"), headers: cors}
@@ -284,6 +287,7 @@ func (p kindsPage) answer(req request) response {
 				})
 			}
 		}
+
 		return r
 	}
 	label, ok := strings.CutPrefix(path, "/k/")
@@ -307,6 +311,7 @@ func (p kindsPage) answer(req request) response {
 				Name:  "location",
 				Value: origin(s.RedirectTo) + "/k/" + s.Label + ".hop",
 			})
+
 			return r
 		}
 		r := kindsBody(s.Kind)
@@ -319,8 +324,10 @@ func (p kindsPage) answer(req request) response {
 				})
 			}
 		}
+
 		return r
 	}
+
 	return response{status: 404, contentType: "text/plain", body: []byte("not found\n"), headers: cors}
 }
 
@@ -339,6 +346,7 @@ func kindsBody(kind string) response {
 		// Not a font: the request is what matters, the load may fail.
 		return response{status: 200, contentType: "font/woff2", body: []byte("wOF2")}
 	}
+
 	return response{status: 200, contentType: "application/json", body: []byte("{}\n")}
 }
 
@@ -375,6 +383,7 @@ func kindsDeletions(host string) []hpack.HeaderField {
 			Value: d.pair + "; Path=/; Secure; Max-Age=0" + d.attrs,
 		})
 	}
+
 	return out
 }
 
@@ -386,6 +395,7 @@ func deletionPair(setCookie string) string {
 	if name, _, ok := strings.Cut(pair, "="); ok {
 		return name + "="
 	}
+
 	return pair
 }
 
@@ -397,6 +407,7 @@ func setCookieName(setCookie string) string {
 	if !ok {
 		return ""
 	}
+
 	return name
 }
 
@@ -422,6 +433,7 @@ func (p kindsPage) document(port string) []byte {
 		"__FORM__", strconv.Quote(p.scheme()+net.JoinHostPort(kindsHost, port)+"/k/"+kindsFormLabel),
 	).Replace(kindsScript)
 	head, body, _ := strings.Cut(markup.String(), "<img")
+
 	return htmlPage("kinds", "\n"+head, "<img"+body+
 		"<p style=\"font-family: k-so\">same-origin font</p>\n<p style=\"font-family: k-cs\">cross-site font</p>\n"+
 		"<script>"+script+"</script>\n")
@@ -486,6 +498,7 @@ func kindsLanding(origin func(string) string) []byte {
 		origin(kindsSameSite) + "/cleanup",
 		origin(kindsCrossSite) + "/cleanup",
 	})
+
 	return htmlPage("kinds", "", "<script>(async () => {\n"+
 		"await Promise.all("+string(cleanup)+".map(u => fetch(u, {credentials: 'include', mode: 'no-cors'}).catch(() => {})));\n"+
 		"fetch('/done');\n})();</script>\n")

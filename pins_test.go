@@ -75,6 +75,7 @@ func loopbackDNS(t *testing.T) *net.Resolver {
 		}
 	}()
 	addr := pc.LocalAddr().String()
+
 	return &net.Resolver{
 		PreferGo: true,
 		Dial: func(ctx context.Context, _, _ string) (net.Conn, error) {
@@ -326,6 +327,7 @@ func TestPins(t *testing.T) {
 				if cs.ServerName == "www.shop.test" && len(cs.VerifiedChains) > 0 {
 					return errRejected
 				}
+
 				return nil
 			},
 			verifyCalls: 1,
@@ -520,6 +522,7 @@ func TestPins(t *testing.T) {
 					mu.Lock()
 					calls++
 					mu.Unlock()
+
 					return tc.verify(cs)
 				}
 			}
@@ -544,6 +547,7 @@ func TestPins(t *testing.T) {
 						_ = ws.Close(1000, "")
 					}
 					checkPinStep(t, i, st, err, state, presented)
+
 					continue
 				}
 				req, err := http.NewRequestWithContext(ctx, http.MethodGet, st.url, nil)
@@ -581,11 +585,13 @@ func checkPinStep(t *testing.T, i int, st pinStep, err error, state *tls.Connect
 		if pe.Host != host || !slices.Equal(pe.Presented, presented) {
 			t.Errorf("step %d: PinError{%q, %q}, want {%q, %q}", i, pe.Host, pe.Presented, host, presented)
 		}
+
 		return
 	case st.wantErr != nil:
 		if !errors.Is(err, st.wantErr) {
 			t.Errorf("step %d: got %v, want %v", i, err, st.wantErr)
 		}
+
 		return
 	case err != nil:
 		t.Errorf("step %d: %v", i, err)

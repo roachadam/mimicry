@@ -30,6 +30,7 @@ func (c Code) String() string {
 	if c == GREASE {
 		return "GREASE"
 	}
+
 	return fmt.Sprintf("0x%04x", uint16(c))
 }
 
@@ -59,6 +60,7 @@ func (c *Code) UnmarshalText(text []byte) error {
 		return nil
 	}
 	*c = Code(v)
+
 	return nil
 }
 
@@ -77,6 +79,7 @@ func (b *Bytes) UnmarshalText(text []byte) error {
 		return fmt.Errorf("invalid hex %q: %w", text, err)
 	}
 	*b = decoded
+
 	return nil
 }
 
@@ -90,6 +93,7 @@ func (l ByteList) MarshalJSON() ([]byte, error) {
 	for i, v := range l {
 		values[i] = int(v)
 	}
+
 	return json.Marshal(values)
 }
 
@@ -107,5 +111,6 @@ func (l *ByteList) UnmarshalJSON(data []byte) error {
 		out[i] = uint8(v)
 	}
 	*l = out
+
 	return nil
 }

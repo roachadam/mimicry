@@ -77,6 +77,7 @@ func (k Kind) String() string {
 	if name, ok := profileKinds[k]; ok {
 		return name
 	}
+
 	return fmt.Sprintf("Kind(%d)", int(k))
 }
 
@@ -590,6 +591,7 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 	if len(h1) > 0 {
 		s.plan.HTTP1 = fill(h1, values)
 	}
+
 	return s, nil
 }
 
@@ -605,6 +607,7 @@ func fill(list []profile.Header, values map[string]string) []profile.Header {
 		}
 		out[i] = hd
 	}
+
 	return out
 }
 
@@ -622,6 +625,7 @@ func valueOf(list []profile.Header, name string) string {
 			return h.Value
 		}
 	}
+
 	return ""
 }
 
@@ -642,6 +646,7 @@ func pageSet(h http.Header, list []profile.Header) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -654,6 +659,7 @@ func pageHeader(name string, list []profile.Header) bool {
 	case "cookie", "content-type", "content-length", strings.ToLower(HeaderOrderKey):
 		return false
 	}
+
 	return !slices.ContainsFunc(list, func(hd profile.Header) bool {
 		return hd.Name == lower
 	})
@@ -701,6 +707,7 @@ func userNavigation(p *profile.Profile, req *http.Request, redirected bool, h ht
 	if redirected {
 		return sentFetchUser(p, req.Response.Request)
 	}
+
 	return valueOf(p.Headers, "sec-fetch-user") != ""
 }
 
@@ -712,6 +719,7 @@ func sentFetchUser(p *profile.Profile, req *http.Request) bool {
 	if plan := headerorder.PlanFrom(req.Context()); plan != nil {
 		list = plan.Headers
 	}
+
 	return valueOf(list, "sec-fetch-user") != "" && !hasHeader(req.Header, "Sec-Fetch-User")
 }
 
@@ -720,6 +728,7 @@ func methodOf(req *http.Request) string {
 	if req.Method == "" {
 		return http.MethodGet
 	}
+
 	return req.Method
 }
 
@@ -772,6 +781,7 @@ func originOf(p *profile.Profile, ctx *profile.Context, req *http.Request, r Req
 	case tainted:
 		return "null", nil
 	}
+
 	return origin(from), nil
 }
 
@@ -783,6 +793,7 @@ func hasHeader(h http.Header, name string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -822,6 +833,7 @@ func relation(from, target *url.URL) (rel string, crossOrigin bool) {
 	if site.Same(from, target) {
 		return "same-site", true
 	}
+
 	return "cross-site", true
 }
 
@@ -834,6 +846,7 @@ func isTainted(from *url.URL, chain []*url.URL) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -857,6 +870,7 @@ func origin(u *url.URL) string {
 	if port != "" {
 		host += ":" + port
 	}
+
 	return strings.ToLower(u.Scheme) + "://" + host
 }
 
@@ -884,6 +898,7 @@ func referrer(from *url.URL, chain []*url.URL) string {
 	if u.Path == "" {
 		u.Path = "/"
 	}
+
 	return u.String()
 }
 
@@ -896,6 +911,7 @@ func redirectsBefore(req *http.Request) []*url.URL {
 		prev = prev.Response.Request
 		urls = append([]*url.URL{prev.URL}, urls...)
 	}
+
 	return urls
 }
 
@@ -906,5 +922,6 @@ func redirectedToGet(req *http.Request) bool {
 		return false
 	}
 	prev := req.Response.Request.Method
+
 	return prev != "" && prev != http.MethodGet && prev != http.MethodHead
 }

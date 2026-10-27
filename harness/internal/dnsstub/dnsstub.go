@@ -45,6 +45,7 @@ func Serve(ctx context.Context, conn net.PacketConn) error {
 			if ctx.Err() != nil {
 				return nil
 			}
+
 			return err
 		}
 		resp, err := answer(buf[:n])
@@ -98,5 +99,6 @@ func answer(query []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+
 	return b.Finish()
 }

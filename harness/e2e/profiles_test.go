@@ -72,6 +72,7 @@ func captureClientWith(t *testing.T, p *profile.Profile, sc *server.Scenario, ja
 		t.Fatal(err)
 	}
 	t.Cleanup(tr.CloseIdleConnections)
+
 	return "https://localhost:" + port, tr, captures
 }
 
@@ -84,6 +85,7 @@ func newJar(t *testing.T, p *profile.Profile) *cookies.Jar {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return j
 }
 
@@ -112,6 +114,7 @@ func captureRequests(t *testing.T, p *profile.Profile, n int) []*capture.Capture
 		tr.CloseIdleConnections()
 		got = append(got, <-captures)
 	}
+
 	return got
 }
 
@@ -127,6 +130,7 @@ func loadCapture(t *testing.T, p *profile.Profile) *profile.Profile {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return c
 }
 

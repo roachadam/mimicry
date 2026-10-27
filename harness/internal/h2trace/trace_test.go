@@ -15,6 +15,7 @@ func unhex(t *testing.T, s string) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return b
 }
 

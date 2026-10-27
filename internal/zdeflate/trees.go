@@ -159,6 +159,7 @@ func buildStatic() *staticTables {
 		elems:     blCodes,
 		maxLength: maxBLBits,
 	}
+
 	return t
 }
 
@@ -167,6 +168,7 @@ func dCode(dist uint32) uint8 {
 	if dist < 256 {
 		return static.distCode[dist]
 	}
+
 	return static.distCode[256+(dist>>7)]
 }
 
@@ -177,6 +179,7 @@ func reverseBits(code uint16, n int) uint16 {
 		res = res<<1 | code&1
 		code >>= 1
 	}
+
 	return res
 }
 
@@ -281,6 +284,7 @@ func (t *trees) tally(dist, lc uint32) bool {
 		t.dynLTree[int(static.lengthCode[lc])+literals+1].fc++
 		t.dynDTree[dCode(dist)].fc++
 	}
+
 	return t.symNext == symEnd
 }
 
@@ -314,6 +318,7 @@ func (t *trees) pqRemove(tree []ct) int {
 	t.heap[1] = t.heap[t.heapLen]
 	t.heapLen--
 	t.pqDownHeap(tree, 1)
+
 	return top
 }
 
@@ -575,6 +580,7 @@ func (t *trees) buildBLTree() int {
 		}
 	}
 	t.optLen += 3*(uint64(maxBLIndex)+1) + 5 + 5 + 4
+
 	return maxBLIndex
 }
 

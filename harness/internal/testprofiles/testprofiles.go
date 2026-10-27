@@ -46,6 +46,7 @@ func choose(env string) (*selection, error) {
 			s.names = append(s.names, p.Name)
 		}
 		slices.Sort(s.names)
+
 		return s, nil
 	case "all":
 		s.names = profiles.Supported()
@@ -58,6 +59,7 @@ func choose(env string) (*selection, error) {
 				return nil, fmt.Errorf("%s: %w", Env, err)
 			}
 			s.names = append(s.names, item)
+
 			continue
 		}
 		data, err := os.ReadFile(item)
@@ -71,6 +73,7 @@ func choose(env string) (*selection, error) {
 		s.names = append(s.names, p.Name)
 		s.files[p.Name] = data
 	}
+
 	return s, nil
 }
 
@@ -80,6 +83,7 @@ func Names() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return slices.Clone(s.names), nil
 }
 
@@ -101,6 +105,7 @@ func Load(name string) (*profile.Profile, []byte, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s: %w", name, err)
 	}
+
 	return p, data, nil
 }
 
@@ -110,6 +115,7 @@ func repoDir() (string, error) {
 	if !ok {
 		return "", errors.New("testprofiles: cannot locate the repository")
 	}
+
 	return filepath.Join(filepath.Dir(here), "..", "..", ".."), nil
 }
 
@@ -122,6 +128,7 @@ func builtinJSON(name string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return os.ReadFile(filepath.Join(dir, "profiles", "data", name+".json"))
 }
 
@@ -184,5 +191,6 @@ func Inheriting(edit func([]byte) []byte) ([]byte, error) {
 	if _, err := profile.Parse(data); err != nil {
 		return nil, err
 	}
+
 	return data, nil
 }

@@ -64,6 +64,7 @@ func engineFlow(ctx context.Context, cfg mimicry.Config, home, large string) ([]
 	get := func(step, url string) engineStep {
 		s := fetchVia(ctx, client, step, url)
 		steps = append(steps, s)
+
 		return s
 	}
 	first := get("tcp", home)
@@ -104,6 +105,7 @@ func engineFlow(ctx context.Context, cfg mimicry.Config, home, large string) ([]
 			sum.H3 = true
 		}
 	}
+
 	return steps, sum
 }
 
@@ -126,6 +128,7 @@ func (a *altSvcRecorder) RoundTrip(req *http.Request) (*http.Response, error) {
 			a.mu.Unlock()
 		}
 	}
+
 	return resp, err
 }
 
@@ -139,6 +142,7 @@ func (a *altSvcRecorder) CloseIdleConnections() {
 func (a *altSvcRecorder) first() string {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+
 	return a.h3
 }
 
@@ -171,6 +175,7 @@ func fetchVia(ctx context.Context, client *http.Client, step, url string) (s eng
 	if err != nil {
 		s.Err = err.Error()
 	}
+
 	return s
 }
 
@@ -194,5 +199,6 @@ func h3Port(altSvc string) uint16 {
 			return uint16(n)
 		}
 	}
+
 	return 0
 }

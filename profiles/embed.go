@@ -25,6 +25,7 @@ func load(name string) *profile.Profile {
 	if err != nil {
 		panic(err)
 	}
+
 	return p
 }
 
@@ -33,6 +34,7 @@ func parse(name string) (*profile.Profile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("profiles: %q is not a built-in profile", name)
 	}
+
 	return profile.Parse(b)
 }
 
@@ -42,6 +44,7 @@ func ByName(name string) (*profile.Profile, error) {
 	if !slices.Contains(names, name) {
 		return nil, fmt.Errorf("profiles: %q is not a built-in profile", name)
 	}
+
 	return parse(name)
 }
 

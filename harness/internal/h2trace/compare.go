@@ -23,6 +23,7 @@ func Load(path string) ([]*Trace, error) {
 	if len(traces) == 0 {
 		return nil, fmt.Errorf("%s: no traces", path)
 	}
+
 	return traces, nil
 }
 
@@ -66,12 +67,14 @@ func Compare(samples []*Trace) []Variation {
 			if v, ok := exact[i][k]; ok {
 				values[i] = v
 				varies = varies || v != exact[0][k]
+
 				continue
 			}
 			v, ok := measured[i][k]
 			if !ok {
 				values[i] = "-"
 				varies = true
+
 				continue
 			}
 			values[i] = strconv.FormatUint(uint64(v), 10)
@@ -85,6 +88,7 @@ func Compare(samples []*Trace) []Variation {
 			})
 		}
 	}
+
 	return out
 }
 
@@ -92,6 +96,7 @@ func absDiff(a, b uint32) uint32 {
 	if a > b {
 		return a - b
 	}
+
 	return b - a
 }
 
@@ -181,6 +186,7 @@ func Extract(t *Trace) Features {
 		slices.Sort(s)
 		measured["window_update_median["+where+"]"] = s[len(s)/2]
 	}
+
 	return Features{
 		Exact:    exact,
 		Measured: measured,
@@ -205,5 +211,6 @@ func shapes(ins []Instruction) string {
 		}
 		parts[i] = fmt.Sprintf("%s:%d%s:%s", in.Rep, in.Index, h, in.Name)
 	}
+
 	return strings.Join(parts, " ")
 }

@@ -103,6 +103,7 @@ func navigations(t *testing.T, sample []capture.H1Request) [][]string {
 		}
 		out = append(out, normalize(sample[i].Headers))
 	}
+
 	return out
 }
 
@@ -119,5 +120,6 @@ func normalize(lines []string) []string {
 	for i, l := range lines {
 		out[i] = strings.ReplaceAll(l, host, "{host}")
 	}
+
 	return out
 }

@@ -225,5 +225,6 @@ func mustParse(rawURL string) *url.URL {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	return u
 }

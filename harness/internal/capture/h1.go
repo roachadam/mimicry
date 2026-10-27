@@ -105,6 +105,7 @@ func LoadPages(path string) ([]*Page, error) {
 			c.Rederive()
 		}
 	}
+
 	return pages, nil
 }
 
@@ -120,5 +121,6 @@ func gzipped(data []byte) ([]byte, error) {
 	if err := w.Close(); err != nil {
 		return nil, err
 	}
+
 	return b.Bytes(), nil
 }

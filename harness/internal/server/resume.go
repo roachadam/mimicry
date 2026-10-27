@@ -86,6 +86,7 @@ func (p resumePage) answer(req request) response {
 	} else {
 		r.closeAfter = true
 	}
+
 	return r
 }
 
@@ -106,6 +107,7 @@ func (resumePage) document(origin func(string) string) []byte {
 		}
 		steps = append(steps, "["+strings.Join(urls, ", ")+"]")
 	}
+
 	return htmlPage("resume", "", "<script>(async () => {\n"+
 		"const get = u => fetch(u, {credentials: \"include\"}).then(r => r.arrayBuffer()).catch(() => {});\n"+
 		"const pause = () => new Promise(d => setTimeout(d, 300));\n"+

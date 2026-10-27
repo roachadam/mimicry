@@ -67,6 +67,7 @@ func quicServer(t *testing.T, goAway bool) (uint16, <-chan struct{}) {
 			_ = s.Flush()
 		}
 	}()
+
 	return ep.LocalAddr().Port(), accepted
 }
 
@@ -146,9 +147,11 @@ func answerThenWatchGoAway(headers, goaway chan<- struct{}, hold <-chan struct{}
 					return errGoAwayBeforeAnswer
 				}
 				close(goaway)
+
 				return nil
 			}
 		}
+
 		return nil
 	}
 }
@@ -233,6 +236,7 @@ func dialQUIC(t *testing.T, e *Engine, target string, port uint16) (route, *atte
 	a := e.startAttempt(o, r, dialSpec{})
 	q.mu.Unlock()
 	<-a.done
+
 	return r, a
 }
 

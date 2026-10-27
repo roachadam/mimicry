@@ -57,6 +57,7 @@ func (r *refreshRun) install(ctx context.Context, p *plan, derived string, rep *
 	for _, name := range rep.deprecated {
 		log.Printf("%s: deprecated %s (more than %d supported %s versions)", p.Target, name, supported, p.Browser)
 	}
+
 	return runLogged(ctx, filepath.Join(r.Dir, p.Target, "generators.log"), "..", "go", "generate", "./profiles")
 }
 
@@ -94,6 +95,7 @@ func deprecate(browser string) ([]string, error) {
 		}
 	}
 	slices.Sort(marked)
+
 	return marked, nil
 }
 

@@ -347,6 +347,7 @@ func tableRun(list []Header, members map[string]bool) bool {
 			n++
 		}
 	}
+
 	return n == 0 || last-first+1 == n
 }
 

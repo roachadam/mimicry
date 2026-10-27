@@ -138,6 +138,7 @@ func runSite(ctx context.Context, st site, np namedProfile, out string, seed uin
 		r.failf("engine: no request went over HTTP/3")
 	}
 	probeSite(ctx, st, np, dir, seed, port, &r)
+
 	return r
 }
 
@@ -164,6 +165,7 @@ func probeSite(ctx context.Context, st site, np namedProfile, dir string, seed u
 			r.failf("probe connection %d: %s", i+1, errString(err))
 			pr.close(c)
 			cancel()
+
 			return
 		}
 		fs := getAll(cctx, pr, c, paths, false)

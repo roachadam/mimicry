@@ -72,5 +72,6 @@ func firstDifference(a, b []byte) string {
 			return "line " + strconv.Itoa(i+1) + ":\n  want " + al[i] + "\n  got  " + bl[i]
 		}
 	}
+
 	return "lengths differ"
 }

@@ -135,6 +135,7 @@ func (rep *report) write() (string, error) {
 	if !rep.installed {
 		path = filepath.Join(rep.run.Dir, p.Target, "report.md")
 	}
+
 	return path, os.WriteFile(path, []byte(b.String()), 0o600)
 }
 
@@ -191,6 +192,7 @@ func (rep *report) writeDiff(b *strings.Builder) error {
 		}
 		b.WriteString("\n")
 	}
+
 	return nil
 }
 
@@ -202,6 +204,7 @@ func navigationValue(p *profile.Profile, name string) string {
 			return h.Value
 		}
 	}
+
 	return ""
 }
 
@@ -277,9 +280,11 @@ func sectionOf(path string) string {
 			if strings.Contains(rest, "key_share_lengths") || strings.Contains(rest, ".ech") {
 				return "generated"
 			}
+
 			return "captured"
 		}
 	}
+
 	return "hand"
 }
 
@@ -308,6 +313,7 @@ func diffTrees(path string, a, b any, out *[]difference) {
 				}
 				diffTrees(child, av[k], bv[k], out)
 			}
+
 			return
 		}
 	case []any:
@@ -315,6 +321,7 @@ func diffTrees(path string, a, b any, out *[]difference) {
 			for i := range av {
 				diffTrees(path+"["+strconv.Itoa(i)+"]", av[i], bv[i], out)
 			}
+
 			return
 		}
 	}
@@ -341,6 +348,7 @@ func compact(v any) string {
 	if len(s) > 300 {
 		s = s[:300] + "…"
 	}
+
 	return "`" + strings.ReplaceAll(s, "`", "'") + "`"
 }
 
@@ -358,5 +366,6 @@ func rewriteStrings(v any, f func(string) string) any {
 			t[i] = rewriteStrings(x, f)
 		}
 	}
+
 	return v
 }

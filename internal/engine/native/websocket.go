@@ -90,6 +90,7 @@ func (e *Engine) OpenWebSocket(req *http.Request, key string) (*WebSocket, error
 			e.pool.RemoveShared(r.key, c)
 		}
 	}
+
 	return e.openWebSocketH1(ctx, req, r, key)
 }
 
@@ -107,6 +108,7 @@ func (e *Engine) webSocketRoute(req *http.Request, r route) (route, error) {
 		return r, fmt.Errorf("%w: no browser was measured opening a ws:// socket through a SOCKS5 proxy", headerorder.ErrNotMeasured)
 	}
 	r.forward = r.forward && w.Plain == profile.PlainWebSocketForward
+
 	return r, nil
 }
 
@@ -163,6 +165,7 @@ func (e *Engine) openWebSocketH1(ctx context.Context, req *http.Request, r route
 		return nil, err
 	}
 	nc, br := c.Hijack()
+
 	return &WebSocket{
 		Response: resp,
 		Conn: &h1Socket{
@@ -218,6 +221,7 @@ func (e *Engine) dialWebSocket(ctx context.Context, req *http.Request, r route) 
 		_ = tc.Close()
 		return nil, errors.New("mimicry: the server chose h2 for a WebSocket hello offering only HTTP/1.1")
 	}
+
 	return tc, nil
 }
 
@@ -254,6 +258,7 @@ func (s *h1Socket) Send(ctx context.Context, parts [][]byte, _ bool) error {
 	if ctxErr := ctx.Err(); err != nil && ctxErr != nil {
 		return ctxErr
 	}
+
 	return err
 }
 

@@ -293,6 +293,7 @@ func (c *QUICErrorCode) UnmarshalText(text []byte) error {
 		return fmt.Errorf("QUIC error code %q: %w", text, err)
 	}
 	*c = QUICErrorCode(v)
+
 	return nil
 }
 
@@ -485,6 +486,7 @@ func (id TransportParameterID) String() string {
 	if id == GREASETransportParameter {
 		return "GREASE"
 	}
+
 	return fmt.Sprintf("0x%02x", uint64(id))
 }
 
@@ -511,6 +513,7 @@ func (id *TransportParameterID) UnmarshalText(text []byte) error {
 		return fmt.Errorf("invalid transport parameter %q: %w", s, err)
 	}
 	*id = TransportParameterID(v)
+
 	return nil
 }
 
@@ -532,6 +535,7 @@ func (v QUICVersion) String() string {
 	if v == GREASEVersion {
 		return "GREASE"
 	}
+
 	return fmt.Sprintf("0x%08x", uint32(v))
 }
 
@@ -561,6 +565,7 @@ func (v *QUICVersion) UnmarshalText(text []byte) error {
 		return nil
 	}
 	*v = QUICVersion(n)
+
 	return nil
 }
 

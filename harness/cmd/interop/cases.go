@@ -77,6 +77,7 @@ func (e *caseEnv) missing(what string) string {
 	if e.fallback == "" {
 		return what
 	}
+
 	return fmt.Sprintf("%s (its %s mode offers no h3, so it ran as http3)", what, e.fallback)
 }
 
@@ -283,6 +284,7 @@ func oneConn(ctx context.Context, e *caseEnv, r *result, imp impairment, concurr
 			r.Conns = append(r.Conns, c.facts())
 		}
 		r.failf("dial: %s", errString(err))
+
 		return
 	}
 	fs := getAll(ctx, pr, c, paths, concurrent)
@@ -299,6 +301,7 @@ func getAll(ctx context.Context, pr *prober, c *probeConn, paths []string, concu
 		for i, p := range paths {
 			fs[i] = pr.get(ctx, c, p)
 		}
+
 		return fs
 	}
 	var wg sync.WaitGroup
@@ -308,6 +311,7 @@ func getAll(ctx context.Context, pr *prober, c *probeConn, paths []string, concu
 		})
 	}
 	wg.Wait()
+
 	return fs
 }
 
@@ -335,6 +339,7 @@ func runMultiplexing(ctx context.Context, e *caseEnv, r *result) {
 			r.Conns = append(r.Conns, c.facts())
 		}
 		r.failf("dial: %s", errString(err))
+
 		return
 	}
 	paths := make([]string, multiplexFiles)
@@ -377,6 +382,7 @@ func runResumption(ctx context.Context, e *caseEnv, r *result, zeroRTT bool) {
 			r.Conns = append(r.Conns, c.facts())
 		}
 		r.failf("dial: %s", errString(err))
+
 		return
 	}
 	fs := getAll(ctx, pr, c, []string{fileSmall}, false)
@@ -398,6 +404,7 @@ func runResumption(ctx context.Context, e *caseEnv, r *result, zeroRTT bool) {
 			r.Conns = append(r.Conns, c.facts())
 		}
 		r.failf("resumed dial: %s", errString(err))
+
 		return
 	}
 	fs = getAll(ctx, pr, c, []string{fileSmall}, false)
@@ -512,12 +519,14 @@ func runUDPBlocked(ctx context.Context, e *caseEnv, r *result) {
 	if err != nil {
 		_ = ln.Close()
 		r.failf("listen: %v", err)
+
 		return
 	}
 	sink, err := lc.ListenPacket(ctx, "udp4", "127.0.0.1:"+strconv.Itoa(port))
 	if err != nil {
 		_ = ln.Close()
 		r.failf("listen: %v", err)
+
 		return
 	}
 	defer func() {

@@ -19,6 +19,7 @@ func chromeHello(t *testing.T) []byte {
 	if err := u.BuildHandshakeState(); err != nil {
 		t.Fatal(err)
 	}
+
 	return u.HandshakeState.Hello.Raw
 }
 
@@ -31,6 +32,7 @@ func records(payload []byte, size int) []byte {
 		out = append(out, payload[:n]...)
 		payload = payload[n:]
 	}
+
 	return out
 }
 

@@ -40,6 +40,7 @@ func Measured(p *profile.Profile, plan *headerorder.Plan) bool {
 		return hd.AltUsedNavigation != ""
 	}
 	_, ok := hd.AltUsed[plan.Kind]
+
 	return ok
 }
 
@@ -78,6 +79,7 @@ func bodyLength(req *http.Request) int64 {
 	if req.ContentLength <= 0 {
 		return -1
 	}
+
 	return req.ContentLength
 }
 
@@ -182,6 +184,7 @@ func buildHead(p *profile.Profile, altHost, altPort string, req *http.Request, l
 						Value: crumb,
 					})
 				}
+
 				continue
 			}
 			f.Value = strings.Join(crumbs, "; ")
@@ -191,6 +194,7 @@ func buildHead(p *profile.Profile, altHost, altPort string, req *http.Request, l
 			Value: f.Value,
 		})
 	}
+
 	return out, nil
 }
 
@@ -239,6 +243,7 @@ func placeAltUsed(p *profile.Profile, alt string, fields []headerorder.Field, pl
 	if at < 0 {
 		at = len(fields)
 	}
+
 	return slices.Insert(fields, at, field)
 }
 
@@ -249,5 +254,6 @@ func altUsedValue(host, port string) string {
 	if port == "443" {
 		return host
 	}
+
 	return net.JoinHostPort(host, port)
 }

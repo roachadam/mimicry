@@ -40,6 +40,7 @@ func Decode(start time.Time, datagrams []Received, cidLen int, keyLog *KeyLog) [
 			if c != nil {
 				c.conn.Server = append(c.conn.Server, c.datagram(r, c.serverPacket))
 			}
+
 			continue
 		}
 		if next := c.newConnection(r.Data); next != nil {
@@ -68,6 +69,7 @@ func Decode(start time.Time, datagrams []Received, cidLen int, keyLog *KeyLog) [
 		}
 		c.conn.Datagrams = append(c.conn.Datagrams, c.datagram(r, c.packet))
 	}
+
 	return conns
 }
 
@@ -97,6 +99,7 @@ func migrated(states []*connState, data []byte) *connState {
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -173,6 +176,7 @@ func (c *connState) newConnection(data []byte) *connState {
 	if _, err := k.unprotect(data[:h.end], h.pnOffset, false, -1); err != nil {
 		return nil
 	}
+
 	return &connState{
 		conn: &Conn{
 			Version:   versionHex(h.version),
@@ -212,6 +216,7 @@ func (c *connState) initialKeys(version uint32, server bool) *keys {
 		k = nil
 	}
 	m[version] = k
+
 	return k
 }
 
@@ -239,6 +244,7 @@ func (c *connState) datagram(r Received, packet func([]byte) (Packet, int, error
 		d.Packets = append(d.Packets, p)
 		rest = rest[n:]
 	}
+
 	return d
 }
 
@@ -307,6 +313,7 @@ func parseLongHeader(b []byte) (longHeader, error) {
 	h.length = new(int(length))
 	h.pnOffset = len(b) - len(r.b)
 	h.end = h.pnOffset + int(length)
+
 	return h, nil
 }
 
@@ -323,6 +330,7 @@ func (c *connState) packet(b []byte) (Packet, int, error) {
 			Size:       len(b),
 		}
 		c.open(&p, b, 1+c.cidLen, true, c.appVersion())
+
 		return p, len(b), nil
 	}
 	h, p, err := longPacket(b)
@@ -345,6 +353,7 @@ func (c *connState) packet(b []byte) (Packet, int, error) {
 	default:
 		p.Error = "not a packet a client protects"
 	}
+
 	return p, h.end, nil
 }
 
@@ -368,6 +377,7 @@ func (c *connState) serverPacket(b []byte) (Packet, int, error) {
 				c.serverLargest[spaceApp] = max(c.serverLargest[spaceApp], int64(o.pn))
 			}
 		}
+
 		return p, len(b), nil
 	}
 	h, p, err := longPacket(b)
@@ -394,6 +404,7 @@ func (c *connState) serverPacket(b []byte) (Packet, int, error) {
 	default:
 		p.Error = "not a packet a server protects"
 	}
+
 	return p, h.end, nil
 }
 
@@ -413,6 +424,7 @@ func longPacket(b []byte) (longHeader, Packet, error) {
 		Length:      h.length,
 		Size:        h.end,
 	}
+
 	return h, p, nil
 }
 
@@ -491,6 +503,7 @@ func readOpened(p *Packet, o opened, err error, largest *int64) ([]cryptoData, b
 	if err != nil {
 		p.FirstByte = 0
 		p.Error = "cannot open: " + err.Error()
+
 		return nil, false
 	}
 	p.FirstByte, p.PNLength, p.PN = o.firstByte, o.pnLen, o.pn
@@ -500,6 +513,7 @@ func readOpened(p *Packet, o opened, err error, largest *int64) ([]cryptoData, b
 	if err != nil {
 		p.Error = "frames: " + err.Error()
 	}
+
 	return crypto, true
 }
 
@@ -509,6 +523,7 @@ func (c *connState) appVersion() uint32 {
 	if c.handshakeVersion != 0 {
 		return c.handshakeVersion
 	}
+
 	return c.initialVersion
 }
 
@@ -534,6 +549,7 @@ func (c *connState) serverAppKeys(version uint32, b []byte, pnOffset int) *keys 
 		return nil
 	}
 	c.serverApp[version] = k
+
 	return k
 }
 
@@ -547,6 +563,7 @@ func (c *connState) suite() (suite, bool) {
 			}
 		}
 	}
+
 	return suite{}, false
 }
 
@@ -561,6 +578,7 @@ func (c *connState) keysFor(typ string, version uint32, b []byte, pnOffset int, 
 	case Packet0RTT:
 		return spaceApp, c.trafficKeys(c.early, labelClientEarly, version, b, pnOffset, short, c.largest[spaceApp])
 	}
+
 	return spaceApp, c.trafficKeys(c.app, labelClientTraffic, version, b, pnOffset, short, c.largest[spaceApp])
 }
 
@@ -582,6 +600,7 @@ func (c *connState) trafficKeys(m map[uint32]*keys, label string, version uint32
 	if k != nil {
 		m[version] = k
 	}
+
 	return k
 }
 
@@ -636,6 +655,7 @@ func (c *Conn) ClientHelloBytes() []byte {
 	if err != nil || len(b) == 0 {
 		return nil
 	}
+
 	return b
 }
 
@@ -677,6 +697,7 @@ func (s *cryptoStream) message() []byte {
 			return nil
 		}
 	}
+
 	return append([]byte(nil), s.data[:n]...)
 }
 
@@ -735,6 +756,7 @@ func readHello(msg []byte) (hello, error) {
 			h.transportParameters = append([]byte{}, data...)
 		}
 	}
+
 	return h, nil
 }
 
@@ -763,5 +785,6 @@ func readEncryptedExtensions(msg []byte) ([]byte, error) {
 			return append([]byte(nil), data...), nil
 		}
 	}
+
 	return nil, errors.New("no quic_transport_parameters in EncryptedExtensions")
 }

@@ -38,6 +38,7 @@ func (s SameSite) String() string {
 	case SameSiteUnset:
 		// No attribute to name.
 	}
+
 	return ""
 }
 
@@ -59,6 +60,7 @@ func (s *SameSite) UnmarshalText(b []byte) error {
 	default:
 		*s = SameSiteUnset
 	}
+
 	return nil
 }
 
@@ -104,5 +106,6 @@ func (c *Cookie) pair() string {
 	if c.Name == "" {
 		return c.Value
 	}
+
 	return c.Name + "=" + c.Value
 }

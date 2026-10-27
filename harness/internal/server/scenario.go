@@ -258,6 +258,7 @@ func ScenarioByName(name string) (*Scenario, error) {
 	for i, s := range Scenarios {
 		names[i] = s.Name
 	}
+
 	return nil, fmt.Errorf("unknown scenario %q (have %s)", name, strings.Join(names, ", "))
 }
 
@@ -271,6 +272,7 @@ func (sc *Scenario) answer(r request) response {
 			return resp
 		}
 	}
+
 	return defaultResponse(r.path, r.uploaded)
 }
 
@@ -279,6 +281,7 @@ func (sc *Scenario) tableSize() uint32 {
 	if v, ok := sc.Setting(http2.SettingHeaderTableSize); ok {
 		return v
 	}
+
 	return 4096
 }
 
@@ -287,6 +290,7 @@ func (sc *Scenario) maxFrameSize() uint32 {
 	if v, ok := sc.Setting(http2.SettingMaxFrameSize); ok {
 		return v
 	}
+
 	return 16384
 }
 
@@ -298,6 +302,7 @@ func (sc *Scenario) Setting(id http2.SettingID) (uint32, bool) {
 			return s.Val, true
 		}
 	}
+
 	return 0, false
 }
 
@@ -308,6 +313,7 @@ func (sc *Scenario) settingsFor(host string) []http2.Setting {
 	if !slices.Contains(sc.connectHosts, host) {
 		return sc.Settings
 	}
+
 	return append(slices.Clone(sc.Settings), http2.Setting{
 		ID:  http2.SettingEnableConnectProtocol,
 		Val: 1,
@@ -321,6 +327,7 @@ func (sc *Scenario) settingFor(host string, id http2.SettingID) (uint32, bool) {
 			return s.Val, true
 		}
 	}
+
 	return 0, false
 }
 
@@ -435,6 +442,7 @@ func defaultResponse(path string, uploaded int) response {
 	case "/again", "/done":
 		return response{status: 200, contentType: "text/plain", body: []byte("ok\n")}
 	}
+
 	return response{status: 404, contentType: "text/plain", body: []byte("not found\n")}
 }
 
@@ -471,6 +479,7 @@ func cookieValue(seed string, n int) string {
 		h = h*1664525 + 1013904223
 		b.WriteByte(alphabet[h>>26])
 	}
+
 	return b.String()
 }
 
@@ -491,6 +500,7 @@ func setCookieResponse(path string, _ int) (response, bool) {
 				Value: c.name + "=" + cookieValue(c.name, c.length) + "; Max-Age=600; " + c.attrs,
 			})
 		}
+
 		return r, true
 	case "/app.js":
 		return response{status: 200, contentType: "text/javascript", body: []byte(cookieScript)}, true
@@ -502,8 +512,10 @@ func setCookieResponse(path string, _ int) (response, bool) {
 				Value: c.name + "=; Max-Age=0; " + c.attrs,
 			})
 		}
+
 		return r, true
 	}
+
 	return response{}, false
 }
 
@@ -530,5 +542,6 @@ func slowIdleResponse(path string, _ int) (response, bool) {
 			dripEvery:   250 * time.Millisecond,
 		}, true
 	}
+
 	return response{}, false
 }

@@ -224,6 +224,10 @@ linters:
             - github.com/roachadam/mimicry/profile$
             - golang.org/x/crypto
             - golang.org/x/net
+    nlreturn:
+      # A return or branch in a block of more than 2 lines needs a blank line
+      # before it.
+      block-size: 2
     gosec:
       excludes:
         # File paths are built by our own code and tests (capture names come
@@ -267,6 +271,7 @@ linters:
     - nolintlint      # nolint directives are specific, explained, and used
     - usestdlibvars   # stdlib constants instead of literals
     - modernize       # newer stdlib idioms (gopls's modernize analyzers)
+    - nlreturn        # blank line before return/branch in longer blocks
   exclusions:
     # internal/quic is a copy of golang.org/x/net/quic (decision 0027) in
     # upstream's style, which these linters fault in ~500 places (unchecked
@@ -300,6 +305,7 @@ linters:
           - nolintlint
           - usestdlibvars
           - modernize
+          - nlreturn
           - gosec
           - gocritic
           - prealloc

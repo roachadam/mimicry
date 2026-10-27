@@ -172,6 +172,7 @@ func New(t Transport, r io.Reader, cfg Config) (*Conn, error) {
 		c.inflater = zdeflate.NewReader()
 	}
 	go c.readLoop()
+
 	return c, nil
 }
 
@@ -183,6 +184,7 @@ func (c *Conn) ReadMessage(ctx context.Context) (Message, error) {
 		if !ok {
 			return Message{}, c.readErr
 		}
+
 		return m, nil
 	case <-ctx.Done():
 		return Message{}, ctx.Err()
@@ -215,6 +217,7 @@ func (c *Conn) WriteMessage(ctx context.Context, opcode byte, p []byte) error {
 			rsv = rsv1
 		}
 	}
+
 	return c.writeFrame(ctx, opcode, rsv, payload, false, false)
 }
 
@@ -244,8 +247,10 @@ func (c *Conn) writeFrame(ctx context.Context, opcode, rsv byte, payload []byte,
 		// Part of the frame may be on the wire: nothing can follow it.
 		c.failed = fmt.Errorf("ws: writing a frame failed: %w", err)
 		_ = c.t.Close()
+
 		return err
 	}
+
 	return nil
 }
 
@@ -268,9 +273,11 @@ func (c *Conn) parts(frame []byte, head int, opcode byte, reply bool) [][]byte {
 			if len(frame) > 6 {
 				parts = append(parts, frame[6:])
 			}
+
 			return parts
 		}
 	}
+
 	return [][]byte{frame}
 }
 
@@ -327,6 +334,7 @@ func (c *Conn) Close(code int, reason string) error {
 		// The transport ended without the server's close frame.
 		return c.readErr
 	}
+
 	return nil
 }
 
@@ -337,6 +345,7 @@ func (c *Conn) waitsForEnd() bool {
 	if c.cfg.H2 {
 		return c.cfg.Profile.CloseH2 != ""
 	}
+
 	return c.cfg.Profile.CloseH1 != ""
 }
 
@@ -403,6 +412,7 @@ func (c *Conn) drain() error {
 		// The server ended the transport before the wait was over.
 		return io.EOF
 	}
+
 	return err
 }
 
@@ -442,6 +452,7 @@ func (c *Conn) read() error {
 			if done, err := c.control(h.Opcode, payload); done || err != nil {
 				return err
 			}
+
 			continue
 		}
 		if h.Opcode != OpContinuation {
@@ -494,6 +505,7 @@ func (c *Conn) control(opcode byte, payload []byte) (done bool, err error) {
 		if closing {
 			return false, nil
 		}
+
 		return false, c.writeFrame(context.Background(), OpPong, 0, payload, true, false)
 	case OpClose:
 		ce := &CloseError{
@@ -524,6 +536,7 @@ func (c *Conn) control(opcode byte, payload []byte) (done bool, err error) {
 				return false, err
 			}
 		}
+
 		return true, ce
 	}
 	// A pong: nothing to do.

@@ -202,6 +202,7 @@ func lsquicOverrides() map[string]override {
 		prelude:  `sed -i "s/^\( *VERSIONS='-o version=h3-29 -o version=h3'\)$/\1; FORCE_RETRY=1/" /run_endpoint.sh`,
 		why:      "http3 with LSQUIC_FORCE_RETRY=1",
 	}
+
 	return ovs
 }
 
@@ -255,6 +256,7 @@ func newLocalSetup(ctx context.Context, dir string) (*localSetup, error) {
 	if s.resolver, err = loopbackResolver(ctx); err != nil {
 		return nil, err
 	}
+
 	return s, nil
 }
 
@@ -284,6 +286,7 @@ func (s *localSetup) loadCerts() error {
 	if !s.roots.AppendCertsFromPEM(caPEM) {
 		return errors.New("no CA")
 	}
+
 	return nil
 }
 
@@ -360,6 +363,7 @@ func (s *localSetup) writeCerts() error {
 	s.roots = x509.NewCertPool()
 	s.roots.AddCert(ca)
 	s.cert, err = tls.X509KeyPair(certPEM, keyPEM)
+
 	return err
 }
 
@@ -388,6 +392,7 @@ func (s *localSetup) writeFiles() error {
 		}
 		s.files[p] = sha256.Sum256(b)
 	}
+
 	return nil
 }
 
@@ -470,6 +475,7 @@ func (s *localSetup) startServer(ctx context.Context, srv server, testcase, logs
 			break
 		}
 	}
+
 	return c, nil
 }
 
@@ -487,6 +493,7 @@ func (s *localSetup) startFront(ln net.Listener, port uint16) *http.Server {
 	go func() {
 		_ = front.ServeTLS(ln, "", "")
 	}()
+
 	return front
 }
 
@@ -501,6 +508,7 @@ func (c *container) exited(ctx context.Context) string {
 		return ""
 	}
 	logs, _ := exec.CommandContext(ctx, "docker", "logs", "--tail", "2", c.name).CombinedOutput() //nolint:gosec // a container this tool named
+
 	return fmt.Sprintf("exit %s: %s", strings.Fields(string(out))[1], strings.Join(strings.Fields(string(logs)), " "))
 }
 
@@ -532,6 +540,7 @@ func tcpPort(ln net.Listener) (int, error) {
 	if !ok {
 		return 0, fmt.Errorf("listener on %v is not TCP", ln.Addr())
 	}
+
 	return a.Port, nil
 }
 
@@ -554,8 +563,10 @@ func listenPair(ctx context.Context) (net.Listener, uint16, error) {
 			continue
 		}
 		_ = pc.Close()
+
 		return ln, uint16(port), nil
 	}
+
 	return nil, 0, errors.New("no free TCP/UDP port pair")
 }
 
@@ -585,6 +596,7 @@ func waitReady(ctx context.Context, peer netip.AddrPort, d time.Duration) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -602,6 +614,7 @@ func localGroups(selected []caseDef) [][]caseDef {
 		}
 		groups[i] = append(groups[i], c)
 	}
+
 	return groups
 }
 
@@ -612,6 +625,7 @@ func (s *localSetup) runServer(ctx context.Context, srv server, selected []caseD
 	for _, group := range localGroups(selected) {
 		results = append(results, s.runGroup(ctx, srv, group, profiles, out, seed)...)
 	}
+
 	return results
 }
 
@@ -655,6 +669,7 @@ func (s *localSetup) runGroup(ctx context.Context, srv server, group []caseDef, 
 	if !c.ready {
 		log.Printf("%s/%s: no Version Negotiation reply within 30 s; running anyway", srv.name, c.testcase)
 	}
+
 	return s.runCases(ctx, c, srv.name, mode, fallback, group, profiles, logs, seed)
 }
 
@@ -670,6 +685,7 @@ func (s *localSetup) runAddr(ctx context.Context, port uint16, selected []caseDe
 	}
 	defer c.stop()
 	logs := filepath.Join(out, "local", "addr")
+
 	return s.runCases(ctx, c, "addr", "", "", selected, profiles, logs, seed)
 }
 
@@ -722,6 +738,7 @@ func (s *localSetup) runCases(ctx context.Context, c *container, target, mode, f
 			results = append(results, r)
 		}
 	}
+
 	return results
 }
 
@@ -743,6 +760,7 @@ func (s *localSetup) check(ctx context.Context, c *container, np namedProfile, d
 	cctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 	oneConn(cctx, env, &r, impairment{}, false, fileSmall)
+
 	return r
 }
 
@@ -766,6 +784,7 @@ func groupResults(srv server, group []caseDef, profiles []namedProfile, testcase
 			results = append(results, r)
 		}
 	}
+
 	return results
 }
 

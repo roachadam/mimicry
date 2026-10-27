@@ -60,6 +60,7 @@ func vnRetryHello(dir string, p *profile.Profile, q *profile.QUICHello) (*profil
 			errs = append(errs, fmt.Errorf("%s: %w", c.at, err))
 		}
 	}
+
 	return out, errors.Join(errs...)
 }
 
@@ -71,6 +72,7 @@ func renderRetry(r *profile.QUICHelloRetry) string {
 		b.WriteString(" ")
 		b.WriteString(render(e))
 	}
+
 	return b.String()
 }
 
@@ -79,6 +81,7 @@ func transportParameters(h *profile.TLS) []byte {
 	if e := extension(h, profile.ExtQUICTransportParameters); e != nil {
 		return e.Data
 	}
+
 	return nil
 }
 
@@ -129,6 +132,7 @@ func checkRetryHello(t *profile.TLS, q *profile.QUICHello, r *profile.QUICHelloR
 	if len(lines) > 0 {
 		return errors.New("its hello is not the profile's retried QUIC hello:\n" + strings.Join(lines, "\n"))
 	}
+
 	return nil
 }
 
@@ -166,6 +170,7 @@ func vnRetries(dir string, p *profile.Profile) ([]quicConn, error) {
 			}
 		}
 	}
+
 	return out, nil
 }
 
@@ -178,5 +183,6 @@ func gotVN(c *quictrace.Conn) bool {
 			}
 		}
 	}
+
 	return false
 }

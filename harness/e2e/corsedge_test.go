@@ -90,6 +90,7 @@ func corsEdgePaths(page *capture.Page) []string {
 		}
 	}
 	slices.Sort(out)
+
 	return out
 }
 
@@ -124,6 +125,7 @@ func corsEdgeFetch(t *testing.T, s *pageSession, from *url.URL, st server.CORSEd
 		return err
 	}
 	_, _ = io.Copy(io.Discard, resp.Body)
+
 	return resp.Body.Close()
 }
 
@@ -167,7 +169,9 @@ func corsEdgeConnections(page *capture.Page) [][]string {
 		if c := strings.Compare(a[0], b[0]); c != 0 {
 			return c
 		}
+
 		return len(b) - len(a)
 	})
+
 	return out
 }

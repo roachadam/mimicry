@@ -114,6 +114,7 @@ func existingCaptures(dir string, p *profile.Profile, scenarios ...*Scenario) ([
 			strings.TrimPrefix(filepath.Base(b.Path), b.Source+"."),
 		)
 	})
+
 	return out, nil
 }
 
@@ -159,6 +160,7 @@ const h3Idle = 35 * time.Second
 func H3DiscoverySteps() []H3Step {
 	const second = "/h3/second.so"
 	upload := strings.Repeat("h3-discovery-", 8192/13+1)[:8192]
+
 	return []H3Step{
 		{Label: "markup-style.so", Kind: "style", Host: h3Host, Tag: `<link rel="stylesheet" href="%s">`, Page: "/"},
 		{Label: "markup-script.so", Kind: "script", Host: h3Host, Tag: `<script src="%s"></script>`, Page: "/"},
@@ -203,6 +205,7 @@ func H3PageSteps() []H3Step {
 				PauseMillis: 300,
 			}
 		}
+
 		return out
 	}
 	// first are the warm-up page's steps and the kinds page's markup.
@@ -216,6 +219,7 @@ func H3PageSteps() []H3Step {
 		{Label: "image-markup.so", Kind: "image", Host: h3Host, Tag: `<img src="%s" alt="">`, Page: kinds, Delay: h3ImageDelay},
 		{Label: "image-offscreen.so", Kind: "image", Host: h3Host, Tag: `<div style="height: 5000px"></div><img src="%s" alt="">`, Page: kinds, Delay: h3ImageDelay},
 	}
+
 	return slices.Concat(first, scripted(h3Host, []KindsStep{
 		{Label: "script.so", Kind: "script"},
 		{Label: "style.so", Kind: "style"},
@@ -261,6 +265,7 @@ func (p h3Page) answer(req request) response {
 	if !slices.Contains(p.plainHosts, host) {
 		r.headers = append(r.headers, altSvc(port))
 	}
+
 	return r
 }
 
@@ -289,8 +294,10 @@ func (p h3Page) respond(host, port, path string) response {
 		r.delay = s.Delay
 		r.closeAfter, r.tcpOnly, r.blackhole = s.CloseAfter || s.GoAwayTCP, s.GoAwayTCP, s.Blackhole
 		r.silence = s.Silence
+
 		return r
 	}
+
 	return response{status: 404, contentType: "text/plain", body: []byte("not found\n")}
 }
 
@@ -334,5 +341,6 @@ for (const s of steps) {
 }
 ` + done + `
 })();`
+
 	return htmlPage("h3 "+path, "\n"+head.String(), body.String()+"<script>"+script+"</script>\n")
 }

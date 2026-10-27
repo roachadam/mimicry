@@ -52,6 +52,7 @@ func (r *refreshRun) capture(ctx context.Context) error {
 	if err := r.save(); err != nil {
 		errs = append(errs, err)
 	}
+
 	return errors.Join(errs...)
 }
 
@@ -129,6 +130,7 @@ func (r *refreshRun) capturePlan(ctx context.Context, p *plan) error {
 	if p.Measured, err = parseSummary(data); err != nil {
 		return err
 	}
+
 	return r.checkCaptures(ctx, p)
 }
 
@@ -142,6 +144,7 @@ func parseSummary(data []byte) ([]summaryLine, error) {
 		}
 		out = append(out, l)
 	}
+
 	return out, sc.Err()
 }
 
@@ -185,5 +188,6 @@ func (r *refreshRun) checkCaptures(ctx context.Context, p *plan) error {
 		return fmt.Errorf("captures in %s refused:\n  %s", r.stagedCaptures(p), strings.Join(problems, "\n  "))
 	}
 	log.Printf("%s: %d captures staged in %s, all from %s", p.Target, len(p.Measured), r.stagedCaptures(p), p.Installed)
+
 	return nil
 }

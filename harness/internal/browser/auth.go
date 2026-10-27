@@ -69,6 +69,7 @@ func dialRPC(ctx context.Context, endpoint string, onEvent func(rpcMessage)) (*r
 		done:    make(chan struct{}),
 	}
 	go r.read()
+
 	return r, nil
 }
 
@@ -87,6 +88,7 @@ func (r *rpc) read() {
 			if ch != nil {
 				ch <- m
 			}
+
 			continue
 		}
 		go r.onEvent(m)
@@ -118,6 +120,7 @@ func (r *rpc) call(ctx context.Context, method string, params any) (json.RawMess
 		if len(m.Error) > 0 {
 			return nil, fmt.Errorf("%s: %s %s", method, m.Error, m.Message)
 		}
+
 		return m.Result, nil
 	case <-r.done:
 		return nil, fmt.Errorf("%s: connection closed", method)
@@ -129,6 +132,7 @@ func (r *rpc) call(ctx context.Context, method string, params any) (json.RawMess
 func (r *rpc) Close() error {
 	err := r.ws.Close()
 	<-r.done
+
 	return err
 }
 
@@ -192,6 +196,7 @@ func chromeAuth(ctx context.Context, dir string, user *url.Userinfo) (io.Closer,
 	}); err != nil {
 		return nil, errors.Join(err, r.Close())
 	}
+
 	return r, nil
 }
 
@@ -257,6 +262,7 @@ func firefoxAuth(ctx context.Context, port int, pageURL string, user *url.Userin
 	}); err != nil {
 		return nil, errors.Join(err, r.Close())
 	}
+
 	return r, nil
 }
 
@@ -291,6 +297,7 @@ func firefoxContext(ctx context.Context, r *rpc) (string, error) {
 	if err := json.Unmarshal(tree, &t); err != nil || len(t.Contexts) == 0 {
 		return "", fmt.Errorf("firefox reported no browsing context: %s", tree)
 	}
+
 	return t.Contexts[0].Context, nil
 }
 
@@ -305,5 +312,6 @@ func freePort() (int, error) {
 		_ = ln.Close()
 		return 0, fmt.Errorf("listener on %v is not TCP", ln.Addr())
 	}
+
 	return addr.Port, ln.Close()
 }

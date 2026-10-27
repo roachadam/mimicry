@@ -209,6 +209,7 @@ func readLine(br *bufio.Reader) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("line %q does not end in CRLF", line)
 	}
+
 	return text, nil
 }
 
@@ -228,6 +229,7 @@ func profileHeaders(lines []string) []profile.Header {
 		}
 		out = append(out, h)
 	}
+
 	return out
 }
 
@@ -245,5 +247,6 @@ func writeResponse(w io.Writer, r response) error {
 	}
 	_, _ = bw.WriteString("\r\n")
 	_, _ = bw.Write(r.body)
+
 	return bw.Flush()
 }

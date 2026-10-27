@@ -106,6 +106,7 @@ func printPreflight(caDir string) error {
 	}[safariProxyConfig(ctx)]
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
+
 	return enc.Encode(r)
 }
 
@@ -124,6 +125,7 @@ func consoleUser() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return u.Username, nil
 }
 
@@ -133,6 +135,7 @@ func bundleVersion(ctx context.Context, app string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("reading %s's version: %w", app, err)
 	}
+
 	return strings.TrimSpace(string(out)), nil
 }
 
@@ -146,5 +149,6 @@ func quarantined(ctx context.Context, app string) bool {
 	}
 	flags, _, _ := strings.Cut(strings.TrimSpace(string(out)), ";")
 	v, err := strconv.ParseUint(flags, 16, 32)
+
 	return err == nil && v&0x40 == 0
 }

@@ -63,6 +63,7 @@ func (o options) samplesFor(sc *server.Scenario) int {
 	if n, ok := o.samplesOf[sc.Name]; ok {
 		return n
 	}
+
 	return o.samples
 }
 
@@ -202,12 +203,14 @@ func run() error {
 				"  sudo networksetup -setautoproxyurl <service> %s\n  sudo networksetup -setautoproxystate <service> off\n"+
 				"(networksetup -listallnetworkservices lists services). The script proxies only *.test. For proxy credentials, use manual web and secure web proxies at %s with a password instead.", b.Name, b.Name, safariPACURL, safariHTTPProxy)
 			failed++
+
 			continue
 		}
 		if b.Shared && !dnsstub.ResolverInstalled() {
 			log.Printf("%s: %s does not send *.test lookups to the capture tool, so %s cannot reach the capture hosts. Create it once:\n  %s",
 				b.Name, dnsstub.ResolverFile, b.Name, dnsstub.InstallCommand)
 			failed++
+
 			continue
 		}
 		if b.Shared && !server.TrustedBySystem(cert, server.CaptureHost) {
@@ -215,6 +218,7 @@ func run() error {
 				"  security add-trusted-cert -r trustRoot -p ssl -k ~/Library/Keychains/login.keychain-db %q\n"+
 				"It can only vouch for names under %s.", b.Name, b.Name, ca.CertPath, strings.Join(server.CADomains, " and "))
 			failed++
+
 			continue
 		}
 		if b.Name == "chrome" && slices.ContainsFunc(scenarios, (*server.Scenario).HTTP3) && !server.TrustedBySystem(cert, server.CaptureHost) {
@@ -234,6 +238,7 @@ func run() error {
 				log.Printf("%s: skipping scenario %s: the system uses manual web proxies, which send everything to the HTTP proxy at %s. Use the proxy script for SOCKS5 scenarios:\n"+
 					"  sudo networksetup -setautoproxyurl <service> %s", b.Name, sc.Name, safariHTTPProxy, safariPACURL)
 				refused++
+
 				return true
 			})
 		}
@@ -247,6 +252,7 @@ func run() error {
 	if failed > 0 {
 		return errors.Join(fmt.Errorf("%d of %d browsers failed", failed, len(browsers)), skipped)
 	}
+
 	return skipped
 }
 
@@ -300,6 +306,7 @@ func captureBrowser(ctx context.Context, b *browser.Browser, opts options) error
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -330,6 +337,7 @@ func captureScenario(ctx context.Context, b *browser.Browser, sc *server.Scenari
 		return nil, err
 	}
 	c.Identify()
+
 	return c, nil
 }
 
@@ -348,6 +356,7 @@ func tcpPort(ln net.Listener) (int, error) {
 	if !ok {
 		return 0, fmt.Errorf("listener on %v is not TCP", ln.Addr())
 	}
+
 	return a.Port, nil
 }
 
@@ -440,6 +449,7 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 		if plainPort, err = tcpPort(srv.PlainListener); err != nil {
 			_ = ln.Close()
 			_ = srv.PlainListener.Close()
+
 			return nil, err
 		}
 		if px != nil {
@@ -529,6 +539,7 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 			c.Page.Conditions = conditions
 		}
 	}
+
 	return c, err
 }
 
@@ -554,6 +565,7 @@ func listen(ctx context.Context, udp bool) (net.Listener, net.PacketConn, error)
 		// The port is taken for UDP; try another.
 		_ = ln.Close()
 	}
+
 	return nil, nil, errors.New("no port free for both TCP and UDP")
 }
 
@@ -592,6 +604,7 @@ func await(ctx context.Context, name string, captures <-chan *capture.Capture, t
 				}
 				log.Printf("%s: an HTTP/2 connection ended before /done after %v; its last frames: %s; waiting for the rest",
 					name, paths, strings.Join(last, " "))
+
 				continue
 			}
 			if len(c.H1) > 0 && !c.Finished {
@@ -604,6 +617,7 @@ func await(ctx context.Context, name string, captures <-chan *capture.Capture, t
 				// navigation (errPageMoved).
 				return nil, fmt.Errorf("%w: the connection that finished it starts with %s", errPageMoved, c.Trace.Requests[0].Path)
 			}
+
 			return c, nil
 		case <-deadline:
 			return nil, fmt.Errorf("no request within %s", timeout)
@@ -624,6 +638,7 @@ func scenarioEntry(entry string) (string, int, error) {
 	if err != nil || n < 1 {
 		return "", 0, fmt.Errorf("-scenarios %q: samples must be a positive number", entry)
 	}
+
 	return name, n, nil
 }
 
@@ -649,6 +664,7 @@ func scenariosNamed(name, pages string) ([]*server.Scenario, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		return []*server.Scenario{
 			sc,
 		}, nil
@@ -666,5 +682,6 @@ func scenariosNamed(name, pages string) ([]*server.Scenario, error) {
 		log.Print(sc.Doc)
 		out = append(out, sc)
 	}
+
 	return out, nil
 }

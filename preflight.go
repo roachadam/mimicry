@@ -39,6 +39,7 @@ func (e *CORSError) Error() string {
 	if e.Redirect {
 		return fmt.Sprintf("mimicry: CORS check of the %d redirect from %s refused it: %s", e.Status, e.URL.Redacted(), e.Reason)
 	}
+
 	return fmt.Sprintf("mimicry: CORS preflight for %s refused the request: %s", e.URL.Redacted(), e.Reason)
 }
 
@@ -81,6 +82,7 @@ func needsPreflight(req *http.Request, r Request, from *url.URL, credentialed bo
 	}
 	u := *req.URL
 	u.Fragment, u.RawFragment = "", ""
+
 	return &preflightNeed{
 		key: preflightKey{
 			origin:       o,
@@ -151,6 +153,7 @@ func (t *Transport) preflightFor(req *http.Request, r Request, from *url.URL, cr
 	}
 	pre = pre.WithContext(pctx)
 	pre.Header = s.header
+
 	return true, &preflightSend{
 		need: need,
 		req:  pre,
@@ -173,6 +176,7 @@ func (t *Transport) sendPreflight(pf *preflightSend, ignore bool) error {
 		if ignore {
 			return nil
 		}
+
 		return &CORSError{
 			URL:    pf.req.URL,
 			Reason: reason,
@@ -181,6 +185,7 @@ func (t *Transport) sendPreflight(pf *preflightSend, ignore bool) error {
 		}
 	}
 	t.preflights.store(pf.need, resp.Header, pf.rule == profile.PreflightCacheReplace, t.clock.Now())
+
 	return nil
 }
 
@@ -197,6 +202,7 @@ func (t *Transport) hopPreflight(req *http.Request, could bool) (bool, error) {
 	if t.profile.Redirects == nil {
 		return false, fmt.Errorf("%w: profile %s has no redirects rules, for a hop after a CORS preflight", ErrNotMeasured, t.profile.Name)
 	}
+
 	return t.profile.Redirects.HopPreflight == profile.RedirectPreflightInherit, nil
 }
 
@@ -228,6 +234,7 @@ func checkPreflight(resp *http.Response, need *preflightNeed) string {
 			return fmt.Sprintf("Access-Control-Allow-Headers does not allow %s", name)
 		}
 	}
+
 	return ""
 }
 
@@ -246,6 +253,7 @@ func checkCORS(h http.Header, origin string, credentialed bool) string {
 	if credentialed && h.Get("Access-Control-Allow-Credentials") != "true" {
 		return "no Access-Control-Allow-Credentials: true on a request with credentials"
 	}
+
 	return ""
 }
 
@@ -259,6 +267,7 @@ func headerList(h http.Header, name string) []string {
 			}
 		}
 	}
+
 	return out
 }
 
@@ -305,6 +314,7 @@ func (c *preflightCache) allows(need *preflightNeed, now time.Time) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -381,6 +391,7 @@ func unsafeHeaders(h http.Header) []string {
 		}
 	}
 	slices.Sort(unsafe)
+
 	return slices.Compact(unsafe)
 }
 
@@ -394,6 +405,7 @@ func forbiddenHeader(lower string) bool {
 		"set-cookie", "te", "trailer", "transfer-encoding", "upgrade", "via", "user-agent":
 		return true
 	}
+
 	return strings.HasPrefix(lower, "proxy-") || strings.HasPrefix(lower, "sec-")
 }
 
@@ -418,10 +430,12 @@ func safelistedHeader(lower, value string) bool {
 		case "application/x-www-form-urlencoded", "multipart/form-data", "text/plain":
 			return true
 		}
+
 		return false
 	case "range":
 		return simpleRange(value)
 	}
+
 	return false
 }
 
@@ -450,6 +464,7 @@ func preflightConfig(p *profile.Profile, config http.Header) http.Header {
 			}
 		}
 	}
+
 	return out
 }
 
@@ -472,6 +487,7 @@ func mimeEssence(value string) string {
 	if !token(typ) || !token(sub) {
 		return ""
 	}
+
 	return strings.ToLower(typ + "/" + sub)
 }
 
@@ -508,5 +524,6 @@ func simpleRange(value string) bool {
 		return true
 	}
 	b, err := strconv.ParseUint(end, 10, 64)
+
 	return err == nil && a <= b
 }

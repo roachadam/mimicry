@@ -19,6 +19,7 @@ func read(t *testing.T, path string) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return data
 }
 

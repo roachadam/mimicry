@@ -118,5 +118,6 @@ func staticIndexes() (map[[2]string]uint64, map[string]uint64) {
 			name[e[0]] = uint64(i)
 		}
 	}
+
 	return exact, name
 }

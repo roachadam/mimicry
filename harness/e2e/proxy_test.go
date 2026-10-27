@@ -161,6 +161,7 @@ func TestUnmeasuredProxyIsAnError(t *testing.T) {
 			strip: func(p *profile.Proxy) *profile.Proxy {
 				p.ConnectAuth, p.ConnectCredentials, p.ForwardCredentials, p.ForwardAuth = nil, "", "", nil
 				p.WebSocket.Credentials = false
+
 				return p
 			},
 			user: url.UserPassword("u", "p"),
@@ -219,6 +220,7 @@ func TestUnmeasuredProxyIsAnError(t *testing.T) {
 				if !errors.Is(err, mimicry.ErrNotMeasured) {
 					t.Fatalf("got %v, want ErrNotMeasured", err)
 				}
+
 				return
 			}
 			req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "https://example.test/", nil)
@@ -319,6 +321,7 @@ func startProxied(t *testing.T, p *profile.Profile, sc *server.Scenario, user *u
 		t.Fatal(err)
 	}
 	t.Cleanup(s.tr.CloseIdleConnections)
+
 	return s
 }
 
@@ -386,6 +389,7 @@ func scenario(t *testing.T, name string) *server.Scenario {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return sc
 }
 
@@ -418,6 +422,7 @@ func nthOK(sample []capture.ProxyRequest, n int) capture.ProxyRequest {
 		}
 		n--
 	}
+
 	return capture.ProxyRequest{}
 }
 
@@ -430,6 +435,7 @@ func credentialed(sample []capture.H1Request, path string) *capture.H1Request {
 			return &sample[i]
 		}
 	}
+
 	return nil
 }
 
@@ -439,6 +445,7 @@ func portless(lines []string) []string {
 	for i, l := range lines {
 		out[i] = testPort.ReplaceAllString(l, ".test:PORT")
 	}
+
 	return out
 }
 
@@ -475,6 +482,7 @@ func connectFlow(sample []capture.ProxyRequest) []string {
 		}
 		out = append(out, fmt.Sprintf("conn %d %d %s", number[r.Conn], r.Status, auth))
 	}
+
 	return out
 }
 
@@ -499,6 +507,7 @@ func forwardAuthFlow(sample []capture.H1Request) []string {
 		}
 		out = append(out, fmt.Sprintf("conn %d %s", number[r.Conn], auth))
 	}
+
 	return out
 }
 
@@ -516,7 +525,9 @@ func authPlace(headers []string) string {
 			return "first"
 		}
 		name, _, _ := strings.Cut(headers[i-1], ":")
+
 		return "after " + name
 	}
+
 	return "none"
 }

@@ -50,6 +50,7 @@ func CertificateValidFor(t testing.TB, validity time.Duration, hosts ...string) 
 	}
 	pool := x509.NewCertPool()
 	pool.AddCert(leaf)
+
 	return tls.Certificate{
 		Certificate: [][]byte{
 			der,

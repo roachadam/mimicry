@@ -56,6 +56,7 @@ func (l *headerLimit) Read(p []byte) (int, error) {
 	}
 	n, err := l.r.Read(p)
 	l.left -= n
+
 	return n, err
 }
 
@@ -111,6 +112,7 @@ func Connect(ctx context.Context, conn net.Conn, target string, header []string)
 			r:    br,
 		}, nil
 	}
+
 	return a, conn, nil
 }
 
@@ -142,6 +144,7 @@ func SOCKS5(ctx context.Context, conn net.Conn, target string, methods []byte, u
 	if err := socks5(conn, host, uint16(port), methods, user); err != nil {
 		return contextError(ctx, err)
 	}
+
 	return nil
 }
 
@@ -218,6 +221,7 @@ func socks5(conn net.Conn, host string, port uint16, methods []byte, user *url.U
 		return fmt.Errorf("SOCKS5 reply address type %d", head[3])
 	}
 	_, err = io.ReadFull(conn, make([]byte, skip+2))
+
 	return err
 }
 
@@ -245,6 +249,7 @@ func socksUser(conn net.Conn, user *url.Userinfo) error {
 	if reply[1] != 0 {
 		return errors.New("SOCKS5 proxy rejected the username and password")
 	}
+
 	return nil
 }
 
@@ -253,6 +258,7 @@ func lengthByte(n int, what string) (byte, error) {
 	if n < 0 || n > 255 {
 		return 0, fmt.Errorf("SOCKS5 %s is limited to 255 bytes", what)
 	}
+
 	return byte(n), nil
 }
 
@@ -276,6 +282,7 @@ func watch(ctx context.Context, conn net.Conn) func() {
 	stop := context.AfterFunc(ctx, func() {
 		_ = conn.SetDeadline(time.Unix(1, 0))
 	})
+
 	return func() {
 		stop()
 		_ = conn.SetDeadline(time.Time{})
@@ -292,6 +299,7 @@ func contextError(ctx context.Context, err error) error {
 	if d, ok := ctx.Deadline(); ok && errors.Is(err, os.ErrDeadlineExceeded) && !time.Now().Before(d) {
 		return context.DeadlineExceeded
 	}
+
 	return err
 }
 

@@ -155,6 +155,7 @@ func (s HPKESuite) Compare(o HPKESuite) int {
 	if s.KDF != o.KDF {
 		return int(s.KDF) - int(o.KDF)
 	}
+
 	return int(s.AEAD) - int(o.AEAD)
 }
 
@@ -283,5 +284,6 @@ func (e *Extension) setFields() []string {
 	if e.RecordSizeLimit != 0 {
 		fields = append(fields, "record_size_limit")
 	}
+
 	return fields
 }

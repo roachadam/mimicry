@@ -175,8 +175,10 @@ func (t *Transport) DialWebSocket(ctx context.Context, rawURL string, opts WebSo
 			// Accepted, but not as asked: the body is the socket's.
 			resp.Body = http.NoBody
 			_ = sock.Conn.Close()
+
 			return nil, resp, err
 		}
+
 		return nil, failedResponse(resp), err
 	}
 	// The body is the socket's from here on, which outlives ctx: its
@@ -196,6 +198,7 @@ func (t *Transport) DialWebSocket(ctx context.Context, rawURL string, opts WebSo
 		_ = sock.Conn.Close()
 		return nil, resp, err
 	}
+
 	return &WebSocket{
 		conn:       conn,
 		protocol:   resp.Header.Get("Sec-WebSocket-Protocol"),
@@ -224,6 +227,7 @@ func webSocketTarget(u *url.URL) (*url.URL, error) {
 	case u.User != nil:
 		return nil, fmt.Errorf("mimicry: WebSocket URL %s has credentials", u.Redacted())
 	}
+
 	return &target, nil
 }
 
@@ -238,6 +242,7 @@ func checkProtocols(protocols []string) error {
 			return fmt.Errorf("mimicry: WebSocket subprotocol %q given twice", pr)
 		}
 	}
+
 	return nil
 }
 
@@ -252,6 +257,7 @@ func placesProtocols(plan *headerorder.Plan) bool {
 			return strings.EqualFold(h.Name, "sec-websocket-protocol")
 		})
 	}
+
 	return places(plan.Headers) && places(plan.HTTP1)
 }
 
@@ -281,6 +287,7 @@ func checkHandshake(sock *native.WebSocket, key, offer string, protocols []strin
 			return nil, fmt.Errorf("mimicry: WebSocket handshake answered subprotocol %q, not one asked for", strings.Join(got, ", "))
 		}
 	}
+
 	return ws.ParseExtensions(offer, strings.Join(resp.Header.Values("Sec-WebSocket-Extensions"), ", "))
 }
 
@@ -296,6 +303,7 @@ func failedResponse(resp *http.Response) *http.Response {
 	b, _ := io.ReadAll(io.LimitReader(resp.Body, failedBody))
 	_ = resp.Body.Close()
 	resp.Body = io.NopCloser(bytes.NewReader(b))
+
 	return resp
 }
 
@@ -307,6 +315,7 @@ func (w *WebSocket) ReadMessage(ctx context.Context) (MessageType, []byte, error
 	if err != nil {
 		return 0, nil, closeError(err)
 	}
+
 	return MessageType(m.Opcode), m.Payload, nil
 }
 
@@ -318,6 +327,7 @@ func (w *WebSocket) WriteMessage(ctx context.Context, typ MessageType, data []by
 	if typ != TextMessage && typ != BinaryMessage {
 		return fmt.Errorf("mimicry: unknown WebSocket message type %d", typ)
 	}
+
 	return w.conn.WriteMessage(ctx, byte(typ), data)
 }
 
@@ -356,5 +366,6 @@ func closeError(err error) error {
 			Reason: ce.Reason,
 		}
 	}
+
 	return err
 }

@@ -75,6 +75,7 @@ func (c *Capture) HasExtension(typ profile.Code) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -84,6 +85,7 @@ func (c *Capture) RecordVersion() uint16 {
 	if len(c.Records) < 3 {
 		return 0
 	}
+
 	return uint16(c.Records[1])<<8 | uint16(c.Records[2])
 }
 
@@ -93,6 +95,7 @@ func (c *Capture) hello() []byte {
 	if len(c.Records) > 0 {
 		return c.Records
 	}
+
 	return c.ClientHello
 }
 
@@ -103,6 +106,7 @@ func (c *Capture) UserAgent() string {
 			return h.Value
 		}
 	}
+
 	return ""
 }
 
@@ -145,6 +149,7 @@ func ParseUserAgent(ua string) (browser, version, platform string) {
 	case strings.Contains(ua, "Linux"), strings.Contains(ua, "X11"):
 		platform = "linux"
 	}
+
 	return browser, version, platform
 }
 
@@ -158,6 +163,7 @@ func majorAfter(ua, marker string) string {
 	if end == 0 {
 		return "unknown"
 	}
+
 	return rest[:end]
 }
 
@@ -194,6 +200,7 @@ func Write(dir string, c *Capture) (string, error) {
 			return "", err
 		}
 	}
+
 	return outputs[0].path, nil
 }
 
@@ -205,6 +212,7 @@ func CheckNew(dir string, c *Capture) error {
 	if err != nil {
 		return err
 	}
+
 	return checkNew(outputs)
 }
 
@@ -218,6 +226,7 @@ func checkNew(outputs []output) error {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -240,6 +249,7 @@ func ReadClientHellos(path string) ([][]byte, error) {
 		}
 		hellos = append(hellos, b)
 	}
+
 	return hellos, nil
 }
 
@@ -277,6 +287,7 @@ func outputsOf(dir string, c *Capture) ([]output, error) {
 					out = hex.AppendEncode(out, h)
 					out = append(out, '\n')
 				}
+
 				return out, nil
 			},
 		})
@@ -332,6 +343,7 @@ func outputsOf(dir string, c *Capture) ([]output, error) {
 				if strings.HasSuffix(trace.path, ".gz") {
 					return gzipped(data)
 				}
+
 				return data, nil
 			},
 		})
@@ -339,6 +351,7 @@ func outputsOf(dir string, c *Capture) ([]output, error) {
 	if len(outputs) == 0 {
 		return nil, fmt.Errorf("scenario %s captured no trace (protocol %q)", c.Scenario, c.Protocol)
 	}
+
 	return outputs, nil
 }
 
@@ -354,5 +367,6 @@ func writeNew(path string, data []byte) error {
 		_ = f.Close()
 		return err
 	}
+
 	return f.Close()
 }

@@ -39,6 +39,7 @@ func quicRuleViolations(p *profile.Profile, c *quictrace.Conn, logf func(format 
 	r.hello()
 	r.h3Grease()
 	r.requestsAfterConfirmed()
+
 	return r.out
 }
 
@@ -62,6 +63,7 @@ func (r *ruleCheck) packets() []*quictrace.Packet {
 			out = append(out, &r.c.Datagrams[di].Packets[pi])
 		}
 	}
+
 	return out
 }
 
@@ -99,6 +101,7 @@ func (r *ruleCheck) packetNumbers() {
 				}
 			}
 		}
+
 		return
 	}
 	seen := map[string]bool{}
@@ -142,6 +145,7 @@ func pnLength(pn uint64) int {
 	case d < 0x800000:
 		return 3
 	}
+
 	return 4
 }
 
@@ -159,6 +163,7 @@ func (r *ruleCheck) dcid() {
 		if pk.DCIDLength < lo || pk.DCIDLength > hi {
 			r.add("first Initial's DCID length %d, not from %d to %d", pk.DCIDLength, lo, hi)
 		}
+
 		return
 	}
 }
@@ -193,6 +198,7 @@ func (r *ruleCheck) helloPackets() []helloPacket {
 			})
 		}
 	}
+
 	return out
 }
 
@@ -206,6 +212,7 @@ func cryptoRanges(pk *quictrace.Packet) []cryptoRange {
 			})
 		}
 	}
+
 	return out
 }
 
@@ -223,6 +230,7 @@ func mergeRanges(rs []cryptoRange) []cryptoRange {
 		}
 		out = append(out, x)
 	}
+
 	return out
 }
 
@@ -372,6 +380,7 @@ func sniCutRule(hello []byte, host string, pkts []helloPacket, datagramSize int)
 	if next != right.start {
 		return fmt.Errorf("the middle ends at %d, not %d", next, right.start)
 	}
+
 	return nil
 }
 
@@ -388,6 +397,7 @@ func cryptoLeftover(d *quictrace.Datagram) bool {
 		return false
 	}
 	n := frames[len(frames)-1].Length
+
 	return d.Trailing < 1+quicwire.SizeVarint(n+1)-quicwire.SizeVarint(n)
 }
 
@@ -527,6 +537,7 @@ func tpName(id uint64, grease bool) string {
 	if grease {
 		return "GREASE"
 	}
+
 	return fmt.Sprintf("0x%x", id)
 }
 
@@ -688,6 +699,7 @@ func helloECH(p *profile.Profile) *profile.ECH {
 			return e.ECH
 		}
 	}
+
 	return nil
 }
 
@@ -803,6 +815,7 @@ func (r *ruleCheck) requestsAfterConfirmed() {
 				if waiting && (first || !newer && largest <= base) {
 					r.add("HTTP/3: the first request left before the client acknowledged a packet the server sent after its Finished (requests_after_confirmed)")
 				}
+
 				return
 			}
 			if first {

@@ -13,6 +13,7 @@ func types(exts []profile.Extension) []profile.Code {
 	for i, e := range exts {
 		out[i] = e.Type
 	}
+
 	return out
 }
 

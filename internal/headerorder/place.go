@@ -63,6 +63,7 @@ func Place(fields []Field, ps []Placement) ([]Field, error) {
 				continue
 			}
 			at = i
+
 			break
 		}
 		if at < 0 {
@@ -70,5 +71,6 @@ func Place(fields []Field, ps []Placement) ([]Field, error) {
 		}
 		fields = slices.Insert(kept, at, moved...)
 	}
+
 	return fields, nil
 }

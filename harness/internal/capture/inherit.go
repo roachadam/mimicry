@@ -19,6 +19,7 @@ func Source(p *profile.Profile, scenario string) string {
 	if from, ok := p.CapturesFrom[scenario]; ok {
 		return from
 	}
+
 	return p.Name
 }
 
@@ -35,6 +36,7 @@ func Inherited(p *profile.Profile, scenario string) (string, *Rewriter, error) {
 	if err != nil {
 		return "", nil, fmt.Errorf("%s inherits %s: %w", p.Name, scenario, err)
 	}
+
 	return source, NewRewriter(from, p), nil
 }
 
@@ -74,9 +76,11 @@ func splitFile(name, file string) (string, string, bool) {
 			if sc == "" {
 				return DefaultScenario, s, true
 			}
+
 			return strings.TrimPrefix(sc, "."), s, true
 		}
 	}
+
 	return "", "", false
 }
 
@@ -129,6 +133,7 @@ func Files(dir string, p *profile.Profile, suffix string) ([]File, error) {
 	slices.SortFunc(out, func(a, b File) int {
 		return strings.Compare(a.Path, b.Path)
 	})
+
 	return out, nil
 }
 
@@ -180,6 +185,7 @@ func NewRewriter(from, to *profile.Profile) *Rewriter {
 	if len(patterns) > 0 {
 		r.tokens = regexp.MustCompile(strings.Join(patterns, "|"))
 	}
+
 	return r
 }
 
@@ -203,6 +209,7 @@ func headerValue(p *profile.Profile, name string) string {
 			}
 		}
 	}
+
 	return ""
 }
 
@@ -211,6 +218,7 @@ func (r *Rewriter) String() string {
 	if r == nil {
 		return "none"
 	}
+
 	return r.fromName + " → " + r.toName
 }
 
@@ -228,9 +236,11 @@ func (r *Rewriter) Value(s string) string {
 			if to, ok := r.replace[m]; ok {
 				return to
 			}
+
 			return m
 		})
 	}
+
 	return s
 }
 

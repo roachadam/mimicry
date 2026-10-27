@@ -116,6 +116,7 @@ func mergeHosts(rows [][]string, hosts map[string]string) [][]string {
 		merged[conn[0]] = len(out)
 		out = append(out, slices.Clone(conn))
 	}
+
 	return out
 }
 
@@ -199,6 +200,7 @@ func runRedirectsPage(t *testing.T, p *profile.Profile, sc *server.Scenario, ste
 			t.Errorf("%s: %v", st.Label, err)
 		}
 	}
+
 	return s.finish(s.url(hosts[0], "/done"))
 }
 
@@ -238,6 +240,7 @@ func redirects2Subresource(t *testing.T, s *pageSession, root *url.URL, st serve
 		h = http.Header{"Content-Type": {"text/plain;charset=UTF-8"}}
 	}
 	_, err := redirectsSend(t, s, method, target, st.Body, h, r, false)
+
 	return err
 }
 
@@ -263,6 +266,7 @@ func redirectsSend(t *testing.T, s *pageSession, method, target, body string, h 
 		return nil, err
 	}
 	_, _ = io.Copy(io.Discard, resp.Body)
+
 	return resp.Request.URL, resp.Body.Close()
 }
 
@@ -293,6 +297,7 @@ func TestNavRedirectsMatchBrowser(t *testing.T) {
 					for _, path := range redirectsPaths(redirectsConnections(t, want[0], false, apart)) {
 						comparePath(t, done, want, path, false, false, false)
 					}
+
 					return
 				}
 				step, ok := sc.NavRedirectStep()
@@ -325,6 +330,7 @@ func TestNavRedirectsMatchBrowser(t *testing.T) {
 							out = append(out, conn)
 						}
 					}
+
 					return out
 				}
 				got := noDone(redirectsConnections(t, done, false, nil))
@@ -354,6 +360,7 @@ func redirectsPaths(rows [][]string) []string {
 		}
 	}
 	slices.Sort(out)
+
 	return out
 }
 
@@ -392,6 +399,7 @@ func redirectsConnections(t *testing.T, page *capture.Page, reload bool, apart m
 					movedHosts = append(movedHosts, rows[0])
 				}
 				moved[rows[0]] = append(moved[rows[0]], row)
+
 				continue
 			}
 			kept = append(kept, row)
@@ -407,6 +415,7 @@ func redirectsConnections(t *testing.T, page *capture.Page, reload bool, apart m
 		if c := strings.Compare(a[0], b[0]); c != 0 {
 			return c
 		}
+
 		return len(b) - len(a)
 	})
 	h1 := map[int][]string{}
@@ -430,6 +439,7 @@ func redirectsConnections(t *testing.T, page *capture.Page, reload bool, apart m
 	if reload && !reloaded {
 		t.Errorf("no reload of a stopped navigation in the browser's capture: drop it from redirectsReload")
 	}
+
 	return out
 }
 
@@ -443,6 +453,7 @@ func redirectsApart(sc *server.Scenario, steps []server.Redirects2Step) map[stri
 		if err != nil {
 			return host
 		}
+
 		return s
 	}
 	out := map[string]bool{}
@@ -451,6 +462,7 @@ func redirectsApart(sc *server.Scenario, steps []server.Redirects2Step) map[stri
 			out["/p/"+st.Label] = true
 		}
 	}
+
 	return out
 }
 
@@ -477,5 +489,6 @@ func rowsDiff(got, want [][]string) string {
 			}
 		}
 	}
+
 	return ""
 }

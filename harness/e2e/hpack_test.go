@@ -40,6 +40,7 @@ func scenarioTraces(t *testing.T, p *profile.Profile) map[*server.Scenario][]*h2
 		}
 		out[sc] = traces
 	}
+
 	return out
 }
 
@@ -92,6 +93,7 @@ func pageTraces(t *testing.T, p *profile.Profile) map[string][]*capture.Page {
 		scenario := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(f.Path), f.Source+"."), ".pagetrace.json.gz")
 		out[scenario] = pages
 	}
+
 	return out
 }
 
@@ -115,6 +117,7 @@ func pagesOnce(path string) ([]*capture.Page, error) {
 		return nil, err
 	}
 	loadedPages[path] = pages
+
 	return pages, nil
 }
 

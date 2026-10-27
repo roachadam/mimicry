@@ -125,6 +125,7 @@ func sitesClients(ctx context.Context, names []string, withGo bool, out string) 
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -168,6 +169,7 @@ func getSite(ctx context.Context, client string, c *http.Client, s site) (r site
 		r.Cookies = append(r.Cookies, ck.Name)
 	}
 	r.Markers = markers(resp.StatusCode, resp.Header, r.Cookies, string(body))
+
 	return r
 }
 
@@ -208,6 +210,7 @@ func sitesBrowser(ctx context.Context, client string, l *browser.Live, out strin
 			return ctx.Err()
 		}
 	}
+
 	return save(filepath.Join(out, "sites", client+".json"), recs)
 }
 
@@ -248,6 +251,7 @@ func markers(status int, h http.Header, cookies []string, body string) []string 
 	case http.StatusForbidden, http.StatusTooManyRequests, http.StatusServiceUnavailable, http.StatusUnauthorized:
 		add(fmt.Sprintf("status:%d", status))
 	}
+
 	return m
 }
 

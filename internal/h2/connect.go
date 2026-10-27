@@ -17,6 +17,7 @@ var errStreamReleased = errors.New("h2: stream released")
 func (c *Conn) ConnectProtocol() bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	return c.connectProtocol
 }
 
@@ -46,6 +47,7 @@ func (c *Conn) Connect(ctx context.Context, req *http.Request, protocol string) 
 			err: err,
 		})
 		r := <-s.resp
+
 		return nil, nil, r.err
 	}
 	r := <-s.resp
@@ -60,6 +62,7 @@ func (c *Conn) Connect(ctx context.Context, req *http.Request, protocol string) 
 	c.mu.Lock()
 	s.stopCtx()
 	c.mu.Unlock()
+
 	return r.resp, &Stream{
 		c: c,
 		s: s,
@@ -79,6 +82,7 @@ func (st *Stream) Send(ctx context.Context, parts [][]byte, end bool) error {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -106,5 +110,6 @@ func (st *Stream) MaxData() int {
 	if m := st.c.h2.MaxDataFrame; m > 0 {
 		limit = min(limit, m)
 	}
+
 	return int(limit)
 }

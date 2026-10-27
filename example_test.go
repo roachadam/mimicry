@@ -387,6 +387,7 @@ func ExampleConfig_sharedJar() {
 		if err != nil {
 			panic(err)
 		}
+
 		return client
 	}
 	// A Transport is one browsing entity, like one tab: its last
@@ -454,6 +455,7 @@ func ExampleHeaderOrderKey() {
 		if err != nil {
 			panic(err)
 		}
+
 		return req
 	}
 	send := func(req *http.Request) {
@@ -563,12 +565,14 @@ func ExampleConfig_proxy() {
 				fmt.Printf("proxy failed: %d as %s (password in the error: %t)\n",
 					pe.StatusCode, pe.Proxy.User.Username(), strings.Contains(err.Error(), "expired"))
 				rotate()
+
 				continue
 			}
 			if err != nil {
 				panic(err)
 			}
 			_ = resp.Body.Close()
+
 			return
 		}
 	}
@@ -852,6 +856,7 @@ func ExampleTransport_DialWebSocket() {
 		if r.URL.Path == "/live" {
 			fmt.Println("server: websocket from", r.Header.Get("Origin"), "cookie:", r.Header.Get("Cookie"))
 			echoWebSocket(w, r)
+
 			return
 		}
 		w.Header().Set("Set-Cookie", "session=s1; Path=/; Secure")
@@ -948,6 +953,7 @@ func ExampleConfig_headerPlacement() {
 			panic(err)
 		}
 		req.Header.Set("X-CSRF-Token", "t0k3n")
+
 		return req
 	}
 	send := func(req *http.Request) error {
@@ -955,6 +961,7 @@ func ExampleConfig_headerPlacement() {
 		if err != nil {
 			return err
 		}
+
 		return resp.Body.Close()
 	}
 

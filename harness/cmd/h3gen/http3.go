@@ -31,6 +31,7 @@ func deriveHTTP3(s *captureSet) (*profile.HTTP3, error) {
 	h.PriorityUpdate = priorityUpdate(s, done, e)
 	h.FirstDataFrame, h.MaxDataFrame = dataFrames(done, e)
 	h.Discovery = discovery(s, e)
+
 	return h, e.err()
 }
 
@@ -41,6 +42,7 @@ func controlStream(c *conn) *quictrace.H3Stream {
 			return &c.c.H3.Streams[i]
 		}
 	}
+
 	return nil
 }
 
@@ -67,6 +69,7 @@ func control(done []*conn, e *collector) ([]profile.H3Setting, *profile.H3Grease
 				withSetting++
 				greaseIDs = append(greaseIDs, st.ID)
 				greaseValues = append(greaseValues, st.Value)
+
 				continue
 			}
 			got = append(got, profile.H3Setting{
@@ -106,6 +109,7 @@ func control(done []*conn, e *collector) ([]profile.H3Setting, *profile.H3Grease
 	default:
 		e.add(done[0], "%d of %d connections send a reserved frame after SETTINGS", withFrame, len(done))
 	}
+
 	return settings, setting, frame
 }
 
@@ -120,6 +124,7 @@ func greaseBits(ids []uint64) int {
 	if n >= 56 {
 		return 0
 	}
+
 	return n
 }
 
@@ -143,6 +148,7 @@ func firstFrames(c *conn) map[uint64]position {
 			}
 		}
 	}
+
 	return out
 }
 
@@ -185,6 +191,7 @@ func uniStreams(done []*conn, e *collector) []profile.H3UniStream {
 				Type: quictrace.StreamTypeName(missing[0]),
 				Open: profile.H3OpenNever,
 			})
+
 			continue
 		}
 		out = append(out, profile.H3UniStream{
@@ -192,6 +199,7 @@ func uniStreams(done []*conn, e *collector) []profile.H3UniStream {
 			Open: openRule(done, uint64(2+4*i), t, e),
 		})
 	}
+
 	return out
 }
 
@@ -233,6 +241,7 @@ func openRule(done []*conn, id, typ uint64, e *collector) string {
 		return profile.H3OpenOnFirstInsert
 	}
 	e.add(done[0], "stream %d opens neither at the handshake nor with the first insert", id)
+
 	return ""
 }
 
@@ -255,6 +264,7 @@ func streamsWithFinished(done []*conn, e *collector) bool {
 		ctl, ok := firstFrames(c)[2]
 		vs = append(vs, ok && ctl.datagram == finished)
 	}
+
 	return allSame(vs, done[0], "control stream with the Finished", e)
 }
 
@@ -286,6 +296,7 @@ func earlyRequestFirst(done []*conn, e *collector) bool {
 	if len(vs) == 0 {
 		return false
 	}
+
 	return allSame(vs, done[0], "0-RTT request before the control stream", e)
 }
 
@@ -326,11 +337,13 @@ func requestsAfterConfirmed(done []*conn, e *collector) bool {
 				if finished >= 0 && pk.d.Micros-finished <= pendingRequestMillis*1000 {
 					vs = append(vs, largest > acked)
 				}
+
 				break
 			}
 			acked = max(acked, largest)
 		}
 	}
+
 	return allSame(vs, done[0], "first request after the handshake is confirmed", e)
 }
 
@@ -344,6 +357,7 @@ func allSame(vs []bool, c *conn, what string, e *collector) bool {
 			break
 		}
 	}
+
 	return vs[0]
 }
 
@@ -401,6 +415,7 @@ func qpackRules(done []*conn, e *collector) profile.QPACK {
 		e.add(done[0], "the dynamic table is used neither for every field nor for new names once")
 	}
 	out.InsertsFirst = allSame(firsts, done[0], "inserts before their request", e)
+
 	return out
 }
 
@@ -432,6 +447,7 @@ func insertsFirst(c *conn, encoder uint64) []bool {
 			}
 		}
 	}
+
 	return out
 }
 
@@ -478,6 +494,7 @@ func huffman(done []*conn, e *collector) profile.HuffmanRule {
 			break
 		}
 	}
+
 	return profile.HuffmanShorter
 }
 
@@ -523,6 +540,7 @@ func priorityUpdate(s *captureSet, done []*conn, e *collector) bool {
 			e.add(c, "%d PRIORITY_UPDATEs for %d requests with a priority", len(updates), matched)
 		}
 	}
+
 	return allSame(vs, done[0], "PRIORITY_UPDATE", e)
 }
 
@@ -572,6 +590,7 @@ func dataFrames(done []*conn, e *collector) (first, most int) {
 			e.add(b.c, "%s: DATA frames %v, not %v", b.path, b.frames, want)
 		}
 	}
+
 	return first, most
 }
 

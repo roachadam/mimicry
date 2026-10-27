@@ -116,6 +116,7 @@ func run() error {
 				log.Printf("%-22s %-17s %-4s %s %s", st.host, np.name, r.Outcome, r.Note, r.Err)
 				rs = append(rs, r)
 			}
+
 			return rs
 		})...)
 	}
@@ -131,6 +132,7 @@ func run() error {
 		return err
 	}
 	fmt.Print(md)
+
 	return ctx.Err()
 }
 
@@ -150,6 +152,7 @@ func fanOut[T any](items []T, n int, f func(T) []result) []result {
 		})
 	}
 	wg.Wait()
+
 	return slices.Concat(out...)
 }
 
@@ -177,6 +180,7 @@ func selectProfiles(list string) ([]namedProfile, error) {
 	if len(nps) == 0 {
 		return nil, errors.New("no profile with quic and http3 sections")
 	}
+
 	return nps, nil
 }
 
@@ -195,6 +199,7 @@ func selectNamed[T any](all []T, list string, name func(T) string) ([]T, error) 
 		}
 		out = append(out, all[i])
 	}
+
 	return out, nil
 }
 
@@ -229,6 +234,7 @@ func matrices(results []result, nps []namedProfile) string {
 			b.WriteString(siteRow(r))
 		}
 	}
+
 	return b.String()
 }
 
@@ -272,6 +278,7 @@ func localMatrix(rs []result, nps []namedProfile) string {
 		}
 		b.WriteString(" |\n")
 	}
+
 	return b.String()
 }
 
@@ -319,6 +326,7 @@ func siteRow(r result) string {
 	if r.Note != "" && r.Outcome != pass {
 		errText = strings.TrimSpace(r.Note + " " + errText)
 	}
+
 	return fmt.Sprintf("| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |\n",
 		r.Target, r.Profile, r.Outcome, version, handshake, h3, large, second, zero, tcp, hsMS, strings.ReplaceAll(errText, "|", "/"))
 }

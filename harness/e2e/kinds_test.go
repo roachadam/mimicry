@@ -130,6 +130,7 @@ func pageNavigation(page *capture.Page) []string {
 			return portless(r.Headers)
 		}
 	}
+
 	return nil
 }
 
@@ -168,6 +169,7 @@ func withoutRaceCookie(lines []string) []string {
 			out = append(out, name+": "+strings.Join(crumbs, "; "))
 		}
 	}
+
 	return out
 }
 
@@ -246,6 +248,7 @@ func connGroups(page *capture.Page, labels []string) map[string]string {
 		}
 		out[l] = first[c]
 	}
+
 	return out
 }
 
@@ -340,6 +343,7 @@ func kindsRequests() []kindsRequest {
 			fonts = nil
 		}
 	}
+
 	return append(out, kindsRequest{
 		label:  "form-post.so",
 		method: http.MethodPost,
@@ -385,6 +389,7 @@ func runKindsPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *captur
 		}
 		s.send(r.method, s.url(host, "/k/"+r.label), r.req, r.headers, r.body)
 	}
+
 	return s.finish(s.url(hosts[0], "/done"))
 }
 
@@ -474,6 +479,7 @@ func startPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *pageSessi
 			if _, port, err := net.SplitHostPort(addr); err == nil && s.plainPort != "" && port == s.plainPort {
 				to = srv.PlainListener.Addr().String()
 			}
+
 			return (&net.Dialer{}).DialContext(ctx, network, to)
 		},
 		Resolver: stubResolver(t),
@@ -486,6 +492,7 @@ func startPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *pageSessi
 		Transport: tr,
 	}
 	_, s.port, _ = net.SplitHostPort(ln.Addr().String())
+
 	return s
 }
 
@@ -509,6 +516,7 @@ func listenTwin(t *testing.T, udp bool) (net.Listener, net.PacketConn) {
 		_ = ln.Close()
 	}
 	t.Fatal("no loopback port free for both TCP and UDP")
+
 	return nil, nil
 }
 
@@ -549,6 +557,7 @@ func (s *pageSession) finish(done string) *capture.Page {
 				if s.planning != nil {
 					s.checkPlans(c.Page)
 				}
+
 				return c.Page
 			}
 		case <-time.After(10 * time.Second):
@@ -580,8 +589,10 @@ func requestFields(page *capture.Page, path string, h1, preflight bool) *kindsSe
 			for _, l := range r.Headers {
 				s.lines = append(s.lines, testPort.ReplaceAllString(l, ".test:PORT"))
 			}
+
 			return s
 		}
+
 		return nil
 	}
 	for _, tr := range page.H2 {
@@ -608,9 +619,11 @@ func requestFields(page *capture.Page, path string, h1, preflight bool) *kindsSe
 					s.weight = f.Priority.Weight
 				}
 			}
+
 			return s
 		}
 	}
+
 	return nil
 }
 
@@ -646,5 +659,6 @@ func browserForms(t *testing.T, samples []*capture.Page, path string, h1, prefli
 	if len(out) > 1 {
 		t.Logf("%s: the browser's samples differ; %d of %d: %q", path, counts[keys[1]], len(samples), out[1].lines)
 	}
+
 	return out
 }

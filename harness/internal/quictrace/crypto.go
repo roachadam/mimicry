@@ -35,6 +35,7 @@ func labelPrefix(version uint32) string {
 	if version == Version2 {
 		return "quicv2 "
 	}
+
 	return "quic "
 }
 
@@ -92,6 +93,7 @@ func aesGCM(key []byte) (cipher.AEAD, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return cipher.NewGCM(block)
 }
 
@@ -100,9 +102,11 @@ func aesMask(key []byte) (headerMask, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return func(sample []byte) [5]byte {
 		var out [16]byte
 		block.Encrypt(out[:], sample)
+
 		return [5]byte(out[:5])
 	}, nil
 }
@@ -112,6 +116,7 @@ func chachaMask(key []byte) (headerMask, error) {
 		return nil, errors.New("bad ChaCha20 key length")
 	}
 	k := append([]byte(nil), key...)
+
 	return func(sample []byte) [5]byte {
 		var out [5]byte
 		c, err := chacha20.NewUnauthenticatedCipher(k, sample[4:16])
@@ -120,6 +125,7 @@ func chachaMask(key []byte) (headerMask, error) {
 		}
 		c.SetCounter(binary.LittleEndian.Uint32(sample[:4]))
 		c.XORKeyStream(out[:], out[:])
+
 		return out
 	}, nil
 }
@@ -139,6 +145,7 @@ func expandLabelContext(h func() hash.Hash, secret []byte, label string, context
 	info = append(info, full...)
 	info = append(info, byte(len(context)))
 	info = append(info, context...)
+
 	return hkdf.Expand(h, secret, string(info), length)
 }
 
@@ -156,6 +163,7 @@ func clientEarlyTrafficSecret(suiteID uint16, psk, clientHello []byte) ([]byte, 
 	}
 	transcript := s.hash()
 	transcript.Write(clientHello)
+
 	return expandLabelContext(s.hash, early, "c e traffic", transcript.Sum(nil), transcript.Size())
 }
 
@@ -194,6 +202,7 @@ func newKeys(s suite, version uint32, secret []byte) (*keys, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return &keys{
 		suite:   s,
 		version: version,
@@ -216,6 +225,7 @@ func (k *keys) next() (*keys, error) {
 		return nil, err
 	}
 	n.mask = k.mask
+
 	return n, nil
 }
 
@@ -238,6 +248,7 @@ func initialKeys(version uint32, dcid []byte, server bool) (*keys, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return newKeys(suites[tlsAES128GCMSHA256], version, secret)
 }
 
@@ -280,6 +291,7 @@ func verifyRetry(version uint32, retry, odcid []byte) error {
 	if _, err := aead.Open(nil, ki[1], retry[len(body):], pseudo); err != nil {
 		return errRetryTag
 	}
+
 	return nil
 }
 
@@ -300,6 +312,7 @@ func keysForSecret(version uint32, secret []byte, p []byte, pnOffset int, short 
 			return k
 		}
 	}
+
 	return nil
 }
 
@@ -330,6 +343,7 @@ func (k *keys) unprotect(p []byte, pnOffset int, short bool, largest int64) (ope
 	if err != nil {
 		return opened{}, err
 	}
+
 	return o, nil
 }
 
@@ -358,6 +372,7 @@ func (k *keys) unmask(p []byte, pnOffset int, short bool, largest int64) ([]byte
 		pnLen:     pnLen,
 		pn:        decodePacketNumber(largest, truncated, pnLen),
 	}
+
 	return header, o, nil
 }
 
@@ -375,5 +390,6 @@ func decodePacketNumber(largest int64, truncated uint64, pnLen int) uint64 {
 	case candidate > expected+hwin && candidate >= win:
 		return candidate - win
 	}
+
 	return candidate
 }

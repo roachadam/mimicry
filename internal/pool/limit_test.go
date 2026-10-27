@@ -16,6 +16,7 @@ func newLimitedFixture(t *testing.T, limit int) *fixture {
 			f.waiting <- key
 		},
 	})
+
 	return f
 }
 

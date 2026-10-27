@@ -33,6 +33,7 @@ func (f *fakeConn) Read(p []byte) (int, error) {
 	if f.end != nil {
 		return 0, f.end
 	}
+
 	return 0, io.EOF
 }
 

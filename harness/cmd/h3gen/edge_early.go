@@ -58,6 +58,7 @@ func (s *edgeSet) earlyData(q *profile.QUIC, e *collector) *profile.H3EarlyData 
 						withFinished = append(withFinished, pos.Datagram == finished)
 						withFinishedAt = append(withFinishedAt, p.at+" "+nameOf(l))
 					}
+
 					continue
 				}
 				if p.scenario != scenarioTooEarly {
@@ -102,6 +103,7 @@ func (s *edgeSet) earlyData(q *profile.QUIC, e *collector) *profile.H3EarlyData 
 		edgeErr(e, s.set.name, "%d requests answered 425 went again on their connection, %d did not", retried, notRetried)
 	}
 	out.RetryTooEarly = retried > 0
+
 	return out
 }
 

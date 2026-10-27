@@ -55,6 +55,7 @@ func Client(ctx context.Context, conn net.Conn, hello fingerprint.Hello, cfg Con
 		_ = conn.Close()
 		return nil, "", err
 	}
+
 	return tlsConn, tlsConn.ConnectionState().NegotiatedProtocol, nil
 }
 
@@ -65,6 +66,7 @@ func ConnState(conn net.Conn) *tls.ConnectionState {
 	if !ok {
 		return nil
 	}
+
 	return State(tc.ConnectionState())
 }
 
@@ -133,8 +135,10 @@ func tlsConfig(cfg Config) *utls.Config {
 		if cache != nil && len(cs.PeerCertificates) > 0 {
 			cache.notAfter = cs.PeerCertificates[0].NotAfter
 		}
+
 		return nil
 	}
+
 	return config
 }
 
@@ -181,6 +185,7 @@ func Spec(h fingerprint.Hello) (*utls.ClientHelloSpec, error) {
 	if spec.TLSVersMax == 0 {
 		return nil, errors.New("handshake: profile has no supported_versions; TLS 1.2-only profiles are not supported")
 	}
+
 	return spec, nil
 }
 
@@ -214,6 +219,7 @@ func extension(e *profile.Extension) (utls.TLSExtension, error) {
 		for i, g := range e.Groups {
 			curves[i] = utls.CurveID(g)
 		}
+
 		return &utls.SupportedCurvesExtension{
 			Curves: curves,
 		}, nil
@@ -233,6 +239,7 @@ func extension(e *profile.Extension) (utls.TLSExtension, error) {
 				shares[i].Data = make([]byte, e.KeyShareLengths[i])
 			}
 		}
+
 		return &utls.KeyShareExtension{
 			KeyShares: shares,
 		}, nil
@@ -277,6 +284,7 @@ func extension(e *profile.Extension) (utls.TLSExtension, error) {
 		for i, a := range e.CertCompression {
 			algs[i] = utls.CertCompressionAlgo(a)
 		}
+
 		return &utls.UtlsCompressCertExtension{
 			Algorithms: algs,
 		}, nil
@@ -331,6 +339,7 @@ func greaseECH(ech *profile.ECH) (utls.TLSExtension, error) {
 		// uTLS takes the plaintext's length and adds the tag.
 		ext.CandidatePayloadLens[i] = n - hpkeTagLength
 	}
+
 	return ext, nil
 }
 
@@ -350,6 +359,7 @@ func dataExtension(e *profile.Extension) (utls.TLSExtension, error) {
 		if string(e.Data) != string(body) {
 			return nil, fmt.Errorf("body %x is not the %x uTLS sends for this extension", []byte(e.Data), body)
 		}
+
 		return ext, nil
 	}
 	switch e.Type {
@@ -376,6 +386,7 @@ func codes16(codes []profile.Code) []uint16 {
 	for i, c := range codes {
 		out[i] = uint16(c)
 	}
+
 	return out
 }
 
@@ -384,5 +395,6 @@ func schemes(codes []profile.Code) []utls.SignatureScheme {
 	for i, c := range codes {
 		out[i] = utls.SignatureScheme(c)
 	}
+
 	return out
 }

@@ -92,6 +92,7 @@ func parsePins(pins []Pin) (pinSet, error) {
 		}
 		set[host] = e
 	}
+
 	return set, nil
 }
 
@@ -104,6 +105,7 @@ func pinHost(h string) (string, error) {
 	if host == "" || strings.ContainsAny(host, ":/*@ ") {
 		return "", fmt.Errorf("mimicry: pin host %q is not a host name or IP address", h)
 	}
+
 	return host, nil
 }
 
@@ -118,12 +120,14 @@ func parsePin(v string) (sum [sha256.Size]byte, hexForm bool, err error) {
 		if len(b) != sha256.Size {
 			return sum, false, fmt.Errorf("%d bytes, not a SHA-256 hash", len(b))
 		}
+
 		return [sha256.Size]byte(b), false, nil
 	}
 	b, err := hex.DecodeString(strings.ReplaceAll(v, ":", ""))
 	if err != nil || len(b) != sha256.Size {
 		return sum, false, errors.New(`neither "sha256/<base64>" nor a SHA-256 hash in hex`)
 	}
+
 	return [sha256.Size]byte(b), true, nil
 }
 
@@ -162,6 +166,7 @@ func (e *pinEntry) matches(cs tls.ConnectionState) bool {
 			}
 		}
 	}
+
 	return false
 }
 
@@ -171,6 +176,7 @@ func (t *Transport) verifier(user func(tls.ConnectionState) error) func(host str
 	if len(t.pins) == 0 && user == nil {
 		return nil
 	}
+
 	return func(host string, cs tls.ConnectionState) error {
 		if e := t.pins.lookup(host); e != nil && !e.matches(cs) {
 			return &PinError{
@@ -181,6 +187,7 @@ func (t *Transport) verifier(user func(tls.ConnectionState) error) func(host str
 		if user != nil {
 			return user(cs)
 		}
+
 		return nil
 	}
 }
@@ -196,6 +203,7 @@ func presented(cs tls.ConnectionState) []string {
 	for i, c := range chain {
 		out[i] = spkiPin(c)
 	}
+
 	return out
 }
 
@@ -226,6 +234,7 @@ func (r CertRole) String() string {
 	case CertRoot:
 		return "root"
 	}
+
 	return fmt.Sprintf("CertRole(%d)", int(r))
 }
 
@@ -297,5 +306,6 @@ func FetchPins(ctx context.Context, cfg Config, rawURL string) ([]CertPin, error
 			Fingerprint: strings.Join(hexes, ":"),
 		}
 	}
+
 	return out, nil
 }

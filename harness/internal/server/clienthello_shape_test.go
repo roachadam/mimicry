@@ -50,6 +50,7 @@ func splitHello(t *testing.T, msg []byte) helloParts {
 		})
 		exts = exts[4+n:]
 	}
+
 	return h
 }
 
@@ -71,6 +72,7 @@ func (h helloParts) bytes() []byte {
 	body = append(body, exts...)
 	// The handshake type, then a 24-bit length.
 	header := binary.BigEndian.AppendUint32(nil, handshakeClientHello<<24|uint32(len(body)))
+
 	return append(header, body...)
 }
 
@@ -85,6 +87,7 @@ func (h helloParts) withExtension(t *testing.T, typ uint16, f func([]byte) []byt
 	}
 	h.extensions = slices.Clone(h.extensions)
 	h.extensions[i].data = f(slices.Clone(h.extensions[i].data))
+
 	return h
 }
 
@@ -101,6 +104,7 @@ func keyShares(data []byte, f func(i, n int) int) []byte {
 		list = list[4+n:]
 	}
 	out = append(binary.BigEndian.AppendUint16(nil, uint16(len(out))), out...)
+
 	return out
 }
 
@@ -116,6 +120,7 @@ func echBody(data []byte, kdf, aead uint16, enc, payload int) []byte {
 	out = binary.BigEndian.AppendUint16(out, uint16(enc))
 	out = append(out, make([]byte, enc)...)
 	out = binary.BigEndian.AppendUint16(out, uint16(payload))
+
 	return append(out, make([]byte, payload)...)
 }
 
@@ -142,6 +147,7 @@ func capturedHellos(t *testing.T) map[string][]byte {
 		}
 		hellos[name] = hello
 	}
+
 	return hellos
 }
 
@@ -185,6 +191,7 @@ func TestParseClientHelloSeesEveryShapeChange(t *testing.T) {
 					typ:  extPadding,
 					data: make([]byte, 20),
 				})
+
 				return h
 			},
 		},
@@ -194,6 +201,7 @@ func TestParseClientHelloSeesEveryShapeChange(t *testing.T) {
 				h.extensions = append(slices.Clone(h.extensions), helloExtension{
 					typ: 0x7a7a,
 				})
+
 				return h
 			},
 		},
@@ -220,6 +228,7 @@ func TestParseClientHelloSeesEveryShapeChange(t *testing.T) {
 							if j == i {
 								return n - 1
 							}
+
 							return n
 						})
 					})
@@ -256,6 +265,7 @@ func countShares(data []byte) int {
 		n++
 		return m
 	})
+
 	return n
 }
 
@@ -269,6 +279,7 @@ func echMutations() []helloMutation {
 		enc = int(binary.BigEndian.Uint16(data[6:]))
 		return binary.BigEndian.Uint16(data[1:]), binary.BigEndian.Uint16(data[3:]), enc, int(binary.BigEndian.Uint16(data[8+enc:]))
 	}
+
 	return []helloMutation{
 		{
 			name: "ECH type inner",

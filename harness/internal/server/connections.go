@@ -94,6 +94,7 @@ func ConnectionsSteps() []ConnectionsStep {
 	for i := 1; i <= connParallel; i++ {
 		parallel = append(parallel, fmt.Sprintf("par%02d", i))
 	}
+
 	return []ConnectionsStep{
 		{Host: connSameSite, Labels: []string{"coalesce.ss"}},
 		{Host: connPairX, Labels: []string{"pair.x"}},
@@ -135,8 +136,10 @@ func (p connectionsPage) answer(req request) response {
 		if host == connH1 {
 			r.delay = connParallelDelay
 		}
+
 		return r
 	}
+
 	return response{status: 404, contentType: "text/plain", body: []byte("not found\n")}
 }
 
@@ -151,6 +154,7 @@ func connectionsDocument(origin func(string) string) []byte {
 		}
 		steps = append(steps, "["+strings.Join(urls, ", ")+"]")
 	}
+
 	return htmlPage("connections", "", "<script>(async () => {\n"+
 		"const get = u => Promise.race([fetch(u, {mode: \"no-cors\", credentials: \"include\"}).then(r => r.arrayBuffer()).catch(() => {}), new Promise(d => setTimeout(d, 5000))]);\n"+
 		"const pause = () => new Promise(d => setTimeout(d, 300));\n"+

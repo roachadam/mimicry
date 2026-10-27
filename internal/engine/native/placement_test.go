@@ -31,6 +31,7 @@ func (r *h3Recorder) get(path string) ([]string, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	names, ok := r.paths[path]
+
 	return names, ok
 }
 
@@ -71,6 +72,7 @@ func startH3Recorder(t *testing.T, r *h3Recorder) uint16 {
 			go r.serve(c)
 		}
 	}()
+
 	return ep.LocalAddr().Port()
 }
 
@@ -97,6 +99,7 @@ func (r *h3Recorder) serve(c *quic.Conn) {
 			go func() {
 				_, _ = io.Copy(io.Discard, s)
 			}()
+
 			continue
 		}
 		go r.answer(s)
@@ -146,6 +149,7 @@ func (r *h3Recorder) answer(s *quic.Stream) {
 			return
 		}
 		_ = s.CloseWrite()
+
 		return
 	}
 }
@@ -164,6 +168,7 @@ func readQUICVarint(r io.ByteReader) (uint64, error) {
 		}
 		v = v<<8 | uint64(b)
 	}
+
 	return v, nil
 }
 
@@ -203,6 +208,7 @@ func TestHeaderPlacementOverHTTP3(t *testing.T) {
 		if resp.ProtoMajor != 3 {
 			t.Errorf("%s went over %s, not HTTP/3", path, resp.Proto)
 		}
+
 		return resp.Body.Close()
 	}
 	if err := send("/base", nil); err != nil {
@@ -285,6 +291,7 @@ func TestHeaderPlacementOverHTTP3(t *testing.T) {
 				if _, ok := rec.get(path); ok {
 					t.Fatal("the request was sent")
 				}
+
 				return
 			}
 			if err != nil {
@@ -318,5 +325,6 @@ func windows(names []string, n int) [][]string {
 	for i := 0; i+n <= len(names); i++ {
 		out = append(out, names[i:i+n])
 	}
+
 	return out
 }

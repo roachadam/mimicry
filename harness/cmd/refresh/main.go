@@ -95,6 +95,7 @@ func run() error {
 		if err != nil {
 			return err
 		}
+
 		return r.finish(ctx, cfg)
 	}
 
@@ -133,6 +134,7 @@ func run() error {
 		log.Printf("captures staged in %s; resume with -resume %s", r.Dir, r.Dir)
 		return nil
 	}
+
 	return r.finish(ctx, cfg)
 }
 
@@ -144,6 +146,7 @@ func confirm(in *os.File) bool {
 		return false
 	}
 	answer = strings.ToLower(strings.TrimSpace(answer))
+
 	return answer == "y" || answer == "yes"
 }
 
@@ -160,6 +163,7 @@ func (r *refreshRun) finish(ctx context.Context, cfg config) error {
 	if len(failed) > 0 {
 		return fmt.Errorf("failed: %s (staged in %s; fix and run -resume %s)", strings.Join(failed, ", "), r.Dir, r.Dir)
 	}
+
 	return nil
 }
 
@@ -193,5 +197,6 @@ func (r *refreshRun) finishPlan(ctx context.Context, cfg config, p *plan) error 
 	if rep.tests != nil && rep.tests.err != nil {
 		return fmt.Errorf("tests failed: %w", rep.tests.err)
 	}
+
 	return nil
 }

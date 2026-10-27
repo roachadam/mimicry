@@ -55,6 +55,7 @@ func render(v any) string {
 	if err != nil {
 		return fmt.Sprintf("%v", v)
 	}
+
 	return string(b)
 }
 
@@ -68,6 +69,7 @@ func Compare(want, got *profile.Profile) []Difference {
 	d.compareTLS(&want.TLS, &got.TLS)
 	d.compareHTTP2(want.HTTP2, got.HTTP2)
 	d.compareHeaders(want.Headers, got.Headers)
+
 	return d.diffs
 }
 
@@ -142,6 +144,7 @@ func subset[T comparable](s, of []T) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -153,6 +156,7 @@ func pinned(exts []profile.Extension) []string {
 			out = append(out, fmt.Sprintf("%d:%s", i, exts[i].Type))
 		}
 	}
+
 	return out
 }
 
@@ -161,6 +165,7 @@ func types(exts []profile.Extension) []string {
 	for i, e := range exts {
 		out[i] = e.Type.String()
 	}
+
 	return out
 }
 
@@ -169,6 +174,7 @@ func byType(exts []profile.Extension) map[profile.Code][]profile.Extension {
 	for _, e := range exts {
 		m[e.Type] = append(m[e.Type], e)
 	}
+
 	return m
 }
 
@@ -176,6 +182,7 @@ func extensionOrMissing(exts []profile.Extension, i int) string {
 	if i >= len(exts) {
 		return "(missing)"
 	}
+
 	return render(exts[i])
 }
 
@@ -184,6 +191,7 @@ func (d *differ) compareHTTP2(want, got *profile.HTTP2) {
 		if want != got {
 			d.check("http2", presence(want != nil), presence(got != nil))
 		}
+
 		return
 	}
 	d.check("http2.settings", want.Settings, got.Settings)
@@ -200,6 +208,7 @@ func firstStream(h *profile.HTTP2) uint32 {
 	if h.FirstStreamID == 0 {
 		return 1
 	}
+
 	return h.FirstStreamID
 }
 
@@ -207,6 +216,7 @@ func presence(present bool) string {
 	if present {
 		return "(present)"
 	}
+
 	return "(missing)"
 }
 
@@ -216,6 +226,7 @@ func (d *differ) compareHeaders(want, got []profile.Header) {
 		for i, h := range hs {
 			out[i] = h.Name
 		}
+
 		return strings.Join(out, ", ")
 	}
 	d.check("headers (order)", names(want), names(got))
@@ -226,6 +237,7 @@ func (d *differ) compareHeaders(want, got []profile.Header) {
 		for _, h := range hs {
 			m[h.Name] = append(m[h.Name], h.Value)
 		}
+
 		return m
 	}
 	wv, gv := values(want), values(got)
@@ -251,5 +263,6 @@ func valueOrMissing(values []string, i int) string {
 	if i >= len(values) {
 		return "(missing)"
 	}
+
 	return values[i]
 }

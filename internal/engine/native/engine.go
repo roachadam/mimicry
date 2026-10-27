@@ -150,6 +150,7 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 			tickets: handshake.NewTickets("", clock),
 		}
 	}
+
 	return e, nil
 }
 
@@ -193,6 +194,7 @@ func (e *Engine) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 				return nil, err
 			}
 			req = withProxyAuth(context.WithValue(ctx, h1.ChallengeAnswered{}, true), req, dial.Credentials(r.proxy))
+
 			continue
 		}
 		notSent := errors.Is(err, errNotSent)
@@ -209,6 +211,7 @@ func (e *Engine) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 					Err:        fmt.Errorf("answered %s with %s", req.Method, resp.Status),
 				}
 			}
+
 			return resp, err
 		}
 		if errors.Is(err, errTCPOnly) {
@@ -252,6 +255,7 @@ func (e *Engine) begin(req *http.Request) (r route, out *http.Request, unasked s
 			req = withProxyAuth(req.Context(), req, unasked)
 		}
 	}
+
 	return r, req, unasked, nil
 }
 
@@ -261,6 +265,7 @@ func (e *Engine) tcpRefusal(ctx context.Context) error {
 	if plan := headerorder.PlanFrom(ctx); plan != nil && plan.HTTP3Only {
 		return fmt.Errorf("%w: profile %s measured this request over HTTP/3 only, and it would go on TCP", headerorder.ErrNotMeasured, e.profile.Name)
 	}
+
 	return nil
 }
 
@@ -279,6 +284,7 @@ func fresh(req *http.Request) (*http.Request, error) {
 	}
 	req = req.Clone(req.Context())
 	req.Body = body
+
 	return req, nil
 }
 
@@ -288,6 +294,7 @@ func fresh(req *http.Request) (*http.Request, error) {
 func withProxyAuth(ctx context.Context, req *http.Request, auth string) *http.Request {
 	req = req.Clone(ctx)
 	req.Header.Set("Proxy-Authorization", auth)
+
 	return req
 }
 
@@ -346,6 +353,7 @@ func (e *Engine) route(req *http.Request) (route, error) {
 	// Coalescing through a proxy was never captured; the proxy resolves
 	// names, so the address condition cannot be checked either.
 	r.group = ""
+
 	return r, nil
 }
 
@@ -356,6 +364,7 @@ func userAgent(p *profile.Profile) string {
 			return h.Value
 		}
 	}
+
 	return ""
 }
 
@@ -366,6 +375,7 @@ func (e *Engine) try(ctx context.Context, req *http.Request, r route) (*http.Res
 	if err == nil && e.quic != nil {
 		e.learnAltSvc(req, r, resp)
 	}
+
 	return resp, err
 }
 
@@ -396,6 +406,7 @@ func (e *Engine) tryOnce(ctx context.Context, req *http.Request, r route) (*http
 			// request went out: try a new one.
 			return nil, fmt.Errorf("%w: %w", errRetry, err)
 		}
+
 		return resp, err
 	case pool.FoundDial:
 		// Dialed below.
@@ -426,6 +437,7 @@ func (e *Engine) tryOnce(ctx context.Context, req *http.Request, r route) (*http
 	if err != nil {
 		_ = conn.Close()
 		d.Fail(err)
+
 		return nil, err
 	}
 	c := newShared(hc, conn, r)
@@ -435,6 +447,7 @@ func (e *Engine) tryOnce(ctx context.Context, req *http.Request, r route) (*http
 	}
 	defer close(c.sent)
 	e.goAwayIfReplaced(req, r, c)
+
 	return e.roundTripH2(r.key, c, req)
 }
 
@@ -450,6 +463,7 @@ func (e *Engine) roundTripH2(key string, c *shared, req *http.Request) (*http.Re
 	if err == nil {
 		resp.TLS = c.tls
 	}
+
 	return resp, err
 }
 
@@ -460,6 +474,7 @@ func (e *Engine) newH1(conn net.Conn, r route) *h1.Conn {
 	if r.forward {
 		c.Forward(e.profile.Proxy)
 	}
+
 	return c
 }
 
@@ -469,6 +484,7 @@ func (e *Engine) verifyFor(host string) func(tls.ConnectionState) error {
 	if e.verify == nil {
 		return nil
 	}
+
 	return func(cs tls.ConnectionState) error {
 		return e.verify(host, cs)
 	}
@@ -512,6 +528,7 @@ func (e *Engine) dial(ctx context.Context, req *http.Request, r route) (net.Conn
 	}
 	hctx, cancel := context.WithTimeout(ctx, e.dialer.Timeout)
 	defer cancel()
+
 	return handshake.Client(hctx, conn, hello, cfg)
 }
 
@@ -522,6 +539,7 @@ func (e *Engine) resumes(r route) bool {
 	if e.tickets == nil {
 		return false
 	}
+
 	return r.proxy == nil || r.proxy.Scheme != dial.SchemeHTTP || !e.profile.Proxy.ConnectNoResume
 }
 
@@ -555,6 +573,7 @@ func (e *Engine) Handshake(ctx context.Context, rawURL string) (*tls.ConnectionS
 	defer func() {
 		_ = conn.Close()
 	}()
+
 	return handshake.ConnState(conn), nil
 }
 
@@ -575,6 +594,7 @@ func replayable(req *http.Request) bool {
 	default:
 		return false
 	}
+
 	return req.Body == nil || req.Body == http.NoBody || req.GetBody != nil
 }
 
@@ -588,5 +608,6 @@ func hostPort(u *url.URL) string {
 			port = "80"
 		}
 	}
+
 	return net.JoinHostPort(u.Hostname(), port)
 }

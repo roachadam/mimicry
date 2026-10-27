@@ -72,6 +72,7 @@ func (t *Ticket) Extra() [][]byte {
 	if err != nil || s == nil {
 		return nil
 	}
+
 	return s.Extra
 }
 
@@ -92,6 +93,7 @@ func (t *Tickets) Take(key string) *Ticket {
 	if s.tls13 || t.tls12 != profile.TLS12Reuse {
 		delete(t.m, key)
 	}
+
 	return &Ticket{
 		state: s.state,
 		tls13: s.tls13,
@@ -104,6 +106,7 @@ func (t *Tickets) Has(key string) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	s, ok := t.m[key]
+
 	return ok && !s.expired(t.clock.Now())
 }
 
@@ -165,6 +168,7 @@ func (c *connCache) Get(string) (*utls.ClientSessionState, bool) {
 	if c.ticket == nil {
 		return nil, false
 	}
+
 	return c.ticket.state, true
 }
 
@@ -184,6 +188,7 @@ func encoding(s *utls.ClientSessionState) []byte {
 	if err != nil {
 		return nil
 	}
+
 	return b
 }
 
@@ -193,6 +198,7 @@ func version(enc []byte) uint16 {
 	if len(enc) < 2 {
 		return 0
 	}
+
 	return binary.BigEndian.Uint16(enc)
 }
 
@@ -204,5 +210,6 @@ func useBy(enc []byte) (time.Time, bool) {
 		return time.Time{}, false
 	}
 	secs := binary.BigEndian.Uint64(enc[len(enc)-12:])
+
 	return time.Unix(int64(secs), 0), true
 }

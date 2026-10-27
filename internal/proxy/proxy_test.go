@@ -27,6 +27,7 @@ func peer(t *testing.T, serve func(conn net.Conn) error) net.Conn {
 			t.Error(err)
 		}
 	})
+
 	return client
 }
 
@@ -54,6 +55,7 @@ func expect(r io.Reader, want []byte) error {
 	if !bytes.Equal(got, want) {
 		return errors.New("peer read " + string(got) + ", want " + string(want))
 	}
+
 	return nil
 }
 
@@ -66,6 +68,7 @@ func TestConnectBoundsTheAnswerHeader(t *testing.T) {
 		// Write until the client stops reading; the pipe then fails.
 		_, _ = io.WriteString(conn, "HTTP/1.1 200 OK\r\nX-Long: ")
 		_, _ = io.Copy(conn, strings.NewReader(strings.Repeat("a", 1<<20)))
+
 		return nil
 	})
 	_, _, err := Connect(t.Context(), conn, "example.com:443", nil)
@@ -111,6 +114,7 @@ func (p socksPeer) serve(conn net.Conn) error {
 	// A client stops reading an error reply after its code, so the write
 	// may fail; the client's result is what the test checks.
 	_, _ = conn.Write(p.reply)
+
 	return nil
 }
 
@@ -155,6 +159,7 @@ func TestSOCKS5Failures(t *testing.T) {
 						return err
 					}
 					_, err := conn.Write([]byte{1, 1})
+
 					return err
 				},
 			},

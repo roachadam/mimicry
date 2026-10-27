@@ -115,6 +115,7 @@ func makeProse(n int) string {
 			b.WriteString("\n")
 		}
 	}
+
 	return b.String()[:n]
 }
 
@@ -125,5 +126,6 @@ func wsNoise(seed, n int) []byte {
 	for i := range b {
 		b[i] = byte(r.next() >> 24)
 	}
+
 	return b
 }

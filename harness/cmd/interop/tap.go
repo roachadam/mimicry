@@ -154,6 +154,7 @@ func (t *tap) newPath(ctx context.Context) (net.PacketConn, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return &tapPath{
 		PacketConn: pc,
 		t:          t,
@@ -189,8 +190,10 @@ func (t *tap) writeTo(pc net.PacketConn, b []byte, addr net.Addr) (int, error) {
 		time.AfterFunc(delay, func() {
 			_, _ = pc.WriteTo(c, addr)
 		})
+
 		return len(b), nil
 	}
+
 	return pc.WriteTo(b, addr)
 }
 
@@ -221,6 +224,7 @@ func (t *tap) readFrom(pc net.PacketConn, p []byte) (int, net.Addr, error) {
 		if fate == "dropped" {
 			continue
 		}
+
 		return n, addr, nil
 	}
 }
@@ -238,6 +242,7 @@ func (t *tap) fate(now time.Time) string {
 		t.st.Corrupted++
 		return "corrupted"
 	}
+
 	return ""
 }
 
@@ -247,6 +252,7 @@ func (t *tap) corrupt(b []byte) []byte {
 	t.mu.Lock()
 	t.flip(c)
 	t.mu.Unlock()
+
 	return c
 }
 
@@ -281,6 +287,7 @@ func (t *tap) parse(b []byte, sent bool) []string {
 		if b[0]&0x80 == 0 {
 			names = append(names, "1rtt")
 			t.keepShort(b, sent)
+
 			return names
 		}
 		if len(b) < 7 {
@@ -298,6 +305,7 @@ func (t *tap) parse(b []byte, sent bool) []string {
 			if !sent {
 				t.st.VN++
 			}
+
 			return append(names, "vn")
 		}
 		if !sent {
@@ -323,6 +331,7 @@ func (t *tap) parse(b []byte, sent bool) []string {
 			if !sent {
 				t.st.Retries++
 			}
+
 			return names
 		}
 		if typ == typeInitial {
@@ -342,6 +351,7 @@ func (t *tap) parse(b []byte, sent bool) []string {
 		}
 		b = b[end:]
 	}
+
 	return names
 }
 
@@ -384,6 +394,7 @@ func (t *tap) stats() tapStats {
 	st.Received = map[string]int{}
 	maps.Copy(st.Sent, t.st.Sent)
 	maps.Copy(st.Received, t.st.Received)
+
 	return st
 }
 
@@ -404,6 +415,7 @@ func (t *tap) keyUpdates(suite uint16) (server, client int, ok bool) {
 	if err1 != nil || err2 != nil {
 		return 0, 0, false
 	}
+
 	return phaseChanges(t.recv, sk), phaseChanges(t.sent, ck), true
 }
 
@@ -427,6 +439,7 @@ func phaseChanges(hs []shortHeader, mask func([16]byte) byte) int {
 		cur = p
 		n++
 	}
+
 	return n
 }
 
@@ -442,6 +455,7 @@ func (t *tap) keyLogWriter(w io.Writer) io.Writer {
 			// convenience, never a reason to.
 			_, _ = w.Write(p)
 		}
+
 		return len(p), nil
 	})
 }
@@ -453,6 +467,7 @@ func (t *tap) writeTrace(path string) error {
 	if err != nil {
 		return err
 	}
+
 	return os.WriteFile(path, data, 0o600)
 }
 
@@ -519,6 +534,7 @@ func hpMask(suite uint16, label string, secret []byte) (func([16]byte) byte, err
 			c.SetCounter(binary.LittleEndian.Uint32(sample[:4]))
 			var m [1]byte
 			c.XORKeyStream(m[:], m[:])
+
 			return m[0]
 		}, nil
 	}
@@ -526,9 +542,11 @@ func hpMask(suite uint16, label string, secret []byte) (func([16]byte) byte, err
 	if err != nil {
 		return nil, err
 	}
+
 	return func(sample [16]byte) byte {
 		var m [16]byte
 		block.Encrypt(m[:], sample[:])
+
 		return m[0]
 	}, nil
 }
@@ -545,6 +563,7 @@ func expandLabel(newHash func() hash.Hash, secret []byte, label string, n int) (
 	if _, err := io.ReadFull(hkdf.Expand(newHash, secret, info), out); err != nil {
 		return nil, err
 	}
+
 	return out, nil
 }
 
@@ -562,5 +581,6 @@ func readVarint(b []byte) (uint64, int) {
 	for _, c := range b[1:l] {
 		v = v<<8 | uint64(c)
 	}
+
 	return v, l
 }

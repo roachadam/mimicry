@@ -21,6 +21,7 @@ func Registrable(host string) string {
 	if s, err := publicsuffix.EffectiveTLDPlusOne(host); err == nil {
 		return s
 	}
+
 	return host
 }
 
@@ -42,6 +43,7 @@ func IsPublicSuffix(domain string) bool {
 		return false
 	}
 	suffix, _ := publicsuffix.PublicSuffix(domain)
+
 	return suffix == domain
 }
 
@@ -53,6 +55,7 @@ func Loopback(host string) bool {
 		return true
 	}
 	ip := net.ParseIP(host)
+
 	return ip != nil && ip.IsLoopback()
 }
 

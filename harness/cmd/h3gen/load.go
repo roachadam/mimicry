@@ -124,6 +124,7 @@ func load(dir string, p *profile.Profile) (*captureSet, error) {
 			}
 		}
 	}
+
 	return set, nil
 }
 
@@ -135,6 +136,7 @@ func (s *captureSet) gap(c *conn, feature string) bool {
 		return false
 	}
 	s.usedGaps[key] = true
+
 	return true
 }
 
@@ -150,6 +152,7 @@ func (s *captureSet) unusedGaps() error {
 	slices.SortFunc(errs, func(a, b error) int {
 		return strings.Compare(a.Error(), b.Error())
 	})
+
 	return errors.Join(errs...)
 }
 
@@ -166,6 +169,7 @@ func (s *captureSet) pins(key string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -177,6 +181,7 @@ func (s *captureSet) done() []*conn {
 			out = append(out, c)
 		}
 	}
+
 	return out
 }
 
@@ -200,6 +205,7 @@ func (c *conn) packets() []packet {
 			})
 		}
 	}
+
 	return out
 }
 
@@ -219,6 +225,7 @@ func (c *conn) cryptoInitials() []packet {
 			out = append(out, p)
 		}
 	}
+
 	return out
 }
 
@@ -246,5 +253,6 @@ func tpID(tp quictrace.TransportParameter) profile.TransportParameterID {
 	if tp.Grease {
 		return profile.GREASETransportParameter
 	}
+
 	return profile.TransportParameterID(tp.ID)
 }

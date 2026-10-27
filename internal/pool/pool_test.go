@@ -51,6 +51,7 @@ func (c *fakeShared) Close() error {
 	c.t.Helper()
 	checkUnlocked(c.t, c.pool, "Close")
 	c.closed.Add(1)
+
 	return nil
 }
 
@@ -66,12 +67,14 @@ type fakeExclusive struct {
 func (c *fakeExclusive) Usable() bool {
 	checkUnlocked(c.t, c.pool, "Usable")
 	c.checks.Add(1)
+
 	return c.usable.Load()
 }
 
 func (c *fakeExclusive) Close() error {
 	checkUnlocked(c.t, c.pool, "Close")
 	close(c.closed)
+
 	return nil
 }
 
@@ -119,6 +122,7 @@ func newFixture(t *testing.T) *fixture {
 			f.waiting <- key
 		},
 	})
+
 	return f
 }
 
@@ -129,6 +133,7 @@ func (f *fixture) exclusive() *fakeExclusive {
 		closed: make(chan struct{}),
 	}
 	c.usable.Store(true)
+
 	return c
 }
 
@@ -142,6 +147,7 @@ func (f *fixture) get(key string, found Found) Got[*fakeShared, *fakeExclusive] 
 	if got.Found != found {
 		f.t.Fatalf("Get(%q) found %d, want %d", key, got.Found, found)
 	}
+
 	return got
 }
 
@@ -150,6 +156,7 @@ func (f *fixture) dialExclusive(key string) *fakeExclusive {
 	f.t.Helper()
 	got := f.get(key, FoundDial)
 	got.Dial.Exclusive()
+
 	return f.exclusive()
 }
 
@@ -186,6 +193,7 @@ func (f *fixture) getWaiting(ctx context.Context, key string) <-chan result {
 	case r := <-out:
 		f.t.Fatalf("Get returned %+v without waiting for the dial", r)
 	}
+
 	return out
 }
 

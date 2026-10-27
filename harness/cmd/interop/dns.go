@@ -32,6 +32,7 @@ func loopbackResolver(ctx context.Context) (*net.Resolver, error) {
 		}
 	}()
 	stub := pc.LocalAddr().String()
+
 	return &net.Resolver{
 		PreferGo: true,
 		Dial: func(ctx context.Context, _, _ string) (net.Conn, error) {
@@ -79,5 +80,6 @@ func loopbackAnswer(query []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+
 	return b.Finish()
 }

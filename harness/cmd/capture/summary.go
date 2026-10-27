@@ -38,5 +38,6 @@ func appendSummary(path string, l summaryLine) error {
 		_ = f.Close()
 		return err
 	}
+
 	return f.Close()
 }

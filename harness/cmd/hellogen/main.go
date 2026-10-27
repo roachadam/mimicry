@@ -64,6 +64,7 @@ func run() error {
 		// Another profile's capture: its own run of hellogen writes it.
 		return nil
 	}
+
 	return os.WriteFile(capturePath, outCapture, 0o600) //nolint:gosec // and its capture's profile JSON
 }
 
@@ -106,6 +107,7 @@ func regenerate(data, captured []byte, dir string) ([]byte, []byte, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+
 	return out, outCapture, nil
 }
 
@@ -168,6 +170,7 @@ func derive(dir string, p *profile.Profile) (*shape, error) {
 	}
 	slices.Sort(sh.resumedECHLengths)
 	sh.resumedECHLengths = slices.Compact(sh.resumedECHLengths)
+
 	return sh, nil
 }
 
@@ -216,6 +219,7 @@ func (sh *shape) add(conn *capture.Connection) error {
 	ech.PayloadLengths = append(ech.PayloadLengths, got.ECH.PayloadLengths...)
 	slices.Sort(ech.PayloadLengths)
 	ech.PayloadLengths = slices.Compact(ech.PayloadLengths)
+
 	return nil
 }
 
@@ -223,6 +227,7 @@ func lengths(e *profile.Extension) []uint16 {
 	if e == nil {
 		return nil
 	}
+
 	return e.KeyShareLengths
 }
 
@@ -265,8 +270,10 @@ func apply(t *profile.TLS, sh *shape) error {
 		for i, d := range diffs {
 			lines[i] = d.String()
 		}
+
 		return errors.New("its ClientHello is not the captured one:\n" + strings.Join(lines, "\n"))
 	}
+
 	return nil
 }
 
@@ -276,5 +283,6 @@ func extension(t *profile.TLS, typ profile.Code) *profile.Extension {
 			return &t.Extensions[i]
 		}
 	}
+
 	return nil
 }

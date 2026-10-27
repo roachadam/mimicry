@@ -46,6 +46,7 @@ func parseNetLog(data []byte) (*netLog, error) {
 	if err := json.Unmarshal(repaired, &l); err != nil {
 		return nil, fmt.Errorf("net log: %w", err)
 	}
+
 	return &l, nil
 }
 
@@ -174,6 +175,7 @@ func FromNetLog(data []byte, site, browser, recorded string) (*Page, error) {
 			}
 		}
 	}
+
 	return b.finish(), nil
 }
 
@@ -202,6 +204,7 @@ func (b *builder) host(name string) int {
 		Name: name,
 		Site: siteOf(name),
 	})
+
 	return i
 }
 
@@ -210,6 +213,7 @@ func siteOf(host string) string {
 	if err != nil {
 		return host
 	}
+
 	return s
 }
 
@@ -220,6 +224,7 @@ func (b *builder) cookieID(site, name string) (int, bool) {
 		id = len(b.cookieIDs) + 1
 		b.cookieIDs[key] = id
 	}
+
 	return id, ok
 }
 
@@ -385,6 +390,7 @@ func (b *builder) setCookie(site, header string) (Cookie, bool) {
 		}
 	}
 	c.ID, _ = b.cookieID(site, name)
+
 	return c, true
 }
 
@@ -426,18 +432,21 @@ func (b *builder) finish() *Page {
 		index[r] = len(b.page.Requests)
 		b.page.Requests = append(b.page.Requests, r.Request)
 	}
+
 	return b.page
 }
 
 func str(raw json.RawMessage) string {
 	var s string
 	_ = json.Unmarshal(raw, &s)
+
 	return s
 }
 
 func lines(raw json.RawMessage) []string {
 	var l []string
 	_ = json.Unmarshal(raw, &l)
+
 	return l
 }
 
@@ -454,6 +463,7 @@ func headerMap(hs []string) map[string]string {
 		}
 		m[strings.ToLower(h[:i+1])] = strings.TrimSpace(h[i+2:])
 	}
+
 	return m
 }
 

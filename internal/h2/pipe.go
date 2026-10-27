@@ -37,6 +37,7 @@ func newPipe(onRead func(n int), onClose func(complete bool, discarded int)) *pi
 		onClose:  onClose,
 	}
 	p.cond = sync.NewCond(&p.mu)
+
 	return p
 }
 
@@ -62,10 +63,12 @@ func (p *pipe) Read(b []byte) (int, error) {
 		p.read += int64(n)
 		p.mu.Unlock()
 		p.onRead(n)
+
 		return n, nil
 	}
 	err := p.err
 	p.mu.Unlock()
+
 	return 0, err
 }
 
@@ -84,6 +87,7 @@ func (p *pipe) Close() error {
 	p.cond.Broadcast()
 	p.mu.Unlock()
 	p.onClose(complete, discarded)
+
 	return nil
 }
 
@@ -97,6 +101,7 @@ func (p *pipe) write(b []byte) bool {
 	}
 	p.buf.Write(b)
 	p.cond.Broadcast()
+
 	return true
 }
 
@@ -116,5 +121,6 @@ func (p *pipe) end(err error) int {
 		p.buf.Reset()
 	}
 	p.cond.Broadcast()
+
 	return discarded
 }

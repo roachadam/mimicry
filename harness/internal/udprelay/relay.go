@@ -129,6 +129,7 @@ func New(target Target, seed uint64) (*Relay, error) {
 	}
 	r.sched.start(&r.wg)
 	r.wg.Go(r.readClients)
+
 	return r, nil
 }
 
@@ -139,6 +140,7 @@ func (r *Relay) Addr() netip.AddrPort {
 	if !ok {
 		panic("udprelay: UDP socket address is not a *net.UDPAddr")
 	}
+
 	return addr.AddrPort()
 }
 
@@ -167,6 +169,7 @@ func (r *Relay) SetTarget(t Target) {
 func (r *Relay) Stats() Stats {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
 	return r.stats
 }
 
@@ -201,6 +204,7 @@ func (r *Relay) rebind(family bool) error {
 			r.readServer(s, up)
 		})
 	}
+
 	return nil
 }
 
@@ -215,6 +219,7 @@ func (r *Relay) Close() error {
 	r.mu.Unlock()
 	r.sched.stop()
 	r.wg.Wait()
+
 	return err
 }
 
@@ -224,6 +229,7 @@ func listenUpstream(v6 bool) (*net.UDPConn, error) {
 			IP: net.IPv6loopback,
 		})
 	}
+
 	return net.ListenUDP("udp4", &net.UDPAddr{
 		IP: net.IPv4(127, 0, 0, 1),
 	})
@@ -276,6 +282,7 @@ func (r *Relay) session(from netip.AddrPort) (*session, error) {
 	r.wg.Go(func() {
 		r.readServer(s, up)
 	})
+
 	return s, nil
 }
 
@@ -305,6 +312,7 @@ func (r *Relay) forward(s *session, d Dir, b []byte) {
 	if im.Blackhole || drop < im.Drop || (im.MaxSize > 0 && len(b) > im.MaxSize) || len(b) < im.MinSize || slices.Contains(im.DropAt, n) {
 		r.stats.Dropped[d]++
 		r.mu.Unlock()
+
 		return
 	}
 	r.mu.Unlock()
@@ -421,6 +429,7 @@ func longTypes(b []byte) []byte {
 		}
 		b = b[off:]
 	}
+
 	return types
 }
 
@@ -437,6 +446,7 @@ func varint(b []byte) (v uint64, l int) {
 	for _, c := range b[1:l] {
 		v = v<<8 | uint64(c)
 	}
+
 	return v, l
 }
 
@@ -467,6 +477,7 @@ func (h items) Less(i, j int) bool {
 	if !h[i].due.Equal(h[j].due) {
 		return h[i].due.Before(h[j].due)
 	}
+
 	return h[i].seq < h[j].seq
 }
 
@@ -487,6 +498,7 @@ func (h *items) Pop() any {
 	old := *h
 	it := old[len(old)-1]
 	*h = old[:len(old)-1]
+
 	return it
 }
 

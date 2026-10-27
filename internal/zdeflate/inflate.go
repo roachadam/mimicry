@@ -79,5 +79,6 @@ func (r *Reader) Message(p []byte, limit int) ([]byte, error) {
 		}
 		r.dict = append(r.dict, msg...)
 	}
+
 	return msg, nil
 }

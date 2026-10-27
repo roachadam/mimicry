@@ -52,6 +52,7 @@ func Compile(p *profile.Profile) *Plan {
 		}
 	}
 	plan.quic = compileQUIC(p)
+
 	return plan
 }
 
@@ -98,6 +99,7 @@ func (p *Plan) ResumedHello() Hello {
 	h.Extensions = append(h.Extensions, profile.Extension{
 		Type: profile.ExtPreSharedKey,
 	})
+
 	return h
 }
 
@@ -115,6 +117,7 @@ func (p *Plan) WebSocketHello(h Hello) Hello {
 			h.Extensions[i].ALPN = ws.ALPN
 		}
 	}
+
 	return h
 }
 
@@ -139,5 +142,6 @@ func (p *Plan) hello(intn func(int) int) Hello {
 		j := intn(i + 1)
 		h.Extensions[m[i]], h.Extensions[m[j]] = h.Extensions[m[j]], h.Extensions[m[i]]
 	}
+
 	return h
 }

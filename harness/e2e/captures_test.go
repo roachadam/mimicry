@@ -34,6 +34,7 @@ func testProfiles(t testing.TB) []string {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return names
 }
 
@@ -61,6 +62,7 @@ func capturePath(t testing.TB, p *profile.Profile, scenario, rest string) (strin
 	if rw != nil {
 		t.Logf("%s: %s inherited, versions rewritten %s", scenario, file, rw)
 	}
+
 	return captureDir + file, file, rw
 }
 
@@ -74,6 +76,7 @@ func loadPages(t testing.TB, p *profile.Profile, scenario, rest string) ([]*capt
 		return nil, err
 	}
 	rw.Pages(pages)
+
 	return pages, nil
 }
 
@@ -87,6 +90,7 @@ func loadH2Traces(t testing.TB, p *profile.Profile, scenario string) ([]*h2trace
 		return nil, err
 	}
 	rw.Traces(traces)
+
 	return traces, nil
 }
 
@@ -142,5 +146,6 @@ func loadSamples[T any](t *testing.T, p *profile.Profile, scenario, rest string)
 	default:
 		t.Fatalf("%s is inherited, but loadSamples cannot rewrite a %T", file, samples)
 	}
+
 	return samples
 }

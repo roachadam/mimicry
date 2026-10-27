@@ -22,6 +22,7 @@ var incompressible = sync.OnceValue(func() []byte {
 	b := make([]byte, h3DownloadSize)
 	r := rand.NewChaCha8([32]byte{'m', 'i', 'm', 'i', 'c', 'r', 'y'})
 	_, _ = r.Read(b)
+
 	return b
 })
 
@@ -54,6 +55,7 @@ func H3DownloadSteps() []H3Step {
 	download.NoWait, download.Download = false, h3DownloadSize
 	last := h3Fetch(h3Host, "after3.so", 1000)
 	last.NoWait = false
+
 	return []H3Step{
 		h3Fetch(h3Host, "fetch1.so", 1000),
 		goAway,
@@ -167,6 +169,7 @@ func h3Fetch(host, label string, pause int) H3Step {
 	if host != h3Host {
 		s.Mode, s.Credentials = "no-cors", "include"
 	}
+
 	return s
 }
 
@@ -182,6 +185,7 @@ func H3BlackholeSteps() []H3Step {
 	}
 	last := h3Fetch(h3Host, "last.so", 20000)
 	last.NoWait = false
+
 	return []H3Step{
 		h3Fetch(h3Host, "fetch1.so", 1000),
 		h3Fetch(h3Host, "fetch2.so", 1000),
@@ -214,6 +218,7 @@ func H3BrokenSteps() []H3Step {
 	}
 	last := h3Fetch(h3CrossSite, "closed6.cs", 10000)
 	last.NoWait = false
+
 	return []H3Step{
 		h3Fetch(h3CrossSite, "warm.cs", 0),
 		with(h3Fetch(h3Host, "goaway.so", 1000), func(s *H3Step) {
@@ -257,6 +262,7 @@ func H3V2Steps() []H3Step {
 	goAway.GoAwayTCP = true
 	last := h3Fetch(h3Host, "after-idle3.so", 1000)
 	last.NoWait = false
+
 	return []H3Step{
 		h3Fetch(h3Host, "v2-1.so", 1000),
 		h3Fetch(h3Host, "v2-2.so", 1000),
@@ -276,6 +282,7 @@ func H3VNSteps() []H3Step {
 	goAway.GoAwayTCP = true
 	last := h3Fetch(h3Host, "vn-6.so", 10000)
 	last.NoWait = false
+
 	return []H3Step{
 		h3Fetch(h3Host, "vn-1.so", 1000),
 		h3Fetch(h3Host, "vn-2.so", 1000),

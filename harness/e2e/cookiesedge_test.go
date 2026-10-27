@@ -77,6 +77,7 @@ func edgeSchemes(t *testing.T, pages []*capture.Page, steps []server.CookiesEdge
 			t.Logf("%s: the browser upgraded it to https://, replayed so", st.Label)
 		}
 	}
+
 	return out
 }
 
@@ -88,6 +89,7 @@ func edgeCookie(page *capture.Page, st server.CookiesEdgeStep, plain bool) (stri
 		if host, _, err := net.SplitHostPort(h); err == nil {
 			h = host
 		}
+
 		return h == st.Host
 	}
 	if plain {
@@ -103,8 +105,10 @@ func edgeCookie(page *capture.Page, st server.CookiesEdgeStep, plain bool) (stri
 					crumbs = append(crumbs, strings.TrimSpace(v))
 				}
 			}
+
 			return strings.Join(crumbs, "; "), true
 		}
+
 		return "", false
 	}
 	for _, tr := range page.H2 {
@@ -121,9 +125,11 @@ func edgeCookie(page *capture.Page, st server.CookiesEdgeStep, plain bool) (stri
 					crumbs = append(crumbs, ins.Value)
 				}
 			}
+
 			return strings.Join(crumbs, "; "), true
 		}
 	}
+
 	return "", false
 }
 
@@ -152,6 +158,7 @@ func runCookiesEdgePage(t *testing.T, p *profile.Profile, sc *server.Scenario, s
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		return u
 	}
 	var page *url.URL
@@ -169,6 +176,7 @@ func runCookiesEdgePage(t *testing.T, p *profile.Profile, sc *server.Scenario, s
 				From: page,
 			}, h, "")
 			page = u
+
 			continue
 		}
 		s.send(http.MethodGet, u.String(), mimicry.Request{
@@ -177,5 +185,6 @@ func runCookiesEdgePage(t *testing.T, p *profile.Profile, sc *server.Scenario, s
 			Credentials: mimicry.CredentialsInclude,
 		}, nil, "")
 	}
+
 	return s.finish(page.ResolveReference(&url.URL{Path: "/done"}).String())
 }

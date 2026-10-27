@@ -17,6 +17,7 @@ func mustURL(t *testing.T, s string) *url.URL {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return u
 }
 
@@ -26,6 +27,7 @@ func newJar(t *testing.T, cfg Config) *Jar {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return j
 }
 
@@ -33,6 +35,7 @@ func newJar(t *testing.T, cfg Config) *Jar {
 func rules(edit func(*profile.Cookies)) *profile.Cookies {
 	r := profile.DefaultCookies()
 	edit(r)
+
 	return r
 }
 
@@ -55,6 +58,7 @@ func setOne(j *Jar, r Request, line string) Event {
 	}
 	j.SetCookies(r, []string{line})
 	j.onSetCookie = hook
+
 	return got
 }
 

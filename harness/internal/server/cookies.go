@@ -90,6 +90,7 @@ location.href = "` + origin(cookiesSiteC) + `/c";`)
 		for _, c := range CookiesSet {
 			r.headers = append(r.headers, hpack.HeaderField{Name: "set-cookie", Value: c})
 		}
+
 		return r
 	case host == cookiesSiteC && path == "/c":
 		return html(`await load("` + origin(kindsCrossSite) + `/k/c-part.cs");
@@ -106,6 +107,7 @@ document.body.appendChild(f); f.submit();`)
 		for _, h := range p.hosts() {
 			cleanup = append(cleanup, strconv.Quote(origin(h)+"/cleanup"))
 		}
+
 		return html(`await Promise.all([` + strings.Join(cleanup, ", ") + `].map(u => fetch(u, {credentials: "include", mode: "no-cors"}).catch(() => {})));
 fetch("/done");`)
 	case path == "/cleanup" || path == "/done":
@@ -114,6 +116,7 @@ fetch("/done");`)
 		for _, c := range CookiesThirdParty {
 			image.headers = append(image.headers, hpack.HeaderField{Name: "set-cookie", Value: c})
 		}
+
 		return image
 	}
 	label, ok := strings.CutPrefix(path, "/k/")
@@ -125,6 +128,7 @@ fetch("/done");`)
 			{Name: "location", Value: origin(to) + "/k/" + label + ".hop"},
 		}}
 	}
+
 	return image
 }
 
@@ -161,5 +165,6 @@ func cookiesDeletions(host string) []hpack.HeaderField {
 			Value: name + "=; Path=" + path + domain + partitioned + "; Secure; Max-Age=0",
 		})
 	}
+
 	return out
 }

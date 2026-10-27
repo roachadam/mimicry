@@ -75,6 +75,7 @@ func H3EarlySteps() []H3Step {
 	xhr.Kind = "xhr"
 	form := h3Fetch(h3Host, "form.so", h3EarlyGap)
 	form.Kind = "navigate"
+
 	return []H3Step{
 		h3Fetch(h3Host, "warm.so", 0),
 		goAway,
@@ -110,6 +111,7 @@ func newEarlyStreams() *earlyStreams {
 		first: map[int64]bool{},
 	}
 	e.cond = sync.NewCond(&e.mu)
+
 	return e
 }
 
@@ -125,6 +127,7 @@ func earlyTracer(ctx context.Context, _ bool, _ quic.ConnectionID) qlogwriter.Tr
 	if e, ok := ctx.Value(earlyKey{}).(*earlyStreams); ok {
 		return e
 	}
+
 	return nil
 }
 
@@ -176,6 +179,7 @@ func (e *earlyStreams) Close() error {
 	defer e.mu.Unlock()
 	e.done = true
 	e.cond.Broadcast()
+
 	return nil
 }
 

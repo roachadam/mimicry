@@ -129,6 +129,7 @@ func Build(prof []profile.Header, h http.Header, skip func(name string) bool, ta
 					Value: value,
 				})
 			}
+
 			return
 		}
 		if d := defaults[name]; d != "" {
@@ -152,6 +153,7 @@ func Build(prof []profile.Header, h http.Header, skip func(name string) bool, ta
 		if v, set := values[name]; set {
 			return len(v) > 0
 		}
+
 		return defaults[name] != ""
 	})
 	for _, name := range order {
@@ -159,6 +161,7 @@ func Build(prof []profile.Header, h http.Header, skip func(name string) bool, ta
 			for _, r := range rest {
 				emit(r)
 			}
+
 			continue
 		}
 		if slices.Contains(tabled, name) {
@@ -166,6 +169,7 @@ func Build(prof []profile.Header, h http.Header, skip func(name string) bool, ta
 			for _, t := range tabled {
 				emit(t)
 			}
+
 			continue
 		}
 		emit(name)
@@ -173,6 +177,7 @@ func Build(prof []profile.Header, h http.Header, skip func(name string) bool, ta
 	for _, name := range rest {
 		emit(name)
 	}
+
 	return fields
 }
 
@@ -196,6 +201,7 @@ func Replaced(prof []profile.Header, h http.Header) (replaced []Replacement, dro
 			for _, name := range v {
 				override = append(override, strings.ToLower(name))
 			}
+
 			continue
 		}
 		name := strings.ToLower(k)
@@ -216,6 +222,7 @@ func Replaced(prof []profile.Header, h http.Header) (replaced []Replacement, dro
 			dropped = append(dropped, name)
 		}
 	}
+
 	return replaced, dropped
 }
 
@@ -248,5 +255,6 @@ func tableRun(table *profile.HeaderTable, order, rest []string, sends func(strin
 	if !ok {
 		return nil
 	}
+
 	return run
 }

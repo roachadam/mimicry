@@ -74,6 +74,7 @@ func run(args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
+
 	return printChain(out, u.Hostname(), chain)
 }
 
@@ -106,5 +107,6 @@ func printChain(out io.Writer, host string, chain []mimicry.CertPin) error {
 		return err
 	}
 	_, err := fmt.Fprintf(out, "\n* the recommended pin: it rotates least often.\n\nConfig.Pins:\n\t{Host: %q, SPKI: []string{%q}}\n", host, chain[recommended].SPKI)
+
 	return err
 }

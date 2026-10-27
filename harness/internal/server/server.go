@@ -121,6 +121,7 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 		})
 	}
 	wg.Wait()
+
 	return errors.Join(errs...)
 }
 
@@ -139,6 +140,7 @@ func (s *Server) accept(ctx context.Context, ln net.Listener, handle func(net.Co
 			if ctx.Err() != nil {
 				return nil
 			}
+
 			return err
 		}
 		wg.Go(func() {
@@ -172,6 +174,7 @@ func (s *Server) tlsConfig(sc *Scenario, issue func([]string) (tls.Certificate, 
 	if issue == nil {
 		return nil, errors.New("scenario " + sc.Name + " serves several hosts and needs Server.IssueCert")
 	}
+
 	return multiHostTLS(sc.multi, cfg, issue), nil
 }
 
@@ -183,6 +186,7 @@ func cachedIssuer(issue func([]string) (tls.Certificate, error)) func([]string) 
 	}
 	var mu sync.Mutex
 	certs := map[string]tls.Certificate{}
+
 	return func(names []string) (tls.Certificate, error) {
 		key := strings.Join(names, " ")
 		mu.Lock()
@@ -195,6 +199,7 @@ func cachedIssuer(issue func([]string) (tls.Certificate, error)) func([]string) 
 			return tls.Certificate{}, err
 		}
 		certs[key] = c
+
 		return c, nil
 	}
 }
@@ -241,6 +246,7 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 			if isClosed(err) {
 				return nil
 			}
+
 			return err
 		}
 		conn = &replayConn{
@@ -257,6 +263,7 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 		if err := serveHTTP1(conn, "", c, sc, log, emit); !isClosed(err) {
 			return err
 		}
+
 		return nil
 	}
 	raw, msg, err := readClientHello(conn)
@@ -293,6 +300,7 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 	if isClosed(err) {
 		return nil
 	}
+
 	return err
 }
 

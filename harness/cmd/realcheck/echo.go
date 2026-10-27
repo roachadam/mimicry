@@ -123,6 +123,7 @@ func visitEchoes(ctx context.Context, client string, v visitor, out string) erro
 			return ctx.Err()
 		}
 	}
+
 	return nil
 }
 
@@ -139,6 +140,7 @@ func jsonOf(text string) (json.RawMessage, error) {
 	if len(b) > 300 {
 		b = b[:300]
 	}
+
 	return nil, fmt.Errorf("the page is not JSON: %q", b)
 }
 
@@ -164,6 +166,7 @@ func echoProto(body json.RawMessage) string {
 	case "http2":
 		return "h2"
 	}
+
 	return v.Protocol
 }
 
@@ -176,6 +179,7 @@ func echoProfile(ctx context.Context, name string, p *profile.Profile, out strin
 		return err
 	}
 	defer c.CloseIdleConnections()
+
 	return visitEchoes(ctx, name, &mimicryVisitor{
 		c:           c,
 		newConnOnly: p.HTTP3 != nil && p.HTTP3.Discovery.Switch == profile.SwitchNewConnection,
@@ -213,6 +217,7 @@ func (m *mimicryVisitor) visit(ctx context.Context, url string) (string, error) 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("%s: %s", url, resp.Status)
 	}
+
 	return string(b), nil
 }
 
@@ -221,6 +226,7 @@ func (m *mimicryVisitor) fresh() bool {
 		m.c.CloseIdleConnections()
 		return true
 	}
+
 	return false
 }
 
@@ -234,6 +240,7 @@ func (v liveVisitor) visit(ctx context.Context, url string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return p.Text, nil
 }
 
@@ -259,6 +266,7 @@ func runBrowser(ctx context.Context, b *browser.Browser, out string, echo, doSit
 		errs = append(errs, sitesBrowser(ctx, client, l, out))
 	}
 	errs = append(errs, l.Close())
+
 	return errors.Join(errs...)
 }
 
@@ -275,6 +283,7 @@ func browserClient(b *browser.Browser) string {
 		return name
 	}
 	major, _, _ := strings.Cut(strings.TrimSpace(string(out)), ".")
+
 	return name + "-" + major
 }
 
@@ -287,5 +296,6 @@ func save(path string, v any) error {
 	if err != nil {
 		return err
 	}
+
 	return os.WriteFile(path, data, 0o600)
 }

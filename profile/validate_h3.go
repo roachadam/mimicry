@@ -138,6 +138,7 @@ func otherVersions(q *QUIC) []QUICVersion {
 			}
 		}
 	}
+
 	return out
 }
 

@@ -25,6 +25,7 @@ func newServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {
 	srv.EnableHTTP2 = true
 	srv.StartTLS()
 	t.Cleanup(srv.Close)
+
 	return srv
 }
 
@@ -57,6 +58,7 @@ func dial(t *testing.T, srv *httptest.Server) *Conn {
 	t.Cleanup(func() {
 		_ = c.Close()
 	})
+
 	return c
 }
 
@@ -66,6 +68,7 @@ func newRequest(t *testing.T, method, url string, body io.Reader) *http.Request 
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return req
 }
 

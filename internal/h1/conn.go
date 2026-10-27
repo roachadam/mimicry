@@ -64,6 +64,7 @@ func NewWriter(p *profile.Profile) Writer {
 	if p.HTTP1 != nil {
 		w.h1Order, w.h1Case = lowerList(p.HTTP1.Headers)
 	}
+
 	return w
 }
 
@@ -115,6 +116,7 @@ func authIndex(fields []headerorder.Field, a *profile.ForwardAuth, answering boo
 		}); i >= 0 {
 			return i
 		}
+
 		return len(fields)
 	}
 	at := len(fields)
@@ -123,6 +125,7 @@ func authIndex(fields []headerorder.Field, a *profile.ForwardAuth, answering boo
 			at = i + 1
 		}
 	}
+
 	return at
 }
 
@@ -139,6 +142,7 @@ func lowerList(headers []profile.Header) ([]profile.Header, map[string]string) {
 		})
 		cases[lower] = h.Name
 	}
+
 	return order, cases
 }
 
@@ -172,6 +176,7 @@ func (c *Conn) Usable() bool {
 		return false
 	}
 	var netErr net.Error
+
 	return errors.As(err, &netErr) && netErr.Timeout()
 }
 
@@ -242,6 +247,7 @@ func (c *Conn) RoundTrip(req *http.Request, done func(reusable bool)) (*http.Res
 		},
 	}
 	resp.TLS = c.tls
+
 	return resp, nil
 }
 
@@ -250,6 +256,7 @@ func contextError(ctx context.Context, err error) error {
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return ctxErr
 	}
+
 	return err
 }
 
@@ -277,6 +284,7 @@ func validTarget(s string) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -305,6 +313,7 @@ func (w Writer) head(req *http.Request) (Head, bool, error) {
 		}
 	}
 	h, err := w.build(req, framing)
+
 	return h, chunked, err
 }
 
@@ -431,6 +440,7 @@ func (w Writer) build(req *http.Request, framing http.Header) (Head, error) {
 			return Head{}, fmt.Errorf("h1: invalid value for header %q", f.Name)
 		}
 	}
+
 	return h, nil
 }
 
@@ -455,6 +465,7 @@ func (c *Conn) writeRequest(req *http.Request) error {
 			return err
 		}
 	}
+
 	return c.bw.Flush()
 }
 
@@ -470,6 +481,7 @@ func (c *Conn) writeBody(req *http.Request, chunked bool) error {
 			return err
 		}
 		_, err := c.bw.WriteString("\r\n")
+
 		return err
 	}
 	n, err := io.CopyN(c.bw, req.Body, req.ContentLength)
@@ -483,6 +495,7 @@ func (c *Conn) writeBody(req *http.Request, chunked bool) error {
 	if m, _ := io.ReadFull(req.Body, extra[:]); m > 0 {
 		return fmt.Errorf("h1: body longer than ContentLength %d", req.ContentLength)
 	}
+
 	return nil
 }
 
@@ -499,6 +512,7 @@ func (b *body) Read(p []byte) (int, error) {
 	if errors.Is(err, io.EOF) {
 		b.eof = true
 	}
+
 	return n, err
 }
 
@@ -514,6 +528,7 @@ func (b *body) Close() error {
 		// The connection's read error from the abandoned rest is expected.
 		return nil
 	}
+
 	return err
 }
 
@@ -525,5 +540,6 @@ func callerCase(h http.Header, lower string) string {
 			return k
 		}
 	}
+
 	return http.CanonicalHeaderKey(lower)
 }

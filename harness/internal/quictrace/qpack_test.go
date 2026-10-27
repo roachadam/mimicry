@@ -119,6 +119,7 @@ func TestQPACKRFC9204Examples(t *testing.T) {
 				if err == nil || (!errors.Is(err, s.wantErr) && err.Error() != s.wantErr.Error()) {
 					t.Errorf("%s: error %v; want %v", s.name, err, s.wantErr)
 				}
+
 				continue
 			}
 			if err != nil {

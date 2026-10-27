@@ -37,6 +37,7 @@ func (sc *Scenario) MultiHost() (hosts []string, length time.Duration, ok bool) 
 	if sc.multi == nil {
 		return nil, 0, false
 	}
+
 	return slices.Clone(sc.multi.hosts()), sc.multi.length(), true
 }
 
@@ -70,8 +71,10 @@ func multiHostTLS(m multiHost, base *tls.Config, issue func([]string) (tls.Certi
 			}
 		}
 		configs[hello.ServerName] = c
+
 		return c, nil
 	}
+
 	return cfg
 }
 
@@ -94,6 +97,7 @@ func (f fixedHosts) certNames(host string) ([]string, bool) {
 	if !slices.Contains(f.names, host) {
 		return nil, false
 	}
+
 	return []string{
 		host,
 	}, true
@@ -114,6 +118,7 @@ func splitAuthority(authority string) (host, port string) {
 	if err != nil {
 		return authority, "443"
 	}
+
 	return host, port
 }
 
@@ -154,6 +159,7 @@ func preflightAllow(allow []hpack.HeaderField, methods, requested string) []hpac
 			Value: requested,
 		})
 	}
+
 	return out
 }
 
@@ -175,6 +181,7 @@ func cookieDeletions(set []string) []string {
 		}
 		out = append(out, d+"; Max-Age=0")
 	}
+
 	return out
 }
 

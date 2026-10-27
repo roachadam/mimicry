@@ -27,6 +27,7 @@ func StreamTypeName(t uint64) string {
 	case 0x54:
 		return "webtransport"
 	}
+
 	return ""
 }
 
@@ -54,6 +55,7 @@ func FrameTypeName(t uint64) string {
 	case FrameH3PriorityUpdatePush:
 		return "PRIORITY_UPDATE_PUSH"
 	}
+
 	return ""
 }
 
@@ -87,6 +89,7 @@ func SettingName(id uint64) string {
 	case 0xc671706a:
 		return "WEBTRANSPORT_MAX_SESSIONS"
 	}
+
 	return ""
 }
 
@@ -104,10 +107,12 @@ func ReadVarint(r io.ByteReader) (uint64, error) {
 			if errors.Is(err, io.EOF) {
 				return 0, io.ErrUnexpectedEOF
 			}
+
 			return 0, err
 		}
 		v = v<<8 | uint64(b)
 	}
+
 	return v, nil
 }
 
@@ -122,6 +127,7 @@ func AppendVarint(dst []byte, v uint64) []byte {
 	case v < 1<<30:
 		return append(dst, 0x80|byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
 	}
+
 	return append(dst, 0xc0|byte(v>>56), byte(v>>48), byte(v>>40), byte(v>>32), byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
 }
 
@@ -129,6 +135,7 @@ func AppendVarint(dst []byte, v uint64) []byte {
 func AppendFrame(dst []byte, typ uint64, payload []byte) []byte {
 	dst = AppendVarint(dst, typ)
 	dst = AppendVarint(dst, uint64(len(payload)))
+
 	return append(dst, payload...)
 }
 
@@ -151,12 +158,14 @@ func ReadFrame(r *bufio.Reader) (typ, length uint64, payload []byte, err error) 
 		if _, err := r.Discard(int(min(length, 1<<62))); err != nil {
 			return 0, 0, nil, unexpected(err)
 		}
+
 		return typ, length, nil, nil
 	}
 	payload = make([]byte, length)
 	if _, err := io.ReadFull(r, payload); err != nil {
 		return 0, 0, nil, unexpected(err)
 	}
+
 	return typ, length, payload, nil
 }
 
@@ -164,6 +173,7 @@ func unexpected(err error) error {
 	if errors.Is(err, io.EOF) {
 		return io.ErrUnexpectedEOF
 	}
+
 	return err
 }
 
@@ -185,6 +195,7 @@ func ParseSettings(payload []byte) ([]Setting, error) {
 			Value:  value,
 		})
 	}
+
 	return out, nil
 }
 
@@ -196,6 +207,7 @@ func ParseControlFrame(f *H3Frame, payload []byte) error {
 	case FrameH3Settings:
 		s, err := ParseSettings(payload)
 		f.Settings = s
+
 		return err
 	case FrameH3GoAway, FrameH3MaxPushID, FrameH3CancelPush:
 		v, n := varint(payload)
@@ -210,6 +222,7 @@ func ParseControlFrame(f *H3Frame, payload []byte) error {
 		}
 		f.ID, f.Priority = new(v), string(payload[n:])
 	}
+
 	return nil
 }
 

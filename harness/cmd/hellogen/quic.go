@@ -85,6 +85,7 @@ func quicHello(dir string, p *profile.Profile) (*profile.QUICHello, error) {
 	}
 	retry, err := vnRetryHello(dir, p, out)
 	out.VersionNegotiation = retry
+
 	return out, errors.Join(append(errs, err)...)
 }
 
@@ -116,6 +117,7 @@ func quicConns(dir string, p *profile.Profile) ([]quicConn, error) {
 			}
 		}
 	}
+
 	return out, nil
 }
 
@@ -133,6 +135,7 @@ func replacements(out *profile.QUICHello, t *profile.TLS, full []quicConn) error
 			if render(te) != render(*qe) {
 				out.Replace = append(out.Replace, *qe)
 			}
+
 			continue
 		}
 		ech := *qe.ECH
@@ -156,6 +159,7 @@ func replacements(out *profile.QUICHello, t *profile.TLS, full []quicConn) error
 		replaced.ECH = &ech
 		out.Replace = append(out.Replace, replaced)
 	}
+
 	return nil
 }
 
@@ -172,6 +176,7 @@ func render(e profile.Extension) string {
 	if err != nil {
 		return err.Error()
 	}
+
 	return string(data)
 }
 
@@ -181,6 +186,7 @@ func within[T comparable](s, of []T) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -201,6 +207,7 @@ func order(out *profile.QUICHello, full, resumed []quicConn) {
 		if i := slices.Index(first, profile.ExtQUICTransportParameters); i >= 0 && i+1 < len(first) {
 			out.TransportParametersBefore = &first[i+1]
 		}
+
 		return
 	}
 	out.ExtensionOrder = profile.ExtensionOrderShuffled
@@ -226,6 +233,7 @@ func typesOf(h *profile.TLS, noPSK bool) []profile.Code {
 		}
 		out = append(out, e.Type)
 	}
+
 	return out
 }
 
@@ -290,6 +298,7 @@ func expectedQUICHello(t *profile.TLS, q *profile.QUICHello, tp []byte, resumed 
 			Type: profile.ExtPreSharedKey,
 		})
 	}
+
 	return &out
 }
 
@@ -324,5 +333,6 @@ func checkQUICHello(t *profile.TLS, q *profile.QUICHello, c quicConn) error {
 	if len(lines) > 0 {
 		return errors.New("its hello is not the profile's QUIC hello:\n" + strings.Join(lines, "\n"))
 	}
+
 	return nil
 }

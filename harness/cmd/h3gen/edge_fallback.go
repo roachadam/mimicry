@@ -43,6 +43,7 @@ func sendsZeroRTT(a *attempt) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -59,6 +60,7 @@ func race(p *edgePage, r *edgeReq) raceEvent {
 			ev.attempt = ev.attempt || a.end() >= made && !a.answered
 		}
 		ev.wait = float64(r.delay())
+
 		return ev
 	}
 	a := started[0]
@@ -72,6 +74,7 @@ func race(p *edgePage, r *edgeReq) raceEvent {
 	} else {
 		ev.wait = float64(r.arrival - a.start)
 	}
+
 	return ev
 }
 
@@ -103,6 +106,7 @@ func (s *edgeSet) raceEvents(e *collector) []raceEvent {
 			}
 		}
 	}
+
 	return out
 }
 
@@ -160,6 +164,7 @@ func (s *edgeSet) failures(q *profile.QUIC, p *edgePage, host string, after floa
 		})
 		more = false
 	}
+
 	return fs, more
 }
 
@@ -189,6 +194,7 @@ func counted(fs []failure, countsResumed bool) int {
 			n++
 		}
 	}
+
 	return n
 }
 
@@ -209,6 +215,7 @@ func (s *edgeSet) fallback(q *profile.QUIC, d *profile.Discovery, e *collector) 
 				edgeErr(e, ev.at, "%s waited %.0f ms for QUIC, other requests longer", ev.label, ev.wait)
 			}
 			out.Mode = profile.FallbackBackground
+
 			continue
 		}
 		if out.Mode == profile.FallbackBackground {
@@ -241,6 +248,7 @@ func (s *edgeSet) fallback(q *profile.QUIC, d *profile.Discovery, e *collector) 
 	s.afterClose(d, &out, e)
 	s.broken(q, d, &out, e)
 	s.pending(&out, e)
+
 	return out
 }
 
@@ -255,6 +263,7 @@ func closedHost(p *edgePage) (string, float64, error) {
 	if c.Close == nil {
 		return "", 0, fmt.Errorf("close.cs's connection did not close")
 	}
+
 	return c.Host, float64(c.Close.Millis), nil
 }
 
@@ -398,6 +407,7 @@ func (s *edgeSet) broken(q *profile.QUIC, d *profile.Discovery, out *profile.Fal
 					n:             n,
 					countsResumed: cr,
 				})
+
 				break
 			}
 		}
@@ -433,6 +443,7 @@ func (s *edgeSet) revalidate(e *collector) *profile.Range {
 						at:   a.millis(f[0].Micros),
 					})
 				}
+
 				break
 			}
 		}
@@ -462,6 +473,7 @@ func (s *edgeSet) revalidate(e *collector) *profile.Range {
 		edgeErr(e, s.set.name, "revalidate_ms: no request after a failure started a fresh attempt, or bounds %d > %d", lower, upper)
 		return nil
 	}
+
 	return &profile.Range{
 		Min: lower,
 		Max: upper,

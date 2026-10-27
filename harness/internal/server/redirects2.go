@@ -131,6 +131,7 @@ func (s Redirects2Step) HopHost() string {
 	if s.Next != "" {
 		return s.Next
 	}
+
 	return s.Host
 }
 
@@ -235,6 +236,7 @@ func Redirects2Steps() []Redirects2Step {
 			})
 		}
 	}
+
 	return append(steps, Redirects2Step{
 		Label:  "nav-chain.so",
 		Kind:   RedirectNavigate,
@@ -272,6 +274,7 @@ func (p redirects2Page) answer(req request) response {
 		if host != home || i < 0 || !steps[i].Nav() {
 			return notFound
 		}
+
 		return htmlResponse(redirStartPage(steps[i], origin))
 	}
 	target, ok := strings.CutPrefix(path, "/p/")
@@ -322,6 +325,7 @@ func (p redirects2Page) answer(req request) response {
 		Name:  "location",
 		Value: origin(s.HopHost()) + "/p/" + s.Label + ".hop" + strconv.Itoa(hop+1),
 	})
+
 	return r
 }
 
@@ -343,6 +347,7 @@ func redirLast(steps []Redirects2Step, i int, home, method string, cors []hpack.
 				break
 			}
 		}
+
 		return htmlResponse(htmlPage("redirects2", "", pageScript([]string{next})))
 	case RedirectImage, RedirectImageMarkup, RedirectImageNew:
 		return response{status: 200, contentType: "image/png", body: png, headers: cors}
@@ -353,6 +358,7 @@ func redirLast(steps []Redirects2Step, i int, home, method string, cors []hpack.
 	if method == "HEAD" {
 		r.body = nil
 	}
+
 	return r
 }
 
@@ -376,6 +382,7 @@ func redirRootPage(steps []Redirects2Step, origin func(string) string) []byte {
 			markup.WriteString("\n")
 		}
 	}
+
 	return htmlPage("redirects2", "", markup.String()+pageScript(redirFirstPage(steps, origin)))
 }
 
@@ -416,6 +423,7 @@ func redirFirstPage(steps []Redirects2Step, origin func(string) string) []string
 			return append(out, fmt.Sprintf("location.href = %s;", strconv.Quote("/s/"+s.Label)))
 		}
 	}
+
 	return append(out, `fetch("/done");`)
 }
 
@@ -440,6 +448,7 @@ func redirStartPage(s Redirects2Step, origin func(string) string) []byte {
 				click,
 			}))
 		}
+
 		return htmlPage("redirects2", "", pageScript([]string{
 			watch,
 			fmt.Sprintf("location.href = %s;", strconv.Quote(u)),
@@ -451,6 +460,7 @@ func redirStartPage(s Redirects2Step, origin func(string) string) []byte {
 		submit, send = `<button`+fill+`>go</button>`, click
 	}
 	form := `<form method="` + strings.ToLower(s.Method) + `" action="` + html.EscapeString(u) + `"><input type="hidden" name="` + html.EscapeString(name) + `" value="` + html.EscapeString(value) + `">` + submit + `</form>` + "\n"
+
 	return htmlPage("redirects2", "", form+pageScript([]string{
 		arm + ";",
 		send,

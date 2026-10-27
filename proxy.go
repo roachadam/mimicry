@@ -51,6 +51,7 @@ func publicError(err error) error {
 	if p.User != nil {
 		p.User = url.User(p.User.Username())
 	}
+
 	return &ProxyError{
 		Proxy:      &p,
 		StatusCode: pe.StatusCode,

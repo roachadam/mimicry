@@ -34,6 +34,7 @@ func Compute(p *profile.Profile) Fingerprints {
 	if p.HTTP2 != nil {
 		f.Akamai = akamai(p.HTTP2)
 	}
+
 	return f
 }
 
@@ -43,6 +44,7 @@ func extension(t *profile.TLS, typ profile.Code) *profile.Extension {
 			return &t.Extensions[i]
 		}
 	}
+
 	return nil
 }
 
@@ -54,6 +56,7 @@ func withoutGREASE(codes []profile.Code) []profile.Code {
 			out = append(out, c)
 		}
 	}
+
 	return out
 }
 
@@ -62,6 +65,7 @@ func extensionTypes(t *profile.TLS) []profile.Code {
 	for _, e := range t.Extensions {
 		types = append(types, e.Type)
 	}
+
 	return types
 }
 
@@ -143,6 +147,7 @@ func alpnChars(v string) string {
 		})
 	}
 	h := hex.EncodeToString([]byte(v))
+
 	return string([]byte{
 		h[0],
 		h[len(h)-1],
@@ -158,6 +163,7 @@ func hexList(codes []profile.Code) []string {
 	for i, c := range codes {
 		out[i] = fmt.Sprintf("%04x", uint16(c))
 	}
+
 	return out
 }
 
@@ -166,6 +172,7 @@ func truncatedHash(s string, empty bool) string {
 		return "000000000000"
 	}
 	sum := sha256.Sum256([]byte(s))
+
 	return hex.EncodeToString(sum[:])[:12]
 }
 
@@ -196,6 +203,7 @@ func akamai(h *profile.HTTP2) string {
 	for i, name := range h.PseudoHeaderOrder {
 		pseudo[i] = name[1:2]
 	}
+
 	return strings.Join([]string{
 		strings.Join(settings, ";"),
 		window,

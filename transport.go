@@ -198,6 +198,7 @@ func NewTransport(cfg Config) (*Transport, error) {
 			t.decode = true
 		}
 	}
+
 	return t, nil
 }
 
@@ -222,6 +223,7 @@ func NewClient(cfg Config) (*http.Client, error) {
 		}
 		t.jar = jar
 	}
+
 	return &http.Client{
 		Transport:     t,
 		CheckRedirect: followRedirects,
@@ -250,6 +252,7 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		if req.Body != nil && req.Body != http.NoBody {
 			_ = req.Body.Close()
 		}
+
 		return nil, err
 	}
 	req = t.ready(req, o, toSend)
@@ -264,6 +267,7 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 			return nil, cerr
 		}
 	}
+
 	return t.finish(req, r, exact, callerSet, resp, err)
 }
 
@@ -273,6 +277,7 @@ func madeAs(req *http.Request) (r Request, exact bool) {
 	ctx := req.Context()
 	r, _ = ctx.Value(requestKey{}).(Request)
 	exact, _ = ctx.Value(exactKey{}).(bool)
+
 	return r, exact
 }
 
@@ -314,6 +319,7 @@ func (t *Transport) outgoing(req *http.Request, r Request, exact bool, u use) (*
 	if err != nil {
 		return req, out{}, err
 	}
+
 	return req, out{
 		s:         s,
 		places:    places,
@@ -346,6 +352,7 @@ func (t *Transport) ready(req *http.Request, o out, u use) *http.Request {
 	}
 	req = req.Clone(ctx)
 	req.Header = h
+
 	return req
 }
 
@@ -360,6 +367,7 @@ func (t *Transport) cookieLine(s *sending, u use) string {
 	if u == toPlan {
 		return cookies.Header(t.jar.Peek(s.cookies))
 	}
+
 	return cookies.Header(t.jar.Cookies(s.cookies))
 }
 
@@ -373,6 +381,7 @@ func (t *Transport) prepare(req *http.Request, r Request, exact bool) (*sending,
 		}
 		chain := append(redirectsBefore(req), req.URL)
 		addHeaders(h, t.headers, chain)
+
 		return &sending{
 			plan:   &headerorder.Plan{},
 			header: h,
@@ -412,6 +421,7 @@ func (t *Transport) prepare(req *http.Request, r Request, exact bool) (*sending,
 		return nil, nil, err
 	}
 	s.preflighted = needed
+
 	return s, pf, nil
 }
 
@@ -434,6 +444,7 @@ func (t *Transport) finish(req *http.Request, r Request, exact, callerSet bool, 
 				// Not zr: a nil *gzip.Reader in a non-nil interface.
 				return nil, err
 			}
+
 			return zr, nil
 		}
 	case "deflate":
@@ -448,6 +459,7 @@ func (t *Transport) finish(req *http.Request, r Request, exact, callerSet bool, 
 			if err != nil {
 				return nil, err
 			}
+
 			return d.IOReadCloser(), nil
 		}
 	default:
@@ -461,6 +473,7 @@ func (t *Transport) finish(req *http.Request, r Request, exact, callerSet bool, 
 	resp.Header.Del("Content-Length")
 	resp.ContentLength = -1
 	resp.Uncompressed = true
+
 	return resp, nil
 }
 
@@ -473,6 +486,7 @@ func hasBody(req *http.Request, resp *http.Response) bool {
 	case resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusNotModified:
 		return false
 	}
+
 	return resp.ContentLength != 0
 }
 
@@ -508,6 +522,7 @@ func (d *decoder) Read(p []byte) (int, error) {
 	if d.err != nil {
 		return 0, d.err
 	}
+
 	return d.dec.Read(p)
 }
 
@@ -515,5 +530,6 @@ func (d *decoder) Close() error {
 	if d.dec != nil {
 		_ = d.dec.Close()
 	}
+
 	return d.src.Close()
 }

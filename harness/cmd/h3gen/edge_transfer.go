@@ -34,6 +34,7 @@ func (s *edgeSet) downloads(e *collector) []download {
 			a: best,
 		})
 	}
+
 	return out
 }
 
@@ -67,6 +68,7 @@ func (d download) advances() []int {
 		}
 		last = max(last, fr.Largest)
 	})
+
 	return out
 }
 
@@ -81,6 +83,7 @@ func mode(vs []int) (value, count int) {
 			value, count = v, c
 		}
 	}
+
 	return value, count
 }
 
@@ -137,6 +140,7 @@ func (s *edgeSet) ack(e *collector) profile.QUICAck {
 		}
 		out = got
 	}
+
 	return out
 }
 
@@ -161,6 +165,7 @@ func (s *edgeSet) credit(q *profile.QUIC, e *collector) profile.QUICCredit {
 				return float64(*tp.Value)
 			}
 		}
+
 		return 0
 	}
 	streamWin, connWin := window(profile.TPInitialMaxStreamDataBidiLocal), window(profile.TPInitialMaxData)
@@ -233,6 +238,7 @@ func (s *edgeSet) credit(q *profile.QUIC, e *collector) profile.QUICCredit {
 			edgeErr(e, l.at, "%s", bad)
 		}
 	}
+
 	return out
 }
 
@@ -251,6 +257,7 @@ func receivedBy(d download) func(us int64) float64 {
 		at = append(at, sd.Micros)
 		sum = append(sum, total)
 	}
+
 	return func(us int64) float64 {
 		i, found := slices.BinarySearch(at, us)
 		if found {
@@ -259,6 +266,7 @@ func receivedBy(d download) func(us int64) float64 {
 		if i == 0 {
 			return 0
 		}
+
 		return sum[i-1]
 	}
 }
@@ -267,6 +275,7 @@ func receivedBy(d download) func(us int64) float64 {
 func median(vs []float64) float64 {
 	vs = slices.Clone(vs)
 	slices.Sort(vs)
+
 	return vs[len(vs)/2]
 }
 
@@ -276,6 +285,7 @@ func steps(limits []float64, window float64) []float64 {
 	for i := 1; i < len(limits); i++ {
 		out = append(out, limits[i]-limits[i-1])
 	}
+
 	return out
 }
 
@@ -294,6 +304,7 @@ func downloadStream(d download) uint64 {
 			best = s
 		}
 	}
+
 	return best
 }
 
@@ -301,6 +312,7 @@ func downloadStream(d download) uint64 {
 func divisor(steps []float64, window float64) int {
 	steps = slices.Clone(steps)
 	slices.Sort(steps)
+
 	return int(math.Round(window / steps[len(steps)/2]))
 }
 
@@ -315,6 +327,7 @@ func badStep(frame string, limits []float64, window float64, div int) string {
 		}
 		prev = l
 	}
+
 	return ""
 }
 
@@ -343,6 +356,7 @@ func (s *edgeSet) keyUpdate(e *collector) profile.QUICKeyUpdate {
 			}
 		}
 	}
+
 	return out
 }
 
@@ -374,5 +388,6 @@ func phaseChanges(ds []quictrace.Datagram, a *attempt) []phaseChange {
 			last = t
 		}
 	}
+
 	return out
 }

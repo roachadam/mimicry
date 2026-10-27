@@ -26,6 +26,7 @@ func Replay(p *pageshape.Page) (*Scenario, error) {
 		return nil, fmt.Errorf("page %s has no requests", p.Site)
 	}
 	rp := newReplay(p)
+
 	return &Scenario{
 		Name:  "replay-" + p.Site,
 		Doc:   rp.stats.String(),
@@ -93,6 +94,7 @@ func ReplayHost(h pageshape.Host) string {
 	if site == "" || !strings.HasSuffix(h.Name, site) {
 		return strings.ReplaceAll(h.Name, ".", "-") + ".test"
 	}
+
 	return strings.TrimSuffix(h.Name, site) + strings.ReplaceAll(site, ".", "-") + ".test"
 }
 
@@ -160,6 +162,7 @@ func newReplay(p *pageshape.Page) *replay {
 			}
 		}
 	}
+
 	return rp
 }
 
@@ -201,6 +204,7 @@ func (rp *replay) frameOf(i int) int {
 		rp.stats.reparented++
 		return rp.top
 	}
+
 	return best
 }
 
@@ -215,6 +219,7 @@ func (rp *replay) hosts() []string {
 			out = append(out, n)
 		}
 	}
+
 	return out
 }
 
@@ -231,6 +236,7 @@ func (rp *replay) certNames(host string) ([]string, bool) {
 	for _, s := range rp.page.Hosts[i].Shared {
 		names = append(names, rp.names[s])
 	}
+
 	return names, true
 }
 
@@ -264,6 +270,7 @@ func (rp *replay) path(i int) string {
 	if r.QueryLen > 0 {
 		p += "?" + synthetic("text", r.QueryLen, "query "+strconv.Itoa(i))
 	}
+
 	return p
 }
 
@@ -286,6 +293,7 @@ func (rp *replay) request(host, path string) (int, bool) {
 	if err != nil || i <= 0 || i >= len(rp.page.Requests) || rp.page.Requests[i].Host != h {
 		return 0, false
 	}
+
 	return i, true
 }
 
@@ -304,6 +312,7 @@ func (rp *replay) answer(req request) response {
 		if h, ok := rp.byName[host]; ok {
 			r.headers = append(r.headers, rp.deleteCookies(h)...)
 		}
+
 		return r
 	}
 	i, ok := rp.request(host, req.path)
@@ -342,6 +351,7 @@ func (rp *replay) answer(req request) response {
 		}
 		r.body = filler(rec.Dest, r.contentType, min(rec.Size, maxBody))
 	}
+
 	return r
 }
 
@@ -353,6 +363,7 @@ func cookieName(c pageshape.Cookie) string {
 	if c.NameLen >= len(name)+1 {
 		name += "_" + synthetic("alnum", c.NameLen-len(name)-1, "cookie name "+strconv.Itoa(c.ID))
 	}
+
 	return name
 }
 
@@ -377,6 +388,7 @@ func (rp *replay) setCookie(host int, c pageshape.Cookie, seed string) string {
 	case c.Persistent:
 		v += "; Max-Age=600"
 	}
+
 	return v
 }
 
@@ -406,6 +418,7 @@ func (rp *replay) deleteCookies(host int) []hpack.HeaderField {
 			})
 		}
 	}
+
 	return out
 }
 
@@ -476,6 +489,7 @@ func (rp *replay) document(doc int, port string) []byte {
 	if n := min(rp.page.Requests[doc].Size, maxBody) - len(html) - len("<!---->\n"); n > 0 {
 		html = htmlPage("replay", "", body+"<!--"+synthetic("text", n, "document "+strconv.Itoa(doc))+"-->\n")
 	}
+
 	return html
 }
 
@@ -536,13 +550,16 @@ func filler(dest, contentType string, n int) []byte {
 		if n < 4 {
 			return []byte(strings.Repeat(" ", n))
 		}
+
 		return []byte("/*" + strings.Repeat("x", n-4) + "*/")
 	case strings.Contains(contentType, "html"):
 		if n < 7 {
 			return []byte(strings.Repeat(" ", n))
 		}
+
 		return []byte("<!--" + strings.Repeat("x", n-7) + "-->")
 	}
+
 	return make([]byte, n)
 }
 
@@ -580,5 +597,6 @@ func synthetic(class string, n int, seed string) string {
 		x ^= x << 17
 		b[i] = chars[x%uint64(len(chars))]
 	}
+
 	return string(b)
 }

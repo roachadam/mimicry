@@ -184,6 +184,7 @@ func NewWriter(lib Library, level, windowBits int) (*Writer, error) {
 		if level < 1 || level > 9 {
 			return nil, fmt.Errorf("zdeflate: zlib level %d not supported", level)
 		}
+
 		return &Writer{
 			c: newZlibWriter(lib, level, windowBits),
 		}, nil
@@ -191,10 +192,12 @@ func NewWriter(lib Library, level, windowBits int) (*Writer, error) {
 		if level != 6 {
 			return nil, fmt.Errorf("zdeflate: zlib-rs level %d not supported", level)
 		}
+
 		return &Writer{
 			c: newRSWriter(windowBits),
 		}, nil
 	}
+
 	return nil, fmt.Errorf("zdeflate: unknown library %d", lib)
 }
 
@@ -209,6 +212,7 @@ func (w *Writer) Message(p []byte) []byte {
 		}
 	}
 	out := w.c.message(p)
+
 	return out[:len(out)-len(syncTrailer)]
 }
 
@@ -277,6 +281,7 @@ func newZlibWriter(lib Library, level, windowBits int) *zlibWriter {
 	}
 	w.trees.init()
 	w.lmInit()
+
 	return w
 }
 
@@ -315,6 +320,7 @@ func (w *zlibWriter) message(p []byte) []byte {
 	w.trees.storedBlock(&w.out, nil)
 	out := w.out.buf
 	w.out.buf = nil
+
 	return out
 }
 
@@ -336,6 +342,7 @@ func (w *zlibWriter) insertString(str uint32) uint32 {
 	head := w.head[w.insH]
 	w.prev[str&w.wMask] = head
 	w.head[w.insH] = str
+
 	return head
 }
 
@@ -488,6 +495,7 @@ func (w *zlibWriter) longestMatch(curMatch uint32) uint32 {
 	if uint32(bestLen) <= w.lookahead {
 		return uint32(bestLen)
 	}
+
 	return w.lookahead
 }
 

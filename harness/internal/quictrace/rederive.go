@@ -32,6 +32,7 @@ func (c *Conn) Rederive() {
 		if s, ok := w.first[stream]; ok {
 			return s
 		}
+
 		return math.MaxInt
 	}
 	slices.SortStableFunc(c.H3.Streams, func(a, b H3Stream) int {
@@ -55,6 +56,7 @@ func (c *Conn) Rederive() {
 				ends = append(ends, end)
 			}
 		}
+
 		break
 	}
 	for i := range c.H3.Requests {
@@ -98,6 +100,7 @@ func (c *Conn) FinishedDatagram() (index int, micros int64) {
 			}
 		}
 	}
+
 	return -1, 0
 }
 
@@ -127,6 +130,7 @@ func (c *Conn) StreamStarts() map[uint64]StreamStart {
 			}
 		}
 	}
+
 	return out
 }
 
@@ -169,6 +173,7 @@ func (c *Conn) wire() wireFrames {
 			}
 		}
 	}
+
 	return w
 }
 
@@ -192,6 +197,7 @@ func (w wireFrames) headersAt(q *H3Request) (int, bool) {
 			return f.pos, true
 		}
 	}
+
 	return 0, false
 }
 
@@ -207,6 +213,7 @@ func (w wireFrames) reachedBefore(stream uint64, at int) uint64 {
 			reached = max(reached, f.offset+f.length)
 		}
 	}
+
 	return reached
 }
 
@@ -221,6 +228,7 @@ func (in EncoderInstruction) size() uint64 {
 	case OpInsertLiteral:
 		return stringSize(5, in.Name, in.NameHuffman) + stringSize(7, in.Value, in.ValueHuffman)
 	}
+
 	return prefixIntSize(5, in.Index)
 }
 
@@ -235,5 +243,6 @@ func stringSize(n uint, s string, huffman bool) uint64 {
 	if huffman {
 		l = hpack.HuffmanEncodeLength(s)
 	}
+
 	return prefixIntSize(n, l) + l
 }

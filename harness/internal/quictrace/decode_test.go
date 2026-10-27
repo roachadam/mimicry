@@ -70,6 +70,7 @@ func mustHex(t *testing.T, s string) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return b
 }
 
@@ -237,6 +238,7 @@ func sealPacket(k *keys, header, payload []byte, short bool) []byte {
 	for i := range pnLen {
 		p[pnOffset+i] ^= mask[1+i] //nolint:gosec // pnLen is at most 4, mask has 5 bytes
 	}
+
 	return p
 }
 
@@ -253,6 +255,7 @@ func longPacketHeader(typ byte, version uint32, dcid, scid []byte, initial bool,
 		h = append(h, 0)
 	}
 	h = binary.BigEndian.AppendUint16(h, 0x4000|uint16(2+n+16))
+
 	return binary.BigEndian.AppendUint16(h, pn)
 }
 
@@ -325,6 +328,7 @@ func TestDecodeRFC9369Samples(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
+
 		return &keyLog
 	}
 	seal := func(k *keys, err error, header, payload []byte, short bool) []byte {
@@ -332,6 +336,7 @@ func TestDecodeRFC9369Samples(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		return sealPacket(k, header, payload, short)
 	}
 	traffic := func(label string, version uint32) (*keys, error) {
@@ -571,6 +576,7 @@ func TestDecodeRFC9369Samples(t *testing.T) {
 			for _, d := range ds {
 				out = append(out, d.Path)
 			}
+
 			return out
 		}
 		if got := paths(c.Datagrams); c.Addr != "a" || !slices.Equal(got, []int{0, 0, 0, 0, 1}) {

@@ -23,6 +23,7 @@ func main() {
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "tracestat:", err)
 			failed = true
+
 			continue
 		}
 		variations := h2trace.Compare(samples)
@@ -45,5 +46,6 @@ func truncate(s string, n int) string {
 	if len(s) <= n {
 		return s
 	}
+
 	return s[:n] + "…"
 }

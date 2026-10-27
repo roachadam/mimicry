@@ -57,6 +57,7 @@ func websocketRequests(h1Pages, h2Pages []*capture.Page) ([]*request, error) {
 		default:
 			q.site = profile.SiteCrossSite
 		}
+
 		return true
 	}
 	plain := func(page *capture.Page, ws capture.WebSocket, scenario string, si int) {
@@ -136,6 +137,7 @@ func websocketRequests(h1Pages, h2Pages []*capture.Page) ([]*request, error) {
 			errs = append(errs, fmt.Errorf("websocket-h2 sample %d: %s captured over HTTP/2 only", q.sample+1, q.label))
 		}
 	}
+
 	return out, errors.Join(errs...)
 }
 
@@ -164,5 +166,6 @@ func checkProtocolPlace(p *profile.Profile, pages []*capture.Page) error {
 			}
 		}
 	}
+
 	return errors.Join(errs...)
 }

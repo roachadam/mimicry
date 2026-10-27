@@ -88,6 +88,7 @@ func h3Captures(t *testing.T, p *profile.Profile, sc *server.Scenario) []*captur
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return pages
 }
 
@@ -115,6 +116,7 @@ func h3Steps(sc *server.Scenario) []server.H3Step {
 	case server.H3Early, server.H3TooEarly:
 		return server.H3EarlySteps()
 	}
+
 	return server.H3DiscoverySteps()
 }
 
@@ -147,8 +149,10 @@ func firstPageDelay(browser *capture.Page, host string, steps []server.H3Step) t
 				}
 			}
 		}
+
 		return time.Duration(max(least, 0)) * time.Millisecond
 	}
+
 	return 0
 }
 
@@ -217,6 +221,7 @@ func runH3Page(t *testing.T, p *profile.Profile, sc *server.Scenario, browser *c
 					t.Fatal(err)
 				}
 				next = st.Path()
+
 				break
 			}
 			sendH3Step(s, st, page)
@@ -275,6 +280,7 @@ func sentOrder(browser *capture.Page) map[string]int {
 			n++
 		}
 	}
+
 	return out
 }
 
@@ -339,6 +345,7 @@ func h3StepRequest(st server.H3Step, page *url.URL) (string, mimicry.Request, ht
 		// standard's extract a body).
 		h.Set("Content-Type", "text/plain;charset=UTF-8")
 	}
+
 	return method, mimicry.Request{
 		Kind:        kind,
 		From:        page,
@@ -362,6 +369,7 @@ func (x h3Transport) String() string {
 	if x.early {
 		s += " 0-RTT"
 	}
+
 	return s
 }
 
@@ -400,6 +408,7 @@ func transports(page *capture.Page) map[string]h3Transport {
 			}
 		}
 	}
+
 	return out
 }
 
@@ -415,6 +424,7 @@ func quicConn(page *capture.Page, host string, n int) *quictrace.Conn {
 		}
 		n--
 	}
+
 	return nil
 }
 
@@ -515,6 +525,7 @@ func mapEach[T any](pages []*capture.Page, f func(*capture.Page) T) []T {
 	for i, p := range pages {
 		out[i] = f(p)
 	}
+
 	return out
 }
 
@@ -544,6 +555,7 @@ func gapsFor(t *testing.T, name string) (skip func(key string) bool, unused func
 		seen[k] = true
 		mu.Unlock()
 		t.Logf("known gap: %s: %s", key, h3Gaps[k])
+
 		return true
 	}
 	unused = func() {
@@ -553,6 +565,7 @@ func gapsFor(t *testing.T, name string) (skip func(key string) bool, unused func
 			}
 		}
 	}
+
 	return skip, unused
 }
 
@@ -663,6 +676,7 @@ func firstDifference(got, want string) string {
 			return fmt.Sprintf(" line %d of %d (want %d):\n got %s\nwant %s", i+1, len(g), len(w), gl, wl)
 		}
 	}
+
 	return ""
 }
 
@@ -685,6 +699,7 @@ func tcpFeatures(page *capture.Page) features {
 		}
 		f.cat[fmt.Sprintf("%s #%d goaway", tr.Host, n+1)] = goaway
 	}
+
 	return f
 }
 
@@ -715,6 +730,7 @@ func quicHosts(page *capture.Page) features {
 	for h, k := range n {
 		f.cat[h+" connections"] = strconv.Itoa(k)
 	}
+
 	return f
 }
 
@@ -750,6 +766,7 @@ func capturedConns(t *testing.T, p *profile.Profile) []capturedConn {
 			}
 		}
 	}
+
 	return out
 }
 
@@ -761,6 +778,7 @@ func flightRefs(t *testing.T, p *profile.Profile) map[bool][]*quictrace.Conn {
 	for _, c := range capturedConns(t, p) {
 		out[c.c.Resumed] = append(out[c.c.Resumed], c.c)
 	}
+
 	return out
 }
 
@@ -785,6 +803,7 @@ func compareQUICConn(t *testing.T, p *profile.Profile, got *quictrace.Conn, refs
 		if refs[0].H3 != nil {
 			t.Error("no HTTP/3: the handshake did not complete")
 		}
+
 		return
 	}
 	var h3refs []*quictrace.Conn
@@ -801,6 +820,7 @@ func mapConns(conns []*quictrace.Conn, f func(*quictrace.Conn) features) []featu
 	for i, c := range conns {
 		out[i] = f(c)
 	}
+
 	return out
 }
 
@@ -836,6 +856,7 @@ func firstFlight(c *quictrace.Conn) []quictrace.Datagram {
 			sent.addPacket(&d.Packets[pi])
 		}
 	}
+
 	return c.Datagrams
 }
 
@@ -864,6 +885,7 @@ func frameSpan(pk *quictrace.Packet, f *quictrace.Frame) (sentSpan, bool) {
 	case f.Type == quictrace.FrameStream && f.Stream != nil:
 		return sentSpan{stream: *f.Stream, start: f.Offset, end: f.Offset + f.Length}, true
 	}
+
 	return sentSpan{}, false
 }
 
@@ -873,6 +895,7 @@ func (s *sentData) repeats(pk *quictrace.Packet, f *quictrace.Frame) bool {
 		return s.ncids[f.Sequence]
 	}
 	x, ok := frameSpan(pk, f)
+
 	return ok && slices.ContainsFunc(s.spans, func(y sentSpan) bool {
 		return y.space == x.space && y.stream == x.stream && y.start < x.end && x.start < y.end
 	})
@@ -934,6 +957,7 @@ func flightFeatures(c *quictrace.Conn) features {
 		}
 	}
 	f.num["datagrams with Initials"] = dgrams
+
 	return f
 }
 
@@ -975,6 +999,7 @@ func paramFeatures(c *quictrace.Conn) features {
 	slices.Sort(ids)
 	f.cat["set"] = strings.Join(ids, " ")
 	f.num["GREASE parameters"] = grease
+
 	return f
 }
 
@@ -1001,6 +1026,7 @@ func packetFeatures(c *quictrace.Conn) features {
 	for typ := range types {
 		f.cat["sends "+typ] = "yes"
 	}
+
 	return f
 }
 
@@ -1053,6 +1079,7 @@ func connFeatures(c *quictrace.Conn) features {
 	if c.Close != nil {
 		f.cat["ended by"] = c.Close.By
 	}
+
 	return f
 }
 
@@ -1060,6 +1087,7 @@ func derefCode(c *uint64) uint64 {
 	if c == nil {
 		return 0
 	}
+
 	return *c
 }
 
@@ -1118,6 +1146,7 @@ func helloWithoutParams(h *profile.TLS, p *profile.Profile) profile.TLS {
 		}
 	}
 	out.ExtensionOrder = p.TLS.QUIC.ExtensionOrder
+
 	return out
 }
 
@@ -1147,6 +1176,7 @@ func h3Features(c *quictrace.Conn) features {
 					if fr.ID != nil {
 						priority[*fr.ID] = fr.Priority
 					}
+
 					continue
 				}
 				control = append(control, name)
@@ -1205,6 +1235,7 @@ func h3Features(c *quictrace.Conn) features {
 		f.cat[rp+"end"] = r.End
 	}
 	f.cat["requests"] = strings.Join(paths, " ")
+
 	return f
 }
 

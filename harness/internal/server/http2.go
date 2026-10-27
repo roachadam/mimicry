@@ -154,6 +154,7 @@ func serveHTTP2(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 			if goingAway {
 				return nil
 			}
+
 			return err
 		}
 		s.record(f)
@@ -287,6 +288,7 @@ func (s *h2conn) stopTracing() *h2trace.Trace {
 	s.traceMu.Lock()
 	defer s.traceMu.Unlock()
 	s.tracing = false
+
 	return s.trace
 }
 
@@ -319,6 +321,7 @@ func (s *h2conn) applySettings(f *http2.SettingsFrame, first bool) error {
 		default:
 			// Recorded above; nothing else to apply.
 		}
+
 		return nil
 	})
 	s.cond.Broadcast()
@@ -328,6 +331,7 @@ func (s *h2conn) applySettings(f *http2.SettingsFrame, first bool) error {
 	}
 	s.wmu.Lock()
 	defer s.wmu.Unlock()
+
 	return s.fr.WriteSettingsAck()
 }
 
@@ -388,6 +392,7 @@ func (s *h2conn) onHeaders(senders *sync.WaitGroup, emit func()) error {
 	if s.blockEnded {
 		s.respond(id, st, senders, emit)
 	}
+
 	return nil
 }
 
@@ -441,6 +446,7 @@ func (s *h2conn) onData(f *http2.DataFrame, senders *sync.WaitGroup, emit func()
 	if f.StreamEnded() {
 		s.respond(f.StreamID, st, senders, emit)
 	}
+
 	return nil
 }
 
@@ -543,6 +549,7 @@ func (s *h2conn) send(id uint32, r response) error {
 				err = s.fr.WriteGoAway(id, http2.ErrCodeNo, nil)
 				s.wmu.Unlock()
 			}
+
 			return err
 		}
 	}
@@ -569,6 +576,7 @@ func (s *h2conn) reserve(id uint32, want int) (int, error) {
 			// Counted before the bytes are written, so a credit return can
 			// never appear larger than the data it is for.
 			s.sent[id] += uint64(n)
+
 			return int(n), nil
 		}
 		s.cond.Wait()

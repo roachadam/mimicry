@@ -77,6 +77,7 @@ func paths(diffs []Difference) []string {
 	for i, d := range diffs {
 		out[i] = d.Path
 	}
+
 	return out
 }
 

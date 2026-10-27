@@ -51,6 +51,7 @@ func startShop(handler http.HandlerFunc) *shop {
 		},
 	}
 	srv.StartTLS()
+
 	return &shop{
 		srv:     srv,
 		addr:    srv.Listener.Addr().String(),
@@ -82,6 +83,7 @@ func startShopHTTP1(handler http.HandlerFunc) *shop {
 		return context.WithValue(ctx, connKey{}, c)
 	}
 	srv.Start()
+
 	return &shop{
 		srv:     srv,
 		addr:    ln.Addr().String(),
@@ -100,6 +102,7 @@ func (s *shop) DialContext(ctx context.Context, network, addr string) (net.Conn,
 		addr = s.addr
 	}
 	var d net.Dialer
+
 	return d.DialContext(ctx, network, addr)
 }
 
@@ -144,6 +147,7 @@ func shopCertificate() (tls.Certificate, *x509.CertPool) {
 	}, intermediate, intermediateKey)
 	pool := x509.NewCertPool()
 	pool.AddCert(root)
+
 	return tls.Certificate{
 		Certificate: [][]byte{
 			leaf.Raw,
@@ -179,6 +183,7 @@ func issue(tmpl, parent *x509.Certificate, parentKey *ecdsa.PrivateKey) (*x509.C
 	if err != nil {
 		panic(err)
 	}
+
 	return c, key
 }
 
@@ -194,6 +199,7 @@ func (l recordingListener) Accept() (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return &recordingConn{
 		Conn: c,
 	}, nil
@@ -210,6 +216,7 @@ func (c *recordingConn) Read(p []byte) (int, error) {
 	c.mu.Lock()
 	c.buf = append(c.buf, p[:n]...)
 	c.mu.Unlock()
+
 	return n, err
 }
 
@@ -233,6 +240,7 @@ func headerLines(r *http.Request) []string {
 	}
 	lines := strings.Split(string(block[:end]), "\r\n")
 	c.buf = c.buf[start+end+4:]
+
 	return lines[1:]
 }
 
@@ -274,6 +282,7 @@ func startProxy(s *shop, user, pass string) *proxy {
 		pass: pass,
 	}
 	go p.serve()
+
 	return p
 }
 
@@ -306,6 +315,7 @@ func (p *proxy) tunnel(c net.Conn) {
 			p.record(fmt.Sprintf("%s %s %s: 407", req.Method, req.Host, who))
 			_, _ = io.Copy(io.Discard, req.Body)
 			_, _ = io.WriteString(c, "HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm=\"proxy\"\r\nContent-Length: 0\r\n\r\n")
+
 			continue
 		}
 		if req.Method != http.MethodConnect {
@@ -317,6 +327,7 @@ func (p *proxy) tunnel(c net.Conn) {
 		if refuse != "" {
 			p.record(fmt.Sprintf("%s %s %s: %s", req.Method, req.Host, who, refuse))
 			_, _ = io.WriteString(c, "HTTP/1.1 "+refuse+"\r\nContent-Length: 0\r\n\r\n")
+
 			continue
 		}
 		p.record(fmt.Sprintf("%s %s %s: 200", req.Method, req.Host, who))
@@ -330,6 +341,7 @@ func (p *proxy) tunnel(c net.Conn) {
 			_ = upstream.Close()
 		}()
 		_, _ = io.Copy(c, upstream)
+
 		return
 	}
 }
@@ -343,6 +355,7 @@ func parseProxyAuth(h string) (string, string, bool) {
 	if err != nil {
 		return "", "", false
 	}
+
 	return strings.Cut(string(b), ":")
 }
 
@@ -356,6 +369,7 @@ func (p *proxy) record(line string) {
 func (p *proxy) Log() []string {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
 	return append([]string(nil), p.log...)
 }
 
@@ -424,6 +438,7 @@ func readFrame(r *bufio.Reader) (byte, []byte, error) {
 	for i := range payload {
 		payload[i] ^= mask[i%4]
 	}
+
 	return h[0] & 0x0f, payload, nil
 }
 

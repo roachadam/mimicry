@@ -25,6 +25,7 @@ func (m wsMessage) data() []byte {
 	if m.compressed {
 		return m.inflated
 	}
+
 	return m.payload
 }
 
@@ -55,6 +56,7 @@ func wsMessages(t *testing.T, ws *capture.WebSocket) []wsMessage {
 			cur = nil
 		}
 	}
+
 	return out
 }
 
@@ -111,6 +113,7 @@ func checkDeflate(t *testing.T, p *profile.WebSocket, sock *capture.WebSocket) {
 		if len(msgs) > 0 {
 			t.Fatalf("the profile fails the socket (%v), the browser sent %d messages", err, len(msgs))
 		}
+
 		return
 	}
 	if len(msgs) == 0 {

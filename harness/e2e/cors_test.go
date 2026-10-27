@@ -89,6 +89,7 @@ func corsFetch(t *testing.T, s *pageSession, from *url.URL, target string, st se
 		return err
 	}
 	_, _ = io.Copy(io.Discard, resp.Body)
+
 	return resp.Body.Close()
 }
 
@@ -126,5 +127,6 @@ func corsConnections(page *capture.Page) [][]string {
 	slices.SortStableFunc(out, func(a, b []string) int {
 		return len(b) - len(a)
 	})
+
 	return out
 }

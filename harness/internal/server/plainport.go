@@ -32,6 +32,7 @@ func (sc *Scenario) onPorts(tlsAddr, plainAddr net.Addr) *Scenario {
 	if plainAddr != nil {
 		_, on.ports.plain, _ = net.SplitHostPort(plainAddr.String())
 	}
+
 	return &on
 }
 
@@ -49,5 +50,6 @@ func refuseTLS(conn net.Conn) error {
 	}); err != nil && !isClosed(err) {
 		return err
 	}
+
 	return errTLSRefused
 }

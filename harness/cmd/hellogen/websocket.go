@@ -56,6 +56,7 @@ func websocketHello(dir string, p *profile.Profile) (*profile.WebSocketHello, er
 	if out == nil && len(errs) == 0 {
 		errs = append(errs, fmt.Errorf("%s: no wss:// socket over HTTP/1.1", path))
 	}
+
 	return out, errors.Join(errs...)
 }
 
@@ -88,8 +89,10 @@ func socketHello(t, h *profile.TLS) (*profile.WebSocketHello, error) {
 		for i, d := range diffs {
 			lines[i] = d.String()
 		}
+
 		return nil, errors.New("its hello is not the profile's with another ALPN and fewer extensions:\n" + strings.Join(lines, "\n"))
 	}
+
 	return out, nil
 }
 
@@ -120,5 +123,6 @@ func expectedHello(t *profile.TLS, ws *profile.WebSocketHello, resumed bool) *pr
 			Type: profile.ExtPreSharedKey,
 		})
 	}
+
 	return &out
 }

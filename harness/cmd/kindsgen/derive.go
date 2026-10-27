@@ -91,6 +91,7 @@ func loadPages(dir string, p *profile.Profile) (*pages, error) {
 			samples:  got,
 		})
 	}
+
 	return out, nil
 }
 
@@ -102,6 +103,7 @@ func loadFile(f capture.File) ([]*capture.Page, error) {
 		return nil, err
 	}
 	f.Rewriter.Pages(got)
+
 	return got, nil
 }
 
@@ -154,6 +156,7 @@ func labelSite(label string, hop bool) string {
 	case strings.HasPrefix(target, "cs"):
 		return profile.SiteCrossSite
 	}
+
 	return profile.SiteSameOrigin
 }
 
@@ -167,6 +170,7 @@ func h1Fields(lines []string) []profile.Header {
 			Value: strings.TrimSpace(value),
 		})
 	}
+
 	return out
 }
 
@@ -213,6 +217,7 @@ func h2Requests(page *capture.Page, si int, prefix string) []*request {
 			out = append(out, q)
 		}
 	}
+
 	return out
 }
 
@@ -318,6 +323,7 @@ func collect(pg *pages) ([]*request, error) {
 			if q.hop {
 				q.site = labelSite(q.label, true)
 				out = append(out, q)
+
 				continue
 			}
 			v, ok := headerValue(q.h2, "sec-fetch-site")
@@ -383,6 +389,7 @@ func collect(pg *pages) ([]*request, error) {
 		errs = append(errs, err)
 	}
 	out = append(out, sockets...)
+
 	return out, errors.Join(errs...)
 }
 
@@ -421,6 +428,7 @@ func linkRedirects(page string, reqs []*request, prev func(*request) string) err
 		q.methodChanged = p.method != q.method
 		q.insecureBefore = p.plain
 	}
+
 	return errors.Join(errs...)
 }
 
@@ -431,6 +439,7 @@ func schemefulSite(q *request) string {
 	if q.plain {
 		scheme = "http://"
 	}
+
 	return scheme + site.Registrable(q.host)
 }
 
@@ -458,6 +467,7 @@ func corsEdgeRequests(samples []*capture.Page) ([]*request, error) {
 			out = append(out, q)
 		}
 	}
+
 	return out, errors.Join(errs...)
 }
 
@@ -509,6 +519,7 @@ func redirects2Requests(samples []*capture.Page) ([]*request, error) {
 			out = append(out, q)
 		}
 	}
+
 	return out, errors.Join(errs...)
 }
 
@@ -523,6 +534,7 @@ func previousHop(q *request) string {
 	if err != nil {
 		return ""
 	}
+
 	return fmt.Sprintf("%s.hop%d", path, i-1)
 }
 
@@ -633,6 +645,7 @@ func navRedirectRequests(p *profile.Profile, pages []scenarioPages) ([]*request,
 			}
 		}
 	}
+
 	return out, errors.Join(errs...)
 }
 
@@ -686,6 +699,7 @@ func headersRequests(samples []*capture.Page) ([]*request, error) {
 			}, si)
 		}
 	}
+
 	return out, errors.Join(errs...)
 }
 
@@ -696,6 +710,7 @@ func headerValue(hs []profile.Header, name string) (string, bool) {
 			return h.Value, true
 		}
 	}
+
 	return "", false
 }
 
@@ -729,6 +744,7 @@ var pageSetNames = func() map[string]bool {
 		}
 	}
 	delete(out, "content-type")
+
 	return out
 }()
 
@@ -794,6 +810,7 @@ func derive(p *profile.Profile, reqs []*request) error {
 				out = append(out, r)
 			}
 		}
+
 		return out
 	}
 	p.Kinds = map[string]*profile.Kind{}
@@ -802,6 +819,7 @@ func derive(p *profile.Profile, reqs []*request) error {
 		i := slices.IndexFunc(kindSources, func(s kindSource) bool {
 			return s.kind == kind
 		})
+
 		return slices.Concat(pick(kindSources[i].all, false, false), pick(kindSources[i].all, true, false))
 	}
 	table, err := deriveTable(all(profile.KindFetch), all(profile.KindXHR))
@@ -820,6 +838,7 @@ func derive(p *profile.Profile, reqs []*request) error {
 			if h1 {
 				list = (*request).h1Of
 			}
+
 			return func(name string) string {
 				return commonValue(own, list, name)
 			}
@@ -863,6 +882,7 @@ func derive(p *profile.Profile, reqs []*request) error {
 	if err := navigationVariants(p, navs); err != nil {
 		errs = append(errs, err)
 	}
+
 	return errors.Join(errs...)
 }
 
@@ -915,6 +935,7 @@ func (r *request) condition() condition {
 	if r.method != "GET" {
 		c.method = r.method
 	}
+
 	return c
 }
 
@@ -978,6 +999,7 @@ func orders(own, all []*request, seed *orderPair, table *profile.HeaderTable, va
 			}
 			*p.out = order
 		}
+
 		return o, nil
 	}
 	// fold merges b into a when both orders agree; an empty side agrees.
@@ -986,6 +1008,7 @@ func orders(own, all []*request, seed *orderPair, table *profile.HeaderTable, va
 			return append(a, b...), true
 		}
 		m, err := mergeOrder([][]string{a, b})
+
 		return m, err == nil
 	}
 	base, err := orderFor(def)
@@ -1020,6 +1043,7 @@ func orders(own, all []*request, seed *orderPair, table *profile.HeaderTable, va
 			}
 			conflicting = append(conflicting, c)
 			others[c] = o
+
 			continue
 		}
 		o, err := orderFor(c)
@@ -1073,6 +1097,7 @@ func orders(own, all []*request, seed *orderPair, table *profile.HeaderTable, va
 		}
 		variants = append(variants, v)
 	}
+
 	return fill(base.h2, values(false)), fill(base.h1, values(true)), variants, errors.Join(errs...)
 }
 
@@ -1090,6 +1115,7 @@ func insecureValue(mine, ownPlain, group []*request) func(string) string {
 		}) {
 			return commonValue(ownPlain, (*request).h1Of, name)
 		}
+
 		return commonValue(group, (*request).h1Of, name)
 	}
 }
@@ -1120,6 +1146,7 @@ func orderOf(rs []*request, list func(*request) []profile.Header, h1 bool) ([]st
 	if len(seqs) == 0 {
 		return nil, nil
 	}
+
 	return mergeOrder(seqs)
 }
 
@@ -1139,6 +1166,7 @@ func fill(order []string, value func(string) string) []profile.Header {
 		}
 		out = append(out, h)
 	}
+
 	return out
 }
 
@@ -1157,6 +1185,7 @@ func commonValue(own []*request, list func(*request) []profile.Header, name stri
 		}
 		value, first = got, false
 	}
+
 	return value
 }
 
@@ -1195,6 +1224,7 @@ func mergeOrder(seqs [][]string) ([]string, error) {
 					stuck = append(stuck, n)
 				}
 			}
+
 			return nil, fmt.Errorf("the captures order %v inconsistently", stuck)
 		}
 		done[next] = true
@@ -1203,6 +1233,7 @@ func mergeOrder(seqs [][]string) ([]string, error) {
 			before[n]--
 		}
 	}
+
 	return out, nil
 }
 
@@ -1214,6 +1245,7 @@ func weightOf(own []*request) (uint8, error) {
 		}
 		w = r.weight
 	}
+
 	return w, nil
 }
 
@@ -1229,6 +1261,7 @@ func urgencyOf(reqs []*request) (*profile.Urgency, error) {
 		Weight:   w,
 		Priority: commonValue(reqs, (*request).h2Of, "priority"),
 	}
+
 	return u, nil
 }
 
@@ -1257,6 +1290,7 @@ func contextOf(reqs []*request) (*profile.Context, error) {
 		}
 		out = c
 	}
+
 	return out, nil
 }
 
@@ -1268,6 +1302,7 @@ func sampleContext(reqs []*request, sample int) (*profile.Context, error) {
 				return r
 			}
 		}
+
 		return nil
 	}
 	c := &profile.Context{}
@@ -1296,6 +1331,7 @@ func sampleContext(reqs []*request, sample int) (*profile.Context, error) {
 	c.StylesheetReferrer = strings.HasSuffix(ref, "/k/style-fonts.so")
 	c.AnonymousConnections = omitSO.conn != fetchSO.conn
 	c.FrameConnections = frameCS.conn != scriptCS.conn
+
 	return c, nil
 }
 
@@ -1323,6 +1359,7 @@ func navigationVariants(p *profile.Profile, navs []*request) error {
 				base = p.HTTP1.Headers
 			}
 		}
+
 		return func(name string) string {
 			if v, ok := headerValue(base, name); ok {
 				return v
@@ -1336,6 +1373,7 @@ func navigationVariants(p *profile.Profile, navs []*request) error {
 					return commonValue(sending, list, name)
 				}
 			}
+
 			return ""
 		}
 	}
@@ -1350,6 +1388,7 @@ func navigationVariants(p *profile.Profile, navs []*request) error {
 		return fmt.Errorf("navigation: %w", err)
 	}
 	p.Variants = variants
+
 	return nil
 }
 
@@ -1358,6 +1397,7 @@ func names(hs []profile.Header) []string {
 	for i, h := range hs {
 		out[i] = h.Name
 	}
+
 	return out
 }
 
@@ -1421,5 +1461,6 @@ func preflightCache(pages []*capture.Page) (string, error) {
 	if found == "" {
 		return "", errors.New("preflight cache: no cors samples")
 	}
+
 	return found, nil
 }

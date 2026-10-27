@@ -30,6 +30,7 @@ func (e *ValidationError) Error() string {
 	for i, p := range e.Problems {
 		lines[i] = p.String()
 	}
+
 	return "profile: invalid:\n  " + strings.Join(lines, "\n  ")
 }
 
@@ -49,6 +50,7 @@ func (c *checker) err() error {
 	if len(c.problems) == 0 {
 		return nil
 	}
+
 	return &ValidationError{
 		Problems: c.problems,
 	}
@@ -105,6 +107,7 @@ func (p *Profile) Validate() error {
 	c.checkWebSocketHello(&p.TLS)
 	c.checkWebSocket(p)
 	c.checkH3(p)
+
 	return c.err()
 }
 
@@ -139,6 +142,7 @@ func (t *TLS) extension(typ Code) *Extension {
 			return &t.Extensions[i]
 		}
 	}
+
 	return nil
 }
 
@@ -299,6 +303,7 @@ func describe(b Bytes) string {
 	if len(b) == 0 {
 		return "empty"
 	}
+
 	return fmt.Sprintf("%x", []byte(b))
 }
 
@@ -607,6 +612,7 @@ func isToken(s string) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
