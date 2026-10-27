@@ -12,7 +12,7 @@ import (
 
 // Load reads a trace file: a JSON array of traces, one per sample.
 func Load(path string) ([]*Trace, error) {
-	data, err := os.ReadFile(path) //nolint:gosec // reading the named trace file is the point
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}

@@ -87,7 +87,7 @@ type socksPeer struct {
 
 func (p socksPeer) serve(conn net.Conn) error {
 	greeting := append([]byte{5, 0}, p.methods...)
-	greeting[1] = uint8(len(p.methods)) //nolint:gosec // a test's few methods
+	greeting[1] = uint8(len(p.methods))
 	if err := expect(conn, greeting); err != nil {
 		return err
 	}

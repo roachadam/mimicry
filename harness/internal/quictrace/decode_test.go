@@ -225,7 +225,7 @@ func sealPacket(k *keys, header, payload []byte, short bool) []byte {
 	}
 	nonce := append([]byte(nil), k.iv...)
 	for i := range 8 {
-		nonce[len(nonce)-1-i] ^= byte(pn >> (8 * i)) //nolint:gosec // one byte of pn at a time
+		nonce[len(nonce)-1-i] ^= byte(pn >> (8 * i))
 	}
 	p := k.aead.Seal(append([]byte(nil), header...), nonce, payload, header)
 	mask := k.mask(p[pnOffset+4 : pnOffset+4+16])
@@ -245,14 +245,14 @@ func sealPacket(k *keys, header, payload []byte, short bool) []byte {
 func longPacketHeader(typ byte, version uint32, dcid, scid []byte, initial bool, pn uint16, n int) []byte {
 	h := []byte{0xc0 | typ<<4 | 0x01}
 	h = binary.BigEndian.AppendUint32(h, version)
-	h = append(h, byte(len(dcid))) //nolint:gosec // test connection IDs are short
+	h = append(h, byte(len(dcid)))
 	h = append(h, dcid...)
-	h = append(h, byte(len(scid))) //nolint:gosec // test connection IDs are short
+	h = append(h, byte(len(scid)))
 	h = append(h, scid...)
 	if initial {
 		h = append(h, 0)
 	}
-	h = binary.BigEndian.AppendUint16(h, 0x4000|uint16(2+n+16)) //nolint:gosec // test payloads are short
+	h = binary.BigEndian.AppendUint16(h, 0x4000|uint16(2+n+16))
 	return binary.BigEndian.AppendUint16(h, pn)
 }
 
@@ -345,7 +345,7 @@ func TestDecodeRFC9369Samples(t *testing.T) {
 	// EncryptedExtensions with version_information (chosen version 2, then
 	// 2 and 1) and initial_max_data.
 	tp := []byte{0x11, 0x0c, 0x6b, 0x33, 0x43, 0xcf, 0x6b, 0x33, 0x43, 0xcf, 0x00, 0x00, 0x00, 0x01, 0x04, 0x02, 0x44, 0x00}
-	ee := []byte{0x08, 0x00, 0x00, byte(6 + len(tp)), 0x00, byte(4 + len(tp)), 0x00, 0x39, 0x00, byte(len(tp))} //nolint:gosec // 18 bytes of parameters
+	ee := []byte{0x08, 0x00, 0x00, byte(6 + len(tp)), 0x00, byte(4 + len(tp)), 0x00, 0x39, 0x00, byte(len(tp))}
 	payload := cryptoFrame(slices.Concat(ee, tp))
 	k, err = traffic(labelServerHandshake, Version2)
 	serverHandshake := seal(k, err, longPacketHeader(0x03, Version2, nil, serverCID, false, 0, len(payload)), payload, false)

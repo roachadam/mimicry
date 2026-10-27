@@ -246,6 +246,8 @@ func (p *Pool[S, E]) wait(ctx context.Context, key string, w *waiter[E]) (got Go
 			p.Release(key, w.conn, true)
 		case handedDial:
 			p.dial(ctx, key, w.shares).Dial.Fail(ctx.Err())
+		case handedRetry, handedErr:
+			// Nothing to give back.
 		}
 		return got, false, ctx.Err()
 	}
@@ -264,6 +266,8 @@ func (p *Pool[S, E]) wait(ctx context.Context, key string, w *waiter[E]) (got Go
 		return p.dial(ctx, key, w.shares), false, nil
 	case handedErr:
 		return got, false, w.err
+	case handedRetry:
+		// Look again (below).
 	}
 	return got, true, nil
 }

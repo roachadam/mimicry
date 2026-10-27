@@ -201,8 +201,8 @@ func cryptoRanges(pk *quictrace.Packet) []cryptoRange {
 	for _, f := range pk.Frames {
 		if f.Type == quictrace.FrameCrypto {
 			out = append(out, cryptoRange{
-				start: int(f.Offset),            //nolint:gosec // small
-				end:   int(f.Offset + f.Length), //nolint:gosec // small
+				start: int(f.Offset),
+				end:   int(f.Offset + f.Length),
 			})
 		}
 	}
@@ -651,7 +651,7 @@ func (r *ruleCheck) ackDelays() {
 			var stalled uint64
 			if !r.c.Start.IsZero() {
 				sent := r.c.Start.Add(time.Duration(a.at) * time.Microsecond)
-				stalled = uint64(stalls.stalled(sent.Add(-time.Duration(us)*time.Microsecond), sent).Microseconds()) //nolint:gosec // not negative
+				stalled = uint64(stalls.stalled(sent.Add(-time.Duration(us)*time.Microsecond), sent).Microseconds())
 			}
 			if us-min(stalled, us) > 2*maxDelay {
 				r.add("ACK delay %d µs, %d µs of it with the process stalled, more than twice max_ack_delay %d µs", us, stalled, maxDelay)
@@ -666,7 +666,7 @@ func (r *ruleCheck) ackDelays() {
 			delays = append(delays, a.delay)
 		}
 		for _, d := range delays {
-			if d != delays[0] || rg == nil || !rg.Contains(int(d)) { //nolint:gosec // small
+			if d != delays[0] || rg == nil || !rg.Contains(int(d)) {
 				r.add("ACK delays %v, not one value from %v", delays, rg)
 				return
 			}
@@ -753,7 +753,7 @@ func (r *ruleCheck) h3Grease() {
 			case !f.Grease:
 			case g == nil:
 				r.add("HTTP/3: a GREASE frame the profile does not send")
-			case int(f.Length) > g.MaxLength: //nolint:gosec // small
+			case int(f.Length) > g.MaxLength:
 				r.add("HTTP/3: GREASE frame of %d bytes, the profile's at most %d", f.Length, g.MaxLength)
 			}
 		}
@@ -793,7 +793,7 @@ func (r *ruleCheck) requestsAfterConfirmed() {
 			for _, f := range pk.Frames {
 				switch {
 				case f.Type == quictrace.FrameAck:
-					largest = int64(f.Largest) //nolint:gosec // packet numbers are small
+					largest = int64(f.Largest)
 				case f.Type == quictrace.FrameStream && f.Stream != nil && *f.Stream%4 == 0:
 					request = true
 				}

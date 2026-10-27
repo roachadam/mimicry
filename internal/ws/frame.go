@@ -58,7 +58,7 @@ func AppendHeader(b []byte, h Header) []byte {
 	b = append(b, first)
 	switch n := h.Length; {
 	case n < 126:
-		b = append(b, mask|byte(n)) //nolint:gosec // n < 126
+		b = append(b, mask|byte(n))
 	case n <= 0xffff:
 		b = append(b, mask|126)
 		b = binary.BigEndian.AppendUint16(b, uint16(n))
@@ -102,7 +102,7 @@ func ReadHeader(r io.Reader) (Header, error) {
 		if n>>63 != 0 {
 			return h, errLength
 		}
-		h.Length = int64(n) //nolint:gosec // checked above
+		h.Length = int64(n)
 	}
 	if h.Masked {
 		if _, err := io.ReadFull(r, h.Mask[:]); err != nil {

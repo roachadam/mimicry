@@ -514,6 +514,8 @@ func (j *Jar) cookies(r Request, touch bool) []*Cookie {
 				if !socketOK && (!r.Navigation || (!safe && !unsafeOK)) {
 					continue
 				}
+			case SameSiteNone, SameSiteUnset:
+				// None is sent cross-site; effective never returns Unset.
 			}
 		}
 		if touch {

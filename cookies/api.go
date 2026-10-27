@@ -356,6 +356,8 @@ func setCookieLine(c *http.Cookie) (string, error) {
 		b.WriteString("; SameSite=Strict")
 	case http.SameSiteNoneMode:
 		b.WriteString("; SameSite=None")
+	case http.SameSiteDefaultMode:
+		// No attribute: the cookie was set without one.
 	}
 	if c.Partitioned {
 		b.WriteString("; Partitioned")

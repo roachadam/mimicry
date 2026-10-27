@@ -82,7 +82,7 @@ func control(done []*conn, e *collector) ([]profile.H3Setting, *profile.H3Grease
 		if len(cs.Frames) > 1 && cs.Frames[1].Grease {
 			withFrame++
 			frameIDs = append(frameIDs, cs.Frames[1].Type)
-			frameLengths = append(frameLengths, int(cs.Frames[1].Length)) //nolint:gosec // a GREASE frame's length
+			frameLengths = append(frameLengths, int(cs.Frames[1].Length))
 		}
 	}
 	var setting, frame *profile.H3Grease
@@ -154,7 +154,7 @@ func uniStreams(done []*conn, e *collector) []profile.H3UniStream {
 	maxIndex := 0
 	for _, c := range done {
 		for _, st := range c.c.H3.Streams {
-			i := int((st.ID - 2) / 4) //nolint:gosec // a stream index
+			i := int((st.ID - 2) / 4)
 			if t, ok := types[i]; ok && t != st.Type {
 				e.add(c, "stream %d is %s, another connection's %s", st.ID, quictrace.StreamTypeName(st.Type), quictrace.StreamTypeName(t))
 			}
@@ -189,7 +189,7 @@ func uniStreams(done []*conn, e *collector) []profile.H3UniStream {
 		}
 		out = append(out, profile.H3UniStream{
 			Type: quictrace.StreamTypeName(t),
-			Open: openRule(done, uint64(2+4*i), t, e), //nolint:gosec // a stream ID
+			Open: openRule(done, uint64(2+4*i), t, e),
 		})
 	}
 	return out
@@ -317,7 +317,7 @@ func requestsAfterConfirmed(done []*conn, e *collector) bool {
 			for _, f := range pk.p.Frames {
 				switch {
 				case f.Type == quictrace.FrameAck:
-					largest = int64(f.Largest) //nolint:gosec // packet numbers are small
+					largest = int64(f.Largest)
 				case f.Type == quictrace.FrameStream && f.Stream != nil && *f.Stream%4 == 0:
 					request = true
 				}
@@ -540,7 +540,7 @@ func dataFrames(done []*conn, e *collector) (first, most int) {
 			var frames []int
 			for _, f := range q.Frames {
 				if f.Type == quictrace.FrameH3Data {
-					frames = append(frames, int(f.Length)) //nolint:gosec // a DATA frame's length
+					frames = append(frames, int(f.Length))
 				}
 			}
 			if len(frames) > 0 {

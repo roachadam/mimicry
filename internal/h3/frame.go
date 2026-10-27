@@ -174,6 +174,6 @@ func readPayload(r io.Reader, length, limit uint64) ([]byte, error) {
 
 // skip discards n bytes of r.
 func skip(r io.Reader, n uint64) error {
-	_, err := io.CopyN(io.Discard, r, int64(min(n, maxVarint))) //nolint:gosec // bounded by maxVarint
+	_, err := io.CopyN(io.Discard, r, int64(min(n, maxVarint)))
 	return unexpectedEOF(err)
 }

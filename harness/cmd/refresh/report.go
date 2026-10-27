@@ -142,7 +142,7 @@ func (rep *report) write() (string, error) {
 // previous one with the previous one's version tokens rewritten to the new
 // version (capture.NewRewriter), by where it comes from.
 func (rep *report) writeDiff(b *strings.Builder) error {
-	data, err := os.ReadFile(rep.derived) //nolint:gosec // the derived profile in staging
+	data, err := os.ReadFile(rep.derived)
 	if err != nil {
 		return err
 	}

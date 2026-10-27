@@ -3,6 +3,7 @@ package profile
 import (
 	"fmt"
 	"maps"
+	"net/http"
 	"slices"
 	"strings"
 )
@@ -375,7 +376,7 @@ func (c *checker) checkVariants(path string, vs []Variant, others bool) {
 		if len(v.HTTP1) > 0 {
 			c.checkHTTP1Headers(at+".http1", v.HTTP1, others)
 		}
-		if v.Method == "GET" || strings.ContainsAny(v.Method, " \r\n") {
+		if v.Method == http.MethodGet || strings.ContainsAny(v.Method, " \r\n") {
 			c.add(at+".method", "must be empty for GET, or a method")
 		}
 		if v.Site != SiteSameOrigin && v.Site != SiteSameSite && v.Site != SiteCrossSite && v.Site != SiteNone {

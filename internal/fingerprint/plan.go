@@ -73,7 +73,7 @@ type Hello struct {
 // draws a fresh uniform permutation of the movable extensions, so every
 // connection gets its own order, as Chrome does.
 func (p *Plan) Hello() Hello {
-	return p.hello(rand.IntN) //nolint:gosec // order only needs to be uniform; math/rand/v2's default source is ChaCha8, seeded per process
+	return p.hello(rand.IntN)
 }
 
 // Resumes reports whether the browser resumes sessions (profile

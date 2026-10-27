@@ -1183,6 +1183,16 @@ func (e *interopEnv) backend(opts backendOpts) *backend {
 	return b
 }
 
+// h3Stream takes over w's HTTP/3 stream. The backend's handlers run under
+// http3.Server, whose ResponseWriters are all HTTPStreamers.
+func h3Stream(w http.ResponseWriter) *http3.Stream {
+	s, ok := w.(http3.HTTPStreamer)
+	if !ok {
+		panic(fmt.Sprintf("h3Stream: %T is not an http3.HTTPStreamer", w))
+	}
+	return s.HTTPStream()
+}
+
 // startBackend starts a backend; stop closes it.
 func startBackend(opts backendOpts, cert tls.Certificate, ticketKey [32]byte) (*backend, func(), error) {
 	// Loopback addresses, never a wildcard: a wildcard socket shares its
@@ -1197,7 +1207,7 @@ func startBackend(opts backendOpts, cert tls.Certificate, ticketKey [32]byte) (*
 	b := &backend{
 		name: opts.name,
 		target: udprelay.Target{
-			IPv4: v4.LocalAddr().(*net.UDPAddr).AddrPort(),
+			IPv4: netip.MustParseAddrPort(v4.LocalAddr().String()),
 		},
 		closed: make(chan struct{}),
 	}
@@ -1210,7 +1220,7 @@ func startBackend(opts backendOpts, cert tls.Certificate, ticketKey [32]byte) (*
 			_ = v4.Close()
 			return nil, nil, err
 		}
-		b.target.IPv6 = v6.LocalAddr().(*net.UDPAddr).AddrPort()
+		b.target.IPv6 = netip.MustParseAddrPort(v6.LocalAddr().String())
 		pc = newDualConn(v4, v6)
 	}
 	tlsConf := http3.ConfigureTLSConfig(&tls.Config{
@@ -1544,13 +1554,13 @@ func interopHandler(b *backend) http.Handler {
 			}
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write(interopBytes(n, 1))
-			w.(http.Flusher).Flush()
-			str := w.(http3.HTTPStreamer).HTTPStream()
+			_ = http.NewResponseController(w).Flush()
+			str := h3Stream(w)
 			str.CancelWrite(h3RequestCancelled)
 			str.CancelRead(h3RequestCancelled)
 		case "/reject":
 			if sc != nil && b.rejected.CompareAndSwap(false, true) {
-				str := w.(http3.HTTPStreamer).HTTPStream()
+				str := h3Stream(w)
 				str.CancelWrite(h3RequestRejected)
 				str.CancelRead(h3RequestRejected)
 			}
@@ -1559,7 +1569,7 @@ func interopHandler(b *backend) http.Handler {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			w.(http.Flusher).Flush()
+			_ = http.NewResponseController(w).Flush()
 			go func() {
 				time.Sleep(50 * time.Millisecond)
 				_ = sc.qc.CloseWithError(h3NoError, "")

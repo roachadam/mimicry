@@ -204,9 +204,13 @@ func TestHTTP2OnlyVariantOverHTTP1(t *testing.T) {
 				t.Fatal(err)
 			}
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			srvTr, ok := s.srv.Client().Transport.(*http.Transport)
+			if !ok {
+				t.Fatalf("httptest client Transport is %T", s.srv.Client().Transport)
+			}
 			tr, err := NewTransport(Config{
 				Profile: tc.p,
-				RootCAs: s.srv.Client().Transport.(*http.Transport).TLSClientConfig.RootCAs,
+				RootCAs: srvTr.TLSClientConfig.RootCAs,
 			})
 			if err != nil {
 				t.Fatal(err)

@@ -15,7 +15,7 @@ const captures = "../../testdata/captures"
 
 func read(t *testing.T, path string) []byte {
 	t.Helper()
-	data, err := os.ReadFile(path) //nolint:gosec // a file in the repository
+	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}

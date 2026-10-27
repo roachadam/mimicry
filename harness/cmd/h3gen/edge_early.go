@@ -31,7 +31,7 @@ func (s *edgeSet) earlyData(q *profile.QUIC, e *collector) *profile.H3EarlyData 
 			first := c.StreamStarts()
 			reqs := slices.Clone(c.H3.Requests)
 			slices.SortFunc(reqs, func(x, y quictrace.H3Request) int {
-				return int(x.Stream) - int(y.Stream) //nolint:gosec // stream IDs are small
+				return int(x.Stream) - int(y.Stream)
 			})
 			for _, r := range reqs {
 				l := label(r.Path)

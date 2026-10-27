@@ -107,7 +107,7 @@ func loadSamples[T any](t *testing.T, p *profile.Profile, scenario, rest string)
 			data, err = json.Marshal(pages)
 		}
 	} else {
-		data, err = os.ReadFile(path) //nolint:gosec // a capture file
+		data, err = os.ReadFile(path)
 	}
 	if why, ok := missingCaptures[file]; ok {
 		if err == nil {

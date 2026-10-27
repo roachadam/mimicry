@@ -211,7 +211,11 @@ func (fs *fieldList) extensions(exts []any) {
 			fs.transportParameters(m["data"])
 			continue
 		case randomExtension.MatchString(n):
-			m = shapeOf(m).(map[string]any)
+			shaped, ok := shapeOf(m).(map[string]any)
+			if !ok {
+				panic("shapeOf turns a map into a map")
+			}
+			m = shaped
 		}
 		delete(m, "name")
 		count[n]++

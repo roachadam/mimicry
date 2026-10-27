@@ -287,7 +287,7 @@ func oneConn(ctx context.Context, e *caseEnv, r *result, imp impairment, concurr
 	}
 	fs := getAll(ctx, pr, c, paths, concurrent)
 	r.Conns = append(r.Conns, c.facts())
-	pr.close(c) //nolint:contextcheck // closing outlives the case's context
+	pr.close(c)
 	r.Fetches = append(r.Fetches, fs...)
 	e.verify(r, fs)
 }
@@ -343,7 +343,7 @@ func runMultiplexing(ctx context.Context, e *caseEnv, r *result) {
 	}
 	fs := getAll(ctx, pr, c, paths, true)
 	r.Conns = append(r.Conns, c.facts())
-	pr.close(c) //nolint:contextcheck // closing outlives the case's context
+	pr.close(c)
 	e.verify(r, fs)
 	ok := 0
 	for _, f := range fs {
@@ -382,7 +382,7 @@ func runResumption(ctx context.Context, e *caseEnv, r *result, zeroRTT bool) {
 	fs := getAll(ctx, pr, c, []string{fileSmall}, false)
 	ticket := pr.waitTicket(ctx, 2*time.Second)
 	r.Conns = append(r.Conns, c.facts())
-	pr.close(c) //nolint:contextcheck // closing outlives the case's context
+	pr.close(c)
 	r.Fetches = append(r.Fetches, fs...)
 	e.verify(r, fs)
 	if r.Outcome == fail {
@@ -403,7 +403,7 @@ func runResumption(ctx context.Context, e *caseEnv, r *result, zeroRTT bool) {
 	fs = getAll(ctx, pr, c, []string{fileSmall}, false)
 	f := c.facts()
 	r.Conns = append(r.Conns, f)
-	pr.close(c) //nolint:contextcheck // closing outlives the case's context
+	pr.close(c)
 	r.Fetches = append(r.Fetches, fs...)
 	e.verify(r, fs)
 	if r.Outcome == fail {
@@ -449,7 +449,7 @@ func manyConns(ctx context.Context, e *caseEnv, r *result, imp impairment) {
 		if c != nil {
 			f = c.facts()
 		}
-		pr.close(c) //nolint:contextcheck // closing outlives the case's context
+		pr.close(c)
 		cancel()
 		if one.Outcome == pass {
 			ok++
@@ -508,7 +508,12 @@ func runUDPBlocked(ctx context.Context, e *caseEnv, r *result) {
 		r.failf("listen: %v", err)
 		return
 	}
-	port := ln.Addr().(*net.TCPAddr).Port //nolint:forcetypeassert // tcp4 listener
+	port, err := tcpPort(ln)
+	if err != nil {
+		_ = ln.Close()
+		r.failf("listen: %v", err)
+		return
+	}
 	sink, err := lc.ListenPacket(ctx, "udp4", "127.0.0.1:"+strconv.Itoa(port))
 	if err != nil {
 		_ = ln.Close()
@@ -526,7 +531,7 @@ func runUDPBlocked(ctx context.Context, e *caseEnv, r *result) {
 			}
 		}
 	}()
-	front := e.front(ln, uint16(port)) //nolint:gosec // a port
+	front := e.front(ln, uint16(port))
 	defer func() {
 		_ = front.Close()
 	}()

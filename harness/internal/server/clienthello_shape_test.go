@@ -57,20 +57,20 @@ func (h helloParts) bytes() []byte {
 	var exts []byte
 	for _, e := range h.extensions {
 		exts = binary.BigEndian.AppendUint16(exts, e.typ)
-		exts = binary.BigEndian.AppendUint16(exts, uint16(len(e.data))) //nolint:gosec // test extensions are small
+		exts = binary.BigEndian.AppendUint16(exts, uint16(len(e.data)))
 		exts = append(exts, e.data...)
 	}
 	var body []byte
 	body = binary.BigEndian.AppendUint16(body, h.version)
 	body = append(body, h.random...)
-	body = append(body, byte(len(h.sessionID))) //nolint:gosec // session IDs are at most 32 bytes
+	body = append(body, byte(len(h.sessionID)))
 	body = append(body, h.sessionID...)
 	body = append(body, h.suites...)
 	body = append(body, h.compression...)
-	body = binary.BigEndian.AppendUint16(body, uint16(len(exts))) //nolint:gosec // test hellos are small
+	body = binary.BigEndian.AppendUint16(body, uint16(len(exts)))
 	body = append(body, exts...)
 	// The handshake type, then a 24-bit length.
-	header := binary.BigEndian.AppendUint32(nil, handshakeClientHello<<24|uint32(len(body))) //nolint:gosec // test hellos are small
+	header := binary.BigEndian.AppendUint32(nil, handshakeClientHello<<24|uint32(len(body)))
 	return append(header, body...)
 }
 
@@ -96,11 +96,11 @@ func keyShares(data []byte, f func(i, n int) int) []byte {
 		n := int(binary.BigEndian.Uint16(list[2:]))
 		out = append(out, list[:2]...)
 		m := f(i, n)
-		out = binary.BigEndian.AppendUint16(out, uint16(m)) //nolint:gosec // test key lengths are small
+		out = binary.BigEndian.AppendUint16(out, uint16(m))
 		out = append(out, make([]byte, m)...)
 		list = list[4+n:]
 	}
-	out = append(binary.BigEndian.AppendUint16(nil, uint16(len(out))), out...) //nolint:gosec // test key shares are small
+	out = append(binary.BigEndian.AppendUint16(nil, uint16(len(out))), out...)
 	return out
 }
 
@@ -113,9 +113,9 @@ func echBody(data []byte, kdf, aead uint16, enc, payload int) []byte {
 	out = binary.BigEndian.AppendUint16(out, kdf)
 	out = binary.BigEndian.AppendUint16(out, aead)
 	out = append(out, data[5])
-	out = binary.BigEndian.AppendUint16(out, uint16(enc)) //nolint:gosec // test lengths are small
+	out = binary.BigEndian.AppendUint16(out, uint16(enc))
 	out = append(out, make([]byte, enc)...)
-	out = binary.BigEndian.AppendUint16(out, uint16(payload)) //nolint:gosec // test lengths are small
+	out = binary.BigEndian.AppendUint16(out, uint16(payload))
 	return append(out, make([]byte, payload)...)
 }
 

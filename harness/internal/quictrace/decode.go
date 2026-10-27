@@ -304,9 +304,9 @@ func parseLongHeader(b []byte) (longHeader, error) {
 	if r.err != nil || length > uint64(len(r.b)) {
 		return longHeader{}, errHeader
 	}
-	h.length = new(int(length)) //nolint:gosec // at most the datagram's length
+	h.length = new(int(length))
 	h.pnOffset = len(b) - len(r.b)
-	h.end = h.pnOffset + int(length) //nolint:gosec // at most the datagram's length
+	h.end = h.pnOffset + int(length)
 	return h, nil
 }
 
@@ -365,7 +365,7 @@ func (c *connState) serverPacket(b []byte) (Packet, int, error) {
 		if k := c.serverAppKeys(c.appVersion(), b, pnOffset); k != nil {
 			if _, o, err := k.unmask(b, pnOffset, true, c.serverLargest[spaceApp]); err == nil {
 				p.FirstByte, p.PNLength, p.PN = o.firstByte, o.pnLen, o.pn
-				c.serverLargest[spaceApp] = max(c.serverLargest[spaceApp], int64(o.pn)) //nolint:gosec // packet numbers are below 2^62
+				c.serverLargest[spaceApp] = max(c.serverLargest[spaceApp], int64(o.pn))
 			}
 		}
 		return p, len(b), nil
@@ -494,7 +494,7 @@ func readOpened(p *Packet, o opened, err error, largest *int64) ([]cryptoData, b
 		return nil, false
 	}
 	p.FirstByte, p.PNLength, p.PN = o.firstByte, o.pnLen, o.pn
-	*largest = max(*largest, int64(o.pn)) //nolint:gosec // packet numbers are below 2^62
+	*largest = max(*largest, int64(o.pn))
 	frames, crypto, err := parseFrames(o.payload)
 	p.Frames = frames
 	if err != nil {

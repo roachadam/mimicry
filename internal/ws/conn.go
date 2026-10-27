@@ -302,7 +302,7 @@ func (c *Conn) Close(code int, reason string) error {
 	c.mu.Unlock()
 	var err error
 	if send {
-		payload := binary.BigEndian.AppendUint16(nil, uint16(code)) //nolint:gosec // checked above
+		payload := binary.BigEndian.AppendUint16(nil, uint16(code))
 		payload = append(payload, reason...)
 		err = c.writeFrame(context.Background(), OpClose, 0, payload, false, c.closeEnds())
 		if err == nil {

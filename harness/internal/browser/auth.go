@@ -300,6 +300,10 @@ func freePort() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	port := ln.Addr().(*net.TCPAddr).Port
-	return port, ln.Close()
+	addr, ok := ln.Addr().(*net.TCPAddr)
+	if !ok {
+		_ = ln.Close()
+		return 0, fmt.Errorf("listener on %v is not TCP", ln.Addr())
+	}
+	return addr.Port, ln.Close()
 }

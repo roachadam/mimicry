@@ -313,7 +313,7 @@ func (p h3Page) document(path, port string) []byte {
 			fmt.Fprintf(&head, s.Tag+"\n", s.URL)
 		}
 	}
-	stepsJSON, _ := json.Marshal(steps) //nolint:gosec // Credentials is fetch()'s credentials mode, not a secret
+	stepsJSON, _ := json.Marshal(steps)
 	done := "fetch('/done');"
 	if p.doneHost != "" {
 		done = "fetch('https://" + net.JoinHostPort(p.doneHost, port) + "/done', {mode: 'no-cors'});"

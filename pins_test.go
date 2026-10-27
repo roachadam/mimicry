@@ -527,7 +527,10 @@ func TestPins(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			tr := client.Transport.(*mimicry.Transport)
+			tr, ok := client.Transport.(*mimicry.Transport)
+			if !ok {
+				t.Fatalf("client.Transport is %T", client.Transport)
+			}
 			defer tr.CloseIdleConnections()
 			for i, st := range tc.steps {
 				if st.before != nil {

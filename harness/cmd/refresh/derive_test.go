@@ -26,7 +26,7 @@ func TestDeriveReproducesProfiles(t *testing.T) {
 	for _, path := range paths {
 		name := strings.TrimSuffix(filepath.Base(path), ".json")
 		t.Run(name, func(t *testing.T) {
-			data, err := os.ReadFile(path) //nolint:gosec // a file in the repository
+			data, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -37,7 +37,7 @@ func TestDeriveReproducesProfiles(t *testing.T) {
 			if prev.CapturesFrom["http1"] != "" {
 				t.Skip("inherits its http1 capture")
 			}
-			captured, err := os.ReadFile(filepath.Join("../..", capturesDir, name+".json")) //nolint:gosec // a file in the repository
+			captured, err := os.ReadFile(filepath.Join("../..", capturesDir, name+".json"))
 			if err != nil {
 				t.Fatal(err)
 			}

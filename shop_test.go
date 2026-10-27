@@ -216,7 +216,10 @@ func (c *recordingConn) Read(p []byte) (int, error) {
 // headerLines returns r's header lines as the client sent them, in order,
 // for a shop started with startShopHTTP1.
 func headerLines(r *http.Request) []string {
-	c := r.Context().Value(connKey{}).(*recordingConn)
+	c, ok := r.Context().Value(connKey{}).(*recordingConn)
+	if !ok {
+		panic("headerLines: request is not from a startShopHTTP1 shop")
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	start := bytes.LastIndex(c.buf, []byte(r.Method+" "+r.RequestURI+" HTTP/1.1\r\n"))
@@ -428,7 +431,7 @@ func readFrame(r *bufio.Reader) (byte, []byte, error) {
 func writeFrame(w *bufio.Writer, op byte, payload []byte) {
 	_, _ = w.Write([]byte{
 		0x80 | op,
-		byte(len(payload)), //nolint:gosec // under 126 bytes, as documented
+		byte(len(payload)),
 	})
 	_, _ = w.Write(payload)
 	_ = w.Flush()

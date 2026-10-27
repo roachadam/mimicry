@@ -162,7 +162,7 @@ func probeSite(ctx context.Context, st site, np namedProfile, dir string, seed u
 				r.Conns = append(r.Conns, c.facts())
 			}
 			r.failf("probe connection %d: %s", i+1, errString(err))
-			pr.close(c) //nolint:contextcheck // closing outlives the probe's context
+			pr.close(c)
 			cancel()
 			return
 		}
@@ -171,7 +171,7 @@ func probeSite(ctx context.Context, st site, np namedProfile, dir string, seed u
 			pr.waitTicket(cctx, 2*time.Second)
 		}
 		r.Conns = append(r.Conns, c.facts())
-		pr.close(c) //nolint:contextcheck // closing outlives the probe's context
+		pr.close(c)
 		cancel()
 		r.Fetches = append(r.Fetches, fs...)
 		for _, f := range fs {

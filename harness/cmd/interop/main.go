@@ -95,7 +95,7 @@ func run() error {
 			return err
 		}
 		if *addr != 0 {
-			results = append(results, setup.runAddr(ctx, uint16(*addr), cs, nps, *out, *seed)...) //nolint:gosec // a port
+			results = append(results, setup.runAddr(ctx, uint16(*addr), cs, nps, *out, *seed)...)
 		} else {
 			results = append(results, fanOut(srvs, *parallel, func(s server) []result {
 				return setup.runServer(ctx, s, cs, nps, *out, *seed)

@@ -70,7 +70,7 @@ func (c *Conn) Rederive() {
 				reached = w.reachedBefore(*encoder, at)
 			}
 			n, _ := slices.BinarySearch(ends, reached+1)
-			arrived = uint64(n) //nolint:gosec // a count
+			arrived = uint64(n)
 		}
 		q.Blocked = q.Section.RequiredInsertCount > arrived
 	}

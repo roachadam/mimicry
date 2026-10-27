@@ -113,7 +113,7 @@ func cryptoFrames(p *quictrace.Packet) []cryptoRange {
 	for _, f := range p.Frames {
 		if f.Type == quictrace.FrameCrypto {
 			out = append(out, cryptoRange{
-				start: int(f.Offset), //nolint:gosec // a ClientHello offset
+				start: int(f.Offset),
 				end:   int(f.Offset + f.Length),
 			})
 		}

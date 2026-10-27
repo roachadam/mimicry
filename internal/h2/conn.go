@@ -233,6 +233,8 @@ func New(conn net.Conn, p *profile.Profile, clock clockwork.Clock) (*Conn, error
 			readFrameSize = s.Value
 		case http2.SettingMaxHeaderListSize:
 			headerListSize = s.Value
+		default:
+			// The rest of the profile's SETTINGS change nothing locally.
 		}
 	}
 	c.recvStreamWindow += h2.StreamWindowUpdate
@@ -935,7 +937,7 @@ func (c *Conn) reserveSend(ctx context.Context, s *stream, want int) (int, error
 		if c.h2.MaxDataFrame > 0 {
 			limit = min(limit, c.h2.MaxDataFrame)
 		}
-		n := min(int32(want), s.sendWindow, c.sendWindow, int32(limit)) //nolint:gosec // want is at most one read buffer; limit at most 2^24-1
+		n := min(int32(want), s.sendWindow, c.sendWindow, int32(limit))
 		if n > 0 {
 			s.sendWindow -= n
 			c.sendWindow -= n
@@ -951,8 +953,8 @@ func (c *Conn) reserveSend(ctx context.Context, s *stream, want int) (int, error
 func (c *Conn) consumed(s *stream, n int) {
 	now := c.clock.Now()
 	c.mu.Lock()
-	s.unacked += uint32(n)         //nolint:gosec // n is a read length
-	c.recvConnUnacked += uint32(n) //nolint:gosec // n is a read length
+	s.unacked += uint32(n)
+	c.recvConnUnacked += uint32(n)
 	var streamInc, connInc uint32
 	if !s.done && c.due(s.unacked, c.streamThreshold, s.lastUpdate, now) {
 		streamInc, s.unacked, s.lastUpdate = s.unacked, 0, now
@@ -992,7 +994,7 @@ func (c *Conn) bodyClosed(s *stream, complete bool, discarded int) {
 		c.reset(s, http2.ErrCodeCancel, errBodyClosed)
 	}
 	if discarded > 0 {
-		_ = c.returnConnCredit(uint32(discarded)) //nolint:gosec // at most the stream window
+		_ = c.returnConnCredit(uint32(discarded))
 	}
 }
 
@@ -1063,7 +1065,7 @@ func (c *Conn) endStream(s *stream, e ending) {
 		}
 	}
 	if n := s.body.end(err); n > 0 {
-		_ = c.returnConnCredit(uint32(n)) //nolint:gosec // at most the stream window
+		_ = c.returnConnCredit(uint32(n))
 	}
 	if idle {
 		_ = c.conn.Close()
@@ -1206,9 +1208,9 @@ func (c *Conn) applySettings(f *http2.SettingsFrame) error {
 				if w > maxWindow {
 					return http2.ConnectionError(http2.ErrCodeFlowControl)
 				}
-				st.sendWindow = int32(w) //nolint:gosec // checked above
+				st.sendWindow = int32(w)
 			}
-			c.initialWindow = int32(s.Val) //nolint:gosec // Valid: at most 2^31-1
+			c.initialWindow = int32(s.Val)
 		case http2.SettingHeaderTableSize:
 			tableSize, haveTableSize = s.Val, true
 		case http2.SettingEnableConnectProtocol:
@@ -1217,6 +1219,14 @@ func (c *Conn) applySettings(f *http2.SettingsFrame) error {
 				return http2.ConnectionError(http2.ErrCodeProtocol)
 			}
 			c.connectProtocol = s.Val == 1
+		case http2.SettingEnablePush:
+			// RFC 9113, section 6.5.2: a server enabling push is a
+			// PROTOCOL_ERROR.
+			if s.Val != 0 {
+				return http2.ConnectionError(http2.ErrCodeProtocol)
+			}
+		default:
+			// The rest (advisory or informational) change nothing here.
 		}
 		return nil
 	})
@@ -1245,7 +1255,7 @@ func (c *Conn) onWindowUpdate(f *http2.WindowUpdateFrame) error {
 			c.mu.Unlock()
 			return http2.ConnectionError(http2.ErrCodeFlowControl)
 		}
-		c.sendWindow = int32(w) //nolint:gosec // checked above
+		c.sendWindow = int32(w)
 		c.cond.Broadcast()
 		c.mu.Unlock()
 		return nil
@@ -1264,7 +1274,7 @@ func (c *Conn) onWindowUpdate(f *http2.WindowUpdateFrame) error {
 		})
 		return nil
 	}
-	s.sendWindow = int32(w) //nolint:gosec // checked above
+	s.sendWindow = int32(w)
 	c.cond.Broadcast()
 	c.mu.Unlock()
 	return nil

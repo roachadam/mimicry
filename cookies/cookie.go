@@ -35,6 +35,8 @@ func (s SameSite) String() string {
 		return "Strict"
 	case SameSiteNone:
 		return "None"
+	case SameSiteUnset:
+		// No attribute to name.
 	}
 	return ""
 }

@@ -18,9 +18,9 @@ const maxStringLength = 1 << 20
 func appendInt(dst []byte, first byte, n uint8, v uint64) []byte {
 	limit := uint64(1)<<n - 1
 	if v < limit {
-		return append(dst, first|byte(v)) //nolint:gosec // v < limit <= 255
+		return append(dst, first|byte(v))
 	}
-	dst = append(dst, first|byte(limit)) //nolint:gosec // limit <= 255
+	dst = append(dst, first|byte(limit))
 	v -= limit
 	for v >= 0x80 {
 		dst = append(dst, byte(v)|0x80)
@@ -82,10 +82,10 @@ func readString(b []byte, n uint8) (string, int, error) {
 	if length > maxStringLength {
 		return "", 0, errors.New("qpack: string literal too long")
 	}
-	if uint64(len(b)-k) < length { //nolint:gosec // k <= len(b)
+	if uint64(len(b)-k) < length {
 		return "", 0, errIncomplete
 	}
-	data := b[k : k+int(length)] //nolint:gosec // bounded by len(b)
+	data := b[k : k+int(length)]
 	if !huffman {
 		return string(data), k + len(data), nil
 	}
@@ -98,7 +98,7 @@ func readString(b []byte, n uint8) (string, int, error) {
 
 // entrySize is a table entry's size (RFC 9204, 3.2.1).
 func entrySize(name, value string) uint64 {
-	return uint64(len(name)+len(value)) + 32 //nolint:gosec // lengths are non-negative
+	return uint64(len(name)+len(value)) + 32
 }
 
 // AppendSectionAck appends a decoder stream Section Acknowledgment for

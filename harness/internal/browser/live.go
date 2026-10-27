@@ -139,7 +139,7 @@ end tell`)
 	}
 	l.session = s
 	if err := l.connect(ctx, b, dir, port); err != nil {
-		return nil, errors.Join(err, l.Close()) //nolint:contextcheck // closing must work after ctx ends
+		return nil, errors.Join(err, l.Close())
 	}
 	return l, nil
 }

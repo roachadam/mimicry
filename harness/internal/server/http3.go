@@ -78,7 +78,7 @@ type h3conn struct {
 // stops (serverCtx), which closes it: the server's control stream with the
 // scenario's SETTINGS and its QPACK streams, then every stream the client
 // opens.
-func (s *Server) serveH3(serverCtx context.Context, conn *quic.Conn, sc *Scenario, log *pageLog) error { //nolint:contextcheck // the connection's handlers run for its own lifetime (conn.Context), ended early by serverCtx
+func (s *Server) serveH3(serverCtx context.Context, conn *quic.Conn, sc *Scenario, log *pageLog) error {
 	h := &h3conn{
 		conn:           conn,
 		sc:             sc,
@@ -115,7 +115,7 @@ func (s *Server) serveH3(serverCtx context.Context, conn *quic.Conn, sc *Scenari
 	ctx, cancel := context.WithCancelCause(serverCtx)
 	defer cancel(nil)
 	connCtx := conn.Context()
-	stopConn := context.AfterFunc(connCtx, func() { //nolint:contextcheck // the connection's own lifetime
+	stopConn := context.AfterFunc(connCtx, func() {
 		cancel(context.Cause(connCtx))
 	})
 	defer stopConn()
@@ -234,7 +234,7 @@ func (h *h3conn) acceptRequests(ctx context.Context, wg *sync.WaitGroup) {
 			return
 		}
 		h.wmu.Lock()
-		h.maxStream = max(h.maxStream, uint64(str.StreamID())) //nolint:gosec // stream IDs are below 2^62
+		h.maxStream = max(h.maxStream, uint64(str.StreamID()))
 		h.wmu.Unlock()
 		wg.Go(func() {
 			h.request(str)
@@ -282,7 +282,7 @@ func (h *h3conn) uniStream(str *quic.ReceiveStream) {
 	typeLen := len(quictrace.AppendVarint(nil, typ))
 	index := h.addStream(quictrace.H3Stream{
 		Millis: h.millis(),
-		ID:     uint64(str.StreamID()), //nolint:gosec // stream IDs are below 2^62
+		ID:     uint64(str.StreamID()),
 		Type:   typ,
 		Name:   quictrace.StreamTypeName(typ),
 		Grease: quictrace.IsGreaseH3(typ),
@@ -428,7 +428,7 @@ func (h *h3conn) decodeSection(stream uint64, block []byte) (quictrace.Section, 
 // request reads one request stream's frames to its end, records them,
 // and answers the request.
 func (h *h3conn) request(str *quic.Stream) {
-	id := uint64(str.StreamID()) //nolint:gosec // stream IDs are below 2^62
+	id := uint64(str.StreamID())
 	index := h.addRequest(quictrace.H3Request{
 		Millis: h.millis(),
 		Stream: id,
@@ -475,7 +475,7 @@ func (h *h3conn) request(str *quic.Stream) {
 			})
 			h.firstRequest(s.Fields)
 		case quictrace.FrameH3Data:
-			st.uploaded += int(length) //nolint:gosec // bounded by the stream
+			st.uploaded += int(length)
 		}
 		if err != nil {
 			break

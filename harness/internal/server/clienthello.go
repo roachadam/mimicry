@@ -113,6 +113,8 @@ func resumptionOffer(msg []byte) offer {
 				}
 				o.pskIdentities++
 			}
+		default:
+			// Only the resumption extensions make the offer.
 		}
 	}
 	return o
@@ -141,7 +143,7 @@ func ParseClientHello(msg []byte) (profile.TLS, error) {
 	}
 	t := profile.TLS{
 		LegacyVersion:      profile.Code(legacyVersion),
-		SessionIDLength:    uint8(len(sessionID)), //nolint:gosec // read with an 8-bit length prefix
+		SessionIDLength:    uint8(len(sessionID)),
 		CompressionMethods: profile.ByteList(append([]byte(nil), compression...)),
 	}
 	var err error
@@ -330,7 +332,7 @@ func readKeyShares(s *cryptobyte.String) ([]profile.Code, []uint16, error) {
 			return nil, nil, errMalformed
 		}
 		groups = append(groups, code(group))
-		lengths = append(lengths, uint16(len(key))) //nolint:gosec // read with a 16-bit length prefix
+		lengths = append(lengths, uint16(len(key)))
 	}
 	return groups, lengths, nil
 }
@@ -365,9 +367,9 @@ func readGREASEECH(s *cryptobyte.String) (*profile.ECH, error) {
 				AEAD: profile.Code(aead),
 			},
 		},
-		EncLength: uint16(len(enc)), //nolint:gosec // read with a 16-bit length prefix
+		EncLength: uint16(len(enc)),
 		PayloadLengths: []uint16{
-			uint16(len(payload)), //nolint:gosec // read with a 16-bit length prefix
+			uint16(len(payload)),
 		},
 	}, nil
 }

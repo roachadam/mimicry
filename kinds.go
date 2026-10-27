@@ -445,6 +445,8 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 		if u.Weight != 0 {
 			weight = u.Weight
 		}
+	case PriorityAuto:
+		// The kind's own priority.
 	}
 
 	// The order: the variant matching this request's conditions, else the
@@ -462,6 +464,8 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 		// No page sets a WebSocket's headers, and its Origin is no CORS
 		// check: the kind's lists place every header it sends.
 		set = false
+	default:
+		// A page's headers decide.
 	}
 	var table *profile.HeaderTable
 	if r.Kind == Fetch || r.Kind == XHR {

@@ -168,7 +168,7 @@ func clone(p *profile.Profile) (*profile.Profile, error) {
 // http1Navigation is the header lines of the first request, a GET of /, in
 // the first sample of an http1 capture.
 func http1Navigation(path string) ([]string, error) {
-	data, err := os.ReadFile(path) //nolint:gosec // a staged capture
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +201,7 @@ func (r *refreshRun) derive(ctx context.Context, p *plan, rep *report) (string, 
 	}
 	rep.previous = prev
 	staged := r.stagedCaptures(p)
-	data, err := os.ReadFile(filepath.Join(staged, p.Name+".json")) //nolint:gosec // a staged capture
+	data, err := os.ReadFile(filepath.Join(staged, p.Name+".json"))
 	if err != nil {
 		return "", fmt.Errorf("the default scenario's capture: %w", err)
 	}
@@ -286,7 +286,7 @@ func buildOverlay(dir, staged string, p *plan) error {
 }
 
 func copyFile(from, to string) error {
-	in, err := os.Open(from) //nolint:gosec // the tool's own staging
+	in, err := os.Open(from)
 	if err != nil {
 		return err
 	}
@@ -294,7 +294,7 @@ func copyFile(from, to string) error {
 		_ = in.Close()
 	}()
 	_ = os.Remove(to)
-	out, err := os.OpenFile(to, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) //nolint:gosec // the tool's own staging
+	out, err := os.OpenFile(to, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return err
 	}
@@ -316,7 +316,7 @@ func runLogged(ctx context.Context, logFile, dir, name string, args ...string) e
 	cmd := exec.CommandContext(ctx, name, args...) //nolint:gosec // the tool's own commands
 	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()
-	f, ferr := os.OpenFile(logFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600) //nolint:gosec // the tool's own log
+	f, ferr := os.OpenFile(logFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600)
 	if ferr == nil {
 		_, _ = fmt.Fprintf(f, "$ %s %s\n%s\n", name, strings.Join(args, " "), out)
 		_ = f.Close()

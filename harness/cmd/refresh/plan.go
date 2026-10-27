@@ -143,7 +143,7 @@ func (r *refreshRun) save() error {
 }
 
 func loadRun(dir string) (*refreshRun, error) {
-	data, err := os.ReadFile(filepath.Join(dir, "plan.json")) //nolint:gosec // the staging directory named on the command line
+	data, err := os.ReadFile(filepath.Join(dir, "plan.json"))
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +235,7 @@ func loadProfiles(dir string) (map[string]*profile.Profile, error) {
 	}
 	out := map[string]*profile.Profile{}
 	for _, f := range files {
-		data, err := os.ReadFile(f) //nolint:gosec // the built-in profiles
+		data, err := os.ReadFile(f)
 		if err != nil {
 			return nil, err
 		}

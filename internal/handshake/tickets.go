@@ -204,5 +204,5 @@ func useBy(enc []byte) (time.Time, bool) {
 		return time.Time{}, false
 	}
 	secs := binary.BigEndian.Uint64(enc[len(enc)-12:])
-	return time.Unix(int64(secs), 0), true //nolint:gosec // seconds since the epoch fit in int64
+	return time.Unix(int64(secs), 0), true
 }

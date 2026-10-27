@@ -1,8 +1,7 @@
 version: "2"
 
 # Runs per Go module (repo root and harness/) through the moon `lint` task; see
-# .moon/tasks/go.yml. Based on an earlier project's set, with errcheck and revive's
-# doc-comment rules on from the start since this is a new codebase.
+# .moon/tasks/go.yml.
 linters:
   # "standard" = errcheck, govet, ineffassign, staticcheck, unused.
   default: standard
@@ -231,6 +230,17 @@ linters:
         # from parsed browser identities), never from untrusted input. Same
         # policy as our other projects.
         - G304
+        # Integer conversions are bounded by wire formats and checked where
+        # input is untrusted; the per-line suppressions were noise.
+        - G115
+    exhaustive:
+      # Codepoint enums (TLS extensions, transport parameters, SETTINGS) are
+      # open sets; their switches handle a few values and default the rest.
+      default-signifies-exhaustive: true
+    nolintlint:
+      require-specific: true
+      require-explanation: true
+      allow-unused: false
   enable:
     # --- guardrails ---
     - bodyclose       # HTTP response bodies are closed
@@ -245,7 +255,8 @@ linters:
     - unparam         # no unused function parameters
     - nilnil          # don't return (nil, nil)
     - wastedassign    # no assignments never read
-    - contextcheck    # inherited context is propagated
+    - forcetypeassert # type assertions are checked
+    - exhaustive      # switches over enums cover every value
     - gochecknoinits  # no init() functions
     - gosec           # security checks
     # --- style ---
@@ -253,6 +264,8 @@ linters:
     - prealloc        # preallocate slices in loops
     - revive          # golint replacement, default rules incl. exported and package-comments
     - depguard        # package import boundaries (rules above)
+    - nolintlint      # nolint directives are specific, explained, and used
+    - usestdlibvars   # stdlib constants instead of literals
   exclusions:
     # internal/quic is a copy of golang.org/x/net/quic (decision 0027) in
     # upstream's style, which these linters fault in ~500 places (unchecked
@@ -280,8 +293,11 @@ linters:
           - unparam
           - nilnil
           - wastedassign
-          - contextcheck
           - gochecknoinits
+          - forcetypeassert
+          - exhaustive
+          - nolintlint
+          - usestdlibvars
           - gosec
           - gocritic
           - prealloc

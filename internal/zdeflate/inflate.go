@@ -47,8 +47,15 @@ func (r *Reader) Message(p []byte, limit int) ([]byte, error) {
 	r.src.Reset(r.in)
 	if r.fr == nil {
 		r.fr = flate.NewReaderDict(&r.src, r.dict)
-	} else if err := r.fr.(flate.Resetter).Reset(&r.src, r.dict); err != nil {
-		return nil, fmt.Errorf("zdeflate: %w", err)
+	} else {
+		// flate.NewReaderDict's readers implement flate.Resetter (documented).
+		rs, ok := r.fr.(flate.Resetter)
+		if !ok {
+			panic("zdeflate: flate reader is not a flate.Resetter")
+		}
+		if err := rs.Reset(&r.src, r.dict); err != nil {
+			return nil, fmt.Errorf("zdeflate: %w", err)
+		}
 	}
 
 	var out bytes.Buffer

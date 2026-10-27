@@ -125,10 +125,10 @@ func prefixString(b []byte, n uint) (s string, huffman bool, consumed int, err e
 	if err != nil {
 		return "", false, 0, err
 	}
-	if uint64(len(b)-k) < length { //nolint:gosec // k <= len(b)
+	if uint64(len(b)-k) < length {
 		return "", false, 0, errIncomplete
 	}
-	data := b[k : k+int(length)] //nolint:gosec // bounded by len(b)
+	data := b[k : k+int(length)]
 	if huffman {
 		if s, err = hpack.HuffmanDecodeToString(data); err != nil {
 			return "", false, 0, err
@@ -136,7 +136,7 @@ func prefixString(b []byte, n uint) (s string, huffman bool, consumed int, err e
 	} else {
 		s = string(data)
 	}
-	return s, huffman, k + int(length), nil //nolint:gosec // bounded by len(b)
+	return s, huffman, k + int(length), nil
 }
 
 // staticTable is QPACK's static table (RFC 9204, appendix A).
@@ -574,9 +574,9 @@ func ReadDecoderStream(b []byte) ([]DecoderInstruction, int, error) {
 func appendPrefixInt(dst []byte, first byte, n uint, v uint64) []byte {
 	limit := uint64(1)<<n - 1
 	if v < limit {
-		return append(dst, first|byte(v)) //nolint:gosec // v < limit < 256
+		return append(dst, first|byte(v))
 	}
-	dst = append(dst, first|byte(limit)) //nolint:gosec // n <= 8
+	dst = append(dst, first|byte(limit))
 	for v -= limit; v >= 0x80; v >>= 7 {
 		dst = append(dst, byte(v)|0x80)
 	}

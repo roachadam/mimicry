@@ -85,7 +85,7 @@ type Connection struct {
 // (<name>.<scenario>.pagetrace.json.gz): every sample's page, its QUIC
 // connections rederived from their wire data (quictrace.Conn.Rederive).
 func LoadPages(path string) ([]*Page, error) {
-	f, err := os.Open(path) //nolint:gosec // a capture file the caller names
+	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}

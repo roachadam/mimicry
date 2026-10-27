@@ -89,7 +89,7 @@ func failures(out string) string {
 }
 
 func appendFile(path, s string) {
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600) //nolint:gosec // the tool's own log
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600)
 	if err != nil {
 		return
 	}
@@ -136,7 +136,7 @@ func (r *refreshRun) runRealcheck(ctx context.Context, p *plan) *result {
 		runErr = errors.Join(runErr, err)
 	}
 	res.err = runErr
-	data, err := os.ReadFile(filepath.Join(local, "compare.md")) //nolint:gosec // the tool's own staging
+	data, err := os.ReadFile(filepath.Join(local, "compare.md"))
 	if err != nil {
 		res.err = errors.Join(res.err, err)
 		return res

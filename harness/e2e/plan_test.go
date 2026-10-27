@@ -57,9 +57,11 @@ func (p *planning) RoundTrip(req *http.Request) (*http.Response, error) {
 // planEvery has s plan every request it sends from now on, for
 // checkPlans.
 func (s *pageSession) planEvery() {
-	s.planning = &planning{
-		tr: s.client.Transport.(*mimicry.Transport),
+	tr, ok := s.client.Transport.(*mimicry.Transport)
+	if !ok {
+		panic("planEvery: session client's Transport is not a *mimicry.Transport")
 	}
+	s.planning = &planning{tr: tr}
 	s.client.Transport = s.planning
 }
 

@@ -158,14 +158,14 @@ func (p *Plan) HasQUIC() bool {
 // QUICHello returns a new QUIC connection's ClientHello (profile tls.quic),
 // a shuffled one in a fresh order. Only for a plan that HasQUIC.
 func (p *Plan) QUICHello() Hello {
-	return p.quicHello(p.quic.fresh, rand.IntN) //nolint:gosec // order only needs to be uniform, as Hello's
+	return p.quicHello(p.quic.fresh, rand.IntN)
 }
 
 // ResumedQUICHello returns a new QUIC connection's ClientHello offering a
 // ticket: early_data when the browser sends 0-RTT, pre_shared_key last.
 // Only for a plan that HasQUIC and Resumes.
 func (p *Plan) ResumedQUICHello() Hello {
-	return p.quicHello(p.quic.resumed, rand.IntN) //nolint:gosec // as QUICHello
+	return p.quicHello(p.quic.resumed, rand.IntN)
 }
 
 // RetryQUICHello returns the ClientHello of a QUIC connection retried
@@ -175,7 +175,7 @@ func (p *Plan) RetryQUICHello() (Hello, bool) {
 	if p.quic == nil || p.quic.retry == nil {
 		return Hello{}, false
 	}
-	return p.quicHello(*p.quic.retry, rand.IntN), true //nolint:gosec // as QUICHello
+	return p.quicHello(*p.quic.retry, rand.IntN), true
 }
 
 // quicHello builds a QUIC Hello from h, drawing the permutation with

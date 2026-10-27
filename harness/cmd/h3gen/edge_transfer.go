@@ -63,7 +63,7 @@ func (d download) advances() []int {
 			return
 		}
 		if last > 0 && fr.Largest > last {
-			out = append(out, int(fr.Largest-last)) //nolint:gosec // two packet numbers of one download apart
+			out = append(out, int(fr.Largest-last))
 		}
 		last = max(last, fr.Largest)
 	})

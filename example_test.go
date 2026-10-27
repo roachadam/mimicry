@@ -314,7 +314,11 @@ func ExampleConfig_cookies() {
 	if err != nil {
 		panic(err)
 	}
-	jar := client.Transport.(*mimicry.Transport).Cookies()
+	tr, ok := client.Transport.(*mimicry.Transport)
+	if !ok {
+		panic("NewClient's Transport is a *mimicry.Transport")
+	}
+	jar := tr.Cookies()
 	get := func(rawURL string) {
 		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, rawURL, nil)
 		if err != nil {
@@ -771,7 +775,10 @@ func ExampleTransport_Plan() {
 	if err != nil {
 		panic(err)
 	}
-	tr := client.Transport.(*mimicry.Transport)
+	tr, ok := client.Transport.(*mimicry.Transport)
+	if !ok {
+		panic("NewClient's Transport is a *mimicry.Transport")
+	}
 	ctx := context.Background()
 	page, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://www.shop.test/p/42", nil)
 	if err != nil {
@@ -875,7 +882,10 @@ func ExampleTransport_DialWebSocket() {
 	_ = resp.Body.Close()
 
 	// The socket goes through the client's Transport, from its last page.
-	tr := client.Transport.(*mimicry.Transport)
+	tr, ok := client.Transport.(*mimicry.Transport)
+	if !ok {
+		panic("NewClient's Transport is a *mimicry.Transport")
+	}
 	ws, _, err := tr.DialWebSocket(ctx, "wss://www.shop.test/live", mimicry.WebSocketOptions{})
 	if err != nil {
 		panic(err)

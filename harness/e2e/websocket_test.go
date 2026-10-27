@@ -750,7 +750,7 @@ func dataCuts(page *capture.Page, ws *capture.WebSocket) (cuts map[frameKey][]ui
 			opcode: f.Opcode,
 			head:   headSize(f),
 		}
-		k.size = k.head + uint32(f.Length) //nolint:gosec // a frame of the capture page
+		k.size = k.head + uint32(f.Length)
 		switch f.Opcode {
 		case capture.WSText, capture.WSBinary:
 			message, fragment = message+1, 0

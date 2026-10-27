@@ -153,7 +153,7 @@ func (w *rsWriter) flushBlock() bool {
 	}
 	// zng_tr_flush_block is zlib's _tr_flush_block but for a block of no
 	// symbols, which deflate_medium never flushes.
-	w.trees.flushBlock(&w.out, stored, uint64(w.strstart-w.blockStart)) //nolint:gosec // strstart >= blockStart
+	w.trees.flushBlock(&w.out, stored, uint64(w.strstart-w.blockStart))
 	w.blockStart = w.strstart
 	w.flushPending()
 	return w.avail == 0
@@ -172,9 +172,9 @@ func (w *rsWriter) hash(s int) uint32 {
 func (w *rsWriter) quickInsertString(s int) uint16 {
 	h := w.hash(s)
 	head := w.head[h]
-	if head != uint16(s) { //nolint:gosec // s < windowSize <= 1<<16
+	if head != uint16(s) {
 		w.prev[s&w.wMask] = head
-		w.head[h] = uint16(s) //nolint:gosec // s < windowSize <= 1<<16
+		w.head[h] = uint16(s)
 	}
 	return head
 }
@@ -192,10 +192,10 @@ func (w *rsWriter) insertString(s, count int) {
 // the window, saturating at 0. Its SIMD variants compute the same.
 func (w *rsWriter) slideHash() {
 	for i, m := range w.head {
-		w.head[i] = uint16(max(int(m)-w.wSize, 0)) //nolint:gosec // m < 1<<16
+		w.head[i] = uint16(max(int(m)-w.wSize, 0))
 	}
 	for i, m := range w.prev {
-		w.prev[i] = uint16(max(int(m)-w.wSize, 0)) //nolint:gosec // m < 1<<16
+		w.prev[i] = uint16(max(int(m)-w.wSize, 0))
 	}
 }
 
@@ -260,7 +260,7 @@ func (w *rsWriter) longestMatch(curMatch uint16) (int, uint16) {
 	// they end at bestLen, the byte a longer match must also match.
 	offset := bestLen - 1
 	chainLength := uint16(rsMaxChain)
-	limit := uint16(max(strstart-w.maxDist, 0)) //nolint:gosec // strstart < 1<<16
+	limit := uint16(max(strstart-w.maxDist, 0))
 
 	// next is goto_next_in_chain: whether the chain goes on; the
 	// candidate loops below continue without the outer loop's check that
@@ -418,13 +418,13 @@ func (w *rsWriter) deflateMedium() bool {
 // the caller makes a literal.
 func (w *rsWriter) findMatch(hashHead uint16) rsMatch {
 	m := rsMatch{
-		strstart: uint16(w.strstart), //nolint:gosec // strstart < 1<<16
-		orgstart: uint16(w.strstart), //nolint:gosec // strstart < 1<<16
+		strstart: uint16(w.strstart),
+		orgstart: uint16(w.strstart),
 	}
 	// Position 0 is never matched: it would match itself at the start.
 	if dist := w.strstart - int(hashHead); dist <= w.maxDist && dist > 0 && hashHead != 0 {
 		length, start := w.longestMatch(hashHead)
-		m.matchLength = uint16(length) //nolint:gosec // length <= maxMatch
+		m.matchLength = uint16(length)
 		m.matchStart = start
 	}
 	return m
@@ -489,7 +489,7 @@ func (w *rsWriter) fizzleMatches(current, next *rsMatch) {
 		return
 	}
 
-	limit := uint16(max(int(next.strstart)-w.maxDist, 0)) //nolint:gosec // strstart < 1<<16
+	limit := uint16(max(int(next.strstart)-w.maxDist, 0))
 	c, n := *current, *next
 	changed := 0
 	// The bytes before next's source and before next, walking back from

@@ -27,7 +27,7 @@ func records(payload []byte, size int) []byte {
 	var out []byte
 	for len(payload) > 0 {
 		n := min(size, len(payload))
-		out = append(out, recordTypeHandshake, 3, 1, byte(n>>8), byte(n)) //nolint:gosec // n <= len(payload), well under 64 KiB
+		out = append(out, recordTypeHandshake, 3, 1, byte(n>>8), byte(n))
 		out = append(out, payload[:n]...)
 		payload = payload[n:]
 	}

@@ -526,6 +526,15 @@ func altSvcHandler(port uint16, h http.Handler) http.Handler {
 	})
 }
 
+// tcpPort returns the port of ln, a TCP listener.
+func tcpPort(ln net.Listener) (int, error) {
+	a, ok := ln.Addr().(*net.TCPAddr)
+	if !ok {
+		return 0, fmt.Errorf("listener on %v is not TCP", ln.Addr())
+	}
+	return a.Port, nil
+}
+
 // listenPair listens on a TCP port of 127.0.0.1 whose UDP twin is free.
 func listenPair(ctx context.Context) (net.Listener, uint16, error) {
 	var lc net.ListenConfig
@@ -534,14 +543,18 @@ func listenPair(ctx context.Context) (net.Listener, uint16, error) {
 		if err != nil {
 			return nil, 0, err
 		}
-		port := ln.Addr().(*net.TCPAddr).Port //nolint:forcetypeassert // tcp4 listener
+		port, err := tcpPort(ln)
+		if err != nil {
+			_ = ln.Close()
+			return nil, 0, err
+		}
 		pc, err := lc.ListenPacket(ctx, "udp4", "127.0.0.1:"+strconv.Itoa(port))
 		if err != nil {
 			_ = ln.Close()
 			continue
 		}
 		_ = pc.Close()
-		return ln, uint16(port), nil //nolint:gosec // a port
+		return ln, uint16(port), nil
 	}
 	return nil, 0, errors.New("no free TCP/UDP port pair")
 }
@@ -622,7 +635,7 @@ func (s *localSetup) runGroup(ctx context.Context, srv server, group []caseDef, 
 			why = "offers no h3 (" + r.Err + ")"
 		}
 		if why != "" {
-			c.stop() //nolint:contextcheck // cleanup runs after the run's context ends too
+			c.stop()
 			log.Printf("%s: %s mode %s; running it as http3", srv.name, testcase, why)
 			fallback = testcase
 			logs = filepath.Join(out, "local", srv.name, fallback+"-as-http3")
@@ -631,7 +644,7 @@ func (s *localSetup) runGroup(ctx context.Context, srv server, group []caseDef, 
 			}
 		}
 	}
-	defer c.stop() //nolint:contextcheck // cleanup runs after the run's context ends too
+	defer c.stop()
 	mode := c.testcase
 	if c.override != "" {
 		mode += " (override: " + c.override + ")"
@@ -655,7 +668,7 @@ func (s *localSetup) runAddr(ctx context.Context, port uint16, selected []caseDe
 	if ln, err := lc.Listen(ctx, "tcp4", net.JoinHostPort("127.0.0.1", strconv.Itoa(int(port)))); err == nil {
 		c.front = s.startFront(ln, port)
 	}
-	defer c.stop() //nolint:contextcheck // cleanup runs after the run's context ends too
+	defer c.stop()
 	logs := filepath.Join(out, "local", "addr")
 	return s.runCases(ctx, c, "addr", "", "", selected, profiles, logs, seed)
 }

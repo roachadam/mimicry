@@ -44,7 +44,7 @@ type entry struct {
 }
 
 func (e entry) size() uint32 {
-	return uint32(len(e.name) + len(e.value) + 32) //nolint:gosec // header fields are far below 4 GiB
+	return uint32(len(e.name) + len(e.value) + 32)
 }
 
 // NewEncoder returns an encoder following policy, which must be a valid
@@ -205,9 +205,9 @@ func (e *Encoder) evict(room uint32) {
 func appendInt(dst []byte, first byte, n uint8, v uint64) []byte {
 	limit := uint64(1)<<n - 1
 	if v < limit {
-		return append(dst, first|byte(v)) //nolint:gosec // v < limit <= 255
+		return append(dst, first|byte(v))
 	}
-	dst = append(dst, first|byte(limit)) //nolint:gosec // limit <= 255
+	dst = append(dst, first|byte(limit))
 	v -= limit
 	for v >= 0x80 {
 		dst = append(dst, byte(v)|0x80)

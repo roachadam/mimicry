@@ -60,7 +60,7 @@ func choose(env string) (*selection, error) {
 			s.names = append(s.names, item)
 			continue
 		}
-		data, err := os.ReadFile(item) //nolint:gosec // a profile file the person running the tests named
+		data, err := os.ReadFile(item)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", Env, err)
 		}
@@ -122,7 +122,7 @@ func builtinJSON(name string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return os.ReadFile(filepath.Join(dir, "profiles", "data", name+".json")) //nolint:gosec // a built-in profile's file
+	return os.ReadFile(filepath.Join(dir, "profiles", "data", name+".json"))
 }
 
 // InheritingName is the synthetic profile Inheriting builds: a version far

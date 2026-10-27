@@ -285,8 +285,10 @@ func extension(e *profile.Extension) (utls.TLSExtension, error) {
 		return &utls.FakeRecordSizeLimitExtension{
 			Limit: e.RecordSizeLimit,
 		}, nil
+	default:
+		// The profile holds the rest as raw bytes.
+		return dataExtension(e)
 	}
-	return dataExtension(e)
 }
 
 // What uTLS sends regardless of the profile: the first record's version,
@@ -364,11 +366,12 @@ func dataExtension(e *profile.Extension) (utls.TLSExtension, error) {
 		return want([]byte{0}, &utls.RenegotiationInfoExtension{
 			Renegotiation: utls.RenegotiateOnceAsClient,
 		})
+	default:
+		return &utls.GenericExtension{
+			Id:   uint16(e.Type),
+			Data: append([]byte(nil), e.Data...),
+		}, nil
 	}
-	return &utls.GenericExtension{
-		Id:   uint16(e.Type),
-		Data: append([]byte(nil), e.Data...),
-	}, nil
 }
 
 func codes16(codes []profile.Code) []uint16 {

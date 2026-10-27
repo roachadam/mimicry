@@ -741,7 +741,7 @@ func (c *Conn) roundTrip(req *http.Request, mayEarly bool) (resp *http.Response,
 		}
 		return nil, false, err
 	}
-	id := uint64(s.ID()) //nolint:gosec // stream IDs are non-negative
+	id := uint64(s.ID())
 	r := &requestStream{
 		c:  c,
 		s:  s,
@@ -816,7 +816,7 @@ func (c *Conn) start(ctx context.Context, hd head, end, mayEarly bool) (s *quic.
 		}
 		return nil, false, err
 	}
-	id := uint64(s.ID()) //nolint:gosec // stream IDs are non-negative
+	id := uint64(s.ID())
 	if c.rejected(id) {
 		_ = s.Reset(codeRequestCancelled)
 		return nil, false, ErrConnUnusable
@@ -839,7 +839,7 @@ func (c *Conn) start(ctx context.Context, hd head, end, mayEarly bool) (s *quic.
 		_ = c.control.Flush()
 	}
 	if c.h3.QPACK.InsertsFirst {
-		c.writeEncoder(ins, false) //nolint:contextcheck // the encoder stream is the connection's: a request's end must not cut an instruction
+		c.writeEncoder(ins, false)
 	}
 	// Before the handshake completes a request goes in 0-RTT; after it, in
 	// 1-RTT, even if still corked here.
@@ -855,14 +855,14 @@ func (c *Conn) start(ctx context.Context, hd head, end, mayEarly bool) (s *quic.
 		_ = s.Flush()
 	}
 	if !opened {
-		c.openStreams() //nolint:contextcheck // the connection's streams, not the request's
+		c.openStreams()
 		if pu {
 			_, _ = c.control.Write(priorityUpdate(id, hd.priority))
 			_ = c.control.Flush()
 		}
 	}
 	if !c.h3.QPACK.InsertsFirst {
-		c.writeEncoder(ins, false) //nolint:contextcheck // the encoder stream is the connection's: a request's end must not cut an instruction
+		c.writeEncoder(ins, false)
 	}
 	c.qc.Uncork()
 	if err != nil {
@@ -904,7 +904,7 @@ func (c *Conn) awaitHandshake(ctx context.Context) (release func(), err error) {
 	default:
 		c.startMu.Lock()
 		if !c.opened {
-			c.openStreams() //nolint:contextcheck // the connection's streams, not the request's
+			c.openStreams()
 			c.qc.Uncork()
 		}
 		c.startMu.Unlock()
@@ -966,7 +966,7 @@ func (c *Conn) decode(ctx context.Context, id uint64, block []byte) ([]qpack.Fie
 		return nil, err
 	}
 	if ric > 0 {
-		c.ackSection(id) //nolint:contextcheck // the decoder stream is the connection's: a request's end must not cut an instruction
+		c.ackSection(id)
 	}
 	return fields, nil
 }
@@ -1069,7 +1069,7 @@ func (r *requestStream) writeBody(body io.Reader, length int64) error {
 // readResponse reads the response's HEADERS (skipping interim ones) and
 // returns the response, its body reading the stream's DATA.
 func (r *requestStream) readResponse(ctx context.Context, req *http.Request) (*http.Response, error) {
-	id := uint64(r.s.ID()) //nolint:gosec // stream IDs are non-negative
+	id := uint64(r.s.ID())
 	for {
 		typ, length, err := readFrameHeader(r.s)
 		if err != nil {
@@ -1189,7 +1189,7 @@ func (b *body) Read(p []byte) (int, error) {
 			// Trailers: decoded (the table may change), then the end.
 			block, err := readPayload(b.r.s, length, b.r.c.maxSection)
 			if err == nil {
-				_, err = b.r.c.decode(b.ctx, uint64(b.r.s.ID()), block) //nolint:gosec // stream IDs are non-negative
+				_, err = b.r.c.decode(b.ctx, uint64(b.r.s.ID()), block)
 			}
 			if err != nil {
 				b.end(err)
@@ -1206,7 +1206,7 @@ func (b *body) Read(p []byte) (int, error) {
 		p = p[:b.remain]
 	}
 	n, err := b.r.s.Read(p)
-	b.remain -= uint64(n) //nolint:gosec // n >= 0
+	b.remain -= uint64(n)
 	if err != nil {
 		// The stream returns its last bytes with io.EOF: a clean end if
 		// they finish the DATA frame.

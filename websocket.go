@@ -182,7 +182,7 @@ func (t *Transport) DialWebSocket(ctx context.Context, rawURL string, opts WebSo
 	// The body is the socket's from here on, which outlives ctx: its
 	// pongs and close replies go out whatever ctx does.
 	resp.Body = http.NoBody
-	conn, err := ws.New(sock.Conn, sock.Reader, ws.Config{ //nolint:contextcheck // the socket outlives the dial's context
+	conn, err := ws.New(sock.Conn, sock.Reader, ws.Config{
 		Profile: p.WebSocket,
 		Name:    p.Name,
 		H2:      sock.H2,

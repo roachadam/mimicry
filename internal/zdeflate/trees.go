@@ -270,8 +270,8 @@ func (t *trees) initBlock() {
 // the block is full.
 func (t *trees) tally(dist, lc uint32) bool {
 	t.syms[t.symNext] = sym{
-		dist: uint16(dist), //nolint:gosec // dist <= maxDist
-		lc:   uint8(lc),    //nolint:gosec // lc <= maxMatch - minMatch
+		dist: uint16(dist),
+		lc:   uint8(lc),
 	}
 	t.symNext++
 	if dist == 0 {
@@ -344,7 +344,7 @@ func (t *trees) genBitLen(desc *treeDesc) {
 			bits = maxLength
 			overflow++
 		}
-		tree[n].dl = uint16(bits) //nolint:gosec // bits <= maxBits
+		tree[n].dl = uint16(bits)
 		if n > maxCode {
 			continue // not a leaf
 		}
@@ -354,9 +354,9 @@ func (t *trees) genBitLen(desc *treeDesc) {
 			xbits = extra[n-base]
 		}
 		f := uint64(tree[n].fc)
-		t.optLen += f * uint64(bits+xbits) //nolint:gosec // small positive
+		t.optLen += f * uint64(bits+xbits)
 		if stree != nil {
-			t.staticLen += f * uint64(int(stree[n].dl)+xbits) //nolint:gosec // small positive
+			t.staticLen += f * uint64(int(stree[n].dl)+xbits)
 		}
 	}
 	if overflow == 0 {
@@ -387,8 +387,8 @@ func (t *trees) genBitLen(desc *treeDesc) {
 				continue
 			}
 			if int(tree[m].dl) != bits {
-				t.optLen += uint64(int64(bits)-int64(tree[m].dl)) * uint64(tree[m].fc) //nolint:gosec // zlib's unsigned arithmetic
-				tree[m].dl = uint16(bits)                                              //nolint:gosec // bits <= maxBits
+				t.optLen += uint64(int64(bits)-int64(tree[m].dl)) * uint64(tree[m].fc)
+				tree[m].dl = uint16(bits)
 			}
 			n--
 		}
@@ -452,8 +452,8 @@ func (t *trees) buildTree(desc *treeDesc) {
 
 		tree[node].fc = tree[n].fc + tree[m].fc
 		t.depth[node] = max(t.depth[n], t.depth[m]) + 1
-		tree[n].dl = uint16(node) //nolint:gosec // node < heapSize
-		tree[m].dl = uint16(node) //nolint:gosec // node < heapSize
+		tree[n].dl = uint16(node)
+		tree[m].dl = uint16(node)
 		t.heap[1] = node
 		node++
 		t.pqDownHeap(tree, 1)
@@ -488,7 +488,7 @@ func (t *trees) scanTree(tree []ct, maxCode int) {
 		case count < maxCount && curLen == nextLen:
 			continue
 		case count < minCount:
-			t.blTree[curLen].fc += uint16(count) //nolint:gosec // count < 7
+			t.blTree[curLen].fc += uint16(count)
 		case curLen != 0:
 			if curLen != prevLen {
 				t.blTree[curLen].fc++
@@ -539,13 +539,13 @@ func (t *trees) sendTree(out *bitWriter, tree []ct, maxCode int) {
 				count--
 			}
 			out.code(t.blTree[rep3To6])
-			out.bits(uint32(count-3), 2) //nolint:gosec // 3 <= count <= 6
+			out.bits(uint32(count-3), 2)
 		case count <= 10:
 			out.code(t.blTree[repz3To10])
-			out.bits(uint32(count-3), 3) //nolint:gosec // 3 <= count <= 10
+			out.bits(uint32(count-3), 3)
 		default:
 			out.code(t.blTree[repz11To138])
-			out.bits(uint32(count-11), 7) //nolint:gosec // 11 <= count <= 138
+			out.bits(uint32(count-11), 7)
 		}
 		count = 0
 		prevLen = curLen
@@ -574,15 +574,15 @@ func (t *trees) buildBLTree() int {
 			break
 		}
 	}
-	t.optLen += 3*(uint64(maxBLIndex)+1) + 5 + 5 + 4 //nolint:gosec // maxBLIndex >= 2
+	t.optLen += 3*(uint64(maxBLIndex)+1) + 5 + 5 + 4
 	return maxBLIndex
 }
 
 // sendAllTrees is zlib's send_all_trees: a dynamic block's header.
 func (t *trees) sendAllTrees(out *bitWriter, lcodes, dcodes, blcodes int) {
-	out.bits(uint32(lcodes-257), 5) //nolint:gosec // 257 <= lcodes <= 286
-	out.bits(uint32(dcodes-1), 5)   //nolint:gosec // 1 <= dcodes <= 30
-	out.bits(uint32(blcodes-4), 4)  //nolint:gosec // 4 <= blcodes <= 19
+	out.bits(uint32(lcodes-257), 5)
+	out.bits(uint32(dcodes-1), 5)
+	out.bits(uint32(blcodes-4), 4)
 	for rank := range blcodes {
 		out.bits(uint32(t.blTree[blOrder[rank]].dl), 3)
 	}
@@ -602,13 +602,13 @@ func (t *trees) compressBlock(out *bitWriter, ltree, dtree []ct) {
 		code := int(static.lengthCode[lc])
 		out.code(ltree[code+literals+1])
 		if extra := extraLBits[code]; extra != 0 {
-			out.bits(uint32(lc-static.baseLength[code]), extra) //nolint:gosec // within the code's range
+			out.bits(uint32(lc-static.baseLength[code]), extra)
 		}
 		dist := uint32(s.dist) - 1
 		dcode := int(dCode(dist))
 		out.code(dtree[dcode])
 		if extra := extraDBits[dcode]; extra != 0 {
-			out.bits(dist-uint32(static.baseDist[dcode]), extra) //nolint:gosec // within the code's range
+			out.bits(dist-uint32(static.baseDist[dcode]), extra)
 		}
 	}
 	out.code(ltree[endBlock])
@@ -619,7 +619,7 @@ func (t *trees) compressBlock(out *bitWriter, ltree, dtree []ct) {
 func (t *trees) storedBlock(out *bitWriter, buf []byte) {
 	out.bits(storedBlock<<1, 3)
 	out.windup()
-	n := uint16(len(buf)) //nolint:gosec // buf lies in the window: under 64 KiB
+	n := uint16(len(buf))
 	out.buf = binary.LittleEndian.AppendUint16(out.buf, n)
 	out.buf = binary.LittleEndian.AppendUint16(out.buf, ^n)
 	out.buf = append(out.buf, buf...)
@@ -666,7 +666,7 @@ func (b *bitWriter) bits(value uint32, n int) {
 	b.acc |= uint64(value) << b.nbits
 	b.nbits += n
 	if b.nbits >= 32 {
-		b.buf = binary.LittleEndian.AppendUint32(b.buf, uint32(b.acc)) //nolint:gosec // the low 32 bits, on purpose
+		b.buf = binary.LittleEndian.AppendUint32(b.buf, uint32(b.acc))
 		b.acc >>= 32
 		b.nbits -= 32
 	}
@@ -679,7 +679,7 @@ func (b *bitWriter) code(c ct) {
 // windup is zlib's bi_windup: the bits written so far, padded to a byte.
 func (b *bitWriter) windup() {
 	for b.nbits > 0 {
-		b.buf = append(b.buf, byte(b.acc)) //nolint:gosec // the low byte, on purpose
+		b.buf = append(b.buf, byte(b.acc))
 		b.acc >>= 8
 		b.nbits -= 8
 	}

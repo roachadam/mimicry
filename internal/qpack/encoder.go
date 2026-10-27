@@ -91,7 +91,7 @@ func (t *table) evictTo(limit uint64) {
 	if n > 0 {
 		clear(t.entries[:n])
 		t.entries = t.entries[n:]
-		t.dropped += uint64(n) //nolint:gosec // n >= 0
+		t.dropped += uint64(n)
 	}
 }
 
@@ -283,7 +283,7 @@ func (e *Encoder) lookup(f Field, usable func(uint64) bool) match {
 		}
 	}
 	for i := len(e.t.entries) - 1; i >= 0; i-- {
-		abs := e.t.dropped + uint64(i) //nolint:gosec // i >= 0
+		abs := e.t.dropped + uint64(i)
 		en := e.t.entries[i]
 		if en.Name != f.Name || !usable(abs) {
 			continue
@@ -319,7 +319,7 @@ func (e *Encoder) lookupName(name string) match {
 		if e.t.entries[i].Name == name {
 			return match{
 				found: true,
-				index: e.t.dropped + uint64(i), //nolint:gosec // i >= 0
+				index: e.t.dropped + uint64(i),
 			}
 		}
 	}
@@ -500,7 +500,7 @@ func (e *Encoder) maxInsertSize(keep uint64) uint64 {
 	}
 	room := t.capacity - t.size
 	for i, en := range t.entries {
-		if t.dropped+uint64(i) >= keep { //nolint:gosec // i >= 0
+		if t.dropped+uint64(i) >= keep {
 			break
 		}
 		room += entrySize(en.Name, en.Value)

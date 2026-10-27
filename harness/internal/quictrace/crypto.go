@@ -134,10 +134,10 @@ func expandLabel(h func() hash.Hash, secret []byte, label string, length int) ([
 func expandLabelContext(h func() hash.Hash, secret []byte, label string, context []byte, length int) ([]byte, error) {
 	full := "tls13 " + label
 	info := make([]byte, 0, 4+len(full)+len(context))
-	info = binary.BigEndian.AppendUint16(info, uint16(length)) //nolint:gosec // key, IV and secret lengths
-	info = append(info, byte(len(full)))                       //nolint:gosec // labels are short
+	info = binary.BigEndian.AppendUint16(info, uint16(length))
+	info = append(info, byte(len(full)))
 	info = append(info, full...)
-	info = append(info, byte(len(context))) //nolint:gosec // a transcript hash
+	info = append(info, byte(len(context)))
 	info = append(info, context...)
 	return hkdf.Expand(h, secret, string(info), length)
 }
@@ -274,7 +274,7 @@ func verifyRetry(version uint32, retry, odcid []byte) error {
 	}
 	body := retry[:len(retry)-16]
 	pseudo := make([]byte, 0, 1+len(odcid)+len(body))
-	pseudo = append(pseudo, byte(len(odcid))) //nolint:gosec // connection IDs are at most 255 bytes
+	pseudo = append(pseudo, byte(len(odcid)))
 	pseudo = append(pseudo, odcid...)
 	pseudo = append(pseudo, body...)
 	if _, err := aead.Open(nil, ki[1], retry[len(body):], pseudo); err != nil {
@@ -324,7 +324,7 @@ func (k *keys) unprotect(p []byte, pnOffset int, short bool, largest int64) (ope
 	}
 	nonce := append([]byte(nil), k.iv...)
 	for i := range 8 {
-		nonce[len(nonce)-1-i] ^= byte(o.pn >> (8 * i)) //nolint:gosec // one byte of pn at a time
+		nonce[len(nonce)-1-i] ^= byte(o.pn >> (8 * i))
 	}
 	o.payload, err = k.aead.Open(nil, nonce, p[len(header):], header)
 	if err != nil {
@@ -364,7 +364,7 @@ func (k *keys) unmask(p []byte, pnOffset int, short bool, largest int64) ([]byte
 // decodePacketNumber recovers a full packet number from its truncated
 // encoding (RFC 9000, appendix A.3).
 func decodePacketNumber(largest int64, truncated uint64, pnLen int) uint64 {
-	expected := uint64(largest + 1) //nolint:gosec // largest is -1 or a packet number below 2^62
+	expected := uint64(largest + 1)
 	win := uint64(1) << (8 * pnLen)
 	hwin := win / 2
 	mask := win - 1

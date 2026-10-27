@@ -342,6 +342,15 @@ var errPageMoved = errors.New("the page moved to another connection before /done
 // maxRetakes is how many times a sample whose page moved is taken again.
 const maxRetakes = 2
 
+// tcpPort returns the port of ln, a TCP listener.
+func tcpPort(ln net.Listener) (int, error) {
+	a, ok := ln.Addr().(*net.TCPAddr)
+	if !ok {
+		return 0, fmt.Errorf("listener on %v is not TCP", ln.Addr())
+	}
+	return a.Port, nil
+}
+
 // sample runs a fresh capture server answering as sc, sends the browser to
 // it, and returns the first complete capture from that browser.
 func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts options) (*capture.Capture, error) {
@@ -378,10 +387,15 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 	}
 	// Behind a proxy the browser never dials this port, but the URL names
 	// it, so CONNECT and SOCKS5 requests carry a real-looking one.
-	port := ln.Addr().(*net.TCPAddr).Port
+	port, err := tcpPort(ln)
+	if err != nil {
+		_ = ln.Close()
+		return nil, err
+	}
 	var px *proxy.Proxy
 	var proxyURL *url.URL
 	var pln net.Listener
+	var plainPort int
 	if sc.Proxy != "" {
 		addr := "127.0.0.1:0"
 		if b.Shared {
@@ -423,14 +437,19 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 			_ = ln.Close()
 			return nil, err
 		}
+		if plainPort, err = tcpPort(srv.PlainListener); err != nil {
+			_ = ln.Close()
+			_ = srv.PlainListener.Close()
+			return nil, err
+		}
 		if px != nil {
 			// Behind the proxy the port is only named: the proxy hands
 			// what is for it to the server's plain side.
-			px.PlainPort = srv.PlainListener.Addr().(*net.TCPAddr).Port
+			px.PlainPort = plainPort
 			_ = srv.PlainListener.Close()
 			srv.PlainListener = px.PlainListener()
 		}
-		log.Printf("%s: plain HTTP on port %d", b.Name, srv.PlainListener.Addr().(*net.TCPAddr).Port)
+		log.Printf("%s: plain HTTP on port %d", b.Name, plainPort)
 	}
 	serveCtx, stopServer := context.WithCancel(ctx)
 	served, proxied := make(chan struct{}), make(chan struct{})
@@ -480,7 +499,7 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 	if sc.StartsPlain() {
 		// The page starts at http:// on its plain port.
 		t.Plain = true
-		t.Port = srv.PlainListener.Addr().(*net.TCPAddr).Port
+		t.Port = plainPort
 	}
 	if b.Shared && t.ProxyAuth != nil {
 		// Nothing can answer Safari's login dialog but a person.

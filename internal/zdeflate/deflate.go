@@ -380,7 +380,7 @@ func (w *zlibWriter) fillWindow() {
 		start := w.strstart + w.lookahead
 		n := copy(w.window[start:start+more], w.in)
 		w.in = w.in[n:]
-		w.lookahead += uint32(n) //nolint:gosec // n <= more < windowSize
+		w.lookahead += uint32(n)
 
 		// Hash the strings the previous call left uninserted. Chromium's
 		// hash reads 4 bytes, so it inserts while more than minMatch are
@@ -440,7 +440,7 @@ func (w *zlibWriter) longestMatch(curMatch uint32) uint32 {
 	if w.prevLength >= w.cfg.goodLength {
 		chainLength >>= 2
 	}
-	if uint32(niceMatch) > w.lookahead { //nolint:gosec // niceMatch <= maxMatch
+	if uint32(niceMatch) > w.lookahead {
 		niceMatch = int(w.lookahead)
 	}
 
@@ -485,8 +485,8 @@ func (w *zlibWriter) longestMatch(curMatch uint32) uint32 {
 			break
 		}
 	}
-	if uint32(bestLen) <= w.lookahead { //nolint:gosec // bestLen <= maxMatch
-		return uint32(bestLen) //nolint:gosec // bestLen <= maxMatch
+	if uint32(bestLen) <= w.lookahead {
+		return uint32(bestLen)
 	}
 	return w.lookahead
 }
@@ -498,7 +498,7 @@ func (w *zlibWriter) flushBlock() {
 	if w.blockStart >= 0 {
 		stored = w.window[w.blockStart:w.strstart]
 	}
-	w.trees.flushBlock(&w.out, stored, uint64(int64(w.strstart)-w.blockStart)) //nolint:gosec // strstart >= blockStart
+	w.trees.flushBlock(&w.out, stored, uint64(int64(w.strstart)-w.blockStart))
 	w.blockStart = int64(w.strstart)
 }
 

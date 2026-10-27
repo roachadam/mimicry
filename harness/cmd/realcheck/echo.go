@@ -258,7 +258,7 @@ func runBrowser(ctx context.Context, b *browser.Browser, out string, echo, doSit
 	if doSites {
 		errs = append(errs, sitesBrowser(ctx, client, l, out))
 	}
-	errs = append(errs, l.Close()) //nolint:contextcheck // closing must work after ctx ends
+	errs = append(errs, l.Close())
 	return errors.Join(errs...)
 }
 

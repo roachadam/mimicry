@@ -167,7 +167,7 @@ func (pr *prober) dial(ctx context.Context, host string, peer netip.AddrPort, im
 		return c, err
 	}
 	c.qc = qc
-	hc, err := h3.New(qc, pr.p, h3.Options{ //nolint:contextcheck // the connection serves the server's streams for its own lifetime, as in the engine
+	hc, err := h3.New(qc, pr.p, h3.Options{
 		AltHost: host,
 		AltPort: c.port,
 		Pending: true,
@@ -190,7 +190,7 @@ func (pr *prober) close(c *probeConn) {
 		select {
 		case <-c.qc.Done():
 		default:
-			rtt := c.qc.SmoothedRTT() //nolint:contextcheck // read on the connection's loop, which outlives any request
+			rtt := c.qc.SmoothedRTT()
 			pr.mu.Lock()
 			pr.rtt = rtt
 			pr.mu.Unlock()

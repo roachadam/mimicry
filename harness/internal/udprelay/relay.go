@@ -134,7 +134,12 @@ func New(target Target, seed uint64) (*Relay, error) {
 
 // Addr is the address clients send to.
 func (r *Relay) Addr() netip.AddrPort {
-	return r.pc.LocalAddr().(*net.UDPAddr).AddrPort()
+	// r.pc is a *net.UDPConn, whose address is a *net.UDPAddr.
+	addr, ok := r.pc.LocalAddr().(*net.UDPAddr)
+	if !ok {
+		panic("udprelay: UDP socket address is not a *net.UDPAddr")
+	}
+	return addr.AddrPort()
 }
 
 // Set replaces direction d's impairment.
@@ -401,7 +406,7 @@ func longTypes(b []byte) []byte {
 			if l == 0 || n > uint64(len(b)) {
 				return types
 			}
-			off += l + int(n) //nolint:gosec // bounded by len(b)
+			off += l + int(n)
 		}
 		if off > len(b) {
 			return types
@@ -410,7 +415,7 @@ func longTypes(b []byte) []byte {
 		if l == 0 || n > uint64(len(b)) {
 			return types
 		}
-		off += l + int(n) //nolint:gosec // bounded by len(b)
+		off += l + int(n)
 		if off > len(b) {
 			return types
 		}
@@ -470,7 +475,12 @@ func (h items) Swap(i, j int) {
 }
 
 func (h *items) Push(x any) {
-	*h = append(*h, x.(item))
+	// Every heap.Push on items passes an item.
+	it, ok := x.(item)
+	if !ok {
+		panic("udprelay: heap pushed a non-item")
+	}
+	*h = append(*h, it)
 }
 
 func (h *items) Pop() any {
@@ -514,7 +524,12 @@ func (s *scheduler) run() {
 		now := time.Now()
 		var due []item
 		for len(s.items) > 0 && !s.items[0].due.After(now) {
-			due = append(due, heap.Pop(&s.items).(item))
+			// items holds only items (see Push).
+			it, ok := heap.Pop(&s.items).(item)
+			if !ok {
+				panic("udprelay: heap popped a non-item")
+			}
+			due = append(due, it)
 		}
 		wait := time.Hour
 		if len(s.items) > 0 {

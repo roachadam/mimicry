@@ -101,7 +101,7 @@ func (m *machine) output(ctx context.Context, name string, args ...string) ([]by
 // with prefix and appending it to logFile. Interrupted, it also stops what
 // it started on a remote host, which ssh without a terminal leaves running.
 func (m *machine) stream(ctx context.Context, prefix, logFile, name string, args ...string) error {
-	f, err := os.OpenFile(logFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600) //nolint:gosec // the tool's own log
+	f, err := os.OpenFile(logFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600)
 	if err != nil {
 		return err
 	}

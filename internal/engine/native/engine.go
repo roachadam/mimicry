@@ -364,7 +364,7 @@ func userAgent(p *profile.Profile) string {
 func (e *Engine) try(ctx context.Context, req *http.Request, r route) (*http.Response, error) {
 	resp, err := e.tryOnce(ctx, req, r)
 	if err == nil && e.quic != nil {
-		e.learnAltSvc(req, r, resp) //nolint:contextcheck // a dial it starts outlives the request (Firefox dials on Alt-Svc)
+		e.learnAltSvc(req, r, resp)
 	}
 	return resp, err
 }
@@ -397,6 +397,8 @@ func (e *Engine) tryOnce(ctx context.Context, req *http.Request, r route) (*http
 			return nil, fmt.Errorf("%w: %w", errRetry, err)
 		}
 		return resp, err
+	case pool.FoundDial:
+		// Dialed below.
 	}
 	d := got.Dial
 	if d.MayShare() && e.profile.Connections.Coalesce == profile.CoalesceOnLookup {

@@ -223,7 +223,7 @@ func (e *Engine) learnAltSvc(req *http.Request, r route, resp *http.Response) {
 		o.alt, o.hasAlt = alt, true
 	}
 	if found && e.profile.HTTP3.Discovery.Switch == profile.SwitchOnAltSvc && !o.used && o.revalidate.IsZero() && e.mayDial(o, r, now) {
-		e.startAttempt(o, r, dialSpec{}) //nolint:contextcheck // the attempt outlives the request
+		e.startAttempt(o, r, dialSpec{})
 	}
 }
 
@@ -244,14 +244,14 @@ func (e *Engine) tryH3(ctx context.Context, req *http.Request, r route) (resp *h
 	if !e.h3Route(req, r) || r.tcpOnly {
 		return nil, false, nil, nil
 	}
-	c, race, err := e.quicFor(ctx, r) //nolint:contextcheck // an attempt it starts outlives the request
+	c, race, err := e.quicFor(ctx, r)
 	switch {
 	case errors.Is(err, errTCP):
 		return nil, false, race, nil
 	case err != nil:
 		return nil, true, nil, err
 	}
-	resp, handled, err = e.roundTripH3(r, c, req) //nolint:contextcheck // a dead connection's extra TCP dials outlive the request (declineExtra)
+	resp, handled, err = e.roundTripH3(r, c, req)
 	return resp, handled, nil, err
 }
 
@@ -339,7 +339,7 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 		o.last = nil
 		if o.attempt == nil {
 			race = make(chan struct{})
-			e.startAttempt(o, r, dialSpec{ //nolint:contextcheck // the attempt outlives the request
+			e.startAttempt(o, r, dialSpec{
 				delay:  drawMillis(d.RaceDelayMillis),
 				after:  race,
 				ticket: e.takeTicket(r),
@@ -351,7 +351,7 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 		// (its middle: the captures bound the threshold, no more).
 		if rv := fb.RevalidateMillis; rv != nil && !now.Before(o.revalidate.Add(millis((rv.Min+rv.Max)/2))) && e.mayDial(o, r, now) {
 			e.dropTicket(r)
-			e.startAttempt(o, r, dialSpec{}) //nolint:contextcheck // the attempt outlives the request
+			e.startAttempt(o, r, dialSpec{})
 		}
 	case wayResume:
 		// The origin's next connection resumes, and the request goes on
@@ -362,19 +362,19 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 			a, hold = o.attempt, true
 		case o.attempt == nil:
 			if t := e.takeTicket(r); t != nil {
-				a, hold = e.startAttempt(o, r, dialSpec{ //nolint:contextcheck // the attempt outlives the request
+				a, hold = e.startAttempt(o, r, dialSpec{
 					ticket:  t,
 					pending: true,
 				}), true
 			} else {
-				e.startAttempt(o, r, dialSpec{}) //nolint:contextcheck // the attempt outlives the request
+				e.startAttempt(o, r, dialSpec{})
 			}
 		}
 	case wayRace:
 		// The request needs the origin's QUIC connection and waits for
 		// it as Fallback says.
 		if a = o.attempt; a == nil {
-			a = e.startAttempt(o, r, dialSpec{ //nolint:contextcheck // the attempt outlives the request
+			a = e.startAttempt(o, r, dialSpec{
 				ticket:  e.takeTicket(r),
 				pending: true,
 			})
@@ -383,7 +383,7 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 		// Chrome: QUIC starts beside the request, which goes on the open
 		// HTTP/2 connection.
 		if o.attempt == nil {
-			e.startAttempt(o, r, dialSpec{ //nolint:contextcheck // the attempt outlives the request
+			e.startAttempt(o, r, dialSpec{
 				ticket: e.takeTicket(r),
 			})
 		}
@@ -587,7 +587,7 @@ func (e *Engine) startAttempt(o *origin, r route, spec dialSpec) *attempt {
 	}
 	o.together = false
 	o.attempt = a
-	go e.runAttempt(ctx, o, r, a, spec) //nolint:contextcheck // the attempt outlives the request that started it
+	go e.runAttempt(ctx, o, r, a, spec)
 	return a
 }
 
@@ -614,7 +614,7 @@ func (e *Engine) runAttempt(ctx context.Context, o *origin, r route, a *attempt,
 		// Pooled before the attempt ends, so that no request starts
 		// another meanwhile. Another connection pooled first (none
 		// should be) is the one the waiting requests take.
-		got, gerr := q.pool.Get(context.Background(), h3Key(r)) //nolint:contextcheck // pooling waits for nothing; the attempt has no request
+		got, gerr := q.pool.Get(context.Background(), h3Key(r))
 		switch {
 		case gerr != nil:
 		case got.Found == pool.FoundDial:
@@ -653,7 +653,7 @@ func (e *Engine) runAttempt(ctx context.Context, o *origin, r route, a *attempt,
 	}
 	q.mu.Unlock()
 	if c.resumed {
-		go e.watchHandshake(o, c) //nolint:gosec,contextcheck // watched for the connection's lifetime, not the attempt's
+		go e.watchHandshake(o, c) //nolint:gosec // watched for the connection's lifetime, not the attempt's
 	}
 	close(a.done)
 }
@@ -786,7 +786,7 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 	if err != nil {
 		return nil, err
 	}
-	c, err := h3.New(qc, e.profile, h3.Options{ //nolint:contextcheck // the connection serves the server's streams for its own lifetime
+	c, err := h3.New(qc, e.profile, h3.Options{
 		AltHost: r.host,
 		AltPort: strconv.Itoa(int(port)),
 		Pending: spec.pending,
@@ -804,7 +804,7 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 		qcn.handshook.Store(true)
 		close(qcn.handshake)
 	}
-	go e.watchH3(r, qc) //nolint:contextcheck // sampled for the connection's lifetime, not the dial's
+	go e.watchH3(r, qc)
 	return qcn, nil
 }
 

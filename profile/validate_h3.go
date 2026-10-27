@@ -299,6 +299,8 @@ func (c *checker) checkTransportParameter(at string, q *QUIC, tp TransportParame
 		if tp.Value == nil || *tp.Value < 2 {
 			c.add(at+".value", "active_connection_id_limit must be at least 2 (RFC 9000, section 18.2)")
 		}
+	default:
+		// No bound on the rest's values.
 	}
 	if tp.ID != TPVersionInformation && (len(tp.Versions) > 0 || tp.ShuffleVersions) {
 		c.add(at+".versions", "only version_information (0x11) has versions")

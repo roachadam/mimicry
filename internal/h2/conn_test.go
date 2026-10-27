@@ -35,9 +35,13 @@ func dial(t *testing.T, srv *httptest.Server) *Conn {
 	if err != nil {
 		t.Fatal(err)
 	}
+	srvTr, ok := srv.Client().Transport.(*http.Transport)
+	if !ok {
+		t.Fatalf("httptest client Transport is %T", srv.Client().Transport)
+	}
 	tlsConn := tls.Client(raw, &tls.Config{
 		ServerName: "example.com",
-		RootCAs:    srv.Client().Transport.(*http.Transport).TLSClientConfig.RootCAs,
+		RootCAs:    srvTr.TLSClientConfig.RootCAs,
 		NextProtos: []string{
 			"h2",
 		},

@@ -79,8 +79,8 @@ func ackDelay(s *captureSet) (string, *profile.Range) {
 				continue
 			}
 			for _, f := range pk.p.Frames {
-				if f.Type == quictrace.FrameAck && !slices.Contains(delays, int(f.Delay)) { //nolint:gosec // an ACK delay field
-					delays = append(delays, int(f.Delay)) //nolint:gosec // an ACK delay field
+				if f.Type == quictrace.FrameAck && !slices.Contains(delays, int(f.Delay)) {
+					delays = append(delays, int(f.Delay))
 				}
 			}
 		}

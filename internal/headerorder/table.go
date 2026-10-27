@@ -121,7 +121,7 @@ func (t *blinkTable) insert(name string) bool {
 
 // place puts name in its bucket; false when it is already there.
 func (t *blinkTable) place(name string) bool {
-	mask := uint32(len(t.buckets) - 1) //nolint:gosec // a power of two of at most a few thousand
+	mask := uint32(len(t.buckets) - 1)
 	i := blinkHash(name) & mask
 	for probe := uint32(1); t.buckets[i] != ""; probe++ {
 		if t.buckets[i] == name {
@@ -168,7 +168,7 @@ func rapidMix(a, b uint64) uint64 {
 // low 24 bits, never 0 (string_hasher.h, case_folding_hash.h).
 func blinkHash(name string) uint32 {
 	n := len(name)
-	length := uint64(2 * n) //nolint:gosec // a header name's length
+	length := uint64(2 * n)
 	ch := func(i int) uint64 {
 		c := name[i]
 		if 'A' <= c && c <= 'Z' {
@@ -219,7 +219,7 @@ func blinkHash(name string) uint32 {
 	a ^= rapid1
 	b ^= seed
 	b, a = bits.Mul64(a, b)
-	h := uint32(rapidMix(a^rapid0^length, b^rapid1) & (1<<24 - 1)) //nolint:gosec // masked to 24 bits
+	h := uint32(rapidMix(a^rapid0^length, b^rapid1) & (1<<24 - 1))
 	if h == 0 {
 		h = 1 << 23
 	}
@@ -313,7 +313,7 @@ func cfHash(name string) uint64 {
 		}
 		return uint64(c)
 	}
-	r := uint64(n) //nolint:gosec // a header name's length
+	r := uint64(n)
 	four := func(from int) {
 		for i := from; i < from+32; i += 4 {
 			r = r*67503105 + ch(i)*16974593 + ch(i+1)*66049 + ch(i+2)*257 + ch(i+3)
@@ -332,5 +332,5 @@ func cfHash(name string) uint64 {
 		four(n/2 - 16)
 		four(n - 32)
 	}
-	return r + r<<(uint(n)&31) //nolint:gosec // n & 31 fits
+	return r + r<<(uint(n)&31)
 }

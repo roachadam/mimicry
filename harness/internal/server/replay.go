@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"net"
+	"net/http"
 	"slices"
 	"strconv"
 	"strings"
@@ -146,7 +147,7 @@ func newReplay(p *pageshape.Page) *replay {
 		case i == 0:
 		case r.RedirectFrom >= 0:
 			rp.stats.redirects++
-		case r.Method == "OPTIONS":
+		case r.Method == http.MethodOptions:
 			rp.stats.preflights++
 		case r.Dest == "serviceworker" || r.Dest == "report" || r.Dest == "document":
 			rp.stats.skipped[r.Dest]++

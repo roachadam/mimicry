@@ -62,7 +62,7 @@ func TestBodies(t *testing.T) {
 		// handler answered before reading a large body.
 		body, _ := io.ReadAll(r.Body)
 		_, _ = io.WriteString(w, strings.Join(r.TransferEncoding, ",")+"|") //nolint:gosec // test handler echoing its own request
-		_, _ = w.Write(body)                                                //nolint:gosec // test handler echoing its own request
+		_, _ = w.Write(body)
 	}))
 	t.Cleanup(srv.Close)
 	c := dial(t, srv.Listener.Addr().String())

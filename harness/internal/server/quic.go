@@ -312,7 +312,7 @@ func (l *pageLog) quicConns() []*quictrace.Conn {
 	keyLogFile := q.keyLogFile
 	q.mu.Unlock()
 	if keyLogFile != "" {
-		if b, err := os.ReadFile(keyLogFile); err == nil { //nolint:gosec // the server's own temporary file
+		if b, err := os.ReadFile(keyLogFile); err == nil {
 			_, _ = q.keyLog.Write(b)
 		}
 	}

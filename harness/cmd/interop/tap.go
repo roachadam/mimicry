@@ -141,7 +141,10 @@ type tapPath struct {
 // newPath opens a socket of the tap's network for its connection's next
 // path.
 func (t *tap) newPath(ctx context.Context) (net.PacketConn, error) {
-	addr := t.LocalAddr().(*net.UDPAddr) //nolint:errcheck,forcetypeassert // the tap's socket is UDP
+	addr, ok := t.LocalAddr().(*net.UDPAddr)
+	if !ok {
+		return nil, fmt.Errorf("tap socket address %v is not UDP", t.LocalAddr())
+	}
 	network, local := "udp4", "0.0.0.0:0"
 	if addr.IP.To4() == nil {
 		network, local = "udp6", "[::]:0"
@@ -326,13 +329,13 @@ func (t *tap) parse(b []byte, sent bool) []string {
 			if l == 0 {
 				return names
 			}
-			off += l + int(n) //nolint:gosec // past the datagram, caught below
+			off += l + int(n)
 		}
 		n, l := readVarint(b[min(off, len(b)):])
 		if l == 0 {
 			return names
 		}
-		end := off + l + int(n) //nolint:gosec // a varint, at most 2^62
+		end := off + l + int(n)
 		if end > len(b) {
 			return names
 		}
@@ -539,8 +542,8 @@ func hpMask(suite uint16, label string, secret []byte) (func([16]byte) byte, err
 func expandLabel(newHash func() hash.Hash, secret []byte, label string, n int) ([]byte, error) {
 	full := "tls13 " + label
 	info := make([]byte, 0, 4+len(full))
-	info = binary.BigEndian.AppendUint16(info, uint16(n)) //nolint:gosec // key lengths fit
-	info = append(info, byte(len(full)))                  //nolint:gosec // a short label
+	info = binary.BigEndian.AppendUint16(info, uint16(n))
+	info = append(info, byte(len(full)))
 	info = append(info, full...)
 	info = append(info, 0)
 	out := make([]byte, n)

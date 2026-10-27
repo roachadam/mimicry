@@ -119,7 +119,7 @@ func captureRequests(t *testing.T, p *profile.Profile, n int) []*capture.Capture
 func loadCapture(t *testing.T, p *profile.Profile) *profile.Profile {
 	t.Helper()
 	path, _, _ := capturePath(t, p, capture.DefaultScenario, ".json")
-	data, err := os.ReadFile(path) //nolint:gosec // a capture file
+	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}

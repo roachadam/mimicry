@@ -118,11 +118,11 @@ func AppendVarint(dst []byte, v uint64) []byte {
 	case v < 1<<6:
 		return append(dst, byte(v))
 	case v < 1<<14:
-		return append(dst, 0x40|byte(v>>8), byte(v)) //nolint:gosec // one byte at a time
+		return append(dst, 0x40|byte(v>>8), byte(v))
 	case v < 1<<30:
-		return append(dst, 0x80|byte(v>>24), byte(v>>16), byte(v>>8), byte(v)) //nolint:gosec // one byte at a time
+		return append(dst, 0x80|byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
 	}
-	return append(dst, 0xc0|byte(v>>56), byte(v>>48), byte(v>>40), byte(v>>32), byte(v>>24), byte(v>>16), byte(v>>8), byte(v)) //nolint:gosec // one byte at a time
+	return append(dst, 0xc0|byte(v>>56), byte(v>>48), byte(v>>40), byte(v>>32), byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
 }
 
 // AppendFrame appends an HTTP/3 frame.
@@ -148,7 +148,7 @@ func ReadFrame(r *bufio.Reader) (typ, length uint64, payload []byte, err error) 
 		return 0, 0, nil, unexpected(err)
 	}
 	if typ == FrameH3Data || length > maxFramePayload {
-		if _, err := r.Discard(int(min(length, 1<<62))); err != nil { //nolint:gosec // bounded
+		if _, err := r.Discard(int(min(length, 1<<62))); err != nil {
 			return 0, 0, nil, unexpected(err)
 		}
 		return typ, length, nil, nil

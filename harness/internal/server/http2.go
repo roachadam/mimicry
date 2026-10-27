@@ -316,6 +316,8 @@ func (s *h2conn) applySettings(f *http2.SettingsFrame, first bool) error {
 			}
 		case http2.SettingMaxFrameSize:
 			s.maxFrame = int(st.Val)
+		default:
+			// Recorded above; nothing else to apply.
 		}
 		return nil
 	})

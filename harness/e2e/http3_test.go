@@ -266,7 +266,7 @@ func sentOrder(browser *capture.Page) map[string]int {
 		}
 		reqs := slices.Clone(c.H3.Requests)
 		slices.SortFunc(reqs, func(a, b quictrace.H3Request) int {
-			return int(a.Stream) - int(b.Stream) //nolint:gosec // stream IDs are small
+			return int(a.Stream) - int(b.Stream)
 		})
 		for _, r := range reqs {
 			if _, ok := out[r.Path]; !ok {
@@ -1271,7 +1271,7 @@ func reencode(t *testing.T, h *profile.HTTP3, sc *server.Scenario, c *quictrace.
 	var got []quictrace.EncoderInstruction
 	reqs := slices.Clone(c.H3.Requests)
 	slices.SortFunc(reqs, func(a, b quictrace.H3Request) int {
-		return int(a.Stream) - int(b.Stream) //nolint:gosec // stream IDs are small
+		return int(a.Stream) - int(b.Stream)
 	})
 	for _, r := range reqs {
 		fields := make([]qpack.Field, 0, len(r.Section.Fields))

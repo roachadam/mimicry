@@ -23,7 +23,7 @@ func (r *wsRand) next() uint32 {
 
 // pick returns one of words.
 func (r *wsRand) pick(words []string) string {
-	return words[r.next()>>8%uint32(len(words))] //nolint:gosec // len(words) is small
+	return words[r.next()>>8%uint32(len(words))]
 }
 
 // n returns a number below limit.
@@ -93,7 +93,7 @@ func makeProse(n int) string {
 
 // wsNoise returns n pseudo-random bytes seeded by seed: incompressible.
 func wsNoise(seed, n int) []byte {
-	r := wsRand(seed) //nolint:gosec // a small seed
+	r := wsRand(seed)
 	b := make([]byte, n)
 	for i := range b {
 		b[i] = byte(r.next() >> 24)
