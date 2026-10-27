@@ -229,6 +229,11 @@ func (j *Jar) effective(s SameSite) SameSite {
 // SetCookies stores the cookies of a response to r: its raw Set-Cookie
 // lines, as received.
 func (j *Jar) SetCookies(r Request, lines []string) {
+	if len(lines) == 0 {
+		// Most responses set none: skip working out the request's context.
+		return
+	}
+
 	j.setCookies(r, lines)
 }
 

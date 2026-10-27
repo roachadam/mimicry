@@ -23,6 +23,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"golang.org/x/net/http/httpguts"
 
@@ -47,10 +48,10 @@ type Conn struct {
 // Make one with NewWriter.
 type Writer struct {
 	headers []profile.Header
-	// From the profile's http1 section, when it has one: its header list
-	// with lowercase names (for headerorder) and each name's casing.
+	// From the profile's http1 section, when it has one: its header list,
+	// and the same with lowercase names (for headerorder).
+	h1      []profile.Header
 	h1Order []profile.Header
-	h1Case  map[string]string
 	// forward, when set, writes requests whole for an HTTP proxy
 	// (Forward).
 	forward *profile.Proxy
@@ -62,7 +63,7 @@ func NewWriter(p *profile.Profile) Writer {
 		headers: p.Headers,
 	}
 	if p.HTTP1 != nil {
-		w.h1Order, w.h1Case = lowerList(p.HTTP1.Headers)
+		w.h1, w.h1Order = p.HTTP1.Headers, lowerList(p.HTTP1.Headers)
 	}
 
 	return w
@@ -132,22 +133,64 @@ func authIndex(fields []headerorder.Field, a *profile.ForwardAuth, answering boo
 }
 
 // lowerList returns an HTTP/1.1 header list with lowercase names, for
-// headerorder, and each name's casing.
-func lowerList(headers []profile.Header) ([]profile.Header, map[string]string) {
-	order := make([]profile.Header, 0, len(headers))
-	cases := make(map[string]string, len(headers))
-
+// headerorder. The names share one string.
+func lowerList(headers []profile.Header) []profile.Header {
+	size := 0
 	for _, h := range headers {
-		lower := strings.ToLower(h.Name)
-
-		order = append(order, profile.Header{
-			Name:  lower,
-			Value: h.Value,
-		})
-		cases[lower] = h.Name
+		size += len(h.Name)
 	}
 
-	return order, cases
+	var b strings.Builder
+
+	b.Grow(size)
+
+	for _, h := range headers {
+		for i := range len(h.Name) {
+			c := h.Name[i]
+			if 'A' <= c && c <= 'Z' {
+				c += 'a' - 'A'
+			}
+
+			_ = b.WriteByte(c)
+		}
+	}
+
+	names := b.String()
+	order := make([]profile.Header, len(headers))
+
+	for i, h := range headers {
+		name := names[:len(h.Name)]
+
+		names = names[len(h.Name):]
+
+		for j := range len(h.Name) {
+			if h.Name[j] >= utf8.RuneSelf {
+				// Unicode lowercasing can change the length.
+				name = strings.ToLower(h.Name)
+				break
+			}
+		}
+
+		order[i] = profile.Header{
+			Name:  name,
+			Value: h.Value,
+		}
+	}
+
+	return order
+}
+
+// listCase returns how list spells the header lower, which order (list's
+// names lowercased) has at the same index; "" when it has none. The last
+// match wins, as in a map built in list order.
+func listCase(list, order []profile.Header, lower string) string {
+	for i, hd := range slices.Backward(order) {
+		if hd.Name == lower {
+			return list[i].Name
+		}
+	}
+
+	return ""
 }
 
 // Close closes the connection.
@@ -182,9 +225,9 @@ func (c *Conn) Usable() bool {
 		return false
 	}
 
-	var netErr net.Error
+	netErr, ok := errors.AsType[net.Error](err)
 
-	return errors.As(err, &netErr) && netErr.Timeout()
+	return ok && netErr.Timeout()
 }
 
 // framing are headers this package writes itself.
@@ -212,26 +255,19 @@ func (c *Conn) RoundTrip(req *http.Request, done func(reusable bool)) (*http.Res
 		}()
 	}
 
-	stop := context.AfterFunc(ctx, func() {
+	// b is the response's body, made up front: it also tracks the call
+	// to done.
+	b := &body{
+		conn: c.conn,
+		done: done,
+	}
+
+	b.stop = context.AfterFunc(ctx, func() {
 		_ = c.conn.Close()
 	})
 
-	var once sync.Once
-
-	finish := func(reusable bool) {
-		once.Do(func() {
-			// AfterFunc reports false if it already fired: the connection is
-			// closed.
-			if !stop() {
-				reusable = false
-			}
-
-			done(reusable)
-		})
-	}
-
 	if err := c.writeRequest(req); err != nil {
-		finish(false)
+		b.finish(false)
 
 		return nil, contextError(ctx, err)
 	}
@@ -242,7 +278,7 @@ func (c *Conn) RoundTrip(req *http.Request, done func(reusable bool)) (*http.Res
 
 		resp, err = http.ReadResponse(c.br, req)
 		if err != nil {
-			finish(false)
+			b.finish(false)
 
 			return nil, contextError(ctx, err)
 		}
@@ -252,18 +288,12 @@ func (c *Conn) RoundTrip(req *http.Request, done func(reusable bool)) (*http.Res
 		}
 	}
 
-	reusable := !resp.Close && !req.Close && resp.StatusCode != http.StatusSwitchingProtocols
-
-	resp.Body = &body{
-		ReadCloser: resp.Body,
-		conn:       c.conn,
-		// A response with no body is complete as soon as it is read.
-		eof: req.Method == http.MethodHead || resp.ContentLength == 0 ||
-			resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusNotModified,
-		finish: func(eof bool) {
-			finish(reusable && eof)
-		},
-	}
+	b.ReadCloser = resp.Body
+	b.reusable = !resp.Close && !req.Close && resp.StatusCode != http.StatusSwitchingProtocols
+	// A response with no body is complete as soon as it is read.
+	b.eof = req.Method == http.MethodHead || resp.ContentLength == 0 ||
+		resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusNotModified
+	resp.Body = b
 	resp.TLS = c.tls
 
 	return resp, nil
@@ -373,7 +403,7 @@ func (w Writer) build(req *http.Request, framing http.Header) (Head, error) {
 		return Head{}, fmt.Errorf("h1: invalid request target %q", target)
 	}
 
-	headers, h1Order, h1Case := w.headers, w.h1Order, w.h1Case
+	headers, h1Order, h1List := w.headers, w.h1Order, w.h1
 
 	var (
 		table    *profile.HeaderTable
@@ -385,9 +415,9 @@ func (w Writer) build(req *http.Request, framing http.Header) (Head, error) {
 			return Head{}, fmt.Errorf("%w: no HTTP/1.1 header list for this request (measured over HTTP/2 only)", headerorder.ErrNotMeasured)
 		}
 
-		headers, h1Order, h1Case, table, lowerOwn = plan.Headers, nil, nil, plan.Table, plan.LowerOwn
+		headers, h1Order, h1List, table, lowerOwn = plan.Headers, nil, nil, plan.Table, plan.LowerOwn
 		if len(plan.HTTP1) > 0 {
-			h1Order, h1Case = lowerList(plan.HTTP1)
+			h1Order, h1List = lowerList(plan.HTTP1), plan.HTTP1
 		}
 	}
 
@@ -449,7 +479,7 @@ func (w Writer) build(req *http.Request, framing http.Header) (Head, error) {
 			})
 		}
 
-		name := h1Case[f.Name]
+		name := listCase(h1List, h1Order, f.Name)
 		switch {
 		case name != "":
 		case lowerOwn:
@@ -497,12 +527,12 @@ func (c *Conn) writeRequest(req *http.Request) error {
 		return err
 	}
 
-	if _, err := c.bw.WriteString(h.Line + "\r\n"); err != nil {
+	if err := c.writeLine(h.Line, "", ""); err != nil {
 		return err
 	}
 
 	for _, f := range h.Fields {
-		if _, err := c.bw.WriteString(f.Name + ": " + f.Value + "\r\n"); err != nil {
+		if err := c.writeLine(f.Name, ": ", f.Value); err != nil {
 			return err
 		}
 	}
@@ -518,6 +548,26 @@ func (c *Conn) writeRequest(req *http.Request) error {
 	}
 
 	return c.bw.Flush()
+}
+
+// writeLine writes the line name+sep+value and CRLF without building it,
+// into the buffer, where a bufio.Writer error sticks for the last write
+// to return. A line too long for the buffer's free space is written as one
+// string, as before: in pieces, it could reach the connection in other
+// writes.
+func (c *Conn) writeLine(name, sep, value string) error {
+	if len(name)+len(sep)+len(value)+2 > c.bw.Available() {
+		_, err := c.bw.WriteString(name + sep + value + "\r\n")
+		return err
+	}
+
+	_, _ = c.bw.WriteString(name)
+	_, _ = c.bw.WriteString(sep)
+	_, _ = c.bw.WriteString(value)
+
+	_, err := c.bw.WriteString("\r\n")
+
+	return err
 }
 
 // writeBody writes req's body: chunked, or exactly ContentLength bytes,
@@ -558,9 +608,28 @@ func (c *Conn) writeBody(req *http.Request, chunked bool) error {
 // body reports how the response body ended: read to EOF, or closed early.
 type body struct {
 	io.ReadCloser
-	conn   net.Conn
-	eof    bool
-	finish func(eof bool)
+	conn net.Conn
+	eof  bool
+	// reusable: the response leaves the connection reusable once its
+	// body is read to the end.
+	reusable bool
+	// stop stops closing the connection on the request's cancellation;
+	// done is RoundTrip's, called once (finish).
+	stop func() bool
+	done func(reusable bool)
+	once sync.Once
+}
+
+// finish calls done, the first time only. stop reports false if the
+// context already closed the connection: it is not reusable.
+func (b *body) finish(reusable bool) {
+	b.once.Do(func() {
+		if !b.stop() {
+			reusable = false
+		}
+
+		b.done(reusable)
+	})
 }
 
 func (b *body) Read(p []byte) (int, error) {
@@ -580,7 +649,7 @@ func (b *body) Close() error {
 	}
 
 	err := b.ReadCloser.Close()
-	b.finish(b.eof)
+	b.finish(b.reusable && b.eof)
 
 	if !b.eof {
 		// The connection's read error from the abandoned rest is expected.

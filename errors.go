@@ -83,6 +83,10 @@ func (e *ProxyError) Unwrap() error {
 // replaces the errors wrapping it (attempt counts), since it says all
 // they do; any other err as it is.
 func publicError(err error) error {
+	if err == nil {
+		return nil
+	}
+
 	var pe *dial.ProxyError
 	if !errors.As(err, &pe) {
 		return err

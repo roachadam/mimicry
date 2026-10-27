@@ -332,7 +332,7 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 	if cond.Redirected {
 		prev := req.Response.Request
 
-		cond.CrossOriginRedirect = origin(chain[len(chain)-2]) != origin(target)
+		cond.CrossOriginRedirect = !isSameOrigin(chain[len(chain)-2], target)
 
 		before, err := originOf(p, ctx, prev, r, mode, from)
 		if err != nil {
@@ -462,7 +462,7 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 func fill(list []profile.Header, values map[string]string) []profile.Header {
 	out := make([]profile.Header, len(list))
 	for i, hd := range list {
-		if v, ok := values[strings.ToLower(hd.Name)]; ok {
+		if v, ok := lookupLower(values, hd.Name); ok {
 			hd.Value = v
 		}
 
@@ -470,6 +470,23 @@ func fill(list []profile.Header, values map[string]string) []profile.Header {
 	}
 
 	return out
+}
+
+// lookupLower is values[strings.ToLower(name)], without allocating for the
+// ASCII names HTTP/1.1 lists spell in the browser's case.
+func lookupLower(values map[string]string, name string) (string, bool) {
+	var buf [64]byte
+
+	lower, ok := headerorder.AppendLower(buf[:0], name)
+	if !ok {
+		v, found := values[strings.ToLower(name)]
+		return v, found
+	}
+
+	// The conversion in the index expression does not allocate.
+	v, found := values[string(lower)]
+
+	return v, found
 }
 
 // siteRank orders sec-fetch-site values from nearest to most distant.
@@ -638,7 +655,7 @@ func originOf(p *profile.Profile, ctx *profile.Context, req *http.Request, r Req
 	}
 
 	if send && r.Kind == Navigate && !tainted && slices.ContainsFunc(chain[1:], func(u *url.URL) bool {
-		return origin(u) != origin(chain[0])
+		return !isSameOrigin(u, chain[0])
 	}) {
 		// A navigation that kept its Origin (a form POST answered 307 or
 		// 308) after a redirect to another origin: the browser's rule.
@@ -668,16 +685,15 @@ func preflightOrigin(req *http.Request, r Request, from *url.URL) string {
 		return ""
 	}
 
-	o := origin(from)
 	if isTainted(from, append(redirectsBefore(req), req.URL)) {
-		o = "null"
+		return "null"
 	}
 
-	if o == origin(req.URL) {
+	if isSameOrigin(from, req.URL) {
 		return ""
 	}
 
-	return o
+	return origin(from)
 }
 
 // hasHeader reports whether h has name, in any case, even with no values
@@ -707,7 +723,7 @@ func delHeader(h http.Header, name string) {
 func addHeaders(h, config http.Header, chain []*url.URL) {
 	crossed := false
 	for i := 1; i < len(chain); i++ {
-		crossed = crossed || origin(chain[i-1]) != origin(chain[i])
+		crossed = crossed || !isSameOrigin(chain[i-1], chain[i])
 	}
 
 	for k, v := range config {
@@ -724,7 +740,7 @@ func addHeaders(h, config http.Header, chain []*url.URL) {
 // relation returns target's sec-fetch-site relation to page from, and
 // whether it is another origin. Sites are schemeful (internal/site).
 func relation(from, target *url.URL) (rel string, crossOrigin bool) {
-	if origin(from) == origin(target) {
+	if isSameOrigin(from, target) {
 		return "same-origin", false
 	}
 
@@ -740,7 +756,7 @@ func relation(from, target *url.URL) (rel string, crossOrigin bool) {
 // request's origin opaque (Origin: null).
 func isTainted(from *url.URL, chain []*url.URL) bool {
 	for i := 1; i < len(chain); i++ {
-		if origin(chain[i-1]) != origin(chain[i]) && origin(chain[i-1]) != origin(from) {
+		if !isSameOrigin(chain[i-1], chain[i]) && !isSameOrigin(chain[i-1], from) {
 			return true
 		}
 	}
@@ -762,16 +778,40 @@ func origin(u *url.URL) string {
 		host = "[" + host + "]"
 	}
 
-	port := u.Port()
-	if (u.Scheme == "https" && port == "443") || (u.Scheme == "http" && port == "80") {
-		port = ""
-	}
-
-	if port != "" {
-		host += ":" + port
+	if port := originPort(u); port != "" {
+		return strings.ToLower(u.Scheme) + "://" + host + ":" + port
 	}
 
 	return strings.ToLower(u.Scheme) + "://" + host
+}
+
+// isSameOrigin reports origin(a) == origin(b) without building either.
+func isSameOrigin(a, b *url.URL) bool {
+	return lowerEqual(a.Scheme, b.Scheme) && lowerEqual(a.Hostname(), b.Hostname()) && originPort(a) == originPort(b)
+}
+
+// lowerEqual reports strings.ToLower(a) == strings.ToLower(b), allocating
+// only when they differ and either has upper case. strings.EqualFold is
+// not the same comparison: it folds "ſ" to "s", origin does not.
+func lowerEqual(a, b string) bool {
+	if a == b {
+		return true
+	}
+
+	lowerA, lowerB := strings.ToLower(a), strings.ToLower(b)
+
+	return lowerA == lowerB
+}
+
+// originPort is u's port as its origin serializes it: none for the
+// scheme's default.
+func originPort(u *url.URL) string {
+	port := u.Port()
+	if (u.Scheme == "https" && port == "443") || (u.Scheme == "http" && port == "80") {
+		return ""
+	}
+
+	return port
 }
 
 // referrer is the Referer for a request from page from along chain under
@@ -790,7 +830,7 @@ func referrer(from *url.URL, chain []*url.URL) string {
 			return ""
 		}
 
-		stripped = stripped || origin(from) != origin(target)
+		stripped = stripped || !isSameOrigin(from, target)
 	}
 
 	if stripped {

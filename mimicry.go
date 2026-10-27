@@ -398,7 +398,11 @@ func (t *Transport) ready(req *http.Request, o out, u use) *http.Request {
 		h.Set("Cookie", line)
 	}
 
-	req = req.Clone(ctx)
+	// A clone without the caller's headers, which h replaces.
+	shallow := *req
+
+	shallow.Header = nil
+	req = shallow.Clone(ctx)
 	req.Header = h
 
 	return req

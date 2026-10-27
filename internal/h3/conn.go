@@ -1162,6 +1162,11 @@ func (r *requestStream) finish(err error) {
 
 		if err != nil {
 			r.cancel()
+		} else {
+			// The peer's side is fully read: closing ours sends nothing
+			// (no STOP_SENDING after the FIN) but lets the QUIC conn drop
+			// the stream, which it keeps until both sides are closed.
+			_ = r.s.CloseRead()
 		}
 
 		r.c.mu.Lock()

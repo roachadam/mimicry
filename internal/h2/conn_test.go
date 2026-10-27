@@ -1,6 +1,7 @@
 package h2
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"errors"
@@ -82,12 +83,19 @@ func newRequest(t *testing.T, method, url string, body io.Reader) *http.Request 
 }
 
 // Concurrent requests must open streams with increasing IDs in the order
-// their HEADERS go out; otherwise the server kills the connection.
+// their HEADERS go out; otherwise the server kills the connection. Each
+// stream's request and response bodies must come through whole and its
+// own, though their buffers are pooled across streams.
 func TestConcurrentRequests(t *testing.T) {
 	srv := newServer(t, func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(20 * time.Millisecond)
 
+		if r.Header.Get("Echo-Length") != "" {
+			w.Header().Set("Content-Length", strconv.FormatInt(r.ContentLength+int64(len(r.URL.Path)), 10))
+		}
+
 		_, _ = io.WriteString(w, r.URL.Path) //nolint:gosec // test handler echoing its own request
+		_, _ = io.Copy(w, r.Body)
 	})
 	c := dial(t, srv)
 
@@ -96,8 +104,26 @@ func TestConcurrentRequests(t *testing.T) {
 	for i := range 20 {
 		wg.Go(func() {
 			path := "/" + strconv.Itoa(i)
+			// A pattern that differs by stream and by offset, so a chunk
+			// from another stream or another place shows.
+			sent := make([]byte, 70_000+i*4099)
+			for j := range sent {
+				sent[j] = byte(j%251) ^ byte(i)
+			}
 
-			resp, err := c.RoundTrip(newRequest(t, http.MethodGet, srv.URL+path, nil))
+			// Even requests declare their length and get it back; odd ones
+			// stream both ways.
+			var body io.Reader = bytes.NewReader(sent)
+			if i%2 == 1 {
+				body = io.MultiReader(body)
+			}
+
+			req := newRequest(t, http.MethodPost, srv.URL+path, body)
+			if i%2 == 0 {
+				req.Header.Set("Echo-Length", "1")
+			}
+
+			resp, err := c.RoundTrip(req)
 			if err != nil {
 				t.Error(err)
 
@@ -108,8 +134,9 @@ func TestConcurrentRequests(t *testing.T) {
 				_ = resp.Body.Close()
 			}()
 
-			if body, err := io.ReadAll(resp.Body); err != nil || string(body) != path {
-				t.Errorf("request %s got %q, %v", path, body, err)
+			got, err := io.ReadAll(resp.Body)
+			if err != nil || string(got) != path+string(sent) {
+				t.Errorf("request %s got %d bytes starting %q, %v", path, len(got), got[:min(len(got), 16)], err)
 			}
 		})
 	}

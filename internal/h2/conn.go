@@ -943,13 +943,26 @@ func (c *Conn) sendBody(ctx context.Context, s *stream, body io.ReadCloser, leng
 	}
 }
 
+// uploadBufs holds writeBody's buffers: a body's chunk, then one byte for
+// hasMore's probe.
+var uploadBufs = sync.Pool{
+	New: func() any {
+		return new([uploadChunk + 1]byte)
+	},
+}
+
 // writeBody sends body as DATA frames within the flow-control windows, one
 // read of up to uploadChunk at a time. With a known length, END_STREAM goes
 // on the frame that completes it, as browsers send, and a body longer or
 // shorter than declared fails without sending past the length. With an
 // unknown length, END_STREAM goes on the read that reports EOF.
 func (c *Conn) writeBody(ctx context.Context, s *stream, body io.Reader, length int64) error {
-	buf := make([]byte, uploadChunk)
+	// sendData has written every byte it was given by the time it returns,
+	// so nothing holds the buffer once writeBody does.
+	pooled := uploadBufs.Get().(*[uploadChunk + 1]byte) //nolint:forcetypeassert // the pool holds only this type
+	defer uploadBufs.Put(pooled)
+
+	buf, probe := pooled[:uploadChunk], pooled[uploadChunk:]
 
 	var sent int64
 
@@ -969,7 +982,7 @@ func (c *Conn) writeBody(ctx context.Context, s *stream, body io.Reader, length 
 		sent += int64(n)
 		if length >= 0 {
 			if sent == length && !eof {
-				more, err := hasMore(body)
+				more, err := hasMore(body, probe)
 				if err != nil {
 					return err
 				}
@@ -996,11 +1009,11 @@ func (c *Conn) writeBody(ctx context.Context, s *stream, body io.Reader, length 
 	}
 }
 
-// hasMore reports whether body has bytes left, reading at most one.
-func hasMore(body io.Reader) (bool, error) {
-	var one [1]byte
+// hasMore reports whether body has bytes left, reading at most one into
+// probe.
+func hasMore(body io.Reader, probe []byte) (bool, error) {
 	for {
-		n, err := body.Read(one[:])
+		n, err := body.Read(probe)
 		if n > 0 {
 			return true, nil
 		}

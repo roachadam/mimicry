@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/roachadam/mimicry/profile"
 )
@@ -91,6 +92,16 @@ func Build(prof []profile.Header, h http.Header, skip func(name string) bool, ta
 	// in the map with nothing to send.
 	values := make(map[string][]string, len(h))
 
+	// names[i] is prof[i]'s name, lowercase; the last default for a name
+	// wins. Linear lookups and room on the stack for the usual lists:
+	// lists are short, and this runs for every request.
+	var namesBuf, sentBuf [48]string
+
+	names := namesBuf[:0]
+	for _, ph := range prof {
+		names = append(names, strings.ToLower(ph.Name))
+	}
+
 	var override []string
 
 	for k, v := range h {
@@ -99,39 +110,57 @@ func Build(prof []profile.Header, h http.Header, skip func(name string) bool, ta
 			continue
 		}
 
-		name := strings.ToLower(k)
-
-		values[name] = append(values[name], v...)
+		name := lowerName(k, names)
+		if old, ok := values[name]; ok {
+			values[name] = append(old, v...)
+		} else {
+			// Clipped: an append for another spelling of the name copies
+			// instead of writing into h's array.
+			values[name] = slices.Clip(v)
+		}
 	}
 
-	defaults := make(map[string]string, len(prof))
-	order := make([]string, 0, len(prof))
+	defaultOf := func(name string) string {
+		for i, n := range slices.Backward(names) {
+			if n == name {
+				return prof[i].Value
+			}
+		}
 
-	for _, ph := range prof {
-		name := strings.ToLower(ph.Name)
-
-		defaults[name] = ph.Value
-		order = append(order, name)
+		return ""
 	}
 
+	order := names
 	if len(override) > 0 {
 		// The caller's own order: no browser placed anything.
 		table = nil
-		order = order[:0]
+		order = make([]string, 0, len(override))
 
 		for _, name := range override {
 			order = append(order, strings.ToLower(name))
 		}
 	}
 
-	fields := make([]Field, 0, len(values)+len(defaults))
-	sent := make(map[string]bool, len(order))
+	var restBuf [16]string
+
+	fields := make([]Field, 0, len(values)+len(prof))
+	rest := restBuf[:0]
+
+	for name := range values {
+		if !slices.Contains(order, name) {
+			rest = append(rest, name)
+		}
+	}
+
+	slices.Sort(rest)
+
+	sent := sentBuf[:0]
 	emit := func(name string) {
-		if sent[name] || skip(name) {
+		if slices.Contains(sent, name) || skip(name) {
 			return
 		}
 
-		sent[name] = true
+		sent = append(sent, name)
 		if v, set := values[name]; set {
 			for _, value := range v {
 				fields = append(fields, Field{
@@ -143,22 +172,13 @@ func Build(prof []profile.Header, h http.Header, skip func(name string) bool, ta
 			return
 		}
 
-		if d := defaults[name]; d != "" {
+		if d := defaultOf(name); d != "" {
 			fields = append(fields, Field{
 				Name:  name,
 				Value: d,
 			})
 		}
 	}
-	rest := make([]string, 0, len(values))
-
-	for name := range values {
-		if !slices.Contains(order, name) {
-			rest = append(rest, name)
-		}
-	}
-
-	slices.Sort(rest)
 
 	tabled := tableRun(table, order, rest, func(name string) bool {
 		if skip(name) {
@@ -169,7 +189,7 @@ func Build(prof []profile.Header, h http.Header, skip func(name string) bool, ta
 			return len(v) > 0
 		}
 
-		return defaults[name] != ""
+		return defaultOf(name) != ""
 	})
 	for _, name := range order {
 		if name == profile.OtherHeaders {
@@ -197,6 +217,45 @@ func Build(prof []profile.Header, h http.Header, skip func(name string) bool, ta
 	}
 
 	return fields
+}
+
+// lowerName returns strings.ToLower(k), as the string in names when it is
+// one of them, which spares allocating it.
+func lowerName(k string, names []string) string {
+	var buf [64]byte
+
+	lower, ok := AppendLower(buf[:0], k)
+	if !ok {
+		return strings.ToLower(k)
+	}
+
+	for _, name := range names {
+		// The conversion in the comparison does not allocate.
+		if name == string(lower) {
+			return name
+		}
+	}
+
+	return strings.ToLower(k)
+}
+
+// AppendLower appends s lowercased to dst, and reports whether s is ASCII:
+// otherwise the result is not strings.ToLower(s) and the caller falls back
+// to it.
+func AppendLower(dst []byte, s string) ([]byte, bool) {
+	for i := range len(s) {
+		c := s[i]
+		switch {
+		case c >= utf8.RuneSelf:
+			return dst, false
+		case 'A' <= c && c <= 'Z':
+			c += 'a' - 'A'
+		}
+
+		dst = append(dst, c)
+	}
+
+	return dst, true
 }
 
 // Replacement is a list header whose value Build takes from the
