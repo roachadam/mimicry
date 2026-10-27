@@ -27,5 +27,14 @@
 //     compare256 and slide_hash, which compute the same everywhere, so
 //     x86 and arm64 Firefox write the same bytes.
 //
+// Licences: this package is an altered version of zlib, of Chromium's zlib
+// and of zlib-rs, translated to Go and reduced to deflate at the settings
+// above; it is not the original software. zlib is (C) 1995-2026
+// Jean-loup Gailly and Mark Adler, zlib-rs (C) 2024 Trifecta Tech
+// Foundation, both under the zlib licence; Chromium's changes are
+// Copyright 2015 The Chromium Authors under a BSD licence. Their notices
+// are kept, unaltered, in LICENSE-zlib, LICENSE-zlib-rs and
+// LICENSE-chromium in this directory.
+//
 // Imports: the standard library.
 package zdeflate

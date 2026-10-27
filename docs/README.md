@@ -20,6 +20,9 @@ Related:
   profile makes, its evidence and the test that keeps it true.
 - [`harness/reports/`](../harness/reports/): dated measurement reports.
 - [`AGENTS.md`](../AGENTS.md): working conventions.
+- [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md): code bundled from
+  other projects and the Go dependencies, with their licences (mimicry
+  itself is MIT, [`LICENSE`](../LICENSE)).
 
 ## Decisions
 

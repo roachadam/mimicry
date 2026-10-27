@@ -124,6 +124,10 @@ A variant only the cors, cors-edge or cookies capture shows was measured over HT
 
 What gets modelled follows decision 0029: a behaviour an anti-bot vendor plausibly checks, or one a user would notice (a stall, a failure). Every known gap and deferred item is in `docs/backlog.md`, with its detection relevance and what closing it takes. A gap found or pinned (a new `sampleGaps`-style entry, a known-gap row in `profiles/EVIDENCE.md`) is added there in the same commit; a gap closed is removed. Automatic wire behaviour beyond the caller's own requests is listed in `docs/concepts/what-mimicry-does.md` with the option that changes it; a new one is added there.
 
+## Licensing
+
+mimicry is MIT (`LICENSE`), both modules, `harness/` included. Code copied or ported from another project keeps its upstream licence and copyright notice next to it (a `LICENSE` file in the package, or `LICENSE-<project>` when a package draws on several; per-file headers kept), says in its `doc.go` that it is a copy or an altered version and of what, and gets a row in `THIRD_PARTY_NOTICES.md` in the same commit. Only permissive licences (MIT, BSD, Apache-2.0, zlib, ISC); a new or changed Go dependency updates the dependency tables there too.
+
 ## Capturing browsers
 
 `moon run harness:capture` launches every installed browser (Chrome, Firefox, Safari) against an in-process capture server and writes new captures to `harness/testdata/captures/`. It never overwrites; delete a capture to retake it. Use visible windows for captures you commit: headless Chrome reports `HeadlessChrome` in its user agent. moon skips this task when `CI=true`.
