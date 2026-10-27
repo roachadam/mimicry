@@ -1,0 +1,50 @@
+goos: linux
+goarch: arm64
+pkg: github.com/roachadam/mimicry/internal/bench
+                                            │   nethttp    │                mimicry                │
+                                            │    sec/op    │    sec/op      vs base                │
+Request/server=nginx/proto=h1/method=GET-4    57.28µ ±  4%    62.36µ ± 12%   +8.87% (p=0.000 n=10)
+Request/server=nginx/proto=h1/method=POST-4   62.65µ ±  8%    62.21µ ±  5%        ~ (p=0.971 n=10)
+Request/server=nginx/proto=h2/method=GET-4    61.17µ ±  8%    68.96µ ±  6%  +12.73% (p=0.002 n=10)
+Request/server=nginx/proto=h2/method=POST-4   68.71µ ±  3%    72.71µ ±  6%   +5.83% (p=0.000 n=10)
+Request/server=nginx/proto=h3/method=GET-4    68.94µ ±  5%    82.58µ ±  4%  +19.79% (p=0.000 n=10)
+Request/server=nginx/proto=h3/method=POST-4   85.57µ ±  6%    87.63µ ± 11%        ~ (p=0.052 n=10)
+Request/server=go/proto=h1/method=GET-4       59.92µ ±  3%    59.14µ ±  3%        ~ (p=0.739 n=10)
+Request/server=go/proto=h1/method=POST-4      60.36µ ±  4%    60.33µ ±  5%        ~ (p=0.393 n=10)
+Request/server=go/proto=h2/method=GET-4       71.43µ ±  1%    74.65µ ±  1%   +4.51% (p=0.000 n=10)
+Request/server=go/proto=h2/method=POST-4      78.06µ ± 14%    83.45µ ±  6%   +6.90% (p=0.003 n=10)
+Request/server=go/proto=h3/method=GET-4       79.65µ ±  4%   102.19µ ±  6%  +28.30% (p=0.000 n=10)
+Request/server=go/proto=h3/method=POST-4      83.02µ ±  2%   109.87µ ± 15%  +32.34% (p=0.000 n=10)
+geomean                                       69.11µ          75.65µ         +9.46%
+
+                                            │   nethttp    │                mimicry                 │
+                                            │     B/op     │     B/op       vs base                 │
+Request/server=nginx/proto=h1/method=GET-4    4.168Ki ± 0%    7.469Ki ± 0%   +79.21% (p=0.000 n=10)
+Request/server=nginx/proto=h1/method=POST-4   5.300Ki ± 0%    8.916Ki ± 0%   +68.22% (p=0.000 n=10)
+Request/server=nginx/proto=h2/method=GET-4    5.850Ki ± 0%    8.456Ki ± 0%   +44.54% (p=0.000 n=10)
+Request/server=nginx/proto=h2/method=POST-4   7.084Ki ± 0%   10.132Ki ± 0%   +43.01% (p=0.000 n=10)
+Request/server=nginx/proto=h3/method=GET-4    7.934Ki ± 0%   18.715Ki ± 0%  +135.89% (p=0.000 n=10)
+Request/server=nginx/proto=h3/method=POST-4   16.86Ki ± 0%    20.38Ki ± 0%   +20.86% (p=0.000 n=10)
+Request/server=go/proto=h1/method=GET-4       3.651Ki ± 0%    6.921Ki ± 0%   +89.57% (p=0.000 n=10)
+Request/server=go/proto=h1/method=POST-4      4.855Ki ± 0%    8.415Ki ± 0%   +73.31% (p=0.000 n=10)
+Request/server=go/proto=h2/method=GET-4       5.177Ki ± 0%    8.132Ki ± 0%   +57.08% (p=0.000 n=10)
+Request/server=go/proto=h2/method=POST-4      6.476Ki ± 0%    9.849Ki ± 0%   +52.09% (p=0.000 n=10)
+Request/server=go/proto=h3/method=GET-4       6.400Ki ± 0%   18.457Ki ± 0%  +188.37% (p=0.000 n=10)
+Request/server=go/proto=h3/method=POST-4      15.37Ki ± 0%    20.26Ki ± 0%   +31.78% (p=0.000 n=10)
+geomean                                       6.626Ki         11.18Ki        +68.66%
+
+                                            │   nethttp   │               mimicry               │
+                                            │  allocs/op  │  allocs/op   vs base                │
+Request/server=nginx/proto=h1/method=GET-4     59.00 ± 0%    62.00 ± 0%   +5.08% (p=0.000 n=10)
+Request/server=nginx/proto=h1/method=POST-4    68.00 ± 0%    76.00 ± 0%  +11.76% (p=0.000 n=10)
+Request/server=nginx/proto=h2/method=GET-4     56.00 ± 0%    91.00 ± 0%  +62.50% (p=0.000 n=10)
+Request/server=nginx/proto=h2/method=POST-4    66.00 ± 0%   106.00 ± 0%  +60.61% (p=0.000 n=10)
+Request/server=nginx/proto=h3/method=GET-4     122.0 ± 0%    111.0 ± 0%   -9.02% (p=0.000 n=10)
+Request/server=nginx/proto=h3/method=POST-4    131.0 ± 0%    124.0 ± 0%   -5.34% (p=0.000 n=10)
+Request/server=go/proto=h1/method=GET-4        53.00 ± 0%    56.00 ± 0%   +5.66% (p=0.000 n=10)
+Request/server=go/proto=h1/method=POST-4       64.00 ± 0%    72.00 ± 0%  +12.50% (p=0.000 n=10)
+Request/server=go/proto=h2/method=GET-4        39.00 ± 0%    73.00 ± 0%  +87.18% (p=0.000 n=10)
+Request/server=go/proto=h2/method=POST-4       51.00 ± 0%    92.00 ± 0%  +80.39% (p=0.000 n=10)
+Request/server=go/proto=h3/method=GET-4       104.00 ± 0%    95.00 ± 0%   -8.65% (p=0.000 n=10)
+Request/server=go/proto=h3/method=POST-4       116.0 ± 0%    113.0 ± 0%   -2.59% (p=0.000 n=10)
+geomean                                        71.96         86.76       +20.56%

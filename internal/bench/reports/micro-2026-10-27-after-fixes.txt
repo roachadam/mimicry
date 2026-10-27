@@ -1,0 +1,269 @@
+goos: linux
+goarch: arm64
+pkg: github.com/roachadam/mimicry/internal/bench
+BenchmarkRequest
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=nethttp
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=nethttp-4         	   20440	     59335 ns/op	    4270 B/op	      59 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=nethttp-4         	   20727	     57224 ns/op	    4268 B/op	      59 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=nethttp-4         	   20484	     58107 ns/op	    4267 B/op	      59 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=nethttp-4         	   21711	     55055 ns/op	    4268 B/op	      59 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=nethttp-4         	   21838	     54751 ns/op	    4267 B/op	      59 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=nethttp-4         	   22218	     54585 ns/op	    4269 B/op	      59 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=nethttp-4         	   20370	     59370 ns/op	    4268 B/op	      59 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=nethttp-4         	   21050	     57333 ns/op	    4268 B/op	      59 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=nethttp-4         	   21055	     56319 ns/op	    4268 B/op	      59 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=nethttp-4         	   20601	     59255 ns/op	    4268 B/op	      59 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=mimicry
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=mimicry-4         	   19144	     61431 ns/op	    7652 B/op	      62 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=mimicry-4         	   17182	     69549 ns/op	    7651 B/op	      62 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=mimicry-4         	   19645	     63290 ns/op	    7647 B/op	      62 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=mimicry-4         	   19822	     60298 ns/op	    7650 B/op	      62 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=mimicry-4         	   19204	     60042 ns/op	    7647 B/op	      62 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=mimicry-4         	   18566	     64619 ns/op	    7648 B/op	      62 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=mimicry-4         	   15171	     76421 ns/op	    7651 B/op	      62 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=mimicry-4         	   16209	     69053 ns/op	    7648 B/op	      62 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=mimicry-4         	   20559	     61045 ns/op	    7649 B/op	      62 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=mimicry-4         	   19190	     60846 ns/op	    7647 B/op	      62 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=nethttp
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=nethttp-4        	   18866	     64131 ns/op	    5438 B/op	      68 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=nethttp-4        	   19419	     59899 ns/op	    5428 B/op	      68 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=nethttp-4        	   20380	     59171 ns/op	    5431 B/op	      68 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=nethttp-4        	   20547	     61176 ns/op	    5426 B/op	      68 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=nethttp-4        	   19332	     67208 ns/op	    5450 B/op	      68 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=nethttp-4        	   16868	     69862 ns/op	    5425 B/op	      68 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=nethttp-4        	   17958	     66151 ns/op	    5426 B/op	      68 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=nethttp-4        	   17976	     67788 ns/op	    5428 B/op	      68 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=nethttp-4        	   19310	     59971 ns/op	    5422 B/op	      68 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=nethttp-4        	   20600	     58237 ns/op	    5427 B/op	      68 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=mimicry
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=mimicry-4        	   19234	     61048 ns/op	    9132 B/op	      76 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=mimicry-4        	   20325	     58399 ns/op	    9130 B/op	      76 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=mimicry-4        	   19812	     61301 ns/op	    9131 B/op	      76 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=mimicry-4        	   18082	     65267 ns/op	    9130 B/op	      76 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=mimicry-4        	   20221	     59553 ns/op	    9130 B/op	      76 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=mimicry-4        	   20338	     60626 ns/op	    9133 B/op	      76 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=mimicry-4        	   18399	     64684 ns/op	    9128 B/op	      76 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=mimicry-4        	   17299	     69994 ns/op	    9131 B/op	      76 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=mimicry-4        	   18093	     65600 ns/op	    9129 B/op	      76 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=mimicry-4        	   18956	     63110 ns/op	    9129 B/op	      76 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=nethttp
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=nethttp-4         	   19370	     60804 ns/op	    5989 B/op	      56 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=nethttp-4         	   19220	     61420 ns/op	    5991 B/op	      56 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=nethttp-4         	   19623	     60653 ns/op	    5991 B/op	      56 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=nethttp-4         	   16909	     69473 ns/op	    5993 B/op	      56 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=nethttp-4         	   18266	     64712 ns/op	    5991 B/op	      56 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=nethttp-4         	   18020	     65950 ns/op	    5989 B/op	      56 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=nethttp-4         	   20054	     60131 ns/op	    5990 B/op	      56 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=nethttp-4         	   19804	     60378 ns/op	    5988 B/op	      56 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=nethttp-4         	   19585	     60925 ns/op	    5990 B/op	      56 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=nethttp-4         	   19561	     61644 ns/op	    5991 B/op	      56 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=mimicry
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=mimicry-4         	   18526	     64806 ns/op	    8661 B/op	      91 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=mimicry-4         	   17871	     69369 ns/op	    8658 B/op	      91 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=mimicry-4         	   17571	     68694 ns/op	    8660 B/op	      91 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=mimicry-4         	   18607	     63820 ns/op	    8657 B/op	      91 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=mimicry-4         	   18248	     67382 ns/op	    8659 B/op	      91 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=mimicry-4         	   17157	     71578 ns/op	    8657 B/op	      91 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=mimicry-4         	   16380	     70743 ns/op	    8657 B/op	      91 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=mimicry-4         	   17499	     68661 ns/op	    8661 B/op	      91 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=mimicry-4         	   17794	     69222 ns/op	    8657 B/op	      91 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=mimicry-4         	   16274	     71804 ns/op	    8661 B/op	      91 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=nethttp
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=nethttp-4        	   18735	     66308 ns/op	    7255 B/op	      66 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=nethttp-4        	   16436	     70647 ns/op	    7253 B/op	      66 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=nethttp-4        	   17865	     68482 ns/op	    7254 B/op	      66 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=nethttp-4        	   17059	     68511 ns/op	    7256 B/op	      66 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=nethttp-4        	   17292	     68458 ns/op	    7256 B/op	      66 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=nethttp-4        	   17463	     69675 ns/op	    7254 B/op	      66 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=nethttp-4        	   18267	     68902 ns/op	    7256 B/op	      66 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=nethttp-4        	   16947	     71619 ns/op	    7254 B/op	      66 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=nethttp-4        	   18055	     69502 ns/op	    7253 B/op	      66 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=nethttp-4        	   17216	     68198 ns/op	    7255 B/op	      66 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=mimicry
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=mimicry-4        	   17304	     68706 ns/op	   10394 B/op	     106 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=mimicry-4        	   16957	     71641 ns/op	   10381 B/op	     106 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=mimicry-4        	   16339	     72183 ns/op	   10387 B/op	     106 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=mimicry-4        	   15207	     77392 ns/op	   10358 B/op	     106 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=mimicry-4        	   16111	     72519 ns/op	   10364 B/op	     106 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=mimicry-4        	   15721	     74751 ns/op	   10359 B/op	     106 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=mimicry-4        	   16417	     72904 ns/op	   10391 B/op	     106 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=mimicry-4        	   15055	     82522 ns/op	   10368 B/op	     106 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=mimicry-4        	   15736	     75583 ns/op	   10369 B/op	     106 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=mimicry-4        	   16724	     70684 ns/op	   10394 B/op	     106 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=nethttp
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=nethttp-4         	   18355	     65999 ns/op	    8126 B/op	     122 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=nethttp-4         	   18489	     67054 ns/op	    8123 B/op	     122 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=nethttp-4         	   17131	     69042 ns/op	    8117 B/op	     122 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=nethttp-4         	   18153	     68834 ns/op	    8136 B/op	     122 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=nethttp-4         	   18295	     65555 ns/op	    8132 B/op	     122 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=nethttp-4         	   19042	     64869 ns/op	    8135 B/op	     122 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=nethttp-4         	   17980	     70214 ns/op	    8112 B/op	     122 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=nethttp-4         	   16048	     73012 ns/op	    8127 B/op	     122 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=nethttp-4         	   16874	     71344 ns/op	    8117 B/op	     122 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=nethttp-4         	   16650	     69667 ns/op	    8119 B/op	     122 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=mimicry
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=mimicry-4         	   15244	     77778 ns/op	   19164 B/op	     111 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=mimicry-4         	   14708	     79744 ns/op	   19166 B/op	     111 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=mimicry-4         	   14936	     81148 ns/op	   19165 B/op	     111 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=mimicry-4         	   15168	     79624 ns/op	   19157 B/op	     111 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=mimicry-4         	   14725	     82807 ns/op	   19166 B/op	     111 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=mimicry-4         	   14073	     84587 ns/op	   19153 B/op	     111 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=mimicry-4         	   13947	     84862 ns/op	   19164 B/op	     111 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=mimicry-4         	   12934	     91316 ns/op	   19157 B/op	     111 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=mimicry-4         	   13614	     85367 ns/op	   19166 B/op	     111 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=mimicry-4         	   14767	     82361 ns/op	   19165 B/op	     111 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=nethttp
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=nethttp-4        	   14229	     85513 ns/op	   17274 B/op	     131 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=nethttp-4        	   13917	     86269 ns/op	   17250 B/op	     130 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=nethttp-4        	   14126	     85634 ns/op	   17263 B/op	     131 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=nethttp-4        	   14167	     83627 ns/op	   17255 B/op	     131 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=nethttp-4        	   14709	     82785 ns/op	   17264 B/op	     131 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=nethttp-4        	   13122	     90911 ns/op	   17268 B/op	     131 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=nethttp-4        	   12919	     94165 ns/op	   17270 B/op	     131 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=nethttp-4        	   13263	     87898 ns/op	   17260 B/op	     131 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=nethttp-4        	   14236	     84561 ns/op	   17265 B/op	     131 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=nethttp-4        	   14524	     82734 ns/op	   17252 B/op	     131 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=mimicry
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=mimicry-4        	   13467	     91976 ns/op	   20864 B/op	     124 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=mimicry-4        	   10872	    110481 ns/op	   20872 B/op	     124 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=mimicry-4        	   12232	     97587 ns/op	   20862 B/op	     124 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=mimicry-4        	   13486	     87978 ns/op	   20869 B/op	     124 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=mimicry-4        	   13606	     87276 ns/op	   20866 B/op	     124 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=mimicry-4        	   13815	     87084 ns/op	   20864 B/op	     124 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=mimicry-4        	   14048	     84519 ns/op	   20860 B/op	     124 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=mimicry-4        	   13857	     86487 ns/op	   20859 B/op	     124 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=mimicry-4        	   13766	     88183 ns/op	   20871 B/op	     124 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=mimicry-4        	   13561	     86622 ns/op	   20867 B/op	     124 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=nethttp
+BenchmarkRequest/server=go/proto=h1/method=GET/client=nethttp-4            	   20732	     58476 ns/op	    3738 B/op	      53 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=nethttp-4            	   20524	     58031 ns/op	    3739 B/op	      53 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=nethttp-4            	   20907	     57298 ns/op	    3738 B/op	      53 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=nethttp-4            	   21592	     58834 ns/op	    3739 B/op	      53 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=nethttp-4            	   19291	     61319 ns/op	    3742 B/op	      53 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=nethttp-4            	   19723	     60417 ns/op	    3738 B/op	      53 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=nethttp-4            	   20384	     59745 ns/op	    3739 B/op	      53 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=nethttp-4            	   19918	     60897 ns/op	    3739 B/op	      53 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=nethttp-4            	   19034	     62874 ns/op	    3738 B/op	      53 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=nethttp-4            	   19744	     60096 ns/op	    3738 B/op	      53 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=mimicry
+BenchmarkRequest/server=go/proto=h1/method=GET/client=mimicry-4            	   19384	     63531 ns/op	    7086 B/op	      56 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=mimicry-4            	   20379	     58225 ns/op	    7085 B/op	      56 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=mimicry-4            	   20253	     60125 ns/op	    7089 B/op	      56 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=mimicry-4            	   20024	     60966 ns/op	    7089 B/op	      56 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=mimicry-4            	   20598	     59183 ns/op	    7093 B/op	      56 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=mimicry-4            	   19420	     60459 ns/op	    7089 B/op	      56 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=mimicry-4            	   20811	     58153 ns/op	    7085 B/op	      56 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=mimicry-4            	   21332	     56472 ns/op	    7085 B/op	      56 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=mimicry-4            	   20280	     59093 ns/op	    7088 B/op	      56 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=mimicry-4            	   20427	     58294 ns/op	    7086 B/op	      56 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=nethttp
+BenchmarkRequest/server=go/proto=h1/method=POST/client=nethttp-4           	   19896	     59948 ns/op	    4981 B/op	      64 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=nethttp-4           	   20527	     59037 ns/op	    4964 B/op	      64 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=nethttp-4           	   20048	     59210 ns/op	    4968 B/op	      64 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=nethttp-4           	   20508	     59657 ns/op	    4975 B/op	      64 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=nethttp-4           	   19036	     63597 ns/op	    4966 B/op	      64 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=nethttp-4           	   18403	     62791 ns/op	    4977 B/op	      64 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=nethttp-4           	   19584	     61951 ns/op	    4973 B/op	      64 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=nethttp-4           	   19574	     61562 ns/op	    4979 B/op	      64 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=nethttp-4           	   21356	     58563 ns/op	    4971 B/op	      64 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=nethttp-4           	   19298	     60780 ns/op	    4967 B/op	      64 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=mimicry
+BenchmarkRequest/server=go/proto=h1/method=POST/client=mimicry-4           	   19897	     60269 ns/op	    8615 B/op	      72 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=mimicry-4           	   20170	     60354 ns/op	    8617 B/op	      72 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=mimicry-4           	   18630	     64084 ns/op	    8617 B/op	      72 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=mimicry-4           	   19852	     63146 ns/op	    8617 B/op	      72 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=mimicry-4           	   20109	     60301 ns/op	    8617 B/op	      72 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=mimicry-4           	   19902	     61421 ns/op	    8614 B/op	      72 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=mimicry-4           	   18548	     63382 ns/op	    8618 B/op	      72 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=mimicry-4           	   20084	     59599 ns/op	    8617 B/op	      72 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=mimicry-4           	   20072	     59962 ns/op	    8619 B/op	      72 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=mimicry-4           	   20073	     60102 ns/op	    8618 B/op	      72 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=nethttp
+BenchmarkRequest/server=go/proto=h2/method=GET/client=nethttp-4            	   16764	     71142 ns/op	    5301 B/op	      39 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=nethttp-4            	   16929	     70955 ns/op	    5302 B/op	      39 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=nethttp-4            	   16800	     71114 ns/op	    5300 B/op	      39 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=nethttp-4            	   16850	     71799 ns/op	    5301 B/op	      39 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=nethttp-4            	   17388	     70174 ns/op	    5302 B/op	      39 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=nethttp-4            	   16606	     71974 ns/op	    5300 B/op	      39 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=nethttp-4            	   16773	     71713 ns/op	    5304 B/op	      39 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=nethttp-4            	   16846	     72024 ns/op	    5299 B/op	      39 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=nethttp-4            	   16518	     72245 ns/op	    5299 B/op	      39 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=nethttp-4            	   17043	     70530 ns/op	    5302 B/op	      39 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=mimicry
+BenchmarkRequest/server=go/proto=h2/method=GET/client=mimicry-4            	   15924	     75491 ns/op	    8331 B/op	      73 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=mimicry-4            	   15916	     74251 ns/op	    8325 B/op	      73 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=mimicry-4            	   16280	     74507 ns/op	    8326 B/op	      73 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=mimicry-4            	   16183	     74169 ns/op	    8333 B/op	      73 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=mimicry-4            	   16162	     75130 ns/op	    8327 B/op	      73 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=mimicry-4            	   16310	     73699 ns/op	    8325 B/op	      73 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=mimicry-4            	   15980	     74769 ns/op	    8326 B/op	      73 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=mimicry-4            	   16070	     75305 ns/op	    8327 B/op	      73 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=mimicry-4            	   15553	     76239 ns/op	    8327 B/op	      73 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=mimicry-4            	   16152	     74531 ns/op	    8331 B/op	      73 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=nethttp
+BenchmarkRequest/server=go/proto=h2/method=POST/client=nethttp-4           	   18700	     57297 ns/op	    6633 B/op	      51 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=nethttp-4           	   20070	     67472 ns/op	    6631 B/op	      51 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=nethttp-4           	   15609	     79227 ns/op	    6631 B/op	      51 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=nethttp-4           	   14941	     80701 ns/op	    6632 B/op	      51 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=nethttp-4           	   14251	     85083 ns/op	    6632 B/op	      51 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=nethttp-4           	   14728	     83449 ns/op	    6631 B/op	      51 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=nethttp-4           	   14738	     80032 ns/op	    6630 B/op	      51 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=nethttp-4           	   15820	     75389 ns/op	    6628 B/op	      51 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=nethttp-4           	   15969	     74860 ns/op	    6628 B/op	      51 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=nethttp-4           	   15649	     76897 ns/op	    6631 B/op	      51 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=mimicry
+BenchmarkRequest/server=go/proto=h2/method=POST/client=mimicry-4           	   14416	     82164 ns/op	   10107 B/op	      92 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=mimicry-4           	   14403	     81802 ns/op	   10067 B/op	      92 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=mimicry-4           	   14610	     81518 ns/op	   10087 B/op	      92 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=mimicry-4           	   14436	     83181 ns/op	   10083 B/op	      92 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=mimicry-4           	   14457	     83721 ns/op	   10120 B/op	      92 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=mimicry-4           	   14383	     83796 ns/op	   10096 B/op	      92 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=mimicry-4           	   14416	     82818 ns/op	   10078 B/op	      92 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=mimicry-4           	   13878	     88001 ns/op	   10077 B/op	      92 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=mimicry-4           	   13228	     90899 ns/op	   10152 B/op	      92 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=mimicry-4           	   13968	     88404 ns/op	   10079 B/op	      92 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=nethttp
+BenchmarkRequest/server=go/proto=h3/method=GET/client=nethttp-4            	   15127	     80786 ns/op	    6564 B/op	     104 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=nethttp-4            	   15654	     76074 ns/op	    6555 B/op	     104 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=nethttp-4            	   15050	     80640 ns/op	    6554 B/op	     104 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=nethttp-4            	   15106	     78657 ns/op	    6554 B/op	     104 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=nethttp-4            	   16021	     74310 ns/op	    6553 B/op	     104 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=nethttp-4            	   15849	     76667 ns/op	    6557 B/op	     104 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=nethttp-4            	   14456	     82542 ns/op	    6548 B/op	     104 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=nethttp-4            	   15775	     76634 ns/op	    6557 B/op	     104 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=nethttp-4            	   14768	     81965 ns/op	    6549 B/op	     104 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=nethttp-4            	   13924	     85620 ns/op	    6552 B/op	     104 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=mimicry
+BenchmarkRequest/server=go/proto=h3/method=GET/client=mimicry-4            	   10968	    108654 ns/op	   18896 B/op	      95 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=mimicry-4            	   11336	    107336 ns/op	   18897 B/op	      95 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=mimicry-4            	   11595	    101531 ns/op	   18907 B/op	      95 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=mimicry-4            	   11860	    103072 ns/op	   18902 B/op	      95 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=mimicry-4            	   10826	    108345 ns/op	   18896 B/op	      95 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=mimicry-4            	   11694	    102410 ns/op	   18901 B/op	      95 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=mimicry-4            	   12036	     99972 ns/op	   18897 B/op	      95 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=mimicry-4            	   11716	    101963 ns/op	   18902 B/op	      95 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=mimicry-4            	   11745	    100884 ns/op	   18899 B/op	      95 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=mimicry-4            	   11965	    101636 ns/op	   18904 B/op	      95 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=nethttp
+BenchmarkRequest/server=go/proto=h3/method=POST/client=nethttp-4           	   14346	     82847 ns/op	   15746 B/op	     116 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=nethttp-4           	   13872	     85300 ns/op	   15740 B/op	     116 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=nethttp-4           	   14737	     82375 ns/op	   15737 B/op	     116 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=nethttp-4           	   14322	     84152 ns/op	   15739 B/op	     116 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=nethttp-4           	   14350	     83408 ns/op	   15741 B/op	     116 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=nethttp-4           	   14347	     82764 ns/op	   15741 B/op	     116 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=nethttp-4           	   14565	     82482 ns/op	   15735 B/op	     116 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=nethttp-4           	   14292	     82715 ns/op	   15739 B/op	     116 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=nethttp-4           	   14518	     83198 ns/op	   15750 B/op	     116 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=nethttp-4           	   14174	     84268 ns/op	   15740 B/op	     116 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=mimicry
+BenchmarkRequest/server=go/proto=h3/method=POST/client=mimicry-4           	   11355	    105425 ns/op	   20748 B/op	     113 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=mimicry-4           	   11427	    104892 ns/op	   20748 B/op	     113 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=mimicry-4           	   11192	    106780 ns/op	   20737 B/op	     113 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=mimicry-4           	   11046	    108186 ns/op	   20741 B/op	     113 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=mimicry-4           	   10978	    109701 ns/op	   20746 B/op	     113 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=mimicry-4           	   11000	    110038 ns/op	   20743 B/op	     113 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=mimicry-4           	    9530	    126271 ns/op	   20736 B/op	     113 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=mimicry-4           	    9255	    131215 ns/op	   20730 B/op	     113 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=mimicry-4           	   10000	    121851 ns/op	   20740 B/op	     113 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=mimicry-4           	    9772	    110563 ns/op	   20747 B/op	     113 allocs/op
+PASS
