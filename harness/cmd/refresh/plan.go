@@ -379,7 +379,7 @@ func (r *refreshRun) planCaptures(p *plan, rep *preflightReport, cfg config) err
 			p.Warnings = append(p.Warnings, fmt.Sprintf("skipping %s: Safari is clicked through the system's mouse events, which an ssh session cannot send; the profile keeps or inherits what it has", sc.Name))
 			continue
 		case shared && sc.ProxyAuth:
-			p.Warnings = append(p.Warnings, fmt.Sprintf("skipping %s: Safari's proxy credentials need the com.apple.proxy.http.global device profile and a person typing them (AGENTS.md, Capturing browsers); the profile keeps or inherits what it has, capture it by hand", sc.Name))
+			p.Warnings = append(p.Warnings, fmt.Sprintf("skipping %s: Safari's proxy credentials need the com.apple.proxy.http.global device profile and a person typing them (docs/capturing.md, Proxy scenarios); the profile keeps or inherits what it has, capture it by hand", sc.Name))
 			continue
 		case sc.NeedsAioquic() && rep.Aioquic != "":
 			p.Problems = append(p.Problems, fmt.Sprintf("%s needs python3 with aioquic on %s: %s; install it with\n    %s", sc.Name, r.machine(p), rep.Aioquic, onMachine(p.Host, "python3 -m pip install --user aioquic")))

@@ -153,7 +153,7 @@ These matter most under decision 0029:
   - Detection: none (nothing is sent). User-visible: yes, an error.
   - Close: rerun those scenarios over HTTP/1.1 and regenerate; small to
     medium.
-  - Source: [AGENTS.md](../AGENTS.md) (kindsgen);
+  - Source: [capturing.md, The generators](capturing.md#the-generators);
     [EVIDENCE.md, Request kinds](../profiles/EVIDENCE.md#request-kinds);
     `internal/h1/conn.go`.
 - **HTTPS upgrades and HSTS** (Safari, Chrome; Firefox not measured).
@@ -1500,8 +1500,7 @@ it.
   Action, and server-stack handshake checks (Go, OpenSSL, BoringSSL,
   nginx).
   The uTLS sync job cannot open pull requests while "Allow GitHub Actions
-  to create and approve pull requests" is off. Source: HANDOFF.md;
-  [AGENTS.md](../AGENTS.md).
+  to create and approve pull requests" is off. Source: HANDOFF.md.
 - **`internal/quic` maintenance**: the upstream sync from x/net is manual,
   the linter is off for the package (mimicry's lines there are checked by
   hand), upstream's single PTO probe still applies to profiles that do

@@ -345,7 +345,8 @@ onto mimicry, and says where mimicry is weaker.
 
 [`AGENTS.md`](AGENTS.md) has the conventions and commands
 (`moon run :test :vet :lint`). `harness/` is a separate module that captures
-the browsers and checks the profiles against them; its `go run ./cmd/refresh`
+the browsers and checks the profiles against them
+([docs/capturing.md](docs/capturing.md)); its `go run ./cmd/refresh`
 brings a profile up to the installed browser version
 ([docs/concepts/refreshing-profiles.md](docs/concepts/refreshing-profiles.md)).
 [`docs/README.md`](docs/README.md) indexes the decisions and concept docs.

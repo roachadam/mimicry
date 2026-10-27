@@ -572,5 +572,7 @@ bullets below that later work has closed:
 ## Keeping it true
 
 Change a profile, change its row. A new browser version starts as a copy of
-the previous one (see `AGENTS.md`): mark what it copied **C** until its own
-captures pass the tests above.
+the previous one ([decision 0004](../docs/decisions/0004-complete-profile-files.md);
+`cmd/refresh` does the copy): mark what it copied, everything a capture
+cannot show (`http2.hpack`, header slots, `cookies`, `http1` slots), **C**
+until its own captures pass the tests above.

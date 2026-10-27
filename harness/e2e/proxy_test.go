@@ -405,7 +405,7 @@ var missingCaptures = map[string]string{
 	"safari-26-macos.proxy-plain-auth.h1trace.json": "Safari 26 proxy credentials were never captured",
 	// Safari answers a proxy's 407 only with credentials macOS holds: a
 	// com.apple.proxy.http.global device profile and the system's login
-	// dialog, which need a person at the screen (AGENTS.md). Safari 26's
+	// dialog, which need a person at the screen (docs/capturing.md). Safari 26's
 	// socket credential rules are copied from Safari 27's capture.
 	"safari-26-macos.proxy-websocket-auth.pagetrace.json.gz": "Safari 26 WebSockets through a proxy with credentials were never captured (macOS proxy credentials need a person at the screen); its rules are copied from Safari 27's",
 	// The capture tool clicks in Safari through the system's mouse

@@ -65,7 +65,9 @@ The mini has no Go: the tool cross-compiles `cmd/capture` (and later
 `cmd/realcheck`) for darwin/arm64, copies them to
 `~/mimicry-capture/refresh-<stamp>/` there and runs them over ssh. Browsers
 opened over ssh show on the session logged in at the mini's screen, so its
-user must be logged in there (Screen Sharing is enough).
+user must be logged in there (Screen Sharing is enough). Each Mac's one-time
+setup (capture CA, resolver, aioquic, Gatekeeper) is in
+[Capturing browsers](../capturing.md#browser-setup).
 
 Chrome and Firefox at once on one Mac do not share anything a capture
 depends on: each capture tool process has its own servers on free ports;
@@ -150,3 +152,6 @@ try the tool on one scenario.
 - New Safari versions come only with macOS updates; updating the mini past
   macOS 26 ends Safari 26's captures.
 - Committing: the tool never touches git.
+
+What the tool runs underneath (the capture tool, its scenarios, the
+generators) and how to capture by hand: [capturing.md](../capturing.md).
