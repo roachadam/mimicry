@@ -2,36 +2,51 @@ package main
 
 import (
 	"bytes"
-	"os"
-	"path/filepath"
-	"strings"
 	"testing"
+
+	"github.com/roachadam/mimicry/harness/internal/testprofiles"
 )
 
-// The committed profiles hold the quic and http3 sections their h3
-// captures show; rerunning h3gen changes none of them.
+const captures = "../../testdata/captures"
+
+// The checked profiles hold the quic and http3 sections their h3 captures
+// show; rerunning h3gen changes none of them.
 func TestRegenerateReproducesProfiles(t *testing.T) {
-	paths, err := filepath.Glob("../../../profiles/data/*.json")
+	names, err := testprofiles.Names()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(paths) == 0 {
-		t.Fatal("no profiles found")
-	}
-	for _, path := range paths {
-		name := strings.TrimSuffix(filepath.Base(path), ".json")
+	for _, name := range names {
 		t.Run(name, func(t *testing.T) {
-			data, err := os.ReadFile(path) //nolint:gosec // a file in the repository
+			_, data, err := testprofiles.Load(name)
 			if err != nil {
 				t.Fatal(err)
 			}
-			got, err := regenerate(data, "../../testdata/captures")
+			got, err := regenerate(data, captures)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if !bytes.Equal(got, data) {
-				t.Errorf("regenerating %s changes it; rerun h3gen on it and review the diff", path)
+				t.Errorf("regenerating %s changes it; rerun h3gen on it and review the diff", name)
 			}
 		})
+	}
+}
+
+// A profile that inherits every h3 scenario from chrome-155-macos
+// (testprofiles.Inheriting) reads that profile's captures, and its
+// sampleGaps pins, for them: it regenerates unchanged, as chrome-155-macos
+// does.
+func TestRegenerateReadsInheritedCaptures(t *testing.T) {
+	data, err := testprofiles.Inheriting(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := regenerate(data, captures)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, data) {
+		t.Errorf("regenerating %s from chrome-155-macos's captures changes it", testprofiles.InheritingName)
 	}
 }

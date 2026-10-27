@@ -123,7 +123,7 @@ func TestRejectsInvalidRequests(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fc := &fakeConn{}
-			c := New(fc, profiles.Chrome155MacOS())
+			c := New(fc, profiles.Chrome())
 			if tt.forward {
 				c.Forward(&profile.Proxy{})
 			}
@@ -172,7 +172,7 @@ func TestBodyMustMatchContentLength(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fc := &fakeConn{}
-			c := New(fc, profiles.Chrome155MacOS())
+			c := New(fc, profiles.Chrome())
 			req := newRequest(t, http.MethodPost, "http://example.com/", nil)
 			req.Body, req.ContentLength = io.NopCloser(strings.NewReader(tt.body)), tt.cl
 			if _, err := c.RoundTrip(req, func(bool) {}); err == nil {
@@ -191,7 +191,7 @@ func TestInformationalResponses(t *testing.T) {
 			"HTTP/1.1 103 Early Hints\r\nLink: </a.css>; rel=preload\r\n\r\n" +
 			"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok"),
 	}
-	c := New(fc, profiles.Chrome155MacOS())
+	c := New(fc, profiles.Chrome())
 	got, reusable := do(t, c, newRequest(t, http.MethodGet, "http://example.com/", nil))
 	if got != "ok" || !reusable {
 		t.Errorf("got %q, reusable %v; want the final response, reusable", got, reusable)

@@ -1,12 +1,10 @@
 package e2e
 
 import (
-	"encoding/json"
 	"io"
 	"maps"
 	"net/http"
 	"net/url"
-	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -15,7 +13,6 @@ import (
 	"github.com/roachadam/mimicry/cookies"
 	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/harness/internal/server"
-	"github.com/roachadam/mimicry/profiles"
 )
 
 // Over HTTP/1.1, mimicry's navigations are the browser's line for line:
@@ -32,13 +29,13 @@ func TestHTTP1MatchesBrowserTrace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range profiles.Names() {
+	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
-			p, err := profiles.ByName(name)
+			p, err := loadProfile(name)
 			if err != nil {
 				t.Fatal(err)
 			}
-			samples := loadH1Traces(t, name)
+			samples := loadSamples[[]capture.H1Request](t, p, "http1", ".h1trace.json")
 			jar := newJar(t, p)
 			base, tr, captures := captureClientWith(t, p, sc, jar)
 			page, err := url.Parse(base + "/")
@@ -96,19 +93,6 @@ func TestHTTP1MatchesBrowserTrace(t *testing.T) {
 			}
 		})
 	}
-}
-
-func loadH1Traces(t *testing.T, name string) [][]capture.H1Request {
-	t.Helper()
-	data, err := os.ReadFile(captureDir + name + ".http1.h1trace.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var samples [][]capture.H1Request
-	if err := json.Unmarshal(data, &samples); err != nil {
-		t.Fatal(err)
-	}
-	return samples
 }
 
 // navigations returns a sample's first navigation and its /nav, normalized.

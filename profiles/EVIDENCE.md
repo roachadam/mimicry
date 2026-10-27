@@ -14,6 +14,9 @@ it true. Profiles: `chrome-155-macos`, `firefox-158-macos`, `safari-27-macos`
 | **F** | Fitted: not visible as such on the wire. A rule chosen to explain the traces, then verified by re-encoding every captured header block byte for byte (`TestHPACKReproducesBrowserBlocks`). |
 | **K** | Measured on a different kind of request than the profile describes (e.g. on `fetch()` uploads, used for navigations). |
 | **C** | Copied from another profile, not measured for this one. |
+| **I** | Inherited: checked against an earlier version's captures of the scenario (the profile's `captures_from`, decision 0035), with only version tokens in header values rewritten to this version's (`capture.Rewriter`): the test passes for this profile, but this version's own traffic was not captured for it. Written `I: from chrome-155` followed by the class the row has in that version's column (`I: from chrome-155 (W+)`); a row whose scenario a quick refresh recaptured keeps its own class. A full refresh replaces every **I** with the class its new captures earn. |
+
+A new version's column is filled from the scenarios its captures come from: every row whose evidence is a scenario in its `captures_from` is **I**; rows from the scenarios a quick refresh recaptures (the fingerprint layer, `server.QuickScenarios`) get their own class. Deprecated profiles (`"deprecated": true`, older than the newest five versions) keep their columns as they were last reviewed.
 
 No claim rests on browser source code or on another client's presets alone:
 those were leads only. Where another client disagreed with the wire, the wire

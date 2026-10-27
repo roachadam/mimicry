@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/profile"
 )
@@ -166,14 +165,15 @@ func insertAfterPredecessor(fields, list []profile.Header, name string) []profil
 
 // h2Candidates are the h3 pages' non-GET requests over HTTP/2.
 func h2Candidates(p *profile.Profile, dir string) ([]h3Candidate, error) {
-	paths, err := server.H3ProfileCaptures(dir, p.Name)
+	files, err := server.H3ProfileCaptures(dir, p)
 	if err != nil {
 		return nil, err
 	}
 	steps := h3Steps()
 	var out []h3Candidate
-	for _, path := range paths {
-		pages, err := capture.LoadPages(path)
+	for _, f := range files {
+		path := f.Path
+		pages, err := loadFile(f)
 		if err != nil {
 			return nil, err
 		}

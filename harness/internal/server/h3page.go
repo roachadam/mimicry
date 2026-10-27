@@ -12,7 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/harness/internal/quictrace"
+	"github.com/roachadam/mimicry/profile"
 )
 
 // The h3 pages' hosts: the page's own site and another site. Both
@@ -72,40 +74,58 @@ var H3Page = &Scenario{
 	},
 }
 
-// H3ProfileCaptures returns the paths of name's h3-discovery and h3-page
-// captures in dir, unforced and with -h3-local-roots, those that exist,
-// sorted: the captures a profile's QUIC and HTTP/3 sections are
+// H3ProfileCaptures returns p's h3-discovery and h3-page captures in dir,
+// unforced and with -h3-local-roots, those that exist, each the profile's
+// own or the one it inherits the scenario from (capture.Inherited), in
+// scenario order: the captures a profile's QUIC and HTTP/3 sections are
 // generated from, but for what only the edge scenarios show
 // (H3EdgeCaptures).
-func H3ProfileCaptures(dir, name string) ([]string, error) {
-	return existingCaptures(dir, name, H3Discovery, H3Page)
+func H3ProfileCaptures(dir string, p *profile.Profile) ([]capture.File, error) {
+	return existingCaptures(dir, p, H3Discovery, H3Page)
 }
 
-// H3EdgeCaptures returns the paths of name's h3-blackhole, h3-broken,
-// h3-vn, h3-download, h3-early and h3-too-early captures in dir, as
-// H3ProfileCaptures does: the captures h3gen derives loss recovery,
-// fallback, version negotiation, acknowledgement, credit, key updates and
-// early data from. h3-v2 is left out: its server is aioquic, whose
-// upgrade only internal/quic's v2 support and harness/e2e check.
-func H3EdgeCaptures(dir, name string) ([]string, error) {
-	return existingCaptures(dir, name, H3Blackhole, H3Broken, H3VN, H3Download, H3Early, H3TooEarly)
+// H3EdgeCaptures returns p's h3-blackhole, h3-broken, h3-vn, h3-download,
+// h3-early and h3-too-early captures in dir, as H3ProfileCaptures does:
+// the captures h3gen derives loss recovery, fallback, version negotiation,
+// acknowledgement, credit, key updates and early data from. h3-v2 is left
+// out: its server is aioquic, whose upgrade only internal/quic's v2
+// support and harness/e2e check.
+func H3EdgeCaptures(dir string, p *profile.Profile) ([]capture.File, error) {
+	return existingCaptures(dir, p, H3Blackhole, H3Broken, H3VN, H3Download, H3Early, H3TooEarly)
 }
 
-func existingCaptures(dir, name string, scenarios ...*Scenario) ([]string, error) {
-	var out []string
+// existingCaptures returns the page captures of scenarios that exist in
+// dir for p, sorted by their names less their source's: by scenario, the
+// -h3-local-roots one first, whichever profile each comes from.
+func existingCaptures(dir string, p *profile.Profile, scenarios ...*Scenario) ([]capture.File, error) {
+	var out []capture.File
 	for _, sc := range scenarios {
+		source, rw, err := capture.Inherited(p, sc.Name)
+		if err != nil {
+			return nil, err
+		}
 		for _, cond := range []string{"", ".local-roots"} {
-			path := filepath.Join(dir, name+"."+sc.Name+cond+".pagetrace.json.gz")
+			path := filepath.Join(dir, source+"."+sc.Name+cond+".pagetrace.json.gz")
 			_, err := os.Stat(path)
 			switch {
 			case err == nil:
-				out = append(out, path)
+				out = append(out, capture.File{
+					Path:     path,
+					Scenario: sc.Name,
+					Source:   source,
+					Rewriter: rw,
+				})
 			case !errors.Is(err, fs.ErrNotExist):
 				return nil, err
 			}
 		}
 	}
-	slices.Sort(out)
+	slices.SortFunc(out, func(a, b capture.File) int {
+		return strings.Compare(
+			strings.TrimPrefix(filepath.Base(a.Path), a.Source+"."),
+			strings.TrimPrefix(filepath.Base(b.Path), b.Source+"."),
+		)
+	})
 	return out, nil
 }
 

@@ -10,7 +10,6 @@ import (
 	"github.com/roachadam/mimicry"
 	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/harness/internal/server"
-	"github.com/roachadam/mimicry/profiles"
 )
 
 // headersOrderGaps are, per profile, the headers-order steps mimicry does
@@ -51,13 +50,13 @@ var headersOrderGaps = map[string][]string{
 // and lowercase for fetch(), and the same preflights. The forbidden name
 // (sec-a), which browsers drop, is left out, as a page cannot set it.
 func TestHeadersOrderMatchesBrowser(t *testing.T) {
-	for _, name := range profiles.Names() {
+	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
-			p, err := profiles.ByName(name)
+			p, err := loadProfile(name)
 			if err != nil {
 				t.Fatal(err)
 			}
-			want, err := capture.LoadPages(captureDir + name + ".headers-order.pagetrace.json.gz")
+			want, err := loadPages(t, p, "headers-order", ".pagetrace.json.gz")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -88,7 +87,7 @@ func TestHeadersOrderMatchesBrowser(t *testing.T) {
 				}, h, "")
 			}
 			got := s.finish(s.url(hosts[0], "/done"))
-			gaps := headersOrderGaps[name]
+			gaps := headersOrderGaps[capture.Source(p, "headers-order")]
 			for _, st := range server.HeadersSteps() {
 				h1 := strings.HasSuffix(st.Label, ".h1")
 				path := "/h/" + st.Label

@@ -25,7 +25,6 @@ import (
 	"github.com/roachadam/mimicry/harness/internal/proxy"
 	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/profile"
-	"github.com/roachadam/mimicry/profiles"
 )
 
 // Every socket of the websocket pages (server.WebSocketSteps), opened
@@ -53,16 +52,16 @@ import (
 // stream, or nothing for a handshake sent to the proxy whole (Safari's
 // ws://, whose absolute-form request line the handshake check compares).
 func TestWebSocketsMatchBrowser(t *testing.T) {
-	for _, name := range profiles.Names() {
+	for _, name := range testProfiles(t) {
 		for _, sc := range []*server.Scenario{server.WebSocket, server.WebSocketH2, server.ProxyWebSocket, server.ProxyWebSocketAuth, server.ProxyWebSocketSOCKS5} {
 			t.Run(name+"/"+sc.Name, func(t *testing.T) {
 				t.Parallel()
-				p, err := profiles.ByName(name)
+				p, err := loadProfile(name)
 				if err != nil {
 					t.Fatal(err)
 				}
 				// A listed missing capture is skipped, an existing listed one fails.
-				want := loadSamples[*capture.Page](t, name+"."+sc.Name+".pagetrace.json.gz")
+				want := loadSamples[*capture.Page](t, p, sc.Name, ".pagetrace.json.gz")
 				sockets, steps, ok := sc.WebSocketPage()
 				if !ok {
 					t.Fatalf("scenario %s serves no websocket page", sc.Name)
@@ -73,7 +72,7 @@ func TestWebSocketsMatchBrowser(t *testing.T) {
 				if sc.Proxy == "" {
 					s = startPage(t, p, sc)
 				} else {
-					wantProxy = loadSamples[[]capture.ProxyRequest](t, name+"."+sc.Name+".proxytrace.json")
+					wantProxy = loadSamples[[]capture.ProxyRequest](t, p, sc.Name, ".proxytrace.json")
 					var user *url.Userinfo
 					if sc.ProxyAuth {
 						user = url.UserPassword(server.ProxyUser, server.ProxyPassword)

@@ -7,7 +7,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/profile"
 )
@@ -19,18 +18,22 @@ const navigation = "navigation"
 const altUsed = "alt-used"
 
 // h3PriorityGaps are the h3 pages' requests whose priority header differs
-// from their kind's for a reason the profile does not model, by profile
-// and path, each with why. A pinned one that matches again is an error.
+// from their kind's for a reason the profile does not model, by the
+// profile whose capture shows them (a profile inheriting that capture
+// takes the pin too: capture.Source) and path, each with why. A pinned one
+// that matches again is an error.
 var h3PriorityGaps = map[string]string{
 	"firefox-158-macos /h3/markup-image2.so": "Firefox gave the second page's only image u=4, i (its kind's u=5, i): a layout-driven image priority, a known gap over HTTP/2 too (redirects2)",
 }
 
-// h3Request is one request of the h3 captures: its kind (navigation for
-// the navigation) and method, its step's fetchpriority, its pseudo-header
-// order, its headers in order (names, and fields with their first
-// values) and its priority header ("" for none).
+// h3Request is one request of the h3 captures: the profile whose capture
+// it is (source), its kind (navigation for the navigation) and method, its
+// step's fetchpriority, its pseudo-header order, its headers in order
+// (names, and fields with their first values) and its priority header (""
+// for none).
 type h3Request struct {
 	at            string
+	source        string
 	path          string
 	kind          string
 	method        string
@@ -48,7 +51,7 @@ type h3Request struct {
 // of a kind's HTTP/2 lists that only the h3 pages show (an XHR POST). An
 // error without such requests.
 func deriveH3(p *profile.Profile, dir string) error {
-	reqs, err := h3Requests(dir, p.Name)
+	reqs, err := h3Requests(dir, p)
 	if err != nil {
 		return err
 	}
@@ -283,18 +286,19 @@ func h3Steps() map[string]server.H3Step {
 	return steps
 }
 
-// h3Requests reads every request over HTTP/3 of the h3 captures, with
-// its kind from its page's step.
-func h3Requests(dir, name string) ([]h3Request, error) {
-	paths, err := server.H3ProfileCaptures(dir, name)
+// h3Requests reads every request over HTTP/3 of the h3 captures p is
+// checked against, with its kind from its page's step.
+func h3Requests(dir string, p *profile.Profile) ([]h3Request, error) {
+	files, err := server.H3ProfileCaptures(dir, p)
 	if err != nil {
 		return nil, err
 	}
 	steps := h3Steps()
 	var out []h3Request
 	var errs []error
-	for _, path := range paths {
-		pages, err := capture.LoadPages(path)
+	for _, f := range files {
+		path := f.Path
+		pages, err := loadFile(f)
 		if err != nil {
 			return nil, err
 		}
@@ -312,6 +316,7 @@ func h3Requests(dir, name string) ([]h3Request, error) {
 					}
 					q := h3Request{
 						at:            at,
+						source:        f.Source,
 						path:          r.Path,
 						kind:          kind,
 						method:        r.Method,
@@ -413,7 +418,7 @@ func h3Priorities(p *profile.Profile, reqs []h3Request) (high, low map[string]st
 		case "low":
 			measured("low", low, q, kind)
 		default:
-			_, pinned := h3PriorityGaps[p.Name+" "+q.path]
+			_, pinned := h3PriorityGaps[q.source+" "+q.path]
 			switch ok := defaultPriority(p, q); {
 			case ok && pinned:
 				errs = append(errs, fmt.Errorf("%s: h3PriorityGaps pins it, but its priority %q is its kind's: remove the pin", q.at, q.priority))
@@ -460,7 +465,7 @@ func defaultPriority(p *profile.Profile, q h3Request) bool {
 // High and Low where the kinds captures did not measure them, and checks
 // them against the kind's where they did.
 func h2Urgencies(p *profile.Profile, dir string) error {
-	paths, err := server.H3ProfileCaptures(dir, p.Name)
+	files, err := server.H3ProfileCaptures(dir, p)
 	if err != nil {
 		return err
 	}
@@ -470,8 +475,9 @@ func h2Urgencies(p *profile.Profile, dir string) error {
 	}
 	groups := map[key][]*request{}
 	var order []key
-	for _, path := range paths {
-		pages, err := capture.LoadPages(path)
+	for _, f := range files {
+		path := f.Path
+		pages, err := loadFile(f)
 		if err != nil {
 			return err
 		}

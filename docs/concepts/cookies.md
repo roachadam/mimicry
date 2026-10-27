@@ -16,7 +16,7 @@ without a profile.
 
 ```go
 jar, err := cookies.New(cookies.Config{
-	Rules: profiles.Chrome155MacOS().Cookies,
+	Rules: profiles.Chrome().Cookies,
 	OnSetCookie: func(e cookies.Event) {
 		if e.Rejected != "" {
 			log.Printf("%s dropped %q: %s", e.URL, e.Line, e.Rejected)
@@ -27,7 +27,7 @@ if err != nil {
 	return err
 }
 client, err := mimicry.NewClient(mimicry.Config{
-	Profile: profiles.Chrome155MacOS(),
+	Profile: profiles.Chrome(),
 	Cookies: jar,
 })
 ```

@@ -10,7 +10,6 @@ import (
 
 	"github.com/roachadam/mimicry/harness/internal/h2trace"
 	"github.com/roachadam/mimicry/harness/internal/server"
-	"github.com/roachadam/mimicry/profiles"
 )
 
 // Cookies a server sets come back from mimicry, through its cookie jar, as
@@ -24,9 +23,9 @@ func TestCookiesMatchBrowserTrace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range profiles.Names() {
+	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
-			p, err := profiles.ByName(name)
+			p, err := loadProfile(name)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -49,7 +48,7 @@ func TestCookiesMatchBrowserTrace(t *testing.T) {
 			tr.CloseIdleConnections()
 			got := cookieShapes((<-captures).Trace.Requests[1])
 
-			traces, err := h2trace.Load(captureDir + name + ".set-cookie.h2trace.json")
+			traces, err := loadH2Traces(t, p, "set-cookie")
 			if err != nil {
 				t.Fatal(err)
 			}

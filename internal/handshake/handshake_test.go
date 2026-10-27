@@ -37,7 +37,7 @@ func TestHandshakeFailsOnUntrustedCertificate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan := fingerprint.Compile(profiles.Chrome155MacOS())
+	plan := fingerprint.Compile(profiles.Chrome())
 	_, _, err = Client(t.Context(), client, plan.Hello(), Config{
 		ServerName: "localhost",
 	})

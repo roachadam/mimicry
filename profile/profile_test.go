@@ -115,6 +115,36 @@ func TestValidate(t *testing.T) {
 		want   string
 	}{
 		{
+			name: "captures inherited from itself",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.CapturesFrom = map[string]string{
+					"cookies": p.Name,
+				}
+			},
+			path: "captures_from.cookies",
+			want: "names the profile itself",
+		},
+		{
+			name: "captures inherited from another browser",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.CapturesFrom = map[string]string{
+					"cookies": "firefox-158-test",
+				}
+			},
+			path: "captures_from.cookies",
+			want: "is not a chrome profile on test",
+		},
+		{
+			name: "captures inherited for a malformed scenario",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.CapturesFrom = map[string]string{
+					"Cookies": "chrome-155-test",
+				}
+			},
+			path: "captures_from.Cookies",
+			want: "must be a capture scenario's name",
+		},
+		{
 			name: "no cipher suites",
 			mutate: func(_ *testing.T, p *Profile) {
 				p.TLS.CipherSuites = nil

@@ -40,7 +40,13 @@ func ByName(name string) (*profile.Profile, error) {
 	return parse(name)
 }
 
-// Names lists the built-in profiles.
+// Names lists every built-in profile, deprecated ones included.
 func Names() []string {
 	return slices.Clone(names)
+}
+
+// Supported lists the built-in profiles that are not deprecated: the newest
+// five versions of each browser on each platform (decision 0035).
+func Supported() []string {
+	return slices.Clone(supported)
 }

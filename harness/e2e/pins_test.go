@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/roachadam/mimicry"
-	"github.com/roachadam/mimicry/profiles"
 )
 
 // TestHTTP3Pins: Config.Pins holds QUIC handshakes as it holds TCP ones
@@ -23,8 +22,8 @@ func TestHTTP3Pins(t *testing.T) {
 	pki := newInteropPKI(t)
 	tcpPin := spkiPin(pki.leaf.Leaf)
 	quicPin := spkiPin(pki.bigChain.Leaf)
-	for _, name := range profiles.Names() {
-		p, err := profiles.ByName(name)
+	for _, name := range testProfiles(t) {
+		p, err := loadProfile(name)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -53,7 +52,7 @@ func TestHTTP3Pins(t *testing.T) {
 		} {
 			t.Run(name+"/"+row.name, func(t *testing.T) {
 				t.Parallel()
-				p, err := profiles.ByName(name)
+				p, err := loadProfile(name)
 				if err != nil {
 					t.Fatal(err)
 				}

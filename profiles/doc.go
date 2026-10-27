@@ -3,6 +3,12 @@
 // browser. Every accessor returns a fresh copy, so changing one never affects
 // another caller.
 //
+// Chrome, Firefox and Safari return each browser's newest version and move
+// to every new version as it is added; the versioned accessors
+// (Chrome155MacOS) keep one fixed. The newest five versions of each browser
+// on each platform are supported (Supported); older ones stay, deprecated,
+// and are no longer refreshed.
+//
 // The accessors are generated from data/*.json by cmd/profilegen
 // (go generate ./profiles).
 //

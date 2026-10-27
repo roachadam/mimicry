@@ -15,7 +15,6 @@ import (
 	"github.com/roachadam/mimicry/harness/internal/diff"
 	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/profile"
-	"github.com/roachadam/mimicry/profiles"
 )
 
 // mimicry resumes TLS sessions as the browser does on the resume page, from
@@ -29,14 +28,14 @@ import (
 // alternating). Every resumption offers one ticket, the server accepts it,
 // and every resumed ClientHello is the browser's. Safari never resumes.
 func TestResumptionMatchesBrowser(t *testing.T) {
-	for _, name := range profiles.Names() {
+	for _, name := range testProfiles(t) {
 		for _, sc := range []*server.Scenario{server.Resume, server.ResumeTLS12} {
 			t.Run(name+"/"+sc.Name, func(t *testing.T) {
-				p, err := profiles.ByName(name)
+				p, err := loadProfile(name)
 				if err != nil {
 					t.Fatal(err)
 				}
-				want, err := capture.LoadPages(captureDir + name + "." + sc.Name + ".pagetrace.json.gz")
+				want, err := loadPages(t, p, sc.Name, ".pagetrace.json.gz")
 				if err != nil {
 					t.Fatal(err)
 				}

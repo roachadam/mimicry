@@ -16,10 +16,12 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// pages are a profile's captures kindsgen reads, each a page per sample.
+// pages are a profile's captures kindsgen reads, each a page per sample,
+// with every header value at the profile's own version (inherited
+// captures rewritten: capture.Inherited).
 type pages struct {
-	// name is the profile's.
-	name string
+	// p is the profile.
+	p *profile.Profile
 	// kinds is the kinds page over HTTP/2, kindsH1 over HTTP/1.1 and
 	// plain over plain HTTP (kinds, kinds-http1, kinds-plain).
 	kinds, kindsH1, plain []*capture.Page
@@ -44,10 +46,12 @@ type scenarioPages struct {
 	samples  []*capture.Page
 }
 
-// loadPages reads profile name's captures from dir.
-func loadPages(dir, name string) (*pages, error) {
+// loadPages reads the captures p is checked against from dir: its own, or
+// for a scenario its captures_from inherits that profile's, rewritten to
+// p's version.
+func loadPages(dir string, p *profile.Profile) (*pages, error) {
 	out := &pages{
-		name: name,
+		p: p,
 	}
 	for _, f := range []struct {
 		scenario string
@@ -64,28 +68,54 @@ func loadPages(dir, name string) (*pages, error) {
 		{scenario: "websocket", into: &out.websocket},
 		{scenario: "websocket-h2", into: &out.websocketH2},
 	} {
-		got, err := capture.LoadPages(filepath.Join(dir, name+"."+f.scenario+".pagetrace.json.gz"))
+		source, rw, err := capture.Inherited(p, f.scenario)
+		if err != nil {
+			return nil, err
+		}
+		got, err := loadFile(capture.File{
+			Path:     filepath.Join(dir, source+"."+f.scenario+".pagetrace.json.gz"),
+			Scenario: f.scenario,
+			Source:   source,
+			Rewriter: rw,
+		})
 		if err != nil {
 			return nil, err
 		}
 		*f.into = got
 	}
-	files, err := filepath.Glob(filepath.Join(dir, name+".nav-redirect-*.pagetrace.json.gz"))
+	files, err := capture.Files(dir, p, ".pagetrace.json.gz")
 	if err != nil {
 		return nil, err
 	}
+	files = slices.DeleteFunc(files, func(f capture.File) bool {
+		return !strings.HasPrefix(f.Scenario, "nav-redirect-")
+	})
+	// In scenario order, whichever profile each comes from.
+	slices.SortStableFunc(files, func(a, b capture.File) int {
+		return strings.Compare(a.Scenario, b.Scenario)
+	})
 	for _, f := range files {
-		got, err := capture.LoadPages(f)
+		got, err := loadFile(f)
 		if err != nil {
 			return nil, err
 		}
-		scenario := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(f), name+"."), ".pagetrace.json.gz")
 		out.navRedirects = append(out.navRedirects, scenarioPages{
-			scenario: scenario,
+			scenario: f.Scenario,
 			samples:  got,
 		})
 	}
 	return out, nil
+}
+
+// loadFile reads a page capture, its header values rewritten to the
+// version of the profile that inherits it.
+func loadFile(f capture.File) ([]*capture.Page, error) {
+	got, err := capture.LoadPages(f.Path)
+	if err != nil {
+		return nil, err
+	}
+	f.Rewriter.Pages(got)
+	return got, nil
 }
 
 // request is one captured request of the kinds, cookies, cors, cors-edge,
@@ -367,7 +397,7 @@ func collect(pg *pages) ([]*request, error) {
 		errs = append(errs, err)
 	}
 	out = append(out, r2...)
-	navs, err := navRedirectRequests(pg.name, pg.navRedirects)
+	navs, err := navRedirectRequests(pg.p, pg.navRedirects)
 	if err != nil {
 		errs = append(errs, err)
 	}
@@ -549,10 +579,12 @@ type sampleGap struct {
 	path     string
 }
 
-// sampleGaps are, per profile, requests left out of the derivation, with
-// why: forms the browser sent in one sample that no request condition
-// explains (browser state), where the other samples agree. The e2e tests
-// accept them as one of the browser's forms and log the variance.
+// sampleGaps are, per profile whose captures show them, requests left out
+// of the derivation, with why: forms the browser sent in one sample that
+// no request condition explains (browser state), where the other samples
+// agree. A profile that inherits the capture (captures_from) leaves them
+// out too. The e2e tests accept them as one of the browser's forms and log
+// the variance.
 var sampleGaps = map[string]map[sampleGap]string{
 	"safari-27-macos": {
 		{scenario: "nav-redirect-page", sample: 1, path: "/p/nav-302.cs-so.hop1"}: "the run's first sample, on a cold Safari: the hop back to the page's site went on a new connection, " +
@@ -580,9 +612,10 @@ var sampleGaps = map[string]map[sampleGap]string{
 // profile's own navigation, which its kinds captures describe, and a
 // page's takes the navigation's lists as every page's GET navigation
 // does. Requests of other paths (the pages a chain starts from and ends
-// on, /done) are too, and so are profile name's sampleGaps, each of which
-// must be in its capture.
-func navRedirectRequests(name string, pages []scenarioPages) ([]*request, error) {
+// on, /done) are too, and so are the sampleGaps of the captures p is
+// checked against (its scenario's capture.Source's), each of which must
+// be in its capture.
+func navRedirectRequests(p *profile.Profile, pages []scenarioPages) ([]*request, error) {
 	var out []*request
 	var errs []error
 	seen := map[sampleGap]bool{}
@@ -641,7 +674,7 @@ func navRedirectRequests(name string, pages []scenarioPages) ([]*request, error)
 					sample:   si + 1,
 					path:     q.path,
 				}
-				if _, ok := sampleGaps[name][gap]; ok {
+				if _, ok := sampleGaps[capture.Source(p, sp.scenario)][gap]; ok {
 					seen[gap] = true
 					continue
 				}
@@ -649,9 +682,11 @@ func navRedirectRequests(name string, pages []scenarioPages) ([]*request, error)
 			}
 		}
 	}
-	for gap := range sampleGaps[name] {
-		if !seen[gap] {
-			errs = append(errs, fmt.Errorf("%s sample %d: %s is in sampleGaps but not in the capture: drop it", gap.scenario, gap.sample, gap.path))
+	for source, gaps := range sampleGaps {
+		for gap := range gaps {
+			if capture.Source(p, gap.scenario) == source && !seen[gap] {
+				errs = append(errs, fmt.Errorf("%s sample %d: %s is in sampleGaps (%s) but not in the capture: drop it", gap.scenario, gap.sample, gap.path, source))
+			}
 		}
 	}
 	return out, errors.Join(errs...)

@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -15,8 +16,9 @@ import (
 
 // sampleGaps pin the connections whose behaviour differs from what the
 // rest of their browser's show, in a way no rule explains: timing or
-// browser state. Each key is the connection (as conn.at names it) and the
-// feature (the profile field), each value why.
+// browser state. Each key is the connection (as conn.at names it: by the
+// capture file, so a pin holds for every profile that inherits that
+// capture) and the feature (the profile field), each value why.
 var sampleGaps = map[string]string{ //nolint:gosec // pinned capture gaps, not credentials
 	"chrome-155-macos.h3-discovery.local-roots: sample 2, QUIC connection 2: ack_initial":          "Chrome acknowledged the server's Initial in 1 of its 12 completed full handshakes: quiche drops its Initial keys when it sends its first Handshake packet, and acknowledges an Initial only if one arrives before it has Handshake keys to send with (timing)",
 	"chrome-155-macos.h3-discovery.local-roots: sample 2, QUIC connection 5: tokens":               "Chrome's reconnection to www.h3-b.test after the 35 s idle carried no NEW_TOKEN token in 2 of 3 samples, though resumed with 0-RTT; its first connection there had received one (Chrome's token cache, not modelled)",
@@ -40,8 +42,8 @@ var sampleGaps = map[string]string{ //nolint:gosec // pinned capture gaps, not c
 
 // conn is one captured QUIC connection.
 type conn struct {
-	// at names it: "<name>.<scenario>[.local-roots]: sample N, QUIC
-	// connection M".
+	// at names it: "<source>.<scenario>[.local-roots]: sample N, QUIC
+	// connection M", source the profile whose capture it is.
 	at string
 	// scenario is "h3-discovery" or "h3-page"; sample counts from 0.
 	scenario string
@@ -56,7 +58,9 @@ type conn struct {
 // captureSet is every QUIC connection of a profile's h3 captures, and the
 // pinned gaps used so far.
 type captureSet struct {
+	// name is the profile's, p the profile.
 	name  string
+	p     *profile.Profile
 	conns []*conn
 	// pages are the h3-discovery captures' samples in which some QUIC
 	// connection completed its handshake, with their file's name.
@@ -69,20 +73,24 @@ type discoveryPage struct {
 	page *capture.Page
 }
 
-func load(dir, name string) (*captureSet, error) {
-	paths, err := server.H3ProfileCaptures(dir, name)
+// load reads the h3 captures p is checked against (its own, or those it
+// inherits: server.H3ProfileCaptures). They are read as captured: h3gen
+// measures how the browser encoded its fields (QPACK, Huffman), so no
+// value is rewritten to p's version.
+func load(dir string, p *profile.Profile) (*captureSet, error) {
+	files, err := server.H3ProfileCaptures(dir, p)
 	if err != nil {
 		return nil, err
 	}
 	set := &captureSet{
-		name:     name,
+		name:     p.Name,
+		p:        p,
 		usedGaps: map[string]bool{},
 	}
-	for _, path := range paths {
-		base := strings.TrimSuffix(filepath.Base(path), ".pagetrace.json.gz")
-		scenario := strings.TrimPrefix(base, name+".")
-		scenario, _, _ = strings.Cut(scenario, ".")
-		pages, err := capture.LoadPages(path)
+	for _, f := range files {
+		base := strings.TrimSuffix(filepath.Base(f.Path), ".pagetrace.json.gz")
+		scenario := f.Scenario
+		pages, err := capture.LoadPages(f.Path)
 		if err != nil {
 			return nil, err
 		}
@@ -123,11 +131,12 @@ func (s *captureSet) gap(c *conn, feature string) bool {
 	return true
 }
 
-// unusedGaps fails for this profile's pins that no capture showed.
+// unusedGaps fails for the pins of the captures this profile is checked
+// against that no capture showed.
 func (s *captureSet) unusedGaps() error {
 	var errs []error
 	for key := range sampleGaps {
-		if strings.HasPrefix(key, s.name+".") && !s.usedGaps[key] {
+		if s.pins(key) && !s.usedGaps[key] {
 			errs = append(errs, fmt.Errorf("sampleGaps pins %q, which no longer appears: remove it", key))
 		}
 	}
@@ -135,6 +144,22 @@ func (s *captureSet) unusedGaps() error {
 		return strings.Compare(a.Error(), b.Error())
 	})
 	return errors.Join(errs...)
+}
+
+// pins reports whether the sampleGaps key is about a capture the profile
+// is checked against: one of the profile its scenario comes from
+// (capture.Source).
+func (s *captureSet) pins(key string) bool {
+	file, _, _ := strings.Cut(key, ":")
+	for _, name := range append([]string{s.name}, slices.Collect(maps.Values(s.p.CapturesFrom))...) {
+		if !strings.HasPrefix(file, name+".") {
+			continue
+		}
+		if sc, ok := capture.ScenarioOf(name, file+".pagetrace.json.gz"); ok && capture.Source(s.p, sc) == name {
+			return true
+		}
+	}
+	return false
 }
 
 // done are the connections that completed their handshake.

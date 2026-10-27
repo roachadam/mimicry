@@ -170,7 +170,7 @@ func TestGoAwayReachesTCPConnectionEstablishedAfterQUIC(t *testing.T) {
 	n := newFakeNet(t, answerThenWatchGoAway(headers, goaway, nil, 50*time.Millisecond))
 	dial, dialing, release := blockingDial(n, nil)
 	e := newTestEngine(t, options{
-		profile: profiles.Firefox158MacOS(),
+		profile: profiles.Firefox(),
 		dial:    dial,
 	})
 	port, _ := quicServer(t, false)
@@ -263,7 +263,7 @@ func TestRaceAfterGoAwayWaitsForTheTCPResponse(t *testing.T) {
 	// server.
 	t.Cleanup(answer)
 	e := newTestEngine(t, options{
-		profile: profiles.Firefox158MacOS(),
+		profile: profiles.Firefox(),
 		dial:    n.dial,
 	})
 	port, accepted := quicServer(t, true)

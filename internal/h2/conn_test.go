@@ -45,7 +45,7 @@ func dial(t *testing.T, srv *httptest.Server) *Conn {
 	if err := tlsConn.HandshakeContext(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	p := profiles.Chrome155MacOS()
+	p := profiles.Chrome()
 	c, err := New(tlsConn, p, clockwork.NewRealClock())
 	if err != nil {
 		t.Fatal(err)

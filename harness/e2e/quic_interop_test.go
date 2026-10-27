@@ -44,7 +44,6 @@ import (
 	"github.com/roachadam/mimicry"
 	"github.com/roachadam/mimicry/harness/internal/udprelay"
 	"github.com/roachadam/mimicry/profile"
-	"github.com/roachadam/mimicry/profiles"
 )
 
 // TestQUICInterop runs mimicry's QUIC and HTTP/3, as every profile, against
@@ -63,8 +62,8 @@ import (
 // the client under loss or migration is not compared.
 func TestQUICInterop(t *testing.T) {
 	pki := newInteropPKI(t)
-	for _, name := range profiles.Names() {
-		p, err := profiles.ByName(name)
+	for _, name := range testProfiles(t) {
+		p, err := loadProfile(name)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -77,7 +76,7 @@ func TestQUICInterop(t *testing.T) {
 				if c.zeroRTT && !p.QUIC.ZeroRTT {
 					t.Skip("the profile never resumes QUIC (0-RTT not measured)")
 				}
-				p, err := profiles.ByName(name)
+				p, err := loadProfile(name)
 				if err != nil {
 					t.Fatal(err)
 				}

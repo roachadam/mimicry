@@ -1,6 +1,6 @@
 # 0004: One complete profile file per browser version, no inheritance
 
-- Status: Accepted
+- Status: Accepted; amended by [0035](0035-version-policy-and-capture-inheritance.md) (values are still never inherited; a scenario's captures can be)
 - Date: 2026-10-23
 
 ## Problem
@@ -30,7 +30,9 @@ request kinds is ~4,700 lines), which is fine for data.
 
 A new version starts as a copy of the previous one; whatever a capture
 cannot show stays marked copied in the ledger until its own captures pass.
-Planned: `profilegen derive --from <previous> --capture <new>`.
+`cmd/refresh` (in `harness/`) does the copy: it takes the hand-copied
+fields from the new capture, sets `captures_from` for the scenarios it did
+not recapture (decision 0035) and runs the generators.
 
 ## Revisit when
 

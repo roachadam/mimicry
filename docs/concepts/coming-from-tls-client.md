@@ -35,7 +35,7 @@ mimicry:
 ```go
 proxyURL, _ := url.Parse("http://user:pass@proxy.example:8080")
 client, err := mimicry.NewClient(mimicry.Config{
-	Profile: profiles.Chrome155MacOS(),
+	Profile: profiles.Chrome(),
 	Proxy:   http.ProxyURL(proxyURL),
 })
 client.Timeout = 30 * time.Second
@@ -46,7 +46,7 @@ client.CheckRedirect = func(*http.Request, []*http.Request) error {
 
 | tls-client | mimicry |
 |---|---|
-| `WithClientProfile(profiles.Chrome_133)` | `Config.Profile` (`profiles.Chrome155MacOS()`, `profiles.ByName("chrome-155-macos")`, or your own JSON through `profile.Parse`) |
+| `WithClientProfile(profiles.Chrome_133)` | `Config.Profile` (`profiles.Chrome()` for the newest Chrome, `profiles.Chrome155MacOS()` or `profiles.ByName("chrome-155-macos")` for a fixed version, or your own JSON through `profile.Parse`) |
 | `WithRandomTLSExtensionOrder()` | nothing: the profile shuffles where its browser does (Chrome) and keeps the order where it does not (Safari, Firefox over TCP) |
 | `WithTimeoutSeconds(n)` | `http.Client.Timeout`, or the request's context; `Config.DialTimeout` for connecting |
 | `WithNotFollowRedirects()`, `SetFollowRedirect` | `http.Client.CheckRedirect` returning `http.ErrUseLastResponse` |
@@ -261,7 +261,7 @@ every request, so rotation is changing what it returns:
 var current atomic.Pointer[url.URL]
 current.Store(proxies.Next())
 client, err := mimicry.NewClient(mimicry.Config{
-	Profile: profiles.Chrome155MacOS(),
+	Profile: profiles.Chrome(),
 	Proxy: func(*http.Request) (*url.URL, error) {
 		return current.Load(), nil
 	},

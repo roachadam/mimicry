@@ -281,9 +281,9 @@ func TestProxyErrors(t *testing.T) {
 				asking:   len(asking.Log()),
 				refusing: len(refusing.Log()),
 			}
-			p := profiles.Chrome155MacOS()
+			p := profiles.Chrome()
 			if tc.safari {
-				p = profiles.Safari27MacOS()
+				p = profiles.Safari()
 			}
 			tr, err := mimicry.NewTransport(mimicry.Config{
 				Profile: p,

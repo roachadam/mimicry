@@ -18,7 +18,6 @@ import (
 	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/profile"
-	"github.com/roachadam/mimicry/profiles"
 )
 
 // The redirects2 page, made through mimicry step by step as the browser's
@@ -41,29 +40,31 @@ import (
 // fails, so those requests are left out of the browser's rows
 // (redirectsReload).
 func TestRedirects2MatchesBrowser(t *testing.T) {
-	for _, name := range profiles.Names() {
+	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			p, err := profiles.ByName(name)
+			p, err := loadProfile(name)
 			if err != nil {
 				t.Fatal(err)
 			}
-			want, err := capture.LoadPages(captureDir + name + ".redirects2.pagetrace.json.gz")
+			want, err := loadPages(t, p, "redirects2", ".pagetrace.json.gz")
 			if err != nil {
 				t.Fatal(err)
 			}
 			steps := server.Redirects2Steps()
 			done := runRedirectsPage(t, p, server.Redirects2, steps)
 			apart := redirectsApart(server.Redirects2, steps)
-			got := mergeHosts(redirectsConnections(t, done, false, apart), redirectsMerged[name])
-			wantRows := redirectsConnections(t, want[0], redirectsReload[name], apart)
+			// Gaps are pinned for the captures, so by the profile that holds them.
+			src := capture.Source(p, "redirects2")
+			got := mergeHosts(redirectsConnections(t, done, false, apart), redirectsMerged[src])
+			wantRows := redirectsConnections(t, want[0], redirectsReload[src], apart)
 			for i, w := range want {
-				if d := rowsDiff(got, mergeHosts(redirectsConnections(t, w, redirectsReload[name], apart), redirectsMerged[name])); d != "" {
+				if d := rowsDiff(got, mergeHosts(redirectsConnections(t, w, redirectsReload[src], apart), redirectsMerged[src])); d != "" {
 					t.Errorf("sample %d: connections differ: %s", i+1, d)
 				}
 			}
 			for _, path := range redirectsPaths(wantRows) {
-				if why, ok := redirectsLineGaps[name][path]; ok {
+				if why, ok := redirectsLineGaps[src][path]; ok {
 					t.Logf("%s: not compared: %s", path, why)
 					continue
 				}
@@ -293,15 +294,15 @@ func redirectsSend(t *testing.T, s *pageSession, method, target, body string, h 
 // per host instead: mimicry's pool is not partitioned by top-level site),
 // every one with the browser's header lines and weight.
 func TestNavRedirectsMatchBrowser(t *testing.T) {
-	for _, name := range profiles.Names() {
+	for _, name := range testProfiles(t) {
 		for _, sc := range server.NavRedirects {
 			t.Run(name+"/"+sc.Name, func(t *testing.T) {
 				t.Parallel()
-				p, err := profiles.ByName(name)
+				p, err := loadProfile(name)
 				if err != nil {
 					t.Fatal(err)
 				}
-				want := loadSamples[*capture.Page](t, name+"."+sc.Name+".pagetrace.json.gz")
+				want := loadSamples[*capture.Page](t, p, sc.Name, ".pagetrace.json.gz")
 				if steps, ok := sc.RedirectSteps(); ok {
 					done := runRedirectsPage(t, p, sc, steps)
 					apart := redirectsApart(sc, steps)

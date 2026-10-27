@@ -14,6 +14,17 @@ type Profile struct {
 	Browser  string `json:"browser"`
 	Version  string `json:"version"`
 	Platform string `json:"platform"`
+	// Deprecated marks a built-in profile older than the newest five
+	// versions of its browser on its platform (decision 0035): kept, and
+	// still tested in a full run, but no longer refreshed.
+	Deprecated bool `json:"deprecated,omitempty"`
+	// CapturesFrom names, per capture scenario ("cookies", "h3-page"),
+	// the earlier profile of the same browser and platform whose captures
+	// the harness checks this profile against instead of its own: the
+	// scenario was not recaptured for this version (decision 0035). The
+	// named profile holds its own captures for the scenario. Only the
+	// harness reads it; the client ignores it.
+	CapturesFrom map[string]string `json:"captures_from,omitempty"`
 
 	TLS TLS `json:"tls"`
 	// HTTP2 is required when the profile offers h2 in ALPN.

@@ -38,7 +38,7 @@ func TestGoAwayAsTheLastStreamEnds(t *testing.T) {
 		release: make(chan struct{}),
 	}
 	c, pr := newPeerWith(t, peerConfig{
-		profile: profiles.Firefox158MacOS(),
+		profile: profiles.Firefox(),
 		clock:   clockwork.NewRealClock(),
 		wrap: func(conn net.Conn) net.Conn {
 			gate.Conn = conn

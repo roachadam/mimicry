@@ -4,24 +4,27 @@
 //
 //	go run ./cmd/hellogen -captures testdata/captures -profile ../profiles/data/chrome-155-macos.json
 //
-// It reads <name>.clienthello (every sample's ClientHello, one per line; see
-// capture.ReadClientHellos), parses each as the capture server does and
-// combines them as the capture tool does (capture.Combine): the shape is
-// tls.record_version, tls.legacy_version, tls.session_id_length,
-// key_share's key_share_lengths and encrypted_client_hello's ech. GREASE
-// ECH's cipher suites and payload lengths are picked per connection, so
-// their sets are every value any connection shows: the samples', and every
-// connection of every page capture (<name>.*.pagetrace.json.gz) that
-// recorded its hello's shape. A TLS 1.3 resumed hello (pre_shared_key)
-// pads its ECH payload for the ticket: its payload lengths are a set of
-// their own, tls.resumption.ech_payload_lengths. The hello of a WebSocket's
-// own HTTP/1.1 connection (every wss:// socket of
-// <name>.websocket.pagetrace.json.gz) is the profile's with another ALPN
-// list and without some extensions: tls.websocket_h1. It refuses samples
-// Combine cannot reconcile, connections whose shape is not the samples',
-// socket connections whose hello differs otherwise or from each other,
-// and a profile or capture whose ClientHello, shape aside, is not the one
-// the samples show.
+// It reads the default page's <name>.clienthello (every sample's
+// ClientHello, one per line; see capture.ReadClientHellos), parses each as
+// the capture server does and combines them as the capture tool does
+// (capture.Combine): the shape is tls.record_version, tls.legacy_version,
+// tls.session_id_length, key_share's key_share_lengths and
+// encrypted_client_hello's ech. GREASE ECH's cipher suites and payload
+// lengths are picked per connection, so their sets are every value any
+// connection shows: the samples', and every connection of every page
+// capture the profile is checked against (capture.Files: its own, and
+// those of the scenarios its captures_from inherits) that recorded its
+// hello's shape. A TLS 1.3 resumed hello (pre_shared_key) pads its ECH
+// payload for the ticket: its payload lengths are a set of their own,
+// tls.resumption.ech_payload_lengths. The hello of a WebSocket's own
+// HTTP/1.1 connection (every wss:// socket of the websocket capture) is
+// the profile's with another ALPN list and without some extensions:
+// tls.websocket_h1. Every capture is read from the profile it is taken
+// from (capture.Inherited); hellos carry no version strings, so none is
+// rewritten. It refuses samples Combine cannot reconcile, connections
+// whose shape is not the samples', socket connections whose hello differs
+// otherwise or from each other, and a profile or capture whose
+// ClientHello, shape aside, is not the one the samples show.
 package main
 
 import (
@@ -62,26 +65,31 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	capturePath := filepath.Join(*captures, p.Name+".json")
+	source := capture.Source(p, capture.DefaultScenario)
+	capturePath := filepath.Join(*captures, source+".json")
 	captured, err := os.ReadFile(capturePath) //nolint:gosec // the capture of the profile named on the command line
 	if err != nil {
 		return err
 	}
-	out, outCapture, err := regenerate(data, captured, *captures, p.Name)
+	out, outCapture, err := regenerate(data, captured, *captures)
 	if err != nil {
 		return err
 	}
 	if err := os.WriteFile(*path, out, 0o600); err != nil { //nolint:gosec // rewriting the profile named on the command line is the point
 		return err
 	}
+	if source != p.Name {
+		// Another profile's capture: its own run of hellogen writes it.
+		return nil
+	}
 	return os.WriteFile(capturePath, outCapture, 0o600) //nolint:gosec // and its capture's profile JSON
 }
 
-// regenerate returns the profile JSON data and the capture's profile JSON
-// captured with the ClientHello shape derived from the captures of profile
-// name in dir. The profile is validated once the shape is in: a profile
-// without one yet cannot pass.
-func regenerate(data, captured []byte, dir, name string) ([]byte, []byte, error) {
+// regenerate returns the profile JSON data and the default page's capture
+// profile JSON captured with the ClientHello shape derived from the
+// profile's captures in dir. The profile is validated once the shape is
+// in: a profile without one yet cannot pass.
+func regenerate(data, captured []byte, dir string) ([]byte, []byte, error) {
 	p, err := profile.Decode(data)
 	if err != nil {
 		return nil, nil, err
@@ -90,17 +98,17 @@ func regenerate(data, captured []byte, dir, name string) ([]byte, []byte, error)
 	if err != nil {
 		return nil, nil, fmt.Errorf("capture: %w", err)
 	}
-	derived, err := derive(dir, name)
+	derived, err := derive(dir, p)
 	if err != nil {
 		return nil, nil, err
 	}
 	if err := apply(&p.TLS, derived); err != nil {
 		return nil, nil, fmt.Errorf("profile: %w", err)
 	}
-	if p.TLS.WebSocketH1, err = websocketHello(dir, name, &p.TLS); err != nil {
+	if p.TLS.WebSocketH1, err = websocketHello(dir, p); err != nil {
 		return nil, nil, fmt.Errorf("tls.websocket_h1: %w", err)
 	}
-	if p.TLS.QUIC, err = quicHello(dir, name, &p.TLS); err != nil {
+	if p.TLS.QUIC, err = quicHello(dir, p); err != nil {
 		return nil, nil, fmt.Errorf("tls.quic: %w", err)
 	}
 	if err := apply(&c.TLS, derived); err != nil {
@@ -128,10 +136,11 @@ type shape struct {
 	resumedECHLengths []uint16
 }
 
-// derive parses every sample in <name>.clienthello and combines them, then
-// folds in the GREASE ECH choices of every page capture's connections.
-func derive(dir, name string) (*shape, error) {
-	path := filepath.Join(dir, name+".clienthello")
+// derive parses every sample of the default page's .clienthello and
+// combines them, then folds in the GREASE ECH choices of every page
+// capture's connections.
+func derive(dir string, p *profile.Profile) (*shape, error) {
+	path := filepath.Join(dir, capture.Source(p, capture.DefaultScenario)+".clienthello")
 	hellos, err := capture.ReadClientHellos(path)
 	if err != nil {
 		return nil, err
@@ -159,19 +168,19 @@ func derive(dir, name string) (*shape, error) {
 	sh := &shape{
 		full: &combined.Profile.TLS,
 	}
-	pages, err := filepath.Glob(filepath.Join(dir, name+".*.pagetrace.json.gz"))
+	pages, err := capture.Files(dir, p, ".pagetrace.json.gz")
 	if err != nil {
 		return nil, err
 	}
-	for _, path := range pages {
-		loaded, err := capture.LoadPages(path)
+	for _, f := range pages {
+		loaded, err := capture.LoadPages(f.Path)
 		if err != nil {
 			return nil, err
 		}
 		for i, page := range loaded {
 			for j, conn := range page.Connections {
 				if err := sh.add(&conn); err != nil {
-					return nil, fmt.Errorf("%s: sample %d, connection %d: %w", path, i+1, j+1, err)
+					return nil, fmt.Errorf("%s: sample %d, connection %d: %w", f.Path, i+1, j+1, err)
 				}
 			}
 		}

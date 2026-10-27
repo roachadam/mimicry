@@ -19,11 +19,12 @@ import (
 	"time"
 
 	"github.com/roachadam/mimicry/harness/internal/pageshape"
+	"github.com/roachadam/mimicry/profiles"
 )
 
 func main() {
 	site := flag.String("site", "", "registrable domain of the visited page (required)")
-	browser := flag.String("browser", "chrome-155-macos", "browser that recorded the log")
+	browser := flag.String("browser", profiles.Chrome().Name, "profile name of the Chrome that recorded the log")
 	date := flag.String("date", time.Now().Format(time.DateOnly), "recording date")
 	out := flag.String("out", "", "output file (required)")
 	flag.Parse()

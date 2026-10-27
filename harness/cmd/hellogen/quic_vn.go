@@ -14,13 +14,14 @@ import (
 )
 
 // vnRetryHello derives tls.quic.version_negotiation from the h3-vn
-// captures (server.H3EdgeCaptures): the hello of every connection that
-// followed another's Version Negotiation in another version, against the
-// full hello q describes. Every such hello must differ alike: extensions
-// dropped, bodies replaced, padding added last. Nil without such
-// connections.
-func vnRetryHello(dir, name string, t *profile.TLS, q *profile.QUICHello) (*profile.QUICHelloRetry, error) {
-	retries, err := vnRetries(dir, name)
+// captures p is checked against (server.H3EdgeCaptures): the hello of
+// every connection that followed another's Version Negotiation in another
+// version, against the full hello q describes. Every such hello must
+// differ alike: extensions dropped, bodies replaced, padding added last.
+// Nil without such connections.
+func vnRetryHello(dir string, p *profile.Profile, q *profile.QUICHello) (*profile.QUICHelloRetry, error) {
+	t := &p.TLS
+	retries, err := vnRetries(dir, p)
 	if err != nil || len(retries) == 0 {
 		return nil, err
 	}
@@ -135,16 +136,17 @@ func checkRetryHello(t *profile.TLS, q *profile.QUICHello, r *profile.QUICHelloR
 
 // vnRetries are the h3-vn captures' connections that followed the one
 // before's Version Negotiation in another version.
-func vnRetries(dir, name string) ([]quicConn, error) {
-	paths, err := server.H3EdgeCaptures(dir, name)
+func vnRetries(dir string, p *profile.Profile) ([]quicConn, error) {
+	files, err := server.H3EdgeCaptures(dir, p)
 	if err != nil {
 		return nil, err
 	}
 	var out []quicConn
-	for _, path := range paths {
-		if !strings.Contains(path, "."+server.H3VN.Name+".") {
+	for _, f := range files {
+		if f.Scenario != server.H3VN.Name {
 			continue
 		}
+		path := f.Path
 		pages, err := capture.LoadPages(path)
 		if err != nil {
 			return nil, err

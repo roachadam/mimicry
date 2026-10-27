@@ -65,7 +65,7 @@ func TestDeclineClosesWithoutReset(t *testing.T) {
 		t.Fatal(err)
 	}
 	<-settingsSent
-	if err := Decline(client, profiles.Firefox158MacOS()); err != nil {
+	if err := Decline(client, profiles.Firefox()); err != nil {
 		t.Fatal(err)
 	}
 	if err := <-result; !errors.Is(err, io.EOF) {

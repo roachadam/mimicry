@@ -80,6 +80,7 @@ func (p *Profile) Validate() error {
 	if p.Platform == "" {
 		c.add("platform", "is required")
 	}
+	c.checkCapturesFrom(p)
 	c.checkTLS(&p.TLS)
 	alpn := p.TLS.extension(ExtALPN)
 	if p.HTTP2 != nil {
@@ -106,6 +107,33 @@ func (p *Profile) Validate() error {
 	c.checkWebSocket(p)
 	c.checkH3(p)
 	return c.err()
+}
+
+// scenarioName is the form of a capture scenario's name, a key of
+// Profile.CapturesFrom: "cookies", "h3-page", "replay-nike.com".
+var scenarioName = regexp.MustCompile(`^[a-z0-9]+([.-][a-z0-9]+)*$`)
+
+// checkCapturesFrom checks what Validate can see of Profile.CapturesFrom:
+// each scenario names another profile of the same browser and platform
+// (named browser-version-platform, as the built-ins are). That the profile
+// exists, holds its own captures and is older is for whoever knows the
+// built-ins: cmd/profilegen and the harness.
+func (c *checker) checkCapturesFrom(p *Profile) {
+	for _, sc := range slices.Sorted(maps.Keys(p.CapturesFrom)) {
+		path := "captures_from." + sc
+		from := p.CapturesFrom[sc]
+		if !scenarioName.MatchString(sc) {
+			c.add(path, "%q must be a capture scenario's name: lowercase letters and digits in parts joined by dashes or dots", sc)
+		}
+		switch {
+		case !profileName.MatchString(from):
+			c.add(path, "%q must be a profile name, as chrome-155-macos", from)
+		case from == p.Name:
+			c.add(path, "names the profile itself; leave the scenario out instead")
+		case !strings.HasPrefix(from, p.Browser+"-") || !strings.HasSuffix(from, "-"+p.Platform):
+			c.add(path, "%q is not a %s profile on %s: captures are inherited only from an earlier version of the same browser and platform", from, p.Browser, p.Platform)
+		}
+	}
 }
 
 func (t *TLS) extension(typ Code) *Extension {

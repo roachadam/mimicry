@@ -10,6 +10,9 @@
 bin/
 /harness/interop
 
+# cmd/refresh's staging: builds, captures before they are installed, logs
+/harness/.refresh/
+
 # Local-only workspace for trying unmerged changes in ../utls (see AGENTS.md)
 go.work
 go.work.sum

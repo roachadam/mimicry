@@ -20,6 +20,12 @@
 // CONNECTs, whose :protocol must follow the profile's pseudo-header
 // order, and ws:// from a non-secure page).
 //
+// Each is the profile's own capture or, for a scenario its captures_from
+// inherits, that profile's (capture.Inherited), its user-agent and
+// sec-ch-ua values rewritten to the profile's version before anything is
+// derived from them; a sampleGaps or h3PriorityGaps pin holds for the
+// profile whose capture shows it and every profile inheriting that capture.
+//
 // For each kind, the header order merges every captured request of its
 // resource type (so slots seen only on some, like origin with a crossorigin
 // attribute, keep their place); default values and the HTTP/2 weight come
@@ -77,7 +83,7 @@ func regenerate(data []byte, dir string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	pages, err := loadPages(dir, p.Name)
+	pages, err := loadPages(dir, p)
 	if err != nil {
 		return nil, err
 	}

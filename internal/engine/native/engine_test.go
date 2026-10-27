@@ -105,7 +105,7 @@ func newTestEngine(t *testing.T, o options) *Engine {
 	serverCert.Store(&cert)
 	p := o.profile
 	if p == nil {
-		p = profiles.Chrome155MacOS()
+		p = profiles.Chrome()
 	}
 	e, err := newEngine(Config{
 		Profile:     p,

@@ -4,15 +4,12 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -36,14 +33,14 @@ import (
 // credentials, where Proxy-Authorization goes). What goes through a tunnel
 // is the profile's direct ClientHello.
 func TestProxyMatchesBrowser(t *testing.T) {
-	for _, name := range profiles.Names() {
+	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
-			p, err := profiles.ByName(name)
+			p, err := loadProfile(name)
 			if err != nil {
 				t.Fatal(err)
 			}
 			t.Run("connect", func(t *testing.T) {
-				want := loadSamples[[]capture.ProxyRequest](t, name+".proxy-connect.proxytrace.json")
+				want := loadSamples[[]capture.ProxyRequest](t, p, "proxy-connect", ".proxytrace.json")
 				s := startProxied(t, p, scenario(t, "proxy-connect"), nil)
 				s.get("https", server.CaptureHost, "/")
 				got := s.proxy.Requests()
@@ -58,7 +55,7 @@ func TestProxyMatchesBrowser(t *testing.T) {
 				s.checkTunnelledHello(p)
 			})
 			t.Run("socks5", func(t *testing.T) {
-				want := loadSamples[[]capture.ProxyRequest](t, name+".proxy-socks5.proxytrace.json")
+				want := loadSamples[[]capture.ProxyRequest](t, p, "proxy-socks5", ".proxytrace.json")
 				s := startProxied(t, p, scenario(t, "proxy-socks5"), nil)
 				s.get("https", server.CaptureHost, "/")
 				got := s.proxy.Requests()
@@ -72,7 +69,7 @@ func TestProxyMatchesBrowser(t *testing.T) {
 				s.checkTunnelledHello(p)
 			})
 			t.Run("auth", func(t *testing.T) {
-				wantFlow := loadSamples[[]capture.ProxyRequest](t, name+".proxy-auth.proxytrace.json")
+				wantFlow := loadSamples[[]capture.ProxyRequest](t, p, "proxy-auth", ".proxytrace.json")
 				sc := scenario(t, "proxy-auth")
 				hosts, _, ok := sc.MultiHost()
 				if !ok || len(hosts) == 0 {
@@ -105,7 +102,7 @@ func TestProxyMatchesBrowser(t *testing.T) {
 				}
 			})
 			t.Run("plain", func(t *testing.T) {
-				want := loadSamples[[]capture.H1Request](t, name+".proxy-plain.h1trace.json")
+				want := loadSamples[[]capture.H1Request](t, p, "proxy-plain", ".h1trace.json")
 				s := startProxied(t, p, scenario(t, "proxy-plain"), nil)
 				s.get("http", server.CaptureHost, "/")
 				got := s.h1()
@@ -114,7 +111,7 @@ func TestProxyMatchesBrowser(t *testing.T) {
 				}
 			})
 			t.Run("plain-auth", func(t *testing.T) {
-				want := loadSamples[[]capture.H1Request](t, name+".proxy-plain-auth.h1trace.json")
+				want := loadSamples[[]capture.H1Request](t, p, "proxy-plain-auth", ".h1trace.json")
 				s := startProxied(t, p, scenario(t, "proxy-plain-auth"), url.UserPassword(server.ProxyUser, server.ProxyPassword))
 				s.get("http", server.CaptureHost, "/")
 				s.get("http", server.CaptureHost, "/nav")
@@ -202,10 +199,7 @@ func TestUnmeasuredProxyIsAnError(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			p, err := profiles.ByName("chrome-155-macos")
-			if err != nil {
-				t.Fatal(err)
-			}
+			p := profiles.Chrome()
 			if tc.strip != nil {
 				p.Proxy = tc.strip(p.Proxy)
 			}
@@ -403,7 +397,9 @@ func scenario(t *testing.T, name string) *server.Scenario {
 }
 
 // missingCaptures are the captures known not to exist, and why; a test
-// needing one is skipped. Any other missing capture fails.
+// needing one is skipped. Any other missing capture fails. Keyed by the file
+// of the profile that holds the scenario's captures, so a profile that
+// inherits the scenario (captures_from) inherits the entry too.
 var missingCaptures = map[string]string{
 	"safari-26-macos.proxy-auth.proxytrace.json":    "Safari 26 proxy credentials were never captured",
 	"safari-26-macos.proxy-plain-auth.h1trace.json": "Safari 26 proxy credentials were never captured",
@@ -416,41 +412,6 @@ var missingCaptures = map[string]string{
 	// events, which need Accessibility access; the second Mac's
 	// captures run over ssh, which has none.
 	"safari-26-macos.nav-redirect-click.pagetrace.json.gz": "Safari 26 clicks were never captured (no Accessibility access over ssh)",
-}
-
-// loadSamples reads a capture's samples, skipping the test when the
-// capture is one of missingCaptures.
-func loadSamples[T any](t *testing.T, file string) []T {
-	t.Helper()
-	path := captureDir + file
-	var data []byte
-	var err error
-	if strings.HasSuffix(file, ".gz") {
-		var pages []*capture.Page
-		pages, err = capture.LoadPages(path)
-		if err == nil {
-			data, err = json.Marshal(pages)
-		}
-	} else {
-		data, err = os.ReadFile(path)
-	}
-	if why, ok := missingCaptures[file]; ok {
-		if err == nil {
-			t.Fatalf("capture %s exists but is listed missing (%s)", file, why)
-		}
-		t.Skipf("no capture %s: %s", file, why)
-	}
-	if errors.Is(err, fs.ErrNotExist) {
-		t.Fatalf("no capture %s", file)
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
-	var samples []T
-	if err := json.Unmarshal(data, &samples); err != nil {
-		t.Fatal(err)
-	}
-	return samples
 }
 
 // nthOK is the CONNECT the proxy let through n-th, from 0.

@@ -21,7 +21,7 @@ func types(exts []profile.Extension) []profile.Code {
 // a pinned slot, which leaves each extension in place about twice as often as
 // chance (~12.5% vs ~6.7% for Chrome); this test catches that kind of bias.
 func TestShuffleIsUniform(t *testing.T) {
-	p := profiles.Chrome155MacOS()
+	p := profiles.Chrome()
 	plan := Compile(p)
 	k := len(plan.movable)
 	if k < 10 {
@@ -57,7 +57,7 @@ func TestShuffleIsUniform(t *testing.T) {
 // per-client or per-session order is a known bug in other libraries: two
 // connections then carry an identical order.
 func TestEachConnectionGetsAFreshOrder(t *testing.T) {
-	plan := Compile(profiles.Chrome155MacOS())
+	plan := Compile(profiles.Chrome())
 	seen := map[string]bool{}
 	for range 20 {
 		var key string

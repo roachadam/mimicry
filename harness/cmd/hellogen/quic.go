@@ -23,16 +23,17 @@ type quicConn struct {
 }
 
 // quicHello derives tls.quic from the ClientHello of every QUIC connection
-// in the h3-discovery and h3-page captures (server.H3ProfileCaptures,
-// forced or not): how it differs from t, the TLS hello. Every full hello
-// must be t's with the same
+// in the h3-discovery and h3-page captures p is checked against
+// (server.H3ProfileCaptures, forced or not): how it differs from p.TLS,
+// the TLS hello. Every full hello must be the TLS hello with the same
 // cipher suites, session ID, dropped extensions and replaced bodies, and
 // quic_transport_parameters added; their orders all alike (fixed) or not
 // (shuffled, keeping the extensions every one ends with last). Every
-// resumed hello must be a full one resumed as t.Resumption says, with
+// resumed hello must be a full one resumed as p.TLS.Resumption says, with
 // early_data. Nil without h3 captures.
-func quicHello(dir, name string, t *profile.TLS) (*profile.QUICHello, error) {
-	conns, err := quicConns(dir, name)
+func quicHello(dir string, p *profile.Profile) (*profile.QUICHello, error) {
+	t := &p.TLS
+	conns, err := quicConns(dir, p)
 	if err != nil || len(conns) == 0 {
 		return nil, err
 	}
@@ -87,20 +88,21 @@ func quicHello(dir, name string, t *profile.TLS) (*profile.QUICHello, error) {
 			errs = append(errs, fmt.Errorf("%s: %w", c.at, err))
 		}
 	}
-	retry, err := vnRetryHello(dir, name, t, out)
+	retry, err := vnRetryHello(dir, p, out)
 	out.VersionNegotiation = retry
 	return out, errors.Join(append(errs, err)...)
 }
 
 // quicConns reads every QUIC connection's ClientHello from the h3
 // captures, in file, sample and connection order.
-func quicConns(dir, name string) ([]quicConn, error) {
-	paths, err := server.H3ProfileCaptures(dir, name)
+func quicConns(dir string, p *profile.Profile) ([]quicConn, error) {
+	files, err := server.H3ProfileCaptures(dir, p)
 	if err != nil {
 		return nil, err
 	}
 	var out []quicConn
-	for _, path := range paths {
+	for _, f := range files {
+		path := f.Path
 		pages, err := capture.LoadPages(path)
 		if err != nil {
 			return nil, err

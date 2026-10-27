@@ -14,7 +14,6 @@ import (
 	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/harness/internal/h2trace"
 	"github.com/roachadam/mimicry/harness/internal/server"
-	"github.com/roachadam/mimicry/profiles"
 )
 
 // The cors page's fetches, made through mimicry from the page, send the
@@ -27,14 +26,14 @@ import (
 // redirect's second preflight. The profiles run in parallel: the page
 // waits 6 s.
 func TestCORSMatchesBrowser(t *testing.T) {
-	for _, name := range profiles.Names() {
+	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			p, err := profiles.ByName(name)
+			p, err := loadProfile(name)
 			if err != nil {
 				t.Fatal(err)
 			}
-			want, err := capture.LoadPages(captureDir + name + ".cors.pagetrace.json.gz")
+			want, err := loadPages(t, p, "cors", ".pagetrace.json.gz")
 			if err != nil {
 				t.Fatal(err)
 			}

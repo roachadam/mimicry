@@ -38,7 +38,7 @@ func ticketFrom(t *testing.T, tickets *Tickets, key string, validity time.Durati
 		// Application data follows the session tickets.
 		_, _ = srv.Write([]byte("x"))
 	}()
-	conn, _, err := Client(t.Context(), client, fingerprint.Compile(profiles.Chrome155MacOS()).Hello(), Config{
+	conn, _, err := Client(t.Context(), client, fingerprint.Compile(profiles.Chrome()).Hello(), Config{
 		ServerName: "localhost",
 		RootCAs:    roots,
 		Tickets:    tickets,

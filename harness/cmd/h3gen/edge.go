@@ -148,19 +148,20 @@ type edgeSet struct {
 	set   *captureSet
 }
 
-// loadEdge reads name's edge captures (server.H3EdgeCaptures).
+// loadEdge reads the edge captures set's profile is checked against
+// (server.H3EdgeCaptures).
 func loadEdge(dir string, set *captureSet) (*edgeSet, error) {
-	paths, err := server.H3EdgeCaptures(dir, set.name)
+	files, err := server.H3EdgeCaptures(dir, set.p)
 	if err != nil {
 		return nil, err
 	}
 	out := &edgeSet{
 		set: set,
 	}
-	for _, path := range paths {
-		base := strings.TrimSuffix(filepath.Base(path), ".pagetrace.json.gz")
-		scenario, _, _ := strings.Cut(strings.TrimPrefix(base, set.name+"."), ".")
-		pages, err := capture.LoadPages(path)
+	for _, f := range files {
+		base := strings.TrimSuffix(filepath.Base(f.Path), ".pagetrace.json.gz")
+		scenario := f.Scenario
+		pages, err := capture.LoadPages(f.Path)
 		if err != nil {
 			return nil, err
 		}

@@ -11,7 +11,6 @@ import (
 	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/profile"
-	"github.com/roachadam/mimicry/profiles"
 )
 
 // The cookies page, walked through mimicry as the browser walked it (page
@@ -26,16 +25,16 @@ import (
 // must be each sample's, HPACK-decoded line for line, which is where the
 // navigation's referer and cookie slots are compared end to end.
 func TestCookiesScenarioMatchesBrowser(t *testing.T) {
-	for _, name := range profiles.Names() {
+	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
-			p, err := profiles.ByName(name)
+			p, err := loadProfile(name)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if p.Kinds == nil {
 				t.Fatalf("%s describes no request kinds", name)
 			}
-			want, err := capture.LoadPages(captureDir + name + ".cookies.pagetrace.json.gz")
+			want, err := loadPages(t, p, "cookies", ".pagetrace.json.gz")
 			if err != nil {
 				t.Fatal(err)
 			}

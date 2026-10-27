@@ -1,12 +1,15 @@
 // Command capture launches the installed browsers against the capture server
 // and writes each browser's capture to the output directory, logging its JA4
 // and Akamai fingerprints. A scenario whose capture exists is skipped after
-// its first sample, once the user agent names it.
+// its first sample, once the user agent names it. -summary records what each
+// scenario wrote and how long it took; -preflight only reports what a capture
+// here needs (cmd/refresh runs both, here and on another Mac over ssh).
 //
-// Each browser is sampled several times, each time on a fresh server and port
-// so that no connection or session carries over. If the samples differ only in
-// extension order, the browser shuffles its extensions; any other difference
-// is an error, because the profile could not describe it.
+// Each browser is sampled several times (-samples, or name:samples in
+// -scenarios), each time on a fresh server and port so that no connection or
+// session carries over. If the samples differ only in extension order, the
+// browser shuffles its extensions; any other difference is an error, because
+// the profile could not describe it.
 package main
 
 import (
@@ -23,6 +26,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -45,40 +49,66 @@ func main() {
 }
 
 type options struct {
-	headless     bool
-	samples      int
+	headless bool
+	samples  int
+	// samplesOf overrides samples per scenario name (-scenarios name:n).
+	samplesOf    map[string]int
 	timeout      time.Duration
 	out          string
+	summary      string
 	ca           *server.CA
 	cert         tls.Certificate
 	scenarios    []*server.Scenario
 	h3LocalRoots bool
 }
 
+// samplesFor is how many samples sc takes.
+func (o options) samplesFor(sc *server.Scenario) int {
+	if n, ok := o.samplesOf[sc.Name]; ok {
+		return n
+	}
+	return o.samples
+}
+
 func run() error {
 	out := flag.String("out", "testdata/captures", "directory to write captures to")
 	only := flag.String("browsers", "", "comma-separated browsers to capture (default: every installed one)")
 	headless := flag.Bool("headless", false, "hide browser windows; for checking the tool only: headless Chrome reports HeadlessChrome in its user agent")
-	samples := flag.Int("samples", 3, "connections to sample per browser (at least 2, to tell whether it shuffles extensions)")
+	samples := flag.Int("samples", 3, "connections to sample per browser and scenario; the default scenario needs 2 or more to tell whether a browser shuffles its extensions")
 	caDir := flag.String("ca-dir", "", "capture CA directory (default: <user config dir>/mimicry/capture-ca)")
 	timeout := flag.Duration("timeout", 45*time.Second, "how long to wait for each sample")
-	scenarioNames := flag.String("scenarios", "", "comma-separated scenarios to capture (default: all but replays; see internal/server/scenario.go); "+
+	scenarioNames := flag.String("scenarios", "", "comma-separated scenarios to capture (default: all but replays; see internal/server/scenario.go), each optionally name:samples to override -samples; "+
 		"replay-<site> replays -pages/<site>.json, replay all of them")
 	pages := flag.String("pages", "testdata/pages", "directory of recorded page shapes (cmd/pageshape) for replay scenarios")
 	h3LocalRoots := flag.Bool("h3-local-roots", false, "in scenarios serving HTTP/3, let Chrome and Firefox use QUIC with the capture CA's certificates, which they refuse by default "+
 		"(Chrome: --origin-to-force-quic-on with an unused port, Firefox: network.http.http3.disable_when_third_party_roots_found=false); "+
 		"the captures record the setting as a condition and are named <scenario>."+localRootsSuffix)
+	summary := flag.String("summary", "", "append one JSON line per written scenario to this file: browser, scenario, profile name, user agent, samples, seconds, files")
+	preflight := flag.Bool("preflight", false, "print what a capture here needs as JSON (browsers and versions, console user, capture CA trust, /etc/resolver/test, aioquic) and exit")
 	flag.Parse()
-	if *samples < 2 {
-		return errors.New("-samples must be at least 2")
+	if *preflight {
+		return printPreflight(*caDir)
+	}
+	if *samples < 1 {
+		return errors.New("-samples must be at least 1")
 	}
 	scenarios := server.Scenarios
+	samplesOf := map[string]int{}
 	if *scenarioNames != "" {
 		scenarios = nil
-		for name := range strings.SplitSeq(*scenarioNames, ",") {
+		for entry := range strings.SplitSeq(*scenarioNames, ",") {
+			name, count, err := scenarioEntry(entry)
+			if err != nil {
+				return err
+			}
 			found, err := scenariosNamed(name, *pages)
 			if err != nil {
 				return err
+			}
+			if count > 0 {
+				for _, sc := range found {
+					samplesOf[sc.Name] = count
+				}
 			}
 			scenarios = append(scenarios, found...)
 		}
@@ -118,12 +148,17 @@ func run() error {
 	opts := options{
 		headless:     *headless,
 		samples:      *samples,
+		samplesOf:    samplesOf,
 		timeout:      *timeout,
 		out:          *out,
+		summary:      *summary,
 		ca:           ca,
 		cert:         cert,
 		scenarios:    scenarios,
 		h3LocalRoots: *h3LocalRoots,
+	}
+	if slices.Contains(scenarios, server.DefaultScenario) && opts.samplesFor(server.DefaultScenario) < 2 {
+		log.Printf("warning: one sample of the default scenario cannot tell whether a browser shuffles its extensions; its capture says %q", profile.ExtensionOrderFixed)
 	}
 	// Safari resolves through the system: the stub answers its *.test
 	// lookups (Chrome and Firefox map the names themselves).
@@ -226,6 +261,7 @@ func run() error {
 func captureBrowser(ctx context.Context, b *browser.Browser, opts options) error {
 	var base *capture.Capture
 	for _, sc := range opts.scenarios {
+		start := time.Now()
 		c, err := captureScenario(ctx, b, sc, opts)
 		if errors.Is(err, capture.ErrExists) {
 			log.Printf("%s: scenario %s: %v; delete it to capture again", b.Name, sc.Name, err)
@@ -240,7 +276,7 @@ func captureBrowser(ctx context.Context, b *browser.Browser, opts options) error
 				log.Printf("%s: warning: no server_name in the ClientHello", c.Profile.Name)
 			}
 			f := capture.Compute(&c.Profile)
-			log.Printf("%s: extension order %s across %d samples", c.Profile.Name, c.Profile.TLS.ExtensionOrder, opts.samples)
+			log.Printf("%s: extension order %s across %d samples", c.Profile.Name, c.Profile.TLS.ExtensionOrder, opts.samplesFor(sc))
 			log.Printf("%s: JA4 %s", c.Profile.Name, f.JA4)
 			log.Printf("%s: Akamai %s", c.Profile.Name, f.Akamai)
 		} else if _, _, multi := sc.MultiHost(); base != nil && !sc.HTTP1 && !sc.Plain && !multi {
@@ -257,13 +293,25 @@ func captureBrowser(ctx context.Context, b *browser.Browser, opts options) error
 			return err
 		}
 		log.Printf("%s: wrote %s", c.Profile.Name, path)
+		if err := appendSummary(opts.summary, summaryLine{
+			Browser:   b.Name,
+			Scenario:  c.Scenario,
+			Name:      c.Profile.Name,
+			UserAgent: c.UserAgent(),
+			Samples:   opts.samplesFor(sc),
+			Seconds:   time.Since(start).Seconds(),
+			File:      filepath.Base(path),
+		}); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
 func captureScenario(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts options) (*capture.Capture, error) {
-	samples := make([]*capture.Capture, 0, opts.samples)
-	for i := range opts.samples {
+	n := opts.samplesFor(sc)
+	samples := make([]*capture.Capture, 0, n)
+	for i := range n {
 		c, err := sample(ctx, b, sc, opts)
 		if err != nil {
 			return nil, fmt.Errorf("sample %d: %w", i+1, err)
@@ -532,6 +580,20 @@ func await(ctx context.Context, name string, captures <-chan *capture.Capture, t
 			return nil, ctx.Err()
 		}
 	}
+}
+
+// scenarioEntry splits a -scenarios entry into its name and sample count
+// (zero: -samples).
+func scenarioEntry(entry string) (string, int, error) {
+	name, count, ok := strings.Cut(entry, ":")
+	if !ok {
+		return name, 0, nil
+	}
+	n, err := strconv.Atoi(count)
+	if err != nil || n < 1 {
+		return "", 0, fmt.Errorf("-scenarios %q: samples must be a positive number", entry)
+	}
+	return name, n, nil
 }
 
 // scenariosNamed resolves a -scenarios entry: a built-in scenario,

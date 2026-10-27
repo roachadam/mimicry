@@ -61,7 +61,7 @@ func allowAll() http.Header {
 func corsTransport(t *testing.T, e *corsEngine, extra http.Header) *Transport {
 	t.Helper()
 	tr, err := NewTransport(Config{
-		Profile: profiles.Chrome155MacOS(),
+		Profile: profiles.Chrome(),
 		engine:  e,
 		Headers: extra,
 	})

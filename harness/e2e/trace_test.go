@@ -8,9 +8,9 @@ import (
 	"testing"
 
 	"github.com/roachadam/mimicry"
+	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/harness/internal/h2trace"
 	"github.com/roachadam/mimicry/harness/internal/server"
-	"github.com/roachadam/mimicry/profiles"
 )
 
 // On one connection, mimicry encodes its first request, cuts its upload into
@@ -19,9 +19,9 @@ import (
 // request is compared: the browser's subresource requests carry headers a
 // navigation profile does not.
 func TestConnectionMatchesBrowserTrace(t *testing.T) {
-	for _, name := range profiles.Names() {
+	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
-			p, err := profiles.ByName(name)
+			p, err := loadProfile(name)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -77,7 +77,11 @@ func TestConnectionMatchesBrowserTrace(t *testing.T) {
 			// wrong policy (64 KB or 4 MB steps the browser never takes)
 			// falls outside.
 			low, high := map[string]uint32{}, map[string]uint32{}
-			for i, want := range loadTraces(t, name) {
+			wantTraces, err := loadH2Traces(t, p, capture.DefaultScenario)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for i, want := range wantTraces {
 				w := h2trace.Extract(want)
 				for _, f := range exactFeatures {
 					if w.Exact[f] != got.Exact[f] {

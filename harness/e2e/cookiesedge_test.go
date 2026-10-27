@@ -11,7 +11,6 @@ import (
 	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/profile"
-	"github.com/roachadam/mimicry/profiles"
 )
 
 // The cookies-edge page, walked through mimicry as the browser walked it
@@ -29,13 +28,13 @@ func TestCookiesEdgeMatchesBrowser(t *testing.T) {
 // header with every sample of the browser's capture of sc.
 func matchCookiesEdgePage(t *testing.T, sc *server.Scenario, steps []server.CookiesEdgeStep) {
 	t.Helper()
-	for _, name := range profiles.Names() {
+	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
-			p, err := profiles.ByName(name)
+			p, err := loadProfile(name)
 			if err != nil {
 				t.Fatal(err)
 			}
-			want, err := capture.LoadPages(captureDir + name + "." + sc.Name + ".pagetrace.json.gz")
+			want, err := loadPages(t, p, sc.Name, ".pagetrace.json.gz")
 			if err != nil {
 				t.Fatal(err)
 			}

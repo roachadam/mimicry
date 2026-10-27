@@ -18,7 +18,6 @@ import (
 	"github.com/roachadam/mimicry/harness/internal/dnsstub"
 	"github.com/roachadam/mimicry/harness/internal/h2trace"
 	"github.com/roachadam/mimicry/harness/internal/server"
-	"github.com/roachadam/mimicry/profiles"
 )
 
 // connectionsPreconnects are the connections a browser opened on the
@@ -41,14 +40,14 @@ var connectionsPreconnects = map[string][]string{
 // made one per connection and the other four after them. Every sample is
 // compared. The profiles run in parallel.
 func TestConnectionsMatchBrowser(t *testing.T) {
-	for _, name := range profiles.Names() {
+	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			p, err := profiles.ByName(name)
+			p, err := loadProfile(name)
 			if err != nil {
 				t.Fatal(err)
 			}
-			want, err := capture.LoadPages(captureDir + name + ".connections.pagetrace.json.gz")
+			want, err := loadPages(t, p, "connections", ".pagetrace.json.gz")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -67,7 +66,7 @@ func TestConnectionsMatchBrowser(t *testing.T) {
 			got := s.finish(s.url(hosts[0], "/done"))
 			gotConns, gotGroups := connectionsSeen(got, nil), connectionsGrouping(got)
 			for i, w := range want {
-				if wc := connectionsSeen(w, connectionsPreconnects[name]); !slices.Equal(gotConns, wc) {
+				if wc := connectionsSeen(w, connectionsPreconnects[capture.Source(p, "connections")]); !slices.Equal(gotConns, wc) {
 					t.Errorf("sample %d: connections differ:\n got %q\nwant %q", i+1, gotConns, wc)
 				}
 				if wg := connectionsGrouping(w); !slices.Equal(gotGroups, wg) {

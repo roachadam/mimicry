@@ -5,7 +5,7 @@ the same function as `http.Transport.Proxy`:
 
 ```go
 client, err := mimicry.NewClient(mimicry.Config{
-	Profile: profiles.Chrome155MacOS(),
+	Profile: profiles.Chrome(),
 	Proxy:   http.ProxyURL(proxyURL), // or http.ProxyFromEnvironment
 })
 ```

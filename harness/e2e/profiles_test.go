@@ -19,7 +19,6 @@ import (
 	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/internal/testutil"
 	"github.com/roachadam/mimicry/profile"
-	"github.com/roachadam/mimicry/profiles"
 )
 
 // captureClient runs a capture server answering as sc and returns its base
@@ -116,17 +115,19 @@ func captureRequests(t *testing.T, p *profile.Profile, n int) []*capture.Capture
 	return got
 }
 
-func loadCapture(t *testing.T, name string) *profile.Profile {
+// loadCapture reads the default page's capture p is checked against.
+func loadCapture(t *testing.T, p *profile.Profile) *profile.Profile {
 	t.Helper()
-	data, err := os.ReadFile("../testdata/captures/" + name + ".json")
+	path, _, _ := capturePath(t, p, capture.DefaultScenario, ".json")
+	data, err := os.ReadFile(path) //nolint:gosec // a capture file
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := profile.Decode(data)
+	c, err := profile.Decode(data)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return p
+	return c
 }
 
 // Every built-in profile reproduces its browser's capture exactly, judged as
@@ -134,9 +135,9 @@ func loadCapture(t *testing.T, name string) *profile.Profile {
 // they compare. A shuffled profile whose three orders happened to agree would
 // be read as fixed and fail; for Chrome that chance is negligible.
 func TestProfilesMatchCaptures(t *testing.T) {
-	for _, name := range profiles.Names() {
+	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
-			p, err := profiles.ByName(name)
+			p, err := loadProfile(name)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -150,7 +151,7 @@ func TestProfilesMatchCaptures(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, d := range diff.Compare(loadCapture(t, name), &got.Profile) {
+			for _, d := range diff.Compare(loadCapture(t, p), &got.Profile) {
 				t.Error(d)
 			}
 		})

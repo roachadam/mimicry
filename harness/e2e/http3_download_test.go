@@ -11,7 +11,6 @@ import (
 	"github.com/roachadam/mimicry/harness/internal/quictrace"
 	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/profile"
-	"github.com/roachadam/mimicry/profiles"
 )
 
 // The h3-download page (server.H3DownloadSteps: a 50 MiB response over
@@ -37,17 +36,17 @@ import (
 // and on mimicry's connection (windowCreditViolations). The requests
 // after the download go on its connection.
 func TestHTTP3DownloadMatchesBrowser(t *testing.T) {
-	for _, name := range profiles.Names() {
+	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			p, err := profiles.ByName(name)
+			p, err := loadProfile(name)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if p.HTTP3 == nil || p.QUIC == nil {
 				t.Fatal("the profile has no http3 or quic section")
 			}
-			want := h3Captures(t, name, server.H3Download)
+			want := h3Captures(t, p, server.H3Download)
 			byWindow := p.QUIC.Credit.ConnectionStreamWindow
 			refs := make([]*quictrace.Conn, 0, len(want))
 			for i, page := range want {

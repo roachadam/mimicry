@@ -58,7 +58,7 @@ func run() error {
 	serverList := flag.String("servers", "", "comma-separated server names (default all)")
 	caseList := flag.String("cases", "", "comma-separated case names (default all)")
 	siteList := flag.String("sites", "", "comma-separated site hosts (default all)")
-	profileList := flag.String("profiles", "", "comma-separated built-in profile names (default all)")
+	profileList := flag.String("profiles", "", "comma-separated built-in profile names (default every supported one)")
 	out := flag.String("out", "", "output directory (default a new one under the system temp directory)")
 	parallel := flag.Int("parallel", 4, "servers or sites run at once")
 	seed := flag.Uint64("seed", 1, "seed of the impairment draws")
@@ -167,9 +167,10 @@ func fanOut[T any](items []T, n int, f func(T) []result) []result {
 	return slices.Concat(out...)
 }
 
-// selectProfiles returns the named built-in profiles, or all of them.
+// selectProfiles returns the named built-in profiles, or every supported
+// one.
 func selectProfiles(list string) ([]namedProfile, error) {
-	names := profiles.Names()
+	names := profiles.Supported()
 	if list != "" {
 		names = strings.Split(list, ",")
 	}

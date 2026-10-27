@@ -22,7 +22,6 @@ import (
 	"github.com/roachadam/mimicry/internal/h3"
 	"github.com/roachadam/mimicry/internal/qpack"
 	"github.com/roachadam/mimicry/profile"
-	"github.com/roachadam/mimicry/profiles"
 )
 
 // Every request of the h3 pages (server.H3DiscoverySteps, H3PageSteps),
@@ -61,17 +60,17 @@ import (
 // browser's h3 captures; compareDraws catches one draw repeated on every
 // connection. Port numbers in values are normalised.
 func TestHTTP3MatchesBrowser(t *testing.T) {
-	for _, name := range profiles.Names() {
+	for _, name := range testProfiles(t) {
 		t.Run(name+"/rules", func(t *testing.T) {
 			t.Parallel()
-			p, err := profiles.ByName(name)
+			p, err := loadProfile(name)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if p.QUIC == nil {
 				t.Fatal("the profile has no quic section")
 			}
-			for _, c := range capturedConns(t, name) {
+			for _, c := range capturedConns(t, p) {
 				for _, v := range quicRuleViolations(p, c.c, t.Logf) {
 					t.Errorf("%s: the profile's rule does not describe the browser: %s", c.at, v)
 				}
@@ -80,36 +79,43 @@ func TestHTTP3MatchesBrowser(t *testing.T) {
 		for _, sc := range []*server.Scenario{server.H3Discovery, server.H3Page} {
 			t.Run(name+"/"+sc.Name, func(t *testing.T) {
 				t.Parallel()
-				p, err := profiles.ByName(name)
+				p, err := loadProfile(name)
 				if err != nil {
 					t.Fatal(err)
 				}
 				if p.HTTP3 == nil || p.QUIC == nil {
 					t.Fatal("the profile has no http3 or quic section")
 				}
-				want := h3Captures(t, name, sc)
+				want := h3Captures(t, p, sc)
 				got := runH3Page(t, p, sc, want[0])
-				skip, unused := gapsFor(t, name+"/"+sc.Name)
-				compareH3Page(t, p, got, want, flightRefs(t, name), skip)
+				skip, unused := gapsFor(t, capture.Source(p, sc.Name)+"/"+sc.Name)
+				compareH3Page(t, p, got, want, flightRefs(t, p), skip)
 				unused()
 			})
 		}
 	}
 }
 
-// h3Captures loads the browser's capture of sc: the -h3-local-roots one
-// where it exists (Chrome, Firefox), else the unforced one (Safari).
-func h3Captures(t *testing.T, name string, sc *server.Scenario) []*capture.Page {
+// h3Captures loads the browser's capture of sc p is checked against: the
+// -h3-local-roots one where it exists (Chrome, Firefox), else the unforced
+// one (Safari), rewritten to p's version where inherited.
+func h3Captures(t *testing.T, p *profile.Profile, sc *server.Scenario) []*capture.Page {
 	t.Helper()
-	path := captureDir + name + "." + sc.Name + ".local-roots.pagetrace.json.gz"
-	if _, err := os.Stat(path); err != nil {
-		path = captureDir + name + "." + sc.Name + ".pagetrace.json.gz"
+	rest := ".local-roots.pagetrace.json.gz"
+	if path, _, _ := capturePath(t, p, sc.Name, rest); !exists(path) {
+		rest = ".pagetrace.json.gz"
 	}
-	pages, err := capture.LoadPages(path)
+	pages, err := loadPages(t, p, sc.Name, rest)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return pages
+}
+
+// exists reports whether the file at path exists.
+func exists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 // h3Steps are sc's steps.
@@ -744,18 +750,18 @@ type capturedConn struct {
 	c  *quictrace.Conn
 }
 
-// capturedConns are every QUIC connection of the profile's h3 captures,
-// unforced and -h3-local-roots, failed handshakes included.
-func capturedConns(t *testing.T, name string) []capturedConn {
+// capturedConns are every QUIC connection of the h3 captures p is checked
+// against, unforced and -h3-local-roots, failed handshakes included,
+// rewritten to p's version where inherited.
+func capturedConns(t *testing.T, p *profile.Profile) []capturedConn {
 	t.Helper()
 	var out []capturedConn
 	for _, sc := range []string{"h3-discovery", "h3-page"} {
 		for _, cond := range []string{"", ".local-roots"} {
-			path := captureDir + name + "." + sc + cond + ".pagetrace.json.gz"
-			if _, err := os.Stat(path); err != nil {
+			if path, _, _ := capturePath(t, p, sc, cond+".pagetrace.json.gz"); !exists(path) {
 				continue
 			}
-			pages, err := capture.LoadPages(path)
+			pages, err := loadPages(t, p, sc, cond+".pagetrace.json.gz")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -774,10 +780,10 @@ func capturedConns(t *testing.T, name string) []capturedConn {
 
 // flightRefs are every QUIC connection of the profile's h3 captures, by
 // whether it resumed: what the first flight is held to.
-func flightRefs(t *testing.T, name string) map[bool][]*quictrace.Conn {
+func flightRefs(t *testing.T, p *profile.Profile) map[bool][]*quictrace.Conn {
 	t.Helper()
 	out := map[bool][]*quictrace.Conn{}
-	for _, c := range capturedConns(t, name) {
+	for _, c := range capturedConns(t, p) {
 		out[c.c.Resumed] = append(out[c.c.Resumed], c.c)
 	}
 	return out
@@ -1249,9 +1255,9 @@ func h3Features(c *quictrace.Conn) features {
 // (scenario) reach the encoder, and the server acknowledges each section
 // before the next request.
 func TestQPACKReproducesBrowserSections(t *testing.T) {
-	for _, name := range profiles.Names() {
+	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
-			p, err := profiles.ByName(name)
+			p, err := loadProfile(name)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1260,8 +1266,9 @@ func TestQPACKReproducesBrowserSections(t *testing.T) {
 			}
 			for _, sc := range []*server.Scenario{server.H3Discovery, server.H3Page} {
 				for _, cond := range []string{"", ".local-roots"} {
-					path := captureDir + name + "." + sc.Name + cond + ".pagetrace.json.gz"
-					if _, err := os.Stat(path); err != nil {
+					// As captured: the encoded bytes are compared.
+					path, _, _ := capturePath(t, p, sc.Name, cond+".pagetrace.json.gz")
+					if !exists(path) {
 						continue
 					}
 					pages, err := capture.LoadPages(path)

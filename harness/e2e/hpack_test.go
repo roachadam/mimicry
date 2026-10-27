@@ -15,41 +15,25 @@ import (
 	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/internal/hpack"
 	"github.com/roachadam/mimicry/profile"
-	"github.com/roachadam/mimicry/profiles"
 )
 
-const captureDir = "../testdata/captures/"
-
-// loadTraces returns every sample's trace for the named capture's default
-// scenario.
-func loadTraces(t *testing.T, name string) []*h2trace.Trace {
+// scenarioTraces returns the traces of every scenario p is checked against
+// (its own and those it inherits), by scenario, as captured: HPACK
+// reproduction compares the bytes sent, so inherited ones are not
+// rewritten to p's version.
+func scenarioTraces(t *testing.T, p *profile.Profile) map[*server.Scenario][]*h2trace.Trace {
 	t.Helper()
-	traces, err := h2trace.Load(captureDir + name + ".h2trace.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	return traces
-}
-
-// scenarioTraces returns every captured scenario's traces for the named
-// capture, by scenario.
-func scenarioTraces(t *testing.T, name string) map[*server.Scenario][]*h2trace.Trace {
-	t.Helper()
-	files, err := filepath.Glob(captureDir + name + ".*h2trace.json")
+	files, err := capture.Files(captureDir, p, ".h2trace.json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	out := map[*server.Scenario][]*h2trace.Trace{}
 	for _, f := range files {
-		// <name>.h2trace.json or <name>.<scenario>.h2trace.json
-		scenario := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(f), name+"."), "h2trace.json")
-		sc := server.DefaultScenario
-		if scenario = strings.TrimSuffix(scenario, "."); scenario != "" {
-			if sc, err = server.ScenarioByName(scenario); err != nil {
-				t.Fatalf("%s: %v", f, err)
-			}
+		sc, err := server.ScenarioByName(f.Scenario)
+		if err != nil {
+			t.Fatalf("%s: %v", f.Path, err)
 		}
-		traces, err := h2trace.Load(f)
+		traces, err := h2trace.Load(f.Path)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -65,20 +49,20 @@ func scenarioTraces(t *testing.T, name string) map[*server.Scenario][]*h2trace.T
 // cookies, a full table). The server's header table size reaches the encoder
 // where the browser acknowledged the server's SETTINGS.
 func TestHPACKReproducesBrowserBlocks(t *testing.T) {
-	for _, name := range profiles.Names() {
+	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
-			p, err := profiles.ByName(name)
+			p, err := loadProfile(name)
 			if err != nil {
 				t.Fatal(err)
 			}
-			for sc, traces := range scenarioTraces(t, name) {
+			for sc, traces := range scenarioTraces(t, p) {
 				for i, tr := range traces {
 					t.Run(sc.Name+" sample "+strconv.Itoa(i+1), func(t *testing.T) {
 						replay(t, p.HTTP2.HPACK, sc, tr)
 					})
 				}
 			}
-			for scenario, samples := range pageTraces(t, name) {
+			for scenario, samples := range pageTraces(t, p) {
 				for i, page := range samples {
 					for k, tr := range page.H2 {
 						t.Run(scenario+" sample "+strconv.Itoa(i+1)+" "+tr.Host+" "+strconv.Itoa(k), func(t *testing.T) {
@@ -92,21 +76,22 @@ func TestHPACKReproducesBrowserBlocks(t *testing.T) {
 	}
 }
 
-// pageTraces returns every replayed page captured for the named capture, by
-// scenario.
-func pageTraces(t *testing.T, name string) map[string][]*capture.Page {
+// pageTraces returns every page capture p is checked against (its own and
+// those it inherits), as captured (see scenarioTraces), by file name less
+// its profile and suffix ("kinds", "h3-page.local-roots").
+func pageTraces(t *testing.T, p *profile.Profile) map[string][]*capture.Page {
 	t.Helper()
-	files, err := filepath.Glob(captureDir + name + ".*.pagetrace.json.gz")
+	files, err := capture.Files(captureDir, p, ".pagetrace.json.gz")
 	if err != nil {
 		t.Fatal(err)
 	}
 	out := map[string][]*capture.Page{}
 	for _, f := range files {
-		pages, err := capture.LoadPages(f)
+		pages, err := capture.LoadPages(f.Path)
 		if err != nil {
 			t.Fatal(err)
 		}
-		scenario := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(f), name+"."), ".pagetrace.json.gz")
+		scenario := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(f.Path), f.Source+"."), ".pagetrace.json.gz")
 		out[scenario] = pages
 	}
 	return out

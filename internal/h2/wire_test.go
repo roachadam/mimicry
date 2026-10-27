@@ -257,7 +257,7 @@ func roundTripAsync(c *Conn, req *http.Request) <-chan responseOrError {
 // A body read to its declared length and then closed waits for the server's
 // END_STREAM instead of resetting the stream; one closed early is reset.
 func TestClosingFullyReadBodyDoesNotReset(t *testing.T) {
-	c, pr := newPeer(t, profiles.Chrome155MacOS(), clockwork.NewRealClock())
+	c, pr := newPeer(t, profiles.Chrome(), clockwork.NewRealClock())
 
 	result := roundTripAsync(c, get(t, "/full"))
 	h := pr.headers()
@@ -299,7 +299,7 @@ func TestClosingFullyReadBodyDoesNotReset(t *testing.T) {
 // Chrome makes each request depend, exclusively, on the newest stream still
 // open, and on stream 0 when none is.
 func TestChainedPriorities(t *testing.T) {
-	c, pr := newPeer(t, profiles.Chrome155MacOS(), clockwork.NewRealClock())
+	c, pr := newPeer(t, profiles.Chrome(), clockwork.NewRealClock())
 	first := roundTripAsync(c, get(t, "/1"))
 	h1 := pr.headers()
 	second := roundTripAsync(c, get(t, "/2"))
@@ -325,7 +325,7 @@ func TestChainedPriorities(t *testing.T) {
 // last frame carrying data, as every captured browser sends it: no empty
 // DATA frame ends the stream.
 func TestDataFrameCap(t *testing.T) {
-	p := profiles.Chrome155MacOS()
+	p := profiles.Chrome()
 	c, pr := newPeer(t, p, clockwork.NewRealClock())
 	// Room for the whole upload, as the capture server allows.
 	if err := pr.fr.WriteWindowUpdate(0, 1<<20); err != nil {
@@ -370,7 +370,7 @@ func TestDataFrameCap(t *testing.T) {
 // slow-idle scenario).
 func TestWindowUpdateInterval(t *testing.T) {
 	clock := clockwork.NewFakeClockAt(time.Date(2026, 10, 23, 0, 0, 0, 0, time.UTC))
-	c, pr := newPeer(t, profiles.Chrome155MacOS(), clock)
+	c, pr := newPeer(t, profiles.Chrome(), clock)
 	result := roundTripAsync(c, get(t, "/slow"))
 	h := pr.headers()
 	if err := pr.fr.WriteHeaders(http2.HeadersFrameParam{StreamID: h.StreamID, BlockFragment: []byte{0x88}, EndHeaders: true}); err != nil {
@@ -402,7 +402,7 @@ func TestWindowUpdateInterval(t *testing.T) {
 		case <-time.After(5 * time.Second):
 			t.Fatalf("no credit returned after 5 s; got %v", got)
 		}
-		if wu, ok := f.(*http2.WindowUpdateFrame); ok && wu.Increment != profiles.Chrome155MacOS().HTTP2.WindowUpdate {
+		if wu, ok := f.(*http2.WindowUpdateFrame); ok && wu.Increment != profiles.Chrome().HTTP2.WindowUpdate {
 			got = append(got, fmt.Sprintf("%d+%d", wu.StreamID, wu.Increment))
 		}
 	}
@@ -418,7 +418,7 @@ func TestWindowUpdateInterval(t *testing.T) {
 // flight fails without being retried elsewhere. Safari sends no PING.
 func TestIdlePing(t *testing.T) {
 	clock := clockwork.NewFakeClockAt(time.Date(2026, 10, 23, 0, 0, 0, 0, time.UTC))
-	c, pr := newPeer(t, profiles.Chrome155MacOS(), clock)
+	c, pr := newPeer(t, profiles.Chrome(), clock)
 	clock.Advance(11 * time.Second)
 	first := roundTripAsync(c, get(t, "/1"))
 	h := pr.headers()
@@ -454,7 +454,7 @@ func TestIdlePing(t *testing.T) {
 	}
 
 	safari := clockwork.NewFakeClockAt(time.Date(2026, 10, 23, 0, 0, 0, 0, time.UTC))
-	sc, spr := newPeer(t, profiles.Safari27MacOS(), safari)
+	sc, spr := newPeer(t, profiles.Safari(), safari)
 	safari.Advance(30 * time.Second)
 	res := roundTripAsync(sc, get(t, "/"))
 	sh := spr.headers()
@@ -473,7 +473,7 @@ func TestIdlePing(t *testing.T) {
 // been processed: it fails with an error the engine does not retry, unlike a
 // request that had not started (ErrConnUnusable).
 func TestInFlightRequestNotRetriedOnClose(t *testing.T) {
-	c, pr := newPeer(t, profiles.Chrome155MacOS(), clockwork.NewRealClock())
+	c, pr := newPeer(t, profiles.Chrome(), clockwork.NewRealClock())
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "https://example.com/pay", strings.NewReader("x"))
 	if err != nil {
 		t.Fatal(err)

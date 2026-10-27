@@ -9,7 +9,6 @@ import (
 	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/internal/ws"
 	"github.com/roachadam/mimicry/profile"
-	"github.com/roachadam/mimicry/profiles"
 )
 
 // wsMessage is one client message of a captured WebSocket: its frames'
@@ -68,9 +67,9 @@ func wsMessages(t *testing.T, ws *capture.WebSocket) []wsMessage {
 // TestWebSocketsMatchBrowser compares mimicry's frames with the same
 // captures; this test names the first message and byte that differ.
 func TestDeflateReproducesBrowserMessages(t *testing.T) {
-	for _, name := range profiles.Names() {
+	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
-			p, err := profiles.ByName(name)
+			p, err := loadProfile(name)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -79,7 +78,7 @@ func TestDeflateReproducesBrowserMessages(t *testing.T) {
 			}
 			sockets := 0
 			for _, scenario := range []string{"websocket", "websocket-h2"} {
-				pages, err := capture.LoadPages(captureDir + name + "." + scenario + ".pagetrace.json.gz")
+				pages, err := loadPages(t, p, scenario, ".pagetrace.json.gz")
 				if err != nil {
 					t.Fatal(err)
 				}

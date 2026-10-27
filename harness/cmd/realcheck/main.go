@@ -59,7 +59,7 @@ func run() error {
 	echo := flag.Bool("echo", true, "visit the echo endpoints")
 	doSites := flag.Bool("sites", true, "visit the protected sites")
 	browserList := flag.String("browsers", "", "comma-separated installed browsers to drive (chrome, firefox, safari); takes over the screen")
-	profileList := flag.String("profiles", "", "comma-separated built-in profile names (default all; \"none\" for none)")
+	profileList := flag.String("profiles", "", "comma-separated built-in profile names (default every supported one; \"none\" for none)")
 	noGo := flag.Bool("no-go", false, "skip Go's net/http default client on the sites")
 	flag.Parse()
 	if err := os.MkdirAll(*out, 0o750); err != nil {
@@ -68,7 +68,7 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 	log.Printf("writing to %s", *out)
-	names := profiles.Names()
+	names := profiles.Supported()
 	switch *profileList {
 	case "":
 	case "none":

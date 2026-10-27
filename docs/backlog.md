@@ -1465,12 +1465,22 @@ it.
 
   Source: HANDOFF.md; [kinds report](../harness/reports/kinds-2026-10-23.md);
   [`http3_test.go`](../harness/e2e/http3_test.go).
-- **Capture ergonomics**: browsers come to the front during captures
-  (options: `open -g`, batching runs, the Mac mini), and closing Safari's
-  tab by AppleScript times out on the Mac mini. Source: HANDOFF.md.
+- **Capture ergonomics**: browsers come to the front during captures.
+  `cmd/refresh` runs Chrome and Firefox on the Mac mini, so only Safari 27
+  still takes this Mac's screen (options: `open -g`, batching runs); closing
+  Safari's tab by AppleScript times out on the Mac mini. Source:
+  HANDOFF.md.
+- **Parallel quick refreshes on the mini, timers unchecked.** `cmd/refresh`
+  captures Chrome and Firefox at once in quick mode. Nothing a capture
+  depends on is shared (ports, servers, no focus or system mouse), but
+  whether a browser throttles the timers of a window entirely covered by
+  the other's is unchecked; it would stretch the pauses of `h3-discovery`
+  and the WebSocket pages. Closing it: one parallel quick run compared with
+  a `-serial` one (page timings in the h3 captures). Detection relevance
+  low (timing of the capture, not of mimicry); small.
 - **Planned tools not built**: browser captures as a scheduled GitHub
-  Action, server-stack handshake checks (Go, OpenSSL, BoringSSL, nginx),
-  and `profilegen derive` (to be written with the next browser version).
+  Action, and server-stack handshake checks (Go, OpenSSL, BoringSSL,
+  nginx).
   The uTLS sync job cannot open pull requests while "Allow GitHub Actions
   to create and approve pull requests" is off. Source: HANDOFF.md;
   [AGENTS.md](../AGENTS.md).
@@ -1492,6 +1502,24 @@ it.
   profiles come from the same captures, and the comparison stops after
   the second request and has no HTTP/3. Source:
   [clients report](../harness/reports/clients-2026-10-23.md).
+- **Inherited captures miss rule changes until a full refresh.** A
+  profile refreshed in quick mode is checked, for every scenario its
+  `captures_from` names (cookies, CORS, redirects, proxies, connections,
+  resumption, the HTTP/3 failure model...), against an earlier version's
+  captures with version strings rewritten, never against its own
+  traffic. A rule the browser changed there is missed until that
+  browser's next full refresh. Differs: possibly anything those scenarios
+  pin. Detection: medium at worst (the fingerprint layer is always
+  recaptured). User-visible: possibly (a cookie or CORS rule). Closing it:
+  a full refresh before each release, and whenever a quick capture shows
+  more than version strings changed; no period is set yet. Source:
+  [decision 0035](decisions/0035-version-policy-and-capture-inheritance.md).
+- **Version tokens the rewriter does not know.** `capture.Rewriter`
+  rewrites the user agent's version token and the whole `sec-ch-ua`. A
+  browser sending its version elsewhere by default (a high-entropy client
+  hint, a new header) fails every inherited comparison until recaptured
+  or taught to the rewriter. Small. Source:
+  [decision 0035](decisions/0035-version-policy-and-capture-inheritance.md).
 - **Pinned outliers**: `sampleGaps` (h3gen, kindsgen), `h3Gaps`,
   `h3EdgeGaps`, `h3PriorityGaps`, `headersOrderGaps`, `partitionGaps`,
   `redirectsLineGaps`, `raceCookieLabels` and `missingCaptures`. Each is

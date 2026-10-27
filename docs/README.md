@@ -28,7 +28,7 @@ Related:
 | [0001](decisions/0001-own-http-stack-thin-utls-fork.md) | Own HTTP/1.1 and HTTP/2 stack; uTLS as a thin fork | Accepted |
 | [0002](decisions/0002-net-http-types.md) | `net/http` types in the API, no forked `net/http` | Accepted |
 | [0003](decisions/0003-evidence-rule.md) | Browser wire captures are the evidence | Accepted |
-| [0004](decisions/0004-complete-profile-files.md) | One complete profile file per browser version, no inheritance | Accepted |
+| [0004](decisions/0004-complete-profile-files.md) | One complete profile file per browser version, no inheritance | Accepted; captures inherited by 0035 |
 | [0005](decisions/0005-request-kinds-api.md) | Request kinds: defaults exact, deviations visible | Accepted |
 | [0006](decisions/0006-header-order-variants.md) | Header order: a default per kind plus measured variants | Accepted |
 | [0007](decisions/0007-navigation-stays-top-level.md) | The navigation stays the profile's top-level request | Accepted |
@@ -59,6 +59,7 @@ Related:
 | [0032](decisions/0032-certificate-pinning.md) | Certificate pinning and VerifyConnection on every handshake | Accepted |
 | [0033](decisions/0033-proxy-errors.md) | Proxy failures are a `*ProxyError` | Accepted |
 | [0034](decisions/0034-request-plans.md) | Request plans: RoundTrip's path, without sending | Accepted |
+| [0035](decisions/0035-version-policy-and-capture-inheritance.md) | Newest-version accessors, five supported versions, inherited captures | Accepted |
 
 New records copy [`decisions/template.md`](decisions/template.md).
 
@@ -72,3 +73,4 @@ New records copy [`decisions/template.md`](decisions/template.md).
 - [WebSockets](concepts/websockets.md)
 - [HTTP/3](concepts/http3.md)
 - [Coming from tls-client](concepts/coming-from-tls-client.md)
+- [Refreshing profiles](concepts/refreshing-profiles.md)

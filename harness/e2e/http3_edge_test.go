@@ -23,7 +23,6 @@ import (
 	"github.com/roachadam/mimicry/harness/internal/quictrace"
 	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/profile"
-	"github.com/roachadam/mimicry/profiles"
 )
 
 // h3PageHost is the h3 pages' own host (the server's h3Host), where / is.
@@ -67,7 +66,7 @@ const h3PageHost = "www.h3-a.test"
 // scheduling shows or not. The profiles and scenarios run in parallel;
 // the test takes as long as the longest page (h3-broken, about 75 s).
 func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
-	for _, name := range profiles.Names() {
+	for _, name := range testProfiles(t) {
 		for _, sc := range []*server.Scenario{server.H3Blackhole, server.H3Broken, server.H3VN, server.H3V2, server.H3Early, server.H3TooEarly} {
 			t.Run(name+"/"+sc.Name, func(t *testing.T) {
 				t.Parallel()
@@ -76,15 +75,15 @@ func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
 						t.Skipf("%s needs aioquic: %v", sc.Name, err)
 					}
 				}
-				p, err := profiles.ByName(name)
+				p, err := loadProfile(name)
 				if err != nil {
 					t.Fatal(err)
 				}
 				if p.HTTP3 == nil || p.QUIC == nil {
 					t.Fatal("the profile has no http3 or quic section")
 				}
-				want := h3Captures(t, name, sc)
-				skip, unused := edgeGapsFor(t, name+"/"+sc.Name)
+				want := h3Captures(t, p, sc)
+				skip, unused := edgeGapsFor(t, capture.Source(p, sc.Name)+"/"+sc.Name)
 				got := runH3Schedule(t, p, sc, want[0], skip)
 				compareEdge(t, p, got, want, skip)
 				unused()

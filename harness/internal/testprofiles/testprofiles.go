@@ -1,0 +1,194 @@
+// Package testprofiles chooses the profiles the harness's tests check
+// against their captures (decision 0035), and builds the synthetic profile
+// that proves capture inheritance.
+//
+// By default a test checks the newest profile of each browser
+// (profiles.Chrome, Firefox, Safari). MIMICRY_PROFILES=all checks every
+// supported one (profiles.Supported; moon run harness:test-full), and a
+// comma-separated list checks those named: built-in profile names, or paths
+// to profile files (ending in .json) for a profile that is not built in.
+//
+// Imports: the library's profile and profiles, the harness's capture.
+package testprofiles
+
+import (
+	"bytes"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
+	"slices"
+	"strings"
+	"sync"
+
+	"github.com/roachadam/mimicry/harness/internal/capture"
+	"github.com/roachadam/mimicry/profile"
+	"github.com/roachadam/mimicry/profiles"
+)
+
+// Env is the environment variable that chooses the profiles.
+const Env = "MIMICRY_PROFILES"
+
+type selection struct {
+	names []string
+	// files are the profile files named, by profile name.
+	files map[string][]byte
+}
+
+var selected = sync.OnceValues(func() (*selection, error) {
+	return choose(os.Getenv(Env))
+})
+
+func choose(env string) (*selection, error) {
+	s := &selection{
+		files: map[string][]byte{},
+	}
+	switch env = strings.TrimSpace(env); env {
+	case "":
+		for _, p := range []*profile.Profile{profiles.Chrome(), profiles.Firefox(), profiles.Safari()} {
+			s.names = append(s.names, p.Name)
+		}
+		slices.Sort(s.names)
+		return s, nil
+	case "all":
+		s.names = profiles.Supported()
+		return s, nil
+	}
+	for item := range strings.SplitSeq(env, ",") {
+		item = strings.TrimSpace(item)
+		if !strings.HasSuffix(item, ".json") {
+			if _, err := profiles.ByName(item); err != nil {
+				return nil, fmt.Errorf("%s: %w", Env, err)
+			}
+			s.names = append(s.names, item)
+			continue
+		}
+		data, err := os.ReadFile(item) //nolint:gosec // a profile file the person running the tests named
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", Env, err)
+		}
+		p, err := profile.Parse(data)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %s: %w", Env, item, err)
+		}
+		s.names = append(s.names, p.Name)
+		s.files[p.Name] = data
+	}
+	return s, nil
+}
+
+// Names lists the profiles to check, as MIMICRY_PROFILES says.
+func Names() ([]string, error) {
+	s, err := selected()
+	if err != nil {
+		return nil, err
+	}
+	return slices.Clone(s.names), nil
+}
+
+// Load returns a fresh copy of the profile to check called name, and its
+// JSON: a built-in profile's file in profiles/data, or the file
+// MIMICRY_PROFILES named.
+func Load(name string) (*profile.Profile, []byte, error) {
+	s, err := selected()
+	if err != nil {
+		return nil, nil, err
+	}
+	data, ok := s.files[name]
+	if !ok {
+		if data, err = builtinJSON(name); err != nil {
+			return nil, nil, err
+		}
+	}
+	p, err := profile.Parse(data)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: %w", name, err)
+	}
+	return p, data, nil
+}
+
+// repoDir returns the repository this package is in.
+func repoDir() (string, error) {
+	_, here, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", errors.New("testprofiles: cannot locate the repository")
+	}
+	return filepath.Join(filepath.Dir(here), "..", "..", ".."), nil
+}
+
+// builtinJSON reads a built-in profile's file, profiles/data/<name>.json.
+func builtinJSON(name string) ([]byte, error) {
+	if _, err := profiles.ByName(name); err != nil {
+		return nil, err
+	}
+	dir, err := repoDir()
+	if err != nil {
+		return nil, err
+	}
+	return os.ReadFile(filepath.Join(dir, "profiles", "data", name+".json")) //nolint:gosec // a built-in profile's file
+}
+
+// InheritingName is the synthetic profile Inheriting builds.
+const InheritingName = "chrome-156-macos"
+
+// Inheriting builds a synthetic profile that proves capture inheritance:
+// chrome-155-macos renamed chrome-156-macos, every version string in it
+// (Chrome/155.0.0.0 in each user-agent, each sec-ch-ua, whose brand order
+// and GREASE brand change with the major version) set to a version 156's,
+// and every scenario chrome-155-macos has captures of but the default
+// (replays included) inherited from it, so each of its checks runs against
+// chrome-155's captures through the version rewriter. edit, if not nil,
+// changes the JSON text further. It returns the profile's JSON.
+func Inheriting(edit func([]byte) []byte) ([]byte, error) {
+	const source = "chrome-155-macos"
+	data, err := builtinJSON(source)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range [][2]string{
+		{`"name": "chrome-155-macos"`, `"name": "` + InheritingName + `"`},
+		{`"version": "155"`, `"version": "156"`},
+		{`Chrome/155.0.0.0`, `Chrome/156.0.0.0`},
+		{`\"Google Chrome\";v=\"155\", \"Chromium\";v=\"155\", \"Not(A:Brand\";v=\"24\"`, `\"Chromium\";v=\"156\", \"Not-A.Brand\";v=\"8\", \"Google Chrome\";v=\"156\"`},
+	} {
+		if !bytes.Contains(data, []byte(r[0])) {
+			return nil, fmt.Errorf("chrome-155-macos no longer contains %s; update testprofiles.Inheriting", r[0])
+		}
+		data = bytes.ReplaceAll(data, []byte(r[0]), []byte(r[1]))
+	}
+	for _, old := range []string{`Chrome/155`, `v=\"155\"`} {
+		if bytes.Contains(data, []byte(old)) {
+			return nil, fmt.Errorf("%s has a version string (%s) testprofiles.Inheriting does not rewrite", source, old)
+		}
+	}
+	dir, err := repoDir()
+	if err != nil {
+		return nil, err
+	}
+	files, err := filepath.Glob(filepath.Join(dir, "harness", "testdata", "captures", source+".*"))
+	if err != nil {
+		return nil, err
+	}
+	from := map[string]string{}
+	for _, f := range files {
+		if sc, ok := capture.ScenarioOf(source, f); ok && sc != capture.DefaultScenario {
+			from[sc] = source
+		}
+	}
+	q, err := profile.Parse(data)
+	if err != nil {
+		return nil, err
+	}
+	q.CapturesFrom = from
+	if data, err = profile.Encode(q); err != nil {
+		return nil, err
+	}
+	if edit != nil {
+		data = edit(data)
+	}
+	if _, err := profile.Parse(data); err != nil {
+		return nil, err
+	}
+	return data, nil
+}

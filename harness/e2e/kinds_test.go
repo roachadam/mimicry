@@ -20,7 +20,6 @@ import (
 	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/harness/internal/server"
 	"github.com/roachadam/mimicry/profile"
-	"github.com/roachadam/mimicry/profiles"
 )
 
 // Every request of the kinds page, made through mimicry as its kind from
@@ -30,9 +29,9 @@ import (
 // sends through mimicry's jar, and the CORS preflights mimicry sends where
 // the browser did, and only there. Left out: FontFace loads (no kind).
 func TestKindsMatchBrowserTraces(t *testing.T) {
-	for _, name := range profiles.Names() {
+	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
-			p, err := profiles.ByName(name)
+			p, err := loadProfile(name)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -41,7 +40,7 @@ func TestKindsMatchBrowserTraces(t *testing.T) {
 			}
 			for _, sc := range []*server.Scenario{server.Kinds, server.KindsHTTP1, server.KindsPlain} {
 				t.Run(sc.Name, func(t *testing.T) {
-					want, err := capture.LoadPages(captureDir + name + "." + sc.Name + ".pagetrace.json.gz")
+					want, err := loadPages(t, p, sc.Name, ".pagetrace.json.gz")
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -61,7 +60,7 @@ func TestKindsMatchBrowserTraces(t *testing.T) {
 						}
 					}
 					if !h1 {
-						checkConnections(t, name, got, want, all)
+						checkConnections(t, capture.Source(p, sc.Name), got, want, all)
 					}
 					if sc.Plain {
 						// The page itself: a typed navigation to a non-secure
@@ -201,11 +200,12 @@ var partitionGaps = map[string]map[string]string{
 // checkConnections compares which requests share a connection: for each
 // request, the first request on its connection, in mimicry's page and in
 // every browser sample (HTTP/2, where a browser keeps one connection per
-// host and partition).
-func checkConnections(t *testing.T, name string, got *capture.Page, want []*capture.Page, labels []string) {
+// host and partition). source names the profile that took want, whose
+// partitionGaps apply.
+func checkConnections(t *testing.T, source string, got *capture.Page, want []*capture.Page, labels []string) {
 	t.Helper()
 	g := connGroups(got, labels)
-	known := partitionGaps[name]
+	known := partitionGaps[source]
 	for i, page := range want {
 		w := connGroups(page, labels)
 		diffs := map[string]string{}

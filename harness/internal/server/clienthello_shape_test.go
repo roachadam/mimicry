@@ -9,6 +9,7 @@ import (
 	"github.com/roachadam/mimicry/harness/internal/capture"
 	"github.com/roachadam/mimicry/harness/internal/diff"
 	"github.com/roachadam/mimicry/profile"
+	"github.com/roachadam/mimicry/profiles"
 )
 
 // helloParts is a ClientHello message taken apart, to be changed and put
@@ -128,12 +129,7 @@ const (
 func capturedHellos(t *testing.T) map[string][]byte {
 	t.Helper()
 	hellos := map[string][]byte{}
-	for _, name := range []string{
-		"chrome-155-macos",
-		"firefox-158-macos",
-		"safari-26-macos",
-		"safari-27-macos",
-	} {
+	for _, name := range profiles.Names() {
 		samples, err := capture.ReadClientHellos("../../testdata/captures/" + name + ".clienthello")
 		if err != nil {
 			t.Fatal(err)

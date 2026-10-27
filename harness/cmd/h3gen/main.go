@@ -3,8 +3,10 @@
 //
 //	go run ./cmd/h3gen -captures testdata/captures -profile ../profiles/data/chrome-155-macos.json
 //
-// It reads every <name>.h3-discovery and <name>.h3-page capture, with and
-// without -h3-local-roots (server.H3ProfileCaptures). Every QUIC
+// It reads every h3-discovery and h3-page capture the profile is checked
+// against, with and without -h3-local-roots (server.H3ProfileCaptures:
+// its own, or another profile's where its captures_from inherits the
+// scenario; read as captured, version strings and all). Every QUIC
 // connection's first flight counts, failed handshakes included (they show
 // the same Initial packets, ClientHello and transport parameters); what
 // follows the handshake comes from connections that completed it, and
@@ -66,7 +68,7 @@ func regenerate(data []byte, dir string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	set, err := load(dir, p.Name)
+	set, err := load(dir, p)
 	if err != nil {
 		return nil, err
 	}
