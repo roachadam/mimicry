@@ -1,6 +1,6 @@
 # Working in mimicry
 
-mimicry is a Go HTTP client that reproduces real browsers' network fingerprints, matched against captures of the real browsers ([README](README.md)). Accuracy first, then speed. The library module is the repo root (`github.com/roachadam/mimicry`); `internal/harness/` is a separate module that captures the browsers and checks the profiles against them.
+mimicry is a Go HTTP client that reproduces real browsers' network fingerprints, matched against captures of the real browsers ([README](README.md)). Accuracy first, then speed. The library module is the repo root (`github.com/roachadam/mimicry`); `internal/harness/` is a separate module that captures the browsers and checks the profiles against them; `internal/bench/` is another, benchmarking mimicry against other clients in Docker ([its README](internal/bench/README.md)), so their dependencies never reach the library or the harness.
 
 [docs/README.md](docs/README.md) indexes the decision records and concept docs. Read the decision before "fixing" something that looks odd.
 
@@ -14,6 +14,7 @@ moon run :test-full         # every supported profile, not only each browser's n
 ```
 
 - `:test` runs `go test -race ./...`. moon replays a cached result only when none of its inputs changed: the Go sources and the data the tests read (`testdata` directories, `profiles/data`; for the harness also the library's sources and profiles).
+- `moon run bench:micro` (layers 1-2) and `bench:run` (every layer and a report in `internal/bench/reports/`) need Docker and are never part of `:test`; `:vet` and `:lint` cover the bench module.
 - `MIMICRY_PROFILES` picks the profiles the harness's tests check (`internal/harness/internal/testprofiles`, decision 0035): unset, each browser's newest; `all` (what `:test-full` sets), every supported one; or a comma-separated list of built-in names and profile file paths (`MIMICRY_PROFILES=safari-26-macos`, `MIMICRY_PROFILES=/abs/path/chrome-157-macos.json`).
 - Run `:test-full` before a release, after a full refresh, and after a change that could differ between versions of a browser.
 - The MacBook sleeps on battery with the lid closed, which freezes tests: run long suites under `caffeinate -i` on AC power, or cross-compile the test binaries (`go test -c`) and run them on the Mac mini (your ssh alias), which has no Go.

@@ -1,0 +1,106 @@
+# The benchmark's server stack: nginx, the Go server and the proxy, on the
+# mimicry-bench network with fixed addresses (the client's extra_hosts point
+# there unless BENCH_SERVER names a remote host). The servers share a CPU
+# set larger than the client's (only one is under load at a time); the
+# proxy's overlaps it, since it only carries page loads, which barely load
+# the server.
+# The setup service creates the CA (once) and nginx's content in two named
+# volumes; ../scripts/bench.sh runs it before starting the others.
+#
+# Locally the ports are published on 127.0.0.1 only; for a remote server
+# (DOCKER_HOST=ssh://… or BENCH_SERVER_CONTEXT) bench.sh publishes them on
+# every address (BENCH_PUBLISH_ADDR=0.0.0.0).
+name: mimicry-bench-server
+
+x-bench-image: &bench-image
+  image: mimicry-bench:latest
+  build:
+    context: ../../..
+    dockerfile: internal/bench/docker/Dockerfile
+
+services:
+  setup:
+    <<: *bench-image
+    command: ["setup", "-ca", "/data/ca", "-www", "/data/www"]
+    volumes:
+      - ca:/data/ca
+      - www:/data/www
+    profiles: ["setup"]
+    network_mode: none
+
+  nginx:
+    image: mimicry-bench-nginx:latest
+    build:
+      context: ./nginx
+    command: ["sh", "-c", "exec nginx -g \"daemon off; worker_processes $$(nproc);\""]
+    cpuset: "${BENCH_SERVER_CPUS:-4-11}"
+    ulimits:
+      nofile: 200000
+    volumes:
+      - ca:/data/ca:ro
+      - www:/data/www:ro
+    networks:
+      bench:
+        ipv4_address: 172.30.77.10
+        aliases: [www.nginx.bench.test, static.nginx.bench.test, api.nginx.bench.test]
+    ports:
+      - "${BENCH_PUBLISH_ADDR:-127.0.0.1}:8443:8443/tcp"
+      - "${BENCH_PUBLISH_ADDR:-127.0.0.1}:8443:8443/udp"
+      - "${BENCH_PUBLISH_ADDR:-127.0.0.1}:8444:8444/tcp"
+      - "${BENCH_PUBLISH_ADDR:-127.0.0.1}:8080:8080/tcp"
+    restart: unless-stopped
+
+  go-server:
+    <<: *bench-image
+    command: ["server"]
+    environment:
+      GOMAXPROCS: "${BENCH_SERVER_PROCS:-8}"
+    cpuset: "${BENCH_SERVER_CPUS:-4-11}"
+    ulimits:
+      nofile: 200000
+    volumes:
+      - ca:/data/ca:ro
+    networks:
+      bench:
+        ipv4_address: 172.30.77.11
+        aliases: [www.go.bench.test, static.go.bench.test, api.go.bench.test]
+    ports:
+      - "${BENCH_PUBLISH_ADDR:-127.0.0.1}:9443:9443/tcp"
+      - "${BENCH_PUBLISH_ADDR:-127.0.0.1}:9443:9443/udp"
+      - "${BENCH_PUBLISH_ADDR:-127.0.0.1}:9444:9444/tcp"
+      - "${BENCH_PUBLISH_ADDR:-127.0.0.1}:9080:9080/tcp"
+    restart: unless-stopped
+
+  proxy:
+    <<: *bench-image
+    command: ["proxy-entrypoint.sh"]
+    cap_add: [NET_ADMIN]
+    environment:
+      GOMAXPROCS: "${BENCH_PROXY_PROCS:-2}"
+      BENCH_PROXY_DELAY: "${BENCH_PROXY_DELAY:-5ms}"
+    cpuset: "${BENCH_PROXY_CPUS:-10-11}"
+    ulimits:
+      nofile: 200000
+    networks:
+      bench:
+        ipv4_address: 172.30.77.12
+        aliases: [proxy.bench.test]
+    ports:
+      - "${BENCH_PUBLISH_ADDR:-127.0.0.1}:3128:3128/tcp"
+      - "${BENCH_PUBLISH_ADDR:-127.0.0.1}:3129:3129/tcp"
+      - "${BENCH_PUBLISH_ADDR:-127.0.0.1}:1080:1080/tcp"
+      - "${BENCH_PUBLISH_ADDR:-127.0.0.1}:9081:9081/tcp"
+    restart: unless-stopped
+
+volumes:
+  ca:
+    name: mimicry-bench-ca
+  www:
+    name: mimicry-bench-www
+
+networks:
+  bench:
+    name: mimicry-bench
+    ipam:
+      config:
+        - subnet: 172.30.77.0/24

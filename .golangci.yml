@@ -44,6 +44,26 @@ linters:
           allow:
             - $gostd
             - github.com/roachadam/mimicry/profile$
+        # The benchmark (its own module) measures mimicry through its public
+        # API only, as any user would; the other clients and the servers'
+        # dependencies are its own.
+        internal/bench:
+          files:
+            - ${config-path}/internal/bench/**/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/Noooste/azuretls-client
+            - github.com/Noooste/utls
+            - github.com/bogdanfinn/fhttp
+            - github.com/bogdanfinn/tls-client
+            - github.com/quic-go/quic-go
+            - github.com/roachadam/mimicry$
+            - github.com/roachadam/mimicry/internal/bench
+            - github.com/roachadam/mimicry/profile$
+            - github.com/roachadam/mimicry/profiles$
+            - github.com/sardanioss/httpcloak
         internal/cors:
           files:
             - ${config-path}/internal/cors/*.go

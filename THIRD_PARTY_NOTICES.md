@@ -1,7 +1,8 @@
 # Third-party notices
 
 mimicry is licensed under the MIT licence ([`LICENSE`](LICENSE)); that covers
-both modules in this repository, the library at the root and `internal/harness/`.
+every module in this repository: the library at the root, `internal/harness/`
+and `internal/bench/`.
 This file lists the code from other projects that mimicry bundles and the
 Go modules it depends on.
 
@@ -56,6 +57,31 @@ built into the library: `github.com/jordanlewis/gcassert` (MIT),
 (MIT), `go.uber.org/mock` (Apache-2.0), `go.yaml.in/yaml/v3` (MIT and
 Apache-2.0), `golang.org/x/mod`, `x/sync`, `x/term`, `x/tools`
 (BSD-3-Clause). All are permissive.
+
+The benchmarks (`internal/bench/go.mod`) add the clients they compare mimicry
+with, and benchstat. None is imported by the library or the harness, and the
+benchmark binaries are built for local runs only, never distributed:
+
+| Module | Version | Licence |
+|---|---|---|
+| `github.com/bogdanfinn/tls-client` | v1.17.1 | BSD-3-Clause |
+| `github.com/sardanioss/httpcloak` | v1.7.3 | MIT |
+| `github.com/Noooste/azuretls-client` | v1.13.2 | MIT |
+| `github.com/quic-go/quic-go` | v0.64.1 | MIT (net/http's HTTP/3 baseline and the Go server) |
+| `golang.org/x/perf` | v0.0.0-20261009192801-be2c69fb417e | BSD-3-Clause (benchstat, a `tool`) |
+
+Their own dependencies are forks of Go's `crypto/tls` and uTLS
+(`bogdanfinn/utls`, `Noooste/utls`, `sardanioss/utls`, `refraction-networking/utls`:
+BSD-3-Clause), of `net/http` (`bogdanfinn/fhttp`, `Noooste/fhttp`,
+`sardanioss/http`: no licence file in the module, Go's BSD-3-Clause per-file
+headers; `sardanioss/net`: BSD-3-Clause), of quic-go and qpack
+(`bogdanfinn/quic-go-utls`, `Noooste/uquic-go`, `sardanioss/quic-go`,
+`sardanioss/qpack`: MIT), and `andybalholm/brotli`, `bdandy/go-errors`,
+`bdandy/go-socks4`, `Noooste/go-socks4`, `fatih/color`, `mattn/go-colorable`,
+`mattn/go-isatty`, `sardanioss/udpbara`, `tam7t/hpkp` (MIT),
+`Noooste/websocket`, `bogdanfinn/websocket`, `cloudflare/circl`,
+`gaukas/godicttls`, `google/gopacket`, `miekg/dns`, `aclements/go-moremath`
+(BSD-3-Clause), `gaukas/clienthellod` (Apache-2.0). All are permissive.
 
 ## Tools not shipped
 

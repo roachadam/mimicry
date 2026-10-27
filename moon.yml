@@ -3,14 +3,17 @@ layer: 'library'
 language: 'go'
 
 # This project sits at the repo root, so its globs would also match the nested
-# harness module. Exclude it; `go test ./...` already skips nested modules.
+# harness and bench modules. Exclude them; `go test ./...` already skips
+# nested modules.
 fileGroups:
   sources:
     - '**/*.go'
     - 'go.mod'
     - 'go.sum'
     - '!internal/harness/**'
+    - '!internal/bench/**'
   testdata:
     - 'profiles/data/**'
     - '**/testdata/**'
     - '!internal/harness/**'
+    - '!internal/bench/**'

@@ -10,3 +10,5 @@ projects:
   # github.com/roachadam/mimicry directly.
   mimicry: '.'
   harness: 'internal/harness'
+  # Benchmarks against other clients; never part of :test (README there).
+  bench: 'internal/bench'

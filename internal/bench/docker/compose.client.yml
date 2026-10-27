@@ -1,0 +1,65 @@
+# The benchmark's client stack: one container with every client (bench,
+# bench.test, benchstat), its own CPU set and a fixed GOMAXPROCS, NET_ADMIN
+# for netem. The servers' names point at their fixed addresses on the
+# mimicry-bench network, or all at BENCH_SERVER (a remote server host, its
+# ports published). The CA comes from the mimicry-bench-ca volume: the
+# server stack's locally, a copy of its ca.pem for a remote server
+# (../scripts/bench.sh ca-sync). Reports go to ../reports.
+name: mimicry-bench-client
+
+services:
+  client:
+    image: mimicry-bench:latest
+    build:
+      context: ../../..
+      dockerfile: internal/bench/docker/Dockerfile
+    cap_add: [NET_ADMIN]
+    cpuset: "${BENCH_CLIENT_CPUS:-0-3}"
+    ulimits:
+      nofile: 1048576
+    # Clients that open and close connections under load (HTTP/1.1 at high
+    # concurrency) would otherwise run out of ports to TIME_WAIT.
+    sysctls:
+      net.ipv4.ip_local_port_range: "1024 65535"
+      net.ipv4.tcp_tw_reuse: "1"
+    environment:
+      GOMAXPROCS: "${BENCH_CLIENT_PROCS:-4}"
+      BENCH_CA_DIR: /data/ca
+      # azuretls's HTTP/3 transport takes no CA pool: it trusts the system
+      # roots, which this makes the benchmark's CA alone.
+      SSL_CERT_FILE: /data/ca/ca.pem
+      BENCH_SERVER: "${BENCH_SERVER:-}"
+      BENCH_SERVERS: "${BENCH_SERVERS:-}"
+      BENCH_HOST: "${BENCH_HOST:-}"
+      BENCH_HOST_CPU: "${BENCH_HOST_CPU:-}"
+      BENCH_HOST_OS: "${BENCH_HOST_OS:-}"
+      BENCH_DOCKER: "${BENCH_DOCKER:-}"
+      BENCH_MIMICRY_COMMIT: "${BENCH_MIMICRY_COMMIT:-}"
+      BENCH_CLIENT_CPUS: "${BENCH_CLIENT_CPUS:-0-3}"
+      BENCH_SERVER_CPUS: "${BENCH_SERVER_CPUS:-4-11}"
+      BENCH_PROXY_CPUS: "${BENCH_PROXY_CPUS:-10-11}"
+      BENCH_PROXY_DELAY: "${BENCH_PROXY_DELAY:-5ms}"
+    volumes:
+      - ca:/data/ca:ro
+      - ../reports:/reports
+    working_dir: /reports
+    extra_hosts:
+      - "www.nginx.bench.test:${BENCH_SERVER:-172.30.77.10}"
+      - "static.nginx.bench.test:${BENCH_SERVER:-172.30.77.10}"
+      - "api.nginx.bench.test:${BENCH_SERVER:-172.30.77.10}"
+      - "www.go.bench.test:${BENCH_SERVER:-172.30.77.11}"
+      - "static.go.bench.test:${BENCH_SERVER:-172.30.77.11}"
+      - "api.go.bench.test:${BENCH_SERVER:-172.30.77.11}"
+      - "proxy.bench.test:${BENCH_SERVER:-172.30.77.12}"
+    networks:
+      - bench
+
+volumes:
+  ca:
+    name: mimicry-bench-ca
+    external: true
+
+networks:
+  bench:
+    name: mimicry-bench
+    external: true

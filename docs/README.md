@@ -19,6 +19,8 @@ Related:
 - [`profiles/EVIDENCE.md`](../profiles/EVIDENCE.md): every claim a built-in
   profile makes, its evidence and the test that keeps it true.
 - [`internal/harness/reports/`](../internal/harness/reports/): dated measurement reports.
+- [`internal/bench/`](../internal/bench/README.md): benchmarks against `net/http`
+  and other impersonating clients, with dated reports in its `reports/`.
 - [`capturing.md`](capturing.md): capturing the browsers, deriving a
   profile's generated sections, and the harness's other tools.
 - [`AGENTS.md`](../AGENTS.md): working conventions.

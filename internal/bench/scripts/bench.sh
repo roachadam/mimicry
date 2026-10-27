@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+# Drives the benchmark's two compose stacks (../docker). Commands:
+#
+#   up       build the image, create the CA and content, start the server stack
+#   micro    layers 1-2: go test -bench, -count $BENCH_COUNT (10), then benchstat
+#   run      micro, then layers 3-5 (bench run), then the report
+#   report   layers 3-5 only, embedding the newest micro results
+#   render   rewrite bench-<date>.md from its JSON with the newest micro results
+#   ca-sync  copy the CA from a remote server stack to this host's volume
+#   down     stop the server stack
+#
+# Arguments after the command go to `bench run` (run, report) or to the test
+# binary (micro). Settings, all optional:
+#
+#   BENCH_SERVER=<ip>              the server stack runs on another host at <ip>
+#   BENCH_SERVER_CONTEXT=<ctx>     ... reached through this docker context
+#                                  (or DOCKER_HOST=ssh://… for the server steps)
+#   BENCH_CLIENT_CPUS, BENCH_SERVER_CPUS, BENCH_PROXY_CPUS   cpusets (0-3, 4-11, 10-11)
+#   BENCH_CLIENT_PROCS, BENCH_SERVER_PROCS                    GOMAXPROCS (4, 8)
+#   BENCH_PROXY_DELAY              netem delay on the proxy's packets (5ms)
+#   BENCH_COUNT                    micro: -count (10)
+#   BENCH_BENCHTIME                micro: BenchmarkRequest's -benchtime (1s)
+#   BENCH_CONNECT_BENCHTIME        micro: BenchmarkConnect's -benchtime (200x: each
+#                                  iteration also waits 5 ms untimed for its ticket)
+#   BENCH_MICRO                    micro: one -bench pattern instead of both
+#   BENCH_SERVERS                  micro: servers (nginx,go)
+#
+# On macOS it keeps the machine awake (caffeinate -i) for its whole run.
+set -euo pipefail
+
+if [[ "$(uname -s)" == Darwin && -z "${BENCH_CAFFEINATED:-}" ]]; then
+	export BENCH_CAFFEINATED=1
+	exec caffeinate -i "$0" "$@"
+fi
+
+here="$(cd "$(dirname "$0")/.." && pwd)"
+compose_dir="$here/docker"
+reports="$here/reports"
+date="${BENCH_DATE:-$(date +%F)}"
+
+cmd="${1:-}"
+[[ -n "$cmd" ]] && shift
+
+# What the report records about this host.
+if [[ "$(uname -s)" == Darwin ]]; then
+	BENCH_HOST_CPU="${BENCH_HOST_CPU:-$(sysctl -n machdep.cpu.brand_string), $(sysctl -n hw.ncpu) cores, $(($(sysctl -n hw.memsize) / 1073741824)) GB}"
+	BENCH_HOST_OS="${BENCH_HOST_OS:-macOS $(sw_vers -productVersion)}"
+	power="$(pmset -g batt | head -1 | sed "s/.*'\(.*\)'.*/\1/")"
+	BENCH_HOST_OS="$BENCH_HOST_OS, $power"
+else
+	BENCH_HOST_CPU="${BENCH_HOST_CPU:-$(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | xargs), $(nproc) cores}"
+	BENCH_HOST_OS="${BENCH_HOST_OS:-$(uname -sr)}"
+fi
+export BENCH_HOST_CPU BENCH_HOST_OS
+export BENCH_HOST="${BENCH_HOST:-$(hostname -s)}"
+export BENCH_DOCKER="${BENCH_DOCKER:-$(docker context show) context, $(docker info --format '{{.OperatingSystem}}, server {{.ServerVersion}}, {{.NCPU}} CPUs, {{.MemTotal}} bytes')}"
+export BENCH_MIMICRY_COMMIT="${BENCH_MIMICRY_COMMIT:-$(git -C "$here" rev-parse --short HEAD)$(git -C "$here" diff --quiet HEAD -- . ../../ 2>/dev/null || echo ' + uncommitted changes')}"
+
+server_docker=(docker)
+if [[ -n "${BENCH_SERVER_CONTEXT:-}" ]]; then
+	server_docker=(docker --context "$BENCH_SERVER_CONTEXT")
+fi
+
+server_compose() {
+	"${server_docker[@]}" compose -f "$compose_dir/compose.server.yml" "$@"
+}
+
+client_compose() {
+	docker compose -f "$compose_dir/compose.client.yml" "$@"
+}
+
+ca_sync() {
+	# Only the CA's certificate crosses: the client never needs the keys.
+	docker volume create mimicry-bench-ca >/dev/null
+	"${server_docker[@]}" run --rm -v mimicry-bench-ca:/data/ca:ro mimicry-bench:latest cat /data/ca/ca.pem |
+		docker run --rm -i -v mimicry-bench-ca:/data/ca mimicry-bench:latest sh -c 'cat > /data/ca/ca.pem'
+	echo "bench: copied ca.pem from the server host"
+}
+
+up() {
+	if [[ -n "${BENCH_SERVER:-}" ]]; then
+		export BENCH_PUBLISH_ADDR="${BENCH_PUBLISH_ADDR:-0.0.0.0}"
+	fi
+
+	server_compose build
+	server_compose run --rm setup
+	server_compose up -d --remove-orphans nginx go-server proxy
+
+	if [[ -n "${BENCH_SERVER:-}" ]]; then
+		# The client's own network on this host, then the CA.
+		docker network inspect mimicry-bench >/dev/null 2>&1 ||
+			docker network create --subnet 172.30.77.0/24 mimicry-bench >/dev/null
+		client_compose build
+		ca_sync
+	fi
+
+	client_compose run --rm client bench wait
+}
+
+micro() {
+	mkdir -p "$reports"
+	local raw="micro-$date.txt"
+	local stat="micro-$date-benchstat.txt"
+	local test="bench.test -test.run '^\$' -test.count ${BENCH_COUNT:-10} -test.timeout 0 -test.v"
+	local runs
+
+	if [[ -n "${BENCH_MICRO:-}" ]]; then
+		runs="$test -test.bench '$BENCH_MICRO' -test.benchtime ${BENCH_BENCHTIME:-1s} $*"
+	else
+		runs="$test -test.bench '^BenchmarkRequest\$' -test.benchtime ${BENCH_BENCHTIME:-1s} $*
+			$test -test.bench '^BenchmarkConnect\$' -test.benchtime ${BENCH_CONNECT_BENCHTIME:-200x} $*"
+	fi
+
+	client_compose run --rm client sh -c "{ $runs; } 2>&1 | tee $raw; benchstat -col /client $raw > $stat"
+	echo "bench: wrote $reports/$raw and $reports/$stat"
+}
+
+report() {
+	local stat="micro-$date-benchstat.txt"
+	local args=()
+
+	if [[ -f "$reports/$stat" ]]; then
+		args=(-micro "$stat" -micro-raw "micro-$date.txt")
+	fi
+
+	client_compose run --rm client bench run -out /reports -date "$date" ${args[@]+"${args[@]}"} "$@"
+	echo "bench: wrote $reports/bench-$date.md and .json"
+}
+
+render() {
+	client_compose run --rm client bench render -json "bench-$date.json" \
+		-micro "micro-$date-benchstat.txt" -micro-raw "micro-$date.txt"
+	echo "bench: rewrote $reports/bench-$date.md"
+}
+
+case "$cmd" in
+up)
+	up
+	;;
+micro)
+	up
+	micro "$@"
+	;;
+run)
+	up
+	micro
+	report "$@"
+	;;
+report)
+	up
+	report "$@"
+	;;
+render)
+	render
+	;;
+ca-sync)
+	ca_sync
+	;;
+down)
+	server_compose down
+	;;
+*)
+	sed -n '2,28p' "$0" | sed 's/^# \{0,1\}//'
+	exit 2
+	;;
+esac

@@ -1,0 +1,11 @@
+.git
+.moon/cache
+.claude
+.worktrees
+go.work
+go.work.sum
+internal/harness
+internal/bench/reports
+internal/bench/docker
+!internal/bench/docker/proxy-entrypoint.sh
+**/.DS_Store

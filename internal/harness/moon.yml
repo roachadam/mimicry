@@ -14,6 +14,7 @@ fileGroups:
     - '/**/*.go'
     - '/go.mod'
     - '/go.sum'
+    - '!/internal/bench/**'
   # The captures, and the library's embedded profiles they are compared with.
   testdata:
     - 'testdata/**'
