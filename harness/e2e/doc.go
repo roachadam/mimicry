@@ -22,6 +22,16 @@
 //     connection of every replayed real page. http2.hpack cannot be
 //     captured; this is what keeps it honest. A failure names the first
 //     instruction that differs.
+//   - TestChainedPrioritiesMatchBrowserTraces: every HTTP/2 connection the
+//     profile is checked against (every sample, every page connection,
+//     replays included), its requests sent again in order through mimicry's
+//     HTTP/2 connection with the browser's weights, has the browser's
+//     HEADERS priority on every request: none, or which earlier request it
+//     depends on and whether exclusively (Chrome's chain_priorities). The
+//     server keeps each stream open until the last request depending on it
+//     went out; half end with a DATA END_STREAM whose body is never read,
+//     half with HEADERS END_STREAM, the next request going as soon as the
+//     caller has the response.
 //   - TestConnectionMatchesBrowserTrace: on one connection, mimicry's first
 //     header block and largest upload DATA frame match every sample of the
 //     browser's trace, and every WINDOW_UPDATE credit increment it sends
@@ -285,7 +295,8 @@
 // a raw HTTP/2 peer; the captures show it, the unit tests pin it.
 //
 // Imports (tests only; the package has no other code): mimicry's public
-// packages and the internal packages whose wire formats the tests decode or
-// re-encode (h3, hpack, qpack, quic/quicwire, ws, testutil), the harness's
-// internal packages, quic-go and golang.org/x/net.
+// packages; the internal packages the tests drive directly or decode and
+// re-encode with (h2, h3, headerorder, hpack, qpack, quic/quicwire, ws,
+// testutil); the harness's internal packages; quic-go, golang.org/x/net and
+// github.com/jonboulle/clockwork.
 package e2e

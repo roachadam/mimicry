@@ -161,7 +161,9 @@ response's `TLS` is the connection's state. The request goes to:
 - HTTP/2 (`internal/h2`): pseudo-headers in the profile's order, then the
   plan's headers through `internal/headerorder` (page-set headers where the
   list's `*` puts them), cookies split per the profile, HPACK encoded by the
-  profile's policy, HEADERS priority with the plan's weight.
+  profile's policy, HEADERS priority with the plan's weight (for Chrome,
+  `chain_priorities`: depending exclusively on the newest stream still
+  open at the nearest weight at or above it, as Chromium's lists do).
 - HTTP/1.1 (`internal/h1`): the plan's HTTP/1.1 list, names cased as the
   browser sends them, Host and framing placed; headers the profile does not
   name keep the caller's spelling. A plan from a variant without an

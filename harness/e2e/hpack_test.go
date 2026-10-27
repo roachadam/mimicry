@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	"golang.org/x/net/http2"
@@ -87,7 +88,7 @@ func pageTraces(t *testing.T, p *profile.Profile) map[string][]*capture.Page {
 	}
 	out := map[string][]*capture.Page{}
 	for _, f := range files {
-		pages, err := capture.LoadPages(f.Path)
+		pages, err := pagesOnce(f.Path)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -95,6 +96,29 @@ func pageTraces(t *testing.T, p *profile.Profile) map[string][]*capture.Page {
 		out[scenario] = pages
 	}
 	return out
+}
+
+// loadedPages holds the page captures pageTraces loaded, by path: decoding
+// them is most of the time of each test that replays them all, so they
+// are decoded once. Their readers never change them.
+var (
+	loadedMu    sync.Mutex
+	loadedPages = map[string][]*capture.Page{}
+)
+
+// pagesOnce returns the page captures at path, loaded once.
+func pagesOnce(path string) ([]*capture.Page, error) {
+	loadedMu.Lock()
+	defer loadedMu.Unlock()
+	if pages, ok := loadedPages[path]; ok {
+		return pages, nil
+	}
+	pages, err := capture.LoadPages(path)
+	if err != nil {
+		return nil, err
+	}
+	loadedPages[path] = pages
+	return pages, nil
 }
 
 // replay re-encodes tr's header blocks in order. The table size a scenario's

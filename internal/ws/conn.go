@@ -48,9 +48,10 @@ const (
 )
 
 // Timeouts no capture measured: how long the socket waits for the
-// server's close frame once it sent its own, and, where the profile does
-// not say how the browser ends the transport (Firefox), how long it
-// leaves the server to end it before ending it itself.
+// server's close frame once it sent its own, and, where the browser
+// leaves the server to end the transport (Firefox; Chrome's HTTP/2
+// stream, whose END_STREAM went with its close frame), how long before
+// it ends it itself.
 const (
 	closeTimeout = 10 * time.Second
 	serverLinger = 10 * time.Second
@@ -286,9 +287,9 @@ func (c *Conn) closeEnds() bool {
 
 // Close starts the close handshake with code and reason, unless it has
 // started, and returns once it is done (the server's close frame came, or
-// the transport ended) and, where the profile's browser ends the
-// transport itself, once it has. A server whose close never comes has
-// the transport ended after closeTimeout.
+// the transport ended) and, where the profile's browser reports the close
+// only once the transport has ended, once it has. A server whose close
+// never comes has the transport ended after closeTimeout.
 func (c *Conn) Close(code int, reason string) error {
 	if code != 1000 && (code < 3000 || code > 4999) {
 		return fmt.Errorf("ws: close code %d: browsers send 1000 or 3000 to 4999", code)
@@ -321,7 +322,7 @@ func (c *Conn) Close(code int, reason string) error {
 		return err
 	}
 	<-c.closing
-	if c.endsItself() {
+	if c.waitsForEnd() {
 		<-c.ended
 	}
 	var ce *CloseError
@@ -332,12 +333,16 @@ func (c *Conn) Close(code int, reason string) error {
 	return nil
 }
 
-// endsItself reports whether the profile's browser ends the transport
-// itself after the close handshake (and how was measured): Chrome and
-// Safari over HTTP/1.1, Safari over HTTP/2.
-func (c *Conn) endsItself() bool {
+// waitsForEnd reports whether the profile's browser reports the close
+// (the page's close event) only once the transport has ended: where it
+// ends it itself (Chrome and Safari over HTTP/1.1, Safari over HTTP/2),
+// and Chrome over HTTP/2, whose END_STREAM went with its close frame, so
+// the stream ends with the server's (Chromium's WebSocketChannel waits for
+// the stream to close before its close event). Until then the stream is
+// open, and Chrome chains a new request's priority on it.
+func (c *Conn) waitsForEnd() bool {
 	if c.cfg.H2 {
-		return c.cfg.Profile.CloseH2 == profile.CloseResetStream
+		return c.cfg.Profile.CloseH2 != ""
 	}
 	return c.cfg.Profile.CloseH1 != ""
 }

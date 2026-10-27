@@ -99,7 +99,10 @@ through a proxy (the [capture report](../../harness/reports/proxy-websocket-2026
 `Close` echoes the browser's close handshake, then ends the transport as
 the browser does:
 - **Chrome:** closes the HTTP/1.1 connection 2 s later; over HTTP/2,
-  END_STREAM on the close frame.
+  END_STREAM on the close frame, and `Close` returns once the server has
+  ended the stream too, as Chrome's close event waits for it: until then
+  the stream is open, and Chrome would chain a new request's priority on
+  it. mimicry resets a stream the server leaves open after 10 s.
 - **Safari:** closes the connection, or resets the stream, at once.
 - **Firefox:** leaves it to the server, as the captures show. mimicry
   gives up after 10 s.

@@ -166,6 +166,14 @@ type stream struct {
 	linger clockwork.Timer
 	// stopCtx stops the request context from resetting the stream.
 	stopCtx func() bool
+	// weight is the HEADERS priority weight the stream was opened with,
+	// its level in Chromium's dependency lists (Conn.parent).
+	weight uint8
+	// peerEnded is set as soon as a frame carrying the peer's END_STREAM
+	// is read, before anything that frame carries reaches the caller: from
+	// then on the stream is no new request's parent, though it leaves
+	// c.streams only when endStream runs.
+	peerEnded bool
 }
 
 type responseOrError struct {
@@ -662,11 +670,20 @@ func (c *Conn) writeHeaders(s *stream, head requestHead) error {
 		// No ID is left for another stream.
 		c.draining = true
 	}
-	// Chromium's parent: the most recently opened stream still open.
-	var parent uint32
-	for open := range c.streams {
-		parent = max(parent, open)
+	// The HEADERS weight, which places the stream in Chromium's
+	// dependency lists.
+	var weight uint8
+	if p := c.h2.HeadersPriority; p != nil {
+		weight = p.Weight
+		if head.weight != 0 {
+			weight = head.weight
+		}
 	}
+	var parent uint32
+	if c.h2.HeadersPriority != nil && c.h2.ChainPriorities {
+		parent = c.parent(weight)
+	}
+	s.weight = weight
 	s.id = id
 	s.lastUpdate = c.clock.Now()
 	// The window is the one in force when the stream joins c.streams, so a
@@ -691,10 +708,8 @@ func (c *Conn) writeHeaders(s *stream, head requestHead) error {
 	}
 	if p := c.h2.HeadersPriority; p != nil {
 		param.Priority = priorityParam(*p)
-		if head.weight != 0 {
-			// As on the wire, like the profile's (captured from frames).
-			param.Priority.Weight = head.weight
-		}
+		// As on the wire, like the profile's (captured from frames).
+		param.Priority.Weight = weight
 		if c.h2.ChainPriorities {
 			param.Priority.StreamDep = parent
 			param.Priority.Exclusive = true
@@ -722,6 +737,28 @@ func (c *Conn) writeHeaders(s *stream, head requestHead) error {
 	}
 	c.maybePing()
 	return nil
+}
+
+// parent returns the stream a new stream of weight depends on, as Chromium
+// chains them (net/spdy/http2_priority_dependencies.cc): each weight is a
+// level, and the parent is the newest stream still open at the nearest
+// level at or above weight's, or 0 when there is none. A stream stays a
+// candidate while it is open, its response headers and the rest of its
+// response arriving, and stops being one once the peer's END_STREAM, a
+// reset or a failure ends it, whether or not the caller read its body.
+// c.mu must be held.
+func (c *Conn) parent(weight uint8) uint32 {
+	var id uint32
+	var level uint8
+	for open, s := range c.streams {
+		if s.peerEnded || s.weight < weight {
+			continue
+		}
+		if id == 0 || s.weight < level || (s.weight == level && open > id) {
+			id, level = open, s.weight
+		}
+	}
+	return id
 }
 
 // headersFailed handles a header block that did not go out in full: the
@@ -1268,7 +1305,14 @@ func (c *Conn) onWindowUpdate(f *http2.WindowUpdateFrame) error {
 }
 
 func (c *Conn) onHeaders(f *http2.MetaHeadersFrame) {
-	s := c.stream(f.StreamID)
+	c.mu.Lock()
+	s := c.streams[f.StreamID]
+	if s != nil && f.StreamEnded() {
+		// The frame ends the stream, as a response or by a reset: it is no
+		// parent from here on, before the caller can see the response.
+		s.peerEnded = true
+	}
+	c.mu.Unlock()
 	if s == nil {
 		return
 	}
@@ -1359,6 +1403,8 @@ func (c *Conn) onData(f *http2.DataFrame) error {
 	var streamErr error
 	code := http2.ErrCodeFlowControl
 	if s != nil {
+		// Before its data reaches the reader (see onHeaders).
+		s.peerEnded = s.peerEnded || f.StreamEnded()
 		s.recvWindow -= int64(size)
 		switch {
 		case s.recvWindow < 0:

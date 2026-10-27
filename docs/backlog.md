@@ -196,15 +196,22 @@ These matter most under decision 0029:
 
 ## HTTP/2
 
-- **Chrome's re-prioritisation and chained dependencies** (Chrome).
+- **Chrome's re-prioritisation** (Chrome).
   - Differs: Chrome sends a PRIORITY frame while a page loads (raising a
     script from weight 182 to 219, in 2 of 3 samples); mimicry never
-    does. Chained exclusive dependencies between concurrent requests
-    (`chain_priorities`) are unit-tested, not compared with the traces.
+    does. Chained exclusive dependencies (`chain_priorities`) are compared
+    with every Chrome trace (`TestChainedPrioritiesMatchBrowserTraces`);
+    no captured request depends on a stream Chrome re-prioritised, whose
+    place in Chromium's lists the PRIORITY frame changes. Also from
+    Chromium's code, not captured: a stream whose response ended while its
+    upload was still going stays in Chrome's chain until the upload's
+    END_STREAM; mimicry ends the stream (and the upload) at the
+    response's.
   - Shows: pages loading many subresources in parallel.
   - Detection: medium; priority frames are part of the Akamai HTTP/2
     fingerprint. User-visible: no.
-  - Close: compare the page traces' priority trees end to end; medium.
+  - Close: model `OnStreamUpdate` (the frame and the move in the lists)
+    against the page traces; medium.
   - Source: [EVIDENCE.md, HTTP/2 connection](../profiles/EVIDENCE.md#http2-connection)
     and Not covered (HTTP/2).
 - **Firefox answers the server's GOAWAY with its own** (Firefox).
@@ -1150,6 +1157,18 @@ These matter most under decision 0029:
   - Detection: low. User-visible: no.
   - Close: a longer `websocket` capture; small.
   - Source: [EVIDENCE.md, Behaviour in code](../profiles/EVIDENCE.md#behaviour-in-code-not-in-profiles).
+- **Chrome's HTTP/2 stream end after a close** (Chrome).
+  - Differs: Chrome's close event waits for the server to end the
+    socket's stream (its own END_STREAM went with its close frame), at
+    most 2 s in Chromium's code (`kUnderlyingConnectionCloseTimeoutSeconds`),
+    then drops the stream. `Close` waits as long, but mimicry resets a
+    stream the server has not ended after 10 s. Not captured: the capture
+    server always ends its stream.
+  - Shows: servers that never end a socket's stream after the close
+    handshake.
+  - Detection: low. User-visible: `Close` takes up to 10 s there.
+  - Close: a capture whose server leaves the stream open; small.
+  - Source: `internal/ws/conn.go` (`waitsForEnd`, `drain`).
 - **Chrome's fragmented large message** (Chrome).
   - Differs: Chrome split a 70 KiB message into two frames (65464 bytes
     and a continuation) in 3 of 6 Chrome 155 samples and 2 of 3 Chrome 156
@@ -1452,7 +1471,6 @@ it.
   under TLS and below (done: decisions 0026–0028). The ledger's "Last
   reviewed 2026-10-24" predates its QUIC rows. Small.
 - **Checks that are unit-only or missing.** Each small:
-  - `chain_priorities`;
   - the navigation's slots over HTTP/2 (see [HTTP/2](#http2));
   - the coalescing conditions;
   - the preflight's `Config.Headers` rule;

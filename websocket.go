@@ -347,13 +347,15 @@ func (w *WebSocket) WriteMessage(ctx context.Context, typ MessageType, data []by
 // close handshake is done and the connection or stream has ended as the
 // browser ends it: Chrome closes its HTTP/1.1 connection 2 s after the
 // handshake unless the server did first, and sets END_STREAM on its
-// close frame's HTTP/2 DATA; Safari closes the connection, or resets the
-// stream (NO_ERROR), at once. Firefox ended neither in any capture:
-// mimicry leaves it to the server, and ends it itself after 10 s (not
-// measured), after Close has returned. A server that never answers the
-// close has the transport ended after 10 s (not measured). After the
-// server closed first (ReadMessage's *CloseError), Close only waits for
-// that end.
+// close frame's HTTP/2 DATA, then waits for the server's END_STREAM (its
+// close event comes once the stream has closed; mimicry resets a stream
+// the server has not ended after 10 s, not measured); Safari closes the
+// connection, or resets the stream (NO_ERROR), at once. Firefox ended
+// neither in any capture: mimicry leaves it to the server, and ends it
+// itself after 10 s (not measured), after Close has returned. A server
+// that never answers the close has the transport ended after 10 s (not
+// measured). After the server closed first (ReadMessage's *CloseError),
+// Close only waits for that end.
 func (w *WebSocket) Close(code int, reason string) error {
 	return closeError(w.conn.Close(code, reason))
 }

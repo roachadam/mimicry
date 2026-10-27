@@ -3,6 +3,7 @@ module github.com/roachadam/mimicry/harness
 go 1.27.3
 
 require (
+	github.com/jonboulle/clockwork v0.5.0
 	github.com/quic-go/quic-go v0.64.1
 	github.com/roachadam/mimicry v0.0.0-00010101000000-000000000000
 	github.com/roachadam/utls v0.0.0-20261025174743-24d1f83b2f8a
@@ -11,7 +12,6 @@ require (
 )
 
 require (
-	github.com/jonboulle/clockwork v0.5.0 // indirect
 	github.com/klauspost/compress v1.20.1 // indirect
 	github.com/molecule-man/go-brrr v1.2.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect

@@ -98,7 +98,7 @@ browsers.
 | `window_update` (connection credit after the preface) | W+ | W+ | W+ | `TestProfilesMatchCaptures` |
 | `priorities` (PRIORITY frames at connection start) | W: none | W: none | W: none | `TestProfilesMatchCaptures` |
 | `headers_priority` | W: exclusive, weight 255 | W: weight 41 | W: none | `TestProfilesMatchCaptures` |
-| `chain_priorities` (each request depends exclusively on the previous) | W (capture page traces) | — | — | `TestChainedPriorities` (unit); not compared against the trace end to end |
+| `chain_priorities` (each request depends exclusively on the newest stream still open at the nearest weight at or above its own, Chromium's lists; a stream leaves them at the peer's END_STREAM or a reset, whether or not its body was read) | W (every Chrome HTTP/2 trace, replays included: 3006 of 11795 HEADERS of Chrome 155 and 156 depend on a stream, never one of lower weight, and every connection fits the rule; the newest open stream regardless of weight cannot fit 9 of Chrome 155's 1622 connections. A stream is still a parent after 3 MB of its response arrived, `replay-nike.com`, so not at its response headers, and none is once the page has the whole response; that the moment is its END_STREAM, not the body's reading, is Chromium's code, `SpdyStream::OnDataReceived`: [INFERENCE]) | W: never (stream 0, not exclusive) | W: never (no priority) | `TestChainedPrioritiesMatchBrowserTraces` (every trace's requests sent again, each stream ended after the last that depends on it, half with their bodies unread); `TestEndedStreamLeavesChainBeforeDelivery` (unit: a stream leaves the chain before its end reaches the caller) |
 | `pseudo_header_order` | W+ | W+ | W+ | `TestProfilesMatchCaptures` |
 | `first_stream_id`, `stream_window_update` | — (1, none) | W+: stream 3, 12451840 per stream | — | `TestProfilesMatchCaptures` |
 | `max_data_frame` (upload DATA cap) | W+: 16375 | W+: 16000 | W+: 16374 | `TestConnectionMatchesBrowserTrace` (largest frame equal, under the capture server's default SETTINGS), `TestDataFrameCap` (frame sizes, END_STREAM on the last DATA frame). The browsers keep their cap when the server allows larger frames (`large-settings`); no mimicry test raises the server's MAX_FRAME_SIZE |
@@ -497,6 +497,7 @@ code, not captured (browsers always have the body).
 | WebSocket messages go as one frame each | W for Firefox and Safari (every message); Chrome sends the 71680-byte text whole in 3 of 6 samples, split 65464 + 6216 in the others: mimicry always sends the whole form | `TestWebSocketsMatchBrowser` |
 | `ws://` from an `https://` page is refused before connecting | W: Chrome throws `SecurityError`; Firefox and Safari fail and no handshake reaches the server | `TestWebSocketsMatchBrowser` (`mixed`, every profile, both scenarios: the dial errors and no handshake reached the server) |
 | Firefox's socket transport: left to the server, ended by mimicry 10 s after the close handshake (HTTP/1.1: TCP close; HTTP/2: RST_STREAM NO_ERROR); a stream the server ended is forgotten without a frame | Firefox's own end is not captured: an unmeasured fallback so a socket cannot leak | no test (known gap) |
+| Chrome over HTTP/2: `Close` returns once the server has ended the socket's stream (mimicry's END_STREAM went with its close frame), so a later request's chained priority never depends on it; a stream the server does not end is reset after 10 s (Chromium waits 2 s, then drops the stream) | Chromium's `WebSocketChannel` fires its close event only after the stream closed ([INFERENCE], from its source); every captured socket handshake, each opened after the one before had closed, depends on stream 0 (`websocket-h2`, `proxy-websocket*`); the 10 s fallback is not captured | `TestWebSocketsMatchBrowser` (each socket's handshake priority); the fallback no test (known gap) |
 | A close handshake the server never answers ends the transport after 10 s | not captured | no test (known gap) |
 | Firefox's HTTP/2 segmenting that counts a frame header into its 16000 bytes (14 + 15986) | W, not modelled: only the cap and header-alone are | known gap |
 | `ErrNotMeasured`: an empty message on a compressing socket; a server answering `client_max_window_bits` under 15 or `client_no_context_takeover` (on sending); WebSockets through a proxy without `proxy.websocket`, with proxy credentials without `proxy.websocket.credentials`, ws:// through SOCKS5 | not captured | `TestWebSocketsMatchBrowser` (Firefox deflate); `TestUnmeasuredProxyIsAnError` (the proxy cases); the rest no test |
@@ -542,8 +543,10 @@ bullets below that later work has closed:
   total and per-proxy limits; coalescing through a proxy (mimicry never
   does); the 90 s after which an
   idle HTTP/1.1 connection is closed; the TLS 1.2 ticket lifetime.
-- HTTP/2: Chrome's mid-load re-prioritisation of a script and chained
-  dependencies between concurrent subresources (not compared); an upload
+- HTTP/2: Chrome's mid-load re-prioritisation of a script (and so how it
+  moves the stream in its dependency lists); a stream whose response ended
+  mid-upload, which Chromium keeps in its lists until the upload's
+  END_STREAM ([INFERENCE], from its source); an upload
   of unknown length ends with an empty END_STREAM DATA frame; a
   REFUSED_STREAM makes mimicry stop using the connection (Chrome retries
   on the same session: [INFERENCE], from its source); on errors, RST_STREAM

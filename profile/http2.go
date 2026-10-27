@@ -14,9 +14,12 @@ type HTTP2 struct {
 	// HeadersPriority is the priority carried on the request's HEADERS frame.
 	// Nil sends none.
 	HeadersPriority *PriorityParam `json:"headers_priority,omitempty"`
-	// ChainPriorities makes each request depend, exclusively, on the most
-	// recently opened stream that is still open, as Chromium does, instead of
-	// on HeadersPriority.DependsOn. Needs HeadersPriority.
+	// ChainPriorities makes each request depend, exclusively, on another
+	// stream as Chromium chains them, instead of on HeadersPriority.DependsOn:
+	// each HEADERS weight is a level, and the parent is the newest stream
+	// still open at the nearest level at or above the request's (0 when
+	// none is). A stream is open until the peer's END_STREAM or a reset ends
+	// it, whether or not its body was read. Needs HeadersPriority.
 	ChainPriorities bool `json:"chain_priorities,omitempty"`
 	// PseudoHeaderOrder is the order of :method, :authority, :scheme, :path.
 	PseudoHeaderOrder []string `json:"pseudo_header_order"`

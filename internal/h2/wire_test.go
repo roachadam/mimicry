@@ -296,28 +296,48 @@ func TestClosingFullyReadBodyDoesNotReset(t *testing.T) {
 	}
 }
 
-// Chrome makes each request depend, exclusively, on the newest stream still
-// open, and on stream 0 when none is.
-func TestChainedPriorities(t *testing.T) {
+// A stream stops being a parent of Chrome's chained priorities as soon as
+// the frame carrying the peer's END_STREAM is read, before the response
+// reaches the caller: a request sent once the caller has the response
+// never chains on it, whichever goroutine runs first. Here the read loop
+// is held after it found the stream, before it delivers the response,
+// while the next request goes out. Which stream a request chains on is
+// checked against the browser's traces by the harness
+// (TestChainedPrioritiesMatchBrowserTraces); no capture can hold the
+// read loop.
+func TestEndedStreamLeavesChainBeforeDelivery(t *testing.T) {
 	c, pr := newPeer(t, profiles.Chrome(), clockwork.NewRealClock())
 	first := roundTripAsync(c, get(t, "/1"))
 	h1 := pr.headers()
-	second := roundTripAsync(c, get(t, "/2"))
-	h2f := pr.headers()
-	if !h2f.HasPriority() || h2f.Priority.StreamDep != h1.StreamID || !h2f.Priority.Exclusive {
-		t.Fatalf("second request priority %+v, want exclusive dependency on stream %d", h2f.Priority, h1.StreamID)
+	var next *http2.MetaHeadersFrame
+	c.onHeadersHook = func() {
+		c.onHeadersHook = nil
+		roundTripAsync(c, get(t, "/2"))
+		// No t.Fatal off the test goroutine: a missing frame leaves next
+		// nil.
+		timeout := time.After(5 * time.Second)
+		for next == nil {
+			select {
+			case f, ok := <-pr.frames:
+				if !ok {
+					return
+				}
+				next, _ = f.(*http2.MetaHeadersFrame)
+			case <-timeout:
+				return
+			}
+		}
 	}
 	pr.respond(h1.StreamID, 0, nil, true)
-	pr.respond(h2f.StreamID, 0, nil, true)
-	<-first
-	<-second
-	third := roundTripAsync(c, get(t, "/3"))
-	h3 := pr.headers()
-	if h3.Priority.StreamDep != 0 {
-		t.Fatalf("with no stream open, depends on %d, want 0", h3.Priority.StreamDep)
+	if r := <-first; r.err != nil {
+		t.Fatal(r.err)
 	}
-	pr.respond(h3.StreamID, 0, nil, true)
-	<-third
+	switch {
+	case next == nil:
+		t.Fatal("no HEADERS for the second request")
+	case !next.HasPriority() || next.Priority.StreamDep != 0 || !next.Priority.Exclusive:
+		t.Fatalf("request sent once stream %d ended has priority %+v, want an exclusive dependency on stream 0", h1.StreamID, next.Priority)
+	}
 }
 
 // Request bodies go out in DATA frames no larger than the profile's cap, cut
