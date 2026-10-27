@@ -725,7 +725,7 @@ These matter most under decision 0029:
   - Shows: only when the caller sets such a header.
   - Detection: medium; a header no page can produce. User-visible: no.
   - Close: drop or refuse forbidden names in the resolver (the list
-    exists in `preflight.go`); small.
+    exists in `internal/cors`); small.
   - Source: [EVIDENCE.md, Request kinds](../profiles/EVIDENCE.md#request-kinds);
     [headers-order report](../harness/reports/headers-order-2026-10-24.md).
 - **Safari's placement of `Authorization` and other common names**
@@ -766,7 +766,7 @@ These matter most under decision 0029:
     User-visible: yes for Firefox's form POST over HTTP/1.1 (an error).
   - Close: a clicked form on `kinds-http1`, small; frames after a
     click, medium.
-  - Source: `kinds.go` (`resolve`);
+  - Source: `internal/request` (`Resolve`);
     [EVIDENCE.md, Request kinds](../profiles/EVIDENCE.md#request-kinds);
     [decision 0005](decisions/0005-request-kinds-api.md);
     [nav-click report](../harness/reports/nav-click-2026-10-26.md).
@@ -797,7 +797,7 @@ These matter most under decision 0029:
     cross-origin requests in conditions no capture showed.
   - Detection: none. User-visible: yes, an error.
   - Close: a capture per condition met in practice; small each.
-  - Source: `kinds.go` (`resolve`);
+  - Source: `internal/request` (`Resolve`);
     [how a request is built](concepts/how-a-request-is-built.md).
 - **`fetchpriority` on other kinds** (all).
   - Differs: high and low priorities are measured for `Fetch` (both) and
@@ -807,7 +807,7 @@ These matter most under decision 0029:
   - Detection: none. User-visible: yes, an error.
   - Close: extend the kinds page with `fetchpriority` per kind; small.
   - Source: [EVIDENCE.md, Request kinds](../profiles/EVIDENCE.md#request-kinds);
-    `kinds.go`.
+    `internal/request`.
 - **No HTTP cache** (all).
   - Differs: mimicry keeps no cache, so it never adds `If-None-Match` or
     `If-Modified-Since`, and a reload looks like a first visit unless the
@@ -1038,7 +1038,7 @@ These matter most under decision 0029:
   - Shows: less common redirect chains.
   - Detection: none. User-visible: yes, an error.
   - Close: broader redirect captures; medium.
-  - Source: `kinds.go` (`resolve`);
+  - Source: `internal/request` (`Resolve`);
     [EVIDENCE.md, Redirects](../profiles/EVIDENCE.md#redirects);
     [cors-edge report](../harness/reports/cors-edge-2026-10-24.md);
     [redirects2 report](../harness/reports/redirects2-2026-10-24.md).
@@ -1143,7 +1143,7 @@ These matter most under decision 0029:
   - Shows: `WebSocketOptions.Protocols` in those conditions.
   - Detection: none. User-visible: yes, an error.
   - Close: captures with subprotocols per page condition; small.
-  - Source: `websocket.go`;
+  - Source: `websocket.go` (`DialWebSocket`);
     [EVIDENCE.md, Not covered](../profiles/EVIDENCE.md#not-covered-by-any-claim)
     (WebSockets).
 - **A cross-site socket's connection**: see

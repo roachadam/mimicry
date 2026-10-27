@@ -583,7 +583,7 @@ func redirects2Requests(samples []*capture.Page) ([]*request, error) {
 		for _, q := range qs {
 			st := steps[q.label]
 			if q.method == "OPTIONS" {
-				// A hop's preflight is a request of its own (resolve).
+				// A hop's preflight is a request of its own (request.Resolve).
 				q.hop, q.crossOriginRedirect, q.crossSiteRedirect, q.originBefore, q.methodChanged, q.insecureBefore = false, false, false, false, false, false
 			}
 
@@ -1052,7 +1052,7 @@ func (r *request) condition() condition {
 	}
 	if r.method == "OPTIONS" {
 		// A preflight names the page's headers in
-		// Access-Control-Request-Headers (resolve's rule).
+		// Access-Control-Request-Headers (request.Resolve's rule).
 		c.pageSet = slices.ContainsFunc(headers, func(h profile.Header) bool {
 			return strings.EqualFold(h.Name, "access-control-request-headers")
 		})

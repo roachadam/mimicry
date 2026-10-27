@@ -13,6 +13,7 @@ import (
 	"github.com/roachadam/mimicry/cookies"
 	"github.com/roachadam/mimicry/internal/engine/native"
 	"github.com/roachadam/mimicry/internal/headerorder"
+	"github.com/roachadam/mimicry/internal/request"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -124,7 +125,7 @@ func (t *Transport) Plan(req *http.Request) (*Plan, error) {
 
 	r, exact := madeAs(req)
 
-	req, o, err := t.outgoing(req, r, exact, toPlan)
+	req, o, err := t.outgoing(req, r, exact, request.ToPlan)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +141,7 @@ func (t *Transport) Plan(req *http.Request) (*Plan, error) {
 	}
 
 	p := t.plan(r, exact, o.s)
-	if err := p.fill(e, t.ready(req, o, toPlan)); err != nil {
+	if err := p.fill(e, t.ready(req, o, request.ToPlan)); err != nil {
 		return nil, err
 	}
 
@@ -152,7 +153,7 @@ func (t *Transport) Plan(req *http.Request) (*Plan, error) {
 // plan starts the plan of a request made as r (or exact) and resolved as
 // s: its lists, condition and overrides. Call it before ready adds the
 // jar's cookies to s's headers.
-func (t *Transport) plan(r Request, exact bool, s *sending) *Plan {
+func (t *Transport) plan(r Request, exact bool, s *request.Sending) *Plan {
 	p := &Plan{
 		Kind: r.Kind,
 	}
@@ -163,21 +164,21 @@ func (t *Transport) plan(r Request, exact bool, s *sending) *Plan {
 
 	prefix := ""
 	if r.Kind != Navigate {
-		prefix = "kinds." + profileKinds[r.Kind] + "."
+		prefix = "kinds." + r.Kind.String() + "."
 	}
 
-	if s.variant < 0 {
+	if s.Variant < 0 {
 		p.Variant = prefix + "headers"
 	} else {
-		p.Variant = prefix + "variants[" + strconv.Itoa(s.variant) + "]"
+		p.Variant = prefix + "variants[" + strconv.Itoa(s.Variant) + "]"
 	}
 
-	p.Condition = conditionOf(s.cond)
+	p.Condition = conditionOf(s.Cond)
 
 	var lists [][]profile.Header
 
-	if s.plan != nil {
-		lists = append(lists, s.plan.Headers, s.plan.HTTP1)
+	if s.Plan != nil {
+		lists = append(lists, s.Plan.Headers, s.Plan.HTTP1)
 	} else {
 		lists = append(lists, t.profile.Headers)
 		if t.profile.HTTP1 != nil {
@@ -186,7 +187,7 @@ func (t *Transport) plan(r Request, exact bool, s *sending) *Plan {
 	}
 
 	for _, list := range lists {
-		replaced, dropped := headerorder.Replaced(list, s.header)
+		replaced, dropped := headerorder.Replaced(list, s.Header)
 		for _, rp := range replaced {
 			if !slices.ContainsFunc(p.Overrides, func(o Override) bool {
 				return o.Name == rp.Name
@@ -213,18 +214,18 @@ func (t *Transport) plan(r Request, exact bool, s *sending) *Plan {
 
 // cookieOverride adds to overrides the request's own Cookie header where
 // it replaces cookies the jar would send.
-func (t *Transport) cookieOverride(s *sending, overrides []Override) []Override {
-	if t.jar == nil || !s.credentialed || !hasHeader(s.header, "Cookie") || slices.ContainsFunc(overrides, func(o Override) bool {
+func (t *Transport) cookieOverride(s *request.Sending, overrides []Override) []Override {
+	if t.jar == nil || !s.Credentialed || !request.HasHeader(s.Header, "Cookie") || slices.ContainsFunc(overrides, func(o Override) bool {
 		return o.Name == "cookie"
 	}) {
 		return overrides
 	}
 
-	jar := cookies.Header(t.jar.Peek(s.cookies))
+	jar := cookies.Header(t.jar.Peek(s.Cookies))
 
 	var caller []string
 
-	for k, v := range s.header {
+	for k, v := range s.Header {
 		if strings.EqualFold(k, "Cookie") {
 			caller = append(caller, v...)
 		}
@@ -285,7 +286,7 @@ func (p *Plan) fill(e planner, req *http.Request) error {
 		return publicError(err)
 	}
 
-	p.Method, p.URL = methodOf(req), req.URL
+	p.Method, p.URL = request.Method(req), req.URL
 	p.protocols = ep.Protocols
 
 	if len(ep.Protocols) == 1 {
@@ -429,16 +430,4 @@ func (p *Plan) write(w io.Writer, indent string) {
 			line("  %s: %s", h.Name, h.Value)
 		}
 	}
-}
-
-// unread stands for a redirect hop's body when only planning
-// (browserHop): nothing reads it.
-type unread struct{}
-
-func (unread) Read([]byte) (int, error) {
-	return 0, io.EOF
-}
-
-func (unread) Close() error {
-	return nil
 }

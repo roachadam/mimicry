@@ -1,8 +1,9 @@
 # How a request is built
 
 What happens between `client.Do(req)` and bytes on the wire. Rough draft;
-the code is the reference (`kinds.go`, `transport.go`, `preflight.go`,
-`plan.go`, `internal/`).
+the code is the reference (the root's `mimicry.go`, `request.go` and
+`plan.go`; `internal/request`, `internal/cors` and the rest of
+`internal/`).
 
 ## 1. The request says how it is made
 
@@ -28,7 +29,8 @@ on anything but Fetch and XHR.
 
 ## 2. The transport resolves it against the profile
 
-`Transport.RoundTrip` turns the request into a plan (`resolve`):
+`Transport.RoundTrip` turns the request into a plan (`request.Resolve`, in
+`internal/request`):
 
 1. **Add `Config.Headers`.** Each one the request does not set itself (in
    any case) is added first, so from here on it counts as a header the
@@ -243,8 +245,8 @@ preflights, redirects, connection sharing),
 headers-order, cors, cors-edge, redirects2, nav-redirect, cookies,
 cookies-edge and h3 pages also plan every request just before sending it
 and check the plan against what the server received (`checkPlans`). The
-resolver's rules by unit tests in
-`kinds_test.go`, `transport_test.go` and `preflight_test.go`; the pool's by
+resolver's rules by unit tests in the root's `request_test.go`,
+`mimicry_test.go` and `preflight_test.go`; the pool's by
 `internal/pool`'s, with fake connections and a fake clock; coalescing by
 `internal/engine/native`'s, with fake servers and lookups. Header placement
 by `TestHeaderPlacement` (`placement_test.go`): each placed request against

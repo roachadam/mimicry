@@ -1,13 +1,21 @@
 package ws
 
 import (
+	"bytes"
 	"crypto/sha1" //nolint:gosec // RFC 6455 defines the accept key with SHA-1
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
+	"slices"
 	"strconv"
 	"strings"
+
+	"golang.org/x/net/http/httpguts"
+
+	"github.com/roachadam/mimicry/profile"
 )
 
 // guid is RFC 6455's key suffix (section 1.3).
@@ -126,4 +134,108 @@ func windowBits(v string) (int, error) {
 	}
 
 	return bits, nil
+}
+
+// Target checks a WebSocket URL as the WebSocket constructor
+// does (ws or wss, no fragment) and returns the http or https URL its
+// handshake requests, which cookies, sites and connections use.
+func Target(u *url.URL) (*url.URL, error) {
+	target := *u
+	switch u.Scheme {
+	case "wss":
+		target.Scheme = "https"
+	case "ws":
+		target.Scheme = "http"
+	default:
+		return nil, fmt.Errorf("mimicry: a WebSocket URL is ws:// or wss://, not %q", u.Scheme)
+	}
+
+	switch {
+	case u.Host == "" || !httpguts.ValidHostHeader(u.Host):
+		return nil, fmt.Errorf("mimicry: WebSocket URL %s has no valid host", u.Redacted())
+	case u.Fragment != "" || u.RawFragment != "":
+		return nil, fmt.Errorf("mimicry: WebSocket URL %s has a fragment", u.Redacted())
+	case u.User != nil:
+		return nil, fmt.Errorf("mimicry: WebSocket URL %s has credentials", u.Redacted())
+	}
+
+	return &target, nil
+}
+
+// CheckProtocols checks subprotocols as the WebSocket constructor does:
+// tokens (RFC 7230), none twice.
+func CheckProtocols(protocols []string) error {
+	for i, pr := range protocols {
+		if pr == "" || !httpguts.ValidHeaderFieldName(pr) {
+			return fmt.Errorf("mimicry: WebSocket subprotocol %q is not a token", pr)
+		}
+
+		if slices.Contains(protocols[:i], pr) {
+			return fmt.Errorf("mimicry: WebSocket subprotocol %q given twice", pr)
+		}
+	}
+
+	return nil
+}
+
+// PlacesProtocols reports whether a handshake's lists, over HTTP/2 and
+// HTTP/1.1 (its plan's Headers and HTTP1), both have a place for
+// Sec-WebSocket-Protocol. An empty list, one never sent over, has.
+func PlacesProtocols(headers, http1 []profile.Header) bool {
+	places := func(list []profile.Header) bool {
+		return len(list) == 0 || slices.ContainsFunc(list, func(h profile.Header) bool {
+			return strings.EqualFold(h.Name, "sec-websocket-protocol")
+		})
+	}
+
+	return places(headers) && places(http1)
+}
+
+// CheckHandshake checks the server's answer resp to a handshake with key,
+// offer and protocols, over HTTP/2 when h2 (RFC 6455, section 4.1; RFC
+// 8441, section 5), and returns the permessage-deflate it accepted, if
+// any.
+func CheckHandshake(resp *http.Response, h2 bool, key, offer string, protocols []string) (*Deflate, error) {
+	if h2 {
+		if resp.StatusCode < 200 || resp.StatusCode > 299 {
+			return nil, fmt.Errorf("mimicry: WebSocket handshake answered %s", resp.Status)
+		}
+	} else {
+		switch {
+		case resp.StatusCode != http.StatusSwitchingProtocols:
+			return nil, fmt.Errorf("mimicry: WebSocket handshake answered %s", resp.Status)
+		case !strings.EqualFold(resp.Header.Get("Upgrade"), "websocket"):
+			return nil, errors.New("mimicry: WebSocket handshake answered without Upgrade: websocket")
+		case !httpguts.HeaderValuesContainsToken(resp.Header.Values("Connection"), "upgrade"):
+			return nil, errors.New("mimicry: WebSocket handshake answered without Connection: Upgrade")
+		case resp.Header.Get("Sec-WebSocket-Accept") != AcceptKey(key):
+			return nil, errors.New("mimicry: WebSocket handshake answered with a wrong Sec-WebSocket-Accept")
+		}
+	}
+
+	if got := resp.Header.Values("Sec-WebSocket-Protocol"); len(got) > 0 {
+		if len(got) > 1 || !slices.Contains(protocols, got[0]) {
+			return nil, fmt.Errorf("mimicry: WebSocket handshake answered subprotocol %q, not one asked for", strings.Join(got, ", "))
+		}
+	}
+
+	return ParseExtensions(offer, strings.Join(resp.Header.Values("Sec-WebSocket-Extensions"), ", "))
+}
+
+// failedBody is how much of a failed handshake's response body is kept.
+const failedBody = 4 << 10
+
+// FailedResponse returns resp with the start of its body read into
+// memory and the transport behind it closed.
+func FailedResponse(resp *http.Response) *http.Response {
+	if resp.Body == nil || resp.Body == http.NoBody {
+		return resp
+	}
+
+	b, _ := io.ReadAll(io.LimitReader(resp.Body, failedBody))
+
+	_ = resp.Body.Close()
+	resp.Body = io.NopCloser(bytes.NewReader(b))
+
+	return resp
 }

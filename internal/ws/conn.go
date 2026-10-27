@@ -1,7 +1,9 @@
 // Package ws is the WebSocket protocol (RFC 6455) after the handshake, as
 // the profile's browser speaks it: framing, permessage-deflate through
 // internal/zdeflate, HTTP/2 DATA packing, pings and the close handshake.
-// It also makes and checks the handshake's keys and extension answer.
+// It also checks a socket's URL and subprotocols as the WebSocket
+// constructor does, makes the handshake's key, and checks the server's
+// answer (status, accept key, subprotocol, extensions).
 //
 // Every client message is one final frame, masked with a fresh key, its
 // length in the shortest form. The transport underneath (an HTTP/1.1
