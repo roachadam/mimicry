@@ -148,12 +148,14 @@ func (e *Engine) openWebSocketH1(ctx context.Context, req *http.Request, r route
 		}
 	}
 
-	resp, err := c.RoundTrip(req, func(bool) {
+	c.SetDone(func(bool) {
 		// Nothing else ever uses the connection.
 		if !upgraded.Load() {
 			_ = conn.Close()
 		}
 	})
+
+	resp, err := c.RoundTrip(req)
 	if err != nil {
 		return nil, err
 	}

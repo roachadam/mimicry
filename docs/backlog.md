@@ -76,6 +76,21 @@ These matter most under decision 0029:
     server, and the inner-hello layout per browser; large.
   - Source: [EVIDENCE.md, Not covered](../profiles/EVIDENCE.md#not-covered-by-any-claim)
     ("ECH payloads"); HANDOFF.md (ECH, study later).
+- **X25519 key reuse in resumed and QUIC hellos** (Firefox; Chrome and
+  Safari to confirm).
+  - Differs: Firefox's full TCP hellos send one X25519 key in both the
+    X25519MLKEM768 and the x25519 share, and mimicry does the same
+    (`tls.x25519Reuse`). Its resumed TCP hellos and its QUIC hellos keep
+    two keys, because no capture keeps those hellos' key bytes; NSS
+    probably reuses there too.
+  - Shows: every resumed Firefox connection and every Firefox HTTP/3
+    connection.
+  - Detection: medium; a server comparing the two shares sees it on
+    one hello. User-visible: no.
+  - Close: record raw key shares of page connections (TCP and QUIC,
+    resumed included), recapture, extend hellogen's rule and
+    `fingerprint`'s resumed and QUIC hellos; small.
+  - Source: [EVIDENCE.md](../profiles/EVIDENCE.md) (`x25519Reuse`).
 - **Firefox's resumed GREASE ECH payload size** (Firefox).
   - Differs: the profile fixes the payload of a resumed hello at 400
     bytes (432 over QUIC), measured against the capture server's tickets.

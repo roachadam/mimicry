@@ -152,8 +152,10 @@ func runJob(j job) outcome {
 	return o
 }
 
-// profiler writes a CPU profile of the window it is given and a heap
-// profile at its end, when dir is set.
+// profiler writes a CPU profile of the window it is given, and mutex,
+// block and allocation profiles at its end, when dir is set. Mutex and
+// block profiling are sampled (profileMutexFraction, profileBlockRate) so
+// they cost the measurement little.
 type profiler struct {
 	dir  string
 	name string
@@ -182,6 +184,9 @@ func (p *profiler) window(open bool) {
 
 		p.cpu = f
 
+		runtime.SetMutexProfileFraction(profileMutexFraction)
+		runtime.SetBlockProfileRate(profileBlockRate)
+
 		return
 	}
 
@@ -192,14 +197,38 @@ func (p *profiler) window(open bool) {
 		p.cpu = nil
 	}
 
-	f, err := os.Create(filepath.Join(p.dir, p.name+".mem.pprof"))
-	if err != nil {
-		p.err = errors.Join(p.err, err)
+	runtime.SetMutexProfileFraction(0)
+	runtime.SetBlockProfileRate(0)
 
-		return
+	for _, kind := range []string{"mutex", "block"} {
+		p.err = errors.Join(p.err, p.write(kind))
 	}
 
 	runtime.GC()
 
-	p.err = errors.Join(p.err, pprof.Lookup("allocs").WriteTo(f, 0), f.Close())
+	p.err = errors.Join(p.err, p.write("allocs"))
 }
+
+// write writes the named runtime profile to <name>.<kind>.pprof ("allocs"
+// goes to .mem.pprof).
+func (p *profiler) write(kind string) error {
+	suffix := kind
+	if kind == "allocs" {
+		suffix = "mem"
+	}
+
+	f, err := os.Create(filepath.Join(p.dir, p.name+"."+suffix+".pprof"))
+	if err != nil {
+		return err
+	}
+
+	return errors.Join(pprof.Lookup(kind).WriteTo(f, 0), f.Close())
+}
+
+const (
+	// profileMutexFraction samples one contention event in this many.
+	profileMutexFraction = 10
+	// profileBlockRate samples blocking events of about this many
+	// nanoseconds or more; shorter ones proportionally.
+	profileBlockRate = 10_000
+)

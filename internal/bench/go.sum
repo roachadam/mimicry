@@ -73,8 +73,8 @@ github.com/quic-go/quic-go v0.64.1 h1:BCNTP+6x6++OPKrGST2FR3f1tycx8O3QOA3QQv09g7
 github.com/quic-go/quic-go v0.64.1/go.mod h1:RAro2j2yN9a9EiPACLHT9IB2NXCvGQmmo/alT0yYI0w=
 github.com/refraction-networking/utls v1.8.1 h1:yNY1kapmQU8JeM1sSw2H2asfTIwWxIkrMJI0pRUOCAo=
 github.com/refraction-networking/utls v1.8.1/go.mod h1:jkSOEkLqn+S/jtpEHPOsVv/4V4EVnelwbMQl4vCWXAM=
-github.com/roachadam/utls v0.0.0-20261025174743-24d1f83b2f8a h1:RxRs9iYmG5TG2JqzH+gay1SNgibwmxX2WCGhw2GmGpI=
-github.com/roachadam/utls v0.0.0-20261025174743-24d1f83b2f8a/go.mod h1:tYowH3Rjl8RTBCZkNEyYe9dEz+3jpbsobGtHUf7quuw=
+github.com/roachadam/utls v0.0.0-20261028030754-3ef8aebd60b6 h1:2V8imR7QEnDcbhwz89+B6DTokdZKJd+5NjBmzIrbX2U=
+github.com/roachadam/utls v0.0.0-20261028030754-3ef8aebd60b6/go.mod h1:tYowH3Rjl8RTBCZkNEyYe9dEz+3jpbsobGtHUf7quuw=
 github.com/sardanioss/http v1.2.0 h1:Zq3uxnYDLeugTvaYaCzR3Tp1qDERbA2pHgkkFWRuETs=
 github.com/sardanioss/http v1.2.0/go.mod h1:Bn2qBFItWB9mLCxWW+tnwDe0stlrxhXaVZKtrLn4dc0=
 github.com/sardanioss/httpcloak v1.7.3 h1:hoMediiqwmosP3hZwtZYJEeKN+PPjK2MlVnDIF3OGvM=

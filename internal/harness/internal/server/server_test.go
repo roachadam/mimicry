@@ -201,7 +201,13 @@ func TestClientHelloAgreesWithStdlib(t *testing.T) {
 		clients = append(clients, client{
 			name: id.Str(),
 			handshake: func(t *testing.T, conn net.Conn) []byte {
-				u := utls.UClient(conn, &utls.Config{
+				// uTLS frees its hello once a TLS 1.3 handshake is done,
+				// so the bytes come from the wire: its first write.
+				rec := &firstWrite{
+					Conn: conn,
+				}
+
+				u := utls.UClient(rec, &utls.Config{
 					ServerName: "localhost",
 					RootCAs:    ts.pool,
 				}, id)
@@ -209,7 +215,12 @@ func TestClientHelloAgreesWithStdlib(t *testing.T) {
 					t.Fatalf("handshake: %v", err)
 				}
 
-				return u.HandshakeState.Hello.Raw
+				_, hello, err := ParseRecords(rec.first)
+				if err != nil {
+					t.Fatalf("the client's first write: %v", err)
+				}
+
+				return hello
 			},
 		})
 	}
@@ -319,6 +330,21 @@ func equalOrBothEmpty(got, want any) bool {
 	}
 
 	return reflect.DeepEqual(got, want)
+}
+
+// firstWrite keeps the first write on a connection: a TLS client's
+// ClientHello records.
+type firstWrite struct {
+	net.Conn
+	first []byte
+}
+
+func (c *firstWrite) Write(b []byte) (int, error) {
+	if c.first == nil {
+		c.first = bytes.Clone(b)
+	}
+
+	return c.Conn.Write(b)
 }
 
 // The server must record the HTTP/2 preface frames and first request exactly

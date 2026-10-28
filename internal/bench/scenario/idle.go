@@ -12,7 +12,9 @@ import (
 // built (heap and goroutines per client), then each warmed onto the
 // protocol and left idle (the growth per client is per idle connection;
 // for mimicry over HTTP/3 that is the QUIC connection plus the HTTP/2 one
-// it discovered Alt-Svc on, which Chrome keeps open too).
+// it discovered Alt-Svc on, which Chrome keeps open too). Stack is the
+// goroutines' stacks in use (runtime.MemStats.StackInuse), which the heap
+// leaves out.
 type IdleResult struct {
 	N int `json:"n"`
 	// Per client, before any request.
@@ -20,6 +22,7 @@ type IdleResult struct {
 	GoroutinesPerClient   float64 `json:"goroutinesPerClient"`
 	HeapPerConnKB         float64 `json:"heapPerConnKb"`
 	GoroutinesPerConn     float64 `json:"goroutinesPerConn"`
+	StackPerConnKB        float64 `json:"stackPerConnKb"`
 	HeapAfterCloseKB      float64 `json:"heapAfterCloseKb"`
 	GoroutinesAfterClose  int     `json:"goroutinesAfterClose"`
 	Discarded             string  `json:"discarded,omitempty"`
@@ -32,9 +35,9 @@ func Idle(ctx context.Context, su Setup, n int) (IdleResult, error) {
 		N: n,
 	}
 
-	heap0, g0 := settled(0)
+	m0 := settled(0)
 
-	res.GoroutinesBeforeStart = g0
+	res.GoroutinesBeforeStart = m0.goroutines
 
 	cs := make([]clients.Client, 0, n)
 
@@ -47,7 +50,7 @@ func Idle(ctx context.Context, su Setup, n int) (IdleResult, error) {
 		cs = append(cs, c)
 	}
 
-	heap1, g1 := settled(0)
+	m1 := settled(0)
 
 	req := GetJSON.Request(su.Server, su.Proto)
 	for _, c := range cs {
@@ -58,7 +61,7 @@ func Idle(ctx context.Context, su Setup, n int) (IdleResult, error) {
 		}
 	}
 
-	heap2, g2 := settled(2 * time.Second)
+	m2 := settled(2 * time.Second)
 
 	for _, c := range cs {
 		c.Close()
@@ -68,21 +71,29 @@ func Idle(ctx context.Context, su Setup, n int) (IdleResult, error) {
 	// behind (goroutines and memory still referenced from them).
 	clear(cs)
 
-	heap3, g3 := settled(2 * time.Second)
+	m3 := settled(2 * time.Second)
 
-	res.HeapPerClientKB = float64(int64(heap1)-int64(heap0)) / 1024 / float64(n)
-	res.GoroutinesPerClient = float64(g1-g0) / float64(n)
-	res.HeapPerConnKB = float64(int64(heap2)-int64(heap1)) / 1024 / float64(n)
-	res.GoroutinesPerConn = float64(g2-g1) / float64(n)
-	res.HeapAfterCloseKB = float64(int64(heap3)-int64(heap0)) / 1024
-	res.GoroutinesAfterClose = g3 - g0
+	res.HeapPerClientKB = kbPer(m1.heap, m0.heap, n)
+	res.GoroutinesPerClient = float64(m1.goroutines-m0.goroutines) / float64(n)
+	res.HeapPerConnKB = kbPer(m2.heap, m1.heap, n)
+	res.GoroutinesPerConn = float64(m2.goroutines-m1.goroutines) / float64(n)
+	res.StackPerConnKB = kbPer(m2.stack, m1.stack, n)
+	res.HeapAfterCloseKB = kbPer(m3.heap, m0.heap, 1)
+	res.GoroutinesAfterClose = m3.goroutines - m0.goroutines
 
 	return res, nil
 }
 
-// settled waits d, collects garbage twice and returns the live heap and the
-// goroutine count.
-func settled(d time.Duration) (uint64, int) {
+// memory is what settled reads.
+type memory struct {
+	heap       uint64
+	stack      uint64
+	goroutines int
+}
+
+// settled waits d, collects garbage twice and returns the live heap, the
+// stacks in use and the goroutine count.
+func settled(d time.Duration) memory {
 	time.Sleep(d)
 	runtime.GC()
 	runtime.GC()
@@ -90,5 +101,14 @@ func settled(d time.Duration) (uint64, int) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
-	return m.HeapAlloc, runtime.NumGoroutine()
+	return memory{
+		heap:       m.HeapAlloc,
+		stack:      m.StackInuse,
+		goroutines: runtime.NumGoroutine(),
+	}
+}
+
+// kbPer is the growth from before to after in KB, divided by n.
+func kbPer(after, before uint64, n int) float64 {
+	return float64(int64(after)-int64(before)) / 1024 / float64(n)
 }

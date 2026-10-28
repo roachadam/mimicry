@@ -16,6 +16,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -133,21 +134,27 @@ type Conn struct {
 	// pingTimer is set while a PING awaits its ACK.
 	pingTimer clockwork.Timer
 
+	// canon canonicalizes response header names; only the read loop uses
+	// it.
+	canon headerorder.Canon
+
 	// onHeadersHook is set by tests only. It runs in the read loop before
 	// a response is delivered.
 	onHeadersHook func()
 }
 
 type stream struct {
+	c          *Conn
 	id         uint32 // 0 until the HEADERS frame is written
 	sendWindow int32
 	// recvWindow is what the peer may still send on the stream; more is a
 	// FLOW_CONTROL_ERROR.
 	recvWindow int64
-	// resp delivers the response headers, or an error, once; whoever sets
-	// delivered sends it.
-	resp chan responseOrError
-	body *pipe
+	// resp is the response headers, or an error, handed to RoundTrip
+	// once (deliver) under body.mu; whoever sets delivered hands it.
+	resp      responseOrError
+	respReady bool
+	body      pipe
 	// unacked counts consumed body bytes not yet returned by WINDOW_UPDATE;
 	// lastUpdate is when credit was last returned (or the stream opened).
 	unacked    uint32
@@ -164,7 +171,8 @@ type stream struct {
 	// linger resets the stream if the peer never sends END_STREAM after the
 	// caller read the whole body and closed it.
 	linger clockwork.Timer
-	// stopCtx stops the request context from resetting the stream.
+	// stopCtx stops the request context from resetting the stream; nil
+	// for a context that never ends.
 	stopCtx func() bool
 	// weight is the HEADERS priority weight the stream was opened with,
 	// its level in Chromium's dependency lists (Conn.parent).
@@ -178,6 +186,31 @@ type stream struct {
 type responseOrError struct {
 	resp *http.Response
 	err  error
+}
+
+// deliver hands RoundTrip r. Whoever sets s.delivered calls it, once; c.mu
+// may be held, as body.mu is always taken last.
+func (s *stream) deliver(r responseOrError) {
+	p := &s.body
+	p.mu.Lock()
+
+	s.resp, s.respReady = r, true
+
+	p.cond.Broadcast()
+	p.mu.Unlock()
+}
+
+// response waits for what deliver hands over.
+func (s *stream) response() responseOrError {
+	p := &s.body
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	for !s.respReady {
+		p.cond.Wait()
+	}
+
+	return s.resp
 }
 
 // ending is how a stream ends: with err, and RST_STREAM code if rst.
@@ -258,6 +291,9 @@ func New(conn net.Conn, p *profile.Profile, clock clockwork.Clock) (*Conn, error
 
 	// The peer is held to what we advertise.
 	c.fr.SetMaxReadFrameSize(readFrameSize)
+	// onData copies a DATA frame's payload before the next frame is read,
+	// and nothing else keeps a frame.
+	c.fr.SetReuseFrames()
 
 	c.fr.ReadMetaHeaders = xhpack.NewDecoder(tableSize, nil)
 	c.fr.MaxHeaderListSize = headerListSize
@@ -438,7 +474,11 @@ func (c *Conn) RoundTrip(req *http.Request) (*http.Response, error) {
 	hasBody := req.Body != nil && req.Body != http.NoBody
 	length := bodyLength(req)
 
-	head, err := c.head(req, length, "")
+	// Room for the usual header list on the stack: it is encoded, then
+	// dropped.
+	var fields [40]hpack.Field
+
+	head, err := c.head(fields[:0], req, length, "")
 	if err != nil {
 		closeBody(req)
 
@@ -460,7 +500,7 @@ func (c *Conn) RoundTrip(req *http.Request) (*http.Response, error) {
 		})
 
 		// The first ending wins: a cancel may have come first.
-		r := <-s.resp
+		r := s.response()
 		if !errors.Is(r.err, ErrConnUnusable) {
 			closeBody(req)
 		}
@@ -472,7 +512,7 @@ func (c *Conn) RoundTrip(req *http.Request) (*http.Response, error) {
 		go c.sendBody(ctx, s, req.Body, length)
 	}
 
-	r := <-s.resp
+	r := s.response()
 	if r.err != nil {
 		return nil, r.err
 	}
@@ -514,21 +554,22 @@ func bodyLength(req *http.Request) int64 {
 // Head returns the header list, pseudo-headers first, that a connection
 // for p sends for req, or the error RoundTrip would return before sending.
 func Head(p *profile.Profile, req *http.Request) ([]hpack.Field, error) {
-	head, err := buildHead(p.Headers, p.HTTP2, req, bodyLength(req), "")
+	head, err := buildHead(nil, p.Headers, p.HTTP2, req, bodyLength(req), "")
 	return head.fields, err
 }
 
-// head builds req's header list for c.
-func (c *Conn) head(req *http.Request, length int64, protocol string) (requestHead, error) {
-	return buildHead(c.headers, c.h2, req, length, protocol)
+// head builds req's header list for c, appending it to dst.
+func (c *Conn) head(dst []hpack.Field, req *http.Request, length int64, protocol string) (requestHead, error) {
+	return buildHead(dst, c.headers, c.h2, req, length, protocol)
 }
 
-// buildHead builds req's header list: pseudo-headers in the profile's
-// order, then the headers through headerorder. length is 0 for no body and
-// -1 when unknown. A protocol makes an extended CONNECT (RFC 8441), with
-// :protocol after the profile's pseudo-headers as browsers place it. Fields
-// not valid on the wire are an error, as in net/http.
-func buildHead(headers []profile.Header, h2p *profile.HTTP2, req *http.Request, length int64, protocol string) (requestHead, error) {
+// buildHead builds req's header list, appending it to dst: pseudo-headers
+// in the profile's order, then the headers through headerorder. length is
+// 0 for no body and -1 when unknown. A protocol makes an extended CONNECT
+// (RFC 8441), with :protocol after the profile's pseudo-headers as
+// browsers place it. Fields not valid on the wire are an error, as in
+// net/http.
+func buildHead(dst []hpack.Field, headers []profile.Header, h2p *profile.HTTP2, req *http.Request, length int64, protocol string) (requestHead, error) {
 	method := req.Method
 	if method == "" {
 		method = http.MethodGet
@@ -564,27 +605,23 @@ func buildHead(headers []profile.Header, h2p *profile.HTTP2, req *http.Request, 
 		":scheme":    req.URL.Scheme,
 		":path":      path,
 	}
-	h := req.Header.Clone()
-
-	if h == nil {
-		h = http.Header{}
-	}
-
 	plan := headerorder.PlanFrom(req.Context())
+
+	// A body's length is the one declared, never the caller's header:
+	// unknown, or not sent by the browser, it is none, not even a profile
+	// default.
+	var sets []headerorder.Set
+
 	if length != 0 {
-		// A body's length is the one declared, never the caller's header.
-		for name := range h {
-			if strings.EqualFold(name, "Content-Length") {
-				delete(h, name)
-			}
+		set := headerorder.Set{
+			Name: "content-length",
+		}
+		if length > 0 && (plan == nil || !plan.NoContentLength) {
+			set.Value = strconv.FormatInt(length, 10)
 		}
 
-		if length > 0 && (plan == nil || !plan.NoContentLength) {
-			h.Set("Content-Length", strconv.FormatInt(length, 10))
-		} else {
-			// Unknown, or not sent by the browser: no length, not even a
-			// profile default.
-			h["Content-Length"] = nil
+		sets = []headerorder.Set{
+			set,
 		}
 	}
 
@@ -600,12 +637,15 @@ func buildHead(headers []profile.Header, h2p *profile.HTTP2, req *http.Request, 
 		head.weight = plan.Weight
 	}
 
-	ordered, err := headerorder.Place(headerorder.Build(list, h, skipHeader, table), headerorder.PlacementsFrom(req.Context()))
+	// Room for the usual list on the stack; head.fields is the copy kept.
+	var buf [32]headerorder.Field
+
+	ordered, err := headerorder.Place(headerorder.Build(buf[:0], list, req.Header, sets, skipHeader, table), headerorder.PlacementsFrom(req.Context()))
 	if err != nil {
 		return requestHead{}, err
 	}
 
-	head.fields = make([]hpack.Field, 0, len(h2p.PseudoHeaderOrder)+1+len(ordered))
+	head.fields = slices.Grow(dst, len(h2p.PseudoHeaderOrder)+1+len(ordered))
 	for _, name := range h2p.PseudoHeaderOrder {
 		head.fields = append(head.fields, hpack.Field{
 			Name:  name,
@@ -659,8 +699,8 @@ func buildHead(headers []profile.Header, h2p *profile.HTTP2, req *http.Request, 
 // newStream waits, as long as ctx allows, for room under the peer's
 // MAX_CONCURRENT_STREAMS, then starts a stream that ctx resets.
 func (c *Conn) newStream(ctx context.Context) (*stream, error) {
-	stop := context.AfterFunc(ctx, c.broadcast)
-	defer stop()
+	var w wake
+	defer w.done()
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -678,31 +718,64 @@ func (c *Conn) newStream(ctx context.Context) (*stream, error) {
 			break
 		}
 
-		c.cond.Wait()
+		w.wait(ctx, c)
 	}
 
 	s := &stream{
-		resp:       make(chan responseOrError, 1),
+		c:          c,
 		recvWindow: int64(c.recvStreamWindow),
 	}
 
-	s.body = newPipe(func(n int) {
-		c.consumed(s, n)
-	}, func(complete bool, discarded int) {
-		c.bodyClosed(s, complete, discarded)
-	})
-	s.stopCtx = context.AfterFunc(ctx, func() {
-		c.reset(s, http2.ErrCodeCancel, ctx.Err())
-	})
+	s.body.init(s)
+
+	if ctx.Done() != nil {
+		s.stopCtx = context.AfterFunc(ctx, func() {
+			c.reset(s, http2.ErrCodeCancel, ctx.Err())
+		})
+	}
+
 	c.active++
 
 	return s, nil
+}
+
+// stopCancel stops the request context from resetting s. c.mu must be
+// held.
+func (s *stream) stopCancel() {
+	if s.stopCtx != nil {
+		s.stopCtx()
+	}
 }
 
 func (c *Conn) broadcast() {
 	c.mu.Lock()
 	c.cond.Broadcast()
 	c.mu.Unlock()
+}
+
+// wake makes ctx's end broadcast c.cond for a wait on it, registered by
+// the first wait that blocks: most never do.
+type wake struct {
+	stop func() bool
+}
+
+// wait waits for c.cond's next broadcast, ctx's end included. c.mu must
+// be held.
+func (w *wake) wait(ctx context.Context, c *Conn) {
+	if w.stop == nil {
+		// Registered with mu held, so a ctx ending now still finds the
+		// wait.
+		w.stop = context.AfterFunc(ctx, c.broadcast)
+	}
+
+	c.cond.Wait()
+}
+
+// done unregisters w once the waiting is over.
+func (w *wake) done() {
+	if w.stop != nil {
+		w.stop()
+	}
 }
 
 // writeHeaders gives s its stream ID and writes head as HEADERS plus
@@ -1077,8 +1150,8 @@ func (c *Conn) sendData(ctx context.Context, s *stream, data []byte, end bool) e
 // reserveSend waits until both windows allow some data and takes up to want
 // bytes from them.
 func (c *Conn) reserveSend(ctx context.Context, s *stream, want int) (int, error) {
-	stop := context.AfterFunc(ctx, c.broadcast)
-	defer stop()
+	var w wake
+	defer w.done()
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -1109,7 +1182,7 @@ func (c *Conn) reserveSend(ctx context.Context, s *stream, want int) (int, error
 			return int(n), nil
 		}
 
-		c.cond.Wait()
+		w.wait(ctx, c)
 	}
 }
 
@@ -1188,7 +1261,7 @@ func (c *Conn) linger(s *stream) {
 		return
 	}
 
-	s.stopCtx()
+	s.stopCancel()
 
 	s.linger = c.clock.AfterFunc(lingerTimeout, func() {
 		c.reset(s, http2.ErrCodeCancel, errBodyClosed)
@@ -1235,9 +1308,9 @@ func (c *Conn) endStream(s *stream, e ending) {
 		s.linger.Stop()
 	}
 
-	s.stopCtx()
+	s.stopCancel()
 
-	// Whoever sets delivered owns the one send on s.resp, so it may happen
+	// Whoever sets delivered owns the one deliver, so it may happen
 	// outside mu.
 	deliver := !s.delivered
 
@@ -1256,9 +1329,9 @@ func (c *Conn) endStream(s *stream, e ending) {
 	}
 
 	if deliver {
-		s.resp <- responseOrError{
+		s.deliver(responseOrError{
 			err: err,
-		}
+		})
 	}
 
 	if n := s.body.end(err); n > 0 {
@@ -1595,21 +1668,23 @@ func (c *Conn) onHeaders(f *http2.MetaHeadersFrame) {
 		return
 	}
 
-	h := make(http.Header, len(f.Fields))
-	for _, field := range f.RegularFields() {
-		key := http.CanonicalHeaderKey(field.Name)
+	regular := f.RegularFields()
 
-		h[key] = append(h[key], field.Value)
+	rh := headerorder.NewResponseHeader(&c.canon, len(regular))
+	for _, field := range regular {
+		rh.Add(field.Name, field.Value)
 	}
 
+	h := rh.Header()
+
 	resp := &http.Response{
-		Status:        status + " " + http.StatusText(code),
+		Status:        headerorder.StatusLine(status, code),
 		StatusCode:    code,
 		Proto:         "HTTP/2.0",
 		ProtoMajor:    2,
 		Header:        h,
 		ContentLength: -1,
-		Body:          s.body,
+		Body:          &s.body,
 	}
 	if cl := h.Get("Content-Length"); cl != "" {
 		if n, err := strconv.ParseInt(cl, 10, 64); err == nil {
@@ -1628,9 +1703,9 @@ func (c *Conn) onHeaders(f *http2.MetaHeadersFrame) {
 	}
 
 	s.delivered = true
-	s.resp <- responseOrError{
+	s.deliver(responseOrError{
 		resp: resp,
-	}
+	})
 	c.mu.Unlock()
 
 	if f.StreamEnded() {

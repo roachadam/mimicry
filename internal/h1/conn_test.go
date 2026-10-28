@@ -23,7 +23,7 @@ func dial(t *testing.T, addr string) *Conn {
 		t.Fatal(err)
 	}
 
-	c := New(conn, profiles.Chrome())
+	c := New(conn, NewWriter(profiles.Chrome()))
 	t.Cleanup(func() {
 		_ = c.Close()
 	})
@@ -48,10 +48,11 @@ func do(t *testing.T, c *Conn, req *http.Request) (string, bool) {
 	t.Helper()
 
 	released := make(chan bool, 1)
-
-	resp, err := c.RoundTrip(req, func(reusable bool) {
+	c.SetDone(func(reusable bool) {
 		released <- reusable
 	})
+
+	resp, err := c.RoundTrip(req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,10 +129,11 @@ func TestNotReusable(t *testing.T) {
 
 	c := dial(t, srv.Listener.Addr().String())
 	released := make(chan bool, 1)
-
-	resp, err := c.RoundTrip(newRequest(t, http.MethodGet, srv.URL, nil), func(reusable bool) {
+	c.SetDone(func(reusable bool) {
 		released <- reusable
 	})
+
+	resp, err := c.RoundTrip(newRequest(t, http.MethodGet, srv.URL, nil))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,10 +169,11 @@ func TestContextCancel(t *testing.T) {
 	defer cancel()
 
 	released := make(chan bool, 1)
-
-	resp, err := c.RoundTrip(newRequest(t, http.MethodGet, srv.URL, nil).WithContext(ctx), func(reusable bool) {
+	c.SetDone(func(reusable bool) {
 		released <- reusable
 	})
+
+	resp, err := c.RoundTrip(newRequest(t, http.MethodGet, srv.URL, nil).WithContext(ctx))
 	if err == nil {
 		_ = resp.Body.Close()
 	}

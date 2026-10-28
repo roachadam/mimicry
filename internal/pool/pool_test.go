@@ -2,6 +2,8 @@ package pool
 
 import (
 	"context"
+	"runtime"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -232,4 +234,120 @@ func TestIdleConnectionIsReapedAfterTheIdleTimeout(t *testing.T) {
 	}
 
 	f.get("a", FoundDial)
+}
+
+// Each idle connection is closed IdleTimeout after its last release, not
+// at an earlier release's timeout, though one timer per key serves them
+// all.
+func TestIdleConnectionsAreReapedEachAtItsTimeout(t *testing.T) {
+	f := newFixture(t)
+	a := f.dialExclusive("b")
+	b := f.dialExclusive("b")
+
+	f.pool.Release("b", a, true)
+	f.clock.Advance(idleTimeout / 2)
+	f.pool.Release("b", b, true)
+	// Both taken (b, the most recent, first) and released again.
+	f.get("b", FoundExclusive)
+	f.get("b", FoundExclusive)
+	f.pool.Release("b", a, true)
+	f.clock.Advance(idleTimeout / 2)
+	f.pool.Release("b", b, true)
+	f.clock.Advance(idleTimeout/2 - time.Second)
+
+	if a.isClosed() || b.isClosed() {
+		t.Fatal("closed before the idle timeout of its last release")
+	}
+
+	f.advance(time.Second, 1)
+
+	if !a.isClosed() || b.isClosed() {
+		t.Fatalf("at a's timeout: a closed %v, b closed %v; want only a", a.isClosed(), b.isClosed())
+	}
+
+	f.clock.Advance(idleTimeout/2 - time.Second)
+
+	if b.isClosed() {
+		t.Fatal("b closed before its idle timeout")
+	}
+
+	f.advance(time.Second, 1)
+
+	if !b.isClosed() {
+		t.Fatal("b not closed after its idle timeout")
+	}
+}
+
+// heldConn is an exclusive connection that fails the test if it is
+// closed while a request holds it.
+type heldConn struct {
+	t      *testing.T
+	held   atomic.Bool
+	closed atomic.Bool
+}
+
+func (c *heldConn) Usable() bool {
+	return !c.closed.Load()
+}
+
+func (c *heldConn) Close() error {
+	if c.held.Load() {
+		c.t.Error("connection closed while a request holds it")
+	}
+
+	c.closed.Store(true)
+
+	return nil
+}
+
+// The reap timer is re-armed as connections go idle and are taken, and
+// may fire as a request takes the connection it was armed for: it must
+// never close a connection a request holds.
+func TestReapNeverClosesAHeldConnection(t *testing.T) {
+	clock := clockwork.NewFakeClock()
+	p := New[*fakeShared, *heldConn](Config{
+		Clock:       clock,
+		IdleTimeout: idleTimeout,
+	})
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	go func() {
+		for ctx.Err() == nil {
+			clock.Advance(idleTimeout / 4)
+			runtime.Gosched()
+		}
+	}()
+
+	var wg sync.WaitGroup
+
+	for range 8 {
+		wg.Go(func() {
+			for range 500 {
+				got, err := p.Get(ctx, "a")
+				if err != nil {
+					t.Error(err)
+
+					return
+				}
+
+				c := got.Exclusive
+				if got.Found == FoundDial {
+					got.Dial.Exclusive()
+
+					c = &heldConn{
+						t: t,
+					}
+				}
+
+				c.held.Store(true)
+				runtime.Gosched()
+				c.held.Store(false)
+				p.Release("a", c, true)
+			}
+		})
+	}
+
+	wg.Wait()
 }

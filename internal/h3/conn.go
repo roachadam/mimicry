@@ -200,6 +200,9 @@ func New(qc *quic.Conn, p *profile.Profile, opts Options) (*Conn, error) {
 
 	c.openStreams()
 	qc.Uncork()
+	// The streams' flight goes before the first request's stream exists
+	// (quic.Conn.Settle).
+	qc.Settle()
 
 	return c, nil
 }
@@ -1002,6 +1005,12 @@ func (c *Conn) start(ctx context.Context, hd head, end, mayEarly bool) (s *quic.
 
 	c.qc.Uncork()
 
+	if !opened {
+		// The first flight with the streams goes before the next
+		// request's stream exists (quic.Conn.Settle).
+		c.qc.Settle()
+	}
+
 	if err != nil {
 		select {
 		case <-c.qc.Done():
@@ -1051,6 +1060,7 @@ func (c *Conn) awaitHandshake(ctx context.Context) (release func(), err error) {
 		if !c.opened {
 			c.openStreams()
 			c.qc.Uncork()
+			c.qc.Settle()
 		}
 
 		c.startMu.Unlock()
@@ -1080,25 +1090,35 @@ func (c *Conn) ackSection(id uint64) {
 // decode decodes a response's field section, waiting while it is blocked
 // on the encoder stream, and acknowledges it.
 func (c *Conn) decode(ctx context.Context, id uint64, block []byte) ([]qpack.Field, error) {
-	stop := context.AfterFunc(ctx, func() {
-		c.decMu.Lock()
-		c.decCond.Broadcast()
-		c.decMu.Unlock()
-	})
-	defer stop()
-
 	c.decMu.Lock()
 
 	var (
 		fields []qpack.Field
 		ric    uint64
 		err    error
+		stop   func() bool
 	)
+
+	defer func() {
+		if stop != nil {
+			stop()
+		}
+	}()
 
 	for {
 		fields, ric, err = c.dec.Decode(block)
 		if !errors.Is(err, qpack.ErrBlocked) {
 			break
+		}
+
+		// Only a blocked section waits, so only it needs waking when ctx
+		// ends; most never block.
+		if stop == nil {
+			stop = context.AfterFunc(ctx, func() {
+				c.decMu.Lock()
+				c.decCond.Broadcast()
+				c.decMu.Unlock()
+			})
 		}
 
 		if ctx.Err() != nil {
@@ -1324,17 +1344,21 @@ func (r *requestStream) readResponse(ctx context.Context, req *http.Request) (*h
 	}
 }
 
-// response builds a response from its decoded fields.
+// response builds a response from its decoded fields. The header map is
+// sized for them and its values share one backing array (each key's slice
+// capped at its one value, so a repeated field appends to a copy), as
+// net/http's HTTP/2 does.
 func response(fields []qpack.Field) (*http.Response, error) {
 	resp := &http.Response{
 		Proto:         "HTTP/3.0",
 		ProtoMajor:    3,
-		Header:        http.Header{},
+		Header:        make(http.Header, len(fields)),
 		ContentLength: -1,
 	}
 	regular := false
+	vals := make([]string, len(fields))
 
-	for _, f := range fields {
+	for i, f := range fields {
 		if strings.HasPrefix(f.Name, ":") {
 			if regular || f.Name != ":status" || resp.StatusCode != 0 {
 				return nil, fmt.Errorf("h3: malformed response pseudo-header %q", f.Name)
@@ -1346,14 +1370,22 @@ func response(fields []qpack.Field) (*http.Response, error) {
 			}
 
 			resp.StatusCode = code
-			resp.Status = f.Value + " " + http.StatusText(code)
+			resp.Status = statusLine(code, f.Value)
 
 			continue
 		}
 
 		regular = true
 
-		resp.Header.Add(f.Name, f.Value)
+		key := http.CanonicalHeaderKey(f.Name)
+		if vv, ok := resp.Header[key]; ok {
+			resp.Header[key] = append(vv, f.Value)
+
+			continue
+		}
+
+		vals[i] = f.Value
+		resp.Header[key] = vals[i : i+1 : i+1]
 	}
 
 	if resp.StatusCode == 0 {
@@ -1367,6 +1399,29 @@ func response(fields []qpack.Field) (*http.Response, error) {
 	}
 
 	return resp, nil
+}
+
+// statusLine is a response's Status ("200 OK"), without building the
+// common ones.
+func statusLine(code int, value string) string {
+	switch code {
+	case http.StatusOK:
+		return "200 OK"
+	case http.StatusNoContent:
+		return "204 No Content"
+	case http.StatusPartialContent:
+		return "206 Partial Content"
+	case http.StatusMovedPermanently:
+		return "301 Moved Permanently"
+	case http.StatusFound:
+		return "302 Found"
+	case http.StatusNotModified:
+		return "304 Not Modified"
+	case http.StatusNotFound:
+		return "404 Not Found"
+	}
+
+	return value + " " + http.StatusText(code)
 }
 
 // body is a response body: the DATA frames of its stream.

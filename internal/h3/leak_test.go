@@ -56,15 +56,18 @@ func TestFinishedRequestsAreReleased(t *testing.T) {
 // went back once the stream was done with them. Only a buffer wholly consumed
 // went back before, so every request allocated four new ones (bench
 // 2026-10-27: 43% of HTTP/3's allocated bytes, and 14 times net/http's GCs).
+// The number of allocations is bounded too, so the ones taken out of the
+// request path (QPACK literals, response headers, control messages) cannot
+// creep back unnoticed.
 func TestRequestsReuseStreamBuffers(t *testing.T) {
 	c := rawH3(t)
 
-	totalAlloc := func() uint64 {
+	mem := func() runtime.MemStats {
 		var m runtime.MemStats
 
 		runtime.ReadMemStats(&m)
 
-		return m.TotalAlloc
+		return m
 	}
 
 	get(t, c, 200)
@@ -74,11 +77,12 @@ func TestRequestsReuseStreamBuffers(t *testing.T) {
 
 	const n = 1000
 
-	before := totalAlloc()
+	before := mem()
 
 	get(t, c, n)
 
-	perRequest := (totalAlloc() - before) / n
+	after := mem()
+	perRequest := (after.TotalAlloc - before.TotalAlloc) / n
 	// About 7 KB here (17 KB with -race, whose sync.Pool drops a quarter
 	// of what is put back), 8 KB more for each direction whose buffers are
 	// allocated anew.
@@ -89,6 +93,20 @@ func TestRequestsReuseStreamBuffers(t *testing.T) {
 
 	if perRequest > bound {
 		t.Fatalf("%d B allocated per request on a warm connection, want at most %d", perRequest, bound)
+	}
+
+	// Allocations per request, client and raw server together: 49 here
+	// (52 before QPACK literals shared one string and response headers
+	// one backing array, 2026-10-27), 54-57 with -race.
+	objects := (after.Mallocs - before.Mallocs) / n
+
+	objBound := uint64(51)
+	if raceEnabled() {
+		objBound = 60
+	}
+
+	if objects > objBound {
+		t.Fatalf("%d allocations per request on a warm connection, want at most %d", objects, objBound)
 	}
 }
 

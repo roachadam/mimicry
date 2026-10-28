@@ -70,3 +70,15 @@ HPACK are. (The user's choice, 2026-10-25.)
 - Interop shows the copy cannot be made robust at reasonable cost; then
   reconsider a quic-go fork.
 - x/net/quic becomes production-ready, or HTTP/3 reappears upstream.
+
+## Amendment 2026-10-27: fix our copy, don't wait for upstream
+
+Diverging from x/net/quic is accepted (the user's choice). A problem
+found in the copy (a bug, or a cost that shows in the benchmarks) is
+fixed here now rather than waiting for an upstream fix; upstream's
+changes are still reviewed periodically and taken where relevant. Every
+local change keeps its entry in `internal/quic/UPSTREAM.md` and its
+`mimicry:` marker, so a sync can see what is ours. First under this
+rule: the streams table under a mutex, so opening a stream no longer
+waits for the connection's loop (UPSTREAM.md change 12), which
+serialized HTTP/3 request starts on a busy connection.

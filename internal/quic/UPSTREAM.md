@@ -21,6 +21,13 @@ runner (`internal/quic/cmd/interop`), which the package does not import.
 
 ## Syncing
 
+Policy (the user's, 2026-10-27; decision 0027's amendment): we diverge
+from upstream where it pays. A problem in the copy is fixed here now, not
+left for an upstream fix; upstream's changes are reviewed periodically
+(the steps below) and taken where relevant, merged around ours. Every
+local change still gets its entry under "Local changes" and a `mimicry:`
+marker in upstream's files.
+
 1. Diff upstream between the recorded commit and the newer one:
    `git diff c1d31df <new> -- quic internal/quic/quicwire internal/testcert`
    in a clone of `https://go.googlesource.com/net`. Also check whether the
@@ -303,6 +310,62 @@ the mechanical import rewrites.
     Test: `stream_fin_test.go` (`TestStreamFINAfterTruncatedProbe`, the
     close put between the PTO and the probe on the synthetic peer).
 
+11. **Control messages parsed in place** (`udp_msg.go`: `parseControl`,
+    `nextCmsg`). Upstream calls `syscall.ParseSocketControlMessage`, which
+    allocates a slice per received datagram, grown twice when the socket
+    is unbound (ECN and PKTINFO both on): 60% of the allocations of an
+    HTTP/3 100 KB download at 64 at once (bench, 2026-10-27). The walk
+    keeps its checks: nothing is taken from a malformed buffer. Test:
+    `udp_msg_parse_test.go` (values, a malformed header, no allocation).
+
+12. **Streams table under a mutex** (`conn_streams.go`:
+    `streamsState.tableMu`; `conn.go`'s `receiveTransportParameters`,
+    `client_params.go`, `client_tls.go`). Upstream's `newLocalStream`
+    registers the stream with a round trip to the connection's loop
+    (`runOnLoop`), which waits behind every datagram queued for the loop:
+    on a busy connection each HTTP/3 request start (serialized by h3's
+    `startMu` to keep stream IDs in order) waited about 19 µs for it, half
+    of all the time requests spent blocked at 1 KB and 64 at once. Now
+    `tableMu` guards `streams`, `peerInitialMaxStreamDataRemote` and
+    `tableClosed`; `newLocalStream` reads the window and inserts under it
+    from the caller's goroutine, and every loop-side access takes it
+    (`streamForID`, `streamForFrame`, the removal in `appendStreamFrames`,
+    `appendStreamFramesPTO`, `streamsCleanup`, the transport parameters,
+    `clientApplyPeerWindows`, `clientResetFlowControl`). The windows are
+    written before the stream limits are raised, so a stream the new
+    limit lets open reads them; `clientApplyPeerWindows` and
+    `clientResetFlowControl` walk the table under the same lock, which
+    keeps change 6's 0-RTT race closed. `streamsCleanup` sets
+    `tableClosed` under it, after which `NewStream` fails instead of
+    adding a stream that would never hear the connection closed. Off the
+    loop the lock is held alone, so it has no order with `sendMu` or the
+    streams' gates. Stream IDs are still reserved in order
+    (`localStreamLimits.open`). quic-go does the same (a mutex on its
+    streams map). The round trip had one effect on the wire: a stream
+    opened just after an `Uncork` was registered only after the loop had
+    sent what the uncork released. `Conn.Settle` (`client.go`) keeps that
+    where it shows: h3 settles after uncorking the streams it opens at
+    the handshake, so Chrome's first 0-RTT packet carries the control
+    stream ahead of the request (`TestHTTP3MatchesBrowser`, h3-discovery,
+    fails without it). No unit test: one racing `NewStream` against the
+    connection's close did not catch `tableClosed` removed (3 runs,
+    `-race`), so it was not kept; the 0-RTT windows are `TestQUICInterop`'s
+    `0rtt-accepted`, `0rtt-window-grows` and `goaway` rows under `-race`.
+
+13. **Batched receive on Linux** (new `udp_batch_linux.go`,
+    `udp_batch_darwin.go`; hook in `udp_msg.go`'s `Read`). Upstream reads
+    one datagram per `recvmsg`; on Linux `readBatch` reads up to 8 per
+    `recvmmsg` (quic-go's batch), with raw `recvmmsg` rather than
+    `x/net/ipv4`'s `ReadBatch`, which allocates an address per message.
+    Each datagram still goes to the loop alone, with its own control
+    messages parsed (change 11), so the ACK rules see the queue they saw.
+    macOS keeps `recvmsg`. Receive was 13% of the client's CPU at 100 KB
+    and 64 at once (bench 2026-10-27); with batches, req/s rose from about
+    6,000 to 6,300 (noisy). Covered by upstream's tests and the e2e
+    suite run in a Linux container (`TestHTTP3*MatchesBrowser`,
+    `TestQUICInterop`): on macOS, where the gate runs, this path is not
+    built.
+
 ## Tests
 
 The tests are upstream's own, kept as the proof that the copy and the TLS
@@ -313,8 +376,9 @@ None were pruned: all pass on uTLS. `client_version_test.go` is mimicry's
 cannot be checked anywhere but on the synthetic peer. So are
 `stream_buffers_test.go` (change 9): a buffer released while a stream still
 uses it corrupts data silently, and only many streams at once, ending every
-way, reach the paths; and `stream_fin_test.go` (change 10): a stall that
-needs the close to fall between a PTO and its probe.
+way, reach the paths; `stream_fin_test.go` (change 10): a stall that
+needs the close to fall between a PTO and its probe; and
+`udp_msg_parse_test.go` (change 11): the receive path's allocation bound.
 
 ## Lint
 

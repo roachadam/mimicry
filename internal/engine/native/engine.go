@@ -21,13 +21,13 @@ import (
 	"net/http"
 	"net/netip"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/jonboulle/clockwork"
 	"golang.org/x/net/http/httpguts"
 
 	"github.com/roachadam/mimicry/internal/dial"
-	"github.com/roachadam/mimicry/internal/fingerprint"
 	"github.com/roachadam/mimicry/internal/h1"
 	"github.com/roachadam/mimicry/internal/h2"
 	"github.com/roachadam/mimicry/internal/handshake"
@@ -77,7 +77,9 @@ type Config struct {
 // handshakes and HTTP/1.1, HTTP/2 or HTTP/3 as the profile's browser
 // chooses. It is safe for concurrent use.
 type Engine struct {
-	plan    *fingerprint.Plan
+	// compiled holds the plan and the HTTP/1.1 writer, shared with every
+	// engine holding the same profile.
+	*compiled
 	profile *profile.Profile
 	clock   clockwork.Clock
 	rootCAs *x509.CertPool
@@ -95,7 +97,9 @@ type Engine struct {
 	quic *quicState
 }
 
-// New builds an engine for cfg.Profile, which it takes ownership of.
+// New builds an engine for cfg.Profile, which it takes ownership of: the
+// profile must not change afterwards, and engines given the same profile
+// share what they compile from it.
 func New(cfg Config) (*Engine, error) {
 	return newEngine(cfg, clockwork.NewRealClock(), nil)
 }
@@ -116,12 +120,13 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 		timeout = defaultDialTimeout
 	}
 
-	plan := fingerprint.Compile(p)
+	c := compile(p)
+	plan := c.plan
 	e := &Engine{
-		plan:    plan,
-		profile: p,
-		clock:   clock,
-		rootCAs: cfg.RootCAs,
+		compiled: c,
+		profile:  p,
+		clock:    clock,
+		rootCAs:  cfg.RootCAs,
 		dialer: &dial.Dialer{
 			Timeout:     timeout,
 			DialContext: cfg.DialContext,
@@ -329,9 +334,9 @@ type route struct {
 	addr string
 	host string
 	// group is what another host's HTTP/2 connection must share for
-	// coalescing (scheme, port, partition). Empty when the request never
-	// coalesces: plain HTTP or through a proxy.
-	group string
+	// coalescing. Zero when the request never coalesces: plain HTTP or
+	// through a proxy.
+	group group
 	// proxy is nil for a direct connection.
 	proxy *url.URL
 	// forward sends plain-HTTP requests to an HTTP proxy whole, instead of
@@ -342,25 +347,37 @@ type route struct {
 	tcpOnly bool
 }
 
+// group is what an https request shares with the HTTP/2 connections it
+// may coalesce onto: port and partition.
+type group struct {
+	port      string
+	partition string
+}
+
 // route picks req's proxy and pool. Connections and TLS sessions are
 // never shared between proxies, or with direct connections.
 func (e *Engine) route(req *http.Request) (route, error) {
-	addr := hostPort(req.URL)
-	r := route{
-		key:  req.URL.Scheme + "://" + addr,
-		addr: addr,
-		host: req.URL.Hostname(),
+	host, port := req.URL.Hostname(), req.URL.Port()
+	if port == "" {
+		port = "443"
+		if req.URL.Scheme == "http" {
+			port = "80"
+		}
 	}
-	partition := pool.Partition(req.Context())
 
-	if partition != "" {
-		r.key += " " + partition
+	partition := pool.Partition(req.Context())
+	key, addr := poolKey(req.URL.Scheme, host, port, partition)
+	r := route{
+		key:  key,
+		addr: addr,
+		host: host,
 	}
 
 	if req.URL.Scheme == "https" {
-		_, port, _ := net.SplitHostPort(addr)
-
-		r.group = "https :" + port + " " + partition
+		r.group = group{
+			port:      port,
+			partition: partition,
+		}
 	}
 
 	if e.proxy == nil {
@@ -382,9 +399,28 @@ func (e *Engine) route(req *http.Request) (route, error) {
 	r.key += " via " + p.String()
 	// Coalescing through a proxy was never captured; the proxy resolves
 	// names, so the address condition cannot be checked either.
-	r.group = ""
+	r.group = group{}
 
 	return r, nil
+}
+
+// poolKey is a direct request's pool key, "scheme://host:port", then a
+// space and the partition if any, and addr, the host:port in it as
+// net.JoinHostPort writes it: one string for both, built every request.
+func poolKey(scheme, host, port, partition string) (key, addr string) {
+	if strings.Contains(host, ":") {
+		host = "[" + host + "]"
+	}
+
+	if partition == "" {
+		key = scheme + "://" + host + ":" + port
+	} else {
+		key = scheme + "://" + host + ":" + port + " " + partition
+	}
+
+	start := len(scheme) + len("://")
+
+	return key, key[start : start+len(host)+len(":")+len(port)]
 }
 
 // userAgent is the profile's User-Agent value.
@@ -434,7 +470,7 @@ func (e *Engine) tryOnce(ctx context.Context, req *http.Request, r route) (*http
 	case pool.FoundShared:
 		return e.roundTripH2(r.key, got.Shared, req)
 	case pool.FoundExclusive:
-		resp, err := e.roundTripH1(r.key, got.Exclusive, req)
+		resp, err := got.Exclusive.RoundTrip(req)
 		if err != nil && replayable(req) && ctx.Err() == nil {
 			// The server may have closed the idle connection as the
 			// request went out: try a new one.
@@ -464,7 +500,7 @@ func (e *Engine) tryOnce(ctx context.Context, req *http.Request, r route) (*http
 	if proto != "h2" {
 		d.Exclusive()
 
-		return e.roundTripH1(r.key, e.newH1(conn, r), req)
+		return e.pooled(r.key, e.newH1(conn, r)).RoundTrip(req)
 	}
 
 	if e.profile.Connections.Coalesce == profile.CoalesceOnConnect {
@@ -518,7 +554,7 @@ func (e *Engine) roundTripH2(key string, c *shared, req *http.Request) (*http.Re
 
 // newH1 wraps conn, which carries HTTP/1.1, for the route's requests.
 func (e *Engine) newH1(conn net.Conn, r route) *h1.Conn {
-	c := h1.New(conn, e.profile)
+	c := h1.New(conn, e.h1)
 	c.SetTLS(handshake.ConnState(conn))
 
 	if r.forward {
@@ -602,12 +638,14 @@ func (e *Engine) resumes(r route) bool {
 	return r.proxy == nil || r.proxy.Scheme != dial.SchemeHTTP || !e.profile.Proxy.ConnectNoResume
 }
 
-// roundTripH1 sends req on c, which the pool gave or a dial made, and
-// gives c back to the pool when the response ends.
-func (e *Engine) roundTripH1(key string, c *h1.Conn, req *http.Request) (*http.Response, error) {
-	return c.RoundTrip(req, func(reusable bool) {
+// pooled makes c, which a dial for key made, go back to key's pool as each
+// of its responses ends.
+func (e *Engine) pooled(key string, c *h1.Conn) *h1.Conn {
+	c.SetDone(func(reusable bool) {
 		e.pool.Release(key, c, reusable)
 	})
+
+	return c
 }
 
 // Handshake connects to rawURL's host as a request would, with the
@@ -660,18 +698,4 @@ func replayable(req *http.Request) bool {
 	}
 
 	return req.Body == nil || req.Body == http.NoBody || req.GetBody != nil
-}
-
-// hostPort is u's host and port; without a port, or with an empty one, the
-// scheme's default.
-func hostPort(u *url.URL) string {
-	port := u.Port()
-	if port == "" {
-		port = "443"
-		if u.Scheme == "http" {
-			port = "80"
-		}
-	}
-
-	return net.JoinHostPort(u.Hostname(), port)
 }

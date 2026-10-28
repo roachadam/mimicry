@@ -303,6 +303,19 @@ func (c *checker) checkTLS(t *TLS) {
 		}
 	}
 
+	if t.X25519Reuse {
+		// uTLS shares the hybrid's X25519 key with the x25519 share
+		// generated after it.
+		hybrid, x25519 := -1, -1
+		if keyShare != nil {
+			hybrid, x25519 = slices.Index(keyShare.KeyShares, 0x11ec), slices.Index(keyShare.KeyShares, 0x001d)
+		}
+
+		if hybrid < 0 || x25519 < hybrid {
+			c.add("tls.x25519Reuse", "needs X25519MLKEM768 (0x11ec) and then x25519 (0x001d) in key_share")
+		}
+	}
+
 	if r := t.Resumption; r != nil {
 		if t.extension(ExtPreSharedKey) != nil {
 			c.add("tls.extensions", "the full ClientHello cannot offer pre_shared_key; tls.resumption adds it")

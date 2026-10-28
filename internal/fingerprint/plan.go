@@ -71,6 +71,9 @@ type Hello struct {
 	CompressionMethods []uint8
 	// Extensions in the order this connection sends them.
 	Extensions []profile.Extension
+	// X25519Reuse sends X25519MLKEM768's X25519 key as the x25519 share
+	// too (profile tls.x25519Reuse): full TCP hellos only.
+	X25519Reuse bool
 }
 
 // Hello returns a new connection's ClientHello. For a shuffled profile, it
@@ -91,6 +94,8 @@ func (p *Plan) Resumes() bool {
 // resumption, with pre_shared_key last. Only for a plan that Resumes.
 func (p *Plan) ResumedHello() Hello {
 	h := p.Hello()
+	// Measured for full hellos only.
+	h.X25519Reuse = false
 
 	h.Extensions = slices.DeleteFunc(h.Extensions, func(e profile.Extension) bool {
 		return slices.Contains(p.tls.Resumption.Drop, e.Type)
@@ -139,6 +144,7 @@ func (p *Plan) hello(intn func(int) int) Hello {
 		CipherSuites:       append([]profile.Code(nil), p.tls.CipherSuites...),
 		CompressionMethods: append([]uint8(nil), p.tls.CompressionMethods...),
 		Extensions:         make([]profile.Extension, len(p.tls.Extensions)),
+		X25519Reuse:        p.tls.X25519Reuse,
 	}
 	// Extension values share slices with the plan; they are never modified
 	// after Compile, and the handshake only reads them.

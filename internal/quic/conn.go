@@ -298,12 +298,16 @@ func (c *Conn) receiveTransportParameters(p transportParameters) error {
 		}
 		defer c.clientApplyPeerWindows(p)
 	}
+	// mimicry: the windows first, under tableMu (conn_streams.go): a
+	// stream may open as soon as setMax allows it, and reads them then.
+	c.streams.tableMu.Lock()
+	c.streams.peerInitialMaxStreamDataRemote[bidiStream] = p.initialMaxStreamDataBidiRemote
+	c.streams.peerInitialMaxStreamDataRemote[uniStream] = p.initialMaxStreamDataUni
+	c.streams.tableMu.Unlock()
 	c.streams.outflow.setMaxData(p.initialMaxData)
 	c.streams.localLimit[bidiStream].setMax(p.initialMaxStreamsBidi)
 	c.streams.localLimit[uniStream].setMax(p.initialMaxStreamsUni)
 	c.streams.peerInitialMaxStreamDataBidiLocal = p.initialMaxStreamDataBidiLocal
-	c.streams.peerInitialMaxStreamDataRemote[bidiStream] = p.initialMaxStreamDataBidiRemote
-	c.streams.peerInitialMaxStreamDataRemote[uniStream] = p.initialMaxStreamDataUni
 	c.receivePeerMaxIdleTimeout(p.maxIdleTimeout)
 	c.peerAckDelayExponent = p.ackDelayExponent
 	c.loss.setMaxAckDelay(p.maxAckDelay)

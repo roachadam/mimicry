@@ -16,7 +16,7 @@ ever reaches the library's or the harness's dependencies. Reports are in
 | 1 | One request on a warm connection: ns/op, B/op, allocs/op; GET /json and POST /echo (small JSON); HTTP/1.1, HTTP/2, HTTP/3 | `bench_test.go` `BenchmarkRequest`, `-count=10`, benchstat |
 | 2 | One request on a new connection: full handshake (a new client each time) and resumed (connections closed, session cache kept) | `bench_test.go` `BenchmarkConnect` |
 | 3 | Throughput and latency: requests/s, p50/p95/p99, MB/s, client CPU per request, allocations, GC, peak heap, at concurrency 1/16/64/256, bodies 1 KB/100 KB/10 MB, fixed window after a warm-up | `cmd/bench` |
-| 4 | Memory: heap and goroutines per client and per idle connection; GC under load is in layer 3 | `cmd/bench` |
+| 4 | Memory: heap, goroutines and goroutine stacks (`StackInuse`) per client and per idle connection; GC under load is in layer 3 | `cmd/bench` |
 | 5 | Realistic network: a page load (one HTML + 30 subresources over www, static and api) under `tc netem` (RTT 20 and 80 ms, loss 0 and 1%), cold and warm; the same through a CONNECT proxy (with and without Basic auth) and SOCKS5, the proxy with its own delay | `cmd/bench` |
 
 Every measured response is checked against the protocol under test as the
@@ -101,8 +101,11 @@ internal/bench/scripts/bench.sh down
 Arguments after `run` or `report` go to `bench run`: `-window` and `-warmup`
 per load point (10 s and 3 s), `-layers 3,4,5`, `-clients`, `-servers
 nginx,go`, `-reduced go` (servers that get bodies 1KB/100KB and concurrency
-1/64 only), `-conc 1,16,64,256`, `-idle-n 50`, `-reps 5`, `-netem=false`,
-`-profile <dir>`. Environment: `BENCH_COUNT` (10), `BENCH_BENCHTIME` (1s),
+1/64 only), `-protos h1,h2,h3` (layer 3), `-conc 1,16,64,256`, `-idle-n 50`,
+`-reps 5`, `-netem=false`, `-profile <dir>`. Each HTTP/3 load point's log
+line also gives how much the client container's UDP receive errors grew
+during it (`/proc/net/snmp`: `RcvbufErrors`, datagrams dropped on a full
+socket buffer, and `InErrors`). Environment: `BENCH_COUNT` (10), `BENCH_BENCHTIME` (1s),
 `BENCH_CONNECT_BENCHTIME` (200x), `BENCH_MICRO` (one `-bench` pattern),
 `BENCH_SERVERS` (micro: `nginx,go`), the CPU sets and `GOMAXPROCS`
 (`BENCH_CLIENT_CPUS`, `BENCH_SERVER_CPUS`, `BENCH_PROXY_CPUS`,
@@ -137,10 +140,12 @@ same settings stops the remote stack.
 ## Profiling mimicry
 
 `bench run -profile /reports/profiles` writes a CPU profile of each of
-mimicry's measurement windows and an allocation profile at its end
-(`load-nginx-h2-bytes-1KB-c64.cpu.pprof`, `.mem.pprof`, …); the other
-clients' jobs are not profiled. For layers 1-2, the test binary's own flags
-on one client:
+mimicry's measurement windows, and mutex, block and allocation profiles at
+its end (`load-nginx-h2-bytes-1KB-c64.cpu.pprof`, `.mutex.pprof`,
+`.block.pprof`, `.mem.pprof`, …). Mutex and block profiling are sampled
+(one contention in 10, blocking events from about 10 µs) and on only during
+the window. The other clients' jobs are not profiled. For layers 1-2, the
+test binary's own flags on one client:
 
 ```sh
 docker compose -f internal/bench/docker/compose.client.yml run --rm client \

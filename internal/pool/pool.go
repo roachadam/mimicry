@@ -66,8 +66,13 @@ type Pool[S Shared, E Exclusive] struct {
 type entry[S Shared, E Exclusive] struct {
 	shared    S
 	hasShared bool
-	// idle connections, the most recently used last.
-	idle []*idleConn[E]
+	// idle connections, the most recently used last, so also in the order
+	// their idle timeouts end.
+	idle []idleConn[E]
+	// reap closes idle connections whose timeout ended: armed for the
+	// oldest's while there are any. One timer per entry, so that a
+	// connection going idle allocates nothing.
+	reap clockwork.Timer
 	// busy counts exclusive connections handed out and dials in progress.
 	busy int
 	// dialing is set while a dial others wait for is in progress.
@@ -85,9 +90,9 @@ type entry[S Shared, E Exclusive] struct {
 }
 
 type idleConn[E Exclusive] struct {
-	conn  E
-	reap  clockwork.Timer
-	taken bool
+	conn E
+	// until is when it is closed unless a request takes it first.
+	until time.Time
 }
 
 // waiter is a Get waiting its turn. What it is handed is set under the
@@ -174,18 +179,18 @@ func (p *Pool[S, E]) Get(ctx context.Context, key string) (Got[S, E], error) {
 			p.dropShared(key, e)
 		}
 
-		if ic := e.popIdle(); ic != nil {
+		if c, ok := e.popIdle(); ok {
 			e.busy++
 			p.mu.Unlock()
 
-			if ic.conn.Usable() {
+			if c.Usable() {
 				return Got[S, E]{
 					Found:     FoundExclusive,
-					Exclusive: ic.conn,
+					Exclusive: c,
 				}, nil
 			}
 
-			p.Release(key, ic.conn, false)
+			p.Release(key, c, false)
 
 			continue
 		}
@@ -315,21 +320,25 @@ func (p *Pool[S, E]) entry(key string) *entry[S, E] {
 	return e
 }
 
-// popIdle takes the most recently used idle connection, or nil.
-func (e *entry[S, E]) popIdle() *idleConn[E] {
+// popIdle takes the most recently used idle connection, if any.
+func (e *entry[S, E]) popIdle() (E, bool) {
 	n := len(e.idle)
 	if n == 0 {
-		return nil
+		var zero E
+
+		return zero, false
 	}
 
-	ic := e.idle[n-1]
+	c := e.idle[n-1].conn
 
-	e.idle[n-1] = nil
+	e.idle[n-1] = idleConn[E]{}
 	e.idle = e.idle[:n-1]
-	ic.taken = true
-	ic.reap.Stop()
 
-	return ic
+	if n == 1 {
+		e.reap.Stop()
+	}
+
+	return c, true
 }
 
 // nextWaiter takes the oldest waiter, or nil.
@@ -492,14 +501,15 @@ func (p *Pool[S, E]) Release(key string, c E, reusable bool) {
 
 		e.busy--
 
-		ic := &idleConn[E]{
-			conn: c,
+		e.idle = append(e.idle, idleConn[E]{
+			conn:  c,
+			until: p.cfg.Clock.Now().Add(p.cfg.IdleTimeout),
+		})
+
+		if len(e.idle) == 1 {
+			p.armReap(key, e, p.cfg.IdleTimeout)
 		}
 
-		ic.reap = p.cfg.Clock.AfterFunc(p.cfg.IdleTimeout, func() {
-			p.reap(key, ic)
-		})
-		e.idle = append(e.idle, ic)
 		p.mu.Unlock()
 
 		return
@@ -513,31 +523,55 @@ func (p *Pool[S, E]) Release(key string, c E, reusable bool) {
 	_ = c.Close()
 }
 
-// reap closes ic once it has idled for IdleTimeout, unless a request took
-// it first.
-func (p *Pool[S, E]) reap(key string, ic *idleConn[E]) {
+// armReap schedules e's reap in d, for its oldest idle connection. p.mu
+// must be held.
+func (p *Pool[S, E]) armReap(key string, e *entry[S, E], d time.Duration) {
+	if e.reap == nil {
+		e.reap = p.cfg.Clock.AfterFunc(d, func() {
+			p.reapIdle(key, e)
+		})
+
+		return
+	}
+
+	e.reap.Reset(d)
+}
+
+// reapIdle closes e's idle connections whose timeout ended and schedules
+// the next. It finds nothing to do when it fired as a request took the
+// connection it was armed for.
+func (p *Pool[S, E]) reapIdle(key string, e *entry[S, E]) {
 	p.mu.Lock()
 
-	e := p.keys[key]
-	if e == nil || ic.taken {
+	now := p.cfg.Clock.Now()
+
+	n := 0
+	for n < len(e.idle) && !now.Before(e.idle[n].until) {
+		n++
+	}
+
+	if n == 0 {
 		p.mu.Unlock()
 
 		return
 	}
 
-	for i, other := range e.idle {
-		if other == ic {
-			e.idle = append(e.idle[:i], e.idle[i+1:]...)
-			break
-		}
+	expired := make([]E, n)
+	for i, ic := range e.idle[:n] {
+		expired[i] = ic.conn
 	}
 
-	ic.taken = true
+	e.idle = slices.Delete(e.idle, 0, n)
+	if len(e.idle) > 0 {
+		p.armReap(key, e, e.idle[0].until.Sub(now))
+	}
 
 	p.maybeEvict(key, e)
 	p.mu.Unlock()
 
-	_ = ic.conn.Close()
+	for _, c := range expired {
+		_ = c.Close()
+	}
 }
 
 // SharedConns returns the shared connections that can take a new request,
@@ -653,10 +687,11 @@ func (p *Pool[S, E]) CloseIdle() {
 	p.mu.Lock()
 
 	for key, e := range p.keys {
-		for _, ic := range e.idle {
-			ic.taken = true
-			ic.reap.Stop()
+		if len(e.idle) > 0 {
+			e.reap.Stop()
+		}
 
+		for _, ic := range e.idle {
 			exclusive = append(exclusive, ic.conn)
 		}
 

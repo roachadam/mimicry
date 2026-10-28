@@ -1,6 +1,7 @@
 package qpack
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 )
@@ -25,6 +26,10 @@ type Decoder struct {
 	t   table
 	// in holds an encoder stream instruction not yet complete.
 	in []byte
+	// lit and refs are Decode's: the section's literal strings, decoded,
+	// and where each field's are.
+	lit  bytes.Buffer
+	refs []litRef
 }
 
 // NewDecoder returns a decoder for a connection that advertised
@@ -173,6 +178,10 @@ func (d *Decoder) insert(f Field) error {
 // Insert Count (the caller acknowledges a section whose count is not
 // zero). It returns ErrBlocked if the section needs inserts not received
 // yet.
+//
+// The section's literal strings are decoded into one buffer and become
+// one string, which the fields' literal names and values are slices of:
+// one allocation for them all instead of one each.
 func (d *Decoder) Decode(block []byte) ([]Field, uint64, error) {
 	ric, base, n, err := d.prefix(block)
 	if err != nil {
@@ -183,9 +192,13 @@ func (d *Decoder) Decode(block []byte) ([]Field, uint64, error) {
 		return nil, ric, ErrBlocked
 	}
 
-	var fields []Field
+	d.lit.Reset()
+
+	d.refs = d.refs[:0]
+
+	fields := make([]Field, 0, fieldsHint)
 	for b := block[n:]; len(b) > 0; {
-		f, n, err := d.line(b, ric, base)
+		f, n, err := d.line(b, ric, base, len(fields))
 		if err != nil {
 			return nil, ric, fmt.Errorf("%w: %w", ErrDecompression, err)
 		}
@@ -194,7 +207,55 @@ func (d *Decoder) Decode(block []byte) ([]Field, uint64, error) {
 		b = b[n:]
 	}
 
+	if len(d.refs) > 0 {
+		s := d.lit.String()
+		for _, r := range d.refs {
+			if r.name {
+				fields[r.field].Name = s[r.start:r.end]
+			} else {
+				fields[r.field].Value = s[r.start:r.end]
+			}
+		}
+	}
+
+	if d.lit.Cap() > maxKeptLiterals {
+		d.lit = bytes.Buffer{}
+	}
+
 	return fields, ric, nil
+}
+
+// fieldsHint is the room Decode makes for a section's fields at first: a
+// typical response's, so the slice rarely grows.
+const fieldsHint = 16
+
+// maxKeptLiterals bounds the literal buffer a decoder keeps between
+// sections: a rare huge section's is dropped.
+const maxKeptLiterals = 64 << 10
+
+// litRef is where a literal name or value of a section's field is in
+// Decoder.lit.
+type litRef struct {
+	field      int
+	name       bool
+	start, end int
+}
+
+// literal decodes a string literal of field i onto d.lit and records it.
+func (d *Decoder) literal(b []byte, n uint8, i int, name bool) (int, error) {
+	start, k, err := bufString(&d.lit, b, n)
+	if err != nil {
+		return 0, err
+	}
+
+	d.refs = append(d.refs, litRef{
+		field: i,
+		name:  name,
+		start: start,
+		end:   d.lit.Len(),
+	})
+
+	return k, nil
 }
 
 // prefix decodes a section's Required Insert Count and base (RFC 9204,
@@ -256,7 +317,8 @@ func (d *Decoder) prefix(block []byte) (ric, base uint64, n int, err error) {
 }
 
 // line decodes one field line (RFC 9204, 4.5.2-4.5.6).
-func (d *Decoder) line(b []byte, ric, base uint64) (Field, int, error) {
+// Its literal strings go onto d.lit for field i (Decode sets them).
+func (d *Decoder) line(b []byte, ric, base uint64, i int) (Field, int, error) {
 	dynamic := func(abs uint64) (Field, error) {
 		if abs >= ric {
 			return Field{}, fmt.Errorf("index %d at or above the required insert count %d", abs, ric)
@@ -321,7 +383,7 @@ func (d *Decoder) line(b []byte, ric, base uint64) (Field, int, error) {
 		}
 
 	case c&0x20 != 0:
-		if f.Name, n, err = readString(b, 3); err != nil {
+		if n, err = d.literal(b, 3, i, true); err != nil {
 			return Field{}, 0, err
 		}
 
@@ -348,12 +410,10 @@ func (d *Decoder) line(b []byte, ric, base uint64) (Field, int, error) {
 		return Field{}, 0, err
 	}
 
-	value, m, err := readString(b[n:], 7)
+	m, err := d.literal(b[n:], 7, i, false)
 	if err != nil {
 		return Field{}, 0, err
 	}
-
-	f.Value = value
 
 	return f, n + m, nil
 }

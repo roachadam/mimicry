@@ -156,14 +156,10 @@ func NewTransport(cfg Config) (*Transport, error) {
 		return nil, errors.New("mimicry: Config.Profile is required")
 	}
 
-	// A private copy, validated once and shared with the engine, so later
-	// changes to the caller's profile have no effect.
-	data, err := profile.Encode(cfg.Profile)
-	if err != nil {
-		return nil, err
-	}
-
-	p, err := profile.Parse(data)
+	// A validated copy, shared with the engine and with other Transports
+	// built from an equal profile, so later changes to the caller's
+	// profile have no effect.
+	p, err := snapshot(cfg.Profile)
 	if err != nil {
 		return nil, err
 	}

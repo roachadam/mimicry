@@ -8,7 +8,9 @@ package profiles
 import (
 	"embed"
 	"fmt"
+	"reflect"
 	"slices"
+	"sync"
 
 	"github.com/roachadam/mimicry/profile"
 )
@@ -18,8 +20,27 @@ import (
 //go:embed data/*.json
 var data embed.FS
 
-// load parses an embedded profile. Every embedded file is validated by the
-// generator and by this package's tests, so a failure here is a build defect.
+// decoded holds each built-in profile, parsed and validated on first use.
+// The accessors hand out deep copies of it, never it.
+var decoded = func() map[string]func() (*profile.Profile, error) {
+	m := make(map[string]func() (*profile.Profile, error), len(names))
+	for _, name := range names {
+		m[name] = sync.OnceValues(func() (*profile.Profile, error) {
+			b, err := data.ReadFile("data/" + name + ".json")
+			if err != nil {
+				return nil, err
+			}
+
+			return profile.Parse(b)
+		})
+	}
+
+	return m
+}()
+
+// load returns a copy of an embedded profile. Every embedded file is
+// validated by the generator and by this package's tests, so a failure here
+// is a build defect.
 func load(name string) *profile.Profile {
 	p, err := parse(name)
 	if err != nil {
@@ -30,21 +51,78 @@ func load(name string) *profile.Profile {
 }
 
 func parse(name string) (*profile.Profile, error) {
-	b, err := data.ReadFile("data/" + name + ".json")
-	if err != nil {
+	get, ok := decoded[name]
+	if !ok {
 		return nil, fmt.Errorf("profiles: %q is not a built-in profile", name)
 	}
 
-	return profile.Parse(b)
+	p, err := get()
+	if err != nil {
+		return nil, err
+	}
+
+	var c profile.Profile
+
+	deepCopy(reflect.ValueOf(&c).Elem(), reflect.ValueOf(p).Elem())
+
+	return &c, nil
+}
+
+// deepCopy copies src into dst, which is its type's zero value, sharing
+// nothing a caller can change: every pointer, slice and map is new; strings,
+// which are immutable, are shared. A profile holds no interfaces, channels
+// or functions.
+func deepCopy(dst, src reflect.Value) {
+	switch src.Kind() {
+	case reflect.Pointer:
+		if !src.IsNil() {
+			n := reflect.New(src.Type().Elem())
+			deepCopy(n.Elem(), src.Elem())
+			dst.Set(n)
+		}
+
+	case reflect.Slice:
+		if !src.IsNil() {
+			n := reflect.MakeSlice(src.Type(), src.Len(), src.Len())
+			for i := range src.Len() {
+				deepCopy(n.Index(i), src.Index(i))
+			}
+
+			dst.Set(n)
+		}
+
+	case reflect.Array:
+		for i := range src.Len() {
+			deepCopy(dst.Index(i), src.Index(i))
+		}
+
+	case reflect.Map:
+		if !src.IsNil() {
+			n := reflect.MakeMapWithSize(src.Type(), src.Len())
+			for it := src.MapRange(); it.Next(); {
+				v := reflect.New(src.Type().Elem()).Elem()
+				deepCopy(v, it.Value())
+				n.SetMapIndex(it.Key(), v)
+			}
+
+			dst.Set(n)
+		}
+
+	case reflect.Struct:
+		for i := range src.NumField() {
+			deepCopy(dst.Field(i), src.Field(i))
+		}
+
+	case reflect.Interface, reflect.Chan, reflect.Func, reflect.UnsafePointer:
+		panic("profiles: a profile holds a " + src.Kind().String())
+	default:
+		dst.Set(src)
+	}
 }
 
 // ByName returns a fresh copy of the built-in profile called name, for example
 // "chrome-155-macos".
 func ByName(name string) (*profile.Profile, error) {
-	if !slices.Contains(names, name) {
-		return nil, fmt.Errorf("profiles: %q is not a built-in profile", name)
-	}
-
 	return parse(name)
 }
 

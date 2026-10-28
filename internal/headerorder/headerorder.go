@@ -1,5 +1,6 @@
 // Package headerorder merges a request's headers with a profile's defaults
-// and puts them in the profile's order. Both HTTP/1.1 and HTTP/2 use it.
+// and puts them in the profile's order. HTTP/1.1, HTTP/2 and HTTP/3 use it;
+// it also builds responses' header maps (response.go), HTTP/2's now.
 package headerorder
 
 import (
@@ -77,17 +78,28 @@ type Field struct {
 	Value string
 }
 
-// Build returns the headers to send for a request with headers h, using
-// the profile's headers for order and defaults:
+// Set gives a header Build sends in place of the request's own, whatever
+// the request's spelling of it: Value, or nothing when Value is empty,
+// which also suppresses the profile's default. Name is lowercase.
+type Set struct {
+	Name  string
+	Value string
+}
+
+// Build appends the headers to send for a request with headers h to dst
+// and returns it, using the profile's headers for order and defaults:
 //
 //   - h's value wins over a profile default; a header in h with no values
 //     suppresses the default;
+//   - sets win over h;
 //   - order is the profile's, or Key's (dropping unnamed defaults); unlisted
 //     headers go at profile.OtherHeaders, else in table order (TableOrder),
 //     else after the rest, sorted by name;
 //   - names compare case-insensitively;
 //   - skip names headers never to send (connection-level ones).
-func Build(prof []profile.Header, h http.Header, skip func(name string) bool, table *profile.HeaderTable) []Field {
+//
+// h is only read, so a caller need not copy it to change it: sets do.
+func Build(dst []Field, prof []profile.Header, h http.Header, sets []Set, skip func(name string) bool, table *profile.HeaderTable) []Field {
 	// A key present with no values suppresses the profile's default: it stays
 	// in the map with nothing to send.
 	values := make(map[string][]string, len(h))
@@ -102,6 +114,17 @@ func Build(prof []profile.Header, h http.Header, skip func(name string) bool, ta
 		names = append(names, strings.ToLower(ph.Name))
 	}
 
+	// setOf finds name among sets, which win over h.
+	setOf := func(name string) (Set, bool) {
+		for _, s := range sets {
+			if s.Name == name {
+				return s, true
+			}
+		}
+
+		return Set{}, false
+	}
+
 	var override []string
 
 	for k, v := range h {
@@ -111,6 +134,10 @@ func Build(prof []profile.Header, h http.Header, skip func(name string) bool, ta
 		}
 
 		name := lowerName(k, names)
+		if _, set := setOf(name); set {
+			continue
+		}
+
 		if old, ok := values[name]; ok {
 			values[name] = append(old, v...)
 		} else {
@@ -143,12 +170,18 @@ func Build(prof []profile.Header, h http.Header, skip func(name string) bool, ta
 
 	var restBuf [16]string
 
-	fields := make([]Field, 0, len(values)+len(prof))
+	fields := slices.Grow(dst, len(values)+len(sets)+len(prof))
 	rest := restBuf[:0]
 
 	for name := range values {
 		if !slices.Contains(order, name) {
 			rest = append(rest, name)
+		}
+	}
+
+	for _, s := range sets {
+		if !slices.Contains(order, s.Name) {
+			rest = append(rest, s.Name)
 		}
 	}
 
@@ -161,6 +194,17 @@ func Build(prof []profile.Header, h http.Header, skip func(name string) bool, ta
 		}
 
 		sent = append(sent, name)
+		if s, set := setOf(name); set {
+			if s.Value != "" {
+				fields = append(fields, Field{
+					Name:  name,
+					Value: s.Value,
+				})
+			}
+
+			return
+		}
+
 		if v, set := values[name]; set {
 			for _, value := range v {
 				fields = append(fields, Field{
@@ -183,6 +227,10 @@ func Build(prof []profile.Header, h http.Header, skip func(name string) bool, ta
 	tabled := tableRun(table, order, rest, func(name string) bool {
 		if skip(name) {
 			return false
+		}
+
+		if s, set := setOf(name); set {
+			return s.Value != ""
 		}
 
 		if v, set := values[name]; set {

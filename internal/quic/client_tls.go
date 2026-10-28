@@ -128,6 +128,10 @@ func (c *Conn) handleNewToken(token []byte) {
 // arrive (RFC 9000, section 7.4.1). New streams read them when opened.
 func (c *Conn) clientApplyPeerWindows(p transportParameters) {
 	c.client.peerMaxData = p.initialMaxData
+	// Under tableMu (conn_streams.go): a stream opened after this read
+	// the new windows; one opened before is in the table.
+	c.streams.tableMu.Lock()
+	defer c.streams.tableMu.Unlock()
 	for id, ms := range c.streams.streams {
 		if ms.s == nil || id.initiator() != c.side {
 			continue
@@ -143,6 +147,8 @@ func (c *Conn) clientApplyPeerWindows(p transportParameters) {
 // are zero until those parameters arrive.
 func (c *Conn) clientResetFlowControl() {
 	cc := c.client
+	c.streams.tableMu.Lock() // see tableMu (conn_streams.go)
+	defer c.streams.tableMu.Unlock()
 	if cc.peerParams == nil {
 		cc.peerMaxData = 0
 		c.streams.peerInitialMaxStreamDataBidiLocal = 0

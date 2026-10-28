@@ -395,10 +395,11 @@ func (r *report) idleTable(w writer) {
 
 	w("## Layer 4: memory per idle connection\n\n")
 	w("%d clients built, then each warmed onto the protocol with GET /json and left idle; the heap (after GC) and goroutines ", r.Settings.IdleN)
-	w("they hold, per client before any request and per idle connection after. After close: what is left once every client ")
+	w("they hold, per client before any request and per idle connection after, and the goroutines' stacks in use per idle ")
+	w("connection (`StackInuse`, which the heap leaves out). After close: what is left once every client ")
 	w("is closed and dropped (heap KB in all, goroutines). GC under load is in the layer 3 tables.\n\n")
-	w("| client | proto | heap KB/client | goroutines/client | heap KB/idle conn | goroutines/idle conn | after close: heap KB | after close: goroutines |\n")
-	w("|---|---|---:|---:|---:|---:|---:|---:|\n")
+	w("| client | proto | heap KB/client | goroutines/client | heap KB/idle conn | goroutines/idle conn | stack KB/idle conn | after close: heap KB | after close: goroutines |\n")
+	w("|---|---|---:|---:|---:|---:|---:|---:|---:|\n")
 
 	for _, p := range target.Protos {
 		for _, ip := range r.Idle {
@@ -412,7 +413,7 @@ func (r *report) idleTable(w writer) {
 					why += ip.Result.Discarded
 				}
 
-				w("| %s | %s | %s |||||||\n", ip.Client, p, oneLine(why))
+				w("| %s | %s | %s ||||||||\n", ip.Client, p, oneLine(why))
 
 				continue
 			}
@@ -423,9 +424,9 @@ func (r *report) idleTable(w writer) {
 			}
 
 			res := ip.Result
-			w("| %s%s | %s | %.1f | %.1f | %.1f | %.1f | %.0f | %d |\n", ip.Client, mark, p,
+			w("| %s%s | %s | %.1f | %.1f | %.1f | %.1f | %.1f | %.0f | %d |\n", ip.Client, mark, p,
 				res.HeapPerClientKB, res.GoroutinesPerClient, res.HeapPerConnKB, res.GoroutinesPerConn,
-				res.HeapAfterCloseKB, res.GoroutinesAfterClose)
+				res.StackPerConnKB, res.HeapAfterCloseKB, res.GoroutinesAfterClose)
 		}
 	}
 

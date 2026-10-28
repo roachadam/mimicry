@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"sync"
 
 	"github.com/roachadam/mimicry"
 	"github.com/roachadam/mimicry/internal/bench/target"
@@ -30,6 +31,18 @@ func mimicryClient() Factory {
 type mimicryAdapter struct {
 	client *http.Client
 	tr     *mimicry.Transport
+	// requests holds each kind and page's mimicry.Request, built once:
+	// parsing the page per request would charge mimicry allocations that
+	// are the benchmark's. A map under a lock: a sync.Map would box each
+	// key it looks up.
+	mu       sync.RWMutex
+	requests map[requestKey]mimicry.Request
+}
+
+// requestKey is what a mimicry.Request depends on: the kind, and the page
+// (or, with none, the request's origin).
+type requestKey struct {
+	kind, page, scheme, host string
 }
 
 func newMimicry(o Options) (Client, error) {
@@ -56,8 +69,9 @@ func newMimicry(o Options) (Client, error) {
 	tr, _ := client.Transport.(*mimicry.Transport)
 
 	return &mimicryAdapter{
-		client: client,
-		tr:     tr,
+		client:   client,
+		tr:       tr,
+		requests: map[requestKey]mimicry.Request{},
 	}, nil
 }
 
@@ -77,20 +91,42 @@ func (c *mimicryAdapter) Do(ctx context.Context, r *Request) (Response, error) {
 	}
 
 	if r.Kind != "document" {
-		page := r.Page
-		if page == "" {
-			page = req.URL.Scheme + "://" + req.URL.Host + "/"
+		key := requestKey{
+			kind: r.Kind,
+			page: r.Page,
+		}
+		if r.Page == "" {
+			key.scheme, key.host = req.URL.Scheme, req.URL.Host
 		}
 
-		from, err := url.Parse(page)
-		if err != nil {
-			return Response{}, err
+		c.mu.RLock()
+
+		mr, ok := c.requests[key]
+		c.mu.RUnlock()
+
+		if !ok {
+			page := r.Page
+			if page == "" {
+				page = req.URL.Scheme + "://" + req.URL.Host + "/"
+			}
+
+			from, err := url.Parse(page)
+			if err != nil {
+				return Response{}, err
+			}
+
+			mr = mimicry.Request{
+				Kind: mimicryKinds[r.Kind],
+				From: from,
+			}
+
+			c.mu.Lock()
+
+			c.requests[key] = mr
+			c.mu.Unlock()
 		}
 
-		req = mimicry.With(req, mimicry.Request{
-			Kind: mimicryKinds[r.Kind],
-			From: from,
-		})
+		req = mimicry.With(req, mr)
 	}
 
 	return doStd(c.client, req)

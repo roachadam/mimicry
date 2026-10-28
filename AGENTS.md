@@ -44,6 +44,7 @@ The public packages are the root package, `cookies`, `profile`, `profiles` and `
 - `profile` imports the standard library only. Public packages never import from `internal/harness/`.
 - Use `net/http` types in the public API; do not fork `net/http` (decision 0002). Header order comes from the profile (the navigation, or the request's kind and its variant); `HeaderOrderKey` overrides it per request and `HeaderPlacement` moves single headers within it (decision 0030). Pseudo-header order comes from the profile only.
 - One dial path (`internal/dial`), and every network step honours the context and its deadline. Never hold a lock across network I/O.
+- Profiles are read-only once a Transport holds them: Transports built from equal profiles share one decoded copy (`profile.go`), so the root and everything under `internal/` only read it (no writes, no `append` into its slices); copy first to change anything.
 
 ## The uTLS fork
 

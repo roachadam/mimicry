@@ -5,6 +5,8 @@ package handshake
 
 import (
 	"context"
+	"crypto/ecdh"
+	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -180,6 +182,12 @@ func Spec(h fingerprint.Hello) (*utls.ClientHelloSpec, error) {
 			return nil, fmt.Errorf("handshake: extension %s: %w", e.Type, err)
 		}
 
+		if ks, ok := ext.(*utls.KeyShareExtension); ok && h.X25519Reuse {
+			if err := reuseX25519(ks); err != nil {
+				return nil, fmt.Errorf("handshake: extension %s: %w", e.Type, err)
+			}
+		}
+
 		spec.Extensions = append(spec.Extensions, ext)
 		if e.Type == profile.ExtSupportedVersions {
 			for _, v := range e.Versions {
@@ -201,6 +209,23 @@ func Spec(h fingerprint.Hello) (*utls.ClientHelloSpec, error) {
 	}
 
 	return spec, nil
+}
+
+// reuseX25519 has uTLS send X25519MLKEM768's X25519 key as the x25519 share
+// too, which it supports for the x25519 share after the hybrid one.
+func reuseX25519(ks *utls.KeyShareExtension) error {
+	hybrid := slices.IndexFunc(ks.KeyShares, func(s utls.KeyShare) bool { return s.Group == utls.X25519MLKEM768 })
+	x25519 := slices.IndexFunc(ks.KeyShares, func(s utls.KeyShare) bool { return s.Group == utls.X25519 })
+
+	if hybrid < 0 || x25519 < hybrid {
+		return errors.New("X25519 key reuse needs X25519MLKEM768 and then x25519 key shares")
+	}
+
+	shares := utls.ReuseHybridAndClassicalKeyShares(ks.KeyShares[hybrid], ks.KeyShares[x25519])
+
+	ks.KeyShares[hybrid], ks.KeyShares[x25519] = shares[0], shares[1]
+
+	return nil
 }
 
 // extension maps one profile extension to uTLS. Extensions whose effect uTLS
@@ -373,6 +398,18 @@ func greaseECH(ech *profile.ECH) (utls.TLSExtension, error) {
 		// uTLS takes the plaintext's length and adds the tag.
 		ext.CandidatePayloadLens[i] = n - hpkeTagLength
 	}
+
+	// HPKE's enc for DHKEM(X25519) is the sender's ephemeral X25519 public
+	// key. Given one, uTLS skips setting up an HPKE sender to a dummy key
+	// (an extra X25519, the key schedule, an AEAD) only to discard all but
+	// enc. A real key pair, never random bytes: an X25519 public key's top
+	// bit is always clear.
+	k, err := ecdh.X25519().GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("GREASE ECH key: %w", err)
+	}
+
+	ext.EncapsulatedKey = k.PublicKey().Bytes()
 
 	return ext, nil
 }

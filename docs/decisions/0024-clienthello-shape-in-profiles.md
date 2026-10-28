@@ -38,13 +38,24 @@ ones per browser from git history)
 - `recordVersion`, `legacyVersion`, `sessionIdLength`;
 - `keyShareLengths`;
 - a typed `ech` (cipher suites and payload lengths as observed sets);
-- `resumption.echPayloadLengths` for resumed hellos.
+- `resumption.echPayloadLengths` for resumed hellos;
+- `x25519Reuse`: one X25519 key in X25519MLKEM768's and x25519's shares
+  (added 2026-10-27: Firefox 158 reuses it in all 8 `.clienthello`
+  samples, Chrome and Safari in none).
 
 These are required (0008). `internal/harness/cmd/hellogen` derives them from every
 capture and refuses a connection that contradicts them; it is never
 hand-edited. The parser, `capture.Combine` and `diff.Compare` record and
 compare them. The handshake sends them: Firefox's own GREASE ECH,
 choosing from the observed sets per connection.
+
+`x25519Reuse` is the exception to `diff.Compare`: only the full TCP
+hellos in `.clienthello` keep key bytes, so it covers those alone, and
+`TestProfilesMatchCaptures` and `capture.Combine` compare it themselves.
+Resumed and QUIC hellos keep two keys until a capture measures them
+(backlog). Rejected: a key_share extension field (it would follow the
+extension into QUIC and resumed hellos, which are unmeasured); applying
+NSS's rule to every hello from its source (a lead, not evidence).
 
 ## Consequences
 

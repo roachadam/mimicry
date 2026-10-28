@@ -153,11 +153,15 @@ func recallParams(extra [][]byte) (transportParameters, bool) {
 // is the default until the server's own arrive, so a resumed connection
 // issues one connection ID in 0-RTT (Firefox).
 func (c *Conn) applyRememberedParams(p transportParameters) error {
+	// The windows first, under tableMu: a stream may open as soon as
+	// setMax allows it, and reads them then.
+	c.streams.tableMu.Lock()
+	c.streams.peerInitialMaxStreamDataRemote[bidiStream] = p.initialMaxStreamDataBidiRemote
+	c.streams.peerInitialMaxStreamDataRemote[uniStream] = p.initialMaxStreamDataUni
+	c.streams.tableMu.Unlock()
 	c.streams.outflow.setMaxData(p.initialMaxData)
 	c.streams.localLimit[bidiStream].setMax(p.initialMaxStreamsBidi)
 	c.streams.localLimit[uniStream].setMax(p.initialMaxStreamsUni)
 	c.streams.peerInitialMaxStreamDataBidiLocal = p.initialMaxStreamDataBidiLocal
-	c.streams.peerInitialMaxStreamDataRemote[bidiStream] = p.initialMaxStreamDataBidiRemote
-	c.streams.peerInitialMaxStreamDataRemote[uniStream] = p.initialMaxStreamDataUni
 	return c.connIDState.setPeerActiveConnIDLimit(c, defaultParamActiveConnIDLimit)
 }

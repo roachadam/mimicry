@@ -154,7 +154,8 @@
           ]
         }
       }
-    ]
+    ],
+    "x25519Reuse": true
   },
   "http2": {
     "settings": [

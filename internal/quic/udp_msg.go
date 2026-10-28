@@ -69,6 +69,11 @@ func (c *netUDPConn) LocalAddrFor(remote netip.AddrPort) (netip.AddrPort, error)
 }
 
 func (c *netUDPConn) Read(f func(*datagram)) error {
+	// mimicry: in batches where the OS can (udp_batch_linux.go).
+	if ok, err := c.readBatch(f); ok {
+		return err
+	}
+
 	// We shouldn't ever see all of these messages at the same time,
 	// but the total is small so just allocate enough space for everything we use.
 	const (
@@ -136,41 +141,63 @@ func (c *netUDPConn) Write(dgram datagram) error {
 	return err
 }
 
+// mimicry: parseControl walks the control messages in place instead of
+// through syscall.ParseSocketControlMessage, which allocates a slice per
+// datagram (two allocations with ECN and PKTINFO both on). As there,
+// nothing is taken from a malformed buffer.
 func parseControl(d *datagram, control []byte) {
-	msgs, err := syscall.ParseSocketControlMessage(control)
-	if err != nil {
-		return
+	for b := control; len(b) >= syscall.SizeofCmsghdr; {
+		var ok bool
+		if _, _, b, ok = nextCmsg(b); !ok {
+			return
+		}
 	}
-	for _, m := range msgs {
-		switch m.Header.Level {
+	for b := control; len(b) >= syscall.SizeofCmsghdr; {
+		h, data, rest, _ := nextCmsg(b)
+		b = rest
+		switch h.Level {
 		case syscall.IPPROTO_IP:
-			switch m.Header.Type {
+			switch h.Type {
 			case syscall.IP_TOS, ip_recvtos:
 				// (Linux sets the type to IP_TOS, Darwin to IP_RECVTOS,
 				// just check for both.)
-				if ecn, ok := parseIPTOS(m.Data); ok {
+				if ecn, ok := parseIPTOS(data); ok {
 					d.ecn = ecn
 				}
 			case syscall.IP_PKTINFO:
-				if a, ok := parseInPktinfo(m.Data); ok {
+				if a, ok := parseInPktinfo(data); ok {
 					d.path.local = netip.AddrPortFrom(a, d.path.local.Port())
 				}
 			}
 		case syscall.IPPROTO_IPV6:
-			switch m.Header.Type {
+			switch h.Type {
 			case syscall.IPV6_TCLASS:
 				// 32-bit integer containing the traffic class field.
 				// The low two bits are the ECN field.
-				if ecn, ok := parseIPv6TCLASS(m.Data); ok {
+				if ecn, ok := parseIPv6TCLASS(data); ok {
 					d.ecn = ecn
 				}
 			case ipv6_pktinfo:
-				if a, ok := parseIn6Pktinfo(m.Data); ok {
+				if a, ok := parseIn6Pktinfo(data); ok {
 					d.path.local = netip.AddrPortFrom(a, d.path.local.Port())
 				}
 			}
 		}
 	}
+}
+
+// mimicry: nextCmsg splits the first control message off b (at least a
+// header long), with syscall.ParseSocketControlMessage's check: ok is
+// false when the header's length is impossible. A trailing fragment
+// shorter than a header is left in rest, as the callers' loops skip it.
+func nextCmsg(b []byte) (h syscall.Cmsghdr, data, rest []byte, ok bool) {
+	h = *(*syscall.Cmsghdr)(unsafe.Pointer(&b[0]))
+	hdr := syscall.CmsgLen(0)
+	if uint64(h.Len) < syscall.SizeofCmsghdr || uint64(h.Len) > uint64(len(b)) {
+		return h, nil, nil, false
+	}
+	next := min(syscall.CmsgSpace(int(h.Len)-hdr), len(b))
+	return h, b[hdr:h.Len], b[next:], true
 }
 
 // IPV6_TCLASS is specified by RFC 3542 as an int.

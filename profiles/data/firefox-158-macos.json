@@ -155,6 +155,7 @@
         }
       }
     ],
+    "x25519Reuse": true,
     "resumption": {
       "drop": [
         "0x0023"

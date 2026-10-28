@@ -1,6 +1,7 @@
 package qpack
 
 import (
+	"bytes"
 	"errors"
 
 	xhpack "golang.org/x/net/http2/hpack"
@@ -84,28 +85,13 @@ func appendString(dst []byte, first byte, n uint8, s string, always bool) []byte
 // readString reads a string literal whose length has an n-bit prefix, the
 // Huffman flag being the bit above it.
 func readString(b []byte, n uint8) (string, int, error) {
-	if len(b) == 0 {
-		return "", 0, errIncomplete
-	}
-
-	huffman := b[0]&(1<<n) != 0
-
-	length, k, err := readInt(b, n)
+	data, huffman, k, err := splitLiteral(b, n)
 	if err != nil {
 		return "", 0, err
 	}
 
-	if length > maxStringLength {
-		return "", 0, errors.New("qpack: string literal too long")
-	}
-
-	if uint64(len(b)-k) < length {
-		return "", 0, errIncomplete
-	}
-
-	data := b[k : k+int(length)]
 	if !huffman {
-		return string(data), k + len(data), nil
+		return string(data), k, nil
 	}
 
 	s, err := xhpack.HuffmanDecodeToString(data)
@@ -113,7 +99,55 @@ func readString(b []byte, n uint8) (string, int, error) {
 		return "", 0, err
 	}
 
-	return s, k + len(data), nil
+	return s, k, nil
+}
+
+// bufString reads a string literal as readString does, decoded onto the
+// end of buf instead of into a string of its own: the decoded bytes are
+// buf's from start on.
+func bufString(buf *bytes.Buffer, b []byte, n uint8) (start, k int, err error) {
+	data, huffman, k, err := splitLiteral(b, n)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	start = buf.Len()
+	if !huffman {
+		buf.Write(data)
+
+		return start, k, nil
+	}
+
+	if _, err := xhpack.HuffmanDecode(buf, data); err != nil {
+		return 0, 0, err
+	}
+
+	return start, k, nil
+}
+
+// splitLiteral splits a string literal with an n-bit length prefix off b: its
+// encoded bytes, whether they are Huffman-coded, and the bytes it took.
+func splitLiteral(b []byte, n uint8) (data []byte, huffman bool, k int, err error) {
+	if len(b) == 0 {
+		return nil, false, 0, errIncomplete
+	}
+
+	huffman = b[0]&(1<<n) != 0
+
+	length, k, err := readInt(b, n)
+	if err != nil {
+		return nil, false, 0, err
+	}
+
+	if length > maxStringLength {
+		return nil, false, 0, errors.New("qpack: string literal too long")
+	}
+
+	if uint64(len(b)-k) < length {
+		return nil, false, 0, errIncomplete
+	}
+
+	return b[k : k+int(length)], huffman, k + int(length), nil
 }
 
 // entrySize is a table entry's size (RFC 9204, 3.2.1).

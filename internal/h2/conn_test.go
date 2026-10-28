@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strconv"
 	"sync"
 	"testing"
@@ -85,7 +86,9 @@ func newRequest(t *testing.T, method, url string, body io.Reader) *http.Request 
 // Concurrent requests must open streams with increasing IDs in the order
 // their HEADERS go out; otherwise the server kills the connection. Each
 // stream's request and response bodies must come through whole and its
-// own, though their buffers are pooled across streams.
+// own, though their buffers are pooled across streams, and so must its
+// response headers, though one array holds all of a response's values: a
+// second value, or the caller's append, must not overwrite another name's.
 func TestConcurrentRequests(t *testing.T) {
 	srv := newServer(t, func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(20 * time.Millisecond)
@@ -93,6 +96,11 @@ func TestConcurrentRequests(t *testing.T) {
 		if r.Header.Get("Echo-Length") != "" {
 			w.Header().Set("Content-Length", strconv.FormatInt(r.ContentLength+int64(len(r.URL.Path)), 10))
 		}
+
+		w.Header().Set("Alt-Svc", "h3=\""+r.URL.Path+"\"")
+		w.Header().Add("Set-Cookie", "a="+r.URL.Path)
+		w.Header().Add("Set-Cookie", "b="+r.URL.Path)
+		w.Header().Set("X-Stream", r.URL.Path)
 
 		_, _ = io.WriteString(w, r.URL.Path) //nolint:gosec // test handler echoing its own request
 		_, _ = io.Copy(w, r.Body)
@@ -134,6 +142,8 @@ func TestConcurrentRequests(t *testing.T) {
 				_ = resp.Body.Close()
 			}()
 
+			checkHeader(t, path, resp.Header)
+
 			got, err := io.ReadAll(resp.Body)
 			if err != nil || string(got) != path+string(sent) {
 				t.Errorf("request %s got %d bytes starting %q, %v", path, len(got), got[:min(len(got), 16)], err)
@@ -142,6 +152,33 @@ func TestConcurrentRequests(t *testing.T) {
 	}
 
 	wg.Wait()
+}
+
+// checkHeader wants the headers TestConcurrentRequests' server sends for
+// path in h, then appends to every name and wants the others unchanged.
+func checkHeader(t *testing.T, path string, h http.Header) {
+	t.Helper()
+
+	for name, want := range map[string][]string{
+		"Alt-Svc":    {"h3=\"" + path + "\""},
+		"Set-Cookie": {"a=" + path, "b=" + path},
+		"X-Stream":   {path},
+	} {
+		if !slices.Equal(h[name], want) {
+			t.Errorf("request %s got %s %q, want %q", path, name, h[name], want)
+		}
+	}
+
+	before := h.Clone()
+	for name := range h {
+		h[name] = append(h[name], "appended")
+	}
+
+	for name, want := range before {
+		if got := h[name]; !slices.Equal(got[:len(got)-1], want) {
+			t.Errorf("request %s: appending to the headers changed %s from %q to %q", path, name, want, got)
+		}
+	}
 }
 
 func TestContextCancel(t *testing.T) {

@@ -1,6 +1,7 @@
 // Command hellogen derives the shape of a browser's ClientHello (record and
-// legacy versions, session ID length, key share lengths, ECH) from its
-// captured hellos and writes it into the profile and the capture's JSON.
+// legacy versions, session ID length, key share lengths and X25519 key
+// reuse, ECH) from its captured hellos and writes it into the profile and
+// the capture's JSON.
 //
 //	go run ./cmd/hellogen -captures testdata/captures -profile ../../profiles/data/chrome-155-macos.json
 //
@@ -282,6 +283,8 @@ func apply(t *profile.TLS, sh *shape) error {
 	t.RecordVersion = derived.RecordVersion
 	t.LegacyVersion = derived.LegacyVersion
 	t.SessionIDLength = derived.SessionIDLength
+	// From the samples' key bytes, which Combine required to agree.
+	t.X25519Reuse = derived.X25519Reuse
 
 	for i := range t.Extensions {
 		e := &t.Extensions[i]

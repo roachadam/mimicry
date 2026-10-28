@@ -41,6 +41,8 @@ type Conn struct {
 	// tls is the connection's TLS state, which responses carry; nil for
 	// plain HTTP.
 	tls *tls.ConnectionState
+	// done is told how each request ended (SetDone).
+	done func(reusable bool)
 }
 
 // Writer builds request heads as a profile's browser writes them over
@@ -78,13 +80,14 @@ func (w Writer) Forward(p *profile.Proxy) Writer {
 	return w
 }
 
-// New wraps conn, which carries HTTP/1.1, plain or over TLS, for profile p.
-func New(conn net.Conn, p *profile.Profile) *Conn {
+// New wraps conn, which carries HTTP/1.1, plain or over TLS, writing
+// requests with w (the engine builds one per profile with NewWriter).
+func New(conn net.Conn, w Writer) *Conn {
 	return &Conn{
 		conn: conn,
 		br:   bufio.NewReader(conn),
 		bw:   bufio.NewWriter(conn),
-		w:    NewWriter(p),
+		w:    w,
 	}
 }
 
@@ -242,12 +245,19 @@ func skipHeader(name string) bool {
 	return framing[name]
 }
 
-// RoundTrip writes req, reads its response and always closes req.Body.
-// done is called exactly once, when the body is read to the end or closed
-// or the request fails; reusable reports whether c may carry another.
-// Cancelling req's context closes c. 1xx responses are skipped except 101,
-// which is final and hands the connection to the caller.
-func (c *Conn) RoundTrip(req *http.Request, done func(reusable bool)) (*http.Response, error) {
+// SetDone sets what RoundTrip calls exactly once per request, when the
+// body is read to the end or closed or the request fails; reusable
+// reports whether c may carry another. Set once per connection, so a
+// request allocates no callback.
+func (c *Conn) SetDone(done func(reusable bool)) {
+	c.done = done
+}
+
+// RoundTrip writes req, reads its response and always closes req.Body,
+// then calls the SetDone callback. Cancelling req's context closes c. 1xx
+// responses are skipped except 101, which is final and hands the
+// connection to the caller.
+func (c *Conn) RoundTrip(req *http.Request) (*http.Response, error) {
 	ctx := req.Context()
 	if req.Body != nil {
 		defer func() {
@@ -259,7 +269,7 @@ func (c *Conn) RoundTrip(req *http.Request, done func(reusable bool)) (*http.Res
 	// to done.
 	b := &body{
 		conn: c.conn,
-		done: done,
+		done: c.done,
 	}
 
 	b.stop = context.AfterFunc(ctx, func() {
@@ -421,7 +431,10 @@ func (w Writer) build(req *http.Request, framing http.Header) (Head, error) {
 		}
 	}
 
-	var fields []headerorder.Field
+	// Room for the usual list on the stack; h.Fields is the copy kept.
+	var buf [32]headerorder.Field
+
+	fields := buf[:0]
 	if h1Order != nil {
 		// The profile places every header, Host and framing included.
 		h := reqHeader.Clone()
@@ -432,7 +445,7 @@ func (w Writer) build(req *http.Request, framing http.Header) (Head, error) {
 		h.Set("Host", host)
 		maps.Copy(h, framing)
 
-		fields = headerorder.Build(h1Order, h, func(string) bool {
+		fields = headerorder.Build(fields, h1Order, h, nil, func(string) bool {
 			return false
 		}, table)
 	} else {
@@ -450,7 +463,7 @@ func (w Writer) build(req *http.Request, framing http.Header) (Head, error) {
 			})
 		}
 
-		fields = append(fields, headerorder.Build(headers, reqHeader, skipHeader, table)...)
+		fields = headerorder.Build(fields, headers, reqHeader, nil, skipHeader, table)
 	}
 
 	// The caller's placements move lines the list wrote, Host and framing
@@ -614,7 +627,7 @@ type body struct {
 	// body is read to the end.
 	reusable bool
 	// stop stops closing the connection on the request's cancellation;
-	// done is RoundTrip's, called once (finish).
+	// done is the connection's (SetDone), called once (finish).
 	stop func() bool
 	done func(reusable bool)
 	once sync.Once

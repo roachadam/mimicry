@@ -42,6 +42,15 @@ func Combine(samples []*Capture) (*Capture, error) {
 		}
 	}
 
+	// diff.Compare leaves out the key relationship, which only full TCP
+	// hellos with their key bytes show; samples of one connection agree.
+	for i, s := range samples[1:] {
+		if s.Profile.TLS.X25519Reuse != first.Profile.TLS.X25519Reuse {
+			return nil, fmt.Errorf("sample %d reuses the X25519 key across key shares: %v, sample 1: %v",
+				i+2, s.Profile.TLS.X25519Reuse, first.Profile.TLS.X25519Reuse)
+		}
+	}
+
 	// A sample kept as a bare handshake message (older captures) has no
 	// record version: only samples with records are compared.
 	var v uint16

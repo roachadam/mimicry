@@ -39,11 +39,15 @@ func names(fields []Field) []string {
 	return out
 }
 
-// Header-Order: is the one Build behaviour no capture exercises.
+// Header-Order: is the one Build behaviour no capture exercises; no
+// capture has a caller's own Content-Length either, which a body's length
+// (a Set) must replace in every spelling: two would let a server and a
+// proxy disagree on where the body ends.
 func TestBuild(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		h    http.Header
+		sets []Set
 		want []string
 	}{
 		{
@@ -68,9 +72,43 @@ func TestBuild(t *testing.T) {
 				"user-agent=agent/1",
 			},
 		},
+		{
+			name: "a set replaces every spelling of the request's",
+			h: http.Header{
+				"Content-Length": {"5"},
+				"content-length": {"7"},
+			},
+			sets: []Set{
+				{
+					Name:  "content-length",
+					Value: "3",
+				},
+			},
+			want: []string{
+				"user-agent=agent/1",
+				"accept=*/*",
+				"accept-language=en-US",
+				"content-length=3",
+			},
+		},
+		{
+			name: "an empty set sends nothing, not even the default",
+			h: http.Header{
+				"Accept": {"text/html"},
+			},
+			sets: []Set{
+				{
+					Name: "accept",
+				},
+			},
+			want: []string{
+				"user-agent=agent/1",
+				"accept-language=en-US",
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := names(Build(prof, tc.h, never, nil)); !slices.Equal(got, tc.want) {
+			if got := names(Build(nil, prof, tc.h, tc.sets, never, nil)); !slices.Equal(got, tc.want) {
 				t.Errorf("\n got %q\nwant %q", got, tc.want)
 			}
 		})

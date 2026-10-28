@@ -34,6 +34,7 @@ type settings struct {
 	Clients     []string      `json:"clients"`
 	Servers     []string      `json:"servers"`
 	Reduced     []string      `json:"reduced"`
+	Protos      []string      `json:"protos"`
 	Concurrency []int         `json:"concurrency"`
 	IdleN       int           `json:"idleN"`
 	Reps        int           `json:"reps"`
@@ -84,6 +85,7 @@ func run(args []string) error {
 	clientList := fs.String("clients", "", "clients to run (comma-separated; default all)")
 	serverList := fs.String("servers", "nginx,go", "servers for layers 3 and 4")
 	reduced := fs.String("reduced", "go", "servers that get the reduced load matrix (bodies 1KB and 100KB, concurrency 1 and 64)")
+	protoList := fs.String("protos", "h1,h2,h3", "protocols for layer 3")
 	concList := fs.String("conc", "1,16,64,256", "concurrency levels")
 	idleN := fs.Int("idle-n", 50, "clients per idle-memory measurement")
 	reps := fs.Int("reps", 5, "page loads per setup and network condition")
@@ -105,6 +107,7 @@ func run(args []string) error {
 		Clients:     names(*clientList, clientNames()),
 		Servers:     names(*serverList, nil),
 		Reduced:     names(*reduced, nil),
+		Protos:      names(*protoList, nil),
 		Concurrency: ints(*concList),
 		IdleN:       *idleN,
 		Reps:        *reps,
@@ -205,6 +208,10 @@ func (rn *runner) load() []loadPoint {
 		}
 
 		for _, p := range target.Protos {
+			if !slices.Contains(rn.st.Protos, string(p)) {
+				continue
+			}
+
 			for _, body := range bodies {
 				op := scenario.GetBytes(body)
 
@@ -226,6 +233,7 @@ func (rn *runner) load() []loadPoint {
 							ProfileDir:  rn.st.ProfileDir,
 							ProfileName: fmt.Sprintf("load-%s-%s-%s-c%d", srv, p, op.Name, c),
 						}
+						udp := readUDPErrors()
 						o := rn.do(j, rn.st.Warmup+rn.st.Window+3*time.Minute)
 
 						lp := loadPoint{
@@ -238,7 +246,13 @@ func (rn *runner) load() []loadPoint {
 							NA:     o.NA,
 							Error:  o.Error,
 						}
-						rn.log(j, lp.summary())
+
+						msg := lp.summary()
+						if p == target.H3 {
+							msg += readUDPErrors().since(udp)
+						}
+
+						rn.log(j, msg)
 
 						out = append(out, lp)
 					}
@@ -311,7 +325,8 @@ func (rn *runner) idle() []idlePoint {
 
 			msg := ip.NA + ip.Error
 			if ip.Result != nil && msg == "" {
-				msg = fmt.Sprintf("%.1f KB and %.1f goroutines per idle connection %s", ip.Result.HeapPerConnKB, ip.Result.GoroutinesPerConn, ip.Result.Discarded)
+				msg = fmt.Sprintf("%.1f KB heap, %.1f KB stack and %.1f goroutines per idle connection %s",
+					ip.Result.HeapPerConnKB, ip.Result.StackPerConnKB, ip.Result.GoroutinesPerConn, ip.Result.Discarded)
 			}
 
 			rn.log(j, msg)
@@ -487,6 +502,62 @@ func (rn *runner) log(j job, msg string) {
 	}
 
 	fmt.Fprintf(os.Stderr, "%s [%d] %s %s: %s\n", time.Now().Format("15:04:05"), rn.n, what, j.Client, msg)
+}
+
+// udpErrors are the kernel's UDP receive error counters in this network
+// namespace (/proc/net/snmp): datagrams dropped because a socket's receive
+// buffer was full, and all receive errors. Zero where the file is missing.
+type udpErrors struct {
+	rcvbuf int64
+	in     int64
+}
+
+func readUDPErrors() udpErrors {
+	b, err := os.ReadFile("/proc/net/snmp")
+	if err != nil {
+		return udpErrors{}
+	}
+
+	var head []string
+
+	for line := range strings.SplitSeq(string(b), "\n") {
+		f := strings.Fields(line)
+		if len(f) == 0 || f[0] != "Udp:" {
+			continue
+		}
+
+		if head == nil {
+			head = f
+
+			continue
+		}
+
+		var u udpErrors
+
+		for i, name := range head {
+			if i >= len(f) {
+				break
+			}
+
+			n, _ := strconv.ParseInt(f[i], 10, 64)
+
+			switch name {
+			case "RcvbufErrors":
+				u.rcvbuf = n
+			case "InErrors":
+				u.in = n
+			}
+		}
+
+		return u
+	}
+
+	return udpErrors{}
+}
+
+// since says how the counters grew from before.
+func (u udpErrors) since(before udpErrors) string {
+	return fmt.Sprintf(", UDP RcvbufErrors +%d InErrors +%d", u.rcvbuf-before.rcvbuf, u.in-before.in)
 }
 
 // env describes where the benchmark ran.

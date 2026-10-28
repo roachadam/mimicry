@@ -6,7 +6,7 @@ require (
 	github.com/jonboulle/clockwork v0.5.0
 	github.com/quic-go/quic-go v0.64.1
 	github.com/roachadam/mimicry v0.0.0-00010101000000-000000000000
-	github.com/roachadam/utls v0.0.0-20261025174743-24d1f83b2f8a
+	github.com/roachadam/utls v0.0.0-20261028030754-3ef8aebd60b6
 	golang.org/x/crypto v0.58.0
 	golang.org/x/net v0.61.0
 )

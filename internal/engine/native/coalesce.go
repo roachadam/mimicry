@@ -15,9 +15,9 @@ import (
 // request to another host may go on it (coalescing).
 type shared struct {
 	*h2.Conn
-	// group is the route group of the request that opened it; "" for one
-	// no other host's request may take (through a proxy).
-	group string
+	// group is the route group of the request that opened it; zero for
+	// one no other host's request may take (through a proxy).
+	group group
 	// addr is the server's address, invalid when the connection's remote
 	// address is not an IP address.
 	addr netip.Addr
@@ -60,7 +60,7 @@ func remoteAddr(conn net.Conn) netip.Addr {
 // coalesce onto: same group, known address, a certificate covering r's
 // host, accepted by Config.VerifyConnection for that host.
 func (e *Engine) covering(r route) []*shared {
-	if r.group == "" {
+	if r.group == (group{}) {
 		return nil
 	}
 

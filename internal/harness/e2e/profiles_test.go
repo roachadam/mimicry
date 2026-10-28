@@ -177,8 +177,14 @@ func TestProfilesMatchCaptures(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			for _, d := range diff.Compare(loadCapture(t, p), &got.Profile) {
+			want := loadCapture(t, p)
+			for _, d := range diff.Compare(want, &got.Profile) {
 				t.Error(d)
+			}
+
+			// Left out of diff.Compare: only full TCP hellos are measured.
+			if got.Profile.TLS.X25519Reuse != want.TLS.X25519Reuse {
+				t.Errorf("tls.x25519Reuse: got %v, the capture's %v", got.Profile.TLS.X25519Reuse, want.TLS.X25519Reuse)
 			}
 		})
 	}

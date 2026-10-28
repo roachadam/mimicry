@@ -209,6 +209,10 @@ func ParseClientHello(msg []byte) (profile.TLS, error) {
 			padding = len(data)
 		}
 
+		if typ == uint16(profile.ExtKeyShare) {
+			t.X25519Reuse = x25519Reused(data)
+		}
+
 		e, err := parseExtension(code(typ), data)
 		if err != nil {
 			return profile.TLS{}, fmt.Errorf("extension %s: %w", code(typ), err)
@@ -415,6 +419,39 @@ func readKeyShares(s *cryptobyte.String) ([]profile.Code, []uint16, error) {
 	}
 
 	return groups, lengths, nil
+}
+
+// x25519Reused reports whether a key_share client body sends one X25519
+// key twice: X25519MLKEM768's, whose last 32 bytes are its X25519 part
+// (draft-ietf-tls-ecdhe-mlkem), as the x25519 share. False for a body
+// readKeyShares rejects.
+func x25519Reused(s cryptobyte.String) bool {
+	var shares cryptobyte.String
+	if !s.ReadUint16LengthPrefixed(&shares) {
+		return false
+	}
+
+	var hybrid, x25519 []byte
+
+	for !shares.Empty() {
+		var (
+			group uint16
+			key   cryptobyte.String
+		)
+
+		if !shares.ReadUint16(&group) || !shares.ReadUint16LengthPrefixed(&key) {
+			return false
+		}
+
+		switch group {
+		case 0x11ec:
+			hybrid = key
+		case 0x001d:
+			x25519 = key
+		}
+	}
+
+	return len(x25519) == 32 && len(hybrid) > 32 && bytes.Equal(hybrid[len(hybrid)-32:], x25519)
 }
 
 // echOuter is the ECHClientHello type of an outer ClientHello's extension,

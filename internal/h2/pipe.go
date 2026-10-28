@@ -10,11 +10,11 @@ var errBodyClosed = errors.New("h2: response body closed")
 
 // pipe buffers a stream's response body between the read loop and the
 // caller; the stream's receive window bounds it. Every buffered byte leaves
-// once: read (onRead), or discarded by Close or an error end, which report
-// how many so the connection returns that credit.
+// once: read (Conn.consumed), or discarded by Close or an error end, which
+// report how many so the connection returns that credit.
 type pipe struct {
 	mu     sync.Mutex
-	cond   *sync.Cond
+	cond   sync.Cond
 	buf    chunkBuffer
 	err    error // set when the stream ends; io.EOF once buf is drained
 	closed bool  // the caller closed the body
@@ -23,23 +23,20 @@ type pipe struct {
 	read     int64
 	written  int64
 	expected int64
-	onRead   func(n int)
-	// onClose runs once, when the caller closes the body. complete means
-	// every declared byte was read; discarded is how many buffered bytes
-	// nobody read.
-	onClose func(complete bool, discarded int)
+	// s is the stream whose body this is. Reads return its credit, and
+	// the first Close tells its connection (Conn.bodyClosed): complete
+	// means every declared byte was read, discarded is how many buffered
+	// bytes nobody read.
+	s *stream
 }
 
-func newPipe(onRead func(n int), onClose func(complete bool, discarded int)) *pipe {
-	p := &pipe{
-		expected: -1,
-		onRead:   onRead,
-		onClose:  onClose,
-	}
-
-	p.cond = sync.NewCond(&p.mu)
-
-	return p
+// init readies p, which is s's body, in place: it is part of s, so a
+// stream costs one allocation for both.
+func (p *pipe) init(s *stream) {
+	p.cond.L = &p.mu
+	p.expected = -1
+	p.s = s
+	p.buf.chunks = p.buf.inline[:0]
 }
 
 // setExpected records the response's Content-Length (-1 when unknown).
@@ -69,7 +66,7 @@ func (p *pipe) Read(b []byte) (int, error) {
 
 		p.read += int64(n)
 		p.mu.Unlock()
-		p.onRead(n)
+		p.s.c.consumed(p.s, n)
 
 		return n, nil
 	}
@@ -98,7 +95,7 @@ func (p *pipe) Close() error {
 	p.buf.reset()
 	p.cond.Broadcast()
 	p.mu.Unlock()
-	p.onClose(complete, discarded)
+	p.s.c.bodyClosed(p.s, complete, discarded)
 
 	return nil
 }
@@ -158,6 +155,9 @@ func (p *pipe) end(err error) int {
 // allocation once the pools are warm. Its callers hold the pipe's lock.
 type chunkBuffer struct {
 	chunks [][]byte
+	// inline is chunks' first array: a body that fits two chunks, as most
+	// do, grows no slice.
+	inline [2][]byte
 	r      int // next byte to read is chunks[0][r]
 	w      int // next byte to write is chunks[len(chunks)-1][w]
 	size   int // bytes buffered

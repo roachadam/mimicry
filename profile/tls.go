@@ -25,6 +25,11 @@ type TLS struct {
 	// Extensions in the order of one observed ClientHello: a full
 	// handshake's.
 	Extensions []Extension `json:"extensions"`
+	// X25519Reuse says a full ClientHello over TCP sends one X25519 key in
+	// both key shares: X25519MLKEM768's X25519 part is the x25519 share
+	// (Firefox). Resumed and QUIC hellos are not measured and keep their
+	// own keys. hellogen derives it from the captured hellos' key bytes.
+	X25519Reuse bool `json:"x25519Reuse,omitempty"`
 	// Resumption is how the browser resumes a TLS 1.3 session on a new
 	// connection to a server it holds a ticket for. Nil: it does not
 	// (Safari), and every connection is a full handshake.

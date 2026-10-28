@@ -37,7 +37,7 @@ require (
 	github.com/molecule-man/go-brrr v1.2.0 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/refraction-networking/utls v1.8.1 // indirect
-	github.com/roachadam/utls v0.0.0-20261025174743-24d1f83b2f8a // indirect
+	github.com/roachadam/utls v0.0.0-20261028030754-3ef8aebd60b6 // indirect
 	github.com/sardanioss/http v1.2.0 // indirect
 	github.com/sardanioss/net v1.2.12 // indirect
 	github.com/sardanioss/qpack v0.6.3 // indirect

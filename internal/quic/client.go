@@ -133,6 +133,17 @@ func (c *Conn) Uncork() {
 	}
 }
 
+// Settle returns once the connection's loop has handled everything sent to
+// it before the call (an Uncork's wake included), so it has sent what that
+// let it send; or once the connection has ended. NewStream no longer waits
+// for the loop (UPSTREAM.md change 12): h3 settles after uncorking the
+// streams it opens at the handshake, so a request started next is not
+// packed in front of them (Chrome's 0-RTT: the control stream's packet
+// first).
+func (c *Conn) Settle() {
+	_ = c.runOnLoop(context.Background(), func(time.Time, *Conn) {})
+}
+
 // EarlyData reports whether the connection sends 0-RTT data: it resumes a
 // ticket that allows it, and the server has not rejected it.
 func (c *Conn) EarlyData() bool {

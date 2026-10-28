@@ -14,6 +14,16 @@ import (
 type streamsState struct {
 	queue queue[*Stream] // new, peer-created streams
 
+	// mimicry: tableMu guards streams, peerInitialMaxStreamDataRemote
+	// and tableClosed. NewStream inserts its stream under it from the
+	// caller's goroutine instead of a round trip to the loop, which
+	// serialized every request start on a busy connection behind the
+	// loop's queue; everything else that touches them runs on the loop
+	// and takes it too. Off the loop it is held alone, so no lock order
+	// with sendMu or the streams' gates arises.
+	tableMu     sync.Mutex
+	tableClosed bool // streamsCleanup ran: no more local streams
+
 	// All peer-created streams.
 	//
 	// Implicitly created streams are included as an empty entry in the map.
@@ -62,6 +72,11 @@ func (c *Conn) streamsCleanup() {
 	c.streams.queue.close(errConnClosed)
 	c.streams.localLimit[bidiStream].connHasClosed()
 	c.streams.localLimit[uniStream].connHasClosed()
+	// mimicry: under tableMu, and after it no local stream joins the
+	// table, so none misses connHasClosed.
+	c.streams.tableMu.Lock()
+	defer c.streams.tableMu.Unlock()
+	c.streams.tableClosed = true
 	for _, s := range c.streams.streams {
 		if s.s != nil {
 			s.s.connHasClosed()
@@ -105,16 +120,20 @@ func (c *Conn) newLocalStream(ctx context.Context, styp streamType) (*Stream, er
 	s.inUnlock()
 	s.outUnlock()
 
-	// Modify c.streams on the conn's loop.
-	if err := c.runOnLoop(ctx, func(now time.Time, c *Conn) {
-		// mimicry: the peer's initial window is read on the loop, which
-		// writes it when the server's transport parameters arrive: a
-		// 0-RTT connection opens streams before that.
-		s.outwin = c.streams.peerInitialMaxStreamDataRemote[styp]
-		c.streams.streams[s.id] = maybeStream{s}
-	}); err != nil {
-		return nil, err
+	// mimicry: registered under tableMu, not on the conn's loop. The
+	// peer's initial window is read under the lock the loop writes it
+	// under when the server's transport parameters arrive (a 0-RTT
+	// connection opens streams before that), and the loop then walks
+	// the table under it to update the streams already open
+	// (clientApplyPeerWindows), so a stream reads the new window or is
+	// in the table for the walk.
+	c.streams.tableMu.Lock()
+	defer c.streams.tableMu.Unlock()
+	if c.streams.tableClosed {
+		return nil, errConnClosed
 	}
+	s.outwin = c.streams.peerInitialMaxStreamDataRemote[styp]
+	c.streams.streams[s.id] = maybeStream{s}
 	return s, nil
 }
 
@@ -133,6 +152,8 @@ const (
 // streamForID returns the stream with the given id.
 // If the stream does not exist, it returns nil.
 func (c *Conn) streamForID(id streamID) *Stream {
+	c.streams.tableMu.Lock() // mimicry: see tableMu
+	defer c.streams.tableMu.Unlock()
 	return c.streams.streams[id].s
 }
 
@@ -158,7 +179,9 @@ func (c *Conn) streamForFrame(now time.Time, id streamID, ftype streamFrameType)
 		}
 	}
 
+	c.streams.tableMu.Lock() // mimicry: see tableMu
 	ms, isOpen := c.streams.streams[id]
+	c.streams.tableMu.Unlock()
 	if ms.s != nil {
 		return ms.s
 	}
@@ -196,9 +219,11 @@ func (c *Conn) streamForFrame(now time.Time, id streamID, ftype streamFrameType)
 	// Receiving a frame for a stream implicitly creates all streams
 	// with the same initiator and type and a lower number.
 	// Add a nil entry to the streams map for each implicitly created stream.
+	c.streams.tableMu.Lock() // mimicry: see tableMu
 	for n := newStreamID(id.initiator(), id.streamType(), prevOpened); n < id; n += 4 {
 		c.streams.streams[n] = maybeStream{}
 	}
+	c.streams.tableMu.Unlock()
 
 	s := newStream(c, id)
 	s.inmaxbuf = c.config.maxStreamReadBufferSize()
@@ -216,7 +241,9 @@ func (c *Conn) streamForFrame(now time.Time, id streamID, ftype streamFrameType)
 	s.inUnlock()
 	s.outUnlock()
 
+	c.streams.tableMu.Lock() // mimicry: see tableMu
 	c.streams.streams[id] = maybeStream{s}
+	c.streams.tableMu.Unlock()
 	c.streams.queue.put(s)
 	return s
 }
@@ -342,7 +369,9 @@ func (c *Conn) appendStreamFrames(w *packetWriter, pnum packetNumber, pto bool) 
 		if state&(streamInDone|streamOutDone) == streamInDone|streamOutDone {
 			// Stream is finished, remove it from the conn.
 			state = s.state.set(streamConnRemoved, streamQueueMeta|streamConnRemoved)
+			c.streams.tableMu.Lock() // mimicry: see tableMu
 			delete(c.streams.streams, s.id)
+			c.streams.tableMu.Unlock()
 
 			// Record finalization of remote streams, to know when
 			// to extend the peer's stream limit.
@@ -424,6 +453,8 @@ func (c *Conn) appendStreamFramesPTO(w *packetWriter, pnum packetNumber) bool {
 	}
 	c.streams.sendMu.Lock()
 	defer c.streams.sendMu.Unlock()
+	c.streams.tableMu.Lock() // mimicry: see tableMu
+	defer c.streams.tableMu.Unlock()
 	for _, ms := range c.streams.streams {
 		s := ms.s
 		if s == nil {

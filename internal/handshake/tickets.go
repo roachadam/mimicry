@@ -1,7 +1,6 @@
 package handshake
 
 import (
-	"encoding/binary"
 	"sync"
 	"time"
 
@@ -123,16 +122,20 @@ func (s ticket) expired(now time.Time) bool {
 // keep stores a ticket the server sent on a connection that resumed with
 // used (nil: a full handshake) and whose certificate expires at notAfter.
 func (t *Tickets) keep(key string, s *utls.ClientSessionState, used *Ticket, notAfter time.Time) {
-	enc := encoding(s)
+	_, state, err := s.ResumptionState()
+	if err != nil || state == nil {
+		return
+	}
+
 	tk := ticket{
 		state:   s,
 		expires: notAfter,
 	}
 
-	switch version(enc) {
+	switch state.Version() {
 	case utls.VersionTLS13:
 		tk.tls13 = true
-		if useBy, ok := useBy(enc); ok && (tk.expires.IsZero() || useBy.Before(tk.expires)) {
+		if useBy := state.UseBy(); !useBy.IsZero() && (tk.expires.IsZero() || useBy.Before(tk.expires)) {
 			tk.expires = useBy
 		}
 
@@ -187,42 +190,4 @@ func (c *connCache) Put(_ string, s *utls.ClientSessionState) {
 	if s != nil {
 		c.tickets.keep(c.key, s, c.ticket, c.notAfter)
 	}
-}
-
-// encoding is a session's encoding (utls.SessionState.Bytes), or nil.
-func encoding(s *utls.ClientSessionState) []byte {
-	_, state, err := s.ResumptionState()
-	if err != nil || state == nil {
-		return nil
-	}
-
-	b, err := state.Bytes()
-	if err != nil {
-		return nil
-	}
-
-	return b
-}
-
-// version reads a session's TLS version: the first two bytes of its
-// encoding; zero when it has none.
-func version(enc []byte) uint16 {
-	if len(enc) < 2 {
-		return 0
-	}
-
-	return binary.BigEndian.Uint16(enc)
-}
-
-// useBy reads a client TLS 1.3 session's use_by time (seconds since the
-// epoch), which a client's encoding ends with, followed by the 4-byte
-// age_add.
-func useBy(enc []byte) (time.Time, bool) {
-	if len(enc) < 12 {
-		return time.Time{}, false
-	}
-
-	secs := binary.BigEndian.Uint64(enc[len(enc)-12:])
-
-	return time.Unix(int64(secs), 0), true
 }

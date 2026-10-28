@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/roachadam/mimicry/internal/h1"
 	"github.com/roachadam/mimicry/internal/h2"
 	"github.com/roachadam/mimicry/internal/h3"
 	"github.com/roachadam/mimicry/internal/pool"
@@ -82,7 +81,7 @@ func (e *Engine) Plan(req *http.Request) (*Plan, error) {
 	if tcpErr != nil {
 		p.HTTP1.Err = tcpErr
 	} else {
-		w := h1.NewWriter(e.profile)
+		w := e.h1
 		if r.forward {
 			w = w.Forward(e.profile.Proxy)
 		}

@@ -34,7 +34,7 @@ type Stream struct {
 // outlives ctx until it is ended; any other response has no stream and its
 // body is read as RoundTrip's. Errors are those of RoundTrip.
 func (c *Conn) Connect(ctx context.Context, req *http.Request, protocol string) (*http.Response, *Stream, error) {
-	head, err := c.head(req, 0, protocol)
+	head, err := c.head(nil, req, 0, protocol)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -49,12 +49,12 @@ func (c *Conn) Connect(ctx context.Context, req *http.Request, protocol string) 
 			err: err,
 		})
 
-		r := <-s.resp
+		r := s.response()
 
 		return nil, nil, r.err
 	}
 
-	r := <-s.resp
+	r := s.response()
 	if r.err != nil {
 		return nil, nil, r.err
 	}
@@ -66,7 +66,7 @@ func (c *Conn) Connect(ctx context.Context, req *http.Request, protocol string) 
 
 	// From here on, only the stream's own end ends it.
 	c.mu.Lock()
-	s.stopCtx()
+	s.stopCancel()
 	c.mu.Unlock()
 
 	return r.resp, &Stream{
