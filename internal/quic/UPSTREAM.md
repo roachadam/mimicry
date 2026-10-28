@@ -254,6 +254,55 @@ the mechanical import rewrites.
      the profile retries; the downgrade error is the profile's (0x53f8
      for Firefox), RFC 9368's 0x11 otherwise.
 
+9. **Stream buffers back to the pool** (`pipe.go`, `stream.go`,
+   `crypto_stream.go`). Upstream returns a 4 KB pipe buffer to
+   `pipebufPool` only in `discardBefore`, when the data before an offset is
+   wholly consumed; the buffer the window ends in is kept, since the window
+   may still grow into it, and nothing returns it when the stream is done.
+   So every stream of less than 4 KB a direction (every request's
+   HEADERS, most responses) allocated a new buffer for each direction and
+   dropped it to the GC: 43% of HTTP/3's allocated bytes and 14 times
+   net/http's GCs (bench 2026-10-27). Still so in x/net v0.62.0
+   (`3de643d`).
+   - `pipe.release` returns every buffer of a pipe, leaving its offsets.
+   - `inUnlockNoQueue` releases the receive pipe once nothing can read it:
+     every byte read (`in.start == insize`), or the side read-closed or
+     reset (`handleData` drops what comes after), and no unread bytes left
+     in `inbuf`, the lock-free readers' view of the head buffer (a stream
+     whose conn closed keeps that readable).
+   - `outUnlockNoQueue` releases the send pipe once no byte in it can be
+     sent again: closed with every byte acknowledged, or reset; and
+     `outbuf`, the lock-free writers' view of the tail's free space, empty.
+     `connHasClosed` clears `outbuf` as `Reset` does, so a stream's buffer
+     goes back after its conn closes too, and a later `Write` reports the
+     closed conn instead of buffering where nothing is sent.
+   - `cryptoStream.discardKeys` releases both pipes.
+   - Race builds poison a buffer put back (`pipe_poison_race.go`;
+     `pipe_poison.go` otherwise), so a use after release shows as wrong
+     bytes.
+   - Tests: `stream_buffers_test.go` (`TestStreamBuffersReturned`: many
+     streams at once over a lossy link, ending each way, contents checked;
+     a conn aborted under writers and under readers with data buffered),
+     and `internal/h3`'s `TestRequestsReuseStreamBuffers` (bytes allocated
+     per request on a warm connection).
+
+10. **FIN of a truncated STREAM frame** (`stream.go`,
+    `appendOutFramesLocked`). A frame reaching the end of a closed stream
+    carries the FIN only if it fits whole (`appendStreamFrame` drops the
+    bit from a truncated one), but upstream marked the FIN sent in that
+    packet either way. Normally the rest goes next, FIN and all; a PTO
+    probe sends one frame only. So a probe built while the FIN was queued
+    and not yet sent (the stream closed between the loop handling the
+    PTO's timer and sending the probe), resending the stream from its
+    start, marked the FIN sent in a packet without it: once that packet
+    was acknowledged nothing was in flight, and the FIN was never sent.
+    The peer waited for the stream's end until the idle timeout. Found by
+    `TestStreamBuffersReturned` under load (a request's EOF; a few runs in
+    a hundred with the root suite alongside, none in 307 after the fix);
+    still so in x/net v0.62.0.
+    Test: `stream_fin_test.go` (`TestStreamFINAfterTruncatedProbe`, the
+    close put between the PTO and the probe on the synthetic peer).
+
 ## Tests
 
 The tests are upstream's own, kept as the proof that the copy and the TLS
@@ -261,7 +310,11 @@ swap work: `go test -race ./internal/quic/...`. They are allowed under
 AGENTS.md's tests policy for that reason, not as a model for new tests.
 None were pruned: all pass on uTLS. `client_version_test.go` is mimicry's
 (change 7): v2 has no upstream tests, and the browser client's handshake
-cannot be checked anywhere but on the synthetic peer.
+cannot be checked anywhere but on the synthetic peer. So are
+`stream_buffers_test.go` (change 9): a buffer released while a stream still
+uses it corrupts data silently, and only many streams at once, ending every
+way, reach the paths; and `stream_fin_test.go` (change 10): a stall that
+needs the close to fall between a PTO and its probe.
 
 ## Lint
 

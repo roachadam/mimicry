@@ -725,6 +725,15 @@ func (s *Stream) connHasClosed() {
 		s.outresetcode = streamResetByConnClose
 		s.outreset.setReceived()
 	}
+
+	// mimicry: nothing written now can be sent, so the lock-free writers lose
+	// their view of s.out (as after Reset) and outUnlock returns its buffers
+	// to the pool; a later Write reports the closed conn.
+	s.outbufmu.Lock()
+
+	s.outbuf = nil
+	s.outbufoff = 0
+	s.outbufmu.Unlock()
 	s.outUnlock()
 }
 
@@ -740,6 +749,17 @@ func (s *Stream) inUnlock() {
 // inUnlockNoQueue is inUnlock,
 // but reports whether s has frames to write rather than notifying the Conn.
 func (s *Stream) inUnlockNoQueue() streamState {
+	// mimicry: the receive buffers go back to the pool once nothing can read
+	// them: every byte read (handleData drops a retransmission before the read
+	// offset), or the side read-closed or reset (handleData drops everything).
+	// s.inbuf, the lock-free readers' view of s.in, changes only with ingate
+	// held; while it has unread bytes the buffer stays (connHasClosed leaves
+	// it readable), and the Read that empties it comes back here.
+	if s.in.head != nil && len(s.inbuf) == 0 &&
+		(s.in.start == s.insize || s.inresetcode != -1 || s.inclosed.isSet()) {
+		s.in.release()
+	}
+
 	nextByte := s.in.start + int64(len(s.inbuf))
 	canRead := s.inset.contains(nextByte) || // data available to read
 		s.insize == s.in.start+int64(len(s.inbuf)) || // at EOF
@@ -779,6 +799,17 @@ func (s *Stream) outUnlock() {
 // outUnlockNoQueue is outUnlock,
 // but reports whether s has frames to write rather than notifying the Conn.
 func (s *Stream) outUnlockNoQueue() streamState {
+	// mimicry: the send buffers go back to the pool once no byte in them can
+	// be sent again: the side closed with every byte acknowledged, or reset
+	// (appendOutFramesLocked then sends no data). s.outbuf, the lock-free
+	// writers' view of the free space in s.out, changes only with outgate
+	// held; while it is non-empty the buffer stays (CloseWrite and Reset
+	// clear it).
+	if s.out.head != nil && len(s.outbuf) == 0 &&
+		(s.outreset.isSet() || s.outclosed.isSet() && s.outacked.isrange(0, s.out.end)) {
+		s.out.release()
+	}
+
 	isDone := s.outclosed.isReceived() && s.outacked.isrange(0, s.out.end) || // all data acked
 		s.outreset.isSet() // reset locally
 	if isDone {
@@ -1111,7 +1142,11 @@ func (s *Stream) appendOutFramesLocked(w *packetWriter, pnum packetNumber, pto b
 		}
 		s.outunsent.sub(off, end)
 		s.frameOpensStream(pnum)
-		if fin {
+		// mimicry: only a frame that fit whole carries the FIN
+		// (appendStreamFrame drops it from a truncated one). Marking it
+		// sent with a truncated frame left it waiting on a packet that
+		// never held it: never resent, as a probe sends no second frame.
+		if fin && int64(len(b)) == size {
 			s.outclosed.setSent(pnum)
 		}
 		if pto {

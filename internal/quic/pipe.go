@@ -46,6 +46,7 @@ func newPipebuf() *pipebuf {
 func (b *pipebuf) recycle() {
 	b.off = 0
 	b.next = nil
+	poisonPipebuf(b.b) // mimicry
 	pipebufPool.Put(b)
 }
 
@@ -170,4 +171,26 @@ func (p *pipe) discardBefore(off int64) {
 	}
 	p.start = off
 	p.end = max(p.end, off)
+}
+
+// release returns every buffer to the pool, the partly filled one at the end
+// of the window included (discardBefore keeps it, since the window may still
+// grow into it). The window's offsets stay as they are, since the stream's
+// state is computed from them, but the pipe holds no data: nothing may read
+// it again.
+//
+// mimicry: called once a stream direction's data can no longer be read, sent or
+// written (stream.go's inUnlockNoQueue and outUnlockNoQueue, discardKeys).
+// The caller must hold the only references to the buffers: no slice returned by
+// peek or availableBuffer may still be in use.
+func (p *pipe) release() {
+	for pb := p.head; pb != nil; {
+		next := pb.next
+		pb.recycle()
+
+		pb = next
+	}
+
+	p.head = nil
+	p.tail = nil
 }

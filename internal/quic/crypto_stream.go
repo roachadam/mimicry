@@ -151,7 +151,10 @@ func (s *cryptoStream) discardKeys() error {
 		}
 	}
 	// Discard any unacked (but presumably received) data in our output buffer.
-	s.out.discardBefore(s.out.end)
+	// mimicry: and return both pipes' buffers to the pool (the input is empty).
+	s.in.release()
+	s.out.release()
+
 	*s = cryptoStream{}
 	return nil
 }

@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"runtime"
+	"runtime/debug"
 	"strconv"
 	"testing"
 
@@ -25,25 +26,6 @@ import (
 func TestFinishedRequestsAreReleased(t *testing.T) {
 	c := rawH3(t)
 
-	get := func(n int) {
-		for range n {
-			req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "https://localhost/", nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			resp, err := c.RoundTrip(req)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			if _, err := io.Copy(io.Discard, resp.Body); err != nil {
-				t.Fatal(err)
-			}
-
-			_ = resp.Body.Close()
-		}
-	}
 	heap := func() uint64 {
 		var m runtime.MemStats
 
@@ -54,18 +36,98 @@ func TestFinishedRequestsAreReleased(t *testing.T) {
 		return m.HeapAlloc
 	}
 
-	get(200)
+	get(t, c, 200)
 
 	before := heap()
 
 	const n = 2000
 
-	get(n)
+	get(t, c, n)
 
 	after := heap()
 	// Leaking, 2000 requests keep about 20 MB.
 	if after > before && after-before > 4<<20 {
 		t.Fatalf("heap grew %d KB over %d requests on one connection", (after-before)>>10, n)
+	}
+}
+
+// A request on a warm connection takes its QUIC stream buffers from the pool:
+// each stream's (4 KB per direction, at the client and at the server here)
+// went back once the stream was done with them. Only a buffer wholly consumed
+// went back before, so every request allocated four new ones (bench
+// 2026-10-27: 43% of HTTP/3's allocated bytes, and 14 times net/http's GCs).
+func TestRequestsReuseStreamBuffers(t *testing.T) {
+	c := rawH3(t)
+
+	totalAlloc := func() uint64 {
+		var m runtime.MemStats
+
+		runtime.ReadMemStats(&m)
+
+		return m.TotalAlloc
+	}
+
+	get(t, c, 200)
+
+	// No GC while measuring: it empties the pool.
+	defer debug.SetGCPercent(debug.SetGCPercent(-1))
+
+	const n = 1000
+
+	before := totalAlloc()
+
+	get(t, c, n)
+
+	perRequest := (totalAlloc() - before) / n
+	// About 7 KB here (17 KB with -race, whose sync.Pool drops a quarter
+	// of what is put back), 8 KB more for each direction whose buffers are
+	// allocated anew.
+	bound := uint64(12 << 10)
+	if raceEnabled() {
+		bound = 20 << 10
+	}
+
+	if perRequest > bound {
+		t.Fatalf("%d B allocated per request on a warm connection, want at most %d", perRequest, bound)
+	}
+}
+
+// raceEnabled reports whether the test binary was built with -race.
+func raceEnabled() bool {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return false
+	}
+
+	for _, s := range info.Settings {
+		if s.Key == "-race" {
+			return s.Value == "true"
+		}
+	}
+
+	return false
+}
+
+// get makes n GET requests on c one after another, each read to its end.
+func get(t *testing.T, c *Conn, n int) {
+	t.Helper()
+
+	for range n {
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "https://localhost/", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		resp, err := c.RoundTrip(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+			t.Fatal(err)
+		}
+
+		_ = resp.Body.Close()
 	}
 }
 
