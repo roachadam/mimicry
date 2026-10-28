@@ -20,7 +20,9 @@ import (
 // Headers: Chrome's navigation set, as its users pass them. Its idle pool
 // gets MaxIdleConnsPerHost 1024, as net/http's and tls-client's do; the
 // Session creates its Transport on the first request, so the adapter sets
-// it after the first response, which every scenario sends alone.
+// it after the first response, which every scenario sends alone. Through
+// a socks5 proxy with HTTP/3 enabled its QUIC goes over a UDP
+// association; rotation is its SetProxy.
 func azuretlsClient() Factory {
 	return Factory{
 		Name:    "azuretls",
@@ -129,6 +131,10 @@ func (c *azuretlsAdapter) CloseIdle() {
 		_ = c.s.EnableHTTP3()
 		c.s.HTTP3Config.Enabled = true
 	}
+}
+
+func (c *azuretlsAdapter) SetProxy(proxy string) error {
+	return c.s.SetProxy(proxy)
 }
 
 func (c *azuretlsAdapter) Close() {

@@ -12,9 +12,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -125,7 +127,11 @@ func (s Server) URL(p Proto, label, path string) string {
 }
 
 // Proxy is the benchmark's proxy: CONNECT on two ports (one asks for Basic
-// credentials) and SOCKS5.
+// credentials) and SOCKS5 (with username and password when the client
+// offers them, else without; CONNECT and UDP ASSOCIATE). It accepts
+// ProxyUser and every ProxyUser-<anything> with ProxyPassword
+// (ProxyCredentialsValid), so each of many clients can have an identity
+// of its own, and counts what it relays per user (FetchProxyUsage).
 const (
 	ProxyHost      = "proxy.bench.test"
 	ProxyPort      = 3128
@@ -135,6 +141,12 @@ const (
 	ProxyUser      = "bench"
 	ProxyPassword  = "bench-secret"
 )
+
+// ProxyCredentialsValid reports whether the proxy accepts user and
+// password: ProxyUser or ProxyUser-<anything>, with ProxyPassword.
+func ProxyCredentialsValid(user, password string) bool {
+	return password == ProxyPassword && (user == ProxyUser || strings.HasPrefix(user, ProxyUser+"-"))
+}
 
 // OffloadsPort is where the offloads sidecar (`bench offloads`, on the
 // client's Docker host's network) listens, at the bench network's gateway:
@@ -171,6 +183,99 @@ func ProxyURL(k ProxyKind) string {
 	}
 
 	return ""
+}
+
+// ProxyUserURL returns the URL of a proxy kind that carries credentials,
+// as user (ProxyCredentialsValid): connect-auth, or socks5 as socks5h (the
+// proxy resolves the host). "" for connect, which takes no credentials.
+func ProxyUserURL(k ProxyKind, user string) string {
+	creds := url.UserPassword(user, ProxyPassword).String()
+
+	switch k {
+	case ProxyConnectAuth:
+		return "http://" + creds + "@" + ProxyHost + ":" + strconv.Itoa(ProxyAuthPort)
+	case ProxySOCKS5:
+		return "socks5h://" + creds + "@" + ProxyHost + ":" + strconv.Itoa(ProxySOCKSPort)
+	case ProxyConnect:
+	}
+
+	return ""
+}
+
+// ProxyUse is what the proxy relayed for one user (or for every user of a
+// prefix, ProxyUsage.Total): TCP tunnels opened (CONNECT, SOCKS5 CONNECT),
+// SOCKS5 UDP associations, datagrams relayed to the client, and bytes
+// relayed each way, tunnels and datagrams together (datagrams without
+// their SOCKS5 header).
+type ProxyUse struct {
+	Tunnels      int64 `json:"tunnels"`
+	Associations int64 `json:"associations"`
+	Datagrams    int64 `json:"datagrams"`
+	BytesUp      int64 `json:"bytesUp"`
+	BytesDown    int64 `json:"bytesDown"`
+}
+
+// Add adds o to u.
+func (u *ProxyUse) Add(o ProxyUse) {
+	u.Tunnels += o.Tunnels
+	u.Associations += o.Associations
+	u.Datagrams += o.Datagrams
+	u.BytesUp += o.BytesUp
+	u.BytesDown += o.BytesDown
+}
+
+// ProxyUsage is the proxy's /_proxy answer for the users with a prefix:
+// their total and, when asked for, each user's.
+type ProxyUsage struct {
+	Total ProxyUse            `json:"total"`
+	Users map[string]ProxyUse `json:"users,omitempty"`
+}
+
+// ProxyUsagePath is the proxy's per-user usage on its stats port:
+// ?prefix=<users' prefix>, &users=1 for each user's, &forget=1 to drop
+// them from the proxy's memory once read.
+const ProxyUsagePath = "/_proxy"
+
+// FetchProxyUsage returns what the proxy relayed for the users whose name
+// starts with prefix (each user's too with users), forgetting them with
+// forget.
+func FetchProxyUsage(ctx context.Context, prefix string, users, forget bool) (ProxyUsage, error) {
+	var pu ProxyUsage
+
+	q := url.Values{
+		"prefix": {prefix},
+	}
+	if users {
+		q.Set("users", "1")
+	}
+
+	if forget {
+		q.Set("forget", "1")
+	}
+
+	u := "http://" + ProxyHost + ":" + strconv.Itoa(ProxyStatsPort) + ProxyUsagePath + "?" + q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return pu, err
+	}
+
+	resp, err := statsClient.Do(req)
+	if err != nil {
+		return pu, err
+	}
+
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		return pu, fmt.Errorf("target: %s: %s", ProxyUsagePath, resp.Status)
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&pu)
+
+	return pu, err
 }
 
 // CADir is where the shared CA and the server certificate live: the

@@ -40,6 +40,10 @@ type settings struct {
 	Reps        int           `json:"reps"`
 	Netem       bool          `json:"netem"`
 	ProfileDir  string        `json:"profileDir,omitempty"`
+	// MultiN is layer 6's clients per point, MultiRotate its requests per
+	// proxy identity in the rotation variant.
+	MultiN      int `json:"multiN,omitempty"`
+	MultiRotate int `json:"multiRotate,omitempty"`
 }
 
 // render rewrites a report's Markdown (and JSON) from its JSON, replacing
@@ -81,7 +85,7 @@ func run(args []string) error {
 	out := fs.String("out", "reports", "directory for the report")
 	window := fs.Duration("window", 10*time.Second, "measurement window per load point")
 	warmup := fs.Duration("warmup", 3*time.Second, "warm-up per load point, at full concurrency")
-	layers := fs.String("layers", "3,4,5", "layers to run (3 load, 4 memory, 5 network)")
+	layers := fs.String("layers", "3,4,5,6", "layers to run (3 load, 4 memory, 5 network, 6 many clients through proxies)")
 	clientList := fs.String("clients", "", "clients to run (comma-separated; default all)")
 	serverList := fs.String("servers", "nginx,go", "servers for layers 3 and 4")
 	reduced := fs.String("reduced", "go", "servers that get the reduced load matrix (bodies 1KB and 100KB, concurrency 1 and 64)")
@@ -90,10 +94,13 @@ func run(args []string) error {
 	idleN := fs.Int("idle-n", 50, "clients per idle-memory measurement")
 	reps := fs.Int("reps", 5, "page loads per setup and network condition")
 	useNetem := fs.Bool("netem", true, "shape the client's network for layer 5 (off: the network as it is, e.g. a remote server over Ethernet)")
+	multiN := fs.Int("multi-n", 200, "layer 6: clients per point, each through a proxy identity of its own")
+	multiRotate := fs.Int("multi-rotate", 10, "layer 6: requests per proxy identity in the rotation variant (0: no rotation variant)")
 	micro := fs.String("micro", "", "benchstat output of the micro benchmarks (layers 1 and 2) to embed")
 	microRaw := fs.String("micro-raw", "", "the micro benchmarks' raw output, named in the report")
 	profileDir := fs.String("profile", "", "write CPU and allocation profiles of mimicry's jobs here")
 	date := fs.String("date", time.Now().Format("2006-01-02"), "the report's date")
+	name := fs.String("name", "bench", "the report's file name before the date: <name>-<date>.md and .json")
 
 	_ = fs.Parse(args)
 
@@ -113,6 +120,8 @@ func run(args []string) error {
 		Reps:        *reps,
 		Netem:       *useNetem,
 		ProfileDir:  *profileDir,
+		MultiN:      *multiN,
+		MultiRotate: *multiRotate,
 	}
 
 	if st.ProfileDir != "" {
@@ -123,6 +132,7 @@ func run(args []string) error {
 
 	r := &report{
 		Date:     *date,
+		Name:     *name,
 		Settings: st,
 		MicroRaw: *microRaw,
 	}
@@ -153,6 +163,10 @@ func run(args []string) error {
 
 	if slices.Contains(st.Layers, 5) {
 		r.Pages, r.Env.Netem = rn.pages()
+	}
+
+	if slices.Contains(st.Layers, 6) {
+		r.Multi = rn.multi()
 	}
 
 	if ctx.Err() != nil {
@@ -541,6 +555,10 @@ func (rn *runner) log(j job, msg string) {
 		what += fmt.Sprintf(" %s c=%d", j.Op.Name, j.Conc)
 	}
 
+	if j.Kind == kindMulti {
+		what += fmt.Sprintf(" %s n=%d rotate=%d", j.Op.Name, j.N, j.Rotate)
+	}
+
 	fmt.Fprintf(os.Stderr, "%s [%d] %s %s: %s\n", time.Now().Format("15:04:05"), rn.n, what, j.Client, msg)
 }
 
@@ -812,7 +830,12 @@ func (r *report) write(dir string) error {
 		return err
 	}
 
-	base := filepath.Join(dir, "bench-"+r.Date)
+	name := r.Name
+	if name == "" {
+		name = "bench"
+	}
+
+	base := filepath.Join(dir, name+"-"+r.Date)
 
 	if err := os.WriteFile(base+".json", js, 0o644); err != nil { //nolint:gosec // a report, meant to be read
 		return err

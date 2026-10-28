@@ -2,8 +2,10 @@
 # mimicry-bench network with fixed addresses (the client's extra_hosts point
 # there unless BENCH_SERVER names a remote host). The servers share a CPU
 # set larger than the client's (only one is under load at a time); the
-# proxy's overlaps it, since it only carries page loads, which barely load
-# the server.
+# proxy's overlaps it, since it only carries page loads and layer 6's
+# clients, which load the servers lightly.
+# The proxy's SOCKS5 UDP relay sockets are ephemeral ports, never
+# published: HTTP/3 through it needs the client on this network.
 # The setup service creates the CA (once) and nginx's content in two named
 # volumes; ../scripts/bench.sh runs it before starting the others.
 #

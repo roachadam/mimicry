@@ -19,9 +19,10 @@ import (
 
 // Job kinds.
 const (
-	kindLoad = "load"
-	kindIdle = "idle"
-	kindPage = "page"
+	kindLoad  = "load"
+	kindIdle  = "idle"
+	kindPage  = "page"
+	kindMulti = "multi"
 )
 
 // job is one worker's measurement.
@@ -37,6 +38,10 @@ type job struct {
 	Window time.Duration    `json:"window,omitempty"`
 	N      int              `json:"n,omitempty"`
 	Reps   int              `json:"reps,omitempty"`
+	// Rotate: a multi-client job's requests per proxy identity (0: one
+	// identity per client); Tag makes its proxy users unique.
+	Rotate int    `json:"rotate,omitempty"`
+	Tag    string `json:"tag,omitempty"`
 	// Returning: page loads by returning clients (scenario.Setup).
 	Returning bool `json:"returning,omitempty"`
 	// ProfileDir, for mimicry's jobs, receives ProfileName.cpu.pprof (the
@@ -47,11 +52,12 @@ type job struct {
 
 // outcome is a worker's answer.
 type outcome struct {
-	Load  *scenario.LoadResult `json:"load,omitempty"`
-	Idle  *scenario.IdleResult `json:"idle,omitempty"`
-	Page  *scenario.PageResult `json:"page,omitempty"`
-	NA    string               `json:"na,omitempty"`
-	Error string               `json:"error,omitempty"`
+	Load  *scenario.LoadResult  `json:"load,omitempty"`
+	Idle  *scenario.IdleResult  `json:"idle,omitempty"`
+	Page  *scenario.PageResult  `json:"page,omitempty"`
+	Multi *scenario.MultiResult `json:"multi,omitempty"`
+	NA    string                `json:"na,omitempty"`
+	Error string                `json:"error,omitempty"`
 }
 
 func worker(in io.Reader, out io.Writer) error {
@@ -139,6 +145,20 @@ func runJob(j job) outcome {
 		prof.window(false)
 
 		o.Page = &r
+
+	case kindMulti:
+		var r scenario.MultiResult
+
+		r, err = scenario.Multi(ctx, su, scenario.MultiSpec{
+			Op:       j.Op,
+			Clients:  j.N,
+			Warmup:   j.Warmup,
+			Duration: j.Window,
+			Rotate:   j.Rotate,
+			Tag:      j.Tag,
+			OnWindow: prof.window,
+		})
+		o.Multi = &r
 
 	default:
 		err = fmt.Errorf("unknown job kind %q", j.Kind)

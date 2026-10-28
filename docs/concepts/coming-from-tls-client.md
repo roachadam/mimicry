@@ -278,11 +278,11 @@ time), and the CONNECT lines and SOCKS5 bytes are the browser's.
 
 Limits: `http`, `socks5` and `socks5h` proxies only (no `https://`
 proxies), Basic authentication only, HTTP/3 through SOCKS5 proxies only
-and only with `Config.HTTP3OverSOCKS5` (tls-client, with a proxy set,
-sends its QUIC straight to the site from your own address; mimicry never
-sends a datagram around a proxy), and two WebSocket cases never measured
-(`ErrNotMeasured`): a Safari profile with proxy credentials, and `ws://`
-through SOCKS5.
+and only with `Config.HTTP3OverSOCKS5` (tls-client v1.17 carries HTTP/3
+through SOCKS5 too, measured in `internal/bench/reports/multiclient-2026-10-28.md`;
+mimicry never sends a datagram around a proxy), and two WebSocket cases
+never measured (`ErrNotMeasured`): a Safari profile with proxy credentials,
+and `ws://` through SOCKS5.
 
 A proxy that fails a request returns a `*mimicry.ProxyError`: unreachable,
 CONNECT refused (`StatusCode`, `Header`), credentials rejected after the

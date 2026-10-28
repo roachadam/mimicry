@@ -4,8 +4,8 @@
 #   up       build the image, create the CA and content, start the server stack
 #            and the client host's offloads sidecar
 #   micro    layers 1-2: go test -bench, -count $BENCH_COUNT (10), then benchstat
-#   run      micro, then layers 3-5 (bench run), then the report
-#   report   layers 3-5 only, embedding the newest micro results
+#   run      micro, then layers 3-6 (bench run), then the report
+#   report   layers 3-6 only, embedding the newest micro results
 #   render   rewrite bench-<date>.md from its JSON with the newest micro results
 #   ca-sync  copy the CA from a remote server stack to this host's volume
 #   down     stop the server stack and the offloads sidecar
@@ -50,8 +50,9 @@ cmd="${1:-}"
 # hour. Micro benchmarks: 4 runs of 300 ms each (100 ms does not sample
 # enough iterations at the slowest points). Load points: a 3 s window over
 # a 1 s warm-up (run-to-run spread at 3 s measured the same as at 5 s, 2-3%),
-# concurrency 1/64/256 (no 16), 20 idle clients, and 3 page loads per
-# condition. The report records what was used.
+# concurrency 1/64/256 (no 16), 20 idle clients, 3 page loads per
+# condition, and 100 clients per multi-client point (layer 6, same windows).
+# The report records what was used.
 if [[ -n "${BENCH_FAST:-}" ]]; then
 	: "${BENCH_COUNT:=4}"
 	: "${BENCH_BENCHTIME:=300ms}"
@@ -156,10 +157,11 @@ report() {
 		[[ "$given" == *" -conc "* ]] || args+=(-conc 1,64,256)
 		[[ "$given" == *" -idle-n "* ]] || args+=(-idle-n 20)
 		[[ "$given" == *" -reps "* ]] || args+=(-reps 3)
+		[[ "$given" == *" -multi-n "* ]] || args+=(-multi-n 100)
 	fi
 
 	client_compose run --rm client bench run -out /reports -date "$date" ${args[@]+"${args[@]}"} "$@"
-	echo "bench: wrote $reports/bench-$date.md and .json"
+	echo "bench: wrote $reports/<name>-$date.md and .json (<name>: -name, bench by default)"
 }
 
 render() {

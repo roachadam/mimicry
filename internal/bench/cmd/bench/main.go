@@ -1,8 +1,8 @@
-// Command bench runs layers 3 to 5 of the benchmark (throughput and
-// latency, memory, realistic network) in the client container and writes
-// reports/bench-<date>.md and .json. Layers 1 and 2 are Go benchmarks
-// (bench_test.go); bench run embeds their benchstat summary when given one
-// (-micro). See ../../README.md.
+// Command bench runs layers 3 to 6 of the benchmark (throughput and
+// latency, memory, realistic network, many clients through proxies) in the
+// client container and writes reports/bench-<date>.md and .json. Layers 1
+// and 2 are Go benchmarks (bench_test.go); bench run embeds their benchstat
+// summary when given one (-micro). See ../../README.md.
 //
 //	bench run [flags]      the orchestrator
 //	bench render [flags]   rewrite a report's Markdown from its JSON, with new micro results

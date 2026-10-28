@@ -18,8 +18,10 @@ import (
 // HTTP/1.1 is forced with WithForceHttp1, HTTP/2 is ALPN's choice with
 // WithDisableHttp3, and HTTP/3 has no switch of its own: WithProtocolRacing
 // races QUIC against TCP per host and keeps the winner, so callers warm up
-// until responses come over HTTP/3. Headers: Chrome's navigation set, as
-// its users pass them.
+// until responses come over HTTP/3; through a SOCKS5 proxy its QUIC goes
+// over a UDP association (and it refuses racing through any other proxy).
+// Rotation is its SetProxy, which builds a new transport. Headers:
+// Chrome's navigation set, as its users pass them.
 func tlsClient() Factory {
 	return Factory{
 		Name:    "tls-client",
@@ -114,6 +116,10 @@ func (c *tlsClientAdapter) Do(ctx context.Context, r *Request) (Response, error)
 
 func (c *tlsClientAdapter) CloseIdle() {
 	c.client.CloseIdleConnections()
+}
+
+func (c *tlsClientAdapter) SetProxy(proxy string) error {
+	return c.client.SetProxy(proxy)
 }
 
 func (c *tlsClientAdapter) Close() {

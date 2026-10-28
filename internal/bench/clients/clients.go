@@ -28,6 +28,12 @@ type Client interface {
 	// caches, so the next request makes a new (resumed, where the client
 	// resumes) connection.
 	CloseIdle()
+	// SetProxy moves a client built with a proxy to another proxy URL (the
+	// next identity of a rotating proxy) the way the library's users do:
+	// mimicry and net/http through the Proxy function the Transport
+	// consults per request, the others through their SetProxy. Not safe
+	// for use while a request is in flight.
+	SetProxy(proxy string) error
 	// Close releases everything.
 	Close()
 }
@@ -87,6 +93,9 @@ type Factory struct {
 	// (Options.Returning), which page loads over HTTP/3 measure besides
 	// the cold one.
 	Returning bool
+	// NoH3SOCKS5 says why the client cannot carry HTTP/3 through a SOCKS5
+	// proxy (UDP ASSOCIATE), or is "" when it can.
+	NoH3SOCKS5 string
 }
 
 // ErrUnsupported marks a protocol or feature the client does not have.
@@ -159,14 +168,18 @@ func protoName(p target.Proto) string {
 	return string(p)
 }
 
-// Supports returns nil, or why the client cannot run a protocol with or
-// without a proxy (an n/a in the report). Every client has every protocol;
-// none goes through the benchmark's proxies over HTTP/3, which needs UDP
-// (SOCKS5 UDP ASSOCIATE or MASQUE) the proxy does not offer, and which
-// mimicry, as Chrome, never uses through a proxy.
-func (f Factory) Supports(p target.Proto, proxy bool) error {
-	if proxy && p == target.H3 {
-		return fmt.Errorf("%w: HTTP/3 through the benchmark's proxies (CONNECT, and SOCKS5 without UDP)", ErrUnsupported)
+// Supports returns nil, or why the client cannot run a protocol through a
+// proxy kind ("": none) (an n/a in the report). Every client has every
+// protocol directly; through a proxy HTTP/3 needs UDP, which only SOCKS5
+// carries (UDP ASSOCIATE), and only for the clients that use it.
+func (f Factory) Supports(p target.Proto, proxy target.ProxyKind) error {
+	switch {
+	case proxy == "" || p != target.H3:
+		return nil
+	case proxy != target.ProxySOCKS5:
+		return fmt.Errorf("%w: HTTP/3 through an HTTP proxy (CONNECT carries no UDP)", ErrUnsupported)
+	case f.NoH3SOCKS5 != "":
+		return fmt.Errorf("%w: HTTP/3 through SOCKS5: %s", ErrUnsupported, f.NoH3SOCKS5)
 	}
 
 	return nil

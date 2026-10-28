@@ -36,7 +36,7 @@ tasks:
       cache: false
       runInCI: false
       interactive: true
-  # Every layer: micro, then layers 3-5, then reports/bench-<date>.md and
+  # Every layer: micro, then layers 3-6, then reports/bench-<date>.md and
   # .json. Settings are environment variables (scripts/bench.sh, README.md).
   run:
     description: 'Benchmark every layer and write the report'

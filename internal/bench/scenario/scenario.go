@@ -1,12 +1,14 @@
 // Package scenario holds the measurements the benchmark makes with one
 // client, shared by the Go benchmarks (layers 1 and 2, bench_test.go) and
-// cmd/bench's worker processes (layers 3 to 5): warming a client up onto
+// cmd/bench's worker processes (layers 3 to 6): warming a client up onto
 // the protocol under test, a fixed-duration load at a concurrency, the
-// memory an idle connection holds, and a page load.
+// memory an idle connection holds, a page load, and many clients each
+// through a proxy identity of its own.
 package scenario
 
 import (
 	"context"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"strconv"
@@ -98,7 +100,7 @@ func (s Setup) String() string {
 
 // Supported returns nil, or why the client cannot run the setup.
 func (s Setup) Supported() error {
-	return s.Client.Supports(s.Proto, s.Proxy != "")
+	return s.Client.Supports(s.Proto, s.Proxy)
 }
 
 // New builds the setup's client.
@@ -108,16 +110,21 @@ func (s Setup) New() (clients.Client, error) {
 		return nil, err
 	}
 
-	o := clients.Options{
-		Proto:     s.Proto,
-		RootCAs:   roots,
-		Returning: s.Returning,
-	}
+	o := s.options(roots)
 	if s.Proxy != "" {
 		o.Proxy = target.ProxyURL(s.Proxy)
 	}
 
 	return s.Client.New(o)
+}
+
+// options are the setup's client options, without a proxy.
+func (s Setup) options(roots *x509.CertPool) clients.Options {
+	return clients.Options{
+		Proto:     s.Proto,
+		RootCAs:   roots,
+		Returning: s.Returning,
+	}
 }
 
 // ErrWrongProtocol marks a measurement discarded because a request did not

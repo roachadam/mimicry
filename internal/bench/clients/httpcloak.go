@@ -17,6 +17,9 @@ import (
 // (WithForceHTTP1/2/3). Session.Do returns the body buffered. ECH lookups
 // are off (WithDisableECH): the benchmark's names have no DNS HTTPS
 // records, and its HTTP/3 dials would otherwise query public resolvers.
+// A socks5 proxy carries its HTTP/3 too (WithSessionProxy is its TCP and
+// UDP proxy at once, the UDP over an association); rotation is its
+// SetProxy.
 func httpcloakClient() Factory {
 	return Factory{
 		Name:    "httpcloak",
@@ -111,6 +114,12 @@ func first(v []string) string {
 
 func (c *httpcloakAdapter) CloseIdle() {
 	c.s.Refresh()
+}
+
+func (c *httpcloakAdapter) SetProxy(proxy string) error {
+	c.s.SetProxy(proxy)
+
+	return nil
 }
 
 func (c *httpcloakAdapter) Close() {

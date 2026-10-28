@@ -9,12 +9,13 @@
 Requests through a proxy always went on TCP: browsers do not use HTTP/3
 through an HTTP or SOCKS5 proxy, and the engine refused QUIC whenever a
 proxy was configured.
-Other impersonating clients (azuretls-client, httpcloak) carry HTTP/3
-through SOCKS5 proxies with UDP ASSOCIATE (RFC 1928, section 7), and
-callers asked for parity: a site that serves HTTP/3 is reached over it
-from the proxy's address. Others get it wrong in a way that matters more
-than speed: tls-client sends its QUIC datagrams straight to the site with a
-proxy configured, from the caller's own address.
+Other impersonating clients (azuretls-client, httpcloak, tls-client v1.17)
+carry HTTP/3 through SOCKS5 proxies with UDP ASSOCIATE (RFC 1928, section
+7), and callers asked for parity: a site that serves HTTP/3 is reached over
+it from the proxy's address. (An earlier note here said tls-client sends its
+QUIC straight to the site; that was read from tls-client v1.13.1, an older
+version than the one benchmarked. The multi-client benchmark showed v1.17.1
+sending it through the proxy's UDP relay.)
 
 ## Options
 

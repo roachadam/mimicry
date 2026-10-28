@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sync/atomic"
 	"time"
 
 	"github.com/quic-go/quic-go"
@@ -19,13 +20,18 @@ import (
 // (held to the protocol under test with Transport.Protocols), quic-go's
 // http3.Transport for HTTP/3. It keeps a TLS session cache, as a caller
 // who wants resumption sets one, and no limit on idle connections per host
-// below the highest concurrency tested.
+// below the highest concurrency tested. A proxy is Transport.Proxy
+// returning the current URL. SetProxy replaces it and closes the idle
+// connections, as a net/http user who rotates must: its HTTP/2 pool is
+// keyed by host alone, so a request after the switch would otherwise go
+// on through the old proxy's tunnel.
 func netHTTP() Factory {
 	return Factory{
-		Name:    "net/http",
-		Module:  "std",
-		Profile: "none (Go's own TLS and HTTP/2; quic-go for HTTP/3)",
-		New:     newNetHTTP,
+		Name:       "net/http",
+		Module:     "std",
+		Profile:    "none (Go's own TLS and HTTP/2; quic-go for HTTP/3)",
+		New:        newNetHTTP,
+		NoH3SOCKS5: "quic-go's http3.Transport has no proxy setting (a caller would write the SOCKS5 UDP association themselves)",
 	}
 }
 
@@ -33,6 +39,7 @@ type netHTTPClient struct {
 	client *http.Client
 	closer func()
 	idle   func()
+	proxy  *atomic.Pointer[url.URL]
 }
 
 func newNetHTTP(o Options) (Client, error) {
@@ -76,13 +83,15 @@ func newNetHTTP(o Options) (Client, error) {
 		IdleConnTimeout:     90 * time.Second,
 	}
 
-	if o.Proxy != "" {
-		u, err := url.Parse(o.Proxy)
-		if err != nil {
-			return nil, err
-		}
+	proxy, err := proxyFunc(o.Proxy)
+	if err != nil {
+		return nil, err
+	}
 
-		tr.Proxy = http.ProxyURL(u)
+	if proxy != nil {
+		tr.Proxy = func(*http.Request) (*url.URL, error) {
+			return proxy.Load(), nil
+		}
 	}
 
 	return &netHTTPClient{
@@ -91,6 +100,7 @@ func newNetHTTP(o Options) (Client, error) {
 		},
 		closer: tr.CloseIdleConnections,
 		idle:   tr.CloseIdleConnections,
+		proxy:  proxy,
 	}, nil
 }
 
@@ -105,6 +115,16 @@ func (c *netHTTPClient) Do(ctx context.Context, r *Request) (Response, error) {
 
 func (c *netHTTPClient) CloseIdle() {
 	c.idle()
+}
+
+func (c *netHTTPClient) SetProxy(proxy string) error {
+	if err := storeProxy(c.proxy, proxy); err != nil {
+		return err
+	}
+
+	c.idle()
+
+	return nil
 }
 
 func (c *netHTTPClient) Close() {

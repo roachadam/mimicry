@@ -2,9 +2,11 @@ package clients
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/url"
 	"sync"
+	"sync/atomic"
 
 	"github.com/roachadam/mimicry"
 	"github.com/roachadam/mimicry/internal/bench/target"
@@ -15,9 +17,12 @@ import (
 // servers' http/1.1-only port and HTTP/2 with Config.DisableHTTP3; HTTP/3
 // has no switch: the Transport moves to it after the server's Alt-Svc, as
 // Chrome does, so callers warm up until responses come over HTTP/3.
+// Through a SOCKS5 proxy it goes over HTTP/3 with Config.HTTP3OverSOCKS5.
 // Returning clients share one Config.AltSvc cache per process, as a
 // returning Chrome starts with the alternatives it saved: once a client
-// has learnt an origin's HTTP/3, the next ones start on it.
+// has learnt an origin's HTTP/3, the next ones start on it. A proxy is
+// Config.Proxy returning the current URL, which SetProxy replaces: the
+// rotation mimicry's docs show (docs/concepts/coming-from-tls-client.md).
 //
 // Requests are made as their kinds: the micro and load scenarios' API calls
 // as Fetch from a page on the same origin (no CORS preflight), the page's
@@ -68,6 +73,8 @@ var returningAltSvc = sync.OnceValue(mimicry.NewAltSvcCache)
 type mimicryAdapter struct {
 	client *http.Client
 	tr     *mimicry.Transport
+	// proxy is what Config.Proxy returns, when the client has one.
+	proxy *atomic.Pointer[url.URL]
 	// requests holds each kind and page's mimicry.Request, built once:
 	// parsing the page per request would charge mimicry allocations that
 	// are the benchmark's. A map under a lock: a sync.Map would box each
@@ -103,13 +110,16 @@ func newMimicry(o Options, set func(*mimicry.Config)) (Client, error) {
 		set(&cfg)
 	}
 
-	if o.Proxy != "" {
-		u, err := url.Parse(o.Proxy)
-		if err != nil {
-			return nil, err
-		}
+	proxy, err := proxyFunc(o.Proxy)
+	if err != nil {
+		return nil, err
+	}
 
-		cfg.Proxy = http.ProxyURL(u)
+	if proxy != nil {
+		cfg.Proxy = func(*http.Request) (*url.URL, error) {
+			return proxy.Load(), nil
+		}
+		cfg.HTTP3OverSOCKS5 = o.Proto == target.H3
 	}
 
 	client, err := mimicry.NewClient(cfg)
@@ -122,8 +132,37 @@ func newMimicry(o Options, set func(*mimicry.Config)) (Client, error) {
 	return &mimicryAdapter{
 		client:   client,
 		tr:       tr,
+		proxy:    proxy,
 		requests: map[requestKey]mimicry.Request{},
 	}, nil
+}
+
+// proxyFunc holds proxy for a Proxy function to return, or is nil without
+// one.
+func proxyFunc(proxy string) (*atomic.Pointer[url.URL], error) {
+	if proxy == "" {
+		return nil, nil //nolint:nilnil // no proxy
+	}
+
+	p := new(atomic.Pointer[url.URL])
+
+	return p, storeProxy(p, proxy)
+}
+
+// storeProxy parses proxy into p, for SetProxy.
+func storeProxy(p *atomic.Pointer[url.URL], proxy string) error {
+	if p == nil {
+		return errors.New("clients: SetProxy on a client built without a proxy")
+	}
+
+	u, err := url.Parse(proxy)
+	if err != nil {
+		return err
+	}
+
+	p.Store(u)
+
+	return nil
 }
 
 var mimicryKinds = map[string]mimicry.Kind{
@@ -185,6 +224,10 @@ func (c *mimicryAdapter) Do(ctx context.Context, r *Request) (Response, error) {
 
 func (c *mimicryAdapter) CloseIdle() {
 	c.tr.CloseIdleConnections()
+}
+
+func (c *mimicryAdapter) SetProxy(proxy string) error {
+	return storeProxy(c.proxy, proxy)
 }
 
 func (c *mimicryAdapter) Close() {
