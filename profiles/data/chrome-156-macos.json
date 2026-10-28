@@ -43,7 +43,6 @@
     "replay-ticketmaster.com": "chrome-155-macos",
     "replay-walmart.com": "chrome-155-macos",
     "replay-zillow.com": "chrome-155-macos",
-    "resume": "chrome-155-macos",
     "resume-tls12": "chrome-155-macos",
     "set-cookie": "chrome-155-macos",
     "slow-idle": "chrome-155-macos",
@@ -321,6 +320,16 @@
       }
     ],
     "windowUpdate": 15663105,
+    "openingRecords": [
+      [
+        "preface",
+        "SETTINGS",
+        "WINDOW_UPDATE"
+      ],
+      [
+        "HEADERS"
+      ]
+    ],
     "headersPriority": {
       "dependsOn": 0,
       "exclusive": true,

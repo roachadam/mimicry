@@ -23,6 +23,21 @@ type Trace struct {
 	Millis   int64     `json:"ms,omitempty"`
 	Frames   []Frame   `json:"frames"`
 	Requests []Request `json:"requests"`
+	// Records are the client's first TLS records carrying the connection
+	// (TLS 1.3 only; absent in older captures and over TLS 1.2): how it
+	// cut its opening flight and first request into records.
+	Records []Record `json:"records,omitempty"`
+}
+
+// Record is one TLS record the client sent.
+type Record struct {
+	// Size is the record's content length (TLS 1.3 adds 17 bytes).
+	Size int `json:"size"`
+	// Preface: the connection preface starts in it.
+	Preface bool `json:"preface,omitempty"`
+	// Frames are the indexes in Trace.Frames of the frames that start in
+	// it.
+	Frames []int `json:"frames,omitempty"`
 }
 
 // Frame is one frame the client sent. Payload details are kept only where

@@ -65,8 +65,8 @@ func render(v any) string {
 // The rest of a profile comes from page traces and is not compared, nor is
 // its identity: the user-agent header covers it. With a shuffled extension
 // order only pinned extensions' positions are compared. tls.x25519Reuse is
-// not: it is measured for full TCP hellos only, and the hellos compared
-// here include others; the callers that need it compare it themselves.
+// not: hellos parsed before it was recorded say false whatever their
+// keys, so the callers compare it from the hellos' bytes.
 func Compare(want, got *profile.Profile) []Difference {
 	d := &differ{}
 	d.compareTLS(&want.TLS, &got.TLS)

@@ -182,7 +182,8 @@ func TestProfilesMatchCaptures(t *testing.T) {
 				t.Error(d)
 			}
 
-			// Left out of diff.Compare: only full TCP hellos are measured.
+			// Left out of diff.Compare (the hellos' parsed form may
+			// predate it); the capture's comes from its bytes.
 			if got.Profile.TLS.X25519Reuse != want.TLS.X25519Reuse {
 				t.Errorf("tls.x25519Reuse: got %v, the capture's %v", got.Profile.TLS.X25519Reuse, want.TLS.X25519Reuse)
 			}

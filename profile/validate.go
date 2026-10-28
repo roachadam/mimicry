@@ -603,6 +603,23 @@ func (c *checker) checkHTTP2(h *HTTP2) {
 		c.add("http2.headersPriority", "dependsOn must be below 2^31")
 	}
 
+	if h.OpeningRecords != nil {
+		var flat []string
+		for i, r := range h.OpeningRecords {
+			if len(r) == 0 {
+				c.add(fmt.Sprintf("http2.openingRecords[%d]", i), "is empty")
+			}
+
+			flat = append(flat, r...)
+		}
+
+		if want := h.Opening(); !slices.Equal(flat, want) {
+			c.add("http2.openingRecords", "must list %s in order, as settings, windowUpdate, priorities and streamWindowUpdate say", strings.Join(want, ", "))
+		} else if !slices.Contains(h.OpeningRecords[len(h.OpeningRecords)-1], OpeningHeaders) {
+			c.add("http2.openingRecords", "the first request's frames must be in the last record")
+		}
+	}
+
 	order := slices.Clone(h.PseudoHeaderOrder)
 	slices.Sort(order)
 

@@ -1254,7 +1254,8 @@ func derefCode(c *uint64) uint64 {
 // compareHello compares the connection's ClientHello with the browser's
 // (diff.Compare as the profile's QUIC hello orders extensions; the
 // transport parameters are compared apart): it must have no differences
-// from at least one of them.
+// from at least one of them, and reuse its X25519 key across key shares
+// as theirs with both shares do (read from the hellos' bytes).
 func compareHello(t *testing.T, p *profile.Profile, got *quictrace.Conn, flights []*quictrace.Conn) {
 	t.Helper()
 
@@ -1262,6 +1263,16 @@ func compareHello(t *testing.T, p *profile.Profile, got *quictrace.Conn, flights
 		t.Errorf("ClientHello not parsed: %s", got.HelloError)
 
 		return
+	}
+
+	if reused, both := x25519Reuse(got.ClientHelloBytes()); both {
+		for _, w := range flights {
+			if r, wb := x25519Reuse(w.ClientHelloBytes()); wb && r != reused {
+				t.Errorf("ClientHello reuses the X25519 key across key shares: %v, the browser's %v", reused, r)
+
+				break
+			}
+		}
 	}
 
 	g := profile.Profile{

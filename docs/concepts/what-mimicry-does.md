@@ -370,6 +370,16 @@ for the race itself.
   profile answers the server's PINGs and SETTINGS, and returns flow
   control credit (WINDOW_UPDATE) as its browser does, Chrome also after
   5 s however little was read.
+- **HTTP/2 records:** a new connection's preface, SETTINGS and
+  WINDOW_UPDATE go out in one TLS record, the first request's frames in
+  the next (Chrome 156, Firefox 158) or in the same one (Safari 26), as
+  the profile's `http2.openingRecords` says; a request's HEADERS and
+  Firefox's stream WINDOW_UPDATE always share a record. Safari 27 and
+  Chrome 155 are unmeasured and send each frame in a record of its own
+  ([decision 0042](../decisions/0042-http2-opening-records.md)).
+- **TLS key shares:** Firefox profiles send one X25519 key in both the
+  X25519MLKEM768 and the x25519 share of every hello, resumed and QUIC
+  included, as Firefox does (`tls.x25519Reuse`).
 - **QUIC:** while a request waits on a quiet connection, PINGs keep it
   alive (Chrome and Firefox after 15 s, Safari every 2 s, or half the
   server's idle timeout if that is shorter). An idle connection with no

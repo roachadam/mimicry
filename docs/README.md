@@ -73,6 +73,7 @@ Related:
 | [0039](decisions/0039-proxy-credentials-up-front.md) | Proxy credentials from the first request by default, the browser's challenge on request | Accepted |
 | [0040](decisions/0040-idle-connection-cleanup.md) | Idle HTTP/2 and HTTP/3 connections close; unused proxies and dropped Transports let theirs go | Accepted; amended: `Config.IdleConnTimeout` |
 | [0041](decisions/0041-default-request-timeout.md) | `NewClient` times requests out after 30 s | Accepted |
+| [0042](decisions/0042-http2-opening-records.md) | The HTTP/2 opening is cut into TLS records as the browser cuts it (`http2.openingRecords`) | Accepted |
 
 New records copy [`decisions/template.md`](decisions/template.md).
 

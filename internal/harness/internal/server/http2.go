@@ -45,6 +45,10 @@ type h2conn struct {
 	// firstHeaders is set right after the first request's header block, so
 	// a WINDOW_UPDATE that immediately follows it is recorded.
 	firstHeaders bool
+	// rlog is the connection's TLS records (nil when not kept) and offset
+	// where the next frame starts in the client's application data.
+	rlog   *recordLog
+	offset int
 
 	// wmu serialises writes; enc is only used under it.
 	wmu sync.Mutex
@@ -72,8 +76,9 @@ type h2conn struct {
 // serveHTTP2 records the client's preface and first request into c's
 // profile and every frame into c.Trace, and answers as sc says until the
 // client goes away. emit hands the capture over: on /done, and from the
-// caller when the connection ends. log collects the page across connections.
-func serveHTTP2(conn net.Conn, host string, c *capture.Capture, sc *Scenario, log *pageLog, emit func()) error {
+// caller when the connection ends. log collects the page across connections;
+// rlog, if not nil, the client's TLS records under conn.
+func serveHTTP2(conn net.Conn, rlog *recordLog, host string, c *capture.Capture, sc *Scenario, log *pageLog, emit func()) error {
 	preface := make([]byte, len(http2.ClientPreface))
 	if _, err := io.ReadFull(conn, preface); err != nil {
 		return err
@@ -101,6 +106,8 @@ func serveHTTP2(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 		sent:          map[uint32]uint64{},
 		websockets:    map[uint32]*h2WebSocket{},
 		host:          host,
+		rlog:          rlog,
+		offset:        len(preface),
 	}
 	// The client may move its encoder's table anywhere up to what we
 	// advertise; until it says so, it uses the default 4096. Frames larger
@@ -327,7 +334,32 @@ func (s *h2conn) record(f http2.Frame) {
 		}
 	}
 
+	s.placeRecord(len(s.trace.Frames), int(hdr.Length))
+
 	s.trace.Frames = append(s.trace.Frames, tf)
+}
+
+// placeRecord adds the frame at index i of the trace, n bytes of payload
+// long, to the TLS record it started in, once the records are sized.
+func (s *h2conn) placeRecord(i, n int) {
+	if s.rlog == nil {
+		return
+	}
+
+	start := s.offset
+
+	s.offset += http2FrameHeaderLen + n
+
+	for j := len(s.trace.Records); j < len(s.rlog.records); j++ {
+		s.trace.Records = append(s.trace.Records, h2trace.Record{
+			Size:    s.rlog.records[j],
+			Preface: j == 0,
+		})
+	}
+
+	if r := s.rlog.place(start); r >= 0 {
+		s.trace.Records[r].Frames = append(s.trace.Records[r].Frames, i)
+	}
 }
 
 // stopTracing ends the trace and returns it.

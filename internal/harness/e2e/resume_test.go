@@ -20,7 +20,9 @@ import (
 // mimicry resumes TLS sessions as the browser does on the resume page, from
 // TLS 1.3 and TLS 1.2-only servers: per host, as many used and resumed
 // connections as one browser sample, and every resumed ClientHello is the
-// browser's. Unused speculative connections are ignored.
+// browser's, one X25519 key in both shares or not alike (from the hellos'
+// bytes, in captures that kept them). Unused speculative connections are
+// ignored.
 func TestResumptionMatchesBrowser(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		for _, sc := range []*server.Scenario{server.Resume, server.ResumeTLS12} {
@@ -56,6 +58,7 @@ func checkResumption(t *testing.T, p *profile.Profile, sc *server.Scenario, want
 	}
 
 	browserResumed := resumedHello(want)
+	browserReuse, measured := resumedX25519Reuse(want)
 	tls13 := sc == server.Resume
 
 	for i, c := range got.Connections {
@@ -90,7 +93,47 @@ func checkResumption(t *testing.T, p *profile.Profile, sc *server.Scenario, want
 		for _, d := range diff.Compare(&w, &h) {
 			t.Errorf("connection %d's resumed ClientHello: %s", i+1, d)
 		}
+
+		if reused, both := x25519Reuse(c.ClientHelloBytes()); measured && both && reused != browserReuse {
+			t.Errorf("connection %d's resumed ClientHello reuses the X25519 key across key shares: %v, the browser's %v", i+1, reused, browserReuse)
+		}
 	}
+}
+
+// resumedX25519Reuse reports whether the browser's resumed ClientHellos
+// with both key shares send one X25519 key in both, and whether any
+// capture kept such a hello's bytes.
+func resumedX25519Reuse(pages []*capture.Page) (reused, measured bool) {
+	for _, page := range pages {
+		for _, c := range page.Connections {
+			if r, both := x25519Reuse(c.ClientHelloBytes()); c.Resumed && both {
+				return r, true
+			}
+		}
+	}
+
+	return false, false
+}
+
+// x25519Reuse reports whether ClientHello msg sends X25519MLKEM768's and
+// x25519's key shares (both), and one X25519 key in them (reused).
+func x25519Reuse(msg []byte) (reused, both bool) {
+	if msg == nil {
+		return false, false
+	}
+
+	t, err := server.ParseClientHello(msg)
+	if err != nil {
+		return false, false
+	}
+
+	for _, e := range t.Extensions {
+		if e.Type == profile.ExtKeyShare {
+			both = slices.Contains(e.KeyShares, 0x11ec) && slices.Contains(e.KeyShares, 0x001d)
+		}
+	}
+
+	return t.X25519Reuse, both
 }
 
 // resumedHello returns the browser's resumed ClientHello as captured, the

@@ -493,6 +493,34 @@ func TestValidate(t *testing.T) {
 			want: "needs headersPriority",
 		},
 		{
+			name: "opening records out of order",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.HTTP2.OpeningRecords = [][]string{
+					{
+						OpeningSettings,
+						OpeningPreface,
+					},
+				}
+			},
+			path: "http2.openingRecords",
+			want: "in order",
+		},
+		{
+			name: "request frames split across records",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.HTTP2.StreamWindowUpdate = 1
+
+				o := p.HTTP2.Opening()
+
+				p.HTTP2.OpeningRecords = [][]string{
+					o[:len(o)-1],
+					o[len(o)-1:],
+				}
+			},
+			path: "http2.openingRecords",
+			want: "last record",
+		},
+		{
 			name: "update threshold beyond any window",
 			mutate: func(_ *testing.T, p *Profile) {
 				p.HTTP2.ConnectionUpdateThreshold = 1 << 31

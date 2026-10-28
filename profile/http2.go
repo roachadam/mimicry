@@ -11,6 +11,16 @@ type HTTP2 struct {
 	WindowUpdate uint32 `json:"windowUpdate,omitempty"`
 	// Priorities are PRIORITY frames sent after SETTINGS, in order.
 	Priorities []Priority `json:"priorities,omitempty"`
+	// OpeningRecords is how the browser cuts a new connection's first
+	// writes into TLS records when the first request is waiting as the
+	// connection opens: one entry per record, each listing what it
+	// carries in order, OpeningPreface and frame types (OpeningSettings,
+	// OpeningWindowUpdate, OpeningPriority), through the first request's
+	// OpeningHeaders and its stream WINDOW_UPDATE. A request's own frames
+	// are always one record, the last; they may share the opening's last.
+	// Nil: unmeasured, and every frame goes in a record of its own.
+	// hellogen derives it from the captured connections' records.
+	OpeningRecords [][]string `json:"openingRecords,omitempty"`
 	// HeadersPriority is the priority carried on the request's HEADERS frame.
 	// Nil sends none.
 	HeadersPriority *PriorityParam `json:"headersPriority,omitempty"`
@@ -48,6 +58,41 @@ type HTTP2 struct {
 	SplitCookie bool `json:"splitCookie,omitempty"`
 	// HPACK is how header blocks are encoded. Required.
 	HPACK *HPACK `json:"hpack,omitempty"`
+}
+
+// What HTTP2.OpeningRecords lists: the connection preface, and frames by
+// their RFC 9113 type names.
+const (
+	OpeningPreface      = "preface"
+	OpeningSettings     = "SETTINGS"
+	OpeningWindowUpdate = "WINDOW_UPDATE"
+	OpeningPriority     = "PRIORITY"
+	OpeningHeaders      = "HEADERS"
+)
+
+// Opening is what a new connection sends first, in order, as
+// OpeningRecords lists it: the preface, SETTINGS, the connection
+// WINDOW_UPDATE and PRIORITY frames, then the first request's HEADERS and
+// its stream WINDOW_UPDATE.
+func (h *HTTP2) Opening() []string {
+	out := []string{
+		OpeningPreface,
+		OpeningSettings,
+	}
+	if h.WindowUpdate > 0 {
+		out = append(out, OpeningWindowUpdate)
+	}
+
+	for range h.Priorities {
+		out = append(out, OpeningPriority)
+	}
+
+	out = append(out, OpeningHeaders)
+	if h.StreamWindowUpdate > 0 {
+		out = append(out, OpeningWindowUpdate)
+	}
+
+	return out
 }
 
 // HPACK describes a browser's header compression choices (RFC 7541).

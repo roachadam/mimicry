@@ -280,6 +280,17 @@
       }
     ],
     "windowUpdate": 12517377,
+    "openingRecords": [
+      [
+        "preface",
+        "SETTINGS",
+        "WINDOW_UPDATE"
+      ],
+      [
+        "HEADERS",
+        "WINDOW_UPDATE"
+      ]
+    ],
     "headersPriority": {
       "dependsOn": 0,
       "exclusive": false,

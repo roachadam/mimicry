@@ -3,6 +3,7 @@ package capture
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -74,11 +75,24 @@ type Connection struct {
 	// Requests is how many requests the connection carried; zero for one
 	// a browser opened speculatively and never used.
 	Requests int `json:"requests,omitempty"`
-	// Hello is the connection's ClientHello.
-	Hello *profile.TLS `json:"hello,omitempty"`
+	// Hello is the connection's ClientHello, and ClientHello it as sent,
+	// hex (its key shares' bytes are what the parsed hello leaves out);
+	// absent in captures made before it was kept.
+	Hello       *profile.TLS `json:"hello,omitempty"`
+	ClientHello string       `json:"clientHello,omitempty"`
 	// RecordVersion is the record-layer version of the records that
 	// carried it; zero in captures made before it was kept.
 	RecordVersion uint16 `json:"recordVersion,omitempty"`
+}
+
+// ClientHelloBytes is ClientHello decoded; nil where it was not kept.
+func (c *Connection) ClientHelloBytes() []byte {
+	b, err := hex.DecodeString(c.ClientHello)
+	if err != nil || len(b) == 0 {
+		return nil
+	}
+
+	return b
 }
 
 // LoadPages reads a replayed page capture written by Write

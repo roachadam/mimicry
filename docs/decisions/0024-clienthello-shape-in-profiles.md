@@ -41,7 +41,8 @@ ones per browser from git history)
 - `resumption.echPayloadLengths` for resumed hellos;
 - `x25519Reuse`: one X25519 key in X25519MLKEM768's and x25519's shares
   (added 2026-10-27: Firefox 158 reuses it in all 8 `.clienthello`
-  samples, Chrome and Safari in none).
+  samples, Chrome and Safari in none; widened 2026-10-28 to every hello
+  with both shares, resumed and QUIC included, below).
 
 These are required (0008). `internal/harness/cmd/hellogen` derives them from every
 capture and refuses a connection that contradicts them; it is never
@@ -49,13 +50,20 @@ hand-edited. The parser, `capture.Combine` and `diff.Compare` record and
 compare them. The handshake sends them: Firefox's own GREASE ECH,
 choosing from the observed sets per connection.
 
-`x25519Reuse` is the exception to `diff.Compare`: only the full TCP
-hellos in `.clienthello` keep key bytes, so it covers those alone, and
-`TestProfilesMatchCaptures` and `capture.Combine` compare it themselves.
-Resumed and QUIC hellos keep two keys until a capture measures them
-(backlog). Rejected: a key_share extension field (it would follow the
-extension into QUIC and resumed hellos, which are unmeasured); applying
-NSS's rule to every hello from its source (a lead, not evidence).
+`x25519Reuse` is the exception to `diff.Compare`, which does not see key
+bytes: `TestProfilesMatchCaptures` and `capture.Combine` compare it on the
+full TCP hellos in `.clienthello`, and since 2026-10-28, when page
+captures began keeping each TCP hello's bytes (QUIC captures always
+had), `hellogen` refuses any page or QUIC hello with both shares that
+disagrees, and `TestResumptionMatchesBrowser` and `TestHTTP3MatchesBrowser`
+check mimicry's resumed and QUIC hellos from their bytes. Firefox 158
+reuses the key in all 24 TCP hellos of a `resume` capture (14 resumed)
+and in all 123 QUIC hellos with both shares (69 resumed); Chrome and
+Safari in none. One flag covers every hello because the captures show
+no hello kind that differs. Rejected: a key_share extension field (it
+would follow the extension into QUIC hellos whose key share is
+replaced, Firefox's retry after Version Negotiation, which sends x25519
+alone); applying NSS's rule from its source (a lead, not evidence).
 
 ## Consequences
 

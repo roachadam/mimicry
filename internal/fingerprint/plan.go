@@ -72,7 +72,7 @@ type Hello struct {
 	// Extensions in the order this connection sends them.
 	Extensions []profile.Extension
 	// X25519Reuse sends X25519MLKEM768's X25519 key as the x25519 share
-	// too (profile tls.x25519Reuse): full TCP hellos only.
+	// too (profile tls.x25519Reuse): every hello with both shares.
 	X25519Reuse bool
 }
 
@@ -94,8 +94,6 @@ func (p *Plan) Resumes() bool {
 // resumption, with pre_shared_key last. Only for a plan that Resumes.
 func (p *Plan) ResumedHello() Hello {
 	h := p.Hello()
-	// Measured for full hellos only.
-	h.X25519Reuse = false
 
 	h.Extensions = slices.DeleteFunc(h.Extensions, func(e profile.Extension) bool {
 		return slices.Contains(p.tls.Resumption.Drop, e.Type)

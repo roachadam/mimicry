@@ -76,21 +76,6 @@ These matter most under decision 0029:
     server, and the inner-hello layout per browser; large.
   - Source: [EVIDENCE.md, Not covered](../profiles/EVIDENCE.md#not-covered-by-any-claim)
     ("ECH payloads"); HANDOFF.md (ECH, study later).
-- **X25519 key reuse in resumed and QUIC hellos** (Firefox; Chrome and
-  Safari to confirm).
-  - Differs: Firefox's full TCP hellos send one X25519 key in both the
-    X25519MLKEM768 and the x25519 share, and mimicry does the same
-    (`tls.x25519Reuse`). Its resumed TCP hellos and its QUIC hellos keep
-    two keys, because no capture keeps those hellos' key bytes; NSS
-    probably reuses there too.
-  - Shows: every resumed Firefox connection and every Firefox HTTP/3
-    connection.
-  - Detection: medium; a server comparing the two shares sees it on
-    one hello. User-visible: no.
-  - Close: record raw key shares of page connections (TCP and QUIC,
-    resumed included), recapture, extend hellogen's rule and
-    `fingerprint`'s resumed and QUIC hellos; small.
-  - Source: [EVIDENCE.md](../profiles/EVIDENCE.md) (`x25519Reuse`).
 - **Firefox's resumed GREASE ECH payload size** (Firefox).
   - Differs: the profile fixes the payload of a resumed hello at 400
     bytes (432 over QUIC), measured against the capture server's tickets.
@@ -212,6 +197,40 @@ These matter most under decision 0029:
 
 ## HTTP/2
 
+- **The HTTP/2 opening's TLS records, unmeasured** (Safari 27, Chrome
+  155).
+  - Differs: their profiles have no `http2.openingRecords`, so mimicry
+    sends each opening frame (preface, SETTINGS, WINDOW_UPDATE) and the
+    first HEADERS in a record of its own. Every measured browser puts the
+    preface, SETTINGS and WINDOW_UPDATE in one record, and Safari 26 the
+    first HEADERS too; Safari 27 very likely does as 26.
+  - Shows: every new HTTP/2 connection (record count and sizes).
+  - Detection: medium; record sizes at connection start are visible to
+    anyone on the path, and an opening cut into four records is unlike
+    any measured browser. User-visible: no.
+  - Close: a `resume` capture (2 samples) on the Mac that runs Safari 27
+    with the current capture server, then `hellogen`; Chrome 155 is
+    superseded by 156. Small (Safari 27 takes over that Mac's screen).
+  - Source: [EVIDENCE.md, HTTP/2 connection](../profiles/EVIDENCE.md#http2-connection)
+    (`openingRecords`); [decision 0042](decisions/0042-http2-opening-records.md).
+- **A connection opened ahead of its request** (Safari, Firefox).
+  - Differs: when the browser opens a connection before it has the
+    request (the tab's first connection for a URL opened from outside the
+    page, Safari; Firefox likewise), it sends the opening alone, waits for
+    the server's SETTINGS, acknowledges them, and only then sends HEADERS
+    in a record of its own. mimicry always has the request when it
+    connects and sends it at once, cut as `openingRecords` says (Safari
+    26: in the opening's record).
+  - Shows: a client's first connection to a site, where a browser
+    preconnected (typed or opened URLs).
+  - Detection: low to medium; the record pattern and the ACK-before-HEADERS
+    order are visible, but a navigation from another page (joined, Safari
+    26 `kinds` and `nav-redirect-page`, staged 2026-10-28) is as common.
+    User-visible: no.
+  - Close: a `Config` option to connect ahead of the first request
+    (preconnect), with the browser's delay; medium.
+  - Source: [EVIDENCE.md, HTTP/2 connection](../profiles/EVIDENCE.md#http2-connection)
+    (`openingRecords`); [decision 0042](decisions/0042-http2-opening-records.md).
 - **Chrome's re-prioritisation** (Chrome).
   - Differs: Chrome sends a PRIORITY frame while a page loads (raising a
     script from weight 182 to 219, in 2 of 3 samples); mimicry never

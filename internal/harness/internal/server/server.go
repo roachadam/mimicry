@@ -326,10 +326,14 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 	c.Profile.TLS = t
 	c.Profile.TLS.RecordVersion = profile.Code(c.RecordVersion())
 
-	tlsConn := tls.Server(&replayConn{
+	rlog := &recordLog{
 		Conn: conn,
-		r:    io.MultiReader(bytes.NewReader(raw), conn),
+	}
+	tlsConn := tls.Server(&replayConn{
+		Conn: rlog,
+		r:    io.MultiReader(bytes.NewReader(raw), rlog),
 	}, cfg)
+
 	if err := tlsConn.HandshakeContext(ctx); err != nil {
 		// The ClientHello is still worth recording; browsers abort here when
 		// they reject the certificate.
@@ -342,7 +346,11 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 	log.connection(c, state.ServerName, state.DidResume, helloAt)
 
 	if c.Protocol == "h2" {
-		err = serveHTTP2(tlsConn, state.ServerName, c, sc, log, emit)
+		if state.Version != tls.VersionTLS13 {
+			rlog = nil
+		}
+
+		err = serveHTTP2(tlsConn, rlog, state.ServerName, c, sc, log, emit)
 	} else {
 		err = serveHTTP1(tlsConn, state.ServerName, c, sc, log, emit)
 	}

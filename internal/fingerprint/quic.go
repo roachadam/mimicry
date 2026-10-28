@@ -18,11 +18,14 @@ type quicPlan struct {
 	retry *quicHello
 }
 
-// quicHello is one QUIC hello's extensions in their base order, and the
-// indexes a shuffle may move (nil when the order is fixed).
+// quicHello is one QUIC hello's extensions in their base order, the
+// indexes a shuffle may move (nil when the order is fixed), and whether
+// it reuses the X25519 key: tls.x25519Reuse, where both shares are sent
+// (not in Firefox's hello retried after Version Negotiation).
 type quicHello struct {
-	extensions []profile.Extension
-	movable    []int
+	extensions  []profile.Extension
+	movable     []int
+	x25519Reuse bool
 }
 
 // compileQUIC compiles p's QUIC hello; nil without Profile.QUIC.
@@ -83,6 +86,8 @@ func compileQUICRetry(fresh quicHello, r *profile.QUICHelloRetry) quicHello {
 			Type: profile.ExtPadding,
 		})
 	}
+
+	out.x25519Reuse = fresh.x25519Reuse && bothShares(out.extensions)
 
 	return out
 }
@@ -173,8 +178,24 @@ func compileQUICHello(p *profile.Profile, resumed bool) quicHello {
 	}
 
 	h.extensions = exts
+	h.x25519Reuse = p.TLS.X25519Reuse && bothShares(exts)
 
 	return h
+}
+
+// bothShares reports whether exts' key_share has X25519MLKEM768's share
+// and then x25519's, as X25519 key reuse needs.
+func bothShares(exts []profile.Extension) bool {
+	for _, e := range exts {
+		if e.Type == profile.ExtKeyShare {
+			hybrid := slices.Index(e.KeyShares, 0x11ec) // X25519MLKEM768
+			x25519 := slices.Index(e.KeyShares, 0x001d)
+
+			return hybrid >= 0 && x25519 > hybrid
+		}
+	}
+
+	return false
 }
 
 // HasQUIC reports whether the profile speaks QUIC (Profile.QUIC).
@@ -216,6 +237,7 @@ func (p *Plan) quicHello(h quicHello, intn func(int) int) Hello {
 		CipherSuites:       append([]profile.Code(nil), p.quic.cipherSuites...),
 		CompressionMethods: append([]uint8(nil), p.tls.CompressionMethods...),
 		Extensions:         make([]profile.Extension, len(h.extensions)),
+		X25519Reuse:        h.x25519Reuse,
 	}
 	copy(out.Extensions, h.extensions)
 

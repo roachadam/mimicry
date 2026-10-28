@@ -77,6 +77,7 @@ const (
 type Conn struct {
 	conn    net.Conn
 	fr      *http2.Framer
+	w       connWriter
 	headers []profile.Header
 	h2      *profile.HTTP2
 	clock   clockwork.Clock
@@ -241,7 +242,6 @@ func New(conn net.Conn, p *profile.Profile, clock clockwork.Clock) (*Conn, error
 	now := clock.Now()
 	c := &Conn{
 		conn:             conn,
-		fr:               http2.NewFramer(conn, conn),
 		headers:          p.Headers,
 		h2:               h2,
 		clock:            clock,
@@ -262,6 +262,8 @@ func New(conn net.Conn, p *profile.Profile, clock clockwork.Clock) (*Conn, error
 		idleSince:        now,
 	}
 
+	c.w.conn = conn
+	c.fr = http2.NewFramer(&c.w, conn)
 	c.recvConnAvail = int64(c.recvConnWindow)
 	c.cond = sync.NewCond(&c.mu)
 
@@ -306,7 +308,7 @@ func New(conn net.Conn, p *profile.Profile, clock clockwork.Clock) (*Conn, error
 	c.fr.ReadMetaHeaders = xhpack.NewDecoder(tableSize, nil)
 	c.fr.MaxHeaderListSize = headerListSize
 
-	if err := writePreface(conn, c.fr, h2); err != nil {
+	if err := writePreface(&c.w, c.fr, h2); err != nil {
 		return nil, err
 	}
 
@@ -315,48 +317,17 @@ func New(conn net.Conn, p *profile.Profile, clock clockwork.Clock) (*Conn, error
 	return c, nil
 }
 
-// writePreface writes the client preface and the profile's SETTINGS,
-// connection WINDOW_UPDATE and PRIORITY frames, in that order.
-func writePreface(conn net.Conn, fr *http2.Framer, h2 *profile.HTTP2) error {
-	if _, err := io.WriteString(conn, http2.ClientPreface); err != nil {
-		return err
-	}
-
-	settings := make([]http2.Setting, len(h2.Settings))
-	for i, s := range h2.Settings {
-		settings[i] = http2.Setting{
-			ID:  http2.SettingID(s.ID),
-			Val: s.Value,
-		}
-	}
-
-	if err := fr.WriteSettings(settings...); err != nil {
-		return err
-	}
-
-	if h2.WindowUpdate > 0 {
-		if err := fr.WriteWindowUpdate(0, h2.WindowUpdate); err != nil {
-			return err
-		}
-	}
-
-	for _, p := range h2.Priorities {
-		if err := fr.WritePriority(p.StreamID, priorityParam(p.PriorityParam)); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // Decline sends what New sends on conn, then GOAWAY (NO_ERROR), and closes
 // conn without acknowledging the server's SETTINGS. Firefox does this to a
 // connection made unnecessary by coalescing; see decision 0023. conn is
 // closed on errors too.
 func Decline(conn net.Conn, p *profile.Profile) error {
-	fr := http2.NewFramer(conn, conn)
+	w := &connWriter{
+		conn: conn,
+	}
+	fr := http2.NewFramer(w, conn)
 
-	err := writePreface(conn, fr, p.HTTP2)
+	err := writePreface(w, fr, p.HTTP2)
 	if err == nil {
 		err = fr.WriteGoAway(0, http2.ErrCodeNo, nil)
 	}
@@ -901,6 +872,12 @@ func (c *Conn) writeHeaders(s *stream, head requestHead) error {
 		}
 	}
 
+	// The request's frames go out in one write, joining the opening when
+	// it waits for them.
+	batch := c.w.pending || len(block) > len(first) || c.h2.StreamWindowUpdate > 0
+
+	c.w.hold = batch
+
 	if err := c.fr.WriteHeaders(param); err != nil {
 		return c.headersFailed(id, err)
 	}
@@ -917,11 +894,15 @@ func (c *Conn) writeHeaders(s *stream, head requestHead) error {
 		}
 	}
 
-	// From here the request is out: a failed write closes the connection
-	// and the read loop fails the stream as lost.
 	if inc := c.h2.StreamWindowUpdate; inc > 0 {
-		if c.broken(c.fr.WriteWindowUpdate(id, inc)) != nil {
-			return nil
+		if err := c.fr.WriteWindowUpdate(id, inc); err != nil {
+			return c.headersFailed(id, err)
+		}
+	}
+
+	if batch {
+		if err := c.w.flush(); err != nil {
+			return c.headersFailed(id, err)
 		}
 	}
 

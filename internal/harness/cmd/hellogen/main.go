@@ -1,7 +1,8 @@
 // Command hellogen derives the shape of a browser's ClientHello (record and
 // legacy versions, session ID length, key share lengths and X25519 key
-// reuse, ECH) from its captured hellos and writes it into the profile and
-// the capture's JSON.
+// reuse, ECH) and how it cuts a new HTTP/2 connection's opening into TLS
+// records from its captures, and writes them into the profile and the
+// capture's JSON.
 //
 //	go run ./cmd/hellogen -captures testdata/captures -profile ../../profiles/data/chrome-155-macos.json
 //
@@ -99,6 +100,16 @@ func regenerate(data, captured []byte, dir string) ([]byte, []byte, error) {
 
 	if err := apply(&p.TLS, derived); err != nil {
 		return nil, nil, fmt.Errorf("profile: %w", err)
+	}
+
+	if err := checkX25519Reuse(dir, p); err != nil {
+		return nil, nil, fmt.Errorf("tls.x25519Reuse: %w", err)
+	}
+
+	if p.HTTP2 != nil {
+		if p.HTTP2.OpeningRecords, err = capture.OpeningRecords(dir, p); err != nil {
+			return nil, nil, fmt.Errorf("http2.openingRecords: %w", err)
+		}
 	}
 
 	if p.TLS.WebSocketH1, err = websocketHello(dir, p); err != nil {

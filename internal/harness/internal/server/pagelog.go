@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/hex"
 	"slices"
 	"sync"
 	"time"
@@ -53,6 +54,7 @@ func (l *pageLog) connection(c *capture.Capture, host string, accepted bool, hel
 		PSKIdentity:   o.pskIdentity,
 		Ticket:        o.ticket,
 		Hello:         &hello,
+		ClientHello:   hex.EncodeToString(c.ClientHello),
 		RecordVersion: c.RecordVersion(),
 	})
 	if l.index == nil {

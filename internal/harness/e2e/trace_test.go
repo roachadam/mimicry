@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"testing"
 
 	"github.com/roachadam/mimicry"
@@ -14,8 +15,10 @@ import (
 )
 
 // On one connection, mimicry's first header block, upload DATA cuts and
-// download credit match every sample. Only kind-independent parts are
-// compared.
+// download credit match every sample, and its opening and first request
+// are cut into TLS records as in every captured connection whose request
+// was waiting as it opened (http2.openingRecords). Only kind-independent
+// parts are compared.
 func TestConnectionMatchesBrowserTrace(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
@@ -64,7 +67,22 @@ func TestConnectionMatchesBrowserTrace(t *testing.T) {
 			send(http.MethodPost, "/upload", make([]byte, 200_000), fetch)
 			tr.CloseIdleConnections()
 
-			got := h2trace.Extract((<-captures).Trace)
+			c := <-captures
+			got := h2trace.Extract(c.Trace)
+
+			wantOpening, err := capture.OpeningRecords(captureDir, p)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			gotOpening, _, err := h2trace.Opening(c.Trace)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if wantOpening != nil && !slices.EqualFunc(gotOpening, wantOpening, slices.Equal) {
+				t.Errorf("opening TLS records\n got %v\nwant %v", gotOpening, wantOpening)
+			}
 
 			exactFeatures := []string{
 				// The first request's header block, instruction by
