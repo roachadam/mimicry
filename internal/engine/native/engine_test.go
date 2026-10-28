@@ -96,6 +96,8 @@ type options struct {
 	dialTimeout time.Duration
 	dial        func(ctx context.Context, network, addr string) (net.Conn, error)
 	onWait      func(key string)
+	// maxConns is Config.MaxConnsPerHost.
+	maxConns int
 	// profile defaults to Chrome 155's; certHosts, the names on the test
 	// servers' certificate, to localhost.
 	profile   *profile.Profile
@@ -121,10 +123,12 @@ func newTestEngine(t *testing.T, o options) *Engine {
 	}
 
 	e, err := newEngine(Config{
-		Profile:     p,
-		RootCAs:     roots,
-		DialTimeout: o.dialTimeout,
-		DialContext: o.dial,
+		Profile:         p,
+		RootCAs:         roots,
+		DialTimeout:     o.dialTimeout,
+		DialContext:     o.dial,
+		Coalesce:        true,
+		MaxConnsPerHost: o.maxConns,
 	}, clockwork.NewRealClock(), o.onWait)
 	if err != nil {
 		t.Fatal(err)
@@ -185,6 +189,36 @@ func serveH1(after func(conn net.Conn) error) func(context.Context, net.Conn) er
 		}
 
 		return nil
+	}
+}
+
+// serveH1Held answers each request on conn with 200 "ok", keeping the
+// connection open, once release is closed; got hears of each request as
+// it arrives.
+func serveH1Held(got chan<- struct{}, release <-chan struct{}) func(context.Context, net.Conn) error {
+	return func(_ context.Context, conn net.Conn) error {
+		br := bufio.NewReader(conn)
+
+		for {
+			req, err := http.ReadRequest(br)
+			if err != nil {
+				if errors.Is(err, io.EOF) || errors.Is(err, io.ErrClosedPipe) {
+					return nil
+				}
+
+				return err
+			}
+
+			_ = req.Body.Close()
+
+			got <- struct{}{}
+
+			<-release
+
+			if _, err := io.WriteString(conn, "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok"); err != nil {
+				return err
+			}
+		}
 	}
 }
 
@@ -431,6 +465,88 @@ func TestWaitersGetTheSharedDialsError(t *testing.T) {
 
 	if d := n.dials(); len(d) != 0 {
 		t.Fatalf("dialed again after the shared dial failed: %v", d)
+	}
+}
+
+// TestMaxConnsPerHost checks Config.MaxConnsPerHost: the HTTP/1.1
+// connections open at once to one host stop at it (at the profile's 6 when
+// zero), and the request after them waits for one to come back.
+func TestMaxConnsPerHost(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		maxConns int
+		want     int
+	}{
+		{
+			name: "the profile's",
+			want: 6,
+		},
+		{
+			name:     "lower",
+			maxConns: 2,
+			want:     2,
+		},
+		{
+			name:     "higher",
+			maxConns: 9,
+			want:     9,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, release := make(chan struct{}, tc.want+1), make(chan struct{})
+			servers := make([]func(context.Context, net.Conn) error, tc.want)
+
+			for i := range servers {
+				servers[i] = serveH1Held(got, release)
+			}
+
+			n := newFakeNet(t, servers...)
+			waiting := make(chan string, tc.want+1)
+			e := newTestEngine(t, options{
+				dial:     n.dial,
+				maxConns: tc.maxConns,
+				onWait: func(key string) {
+					waiting <- key
+				},
+			})
+			errs := make(chan error, tc.want+1)
+			send := func() {
+				go func() {
+					resp, err := get(t, e, "http://example.test/")
+					if err == nil {
+						_, _ = io.Copy(io.Discard, resp.Body)
+						_ = resp.Body.Close()
+					}
+
+					errs <- err
+				}()
+			}
+
+			// One at a time, so each finds the others busy.
+			for range tc.want {
+				send()
+				<-got
+			}
+
+			send()
+			<-waiting
+
+			if d := len(n.dials()); d != tc.want {
+				t.Fatalf("%d connections before a request waited, want %d", d, tc.want)
+			}
+
+			close(release)
+
+			for range tc.want + 1 {
+				if err := <-errs; err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			if d := len(n.dials()); d != tc.want {
+				t.Fatalf("%d connections in all, want %d", d, tc.want)
+			}
+		})
 	}
 }
 

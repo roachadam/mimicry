@@ -136,7 +136,7 @@ func run(args []string) error {
 		r.Micro = string(b)
 	}
 
-	r.Env = environment(ctx)
+	r.Env = environment(ctx, st.Clients)
 
 	rn := &runner{
 		st:  st,
@@ -367,9 +367,10 @@ func (rn *runner) pages() ([]pagePoint, string) {
 	if rn.st.Netem {
 		conds = conditions
 		shaper = newNetem(rn.ctx, "eth0")
-		note = shaper.note
 
-		defer shaper.clear(context.WithoutCancel(rn.ctx))
+		defer func() {
+			shaper.restore(context.WithoutCancel(rn.ctx))
+		}()
 	}
 
 	for _, cond := range conds {
@@ -388,6 +389,10 @@ func (rn *runner) pages() ([]pagePoint, string) {
 				out = append(out, rn.pageSet(cond, k, rn.pageProtos([]target.Proto{target.H1, target.H2}))...)
 			}
 		}
+	}
+
+	if shaper != nil {
+		note = shaper.summary()
 	}
 
 	return out, note
@@ -627,7 +632,9 @@ type clientInfo struct {
 	Profile string `json:"profile"`
 }
 
-func environment(ctx context.Context) env {
+// environment describes this run's machine, servers and clients: every
+// client, and the variants among selected.
+func environment(ctx context.Context, selected []string) env {
 	e := env{
 		Host:          getenv("BENCH_HOST", "unknown"),
 		HostCPU:       getenv("BENCH_HOST_CPU", "unknown"),
@@ -661,7 +668,14 @@ func environment(ctx context.Context) env {
 		e.Servers = append(e.Servers, info)
 	}
 
-	for _, f := range clients.All() {
+	fs := clients.All()
+	for _, f := range clients.Variants() {
+		if slices.Contains(selected, f.Name) {
+			fs = append(fs, f)
+		}
+	}
+
+	for _, f := range fs {
 		e.Clients = append(e.Clients, clientInfo{
 			Name:    f.Name,
 			Module:  f.Module,

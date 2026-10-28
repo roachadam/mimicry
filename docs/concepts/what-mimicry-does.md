@@ -12,6 +12,12 @@ mimicry sends no request you did not ask for, apart from redirect hops and
 preflights (see [what mimicry never does](#what-mimicry-never-does)). The
 rest is connection-level traffic, as a browser makes it.
 
+One behaviour departs from the browser by default, because the browser's
+costs a user noticeable time and the difference is unlikely to be
+checked: the waits when QUIC fails are shorter
+([below](#when-quic-fails-tcp-racing-and-fallback));
+`Config.BrowserQUICFallback` restores the browser's.
+
 Where no option exists, the [backlog](../backlog.md#options-that-do-not-exist)
 lists it as a candidate. Browsers have no such switches either, so none is
 needed to look like one.
@@ -32,15 +38,15 @@ connection, no DNS lookup, no cookie touched, no preflight cached
 | [CORS preflights](#cors-preflights) | an `OPTIONS` before some cross-origin `Fetch`/`XHR` | `Exact`; `Request.NoCORS` (fetch only) |
 | [Cookies](#cookies) | none (headers only) | `Config.Cookies`; a `Cookie` header on the request; `Request.Credentials` |
 | [Response decoding](#response-decoding) | none | set `Accept-Encoding` yourself |
-| [Connection reuse and limits](#connection-reuse-and-limits) | fewer connections, queued requests | `Transport.CloseIdleConnections`; no other option |
+| [Connection reuse and limits](#connection-reuse-and-limits) | fewer connections, queued requests | `Transport.CloseIdleConnections`; `Config.MaxConnsPerHost` |
 | [Retries on another connection](#retries-on-another-connection) | the same request again | none |
-| [HTTP/2 coalescing](#http2-coalescing) | a DNS lookup; Firefox: a connection opened and declined | none (`Config.Resolver` answers the lookup) |
+| [HTTP/2 coalescing](#http2-coalescing) | a DNS lookup; Firefox: a connection opened and declined | `Config.DisableCoalescing` (`Config.Resolver` answers the lookup) |
 | [HTTP/3](#http3-alt-svc-and-the-switch) | a QUIC connection beside TCP, GOAWAY on TCP (Firefox); with a shared or saved Alt-Svc cache, QUIC from a new Transport's first request | `Config.DisableHTTP3`; `Config.AltSvc` |
 | [QUIC failure and TCP fallback](#when-quic-fails-tcp-racing-and-fallback) | TCP connections racing QUIC; by default, sooner than the browser's when QUIC fails | `Config.DisableHTTP3`; `Config.BrowserQUICFallback` |
 | [Keep-alive and housekeeping](#keep-alive-pings-and-housekeeping-frames) | PING, WINDOW_UPDATE, ACK frames | none |
 | [TLS resumption and 0-RTT](#tls-session-resumption-and-0-rtt) | none (a different ClientHello); a request answered `425 Too Early` sent again | none; `Config.DisableHTTP3` stops 0-RTT |
 | [WebSockets](#websockets) | only when you call `Transport.DialWebSocket` | don't call it |
-| [Proxies](#proxies) | CONNECT, SOCKS5, credential retries | `Config.Proxy` |
+| [Proxies](#proxies) | CONNECT, SOCKS5, credential retries; with `Config.HTTP3OverSOCKS5`, a SOCKS5 UDP association per QUIC connection | `Config.Proxy`; `Config.HTTP3OverSOCKS5` (off by default) |
 | [Certificate pins and checks](#certificate-pins-and-checks) | none unless set; a refused connection ends with a TLS alert; `FetchPins` makes a handshake | `Config.Pins`, `Config.VerifyConnection` (both off by default) |
 | [The last navigation](#the-last-navigation) | none (header values) | `Request.From` |
 
@@ -166,8 +172,9 @@ partition and proxy:
 - One HTTP/2 connection per host carries every request to it.
 - HTTP/1.1 connections are reused one request at a time. Once a host is
   known to speak HTTP/1.1 only, at most 6 are open to it at once (the
-  profile's `connections.http1PerHost`, 6 in every browser); further
-  requests wait, first come, first served.
+  profile's `connections.http1PerHost`, 6 in every browser;
+  `Config.MaxConnsPerHost` changes it); further requests wait, first
+  come, first served.
 - An idle HTTP/1.1 connection is checked before reuse and closed after
   90 s idle.
 - An HTTP/2 connection stays open until the server closes it, a Chrome
@@ -184,7 +191,11 @@ page opens, are visible to the server.
 
 **To turn it off or change it.** `Transport.CloseIdleConnections` closes
 idle HTTP/1.1 connections, and HTTP/2 and HTTP/3 connections with nothing
-in flight. The limit, the idle timeout and the partition rules have no
+in flight. `Config.MaxConnsPerHost` raises or lowers the HTTP/1.1 limit
+per host: more connections finish many parallel requests to an
+HTTP/1.1-only server sooner, but no browser has more than 6 open to one
+host, so a server counting a client's concurrent connections sees more
+as not a browser. The idle timeout and the partition rules have no
 option. Connections are never partitioned by top-level site: a Transport
 is one browsing session ([decision 0019](../decisions/0019-transport-is-one-browsing-entity.md)),
 so when visiting unrelated sites that share third-party hosts, use one
@@ -224,8 +235,18 @@ covers the host, on the same port and partition, not through a proxy:
 **Why.** Browsers coalesce, so a site whose hosts share a certificate and
 an address sees one connection from them.
 
-**To turn it off or change it.** No option. `Config.Resolver` answers the
-lookup; a failed lookup only means a new connection.
+**To turn it off.** `Config.DisableCoalescing` gives every host its own
+connection: no lookup, no declined connection. It pays on lossy
+networks: one connection for a whole site puts every response behind one
+TCP congestion window, and at 1% packet loss warm page loads took half as
+long without coalescing. On clean networks coalescing is the faster (it
+saves the other hosts' handshakes and slow starts: 0.36 s of a cold load
+at an 80 ms round trip), so leave it on there
+([decision 0037](../decisions/0037-coalescing-opt-out.md)). With it set, a
+server (or CDN) hosting several of a site's hosts at one address under one
+certificate sees a connection per host where Chrome, Safari and Firefox
+end with one. `Config.Resolver` answers the lookup; a failed lookup only
+means a new connection.
 
 ## HTTP/3: Alt-Svc and the switch
 
@@ -235,8 +256,9 @@ header on that origin's own responses (same host; the port may differ),
 kept until its `ma` expires, by default per Transport. With
 `Config.AltSvc`, Transports share one `AltSvcCache`, which can be saved
 and loaded, as a browser shares its alternatives between tabs and keeps
-them across restarts. Requests sent through a proxy never use
-HTTP/3. Then each browser moves the origin as it does:
+them across restarts. Requests sent through a proxy never use HTTP/3,
+unless `Config.HTTP3OverSOCKS5` lets a SOCKS5 proxy carry it
+([below](#proxies)). Then each browser moves the origin as it does:
 - **Chrome:** the next request still goes on HTTP/2 and starts a QUIC
   connection beside it; requests after that use HTTP/3 once it is up. The
   HTTP/2 connection stays open, unused.
@@ -382,14 +404,21 @@ connection, and send them unasked from then on; Safari waits for a 407 on
 every CONNECT, and sends them on plain-HTTP requests from the first.
 Each proxy has its own connections and TLS tickets (a Firefox profile
 resumes no session through an HTTP proxy's CONNECT tunnel, as Firefox
-does not), and HTTP/3 is never
-used through a proxy. A proxy that fails a request (unreachable, refusing
-the tunnel or the credentials, too slow) returns a `*ProxyError`, so a
-rotation loop can move on; nothing more is sent through it for that
-request. See [proxies](proxies.md#when-the-proxy-fails).
+does not), and by default HTTP/3 is never used through a proxy, as in
+the browser. With `Config.HTTP3OverSOCKS5`, requests through a SOCKS5
+proxy use HTTP/3 as directly, each QUIC connection over a UDP
+association with the proxy (a control connection and datagrams to its
+relay); a proxy that refuses one is asked once. Through a proxy no
+datagram ever goes to the server directly. A proxy that fails a request
+(unreachable, refusing the tunnel or the credentials, too slow) returns a
+`*ProxyError`, so a rotation loop can move on; nothing more is sent
+through it for that request. See
+[proxies](proxies.md#when-the-proxy-fails).
 
 **To turn it off or change it.** `Config.Proxy`; a nil URL sends that
-request directly.
+request directly. `Config.HTTP3OverSOCKS5` lets SOCKS5 proxies carry
+HTTP/3 ([proxies](proxies.md#http3-through-socks5),
+[decision 0038](../decisions/0038-http3-over-socks5.md)).
 
 ## Certificate pins and checks
 

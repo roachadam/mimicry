@@ -53,3 +53,10 @@ difference.
 
 A capture varies the address, the port, the partition or a proxy, or a
 browser's limit changes.
+
+Amended (2026-10-28, [0037](0037-coalescing-opt-out.md)): coalescing as
+above stays the default; `Config.DisableCoalescing` gives every host its
+own HTTP/2 connection (no lookup, and for Firefox no connection opened and
+declined), faster on lossy networks. `Config.MaxConnsPerHost` changes
+`http1PerHost`'s limit (zero keeps the profile's 6).
+`TestConnectionsMatchBrowser` checks both modes.

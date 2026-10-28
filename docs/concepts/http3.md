@@ -14,8 +14,10 @@ built-in one). `Config.DisableHTTP3` keeps every request on TCP.
 
 ## When a request goes over HTTP/3
 
-Only `https://` requests sent directly (never through a proxy), of a kind
-the profile measured over HTTP/3, to an origin whose response carried
+Only `https://` requests sent directly or, with `Config.HTTP3OverSOCKS5`,
+through a SOCKS5 proxy (never through an `http://` proxy; see
+[Proxies](proxies.md#http3-through-socks5)), of a kind the profile
+measured over HTTP/3, to an origin whose response carried
 `Alt-Svc: h3=…` that has not expired. Then the profile's
 `http3.discovery` decides:
 
@@ -47,7 +49,9 @@ order stays the same. The TCP connection gets its GOAWAY once its
 request is answered. Every HTTP/2 connection established while an
 origin's QUIC connection is up gets one too. The Alt-Svc of the response
 that came with a GOAWAY starts nothing. QUIC resolves the host through
-`Config.Resolver`; `Config.DialContext` has no part in it.
+`Config.Resolver`; `Config.DialContext` has no part in it (through a
+SOCKS5 proxy the proxy resolves it, and `DialContext` opens the
+association's control connection).
 
 ### Alternatives a Transport did not learn itself
 
@@ -174,7 +178,8 @@ so sending them again early would show the server a duplicate (backlog).
 
 ## The QUIC connection
 
-Every connection has a UDP socket of its own, as browsers do. What the
+Every connection has a UDP socket of its own, as browsers do (through a
+SOCKS5 proxy, a UDP association of its own). What the
 browser does is profile data (`quic`, `tls.quic`), each value a rule named
 after the browser's algorithm rather than a sampled distribution:
 
@@ -330,7 +335,10 @@ its rule does not describe.
   anti-amplification limit, GOAWAY, idle and server closes, stream resets,
   tiny flow control windows, and a new Transport sharing or loading an
   `AltSvcCache` (its first request on QUIC for Chrome and Safari, with no
-  TCP connection), each checked byte for byte and against a time limit.
+  TCP connection), and HTTP/3 through SOCKS5 proxies (`socks5*` rows: no
+  datagram around the proxy, the same first flight as directly, a
+  dropped or refused association), each checked byte for byte and
+  against a time limit.
 
 ## Under loss and failure
 

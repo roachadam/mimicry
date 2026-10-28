@@ -29,6 +29,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -790,6 +791,181 @@ var interopCases = []interopCase{
 
 				e.download(64*kib, uint64(300+i))
 			})
+		},
+	},
+	{
+		// HTTP/3 through a proxy never sends a datagram to the server
+		// directly (decision 0038). The proxies here forward no UDP; the
+		// server's relay (e.relay) must see no client at all. With
+		// HTTP3OverSOCKS5 off, and through an HTTP proxy, no UDP is sent
+		// at all; with it on, the QUIC attempt's datagrams reach the
+		// SOCKS5 proxy's relay, naming the host for the proxy to resolve.
+		name:  "socks5-no-leak",
+		limit: 20 * time.Second,
+		run: func(e *interopEnv) {
+			noLeak := func(what string) {
+				if n := e.relay.Stats().Sessions; n != 0 {
+					e.t.Fatalf("%s: %d clients sent the server datagrams directly", what, n)
+				}
+			}
+
+			off := newSOCKSServer(e.t, false, "", "")
+			for what, next := range map[string]*interopEnv{
+				"through SOCKS5 with HTTP3OverSOCKS5 off": e.via(off.url("socks5h", nil), false, nil),
+				"through an HTTP proxy":                   e.via(connectProxy(e.t), true, nil),
+			} {
+				for range 3 {
+					next.onTCP("a request " + what)
+				}
+
+				settle(e.ctx)
+				noLeak(what)
+			}
+
+			if a, d, _ := off.counts(); a != 0 || d != 0 {
+				e.t.Errorf("with HTTP3OverSOCKS5 off the proxy had %d UDP ASSOCIATE requests and %d datagrams", a, d)
+			}
+
+			rec := newSOCKSServer(e.t, false, "", "")
+			on := e.via(rec.url("socks5h", nil), true, nil)
+
+			for {
+				on.onTCP("a request through SOCKS5 with HTTP3OverSOCKS5 on")
+
+				if _, d, _ := rec.counts(); d > 0 {
+					break
+				}
+
+				select {
+				case <-e.ctx.Done():
+					e.t.Fatal("no datagram reached the SOCKS5 proxy's relay")
+				case <-time.After(20 * time.Millisecond):
+				}
+			}
+
+			settle(e.ctx)
+			noLeak("through SOCKS5 with HTTP3OverSOCKS5 on")
+
+			_, _, dsts := rec.counts()
+			for _, dst := range dsts {
+				if host, _, _ := net.SplitHostPort(dst); host != interopHost {
+					e.t.Fatalf("a datagram to the relay named %s, not the host %s", dst, interopHost)
+				}
+			}
+		},
+	},
+	{
+		// HTTP/3 through a SOCKS5 proxy asking for credentials, socks5 and
+		// socks5h alike: the host name goes to the proxy, the server
+		// receives the client's first flight as it does without the proxy
+		// (datagram sizes and count, through a tap in front of e.relay),
+		// and downloads and, where the profile resumes, 0-RTT work.
+		name:  "socks5",
+		limit: 30 * time.Second,
+		run: func(e *interopEnv) {
+			tap := newUDPTap(e.t, e.relay.Addr())
+
+			e.another(e.altSvcAt(tap.port())).untilH3("a request sent directly")
+
+			direct := tap.firstFlights()[0]
+			s := newSOCKSServer(e.t, true, "user", "pass")
+
+			for i, scheme := range []string{"socks5", "socks5h"} {
+				next := e.via(s.url(scheme, url.UserPassword("user", "pass")), true, e.altSvcAt(tap.port()))
+				start := len(tap.firstFlights())
+
+				next.untilH3("a request through " + scheme)
+
+				if got := tap.firstFlights()[start]; !slices.Equal(got, direct) {
+					e.t.Errorf("through %s the server received a first flight of %v bytes; directly %v", scheme, got, direct)
+				}
+
+				next.download(256*kib, uint64(40+i))
+
+				if e.p.QUIC.ZeroRTT {
+					next.newConnection()
+
+					if info, _ := next.download(64*kib, uint64(42+i)); !info.Used0RTT {
+						e.t.Errorf("through %s the resumed connection sent no 0-RTT: %+v", scheme, info)
+					}
+				}
+			}
+
+			_, d, dsts := s.counts()
+			if d == 0 {
+				e.t.Fatal("no datagram went through the SOCKS5 proxy")
+			}
+
+			for _, dst := range dsts {
+				if host, _, _ := net.SplitHostPort(dst); host != interopHost {
+					e.t.Fatalf("a datagram to the relay named %s, not the host %s", dst, interopHost)
+				}
+			}
+		},
+	},
+	{
+		// The proxy drops the association under a live HTTP/3 connection
+		// (closes its control connection) and refuses new ones: the
+		// connection ends with it, and the next request goes on TCP
+		// through the proxy at once, not once the connection idles out.
+		name:  "socks5-teardown",
+		limit: 20 * time.Second,
+		run: func(e *interopEnv) {
+			s := newSOCKSServer(e.t, true, "", "")
+			next := e.via(s.url("socks5h", nil), true, nil)
+
+			next.warm()
+			s.setRefuseUDP(true)
+			s.dropAssociations()
+
+			start := time.Now()
+
+			next.onTCP("the request after the association ended")
+
+			if d := time.Since(start); d > 2*time.Second {
+				e.t.Errorf("the request after the association ended took %v", d)
+			}
+		},
+	},
+	{
+		// A SOCKS5 proxy that refuses UDP ASSOCIATE is asked once:
+		// requests to every origin through it go on TCP from then on.
+		name:  "socks5-refused",
+		limit: 20 * time.Second,
+		run: func(e *interopEnv) {
+			s := newSOCKSServer(e.t, true, "", "")
+			s.setRefuseUDP(true)
+
+			next := e.via(s.url("socks5h", nil), true, nil)
+			for range 3 {
+				next.onTCP("a request through a proxy refusing UDP")
+			}
+
+			e.waitFor("a UDP ASSOCIATE request", func() bool {
+				a, _, _ := s.counts()
+				return a > 0
+			})
+			settle(e.ctx)
+
+			other := *next
+			_, port, _ := net.SplitHostPort(e.altSvcServer())
+
+			other.origin = "https://" + interopHost + ":" + port
+
+			var err error
+			if other.page, err = url.Parse(other.origin + "/"); err != nil {
+				e.t.Fatal(err)
+			}
+
+			for range 3 {
+				other.onTCP("a request to another origin through the proxy")
+			}
+
+			settle(e.ctx)
+
+			if a, _, _ := s.counts(); a != 1 {
+				e.t.Errorf("the proxy was asked for %d UDP associations, want 1", a)
+			}
 		},
 	},
 }

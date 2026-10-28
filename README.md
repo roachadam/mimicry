@@ -146,7 +146,10 @@ if errors.As(err, &pe) {
 ```
 
 Cookies and the last page stay the Transport's; each proxy has its own
-connections. Example: `ExampleConfig_proxy`; see
+connections. Requests through a proxy stay on TCP, as in the browser;
+`Config.HTTP3OverSOCKS5` lets SOCKS5 proxies carry HTTP/3 (a UDP
+association per QUIC connection), and no datagram ever goes around the
+proxy. Example: `ExampleConfig_proxy`; see
 [docs/concepts/proxies.md](docs/concepts/proxies.md).
 
 **Certificate pins.** `go run github.com/roachadam/mimicry/cmd/pins
@@ -303,6 +306,26 @@ or prefetches, upgrades `http://` to `https://` or applies HSTS, caches
 responses, looks up DNS HTTPS records, or opens a WebSocket you did not ask
 for. [docs/concepts/what-mimicry-does.md](docs/concepts/what-mimicry-does.md)
 lists each behaviour, why the browser does it, and the option that changes it.
+
+## Deliberate deviations from the browser, and how to turn them off
+
+With no options, mimicry sends what the browser sends, with one
+exception, where the browser's behaviour costs time a user notices and
+the difference is unlikely to be checked by anti-bot systems; a `Config`
+field gives the browser's behaviour back:
+
+| Deviation | What a server can see | The browser's behaviour |
+|---|---|---|
+| **Shorter waits when QUIC fails.** Requests go on TCP after the race delay instead of waiting 4–5 s on a QUIC connection the server never answers ([decision 0036](docs/decisions/0036-fast-quic-fallback.md)). | only on networks or servers where QUIC fails: an earlier TCP connection | `Config.BrowserQUICFallback` |
+
+Three options go the other way, off by default because they do what no
+browser does; each trades fidelity for speed or reach:
+
+| Deviation, when you turn it on | What a server can see | Option |
+|---|---|---|
+| **No HTTP/2 coalescing**: each host gets its own connection, where browsers share one between hosts whose certificate and address match. Set it on lossy networks: one connection for a site's hosts shares one congestion window, and warm page loads at 1% loss took half as long without it. On clean networks coalescing is faster (it saves the other hosts' handshakes: 0.36 s of a cold load at 80 ms), so leave it off there. Requests through a proxy never coalesce anyway ([decision 0037](docs/decisions/0037-coalescing-opt-out.md)). | a server hosting several of a site's hosts at one address under one certificate sees a connection per host where Chrome, Firefox and Safari end with one (low to medium risk) | `Config.DisableCoalescing` |
+| **More than 6 HTTP/1.1 connections per host**, for faster bulk requests to an HTTP/1.1-only server (at 64 concurrent requests, 16 connections gave 1.5–2.1× the requests/s, 64 gave 1.7–2.6×; decision 0037). | more than 6 concurrent HTTP/1.1 connections from one client to one host | `Config.MaxConnsPerHost` |
+| **HTTP/3 through SOCKS5 proxies**, over a UDP association per QUIC connection (RFC 1928), for sites that serve HTTP/3 reached from the proxy's address. Many SOCKS5 proxies relay no UDP: one that refuses is asked once, then everything goes on TCP. No datagram ever goes around the proxy ([decision 0038](docs/decisions/0038-http3-over-socks5.md)). | HTTP/3 from a proxy's address, which browsers never send through a proxy; the QUIC itself is the profile's, unchanged | `Config.HTTP3OverSOCKS5` |
 
 ## Evidence and limits
 

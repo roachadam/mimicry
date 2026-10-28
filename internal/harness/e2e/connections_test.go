@@ -30,10 +30,13 @@ var connectionsPreconnects = map[string][]string{
 	},
 }
 
-// The connections page through mimicry opens the browser's connections:
-// same hosts, protocols and requests per connection, the same coalescing
-// (Firefox's declined connections included), and the 10 parallel HTTP/1.1
-// requests spread over 6 connections.
+// The connections page through mimicry opens the browser's connections.
+// By default ("browser"): same hosts, protocols and requests per
+// connection, the same coalescing (Firefox's declined connections
+// included), and the 10 parallel HTTP/1.1 requests spread over 6
+// connections. With Config.DisableCoalescing ("disabled", decision 0037):
+// the same with every coalesced host on a connection of its own, and no
+// connection opened only to be declined.
 func TestConnectionsMatchBrowser(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
@@ -49,35 +52,97 @@ func TestConnectionsMatchBrowser(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			s := startPage(t, p, server.Connections)
-			hosts, _, _ := server.Connections.MultiHost()
-			page := s.url(hosts[0], "/")
-			s.send(http.MethodGet, page, mimicry.Request{}, nil, "")
-
-			from, err := url.Parse(page)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			for _, st := range server.ConnectionsSteps() {
-				time.Sleep(300 * time.Millisecond)
-				connectionsStep(t, s, from, st)
-			}
-
-			got := s.finish(s.url(hosts[0], "/done"))
-			gotConns, gotGroups := connectionsSeen(got, nil), connectionsGrouping(got)
-
-			for i, w := range want {
-				if wc := connectionsSeen(w, connectionsPreconnects[capture.Source(p, "connections")]); !slices.Equal(gotConns, wc) {
-					t.Errorf("sample %d: connections differ:\n got %q\nwant %q", i+1, gotConns, wc)
+			for _, disabled := range []bool{false, true} {
+				mode := "browser"
+				if disabled {
+					mode = "disabled"
 				}
 
-				if wg := connectionsGrouping(w); !slices.Equal(gotGroups, wg) {
-					t.Errorf("sample %d: requests per connection differ:\n got %q\nwant %q", i+1, gotGroups, wg)
-				}
+				t.Run(mode, func(t *testing.T) {
+					t.Parallel()
+
+					s := startPageWith(t, p, server.Connections, func(cfg *mimicry.Config) {
+						cfg.DisableCoalescing = disabled
+					})
+					hosts, _, _ := server.Connections.MultiHost()
+					page := s.url(hosts[0], "/")
+					s.send(http.MethodGet, page, mimicry.Request{}, nil, "")
+
+					from, err := url.Parse(page)
+					if err != nil {
+						t.Fatal(err)
+					}
+
+					for _, st := range server.ConnectionsSteps() {
+						time.Sleep(300 * time.Millisecond)
+						connectionsStep(t, s, from, st)
+					}
+
+					got := s.finish(s.url(hosts[0], "/done"))
+					gotConns, gotGroups := connectionsSeen(got, nil), connectionsGrouping(got)
+					skip := connectionsPreconnects[capture.Source(p, "connections")]
+
+					for i, w := range want {
+						wc, wg := connectionsSeen(w, skip), connectionsGrouping(w)
+						if disabled {
+							wc, wg = uncoalesced(w, skip)
+						}
+
+						if !slices.Equal(gotConns, wc) {
+							t.Errorf("sample %d: connections differ:\n got %q\nwant %q", i+1, gotConns, wc)
+						}
+
+						if !slices.Equal(gotGroups, wg) {
+							t.Errorf("sample %d: requests per connection differ:\n got %q\nwant %q", i+1, gotGroups, wg)
+						}
+					}
+				})
 			}
 		})
 	}
+}
+
+// uncoalesced is connectionsSeen and connectionsGrouping for page with
+// every host on its own HTTP/2 connection: the requests a browser's
+// connection carried for other hosts on connections of their own, and the
+// connections it carried nothing on (Firefox's declined ones) left out.
+// HTTP/1.1 connections are as the browser's.
+func uncoalesced(page *capture.Page, skip []string) (conns, groups []string) {
+	byHost := map[string][]string{}
+
+	for _, tr := range page.H2 {
+		if len(tr.Requests) == 0 {
+			continue
+		}
+
+		for _, r := range h2Requests(tr) {
+			host, _, _ := strings.Cut(r, " ")
+
+			byHost[host] = append(byHost[host], r)
+		}
+	}
+
+	for host, reqs := range byHost {
+		conns = append(conns, fmt.Sprintf("%s h2 %d", host, len(reqs)))
+		groups = append(groups, host+": "+strings.Join(reqs, ", "))
+	}
+
+	for _, c := range connectionsSeen(page, skip) {
+		if !strings.Contains(c, " h2 ") {
+			conns = append(conns, c)
+		}
+	}
+
+	for _, g := range connectionsGrouping(page) {
+		if strings.HasPrefix(g, "http/1.1: ") {
+			groups = append(groups, g)
+		}
+	}
+
+	slices.Sort(conns)
+	slices.Sort(groups)
+
+	return conns, groups
 }
 
 // connectionsStep makes st's requests as the page does: no-cors fetches

@@ -45,7 +45,7 @@ Related:
 | [0011](decisions/0011-connection-partitioning.md) | Model connection partitioning only where a rule is measured | Accepted |
 | [0012](decisions/0012-cookie-rules-in-profiles.md) | Browser cookie rules as a profile section | Accepted |
 | [0013](decisions/0013-tls-resumption.md) | TLS session resumption as the browser does it | Accepted |
-| [0014](decisions/0014-proxies.md) | Proxies as the browser uses them | Accepted |
+| [0014](decisions/0014-proxies.md) | Proxies as the browser uses them | Accepted; HTTP/3 through SOCKS5 on request by 0038 |
 | [0015](decisions/0015-non-secure-origins.md) | Requests to non-secure origins as captured, per kind | Accepted |
 | [0016](decisions/0016-literal-urls-no-https-upgrade.md) | Requests go to the URL given; no HTTPS upgrades or HSTS by default | Accepted |
 | [0017](decisions/0017-cors-preflights.md) | CORS preflights as the browser sends them, refusal included | Accepted |
@@ -54,7 +54,7 @@ Related:
 | [0020](decisions/0020-connection-pool-package.md) | The connection pool is its own package | Accepted |
 | [0021](decisions/0021-page-headers-hash-table-order.md) | Page-set headers in the browser's hash-table order | Accepted |
 | [0022](decisions/0022-redirects-as-the-browser-follows-them.md) | Redirects follow the browser's rules, inside the Transport | Accepted |
-| [0023](decisions/0023-connection-limits-and-coalescing.md) | Per-host HTTP/1.1 limit and HTTP/2 coalescing, per browser | Accepted |
+| [0023](decisions/0023-connection-limits-and-coalescing.md) | Per-host HTTP/1.1 limit and HTTP/2 coalescing, per browser | Accepted; options to disable coalescing and change the limit by 0037 |
 | [0024](decisions/0024-clienthello-shape-in-profiles.md) | The ClientHello's whole shape is profile data | Accepted |
 | [0025](decisions/0025-websockets.md) | WebSockets as each browser opens and frames them | Accepted |
 | [0026](decisions/0026-http3-capture.md) | HTTP/3 is captured from the client's own packets | Accepted |
@@ -68,6 +68,8 @@ Related:
 | [0034](decisions/0034-request-plans.md) | Request plans: RoundTrip's path, without sending | Accepted |
 | [0035](decisions/0035-version-policy-and-capture-inheritance.md) | Newest-version accessors, five supported versions, inherited captures | Accepted |
 | [0036](decisions/0036-fast-quic-fallback.md) | Fast QUIC fallback by default, the browser's timing on request | Accepted |
+| [0037](decisions/0037-coalescing-opt-out.md) | HTTP/2 coalescing stays the browser's; `DisableCoalescing` and `MaxConnsPerHost` for speed | Accepted |
+| [0038](decisions/0038-http3-over-socks5.md) | HTTP/3 through SOCKS5 proxies on request (UDP ASSOCIATE), never a datagram around the proxy | Accepted |
 
 New records copy [`decisions/template.md`](decisions/template.md).
 

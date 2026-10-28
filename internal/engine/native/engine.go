@@ -3,11 +3,11 @@
 // QUIC), routing each request to its pool key and retrying on another
 // connection a request nothing of which was sent.
 //
-// HTTP/2 coalescing, HTTP/3 discovery and fallback, and WebSocket
-// transports follow the profile's connections, http3 and websocket
-// sections; see docs/concepts/http3.md, docs/concepts/websockets.md and
-// decisions 0023 and 0028. Plan reuses RoundTrip's own steps and changes
-// nothing (decision 0034).
+// HTTP/2 coalescing (when Config.Coalesce), HTTP/3 discovery and
+// fallback, and WebSocket transports follow the profile's connections,
+// http3 and websocket sections; see docs/concepts/http3.md,
+// docs/concepts/websockets.md and decisions 0023, 0028 and 0037. Plan
+// reuses RoundTrip's own steps and changes nothing (decision 0034).
 package native
 
 import (
@@ -59,7 +59,8 @@ type Config struct {
 	DialContext func(ctx context.Context, network, addr string) (net.Conn, error)
 	// Resolver looks host names up: for dials without DialContext, and to
 	// find another host's HTTP/2 connection a request may take
-	// (profile.CoalesceOnLookup). Nil uses net.DefaultResolver.
+	// (Coalesce, profile.CoalesceOnLookup). Nil uses
+	// net.DefaultResolver.
 	Resolver *net.Resolver
 	// Proxy picks each request's proxy, as http.Transport's does; nil, or
 	// a nil URL, connects directly.
@@ -77,6 +78,19 @@ type Config struct {
 	// one, the first probe timeout) has passed with no answer, and at once
 	// when the attempt failed.
 	BrowserFallback bool
+	// Coalesce shares HTTP/2 connections between hosts as the profile says
+	// (connections.coalesce). Otherwise each host has its own connection:
+	// no lookup for another host's, and no connection opened and declined.
+	// The root package decides the default (decision 0037).
+	Coalesce bool
+	// MaxConnsPerHost is the most HTTP/1.1 connections open at once to one
+	// host; zero means the profile's connections.http1PerHost.
+	MaxConnsPerHost int
+	// HTTP3OverSOCKS5 lets requests through a socks5 or socks5h proxy use
+	// HTTP/3, over a SOCKS5 UDP association with the proxy (ListenUDPVia),
+	// as they would without the proxy. Otherwise, and through any other
+	// proxy, they stay on TCP (browsers never use HTTP/3 through a proxy).
+	HTTP3OverSOCKS5 bool
 	// VerifyConnection, when set, checks a verified connection for host on
 	// every TLS and QUIC handshake (resumed ones included) and before a request
 	// coalesces onto another host's HTTP/2 connection. An error fails the
@@ -108,6 +122,11 @@ type Engine struct {
 	quic *quicState
 	// browserFallback is Config.BrowserFallback.
 	browserFallback bool
+	// coalesce is the profile's connections.coalesce with Config.Coalesce,
+	// else empty: never.
+	coalesce profile.Coalescing
+	// h3SOCKS5 is Config.HTTP3OverSOCKS5.
+	h3SOCKS5 bool
 }
 
 // New builds an engine for cfg.Profile, which it takes ownership of: the
@@ -126,6 +145,20 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 
 	if p.Connections == nil {
 		return nil, errors.New("mimicry: the profile has no connections section")
+	}
+
+	perHost := cfg.MaxConnsPerHost
+	if perHost < 0 {
+		return nil, fmt.Errorf("mimicry: Config.MaxConnsPerHost %d is negative", perHost)
+	}
+
+	if perHost == 0 {
+		perHost = p.Connections.HTTP1PerHost
+	}
+
+	var coalesce profile.Coalescing
+	if cfg.Coalesce {
+		coalesce = p.Connections.Coalesce
 	}
 
 	timeout := cfg.DialTimeout
@@ -151,10 +184,12 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 		lookup:          lookupFunc(cfg.Resolver),
 		verify:          cfg.VerifyConnection,
 		browserFallback: cfg.BrowserFallback,
+		coalesce:        coalesce,
+		h3SOCKS5:        cfg.HTTP3OverSOCKS5,
 		pool: pool.New[*shared, *h1.Conn](pool.Config{
 			Clock:        clock,
 			IdleTimeout:  idleTimeout,
-			MaxExclusive: p.Connections.HTTP1PerHost,
+			MaxExclusive: perHost,
 			OnWait:       onWait,
 		}),
 	}
@@ -350,6 +385,11 @@ func withProxyAuth(ctx context.Context, req *http.Request, auth string) *http.Re
 type route struct {
 	// key is the pool: scheme, host and port, partition, and proxy.
 	key string
+	// alt is the origin's key in the Alt-Svc cache: key without the
+	// proxy. An origin advertises the same alternative whichever way it
+	// is reached, and a proxy URL (its credentials) must never go in a
+	// cache that is saved.
+	alt string
 	// addr is the server's host and port; host is the host alone.
 	addr string
 	host string
@@ -389,6 +429,7 @@ func (e *Engine) route(req *http.Request) (route, error) {
 	key, addr := poolKey(req.URL.Scheme, host, port, partition)
 	r := route{
 		key:  key,
+		alt:  key,
 		addr: addr,
 		host: host,
 	}
@@ -504,7 +545,7 @@ func (e *Engine) tryOnce(ctx context.Context, req *http.Request, r route) (*http
 	}
 
 	d := got.Dial
-	if d.MayShare() && e.profile.Connections.Coalesce == profile.CoalesceOnLookup {
+	if d.MayShare() && e.coalesce == profile.CoalesceOnLookup {
 		if c := e.coalesceOnLookup(ctx, r); c != nil {
 			return e.roundTripH2(r.key, d.Adopt(c), req)
 		}
@@ -523,7 +564,7 @@ func (e *Engine) tryOnce(ctx context.Context, req *http.Request, r route) (*http
 		return e.pooled(r.key, e.newH1(conn, r)).RoundTrip(req)
 	}
 
-	if e.profile.Connections.Coalesce == profile.CoalesceOnConnect {
+	if e.coalesce == profile.CoalesceOnConnect {
 		if c := e.coalesceOnConnect(r, conn); c != nil {
 			// The browser opens the connection, then lets it go.
 			_ = h2.Decline(conn, e.profile)

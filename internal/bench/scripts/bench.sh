@@ -2,12 +2,13 @@
 # Drives the benchmark's two compose stacks (../docker). Commands:
 #
 #   up       build the image, create the CA and content, start the server stack
+#            and the client host's offloads sidecar
 #   micro    layers 1-2: go test -bench, -count $BENCH_COUNT (10), then benchstat
 #   run      micro, then layers 3-5 (bench run), then the report
 #   report   layers 3-5 only, embedding the newest micro results
 #   render   rewrite bench-<date>.md from its JSON with the newest micro results
 #   ca-sync  copy the CA from a remote server stack to this host's volume
-#   down     stop the server stack
+#   down     stop the server stack and the offloads sidecar
 #
 # Arguments after the command go to `bench run` (run, report) or to the test
 # binary (micro). Settings, all optional:
@@ -115,6 +116,8 @@ up() {
 		ca_sync
 	fi
 
+	# On the client's Docker host: turns its veth's offloads off under netem.
+	client_compose up -d offloads
 	client_compose run --rm client bench wait
 }
 
@@ -190,9 +193,10 @@ ca-sync)
 	;;
 down)
 	server_compose down
+	client_compose down
 	;;
 *)
-	sed -n '2,28p' "$0" | sed 's/^# \{0,1\}//'
+	sed -n '2,33p' "$0" | sed 's/^# \{0,1\}//'
 	exit 2
 	;;
 esac

@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -58,12 +60,19 @@ func (c condition) String() string {
 	return fmt.Sprintf("RTT %v, loss %g%%", c.RTT, c.Loss)
 }
 
-// netem controls the client container's qdiscs.
+// netem controls the client container's qdiscs, and the segmentation
+// offloads of both ends of its veth pair (offloads.go).
 type netem struct {
 	dev string
 	// ifb is set once ingress shaping works.
 	ifb  bool
 	note string
+	// client are the client's offloads, nil if they could not be read;
+	// off is whether they and the host's end's are off now; offErrs are
+	// the failures to change them, each once.
+	client  *offloads
+	off     bool
+	offErrs []string
 }
 
 func newNetem(ctx context.Context, dev string) *netem {
@@ -71,15 +80,16 @@ func newNetem(ctx context.Context, dev string) *netem {
 		dev: dev,
 	}
 
-	// Segmentation offloads hand netem 64 KB super-packets, which it would
-	// delay and drop whole; real links carry MTU-sized packets.
-	if err := sh(ctx, "ethtool", "-K", dev, "tso", "off", "gso", "off", "gro", "off"); err != nil {
-		n.note = "offloads left on (" + err.Error() + "); "
+	o, err := readOffloads(ctx, dev)
+	if err != nil {
+		n.offError(err)
 	}
+
+	n.client = o
 
 	_ = sh(ctx, "ip", "link", "del", "ifb0")
 
-	err := sh(ctx, "ip", "link", "add", "ifb0", "type", "ifb")
+	err = sh(ctx, "ip", "link", "add", "ifb0", "type", "ifb")
 	if err == nil {
 		err = sh(ctx, "ip", "link", "set", "ifb0", "up")
 	}
@@ -95,21 +105,63 @@ func newNetem(ctx context.Context, dev string) *netem {
 	}
 
 	if err != nil {
-		n.note += "no ifb device (" + err.Error() + "): the whole delay and the loss apply to outgoing packets only"
+		n.note = "no ifb device (" + err.Error() + "): the whole delay and the loss apply to outgoing packets only"
 
 		return n
 	}
 
 	n.ifb = true
 
-	n.note += "half the RTT and the loss on each direction (egress on " + dev + ", ingress through ifb0)"
+	n.note = "half the RTT and the loss on each direction (egress on " + dev + ", ingress through ifb0)"
 
 	return n
 }
 
-// apply puts the interface under c (or clears it).
+// summary is the report's note on the shaping: n.note, and the offloads.
+func (n *netem) summary() string {
+	s := n.note + "; segmentation offloads (TSO, GSO, GRO) off under netem on both ends of the client's veth, so " +
+		"packets reach netem one MSS at most and a loss drops one segment"
+	if len(n.offErrs) > 0 {
+		s += ", except: " + strings.Join(n.offErrs, "; ")
+	}
+
+	return s
+}
+
+// offError records a failure to change the offloads, once per message.
+func (n *netem) offError(err error) {
+	fmt.Fprintln(os.Stderr, "bench: offloads:", err)
+
+	if msg := err.Error(); !slices.Contains(n.offErrs, msg) {
+		n.offErrs = append(n.offErrs, msg)
+	}
+}
+
+// offloads turns the offloads of both ends of the client's veth off, or
+// back.
+func (n *netem) offloads(ctx context.Context, off bool) {
+	if off == n.off {
+		return
+	}
+
+	n.off = off
+
+	if n.client != nil {
+		if err := n.client.set(ctx, off); err != nil {
+			n.offError(err)
+		}
+	}
+
+	if err := setPeerOffloads(ctx, n.dev, off); err != nil {
+		n.offError(err)
+	}
+}
+
+// apply puts the interface under c (or clears it), with the offloads off
+// under netem.
 func (n *netem) apply(ctx context.Context, c condition) error {
 	n.clear(ctx)
+	n.offloads(ctx, c.Netem)
 
 	if !c.Netem {
 		return nil
@@ -141,11 +193,18 @@ func (n *netem) apply(ctx context.Context, c condition) error {
 	return nil
 }
 
+// clear takes the shaping off.
 func (n *netem) clear(ctx context.Context) {
 	_ = sh(ctx, "tc", "qdisc", "del", "dev", n.dev, "root")
 	if n.ifb {
 		_ = sh(ctx, "tc", "qdisc", "del", "dev", "ifb0", "root")
 	}
+}
+
+// restore clears the shaping and puts the offloads back.
+func (n *netem) restore(ctx context.Context) {
+	n.clear(ctx)
+	n.offloads(ctx, false)
 }
 
 func sh(ctx context.Context, name string, args ...string) error {

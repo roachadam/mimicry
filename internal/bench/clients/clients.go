@@ -103,9 +103,9 @@ func All() []Factory {
 	}
 }
 
-// Named returns the client called name.
+// Named returns the client called name, one of All or Variants.
 func Named(name string) (Factory, error) {
-	for _, f := range All() {
+	for _, f := range append(All(), Variants()...) {
 		if f.Name == name {
 			return f, nil
 		}

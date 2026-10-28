@@ -27,8 +27,37 @@ func mimicryClient() Factory {
 		Name:      "mimicry",
 		Module:    "github.com/roachadam/mimicry",
 		Profile:   profiles.Chrome().Name,
-		New:       newMimicry,
+		New:       mimicryWith(nil),
 		Returning: true,
+	}
+}
+
+// Variants are mimicry with one Config option set, to measure what the
+// option changes: bench run's -clients names them, and runs leave them out
+// otherwise. mimicry-nocoalescing gives each host its own HTTP/2
+// connection where Chrome shares one (DisableCoalescing); mimicry-conns16
+// and -conns64 open up to 16 and 64 HTTP/1.1 connections per host
+// (MaxConnsPerHost) instead of Chrome's 6.
+func Variants() []Factory {
+	variant := func(name string, set func(*mimicry.Config)) Factory {
+		f := mimicryClient()
+
+		f.Name = name
+		f.New = mimicryWith(set)
+
+		return f
+	}
+
+	return []Factory{
+		variant("mimicry-nocoalescing", func(c *mimicry.Config) {
+			c.DisableCoalescing = true
+		}),
+		variant("mimicry-conns16", func(c *mimicry.Config) {
+			c.MaxConnsPerHost = 16
+		}),
+		variant("mimicry-conns64", func(c *mimicry.Config) {
+			c.MaxConnsPerHost = 64
+		}),
 	}
 }
 
@@ -53,7 +82,14 @@ type requestKey struct {
 	kind, page, scheme, host string
 }
 
-func newMimicry(o Options) (Client, error) {
+// mimicryWith builds mimicry clients with set applied to their Config.
+func mimicryWith(set func(*mimicry.Config)) func(Options) (Client, error) {
+	return func(o Options) (Client, error) {
+		return newMimicry(o, set)
+	}
+}
+
+func newMimicry(o Options, set func(*mimicry.Config)) (Client, error) {
 	cfg := mimicry.Config{
 		Profile:      profiles.Chrome(),
 		RootCAs:      o.RootCAs,
@@ -61,6 +97,10 @@ func newMimicry(o Options) (Client, error) {
 	}
 	if o.Returning {
 		cfg.AltSvc = returningAltSvc()
+	}
+
+	if set != nil {
+		set(&cfg)
 	}
 
 	if o.Proxy != "" {

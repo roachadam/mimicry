@@ -74,6 +74,51 @@ Credentials go as on the browser's other tunnels and plain-HTTP requests
 through SOCKS5 is `ErrNotMeasured`. See
 [WebSockets](websockets.md#through-a-proxy).
 
+## HTTP/3 through SOCKS5
+
+By default a request through a proxy goes on TCP, as in the browser,
+which does not use HTTP/3 through a proxy. `Config.HTTP3OverSOCKS5` lets
+requests through a `socks5://` or `socks5h://` proxy use HTTP/3 as they
+would without it:
+
+```go
+client, err := mimicry.NewClient(mimicry.Config{
+	Profile:         profiles.Chrome(),
+	Proxy:           http.ProxyURL(socksURL), // socks5h://user:pass@proxy:1080
+	HTTP3OverSOCKS5: true,
+})
+```
+
+Each QUIC connection gets its own UDP association with the proxy (SOCKS5
+UDP ASSOCIATE, RFC 1928): a control connection authenticated as the TCP
+connections are (`Config.DialContext` opens it), and a UDP socket that
+sends only to the proxy's relay. Its datagrams name the host for the
+proxy to resolve, for both schemes, as the TCP connections do. The SOCKS5
+header is only between mimicry and the proxy: the site receives the
+profile's QUIC datagrams unchanged, from the proxy's address. Alt-Svc,
+each browser's switch and race, 0-RTT and the fallback to TCP work as
+without a proxy; connections, session tickets and which origins failed
+stay per proxy URL, while the alternatives servers advertise are shared
+with direct requests (they are the origin's, and a saved `AltSvcCache`
+never holds a proxy URL).
+
+When the proxy fails:
+
+- It refuses UDP ASSOCIATE (many SOCKS5 proxies have no UDP relay): it
+  is asked once, and every request through that proxy URL goes on TCP
+  from then on.
+- It drops an association (closes its control connection): that QUIC
+  connection ends at once, and its requests go on TCP through the proxy
+  as on any failed connection; the next connection asks for a new
+  association.
+- It accepts the association but relays nothing: each origin's QUIC
+  attempts fail like a server that never answers, the request going on
+  TCP after the race delay, until the origin is marked broken.
+
+No datagram goes to the site directly while a request goes through a
+proxy: through an `http://` proxy, or without the option, no UDP is sent
+at all ([decision 0038](../decisions/0038-http3-over-socks5.md)).
+
 ## When the proxy fails
 
 A request the proxy fails returns a `*mimicry.ProxyError`, so a rotation
@@ -106,6 +151,8 @@ server's. See `ExampleConfig_proxy`.
 
 - `https://` proxies (TLS to the proxy) are not supported.
 - Chrome's speculative extra connections to the proxy are not made.
+- HTTP/3 goes only through SOCKS5 proxies (`Config.HTTP3OverSOCKS5`):
+  CONNECT-UDP (MASQUE) through an `http://` proxy is not supported.
 - A CONNECT answer whose header is longer than 64 KiB fails the request
   (a `*mimicry.ProxyError`).
 - A request whose host is not a valid `Host` header is refused before

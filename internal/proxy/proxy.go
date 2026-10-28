@@ -1,5 +1,6 @@
 // Package proxy connects through SOCKS5 and HTTP CONNECT proxies, bounded
-// by the caller's context.
+// by the caller's context, and carries UDP datagrams through SOCKS5 UDP
+// associations (Association).
 package proxy
 
 import (
@@ -132,15 +133,39 @@ func Connect(ctx context.Context, conn net.Conn, target string, header []string)
 
 // SOCKS5 (RFC 1928, RFC 1929) values.
 const (
-	socksVersion  = 5
-	MethodNone    = 0
-	MethodUser    = 2
-	socksNoMethod = 0xff
-	socksConnect  = 1
-	socksIPv4     = 1
-	socksDomain   = 3
-	socksIPv6     = 4
+	socksVersion      = 5
+	MethodNone        = 0
+	MethodUser        = 2
+	socksNoMethod     = 0xff
+	socksConnect      = 1
+	socksUDPAssociate = 3
+	socksIPv4         = 1
+	socksDomain       = 3
+	socksIPv6         = 4
 )
+
+// RefusedError is a SOCKS5 proxy's refusal of a request: a reply other
+// than "succeeded" to CONNECT or UDP ASSOCIATE.
+type RefusedError struct {
+	// UDP: the refused request was UDP ASSOCIATE.
+	UDP bool
+	// Reply is the reply code (RFC 1928, section 6).
+	Reply byte
+}
+
+func (e *RefusedError) Error() string {
+	what := "the connection"
+	if e.UDP {
+		what = "the UDP association"
+	}
+
+	reason, ok := socksReplies[e.Reply]
+	if !ok {
+		reason = fmt.Sprintf("reply %d", e.Reply)
+	}
+
+	return fmt.Sprintf("SOCKS5 proxy refused %s: %s", what, reason)
+}
 
 // SOCKS5 asks a SOCKS5 proxy over conn for a connection to target,
 // offering methods in order; host names are resolved by the proxy. user
@@ -158,14 +183,19 @@ func SOCKS5(ctx context.Context, conn net.Conn, target string, methods []byte, u
 		return fmt.Errorf("SOCKS5 target port %q: %w", portStr, err)
 	}
 
-	if err := socks5(conn, host, uint16(port), methods, user); err != nil {
+	if err := socksAuth(conn, methods, user); err != nil {
+		return contextError(ctx, err)
+	}
+
+	if _, err := socksRequest(conn, socksConnect, host, uint16(port)); err != nil {
 		return contextError(ctx, err)
 	}
 
 	return nil
 }
 
-func socks5(conn net.Conn, host string, port uint16, methods []byte, user *url.Userinfo) error {
+// socksAuth offers methods and authenticates as the proxy picks.
+func socksAuth(conn net.Conn, methods []byte, user *url.Userinfo) error {
 	n, err := lengthByte(len(methods), "method list")
 	if err != nil {
 		return err
@@ -192,9 +222,7 @@ func socks5(conn net.Conn, host string, port uint16, methods []byte, user *url.U
 			return errors.New("SOCKS5 proxy asks for a username and password; the proxy URL has none")
 		}
 
-		if err := socksUser(conn, user); err != nil {
-			return err
-		}
+		return socksUser(conn, user)
 
 	case socksNoMethod:
 		return errors.New("SOCKS5 proxy accepts none of the authentication methods offered")
@@ -202,58 +230,84 @@ func socks5(conn net.Conn, host string, port uint16, methods []byte, user *url.U
 		return fmt.Errorf("SOCKS5 proxy picked authentication method %d, which was not offered", reply[1])
 	}
 
-	req := []byte{socksVersion, socksConnect, 0}
-	if ip := net.ParseIP(host); ip != nil {
-		if ip4 := ip.To4(); ip4 != nil {
-			req = append(append(req, socksIPv4), ip4...)
-		} else {
-			req = append(append(req, socksIPv6), ip.To16()...)
-		}
-	} else {
-		n, err := lengthByte(len(host), "host name")
-		if err != nil {
-			return err
-		}
+	return nil
+}
 
-		req = append(append(req, socksDomain, n), host...)
+// socksRequest sends request cmd for host at port and reads the reply,
+// returning the bound address it gives ("host:port"). A refusal is a
+// *RefusedError.
+func socksRequest(conn net.Conn, cmd byte, host string, port uint16) (string, error) {
+	req, err := appendAddr([]byte{socksVersion, cmd, 0}, host, port)
+	if err != nil {
+		return "", err
 	}
 
-	req = binary.BigEndian.AppendUint16(req, port)
 	if _, err := conn.Write(req); err != nil {
-		return err
+		return "", err
 	}
 
 	head := make([]byte, 4)
 	if _, err := io.ReadFull(conn, head); err != nil {
-		return fmt.Errorf("SOCKS5 reply: %w", err)
+		return "", fmt.Errorf("SOCKS5 reply: %w", err)
 	}
 
 	if head[1] != 0 {
-		return fmt.Errorf("SOCKS5 proxy refused the connection: %s", socksReplies[head[1]])
+		return "", &RefusedError{
+			UDP:   cmd == socksUDPAssociate,
+			Reply: head[1],
+		}
 	}
 
-	// The bound address, which a client does not need.
-	var skip int
+	var n int
 	switch head[3] {
 	case socksIPv4:
-		skip = net.IPv4len
+		n = net.IPv4len
 	case socksIPv6:
-		skip = net.IPv6len
+		n = net.IPv6len
 	case socksDomain:
-		n := make([]byte, 1)
-		if _, err := io.ReadFull(conn, n); err != nil {
-			return err
+		l := make([]byte, 1)
+		if _, err := io.ReadFull(conn, l); err != nil {
+			return "", err
 		}
 
-		skip = int(n[0])
+		n = int(l[0])
 
 	default:
-		return fmt.Errorf("SOCKS5 reply address type %d", head[3])
+		return "", fmt.Errorf("SOCKS5 reply address type %d", head[3])
 	}
 
-	_, err = io.ReadFull(conn, make([]byte, skip+2))
+	bound := make([]byte, n+2)
+	if _, err := io.ReadFull(conn, bound); err != nil {
+		return "", err
+	}
 
-	return err
+	boundHost := string(bound[:n])
+	if head[3] != socksDomain {
+		boundHost = net.IP(bound[:n]).String()
+	}
+
+	return net.JoinHostPort(boundHost, strconv.Itoa(int(binary.BigEndian.Uint16(bound[n:])))), nil
+}
+
+// appendAddr appends a SOCKS5 address (ATYP, DST.ADDR, DST.PORT) to b:
+// host as an IPv4 or IPv6 address when it is one, else as a host name.
+func appendAddr(b []byte, host string, port uint16) ([]byte, error) {
+	if ip := net.ParseIP(host); ip != nil {
+		if ip4 := ip.To4(); ip4 != nil {
+			b = append(append(b, socksIPv4), ip4...)
+		} else {
+			b = append(append(b, socksIPv6), ip.To16()...)
+		}
+	} else {
+		n, err := lengthByte(len(host), "host name")
+		if err != nil {
+			return nil, err
+		}
+
+		b = append(append(b, socksDomain, n), host...)
+	}
+
+	return binary.BigEndian.AppendUint16(b, port), nil
 }
 
 // socksUser authenticates with a username and password (RFC 1929).

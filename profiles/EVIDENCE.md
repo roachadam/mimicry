@@ -302,6 +302,11 @@ answering with remembered credentials).
 ([report](../internal/harness/reports/connections-2026-10-24.md)), three samples
 per browser, Safari 26 included, identical across samples. Checked by
 `TestConnectionsMatchBrowser` (every sample) and the unit tests named.
+`Config.DisableCoalescing` turns `coalesce` off, each host on its own
+connection ([decision 0037](../docs/decisions/0037-coalescing-opt-out.md)),
+which `TestConnectionsMatchBrowser` checks against the same samples with
+the coalesced hosts on connections of their own. `Config.MaxConnsPerHost`
+replaces `http1PerHost` when set.
 
 | Claim (`connections.…`) | Chrome 155 | Firefox 158 | Safari 27 | Safari 26 | Checked by |
 |---|---|---|---|---|---|

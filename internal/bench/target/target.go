@@ -136,6 +136,12 @@ const (
 	ProxyPassword  = "bench-secret"
 )
 
+// OffloadsPort is where the offloads sidecar (`bench offloads`, on the
+// client's Docker host's network) listens, at the bench network's gateway:
+// layer 5 turns the segmentation offloads of the host's end of the client's
+// veth off under netem through it.
+const OffloadsPort = 9082
+
 // ProxyKind is one way of going through the proxy.
 type ProxyKind string
 

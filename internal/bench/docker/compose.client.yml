@@ -4,10 +4,21 @@
 # mimicry-bench network, or all at BENCH_SERVER (a remote server host, its
 # ports published). The CA comes from the mimicry-bench-ca volume: the
 # server stack's locally, a copy of its ca.pem for a remote server
-# (../scripts/bench.sh ca-sync). Reports go to ../reports.
+# (../scripts/bench.sh ca-sync). Reports go to ../reports. The offloads
+# sidecar runs on the Docker host's network with NET_ADMIN: layer 5 asks it
+# (port 9082 at the bench network's gateway) to turn the segmentation
+# offloads of the host's end of the client's veth off while netem shapes
+# the network (cmd/bench/offloads.go).
 name: mimicry-bench-client
 
 services:
+  offloads:
+    image: mimicry-bench:latest
+    command: ["bench", "offloads"]
+    cap_add: [NET_ADMIN]
+    network_mode: host
+    restart: unless-stopped
+
   client:
     image: mimicry-bench:latest
     build:

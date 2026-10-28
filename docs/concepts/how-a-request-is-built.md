@@ -133,8 +133,9 @@ partition, and proxy. Per key the pool holds one shared HTTP/2 connection,
 the idle HTTP/1.1 ones, and the dial in progress, which concurrent
 requests wait for and share, its error included. Once a key's server is
 known to speak HTTP/1.1 only, requests dial in parallel up to the
-profile's `connections.http1PerHost` (6 in every browser); more wait,
-first come first served, for a connection to come back. An idle HTTP/1.1
+profile's `connections.http1PerHost` (6 in every browser), or
+`Config.MaxConnsPerHost` when set; more wait, first come first served, for
+a connection to come back. An idle HTTP/1.1
 connection is checked without blocking before reuse (closed by the peer,
 or holding bytes nobody asked for: it is closed instead) and closed after
 90 s idle; a key with no connections is forgotten after the same time.
@@ -148,7 +149,9 @@ looked up (`Config.Resolver`) and the connection must reach one of its
 addresses: no new connection is opened. With `connect` (Firefox) the host
 is dialled and handshaked first; if another connection reaches the same
 address, the new one sends its preface and GOAWAY and closes, and the
-request goes on the other.
+request goes on the other. With `Config.DisableCoalescing` nothing is
+coalesced: each host dials its own connection
+([decision 0037](../decisions/0037-coalescing-opt-out.md)).
 
 A new connection is dialled (`internal/dial`, `Config.DialContext`, through
 the proxy if there is one; a proxy's failure is a `*ProxyError`) and
@@ -240,15 +243,17 @@ all for a log (`ExampleTransport_Plan`).
 preflights, redirects, connection sharing),
 `TestCookiesScenarioMatchesBrowser` (the cookies page),
 `TestCORSMatchesBrowser` (the preflight cache and refusals),
-`TestConnectionsMatchBrowser` (the per-host HTTP/1.1 cap and coalescing),
+`TestConnectionsMatchBrowser` (the per-host HTTP/1.1 cap and coalescing,
+with `Config.DisableCoalescing` and without),
 `TestHPACKReproducesBrowserBlocks`. The page replays of the kinds,
 headers-order, cors, cors-edge, redirects2, nav-redirect, cookies,
 cookies-edge and h3 pages also plan every request just before sending it
 and check the plan against what the server received (`checkPlans`). The
 resolver's rules by unit tests in the root's `request_test.go`,
 `mimicry_test.go` and `preflight_test.go`; the pool's by
-`internal/pool`'s, with fake connections and a fake clock; coalescing by
-`internal/engine/native`'s, with fake servers and lookups. Header placement
+`internal/pool`'s, with fake connections and a fake clock;
+`Config.MaxConnsPerHost` by `internal/engine/native`'s
+`TestMaxConnsPerHost`, with fake servers. Header placement
 by `TestHeaderPlacement` (`placement_test.go`): each placed request against
 the same one unplaced, over HTTP/1.1 and a raw HTTP/2 peer, and its error
 paths; over HTTP/3 by `TestHeaderPlacementOverHTTP3` in

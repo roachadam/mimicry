@@ -36,7 +36,7 @@ scenario/           warm-up, load, idle memory and page-load measurements
 site/               what the servers serve: payloads, JSON, the page
 target/             host names, ports, protocols, the CA, server stats
 stats/              /_stats: a container's CPU time from cgroup v2
-cmd/bench/          layers 3-5: `bench run` (orchestrator), `bench worker`, `bench wait`
+cmd/bench/          layers 3-5: `bench run` (orchestrator), `bench worker`, `bench wait`; `bench offloads` (the sidecar)
 cmd/server/         the Go server (net/http + quic-go http3)
 cmd/proxy/          CONNECT (with/without Basic auth) and SOCKS5 proxy
 cmd/setup/          the CA (once), the server certificate, nginx's files
@@ -66,7 +66,27 @@ name; every client verifies against that CA.
 **Client** (`docker/compose.client.yml`): one container with every client,
 its own CPU set, a fixed `GOMAXPROCS`, `NET_ADMIN` for netem, the CA volume
 read-only, and `extra_hosts` mapping every name to the server stack's fixed
-addresses, or to `BENCH_SERVER`.
+addresses, or to `BENCH_SERVER`. Beside it, the `offloads` sidecar on the
+Docker host's own network (`NET_ADMIN`, port 9082).
+
+**Segmentation offloads are off under netem.** With TSO, GSO and GRO on,
+packets reach the client container as super-packets of up to 64 KB (the
+server's TSO, or GRO on the host's end of the server's veth, put segments
+together and nothing on a veth path cuts them up again), so netem would
+delay and drop several segments at a time: "1% loss" would be loss of
+whole groups of segments. Turning the servers' own TSO and GSO off is not
+enough, as the host's GRO joins their segments again. For every netem
+condition layer 5 turns TSO, GSO and GRO off on the client's `eth0` and,
+through the `offloads` sidecar, on the host's end of the client's veth,
+which then cuts every packet to the client into MSS-sized segments; the
+condition without netem, and layers 1-4, run with the offloads as Docker
+set them. Checked with tcpdump in the client container, a mimicry HTTP/2
+page-load set under RTT 20 ms and 1% loss: with the offloads on, the
+client's `eth0` received packets of 4.8 KB on average, up to 49 KB; with
+them off, 1.4 KB on average and none over 1500 bytes (MSS 1448 plus
+headers). Reports from before 2026-10-28 ran netem with them on. The
+report's environment says they are off, and names any interface it could
+not change.
 
 ## Running it locally
 
@@ -102,7 +122,11 @@ Arguments after `run` or `report` go to `bench run`: `-window` and `-warmup`
 per load point (10 s and 3 s), `-layers 3,4,5`, `-clients`, `-servers
 nginx,go`, `-reduced go` (servers that get bodies 1KB/100KB and concurrency
 1/64 only), `-protos h1,h2,h3` (layers 3 and 5), `-conc 1,16,64,256`, `-idle-n 50`,
-`-reps 5`, `-netem=false`, `-profile <dir>`. Each HTTP/3 load point's log
+`-reps 5`, `-netem=false`, `-profile <dir>`. `-clients` also takes mimicry
+variants that runs leave out otherwise, each with one `Config` option set
+(`clients.Variants`): `mimicry-nocoalescing` (`DisableCoalescing`, a
+connection per host where Chrome coalesces), `mimicry-conns16` and
+`mimicry-conns64` (`MaxConnsPerHost`). Each HTTP/3 load point's log
 line also gives how much the client container's UDP receive errors grew
 during it (`/proc/net/snmp`: `RcvbufErrors`, datagrams dropped on a full
 socket buffer, and `InErrors`). Environment: `BENCH_COUNT` (10), `BENCH_BENCHTIME` (1s),

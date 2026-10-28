@@ -1450,6 +1450,31 @@ These matter most under decision 0029:
   - Detection: none. User-visible: yes, unsupported.
   - Close: an API change; small.
   - Source: [decision 0010](decisions/0010-dial-context.md).
+- **HTTP/3 through an HTTP proxy: MASQUE** (API).
+  - Differs: HTTP/3 through a proxy goes only through SOCKS5 UDP
+    associations (`Config.HTTP3OverSOCKS5`); an `http://` proxy keeps
+    every request on TCP. CONNECT-UDP (MASQUE, RFC 9298) would carry QUIC
+    through an HTTP proxy.
+  - Shows: callers whose only proxy is an HTTP one and who want HTTP/3.
+  - Detection: none (no browser uses HTTP/3 through a proxy; with the
+    proxy speaking MASQUE the site would see the same datagrams).
+    User-visible: yes, TCP only.
+  - Close: deferred: few proxy providers offer CONNECT-UDP; an
+    extended-CONNECT client over HTTP/2 or HTTP/3 to the proxy and HTTP
+    Datagrams (RFC 9297) when callers have such proxies; large.
+  - Source: [decision 0038](decisions/0038-http3-over-socks5.md).
+- **SOCKS5 proxies that accept UDP ASSOCIATE but relay nothing** (API).
+  - Differs: a refusal of UDP ASSOCIATE keeps a proxy's requests on TCP
+    from then on; a proxy that accepts and drops the datagrams (common
+    among residential providers) is not marked: each origin's QUIC
+    attempts fail until `Fallback.BrokenAfter` marks the origin broken,
+    each request waiting at most the race delay with fast fallback.
+  - Shows: `Config.HTTP3OverSOCKS5` with such a proxy.
+  - Detection: none. User-visible: a race delay per request until each
+    origin is marked.
+  - Close: a per-proxy mark after handshakes that got no answer through
+    it; small.
+  - Source: [decision 0038](decisions/0038-http3-over-socks5.md).
 
 ## Options that do not exist
 
@@ -1467,9 +1492,10 @@ it.
   failed on a reused HTTP/1.1 connection, and an idempotent one whose
   HTTP/3 connection ended before its response go again on another
   connection, up to 5 attempts in all.
-- **Connection limits and coalescing**: the per-host HTTP/1.1 cap and
-  HTTP/2 coalescing come from the profile (`connections`). Changing them
-  means editing the profile, which departs from the browser.
+- **The connection limits beyond HTTP/1.1's per host**: one HTTP/2 and
+  one HTTP/3 connection per host, and no total limit, are fixed;
+  `Config.MaxConnsPerHost` changes only the per-host HTTP/1.1 limit, and
+  `Config.DisableCoalescing` turns coalescing off.
 - **Idle timeouts**: the 90 s HTTP/1.1 idle timeout, and the lack of one
   for HTTP/2, are fixed. `Transport.CloseIdleConnections` is the only
   control.
@@ -1488,7 +1514,8 @@ it.
 - **Firefox's extra TCP connections**: when a QUIC connection dies with
   requests pending, a Firefox profile opens one TCP connection per pending
   request and declines all but the first. A Firefox profile's coalescing
-  likewise opens a connection and then declines it.
+  likewise opens a connection and then declines it
+  (`Config.DisableCoalescing` turns coalescing off as a whole).
 
 ## Tooling and tests
 

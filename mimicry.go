@@ -69,8 +69,9 @@ type Config struct {
 	// Resolver looks host names up, for dialing when DialContext is nil and,
 	// for profiles that coalesce on lookup (Chrome, Safari), to reuse
 	// another host's HTTP/2 connection to the same address when its
-	// certificate covers the host. Nil uses net.DefaultResolver. Set it with
-	// DialContext when DialContext maps hosts to addresses DNS does not give.
+	// certificate covers the host (unless DisableCoalescing). Nil uses
+	// net.DefaultResolver. Set it with DialContext when DialContext maps
+	// hosts to addresses DNS does not give.
 	Resolver *net.Resolver
 	// Proxy returns the proxy for a request, as http.Transport's does; nil,
 	// or a nil URL, connects directly. Schemes: "http" (CONNECT for https,
@@ -101,8 +102,9 @@ type Config struct {
 	Cookies *cookies.Jar
 	// DisableHTTP3 keeps every request on TCP. Otherwise a profile with an
 	// http3 section moves to HTTP/3 as its browser does (Alt-Svc, profile
-	// http3.discovery), never through a proxy, falling back to TCP when QUIC
-	// fails. QUIC dials the Resolver's address directly, not DialContext.
+	// http3.discovery), never through a proxy unless HTTP3OverSOCKS5 says
+	// so, falling back to TCP when QUIC fails. QUIC dials the Resolver's
+	// address directly, not DialContext.
 	DisableHTTP3 bool
 	// AltSvc, when set, keeps the HTTP/3 alternatives servers advertise
 	// (Alt-Svc), shared with every Transport given the same cache, as a
@@ -127,6 +129,40 @@ type Config struct {
 	// carries on as the browser's, and a connection whose server answers
 	// goes exactly as with this set (decision 0036).
 	BrowserQUICFallback bool
+	// DisableCoalescing gives every host its own HTTP/2 connection. By
+	// default a request goes, as the profile's browser sends it, on another
+	// host's connection whose certificate covers it at the same address
+	// (profile connections.coalesce: Chrome and Safari after a DNS lookup;
+	// Firefox after opening a connection of its own and closing it with a
+	// GOAWAY). One connection for a site's hosts shares one TCP congestion
+	// window: faster on a clean network, where it saves the other hosts'
+	// handshakes, much slower on a lossy one (warm page loads about twice
+	// as slow at 1% loss). With it set, a server hosting several of a
+	// site's hosts sees one connection per host where the browser opens
+	// one (decision 0037). Requests through a proxy never coalesce.
+	DisableCoalescing bool
+	// MaxConnsPerHost is the most HTTP/1.1 connections open at once to one
+	// host (and port, partition and proxy); requests beyond it wait, first
+	// come, first served. Zero means the profile's connections.http1PerHost,
+	// 6 in every browser. A browser never has more than 6 open to one host:
+	// a server that counts a client's concurrent HTTP/1.1 connections sees
+	// a value above 6 as not a browser. HTTP/2 and HTTP/3 use one
+	// connection per host whatever it says. Negative is an error.
+	MaxConnsPerHost int
+	// HTTP3OverSOCKS5 lets requests through a socks5 or socks5h proxy use
+	// HTTP/3 as they would without it (Alt-Svc, 0-RTT, fallback to TCP),
+	// over a SOCKS5 UDP association with the proxy (RFC 1928, section 7):
+	// one per QUIC connection, naming the host for the proxy to resolve,
+	// as its TCP connections do, with the URL's credentials. The server
+	// receives the same datagrams as without the proxy. A proxy that
+	// refuses UDP ASSOCIATE is asked once: its requests stay on TCP from
+	// then on. One that drops an association (closes its control
+	// connection) ends that QUIC connection, and its requests go on TCP
+	// as on any failed connection. Browsers never use HTTP/3 through a
+	// proxy, so by default, and through an http proxy always, requests
+	// stay on TCP. Either way no datagram goes to the server directly
+	// (decision 0038).
+	HTTP3OverSOCKS5 bool
 	// Pins pins hosts to public keys: a request to a covered host goes only
 	// on a connection whose verified chain matches one of the Pin's values,
 	// else it fails with a *PinError before anything is sent. NewTransport
@@ -224,6 +260,9 @@ func NewTransport(cfg Config) (*Transport, error) {
 			Proxy:            cfg.Proxy,
 			DisableHTTP3:     cfg.DisableHTTP3,
 			BrowserFallback:  cfg.BrowserQUICFallback,
+			Coalesce:         !cfg.DisableCoalescing,
+			MaxConnsPerHost:  cfg.MaxConnsPerHost,
+			HTTP3OverSOCKS5:  cfg.HTTP3OverSOCKS5,
 			VerifyConnection: t.verifier(cfg.VerifyConnection),
 		}
 		if cfg.AltSvc != nil {

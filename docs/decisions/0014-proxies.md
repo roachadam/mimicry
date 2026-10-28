@@ -120,6 +120,14 @@ putting `Proxy-Authorization` on requests inside its tunnels, to the
 server, once it has answered a challenge to a plain-HTTP request; that is
 not modelled (backlog, Proxies).
 
+## Amendment 2026-10-28: HTTP/3 through SOCKS5
+
+Requests through a proxy still stay on TCP by default, as in the browser.
+`Config.HTTP3OverSOCKS5` carries HTTP/3 through `socks5` and `socks5h`
+proxies over UDP associations, naming the host for the proxy to resolve
+as the TCP path does, and no datagram ever goes around a proxy
+([0038](0038-http3-over-socks5.md)).
+
 ## Revisit when
 
 Safari 26's credential flow is measured, a profile changes how Safari gets

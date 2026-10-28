@@ -192,7 +192,7 @@ func (e *Engine) h3Now(r route) (quic, decided bool) {
 // the origin's Alt-Svc, or before one is known its own port (h3=":port"
 // on the same port, as servers usually advertise it).
 func (e *Engine) altPort(r route) string {
-	if port, ok := e.quic.alts.Get(r.key); ok {
+	if port, ok := e.quic.alts.Get(r.alt); ok {
 		return strconv.Itoa(int(port))
 	}
 

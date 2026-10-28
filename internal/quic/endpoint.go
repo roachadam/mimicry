@@ -268,6 +268,20 @@ func (e *Endpoint) listen() {
 		}
 		e.handleDatagram(m)
 	})
+	if e.sole {
+		// mimicry: the socket failed under the connection (a SOCKS5
+		// association whose proxy dropped it, say), not because the
+		// endpoint closed it: the connection ends now, as its path is
+		// gone, instead of idling out.
+		e.connsMu.Lock()
+		closing := e.closing
+		e.connsMu.Unlock()
+		if c := e.soleConn.Load(); c != nil && !closing {
+			c.sendMsg(func(now time.Time, c *Conn) {
+				c.abortImmediately(now, fmt.Errorf("quic: the connection's socket failed: %w", err))
+			})
+		}
+	}
 	e.acceptQueue.close(fmt.Errorf("packet connection closed: %v", err))
 }
 

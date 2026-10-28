@@ -111,3 +111,11 @@ user notices and is visible only where QUIC fails; the browser's timing
 stays available as an option (`Config.BrowserQUICFallback`). The test that
 it is visible only there is an e2e replay in both modes, with every
 difference listed (`h3EdgeFastGaps`).
+
+The user's rule, recorded in [0037](0037-coalescing-opt-out.md)
+(2026-10-28): when a browser behaviour costs significant performance and
+is a low-ish detection risk, the default is the faster setting, documented
+plainly, with a `Config` option for the browser's. HTTP/2 coalescing was
+weighed against it and kept: it is faster on clean networks and slower
+only under loss, so the browser's stays the default and
+`Config.DisableCoalescing` turns it off.

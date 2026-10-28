@@ -8,12 +8,14 @@ import (
 	"math/rand/v2"
 	"net"
 	"net/http"
+	"net/netip"
 	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/roachadam/mimicry/internal/altsvc"
+	"github.com/roachadam/mimicry/internal/dial"
 	"github.com/roachadam/mimicry/internal/fingerprint"
 	"github.com/roachadam/mimicry/internal/h2"
 	"github.com/roachadam/mimicry/internal/h3"
@@ -187,14 +189,19 @@ func (e *Engine) h3Route(req *http.Request, r route) bool {
 }
 
 // h3Refusal says why req on r never uses HTTP/3, or is nil: it must be
-// https and direct (browsers never use HTTP/3 through a proxy), and the
-// profile must have measured its kind over HTTP/3.
+// https; direct (browsers never use HTTP/3 through a proxy) or, with
+// HTTP3OverSOCKS5, through a SOCKS5 proxy that has not refused a UDP
+// association; and the profile must have measured its kind over HTTP/3.
 func (e *Engine) h3Refusal(req *http.Request, r route) error {
 	switch {
 	case req.URL.Scheme != "https":
 		return errors.New("mimicry: plain http:// never goes over HTTP/3")
-	case r.proxy != nil:
-		return errors.New("mimicry: requests through a proxy never go over HTTP/3")
+	case r.proxy != nil && !e.h3SOCKS5:
+		return errors.New("mimicry: requests through a proxy never go over HTTP/3 (Config.HTTP3OverSOCKS5 allows SOCKS5 proxies)")
+	case r.proxy != nil && r.proxy.Scheme == dial.SchemeHTTP:
+		return errors.New("mimicry: requests through an HTTP proxy never go over HTTP/3")
+	case r.proxy != nil && e.dialer.UDPRefused(r.proxy):
+		return errors.New("mimicry: the SOCKS5 proxy refused a UDP association: its requests stay on TCP")
 	case !h3.Measured(e.profile, headerorder.PlanFrom(req.Context())):
 		return fmt.Errorf("%w: profile %s has no HTTP/3 list for this request, which goes on TCP", headerorder.ErrNotMeasured, e.profile.Name)
 	}
@@ -221,7 +228,7 @@ func (e *Engine) alternative(o *origin, r route) (uint16, bool) {
 		return 0, false
 	}
 
-	return e.quic.alts.Get(r.key)
+	return e.quic.alts.Get(r.alt)
 }
 
 // learnAltSvc records resp's Alt-Svc and, where the profile switches on
@@ -241,7 +248,7 @@ func (e *Engine) learnAltSvc(req *http.Request, r route, resp *http.Response) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	if q.alts.Learn(r.key, r.host, values) {
+	if q.alts.Learn(r.alt, r.host, values) {
 		o := e.originState(r)
 
 		o.known = true
@@ -1125,9 +1132,21 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 }
 
 // dialQUIC opens a UDP socket to r's origin's alternative at port and
-// dials QUIC on it with hello, a fresh spec of it per connection.
+// dials QUIC on it with hello, a fresh spec of it per connection. Through
+// a proxy (a SOCKS5 one: h3Refusal) the socket is a UDP association with
+// it, a new one for each socket: no datagram goes to the origin directly.
 func (e *Engine) dialQUIC(ctx context.Context, r route, port uint16, hello fingerprint.Hello, cfg handshake.Config, dc quic.DialConfig) (*quic.Conn, error) {
-	pc, peer, err := e.dialer.ListenUDP(ctx, r.host, port)
+	listen := func(ctx context.Context, host string, port uint16) (net.PacketConn, netip.AddrPort, error) {
+		if r.proxy != nil {
+			// Always the host, for the proxy to resolve: peer is a
+			// stand-in when the host is a name.
+			return e.dialer.ListenUDPVia(ctx, r.proxy, r.host, port)
+		}
+
+		return e.dialer.ListenUDP(ctx, host, port)
+	}
+
+	pc, peer, err := listen(ctx, r.host, port)
 	if err != nil {
 		return nil, err
 	}
@@ -1142,7 +1161,7 @@ func (e *Engine) dialQUIC(ctx context.Context, r route, port uint16, hello finge
 	dc.TLS = handshake.QUICConfig(cfg)
 	dc.NewPath = func(ctx context.Context) (net.PacketConn, error) {
 		// The same peer from a new local port (Chrome's migration).
-		pc, _, err := e.dialer.ListenUDP(ctx, peer.Addr().String(), peer.Port())
+		pc, _, err := listen(ctx, peer.Addr().String(), peer.Port())
 		return pc, err
 	}
 

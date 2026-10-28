@@ -1,7 +1,8 @@
 // Package dial is the single path from an address to a connected socket,
 // directly or through an HTTP or SOCKS5 proxy, and to a UDP socket for
-// QUIC. Every step honours the context and its deadline (decision 0010);
-// no other package opens connections.
+// QUIC, directly or through a SOCKS5 UDP association. Every step honours
+// the context and its deadline (decision 0010); no other package opens
+// connections.
 package dial
 
 import (
@@ -46,6 +47,9 @@ type Dialer struct {
 	// asked holds the proxies (by URL) that have asked for credentials:
 	// browsers send them unasked from then on.
 	asked sync.Map
+	// udpRefused holds the SOCKS5 proxies (by URL) that refused a UDP
+	// association (ListenUDPVia).
+	udpRefused sync.Map
 }
 
 // Dial connects to addr ("host:port"). It honours ctx's cancellation and
@@ -231,10 +235,26 @@ func (d *Dialer) DialVia(ctx context.Context, p *url.URL, addr string) (net.Conn
 		return d.connect(ctx, conn, p, addr)
 	}
 
+	methods, err := d.socksMethods(p)
+	if err != nil {
+		_ = conn.Close()
+		return nil, err
+	}
+
+	if err := proxy.SOCKS5(ctx, conn, addr, methods, p.User); err != nil {
+		_ = conn.Close()
+		return nil, proxyError(p, err)
+	}
+
+	return conn, nil
+}
+
+// socksMethods are the SOCKS5 methods offered to p: the profile's, and
+// username and password when p's URL has credentials.
+func (d *Dialer) socksMethods(p *url.URL) ([]byte, error) {
 	methods := make([]byte, 0, len(d.Proxy.SOCKS5.Methods)+1)
 	for _, m := range d.Proxy.SOCKS5.Methods {
 		if m < 0 || m > 255 {
-			_ = conn.Close()
 			return nil, fmt.Errorf("mimicry: SOCKS5 method %d is not a byte", m)
 		}
 
@@ -247,12 +267,126 @@ func (d *Dialer) DialVia(ctx context.Context, p *url.URL, addr string) (net.Conn
 		methods = append(methods, proxy.MethodUser)
 	}
 
-	if err := proxy.SOCKS5(ctx, conn, addr, methods, p.User); err != nil {
-		_ = conn.Close()
-		return nil, proxyError(p, err)
+	return methods, nil
+}
+
+// ListenUDPVia opens a SOCKS5 UDP association through p (a socks5 or
+// socks5h proxy) for a QUIC connection to host at port, and returns it
+// with the peer address its datagrams are reported from: host's address
+// when host is an IP address, else the unspecified IPv4 address (the
+// proxy resolves the name, as for its TCP connections, and host never
+// goes to Resolver). The association authenticates as DialVia does and
+// lives as long as its control connection (proxy.Association). A failure
+// is a *ProxyError; a refusal of UDP ASSOCIATE is remembered
+// (UDPRefused). It honours ctx, bounded by Timeout; with UDPReadBuffer
+// set, the socket asks for it as ListenUDP's does.
+func (d *Dialer) ListenUDPVia(ctx context.Context, p *url.URL, host string, port uint16) (net.PacketConn, netip.AddrPort, error) {
+	if d.Timeout > 0 {
+		var cancel context.CancelFunc
+
+		ctx, cancel = context.WithTimeout(ctx, d.Timeout)
+
+		defer cancel()
 	}
 
-	return conn, nil
+	if p.Scheme != SchemeSOCKS5 && p.Scheme != SchemeSOCKS5H {
+		return nil, netip.AddrPort{}, fmt.Errorf("mimicry: a UDP association needs a SOCKS5 proxy, not %q", p.Scheme)
+	}
+
+	peer := netip.AddrPortFrom(netip.IPv4Unspecified(), port)
+	if addr, err := netip.ParseAddr(host); err == nil {
+		peer = netip.AddrPortFrom(addr.Unmap(), port)
+	}
+
+	methods, err := d.socksMethods(p)
+	if err != nil {
+		return nil, netip.AddrPort{}, err
+	}
+
+	ctrl, err := d.dial(ctx, proxyAddr(p))
+	if err != nil {
+		return nil, netip.AddrPort{}, proxyError(p, err)
+	}
+
+	a, err := d.associate(ctx, ctrl, p, methods, host, port, peer)
+	if err != nil {
+		_ = ctrl.Close()
+
+		if _, ok := errors.AsType[*proxy.RefusedError](err); ok {
+			d.udpRefused.Store(p.String(), true)
+		}
+
+		return nil, netip.AddrPort{}, proxyError(p, err)
+	}
+
+	return a, peer, nil
+}
+
+// associate sets up a UDP association to host at port on ctrl, p's
+// control connection, which the caller closes on failure.
+func (d *Dialer) associate(ctx context.Context, ctrl net.Conn, p *url.URL, methods []byte, host string, port uint16, peer netip.AddrPort) (*proxy.Association, error) {
+	relay, err := proxy.UDPAssociate(ctx, ctrl, methods, p.User)
+	if err != nil {
+		return nil, err
+	}
+
+	udp, err := d.dialRelay(ctx, ctrl, p, relay)
+	if err != nil {
+		return nil, err
+	}
+
+	a, err := proxy.NewAssociation(ctrl, udp, host, port, peer)
+	if err != nil {
+		_ = udp.Close()
+		return nil, err
+	}
+
+	return a, nil
+}
+
+// UDPRefused reports whether p has refused a UDP association: its
+// requests stay on TCP.
+func (d *Dialer) UDPRefused(p *url.URL) bool {
+	_, ok := d.udpRefused.Load(p.String())
+	return ok
+}
+
+// dialRelay opens a UDP socket connected to relay, the address p's answer
+// to UDP ASSOCIATE on ctrl gave: an unspecified IP there is the proxy's,
+// the address ctrl reached.
+func (d *Dialer) dialRelay(ctx context.Context, ctrl net.Conn, p *url.URL, relay string) (*net.UDPConn, error) {
+	relayHost, relayPort, err := net.SplitHostPort(relay)
+	if err != nil {
+		return nil, err
+	}
+
+	if ip, err := netip.ParseAddr(relayHost); err == nil && ip.IsUnspecified() {
+		relayHost = p.Hostname()
+		if ta, ok := ctrl.RemoteAddr().(*net.TCPAddr); ok {
+			relayHost = ta.AddrPort().Addr().Unmap().String()
+		}
+	}
+
+	nd := net.Dialer{
+		Resolver: d.Resolver,
+	}
+
+	conn, err := nd.DialContext(ctx, "udp", net.JoinHostPort(relayHost, relayPort))
+	if err != nil {
+		return nil, fmt.Errorf("SOCKS5 UDP relay %s: %w", relay, err)
+	}
+
+	udp, ok := conn.(*net.UDPConn)
+	if !ok {
+		_ = conn.Close()
+		return nil, fmt.Errorf("SOCKS5 UDP relay %s: not a UDP socket", relay)
+	}
+
+	if d.UDPReadBuffer > 0 {
+		_ = udp.SetReadBuffer(d.UDPReadBuffer)
+	}
+
+	return udp, nil
 }
 
 // connect opens a CONNECT tunnel on conn, closing it on failure, giving

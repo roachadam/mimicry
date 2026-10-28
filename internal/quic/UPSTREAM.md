@@ -366,6 +366,20 @@ the mechanical import rewrites.
     `TestQUICInterop`): on macOS, where the gate runs, this path is not
     built.
 
+14. **A client's socket failing ends its connection** (`endpoint.go`'s
+    `listen`). Upstream's listen loop returns on a read error and leaves
+    its connections deaf until they idle out. A `Dial` endpoint
+    (`sole`) whose socket fails while it is not closing it ends the
+    connection at once (`abortImmediately`: no CONNECTION_CLOSE, the path
+    is gone), with an error wrapping the read's. Needed for HTTP/3
+    through a SOCKS5 proxy (decision 0038): the association's socket
+    fails when the proxy closes its control connection, and the engine
+    must see the connection end to go on TCP. The socket can be any
+    `net.PacketConn` already (upstream's `netPacketConn`, used for
+    anything but a `*net.UDPConn`: no control messages, one datagram per
+    read), so the association needs no other change here. Covered by
+    `TestHTTP3ThroughSOCKS5`'s teardown case, which fails without it.
+
 ## Tests
 
 The tests are upstream's own, kept as the proof that the copy and the TLS

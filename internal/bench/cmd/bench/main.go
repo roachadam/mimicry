@@ -8,6 +8,7 @@
 //	bench render [flags]   rewrite a report's Markdown from its JSON, with new micro results
 //	bench wait             wait until the servers and the proxy answer
 //	bench worker           one measurement with one client, spec on stdin
+//	bench offloads         a server's or the proxy's sidecar: their segmentation offloads, off under netem
 //
 // Every measurement runs in a worker process of its own, so one client's
 // heap, goroutines and GC never mix with another's.
@@ -38,6 +39,8 @@ func main() {
 		err = worker(os.Stdin, os.Stdout)
 	case "wait":
 		err = waitReady(time.Minute)
+	case "offloads":
+		err = offloadsAgent()
 	default:
 		usage()
 	}
@@ -49,7 +52,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: bench run [flags] | bench render [flags] | bench wait | bench worker")
+	fmt.Fprintln(os.Stderr, "usage: bench run [flags] | bench render [flags] | bench wait | bench worker | bench offloads")
 	os.Exit(2)
 }
 
