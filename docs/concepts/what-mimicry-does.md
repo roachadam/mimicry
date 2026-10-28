@@ -35,8 +35,8 @@ connection, no DNS lookup, no cookie touched, no preflight cached
 | [Connection reuse and limits](#connection-reuse-and-limits) | fewer connections, queued requests | `Transport.CloseIdleConnections`; no other option |
 | [Retries on another connection](#retries-on-another-connection) | the same request again | none |
 | [HTTP/2 coalescing](#http2-coalescing) | a DNS lookup; Firefox: a connection opened and declined | none (`Config.Resolver` answers the lookup) |
-| [HTTP/3](#http3-alt-svc-and-the-switch) | a QUIC connection beside TCP, GOAWAY on TCP (Firefox) | `Config.DisableHTTP3` |
-| [QUIC failure and TCP fallback](#when-quic-fails-tcp-racing-and-fallback) | TCP connections racing QUIC | `Config.DisableHTTP3` |
+| [HTTP/3](#http3-alt-svc-and-the-switch) | a QUIC connection beside TCP, GOAWAY on TCP (Firefox); with a shared or saved Alt-Svc cache, QUIC from a new Transport's first request | `Config.DisableHTTP3`; `Config.AltSvc` |
+| [QUIC failure and TCP fallback](#when-quic-fails-tcp-racing-and-fallback) | TCP connections racing QUIC; by default, sooner than the browser's when QUIC fails | `Config.DisableHTTP3`; `Config.BrowserQUICFallback` |
 | [Keep-alive and housekeeping](#keep-alive-pings-and-housekeeping-frames) | PING, WINDOW_UPDATE, ACK frames | none |
 | [TLS resumption and 0-RTT](#tls-session-resumption-and-0-rtt) | none (a different ClientHello); a request answered `425 Too Early` sent again | none; `Config.DisableHTTP3` stops 0-RTT |
 | [WebSockets](#websockets) | only when you call `Transport.DialWebSocket` | don't call it |
@@ -232,7 +232,10 @@ lookup; a failed lookup only means a new connection.
 **What happens.** HTTP/3 is on by default for every built-in profile.
 mimicry learns that an origin speaks HTTP/3 only from an `Alt-Svc: h3=…`
 header on that origin's own responses (same host; the port may differ),
-kept until its `ma` expires. Requests sent through a proxy never use
+kept until its `ma` expires, by default per Transport. With
+`Config.AltSvc`, Transports share one `AltSvcCache`, which can be saved
+and loaded, as a browser shares its alternatives between tabs and keeps
+them across restarts. Requests sent through a proxy never use
 HTTP/3. Then each browser moves the origin as it does:
 - **Chrome:** the next request still goes on HTTP/2 and starts a QUIC
   connection beside it; requests after that use HTTP/3 once it is up. The
@@ -250,9 +253,13 @@ QUIC goes over UDP to the address `Config.Resolver` gives for the host.
 **Why.** A browser that has seen `Alt-Svc` moves to HTTP/3, and a site
 behind a CDN sees which protocol its visitors use.
 
-**To turn it off.** `Config.DisableHTTP3` keeps every request on TCP. No
-option changes the discovery rule, or reads, seeds or clears the
-`Alt-Svc` cache.
+**To turn it off or change it.** `Config.DisableHTTP3` keeps every
+request on TCP. `Config.AltSvc` shares, saves, loads and clears what
+Transports learnt: a new Transport whose cache knows an origin starts it
+as the browser starts an origin whose alternative it knows (Chrome and
+Safari: QUIC first, TCP after the race delay; Firefox: TCP, validating
+QUIC beside it). See [HTTP/3](http3.md#alternatives-a-transport-did-not-learn-itself).
+No option changes the discovery rule or forgets broken origins.
 
 ## When QUIC fails: TCP racing and fallback
 
@@ -274,11 +281,23 @@ on TCP for the Transport's life. A live Chrome connection whose path stops
 answering moves to a new UDP port. See
 [HTTP/3, when QUIC fails](http3.md#when-quic-fails).
 
+By default two waits are shorter than the browser's: a request on a
+resumed (0-RTT) connection whose server has not answered goes on TCP
+after the race delay (Chrome 305 ms; Firefox 300 ms, its first probe
+timeout) instead of when the attempt gives up (Chrome 4 s, Firefox 5 s),
+and a request whose attempt failed outright goes on TCP at once instead of
+at the race delay. A connection whose server answers is unaffected
+([fast fallback](http3.md#fast-fallback-the-default),
+[decision 0036](../decisions/0036-fast-quic-fallback.md)).
+
 **Why.** A request must not stall behind a QUIC path that a firewall
 blocks, and each browser's way out is visible as its connection pattern.
+The shorter waits only apply where QUIC is failing, a path anti-bot
+systems are not seen to time.
 
-**To turn it off.** `Config.DisableHTTP3`. There is no option for the race
-itself.
+**To turn it off or change it.** `Config.DisableHTTP3`.
+`Config.BrowserQUICFallback` keeps the browser's waits. There is no option
+for the race itself.
 
 ## Keep-alive PINGs and housekeeping frames
 

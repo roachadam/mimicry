@@ -338,6 +338,35 @@ These matter most under decision 0029:
   - Source: [concepts/http3.md, Not measured](concepts/http3.md#not-measured);
     [http3 report](../internal/harness/reports/http3-2026-10-25.md);
     [decision 0026](decisions/0026-http3-capture.md).
+- **A returning browser's first request** (all; Firefox most).
+  - Differs: with `Config.AltSvc`, a new Transport that finds an origin's
+    alternative starts it as the profile starts any origin whose
+    alternative it knows (Chrome and Safari: QUIC first, TCP after the
+    race delay; Firefox: TCP, validating QUIC beside it). No browser was
+    captured restarting with a saved alternative. Firefox's source (a
+    lead) marks saved alternatives validated and sends the first request
+    on HTTP/3 directly; Chrome's delays its TCP job by 1.5 × a saved
+    smoothed RTT ([decision 0028](decisions/0028-quic-failure-model.md)).
+    Broken alternatives (Chrome saves them too) are not shared or saved.
+  - Shows: a returning visit through a shared or loaded cache.
+  - Detection: low; Firefox's first request goes on TCP where the browser
+    may use HTTP/3. User-visible: Firefox's first page loads on TCP.
+  - Close: captures of each browser restarted with a saved alternative
+    (a profile directory kept between two runs); medium.
+  - Source: [concepts/http3.md](concepts/http3.md#alternatives-a-transport-did-not-learn-itself).
+- **Dead-path waits** (Firefox, Safari).
+  - Differs: nothing; listed as a stall. A request pending on a live QUIC
+    connection whose path stops answering waits as the browser's does:
+    Firefox until its 30 s idle timeout, Safari 12 s, also with the fast
+    fallback default ([decision 0036](decisions/0036-fast-quic-fallback.md)),
+    which does not shorten them: the request was sent, and sending it on
+    TCP early would duplicate it where the path recovers.
+  - Shows: a network that drops UDP mid-connection.
+  - Detection: none. User-visible: a stall of up to 30 s.
+  - Close: a dead-path signal for Firefox (no acknowledgement for N
+    PTOs, as Chrome's `pathDegrading`) and a rule for when to resend;
+    medium.
+  - Source: [concepts/http3.md, fast fallback](concepts/http3.md#fast-fallback-the-default).
 - **Safari over HTTP/3** (Safari 27, 26).
   - Differs: only Safari's `fetch()` was measured over HTTP/3, so its
     other kinds (navigations included) stay on TCP where Safari would use
@@ -1231,7 +1260,9 @@ These matter most under decision 0029:
     reached from two sites gets two connections. mimicry's pool key has no
     top-level site: one connection to a CDN or payment host can carry
     requests made from two sites. A cross-site WebSocket over HTTP/2 can
-    likewise share the host's own first-party connection.
+    likewise share the host's own first-party connection, and an
+    `AltSvcCache` shared by several Transports (`Config.AltSvc`) gives
+    each the alternatives learnt for the others' sites.
   - Shows: browsing unrelated sites that share third-party hosts through
     one Transport.
   - Detection: medium; a host serving both sites can link the two visits
@@ -1443,8 +1474,10 @@ it.
   for HTTP/2, are fixed. `Transport.CloseIdleConnections` is the only
   control.
 - **Chrome's idle PING and credit timer**: fixed by the profile.
-- **The Alt-Svc cache and broken origins**: they cannot be read, seeded
-  or cleared. `Config.DisableHTTP3` turns HTTP/3 off as a whole.
+- **Broken origins**: an origin whose QUIC failed stays on TCP for the
+  Transport's life and cannot be read or reset, other than with a new
+  Transport; `Config.AltSvc` shares the alternatives, not the failures.
+  `Config.DisableHTTP3` turns HTTP/3 off as a whole.
 - **0-RTT while keeping HTTP/3**: no switch. A request the profile's
   browser holds (any method but GET, HEAD and OPTIONS) waits for the
   handshake, and a `425 Too Early` is retried as the browser does; see

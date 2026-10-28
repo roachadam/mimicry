@@ -236,7 +236,12 @@ Example: `ExampleTransport_DialWebSocket`; see
 [docs/concepts/websockets.md](docs/concepts/websockets.md).
 
 **HTTP/3.** On by default: once a site advertises it (`Alt-Svc`), requests
-move to HTTP/3 when and how the profile's browser moves them. On networks
+move to HTTP/3 when and how the profile's browser moves them. Share one
+`mimicry.NewAltSvcCache()` between Transports through `Config.AltSvc`, and
+save it with `WriteJSON`, so a returning Transport starts a known site on
+HTTP/3 as a restarted browser does (`ExampleAltSvcCache`). Where QUIC
+fails, requests fall back to TCP sooner than the browser's 4–5 s holds;
+`Config.BrowserQUICFallback` keeps the browser's timing. On networks
 that block UDP, `mimicry.Config{Profile: profiles.Firefox(), DisableHTTP3: true}`
 keeps everything on TCP. Example: `ExampleConfig_disableHTTP3`; see
 [docs/concepts/http3.md](docs/concepts/http3.md).

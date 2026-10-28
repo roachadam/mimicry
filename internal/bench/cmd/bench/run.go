@@ -85,7 +85,7 @@ func run(args []string) error {
 	clientList := fs.String("clients", "", "clients to run (comma-separated; default all)")
 	serverList := fs.String("servers", "nginx,go", "servers for layers 3 and 4")
 	reduced := fs.String("reduced", "go", "servers that get the reduced load matrix (bodies 1KB and 100KB, concurrency 1 and 64)")
-	protoList := fs.String("protos", "h1,h2,h3", "protocols for layer 3")
+	protoList := fs.String("protos", "h1,h2,h3", "protocols for layers 3 and 5")
 	concList := fs.String("conc", "1,16,64,256", "concurrency levels")
 	idleN := fs.Int("idle-n", 50, "clients per idle-memory measurement")
 	reps := fs.Int("reps", 5, "page loads per setup and network condition")
@@ -381,11 +381,11 @@ func (rn *runner) pages() ([]pagePoint, string) {
 			}
 		}
 
-		out = append(out, rn.pageSet(cond, "", target.Protos)...)
+		out = append(out, rn.pageSet(cond, "", rn.pageProtos(target.Protos))...)
 
 		if cond.Name == proxyCondition || (shaper == nil && cond.Name == "none") {
 			for _, k := range target.ProxyKinds {
-				out = append(out, rn.pageSet(cond, k, []target.Proto{target.H1, target.H2})...)
+				out = append(out, rn.pageSet(cond, k, rn.pageProtos([]target.Proto{target.H1, target.H2}))...)
 			}
 		}
 	}
@@ -393,6 +393,21 @@ func (rn *runner) pages() ([]pagePoint, string) {
 	return out, note
 }
 
+// pageProtos is protos less those -protos leaves out.
+func (rn *runner) pageProtos(protos []target.Proto) []target.Proto {
+	var out []target.Proto
+
+	for _, p := range protos {
+		if slices.Contains(rn.st.Protos, string(p)) {
+			out = append(out, p)
+		}
+	}
+
+	return out
+}
+
+// pageSet loads the page for every client over each of protos, and again
+// as a returning client where one has that mode, over HTTP/3 directly.
 func (rn *runner) pageSet(cond condition, proxy target.ProxyKind, protos []target.Proto) []pagePoint {
 	var out []pagePoint
 
@@ -402,44 +417,64 @@ func (rn *runner) pageSet(cond condition, proxy target.ProxyKind, protos []targe
 				return out
 			}
 
-			j := job{
-				Kind:        kindPage,
-				Client:      f.Name,
-				Server:      pageServer,
-				Proto:       p,
-				Proxy:       proxy,
-				Reps:        rn.st.Reps,
-				ProfileDir:  rn.st.ProfileDir,
-				ProfileName: fmt.Sprintf("page-%s-%s-%s", cond.Name, p, proxy),
+			out = append(out, rn.pagePoint(cond, proxy, p, f, false))
+
+			if f.Returning && p == target.H3 && proxy == "" {
+				out = append(out, rn.pagePoint(cond, proxy, p, f, true))
 			}
-			o := rn.do(j, 10*time.Minute)
-
-			pp := pagePoint{
-				Condition: cond.Name,
-				Proto:     p,
-				Proxy:     proxy,
-				Client:    f.Name,
-				Result:    o.Page,
-				NA:        o.NA,
-				Error:     o.Error,
-			}
-
-			msg := pp.NA + pp.Error
-			if pp.Result != nil && msg == "" {
-				cold := pageStats(pp.Result.Cold)
-				warm := pageStats(pp.Result.Warm)
-
-				msg = fmt.Sprintf("cold %.0f ms (%s conns, %s), warm %.0f ms (%s conns, %s)",
-					cold.medianMs, cold.conns, cold.protos, warm.medianMs, warm.conns, warm.protos)
-			}
-
-			rn.log(j, cond.Name+": "+msg)
-
-			out = append(out, pp)
 		}
 	}
 
 	return out
+}
+
+// pagePoint runs one page-load job; a returning client's is reported as
+// "<name> (returning)".
+func (rn *runner) pagePoint(cond condition, proxy target.ProxyKind, p target.Proto, f clients.Factory, returning bool) pagePoint {
+	name, suffix := f.Name, ""
+	if returning {
+		name, suffix = f.Name+" (returning)", "-returning"
+	}
+
+	j := job{
+		Kind:        kindPage,
+		Client:      f.Name,
+		Server:      pageServer,
+		Proto:       p,
+		Proxy:       proxy,
+		Reps:        rn.st.Reps,
+		Returning:   returning,
+		ProfileDir:  rn.st.ProfileDir,
+		ProfileName: fmt.Sprintf("page-%s-%s-%s%s", cond.Name, p, proxy, suffix),
+	}
+	o := rn.do(j, 10*time.Minute)
+
+	pp := pagePoint{
+		Condition: cond.Name,
+		Proto:     p,
+		Proxy:     proxy,
+		Client:    name,
+		Result:    o.Page,
+		NA:        o.NA,
+		Error:     o.Error,
+	}
+
+	msg := pp.NA + pp.Error
+	if pp.Result != nil && msg == "" {
+		cold := pageStats(pp.Result.Cold)
+		warm := pageStats(pp.Result.Warm)
+
+		msg = fmt.Sprintf("cold %.0f ms (%s conns, %s), warm %.0f ms (%s conns, %s)",
+			cold.medianMs, cold.conns, cold.protos, warm.medianMs, warm.conns, warm.protos)
+	}
+
+	if returning {
+		msg = "returning, " + msg
+	}
+
+	rn.log(j, cond.Name+": "+msg)
+
+	return pp
 }
 
 // do runs j in a worker process of its own.

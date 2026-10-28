@@ -41,34 +41,48 @@ const h3PageHost = "www.h3-a.test"
 //
 // Times lie within the samples' range widened by edgeSlack, plus this
 // process's stalls (compareTimes). Known differences are in h3EdgeGaps and
-// h3EdgeSchedulingGaps. Subtests run in parallel (about 75 s).
+// h3EdgeSchedulingGaps. Each page runs twice: with
+// Config.BrowserQUICFallback ("browser"), where that is all that differs,
+// and with the fast default ("fast"), whose differences besides are
+// exactly h3EdgeFastGaps: requests that stop waiting on a QUIC attempt
+// the server has not answered, and the TCP connections they open. A
+// healthy page has none. Subtests run in parallel (about 75 s).
 func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		for _, sc := range []*server.Scenario{server.H3Blackhole, server.H3Broken, server.H3VN, server.H3V2, server.H3Early, server.H3TooEarly} {
-			t.Run(name+"/"+sc.Name, func(t *testing.T) {
-				t.Parallel()
+			for _, fast := range []bool{false, true} {
+				mode := "browser"
+				if fast {
+					mode = "fast"
+				}
 
-				if sc.NeedsAioquic() {
-					if err := server.AioquicAvailable(t.Context()); err != nil {
-						t.Skipf("%s needs aioquic: %v", sc.Name, err)
+				t.Run(name+"/"+sc.Name+"/"+mode, func(t *testing.T) {
+					t.Parallel()
+
+					if sc.NeedsAioquic() {
+						if err := server.AioquicAvailable(t.Context()); err != nil {
+							t.Skipf("%s needs aioquic: %v", sc.Name, err)
+						}
 					}
-				}
 
-				p, err := loadProfile(name)
-				if err != nil {
-					t.Fatal(err)
-				}
+					p, err := loadProfile(name)
+					if err != nil {
+						t.Fatal(err)
+					}
 
-				if p.HTTP3 == nil || p.QUIC == nil {
-					t.Fatal("the profile has no http3 or quic section")
-				}
+					if p.HTTP3 == nil || p.QUIC == nil {
+						t.Fatal("the profile has no http3 or quic section")
+					}
 
-				want := h3Captures(t, p, sc)
-				skip, unused := edgeGapsFor(t, capture.Source(p, sc.Name)+"/"+sc.Name)
-				got := runH3Schedule(t, p, sc, want[0], skip)
-				compareEdge(t, p, got, want, skip)
-				unused()
-			})
+					want := h3Captures(t, p, sc)
+					skip, unused := edgeGapsFor(t, capture.Source(p, sc.Name)+"/"+sc.Name, fast)
+					got := runH3Schedule(t, p, sc, want[0], skip, func(cfg *mimicry.Config) {
+						cfg.BrowserQUICFallback = !fast
+					})
+					compareEdge(t, p, got, want, skip)
+					unused()
+				})
+			}
 		}
 	}
 }
@@ -171,8 +185,45 @@ var h3EdgeSchedulingGaps = func() map[string]string {
 	return gaps
 }()
 
-// edgeGapsFor is gapsFor for h3EdgeGaps and h3EdgeSchedulingGaps.
-func edgeGapsFor(t *testing.T, name string) (skip func(key string) bool, unused func()) {
+// h3EdgeFastGaps are how the fast default differs from the browser on the
+// edge pages, keyed as h3EdgeGaps: each must appear, in fast mode only,
+// and only on a page where QUIC fails (decision 0036).
+var h3EdgeFastGaps = func() map[string]string {
+	const (
+		chromeHold = "fast fallback: Chrome holds closed1.cs in 0-RTT on its resumed attempt until it gives up (4.0 s, zeroRttHolds), then sends it on TCP; mimicry's goes on TCP once the server has not answered for the race delay (305 ms)"
+		chromeNext = "fast fallback: closed2.cs, made while Chrome's 0-RTT attempt is unanswered, waits for it with no TCP and triggers the fresh attempt and TCP after the give-up; mimicry's goes on the TCP connection closed1.cs opened, and the fresh attempt follows the next request after the give-up, closed3.cs"
+		firefox    = "fast fallback: Firefox holds closed2.cs on its unanswered resumed attempt until it gives up (5 s, hold); mimicry's goes on TCP once the server has not answered for its first probe timeout (300 ms), opening the TCP connection closed3.cs would have"
+		safari     = "fast fallback: Safari's request waits out its 100 ms race delay after Version Negotiation ended its attempt; mimicry's goes on TCP at once"
+	)
+
+	gaps := map[string]string{
+		"chrome-155-macos/h3-broken edge request /h3/closed1.cs delay ms":            chromeHold,
+		"chrome-155-macos/h3-broken edge TCP www.h3-b.test #2 trigger":               chromeHold,
+		"chrome-155-macos/h3-broken edge TCP www.h3-b.test #2 after its trigger ms":  chromeHold,
+		"chrome-155-macos/h3-broken edge TCP www.h3-b.test #2 after QUIC #2 ms":      chromeHold,
+		"chrome-155-macos/h3-broken edge TCP www.h3-b.test #2 after QUIC #3 ms":      chromeHold,
+		"chrome-155-macos/h3-broken edge request /h3/closed2.cs delay ms":            chromeNext,
+		"chrome-155-macos/h3-broken edge QUIC www.h3-b.test #3 trigger":              chromeNext,
+		"chrome-155-macos/h3-broken edge QUIC www.h3-b.test #3 after its trigger ms": chromeNext,
+		"firefox-158-macos/h3-broken edge request /h3/closed2.cs delay ms":           firefox,
+		"firefox-158-macos/h3-broken edge TCP www.h3-b.test #3 trigger":              firefox,
+	}
+	for _, name := range []string{"safari-26-macos", "safari-27-macos"} {
+		for _, k := range []string{
+			"edge request /h3/vn-3.so delay ms",
+			"edge TCP www.h3-a.test #2 after its trigger ms",
+			"edge TCP www.h3-a.test #2 after QUIC #1 ms",
+		} {
+			gaps[name+"/h3-vn "+k] = safari
+		}
+	}
+
+	return gaps
+}()
+
+// edgeGapsFor is gapsFor for h3EdgeGaps and h3EdgeSchedulingGaps, and with
+// fast for h3EdgeFastGaps.
+func edgeGapsFor(t *testing.T, name string, fast bool) (skip func(key string) bool, unused func()) {
 	t.Helper()
 
 	var mu sync.Mutex
@@ -182,6 +233,10 @@ func edgeGapsFor(t *testing.T, name string) (skip func(key string) bool, unused 
 	skip = func(key string) bool {
 		k := name + " " + key
 		why, ok := h3EdgeGaps[k]
+
+		if !ok && fast {
+			why, ok = h3EdgeFastGaps[k]
+		}
 
 		if !ok {
 			why, ok = h3EdgeSchedulingGaps[k]
@@ -200,9 +255,16 @@ func edgeGapsFor(t *testing.T, name string) (skip func(key string) bool, unused 
 		return true
 	}
 	unused = func() {
-		for k := range h3EdgeGaps {
-			if strings.HasPrefix(k, name+" ") && !seen[k] {
-				t.Errorf("listed gap %q no longer appears", k)
+		required := []map[string]string{h3EdgeGaps}
+		if fast {
+			required = append(required, h3EdgeFastGaps)
+		}
+
+		for _, gaps := range required {
+			for k := range gaps {
+				if strings.HasPrefix(k, name+" ") && !seen[k] {
+					t.Errorf("listed gap %q no longer appears", k)
+				}
 			}
 		}
 	}
@@ -210,16 +272,17 @@ func edgeGapsFor(t *testing.T, name string) (skip func(key string) bool, unused 
 	return skip, unused
 }
 
-// runH3Schedule walks sc's page through mimicry as p: the navigation to /,
-// each step after its pause (NoWait steps on time beside the others), then
-// fetch('/done') where browser did. Unanswered requests are cancelled; an
-// ErrNotMeasured step fails unless skip pins it.
-func runH3Schedule(t *testing.T, p *profile.Profile, sc *server.Scenario, browser *capture.Page, skip func(string) bool) *capture.Page {
+// runH3Schedule walks sc's page through mimicry as p, its Config changed
+// by config: the navigation to /, each step after its pause (NoWait steps
+// on time beside the others), then fetch('/done') where browser did.
+// Unanswered requests are cancelled; an ErrNotMeasured step fails unless
+// skip pins it.
+func runH3Schedule(t *testing.T, p *profile.Profile, sc *server.Scenario, browser *capture.Page, skip func(string) bool, config func(*mimicry.Config)) *capture.Page {
 	t.Helper()
 	// Its times from a request on are net of the process's stalls.
 	stalls.watch()
 
-	s := startPage(t, p, sc)
+	s := startPageWith(t, p, sc, config)
 	if s.quicReady != nil {
 		// The browser's page loads long after aioquic is up; a datagram
 		// sent earlier would be recorded when aioquic starts reading.

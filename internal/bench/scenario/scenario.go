@@ -82,6 +82,8 @@ type Setup struct {
 	Proto  target.Proto
 	// Proxy is a proxy kind, or "".
 	Proxy target.ProxyKind
+	// Returning builds returning clients (clients.Options.Returning).
+	Returning bool
 }
 
 // String names the setup in errors.
@@ -107,8 +109,9 @@ func (s Setup) New() (clients.Client, error) {
 	}
 
 	o := clients.Options{
-		Proto:   s.Proto,
-		RootCAs: roots,
+		Proto:     s.Proto,
+		RootCAs:   roots,
+		Returning: s.Returning,
 	}
 	if s.Proxy != "" {
 		o.Proxy = target.ProxyURL(s.Proxy)

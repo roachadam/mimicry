@@ -104,6 +104,29 @@ type Config struct {
 	// http3.discovery), never through a proxy, falling back to TCP when QUIC
 	// fails. QUIC dials the Resolver's address directly, not DialContext.
 	DisableHTTP3 bool
+	// AltSvc, when set, keeps the HTTP/3 alternatives servers advertise
+	// (Alt-Svc), shared with every Transport given the same cache, as a
+	// browser's tabs share them; AltSvcCache saves and loads them, as
+	// browsers keep them across restarts. A request to an origin found in
+	// it goes as the profile's browser sends one to an origin whose
+	// alternative it knows (profile http3.discovery): Chrome and Safari
+	// start on QUIC, racing TCP after their delay (300 and 100 ms) as
+	// for any new connection; Firefox validates the alternative in the
+	// background beside the request, which goes on TCP, and moves the
+	// requests after to HTTP/3 once it is up. Nil keeps them per
+	// Transport, learnt from its own responses.
+	AltSvc *AltSvcCache
+	// BrowserQUICFallback keeps the browser's timing where QUIC fails,
+	// stalls included: Chrome holds every request behind an unanswered
+	// 0-RTT connection until it gives up (4 s), Firefox those made while
+	// it re-validates after the server's close (5 s), and a failed attempt
+	// holds its request until the race delay. By default those requests go
+	// on TCP once the profile's race delay (Chrome 300 ms; Firefox, which
+	// has none, its 300 ms first probe timeout) has passed with no answer,
+	// and at once when the attempt failed; the QUIC connection itself
+	// carries on as the browser's, and a connection whose server answers
+	// goes exactly as with this set (decision 0036).
+	BrowserQUICFallback bool
 	// Pins pins hosts to public keys: a request to a covered host goes only
 	// on a connection whose verified chain matches one of the Pin's values,
 	// else it fails with a *PinError before anything is sent. NewTransport
@@ -192,7 +215,7 @@ func NewTransport(cfg Config) (*Transport, error) {
 		clock:            clockwork.NewRealClock(),
 	}
 	if t.engine == nil {
-		e, err := native.New(native.Config{
+		ncfg := native.Config{
 			Profile:          p,
 			RootCAs:          cfg.RootCAs,
 			DialTimeout:      cfg.DialTimeout,
@@ -200,8 +223,14 @@ func NewTransport(cfg Config) (*Transport, error) {
 			Resolver:         cfg.Resolver,
 			Proxy:            cfg.Proxy,
 			DisableHTTP3:     cfg.DisableHTTP3,
+			BrowserFallback:  cfg.BrowserQUICFallback,
 			VerifyConnection: t.verifier(cfg.VerifyConnection),
-		})
+		}
+		if cfg.AltSvc != nil {
+			ncfg.AltSvc = cfg.AltSvc.c
+		}
+
+		e, err := native.New(ncfg)
 		if err != nil {
 			return nil, err
 		}

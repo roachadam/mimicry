@@ -140,6 +140,77 @@ var interopCases = []interopCase{
 		},
 	},
 	{
+		// A browser's tabs share what servers advertised, and a browser
+		// keeps it across restarts: a new Transport sharing the cache, or
+		// loading a saved one, knows the origin's HTTP/3 before any
+		// response (?noalt: none carries Alt-Svc). Chrome and Safari send
+		// its first request over QUIC, opening no TCP connection; Firefox
+		// sends it on TCP and validates QUIC beside it, which takes the
+		// requests after.
+		name:  "shared-altsvc-cache",
+		limit: 20 * time.Second,
+		config: func(cfg *mimicry.Config) {
+			cfg.AltSvc = mimicry.NewAltSvcCache()
+		},
+		run: func(e *interopEnv) {
+			e.warm()
+
+			var saved bytes.Buffer
+			if err := e.cfg.AltSvc.WriteJSON(&saved); err != nil {
+				e.t.Fatal(err)
+			}
+
+			loaded := mimicry.NewAltSvcCache()
+			if err := loaded.ReadJSON(&saved); err != nil {
+				e.t.Fatal(err)
+			}
+
+			for what, cache := range map[string]*mimicry.AltSvcCache{
+				"sharing the cache": e.cfg.AltSvc,
+				"loading it saved":  loaded,
+			} {
+				next := e.another(cache)
+				tcp := e.tcpConns.Load()
+
+				resp, _, err := next.do(http.MethodGet, "/info?noalt", nil)
+				if err != nil {
+					e.t.Fatalf("a new Transport %s: %v", what, err)
+				}
+
+				if e.p.HTTP3.Discovery.Fallback.Mode == profile.FallbackRace {
+					next.h3(resp, "the first request of a new Transport "+what)
+
+					if n := e.tcpConns.Load() - tcp; n != 0 {
+						e.t.Errorf("a new Transport %s opened %d TCP connections", what, n)
+					}
+
+					continue
+				}
+
+				if resp.ProtoMajor == 3 {
+					e.t.Errorf("the first request of a new Transport %s went over HTTP/3; Firefox sends it on TCP", what)
+				}
+
+				for {
+					resp, _, err := next.do(http.MethodGet, "/info?noalt", nil)
+					if err != nil {
+						e.t.Fatalf("a new Transport %s: %v", what, err)
+					}
+
+					if resp.ProtoMajor == 3 {
+						break
+					}
+
+					select {
+					case <-e.ctx.Done():
+						e.t.Fatalf("a new Transport %s never moved to HTTP/3", what)
+					case <-time.After(20 * time.Millisecond):
+					}
+				}
+			}
+		},
+	},
+	{
 		name:  "download-10MB",
 		limit: 60 * time.Second,
 		run: func(e *interopEnv) {
@@ -740,6 +811,10 @@ type interopEnv struct {
 	seed uint64
 	// backends are the case's backends, server first.
 	backends []*backend
+	// cfg is the client's Config; tcpConns counts the TCP server's
+	// connections.
+	cfg      mimicry.Config
+	tcpConns *atomic.Int64
 }
 
 func newInteropEnv(t *testing.T, p *profile.Profile, pki *interopPKI, c interopCase) *interopEnv {
@@ -753,11 +828,12 @@ func newInteropEnv(t *testing.T, p *profile.Profile, pki *interopPKI, c interopC
 	_, _ = h.Write([]byte(p.Name + "/" + c.name))
 
 	e := &interopEnv{
-		t:    t,
-		ctx:  ctx,
-		p:    p,
-		pki:  pki,
-		seed: h.Sum64(),
+		t:        t,
+		ctx:      ctx,
+		p:        p,
+		pki:      pki,
+		seed:     h.Sum64(),
+		tcpConns: &atomic.Int64{},
 	}
 	opts := c.server
 
@@ -803,17 +879,8 @@ func newInteropEnv(t *testing.T, p *profile.Profile, pki *interopPKI, c interopC
 		c.config(&cfg)
 	}
 
-	tr, err := mimicry.NewTransport(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	t.Cleanup(tr.CloseIdleConnections)
-
-	e.tr = tr
-	e.client = &http.Client{
-		Transport: tr,
-	}
+	e.cfg = cfg
+	e.setTransport(cfg)
 
 	_, port, _ := net.SplitHostPort(tcp)
 
@@ -826,9 +893,36 @@ func newInteropEnv(t *testing.T, p *profile.Profile, pki *interopPKI, c interopC
 	return e
 }
 
+// setTransport gives e a new Transport built from cfg.
+func (e *interopEnv) setTransport(cfg mimicry.Config) {
+	tr, err := mimicry.NewTransport(cfg)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+
+	e.t.Cleanup(tr.CloseIdleConnections)
+
+	e.tr = tr
+	e.client = &http.Client{
+		Transport: tr,
+	}
+}
+
+// another returns e with a new Transport of its Config but for cache, as
+// another tab or a restarted browser would be.
+func (e *interopEnv) another(cache *mimicry.AltSvcCache) *interopEnv {
+	next := *e
+
+	next.cfg.AltSvc = cache
+	next.setTransport(next.cfg)
+
+	return &next
+}
+
 // altSvcServer starts the origin's TCP server (HTTP/1.1, so no profile
-// keeps an HTTP/2 connection instead of moving), whose every response
-// advertises the relay as the origin's HTTP/3, and returns its address.
+// keeps an HTTP/2 connection instead of moving), whose every response but
+// those to a ?noalt request advertises the relay as the origin's HTTP/3,
+// and returns its address.
 func (e *interopEnv) altSvcServer() string {
 	t := e.t
 
@@ -841,9 +935,17 @@ func (e *interopEnv) altSvcServer() string {
 	h := interopHandler(nil)
 	srv := &http.Server{
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Alt-Svc", alt)
+			if !r.URL.Query().Has("noalt") {
+				w.Header().Set("Alt-Svc", alt)
+			}
+
 			h.ServeHTTP(w, r)
 		}),
+		ConnState: func(_ net.Conn, s http.ConnState) {
+			if s == http.StateNew {
+				e.tcpConns.Add(1)
+			}
+		},
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{
 				e.pki.leaf,

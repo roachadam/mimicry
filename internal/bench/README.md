@@ -17,7 +17,7 @@ ever reaches the library's or the harness's dependencies. Reports are in
 | 2 | One request on a new connection: full handshake (a new client each time) and resumed (connections closed, session cache kept) | `bench_test.go` `BenchmarkConnect` |
 | 3 | Throughput and latency: requests/s, p50/p95/p99, MB/s, client CPU per request, allocations, GC, peak heap, at concurrency 1/16/64/256, bodies 1 KB/100 KB/10 MB, fixed window after a warm-up | `cmd/bench` |
 | 4 | Memory: heap, goroutines and goroutine stacks (`StackInuse`) per client and per idle connection; GC under load is in layer 3 | `cmd/bench` |
-| 5 | Realistic network: a page load (one HTML + 30 subresources over www, static and api) under `tc netem` (RTT 20 and 80 ms, loss 0 and 1%), cold and warm; the same through a CONNECT proxy (with and without Basic auth) and SOCKS5, the proxy with its own delay | `cmd/bench` |
+| 5 | Realistic network: a page load (one HTML + 30 subresources over www, static and api) under `tc netem` (RTT 20 and 80 ms, loss 0 and 1%), cold and warm; over HTTP/3, mimicry also as a returning browser (new Transports sharing an Alt-Svc cache an earlier visit filled); the same through a CONNECT proxy (with and without Basic auth) and SOCKS5, the proxy with its own delay | `cmd/bench` |
 
 Every measured response is checked against the protocol under test as the
 server saw it (`x-proto`); a measurement with one response on another
@@ -101,7 +101,7 @@ internal/bench/scripts/bench.sh down
 Arguments after `run` or `report` go to `bench run`: `-window` and `-warmup`
 per load point (10 s and 3 s), `-layers 3,4,5`, `-clients`, `-servers
 nginx,go`, `-reduced go` (servers that get bodies 1KB/100KB and concurrency
-1/64 only), `-protos h1,h2,h3` (layer 3), `-conc 1,16,64,256`, `-idle-n 50`,
+1/64 only), `-protos h1,h2,h3` (layers 3 and 5), `-conc 1,16,64,256`, `-idle-n 50`,
 `-reps 5`, `-netem=false`, `-profile <dir>`. Each HTTP/3 load point's log
 line also gives how much the client container's UDP receive errors grew
 during it (`/proc/net/snmp`: `RcvbufErrors`, datagrams dropped on a full

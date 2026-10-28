@@ -1,6 +1,7 @@
 package mimicry_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -724,6 +725,73 @@ func ExampleConfig_disableHTTP3() {
 	// HTTP/2.0
 	// HTTP/2.0
 	// HTTP/2.0
+}
+
+// A browser keeps the HTTP/3 alternatives sites advertise (Alt-Svc) for all
+// its tabs and across restarts, so a returning browser's first request to
+// a site can go straight to HTTP/3. Config.AltSvc shares one AltSvcCache
+// between Transports; WriteJSON and ReadJSON keep it between runs.
+func ExampleAltSvcCache() {
+	shop := startShop(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Alt-Svc", `h3=":443"; ma=86400`)
+	})
+	defer shop.Close()
+
+	cache := mimicry.NewAltSvcCache()
+
+	client, err := mimicry.NewClient(mimicry.Config{
+		Profile: profiles.Chrome(),
+		AltSvc:  cache,
+		// Only to reach the local stand-in shop; nil for real sites.
+		RootCAs:     shop.RootCAs,
+		DialContext: shop.DialContext,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://www.shop.test/", nil)
+	if err != nil {
+		panic(err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+
+	_ = resp.Body.Close()
+	fmt.Println(resp.Proto, "advertising", resp.Header.Get("Alt-Svc"))
+
+	// Saved when the program exits (a file, in a real program)...
+	var saved bytes.Buffer
+	if err := cache.WriteJSON(&saved); err != nil {
+		panic(err)
+	}
+
+	var entries []struct {
+		Origin string `json:"origin"`
+		Port   int    `json:"port"`
+	}
+	if err := json.Unmarshal(saved.Bytes(), &entries); err != nil {
+		panic(err)
+	}
+
+	for _, e := range entries {
+		fmt.Println("saved:", e.Origin, "h3 on port", e.Port)
+	}
+
+	// ...and loaded when it starts again: every Transport given the cache
+	// starts www.shop.test on HTTP/3 as Chrome would, until the entry's
+	// max-age runs out.
+	restored := mimicry.NewAltSvcCache()
+	if err := restored.ReadJSON(&saved); err != nil {
+		panic(err)
+	}
+
+	// Output:
+	// HTTP/2.0 advertising h3=":443"; ma=86400
+	// saved: https://www.shop.test:443 h3 on port 443
 }
 
 // Certificate pinning: FetchPins lists a site's verified chain, and

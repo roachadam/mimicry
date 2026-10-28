@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/roachadam/mimicry/internal/altsvc"
 	"github.com/roachadam/mimicry/internal/fingerprint"
 	"github.com/roachadam/mimicry/internal/h2"
 	"github.com/roachadam/mimicry/internal/h3"
@@ -23,10 +24,15 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// errTCPOnly is a request whose QUIC connection died with it pending,
-// where the profile sends such requests on TCP (Fallback.PendingTCP): it
-// goes again, on TCP only.
-var errTCPOnly = fmt.Errorf("%w: its QUIC connection died", errRetry)
+// errTCPOnly is a request that goes again, on TCP only: its QUIC
+// connection died with it pending, where the profile sends such requests
+// on TCP (Fallback.PendingTCP), or its 0-RTT connection is overdue
+// (errEarlyOverdue).
+var errTCPOnly = fmt.Errorf("%w: it goes on TCP", errRetry)
+
+// errEarlyOverdue is a request whose resumed connection's server has said
+// nothing for as long as fast fallback lets it wait (Engine.earlyWait).
+var errEarlyOverdue = fmt.Errorf("%w: the server has not answered its 0-RTT connection", errTCPOnly)
 
 // errTCP is quicFor's answer for a request that goes on TCP.
 var errTCP = errors.New("the request goes on TCP")
@@ -62,6 +68,10 @@ type quicConn struct {
 	// decided (Fallback.PendingTCP).
 	died  sync.Once
 	toTCP bool
+	// earlyUntil, with fast fallback, ends the wait of requests on it,
+	// resumed, for a handshake the server has not answered
+	// (Engine.earlyWait). Zero: no end but the connection's.
+	earlyUntil time.Time
 	// tls is the connection's TLS state once its handshake is complete,
 	// which responses carry (state).
 	tls atomic.Pointer[tls.ConnectionState]
@@ -101,6 +111,8 @@ type attempt struct {
 
 // dialSpec is how an attempt dials.
 type dialSpec struct {
+	// port is the alternative's: the origin's host at port.
+	port uint16
 	// delay holds the dial back (Firefox's race after a GOAWAY).
 	delay time.Duration
 	// after, when set, holds the dial back until it is closed too: the
@@ -116,9 +128,11 @@ type dialSpec struct {
 }
 
 // origin is what the engine knows of an origin's HTTP/3, by route key.
+// Its alternative is in the engine's altsvc.Cache, under the same key.
 type origin struct {
-	alt    altSvc
-	hasAlt bool
+	// known: the engine has seen the origin's alternative, in an Alt-Svc
+	// response or, from a shared or loaded cache, at a request.
+	known bool
 	// broken: Fallback.BrokenAfter attempts in a row failed. The origin's
 	// requests stay on TCP for the engine's life.
 	broken bool
@@ -149,12 +163,14 @@ type origin struct {
 	rtt   time.Duration
 }
 
-// quicState is the engine's HTTP/3 state: per-origin Alt-Svc and history,
-// the QUIC pool (route key plus " h3") and session tickets. Safe for
+// quicState is the engine's HTTP/3 state: per-origin history, their
+// alternatives (alts, the engine's own or one shared with others), the
+// QUIC pool (route key plus " h3") and session tickets. Safe for
 // concurrent use.
 type quicState struct {
 	mu      sync.Mutex
 	origins map[string]*origin
+	alts    *altsvc.Cache
 	pool    *pool.Pool[*quicConn, noExclusive]
 	tickets *handshake.Tickets
 }
@@ -197,10 +213,15 @@ func (e *Engine) originState(r route) *origin {
 	return o
 }
 
-// available reports whether o's alternative may be used now: advertised,
-// unexpired and not broken. e.quic.mu must be held.
-func (o *origin) available(now time.Time) bool {
-	return o.hasAlt && !now.After(o.alt.expires) && !o.broken
+// alternative returns the port of r's HTTP/3 alternative if it may be used
+// now: advertised, unexpired and, with o its origin state (nil: none yet),
+// not broken. e.quic.mu must be held.
+func (e *Engine) alternative(o *origin, r route) (uint16, bool) {
+	if o != nil && o.broken {
+		return 0, false
+	}
+
+	return e.quic.alts.Get(r.key)
 }
 
 // learnAltSvc records resp's Alt-Svc and, where the profile switches on
@@ -216,35 +237,47 @@ func (e *Engine) learnAltSvc(req *http.Request, r route, resp *http.Response) {
 		return
 	}
 
-	now := e.clock.Now()
-	alt, found, cleared := parseAltSvc(values, r.host, now)
 	q := e.quic
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	o := e.originState(r)
-	switch {
-	case cleared:
-		o.hasAlt = false
-	case found:
-		o.alt, o.hasAlt = alt, true
-	}
+	if q.alts.Learn(r.key, r.host, values) {
+		o := e.originState(r)
 
-	if found && e.profile.HTTP3.Discovery.Switch == profile.SwitchOnAltSvc && !o.used && o.revalidate.IsZero() && e.mayDial(o, r, now) {
-		e.startAttempt(o, r, dialSpec{})
+		o.known = true
+		e.startOnAltSvc(o, r)
 	}
 }
 
-// mayDial reports whether an attempt may start for o: its alternative is
-// available and it has no connection or attempt. e.quic.mu must be held.
-func (e *Engine) mayDial(o *origin, r route, now time.Time) bool {
-	if !o.available(now) || o.attempt != nil {
-		return false
+// startOnAltSvc starts o's QUIC connection in the background where the
+// profile switches on Alt-Svc (Firefox's validation), unless o has used
+// HTTP/3 or waits to revalidate. e.quic.mu must be held.
+func (e *Engine) startOnAltSvc(o *origin, r route) {
+	if e.profile.HTTP3.Discovery.Switch != profile.SwitchOnAltSvc || o.used || !o.revalidate.IsZero() {
+		return
 	}
 
-	_, ok := e.quic.pool.Shared(h3Key(r))
+	if port, ok := e.mayDial(o, r); ok {
+		e.startAttempt(o, r, dialSpec{
+			port: port,
+		})
+	}
+}
 
-	return !ok
+// mayDial returns the port of o's alternative if an attempt may start for
+// it: the alternative is available and o has no connection or attempt.
+// e.quic.mu must be held.
+func (e *Engine) mayDial(o *origin, r route) (uint16, bool) {
+	port, ok := e.alternative(o, r)
+	if !ok || o.attempt != nil {
+		return 0, false
+	}
+
+	if _, ok := e.quic.pool.Shared(h3Key(r)); ok {
+		return 0, false
+	}
+
+	return port, true
 }
 
 // tryH3 sends req over HTTP/3 if discovery and fallback say so now; handled
@@ -320,6 +353,12 @@ func (e *Engine) pickWay(o *origin, tcpOpen bool) way {
 // TCP, as pickWay decides; race is as in tryH3.
 func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan struct{}, err error) {
 	if pooled, ok := e.quic.pool.Shared(h3Key(r)); ok {
+		if e.overdue(pooled) {
+			// Fast fallback: its server has said nothing for longer than a
+			// request waits on it.
+			return nil, nil, errTCP
+		}
+
 		return pooled, nil, nil
 	}
 
@@ -331,10 +370,18 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 	o := e.originState(r)
 	now := e.clock.Now()
 
-	if !o.available(now) {
+	port, ok := e.alternative(o, r)
+	if !ok {
 		q.mu.Unlock()
 
 		return nil, nil, errTCP
+	}
+
+	if !o.known {
+		// The alternative came from a shared or loaded cache: the engine
+		// learns it now, as from an Alt-Svc response.
+		o.known = true
+		e.startOnAltSvc(o, r)
 	}
 
 	if wait := o.reconnect.Sub(now); wait > 0 {
@@ -366,6 +413,7 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 		if o.attempt == nil {
 			race = make(chan struct{})
 			e.startAttempt(o, r, dialSpec{
+				port:   port,
 				delay:  drawMillis(d.RaceDelayMillis),
 				after:  race,
 				ticket: e.takeTicket(r),
@@ -376,9 +424,13 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 		// A resumed attempt failed or the last connection died: TCP, and
 		// a fresh attempt beside it once RevalidateMillis have passed
 		// (its middle: the captures bound the threshold, no more).
-		if rv := fb.RevalidateMillis; rv != nil && !now.Before(o.revalidate.Add(millis((rv.Min+rv.Max)/2))) && e.mayDial(o, r, now) {
-			e.dropTicket(r)
-			e.startAttempt(o, r, dialSpec{})
+		if rv := fb.RevalidateMillis; rv != nil && !now.Before(o.revalidate.Add(millis((rv.Min+rv.Max)/2))) {
+			if port, ok := e.mayDial(o, r); ok {
+				e.dropTicket(r)
+				e.startAttempt(o, r, dialSpec{
+					port: port,
+				})
+			}
 		}
 
 	case wayResume:
@@ -391,11 +443,14 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 		case o.attempt == nil:
 			if t := e.takeTicket(r); t != nil {
 				a, hold = e.startAttempt(o, r, dialSpec{
+					port:    port,
 					ticket:  t,
 					pending: true,
 				}), true
 			} else {
-				e.startAttempt(o, r, dialSpec{})
+				e.startAttempt(o, r, dialSpec{
+					port: port,
+				})
 			}
 		}
 
@@ -404,6 +459,7 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 		// it as Fallback says.
 		if a = o.attempt; a == nil {
 			a = e.startAttempt(o, r, dialSpec{
+				port:    port,
 				ticket:  e.takeTicket(r),
 				pending: true,
 			})
@@ -414,6 +470,7 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 		// HTTP/2 connection.
 		if o.attempt == nil {
 			e.startAttempt(o, r, dialSpec{
+				port:   port,
 				ticket: e.takeTicket(r),
 			})
 		}
@@ -447,8 +504,10 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 }
 
 // await waits for a racing attempt (FallbackRace) up to TCPDelayMillis,
-// then returns nil for TCP. With ZeroRTTHolds a 0-RTT request waits for the
-// handshake; with AbandonOnTCP the attempt is dropped.
+// then returns nil for TCP; a failed attempt holds the request no longer
+// with fast fallback, until the delay with browser timing. With
+// ZeroRTTHolds a 0-RTT request waits for the handshake; with AbandonOnTCP
+// the attempt is dropped.
 func (e *Engine) await(ctx context.Context, a *attempt) (*quicConn, error) {
 	fb := e.profile.HTTP3.Discovery.Fallback
 	delay := drawMillis(fb.TCPDelayMillis)
@@ -467,6 +526,10 @@ func (e *Engine) await(ctx context.Context, a *attempt) (*quicConn, error) {
 		case <-done:
 			if a.conn != nil {
 				return a.conn, nil
+			}
+
+			if !e.browserFallback {
+				return nil, errTCP
 			}
 
 			// A failed attempt: TCP once the delay has passed.
@@ -535,17 +598,136 @@ func millis(n int) time.Duration {
 	return time.Duration(n) * time.Millisecond
 }
 
+// earlyLimit is how long fast fallback lets requests wait on a resumed
+// connection for its server's first answer: the profile's race delay
+// (Chrome's, which ZeroRTTHolds otherwise stretches to the give-up), else
+// its first probe timeout (Firefox: no race delay; it probes then). Zero:
+// no limit.
+func (e *Engine) earlyLimit() time.Duration {
+	if d := drawMillis(e.profile.HTTP3.Discovery.Fallback.TCPDelayMillis); d > 0 {
+		return d
+	}
+
+	return millis(e.profile.QUIC.Loss.InitialPTOMillis)
+}
+
+// earlyWait is how much longer a request may wait on c for a handshake its
+// server has not answered: c resumed in 0-RTT with fast fallback, until
+// c.earlyUntil. limited is false where the request waits as the browser's
+// does: browser timing, or c's handshake is complete.
+func (e *Engine) earlyWait(c *quicConn) (wait time.Duration, limited bool) {
+	if c.earlyUntil.IsZero() || c.handshook.Load() {
+		return 0, false
+	}
+
+	return c.earlyUntil.Sub(e.clock.Now()), true
+}
+
+// overdue reports whether requests wait on c no longer (earlyWait).
+func (e *Engine) overdue(c *quicConn) bool {
+	wait, limited := e.earlyWait(c)
+
+	return limited && wait <= 0
+}
+
 // roundTripH3 sends req on c. A request the server did not process, or a
 // replayable one whose connection ended before its response, goes to another
 // connection and c leaves the pool.
 func (e *Engine) roundTripH3(r route, c *quicConn, req *http.Request) (*http.Response, bool, error) {
-	key := h3Key(r)
+	wait, limited := e.earlyWait(c)
+	switch {
+	case limited && wait <= 0:
+		return nil, true, errEarlyOverdue
+	case limited:
+		return e.roundTripEarly(r, c, req, wait)
+	}
 
 	c.inFlight.Add(1)
 
 	defer c.inFlight.Add(-1)
 
 	resp, err := c.RoundTrip(req)
+
+	return e.h3Result(r, c, req, resp, err)
+}
+
+// roundTripEarly is roundTripH3 on c, resumed and unanswered, with fast
+// fallback: when neither the response nor the handshake has come within
+// wait, req goes on TCP. A request sent in 0-RTT stays on c, as the
+// browser's would until c gives up, its answer dropped; one held for the
+// handshake (Conn.EarlyMethod) is withdrawn unsent.
+func (e *Engine) roundTripEarly(r route, c *quicConn, req *http.Request, wait time.Duration) (*http.Response, bool, error) {
+	type result struct {
+		resp *http.Response
+		err  error
+	}
+
+	// The copy on c outlives the caller's context once it is left there;
+	// until then the caller's cancellation reaches it.
+	ctx := req.Context()
+	qctx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	stop := context.AfterFunc(ctx, cancel)
+	done := make(chan result, 1)
+
+	c.inFlight.Add(1)
+
+	go func() {
+		resp, err := c.RoundTrip(req.WithContext(qctx)) //nolint:bodyclose // closed by roundTripEarly's caller, or below once the request has gone on TCP
+		done <- result{
+			resp: resp,
+			err:  err,
+		}
+	}()
+
+	t := e.clock.NewTimer(wait)
+	defer t.Stop()
+
+	handshake := c.handshake
+	for {
+		select {
+		case res := <-done:
+			c.inFlight.Add(-1)
+
+			return e.h3Result(r, c, req, res.resp, res.err)
+
+		case <-handshake:
+			// Answered, or given up: the request waits for its outcome
+			// on c, as any other.
+			handshake = nil
+
+			t.Stop()
+
+		case <-t.Chan():
+			stop()
+
+			if !c.EarlyMethod(req.Method) {
+				cancel()
+			}
+
+			go func() {
+				res := <-done
+
+				c.inFlight.Add(-1)
+				cancel()
+
+				if res.resp != nil {
+					_ = res.resp.Body.Close()
+				}
+
+				if errors.Is(res.err, h3.ErrConnLost) || errors.Is(res.err, h3.ErrConnUnusable) {
+					e.quic.pool.RemoveShared(h3Key(r), c)
+				}
+			}()
+
+			return nil, true, errEarlyOverdue
+		}
+	}
+}
+
+// h3Result is roundTripH3's outcome of req's exchange on c.
+func (e *Engine) h3Result(r route, c *quicConn, req *http.Request, resp *http.Response, err error) (*http.Response, bool, error) {
+	key := h3Key(r)
+
 	switch {
 	case errors.Is(err, h3.ErrConnUnusable):
 		e.quic.pool.RemoveShared(key, c)
@@ -562,7 +744,7 @@ func (e *Engine) roundTripH3(r route, c *quicConn, req *http.Request) (*http.Res
 		e.quic.pool.RemoveShared(key, c)
 
 		if e.diedPending(r, c, req) {
-			return nil, true, fmt.Errorf("%w: %w", errTCPOnly, err)
+			return nil, true, fmt.Errorf("%w: its QUIC connection died: %w", errTCPOnly, err)
 		}
 
 		return nil, true, fmt.Errorf("%w: %w", errRetry, err)
@@ -744,7 +926,7 @@ func (e *Engine) runAttempt(ctx context.Context, o *origin, r route, a *attempt,
 	q.mu.Unlock()
 
 	if c.resumed {
-		go e.watchHandshake(o, c) //nolint:gosec // watched for the connection's lifetime, not the attempt's
+		go e.watchHandshake(o, r, c) //nolint:gosec // watched for the connection's lifetime, not the attempt's
 	}
 
 	close(a.done)
@@ -753,7 +935,9 @@ func (e *Engine) runAttempt(ctx context.Context, o *origin, r route, a *attempt,
 // goAwayIfReplaced sends GOAWAY on s, just pooled by req, if the origin's
 // QUIC connection came up while s was dialling (goawayTcp). runAttempt
 // covers connections pooled before; both decide under e.quic.mu, so one
-// sees the other. Requests of a kind unmeasured over HTTP/3 keep s.
+// sees the other. Requests of a kind unmeasured over HTTP/3 keep s, and
+// so do those that left an overdue 0-RTT connection (earlyWait): until
+// its handshake completes it is not up (watchHandshake).
 func (e *Engine) goAwayIfReplaced(req *http.Request, r route, s *shared) {
 	if !e.h3Route(req, r) || !e.profile.HTTP3.Discovery.GoAwayTCP {
 		return
@@ -763,7 +947,7 @@ func (e *Engine) goAwayIfReplaced(req *http.Request, r route, s *shared) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	if _, ok := q.pool.Shared(h3Key(r)); ok {
+	if c, ok := q.pool.Shared(h3Key(r)); ok && !e.overdue(c) {
 		e.goAwayTCP(r, s)
 	}
 }
@@ -780,15 +964,23 @@ func (e *Engine) goAwayTCP(r route, s *shared) {
 }
 
 // watchHandshake records the outcome of c's handshake, resumed in 0-RTT,
-// once it completes or c ends first.
-func (e *Engine) watchHandshake(o *origin, c *quicConn) {
+// once it completes or c ends first. One completing after its requests
+// went on TCP (earlyWait) sends GOAWAY on the HTTP/2 connection they
+// opened, as on any once QUIC is up (goawayTcp).
+func (e *Engine) watchHandshake(o *origin, r route, c *quicConn) {
 	err := c.qc.WaitHandshake(context.Background())
 
 	e.quic.mu.Lock()
 
 	if err == nil {
+		overdue := e.overdue(c)
+
 		c.handshook.Store(true)
 		e.succeeded(o)
+
+		if s, ok := e.pool.Shared(r.key); ok && overdue && e.profile.HTTP3.Discovery.GoAwayTCP {
+			e.goAwayTCP(r, s)
+		}
 	} else {
 		e.failed(o, true)
 	}
@@ -835,11 +1027,12 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 	q.mu.Lock()
 
 	o := e.originState(r)
-	port := o.alt.port
+	port := spec.port
 	token := o.token
 	rtt := o.rtt
 	q.mu.Unlock()
 
+	start := e.clock.Now()
 	dctx, cancel := context.WithTimeout(ctx, e.dialer.Timeout)
 
 	defer cancel()
@@ -915,9 +1108,15 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 		resumed:   cfg.Ticket != nil,
 		handshake: make(chan struct{}),
 	}
-	if !qcn.resumed {
+	switch {
+	case !qcn.resumed:
 		qcn.handshook.Store(true)
 		close(qcn.handshake)
+
+	case !e.browserFallback:
+		if d := e.earlyLimit(); d > 0 {
+			qcn.earlyUntil = start.Add(d)
+		}
 	}
 
 	go e.watchH3(r, qc)

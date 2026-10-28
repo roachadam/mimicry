@@ -66,6 +66,11 @@ type Options struct {
 	RootCAs *x509.CertPool
 	// Proxy is a proxy URL (target.ProxyURL), or "".
 	Proxy string
+	// Returning makes the client a returning browser: it starts with what
+	// its browser keeps across restarts, shared by every client of the
+	// process that sets it (mimicry: one AltSvcCache). Only for a
+	// Factory with Returning.
+	Returning bool
 }
 
 // Factory builds one kind of client.
@@ -78,6 +83,10 @@ type Factory struct {
 	Profile string
 	// New builds a client.
 	New func(Options) (Client, error)
+	// Returning: the client has a returning-browser mode
+	// (Options.Returning), which page loads over HTTP/3 measure besides
+	// the cold one.
+	Returning bool
 }
 
 // ErrUnsupported marks a protocol or feature the client does not have.

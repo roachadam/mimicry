@@ -3,6 +3,7 @@ package native
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -277,16 +278,16 @@ func dialQUIC(t *testing.T, e *Engine, target string, port uint16) (route, *atte
 	}
 
 	q := e.quic
+	q.alts.Learn(r.key, r.host, []string{fmt.Sprintf(`h3=":%d"; ma=3600`, port)})
 	q.mu.Lock()
 
 	o := e.originState(r)
 
-	o.alt, o.hasAlt = altSvc{
-		port:    port,
-		expires: time.Now().Add(time.Hour),
-	}, true
+	o.known = true
 
-	a := e.startAttempt(o, r, dialSpec{})
+	a := e.startAttempt(o, r, dialSpec{
+		port: port,
+	})
 	q.mu.Unlock()
 	<-a.done
 

@@ -161,3 +161,12 @@ ClientHello's shape profile data.
 - A browser is captured against a server with a short idle timeout.
 - Chrome's blackhole close or Safari's resumption is captured often enough
   to model.
+
+Amended (2026-10-28, [0036](0036-fast-quic-fallback.md)): the timing above
+is now `Config.BrowserQUICFallback`. By default a request stops waiting on
+an unanswered 0-RTT connection at the profile's race delay (Chrome
+305–306 ms; Firefox, without one, its 300 ms first probe timeout) instead
+of the give-up (`zeroRttHolds` 4 s, `hold` 5 s), and on a failed attempt at
+once instead of at the race delay. The QUIC connections, the race delays
+and everything a server that answers sees are unchanged;
+`TestHTTP3EdgeMatchesBrowser` checks both modes.

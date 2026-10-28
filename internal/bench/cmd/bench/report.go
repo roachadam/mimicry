@@ -299,8 +299,13 @@ func (r *report) fairness(w writer) {
 	w("TCP congestion window.\n")
 	w("- **Page loads over HTTP/3, cold:** a new mimicry Transport knows nothing of HTTP/3: its first requests go over HTTP/2, ")
 	w("the server's Alt-Svc starts a QUIC connection beside it, and later requests move to HTTP/3 once it is up (Chrome waits up ")
-	w("to 300 ms for a QUIC attempt before going on TCP). The others are forced onto HTTP/3 from the first request. The ")
-	w("protocol mix column shows it; the warm load is on HTTP/3.\n")
+	w("to 300 ms for a QUIC attempt before going on TCP). The others are configured to force HTTP/3 from the first request, ")
+	w("which no browser does for a site it has not seen advertise it. The protocol mix column shows it.\n")
+	w("- **Page loads over HTTP/3, returning (`mimicry (returning)`):** a returning browser: new Transports sharing one ")
+	w("`Config.AltSvc` cache that an earlier visit (one page load on a Transport of its own, not measured) filled, as a ")
+	w("restarted Chrome starts with the Alt-Svc it saved. Each origin's first request races a fresh QUIC connection against TCP ")
+	w("(TCP 300 ms later if QUIC is not up yet), as Chrome's does for an alternative it knows; no session tickets carry over, ")
+	w("so no 0-RTT.\n")
 	w("- **Idle memory over HTTP/3:** mimicry's idle state is a QUIC connection plus the HTTP/2 connection it learnt Alt-Svc on, ")
 	w("which Chrome keeps open too.\n\n")
 }
@@ -551,7 +556,7 @@ func (r *report) pageTables(w writer) {
 				}
 
 				mark := ""
-				if pp.Client == "mimicry" {
+				if pp.Client == "mimicry" || pp.Client == "mimicry (returning)" {
 					mark = " ‡"
 				}
 

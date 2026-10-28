@@ -82,3 +82,8 @@ the kinds' lists to an outside engine, was removed
 
 A browser behaviour depends on something `Request` cannot express (user
 activation, the top-level site of a frame's own requests).
+
+Exception (2026-10-28, [0036](0036-fast-quic-fallback.md)): where QUIC
+fails, requests by default wait less than the browser's do;
+`Config.BrowserQUICFallback` asks for the browser's timing. Nothing a
+server that answers sees differs.

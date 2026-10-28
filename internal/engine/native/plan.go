@@ -146,8 +146,8 @@ func (e *Engine) protocolsNow(req *http.Request, r route) []string {
 // h3Now reports whether a request on r goes over HTTP/3 as quicFor would
 // decide, and whether that is decided before connecting. It changes nothing.
 func (e *Engine) h3Now(r route) (quic, decided bool) {
-	if _, ok := e.quic.pool.Shared(h3Key(r)); ok {
-		return true, true
+	if c, ok := e.quic.pool.Shared(h3Key(r)); ok {
+		return !e.overdue(c), true
 	}
 
 	q := e.quic
@@ -155,12 +155,19 @@ func (e *Engine) h3Now(r route) (quic, decided bool) {
 	defer q.mu.Unlock()
 
 	o := q.origins[r.key]
-	now := e.clock.Now()
-
-	switch {
-	case o == nil || !o.available(now):
+	if _, ok := e.alternative(o, r); !ok {
 		return false, true
-	case o.reconnect.After(now):
+	}
+
+	if o == nil {
+		// Known from a shared or loaded cache only: the request finds
+		// what the origin's first one would.
+		var none origin
+
+		o = &none
+	}
+
+	if o.reconnect.After(e.clock.Now()) {
 		return false, false
 	}
 
@@ -185,12 +192,8 @@ func (e *Engine) h3Now(r route) (quic, decided bool) {
 // the origin's Alt-Svc, or before one is known its own port (h3=":port"
 // on the same port, as servers usually advertise it).
 func (e *Engine) altPort(r route) string {
-	q := e.quic
-	q.mu.Lock()
-	defer q.mu.Unlock()
-
-	if o := q.origins[r.key]; o != nil && o.hasAlt {
-		return strconv.Itoa(int(o.alt.port))
+	if port, ok := e.quic.alts.Get(r.key); ok {
+		return strconv.Itoa(int(port))
 	}
 
 	_, port, _ := net.SplitHostPort(r.addr)

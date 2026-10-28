@@ -52,3 +52,9 @@ carries requests from two top-level sites; passing the same jar in
 `Config.Cookies` to each keeps one cookie store, as one browser profile
 has (the jar keys partitioned cookies by top-level site itself). The gap
 is listed in [the backlog](../backlog.md#connections-and-pool).
+
+The same holds for `Config.AltSvc` (2026-10-28): a shared `AltSvcCache`
+keys alternatives by origin and connection partition, not by top-level
+site, where browsers that partition their HTTP server properties
+(Chrome's network anonymization key) would keep one site's apart from
+another's. One cache per site's Transports keeps them apart.

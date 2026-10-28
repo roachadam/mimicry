@@ -39,8 +39,25 @@ type PageResult struct {
 }
 
 // Pages loads the page reps times with su's client, each on a new client.
+// A returning setup's clients start from what an earlier visit left them:
+// one page load on a client of its own, not measured.
 func Pages(ctx context.Context, su Setup, reps int) (PageResult, error) {
 	var res PageResult
+
+	if su.Returning {
+		c, err := su.New()
+		if err != nil {
+			return res, err
+		}
+
+		if pl := loadPage(ctx, su, c); pl.Errors > 0 {
+			c.Close()
+
+			return res, fmt.Errorf("the earlier visit: %d errors: %s", pl.Errors, pl.Error)
+		}
+
+		c.Close()
+	}
 
 	for range reps {
 		c, err := su.New()

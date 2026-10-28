@@ -27,6 +27,7 @@ import (
 	"github.com/jonboulle/clockwork"
 	"golang.org/x/net/http/httpguts"
 
+	"github.com/roachadam/mimicry/internal/altsvc"
 	"github.com/roachadam/mimicry/internal/dial"
 	"github.com/roachadam/mimicry/internal/h1"
 	"github.com/roachadam/mimicry/internal/h2"
@@ -66,6 +67,16 @@ type Config struct {
 	// DisableHTTP3 keeps every request on TCP, whatever the profile's
 	// http3 section and servers' Alt-Svc say.
 	DisableHTTP3 bool
+	// AltSvc keeps the origins' HTTP/3 alternatives, shared with every
+	// engine given the same cache; nil gives the engine one of its own.
+	AltSvc *altsvc.Cache
+	// BrowserFallback keeps the browser's timing where QUIC fails: requests
+	// wait on an unanswered 0-RTT connection until it gives up
+	// (ZeroRTTHolds, Fallback.Hold), and on a failed attempt until the race
+	// delay. Otherwise they go on TCP once the race delay (or, without
+	// one, the first probe timeout) has passed with no answer, and at once
+	// when the attempt failed.
+	BrowserFallback bool
 	// VerifyConnection, when set, checks a verified connection for host on
 	// every TLS and QUIC handshake (resumed ones included) and before a request
 	// coalesces onto another host's HTTP/2 connection. An error fails the
@@ -95,6 +106,8 @@ type Engine struct {
 	// quic is the engine's HTTP/3; nil when the profile has none (or
 	// Config.DisableHTTP3).
 	quic *quicState
+	// browserFallback is Config.BrowserFallback.
+	browserFallback bool
 }
 
 // New builds an engine for cfg.Profile, which it takes ownership of: the
@@ -134,9 +147,10 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 			Proxy:       p.Proxy,
 			UserAgent:   userAgent(p),
 		},
-		proxy:  cfg.Proxy,
-		lookup: lookupFunc(cfg.Resolver),
-		verify: cfg.VerifyConnection,
+		proxy:           cfg.Proxy,
+		lookup:          lookupFunc(cfg.Resolver),
+		verify:          cfg.VerifyConnection,
+		browserFallback: cfg.BrowserFallback,
 		pool: pool.New[*shared, *h1.Conn](pool.Config{
 			Clock:        clock,
 			IdleTimeout:  idleTimeout,
@@ -150,8 +164,14 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 	}
 
 	if p.HTTP3 != nil && p.QUIC != nil && !cfg.DisableHTTP3 {
+		alts := cfg.AltSvc
+		if alts == nil {
+			alts = altsvc.New(clock)
+		}
+
 		e.quic = &quicState{
 			origins: map[string]*origin{},
+			alts:    alts,
 			pool: pool.New[*quicConn, noExclusive](pool.Config{
 				Clock:       clock,
 				IdleTimeout: idleTimeout,

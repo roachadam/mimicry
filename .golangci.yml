@@ -44,6 +44,14 @@ linters:
           allow:
             - $gostd
             - github.com/roachadam/mimicry/profile$
+        internal/altsvc:
+          files:
+            - ${config-path}/internal/altsvc/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/jonboulle/clockwork
         # The benchmark (its own module) measures mimicry through its public
         # API only, as any user would; the other clients and the servers'
         # dependencies are its own.

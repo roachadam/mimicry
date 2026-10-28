@@ -783,7 +783,7 @@ func (c *Conn) release() {
 // for the retry. A 0-RTT request answered 425 Too Early goes again in 1-RTT
 // where the profile retries it (HTTP3.EarlyData) and its body can be re-read.
 func (c *Conn) RoundTrip(req *http.Request) (*http.Response, error) {
-	resp, early, err := c.roundTrip(req, c.earlyMethod(req.Method))
+	resp, early, err := c.roundTrip(req, c.EarlyMethod(req.Method))
 	if err != nil || !early || resp.StatusCode != http.StatusTooEarly || c.h3.EarlyData == nil || !c.h3.EarlyData.RetryTooEarly {
 		return resp, err
 	}
@@ -799,9 +799,10 @@ func (c *Conn) RoundTrip(req *http.Request) (*http.Response, error) {
 	return resp, err
 }
 
-// earlyMethod reports whether the profile sends a request with method in
-// 0-RTT (HTTP3.EarlyData.Methods).
-func (c *Conn) earlyMethod(method string) bool {
+// EarlyMethod reports whether the profile sends a request with method in
+// 0-RTT (HTTP3.EarlyData.Methods); others made during the handshake wait
+// for it.
+func (c *Conn) EarlyMethod(method string) bool {
 	return c.h3.EarlyData == nil || slices.Contains(c.h3.EarlyData.Methods, method)
 }
 

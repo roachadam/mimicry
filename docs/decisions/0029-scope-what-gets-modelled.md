@@ -104,3 +104,10 @@ A vendor is seen flagging something this rule deferred (a deferred item
 moves up the backlog), or the library gets a use beyond automating
 ordinary user actions, such as research that needs the browsers' failure
 paths reproduced.
+
+Applied (2026-10-28, [0036](0036-fast-quic-fallback.md)): failure-path
+timing may be faster than the browser's by default when it is a stall a
+user notices and is visible only where QUIC fails; the browser's timing
+stays available as an option (`Config.BrowserQUICFallback`). The test that
+it is visible only there is an e2e replay in both modes, with every
+difference listed (`h3EdgeFastGaps`).

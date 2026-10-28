@@ -37,6 +37,8 @@ type job struct {
 	Window time.Duration    `json:"window,omitempty"`
 	N      int              `json:"n,omitempty"`
 	Reps   int              `json:"reps,omitempty"`
+	// Returning: page loads by returning clients (scenario.Setup).
+	Returning bool `json:"returning,omitempty"`
 	// ProfileDir, for mimicry's jobs, receives ProfileName.cpu.pprof (the
 	// measurement window, or the whole job) and ProfileName.mem.pprof.
 	ProfileDir  string `json:"profileDir,omitempty"`
@@ -79,10 +81,11 @@ func runJob(j job) outcome {
 	}
 
 	su := scenario.Setup{
-		Client: f,
-		Server: srv,
-		Proto:  j.Proto,
-		Proxy:  j.Proxy,
+		Client:    f,
+		Server:    srv,
+		Proto:     j.Proto,
+		Proxy:     j.Proxy,
+		Returning: j.Returning,
 	}
 	if err := su.Supported(); err != nil {
 		return outcome{

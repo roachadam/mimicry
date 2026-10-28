@@ -459,6 +459,14 @@ type pageSession struct {
 func startPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *pageSession {
 	t.Helper()
 
+	return startPageWith(t, p, sc, nil)
+}
+
+// startPageWith is startPage with the client's Config changed by config,
+// when not nil.
+func startPageWith(t *testing.T, p *profile.Profile, sc *server.Scenario, config func(*mimicry.Config)) *pageSession {
+	t.Helper()
+
 	ca, err := server.LoadOrCreateCA(t.TempDir(), server.CADomains, time.Now())
 	if err != nil {
 		t.Fatal(err)
@@ -527,7 +535,7 @@ func startPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *pageSessi
 	pool := x509.NewCertPool()
 	pool.AddCert(ca.Cert)
 
-	tr, err := mimicry.NewTransport(mimicry.Config{
+	cfg := mimicry.Config{
 		Profile: p,
 		RootCAs: pool,
 		Cookies: newJar(t, p),
@@ -543,7 +551,12 @@ func startPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *pageSessi
 			return (&net.Dialer{}).DialContext(ctx, network, to)
 		},
 		Resolver: stubResolver(t),
-	})
+	}
+	if config != nil {
+		config(&cfg)
+	}
+
+	tr, err := mimicry.NewTransport(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}

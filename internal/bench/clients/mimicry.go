@@ -15,18 +15,26 @@ import (
 // servers' http/1.1-only port and HTTP/2 with Config.DisableHTTP3; HTTP/3
 // has no switch: the Transport moves to it after the server's Alt-Svc, as
 // Chrome does, so callers warm up until responses come over HTTP/3.
+// Returning clients share one Config.AltSvc cache per process, as a
+// returning Chrome starts with the alternatives it saved: once a client
+// has learnt an origin's HTTP/3, the next ones start on it.
 //
 // Requests are made as their kinds: the micro and load scenarios' API calls
 // as Fetch from a page on the same origin (no CORS preflight), the page's
 // HTML as a navigation and its subresources as their element kinds.
 func mimicryClient() Factory {
 	return Factory{
-		Name:    "mimicry",
-		Module:  "github.com/roachadam/mimicry",
-		Profile: profiles.Chrome().Name,
-		New:     newMimicry,
+		Name:      "mimicry",
+		Module:    "github.com/roachadam/mimicry",
+		Profile:   profiles.Chrome().Name,
+		New:       newMimicry,
+		Returning: true,
 	}
 }
+
+// returningAltSvc is the Alt-Svc cache every returning client of the
+// process shares.
+var returningAltSvc = sync.OnceValue(mimicry.NewAltSvcCache)
 
 type mimicryAdapter struct {
 	client *http.Client
@@ -50,6 +58,9 @@ func newMimicry(o Options) (Client, error) {
 		Profile:      profiles.Chrome(),
 		RootCAs:      o.RootCAs,
 		DisableHTTP3: o.Proto != target.H3,
+	}
+	if o.Returning {
+		cfg.AltSvc = returningAltSvc()
 	}
 
 	if o.Proxy != "" {
