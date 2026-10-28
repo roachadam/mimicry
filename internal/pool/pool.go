@@ -2,7 +2,7 @@
 // proxy): one shared HTTP/2 or HTTP/3 connection, idle HTTP/1.1 ones, the
 // dial in progress and the requests waiting for a slot under
 // Config.MaxExclusive. Idle connections, shared ones included, are closed
-// after Config.IdleTimeout.
+// after Config.IdleTimeout, unless it is negative.
 //
 // The pool never dials and never holds its lock across network I/O; see
 // decisions 0020, 0023 and 0040.
@@ -26,8 +26,10 @@ type Shared interface {
 	// IdleSince reports when its last request ended, and false while it
 	// has requests in flight.
 	IdleSince() (time.Time, bool)
-	// Done is closed once the connection is closed, for any reason.
-	Done() <-chan struct{}
+	// OnClose runs f once the connection has closed, for any reason: at
+	// once, on the caller's goroutine, if it already has. f runs with none
+	// of the connection's locks held; several may be registered.
+	OnClose(f func())
 	Close() error
 	// Expire closes it, idle, as its browser lets go of a connection it
 	// no longer needs: after IdleTimeout, or for ExpireKey.
@@ -47,11 +49,13 @@ type Exclusive interface {
 type Config struct {
 	// Clock times idle connections and evictions.
 	Clock clockwork.Clock
-	// IdleTimeout is how long an idle connection is kept (an exclusive one
-	// since its release, a shared one since its last request ended), and
-	// how long a key with no connections keeps what the pool learned
-	// about it (that its server speaks HTTP/1.1 only).
+	// IdleTimeout is how long an idle connection is kept: an exclusive one
+	// since its release, a shared one since its last request ended.
+	// Negative: idle connections are never closed for their idleness.
 	IdleTimeout time.Duration
+	// KeyTimeout is how long a key with no connections keeps what the pool
+	// learned about it (that its server speaks HTTP/1.1 only).
+	KeyTimeout time.Duration
 	// MaxExclusive caps a key's exclusive connections (in use, idle or
 	// dialing) once its server is known to be HTTP/1.1-only: a browser's
 	// per-host limit. Further requests wait in order. Zero: no limit.
@@ -347,7 +351,7 @@ func (e *entry[S, E]) popIdle() (E, bool) {
 	e.idle = e.idle[:n-1]
 
 	if n == 1 {
-		e.reap.Stop()
+		stop(e.reap)
 	}
 
 	return c, true
@@ -428,11 +432,11 @@ func (d *Dial[S, E]) Adopt(c S) S {
 }
 
 // install makes c the key's shared connection unless another usable one
-// is installed, which it returns; waiters look again.
+// is installed, which it returns; waiters look again. c leaves the pool
+// once it closes.
 func (d *Dial[S, E]) install(c S) (S, bool) {
 	p := d.pool
 	p.mu.Lock()
-	defer p.mu.Unlock()
 
 	e := p.entry(d.key)
 	e.busy--
@@ -442,13 +446,21 @@ func (d *Dial[S, E]) install(c S) (S, bool) {
 	e.wakeAll(handedRetry, nil)
 
 	if e.hasShared && e.shared.CanTakeNewRequest() {
-		return e.shared, false
+		got := e.shared
+		p.mu.Unlock()
+
+		return got, false
 	}
 
 	e.shared, e.hasShared = c, true
 	p.armExpire(d.key, e, p.cfg.IdleTimeout)
+	p.mu.Unlock()
 
-	go p.watch(d.key, c)
+	// Registered unlocked: on a closed c it runs at once.
+	key := d.key
+	c.OnClose(func() {
+		p.RemoveShared(key, c)
+	})
 
 	return c, true
 }
@@ -536,9 +548,13 @@ func (p *Pool[S, E]) Release(key string, c E, reusable bool) {
 	_ = c.Close()
 }
 
-// armReap schedules e's reap in d, for its oldest idle connection. p.mu
-// must be held.
+// armReap schedules e's reap in d, for its oldest idle connection, unless
+// idle connections are kept (a negative IdleTimeout). p.mu must be held.
 func (p *Pool[S, E]) armReap(key string, e *entry[S, E], d time.Duration) {
+	if p.cfg.IdleTimeout < 0 {
+		return
+	}
+
 	if e.reap == nil {
 		e.reap = p.cfg.Clock.AfterFunc(d, func() {
 			p.reapIdle(key, e)
@@ -653,24 +669,23 @@ func (p *Pool[S, E]) RemoveShared(key string, c S) {
 	p.dropShared(key, e)
 }
 
-// watch removes c from the pool once it closes.
-func (p *Pool[S, E]) watch(key string, c S) {
-	<-c.Done()
-	p.RemoveShared(key, c)
-}
-
 // dropShared forgets e's shared connection. p.mu must be held.
 func (p *Pool[S, E]) dropShared(key string, e *entry[S, E]) {
 	var zero S
 
 	e.shared, e.hasShared = zero, false
-	e.expire.Stop()
+	stop(e.expire)
 	p.maybeEvict(key, e)
 }
 
-// armExpire schedules e's look at its shared connection's idle time in d.
-// p.mu must be held.
+// armExpire schedules e's look at its shared connection's idle time in d,
+// unless idle connections are kept (a negative IdleTimeout). p.mu must be
+// held.
 func (p *Pool[S, E]) armExpire(key string, e *entry[S, E], d time.Duration) {
+	if p.cfg.IdleTimeout < 0 {
+		return
+	}
+
 	if e.expire == nil {
 		e.expire = p.cfg.Clock.AfterFunc(d, func() {
 			p.expireShared(key, e)
@@ -736,7 +751,7 @@ func (p *Pool[S, E]) ExpireKey(key string) bool {
 	}
 
 	if len(e.idle) > 0 {
-		e.reap.Stop()
+		stop(e.reap)
 	}
 
 	e.idle = nil
@@ -776,7 +791,7 @@ func (p *Pool[S, E]) maybeEvict(key string, e *entry[S, E]) {
 		return
 	}
 
-	e.evict = p.cfg.Clock.AfterFunc(p.cfg.IdleTimeout, func() {
+	e.evict = p.cfg.Clock.AfterFunc(p.cfg.KeyTimeout, func() {
 		p.mu.Lock()
 		defer p.mu.Unlock()
 
@@ -803,7 +818,7 @@ func (p *Pool[S, E]) CloseIdle() {
 
 	for key, e := range p.keys {
 		if len(e.idle) > 0 {
-			e.reap.Stop()
+			stop(e.reap)
 		}
 
 		for _, ic := range e.idle {
@@ -832,5 +847,12 @@ func (p *Pool[S, E]) CloseIdle() {
 
 	for _, c := range shared {
 		_ = c.Close()
+	}
+}
+
+// stop stops t, which is nil if it was never armed.
+func stop(t clockwork.Timer) {
+	if t != nil {
+		t.Stop()
 	}
 }

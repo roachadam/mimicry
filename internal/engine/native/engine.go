@@ -37,9 +37,11 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// idleTimeout is how long an idle connection is kept: HTTP/1.1 since its
-// last response, HTTP/2 and HTTP/3 since their last request ended
-// (decisions 0020 and 0040). Not measured in any browser.
+// idleTimeout is how long an idle connection is kept unless
+// Config.IdleConnTimeout says otherwise: HTTP/1.1 since its last response,
+// HTTP/2 and HTTP/3 since their last request ended (decisions 0020 and
+// 0040). Not measured in any browser. It is also how long the pool keeps
+// what it learned about a host with no connections left.
 const idleTimeout = 90 * time.Second
 
 // defaultDialTimeout applies when Config.DialTimeout is zero.
@@ -88,6 +90,11 @@ type Config struct {
 	// MaxConnsPerHost is the most HTTP/1.1 connections open at once to one
 	// host; zero means the profile's connections.http1PerHost.
 	MaxConnsPerHost int
+	// IdleConnTimeout is how long an idle connection is kept (HTTP/1.1,
+	// HTTP/2, HTTP/3); zero means 90 seconds, negative never closes one
+	// for its idleness. Unused proxies' connections close early either
+	// way (proxyUse).
+	IdleConnTimeout time.Duration
 	// HTTP3OverSOCKS5 lets requests through a socks5 or socks5h proxy use
 	// HTTP/3, over a SOCKS5 UDP association with the proxy (ListenUDPVia),
 	// as they would without the proxy. Otherwise, and through any other
@@ -181,6 +188,11 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 		timeout = defaultDialTimeout
 	}
 
+	idle := cfg.IdleConnTimeout
+	if idle == 0 {
+		idle = idleTimeout
+	}
+
 	c := compile(p)
 	plan := c.plan
 	e := &Engine{
@@ -208,7 +220,8 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 		},
 		pool: pool.New[*shared, *h1.Conn](pool.Config{
 			Clock:        clock,
-			IdleTimeout:  idleTimeout,
+			IdleTimeout:  idle,
+			KeyTimeout:   idleTimeout,
 			MaxExclusive: perHost,
 			OnWait:       onWait,
 		}),
@@ -229,7 +242,8 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 			alts:    alts,
 			pool: pool.New[*quicConn, noExclusive](pool.Config{
 				Clock:       clock,
-				IdleTimeout: idleTimeout,
+				IdleTimeout: idle,
+				KeyTimeout:  idleTimeout,
 			}),
 			// QUIC sessions are TLS 1.3 only.
 			tickets: handshake.NewTickets("", clock),

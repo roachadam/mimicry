@@ -63,6 +63,16 @@ type Config struct {
 	// DialTimeout bounds TCP connects and TLS handshakes; zero means 30
 	// seconds.
 	DialTimeout time.Duration
+	// Timeout is the http.Client.Timeout NewClient sets: zero means 30
+	// seconds (as tls-client, httpcloak and azuretls default to), negative
+	// means none. It covers the whole request, redirects and reading the
+	// body included, so raise it for large downloads or slow proxies; with
+	// it, a request whose server or connection stops mid-response fails
+	// after it instead of waiting forever. The returned client's Timeout
+	// may be changed afterwards. NewTransport ignores it: a caller
+	// building its own http.Client sets that client's Timeout (or a
+	// context deadline), as with net/http.
+	Timeout time.Duration
 	// DialContext opens TCP connections (to the proxy, if any), as
 	// http.Transport's does; TLS and above stay the profile's. Nil uses
 	// net.Dialer.
@@ -162,6 +172,21 @@ type Config struct {
 	// a value above 6 as not a browser. HTTP/2 and HTTP/3 use one
 	// connection per host whatever it says. Negative is an error.
 	MaxConnsPerHost int
+	// IdleConnTimeout is how long an idle connection is kept before
+	// mimicry closes it: HTTP/1.1 since its last response, HTTP/2 and
+	// HTTP/3 since their last request ended. Zero means 90 seconds
+	// (decision 0040); negative means mimicry never closes an idle
+	// connection itself, leaving it to the server, the proxy, QUIC's idle
+	// timeout (the profile's, 30 s in Chrome and Firefox) or
+	// CloseIdleConnections. A longer timeout reuses more connections
+	// (no new handshake after a pause) at the cost of memory, a goroutine
+	// per HTTP/2 or HTTP/3 connection, and, through a proxy, the proxy's
+	// connection slots; servers and proxies often close idle connections
+	// after 60 to 120 seconds anyway. Whatever it says, the connections of
+	// a proxy no longer used close 10 to 20 seconds after its last use
+	// once more than 16 proxies are known (see Transport), and those of a
+	// dropped Transport when it is collected.
+	IdleConnTimeout time.Duration
 	// HTTP3OverSOCKS5 lets requests through a socks5 or socks5h proxy use
 	// HTTP/3 as they would without it (Alt-Svc, 0-RTT, fallback to TCP),
 	// over a SOCKS5 UDP association with the proxy (RFC 1928, section 7):
@@ -204,8 +229,8 @@ type Config struct {
 // Call CloseIdleConnections when you discard a Transport (or the client
 // NewClient built on it), as when a new client takes over with a new
 // proxy identity: its connections close at once. Otherwise an idle
-// connection closes after 90 s (HTTP/3 ones at QUIC's idle timeout if
-// that is sooner), and a Transport no longer reachable closes its idle
+// connection closes after Config.IdleConnTimeout, 90 s by default (HTTP/3
+// ones at QUIC's idle timeout if that is sooner), and a Transport no longer reachable closes its idle
 // connections once the garbage collector finds it. Within a Transport, a
 // proxy no longer used loses its idle connections early: once it is not
 // among the 16 proxies used most recently and has not been used for 10 s
@@ -286,6 +311,7 @@ func NewTransport(cfg Config) (*Transport, error) {
 			BrowserFallback:  cfg.BrowserQUICFallback,
 			Coalesce:         !cfg.DisableCoalescing,
 			MaxConnsPerHost:  cfg.MaxConnsPerHost,
+			IdleConnTimeout:  cfg.IdleConnTimeout,
 			HTTP3OverSOCKS5:  cfg.HTTP3OverSOCKS5,
 			BrowserProxyAuth: cfg.BrowserProxyAuth,
 			VerifyConnection: t.verifier(cfg.VerifyConnection),
@@ -328,7 +354,8 @@ func closeIdle(e engine) {
 // because it needs the page, kind and redirects. The client follows
 // redirects as far as the browser does (20, or the profile's
 // redirects.navigationLimit for navigations); a custom CheckRedirect
-// sees hops as http.Client built them.
+// sees hops as http.Client built them. Its Timeout is Config.Timeout's
+// (30 s by default).
 func NewClient(cfg Config) (*http.Client, error) {
 	t, err := NewTransport(cfg)
 	if err != nil {
@@ -346,11 +373,24 @@ func NewClient(cfg Config) (*http.Client, error) {
 		t.jar = jar
 	}
 
+	timeout := cfg.Timeout
+	switch {
+	case timeout == 0:
+		timeout = defaultClientTimeout
+	case timeout < 0:
+		timeout = 0
+	}
+
 	return &http.Client{
 		Transport:     t,
 		CheckRedirect: followRedirects,
+		Timeout:       timeout,
 	}, nil
 }
+
+// defaultClientTimeout is NewClient's http.Client.Timeout when
+// Config.Timeout is zero.
+const defaultClientTimeout = 30 * time.Second
 
 // followRedirects is NewClient's CheckRedirect: the Transport stops a chain
 // where the browser does (browserHop), not http.Client's default of 10.

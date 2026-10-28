@@ -183,6 +183,49 @@ realistic pattern (a new client per identity) to be benchmarked.
   connections only at the idle timeout after they end.
 - `Transport` documents `CloseIdleConnections` for discarded clients.
 
+## Amendment: Config.IdleConnTimeout, and no watcher goroutine
+
+- **`Config.IdleConnTimeout`.** The 90 s stays the default (zero); a
+  positive value replaces it for HTTP/1.1, HTTP/2 and HTTP/3 alike, and a
+  negative one means mimicry never closes an idle connection for its
+  idleness: the server, the proxy, QUIC's own idle timeout (the
+  profile's `max_idle_timeout`, 30 s in Chrome and Firefox) or
+  `CloseIdleConnections` ends it. The trade-off is reuse across longer
+  pauses against memory, a goroutine per HTTP/2 or HTTP/3 connection and,
+  through a proxy, its connection slots; servers and proxies often close
+  idle connections at 60–120 s anyway. How long the pool remembers a host
+  with no connections (HTTP/1.1-only) stays 90 s
+  (`pool.Config.KeyTimeout`), so a negative value does not grow the pool
+  without bound.
+- **It does not override the proxy rule.** The unused-proxy sweep keeps
+  its own rule (16 most recent, 10 s) and closes a stale proxy's idle
+  connections whatever the timeout, negative included; a timeout shorter
+  than 10–20 s closes them sooner by itself. The dropped-Transport
+  cleanup is unchanged too.
+- **One goroutine per pooled HTTP/2 connection.** The pool learnt that a
+  shared connection ended from a goroutine of its own per connection,
+  waiting on `Done`. A shared connection now runs a callback once it ends
+  (`pool.Shared.OnClose`: the HTTP/2 read loop as it exits, the HTTP/3
+  connection's goroutine that sees QUIC end), with none of the
+  connection's locks held; the pool registers it after releasing its own
+  lock, and on an already-closed connection it runs at once. A pooled
+  idle HTTP/2 client measured (`httptest` server, 200 clients, Chrome
+  profile) 3 goroutines instead of 4 (client side 1 instead of 2), stacks
+  25.5 KB instead of 28.2 KB, heap about the same (45 KB, server side
+  included); after `CloseIdleConnections`, none either way.
+  `TestPooledHTTP2ConnectionGoroutines` (one goroutine, and removal when
+  the server closes; 2 without the change) and
+  `TestSharedConnectionLeavesThePoolWhenItCloses` (a close before, during
+  and after the install).
+- **An HTTP/2 PING keep-alive** (net/http2's `ReadIdleTimeout`, which
+  tls-client sets) was considered and not added: periodic PINGs on an
+  idle connection are wire traffic no browser sends in that pattern
+  (only Chrome's single idle PING is captured). Listed in the backlog.
+- Tests: `TestIdleConnectionsExpire` covers the default, 30 s and
+  negative for HTTP/2 and HTTP/3; `TestNegativeIdleTimeoutKeepsIdleConnections`
+  (`internal/pool`) HTTP/1.1 and shared connections kept, and
+  `CloseIdle` still closing them.
+
 ## Revisit when
 
 - A capture measures a browser closing an idle HTTP/2 connection (time

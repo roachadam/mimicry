@@ -71,7 +71,8 @@ Related:
 | [0037](decisions/0037-coalescing-opt-out.md) | HTTP/2 coalescing stays the browser's; `DisableCoalescing` and `MaxConnsPerHost` for speed | Accepted |
 | [0038](decisions/0038-http3-over-socks5.md) | HTTP/3 through SOCKS5 proxies on request (UDP ASSOCIATE), never a datagram around the proxy | Accepted |
 | [0039](decisions/0039-proxy-credentials-up-front.md) | Proxy credentials from the first request by default, the browser's challenge on request | Accepted |
-| [0040](decisions/0040-idle-connection-cleanup.md) | Idle HTTP/2 and HTTP/3 connections close; unused proxies and dropped Transports let theirs go | Accepted |
+| [0040](decisions/0040-idle-connection-cleanup.md) | Idle HTTP/2 and HTTP/3 connections close; unused proxies and dropped Transports let theirs go | Accepted; amended: `Config.IdleConnTimeout` |
+| [0041](decisions/0041-default-request-timeout.md) | `NewClient` times requests out after 30 s | Accepted |
 
 New records copy [`decisions/template.md`](decisions/template.md).
 

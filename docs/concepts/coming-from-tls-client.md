@@ -38,7 +38,6 @@ client, err := mimicry.NewClient(mimicry.Config{
 	Profile: profiles.Chrome(),
 	Proxy:   http.ProxyURL(proxyURL),
 })
-client.Timeout = 30 * time.Second
 client.CheckRedirect = func(*http.Request, []*http.Request) error {
 	return http.ErrUseLastResponse // only if you really want the 3xx itself
 }
@@ -48,7 +47,7 @@ client.CheckRedirect = func(*http.Request, []*http.Request) error {
 |---|---|
 | `WithClientProfile(profiles.Chrome_133)` | `Config.Profile` (`profiles.Chrome()` for the newest Chrome, `profiles.Chrome155MacOS()` or `profiles.ByName("chrome-155-macos")` for a fixed version, or your own JSON through `profile.Parse`) |
 | `WithRandomTLSExtensionOrder()` | nothing: the profile shuffles where its browser does (Chrome) and keeps the order where it does not (Safari, Firefox over TCP) |
-| `WithTimeoutSeconds(n)` | `http.Client.Timeout`, or the request's context; `Config.DialTimeout` for connecting |
+| `WithTimeoutSeconds(n)` | `Config.Timeout` (`NewClient`'s `http.Client.Timeout`, 30 s by default as in tls-client; negative for none), or the request's context; `Config.DialTimeout` for connecting |
 | `WithNotFollowRedirects()`, `SetFollowRedirect` | `http.Client.CheckRedirect` returning `http.ErrUseLastResponse` |
 | `WithCustomRedirectFunc(f)` | `http.Client.CheckRedirect` |
 | `WithCookieJar(jar)`, `SetCookieJar` | `Config.Cookies` (a `*cookies.Jar`); not the client's `Jar`. `Transport.Cookies()` returns `NewClient`'s own |

@@ -8,7 +8,9 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"runtime"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -162,14 +164,17 @@ func none[T any](t *testing.T, ch <-chan T, what string) {
 	}
 }
 
-// An idle connection closes idleTimeout after its last request ended, as
-// the profile's browser lets a connection go (decision 0040): HTTP/2 with
-// the close alone (Chrome) or GOAWAY first (Firefox, goawayTcp), HTTP/3
-// silently, as at a QUIC idle timeout. Fake clock.
+// An idle connection closes Config.IdleConnTimeout (zero: idleTimeout)
+// after its last request ended, as the profile's browser lets a
+// connection go (decision 0040): HTTP/2 with the close alone (Chrome) or
+// GOAWAY first (Firefox, goawayTcp), HTTP/3 silently, as at a QUIC idle
+// timeout; a negative IdleConnTimeout never closes it. Fake clock.
 func TestIdleConnectionsExpire(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		h3   bool
+		// idle is Config.IdleConnTimeout.
+		idle time.Duration
 		// firefox runs Firefox's profile, else Chrome's; want is what
 		// the server sees once the timeout passed.
 		firefox bool
@@ -190,8 +195,29 @@ func TestIdleConnectionsExpire(t *testing.T) {
 			},
 		},
 		{
+			name: "http2, 30 s",
+			idle: 30 * time.Second,
+			want: []string{
+				"closed",
+			},
+		},
+		{
+			name: "http2, never",
+			idle: -1,
+		},
+		{
 			name: "http3",
 			h3:   true,
+		},
+		{
+			name: "http3, 30 s",
+			h3:   true,
+			idle: 30 * time.Second,
+		},
+		{
+			name: "http3, never",
+			h3:   true,
+			idle: -1,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -205,10 +231,16 @@ func TestIdleConnectionsExpire(t *testing.T) {
 			}
 
 			e := newTestEngine(t, options{
-				profile: p,
-				dial:    n.dial,
-				clock:   clock,
+				profile:         p,
+				dial:            n.dial,
+				clock:           clock,
+				idleConnTimeout: tc.idle,
 			})
+
+			timeout := tc.idle
+			if timeout == 0 {
+				timeout = idleTimeout
+			}
 
 			if tc.h3 {
 				port, conns := quicServerConns(t)
@@ -220,7 +252,18 @@ func TestIdleConnectionsExpire(t *testing.T) {
 
 				server := next(t, conns, "QUIC connection at the server")
 
-				clock.Advance(idleTimeout - time.Second)
+				if timeout < 0 {
+					clock.Advance(100 * idleTimeout)
+					none(t, a.conn.Done(), "the HTTP/3 connection ended with no idle timeout")
+
+					if _, ok := e.quic.pool.Shared(h3Key(r)); !ok {
+						t.Fatal("the HTTP/3 connection left the pool with no idle timeout")
+					}
+
+					return
+				}
+
+				clock.Advance(timeout - time.Second)
 
 				if _, ok := e.quic.pool.Shared(h3Key(r)); !ok {
 					t.Fatal("the HTTP/3 connection left the pool before the idle timeout")
@@ -246,7 +289,19 @@ func TestIdleConnectionsExpire(t *testing.T) {
 			}
 
 			readAll(t, resp)
-			clock.Advance(idleTimeout - time.Second)
+
+			if timeout < 0 {
+				clock.Advance(100 * idleTimeout)
+				none(t, events, "with no idle timeout")
+
+				if _, ok := e.pool.Shared("https://localhost:443"); !ok {
+					t.Fatal("the HTTP/2 connection left the pool with no idle timeout")
+				}
+
+				return
+			}
+
+			clock.Advance(timeout - time.Second)
 			none(t, events, "before the idle timeout")
 
 			if _, ok := e.pool.Shared("https://localhost:443"); !ok {
@@ -256,12 +311,9 @@ func TestIdleConnectionsExpire(t *testing.T) {
 			clock.Advance(time.Second)
 
 			for _, w := range tc.want {
-				if got := next(t, events, w); got != w {
+				if got := nextAdvancing(t, clock, events, w); got != w {
 					t.Fatalf("server saw %q, want %q", got, w)
 				}
-
-				// The GOAWAY's close follows it by h2's declineLinger (1 s).
-				clock.Advance(time.Second)
 			}
 
 			// The next request opens a new connection.
@@ -276,6 +328,104 @@ func TestIdleConnectionsExpire(t *testing.T) {
 				t.Fatalf("%d connections, want 2", d)
 			}
 		})
+	}
+}
+
+// nextAdvancing is the next event, advancing clock by h2's declineLinger
+// while none comes (the GOAWAY's close follows it by that, on a timer
+// armed after the GOAWAY is written), failing t after 5 s.
+func nextAdvancing[T any](t *testing.T, clock *clockwork.FakeClock, ch <-chan T, what string) T {
+	t.Helper()
+
+	deadline := time.After(5 * time.Second)
+
+	for {
+		select {
+		case v := <-ch:
+			return v
+		case <-time.After(10 * time.Millisecond):
+			clock.Advance(time.Second)
+		case <-deadline:
+			t.Fatalf("no %s", what)
+
+			var zero T
+
+			return zero
+		}
+	}
+}
+
+// clientGoroutines counts the goroutines running the client's HTTP/2
+// connection or the pool's code.
+func clientGoroutines() int {
+	buf := make([]byte, 1<<20)
+	for {
+		n := runtime.Stack(buf, true)
+		if n < len(buf) {
+			buf = buf[:n]
+
+			break
+		}
+
+		buf = make([]byte, 2*len(buf))
+	}
+
+	count := 0
+
+	for g := range strings.SplitSeq(string(buf), "\n\n") {
+		if strings.Contains(g, "mimicry/internal/h2.") || strings.Contains(g, "mimicry/internal/pool.") {
+			count++
+		}
+	}
+
+	return count
+}
+
+// A pooled idle HTTP/2 connection costs one goroutine, its read loop, and
+// leaves the pool when the server closes it (pool.Shared.OnClose).
+func TestPooledHTTP2ConnectionGoroutines(t *testing.T) {
+	events := make(chan string, 8)
+	closeServer := make(chan struct{})
+	n := newFakeNet(t, func(ctx context.Context, conn net.Conn) error {
+		go func() {
+			<-closeServer
+
+			_ = conn.Close()
+		}()
+
+		return serveH2Events(events)(ctx, conn)
+	})
+	e := newTestEngine(t, options{
+		dial:  n.dial,
+		clock: clockwork.NewFakeClock(),
+	})
+
+	resp, err := get(t, e, "https://localhost/")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	readAll(t, resp)
+
+	if g := clientGoroutines(); g != 1 {
+		t.Errorf("%d goroutines for a pooled idle HTTP/2 connection, want 1", g)
+	}
+
+	close(closeServer)
+	next(t, events, "close at the server")
+
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		_, pooled := e.pool.Shared("https://localhost:443")
+		if !pooled && clientGoroutines() == 0 {
+			break
+		}
+
+		if time.Now().After(deadline) {
+			t.Fatalf("closed by the server: pooled %v, %d goroutines left", pooled, clientGoroutines())
+		}
+
+		time.Sleep(time.Millisecond)
 	}
 }
 

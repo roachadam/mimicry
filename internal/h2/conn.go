@@ -83,6 +83,10 @@ type Conn struct {
 	// done is closed once the read loop has finished and the connection is
 	// closed.
 	done chan struct{}
+	// onClose holds what OnClose registered, run once done is closed;
+	// finished is set then. Both are guarded by mu.
+	onClose  []func()
+	finished bool
 
 	// wmu serializes frame writes and guards the HPACK encoder. Lock order:
 	// wmu may be held while taking mu, never the reverse.
@@ -437,6 +441,37 @@ func (c *Conn) GoAway() {
 // failed, or drained after GOAWAY.
 func (c *Conn) Done() <-chan struct{} {
 	return c.done
+}
+
+// OnClose runs f once c has finished (Done is closed): at once, on the
+// caller's goroutine, if it has; otherwise on the read loop as it exits.
+// f runs with none of c's locks held.
+func (c *Conn) OnClose(f func()) {
+	c.mu.Lock()
+
+	if !c.finished {
+		c.onClose = append(c.onClose, f)
+		c.mu.Unlock()
+
+		return
+	}
+
+	c.mu.Unlock()
+	f()
+}
+
+// finish runs what OnClose registered, once.
+func (c *Conn) finish() {
+	c.mu.Lock()
+
+	fs := c.onClose
+
+	c.onClose, c.finished = nil, true
+	c.mu.Unlock()
+
+	for _, f := range fs {
+		f()
+	}
 }
 
 // CanTakeNewRequest reports whether new requests can start on c.
@@ -1353,6 +1388,7 @@ func (c *Conn) endStream(s *stream, e ending) {
 }
 
 func (c *Conn) readLoop() {
+	defer c.finish()
 	defer close(c.done)
 
 	err := c.read()

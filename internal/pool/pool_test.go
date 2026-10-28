@@ -38,7 +38,10 @@ type fakeShared struct {
 	idleSince atomic.Pointer[time.Time]
 	closed    atomic.Int32
 	expired   atomic.Int32
-	done      chan struct{}
+	// onClose holds what OnClose registered until end runs it.
+	mu      sync.Mutex
+	onClose []func()
+	ended   bool
 }
 
 func (c *fakeShared) CanTakeNewRequest() bool {
@@ -53,8 +56,32 @@ func (c *fakeShared) IdleSince() (time.Time, bool) {
 	return time.Time{}, false
 }
 
-func (c *fakeShared) Done() <-chan struct{} {
-	return c.done
+func (c *fakeShared) OnClose(f func()) {
+	c.mu.Lock()
+
+	if !c.ended {
+		c.onClose = append(c.onClose, f)
+		c.mu.Unlock()
+
+		return
+	}
+
+	c.mu.Unlock()
+	f()
+}
+
+// end closes c as the server would.
+func (c *fakeShared) end() {
+	c.mu.Lock()
+
+	fs := c.onClose
+
+	c.onClose, c.ended = nil, true
+	c.mu.Unlock()
+
+	for _, f := range fs {
+		f()
+	}
 }
 
 func (c *fakeShared) Close() error {
@@ -126,6 +153,11 @@ type fixture struct {
 }
 
 func newFixture(t *testing.T) *fixture {
+	return newFixtureIdle(t, idleTimeout)
+}
+
+// newFixtureIdle is newFixture with the pool's IdleTimeout set to idle.
+func newFixtureIdle(t *testing.T, idle time.Duration) *fixture {
 	f := &fixture{
 		t: t,
 		clock: &testClock{
@@ -137,7 +169,8 @@ func newFixture(t *testing.T) *fixture {
 
 	f.pool = New[*fakeShared, *fakeExclusive](Config{
 		Clock:       f.clock,
-		IdleTimeout: idleTimeout,
+		IdleTimeout: idle,
+		KeyTimeout:  idleTimeout,
 		OnWait: func(key string) {
 			f.waiting <- key
 		},
@@ -370,13 +403,9 @@ func (f *fixture) shared(key string) *fakeShared {
 	c := &fakeShared{
 		pool: f.pool,
 		t:    f.t,
-		done: make(chan struct{}),
 	}
 	c.canTake.Store(true)
 	f.idle(c)
-	f.t.Cleanup(func() {
-		close(c.done)
-	})
 
 	if got := f.get(key, FoundDial).Dial.Shared(c); got != c {
 		f.t.Fatalf("Shared installed %p, want %p", got, c)
@@ -468,5 +497,78 @@ func TestExpireKey(t *testing.T) {
 
 	if f.pool.ExpireKey("unknown") {
 		t.Error("a key never used is in use")
+	}
+}
+
+// A shared connection leaves the pool once it closes, however that races
+// with its install: closed before, during or after. The pool learns of it
+// from the connection (OnClose), on no goroutine of its own.
+func TestSharedConnectionLeavesThePoolWhenItCloses(t *testing.T) {
+	f := newFixture(t)
+
+	c := f.shared("a")
+	c.end()
+
+	if _, ok := f.pool.Shared("a"); ok {
+		t.Fatal("a closed connection is still pooled")
+	}
+
+	f.get("a", FoundDial).Dial.Fail(context.Canceled)
+
+	for i := range 200 {
+		key := string(rune('b' + i))
+		c := &fakeShared{
+			pool: f.pool,
+			t:    t,
+		}
+		c.canTake.Store(true)
+
+		// Closed before it is installed, or as it is.
+		if i%2 == 0 {
+			c.end()
+		}
+
+		ended := make(chan struct{})
+
+		go func() {
+			c.end()
+			close(ended)
+		}()
+
+		f.get(key, FoundDial).Dial.Shared(c)
+		<-ended
+
+		if _, ok := f.pool.Shared(key); ok {
+			t.Fatalf("connection %d closed, still pooled", i)
+		}
+	}
+}
+
+// With a negative IdleTimeout no idle connection is closed for its
+// idleness, exclusive or shared; CloseIdle still closes them.
+func TestNegativeIdleTimeoutKeepsIdleConnections(t *testing.T) {
+	f := newFixtureIdle(t, -1)
+
+	e := f.dialExclusive("a")
+	f.pool.Release("a", e, true)
+
+	s := f.shared("b")
+
+	f.clock.Advance(100 * idleTimeout)
+
+	if e.isClosed() || s.expired.Load() != 0 || s.closed.Load() != 0 {
+		t.Fatal("an idle connection closed with a negative IdleTimeout")
+	}
+
+	if got := f.get("a", FoundExclusive); got.Exclusive != e {
+		t.Fatal("the idle HTTP/1.1 connection is not handed out again")
+	}
+
+	f.pool.Release("a", e, true)
+	f.get("b", FoundShared)
+	f.pool.CloseIdle()
+
+	if !e.isClosed() || s.closed.Load() != 1 {
+		t.Fatal("CloseIdle left an idle connection open")
 	}
 }

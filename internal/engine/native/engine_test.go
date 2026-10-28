@@ -106,6 +106,8 @@ type options struct {
 	// clock defaults to the real one; proxy is Config.Proxy.
 	clock clockwork.Clock
 	proxy func(*http.Request) (*url.URL, error)
+	// idleConnTimeout is Config.IdleConnTimeout.
+	idleConnTimeout time.Duration
 }
 
 func newTestEngine(t *testing.T, o options) *Engine {
@@ -139,6 +141,7 @@ func newTestEngine(t *testing.T, o options) *Engine {
 		Proxy:           o.proxy,
 		Coalesce:        true,
 		MaxConnsPerHost: o.maxConns,
+		IdleConnTimeout: o.idleConnTimeout,
 	}, clock, o.onWait)
 	if err != nil {
 		t.Fatal(err)

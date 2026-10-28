@@ -124,6 +124,11 @@ type Conn struct {
 	settings     chan struct{}
 	settingsOnce sync.Once
 	done         chan struct{}
+	// onClose holds what OnClose registered, run once done is closed;
+	// finished is set then. Both are guarded by closeMu.
+	closeMu  sync.Mutex
+	onClose  []func()
+	finished bool
 	// maxSection is the largest field section accepted.
 	maxSection uint64
 }
@@ -374,6 +379,37 @@ func (c *Conn) Done() <-chan struct{} {
 	return c.done
 }
 
+// OnClose runs f once the QUIC connection has ended (Done is closed): at
+// once, on the caller's goroutine, if it has; otherwise on the goroutine
+// that sees it end. f runs with none of c's locks held.
+func (c *Conn) OnClose(f func()) {
+	c.closeMu.Lock()
+
+	if !c.finished {
+		c.onClose = append(c.onClose, f)
+		c.closeMu.Unlock()
+
+		return
+	}
+
+	c.closeMu.Unlock()
+	f()
+}
+
+// finish runs what OnClose registered, once.
+func (c *Conn) finish() {
+	c.closeMu.Lock()
+
+	fs := c.onClose
+
+	c.onClose, c.finished = nil, true
+	c.closeMu.Unlock()
+
+	for _, f := range fs {
+		f()
+	}
+}
+
 // Err is why the QUIC connection ended (quic.Conn.Err); nil before Done.
 func (c *Conn) Err() error {
 	select {
@@ -453,6 +489,7 @@ func (c *Conn) serve() {
 		c.decMu.Lock()
 		c.decCond.Broadcast()
 		c.decMu.Unlock()
+		c.finish()
 	}()
 
 	ctx, cancel := context.WithCancel(context.Background())

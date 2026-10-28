@@ -46,9 +46,9 @@ func ExampleNewClient() {
 		panic(err)
 	}
 
-	// A deadline for the whole exchange, as with any http.Client (or the
-	// request's context). Config.DialTimeout bounds connecting alone.
-	client.Timeout = 30 * time.Second
+	// NewClient sets a 30 s deadline for the whole exchange
+	// (Config.Timeout; or the request's context). Config.DialTimeout
+	// bounds connecting alone.
 
 	// A request with no kind is a navigation: the URL typed into the
 	// address bar, with the browser's headers, in its order.

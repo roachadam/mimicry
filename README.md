@@ -33,7 +33,6 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/roachadam/mimicry"
 	"github.com/roachadam/mimicry/profiles"
@@ -46,7 +45,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	client.Timeout = 30 * time.Second
+	// client.Timeout is 30 s (Config.Timeout); a context deadline works too.
 	ctx := context.Background()
 
 	// A request with no kind is a top-level navigation: a URL typed into

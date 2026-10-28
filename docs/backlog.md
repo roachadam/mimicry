@@ -271,6 +271,18 @@ These matter most under decision 0029:
   - Detection: low. User-visible: no.
   - Close: a long idle capture per browser; small, slow to run.
   - Source: [decision 0040](decisions/0040-idle-connection-cleanup.md).
+- **An HTTP/2 PING keep-alive** (considered, not added).
+  - Differs: nothing; tls-client sets net/http2's `ReadIdleTimeout`,
+    which PINGs an idle connection every interval to keep it open and
+    detect a dead one. mimicry sends only the profile's idle PING
+    (Chrome's, once after 10 s idle), as captured; periodic PINGs on an
+    idle connection are wire traffic no browser sends in that pattern.
+  - Shows: would show to servers counting PINGs on idle connections.
+  - Detection: medium if added. User-visible: a dead idle connection is
+    found by the next request on it, not before.
+  - Close: add only if a browser is captured doing it.
+  - Source: [decision 0040](decisions/0040-idle-connection-cleanup.md)
+    (Amendment).
 - **Dead connections without a health check** (Firefox, Safari).
   - Differs: as measured, these browsers send no PING, so a connection
     that died silently is noticed only when a request on it fails or
@@ -278,7 +290,8 @@ These matter most under decision 0029:
   - Shows: a network path that drops without a reset.
   - Detection: none (it is the browser's behaviour). User-visible: yes,
     a request stalls until its context ends.
-  - Close: nothing to capture. Callers should set a request deadline.
+  - Close: nothing to capture. `NewClient`'s 30 s `Config.Timeout`
+    bounds it; a Transport used directly needs a request deadline.
   - Source: HANDOFF.md (HTTP/2 health checks);
     [EVIDENCE.md, HTTP/2 connection](../profiles/EVIDENCE.md#http2-connection)
     (`idlePingMs`).
@@ -443,6 +456,92 @@ These matter most under decision 0029:
   - Close: an OPTIONS fetch in the kinds page, or kindsgen reading the
     h3-early pages; small.
   - Source: `h3EdgeGaps` in [`http3_edge_test.go`](../internal/harness/e2e/http3_edge_test.go).
+- **A response that stops mid-stream on a live HTTP/3 connection** (all;
+  seen with Chrome's profile against nginx).
+  - Differs: unknown whether a browser does the same. A request waits
+    in `h3` (`readResponse` or `body.Read`, in `quic.Stream.Read`) with
+    no bound but its context. The server sent part of the response
+    stream and then nothing more for 60+ s, while it went on
+    acknowledging the keep-alive PINGs that a waiting request sends
+    (`quic.Conn.KeepAlive`), so the connection never idles out. Client
+    state when it was stuck (one case): stream 12 had received [0, 765)
+    of about 1,226 bytes, with no FIN and nothing missing in between. The
+    client had seen every server packet number with no gap ([0, 10), then
+    [0, 12) after two PINGs), had all its own packets acknowledged, and
+    had no PTO armed. So the server stopped sending; the client lost
+    nothing it can see. In another case the server stopped 10 bytes into
+    the response's HEADERS. Why the server (nginx 1.31.8, OpenSSL 3.5.7)
+    holds the rest back is not established: a congestion or flow-control
+    state on its side, or something in the client's ACKs or credit that
+    triggers one, are candidates.
+  - Shows: benchmark layer 6, client rotation, HTTP/3 through SOCKS5,
+    dropped clients, at 196526b (before decision 0040). It was stuck once
+    in the first run at 4 CPUs. Rerunning the setup did not reproduce
+    it: 0 stuck in 14 points at 4 CPUs (7 dropped, 7 closed; one pair
+    was the whole original sequence under host CPU load), 0 in 2 at
+    2 CPUs, and 0 in 10 points at HEAD. With the client container on
+    1 CPU (`BENCH_CLIENT_CPUS=0 BENCH_CLIENT_PROCS=1`, dropped clients)
+    it was stuck in 3 of 30 points, each time one request among about
+    87,000.
+    Not seen in-process against quic-go
+    (`TestQUICInterop`-style stress: rotation through the test SOCKS5
+    relay, 2–15% loss, dropped, closed and direct), where the longest
+    request was 38 s at 15% loss.
+  - Detection: none. User-visible: yes, a request without a deadline
+    hangs; `NewClient`'s client times out after 30 s by default
+    (`Config.Timeout`), a Transport used directly needs a context
+    deadline or its own client's `Timeout`.
+  - Close: capture both sides of a stuck connection: a qlog of the client
+    and nginx's debug log, or a decrypted capture at the proxy, from the
+    1-CPU repro. The H3Stall investigation's stall watch and receive ring
+    (`quic.Stream`/`Conn` state dumped after 10 s of a stuck read) were
+    throwaway instrumentation. Medium.
+  - Source: [multiclient-rotation report](../internal/bench/reports/multiclient-rotation-2026-10-28.md)
+    ("Possible mimicry stall"); the H3Stall investigation (2026-10-28).
+    That report guessed that connections live as long as the dialling
+    request's context. That is not so: nothing in the QUIC, h3 or SOCKS5
+    dial binds to it (`startAttempt` dials on a background context;
+    `ListenUDPVia` stops watching its context once the association is
+    up). Sampled every second after the window, the dropped clients'
+    12,000 associations and 120,000 goroutines go away at QUIC's 30 s
+    idle timeout, over the following 20 s, at the rate they were opened.
+    In that first run the end was read 60 s later, after the cancel.
+- **nginx drops Chrome's port migration** (Chrome).
+  - Differs: nothing; mimicry migrates as Chrome does. When a path counts
+    as degrading (4 PTOs without an ACK), the connection moves to a new
+    port; through a SOCKS5 proxy that means a new association. The
+    benchmark's nginx (8 workers, `reuseport`, no `quic_bpf`) answers no
+    packet on the new path. Requests on the connection wait for the 30 s
+    idle timeout, then go on TCP (`Pending: tcp`). Migration was forced
+    after a connection's third response: 100 of 100 went silent, directly
+    and through the proxy. Against quic-go every one worked (6,871
+    through the test SOCKS5 relay, at most 47 ms per request).
+    [INFERENCE] Chrome's zero-length client connection ID leaves nginx
+    no new one for the path, or reuseport sends the new path's packets
+    to another worker.
+  - Shows: a path that stops acknowledging for 4 PTOs, a loaded client
+    process included, against such an nginx.
+  - Detection: none. User-visible: yes, a 30 s stall per migration (the
+    browser's own wait there was 54–61 s, `Chrome's blackhole detection`
+    below).
+  - Close: a capture of Chrome migrating against nginx; nothing in
+    mimicry unless the browser is seen to behave differently. Small.
+  - Source: the H3Stall investigation (2026-10-28).
+- **nginx refuses about 1 in 6,000 Chrome handshakes: "missing transport
+  parameters"** (Chrome).
+  - Differs: unknown. In about 23,600 Chrome-profile handshakes through
+    the benchmark's SOCKS5 proxy at HEAD, nginx closed 4 with
+    CRYPTO_ERROR 0x16d ("missing transport parameters") on the first
+    round trip, 40–47 ms in. Every hello carries
+    `quic_transport_parameters` (`startClientTLS` sets it before
+    `Start`), so the cause is not found: possibly how nginx reassembles
+    Chrome's shuffled, split CRYPTO frames.
+  - Shows: new QUIC connections to nginx.
+  - Detection: low. User-visible: yes, rarely. With `BrokenAfter` 1 the
+    origin is broken for the Transport, and its requests stay on TCP.
+  - Close: capture a failing first flight (decrypted at the proxy) and
+    replay it against nginx; small to medium.
+  - Source: the H3Stall investigation (2026-10-28).
 - **Chrome's blackhole detection** (Chrome).
   - Differs: when the path Chrome migrated to dies too, Chrome closes
     with `85:Network blackhole detected` and sends the stuck request

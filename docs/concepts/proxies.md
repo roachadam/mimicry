@@ -90,7 +90,8 @@ Rotating by client (a new `NewClient` per identity, the old one dropped):
 call `CloseIdleConnections` on the client you drop, so its connections
 close at once. A dropped client that is not closed lets its idle
 connections go when the garbage collector finds it, and those in flight
-then at the idle timeout (90 s) after they end.
+then at the idle timeout (90 s, `Config.IdleConnTimeout`) after they
+end.
 
 ## WebSockets
 

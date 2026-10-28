@@ -41,8 +41,9 @@ connection, no DNS lookup, no cookie touched, no preflight cached
 | [CORS preflights](#cors-preflights) | an `OPTIONS` before some cross-origin `Fetch`/`XHR` | `Exact`; `Request.NoCORS` (fetch only) |
 | [Cookies](#cookies) | none (headers only) | `Config.Cookies`; a `Cookie` header on the request; `Request.Credentials` |
 | [Response decoding](#response-decoding) | none | set `Accept-Encoding` yourself |
-| [Connection reuse and limits](#connection-reuse-and-limits) | fewer connections, queued requests; idle ones closed after 90 s | `Transport.CloseIdleConnections`; `Config.MaxConnsPerHost` |
+| [Connection reuse and limits](#connection-reuse-and-limits) | fewer connections, queued requests; idle ones closed after 90 s | `Transport.CloseIdleConnections`; `Config.MaxConnsPerHost`; `Config.IdleConnTimeout` |
 | [Retries on another connection](#retries-on-another-connection) | the same request again | none |
+| [A 30 s request timeout](#a-30-s-request-timeout) | none (a request gives up) | `Config.Timeout`; the client's `Timeout` |
 | [HTTP/2 coalescing](#http2-coalescing) | a DNS lookup; Firefox: a connection opened and declined | `Config.DisableCoalescing` (`Config.Resolver` answers the lookup) |
 | [HTTP/3](#http3-alt-svc-and-the-switch) | a QUIC connection beside TCP, GOAWAY on TCP (Firefox); with a shared or saved Alt-Svc cache, QUIC from a new Transport's first request | `Config.DisableHTTP3`; `Config.AltSvc` |
 | [QUIC failure and TCP fallback](#when-quic-fails-tcp-racing-and-fallback) | TCP connections racing QUIC; by default, sooner than the browser's when QUIC fails | `Config.DisableHTTP3`; `Config.BrowserQUICFallback` |
@@ -178,8 +179,9 @@ partition and proxy:
   profile's `connections.http1PerHost`, 6 in every browser;
   `Config.MaxConnsPerHost` changes it); further requests wait, first
   come, first served.
-- An idle connection is closed 90 s after its last request ended (an
-  HTTP/1.1 one is also checked before reuse). An HTTP/2 connection closes
+- An idle connection is closed 90 s after its last request ended
+  (`Config.IdleConnTimeout` changes it; an HTTP/1.1 one is also checked
+  before reuse). An HTTP/2 connection closes
   as the browser lets one go: Firefox's with GOAWAY first (as it sends on
   its HTTP/2 connection once HTTP/3 is up), Chrome's and Safari's with
   the close alone. An HTTP/3 connection ends silently, as at a QUIC idle
@@ -205,8 +207,17 @@ in flight. `Config.MaxConnsPerHost` raises or lowers the HTTP/1.1 limit
 per host: more connections finish many parallel requests to an
 HTTP/1.1-only server sooner, but no browser has more than 6 open to one
 host, so a server counting a client's concurrent connections sees more
-as not a browser. The idle timeout and the partition rules have no
-option. A Transport no longer reachable closes its idle connections when
+as not a browser. `Config.IdleConnTimeout` sets the idle timeout for
+HTTP/1.1, HTTP/2 and HTTP/3 alike: longer reuses connections across
+longer pauses (no new handshake) but keeps their memory, a goroutine
+per HTTP/2 or HTTP/3 connection and, through a proxy, the proxy's
+connection slots; negative leaves idle connections to the server, the
+proxy, QUIC's own idle timeout (30 s in Chrome and Firefox) or
+`CloseIdleConnections`. Servers and proxies often close idle
+connections after 60–120 s anyway. Whatever it is set to, an unused
+proxy's connections close early (see [Proxies](#proxies)) and a dropped
+Transport's when it is collected. The partition rules have no option.
+A Transport no longer reachable closes its idle connections when
 the garbage collector finds it; call `CloseIdleConnections` on a client
 you discard to close them at once. Connections are never partitioned by
 top-level site: a Transport
@@ -231,6 +242,22 @@ A POST that may have reached the server is never sent twice.
 request goes out is normal, and the user never sees it.
 
 **To turn it off.** No option.
+
+## A 30 s request timeout
+
+**What happens.** The `http.Client` `NewClient` returns has a 30 s
+`Timeout`: the whole request, redirects and reading the body included,
+fails after it. A request whose server or connection stops mid-response
+fails then instead of waiting forever. `NewTransport` sets none: a client
+you build yourself has the timeout you give it, as with net/http.
+
+**Why.** A request that hangs on a stalled connection is a stall the
+caller notices; tls-client, httpcloak and azuretls default to 30 s too.
+Nothing on the wire changes.
+
+**To turn it off or change it.** `Config.Timeout` (negative for none), or
+the returned client's `Timeout`; raise it for large downloads or slow
+proxies. A context deadline on the request applies as well.
 
 ## HTTP/2 coalescing
 
