@@ -51,7 +51,8 @@ cmd="${1:-}"
 # enough iterations at the slowest points). Load points: a 3 s window over
 # a 1 s warm-up (run-to-run spread at 3 s measured the same as at 5 s, 2-3%),
 # concurrency 1/64/256 (no 16), 20 idle clients, 3 page loads per
-# condition, and 100 clients per multi-client point (layer 6, same windows).
+# condition, and 100 clients per multi-client point (layer 6, same windows;
+# the client-rotation variant 10 s instead of 20 s, still ten samples).
 # The report records what was used.
 if [[ -n "${BENCH_FAST:-}" ]]; then
 	: "${BENCH_COUNT:=4}"
@@ -158,6 +159,7 @@ report() {
 		[[ "$given" == *" -idle-n "* ]] || args+=(-idle-n 20)
 		[[ "$given" == *" -reps "* ]] || args+=(-reps 3)
 		[[ "$given" == *" -multi-n "* ]] || args+=(-multi-n 100)
+		[[ "$given" == *" -multi-client-window "* ]] || args+=(-multi-client-window 10s)
 	fi
 
 	client_compose run --rm client bench run -out /reports -date "$date" ${args[@]+"${args[@]}"} "$@"

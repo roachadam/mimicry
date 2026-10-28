@@ -39,9 +39,11 @@ type job struct {
 	N      int              `json:"n,omitempty"`
 	Reps   int              `json:"reps,omitempty"`
 	// Rotate: a multi-client job's requests per proxy identity (0: one
-	// identity per client); Tag makes its proxy users unique.
-	Rotate int    `json:"rotate,omitempty"`
-	Tag    string `json:"tag,omitempty"`
+	// identity per client), Renew how it rotates clients instead of
+	// identities ("": it does not); Tag makes its proxy users unique.
+	Rotate int            `json:"rotate,omitempty"`
+	Renew  scenario.Renew `json:"renew,omitempty"`
+	Tag    string         `json:"tag,omitempty"`
 	// Returning: page loads by returning clients (scenario.Setup).
 	Returning bool `json:"returning,omitempty"`
 	// ProfileDir, for mimicry's jobs, receives ProfileName.cpu.pprof (the
@@ -155,6 +157,7 @@ func runJob(j job) outcome {
 			Warmup:   j.Warmup,
 			Duration: j.Window,
 			Rotate:   j.Rotate,
+			Renew:    j.Renew,
 			Tag:      j.Tag,
 			OnWindow: prof.window,
 		})

@@ -63,8 +63,9 @@ Proxy: CONNECT on 3128, CONNECT with Basic auth on 3129, SOCKS5 on 1080
 (username and password when the client offers them, else none; CONNECT
 and UDP ASSOCIATE), stats on 9081. It accepts the user `bench` and every
 `bench-<anything>`, with the password `bench-secret`, and counts per user
-what it relays (tunnels, UDP associations, datagrams, bytes each way:
-`/_proxy?prefix=…` on the stats port), which layer 6 checks its clients
+what it relays (tunnels and UDP associations opened and still open,
+datagrams, bytes each way: `/_proxy?prefix=…` on the stats port), which
+layer 6 checks its clients
 against. A UDP association gets a relay socket on the address the client
 reached the proxy at, ephemeral and not published: HTTP/3 through SOCKS5
 needs the client on the proxy's Docker network, so with `BENCH_SERVER` its
@@ -109,11 +110,58 @@ CONNECT with Basic auth, HTTP/2 and HTTP/3 through SOCKS5 (`socks5h://`
 with username and password; HTTP/3 for the clients that carry it over a
 UDP association: mimicry with `Config.HTTP3OverSOCKS5`, tls-client,
 httpcloak and azuretls; net/http's quic-go transport has no proxy, n/a).
-Each route and body runs twice: one identity per client, then a new one
-every `-multi-rotate` requests (10), switched the way each library's users
-rotate (`clients.Client.SetProxy`: a `Proxy` function's URL for mimicry
-and net/http, `SetProxy` for the others), so every switch costs a new
-tunnel and handshake.
+Each route and body runs in two variants: one identity per client (`fixed`),
+then a new one every `-multi-rotate` requests (10; `proxy`),
+switched the way each library's users rotate (`clients.Client.SetProxy`: a
+`Proxy` function's URL for mimicry and net/http, `SetProxy` for the
+others), so every switch costs a new tunnel and handshake.
+
+### Client rotation
+
+Variant `client` is the other common pattern: a client per proxy identity,
+replaced rather than moved. Each of the `-multi-n` routines sends one
+request at a time and, every `-multi-rotate` requests, builds a new client
+with the library's ordinary constructor and the next identity's
+credentials, then lets the old one go in one of two modes:
+
+- `dropped`: the old client is abandoned as it is, as code that makes a
+  client per proxy and never closes it does;
+- `closed`: the old client is closed first, with the adapter's `Close`:
+  `Transport.CloseIdleConnections` for net/http and mimicry (which has no
+  `Close`), `HttpClient.CloseIdleConnections` for tls-client (none
+  either), `Session.Close` for httpcloak and azuretls.
+
+It runs 1 KB only, and measures over `-multi-client-window` (20 s; 10 s
+with `BENCH_FAST`) instead of `-window`, so that what old clients leave
+behind has time to pile up. Before the load it measures a new client alone
+(20 of them one at a time, each closed after its first response: medians
+of the constructor's time, the first request's, and what both allocate).
+During the window it records each new client's latency from the switch to
+its first response, and every second the process's live heap, goroutines
+and resident memory and the proxy's open tunnels and UDP associations for
+the point's users (the proxy counts them per user; `/_proxy` reports
+`openTunnels` and `openAssociations`). When the window closes the routines
+stop and, before anything is closed, it reads what is left: live heap and
+goroutines per routine (after GC), RSS, and the tunnels still open at the
+proxy, plus the least-squares slope of each over the samples. Over HTTP/3,
+mimicry's routines share one `Config.AltSvc` cache (a new client would
+otherwise start on HTTP/2), and up to 1% of the responses may come over
+another protocol, as a racing client's new connection can lose to TCP;
+the report gives the share.
+
+`-multi-variants` picks the variants (`fixed,proxy,client`). To compare
+two builds of mimicry, run each into a report of its own and merge their
+layer 6 points, side by side in every table:
+
+```sh
+BENCH_FAST=1 internal/bench/scripts/bench.sh report -layers 6 -name rotation-before -micro "" \
+  -multi-variants client -protos h2,h3 -multi-client-window 20s
+# ... change mimicry, then the same with -name rotation-after ...
+docker compose -f internal/bench/docker/compose.client.yml run --rm client bench merge -out /reports \
+  -name multiclient-rotation before=rotation-before-<date>.json after=rotation-after-<date>.json
+```
+
+### Checks and report
 
 Every response's protocol is checked (`x-proto`), and after the window the
 proxy's per-user counts are checked against each client: every identity
@@ -123,10 +171,13 @@ datagrams went through a relay. A point that fails is discarded with the
 reason. The report's tables give requests/s, p50/p99, CPU and allocations
 per request, heap per client (the live heap at steady state and the peak),
 goroutines and stack per client, the new-connection latency, handshakes/s
-and the CPU each new identity costs, and errors with the proxy's and the
-server's CPU use, the best impersonating client bolded and net/http as the
-reference. Layer 6 alone, in a report of its own (`reports/multiclient-<date>.md`
-and `.json`; `-micro ""` keeps the day's micro results out of it):
+and the allocation each new identity costs, and errors with the proxy's and
+the server's CPU use; client rotation has a section of its own (the new
+client under load and alone, then what is left per routine and its growth:
+live heap, goroutines, RSS, tunnels open at the proxy). The best
+impersonating client is bolded, net/http is the reference. Layer 6 alone,
+in a report of its own (`reports/multiclient-<date>.md` and `.json`;
+`-micro ""` keeps the day's micro results out of it):
 
 ```sh
 BENCH_FAST=1 internal/bench/scripts/bench.sh report -layers 6 -name multiclient -micro ""
@@ -166,8 +217,8 @@ Arguments after `run` or `report` go to `bench run`: `-window` and `-warmup`
 per load point (10 s and 3 s; layer 6 uses them too), `-layers 3,4,5,6`, `-clients`, `-servers
 nginx,go`, `-reduced go` (servers that get bodies 1KB/100KB and concurrency
 1/64 only), `-protos h1,h2,h3` (layers 3, 5 and 6), `-conc 1,16,64,256`, `-idle-n 50`,
-`-reps 5`, `-netem=false`, `-multi-n 200` and `-multi-rotate 10` (layer 6;
-0 leaves the rotation variant out), `-name bench` (the report's file name
+`-reps 5`, `-netem=false`, `-multi-n 200`, `-multi-variants fixed,proxy,client`,
+`-multi-rotate 10` and `-multi-client-window 20s` (layer 6), `-name bench` (the report's file name
 before the date), `-profile <dir>`. `-clients` also takes mimicry
 variants that runs leave out otherwise, each with one `Config` option set
 (`clients.Variants`): `mimicry-nocoalescing` (`DisableCoalescing`, a

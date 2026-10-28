@@ -204,21 +204,25 @@ func ProxyUserURL(k ProxyKind, user string) string {
 
 // ProxyUse is what the proxy relayed for one user (or for every user of a
 // prefix, ProxyUsage.Total): TCP tunnels opened (CONNECT, SOCKS5 CONNECT),
-// SOCKS5 UDP associations, datagrams relayed to the client, and bytes
-// relayed each way, tunnels and datagrams together (datagrams without
-// their SOCKS5 header).
+// SOCKS5 UDP associations, the tunnels and associations still open when
+// read, datagrams relayed to the client, and bytes relayed each way,
+// tunnels and datagrams together (datagrams without their SOCKS5 header).
 type ProxyUse struct {
-	Tunnels      int64 `json:"tunnels"`
-	Associations int64 `json:"associations"`
-	Datagrams    int64 `json:"datagrams"`
-	BytesUp      int64 `json:"bytesUp"`
-	BytesDown    int64 `json:"bytesDown"`
+	Tunnels          int64 `json:"tunnels"`
+	Associations     int64 `json:"associations"`
+	OpenTunnels      int64 `json:"openTunnels"`
+	OpenAssociations int64 `json:"openAssociations"`
+	Datagrams        int64 `json:"datagrams"`
+	BytesUp          int64 `json:"bytesUp"`
+	BytesDown        int64 `json:"bytesDown"`
 }
 
 // Add adds o to u.
 func (u *ProxyUse) Add(o ProxyUse) {
 	u.Tunnels += o.Tunnels
 	u.Associations += o.Associations
+	u.OpenTunnels += o.OpenTunnels
+	u.OpenAssociations += o.OpenAssociations
 	u.Datagrams += o.Datagrams
 	u.BytesUp += o.BytesUp
 	u.BytesDown += o.BytesDown

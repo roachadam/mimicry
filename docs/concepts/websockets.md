@@ -51,11 +51,14 @@ through a proxy (the [capture report](../../internal/harness/reports/proxy-webso
   tunnel to the host and port; Safari sends the handshake to the proxy
   whole, on a connection of its own, as `GET ws://host:port/path
   HTTP/1.1` with its usual header lines.
-- **Credentials:** socket tunnels give them as the browser's other
-  tunnels do: Chrome and Firefox unasked once the proxy has asked,
-  Safari after a 407 on every tunnel. Safari's `ws://` handshake sent
-  whole carries them unasked, after `Accept-Encoding`, as its other
-  plain-HTTP requests do. Safari 26 copies Safari 27 (not captured).
+- **Credentials:** socket tunnels give them as the other tunnels do: on
+  the first CONNECT by default
+  ([decision 0039](../decisions/0039-proxy-credentials-up-front.md)), and
+  with `Config.BrowserProxyAuth` as the browser's: Chrome and Firefox
+  unasked once the proxy has asked, Safari after a 407 on every tunnel.
+  Safari's `ws://` handshake sent whole carries them unasked, after
+  `Accept-Encoding`, as its other plain-HTTP requests do. Safari 26
+  copies Safari 27 (not captured).
 - **Errors:** a proxy that fails the socket is a `*ProxyError`;
   `Config.Pins` and `VerifyConnection` check the server's TLS inside the
   tunnel.

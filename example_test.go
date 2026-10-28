@@ -659,7 +659,8 @@ func ExampleConfig_proxy() {
 		}
 	}
 
-	// The credentials go as Chrome sends them: not until the proxy asks.
+	// The credentials go with the first CONNECT (Config.BrowserProxyAuth
+	// waits for the proxy's 407, as Chrome does: a round trip more).
 	get("https://www.shop.test/")
 	get("https://www.shop.test/cart") // the same tunnel
 	rotate()                          // say, after a 403 from the site
@@ -678,9 +679,7 @@ func ExampleConfig_proxy() {
 	// server: /
 	// server: /cart
 	// server: /cart
-	// first proxy: CONNECT www.shop.test:443 without credentials: 407
 	// first proxy: CONNECT www.shop.test:443 as alice: 407
-	// first proxy: CONNECT www.shop.test:443 without credentials: 407
 	// first proxy: CONNECT www.shop.test:443 as alice: 200
 	// second proxy: CONNECT www.shop.test:443 without credentials: 200
 }

@@ -6,9 +6,9 @@
 // client offers them, else no authentication; CONNECT and UDP ASSOCIATE. It
 // accepts every user target.ProxyCredentialsValid allows, so many clients
 // can each have an identity of their own, and counts what it relays per
-// user (tunnels, associations, datagrams and bytes; target.ProxyUsagePath
-// on the stats port). It only relays bytes; its container gets its own
-// netem delay (../../docker/proxy-entrypoint.sh).
+// user (tunnels and associations opened and still open, datagrams and
+// bytes; target.ProxyUsagePath on the stats port). It only relays bytes;
+// its container gets its own netem delay (../../docker/proxy-entrypoint.sh).
 //
 // A UDP association (RFC 1928, section 7) gets a relay socket of its own
 // on the address the client reached the proxy at, which the reply names,
@@ -134,20 +134,24 @@ type proxy struct {
 
 // usage is one user's counts (target.ProxyUse).
 type usage struct {
-	tunnels      atomic.Int64
-	associations atomic.Int64
-	datagrams    atomic.Int64
-	up           atomic.Int64
-	down         atomic.Int64
+	tunnels          atomic.Int64
+	associations     atomic.Int64
+	openTunnels      atomic.Int64
+	openAssociations atomic.Int64
+	datagrams        atomic.Int64
+	up               atomic.Int64
+	down             atomic.Int64
 }
 
 func (u *usage) snapshot() target.ProxyUse {
 	return target.ProxyUse{
-		Tunnels:      u.tunnels.Load(),
-		Associations: u.associations.Load(),
-		Datagrams:    u.datagrams.Load(),
-		BytesUp:      u.up.Load(),
-		BytesDown:    u.down.Load(),
+		Tunnels:          u.tunnels.Load(),
+		Associations:     u.associations.Load(),
+		OpenTunnels:      u.openTunnels.Load(),
+		OpenAssociations: u.openAssociations.Load(),
+		Datagrams:        u.datagrams.Load(),
+		BytesUp:          u.up.Load(),
+		BytesDown:        u.down.Load(),
 	}
 }
 
@@ -257,10 +261,7 @@ func (p *proxy) connect(c net.Conn, auth bool) {
 			return
 		}
 
-		use := p.user(user)
-		use.tunnels.Add(1)
-
-		relay(c, br, up, use)
+		relay(c, br, up, p.user(user))
 
 		return
 	}
@@ -383,10 +384,7 @@ func (p *proxy) socks5(c net.Conn) {
 			return
 		}
 
-		use := p.user(user)
-		use.tunnels.Add(1)
-
-		relay(c, br, up, use)
+		relay(c, br, up, p.user(user))
 
 	case socksUDPAssociate:
 		// The request's DST is the client's sending address, which
@@ -508,9 +506,14 @@ func dial(addr string) (net.Conn, error) {
 	return d.DialContext(ctx, "tcp", addr)
 }
 
-// relay copies both ways until either side closes, counting the bytes into
-// use. br holds what the client sent after its request.
+// relay copies both ways until either side closes, counting the tunnel
+// and its bytes into use. br holds what the client sent after its request.
 func relay(c net.Conn, br *bufio.Reader, up net.Conn, use *usage) {
+	use.tunnels.Add(1)
+	use.openTunnels.Add(1)
+
+	defer use.openTunnels.Add(-1)
+
 	done := make(chan struct{}, 2)
 
 	go func() {
@@ -631,12 +634,15 @@ func (p *proxy) associate(c net.Conn, br *bufio.Reader, user string) {
 
 	if _, err := c.Write(socksReply(socksSucceeded, bound.AddrPort())); err == nil {
 		a.use.associations.Add(1)
+		a.use.openAssociations.Add(1)
 
 		wg.Go(a.toTargets)
 		wg.Go(a.toClient)
 
 		// The association lasts as long as its control connection.
 		_, _ = io.Copy(io.Discard, br)
+
+		a.use.openAssociations.Add(-1)
 	}
 
 	_ = relaySock.Close()

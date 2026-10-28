@@ -83,6 +83,13 @@ services:
     cpuset: "${BENCH_PROXY_CPUS:-10-11}"
     ulimits:
       nofile: 200000
+    # Layer 6's client rotation leaves thousands of tunnels open at once
+    # (a client dropped without closing keeps its connections), each a
+    # connection from here to the server: the default range (28k ports)
+    # would run out alongside the TIME_WAITs of the closed ones.
+    sysctls:
+      net.ipv4.ip_local_port_range: "1024 65535"
+      net.ipv4.tcp_tw_reuse: "1"
     networks:
       bench:
         ipv4_address: 172.30.77.12

@@ -196,6 +196,8 @@ func TestProxyErrors(t *testing.T) {
 		// DialWebSocket; safari as Safari 27.
 		websocket bool
 		safari    bool
+		// browserAuth sets Config.BrowserProxyAuth.
+		browserAuth bool
 	}{
 		{
 			name:   "unreachable",
@@ -222,9 +224,20 @@ func TestProxyErrors(t *testing.T) {
 			},
 		},
 		{
+			name:          "407 to credentials sent up front",
+			proxy:         proxyURL("http", asking.URL.Host, wrong),
+			target:        "https://www.shop.test/",
+			wantStatus:    http.StatusProxyAuthRequired,
+			wantChallenge: true,
+			wantLog: []string{
+				"CONNECT www.shop.test:443 as alice: 407",
+			},
+		},
+		{
 			name:          "407 after the credential flow",
 			proxy:         proxyURL("http", asking.URL.Host, wrong),
 			target:        "https://www.shop.test/",
+			browserAuth:   true,
 			wantStatus:    http.StatusProxyAuthRequired,
 			wantChallenge: true,
 			wantLog: []string{
@@ -233,9 +246,20 @@ func TestProxyErrors(t *testing.T) {
 			},
 		},
 		{
+			name:          "plain HTTP 407 to credentials sent up front",
+			proxy:         proxyURL("http", asking.URL.Host, wrong),
+			target:        "http://www.shop.test/",
+			wantStatus:    http.StatusProxyAuthRequired,
+			wantChallenge: true,
+			wantLog: []string{
+				"GET www.shop.test as alice: 407",
+			},
+		},
+		{
 			name:          "plain HTTP 407 after the credential flow",
 			proxy:         proxyURL("http", asking.URL.Host, wrong),
 			target:        "http://www.shop.test/",
+			browserAuth:   true,
 			wantStatus:    http.StatusProxyAuthRequired,
 			wantChallenge: true,
 			wantLog: []string{
@@ -278,10 +302,22 @@ func TestProxyErrors(t *testing.T) {
 			wantDeadline: true,
 		},
 		{
+			name:          "WebSocket tunnel 407 to credentials sent up front",
+			proxy:         proxyURL("http", asking.URL.Host, wrong),
+			target:        "wss://www.shop.test/socket",
+			websocket:     true,
+			wantStatus:    http.StatusProxyAuthRequired,
+			wantChallenge: true,
+			wantLog: []string{
+				"CONNECT www.shop.test:443 as alice: 407",
+			},
+		},
+		{
 			name:          "WebSocket tunnel 407 after the credential flow",
 			proxy:         proxyURL("http", asking.URL.Host, wrong),
 			target:        "wss://www.shop.test/socket",
 			websocket:     true,
+			browserAuth:   true,
 			wantStatus:    http.StatusProxyAuthRequired,
 			wantChallenge: true,
 			wantLog: []string{
@@ -320,9 +356,10 @@ func TestProxyErrors(t *testing.T) {
 			}
 
 			tr, err := mimicry.NewTransport(mimicry.Config{
-				Profile: p,
-				Proxy:   http.ProxyURL(tc.proxy),
-				RootCAs: shop.RootCAs,
+				Profile:          p,
+				Proxy:            http.ProxyURL(tc.proxy),
+				RootCAs:          shop.RootCAs,
+				BrowserProxyAuth: tc.browserAuth,
 			})
 			if err != nil {
 				t.Fatal(err)

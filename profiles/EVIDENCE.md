@@ -273,7 +273,10 @@ the `proxy-*` captures ([report](../internal/harness/reports/proxies-2026-10-24.
 WebSockets: [report](../internal/harness/reports/proxy-websocket-2026-10-26.md)).
 All checked by `TestProxyMatchesBrowser` (mimicry through the capture proxy
 against every browser's capture), `TestWebSocketsMatchBrowser` (its proxy
-scenarios) and `TestUnmeasuredProxyIsAnError`. Safari 26's credential rows
+scenarios) and `TestUnmeasuredProxyIsAnError`, with `Config.BrowserProxyAuth`
+(by default mimicry sends the `connectAuth` and `forwardAuth` placements
+from the first request, decision 0039: checked in the same tests' upfront
+cases). Safari 26's credential rows
 are **C**: its `proxy-auth`, `proxy-plain-auth` and `proxy-websocket-auth`
 captures were never taken (`missingCaptures` in the test). Safari 27's
 `proxy-websocket-auth` was taken on 2026-10-26 (device profile, macOS
@@ -547,8 +550,11 @@ bullets below that later work has closed:
   whether the per-host cap holds over plain HTTP and per proxy route too
   (measured over HTTPS; mimicry applies it to both: [INFERENCE]); Chrome's
   total and per-proxy limits; coalescing through a proxy (mimicry never
-  does); the 90 s after which an
-  idle HTTP/1.1 connection is closed; the TLS 1.2 ticket lifetime.
+  does); the 90 s after which an idle connection is closed (HTTP/1.1,
+  HTTP/2, and HTTP/3 where QUIC's own idle timeout is longer), and how
+  Chrome and Safari close an idle HTTP/2 connection (mimicry: the close
+  alone; Firefox profiles GOAWAY first, as its `goawayTcp`); the TLS 1.2
+  ticket lifetime.
 - HTTP/2: Chrome's mid-load re-prioritisation of a script (and so how it
   moves the stream in its dependency lists); a stream whose response ended
   mid-upload, which Chromium keeps in its lists until the upload's

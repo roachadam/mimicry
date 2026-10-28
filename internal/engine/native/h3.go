@@ -93,6 +93,12 @@ func (c *quicConn) state() *tls.ConnectionState {
 	return s
 }
 
+// Expire ends the idle connection silently, as each browser's ends at its
+// QUIC idle timeout (decision 0040).
+func (c *quicConn) Expire() {
+	c.Discard()
+}
+
 // attempt is a QUIC connection being dialled to an origin. Requests wait
 // for it as the profile's Fallback says, or leave it to run in the
 // background.
@@ -179,7 +185,12 @@ type quicState struct {
 
 // h3Key is r's HTTP/3 pool key.
 func h3Key(r route) string {
-	return r.key + " h3"
+	return h3PoolKey(r.key)
+}
+
+// h3PoolKey is the HTTP/3 pool key of the route key key.
+func h3PoolKey(key string) string {
+	return key + " h3"
 }
 
 // h3Route reports whether req on r may use HTTP/3: the engine speaks it
@@ -1104,6 +1115,7 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 		AltHost: r.host,
 		AltPort: strconv.Itoa(int(port)),
 		Pending: spec.pending,
+		Clock:   e.clock,
 	})
 	if err != nil {
 		return nil, err

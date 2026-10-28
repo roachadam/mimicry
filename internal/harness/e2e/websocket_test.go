@@ -33,57 +33,115 @@ import (
 // bytes included), the pong, HTTP/2 DATA packing, close and transport end.
 // Where samples differ any sample's form passes; Chrome's fragmented 70 KiB
 // message also passes joined. The proxy pages also check what reached the
-// proxy for each socket.
+// proxy for each socket, with Config.BrowserProxyAuth; the page with proxy
+// credentials runs again without it ("upfront"), where the sockets must
+// still be the browser's and only the proxy sees a difference: every
+// CONNECT carries the credentials as the browser's credentialed ones, and
+// none is answered 407 (decision 0039).
 func TestWebSocketsMatchBrowser(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		for _, sc := range []*server.Scenario{server.WebSocket, server.WebSocketH2, server.ProxyWebSocket, server.ProxyWebSocketAuth, server.ProxyWebSocketSOCKS5} {
-			t.Run(name+"/"+sc.Name, func(t *testing.T) {
-				t.Parallel()
+			modes := []string{
+				"",
+			}
+			if sc.ProxyAuth {
+				modes = append(modes, "/upfront")
+			}
 
-				p, err := loadProfile(name)
-				if err != nil {
-					t.Fatal(err)
-				}
+			for _, mode := range modes {
+				t.Run(name+"/"+sc.Name+mode, func(t *testing.T) {
+					t.Parallel()
+					runWebSocketScenario(t, name, sc, mode == "")
+				})
+			}
+		}
+	}
+}
 
-				// A listed missing capture is skipped, an existing listed one fails.
-				want := loadSamples[*capture.Page](t, p, sc.Name, ".pagetrace.json.gz")
-				sockets, steps, ok := sc.WebSocketPage()
+// runWebSocketScenario is TestWebSocketsMatchBrowser for sc, giving proxy
+// credentials the browser's way when browserAuth.
+func runWebSocketScenario(t *testing.T, name string, sc *server.Scenario, browserAuth bool) {
+	t.Helper()
 
-				if !ok {
-					t.Fatalf("scenario %s serves no websocket page", sc.Name)
-				}
+	p, err := loadProfile(name)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-				var (
-					s         *pageSession
-					px        *proxy.Proxy
-					wantProxy [][]capture.ProxyRequest
-				)
+	// A listed missing capture is skipped, an existing listed one fails.
+	want := loadSamples[*capture.Page](t, p, sc.Name, ".pagetrace.json.gz")
+	sockets, steps, ok := sc.WebSocketPage()
 
-				if sc.Proxy == "" {
-					s = startPage(t, p, sc)
-				} else {
-					wantProxy = loadSamples[[]capture.ProxyRequest](t, p, sc.Name, ".proxytrace.json")
+	if !ok {
+		t.Fatalf("scenario %s serves no websocket page", sc.Name)
+	}
 
-					var user *url.Userinfo
+	var (
+		s         *pageSession
+		px        *proxy.Proxy
+		wantProxy [][]capture.ProxyRequest
+	)
 
-					if sc.ProxyAuth {
-						user = url.UserPassword(server.ProxyUser, server.ProxyPassword)
-					}
+	if sc.Proxy == "" {
+		s = startPage(t, p, sc)
+	} else {
+		wantProxy = loadSamples[[]capture.ProxyRequest](t, p, sc.Name, ".proxytrace.json")
 
-					s, px = startProxiedPage(t, p, sc, user)
-				}
+		var user *url.Userinfo
 
-				got, seen := runWebSocketPage(t, s, sockets, steps)
-				for _, st := range sockets {
-					t.Run(st.Label, func(t *testing.T) {
-						checkSocket(t, p, st, steps, got, want, seen[st.Label])
+		if sc.ProxyAuth {
+			user = url.UserPassword(server.ProxyUser, server.ProxyPassword)
+		}
 
-						if px != nil {
-							checkProxyRoute(t, st, px.Requests(), got, wantProxy, want)
-						}
-					})
-				}
+		s, px = startProxiedPage(t, p, sc, user, browserAuth)
+	}
+
+	got, seen := runWebSocketPage(t, s, sockets, steps)
+	for _, st := range sockets {
+		t.Run(st.Label, func(t *testing.T) {
+			checkSocket(t, p, st, steps, got, want, seen[st.Label])
+
+			if px != nil && browserAuth {
+				checkProxyRoute(t, st, px.Requests(), got, wantProxy, want)
+			}
+		})
+	}
+
+	if !browserAuth {
+		checkUpfrontConnects(t, px.Requests(), wantProxy)
+	}
+}
+
+// checkUpfrontConnects checks that every CONNECT mimicry sent carried
+// credentials from the first, none answered 407, each with the lines of a
+// credentialed CONNECT the browser sent (ports elided).
+func checkUpfrontConnects(t *testing.T, reqs []capture.ProxyRequest, wantReqs [][]capture.ProxyRequest) {
+	t.Helper()
+
+	if !slices.ContainsFunc(reqs, func(r capture.ProxyRequest) bool {
+		return r.Kind == capture.ProxyConnect
+	}) {
+		t.Error("no CONNECT reached the proxy")
+	}
+
+	for _, r := range reqs {
+		if r.Kind != capture.ProxyConnect {
+			continue
+		}
+
+		got := portless(r.Lines)
+		if r.Status == http.StatusProxyAuthRequired || authPlace(got) == "none" {
+			t.Errorf("CONNECT answered %d, credentials %s: want them on the first, unasked", r.Status, authPlace(got))
+
+			continue
+		}
+
+		if !slices.ContainsFunc(wantReqs, func(sample []capture.ProxyRequest) bool {
+			return slices.ContainsFunc(sample, func(w capture.ProxyRequest) bool {
+				return w.Kind == capture.ProxyConnect && authPlace(w.Lines) != "none" && slices.Equal(portless(w.Lines), got)
 			})
+		}) {
+			t.Errorf("CONNECT with credentials %q is no credentialed CONNECT of the browser's", got)
 		}
 	}
 }
@@ -162,9 +220,10 @@ func runWebSocketPage(t *testing.T, s *pageSession, sockets []server.WebSocketSt
 
 // startProxiedPage is startPage behind the capture proxy, as sc
 // configures it: every host and port reached through the proxy at the
-// proxy URL's scheme, with user's credentials. The server's ports are only
+// proxy URL's scheme, with user's credentials, given the browser's way
+// when browserAuth (Config.BrowserProxyAuth). The server's ports are only
 // named, never dialled.
-func startProxiedPage(t *testing.T, p *profile.Profile, sc *server.Scenario, user *url.Userinfo) (*pageSession, *proxy.Proxy) {
+func startProxiedPage(t *testing.T, p *profile.Profile, sc *server.Scenario, user *url.Userinfo, browserAuth bool) (*pageSession, *proxy.Proxy) {
 	t.Helper()
 
 	ca, err := server.LoadOrCreateCA(t.TempDir(), server.CADomains, time.Now())
@@ -244,6 +303,7 @@ func startProxiedPage(t *testing.T, p *profile.Profile, sc *server.Scenario, use
 			Host:   pln.Addr().String(),
 			User:   user,
 		}),
+		BrowserProxyAuth: browserAuth,
 	})
 	if err != nil {
 		t.Fatal(err)

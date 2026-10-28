@@ -87,3 +87,8 @@ Exception (2026-10-28, [0036](0036-fast-quic-fallback.md)): where QUIC
 fails, requests by default wait less than the browser's do;
 `Config.BrowserQUICFallback` asks for the browser's timing. Nothing a
 server that answers sees differs.
+
+Exception (2026-10-28, [0039](0039-proxy-credentials-up-front.md)): an
+HTTP proxy gets the URL's credentials on the first request, not after its
+407; `Config.BrowserProxyAuth` asks for the browser's flow. Only the
+proxy sees the difference.

@@ -36,7 +36,7 @@ Related:
 | [0002](decisions/0002-net-http-types.md) | `net/http` types in the API, no forked `net/http` | Accepted |
 | [0003](decisions/0003-evidence-rule.md) | Browser wire captures are the evidence | Accepted |
 | [0004](decisions/0004-complete-profile-files.md) | One complete profile file per browser version, no inheritance | Accepted; captures inherited by 0035 |
-| [0005](decisions/0005-request-kinds-api.md) | Request kinds: defaults exact, deviations visible | Accepted; one default deviation by 0036 |
+| [0005](decisions/0005-request-kinds-api.md) | Request kinds: defaults exact, deviations visible | Accepted; default deviations by 0036 and 0039 |
 | [0006](decisions/0006-header-order-variants.md) | Header order: a default per kind plus measured variants | Accepted |
 | [0007](decisions/0007-navigation-stays-top-level.md) | The navigation stays the profile's top-level request | Accepted |
 | [0008](decisions/0008-unmeasured-is-an-error.md) | Asking for what was never measured is an error | Accepted |
@@ -45,13 +45,13 @@ Related:
 | [0011](decisions/0011-connection-partitioning.md) | Model connection partitioning only where a rule is measured | Accepted |
 | [0012](decisions/0012-cookie-rules-in-profiles.md) | Browser cookie rules as a profile section | Accepted |
 | [0013](decisions/0013-tls-resumption.md) | TLS session resumption as the browser does it | Accepted |
-| [0014](decisions/0014-proxies.md) | Proxies as the browser uses them | Accepted; HTTP/3 through SOCKS5 on request by 0038 |
+| [0014](decisions/0014-proxies.md) | Proxies as the browser uses them | Accepted; HTTP/3 through SOCKS5 on request by 0038; credentials up front by default by 0039 |
 | [0015](decisions/0015-non-secure-origins.md) | Requests to non-secure origins as captured, per kind | Accepted |
 | [0016](decisions/0016-literal-urls-no-https-upgrade.md) | Requests go to the URL given; no HTTPS upgrades or HSTS by default | Accepted |
 | [0017](decisions/0017-cors-preflights.md) | CORS preflights as the browser sends them, refusal included | Accepted |
 | [0018](decisions/0018-no-public-engine.md) | No public Engine interface | Accepted |
 | [0019](decisions/0019-transport-is-one-browsing-entity.md) | A Transport is one browsing entity | Accepted |
-| [0020](decisions/0020-connection-pool-package.md) | The connection pool is its own package | Accepted |
+| [0020](decisions/0020-connection-pool-package.md) | The connection pool is its own package | Accepted; idle timeout for every protocol by 0040 |
 | [0021](decisions/0021-page-headers-hash-table-order.md) | Page-set headers in the browser's hash-table order | Accepted |
 | [0022](decisions/0022-redirects-as-the-browser-follows-them.md) | Redirects follow the browser's rules, inside the Transport | Accepted |
 | [0023](decisions/0023-connection-limits-and-coalescing.md) | Per-host HTTP/1.1 limit and HTTP/2 coalescing, per browser | Accepted; options to disable coalescing and change the limit by 0037 |
@@ -70,6 +70,8 @@ Related:
 | [0036](decisions/0036-fast-quic-fallback.md) | Fast QUIC fallback by default, the browser's timing on request | Accepted |
 | [0037](decisions/0037-coalescing-opt-out.md) | HTTP/2 coalescing stays the browser's; `DisableCoalescing` and `MaxConnsPerHost` for speed | Accepted |
 | [0038](decisions/0038-http3-over-socks5.md) | HTTP/3 through SOCKS5 proxies on request (UDP ASSOCIATE), never a datagram around the proxy | Accepted |
+| [0039](decisions/0039-proxy-credentials-up-front.md) | Proxy credentials from the first request by default, the browser's challenge on request | Accepted |
+| [0040](decisions/0040-idle-connection-cleanup.md) | Idle HTTP/2 and HTTP/3 connections close; unused proxies and dropped Transports let theirs go | Accepted |
 
 New records copy [`decisions/template.md`](decisions/template.md).
 

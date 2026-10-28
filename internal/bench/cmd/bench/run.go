@@ -40,10 +40,14 @@ type settings struct {
 	Reps        int           `json:"reps"`
 	Netem       bool          `json:"netem"`
 	ProfileDir  string        `json:"profileDir,omitempty"`
-	// MultiN is layer 6's clients per point, MultiRotate its requests per
-	// proxy identity in the rotation variant.
-	MultiN      int `json:"multiN,omitempty"`
-	MultiRotate int `json:"multiRotate,omitempty"`
+	// MultiN is layer 6's clients (routines) per point, MultiVariants its
+	// variants, MultiRotate the requests per proxy identity (or client)
+	// in the rotating ones, MultiClientWindow the client-rotation
+	// variant's window.
+	MultiN            int           `json:"multiN,omitempty"`
+	MultiVariants     []string      `json:"multiVariants,omitempty"`
+	MultiRotate       int           `json:"multiRotate,omitempty"`
+	MultiClientWindow time.Duration `json:"multiClientWindow,omitempty"`
 }
 
 // render rewrites a report's Markdown (and JSON) from its JSON, replacing
@@ -95,7 +99,10 @@ func run(args []string) error {
 	reps := fs.Int("reps", 5, "page loads per setup and network condition")
 	useNetem := fs.Bool("netem", true, "shape the client's network for layer 5 (off: the network as it is, e.g. a remote server over Ethernet)")
 	multiN := fs.Int("multi-n", 200, "layer 6: clients per point, each through a proxy identity of its own")
-	multiRotate := fs.Int("multi-rotate", 10, "layer 6: requests per proxy identity in the rotation variant (0: no rotation variant)")
+	multiVariantList := fs.String("multi-variants", strings.Join(multiVariants, ","),
+		"layer 6: variants (fixed: one identity per client; proxy: a client moves to a new identity; client: a routine replaces its client, dropped and then closed)")
+	multiRotate := fs.Int("multi-rotate", 10, "layer 6: requests per proxy identity (proxy variant) or per client (client variant)")
+	multiClientWindow := fs.Duration("multi-client-window", 20*time.Second, "layer 6: the client variant's measurement window, long enough for growth to show")
 	micro := fs.String("micro", "", "benchstat output of the micro benchmarks (layers 1 and 2) to embed")
 	microRaw := fs.String("micro-raw", "", "the micro benchmarks' raw output, named in the report")
 	profileDir := fs.String("profile", "", "write CPU and allocation profiles of mimicry's jobs here")
@@ -108,20 +115,31 @@ func run(args []string) error {
 	defer stop()
 
 	st := settings{
-		Window:      *window,
-		Warmup:      *warmup,
-		Layers:      ints(*layers),
-		Clients:     names(*clientList, clientNames()),
-		Servers:     names(*serverList, nil),
-		Reduced:     names(*reduced, nil),
-		Protos:      names(*protoList, nil),
-		Concurrency: ints(*concList),
-		IdleN:       *idleN,
-		Reps:        *reps,
-		Netem:       *useNetem,
-		ProfileDir:  *profileDir,
-		MultiN:      *multiN,
-		MultiRotate: *multiRotate,
+		Window:            *window,
+		Warmup:            *warmup,
+		Layers:            ints(*layers),
+		Clients:           names(*clientList, clientNames()),
+		Servers:           names(*serverList, nil),
+		Reduced:           names(*reduced, nil),
+		Protos:            names(*protoList, nil),
+		Concurrency:       ints(*concList),
+		IdleN:             *idleN,
+		Reps:              *reps,
+		Netem:             *useNetem,
+		ProfileDir:        *profileDir,
+		MultiN:            *multiN,
+		MultiVariants:     names(*multiVariantList, multiVariants),
+		MultiRotate:       *multiRotate,
+		MultiClientWindow: *multiClientWindow,
+	}
+
+	for _, v := range st.MultiVariants {
+		switch {
+		case !slices.Contains(multiVariants, v):
+			return fmt.Errorf("-multi-variants: no variant %q (%s)", v, strings.Join(multiVariants, ", "))
+		case v != variantFixed && st.MultiRotate <= 0:
+			return fmt.Errorf("-multi-variants %s needs -multi-rotate above 0", v)
+		}
 	}
 
 	if st.ProfileDir != "" {
@@ -557,6 +575,9 @@ func (rn *runner) log(j job, msg string) {
 
 	if j.Kind == kindMulti {
 		what += fmt.Sprintf(" %s n=%d rotate=%d", j.Op.Name, j.N, j.Rotate)
+		if j.Renew != "" {
+			what += " clients " + string(j.Renew)
+		}
 	}
 
 	fmt.Fprintf(os.Stderr, "%s [%d] %s %s: %s\n", time.Now().Format("15:04:05"), rn.n, what, j.Client, msg)

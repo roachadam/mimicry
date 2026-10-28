@@ -33,8 +33,18 @@ The proxy sees what the profile's browser sends a proxy, from captures
 
 ## Credentials
 
-Put them in the URL (`http://user:pass@proxy:3128`). They are used the way
-the profile's browser uses them:
+Put them in the URL (`http://user:pass@proxy:3128`). By default they go
+with the first request: the first CONNECT carries `Proxy-Authorization`
+(Basic), in the profile's header list for a CONNECT with credentials, and
+so does a plain-HTTP request sent to the proxy whole, placed where the
+browser places it when it sends it unasked. A new proxy URL, which every
+rotating identity is, costs no extra round trip. Only the proxy sees
+that the credentials came before it asked for them: what reaches the
+server through the tunnel is the same bytes either way
+([decision 0039](../decisions/0039-proxy-credentials-up-front.md)). A
+proxy that answers them with 407 fails the request (a `*ProxyError`).
+
+`Config.BrowserProxyAuth` uses them the way the profile's browser does:
 
 - Chrome and Firefox: the first request to a proxy goes without, the
   proxy's 407 is answered on the same connection, and every later request
@@ -45,6 +55,9 @@ the profile's browser uses them:
   request, it also puts `Proxy-Authorization` on requests inside its
   tunnels, where the server reads it; mimicry never does (see the
   [backlog](../backlog.md#proxies)).
+
+Set it where what the proxy sees matters as much as what the site sees
+(the harness does, to compare against the captures).
 
 Only Basic authentication is supported. SOCKS5 credentials, which no
 browser sends, are offered when the URL has them; that part is visibly
@@ -62,6 +75,23 @@ proxy. `Config.DialTimeout` bounds the connect to the proxy together with
 the proxy's handshake (CONNECT or SOCKS5), and the TLS handshake with the
 server separately; the request's context bounds both.
 
+### Rotating
+
+Rotating within one Transport (changing what `Config.Proxy` returns)
+keeps cookies and the page. Each new proxy URL opens new connections, and
+those of the proxies left behind close before their idle timeout once
+they are not among the 16 proxies used most recently and have not been
+used for 10 s (a sweep checks, so 10–20 s after their last request).
+Round-robin over up to 16 proxies, or over more when each comes round
+within 10 s, keeps every connection
+([decision 0040](../decisions/0040-idle-connection-cleanup.md)).
+
+Rotating by client (a new `NewClient` per identity, the old one dropped):
+call `CloseIdleConnections` on the client you drop, so its connections
+close at once. A dropped client that is not closed lets its idle
+connections go when the garbage collector finds it, and those in flight
+then at the idle timeout (90 s) after they end.
+
 ## WebSockets
 
 `Transport.DialWebSocket` goes through the proxy as the browser's socket
@@ -69,9 +99,10 @@ does: a `wss://` socket as a stream on the host's HTTP/2 connection inside
 its tunnel when the server allows extended CONNECT, else in a tunnel of
 its own; a `ws://` socket through an HTTP proxy in a CONNECT tunnel
 (Chrome, Firefox) or sent to the proxy whole as `GET ws://…` (Safari).
-Credentials go as on the browser's other tunnels and plain-HTTP requests
-(Safari's forwarded `ws://` handshake carries them unasked); `ws://`
-through SOCKS5 is `ErrNotMeasured`. See
+Credentials go as on the other tunnels and plain-HTTP requests: from the
+first by default, the browser's way with `Config.BrowserProxyAuth`
+(Safari's forwarded `ws://` handshake carries them unasked either way);
+`ws://` through SOCKS5 is `ErrNotMeasured`. See
 [WebSockets](websockets.md#through-a-proxy).
 
 ## HTTP/3 through SOCKS5
@@ -134,8 +165,9 @@ if errors.As(err, &pe) {
 ```
 
 It covers everything before the server is reached: the connect to the
-proxy, a CONNECT answered other than 2xx (a 407 once the URL's
-credentials were given as the browser gives them, or when it has none), a
+proxy, a CONNECT answered other than 2xx (a 407 to the URL's
+credentials, or when it has none; with `BrowserProxyAuth`, once they were
+given as the browser gives them), a
 SOCKS5 handshake the proxy refused (no acceptable method, rejected
 credentials, a refused connection), and the deadline passing on the way
 (`errors.Is(err, context.DeadlineExceeded)` still holds). A plain-HTTP

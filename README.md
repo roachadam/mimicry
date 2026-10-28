@@ -126,7 +126,8 @@ Transports can share a jar through `Config.Cookies`. Examples:
 
 **Proxies and rotation.** `Config.Proxy` is a function of the request, as
 in `http.Transport`: `http`, `socks5` and `socks5h` proxies, credentials in
-the URL sent as the browser sends them. A failure that is the proxy's, not
+the URL, sent with the first request (`Config.BrowserProxyAuth` waits for
+the proxy's 407, as the browser does). A failure that is the proxy's, not
 the site's, is a `*mimicry.ProxyError`:
 
 ```go
@@ -146,7 +147,10 @@ if errors.As(err, &pe) {
 ```
 
 Cookies and the last page stay the Transport's; each proxy has its own
-connections. Requests through a proxy stay on TCP, as in the browser;
+connections, and those of a proxy no longer used close once 16 others
+have been used since and it has been unused for 10 s. To rotate by
+client instead, call `CloseIdleConnections` on the one you drop. Requests
+through a proxy stay on TCP, as in the browser;
 `Config.HTTP3OverSOCKS5` lets SOCKS5 proxies carry HTTP/3 (a UDP
 association per QUIC connection), and no datagram ever goes around the
 proxy. Example: `ExampleConfig_proxy`; see
@@ -309,14 +313,15 @@ lists each behaviour, why the browser does it, and the option that changes it.
 
 ## Deliberate deviations from the browser, and how to turn them off
 
-With no options, mimicry sends what the browser sends, with one
-exception, where the browser's behaviour costs time a user notices and
+With no options, mimicry sends what the browser sends, with two
+exceptions, where the browser's behaviour costs time a user notices and
 the difference is unlikely to be checked by anti-bot systems; a `Config`
 field gives the browser's behaviour back:
 
 | Deviation | What a server can see | The browser's behaviour |
 |---|---|---|
 | **Shorter waits when QUIC fails.** Requests go on TCP after the race delay instead of waiting 4–5 s on a QUIC connection the server never answers ([decision 0036](docs/decisions/0036-fast-quic-fallback.md)). | only on networks or servers where QUIC fails: an earlier TCP connection | `Config.BrowserQUICFallback` |
+| **Proxy credentials from the first request.** The first CONNECT (and the first request sent to an `http://` proxy whole) carries `Proxy-Authorization`, placed where the browser places it when it sends it unasked, instead of waiting for the proxy's 407: one round trip less for every new proxy URL, as each rotating identity is (every tunnel, with a Safari profile) ([decision 0039](docs/decisions/0039-proxy-credentials-up-front.md)). | nothing: only the proxy sees it; the site gets the same bytes through the tunnel | `Config.BrowserProxyAuth` |
 
 Three options go the other way, off by default because they do what no
 browser does; each trades fidelity for speed or reach:

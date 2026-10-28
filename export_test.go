@@ -8,7 +8,7 @@ func SetPins(t *Transport, ps []Pin) error {
 		return err
 	}
 
-	t.pins = set
+	*t.pins = set
 
 	return nil
 }

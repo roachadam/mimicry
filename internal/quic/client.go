@@ -221,6 +221,14 @@ func (c *Conn) KeepAlive(on bool) {
 	c.wake()
 }
 
+// Discard ends the connection at once without a word to the peer: no
+// CONNECTION_CLOSE and no draining period, as an idle timeout ends it
+// (RFC 9000, section 10.1). Its socket closes with it; Err is then
+// non-nil.
+func (c *Conn) Discard() {
+	c.exit()
+}
+
 // clientState is a client connection's browser behaviour: the profile's
 // rules with this connection's draws made.
 type clientState struct {

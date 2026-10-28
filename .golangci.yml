@@ -138,6 +138,7 @@ linters:
           list-mode: strict
           allow:
             - $gostd
+            - github.com/jonboulle/clockwork
             - github.com/roachadam/mimicry/internal/headerorder$
             - github.com/roachadam/mimicry/internal/qpack$
             - github.com/roachadam/mimicry/internal/quic$

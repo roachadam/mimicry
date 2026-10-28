@@ -20,6 +20,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jonboulle/clockwork"
+
 	"github.com/roachadam/mimicry/internal/qpack"
 	"github.com/roachadam/mimicry/internal/quic"
 	"github.com/roachadam/mimicry/internal/quic/quicwire"
@@ -69,6 +71,9 @@ type Options struct {
 	// which goes before the control and QPACK streams in 0-RTT where the
 	// profile says so (Firefox).
 	Pending bool
+	// Clock times how long the connection has been idle (IdleSince); nil
+	// is the real clock.
+	Clock clockwork.Clock
 }
 
 // Conn is a client HTTP/3 connection on a QUIC connection, speaking as the
@@ -106,6 +111,10 @@ type Conn struct {
 	// mu guards the connection's state.
 	mu     sync.Mutex
 	active int
+	// idleSince is when active last fell to zero (or the connection
+	// started); clock reads it.
+	idleSince time.Time
+	clock     clockwork.Clock
 	// requests are the request streams in flight, by stream ID.
 	requests map[uint64]*requestStream
 	goaway   bool
@@ -125,6 +134,12 @@ type Conn struct {
 // sends it first) and serves the server's streams until qc ends.
 func New(qc *quic.Conn, p *profile.Profile, opts Options) (*Conn, error) {
 	h := p.HTTP3
+
+	clock := opts.Clock
+	if clock == nil {
+		clock = clockwork.NewRealClock()
+	}
+
 	c := &Conn{
 		qc:         qc,
 		p:          p,
@@ -135,6 +150,8 @@ func New(qc *quic.Conn, p *profile.Profile, opts Options) (*Conn, error) {
 		done:       make(chan struct{}),
 		requests:   map[uint64]*requestStream{},
 		maxSection: maxFieldSection,
+		idleSince:  clock.Now(),
+		clock:      clock,
 	}
 
 	c.decCond = sync.NewCond(&c.decMu)
@@ -346,6 +363,12 @@ func (c *Conn) Close() error {
 	return nil
 }
 
+// Discard ends the connection without a word to the server, as a QUIC
+// idle timeout ends it.
+func (c *Conn) Discard() {
+	c.qc.Discard()
+}
+
 // Done is closed once the QUIC connection has ended.
 func (c *Conn) Done() <-chan struct{} {
 	return c.done
@@ -384,12 +407,13 @@ func (c *Conn) CanTakeNewRequest() bool {
 	return !c.goaway && c.failed == nil
 }
 
-// Idle reports whether no request is in flight.
-func (c *Conn) Idle() bool {
+// IdleSince reports when the connection's last request ended (or it
+// started), and false while a request is in flight.
+func (c *Conn) IdleSince() (time.Time, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	return c.active == 0
+	return c.idleSince, c.active == 0
 }
 
 // fail ends the connection with an HTTP/3 connection error.
@@ -773,6 +797,7 @@ func (c *Conn) release() {
 
 	c.active--
 	if c.active == 0 {
+		c.idleSince = c.clock.Now()
 		c.qc.KeepAlive(false)
 	}
 }

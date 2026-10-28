@@ -33,17 +33,24 @@ type fakeShared struct {
 	pool    *Pool[*fakeShared, *fakeExclusive]
 	t       *testing.T
 	canTake atomic.Bool
-	idle    atomic.Bool
-	closed  atomic.Int32
-	done    chan struct{}
+	// idleSince is when its last request ended; zero while one is in
+	// flight.
+	idleSince atomic.Pointer[time.Time]
+	closed    atomic.Int32
+	expired   atomic.Int32
+	done      chan struct{}
 }
 
 func (c *fakeShared) CanTakeNewRequest() bool {
 	return c.canTake.Load()
 }
 
-func (c *fakeShared) Idle() bool {
-	return c.idle.Load()
+func (c *fakeShared) IdleSince() (time.Time, bool) {
+	if since := c.idleSince.Load(); since != nil {
+		return *since, true
+	}
+
+	return time.Time{}, false
 }
 
 func (c *fakeShared) Done() <-chan struct{} {
@@ -56,6 +63,12 @@ func (c *fakeShared) Close() error {
 	c.closed.Add(1)
 
 	return nil
+}
+
+func (c *fakeShared) Expire() {
+	c.t.Helper()
+	checkUnlocked(c.t, c.pool, "Expire")
+	c.expired.Add(1)
 }
 
 // fakeExclusive is an HTTP/1.1 connection.
@@ -170,17 +183,15 @@ func (f *fixture) dialExclusive(key string) *fakeExclusive {
 	return f.exclusive()
 }
 
-// advance moves the clock by d and waits for n timers to have run.
-func (f *fixture) advance(d time.Duration, n int) {
+// advance moves the clock by d and waits for a timer to have run.
+func (f *fixture) advance(d time.Duration) {
 	f.t.Helper()
 	f.clock.Advance(d)
 
-	for range n {
-		select {
-		case <-f.clock.fired:
-		case <-f.t.Context().Done():
-			f.t.Fatal("timer did not fire")
-		}
+	select {
+	case <-f.clock.fired:
+	case <-f.t.Context().Done():
+		f.t.Fatal("timer did not fire")
 	}
 }
 
@@ -227,7 +238,7 @@ func TestIdleConnectionIsReapedAfterTheIdleTimeout(t *testing.T) {
 		t.Fatal("closed before the idle timeout")
 	}
 
-	f.advance(time.Second, 1)
+	f.advance(time.Second)
 
 	if !c.isClosed() {
 		t.Fatal("not closed after the idle timeout")
@@ -259,7 +270,7 @@ func TestIdleConnectionsAreReapedEachAtItsTimeout(t *testing.T) {
 		t.Fatal("closed before the idle timeout of its last release")
 	}
 
-	f.advance(time.Second, 1)
+	f.advance(time.Second)
 
 	if !a.isClosed() || b.isClosed() {
 		t.Fatalf("at a's timeout: a closed %v, b closed %v; want only a", a.isClosed(), b.isClosed())
@@ -271,7 +282,7 @@ func TestIdleConnectionsAreReapedEachAtItsTimeout(t *testing.T) {
 		t.Fatal("b closed before its idle timeout")
 	}
 
-	f.advance(time.Second, 1)
+	f.advance(time.Second)
 
 	if !b.isClosed() {
 		t.Fatal("b not closed after its idle timeout")
@@ -350,4 +361,112 @@ func TestReapNeverClosesAHeldConnection(t *testing.T) {
 	}
 
 	wg.Wait()
+}
+
+// shared installs a new shared connection for key, idle since now.
+func (f *fixture) shared(key string) *fakeShared {
+	f.t.Helper()
+
+	c := &fakeShared{
+		pool: f.pool,
+		t:    f.t,
+		done: make(chan struct{}),
+	}
+	c.canTake.Store(true)
+	f.idle(c)
+	f.t.Cleanup(func() {
+		close(c.done)
+	})
+
+	if got := f.get(key, FoundDial).Dial.Shared(c); got != c {
+		f.t.Fatalf("Shared installed %p, want %p", got, c)
+	}
+
+	return c
+}
+
+// idle marks c idle since now.
+func (f *fixture) idle(c *fakeShared) {
+	now := f.clock.Now()
+	c.idleSince.Store(&now)
+}
+
+// A shared connection expires (never Close) once it has been idle for the
+// idle timeout, counted from its last request's end, never while one is
+// in flight; the pool forgets it then.
+func TestSharedConnectionExpiresWhenIdle(t *testing.T) {
+	f := newFixture(t)
+	c := f.shared("a")
+
+	f.clock.Advance(idleTimeout - time.Second)
+
+	if c.expired.Load() != 0 {
+		t.Fatal("expired before the idle timeout")
+	}
+
+	f.advance(time.Second)
+
+	if c.expired.Load() != 1 || c.closed.Load() != 0 {
+		t.Fatalf("after the idle timeout: expired %d times, closed %d, want 1 and 0", c.expired.Load(), c.closed.Load())
+	}
+
+	f.get("a", FoundDial)
+
+	// A request in flight at the timeout: the pool looks again later, and
+	// the timeout runs from the request's end.
+	busy := f.shared("b")
+	busy.idleSince.Store(nil)
+	f.advance(idleTimeout)
+
+	if busy.expired.Load() != 0 {
+		t.Fatal("expired with a request in flight")
+	}
+
+	f.get("b", FoundShared)
+	f.clock.Advance(30 * time.Second)
+	f.idle(busy)
+	f.advance(idleTimeout - 30*time.Second)
+
+	if busy.expired.Load() != 0 {
+		t.Fatal("expired before the idle timeout since its request ended")
+	}
+
+	f.advance(30 * time.Second)
+
+	if busy.expired.Load() != 1 {
+		t.Fatal("not expired at the idle timeout since its request ended")
+	}
+}
+
+// ExpireKey closes a key's idle connections at once (Close for exclusive
+// ones, Expire for the shared one) and reports the key still in use while
+// its shared connection carries a request.
+func TestExpireKey(t *testing.T) {
+	f := newFixture(t)
+	x := f.dialExclusive("a")
+	f.pool.Release("a", x, true)
+
+	s := f.shared("b")
+	busy := f.shared("c")
+	busy.idleSince.Store(nil)
+
+	if inUse := f.pool.ExpireKey("a"); inUse || !x.isClosed() {
+		t.Errorf("idle exclusive: still in use %t, closed %t; want false, true", inUse, x.isClosed())
+	}
+
+	if f.pool.ExpireKey("b") || s.expired.Load() != 1 || s.closed.Load() != 0 {
+		t.Errorf("idle shared: expired %d, closed %d; want 1, 0 and not in use", s.expired.Load(), s.closed.Load())
+	}
+
+	f.get("b", FoundDial)
+
+	if !f.pool.ExpireKey("c") || busy.expired.Load() != 0 {
+		t.Errorf("shared with a request in flight: expired %d, want 0 and still in use", busy.expired.Load())
+	}
+
+	f.get("c", FoundShared)
+
+	if f.pool.ExpireKey("unknown") {
+		t.Error("a key never used is in use")
+	}
 }

@@ -99,6 +99,9 @@ type Conn struct {
 	// active counts started streams, with or without an ID yet, against the
 	// peer's MAX_CONCURRENT_STREAMS.
 	active uint32
+	// idleSince is when active last fell to zero (or the connection
+	// opened).
+	idleSince time.Time
 	// err is set once the connection is dead; no new streams start.
 	err error
 	// draining: no new stream may start, but those in flight run on. The
@@ -252,6 +255,7 @@ func New(conn net.Conn, p *profile.Profile, clock clockwork.Clock) (*Conn, error
 		connLastUpdate:   now,
 		idlePing:         time.Duration(h2.IdlePingMillis) * time.Millisecond,
 		lastRead:         now,
+		idleSince:        now,
 	}
 
 	c.recvConnAvail = int64(c.recvConnWindow)
@@ -443,12 +447,13 @@ func (c *Conn) CanTakeNewRequest() bool {
 	return c.err == nil && !c.draining
 }
 
-// Idle reports whether c has no requests in flight.
-func (c *Conn) Idle() bool {
+// IdleSince reports when c's last request ended (or c opened), and false
+// while it has requests in flight.
+func (c *Conn) IdleSince() (time.Time, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	return c.active == 0
+	return c.idleSince, c.active == 0
 }
 
 // hopByHop are connection-level headers HTTP/2 forbids (RFC 9113, 8.2.2).
@@ -1315,7 +1320,11 @@ func (c *Conn) endStream(s *stream, e ending) {
 	deliver := !s.delivered
 
 	s.delivered = true
+
 	c.active--
+	if c.active == 0 {
+		c.idleSince = c.clock.Now()
+	}
 
 	idle := c.draining && c.active == 0
 	c.cond.Broadcast()

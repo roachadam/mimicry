@@ -28,6 +28,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"runtime"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -77,8 +78,10 @@ type Config struct {
 	// or a nil URL, connects directly. Schemes: "http" (CONNECT for https,
 	// whole requests for http), "socks5" and "socks5h" (the proxy resolves
 	// names either way). The proxy sees what the profile's proxy section
-	// says the browser sends (a profile without one cannot use proxies); URL
-	// credentials go once the proxy answers 407. A failed proxy returns a
+	// says the browser sends (a profile without one cannot use proxies);
+	// URL credentials go with the first request (see BrowserProxyAuth).
+	// Each proxy URL has connections of its own; those of a proxy no
+	// longer used close early (see Transport). A failed proxy returns a
 	// *ProxyError.
 	Proxy func(*http.Request) (*url.URL, error)
 	// Headers are the caller's own headers (an API key, say), added to every
@@ -129,6 +132,16 @@ type Config struct {
 	// carries on as the browser's, and a connection whose server answers
 	// goes exactly as with this set (decision 0036).
 	BrowserQUICFallback bool
+	// BrowserProxyAuth gives an http proxy the URL's credentials as the
+	// profile's browser does: only once the proxy has answered 407 (Chrome
+	// and Firefox then send them unasked to that proxy URL; Safari waits
+	// for a 407 on every tunnel), one round trip more for each new proxy
+	// URL. By default the first CONNECT, and the first request sent to the
+	// proxy whole, carry them, placed where the browser places them when
+	// it sends them unasked. Only the proxy sees the difference: what
+	// reaches the server through it is the same either way (decision
+	// 0039).
+	BrowserProxyAuth bool
 	// DisableCoalescing gives every host its own HTTP/2 connection. By
 	// default a request goes, as the profile's browser sends it, on another
 	// host's connection whose certificate covers it at the same address
@@ -187,6 +200,16 @@ type Config struct {
 // A Transport is one browsing entity, like a browser tab: non-navigation
 // requests come from its last navigation unless they set Request.From.
 // Parallel tasks should each use their own Transport, or set Request.From.
+//
+// Call CloseIdleConnections when you discard a Transport (or the client
+// NewClient built on it), as when a new client takes over with a new
+// proxy identity: its connections close at once. Otherwise an idle
+// connection closes after 90 s (HTTP/3 ones at QUIC's idle timeout if
+// that is sooner), and a Transport no longer reachable closes its idle
+// connections once the garbage collector finds it. Within a Transport, a
+// proxy no longer used loses its idle connections early: once it is not
+// among the 16 proxies used most recently and has not been used for 10 s
+// (decision 0040).
 type Transport struct {
 	engine  engine
 	profile *profile.Profile
@@ -197,8 +220,9 @@ type Transport struct {
 	jar              *cookies.Jar
 	// placements are Config.HeaderPlacement, lowercase.
 	placements []headerorder.Placement
-	// pins are Config.Pins by host.
-	pins pins.Set
+	// pins are Config.Pins by host, in an allocation of their own: the
+	// engine's verifier reads them without holding t.
+	pins *pins.Set
 	// decode is true when the profile sends Accept-Encoding by default.
 	decode bool
 	// lastNav is the URL of the last navigation sent: the page other kinds
@@ -247,7 +271,7 @@ func NewTransport(cfg Config) (*Transport, error) {
 		preflightHeaders: cors.PreflightHeaders(p, headers),
 		jar:              cfg.Cookies,
 		placements:       places,
-		pins:             pinned,
+		pins:             &pinned,
 		clock:            clockwork.NewRealClock(),
 	}
 	if t.engine == nil {
@@ -263,6 +287,7 @@ func NewTransport(cfg Config) (*Transport, error) {
 			Coalesce:         !cfg.DisableCoalescing,
 			MaxConnsPerHost:  cfg.MaxConnsPerHost,
 			HTTP3OverSOCKS5:  cfg.HTTP3OverSOCKS5,
+			BrowserProxyAuth: cfg.BrowserProxyAuth,
 			VerifyConnection: t.verifier(cfg.VerifyConnection),
 		}
 		if cfg.AltSvc != nil {
@@ -277,6 +302,11 @@ func NewTransport(cfg Config) (*Transport, error) {
 		t.engine = e
 	}
 
+	// Nothing the engine holds refers to t (its connections' goroutines
+	// keep the engine reachable, never t), so t can become unreachable
+	// while connections are open: they close then.
+	runtime.AddCleanup(t, closeIdle, t.engine)
+
 	for _, h := range p.Headers {
 		if strings.EqualFold(h.Name, "accept-encoding") {
 			t.decode = true
@@ -284,6 +314,12 @@ func NewTransport(cfg Config) (*Transport, error) {
 	}
 
 	return t, nil
+}
+
+// closeIdle closes a collected Transport's idle connections. A cleanup
+// must not block the others: the closes run on their own goroutine.
+func closeIdle(e engine) {
+	go e.CloseIdleConnections()
 }
 
 // NewClient returns an *http.Client using a new Transport and, unless

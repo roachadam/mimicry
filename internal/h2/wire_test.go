@@ -339,7 +339,7 @@ func TestClosingFullyReadBodyDoesNotReset(t *testing.T) {
 		t.Fatalf("closing a partly read body sent %+v, want RST_STREAM(CANCEL) on stream %d", rst, h2f.StreamID)
 	}
 
-	if !c.Idle() {
+	if _, idle := c.IdleSince(); !idle {
 		t.Fatal("streams still open after both ended")
 	}
 }

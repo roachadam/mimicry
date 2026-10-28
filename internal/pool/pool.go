@@ -1,9 +1,11 @@
 // Package pool keeps connections by key (scheme, host and port, partition,
-// proxy): one shared HTTP/2 connection, idle HTTP/1.1 ones, the dial in
-// progress and the requests waiting for a slot under Config.MaxExclusive.
+// proxy): one shared HTTP/2 or HTTP/3 connection, idle HTTP/1.1 ones, the
+// dial in progress and the requests waiting for a slot under
+// Config.MaxExclusive. Idle connections, shared ones included, are closed
+// after Config.IdleTimeout.
 //
 // The pool never dials and never holds its lock across network I/O; see
-// decisions 0020 and 0023.
+// decisions 0020, 0023 and 0040.
 package pool
 
 import (
@@ -15,16 +17,21 @@ import (
 	"github.com/jonboulle/clockwork"
 )
 
-// Shared is a connection that carries many requests at once (HTTP/2).
+// Shared is a connection that carries many requests at once (HTTP/2,
+// HTTP/3).
 type Shared interface {
 	comparable
 	// CanTakeNewRequest reports whether a new request may start on it.
 	CanTakeNewRequest() bool
-	// Idle reports whether it has no requests in flight.
-	Idle() bool
+	// IdleSince reports when its last request ended, and false while it
+	// has requests in flight.
+	IdleSince() (time.Time, bool)
 	// Done is closed once the connection is closed, for any reason.
 	Done() <-chan struct{}
 	Close() error
+	// Expire closes it, idle, as its browser lets go of a connection it
+	// no longer needs: after IdleTimeout, or for ExpireKey.
+	Expire()
 }
 
 // Exclusive is a connection that carries one request at a time (HTTP/1.1).
@@ -40,9 +47,10 @@ type Exclusive interface {
 type Config struct {
 	// Clock times idle connections and evictions.
 	Clock clockwork.Clock
-	// IdleTimeout is how long an idle exclusive connection is kept, and how
-	// long a key with no connections keeps what the pool learned about it
-	// (that its server speaks HTTP/1.1 only).
+	// IdleTimeout is how long an idle connection is kept (an exclusive one
+	// since its release, a shared one since its last request ended), and
+	// how long a key with no connections keeps what the pool learned
+	// about it (that its server speaks HTTP/1.1 only).
 	IdleTimeout time.Duration
 	// MaxExclusive caps a key's exclusive connections (in use, idle or
 	// dialing) once its server is known to be HTTP/1.1-only: a browser's
@@ -87,6 +95,10 @@ type entry[S Shared, E Exclusive] struct {
 	// evict forgets the entry once it has had no connections for
 	// IdleTimeout; nil while it has some.
 	evict clockwork.Timer
+	// expire closes the shared connection once it has been idle for
+	// IdleTimeout: armed while there is one, it looks again when the
+	// connection's idle time could have reached it.
+	expire clockwork.Timer
 }
 
 type idleConn[E Exclusive] struct {
@@ -434,6 +446,7 @@ func (d *Dial[S, E]) install(c S) (S, bool) {
 	}
 
 	e.shared, e.hasShared = c, true
+	p.armExpire(d.key, e, p.cfg.IdleTimeout)
 
 	go p.watch(d.key, c)
 
@@ -651,7 +664,109 @@ func (p *Pool[S, E]) dropShared(key string, e *entry[S, E]) {
 	var zero S
 
 	e.shared, e.hasShared = zero, false
+	e.expire.Stop()
 	p.maybeEvict(key, e)
+}
+
+// armExpire schedules e's look at its shared connection's idle time in d.
+// p.mu must be held.
+func (p *Pool[S, E]) armExpire(key string, e *entry[S, E], d time.Duration) {
+	if e.expire == nil {
+		e.expire = p.cfg.Clock.AfterFunc(d, func() {
+			p.expireShared(key, e)
+		})
+
+		return
+	}
+
+	e.expire.Reset(d)
+}
+
+// expireShared expires e's shared connection if it has been idle for
+// IdleTimeout, else looks again when it could have been: IdleTimeout
+// after its last request ended, or IdleTimeout from now while it has
+// requests in flight. A connection several keys share (coalescing) is
+// idle only when no key's request is on it, whichever key looks.
+func (p *Pool[S, E]) expireShared(key string, e *entry[S, E]) {
+	p.mu.Lock()
+
+	if p.keys[key] != e || !e.hasShared {
+		p.mu.Unlock()
+
+		return
+	}
+
+	c := e.shared
+
+	since, idle := c.IdleSince()
+	if left := since.Add(p.cfg.IdleTimeout).Sub(p.cfg.Clock.Now()); !idle || left > 0 {
+		if !idle {
+			left = p.cfg.IdleTimeout
+		}
+
+		p.armExpire(key, e, left)
+		p.mu.Unlock()
+
+		return
+	}
+
+	p.dropShared(key, e)
+	p.mu.Unlock()
+
+	c.Expire()
+}
+
+// ExpireKey closes key's idle connections now, as their idle timeout
+// would (Close for exclusive ones, Expire for the shared one), and
+// reports whether key still has connections or dials in use, which a
+// later ExpireKey may close once idle.
+func (p *Pool[S, E]) ExpireKey(key string) bool {
+	p.mu.Lock()
+
+	e := p.keys[key]
+	if e == nil {
+		p.mu.Unlock()
+
+		return false
+	}
+
+	idle := make([]E, len(e.idle))
+	for i, ic := range e.idle {
+		idle[i] = ic.conn
+	}
+
+	if len(e.idle) > 0 {
+		e.reap.Stop()
+	}
+
+	e.idle = nil
+
+	var (
+		shared S
+		expire bool
+	)
+
+	if e.hasShared {
+		if _, expire = e.shared.IdleSince(); expire {
+			shared = e.shared
+			p.dropShared(key, e)
+		}
+	}
+
+	p.maybeEvict(key, e)
+
+	left := !e.empty()
+	p.mu.Unlock()
+
+	for _, c := range idle {
+		_ = c.Close()
+	}
+
+	if expire {
+		shared.Expire()
+	}
+
+	return left
 }
 
 // maybeEvict schedules e's removal if it has no connections or waiters
@@ -696,14 +811,14 @@ func (p *Pool[S, E]) CloseIdle() {
 		}
 
 		e.idle = nil
-		if e.hasShared && e.shared.Idle() {
-			if !slices.Contains(shared, e.shared) {
-				shared = append(shared, e.shared)
+		if e.hasShared {
+			if _, idle := e.shared.IdleSince(); idle {
+				if !slices.Contains(shared, e.shared) {
+					shared = append(shared, e.shared)
+				}
+
+				p.dropShared(key, e)
 			}
-
-			var zero S
-
-			e.shared, e.hasShared = zero, false
 		}
 
 		p.maybeEvict(key, e)

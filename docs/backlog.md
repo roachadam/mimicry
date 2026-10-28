@@ -202,7 +202,8 @@ These matter most under decision 0029:
 - **The 90 s idle timeout** (all).
   - Differs: an idle HTTP/1.1 connection is closed after 90 s, and a host
     with no connections is forgotten after 90 s (including that it speaks
-    HTTP/1.1 only). Neither value is measured.
+    HTTP/1.1 only). Neither value is measured. HTTP/2 and HTTP/3 use the
+    same value: see "How long an idle HTTP/2 connection stays open".
   - Shows: sessions with pauses longer than 90 s.
   - Detection: low. User-visible: no.
   - Close: a `slow-idle`-style capture over HTTP/1.1; small.
@@ -256,17 +257,20 @@ These matter most under decision 0029:
   - Detection: low. User-visible: no.
   - Close: captures to find the cause; medium.
   - Source: `h3EdgeGaps` in [`http3_edge_test.go`](../internal/harness/e2e/http3_edge_test.go).
-- **How long an idle HTTP/2 connection stays open** (all).
-  - Differs: mimicry keeps an HTTP/2 connection until the server closes
-    it, a Chrome idle PING goes unanswered, or the caller calls
-    `CloseIdleConnections`. The pool's idle timeout applies to HTTP/1.1
-    connections only. How long browsers keep an idle HTTP/2 connection is
-    not measured.
-  - Shows: long sessions with pauses.
+- **How long an idle HTTP/2 connection stays open, and how it closes**
+  (all).
+  - Differs: mimicry closes an HTTP/2 connection 90 s after its last
+    request ended (Firefox profiles with GOAWAY first, as Firefox lets its
+    HTTP/2 connection go once HTTP/3 is up; Chrome and Safari with the
+    close alone), and an HTTP/3 connection silently at 90 s when QUIC's
+    own idle timeout is longer (Safari's). No capture shows a browser
+    closing an idle HTTP/2 connection (the longest gap captured is 35 s);
+    the value and Chrome's and Safari's way of closing are not measured.
+  - Shows: sessions with pauses longer than 90 s, against servers that
+    keep idle connections longer.
   - Detection: low. User-visible: no.
-  - Close: a long idle capture; small, slow to run.
-  - Source: `internal/pool/pool.go` (`Config.IdleTimeout`), found while
-    writing [what mimicry does](concepts/what-mimicry-does.md).
+  - Close: a long idle capture per browser; small, slow to run.
+  - Source: [decision 0040](decisions/0040-idle-connection-cleanup.md).
 - **Dead connections without a health check** (Firefox, Safari).
   - Differs: as measured, these browsers send no PING, so a connection
     that died silently is noticed only when a request on it fails or
@@ -1365,10 +1369,14 @@ These matter most under decision 0029:
   - Close: analyse them against the coalescing rules; small.
   - Source: [websocket report](../internal/harness/reports/websocket-2026-10-24.md).
 - **State kept per key** (all).
-  - Differs: nothing on the wire. TLS tickets (swept when expired) and
-    proxy credential state are kept per key for the Transport's life.
+  - Differs: nothing on the wire. TLS tickets (swept when expired), each
+    origin's HTTP/3 state (per proxy too, with `Config.HTTP3OverSOCKS5`)
+    and, with `Config.BrowserProxyAuth`, which proxies have asked for
+    credentials are kept per key for the Transport's life: a Transport
+    rotating through many proxies keeps a small entry per proxy. Its
+    connections are not kept ([decision 0040](decisions/0040-idle-connection-cleanup.md)).
   - Detection: none. User-visible: memory only, for very long sessions
-    across many hosts.
+    across many hosts or proxies.
   - Source: [decision 0020](decisions/0020-connection-pool-package.md);
     REVIEW B9.
 
@@ -1388,6 +1396,16 @@ These matter most under decision 0029:
   - Detection: none. User-visible: yes, an error.
   - Close: per scheme, a capture and an implementation; medium.
   - Source: [concepts/proxies.md](concepts/proxies.md#credentials).
+- **Proxy credentials before the 407, by default** (all browsers).
+  - Differs: the first CONNECT, and the first request sent to the proxy
+    whole, carry `Proxy-Authorization` where the browser waits for the
+    proxy's 407 (Chrome and Firefox once per proxy URL, Safari on every
+    CONNECT). The header list is the browser's own credentialed one.
+  - Shows: the proxy only; the site receives the same bytes.
+  - Detection: none for sites; a proxy operator could tell.
+    User-visible: no (one round trip less per new proxy URL).
+  - Close: `Config.BrowserProxyAuth`.
+  - Source: [decision 0039](decisions/0039-proxy-credentials-up-front.md).
 - **Chrome's preconnects to the proxy**: see
   [Chrome's preconnect](#connections-and-pool).
 - **Safari's Proxy-Authorization to the server** (Safari 27, 26).
@@ -1496,9 +1514,10 @@ it.
   one HTTP/3 connection per host, and no total limit, are fixed;
   `Config.MaxConnsPerHost` changes only the per-host HTTP/1.1 limit, and
   `Config.DisableCoalescing` turns coalescing off.
-- **Idle timeouts**: the 90 s HTTP/1.1 idle timeout, and the lack of one
-  for HTTP/2, are fixed. `Transport.CloseIdleConnections` is the only
-  control.
+- **Idle timeouts**: the 90 s idle timeout (every protocol), and the
+  rule that closes a proxy's idle connections once it is not among the
+  16 used most recently and unused for 10 s, are fixed.
+  `Transport.CloseIdleConnections` is the only control.
 - **Chrome's idle PING and credit timer**: fixed by the profile.
 - **Broken origins**: an origin whose QUIC failed stays on TCP for the
   Transport's life and cannot be read or reset, other than with a new

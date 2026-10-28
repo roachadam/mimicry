@@ -75,3 +75,8 @@ must switch (the text changed: "mimicry: proxy URL: cause").
 ## Revisit when
 
 `https://` proxies land (a TLS failure to the proxy belongs here too).
+
+Amended (2026-10-28, [0039](0039-proxy-credentials-up-front.md)): by
+default credentials go on the first request, so a 407 to them is final at
+once; the browser's flow, with its first 407 answered, is
+`Config.BrowserProxyAuth`. `TestProxyErrors` has both.

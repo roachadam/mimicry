@@ -245,8 +245,28 @@ func (r *report) environment(w writer) {
 	}
 
 	if ran(6) {
-		w("| Many clients (layer 6) | %d clients per point in one process, each through a proxy identity of its own, one request at a time; ", st.MultiN)
-		w("warm-up %v, then %v measured; rotation variant: a new identity every %d requests |\n", st.Warmup, st.Window, st.MultiRotate)
+		variants := st.MultiVariants
+		if len(variants) == 0 {
+			// Reports from before -multi-variants ran these two.
+			variants = []string{variantFixed, variantProxy}
+		}
+
+		w("| Many clients (layer 6) | %d clients (routines) per point in one process, each through a proxy identity of its own, ", st.MultiN)
+		w("one request at a time; warm-up %v; variants %s", st.Warmup, strings.Join(variants, ", "))
+
+		if slices.Contains(variants, variantFixed) || slices.Contains(variants, variantProxy) {
+			w("; %v measured", st.Window)
+		}
+
+		if slices.Contains(variants, variantProxy) {
+			w("; proxy rotation: a new identity every %d requests", st.MultiRotate)
+		}
+
+		if slices.Contains(variants, variantClient) {
+			w("; client rotation: a new client every %d requests, %v measured", st.MultiRotate, st.MultiClientWindow)
+		}
+
+		w(" |\n")
 	}
 
 	w("\n")
@@ -647,7 +667,7 @@ func (r *report) skipped(w writer) {
 
 	for _, mp := range r.Multi {
 		if !mp.valid() {
-			lines = append(lines, fmt.Sprintf("multi %s via %s %s %s, %s: %s", mp.Proto, mp.Proxy, mp.Op, rotationName(mp.Rotate), mp.Client, oneLine(mp.summary())))
+			lines = append(lines, fmt.Sprintf("multi %s via %s %s %s, %s: %s", mp.Proto, mp.Proxy, mp.Op, mp.rotationName(), mp.Client, oneLine(mp.summary())))
 		}
 	}
 

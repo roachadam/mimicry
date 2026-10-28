@@ -12,11 +12,14 @@ mimicry sends no request you did not ask for, apart from redirect hops and
 preflights (see [what mimicry never does](#what-mimicry-never-does)). The
 rest is connection-level traffic, as a browser makes it.
 
-One behaviour departs from the browser by default, because the browser's
+Two behaviours depart from the browser by default, because the browser's
 costs a user noticeable time and the difference is unlikely to be
 checked: the waits when QUIC fails are shorter
-([below](#when-quic-fails-tcp-racing-and-fallback));
-`Config.BrowserQUICFallback` restores the browser's.
+([below](#when-quic-fails-tcp-racing-and-fallback);
+`Config.BrowserQUICFallback` restores the browser's), and proxy
+credentials go with the first request instead of after the proxy's 407,
+which only the proxy can see ([below](#proxies);
+`Config.BrowserProxyAuth` restores the browser's).
 
 Where no option exists, the [backlog](../backlog.md#options-that-do-not-exist)
 lists it as a candidate. Browsers have no such switches either, so none is
@@ -38,7 +41,7 @@ connection, no DNS lookup, no cookie touched, no preflight cached
 | [CORS preflights](#cors-preflights) | an `OPTIONS` before some cross-origin `Fetch`/`XHR` | `Exact`; `Request.NoCORS` (fetch only) |
 | [Cookies](#cookies) | none (headers only) | `Config.Cookies`; a `Cookie` header on the request; `Request.Credentials` |
 | [Response decoding](#response-decoding) | none | set `Accept-Encoding` yourself |
-| [Connection reuse and limits](#connection-reuse-and-limits) | fewer connections, queued requests | `Transport.CloseIdleConnections`; `Config.MaxConnsPerHost` |
+| [Connection reuse and limits](#connection-reuse-and-limits) | fewer connections, queued requests; idle ones closed after 90 s | `Transport.CloseIdleConnections`; `Config.MaxConnsPerHost` |
 | [Retries on another connection](#retries-on-another-connection) | the same request again | none |
 | [HTTP/2 coalescing](#http2-coalescing) | a DNS lookup; Firefox: a connection opened and declined | `Config.DisableCoalescing` (`Config.Resolver` answers the lookup) |
 | [HTTP/3](#http3-alt-svc-and-the-switch) | a QUIC connection beside TCP, GOAWAY on TCP (Firefox); with a shared or saved Alt-Svc cache, QUIC from a new Transport's first request | `Config.DisableHTTP3`; `Config.AltSvc` |
@@ -46,7 +49,7 @@ connection, no DNS lookup, no cookie touched, no preflight cached
 | [Keep-alive and housekeeping](#keep-alive-pings-and-housekeeping-frames) | PING, WINDOW_UPDATE, ACK frames | none |
 | [TLS resumption and 0-RTT](#tls-session-resumption-and-0-rtt) | none (a different ClientHello); a request answered `425 Too Early` sent again | none; `Config.DisableHTTP3` stops 0-RTT |
 | [WebSockets](#websockets) | only when you call `Transport.DialWebSocket` | don't call it |
-| [Proxies](#proxies) | CONNECT, SOCKS5, credential retries; with `Config.HTTP3OverSOCKS5`, a SOCKS5 UDP association per QUIC connection | `Config.Proxy`; `Config.HTTP3OverSOCKS5` (off by default) |
+| [Proxies](#proxies) | CONNECT, SOCKS5; with `Config.BrowserProxyAuth`, credential retries; with `Config.HTTP3OverSOCKS5`, a SOCKS5 UDP association per QUIC connection; connections of proxies no longer used closed | `Config.Proxy`; `Config.BrowserProxyAuth`, `Config.HTTP3OverSOCKS5` (off by default) |
 | [Certificate pins and checks](#certificate-pins-and-checks) | none unless set; a refused connection ends with a TLS alert; `FetchPins` makes a handshake | `Config.Pins`, `Config.VerifyConnection` (both off by default) |
 | [The last navigation](#the-last-navigation) | none (header values) | `Request.From` |
 
@@ -175,10 +178,17 @@ partition and proxy:
   profile's `connections.http1PerHost`, 6 in every browser;
   `Config.MaxConnsPerHost` changes it); further requests wait, first
   come, first served.
-- An idle HTTP/1.1 connection is checked before reuse and closed after
-  90 s idle.
-- An HTTP/2 connection stays open until the server closes it, a Chrome
-  idle PING goes unanswered, or you close it.
+- An idle connection is closed 90 s after its last request ended (an
+  HTTP/1.1 one is also checked before reuse). An HTTP/2 connection closes
+  as the browser lets one go: Firefox's with GOAWAY first (as it sends on
+  its HTTP/2 connection once HTTP/3 is up), Chrome's and Safari's with
+  the close alone. An HTTP/3 connection ends silently, as at a QUIC idle
+  timeout; Chrome's and Firefox's usually end sooner at their own 30 s.
+  A host with no connections is forgotten 90 s later. None of these
+  values is measured in a browser
+  ([decision 0040](../decisions/0040-idle-connection-cleanup.md)).
+- An HTTP/2 connection also closes when the server closes it or a Chrome
+  idle PING goes unanswered.
 - Chrome profiles put credential-less requests and cross-site frames on
   connections of their own (a partition); see
   [decision 0011](../decisions/0011-connection-partitioning.md).
@@ -196,7 +206,10 @@ per host: more connections finish many parallel requests to an
 HTTP/1.1-only server sooner, but no browser has more than 6 open to one
 host, so a server counting a client's concurrent connections sees more
 as not a browser. The idle timeout and the partition rules have no
-option. Connections are never partitioned by top-level site: a Transport
+option. A Transport no longer reachable closes its idle connections when
+the garbage collector finds it; call `CloseIdleConnections` on a client
+you discard to close them at once. Connections are never partitioned by
+top-level site: a Transport
 is one browsing session ([decision 0019](../decisions/0019-transport-is-one-browsing-entity.md)),
 so when visiting unrelated sites that share third-party hosts, use one
 Transport per site (they can share one jar through `Config.Cookies`).
@@ -398,8 +411,13 @@ opens a socket by itself.
 an HTTP proxy's CONNECT tunnel or a SOCKS5 handshake, and an `http://`
 request goes to an HTTP proxy whole. The proxy sees the profile's
 browser's CONNECT lines and SOCKS5 bytes; the server sees what it would
-without the proxy. With credentials in the proxy URL, Chrome and Firefox
-send the first request without them, answer the 407 once on the same
+without the proxy. With credentials in the proxy URL, the first CONNECT
+and the first request sent to the proxy whole carry them, placed where
+the browser places them unasked: one round trip less than the browser
+for each new proxy URL, and only the proxy sees it
+([decision 0039](../decisions/0039-proxy-credentials-up-front.md)). With
+`Config.BrowserProxyAuth`, as the browser: Chrome and Firefox send the
+first request without them, answer the 407 once on the same
 connection, and send them unasked from then on; Safari waits for a 407 on
 every CONNECT, and sends them on plain-HTTP requests from the first.
 Each proxy has its own connections and TLS tickets (a Firefox profile
@@ -412,11 +430,15 @@ relay); a proxy that refuses one is asked once. Through a proxy no
 datagram ever goes to the server directly. A proxy that fails a request
 (unreachable, refusing the tunnel or the credentials, too slow) returns a
 `*ProxyError`, so a rotation loop can move on; nothing more is sent
-through it for that request. See
+through it for that request. When you rotate proxies within a Transport,
+the idle connections of a proxy that is not among the 16 used most
+recently and has not been used for 10 s close early
+([rotating](proxies.md#rotating)). See
 [proxies](proxies.md#when-the-proxy-fails).
 
 **To turn it off or change it.** `Config.Proxy`; a nil URL sends that
-request directly. `Config.HTTP3OverSOCKS5` lets SOCKS5 proxies carry
+request directly. `Config.BrowserProxyAuth` waits for the proxy's 407 as
+the browser does. `Config.HTTP3OverSOCKS5` lets SOCKS5 proxies carry
 HTTP/3 ([proxies](proxies.md#http3-through-socks5),
 [decision 0038](../decisions/0038-http3-over-socks5.md)).
 

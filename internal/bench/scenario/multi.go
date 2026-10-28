@@ -3,8 +3,12 @@ package scenario
 import (
 	"context"
 	"fmt"
+	"os"
+	"runtime"
 	"runtime/metrics"
+	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -26,6 +30,11 @@ type MultiSpec struct {
 	// (new credentials: a new tunnel or association and a new handshake,
 	// as a rotating proxy forces); 0 keeps one per client.
 	Rotate int
+	// Renew, with Rotate, replaces the client instead of moving it: every
+	// Rotate requests each routine builds a new client with the library's
+	// constructor and the next identity's credentials, and drops the old
+	// one (RenewDropped) or closes it first (RenewClosed: Client.Close).
+	Renew Renew
 	// Tag makes the run's proxy users unique: <target.ProxyUser>-<Tag>-
 	// <client>-<identity>.
 	Tag string
@@ -33,6 +42,24 @@ type MultiSpec struct {
 	// (false), for profiling just the window.
 	OnWindow func(open bool) `json:"-"`
 }
+
+// Renew is how a client-rotation point retires a client.
+type Renew string
+
+// Renew modes.
+const (
+	// RenewDropped abandons the old client, as code that makes a client
+	// per proxy and lets it go does.
+	RenewDropped Renew = "dropped"
+	// RenewClosed closes it first (clients.Client.Close: the library's
+	// CloseIdleConnections, or its Close where it has one).
+	RenewClosed Renew = "closed"
+)
+
+// costClients is how many new clients the cost phase measures, after one
+// that warms the process up (and, for a returning mimicry, learns the
+// origin's HTTP/3).
+const costClients = 20
 
 // MultiResult is what a multi-client point measured: the requests that
 // completed inside the window, over every client.
@@ -91,6 +118,23 @@ type MultiResult struct {
 	// of their CPUs; -1 when unknown.
 	ServerCPU float64 `json:"serverCpu"`
 	ProxyCPU  float64 `json:"proxyCpu"`
+	// With Renew (client rotation), a "client" above is a routine: the
+	// one goroutine that sends one request at a time, its client replaced
+	// every Rotate requests. NewP50/NewP99 then run from the switch (the
+	// old client's Close included) to the new client's first response, and
+	// BuildP50/BuildP99 are the constructor's share, in ms. Cost is a new
+	// client measured alone before the load; Samples the process and the
+	// proxy every second of the window; End what is left once the window
+	// closes and the routines stop; Growth the slope over Samples.
+	BuildP50 float64        `json:"buildP50,omitempty"`
+	BuildP99 float64        `json:"buildP99,omitempty"`
+	Cost     *NewClientCost `json:"cost,omitempty"`
+	Samples  []MultiSample  `json:"samples,omitempty"`
+	End      *MultiEnd      `json:"end,omitempty"`
+	Growth   *MultiGrowth   `json:"growth,omitempty"`
+	// Stuck is how many routines were still in a request a minute after
+	// the window closed (their context is cancelled then).
+	Stuck int `json:"stuck,omitempty"`
 	// ProxyCheck is what the proxy-side check found wrong, or empty: every
 	// identity a client got a response on was seen by the proxy, the proxy
 	// relayed each client at least the body bytes it received, and over
@@ -98,6 +142,57 @@ type MultiResult struct {
 	ProxyCheck string `json:"proxyCheck,omitempty"`
 	// Discarded says why the point does not count, or is empty.
 	Discarded string `json:"discarded,omitempty"`
+}
+
+// NewClientCost is what one new client costs, measured alone (nothing
+// else running in the process) over costClients clients, each with an
+// identity of its own: medians of the constructor's time, the first
+// request's, and what both allocated together. OnProto is how many first
+// responses came over the protocol under test.
+type NewClientCost struct {
+	Clients     int     `json:"clients"`
+	ConstructUs float64 `json:"constructUs"`
+	FirstMs     float64 `json:"firstMs"`
+	KB          float64 `json:"kb"`
+	Allocs      float64 `json:"allocs"`
+	OnProto     int     `json:"onProto"`
+}
+
+// MultiSample is one second's sample of a client-rotation window: the
+// seconds since it opened, the process's live heap (as the last GC marked
+// it) in MB, its goroutines, its resident memory in MB (-1 when unknown),
+// and the tunnels and associations open at the proxy for the run's users
+// (-1 when unknown).
+type MultiSample struct {
+	T          float64 `json:"t"`
+	LiveMB     float64 `json:"liveMb"`
+	Goroutines int     `json:"goroutines"`
+	RSSMB      float64 `json:"rssMb"`
+	Open       int64   `json:"open"`
+}
+
+// MultiEnd is what a client-rotation point left once its window closed and
+// its routines stopped, nothing closed by the benchmark yet: the live heap
+// (after GC) and the goroutines beyond what the process had before the
+// clients were built, per routine; the process's resident memory in MB
+// (-1 when unknown); and the tunnels and associations still open at the
+// proxy for the run's users.
+type MultiEnd struct {
+	LiveKBPerRoutine     float64 `json:"liveKbPerRoutine"`
+	GoroutinesPerRoutine float64 `json:"goroutinesPerRoutine"`
+	RSSMB                float64 `json:"rssMb"`
+	OpenTunnels          int64   `json:"openTunnels"`
+	OpenAssociations     int64   `json:"openAssociations"`
+}
+
+// MultiGrowth is the least-squares slope over a window's samples, per
+// second: live heap KB and goroutines per routine, resident MB, and open
+// tunnels and associations at the proxy (all routines together).
+type MultiGrowth struct {
+	LiveKBPerRoutine     float64 `json:"liveKbPerRoutine"`
+	GoroutinesPerRoutine float64 `json:"goroutinesPerRoutine"`
+	RSSMB                float64 `json:"rssMb"`
+	Open                 float64 `json:"open"`
 }
 
 // sender is one client and what its requests measured.
@@ -133,7 +228,9 @@ func (l *lockedHist) record(d time.Duration) {
 // which must take credentials (target.ProxyUserURL). It builds the
 // clients, warms each onto the protocol (Warm), runs Warmup, then measures
 // for Duration, then checks with the proxy that every client went through
-// it.
+// it. With Renew it first measures a new client's cost alone, samples the
+// process and the proxy every second of the window, and reads what is left
+// once the routines stop.
 func Multi(ctx context.Context, su Setup, spec MultiSpec) (MultiResult, error) {
 	res := MultiResult{
 		Clients: spec.Clients,
@@ -141,6 +238,10 @@ func Multi(ctx context.Context, su Setup, spec MultiSpec) (MultiResult, error) {
 
 	if target.ProxyUserURL(su.Proxy, "x") == "" {
 		return res, fmt.Errorf("scenario: proxy kind %q takes no credentials", su.Proxy)
+	}
+
+	if spec.Renew != "" && spec.Rotate <= 0 {
+		return res, fmt.Errorf("scenario: client rotation (%s) needs Rotate", spec.Renew)
 	}
 
 	roots, err := target.RootCAs()
@@ -153,8 +254,35 @@ func Multi(ctx context.Context, su Setup, spec MultiSpec) (MultiResult, error) {
 		return prefix + strconv.Itoa(client) + "-" + strconv.Itoa(identity)
 	}
 
+	build := func(name string) (clients.Client, error) {
+		o := su.options(roots)
+
+		o.Proxy = target.ProxyUserURL(su.Proxy, name)
+
+		return su.Client.New(o)
+	}
+
 	req := spec.Op.Request(su.Server, su.Proto)
-	window, fresh := new(lockedHist), new(lockedHist)
+	window, fresh, built := new(lockedHist), new(lockedHist), new(lockedHist)
+
+	if spec.Renew != "" {
+		// Its users have a prefix of their own, outside the run's: the
+		// proxy check and the open counts are the routines' alone.
+		costPrefix := target.ProxyUser + "-" + spec.Tag + "cost-"
+
+		cost, err := newClientCost(ctx, su, req, func(j int) (clients.Client, error) {
+			return build(costPrefix + strconv.Itoa(j))
+		})
+		if err != nil {
+			res.Discarded = "new-client cost: " + err.Error()
+
+			return res, nil
+		}
+
+		res.Cost = &cost
+
+		_, _ = target.FetchProxyUsage(ctx, costPrefix, false, true)
+	}
 
 	senders := make([]*sender, spec.Clients)
 	for i := range senders {
@@ -173,11 +301,7 @@ func Multi(ctx context.Context, su Setup, spec MultiSpec) (MultiResult, error) {
 	}()
 
 	for i, s := range senders {
-		o := su.options(roots)
-
-		o.Proxy = target.ProxyUserURL(su.Proxy, user(i, 0))
-
-		if s.c, err = su.Client.New(o); err != nil {
+		if s.c, err = build(user(i, 0)); err != nil {
 			return res, err
 		}
 	}
@@ -193,18 +317,32 @@ func Multi(ctx context.Context, su Setup, spec MultiSpec) (MultiResult, error) {
 	}
 
 	var (
-		phase atomic.Int32
-		wg    sync.WaitGroup
+		phase   atomic.Int32
+		running atomic.Int32
+		wg      sync.WaitGroup
 	)
 
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	for i, s := range senders {
-		wg.Go(func() {
-			s.run(runCtx, &phase, req, su, spec.Rotate, func(identity int) string {
+		rot := rotation{
+			every: spec.Rotate,
+			renew: spec.Renew,
+			proxyURL: func(identity int) string {
 				return target.ProxyUserURL(su.Proxy, user(i, identity))
-			}, window, fresh)
+			},
+			build: func(identity int) (clients.Client, error) {
+				return build(user(i, identity))
+			},
+		}
+
+		running.Add(1)
+
+		wg.Go(func() {
+			defer running.Add(-1)
+
+			s.run(runCtx, &phase, req, su, rot, window, fresh, built)
 		})
 	}
 
@@ -214,6 +352,11 @@ func Multi(ctx context.Context, su Setup, spec MultiSpec) (MultiResult, error) {
 	useBefore, useBeforeErr := target.FetchProxyUsage(ctx, prefix, false, false)
 	proxyBefore, proxyBeforeErr := target.FetchStats(ctx, target.ProxyHost, target.ProxyStatsPort)
 	before := snapshot(ctx, su.Server)
+
+	var samples func() []MultiSample
+	if spec.Renew != "" {
+		samples = sampleEverySecond(ctx, prefix)
+	}
 
 	if spec.OnWindow != nil {
 		spec.OnWindow(true)
@@ -234,6 +377,10 @@ func Multi(ctx context.Context, su Setup, spec MultiSpec) (MultiResult, error) {
 
 	peak, live := heap()
 
+	if samples != nil {
+		res.Samples = samples()
+	}
+
 	done := make(chan struct{})
 
 	go func() {
@@ -241,12 +388,31 @@ func Multi(ctx context.Context, su Setup, spec MultiSpec) (MultiResult, error) {
 		close(done)
 	}()
 
+	// A routine still in its request a minute after the window closed is
+	// stuck: the end is read before its context is cancelled, which could
+	// end connections tied to it.
 	select {
 	case <-done:
 	case <-time.After(60 * time.Second):
+	}
+
+	stuck := int(running.Load())
+
+	var end memory
+	if spec.Renew != "" {
+		// Nothing is closed yet.
+		end = settled(0)
+	}
+
+	endRSS := rssMB()
+	usage, usageErr := target.FetchProxyUsage(ctx, prefix, true, true)
+
+	if stuck > 0 {
 		cancel()
 		<-done
 	}
+
+	res.Stuck = stuck
 
 	var bytes int64
 
@@ -275,6 +441,11 @@ func Multi(ctx context.Context, su Setup, spec MultiSpec) (MultiResult, error) {
 	res.NewP50 = ms(fresh.h.quantile(0.50))
 	res.NewP99 = ms(fresh.h.quantile(0.99))
 	res.RotationsPerSec = float64(res.NewConns) / res.Seconds
+
+	if spec.Renew != "" {
+		res.BuildP50 = ms(built.h.quantile(0.50))
+		res.BuildP99 = ms(built.h.quantile(0.99))
+	}
 
 	if useBeforeErr == nil && useAfterErr == nil {
 		res.TunnelsPerSec = float64(useAfter.Total.Tunnels-useBefore.Total.Tunnels) / res.Seconds
@@ -311,16 +482,218 @@ func Multi(ctx context.Context, su Setup, spec MultiSpec) (MultiResult, error) {
 		res.ProxyCPU = target.Utilisation(proxyBefore, proxyAfter, w)
 	}
 
-	usage, err := target.FetchProxyUsage(ctx, prefix, true, true)
-	if err != nil {
-		res.ProxyCheck = "reading the proxy's usage: " + err.Error()
+	if usageErr != nil {
+		res.ProxyCheck = "reading the proxy's usage: " + usageErr.Error()
 	} else {
 		res.ProxyCheck = proxyCheck(senders, usage.Users, user, su.Proto == target.H3)
 	}
 
-	res.Discarded = multiDiscard(res)
+	if spec.Renew != "" {
+		res.End = &MultiEnd{
+			LiveKBPerRoutine:     kbPer(end.heap, base.heap, spec.Clients),
+			GoroutinesPerRoutine: float64(end.goroutines-base.goroutines-stuck) / n,
+			RSSMB:                endRSS,
+			OpenTunnels:          -1,
+			OpenAssociations:     -1,
+		}
+		if usageErr == nil {
+			res.End.OpenTunnels = usage.Total.OpenTunnels
+			res.End.OpenAssociations = usage.Total.OpenAssociations
+		}
+
+		res.Growth = growth(res.Samples, spec.Clients)
+	}
+
+	res.Discarded = multiDiscard(res, spec.Renew != "")
 
 	return res, nil
+}
+
+// newClientCost measures costClients new clients one at a time, each
+// built by build(j) and closed after its first response, nothing else
+// running: the first (j 0) only warms the process up.
+func newClientCost(ctx context.Context, su Setup, req *clients.Request, build func(j int) (clients.Client, error)) (NewClientCost, error) {
+	var (
+		construct, first, kb, allocs []float64
+		onProto                      int
+	)
+
+	for j := range costClients + 1 {
+		var m0, m1 runtime.MemStats
+
+		runtime.ReadMemStats(&m0)
+
+		start := time.Now()
+
+		c, err := build(j)
+		if err != nil {
+			return NewClientCost{}, err
+		}
+
+		built := time.Now()
+
+		resp, err := c.Do(ctx, req)
+		got := time.Now()
+
+		runtime.ReadMemStats(&m1)
+		c.Close()
+
+		switch {
+		case err != nil:
+			return NewClientCost{}, err
+		case resp.Status != 200:
+			return NewClientCost{}, fmt.Errorf("status %d", resp.Status)
+		case j == 0:
+			continue
+		}
+
+		if resp.Proto == su.Proto {
+			onProto++
+		}
+
+		construct = append(construct, float64(built.Sub(start).Microseconds()))
+		first = append(first, ms(got.Sub(built)))
+		kb = append(kb, float64(m1.TotalAlloc-m0.TotalAlloc)/1024)
+		allocs = append(allocs, float64(m1.Mallocs-m0.Mallocs))
+	}
+
+	return NewClientCost{
+		Clients:     costClients,
+		ConstructUs: median(construct),
+		FirstMs:     median(first),
+		KB:          median(kb),
+		Allocs:      median(allocs),
+		OnProto:     onProto,
+	}, nil
+}
+
+func median(v []float64) float64 {
+	if len(v) == 0 {
+		return 0
+	}
+
+	s := slices.Clone(v)
+	slices.Sort(s)
+
+	if len(s)%2 == 1 {
+		return s[len(s)/2]
+	}
+
+	return (s[len(s)/2-1] + s[len(s)/2]) / 2
+}
+
+// sampleEverySecond samples the process, and the tunnels and associations
+// open at the proxy for the users with prefix, now and every second until
+// the returned function is called, which returns the samples.
+func sampleEverySecond(ctx context.Context, prefix string) func() []MultiSample {
+	stop := make(chan struct{})
+	done := make(chan []MultiSample)
+	start := time.Now()
+
+	go func() {
+		var out []MultiSample
+
+		t := time.NewTicker(time.Second)
+		defer t.Stop()
+
+		for {
+			sm := MultiSample{
+				T:          time.Since(start).Seconds(),
+				LiveMB:     float64(heapMetrics().live) / 1e6,
+				Goroutines: runtime.NumGoroutine(),
+				RSSMB:      rssMB(),
+				Open:       -1,
+			}
+
+			if u, err := target.FetchProxyUsage(ctx, prefix, false, false); err == nil {
+				sm.Open = u.Total.OpenTunnels + u.Total.OpenAssociations
+			}
+
+			out = append(out, sm)
+
+			select {
+			case <-stop:
+				done <- out
+
+				return
+
+			case <-t.C:
+			}
+		}
+	}()
+
+	return func() []MultiSample {
+		close(stop)
+
+		return <-done
+	}
+}
+
+// rssMB is the process's resident memory in MB, or -1 off Linux.
+func rssMB() float64 {
+	b, err := os.ReadFile("/proc/self/statm")
+	if err != nil {
+		return -1
+	}
+
+	f := strings.Fields(string(b))
+	if len(f) < 2 {
+		return -1
+	}
+
+	pages, err := strconv.ParseInt(f[1], 10, 64)
+	if err != nil {
+		return -1
+	}
+
+	return float64(pages*int64(os.Getpagesize())) / 1e6
+}
+
+// growth is the least-squares slope of each sampled value per second, per
+// routine where MultiGrowth says so; nil with fewer than two samples.
+func growth(samples []MultiSample, routines int) *MultiGrowth {
+	if len(samples) < 2 {
+		return nil
+	}
+
+	slope := func(get func(MultiSample) float64) float64 {
+		var sx, sy, sxx, sxy float64
+
+		k := float64(len(samples))
+
+		for _, sm := range samples {
+			x, y := sm.T, get(sm)
+
+			sx += x
+			sy += y
+			sxx += x * x
+			sxy += x * y
+		}
+
+		d := k*sxx - sx*sx
+		if d == 0 {
+			return 0
+		}
+
+		return (k*sxy - sx*sy) / d
+	}
+
+	n := float64(routines)
+
+	return &MultiGrowth{
+		LiveKBPerRoutine: slope(func(sm MultiSample) float64 {
+			return sm.LiveMB * 1e6 / 1024 / n
+		}),
+		GoroutinesPerRoutine: slope(func(sm MultiSample) float64 {
+			return float64(sm.Goroutines) / n
+		}),
+		RSSMB: slope(func(sm MultiSample) float64 {
+			return sm.RSSMB
+		}),
+		Open: slope(func(sm MultiSample) float64 {
+			return float64(sm.Open)
+		}),
+	}
 }
 
 // warmAll warms every sender's client onto p at once.
@@ -346,25 +719,36 @@ func warmAll(ctx context.Context, senders []*sender, req *clients.Request, p tar
 	return nil
 }
 
+// rotation is how a sender moves to its next identity every requests:
+// SetProxy to proxyURL's, or with renew a new client from build, the old
+// one closed first with RenewClosed.
+type rotation struct {
+	every    int
+	renew    Renew
+	proxyURL func(identity int) string
+	build    func(identity int) (clients.Client, error)
+}
+
 // run sends req one at a time until phase says stop, moving to a new
-// identity (proxyURL) every rotate requests when rotate is set. Latencies
-// of requests completing in the window go to window, and those of each
-// identity's first request (from the switch on) to fresh as well.
-func (s *sender) run(ctx context.Context, phase *atomic.Int32, req *clients.Request, su Setup, rotate int,
-	proxyURL func(identity int) string, window, fresh *lockedHist,
+// identity every rot.every requests when it is set. Latencies of requests
+// completing in the window go to window, those of each identity's first
+// request (from the switch on) to fresh as well, and with renew the
+// constructor's time to built.
+func (s *sender) run(ctx context.Context, phase *atomic.Int32, req *clients.Request, su Setup, rot rotation,
+	window, fresh, built *lockedHist,
 ) {
 	for phase.Load() != phaseStop && ctx.Err() == nil {
 		start := time.Now()
 		first := false
 
-		if rotate > 0 && s.sent >= rotate {
+		if rot.every > 0 && s.sent >= rot.every {
 			s.identity++
 
 			s.sent = 0
 			first = true
 
-			if err := s.c.SetProxy(proxyURL(s.identity)); err != nil {
-				s.fail(phase, "SetProxy: "+err.Error())
+			if err := s.next(rot, phase, built); err != nil {
+				s.fail(phase, err.Error())
 
 				continue
 			}
@@ -418,6 +802,36 @@ func (s *sender) run(ctx context.Context, phase *atomic.Int32, req *clients.Requ
 			}
 		}
 	}
+}
+
+// next moves s to its current identity as rot says.
+func (s *sender) next(rot rotation, phase *atomic.Int32, built *lockedHist) error {
+	if rot.renew == "" {
+		if err := s.c.SetProxy(rot.proxyURL(s.identity)); err != nil {
+			return fmt.Errorf("SetProxy: %w", err)
+		}
+
+		return nil
+	}
+
+	start := time.Now()
+
+	c, err := rot.build(s.identity)
+	if err != nil {
+		return fmt.Errorf("new client: %w", err)
+	}
+
+	if phase.Load() == phaseMeasure {
+		built.record(time.Since(start))
+	}
+
+	if rot.renew == RenewClosed {
+		s.c.Close()
+	}
+
+	s.c = c
+
+	return nil
 }
 
 // fail counts an error inside the window.
@@ -484,12 +898,21 @@ func proxyCheck(senders []*sender, users map[string]target.ProxyUse, user func(c
 		"%d HTTP/3 clients without relayed datagrams (client %d: %s)", unseen, short, noUDP, first, firstWhat)
 }
 
-// multiDiscard returns why a multi-client point does not count.
-func multiDiscard(r MultiResult) string {
+// multiDiscard returns why a multi-client point does not count. With
+// client rotation (renew) up to 1% of the responses may come over another
+// protocol, as up to 1% may fail: each new client of a racing client
+// (mimicry with an Alt-Svc cache, tls-client) races QUIC against TCP, and
+// one that loses goes on TCP.
+func multiDiscard(r MultiResult, renew bool) string {
+	mismatched := r.Mismatches > 0
+	if renew {
+		mismatched = float64(r.Mismatches) > 0.01*float64(r.Requests+r.Mismatches)
+	}
+
 	switch {
 	case r.ProxyCheck != "":
 		return "proxy check: " + r.ProxyCheck
-	case r.Mismatches > 0:
+	case mismatched:
 		return fmt.Sprintf("%d requests on another protocol (%s)", r.Mismatches, r.FirstError)
 	case r.Requests == 0:
 		return "no request completed: " + r.FirstError

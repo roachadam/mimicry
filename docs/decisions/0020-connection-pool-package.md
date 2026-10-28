@@ -63,3 +63,11 @@ ledger. Proxy-credential state grows with every proxy used.
   type parameters are where it goes.
 - A capture measures a browser's idle timeout, ticket lifetime or
   per-host connection cap.
+
+Amended (2026-10-28, [0040](0040-idle-connection-cleanup.md)): the idle
+timeout covers the shared connections too, HTTP/2 and HTTP/3, counted
+from their last request's end (`Shared.IdleSince`, closed with
+`Shared.Expire`), and `ExpireKey` closes a key's idle connections early,
+for a proxy the Transport no longer uses. With proxy credentials sent up
+front by default ([0039](0039-proxy-credentials-up-front.md)), the
+credential state grows only with `Config.BrowserProxyAuth`.

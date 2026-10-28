@@ -25,10 +25,13 @@ import (
 )
 
 // mimicry asks proxies for connections as the browser does, against its
-// captures through the capture proxy: CONNECT lines, SOCKS5 bytes, the
-// credential flow (challenge, retry on the same connection, unasked after),
-// and absolute-form plain-HTTP requests. A tunnel carries the profile's
-// direct ClientHello.
+// captures through the capture proxy, with Config.BrowserProxyAuth:
+// CONNECT lines, SOCKS5 bytes, the credential flow (challenge, retry on
+// the same connection, unasked after), and absolute-form plain-HTTP
+// requests. A tunnel carries the profile's direct ClientHello. By
+// default ("auth-upfront", "plain-auth-upfront") the credentials go on
+// the first request, where the browser places them on its credentialed
+// ones, with no 407 round trip; the tunnel is unchanged (decision 0039).
 func TestProxyMatchesBrowser(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
@@ -39,7 +42,7 @@ func TestProxyMatchesBrowser(t *testing.T) {
 
 			t.Run("connect", func(t *testing.T) {
 				want := loadSamples[[]capture.ProxyRequest](t, p, "proxy-connect", ".proxytrace.json")
-				s := startProxied(t, p, scenario(t, "proxy-connect"), nil)
+				s := startProxied(t, p, scenario(t, "proxy-connect"), nil, true)
 				s.get("https", server.CaptureHost, "/")
 
 				got := s.proxy.Requests()
@@ -57,7 +60,7 @@ func TestProxyMatchesBrowser(t *testing.T) {
 			})
 			t.Run("socks5", func(t *testing.T) {
 				want := loadSamples[[]capture.ProxyRequest](t, p, "proxy-socks5", ".proxytrace.json")
-				s := startProxied(t, p, scenario(t, "proxy-socks5"), nil)
+				s := startProxied(t, p, scenario(t, "proxy-socks5"), nil, true)
 				s.get("https", server.CaptureHost, "/")
 
 				got := s.proxy.Requests()
@@ -81,7 +84,7 @@ func TestProxyMatchesBrowser(t *testing.T) {
 					t.Fatalf("scenario %s serves no hosts", sc.Name)
 				}
 
-				s := startProxied(t, p, sc, url.UserPassword(server.ProxyUser, server.ProxyPassword))
+				s := startProxied(t, p, sc, url.UserPassword(server.ProxyUser, server.ProxyPassword), true)
 				// A new tunnel each time.
 				for range 3 {
 					s.get("https", hosts[0], "/")
@@ -111,9 +114,40 @@ func TestProxyMatchesBrowser(t *testing.T) {
 					}
 				}
 			})
+			t.Run("auth-upfront", func(t *testing.T) {
+				wantFlow := loadSamples[[]capture.ProxyRequest](t, p, "proxy-auth", ".proxytrace.json")
+				sc := scenario(t, "proxy-auth")
+				hosts, _, ok := sc.MultiHost()
+
+				if !ok || len(hosts) == 0 {
+					t.Fatalf("scenario %s serves no hosts", sc.Name)
+				}
+
+				s := startProxied(t, p, sc, url.UserPassword(server.ProxyUser, server.ProxyPassword), false)
+				// A new tunnel each time, each with credentials unasked.
+				for range 3 {
+					s.get("https", hosts[0], "/")
+					s.tr.CloseIdleConnections()
+				}
+
+				got := s.proxy.Requests()
+				if flow, want := connectFlow(got), []string{"conn 1 200 credentials", "conn 2 200 credentials", "conn 3 200 credentials"}; !slices.Equal(flow, want) {
+					t.Errorf("CONNECT flow (connection, status, credentials):\n got %v\nwant %v", flow, want)
+				}
+
+				// Placed as the browser's first CONNECT with credentials.
+				w := portless(nthOK(wantFlow[0], 0).Lines)
+				for i, r := range got {
+					if g := portless(r.Lines); !slices.Equal(g, w) {
+						t.Errorf("CONNECT %d:\n got %q\nwant %q", i+1, g, w)
+					}
+				}
+
+				s.checkTunnelledHello(p)
+			})
 			t.Run("plain", func(t *testing.T) {
 				want := loadSamples[[]capture.H1Request](t, p, "proxy-plain", ".h1trace.json")
-				s := startProxied(t, p, scenario(t, "proxy-plain"), nil)
+				s := startProxied(t, p, scenario(t, "proxy-plain"), nil, true)
 				s.get("http", server.CaptureHost, "/")
 
 				got := s.h1()
@@ -123,7 +157,7 @@ func TestProxyMatchesBrowser(t *testing.T) {
 			})
 			t.Run("plain-auth", func(t *testing.T) {
 				want := loadSamples[[]capture.H1Request](t, p, "proxy-plain-auth", ".h1trace.json")
-				s := startProxied(t, p, scenario(t, "proxy-plain-auth"), url.UserPassword(server.ProxyUser, server.ProxyPassword))
+				s := startProxied(t, p, scenario(t, "proxy-plain-auth"), url.UserPassword(server.ProxyUser, server.ProxyPassword), true)
 				s.get("http", server.CaptureHost, "/")
 				s.get("http", server.CaptureHost, "/nav")
 
@@ -146,6 +180,30 @@ func TestProxyMatchesBrowser(t *testing.T) {
 
 					if gp, wp := authPlace(g.Headers), authPlace(w.Headers); gp != wp {
 						t.Errorf("%s: Proxy-Authorization %s, want %s", path, gp, wp)
+					}
+				}
+			})
+			t.Run("plain-auth-upfront", func(t *testing.T) {
+				want := loadSamples[[]capture.H1Request](t, p, "proxy-plain-auth", ".h1trace.json")
+				s := startProxied(t, p, scenario(t, "proxy-plain-auth"), url.UserPassword(server.ProxyUser, server.ProxyPassword), false)
+				s.get("http", server.CaptureHost, "/")
+				s.get("http", server.CaptureHost, "/nav")
+
+				got := s.h1()
+				if g, w := forwardAuthFlow(got), []string{"conn 1 credentials", "conn 1 credentials"}; !slices.Equal(g, w) {
+					t.Errorf("forwarded requests (connection, credentials):\n got %v\nwant %v", g, w)
+				}
+
+				// Both placed as the browser places them unasked: its second
+				// request's.
+				w := credentialed(want[0], "/nav")
+				if w == nil {
+					t.Fatal("the browser sent /nav without credentials")
+				}
+
+				for _, g := range got {
+					if gp, wp := authPlace(g.Headers), authPlace(w.Headers); gp != wp {
+						t.Errorf("%s: Proxy-Authorization %s, want %s", g.Line, gp, wp)
 					}
 				}
 			})
@@ -269,7 +327,7 @@ type proxySession struct {
 	captures chan *capture.Capture
 }
 
-func startProxied(t *testing.T, p *profile.Profile, sc *server.Scenario, user *url.Userinfo) *proxySession {
+func startProxied(t *testing.T, p *profile.Profile, sc *server.Scenario, user *url.Userinfo, browserAuth bool) *proxySession {
 	t.Helper()
 
 	ca, err := server.LoadOrCreateCA(t.TempDir(), server.CADomains, time.Now())
@@ -351,6 +409,7 @@ func startProxied(t *testing.T, p *profile.Profile, sc *server.Scenario, user *u
 			Host:   pln.Addr().String(),
 			User:   user,
 		}),
+		BrowserProxyAuth: browserAuth,
 	})
 	if err != nil {
 		t.Fatal(err)

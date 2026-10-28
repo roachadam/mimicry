@@ -128,6 +128,16 @@ proxies over UDP associations, naming the host for the proxy to resolve
 as the TCP path does, and no datagram ever goes around a proxy
 ([0038](0038-http3-over-socks5.md)).
 
+## Amendment 2026-10-28: credentials up front by default
+
+The credential flow above is now `Config.BrowserProxyAuth`. By default a
+proxy URL's credentials go on the first CONNECT (with `connectAuth`) and
+the first request sent to the proxy whole (placed by `forwardAuth` as
+unasked), so a new proxy URL costs no 407 round trip; a 407 to them is
+final. Only the proxy sees the difference
+([0039](0039-proxy-credentials-up-front.md)). Connections of a proxy
+no longer used close early ([0040](0040-idle-connection-cleanup.md)).
+
 ## Revisit when
 
 Safari 26's credential flow is measured, a profile changes how Safari gets

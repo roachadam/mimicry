@@ -98,7 +98,7 @@ func TestCancelAsResponseHeadersArrive(t *testing.T) {
 		t.Fatalf("no RST_STREAM(CANCEL) on stream %d in %v", h.StreamID, frames)
 	}
 
-	if !c.Idle() || !c.CanTakeNewRequest() {
+	if _, idle := c.IdleSince(); !idle || !c.CanTakeNewRequest() {
 		t.Fatal("the cancelled stream is still open or broke the connection")
 	}
 }

@@ -43,14 +43,16 @@ func parsePins(ps []Pin) (pins.Set, error) {
 }
 
 // verifier is the engine's check of a connection for a request to host:
-// the host's pins, then Config.VerifyConnection.
+// the host's pins, then Config.VerifyConnection. It holds t's pins, not
+// t, so the engine never keeps t reachable (NewTransport's cleanup).
 func (t *Transport) verifier(user func(tls.ConnectionState) error) func(host string, cs tls.ConnectionState) error {
-	if len(t.pins) == 0 && user == nil {
+	set := t.pins
+	if len(*set) == 0 && user == nil {
 		return nil
 	}
 
 	return func(host string, cs tls.ConnectionState) error {
-		if e := t.pins.Lookup(host); e != nil && !e.Matches(cs) {
+		if e := set.Lookup(host); e != nil && !e.Matches(cs) {
 			return &PinError{
 				Host:      host,
 				Presented: pins.Presented(cs),

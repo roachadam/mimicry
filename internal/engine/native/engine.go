@@ -37,7 +37,9 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// idleTimeout is how long an idle HTTP/1.1 connection is kept.
+// idleTimeout is how long an idle connection is kept: HTTP/1.1 since its
+// last response, HTTP/2 and HTTP/3 since their last request ended
+// (decisions 0020 and 0040). Not measured in any browser.
 const idleTimeout = 90 * time.Second
 
 // defaultDialTimeout applies when Config.DialTimeout is zero.
@@ -91,6 +93,12 @@ type Config struct {
 	// as they would without the proxy. Otherwise, and through any other
 	// proxy, they stay on TCP (browsers never use HTTP/3 through a proxy).
 	HTTP3OverSOCKS5 bool
+	// BrowserProxyAuth gives an HTTP proxy the URL's credentials as the
+	// profile's browser does: only once the proxy has answered 407
+	// (proxy.connectCredentials, forwardCredentials). Otherwise they go
+	// from the first CONNECT or forwarded request, placed as the
+	// browser places them unasked (decision 0039).
+	BrowserProxyAuth bool
 	// VerifyConnection, when set, checks a verified connection for host on
 	// every TLS and QUIC handshake (resumed ones included) and before a request
 	// coalesces onto another host's HTTP/2 connection. An error fails the
@@ -127,6 +135,13 @@ type Engine struct {
 	coalesce profile.Coalescing
 	// h3SOCKS5 is Config.HTTP3OverSOCKS5.
 	h3SOCKS5 bool
+	// expireGoAway: an idle HTTP/2 connection expires with GOAWAY, as
+	// the profile's browser lets one go (http3.discovery.goawayTcp:
+	// Firefox); otherwise with the close alone.
+	expireGoAway bool
+	// proxies are the proxies requests went through, for closing the
+	// connections of those no longer used (proxies.go).
+	proxies proxyUse
 }
 
 // New builds an engine for cfg.Profile, which it takes ownership of: the
@@ -179,6 +194,7 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 			Resolver:    cfg.Resolver,
 			Proxy:       p.Proxy,
 			UserAgent:   userAgent(p),
+			BrowserAuth: cfg.BrowserProxyAuth,
 		},
 		proxy:           cfg.Proxy,
 		lookup:          lookupFunc(cfg.Resolver),
@@ -186,6 +202,10 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 		browserFallback: cfg.BrowserFallback,
 		coalesce:        coalesce,
 		h3SOCKS5:        cfg.HTTP3OverSOCKS5,
+		expireGoAway:    p.HTTP3 != nil && p.HTTP3.Discovery.GoAwayTCP,
+		proxies: proxyUse{
+			byURL: map[string]*proxyKeys{},
+		},
 		pool: pool.New[*shared, *h1.Conn](pool.Config{
 			Clock:        clock,
 			IdleTimeout:  idleTimeout,
@@ -246,6 +266,8 @@ func (e *Engine) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 	if err != nil {
 		return nil, err
 	}
+
+	e.usedProxy(r)
 
 	answered := false
 	for attempt := 1; ; attempt++ {
@@ -397,8 +419,10 @@ type route struct {
 	// coalescing. Zero when the request never coalesces: plain HTTP or
 	// through a proxy.
 	group group
-	// proxy is nil for a direct connection.
+	// proxy is nil for a direct connection; via is its URL as the key
+	// names it.
 	proxy *url.URL
+	via   string
 	// forward sends plain-HTTP requests to an HTTP proxy whole, instead of
 	// through a tunnel.
 	forward bool
@@ -457,7 +481,9 @@ func (e *Engine) route(req *http.Request) (route, error) {
 	r.proxy = p
 	r.forward = p.Scheme == dial.SchemeHTTP && req.URL.Scheme == "http"
 
-	r.key += " via " + p.String()
+	r.via = p.String()
+
+	r.key += " via " + r.via
 	// Coalescing through a proxy was never captured; the proxy resolves
 	// names, so the address condition cannot be checked either.
 	r.group = group{}
@@ -581,7 +607,7 @@ func (e *Engine) tryOnce(ctx context.Context, req *http.Request, r route) (*http
 		return nil, err
 	}
 
-	c := newShared(hc, conn, r)
+	c := newShared(hc, conn, r, e.expireGoAway)
 	s := d.Shared(c)
 
 	if s != c {

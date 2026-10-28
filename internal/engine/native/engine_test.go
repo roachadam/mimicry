@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -102,6 +103,9 @@ type options struct {
 	// servers' certificate, to localhost.
 	profile   *profile.Profile
 	certHosts []string
+	// clock defaults to the real one; proxy is Config.Proxy.
+	clock clockwork.Clock
+	proxy func(*http.Request) (*url.URL, error)
 }
 
 func newTestEngine(t *testing.T, o options) *Engine {
@@ -122,14 +126,20 @@ func newTestEngine(t *testing.T, o options) *Engine {
 		p = profiles.Chrome()
 	}
 
+	clock := o.clock
+	if clock == nil {
+		clock = clockwork.NewRealClock()
+	}
+
 	e, err := newEngine(Config{
 		Profile:         p,
 		RootCAs:         roots,
 		DialTimeout:     o.dialTimeout,
 		DialContext:     o.dial,
+		Proxy:           o.proxy,
 		Coalesce:        true,
 		MaxConnsPerHost: o.maxConns,
-	}, clockwork.NewRealClock(), o.onWait)
+	}, clock, o.onWait)
 	if err != nil {
 		t.Fatal(err)
 	}

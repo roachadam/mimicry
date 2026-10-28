@@ -28,22 +28,40 @@ type shared struct {
 	// sent is closed once the request that opened it has its response
 	// or failed: a GOAWAY the engine sends waits for it (goAwayTCP).
 	sent chan struct{}
+	// goAway: Expire sends GOAWAY before closing (expireGoAway).
+	goAway bool
 }
 
-// newShared wraps hc, open on conn (a TLS connection) for r.
-func newShared(hc *h2.Conn, conn net.Conn, r route) *shared {
+// newShared wraps hc, open on conn (a TLS connection) for r; goAway is
+// the engine's expireGoAway.
+func newShared(hc *h2.Conn, conn net.Conn, r route, goAway bool) *shared {
 	s := &shared{
-		Conn:  hc,
-		group: r.group,
-		addr:  remoteAddr(conn),
-		tls:   handshake.ConnState(conn),
-		sent:  make(chan struct{}),
+		Conn:   hc,
+		group:  r.group,
+		addr:   remoteAddr(conn),
+		tls:    handshake.ConnState(conn),
+		sent:   make(chan struct{}),
+		goAway: goAway,
 	}
 	if s.tls != nil && len(s.tls.PeerCertificates) > 0 {
 		s.leaf = s.tls.PeerCertificates[0]
 	}
 
 	return s
+}
+
+// Expire closes the idle connection as the profile's browser lets go of
+// an HTTP/2 connection: GOAWAY (NO_ERROR), then the close, where it was
+// captured sending one (Firefox); otherwise the close alone, as
+// CloseIdleConnections does (decision 0040).
+func (s *shared) Expire() {
+	if s.goAway {
+		s.GoAway()
+
+		return
+	}
+
+	_ = s.Close()
 }
 
 // remoteAddr is conn's remote IP address, or an invalid one.

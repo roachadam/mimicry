@@ -39,6 +39,12 @@ type Dialer struct {
 	Proxy *profile.Proxy
 	// UserAgent is the profile's, which CONNECT requests carry.
 	UserAgent string
+	// BrowserAuth gives an HTTP proxy the URL's credentials as Proxy's
+	// ConnectCredentials and ForwardCredentials say, after its 407.
+	// Otherwise they go from the first request, placed as Proxy places
+	// them unasked (ConnectAuth, ForwardAuth): only the proxy sees the
+	// difference (decision 0039).
+	BrowserAuth bool
 	// UDPReadBuffer, when set, is the receive buffer a QUIC socket asks
 	// for (SetReadBuffer; the OS may grant less). Zero leaves the OS's
 	// default (see ListenUDP).
@@ -389,12 +395,12 @@ func (d *Dialer) dialRelay(ctx context.Context, ctrl net.Conn, p *url.URL, relay
 	return udp, nil
 }
 
-// connect opens a CONNECT tunnel on conn, closing it on failure, giving
-// credentials as the profile says (after_challenge or on_challenge). A 407
-// is answered once, on a new connection if the proxy closed this one.
+// connect opens a CONNECT tunnel on conn, closing it on failure. With
+// credentials it sends them from the first CONNECT, or with BrowserAuth as
+// the profile says (after_challenge or on_challenge): a 407 is then
+// answered once, on a new connection if the proxy closed this one.
 func (d *Dialer) connect(ctx context.Context, conn net.Conn, p *url.URL, addr string) (net.Conn, error) {
-	_, asked := d.asked.Load(p.String())
-	unasked := p.User != nil && asked && d.Proxy.ConnectCredentials == profile.CredentialsAfterChallenge
+	unasked := p.User != nil && (!d.BrowserAuth || d.askedConnect(p))
 	header := d.connectHeader(addr, d.Proxy.Connect, "")
 
 	if unasked {
@@ -450,6 +456,19 @@ func (d *Dialer) connect(ctx context.Context, conn net.Conn, p *url.URL, addr st
 	return tunnel, nil
 }
 
+// askedConnect reports whether, the browser's way (BrowserAuth), a
+// CONNECT to p carries credentials unasked: p asked before and the
+// profile sends them after a challenge.
+func (d *Dialer) askedConnect(p *url.URL) bool {
+	if d.Proxy.ConnectCredentials != profile.CredentialsAfterChallenge {
+		return false
+	}
+
+	_, asked := d.asked.Load(p.String())
+
+	return asked
+}
+
 // Challenged records that p asked for credentials (a 407 with header h)
 // on a plain-HTTP request, and reports whether they can be given: p has
 // them and asks for Basic.
@@ -464,13 +483,19 @@ func (d *Dialer) Challenged(p *url.URL, h http.Header) bool {
 }
 
 // ForwardAuthorization returns the Proxy-Authorization a plain-HTTP
-// request to p carries unasked, or "".
+// request to p carries unasked, or "": p's credentials from the first
+// request, or with BrowserAuth once p has asked or where the profile
+// always sends them.
 func (d *Dialer) ForwardAuthorization(p *url.URL) string {
 	if p.User == nil {
 		return ""
 	}
 
-	if _, asked := d.asked.Load(p.String()); asked || d.Proxy.ForwardCredentials == profile.CredentialsAlways {
+	if !d.BrowserAuth || d.Proxy.ForwardCredentials == profile.CredentialsAlways {
+		return Credentials(p)
+	}
+
+	if _, asked := d.asked.Load(p.String()); asked {
 		return Credentials(p)
 	}
 
