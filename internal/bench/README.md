@@ -111,6 +111,19 @@ socket buffer, and `InErrors`). Environment: `BENCH_COUNT` (10), `BENCH_BENCHTIM
 (`BENCH_CLIENT_CPUS`, `BENCH_SERVER_CPUS`, `BENCH_PROXY_CPUS`,
 `BENCH_CLIENT_PROCS`, `BENCH_SERVER_PROCS`), `BENCH_PROXY_DELAY` (5ms).
 
+`BENCH_FAST=1` runs the whole thing in about half the time: micro benchmarks
+4 runs of 300 ms, load points a 3 s window over a 1 s warm-up, concurrency
+1/64/256, 20 idle clients, 3 page loads per condition. Run-to-run spread at
+3 s measured the same as at 5 s (2–3%). The report records the settings it
+used, so a fast run can't be mistaken for a full one. `BENCH_SKIP_BUILD=1`
+reuses the images a previous run built (the servers are unaffected by client
+changes; the client image is not, so skip it only when that code is
+unchanged too):
+
+```sh
+BENCH_FAST=1 internal/bench/scripts/bench.sh run
+```
+
 ## Running against a remote server
 
 The server stack can run on another Docker host (a Linux server, the Mac

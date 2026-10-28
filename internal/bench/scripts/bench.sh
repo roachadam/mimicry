@@ -24,6 +24,10 @@
 #                                  iteration also waits 5 ms untimed for its ticket)
 #   BENCH_MICRO                    micro: one -bench pattern instead of both
 #   BENCH_SERVERS                  micro: servers (nginx,go)
+#   BENCH_FAST=1                   the whole run in about 30 minutes instead
+#                                  of an hour (see the comment below); the
+#                                  report records the settings used
+#   BENCH_SKIP_BUILD=1             reuse the images a previous run built
 #
 # On macOS it keeps the machine awake (caffeinate -i) for its whole run.
 set -euo pipefail
@@ -40,6 +44,18 @@ date="${BENCH_DATE:-$(date +%F)}"
 
 cmd="${1:-}"
 [[ -n "$cmd" ]] && shift
+
+# BENCH_FAST=1 trades precision for time: about 30 minutes instead of an
+# hour. Micro benchmarks: 4 runs of 300 ms each (100 ms does not sample
+# enough iterations at the slowest points). Load points: a 3 s window over
+# a 1 s warm-up (run-to-run spread at 3 s measured the same as at 5 s, 2-3%),
+# concurrency 1/64/256 (no 16), 20 idle clients, and 3 page loads per
+# condition. The report records what was used.
+if [[ -n "${BENCH_FAST:-}" ]]; then
+	: "${BENCH_COUNT:=4}"
+	: "${BENCH_BENCHTIME:=300ms}"
+	: "${BENCH_CONNECT_BENCHTIME:=50x}"
+fi
 
 # What the report records about this host.
 if [[ "$(uname -s)" == Darwin ]]; then
@@ -82,7 +98,12 @@ up() {
 		export BENCH_PUBLISH_ADDR="${BENCH_PUBLISH_ADDR:-0.0.0.0}"
 	fi
 
-	server_compose build
+	# BENCH_SKIP_BUILD=1 reuses the images a previous run left behind (the
+	# servers are unaffected by client changes; the client is not, so skip it
+	# only when the client code is unchanged too).
+	if [[ -z "${BENCH_SKIP_BUILD:-}" ]]; then
+		server_compose build
+	fi
 	server_compose run --rm setup
 	server_compose up -d --remove-orphans nginx go-server proxy
 
@@ -121,6 +142,17 @@ report() {
 
 	if [[ -f "$reports/$stat" ]]; then
 		args=(-micro "$stat" -micro-raw "micro-$date.txt")
+	fi
+
+	# In fast mode, the shorter load settings, unless the caller set the flag
+	# itself (any flag, not just no flags: -date used to switch them off).
+	if [[ -n "${BENCH_FAST:-}" ]]; then
+		local given=" $* "
+		[[ "$given" == *" -window "* ]] || args+=(-window 3s)
+		[[ "$given" == *" -warmup "* ]] || args+=(-warmup 1s)
+		[[ "$given" == *" -conc "* ]] || args+=(-conc 1,64,256)
+		[[ "$given" == *" -idle-n "* ]] || args+=(-idle-n 20)
+		[[ "$given" == *" -reps "* ]] || args+=(-reps 3)
 	fi
 
 	client_compose run --rm client bench run -out /reports -date "$date" ${args[@]+"${args[@]}"} "$@"
