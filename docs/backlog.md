@@ -852,18 +852,33 @@ These matter most under decision 0029:
     [EVIDENCE.md, QUIC and HTTP/3](../profiles/EVIDENCE.md#quic-and-http3).
 - **HTTP/3 bulk throughput against nginx** (Chrome; performance).
   - Differs: nothing on the wire. nginx serves a connection from one
-    worker, and that worker (one core) is the limit at 100 KB and 10 MB
-    for both clients. Chrome's ACK every 10 packets (the profile's
-    `quic.ack`) costs it more per byte than quic-go's: at 10 MB and 64 at
-    once mimicry got 650-730k datagrams/s against tls-client's 730-910k
-    (10 s windows, 2026-10-28), and the same build acknowledging every 20
-    packets (an experiment, not kept) got 870k. At 256 at once both get
-    about 420k. The fast bench's "collapse" there (2-5 requests/s against
-    64) was the benchmark counting requests that ended inside its 3 s
-    window: nginx shares the bandwidth evenly between Chrome's 6 MB-window
-    streams, so all 256 end together about every 4 s. It now counts the
-    bytes that arrive in the window (58 against 57 requests/s). Drops: a
-    few thousand `RcvbufErrors` per point, most at the connection's start
+    worker, one core, and at 100 KB and 10 MB that worker is saturated,
+    so throughput is one core over nginx's CPU per byte, which follows the
+    datagrams the client sends it. nginx is ACK-clocked: after each ACK
+    it sends what the ACK released in one GSO write (the client's veth
+    receives 10-segment bursts from Chrome's ACK every 10 packets, 20 for
+    every 20, 32 for quic-go), and each client datagram costs it about
+    4 µs (fit over the runs below). Measured at 10 MB and 64 at once
+    (2026-10-28, 4 s windows; server datagrams per client datagram, then
+    MB/s): mimicry as Chrome 9.95, 996; every 20 (overlay, not kept)
+    19.8, 1329; every 2 (overlay) 2.0, 498, nginx's socket overflowing
+    (+25,000 `RcvbufErrors`); tls-client 9.2 to 22.4 between runs, 959
+    to 1342, nginx's CPU per byte equal to mimicry's at equal ratios. At
+    100 KB the same: 7,908 req/s as Chrome, 9,616 every 20, tls-client
+    8,697. quic-go's every-2 rule (`packetsBeforeAck`) only queues the
+    ACK; it goes out once the loop has handled up to 32 queued packets
+    (`maxPacketsToProcess`), hence its larger, varying ratio. Chrome's
+    every 10 is captured (97% of its h3-download ACKs advance by exactly
+    10), the ACK Delay field is 0-8 µs (no RTT inflation), MAX_DATA leaves
+    at its crossing: no deviation from Chrome. At 256 at once both clients
+    get about 420k datagrams/s (tls-client sending twice as many ACKs):
+    nginx's per-stream work, not ACKs. The fast bench's "collapse" there
+    (2-5 requests/s against 64) was the benchmark counting requests that
+    ended inside its 3 s window: nginx shares the bandwidth evenly between
+    Chrome's 6 MB-window streams, so all 256 end together about every 4 s.
+    It now counts the bytes that arrive in the window (58 against 57
+    requests/s). Drops: a few thousand `RcvbufErrors` per point, most at
+    the connection's start
     (nginx's slow start against the default ~450 KB buffer), then
     0.1-0.6%; at 100 KB they cost mimicry 10-15% (7 MB buffer: parity
     with tls-client at 64 at once), but 7 MB halves 256 at once: the
