@@ -106,8 +106,10 @@ type options struct {
 	// clock defaults to the real one; proxy is Config.Proxy.
 	clock clockwork.Clock
 	proxy func(*http.Request) (*url.URL, error)
-	// idleConnTimeout is Config.IdleConnTimeout.
-	idleConnTimeout time.Duration
+	// idleConnTimeout is Config.IdleConnTimeout and udpReadBufferSize
+	// Config.UDPReadBufferSize.
+	idleConnTimeout   time.Duration
+	udpReadBufferSize int
 }
 
 func newTestEngine(t *testing.T, o options) *Engine {
@@ -134,14 +136,15 @@ func newTestEngine(t *testing.T, o options) *Engine {
 	}
 
 	e, err := newEngine(Config{
-		Profile:         p,
-		RootCAs:         roots,
-		DialTimeout:     o.dialTimeout,
-		DialContext:     o.dial,
-		Proxy:           o.proxy,
-		Coalesce:        true,
-		MaxConnsPerHost: o.maxConns,
-		IdleConnTimeout: o.idleConnTimeout,
+		Profile:           p,
+		RootCAs:           roots,
+		DialTimeout:       o.dialTimeout,
+		DialContext:       o.dial,
+		Proxy:             o.proxy,
+		Coalesce:          true,
+		MaxConnsPerHost:   o.maxConns,
+		IdleConnTimeout:   o.idleConnTimeout,
+		UDPReadBufferSize: o.udpReadBufferSize,
 	}, clock, o.onWait)
 	if err != nil {
 		t.Fatal(err)

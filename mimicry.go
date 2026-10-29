@@ -201,6 +201,22 @@ type Config struct {
 	// stay on TCP. Either way no datagram goes to the server directly
 	// (decision 0038).
 	HTTP3OverSOCKS5 bool
+	// UDPReadBufferSize is the receive buffer, in bytes, each HTTP/3
+	// connection's UDP socket asks the OS for (SO_RCVBUF), a SOCKS5
+	// association's included. Zero keeps the OS's default (about 200 KB on
+	// Linux, 768 KB on macOS), which is fastest on short, clean paths: in
+	// the HTTP/3 benchmark (one host, 100 KB at 64 at once) a 7 MB buffer,
+	// quic-go's, ran about 10% slower than Linux's default. Raise it (2 to
+	// 8 MB) for high-bandwidth, lossy or long paths, where a burst can
+	// overflow the default: each datagram dropped there is lost as if on
+	// the network, costing a retransmission and congestion window. It is a
+	// request: the OS may grant less, and the connection never fails for
+	// it. Linux grants at most net.core.rmem_max, often 208 KB, without an
+	// error, unless the host raises it (sysctl -w
+	// net.core.rmem_max=8388608); mimicry never uses SO_RCVBUFFORCE, which
+	// needs privileges. The wire is the same either way. Negative is an
+	// error.
+	UDPReadBufferSize int
 	// Pins pins hosts to public keys: a request to a covered host goes only
 	// on a connection whose verified chain matches one of the Pin's values,
 	// else it fails with a *PinError before anything is sent. NewTransport
@@ -301,20 +317,21 @@ func NewTransport(cfg Config) (*Transport, error) {
 	}
 	if t.engine == nil {
 		ncfg := native.Config{
-			Profile:          p,
-			RootCAs:          cfg.RootCAs,
-			DialTimeout:      cfg.DialTimeout,
-			DialContext:      cfg.DialContext,
-			Resolver:         cfg.Resolver,
-			Proxy:            cfg.Proxy,
-			DisableHTTP3:     cfg.DisableHTTP3,
-			BrowserFallback:  cfg.BrowserQUICFallback,
-			Coalesce:         !cfg.DisableCoalescing,
-			MaxConnsPerHost:  cfg.MaxConnsPerHost,
-			IdleConnTimeout:  cfg.IdleConnTimeout,
-			HTTP3OverSOCKS5:  cfg.HTTP3OverSOCKS5,
-			BrowserProxyAuth: cfg.BrowserProxyAuth,
-			VerifyConnection: t.verifier(cfg.VerifyConnection),
+			Profile:           p,
+			RootCAs:           cfg.RootCAs,
+			DialTimeout:       cfg.DialTimeout,
+			DialContext:       cfg.DialContext,
+			Resolver:          cfg.Resolver,
+			Proxy:             cfg.Proxy,
+			DisableHTTP3:      cfg.DisableHTTP3,
+			BrowserFallback:   cfg.BrowserQUICFallback,
+			Coalesce:          !cfg.DisableCoalescing,
+			MaxConnsPerHost:   cfg.MaxConnsPerHost,
+			IdleConnTimeout:   cfg.IdleConnTimeout,
+			HTTP3OverSOCKS5:   cfg.HTTP3OverSOCKS5,
+			UDPReadBufferSize: cfg.UDPReadBufferSize,
+			BrowserProxyAuth:  cfg.BrowserProxyAuth,
+			VerifyConnection:  t.verifier(cfg.VerifyConnection),
 		}
 		if cfg.AltSvc != nil {
 			ncfg.AltSvc = cfg.AltSvc.c

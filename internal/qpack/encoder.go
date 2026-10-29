@@ -126,6 +126,14 @@ type Encoder struct {
 	// sections of each stream, oldest first.
 	known    uint64
 	sections map[uint64][]section
+	// minRef is the smallest minRef of the sections and minRefs how many
+	// have it; stale once the last of them goes, until smallestBlocking
+	// recomputes it. Encoding a request no longer walks every outstanding
+	// section (6% of an HTTP/3 client's CPU at 64 requests at once, under
+	// the connection's request-start lock).
+	minRef   uint64
+	minRefs  int
+	minStale bool
 	// in holds a decoder stream instruction not yet complete.
 	in []byte
 }
@@ -136,6 +144,7 @@ func NewEncoder(cfg Config) *Encoder {
 	return &Encoder{
 		cfg:      cfg,
 		sections: map[uint64][]section{},
+		minRef:   math.MaxUint64,
 	}
 }
 
@@ -233,6 +242,7 @@ func (e *Encoder) Encode(stream uint64, fields []Field) (instructions, block []b
 			ric:    ric,
 			minRef: minRef,
 		})
+		e.addMinRef(minRef)
 	}
 
 	return instructions, block
@@ -366,9 +376,9 @@ func anyEntry(uint64) bool {
 func (e *Encoder) indexAll(stream uint64, fields []Field, ins []byte) ([]rep, []byte) {
 	reps := make([]rep, 0, len(fields))
 	known := e.known
-	// Entries at or after this index must not be evicted: those referenced
+	// Entries at or after keep.get() must not be evicted: those referenced
 	// by unacknowledged sections, and those not acknowledged at all.
-	keep := min(e.smallestBlocking(), known)
+	keep := e.keeper()
 	drain := e.drainingIndex()
 	blocking := e.blockingAllowed(stream)
 
@@ -393,11 +403,11 @@ func (e *Encoder) indexAll(stream uint64, fields []Field, ins []byte) ([]rep, []
 						kind:  repIndexed,
 						index: m.index,
 					})
-					keep = min(keep, m.index)
+					keep.note(m.index)
 
 					continue
 				}
-			} else if blocking && size <= e.maxInsertSize(min(keep, m.index)) {
+			} else if blocking && size <= e.maxInsertSize(min(keep.get(), m.index)) {
 				// Draining: a copy at the table's new end instead.
 				ins = appendInt(ins, 0x00, 5, e.t.inserted()-1-m.index)
 
@@ -407,7 +417,7 @@ func (e *Encoder) indexAll(stream uint64, fields []Field, ins []byte) ([]rep, []
 					kind:  repIndexed,
 					index: abs,
 				})
-				keep = min(keep, m.index)
+				keep.note(m.index)
 
 				continue
 			}
@@ -424,7 +434,7 @@ func (e *Encoder) indexAll(stream uint64, fields []Field, ins []byte) ([]rep, []
 
 		switch {
 		case !m.found:
-			if blocking && size <= e.maxInsertSize(keep) {
+			if blocking && size <= e.maxInsertSize(keep.get()) {
 				ins = appendString(ins, 0x40, 5, f.Name, e.cfg.HuffmanAlways)
 				ins = appendString(ins, 0x00, 7, f.Value, e.cfg.HuffmanAlways)
 
@@ -434,7 +444,7 @@ func (e *Encoder) indexAll(stream uint64, fields []Field, ins []byte) ([]rep, []
 					kind:  repIndexed,
 					index: abs,
 				})
-				keep = min(keep, abs)
+				keep.note(abs)
 
 				continue
 			}
@@ -442,7 +452,7 @@ func (e *Encoder) indexAll(stream uint64, fields []Field, ins []byte) ([]rep, []
 			reps = append(reps, literal(f))
 
 		case m.static:
-			if blocking && size <= e.maxInsertSize(keep) {
+			if blocking && size <= e.maxInsertSize(keep.get()) {
 				ins = appendInt(ins, 0xc0, 6, m.index)
 				ins = appendString(ins, 0x00, 7, f.Value, e.cfg.HuffmanAlways)
 
@@ -452,7 +462,7 @@ func (e *Encoder) indexAll(stream uint64, fields []Field, ins []byte) ([]rep, []
 					kind:  repIndexed,
 					index: abs,
 				})
-				keep = min(keep, abs)
+				keep.note(abs)
 
 				continue
 			}
@@ -465,7 +475,7 @@ func (e *Encoder) indexAll(stream uint64, fields []Field, ins []byte) ([]rep, []
 			})
 
 		default:
-			if blocking && size <= e.maxInsertSize(min(keep, m.index)) {
+			if blocking && size <= e.maxInsertSize(min(keep.get(), m.index)) {
 				ins = appendInt(ins, 0x80, 6, e.t.inserted()-1-m.index)
 				ins = appendString(ins, 0x00, 7, f.Value, e.cfg.HuffmanAlways)
 
@@ -475,7 +485,7 @@ func (e *Encoder) indexAll(stream uint64, fields []Field, ins []byte) ([]rep, []
 					kind:  repIndexed,
 					index: abs,
 				})
-				keep = min(keep, m.index)
+				keep.note(m.index)
 
 				continue
 			}
@@ -486,7 +496,7 @@ func (e *Encoder) indexAll(stream uint64, fields []Field, ins []byte) ([]rep, []
 					index: m.index,
 					value: f.Value,
 				})
-				keep = min(keep, m.index)
+				keep.note(m.index)
 
 				continue
 			}
@@ -505,7 +515,7 @@ func (e *Encoder) newNames(stream uint64, fields []Field, ins []byte) ([]rep, []
 	usable := func(abs uint64) bool {
 		return blocking || abs < e.known
 	}
-	keep := min(e.smallestBlocking(), e.known)
+	keep := e.keeper()
 	full := false
 
 	for _, f := range fields {
@@ -522,13 +532,13 @@ func (e *Encoder) newNames(stream uint64, fields []Field, ins []byte) ([]rep, []
 				value:  f.Value,
 			})
 			if !m.static {
-				keep = min(keep, m.index)
+				keep.note(m.index)
 			}
 
 			continue
 		}
 
-		if blocking && !full && entrySize(f.Name, f.Value) <= e.maxInsertSize(keep) {
+		if blocking && !full && entrySize(f.Name, f.Value) <= e.maxInsertSize(keep.get()) {
 			ins = appendString(ins, 0x40, 5, f.Name, e.cfg.HuffmanAlways)
 			ins = appendString(ins, 0x00, 7, f.Value, e.cfg.HuffmanAlways)
 
@@ -538,7 +548,7 @@ func (e *Encoder) newNames(stream uint64, fields []Field, ins []byte) ([]rep, []
 				kind:  repIndexed,
 				index: abs,
 			})
-			keep = min(keep, abs)
+			keep.note(abs)
 
 			continue
 		}
@@ -606,39 +616,113 @@ func (e *Encoder) drainingIndex() uint64 {
 	return index
 }
 
+// keeper is the smallest absolute index an insert must not evict: the
+// smallest an unacknowledged section refers to, the Known Received Count,
+// and what the section being encoded refers to so far. The first two are
+// looked up only when an insert needs them.
+type keeper struct {
+	e      *Encoder
+	local  uint64
+	shared uint64
+	ready  bool
+}
+
+func (e *Encoder) keeper() keeper {
+	return keeper{
+		e:     e,
+		local: math.MaxUint64,
+	}
+}
+
+// note records that the section refers to abs.
+func (k *keeper) note(abs uint64) {
+	k.local = min(k.local, abs)
+}
+
+// get returns the index.
+func (k *keeper) get() uint64 {
+	if !k.ready {
+		k.shared = min(k.e.smallestBlocking(), k.e.known)
+		k.ready = true
+	}
+
+	return min(k.shared, k.local)
+}
+
 // smallestBlocking is the smallest absolute index an unacknowledged
 // section refers to.
 func (e *Encoder) smallestBlocking() uint64 {
-	m := uint64(math.MaxUint64)
-	for _, secs := range e.sections {
-		for _, s := range secs {
-			m = min(m, s.minRef)
+	if e.minStale {
+		e.minRef, e.minRefs, e.minStale = math.MaxUint64, 0, false
+		for _, secs := range e.sections {
+			for _, s := range secs {
+				e.addMinRef(s.minRef)
+			}
 		}
 	}
 
-	return m
+	return e.minRef
+}
+
+// addMinRef counts a section referring to entries from ref on.
+func (e *Encoder) addMinRef(ref uint64) {
+	switch {
+	case e.minStale:
+	case ref < e.minRef:
+		e.minRef, e.minRefs = ref, 1
+	case ref == e.minRef:
+		e.minRefs++
+	}
+}
+
+// dropMinRef uncounts a section that referred to entries from ref on.
+func (e *Encoder) dropMinRef(ref uint64) {
+	if e.minStale || ref != e.minRef {
+		return
+	}
+
+	e.minRefs--
+	if e.minRefs == 0 {
+		e.minStale = true
+	}
 }
 
 // blockingAllowed reports whether a section on stream may refer to entries
 // the peer has not acknowledged: the stream is blocked already, or fewer
 // streams are than the peer allows.
 func (e *Encoder) blockingAllowed(stream uint64) bool {
+	if e.known >= e.t.inserted() {
+		// Every insert acknowledged: no stream is blocked.
+		return e.maxBlocked > 0
+	}
+
+	if sectionsBlocked(e.sections[stream], e.known) {
+		return true
+	}
+
 	blocked := uint64(0)
-	for s, secs := range e.sections {
-		for _, sec := range secs {
-			if sec.ric > e.known {
-				if s == stream {
-					return true
-				}
-
-				blocked++
-
-				break
+	for _, secs := range e.sections {
+		if sectionsBlocked(secs, e.known) {
+			blocked++
+			if blocked >= e.maxBlocked {
+				return false
 			}
 		}
 	}
 
 	return blocked < e.maxBlocked
+}
+
+// sectionsBlocked reports whether one of a stream's sections needs inserts
+// the peer has not acknowledged.
+func sectionsBlocked(secs []section, known uint64) bool {
+	for _, sec := range secs {
+		if sec.ric > known {
+			return true
+		}
+	}
+
+	return false
 }
 
 // appendPrefix appends a section's prefix (RFC 9204, 4.5.1).
@@ -706,6 +790,10 @@ func (e *Encoder) OnDecoderStream(b []byte) error {
 		case c&0x40 != 0:
 			var stream uint64
 			if stream, n, err = readInt(e.in, 6); err == nil {
+				for _, sec := range e.sections[stream] {
+					e.dropMinRef(sec.minRef)
+				}
+
 				delete(e.sections, stream)
 			}
 
@@ -745,6 +833,8 @@ func (e *Encoder) acknowledged(stream uint64) error {
 	}
 
 	e.known = max(e.known, secs[0].ric)
+	e.dropMinRef(secs[0].minRef)
+
 	if len(secs) == 1 {
 		delete(e.sections, stream)
 	} else {

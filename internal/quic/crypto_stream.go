@@ -41,6 +41,7 @@ func (s *cryptoStream) handleCrypto(off int64, b []byte, f func([]byte) error) e
 			return err
 		}
 		s.in.discardBefore(end)
+		s.in.releaseIfEmpty() // mimicry
 	} else {
 		// This is either data we've already processed,
 		// data we can't process yet, or a mix of both.
@@ -61,6 +62,7 @@ func (s *cryptoStream) handleCrypto(off int64, b []byte, f func([]byte) error) e
 	}
 	err := s.in.read(s.in.start, size, f)
 	s.in.discardBefore(s.inset[0].end)
+	s.in.releaseIfEmpty() // mimicry
 	return err
 }
 
@@ -83,6 +85,7 @@ func (s *cryptoStream) ackOrLoss(start, end int64, fate packetFate) {
 		// If this ack is for data at the start of the send buffer, we can now discard it.
 		if s.outacked.contains(s.out.start) {
 			s.out.discardBefore(s.outacked[0].end)
+			s.out.releaseIfEmpty() // mimicry
 		}
 	case packetLost:
 		// Mark everything lost, but not previously acked, as needing retransmission.

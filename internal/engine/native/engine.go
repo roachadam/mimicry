@@ -100,6 +100,9 @@ type Config struct {
 	// as they would without the proxy. Otherwise, and through any other
 	// proxy, they stay on TCP (browsers never use HTTP/3 through a proxy).
 	HTTP3OverSOCKS5 bool
+	// UDPReadBufferSize is the receive buffer QUIC sockets ask for; zero
+	// keeps the OS's default, negative is an error.
+	UDPReadBufferSize int
 	// BrowserProxyAuth gives an HTTP proxy the URL's credentials as the
 	// profile's browser does: only once the proxy has answered 407
 	// (proxy.connectCredentials, forwardCredentials). Otherwise they go
@@ -178,6 +181,10 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 		perHost = p.Connections.HTTP1PerHost
 	}
 
+	if cfg.UDPReadBufferSize < 0 {
+		return nil, fmt.Errorf("mimicry: Config.UDPReadBufferSize %d is negative", cfg.UDPReadBufferSize)
+	}
+
 	var coalesce profile.Coalescing
 	if cfg.Coalesce {
 		coalesce = p.Connections.Coalesce
@@ -201,12 +208,13 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 		clock:    clock,
 		rootCAs:  cfg.RootCAs,
 		dialer: &dial.Dialer{
-			Timeout:     timeout,
-			DialContext: cfg.DialContext,
-			Resolver:    cfg.Resolver,
-			Proxy:       p.Proxy,
-			UserAgent:   userAgent(p),
-			BrowserAuth: cfg.BrowserProxyAuth,
+			Timeout:           timeout,
+			DialContext:       cfg.DialContext,
+			Resolver:          cfg.Resolver,
+			Proxy:             p.Proxy,
+			UserAgent:         userAgent(p),
+			BrowserAuth:       cfg.BrowserProxyAuth,
+			UDPReadBufferSize: cfg.UDPReadBufferSize,
 		},
 		proxy:           cfg.Proxy,
 		lookup:          lookupFunc(cfg.Resolver),

@@ -187,11 +187,14 @@ func newStream(c *Conn, id streamID) *Stream {
 		id:          id,
 		insize:      -1, // -1 indicates the stream size is unknown
 		inresetcode: -1, // -1 indicates no RESET_STREAM received
-		ingate:      newLockedGate(),
-		outgate:     newLockedGate(),
+		ingate:      newGate(),
+		outgate:     newGate(),
 		inctx:       context.Background(),
 		outctx:      context.Background(),
 	}
+	// mimicry: locked in place, as a gate holds a sync.Mutex (gate.go).
+	s.ingate.lock()
+	s.outgate.lock()
 	if !s.IsReadOnly() {
 		s.outdone = make(chan struct{})
 	}
@@ -264,18 +267,20 @@ func (s *Stream) Read(b []byte) (n int, err error) {
 		return n, nil
 	}
 
-	if err := s.ingate.waitAndLock(s.inctx); err != nil {
-		return 0, err
+	// mimicry: a stream with nothing to read gives its buffer back before
+	// waiting (releaseIdleIn), so one that goes quiet, as HTTP/3's control
+	// and QPACK streams do for the connection's life, holds none.
+	if !s.ingate.lockIfSet() {
+		s.ingate.lock()
+		s.discardReadIn()
+		s.releaseIdleIn()
+		s.inUnlock()
+		if err := s.ingate.waitAndLock(s.inctx); err != nil {
+			return 0, err
+		}
 	}
 
-	if s.inbufoff > 0 {
-		// Discard bytes consumed by the fast path above.
-		s.in.discardBefore(s.in.start + int64(s.inbufoff))
-		s.inbufmu.Lock()
-		s.inbufoff = 0
-		s.inbuf = nil
-		s.inbufmu.Unlock()
-	}
+	s.discardReadIn()
 
 	// bytesRead contains the number of bytes of connection-level flow control to return.
 	// We return flow control for bytes read by this Read call, as well as bytes moved
@@ -746,6 +751,33 @@ func (s *Stream) inUnlock() {
 	s.conn.maybeQueueStreamForSend(s, state)
 }
 
+// discardReadIn discards the bytes of s.inbuf the lock-free path has read.
+// s.ingate must be held.
+//
+// mimicry: upstream's, moved out of Read, which now calls it before waiting
+// too.
+func (s *Stream) discardReadIn() {
+	if s.inbufoff > 0 {
+		s.in.discardBefore(s.in.start + int64(s.inbufoff))
+		s.inbufmu.Lock()
+		s.inbufoff = 0
+		s.inbuf = nil
+		s.inbufmu.Unlock()
+	}
+}
+
+// releaseIdleIn returns the receive buffer to the pool when it holds no
+// byte: everything received has been read and nothing arrived out of order
+// (discardBefore keeps the buffer the window ends in). The next STREAM frame
+// takes another (pipe.writeAt). s.ingate must be held.
+//
+// mimicry: called by a Read about to wait.
+func (s *Stream) releaseIdleIn() {
+	if len(s.inbuf) == 0 {
+		s.in.releaseIfEmpty()
+	}
+}
+
 // inUnlockNoQueue is inUnlock,
 // but reports whether s has frames to write rather than notifying the Conn.
 func (s *Stream) inUnlockNoQueue() streamState {
@@ -801,12 +833,15 @@ func (s *Stream) outUnlock() {
 func (s *Stream) outUnlockNoQueue() streamState {
 	// mimicry: the send buffers go back to the pool once no byte in them can
 	// be sent again: the side closed with every byte acknowledged, or reset
-	// (appendOutFramesLocked then sends no data). s.outbuf, the lock-free
-	// writers' view of the free space in s.out, changes only with outgate
-	// held; while it is non-empty the buffer stays (CloseWrite and Reset
-	// clear it).
+	// (appendOutFramesLocked then sends no data), or, on a stream still
+	// open, every byte written so far acknowledged, so that a stream that
+	// goes quiet (HTTP/3's control and QPACK streams) holds no buffer; the
+	// next Write takes another. s.outbuf, the lock-free writers' view of the
+	// free space in s.out, changes only with outgate held; while it is
+	// non-empty the buffer stays (Flush, CloseWrite and Reset clear it).
 	if s.out.head != nil && len(s.outbuf) == 0 &&
-		(s.outreset.isSet() || s.outclosed.isSet() && s.outacked.isrange(0, s.out.end)) {
+		(s.outreset.isSet() || s.out.start == s.out.end ||
+			s.outclosed.isSet() && s.outacked.isrange(0, s.out.end)) {
 		s.out.release()
 	}
 

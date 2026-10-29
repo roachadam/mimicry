@@ -2,7 +2,9 @@ package capture
 
 import (
 	"fmt"
+	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/roachadam/mimicry/internal/harness/internal/h2trace"
 	"github.com/roachadam/mimicry/profile"
@@ -10,10 +12,11 @@ import (
 
 // OpeningRecords is how p's browser cuts a new HTTP/2 connection's opening
 // into TLS records (profile http2.openingRecords), from every connection
-// in p's captures in dir whose records were kept and whose first request
-// was waiting as it opened (h2trace.Opening): they must all agree.
-// Connections the browser opened ahead of their request are left out:
-// mimicry never does. Nil when no connection measured it.
+// in p's captures in dir, and its own testing-build captures, whose
+// records were kept and whose first request was waiting as it opened
+// (h2trace.Opening): they must all agree. Connections the browser opened
+// ahead of their request are left out: mimicry never does. Nil when no
+// connection measured it.
 func OpeningRecords(dir string, p *profile.Profile) ([][]string, error) {
 	var (
 		traces []*h2trace.Trace
@@ -41,6 +44,15 @@ func OpeningRecords(dir string, p *profile.Profile) ([][]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Testing-build captures count here alone, inherited as their
+	// scenario is.
+	testing, err := testingPages(dir, p)
+	if err != nil {
+		return nil, err
+	}
+
+	pages = append(pages, testing...)
 
 	for _, f := range pages {
 		loaded, err := LoadPages(f.Path)
@@ -83,4 +95,40 @@ func OpeningRecords(dir string, p *profile.Profile) ([][]string, error) {
 	}
 
 	return want, nil
+}
+
+// testingPages lists the testing-build page captures in dir p is checked
+// against: its own for the scenarios it does not inherit, its sources'
+// for those it does.
+func testingPages(dir string, p *profile.Profile) ([]File, error) {
+	const suffix = forTesting + ".pagetrace.json.gz"
+
+	names := []string{p.Name}
+	for _, from := range p.CapturesFrom {
+		if !slices.Contains(names, from) {
+			names = append(names, from)
+		}
+	}
+
+	var out []File
+
+	for _, name := range names {
+		matches, err := filepath.Glob(filepath.Join(dir, name+".*"+suffix))
+		if err != nil {
+			return nil, err
+		}
+
+		for _, path := range matches {
+			sc := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(path), name+"."), suffix)
+			if Source(p, sc) == name {
+				out = append(out, File{
+					Path:     path,
+					Scenario: sc,
+					Source:   name,
+				})
+			}
+		}
+	}
+
+	return out, nil
 }

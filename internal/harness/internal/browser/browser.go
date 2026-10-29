@@ -136,8 +136,11 @@ type Browser struct {
 // which a long-running Chrome never does.
 const chromeWarmup = 5 * time.Second
 
+// ChromeApp is the Chrome application Find looks for on macOS; cmd/capture's
+// -chrome-app points it at another build (Chrome for Testing).
+var ChromeApp = "/Applications/Google Chrome.app"
+
 var macOSApps = map[string]string{
-	"chrome":  "/Applications/Google Chrome.app",
 	"firefox": "/Applications/Firefox.app",
 	"safari":  "/Applications/Safari.app",
 }
@@ -160,7 +163,13 @@ func Find() []*Browser {
 		b := &Browser{
 			Name: name,
 		}
-		if app := macOSApps[name]; app != "" {
+
+		app := macOSApps[name]
+		if name == "chrome" {
+			app = ChromeApp
+		}
+
+		if app != "" {
 			if _, err := os.Stat(app); err == nil {
 				b.App = app
 			}
@@ -186,7 +195,8 @@ func Find() []*Browser {
 			b.binary = b.Path
 
 			if b.App != "" {
-				b.binary = filepath.Join(b.App, "Contents", "MacOS", "Google Chrome")
+				// The executable is named after the application.
+				b.binary = filepath.Join(b.App, "Contents", "MacOS", strings.TrimSuffix(filepath.Base(b.App), ".app"))
 			}
 
 		case "firefox":

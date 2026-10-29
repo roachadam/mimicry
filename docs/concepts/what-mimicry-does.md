@@ -45,7 +45,7 @@ connection, no DNS lookup, no cookie touched, no preflight cached
 | [Retries on another connection](#retries-on-another-connection) | the same request again | none |
 | [A 30 s request timeout](#a-30-s-request-timeout) | none (a request gives up) | `Config.Timeout`; the client's `Timeout` |
 | [HTTP/2 coalescing](#http2-coalescing) | a DNS lookup; Firefox: a connection opened and declined | `Config.DisableCoalescing` (`Config.Resolver` answers the lookup) |
-| [HTTP/3](#http3-alt-svc-and-the-switch) | a QUIC connection beside TCP, GOAWAY on TCP (Firefox); with a shared or saved Alt-Svc cache, QUIC from a new Transport's first request | `Config.DisableHTTP3`; `Config.AltSvc` |
+| [HTTP/3](#http3-alt-svc-and-the-switch) | a QUIC connection beside TCP, GOAWAY on TCP (Firefox); with a shared or saved Alt-Svc cache, QUIC from a new Transport's first request | `Config.DisableHTTP3`; `Config.AltSvc`; `Config.UDPReadBufferSize` (receive buffer) |
 | [QUIC failure and TCP fallback](#when-quic-fails-tcp-racing-and-fallback) | TCP connections racing QUIC; by default, sooner than the browser's when QUIC fails | `Config.DisableHTTP3`; `Config.BrowserQUICFallback` |
 | [Keep-alive and housekeeping](#keep-alive-pings-and-housekeeping-frames) | PING, WINDOW_UPDATE, ACK frames | none |
 | [TLS resumption and 0-RTT](#tls-session-resumption-and-0-rtt) | none (a different ClientHello); a request answered `425 Too Early` sent again | none; `Config.DisableHTTP3` stops 0-RTT |
@@ -322,6 +322,12 @@ as the browser starts an origin whose alternative it knows (Chrome and
 Safari: QUIC first, TCP after the race delay; Firefox: TCP, validating
 QUIC beside it). See [HTTP/3](http3.md#alternatives-a-transport-did-not-learn-itself).
 No option changes the discovery rule or forgets broken origins.
+`Config.UDPReadBufferSize` sizes each QUIC socket's receive buffer: the
+default is fastest on short, clean paths; raise it (2 to 8 MB) for
+high-bandwidth, lossy or long ones, where a burst can overflow the default
+and every datagram dropped costs a retransmission. Linux grants at most
+`net.core.rmem_max` (often 208 KB) unless the host raises it; mimicry asks
+and never fails for less.
 
 ## When QUIC fails: TCP racing and fallback
 
@@ -372,10 +378,9 @@ for the race itself.
   5 s however little was read.
 - **HTTP/2 records:** a new connection's preface, SETTINGS and
   WINDOW_UPDATE go out in one TLS record, the first request's frames in
-  the next (Chrome 156, Firefox 158) or in the same one (Safari 26), as
-  the profile's `http2.openingRecords` says; a request's HEADERS and
-  Firefox's stream WINDOW_UPDATE always share a record. Safari 27 and
-  Chrome 155 are unmeasured and send each frame in a record of its own
+  the next (Chrome, Firefox 158) or in the same one (Safari 27 and 26),
+  as the profile's `http2.openingRecords` says; a request's HEADERS and
+  Firefox's stream WINDOW_UPDATE always share a record
   ([decision 0042](../decisions/0042-http2-opening-records.md)).
 - **TLS key shares:** Firefox profiles send one X25519 key in both the
   X25519MLKEM768 and the x25519 share of every hello, resumed and QUIC

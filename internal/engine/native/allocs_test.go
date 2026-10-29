@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -11,6 +12,9 @@ import (
 	"testing"
 
 	"golang.org/x/net/http2"
+
+	"github.com/roachadam/mimicry/internal/qpack"
+	"github.com/roachadam/mimicry/internal/quic"
 )
 
 // h1Response is what serveH1Requests answers every request with.
@@ -138,17 +142,106 @@ func serveH2Requests(ctx context.Context, conn net.Conn) {
 	}
 }
 
+// serveH3Requests answers each request on sc, an HTTP/3 connection, with the
+// same response as the TCP servers (the block encoded once, static table
+// and literals), allocating nothing per request itself: requests, which
+// come one at a time, are answered on the accepting goroutine. What the QUIC
+// server below allocates per stream is counted with the client's.
+func serveH3Requests(sc *quic.Conn) {
+	ctx := context.Background()
+
+	control, err := sc.NewSendOnlyStream(ctx)
+	if err != nil {
+		return
+	}
+
+	// Stream type control, an empty SETTINGS (no QPACK dynamic table).
+	_, _ = control.Write([]byte{0x00, 0x04, 0x00})
+	_ = control.Flush()
+
+	_, block := qpack.NewEncoder(qpack.Config{}).Encode(0, []qpack.Field{
+		{
+			Name:  ":status",
+			Value: "200",
+		},
+		{
+			Name:  "server",
+			Value: "nginx",
+		},
+		{
+			Name:  "content-type",
+			Value: "application/json",
+		},
+		{
+			Name:  "content-length",
+			Value: "2",
+		},
+		{
+			Name:  "alt-svc",
+			Value: `h3=":443"`,
+		},
+		{
+			Name:  "vary",
+			Value: "Accept-Encoding",
+		},
+		{
+			Name:  "x-proto",
+			Value: "h3",
+		},
+		{
+			Name:  "access-control-allow-origin",
+			Value: "*",
+		},
+	})
+
+	// HEADERS, then DATA "{}"; both blocks are short enough for one-byte
+	// lengths.
+	response := append([]byte{0x01, byte(len(block))}, block...)
+
+	response = append(response, 0x00, 0x02, '{', '}')
+
+	for {
+		s, err := sc.AcceptStream(ctx)
+		if err != nil {
+			return
+		}
+
+		if s.IsReadOnly() {
+			// The client's control and QPACK streams, for the
+			// connection's life.
+			go func() {
+				_, _ = io.Copy(io.Discard, s)
+			}()
+
+			continue
+		}
+
+		// The stream's end frees its slot for a new one (MAX_STREAMS)
+		// once read-closed.
+		_, _ = io.Copy(io.Discard, s)
+		_ = s.CloseRead()
+
+		_, _ = s.Write(response)
+		_ = s.CloseWrite()
+	}
+}
+
 // A warm GET's allocations, request path and response included, stay
-// near what they are, on each TCP protocol: a guard for the per-request
-// costs taken out (route keys, the pool's idle bookkeeping, HTTP/2 stream
-// setup and response headers). The servers allocate nothing per request.
+// near what they are, on each protocol: a guard for the per-request costs
+// taken out (route keys, the pool's idle bookkeeping, HTTP/2 stream setup
+// and response headers, HTTP/3's QPACK literals, stream buffers and control
+// messages). The TCP servers allocate nothing per request; the HTTP/3
+// server's QUIC stack does, and is counted.
 func TestWarmRequestAllocations(t *testing.T) {
 	race := raceBuild()
 
 	for _, tc := range []struct {
-		name  string
-		url   string
+		name string
+		url  string
+		// serve answers a TCP protocol's connections; with h3 the
+		// requests go on HTTP/3 to serveH3Requests instead.
 		serve func(ctx context.Context, conn net.Conn)
+		h3    bool
 		// most is the bound, a little above what it measured; mostRace
 		// with -race, whose sync.Pool drops a quarter of what is put back.
 		most, mostRace float64
@@ -169,37 +262,40 @@ func TestWarmRequestAllocations(t *testing.T) {
 			most:     h2Most,
 			mostRace: h2MostRace,
 		},
+		{
+			name:     "http3",
+			url:      "https://localhost/json",
+			h3:       true,
+			most:     h3Most,
+			mostRace: h3MostRace,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			ln, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
-			if err != nil {
-				t.Fatal(err)
+			// The HTTP/3 row has no TCP server: its requests go on QUIC
+			// only.
+			var addr string
+			if !tc.h3 {
+				addr = tcpServer(t, tc.serve)
 			}
-
-			t.Cleanup(func() {
-				_ = ln.Close()
-			})
-
-			go func() {
-				for {
-					conn, err := ln.Accept()
-					if err != nil {
-						return
-					}
-
-					t.Cleanup(func() {
-						_ = conn.Close()
-					})
-
-					go tc.serve(t.Context(), conn)
-				}
-			}()
 
 			e := newTestEngine(t, options{
 				dial: func(ctx context.Context, network, _ string) (net.Conn, error) {
-					return (&net.Dialer{}).DialContext(ctx, network, ln.Addr().String())
+					if addr == "" {
+						return nil, errNoTCP
+					}
+
+					return (&net.Dialer{}).DialContext(ctx, network, addr)
 				},
 			})
+
+			if tc.h3 {
+				port, conns := quicServerConns(t)
+				if _, a := dialQUIC(t, e, tc.url, port); a.conn == nil {
+					t.Fatal("the QUIC attempt failed")
+				}
+
+				go serveH3Requests(next(t, conns, "QUIC connection at the server"))
+			}
 
 			req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, tc.url, nil)
 			if err != nil {
@@ -214,6 +310,10 @@ func TestWarmRequestAllocations(t *testing.T) {
 					t.Fatal(err)
 				}
 
+				if tc.h3 && resp.ProtoMajor != 3 {
+					t.Fatalf("response over %s, want HTTP/3", resp.Proto)
+				}
+
 				_, _ = io.ReadFull(resp.Body, buf[:2])
 				_ = resp.Body.Close()
 			}
@@ -225,7 +325,9 @@ func TestWarmRequestAllocations(t *testing.T) {
 				most = tc.mostRace
 			}
 
-			if n := testing.AllocsPerRun(200, get); n > most {
+			// 1000 runs: over 200, HTTP/3's average fell on either side
+			// of a whole number.
+			if n := testing.AllocsPerRun(1000, get); n > most {
 				t.Errorf("%v allocations per warm GET, want at most %v", n, most)
 			}
 		})
@@ -248,11 +350,50 @@ func raceBuild() bool {
 	return false
 }
 
+// errNoTCP fails the HTTP/3 row's TCP dials: its requests go on QUIC only.
+var errNoTCP = errors.New("no TCP in this test")
+
+// tcpServer serves serve's connections on a local port, for as long as t
+// runs, and returns its address.
+func tcpServer(t *testing.T, serve func(ctx context.Context, conn net.Conn)) string {
+	t.Helper()
+
+	ln, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() {
+		_ = ln.Close()
+	})
+
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+
+			t.Cleanup(func() {
+				_ = conn.Close()
+			})
+
+			go serve(t.Context(), conn)
+		}
+	}()
+
+	return ln.Addr().String()
+}
+
 // The bounds, allocations per warm GET: 26 (HTTP/1.1) and 33 (HTTP/2;
-// 34-35 with -race) measured, 32 and 57 before the cuts.
+// 34-35 with -race) measured, 32 and 57 before the cuts; HTTP/3 52 (61
+// with -race), the QUIC server's included, at what it measured
+// (2026-10-28).
 const (
 	h1Most     = 27
 	h1MostRace = 28
 	h2Most     = 35
 	h2MostRace = 37
+	h3Most     = 52
+	h3MostRace = 61
 )

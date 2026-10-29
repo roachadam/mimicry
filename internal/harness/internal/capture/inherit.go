@@ -56,6 +56,12 @@ var suffixes = []string{
 // local roots (cmd/capture's -h3-local-roots), the same scenario otherwise.
 const localRoots = ".local-roots"
 
+// forTesting marks a capture taken with a browser's testing build, not the
+// branded browser (<name>.<scenario>.chrome-for-testing<suffix>): no
+// scenario's capture, it feeds http2.openingRecords alone (OpeningRecords,
+// decision 0042), for a version no longer installable as the brand.
+const forTesting = ".chrome-for-testing"
+
 // ScenarioOf returns the scenario of a capture file of the profile name
 // (<name>[.<scenario>][.local-roots]<suffix>, DefaultScenario without a
 // scenario part), and false for a file that is not one.
@@ -74,6 +80,10 @@ func splitFile(name, file string) (string, string, bool) {
 	rest = "." + rest
 	for _, s := range suffixes {
 		if sc, ok := strings.CutSuffix(rest, s); ok {
+			if strings.HasSuffix(sc, forTesting) {
+				return "", "", false
+			}
+
 			sc = strings.TrimSuffix(sc, localRoots)
 			if sc == "" {
 				return DefaultScenario, s, true

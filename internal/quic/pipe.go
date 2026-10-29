@@ -194,3 +194,15 @@ func (p *pipe) release() {
 	p.head = nil
 	p.tail = nil
 }
+
+// releaseIfEmpty releases the pipe's buffers when it holds no byte: after
+// discardBefore, which keeps the buffer the window ends in, a pipe whose
+// data is all consumed still holds it.
+//
+// mimicry: so an idle stream holds no buffer (stream.go's releaseIdleIn and
+// outUnlockNoQueue, crypto_stream.go); the next writeAt takes another.
+func (p *pipe) releaseIfEmpty() {
+	if p.head != nil && p.start == p.end {
+		p.release()
+	}
+}

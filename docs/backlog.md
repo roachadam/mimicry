@@ -197,20 +197,18 @@ These matter most under decision 0029:
 
 ## HTTP/2
 
-- **The HTTP/2 opening's TLS records, unmeasured** (Safari 27, Chrome
-  155).
-  - Differs: their profiles have no `http2.openingRecords`, so mimicry
-    sends each opening frame (preface, SETTINGS, WINDOW_UPDATE) and the
-    first HEADERS in a record of its own. Every measured browser puts the
-    preface, SETTINGS and WINDOW_UPDATE in one record, and Safari 26 the
-    first HEADERS too; Safari 27 very likely does as 26.
+- **Chrome 155's HTTP/2 opening is measured on Chrome for Testing**
+  (Chrome 155).
+  - Differs: possibly nothing. `http2.openingRecords` for chrome-155
+    comes from Chrome for Testing 155.0.8059.84 (the branded Chrome on
+    the capture Macs is 156), which shares the branded build's network
+    stack: `[preface SETTINGS WINDOW_UPDATE] [HEADERS]`, as branded
+    Chrome 156. Every other chrome-155 field is from branded captures.
   - Shows: every new HTTP/2 connection (record count and sizes).
-  - Detection: medium; record sizes at connection start are visible to
-    anyone on the path, and an opening cut into four records is unlike
-    any measured browser. User-visible: no.
-  - Close: a `resume` capture (2 samples) on the Mac that runs Safari 27
-    with the current capture server, then `hellogen`; Chrome 155 is
-    superseded by 156. Small (Safari 27 takes over that Mac's screen).
+  - Detection: none expected; the record cut is the network stack's, the
+    same in both builds. User-visible: no.
+  - Close: a `resume` capture of a branded Chrome 155, should one be at
+    hand; small.
   - Source: [EVIDENCE.md, HTTP/2 connection](../profiles/EVIDENCE.md#http2-connection)
     (`openingRecords`); [decision 0042](decisions/0042-http2-opening-records.md).
 - **A connection opened ahead of its request** (Safari, Firefox).
@@ -220,7 +218,7 @@ These matter most under decision 0029:
     the server's SETTINGS, acknowledges them, and only then sends HEADERS
     in a record of its own. mimicry always has the request when it
     connects and sends it at once, cut as `openingRecords` says (Safari
-    26: in the opening's record).
+    27 and 26: in the opening's record).
   - Shows: a client's first connection to a site, where a browser
     preconnected (typed or opened URLs).
   - Detection: low to medium; the record pattern and the ACK-before-HEADERS
@@ -852,6 +850,38 @@ These matter most under decision 0029:
   - Close: more samples, if ever.
   - Source: `sampleGaps` in `internal/harness/cmd/h3gen/load.go`;
     [EVIDENCE.md, QUIC and HTTP/3](../profiles/EVIDENCE.md#quic-and-http3).
+- **HTTP/3 bulk throughput against nginx** (Chrome; performance).
+  - Differs: nothing on the wire: at 100 KB and 64 at once mimicry ran
+    4% below tls-client (7,341 against 7,648 requests/s, fast bench,
+    nginx in Docker, 2026-10-28; 5,893 against 7,669 at 256). nginx's one
+    worker for the connection is the limit, and Chrome's ACK every 10
+    packets (the profile's `quic.ack`) costs it about 45% more CPU per
+    response than quic-go's ACKs (one per 25 packets or so): 7.7 client
+    datagrams per response against 3.0. At 10 MB mimicry's socket
+    overflows its default receive buffer (thousands of `RcvbufErrors` per
+    point; tls-client asks for 7 MB) and 256 at once collapses (2-5
+    requests/s against 64); `Config.UDPReadBufferSize` is the lever, the
+    collapse itself is not yet understood.
+  - Detection: none (it is the browser's ACK rate). User-visible: bulk
+    downloads from a single-worker HTTP/3 server are somewhat slower.
+  - Close: none planned: fewer ACKs would no longer be Chrome's.
+  - Source: `internal/quic/UPSTREAM.md` change 15; the bench's HTTP/3
+    100 KB rows.
+- **HTTP/3 request starts are serialized per connection** (all;
+  performance).
+  - Differs: nothing on the wire. Each request opens its stream, encodes
+    its QPACK section and writes PRIORITY_UPDATE and HEADERS under one
+    lock and cork per connection (stream IDs and frames in the browser's
+    order), and response sections decode under the decoder's lock: at
+    1 KB and 64 at once a request waited about 50 µs for the start lock,
+    and these two locks are most of the remaining contention.
+  - Detection: none. User-visible: no (HTTP/3 at 1 KB ran 30-40% above
+    tls-client after change 15).
+  - Close: decode sections that use no dynamic table without the lock
+    (per-call scratch); start requests already queued under one cork
+    (medium).
+  - Source: block and mutex profiles of the bench's HTTP/3 1 KB point,
+    2026-10-28.
 
 ## Headers and request kinds
 

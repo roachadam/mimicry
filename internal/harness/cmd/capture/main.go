@@ -83,6 +83,8 @@ func run() error {
 	summary := flag.String("summary", "", "append one JSON line per written scenario to this file: browser, scenario, profile name, user agent, samples, seconds, files")
 	preflight := flag.Bool("preflight", false, "print what a capture here needs as JSON (browsers and versions, console user, capture CA trust, /etc/resolver/test, aioquic) and exit")
 
+	flag.StringVar(&browser.ChromeApp, "chrome-app", browser.ChromeApp, "the Chrome application to capture on macOS (another build: Chrome for Testing)")
+
 	flag.Parse()
 
 	if *preflight {

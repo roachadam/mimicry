@@ -275,6 +275,16 @@
       }
     ],
     "windowUpdate": 15663105,
+    "openingRecords": [
+      [
+        "preface",
+        "SETTINGS",
+        "WINDOW_UPDATE"
+      ],
+      [
+        "HEADERS"
+      ]
+    ],
     "headersPriority": {
       "dependsOn": 0,
       "exclusive": true,

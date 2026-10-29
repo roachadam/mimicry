@@ -361,10 +361,12 @@ the mechanical import rewrites.
     messages parsed (change 11), so the ACK rules see the queue they saw.
     macOS keeps `recvmsg`. Receive was 13% of the client's CPU at 100 KB
     and 64 at once (bench 2026-10-27); with batches, req/s rose from about
-    6,000 to 6,300 (noisy). Covered by upstream's tests and the e2e
-    suite run in a Linux container (`TestHTTP3*MatchesBrowser`,
-    `TestQUICInterop`): on macOS, where the gate runs, this path is not
-    built.
+    6,000 to 6,300 (noisy). While `recvmmsg` finds nothing (EAGAIN), the
+    batch's buffers but one go back to the pool, refilled when the socket
+    is readable again: an idle connection's socket held 8 (12 KB) while it
+    waited (change 16). Covered by upstream's tests and the e2e suite run
+    in a Linux container (`TestHTTP3*MatchesBrowser`, `TestQUICInterop`):
+    on macOS, where the gate runs, this path is not built.
 
 14. **A client's socket failing ends its connection** (`endpoint.go`'s
     `listen`). Upstream's listen loop returns on a read error and leaves
@@ -379,6 +381,49 @@ the mechanical import rewrites.
     anything but a `*net.UDPConn`: no control messages, one datagram per
     read), so the association needs no other change here. Covered by
     `TestHTTP3ThroughSOCKS5`'s teardown case, which fails without it.
+
+15. **A gate's waiter takes it when it runs** (`gate.go`; `stream.go`'s
+    `newStream`). Upstream's gate is two one-slot channels whose token a
+    blocked `waitAndLock` receives directly: a goroutine woken that way
+    owned the gate before it was scheduled. The conn's loop, delivering
+    the next STREAM frame for a stream whose reader it had just woken,
+    then blocked in `handleData`'s `ingate.lock` until that reader had run
+    and unlocked: under HTTP/3 load (nginx in Docker, 1 KB at 64 at once)
+    the loop spent 53% of its time there (block profile) and 5% waiting
+    for datagrams, and the whole connection ran on about one core whatever
+    GOMAXPROCS was (1.04 cores of 4; GOMAXPROCS=1 was faster). The gate
+    is now a `sync.Mutex`, the condition under it, and a one-slot wake
+    channel that `unlock` signals when it sets the condition: a woken
+    `waitAndLock` takes the mutex once it runs and looks again, as a
+    `sync.Mutex` waiter does; `lockIfSet` stays non-blocking (`TryLock`).
+    A gate holds a mutex, so `newStream` locks its two gates in place
+    instead of copying locked ones (`newLockedGate` is gone). Measured in
+    the same setup, at 1 KB: 38,000 to 65,000 requests/s, client CPU per
+    request 27 to 22 µs; at 100 KB, 6,700 to 7,500, where nginx's worker
+    is then the limit. The profile's wire rules are unchanged (datagram
+    sizes, ACK frequency, credit, PINGs); only timing moves: under load
+    the loop, no longer stalled, finds more requests queued for each
+    packet (client datagrams per request at 1 KB, 64 at once: 0.53 to
+    0.26). Covered by upstream's `gate_test.go` and every stream test.
+
+16. **Idle streams hold no buffer** (`pipe.go`: `releaseIfEmpty`;
+    `stream.go`: `releaseIdleIn`, `outUnlockNoQueue`, `Read`;
+    `crypto_stream.go`). Change 9 returns a stream's buffers once it is
+    done; `discardBefore` still keeps the buffer the window ends in while
+    it is open, and HTTP/3's control and QPACK streams (up to three each
+    way) and the 1-RTT crypto stream stay open for the connection's life,
+    a 4 KB buffer each. Now a `Read` about to wait (nothing readable, so
+    `lockIfSet` fails) discards what the lock-free path read and returns
+    the receive buffer when it holds no byte (nothing out of order either);
+    `outUnlockNoQueue` returns the send buffer once every byte written so
+    far is acknowledged and `outbuf` is empty; the crypto stream returns
+    either once consumed or acknowledged. The next frame or `Write` takes
+    another from the pool. With change 13's batch, the heap an idle HTTP/3
+    connection holds (Chrome against nginx, Linux, the benchmark's
+    method) fell from 102.5 to 74.8 KB. Covered by `stream_buffers_test.go`
+    (many streams over a lossy link, contents checked, released buffers
+    poisoned under `-race`), whose readers now wait with every buffer
+    returned.
 
 ## Tests
 

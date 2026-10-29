@@ -47,7 +47,8 @@ func (c *netUDPConn) readBatch(f func(*datagram)) (ok bool, err error) {
 		control = make([]byte, recvBatch*controlSize)
 	)
 
-	for {
+	// fill gives every empty slot a buffer and resets the headers.
+	fill := func() {
 		for i := range hdrs {
 			if dgrams[i] == nil {
 				dgrams[i] = newDatagram()
@@ -67,15 +68,26 @@ func (c *netUDPConn) readBatch(f func(*datagram)) (ok bool, err error) {
 			h.Flags = 0
 			hdrs[i].len = 0
 		}
+	}
 
+	for {
 		var (
 			n     int
 			errno syscall.Errno
 		)
 
 		err := rc.Read(func(fd uintptr) bool {
+			fill()
+
 			r, _, e := syscall.Syscall6(syscall.SYS_RECVMMSG, fd, uintptr(unsafe.Pointer(&hdrs[0])), recvBatch, 0, 0, 0)
 			if e == syscall.EAGAIN {
+				// Nothing to read: while the socket waits, as an idle
+				// connection's does, it holds one buffer, not a batch.
+				for i := 1; i < recvBatch; i++ {
+					dgrams[i].recycle()
+					dgrams[i] = nil
+				}
+
 				return false
 			}
 

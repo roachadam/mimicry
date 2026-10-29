@@ -189,6 +189,14 @@
       }
     ],
     "windowUpdate": 10420225,
+    "openingRecords": [
+      [
+        "preface",
+        "SETTINGS",
+        "WINDOW_UPDATE",
+        "HEADERS"
+      ]
+    ],
     "pseudoHeaderOrder": [
       ":method",
       ":scheme",

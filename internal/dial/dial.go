@@ -45,10 +45,10 @@ type Dialer struct {
 	// them unasked (ConnectAuth, ForwardAuth): only the proxy sees the
 	// difference (decision 0039).
 	BrowserAuth bool
-	// UDPReadBuffer, when set, is the receive buffer a QUIC socket asks
-	// for (SetReadBuffer; the OS may grant less). Zero leaves the OS's
+	// UDPReadBufferSize, when set, is the receive buffer a QUIC socket
+	// asks for (SetReadBuffer; the OS may grant less). Zero leaves the OS's
 	// default (see ListenUDP).
-	UDPReadBuffer int
+	UDPReadBufferSize int
 
 	// asked holds the proxies (by URL) that have asked for credentials:
 	// browsers send them unasked from then on.
@@ -87,7 +87,7 @@ func (d *Dialer) dial(ctx context.Context, addr string) (net.Conn, error) {
 
 // ListenUDP resolves host with Resolver and opens a UDP socket for a QUIC
 // connection to its first address at port, returned with the socket. It
-// honours ctx, bounded by Timeout. With UDPReadBuffer set, the socket asks
+// honours ctx, bounded by Timeout. With UDPReadBufferSize set, the socket asks
 // for that receive buffer and keeps what the OS grants.
 func (d *Dialer) ListenUDP(ctx context.Context, host string, port uint16) (net.PacketConn, netip.AddrPort, error) {
 	if d.Timeout > 0 {
@@ -130,7 +130,7 @@ func (d *Dialer) ListenUDP(ctx context.Context, host string, port uint16) (net.P
 		return nil, netip.AddrPort{}, err
 	}
 
-	if uc, ok := pc.(*net.UDPConn); ok && d.UDPReadBuffer > 0 {
+	if uc, ok := pc.(*net.UDPConn); ok && d.UDPReadBufferSize > 0 {
 		// Best effort: Linux caps the request at net.core.rmem_max
 		// without an error, and a failure leaves the default. No
 		// SO_RCVBUFFORCE: it needs privileges.
@@ -140,7 +140,7 @@ func (d *Dialer) ListenUDP(ctx context.Context, host string, port uint16) (net.P
 		// 7 MB (quic-go's) removed the ~6,900 drops per 8 s that 208 KB
 		// had, but ran at ~5,300 req/s against ~5,900, with 15% more
 		// client CPU per request; 1 and 2 MB fell between.
-		_ = uc.SetReadBuffer(d.UDPReadBuffer)
+		_ = uc.SetReadBuffer(d.UDPReadBufferSize)
 	}
 
 	return pc, netip.AddrPortFrom(addr, port), nil
@@ -284,7 +284,7 @@ func (d *Dialer) socksMethods(p *url.URL) ([]byte, error) {
 // goes to Resolver). The association authenticates as DialVia does and
 // lives as long as its control connection (proxy.Association). A failure
 // is a *ProxyError; a refusal of UDP ASSOCIATE is remembered
-// (UDPRefused). It honours ctx, bounded by Timeout; with UDPReadBuffer
+// (UDPRefused). It honours ctx, bounded by Timeout; with UDPReadBufferSize
 // set, the socket asks for it as ListenUDP's does.
 func (d *Dialer) ListenUDPVia(ctx context.Context, p *url.URL, host string, port uint16) (net.PacketConn, netip.AddrPort, error) {
 	if d.Timeout > 0 {
@@ -388,8 +388,8 @@ func (d *Dialer) dialRelay(ctx context.Context, ctrl net.Conn, p *url.URL, relay
 		return nil, fmt.Errorf("SOCKS5 UDP relay %s: not a UDP socket", relay)
 	}
 
-	if d.UDPReadBuffer > 0 {
-		_ = udp.SetReadBuffer(d.UDPReadBuffer)
+	if d.UDPReadBufferSize > 0 {
+		_ = udp.SetReadBuffer(d.UDPReadBufferSize)
 	}
 
 	return udp, nil
