@@ -82,8 +82,11 @@ type Setup struct {
 	Client clients.Factory
 	Server target.Server
 	Proto  target.Proto
-	// Proxy is a proxy kind, or "".
-	Proxy target.ProxyKind
+	// Proxy is a proxy kind, or "". ProxyUser, for a kind that takes
+	// credentials, is the user New's clients go through it as (default
+	// target.ProxyUser), so the proxy's per-user counts are theirs alone.
+	Proxy     target.ProxyKind
+	ProxyUser string
 	// Returning builds returning clients (clients.Options.Returning).
 	Returning bool
 }
@@ -113,6 +116,9 @@ func (s Setup) New() (clients.Client, error) {
 	o := s.options(roots)
 	if s.Proxy != "" {
 		o.Proxy = target.ProxyURL(s.Proxy)
+		if s.ProxyUser != "" && s.Proxy == target.ProxyConnectAuth {
+			o.Proxy = target.ProxyUserURL(s.Proxy, s.ProxyUser)
+		}
 	}
 
 	return s.Client.New(o)

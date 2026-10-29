@@ -132,7 +132,10 @@ type proxy struct {
 	users map[string]*usage
 }
 
-// usage is one user's counts (target.ProxyUse).
+// usage is one user's counts (target.ProxyUse). up and down are the bytes
+// of its closed tunnels and of its datagrams; an open tunnel's are read
+// from its server-side socket's TCP_INFO when asked (tunnelBytes), so the
+// relay can splice instead of copying through a counting reader.
 type usage struct {
 	tunnels          atomic.Int64
 	associations     atomic.Int64
@@ -141,10 +144,16 @@ type usage struct {
 	datagrams        atomic.Int64
 	up               atomic.Int64
 	down             atomic.Int64
+
+	mu   sync.Mutex
+	open map[net.Conn]struct{}
 }
 
 func (u *usage) snapshot() target.ProxyUse {
-	return target.ProxyUse{
+	u.mu.Lock()
+	defer u.mu.Unlock()
+
+	use := target.ProxyUse{
 		Tunnels:          u.tunnels.Load(),
 		Associations:     u.associations.Load(),
 		OpenTunnels:      u.openTunnels.Load(),
@@ -153,6 +162,43 @@ func (u *usage) snapshot() target.ProxyUse {
 		BytesUp:          u.up.Load(),
 		BytesDown:        u.down.Load(),
 	}
+
+	for c := range u.open {
+		up, down := tunnelBytes(c)
+
+		use.BytesUp += up
+		use.BytesDown += down
+	}
+
+	return use
+}
+
+// opened counts a tunnel to the server over server.
+func (u *usage) opened(server net.Conn) {
+	u.tunnels.Add(1)
+	u.openTunnels.Add(1)
+
+	u.mu.Lock()
+	defer u.mu.Unlock()
+
+	if u.open == nil {
+		u.open = map[net.Conn]struct{}{}
+	}
+
+	u.open[server] = struct{}{}
+}
+
+// closed moves a tunnel's bytes into the totals, before server closes.
+func (u *usage) closed(server net.Conn) {
+	up, down := tunnelBytes(server)
+
+	u.mu.Lock()
+	defer u.mu.Unlock()
+
+	u.up.Add(up)
+	u.down.Add(down)
+	delete(u.open, server)
+	u.openTunnels.Add(-1)
 }
 
 // user returns name's counts.
@@ -507,20 +553,25 @@ func dial(addr string) (net.Conn, error) {
 }
 
 // relay copies both ways until either side closes, counting the tunnel
-// and its bytes into use. br holds what the client sent after its request.
+// and its bytes into use. br holds what the client sent after its request:
+// that goes first, then both directions are plain io.Copy between the two
+// TCP connections, which Linux splices (no copy through user space). The
+// bytes are the server-side socket's TCP_INFO counts (tunnelBytes), read
+// live while it is open and once more before it closes.
 func relay(c net.Conn, br *bufio.Reader, up net.Conn, use *usage) {
-	use.tunnels.Add(1)
-	use.openTunnels.Add(1)
-
-	defer use.openTunnels.Add(-1)
+	use.opened(up)
 
 	done := make(chan struct{}, 2)
 
 	go func() {
-		_, _ = io.Copy(up, counted{
-			r: br,
-			n: &use.up,
-		})
+		if n := br.Buffered(); n > 0 {
+			b, _ := br.Peek(n)
+			if _, err := up.Write(b); err != nil {
+				_ = up.Close()
+			}
+		}
+
+		_, _ = io.Copy(up, c)
 
 		if tc, ok := up.(*net.TCPConn); ok {
 			_ = tc.CloseWrite()
@@ -529,10 +580,7 @@ func relay(c net.Conn, br *bufio.Reader, up net.Conn, use *usage) {
 		done <- struct{}{}
 	}()
 	go func() {
-		_, _ = io.Copy(c, counted{
-			r: up,
-			n: &use.down,
-		})
+		_, _ = io.Copy(c, up)
 
 		if tc, ok := c.(*net.TCPConn); ok {
 			_ = tc.CloseWrite()
@@ -544,21 +592,9 @@ func relay(c net.Conn, br *bufio.Reader, up net.Conn, use *usage) {
 	<-done
 	<-done
 
+	use.closed(up)
+
 	_ = up.Close()
-}
-
-// counted counts what is read from r into n as it goes, so a tunnel's
-// bytes are known while it is still open.
-type counted struct {
-	r io.Reader
-	n *atomic.Int64
-}
-
-func (c counted) Read(p []byte) (int, error) {
-	n, err := c.r.Read(p)
-	c.n.Add(int64(n))
-
-	return n, err
 }
 
 const (

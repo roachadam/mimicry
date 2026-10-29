@@ -44,6 +44,9 @@ services:
       BENCH_HOST: "${BENCH_HOST:-}"
       BENCH_HOST_CPU: "${BENCH_HOST_CPU:-}"
       BENCH_HOST_OS: "${BENCH_HOST_OS:-}"
+      BENCH_HOST_POWER: "${BENCH_HOST_POWER:-}"
+      # The micro benchmarks' client order (bench.sh rotates it per pass).
+      BENCH_CLIENTS: "${BENCH_CLIENTS:-}"
       BENCH_DOCKER: "${BENCH_DOCKER:-}"
       BENCH_MIMICRY_COMMIT: "${BENCH_MIMICRY_COMMIT:-}"
       BENCH_CLIENT_CPUS: "${BENCH_CLIENT_CPUS:-0-3}"

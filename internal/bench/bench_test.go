@@ -51,13 +51,85 @@ func benchName(f clients.Factory) string {
 	return strings.ReplaceAll(f.Name, "/", "")
 }
 
+// benchClients are the clients in the order BENCH_CLIENTS names them
+// (bench.sh rotates it between its passes, so no client always runs
+// first or last), else clients.All's.
+func benchClients(b *testing.B) []clients.Factory {
+	list := os.Getenv("BENCH_CLIENTS")
+	if list == "" {
+		return clients.All()
+	}
+
+	var out []clients.Factory
+
+	for name := range strings.SplitSeq(list, ",") {
+		f, err := clients.Named(strings.TrimSpace(name))
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		out = append(out, f)
+	}
+
+	return out
+}
+
+// BenchmarkNewClient is the constructor alone, in a tight loop: the
+// library's ordinary constructor with the protocol's settings, then its
+// Close, no request (layer 6's "new client alone" measures one at a time
+// between round trips, on a CPU that idles between them). proxy=socks5
+// builds it with SOCKS5 credentials, as layer 6's clients are.
+func BenchmarkNewClient(b *testing.B) {
+	roots, err := target.RootCAs()
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	for _, p := range target.Protos {
+		for _, proxy := range []target.ProxyKind{"", target.ProxySOCKS5} {
+			for _, f := range benchClients(b) {
+				via := "none"
+				if proxy != "" {
+					via = string(proxy)
+				}
+
+				name := "proto=" + string(p) + "/proxy=" + via + "/client=" + benchName(f)
+				b.Run(name, func(b *testing.B) {
+					if err := f.Supports(p, proxy); err != nil {
+						b.Skip("n/a: ", err)
+					}
+
+					o := clients.Options{
+						Proto:   p,
+						RootCAs: roots,
+					}
+					if proxy != "" {
+						o.Proxy = target.ProxyUserURL(proxy, target.ProxyUser+"-newclient")
+					}
+
+					b.ReportAllocs()
+
+					for b.Loop() {
+						c, err := f.New(o)
+						if err != nil {
+							b.Fatal(err)
+						}
+
+						c.Close()
+					}
+				})
+			}
+		}
+	}
+}
+
 // BenchmarkRequest is layer 1: GET /json and POST /echo (small JSON) on a
 // warm connection, one request at a time.
 func BenchmarkRequest(b *testing.B) {
 	for _, srv := range servers(b) {
 		for _, p := range target.Protos {
 			for _, op := range []scenario.Op{scenario.GetJSON, scenario.PostJSON} {
-				for _, f := range clients.All() {
+				for _, f := range benchClients(b) {
 					name := "server=" + srv.Name + "/proto=" + string(p) + "/method=" + op.Name + "/client=" + benchName(f)
 					b.Run(name, func(b *testing.B) {
 						benchRequest(b, scenario.Setup{
@@ -123,7 +195,7 @@ func BenchmarkConnect(b *testing.B) {
 	for _, srv := range servers(b) {
 		for _, p := range target.Protos {
 			for _, hs := range []string{"full", "resumed"} {
-				for _, f := range clients.All() {
+				for _, f := range benchClients(b) {
 					name := "server=" + srv.Name + "/proto=" + string(p) + "/handshake=" + hs + "/client=" + benchName(f)
 					b.Run(name, func(b *testing.B) {
 						su := scenario.Setup{
@@ -249,14 +321,26 @@ func benchResumed(b *testing.B, su scenario.Setup) {
 		}
 	}
 
+	misses := b.N - resumed
+
 	switch {
 	case wrong > 0:
 		b.Skipf("discarded: %d of %d requests: %v", wrong, b.N, check)
 	case resumed == 0:
 		b.Skip("n/a: the client does not resume TLS sessions here (no request was resumed)")
-	case resumed*100 < b.N*99:
-		b.Skipf("discarded: only %d of %d requests resumed", resumed, b.N)
+	case misses > maxMisses(b.N):
+		b.Skipf("discarded: only %d of %d requests resumed (up to %d may not)", resumed, b.N, maxMisses(b.N))
 	}
+
+	// The misses are timed with the rest (each a full handshake) and
+	// counted: benchstat shows them as a metric of their own.
+	b.ReportMetric(float64(misses), "unresumed")
+}
+
+// maxMisses is how many of n resumed requests may make a full handshake
+// instead: 1%, plus one (settleWait).
+func maxMisses(n int) int {
+	return n/100 + 1
 }
 
 // settleWait is how long each connection lives after its response before
@@ -269,7 +353,8 @@ func benchResumed(b *testing.B, su scenario.Setup) {
 //     connection resumed with 0-RTT (mimicry over HTTP/3) can have its
 //     response before its new ticket: without the wait, every other one
 //     found no ticket (mimicry keeps one per connection, as Chrome does).
-//     With it, about 1 in 200 still misses; up to 1% unresumed is kept.
+//     With it, about 1 in 200 still misses; up to 1% plus one is kept
+//     (maxMisses), counted as the "unresumed" metric.
 const settleWait = 5 * time.Millisecond
 
 // spin waits d without sleeping: a sleeping benchmark lets the CPU idle,

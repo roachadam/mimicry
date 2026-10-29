@@ -132,6 +132,10 @@ type MultiResult struct {
 	Samples  []MultiSample  `json:"samples,omitempty"`
 	End      *MultiEnd      `json:"end,omitempty"`
 	Growth   *MultiGrowth   `json:"growth,omitempty"`
+	// Plateau, with proxy rotation (Rotate without Renew), is where the
+	// process's memory levels off over a long window, from the per-second
+	// Samples.
+	Plateau *MultiPlateau `json:"plateau,omitempty"`
 	// Stuck is how many routines were still in a request a minute after
 	// the window closed (their context is cancelled then).
 	Stuck int `json:"stuck,omitempty"`
@@ -354,7 +358,7 @@ func Multi(ctx context.Context, su Setup, spec MultiSpec) (MultiResult, error) {
 	before := snapshot(ctx, su.Server)
 
 	var samples func() []MultiSample
-	if spec.Renew != "" {
+	if spec.Rotate > 0 {
 		samples = sampleEverySecond(ctx, prefix)
 	}
 
@@ -502,6 +506,8 @@ func Multi(ctx context.Context, su Setup, spec MultiSpec) (MultiResult, error) {
 		}
 
 		res.Growth = growth(res.Samples, spec.Clients)
+	} else if spec.Rotate > 0 {
+		res.Plateau = plateau(res.Samples, baseHeap.live, base.goroutines+spec.Clients, spec.Clients)
 	}
 
 	res.Discarded = multiDiscard(res, spec.Renew != "")
@@ -993,4 +999,64 @@ func sampleHeap() func() (peak, live uint64) {
 
 		return v[0], v[1]
 	}
+}
+
+// MultiPlateau is where a proxy-rotation point's memory levels off: over
+// the last third of its per-second samples, the mean live heap (as the
+// last GC marked it) beyond what the process held before the clients
+// were built, and the mean goroutines beyond the senders, per client, and
+// the tunnels and associations open at the proxy per client; and the
+// least-squares slope of the live heap and the goroutines per client per
+// second over the window's second half (near zero once level).
+type MultiPlateau struct {
+	LiveKBPerClient     float64 `json:"liveKbPerClient"`
+	GoroutinesPerClient float64 `json:"goroutinesPerClient"`
+	OpenPerClient       float64 `json:"openPerClient"`
+	SlopeKBPerClient    float64 `json:"slopeKbPerClient"`
+	SlopeGoroutines     float64 `json:"slopeGoroutines"`
+	Samples             int     `json:"samples"`
+}
+
+// plateau summarises samples (MultiPlateau) for clients, against the live
+// heap and goroutines the process had without them; nil with fewer than
+// four samples.
+func plateau(samples []MultiSample, baseLive uint64, baseGoroutines, clients int) *MultiPlateau {
+	if len(samples) < 4 {
+		return nil
+	}
+
+	n := float64(clients)
+	last := samples[len(samples)-len(samples)/3:]
+
+	p := &MultiPlateau{
+		Samples: len(samples),
+	}
+
+	var open, opens float64
+
+	for _, sm := range last {
+		p.LiveKBPerClient += (sm.LiveMB*1e6 - float64(baseLive)) / 1024 / n
+		p.GoroutinesPerClient += float64(sm.Goroutines-baseGoroutines) / n
+
+		if sm.Open >= 0 {
+			open += float64(sm.Open)
+			opens++
+		}
+	}
+
+	k := float64(len(last))
+
+	p.LiveKBPerClient /= k
+	p.GoroutinesPerClient /= k
+
+	if opens > 0 {
+		p.OpenPerClient = open / opens / n
+	}
+
+	if g := growth(samples[len(samples)/2:], clients); g != nil {
+		p.SlopeKBPerClient = g.LiveKBPerRoutine
+		p.SlopeGoroutines = g.GoroutinesPerRoutine
+	}
+
+	return p
 }

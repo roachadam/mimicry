@@ -24,23 +24,31 @@ type PageLoad struct {
 	Conns     int64 `json:"conns"`
 	TCPConns  int64 `json:"tcpConns"`
 	QUICConns int64 `json:"quicConns"`
-	// Protos counts responses per protocol.
+	// Protos counts responses per protocol, Bytes their body bytes.
 	Protos map[target.Proto]int `json:"protos"`
+	Bytes  int64                `json:"bytes"`
 	Errors int                  `json:"errors"`
 	Error  string               `json:"error,omitempty"`
 }
 
 // PageResult is a page-load setup's repetitions: each on a new client
 // (Cold), then once more on the same client (Warm: its connections, and
-// what it learnt, such as Alt-Svc, kept).
+// what it learnt, such as Alt-Svc, kept). Through a proxy, ProxyCheck is
+// what the proxy's counts for the setup's user contradict, or empty: every
+// new client opened at least one tunnel, and the proxy relayed at least
+// the body bytes the loads received.
 type PageResult struct {
-	Cold []PageLoad `json:"cold"`
-	Warm []PageLoad `json:"warm"`
+	Cold       []PageLoad `json:"cold"`
+	Warm       []PageLoad `json:"warm"`
+	ProxyCheck string     `json:"proxyCheck,omitempty"`
 }
 
 // Pages loads the page reps times with su's client, each on a new client.
 // A returning setup's clients start from what an earlier visit left them:
-// one page load on a client of its own, not measured.
+// one page load on a client of its own, not measured. Through a proxy it
+// checks the proxy's counts for su's user (target.ProxyUser for
+// connect-auth unless su.ProxyUser says otherwise, none for connect and
+// socks5) against the loads: nothing else uses that user meanwhile.
 func Pages(ctx context.Context, su Setup, reps int) (PageResult, error) {
 	var res PageResult
 
@@ -59,16 +67,60 @@ func Pages(ctx context.Context, su Setup, reps int) (PageResult, error) {
 		c.Close()
 	}
 
+	user := ""
+	if su.Proxy == target.ProxyConnectAuth {
+		user = target.ProxyUser
+		if su.ProxyUser != "" {
+			user = su.ProxyUser
+		}
+	}
+
+	var before target.ProxyUse
+
+	if su.Proxy != "" {
+		u, err := target.FetchProxyUsage(ctx, user, true, false)
+		if err != nil {
+			return res, fmt.Errorf("reading the proxy's usage: %w", err)
+		}
+
+		before = u.Users[user]
+	}
+
+	var received int64
+
 	for range reps {
 		c, err := su.New()
 		if err != nil {
 			return res, err
 		}
 
-		res.Cold = append(res.Cold, loadPage(ctx, su, c))
-		res.Warm = append(res.Warm, loadPage(ctx, su, c))
+		cold := loadPage(ctx, su, c)
+		warm := loadPage(ctx, su, c)
+
+		res.Cold = append(res.Cold, cold)
+		res.Warm = append(res.Warm, warm)
+
+		received += cold.Bytes + warm.Bytes
 
 		c.Close()
+	}
+
+	if su.Proxy != "" {
+		u, err := target.FetchProxyUsage(ctx, user, true, false)
+		if err != nil {
+			return res, fmt.Errorf("reading the proxy's usage: %w", err)
+		}
+
+		after := u.Users[user]
+		opened := after.Tunnels + after.Associations - before.Tunnels - before.Associations
+		relayed := after.BytesDown - before.BytesDown
+
+		switch {
+		case opened < int64(reps):
+			res.ProxyCheck = fmt.Sprintf("%d new clients, %d tunnels opened at the proxy for user %q", reps, opened, user)
+		case relayed < received:
+			res.ProxyCheck = fmt.Sprintf("received %d body bytes, the proxy relayed user %q %d", received, user, relayed)
+		}
 	}
 
 	return res, nil
@@ -107,6 +159,8 @@ func loadPage(ctx context.Context, su Setup, c clients.Client) PageLoad {
 
 		default:
 			pl.Protos[resp.Proto]++
+
+			pl.Bytes += resp.Bytes
 		}
 	}
 

@@ -36,8 +36,10 @@ type job struct {
 	Conc   int              `json:"conc,omitempty"`
 	Warmup time.Duration    `json:"warmup,omitempty"`
 	Window time.Duration    `json:"window,omitempty"`
-	N      int              `json:"n,omitempty"`
-	Reps   int              `json:"reps,omitempty"`
+	// MaxWindow caps a load job's stretched window (scenario.LoadSpec).
+	MaxWindow time.Duration `json:"maxWindow,omitempty"`
+	N         int           `json:"n,omitempty"`
+	Reps      int           `json:"reps,omitempty"`
 	// Rotate: a multi-client job's requests per proxy identity (0: one
 	// identity per client), Renew how it rotates clients instead of
 	// identities ("": it does not); Tag makes its proxy users unique.
@@ -95,6 +97,13 @@ func runJob(j job) outcome {
 		Proxy:     j.Proxy,
 		Returning: j.Returning,
 	}
+
+	if j.Kind == kindPage && j.Tag != "" {
+		// Its own user (connect-auth), so the proxy check counts its
+		// tunnels alone.
+		su.ProxyUser = target.ProxyUser + "-page-" + j.Tag
+	}
+
 	if err := su.Supported(); err != nil {
 		return outcome{
 			NA: err.Error(),
@@ -122,6 +131,7 @@ func runJob(j job) outcome {
 			Concurrency: j.Conc,
 			Warmup:      j.Warmup,
 			Duration:    j.Window,
+			MaxWindow:   j.MaxWindow,
 			OnWindow:    prof.window,
 		})
 		o.Load = &r

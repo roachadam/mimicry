@@ -14,31 +14,53 @@ import (
 // Chrome preset. HTTP/1.1 is forced per request (Request.ForceHTTP1),
 // HTTP/2 is ALPN's choice with HTTP/3 never enabled, HTTP/3 is EnableHTTP3
 // plus Request.ForceHTTP3. Session.Do returns the body buffered (its
-// default; Request.IgnoreBody would stream). Its HTTP/3 transport ignores
-// Session.ModifyConfig, so over QUIC it trusts the benchmark's CA through
-// the system roots: the client container sets SSL_CERT_FILE to the CA.
-// Headers: Chrome's navigation set, as its users pass them. Its idle pool
-// gets MaxIdleConnsPerHost 1024, as net/http's and tls-client's do; the
-// Session creates its Transport on the first request, so the adapter sets
-// it after the first response, which every scenario sends alone. Through
-// a socks5 proxy with HTTP/3 enabled its QUIC goes over a UDP
-// association; rotation is its SetProxy.
+// default). Its HTTP/3 transport ignores Session.ModifyConfig, so over
+// QUIC it trusts the benchmark's CA through the system roots: the client
+// container sets SSL_CERT_FILE to the CA. Headers: Chrome's navigation
+// set, as its users pass them. Its idle pool gets MaxIdleConnsPerHost
+// 1024, as net/http's and tls-client's do; the Session creates its
+// Transport on the first request, so the adapter sets it after the first
+// response, which every scenario sends alone. Its request timeout is
+// requestTimeout (SetTimeout; its default is 30 s). Through a socks5 proxy
+// with HTTP/3 enabled its QUIC goes over a UDP association; rotation is
+// its SetProxy.
 func azuretlsClient() Factory {
 	return Factory{
 		Name:    "azuretls",
 		Module:  "github.com/Noooste/azuretls-client",
 		Profile: "chrome (GetLastChromeVersion)",
-		New:     newAzureTLS,
+		New: func(o Options) (Client, error) {
+			return newAzureTLS(o, false)
+		},
 	}
+}
+
+// azuretlsStreamClient is azuretls with Request.IgnoreBody: Session.Do
+// returns before the body, which the adapter reads from Response.RawBody
+// as it arrives (8 KB reads, as the streaming clients), the same bytes
+// over the same connection. What IgnoreBody also skips: the response's
+// cookies (Session.Do sets them in its jar only when it reads the body;
+// the servers set none) and Do's own deadline, which the adapter applies
+// to the context instead (requestTimeout).
+func azuretlsStreamClient() Factory {
+	f := azuretlsClient()
+
+	f.Name = "azuretls-stream"
+	f.New = func(o Options) (Client, error) {
+		return newAzureTLS(o, true)
+	}
+
+	return f
 }
 
 type azuretlsAdapter struct {
 	s      *azuretls.Session
 	proto  target.Proto
+	stream bool
 	poolOK sync.Once
 }
 
-func newAzureTLS(o Options) (Client, error) {
+func newAzureTLS(o Options, stream bool) (Client, error) {
 	pool := o.RootCAs
 
 	s := azuretls.NewSession()
@@ -49,6 +71,8 @@ func newAzureTLS(o Options) (Client, error) {
 
 		return nil
 	}
+
+	s.SetTimeout(requestTimeout)
 
 	if o.Proxy != "" {
 		if err := s.SetProxy(o.Proxy); err != nil {
@@ -67,8 +91,9 @@ func newAzureTLS(o Options) (Client, error) {
 	}
 
 	return &azuretlsAdapter{
-		s:     s,
-		proto: o.Proto,
+		s:      s,
+		proto:  o.Proto,
+		stream: stream,
 	}, nil
 }
 
@@ -88,10 +113,18 @@ func (c *azuretlsAdapter) Do(ctx context.Context, r *Request) (Response, error) 
 		OrderedHeaders: headers,
 		ForceHTTP1:     c.proto == target.H1,
 		ForceHTTP3:     c.proto == target.H3,
+		IgnoreBody:     c.stream,
 	}
 
 	if r.Body != nil {
 		req.Body = r.Body
+	}
+
+	if c.stream {
+		var cancel context.CancelFunc
+
+		ctx, cancel = context.WithTimeout(ctx, requestTimeout)
+		defer cancel()
 	}
 
 	resp, err := c.s.Do(req, ctx)
@@ -110,7 +143,15 @@ func (c *azuretlsAdapter) Do(ctx context.Context, r *Request) (Response, error) 
 		proto = resp.HttpResponse.Proto
 	}
 
-	if r.Arrivals != nil {
+	n := int64(len(resp.Body))
+
+	switch {
+	case c.stream:
+		n, err = drain(resp.RawBody, r.Arrivals)
+
+		_ = resp.RawBody.Close()
+
+	case r.Arrivals != nil:
 		_, _ = r.Arrivals.Write(resp.Body) // buffered: it arrived whole
 	}
 
@@ -118,8 +159,8 @@ func (c *azuretlsAdapter) Do(ctx context.Context, r *Request) (Response, error) 
 		Status:  resp.StatusCode,
 		Proto:   protoOf(resp.Header.Get("X-Proto"), proto),
 		Resumed: resumedHeader(resp.Header.Get("X-Tls-Resumed")),
-		Bytes:   int64(len(resp.Body)),
-	}, nil
+		Bytes:   n,
+	}, err
 }
 
 func (c *azuretlsAdapter) CloseIdle() {

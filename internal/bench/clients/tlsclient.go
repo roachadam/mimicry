@@ -39,7 +39,7 @@ func newTLSClient(o Options) (Client, error) {
 	opts := []tlsclient.HttpClientOption{
 		tlsclient.WithClientProfile(tlsprofiles.Chrome_152_PSK),
 		tlsclient.WithRandomTLSExtensionOrder(),
-		tlsclient.WithTimeoutSeconds(120),
+		tlsclient.WithTimeoutSeconds(int(requestTimeout.Seconds())),
 		tlsclient.WithNotFollowRedirects(),
 		tlsclient.WithTransportOptions(&tlsclient.TransportOptions{
 			RootCAs:             o.RootCAs,

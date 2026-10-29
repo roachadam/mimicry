@@ -7,6 +7,8 @@
 //	bench run [flags]      the orchestrator
 //	bench render [flags]   rewrite a report's Markdown from its JSON, with new micro results
 //	bench merge [flags] label=report.json...   one report of several runs' layer 6 points, side by side
+//	bench merge -passes [flags] pass.json...   one report of several passes: medians and ranges (-udp-stock: the stock-buffer passes)
+//	bench microstat        benchstat's output (stdin) without the geomean rows it flags as not comparable
 //	bench wait             wait until the servers and the proxy answer
 //	bench worker           one measurement with one client, spec on stdin
 //	bench offloads         a server's or the proxy's sidecar: their segmentation offloads, off under netem
@@ -38,6 +40,8 @@ func main() {
 		err = render(os.Args[2:])
 	case "merge":
 		err = merge(os.Args[2:])
+	case "microstat":
+		err = microstat(os.Stdin, os.Stdout)
 	case "worker":
 		err = worker(os.Stdin, os.Stdout)
 	case "wait":
@@ -55,7 +59,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: bench run [flags] | bench render [flags] | bench merge [flags] label=report.json... | bench wait | bench worker | bench offloads")
+	fmt.Fprintln(os.Stderr, "usage: bench run [flags] | bench render [flags] | bench merge [flags] label=report.json... | bench merge -passes [flags] pass.json... | bench microstat | bench wait | bench worker | bench offloads")
 	os.Exit(2)
 }
 

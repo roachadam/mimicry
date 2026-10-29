@@ -1,6 +1,9 @@
 // njs handlers for the benchmark's nginx: POST /echo returns the request
 // body; /_stats the container's CPU time (cgroup v2) and CPU count, as the
-// Go server's /_stats does (internal/bench/stats).
+// Go server's /_stats does (internal/bench/stats), and each nginx process's
+// CPU time by PID: nginx serves a connection from one worker on one core,
+// so a worker near a core's worth is the limit whatever the container's
+// share (target.BusiestWorker).
 import fs from 'fs';
 
 function echo(r) {
@@ -19,6 +22,42 @@ function countCPUs(list) {
         n += bounds.length === 1 ? 1 : Number(bounds[1]) - Number(bounds[0]) + 1;
     }
     return n;
+}
+
+// workers returns each nginx process's CPU time in microseconds, by PID:
+// /proc/<pid>/schedstat's time on CPU (ns), else /proc/<pid>/stat's utime
+// and stime (clock ticks, 100 a second).
+function workers() {
+    var out = {};
+    var pids = [];
+    try {
+        pids = fs.readdirSync('/proc');
+    } catch (e) {
+        return out;
+    }
+    for (var i = 0; i < pids.length; i++) {
+        var pid = pids[i];
+        if (!/^[0-9]+$/.test(pid)) {
+            continue;
+        }
+        try {
+            if (fs.readFileSync('/proc/' + pid + '/comm', 'utf8').trim() !== 'nginx') {
+                continue;
+            }
+            var us = -1;
+            try {
+                us = Math.floor(Number(fs.readFileSync('/proc/' + pid + '/schedstat', 'utf8').split(' ')[0]) / 1000);
+            } catch (e) {
+                var stat = fs.readFileSync('/proc/' + pid + '/stat', 'utf8');
+                var f = stat.slice(stat.lastIndexOf(')') + 2).split(' ');
+                us = (Number(f[11]) + Number(f[12])) * 10000;
+            }
+            out[pid] = us;
+        } catch (e) {
+            // Gone meanwhile.
+        }
+    }
+    return out;
 }
 
 function stats(r) {
@@ -45,6 +84,7 @@ function stats(r) {
         cpus: cpus,
         tcpConns: 0,
         quicConns: 0,
+        workers: workers(),
     }));
 }
 

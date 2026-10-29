@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/roachadam/mimicry"
 	"github.com/roachadam/mimicry/internal/bench/target"
@@ -38,13 +37,16 @@ func mimicryClient() Factory {
 	}
 }
 
-// Variants are mimicry with one Config option set, to measure what the
-// option changes: bench run's -clients names them, and runs leave them out
-// otherwise. mimicry-nocoalescing gives each host its own HTTP/2
+// Variants are clients with one setting changed, to measure what the
+// setting changes: bench run's -clients names them, and runs leave them
+// out otherwise. mimicry-nocoalescing gives each host its own HTTP/2
 // connection where Chrome shares one (DisableCoalescing); mimicry-conns16
 // and -conns64 open up to 16 and 64 HTTP/1.1 connections per host
 // (MaxConnsPerHost) instead of Chrome's 6; mimicry-ack20 acknowledges
-// every 20th QUIC packet instead of Chrome's 10th (HTTP3ACKEvery).
+// every 20th QUIC packet instead of Chrome's 10th (HTTP3ACKEvery);
+// mimicry-udp7m asks for quic-go's 7 MB UDP receive buffer
+// (UDPReadBufferSize) instead of the OS's default. azuretls-stream reads
+// azuretls's body as it arrives (azuretlsStreamClient).
 func Variants() []Factory {
 	variant := func(name string, set func(*mimicry.Config)) Factory {
 		f := mimicryClient()
@@ -68,8 +70,16 @@ func Variants() []Factory {
 		variant("mimicry-ack20", func(c *mimicry.Config) {
 			c.HTTP3ACKEvery = 20
 		}),
+		variant("mimicry-udp7m", func(c *mimicry.Config) {
+			c.UDPReadBufferSize = quicGoReadBuffer
+		}),
+		azuretlsStreamClient(),
 	}
 }
+
+// quicGoReadBuffer is the UDP receive buffer quic-go (and its forks in
+// tls-client, httpcloak and azuretls) asks for: 7 MB.
+const quicGoReadBuffer = 7 << 20
 
 // returningAltSvc is the Alt-Svc cache every returning client of the
 // process shares.
@@ -106,9 +116,9 @@ func newMimicry(o Options, set func(*mimicry.Config)) (Client, error) {
 		Profile:      profiles.Chrome(),
 		RootCAs:      o.RootCAs,
 		DisableHTTP3: o.Proto != target.H3,
-		// tls-client's 120 s, not NewClient's 30 s: a 10 MB body under
+		// requestTimeout, not NewClient's 30 s: a 10 MB body under
 		// netem's loss takes longer than 30 s.
-		Timeout: 120 * time.Second,
+		Timeout: requestTimeout,
 	}
 	if o.Returning {
 		cfg.AltSvc = returningAltSvc()

@@ -51,7 +51,8 @@ var multiBodies = []int{
 }
 
 // multiPoint is one multi-client point's outcome. Run labels the build it
-// measured in a report that merges several (bench merge).
+// measured in a report that merges several (bench merge). N is its client
+// count: the run's -multi-n, or -multi-n2 for the second count's points.
 type multiPoint struct {
 	Proto  target.Proto          `json:"proto"`
 	Proxy  target.ProxyKind      `json:"proxy"`
@@ -59,10 +60,16 @@ type multiPoint struct {
 	Rotate int                   `json:"rotate,omitempty"`
 	Renew  scenario.Renew        `json:"renew,omitempty"`
 	Run    string                `json:"run,omitempty"`
+	N      int                   `json:"n,omitempty"`
 	Client string                `json:"client"`
 	Result *scenario.MultiResult `json:"result,omitempty"`
 	NA     string                `json:"na,omitempty"`
 	Error  string                `json:"error,omitempty"`
+	// UDP is how the client container's UDP receive errors grew during an
+	// HTTP/3 point; Passes and Ranges as loadPoint's.
+	UDP    *udpDelta             `json:"udp,omitempty"`
+	Passes int                   `json:"passes,omitempty"`
+	Ranges map[string][2]float64 `json:"ranges,omitempty"`
 }
 
 func (mp multiPoint) valid() bool {
@@ -96,6 +103,8 @@ type multiSetting struct {
 	renews []scenario.Renew
 	bodies []int
 	window time.Duration
+	// n is the clients per point; 0 is -multi-n.
+	n int
 }
 
 // keepClients is renews for the variants that keep their clients.
@@ -123,7 +132,7 @@ func (rn *runner) multiSettings() []multiSetting {
 				rotate: st.MultiRotate,
 				renews: keepClients,
 				bodies: multiBodies,
-				window: st.Window,
+				window: max(st.Window, st.MultiProxyWindow),
 			})
 
 		case variantClient:
@@ -138,6 +147,20 @@ func (rn *runner) multiSettings() []multiSetting {
 				},
 				window: st.MultiClientWindow,
 			})
+		}
+	}
+
+	// The second client count: the fixed and proxy variants' 1 KB points
+	// again, for memory per client as a slope and an intercept.
+	if st.MultiN2 > 0 {
+		for _, ms := range slices.Clone(out) {
+			if len(ms.renews) == 1 && ms.renews[0] == "" {
+				ms.bodies = []int{
+					site.KB,
+				}
+				ms.n = st.MultiN2
+				out = append(out, ms)
+			}
 		}
 	}
 
@@ -164,6 +187,11 @@ func (rn *runner) multi() []multiPoint {
 							return out
 						}
 
+						n := rn.st.MultiN
+						if ms.n > 0 {
+							n = ms.n
+						}
+
 						j := job{
 							Kind:   kindMulti,
 							Client: f.Name,
@@ -171,7 +199,7 @@ func (rn *runner) multi() []multiPoint {
 							Proto:  rt.Proto,
 							Proxy:  rt.Proxy,
 							Op:     op,
-							N:      rn.st.MultiN,
+							N:      n,
 							Warmup: rn.st.Warmup,
 							Window: ms.window,
 							Rotate: ms.rotate,
@@ -191,6 +219,7 @@ func (rn *runner) multi() []multiPoint {
 							Op:     op.Name,
 							Rotate: ms.rotate,
 							Renew:  renew,
+							N:      n,
 							Client: f.Name,
 						}
 
@@ -206,7 +235,11 @@ func (rn *runner) multi() []multiPoint {
 
 						msg := mp.summary()
 						if rt.Proto == target.H3 {
-							msg += readUDPErrors().since(udp)
+							d := readUDPErrors().since(udp)
+
+							mp.UDP = &d
+
+							msg += d.String()
 						}
 
 						rn.log(j, msg)
@@ -243,6 +276,11 @@ func (mp multiPoint) summary() string {
 	if mp.Rotate > 0 {
 		s += fmt.Sprintf("; %.0f new identities/s, %.0f tunnels/s, %.0f associations/s, new-connection p50 %.2f ms p99 %.2f ms, %d of %d resumed",
 			r.RotationsPerSec, r.TunnelsPerSec, r.AssociationsPerSec, r.NewP50, r.NewP99, r.NewResumed, r.NewConns)
+	}
+
+	if p := r.Plateau; p != nil {
+		s += fmt.Sprintf("; plateau: live %.0f KB/client, %.1f goroutines/client, %.2f open/client, slope %+.2f KB/client/s over the second half",
+			p.LiveKBPerClient, p.GoroutinesPerClient, p.OpenPerClient, p.SlopeKBPerClient)
 	}
 
 	if mp.Renew != "" {

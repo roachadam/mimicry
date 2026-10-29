@@ -18,9 +18,17 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/roachadam/mimicry/internal/bench/target"
 )
+
+// requestTimeout is every adapter's limit on one request, its body
+// included: tls-client's own option and mimicry's Config.Timeout; the
+// http.Client's Timeout for net/http; WithSessionTimeout for httpcloak and
+// SetTimeout for azuretls, whose defaults are 30 s. A 10 MB body under
+// netem's loss takes longer than 30 s.
+const requestTimeout = 120 * time.Second
 
 // Client is one client under test. Do is safe for concurrent use.
 type Client interface {

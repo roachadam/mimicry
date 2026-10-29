@@ -1,0 +1,18 @@
+# Layered over compose.client.yml for the stock-buffer passes
+# (BENCH_UDP_STOCK=1, ../scripts/bench.sh): the client container's UDP
+# receive buffer limits at stock Linux's values, so the quic-go clients'
+# 7 MB request is cut to rmem_max (about 208 KB granted) and every client
+# runs with about the buffer mimicry asks for by default. Both sysctls are
+# per network namespace. Without NET_ADMIN too: quic-go and its forks retry
+# a request rmem_max cuts with SO_RCVBUFFORCE, which CAP_NET_ADMIN lets
+# through, so with it they got their 7 MB whatever the sysctls. These
+# passes run no netem (layers 3 and 6, -load-netem not given), which is
+# what the capability is for.
+services:
+  client:
+    cap_add: !reset []
+    sysctls:
+      net.core.rmem_max: "212992"
+      net.core.rmem_default: "212992"
+    environment:
+      BENCH_UDP_STOCK: "1"

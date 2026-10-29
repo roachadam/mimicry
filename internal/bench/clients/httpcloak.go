@@ -18,7 +18,10 @@ import (
 // records, and its HTTP/3 dials would otherwise query public resolvers.
 // A socks5 proxy carries its HTTP/3 too (WithSessionProxy is its TCP and
 // UDP proxy at once, the UDP over an association); rotation is its
-// SetProxy.
+// SetProxy. Its request timeout is requestTimeout (WithSessionTimeout; its
+// default is 30 s). It keeps at most 6 idle HTTP/1.1 connections per host,
+// hard-coded (transport/http1_transport.go, no setting): above 6 at once
+// it opens new connections for requests that find none idle.
 func httpcloakClient() Factory {
 	return Factory{
 		Name:    "httpcloak",
@@ -48,6 +51,7 @@ func newHTTPCloak(o Options) (Client, error) {
 		}),
 		httpcloak.WithDisableECH(),
 		httpcloak.WithoutRedirects(),
+		httpcloak.WithSessionTimeout(requestTimeout),
 	}
 
 	switch o.Proto {

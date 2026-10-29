@@ -28,17 +28,25 @@ import (
 
 // settings are run's flags, recorded in the report.
 type settings struct {
-	Window      time.Duration `json:"window"`
-	Warmup      time.Duration `json:"warmup"`
+	Window time.Duration `json:"window"`
+	Warmup time.Duration `json:"warmup"`
+	// MaxWindow caps layer 3's stretched windows (scenario.LoadSpec).
+	MaxWindow   time.Duration `json:"maxWindow,omitempty"`
 	Layers      []int         `json:"layers"`
 	Clients     []string      `json:"clients"`
 	Servers     []string      `json:"servers"`
 	Reduced     []string      `json:"reduced"`
 	Protos      []string      `json:"protos"`
 	Concurrency []int         `json:"concurrency"`
-	IdleN       int           `json:"idleN"`
-	Reps        int           `json:"reps"`
-	Netem       bool          `json:"netem"`
+	// IdleNs are layer 4's client counts (two or more: the report fits a
+	// slope and an intercept), IdleN the largest.
+	IdleN  int   `json:"idleN"`
+	IdleNs []int `json:"idleNs,omitempty"`
+	// Reps are layer 5's page loads per setup and condition, RepsLoss
+	// under the conditions with loss.
+	Reps     int  `json:"reps"`
+	RepsLoss int  `json:"repsLoss,omitempty"`
+	Netem    bool `json:"netem"`
 	// LoadNetem are the network conditions layer 3 runs under (none: the
 	// network as it is), Bodies the response sizes it runs (none: all).
 	LoadNetem  []string `json:"loadNetem,omitempty"`
@@ -46,11 +54,15 @@ type settings struct {
 	ProfileDir string   `json:"profileDir,omitempty"`
 	// MultiN is layer 6's clients (routines) per point, MultiVariants its
 	// variants, MultiRotate the requests per proxy identity (or client)
-	// in the rotating ones, MultiClientWindow the client-rotation
-	// variant's window.
+	// in the rotating ones, MultiProxyWindow the proxy-rotation variant's
+	// window and MultiClientWindow the client-rotation variant's. MultiN2,
+	// when set, runs the fixed and proxy variants' 1 KB points again with
+	// that many clients, for the report's slope and intercept per client.
 	MultiN            int           `json:"multiN,omitempty"`
+	MultiN2           int           `json:"multiN2,omitempty"`
 	MultiVariants     []string      `json:"multiVariants,omitempty"`
 	MultiRotate       int           `json:"multiRotate,omitempty"`
+	MultiProxyWindow  time.Duration `json:"multiProxyWindow,omitempty"`
 	MultiClientWindow time.Duration `json:"multiClientWindow,omitempty"`
 }
 
@@ -91,23 +103,27 @@ func render(args []string) error {
 func run(args []string) error {
 	fs := flag.NewFlagSet("run", flag.ExitOnError)
 	out := fs.String("out", "reports", "directory for the report")
-	window := fs.Duration("window", 10*time.Second, "measurement window per load point")
-	warmup := fs.Duration("warmup", 3*time.Second, "warm-up per load point, at full concurrency")
+	window := fs.Duration("window", 10*time.Second, "measurement window per load point (at least; stretched for long requests)")
+	warmup := fs.Duration("warmup", 3*time.Second, "warm-up per load point, at full concurrency (at least; stretched for long requests)")
+	maxWindow := fs.Duration("max-window", 120*time.Second, "layer 3: the longest a stretched window may run")
 	layers := fs.String("layers", "3,4,5,6", "layers to run (3 load, 4 memory, 5 network, 6 many clients through proxies)")
 	clientList := fs.String("clients", "", "clients to run (comma-separated; default all)")
 	serverList := fs.String("servers", "nginx,go", "servers for layers 3 and 4")
 	reduced := fs.String("reduced", "go", "servers that get the reduced load matrix (bodies 1KB and 100KB, concurrency 1 and 64)")
 	protoList := fs.String("protos", "h1,h2,h3", "protocols for layers 3 and 5")
 	concList := fs.String("conc", "1,16,64,256", "concurrency levels")
-	idleN := fs.Int("idle-n", 50, "clients per idle-memory measurement")
-	reps := fs.Int("reps", 5, "page loads per setup and network condition")
+	idleN := fs.String("idle-n", "10,50", "clients per idle-memory measurement; two or more counts fit a slope (per connection) and an intercept (fixed)")
+	reps := fs.Int("reps", 10, "page loads per setup and network condition")
+	repsLoss := fs.Int("reps-loss", 20, "page loads per setup under the conditions with loss")
 	useNetem := fs.Bool("netem", true, "shape the client's network for layer 5 (off: the network as it is, e.g. a remote server over Ethernet)")
 	loadNetem := fs.String("load-netem", "", "layer 3: network conditions to run the load points under (e.g. rtt80-loss1; empty: the network as it is)")
 	bodyList := fs.String("bodies", "", "layer 3: response sizes to run (e.g. 100KB,10MB; empty: all)")
 	multiN := fs.Int("multi-n", 200, "layer 6: clients per point, each through a proxy identity of its own")
+	multiN2 := fs.Int("multi-n2", 50, "layer 6: a second client count for the fixed and proxy variants' 1 KB points, for memory per client as a slope (0: none)")
 	multiVariantList := fs.String("multi-variants", strings.Join(multiVariants, ","),
 		"layer 6: variants (fixed: one identity per client; proxy: a client moves to a new identity; client: a routine replaces its client, dropped and then closed)")
 	multiRotate := fs.Int("multi-rotate", 10, "layer 6: requests per proxy identity (proxy variant) or per client (client variant)")
+	multiProxyWindow := fs.Duration("multi-proxy-window", 30*time.Second, "layer 6: the proxy variant's measurement window, long enough for its memory to level off")
 	multiClientWindow := fs.Duration("multi-client-window", 20*time.Second, "layer 6: the client variant's measurement window, long enough for growth to show")
 	micro := fs.String("micro", "", "benchstat output of the micro benchmarks (layers 1 and 2) to embed")
 	microRaw := fs.String("micro-raw", "", "the micro benchmarks' raw output, named in the report")
@@ -120,30 +136,56 @@ func run(args []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	idleNs := ints(*idleN)
+	slices.Sort(idleNs)
+
 	st := settings{
 		Window:            *window,
 		Warmup:            *warmup,
+		MaxWindow:         *maxWindow,
 		Layers:            ints(*layers),
 		Clients:           names(*clientList, clientNames()),
 		Servers:           names(*serverList, nil),
 		Reduced:           names(*reduced, nil),
 		Protos:            names(*protoList, nil),
 		Concurrency:       ints(*concList),
-		IdleN:             *idleN,
+		IdleNs:            idleNs,
 		Reps:              *reps,
+		RepsLoss:          *repsLoss,
 		Netem:             *useNetem,
 		LoadNetem:         names(*loadNetem, nil),
 		Bodies:            names(*bodyList, nil),
 		ProfileDir:        *profileDir,
 		MultiN:            *multiN,
+		MultiN2:           *multiN2,
 		MultiVariants:     names(*multiVariantList, multiVariants),
 		MultiRotate:       *multiRotate,
+		MultiProxyWindow:  *multiProxyWindow,
 		MultiClientWindow: *multiClientWindow,
+	}
+
+	if len(idleNs) == 0 {
+		return errors.New("-idle-n: no client count")
+	}
+
+	st.IdleN = idleNs[len(idleNs)-1]
+
+	if st.MultiN2 == st.MultiN {
+		st.MultiN2 = 0
 	}
 
 	for _, c := range st.LoadNetem {
 		if _, ok := conditionNamed(c); !ok {
 			return fmt.Errorf("-load-netem: no condition %q", c)
+		}
+	}
+
+	// netem needs CAP_NET_ADMIN, which the stock-buffer passes drop
+	// (docker/compose.client.udpstock.yml).
+	if na := capNetAdmin(); na != nil && !*na {
+		if len(st.LoadNetem) > 0 || (slices.Contains(st.Layers, 5) && st.Netem) {
+			return errors.New("netem (layer 5, -load-netem) needs NET_ADMIN, which this client container lacks " +
+				"(BENCH_UDP_STOCK drops it): run layers 3 and 6, or layer 5 with -netem=false")
 		}
 	}
 
@@ -244,6 +286,15 @@ type loadPoint struct {
 	Result    *scenario.LoadResult `json:"result,omitempty"`
 	NA        string               `json:"na,omitempty"`
 	Error     string               `json:"error,omitempty"`
+	// UDP is how the client container's UDP receive errors grew during
+	// an HTTP/3 point.
+	UDP *udpDelta `json:"udp,omitempty"`
+	// Passes, in a report merged from passes (bench merge -passes), is
+	// how many passes the point was valid in: Result holds the median of
+	// each value over them and Ranges each value's lowest and highest, by
+	// its JSON name.
+	Passes int                   `json:"passes,omitempty"`
+	Ranges map[string][2]float64 `json:"ranges,omitempty"`
 }
 
 func (rn *runner) load() []loadPoint {
@@ -309,11 +360,14 @@ func (rn *runner) loadUnder(cond condition) []loadPoint {
 							Conc:        c,
 							Warmup:      rn.st.Warmup,
 							Window:      rn.st.Window,
+							MaxWindow:   rn.st.MaxWindow,
 							ProfileDir:  rn.st.ProfileDir,
 							ProfileName: fmt.Sprintf("load-%s-%s-%s-c%d%s", srv, p, op.Name, c, cond.Name),
 						}
 						udp := readUDPErrors()
-						o := rn.do(j, rn.st.Warmup+rn.st.Window+3*time.Minute)
+						// The warm-up stretches up to a minute, the window
+						// to MaxWindow, the drain another.
+						o := rn.do(j, rn.st.Warmup+time.Minute+max(rn.st.Window, rn.st.MaxWindow)+3*time.Minute)
 
 						lp := loadPoint{
 							Server:    srv,
@@ -333,7 +387,11 @@ func (rn *runner) loadUnder(cond condition) []loadPoint {
 						}
 
 						if p == target.H3 {
-							msg += readUDPErrors().since(udp)
+							d := readUDPErrors().since(udp)
+
+							lp.UDP = &d
+
+							msg += d.String()
 						}
 
 						rn.log(j, msg)
@@ -362,60 +420,77 @@ func (lp loadPoint) summary() string {
 
 	r := lp.Result
 
-	return fmt.Sprintf("%.0f req/s, %.1f MB/s, p50 %.2f ms, p99 %.2f ms, %.0f µs CPU/req, %.0f allocs/req, server CPU %.0f%%",
-		r.RPS, r.MBps, r.P50, r.P99, r.CPUPerRequest, r.AllocsPerRequest, 100*r.ServerCPU)
+	s := fmt.Sprintf("%.0f req/s, %.1f MB/s, p50 %.2f ms, p99 %.2f ms, %.0f µs CPU/req, %.0f allocs/req, server CPU %s; "+
+		"window %.1f s after %.1f s of warm-up, %d of %d requests started in it finished in it",
+		r.RPS, r.MBps, r.P50, r.P99, r.CPUPerRequest, r.AllocsPerRequest, serverCell(r),
+		r.Seconds, r.WarmupSeconds, r.Complete, r.Started)
+
+	if r.ServerBound != "" {
+		s += "; server-bound: " + r.ServerBound
+	}
+
+	if r.Capped != "" {
+		s += "; " + r.Capped
+	}
+
+	return s
 }
 
-// idlePoint is one idle-memory measurement.
+// idlePoint is one idle-memory measurement, with N clients.
 type idlePoint struct {
 	Server string               `json:"server"`
 	Proto  target.Proto         `json:"proto"`
 	Client string               `json:"client"`
+	N      int                  `json:"n,omitempty"`
 	Result *scenario.IdleResult `json:"result,omitempty"`
 	NA     string               `json:"na,omitempty"`
 	Error  string               `json:"error,omitempty"`
 }
 
+// idle runs layer 4 at each client count, clients interleaved within it.
 func (rn *runner) idle() []idlePoint {
 	var out []idlePoint
 
 	srv := rn.st.Servers[0]
 
-	for _, p := range target.Protos {
-		for _, f := range rn.clients() {
-			if rn.ctx.Err() != nil {
-				return out
+	for _, n := range rn.st.IdleNs {
+		for _, p := range target.Protos {
+			for _, f := range rn.clients() {
+				if rn.ctx.Err() != nil {
+					return out
+				}
+
+				j := job{
+					Kind:        kindIdle,
+					Client:      f.Name,
+					Server:      srv,
+					Proto:       p,
+					N:           n,
+					ProfileDir:  rn.st.ProfileDir,
+					ProfileName: fmt.Sprintf("idle-%s-%s-n%d", srv, p, n),
+				}
+				o := rn.do(j, 5*time.Minute)
+
+				ip := idlePoint{
+					Server: srv,
+					Proto:  p,
+					Client: f.Name,
+					N:      n,
+					Result: o.Idle,
+					NA:     o.NA,
+					Error:  o.Error,
+				}
+
+				msg := ip.NA + ip.Error
+				if ip.Result != nil && msg == "" {
+					msg = fmt.Sprintf("n=%d: %.1f KB heap, %.1f KB stack and %.1f goroutines per idle connection %s",
+						n, ip.Result.HeapPerConnKB, ip.Result.StackPerConnKB, ip.Result.GoroutinesPerConn, ip.Result.Discarded)
+				}
+
+				rn.log(j, msg)
+
+				out = append(out, ip)
 			}
-
-			j := job{
-				Kind:        kindIdle,
-				Client:      f.Name,
-				Server:      srv,
-				Proto:       p,
-				N:           rn.st.IdleN,
-				ProfileDir:  rn.st.ProfileDir,
-				ProfileName: fmt.Sprintf("idle-%s-%s", srv, p),
-			}
-			o := rn.do(j, 5*time.Minute)
-
-			ip := idlePoint{
-				Server: srv,
-				Proto:  p,
-				Client: f.Name,
-				Result: o.Idle,
-				NA:     o.NA,
-				Error:  o.Error,
-			}
-
-			msg := ip.NA + ip.Error
-			if ip.Result != nil && msg == "" {
-				msg = fmt.Sprintf("%.1f KB heap, %.1f KB stack and %.1f goroutines per idle connection %s",
-					ip.Result.HeapPerConnKB, ip.Result.StackPerConnKB, ip.Result.GoroutinesPerConn, ip.Result.Discarded)
-			}
-
-			rn.log(j, msg)
-
-			out = append(out, ip)
 		}
 	}
 
@@ -431,6 +506,20 @@ type pagePoint struct {
 	Result    *scenario.PageResult `json:"result,omitempty"`
 	NA        string               `json:"na,omitempty"`
 	Error     string               `json:"error,omitempty"`
+}
+
+// why says why a page-load setup does not count, or is empty.
+func (pp pagePoint) why() string {
+	switch {
+	case pp.NA != "" || pp.Error != "":
+		return pp.NA + pp.Error
+	case pp.Result == nil:
+		return "no result"
+	case pp.Result.ProxyCheck != "":
+		return "proxy check: " + pp.Result.ProxyCheck
+	}
+
+	return ""
 }
 
 // pageServer is the server for page loads: the Go server counts the
@@ -525,18 +614,24 @@ func (rn *runner) pagePoint(cond condition, proxy target.ProxyKind, p target.Pro
 		name, suffix = f.Name+" (returning)", "-returning"
 	}
 
+	reps := rn.st.Reps
+	if cond.Loss > 0 && rn.st.RepsLoss > 0 {
+		reps = rn.st.RepsLoss
+	}
+
 	j := job{
 		Kind:        kindPage,
 		Client:      f.Name,
 		Server:      pageServer,
 		Proto:       p,
 		Proxy:       proxy,
-		Reps:        rn.st.Reps,
+		Reps:        reps,
 		Returning:   returning,
+		Tag:         strconv.FormatInt(time.Now().UnixNano(), 36),
 		ProfileDir:  rn.st.ProfileDir,
 		ProfileName: fmt.Sprintf("page-%s-%s-%s%s", cond.Name, p, proxy, suffix),
 	}
-	o := rn.do(j, 10*time.Minute)
+	o := rn.do(j, 20*time.Minute)
 
 	pp := pagePoint{
 		Condition: cond.Name,
@@ -555,6 +650,10 @@ func (rn *runner) pagePoint(cond condition, proxy target.ProxyKind, p target.Pro
 
 		msg = fmt.Sprintf("cold %.0f ms (%s conns, %s), warm %.0f ms (%s conns, %s)",
 			cold.medianMs, cold.conns, cold.protos, warm.medianMs, warm.conns, warm.protos)
+
+		if pp.Result.ProxyCheck != "" {
+			msg += "; proxy check failed: " + pp.Result.ProxyCheck
+		}
 	}
 
 	if returning {
@@ -686,9 +785,24 @@ func readUDPErrors() udpErrors {
 	return udpErrors{}
 }
 
-// since says how the counters grew from before.
-func (u udpErrors) since(before udpErrors) string {
-	return fmt.Sprintf(", UDP RcvbufErrors +%d InErrors +%d", u.rcvbuf-before.rcvbuf, u.in-before.in)
+// udpDelta is how the client container's UDP receive error counters grew
+// over a point (/proc/net/snmp): datagrams dropped on a full socket
+// buffer, and all receive errors.
+type udpDelta struct {
+	RcvbufErrors int64 `json:"rcvbufErrors"`
+	InErrors     int64 `json:"inErrors"`
+}
+
+// since is how the counters grew from before.
+func (u udpErrors) since(before udpErrors) udpDelta {
+	return udpDelta{
+		RcvbufErrors: u.rcvbuf - before.rcvbuf,
+		InErrors:     u.in - before.in,
+	}
+}
+
+func (d udpDelta) String() string {
+	return fmt.Sprintf(", UDP RcvbufErrors +%d InErrors +%d", d.RcvbufErrors, d.InErrors)
 }
 
 // env describes where the benchmark ran.
@@ -708,6 +822,42 @@ type env struct {
 	Clients       []clientInfo `json:"clients"`
 	Netem         string       `json:"netem"`
 	ProxyDelay    string       `json:"proxyDelay"`
+	// Power is the host's power source and Low Power Mode (macOS pmset).
+	Power string `json:"power,omitempty"`
+	// RmemMax and RmemDefault are the client container's
+	// net.core.rmem_max and rmem_default: the most a UDP socket may ask
+	// for (the quic-go clients ask for 7 MB) and what one gets without
+	// asking (mimicry, UDPReadBufferSize 0). UDPStock says the run set
+	// both to stock Linux's 212992 (BENCH_UDP_STOCK).
+	RmemMax     string `json:"rmemMax,omitempty"`
+	RmemDefault string `json:"rmemDefault,omitempty"`
+	UDPStock    bool   `json:"udpStock,omitempty"`
+	// NetAdmin says the client had CAP_NET_ADMIN (for netem), with which
+	// quic-go and its forks force their 7 MB past rmem_max
+	// (SO_RCVBUFFORCE); nil when unknown.
+	NetAdmin *bool `json:"netAdmin,omitempty"`
+}
+
+// capNetAdmin reads whether this process has CAP_NET_ADMIN (bit 12 of
+// CapEff in /proc/self/status); nil off Linux.
+func capNetAdmin() *bool {
+	for line := range strings.Lines(readFile("/proc/self/status")) {
+		v, ok := strings.CutPrefix(line, "CapEff:")
+		if !ok {
+			continue
+		}
+
+		caps, err := strconv.ParseUint(strings.TrimSpace(v), 16, 64)
+		if err != nil {
+			return nil
+		}
+
+		has := caps&(1<<12) != 0
+
+		return &has
+	}
+
+	return nil
 }
 
 type serverInfo struct {
@@ -739,7 +889,12 @@ func environment(ctx context.Context, selected []string) env {
 		MimicryCommit: getenv("BENCH_MIMICRY_COMMIT", "unknown"),
 		Cpusets: fmt.Sprintf("client %s, servers %s, proxy %s",
 			getenv("BENCH_CLIENT_CPUS", "?"), getenv("BENCH_SERVER_CPUS", "?"), getenv("BENCH_PROXY_CPUS", "?")),
-		ProxyDelay: getenv("BENCH_PROXY_DELAY", "unknown") + " on the proxy's outgoing packets",
+		ProxyDelay:  getenv("BENCH_PROXY_DELAY", "unknown") + " on the proxy's outgoing packets",
+		Power:       os.Getenv("BENCH_HOST_POWER"),
+		RmemMax:     strings.TrimSpace(readFile("/proc/sys/net/core/rmem_max")),
+		RmemDefault: strings.TrimSpace(readFile("/proc/sys/net/core/rmem_default")),
+		UDPStock:    os.Getenv("BENCH_UDP_STOCK") != "",
+		NetAdmin:    capNetAdmin(),
 	}
 
 	if s := os.Getenv("BENCH_SERVER"); s != "" {

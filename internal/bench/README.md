@@ -13,12 +13,12 @@ ever reaches the library's or the harness's dependencies. Reports are in
 
 | Layer | What | Where |
 |---|---|---|
-| 1 | One request on a warm connection: ns/op, B/op, allocs/op; GET /json and POST /echo (small JSON); HTTP/1.1, HTTP/2, HTTP/3 | `bench_test.go` `BenchmarkRequest`, `-count=10`, benchstat |
-| 2 | One request on a new connection: full handshake (a new client each time) and resumed (connections closed, session cache kept) | `bench_test.go` `BenchmarkConnect` |
-| 3 | Throughput and latency: requests/s, p50/p95/p99, MB/s, client CPU per request, allocations, GC, peak heap, at concurrency 1/16/64/256, bodies 1 KB/100 KB/10 MB, fixed window after a warm-up | `cmd/bench` |
-| 4 | Memory: heap, goroutines and goroutine stacks (`StackInuse`) per client and per idle connection; GC under load is in layer 3 | `cmd/bench` |
-| 5 | Realistic network: a page load (one HTML + 30 subresources over www, static and api) under `tc netem` (RTT 20 and 80 ms, loss 0 and 1%), cold and warm; over HTTP/3, mimicry also as a returning browser (new Transports sharing an Alt-Svc cache an earlier visit filled); the same through a CONNECT proxy (with and without Basic auth) and SOCKS5, the proxy with its own delay | `cmd/bench` |
-| 6 | Many clients, one proxy identity each: N clients (200) in one process, each its own Transport or session with its own proxy credentials, each sending GET 1 KB or 100 KB to nginx one request at a time; HTTP/2 and HTTP/1.1 through CONNECT with Basic auth, HTTP/2 and HTTP/3 through SOCKS5 (socks5h, username and password). Requests/s, p50/p99, CPU and allocations per request, heap per client at steady state and peak, goroutines and stack per client, errors; a rotation variant (a new identity every K requests, 10) adds new-connection latency, handshakes/s and the cost per new identity | `cmd/bench` |
+| 1 | One request on a warm connection: ns/op, B/op, allocs/op; GET /json and POST /echo (small JSON); HTTP/1.1, HTTP/2, HTTP/3 | `bench_test.go` `BenchmarkRequest`, 10 passes of `-count 1`, benchstat |
+| 2 | One request on a new connection: full handshake (a new client each time) and resumed (connections closed, session cache kept; up to 1% + 1 misses tolerated and counted as `unresumed`); the constructor alone in a tight loop | `bench_test.go` `BenchmarkConnect`, `BenchmarkNewClient` |
+| 3 | Throughput and latency: requests/s, p50/p95/p99, MB/s, client CPU per request, allocations, GC, peak heap, at concurrency 1/16/64/256, bodies 1 KB/100 KB/10 MB, a window after a warm-up, both stretched for long requests; the server's CPU per nginx worker; UDP receive drops per HTTP/3 point | `cmd/bench` |
+| 4 | Memory: heap, goroutines and goroutine stacks (`StackInuse`) per client and per idle connection, at two client counts (10 and 50) so the report separates per connection (slope) from fixed (intercept); GC under load is in layer 3 | `cmd/bench` |
+| 5 | Realistic network: a page load (one HTML + 30 subresources over www, static and api) under `tc netem` (RTT 20 and 80 ms, loss 0 and 1%), cold and warm, 10 times (20 under loss); over HTTP/3, mimicry also as a returning browser (new Transports sharing an Alt-Svc cache an earlier visit filled); the same through a CONNECT proxy (with and without Basic auth) and SOCKS5, the proxy with its own delay, each setup checked against the proxy's per-user counts | `cmd/bench` |
+| 6 | Many clients, one proxy identity each: N clients (200) in one process, each its own Transport or session with its own proxy credentials, each sending GET 1 KB or 100 KB to nginx one request at a time; HTTP/2 and HTTP/1.1 through CONNECT with Basic auth, HTTP/2 and HTTP/3 through SOCKS5 (socks5h, username and password). Requests/s, p50/p99, CPU and allocations per request, heap per client at steady state and peak, goroutines and stack per client, errors; a rotation variant (a new identity every K requests, 10, over a 30 s window) adds new-connection latency, handshakes/s, the cost per new identity and where memory levels off; 1 KB again at a second N (50) for memory per client as slope and intercept | `cmd/bench` |
 
 A load point's throughput is the response body bytes that arrive inside
 its window, counted as the client reads them: MB/s, and requests/s as
@@ -30,6 +30,31 @@ shares a connection's bandwidth evenly between streams, so with Chrome's
 stream windows all 256 of mimicry's 10 MB requests end together, about
 every 4 s, and the fast run's 3 s window held a whole round or a few
 stragglers (4 to 72 requests/s between runs of the same throughput).
+
+Counting bytes was not enough for long requests either: a fixed 3 s window
+at 10 MB and 256 at once held one round or less, so the per-request
+allocations of a client whose costs come at a request's start (mimicry
+over HTTP/3: 96 allocations per request at c1 and c64, 10-20 at c256)
+depended on how many requests started inside it, and the buffering
+clients (httpcloak, azuretls), whose bodies count only once whole, got
+0, 1 or 2 rounds' worth. So both phases stretch (`scenario.LoadSpec`): the
+warm-up runs at least `-warmup` and until a request per concurrent one has
+completed and it has lasted twice their median latency; the window runs
+at least `-window` and five warm-up medians, and until 3 requests per
+concurrent one have started and finished inside it (up to `-max-window`,
+120 s; the point records it when capped). Each point's JSON has the
+warm-up and window it ran, and how many requests started inside the
+window and how many of them finished there; the table gives the window.
+Small bodies are unaffected: they meet the rule within the minimum window.
+
+A point is **server-bound** when the server reaches 90% of its CPU set or
+one nginx worker 90% of a core (nginx's `/_stats` reports each worker's CPU
+time from `/proc/<pid>/schedstat`; one connection is one worker's). It is
+not discarded: it stays in the tables, marked §, for every client if any
+client's run of it was server-bound, and every pair's summary leaves it
+out (a separate summary covers those points). Before, a point above 90%
+was discarded for the client that reached it only, which dropped the
+fastest client's point from its own geomean.
 
 Every measured response is checked against the protocol under test as the
 server saw it (`x-proto`); a measurement with one response on another
@@ -48,27 +73,30 @@ scenario/           warm-up, load, idle memory and page-load measurements
 site/               what the servers serve: payloads, JSON, the page
 target/             host names, ports, protocols, the CA, server stats
 stats/              /_stats: a container's CPU time from cgroup v2
-cmd/bench/          layers 3-6: `bench run` (orchestrator), `bench worker`, `bench wait`; `bench offloads` (the sidecar)
+cmd/bench/          layers 3-6: `bench run` (orchestrator), `bench worker`, `bench wait`, `bench merge` (builds side by side, or `-passes`: medians and ranges), `bench microstat` (benchstat without its flagged geomeans); `bench offloads` (the sidecar)
 cmd/server/         the Go server (net/http + quic-go http3)
 cmd/proxy/          CONNECT (with/without Basic auth) and SOCKS5 (CONNECT, UDP ASSOCIATE) proxy, counting per user
 cmd/setup/          the CA (once), the server certificate, nginx's files
-docker/             Dockerfile, compose.server.yml, compose.client.yml, nginx config
+docker/             Dockerfile, compose.server.yml, compose.client.yml (+ compose.client.udpstock.yml), nginx config
 scripts/bench.sh    drives both stacks; the moon tasks call it
-reports/            bench-<date>.md/.json, micro-<date>.txt and -benchstat.txt
+reports/            bench-<date>.md/.json (and its -passN, -udpstock-passN parts), micro-<date>.txt and -benchstat.txt
 ```
 
 Two compose stacks. **Server** (`docker/compose.server.yml`): nginx 1.31
 (official image, built with `http_v3_module`), the Go server and the proxy,
 each with fixed addresses on the `mimicry-bench` network and Docker aliases
 `{www,static,api}.nginx.bench.test`, `{www,static,api}.go.bench.test` and
-`proxy.bench.test`; the servers on one CPU set, the proxy on another. Both
+`proxy.bench.test`. The servers share one CPU set (`4-11`; only one is under
+load at a time) and nginx runs a worker per CPU of it; the proxy's (`10-11`)
+lies inside it, which is harmless in layers 5 and 6, where the servers carry
+little load (layer 3 never uses the proxy). Both
 servers serve the same endpoints with the same bytes and headers:
 
 | Port | nginx | Go | |
 |---|---|---|---|
 | TLS h2 + h1, UDP h3, `Alt-Svc` | 8443 | 9443 | `/bytes/{n}`, `/json`, `POST /echo`, `/page/…` |
 | TLS http/1.1 only, no `Alt-Svc` | 8444 | 9444 | the same |
-| plain HTTP | 8080 | 9080 | `/_stats`: CPU time, CPUs, connections (Go) |
+| plain HTTP | 8080 | 9080 | `/_stats`: CPU time, CPUs, connections (Go), each worker's CPU time (nginx) |
 
 Proxy: CONNECT on 3128, CONNECT with Basic auth on 3129, SOCKS5 on 1080
 (username and password when the client offers them, else none; CONNECT
@@ -76,8 +104,14 @@ and UDP ASSOCIATE), stats on 9081. It accepts the user `bench` and every
 `bench-<anything>`, with the password `bench-secret`, and counts per user
 what it relays (tunnels and UDP associations opened and still open,
 datagrams, bytes each way: `/_proxy?prefix=…` on the stats port), which
-layer 6 checks its clients
-against. A UDP association gets a relay socket on the address the client
+layers 5 and 6 check their clients against. It relays tunnels with plain
+`io.Copy` between the two TCP connections, which Linux splices, and reads a
+tunnel's bytes from its server-side socket's `TCP_INFO` (`tcpi_bytes_received`
+down, `tcpi_bytes_acked` up), live while it is open and once more at close;
+from 2026-10-28 to the audit fixes it copied through a counting reader
+instead (32 KB copies through user space), so the proxy rows of those
+reports are not comparable with others'. A UDP association gets a relay
+socket on the address the client
 reached the proxy at, ephemeral and not published: HTTP/3 through SOCKS5
 needs the client on the proxy's Docker network, so with `BENCH_SERVER` its
 layer 6 rows are n/a. A `setup` step writes a CA (created
@@ -139,7 +173,19 @@ Each route and body runs in two variants: one identity per client (`fixed`),
 then a new one every `-multi-rotate` requests (10; `proxy`),
 switched the way each library's users rotate (`clients.Client.SetProxy`: a
 `Proxy` function's URL for mimicry and net/http, `SetProxy` for the
-others), so every switch costs a new tunnel and handshake.
+others), so every switch costs a new tunnel and handshake. The `proxy`
+variant measures over `-multi-proxy-window` (30 s): mimicry drops an old
+identity's idle connections once it is outside the 16 most recent and
+unused for 10 s, so a 3 s window only ever saw it growing. It samples the
+process and the proxy every second, as client rotation does, and the
+report gives where memory levels off (the last third's mean live heap,
+goroutines and open tunnels per client) and the live heap's slope over the
+window's second half. With `-multi-n2` (50; 25 with `BENCH_FAST`; 0 for
+none) the `fixed` and `proxy` 1 KB points run again at that many clients,
+and the report fits the live heap and goroutines in all against the client
+count: per client (slope) and fixed (intercept), instead of the fixed part
+divided by N. mimicry's HTTP/3 rows are marked ‡ in the memory tables: each
+client also keeps the HTTP/2 connection it learnt Alt-Svc on, as layer 4's.
 
 ### Client rotation
 
@@ -161,6 +207,9 @@ with `BENCH_FAST`) instead of `-window`, so that what old clients leave
 behind has time to pile up. Before the load it measures a new client alone
 (20 of them one at a time, each closed after its first response: medians
 of the constructor's time, the first request's, and what both allocate).
+Those are a cold, idle CPU's times (3-8× the constructor's under load), so
+the report labels them so; the constructor's own cost is layer 2's
+`BenchmarkNewClient`, a tight loop of constructor and `Close`.
 During the window it records each new client's latency from the switch to
 its first response, and every second the process's live heap, goroutines
 and resident memory and the proxy's open tunnels and UDP associations for
@@ -179,9 +228,9 @@ two builds of mimicry, run each into a report of its own and merge their
 layer 6 points, side by side in every table:
 
 ```sh
-BENCH_FAST=1 internal/bench/scripts/bench.sh report -layers 6 -name rotation-before -micro "" \
+BENCH_FAST=1 BENCH_NAME=rotation-before internal/bench/scripts/bench.sh report -layers 6 -micro "" \
   -multi-variants client -protos h2,h3 -multi-client-window 20s
-# ... change mimicry, then the same with -name rotation-after ...
+# ... change mimicry, then the same with BENCH_NAME=rotation-after ...
 docker compose -f internal/bench/docker/compose.client.yml run --rm client bench merge -out /reports \
   -name multiclient-rotation before=rotation-before-<date>.json after=rotation-after-<date>.json
 ```
@@ -200,32 +249,93 @@ and the allocation each new identity costs, and errors with the proxy's and
 the server's CPU use; client rotation has a section of its own (the new
 client under load and alone, then what is left per routine and its growth:
 live heap, goroutines, RSS, tunnels open at the proxy). The best
-impersonating client is bolded, net/http is the reference. Layer 6 alone,
-in a report of its own (`reports/multiclient-<date>.md` and `.json`;
+impersonating client is bolded (in a report merged from passes, only where
+its range lies outside every other's), net/http is the reference. Layer 6
+alone, in a report of its own (`reports/multiclient-<date>.md` and `.json`;
 `-micro ""` keeps the day's micro results out of it):
 
 ```sh
-BENCH_FAST=1 internal/bench/scripts/bench.sh report -layers 6 -name multiclient -micro ""
+BENCH_FAST=1 BENCH_NAME=multiclient internal/bench/scripts/bench.sh report -layers 6 -micro ""
 ```
 
 ## Running it locally
 
 Needs Docker (OrbStack on the Mac) and moon. Both stacks run on this machine,
 on separate CPU sets: client `0-3` (GOMAXPROCS 4), servers `4-11`
-(GOMAXPROCS 8), proxy `10-11`.
+(GOMAXPROCS 8, shared by nginx and the Go server), proxy `10-11` (inside the
+servers' set).
 
 ```sh
 moon run bench:micro   # layers 1-2: reports/micro-<date>.txt and -benchstat.txt
 moon run bench:run     # every layer, then reports/bench-<date>.md and .json
 ```
 
-`bench:run` is `scripts/bench.sh run`: build the image, run `setup`, start the
-server stack, wait for it, run the micro benchmarks, then `bench run`, which
-embeds the benchstat summary in the report. On macOS the script keeps the
-machine awake (`caffeinate -i`); run it on AC power. Neither task is part of
+`bench:run` is `scripts/bench.sh run`: build the image, run `setup`, restart
+the server stack (nginx, the Go server and the proxy start fresh), wait for
+it, run the micro benchmarks, then layers 3-6 in passes (below), merged into
+one report that embeds the benchstat summary. Neither task is part of
 `:test` (the project excludes `test` and `test-full`); `:vet` and `:lint`
 include the module, under the repo's `.golangci.yml` (a `depguard` rule
 holds it to mimicry's public API).
+
+**Power.** On macOS the script keeps the machine awake (`caffeinate -i`) and
+refuses to measure (`micro`, `run`, `report`) unless `pmset -g batt` reports
+AC power and `pmset -g` reports `lowpowermode 0`: the two 2026-10-29 runs were
+on battery, and identical code spread 4-11% per point (log-SD) between
+them. `BENCH_ALLOW_BATTERY=1` overrides it for smoke runs; the report's
+Environment records the power state either way (`Power`).
+
+**Passes.** Layers 3 and 6 run as `BENCH_PASSES` separate invocations of
+`bench run` (3 for `run`, 1 for `report`), each in a new container and
+process, the clients in another order each pass: as given (`BENCH_CLIENTS`,
+all by default), reversed, then rotated by half (and by one more for each
+pass after). Layers 4 and 5 run in the first pass only. Each pass writes
+`<name>-passN-<date>.json` and `.md`; `bench merge -passes` then writes
+`<name>-<date>`: every layer 3 and 6 point is the median of each of its
+values over the passes it was valid in (the lower middle one with an even
+count), with each value's range (lowest–highest) beside it in the tables;
+the summary's geomeans are over the medians; a best is bold only where its
+range lies outside every other impersonating client's. A pass that finds a
+point server-bound makes it server-bound in the merge. Give the clients
+and the report's name as `BENCH_CLIENTS` and `BENCH_NAME`, which the passes
+vary, not as `-clients` and `-name`.
+
+**Stock UDP buffers and NET_ADMIN.** The quic-go clients (net/http's
+baseline, tls-client, httpcloak, azuretls) ask for a 7 MB UDP receive
+buffer; when `net.core.rmem_max` cuts it, they retry with `SO_RCVBUFFORCE`,
+which succeeds for a process with `CAP_NET_ADMIN`. The client container has
+`NET_ADMIN` in every normal pass (netem needs it), so there they get their
+7 MB whatever `rmem_max` says; mimicry asks for none
+(`Config.UDPReadBufferSize` 0) and gets `rmem_default` (224 KB here). On
+stock Linux (`rmem_max` 212992, an unprivileged process) every client gets
+about 208 KB. `run` adds `BENCH_UDP_STOCK_PASSES` (1) passes of layers 3
+and 6 over HTTP/3 only with the client container's `rmem_max` and
+`rmem_default` at 212992 and `NET_ADMIN` dropped
+(`docker/compose.client.udpstock.yml`, layered over the client compose
+file; both sysctls are per network namespace): setting the sysctls alone
+changes nothing for the quic-go clients. Without `NET_ADMIN` there is no
+netem, so the stock passes cannot include layer 5 or `-load-netem`
+(`bench run` refuses them). The merged report ends with a section
+comparing the two: the summary at stock buffers, and each HTTP/3 point's
+req/s, CPU, p99 and receive-buffer drops, granted / stock.
+`BENCH_UDP_STOCK=1 bench.sh report …` runs a whole report at stock values
+(layers 3 and 6 by default). Every report records both sysctls and whether
+the client had `NET_ADMIN`, and each HTTP/3 point's growth of the
+client container's `RcvbufErrors` and `InErrors` (`/proc/net/snmp`) in its
+JSON (`udp`) and its table (UDP). `-clients mimicry-udp7m` adds mimicry
+asking for quic-go's 7 MB.
+
+**Micro passes.** `micro` runs `BENCH_COUNT` (10) passes of the test binary
+with `-count 1`, each a container of its own, the clients' order rotated
+as above (`BENCH_CLIENTS` read by `bench_test.go`), appending to one raw
+file; benchstat then summarises the lot, and `bench microstat` drops the
+geomean rows benchstat flags as over different benchmark sets. Layer 2's
+`handshake=resumed` tolerates up to 1% + 1 requests that made a full
+handshake instead (the ticket race `settleWait` narrows), timed with the
+rest and reported as the `unresumed` metric, instead of dropping the row.
+`BenchmarkNewClient` times each client's constructor and `Close` in a
+tight loop, with no request (`proxy=none` and `proxy=socks5`, credentials
+included).
 
 The script's commands and settings (`scripts/bench.sh` with no argument
 lists them):
@@ -239,41 +349,69 @@ internal/bench/scripts/bench.sh down
 ```
 
 Arguments after `run` or `report` go to `bench run`: `-window` and `-warmup`
-per load point (10 s and 3 s; layer 6 uses them too), `-layers 3,4,5,6`, `-clients`, `-servers
+per load point (at least 10 s and 3 s, stretched for long requests; layer 6
+uses them too), `-max-window 120s`, `-layers 3,4,5,6`, `-servers
 nginx,go`, `-reduced go` (servers that get bodies 1KB/100KB and concurrency
-1/64 only), `-protos h1,h2,h3` (layers 3, 5 and 6), `-conc 1,16,64,256`, `-idle-n 50`,
-`-reps 5`, `-netem=false`, `-load-netem rtt80-loss1` (layer 3 under these
-netem conditions instead of the network as it is, offloads off as in layer 5,
-the condition in each point's heading), `-bodies 100KB,10MB` (layer 3's sizes;
-default all), `-multi-n 200`, `-multi-variants fixed,proxy,client`,
-`-multi-rotate 10` and `-multi-client-window 20s` (layer 6), `-name bench` (the report's file name
-before the date), `-profile <dir>`. `-clients` also takes mimicry
-variants that runs leave out otherwise, each with one `Config` option set
-(`clients.Variants`): `mimicry-nocoalescing` (`DisableCoalescing`, a
-connection per host where Chrome coalesces), `mimicry-conns16` and
-`mimicry-conns64` (`MaxConnsPerHost`), `mimicry-ack20` (`HTTP3ACKEvery` 20). Each HTTP/3 load point's (and
-layer 6 point's) log
-line also gives how much the client container's UDP receive errors grew
-during it (`/proc/net/snmp`: `RcvbufErrors`, datagrams dropped on a full
-socket buffer, and `InErrors`). Environment: `BENCH_COUNT` (10), `BENCH_BENCHTIME` (1s),
-`BENCH_CONNECT_BENCHTIME` (200x), `BENCH_MICRO` (one `-bench` pattern),
-`BENCH_SERVERS` (micro: `nginx,go`), the CPU sets and `GOMAXPROCS`
-(`BENCH_CLIENT_CPUS`, `BENCH_SERVER_CPUS`, `BENCH_PROXY_CPUS`,
-`BENCH_CLIENT_PROCS`, `BENCH_SERVER_PROCS`), `BENCH_PROXY_DELAY` (5ms).
+1/64 only), `-protos h1,h2,h3` (layers 3, 5 and 6), `-conc 1,16,64,256`,
+`-idle-n 10,50`, `-reps 10`, `-reps-loss 20`, `-netem=false`, `-load-netem
+rtt80-loss1` (layer 3 under these netem conditions instead of the network
+as it is, offloads off as in layer 5, the condition in each point's
+heading), `-bodies 100KB,10MB` (layer 3's sizes; default all), `-multi-n
+200`, `-multi-n2 50`, `-multi-variants fixed,proxy,client`, `-multi-rotate
+10`, `-multi-proxy-window 30s` and `-multi-client-window 20s` (layer 6),
+`-profile <dir>`. `BENCH_CLIENTS` also takes variants that runs leave out
+otherwise (`clients.Variants`): `mimicry-nocoalescing`
+(`DisableCoalescing`, a connection per host where Chrome coalesces),
+`mimicry-conns16` and `mimicry-conns64` (`MaxConnsPerHost`),
+`mimicry-ack20` (`HTTP3ACKEvery` 20), `mimicry-udp7m`
+(`UDPReadBufferSize` 7 MB), and `azuretls-stream` (azuretls with
+`Request.IgnoreBody`, its body read as it arrives: the buffering client
+measured streaming). Environment: `BENCH_PASSES`, `BENCH_UDP_STOCK_PASSES`,
+`BENCH_UDP_STOCK`, `BENCH_CLIENTS`, `BENCH_NAME`, `BENCH_COUNT` (10),
+`BENCH_BENCHTIME` (1s), `BENCH_CONNECT_BENCHTIME` (200x), `BENCH_MICRO`
+(one `-bench` pattern), `BENCH_SERVERS` (micro: `nginx,go`), the CPU sets
+and `GOMAXPROCS` (`BENCH_CLIENT_CPUS`, `BENCH_SERVER_CPUS`,
+`BENCH_PROXY_CPUS`, `BENCH_CLIENT_PROCS`, `BENCH_SERVER_PROCS`),
+`BENCH_PROXY_DELAY` (5ms), `BENCH_ALLOW_BATTERY`, `BENCH_SKIP_BUILD`.
 
-`BENCH_FAST=1` runs the whole thing in about half the time: micro benchmarks
-4 runs of 300 ms, load points a 3 s window over a 1 s warm-up, concurrency
-1/64/256, 20 idle clients, 3 page loads per condition, 100 clients per
-layer 6 point. Run-to-run spread at
-3 s measured the same as at 5 s (2–3%). The report records the settings it
-used, so a fast run can't be mistaken for a full one. `BENCH_SKIP_BUILD=1`
-reuses the images a previous run built (the servers are unaffected by client
-changes; the client image is not, so skip it only when that code is
-unchanged too):
+`BENCH_FAST=1` is for a quick look, not for comparison: micro benchmarks 4
+passes of 300 ms, load points a 3 s window over a 1 s warm-up (both still
+stretched for long requests), concurrency 1/64/256, 10 and 20 idle
+clients, 3 page loads per condition (5 under loss), 100 clients per layer
+6 point (25 for the second count; the proxy rotation's window stays 30 s,
+the client rotation's is 10 s), one pass unless `BENCH_PASSES` says
+otherwise. The report records the settings it used, so a fast run can't be
+mistaken for a full one. `BENCH_SKIP_BUILD=1` reuses the images a previous
+run built (the servers are unaffected by client changes; the client image
+is not, so skip it only when that code is unchanged too).
+
+### The final run
+
+On AC power, Low Power Mode off, other apps closed:
 
 ```sh
-BENCH_FAST=1 internal/bench/scripts/bench.sh run
+internal/bench/scripts/bench.sh run
 ```
+
+which is, with its defaults spelled out:
+
+```sh
+BENCH_PASSES=3 BENCH_UDP_STOCK_PASSES=1 BENCH_COUNT=10 internal/bench/scripts/bench.sh run \
+  -window 10s -warmup 3s -max-window 120s -conc 1,16,64,256 -idle-n 10,50 -reps 10 -reps-loss 20 \
+  -multi-n 200 -multi-n2 50 -multi-proxy-window 30s -multi-client-window 20s
+```
+
+Estimated from per-job arithmetic (not measured end to end; `run` prints this
+estimate before it starts, after the power check): micro ~25 min
+(10 passes); layer 3 ~70 min per pass (240 points, the 10 MB ones stretched
+to about 10 s of warm-up and 20-30 s of window at c256); layer 4 ~5 min;
+layer 5 ~45 min (first pass only); layer 6 ~60 min per pass (the proxy
+variant's 30 s windows and the second client count included); the stock
+pass ~40 min (layers 3 and 6 over HTTP/3), and ~5 min of builds and setup.
+In all about 8.5 h: 5 + 25 + 3 × (70 + 60) + 5 + 45 + 40 = 510 min. For a
+CPU and memory final without
+page loads, `-layers 3,4,6` saves the 45 min. The report is
+`reports/bench-<date>.md` and `.json`, with each pass's own beside it.
 
 ## Running against a remote server
 

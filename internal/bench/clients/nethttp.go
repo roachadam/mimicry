@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/http3"
 
 	"github.com/roachadam/mimicry/internal/bench/target"
@@ -20,11 +19,12 @@ import (
 // (held to the protocol under test with Transport.Protocols), quic-go's
 // http3.Transport for HTTP/3. It keeps a TLS session cache, as a caller
 // who wants resumption sets one, and no limit on idle connections per host
-// below the highest concurrency tested. A proxy is Transport.Proxy
-// returning the current URL. SetProxy replaces it and closes the idle
-// connections, as a net/http user who rotates must: its HTTP/2 pool is
-// keyed by host alone, so a request after the switch would otherwise go
-// on through the old proxy's tunnel.
+// below the highest concurrency tested. Its http.Client has the same 120 s
+// request timeout as every adapter (requestTimeout). A proxy is
+// Transport.Proxy returning the current URL. SetProxy replaces it and
+// closes the idle connections, as a net/http user who rotates must: its
+// HTTP/2 pool is keyed by host alone, so a request after the switch would
+// otherwise go on through the old proxy's tunnel.
 func netHTTP() Factory {
 	return Factory{
 		Name:       "net/http",
@@ -52,14 +52,12 @@ func newNetHTTP(o Options) (Client, error) {
 	if o.Proto == target.H3 {
 		tr := &http3.Transport{
 			TLSClientConfig: tlsConf,
-			QUICConfig: &quic.Config{
-				MaxIncomingStreams: 1000,
-			},
 		}
 
 		return &netHTTPClient{
 			client: &http.Client{
 				Transport: tr,
+				Timeout:   requestTimeout,
 			},
 			closer: func() {
 				_ = tr.Close()
@@ -97,6 +95,7 @@ func newNetHTTP(o Options) (Client, error) {
 	return &netHTTPClient{
 		client: &http.Client{
 			Transport: tr,
+			Timeout:   requestTimeout,
 		},
 		closer: tr.CloseIdleConnections,
 		idle:   tr.CloseIdleConnections,

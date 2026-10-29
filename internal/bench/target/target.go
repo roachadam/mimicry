@@ -324,6 +324,10 @@ type Stats struct {
 	// (the Go server only; nginx reports 0).
 	TCPConns  int64 `json:"tcpConns"`
 	QUICConns int64 `json:"quicConns"`
+	// Workers is each worker process's CPU time in microseconds, by PID
+	// (nginx: one process per CPU, each serving its connections alone);
+	// empty for a server without worker processes (the Go server).
+	Workers map[string]int64 `json:"workers,omitempty"`
 }
 
 // statsClient never shares connections with a client under test.
@@ -373,4 +377,27 @@ func Utilisation(before, after Stats, d time.Duration) float64 {
 	used := time.Duration(after.CPUMicros-before.CPUMicros) * time.Microsecond
 
 	return used.Seconds() / (d.Seconds() * float64(after.CPUs))
+}
+
+// BusiestWorker returns the CPU use of the busiest worker process between
+// two samples taken d apart, in cores (1 is one core's worth: a worker
+// that serves its connections on one core is the limit there), or -1 when
+// the server reports no workers.
+func BusiestWorker(before, after Stats, d time.Duration) float64 {
+	if len(after.Workers) == 0 || d <= 0 {
+		return -1
+	}
+
+	var busiest int64
+
+	for pid, a := range after.Workers {
+		b, ok := before.Workers[pid]
+		if !ok {
+			continue
+		}
+
+		busiest = max(busiest, a-b)
+	}
+
+	return (time.Duration(busiest) * time.Microsecond).Seconds() / d.Seconds()
 }

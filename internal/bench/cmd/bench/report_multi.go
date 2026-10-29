@@ -94,6 +94,9 @@ type multiMetric struct {
 	format func(float64) string
 	lower  bool
 	noBold bool
+	// key is the value's JSON path in MultiResult, for its range in a
+	// report merged from passes ("" for a derived value: no range).
+	key string
 }
 
 // multiTable is one layer 6 table: a row per setup, a column per client,
@@ -130,6 +133,11 @@ func (r *report) multiTables(w writer) {
 
 	for i := range r.Multi {
 		mp := &r.Multi[i]
+		if mp.N != 0 && mp.N != r.Settings.MultiN {
+			// The second client count's points: memoryFit's.
+			continue
+		}
+
 		k := mp.key()
 
 		if points[k] == nil {
@@ -182,6 +190,85 @@ func (r *report) multiTables(w writer) {
 	if slices.ContainsFunc(keys, clientRow) {
 		r.clientTables(w, keys, points)
 	}
+
+	if r.Settings.MultiN2 > 0 {
+		r.memoryFit(w)
+	}
+}
+
+// memoryFit writes the fixed and proxy variants' 1 KB memory per client
+// as a slope and an intercept over the two client counts: the live heap
+// in all (per client × N) at -multi-n and -multi-n2.
+func (r *report) memoryFit(w writer) {
+	st := r.Settings
+
+	w("### Memory per client and fixed, over %d and %d clients\n\n", st.MultiN2, st.MultiN)
+	w("The fixed and proxy variants' 1 KB points at both client counts: the live heap beyond what the process held before ")
+	w("the clients (KB per client × clients) and the goroutines, fitted against the count. The slope is per client, the ")
+	w("intercept what the process holds once whatever the count (divided by the clients in the tables above). With proxy ")
+	w("rotation the plateau's live heap is used. ‡: mimicry's HTTP/3 clients each keep the HTTP/2 connection they learnt ")
+	w("Alt-Svc on.\n\n")
+	w("| setup | client | live KB/client | fixed KB | goroutines/client | fixed goroutines |\n|---|---|---:|---:|---:|---:|\n")
+
+	type key struct {
+		k      multiKey
+		client string
+	}
+
+	var keys []key
+
+	byKey := map[key]map[int]*scenario.MultiResult{}
+
+	for i := range r.Multi {
+		mp := &r.Multi[i]
+		if mp.Renew != "" || mp.Op != "bytes-1KB" || !mp.valid() {
+			continue
+		}
+
+		k := key{
+			k:      mp.key(),
+			client: mp.Client,
+		}
+		if byKey[k] == nil {
+			byKey[k] = map[int]*scenario.MultiResult{}
+			keys = append(keys, k)
+		}
+
+		n := mp.N
+		if n == 0 {
+			n = st.MultiN
+		}
+
+		byKey[k][n] = mp.Result
+	}
+
+	for _, k := range keys {
+		lo, hi := byKey[k][st.MultiN2], byKey[k][st.MultiN]
+		if lo == nil || hi == nil {
+			continue
+		}
+
+		live := func(res *scenario.MultiResult) float64 {
+			if res.Plateau != nil {
+				return res.Plateau.LiveKBPerClient
+			}
+
+			return res.LiveKBPerClient
+		}
+
+		ns := []float64{float64(st.MultiN2), float64(st.MultiN)}
+		ls, li := fit(ns, []float64{live(lo) * ns[0], live(hi) * ns[1]})
+		gs, gi := fit(ns, []float64{lo.GoroutinesPerClient * ns[0], hi.GoroutinesPerClient * ns[1]})
+
+		mark := ""
+		if k.client == "mimicry" && k.k.proto == target.H3 {
+			mark = " ‡"
+		}
+
+		w("| %s | %s%s | %.1f | %.0f | %.2f | %.1f |\n", k.k.label(), k.client, mark, ls, li, gs, gi)
+	}
+
+	w("\n")
 }
 
 // identityRow and clientRow say which section a row is in: one identity
@@ -222,10 +309,19 @@ func (r *report) identityTables(w writer, keys []multiKey, points map[multiKey]m
 	w("%d clients of one kind in one process, each its own Transport or session with its own proxy credentials ", st.MultiN)
 	w("(`bench-<run>-<client>-<identity>`, so no two clients can share a tunnel), each sending GET /bytes/{size} to nginx ")
 	w("one request at a time: the workload of a scraper running a client per proxy. Each point warms every client onto ")
-	w("the protocol (three responses in a row), runs %v, then measures %v. The rotation variant gives each client a new ", st.Warmup, st.Window)
+	w("the protocol (three responses in a row), runs %v, then measures %v (the rotation variant %v, so its memory can level ", st.Warmup, st.Window,
+		max(st.Window, st.MultiProxyWindow))
+	w("off). The rotation variant gives each client a new ")
 	w("identity every %d requests: new credentials, so a new tunnel (or UDP association) and a new handshake, as a ", st.MultiRotate)
 	w("rotating residential proxy forces. The proxy adds %s; its CPU set is in Environment. ", r.Env.ProxyDelay)
-	w("The best impersonating client in each row is **bold**; net/http is the reference, never bolded.\n\n")
+	w("The best impersonating client in each row is **bold**; net/http is the reference, never bolded.")
+
+	if r.Passes > 1 {
+		w(" Each value is the median of %d passes with its range (lowest–highest); a best is bold only where its range lies ", r.Passes)
+		w("outside every other impersonating client's.")
+	}
+
+	w("\n\n")
 
 	notes := []string{
 		"**Every request through the proxy, checked.** Each response must have come over the route's protocol " +
@@ -278,6 +374,7 @@ func (r *report) identityTables(w writer, keys []multiKey, points map[multiKey]m
 			metrics: []multiMetric{
 				{
 					get:    plain(func(r *scenario.MultiResult) float64 { return r.RPS }),
+					key:    "rps",
 					format: fixed(0),
 				},
 			},
@@ -289,11 +386,13 @@ func (r *report) identityTables(w writer, keys []multiKey, points map[multiKey]m
 			metrics: []multiMetric{
 				{
 					get:    plain(func(r *scenario.MultiResult) float64 { return r.P50 }),
+					key:    "p50",
 					format: num,
 					lower:  true,
 				},
 				{
 					get:    plain(func(r *scenario.MultiResult) float64 { return r.P99 }),
+					key:    "p99",
 					format: num,
 					lower:  true,
 				},
@@ -305,11 +404,13 @@ func (r *report) identityTables(w writer, keys []multiKey, points map[multiKey]m
 			metrics: []multiMetric{
 				{
 					get:    plain(func(r *scenario.MultiResult) float64 { return r.CPUPerRequest }),
+					key:    "cpuPerRequest",
 					format: fixed(0),
 					lower:  true,
 				},
 				{
 					get:    plain(func(r *scenario.MultiResult) float64 { return r.AllocsPerRequest }),
+					key:    "allocsPerRequest",
 					format: fixed(0),
 					lower:  true,
 				},
@@ -317,17 +418,22 @@ func (r *report) identityTables(w writer, keys []multiKey, points map[multiKey]m
 		},
 		{
 			title: "Heap per client",
-			intro: fmt.Sprintf("KB per client: live heap at steady state / peak heap. With rotation, a client that keeps "+
-				"its old identities' connections open (mimicry until they idle out, tls-client's old transports) grows "+
-				"with time: these are over the first %v of load.", st.Warmup+st.Window),
+			intro: fmt.Sprintf("KB per client: live heap at steady state / peak heap, averaged over the window. With rotation, "+
+				"a client that keeps its old identities' connections open (mimicry until they idle out, tls-client's old "+
+				"transports) grows with time: the rows with rotation are over the first %v of load, the plateau table below "+
+				"gives where it levels off. ‡: mimicry's HTTP/3 clients each also keep the HTTP/2 connection they learnt "+
+				"Alt-Svc on (as layer 4's).", st.Warmup+max(st.Window, st.MultiProxyWindow)),
+			mark: altSvcMark,
 			metrics: []multiMetric{
 				{
 					get:    plain(func(r *scenario.MultiResult) float64 { return r.LiveKBPerClient }),
+					key:    "liveKbPerClient",
 					format: fixed(0),
 					lower:  true,
 				},
 				{
 					get:    plain(func(r *scenario.MultiResult) float64 { return r.PeakKBPerClient }),
+					key:    "peakKbPerClient",
 					format: fixed(0),
 					lower:  true,
 				},
@@ -335,19 +441,60 @@ func (r *report) identityTables(w writer, keys []multiKey, points map[multiKey]m
 		},
 		{
 			title: "Goroutines and stack per client",
-			intro: "The client's own goroutines at the window's end / goroutine stack KB per client (its sender included).",
+			intro: "The client's own goroutines at the window's end / goroutine stack KB per client (its sender included). " +
+				"‡: as above, mimicry's HTTP/3 clients' extra HTTP/2 connection.",
+			mark: altSvcMark,
 			metrics: []multiMetric{
 				{
 					get:    plain(func(r *scenario.MultiResult) float64 { return r.GoroutinesPerClient }),
+					key:    "goroutinesPerClient",
 					format: fixed(1),
 					lower:  true,
 				},
 				{
 					get:    plain(func(r *scenario.MultiResult) float64 { return r.StackKBPerClient }),
+					key:    "stackKbPerClient",
 					format: fixed(0),
 					lower:  true,
 				},
 			},
+		},
+		{
+			title: "Rotation: memory where it levels off",
+			intro: "Proxy rotation over its long window, from the per-second samples: the live heap per client (beyond what " +
+				"the process held before the clients) / goroutines per client / tunnels and associations open at the proxy " +
+				"per client, each averaged over the window's last third, then the live heap's slope over the window's second " +
+				"half in KB per client per second (near zero once it has levelled off). A client that keeps old identities' " +
+				"connections until they idle out levels off once they do (mimicry: 10 s unused and outside the 16 most recent " +
+				"proxies; tls-client: its 90 s idle timeout, longer than the window).",
+			rotationOnly: true,
+			metrics: []multiMetric{
+				{
+					get:    plateauGet(func(p *scenario.MultiPlateau) float64 { return p.LiveKBPerClient }),
+					key:    "plateau.liveKbPerClient",
+					format: fixed(0),
+					lower:  true,
+				},
+				{
+					get:    plateauGet(func(p *scenario.MultiPlateau) float64 { return p.GoroutinesPerClient }),
+					key:    "plateau.goroutinesPerClient",
+					format: fixed(1),
+					lower:  true,
+				},
+				{
+					get:    plateauGet(func(p *scenario.MultiPlateau) float64 { return p.OpenPerClient }),
+					key:    "plateau.openPerClient",
+					format: fixed(2),
+					lower:  true,
+				},
+				{
+					get:    plateauGet(func(p *scenario.MultiPlateau) float64 { return p.SlopeKBPerClient }),
+					key:    "plateau.slopeKbPerClient",
+					format: signed(2),
+					noBold: true,
+				},
+			},
+			mark: altSvcMark,
 		},
 		{
 			title: "Rotation: new-connection latency",
@@ -357,11 +504,13 @@ func (r *report) identityTables(w writer, keys []multiKey, points map[multiKey]m
 			metrics: []multiMetric{
 				{
 					get:    plain(func(r *scenario.MultiResult) float64 { return r.NewP50 }),
+					key:    "newP50",
 					format: num,
 					lower:  true,
 				},
 				{
 					get:    plain(func(r *scenario.MultiResult) float64 { return r.NewP99 }),
+					key:    "newP99",
 					format: num,
 					lower:  true,
 				},
@@ -499,13 +648,34 @@ func (r *report) renderMultiTables(w writer, tables []multiTable, keys []multiKe
 			}
 
 			for _, c := range cols {
-				w(" %s |", t.cell(k, c, points[k][c], best, valid))
+				w(" %s |", t.cell(k, c, points[k], best, valid))
 			}
 
 			w("\n")
 		}
 
 		w("\n")
+	}
+}
+
+// altSvcMark marks mimicry over HTTP/3: each client also keeps the HTTP/2
+// connection it learnt Alt-Svc on, as Chrome does.
+func altSvcMark(k multiKey, client string, _ *scenario.MultiResult) string {
+	if client == "mimicry" && k.proto == target.H3 {
+		return " ‡"
+	}
+
+	return ""
+}
+
+// plateauGet reads a proxy-rotation point's plateau.
+func plateauGet(get func(p *scenario.MultiPlateau) float64) func(multiKey, string, *scenario.MultiResult) (float64, bool) {
+	return func(_ multiKey, _ string, r *scenario.MultiResult) (float64, bool) {
+		if r.Plateau == nil {
+			return 0, false
+		}
+
+		return get(r.Plateau), true
 	}
 }
 
@@ -617,6 +787,7 @@ func (r *report) clientTables(w writer, keys []multiKey, points map[multiKey]map
 			metrics: []multiMetric{
 				{
 					get:    plain(func(r *scenario.MultiResult) float64 { return r.RPS }),
+					key:    "rps",
 					format: fixed(0),
 				},
 			},
@@ -628,11 +799,13 @@ func (r *report) clientTables(w writer, keys []multiKey, points map[multiKey]map
 			metrics: []multiMetric{
 				{
 					get:    plain(func(r *scenario.MultiResult) float64 { return r.P50 }),
+					key:    "p50",
 					format: num,
 					lower:  true,
 				},
 				{
 					get:    plain(func(r *scenario.MultiResult) float64 { return r.P99 }),
+					key:    "p99",
 					format: num,
 					lower:  true,
 				},
@@ -644,11 +817,13 @@ func (r *report) clientTables(w writer, keys []multiKey, points map[multiKey]map
 			metrics: []multiMetric{
 				{
 					get:    plain(func(r *scenario.MultiResult) float64 { return r.NewP50 }),
+					key:    "newP50",
 					format: num,
 					lower:  true,
 				},
 				{
 					get:    plain(func(r *scenario.MultiResult) float64 { return r.NewP99 }),
+					key:    "newP99",
 					format: num,
 					lower:  true,
 				},
@@ -660,27 +835,33 @@ func (r *report) clientTables(w writer, keys []multiKey, points map[multiKey]map
 			},
 		},
 		{
-			title: "New client alone",
-			intro: "Medians over 20 new clients, one at a time: the constructor in µs / the first request in ms / KB " +
-				"allocated by both / allocations by both.",
+			title: "New client alone (cold, one at a time)",
+			intro: "Medians over 20 new clients, one at a time between round trips, the CPU idle in between: the constructor " +
+				"in µs / the first request in ms / KB allocated by both / allocations by both. A cold, idle CPU's times, " +
+				"3-8× the constructor's under load; the constructor's own cost, in a tight loop, is layer 2's " +
+				"`BenchmarkNewClient`.",
 			metrics: []multiMetric{
 				{
 					get:    cost(func(c *scenario.NewClientCost) float64 { return c.ConstructUs }),
+					key:    "cost.constructUs",
 					format: fixed(0),
 					lower:  true,
 				},
 				{
 					get:    cost(func(c *scenario.NewClientCost) float64 { return c.FirstMs }),
+					key:    "cost.firstMs",
 					format: num,
 					lower:  true,
 				},
 				{
 					get:    cost(func(c *scenario.NewClientCost) float64 { return c.KB }),
+					key:    "cost.kb",
 					format: fixed(0),
 					lower:  true,
 				},
 				{
 					get:    cost(func(c *scenario.NewClientCost) float64 { return c.Allocs }),
+					key:    "cost.allocs",
 					format: fixed(0),
 					lower:  true,
 				},
@@ -692,11 +873,13 @@ func (r *report) clientTables(w writer, keys []multiKey, points map[multiKey]map
 			metrics: []multiMetric{
 				{
 					get:    end(func(e *scenario.MultiEnd) float64 { return e.LiveKBPerRoutine }),
+					key:    "end.liveKbPerRoutine",
 					format: fixed(0),
 					lower:  true,
 				},
 				{
 					get:    grow(func(g *scenario.MultiGrowth) float64 { return g.LiveKBPerRoutine }),
+					key:    "growth.liveKbPerRoutine",
 					format: signed(1),
 					lower:  true,
 				},
@@ -708,11 +891,13 @@ func (r *report) clientTables(w writer, keys []multiKey, points map[multiKey]map
 			metrics: []multiMetric{
 				{
 					get:    end(func(e *scenario.MultiEnd) float64 { return e.GoroutinesPerRoutine }),
+					key:    "end.goroutinesPerRoutine",
 					format: fixed(1),
 					lower:  true,
 				},
 				{
 					get:    grow(func(g *scenario.MultiGrowth) float64 { return g.GoroutinesPerRoutine }),
+					key:    "growth.goroutinesPerRoutine",
 					format: signed(2),
 					lower:  true,
 				},
@@ -724,11 +909,13 @@ func (r *report) clientTables(w writer, keys []multiKey, points map[multiKey]map
 			metrics: []multiMetric{
 				{
 					get:    end(func(e *scenario.MultiEnd) float64 { return e.RSSMB }),
+					key:    "end.rssMb",
 					format: fixed(0),
 					lower:  true,
 				},
 				{
 					get:    grow(func(g *scenario.MultiGrowth) float64 { return g.RSSMB }),
+					key:    "growth.rssMb",
 					format: signed(1),
 					lower:  true,
 				},
@@ -758,6 +945,7 @@ func (r *report) clientTables(w writer, keys []multiKey, points map[multiKey]map
 				},
 				{
 					get:    grow(func(g *scenario.MultiGrowth) float64 { return g.Open }),
+					key:    "growth.open",
 					format: signed(0),
 					lower:  true,
 				},
@@ -769,11 +957,13 @@ func (r *report) clientTables(w writer, keys []multiKey, points map[multiKey]map
 			metrics: []multiMetric{
 				{
 					get:    plain(func(r *scenario.MultiResult) float64 { return r.CPUPerRequest }),
+					key:    "cpuPerRequest",
 					format: fixed(0),
 					lower:  true,
 				},
 				{
 					get:    plain(func(r *scenario.MultiResult) float64 { return r.AllocsPerRequest }),
+					key:    "allocsPerRequest",
 					format: fixed(0),
 					lower:  true,
 				},
@@ -825,8 +1015,12 @@ func (r *report) clientTables(w writer, keys []multiKey, points map[multiKey]map
 }
 
 // cell renders one client's cell in t's row k, bolding a value equal to
-// best when at least two impersonating clients have one.
-func (t multiTable) cell(k multiKey, client string, mp *multiPoint, best []float64, valid []int) string {
+// best when at least two impersonating clients have one; in a report
+// merged from passes, only where the metric has a range (key) and the
+// client's lies outside every other impersonating client's.
+func (t multiTable) cell(k multiKey, client string, row map[string]*multiPoint, best []float64, valid []int) string {
+	mp := row[client]
+
 	switch {
 	case mp == nil:
 		return ""
@@ -849,7 +1043,11 @@ func (t multiTable) cell(k multiKey, client string, mp *multiPoint, best []float
 		}
 
 		s := m.format(v)
-		if !m.noBold && client != referenceClient && valid[i] > 1 && m.format(best[i]) == s {
+		if rg, ok := mp.Ranges[m.key]; ok && m.key != "" {
+			s += " (" + m.format(rg[0]) + "–" + m.format(rg[1]) + ")"
+		}
+
+		if !m.noBold && client != referenceClient && valid[i] > 1 && m.format(best[i]) == m.format(v) && m.clear(client, row) {
 			s = "**" + s + "**"
 		}
 
@@ -862,4 +1060,36 @@ func (t multiTable) cell(k multiKey, client string, mp *multiPoint, best []float
 	}
 
 	return out
+}
+
+// clear says whether client's value of m stands apart from the other
+// impersonating clients' in row: always for a single run; with passes,
+// when its range lies outside every other's.
+func (m multiMetric) clear(client string, row map[string]*multiPoint) bool {
+	mine := row[client]
+	if mine.Passes == 0 {
+		return true
+	}
+
+	rg, ok := mine.Ranges[m.key]
+	if m.key == "" || !ok {
+		return false
+	}
+
+	for c, o := range row {
+		if c == client || c == referenceClient || !o.valid() {
+			continue
+		}
+
+		theirs, ok := o.Ranges[m.key]
+		if !ok {
+			return false
+		}
+
+		if m.lower && rg[1] >= theirs[0] || !m.lower && rg[0] <= theirs[1] {
+			return false
+		}
+	}
+
+	return true
 }

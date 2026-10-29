@@ -26,11 +26,26 @@ type report struct {
 	Idle     []idlePoint  `json:"idle,omitempty"`
 	Pages    []pagePoint  `json:"pages,omitempty"`
 	Multi    []multiPoint `json:"multi,omitempty"`
+	// Passes, in a report merged from passes (bench merge -passes), is how
+	// many it merges, PassOrders each one's client order.
+	Passes     int        `json:"passes,omitempty"`
+	PassOrders [][]string `json:"passOrders,omitempty"`
+	// StockLoad and StockMulti are the points of passes run with the
+	// client's UDP receive buffers at stock Linux values
+	// (BENCH_UDP_STOCK), merged as the others; StockEnv their environment.
+	StockLoad   []loadPoint  `json:"stockLoad,omitempty"`
+	StockMulti  []multiPoint `json:"stockMulti,omitempty"`
+	StockEnv    *env         `json:"stockEnv,omitempty"`
+	StockPasses int          `json:"stockPasses,omitempty"`
 }
 
 // mimicryH1Limit is Chrome's HTTP/1.1 connections per host, which mimicry
-// keeps (profile connections.http1PerHost).
-const mimicryH1Limit = 6
+// keeps (profile connections.http1PerHost); httpcloakH1Idle is the idle
+// HTTP/1.1 connections per host httpcloak keeps, hard-coded.
+const (
+	mimicryH1Limit  = 6
+	httpcloakH1Idle = 6
+)
 
 func (r *report) markdown() string {
 	var b strings.Builder
@@ -56,6 +71,7 @@ func (r *report) markdown() string {
 	r.idleTable(w)
 	r.pageTables(w)
 	r.multiTables(w)
+	r.stockSection(w)
 	r.skipped(w)
 
 	return b.String()
@@ -77,42 +93,78 @@ func (r *report) clientNames() []string {
 
 // summary compares mimicry with each other client over the load points
 // both completed: the geometric mean of mimicry's value over the other's.
+// Points where the server was the limit for any client are left out for
+// every pair and summarised on their own.
 func (r *report) summary(w writer) {
 	if len(r.Load) == 0 {
 		return
 	}
 
 	w("## Summary: mimicry against the others (layer 3)\n\n")
+
+	if r.Passes > 1 {
+		w("Over %d passes, each point's median (the tables give each value's range). ", r.Passes)
+	}
+
 	w("Geometric mean, over every load point (server, protocol, body, concurrency) both clients completed, ")
 	w("of mimicry's value divided by the other client's. Below 1.00 means mimicry is lower: better for latency, CPU and ")
 	w("allocations, worse for requests per second. HTTP/1.1 points above %d concurrent requests are left out (mimicry queues ", mimicryH1Limit)
-	w("there by design, see the fairness notes); they are in the tables.\n\n")
+	w("there by design, see the fairness notes), and so are points where the server was the limit for any client (§ in the ")
+	w("tables: the server at 90%% of its CPUs, or one nginx worker at 90%% of a core), for every pair alike; they are in ")
+	w("the tables, and the server-bound ones are summarised separately below.\n\n")
 
-	others := slices.DeleteFunc(r.clientNames(), func(s string) bool {
+	others := r.others()
+
+	summaryTables(w, r.Load, others, false)
+
+	w("The number in brackets is how many load points the mean is over.\n\n")
+
+	if bound := serverBoundKeys(r.Load); len(bound) > 0 {
+		w("### Server-bound points (left out above)\n\n")
+		w("The %d points where the server was the limit for at least one client; requests/s there measure the server ", len(bound))
+		w("as much as the client, CPU and allocations per request still compare the clients.\n\n")
+
+		summaryTables(w, r.Load, others, true)
+	}
+}
+
+// others are the clients compared with mimicry.
+func (r *report) others() []string {
+	return slices.DeleteFunc(r.clientNames(), func(s string) bool {
 		return s == "mimicry"
 	})
+}
 
-	metrics := []struct {
-		name string
-		get  func(*scenario.LoadResult) float64
-	}{
-		{"requests/s", func(l *scenario.LoadResult) float64 { return l.RPS }},
-		{"p50 latency", func(l *scenario.LoadResult) float64 { return l.P50 }},
-		{"p99 latency", func(l *scenario.LoadResult) float64 { return l.P99 }},
-		{"client CPU per request", func(l *scenario.LoadResult) float64 { return l.CPUPerRequest }},
-		{"bytes allocated per request", func(l *scenario.LoadResult) float64 { return l.BytesPerRequest }},
-		{"allocations per request", func(l *scenario.LoadResult) float64 { return l.AllocsPerRequest }},
-		{"peak heap", func(l *scenario.LoadResult) float64 { return l.HeapPeakMB }},
-	}
+// summaryMetrics are the summary's rows.
+var summaryMetrics = []struct {
+	name string
+	get  func(*scenario.LoadResult) float64
+}{
+	{"requests/s", func(l *scenario.LoadResult) float64 { return l.RPS }},
+	{"p50 latency", func(l *scenario.LoadResult) float64 { return l.P50 }},
+	{"p99 latency", func(l *scenario.LoadResult) float64 { return l.P99 }},
+	{"client CPU per request", func(l *scenario.LoadResult) float64 { return l.CPUPerRequest }},
+	{"bytes allocated per request", func(l *scenario.LoadResult) float64 { return l.BytesPerRequest }},
+	{"allocations per request", func(l *scenario.LoadResult) float64 { return l.AllocsPerRequest }},
+	{"peak heap", func(l *scenario.LoadResult) float64 { return l.HeapPeakMB }},
+}
 
+// summaryTables writes a table per protocol of mimicry's geometric mean
+// ratios against others over points: the server-bound ones (bound) or
+// the rest.
+func summaryTables(w writer, points []loadPoint, others []string, bound bool) {
 	for _, p := range target.Protos {
+		if !slices.ContainsFunc(points, func(lp loadPoint) bool { return lp.Proto == p }) {
+			continue
+		}
+
 		w("**%s**\n\n| metric | %s |\n|---|%s\n", p.Wire(), strings.Join(prefixAll("vs ", others), " | "), strings.Repeat("---|", len(others)))
 
-		for _, m := range metrics {
+		for _, m := range summaryMetrics {
 			w("| %s |", m.name)
 
 			for _, o := range others {
-				g, n := r.ratio(p, o, m.get)
+				g, n := ratio(points, p, o, m.get, bound)
 				if n == 0 {
 					w(" n/a |")
 
@@ -127,8 +179,6 @@ func (r *report) summary(w writer) {
 
 		w("\n")
 	}
-
-	w("The number in brackets is how many load points the mean is over.\n\n")
 }
 
 func prefixAll(prefix string, s []string) []string {
@@ -140,18 +190,46 @@ func prefixAll(prefix string, s []string) []string {
 	return out
 }
 
-// ratio returns the geometric mean of mimicry's metric over other's on p.
-func (r *report) ratio(p target.Proto, other string, get func(*scenario.LoadResult) float64) (float64, int) {
-	type key struct {
-		server, op, cond string
-		conc             int
+// loadKey is a load point without its client.
+type loadKey struct {
+	server, op, cond string
+	proto            target.Proto
+	conc             int
+}
+
+func (lp loadPoint) key() loadKey {
+	return loadKey{
+		server: lp.Server,
+		op:     lp.Op,
+		cond:   lp.Condition,
+		proto:  lp.Proto,
+		conc:   lp.Conc,
+	}
+}
+
+// serverBoundKeys are the points where the server was the limit for at
+// least one client.
+func serverBoundKeys(points []loadPoint) map[loadKey]bool {
+	out := map[loadKey]bool{}
+
+	for _, lp := range points {
+		if lp.valid() && lp.Result.ServerBound != "" {
+			out[lp.key()] = true
+		}
 	}
 
-	mine := map[key]*scenario.LoadResult{}
-	theirs := map[key]*scenario.LoadResult{}
+	return out
+}
 
-	for _, lp := range r.Load {
-		if lp.Proto != p || !lp.valid() {
+// ratio returns the geometric mean of mimicry's metric over other's on p,
+// over the server-bound points (bound) or the others.
+func ratio(points []loadPoint, p target.Proto, other string, get func(*scenario.LoadResult) float64, bound bool) (float64, int) {
+	isBound := serverBoundKeys(points)
+	mine := map[loadKey]*scenario.LoadResult{}
+	theirs := map[loadKey]*scenario.LoadResult{}
+
+	for _, lp := range points {
+		if lp.Proto != p || !lp.valid() || isBound[lp.key()] != bound {
 			continue
 		}
 
@@ -159,18 +237,11 @@ func (r *report) ratio(p target.Proto, other string, get func(*scenario.LoadResu
 			continue
 		}
 
-		k := key{
-			server: lp.Server,
-			op:     lp.Op,
-			cond:   lp.Condition,
-			conc:   lp.Conc,
-		}
-
 		switch lp.Client {
 		case "mimicry":
-			mine[k] = lp.Result
+			mine[lp.key()] = lp.Result
 		case other:
-			theirs[k] = lp.Result
+			theirs[lp.key()] = lp.Result
 		}
 	}
 
@@ -212,6 +283,21 @@ func (r *report) environment(w writer) {
 	w("## Environment\n\n")
 	w("| | |\n|---|---|\n")
 	w("| Host | %s, %s, %s |\n", e.Host, e.HostCPU, e.HostOS)
+
+	if e.Power != "" {
+		w("| Power | %s |\n", e.Power)
+	}
+
+	if r.Passes > 1 {
+		orders := make([]string, len(r.PassOrders))
+		for i, o := range r.PassOrders {
+			orders[i] = strings.Join(o, ", ")
+		}
+
+		w("| Passes | %d, each an invocation of its own, clients in the order: %s; layers 4 and 5 from the first that ran them |\n",
+			r.Passes, strings.Join(orders, " / "))
+	}
+
 	w("| Docker | %s; Linux %s |\n", e.Docker, e.Kernel)
 	w("| Mode | %s |\n", e.Mode)
 	w("| CPU sets | %s; the client sees %d CPUs, GOMAXPROCS %d |\n", e.Cpusets, e.ClientCPUs, e.GOMAXPROCS)
@@ -232,17 +318,41 @@ func (r *report) environment(w writer) {
 
 	w("| Proxy delay | %s |\n", e.ProxyDelay)
 
+	if e.RmemMax != "" {
+		forced := "unknown whether the client had `NET_ADMIN`"
+		if e.NetAdmin != nil && *e.NetAdmin {
+			forced = "the client had `NET_ADMIN` (for netem), so the quic-go clients (net/http, tls-client, httpcloak, azuretls) " +
+				"forced their 7 MB past rmem_max with `SO_RCVBUFFORCE`"
+		} else if e.NetAdmin != nil {
+			forced = "the client had no `NET_ADMIN`, so the quic-go clients (net/http, tls-client, httpcloak, azuretls) " +
+				"got at most rmem_max for their 7 MB request"
+		}
+
+		w("| UDP receive buffers (client) | net.core.rmem_max %s, rmem_default %s%s; %s; mimicry asks for nothing "+
+			"(`Config.UDPReadBufferSize` 0) and gets rmem_default |\n", e.RmemMax, e.RmemDefault,
+			map[bool]string{true: " (set to stock Linux's for this run)", false: ""}[e.UDPStock], forced)
+	}
+
 	if ran(3) {
-		w("| Load points | warm-up %v, then %v measured |\n", st.Warmup, st.Window)
+		w("| Load points | warm-up at least %v and window at least %v, both stretched for long requests (window up to %v): ",
+			st.Warmup, st.Window, st.MaxWindow)
+		w("the warm-up until a request per concurrent one has completed and it has lasted 2 of their median latencies, the ")
+		w("window until it has lasted 5 of them and 3 requests per concurrent one started and finished inside it |\n")
 		w("| Concurrency | %v (reduced matrix on %s: 1 and 64, bodies 1KB and 100KB) |\n", st.Concurrency, strings.Join(st.Reduced, ", "))
 	}
 
 	if ran(4) {
-		w("| Idle memory | %d clients per measurement, on %s |\n", st.IdleN, firstOr(st.Servers, "?"))
+		ns := st.IdleNs
+		if len(ns) == 0 {
+			ns = []int{st.IdleN}
+		}
+
+		w("| Idle memory | %v clients per measurement, on %s |\n", ns, firstOr(st.Servers, "?"))
 	}
 
 	if ran(5) {
-		w("| Page loads | %d per setup and condition, each on a new client (cold) and again on the same client (warm), Go server |\n", st.Reps)
+		w("| Page loads | %d per setup and condition (%d under loss), each on a new client (cold) and again on the same client (warm), Go server |\n",
+			st.Reps, max(st.RepsLoss, st.Reps))
 	}
 
 	if ran(6) {
@@ -260,7 +370,11 @@ func (r *report) environment(w writer) {
 		}
 
 		if slices.Contains(variants, variantProxy) {
-			w("; proxy rotation: a new identity every %d requests", st.MultiRotate)
+			w("; proxy rotation: a new identity every %d requests, %v measured", st.MultiRotate, max(st.Window, st.MultiProxyWindow))
+		}
+
+		if st.MultiN2 > 0 {
+			w("; the fixed and proxy variants' 1 KB points again with %d clients, for memory per client", st.MultiN2)
 		}
 
 		if slices.Contains(variants, variantClient) {
@@ -311,12 +425,23 @@ func (r *report) fairness(w writer) {
 		"**Bodies.** Each client is used through its ordinary request API: net/http, mimicry and tls-client stream the body " +
 			"(drained as into `io.Discard`, counting the bytes as they arrive); httpcloak's `Session.Do` and azuretls's `Session.Do` " +
 			"return it fully buffered, so their allocations grow with the body (10 MB per request at the largest size), and a " +
-			"buffered body counts as it is handed over.",
+			"buffered body counts once it is handed over, whole. The windows of long requests are stretched until 3 requests per " +
+			"concurrent one started and finished inside them (Environment), so a buffering client's bodies land inside the window " +
+			"in proportion, wherever it falls. `azuretls-stream` (when run) is azuretls with `Request.IgnoreBody`, its body read " +
+			"from `RawBody` as it arrives: the same bytes over the same connection, without Do's cookie handling (the servers set " +
+			"no cookies) and with the 120 s timeout on the context instead of Do's deadline.",
 		"**Headers.** mimicry sends its Chrome profile's headers for the request's kind: the micro and load scenarios' requests " +
 			"are `Fetch` calls from a page on the same origin (no CORS preflight), page loads are a navigation and element kinds. " +
-			"httpcloak sends its preset's headers. tls-client and azuretls get a fixed set of Chrome's navigation headers, in " +
-			"Chrome's order, as their users pass them. net/http sends Go's few default headers. Request sizes therefore differ by a " +
-			"few hundred bytes; HPACK/QPACK make that small on a warm connection.",
+			"httpcloak sends its preset's headers. tls-client and azuretls get a fixed set of 13 Chrome navigation headers, in " +
+			"Chrome's order, built per request as their users build them (about 15-18 allocations and 1 KB per request, some 15% " +
+			"of tls-client's allocations on small bodies): kept, since a user of those libraries who wants to look like Chrome " +
+			"sets them, and both have no other way to. net/http sends Go's few default headers. Request sizes therefore differ " +
+			"by a few hundred bytes; HPACK/QPACK make that small on a warm connection.",
+		"**Cookie jars and timeouts.** mimicry, httpcloak and azuretls keep a cookie jar by default, net/http and tls-client " +
+			"none; the servers set no cookies, so it costs the three a lookup per request, which is part of using them. Every " +
+			"client has a 120 s request timeout (net/http's `http.Client.Timeout`, mimicry's `Config.Timeout`, tls-client's " +
+			"`WithTimeoutSeconds`, httpcloak's `WithSessionTimeout`, azuretls's `SetTimeout`; the last two default to 30 s), and " +
+			"keeps idle connections 90 s or more.",
 		"**Profiles.** Each client's newest Chrome: mimicry `chrome-156-macos`, httpcloak `chrome-latest` (155), tls-client " +
 			"`Chrome_152_PSK` (the variant of 152 that resumes TLS sessions as Chrome does; plain `Chrome_152` keeps no session " +
 			"cache), azuretls `chrome` (its spec says Chrome 133).",
@@ -324,20 +449,41 @@ func (r *report) fairness(w writer) {
 			"cache; a request counts only if the server says it resumed (`x-tls-resumed`). net/http is given a TLS session cache, " +
 			"as a caller who wants resumption sets one. azuretls keeps no session cache by default, so it never resumes (n/a). " +
 			"mimicry over HTTP/3 resumes with 0-RTT, as Chrome does.",
-		"**Connection pools.** net/http and tls-client get `MaxIdleConnsPerHost` 1024 (their default of 2 would close and reopen " +
-			"connections at every concurrency above 2); the others keep their defaults.",
-		"**The server is not the bottleneck.** Each server has its own CPU set (more cores than the client); its CPU use is " +
-			"read from its cgroup over each window, shown in the tables, and a point where it passes 90% is discarded. Both " +
-			"servers allow 1000 concurrent streams on HTTP/2 and HTTP/3, and nginx keeps connections for 10 million requests. " +
-			"The exception: nginx serves a connection from one worker on one core, so over HTTP/2 and HTTP/3 (one connection) a " +
-			"Srv of about one core's share of its CPU set means that worker is the limit, whichever client.",
+		"**Connection pools.** net/http, tls-client and azuretls get `MaxIdleConnsPerHost` 1024 (net/http's default of 2 would " +
+			"close and reopen connections at every concurrency above 2); mimicry keeps Chrome's 6 HTTP/1.1 connections per host " +
+			"(‡); httpcloak keeps at most 6 idle HTTP/1.1 connections per host, hard-coded with no setting, and opens new ones " +
+			"for requests that find none idle, so its HTTP/1.1 rows above 6 at once (†) measure that library limit: connections " +
+			"opened and closed under load. Over HTTP/2 and HTTP/3 every client uses one connection per host.",
+		"**When the server is the limit.** The servers share one CPU set (Environment), larger than the client's; only one is " +
+			"under load at a time. Each server's CPU use is read from its cgroup over each window (Srv), and nginx's per worker " +
+			"process (`/proc/<pid>/schedstat`): nginx serves a connection from one worker on one core, so over HTTP/2 and HTTP/3 " +
+			"(one connection) a worker at a core's worth is the limit whatever the CPU set's share. A point where the server " +
+			"reaches 90% of its CPUs, or a worker 90% of a core, for any client is server-bound (§) for every client, and left " +
+			"out of every pair's summary (summarised separately). Both servers allow 1000 concurrent streams on HTTP/2 and " +
+			"HTTP/3, and nginx keeps connections for 10 million requests.",
+		"**HTTP/3 receive buffers.** quic-go and its forks (net/http's baseline, tls-client, httpcloak, azuretls) ask for a " +
+			"7 MB UDP receive buffer, which Linux grants up to `net.core.rmem_max`; when that cuts it, they retry with " +
+			"`SO_RCVBUFFORCE`, which succeeds whenever the process has `CAP_NET_ADMIN`. The client container has `NET_ADMIN` in " +
+			"the normal passes (netem needs it), so there those four clients get their 7 MB whatever rmem_max says. mimicry asks " +
+			"for none and gets `rmem_default` (`Config.UDPReadBufferSize` 0, about 200 KB on stock Linux; its documentation " +
+			"records 7 MB as faster for 100 KB at 64 at once and slower at 256 and for 10 MB bodies). Both values and whether the " +
+			"client had `NET_ADMIN` are in Environment, and each HTTP/3 row's UDP column gives the datagrams the kernel dropped " +
+			"on a full buffer during it (`RcvbufErrors`). The stock-buffer passes set both sysctls to stock Linux's 212992 and " +
+			"drop `NET_ADMIN`, so every client gets about 208 KB; without `NET_ADMIN` they cannot shape the network, so they run " +
+			"only layers 3 and 6 with no netem (no layer 5, no `-load-netem`). A merged report with stock-buffer passes compares " +
+			"the two at the end (`mimicry-udp7m`, when run, is mimicry asking for 7 MB).",
 		"**CPU and memory are per process.** Each load point, idle-memory measurement and page-load set runs in a worker process " +
 			"of its own, so heaps, goroutines and GC never mix between clients. CPU per request is the process's user+system time " +
-			"over the window divided by the requests' worth of body bytes that arrived in it (as requests/s); it includes the " +
-			"load generator's few goroutines, the same for every client.",
-		"**This machine.** A laptop: Docker runs in a VM, the CPU sets are the VM's CPUs (which of the host's performance and " +
-			"efficiency cores serve them is up to macOS), and other load on the Mac shows up as noise. Short windows (see " +
-			"Environment) trade precision for time; compare clients within a table rather than across runs.",
+			"(`getrusage`) over the window divided by the requests' worth of body bytes that arrived in it (as requests/s); it " +
+			"includes the load generator's few goroutines, the same for every client. Network softirq work the kernel does on " +
+			"the process's behalf is mostly charged to whatever runs when it fires, so it is largely left out; time a vCPU spends " +
+			"descheduled by the VM is not (the VM reports no steal time), which the repetitions' ranges show as noise.",
+		"**This machine.** A laptop, run on AC power with Low Power Mode off (`bench.sh` refuses otherwise; Environment " +
+			"records it). Docker runs in a VM, the CPU sets are the VM's CPUs (which of the host's performance and efficiency " +
+			"cores serve them is up to macOS), and other load on the Mac shows up as noise: per-point spread between runs of " +
+			"identical code measured 4-11% (log-SD), so a merged report's passes, with the clients in a different order each, " +
+			"give each value's range, and a best is bolded only outside the others' ranges. The proxy's CPU set (layers 5 and 6) " +
+			"lies inside the servers', which carry little load in those layers.",
 	}
 
 	for _, n := range notes {
@@ -347,8 +493,9 @@ func (r *report) fairness(w writer) {
 	w("\n### Browser-faithful by design\n\n")
 	w("Where mimicry is slower because it does what Chrome does, the tables mark it ‡:\n\n")
 	w("- **HTTP/1.1, more than %d concurrent requests:** mimicry opens at most %d HTTP/1.1 connections per host (the profile's ", mimicryH1Limit, mimicryH1Limit)
-	w("`connections.http1PerHost`, Chrome's limit) and queues the rest, first come first served; the other clients open one ")
-	w("connection per concurrent request. Its requests/s and latency at 16, 64 and 256 measure the queue. `Config.MaxConnsPerHost` ")
+	w("`connections.http1PerHost`, Chrome's limit) and queues the rest, first come first served; net/http, tls-client and ")
+	w("azuretls open one connection per concurrent request, httpcloak too but keeps only 6 of them idle (†). mimicry's ")
+	w("requests/s and latency at 16, 64 and 256 measure the queue. `Config.MaxConnsPerHost` ")
 	w("raises the limit, at the cost of looking unlike a browser (`mimicry-conns16` and `mimicry-conns64` when run).\n")
 	w("- **Page loads over HTTP/1.1:** the same limit, per host: 31 requests over 3 hosts go out at most 6 at a time per host.\n")
 	w("- **Page loads over HTTP/2:** mimicry coalesces www, static and api onto one connection (one certificate covers them and ")
@@ -377,10 +524,14 @@ func (r *report) micro(w writer) {
 		return
 	}
 
-	w("Go benchmarks (`bench_test.go`), `-count` runs each, summarised with benchstat; columns are the clients ")
-	w("(`nethttp` is net/http). `BenchmarkRequest`: one request on a warm connection, GET /json and POST /echo with a small ")
+	w("Go benchmarks (`bench_test.go`), summarised with benchstat; columns are the clients (`nethttp` is net/http). Each ")
+	w("run is a pass of its own (`-count 1`, a new process, the clients in another order each pass), so drift spreads across ")
+	w("the clients. `BenchmarkRequest`: one request on a warm connection, GET /json and POST /echo with a small ")
 	w("JSON body. `BenchmarkConnect`: one GET /json on a new connection, `handshake=full` on a new client (nothing to resume), ")
-	w("`handshake=resumed` after closing the client's connections (its session cache kept). A missing cell is n/a or ")
+	w("`handshake=resumed` after closing the client's connections (its session cache kept; up to 1%% plus one request may ")
+	w("make a full handshake instead, timed with the rest and counted as `unresumed`). `BenchmarkNewClient`: the ")
+	w("constructor and Close alone, in a tight loop (no request; `proxy=socks5` with layer 6's credentials). Geomean rows ")
+	w("benchstat flags as over different benchmark sets are dropped. A missing cell is n/a or ")
 	w("discarded: the reasons are in the raw output")
 
 	if r.MicroRaw != "" {
@@ -397,11 +548,26 @@ func (r *report) loadTables(w writer) {
 
 	w("## Layer 3: throughput and latency\n\n")
 	w("GET /bytes/{size} on one warm client at each concurrency. Req/s and MB/s: the response body bytes that arrived inside ")
-	w("the window, in responses' worth and in MB, wherever the requests started and ended (a 10 MB body at 256 at once can ")
-	w("take longer than the window). Latency in ms, over the requests in flight during the window. CPU: the client process's ")
-	w("CPU time per request (µs) and cores used. B and allocs: allocated per request. GC: collections and total pause in the ")
-	w("window. Heap: the client's peak heap (MB). Srv: the server's CPU use. ‡: browser-faithful by design.\n\n")
+	w("the window, in responses' worth and in MB, wherever the requests started and ended; the window is stretched for long ")
+	w("requests (Environment), and win s gives its length. Latency in ms, over the requests in flight during the window. CPU: ")
+	w("the client process's CPU time per request (µs) and cores used. B and allocs: allocated per request (the window's ")
+	w("allocations over the same responses' worth). GC: collections and total pause in the window. Heap: the client's peak ")
+	w("heap (MB). Srv: the server's CPU use (its busiest nginx worker's share of a core). UDP: datagrams the client's kernel ")
+	w("dropped on a full receive buffer during an HTTP/3 point. ‡: browser-faithful by design. †: httpcloak's library limit ")
+	w("of 6 idle HTTP/1.1 connections per host. §: server-bound (for at least one client at that point), left out of the summary.")
 
+	if r.Passes > 1 {
+		w(" Each value is the median of %d passes, req/s, p99, CPU and allocations with their range (lowest–highest); the best ", r.Passes)
+		w("impersonating client's req/s and CPU are **bold** where its range lies outside every other's.")
+	}
+
+	w("\n\n")
+
+	loadTableSet(w, r.Load)
+}
+
+// loadTableSet writes a table per server, protocol, body and condition.
+func loadTableSet(w writer, points []loadPoint) {
 	type group struct {
 		server string
 		proto  target.Proto
@@ -411,7 +577,7 @@ func (r *report) loadTables(w writer) {
 
 	var groups []group
 
-	for _, lp := range r.Load {
+	for _, lp := range points {
 		g := group{
 			server: lp.Server,
 			proto:  lp.Proto,
@@ -423,41 +589,149 @@ func (r *report) loadTables(w writer) {
 		}
 	}
 
+	bound := serverBoundKeys(points)
+
 	for _, g := range groups {
 		under := ""
 		if c, ok := conditionNamed(g.cond); ok && c.Netem {
 			under = ", " + c.String()
 		}
 
-		w("### %s, %s, %s%s\n\n", g.server, g.proto.Wire(), strings.TrimPrefix(g.op, "bytes-"), under)
-		w("| client | conc | req/s | MB/s | p50 | p95 | p99 | CPU µs/req | cores | B/req | allocs/req | GC | GC pause ms | heap MB | goroutines | srv |\n")
-		w("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
+		udp := g.proto == target.H3
 
-		for _, lp := range r.Load {
-			if lp.Server != g.server || lp.Proto != g.proto || lp.Op != g.op || lp.Condition != g.cond {
-				continue
+		w("### %s, %s, %s%s\n\n", g.server, g.proto.Wire(), strings.TrimPrefix(g.op, "bytes-"), under)
+		w("| client | conc | req/s | MB/s | p50 | p95 | p99 | CPU µs/req | cores | B/req | allocs/req | GC | GC pause ms | heap MB | goroutines | win s | srv |")
+
+		if udp {
+			w(" UDP |")
+		}
+
+		w("\n|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
+
+		if udp {
+			w("---:|")
+		}
+
+		w("\n")
+
+		var rows []loadPoint
+
+		for _, lp := range points {
+			if lp.Server == g.server && lp.Proto == g.proto && lp.Op == g.op && lp.Condition == g.cond {
+				rows = append(rows, lp)
+			}
+		}
+
+		for _, lp := range rows {
+			mark := ""
+
+			switch {
+			case lp.Client == "mimicry" && lp.Proto == target.H1 && lp.Conc > mimicryH1Limit:
+				mark = " ‡"
+			case lp.Client == "httpcloak" && lp.Proto == target.H1 && lp.Conc > httpcloakH1Idle:
+				mark = " †"
 			}
 
-			mark := ""
-			if lp.Client == "mimicry" && lp.Proto == target.H1 && lp.Conc > mimicryH1Limit {
-				mark = " ‡"
+			if bound[lp.key()] {
+				mark += " §"
 			}
 
 			if !lp.valid() {
-				w("| %s | %d | %s |||||||||||||||\n", lp.Client, lp.Conc, oneLine(lp.summary()))
+				w("| %s | %d | %s ||||||||||||||||", lp.Client, lp.Conc, oneLine(lp.summary()))
+
+				if udp {
+					w("|")
+				}
+
+				w("\n")
 
 				continue
 			}
 
 			res := lp.Result
-			w("| %s%s | %d | %.0f | %.1f | %s | %s | %s | %.1f | %.2f | %s | %.0f | %d | %.1f | %.1f | %d | %s |\n",
-				lp.Client, mark, lp.Conc, res.RPS, res.MBps, num(res.P50), num(res.P95), num(res.P99),
-				res.CPUPerRequest, res.ClientCores, bytesNum(res.BytesPerRequest), res.AllocsPerRequest,
-				res.GCs, res.GCPauseMs, res.HeapPeakMB, res.Goroutines, pct(res.ServerCPU))
+			rps := bestCell(rows, lp, "rps", func(r *scenario.LoadResult) float64 { return r.RPS }, false, fixed(0))
+			cpu := bestCell(rows, lp, "cpuPerRequest", func(r *scenario.LoadResult) float64 { return r.CPUPerRequest }, true, fixed(1))
+
+			w("| %s%s | %d | %s | %.1f | %s | %s | %s | %s | %.2f | %s | %s | %d | %.1f | %.1f | %d | %.1f | %s |",
+				lp.Client, mark, lp.Conc, rps, res.MBps, num(res.P50), num(res.P95), withRange(lp.Ranges, "p99", res.P99, num),
+				cpu, res.ClientCores, bytesNum(res.BytesPerRequest), withRange(lp.Ranges, "allocsPerRequest", res.AllocsPerRequest, fixed(0)),
+				res.GCs, res.GCPauseMs, res.HeapPeakMB, res.Goroutines, res.Seconds, serverCell(res))
+
+			if udp {
+				if lp.UDP != nil {
+					w(" %d |", lp.UDP.RcvbufErrors)
+				} else {
+					w(" ? |")
+				}
+			}
+
+			w("\n")
 		}
 
 		w("\n")
 	}
+}
+
+// serverCell is a load point's server CPU use, and its busiest worker's
+// where the server reports workers.
+func serverCell(res *scenario.LoadResult) string {
+	s := pct(res.ServerCPU)
+	if res.ServerWorker >= 0 {
+		s += " (" + pct(res.ServerWorker) + ")"
+	}
+
+	return s
+}
+
+// withRange formats v, with its range from ranges[key] when there is one.
+func withRange(ranges map[string][2]float64, key string, v float64, format func(float64) string) string {
+	s := format(v)
+
+	if rg, ok := ranges[key]; ok {
+		s += " (" + format(rg[0]) + "–" + format(rg[1]) + ")"
+	}
+
+	return s
+}
+
+// bestCell formats lp's value of key with its range, bold when lp is the
+// best impersonating client at its concurrency among rows (lower or
+// higher) and its range lies outside every other one's. Without ranges (a
+// single run) nothing is bold.
+func bestCell(rows []loadPoint, lp loadPoint, key string, get func(*scenario.LoadResult) float64, lower bool,
+	format func(float64) string,
+) string {
+	s := withRange(lp.Ranges, key, get(lp.Result), format)
+
+	mine, ok := lp.Ranges[key]
+	if !ok || lp.Client == referenceClient {
+		return s
+	}
+
+	others := 0
+
+	for _, o := range rows {
+		if o.Client == lp.Client || o.Client == referenceClient || o.Conc != lp.Conc || !o.valid() {
+			continue
+		}
+
+		theirs, ok := o.Ranges[key]
+		if !ok {
+			return s
+		}
+
+		others++
+
+		if lower && mine[1] >= theirs[0] || !lower && mine[0] <= theirs[1] {
+			return s
+		}
+	}
+
+	if others == 0 {
+		return s
+	}
+
+	return "**" + s + "**"
 }
 
 func (r *report) idleTable(w writer) {
@@ -465,44 +739,176 @@ func (r *report) idleTable(w writer) {
 		return
 	}
 
+	n := r.Settings.IdleN
+
 	w("## Layer 4: memory per idle connection\n\n")
-	w("%d clients built, then each warmed onto the protocol with GET /json and left idle; the heap (after GC) and goroutines ", r.Settings.IdleN)
+	w("%d clients built, then each warmed onto the protocol with GET /json and left idle; the heap (after GC) and goroutines ", n)
 	w("they hold, per client before any request and per idle connection after, and the goroutines' stacks in use per idle ")
 	w("connection (`StackInuse`, which the heap leaves out). After close: what is left once every client ")
-	w("is closed and dropped (heap KB in all, goroutines). GC under load is in the layer 3 tables.\n\n")
+	w("is closed and dropped (heap KB in all, goroutines). GC under load is in the layer 3 tables. ")
+	w("‡: mimicry's idle state over HTTP/3 includes the HTTP/2 connection it learnt Alt-Svc on.\n\n")
 	w("| client | proto | heap KB/client | goroutines/client | heap KB/idle conn | goroutines/idle conn | stack KB/idle conn | after close: heap KB | after close: goroutines |\n")
 	w("|---|---|---:|---:|---:|---:|---:|---:|---:|\n")
 
 	for _, p := range target.Protos {
 		for _, ip := range r.Idle {
-			if ip.Proto != p {
+			if ip.Proto != p || (ip.N != 0 && ip.N != n) {
 				continue
 			}
 
-			if ip.Result == nil || ip.NA != "" || ip.Error != "" || ip.Result.Discarded != "" {
-				why := ip.NA + ip.Error
-				if ip.Result != nil {
-					why += ip.Result.Discarded
-				}
-
-				w("| %s | %s | %s ||||||||\n", ip.Client, p, oneLine(why))
+			if !ip.valid() {
+				w("| %s | %s | %s ||||||||\n", ip.Client, p, oneLine(ip.why()))
 
 				continue
-			}
-
-			mark := ""
-			if ip.Client == "mimicry" && p == target.H3 {
-				mark = " ‡"
 			}
 
 			res := ip.Result
-			w("| %s%s | %s | %.1f | %.1f | %.1f | %.1f | %.1f | %.0f | %d |\n", ip.Client, mark, p,
+			w("| %s%s | %s | %.1f | %.1f | %.1f | %.1f | %.1f | %.0f | %d |\n", ip.Client, ip.mark(), p,
 				res.HeapPerClientKB, res.GoroutinesPerClient, res.HeapPerConnKB, res.GoroutinesPerConn,
 				res.StackPerConnKB, res.HeapAfterCloseKB, res.GoroutinesAfterClose)
 		}
 	}
 
 	w("\n")
+
+	if len(r.Settings.IdleNs) > 1 {
+		r.idleFit(w)
+	}
+}
+
+func (ip idlePoint) valid() bool {
+	return ip.Result != nil && ip.NA == "" && ip.Error == "" && ip.Result.Discarded == ""
+}
+
+func (ip idlePoint) why() string {
+	why := ip.NA + ip.Error
+	if ip.Result != nil {
+		why += ip.Result.Discarded
+	}
+
+	return why
+}
+
+func (ip idlePoint) mark() string {
+	if ip.Client == "mimicry" && ip.Proto == target.H3 {
+		return " ‡"
+	}
+
+	return ""
+}
+
+// idleFit writes layer 4's memory as a slope and an intercept over the
+// client counts: the totals (per-connection value × N) fitted against N,
+// so what the process allocates once (during the first warm-up: TLS
+// session caches, a QUIC library's buffers) is the intercept instead of
+// being divided among N.
+func (r *report) idleFit(w writer) {
+	counts := make([]string, len(r.Settings.IdleNs))
+	for i, n := range r.Settings.IdleNs {
+		counts[i] = strconv.Itoa(n)
+	}
+
+	w("### Per connection and fixed, over %s clients\n\n", strings.Join(counts, ", "))
+	w("The totals at each client count (heap and stack grown by the idle connections, goroutines; heap grown by the clients ")
+	w("before any request) fitted against the count by least squares: the slope is per idle connection (or per client), the ")
+	w("intercept what the process allocates once whatever the count. Divided by one count, as above, the fixed part is ")
+	w("spread over the clients.\n\n")
+	w("| client | proto | heap KB/idle conn | fixed heap KB | stack KB/idle conn | goroutines/idle conn | fixed goroutines | heap KB/client | fixed heap KB (clients) |\n")
+	w("|---|---|---:|---:|---:|---:|---:|---:|---:|\n")
+
+	type key struct {
+		client string
+		proto  target.Proto
+	}
+
+	var keys []key
+
+	byKey := map[key][]idlePoint{}
+
+	for _, ip := range r.Idle {
+		k := key{
+			client: ip.Client,
+			proto:  ip.Proto,
+		}
+		if byKey[k] == nil {
+			keys = append(keys, k)
+		}
+
+		byKey[k] = append(byKey[k], ip)
+	}
+
+	sort.SliceStable(keys, func(i, j int) bool {
+		return slices.Index(target.Protos, keys[i].proto) < slices.Index(target.Protos, keys[j].proto)
+	})
+
+	for _, k := range keys {
+		var ns, heap, stack, gor, clientHeap []float64
+
+		for _, ip := range byKey[k] {
+			if !ip.valid() || ip.N == 0 {
+				continue
+			}
+
+			n := float64(ip.N)
+			res := ip.Result
+
+			ns = append(ns, n)
+			heap = append(heap, res.HeapPerConnKB*n)
+			stack = append(stack, res.StackPerConnKB*n)
+			gor = append(gor, res.GoroutinesPerConn*n)
+			clientHeap = append(clientHeap, res.HeapPerClientKB*n)
+		}
+
+		if len(ns) < 2 {
+			w("| %s | %s | fewer than two valid counts ||||||||\n", k.client, k.proto)
+
+			continue
+		}
+
+		hs, hi := fit(ns, heap)
+		ss, _ := fit(ns, stack)
+		gs, gi := fit(ns, gor)
+		cs, ci := fit(ns, clientHeap)
+
+		w("| %s%s | %s | %.1f | %.0f | %.1f | %.2f | %.1f | %.1f | %.0f |\n", k.client, idlePoint{Client: k.client, Proto: k.proto}.mark(), k.proto,
+			hs, unsigned(hi, 0), ss, gs, unsigned(gi, 1), cs, unsigned(ci, 0))
+	}
+
+	w("\n")
+}
+
+// unsigned rounds v to digits decimals, without the sign of a negative
+// zero ("-0" for a fitted intercept of -0.3).
+func unsigned(v float64, digits int) float64 {
+	p := math.Pow10(digits)
+	if r := math.Round(v*p) / p; r != 0 {
+		return r
+	}
+
+	return 0
+}
+
+// fit returns the least-squares slope and intercept of ys against xs.
+func fit(xs, ys []float64) (slope, intercept float64) {
+	var sx, sy, sxx, sxy float64
+
+	k := float64(len(xs))
+
+	for i, x := range xs {
+		sx += x
+		sy += ys[i]
+		sxx += x * x
+		sxy += x * ys[i]
+	}
+
+	d := k*sxx - sx*sx
+	if d == 0 {
+		return 0, sy / k
+	}
+
+	slope = (k*sxy - sx*sy) / d
+
+	return slope, (sy - slope*sx) / k
 }
 
 type pageSummary struct {
@@ -578,11 +984,16 @@ func (r *report) pageTables(w writer) {
 	w("## Layer 5: page loads under network conditions\n\n")
 	w("One HTML document from www, then its 30 subresources (www 10, static 14, api 6; about 1.5 MB) all requested at once, ")
 	w("each client's pooling deciding how they go out, against the Go server (which counts the connections each load opens). ")
-	w("Cold: a new client. Warm: the same client again. Times are the median (and 90th percentile) of %d loads, in ms; ", r.Settings.Reps)
+	w("Cold: a new client. Warm: the same client again. Times are the median (and 90th percentile) of %d loads (%d under loss), in ms; ",
+		r.Settings.Reps, max(r.Settings.Reps, r.Settings.RepsLoss))
 	w("conns the median connections the server accepted meanwhile (TCP and QUIC); protocols the responses per protocol over all ")
 	w("cold loads, then all warm ones. ")
 	w("netem: %s. Through the proxies only HTTP/1.1 and HTTP/2 run: an HTTP proxy carries no UDP, and mimicry, as Chrome, ", r.Env.Netem)
-	w("never uses HTTP/3 through a proxy by default (layer 6 measures HTTP/3 through SOCKS5).\n\n")
+	w("never uses HTTP/3 through a proxy by default (layer 6 measures HTTP/3 through SOCKS5). Through a proxy each setup is ")
+	w("checked against the proxy's per-user counts (each setup's own user for CONNECT with Basic auth): every new client ")
+	w("opened a tunnel there, and it relayed at least the body bytes the loads received; a setup that fails is discarded. ")
+	w("The proxy splices (its counts come from TCP_INFO); its rows in the reports of 2026-10-28 and 2026-10-29 relayed by ")
+	w("copying through a counting reader instead, so compare proxy rows across those reports with care.\n\n")
 
 	conds := []string{}
 
@@ -616,8 +1027,8 @@ func (r *report) pageTables(w writer) {
 			w("|---|---|---:|---:|---:|---:|---|---|---:|\n")
 
 			for _, pp := range rows {
-				if pp.Result == nil || pp.NA != "" || pp.Error != "" {
-					w("| %s | %s | %s |||||||\n", pp.Client, pp.Proto, oneLine(pp.NA+pp.Error))
+				if pp.why() != "" {
+					w("| %s | %s | %s |||||||\n", pp.Client, pp.Proto, oneLine(pp.why()))
 
 					continue
 				}
@@ -673,7 +1084,7 @@ func (r *report) skipped(w writer) {
 	}
 
 	for _, pp := range r.Pages {
-		if why := pp.NA + pp.Error; why != "" {
+		if why := pp.why(); why != "" {
 			lines = append(lines, fmt.Sprintf("page %s %s %s, %s: %s", pp.Condition, pp.Proto, pp.Proxy, pp.Client, oneLine(why)))
 		}
 	}
