@@ -3,593 +3,589 @@ goarch: arm64
 pkg: github.com/roachadam/mimicry/internal/bench
 BenchmarkRequest
 BenchmarkRequest/server=nginx/proto=h1/method=GET/client=nethttp
-BenchmarkRequest/server=nginx/proto=h1/method=GET/client=nethttp-4         	    6504	     60434 ns/op	    4270 B/op	      59 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=GET/client=nethttp-4         	    5775	     64100 ns/op	    4273 B/op	      59 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=GET/client=nethttp-4         	    5800	     56934 ns/op	    4270 B/op	      59 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=GET/client=nethttp-4         	   10000	     45557 ns/op	    4269 B/op	      59 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=nethttp-4         	    5635	     61339 ns/op	    4269 B/op	      59 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=nethttp-4         	    6712	     57511 ns/op	    4266 B/op	      59 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=nethttp-4         	    6406	     58974 ns/op	    4269 B/op	      59 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=nethttp-4         	    5947	     59901 ns/op	    4271 B/op	      59 allocs/op
 BenchmarkRequest/server=nginx/proto=h1/method=GET/client=mimicry
-BenchmarkRequest/server=nginx/proto=h1/method=GET/client=mimicry-4         	    7374	     51632 ns/op	    8191 B/op	      74 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=GET/client=mimicry-4         	    6376	     55195 ns/op	    8187 B/op	      74 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=GET/client=mimicry-4         	    5410	     63460 ns/op	    8187 B/op	      74 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=GET/client=mimicry-4         	    6442	     63129 ns/op	    8186 B/op	      74 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=mimicry-4         	    5894	     63935 ns/op	    8191 B/op	      74 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=mimicry-4         	    6398	     62394 ns/op	    8186 B/op	      74 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=mimicry-4         	    6033	     62244 ns/op	    8187 B/op	      74 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=mimicry-4         	    6436	     65404 ns/op	    8185 B/op	      74 allocs/op
 BenchmarkRequest/server=nginx/proto=h1/method=GET/client=tls-client
-BenchmarkRequest/server=nginx/proto=h1/method=GET/client=tls-client-4      	    5456	     67576 ns/op	   11052 B/op	     111 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=GET/client=tls-client-4      	    4964	     71255 ns/op	   11062 B/op	     111 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=GET/client=tls-client-4      	    5091	     71368 ns/op	   11058 B/op	     111 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=GET/client=tls-client-4      	    5464	     70145 ns/op	   11056 B/op	     111 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=tls-client-4      	    5754	     65550 ns/op	   11057 B/op	     111 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=tls-client-4      	    5674	     64596 ns/op	   11061 B/op	     111 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=tls-client-4      	    6010	     66904 ns/op	   11057 B/op	     111 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=tls-client-4      	    6145	     66456 ns/op	   11062 B/op	     111 allocs/op
 BenchmarkRequest/server=nginx/proto=h1/method=GET/client=httpcloak
-BenchmarkRequest/server=nginx/proto=h1/method=GET/client=httpcloak-4       	    4554	     80760 ns/op	   16331 B/op	     214 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=GET/client=httpcloak-4       	    4110	     81091 ns/op	   16331 B/op	     214 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=GET/client=httpcloak-4       	    4892	     83509 ns/op	   16331 B/op	     214 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=GET/client=httpcloak-4       	    4857	     82345 ns/op	   16331 B/op	     214 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=httpcloak-4       	    4970	     81912 ns/op	   16333 B/op	     214 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=httpcloak-4       	    4774	     79447 ns/op	   16331 B/op	     214 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=httpcloak-4       	    4806	     76835 ns/op	   16331 B/op	     214 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=httpcloak-4       	    4858	     83209 ns/op	   16332 B/op	     214 allocs/op
 BenchmarkRequest/server=nginx/proto=h1/method=GET/client=azuretls
-BenchmarkRequest/server=nginx/proto=h1/method=GET/client=azuretls-4        	    4759	     79342 ns/op	   13391 B/op	     260 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=GET/client=azuretls-4        	    4743	     79625 ns/op	   13391 B/op	     260 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=GET/client=azuretls-4        	    4617	     80365 ns/op	   13390 B/op	     260 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=GET/client=azuretls-4        	    4384	     79939 ns/op	   13392 B/op	     260 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=azuretls-4        	    6092	     84955 ns/op	   13393 B/op	     260 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=azuretls-4        	    3926	     88010 ns/op	   13391 B/op	     260 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=azuretls-4        	    4144	     89499 ns/op	   13391 B/op	     260 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=GET/client=azuretls-4        	    4168	     89516 ns/op	   13389 B/op	     260 allocs/op
 BenchmarkRequest/server=nginx/proto=h1/method=POST/client=nethttp
-BenchmarkRequest/server=nginx/proto=h1/method=POST/client=nethttp-4        	    5875	     60973 ns/op	    5457 B/op	      68 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=POST/client=nethttp-4        	    6172	     61362 ns/op	    5426 B/op	      68 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=POST/client=nethttp-4        	    6278	     59311 ns/op	    5419 B/op	      68 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=POST/client=nethttp-4        	    6112	     61276 ns/op	    5432 B/op	      68 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=nethttp-4        	    5262	     63168 ns/op	    5441 B/op	      68 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=nethttp-4        	    5458	     63590 ns/op	    5427 B/op	      68 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=nethttp-4        	    5353	     66280 ns/op	    5433 B/op	      68 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=nethttp-4        	    5244	     63410 ns/op	    5425 B/op	      68 allocs/op
 BenchmarkRequest/server=nginx/proto=h1/method=POST/client=mimicry
-BenchmarkRequest/server=nginx/proto=h1/method=POST/client=mimicry-4        	    5617	     66280 ns/op	    9604 B/op	      88 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=POST/client=mimicry-4        	    5380	     65333 ns/op	    9601 B/op	      88 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=POST/client=mimicry-4        	    6050	     65010 ns/op	    9601 B/op	      88 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=POST/client=mimicry-4        	    5871	     64664 ns/op	    9601 B/op	      88 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=mimicry-4        	    8793	     70725 ns/op	    9608 B/op	      88 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=mimicry-4        	    5128	     70368 ns/op	    9603 B/op	      88 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=mimicry-4        	    4875	     74465 ns/op	    9601 B/op	      88 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=mimicry-4        	    4738	     73167 ns/op	    9607 B/op	      88 allocs/op
 BenchmarkRequest/server=nginx/proto=h1/method=POST/client=tls-client
-BenchmarkRequest/server=nginx/proto=h1/method=POST/client=tls-client-4     	    5259	     68487 ns/op	   12932 B/op	     118 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=POST/client=tls-client-4     	    5751	     70186 ns/op	   12933 B/op	     118 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=POST/client=tls-client-4     	    5710	     72361 ns/op	   12927 B/op	     118 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=POST/client=tls-client-4     	    5782	     68433 ns/op	   12929 B/op	     118 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=tls-client-4     	    4510	     78859 ns/op	   12930 B/op	     118 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=tls-client-4     	    4640	     75718 ns/op	   12937 B/op	     118 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=tls-client-4     	    4989	     82254 ns/op	   12937 B/op	     118 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=tls-client-4     	    5410	     77400 ns/op	   12931 B/op	     118 allocs/op
 BenchmarkRequest/server=nginx/proto=h1/method=POST/client=httpcloak
-BenchmarkRequest/server=nginx/proto=h1/method=POST/client=httpcloak-4      	    4574	     83750 ns/op	   15050 B/op	     213 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=POST/client=httpcloak-4      	    4479	     80929 ns/op	   15049 B/op	     213 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=POST/client=httpcloak-4      	    4767	     82601 ns/op	   15053 B/op	     213 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=POST/client=httpcloak-4      	    4668	     83609 ns/op	   15049 B/op	     213 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=httpcloak-4      	    3837	     89662 ns/op	   15052 B/op	     213 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=httpcloak-4      	    3916	     89218 ns/op	   15044 B/op	     213 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=httpcloak-4      	    4047	     93514 ns/op	   15044 B/op	     213 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=httpcloak-4      	    4200	     87417 ns/op	   15048 B/op	     213 allocs/op
 BenchmarkRequest/server=nginx/proto=h1/method=POST/client=azuretls
-BenchmarkRequest/server=nginx/proto=h1/method=POST/client=azuretls-4       	    3784	     82915 ns/op	   13962 B/op	     291 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=POST/client=azuretls-4       	    4524	     83213 ns/op	   13959 B/op	     291 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=POST/client=azuretls-4       	    4455	     82285 ns/op	   13952 B/op	     290 allocs/op
-BenchmarkRequest/server=nginx/proto=h1/method=POST/client=azuretls-4       	    4548	     85882 ns/op	   13958 B/op	     291 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=azuretls-4       	    3656	     92027 ns/op	   13957 B/op	     291 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=azuretls-4       	    3943	     93390 ns/op	   13952 B/op	     290 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=azuretls-4       	    4495	     91361 ns/op	   13960 B/op	     291 allocs/op
+BenchmarkRequest/server=nginx/proto=h1/method=POST/client=azuretls-4       	    3740	     90799 ns/op	   13955 B/op	     290 allocs/op
 BenchmarkRequest/server=nginx/proto=h2/method=GET/client=nethttp
-BenchmarkRequest/server=nginx/proto=h2/method=GET/client=nethttp-4         	    5311	     64161 ns/op	    5990 B/op	      56 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=GET/client=nethttp-4         	    5906	     63879 ns/op	    5988 B/op	      56 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=GET/client=nethttp-4         	    5908	     63022 ns/op	    5992 B/op	      56 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=GET/client=nethttp-4         	    5950	     61713 ns/op	    5990 B/op	      56 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=nethttp-4         	    5134	     67448 ns/op	    5992 B/op	      56 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=nethttp-4         	    5329	    188489 ns/op	    5992 B/op	      56 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=nethttp-4         	    5348	     64620 ns/op	    5990 B/op	      56 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=nethttp-4         	    5829	     66311 ns/op	    5994 B/op	      56 allocs/op
 BenchmarkRequest/server=nginx/proto=h2/method=GET/client=mimicry
-BenchmarkRequest/server=nginx/proto=h2/method=GET/client=mimicry-4         	    5541	     67431 ns/op	    8524 B/op	      80 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=GET/client=mimicry-4         	    5895	     67959 ns/op	    8523 B/op	      80 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=GET/client=mimicry-4         	    5403	     65767 ns/op	    8522 B/op	      80 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=GET/client=mimicry-4         	    6130	     71790 ns/op	    8522 B/op	      80 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=mimicry-4         	    5385	     63038 ns/op	    8529 B/op	      80 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=mimicry-4         	    5468	     67410 ns/op	    8523 B/op	      80 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=mimicry-4         	    5959	     65338 ns/op	    8523 B/op	      80 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=mimicry-4         	    6060	     64898 ns/op	    8526 B/op	      80 allocs/op
 BenchmarkRequest/server=nginx/proto=h2/method=GET/client=tls-client
-BenchmarkRequest/server=nginx/proto=h2/method=GET/client=tls-client-4      	    4896	     77941 ns/op	   15435 B/op	     141 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=GET/client=tls-client-4      	    5402	     75221 ns/op	   15425 B/op	     141 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=GET/client=tls-client-4      	    4912	     76292 ns/op	   15437 B/op	     141 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=GET/client=tls-client-4      	    5275	     77710 ns/op	   15429 B/op	     141 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=tls-client-4      	    5174	     72137 ns/op	   15427 B/op	     141 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=tls-client-4      	    5452	     69449 ns/op	   15434 B/op	     141 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=tls-client-4      	    5528	     68265 ns/op	   15425 B/op	     141 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=tls-client-4      	    5670	     68678 ns/op	   15425 B/op	     141 allocs/op
 BenchmarkRequest/server=nginx/proto=h2/method=GET/client=httpcloak
-BenchmarkRequest/server=nginx/proto=h2/method=GET/client=httpcloak-4       	    4533	     79362 ns/op	   15278 B/op	     109 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=GET/client=httpcloak-4       	    4323	     83694 ns/op	   15301 B/op	     109 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=GET/client=httpcloak-4       	    3885	     83571 ns/op	   15286 B/op	     109 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=GET/client=httpcloak-4       	    4323	     80231 ns/op	   15290 B/op	     109 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=httpcloak-4       	    5076	     78826 ns/op	   15287 B/op	     109 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=httpcloak-4       	    4558	    109381 ns/op	   15270 B/op	     109 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=httpcloak-4       	    4353	     82763 ns/op	   15299 B/op	     109 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=httpcloak-4       	    4489	     76897 ns/op	   15319 B/op	     109 allocs/op
 BenchmarkRequest/server=nginx/proto=h2/method=GET/client=azuretls
-BenchmarkRequest/server=nginx/proto=h2/method=GET/client=azuretls-4        	    3123	    103376 ns/op	   23653 B/op	     414 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=GET/client=azuretls-4        	    3386	     99368 ns/op	   23650 B/op	     414 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=GET/client=azuretls-4        	    3249	     98635 ns/op	   23654 B/op	     414 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=GET/client=azuretls-4        	    3379	     99063 ns/op	   23645 B/op	     413 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=azuretls-4        	    3256	     98286 ns/op	   23649 B/op	     414 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=azuretls-4        	    3476	     94665 ns/op	   23654 B/op	     414 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=azuretls-4        	    3506	     95380 ns/op	   23657 B/op	     414 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=GET/client=azuretls-4        	    3481	     92064 ns/op	   23656 B/op	     414 allocs/op
 BenchmarkRequest/server=nginx/proto=h2/method=POST/client=nethttp
-BenchmarkRequest/server=nginx/proto=h2/method=POST/client=nethttp-4        	    4964	     67353 ns/op	    7250 B/op	      66 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=POST/client=nethttp-4        	    5768	     65896 ns/op	    7250 B/op	      66 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=POST/client=nethttp-4        	    5737	     66538 ns/op	    7250 B/op	      66 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=POST/client=nethttp-4        	    5803	     58271 ns/op	    7248 B/op	      66 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=nethttp-4        	    5002	     64553 ns/op	    7252 B/op	      66 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=nethttp-4        	    5618	     63079 ns/op	    7251 B/op	      66 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=nethttp-4        	    5547	     61362 ns/op	    7248 B/op	      66 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=nethttp-4        	    5306	     66485 ns/op	    7248 B/op	      66 allocs/op
 BenchmarkRequest/server=nginx/proto=h2/method=POST/client=mimicry
-BenchmarkRequest/server=nginx/proto=h2/method=POST/client=mimicry-4        	    5512	     64941 ns/op	    9865 B/op	      92 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=POST/client=mimicry-4        	    5515	     62661 ns/op	    9824 B/op	      92 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=POST/client=mimicry-4        	    5181	     64044 ns/op	    9824 B/op	      92 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=POST/client=mimicry-4        	    5487	     63732 ns/op	    9865 B/op	      92 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=mimicry-4        	    5569	     61482 ns/op	    9851 B/op	      92 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=mimicry-4        	    5683	     60168 ns/op	    9863 B/op	      92 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=mimicry-4        	    5506	     60792 ns/op	    9824 B/op	      92 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=mimicry-4        	    5581	     70282 ns/op	    9824 B/op	      92 allocs/op
 BenchmarkRequest/server=nginx/proto=h2/method=POST/client=tls-client
-BenchmarkRequest/server=nginx/proto=h2/method=POST/client=tls-client-4     	    4870	     70261 ns/op	   19672 B/op	     153 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=POST/client=tls-client-4     	    4928	     68357 ns/op	   19672 B/op	     153 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=POST/client=tls-client-4     	    5245	     69450 ns/op	   19672 B/op	     153 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=POST/client=tls-client-4     	    4892	     69152 ns/op	   19673 B/op	     153 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=tls-client-4     	    4832	     69040 ns/op	   19674 B/op	     153 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=tls-client-4     	    5306	     68367 ns/op	   19672 B/op	     153 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=tls-client-4     	    4998	     66341 ns/op	   19672 B/op	     153 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=tls-client-4     	    4993	     66269 ns/op	   19672 B/op	     153 allocs/op
 BenchmarkRequest/server=nginx/proto=h2/method=POST/client=httpcloak
-BenchmarkRequest/server=nginx/proto=h2/method=POST/client=httpcloak-4      	    3751	     85640 ns/op	   14525 B/op	     120 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=POST/client=httpcloak-4      	    4412	     81513 ns/op	   14556 B/op	     120 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=POST/client=httpcloak-4      	    4222	     81089 ns/op	   14553 B/op	     120 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=POST/client=httpcloak-4      	    4074	     86537 ns/op	   14588 B/op	     120 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=httpcloak-4      	    4435	     90969 ns/op	   14480 B/op	     120 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=httpcloak-4      	    4068	     80535 ns/op	   14557 B/op	     120 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=httpcloak-4      	    3986	     77399 ns/op	   14592 B/op	     120 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=httpcloak-4      	    4264	     79906 ns/op	   14635 B/op	     120 allocs/op
 BenchmarkRequest/server=nginx/proto=h2/method=POST/client=azuretls
-BenchmarkRequest/server=nginx/proto=h2/method=POST/client=azuretls-4       	    2913	    108802 ns/op	   25053 B/op	     459 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=POST/client=azuretls-4       	    3289	    104623 ns/op	   25044 B/op	     459 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=POST/client=azuretls-4       	    3220	    106858 ns/op	   25052 B/op	     459 allocs/op
-BenchmarkRequest/server=nginx/proto=h2/method=POST/client=azuretls-4       	    3352	    104032 ns/op	   25057 B/op	     459 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=azuretls-4       	    3212	    101784 ns/op	   25049 B/op	     459 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=azuretls-4       	    3340	     97874 ns/op	   25041 B/op	     459 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=azuretls-4       	    3330	     95866 ns/op	   25054 B/op	     459 allocs/op
+BenchmarkRequest/server=nginx/proto=h2/method=POST/client=azuretls-4       	    4654	     93806 ns/op	   25050 B/op	     459 allocs/op
 BenchmarkRequest/server=nginx/proto=h3/method=GET/client=nethttp
-BenchmarkRequest/server=nginx/proto=h3/method=GET/client=nethttp-4         	    5300	     68772 ns/op	    8115 B/op	     122 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=GET/client=nethttp-4         	    5172	     67611 ns/op	    8119 B/op	     122 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=GET/client=nethttp-4         	    5132	     67068 ns/op	    8119 B/op	     122 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=GET/client=nethttp-4         	    5242	     66978 ns/op	    8106 B/op	     122 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=nethttp-4         	    5241	     64215 ns/op	    8130 B/op	     122 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=nethttp-4         	    5854	     62190 ns/op	    8145 B/op	     123 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=nethttp-4         	    5930	     63786 ns/op	    8114 B/op	     122 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=nethttp-4         	    5246	     63866 ns/op	    8109 B/op	     122 allocs/op
 BenchmarkRequest/server=nginx/proto=h3/method=GET/client=mimicry
-BenchmarkRequest/server=nginx/proto=h3/method=GET/client=mimicry-4         	    4843	     73426 ns/op	   10804 B/op	      85 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=GET/client=mimicry-4         	    4752	     73489 ns/op	   10804 B/op	      85 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=GET/client=mimicry-4         	    4918	     72635 ns/op	   10803 B/op	      85 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=GET/client=mimicry-4         	    4676	     75440 ns/op	   10802 B/op	      85 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=mimicry-4         	    5041	     69390 ns/op	   10805 B/op	      85 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=mimicry-4         	    5172	     68568 ns/op	   10806 B/op	      85 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=mimicry-4         	    5094	     69764 ns/op	   10805 B/op	      85 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=mimicry-4         	    5023	     69907 ns/op	   10805 B/op	      85 allocs/op
 BenchmarkRequest/server=nginx/proto=h3/method=GET/client=tls-client
-BenchmarkRequest/server=nginx/proto=h3/method=GET/client=tls-client-4      	    4114	     85520 ns/op	   18715 B/op	     225 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=GET/client=tls-client-4      	    3897	     84911 ns/op	   18692 B/op	     225 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=GET/client=tls-client-4      	    4334	     83395 ns/op	   18701 B/op	     225 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=GET/client=tls-client-4      	    4059	     83317 ns/op	   18705 B/op	     225 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=tls-client-4      	    4383	     81038 ns/op	   18716 B/op	     225 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=tls-client-4      	    3940	     80768 ns/op	   18698 B/op	     225 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=tls-client-4      	    4287	     79185 ns/op	   18694 B/op	     225 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=tls-client-4      	    4263	     79609 ns/op	   18698 B/op	     225 allocs/op
 BenchmarkRequest/server=nginx/proto=h3/method=GET/client=httpcloak
-BenchmarkRequest/server=nginx/proto=h3/method=GET/client=httpcloak-4       	    3256	    113395 ns/op	   25060 B/op	     335 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=GET/client=httpcloak-4       	    3351	    109000 ns/op	   25050 B/op	     335 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=GET/client=httpcloak-4       	    3253	    108643 ns/op	   25048 B/op	     335 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=GET/client=httpcloak-4       	    3218	    111379 ns/op	   25042 B/op	     335 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=httpcloak-4       	    3256	    104929 ns/op	   25063 B/op	     335 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=httpcloak-4       	    3415	    105617 ns/op	   25041 B/op	     335 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=httpcloak-4       	    3398	    105931 ns/op	   25052 B/op	     335 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=httpcloak-4       	    3256	    105230 ns/op	   25041 B/op	     335 allocs/op
 BenchmarkRequest/server=nginx/proto=h3/method=GET/client=azuretls
-BenchmarkRequest/server=nginx/proto=h3/method=GET/client=azuretls-4        	    3934	     87060 ns/op	   21451 B/op	     293 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=GET/client=azuretls-4        	    4230	     87723 ns/op	   21462 B/op	     293 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=GET/client=azuretls-4        	    4143	     91008 ns/op	   21446 B/op	     293 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=GET/client=azuretls-4        	    4162	     90655 ns/op	   21469 B/op	     293 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=azuretls-4        	    4141	     82309 ns/op	   21468 B/op	     293 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=azuretls-4        	    4399	     85919 ns/op	   21456 B/op	     293 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=azuretls-4        	    4083	     86496 ns/op	   21448 B/op	     293 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=GET/client=azuretls-4        	    3873	     87356 ns/op	   21469 B/op	     293 allocs/op
 BenchmarkRequest/server=nginx/proto=h3/method=POST/client=nethttp
-BenchmarkRequest/server=nginx/proto=h3/method=POST/client=nethttp-4        	    4312	     84350 ns/op	   17282 B/op	     131 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=POST/client=nethttp-4        	    4370	     80420 ns/op	   17253 B/op	     131 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=POST/client=nethttp-4        	    5084	     80528 ns/op	   17261 B/op	     131 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=POST/client=nethttp-4        	    5126	     79753 ns/op	   17241 B/op	     131 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=nethttp-4        	    4518	     82742 ns/op	   17298 B/op	     132 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=nethttp-4        	    4652	     80533 ns/op	   17224 B/op	     130 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=nethttp-4        	    4832	     80174 ns/op	   17252 B/op	     130 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=nethttp-4        	    4500	     80650 ns/op	   17250 B/op	     130 allocs/op
 BenchmarkRequest/server=nginx/proto=h3/method=POST/client=mimicry
-BenchmarkRequest/server=nginx/proto=h3/method=POST/client=mimicry-4        	    4382	     82647 ns/op	   12532 B/op	     103 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=POST/client=mimicry-4        	    4285	     82900 ns/op	   12526 B/op	     103 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=POST/client=mimicry-4        	    4310	     82169 ns/op	   12534 B/op	     103 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=POST/client=mimicry-4        	    4261	     82906 ns/op	   12531 B/op	     103 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=mimicry-4        	    4242	     80364 ns/op	   12536 B/op	     103 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=mimicry-4        	    3775	     81399 ns/op	   12525 B/op	     103 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=mimicry-4        	    4418	     80089 ns/op	   12527 B/op	     103 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=mimicry-4        	    4374	     81277 ns/op	   12530 B/op	     103 allocs/op
 BenchmarkRequest/server=nginx/proto=h3/method=POST/client=tls-client
-BenchmarkRequest/server=nginx/proto=h3/method=POST/client=tls-client-4     	    3849	    105422 ns/op	   29540 B/op	     234 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=POST/client=tls-client-4     	    3961	     99304 ns/op	   29524 B/op	     234 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=POST/client=tls-client-4     	    4220	    102191 ns/op	   29531 B/op	     234 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=POST/client=tls-client-4     	    3705	    103659 ns/op	   29511 B/op	     234 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=tls-client-4     	    4117	    100134 ns/op	   29521 B/op	     234 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=tls-client-4     	    3608	    104126 ns/op	   29536 B/op	     234 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=tls-client-4     	    4068	     97365 ns/op	   29549 B/op	     234 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=tls-client-4     	    3955	    100860 ns/op	   29541 B/op	     234 allocs/op
 BenchmarkRequest/server=nginx/proto=h3/method=POST/client=httpcloak
-BenchmarkRequest/server=nginx/proto=h3/method=POST/client=httpcloak-4      	    3201	    124744 ns/op	   32272 B/op	     330 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=POST/client=httpcloak-4      	    3271	    120848 ns/op	   32282 B/op	     330 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=POST/client=httpcloak-4      	    3565	    122739 ns/op	   32335 B/op	     330 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=POST/client=httpcloak-4      	    3408	    120906 ns/op	   32286 B/op	     330 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=httpcloak-4      	    3237	    119153 ns/op	   32298 B/op	     330 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=httpcloak-4      	    3454	    117470 ns/op	   32313 B/op	     330 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=httpcloak-4      	    3237	    120507 ns/op	   32297 B/op	     330 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=httpcloak-4      	    3268	    122409 ns/op	   32331 B/op	     330 allocs/op
 BenchmarkRequest/server=nginx/proto=h3/method=POST/client=azuretls
-BenchmarkRequest/server=nginx/proto=h3/method=POST/client=azuretls-4       	    3673	    108721 ns/op	   30038 B/op	     302 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=POST/client=azuretls-4       	    4111	    101480 ns/op	   30007 B/op	     302 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=POST/client=azuretls-4       	    3748	    105987 ns/op	   30025 B/op	     302 allocs/op
-BenchmarkRequest/server=nginx/proto=h3/method=POST/client=azuretls-4       	    3736	    106186 ns/op	   30014 B/op	     302 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=azuretls-4       	    3720	    103064 ns/op	   30053 B/op	     302 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=azuretls-4       	    3937	    105251 ns/op	   30030 B/op	     302 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=azuretls-4       	    3950	    117397 ns/op	   30045 B/op	     302 allocs/op
+BenchmarkRequest/server=nginx/proto=h3/method=POST/client=azuretls-4       	    4075	    101534 ns/op	   30007 B/op	     302 allocs/op
 BenchmarkRequest/server=go/proto=h1/method=GET/client=nethttp
-BenchmarkRequest/server=go/proto=h1/method=GET/client=nethttp-4            	    5902	     64697 ns/op	    3737 B/op	      53 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=GET/client=nethttp-4            	    5826	     60094 ns/op	    3743 B/op	      53 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=GET/client=nethttp-4            	    5890	     60146 ns/op	    3738 B/op	      53 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=GET/client=nethttp-4            	    5997	     59077 ns/op	    3741 B/op	      53 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=nethttp-4            	    6081	     57992 ns/op	    3738 B/op	      53 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=nethttp-4            	    6270	     58655 ns/op	    3739 B/op	      53 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=nethttp-4            	    6306	     56856 ns/op	    3739 B/op	      53 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=nethttp-4            	    6122	     58341 ns/op	    3736 B/op	      53 allocs/op
 BenchmarkRequest/server=go/proto=h1/method=GET/client=mimicry
-BenchmarkRequest/server=go/proto=h1/method=GET/client=mimicry-4            	    5886	     65030 ns/op	    7657 B/op	      68 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=GET/client=mimicry-4            	    6207	     65982 ns/op	    7658 B/op	      68 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=GET/client=mimicry-4            	    5512	     66344 ns/op	    7657 B/op	      68 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=GET/client=mimicry-4            	    5752	     65725 ns/op	    7656 B/op	      68 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=mimicry-4            	    5968	     64031 ns/op	    7657 B/op	      68 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=mimicry-4            	    5420	     64531 ns/op	    7656 B/op	      68 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=mimicry-4            	    6314	     64944 ns/op	    7656 B/op	      68 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=mimicry-4            	    6082	     62884 ns/op	    7658 B/op	      68 allocs/op
 BenchmarkRequest/server=go/proto=h1/method=GET/client=tls-client
-BenchmarkRequest/server=go/proto=h1/method=GET/client=tls-client-4         	    5131	     77165 ns/op	   10502 B/op	     105 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=GET/client=tls-client-4         	    5806	     70447 ns/op	   10500 B/op	     105 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=GET/client=tls-client-4         	    5815	     71510 ns/op	   10498 B/op	     105 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=GET/client=tls-client-4         	    5120	     70236 ns/op	   10502 B/op	     105 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=tls-client-4         	    5454	     69096 ns/op	   10506 B/op	     105 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=tls-client-4         	    5462	     70164 ns/op	   10500 B/op	     105 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=tls-client-4         	    5252	     75825 ns/op	   10499 B/op	     105 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=tls-client-4         	    4696	     73701 ns/op	   10499 B/op	     105 allocs/op
 BenchmarkRequest/server=go/proto=h1/method=GET/client=httpcloak
-BenchmarkRequest/server=go/proto=h1/method=GET/client=httpcloak-4          	    6651	     83812 ns/op	   12994 B/op	     192 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=GET/client=httpcloak-4          	    4612	     78839 ns/op	   12998 B/op	     192 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=GET/client=httpcloak-4          	    4072	     81880 ns/op	   12990 B/op	     192 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=GET/client=httpcloak-4          	    5079	     78680 ns/op	   12999 B/op	     192 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=httpcloak-4          	    4324	     84389 ns/op	   12988 B/op	     192 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=httpcloak-4          	    3948	     93407 ns/op	   12998 B/op	     192 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=httpcloak-4          	    4086	     88002 ns/op	   13006 B/op	     192 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=httpcloak-4          	    4012	     86303 ns/op	   13002 B/op	     192 allocs/op
 BenchmarkRequest/server=go/proto=h1/method=GET/client=azuretls
-BenchmarkRequest/server=go/proto=h1/method=GET/client=azuretls-4           	    4176	     81080 ns/op	   12465 B/op	     252 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=GET/client=azuretls-4           	    4700	     77875 ns/op	   12453 B/op	     252 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=GET/client=azuretls-4           	    5160	     78852 ns/op	   12474 B/op	     252 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=GET/client=azuretls-4           	    4886	     80096 ns/op	   12459 B/op	     252 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=azuretls-4           	    4094	     79723 ns/op	   12455 B/op	     252 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=azuretls-4           	    4822	     77981 ns/op	   12466 B/op	     252 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=azuretls-4           	    4808	     78507 ns/op	   12456 B/op	     252 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=GET/client=azuretls-4           	    5031	     79374 ns/op	   12458 B/op	     252 allocs/op
 BenchmarkRequest/server=go/proto=h1/method=POST/client=nethttp
-BenchmarkRequest/server=go/proto=h1/method=POST/client=nethttp-4           	    6160	     62403 ns/op	    5002 B/op	      64 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=POST/client=nethttp-4           	    5616	     61993 ns/op	    4973 B/op	      64 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=POST/client=nethttp-4           	    5721	     61695 ns/op	    4973 B/op	      64 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=POST/client=nethttp-4           	    5616	     61356 ns/op	    4964 B/op	      64 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=nethttp-4           	    5872	     61491 ns/op	    4984 B/op	      64 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=nethttp-4           	    4980	     63297 ns/op	    4972 B/op	      64 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=nethttp-4           	    5425	     66003 ns/op	    4983 B/op	      64 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=nethttp-4           	    5358	     61791 ns/op	    4969 B/op	      64 allocs/op
 BenchmarkRequest/server=go/proto=h1/method=POST/client=mimicry
-BenchmarkRequest/server=go/proto=h1/method=POST/client=mimicry-4           	    5672	     68068 ns/op	    9123 B/op	      84 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=POST/client=mimicry-4           	    5666	     65950 ns/op	    9121 B/op	      84 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=POST/client=mimicry-4           	    6070	     67110 ns/op	    9121 B/op	      84 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=POST/client=mimicry-4           	    5808	     67084 ns/op	    9120 B/op	      84 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=mimicry-4           	    5952	     66835 ns/op	    9122 B/op	      84 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=mimicry-4           	    5532	     65235 ns/op	    9120 B/op	      84 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=mimicry-4           	    5985	     66945 ns/op	    9121 B/op	      84 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=mimicry-4           	    6045	     66777 ns/op	    9121 B/op	      84 allocs/op
 BenchmarkRequest/server=go/proto=h1/method=POST/client=tls-client
-BenchmarkRequest/server=go/proto=h1/method=POST/client=tls-client-4        	    5617	     71782 ns/op	   12461 B/op	     114 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=POST/client=tls-client-4        	    5481	     71485 ns/op	   12451 B/op	     114 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=POST/client=tls-client-4        	    5380	     73203 ns/op	   12454 B/op	     114 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=POST/client=tls-client-4        	    5254	     71711 ns/op	   12452 B/op	     114 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=tls-client-4        	    5442	     69049 ns/op	   12463 B/op	     114 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=tls-client-4        	    5622	     68504 ns/op	   12458 B/op	     114 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=tls-client-4        	    5646	     73317 ns/op	   12451 B/op	     114 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=tls-client-4        	    4494	     76614 ns/op	   12466 B/op	     114 allocs/op
 BenchmarkRequest/server=go/proto=h1/method=POST/client=httpcloak
-BenchmarkRequest/server=go/proto=h1/method=POST/client=httpcloak-4         	    4077	     84758 ns/op	   13814 B/op	     204 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=POST/client=httpcloak-4         	    4227	     85368 ns/op	   13817 B/op	     204 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=POST/client=httpcloak-4         	    4639	     84550 ns/op	   13820 B/op	     204 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=POST/client=httpcloak-4         	    4669	     82829 ns/op	   13816 B/op	     204 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=httpcloak-4         	    4089	     87084 ns/op	   13818 B/op	     204 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=httpcloak-4         	    4248	     84988 ns/op	   13813 B/op	     204 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=httpcloak-4         	    4880	     84557 ns/op	   13811 B/op	     204 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=httpcloak-4         	    4309	     92992 ns/op	   13817 B/op	     204 allocs/op
 BenchmarkRequest/server=go/proto=h1/method=POST/client=azuretls
-BenchmarkRequest/server=go/proto=h1/method=POST/client=azuretls-4          	    3693	     84291 ns/op	   13478 B/op	     287 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=POST/client=azuretls-4          	    4369	     84700 ns/op	   13476 B/op	     286 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=POST/client=azuretls-4          	    4560	     84620 ns/op	   13477 B/op	     286 allocs/op
-BenchmarkRequest/server=go/proto=h1/method=POST/client=azuretls-4          	    4503	     85909 ns/op	   13488 B/op	     287 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=azuretls-4          	    3782	     92276 ns/op	   13477 B/op	     287 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=azuretls-4          	    4250	     93286 ns/op	   13472 B/op	     286 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=azuretls-4          	    5992	     82583 ns/op	   13475 B/op	     286 allocs/op
+BenchmarkRequest/server=go/proto=h1/method=POST/client=azuretls-4          	    4017	     90896 ns/op	   13486 B/op	     286 allocs/op
 BenchmarkRequest/server=go/proto=h2/method=GET/client=nethttp
-BenchmarkRequest/server=go/proto=h2/method=GET/client=nethttp-4            	    5090	     73744 ns/op	    5312 B/op	      39 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=GET/client=nethttp-4            	    4915	     73357 ns/op	    5306 B/op	      39 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=GET/client=nethttp-4            	    5012	     73145 ns/op	    5310 B/op	      39 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=GET/client=nethttp-4            	    4816	     73907 ns/op	    5296 B/op	      39 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=nethttp-4            	    4136	     78120 ns/op	    5301 B/op	      39 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=nethttp-4            	    4864	     76101 ns/op	    5308 B/op	      39 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=nethttp-4            	    5011	     72126 ns/op	    5313 B/op	      39 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=nethttp-4            	    5059	     73542 ns/op	    5310 B/op	      39 allocs/op
 BenchmarkRequest/server=go/proto=h2/method=GET/client=mimicry
-BenchmarkRequest/server=go/proto=h2/method=GET/client=mimicry-4            	    4497	     76544 ns/op	    7840 B/op	      63 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=GET/client=mimicry-4            	    4636	     76894 ns/op	    7842 B/op	      63 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=GET/client=mimicry-4            	    4456	     77771 ns/op	    7840 B/op	      63 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=GET/client=mimicry-4            	    5030	     78052 ns/op	    7836 B/op	      63 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=mimicry-4            	    4170	     90005 ns/op	    7829 B/op	      63 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=mimicry-4            	    4442	     89765 ns/op	    7841 B/op	      63 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=mimicry-4            	    3968	     83141 ns/op	    7837 B/op	      63 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=mimicry-4            	    4939	     86459 ns/op	    7834 B/op	      63 allocs/op
 BenchmarkRequest/server=go/proto=h2/method=GET/client=tls-client
-BenchmarkRequest/server=go/proto=h2/method=GET/client=tls-client-4         	    4378	     84671 ns/op	   14736 B/op	     124 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=GET/client=tls-client-4         	    4821	     83242 ns/op	   14730 B/op	     124 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=GET/client=tls-client-4         	    4719	     84608 ns/op	   14729 B/op	     124 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=GET/client=tls-client-4         	    4810	     86725 ns/op	   14728 B/op	     124 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=tls-client-4         	    3746	     94885 ns/op	   14738 B/op	     124 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=tls-client-4         	    4351	     91990 ns/op	   14727 B/op	     124 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=tls-client-4         	    4179	     94780 ns/op	   14734 B/op	     124 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=tls-client-4         	    2742	    111089 ns/op	   14726 B/op	     124 allocs/op
 BenchmarkRequest/server=go/proto=h2/method=GET/client=httpcloak
-BenchmarkRequest/server=go/proto=h2/method=GET/client=httpcloak-4          	    3807	     92607 ns/op	   14714 B/op	      91 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=GET/client=httpcloak-4          	    3270	     98809 ns/op	   14713 B/op	      91 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=GET/client=httpcloak-4          	    3836	     96026 ns/op	   14713 B/op	      91 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=GET/client=httpcloak-4          	    3922	     92987 ns/op	   14712 B/op	      91 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=httpcloak-4          	    3753	     99043 ns/op	   14714 B/op	      91 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=httpcloak-4          	    3606	    104293 ns/op	   14713 B/op	      91 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=httpcloak-4          	    3550	    110705 ns/op	   14713 B/op	      91 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=httpcloak-4          	    3706	     92505 ns/op	   14716 B/op	      91 allocs/op
 BenchmarkRequest/server=go/proto=h2/method=GET/client=azuretls
-BenchmarkRequest/server=go/proto=h2/method=GET/client=azuretls-4           	    2919	    114018 ns/op	   22572 B/op	     395 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=GET/client=azuretls-4           	    3157	    108694 ns/op	   22581 B/op	     395 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=GET/client=azuretls-4           	    3036	    108514 ns/op	   22582 B/op	     395 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=GET/client=azuretls-4           	    3344	    106385 ns/op	   22564 B/op	     394 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=azuretls-4           	    2938	    117683 ns/op	   22578 B/op	     395 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=azuretls-4           	    2914	    115119 ns/op	   22569 B/op	     395 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=azuretls-4           	    3087	    108628 ns/op	   22578 B/op	     395 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=GET/client=azuretls-4           	    3170	    108123 ns/op	   22573 B/op	     395 allocs/op
 BenchmarkRequest/server=go/proto=h2/method=POST/client=nethttp
-BenchmarkRequest/server=go/proto=h2/method=POST/client=nethttp-4           	    4022	     77633 ns/op	    6626 B/op	      51 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=POST/client=nethttp-4           	    4230	     78597 ns/op	    6626 B/op	      51 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=POST/client=nethttp-4           	    4125	     77183 ns/op	    6624 B/op	      51 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=POST/client=nethttp-4           	    4484	     77592 ns/op	    6624 B/op	      51 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=nethttp-4           	    4404	     79844 ns/op	    6628 B/op	      51 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=nethttp-4           	    4902	     82036 ns/op	    6626 B/op	      51 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=nethttp-4           	    4236	     84549 ns/op	    6626 B/op	      51 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=nethttp-4           	    4390	     87325 ns/op	    6624 B/op	      51 allocs/op
 BenchmarkRequest/server=go/proto=h2/method=POST/client=mimicry
-BenchmarkRequest/server=go/proto=h2/method=POST/client=mimicry-4           	    4196	     80062 ns/op	    9218 B/op	      77 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=POST/client=mimicry-4           	    4280	     78710 ns/op	    9184 B/op	      77 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=POST/client=mimicry-4           	    4285	     80906 ns/op	    9195 B/op	      77 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=POST/client=mimicry-4           	    4404	     82101 ns/op	    9189 B/op	      77 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=mimicry-4           	    3878	     94938 ns/op	    9219 B/op	      77 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=mimicry-4           	    4468	     94441 ns/op	    9184 B/op	      77 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=mimicry-4           	    3630	     92197 ns/op	    9197 B/op	      77 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=mimicry-4           	    4170	     86024 ns/op	    9195 B/op	      77 allocs/op
 BenchmarkRequest/server=go/proto=h2/method=POST/client=tls-client
-BenchmarkRequest/server=go/proto=h2/method=POST/client=tls-client-4        	    3861	     86910 ns/op	   19055 B/op	     138 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=POST/client=tls-client-4        	    4159	     88794 ns/op	   19049 B/op	     138 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=POST/client=tls-client-4        	    4116	     86507 ns/op	   19048 B/op	     138 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=POST/client=tls-client-4        	    3721	     84917 ns/op	   19060 B/op	     138 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=tls-client-4        	    3831	     95282 ns/op	   19055 B/op	     138 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=tls-client-4        	    3025	    108794 ns/op	   19065 B/op	     138 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=tls-client-4        	    3970	     84196 ns/op	   19048 B/op	     138 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=tls-client-4        	    4362	     82455 ns/op	   19059 B/op	     138 allocs/op
 BenchmarkRequest/server=go/proto=h2/method=POST/client=httpcloak
-BenchmarkRequest/server=go/proto=h2/method=POST/client=httpcloak-4         	    3903	     93462 ns/op	   14533 B/op	     108 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=POST/client=httpcloak-4         	    3572	     94843 ns/op	   14538 B/op	     108 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=POST/client=httpcloak-4         	    3667	     96629 ns/op	   14515 B/op	     108 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=POST/client=httpcloak-4         	    3345	     95431 ns/op	   14598 B/op	     108 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=httpcloak-4         	    3526	     92748 ns/op	   14533 B/op	     108 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=httpcloak-4         	    3682	     92826 ns/op	   14519 B/op	     108 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=httpcloak-4         	    3438	     97023 ns/op	   14534 B/op	     108 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=httpcloak-4         	    3254	    106531 ns/op	   14528 B/op	     108 allocs/op
 BenchmarkRequest/server=go/proto=h2/method=POST/client=azuretls
-BenchmarkRequest/server=go/proto=h2/method=POST/client=azuretls-4          	    2958	    118433 ns/op	   24041 B/op	     442 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=POST/client=azuretls-4          	    2822	    120326 ns/op	   24050 B/op	     443 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=POST/client=azuretls-4          	    3038	    118318 ns/op	   24047 B/op	     442 allocs/op
-BenchmarkRequest/server=go/proto=h2/method=POST/client=azuretls-4          	    2646	    114526 ns/op	   24037 B/op	     442 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=azuretls-4          	    2847	    127843 ns/op	   24047 B/op	     442 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=azuretls-4          	    2770	    179138 ns/op	   24036 B/op	     442 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=azuretls-4          	    2577	    142554 ns/op	   24042 B/op	     442 allocs/op
+BenchmarkRequest/server=go/proto=h2/method=POST/client=azuretls-4          	    2674	    127859 ns/op	   24037 B/op	     442 allocs/op
 BenchmarkRequest/server=go/proto=h3/method=GET/client=nethttp
-BenchmarkRequest/server=go/proto=h3/method=GET/client=nethttp-4            	    4634	     71857 ns/op	    6554 B/op	     104 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=GET/client=nethttp-4            	    4560	     73418 ns/op	    6537 B/op	     104 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=GET/client=nethttp-4            	    4362	     73813 ns/op	    6537 B/op	     104 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=GET/client=nethttp-4            	    4822	     73836 ns/op	    6541 B/op	     104 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=nethttp-4            	    3962	     76009 ns/op	    6565 B/op	     104 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=nethttp-4            	    4412	     71421 ns/op	    6542 B/op	     104 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=nethttp-4            	    5020	     71873 ns/op	    6545 B/op	     104 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=nethttp-4            	    5241	     72601 ns/op	    6536 B/op	     104 allocs/op
 BenchmarkRequest/server=go/proto=h3/method=GET/client=mimicry
-BenchmarkRequest/server=go/proto=h3/method=GET/client=mimicry-4            	    3440	    103492 ns/op	   11317 B/op	      83 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=GET/client=mimicry-4            	    3608	     99627 ns/op	   11317 B/op	      83 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=GET/client=mimicry-4            	    3458	    101211 ns/op	   11317 B/op	      83 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=GET/client=mimicry-4            	    3416	    104117 ns/op	   11316 B/op	      83 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=mimicry-4            	    3825	     94158 ns/op	   11318 B/op	      83 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=mimicry-4            	    3543	     97982 ns/op	   11316 B/op	      83 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=mimicry-4            	    3524	     99225 ns/op	   11316 B/op	      83 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=mimicry-4            	    3734	     94639 ns/op	   11316 B/op	      83 allocs/op
 BenchmarkRequest/server=go/proto=h3/method=GET/client=tls-client
-BenchmarkRequest/server=go/proto=h3/method=GET/client=tls-client-4         	    3607	    102264 ns/op	   17131 B/op	     206 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=GET/client=tls-client-4         	    3421	     96889 ns/op	   17127 B/op	     206 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=GET/client=tls-client-4         	    3748	     97774 ns/op	   17107 B/op	     206 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=GET/client=tls-client-4         	    3757	     97728 ns/op	   17108 B/op	     206 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=tls-client-4         	    3816	     94580 ns/op	   17112 B/op	     206 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=tls-client-4         	    3375	     92493 ns/op	   17115 B/op	     206 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=tls-client-4         	    3910	    102291 ns/op	   17112 B/op	     206 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=tls-client-4         	    3475	    106204 ns/op	   17115 B/op	     206 allocs/op
 BenchmarkRequest/server=go/proto=h3/method=GET/client=httpcloak
-BenchmarkRequest/server=go/proto=h3/method=GET/client=httpcloak-4          	    2792	    132175 ns/op	   22215 B/op	     305 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=GET/client=httpcloak-4          	    2482	    134257 ns/op	   22217 B/op	     305 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=GET/client=httpcloak-4          	    2757	    132264 ns/op	   22210 B/op	     305 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=GET/client=httpcloak-4          	    2631	    132968 ns/op	   22233 B/op	     305 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=httpcloak-4          	    2769	    134584 ns/op	   22223 B/op	     305 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=httpcloak-4          	    2258	    153688 ns/op	   22240 B/op	     305 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=httpcloak-4          	    2323	    143420 ns/op	   22222 B/op	     305 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=httpcloak-4          	    2589	    145393 ns/op	   22211 B/op	     305 allocs/op
 BenchmarkRequest/server=go/proto=h3/method=GET/client=azuretls
-BenchmarkRequest/server=go/proto=h3/method=GET/client=azuretls-4           	    3092	    109722 ns/op	   19460 B/op	     271 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=GET/client=azuretls-4           	    3220	    109455 ns/op	   19463 B/op	     271 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=GET/client=azuretls-4           	    3404	    106236 ns/op	   19449 B/op	     271 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=GET/client=azuretls-4           	    3026	    109560 ns/op	   19444 B/op	     271 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=azuretls-4           	    3052	    116715 ns/op	   19470 B/op	     271 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=azuretls-4           	    3075	    114822 ns/op	   19448 B/op	     271 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=azuretls-4           	    3255	    113998 ns/op	   19449 B/op	     271 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=GET/client=azuretls-4           	    3104	    114425 ns/op	   19463 B/op	     271 allocs/op
 BenchmarkRequest/server=go/proto=h3/method=POST/client=nethttp
-BenchmarkRequest/server=go/proto=h3/method=POST/client=nethttp-4           	    4357	     81726 ns/op	   15739 B/op	     116 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=POST/client=nethttp-4           	    4428	     85159 ns/op	   15729 B/op	     116 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=POST/client=nethttp-4           	    4513	     85004 ns/op	   15727 B/op	     116 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=POST/client=nethttp-4           	    4321	     84987 ns/op	   15737 B/op	     116 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=nethttp-4           	    4138	     81733 ns/op	   15731 B/op	     116 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=nethttp-4           	    4767	     82991 ns/op	   15752 B/op	     116 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=nethttp-4           	    4990	     86073 ns/op	   15743 B/op	     116 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=nethttp-4           	    4016	     87350 ns/op	   15736 B/op	     116 allocs/op
 BenchmarkRequest/server=go/proto=h3/method=POST/client=mimicry
-BenchmarkRequest/server=go/proto=h3/method=POST/client=mimicry-4           	    3321	    107131 ns/op	   13176 B/op	     101 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=POST/client=mimicry-4           	    3138	    113114 ns/op	   13173 B/op	     101 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=POST/client=mimicry-4           	    3354	    107103 ns/op	   13173 B/op	     101 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=POST/client=mimicry-4           	    3202	    109629 ns/op	   13171 B/op	     101 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=mimicry-4           	    2978	    119161 ns/op	   13176 B/op	     101 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=mimicry-4           	    3025	    118210 ns/op	   13168 B/op	     101 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=mimicry-4           	    2806	    122285 ns/op	   13169 B/op	     101 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=mimicry-4           	    2912	    121052 ns/op	   13173 B/op	     101 allocs/op
 BenchmarkRequest/server=go/proto=h3/method=POST/client=tls-client
-BenchmarkRequest/server=go/proto=h3/method=POST/client=tls-client-4        	    3050	    120620 ns/op	   28007 B/op	     220 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=POST/client=tls-client-4        	    3284	    123486 ns/op	   28007 B/op	     220 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=POST/client=tls-client-4        	    3457	    119000 ns/op	   28033 B/op	     220 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=POST/client=tls-client-4        	    3318	    119287 ns/op	   28024 B/op	     220 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=tls-client-4        	    3070	    122085 ns/op	   28047 B/op	     220 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=tls-client-4        	    3362	    124056 ns/op	   28025 B/op	     220 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=tls-client-4        	    3361	    114473 ns/op	   28055 B/op	     220 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=tls-client-4        	    3650	    122879 ns/op	   28013 B/op	     220 allocs/op
 BenchmarkRequest/server=go/proto=h3/method=POST/client=httpcloak
-BenchmarkRequest/server=go/proto=h3/method=POST/client=httpcloak-4         	    2780	    140903 ns/op	   30174 B/op	     313 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=POST/client=httpcloak-4         	    2653	    146314 ns/op	   30152 B/op	     313 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=POST/client=httpcloak-4         	    2738	    150356 ns/op	   30140 B/op	     313 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=POST/client=httpcloak-4         	    2721	    149154 ns/op	   30109 B/op	     313 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=httpcloak-4         	    2258	    145479 ns/op	   30131 B/op	     313 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=httpcloak-4         	    2706	    145735 ns/op	   30126 B/op	     313 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=httpcloak-4         	    2586	    154175 ns/op	   30189 B/op	     313 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=httpcloak-4         	    2721	    164543 ns/op	   30136 B/op	     313 allocs/op
 BenchmarkRequest/server=go/proto=h3/method=POST/client=azuretls
-BenchmarkRequest/server=go/proto=h3/method=POST/client=azuretls-4          	    3079	    128565 ns/op	   28131 B/op	     285 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=POST/client=azuretls-4          	    3248	    127998 ns/op	   28120 B/op	     285 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=POST/client=azuretls-4          	    3280	    123213 ns/op	   28087 B/op	     285 allocs/op
-BenchmarkRequest/server=go/proto=h3/method=POST/client=azuretls-4          	    3187	    127802 ns/op	   28127 B/op	     285 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=azuretls-4          	    2422	    134676 ns/op	   28102 B/op	     285 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=azuretls-4          	    2997	    140302 ns/op	   28102 B/op	     285 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=azuretls-4          	    3198	    123496 ns/op	   28098 B/op	     285 allocs/op
+BenchmarkRequest/server=go/proto=h3/method=POST/client=azuretls-4          	    3118	    126864 ns/op	   28073 B/op	     285 allocs/op
 PASS
 goos: linux
 goarch: arm64
 pkg: github.com/roachadam/mimicry/internal/bench
 BenchmarkConnect
 BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=nethttp
-BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=nethttp-4         	      50	    755715 ns/op	  107799 B/op	     730 allocs/op
-BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=nethttp-4         	      50	   1229540 ns/op	  102234 B/op	     723 allocs/op
-BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=nethttp-4         	      50	    773747 ns/op	  101996 B/op	     722 allocs/op
-BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=nethttp-4         	      50	    658936 ns/op	  102240 B/op	     721 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=nethttp-4         	      50	    878005 ns/op	  107722 B/op	     730 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=nethttp-4         	      50	    737301 ns/op	  102012 B/op	     720 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=nethttp-4         	      50	    835660 ns/op	  101841 B/op	     719 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=nethttp-4         	      50	    886870 ns/op	  102120 B/op	     723 allocs/op
 BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=mimicry
-BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=mimicry-4         	      50	    738688 ns/op	  119644 B/op	     924 allocs/op
-BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=mimicry-4         	      50	    748085 ns/op	  119579 B/op	     921 allocs/op
-BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=mimicry-4         	      50	    762289 ns/op	  120927 B/op	     922 allocs/op
-BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=mimicry-4         	      50	    731731 ns/op	  119388 B/op	     921 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=mimicry-4         	      50	    903573 ns/op	  120231 B/op	     924 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=mimicry-4         	      50	   1252725 ns/op	  119382 B/op	     920 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=mimicry-4         	      50	   1059239 ns/op	  120014 B/op	     921 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=mimicry-4         	      50	   1040554 ns/op	  119419 B/op	     921 allocs/op
 BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=tls-client
-BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=tls-client-4      	      50	    958217 ns/op	  142447 B/op	    1093 allocs/op
-BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=tls-client-4      	      50	   1139555 ns/op	  141096 B/op	    1088 allocs/op
-BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=tls-client-4      	      50	   1163376 ns/op	  141093 B/op	    1088 allocs/op
-BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=tls-client-4      	      50	   1158350 ns/op	  141093 B/op	    1088 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=tls-client-4      	      50	   1263463 ns/op	  141693 B/op	    1092 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=tls-client-4      	      50	   1064593 ns/op	  141637 B/op	    1089 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=tls-client-4      	      50	    938331 ns/op	  141510 B/op	    1089 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=tls-client-4      	      50	   1009880 ns/op	  141065 B/op	    1088 allocs/op
 BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=httpcloak
-BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=httpcloak-4       	      50	   1343283 ns/op	  471193 B/op	    1149 allocs/op
-BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=httpcloak-4       	      50	   1339788 ns/op	  471205 B/op	    1149 allocs/op
-BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=httpcloak-4       	      50	   1110371 ns/op	  471084 B/op	    1147 allocs/op
-BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=httpcloak-4       	      50	   1102916 ns/op	  471159 B/op	    1149 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=httpcloak-4       	      50	   1188825 ns/op	  471348 B/op	    1149 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=httpcloak-4       	      50	   1306981 ns/op	  471182 B/op	    1147 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=httpcloak-4       	      50	    985979 ns/op	  471192 B/op	    1147 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=httpcloak-4       	      50	    910854 ns/op	  471146 B/op	    1147 allocs/op
 BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=azuretls
-BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=azuretls-4        	      50	    927093 ns/op	  132917 B/op	    1133 allocs/op
-BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=azuretls-4        	      50	   1040273 ns/op	  130869 B/op	    1119 allocs/op
-BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=azuretls-4        	      50	   1177860 ns/op	  130542 B/op	    1115 allocs/op
-BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=azuretls-4        	      50	   1105713 ns/op	  130643 B/op	    1116 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=azuretls-4        	      50	   1032625 ns/op	  132775 B/op	    1132 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=azuretls-4        	      50	   1072049 ns/op	  130880 B/op	    1114 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=azuretls-4        	      50	    905904 ns/op	  130589 B/op	    1116 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=full/client=azuretls-4        	      50	   1083640 ns/op	  130633 B/op	    1116 allocs/op
 BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=nethttp
-BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=nethttp-4      	      50	    679302 ns/op	   98333 B/op	     635 allocs/op
-BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=nethttp-4      	      50	    572796 ns/op	   97871 B/op	     635 allocs/op
-BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=nethttp-4      	      50	    503199 ns/op	   97833 B/op	     635 allocs/op
-BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=nethttp-4      	      50	    511006 ns/op	   97853 B/op	     635 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=nethttp-4      	      50	    708344 ns/op	   98440 B/op	     635 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=nethttp-4      	      50	    766944 ns/op	   97833 B/op	     635 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=nethttp-4      	      50	    740248 ns/op	   97993 B/op	     635 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=nethttp-4      	      50	    720199 ns/op	   97867 B/op	     635 allocs/op
 BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=mimicry
-BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=mimicry-4      	      50	    579628 ns/op	  125631 B/op	     795 allocs/op
-BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=mimicry-4      	      50	    680119 ns/op	  125297 B/op	     795 allocs/op
-BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=mimicry-4      	      50	    631665 ns/op	  125515 B/op	     795 allocs/op
-BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=mimicry-4      	      50	    642740 ns/op	  125499 B/op	     795 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=mimicry-4      	      50	    804928 ns/op	  125628 B/op	     795 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=mimicry-4      	      50	    802840 ns/op	  126054 B/op	     795 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=mimicry-4      	      50	    794228 ns/op	  125701 B/op	     795 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=mimicry-4      	      50	    813185 ns/op	  125585 B/op	     795 allocs/op
 BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=tls-client
-BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=tls-client-4   	      50	    868437 ns/op	  119808 B/op	     946 allocs/op
-BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=tls-client-4   	      50	    737708 ns/op	  119484 B/op	     946 allocs/op
-BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=tls-client-4   	      50	    643727 ns/op	  119974 B/op	     946 allocs/op
-BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=tls-client-4   	      50	   1041943 ns/op	  120059 B/op	     947 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=tls-client-4   	      50	    855940 ns/op	  119600 B/op	     946 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=tls-client-4   	      50	    849143 ns/op	  119129 B/op	     946 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=tls-client-4   	      50	    953821 ns/op	  119211 B/op	     946 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=tls-client-4   	      50	    792752 ns/op	  119052 B/op	     946 allocs/op
 BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=httpcloak
-BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=httpcloak-4    	      50	    952830 ns/op	  447198 B/op	     964 allocs/op
-BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=httpcloak-4    	      50	    901848 ns/op	  446544 B/op	     963 allocs/op
-BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=httpcloak-4    	      50	    769318 ns/op	  446731 B/op	     963 allocs/op
-BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=httpcloak-4    	      50	    800219 ns/op	  447006 B/op	     964 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=httpcloak-4    	      50	    791590 ns/op	  447189 B/op	     963 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=httpcloak-4    	      50	    670364 ns/op	  446943 B/op	     964 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=httpcloak-4    	      50	    840786 ns/op	  446988 B/op	     963 allocs/op
+BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=httpcloak-4    	      50	    882866 ns/op	  447094 B/op	     964 allocs/op
 BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=azuretls
     bench_test.go:256: n/a: the client does not resume TLS sessions here (no request was resumed)
 --- SKIP: BenchmarkConnect/server=nginx/proto=h1/handshake=resumed/client=azuretls
 BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=nethttp
-BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=nethttp-4         	      50	    748963 ns/op	  115313 B/op	     811 allocs/op
-BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=nethttp-4         	      50	    720964 ns/op	  113276 B/op	     807 allocs/op
-BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=nethttp-4         	      50	    668627 ns/op	  113273 B/op	     806 allocs/op
-BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=nethttp-4         	      50	    694208 ns/op	  113336 B/op	     807 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=nethttp-4         	      50	    768498 ns/op	  115296 B/op	     811 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=nethttp-4         	      50	    837751 ns/op	  113216 B/op	     806 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=nethttp-4         	      50	    729396 ns/op	  113252 B/op	     806 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=nethttp-4         	      50	    829578 ns/op	  113246 B/op	     806 allocs/op
 BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=mimicry
-BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=mimicry-4         	      50	    795196 ns/op	  123332 B/op	     974 allocs/op
-BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=mimicry-4         	      50	    921466 ns/op	  122504 B/op	     971 allocs/op
-BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=mimicry-4         	      50	    833706 ns/op	  121930 B/op	     971 allocs/op
-BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=mimicry-4         	      50	    870518 ns/op	  122045 B/op	     971 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=mimicry-4         	      50	   1123172 ns/op	  123361 B/op	     975 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=mimicry-4         	      50	   1118105 ns/op	  122080 B/op	     971 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=mimicry-4         	      50	    955236 ns/op	  122037 B/op	     971 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=mimicry-4         	      50	   1117434 ns/op	  122077 B/op	     971 allocs/op
 BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=tls-client
-BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=tls-client-4      	      50	    870358 ns/op	  157351 B/op	    1247 allocs/op
-BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=tls-client-4      	      50	    862633 ns/op	  154768 B/op	    1168 allocs/op
-BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=tls-client-4      	      50	    834630 ns/op	  154423 B/op	    1167 allocs/op
-BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=tls-client-4      	      50	    852505 ns/op	  154460 B/op	    1168 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=tls-client-4      	      50	    861407 ns/op	  157395 B/op	    1248 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=tls-client-4      	      50	   1270015 ns/op	  154690 B/op	    1167 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=tls-client-4      	      50	   1048438 ns/op	  154656 B/op	    1168 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=tls-client-4      	      50	    957047 ns/op	  154381 B/op	    1167 allocs/op
 BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=httpcloak
-BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=httpcloak-4       	      50	    905373 ns/op	  169147 B/op	    1153 allocs/op
-BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=httpcloak-4       	      50	    952007 ns/op	  167862 B/op	    1150 allocs/op
-BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=httpcloak-4       	      50	    891619 ns/op	  167699 B/op	    1150 allocs/op
-BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=httpcloak-4       	      50	    957149 ns/op	  167683 B/op	    1149 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=httpcloak-4       	      50	   1019778 ns/op	  169193 B/op	    1155 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=httpcloak-4       	      50	   1176750 ns/op	  167989 B/op	    1150 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=httpcloak-4       	      50	   1340227 ns/op	  167644 B/op	    1148 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=httpcloak-4       	      50	   1352018 ns/op	  167656 B/op	    1149 allocs/op
 BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=azuretls
-BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=azuretls-4        	      50	    867763 ns/op	  156654 B/op	    1431 allocs/op
-BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=azuretls-4        	      50	    864752 ns/op	  152461 B/op	    1338 allocs/op
-BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=azuretls-4        	      50	    834837 ns/op	  152529 B/op	    1340 allocs/op
-BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=azuretls-4        	      50	    869114 ns/op	  152604 B/op	    1344 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=azuretls-4        	      50	   1135451 ns/op	  156620 B/op	    1433 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=azuretls-4        	      50	    824328 ns/op	  152780 B/op	    1345 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=azuretls-4        	      50	   1026051 ns/op	  152496 B/op	    1341 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=full/client=azuretls-4        	      50	   1056639 ns/op	  152501 B/op	    1334 allocs/op
 BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=nethttp
-BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=nethttp-4      	      50	    530648 ns/op	  107962 B/op	     711 allocs/op
-BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=nethttp-4      	      50	    545876 ns/op	  107424 B/op	     711 allocs/op
-BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=nethttp-4      	      50	    524460 ns/op	  107422 B/op	     710 allocs/op
-BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=nethttp-4      	      50	    524868 ns/op	  107601 B/op	     711 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=nethttp-4      	      50	    603200 ns/op	  107937 B/op	     711 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=nethttp-4      	      50	    585991 ns/op	  107465 B/op	     711 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=nethttp-4      	      50	    576301 ns/op	  107420 B/op	     710 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=nethttp-4      	      50	    662824 ns/op	  107429 B/op	     710 allocs/op
 BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=mimicry
-BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=mimicry-4      	      50	    618921 ns/op	  127602 B/op	     845 allocs/op
-BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=mimicry-4      	      50	    622734 ns/op	  127180 B/op	     845 allocs/op
-BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=mimicry-4      	      50	    633076 ns/op	  127189 B/op	     845 allocs/op
-BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=mimicry-4      	      50	    702872 ns/op	  127278 B/op	     845 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=mimicry-4      	      50	   1208426 ns/op	  127655 B/op	     845 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=mimicry-4      	      50	    746206 ns/op	  127321 B/op	     845 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=mimicry-4      	      50	    769912 ns/op	  127226 B/op	     845 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=mimicry-4      	      50	    742854 ns/op	  127229 B/op	     845 allocs/op
 BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=tls-client
-BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=tls-client-4   	      50	    660709 ns/op	  133680 B/op	    1030 allocs/op
-BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=tls-client-4   	      50	    663712 ns/op	  133690 B/op	    1030 allocs/op
-BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=tls-client-4   	      50	    667607 ns/op	  133409 B/op	    1030 allocs/op
-BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=tls-client-4   	      50	    669313 ns/op	  133384 B/op	    1030 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=tls-client-4   	      50	    783824 ns/op	  133732 B/op	    1030 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=tls-client-4   	      50	    675067 ns/op	  133387 B/op	    1030 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=tls-client-4   	      50	    814629 ns/op	  133467 B/op	    1030 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=tls-client-4   	      50	    843708 ns/op	  133443 B/op	    1030 allocs/op
 BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=httpcloak
-BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=httpcloak-4    	      50	    699703 ns/op	  146892 B/op	     966 allocs/op
-BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=httpcloak-4    	      50	    709082 ns/op	  146678 B/op	     966 allocs/op
-BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=httpcloak-4    	      50	    684668 ns/op	  146457 B/op	     965 allocs/op
-BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=httpcloak-4    	      50	    724115 ns/op	  146884 B/op	     966 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=httpcloak-4    	      50	    932897 ns/op	  146913 B/op	     966 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=httpcloak-4    	      50	    836132 ns/op	  146649 B/op	     966 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=httpcloak-4    	      50	    762773 ns/op	  146446 B/op	     965 allocs/op
+BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=httpcloak-4    	      50	   1062966 ns/op	  146679 B/op	     966 allocs/op
 BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=azuretls
     bench_test.go:256: n/a: the client does not resume TLS sessions here (no request was resumed)
 --- SKIP: BenchmarkConnect/server=nginx/proto=h2/handshake=resumed/client=azuretls
 BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=nethttp
-BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=nethttp-4         	      50	    992706 ns/op	  178308 B/op	    1509 allocs/op
-BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=nethttp-4         	      50	    913966 ns/op	  175931 B/op	    1510 allocs/op
-BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=nethttp-4         	      50	    933088 ns/op	  175497 B/op	    1510 allocs/op
-BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=nethttp-4         	      50	    961945 ns/op	  175579 B/op	    1510 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=nethttp-4         	      50	   1188237 ns/op	  178452 B/op	    1511 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=nethttp-4         	      50	    961659 ns/op	  176293 B/op	    1510 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=nethttp-4         	      50	    944343 ns/op	  175583 B/op	    1510 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=nethttp-4         	      50	    919678 ns/op	  176327 B/op	    1509 allocs/op
 BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=mimicry
     bench_test.go:152: n/a: a new mimicry Transport starts on TCP and moves to HTTP/3 only after Alt-Svc, as Chrome does; nothing starts one on HTTP/3
 --- SKIP: BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=mimicry
 BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=tls-client
-BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=tls-client-4      	      50	   1025322 ns/op	  199454 B/op	    1690 allocs/op
-BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=tls-client-4      	      50	   1064602 ns/op	  197602 B/op	    1694 allocs/op
-BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=tls-client-4      	      50	   1078591 ns/op	  197612 B/op	    1693 allocs/op
-BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=tls-client-4      	      50	   1029413 ns/op	  198092 B/op	    1695 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=tls-client-4      	      50	   1202349 ns/op	  199727 B/op	    1688 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=tls-client-4      	      50	   1353440 ns/op	  197852 B/op	    1698 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=tls-client-4      	      50	   1511636 ns/op	  197875 B/op	    1697 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=tls-client-4      	      50	   1334433 ns/op	  198042 B/op	    1695 allocs/op
 BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=httpcloak
-BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=httpcloak-4       	      50	   8361822 ns/op	  247465 B/op	    2075 allocs/op
-BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=httpcloak-4       	      50	   9805468 ns/op	  243947 B/op	    2061 allocs/op
-BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=httpcloak-4       	      50	   9240779 ns/op	  243039 B/op	    2058 allocs/op
-BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=httpcloak-4       	      50	   9562363 ns/op	  243344 B/op	    2058 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=httpcloak-4       	      50	   8337177 ns/op	  246739 B/op	    2073 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=httpcloak-4       	      50	   9142104 ns/op	  244403 B/op	    2061 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=httpcloak-4       	      50	   8715691 ns/op	  242911 B/op	    2057 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=httpcloak-4       	      50	   8939540 ns/op	  243925 B/op	    2058 allocs/op
 BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=azuretls
-BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=azuretls-4        	      50	   1283595 ns/op	  210317 B/op	    1893 allocs/op
-BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=azuretls-4        	      50	   1094436 ns/op	  208256 B/op	    1895 allocs/op
-BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=azuretls-4        	      50	   1052014 ns/op	  209681 B/op	    1897 allocs/op
-BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=azuretls-4        	      50	   1016633 ns/op	  208901 B/op	    1895 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=azuretls-4        	      50	   1361740 ns/op	  211623 B/op	    1905 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=azuretls-4        	      50	   1251315 ns/op	  208145 B/op	    1896 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=azuretls-4        	      50	   1505931 ns/op	  209225 B/op	    1898 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=full/client=azuretls-4        	      50	   1586854 ns/op	  209669 B/op	    1899 allocs/op
 BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=nethttp
-BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=nethttp-4      	      50	    673113 ns/op	  176477 B/op	    1420 allocs/op
-BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=nethttp-4      	      50	    646588 ns/op	  175496 B/op	    1418 allocs/op
-BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=nethttp-4      	      50	    649383 ns/op	  175491 B/op	    1418 allocs/op
-BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=nethttp-4      	      50	    663018 ns/op	  176194 B/op	    1417 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=nethttp-4      	      50	   1232396 ns/op	  177258 B/op	    1419 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=nethttp-4      	      50	   1207685 ns/op	  175408 B/op	    1419 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=nethttp-4      	      50	    789854 ns/op	  176146 B/op	    1418 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=nethttp-4      	      50	    750526 ns/op	  175908 B/op	    1418 allocs/op
 BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=mimicry
-BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=mimicry-4      	      50	    810440 ns/op	  186954 B/op	    1489 allocs/op
-BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=mimicry-4      	      50	    780725 ns/op	  187022 B/op	    1490 allocs/op
-BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=mimicry-4      	      50	    848151 ns/op	  186433 B/op	    1488 allocs/op
     bench_test.go:258: discarded: only 49 of 50 requests resumed
 --- SKIP: BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=mimicry
-BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=mimicry-4      	      50	    862577 ns/op	  187169 B/op	    1490 allocs/op
 BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=tls-client
-BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=tls-client-4   	      50	    698549 ns/op	  189665 B/op	    1557 allocs/op
-BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=tls-client-4   	      50	    711454 ns/op	  189664 B/op	    1559 allocs/op
-BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=tls-client-4   	      50	    707083 ns/op	  189582 B/op	    1557 allocs/op
-BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=tls-client-4   	      50	    681333 ns/op	  189644 B/op	    1557 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=tls-client-4   	      50	    725669 ns/op	  189650 B/op	    1556 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=tls-client-4   	      50	   1008509 ns/op	  190469 B/op	    1557 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=tls-client-4   	      50	    900358 ns/op	  190351 B/op	    1557 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=tls-client-4   	      50	    795752 ns/op	  189535 B/op	    1557 allocs/op
 BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=httpcloak
-BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=httpcloak-4    	      50	   7381384 ns/op	  253253 B/op	    1951 allocs/op
-BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=httpcloak-4    	      50	   7253949 ns/op	  253606 B/op	    1951 allocs/op
-BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=httpcloak-4    	      50	   7336980 ns/op	  252863 B/op	    1950 allocs/op
-BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=httpcloak-4    	      50	   7388831 ns/op	  254156 B/op	    1952 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=httpcloak-4    	      50	   7216377 ns/op	  253737 B/op	    1956 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=httpcloak-4    	      50	   7053180 ns/op	  253774 B/op	    1953 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=httpcloak-4    	      50	   7181177 ns/op	  253174 B/op	    1950 allocs/op
+BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=httpcloak-4    	      50	   7532194 ns/op	  253386 B/op	    1950 allocs/op
 BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=azuretls
     bench_test.go:256: n/a: the client does not resume TLS sessions here (no request was resumed)
 --- SKIP: BenchmarkConnect/server=nginx/proto=h3/handshake=resumed/client=azuretls
 BenchmarkConnect/server=go/proto=h1/handshake=full/client=nethttp
-BenchmarkConnect/server=go/proto=h1/handshake=full/client=nethttp-4            	      50	    718155 ns/op	  101020 B/op	     706 allocs/op
-BenchmarkConnect/server=go/proto=h1/handshake=full/client=nethttp-4            	      50	    638839 ns/op	   99971 B/op	     702 allocs/op
-BenchmarkConnect/server=go/proto=h1/handshake=full/client=nethttp-4            	      50	    641546 ns/op	   99950 B/op	     702 allocs/op
-BenchmarkConnect/server=go/proto=h1/handshake=full/client=nethttp-4            	      50	    647457 ns/op	   99937 B/op	     702 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=full/client=nethttp-4            	      50	   1038388 ns/op	  100982 B/op	     705 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=full/client=nethttp-4            	      50	    970297 ns/op	  100010 B/op	     702 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=full/client=nethttp-4            	      50	    846573 ns/op	   99979 B/op	     702 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=full/client=nethttp-4            	      50	    694251 ns/op	   99959 B/op	     702 allocs/op
 BenchmarkConnect/server=go/proto=h1/handshake=full/client=mimicry
-BenchmarkConnect/server=go/proto=h1/handshake=full/client=mimicry-4            	      50	    707790 ns/op	  117547 B/op	     906 allocs/op
-BenchmarkConnect/server=go/proto=h1/handshake=full/client=mimicry-4            	      50	    796951 ns/op	  117183 B/op	     903 allocs/op
-BenchmarkConnect/server=go/proto=h1/handshake=full/client=mimicry-4            	      50	    759102 ns/op	  117812 B/op	     902 allocs/op
-BenchmarkConnect/server=go/proto=h1/handshake=full/client=mimicry-4            	      50	    712932 ns/op	  117974 B/op	     902 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=full/client=mimicry-4            	      50	    874430 ns/op	  117544 B/op	     905 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=full/client=mimicry-4            	      50	   1137995 ns/op	  117310 B/op	     902 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=full/client=mimicry-4            	      50	   1075838 ns/op	  117669 B/op	     903 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=full/client=mimicry-4            	      50	    979560 ns/op	  117856 B/op	     903 allocs/op
 BenchmarkConnect/server=go/proto=h1/handshake=full/client=tls-client
-BenchmarkConnect/server=go/proto=h1/handshake=full/client=tls-client-4         	      50	    806921 ns/op	  140040 B/op	    1072 allocs/op
-BenchmarkConnect/server=go/proto=h1/handshake=full/client=tls-client-4         	      50	    758974 ns/op	  139080 B/op	    1070 allocs/op
-BenchmarkConnect/server=go/proto=h1/handshake=full/client=tls-client-4         	      50	    765327 ns/op	  139064 B/op	    1070 allocs/op
-BenchmarkConnect/server=go/proto=h1/handshake=full/client=tls-client-4         	      50	    757771 ns/op	  139050 B/op	    1070 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=full/client=tls-client-4         	      50	   1072827 ns/op	  140038 B/op	    1072 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=full/client=tls-client-4         	      50	    912125 ns/op	  139039 B/op	    1070 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=full/client=tls-client-4         	      50	    804564 ns/op	  139061 B/op	    1070 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=full/client=tls-client-4         	      50	    803738 ns/op	  139058 B/op	    1070 allocs/op
 BenchmarkConnect/server=go/proto=h1/handshake=full/client=httpcloak
-BenchmarkConnect/server=go/proto=h1/handshake=full/client=httpcloak-4          	      50	    951563 ns/op	  468862 B/op	    1117 allocs/op
-BenchmarkConnect/server=go/proto=h1/handshake=full/client=httpcloak-4          	      50	   1025613 ns/op	  468235 B/op	    1118 allocs/op
-BenchmarkConnect/server=go/proto=h1/handshake=full/client=httpcloak-4          	      50	    934204 ns/op	  467797 B/op	    1117 allocs/op
-BenchmarkConnect/server=go/proto=h1/handshake=full/client=httpcloak-4          	      50	    935241 ns/op	  468099 B/op	    1118 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=full/client=httpcloak-4          	      50	    932959 ns/op	  467915 B/op	    1116 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=full/client=httpcloak-4          	      50	   1010127 ns/op	  467688 B/op	    1116 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=full/client=httpcloak-4          	      50	    988804 ns/op	  468605 B/op	    1116 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=full/client=httpcloak-4          	      50	    927828 ns/op	  467815 B/op	    1117 allocs/op
 BenchmarkConnect/server=go/proto=h1/handshake=full/client=azuretls
-BenchmarkConnect/server=go/proto=h1/handshake=full/client=azuretls-4           	      50	    809316 ns/op	  131513 B/op	    1127 allocs/op
-BenchmarkConnect/server=go/proto=h1/handshake=full/client=azuretls-4           	      50	    814304 ns/op	  129198 B/op	    1109 allocs/op
-BenchmarkConnect/server=go/proto=h1/handshake=full/client=azuretls-4           	      50	    800061 ns/op	  129187 B/op	    1109 allocs/op
-BenchmarkConnect/server=go/proto=h1/handshake=full/client=azuretls-4           	      50	    785896 ns/op	  129040 B/op	    1106 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=full/client=azuretls-4           	      50	    907467 ns/op	  131654 B/op	    1125 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=full/client=azuretls-4           	      50	    870444 ns/op	  129091 B/op	    1107 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=full/client=azuretls-4           	      50	    790635 ns/op	  129176 B/op	    1112 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=full/client=azuretls-4           	      50	    839661 ns/op	  129028 B/op	    1108 allocs/op
 BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=nethttp
-BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=nethttp-4         	      50	    486642 ns/op	   97053 B/op	     631 allocs/op
-BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=nethttp-4         	      50	    478092 ns/op	   96570 B/op	     631 allocs/op
-BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=nethttp-4         	      50	    467519 ns/op	   96496 B/op	     631 allocs/op
-BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=nethttp-4         	      50	    470286 ns/op	   96499 B/op	     631 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=nethttp-4         	      50	    529136 ns/op	   97169 B/op	     631 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=nethttp-4         	      50	    495889 ns/op	   96567 B/op	     631 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=nethttp-4         	      50	    495480 ns/op	   96496 B/op	     631 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=nethttp-4         	      50	    532307 ns/op	   96587 B/op	     631 allocs/op
 BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=mimicry
-BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=mimicry-4         	      50	    557312 ns/op	  124585 B/op	     791 allocs/op
-BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=mimicry-4         	      50	    545811 ns/op	  124387 B/op	     791 allocs/op
-BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=mimicry-4         	      50	    541973 ns/op	  124429 B/op	     791 allocs/op
-BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=mimicry-4         	      50	    536465 ns/op	  124373 B/op	     791 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=mimicry-4         	      50	    566074 ns/op	  124611 B/op	     791 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=mimicry-4         	      50	    566545 ns/op	  124405 B/op	     791 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=mimicry-4         	      50	    571386 ns/op	  124393 B/op	     791 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=mimicry-4         	      50	    567589 ns/op	  124402 B/op	     791 allocs/op
 BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=tls-client
-BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=tls-client-4      	      50	    638160 ns/op	  118631 B/op	     944 allocs/op
-BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=tls-client-4      	      50	    621138 ns/op	  118222 B/op	     942 allocs/op
-BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=tls-client-4      	      50	    636314 ns/op	  118212 B/op	     942 allocs/op
-BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=tls-client-4      	      50	    613090 ns/op	  118227 B/op	     942 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=tls-client-4      	      50	    640164 ns/op	  118671 B/op	     944 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=tls-client-4      	      50	    642671 ns/op	  118230 B/op	     942 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=tls-client-4      	      50	    628335 ns/op	  118215 B/op	     942 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=tls-client-4      	      50	    652717 ns/op	  118218 B/op	     942 allocs/op
 BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=httpcloak
-BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=httpcloak-4       	      50	   1249179 ns/op	  444726 B/op	     946 allocs/op
-BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=httpcloak-4       	      50	    705320 ns/op	  444521 B/op	     946 allocs/op
-BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=httpcloak-4       	      50	    769811 ns/op	  444596 B/op	     946 allocs/op
-BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=httpcloak-4       	      50	    772039 ns/op	  444579 B/op	     946 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=httpcloak-4       	      50	    748931 ns/op	  444717 B/op	     946 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=httpcloak-4       	      50	    767074 ns/op	  444624 B/op	     946 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=httpcloak-4       	      50	    717866 ns/op	  444573 B/op	     946 allocs/op
+BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=httpcloak-4       	      50	    686388 ns/op	  444629 B/op	     946 allocs/op
 BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=azuretls
     bench_test.go:256: n/a: the client does not resume TLS sessions here (no request was resumed)
 --- SKIP: BenchmarkConnect/server=go/proto=h1/handshake=resumed/client=azuretls
 BenchmarkConnect/server=go/proto=h2/handshake=full/client=nethttp
-BenchmarkConnect/server=go/proto=h2/handshake=full/client=nethttp-4            	      50	    737185 ns/op	  112056 B/op	     791 allocs/op
-BenchmarkConnect/server=go/proto=h2/handshake=full/client=nethttp-4            	      50	    722307 ns/op	  111095 B/op	     789 allocs/op
-BenchmarkConnect/server=go/proto=h2/handshake=full/client=nethttp-4            	      50	    728301 ns/op	  111494 B/op	     789 allocs/op
-BenchmarkConnect/server=go/proto=h2/handshake=full/client=nethttp-4            	      50	    717447 ns/op	  111525 B/op	     790 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=full/client=nethttp-4            	      50	    713139 ns/op	  112050 B/op	     791 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=full/client=nethttp-4            	      50	    677600 ns/op	  111081 B/op	     788 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=full/client=nethttp-4            	      50	    674180 ns/op	  111876 B/op	     788 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=full/client=nethttp-4            	      50	    669199 ns/op	  111021 B/op	     788 allocs/op
 BenchmarkConnect/server=go/proto=h2/handshake=full/client=mimicry
-BenchmarkConnect/server=go/proto=h2/handshake=full/client=mimicry-4            	      50	    830337 ns/op	  120446 B/op	     958 allocs/op
-BenchmarkConnect/server=go/proto=h2/handshake=full/client=mimicry-4            	      50	    797609 ns/op	  120485 B/op	     957 allocs/op
-BenchmarkConnect/server=go/proto=h2/handshake=full/client=mimicry-4            	      50	    865268 ns/op	  121637 B/op	     956 allocs/op
-BenchmarkConnect/server=go/proto=h2/handshake=full/client=mimicry-4            	      50	    812599 ns/op	  120351 B/op	     955 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=full/client=mimicry-4            	      50	    783349 ns/op	  120439 B/op	     958 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=full/client=mimicry-4            	      50	    855751 ns/op	  120859 B/op	     955 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=full/client=mimicry-4            	      50	    802406 ns/op	  121690 B/op	     956 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=full/client=mimicry-4            	      50	    830091 ns/op	  120595 B/op	     956 allocs/op
 BenchmarkConnect/server=go/proto=h2/handshake=full/client=tls-client
-BenchmarkConnect/server=go/proto=h2/handshake=full/client=tls-client-4         	      50	    836391 ns/op	  153367 B/op	    1153 allocs/op
-BenchmarkConnect/server=go/proto=h2/handshake=full/client=tls-client-4         	      50	    809925 ns/op	  153045 B/op	    1151 allocs/op
-BenchmarkConnect/server=go/proto=h2/handshake=full/client=tls-client-4         	      50	    837970 ns/op	  153054 B/op	    1151 allocs/op
-BenchmarkConnect/server=go/proto=h2/handshake=full/client=tls-client-4         	      50	    805510 ns/op	  153034 B/op	    1151 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=full/client=tls-client-4         	      50	    806549 ns/op	  154970 B/op	    1154 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=full/client=tls-client-4         	      50	    786349 ns/op	  153133 B/op	    1152 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=full/client=tls-client-4         	      50	    852680 ns/op	  153365 B/op	    1151 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=full/client=tls-client-4         	      50	    851510 ns/op	  153045 B/op	    1151 allocs/op
 BenchmarkConnect/server=go/proto=h2/handshake=full/client=httpcloak
-BenchmarkConnect/server=go/proto=h2/handshake=full/client=httpcloak-4          	      50	    867349 ns/op	  167129 B/op	    1136 allocs/op
-BenchmarkConnect/server=go/proto=h2/handshake=full/client=httpcloak-4          	      50	    910884 ns/op	  166735 B/op	    1132 allocs/op
-BenchmarkConnect/server=go/proto=h2/handshake=full/client=httpcloak-4          	      50	    857846 ns/op	  166789 B/op	    1133 allocs/op
-BenchmarkConnect/server=go/proto=h2/handshake=full/client=httpcloak-4          	      50	    888604 ns/op	  166778 B/op	    1133 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=full/client=httpcloak-4          	      50	    998457 ns/op	  167116 B/op	    1136 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=full/client=httpcloak-4          	      50	    859420 ns/op	  166715 B/op	    1132 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=full/client=httpcloak-4          	      50	    841073 ns/op	  166653 B/op	    1131 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=full/client=httpcloak-4          	      50	    874618 ns/op	  166757 B/op	    1133 allocs/op
 BenchmarkConnect/server=go/proto=h2/handshake=full/client=azuretls
-BenchmarkConnect/server=go/proto=h2/handshake=full/client=azuretls-4           	      50	    858824 ns/op	  154051 B/op	    1347 allocs/op
-BenchmarkConnect/server=go/proto=h2/handshake=full/client=azuretls-4           	      50	    942704 ns/op	  152004 B/op	    1339 allocs/op
-BenchmarkConnect/server=go/proto=h2/handshake=full/client=azuretls-4           	      50	    852270 ns/op	  151988 B/op	    1338 allocs/op
-BenchmarkConnect/server=go/proto=h2/handshake=full/client=azuretls-4           	      50	    829981 ns/op	  151843 B/op	    1330 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=full/client=azuretls-4           	      50	    910078 ns/op	  154267 B/op	    1346 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=full/client=azuretls-4           	      50	    852457 ns/op	  151952 B/op	    1338 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=full/client=azuretls-4           	      50	    877708 ns/op	  152074 B/op	    1334 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=full/client=azuretls-4           	      50	    866185 ns/op	  151980 B/op	    1337 allocs/op
 BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=nethttp
-BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=nethttp-4         	      50	    888211 ns/op	  106617 B/op	     706 allocs/op
-BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=nethttp-4         	      50	    514282 ns/op	  106148 B/op	     706 allocs/op
-BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=nethttp-4         	      50	    508610 ns/op	  106135 B/op	     705 allocs/op
-BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=nethttp-4         	      50	    529575 ns/op	  106130 B/op	     705 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=nethttp-4         	      50	    532603 ns/op	  106626 B/op	     706 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=nethttp-4         	      50	    521674 ns/op	  106137 B/op	     705 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=nethttp-4         	      50	    515933 ns/op	  106135 B/op	     705 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=nethttp-4         	      50	    549342 ns/op	  106205 B/op	     706 allocs/op
 BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=mimicry
-BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=mimicry-4         	      50	    620247 ns/op	  127358 B/op	     843 allocs/op
-BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=mimicry-4         	      50	    584146 ns/op	  127099 B/op	     843 allocs/op
-BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=mimicry-4         	      50	    596680 ns/op	  127101 B/op	     843 allocs/op
-BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=mimicry-4         	      50	    604418 ns/op	  128040 B/op	     843 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=mimicry-4         	      50	    617860 ns/op	  127373 B/op	     843 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=mimicry-4         	      50	    611138 ns/op	  127101 B/op	     843 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=mimicry-4         	      50	    610742 ns/op	  127097 B/op	     843 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=mimicry-4         	      50	    598137 ns/op	  127113 B/op	     843 allocs/op
 BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=tls-client
-BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=tls-client-4      	      50	    718145 ns/op	  133529 B/op	    1029 allocs/op
-BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=tls-client-4      	      50	    657051 ns/op	  133315 B/op	    1029 allocs/op
-BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=tls-client-4      	      50	    768260 ns/op	  133725 B/op	    1029 allocs/op
-BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=tls-client-4      	      50	    694092 ns/op	  134124 B/op	    1029 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=tls-client-4      	      50	    681648 ns/op	  133533 B/op	    1029 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=tls-client-4      	      50	    667329 ns/op	  133262 B/op	    1028 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=tls-client-4      	      50	    654875 ns/op	  133275 B/op	    1028 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=tls-client-4      	      50	    662114 ns/op	  133289 B/op	    1028 allocs/op
 BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=httpcloak
-BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=httpcloak-4       	      50	    688388 ns/op	  144714 B/op	     965 allocs/op
-BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=httpcloak-4       	      50	    694993 ns/op	  144497 B/op	     964 allocs/op
-BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=httpcloak-4       	      50	    694553 ns/op	  144587 B/op	     964 allocs/op
-BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=httpcloak-4       	      50	    697765 ns/op	  144494 B/op	     964 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=httpcloak-4       	      50	    735230 ns/op	  145195 B/op	     966 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=httpcloak-4       	      50	    715064 ns/op	  144538 B/op	     965 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=httpcloak-4       	      50	    718311 ns/op	  144601 B/op	     965 allocs/op
+BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=httpcloak-4       	      50	    747866 ns/op	  144583 B/op	     965 allocs/op
 BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=azuretls
     bench_test.go:256: n/a: the client does not resume TLS sessions here (no request was resumed)
 --- SKIP: BenchmarkConnect/server=go/proto=h2/handshake=resumed/client=azuretls
 BenchmarkConnect/server=go/proto=h3/handshake=full/client=nethttp
-BenchmarkConnect/server=go/proto=h3/handshake=full/client=nethttp-4            	      50	    842829 ns/op	  170646 B/op	    1450 allocs/op
-BenchmarkConnect/server=go/proto=h3/handshake=full/client=nethttp-4            	      50	    805696 ns/op	  168154 B/op	    1449 allocs/op
-BenchmarkConnect/server=go/proto=h3/handshake=full/client=nethttp-4            	      50	    821264 ns/op	  169055 B/op	    1449 allocs/op
-BenchmarkConnect/server=go/proto=h3/handshake=full/client=nethttp-4            	      50	    827095 ns/op	  168550 B/op	    1449 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=full/client=nethttp-4            	      50	    837112 ns/op	  170434 B/op	    1448 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=full/client=nethttp-4            	      50	    912818 ns/op	  168142 B/op	    1449 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=full/client=nethttp-4            	      50	    803510 ns/op	  168147 B/op	    1448 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=full/client=nethttp-4            	      50	    799779 ns/op	  168215 B/op	    1450 allocs/op
 BenchmarkConnect/server=go/proto=h3/handshake=full/client=mimicry
     bench_test.go:152: n/a: a new mimicry Transport starts on TCP and moves to HTTP/3 only after Alt-Svc, as Chrome does; nothing starts one on HTTP/3
 --- SKIP: BenchmarkConnect/server=go/proto=h3/handshake=full/client=mimicry
 BenchmarkConnect/server=go/proto=h3/handshake=full/client=tls-client
-BenchmarkConnect/server=go/proto=h3/handshake=full/client=tls-client-4         	      50	    896489 ns/op	  191257 B/op	    1625 allocs/op
-BenchmarkConnect/server=go/proto=h3/handshake=full/client=tls-client-4         	      50	    945348 ns/op	  189897 B/op	    1631 allocs/op
-BenchmarkConnect/server=go/proto=h3/handshake=full/client=tls-client-4         	      50	    911503 ns/op	  189691 B/op	    1632 allocs/op
-BenchmarkConnect/server=go/proto=h3/handshake=full/client=tls-client-4         	      50	    933713 ns/op	  190640 B/op	    1635 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=full/client=tls-client-4         	      50	    923999 ns/op	  191902 B/op	    1627 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=full/client=tls-client-4         	      50	    874702 ns/op	  189765 B/op	    1633 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=full/client=tls-client-4         	      50	   1190920 ns/op	  189864 B/op	    1635 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=full/client=tls-client-4         	      50	    927763 ns/op	  190440 B/op	    1636 allocs/op
 BenchmarkConnect/server=go/proto=h3/handshake=full/client=httpcloak
-BenchmarkConnect/server=go/proto=h3/handshake=full/client=httpcloak-4          	      50	   7423829 ns/op	  237111 B/op	    1991 allocs/op
-BenchmarkConnect/server=go/proto=h3/handshake=full/client=httpcloak-4          	      50	   8196208 ns/op	  233842 B/op	    1975 allocs/op
-BenchmarkConnect/server=go/proto=h3/handshake=full/client=httpcloak-4          	      50	   8067824 ns/op	  234701 B/op	    1976 allocs/op
-BenchmarkConnect/server=go/proto=h3/handshake=full/client=httpcloak-4          	      50	   9031160 ns/op	  233957 B/op	    1976 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=full/client=httpcloak-4          	      50	   7832250 ns/op	  237651 B/op	    1989 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=full/client=httpcloak-4          	      50	   8503577 ns/op	  233922 B/op	    1976 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=full/client=httpcloak-4          	      50	   9036094 ns/op	  234183 B/op	    1974 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=full/client=httpcloak-4          	      50	  10304008 ns/op	  233834 B/op	    1971 allocs/op
 BenchmarkConnect/server=go/proto=h3/handshake=full/client=azuretls
-BenchmarkConnect/server=go/proto=h3/handshake=full/client=azuretls-4           	      50	   1365917 ns/op	  203059 B/op	    1844 allocs/op
-BenchmarkConnect/server=go/proto=h3/handshake=full/client=azuretls-4           	      50	   1043901 ns/op	  203888 B/op	    1840 allocs/op
-BenchmarkConnect/server=go/proto=h3/handshake=full/client=azuretls-4           	      50	    983092 ns/op	  202139 B/op	    1843 allocs/op
-BenchmarkConnect/server=go/proto=h3/handshake=full/client=azuretls-4           	      50	   1007209 ns/op	  199941 B/op	    1834 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=full/client=azuretls-4           	      50	   1371939 ns/op	  202989 B/op	    1839 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=full/client=azuretls-4           	      50	    989733 ns/op	  202210 B/op	    1847 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=full/client=azuretls-4           	      50	    981062 ns/op	  202814 B/op	    1843 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=full/client=azuretls-4           	      50	   1016215 ns/op	  201584 B/op	    1844 allocs/op
 BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=nethttp
-BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=nethttp-4         	      50	    644618 ns/op	  169868 B/op	    1389 allocs/op
-BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=nethttp-4         	      50	    631311 ns/op	  169550 B/op	    1389 allocs/op
-BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=nethttp-4         	      50	    614597 ns/op	  169024 B/op	    1388 allocs/op
-BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=nethttp-4         	      50	    713392 ns/op	  169573 B/op	    1389 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=nethttp-4         	      50	    646766 ns/op	  170549 B/op	    1390 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=nethttp-4         	      50	    634656 ns/op	  169515 B/op	    1390 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=nethttp-4         	      50	    673461 ns/op	  168972 B/op	    1389 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=nethttp-4         	      50	    615328 ns/op	  169046 B/op	    1389 allocs/op
 BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=mimicry
-BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=mimicry-4         	      50	    744671 ns/op	  179421 B/op	    1463 allocs/op
-BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=mimicry-4         	      50	    788232 ns/op	  178661 B/op	    1460 allocs/op
-BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=mimicry-4         	      50	    854439 ns/op	  179010 B/op	    1463 allocs/op
-BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=mimicry-4         	      50	    711081 ns/op	  178657 B/op	    1461 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=mimicry-4         	      50	    850776 ns/op	  179068 B/op	    1460 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=mimicry-4         	      50	    830414 ns/op	  178904 B/op	    1462 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=mimicry-4         	      50	    727769 ns/op	  178833 B/op	    1462 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=mimicry-4         	      50	    767099 ns/op	  178825 B/op	    1462 allocs/op
 BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=tls-client
-BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=tls-client-4      	      50	    662774 ns/op	  183922 B/op	    1526 allocs/op
-BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=tls-client-4      	      50	    705477 ns/op	  183480 B/op	    1527 allocs/op
-BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=tls-client-4      	      50	    665796 ns/op	  183370 B/op	    1527 allocs/op
-BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=tls-client-4      	      50	    693372 ns/op	  183256 B/op	    1527 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=tls-client-4      	      50	    714426 ns/op	  183510 B/op	    1525 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=tls-client-4      	      50	    729439 ns/op	  183487 B/op	    1527 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=tls-client-4      	      50	    670128 ns/op	  183223 B/op	    1527 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=tls-client-4      	      50	    647629 ns/op	  183863 B/op	    1528 allocs/op
 BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=httpcloak
-BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=httpcloak-4       	      50	   7205559 ns/op	  244000 B/op	    1893 allocs/op
-BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=httpcloak-4       	      50	   7321837 ns/op	  242919 B/op	    1888 allocs/op
-BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=httpcloak-4       	      50	   7756312 ns/op	  243031 B/op	    1889 allocs/op
-BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=httpcloak-4       	      50	   7031258 ns/op	  242898 B/op	    1889 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=httpcloak-4       	      50	   7046354 ns/op	  243434 B/op	    1890 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=httpcloak-4       	      50	   7295028 ns/op	  242984 B/op	    1888 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=httpcloak-4       	      50	   7482107 ns/op	  243846 B/op	    1889 allocs/op
+BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=httpcloak-4       	      50	   7366019 ns/op	  243018 B/op	    1890 allocs/op
 BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=azuretls
     bench_test.go:256: n/a: the client does not resume TLS sessions here (no request was resumed)
 --- SKIP: BenchmarkConnect/server=go/proto=h3/handshake=resumed/client=azuretls
