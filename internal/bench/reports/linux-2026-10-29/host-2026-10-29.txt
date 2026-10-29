@@ -1,0 +1,5 @@
+2026-10-29T17:52:54Z before micro: load average 1.59 2.00 1.79; other containers at 1% CPU or more: 2, 5.82% CPU together
+2026-10-29T18:03:55Z before bench-pass1: load average 2.23 2.54 2.26; other containers at 1% CPU or more: 3, 9.32% CPU together
+2026-10-29T18:31:04Z before bench-pass2: load average 1.67 3.19 3.34; other containers at 1% CPU or more: 3, 10.14% CPU together
+2026-10-29T18:57:04Z before bench-pass3: load average 1.19 2.42 3.04; other containers at 1% CPU or more: 2, 6.29% CPU together
+2026-10-29T19:22:04Z end: load average 1.59 3.33 3.78; other containers at 1% CPU or more: 4, 9.52% CPU together
