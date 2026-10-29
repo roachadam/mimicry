@@ -226,6 +226,55 @@ realistic pattern (a new client per identity) to be benchmarked.
   (`internal/pool`) HTTP/1.1 and shared connections kept, and
   `CloseIdle` still closing them.
 
+## Amendment: Config.MaxIdleProxies (2026-10-29)
+
+- **Problem.** In the final benchmark a client rotating to a new identity
+  every 10 requests (about every 120 ms) kept 1.8 MB of live heap and 76
+  tunnels after 30 s, against azuretls's 64 KB (its `SetProxy` closes
+  the old proxy's connections). The count (16) hardly mattered: the 10 s
+  grace kept every identity of the last 10 s.
+- **Options.** A count alone, keeping the 10 s grace: does nothing at
+  that rotation rate. Closing on every proxy change (azuretls,
+  httpcloak): round-robin over a list dials on every request. Changing
+  the default: the round-robin warmth it buys is the reason for the rule,
+  and the data show no cost to the rotating client beyond memory
+  (below). **A `Config` count that replaces the rule** (chosen); a
+  negative value meaning "the current proxy only" was considered and
+  rejected as a second spelling of 1.
+- **Decision.** `Config.MaxIdleProxies`: zero keeps the rule above (16
+  most recent, or used in the last 10 s); N > 0 keeps the N most recently
+  used proxies' idle connections and no time grace: a proxy pushed out of
+  them is swept at once (the sweep is armed with no delay when a new
+  proxy appears; an earlier due time wins over a later one), so 1 keeps
+  only the latest request's proxy. Negative is an error. A stale proxy
+  whose connections are in use is looked at again within 10 s, as before.
+- **Evidence** (the Linux test host, i5-13500, 100 clients, HTTP/2 through CONNECT,
+  1 KB, a new identity every 10 requests, 30 s, 3 passes;
+  [proxyidle-2026-10-29](../../internal/bench/reports/focus-2026-10-29/ctor/after/proxyidle-2026-10-29.md)):
+
+  | Client | Live heap per client (last third) | Tunnels open per client | CPU per request | New connection p99 |
+  |---|---:|---:|---:|---:|
+  | mimicry (default) | 1672–1699 KB | 69.7–70.0 | 120–124 µs | 50.6–61.1 ms |
+  | `MaxIdleProxies` 4 | 360–365 KB | 3.9 | 120 µs | 44.8–45.4 ms |
+  | `MaxIdleProxies` 1 | 304–306 KB | 0.9 | 120 µs | 44.8–45.4 ms |
+  | tls-client | 9127–9303 KB | 187–189 | 133–135 µs | 51.6–61.6 ms |
+  | azuretls | 67–68 KB | 0.9 | 161–172 µs | 45.9–48.5 ms |
+
+  Requests/s were the same for all (6768–6862). Every mimicry variant
+  still grew about 9 KB per client per second: each identity's TLS
+  session ticket stays until it expires (the server's lifetime) and the
+  pool remembers each connection key for 90 s (`KeyTimeout`), about 1.4
+  KB per identity (a heap profile diff over 400 identities on the Mac).
+  So 1 does not reach azuretls's 67 KB; forgetting a swept proxy's
+  tickets and keys is left open (backlog).
+- **Default kept**: the rotating client pays memory only (no CPU, rate or
+  latency cost), and a list used in turn keeps its connections.
+- Tests: `TestUnusedProxiesCloseTheirConnections` gains rows for 4 and 1
+  (rotation: the pushed-out proxies close with the clock barely moving)
+  and for round-robin over 4 slowly with 4 (nothing closes);
+  mutation-checked (a 10 s delay or a grace kept with a count fails
+  both rotation rows).
+
 ## Revisit when
 
 - A capture measures a browser closing an idle HTTP/2 connection (time

@@ -1,0 +1,9 @@
+2026-10-29T21:15:07Z before micro: load average 3.36 3.54 3.56; other containers at 1% CPU or more: 3, 9.85% CPU together
+2026-10-29T21:18:44Z before ctor-after-pass1: load average 3.71 3.50 3.52; other containers at 1% CPU or more: 1, 2.95% CPU together
+2026-10-29T21:21:26Z before ctor-after-pass2: load average 4.58 3.89 3.66; other containers at 1% CPU or more: 1, 2.54% CPU together
+2026-10-29T21:24:08Z before ctor-after-pass3: load average 5.24 4.16 3.77; other containers at 1% CPU or more: 3, 9.59% CPU together
+2026-10-29T21:26:49Z end: load average 2.83 3.78 3.70; other containers at 1% CPU or more: 3, 10.98% CPU together
+2026-10-29T21:26:54Z before proxyidle-pass1: load average 2.60 3.72 3.68; other containers at 1% CPU or more: 2, 5.74% CPU together
+2026-10-29T21:29:39Z before proxyidle-pass2: load average 4.92 3.92 3.74; other containers at 1% CPU or more: 3, 295.18% CPU together
+2026-10-29T21:32:24Z before proxyidle-pass3: load average 2.16 3.27 3.53; other containers at 1% CPU or more: 1, 2.95% CPU together
+2026-10-29T21:35:09Z end: load average 3.36 3.41 3.54; other containers at 1% CPU or more: 3, 10.25% CPU together

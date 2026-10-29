@@ -95,13 +95,19 @@ type Config struct {
 	// for its idleness. Unused proxies' connections close early either
 	// way (proxyUse).
 	IdleConnTimeout time.Duration
+	// MaxIdleProxies, when set, is how many of the most recently used
+	// proxies keep their idle connections, the others' closing as soon as
+	// they fall out (proxyUse); zero means keepProxies, or any proxy used
+	// in the last proxyUnused. Negative is an error.
+	MaxIdleProxies int
 	// HTTP3OverSOCKS5 lets requests through a socks5 or socks5h proxy use
 	// HTTP/3, over a SOCKS5 UDP association with the proxy (ListenUDPVia),
 	// as they would without the proxy. Otherwise, and through any other
 	// proxy, they stay on TCP (browsers never use HTTP/3 through a proxy).
 	HTTP3OverSOCKS5 bool
-	// UDPReadBufferSize is the receive buffer QUIC sockets ask for; zero
-	// keeps the OS's default, negative is an error.
+	// UDPReadBufferSize is the receive buffer QUIC sockets ask for: zero
+	// asks for dial.DefaultUDPReadBufferSize (Chrome's), negative keeps the
+	// OS's default.
 	UDPReadBufferSize int
 	// HTTP3ACKEvery, when set, is how many ack-eliciting packets a QUIC
 	// connection acknowledges at once after the profile's warm-up, in place
@@ -189,10 +195,6 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 		perHost = p.Connections.HTTP1PerHost
 	}
 
-	if cfg.UDPReadBufferSize < 0 {
-		return nil, fmt.Errorf("mimicry: Config.UDPReadBufferSize %d is negative", cfg.UDPReadBufferSize)
-	}
-
 	quicProfile, err := ackOverride(p.QUIC, cfg.HTTP3ACKEvery)
 	if err != nil {
 		return nil, err
@@ -211,6 +213,15 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 	idle := cfg.IdleConnTimeout
 	if idle == 0 {
 		idle = idleTimeout
+	}
+
+	if cfg.MaxIdleProxies < 0 {
+		return nil, fmt.Errorf("mimicry: Config.MaxIdleProxies %d is negative", cfg.MaxIdleProxies)
+	}
+
+	keep, grace := keepProxies, proxyUnused
+	if cfg.MaxIdleProxies > 0 {
+		keep, grace = cfg.MaxIdleProxies, 0
 	}
 
 	c := compile(p)
@@ -238,6 +249,8 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 		h3SOCKS5:        cfg.HTTP3OverSOCKS5,
 		expireGoAway:    p.HTTP3 != nil && p.HTTP3.Discovery.GoAwayTCP,
 		proxies: proxyUse{
+			keep:  keep,
+			grace: grace,
 			byURL: map[string]*proxyKeys{},
 		},
 		pool: pool.New[*shared, *h1.Conn](pool.Config{

@@ -1,0 +1,1840 @@
+{
+  "date": "2026-10-29",
+  "name": "ctor-before-pass1",
+  "env": {
+    "host": "Linux host (Intel Core i5-13500)",
+    "hostCpu": "13th Gen Intel(R) Core(TM) i5-13500, 20 cores",
+    "hostOs": "Linux 6.18.38",
+    "docker": "linux/amd64, server 29.5.3, 20 CPUs, 100992466944 bytes",
+    "mode": "local: both stacks on one Docker host, one Docker network",
+    "kernel": "6.18.38",
+    "clientCpus": 4,
+    "gomaxprocs": 4,
+    "goVersion": "go1.27.3",
+    "mimicryCommit": "c1f37ab",
+    "cpusets": "client 0,2,4,6, servers 8-11, proxy 12-15",
+    "servers": [
+      {
+        "name": "nginx",
+        "software": "nginx/1.31.8",
+        "cpus": 4
+      },
+      {
+        "name": "go",
+        "software": "net/http and quic-go v0.64.1 (go1.27.3)",
+        "cpus": 4
+      }
+    ],
+    "clients": [
+      {
+        "name": "net/http",
+        "module": "std",
+        "version": "go1.27.3",
+        "profile": "none (Go's own TLS and HTTP/2; quic-go for HTTP/3)"
+      },
+      {
+        "name": "mimicry",
+        "module": "github.com/roachadam/mimicry",
+        "version": "(devel)",
+        "profile": "chrome-156-macos"
+      },
+      {
+        "name": "tls-client",
+        "module": "github.com/bogdanfinn/tls-client",
+        "version": "v1.17.1",
+        "profile": "Chrome_152_PSK"
+      },
+      {
+        "name": "httpcloak",
+        "module": "github.com/sardanioss/httpcloak",
+        "version": "v1.7.3",
+        "profile": "chrome-latest (chrome-155-linux)"
+      },
+      {
+        "name": "azuretls",
+        "module": "github.com/Noooste/azuretls-client",
+        "version": "v1.13.2",
+        "profile": "chrome (GetLastChromeVersion)"
+      }
+    ],
+    "netem": "",
+    "proxyDelay": "5ms on everything the proxy sends, in the proxy (a delay line per direction; the host has no netem)",
+    "hostLoad": "load average 3.04 3.38 3.51; other containers at 1% CPU or more: 3, 8.66% CPU together",
+    "rmemMax": "16777216",
+    "rmemDefault": "212992",
+    "netAdmin": true
+  },
+  "settings": {
+    "window": 5000000000,
+    "warmup": 2000000000,
+    "maxWindow": 120000000000,
+    "layers": [
+      6
+    ],
+    "clients": [
+      "mimicry",
+      "tls-client",
+      "azuretls"
+    ],
+    "servers": [
+      "nginx"
+    ],
+    "reduced": [
+      "go"
+    ],
+    "protos": [
+      "h2"
+    ],
+    "concurrency": [
+      1,
+      64
+    ],
+    "idleN": 50,
+    "idleNs": [
+      10,
+      50
+    ],
+    "reps": 10,
+    "repsLoss": 20,
+    "netem": true,
+    "bodies": [
+      "1KB",
+      "100KB"
+    ],
+    "multiN": 100,
+    "multiN2Variants": [
+      "fixed"
+    ],
+    "multiVariants": [
+      "client"
+    ],
+    "multiRotate": 10,
+    "multiProxyWindow": 30000000000,
+    "multiProxyRoutes": [
+      "h2-connect-auth"
+    ],
+    "multiProxyBodies": [
+      "1KB"
+    ],
+    "multiClientWindow": 10000000000
+  },
+  "microRaw": "micro-2026-10-29.txt",
+  "multi": [
+    {
+      "proto": "h2",
+      "proxy": "connect-auth",
+      "op": "bytes-1KB",
+      "rotate": 10,
+      "renew": "dropped",
+      "n": 100,
+      "client": "mimicry",
+      "result": {
+        "clients": 100,
+        "requests": 68569,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 10.002056853,
+        "rps": 6855.489926497822,
+        "mbps": 7.02002168473377,
+        "p50": 11.599872,
+        "p95": 40.63232,
+        "p99": 44.302336,
+        "newConns": 6830,
+        "newP50": 40.63232,
+        "newP99": 49.020928,
+        "newResumed": 0,
+        "rotationsPerSec": 682.8595458294583,
+        "tunnelsPerSec": 682.3596486509593,
+        "associationsPerSec": 0,
+        "clientCores": 1.4289802797624631,
+        "cpuPerRequest": 208.44320319677988,
+        "bytesPerRequest": 53263.115752016216,
+        "allocsPerRequest": 282.143286324724,
+        "gcs": 243,
+        "gcPauseMs": 17.563755,
+        "liveKbPerClient": 113.680087890625,
+        "peakKbPerClient": 350.681015625,
+        "stackKbPerClient": 55.04,
+        "heapPeakMb": 38.37384,
+        "goroutinesPerClient": 2.22,
+        "serverCpu": 0.11818446619261584,
+        "proxyCpu": 0.14412108141213342,
+        "buildP50": 0.626688,
+        "buildP99": 5.931008,
+        "cost": {
+          "clients": 20,
+          "constructUs": 648.5,
+          "firstMs": 37.96727,
+          "kb": 386.63671875,
+          "allocs": 2077.5,
+          "onProto": 20
+        },
+        "samples": [
+          {
+            "t": 0.000003246,
+            "liveMb": 10.702352,
+            "goroutines": 313,
+            "rssMb": 69.18144,
+            "open": 106
+          },
+          {
+            "t": 1.000484911,
+            "liveMb": 12.925536,
+            "goroutines": 305,
+            "rssMb": 71.233536,
+            "open": 110
+          },
+          {
+            "t": 2.001030916,
+            "liveMb": 10.257568,
+            "goroutines": 296,
+            "rssMb": 67.866624,
+            "open": 98
+          },
+          {
+            "t": 3.000036986,
+            "liveMb": 10.490032,
+            "goroutines": 305,
+            "rssMb": 65.978368,
+            "open": 103
+          },
+          {
+            "t": 4.001059664,
+            "liveMb": 16.154728,
+            "goroutines": 330,
+            "rssMb": 75.4688,
+            "open": 124
+          },
+          {
+            "t": 5.000439468,
+            "liveMb": 17.259256,
+            "goroutines": 308,
+            "rssMb": 79.294464,
+            "open": 109
+          },
+          {
+            "t": 6.000116299,
+            "liveMb": 14.5122,
+            "goroutines": 275,
+            "rssMb": 73.924608,
+            "open": 106
+          },
+          {
+            "t": 7.000157883,
+            "liveMb": 18.758456,
+            "goroutines": 294,
+            "rssMb": 74.928128,
+            "open": 100
+          },
+          {
+            "t": 8.00000859,
+            "liveMb": 16.18124,
+            "goroutines": 295,
+            "rssMb": 74.727424,
+            "open": 100
+          },
+          {
+            "t": 9.000390515,
+            "liveMb": 17.593208,
+            "goroutines": 303,
+            "rssMb": 82.731008,
+            "open": 124
+          },
+          {
+            "t": 10.000572185,
+            "liveMb": 15.912288,
+            "goroutines": 330,
+            "rssMb": 78.114816,
+            "open": 118
+          }
+        ],
+        "end": {
+          "liveKbPerRoutine": 103.751640625,
+          "goroutinesPerRoutine": 1.04,
+          "rssMb": 70.7584,
+          "openTunnels": 126,
+          "openAssociations": 0
+        },
+        "growth": {
+          "liveKbPerRoutine": 6.87033196559051,
+          "goroutinesPerRoutine": -0.0002702645088986629,
+          "rssMb": 1.1599958490063247,
+          "open": 0.8910607033888869
+        }
+      }
+    },
+    {
+      "proto": "h2",
+      "proxy": "connect-auth",
+      "op": "bytes-1KB",
+      "rotate": 10,
+      "renew": "dropped",
+      "n": 100,
+      "client": "tls-client",
+      "result": {
+        "clients": 100,
+        "requests": 67964,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 10.041419484,
+        "rps": 6768.365778194393,
+        "mbps": 6.930806556871058,
+        "p50": 11.730944,
+        "p95": 41.156608,
+        "p99": 43.778048,
+        "newConns": 6736,
+        "newP50": 41.156608,
+        "newP99": 65.798144,
+        "newResumed": 0,
+        "rotationsPerSec": 670.8214919945475,
+        "tunnelsPerSec": 671.5186045901476,
+        "associationsPerSec": 0,
+        "clientCores": 0.8914782431172856,
+        "cpuPerRequest": 131.71248013654287,
+        "bytesPerRequest": 29552.700606203285,
+        "allocsPerRequest": 246.2952739685716,
+        "gcs": 11,
+        "gcPauseMs": 0.679086,
+        "liveKbPerClient": 2324.316708984375,
+        "peakKbPerClient": 6481.758828125,
+        "stackKbPerClient": 404.8,
+        "heapPeakMb": 666.040336,
+        "goroutinesPerClient": 82.49,
+        "serverCpu": 0.11171986209594348,
+        "proxyCpu": 0.12396793122560879,
+        "buildP50": 0.005984,
+        "buildP99": 0.019072,
+        "cost": {
+          "clients": 20,
+          "constructUs": 11,
+          "firstMs": 37.918429,
+          "kb": 162.9921875,
+          "allocs": 1210,
+          "onProto": 20
+        },
+        "samples": [
+          {
+            "t": 0.000004106,
+            "liveMb": 73.108448,
+            "goroutines": 1607,
+            "rssMb": 183.435264,
+            "open": 1400
+          },
+          {
+            "t": 1.003711328,
+            "liveMb": 102.37024,
+            "goroutines": 2216,
+            "rssMb": 235.753472,
+            "open": 2019
+          },
+          {
+            "t": 2.000414114,
+            "liveMb": 142.21032,
+            "goroutines": 2907,
+            "rssMb": 296.50944,
+            "open": 2703
+          },
+          {
+            "t": 3.000642668,
+            "liveMb": 159.346008,
+            "goroutines": 3607,
+            "rssMb": 370.675712,
+            "open": 3400
+          },
+          {
+            "t": 4.014670406,
+            "liveMb": 216.9596,
+            "goroutines": 4242,
+            "rssMb": 439.304192,
+            "open": 4088
+          },
+          {
+            "t": 5.000570332,
+            "liveMb": 260.0278,
+            "goroutines": 4910,
+            "rssMb": 509.89056,
+            "open": 4707
+          },
+          {
+            "t": 6.00056956,
+            "liveMb": 260.0278,
+            "goroutines": 5611,
+            "rssMb": 565.952512,
+            "open": 5405
+          },
+          {
+            "t": 7.000527944,
+            "liveMb": 299.749136,
+            "goroutines": 6311,
+            "rssMb": 596.860928,
+            "open": 6105
+          },
+          {
+            "t": 8.000432909,
+            "liveMb": 351.197264,
+            "goroutines": 6996,
+            "rssMb": 689.856512,
+            "open": 6798
+          },
+          {
+            "t": 9.000617347,
+            "liveMb": 351.197264,
+            "goroutines": 7650,
+            "rssMb": 760.803328,
+            "open": 7466
+          },
+          {
+            "t": 10.000342636,
+            "liveMb": 413.946312,
+            "goroutines": 8334,
+            "rssMb": 801.738752,
+            "open": 8143
+          }
+        ],
+        "end": {
+          "liveKbPerRoutine": 4217.87828125,
+          "goroutinesPerRoutine": 82.03,
+          "rssMb": 802.009088,
+          "openTunnels": 8199,
+          "openAssociations": 0
+        },
+        "growth": {
+          "liveKbPerRoutine": 324.15593998503346,
+          "goroutinesPerRoutine": 6.766481621959168,
+          "rssMb": 63.203833694781515,
+          "open": 677.5630972069472
+        }
+      }
+    },
+    {
+      "proto": "h2",
+      "proxy": "connect-auth",
+      "op": "bytes-1KB",
+      "rotate": 10,
+      "renew": "dropped",
+      "n": 100,
+      "client": "azuretls",
+      "result": {
+        "clients": 100,
+        "requests": 67971,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 10.013890619,
+        "rps": 6787.671504123906,
+        "mbps": 6.95057562022288,
+        "p50": 11.862016,
+        "p95": 41.156608,
+        "p99": 43.778048,
+        "newConns": 6801,
+        "newP50": 41.156608,
+        "newP99": 49.020928,
+        "newResumed": 0,
+        "rotationsPerSec": 679.156609429708,
+        "tunnelsPerSec": 679.3563320026914,
+        "associationsPerSec": 0,
+        "clientCores": 1.084370841778215,
+        "cpuPerRequest": 159.7559400332495,
+        "bytesPerRequest": 38163.22808256462,
+        "allocsPerRequest": 507.43748069029436,
+        "gcs": 14,
+        "gcPauseMs": 0.905651,
+        "liveKbPerClient": 2430.646220703125,
+        "peakKbPerClient": 7222.1159375,
+        "stackKbPerClient": 343.36,
+        "heapPeakMb": 741.849376,
+        "goroutinesPerClient": 82.14,
+        "serverCpu": 0.11530054041226391,
+        "proxyCpu": 0.14437525383559416,
+        "buildP50": 0.003984,
+        "buildP99": 0.011328,
+        "cost": {
+          "clients": 20,
+          "constructUs": 7,
+          "firstMs": 38.1715365,
+          "kb": 159.4375,
+          "allocs": 1339,
+          "onProto": 20
+        },
+        "samples": [
+          {
+            "t": 0.000003931,
+            "liveMb": 72.07556,
+            "goroutines": 1507,
+            "rssMb": 180.46976,
+            "open": 1400
+          },
+          {
+            "t": 1.00084719,
+            "liveMb": 106.280136,
+            "goroutines": 2207,
+            "rssMb": 239.263744,
+            "open": 2100
+          },
+          {
+            "t": 2.000006263,
+            "liveMb": 140.547424,
+            "goroutines": 2900,
+            "rssMb": 311.455744,
+            "open": 2747
+          },
+          {
+            "t": 3.000090766,
+            "liveMb": 181.769432,
+            "goroutines": 3523,
+            "rssMb": 377.344,
+            "open": 3405
+          },
+          {
+            "t": 4.000734529,
+            "liveMb": 205.674424,
+            "goroutines": 4209,
+            "rssMb": 438.444032,
+            "open": 4101
+          },
+          {
+            "t": 5.00015694,
+            "liveMb": 269.370832,
+            "goroutines": 4907,
+            "rssMb": 541.55264,
+            "open": 4800
+          },
+          {
+            "t": 6.000401434,
+            "liveMb": 302.600968,
+            "goroutines": 5607,
+            "rssMb": 611.971072,
+            "open": 5500
+          },
+          {
+            "t": 7.00021767,
+            "liveMb": 302.600968,
+            "goroutines": 6311,
+            "rssMb": 667.512832,
+            "open": 6175
+          },
+          {
+            "t": 8.000041861,
+            "liveMb": 348.755776,
+            "goroutines": 6959,
+            "rssMb": 690.167808,
+            "open": 6829
+          },
+          {
+            "t": 9.000093148,
+            "liveMb": 391.373456,
+            "goroutines": 7645,
+            "rssMb": 781.058048,
+            "open": 7517
+          },
+          {
+            "t": 10.000011533,
+            "liveMb": 443.064296,
+            "goroutines": 8310,
+            "rssMb": 868.818944,
+            "open": 8203
+          }
+        ],
+        "end": {
+          "liveKbPerRoutine": 4203.54890625,
+          "goroutinesPerRoutine": 82.12,
+          "rssMb": 862.851072,
+          "openTunnels": 8208,
+          "openAssociations": 0
+        },
+        "growth": {
+          "liveKbPerRoutine": 351.4412172647947,
+          "goroutinesPerRoutine": 6.810909842233843,
+          "rssMb": 68.17385143501222,
+          "open": 680.63659415844
+        }
+      }
+    },
+    {
+      "proto": "h2",
+      "proxy": "connect-auth",
+      "op": "bytes-1KB",
+      "rotate": 10,
+      "renew": "closed",
+      "n": 100,
+      "client": "mimicry",
+      "result": {
+        "clients": 100,
+        "requests": 68186,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 10.002669399,
+        "rps": 6816.780329340564,
+        "mbps": 6.980383057244737,
+        "p50": 11.730944,
+        "p95": 41.156608,
+        "p99": 43.778048,
+        "newConns": 6805,
+        "newP50": 41.156608,
+        "newP99": 49.545216,
+        "newResumed": 0,
+        "rotationsPerSec": 680.3183958754369,
+        "tunnelsPerSec": 681.0182090673734,
+        "associationsPerSec": 0,
+        "clientCores": 1.4278467507311445,
+        "cpuPerRequest": 209.46057841785705,
+        "bytesPerRequest": 53657.03751503241,
+        "allocsPerRequest": 282.7763470507142,
+        "gcs": 248,
+        "gcPauseMs": 19.118965,
+        "liveKbPerClient": 109.6834375,
+        "peakKbPerClient": 313.070390625,
+        "stackKbPerClient": 41.28,
+        "heapPeakMb": 34.498312,
+        "goroutinesPerClient": 2,
+        "serverCpu": 0.1188359279492768,
+        "proxyCpu": 0.14738953085337295,
+        "buildP50": 0.626688,
+        "buildP99": 6.258688,
+        "cost": {
+          "clients": 20,
+          "constructUs": 668,
+          "firstMs": 38.083005,
+          "kb": 387.625,
+          "allocs": 2080,
+          "onProto": 20
+        },
+        "samples": [
+          {
+            "t": 0.000003854,
+            "liveMb": 8.581832,
+            "goroutines": 307,
+            "rssMb": 62.898176,
+            "open": 100
+          },
+          {
+            "t": 1.000041331,
+            "liveMb": 12.549536,
+            "goroutines": 282,
+            "rssMb": 73.547776,
+            "open": 93
+          },
+          {
+            "t": 2.000175931,
+            "liveMb": 10.89768,
+            "goroutines": 269,
+            "rssMb": 65.712128,
+            "open": 89
+          },
+          {
+            "t": 3.000011301,
+            "liveMb": 16.459856,
+            "goroutines": 279,
+            "rssMb": 71.102464,
+            "open": 93
+          },
+          {
+            "t": 4.000154343,
+            "liveMb": 11.213136,
+            "goroutines": 292,
+            "rssMb": 69.292032,
+            "open": 89
+          },
+          {
+            "t": 5.000793136,
+            "liveMb": 16.326304,
+            "goroutines": 297,
+            "rssMb": 72.712192,
+            "open": 97
+          },
+          {
+            "t": 6.000223781,
+            "liveMb": 14.037168,
+            "goroutines": 285,
+            "rssMb": 73.150464,
+            "open": 90
+          },
+          {
+            "t": 7.000897577,
+            "liveMb": 15.146544,
+            "goroutines": 282,
+            "rssMb": 76.34944,
+            "open": 90
+          },
+          {
+            "t": 8.000775321,
+            "liveMb": 13.594664,
+            "goroutines": 293,
+            "rssMb": 73.035776,
+            "open": 91
+          },
+          {
+            "t": 9.000006447,
+            "liveMb": 14.892168,
+            "goroutines": 301,
+            "rssMb": 74.104832,
+            "open": 97
+          },
+          {
+            "t": 10.000053666,
+            "liveMb": 15.24672,
+            "goroutines": 301,
+            "rssMb": 78.921728,
+            "open": 99
+          }
+        ],
+        "end": {
+          "liveKbPerRoutine": 104.7359375,
+          "goroutinesPerRoutine": 1.04,
+          "rssMb": 70.12352,
+          "openTunnels": 100,
+          "openAssociations": 0
+        },
+        "growth": {
+          "liveKbPerRoutine": 4.52618118087715,
+          "goroutinesPerRoutine": 0.01063536885935623,
+          "rssMb": 1.0787814898226358,
+          "open": 0.10904607103358435
+        }
+      }
+    },
+    {
+      "proto": "h2",
+      "proxy": "connect-auth",
+      "op": "bytes-1KB",
+      "rotate": 10,
+      "renew": "closed",
+      "n": 100,
+      "client": "tls-client",
+      "result": {
+        "clients": 100,
+        "requests": 68049,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 10.003494912,
+        "rps": 6802.52257822111,
+        "mbps": 6.965783120098417,
+        "p50": 11.862016,
+        "p95": 41.156608,
+        "p99": 43.25376,
+        "newConns": 6800,
+        "newP50": 41.156608,
+        "newP99": 45.8752,
+        "newResumed": 0,
+        "rotationsPerSec": 679.7624290129693,
+        "tunnelsPerSec": 679.8623940760594,
+        "associationsPerSec": 0,
+        "clientCores": 0.9189979183147307,
+        "cpuPerRequest": 135.09663624740995,
+        "bytesPerRequest": 29601.553939073314,
+        "allocsPerRequest": 247.01453364487355,
+        "gcs": 171,
+        "gcPauseMs": 14.404428,
+        "liveKbPerClient": 59.82576171875,
+        "peakKbPerClient": 188.644375,
+        "stackKbPerClient": 45.12,
+        "heapPeakMb": 21.634928,
+        "goroutinesPerClient": 1.99,
+        "serverCpu": 0.11435738310095118,
+        "proxyCpu": 0.12467472727995324,
+        "buildP50": 0.0056,
+        "buildP99": 0.014912,
+        "cost": {
+          "clients": 20,
+          "constructUs": 10.5,
+          "firstMs": 37.9575105,
+          "kb": 163.3515625,
+          "allocs": 1211,
+          "onProto": 20
+        },
+        "samples": [
+          {
+            "t": 0.000003974,
+            "liveMb": 8.885784,
+            "goroutines": 307,
+            "rssMb": 66.998272,
+            "open": 100
+          },
+          {
+            "t": 1.000135178,
+            "liveMb": 7.82472,
+            "goroutines": 307,
+            "rssMb": 62.73024,
+            "open": 100
+          },
+          {
+            "t": 2.000644273,
+            "liveMb": 8.902816,
+            "goroutines": 251,
+            "rssMb": 63.184896,
+            "open": 70
+          },
+          {
+            "t": 3.000018937,
+            "liveMb": 8.144144,
+            "goroutines": 293,
+            "rssMb": 61.304832,
+            "open": 96
+          },
+          {
+            "t": 4.000876223,
+            "liveMb": 8.728688,
+            "goroutines": 300,
+            "rssMb": 63.729664,
+            "open": 96
+          },
+          {
+            "t": 5.000793939,
+            "liveMb": 9.219144,
+            "goroutines": 308,
+            "rssMb": 65.51552,
+            "open": 100
+          },
+          {
+            "t": 6.000844552,
+            "liveMb": 7.485656,
+            "goroutines": 290,
+            "rssMb": 63.664128,
+            "open": 97
+          },
+          {
+            "t": 7.000161446,
+            "liveMb": 8.082024,
+            "goroutines": 246,
+            "rssMb": 64.954368,
+            "open": 76
+          },
+          {
+            "t": 8.000362156,
+            "liveMb": 8.629312,
+            "goroutines": 285,
+            "rssMb": 63.102976,
+            "open": 91
+          },
+          {
+            "t": 9.00000722,
+            "liveMb": 8.734744,
+            "goroutines": 306,
+            "rssMb": 62.922752,
+            "open": 99
+          },
+          {
+            "t": 10.000764761,
+            "liveMb": 7.937072,
+            "goroutines": 302,
+            "rssMb": 65.683456,
+            "open": 96
+          }
+        ],
+        "end": {
+          "liveKbPerRoutine": 56.250234375,
+          "goroutinesPerRoutine": 1.04,
+          "rssMb": 58.441728,
+          "openTunnels": 100,
+          "openAssociations": 0
+        },
+        "growth": {
+          "liveKbPerRoutine": -0.29217595407840097,
+          "goroutinesPerRoutine": -0.0028181679864549367,
+          "rssMb": 0.010771173595530106,
+          "open": -0.000022867784110558736
+        }
+      }
+    },
+    {
+      "proto": "h2",
+      "proxy": "connect-auth",
+      "op": "bytes-1KB",
+      "rotate": 10,
+      "renew": "closed",
+      "n": 100,
+      "client": "azuretls",
+      "result": {
+        "clients": 100,
+        "requests": 68364,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 10.003712687,
+        "rps": 6833.862800642027,
+        "mbps": 6.997875507857435,
+        "p50": 11.730944,
+        "p95": 41.156608,
+        "p99": 43.778048,
+        "newConns": 6806,
+        "newP50": 41.156608,
+        "newP99": 49.020928,
+        "newResumed": 0,
+        "rotationsPerSec": 680.3474083021713,
+        "tunnelsPerSec": 681.4470000581695,
+        "associationsPerSec": 0,
+        "clientCores": 1.1083151172872143,
+        "cpuPerRequest": 162.1798900005851,
+        "bytesPerRequest": 38077.36247147622,
+        "allocsPerRequest": 507.021707331344,
+        "gcs": 221,
+        "gcPauseMs": 23.242026,
+        "liveKbPerClient": 62.206630859375,
+        "peakKbPerClient": 183.66828125,
+        "stackKbPerClient": 26.24,
+        "heapPeakMb": 21.105528,
+        "goroutinesPerClient": 1.23,
+        "serverCpu": 0.12205288558383803,
+        "proxyCpu": 0.15356206221279295,
+        "buildP50": 0.00392,
+        "buildP99": 0.009792,
+        "cost": {
+          "clients": 20,
+          "constructUs": 6.5,
+          "firstMs": 38.007876,
+          "kb": 159.6640625,
+          "allocs": 1328.5,
+          "onProto": 20
+        },
+        "samples": [
+          {
+            "t": 0.000004083,
+            "liveMb": 8.491248,
+            "goroutines": 207,
+            "rssMb": 57.073664,
+            "open": 100
+          },
+          {
+            "t": 1.000327903,
+            "liveMb": 8.458512,
+            "goroutines": 207,
+            "rssMb": 60.403712,
+            "open": 100
+          },
+          {
+            "t": 2.000013521,
+            "liveMb": 8.949352,
+            "goroutines": 207,
+            "rssMb": 60.895232,
+            "open": 100
+          },
+          {
+            "t": 3.000657135,
+            "liveMb": 7.870968,
+            "goroutines": 207,
+            "rssMb": 61.431808,
+            "open": 69
+          },
+          {
+            "t": 4.000327646,
+            "liveMb": 8.509416,
+            "goroutines": 207,
+            "rssMb": 62.042112,
+            "open": 74
+          },
+          {
+            "t": 5.00019032,
+            "liveMb": 8.233472,
+            "goroutines": 207,
+            "rssMb": 60.25216,
+            "open": 87
+          },
+          {
+            "t": 6.000310994,
+            "liveMb": 9.00268,
+            "goroutines": 208,
+            "rssMb": 61.612032,
+            "open": 94
+          },
+          {
+            "t": 7.000408444,
+            "liveMb": 9.069464,
+            "goroutines": 207,
+            "rssMb": 61.100032,
+            "open": 99
+          },
+          {
+            "t": 8.001028966,
+            "liveMb": 7.638432,
+            "goroutines": 207,
+            "rssMb": 62.091264,
+            "open": 100
+          },
+          {
+            "t": 9.000022216,
+            "liveMb": 8.61116,
+            "goroutines": 210,
+            "rssMb": 62.603264,
+            "open": 88
+          },
+          {
+            "t": 10.000458819,
+            "liveMb": 9.023048,
+            "goroutines": 207,
+            "rssMb": 61.370368,
+            "open": 88
+          }
+        ],
+        "end": {
+          "liveKbPerRoutine": 54.863203125,
+          "goroutinesPerRoutine": 1.04,
+          "rssMb": 57.417728,
+          "openTunnels": 100,
+          "openAssociations": 0
+        },
+        "growth": {
+          "liveKbPerRoutine": 0.19762937498553376,
+          "goroutinesPerRoutine": 0.0011816515501035746,
+          "rssMb": 0.297962984455557,
+          "open": -0.25457412803316826
+        }
+      }
+    },
+    {
+      "proto": "h2",
+      "proxy": "socks5",
+      "op": "bytes-1KB",
+      "rotate": 10,
+      "renew": "dropped",
+      "n": 100,
+      "client": "mimicry",
+      "result": {
+        "clients": 100,
+        "requests": 62926,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 10.003762217,
+        "rps": 6290.233477667635,
+        "mbps": 6.441199081131658,
+        "p50": 11.730944,
+        "p95": 52.690944,
+        "p99": 56.36096,
+        "newConns": 6237,
+        "newP50": 52.690944,
+        "newP99": 61.079552,
+        "newResumed": 0,
+        "rotationsPerSec": 623.4654387727337,
+        "tunnelsPerSec": 625.8645361802286,
+        "associationsPerSec": 0,
+        "clientCores": 1.3254553349406144,
+        "cpuPerRequest": 210.71639703779041,
+        "bytesPerRequest": 53551.55134602549,
+        "allocsPerRequest": 280.79221625401266,
+        "gcs": 232,
+        "gcPauseMs": 22.635563,
+        "liveKbPerClient": 105.430048828125,
+        "peakKbPerClient": 307.5959375,
+        "stackKbPerClient": 39.36,
+        "heapPeakMb": 33.966128,
+        "goroutinesPerClient": 1.54,
+        "serverCpu": 0.10831310026128742,
+        "proxyCpu": 0.1337156932545671,
+        "buildP50": 0.626688,
+        "buildP99": 5.996544,
+        "cost": {
+          "clients": 20,
+          "constructUs": 653,
+          "firstMs": 48.426888500000004,
+          "kb": 380.5703125,
+          "allocs": 2061.5,
+          "onProto": 20
+        },
+        "samples": [
+          {
+            "t": 0.000003633,
+            "liveMb": 9.550936,
+            "goroutines": 307,
+            "rssMb": 68.28032,
+            "open": 100
+          },
+          {
+            "t": 1.00070008,
+            "liveMb": 8.730904,
+            "goroutines": 307,
+            "rssMb": 62.394368,
+            "open": 100
+          },
+          {
+            "t": 2.000701034,
+            "liveMb": 10.22052,
+            "goroutines": 307,
+            "rssMb": 66.142208,
+            "open": 103
+          },
+          {
+            "t": 3.001070862,
+            "liveMb": 15.0934,
+            "goroutines": 289,
+            "rssMb": 74.682368,
+            "open": 95
+          },
+          {
+            "t": 4.000663432,
+            "liveMb": 10.937824,
+            "goroutines": 302,
+            "rssMb": 71.143424,
+            "open": 100
+          },
+          {
+            "t": 5.000436266,
+            "liveMb": 12.31152,
+            "goroutines": 302,
+            "rssMb": 73.23648,
+            "open": 98
+          },
+          {
+            "t": 6.000121934,
+            "liveMb": 12.279616,
+            "goroutines": 291,
+            "rssMb": 69.136384,
+            "open": 94
+          },
+          {
+            "t": 7.0014625,
+            "liveMb": 13.384248,
+            "goroutines": 284,
+            "rssMb": 73.449472,
+            "open": 93
+          },
+          {
+            "t": 8.00077889,
+            "liveMb": 15.144328,
+            "goroutines": 309,
+            "rssMb": 75.542528,
+            "open": 103
+          },
+          {
+            "t": 9.000617769,
+            "liveMb": 13.996392,
+            "goroutines": 302,
+            "rssMb": 73.64608,
+            "open": 100
+          },
+          {
+            "t": 10.000827173,
+            "liveMb": 18.943,
+            "goroutines": 305,
+            "rssMb": 79.609856,
+            "open": 115
+          }
+        ],
+        "end": {
+          "liveKbPerRoutine": 97.29625,
+          "goroutinesPerRoutine": 1.04,
+          "rssMb": 62.988288,
+          "openTunnels": 101,
+          "openAssociations": 0
+        },
+        "growth": {
+          "liveKbPerRoutine": 7.165823912763793,
+          "goroutinesPerRoutine": -0.0040919753525846085,
+          "rssMb": 1.1398177625955785,
+          "open": 0.5908540059601451
+        }
+      }
+    },
+    {
+      "proto": "h2",
+      "proxy": "socks5",
+      "op": "bytes-1KB",
+      "rotate": 10,
+      "renew": "dropped",
+      "n": 100,
+      "client": "tls-client",
+      "result": {
+        "clients": 100,
+        "requests": 63277,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 10.022449719,
+        "rps": 6313.526310842248,
+        "mbps": 6.465050942302462,
+        "p50": 11.862016,
+        "p95": 52.690944,
+        "p99": 55.312384,
+        "newConns": 6300,
+        "newP50": 52.690944,
+        "newP99": 58.9824,
+        "newResumed": 0,
+        "rotationsPerSec": 628.5888357271388,
+        "tunnelsPerSec": 628.5888357271388,
+        "associationsPerSec": 0,
+        "clientCores": 0.8257944147437234,
+        "cpuPerRequest": 130.7976515953664,
+        "bytesPerRequest": 28558.154653349557,
+        "allocsPerRequest": 245.40414368569938,
+        "gcs": 10,
+        "gcPauseMs": 1.278297,
+        "liveKbPerClient": 2129.729990234375,
+        "peakKbPerClient": 6348.070703125,
+        "stackKbPerClient": 381.12,
+        "heapPeakMb": 652.35368,
+        "goroutinesPerClient": 77.24,
+        "serverCpu": 0.10014994119622782,
+        "proxyCpu": 0.11307604745090964,
+        "buildP50": 0.005152,
+        "buildP99": 0.01728,
+        "cost": {
+          "clients": 20,
+          "constructUs": 11,
+          "firstMs": 48.423483000000004,
+          "kb": 153.4375,
+          "allocs": 1199.5,
+          "onProto": 20
+        },
+        "samples": [
+          {
+            "t": 0.000004562,
+            "liveMb": 72.393336,
+            "goroutines": 1507,
+            "rssMb": 177.532928,
+            "open": 1300
+          },
+          {
+            "t": 1.000036136,
+            "liveMb": 100.90008,
+            "goroutines": 2134,
+            "rssMb": 222.007296,
+            "open": 1901
+          },
+          {
+            "t": 2.000170052,
+            "liveMb": 137.32612,
+            "goroutines": 2766,
+            "rssMb": 287.739904,
+            "open": 2595
+          },
+          {
+            "t": 3.000381321,
+            "liveMb": 157.748992,
+            "goroutines": 3407,
+            "rssMb": 337.870848,
+            "open": 3200
+          },
+          {
+            "t": 4.000771985,
+            "liveMb": 183.279528,
+            "goroutines": 4030,
+            "rssMb": 380.133376,
+            "open": 3800
+          },
+          {
+            "t": 5.000914658,
+            "liveMb": 215.397152,
+            "goroutines": 4701,
+            "rssMb": 435.01568,
+            "open": 4440
+          },
+          {
+            "t": 6.00001886,
+            "liveMb": 252.302264,
+            "goroutines": 5308,
+            "rssMb": 502.071296,
+            "open": 5100
+          },
+          {
+            "t": 7.000062937,
+            "liveMb": 297.640624,
+            "goroutines": 5921,
+            "rssMb": 583.389184,
+            "open": 5700
+          },
+          {
+            "t": 8.000689435,
+            "liveMb": 297.640624,
+            "goroutines": 6564,
+            "rssMb": 626.827264,
+            "open": 6326
+          },
+          {
+            "t": 9.000206478,
+            "liveMb": 351.6444,
+            "goroutines": 7188,
+            "rssMb": 694.616064,
+            "open": 7000
+          },
+          {
+            "t": 10.000127774,
+            "liveMb": 351.6444,
+            "goroutines": 7813,
+            "rssMb": 766.578688,
+            "open": 7600
+          }
+        ],
+        "end": {
+          "liveKbPerRoutine": 3887.197421875,
+          "goroutinesPerRoutine": 76.27,
+          "rssMb": 771.227648,
+          "openTunnels": 7623,
+          "openAssociations": 0
+        },
+        "growth": {
+          "liveKbPerRoutine": 286.65876848267067,
+          "goroutinesPerRoutine": 6.313190827165687,
+          "rssMb": 58.77984840008097,
+          "open": 630.8004573112563
+        }
+      }
+    },
+    {
+      "proto": "h2",
+      "proxy": "socks5",
+      "op": "bytes-1KB",
+      "rotate": 10,
+      "renew": "dropped",
+      "n": 100,
+      "client": "azuretls",
+      "result": {
+        "clients": 100,
+        "requests": 62859,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 10.012804118,
+        "rps": 6277.861751734311,
+        "mbps": 6.428530433775934,
+        "p50": 11.862016,
+        "p95": 53.215232,
+        "p99": 55.836672,
+        "newConns": 6251,
+        "newP50": 53.215232,
+        "newP99": 64.749568,
+        "newResumed": 0,
+        "rotationsPerSec": 624.300638096234,
+        "tunnelsPerSec": 625.5989756894593,
+        "associationsPerSec": 0,
+        "clientCores": 1.014836191764997,
+        "cpuPerRequest": 161.65316024753815,
+        "bytesPerRequest": 37207.86738573633,
+        "allocsPerRequest": 507.0992379770598,
+        "gcs": 14,
+        "gcPauseMs": 0.675528,
+        "liveKbPerClient": 2195.8295703125,
+        "peakKbPerClient": 6860.008515625,
+        "stackKbPerClient": 331.2,
+        "heapPeakMb": 704.7624,
+        "goroutinesPerClient": 76.16,
+        "serverCpu": 0.10674367414005571,
+        "proxyCpu": 0.13683319715972497,
+        "buildP50": 0.004016,
+        "buildP99": 0.012608,
+        "cost": {
+          "clients": 20,
+          "constructUs": 7,
+          "firstMs": 48.6029885,
+          "kb": 149.95703125,
+          "allocs": 1332,
+          "onProto": 20
+        },
+        "samples": [
+          {
+            "t": 0.000004531,
+            "liveMb": 63.426712,
+            "goroutines": 1407,
+            "rssMb": 170.635264,
+            "open": 1300
+          },
+          {
+            "t": 1.000273594,
+            "liveMb": 94.582744,
+            "goroutines": 2019,
+            "rssMb": 230.842368,
+            "open": 1900
+          },
+          {
+            "t": 2.000016503,
+            "liveMb": 122.817536,
+            "goroutines": 2794,
+            "rssMb": 301.576192,
+            "open": 2511
+          },
+          {
+            "t": 3.000261535,
+            "liveMb": 161.413424,
+            "goroutines": 3308,
+            "rssMb": 342.908928,
+            "open": 3200
+          },
+          {
+            "t": 4.000359805,
+            "liveMb": 187.497,
+            "goroutines": 3907,
+            "rssMb": 422.621184,
+            "open": 3800
+          },
+          {
+            "t": 5.000007304,
+            "liveMb": 243.058472,
+            "goroutines": 4530,
+            "rssMb": 495.08352,
+            "open": 4400
+          },
+          {
+            "t": 6.000401885,
+            "liveMb": 275.951552,
+            "goroutines": 5196,
+            "rssMb": 561.9712,
+            "open": 5023
+          },
+          {
+            "t": 7.000637184,
+            "liveMb": 275.951552,
+            "goroutines": 5815,
+            "rssMb": 604.069888,
+            "open": 5692
+          },
+          {
+            "t": 8.000017484,
+            "liveMb": 314.595184,
+            "goroutines": 6424,
+            "rssMb": 634.097664,
+            "open": 6301
+          },
+          {
+            "t": 9.000890995,
+            "liveMb": 361.84548,
+            "goroutines": 7084,
+            "rssMb": 720.777216,
+            "open": 6925
+          },
+          {
+            "t": 10.000499754,
+            "liveMb": 418.943376,
+            "goroutines": 7743,
+            "rssMb": 823.074816,
+            "open": 7564
+          }
+        ],
+        "end": {
+          "liveKbPerRoutine": 3898.983515625,
+          "goroutinesPerRoutine": 76.04,
+          "rssMb": 816.672768,
+          "openTunnels": 7600,
+          "openAssociations": 0
+        },
+        "growth": {
+          "liveKbPerRoutine": 331.96902138329153,
+          "goroutinesPerRoutine": 6.2844898157565146,
+          "rssMb": 62.55289442572454,
+          "open": 627.2128111346442
+        }
+      }
+    },
+    {
+      "proto": "h2",
+      "proxy": "socks5",
+      "op": "bytes-1KB",
+      "rotate": 10,
+      "renew": "closed",
+      "n": 100,
+      "client": "mimicry",
+      "result": {
+        "clients": 100,
+        "requests": 63041,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 10.003170225,
+        "rps": 6302.10209183959,
+        "mbps": 6.45335254204374,
+        "p50": 11.730944,
+        "p95": 52.690944,
+        "p99": 56.36096,
+        "newConns": 6255,
+        "newP50": 52.690944,
+        "newP99": 61.60384,
+        "newResumed": 0,
+        "rotationsPerSec": 625.3017652711194,
+        "tunnelsPerSec": 628.600719428425,
+        "associationsPerSec": 0,
+        "clientCores": 1.3355599974307144,
+        "cpuPerRequest": 211.9229390396726,
+        "bytesPerRequest": 53728.83805777193,
+        "allocsPerRequest": 280.9748893577196,
+        "gcs": 238,
+        "gcPauseMs": 21.277276,
+        "liveKbPerClient": 100.174013671875,
+        "peakKbPerClient": 293.272265625,
+        "stackKbPerClient": 44.48,
+        "heapPeakMb": 32.503384,
+        "goroutinesPerClient": 1.78,
+        "serverCpu": 0.10960460287478513,
+        "proxyCpu": 0.13660431835748352,
+        "buildP50": 0.626688,
+        "buildP99": 6.324224,
+        "cost": {
+          "clients": 20,
+          "constructUs": 654.5,
+          "firstMs": 48.512224,
+          "kb": 379.4375,
+          "allocs": 2059,
+          "onProto": 20
+        },
+        "samples": [
+          {
+            "t": 0.000003798,
+            "liveMb": 8.779944,
+            "goroutines": 306,
+            "rssMb": 65.748992,
+            "open": 100
+          },
+          {
+            "t": 1.00065908,
+            "liveMb": 9.68436,
+            "goroutines": 305,
+            "rssMb": 68.837376,
+            "open": 99
+          },
+          {
+            "t": 2.00107677,
+            "liveMb": 13.88116,
+            "goroutines": 271,
+            "rssMb": 72.777728,
+            "open": 68
+          },
+          {
+            "t": 3.000672275,
+            "liveMb": 11.289952,
+            "goroutines": 294,
+            "rssMb": 75.83744,
+            "open": 99
+          },
+          {
+            "t": 4.000205354,
+            "liveMb": 11.46924,
+            "goroutines": 303,
+            "rssMb": 73.629696,
+            "open": 97
+          },
+          {
+            "t": 5.000512884,
+            "liveMb": 11.080328,
+            "goroutines": 292,
+            "rssMb": 64.425984,
+            "open": 92
+          },
+          {
+            "t": 6.000902029,
+            "liveMb": 11.467256,
+            "goroutines": 245,
+            "rssMb": 69.730304,
+            "open": 52
+          },
+          {
+            "t": 7.001090508,
+            "liveMb": 13.527248,
+            "goroutines": 297,
+            "rssMb": 78.651392,
+            "open": 97
+          },
+          {
+            "t": 8.000225764,
+            "liveMb": 14.195248,
+            "goroutines": 293,
+            "rssMb": 78.721024,
+            "open": 96
+          },
+          {
+            "t": 9.000598853,
+            "liveMb": 13.870048,
+            "goroutines": 288,
+            "rssMb": 74.518528,
+            "open": 89
+          },
+          {
+            "t": 10.000043719,
+            "liveMb": 17.829112,
+            "goroutines": 275,
+            "rssMb": 81.7152,
+            "open": 84
+          }
+        ],
+        "end": {
+          "liveKbPerRoutine": 99.261171875,
+          "goroutinesPerRoutine": 1.04,
+          "rssMb": 71.880704,
+          "openTunnels": 100,
+          "openAssociations": 0
+        },
+        "growth": {
+          "liveKbPerRoutine": 5.984062902947071,
+          "goroutinesPerRoutine": -0.01900280490324827,
+          "rssMb": 1.110145081896338,
+          "open": -0.7729794196048225
+        }
+      }
+    },
+    {
+      "proto": "h2",
+      "proxy": "socks5",
+      "op": "bytes-1KB",
+      "rotate": 10,
+      "renew": "closed",
+      "n": 100,
+      "client": "tls-client",
+      "result": {
+        "clients": 100,
+        "requests": 63054,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 10.002535868,
+        "rps": 6303.801439165206,
+        "mbps": 6.455092673705171,
+        "p50": 11.862016,
+        "p95": 53.215232,
+        "p99": 55.312384,
+        "newConns": 6300,
+        "newP50": 53.215232,
+        "newP99": 57.933824,
+        "newResumed": 0,
+        "rotationsPerSec": 629.8402808186761,
+        "tunnelsPerSec": 629.940255466425,
+        "associationsPerSec": 0,
+        "clientCores": 0.8611591214141098,
+        "cpuPerRequest": 136.6094934500587,
+        "bytesPerRequest": 28575.192945729057,
+        "allocsPerRequest": 245.91497763821485,
+        "gcs": 157,
+        "gcPauseMs": 14.391787,
+        "liveKbPerClient": 56.578251953125,
+        "peakKbPerClient": 177.897734375,
+        "stackKbPerClient": 44.8,
+        "heapPeakMb": 20.523264,
+        "goroutinesPerClient": 2.05,
+        "serverCpu": 0.10623048635090382,
+        "proxyCpu": 0.11959637193874843,
+        "buildP50": 0.005024,
+        "buildP99": 0.013504,
+        "cost": {
+          "clients": 20,
+          "constructUs": 11,
+          "firstMs": 48.3334525,
+          "kb": 152.9765625,
+          "allocs": 1198.5,
+          "onProto": 20
+        },
+        "samples": [
+          {
+            "t": 0.000003744,
+            "liveMb": 9.227424,
+            "goroutines": 307,
+            "rssMb": 64.917504,
+            "open": 100
+          },
+          {
+            "t": 1.000627601,
+            "liveMb": 8.710312,
+            "goroutines": 307,
+            "rssMb": 61.964288,
+            "open": 98
+          },
+          {
+            "t": 2.000689483,
+            "liveMb": 8.992432,
+            "goroutines": 287,
+            "rssMb": 61.669376,
+            "open": 45
+          },
+          {
+            "t": 3.000039882,
+            "liveMb": 7.189928,
+            "goroutines": 308,
+            "rssMb": 63.459328,
+            "open": 100
+          },
+          {
+            "t": 4.000117428,
+            "liveMb": 8.619928,
+            "goroutines": 307,
+            "rssMb": 65.552384,
+            "open": 99
+          },
+          {
+            "t": 5.000192999,
+            "liveMb": 9.115328,
+            "goroutines": 301,
+            "rssMb": 62.922752,
+            "open": 89
+          },
+          {
+            "t": 6.000026972,
+            "liveMb": 6.644328,
+            "goroutines": 286,
+            "rssMb": 60.485632,
+            "open": 76
+          },
+          {
+            "t": 7.000007468,
+            "liveMb": 8.615688,
+            "goroutines": 306,
+            "rssMb": 66.748416,
+            "open": 95
+          },
+          {
+            "t": 8.000480123,
+            "liveMb": 9.20804,
+            "goroutines": 305,
+            "rssMb": 63.062016,
+            "open": 87
+          },
+          {
+            "t": 9.000130493,
+            "liveMb": 6.954392,
+            "goroutines": 286,
+            "rssMb": 63.975424,
+            "open": 63
+          },
+          {
+            "t": 10.000318684,
+            "liveMb": 9.71736,
+            "goroutines": 306,
+            "rssMb": 62.373888,
+            "open": 92
+          }
+        ],
+        "end": {
+          "liveKbPerRoutine": 55.79296875,
+          "goroutinesPerRoutine": 1.04,
+          "rssMb": 55.390208,
+          "openTunnels": 100,
+          "openAssociations": 0
+        },
+        "growth": {
+          "liveKbPerRoutine": -0.2707892037798001,
+          "goroutinesPerRoutine": -0.005454890877979691,
+          "rssMb": 0.009213646313750556,
+          "open": -0.7910931576322076
+        }
+      }
+    },
+    {
+      "proto": "h2",
+      "proxy": "socks5",
+      "op": "bytes-1KB",
+      "rotate": 10,
+      "renew": "closed",
+      "n": 100,
+      "client": "azuretls",
+      "result": {
+        "clients": 100,
+        "requests": 62693,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 10.002840406,
+        "rps": 6267.519769924039,
+        "mbps": 6.4179402444022156,
+        "p50": 11.862016,
+        "p95": 53.73952,
+        "p99": 56.36096,
+        "newConns": 6300,
+        "newP50": 53.73952,
+        "newP99": 58.9824,
+        "newResumed": 0,
+        "rotationsPerSec": 629.8211052353762,
+        "tunnelsPerSec": 629.8211052353762,
+        "associationsPerSec": 0,
+        "clientCores": 1.0083787794864474,
+        "cpuPerRequest": 160.88960490006858,
+        "bytesPerRequest": 37265.715534429684,
+        "allocsPerRequest": 507.8391207949851,
+        "gcs": 201,
+        "gcPauseMs": 19.090027,
+        "liveKbPerClient": 59.83189453125,
+        "peakKbPerClient": 189.051484375,
+        "stackKbPerClient": 24.64,
+        "heapPeakMb": 21.658472,
+        "goroutinesPerClient": 1.08,
+        "serverCpu": 0.10990023387163095,
+        "proxyCpu": 0.1395187210187706,
+        "buildP50": 0.00376,
+        "buildP99": 0.00928,
+        "cost": {
+          "clients": 20,
+          "constructUs": 7,
+          "firstMs": 48.362702,
+          "kb": 150.09375,
+          "allocs": 1331,
+          "onProto": 20
+        },
+        "samples": [
+          {
+            "t": 0.000002536,
+            "liveMb": 8.258784,
+            "goroutines": 225,
+            "rssMb": 61.403136,
+            "open": 92
+          },
+          {
+            "t": 1.000036334,
+            "liveMb": 5.237744,
+            "goroutines": 275,
+            "rssMb": 61.018112,
+            "open": 38
+          },
+          {
+            "t": 2.000257289,
+            "liveMb": 8.999896,
+            "goroutines": 208,
+            "rssMb": 62.779392,
+            "open": 100
+          },
+          {
+            "t": 3.000732471,
+            "liveMb": 9.403792,
+            "goroutines": 208,
+            "rssMb": 59.16672,
+            "open": 99
+          },
+          {
+            "t": 4.000037089,
+            "liveMb": 7.57744,
+            "goroutines": 268,
+            "rssMb": 61.505536,
+            "open": 59
+          },
+          {
+            "t": 5.000704794,
+            "liveMb": 6.933368,
+            "goroutines": 214,
+            "rssMb": 58.79808,
+            "open": 93
+          },
+          {
+            "t": 6.000122303,
+            "liveMb": 8.54128,
+            "goroutines": 212,
+            "rssMb": 57.708544,
+            "open": 100
+          },
+          {
+            "t": 7.000147102,
+            "liveMb": 8.979168,
+            "goroutines": 210,
+            "rssMb": 59.400192,
+            "open": 98
+          },
+          {
+            "t": 8.000640212,
+            "liveMb": 8.753792,
+            "goroutines": 255,
+            "rssMb": 60.8256,
+            "open": 55
+          },
+          {
+            "t": 9.000145348,
+            "liveMb": 6.614352,
+            "goroutines": 221,
+            "rssMb": 59.744256,
+            "open": 100
+          },
+          {
+            "t": 10.000558002,
+            "liveMb": 9.168088,
+            "goroutines": 209,
+            "rssMb": 61.243392,
+            "open": 98
+          }
+        ],
+        "end": {
+          "liveKbPerRoutine": 54.934375,
+          "goroutinesPerRoutine": 1.04,
+          "rssMb": 55.554048,
+          "openTunnels": 100,
+          "openAssociations": 0
+        },
+        "growth": {
+          "liveKbPerRoutine": 0.8371881969965421,
+          "goroutinesPerRoutine": -0.01881928727083345,
+          "rssMb": -0.13714185053899966,
+          "open": 1.654555921966863
+        }
+      }
+    }
+  ]
+}

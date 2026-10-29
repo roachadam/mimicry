@@ -499,18 +499,24 @@ func proxyAddr(i int) string {
 }
 
 // A Transport rotating proxies loses the idle connections of those it no
-// longer uses (decision 0040), not those it uses in turn: proxies beyond
-// the keepProxies most recent and unused for proxyUnused close theirs,
-// round-robin over keepProxies proxies, or over more within proxyUnused,
-// keeps every connection. Fake clock.
+// longer uses (decision 0040), not those it uses in turn: by default
+// proxies beyond the keepProxies most recent and unused for proxyUnused
+// close theirs, and round-robin over keepProxies proxies, or over more
+// within proxyUnused, keeps every connection; with MaxIdleProxies, those
+// beyond that many most recent close at once, however recently used, and
+// round-robin over that many keeps them. Fake clock.
 func TestUnusedProxiesCloseTheirConnections(t *testing.T) {
 	for _, tc := range []struct {
 		name string
+		// maxIdle is Config.MaxIdleProxies.
+		maxIdle int
 		// proxies are used in turn, rounds times, every apart.
 		proxies, rounds int
 		every           time.Duration
-		// wantClosed are the proxies whose connections close once
-		// proxyUnused has passed after the last request, none before.
+		// wantClosed are the proxies whose connections close: by default
+		// once proxyUnused has passed after the last request, none
+		// before; with maxIdle, as the requests go, the clock barely
+		// moving.
 		wantClosed []int
 	}{
 		{
@@ -534,6 +540,29 @@ func TestUnusedProxiesCloseTheirConnections(t *testing.T) {
 			every:      proxyUnused / (keepProxies + 16),
 			wantClosed: []int{0, 1, 2, 3, 4, 5, 6, 7},
 		},
+		{
+			name:       "MaxIdleProxies 4, rotation",
+			maxIdle:    4,
+			proxies:    6,
+			rounds:     1,
+			every:      time.Nanosecond,
+			wantClosed: []int{0, 1},
+		},
+		{
+			name:       "MaxIdleProxies 1, rotation",
+			maxIdle:    1,
+			proxies:    4,
+			rounds:     1,
+			every:      time.Nanosecond,
+			wantClosed: []int{0, 1, 2},
+		},
+		{
+			name:    "MaxIdleProxies 4, round-robin over 4, slowly",
+			maxIdle: 4,
+			proxies: 4,
+			rounds:  10,
+			every:   15 * time.Second,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			clock := clockwork.NewFakeClock()
@@ -547,6 +576,7 @@ func TestUnusedProxiesCloseTheirConnections(t *testing.T) {
 				proxy: func(*http.Request) (*url.URL, error) {
 					return current.Load(), nil
 				},
+				maxIdleProxies: tc.maxIdle,
 			})
 
 			for range tc.rounds {
@@ -566,7 +596,9 @@ func TestUnusedProxiesCloseTheirConnections(t *testing.T) {
 				}
 			}
 
-			none(t, n.closed, "a connection closed while its proxy was in use")
+			if tc.maxIdle == 0 {
+				none(t, n.closed, "a connection closed while its proxy was in use")
+			}
 
 			for i := range tc.proxies {
 				if d := n.dials(proxyAddr(i)); d != 1 {
@@ -574,7 +606,9 @@ func TestUnusedProxiesCloseTheirConnections(t *testing.T) {
 				}
 			}
 
-			clock.Advance(proxyUnused)
+			if tc.maxIdle == 0 {
+				clock.Advance(proxyUnused)
+			}
 
 			closed := make([]string, 0, len(tc.wantClosed))
 			for range tc.wantClosed {

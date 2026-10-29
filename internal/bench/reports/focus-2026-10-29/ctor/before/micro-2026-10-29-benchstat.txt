@@ -1,0 +1,33 @@
+goos: linux
+goarch: amd64
+pkg: github.com/roachadam/mimicry/internal/bench
+cpu: 13th Gen Intel(R) Core(TM) i5-13500
+                                  │    mimicry     │              tls-client               │               azuretls               │
+                                  │     sec/op     │    sec/op      vs base                │    sec/op     vs base                │
+NewClient/proto=h1/proxy=none-4     593914.5n ± 3%   1315.0n ±  3%  -99.78% (p=0.000 n=10)   318.5n ±  4%  -99.95% (p=0.000 n=10)
+NewClient/proto=h1/proxy=socks5-4   594548.5n ± 9%   1777.5n ±  5%  -99.70% (p=0.000 n=10)   926.1n ±  7%  -99.84% (p=0.000 n=10)
+NewClient/proto=h2/proxy=none-4     596173.0n ± 2%   1312.0n ± 14%  -99.78% (p=0.000 n=10)   326.4n ±  5%  -99.95% (p=0.000 n=10)
+NewClient/proto=h2/proxy=socks5-4   597383.0n ± 4%   1778.5n ± 17%  -99.70% (p=0.000 n=10)   926.9n ±  2%  -99.84% (p=0.000 n=10)
+NewClient/proto=h3/proxy=none-4     594881.5n ± 2%   1435.5n ±  2%  -99.76% (p=0.000 n=10)   814.6n ±  3%  -99.86% (p=0.000 n=10)
+NewClient/proto=h3/proxy=socks5-4    595.185µ ± 6%    2.145µ ±  8%  -99.64% (p=0.000 n=10)   1.437µ ± 18%  -99.76% (p=0.000 n=10)
+geomean                                595.3µ         1.600µ        -99.73%                  686.2n        -99.88%
+
+                                  │    mimicry     │              tls-client              │               azuretls               │
+                                  │      B/op      │     B/op      vs base                │     B/op      vs base                │
+NewClient/proto=h1/proxy=none-4      301771.5 ± 1%    3840.0 ± 0%  -98.73% (p=0.000 n=10)     744.0 ± 0%  -99.75% (p=0.000 n=10)
+NewClient/proto=h1/proxy=socks5-4   292.901Ki ± 1%   4.281Ki ± 0%  -98.54% (p=0.000 n=10)   1.688Ki ± 0%  -99.42% (p=0.000 n=10)
+NewClient/proto=h2/proxy=none-4      301728.0 ± 1%    3840.0 ± 0%  -98.73% (p=0.000 n=10)     744.0 ± 0%  -99.75% (p=0.000 n=10)
+NewClient/proto=h2/proxy=socks5-4   294.349Ki ± 1%   4.281Ki ± 0%  -98.55% (p=0.000 n=10)   1.688Ki ± 0%  -99.43% (p=0.000 n=10)
+NewClient/proto=h3/proxy=none-4     294.541Ki ± 1%   4.125Ki ± 0%  -98.60% (p=0.000 n=10)   2.773Ki ± 0%  -99.06% (p=0.000 n=10)
+NewClient/proto=h3/proxy=socks5-4   295.135Ki ± 1%   4.844Ki ± 0%  -98.36% (p=0.000 n=10)   3.734Ki ± 0%  -98.73% (p=0.000 n=10)
+geomean                               294.4Ki        4.156Ki       -98.59%                  1.580Ki       -99.46%
+
+                                  │    mimicry    │             tls-client              │              azuretls              │
+                                  │   allocs/op   │  allocs/op   vs base                │ allocs/op   vs base                │
+NewClient/proto=h1/proxy=none-4     1109.000 ± 0%   54.000 ± 0%  -95.13% (p=0.000 n=10)   6.000 ± 0%  -99.46% (p=0.000 n=10)
+NewClient/proto=h1/proxy=socks5-4    1113.00 ± 0%    64.00 ± 0%  -94.25% (p=0.000 n=10)   16.00 ± 0%  -98.56% (p=0.000 n=10)
+NewClient/proto=h2/proxy=none-4     1109.000 ± 0%   54.000 ± 0%  -95.13% (p=0.000 n=10)   6.000 ± 0%  -99.46% (p=0.000 n=10)
+NewClient/proto=h2/proxy=socks5-4    1113.00 ± 0%    64.00 ± 0%  -94.25% (p=0.000 n=10)   16.00 ± 0%  -98.56% (p=0.000 n=10)
+NewClient/proto=h3/proxy=none-4      1117.00 ± 0%    57.00 ± 0%  -94.90% (p=0.000 n=10)   16.00 ± 0%  -98.57% (p=0.000 n=10)
+NewClient/proto=h3/proxy=socks5-4    1121.00 ± 0%    69.00 ± 0%  -93.84% (p=0.000 n=10)   26.00 ± 0%  -97.68% (p=0.000 n=10)
+geomean                               1.114k         60.07       -94.61%                  12.51       -98.88%

@@ -86,6 +86,24 @@ Round-robin over up to 16 proxies, or over more when each comes round
 within 10 s, keeps every connection
 ([decision 0040](../decisions/0040-idle-connection-cleanup.md)).
 
+That default favours a list used in turn. A client that rotates to a new
+identity every few requests keeps every identity of the last 10 s: in
+the benchmark (a new one every 10 requests, about every 120 ms) 76
+tunnels and 1.8 MB per client, where azuretls, which closes the old
+proxy's connections on `SetProxy`, kept 64 KB. `Config.MaxIdleProxies`
+replaces the rule with a strict count: the N most recently used proxies
+keep their idle connections, and one pushed out of them has its idle
+connections closed at once. 1 keeps only the latest proxy's, as
+azuretls does; round-robin over more proxies than the count opens a
+connection per request. In the benchmark (100 clients, a new identity
+every 10 requests over 30 s), the live heap per client was 1.67–1.70 MB
+by default (70 tunnels open), 360–365 KB with 4 (3.9 tunnels) and 304–306
+KB with 1 (0.9), at the same requests/s and CPU per request; it still
+grew about 9 KB per client per second either way: each identity's TLS
+session ticket stays until it expires and the pool remembers its
+connection key for 90 s
+([proxyidle report](../../internal/bench/reports/focus-2026-10-29/ctor/after/proxyidle-2026-10-29.md)).
+
 Rotating by client (a new `NewClient` per identity, the old one dropped):
 call `CloseIdleConnections` on the client you drop, so its connections
 close at once. A dropped client that is not closed lets its idle
@@ -93,12 +111,12 @@ connections go when the garbage collector finds it, and those in flight
 then at the idle timeout (90 s, `Config.IdleConnTimeout`) after they
 end.
 
-A new client takes about 1.4–2.8 ms to build, most of it encoding and
-hashing the profile so that clients built from equal profiles share one
-copy (the
-[multi-client benchmark](../../internal/bench/reports/multiclient-rotation-2026-10-28.md#new-client-alone)):
-build clients up front, one per proxy, and reuse each for its proxy's
-requests rather than building one per request.
+A new client takes about 0.25 ms to build in a tight loop (0.3 ms cold),
+most of it copying the built-in profile and reading all of it to find
+the copy clients built from equal profiles share
+([decision 0044](../decisions/0044-profile-fingerprint.md)): build
+clients up front, one per proxy, and reuse each for its proxy's requests
+rather than building one per request.
 
 ## WebSockets
 

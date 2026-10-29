@@ -183,10 +183,27 @@ type Config struct {
 	// per HTTP/2 or HTTP/3 connection, and, through a proxy, the proxy's
 	// connection slots; servers and proxies often close idle connections
 	// after 60 to 120 seconds anyway. Whatever it says, the connections of
-	// a proxy no longer used close 10 to 20 seconds after its last use
-	// once more than 16 proxies are known (see Transport), and those of a
+	// a proxy no longer used close early (MaxIdleProxies), and those of a
 	// dropped Transport when it is collected.
 	IdleConnTimeout time.Duration
+	// MaxIdleProxies is how many proxies keep their idle connections when
+	// requests go through several (Config.Proxy returning another URL, as
+	// when rotating identities): the MaxIdleProxies most recently used
+	// keep theirs, and a proxy pushed out of them has its idle connections
+	// closed at once, a later request through it dialing anew. 1 keeps
+	// only the proxy of the latest request, as clients whose SetProxy
+	// closes the old proxy's connections do. Zero is the default: the 16
+	// most recently used, and any other used in the last 10 seconds (its
+	// connections close 10 to 20 s after its last use). The default keeps
+	// a proxy list used in turn warm, over up to 16 at any pace or over
+	// more while each comes round within 10 s, but a client rotating to a
+	// new identity every few requests holds every identity of the last 10
+	// s (about 76 at a new one every 120 ms, 1.8 MB, in the benchmark).
+	// A count bounds the connections (1: 300 KB per client after 30 s,
+	// 4: 360 KB), though each identity's TLS session ticket still stays
+	// until it expires; round-robin over more proxies than the count
+	// dials on every request. Negative is an error (decision 0040).
+	MaxIdleProxies int
 	// HTTP3OverSOCKS5 lets requests through a socks5 or socks5h proxy use
 	// HTTP/3 as they would without it (Alt-Svc, 0-RTT, fallback to TCP),
 	// over a SOCKS5 UDP association with the proxy (RFC 1928, section 7):
@@ -203,22 +220,25 @@ type Config struct {
 	HTTP3OverSOCKS5 bool
 	// UDPReadBufferSize is the receive buffer, in bytes, each HTTP/3
 	// connection's UDP socket asks the OS for (SO_RCVBUF), a SOCKS5
-	// association's included. Zero keeps the OS's default (about 200 KB on
-	// Linux, 768 KB on macOS). A larger buffer trades drops for a queue: in
-	// the HTTP/3 benchmark (one host, nginx) a 7 MB buffer, quic-go's,
-	// removed the drops and ran 10-15% faster for 100 KB bodies at 64 at
-	// once, but half as fast at 256 at once, and 20% slower for 10 MB
-	// bodies from the Go server: what it holds delays everything behind it,
-	// the server's acknowledgements of the client's own packets included.
-	// Raise it (2 to 8 MB) for high-bandwidth, lossy or long paths, where a
-	// burst can overflow the default: each datagram dropped there is lost as
-	// if on the network, costing a retransmission and congestion window. It
-	// is a request: the OS may grant less, and the connection never fails for
-	// it. Linux grants at most net.core.rmem_max, often 208 KB, without an
-	// error, unless the host raises it (sysctl -w
-	// net.core.rmem_max=8388608); mimicry never uses SO_RCVBUFFORCE, which
-	// needs privileges. The wire is the same either way. Negative is an
-	// error.
+	// association's included. Zero asks for 1 MB, what Chrome asks for;
+	// negative keeps the OS's default (208 KB on Linux, 768 KB on macOS).
+	// It is a request: the OS may grant less, and the connection never
+	// fails for it. Linux caps it at net.core.rmem_max without an error and
+	// grants twice what it allows, so on a stock host (rmem_max 212992)
+	// any request above 208 KB gets 416 KB; only a host that raises the
+	// cap (sysctl -w net.core.rmem_max=8388608) gets the full 1 MB (2 MB
+	// granted) or more. mimicry never uses SO_RCVBUFFORCE, which needs
+	// privileges. A larger buffer trades drops for a queue: in the HTTP/3
+	// benchmark (Linux, rmem_max raised, one host, nginx) 1 MB ran 100 KB
+	// bodies at 64 at once 10-13% faster than the OS's default and 1 KB at
+	// 256 at once 11-18% faster; 7 MB, quic-go's, ran 100 KB at 64 at once
+	// 1.8 times as fast as 1 MB, but at 256 at once at half the rate (2 MB
+	// too, in some runs): what it holds delays everything behind it, the
+	// client's flow-control updates included. Raise it (2 to 8 MB) for
+	// high-bandwidth, lossy or long paths with few streams at once, where
+	// a burst can overflow it: each datagram dropped there is lost as if on
+	// the network, costing a retransmission and congestion window. The
+	// wire is the same either way (decision 0045).
 	UDPReadBufferSize int
 	// HTTP3ACKEvery, when set, acknowledges every HTTP3ACKEvery-th
 	// ack-eliciting QUIC packet after the browser's warm-up, instead of the
@@ -262,9 +282,9 @@ type Config struct {
 // connection closes after Config.IdleConnTimeout, 90 s by default (HTTP/3
 // ones at QUIC's idle timeout if that is sooner), and a Transport no longer reachable closes its idle
 // connections once the garbage collector finds it. Within a Transport, a
-// proxy no longer used loses its idle connections early: once it is not
-// among the 16 proxies used most recently and has not been used for 10 s
-// (decision 0040).
+// proxy no longer used loses its idle connections early: by default once
+// it is not among the 16 proxies used most recently and has not been used
+// for 10 s, or as Config.MaxIdleProxies says (decision 0040).
 type Transport struct {
 	engine  engine
 	profile *profile.Profile
@@ -289,9 +309,9 @@ type Transport struct {
 }
 
 // NewTransport builds a Transport from cfg. Building one takes about
-// 1.4–2.8 ms (the multi-client benchmark, 2026-10-28), most of it encoding
-// and hashing the profile to share one copy between Transports built from
-// equal profiles: build Transports up front, one per proxy, and reuse
+// 0.25 ms (BenchmarkNewClient, i5-13500), most of it reading the whole
+// profile to find the copy Transports built from equal profiles share
+// (decision 0044): build Transports up front, one per proxy, and reuse
 // them, rather than one per request.
 func NewTransport(cfg Config) (*Transport, error) {
 	if cfg.Profile == nil {
@@ -346,6 +366,7 @@ func NewTransport(cfg Config) (*Transport, error) {
 			Coalesce:          !cfg.DisableCoalescing,
 			MaxConnsPerHost:   cfg.MaxConnsPerHost,
 			IdleConnTimeout:   cfg.IdleConnTimeout,
+			MaxIdleProxies:    cfg.MaxIdleProxies,
 			HTTP3OverSOCKS5:   cfg.HTTP3OverSOCKS5,
 			UDPReadBufferSize: cfg.UDPReadBufferSize,
 			HTTP3ACKEvery:     cfg.HTTP3ACKEvery,

@@ -880,22 +880,30 @@ These matter most under decision 0029:
     requests/s). Drops: a few thousand `RcvbufErrors` per point, most at
     the connection's start
     (nginx's slow start against the default ~450 KB buffer), then
-    0.1-0.6%; at 100 KB they cost mimicry 10-15% (7 MB buffer: parity
-    with tls-client at 64 at once), but 7 MB halves 256 at once: the
+    0.1-0.6%. On Linux (the Linux test host, 2026-10-29, `rmem_max` raised, so
+    granted twice the request), the buffer splits by concurrency at
+    100 KB. At 64 at once, the OS's 208 KB ran about 4,300 req/s, 1 MB
+    (now the default, Chrome's) 4,725-4,864, 2 MB 5,957-6,901, and 7 MB
+    7,794-8,653 (tls-client about 7,500). At 256 at once, 7 MB fell to
+    1,736-2,682 and 2 MB in two runs of three, against about 3,550: the
     client answers its backlog in ACK bursts that overflow nginx's socket
     (11% of its datagrams), its congestion window falls to two packets,
     and MAX_DATA waits behind it (up to 45 ms) while nginx idles on flow
-    control. So the default buffer stays the OS's.
+    control (256 × 100 KB exceeds Chrome's 15 MB connection window).
+    So the default stays at 1 MB
+    ([decision 0045](decisions/0045-udp-receive-buffer-default.md)).
   - Detection: none (it is the browser's ACK rate). User-visible: bulk
     downloads from a single-worker HTTP/3 server are somewhat slower.
   - Close: by default none: fewer ACKs are not Chrome's.
     `Config.HTTP3ACKEvery` is the opt-in
     ([decision 0043](decisions/0043-http3-ack-rate-opt-in.md)). Sending
     flow-control frames past the client's congestion window would remove
-    the 7 MB buffer's stall (RFC 9002 says MUST NOT; medium).
-  - Source: [decision 0043](decisions/0043-http3-ack-rate-opt-in.md);
+    the larger buffers' stall, and a larger default with it (RFC 9002
+    says MUST NOT; medium).
+  - Source: decisions [0043](decisions/0043-http3-ack-rate-opt-in.md)
+    and [0045](decisions/0045-udp-receive-buffer-default.md);
     `internal/quic/UPSTREAM.md` change 15; the bench's HTTP/3 rows;
-    `internal/dial/dial.go` (the buffer measurements).
+    `internal/bench/reports/focus-2026-10-29/udpbuf-*`.
 - **HTTP/3 receive path runs on about one core** (all; performance).
   - Differs: nothing on the wire. The endpoint's reader hands each
     datagram to the connection's loop through a channel; under bulk load
@@ -905,11 +913,16 @@ These matter most under decision 0029:
     connection takes about 650-740k datagrams/s; from the Go server at
     10 MB and 64 at once mimicry got 634k against tls-client's 693k, and
     491k with a 7 MB buffer. A mutex queue that woke the reader only once
-    half drained (prototype) changed nothing.
+    half drained (prototype) changed nothing. At equal buffers (stock
+    Linux's 416 KB, every client) mimicry still dropped about three times
+    net/http's datagrams at 100 KB and 64 at once (14.7-17.2k against
+    5.4-5.6k): presumably most of what keeps it under the quic-go clients there
+    (4,725 against about 7,600 req/s on the Linux test host at 1 MB).
   - Detection: none. User-visible: no (about 1 GB/s per connection).
   - Close: wake a stream's reader once per datagram batch, not per frame
     (medium).
-  - Source: harness profiles, 2026-10-28.
+  - Source: harness profiles, 2026-10-28; `udpbuf-*-stock-mac` in
+    `internal/bench/reports/focus-2026-10-29/`.
 - **HTTP/3 request starts are serialized per connection** (all;
   performance).
   - Differs: nothing on the wire. Each request opens its stream, encodes
@@ -1587,6 +1600,21 @@ These matter most under decision 0029:
   - Detection: none. User-visible: yes, an error.
   - Close: per scheme, a capture and an implementation; medium.
   - Source: [concepts/proxies.md](concepts/proxies.md#credentials).
+- **Per-identity memory after a proxy is swept** (none: memory only).
+  - Differs: a rotating Transport keeps each identity's TLS session
+    ticket until it expires and the pool's key for 90 s after its
+    connections close, about 1.4 KB per identity; at a new identity
+    every 120 ms that grows about 9 KB per second per client, even with
+    `Config.MaxIdleProxies` 1 (300 KB after 30 s against azuretls's 67
+    KB). The dialer's per-proxy-URL sets (credentials asked for, UDP
+    refused) are never pruned either.
+  - Shows: nothing on the wire. User-visible: memory of long-running
+    rotating clients.
+  - Detection: none.
+  - Close: forget a swept proxy's tickets, pool keys and dialer entries
+    when `MaxIdleProxies` is set (a returning identity then makes a full
+    handshake); small, with a benchmark of the plateau over minutes.
+  - Source: [decision 0040](decisions/0040-idle-connection-cleanup.md#amendment-configmaxidleproxies-2026-10-29).
 - **Proxy credentials before the 407, by default** (all browsers).
   - Differs: the first CONNECT, and the first request sent to the proxy
     whole, carry `Proxy-Authorization` where the browser waits for the

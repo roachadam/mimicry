@@ -7,55 +7,50 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/roachadam/mimicry/profiles"
+	"github.com/roachadam/mimicry/internal/dial"
 )
 
-// Config.UDPReadBufferSize reaches a QUIC connection's socket: zero leaves
-// the OS's default, a size gets what the OS grants a socket asking for it
-// (a reference socket asks the same), one above the OS's cap still dials,
-// and a negative size is refused.
+// Config.UDPReadBufferSize reaches a QUIC connection's socket: zero asks
+// for dial.DefaultUDPReadBufferSize (Chrome's 1 MB), a size asks for it,
+// each getting what the OS grants a socket asking the same (a reference
+// socket), more than the OS's default; one above the OS's cap still
+// dials, and a negative size leaves the OS's default.
 func TestUDPReadBufferSize(t *testing.T) {
 	def := readBuffer(t, listenUDP(t))
 
 	for _, tc := range []struct {
 		name string
 		size int
+		// ask is what the socket asks for: zero for nothing (the OS's
+		// default).
+		ask int
 		// more: the OS grants more than its default for this size (macOS:
-		// up to kern.ipc.maxsockbuf, 8 MB; Linux: up to twice rmem_max,
-		// which is at least its default).
-		more    bool
-		wantErr bool
+		// up to kern.ipc.maxsockbuf, 8 MB, over a 768 KB default; Linux:
+		// up to twice rmem_max, which is at least its default).
+		more bool
 	}{
 		{
 			name: "default",
+			ask:  dial.DefaultUDPReadBufferSize,
+			more: true,
 		},
 		{
-			name: "1MiB",
-			size: 1 << 20,
+			name: "2MiB",
+			size: 2 << 20,
+			ask:  2 << 20,
 			more: true,
 		},
 		{
 			name: "above the cap",
 			size: 1 << 30,
+			ask:  1 << 30,
 		},
 		{
-			name:    "negative",
-			size:    -1,
-			wantErr: true,
+			name: "OS default",
+			size: -1,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if tc.wantErr {
-				if _, err := New(Config{
-					Profile:           profiles.Chrome(),
-					UDPReadBufferSize: tc.size,
-				}); err == nil {
-					t.Fatal("New accepted a negative UDPReadBufferSize")
-				}
-
-				return
-			}
-
 			e := newTestEngine(t, options{
 				udpReadBufferSize: tc.size,
 			})
@@ -70,10 +65,10 @@ func TestUDPReadBufferSize(t *testing.T) {
 			})
 
 			want := def
-			if tc.size > 0 {
+			if tc.ask > 0 {
 				ref := listenUDP(t)
 
-				_ = ref.SetReadBuffer(tc.size)
+				_ = ref.SetReadBuffer(tc.ask)
 				want = readBuffer(t, ref)
 			}
 
@@ -83,7 +78,7 @@ func TestUDPReadBufferSize(t *testing.T) {
 			}
 
 			if tc.more && got <= def {
-				t.Fatalf("receive buffer %d for %d asked, no more than the default %d", got, tc.size, def)
+				t.Fatalf("receive buffer %d for %d asked, no more than the default %d", got, tc.ask, def)
 			}
 		})
 	}

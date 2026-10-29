@@ -338,15 +338,22 @@ baseline, tls-client, httpcloak, azuretls) ask for a 7 MB UDP receive
 buffer; when `net.core.rmem_max` cuts it, they retry with `SO_RCVBUFFORCE`,
 which succeeds for a process with `CAP_NET_ADMIN`. The client container has
 `NET_ADMIN` in every normal pass (netem needs it), so there they get their
-7 MB whatever `rmem_max` says; mimicry asks for none
-(`Config.UDPReadBufferSize` 0) and gets `rmem_default` (224 KB here). On
-stock Linux (`rmem_max` 212992, an unprivileged process) every client gets
-about 208 KB. `BENCH_UDP_STOCK_PASSES` (0; 1 with `BENCH_FULL`) adds passes of layers 3
+7 MB whatever `rmem_max` says; mimicry asks for Chrome's 1 MB
+(`Config.UDPReadBufferSize` 0) without forcing it, and Linux grants twice
+a request up to `rmem_max` (2 MB where it is raised). On stock Linux
+(`rmem_max` and `rmem_default` 212992, an unprivileged process) a socket
+that asks for nothing gets 208 KB and every client that asks gets 416 KB.
+`BENCH_UDP_STOCK_PASSES` (0; 1 with `BENCH_FULL`) adds passes of layers 3
 and 6 over HTTP/3 only with the client container's `rmem_max` and
 `rmem_default` at 212992 and `NET_ADMIN` dropped
 (`docker/compose.client.udpstock.yml`, layered over the client compose
-file; both sysctls are per network namespace): setting the sysctls alone
-changes nothing for the quic-go clients. Without `NET_ADMIN` there is no
+file): setting the sysctls alone changes nothing for the quic-go clients.
+Both sysctls are per network namespace in OrbStack's kernel. the Linux test host's
+(6.18.38) keeps them global and runc refuses to set them in a
+container (`open sysctl net.core.rmem_max file: reopen fd 8: permission
+denied`), so there the stock passes fail; run them on the Mac, or measure
+mimicry's stock share with `mimicry-udp208k` (asking for 208 KB gets the
+416 KB stock Linux grants any larger request). Without `NET_ADMIN` there is no
 netem, so the stock passes cannot include layer 5 or `-load-netem`
 (`bench run` refuses them). The merged report ends with a section
 comparing the two: the summary at stock buffers, and each HTTP/3 point's
@@ -355,8 +362,9 @@ req/s, CPU, p99 and receive-buffer drops, granted / stock.
 (layers 3 and 6 by default). Every report records both sysctls and whether
 the client had `NET_ADMIN`, and each HTTP/3 point's growth of the
 client container's `RcvbufErrors` and `InErrors` (`/proc/net/snmp`) in its
-JSON (`udp`) and its table (UDP). `-clients mimicry-udp7m` adds mimicry
-asking for quic-go's 7 MB.
+JSON (`udp`) and its table (UDP). `-clients mimicry-udpos` adds mimicry
+with the OS's default buffer, `mimicry-udp7m` mimicry asking for quic-go's
+7 MB.
 
 **Micro passes.** `micro` runs `BENCH_COUNT` (6) passes of the test binary
 with `-count 1`, each a container of its own, the clients' order rotated
@@ -402,8 +410,11 @@ runs leave out
 otherwise (`clients.Variants`): `mimicry-nocoalescing`
 (`DisableCoalescing`, a connection per host where Chrome coalesces),
 `mimicry-conns16` and `mimicry-conns64` (`MaxConnsPerHost`),
-`mimicry-ack20` (`HTTP3ACKEvery` 20), `mimicry-udp7m`
-(`UDPReadBufferSize` 7 MB), and `azuretls-stream` (azuretls with
+`mimicry-ack20` (`HTTP3ACKEvery` 20), `mimicry-udpos` (`UDPReadBufferSize`
+-1, the OS's default), `mimicry-udp208k`, `-udp512k`, `-udp2m` and
+`-udp7m` (208 KB, 512 KB, 2 MB and 7 MB), `mimicry-proxies4` and
+`mimicry-proxies1` (`MaxIdleProxies` 4 and 1: the 4 most recent proxies'
+idle connections kept, or the latest's only), and `azuretls-stream` (azuretls with
 `Request.IgnoreBody`, its body read as it arrives: the buffering client
 measured streaming). Environment: `BENCH_PASSES`, `BENCH_UDP_STOCK_PASSES`,
 `BENCH_UDP_STOCK`, `BENCH_CLIENTS`, `BENCH_NAME`, `BENCH_COUNT` (6),
@@ -516,7 +527,7 @@ cost):
 | 200 clients per layer 6 point | twice the clients, the second count 50 | `-multi-n 200 -multi-n2 50` |
 | Long windows | 10 s over 3 s, client rotation 20 s | `-window 10s -warmup 3s -multi-client-window 20s` |
 | 10 micro passes | narrower micro ranges | `BENCH_COUNT=10` |
-| The variants | `mimicry-ack20` (HTTP/3 ACK every 20th packet), `mimicry-udp7m` (7 MB UDP buffer; with the stock pass), `mimicry-nocoalescing` (layer 5's HTTP/2 page loads), `mimicry-conns16`/`-conns64` (HTTP/1.1 at concurrency above 6), `azuretls-stream` (azuretls reading as the body arrives) | `BENCH_CLIENTS=net/http,mimicry,mimicry-ack20,…` |
+| The variants | `mimicry-ack20` (HTTP/3 ACK every 20th packet), `mimicry-udpos` (the OS's UDP buffer instead of 1 MB), `mimicry-udp208k`/`-udp512k`/`-udp2m`/`-udp7m` (208 KB to 7 MB; with the stock pass), `mimicry-nocoalescing` (layer 5's HTTP/2 page loads), `mimicry-conns16`/`-conns64` (HTTP/1.1 at concurrency above 6), `mimicry-proxies4`/`-proxies1` (proxy rotation keeping 4 or 1 proxies' idle connections), `azuretls-stream` (azuretls reading as the body arrives) | `BENCH_CLIENTS=net/http,mimicry,mimicry-ack20,…` |
 
 The variants were never in a run's default clients; they stay opt-in.
 

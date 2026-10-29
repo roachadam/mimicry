@@ -71,8 +71,15 @@ func parse(name string) (*profile.Profile, error) {
 // deepCopy copies src into dst, which is its type's zero value, sharing
 // nothing a caller can change: every pointer, slice and map is new; strings,
 // which are immutable, are shared. A profile holds no interfaces, channels
-// or functions.
+// or functions. A value with no pointer, slice or map in it (a header's
+// name and value) is copied whole rather than field by field.
 func deepCopy(dst, src reflect.Value) {
+	if plain(src.Type()) {
+		dst.Set(src)
+
+		return
+	}
+
 	switch src.Kind() {
 	case reflect.Pointer:
 		if !src.IsNil() {
@@ -84,8 +91,12 @@ func deepCopy(dst, src reflect.Value) {
 	case reflect.Slice:
 		if !src.IsNil() {
 			n := reflect.MakeSlice(src.Type(), src.Len(), src.Len())
-			for i := range src.Len() {
-				deepCopy(n.Index(i), src.Index(i))
+			if plain(src.Type().Elem()) {
+				reflect.Copy(n, src)
+			} else {
+				for i := range src.Len() {
+					deepCopy(n.Index(i), src.Index(i))
+				}
 			}
 
 			dst.Set(n)
@@ -113,11 +124,45 @@ func deepCopy(dst, src reflect.Value) {
 			deepCopy(dst.Field(i), src.Field(i))
 		}
 
-	case reflect.Interface, reflect.Chan, reflect.Func, reflect.UnsafePointer:
-		panic("profiles: a profile holds a " + src.Kind().String())
 	default:
-		dst.Set(src)
+		panic("profiles: a profile holds a " + src.Kind().String())
 	}
+}
+
+// plains caches plain by type.
+var plains sync.Map // reflect.Type → bool
+
+// plain says whether a value of type t holds no pointer, slice, map,
+// interface, channel or function, so that assigning it copies all of it.
+// Strings count as plain: they are immutable.
+func plain(t reflect.Type) bool {
+	if v, ok := plains.Load(t); ok {
+		p, _ := v.(bool)
+
+		return p
+	}
+
+	var p bool
+
+	switch t.Kind() {
+	case reflect.Array:
+		p = plain(t.Elem())
+	case reflect.Struct:
+		p = true
+		for f := range t.Fields() {
+			p = p && plain(f.Type)
+		}
+
+	case reflect.Pointer, reflect.Slice, reflect.Map,
+		reflect.Interface, reflect.Chan, reflect.Func, reflect.UnsafePointer:
+		p = false
+	default:
+		p = true
+	}
+
+	plains.Store(t, p)
+
+	return p
 }
 
 // ByName returns a fresh copy of the built-in profile called name, for example

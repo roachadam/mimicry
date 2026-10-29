@@ -50,7 +50,7 @@ connection, no DNS lookup, no cookie touched, no preflight cached
 | [Keep-alive and housekeeping](#keep-alive-pings-and-housekeeping-frames) | PING, WINDOW_UPDATE, ACK frames | none |
 | [TLS resumption and 0-RTT](#tls-session-resumption-and-0-rtt) | none (a different ClientHello); a request answered `425 Too Early` sent again | none; `Config.DisableHTTP3` stops 0-RTT |
 | [WebSockets](#websockets) | only when you call `Transport.DialWebSocket` | don't call it |
-| [Proxies](#proxies) | CONNECT, SOCKS5; with `Config.BrowserProxyAuth`, credential retries; with `Config.HTTP3OverSOCKS5`, a SOCKS5 UDP association per QUIC connection; connections of proxies no longer used closed | `Config.Proxy`; `Config.BrowserProxyAuth`, `Config.HTTP3OverSOCKS5` (off by default) |
+| [Proxies](#proxies) | CONNECT, SOCKS5; with `Config.BrowserProxyAuth`, credential retries; with `Config.HTTP3OverSOCKS5`, a SOCKS5 UDP association per QUIC connection; connections of proxies no longer used closed | `Config.Proxy`; `Config.BrowserProxyAuth`, `Config.HTTP3OverSOCKS5` (off by default); `Config.MaxIdleProxies` |
 | [Certificate pins and checks](#certificate-pins-and-checks) | none unless set; a refused connection ends with a TLS alert; `FetchPins` makes a handshake | `Config.Pins`, `Config.VerifyConnection` (both off by default) |
 | [The last navigation](#the-last-navigation) | none (header values) | `Request.From` |
 
@@ -322,12 +322,15 @@ as the browser starts an origin whose alternative it knows (Chrome and
 Safari: QUIC first, TCP after the race delay; Firefox: TCP, validating
 QUIC beside it). See [HTTP/3](http3.md#alternatives-a-transport-did-not-learn-itself).
 No option changes the discovery rule or forgets broken origins.
-`Config.UDPReadBufferSize` sizes each QUIC socket's receive buffer. A
-larger one trades drops for a queue: it helps on high-bandwidth, lossy or
-long paths, where a burst can overflow the default and every datagram
-dropped costs a retransmission, but it can slow many concurrent transfers
-(see its documentation). Linux grants at most `net.core.rmem_max` (often
-208 KB) unless the host raises it; mimicry asks and never fails for less.
+`Config.UDPReadBufferSize` sizes each QUIC socket's receive buffer: by
+default mimicry asks for 1 MB, as Chrome does; negative keeps the OS's
+default. A larger one trades drops for a queue: it helps on
+high-bandwidth, lossy or long paths, where a burst can overflow the buffer
+and every datagram dropped costs a retransmission, but it can slow many
+concurrent transfers (see its documentation). Linux grants at most twice
+`net.core.rmem_max` (stock: 416 KB for any request above 208 KB) unless
+the host raises it; mimicry asks and never fails for less
+([decision 0045](../decisions/0045-udp-receive-buffer-default.md)).
 `Config.HTTP3ACKEvery` acknowledges every Nth QUIC packet after the
 browser's warm-up instead of the profile's rate (Chrome: every 10th).
 Against a server whose one worker a single client saturates (nginx serves
@@ -482,7 +485,8 @@ datagram ever goes to the server directly. A proxy that fails a request
 `*ProxyError`, so a rotation loop can move on; nothing more is sent
 through it for that request. When you rotate proxies within a Transport,
 the idle connections of a proxy that is not among the 16 used most
-recently and has not been used for 10 s close early
+recently and has not been used for 10 s close early, or those of every
+proxy beyond the `Config.MaxIdleProxies` most recent, at once
 ([rotating](proxies.md#rotating)). See
 [proxies](proxies.md#when-the-proxy-fails).
 
@@ -491,6 +495,10 @@ request directly. `Config.BrowserProxyAuth` waits for the proxy's 407 as
 the browser does. `Config.HTTP3OverSOCKS5` lets SOCKS5 proxies carry
 HTTP/3 ([proxies](proxies.md#http3-through-socks5),
 [decision 0038](../decisions/0038-http3-over-socks5.md)).
+`Config.MaxIdleProxies` sets how many proxies keep their idle
+connections: fewer bounds a rotating client's memory, and round-robin
+over more proxies than it dials on every request
+([decision 0040](../decisions/0040-idle-connection-cleanup.md)).
 
 ## Certificate pins and checks
 

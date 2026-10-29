@@ -1,0 +1,213 @@
+ Image mimicry-bench-nginx:latest Building 
+ Image mimicry-bench:latest Building 
+ Image mimicry-bench:latest Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.47kB done
+#1 DONE 0.0s
+
+#2 [nginx internal] load build definition from Dockerfile
+#2 transferring dockerfile: 413B done
+#2 DONE 0.0s
+
+#3 [proxy internal] load build definition from Dockerfile
+#3 transferring dockerfile: 1.51kB done
+#3 DONE 0.1s
+
+#4 [nginx internal] load metadata for docker.io/library/nginx:1.31.8
+#4 DONE 0.0s
+
+#5 [nginx internal] load .dockerignore
+#5 transferring context: 2B done
+#5 DONE 0.0s
+
+#6 [go-server internal] load metadata for docker.io/library/golang:1.27.3-trixie
+#6 DONE 0.0s
+
+#7 [proxy internal] load metadata for docker.io/library/debian:trixie-slim
+#7 DONE 0.1s
+
+#8 [nginx internal] load build context
+#8 transferring context: 5.96kB done
+#8 DONE 0.0s
+
+#9 [nginx 1/4] FROM docker.io/library/nginx:1.31.8@sha256:6e67f8eaac94fc456588d4ff6c470d984841f5b5dc4279863d5cbe6ec5a60def
+#9 resolve docker.io/library/nginx:1.31.8@sha256:6e67f8eaac94fc456588d4ff6c470d984841f5b5dc4279863d5cbe6ec5a60def 0.1s done
+#9 DONE 0.1s
+
+#10 [proxy stage-1 1/4] FROM docker.io/library/debian:trixie-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad
+#10 resolve docker.io/library/debian:trixie-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad 0.0s done
+#10 DONE 0.1s
+
+#11 [nginx 2/4] COPY nginx.conf /etc/nginx/nginx.conf
+#11 CACHED
+
+#12 [nginx 3/4] COPY bench-locations.conf bench-headers.conf /etc/nginx/
+#12 CACHED
+
+#13 [nginx 4/4] COPY bench.js /etc/nginx/njs/bench.js
+#13 CACHED
+
+#14 [proxy build 1/7] FROM docker.io/library/golang:1.27.3-trixie@sha256:c124b9ad3452f46061b5054607d26ea51730dae5372c5e469920063ba2bc6dcc
+#14 resolve docker.io/library/golang:1.27.3-trixie@sha256:c124b9ad3452f46061b5054607d26ea51730dae5372c5e469920063ba2bc6dcc 0.0s done
+#14 DONE 0.1s
+
+#15 [nginx] exporting to image
+#15 exporting layers done
+#15 exporting manifest sha256:cc96e34e697dc5c8ca1e101a9407d2ed0d96371e9735a4515bd57031356dbfd7 done
+#15 exporting config sha256:b0674939264cee96d199ef04e89f4ac1f7ebb3636f8eadb86383259dec0b456a done
+#15 exporting attestation manifest sha256:5c8a93edc6dd5d05e1db7cca10320320a602ceda3bf950d2c7c853dac71d72d4
+#15 exporting attestation manifest sha256:5c8a93edc6dd5d05e1db7cca10320320a602ceda3bf950d2c7c853dac71d72d4 0.0s done
+#15 exporting manifest list sha256:5bfaa3d16d851dae83d794698b9e90a581b1bc425d77a6b6f54d38560e1d741a done
+#15 naming to docker.io/library/mimicry-bench-nginx:latest done
+#15 unpacking to docker.io/library/mimicry-bench-nginx:latest 0.0s done
+#15 DONE 0.1s
+
+#16 [proxy internal] load build context
+#16 transferring context: 44.92MB 0.2s done
+#16 transferring context: 44.92MB 0.2s done
+#16 DONE 0.2s
+
+#17 [go-server build 2/7] WORKDIR /src
+#17 CACHED
+
+#18 [go-server build 4/7] COPY internal/bench/go.mod internal/bench/go.sum internal/bench/
+#18 CACHED
+
+#19 [go-server build 3/7] COPY go.mod go.sum ./
+#19 CACHED
+
+#20 [go-server build 5/7] RUN --mount=type=cache,target=/go/pkg/mod     cd internal/bench && go mod download
+#20 CACHED
+
+#21 [nginx] resolving provenance for metadata file
+#21 DONE 0.0s
+
+#22 [go-server build 6/7] COPY . .
+#22 DONE 0.3s
+
+#23 [proxy build 7/7] RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build     cd internal/bench &&     go build -trimpath -o /out/ ./cmd/server ./cmd/proxy ./cmd/setup ./cmd/bench &&     go test -c -trimpath -o /out/bench.test . &&     go build -trimpath -o /out/benchstat golang.org/x/perf/cmd/benchstat
+#23 DONE 2.8s
+
+#24 [go-server stage-1 2/4] RUN apt-get update &&     apt-get install -y --no-install-recommends iproute2 ethtool ca-certificates &&     rm -rf /var/lib/apt/lists/*
+#24 CACHED
+
+#24 [proxy stage-1 2/4] RUN apt-get update &&     apt-get install -y --no-install-recommends iproute2 ethtool ca-certificates &&     rm -rf /var/lib/apt/lists/*
+#24 CACHED
+
+#25 [proxy stage-1 3/4] COPY --from=build /out/ /usr/local/bin/
+#25 DONE 0.0s
+
+#26 [go-server stage-1 4/4] COPY internal/bench/docker/proxy-entrypoint.sh /usr/local/bin/proxy-entrypoint.sh
+#26 DONE 0.1s
+
+#27 [go-server] exporting to image
+#27 exporting layers 2.0s done
+#27 exporting manifest sha256:a23cc0f8e7706ad7bc8201e4e1a9b58325084acc46afa30526630e3b1800a5e3
+#27 exporting manifest sha256:a23cc0f8e7706ad7bc8201e4e1a9b58325084acc46afa30526630e3b1800a5e3 0.0s done
+#27 exporting config sha256:ac5a9b45edb880345d4e628b84a0668b617caa13b03a77cb8fe30d8324758446 0.0s done
+#27 exporting attestation manifest sha256:99785230490b3fb6728dc14229bc4220cfb1c469ee87c56ddf70976defef8f0c 0.0s done
+#27 exporting manifest list sha256:1f764c610ed5bb099c3b4085eaad5bdeacd90178183c05cc5b3a78d80f81a087 done
+#27 naming to docker.io/library/mimicry-bench:latest done
+#27 unpacking to docker.io/library/mimicry-bench:latest
+#27 unpacking to docker.io/library/mimicry-bench:latest 0.4s done
+#27 DONE 2.5s
+
+#28 [proxy] exporting to image
+#28 exporting layers 2.0s done
+#28 exporting manifest sha256:05b6051ef2c8de576a103176813ac93f4b35fdeb9cb7c09a63d3d1fea320bbd9 0.0s done
+#28 exporting config sha256:d933be9fba6f24e23f957e398839b767df224b1ab5f91d35d07f8aa04025843b 0.0s done
+#28 exporting attestation manifest sha256:8b644f350f65294817778d4e77a29e5db790ab48474bce1acb886b85cd690d62 0.0s done
+#28 exporting manifest list sha256:25a6aadd4e2f7b0728df4cb314cb7b921e0b3d9ce07a1b417e5ca99ef302e47f done
+#28 naming to docker.io/library/mimicry-bench:latest done
+#28 unpacking to docker.io/library/mimicry-bench:latest 0.4s done
+#28 DONE 2.5s
+
+#29 [proxy] resolving provenance for metadata file
+#29 DONE 0.1s
+
+#30 [go-server] resolving provenance for metadata file
+#30 DONE 0.0s
+ Image mimicry-bench-nginx:latest Built 
+ Image mimicry-bench:latest Built 
+ Image mimicry-bench:latest Built 
+bench: netem available on this Docker host; the proxy's delay: netem
+ Container mimicry-bench-server-setup-run-1951ac9d5b12 Creating 
+ Container mimicry-bench-server-setup-run-1951ac9d5b12 Created 
+2026/10/29 21:08:02 setup: keeping the CA in /data/ca
+2026/10/29 21:08:02 setup: wrote 36 files to /data/www
+bench: restarting the server stack
+ Container mimicry-bench-server-proxy-1 Recreate 
+ Container mimicry-bench-server-go-server-1 Recreate 
+ Container mimicry-bench-server-nginx-1 Recreate 
+ Container mimicry-bench-server-proxy-1 Recreated 
+ Container mimicry-bench-server-go-server-1 Recreated 
+ Container mimicry-bench-server-nginx-1 Recreated 
+ Container mimicry-bench-server-nginx-1 Starting 
+ Container mimicry-bench-server-go-server-1 Starting 
+ Container mimicry-bench-server-proxy-1 Starting 
+ Container mimicry-bench-server-go-server-1 Started 
+ Container mimicry-bench-server-proxy-1 Started 
+ Container mimicry-bench-server-nginx-1 Started 
+ Container mimicry-bench-client-offloads-1 Recreate 
+ Container mimicry-bench-client-offloads-1 Recreated 
+ Container mimicry-bench-client-offloads-1 Starting 
+ Container mimicry-bench-client-offloads-1 Started 
+ Container mimicry-bench-client-client-run-147e81c45c1b Creating 
+ Container mimicry-bench-client-client-run-147e81c45c1b Created 
+ Container mimicry-bench-client-client-run-7c12c0683077 Creating 
+ Container mimicry-bench-client-client-run-7c12c0683077 Created 
+21:08:12 [1] load nginx h3 bytes-1KB c=1 mimicry: 13873 req/s, 14.2 MB/s, p50 0.07 ms, p99 0.10 ms, 42 µs CPU/req, 86 allocs/req, server CPU 4% (29%); window 5.0 s after 2.0 s of warm-up, 69412 of 69413 requests started in it finished in it, UDP RcvbufErrors +0 InErrors +0
+21:08:19 [2] load nginx h3 bytes-1KB c=1 mimicry-udpos: 13698 req/s, 14.0 MB/s, p50 0.07 ms, p99 0.10 ms, 42 µs CPU/req, 86 allocs/req, server CPU 4% (29%); window 5.0 s after 2.0 s of warm-up, 68544 of 68545 requests started in it finished in it, UDP RcvbufErrors +0 InErrors +0
+21:08:26 [3] load nginx h3 bytes-1KB c=1 mimicry-udp208k: 13944 req/s, 14.3 MB/s, p50 0.07 ms, p99 0.10 ms, 41 µs CPU/req, 86 allocs/req, server CPU 4% (29%); window 5.0 s after 2.0 s of warm-up, 69723 of 69724 requests started in it finished in it, UDP RcvbufErrors +0 InErrors +0
+21:08:33 [4] load nginx h3 bytes-1KB c=1 mimicry-udp2m: 14347 req/s, 14.7 MB/s, p50 0.06 ms, p99 0.10 ms, 41 µs CPU/req, 86 allocs/req, server CPU 4% (29%); window 5.0 s after 2.0 s of warm-up, 71741 of 71742 requests started in it finished in it, UDP RcvbufErrors +0 InErrors +0
+21:08:41 [5] load nginx h3 bytes-1KB c=1 mimicry-udp7m: 13905 req/s, 14.2 MB/s, p50 0.07 ms, p99 0.10 ms, 42 µs CPU/req, 86 allocs/req, server CPU 4% (29%); window 5.0 s after 2.0 s of warm-up, 69588 of 69589 requests started in it finished in it, UDP RcvbufErrors +0 InErrors +0
+2026/10/29 21:08:41 failed to sufficiently increase receive buffer size (was: 208 kiB, wanted: 7168 kiB, got: 416 kiB). See https://github.com/bogdanfinn/quic-go-utls/wiki/UDP-Buffer-Sizes for details.
+21:08:48 [6] load nginx h3 bytes-1KB c=1 tls-client: 11287 req/s, 11.6 MB/s, p50 0.08 ms, p99 0.13 ms, 53 µs CPU/req, 225 allocs/req, server CPU 3% (27%); window 5.0 s after 2.0 s of warm-up, 56463 of 56464 requests started in it finished in it, UDP RcvbufErrors +0 InErrors +0
+2026/10/29 21:08:48 failed to sufficiently increase receive buffer size (was: 208 kiB, wanted: 7168 kiB, got: 416 kiB). See https://github.com/quic-go/quic-go/wiki/UDP-Buffer-Sizes for details.
+21:08:55 [7] load nginx h3 bytes-1KB c=1 net/http: 14255 req/s, 14.6 MB/s, p50 0.07 ms, p99 0.09 ms, 40 µs CPU/req, 143 allocs/req, server CPU 4% (30%); window 5.0 s after 2.0 s of warm-up, 71281 of 71282 requests started in it finished in it, UDP RcvbufErrors +0 InErrors +0
+21:09:02 [8] load nginx h3 bytes-1KB c=64 mimicry: 67991 req/s, 69.6 MB/s, p50 0.81 ms, p99 4.55 ms, 21 µs CPU/req, 87 allocs/req, server CPU 5% (37%); window 5.0 s after 2.0 s of warm-up, 340055 of 340119 requests started in it finished in it, UDP RcvbufErrors +0 InErrors +0
+21:09:09 [9] load nginx h3 bytes-1KB c=64 mimicry-udpos: 68600 req/s, 70.2 MB/s, p50 0.81 ms, p99 4.42 ms, 21 µs CPU/req, 87 allocs/req, server CPU 4% (36%); window 5.0 s after 2.0 s of warm-up, 343006 of 343070 requests started in it finished in it, UDP RcvbufErrors +0 InErrors +0
+21:09:16 [10] load nginx h3 bytes-1KB c=64 mimicry-udp208k: 68926 req/s, 70.6 MB/s, p50 0.81 ms, p99 4.42 ms, 20 µs CPU/req, 87 allocs/req, server CPU 5% (36%); window 5.0 s after 2.0 s of warm-up, 344781 of 344845 requests started in it finished in it, UDP RcvbufErrors +0 InErrors +0
+21:09:23 [11] load nginx h3 bytes-1KB c=64 mimicry-udp2m: 66710 req/s, 68.3 MB/s, p50 0.83 ms, p99 4.36 ms, 21 µs CPU/req, 87 allocs/req, server CPU 5% (39%); window 5.0 s after 2.0 s of warm-up, 333711 of 333775 requests started in it finished in it, UDP RcvbufErrors +0 InErrors +0
+21:09:30 [12] load nginx h3 bytes-1KB c=64 mimicry-udp7m: 69837 req/s, 71.5 MB/s, p50 0.82 ms, p99 4.29 ms, 20 µs CPU/req, 87 allocs/req, server CPU 5% (38%); window 5.0 s after 2.0 s of warm-up, 349497 of 349561 requests started in it finished in it, UDP RcvbufErrors +0 InErrors +0
+2026/10/29 21:09:30 failed to sufficiently increase receive buffer size (was: 208 kiB, wanted: 7168 kiB, got: 416 kiB). See https://github.com/bogdanfinn/quic-go-utls/wiki/UDP-Buffer-Sizes for details.
+21:09:37 [13] load nginx h3 bytes-1KB c=64 tls-client: 50390 req/s, 51.6 MB/s, p50 0.99 ms, p99 5.34 ms, 35 µs CPU/req, 225 allocs/req, server CPU 6% (49%); window 5.0 s after 2.0 s of warm-up, 251952 of 252016 requests started in it finished in it, UDP RcvbufErrors +0 InErrors +0
+2026/10/29 21:09:37 failed to sufficiently increase receive buffer size (was: 208 kiB, wanted: 7168 kiB, got: 416 kiB). See https://github.com/quic-go/quic-go/wiki/UDP-Buffer-Sizes for details.
+21:09:44 [14] load nginx h3 bytes-1KB c=64 net/http: 72176 req/s, 73.9 MB/s, p50 0.71 ms, p99 4.23 ms, 19 µs CPU/req, 143 allocs/req, server CPU 5% (36%); window 5.0 s after 2.0 s of warm-up, 360886 of 360950 requests started in it finished in it, UDP RcvbufErrors +0 InErrors +0
+21:09:51 [15] load nginx h3 bytes-1KB c=256 mimicry: 85284 req/s, 87.3 MB/s, p50 2.57 ms, p99 9.24 ms, 20 µs CPU/req, 87 allocs/req, server CPU 6% (45%); window 5.0 s after 2.0 s of warm-up, 426200 of 426456 requests started in it finished in it, UDP RcvbufErrors +381 InErrors +381
+21:09:59 [16] load nginx h3 bytes-1KB c=256 mimicry-udpos: 76917 req/s, 78.8 MB/s, p50 3.00 ms, p99 8.98 ms, 21 µs CPU/req, 87 allocs/req, server CPU 5% (40%); window 5.0 s after 2.0 s of warm-up, 384518 of 384774 requests started in it finished in it, UDP RcvbufErrors +1472 InErrors +1472
+21:10:06 [17] load nginx h3 bytes-1KB c=256 mimicry-udp208k: 81252 req/s, 83.2 MB/s, p50 2.80 ms, p99 9.11 ms, 20 µs CPU/req, 87 allocs/req, server CPU 6% (44%); window 5.0 s after 2.0 s of warm-up, 406092 of 406348 requests started in it finished in it, UDP RcvbufErrors +424 InErrors +424
+21:10:13 [18] load nginx h3 bytes-1KB c=256 mimicry-udp2m: 80927 req/s, 82.9 MB/s, p50 2.83 ms, p99 9.11 ms, 21 µs CPU/req, 87 allocs/req, server CPU 5% (42%); window 5.0 s after 2.0 s of warm-up, 405261 of 405517 requests started in it finished in it, UDP RcvbufErrors +519 InErrors +519
+21:10:20 [19] load nginx h3 bytes-1KB c=256 mimicry-udp7m: 80037 req/s, 82.0 MB/s, p50 2.80 ms, p99 9.24 ms, 21 µs CPU/req, 87 allocs/req, server CPU 5% (43%); window 5.0 s after 2.0 s of warm-up, 399990 of 400247 requests started in it finished in it, UDP RcvbufErrors +291 InErrors +291
+2026/10/29 21:10:20 failed to sufficiently increase receive buffer size (was: 208 kiB, wanted: 7168 kiB, got: 416 kiB). See https://github.com/bogdanfinn/quic-go-utls/wiki/UDP-Buffer-Sizes for details.
+21:10:27 [20] load nginx h3 bytes-1KB c=256 tls-client: 57615 req/s, 59.0 MB/s, p50 3.82 ms, p99 11.73 ms, 34 µs CPU/req, 225 allocs/req, server CPU 6% (52%); window 5.0 s after 2.0 s of warm-up, 288118 of 288374 requests started in it finished in it, UDP RcvbufErrors +215 InErrors +215
+2026/10/29 21:10:27 failed to sufficiently increase receive buffer size (was: 208 kiB, wanted: 7168 kiB, got: 416 kiB). See https://github.com/quic-go/quic-go/wiki/UDP-Buffer-Sizes for details.
+21:10:34 [21] load nginx h3 bytes-1KB c=256 net/http: 83569 req/s, 85.6 MB/s, p50 2.51 ms, p99 10.29 ms, 18 µs CPU/req, 143 allocs/req, server CPU 5% (39%); window 5.0 s after 2.0 s of warm-up, 417615 of 417871 requests started in it finished in it, UDP RcvbufErrors +726 InErrors +726
+21:10:41 [22] load nginx h3 bytes-100KB c=1 mimicry: 4724 req/s, 483.7 MB/s, p50 0.20 ms, p99 0.25 ms, 147 µs CPU/req, 95 allocs/req, server CPU 7% (54%); window 5.0 s after 2.0 s of warm-up, 23624 of 23625 requests started in it finished in it, UDP RcvbufErrors +0 InErrors +0
+21:10:48 [23] load nginx h3 bytes-100KB c=1 mimicry-udpos: 4783 req/s, 489.7 MB/s, p50 0.20 ms, p99 0.25 ms, 146 µs CPU/req, 95 allocs/req, server CPU 7% (54%); window 5.0 s after 2.0 s of warm-up, 23914 of 23915 requests started in it finished in it, UDP RcvbufErrors +0 InErrors +0
+21:10:55 [24] load nginx h3 bytes-100KB c=1 mimicry-udp208k: 4740 req/s, 485.4 MB/s, p50 0.20 ms, p99 0.25 ms, 147 µs CPU/req, 95 allocs/req, server CPU 7% (53%); window 5.0 s after 2.0 s of warm-up, 23708 of 23709 requests started in it finished in it, UDP RcvbufErrors +0 InErrors +0
+21:11:03 [25] load nginx h3 bytes-100KB c=1 mimicry-udp2m: 4741 req/s, 485.5 MB/s, p50 0.20 ms, p99 0.26 ms, 148 µs CPU/req, 95 allocs/req, server CPU 7% (53%); window 5.0 s after 2.0 s of warm-up, 23720 of 23721 requests started in it finished in it, UDP RcvbufErrors +0 InErrors +0
+21:11:10 [26] load nginx h3 bytes-100KB c=1 mimicry-udp7m: 4761 req/s, 487.5 MB/s, p50 0.20 ms, p99 0.26 ms, 147 µs CPU/req, 95 allocs/req, server CPU 7% (54%); window 5.0 s after 2.0 s of warm-up, 23832 of 23833 requests started in it finished in it, UDP RcvbufErrors +0 InErrors +0
+2026/10/29 21:11:10 failed to sufficiently increase receive buffer size (was: 208 kiB, wanted: 7168 kiB, got: 416 kiB). See https://github.com/bogdanfinn/quic-go-utls/wiki/UDP-Buffer-Sizes for details.
+21:11:17 [27] load nginx h3 bytes-100KB c=1 tls-client: 3756 req/s, 384.6 MB/s, p50 0.25 ms, p99 0.35 ms, 175 µs CPU/req, 467 allocs/req, server CPU 5% (42%); window 5.0 s after 2.0 s of warm-up, 18781 of 18782 requests started in it finished in it, UDP RcvbufErrors +0 InErrors +0
+2026/10/29 21:11:17 failed to sufficiently increase receive buffer size (was: 208 kiB, wanted: 7168 kiB, got: 416 kiB). See https://github.com/quic-go/quic-go/wiki/UDP-Buffer-Sizes for details.
+21:11:24 [28] load nginx h3 bytes-100KB c=1 net/http: 4184 req/s, 428.5 MB/s, p50 0.23 ms, p99 0.31 ms, 161 µs CPU/req, 386 allocs/req, server CPU 5% (44%); window 5.0 s after 2.0 s of warm-up, 20951 of 20952 requests started in it finished in it, UDP RcvbufErrors +0 InErrors +0
+21:11:31 [29] load nginx h3 bytes-100KB c=64 mimicry: 7606 req/s, 778.9 MB/s, p50 8.09 ms, p99 15.27 ms, 124 µs CPU/req, 94 allocs/req, server CPU 12% (97%); window 5.0 s after 2.0 s of warm-up, 38004 of 38068 requests started in it finished in it; server-bound: one server worker at 97% of a core, UDP RcvbufErrors +17210 InErrors +17210
+21:11:38 [30] load nginx h3 bytes-100KB c=64 mimicry-udpos: 7575 req/s, 775.7 MB/s, p50 8.03 ms, p99 15.53 ms, 124 µs CPU/req, 94 allocs/req, server CPU 12% (96%); window 5.0 s after 2.0 s of warm-up, 37814 of 37878 requests started in it finished in it; server-bound: one server worker at 96% of a core, UDP RcvbufErrors +22796 InErrors +22796
+21:11:45 [31] load nginx h3 bytes-100KB c=64 mimicry-udp208k: 7548 req/s, 772.9 MB/s, p50 8.16 ms, p99 14.75 ms, 125 µs CPU/req, 94 allocs/req, server CPU 12% (96%); window 5.0 s after 2.0 s of warm-up, 37689 of 37753 requests started in it finished in it; server-bound: one server worker at 96% of a core, UDP RcvbufErrors +14741 InErrors +14741
+21:11:52 [32] load nginx h3 bytes-100KB c=64 mimicry-udp2m: 7575 req/s, 775.7 MB/s, p50 8.09 ms, p99 14.22 ms, 125 µs CPU/req, 94 allocs/req, server CPU 12% (97%); window 5.0 s after 2.0 s of warm-up, 37881 of 37945 requests started in it finished in it; server-bound: one server worker at 97% of a core, UDP RcvbufErrors +13415 InErrors +13415
+21:11:59 [33] load nginx h3 bytes-100KB c=64 mimicry-udp7m: 7640 req/s, 782.3 MB/s, p50 8.03 ms, p99 14.75 ms, 123 µs CPU/req, 94 allocs/req, server CPU 12% (96%); window 5.0 s after 2.0 s of warm-up, 38183 of 38247 requests started in it finished in it; server-bound: one server worker at 96% of a core, UDP RcvbufErrors +15099 InErrors +15099
+2026/10/29 21:11:59 failed to sufficiently increase receive buffer size (was: 208 kiB, wanted: 7168 kiB, got: 416 kiB). See https://github.com/bogdanfinn/quic-go-utls/wiki/UDP-Buffer-Sizes for details.
+21:12:07 [34] load nginx h3 bytes-100KB c=64 tls-client: 8116 req/s, 831.1 MB/s, p50 6.78 ms, p99 15.66 ms, 128 µs CPU/req, 458 allocs/req, server CPU 10% (76%); window 5.0 s after 2.0 s of warm-up, 40565 of 40629 requests started in it finished in it, UDP RcvbufErrors +4855 InErrors +4855
+2026/10/29 21:12:07 failed to sufficiently increase receive buffer size (was: 208 kiB, wanted: 7168 kiB, got: 416 kiB). See https://github.com/quic-go/quic-go/wiki/UDP-Buffer-Sizes for details.
+21:12:14 [35] load nginx h3 bytes-100KB c=64 net/http: 10004 req/s, 1024.4 MB/s, p50 5.60 ms, p99 12.78 ms, 104 µs CPU/req, 376 allocs/req, server CPU 10% (80%); window 5.0 s after 2.0 s of warm-up, 50062 of 50126 requests started in it finished in it, UDP RcvbufErrors +5442 InErrors +5442
+21:12:21 [36] load nginx h3 bytes-100KB c=256 mimicry: 5941 req/s, 608.3 MB/s, p50 40.63 ms, p99 60.56 ms, 147 µs CPU/req, 93 allocs/req, server CPU 12% (98%); window 5.0 s after 2.0 s of warm-up, 29428 of 29684 requests started in it finished in it; server-bound: one server worker at 98% of a core, UDP RcvbufErrors +16200 InErrors +16200
+21:12:28 [37] load nginx h3 bytes-100KB c=256 mimicry-udpos: 5982 req/s, 612.6 MB/s, p50 39.58 ms, p99 67.63 ms, 146 µs CPU/req, 93 allocs/req, server CPU 12% (98%); window 5.0 s after 2.0 s of warm-up, 29714 of 29970 requests started in it finished in it; server-bound: one server worker at 98% of a core, UDP RcvbufErrors +15770 InErrors +15770
+21:12:35 [38] load nginx h3 bytes-100KB c=256 mimicry-udp208k: 6071 req/s, 621.6 MB/s, p50 39.58 ms, p99 53.22 ms, 144 µs CPU/req, 93 allocs/req, server CPU 12% (99%); window 5.0 s after 2.0 s of warm-up, 30103 of 30359 requests started in it finished in it; server-bound: one server worker at 99% of a core, UDP RcvbufErrors +11460 InErrors +11460
+21:12:42 [39] load nginx h3 bytes-100KB c=256 mimicry-udp2m: 5903 req/s, 604.5 MB/s, p50 41.68 ms, p99 55.84 ms, 147 µs CPU/req, 93 allocs/req, server CPU 12% (99%); window 5.0 s after 2.0 s of warm-up, 29320 of 29576 requests started in it finished in it; server-bound: one server worker at 99% of a core, UDP RcvbufErrors +16510 InErrors +16510
+21:12:49 [40] load nginx h3 bytes-100KB c=256 mimicry-udp7m: 6016 req/s, 616.1 MB/s, p50 40.11 ms, p99 55.31 ms, 145 µs CPU/req, 93 allocs/req, server CPU 12% (99%); window 5.0 s after 2.0 s of warm-up, 29868 of 30124 requests started in it finished in it; server-bound: one server worker at 99% of a core, UDP RcvbufErrors +18757 InErrors +18757
+2026/10/29 21:12:49 failed to sufficiently increase receive buffer size (was: 208 kiB, wanted: 7168 kiB, got: 416 kiB). See https://github.com/bogdanfinn/quic-go-utls/wiki/UDP-Buffer-Sizes for details.
+21:12:56 [41] load nginx h3 bytes-100KB c=256 tls-client: 7512 req/s, 769.2 MB/s, p50 32.64 ms, p99 44.30 ms, 132 µs CPU/req, 453 allocs/req, server CPU 11% (92%); window 5.0 s after 2.0 s of warm-up, 37346 of 37602 requests started in it finished in it; server-bound: one server worker at 92% of a core, UDP RcvbufErrors +2902 InErrors +2902
+2026/10/29 21:12:56 failed to sufficiently increase receive buffer size (was: 208 kiB, wanted: 7168 kiB, got: 416 kiB). See https://github.com/quic-go/quic-go/wiki/UDP-Buffer-Sizes for details.
+21:13:04 [42] load nginx h3 bytes-100KB c=256 net/http: 7065 req/s, 723.4 MB/s, p50 35.91 ms, p99 45.35 ms, 132 µs CPU/req, 374 allocs/req, server CPU 12% (95%); window 5.0 s after 2.0 s of warm-up, 35101 of 35357 requests started in it finished in it; server-bound: one server worker at 95% of a core, UDP RcvbufErrors +8563 InErrors +8563
+bench: wrote /tmp/udpbuf-after/internal/bench/reports/udpbuf-after-stock-mac-2026-10-29.md and .json

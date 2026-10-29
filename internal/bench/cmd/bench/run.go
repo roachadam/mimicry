@@ -903,9 +903,10 @@ type env struct {
 	HostLoad string `json:"hostLoad,omitempty"`
 	// RmemMax and RmemDefault are the client container's
 	// net.core.rmem_max and rmem_default: the most a UDP socket may ask
-	// for (the quic-go clients ask for 7 MB) and what one gets without
-	// asking (mimicry, UDPReadBufferSize 0). UDPStock says the run set
-	// both to stock Linux's 212992 (BENCH_UDP_STOCK).
+	// for (the quic-go clients ask for 7 MB, mimicry for 1 MB; Linux
+	// grants twice what it allows) and what one gets without asking.
+	// UDPStock says the run set both to stock Linux's 212992
+	// (BENCH_UDP_STOCK).
 	RmemMax     string `json:"rmemMax,omitempty"`
 	RmemDefault string `json:"rmemDefault,omitempty"`
 	UDPStock    bool   `json:"udpStock,omitempty"`

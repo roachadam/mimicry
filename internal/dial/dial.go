@@ -45,9 +45,10 @@ type Dialer struct {
 	// them unasked (ConnectAuth, ForwardAuth): only the proxy sees the
 	// difference (decision 0039).
 	BrowserAuth bool
-	// UDPReadBufferSize, when set, is the receive buffer a QUIC socket
-	// asks for (SetReadBuffer; the OS may grant less). Zero leaves the OS's
-	// default (see ListenUDP).
+	// UDPReadBufferSize is the receive buffer a QUIC socket asks for
+	// (SetReadBuffer; the OS may grant less): zero asks for
+	// DefaultUDPReadBufferSize, negative leaves the OS's default (see
+	// setReadBuffer).
 	UDPReadBufferSize int
 
 	// asked holds the proxies (by URL) that have asked for credentials:
@@ -87,8 +88,8 @@ func (d *Dialer) dial(ctx context.Context, addr string) (net.Conn, error) {
 
 // ListenUDP resolves host with Resolver and opens a UDP socket for a QUIC
 // connection to its first address at port, returned with the socket. It
-// honours ctx, bounded by Timeout. With UDPReadBufferSize set, the socket asks
-// for that receive buffer and keeps what the OS grants.
+// honours ctx, bounded by Timeout. The socket asks for the receive buffer
+// UDPReadBufferSize says and keeps what the OS grants.
 func (d *Dialer) ListenUDP(ctx context.Context, host string, port uint16) (net.PacketConn, netip.AddrPort, error) {
 	if d.Timeout > 0 {
 		var cancel context.CancelFunc
@@ -130,25 +131,41 @@ func (d *Dialer) ListenUDP(ctx context.Context, host string, port uint16) (net.P
 		return nil, netip.AddrPort{}, err
 	}
 
-	if uc, ok := pc.(*net.UDPConn); ok && d.UDPReadBufferSize > 0 {
-		// Best effort: Linux caps the request at net.core.rmem_max
-		// without an error, and a failure leaves the default. No
-		// SO_RCVBUFFORCE: it needs privileges.
-		//
-		// Zero is the default because a larger buffer is not faster
-		// across the board (bench 2026-10-28, nginx, HTTP/3, after the
-		// gate fix; internal/quic/UPSTREAM.md change 15): 7 MB
-		// (quic-go's) removed the drops of 448 KB and ran 10-15% faster at
-		// 100 KB and 64 at once, but at 256 at once ran at half the rate:
-		// the client answered the backlog in bursts that overflowed
-		// nginx's socket (11% of its datagrams), its congestion window
-		// fell to two packets and its MAX_DATA waited behind it, so nginx
-		// idled on flow control. Against the Go server, 10 MB at 64 at
-		// once, 7 MB ran 20% slower (the loop behind a standing queue).
-		_ = uc.SetReadBuffer(d.UDPReadBufferSize)
+	if uc, ok := pc.(*net.UDPConn); ok {
+		d.setReadBuffer(uc)
 	}
 
 	return pc, netip.AddrPortFrom(addr, port), nil
+}
+
+// DefaultUDPReadBufferSize is the receive buffer a QUIC socket asks for
+// by default: Chrome's (kQuicSocketReceiveBufferSize, net/quic/
+// quic_context.h, set on every QUIC socket it opens).
+const DefaultUDPReadBufferSize = 1 << 20
+
+// setReadBuffer asks for uc's receive buffer as UDPReadBufferSize says.
+// Best effort: Linux caps the request at net.core.rmem_max (stock: 208
+// KB, so 416 KB granted, the kernel doubling it) without an error, and a
+// failure leaves the OS's default. No SO_RCVBUFFORCE: it needs privileges.
+//
+// 1 MB because more is not faster across the board (bench 2026-10-29,
+// the Linux test host, Linux, rmem_max 16 MB, nginx, HTTP/3, 3 passes; decision
+// 0045): against the OS's default (208 KB), a 1 MB request (2 MB
+// granted) ran 100 KB bodies at 64 at once 10-13% faster and 1 KB at 256
+// 11-18% faster, with no drops at 1 KB; 2 MB and 7 MB ran 100 KB at 64 at
+// once 40-100% faster, but at 256 at once 7 MB ran at about half the rate
+// in two runs of three, and 2 MB too: the client answers its backlog in
+// bursts that overflow nginx's socket, its congestion window falls and
+// MAX_DATA waits behind it while nginx idles on flow control.
+func (d *Dialer) setReadBuffer(uc *net.UDPConn) {
+	size := d.UDPReadBufferSize
+	if size == 0 {
+		size = DefaultUDPReadBufferSize
+	}
+
+	if size > 0 {
+		_ = uc.SetReadBuffer(size)
+	}
 }
 
 // Supported proxy URL schemes.
@@ -289,8 +306,8 @@ func (d *Dialer) socksMethods(p *url.URL) ([]byte, error) {
 // goes to Resolver). The association authenticates as DialVia does and
 // lives as long as its control connection (proxy.Association). A failure
 // is a *ProxyError; a refusal of UDP ASSOCIATE is remembered
-// (UDPRefused). It honours ctx, bounded by Timeout; with UDPReadBufferSize
-// set, the socket asks for it as ListenUDP's does.
+// (UDPRefused). It honours ctx, bounded by Timeout; the socket asks for
+// the receive buffer UDPReadBufferSize says, as ListenUDP's does.
 func (d *Dialer) ListenUDPVia(ctx context.Context, p *url.URL, host string, port uint16) (net.PacketConn, netip.AddrPort, error) {
 	if d.Timeout > 0 {
 		var cancel context.CancelFunc
@@ -393,9 +410,7 @@ func (d *Dialer) dialRelay(ctx context.Context, ctrl net.Conn, p *url.URL, relay
 		return nil, fmt.Errorf("SOCKS5 UDP relay %s: not a UDP socket", relay)
 	}
 
-	if d.UDPReadBufferSize > 0 {
-		_ = udp.SetReadBuffer(d.UDPReadBufferSize)
-	}
+	d.setReadBuffer(udp)
 
 	return udp, nil
 }

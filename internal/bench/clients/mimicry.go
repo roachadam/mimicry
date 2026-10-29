@@ -44,9 +44,16 @@ func mimicryClient() Factory {
 // and -conns64 open up to 16 and 64 HTTP/1.1 connections per host
 // (MaxConnsPerHost) instead of Chrome's 6; mimicry-ack20 acknowledges
 // every 20th QUIC packet instead of Chrome's 10th (HTTP3ACKEvery);
-// mimicry-udp7m asks for quic-go's 7 MB UDP receive buffer
-// (UDPReadBufferSize) instead of the OS's default. azuretls-stream reads
-// azuretls's body as it arrives (azuretlsStreamClient).
+// mimicry-udpos keeps the OS's default UDP receive buffer
+// (UDPReadBufferSize negative) instead of Chrome's 1 MB request;
+// mimicry-udp208k, -udp512k, -udp2m and -udp7m ask for 208 KB (stock
+// Linux's rmem_max: what stock Linux grants a larger request too, where
+// the sysctl cannot be set per container), 512 KB, 2 MB and quic-go's 7 MB.
+// mimicry-proxies4 and mimicry-proxies1 keep the idle connections of the
+// 4 most recently used proxies and of the latest one only
+// (MaxIdleProxies) instead of the 16 most recent and any used in the last
+// 10 s. azuretls-stream reads azuretls's body as it arrives
+// (azuretlsStreamClient).
 func Variants() []Factory {
 	variant := func(name string, set func(*mimicry.Config)) Factory {
 		f := mimicryClient()
@@ -70,8 +77,26 @@ func Variants() []Factory {
 		variant("mimicry-ack20", func(c *mimicry.Config) {
 			c.HTTP3ACKEvery = 20
 		}),
+		variant("mimicry-udpos", func(c *mimicry.Config) {
+			c.UDPReadBufferSize = -1
+		}),
+		variant("mimicry-udp208k", func(c *mimicry.Config) {
+			c.UDPReadBufferSize = 212992
+		}),
+		variant("mimicry-udp512k", func(c *mimicry.Config) {
+			c.UDPReadBufferSize = 512 << 10
+		}),
+		variant("mimicry-udp2m", func(c *mimicry.Config) {
+			c.UDPReadBufferSize = 2 << 20
+		}),
 		variant("mimicry-udp7m", func(c *mimicry.Config) {
 			c.UDPReadBufferSize = quicGoReadBuffer
+		}),
+		variant("mimicry-proxies4", func(c *mimicry.Config) {
+			c.MaxIdleProxies = 4
+		}),
+		variant("mimicry-proxies1", func(c *mimicry.Config) {
+			c.MaxIdleProxies = 1
 		}),
 		azuretlsStreamClient(),
 	}

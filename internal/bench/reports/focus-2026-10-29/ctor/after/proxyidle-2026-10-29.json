@@ -1,0 +1,2232 @@
+{
+  "date": "2026-10-29",
+  "name": "proxyidle",
+  "env": {
+    "host": "Linux host (Intel Core i5-13500)",
+    "hostCpu": "13th Gen Intel(R) Core(TM) i5-13500, 20 cores",
+    "hostOs": "Linux 6.18.38",
+    "docker": "linux/amd64, server 29.5.3, 20 CPUs, 100992466944 bytes",
+    "mode": "local: both stacks on one Docker host, one Docker network",
+    "kernel": "6.18.38",
+    "clientCpus": 4,
+    "gomaxprocs": 4,
+    "goVersion": "go1.27.3",
+    "mimicryCommit": "c1f37ab + CtorProxy (profile fingerprint, Config.MaxIdleProxies)",
+    "cpusets": "client 0,2,4,6, servers 8-11, proxy 12-15",
+    "servers": [
+      {
+        "name": "nginx",
+        "software": "nginx/1.31.8",
+        "cpus": 4
+      },
+      {
+        "name": "go",
+        "software": "net/http and quic-go v0.64.1 (go1.27.3)",
+        "cpus": 4
+      }
+    ],
+    "clients": [
+      {
+        "name": "net/http",
+        "module": "std",
+        "version": "go1.27.3",
+        "profile": "none (Go's own TLS and HTTP/2; quic-go for HTTP/3)"
+      },
+      {
+        "name": "mimicry",
+        "module": "github.com/roachadam/mimicry",
+        "version": "(devel)",
+        "profile": "chrome-156-macos"
+      },
+      {
+        "name": "tls-client",
+        "module": "github.com/bogdanfinn/tls-client",
+        "version": "v1.17.1",
+        "profile": "Chrome_152_PSK"
+      },
+      {
+        "name": "httpcloak",
+        "module": "github.com/sardanioss/httpcloak",
+        "version": "v1.7.3",
+        "profile": "chrome-latest (chrome-155-linux)"
+      },
+      {
+        "name": "azuretls",
+        "module": "github.com/Noooste/azuretls-client",
+        "version": "v1.13.2",
+        "profile": "chrome (GetLastChromeVersion)"
+      },
+      {
+        "name": "mimicry-proxies4",
+        "module": "github.com/roachadam/mimicry",
+        "version": "(devel)",
+        "profile": "chrome-156-macos"
+      },
+      {
+        "name": "mimicry-proxies1",
+        "module": "github.com/roachadam/mimicry",
+        "version": "(devel)",
+        "profile": "chrome-156-macos"
+      }
+    ],
+    "netem": "",
+    "proxyDelay": "5ms on everything the proxy sends, in the proxy (a delay line per direction; the host has no netem)",
+    "hostLoad": "load average 2.60 3.72 3.68; other containers at 1% CPU or more: 2, 5.74% CPU together",
+    "rmemMax": "16777216",
+    "rmemDefault": "212992",
+    "netAdmin": true
+  },
+  "settings": {
+    "window": 5000000000,
+    "warmup": 2000000000,
+    "maxWindow": 120000000000,
+    "layers": [
+      6
+    ],
+    "clients": [
+      "mimicry",
+      "mimicry-proxies4",
+      "mimicry-proxies1",
+      "tls-client",
+      "azuretls"
+    ],
+    "servers": [
+      "nginx"
+    ],
+    "reduced": [
+      "go"
+    ],
+    "protos": [
+      "h2"
+    ],
+    "concurrency": [
+      1,
+      64
+    ],
+    "idleN": 50,
+    "idleNs": [
+      10,
+      50
+    ],
+    "reps": 10,
+    "repsLoss": 20,
+    "netem": true,
+    "bodies": [
+      "1KB",
+      "100KB"
+    ],
+    "multiN": 100,
+    "multiN2Variants": [
+      "fixed"
+    ],
+    "multiVariants": [
+      "proxy"
+    ],
+    "multiRotate": 10,
+    "multiProxyWindow": 30000000000,
+    "multiProxyRoutes": [
+      "h2-connect-auth"
+    ],
+    "multiProxyBodies": [
+      "1KB"
+    ],
+    "multiClientWindow": 10000000000
+  },
+  "microRaw": "micro-2026-10-29.txt",
+  "multi": [
+    {
+      "proto": "h2",
+      "proxy": "connect-auth",
+      "op": "bytes-1KB",
+      "rotate": 10,
+      "n": 100,
+      "client": "mimicry",
+      "result": {
+        "clients": 100,
+        "requests": 205978,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 30.015672401,
+        "rps": 6861.837900654753,
+        "mbps": 7.026522010270467,
+        "p50": 11.730944,
+        "p95": 40.63232,
+        "p99": 42.729472,
+        "newConns": 20551,
+        "newP50": 40.63232,
+        "newP99": 51.11808,
+        "newResumed": 0,
+        "rotationsPerSec": 684.614749400944,
+        "tunnelsPerSec": 684.7813142273274,
+        "associationsPerSec": 0,
+        "clientCores": 0.8313481566270358,
+        "cpuPerRequest": 121.1461855149579,
+        "bytesPerRequest": 20489.326180570053,
+        "allocsPerRequest": 171.55381807059874,
+        "gcs": 33,
+        "gcPauseMs": 2.048503,
+        "liveKbPerClient": 1427.512548828125,
+        "peakKbPerClient": 3399.032578125,
+        "stackKbPerClient": 383.68,
+        "heapPeakMb": 350.227616,
+        "goroutinesPerClient": 70.48,
+        "serverCpu": 0.11836223425426151,
+        "proxyCpu": 0.1337167781775372,
+        "samples": [
+          {
+            "t": 0.000004242,
+            "liveMb": 32.836152,
+            "goroutines": 1594,
+            "rssMb": 111.833088,
+            "open": 1400
+          },
+          {
+            "t": 1.005903736,
+            "liveMb": 45.26772,
+            "goroutines": 2211,
+            "rssMb": 143.167488,
+            "open": 2029
+          },
+          {
+            "t": 2.00038118,
+            "liveMb": 62.699936,
+            "goroutines": 2907,
+            "rssMb": 175.104,
+            "open": 2700
+          },
+          {
+            "t": 3.000227879,
+            "liveMb": 78.377792,
+            "goroutines": 3607,
+            "rssMb": 207.593472,
+            "open": 3400
+          },
+          {
+            "t": 4.000160673,
+            "liveMb": 90.265864,
+            "goroutines": 4260,
+            "rssMb": 233.312256,
+            "open": 4086
+          },
+          {
+            "t": 5.000257762,
+            "liveMb": 104.233456,
+            "goroutines": 4910,
+            "rssMb": 257.327104,
+            "open": 4709
+          },
+          {
+            "t": 6.00090118,
+            "liveMb": 113.690184,
+            "goroutines": 5607,
+            "rssMb": 277.577728,
+            "open": 5400
+          },
+          {
+            "t": 7.000832394,
+            "liveMb": 124.2216,
+            "goroutines": 6265,
+            "rssMb": 300.863488,
+            "open": 6086
+          },
+          {
+            "t": 8.000532735,
+            "liveMb": 141.819208,
+            "goroutines": 6928,
+            "rssMb": 340.631552,
+            "open": 6734
+          },
+          {
+            "t": 9.000463771,
+            "liveMb": 156.571832,
+            "goroutines": 7611,
+            "rssMb": 378.126336,
+            "open": 7407
+          },
+          {
+            "t": 10.000046821,
+            "liveMb": 175.27864,
+            "goroutines": 8307,
+            "rssMb": 413.298688,
+            "open": 8100
+          },
+          {
+            "t": 11.000009465,
+            "liveMb": 154.657456,
+            "goroutines": 6996,
+            "rssMb": 447.81568,
+            "open": 6815
+          },
+          {
+            "t": 12.001022489,
+            "liveMb": 160.631504,
+            "goroutines": 7027,
+            "rssMb": 447.934464,
+            "open": 6833
+          },
+          {
+            "t": 13.000342651,
+            "liveMb": 160.74032,
+            "goroutines": 7036,
+            "rssMb": 447.991808,
+            "open": 6834
+          },
+          {
+            "t": 14.000762635,
+            "liveMb": 160.74032,
+            "goroutines": 7028,
+            "rssMb": 448.053248,
+            "open": 6830
+          },
+          {
+            "t": 15.000871655,
+            "liveMb": 160.008912,
+            "goroutines": 7080,
+            "rssMb": 448.094208,
+            "open": 6879
+          },
+          {
+            "t": 16.000763965,
+            "liveMb": 162.316264,
+            "goroutines": 7100,
+            "rssMb": 448.159744,
+            "open": 6896
+          },
+          {
+            "t": 17.000561166,
+            "liveMb": 166.938,
+            "goroutines": 7109,
+            "rssMb": 448.188416,
+            "open": 6902
+          },
+          {
+            "t": 18.000124582,
+            "liveMb": 168.323568,
+            "goroutines": 7121,
+            "rssMb": 448.22528,
+            "open": 6917
+          },
+          {
+            "t": 19.000302765,
+            "liveMb": 166.659928,
+            "goroutines": 7169,
+            "rssMb": 448.233472,
+            "open": 6969
+          },
+          {
+            "t": 20.000015178,
+            "liveMb": 168.84648,
+            "goroutines": 7185,
+            "rssMb": 448.237568,
+            "open": 6988
+          },
+          {
+            "t": 21.001000906,
+            "liveMb": 169.21608,
+            "goroutines": 7177,
+            "rssMb": 448.258048,
+            "open": 6992
+          },
+          {
+            "t": 22.000028242,
+            "liveMb": 169.21608,
+            "goroutines": 7182,
+            "rssMb": 448.262144,
+            "open": 6976
+          },
+          {
+            "t": 23.000040068,
+            "liveMb": 170.59724,
+            "goroutines": 7163,
+            "rssMb": 448.274432,
+            "open": 6961
+          },
+          {
+            "t": 24.000388455,
+            "liveMb": 172.382904,
+            "goroutines": 7177,
+            "rssMb": 448.282624,
+            "open": 6962
+          },
+          {
+            "t": 25.000223535,
+            "liveMb": 174.060144,
+            "goroutines": 7190,
+            "rssMb": 449.8432,
+            "open": 6986
+          },
+          {
+            "t": 26.000866089,
+            "liveMb": 174.70128,
+            "goroutines": 7191,
+            "rssMb": 450.555904,
+            "open": 6990
+          },
+          {
+            "t": 27.000007436,
+            "liveMb": 174.865312,
+            "goroutines": 7192,
+            "rssMb": 450.609152,
+            "open": 6991
+          },
+          {
+            "t": 28.000331522,
+            "liveMb": 174.865312,
+            "goroutines": 7152,
+            "rssMb": 450.613248,
+            "open": 6964
+          },
+          {
+            "t": 29.000318641,
+            "liveMb": 176.51956,
+            "goroutines": 7145,
+            "rssMb": 453.07904,
+            "open": 6941
+          },
+          {
+            "t": 30.001035375,
+            "liveMb": 176.8788,
+            "goroutines": 7135,
+            "rssMb": 454.500352,
+            "open": 6931
+          }
+        ],
+        "plateau": {
+          "liveKbPerClient": 1689.125375,
+          "goroutinesPerClient": 70.73200000000001,
+          "openPerClient": 69.753,
+          "slopeKbPerClient": 9.722621141447316,
+          "slopeGoroutines": 0.03736710008140205,
+          "samples": 31
+        }
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          171.51280236967057,
+          171.61578906485158
+        ],
+        "associationsPerSec": [
+          0,
+          0
+        ],
+        "bytesPerRequest": [
+          20483.43067396046,
+          20497.979745409702
+        ],
+        "clientCores": [
+          0.8175300113943965,
+          0.8479669733519313
+        ],
+        "clients": [
+          100,
+          100
+        ],
+        "cpuPerRequest": [
+          119.74601679655285,
+          123.57723770639039
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMs": [
+          1.771877,
+          3.075452
+        ],
+        "gcs": [
+          32,
+          33
+        ],
+        "goroutinesPerClient": [
+          70.39,
+          70.64
+        ],
+        "heapPeakMb": [
+          347.656632,
+          362.091744
+        ],
+        "liveKbPerClient": [
+          1407.711259765625,
+          1430.512763671875
+        ],
+        "mbps": [
+          6.9910528472122095,
+          7.0270517290119265
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "newConns": [
+          20464,
+          20551
+        ],
+        "newP50": [
+          40.63232,
+          40.63232
+        ],
+        "newP99": [
+          50.593792,
+          61.079552
+        ],
+        "newResumed": [
+          0,
+          0
+        ],
+        "p50": [
+          11.730944,
+          11.730944
+        ],
+        "p95": [
+          40.63232,
+          40.63232
+        ],
+        "p99": [
+          42.729472,
+          43.25376
+        ],
+        "peakKbPerClient": [
+          3373.91109375,
+          3514.881796875
+        ],
+        "plateau.goroutinesPerClient": [
+          70.69399999999999,
+          70.974
+        ],
+        "plateau.liveKbPerClient": [
+          1671.5024140624998,
+          1699.2921484374997
+        ],
+        "plateau.openPerClient": [
+          69.694,
+          69.962
+        ],
+        "plateau.samples": [
+          31,
+          31
+        ],
+        "plateau.slopeGoroutines": [
+          0.016234389926921212,
+          0.03943921321314563
+        ],
+        "plateau.slopeKbPerClient": [
+          9.300982282954964,
+          10.454680318417836
+        ],
+        "proxyCpu": [
+          0.12941954783163812,
+          0.13374817431987376
+        ],
+        "requests": [
+          204923,
+          205981
+        ],
+        "rotationsPerSec": [
+          681.7771638298606,
+          684.6763333935206
+        ],
+        "rps": [
+          6827.200046105674,
+          6862.35520411321
+        ],
+        "seconds": [
+          30.015642425,
+          30.018342459
+        ],
+        "serverCpu": [
+          0.11734408954578862,
+          0.12103882001354976
+        ],
+        "stackKbPerClient": [
+          365.44,
+          388.16
+        ],
+        "tunnelsPerSec": [
+          680.777685970454,
+          685.1760728223028
+        ]
+      }
+    },
+    {
+      "proto": "h2",
+      "proxy": "connect-auth",
+      "op": "bytes-1KB",
+      "rotate": 10,
+      "n": 100,
+      "client": "mimicry-proxies4",
+      "result": {
+        "clients": 100,
+        "requests": 204666,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 30.007244641,
+        "rps": 6819.1720821947865,
+        "mbps": 6.9828322121674615,
+        "p50": 11.862016,
+        "p95": 41.156608,
+        "p99": 43.25376,
+        "newConns": 20429,
+        "newP50": 41.156608,
+        "newP99": 45.350912,
+        "newResumed": 0,
+        "rotationsPerSec": 680.6611054403362,
+        "tunnelsPerSec": 680.8610156969637,
+        "associationsPerSec": 0,
+        "clientCores": 0.8157254453997838,
+        "cpuPerRequest": 119.92605880594235,
+        "bytesPerRequest": 20376.805562205926,
+        "allocsPerRequest": 171.59493516265525,
+        "gcs": 146,
+        "gcPauseMs": 11.388764,
+        "liveKbPerClient": 261.75802734375,
+        "peakKbPerClient": 785.91296875,
+        "stackKbPerClient": 61.12,
+        "heapPeakMb": 82.643848,
+        "goroutinesPerClient": 4.79,
+        "serverCpu": 0.11917689651336762,
+        "proxyCpu": 0.12657435345642273,
+        "samples": [
+          {
+            "t": 0.00000278,
+            "liveMb": 14.236832,
+            "goroutines": 607,
+            "rssMb": 79.876096,
+            "open": 400
+          },
+          {
+            "t": 1.000303642,
+            "liveMb": 15.192856,
+            "goroutines": 587,
+            "rssMb": 83.33312,
+            "open": 400
+          },
+          {
+            "t": 2.000053452,
+            "liveMb": 15.615896,
+            "goroutines": 543,
+            "rssMb": 81.719296,
+            "open": 358
+          },
+          {
+            "t": 3.000175202,
+            "liveMb": 17.578184,
+            "goroutines": 606,
+            "rssMb": 87.252992,
+            "open": 399
+          },
+          {
+            "t": 4.000346265,
+            "liveMb": 18.97228,
+            "goroutines": 607,
+            "rssMb": 90.529792,
+            "open": 400
+          },
+          {
+            "t": 5.002075576,
+            "liveMb": 18.631888,
+            "goroutines": 597,
+            "rssMb": 91.058176,
+            "open": 400
+          },
+          {
+            "t": 6.000512826,
+            "liveMb": 19.04312,
+            "goroutines": 568,
+            "rssMb": 92.03712,
+            "open": 377
+          },
+          {
+            "t": 7.00027343,
+            "liveMb": 21.399232,
+            "goroutines": 599,
+            "rssMb": 95.219712,
+            "open": 395
+          },
+          {
+            "t": 8.000134976,
+            "liveMb": 21.643168,
+            "goroutines": 607,
+            "rssMb": 98.168832,
+            "open": 400
+          },
+          {
+            "t": 9.000657916,
+            "liveMb": 22.724248,
+            "goroutines": 607,
+            "rssMb": 100.294656,
+            "open": 400
+          },
+          {
+            "t": 10.000010905,
+            "liveMb": 23.954432,
+            "goroutines": 557,
+            "rssMb": 101.90848,
+            "open": 379
+          },
+          {
+            "t": 11.000756742,
+            "liveMb": 24.330608,
+            "goroutines": 584,
+            "rssMb": 104.169472,
+            "open": 390
+          },
+          {
+            "t": 12.000170827,
+            "liveMb": 25.260056,
+            "goroutines": 593,
+            "rssMb": 105.43104,
+            "open": 393
+          },
+          {
+            "t": 13.000733102,
+            "liveMb": 27.35504,
+            "goroutines": 599,
+            "rssMb": 108.109824,
+            "open": 398
+          },
+          {
+            "t": 14.000063487,
+            "liveMb": 27.52376,
+            "goroutines": 603,
+            "rssMb": 108.867584,
+            "open": 397
+          },
+          {
+            "t": 15.000702495,
+            "liveMb": 29.36096,
+            "goroutines": 598,
+            "rssMb": 113.27488,
+            "open": 399
+          },
+          {
+            "t": 16.000996448,
+            "liveMb": 30.317328,
+            "goroutines": 562,
+            "rssMb": 113.917952,
+            "open": 379
+          },
+          {
+            "t": 17.00002178,
+            "liveMb": 31.896176,
+            "goroutines": 579,
+            "rssMb": 117.26848,
+            "open": 383
+          },
+          {
+            "t": 18.000291442,
+            "liveMb": 31.901008,
+            "goroutines": 588,
+            "rssMb": 119.246848,
+            "open": 393
+          },
+          {
+            "t": 19.000752601,
+            "liveMb": 33.431384,
+            "goroutines": 596,
+            "rssMb": 119.447552,
+            "open": 394
+          },
+          {
+            "t": 20.000006889,
+            "liveMb": 33.523624,
+            "goroutines": 601,
+            "rssMb": 122.466304,
+            "open": 398
+          },
+          {
+            "t": 21.000094848,
+            "liveMb": 36.790264,
+            "goroutines": 600,
+            "rssMb": 123.920384,
+            "open": 397
+          },
+          {
+            "t": 22.000283444,
+            "liveMb": 35.602504,
+            "goroutines": 610,
+            "rssMb": 126.390272,
+            "open": 397
+          },
+          {
+            "t": 23.000004446,
+            "liveMb": 36.722192,
+            "goroutines": 564,
+            "rssMb": 127.909888,
+            "open": 376
+          },
+          {
+            "t": 24.000343623,
+            "liveMb": 39.120288,
+            "goroutines": 580,
+            "rssMb": 130.654208,
+            "open": 387
+          },
+          {
+            "t": 25.000356701,
+            "liveMb": 40.122144,
+            "goroutines": 595,
+            "rssMb": 133.885952,
+            "open": 396
+          },
+          {
+            "t": 26.000740786,
+            "liveMb": 39.219688,
+            "goroutines": 589,
+            "rssMb": 133.922816,
+            "open": 390
+          },
+          {
+            "t": 27.000012726,
+            "liveMb": 40.62936,
+            "goroutines": 601,
+            "rssMb": 134.836224,
+            "open": 397
+          },
+          {
+            "t": 28.000191608,
+            "liveMb": 40.4016,
+            "goroutines": 596,
+            "rssMb": 135.02464,
+            "open": 396
+          },
+          {
+            "t": 29.00002442,
+            "liveMb": 41.748528,
+            "goroutines": 575,
+            "rssMb": 139.108352,
+            "open": 384
+          },
+          {
+            "t": 30.000838659,
+            "liveMb": 43.041552,
+            "goroutines": 583,
+            "rssMb": 141.185024,
+            "open": 380
+          }
+        ],
+        "plateau": {
+          "liveKbPerClient": 363.0190234375,
+          "goroutinesPerClient": 4.8709999999999996,
+          "openPerClient": 3.908,
+          "slopeKbPerClient": 8.725256761353322,
+          "slopeGoroutines": 0.002103149305412256,
+          "samples": 31
+        }
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          171.57651209037118,
+          171.7087836413808
+        ],
+        "associationsPerSec": [
+          0,
+          0
+        ],
+        "bytesPerRequest": [
+          20376.69608044326,
+          20393.08334681194
+        ],
+        "clientCores": [
+          0.8154457975892772,
+          0.817982559326704
+        ],
+        "clients": [
+          100,
+          100
+        ],
+        "cpuPerRequest": [
+          119.5981403848221,
+          119.95335349616694
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMs": [
+          9.85479,
+          16.291944
+        ],
+        "gcs": [
+          146,
+          148
+        ],
+        "goroutinesPerClient": [
+          4.73,
+          5.03
+        ],
+        "heapPeakMb": [
+          81.501592,
+          85.665696
+        ],
+        "liveKbPerClient": [
+          261.710390625,
+          262.410537109375
+        ],
+        "mbps": [
+          6.962761096673717,
+          6.984246188123714
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "newConns": [
+          20400,
+          20432
+        ],
+        "newP50": [
+          41.156608,
+          41.156608
+        ],
+        "newP99": [
+          44.826624,
+          45.350912
+        ],
+        "newResumed": [
+          0,
+          0
+        ],
+        "p50": [
+          11.862016,
+          11.862016
+        ],
+        "p95": [
+          41.156608,
+          41.156608
+        ],
+        "p99": [
+          43.25376,
+          43.25376
+        ],
+        "peakKbPerClient": [
+          774.688203125,
+          815.423046875
+        ],
+        "plateau.goroutinesPerClient": [
+          4.854000000000001,
+          4.883000000000001
+        ],
+        "plateau.liveKbPerClient": [
+          360.1863828125,
+          364.8133046875001
+        ],
+        "plateau.openPerClient": [
+          3.9,
+          3.925
+        ],
+        "plateau.samples": [
+          31,
+          31
+        ],
+        "plateau.slopeGoroutines": [
+          0.0009261656603617755,
+          0.007735576766158479
+        ],
+        "plateau.slopeKbPerClient": [
+          8.247977340206035,
+          9.05536215275193
+        ],
+        "proxyCpu": [
+          0.12645028876845088,
+          0.1272992177686824
+        ],
+        "requests": [
+          204027,
+          204667
+        ],
+        "rotationsPerSec": [
+          679.8671559293462,
+          680.9022369245795
+        ],
+        "rps": [
+          6799.571383470427,
+          6820.552918089565
+        ],
+        "seconds": [
+          30.005861913,
+          30.013467549
+        ],
+        "serverCpu": [
+          0.1189890003269212,
+          0.11935053660697084
+        ],
+        "stackKbPerClient": [
+          60.48,
+          90.88
+        ],
+        "tunnelsPerSec": [
+          680.0337900361916,
+          681.1021886386333
+        ]
+      }
+    },
+    {
+      "proto": "h2",
+      "proxy": "connect-auth",
+      "op": "bytes-1KB",
+      "rotate": 10,
+      "n": 100,
+      "client": "mimicry-proxies1",
+      "result": {
+        "clients": 100,
+        "requests": 205137,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 30.006097895,
+        "rps": 6836.76305883738,
+        "mbps": 7.000845372249478,
+        "p50": 11.730944,
+        "p95": 41.156608,
+        "p99": 43.25376,
+        "newConns": 20502,
+        "newP50": 41.156608,
+        "newP99": 45.350912,
+        "newResumed": 0,
+        "rotationsPerSec": 683.2197151472737,
+        "tunnelsPerSec": 683.470204604666,
+        "associationsPerSec": 0,
+        "clientCores": 0.8237433129972446,
+        "cpuPerRequest": 120.33928901245248,
+        "bytesPerRequest": 20380.19310022083,
+        "allocsPerRequest": 171.66508723438483,
+        "gcs": 192,
+        "gcPauseMs": 13.473028,
+        "liveKbPerClient": 202.1719140625,
+        "peakKbPerClient": 666.08859375,
+        "stackKbPerClient": 64.32,
+        "heapPeakMb": 70.373688,
+        "goroutinesPerClient": 2.01,
+        "serverCpu": 0.11773588740444044,
+        "proxyCpu": 0.12675210263290385,
+        "samples": [
+          {
+            "t": 0.000004051,
+            "liveMb": 8.7166,
+            "goroutines": 307,
+            "rssMb": 66.691072,
+            "open": 100
+          },
+          {
+            "t": 1.000336015,
+            "liveMb": 8.85068,
+            "goroutines": 228,
+            "rssMb": 65.224704,
+            "open": 70
+          },
+          {
+            "t": 2.000101146,
+            "liveMb": 9.89,
+            "goroutines": 300,
+            "rssMb": 69.103616,
+            "open": 95
+          },
+          {
+            "t": 3.001009244,
+            "liveMb": 11.437216,
+            "goroutines": 307,
+            "rssMb": 72.921088,
+            "open": 100
+          },
+          {
+            "t": 4.000013831,
+            "liveMb": 11.417232,
+            "goroutines": 307,
+            "rssMb": 73.03168,
+            "open": 100
+          },
+          {
+            "t": 5.000553318,
+            "liveMb": 13.144136,
+            "goroutines": 261,
+            "rssMb": 76.283904,
+            "open": 83
+          },
+          {
+            "t": 6.000022624,
+            "liveMb": 13.995752,
+            "goroutines": 275,
+            "rssMb": 76.898304,
+            "open": 83
+          },
+          {
+            "t": 7.000811991,
+            "liveMb": 14.314776,
+            "goroutines": 298,
+            "rssMb": 78.475264,
+            "open": 95
+          },
+          {
+            "t": 8.000106297,
+            "liveMb": 15.335032,
+            "goroutines": 307,
+            "rssMb": 78.180352,
+            "open": 100
+          },
+          {
+            "t": 9.000055107,
+            "liveMb": 16.17288,
+            "goroutines": 290,
+            "rssMb": 82.10432,
+            "open": 100
+          },
+          {
+            "t": 10.000228814,
+            "liveMb": 17.414184,
+            "goroutines": 251,
+            "rssMb": 85.700608,
+            "open": 76
+          },
+          {
+            "t": 11.000013038,
+            "liveMb": 17.741088,
+            "goroutines": 273,
+            "rssMb": 88.223744,
+            "open": 90
+          },
+          {
+            "t": 12.001036266,
+            "liveMb": 18.889032,
+            "goroutines": 296,
+            "rssMb": 88.694784,
+            "open": 98
+          },
+          {
+            "t": 13.000782703,
+            "liveMb": 20.196904,
+            "goroutines": 300,
+            "rssMb": 93.364224,
+            "open": 96
+          },
+          {
+            "t": 14.001040642,
+            "liveMb": 21.159976,
+            "goroutines": 304,
+            "rssMb": 95.657984,
+            "open": 98
+          },
+          {
+            "t": 15.000622718,
+            "liveMb": 24.38316,
+            "goroutines": 282,
+            "rssMb": 98.476032,
+            "open": 94
+          },
+          {
+            "t": 16.000013349,
+            "liveMb": 22.905896,
+            "goroutines": 247,
+            "rssMb": 98.947072,
+            "open": 79
+          },
+          {
+            "t": 17.000212353,
+            "liveMb": 25.179792,
+            "goroutines": 260,
+            "rssMb": 103.100416,
+            "open": 75
+          },
+          {
+            "t": 18.000051127,
+            "liveMb": 26.582176,
+            "goroutines": 291,
+            "rssMb": 104.50944,
+            "open": 93
+          },
+          {
+            "t": 19.000667202,
+            "liveMb": 28.68888,
+            "goroutines": 296,
+            "rssMb": 107.241472,
+            "open": 94
+          },
+          {
+            "t": 20.000014028,
+            "liveMb": 27.705992,
+            "goroutines": 321,
+            "rssMb": 107.37664,
+            "open": 99
+          },
+          {
+            "t": 21.000037319,
+            "liveMb": 30.112744,
+            "goroutines": 299,
+            "rssMb": 112.492544,
+            "open": 97
+          },
+          {
+            "t": 22.000350065,
+            "liveMb": 29.965272,
+            "goroutines": 303,
+            "rssMb": 112.881664,
+            "open": 96
+          },
+          {
+            "t": 23.000711515,
+            "liveMb": 30.603832,
+            "goroutines": 285,
+            "rssMb": 113.537024,
+            "open": 95
+          },
+          {
+            "t": 24.000007637,
+            "liveMb": 31.03396,
+            "goroutines": 264,
+            "rssMb": 115.654656,
+            "open": 76
+          },
+          {
+            "t": 25.000229271,
+            "liveMb": 31.456744,
+            "goroutines": 275,
+            "rssMb": 117.92384,
+            "open": 87
+          },
+          {
+            "t": 26.000372386,
+            "liveMb": 35.103424,
+            "goroutines": 288,
+            "rssMb": 121.413632,
+            "open": 95
+          },
+          {
+            "t": 27.000577254,
+            "liveMb": 34.454016,
+            "goroutines": 295,
+            "rssMb": 122.51136,
+            "open": 91
+          },
+          {
+            "t": 28.000364732,
+            "liveMb": 35.02848,
+            "goroutines": 299,
+            "rssMb": 123.383808,
+            "open": 98
+          },
+          {
+            "t": 29.000247484,
+            "liveMb": 37.062464,
+            "goroutines": 301,
+            "rssMb": 124.928,
+            "open": 96
+          },
+          {
+            "t": 30.000006597,
+            "liveMb": 37.721424,
+            "goroutines": 302,
+            "rssMb": 128.393216,
+            "open": 95
+          }
+        ],
+        "plateau": {
+          "liveKbPerClient": 304.14690625,
+          "goroutinesPerClient": 1.9009999999999998,
+          "openPerClient": 0.9259999999999999,
+          "slopeKbPerClient": 9.052620040247316,
+          "slopeGoroutines": 0.015559065568589873,
+          "samples": 31
+        }
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          171.66254337957247,
+          171.71529874221505
+        ],
+        "associationsPerSec": [
+          0,
+          0
+        ],
+        "bytesPerRequest": [
+          20377.874347483743,
+          20387.385826387635
+        ],
+        "clientCores": [
+          0.8198668455170138,
+          0.8251271487095173
+        ],
+        "clients": [
+          100,
+          100
+        ],
+        "cpuPerRequest": [
+          119.99568383217179,
+          120.48732798081282
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMs": [
+          12.591883,
+          16.24733
+        ],
+        "gcs": [
+          191,
+          193
+        ],
+        "goroutinesPerClient": [
+          1.82,
+          2.01
+        ],
+        "heapPeakMb": [
+          68.92768,
+          72.257592
+        ],
+        "liveKbPerClient": [
+          201.799462890625,
+          202.85412109375
+        ],
+        "mbps": [
+          6.996448730469536,
+          7.02123310859111
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "newConns": [
+          20500,
+          20540
+        ],
+        "newP50": [
+          41.156608,
+          41.156608
+        ],
+        "newP99": [
+          44.826624,
+          45.350912
+        ],
+        "newResumed": [
+          0,
+          0
+        ],
+        "p50": [
+          11.730944,
+          11.730944
+        ],
+        "p95": [
+          41.156608,
+          41.156608
+        ],
+        "p99": [
+          42.729472,
+          43.25376
+        ],
+        "peakKbPerClient": [
+          651.941015625,
+          684.48640625
+        ],
+        "plateau.goroutinesPerClient": [
+          1.8290000000000002,
+          1.9129999999999996
+        ],
+        "plateau.liveKbPerClient": [
+          303.5647265625,
+          306.323609375
+        ],
+        "plateau.openPerClient": [
+          0.8909999999999999,
+          0.93
+        ],
+        "plateau.samples": [
+          31,
+          31
+        ],
+        "plateau.slopeGoroutines": [
+          0.00008881466950311975,
+          0.01800000042487024
+        ],
+        "plateau.slopeKbPerClient": [
+          9.008796785199552,
+          9.507747430476636
+        ],
+        "proxyCpu": [
+          0.1263838573964036,
+          0.1285879993847803
+        ],
+        "requests": [
+          205043,
+          205742
+        ],
+        "rotationsPerSec": [
+          683.1703054363446,
+          684.5275274337699
+        ],
+        "rps": [
+          6832.469463349156,
+          6856.672957608505
+        ],
+        "seconds": [
+          30.004988945,
+          30.010086558
+        ],
+        "serverCpu": [
+          0.11724831226992957,
+          0.11795175808547098
+        ],
+        "stackKbPerClient": [
+          62.4,
+          72.96
+        ],
+        "tunnelsPerSec": [
+          683.3863541021877,
+          685.2273851784686
+        ]
+      }
+    },
+    {
+      "proto": "h2",
+      "proxy": "connect-auth",
+      "op": "bytes-1KB",
+      "rotate": 10,
+      "n": 100,
+      "client": "tls-client",
+      "result": {
+        "clients": 100,
+        "requests": 205744,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 30.071100146,
+        "rps": 6841.917954483873,
+        "mbps": 7.006123985391486,
+        "p50": 11.730944,
+        "p95": 41.156608,
+        "p99": 43.25376,
+        "newConns": 20528,
+        "newP50": 41.156608,
+        "newP99": 56.885248,
+        "newResumed": 0,
+        "rotationsPerSec": 682.6487857222808,
+        "tunnelsPerSec": 682.6487857222808,
+        "associationsPerSec": 0,
+        "clientCores": 0.9140866544232352,
+        "cpuPerRequest": 133.6648909369298,
+        "bytesPerRequest": 29451.51737359912,
+        "allocsPerRequest": 245.85591974023328,
+        "gcs": 17,
+        "gcPauseMs": 0.945453,
+        "liveKbPerClient": 5693.36693359375,
+        "peakKbPerClient": 17298.468046875,
+        "stackKbPerClient": 956.16,
+        "heapPeakMb": 1773.529136,
+        "goroutinesPerClient": 220.36,
+        "serverCpu": 0.11282967545618285,
+        "proxyCpu": 0.12411800638748736,
+        "samples": [
+          {
+            "t": 0.000004239,
+            "liveMb": 73.254408,
+            "goroutines": 1607,
+            "rssMb": 182.255616,
+            "open": 1400
+          },
+          {
+            "t": 1.001749111,
+            "liveMb": 99.992424,
+            "goroutines": 2230,
+            "rssMb": 233.541632,
+            "open": 2035
+          },
+          {
+            "t": 2.000624404,
+            "liveMb": 141.182584,
+            "goroutines": 2911,
+            "rssMb": 296.52992,
+            "open": 2707
+          },
+          {
+            "t": 3.000912729,
+            "liveMb": 159.79704,
+            "goroutines": 3609,
+            "rssMb": 373.342208,
+            "open": 3403
+          },
+          {
+            "t": 4.000068278,
+            "liveMb": 217.271968,
+            "goroutines": 4309,
+            "rssMb": 437.604352,
+            "open": 4103
+          },
+          {
+            "t": 5.000244587,
+            "liveMb": 256.95648,
+            "goroutines": 5000,
+            "rssMb": 508.25216,
+            "open": 4800
+          },
+          {
+            "t": 6.000067442,
+            "liveMb": 256.95648,
+            "goroutines": 5666,
+            "rssMb": 575.811584,
+            "open": 5490
+          },
+          {
+            "t": 7.000517603,
+            "liveMb": 298.777952,
+            "goroutines": 6333,
+            "rssMb": 591.781888,
+            "open": 6136
+          },
+          {
+            "t": 8.000438367,
+            "liveMb": 358.288128,
+            "goroutines": 7026,
+            "rssMb": 700.223488,
+            "open": 6822
+          },
+          {
+            "t": 9.000027716,
+            "liveMb": 358.288128,
+            "goroutines": 7720,
+            "rssMb": 772.276224,
+            "open": 7516
+          },
+          {
+            "t": 10.000605081,
+            "liveMb": 411.052696,
+            "goroutines": 8411,
+            "rssMb": 810.438656,
+            "open": 8208
+          },
+          {
+            "t": 11.00024504,
+            "liveMb": 411.052696,
+            "goroutines": 9066,
+            "rssMb": 897.757184,
+            "open": 8885
+          },
+          {
+            "t": 12.000361446,
+            "liveMb": 480.053616,
+            "goroutines": 9722,
+            "rssMb": 922.595328,
+            "open": 9520
+          },
+          {
+            "t": 13.000025443,
+            "liveMb": 480.053616,
+            "goroutines": 10414,
+            "rssMb": 992.428032,
+            "open": 10214
+          },
+          {
+            "t": 14.000970437,
+            "liveMb": 566.66336,
+            "goroutines": 11111,
+            "rssMb": 1076.105216,
+            "open": 10907
+          },
+          {
+            "t": 15.000702349,
+            "liveMb": 566.66336,
+            "goroutines": 11811,
+            "rssMb": 1076.563968,
+            "open": 11604
+          },
+          {
+            "t": 16.0005992,
+            "liveMb": 668.922048,
+            "goroutines": 12513,
+            "rssMb": 1265.250304,
+            "open": 12304
+          },
+          {
+            "t": 17.000242035,
+            "liveMb": 668.922048,
+            "goroutines": 13161,
+            "rssMb": 1266.495488,
+            "open": 12975
+          },
+          {
+            "t": 18.000320216,
+            "liveMb": 668.922048,
+            "goroutines": 13838,
+            "rssMb": 1267.007488,
+            "open": 13645
+          },
+          {
+            "t": 19.000891346,
+            "liveMb": 668.922048,
+            "goroutines": 14531,
+            "rssMb": 1446.834176,
+            "open": 14329
+          },
+          {
+            "t": 20.000828167,
+            "liveMb": 782.991064,
+            "goroutines": 15223,
+            "rssMb": 1483.022336,
+            "open": 15021
+          },
+          {
+            "t": 21.000038975,
+            "liveMb": 782.991064,
+            "goroutines": 15922,
+            "rssMb": 1483.522048,
+            "open": 15717
+          },
+          {
+            "t": 22.000754966,
+            "liveMb": 782.991064,
+            "goroutines": 16609,
+            "rssMb": 1551.597568,
+            "open": 16405
+          },
+          {
+            "t": 23.000964065,
+            "liveMb": 915.590208,
+            "goroutines": 17212,
+            "rssMb": 1726.304256,
+            "open": 17006
+          },
+          {
+            "t": 24.000862485,
+            "liveMb": 915.590208,
+            "goroutines": 17900,
+            "rssMb": 1726.717952,
+            "open": 17703
+          },
+          {
+            "t": 25.000272181,
+            "liveMb": 915.590208,
+            "goroutines": 18566,
+            "rssMb": 1727.135744,
+            "open": 18393
+          },
+          {
+            "t": 26.000020884,
+            "liveMb": 915.590208,
+            "goroutines": 19253,
+            "rssMb": 1762.152448,
+            "open": 19055
+          },
+          {
+            "t": 27.000649632,
+            "liveMb": 915.590208,
+            "goroutines": 19934,
+            "rssMb": 1965.42464,
+            "open": 19732
+          },
+          {
+            "t": 28.001030252,
+            "liveMb": 1074.601416,
+            "goroutines": 20627,
+            "rssMb": 2013.093888,
+            "open": 20425
+          },
+          {
+            "t": 29.000010615,
+            "liveMb": 1074.601416,
+            "goroutines": 21323,
+            "rssMb": 2013.515776,
+            "open": 21114
+          },
+          {
+            "t": 30.00044121,
+            "liveMb": 1074.601416,
+            "goroutines": 21962,
+            "rssMb": 2014.031872,
+            "open": 21773
+          }
+        ],
+        "plateau": {
+          "liveKbPerClient": 9251.041390625,
+          "goroutinesPerClient": 189.50500000000002,
+          "openPerClient": 188.55,
+          "slopeKbPerClient": 342.0185631506182,
+          "slopeGoroutines": 6.8373131294819345,
+          "samples": 31
+        }
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          245.8258464067155,
+          245.8667616066568
+        ],
+        "associationsPerSec": [
+          0,
+          0
+        ],
+        "bytesPerRequest": [
+          29446.838212921248,
+          29453.048409674157
+        ],
+        "clientCores": [
+          0.9085925632945367,
+          0.920511616322825
+        ],
+        "clients": [
+          100,
+          100
+        ],
+        "cpuPerRequest": [
+          133.26528046750246,
+          134.5399963060891
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMs": [
+          0.893857,
+          1.920346
+        ],
+        "gcs": [
+          17,
+          17
+        ],
+        "goroutinesPerClient": [
+          218.99,
+          220.66
+        ],
+        "heapPeakMb": [
+          1765.818496,
+          1790.584656
+        ],
+        "liveKbPerClient": [
+          5656.232275390625,
+          5704.789365234375
+        ],
+        "mbps": [
+          6.960681883566696,
+          7.023770413762406
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "newConns": [
+          20403,
+          20558
+        ],
+        "newP50": [
+          41.156608,
+          41.156608
+        ],
+        "newP99": [
+          51.642368,
+          61.60384
+        ],
+        "newResumed": [
+          0,
+          0
+        ],
+        "p50": [
+          11.730944,
+          11.730944
+        ],
+        "p95": [
+          41.156608,
+          41.156608
+        ],
+        "p99": [
+          42.729472,
+          43.25376
+        ],
+        "peakKbPerClient": [
+          17223.09046875,
+          17464.97078125
+        ],
+        "plateau.goroutinesPerClient": [
+          188.298,
+          189.76500000000001
+        ],
+        "plateau.liveKbPerClient": [
+          9127.025835937498,
+          9303.137343749999
+        ],
+        "plateau.openPerClient": [
+          187.32299999999998,
+          188.83700000000002
+        ],
+        "plateau.samples": [
+          31,
+          31
+        ],
+        "plateau.slopeGoroutines": [
+          6.766104788066585,
+          6.875874854921728
+        ],
+        "plateau.slopeKbPerClient": [
+          323.066365683161,
+          348.26808257400836
+        ],
+        "proxyCpu": [
+          0.12288328898951877,
+          0.12709337015730146
+        ],
+        "requests": [
+          204423,
+          206031
+        ],
+        "rotationsPerSec": [
+          678.4472736526029,
+          684.4136175489801
+        ],
+        "rps": [
+          6797.540901920603,
+          6859.15079468985
+        ],
+        "seconds": [
+          30.037391824,
+          30.073081273
+        ],
+        "serverCpu": [
+          0.11145358778786864,
+          0.11376981463715251
+        ],
+        "stackKbPerClient": [
+          951.04,
+          956.16
+        ],
+        "tunnelsPerSec": [
+          678.0482457016236,
+          684.4136175489801
+        ]
+      }
+    },
+    {
+      "proto": "h2",
+      "proxy": "connect-auth",
+      "op": "bytes-1KB",
+      "rotate": 10,
+      "n": 100,
+      "client": "azuretls",
+      "result": {
+        "clients": 100,
+        "requests": 204082,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 30.006271402,
+        "rps": 6801.351112883598,
+        "mbps": 6.964583539592805,
+        "p50": 11.730944,
+        "p95": 41.156608,
+        "p99": 43.778048,
+        "newConns": 20410,
+        "newP50": 41.156608,
+        "newP99": 48.49664,
+        "newResumed": 0,
+        "rotationsPerSec": 680.1950990971974,
+        "tunnelsPerSec": 680.5283647018506,
+        "associationsPerSec": 0,
+        "clientCores": 1.1270183257377093,
+        "cpuPerRequest": 165.70506463088367,
+        "bytesPerRequest": 37626.92772745175,
+        "allocsPerRequest": 504.2780031508468,
+        "gcs": 641,
+        "gcPauseMs": 82.454145,
+        "liveKbPerClient": 65.2428515625,
+        "peakKbPerClient": 196.018828125,
+        "stackKbPerClient": 28.48,
+        "heapPeakMb": 22.240336,
+        "goroutinesPerClient": 1.08,
+        "serverCpu": 0.12824145449784627,
+        "proxyCpu": 0.16463386689825393,
+        "samples": [
+          {
+            "t": 0.000003438,
+            "liveMb": 9.353672,
+            "goroutines": 207,
+            "rssMb": 59.74016,
+            "open": 100
+          },
+          {
+            "t": 1.00002526,
+            "liveMb": 8.519864,
+            "goroutines": 207,
+            "rssMb": 60.256256,
+            "open": 100
+          },
+          {
+            "t": 2.001024093,
+            "liveMb": 8.744736,
+            "goroutines": 207,
+            "rssMb": 60.203008,
+            "open": 100
+          },
+          {
+            "t": 3.000251603,
+            "liveMb": 6.303664,
+            "goroutines": 207,
+            "rssMb": 56.385536,
+            "open": 79
+          },
+          {
+            "t": 4.000926597,
+            "liveMb": 9.143416,
+            "goroutines": 207,
+            "rssMb": 63.315968,
+            "open": 87
+          },
+          {
+            "t": 5.000431481,
+            "liveMb": 8.647344,
+            "goroutines": 207,
+            "rssMb": 60.735488,
+            "open": 100
+          },
+          {
+            "t": 6.000017325,
+            "liveMb": 6.526712,
+            "goroutines": 207,
+            "rssMb": 57.962496,
+            "open": 77
+          },
+          {
+            "t": 7.000041387,
+            "liveMb": 9.287584,
+            "goroutines": 207,
+            "rssMb": 61.022208,
+            "open": 95
+          },
+          {
+            "t": 8.000005756,
+            "liveMb": 8.676864,
+            "goroutines": 217,
+            "rssMb": 60.116992,
+            "open": 95
+          },
+          {
+            "t": 9.000018641,
+            "liveMb": 8.532624,
+            "goroutines": 216,
+            "rssMb": 61.018112,
+            "open": 98
+          },
+          {
+            "t": 10.000047944,
+            "liveMb": 10.236072,
+            "goroutines": 207,
+            "rssMb": 61.87008,
+            "open": 99
+          },
+          {
+            "t": 11.00035127,
+            "liveMb": 9.633376,
+            "goroutines": 213,
+            "rssMb": 62.640128,
+            "open": 96
+          },
+          {
+            "t": 12.0000341,
+            "liveMb": 9.603624,
+            "goroutines": 213,
+            "rssMb": 63.045632,
+            "open": 81
+          },
+          {
+            "t": 13.000129252,
+            "liveMb": 8.869136,
+            "goroutines": 208,
+            "rssMb": 62.660608,
+            "open": 92
+          },
+          {
+            "t": 14.000085478,
+            "liveMb": 8.788392,
+            "goroutines": 207,
+            "rssMb": 62.152704,
+            "open": 99
+          },
+          {
+            "t": 15.000405411,
+            "liveMb": 7.431744,
+            "goroutines": 207,
+            "rssMb": 61.280256,
+            "open": 100
+          },
+          {
+            "t": 16.000153453,
+            "liveMb": 8.884912,
+            "goroutines": 207,
+            "rssMb": 61.730816,
+            "open": 80
+          },
+          {
+            "t": 17.000482324,
+            "liveMb": 8.392888,
+            "goroutines": 207,
+            "rssMb": 61.669376,
+            "open": 92
+          },
+          {
+            "t": 18.000085604,
+            "liveMb": 9.0314,
+            "goroutines": 207,
+            "rssMb": 62.83264,
+            "open": 93
+          },
+          {
+            "t": 19.000711444,
+            "liveMb": 8.747808,
+            "goroutines": 208,
+            "rssMb": 60.27264,
+            "open": 99
+          },
+          {
+            "t": 20.000250193,
+            "liveMb": 8.30368,
+            "goroutines": 207,
+            "rssMb": 62.54592,
+            "open": 77
+          },
+          {
+            "t": 21.000272936,
+            "liveMb": 9.086896,
+            "goroutines": 211,
+            "rssMb": 63.91808,
+            "open": 86
+          },
+          {
+            "t": 22.000350227,
+            "liveMb": 9.651128,
+            "goroutines": 207,
+            "rssMb": 61.52192,
+            "open": 97
+          },
+          {
+            "t": 23.000062671,
+            "liveMb": 9.651,
+            "goroutines": 207,
+            "rssMb": 62.308352,
+            "open": 99
+          },
+          {
+            "t": 24.00000987,
+            "liveMb": 7.678936,
+            "goroutines": 210,
+            "rssMb": 60.485632,
+            "open": 86
+          },
+          {
+            "t": 25.000921451,
+            "liveMb": 8.926904,
+            "goroutines": 207,
+            "rssMb": 62.783488,
+            "open": 78
+          },
+          {
+            "t": 26.000708145,
+            "liveMb": 8.970112,
+            "goroutines": 207,
+            "rssMb": 61.779968,
+            "open": 92
+          },
+          {
+            "t": 27.000041842,
+            "liveMb": 9.888792,
+            "goroutines": 210,
+            "rssMb": 63.864832,
+            "open": 96
+          },
+          {
+            "t": 28.000055041,
+            "liveMb": 8.854624,
+            "goroutines": 214,
+            "rssMb": 61.575168,
+            "open": 84
+          },
+          {
+            "t": 29.00004322,
+            "liveMb": 8.80756,
+            "goroutines": 207,
+            "rssMb": 61.44,
+            "open": 88
+          },
+          {
+            "t": 30.00009652,
+            "liveMb": 9.212192,
+            "goroutines": 208,
+            "rssMb": 61.595648,
+            "open": 94
+          }
+        ],
+        "plateau": {
+          "liveKbPerClient": 67.370296875,
+          "goroutinesPerClient": 1.076,
+          "openPerClient": 0.907,
+          "slopeKbPerClient": 0.40054561495209373,
+          "slopeGoroutines": 0.00047056148624587,
+          "samples": 31
+        }
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          504.23281818092727,
+          504.33818190713833
+        ],
+        "associationsPerSec": [
+          0,
+          0
+        ],
+        "bytesPerRequest": [
+          37623.70470693153,
+          37638.19478448065
+        ],
+        "clientCores": [
+          1.096731298571356,
+          1.1656186599550227
+        ],
+        "clients": [
+          100,
+          100
+        ],
+        "cpuPerRequest": [
+          161.00991731493713,
+          172.2227107128791
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMs": [
+          56.256488,
+          100.814454
+        ],
+        "gcs": [
+          639,
+          646
+        ],
+        "goroutinesPerClient": [
+          1.08,
+          1.08
+        ],
+        "heapPeakMb": [
+          21.735904,
+          23.37048
+        ],
+        "liveKbPerClient": [
+          63.933564453125,
+          65.6244921875
+        ],
+        "mbps": [
+          6.930523290762979,
+          6.9750538877699375
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "newConns": [
+          20317,
+          20445
+        ],
+        "newP50": [
+          41.156608,
+          41.156608
+        ],
+        "newP99": [
+          45.8752,
+          48.49664
+        ],
+        "newResumed": [
+          0,
+          0
+        ],
+        "p50": [
+          11.730944,
+          11.862016
+        ],
+        "p95": [
+          41.156608,
+          41.156608
+        ],
+        "p99": [
+          43.778048,
+          44.302336
+        ],
+        "peakKbPerClient": [
+          191.05359375,
+          206.99875
+        ],
+        "plateau.goroutinesPerClient": [
+          1.0610000000000004,
+          1.0780000000000003
+        ],
+        "plateau.liveKbPerClient": [
+          67.29515625,
+          68.24853125
+        ],
+        "plateau.openPerClient": [
+          0.9,
+          0.9109999999999999
+        ],
+        "plateau.samples": [
+          31,
+          31
+        ],
+        "plateau.slopeGoroutines": [
+          -0.0013677634544233782,
+          0.0016028924954874825
+        ],
+        "plateau.slopeKbPerClient": [
+          -0.28388231037623796,
+          0.55930232216543
+        ],
+        "proxyCpu": [
+          0.15385557032895095,
+          0.17339354924953562
+        ],
+        "requests": [
+          203120,
+          204390
+        ],
+        "rotationsPerSec": [
+          676.975518332141,
+          681.3575644269246
+        ],
+        "rps": [
+          6768.089151135721,
+          6811.57606227533
+        ],
+        "seconds": [
+          30.00609682,
+          30.011425007
+        ],
+        "serverCpu": [
+          0.1227217287568277,
+          0.13488279043916843
+        ],
+        "stackKbPerClient": [
+          26.56,
+          35.52
+        ],
+        "tunnelsPerSec": [
+          677.2420834818508,
+          682.2907026907521
+        ]
+      }
+    }
+  ],
+  "passes": 3,
+  "passOrders": [
+    [
+      "mimicry",
+      "mimicry-proxies4",
+      "mimicry-proxies1",
+      "tls-client",
+      "azuretls"
+    ],
+    [
+      "azuretls",
+      "tls-client",
+      "mimicry-proxies1",
+      "mimicry-proxies4",
+      "mimicry"
+    ],
+    [
+      "tls-client",
+      "azuretls",
+      "mimicry",
+      "mimicry-proxies4",
+      "mimicry-proxies1"
+    ]
+  ]
+}

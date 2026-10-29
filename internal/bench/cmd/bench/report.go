@@ -332,8 +332,8 @@ func (r *report) environment(w writer) {
 				"got at most rmem_max for their 7 MB request"
 		}
 
-		w("| UDP receive buffers (client) | net.core.rmem_max %s, rmem_default %s%s; %s; mimicry asks for nothing "+
-			"(`Config.UDPReadBufferSize` 0) and gets rmem_default |\n", e.RmemMax, e.RmemDefault,
+		w("| UDP receive buffers (client) | net.core.rmem_max %s, rmem_default %s%s; %s; mimicry asks for 1 MB "+
+			"(`Config.UDPReadBufferSize` 0, Chrome's request), granted up to twice rmem_max |\n", e.RmemMax, e.RmemDefault,
 			map[bool]string{true: " (set to stock Linux's for this run)", false: ""}[e.UDPStock], forced)
 	}
 
@@ -481,13 +481,15 @@ func (r *report) fairness(w writer) {
 			"7 MB UDP receive buffer, which Linux grants up to `net.core.rmem_max`; when that cuts it, they retry with " +
 			"`SO_RCVBUFFORCE`, which succeeds whenever the process has `CAP_NET_ADMIN`. The client container has `NET_ADMIN` in " +
 			"the normal passes (netem needs it), so there those four clients get their 7 MB whatever rmem_max says. mimicry asks " +
-			"for none and gets `rmem_default` (`Config.UDPReadBufferSize` 0, about 200 KB on stock Linux; its documentation " +
-			"records 7 MB as faster for 100 KB at 64 at once and slower at 256 and for 10 MB bodies). Both values and whether the " +
-			"client had `NET_ADMIN` are in Environment, and each HTTP/3 row's UDP column gives the datagrams the kernel dropped " +
-			"on a full buffer during it (`RcvbufErrors`). The stock-buffer passes set both sysctls to stock Linux's 212992 and " +
-			"drop `NET_ADMIN`, so every client gets about 208 KB; without `NET_ADMIN` they cannot shape the network, so they run " +
-			"only layers 3 and 6 with no netem (no layer 5, no `-load-netem`). A merged report with stock-buffer passes compares " +
-			"the two at the end (`mimicry-udp7m`, when run, is mimicry asking for 7 MB).",
+			"for Chrome's 1 MB (`Config.UDPReadBufferSize` 0) and never forces it: Linux grants twice the request up to rmem_max, " +
+			"so 2 MB where rmem_max is raised and 416 KB on stock Linux (rmem_default, what a socket gets without asking, is " +
+			"208 KB there); its documentation records 7 MB as faster for 100 KB at 64 at once and slower at 256. Both values and " +
+			"whether the client had `NET_ADMIN` are in Environment, and each HTTP/3 row's UDP column gives the datagrams the " +
+			"kernel dropped on a full buffer during it (`RcvbufErrors`). The stock-buffer passes set both sysctls to stock " +
+			"Linux's 212992 and drop `NET_ADMIN`, so every client asking for more gets 416 KB; without `NET_ADMIN` they cannot " +
+			"shape the network, so they run only layers 3 and 6 with no netem (no layer 5, no `-load-netem`). A merged report " +
+			"with stock-buffer passes compares the two at the end (`mimicry-udp208k` to `mimicry-udp7m`, when run, are mimicry " +
+			"asking for 208 KB to 7 MB; `mimicry-udpos` keeps the OS's default).",
 		"**CPU and memory are per process.** Each load point, idle-memory measurement and page-load set runs in a worker process " +
 			"of its own, so heaps, goroutines and GC never mix between clients. CPU per request is the process's user+system time " +
 			"(`getrusage`) over the window divided by the requests' worth of body bytes that arrived in it (as requests/s); it " +

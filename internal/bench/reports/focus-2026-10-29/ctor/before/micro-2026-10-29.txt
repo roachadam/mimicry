@@ -1,0 +1,420 @@
+goos: linux
+goarch: amd64
+pkg: github.com/roachadam/mimicry/internal/bench
+cpu: 13th Gen Intel(R) Core(TM) i5-13500
+BenchmarkNewClient
+BenchmarkNewClient/proto=h1/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h1/proxy=none/client=mimicry-4         	    1934	    591012 ns/op	  298692 B/op	    1109 allocs/op
+BenchmarkNewClient/proto=h1/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h1/proxy=none/client=tls-client-4      	  938332	      1281 ns/op	    3840 B/op	      54 allocs/op
+BenchmarkNewClient/proto=h1/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h1/proxy=none/client=azuretls-4        	 3841476	       310.6 ns/op	     744 B/op	       6 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h1/proxy=socks5/client=mimicry-4       	    1951	    593863 ns/op	  300004 B/op	    1113 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h1/proxy=socks5/client=tls-client-4    	  705511	      1766 ns/op	    4384 B/op	      64 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h1/proxy=socks5/client=azuretls-4      	 1287609	       925.9 ns/op	    1728 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h2/proxy=none/client=mimicry-4         	    1952	    601084 ns/op	  298373 B/op	    1109 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h2/proxy=none/client=tls-client-4      	  970392	      1321 ns/op	    3840 B/op	      54 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h2/proxy=none/client=azuretls-4        	 3792734	       320.2 ns/op	     744 B/op	       6 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h2/proxy=socks5/client=mimicry-4       	    1956	    599085 ns/op	  300285 B/op	    1113 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h2/proxy=socks5/client=tls-client-4    	  691420	      1752 ns/op	    4384 B/op	      64 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h2/proxy=socks5/client=azuretls-4      	 1285662	       927.1 ns/op	    1728 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h3/proxy=none/client=mimicry-4         	    1946	    591328 ns/op	  302041 B/op	    1117 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h3/proxy=none/client=tls-client-4      	  789573	      1409 ns/op	    4224 B/op	      57 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h3/proxy=none/client=azuretls-4        	 1473346	       808.6 ns/op	    2840 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h3/proxy=socks5/client=mimicry-4       	    1970	    609259 ns/op	  303605 B/op	    1121 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h3/proxy=socks5/client=tls-client-4    	  537657	      2316 ns/op	    4960 B/op	      69 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h3/proxy=socks5/client=azuretls-4      	  592591	      1697 ns/op	    3824 B/op	      26 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/roachadam/mimicry/internal/bench
+cpu: 13th Gen Intel(R) Core(TM) i5-13500
+BenchmarkNewClient
+BenchmarkNewClient/proto=h1/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h1/proxy=none/client=azuretls-4         	 3557175	       328.4 ns/op	     744 B/op	       6 allocs/op
+BenchmarkNewClient/proto=h1/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h1/proxy=none/client=tls-client-4       	  954832	      1316 ns/op	    3840 B/op	      54 allocs/op
+BenchmarkNewClient/proto=h1/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h1/proxy=none/client=mimicry-4          	    1862	    601616 ns/op	  302088 B/op	    1109 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h1/proxy=socks5/client=azuretls-4       	 1314728	       918.5 ns/op	    1728 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h1/proxy=socks5/client=tls-client-4     	  678214	      1795 ns/op	    4384 B/op	      64 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h1/proxy=socks5/client=mimicry-4        	    1960	    592719 ns/op	  299524 B/op	    1113 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h2/proxy=none/client=azuretls-4         	 3692722	       329.8 ns/op	     744 B/op	       6 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h2/proxy=none/client=tls-client-4       	  936970	      1304 ns/op	    3840 B/op	      54 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h2/proxy=none/client=mimicry-4          	    1977	    598887 ns/op	  301807 B/op	    1109 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h2/proxy=socks5/client=azuretls-4       	 1294276	       921.9 ns/op	    1728 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h2/proxy=socks5/client=tls-client-4     	  697089	      1779 ns/op	    4384 B/op	      64 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h2/proxy=socks5/client=mimicry-4        	    1960	    591419 ns/op	  301265 B/op	    1113 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h3/proxy=none/client=azuretls-4         	 1433628	       824.7 ns/op	    2840 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h3/proxy=none/client=tls-client-4       	  886044	      1444 ns/op	    4224 B/op	      57 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h3/proxy=none/client=mimicry-4          	    1938	    595067 ns/op	  299342 B/op	    1117 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h3/proxy=socks5/client=azuretls-4       	  737810	      1436 ns/op	    3824 B/op	      26 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h3/proxy=socks5/client=tls-client-4     	  569149	      2145 ns/op	    4960 B/op	      69 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h3/proxy=socks5/client=mimicry-4        	    1926	    596099 ns/op	  300824 B/op	    1121 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/roachadam/mimicry/internal/bench
+cpu: 13th Gen Intel(R) Core(TM) i5-13500
+BenchmarkNewClient
+BenchmarkNewClient/proto=h1/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h1/proxy=none/client=azuretls-4         	 3769395	       318.7 ns/op	     744 B/op	       6 allocs/op
+BenchmarkNewClient/proto=h1/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h1/proxy=none/client=mimicry-4          	    1939	    591985 ns/op	  299323 B/op	    1109 allocs/op
+BenchmarkNewClient/proto=h1/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h1/proxy=none/client=tls-client-4       	  892870	      1314 ns/op	    3840 B/op	      54 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h1/proxy=socks5/client=azuretls-4       	 1296240	       926.3 ns/op	    1728 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h1/proxy=socks5/client=mimicry-4        	    1954	    594680 ns/op	  300661 B/op	    1113 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h1/proxy=socks5/client=tls-client-4     	  689356	      1736 ns/op	    4384 B/op	      64 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h2/proxy=none/client=azuretls-4         	 3589711	       325.1 ns/op	     744 B/op	       6 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h2/proxy=none/client=mimicry-4          	    1904	    607335 ns/op	  302021 B/op	    1109 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h2/proxy=none/client=tls-client-4       	  906588	      1288 ns/op	    3840 B/op	      54 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h2/proxy=socks5/client=azuretls-4       	 1271919	       940.6 ns/op	    1728 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h2/proxy=socks5/client=mimicry-4        	    1946	    592966 ns/op	  301506 B/op	    1113 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h2/proxy=socks5/client=tls-client-4     	  586345	      1778 ns/op	    4384 B/op	      64 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h3/proxy=none/client=azuretls-4         	 1495956	       808.0 ns/op	    2840 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h3/proxy=none/client=mimicry-4          	    1887	    589894 ns/op	  300902 B/op	    1117 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h3/proxy=none/client=tls-client-4       	  928590	      1433 ns/op	    4224 B/op	      57 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h3/proxy=socks5/client=azuretls-4       	  744351	      1429 ns/op	    3824 B/op	      26 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h3/proxy=socks5/client=mimicry-4        	    1945	    593996 ns/op	  301926 B/op	    1121 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h3/proxy=socks5/client=tls-client-4     	  562039	      2131 ns/op	    4960 B/op	      69 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/roachadam/mimicry/internal/bench
+cpu: 13th Gen Intel(R) Core(TM) i5-13500
+BenchmarkNewClient
+BenchmarkNewClient/proto=h1/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h1/proxy=none/client=mimicry-4         	    1910	    593454 ns/op	  301235 B/op	    1109 allocs/op
+BenchmarkNewClient/proto=h1/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h1/proxy=none/client=tls-client-4      	  942980	      1329 ns/op	    3840 B/op	      54 allocs/op
+BenchmarkNewClient/proto=h1/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h1/proxy=none/client=azuretls-4        	 3770485	       325.2 ns/op	     744 B/op	       6 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h1/proxy=socks5/client=mimicry-4       	    1970	    597877 ns/op	  299707 B/op	    1113 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h1/proxy=socks5/client=tls-client-4    	  722638	      1744 ns/op	    4384 B/op	      64 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h1/proxy=socks5/client=azuretls-4      	 1308090	       918.2 ns/op	    1728 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h2/proxy=none/client=mimicry-4         	    1966	    590945 ns/op	  299558 B/op	    1109 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h2/proxy=none/client=tls-client-4      	  942468	      1294 ns/op	    3840 B/op	      54 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h2/proxy=none/client=azuretls-4        	 3537705	       327.6 ns/op	     744 B/op	       6 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h2/proxy=socks5/client=mimicry-4       	    1951	    591452 ns/op	  297540 B/op	    1113 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h2/proxy=socks5/client=tls-client-4    	  709683	      1759 ns/op	    4384 B/op	      64 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h2/proxy=socks5/client=azuretls-4      	 1277740	       934.5 ns/op	    1728 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h3/proxy=none/client=mimicry-4         	    1902	    592712 ns/op	  299564 B/op	    1117 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h3/proxy=none/client=tls-client-4      	  904520	      1438 ns/op	    4224 B/op	      57 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h3/proxy=none/client=azuretls-4        	 1460622	       820.6 ns/op	    2840 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h3/proxy=socks5/client=mimicry-4       	    1908	    594271 ns/op	  302567 B/op	    1121 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h3/proxy=socks5/client=tls-client-4    	  505501	      2260 ns/op	    4960 B/op	      69 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h3/proxy=socks5/client=azuretls-4      	  781173	      1429 ns/op	    3824 B/op	      26 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/roachadam/mimicry/internal/bench
+cpu: 13th Gen Intel(R) Core(TM) i5-13500
+BenchmarkNewClient
+BenchmarkNewClient/proto=h1/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h1/proxy=none/client=tls-client-4         	  828337	      1311 ns/op	    3840 B/op	      54 allocs/op
+BenchmarkNewClient/proto=h1/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h1/proxy=none/client=azuretls-4           	 3735674	       318.3 ns/op	     744 B/op	       6 allocs/op
+BenchmarkNewClient/proto=h1/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h1/proxy=none/client=mimicry-4            	    1906	    613377 ns/op	  304212 B/op	    1109 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h1/proxy=socks5/client=tls-client-4       	  646716	      1970 ns/op	    4384 B/op	      64 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h1/proxy=socks5/client=azuretls-4         	 1000000	      1081 ns/op	    1728 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h1/proxy=socks5/client=mimicry-4          	    1905	    648218 ns/op	  300060 B/op	    1113 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h2/proxy=none/client=tls-client-4         	  790606	      1495 ns/op	    3840 B/op	      54 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h2/proxy=none/client=azuretls-4           	 3215408	       343.3 ns/op	     744 B/op	       6 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h2/proxy=none/client=mimicry-4            	    2007	    608752 ns/op	  301649 B/op	    1109 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h2/proxy=socks5/client=tls-client-4       	  513448	      2083 ns/op	    4384 B/op	      64 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h2/proxy=socks5/client=azuretls-4         	 1000000	      1146 ns/op	    1728 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h2/proxy=socks5/client=mimicry-4          	    1834	    623577 ns/op	  305790 B/op	    1114 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h3/proxy=none/client=tls-client-4         	  815044	      1465 ns/op	    4224 B/op	      57 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h3/proxy=none/client=azuretls-4           	 1279422	       925.5 ns/op	    2840 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h3/proxy=none/client=mimicry-4            	    1850	    595274 ns/op	  301179 B/op	    1117 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h3/proxy=socks5/client=tls-client-4       	  514221	      2359 ns/op	    4960 B/op	      69 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h3/proxy=socks5/client=azuretls-4         	  725640	      1650 ns/op	    3824 B/op	      26 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h3/proxy=socks5/client=mimicry-4          	    1846	    634037 ns/op	  304091 B/op	    1122 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/roachadam/mimicry/internal/bench
+cpu: 13th Gen Intel(R) Core(TM) i5-13500
+BenchmarkNewClient
+BenchmarkNewClient/proto=h1/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h1/proxy=none/client=azuretls-4         	 3655513	       331.2 ns/op	     744 B/op	       6 allocs/op
+BenchmarkNewClient/proto=h1/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h1/proxy=none/client=mimicry-4          	    1904	    627000 ns/op	  303885 B/op	    1109 allocs/op
+BenchmarkNewClient/proto=h1/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h1/proxy=none/client=tls-client-4       	  952366	      1355 ns/op	    3840 B/op	      54 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h1/proxy=socks5/client=azuretls-4       	 1207900	       990.5 ns/op	    1728 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h1/proxy=socks5/client=mimicry-4        	    1885	    645526 ns/op	  303322 B/op	    1113 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h1/proxy=socks5/client=tls-client-4     	  708828	      1793 ns/op	    4384 B/op	      64 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h2/proxy=none/client=azuretls-4         	 3598688	       351.3 ns/op	     744 B/op	       6 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h2/proxy=none/client=mimicry-4          	    1804	    629412 ns/op	  307337 B/op	    1110 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h2/proxy=none/client=tls-client-4       	  689876	      1512 ns/op	    3840 B/op	      54 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h2/proxy=socks5/client=azuretls-4       	 1269180	       950.0 ns/op	    1728 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h2/proxy=socks5/client=mimicry-4        	    1848	    598885 ns/op	  302890 B/op	    1113 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h2/proxy=socks5/client=tls-client-4     	  625280	      1781 ns/op	    4384 B/op	      64 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h3/proxy=none/client=azuretls-4         	 1485603	       804.1 ns/op	    2840 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h3/proxy=none/client=mimicry-4          	    1940	    608303 ns/op	  305338 B/op	    1117 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h3/proxy=none/client=tls-client-4       	  734898	      1621 ns/op	    4224 B/op	      57 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h3/proxy=socks5/client=azuretls-4       	  603348	      1731 ns/op	    3824 B/op	      26 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h3/proxy=socks5/client=mimicry-4        	    1827	    628180 ns/op	  307079 B/op	    1122 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h3/proxy=socks5/client=tls-client-4     	  555699	      2135 ns/op	    4960 B/op	      69 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/roachadam/mimicry/internal/bench
+cpu: 13th Gen Intel(R) Core(TM) i5-13500
+BenchmarkNewClient
+BenchmarkNewClient/proto=h1/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h1/proxy=none/client=mimicry-4         	    1899	    591005 ns/op	  298530 B/op	    1109 allocs/op
+BenchmarkNewClient/proto=h1/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h1/proxy=none/client=tls-client-4      	  959778	      1291 ns/op	    3840 B/op	      54 allocs/op
+BenchmarkNewClient/proto=h1/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h1/proxy=none/client=azuretls-4        	 3709875	       342.3 ns/op	     744 B/op	       6 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h1/proxy=socks5/client=mimicry-4       	    1902	    627022 ns/op	  302646 B/op	    1113 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h1/proxy=socks5/client=tls-client-4    	  589083	      1861 ns/op	    4384 B/op	      64 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h1/proxy=socks5/client=azuretls-4      	 1293235	       926.3 ns/op	    1728 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h2/proxy=none/client=mimicry-4         	    1954	    589195 ns/op	  301157 B/op	    1109 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h2/proxy=none/client=tls-client-4      	  955430	      1320 ns/op	    3840 B/op	      54 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h2/proxy=none/client=azuretls-4        	 3548262	       335.5 ns/op	     744 B/op	       6 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h2/proxy=socks5/client=mimicry-4       	    1862	    638512 ns/op	  304123 B/op	    1113 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h2/proxy=socks5/client=tls-client-4    	  598405	      2111 ns/op	    4384 B/op	      64 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h2/proxy=socks5/client=azuretls-4      	 1296577	       924.0 ns/op	    1728 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h3/proxy=none/client=mimicry-4         	    1935	    599792 ns/op	  303301 B/op	    1117 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h3/proxy=none/client=tls-client-4      	  848100	      1412 ns/op	    4224 B/op	      57 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h3/proxy=none/client=azuretls-4        	 1427548	       833.2 ns/op	    2840 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h3/proxy=socks5/client=mimicry-4       	    1848	    597743 ns/op	  301433 B/op	    1121 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h3/proxy=socks5/client=tls-client-4    	  569217	      2134 ns/op	    4960 B/op	      69 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h3/proxy=socks5/client=azuretls-4      	  768471	      1610 ns/op	    3824 B/op	      26 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/roachadam/mimicry/internal/bench
+cpu: 13th Gen Intel(R) Core(TM) i5-13500
+BenchmarkNewClient
+BenchmarkNewClient/proto=h1/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h1/proxy=none/client=tls-client-4         	  676471	      1489 ns/op	    3840 B/op	      54 allocs/op
+BenchmarkNewClient/proto=h1/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h1/proxy=none/client=azuretls-4           	 3720638	       315.1 ns/op	     744 B/op	       6 allocs/op
+BenchmarkNewClient/proto=h1/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h1/proxy=none/client=mimicry-4            	    1936	    594514 ns/op	  302219 B/op	    1109 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h1/proxy=socks5/client=tls-client-4       	  648493	      1733 ns/op	    4384 B/op	      64 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h1/proxy=socks5/client=azuretls-4         	 1290842	       922.2 ns/op	    1728 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h1/proxy=socks5/client=mimicry-4          	    1917	    594417 ns/op	  299857 B/op	    1113 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h2/proxy=none/client=tls-client-4         	  847574	      1323 ns/op	    3840 B/op	      54 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h2/proxy=none/client=azuretls-4           	 3750806	       322.2 ns/op	     744 B/op	       6 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h2/proxy=none/client=mimicry-4            	    1880	    593459 ns/op	  302459 B/op	    1109 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h2/proxy=socks5/client=tls-client-4       	  702141	      1757 ns/op	    4384 B/op	      64 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h2/proxy=socks5/client=azuretls-4         	 1292248	       923.0 ns/op	    1728 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h2/proxy=socks5/client=mimicry-4          	    1995	    591703 ns/op	  301726 B/op	    1113 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h3/proxy=none/client=tls-client-4         	  865842	      1423 ns/op	    4224 B/op	      57 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h3/proxy=none/client=azuretls-4           	 1477676	       801.4 ns/op	    2840 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h3/proxy=none/client=mimicry-4            	    1940	    610131 ns/op	  299307 B/op	    1117 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h3/proxy=socks5/client=tls-client-4       	  533054	      2175 ns/op	    4960 B/op	      69 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h3/proxy=socks5/client=azuretls-4         	  749523	      1424 ns/op	    3824 B/op	      26 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h3/proxy=socks5/client=mimicry-4          	    1911	    591922 ns/op	  302510 B/op	    1121 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/roachadam/mimicry/internal/bench
+cpu: 13th Gen Intel(R) Core(TM) i5-13500
+BenchmarkNewClient
+BenchmarkNewClient/proto=h1/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h1/proxy=none/client=azuretls-4         	 3784628	       314.0 ns/op	     744 B/op	       6 allocs/op
+BenchmarkNewClient/proto=h1/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h1/proxy=none/client=mimicry-4          	    1963	    594375 ns/op	  302448 B/op	    1109 allocs/op
+BenchmarkNewClient/proto=h1/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h1/proxy=none/client=tls-client-4       	  911114	      1336 ns/op	    3840 B/op	      54 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h1/proxy=socks5/client=azuretls-4       	 1275890	       932.8 ns/op	    1728 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h1/proxy=socks5/client=mimicry-4        	    1944	    591067 ns/op	  298002 B/op	    1113 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h1/proxy=socks5/client=tls-client-4     	  659113	      1777 ns/op	    4384 B/op	      64 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h2/proxy=none/client=azuretls-4         	 3608378	       321.7 ns/op	     744 B/op	       6 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h2/proxy=none/client=mimicry-4          	    1965	    591654 ns/op	  296771 B/op	    1109 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h2/proxy=none/client=tls-client-4       	  928702	      1303 ns/op	    3840 B/op	      54 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h2/proxy=socks5/client=azuretls-4       	 1296577	       926.7 ns/op	    1728 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h2/proxy=socks5/client=mimicry-4        	    1947	    599249 ns/op	  300783 B/op	    1113 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h2/proxy=socks5/client=tls-client-4     	  667509	      1765 ns/op	    4384 B/op	      64 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h3/proxy=none/client=azuretls-4         	 1402236	       841.4 ns/op	    2840 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h3/proxy=none/client=mimicry-4          	    1911	    590075 ns/op	  302652 B/op	    1117 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h3/proxy=none/client=tls-client-4       	  777836	      1442 ns/op	    4224 B/op	      57 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h3/proxy=socks5/client=azuretls-4       	  740587	      1438 ns/op	    3824 B/op	      26 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h3/proxy=socks5/client=mimicry-4        	    1942	    591791 ns/op	  297721 B/op	    1121 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h3/proxy=socks5/client=tls-client-4     	  594063	      2145 ns/op	    4960 B/op	      69 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/roachadam/mimicry/internal/bench
+cpu: 13th Gen Intel(R) Core(TM) i5-13500
+BenchmarkNewClient
+BenchmarkNewClient/proto=h1/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h1/proxy=none/client=mimicry-4         	    1918	    590401 ns/op	  301455 B/op	    1109 allocs/op
+BenchmarkNewClient/proto=h1/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h1/proxy=none/client=tls-client-4      	  892081	      1295 ns/op	    3840 B/op	      54 allocs/op
+BenchmarkNewClient/proto=h1/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h1/proxy=none/client=azuretls-4        	 3731419	       317.0 ns/op	     744 B/op	       6 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h1/proxy=socks5/client=mimicry-4       	    1965	    593134 ns/op	  299781 B/op	    1113 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h1/proxy=socks5/client=tls-client-4    	  659194	      1778 ns/op	    4384 B/op	      64 allocs/op
+BenchmarkNewClient/proto=h1/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h1/proxy=socks5/client=azuretls-4      	 1292304	       924.3 ns/op	    1728 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h2/proxy=none/client=mimicry-4         	    1958	    590385 ns/op	  302840 B/op	    1109 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h2/proxy=none/client=tls-client-4      	  842395	      1295 ns/op	    3840 B/op	      54 allocs/op
+BenchmarkNewClient/proto=h2/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h2/proxy=none/client=azuretls-4        	 3628566	       323.9 ns/op	     744 B/op	       6 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h2/proxy=socks5/client=mimicry-4       	    1936	    595881 ns/op	  301320 B/op	    1113 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h2/proxy=socks5/client=tls-client-4    	  689859	      1779 ns/op	    4384 B/op	      64 allocs/op
+BenchmarkNewClient/proto=h2/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h2/proxy=socks5/client=azuretls-4      	 1290342	       925.1 ns/op	    1728 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=mimicry
+BenchmarkNewClient/proto=h3/proxy=none/client=mimicry-4         	    1941	    594696 ns/op	  302492 B/op	    1117 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=tls-client
+BenchmarkNewClient/proto=h3/proxy=none/client=tls-client-4      	  825631	      1433 ns/op	    4224 B/op	      57 allocs/op
+BenchmarkNewClient/proto=h3/proxy=none/client=azuretls
+BenchmarkNewClient/proto=h3/proxy=none/client=azuretls-4        	 1484329	       802.7 ns/op	    2840 B/op	      16 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=mimicry
+BenchmarkNewClient/proto=h3/proxy=socks5/client=mimicry-4       	    1965	    589568 ns/op	  301586 B/op	    1121 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=tls-client
+BenchmarkNewClient/proto=h3/proxy=socks5/client=tls-client-4    	  593332	      2125 ns/op	    4960 B/op	      69 allocs/op
+BenchmarkNewClient/proto=h3/proxy=socks5/client=azuretls
+BenchmarkNewClient/proto=h3/proxy=socks5/client=azuretls-4      	  783410	      1420 ns/op	    3824 B/op	      26 allocs/op
+PASS

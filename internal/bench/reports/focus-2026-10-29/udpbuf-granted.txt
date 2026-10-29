@@ -1,0 +1,24 @@
+the Linux test host 6.18.38, client container (compose.client.yml, NET_ADMIN), Go SO_RCVBUF probe:
+/proc/sys/net/core/rmem_max 16777216
+/proc/sys/net/core/rmem_default 212992
+default: 212992
+SetReadBuffer(1048576): 2097152 err=<nil>
+SetReadBuffer(2097152): 4194304 err=<nil>
+SetReadBuffer(4194304): 8388608 err=<nil>
+SetReadBuffer(7340032): 14680064 err=<nil>
+SO_RCVBUFFORCE(7MB): 14680064 err=<nil>
+CapEff:	00000000a80435fb (NET_ADMIN is bit 12)
+
+with compose.client.udpstock.yml:
+Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: error during container init: open sysctl net.core.rmem_default file: reopen fd 8: permission denied
+
+Mac OrbStack, client container with compose.client.udpstock.yml (no NET_ADMIN), same probe:
+/proc/sys/net/core/rmem_max 212992
+/proc/sys/net/core/rmem_default 212992
+default: 212992
+SetReadBuffer(1048576): 425984 err=<nil>
+SetReadBuffer(2097152): 425984 err=<nil>
+SetReadBuffer(4194304): 425984 err=<nil>
+SetReadBuffer(7340032): 425984 err=<nil>
+SO_RCVBUFFORCE(7MB): 212992 err=operation not permitted
+CapEff:	00000000a80425fb (NET_ADMIN is bit 12)

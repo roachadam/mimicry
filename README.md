@@ -147,7 +147,9 @@ if errors.As(err, &pe) {
 
 Cookies and the last page stay the Transport's; each proxy has its own
 connections, and those of a proxy no longer used close once 16 others
-have been used since and it has been unused for 10 s. To rotate by
+have been used since and it has been unused for 10 s
+(`Config.MaxIdleProxies` keeps fewer: 1 closes the old proxy's at once,
+for rotating identities). To rotate by
 client instead, call `CloseIdleConnections` on the one you drop. Requests
 through a proxy stay on TCP, as in the browser;
 `Config.HTTP3OverSOCKS5` lets SOCKS5 proxies carry HTTP/3 (a UDP

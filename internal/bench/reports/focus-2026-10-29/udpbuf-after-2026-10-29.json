@@ -1,0 +1,5911 @@
+{
+  "date": "2026-10-29",
+  "name": "udpbuf-after",
+  "env": {
+    "host": "Linux host (Intel Core i5-13500)",
+    "hostCpu": "13th Gen Intel(R) Core(TM) i5-13500, 20 cores",
+    "hostOs": "Linux 6.18.38",
+    "docker": "linux/amd64, server 29.5.3, 20 CPUs, 100992466944 bytes",
+    "mode": "local: both stacks on one Docker host, one Docker network",
+    "kernel": "6.18.38",
+    "clientCpus": 4,
+    "gomaxprocs": 4,
+    "goVersion": "go1.27.3",
+    "mimicryCommit": "c1f37ab + UDP buffer default 1 MB (Chrome request; negative = OS default)",
+    "cpusets": "client 0,2,4,6, servers 8-11, proxy 12-15",
+    "servers": [
+      {
+        "name": "nginx",
+        "software": "nginx/1.31.8",
+        "cpus": 4
+      },
+      {
+        "name": "go",
+        "software": "net/http and quic-go v0.64.1 (go1.27.3)",
+        "cpus": 4
+      }
+    ],
+    "clients": [
+      {
+        "name": "net/http",
+        "module": "std",
+        "version": "go1.27.3",
+        "profile": "none (Go's own TLS and HTTP/2; quic-go for HTTP/3)"
+      },
+      {
+        "name": "mimicry",
+        "module": "github.com/roachadam/mimicry",
+        "version": "(devel)",
+        "profile": "chrome-156-macos"
+      },
+      {
+        "name": "tls-client",
+        "module": "github.com/bogdanfinn/tls-client",
+        "version": "v1.17.1",
+        "profile": "Chrome_152_PSK"
+      },
+      {
+        "name": "httpcloak",
+        "module": "github.com/sardanioss/httpcloak",
+        "version": "v1.7.3",
+        "profile": "chrome-latest (chrome-155-linux)"
+      },
+      {
+        "name": "azuretls",
+        "module": "github.com/Noooste/azuretls-client",
+        "version": "v1.13.2",
+        "profile": "chrome (GetLastChromeVersion)"
+      },
+      {
+        "name": "mimicry-udpos",
+        "module": "github.com/roachadam/mimicry",
+        "version": "(devel)",
+        "profile": "chrome-156-macos"
+      },
+      {
+        "name": "mimicry-udp208k",
+        "module": "github.com/roachadam/mimicry",
+        "version": "(devel)",
+        "profile": "chrome-156-macos"
+      },
+      {
+        "name": "mimicry-udp2m",
+        "module": "github.com/roachadam/mimicry",
+        "version": "(devel)",
+        "profile": "chrome-156-macos"
+      },
+      {
+        "name": "mimicry-udp7m",
+        "module": "github.com/roachadam/mimicry",
+        "version": "(devel)",
+        "profile": "chrome-156-macos"
+      }
+    ],
+    "netem": "",
+    "proxyDelay": "5ms on everything the proxy sends, in the proxy (a delay line per direction; the host has no netem)",
+    "hostLoad": "load average 3.62 3.47 3.55; other containers at 1% CPU or more: 3, 7.27% CPU together",
+    "rmemMax": "16777216",
+    "rmemDefault": "212992",
+    "netAdmin": true
+  },
+  "settings": {
+    "window": 5000000000,
+    "warmup": 2000000000,
+    "maxWindow": 120000000000,
+    "layers": [
+      3
+    ],
+    "clients": [
+      "mimicry",
+      "mimicry-udpos",
+      "mimicry-udp208k",
+      "mimicry-udp2m",
+      "mimicry-udp7m",
+      "tls-client",
+      "net/http"
+    ],
+    "servers": [
+      "nginx"
+    ],
+    "reduced": [
+      "go"
+    ],
+    "protos": [
+      "h3"
+    ],
+    "concurrency": [
+      1,
+      64,
+      256
+    ],
+    "idleN": 50,
+    "idleNs": [
+      10,
+      50
+    ],
+    "reps": 10,
+    "repsLoss": 20,
+    "netem": true,
+    "bodies": [
+      "1KB",
+      "100KB"
+    ],
+    "multiN": 100,
+    "multiN2": 25,
+    "multiN2Variants": [
+      "fixed"
+    ],
+    "multiVariants": [
+      "fixed",
+      "proxy",
+      "client"
+    ],
+    "multiRotate": 10,
+    "multiProxyWindow": 30000000000,
+    "multiProxyRoutes": [
+      "h2-connect-auth"
+    ],
+    "multiProxyBodies": [
+      "1KB"
+    ],
+    "multiClientWindow": 10000000000
+  },
+  "micro": "goos: linux\ngoarch: amd64\npkg: github.com/roachadam/mimicry/internal/bench\ncpu: 13th Gen Intel(R) Core(TM) i5-13500\n                                                  │   nethttp    │                   mimicry                   │              tls-client               │                httpcloak                 │                azuretls                 │\n                                                  │    sec/op    │     sec/op      vs base                     │    sec/op      vs base                │     sec/op      vs base                  │    sec/op      vs base                  │\nNewClient/proto=h1/proxy=none-4                     279.2n ±  1%   595005.5n ± 1%  +212972.69% (p=0.002 n=6)     1289.5n ±  2%  +361.77% (p=0.002 n=6)   35910.0n ±  1%  +12759.44% (p=0.002 n=6)    316.8n ±  3%   +13.45% (p=0.002 n=6)\nNewClient/proto=h1/proxy=socks5-4                   556.8n ±  2%   596432.5n ± 2%  +107017.91% (p=0.002 n=6)     1758.5n ±  2%  +215.82% (p=0.002 n=6)   36644.5n ±  0%   +6481.27% (p=0.002 n=6)    917.1n ±  2%   +64.70% (p=0.002 n=6)\nNewClient/proto=h2/proxy=none-4                     593.2n ±  1%   595188.0n ± 2%  +100226.68% (p=0.002 n=6)     1311.0n ±  1%  +120.99% (p=0.002 n=6)   35817.0n ±  1%   +5937.42% (p=0.002 n=6)    320.1n ±  2%   -46.03% (p=0.002 n=6)\nNewClient/proto=h2/proxy=socks5-4                   892.3n ±  1%   597706.0n ± 2%   +66884.87% (p=0.002 n=6)     1750.0n ±  1%   +96.12% (p=0.002 n=6)   36494.5n ±  0%   +3989.94% (p=0.002 n=6)    927.8n ±  3%    +3.97% (p=0.002 n=6)\nNewClient/proto=h3/proxy=none-4                     215.8n ±  4%   594391.5n ± 8%  +275400.12% (p=0.002 n=6)     1434.0n ± 25%  +564.66% (p=0.002 n=6)   35944.0n ±  4%  +16560.02% (p=0.002 n=6)    814.0n ±  1%  +277.29% (p=0.002 n=6)\nNewClient/proto=h3/proxy=socks5-4                                   596.160µ ± 4%                                 2.148µ ±  4%                            36.656µ ±  2%                              1.439µ ±  6%\nRequest/server=nginx/proto=h1/method=GET-4          31.27µ ± 25%      34.53µ ± 6%            ~ (p=0.065 n=6)      39.75µ ± 15%   +27.14% (p=0.002 n=6)     57.27µ ±  5%     +83.18% (p=0.002 n=6)    53.65µ ± 23%   +71.58% (p=0.002 n=6)\nRequest/server=nginx/proto=h1/method=POST-4         32.98µ ±  2%      36.43µ ± 8%      +10.46% (p=0.002 n=6)      42.71µ ± 22%   +29.48% (p=0.002 n=6)     62.98µ ± 23%     +90.96% (p=0.002 n=6)    62.46µ ± 13%   +89.36% (p=0.002 n=6)\nRequest/server=nginx/proto=h2/method=GET-4          34.75µ ± 11%      38.52µ ± 3%      +10.87% (p=0.026 n=6)      46.49µ ±  9%   +33.79% (p=0.002 n=6)     55.09µ ± 20%     +58.53% (p=0.002 n=6)    77.17µ ±  7%  +122.07% (p=0.002 n=6)\nRequest/server=nginx/proto=h2/method=POST-4         48.32µ ±  5%      53.23µ ± 1%      +10.16% (p=0.002 n=6)      60.86µ ±  4%   +25.95% (p=0.002 n=6)     64.85µ ±  4%     +34.21% (p=0.002 n=6)    94.15µ ± 15%   +94.86% (p=0.002 n=6)\nRequest/server=nginx/proto=h3/method=GET-4          46.88µ ±  4%      49.57µ ± 6%       +5.75% (p=0.041 n=6)      64.19µ ±  2%   +36.93% (p=0.002 n=6)    111.22µ ±  2%    +137.27% (p=0.002 n=6)    70.58µ ±  4%   +50.56% (p=0.002 n=6)\nRequest/server=nginx/proto=h3/method=POST-4         64.56µ ±  2%      61.37µ ± 2%       -4.94% (p=0.002 n=6)      86.54µ ±  3%   +34.05% (p=0.002 n=6)    119.92µ ±  1%     +85.76% (p=0.002 n=6)    90.79µ ±  1%   +40.64% (p=0.002 n=6)\nConnect/server=nginx/proto=h1/handshake=full-4      912.0µ ±  1%     1027.4µ ± 1%      +12.65% (p=0.002 n=6)     1049.6µ ±  1%   +15.09% (p=0.002 n=6)    1126.7µ ± 11%     +23.54% (p=0.002 n=6)   1078.5µ ± 11%   +18.26% (p=0.002 n=6)\nConnect/server=nginx/proto=h1/handshake=resumed-4   682.0µ ± 11%      746.3µ ± 3%       +9.41% (p=0.026 n=6)      845.1µ ±  2%   +23.90% (p=0.002 n=6)     879.7µ ±  2%     +28.98% (p=0.002 n=6)\nConnect/server=nginx/proto=h2/handshake=full-4      950.9µ ±  2%     1062.5µ ± 1%      +11.73% (p=0.002 n=6)     1087.0µ ±  1%   +14.31% (p=0.002 n=6)    1165.5µ ±  2%     +22.56% (p=0.002 n=6)   1116.4µ ±  2%   +17.40% (p=0.002 n=6)\nConnect/server=nginx/proto=h2/handshake=resumed-4   719.7µ ±  3%      781.1µ ± 4%       +8.53% (p=0.002 n=6)      860.5µ ±  5%   +19.56% (p=0.002 n=6)     897.5µ ±  2%     +24.71% (p=0.002 n=6)\nConnect/server=nginx/proto=h3/handshake=full-4      1.174m ±  4%                                                  1.209m ±  5%    +3.00% (p=0.002 n=6)     6.892m ±  2%    +487.23% (p=0.002 n=6)    1.324m ±  2%   +12.85% (p=0.002 n=6)\nConnect/server=nginx/proto=h3/handshake=resumed-4   866.6µ ±  1%      932.8µ ± 1%       +7.64% (p=0.002 n=6)      890.1µ ±  2%    +2.72% (p=0.009 n=6)    6106.9µ ±  1%    +604.72% (p=0.002 n=6)\n\n                                                  │   nethttp    │                  mimicry                   │              tls-client               │               httpcloak                │                azuretls                 │\n                                                  │     B/op     │      B/op       vs base                    │     B/op       vs base                │     B/op       vs base                 │     B/op       vs base                  │\nNewClient/proto=h1/proxy=none-4                      1169.0 ± 0%    301510.0 ± 1%  +25692.13% (p=0.002 n=6)       3840.0 ± 0%  +228.49% (p=0.002 n=6)    36458.0 ± 0%  +3018.73% (p=0.002 n=6)      744.0 ± 0%   -36.36% (p=0.002 n=6)\nNewClient/proto=h1/proxy=socks5-4                   1.353Ki ± 0%   292.232Ki ± 1%  +21506.21% (p=0.002 n=6)      4.281Ki ± 0%  +216.53% (p=0.002 n=6)   36.235Ki ± 0%  +2579.03% (p=0.002 n=6)    1.688Ki ± 0%   +24.77% (p=0.002 n=6)\nNewClient/proto=h2/proxy=none-4                      1969.0 ± 0%    300462.0 ± 0%  +15159.62% (p=0.002 n=6)       3839.5 ± 0%   +95.00% (p=0.002 n=6)    36457.0 ± 0%  +1751.55% (p=0.002 n=6)      744.0 ± 0%   -62.21% (p=0.002 n=6)\nNewClient/proto=h2/proxy=socks5-4                   2.134Ki ± 0%   294.408Ki ± 2%  +13697.41% (p=0.002 n=6)      4.281Ki ± 0%  +100.64% (p=0.002 n=6)   36.235Ki ± 0%  +1598.17% (p=0.002 n=6)    1.688Ki ± 0%   -20.92% (p=0.002 n=6)\nNewClient/proto=h3/proxy=none-4                       864.0 ± 0%    301288.5 ± 1%  +34771.35% (p=0.002 n=6)       4223.5 ± 0%  +388.83% (p=0.002 n=6)    36456.5 ± 0%  +4119.50% (p=0.002 n=6)     2840.0 ± 0%  +228.70% (p=0.002 n=6)\nNewClient/proto=h3/proxy=socks5-4                                  294.258Ki ± 1%                                4.844Ki ± 0%                           36.235Ki ± 0%                             3.734Ki ± 0%\nRequest/server=nginx/proto=h1/method=GET-4          5.169Ki ± 0%     7.994Ki ± 0%     +54.64% (p=0.002 n=6)     10.797Ki ± 0%  +108.86% (p=0.002 n=6)   15.954Ki ± 0%   +208.61% (p=0.002 n=6)   13.081Ki ± 0%  +153.04% (p=0.002 n=6)\nRequest/server=nginx/proto=h1/method=POST-4         6.306Ki ± 0%     9.377Ki ± 0%     +48.70% (p=0.002 n=6)     12.629Ki ± 0%  +100.26% (p=0.002 n=6)   14.699Ki ± 0%   +133.09% (p=0.002 n=6)   13.627Ki ± 0%  +116.10% (p=0.002 n=6)\nRequest/server=nginx/proto=h2/method=GET-4          6.596Ki ± 0%     8.324Ki ± 0%     +26.19% (p=0.002 n=6)     15.062Ki ± 0%  +128.34% (p=0.002 n=6)   14.937Ki ± 0%   +126.45% (p=0.002 n=6)   23.097Ki ± 0%  +250.16% (p=0.002 n=6)\nRequest/server=nginx/proto=h2/method=POST-4         7.828Ki ± 0%     9.600Ki ± 0%     +22.63% (p=0.002 n=6)     19.212Ki ± 0%  +145.42% (p=0.002 n=6)   14.219Ki ± 0%    +81.64% (p=0.002 n=6)   24.504Ki ± 0%  +213.03% (p=0.002 n=6)\nRequest/server=nginx/proto=h3/method=GET-4          9.528Ki ± 0%    10.561Ki ± 0%     +10.84% (p=0.002 n=6)     18.257Ki ± 0%   +91.62% (p=0.002 n=6)   24.512Ki ± 0%   +157.26% (p=0.002 n=6)   20.943Ki ± 0%  +119.81% (p=0.002 n=6)\nRequest/server=nginx/proto=h3/method=POST-4         18.42Ki ± 0%     12.24Ki ± 0%     -33.59% (p=0.002 n=6)      28.84Ki ± 0%   +56.51% (p=0.002 n=6)    31.57Ki ± 0%    +71.35% (p=0.002 n=6)    29.32Ki ± 0%   +59.13% (p=0.002 n=6)\nConnect/server=nginx/proto=h1/handshake=full-4      100.7Ki ± 1%     116.7Ki ± 1%     +15.82% (p=0.002 n=6)      138.0Ki ± 0%   +37.02% (p=0.002 n=6)    460.7Ki ± 0%   +357.28% (p=0.002 n=6)    128.1Ki ± 1%   +27.11% (p=0.002 n=6)\nConnect/server=nginx/proto=h1/handshake=resumed-4   96.87Ki ± 0%    122.39Ki ± 0%     +26.34% (p=0.002 n=6)     116.39Ki ± 0%   +20.15% (p=0.002 n=6)   437.24Ki ± 0%   +351.35% (p=0.002 n=6)\nConnect/server=nginx/proto=h2/handshake=full-4      112.0Ki ± 0%     119.2Ki ± 0%      +6.41% (p=0.002 n=6)      151.4Ki ± 0%   +35.15% (p=0.002 n=6)    164.7Ki ± 0%    +47.05% (p=0.002 n=6)    149.9Ki ± 0%   +33.82% (p=0.002 n=6)\nConnect/server=nginx/proto=h2/handshake=resumed-4   106.0Ki ± 0%     124.4Ki ± 0%     +17.36% (p=0.002 n=6)      130.4Ki ± 0%   +22.99% (p=0.002 n=6)    144.0Ki ± 0%    +35.83% (p=0.002 n=6)\nConnect/server=nginx/proto=h3/handshake=full-4      173.9Ki ± 0%                                                 194.2Ki ± 0%   +11.69% (p=0.002 n=6)    238.2Ki ± 0%    +36.94% (p=0.002 n=6)    204.4Ki ± 0%   +17.54% (p=0.002 n=6)\nConnect/server=nginx/proto=h3/handshake=resumed-4   173.3Ki ± 0%     182.3Ki ± 0%      +5.19% (p=0.002 n=6)      185.4Ki ± 0%    +6.99% (p=0.002 n=6)    247.6Ki ± 0%    +42.89% (p=0.002 n=6)\n\n                                                  │   nethttp   │                  mimicry                  │             tls-client              │               httpcloak               │               azuretls                │\n                                                  │  allocs/op  │   allocs/op    vs base                    │  allocs/op   vs base                │  allocs/op    vs base                 │  allocs/op   vs base                  │\nNewClient/proto=h1/proxy=none-4                     10.000 ± 0%   1109.000 ± 0%  +10990.00% (p=0.002 n=6)     54.000 ± 0%  +440.00% (p=0.002 n=6)   231.000 ± 0%  +2210.00% (p=0.002 n=6)    6.000 ± 0%   -40.00% (p=0.002 n=6)\nNewClient/proto=h1/proxy=socks5-4                    14.00 ± 0%    1113.00 ± 0%   +7850.00% (p=0.002 n=6)      64.00 ± 0%  +357.14% (p=0.002 n=6)    239.00 ± 0%  +1607.14% (p=0.002 n=6)    16.00 ± 0%   +14.29% (p=0.002 n=6)\nNewClient/proto=h2/proxy=none-4                     19.000 ± 0%   1109.000 ± 0%   +5736.84% (p=0.002 n=6)     54.000 ± 0%  +184.21% (p=0.002 n=6)   231.000 ± 0%  +1115.79% (p=0.002 n=6)    6.000 ± 0%   -68.42% (p=0.002 n=6)\nNewClient/proto=h2/proxy=socks5-4                    23.00 ± 0%    1113.00 ± 0%   +4739.13% (p=0.002 n=6)      64.00 ± 0%  +178.26% (p=0.002 n=6)    239.00 ± 0%   +939.13% (p=0.002 n=6)    16.00 ± 0%   -30.43% (p=0.002 n=6)\nNewClient/proto=h3/proxy=none-4                      9.000 ± 0%   1117.000 ± 0%  +12311.11% (p=0.002 n=6)     57.000 ± 0%  +533.33% (p=0.002 n=6)   231.000 ± 0%  +2466.67% (p=0.002 n=6)   16.000 ± 0%   +77.78% (p=0.002 n=6)\nNewClient/proto=h3/proxy=socks5-4                                  1121.00 ± 0%                                69.00 ± 0%                            239.00 ± 0%                             26.00 ± 0%\nRequest/server=nginx/proto=h1/method=GET-4           69.00 ± 0%      74.00 ± 0%      +7.25% (p=0.002 n=6)     111.00 ± 0%   +60.87% (p=0.002 n=6)    214.00 ± 0%   +210.14% (p=0.002 n=6)   260.00 ± 0%  +276.81% (p=0.002 n=6)\nRequest/server=nginx/proto=h1/method=POST-4          78.00 ± 0%      88.00 ± 0%     +12.82% (p=0.002 n=6)     118.00 ± 0%   +51.28% (p=0.002 n=6)    213.00 ± 0%   +173.08% (p=0.002 n=6)   290.00 ± 0%  +271.79% (p=0.002 n=6)\nRequest/server=nginx/proto=h2/method=GET-4           64.00 ± 0%      80.00 ± 0%     +25.00% (p=0.002 n=6)     141.00 ± 0%  +120.31% (p=0.002 n=6)    109.00 ± 0%    +70.31% (p=0.002 n=6)   413.00 ± 0%  +545.31% (p=0.002 n=6)\nRequest/server=nginx/proto=h2/method=POST-4          74.00 ± 0%      92.00 ± 0%     +24.32% (p=0.002 n=6)     153.00 ± 0%  +106.76% (p=0.002 n=6)    121.00 ± 0%    +63.51% (p=0.002 n=6)   460.00 ± 0%  +521.62% (p=0.002 n=6)\nRequest/server=nginx/proto=h3/method=GET-4          143.00 ± 0%      85.00 ± 0%     -40.56% (p=0.002 n=6)     225.00 ± 0%   +57.34% (p=0.002 n=6)    337.00 ± 0%   +135.66% (p=0.002 n=6)   293.00 ± 0%  +104.90% (p=0.002 n=6)\nRequest/server=nginx/proto=h3/method=POST-4          151.0 ± 0%      103.0 ± 0%     -31.79% (p=0.002 n=6)      234.0 ± 0%   +54.97% (p=0.002 n=6)     333.0 ± 0%   +120.53% (p=0.002 n=6)    302.0 ± 0%  +100.00% (p=0.002 n=6)\nConnect/server=nginx/proto=h1/handshake=full-4       730.0 ± 0%      921.5 ± 0%     +26.23% (p=0.002 n=6)     1089.0 ± 0%   +49.18% (p=0.002 n=6)    1153.0 ± 0%    +57.95% (p=0.002 n=6)   1121.0 ± 0%   +53.56% (p=0.002 n=6)\nConnect/server=nginx/proto=h1/handshake=resumed-4    645.0 ± 0%      795.0 ± 0%     +23.26% (p=0.002 n=6)      946.0 ± 0%   +46.67% (p=0.002 n=6)     973.0 ± 0%    +50.85% (p=0.002 n=6)\nConnect/server=nginx/proto=h2/handshake=full-4       816.0 ± 0%      972.0 ± 0%     +19.12% (p=0.002 n=6)     1187.0 ± 0%   +45.47% (p=0.002 n=6)    1155.0 ± 0%    +41.54% (p=0.002 n=6)   1363.0 ± 0%   +67.03% (p=0.002 n=6)\nConnect/server=nginx/proto=h2/handshake=resumed-4    720.0 ± 0%      845.0 ± 0%     +17.36% (p=0.002 n=6)     1030.0 ± 0%   +43.06% (p=0.002 n=6)     974.0 ± 0%    +35.28% (p=0.002 n=6)\nConnect/server=nginx/proto=h3/handshake=full-4      1.535k ± 0%                                               1.706k ± 0%   +11.14% (p=0.002 n=6)    2.061k ± 0%    +34.27% (p=0.002 n=6)   1.898k ± 0%   +23.65% (p=0.002 n=6)\nConnect/server=nginx/proto=h3/handshake=resumed-4   1.440k ± 0%     1.488k ± 0%      +3.37% (p=0.002 n=6)     1.556k ± 0%    +8.09% (p=0.002 n=6)    1.955k ± 0%    +35.81% (p=0.002 n=6)\n\n                                                  │   nethttp    │              mimicry               │             tls-client             │             httpcloak              │\n                                                  │  unresumed   │ unresumed   vs base                │ unresumed   vs base                │ unresumed   vs base                │\nConnect/server=nginx/proto=h1/handshake=resumed-4   0.000 ± 0%     0.000 ± 0%       ~ (p=1.000 n=6) ¹   0.000 ± 0%       ~ (p=1.000 n=6) ¹   0.000 ± 0%       ~ (p=1.000 n=6) ¹\nConnect/server=nginx/proto=h2/handshake=resumed-4   0.000 ± 0%     0.000 ± 0%       ~ (p=1.000 n=6) ¹   0.000 ± 0%       ~ (p=1.000 n=6) ¹   0.000 ± 0%       ~ (p=1.000 n=6) ¹\nConnect/server=nginx/proto=h3/handshake=resumed-4   0.000 ± 0%     0.000 ± 0%       ~ (p=1.000 n=6) ¹   0.000 ± 0%       ~ (p=1.000 n=6) ¹   0.000 ± 0%       ~ (p=1.000 n=6) ¹\n¹ all samples are equal\n",
+  "microRaw": "micro-2026-10-29.txt",
+  "load": [
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-1KB",
+      "conc": 1,
+      "client": "mimicry",
+      "result": {
+        "requests": 103270,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000395469,
+        "rps": 20652.328882201025,
+        "mbps": 21.14798477537385,
+        "p50": 0.0448,
+        "p95": 0.06528,
+        "p99": 0.103936,
+        "warmupSeconds": 2.000022552,
+        "warmupP50": 0.0448,
+        "started": 103269,
+        "complete": 103268,
+        "clientCores": 1.1546263369050385,
+        "cpuPerRequest": 55.742766394236355,
+        "bytesPerRequest": 10849.280183319806,
+        "allocsPerRequest": 86.08548192066155,
+        "gcs": 147,
+        "gcPauseMs": 9.568045,
+        "gcPauseMaxMs": 0.697046,
+        "heapPeakMb": 10.026192,
+        "goroutines": 14,
+        "serverCpu": 0.06736230395797106,
+        "serverWorker": 0.2691518341352519
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          86.08001145748794,
+          86.08637719332224
+        ],
+        "bytesPerRequest": [
+          10848.439677029293,
+          10849.935004067087
+        ],
+        "clientCores": [
+          1.1512179443774722,
+          1.1547076697825078
+        ],
+        "complete": [
+          102547,
+          104734
+        ],
+        "cpuPerRequest": [
+          55.12956509285339,
+          56.301419822912194
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.148412,
+          0.99342
+        ],
+        "gcPauseMs": [
+          8.660036,
+          11.154317
+        ],
+        "gcs": [
+          146,
+          148
+        ],
+        "goroutines": [
+          14,
+          15
+        ],
+        "heapPeakMb": [
+          9.98264,
+          10.035552
+        ],
+        "mbps": [
+          21.000134147764427,
+          21.448031593678735
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          0.0448,
+          0.045312
+        ],
+        "p95": [
+          0.062208,
+          0.066048
+        ],
+        "p99": [
+          0.100864,
+          0.108032
+        ],
+        "requests": [
+          102549,
+          104736
+        ],
+        "rps": [
+          20507.9435036762,
+          20945.34335320189
+        ],
+        "seconds": [
+          5.000307742,
+          5.000403867
+        ],
+        "serverCpu": [
+          0.06722017039828834,
+          0.0677968876865247
+        ],
+        "serverWorker": [
+          0.26883008567995736,
+          0.2711005576267152
+        ],
+        "started": [
+          102548,
+          104735
+        ],
+        "warmupP50": [
+          0.0448,
+          0.0448
+        ],
+        "warmupSeconds": [
+          2.000013924,
+          2.000117273
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-1KB",
+      "conc": 1,
+      "client": "mimicry-udpos",
+      "result": {
+        "requests": 104993,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000355291,
+        "rps": 20997.077259722115,
+        "mbps": 21.501007113955446,
+        "p50": 0.0448,
+        "p95": 0.061696,
+        "p99": 0.101888,
+        "warmupSeconds": 2.00002013,
+        "warmupP50": 0.0448,
+        "started": 104992,
+        "complete": 104991,
+        "clientCores": 1.1583773890984692,
+        "cpuPerRequest": 55.24948567509905,
+        "bytesPerRequest": 10849.301908393336,
+        "allocsPerRequest": 86.08059342801185,
+        "gcs": 149,
+        "gcPauseMs": 8.651004,
+        "gcPauseMaxMs": 0.380044,
+        "heapPeakMb": 10.013712,
+        "goroutines": 14,
+        "serverCpu": 0.06750700307387418,
+        "serverWorker": 0.2700280122954967
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          86.07978536330477,
+          86.08424451386772
+        ],
+        "bytesPerRequest": [
+          10848.661595506295,
+          10849.520115818348
+        ],
+        "clientCores": [
+          1.1425698110458529,
+          1.1600777192799652
+        ],
+        "complete": [
+          99516,
+          105690
+        ],
+        "cpuPerRequest": [
+          54.804363663888125,
+          57.409839524905294
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.150364,
+          0.928032
+        ],
+        "gcPauseMs": [
+          8.557071,
+          10.760964
+        ],
+        "gcs": [
+          141,
+          150
+        ],
+        "goroutines": [
+          14,
+          14
+        ],
+        "heapPeakMb": [
+          9.822576,
+          10.047912
+        ],
+        "mbps": [
+          20.379633459929675,
+          21.64386861074774
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          0.044288,
+          0.045824
+        ],
+        "p95": [
+          0.061184,
+          0.072192
+        ],
+        "p99": [
+          0.100864,
+          0.1152
+        ],
+        "requests": [
+          99518,
+          105692
+        ],
+        "rps": [
+          19901.985800712577,
+          21136.590440183343
+        ],
+        "seconds": [
+          5.000314982,
+          5.000380752
+        ],
+        "serverCpu": [
+          0.06709187345350318,
+          0.06773424201037721
+        ],
+        "serverWorker": [
+          0.2683030978707253,
+          0.27092356906184656
+        ],
+        "started": [
+          99517,
+          105691
+        ],
+        "warmupP50": [
+          0.0448,
+          0.046336
+        ],
+        "warmupSeconds": [
+          2.000008489,
+          2.000052166
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-1KB",
+      "conc": 1,
+      "client": "mimicry-udp208k",
+      "result": {
+        "requests": 104482,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000366536,
+        "rps": 20894.66827037417,
+        "mbps": 21.396140308863153,
+        "p50": 0.0448,
+        "p95": 0.062208,
+        "p99": 0.102912,
+        "warmupSeconds": 2.000024038,
+        "warmupP50": 0.0448,
+        "started": 104481,
+        "complete": 104480,
+        "clientCores": 1.1614432578468084,
+        "cpuPerRequest": 55.658188692215155,
+        "bytesPerRequest": 10848.933651417905,
+        "allocsPerRequest": 86.08273858838326,
+        "gcs": 149,
+        "gcPauseMs": 9.710768,
+        "gcPauseMaxMs": 0.848573,
+        "heapPeakMb": 9.952352,
+        "goroutines": 14,
+        "serverCpu": 0.06703548581623418,
+        "serverWorker": 0.2680847474578012
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          86.07721830784213,
+          86.08278060125764
+        ],
+        "bytesPerRequest": [
+          10848.64669378091,
+          10849.107799504216
+        ],
+        "clientCores": [
+          1.1424482212990348,
+          1.165860256274569
+        ],
+        "complete": [
+          100182,
+          104741
+        ],
+        "cpuPerRequest": [
+          55.58562800892028,
+          57.02208957607578
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.187003,
+          1.091592
+        ],
+        "gcPauseMs": [
+          9.130868,
+          11.74252
+        ],
+        "gcs": [
+          142,
+          149
+        ],
+        "goroutines": [
+          14,
+          14
+        ],
+        "heapPeakMb": [
+          9.929008,
+          10.036944
+        ],
+        "mbps": [
+          20.51603137148172,
+          21.44951049390042
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          0.0448,
+          0.045824
+        ],
+        "p95": [
+          0.061696,
+          0.072192
+        ],
+        "p99": [
+          0.100864,
+          0.114176
+        ],
+        "requests": [
+          100184,
+          104743
+        ],
+        "rps": [
+          20035.186886212618,
+          20946.787591699627
+        ],
+        "seconds": [
+          5.000352658,
+          5.000384882
+        ],
+        "serverCpu": [
+          0.06698299389026911,
+          0.06796080661557212
+        ],
+        "serverWorker": [
+          0.26786138099519197,
+          0.2717848305810434
+        ],
+        "started": [
+          100183,
+          104742
+        ],
+        "warmupP50": [
+          0.0448,
+          0.046336
+        ],
+        "warmupSeconds": [
+          2.000015837,
+          2.000034165
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-1KB",
+      "conc": 1,
+      "client": "mimicry-udp2m",
+      "result": {
+        "requests": 104383,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.00034774,
+        "rps": 20873.729590375537,
+        "mbps": 21.37469910054455,
+        "p50": 0.0448,
+        "p95": 0.06272,
+        "p99": 0.105984,
+        "warmupSeconds": 2.0000354,
+        "warmupP50": 0.0448,
+        "started": 104382,
+        "complete": 104381,
+        "clientCores": 1.1610912079544435,
+        "cpuPerRequest": 55.65687880205897,
+        "bytesPerRequest": 10848.845967867728,
+        "allocsPerRequest": 86.07958268667012,
+        "gcs": 149,
+        "gcPauseMs": 9.027925,
+        "gcPauseMaxMs": 0.824484,
+        "heapPeakMb": 9.743264,
+        "goroutines": 14,
+        "serverCpu": 0.06738861894628423,
+        "serverWorker": 0.2695330772556781
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          86.07955388213817,
+          86.08306036499768
+        ],
+        "bytesPerRequest": [
+          10848.13251326857,
+          10848.948675528172
+        ],
+        "clientCores": [
+          1.1417325947814982,
+          1.162139325656646
+        ],
+        "complete": [
+          102575,
+          105173
+        ],
+        "cpuPerRequest": [
+          55.20237891494096,
+          55.67473319154644
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.148774,
+          1.453386
+        ],
+        "gcPauseMs": [
+          8.964485,
+          10.353717
+        ],
+        "gcs": [
+          146,
+          150
+        ],
+        "goroutines": [
+          13,
+          14
+        ],
+        "heapPeakMb": [
+          9.096016,
+          9.894888
+        ],
+        "mbps": [
+          21.006103867488225,
+          21.53815506352299
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          0.0448,
+          0.0448
+        ],
+        "p95": [
+          0.061184,
+          0.067072
+        ],
+        "p99": [
+          0.09984,
+          0.112128
+        ],
+        "requests": [
+          102577,
+          105175
+        ],
+        "rps": [
+          20513.77330809397,
+          21033.354554221667
+        ],
+        "seconds": [
+          5.000343608,
+          5.000639658
+        ],
+        "serverCpu": [
+          0.06718650472295239,
+          0.06769154218862387
+        ],
+        "serverWorker": [
+          0.2686810272062999,
+          0.27071577225947097
+        ],
+        "started": [
+          102576,
+          105174
+        ],
+        "warmupP50": [
+          0.0448,
+          0.0448
+        ],
+        "warmupSeconds": [
+          2.000029834,
+          2.000074941
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-1KB",
+      "conc": 1,
+      "client": "mimicry-udp7m",
+      "result": {
+        "requests": 104687,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000440307,
+        "rps": 20935.2445351101,
+        "mbps": 21.437690403952743,
+        "p50": 0.0448,
+        "p95": 0.061696,
+        "p99": 0.103936,
+        "warmupSeconds": 2.000052494,
+        "warmupP50": 0.045312,
+        "started": 104686,
+        "complete": 104685,
+        "clientCores": 1.1556982515425354,
+        "cpuPerRequest": 55.20347515427087,
+        "bytesPerRequest": 10849.30500735533,
+        "allocsPerRequest": 86.08443785689177,
+        "gcs": 148,
+        "gcPauseMs": 9.215037,
+        "gcPauseMaxMs": 0.188255,
+        "heapPeakMb": 10.008232,
+        "goroutines": 14,
+        "serverCpu": 0.06713748777883372,
+        "serverWorker": 0.26848075720864717
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          86.08434860418693,
+          86.08452897235543
+        ],
+        "bytesPerRequest": [
+          10849.155589643744,
+          10849.438797518267
+        ],
+        "clientCores": [
+          1.152640096899371,
+          1.159645427598319
+        ],
+        "complete": [
+          101696,
+          105248
+        ],
+        "cpuPerRequest": [
+          55.09468023449155,
+          56.675300156346786
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.174282,
+          0.494668
+        ],
+        "gcPauseMs": [
+          8.889016,
+          9.635668
+        ],
+        "gcs": [
+          144,
+          150
+        ],
+        "goroutines": [
+          14,
+          15
+        ],
+        "heapPeakMb": [
+          9.962056,
+          10.2054
+        ],
+        "mbps": [
+          20.825711658675342,
+          21.55338614919974
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          0.0448,
+          0.045312
+        ],
+        "p95": [
+          0.061696,
+          0.06912
+        ],
+        "p99": [
+          0.100864,
+          0.112128
+        ],
+        "requests": [
+          101698,
+          105250
+        ],
+        "rps": [
+          20337.60904167514,
+          21048.22866132787
+        ],
+        "seconds": [
+          5.000373271,
+          5.000467027
+        ],
+        "serverCpu": [
+          0.06701939002706676,
+          0.06742631634229453
+        ],
+        "serverWorker": [
+          0.2680223652637636,
+          0.26965266929569587
+        ],
+        "started": [
+          101697,
+          105249
+        ],
+        "warmupP50": [
+          0.0448,
+          0.045312
+        ],
+        "warmupSeconds": [
+          2.000047884,
+          2.00006106
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-1KB",
+      "conc": 1,
+      "client": "tls-client",
+      "result": {
+        "requests": 76961,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000391141,
+        "rps": 15390.796005731905,
+        "mbps": 15.760175109869472,
+        "p50": 0.060672,
+        "p95": 0.086528,
+        "p99": 0.142336,
+        "warmupSeconds": 2.000060268,
+        "warmupP50": 0.061184,
+        "started": 76960,
+        "complete": 76959,
+        "clientCores": 1.0386002085704957,
+        "cpuPerRequest": 67.30002598752598,
+        "bytesPerRequest": 18790.924608518842,
+        "allocsPerRequest": 225.20947028423774,
+        "gcs": 194,
+        "gcPauseMs": 13.085718,
+        "gcPauseMaxMs": 0.194218,
+        "heapPeakMb": 9.664976,
+        "goroutines": 18,
+        "serverCpu": 0.05919937159206182,
+        "serverWorker": 0.23674509050898723
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          225.2021706408936,
+          225.21811330561331
+        ],
+        "bytesPerRequest": [
+          18784.81268191268,
+          18796.034315245477
+        ],
+        "clientCores": [
+          1.0358009711544685,
+          1.0399116178646635
+        ],
+        "complete": [
+          75737,
+          77399
+        ],
+        "cpuPerRequest": [
+          67.18306201550388,
+          68.57065145633632
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.191522,
+          1.643126
+        ],
+        "gcPauseMs": [
+          12.445496,
+          15.675628
+        ],
+        "gcs": [
+          190,
+          195
+        ],
+        "goroutines": [
+          18,
+          18
+        ],
+        "heapPeakMb": [
+          9.515888,
+          9.686568
+        ],
+        "mbps": [
+          15.509938887680082,
+          15.850267385069092
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          0.06016,
+          0.061184
+        ],
+        "p95": [
+          0.086528,
+          0.091648
+        ],
+        "p99": [
+          0.140288,
+          0.146432
+        ],
+        "requests": [
+          75739,
+          77401
+        ],
+        "rps": [
+          15146.424695000082,
+          15478.776743231536
+        ],
+        "seconds": [
+          5.000387981,
+          5.00039514
+        ],
+        "serverCpu": [
+          0.05884398393045413,
+          0.05954579183988679
+        ],
+        "serverWorker": [
+          0.23531334057896175,
+          0.2381199723031827
+        ],
+        "started": [
+          75738,
+          77400
+        ],
+        "warmupP50": [
+          0.060672,
+          0.061696
+        ],
+        "warmupSeconds": [
+          2.000052682,
+          2.000095812
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-1KB",
+      "conc": 1,
+      "client": "net/http",
+      "result": {
+        "requests": 108301,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.00039126,
+        "rps": 21658.207965219826,
+        "mbps": 22.1780049563851,
+        "p50": 0.043264,
+        "p95": 0.06016,
+        "p99": 0.093696,
+        "warmupSeconds": 2.000036179,
+        "warmupP50": 0.043776,
+        "started": 108300,
+        "complete": 108299,
+        "clientCores": 1.0607735923448518,
+        "cpuPerRequest": 49.22124653739612,
+        "bytesPerRequest": 9800.171966759002,
+        "allocsPerRequest": 143.13164643057382,
+        "gcs": 142,
+        "gcPauseMs": 8.789593,
+        "gcPauseMaxMs": 0.227824,
+        "heapPeakMb": 9.654728,
+        "goroutines": 12,
+        "serverCpu": 0.06574366026435988,
+        "serverWorker": 0.2627292613605482
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          143.12997929332565,
+          143.1353647276085
+        ],
+        "bytesPerRequest": [
+          9799.209330968115,
+          9801.978007431711
+        ],
+        "clientCores": [
+          1.0576460856533292,
+          1.0660439938142814
+        ],
+        "complete": [
+          105762,
+          108798
+        ],
+        "cpuPerRequest": [
+          48.75304920081986,
+          50.00435880222762
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.145195,
+          0.409121
+        ],
+        "gcPauseMs": [
+          8.552365,
+          9.064864
+        ],
+        "gcs": [
+          139,
+          142
+        ],
+        "goroutines": [
+          12,
+          12
+        ],
+        "heapPeakMb": [
+          9.601952,
+          9.733992
+        ],
+        "mbps": [
+          21.658703714060255,
+          22.280291722612123
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          0.042752,
+          0.043776
+        ],
+        "p95": [
+          0.059136,
+          0.064256
+        ],
+        "p99": [
+          0.093696,
+          0.09984
+        ],
+        "requests": [
+          105764,
+          108800
+        ],
+        "rps": [
+          21151.077845761967,
+          21758.097385363402
+        ],
+        "seconds": [
+          5.000359829,
+          5.000413708
+        ],
+        "serverCpu": [
+          0.06561897767777623,
+          0.06645679962251594
+        ],
+        "serverWorker": [
+          0.2624033159354461,
+          0.2656494124021807
+        ],
+        "started": [
+          105763,
+          108799
+        ],
+        "warmupP50": [
+          0.043264,
+          0.043776
+        ],
+        "warmupSeconds": [
+          2.000026933,
+          2.000045774
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-1KB",
+      "conc": 64,
+      "client": "mimicry",
+      "result": {
+        "requests": 500663,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000398504,
+        "rps": 100112.02099183734,
+        "mbps": 102.51470949564144,
+        "p50": 0.569344,
+        "p95": 1.122304,
+        "p99": 1.695744,
+        "warmupSeconds": 2.000193316,
+        "warmupP50": 0.569344,
+        "started": 500599,
+        "complete": 500535,
+        "clientCores": 2.993809191012429,
+        "cpuPerRequest": 29.904592489013183,
+        "bytesPerRequest": 10874.058119119003,
+        "allocsPerRequest": 86.15413431897247,
+        "gcs": 495,
+        "gcPauseMs": 49.020785,
+        "gcPauseMaxMs": 2.324757,
+        "heapPeakMb": 20.405064,
+        "goroutines": 82,
+        "serverCpu": 0.2102500429033806,
+        "serverWorker": 0.8410001716135224
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          86.12619856172593,
+          86.2207082365484
+        ],
+        "bytesPerRequest": [
+          10873.676100679186,
+          10876.116156389977
+        ],
+        "clientCores": [
+          2.764404826239134,
+          3.0692858441459303
+        ],
+        "complete": [
+          414516,
+          519937
+        ],
+        "cpuPerRequest": [
+          29.514368241599538,
+          33.343968218361276
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          1.319618,
+          3.110747
+        ],
+        "gcPauseMs": [
+          34.921723,
+          57.355005
+        ],
+        "gcs": [
+          415,
+          520
+        ],
+        "goroutines": [
+          77,
+          85
+        ],
+        "heapPeakMb": [
+          18.767368,
+          20.701648
+        ],
+        "mbps": [
+          84.89543066772971,
+          106.48876773095044
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          0.561152,
+          0.651264
+        ],
+        "p95": [
+          1.056768,
+          1.466368
+        ],
+        "p99": [
+          1.51552,
+          2.244608
+        ],
+        "requests": [
+          414644,
+          520065
+        ],
+        "rps": [
+          82905.6940114548,
+          103992.93723725628
+        ],
+        "seconds": [
+          5.000349195,
+          5.000609487
+        ],
+        "serverCpu": [
+          0.1910593103668205,
+          0.21172776314474973
+        ],
+        "serverWorker": [
+          0.7642314421742007,
+          0.8469112525650321
+        ],
+        "started": [
+          414580,
+          520001
+        ],
+        "warmupP50": [
+          0.569344,
+          0.59392
+        ],
+        "warmupSeconds": [
+          2.000006992,
+          2.000246104
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-1KB",
+      "conc": 64,
+      "client": "mimicry-udpos",
+      "result": {
+        "requests": 503294,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000462824,
+        "rps": 100619.58798199617,
+        "mbps": 103.03445809356407,
+        "p50": 0.569344,
+        "p95": 1.122304,
+        "p99": 1.662976,
+        "warmupSeconds": 2.000098848,
+        "warmupP50": 0.569344,
+        "started": 503230,
+        "complete": 503166,
+        "clientCores": 3.0075537357911877,
+        "cpuPerRequest": 29.890340401009478,
+        "bytesPerRequest": 10873.573928712049,
+        "allocsPerRequest": 86.16011761716621,
+        "gcs": 501,
+        "gcPauseMs": 48.857712,
+        "gcPauseMaxMs": 6.761119,
+        "heapPeakMb": 19.939304,
+        "goroutines": 79,
+        "serverCpu": 0.210103699081634,
+        "serverWorker": 0.8402812313865047
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          86.11873298491743,
+          86.22755116802267
+        ],
+        "bytesPerRequest": [
+          10872.69898853407,
+          10877.432275636389
+        ],
+        "clientCores": [
+          2.733556042026486,
+          3.0443504003140647
+        ],
+        "complete": [
+          400868,
+          515507
+        ],
+        "cpuPerRequest": [
+          29.526798442891472,
+          34.092952954850425
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          1.283742,
+          9.480554
+        ],
+        "gcPauseMs": [
+          41.146393,
+          58.529981
+        ],
+        "gcs": [
+          394,
+          515
+        ],
+        "goroutines": [
+          77,
+          84
+        ],
+        "heapPeakMb": [
+          19.054856,
+          21.435312
+        ],
+        "mbps": [
+          82.10381162177632,
+          105.57916788544051
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          0.561152,
+          0.67584
+        ],
+        "p95": [
+          1.073152,
+          1.466368
+        ],
+        "p99": [
+          1.548288,
+          2.310144
+        ],
+        "requests": [
+          400996,
+          515635
+        ],
+        "rps": [
+          80179.50353689093,
+          103104.6561381255
+        ],
+        "seconds": [
+          5.000455008,
+          5.001312469
+        ],
+        "serverCpu": [
+          0.1904356200538781,
+          0.2106093049918053
+        ],
+        "serverWorker": [
+          0.761644689114659,
+          0.8424720167462642
+        ],
+        "started": [
+          400932,
+          515571
+        ],
+        "warmupP50": [
+          0.569344,
+          0.929792
+        ],
+        "warmupSeconds": [
+          2.000007591,
+          2.000182229
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-1KB",
+      "conc": 64,
+      "client": "mimicry-udp208k",
+      "result": {
+        "requests": 508802,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000418902,
+        "rps": 101739.27624274067,
+        "mbps": 104.18101887256647,
+        "p50": 0.569344,
+        "p95": 1.089536,
+        "p99": 1.613824,
+        "warmupSeconds": 2.000043764,
+        "warmupP50": 0.569344,
+        "started": 508738,
+        "complete": 508674,
+        "clientCores": 3.0232041147499844,
+        "cpuPerRequest": 29.715211532829212,
+        "bytesPerRequest": 10873.961807528025,
+        "allocsPerRequest": 86.14782629206725,
+        "gcs": 506,
+        "gcPauseMs": 39.659647,
+        "gcPauseMaxMs": 1.467251,
+        "heapPeakMb": 21.422648,
+        "goroutines": 79,
+        "serverCpu": 0.21189909700889295,
+        "serverWorker": 0.8475289936818977
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          86.12654039051468,
+          86.15501832906054
+        ],
+        "bytesPerRequest": [
+          10873.257235233968,
+          10874.463633386844
+        ],
+        "clientCores": [
+          2.970310114412839,
+          3.0618880669122452
+        ],
+        "complete": [
+          500780,
+          513362
+        ],
+        "cpuPerRequest": [
+          29.65673343396347,
+          29.820398305497395
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          1.188738,
+          2.477347
+        ],
+        "gcPauseMs": [
+          32.328664,
+          47.728746
+        ],
+        "gcs": [
+          498,
+          511
+        ],
+        "goroutines": [
+          77,
+          81
+        ],
+        "heapPeakMb": [
+          17.710888,
+          21.797792
+        ],
+        "mbps": [
+          102.56010035398742,
+          105.14190147286305
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          0.569344,
+          0.569344
+        ],
+        "p95": [
+          1.073152,
+          1.155072
+        ],
+        "p99": [
+          1.564672,
+          1.8432
+        ],
+        "requests": [
+          500908,
+          513490
+        ],
+        "rps": [
+          100156.34800194085,
+          102677.63815709282
+        ],
+        "seconds": [
+          5.000358493,
+          5.000621628
+        ],
+        "serverCpu": [
+          0.2051485447840806,
+          0.21328940744809113
+        ],
+        "serverWorker": [
+          0.8205111894540644,
+          0.8531058335060857
+        ],
+        "started": [
+          500844,
+          513426
+        ],
+        "warmupP50": [
+          0.561152,
+          0.569344
+        ],
+        "warmupSeconds": [
+          2.000007996,
+          2.00020449
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-1KB",
+      "conc": 64,
+      "client": "mimicry-udp2m",
+      "result": {
+        "requests": 501954,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000490625,
+        "rps": 100370.10697482798,
+        "mbps": 102.77898954222385,
+        "p50": 0.569344,
+        "p95": 1.10592,
+        "p99": 1.67936,
+        "warmupSeconds": 2.000009049,
+        "warmupP50": 0.577536,
+        "started": 501890,
+        "complete": 501826,
+        "clientCores": 3.0841953383855767,
+        "cpuPerRequest": 29.88851294134551,
+        "bytesPerRequest": 10874.404639928614,
+        "allocsPerRequest": 86.13442677804956,
+        "gcs": 504,
+        "gcPauseMs": 40.883974,
+        "gcPauseMaxMs": 2.566001,
+        "heapPeakMb": 19.760792,
+        "goroutines": 80,
+        "serverCpu": 0.2119915333652382,
+        "serverWorker": 0.8479209370249267
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          86.1320103278102,
+          86.17414701827201
+        ],
+        "bytesPerRequest": [
+          10874.121001140238,
+          10875.340243802673
+        ],
+        "clientCores": [
+          2.9999132412413796,
+          3.1130201348992625
+        ],
+        "complete": [
+          486067,
+          519945
+        ],
+        "cpuPerRequest": [
+          29.658495638528635,
+          32.02159914082251
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          1.132741,
+          2.684236
+        ],
+        "gcPauseMs": [
+          33.437039,
+          45.953007
+        ],
+        "gcs": [
+          491,
+          517
+        ],
+        "goroutines": [
+          78,
+          81
+        ],
+        "heapPeakMb": [
+          19.284704,
+          20.815552
+        ],
+        "mbps": [
+          99.54945111010981,
+          106.48604922510191
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          0.561152,
+          0.59392
+        ],
+        "p95": [
+          1.056768,
+          1.171456
+        ],
+        "p99": [
+          1.499136,
+          1.728512
+        ],
+        "requests": [
+          486195,
+          520073
+        ],
+        "rps": [
+          97216.26084971662,
+          103990.28244638858
+        ],
+        "seconds": [
+          5.000394276,
+          5.000544164
+        ],
+        "serverCpu": [
+          0.20578720713030033,
+          0.21217685819842705
+        ],
+        "serverWorker": [
+          0.823061037135731,
+          0.8486254417170267
+        ],
+        "started": [
+          486131,
+          520009
+        ],
+        "warmupP50": [
+          0.561152,
+          0.585728
+        ],
+        "warmupSeconds": [
+          2.000008366,
+          2.000078403
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-1KB",
+      "conc": 64,
+      "client": "mimicry-udp7m",
+      "result": {
+        "requests": 510406,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000492755,
+        "rps": 102005.14423185568,
+        "mbps": 104.45326769342022,
+        "p50": 0.561152,
+        "p95": 1.089536,
+        "p99": 1.630208,
+        "warmupSeconds": 2.000026209,
+        "warmupP50": 0.561152,
+        "started": 510342,
+        "complete": 510278,
+        "clientCores": 3.0369595889673966,
+        "cpuPerRequest": 29.694750663401496,
+        "bytesPerRequest": 10874.565205502997,
+        "allocsPerRequest": 86.162187604978,
+        "gcs": 508,
+        "gcPauseMs": 38.985989,
+        "gcPauseMaxMs": 1.620249,
+        "heapPeakMb": 18.055832,
+        "goroutines": 77,
+        "serverCpu": 0.20947121406287933,
+        "serverWorker": 0.8379256524175263
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          86.09916076050813,
+          86.1634644912872
+        ],
+        "bytesPerRequest": [
+          10871.494708460781,
+          10874.915580683008
+        ],
+        "clientCores": [
+          3.0166181092687134,
+          3.038735851046838
+        ],
+        "complete": [
+          507924,
+          511949
+        ],
+        "cpuPerRequest": [
+          29.65990054920588,
+          29.790025531848187
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          1.191501,
+          2.789075
+        ],
+        "gcPauseMs": [
+          37.271447,
+          45.634888
+        ],
+        "gcs": [
+          506,
+          509
+        ],
+        "goroutines": [
+          77,
+          78
+        ],
+        "heapPeakMb": [
+          17.857744,
+          19.389152
+        ],
+        "mbps": [
+          104.02569056416921,
+          104.85020386172124
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          0.561152,
+          0.569344
+        ],
+        "p95": [
+          1.073152,
+          1.10592
+        ],
+        "p99": [
+          1.564672,
+          1.695744
+        ],
+        "requests": [
+          508052,
+          512077
+        ],
+        "rps": [
+          101587.5884415715,
+          102392.77720871214
+        ],
+        "seconds": [
+          5.000469896,
+          5.00311042
+        ],
+        "serverCpu": [
+          0.2068556641674406,
+          0.2148921190510123
+        ],
+        "serverWorker": [
+          0.8273510637253189,
+          0.8595245035587283
+        ],
+        "started": [
+          507988,
+          512013
+        ],
+        "warmupP50": [
+          0.561152,
+          0.569344
+        ],
+        "warmupSeconds": [
+          2.000009962,
+          2.000323144
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-1KB",
+      "conc": 64,
+      "client": "tls-client",
+      "result": {
+        "requests": 331689,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000420619,
+        "rps": 66320.11098948591,
+        "mbps": 67.91179365323357,
+        "p50": 0.913408,
+        "p95": 1.8432,
+        "p99": 2.506752,
+        "warmupSeconds": 2.000044126,
+        "warmupP50": 0.913408,
+        "started": 331625,
+        "complete": 331561,
+        "clientCores": 3.166391332354821,
+        "cpuPerRequest": 47.74405960895944,
+        "bytesPerRequest": 18837.313309825735,
+        "allocsPerRequest": 225.55635852227067,
+        "gcs": 543,
+        "gcPauseMs": 39.716739,
+        "gcPauseMaxMs": 2.056127,
+        "heapPeakMb": 20.648288,
+        "goroutines": 143,
+        "serverCpu": 0.2035769746342494,
+        "serverWorker": 0.8142333050318241
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          225.55112957892578,
+          225.55777582882303
+        ],
+        "bytesPerRequest": [
+          18835.739515360583,
+          18838.386795898983
+        ],
+        "clientCores": [
+          3.1558861148676502,
+          3.172609162189292
+        ],
+        "complete": [
+          328440,
+          332877
+        ],
+        "cpuPerRequest": [
+          47.649221185671976,
+          48.03825219784234
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          1.024724,
+          2.189349
+        ],
+        "gcPauseMs": [
+          38.219039,
+          40.560005
+        ],
+        "gcs": [
+          534,
+          544
+        ],
+        "goroutines": [
+          142,
+          148
+        ],
+        "heapPeakMb": [
+          20.358872,
+          21.998912
+        ],
+        "mbps": [
+          67.27196002708908,
+          68.18058514372377
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          0.905216,
+          0.913408
+        ],
+        "p95": [
+          1.8432,
+          1.8432
+        ],
+        "p99": [
+          2.473984,
+          2.506752
+        ],
+        "requests": [
+          328568,
+          333005
+        ],
+        "rps": [
+          65695.27346395417,
+          66582.60267941775
+        ],
+        "seconds": [
+          5.000413827,
+          5.000435348
+        ],
+        "serverCpu": [
+          0.20259653201698902,
+          0.205267882085741
+        ],
+        "serverWorker": [
+          0.8103267329838139,
+          0.8209127417006998
+        ],
+        "started": [
+          328504,
+          332941
+        ],
+        "warmupP50": [
+          0.905216,
+          0.913408
+        ],
+        "warmupSeconds": [
+          2.000034723,
+          2.000072295
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-1KB",
+      "conc": 64,
+      "client": "net/http",
+      "result": {
+        "requests": 504091,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000859632,
+        "rps": 100785.62519213608,
+        "mbps": 103.20448019674735,
+        "p50": 0.55296,
+        "p95": 1.286144,
+        "p99": 1.8432,
+        "warmupSeconds": 2.000094851,
+        "warmupP50": 0.544768,
+        "started": 504027,
+        "complete": 503963,
+        "clientCores": 2.745260943175554,
+        "cpuPerRequest": 27.05731274701205,
+        "bytesPerRequest": 9848.925760593365,
+        "allocsPerRequest": 143.1533577766138,
+        "gcs": 487,
+        "gcPauseMs": 32.819015,
+        "gcPauseMaxMs": 0.970989,
+        "heapPeakMb": 17.795496,
+        "goroutines": 138,
+        "serverCpu": 0.1532580508950386,
+        "serverWorker": 0.6129626155441749
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          143.1447938230302,
+          143.18031071467752
+        ],
+        "bytesPerRequest": [
+          9848.081218354682,
+          9849.460797799175
+        ],
+        "clientCores": [
+          2.726988181226762,
+          2.7494350995213055
+        ],
+        "complete": [
+          473941,
+          509564
+        ],
+        "cpuPerRequest": [
+          26.97918902744121,
+          28.960637462974997
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.55102,
+          1.085802
+        ],
+        "gcPauseMs": [
+          32.148024,
+          39.827814
+        ],
+        "gcs": [
+          456,
+          493
+        ],
+        "goroutines": [
+          124,
+          138
+        ],
+        "heapPeakMb": [
+          17.723024,
+          22.704664
+        ],
+        "mbps": [
+          97.06786355810384,
+          104.35530656782089
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          0.544768,
+          0.59392
+        ],
+        "p95": [
+          1.26976,
+          1.35168
+        ],
+        "p99": [
+          1.8432,
+          1.908736
+        ],
+        "requests": [
+          474069,
+          509692
+        ],
+        "rps": [
+          94792.83550596079,
+          101909.47907013759
+        ],
+        "seconds": [
+          5.0004201,
+          5.000951267
+        ],
+        "serverCpu": [
+          0.15282227504257742,
+          0.1625308441584738
+        ],
+        "serverWorker": [
+          0.611189919039857,
+          0.65005578231317
+        ],
+        "started": [
+          474005,
+          509628
+        ],
+        "warmupP50": [
+          0.536576,
+          0.59392
+        ],
+        "warmupSeconds": [
+          2.000069427,
+          2.000216601
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-1KB",
+      "conc": 256,
+      "client": "mimicry",
+      "result": {
+        "requests": 545615,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000454184,
+        "rps": 109061.12697274328,
+        "mbps": 111.67859402008914,
+        "p50": 2.113536,
+        "p95": 4.046848,
+        "p99": 5.472256,
+        "warmupSeconds": 2.000021691,
+        "warmupP50": 2.072576,
+        "started": 545359,
+        "complete": 545103,
+        "clientCores": 3.169803594144827,
+        "cpuPerRequest": 29.06446762591247,
+        "bytesPerRequest": 10882.820087318629,
+        "allocsPerRequest": 86.59276916673237,
+        "gcs": 336,
+        "gcPauseMs": 34.071566,
+        "gcPauseMaxMs": 2.910032,
+        "heapPeakMb": 34.3936,
+        "goroutines": 273,
+        "serverCpu": 0.20411990569878985,
+        "serverWorker": 0.8163828307825913
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          86.5601255094185,
+          86.63166157491418
+        ],
+        "bytesPerRequest": [
+          10882.355438152885,
+          10886.041045743399
+        ],
+        "clientCores": [
+          2.8010067655086432,
+          3.2432545614443824
+        ],
+        "complete": [
+          412503,
+          566064
+        ],
+        "cpuPerRequest": [
+          28.63622574744143,
+          33.933375165653565
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          2.263483,
+          3.5698
+        ],
+        "gcPauseMs": [
+          32.407463,
+          52.444478
+        ],
+        "gcs": [
+          256,
+          349
+        ],
+        "goroutines": [
+          272,
+          292
+        ],
+        "heapPeakMb": [
+          33.378584,
+          34.709176
+        ],
+        "mbps": [
+          84.52536518630765,
+          115.97522313902618
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          2.056192,
+          2.670592
+        ],
+        "p95": [
+          3.915776,
+          6.06208
+        ],
+        "p99": [
+          5.07904,
+          9.240576
+        ],
+        "requests": [
+          413015,
+          566576
+        ],
+        "rps": [
+          82544.30193975357,
+          113257.05384670527
+        ],
+        "seconds": [
+          5.000412608,
+          5.000489314
+        ],
+        "serverCpu": [
+          0.17168120502871506,
+          0.20706348618746392
+        ],
+        "serverWorker": [
+          0.6866372280714412,
+          0.8281893510711741
+        ],
+        "started": [
+          412759,
+          566320
+        ],
+        "warmupP50": [
+          2.056192,
+          2.572288
+        ],
+        "warmupSeconds": [
+          2.000011203,
+          2.000157374
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-1KB",
+      "conc": 256,
+      "client": "mimicry-udpos",
+      "result": {
+        "requests": 461819,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000495027,
+        "rps": 92303.64190976127,
+        "mbps": 94.51892931559553,
+        "p50": 2.506752,
+        "p95": 4.620288,
+        "p99": 6.520832,
+        "warmupSeconds": 2.000015633,
+        "warmupP50": 2.8672,
+        "started": 461563,
+        "complete": 461307,
+        "clientCores": 2.954171721047089,
+        "cpuPerRequest": 32.00493133234302,
+        "bytesPerRequest": 10929.121709181522,
+        "allocsPerRequest": 86.82805955252725,
+        "gcs": 281,
+        "gcPauseMs": 34.567502,
+        "gcPauseMaxMs": 2.107164,
+        "heapPeakMb": 35.894224,
+        "goroutines": 272,
+        "serverCpu": 0.2016346370821018,
+        "serverWorker": 0.8063815638707164
+      },
+      "udp": {
+        "rcvbufErrors": 1261,
+        "inErrors": 1261
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          86.82604103458446,
+          86.82861804760569
+        ],
+        "bytesPerRequest": [
+          10924.341343618926,
+          10935.540960568678
+        ],
+        "clientCores": [
+          2.935896266832223,
+          3.068669669192972
+        ],
+        "complete": [
+          420787,
+          501014
+        ],
+        "cpuPerRequest": [
+          30.611791388582965,
+          34.868744685803314
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          2.05404,
+          5.476334
+        ],
+        "gcPauseMs": [
+          27.733948,
+          36.958518
+        ],
+        "gcs": [
+          255,
+          302
+        ],
+        "goroutines": [
+          269,
+          277
+        ],
+        "heapPeakMb": [
+          33.830048,
+          36.178232
+        ],
+        "mbps": [
+          86.21927185294469,
+          102.65056694544079
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          2.408448,
+          2.768896
+        ],
+        "p95": [
+          3.948544,
+          5.07904
+        ],
+        "p99": [
+          5.07904,
+          6.782976
+        ],
+        "requests": [
+          421299,
+          501526
+        ],
+        "rps": [
+          84198.5076688913,
+          100244.69428265702
+        ],
+        "seconds": [
+          5.000461325,
+          5.000587441
+        ],
+        "serverCpu": [
+          0.1922462633325643,
+          0.20424370545451626
+        ],
+        "serverWorker": [
+          0.7689210608486187,
+          0.8167152457678493
+        ],
+        "started": [
+          421043,
+          501270
+        ],
+        "warmupP50": [
+          2.408448,
+          3.35872
+        ],
+        "warmupSeconds": [
+          2.000011237,
+          2.000039225
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-1KB",
+      "conc": 256,
+      "client": "mimicry-udp208k",
+      "result": {
+        "requests": 434948,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000494898,
+        "rps": 86930.25837200112,
+        "mbps": 89.01658457292915,
+        "p50": 2.53952,
+        "p95": 5.275648,
+        "p99": 7.241728,
+        "warmupSeconds": 2.000025157,
+        "warmupP50": 2.37568,
+        "started": 434692,
+        "complete": 434436,
+        "clientCores": 2.875426191465739,
+        "cpuPerRequest": 32.58901955580537,
+        "bytesPerRequest": 10895.884892059954,
+        "allocsPerRequest": 86.77708785532248,
+        "gcs": 265,
+        "gcPauseMs": 42.116509,
+        "gcPauseMaxMs": 5.503606,
+        "heapPeakMb": 35.010816,
+        "goroutines": 271,
+        "serverCpu": 0.19699239487789358,
+        "serverWorker": 0.7878855868260941
+      },
+      "udp": {
+        "rcvbufErrors": 301,
+        "inErrors": 301
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          86.7426371788403,
+          86.78105509602653
+        ],
+        "bytesPerRequest": [
+          10893.777598734514,
+          10898.397018079077
+        ],
+        "clientCores": [
+          2.832971890076358,
+          3.1695674216381184
+        ],
+        "complete": [
+          433492,
+          528759
+        ],
+        "cpuPerRequest": [
+          29.964015678803477,
+          33.14961420504683
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          2.237848,
+          6.274714
+        ],
+        "gcPauseMs": [
+          29.747194,
+          44.701116
+        ],
+        "gcs": [
+          264,
+          320
+        ],
+        "goroutines": [
+          269,
+          277
+        ],
+        "heapPeakMb": [
+          34.206992,
+          35.731632
+        ],
+        "mbps": [
+          88.8226451701101,
+          108.31782610677895
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          2.277376,
+          2.637824
+        ],
+        "p95": [
+          3.85024,
+          5.40672
+        ],
+        "p99": [
+          5.07904,
+          8.35584
+        ],
+        "requests": [
+          434004,
+          529271
+        ],
+        "rps": [
+          86740.86442393567,
+          105779.12705740133
+        ],
+        "seconds": [
+          5.000435426,
+          5.00245803
+        ],
+        "serverCpu": [
+          0.18984220949404115,
+          0.210672082340289
+        ],
+        "serverWorker": [
+          0.7591544591952906,
+          0.842449446797258
+        ],
+        "started": [
+          433748,
+          529015
+        ],
+        "warmupP50": [
+          2.277376,
+          2.899968
+        ],
+        "warmupSeconds": [
+          2.00001414,
+          2.000227944
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-1KB",
+      "conc": 256,
+      "client": "mimicry-udp2m",
+      "result": {
+        "requests": 554028,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000467873,
+        "rps": 110743.83718973251,
+        "mbps": 113.40168928228609,
+        "p50": 2.072576,
+        "p95": 4.145152,
+        "p99": 5.799936,
+        "warmupSeconds": 2.000012254,
+        "warmupP50": 2.08896,
+        "started": 553772,
+        "complete": 553516,
+        "clientCores": 3.2150625518077396,
+        "cpuPerRequest": 29.031525666746724,
+        "bytesPerRequest": 10882.623239147582,
+        "allocsPerRequest": 86.58335742404289,
+        "gcs": 342,
+        "gcPauseMs": 42.232981,
+        "gcPauseMaxMs": 2.180376,
+        "heapPeakMb": 34.075704,
+        "goroutines": 277,
+        "serverCpu": 0.2003975978749379,
+        "serverWorker": 0.8015075992470035
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          86.55877429478973,
+          86.65352698035733
+        ],
+        "bytesPerRequest": [
+          10882.472646635522,
+          10885.015164837157
+        ],
+        "clientCores": [
+          2.8890723671028007,
+          3.2307391134706958
+        ],
+        "complete": [
+          441028,
+          560126
+        ],
+        "cpuPerRequest": [
+          28.828600847279176,
+          32.73936285929243
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          2.105273,
+          3.515351
+        ],
+        "gcPauseMs": [
+          31.149934,
+          42.435429
+        ],
+        "gcs": [
+          272,
+          347
+        ],
+        "goroutines": [
+          270,
+          293
+        ],
+        "heapPeakMb": [
+          32.45756,
+          35.707536
+        ],
+        "mbps": [
+          90.36248251464005,
+          114.75676081956733
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          2.072576,
+          2.506752
+        ],
+        "p95": [
+          3.883008,
+          5.668864
+        ],
+        "p99": [
+          4.947968,
+          7.70048
+        ],
+        "requests": [
+          441540,
+          560638
+        ],
+        "rps": [
+          88244.61183070317,
+          112067.14923785871
+        ],
+        "seconds": [
+          5.000412733,
+          5.00069059
+        ],
+        "serverCpu": [
+          0.1843343901027078,
+          0.2083653001529144
+        ],
+        "serverWorker": [
+          0.7371443870915438,
+          0.833359808981192
+        ],
+        "started": [
+          441284,
+          560382
+        ],
+        "warmupP50": [
+          2.00704,
+          2.113536
+        ],
+        "warmupSeconds": [
+          2.000009408,
+          2.000076268
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-1KB",
+      "conc": 256,
+      "client": "mimicry-udp7m",
+      "result": {
+        "requests": 555065,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000550493,
+        "rps": 110947.65364161195,
+        "mbps": 113.61039732901064,
+        "p50": 2.072576,
+        "p95": 4.01408,
+        "p99": 5.40672,
+        "warmupSeconds": 2.000104138,
+        "warmupP50": 2.039808,
+        "started": 554809,
+        "complete": 554553,
+        "clientCores": 3.2035615305277627,
+        "cpuPerRequest": 28.87453159555811,
+        "bytesPerRequest": 10883.442582942958,
+        "allocsPerRequest": 86.60440800347507,
+        "gcs": 343,
+        "gcPauseMs": 31.750248,
+        "gcPauseMaxMs": 2.423199,
+        "heapPeakMb": 34.858728,
+        "goroutines": 280,
+        "serverCpu": 0.20480685700825874,
+        "serverWorker": 0.8191364376262446
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          86.56325240516458,
+          86.62258587730986
+        ],
+        "bytesPerRequest": [
+          10882.53208370819,
+          10886.178408542355
+        ],
+        "clientCores": [
+          3.0927386937996464,
+          3.246363732625305
+        ],
+        "complete": [
+          517634,
+          564108
+        ],
+        "cpuPerRequest": [
+          28.766057126476092,
+          29.86231825291085
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          1.057033,
+          2.831579
+        ],
+        "gcPauseMs": [
+          30.192799,
+          33.130293
+        ],
+        "gcs": [
+          321,
+          348
+        ],
+        "goroutines": [
+          269,
+          283
+        ],
+        "heapPeakMb": [
+          33.11708,
+          37.313784
+        ],
+        "mbps": [
+          106.05219580171529,
+          115.56246473378064
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          2.056192,
+          2.179072
+        ],
+        "p95": [
+          3.883008,
+          4.42368
+        ],
+        "p99": [
+          5.07904,
+          6.324224
+        ],
+        "requests": [
+          518146,
+          564620
+        ],
+        "rps": [
+          103566.5974626126,
+          112853.96946658267
+        ],
+        "seconds": [
+          5.000527155,
+          5.000637524
+        ],
+        "serverCpu": [
+          0.19200191085841714,
+          0.2077334629863486
+        ],
+        "serverWorker": [
+          0.7679372511837568,
+          0.8308856580903422
+        ],
+        "started": [
+          517890,
+          564364
+        ],
+        "warmupP50": [
+          2.023424,
+          2.506752
+        ],
+        "warmupSeconds": [
+          2.000011352,
+          2.000419652
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-1KB",
+      "conc": 256,
+      "client": "tls-client",
+      "result": {
+        "requests": 333850,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000705662,
+        "rps": 66708.98520081704,
+        "mbps": 68.31000084563665,
+        "p50": 3.52256,
+        "p95": 6.324224,
+        "p99": 7.70048,
+        "warmupSeconds": 2.000031197,
+        "warmupP50": 3.588096,
+        "started": 333594,
+        "complete": 333338,
+        "clientCores": 3.2353077932464007,
+        "cpuPerRequest": 48.56416155953899,
+        "bytesPerRequest": 19058.852326071297,
+        "allocsPerRequest": 225.6228653899594,
+        "gcs": 354,
+        "gcPauseMs": 31.77196,
+        "gcPauseMaxMs": 1.12628,
+        "heapPeakMb": 34.360176,
+        "goroutines": 521,
+        "serverCpu": 0.20210762606567503,
+        "serverWorker": 0.8083569146485791
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          225.5846962756901,
+          226.0162650297644
+        ],
+        "bytesPerRequest": [
+          18995.77416724622,
+          19389.61425993693
+        ],
+        "clientCores": [
+          2.59521128508291,
+          3.2501484436741808
+        ],
+        "complete": [
+          236940,
+          334407
+        ],
+        "cpuPerRequest": [
+          48.49883090721601,
+          54.72533263630078
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.803566,
+          11.53498
+        ],
+        "gcPauseMs": [
+          30.62412,
+          61.357267
+        ],
+        "gcs": [
+          242,
+          354
+        ],
+        "goroutines": [
+          513,
+          528
+        ],
+        "heapPeakMb": [
+          33.677416,
+          36.040512
+        ],
+        "mbps": [
+          48.56062499585633,
+          68.5310298674073
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          3.489792,
+          5.210112
+        ],
+        "p95": [
+          6.193152,
+          8.84736
+        ],
+        "p99": [
+          7.569408,
+          11.730944
+        ],
+        "requests": [
+          237452,
+          334919
+        ],
+        "rps": [
+          47422.48534751595,
+          66924.83385488995
+        ],
+        "seconds": [
+          5.000580214,
+          5.001762313
+        ],
+        "serverCpu": [
+          0.1757890909199627,
+          0.20718225799067244
+        ],
+        "serverWorker": [
+          0.7030785910917794,
+          0.8286278437048585
+        ],
+        "started": [
+          237196,
+          334663
+        ],
+        "warmupP50": [
+          3.489792,
+          4.17792
+        ],
+        "warmupSeconds": [
+          2.000023419,
+          2.000088043
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-1KB",
+      "conc": 256,
+      "client": "net/http",
+      "result": {
+        "requests": 507766,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000763049,
+        "rps": 101493.76329927862,
+        "mbps": 103.9296136184613,
+        "p50": 2.342912,
+        "p95": 4.489216,
+        "p99": 5.603328,
+        "warmupSeconds": 2.000073098,
+        "warmupP50": 2.37568,
+        "started": 507510,
+        "complete": 507254,
+        "clientCores": 2.7034828608532657,
+        "cpuPerRequest": 27.06108565418873,
+        "bytesPerRequest": 9856.293967621186,
+        "allocsPerRequest": 142.82869089439828,
+        "gcs": 291,
+        "gcPauseMs": 26.674838,
+        "gcPauseMaxMs": 1.517903,
+        "heapPeakMb": 32.306128,
+        "goroutines": 492,
+        "serverCpu": 0.13987965186493095,
+        "serverWorker": 0.5594866146067032
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          142.81040618697472,
+          142.83098971977375
+        ],
+        "bytesPerRequest": [
+          9855.186444274826,
+          9860.812181712165
+        ],
+        "clientCores": [
+          2.5129163043453775,
+          2.746531422007735
+        ],
+        "complete": [
+          437854,
+          509452
+        ],
+        "cpuPerRequest": [
+          26.52542592345542,
+          28.68401406622639
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.38225,
+          2.290829
+        ],
+        "gcPauseMs": [
+          21.90813,
+          40.27487
+        ],
+        "gcs": [
+          253,
+          298
+        ],
+        "goroutines": [
+          486,
+          537
+        ],
+        "heapPeakMb": [
+          31.823608,
+          32.742184
+        ],
+        "mbps": [
+          89.70942106319345,
+          104.36652204953978
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          2.342912,
+          2.70336
+        ],
+        "p95": [
+          4.42368,
+          5.275648
+        ],
+        "p99": [
+          5.537792,
+          6.71744
+        ],
+        "requests": [
+          438366,
+          509964
+        ],
+        "rps": [
+          87606.85650702484,
+          101920.4316890037
+        ],
+        "seconds": [
+          5.000499135,
+          5.001116965
+        ],
+        "serverCpu": [
+          0.1272323830914629,
+          0.16399262910781406
+        ],
+        "serverWorker": [
+          0.5088979371875854,
+          0.6556841450188552
+        ],
+        "started": [
+          438110,
+          509708
+        ],
+        "warmupP50": [
+          2.342912,
+          3.325952
+        ],
+        "warmupSeconds": [
+          2.000027341,
+          2.000355418
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-100KB",
+      "conc": 1,
+      "client": "mimicry",
+      "result": {
+        "requests": 26171,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000403529,
+        "rps": 5233.450032572111,
+        "mbps": 535.9052833353842,
+        "p50": 0.185344,
+        "p95": 0.224256,
+        "p99": 0.292864,
+        "warmupSeconds": 2.000016377,
+        "warmupP50": 0.185344,
+        "started": 26170,
+        "complete": 26169,
+        "clientCores": 1.291684553564757,
+        "cpuPerRequest": 246.81320076154924,
+        "bytesPerRequest": 11857.25838234171,
+        "allocsPerRequest": 94.85713740166501,
+        "gcs": 41,
+        "gcPauseMs": 3.024486,
+        "gcPauseMaxMs": 0.155587,
+        "heapPeakMb": 10.020568,
+        "goroutines": 14,
+        "serverCpu": 0.14576743572248607,
+        "serverWorker": 0.5830655432288814
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          94.8532103644116,
+          94.86871401089597
+        ],
+        "bytesPerRequest": [
+          11852.08626259625,
+          11862.785852659026
+        ],
+        "clientCores": [
+          1.2799334967228544,
+          1.2925355868227306
+        ],
+        "complete": [
+          26045,
+          26185
+        ],
+        "cpuPerRequest": [
+          245.73135121409854,
+          246.81894905674787
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.136133,
+          0.690733
+        ],
+        "gcPauseMs": [
+          2.985765,
+          3.63177
+        ],
+        "gcs": [
+          40,
+          41
+        ],
+        "goroutines": [
+          14,
+          14
+        ],
+        "heapPeakMb": [
+          9.837632,
+          10.061016
+        ],
+        "mbps": [
+          533.3677994967237,
+          536.2458781891045
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          0.185344,
+          0.185344
+        ],
+        "p95": [
+          0.224256,
+          0.228352
+        ],
+        "p99": [
+          0.284672,
+          0.29696
+        ],
+        "requests": [
+          26047,
+          26187
+        ],
+        "rps": [
+          5208.6699169601925,
+          5236.776154190474
+        ],
+        "seconds": [
+          5.000386361,
+          5.000404682
+        ],
+        "serverCpu": [
+          0.14522344613707405,
+          0.14578623477690905
+        ],
+        "serverWorker": [
+          0.5808099913302176,
+          0.5831201410238387
+        ],
+        "started": [
+          26046,
+          26186
+        ],
+        "warmupP50": [
+          0.185344,
+          0.185344
+        ],
+        "warmupSeconds": [
+          2.00001091,
+          2.00008648
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-100KB",
+      "conc": 1,
+      "client": "mimicry-udpos",
+      "result": {
+        "requests": 26181,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000379032,
+        "rps": 5235.602067017776,
+        "mbps": 536.1256516626202,
+        "p50": 0.185344,
+        "p95": 0.224256,
+        "p99": 0.280576,
+        "warmupSeconds": 2.000018221,
+        "warmupP50": 0.185344,
+        "started": 26180,
+        "complete": 26179,
+        "clientCores": 1.290232935587684,
+        "cpuPerRequest": 246.43449197860963,
+        "bytesPerRequest": 11854.398166539342,
+        "allocsPerRequest": 94.85763941940412,
+        "gcs": 40,
+        "gcPauseMs": 3.013283,
+        "gcPauseMaxMs": 0.141711,
+        "heapPeakMb": 9.993072,
+        "goroutines": 14,
+        "serverCpu": 0.1459823045857435,
+        "serverWorker": 0.5838674230397384
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          94.8482155294789,
+          94.86900517538815
+        ],
+        "bytesPerRequest": [
+          11849.695250268802,
+          11863.436917768833
+        ],
+        "clientCores": [
+          1.2850203872305177,
+          1.2916718671863028
+        ],
+        "complete": [
+          26084,
+          26204
+        ],
+        "cpuPerRequest": [
+          246.33271995399656,
+          246.46646660112907
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.135983,
+          0.346053
+        ],
+        "gcPauseMs": [
+          2.838582,
+          3.216627
+        ],
+        "gcs": [
+          40,
+          40
+        ],
+        "goroutines": [
+          14,
+          14
+        ],
+        "heapPeakMb": [
+          9.80644,
+          9.997032
+        ],
+        "mbps": [
+          534.1803057140729,
+          536.6539352143716
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          0.185344,
+          0.185344
+        ],
+        "p95": [
+          0.222208,
+          0.226304
+        ],
+        "p99": [
+          0.280576,
+          0.292864
+        ],
+        "requests": [
+          26086,
+          26206
+        ],
+        "rps": [
+          5216.6045479889935,
+          5240.761086077848
+        ],
+        "seconds": [
+          5.000349674,
+          5.000380026
+        ],
+        "serverCpu": [
+          0.1456656576108929,
+          0.14617562723674432
+        ],
+        "serverWorker": [
+          0.5826182338091206,
+          0.5846489126952205
+        ],
+        "started": [
+          26085,
+          26205
+        ],
+        "warmupP50": [
+          0.185344,
+          0.185344
+        ],
+        "warmupSeconds": [
+          2.000016186,
+          2.000043242
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-100KB",
+      "conc": 1,
+      "client": "mimicry-udp208k",
+      "result": {
+        "requests": 23878,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000362537,
+        "rps": 4775.0537732660405,
+        "mbps": 488.9655063824426,
+        "p50": 0.193536,
+        "p95": 0.284672,
+        "p99": 0.382976,
+        "warmupSeconds": 2.000057519,
+        "warmupP50": 0.185344,
+        "started": 23877,
+        "complete": 23876,
+        "clientCores": 1.2086137665581826,
+        "cpuPerRequest": 253.10998031578507,
+        "bytesPerRequest": 11877.036502931916,
+        "allocsPerRequest": 94.88925915051487,
+        "gcs": 37,
+        "gcPauseMs": 4.299488,
+        "gcPauseMaxMs": 0.859851,
+        "heapPeakMb": 9.983928,
+        "goroutines": 14,
+        "serverCpu": 0.1424123740490299,
+        "serverWorker": 0.5695771014452746
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          94.86265037141504,
+          94.89625999916237
+        ],
+        "bytesPerRequest": [
+          11857.737620028305,
+          11881.62566486577
+        ],
+        "clientCores": [
+          1.202409620371114,
+          1.2896516340893849
+        ],
+        "complete": [
+          23391,
+          26377
+        ],
+        "cpuPerRequest": [
+          244.47170633247237,
+          257.03878508934247
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.685523,
+          1.019452
+        ],
+        "gcPauseMs": [
+          3.413108,
+          4.591326
+        ],
+        "gcs": [
+          36,
+          41
+        ],
+        "goroutines": [
+          14,
+          14
+        ],
+        "heapPeakMb": [
+          9.973064,
+          10.003896
+        ],
+        "mbps": [
+          479.0201022900308,
+          540.1865488317732
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          0.185344,
+          0.195584
+        ],
+        "p95": [
+          0.22016,
+          0.305152
+        ],
+        "p99": [
+          0.272384,
+          0.444416
+        ],
+        "requests": [
+          23393,
+          26379
+        ],
+        "rps": [
+          4677.9306864260825,
+          5275.259265935285
+        ],
+        "seconds": [
+          5.000330965,
+          5.000405767
+        ],
+        "serverCpu": [
+          0.13963691798933964,
+          0.1467616354070675
+        ],
+        "serverWorker": [
+          0.5585078751870017,
+          0.5870141437727813
+        ],
+        "started": [
+          23392,
+          26378
+        ],
+        "warmupP50": [
+          0.185344,
+          0.193536
+        ],
+        "warmupSeconds": [
+          2.000011558,
+          2.000338553
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-100KB",
+      "conc": 1,
+      "client": "mimicry-udp2m",
+      "result": {
+        "requests": 23703,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000431041,
+        "rps": 4739.798891394885,
+        "mbps": 485.3554064788362,
+        "p50": 0.197632,
+        "p95": 0.284672,
+        "p99": 0.37888,
+        "warmupSeconds": 2.000019266,
+        "warmupP50": 0.197632,
+        "started": 23702,
+        "complete": 23701,
+        "clientCores": 1.220519301321014,
+        "cpuPerRequest": 255.78177383653147,
+        "bytesPerRequest": 11858.786569687767,
+        "allocsPerRequest": 94.85741659506442,
+        "gcs": 37,
+        "gcPauseMs": 3.007352,
+        "gcPauseMaxMs": 0.34793,
+        "heapPeakMb": 9.998584,
+        "goroutines": 14,
+        "serverCpu": 0.1459442684073203,
+        "serverWorker": 0.5837000802667404
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          94.83496794463551,
+          94.88013165717203
+        ],
+        "bytesPerRequest": [
+          11843.189062964379,
+          11876.742497726107
+        ],
+        "clientCores": [
+          1.2123541680694092,
+          1.282915802137946
+        ],
+        "complete": [
+          23552,
+          26067
+        ],
+        "cpuPerRequest": [
+          246.08825304781243,
+          259.1215980979068
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.147562,
+          0.499444
+        ],
+        "gcPauseMs": [
+          2.976386,
+          3.347204
+        ],
+        "gcs": [
+          37,
+          40
+        ],
+        "goroutines": [
+          14,
+          14
+        ],
+        "heapPeakMb": [
+          9.78124,
+          10.007976
+        ],
+        "mbps": [
+          482.3263570952846,
+          533.835225826085
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          0.185344,
+          0.197632
+        ],
+        "p95": [
+          0.228352,
+          0.284672
+        ],
+        "p99": [
+          0.292864,
+          0.387072
+        ],
+        "requests": [
+          23554,
+          26069
+        ],
+        "rps": [
+          4710.218331008638,
+          5213.234627207861
+        ],
+        "seconds": [
+          5.00040515,
+          5.000487613
+        ],
+        "serverCpu": [
+          0.1419426573830011,
+          0.14854261359202064
+        ],
+        "serverWorker": [
+          0.5677148349732348,
+          0.5940830614495307
+        ],
+        "started": [
+          23553,
+          26068
+        ],
+        "warmupP50": [
+          0.185344,
+          0.201728
+        ],
+        "warmupSeconds": [
+          2.0000111,
+          2.00004136
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-100KB",
+      "conc": 1,
+      "client": "mimicry-udp7m",
+      "result": {
+        "requests": 24704,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000369453,
+        "rps": 4940.231259162724,
+        "mbps": 505.87968093826294,
+        "p50": 0.191488,
+        "p95": 0.26112,
+        "p99": 0.33792,
+        "warmupSeconds": 2.000016617,
+        "warmupP50": 0.216064,
+        "started": 24703,
+        "complete": 24702,
+        "clientCores": 1.2583012558012479,
+        "cpuPerRequest": 254.07962595636158,
+        "bytesPerRequest": 11861.626379695259,
+        "allocsPerRequest": 94.86149829754427,
+        "gcs": 38,
+        "gcPauseMs": 2.727729,
+        "gcPauseMaxMs": 0.139773,
+        "heapPeakMb": 10.029568,
+        "goroutines": 14,
+        "serverCpu": 0.14504222399038447,
+        "serverWorker": 0.5801039008128018
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          94.83900740800712,
+          94.8678607088345
+        ],
+        "bytesPerRequest": [
+          11846.371048050843,
+          11861.890835540964
+        ],
+        "clientCores": [
+          1.2552121104659901,
+          1.2920953263010824
+        ],
+        "complete": [
+          24560,
+          26274
+        ],
+        "cpuPerRequest": [
+          245.9013261958381,
+          256.1789272640156
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.136082,
+          0.352589
+        ],
+        "gcPauseMs": [
+          2.661657,
+          2.783757
+        ],
+        "gcs": [
+          38,
+          40
+        ],
+        "goroutines": [
+          14,
+          14
+        ],
+        "heapPeakMb": [
+          9.955352,
+          10.046192
+        ],
+        "mbps": [
+          502.9689598990946,
+          538.063634955175
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          0.185344,
+          0.193536
+        ],
+        "p95": [
+          0.224256,
+          0.27648
+        ],
+        "p99": [
+          0.284672,
+          0.362496
+        ],
+        "requests": [
+          24562,
+          26276
+        ],
+        "rps": [
+          4911.806249014597,
+          5254.52768510913
+        ],
+        "seconds": [
+          5.000343893,
+          5.000373202
+        ],
+        "serverCpu": [
+          0.1441202876083867,
+          0.1456992341961657
+        ],
+        "serverWorker": [
+          0.5764011559354563,
+          0.5827005439071904
+        ],
+        "started": [
+          24561,
+          26275
+        ],
+        "warmupP50": [
+          0.185344,
+          0.228352
+        ],
+        "warmupSeconds": [
+          2.000006008,
+          2.000021629
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-100KB",
+      "conc": 1,
+      "client": "tls-client",
+      "result": {
+        "requests": 22384,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000420222,
+        "rps": 4476.418410398457,
+        "mbps": 458.38524522480196,
+        "p50": 0.216064,
+        "p95": 0.264192,
+        "p99": 0.366592,
+        "warmupSeconds": 2.000064855,
+        "warmupP50": 0.218112,
+        "started": 22383,
+        "complete": 22382,
+        "clientCores": 1.202427499789237,
+        "cpuPerRequest": 268.6137419585418,
+        "bytesPerRequest": 30249.494273601667,
+        "allocsPerRequest": 467.13911722659043,
+        "gcs": 87,
+        "gcPauseMs": 6.692949,
+        "gcPauseMaxMs": 0.707526,
+        "heapPeakMb": 9.964688,
+        "goroutines": 18,
+        "serverCpu": 0.11962588743491247,
+        "serverWorker": 0.4785027497975767
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          467.13664029174674,
+          467.2072272626029
+        ],
+        "bytesPerRequest": [
+          30241.310933178283,
+          30256.732308791994
+        ],
+        "clientCores": [
+          1.1989984308962744,
+          1.2024309274073088
+        ],
+        "complete": [
+          21594,
+          22408
+        ],
+        "cpuPerRequest": [
+          268.3037540876022,
+          277.64172874134397
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.225699,
+          0.892015
+        ],
+        "gcPauseMs": [
+          6.289875,
+          7.087478
+        ],
+        "gcs": [
+          84,
+          87
+        ],
+        "goroutines": [
+          18,
+          20
+        ],
+        "heapPeakMb": [
+          9.843288,
+          9.981096
+        ],
+        "mbps": [
+          442.2153682747026,
+          458.9161541373974
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          0.216064,
+          0.224256
+        ],
+        "p95": [
+          0.264192,
+          0.280576
+        ],
+        "p99": [
+          0.366592,
+          0.39936
+        ],
+        "requests": [
+          21596,
+          22410
+        ],
+        "rps": [
+          4318.509455807643,
+          4481.603067748022
+        ],
+        "seconds": [
+          5.000362069,
+          5.000426222
+        ],
+        "serverCpu": [
+          0.11893526143500013,
+          0.11994316944828963
+        ],
+        "serverWorker": [
+          0.4756144565310217,
+          0.4797004838606542
+        ],
+        "started": [
+          21595,
+          22409
+        ],
+        "warmupP50": [
+          0.216064,
+          0.31744
+        ],
+        "warmupSeconds": [
+          2.0000274,
+          2.000065282
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-100KB",
+      "conc": 1,
+      "client": "net/http",
+      "result": {
+        "requests": 24753,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000362203,
+        "rps": 4950.17409582372,
+        "mbps": 506.8978274123488,
+        "p50": 0.195584,
+        "p95": 0.24064,
+        "p99": 0.31744,
+        "warmupSeconds": 2.000029877,
+        "warmupP50": 0.197632,
+        "started": 24752,
+        "complete": 24751,
+        "clientCores": 1.1805328814897451,
+        "cpuPerRequest": 238.7521686697748,
+        "bytesPerRequest": 21292.5276499556,
+        "allocsPerRequest": 386.37692742391215,
+        "gcs": 68,
+        "gcPauseMs": 4.96309,
+        "gcPauseMaxMs": 0.161208,
+        "heapPeakMb": 9.966048,
+        "goroutines": 12,
+        "serverCpu": 0.12674224908250853,
+        "serverWorker": 0.5069231996004702
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          386.3628597698431,
+          386.4510949598594
+        ],
+        "bytesPerRequest": [
+          21289.35720909766,
+          21316.617357845233
+        ],
+        "clientCores": [
+          1.1239745379876227,
+          1.1818648006708545
+        ],
+        "complete": [
+          21050,
+          24773
+        ],
+        "cpuPerRequest": [
+          238.27771050294663,
+          266.9872690133485
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.143596,
+          0.270663
+        ],
+        "gcPauseMs": [
+          4.168123,
+          5.446696
+        ],
+        "gcs": [
+          58,
+          69
+        ],
+        "goroutines": [
+          12,
+          12
+        ],
+        "heapPeakMb": [
+          9.237144,
+          10.144896
+        ],
+        "mbps": [
+          431.0879433137997,
+          507.33476836497874
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          0.195584,
+          0.22016
+        ],
+        "p95": [
+          0.238592,
+          0.333824
+        ],
+        "p99": [
+          0.313344,
+          0.444416
+        ],
+        "requests": [
+          21052,
+          24775
+        ],
+        "rps": [
+          4209.843196423824,
+          4954.441097314246
+        ],
+        "seconds": [
+          5.00035706,
+          5.000423773
+        ],
+        "serverCpu": [
+          0.12650833566025976,
+          0.12806079625843744
+        ],
+        "serverWorker": [
+          0.5059645476245914,
+          0.5121153958644697
+        ],
+        "started": [
+          21051,
+          24774
+        ],
+        "warmupP50": [
+          0.197632,
+          0.20992
+        ],
+        "warmupSeconds": [
+          2.000022709,
+          2.000087462
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-100KB",
+      "conc": 64,
+      "client": "mimicry",
+      "result": {
+        "requests": 23700,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000434475,
+        "rps": 4724.622678521725,
+        "mbps": 483.8013622806247,
+        "p50": 14.221312,
+        "p95": 15.663104,
+        "p99": 16.908288,
+        "warmupSeconds": 2.000014855,
+        "warmupP50": 13.43488,
+        "started": 23636,
+        "complete": 23572,
+        "clientCores": 1.293760578674516,
+        "cpuPerRequest": 273.83363004965247,
+        "bytesPerRequest": 11511.917697572771,
+        "allocsPerRequest": 94.03214303042945,
+        "gcs": 26,
+        "gcPauseMs": 2.253984,
+        "gcPauseMaxMs": 0.166702,
+        "heapPeakMb": 15.507152,
+        "goroutines": 77,
+        "serverCpu": 0.24686429083198239,
+        "serverWorker": 0.9873915689368534,
+        "serverBound": "one server worker at 99% of a core"
+      },
+      "udp": {
+        "rcvbufErrors": 167,
+        "inErrors": 167
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          93.94462310942434,
+          94.54086713402425
+        ],
+        "bytesPerRequest": [
+          11471.35603399859,
+          11738.276469520524
+        ],
+        "clientCores": [
+          1.253761313487231,
+          1.4922108022480685
+        ],
+        "complete": [
+          21206,
+          30625
+        ],
+        "cpuPerRequest": [
+          243.04696802922612,
+          294.92828805938325
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.152698,
+          0.219377
+        ],
+        "gcPauseMs": [
+          2.159995,
+          3.101129
+        ],
+        "gcs": [
+          23,
+          34
+        ],
+        "goroutines": [
+          77,
+          77
+        ],
+        "heapPeakMb": [
+          15.390744,
+          16.16176
+        ],
+        "mbps": [
+          435.3097471451852,
+          628.6948872031511
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          9.895936,
+          14.876672
+        ],
+        "p95": [
+          15.007744,
+          17.956864
+        ],
+        "p99": [
+          16.449536,
+          19.791872
+        ],
+        "requests": [
+          21334,
+          30753
+        ],
+        "rps": [
+          4251.071749464699,
+          6139.598507843273
+        ],
+        "seconds": [
+          5.000427546,
+          5.000546701
+        ],
+        "serverCpu": [
+          0.2466705289950256,
+          0.24719816971504263
+        ],
+        "serverWorker": [
+          0.9865197337350093,
+          0.98873208412555
+        ],
+        "started": [
+          21270,
+          30689
+        ],
+        "warmupP50": [
+          11.730944,
+          14.352384
+        ],
+        "warmupSeconds": [
+          2.000010612,
+          2.000039857
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-100KB",
+      "conc": 64,
+      "client": "mimicry-udpos",
+      "result": {
+        "requests": 21494,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000390883,
+        "rps": 4289.440187634603,
+        "mbps": 439.2386752137833,
+        "p50": 14.876672,
+        "p95": 15.663104,
+        "p99": 18.481152,
+        "warmupSeconds": 2.000019694,
+        "warmupP50": 14.614528,
+        "started": 21430,
+        "complete": 21366,
+        "clientCores": 1.254494302575562,
+        "cpuPerRequest": 290.4866219127496,
+        "bytesPerRequest": 11391.656184805051,
+        "allocsPerRequest": 93.65625459830027,
+        "gcs": 23,
+        "gcPauseMs": 2.236328,
+        "gcPauseMaxMs": 0.167174,
+        "heapPeakMb": 15.05464,
+        "goroutines": 77,
+        "serverCpu": 0.24661772026512993,
+        "serverWorker": 0.9866526668491249,
+        "serverBound": "one server worker at 99% of a core"
+      },
+      "udp": {
+        "rcvbufErrors": 2676,
+        "inErrors": 2676
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          93.60872101322671,
+          93.67628021540848
+        ],
+        "bytesPerRequest": [
+          11369.74626194963,
+          11412.095377932937
+        ],
+        "clientCores": [
+          1.2460249900027667,
+          1.2585776322291622
+        ],
+        "complete": [
+          19564,
+          21621
+        ],
+        "cpuPerRequest": [
+          289.33405099342565,
+          320.56896149402877
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.132973,
+          0.183618
+        ],
+        "gcPauseMs": [
+          1.894083,
+          2.336668
+        ],
+        "gcs": [
+          21,
+          24
+        ],
+        "goroutines": [
+          77,
+          77
+        ],
+        "heapPeakMb": [
+          15.020448,
+          15.394
+        ],
+        "mbps": [
+          402.030031041127,
+          443.9858224176194
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          14.614528,
+          15.40096
+        ],
+        "p95": [
+          15.532032,
+          19.529728
+        ],
+        "p99": [
+          18.219008,
+          23.724032
+        ],
+        "requests": [
+          19692,
+          21749
+        ],
+        "rps": [
+          3926.0745218860056,
+          4335.799047047065
+        ],
+        "seconds": [
+          5.000385404,
+          5.000616441
+        ],
+        "serverCpu": [
+          0.24569610856902752,
+          0.2467856775625449
+        ],
+        "serverWorker": [
+          0.982749838541356,
+          0.9870563169094475
+        ],
+        "started": [
+          19628,
+          21685
+        ],
+        "warmupP50": [
+          14.614528,
+          14.7456
+        ],
+        "warmupSeconds": [
+          2.00000573,
+          2.000097443
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-100KB",
+      "conc": 64,
+      "client": "mimicry-udp208k",
+      "result": {
+        "requests": 21787,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000474837,
+        "rps": 4347.558660767015,
+        "mbps": 445.1900068625423,
+        "p50": 14.614528,
+        "p95": 15.663104,
+        "p99": 17.170432,
+        "warmupSeconds": 2.000045669,
+        "warmupP50": 14.614528,
+        "started": 21723,
+        "complete": 21659,
+        "clientCores": 1.2337804771754322,
+        "cpuPerRequest": 286.04123539595184,
+        "bytesPerRequest": 11395.627876699285,
+        "allocsPerRequest": 93.72047395959117,
+        "gcs": 23,
+        "gcPauseMs": 2.030162,
+        "gcPauseMaxMs": 0.147611,
+        "heapPeakMb": 15.33076,
+        "goroutines": 77,
+        "serverCpu": 0.24688220423895715,
+        "serverWorker": 0.9874662229002235,
+        "serverBound": "one server worker at 99% of a core"
+      },
+      "udp": {
+        "rcvbufErrors": 1333,
+        "inErrors": 1333
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          93.70452325243707,
+          93.72085644071413
+        ],
+        "bytesPerRequest": [
+          11394.845522134725,
+          11398.611869598437
+        ],
+        "clientCores": [
+          1.232793724785221,
+          1.2495037718554525
+        ],
+        "complete": [
+          21475,
+          21784
+        ],
+        "cpuPerRequest": [
+          283.55999791564085,
+          286.38337952274725
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.127409,
+          0.162621
+        ],
+        "gcPauseMs": [
+          1.667288,
+          2.093604
+        ],
+        "gcs": [
+          23,
+          24
+        ],
+        "goroutines": [
+          77,
+          77
+        ],
+        "heapPeakMb": [
+          15.228664,
+          15.586032
+        ],
+        "mbps": [
+          441.15381651444346,
+          447.3102839906456
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          14.614528,
+          14.7456
+        ],
+        "p95": [
+          15.663104,
+          16.05632
+        ],
+        "p99": [
+          16.908288,
+          17.170432
+        ],
+        "requests": [
+          21603,
+          21912
+        ],
+        "rps": [
+          4308.1427393988615,
+          4368.264492096148
+        ],
+        "seconds": [
+          5.000441888,
+          5.00049005
+        ],
+        "serverCpu": [
+          0.2465680338670007,
+          0.247005620236097
+        ],
+        "serverWorker": [
+          0.9861591465420474,
+          0.9879184901348462
+        ],
+        "started": [
+          21539,
+          21848
+        ],
+        "warmupP50": [
+          14.483456,
+          15.925248
+        ],
+        "warmupSeconds": [
+          2.000042593,
+          2.000049201
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-100KB",
+      "conc": 64,
+      "client": "mimicry-udp2m",
+      "result": {
+        "requests": 33787,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000446625,
+        "rps": 6741.661396798855,
+        "mbps": 690.3461270322028,
+        "p50": 9.109504,
+        "p95": 12.648448,
+        "p99": 16.187392,
+        "warmupSeconds": 2.000022354,
+        "warmupP50": 12.910592,
+        "started": 33723,
+        "complete": 33659,
+        "clientCores": 1.5464852602041321,
+        "cpuPerRequest": 229.39230690797524,
+        "bytesPerRequest": 11814.673761904856,
+        "allocsPerRequest": 94.77188053092776,
+        "gcs": 37,
+        "gcPauseMs": 2.772362,
+        "gcPauseMaxMs": 0.137231,
+        "heapPeakMb": 15.7276,
+        "goroutines": 77,
+        "serverCpu": 0.24482186223751365,
+        "serverWorker": 0.9794036273878943,
+        "serverBound": "one server worker at 97% of a core"
+      },
+      "udp": {
+        "rcvbufErrors": 55,
+        "inErrors": 55
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          93.80508677572492,
+          94.79806926781542
+        ],
+        "bytesPerRequest": [
+          11420.686948077888,
+          11848.51828226643
+        ],
+        "clientCores": [
+          1.2485527217070662,
+          1.6482746881296018
+        ],
+        "complete": [
+          21816,
+          36727
+        ],
+        "cpuPerRequest": [
+          224.06970823238782,
+          285.33066285013786
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.136518,
+          1.752733
+        ],
+        "gcPauseMs": [
+          2.031436,
+          5.193913
+        ],
+        "gcs": [
+          24,
+          41
+        ],
+        "goroutines": [
+          77,
+          77
+        ],
+        "heapPeakMb": [
+          15.11644,
+          15.991688
+        ],
+        "mbps": [
+          448.0829274558348,
+          753.2625868795355
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          8.454144,
+          14.614528
+        ],
+        "p95": [
+          11.599872,
+          16.187392
+        ],
+        "p99": [
+          13.697024,
+          17.170432
+        ],
+        "requests": [
+          21944,
+          36855
+        ],
+        "rps": [
+          4375.809838435887,
+          7356.079949995465
+        ],
+        "seconds": [
+          5.000391967,
+          5.000927976
+        ],
+        "serverCpu": [
+          0.24193893880429126,
+          0.24682840028248532
+        ],
+        "serverWorker": [
+          0.9674519823516763,
+          0.9872402068835658
+        ],
+        "started": [
+          21880,
+          36791
+        ],
+        "warmupP50": [
+          12.77952,
+          13.041664
+        ],
+        "warmupSeconds": [
+          2.000020021,
+          2.000033659
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-100KB",
+      "conc": 64,
+      "client": "mimicry-udp7m",
+      "result": {
+        "requests": 43113,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000511154,
+        "rps": 8611.838753272283,
+        "mbps": 881.8522883350818,
+        "p50": 7.241728,
+        "p95": 9.895936,
+        "p99": 11.337728,
+        "warmupSeconds": 2.000012914,
+        "warmupP50": 7.307264,
+        "started": 43049,
+        "complete": 42985,
+        "clientCores": 1.8195578758405526,
+        "cpuPerRequest": 212.01884892894475,
+        "bytesPerRequest": 11877.257435905643,
+        "allocsPerRequest": 94.82357266324675,
+        "gcs": 47,
+        "gcPauseMs": 5.179713,
+        "gcPauseMaxMs": 1.141641,
+        "heapPeakMb": 15.926952,
+        "goroutines": 77,
+        "serverCpu": 0.24502550084702804,
+        "serverWorker": 0.9798554285956502,
+        "serverBound": "one server worker at 99% of a core"
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          94.81523966237945,
+          94.83756775625368
+        ],
+        "bytesPerRequest": [
+          11876.887825670901,
+          11900.661239144016
+        ],
+        "clientCores": [
+          1.7492238023164184,
+          1.8258721396304678
+        ],
+        "complete": [
+          40237,
+          43224
+        ],
+        "cpuPerRequest": [
+          210.14203168900247,
+          217.06498806369513
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.486348,
+          4.430798
+        ],
+        "gcPauseMs": [
+          4.91775,
+          10.877691
+        ],
+        "gcs": [
+          45,
+          48
+        ],
+        "goroutines": [
+          77,
+          78
+        ],
+        "heapPeakMb": [
+          15.402976,
+          16.27904
+        ],
+        "mbps": [
+          825.1930399048991,
+          886.6513994773733
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          7.241728,
+          7.70048
+        ],
+        "p95": [
+          9.764864,
+          10.420224
+        ],
+        "p99": [
+          11.075584,
+          12.517376
+        ],
+        "requests": [
+          40365,
+          43352
+        ],
+        "rps": [
+          8058.525780321281,
+          8658.705073021225
+        ],
+        "seconds": [
+          5.000496066,
+          5.000626557
+        ],
+        "serverCpu": [
+          0.24425219241581528,
+          0.2465602879648381
+        ],
+        "serverWorker": [
+          0.9769619755270998,
+          0.9861653593789668
+        ],
+        "started": [
+          40301,
+          43288
+        ],
+        "warmupP50": [
+          7.241728,
+          8.093696
+        ],
+        "warmupSeconds": [
+          2.000011684,
+          2.000014011
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-100KB",
+      "conc": 64,
+      "client": "tls-client",
+      "result": {
+        "requests": 37868,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000443061,
+        "rps": 7559.776121800311,
+        "mbps": 774.1210748723518,
+        "p50": 8.290304,
+        "p95": 10.289152,
+        "p99": 13.041664,
+        "warmupSeconds": 2.000038526,
+        "warmupP50": 8.585216,
+        "started": 37804,
+        "complete": 37740,
+        "clientCores": 1.7704437287792905,
+        "cpuPerRequest": 234.19261367725147,
+        "bytesPerRequest": 29731.354167732865,
+        "allocsPerRequest": 459.5892696922485,
+        "gcs": 101,
+        "gcPauseMs": 11.263815,
+        "gcPauseMaxMs": 0.830161,
+        "heapPeakMb": 17.147944,
+        "goroutines": 144,
+        "serverCpu": 0.24281790715437074,
+        "serverWorker": 0.9711804355439069,
+        "serverBound": "one server worker at 97% of a core"
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          459.5375293107266,
+          459.79472594709875
+        ],
+        "bytesPerRequest": [
+          29691.977976445232,
+          29761.257547548328
+        ],
+        "clientCores": [
+          1.7688875777571478,
+          1.7948077581359743
+        ],
+        "complete": [
+          36590,
+          38462
+        ],
+        "cpuPerRequest": [
+          232.89586609036343,
+          241.31965788202396
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.238585,
+          2.690239
+        ],
+        "gcPauseMs": [
+          9.81394,
+          11.692943
+        ],
+        "gcs": [
+          98,
+          103
+        ],
+        "goroutines": [
+          144,
+          144
+        ],
+        "heapPeakMb": [
+          16.632224,
+          17.538024
+        ],
+        "mbps": [
+          750.5981466743357,
+          789.1437384372208
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          8.159232,
+          8.585216
+        ],
+        "p95": [
+          10.15808,
+          10.944512
+        ],
+        "p99": [
+          11.337728,
+          13.303808
+        ],
+        "requests": [
+          36718,
+          38590
+        ],
+        "rps": [
+          7330.06002611656,
+          7706.481820675985
+        ],
+        "seconds": [
+          5.000379767,
+          5.000558606
+        ],
+        "serverCpu": [
+          0.24228978109490834,
+          0.2440669726886027
+        ],
+        "serverWorker": [
+          0.969207318995273,
+          0.9759911152800945
+        ],
+        "started": [
+          36654,
+          38526
+        ],
+        "warmupP50": [
+          8.159232,
+          20.578304
+        ],
+        "warmupSeconds": [
+          2.000027662,
+          2.000087694
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-100KB",
+      "conc": 64,
+      "client": "net/http",
+      "result": {
+        "requests": 38097,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.00044627,
+        "rps": 7607.113816689198,
+        "mbps": 778.9684548289739,
+        "p50": 8.290304,
+        "p95": 10.289152,
+        "p99": 11.337728,
+        "warmupSeconds": 2.00010447,
+        "warmupP50": 8.35584,
+        "started": 38033,
+        "complete": 37969,
+        "clientCores": 1.659155115720604,
+        "cpuPerRequest": 216.90115010853327,
+        "bytesPerRequest": 20742.551753798427,
+        "allocsPerRequest": 378.34485790638314,
+        "gcs": 75,
+        "gcPauseMs": 8.010951,
+        "gcPauseMaxMs": 0.601113,
+        "heapPeakMb": 16.23492,
+        "goroutines": 138,
+        "serverCpu": 0.24548105773288226,
+        "serverWorker": 0.981860036002736,
+        "serverBound": "one server worker at 98% of a core"
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          377.61126859144144,
+          378.4448408482389
+        ],
+        "bytesPerRequest": [
+          20707.881719277077,
+          20772.600481410736
+        ],
+        "clientCores": [
+          1.6456831959645684,
+          1.663623514946797
+        ],
+        "complete": [
+          33957,
+          38189
+        ],
+        "cpuPerRequest": [
+          216.33476711681567,
+          244.56610008349955
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.515445,
+          0.927837
+        ],
+        "gcPauseMs": [
+          7.309249,
+          8.4597
+        ],
+        "gcs": [
+          65,
+          75
+        ],
+        "goroutines": [
+          138,
+          138
+        ],
+        "heapPeakMb": [
+          15.681976,
+          16.464368
+        ],
+        "mbps": [
+          696.5603486026457,
+          783.2945273216685
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          8.224768,
+          9.240576
+        ],
+        "p95": [
+          10.15808,
+          11.993088
+        ],
+        "p99": [
+          11.206656,
+          15.925248
+        ],
+        "requests": [
+          34085,
+          38317
+        ],
+        "rps": [
+          6802.347154322712,
+          7649.360618375669
+        ],
+        "seconds": [
+          5.000394985,
+          5.000452894
+        ],
+        "serverCpu": [
+          0.24272793556083944,
+          0.2457009447032699
+        ],
+        "serverWorker": [
+          0.9706191683567474,
+          0.9827427843378859
+        ],
+        "started": [
+          34021,
+          38253
+        ],
+        "warmupP50": [
+          8.290304,
+          9.240576
+        ],
+        "warmupSeconds": [
+          2.000018894,
+          2.000154582
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-100KB",
+      "conc": 256,
+      "client": "mimicry",
+      "result": {
+        "requests": 18751,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000490769,
+        "rps": 3703.1473430570845,
+        "mbps": 379.2022879290454,
+        "p50": 66.322432,
+        "p95": 87.556096,
+        "p99": 131.596288,
+        "warmupSeconds": 2.000042507,
+        "warmupP50": 66.84672,
+        "started": 18495,
+        "complete": 18239,
+        "clientCores": 1.141788033682223,
+        "cpuPerRequest": 308.3290854799299,
+        "bytesPerRequest": 11407.050213087809,
+        "allocsPerRequest": 93.21162189233877,
+        "gcs": 12,
+        "gcPauseMs": 1.008856,
+        "gcPauseMaxMs": 0.122797,
+        "heapPeakMb": 32.40492,
+        "goroutines": 270,
+        "serverCpu": 0.23930760472484813,
+        "serverWorker": 0.957184223801607,
+        "serverBound": "one server worker at 96% of a core"
+      },
+      "udp": {
+        "rcvbufErrors": 630,
+        "inErrors": 630
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          92.98113438424393,
+          93.52890581506823
+        ],
+        "bytesPerRequest": [
+          11379.091858864165,
+          11515.576992874217
+        ],
+        "clientCores": [
+          1.1007769545589576,
+          1.1658187996304696
+        ],
+        "complete": [
+          17351,
+          18904
+        ],
+        "cpuPerRequest": [
+          304.54487650478086,
+          312.0086033544944
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.115866,
+          0.128537
+        ],
+        "gcPauseMs": [
+          0.78913,
+          1.021545
+        ],
+        "gcs": [
+          11,
+          12
+        ],
+        "goroutines": [
+          269,
+          270
+        ],
+        "heapPeakMb": [
+          30.959744,
+          32.487184
+        ],
+        "mbps": [
+          361.2706795099775,
+          391.9942651876661
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          64.22528,
+          67.633152
+        ],
+        "p95": [
+          85.458944,
+          102.23616
+        ],
+        "p99": [
+          100.139008,
+          149.946368
+        ],
+        "requests": [
+          17863,
+          19416
+        ],
+        "rps": [
+          3528.0339795896243,
+          3828.0689959733018
+        ],
+        "seconds": [
+          5.000431458,
+          5.000530599
+        ],
+        "serverCpu": [
+          0.23191773639288565,
+          0.23962112270992755
+        ],
+        "serverWorker": [
+          0.9274241697935229,
+          0.9582915074925521
+        ],
+        "started": [
+          17607,
+          19160
+        ],
+        "warmupP50": [
+          65.798144,
+          68.681728
+        ],
+        "warmupSeconds": [
+          2.000011287,
+          2.00030901
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-100KB",
+      "conc": 256,
+      "client": "mimicry-udpos",
+      "result": {
+        "requests": 18039,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000412363,
+        "rps": 3552.731571024876,
+        "mbps": 363.7997128729473,
+        "p50": 67.633152,
+        "p95": 81.26464,
+        "p99": 82.313216,
+        "warmupSeconds": 2.000020042,
+        "warmupP50": 67.633152,
+        "started": 17783,
+        "complete": 17527,
+        "clientCores": 1.136210559534701,
+        "cpuPerRequest": 319.8132301357437,
+        "bytesPerRequest": 11227.13789670205,
+        "allocsPerRequest": 92.70258961623695,
+        "gcs": 11,
+        "gcPauseMs": 0.819379,
+        "gcPauseMaxMs": 0.134397,
+        "heapPeakMb": 29.814336,
+        "goroutines": 269,
+        "serverCpu": 0.24742474909163367,
+        "serverWorker": 0.9896872614627744,
+        "serverBound": "one server worker at 99% of a core"
+      },
+      "udp": {
+        "rcvbufErrors": 3586,
+        "inErrors": 3586
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          92.5958009502618,
+          92.73433223004285
+        ],
+        "bytesPerRequest": [
+          11204.894446785751,
+          11227.357592511233
+        ],
+        "clientCores": [
+          1.1332693363313326,
+          1.13993924196534
+        ],
+        "complete": [
+          17488,
+          17661
+        ],
+        "cpuPerRequest": [
+          316.7007542011811,
+          320.8674526344616
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.101396,
+          0.136545
+        ],
+        "gcPauseMs": [
+          0.721408,
+          0.907626
+        ],
+        "gcs": [
+          11,
+          11
+        ],
+        "goroutines": [
+          269,
+          270
+        ],
+        "heapPeakMb": [
+          29.559448,
+          30.515112
+        ],
+        "mbps": [
+          363.7943874296021,
+          366.4240722540587
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          67.633152,
+          67.633152
+        ],
+        "p95": [
+          81.26464,
+          81.26464
+        ],
+        "p99": [
+          82.313216,
+          83.361792
+        ],
+        "requests": [
+          18000,
+          18173
+        ],
+        "rps": [
+          3552.679564742208,
+          3578.3600806060413
+        ],
+        "seconds": [
+          5.00038567,
+          5.000570899
+        ],
+        "serverCpu": [
+          0.24732370257120737,
+          0.24744271375371732
+        ],
+        "serverWorker": [
+          0.989260213138146,
+          0.9897565897905288
+        ],
+        "started": [
+          17744,
+          17917
+        ],
+        "warmupP50": [
+          67.633152,
+          67.633152
+        ],
+        "warmupSeconds": [
+          2.000019544,
+          2.000041096
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-100KB",
+      "conc": 256,
+      "client": "mimicry-udp208k",
+      "result": {
+        "requests": 18039,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000435157,
+        "rps": 3552.745516878949,
+        "mbps": 363.8011409284043,
+        "p50": 67.633152,
+        "p95": 82.313216,
+        "p99": 83.361792,
+        "warmupSeconds": 2.000038652,
+        "warmupP50": 67.633152,
+        "started": 17783,
+        "complete": 17527,
+        "clientCores": 1.131973202618261,
+        "cpuPerRequest": 317.73007732943773,
+        "bytesPerRequest": 11222.900390990872,
+        "allocsPerRequest": 92.7434507931135,
+        "gcs": 11,
+        "gcPauseMs": 1.003265,
+        "gcPauseMaxMs": 0.129806,
+        "heapPeakMb": 30.058536,
+        "goroutines": 269,
+        "serverCpu": 0.24703435025464926,
+        "serverWorker": 0.9880867481209417,
+        "serverBound": "one server worker at 99% of a core"
+      },
+      "udp": {
+        "rcvbufErrors": 1842,
+        "inErrors": 1842
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          92.70598749050937,
+          92.7603537749533
+        ],
+        "bytesPerRequest": [
+          11222.640090344092,
+          11230.276444635703
+        ],
+        "clientCores": [
+          1.1284201920109012,
+          1.1349707803361857
+        ],
+        "complete": [
+          17527,
+          17680
+        ],
+        "cpuPerRequest": [
+          316.7040208102445,
+          318.6192754984286
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.121384,
+          0.235916
+        ],
+        "gcPauseMs": [
+          0.880182,
+          1.171605
+        ],
+        "gcs": [
+          11,
+          11
+        ],
+        "goroutines": [
+          269,
+          269
+        ],
+        "heapPeakMb": [
+          29.971208,
+          30.199168
+        ],
+        "mbps": [
+          363.67418732633314,
+          366.9704211809173
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          66.84672,
+          67.633152
+        ],
+        "p95": [
+          81.26464,
+          82.313216
+        ],
+        "p99": [
+          82.313216,
+          84.410368
+        ],
+        "requests": [
+          18039,
+          18192
+        ],
+        "rps": [
+          3551.5057356087223,
+          3583.695519344895
+        ],
+        "seconds": [
+          5.000401058,
+          5.000489086
+        ],
+        "serverCpu": [
+          0.2470325359690226,
+          0.24735925891806737
+        ],
+        "serverWorker": [
+          0.9880678070754552,
+          0.989146458979891
+        ],
+        "started": [
+          17783,
+          17936
+        ],
+        "warmupP50": [
+          66.84672,
+          68.681728
+        ],
+        "warmupSeconds": [
+          2.00001115,
+          2.000058011
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-100KB",
+      "conc": 256,
+      "client": "mimicry-udp2m",
+      "result": {
+        "requests": 10297,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.00054442,
+        "rps": 2000.9217978270997,
+        "mbps": 204.89439209749503,
+        "p50": 117.9648,
+        "p95": 154.140672,
+        "p99": 160.432128,
+        "warmupSeconds": 2.00074371,
+        "warmupP50": 114.819072,
+        "started": 10041,
+        "complete": 9785,
+        "clientCores": 0.5238770532130875,
+        "cpuPerRequest": 262.1497957434005,
+        "bytesPerRequest": 11655.674644558836,
+        "allocsPerRequest": 93.26657922557838,
+        "gcs": 6,
+        "gcPauseMs": 0.569608,
+        "gcPauseMaxMs": 0.133646,
+        "heapPeakMb": 31.802232,
+        "goroutines": 269,
+        "serverCpu": 0.09412688685910044,
+        "serverWorker": 0.3764497532774956
+      },
+      "udp": {
+        "rcvbufErrors": 1509,
+        "inErrors": 1509
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          93.07209496717415,
+          93.57580920725138
+        ],
+        "bytesPerRequest": [
+          11403.719435723762,
+          11701.88898982858
+        ],
+        "clientCores": [
+          0.5196293492752512,
+          0.8769971090467785
+        ],
+        "complete": [
+          9632,
+          14404
+        ],
+        "cpuPerRequest": [
+          261.8178550416071,
+          299.00542228219916
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.123758,
+          0.13484
+        ],
+        "gcPauseMs": [
+          0.530721,
+          0.890199
+        ],
+        "gcs": [
+          6,
+          9
+        ],
+        "goroutines": [
+          269,
+          269
+        ],
+        "heapPeakMb": [
+          31.605496,
+          32.051456
+        ],
+        "mbps": [
+          202.9757269689777,
+          300.34406493683343
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          72.876032,
+          117.9648
+        ],
+        "p95": [
+          154.140672,
+          166.723584
+        ],
+        "p99": [
+          160.432128,
+          168.820736
+        ],
+        "requests": [
+          10144,
+          14916
+        ],
+        "rps": [
+          1982.1848336814228,
+          2933.047509148764
+        ],
+        "seconds": [
+          5.000505336,
+          5.000622085
+        ],
+        "serverCpu": [
+          0.09307287015271422,
+          0.18233789632049704
+        ],
+        "serverWorker": [
+          0.3721910931007697,
+          0.7292843925981963
+        ],
+        "started": [
+          9888,
+          14660
+        ],
+        "warmupP50": [
+          110.624768,
+          125.304832
+        ],
+        "warmupSeconds": [
+          2.000013881,
+          2.000770746
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-100KB",
+      "conc": 256,
+      "client": "mimicry-udp7m",
+      "result": {
+        "requests": 8917,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000898979,
+        "rps": 1735.7451566390912,
+        "mbps": 177.74030403984293,
+        "p50": 135.266304,
+        "p95": 189.792256,
+        "p99": 193.98656,
+        "warmupSeconds": 2.000413346,
+        "warmupP50": 76.02176,
+        "started": 8661,
+        "complete": 8405,
+        "clientCores": 0.41831838811075495,
+        "cpuPerRequest": 222.7178438212378,
+        "bytesPerRequest": 11874.80920684594,
+        "allocsPerRequest": 93.78805444348046,
+        "gcs": 5,
+        "gcPauseMs": 0.486936,
+        "gcPauseMaxMs": 0.13846,
+        "heapPeakMb": 32.039536,
+        "goroutines": 269,
+        "serverCpu": 0.07294443489697215,
+        "serverWorker": 0.2916575611954588
+      },
+      "udp": {
+        "rcvbufErrors": 109,
+        "inErrors": 109
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          93.48055847700559,
+          94.23442114035281
+        ],
+        "bytesPerRequest": [
+          11756.329441745695,
+          11942.89408003795
+        ],
+        "clientCores": [
+          0.3618403030225972,
+          0.6901097361751429
+        ],
+        "complete": [
+          7869,
+          15918
+        ],
+        "cpuPerRequest": [
+          213.19926758594045,
+          241.00219234990772
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.134844,
+          0.166554
+        ],
+        "gcPauseMs": [
+          0.420498,
+          0.975037
+        ],
+        "gcs": [
+          5,
+          10
+        ],
+        "goroutines": [
+          269,
+          269
+        ],
+        "heapPeakMb": [
+          31.311976,
+          32.743328
+        ],
+        "mbps": [
+          166.36496831054862,
+          331.4609744418973
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          57.933824,
+          143.654912
+        ],
+        "p95": [
+          181.403648,
+          191.889408
+        ],
+        "p99": [
+          183.5008,
+          210.763776
+        ],
+        "requests": [
+          8381,
+          16430
+        ],
+        "rps": [
+          1624.6578936577014,
+          3236.9235785341534
+        ],
+        "seconds": [
+          5.000406195,
+          5.00090229
+        ],
+        "serverCpu": [
+          0.05942492629665035,
+          0.0972447999296985
+        ],
+        "serverWorker": [
+          0.23764551496566033,
+          0.3889196045602451
+        ],
+        "started": [
+          8125,
+          16174
+        ],
+        "warmupP50": [
+          70.77888,
+          77.070336
+        ],
+        "warmupSeconds": [
+          2.000025616,
+          2.000459319
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-100KB",
+      "conc": 256,
+      "client": "tls-client",
+      "result": {
+        "requests": 21653,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000496401,
+        "rps": 4281.83369297769,
+        "mbps": 438.45977016091535,
+        "p50": 60.030976,
+        "p95": 77.070336,
+        "p99": 85.458944,
+        "warmupSeconds": 2.000077,
+        "warmupP50": 55.312384,
+        "started": 21397,
+        "complete": 21141,
+        "clientCores": 1.5454429646902133,
+        "cpuPerRequest": 360.93017046056156,
+        "bytesPerRequest": 31189.537768446087,
+        "allocsPerRequest": 470.98596195094177,
+        "gcs": 36,
+        "gcPauseMs": 2.920709,
+        "gcPauseMaxMs": 0.162218,
+        "heapPeakMb": 32.242096,
+        "goroutines": 528,
+        "serverCpu": 0.24648022939352976,
+        "serverWorker": 0.9859458789250178,
+        "serverBound": "one server worker at 99% of a core"
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          470.6282321261496,
+          481.01609091819205
+        ],
+        "bytesPerRequest": [
+          30612.64674830884,
+          36622.62584719544
+        ],
+        "clientCores": [
+          1.5285369994726008,
+          1.548389875543478
+        ],
+        "complete": [
+          15672,
+          21372
+        ],
+        "cpuPerRequest": [
+          357.7350241512192,
+          480.6071386440171
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.152513,
+          0.195339
+        ],
+        "gcPauseMs": [
+          2.4984,
+          3.23901
+        ],
+        "gcs": [
+          32,
+          37
+        ],
+        "goroutines": [
+          528,
+          530
+        ],
+        "heapPeakMb": [
+          31.843568,
+          32.283464
+        ],
+        "mbps": [
+          325.67595476755787,
+          443.219457283637
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          58.9824,
+          83.361792
+        ],
+        "p95": [
+          68.681728,
+          93.847552
+        ],
+        "p99": [
+          72.876032,
+          94.896128
+        ],
+        "requests": [
+          16184,
+          21884
+        ],
+        "rps": [
+          3180.4292457769325,
+          4328.315012535518
+        ],
+        "seconds": [
+          5.000455,
+          5.000600576
+        ],
+        "serverCpu": [
+          0.2458503196396864,
+          0.24650971761569698
+        ],
+        "serverWorker": [
+          0.9833124892236944,
+          0.9861098988120239
+        ],
+        "started": [
+          15928,
+          21628
+        ],
+        "warmupP50": [
+          52.690944,
+          80.216064
+        ],
+        "warmupSeconds": [
+          2.000028945,
+          2.000087964
+        ]
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-100KB",
+      "conc": 256,
+      "client": "net/http",
+      "result": {
+        "requests": 20188,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 5.000421985,
+        "rps": 3984.428997577254,
+        "mbps": 408.00552935191087,
+        "p50": 63.700992,
+        "p95": 77.070336,
+        "p99": 83.361792,
+        "warmupSeconds": 2.000028002,
+        "warmupP50": 48.49664,
+        "started": 19932,
+        "complete": 19676,
+        "clientCores": 1.4594193236371922,
+        "cpuPerRequest": 368.178590681774,
+        "bytesPerRequest": 22187.70314883004,
+        "allocsPerRequest": 392.829927258315,
+        "gcs": 25,
+        "gcPauseMs": 2.054153,
+        "gcPauseMaxMs": 0.139821,
+        "heapPeakMb": 29.981144,
+        "goroutines": 522,
+        "serverCpu": 0.24644065114836505,
+        "serverWorker": 0.9858299989055824,
+        "serverBound": "one server worker at 99% of a core"
+      },
+      "udp": {
+        "rcvbufErrors": 0,
+        "inErrors": 0
+      },
+      "passes": 3,
+      "ranges": {
+        "allocsPerRequest": [
+          391.49975874468566,
+          393.12922617047076
+        ],
+        "bytesPerRequest": [
+          21907.696697357303,
+          22361.14082901084
+        ],
+        "clientCores": [
+          1.4593094386613052,
+          1.4669814529995868
+        ],
+        "complete": [
+          19323,
+          20014
+        ],
+        "cpuPerRequest": [
+          359.9541193185862,
+          372.95198791331075
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "gcPauseMaxMs": [
+          0.13433,
+          0.974107
+        ],
+        "gcPauseMs": [
+          1.857816,
+          3.092861
+        ],
+        "gcs": [
+          24,
+          26
+        ],
+        "goroutines": [
+          522,
+          522
+        ],
+        "heapPeakMb": [
+          29.842136,
+          30.4062
+        ],
+        "mbps": [
+          400.6770076625843,
+          415.1766314644644
+        ],
+        "mismatches": [
+          0,
+          0
+        ],
+        "p50": [
+          63.700992,
+          67.633152
+        ],
+        "p95": [
+          76.02176,
+          82.313216
+        ],
+        "p99": [
+          81.26464,
+          85.458944
+        ],
+        "requests": [
+          19835,
+          20526
+        ],
+        "rps": [
+          3912.861402954925,
+          4054.4592916451593
+        ],
+        "seconds": [
+          5.000370957,
+          5.000432681
+        ],
+        "serverCpu": [
+          0.24624473075868236,
+          0.24696122891370245
+        ],
+        "serverWorker": [
+          0.9849787230495668,
+          0.9875409419595382
+        ],
+        "started": [
+          19579,
+          20270
+        ],
+        "warmupP50": [
+          46.399488,
+          74.973184
+        ],
+        "warmupSeconds": [
+          2.000022573,
+          2.000035473
+        ]
+      }
+    }
+  ],
+  "passes": 3,
+  "passOrders": [
+    [
+      "mimicry",
+      "mimicry-udpos",
+      "mimicry-udp208k",
+      "mimicry-udp2m",
+      "mimicry-udp7m",
+      "tls-client",
+      "net/http"
+    ],
+    [
+      "net/http",
+      "tls-client",
+      "mimicry-udp7m",
+      "mimicry-udp2m",
+      "mimicry-udp208k",
+      "mimicry-udpos",
+      "mimicry"
+    ],
+    [
+      "mimicry-udp7m",
+      "tls-client",
+      "net/http",
+      "mimicry",
+      "mimicry-udpos",
+      "mimicry-udp208k",
+      "mimicry-udp2m"
+    ]
+  ]
+}
