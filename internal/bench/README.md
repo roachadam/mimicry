@@ -122,11 +122,34 @@ layer 6 rows are n/a. A `setup` step writes a CA (created
 once, kept in the `mimicry-bench-ca` volume) and one certificate for every
 name; every client verifies against that CA.
 
+**Proxy delay.** Everything the proxy sends waits `BENCH_PROXY_DELAY` (5
+ms), so a round trip through it gains about 10 ms. `BENCH_PROXY_DELAY_MODE`
+says how: `netem` on the proxy container's `eth0`
+(`docker/proxy-entrypoint.sh`), or `proxy`, the proxy's own delay line
+(`cmd/proxy/delay.go`) for Docker hosts whose kernel has no `sch_netem`
+(that host's). The delay line holds each relayed chunk (up to 32 KB) and
+datagram, both ways, for the delay after it was read, in a queue per
+direction (64 chunks, then the reader waits), so throughput stays and only
+latency grows; it also holds the dial to the server and the handshake
+replies, as netem holds the SYN, SYN-ACK and replies. TCP's ACKs are not
+held, so each leg's congestion control sees its bare RTT; tunnels go
+through user space instead of splicing. `bench.sh` probes the Docker host
+for netem and picks `netem` where it works, else `proxy`; the report's
+Environment says which. Checked on the Mac (OrbStack, netem available,
+2026-10-29): layer 6, fixed identities, 50 clients, 1 KB and 100 KB over
+HTTP/1.1, HTTP/2 (CONNECT with auth, SOCKS5) and HTTP/3 (SOCKS5), net/http
+and mimicry, 5 s windows, run netem, proxy, netem, proxy: over the 14
+points the delay line's requests/s were 1.025× netem's and its p50 latency
+0.974× (geometric means; p50 14-18 ms either way, p99 within each other's
+range), while the two netem runs alone differed 5.8% per point (RMS of the
+log ratio). On battery, both modes under the same conditions.
+
 **Client** (`docker/compose.client.yml`): one container with every client,
 its own CPU set, a fixed `GOMAXPROCS`, `NET_ADMIN` for netem, the CA volume
 read-only, and `extra_hosts` mapping every name to the server stack's fixed
 addresses, or to `BENCH_SERVER`. Beside it, the `offloads` sidecar on the
-Docker host's own network (`NET_ADMIN`, port 9082).
+Docker host's own network (`NET_ADMIN`, port 9082), only where the host has
+netem.
 
 **Segmentation offloads are off under netem.** With TSO, GSO and GRO on,
 packets reach the client container as super-packets of up to 64 KB (the
@@ -496,6 +519,35 @@ cost):
 | The variants | `mimicry-ack20` (HTTP/3 ACK every 20th packet), `mimicry-udp7m` (7 MB UDP buffer; with the stock pass), `mimicry-nocoalescing` (layer 5's HTTP/2 page loads), `mimicry-conns16`/`-conns64` (HTTP/1.1 at concurrency above 6), `azuretls-stream` (azuretls reading as the body arrives) | `BENCH_CLIENTS=net/http,mimicry,mimicry-ack20,…` |
 
 The variants were never in a run's default clients; they stay opt-in.
+
+## Running on a Linux host
+
+Both stacks can run on a Linux Docker host instead of the Mac (a Linux
+server: Docker directly on the host, so the CPU sets are real cores). Copy
+the repository there and run `bench.sh` on it; it needs bash, Docker with
+Compose, and no Go (the images build Go themselves). Without `.git` give
+the commit:
+
+```sh
+BENCH_MIMICRY_COMMIT=153cf05 BENCH_PUBLISH=0 \
+  BENCH_CLIENT_CPUS=0,2,4,6 BENCH_SERVER_CPUS=8-11 BENCH_SERVER_PROCS=4 BENCH_PROXY_CPUS=12-15 \
+  nohup internal/bench/scripts/bench.sh run > bench.log 2>&1 &
+```
+
+On the i5-13500 the client gets one thread of each of four P-cores (CPUs
+0, 2, 4 and 6; their SMT siblings 1, 3, 5 and 7 left idle), nginx the next
+two P-cores' four threads (8-11), the proxy four E-cores (12-15). Only the
+benchmark's containers are pinned: the host's other VMs and containers
+float over every CPU, which shows up as noise. `BENCH_PUBLISH=0` publishes
+no port (the client reaches the servers on the `mimicry-bench` network), so
+the host's own services keep theirs. `pmset` and `caffeinate` are macOS
+only. Without netem in the host's kernel (that host's kernel has neither `sch_netem` nor
+`ifb`) the proxy's delay is the in-process one (Proxy delay, above), the
+offloads sidecar does not start, and a run asking for netem (layer 5,
+`-load-netem`) stops at once; the default run (layers 3, 4, 6) needs none.
+Before each pass and at the end the script records the load average and
+every other container at 1% CPU or more (`docker stats`), in the pass's
+Environment and in `reports/host-<date>.txt`.
 
 ## Running against a remote server
 

@@ -80,6 +80,7 @@ services:
     environment:
       GOMAXPROCS: "${BENCH_PROXY_PROCS:-2}"
       BENCH_PROXY_DELAY: "${BENCH_PROXY_DELAY:-5ms}"
+      BENCH_PROXY_DELAY_MODE: "${BENCH_PROXY_DELAY_MODE:-netem}"
     cpuset: "${BENCH_PROXY_CPUS:-10-11}"
     ulimits:
       nofile: 200000

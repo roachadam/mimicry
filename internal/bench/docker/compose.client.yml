@@ -53,6 +53,8 @@ services:
       BENCH_SERVER_CPUS: "${BENCH_SERVER_CPUS:-4-11}"
       BENCH_PROXY_CPUS: "${BENCH_PROXY_CPUS:-10-11}"
       BENCH_PROXY_DELAY: "${BENCH_PROXY_DELAY:-5ms}"
+      BENCH_PROXY_DELAY_MODE: "${BENCH_PROXY_DELAY_MODE:-netem}"
+      BENCH_HOST_LOAD: "${BENCH_HOST_LOAD:-}"
     volumes:
       - ca:/data/ca:ro
       - ../reports:/reports

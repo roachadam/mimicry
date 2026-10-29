@@ -288,6 +288,10 @@ func (r *report) environment(w writer) {
 		w("| Power | %s |\n", e.Power)
 	}
 
+	if e.HostLoad != "" {
+		w("| Host load | %s |\n", e.HostLoad)
+	}
+
 	if r.Passes > 1 {
 		orders := make([]string, len(r.PassOrders))
 		for i, o := range r.PassOrders {
@@ -490,12 +494,7 @@ func (r *report) fairness(w writer) {
 			"includes the load generator's few goroutines, the same for every client. Network softirq work the kernel does on " +
 			"the process's behalf is mostly charged to whatever runs when it fires, so it is largely left out; time a vCPU spends " +
 			"descheduled by the VM is not (the VM reports no steal time), which the repetitions' ranges show as noise.",
-		"**This machine.** A laptop, run on AC power with Low Power Mode off (`bench.sh` refuses otherwise; Environment " +
-			"records it). Docker runs in a VM, the CPU sets are the VM's CPUs (which of the host's performance and efficiency " +
-			"cores serve them is up to macOS), and other load on the Mac shows up as noise: per-point spread between runs of " +
-			"identical code measured 4-11% (log-SD), so a merged report's passes, with the clients in a different order each, " +
-			"give each value's range, and a best is bolded only outside the others' ranges. The proxy's CPU set (layers 5 and 6) " +
-			"lies inside the servers', which carry little load in those layers.",
+		machineNote(r.Env),
 	}
 
 	for _, n := range notes {
@@ -1157,4 +1156,24 @@ func pct(v float64) string {
 	}
 
 	return strconv.FormatFloat(100*v, 'f', 0, 64) + "%"
+}
+
+// machineNote is the report's note on the host it ran on: the Mac (its
+// power state recorded) or a Linux host.
+func machineNote(e env) string {
+	if e.Power == "" {
+		return "**This machine.** A Linux host running Docker directly: the CPU sets are the host's own CPUs, " +
+			"pinned for the benchmark's containers only; other VMs and containers on the host are not pinned and float " +
+			"over every CPU, so their load shows up as noise (Environment's Host load: the load average and their CPU use " +
+			"when each pass started; reports/host-<date>.txt has them per pass and at the end). A merged report's passes, " +
+			"with the clients in a different order each, give each value's range, and a best is bolded only outside the " +
+			"others' ranges."
+	}
+
+	return "**This machine.** A laptop, run on AC power with Low Power Mode off (`bench.sh` refuses otherwise; Environment " +
+		"records it). Docker runs in a VM, the CPU sets are the VM's CPUs (which of the host's performance and efficiency " +
+		"cores serve them is up to macOS), and other load on the Mac shows up as noise: per-point spread between runs of " +
+		"identical code measured 4-11% (log-SD), so a merged report's passes, with the clients in a different order each, " +
+		"give each value's range, and a best is bolded only outside the others' ranges. The proxy's CPU set (layers 5 and 6) " +
+		"lies inside the servers', which carry little load in those layers."
 }

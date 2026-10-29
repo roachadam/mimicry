@@ -8,7 +8,9 @@
 // can each have an identity of their own, and counts what it relays per
 // user (tunnels and associations opened and still open, datagrams and
 // bytes; target.ProxyUsagePath on the stats port). It only relays bytes;
-// its container gets its own netem delay (../../docker/proxy-entrypoint.sh).
+// its own network delay is netem on its container's eth0, or with
+// BENCH_PROXY_DELAY_MODE=proxy the delay line in delay.go
+// (../../docker/proxy-entrypoint.sh).
 //
 // A UDP association (RFC 1928, section 7) gets a relay socket of its own
 // on the address the client reached the proxy at, which the reply names,
@@ -27,6 +29,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -62,6 +65,16 @@ func run(ctx context.Context) error {
 	p := &proxy{
 		users: map[string]*usage{},
 	}
+
+	if os.Getenv("BENCH_PROXY_DELAY_MODE") == "proxy" {
+		d, err := time.ParseDuration(os.Getenv("BENCH_PROXY_DELAY"))
+		if err != nil {
+			return fmt.Errorf("BENCH_PROXY_DELAY: %w", err)
+		}
+
+		p.delay = d
+	}
+
 	errs := make(chan error, 4)
 
 	serve := func(port int, handle func(net.Conn)) {
@@ -86,6 +99,17 @@ func run(ctx context.Context) error {
 				errs <- err
 
 				return
+			}
+
+			if p.delay > 0 {
+				go func() {
+					// netem would hold the SYN-ACK: the client's
+					// first bytes arrive delay late.
+					time.Sleep(p.delay)
+					handle(&delayedConn{Conn: c, delay: p.delay})
+				}()
+
+				continue
 			}
 
 			go handle(c)
@@ -114,8 +138,8 @@ func run(ctx context.Context) error {
 		errs <- statsSrv.ListenAndServe()
 	}()
 
-	log.Printf("proxy: CONNECT :%d, CONNECT with Basic auth :%d, SOCKS5 :%d, stats :%d",
-		target.ProxyPort, target.ProxyAuthPort, target.ProxySOCKSPort, target.ProxyStatsPort)
+	log.Printf("proxy: CONNECT :%d, CONNECT with Basic auth :%d, SOCKS5 :%d, stats :%d, in-process delay %v",
+		target.ProxyPort, target.ProxyAuthPort, target.ProxySOCKSPort, target.ProxyStatsPort, p.delay)
 
 	select {
 	case err := <-errs:
@@ -126,8 +150,10 @@ func run(ctx context.Context) error {
 }
 
 // proxy holds what the proxy relayed, per user ("" for clients without
-// credentials).
+// credentials), and its in-process delay (0: none, or netem's).
 type proxy struct {
+	delay time.Duration
+
 	mu    sync.Mutex
 	users map[string]*usage
 }
@@ -294,7 +320,7 @@ func (p *proxy) connect(c net.Conn, auth bool) {
 			user = name
 		}
 
-		up, err := dial(req.Host)
+		up, err := p.dial(req.Host)
 		if err != nil {
 			_, _ = io.WriteString(c, "HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n")
 
@@ -307,7 +333,7 @@ func (p *proxy) connect(c net.Conn, auth bool) {
 			return
 		}
 
-		relay(c, br, up, p.user(user))
+		p.relay(c, br, up, p.user(user))
 
 		return
 	}
@@ -417,7 +443,7 @@ func (p *proxy) socks5(c net.Conn) {
 
 	switch req[1] {
 	case socksConnect:
-		up, err := dial(net.JoinHostPort(host, strconv.Itoa(int(binary.BigEndian.Uint16(port[:])))))
+		up, err := p.dial(net.JoinHostPort(host, strconv.Itoa(int(binary.BigEndian.Uint16(port[:])))))
 		if err != nil {
 			_, _ = c.Write(socksReply(socksRefused, netip.AddrPort{}))
 
@@ -430,7 +456,7 @@ func (p *proxy) socks5(c net.Conn) {
 			return
 		}
 
-		relay(c, br, up, p.user(user))
+		p.relay(c, br, up, p.user(user))
 
 	case socksUDPAssociate:
 		// The request's DST is the client's sending address, which
@@ -543,7 +569,10 @@ func socksAddr(br *bufio.Reader, atyp byte) (string, error) {
 	return "", errors.New("unknown address type")
 }
 
-func dial(addr string) (net.Conn, error) {
+func (p *proxy) dial(addr string) (net.Conn, error) {
+	// netem would hold the SYN.
+	time.Sleep(p.delay)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -558,20 +587,35 @@ func dial(addr string) (net.Conn, error) {
 // TCP connections, which Linux splices (no copy through user space). The
 // bytes are the server-side socket's TCP_INFO counts (tunnelBytes), read
 // live while it is open and once more before it closes.
-func relay(c net.Conn, br *bufio.Reader, up net.Conn, use *usage) {
+func (p *proxy) relay(c net.Conn, br *bufio.Reader, up net.Conn, use *usage) {
 	use.opened(up)
+
+	c = unwrap(c)
+
+	copyTo := func(dst, src net.Conn) {
+		if p.delay > 0 {
+			delayCopy(dst, src, p.delay)
+		} else {
+			_, _ = io.Copy(dst, src)
+		}
+	}
 
 	done := make(chan struct{}, 2)
 
 	go func() {
 		if n := br.Buffered(); n > 0 {
 			b, _ := br.Peek(n)
+
+			// What the client sent with its request: the delay line's
+			// wait, at once (0 with netem).
+			time.Sleep(p.delay)
+
 			if _, err := up.Write(b); err != nil {
 				_ = up.Close()
 			}
 		}
 
-		_, _ = io.Copy(up, c)
+		copyTo(up, c)
 
 		if tc, ok := up.(*net.TCPConn); ok {
 			_ = tc.CloseWrite()
@@ -580,7 +624,7 @@ func relay(c net.Conn, br *bufio.Reader, up net.Conn, use *usage) {
 		done <- struct{}{}
 	}()
 	go func() {
-		_, _ = io.Copy(c, up)
+		copyTo(c, up)
 
 		if tc, ok := c.(*net.TCPConn); ok {
 			_ = tc.CloseWrite()
@@ -614,6 +658,11 @@ type association struct {
 	out    *net.UDPConn
 	client netip.Addr
 	use    *usage
+	// delay, upLine and downLine are the in-process delay's (nil
+	// without it): datagrams to the targets and to the client.
+	delay    time.Duration
+	upLine   chan datagram
+	downLine chan datagram
 
 	mu sync.Mutex
 	// from is the client's sending address, from its first datagram.
@@ -661,7 +710,13 @@ func (p *proxy) associate(c net.Conn, br *bufio.Reader, user string) {
 		out:     out,
 		client:  clientIP.Unmap(),
 		use:     p.user(user),
+		delay:   p.delay,
 		targets: map[netip.AddrPort]struct{}{},
+	}
+
+	if p.delay > 0 {
+		a.upLine = datagramLine()
+		a.downLine = datagramLine()
 	}
 
 	var wg sync.WaitGroup
@@ -685,6 +740,11 @@ func (p *proxy) associate(c net.Conn, br *bufio.Reader, user string) {
 	_ = out.Close()
 
 	wg.Wait()
+
+	if a.upLine != nil {
+		close(a.upLine)
+		close(a.downLine)
+	}
 }
 
 // toTargets relays the client's datagrams to their targets.
@@ -728,9 +788,9 @@ func (a *association) toTargets() {
 
 		a.mu.Unlock()
 
-		if _, err := a.out.WriteToUDPAddrPort(payload, dst); err == nil {
+		a.send(a.upLine, a.out, payload, dst, func() {
 			a.use.up.Add(int64(len(payload)))
-		}
+		})
 	}
 }
 
@@ -772,11 +832,29 @@ func (a *association) toClient() {
 		copy(h[4:], ip)
 		binary.BigEndian.PutUint16(h[4+len(ip):], from.Port())
 
-		if _, err := a.relay.WriteToUDPAddrPort(buf[start:headerRoom+n], to); err == nil {
+		a.send(a.downLine, a.relay, buf[start:headerRoom+n], to, func() {
 			a.use.datagrams.Add(1)
 			a.use.down.Add(int64(n))
+		})
+	}
+}
+
+// send writes b to `to` on conn, then counts it (ok), at once or, with the
+// in-process delay, through line (a copy of b).
+func (a *association) send(line chan datagram, conn *net.UDPConn, b []byte, to netip.AddrPort, ok func()) {
+	write := func(b []byte) {
+		if _, err := conn.WriteToUDPAddrPort(b, to); err == nil {
+			ok()
 		}
 	}
+
+	if line == nil {
+		write(b)
+
+		return
+	}
+
+	line <- datagram{at: time.Now().Add(a.delay), b: slices.Clone(b), send: write}
 }
 
 // destination parses a client's datagram: its target (a host name

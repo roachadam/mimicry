@@ -1,0 +1,12 @@
+# Layered over compose.server.yml with BENCH_PUBLISH=0 (../scripts/bench.sh):
+# no published ports. The client reaches the servers on the mimicry-bench
+# network alone, so a shared Docker host's own services keep their ports
+# (8080 and 3128 are common) and nothing of the benchmark listens on the
+# host. Only for the local mode: a remote client needs the ports.
+services:
+  nginx:
+    ports: !reset []
+  go-server:
+    ports: !reset []
+  proxy:
+    ports: !reset []

@@ -897,6 +897,10 @@ type env struct {
 	ProxyDelay    string       `json:"proxyDelay"`
 	// Power is the host's power source and Low Power Mode (macOS pmset).
 	Power string `json:"power,omitempty"`
+	// HostLoad is a Linux host's load average and its other containers'
+	// CPU use when the pass started (bench.sh; reports/host-<date>.txt
+	// has every pass's and the end's).
+	HostLoad string `json:"hostLoad,omitempty"`
 	// RmemMax and RmemDefault are the client container's
 	// net.core.rmem_max and rmem_default: the most a UDP socket may ask
 	// for (the quic-go clients ask for 7 MB) and what one gets without
@@ -962,8 +966,9 @@ func environment(ctx context.Context, selected []string) env {
 		MimicryCommit: getenv("BENCH_MIMICRY_COMMIT", "unknown"),
 		Cpusets: fmt.Sprintf("client %s, servers %s, proxy %s",
 			getenv("BENCH_CLIENT_CPUS", "?"), getenv("BENCH_SERVER_CPUS", "?"), getenv("BENCH_PROXY_CPUS", "?")),
-		ProxyDelay:  getenv("BENCH_PROXY_DELAY", "unknown") + " on the proxy's outgoing packets",
+		ProxyDelay:  proxyDelay(),
 		Power:       os.Getenv("BENCH_HOST_POWER"),
+		HostLoad:    os.Getenv("BENCH_HOST_LOAD"),
 		RmemMax:     strings.TrimSpace(readFile("/proc/sys/net/core/rmem_max")),
 		RmemDefault: strings.TrimSpace(readFile("/proc/sys/net/core/rmem_default")),
 		UDPStock:    os.Getenv("BENCH_UDP_STOCK") != "",
@@ -1223,4 +1228,15 @@ func conditionNamed(name string) (condition, bool) {
 	}
 
 	return condition{}, false
+}
+
+// proxyDelay describes the proxy's delay and how it is made
+// (docker/proxy-entrypoint.sh).
+func proxyDelay() string {
+	d := getenv("BENCH_PROXY_DELAY", "unknown")
+	if os.Getenv("BENCH_PROXY_DELAY_MODE") == "proxy" {
+		return d + " on everything the proxy sends, in the proxy (a delay line per direction; the host has no netem)"
+	}
+
+	return d + " on the proxy's outgoing packets"
 }

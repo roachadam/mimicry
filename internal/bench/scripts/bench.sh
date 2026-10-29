@@ -27,7 +27,14 @@
 #                                  (or DOCKER_HOST=ssh://… for the server steps)
 #   BENCH_CLIENT_CPUS, BENCH_SERVER_CPUS, BENCH_PROXY_CPUS   cpusets (0-3, 4-11, 10-11)
 #   BENCH_CLIENT_PROCS, BENCH_SERVER_PROCS                    GOMAXPROCS (4, 8)
-#   BENCH_PROXY_DELAY              netem delay on the proxy's packets (5ms)
+#   BENCH_PROXY_DELAY              delay on the proxy's packets (5ms)
+#   BENCH_PROXY_DELAY_MODE         how: netem (on the proxy's eth0) or proxy
+#                                  (the proxy's in-process delay line); the
+#                                  default is netem where the Docker host has
+#                                  it, else proxy (see "netem" below)
+#   BENCH_PUBLISH=0                publish none of the server stack's ports
+#                                  (a shared host: the client reaches the
+#                                  servers on the mimicry-bench network only)
 #   BENCH_CLIENTS                  clients, in the first pass's order (the five:
 #                                  net/http, mimicry, tls-client, httpcloak,
 #                                  azuretls; also takes clients.Variants)
@@ -71,6 +78,18 @@
 # set both sysctls to 212992 and drop NET_ADMIN, so every client gets the
 # stock 208 KB; without NET_ADMIN there is no netem, so they cannot include
 # layer 5 or -load-netem (bench run refuses).
+#
+# netem: run and report probe the Docker host once (a throwaway container
+# adding a netem qdisc on its own loopback). Without it (a kernel without
+# sch_netem, that host's), the proxy's delay is the in-process one, the
+# offloads sidecar (only for netem, on the host's network) is not started,
+# and a run asking for netem (layer 5 without -netem=false, -load-netem)
+# stops before measuring.
+#
+# On Linux it records the host's load before each pass and at the end: the
+# load average and the CPU use of every container not the benchmark's
+# (docker stats), into the report's Environment (the pass's start) and
+# reports/host-<date>.txt (all of them).
 #
 # On macOS it keeps the machine awake (caffeinate -i) for its whole run, and
 # refuses to measure unless the Mac is on AC power with Low Power Mode off,
@@ -180,8 +199,13 @@ if [[ -n "${BENCH_SERVER_CONTEXT:-}" ]]; then
 	server_docker=(docker --context "$BENCH_SERVER_CONTEXT")
 fi
 
+server_files=(-f "$compose_dir/compose.server.yml")
+if [[ "${BENCH_PUBLISH:-1}" == 0 ]]; then
+	server_files+=(-f "$compose_dir/compose.server.nopublish.yml")
+fi
+
 server_compose() {
-	"${server_docker[@]}" compose -f "$compose_dir/compose.server.yml" "$@"
+	"${server_docker[@]}" compose "${server_files[@]}" "$@"
 }
 
 client_files=(-f "$compose_dir/compose.client.yml")
@@ -240,8 +264,82 @@ up() {
 	fi
 
 	# On the client's Docker host: turns its veth's offloads off under netem.
-	client_compose up -d offloads
+	if [[ "${BENCH_NETEM:-1}" == 1 ]]; then
+		client_compose up -d offloads
+	fi
 	client_compose run --rm client bench wait
+}
+
+# probe_netem sets BENCH_NETEM (1 if a container on the client's Docker
+# host can add a netem qdisc, else 0) and BENCH_PROXY_DELAY_MODE (netem,
+# else proxy) unless given. On the client's host: with BENCH_SERVER the
+# proxy's host may differ, so there it only defaults the mode to netem.
+probe_netem() {
+	if [[ -z "${BENCH_NETEM:-}" ]]; then
+		if docker run --rm --name mimicry-bench-netem-probe --network none --cap-add NET_ADMIN mimicry-bench:latest \
+			tc qdisc add dev lo root netem delay 1ms >/dev/null 2>&1; then
+			BENCH_NETEM=1
+		else
+			BENCH_NETEM=0
+		fi
+	fi
+	export BENCH_NETEM
+
+	local mode=netem
+	[[ "$BENCH_NETEM" == 1 || -n "${BENCH_SERVER:-}" ]] || mode=proxy
+	export BENCH_PROXY_DELAY_MODE="${BENCH_PROXY_DELAY_MODE:-$mode}"
+	echo "bench: netem $([[ "$BENCH_NETEM" == 1 ]] && echo available || echo unavailable) on this Docker host; the proxy's delay: $BENCH_PROXY_DELAY_MODE"
+
+	if [[ "$BENCH_NETEM" == 0 && "$BENCH_PROXY_DELAY_MODE" == netem && -z "${BENCH_SERVER:-}" ]]; then
+		echo "bench: BENCH_PROXY_DELAY_MODE=netem, but this Docker host has no netem: use proxy" >&2
+		exit 2
+	fi
+}
+
+# needs_netem <args...> succeeds when the run asks for netem: layer 5
+# without -netem=false, or -load-netem.
+needs_netem() {
+	local layers
+	layers="$(layers_of "$@")"
+	if grep -qE '(^|[ ])-?-load-netem([ =]|$)' <<<"$*"; then
+		return 0
+	fi
+	grep -qE '(^|,)5(,|$)' <<<"$layers" || return 1
+	! grep -qE '(^|[ ])-?-netem(=false| false)([ ]|$)' <<<"$*"
+}
+
+# check_netem stops a run that needs netem on a host without it.
+check_netem() {
+	[[ "$BENCH_NETEM" == 0 ]] || return 0
+	if needs_netem "$@"; then
+		echo "bench: this run needs netem (layer 5, or -load-netem), which this Docker host lacks (no sch_netem):" >&2
+		echo "bench: drop layer 5 (the default run is 3,4,6), give -netem=false, or run on a host with netem" >&2
+		exit 2
+	fi
+}
+
+# host_load prints a Linux host's load average and the busiest containers
+# that are not the benchmark's, by CPU (docker stats, one sample); nothing
+# on macOS, whose Docker runs in a VM.
+host_load() {
+	[[ "$(uname -s)" == Linux ]] || return 0
+	local others
+	others="$(docker stats --no-stream --format '{{.Name}} {{.CPUPerc}}' 2>/dev/null |
+		awk '$1 !~ /^mimicry-bench/ { c = $2; sub(/%/, "", c); if (c + 0 >= 1) print c, $1 }' |
+		sort -rn | awk '{ printf "%s%s %s%%", (NR > 1 ? ", " : ""), $2, $1 }')"
+	echo "load average $(cut -d' ' -f1-3 /proc/loadavg); other containers at 1% CPU or more: ${others:-none}"
+}
+
+# note_load <when> records host_load in reports/host-<date>.txt and, for
+# the next pass's report, BENCH_HOST_LOAD.
+note_load() {
+	[[ "$(uname -s)" == Linux ]] || return 0
+	local l
+	l="$(host_load)"
+	mkdir -p "$reports"
+	echo "$(date -u +%FT%TZ) $1: $l" >>"$reports/host-$date.txt"
+	echo "bench: host $1: $l"
+	export BENCH_HOST_LOAD="$l"
 }
 
 # clients_base is the first pass's client order: BENCH_CLIENTS, else the
@@ -274,6 +372,7 @@ order() {
 
 micro() {
 	mkdir -p "$reports"
+	note_load "before micro"
 	local raw="micro-$date.txt"
 	local stat="micro-$date-benchstat.txt"
 	local count="${BENCH_COUNT:-6}"
@@ -380,6 +479,7 @@ pass() {
 		micro_args=(-micro "micro-$date-benchstat.txt" -micro-raw "micro-$date.txt")
 	fi
 
+	note_load "before $pname"
 	client_compose run --rm client bench run -out /reports -date "$date" -name "$pname" -clients "$clients" \
 		${micro_args[@]+"${micro_args[@]}"} "$@"
 }
@@ -399,6 +499,7 @@ report() {
 
 	if ((passes <= 1 && stock_passes == 0)); then
 		pass "$name" "$(clients_base)" -layers "$layers" ${rest[@]+"${rest[@]}"}
+		note_load "end"
 		echo "bench: wrote $reports/$name-$date.md and .json"
 		return
 	fi
@@ -438,6 +539,7 @@ report() {
 		stock_arg=(-udp-stock "$(IFS=,; echo "${stock[*]}")")
 	fi
 
+	note_load "end"
 	client_compose run --rm client bench merge -passes -out /reports -name "$name" -date "$date" \
 		${stock_arg[@]+"${stock_arg[@]}"} "${jsons[@]}"
 	echo "bench: wrote $reports/$name-$date.md and .json from ${jsons[*]} ${stock[*]:-}"
@@ -577,16 +679,22 @@ esac
 
 case "$cmd" in
 up)
-	up
+	build
+	probe_netem
+	BENCH_SKIP_BUILD=1 up
 	;;
 micro)
-	up
+	build
+	probe_netem
+	BENCH_SKIP_BUILD=1 up
 	micro "$@"
 	;;
 run)
 	passes="${BENCH_PASSES:-3}"
 	stock="${BENCH_UDP_STOCK_PASSES:-0}"
 	build
+	probe_netem
+	check_netem ${cmd_args[@]+"${cmd_args[@]}"}
 	plan "$passes" "$stock" ${cmd_args[@]+"${cmd_args[@]}"}
 	BENCH_SKIP_BUILD=1 BENCH_RESTART=1 up
 	micro
@@ -597,7 +705,10 @@ plan)
 	plan "${BENCH_PASSES:-3}" "${BENCH_UDP_STOCK_PASSES:-0}" ${cmd_args[@]+"${cmd_args[@]}"}
 	;;
 report)
-	up
+	build
+	probe_netem
+	check_netem ${cmd_args[@]+"${cmd_args[@]}"}
+	BENCH_SKIP_BUILD=1 up
 	report ${cmd_args[@]+"${cmd_args[@]}"}
 	;;
 render)
