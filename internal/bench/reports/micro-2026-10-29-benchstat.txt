@@ -1,0 +1,92 @@
+goos: linux
+goarch: arm64
+pkg: github.com/roachadam/mimicry/internal/bench
+                                                  │   nethttp    │                mimicry                 │              tls-client              │               httpcloak                │                azuretls                │
+                                                  │    sec/op    │    sec/op      vs base                 │    sec/op      vs base               │    sec/op      vs base                 │    sec/op      vs base                 │
+Request/server=nginx/proto=h1/method=GET-4          58.68µ ± ∞ ¹    59.16µ ± ∞ ¹        ~ (p=1.000 n=4)      70.70µ ± ∞ ¹  +20.48% (p=0.029 n=4)    81.72µ ± ∞ ¹    +39.25% (p=0.029 n=4)    79.78µ ± ∞ ¹  +35.95% (p=0.029 n=4)
+Request/server=nginx/proto=h1/method=POST-4         61.12µ ± ∞ ¹    65.17µ ± ∞ ¹   +6.62% (p=0.029 n=4)      69.34µ ± ∞ ¹  +13.43% (p=0.029 n=4)    83.11µ ± ∞ ¹    +35.96% (p=0.029 n=4)    83.06µ ± ∞ ¹  +35.89% (p=0.029 n=4)
+Request/server=nginx/proto=h2/method=GET-4          63.45µ ± ∞ ¹    67.69µ ± ∞ ¹   +6.69% (p=0.029 n=4)      77.00µ ± ∞ ¹  +21.36% (p=0.029 n=4)    81.90µ ± ∞ ¹    +29.08% (p=0.029 n=4)    99.22µ ± ∞ ¹  +56.37% (p=0.029 n=4)
+Request/server=nginx/proto=h2/method=POST-4         66.22µ ± ∞ ¹    63.89µ ± ∞ ¹        ~ (p=0.343 n=4)      69.30µ ± ∞ ¹   +4.66% (p=0.029 n=4)    83.58µ ± ∞ ¹    +26.22% (p=0.029 n=4)   105.74µ ± ∞ ¹  +59.69% (p=0.029 n=4)
+Request/server=nginx/proto=h3/method=GET-4          67.34µ ± ∞ ¹    73.46µ ± ∞ ¹   +9.09% (p=0.029 n=4)      84.15µ ± ∞ ¹  +24.97% (p=0.029 n=4)   110.19µ ± ∞ ¹    +63.63% (p=0.029 n=4)    89.19µ ± ∞ ¹  +32.45% (p=0.029 n=4)
+Request/server=nginx/proto=h3/method=POST-4         80.47µ ± ∞ ¹    82.77µ ± ∞ ¹        ~ (p=0.343 n=4)     102.93µ ± ∞ ¹  +27.90% (p=0.029 n=4)   121.82µ ± ∞ ¹    +51.38% (p=0.029 n=4)   106.09µ ± ∞ ¹  +31.83% (p=0.029 n=4)
+Request/server=go/proto=h1/method=GET-4             60.12µ ± ∞ ¹    65.85µ ± ∞ ¹   +9.54% (p=0.029 n=4)      70.98µ ± ∞ ¹  +18.06% (p=0.029 n=4)    80.36µ ± ∞ ¹    +33.67% (p=0.029 n=4)    79.47µ ± ∞ ¹  +32.19% (p=0.029 n=4)
+Request/server=go/proto=h1/method=POST-4            61.84µ ± ∞ ¹    67.10µ ± ∞ ¹   +8.49% (p=0.029 n=4)      71.75µ ± ∞ ¹  +16.01% (p=0.029 n=4)    84.65µ ± ∞ ¹    +36.88% (p=0.029 n=4)    84.66µ ± ∞ ¹  +36.89% (p=0.029 n=4)
+Request/server=go/proto=h2/method=GET-4             73.55µ ± ∞ ¹    77.33µ ± ∞ ¹   +5.14% (p=0.029 n=4)      84.64µ ± ∞ ¹  +15.08% (p=0.029 n=4)    94.51µ ± ∞ ¹    +28.49% (p=0.029 n=4)   108.60µ ± ∞ ¹  +47.66% (p=0.029 n=4)
+Request/server=go/proto=h2/method=POST-4            77.61µ ± ∞ ¹    80.48µ ± ∞ ¹   +3.70% (p=0.029 n=4)      86.71µ ± ∞ ¹  +11.72% (p=0.029 n=4)    95.14µ ± ∞ ¹    +22.58% (p=0.029 n=4)   118.38µ ± ∞ ¹  +52.52% (p=0.029 n=4)
+Request/server=go/proto=h3/method=GET-4             73.62µ ± ∞ ¹   102.35µ ± ∞ ¹  +39.04% (p=0.029 n=4)      97.75µ ± ∞ ¹  +32.79% (p=0.029 n=4)   132.62µ ± ∞ ¹    +80.15% (p=0.029 n=4)   109.51µ ± ∞ ¹  +48.76% (p=0.029 n=4)
+Request/server=go/proto=h3/method=POST-4            85.00µ ± ∞ ¹   108.38µ ± ∞ ¹  +27.51% (p=0.029 n=4)     119.95µ ± ∞ ¹  +41.13% (p=0.029 n=4)   147.73µ ± ∞ ¹    +73.81% (p=0.029 n=4)   127.90µ ± ∞ ¹  +50.48% (p=0.029 n=4)
+Connect/server=nginx/proto=h1/handshake=full-4      764.7µ ± ∞ ¹    743.4µ ± ∞ ¹        ~ (p=0.486 n=4)     1149.0µ ± ∞ ¹        ~ (p=0.343 n=4)   1225.1µ ± ∞ ¹          ~ (p=0.114 n=4)   1073.0µ ± ∞ ¹        ~ (p=0.343 n=4)
+Connect/server=nginx/proto=h1/handshake=resumed-4   541.9µ ± ∞ ¹    637.2µ ± ∞ ¹        ~ (p=0.200 n=4)      803.1µ ± ∞ ¹        ~ (p=0.057 n=4)    851.0µ ± ∞ ¹    +57.05% (p=0.029 n=4)
+Connect/server=nginx/proto=h2/handshake=full-4      707.6µ ± ∞ ¹    852.1µ ± ∞ ¹  +20.43% (p=0.029 n=4)      857.6µ ± ∞ ¹  +21.20% (p=0.029 n=4)    928.7µ ± ∞ ¹    +31.25% (p=0.029 n=4)    866.3µ ± ∞ ¹  +22.42% (p=0.029 n=4)
+Connect/server=nginx/proto=h2/handshake=resumed-4   527.8µ ± ∞ ¹    627.9µ ± ∞ ¹  +18.98% (p=0.029 n=4)      665.7µ ± ∞ ¹  +26.13% (p=0.029 n=4)    704.4µ ± ∞ ¹    +33.47% (p=0.029 n=4)
+Connect/server=nginx/proto=h3/handshake=full-4      947.5µ ± ∞ ¹                                            1047.0µ ± ∞ ¹  +10.50% (p=0.029 n=4)   9401.6µ ± ∞ ¹   +892.23% (p=0.029 n=4)   1073.2µ ± ∞ ¹  +13.27% (p=0.029 n=4)
+Connect/server=nginx/proto=h3/handshake=resumed-4   656.2µ ± ∞ ¹    829.3µ ± ∞ ¹  +26.38% (p=0.029 n=4)      702.8µ ± ∞ ¹   +7.10% (p=0.029 n=4)   7359.2µ ± ∞ ¹  +1021.48% (p=0.029 n=4)
+Connect/server=go/proto=h1/handshake=full-4         644.5µ ± ∞ ¹    736.0µ ± ∞ ¹        ~ (p=0.114 n=4)      762.2µ ± ∞ ¹  +18.25% (p=0.029 n=4)    943.4µ ± ∞ ¹    +46.38% (p=0.029 n=4)    804.7µ ± ∞ ¹  +24.85% (p=0.029 n=4)
+Connect/server=go/proto=h1/handshake=resumed-4      474.2µ ± ∞ ¹    543.9µ ± ∞ ¹  +14.70% (p=0.029 n=4)      628.7µ ± ∞ ¹  +32.59% (p=0.029 n=4)    770.9µ ± ∞ ¹    +62.58% (p=0.029 n=4)
+Connect/server=go/proto=h2/handshake=full-4         725.3µ ± ∞ ¹    821.5µ ± ∞ ¹  +13.26% (p=0.029 n=4)      823.2µ ± ∞ ¹  +13.49% (p=0.029 n=4)    878.0µ ± ∞ ¹    +21.05% (p=0.029 n=4)    855.5µ ± ∞ ¹  +17.96% (p=0.029 n=4)
+Connect/server=go/proto=h2/handshake=resumed-4      521.9µ ± ∞ ¹    600.5µ ± ∞ ¹        ~ (p=0.343 n=4)      706.1µ ± ∞ ¹        ~ (p=0.343 n=4)    694.8µ ± ∞ ¹          ~ (p=0.343 n=4)
+Connect/server=go/proto=h3/handshake=full-4         824.2µ ± ∞ ¹                                             922.6µ ± ∞ ¹  +11.94% (p=0.029 n=4)   8132.0µ ± ∞ ¹   +886.68% (p=0.029 n=4)   1025.6µ ± ∞ ¹  +24.43% (p=0.029 n=4)
+Connect/server=go/proto=h3/handshake=resumed-4      638.0µ ± ∞ ¹    766.5µ ± ∞ ¹        ~ (p=0.057 n=4)      679.6µ ± ∞ ¹        ~ (p=0.343 n=4)   7263.7µ ± ∞ ¹  +1038.57% (p=0.029 n=4)
+geomean                                             211.4µ          207.9µ        +12.00%               ²    256.7µ        +21.44%                  420.3µ          +98.83%                  208.6µ        +36.25%               ²
+¹ need >= 6 samples for confidence interval at level 0.95
+² benchmark set differs from baseline; geomeans may not be comparable
+
+                                                  │    nethttp    │                 mimicry                  │               tls-client               │               httpcloak                │                 azuretls                 │
+                                                  │     B/op      │      B/op       vs base                  │      B/op       vs base                │      B/op       vs base                │      B/op       vs base                  │
+Request/server=nginx/proto=h1/method=GET-4          4.170Ki ± ∞ ¹    7.995Ki ± ∞ ¹   +91.73% (p=0.029 n=4)     10.798Ki ± ∞ ¹  +158.95% (p=0.029 n=4)   15.948Ki ± ∞ ¹  +282.46% (p=0.029 n=4)   13.077Ki ± ∞ ¹  +213.61% (p=0.029 n=4)
+Request/server=nginx/proto=h1/method=POST-4         5.302Ki ± ∞ ¹    9.376Ki ± ∞ ¹   +76.85% (p=0.029 n=4)     12.627Ki ± ∞ ¹  +138.17% (p=0.029 n=4)   14.697Ki ± ∞ ¹  +177.21% (p=0.029 n=4)   13.631Ki ± ∞ ¹  +157.11% (p=0.029 n=4)
+Request/server=nginx/proto=h2/method=GET-4          5.850Ki ± ∞ ¹    8.323Ki ± ∞ ¹   +42.28% (p=0.029 n=4)     15.070Ki ± ∞ ¹  +157.63% (p=0.029 n=4)   14.930Ki ± ∞ ¹  +155.23% (p=0.029 n=4)   23.097Ki ± ∞ ¹  +294.85% (p=0.029 n=4)
+Request/server=nginx/proto=h2/method=POST-4         7.080Ki ± ∞ ¹    9.614Ki ± ∞ ¹   +35.79% (p=0.029 n=4)     19.211Ki ± ∞ ¹  +171.34% (p=0.029 n=4)   14.213Ki ± ∞ ¹  +100.75% (p=0.029 n=4)   24.465Ki ± ∞ ¹  +245.55% (p=0.029 n=4)
+Request/server=nginx/proto=h3/method=GET-4          7.927Ki ± ∞ ¹   10.550Ki ± ∞ ¹   +33.10% (p=0.029 n=4)     18.265Ki ± ∞ ¹  +130.42% (p=0.029 n=4)   24.462Ki ± ∞ ¹  +208.60% (p=0.029 n=4)   20.954Ki ± ∞ ¹  +164.34% (p=0.029 n=4)
+Request/server=nginx/proto=h3/method=POST-4         16.85Ki ± ∞ ¹    12.24Ki ± ∞ ¹   -27.38% (p=0.029 n=4)      28.84Ki ± ∞ ¹   +71.10% (p=0.029 n=4)    31.53Ki ± ∞ ¹   +87.08% (p=0.029 n=4)    29.32Ki ± ∞ ¹   +73.96% (p=0.029 n=4)
+Request/server=go/proto=h1/method=GET-4             3.652Ki ± ∞ ¹    7.478Ki ± ∞ ¹  +104.76% (p=0.029 n=4)     10.255Ki ± ∞ ¹  +180.81% (p=0.029 n=4)   12.691Ki ± ∞ ¹  +247.53% (p=0.029 n=4)   12.170Ki ± ∞ ¹  +233.25% (p=0.029 n=4)
+Request/server=go/proto=h1/method=POST-4            4.856Ki ± ∞ ¹    8.907Ki ± ∞ ¹   +83.41% (p=0.029 n=4)     12.161Ki ± ∞ ¹  +150.41% (p=0.029 n=4)   13.493Ki ± ∞ ¹  +177.83% (p=0.029 n=4)   13.162Ki ± ∞ ¹  +171.01% (p=0.029 n=4)
+Request/server=go/proto=h2/method=GET-4             5.184Ki ± ∞ ¹    7.656Ki ± ∞ ¹   +47.70% (p=0.029 n=4)     14.384Ki ± ∞ ¹  +177.50% (p=0.029 n=4)   14.368Ki ± ∞ ¹  +177.19% (p=0.029 n=4)   22.047Ki ± ∞ ¹  +325.33% (p=0.029 n=4)
+Request/server=go/proto=h2/method=POST-4            6.470Ki ± ∞ ¹    8.977Ki ± ∞ ¹   +38.75% (p=0.029 n=4)     18.605Ki ± ∞ ¹  +187.58% (p=0.029 n=4)   14.195Ki ± ∞ ¹  +119.40% (p=0.029 n=4)   23.480Ki ± ∞ ¹  +262.93% (p=0.029 n=4)
+Request/server=go/proto=h3/method=GET-4             6.386Ki ± ∞ ¹   11.052Ki ± ∞ ¹   +73.07% (p=0.029 n=4)     16.716Ki ± ∞ ¹  +161.78% (p=0.029 n=4)   21.695Ki ± ∞ ¹  +239.75% (p=0.029 n=4)   18.999Ki ± ∞ ¹  +197.51% (p=0.029 n=4)
+Request/server=go/proto=h3/method=POST-4            15.36Ki ± ∞ ¹    12.86Ki ± ∞ ¹   -16.27% (p=0.029 n=4)      27.36Ki ± ∞ ¹   +78.07% (p=0.029 n=4)    29.44Ki ± ∞ ¹   +91.61% (p=0.029 n=4)    27.46Ki ± ∞ ¹   +78.75% (p=0.029 n=4)
+Connect/server=nginx/proto=h1/handshake=full-4      99.84Ki ± ∞ ¹   116.81Ki ± ∞ ¹   +16.99% (p=0.029 n=4)     137.79Ki ± ∞ ¹   +38.01% (p=0.029 n=4)   460.13Ki ± ∞ ¹  +360.87% (p=0.029 n=4)   127.69Ki ± ∞ ¹   +27.89% (p=0.029 n=4)
+Connect/server=nginx/proto=h1/handshake=resumed-4   95.57Ki ± ∞ ¹   122.57Ki ± ∞ ¹   +28.25% (p=0.029 n=4)     117.08Ki ± ∞ ¹   +22.51% (p=0.029 n=4)   436.40Ki ± ∞ ¹  +356.63% (p=0.029 n=4)
+Connect/server=nginx/proto=h2/handshake=full-4      110.7Ki ± ∞ ¹    119.4Ki ± ∞ ¹    +7.92% (p=0.029 n=4)      151.0Ki ± ∞ ¹   +36.46% (p=0.029 n=4)    163.8Ki ± ∞ ¹   +48.08% (p=0.029 n=4)    149.0Ki ± ∞ ¹   +34.65% (p=0.029 n=4)
+Connect/server=nginx/proto=h2/handshake=resumed-4   105.0Ki ± ∞ ¹    124.3Ki ± ∞ ¹   +18.34% (p=0.029 n=4)      130.4Ki ± ∞ ¹   +24.21% (p=0.029 n=4)    143.3Ki ± ∞ ¹   +36.52% (p=0.029 n=4)
+Connect/server=nginx/proto=h3/handshake=full-4      171.6Ki ± ∞ ¹                                               193.2Ki ± ∞ ¹   +12.57% (p=0.029 n=4)    237.9Ki ± ∞ ¹   +38.63% (p=0.029 n=4)    204.4Ki ± ∞ ¹   +19.08% (p=0.029 n=4)
+Connect/server=nginx/proto=h3/handshake=resumed-4   171.7Ki ± ∞ ¹    182.6Ki ± ∞ ¹    +6.34% (p=0.029 n=4)      185.2Ki ± ∞ ¹    +7.85% (p=0.029 n=4)    247.5Ki ± ∞ ¹   +44.12% (p=0.029 n=4)
+Connect/server=go/proto=h1/handshake=full-4         97.62Ki ± ∞ ¹   114.92Ki ± ∞ ¹   +17.73% (p=0.029 n=4)     135.81Ki ± ∞ ¹   +39.13% (p=0.029 n=4)   457.19Ki ± ∞ ¹  +368.35% (p=0.029 n=4)   126.16Ki ± ∞ ¹   +29.24% (p=0.029 n=4)
+Connect/server=go/proto=h1/handshake=resumed-4      94.27Ki ± ∞ ¹   121.49Ki ± ∞ ¹   +28.87% (p=0.029 n=4)     115.45Ki ± ∞ ¹   +22.47% (p=0.029 n=4)   434.17Ki ± ∞ ¹  +360.55% (p=0.029 n=4)
+Connect/server=go/proto=h2/handshake=full-4         108.9Ki ± ∞ ¹    117.6Ki ± ∞ ¹    +8.03% (p=0.029 n=4)      149.5Ki ± ∞ ¹   +37.25% (p=0.029 n=4)    162.9Ki ± ∞ ¹   +49.57% (p=0.029 n=4)    148.4Ki ± ∞ ¹   +36.31% (p=0.029 n=4)
+Connect/server=go/proto=h2/handshake=resumed-4      103.7Ki ± ∞ ¹    124.2Ki ± ∞ ¹   +19.87% (p=0.029 n=4)      130.5Ki ± ∞ ¹   +25.90% (p=0.029 n=4)    141.2Ki ± ∞ ¹   +36.18% (p=0.029 n=4)
+Connect/server=go/proto=h3/handshake=full-4         164.8Ki ± ∞ ¹                                               185.8Ki ± ∞ ¹   +12.72% (p=0.029 n=4)    228.8Ki ± ∞ ¹   +38.82% (p=0.029 n=4)    197.9Ki ± ∞ ¹   +20.02% (p=0.029 n=4)
+Connect/server=go/proto=h3/handshake=resumed-4      165.6Ki ± ∞ ¹    174.6Ki ± ∞ ¹    +5.47% (p=0.029 n=4)      179.1Ki ± ∞ ¹    +8.18% (p=0.029 n=4)    237.3Ki ± ∞ ¹   +43.30% (p=0.029 n=4)
+geomean                                             28.24Ki          31.11Ki         +29.56%               ²    49.00Ki         +73.52%                  66.64Ki        +135.99%                  38.74Ki        +121.34%               ²
+¹ need >= 6 samples for confidence interval at level 0.95
+² benchmark set differs from baseline; geomeans may not be comparable
+
+                                                  │   nethttp    │                mimicry                │              tls-client              │              httpcloak               │                azuretls                │
+                                                  │  allocs/op   │  allocs/op    vs base                 │  allocs/op    vs base                │  allocs/op    vs base                │  allocs/op    vs base                  │
+Request/server=nginx/proto=h1/method=GET-4           59.00 ± ∞ ¹    74.00 ± ∞ ¹  +25.42% (p=0.029 n=4)     111.00 ± ∞ ¹   +88.14% (p=0.029 n=4)   214.00 ± ∞ ¹  +262.71% (p=0.029 n=4)   260.00 ± ∞ ¹  +340.68% (p=0.029 n=4)
+Request/server=nginx/proto=h1/method=POST-4          68.00 ± ∞ ¹    88.00 ± ∞ ¹  +29.41% (p=0.029 n=4)     118.00 ± ∞ ¹   +73.53% (p=0.029 n=4)   213.00 ± ∞ ¹  +213.24% (p=0.029 n=4)   291.00 ± ∞ ¹  +327.94% (p=0.029 n=4)
+Request/server=nginx/proto=h2/method=GET-4           56.00 ± ∞ ¹    80.00 ± ∞ ¹  +42.86% (p=0.029 n=4)     141.00 ± ∞ ¹  +151.79% (p=0.029 n=4)   109.00 ± ∞ ¹   +94.64% (p=0.029 n=4)   414.00 ± ∞ ¹  +639.29% (p=0.029 n=4)
+Request/server=nginx/proto=h2/method=POST-4          66.00 ± ∞ ¹    92.00 ± ∞ ¹  +39.39% (p=0.029 n=4)     153.00 ± ∞ ¹  +131.82% (p=0.029 n=4)   120.00 ± ∞ ¹   +81.82% (p=0.029 n=4)   459.00 ± ∞ ¹  +595.45% (p=0.029 n=4)
+Request/server=nginx/proto=h3/method=GET-4          122.00 ± ∞ ¹    85.00 ± ∞ ¹  -30.33% (p=0.029 n=4)     225.00 ± ∞ ¹   +84.43% (p=0.029 n=4)   335.00 ± ∞ ¹  +174.59% (p=0.029 n=4)   293.00 ± ∞ ¹  +140.16% (p=0.029 n=4)
+Request/server=nginx/proto=h3/method=POST-4          131.0 ± ∞ ¹    103.0 ± ∞ ¹  -21.37% (p=0.029 n=4)      234.0 ± ∞ ¹   +78.63% (p=0.029 n=4)    330.0 ± ∞ ¹  +151.91% (p=0.029 n=4)    302.0 ± ∞ ¹  +130.53% (p=0.029 n=4)
+Request/server=go/proto=h1/method=GET-4              53.00 ± ∞ ¹    68.00 ± ∞ ¹  +28.30% (p=0.029 n=4)     105.00 ± ∞ ¹   +98.11% (p=0.029 n=4)   192.00 ± ∞ ¹  +262.26% (p=0.029 n=4)   252.00 ± ∞ ¹  +375.47% (p=0.029 n=4)
+Request/server=go/proto=h1/method=POST-4             64.00 ± ∞ ¹    84.00 ± ∞ ¹  +31.25% (p=0.029 n=4)     114.00 ± ∞ ¹   +78.12% (p=0.029 n=4)   204.00 ± ∞ ¹  +218.75% (p=0.029 n=4)   286.50 ± ∞ ¹  +347.66% (p=0.029 n=4)
+Request/server=go/proto=h2/method=GET-4              39.00 ± ∞ ¹    63.00 ± ∞ ¹  +61.54% (p=0.029 n=4)     124.00 ± ∞ ¹  +217.95% (p=0.029 n=4)    91.00 ± ∞ ¹  +133.33% (p=0.029 n=4)   395.00 ± ∞ ¹  +912.82% (p=0.029 n=4)
+Request/server=go/proto=h2/method=POST-4             51.00 ± ∞ ¹    77.00 ± ∞ ¹  +50.98% (p=0.029 n=4)     138.00 ± ∞ ¹  +170.59% (p=0.029 n=4)   108.00 ± ∞ ¹  +111.76% (p=0.029 n=4)   442.00 ± ∞ ¹  +766.67% (p=0.029 n=4)
+Request/server=go/proto=h3/method=GET-4             104.00 ± ∞ ¹    83.00 ± ∞ ¹  -20.19% (p=0.029 n=4)     206.00 ± ∞ ¹   +98.08% (p=0.029 n=4)   305.00 ± ∞ ¹  +193.27% (p=0.029 n=4)   271.00 ± ∞ ¹  +160.58% (p=0.029 n=4)
+Request/server=go/proto=h3/method=POST-4             116.0 ± ∞ ¹    101.0 ± ∞ ¹  -12.93% (p=0.029 n=4)      220.0 ± ∞ ¹   +89.66% (p=0.029 n=4)    313.0 ± ∞ ¹  +169.83% (p=0.029 n=4)    285.0 ± ∞ ¹  +145.69% (p=0.029 n=4)
+Connect/server=nginx/proto=h1/handshake=full-4       722.5 ± ∞ ¹    921.5 ± ∞ ¹  +27.54% (p=0.029 n=4)     1088.0 ± ∞ ¹   +50.59% (p=0.029 n=4)   1149.0 ± ∞ ¹   +59.03% (p=0.029 n=4)   1117.5 ± ∞ ¹   +54.67% (p=0.029 n=4)
+Connect/server=nginx/proto=h1/handshake=resumed-4    635.0 ± ∞ ¹    795.0 ± ∞ ¹  +25.20% (p=0.029 n=4)      946.0 ± ∞ ¹   +48.98% (p=0.029 n=4)    963.5 ± ∞ ¹   +51.73% (p=0.029 n=4)
+Connect/server=nginx/proto=h2/handshake=full-4       807.0 ± ∞ ¹    971.0 ± ∞ ¹  +20.32% (p=0.029 n=4)     1168.0 ± ∞ ¹   +44.73% (p=0.029 n=4)   1150.0 ± ∞ ¹   +42.50% (p=0.029 n=4)   1342.0 ± ∞ ¹   +66.29% (p=0.029 n=4)
+Connect/server=nginx/proto=h2/handshake=resumed-4    711.0 ± ∞ ¹    845.0 ± ∞ ¹  +18.85% (p=0.029 n=4)     1030.0 ± ∞ ¹   +44.87% (p=0.029 n=4)    966.0 ± ∞ ¹   +35.86% (p=0.029 n=4)
+Connect/server=nginx/proto=h3/handshake=full-4      1.510k ± ∞ ¹                                           1.694k ± ∞ ¹   +12.15% (p=0.029 n=4)   2.059k ± ∞ ¹   +36.39% (p=0.029 n=4)   1.895k ± ∞ ¹   +25.50% (p=0.029 n=4)
+Connect/server=nginx/proto=h3/handshake=resumed-4   1.418k ± ∞ ¹   1.490k ± ∞ ¹   +5.04% (p=0.029 n=4)     1.557k ± ∞ ¹    +9.80% (p=0.029 n=4)   1.951k ± ∞ ¹   +37.59% (p=0.029 n=4)
+Connect/server=go/proto=h1/handshake=full-4          702.0 ± ∞ ¹    902.5 ± ∞ ¹  +28.56% (p=0.029 n=4)     1070.0 ± ∞ ¹   +52.42% (p=0.029 n=4)   1117.5 ± ∞ ¹   +59.19% (p=0.029 n=4)   1109.0 ± ∞ ¹   +57.98% (p=0.029 n=4)
+Connect/server=go/proto=h1/handshake=resumed-4       631.0 ± ∞ ¹    791.0 ± ∞ ¹  +25.36% (p=0.029 n=4)      942.0 ± ∞ ¹   +49.29% (p=0.029 n=4)    946.0 ± ∞ ¹   +49.92% (p=0.029 n=4)
+Connect/server=go/proto=h2/handshake=full-4          789.5 ± ∞ ¹    956.5 ± ∞ ¹  +21.15% (p=0.029 n=4)     1151.0 ± ∞ ¹   +45.79% (p=0.029 n=4)   1133.0 ± ∞ ¹   +43.51% (p=0.029 n=4)   1338.5 ± ∞ ¹   +69.54% (p=0.029 n=4)
+Connect/server=go/proto=h2/handshake=resumed-4       705.5 ± ∞ ¹    843.0 ± ∞ ¹  +19.49% (p=0.029 n=4)     1029.0 ± ∞ ¹   +45.85% (p=0.029 n=4)    964.0 ± ∞ ¹   +36.64% (p=0.029 n=4)
+Connect/server=go/proto=h3/handshake=full-4         1.449k ± ∞ ¹                                           1.631k ± ∞ ¹   +12.59% (p=0.029 n=4)   1.976k ± ∞ ¹   +36.37% (p=0.029 n=4)   1.841k ± ∞ ¹   +27.09% (p=0.029 n=4)
+Connect/server=go/proto=h3/handshake=resumed-4      1.389k ± ∞ ¹   1.462k ± ∞ ¹   +5.26% (p=0.029 n=4)     1.527k ± ∞ ¹    +9.94% (p=0.029 n=4)   1.889k ± ∞ ¹   +36.00% (p=0.029 n=4)
+geomean                                              254.4          252.9        +16.68%               ²    426.9         +67.80%                  497.0         +95.36%                  526.4        +210.16%               ²
+¹ need >= 6 samples for confidence interval at level 0.95
+² benchmark set differs from baseline; geomeans may not be comparable
