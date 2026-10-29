@@ -20,6 +20,17 @@ ever reaches the library's or the harness's dependencies. Reports are in
 | 5 | Realistic network: a page load (one HTML + 30 subresources over www, static and api) under `tc netem` (RTT 20 and 80 ms, loss 0 and 1%), cold and warm; over HTTP/3, mimicry also as a returning browser (new Transports sharing an Alt-Svc cache an earlier visit filled); the same through a CONNECT proxy (with and without Basic auth) and SOCKS5, the proxy with its own delay | `cmd/bench` |
 | 6 | Many clients, one proxy identity each: N clients (200) in one process, each its own Transport or session with its own proxy credentials, each sending GET 1 KB or 100 KB to nginx one request at a time; HTTP/2 and HTTP/1.1 through CONNECT with Basic auth, HTTP/2 and HTTP/3 through SOCKS5 (socks5h, username and password). Requests/s, p50/p99, CPU and allocations per request, heap per client at steady state and peak, goroutines and stack per client, errors; a rotation variant (a new identity every K requests, 10) adds new-connection latency, handshakes/s and the cost per new identity | `cmd/bench` |
 
+A load point's throughput is the response body bytes that arrive inside
+its window, counted as the client reads them: MB/s, and requests/s as
+responses' worth of those bytes (CPU and allocations per request divide by
+the same), wherever the requests started and ended. Its latencies are the
+requests in flight during the window. Counting the requests that ended
+inside the window made bulk points depend on where the window fell: nginx
+shares a connection's bandwidth evenly between streams, so with Chrome's
+stream windows all 256 of mimicry's 10 MB requests end together, about
+every 4 s, and the fast run's 3 s window held a whole round or a few
+stragglers (4 to 72 requests/s between runs of the same throughput).
+
 Every measured response is checked against the protocol under test as the
 server saw it (`x-proto`); a measurement with one response on another
 protocol is discarded with the reason. A client that lacks something is

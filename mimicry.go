@@ -204,13 +204,16 @@ type Config struct {
 	// UDPReadBufferSize is the receive buffer, in bytes, each HTTP/3
 	// connection's UDP socket asks the OS for (SO_RCVBUF), a SOCKS5
 	// association's included. Zero keeps the OS's default (about 200 KB on
-	// Linux, 768 KB on macOS), which is fastest on short, clean paths: in
-	// the HTTP/3 benchmark (one host, 100 KB at 64 at once) a 7 MB buffer,
-	// quic-go's, ran about 10% slower than Linux's default. Raise it (2 to
-	// 8 MB) for high-bandwidth, lossy or long paths, where a burst can
-	// overflow the default: each datagram dropped there is lost as if on
-	// the network, costing a retransmission and congestion window. It is a
-	// request: the OS may grant less, and the connection never fails for
+	// Linux, 768 KB on macOS). A larger buffer trades drops for a queue: in
+	// the HTTP/3 benchmark (one host, nginx) a 7 MB buffer, quic-go's,
+	// removed the drops and ran 10-15% faster for 100 KB bodies at 64 at
+	// once, but half as fast at 256 at once, and 20% slower for 10 MB
+	// bodies from the Go server: what it holds delays everything behind it,
+	// the server's acknowledgements of the client's own packets included.
+	// Raise it (2 to 8 MB) for high-bandwidth, lossy or long paths, where a
+	// burst can overflow the default: each datagram dropped there is lost as
+	// if on the network, costing a retransmission and congestion window. It
+	// is a request: the OS may grant less, and the connection never fails for
 	// it. Linux grants at most net.core.rmem_max, often 208 KB, without an
 	// error, unless the host raises it (sysctl -w
 	// net.core.rmem_max=8388608); mimicry never uses SO_RCVBUFFORCE, which

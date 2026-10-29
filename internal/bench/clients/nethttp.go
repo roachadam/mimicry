@@ -110,7 +110,7 @@ func (c *netHTTPClient) Do(ctx context.Context, r *Request) (Response, error) {
 		return Response{}, err
 	}
 
-	return doStd(c.client, req)
+	return doStd(c.client, req, r.Arrivals)
 }
 
 func (c *netHTTPClient) CloseIdle() {
@@ -132,8 +132,8 @@ func (c *netHTTPClient) Close() {
 }
 
 // doStd sends req with a net/http client (net/http's or mimicry's) and
-// drains the body.
-func doStd(client *http.Client, req *http.Request) (Response, error) {
+// drains the body, counting it into a when set.
+func doStd(client *http.Client, req *http.Request, a *Arrivals) (Response, error) {
 	resp, err := client.Do(req)
 	if err != nil {
 		return Response{}, err
@@ -143,7 +143,7 @@ func doStd(client *http.Client, req *http.Request) (Response, error) {
 		_ = resp.Body.Close()
 	}()
 
-	n, err := io.Copy(io.Discard, resp.Body)
+	n, err := drain(resp.Body, a)
 
 	return Response{
 		Status:  resp.StatusCode,

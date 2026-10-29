@@ -851,22 +851,48 @@ These matter most under decision 0029:
   - Source: `sampleGaps` in `internal/harness/cmd/h3gen/load.go`;
     [EVIDENCE.md, QUIC and HTTP/3](../profiles/EVIDENCE.md#quic-and-http3).
 - **HTTP/3 bulk throughput against nginx** (Chrome; performance).
-  - Differs: nothing on the wire: at 100 KB and 64 at once mimicry ran
-    4% below tls-client (7,341 against 7,648 requests/s, fast bench,
-    nginx in Docker, 2026-10-28; 5,893 against 7,669 at 256). nginx's one
-    worker for the connection is the limit, and Chrome's ACK every 10
-    packets (the profile's `quic.ack`) costs it about 45% more CPU per
-    response than quic-go's ACKs (one per 25 packets or so): 7.7 client
-    datagrams per response against 3.0. At 10 MB mimicry's socket
-    overflows its default receive buffer (thousands of `RcvbufErrors` per
-    point; tls-client asks for 7 MB) and 256 at once collapses (2-5
-    requests/s against 64); `Config.UDPReadBufferSize` is the lever, the
-    collapse itself is not yet understood.
+  - Differs: nothing on the wire. nginx serves a connection from one
+    worker, and that worker (one core) is the limit at 100 KB and 10 MB
+    for both clients. Chrome's ACK every 10 packets (the profile's
+    `quic.ack`) costs it more per byte than quic-go's: at 10 MB and 64 at
+    once mimicry got 650-730k datagrams/s against tls-client's 730-910k
+    (10 s windows, 2026-10-28), and the same build acknowledging every 20
+    packets (an experiment, not kept) got 870k. At 256 at once both get
+    about 420k. The fast bench's "collapse" there (2-5 requests/s against
+    64) was the benchmark counting requests that ended inside its 3 s
+    window: nginx shares the bandwidth evenly between Chrome's 6 MB-window
+    streams, so all 256 end together about every 4 s. It now counts the
+    bytes that arrive in the window (58 against 57 requests/s). Drops: a
+    few thousand `RcvbufErrors` per point, most at the connection's start
+    (nginx's slow start against the default ~450 KB buffer), then
+    0.1-0.6%; at 100 KB they cost mimicry 10-15% (7 MB buffer: parity
+    with tls-client at 64 at once), but 7 MB halves 256 at once: the
+    client answers its backlog in ACK bursts that overflow nginx's socket
+    (11% of its datagrams), its congestion window falls to two packets,
+    and MAX_DATA waits behind it (up to 45 ms) while nginx idles on flow
+    control. So the default buffer stays the OS's.
   - Detection: none (it is the browser's ACK rate). User-visible: bulk
     downloads from a single-worker HTTP/3 server are somewhat slower.
-  - Close: none planned: fewer ACKs would no longer be Chrome's.
+  - Close: none planned: fewer ACKs would no longer be Chrome's; an
+    opt-in lower ACK rate under decision 0037 is the option. Flow-control
+    frames sent past the client's congestion window would remove the 7 MB
+    stall (RFC 9002 says MUST NOT; medium).
   - Source: `internal/quic/UPSTREAM.md` change 15; the bench's HTTP/3
-    100 KB rows.
+    rows; `internal/dial/dial.go` (the buffer measurements).
+- **HTTP/3 receive path runs on about one core** (all; performance).
+  - Differs: nothing on the wire. The endpoint's reader hands each
+    datagram to the connection's loop through a channel; under bulk load
+    the two run one after the other on one P while the stream readers the
+    loop wakes, one per STREAM frame, fill the others (execution trace:
+    the reader goroutine runnable but waiting 66% of the time). A
+    connection takes about 650-740k datagrams/s; from the Go server at
+    10 MB and 64 at once mimicry got 634k against tls-client's 693k, and
+    491k with a 7 MB buffer. A mutex queue that woke the reader only once
+    half drained (prototype) changed nothing.
+  - Detection: none. User-visible: no (about 1 GB/s per connection).
+  - Close: wake a stream's reader once per datagram batch, not per frame
+    (medium).
+  - Source: harness profiles, 2026-10-28.
 - **HTTP/3 request starts are serialized per connection** (all;
   performance).
   - Differs: nothing on the wire. Each request opens its stream, encodes

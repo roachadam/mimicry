@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"io"
 
 	"github.com/sardanioss/httpcloak"
 	"github.com/sardanioss/httpcloak/fingerprint"
@@ -94,7 +93,7 @@ func (c *httpcloakAdapter) Do(ctx context.Context, r *Request) (Response, error)
 		_ = resp.Close()
 	}()
 
-	n, err := io.Copy(io.Discard, resp.Body)
+	n, err := drain(resp.Body, r.Arrivals)
 
 	return Response{
 		Status:  resp.StatusCode,

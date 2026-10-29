@@ -14,8 +14,10 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"io"
 	"runtime/debug"
 	"strings"
+	"sync/atomic"
 
 	"github.com/roachadam/mimicry/internal/bench/target"
 )
@@ -50,6 +52,67 @@ type Request struct {
 	// HTML) and Page the page making it. Only mimicry uses them.
 	Kind string
 	Page string
+	// Arrivals, when set, counts the response body's bytes as they are
+	// read (a load point's window counts what arrived inside it).
+	Arrivals *Arrivals
+}
+
+// Arrivals counts response body bytes as a client reads them, so a load
+// point can count what arrived inside its window whatever the requests'
+// start and end: a 10 MB body at 256 at once takes longer than a short
+// window, and the requests of a server that shares its bandwidth evenly
+// all end together. A buffering client (azuretls) counts the body once it
+// has it. One request at a time: it reads through a buffer of its own; its
+// count may be read concurrently.
+type Arrivals struct {
+	n   atomic.Int64
+	buf []byte
+}
+
+// Load returns the bytes counted so far.
+func (a *Arrivals) Load() int64 {
+	return a.n.Load()
+}
+
+// Write counts p (a body's WriteTo writes here).
+func (a *Arrivals) Write(p []byte) (int, error) {
+	a.n.Add(int64(len(p)))
+
+	return len(p), nil
+}
+
+// ReadFrom reads r to its end in 8 KB reads, as io.Discard does, counting
+// each as it returns.
+func (a *Arrivals) ReadFrom(r io.Reader) (int64, error) {
+	if a.buf == nil {
+		a.buf = make([]byte, 8192)
+	}
+
+	var total int64
+
+	for {
+		n, err := r.Read(a.buf)
+
+		total += int64(n)
+		a.n.Add(int64(n))
+
+		if errors.Is(err, io.EOF) {
+			return total, nil
+		}
+
+		if err != nil {
+			return total, err
+		}
+	}
+}
+
+// drain reads body to its end into a, or into io.Discard without one.
+func drain(body io.Reader, a *Arrivals) (int64, error) {
+	if a == nil {
+		return io.Copy(io.Discard, body)
+	}
+
+	return io.Copy(a, body)
 }
 
 // Response is what Do reports.

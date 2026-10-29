@@ -219,7 +219,7 @@ func (c *mimicryAdapter) Do(ctx context.Context, r *Request) (Response, error) {
 		req = mimicry.With(req, mr)
 	}
 
-	return doStd(c.client, req)
+	return doStd(c.client, req, r.Arrivals)
 }
 
 func (c *mimicryAdapter) CloseIdle() {

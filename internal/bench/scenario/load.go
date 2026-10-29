@@ -26,8 +26,11 @@ type LoadSpec struct {
 	OnWindow func(open bool) `json:"-"`
 }
 
-// LoadResult is what a load point measured: the requests that completed
-// inside the window.
+// LoadResult is what a load point measured. Throughput is the response
+// body bytes that arrived inside the window (MBps), and RPS the responses'
+// worth of them per second; the per-request figures divide by that worth.
+// The samples (Requests, latencies, errors) are the requests in flight
+// during the window: ended inside it or after it, wherever they started.
 type LoadResult struct {
 	Requests   int64   `json:"requests"`
 	Errors     int64   `json:"errors"`
@@ -102,6 +105,8 @@ func Load(ctx context.Context, su Setup, spec LoadSpec) (LoadResult, error) {
 		errors     int64
 		mismatches int64
 		firstErr   string
+		// arrived counts body bytes as they are read, in every phase.
+		arrived clients.Arrivals
 	}
 
 	workers := make([]*worker, spec.Concurrency)
@@ -109,21 +114,40 @@ func Load(ctx context.Context, su Setup, spec LoadSpec) (LoadResult, error) {
 		workers[i] = new(worker)
 	}
 
+	// arrived is what every worker has read so far.
+	arrived := func() int64 {
+		var n int64
+		for _, w := range workers {
+			n += w.arrived.Load()
+		}
+
+		return n
+	}
+
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	for _, w := range workers {
+		wreq := *req
+
+		wreq.Arrivals = &w.arrived
+
 		wg.Go(func() {
 			for phase.Load() != phaseStop && runCtx.Err() == nil {
 				start := time.Now()
-				resp, err := c.Do(runCtx, req)
+				resp, err := c.Do(runCtx, &wreq)
 				d := time.Since(start)
 
-				// A request counts when it completes inside the window,
-				// wherever it started: the warm-up runs at the same
-				// concurrency, and a 10 MB body at 256 concurrent
-				// requests can take longer than the window.
-				if phase.Load() != phaseMeasure {
+				// A request is a sample (latency, errors, protocol) when
+				// it was in flight during the window: it ended inside it
+				// or after it (the drain below waits for it), wherever it
+				// started. The window's throughput is the bytes that
+				// arrived inside it (below). Counting only the requests
+				// that ended inside it depended on where the window fell:
+				// a server that shares its bandwidth evenly ends all 256
+				// 10 MB requests together, about every 4 s, so a 3 s
+				// window caught a whole round or a few stragglers.
+				if phase.Load() == phaseWarm {
 					continue
 				}
 
@@ -160,6 +184,7 @@ func Load(ctx context.Context, su Setup, spec LoadSpec) (LoadResult, error) {
 
 	peak := samplePeak()
 	before := snapshot(ctx, su.Server)
+	arrivedBefore := arrived()
 
 	if spec.OnWindow != nil {
 		spec.OnWindow(true)
@@ -169,6 +194,7 @@ func Load(ctx context.Context, su Setup, spec LoadSpec) (LoadResult, error) {
 	sleep(ctx, spec.Duration)
 
 	after := snapshot(ctx, su.Server)
+	arrivedAfter := arrived()
 
 	phase.Store(phaseStop)
 
@@ -210,10 +236,19 @@ func Load(ctx context.Context, su Setup, spec LoadSpec) (LoadResult, error) {
 	}
 
 	window := after.at.Sub(before.at)
+	inWindow := float64(arrivedAfter - arrivedBefore)
 
 	res.Seconds = window.Seconds()
+	res.MBps = inWindow / 1e6 / res.Seconds
+
+	// Requests per second are the responses' worth of body bytes that
+	// arrived inside the window, at the size the measured responses had
+	// (every response of a point has the same body).
 	res.RPS = float64(res.Requests) / res.Seconds
-	res.MBps = float64(bytes) / 1e6 / res.Seconds
+	if res.Requests > 0 && bytes > 0 {
+		res.RPS = inWindow / (float64(bytes) / float64(res.Requests)) / res.Seconds
+	}
+
 	res.P50 = ms(total.quantile(0.50))
 	res.P95 = ms(total.quantile(0.95))
 	res.P99 = ms(total.quantile(0.99))
@@ -222,9 +257,7 @@ func Load(ctx context.Context, su Setup, spec LoadSpec) (LoadResult, error) {
 
 	res.ClientCores = cpu.Seconds() / res.Seconds
 
-	if res.Requests > 0 {
-		n := float64(res.Requests)
-
+	if n := res.RPS * res.Seconds; n > 0 {
 		res.CPUPerRequest = float64(cpu.Microseconds()) / n
 		res.BytesPerRequest = float64(after.mem.TotalAlloc-before.mem.TotalAlloc) / n
 		res.AllocsPerRequest = float64(after.mem.Mallocs-before.mem.Mallocs) / n

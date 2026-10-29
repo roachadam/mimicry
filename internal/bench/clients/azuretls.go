@@ -110,6 +110,10 @@ func (c *azuretlsAdapter) Do(ctx context.Context, r *Request) (Response, error) 
 		proto = resp.HttpResponse.Proto
 	}
 
+	if r.Arrivals != nil {
+		_, _ = r.Arrivals.Write(resp.Body) // buffered: it arrived whole
+	}
+
 	return Response{
 		Status:  resp.StatusCode,
 		Proto:   protoOf(resp.Header.Get("X-Proto"), proto),

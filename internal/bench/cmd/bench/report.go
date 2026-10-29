@@ -308,8 +308,9 @@ func (r *report) fairness(w writer) {
 			"scenario. azuretls's HTTP/3 transport ignores its TLS configuration hook, so it trusts the CA through the system roots " +
 			"(`SSL_CERT_FILE` points at the CA in the client container); the others get it as a pool.",
 		"**Bodies.** Each client is used through its ordinary request API: net/http, mimicry and tls-client stream the body " +
-			"(drained into `io.Discard`); httpcloak's `Session.Do` and azuretls's `Session.Do` return it fully buffered, so their " +
-			"allocations grow with the body (10 MB per request at the largest size).",
+			"(drained as into `io.Discard`, counting the bytes as they arrive); httpcloak's `Session.Do` and azuretls's `Session.Do` " +
+			"return it fully buffered, so their allocations grow with the body (10 MB per request at the largest size), and a " +
+			"buffered body counts as it is handed over.",
 		"**Headers.** mimicry sends its Chrome profile's headers for the request's kind: the micro and load scenarios' requests " +
 			"are `Fetch` calls from a page on the same origin (no CORS preflight), page loads are a navigation and element kinds. " +
 			"httpcloak sends its preset's headers. tls-client and azuretls get a fixed set of Chrome's navigation headers, in " +
@@ -326,11 +327,13 @@ func (r *report) fairness(w writer) {
 			"connections at every concurrency above 2); the others keep their defaults.",
 		"**The server is not the bottleneck.** Each server has its own CPU set (more cores than the client); its CPU use is " +
 			"read from its cgroup over each window, shown in the tables, and a point where it passes 90% is discarded. Both " +
-			"servers allow 1000 concurrent streams on HTTP/2 and HTTP/3, and nginx keeps connections for 10 million requests.",
+			"servers allow 1000 concurrent streams on HTTP/2 and HTTP/3, and nginx keeps connections for 10 million requests. " +
+			"The exception: nginx serves a connection from one worker on one core, so over HTTP/2 and HTTP/3 (one connection) a " +
+			"Srv of about one core's share of its CPU set means that worker is the limit, whichever client.",
 		"**CPU and memory are per process.** Each load point, idle-memory measurement and page-load set runs in a worker process " +
 			"of its own, so heaps, goroutines and GC never mix between clients. CPU per request is the process's user+system time " +
-			"over the window divided by the requests completed in it; it includes the load generator's few goroutines, the same " +
-			"for every client.",
+			"over the window divided by the requests' worth of body bytes that arrived in it (as requests/s); it includes the " +
+			"load generator's few goroutines, the same for every client.",
 		"**This machine.** A laptop: Docker runs in a VM, the CPU sets are the VM's CPUs (which of the host's performance and " +
 			"efficiency cores serve them is up to macOS), and other load on the Mac shows up as noise. Short windows (see " +
 			"Environment) trade precision for time; compare clients within a table rather than across runs.",
@@ -392,9 +395,11 @@ func (r *report) loadTables(w writer) {
 	}
 
 	w("## Layer 3: throughput and latency\n\n")
-	w("GET /bytes/{size} on one warm client at each concurrency. Latency in ms. CPU: the client process's CPU time per request ")
-	w("(µs) and cores used. B and allocs: allocated per request. GC: collections and total pause in the window. Heap: the ")
-	w("client's peak heap (MB). Srv: the server's CPU use. ‡: browser-faithful by design.\n\n")
+	w("GET /bytes/{size} on one warm client at each concurrency. Req/s and MB/s: the response body bytes that arrived inside ")
+	w("the window, in responses' worth and in MB, wherever the requests started and ended (a 10 MB body at 256 at once can ")
+	w("take longer than the window). Latency in ms, over the requests in flight during the window. CPU: the client process's ")
+	w("CPU time per request (µs) and cores used. B and allocs: allocated per request. GC: collections and total pause in the ")
+	w("window. Heap: the client's peak heap (MB). Srv: the server's CPU use. ‡: browser-faithful by design.\n\n")
 
 	type group struct {
 		server string

@@ -104,7 +104,7 @@ func (c *tlsClientAdapter) Do(ctx context.Context, r *Request) (Response, error)
 		_ = resp.Body.Close()
 	}()
 
-	n, err := io.Copy(io.Discard, resp.Body)
+	n, err := drain(resp.Body, r.Arrivals)
 
 	return Response{
 		Status:  resp.StatusCode,

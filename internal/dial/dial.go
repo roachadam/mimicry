@@ -135,11 +135,16 @@ func (d *Dialer) ListenUDP(ctx context.Context, host string, port uint16) (net.P
 		// without an error, and a failure leaves the default. No
 		// SO_RCVBUFFORCE: it needs privileges.
 		//
-		// Zero is the default because a larger buffer cost throughput
-		// (bench 2026-10-27, nginx, HTTP/3, 100 KB at 64 at once):
-		// 7 MB (quic-go's) removed the ~6,900 drops per 8 s that 208 KB
-		// had, but ran at ~5,300 req/s against ~5,900, with 15% more
-		// client CPU per request; 1 and 2 MB fell between.
+		// Zero is the default because a larger buffer is not faster
+		// across the board (bench 2026-10-28, nginx, HTTP/3, after the
+		// gate fix; internal/quic/UPSTREAM.md change 15): 7 MB
+		// (quic-go's) removed the drops of 448 KB and ran 10-15% faster at
+		// 100 KB and 64 at once, but at 256 at once ran at half the rate:
+		// the client answered the backlog in bursts that overflowed
+		// nginx's socket (11% of its datagrams), its congestion window
+		// fell to two packets and its MAX_DATA waited behind it, so nginx
+		// idled on flow control. Against the Go server, 10 MB at 64 at
+		// once, 7 MB ran 20% slower (the loop behind a standing queue).
 		_ = uc.SetReadBuffer(d.UDPReadBufferSize)
 	}
 
