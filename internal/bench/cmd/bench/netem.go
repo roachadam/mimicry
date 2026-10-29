@@ -95,16 +95,14 @@ func newNetem(ctx context.Context, dev string) *netem {
 	}
 
 	if err == nil {
-		_ = sh(ctx, "tc", "qdisc", "del", "dev", dev, "ingress")
-		err = sh(ctx, "tc", "qdisc", "add", "dev", dev, "handle", "ffff:", "ingress")
-	}
-
-	if err == nil {
-		err = sh(ctx, "tc", "filter", "add", "dev", dev, "parent", "ffff:", "protocol", "all",
-			"u32", "match", "u32", "0", "0", "action", "mirred", "egress", "redirect", "dev", "ifb0")
+		// A trial of the redirect the netem conditions use; it comes off
+		// again until one of them applies.
+		err = n.redirect(ctx, true)
+		_ = n.redirect(ctx, false)
 	}
 
 	if err != nil {
+		_ = sh(ctx, "ip", "link", "del", "ifb0")
 		n.note = "no ifb device (" + err.Error() + "): the whole delay and the loss apply to outgoing packets only"
 
 		return n
@@ -115,6 +113,26 @@ func newNetem(ctx context.Context, dev string) *netem {
 	n.note = "half the RTT and the loss on each direction (egress on " + dev + ", ingress through ifb0)"
 
 	return n
+}
+
+// redirect sends dev's incoming packets through ifb0, whose netem shapes
+// them, or takes the redirect away. Only a netem condition has it: ifb0
+// without its netem queues at most 32 packets (pfifo_fast at its
+// txqueuelen), which dropped about 5% of the packets to the client under
+// layer 6's load when the redirect outlived layer 5 (bench-2026-10-29).
+func (n *netem) redirect(ctx context.Context, on bool) error {
+	_ = sh(ctx, "tc", "qdisc", "del", "dev", n.dev, "ingress")
+
+	if !on {
+		return nil
+	}
+
+	if err := sh(ctx, "tc", "qdisc", "add", "dev", n.dev, "handle", "ffff:", "ingress"); err != nil {
+		return err
+	}
+
+	return sh(ctx, "tc", "filter", "add", "dev", n.dev, "parent", "ffff:", "protocol", "all",
+		"u32", "match", "u32", "0", "0", "action", "mirred", "egress", "redirect", "dev", "ifb0")
 }
 
 // summary is the report's note on the shaping: n.note, and the offloads.
@@ -187,23 +205,35 @@ func (n *netem) apply(ctx context.Context, c condition) error {
 	}
 
 	if n.ifb {
-		return sh(ctx, "tc", args("ifb0")...)
+		// ifb0's netem before the redirect into it.
+		if err := sh(ctx, "tc", args("ifb0")...); err != nil {
+			return err
+		}
+
+		return n.redirect(ctx, true)
 	}
 
 	return nil
 }
 
-// clear takes the shaping off.
+// clear takes the shaping off, the ingress redirect included.
 func (n *netem) clear(ctx context.Context) {
 	_ = sh(ctx, "tc", "qdisc", "del", "dev", n.dev, "root")
 	if n.ifb {
+		_ = n.redirect(ctx, false)
 		_ = sh(ctx, "tc", "qdisc", "del", "dev", "ifb0", "root")
 	}
 }
 
-// restore clears the shaping and puts the offloads back.
+// restore clears the shaping, removes ifb0 and puts the offloads back: the
+// layers after see the interface as newNetem found it.
 func (n *netem) restore(ctx context.Context) {
 	n.clear(ctx)
+
+	if n.ifb {
+		_ = sh(ctx, "ip", "link", "del", "ifb0")
+	}
+
 	n.offloads(ctx, false)
 }
 

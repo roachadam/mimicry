@@ -109,6 +109,20 @@ headers). Reports from before 2026-10-28 ran netem with them on. The
 report's environment says they are off, and names any interface it could
 not change.
 
+**Ingress shaping lasts only as long as its condition.** The incoming half
+of a condition is netem on `ifb0`, with `eth0`'s incoming packets
+redirected to it; the redirect is set with each netem condition and taken
+off with it, and `ifb0` is deleted when layer 5 (or layer 3 under
+`-load-netem`) ends. Until 2026-10-29 the redirect stayed after its
+condition, and `ifb0` without its netem queues 32 packets: the condition
+without netem, and every layer after layer 5 in the same run, went through
+that queue. In `bench-2026-10-29`, the first full run with layer 6, every
+100 KB point of layer 6 ran at 115-522 requests/s, against 1,891-7,206 in
+`multiclient-2026-10-28` (layer 6 alone), and 2.4-3.0% of mimicry's HTTP/3
+requests with rotation went on HTTP/2; replayed, the queue dropped 4.6-4.7%
+of the packets to the client during those points, and 0.02-0.07% of the
+requests went on HTTP/2 without it.
+
 ## Many clients through proxies (layer 6)
 
 The workload of a scraper that runs a client per proxy: `-multi-n` clients
