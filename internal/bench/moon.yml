@@ -36,10 +36,12 @@ tasks:
       cache: false
       runInCI: false
       interactive: true
-  # Every layer: micro, then layers 3-6, then reports/bench-<date>.md and
-  # .json. Settings are environment variables (scripts/bench.sh, README.md).
+  # The default run: micro, then layers 3, 4 and 6 (the trimmed matrix;
+  # BENCH_FULL=1 for every layer and the full matrix), then
+  # reports/bench-<date>.md and .json. Settings are environment variables
+  # (scripts/bench.sh, README.md).
   run:
-    description: 'Benchmark every layer and write the report'
+    description: 'Benchmark the default run (micro, layers 3, 4, 6) and write the report'
     command: 'bash scripts/bench.sh run'
     toolchain: 'system'
     options:

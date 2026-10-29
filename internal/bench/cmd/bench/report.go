@@ -338,7 +338,19 @@ func (r *report) environment(w writer) {
 			st.Warmup, st.Window, st.MaxWindow)
 		w("the warm-up until a request per concurrent one has completed and it has lasted 2 of their median latencies, the ")
 		w("window until it has lasted 5 of them and 3 requests per concurrent one started and finished inside it |\n")
-		w("| Concurrency | %v (reduced matrix on %s: 1 and 64, bodies 1KB and 100KB) |\n", st.Concurrency, strings.Join(st.Reduced, ", "))
+
+		bodies := "every size"
+		if len(st.Bodies) > 0 {
+			bodies = strings.Join(st.Bodies, ", ")
+		}
+
+		w("| Concurrency | %v; servers %s; bodies %s", st.Concurrency, strings.Join(st.Servers, ", "), bodies)
+
+		if reduced := slices.DeleteFunc(slices.Clone(st.Reduced), func(s string) bool { return !slices.Contains(st.Servers, s) }); len(reduced) > 0 {
+			w(" (reduced matrix on %s: 1 and 64, bodies 1KB and 100KB)", strings.Join(reduced, ", "))
+		}
+
+		w(" |\n")
 	}
 
 	if ran(4) {
@@ -356,11 +368,7 @@ func (r *report) environment(w writer) {
 	}
 
 	if ran(6) {
-		variants := st.MultiVariants
-		if len(variants) == 0 {
-			// Reports from before -multi-variants ran these two.
-			variants = []string{variantFixed, variantProxy}
-		}
+		variants := st.variants()
 
 		w("| Many clients (layer 6) | %d clients (routines) per point in one process, each through a proxy identity of its own, ", st.MultiN)
 		w("one request at a time; warm-up %v; variants %s", st.Warmup, strings.Join(variants, ", "))
@@ -371,10 +379,14 @@ func (r *report) environment(w writer) {
 
 		if slices.Contains(variants, variantProxy) {
 			w("; proxy rotation: a new identity every %d requests, %v measured", st.MultiRotate, max(st.Window, st.MultiProxyWindow))
+
+			if len(st.MultiProxyRoutes) > 0 || len(st.MultiProxyBodies) > 0 {
+				w(", on %s only", proxyScope(st))
+			}
 		}
 
-		if st.MultiN2 > 0 {
-			w("; the fixed and proxy variants' 1 KB points again with %d clients, for memory per client", st.MultiN2)
+		if n2 := st.n2Ran(); len(n2) > 0 {
+			w("; the %s 1 KB points again with %d clients, for memory per client", strings.Join(n2, " and "), st.MultiN2)
 		}
 
 		if slices.Contains(variants, variantClient) {

@@ -3,20 +3,24 @@
 #
 #   up       build the image, create the CA and content, start the server stack
 #            and the client host's offloads sidecar
-#   micro    layers 1-2: $BENCH_COUNT (10) passes of go test -bench -count 1,
+#   micro    layers 1-2: $BENCH_COUNT (6) passes of go test -bench -count 1,
 #            the clients in another order each pass, then benchstat
-#   run      restart the server stack, micro, then layers 3-6 in $BENCH_PASSES
-#            (3) passes and $BENCH_UDP_STOCK_PASSES (1) HTTP/3 passes at stock
-#            UDP buffers, then the merged report
-#   report   layers 3-6 only (one pass unless BENCH_PASSES says otherwise),
-#            embedding the newest micro results
+#   run      the default run: print the plan and its estimated duration,
+#            restart the server stack, micro, then layers 3, 4 and 6 in
+#            $BENCH_PASSES (3) passes (layer 4 in the first only), then the
+#            merged report (README.md, "Default run"; BENCH_FULL=1 for every
+#            layer and the full matrix)
+#   plan     what run would measure and how long it should take, without
+#            measuring (the same arguments and settings as run)
+#   report   layers 3, 4 and 6 only (one pass unless BENCH_PASSES says
+#            otherwise), embedding the newest micro results
 #   render   rewrite bench-<date>.md from its JSON with the newest micro results
 #   ca-sync  copy the CA from a remote server stack to this host's volume
 #   down     stop the server stack and the offloads sidecar
 #
-# Arguments after the command go to `bench run` (run, report) or to the test
-# binary (micro); give -clients and -name through BENCH_CLIENTS and
-# BENCH_NAME, which the passes vary. Settings, all optional:
+# Arguments after the command go to `bench run` (run, plan, report) or to
+# the test binary (micro); give -clients and -name through BENCH_CLIENTS
+# and BENCH_NAME, which the passes vary. Settings, all optional:
 #
 #   BENCH_SERVER=<ip>              the server stack runs on another host at <ip>
 #   BENCH_SERVER_CONTEXT=<ctx>     ... reached through this docker context
@@ -24,7 +28,9 @@
 #   BENCH_CLIENT_CPUS, BENCH_SERVER_CPUS, BENCH_PROXY_CPUS   cpusets (0-3, 4-11, 10-11)
 #   BENCH_CLIENT_PROCS, BENCH_SERVER_PROCS                    GOMAXPROCS (4, 8)
 #   BENCH_PROXY_DELAY              netem delay on the proxy's packets (5ms)
-#   BENCH_CLIENTS                  clients, in the first pass's order (all)
+#   BENCH_CLIENTS                  clients, in the first pass's order (the five:
+#                                  net/http, mimicry, tls-client, httpcloak,
+#                                  azuretls; also takes clients.Variants)
 #   BENCH_NAME                     the report's name before the date (bench)
 #   BENCH_PASSES                   layers 3-6: passes, each an invocation of its
 #                                  own, the clients' order A, reversed, rotated
@@ -33,18 +39,25 @@
 #   BENCH_UDP_STOCK_PASSES         run: HTTP/3 passes (layers 3 and 6) with the
 #                                  client's net.core.rmem_max and rmem_default
 #                                  at stock Linux's 212992 and no NET_ADMIN
-#                                  (1; 0: none; see below)
+#                                  (0; BENCH_FULL: 1; see below)
 #   BENCH_UDP_STOCK=1              report: the whole report at stock UDP buffers
 #                                  (layers 3 and 6 only: no netem, see below)
-#   BENCH_COUNT                    micro: passes of -count 1 (10)
+#   BENCH_COUNT                    micro: passes of -count 1 (6)
 #   BENCH_BENCHTIME                micro: BenchmarkRequest's and
 #                                  BenchmarkNewClient's -benchtime (1s)
 #   BENCH_CONNECT_BENCHTIME        micro: BenchmarkConnect's -benchtime (200x: each
 #                                  iteration also waits 5 ms untimed for its ticket)
 #   BENCH_MICRO                    micro: one -bench pattern instead of all three
-#   BENCH_SERVERS                  micro: servers (nginx,go)
-#   BENCH_FAST=1                   shorter settings for a quick look (see the
-#                                  comment below); the report records them
+#   BENCH_SERVERS                  micro: servers (nginx; BENCH_FULL: nginx,go)
+#   BENCH_FULL=1                   the full matrix of the runs before the trim:
+#                                  every layer, both servers, bodies up to 10 MB,
+#                                  concurrency 1/16/64/256, 10 s windows, 200
+#                                  clients per layer 6 point, proxy rotation on
+#                                  every route, the stock-buffer pass, 10 micro
+#                                  passes (see full_args below)
+#   BENCH_FAST=1                   a quick smoke run, not for comparison: one
+#                                  pass, shorter windows (see below); the report
+#                                  records them
 #   BENCH_SKIP_BUILD=1             reuse the images a previous run built
 #   BENCH_ALLOW_BATTERY=1          measure on battery or in Low Power Mode
 #                                  (smoke runs only: the report says so)
@@ -78,20 +91,43 @@ name="${BENCH_NAME:-bench}"
 cmd="${1:-}"
 [[ -n "$cmd" ]] && shift
 
-# BENCH_FAST=1 trades precision for time. Micro benchmarks: 4 passes of
-# 300 ms each (100 ms does not sample enough iterations at the slowest
-# points). Load points: a 3 s window over a 1 s warm-up, both stretched for
-# long requests as in a full run, concurrency 1/64/256 (no 16), 10 and 20
-# idle clients, 3 page loads per condition (5 under loss), and 100 clients
-# per multi-client point (layer 6; 25 for the second count, the proxy
-# rotation's window still 30 s, the client rotation's 10 s instead of 20 s).
-# One pass unless BENCH_PASSES says otherwise. The report records what was
-# used.
+# The default run is trimmed to the workload it is for (README.md, "Default
+# run"): many clients, one proxy each, small requests. Its settings are
+# bench run's flag defaults, plus these for micro.
+#
+# BENCH_FULL=1 restores the full matrix the runs before the trim used, in
+# one switch: 10 micro passes on both servers, the stock-buffer pass, and
+# full_args's flags (every layer, both servers, every body, concurrency
+# 1/16/64/256, 10 s windows over 3 s warm-ups, 200 and 50 clients per layer
+# 6 point with both rotations' second count, proxy rotation on every route
+# and body, a 20 s client-rotation window).
+#
+# BENCH_FAST=1 is a quick smoke run, not for comparison: one pass, no
+# stock-buffer pass, 2 micro passes of 300 ms each (100 ms does not sample
+# enough iterations at the slowest points), and fast_args's flags (a 3 s
+# window over a 1 s warm-up, both still stretched for long requests, 10 and
+# 20 idle clients, 3 page loads per condition, 5 under loss). The report
+# records what was used.
+if [[ -n "${BENCH_FULL:-}" && -n "${BENCH_FAST:-}" ]]; then
+	echo "bench: BENCH_FULL and BENCH_FAST exclude each other" >&2
+	exit 2
+fi
+
+if [[ -n "${BENCH_FULL:-}" ]]; then
+	: "${BENCH_COUNT:=10}"
+	: "${BENCH_SERVERS:=nginx,go}"
+	: "${BENCH_UDP_STOCK_PASSES:=1}"
+fi
+
 if [[ -n "${BENCH_FAST:-}" ]]; then
-	: "${BENCH_COUNT:=4}"
+	: "${BENCH_COUNT:=2}"
 	: "${BENCH_BENCHTIME:=300ms}"
 	: "${BENCH_CONNECT_BENCHTIME:=50x}"
+	: "${BENCH_PASSES:=1}"
 fi
+
+# Micro's servers: nginx, as layers 3 and 4 (bench_test.go reads it).
+export BENCH_SERVERS="${BENCH_SERVERS:-nginx}"
 
 # What the report records about this host, and whether it may measure.
 power="unknown"
@@ -165,6 +201,20 @@ ca_sync() {
 	echo "bench: copied ca.pem from the server host"
 }
 
+# build builds the images: the server stack's (which includes the client's
+# locally), and the client's here when the servers run elsewhere.
+# BENCH_SKIP_BUILD=1 reuses the images a previous run left behind (the
+# servers are unaffected by client changes; the client is not, so skip it
+# only when the client code is unchanged too).
+build() {
+	[[ -z "${BENCH_SKIP_BUILD:-}" ]] || return 0
+
+	server_compose build
+	if [[ -n "${BENCH_SERVER:-}" ]]; then
+		client_compose build
+	fi
+}
+
 # up starts the stacks; with BENCH_RESTART=1 (run) it recreates the server
 # containers, so nginx, the Go server and the proxy start fresh.
 up() {
@@ -172,12 +222,7 @@ up() {
 		export BENCH_PUBLISH_ADDR="${BENCH_PUBLISH_ADDR:-0.0.0.0}"
 	fi
 
-	# BENCH_SKIP_BUILD=1 reuses the images a previous run left behind (the
-	# servers are unaffected by client changes; the client is not, so skip it
-	# only when the client code is unchanged too).
-	if [[ -z "${BENCH_SKIP_BUILD:-}" ]]; then
-		server_compose build
-	fi
+	build
 	server_compose run --rm setup
 
 	local recreate=()
@@ -191,7 +236,6 @@ up() {
 		# The client's own network on this host, then the CA.
 		docker network inspect mimicry-bench >/dev/null 2>&1 ||
 			docker network create --subnet 172.30.77.0/24 mimicry-bench >/dev/null
-		client_compose build
 		ca_sync
 	fi
 
@@ -200,7 +244,8 @@ up() {
 	client_compose run --rm client bench wait
 }
 
-# clients_base is the first pass's client order: BENCH_CLIENTS, else all.
+# clients_base is the first pass's client order: BENCH_CLIENTS, else the
+# five (bench run's default; clients.Variants only when named).
 clients_base() {
 	echo "${BENCH_CLIENTS:-net/http,mimicry,tls-client,httpcloak,azuretls}"
 }
@@ -231,7 +276,7 @@ micro() {
 	mkdir -p "$reports"
 	local raw="micro-$date.txt"
 	local stat="micro-$date-benchstat.txt"
-	local count="${BENCH_COUNT:-10}"
+	local count="${BENCH_COUNT:-6}"
 	local test="bench.test -test.run '^\$' -test.count 1 -test.timeout 0 -test.v"
 	local runs
 
@@ -254,24 +299,37 @@ micro() {
 	echo "bench: wrote $reports/$raw and $reports/$stat"
 }
 
-# fast_args adds BENCH_FAST's settings unless the caller gave the flag.
-fast_args() {
-	[[ -n "${BENCH_FAST:-}" ]] || return 0
-
+# preset_args prints BENCH_FULL's or BENCH_FAST's flags for bench run, one
+# word per line, except those the caller gave.
+preset_args() {
 	local given=" $* "
-	[[ "$given" == *" -window "* ]] || echo "-window 3s"
-	[[ "$given" == *" -warmup "* ]] || echo "-warmup 1s"
-	[[ "$given" == *" -conc "* ]] || echo "-conc 1,64,256"
-	[[ "$given" == *" -idle-n "* ]] || echo "-idle-n 10,20"
-	[[ "$given" == *" -reps "* ]] || echo "-reps 3"
-	[[ "$given" == *" -reps-loss "* ]] || echo "-reps-loss 5"
-	[[ "$given" == *" -multi-n "* ]] || echo "-multi-n 100"
-	[[ "$given" == *" -multi-n2 "* ]] || echo "-multi-n2 25"
-	[[ "$given" == *" -multi-client-window "* ]] || echo "-multi-client-window 10s"
+	local -a preset=()
+
+	if [[ -n "${BENCH_FULL:-}" ]]; then
+		local layers="3,4,5,6"
+		[[ -z "${BENCH_UDP_STOCK:-}" ]] || layers="3,6"
+		preset=(-layers "$layers" -window 10s -warmup 3s -servers nginx,go -bodies all -conc 1,16,64,256
+			-multi-n 200 -multi-n2 50 -multi-n2-variants fixed,proxy -multi-proxy-routes all -multi-proxy-bodies all
+			-multi-client-window 20s)
+	elif [[ -n "${BENCH_FAST:-}" ]]; then
+		preset=(-window 3s -warmup 1s -idle-n 10,20 -reps 3 -reps-loss 5)
+	fi
+
+	local i
+	for ((i = 0; i < ${#preset[@]}; i += 2)); do
+		local f="${preset[i]}"
+		[[ "$given" == *" $f "* || "$given" == *" $f="* ]] || printf '%s\n%s\n' "$f" "${preset[i + 1]}"
+	done
 }
 
-# layers_of prints the -layers value among args, or the default (3,6 under
-# BENCH_UDP_STOCK, which has no netem for layer 5).
+# with_presets <args...> prints args after preset_args's, one per line.
+with_presets() {
+	preset_args "$@"
+	[[ $# -eq 0 ]] || printf '%s\n' "$@"
+}
+
+# layers_of prints the -layers value among args, or bench run's default
+# (3,4,6; 3,6 under BENCH_UDP_STOCK, which has no netem for layer 5).
 layers_of() {
 	local prev=""
 	for a in "$@"; do
@@ -284,8 +342,14 @@ layers_of() {
 	if [[ -n "${BENCH_UDP_STOCK:-}" ]]; then
 		echo "3,6"
 	else
-		echo "3,4,5,6"
+		echo "3,4,6"
 	fi
+}
+
+# repeat_of <layers> prints the layers every pass runs: 3 and 6 (4 and 5 run
+# in the first only).
+repeat_of() {
+	tr ',' '\n' <<<"$1" | { grep -E '^[36]$' || true; } | paste -sd, -
 }
 
 # without_flag prints args without -<flag> and its value, one per line.
@@ -316,11 +380,8 @@ pass() {
 		micro_args=(-micro "micro-$date-benchstat.txt" -micro-raw "micro-$date.txt")
 	fi
 
-	local -a fast
-	read -r -a fast <<<"$(fast_args "$@" | tr '\n' ' ')"
-
 	client_compose run --rm client bench run -out /reports -date "$date" -name "$pname" -clients "$clients" \
-		${micro_args[@]+"${micro_args[@]}"} ${fast[@]+"${fast[@]}"} "$@"
+		${micro_args[@]+"${micro_args[@]}"} "$@"
 }
 
 # report runs layers 3-6 in passes, then the stock-buffer passes, then
@@ -344,7 +405,7 @@ report() {
 
 	# Layers 3 and 6 in every pass, 4 and 5 in the first only.
 	local repeat
-	repeat="$(tr ',' '\n' <<<"$layers" | { grep -E '^[36]$' || true; } | paste -sd, -)"
+	repeat="$(repeat_of "$layers")"
 
 	local jsons=()
 	for ((p = 1; p <= passes; p++)); do
@@ -388,27 +449,131 @@ render() {
 	echo "bench: rewrote $reports/$name-$date.md"
 }
 
-# estimate prints run's expected duration before it starts. The figures are
-# per part at the defaults (BENCH_FAST off, no flags); other flags change
-# them, which it says.
-estimate() {
-	local count="${BENCH_COUNT:-10}" passes="${BENCH_PASSES:-3}" stock="${BENCH_UDP_STOCK_PASSES:-1}"
-	local layers
-	layers="$(layers_of "$@")"
-	local per=0 first=0
-	[[ ",$layers," == *",3,"* ]] && per=$((per + 70))
-	[[ ",$layers," == *",6,"* ]] && per=$((per + 60))
-	[[ ",$layers," == *",4,"* ]] && first=$((first + 5))
-	[[ ",$layers," == *",5,"* ]] && first=$((first + 45))
-	local min=$((5 + count * 5 / 2 + passes * per + first + stock * 40))
-	local note=""
-	if [[ -n "${BENCH_FAST:-}" ]] || [[ -n "$(without_flag -layers "$@")" ]]; then
-		note=" (for the default settings; BENCH_FAST or the flags given change it)"
-	fi
-	echo "bench: run: estimated $((min / 60)) h $((min % 60)) min$note: setup ~5 min, micro ~$((count * 5 / 2)) min" \
-		"($count passes), layers 3 and 6 in $passes passes (~$per min each), layers 4 and 5 once (~$first min)," \
-		"$stock stock-buffer pass(es) (~40 min each)"
+# plan_of <args...> prints bench run -plan's listing for one pass: its jobs
+# by layer and group, each estimated, and the total, from the client
+# image's own matrix (cmd/bench/plan.go; no network, no CA needed).
+plan_of() {
+	docker run --rm -e BENCH_SERVER="${BENCH_SERVER:-}" mimicry-bench:latest \
+		bench run -plan -clients "$(clients_base)" "$@"
 }
+
+# seconds_of <plan> prints a plan's estimate in seconds, from its last line.
+seconds_of() {
+	sed -n 's/^plan: .*(\([0-9]*\) s)$/\1/p' <<<"$1"
+}
+
+# duration_ms <d> prints a -benchtime duration (1s, 1.5s, 300ms) in ms.
+duration_ms() {
+	case "$1" in
+	*ms) echo "${1%ms}" ;;
+	*s) awk -v s="${1%s}" 'BEGIN { printf "%d\n", s * 1000 }' ;;
+	*) echo 1000 ;;
+	esac
+}
+
+# micro_seconds <passes> prints micro's estimate in seconds. Per pass:
+# servers × 3 protocols × 2 methods × clients BenchmarkRequest rows and as
+# many BenchmarkConnect rows (full and resumed), and 3 protocols × 2
+# proxies × clients BenchmarkNewClient rows; a Request or NewClient row
+# takes its -benchtime plus a fifth and 0.1 s (Go's calibration runs, the
+# client's setup), a Connect row 11 ms per iteration (a handshake and the
+# 5 ms ticket wait) plus 0.3 s; and 5 s for the pass's container. The
+# 2026-10-27 micro log (10 passes on both servers) took about 1.3 s per
+# 1 s row.
+micro_seconds() {
+	local count="$1" k s bt_ms conn_ms
+	k="$(tr ',' '\n' <<<"$(clients_base)" | grep -c .)"
+	s="$(tr ',' '\n' <<<"$BENCH_SERVERS" | grep -c .)"
+	bt_ms="$(duration_ms "${BENCH_BENCHTIME:-1s}")"
+
+	local cb="${BENCH_CONNECT_BENCHTIME:-200x}"
+	if [[ "$cb" == *x ]]; then
+		conn_ms=$((${cb%x} * 11 + 300))
+	else
+		conn_ms=$(($(duration_ms "$cb") * 12 / 10 + 300))
+	fi
+
+	local req_ms=$((bt_ms * 12 / 10 + 100))
+	local per_ms=$((s * 6 * k * req_ms + s * 6 * k * conn_ms + 6 * k * req_ms + 5000))
+	echo $((count * per_ms / 1000))
+}
+
+# minutes <seconds> prints them as whole minutes.
+minutes() {
+	echo "$((($1 + 30) / 60)) min"
+}
+
+# plan <passes> <stock passes> <args...> prints what run measures and how
+# long it should take: pass 1's jobs in full, the other passes' and the
+# stock-buffer passes' totals, micro's, and the sum. Per-job arithmetic, not
+# measured end to end: bench run -plan for layers 3-6 (cmd/bench/plan.go:
+# each point's warm-up and window, stretched as scenario.LoadSpec does,
+# page loads at their RTT and loss, 0.5 s per worker, calibrated on a run's
+# log), micro_seconds for micro, 3 min of setup (cached build, setup,
+# server restart, wait) and 15 s per container that runs bench run or
+# bench merge.
+plan() {
+	local passes="$1" stock="$2"
+	shift 2
+
+	local layers repeat
+	layers="$(layers_of "$@")"
+	repeat="$(repeat_of "$layers")"
+
+	local -a rest=() srest=()
+	local line
+	while IFS= read -r line; do
+		rest+=("$line")
+	done < <(without_flag -layers "$@")
+	while IFS= read -r line; do
+		srest+=("$line")
+	done < <(without_flag -protos ${rest[@]+"${rest[@]}"})
+
+	local out first other=0 stocks=0
+	echo "bench: plan: pass 1 of $passes, layers $layers"
+	out="$(plan_of -layers "$layers" ${rest[@]+"${rest[@]}"})"
+	sed 's/^/  /' <<<"$out"
+	first="$(seconds_of "$out")"
+
+	local others=0
+	if ((passes > 1)) && [[ -n "$repeat" ]]; then
+		others=$((passes - 1))
+		out="$(plan_of -layers "$repeat" ${rest[@]+"${rest[@]}"})"
+		other="$(seconds_of "$out")"
+		local label="passes 2-$passes"
+		((passes > 2)) || label="pass 2"
+		echo "bench: plan: $label, layers $repeat (the same points, the clients reordered), each: $(sed -n '$s/^plan: //p' <<<"$out")"
+	fi
+
+	if ((stock > 0)); then
+		out="$(plan_of -layers "${repeat:-3}" -protos h3 ${srest[@]+"${srest[@]}"})"
+		stocks="$(seconds_of "$out")"
+		echo "bench: plan: $stock stock-buffer pass(es), HTTP/3, layers ${repeat:-3}, each: $(sed -n '$s/^plan: //p' <<<"$out")"
+	fi
+
+	local count="${BENCH_COUNT:-6}" micro_s
+	micro_s="$(micro_seconds "$count")"
+	local micro_note=""
+	[[ -z "${BENCH_MICRO:-}" ]] || micro_note=", as if all three benchmarks (BENCH_MICRO runs fewer)"
+	echo "bench: plan: micro, $count passes on $BENCH_SERVERS, ~$(minutes "$micro_s")$micro_note"
+
+	local setup=180 container=15
+	local containers=$((1 + others + stock + 1))
+	local total=$((setup + micro_s + first + others * other + stock * stocks + containers * container))
+	echo "bench: run: estimated $((total / 3600)) h $((total % 3600 / 60)) min ($total s): setup ~3 min, micro ~$(minutes "$micro_s")," \
+		"pass 1 ~$(minutes "$first"), $others more pass(es) ~$(minutes "$other") each, $stock stock-buffer pass(es)" \
+		"~$(minutes "$stocks") each, $containers containers ~15 s each. Per-job arithmetic (bench run -plan, scripts/bench.sh" \
+		"micro_seconds), not measured end to end"
+}
+
+cmd_args=()
+case "$cmd" in
+run | plan | report)
+	while IFS= read -r line; do
+		cmd_args+=("$line")
+	done < <(with_presets "$@")
+	;;
+esac
 
 case "$cmd" in
 up)
@@ -419,14 +584,21 @@ micro)
 	micro "$@"
 	;;
 run)
-	estimate "$@"
-	BENCH_RESTART=1 up
+	passes="${BENCH_PASSES:-3}"
+	stock="${BENCH_UDP_STOCK_PASSES:-0}"
+	build
+	plan "$passes" "$stock" ${cmd_args[@]+"${cmd_args[@]}"}
+	BENCH_SKIP_BUILD=1 BENCH_RESTART=1 up
 	micro
-	BENCH_PASSES="${BENCH_PASSES:-3}" BENCH_UDP_STOCK_PASSES="${BENCH_UDP_STOCK_PASSES:-1}" report "$@"
+	BENCH_PASSES="$passes" BENCH_UDP_STOCK_PASSES="$stock" report ${cmd_args[@]+"${cmd_args[@]}"}
+	;;
+plan)
+	build
+	plan "${BENCH_PASSES:-3}" "${BENCH_UDP_STOCK_PASSES:-0}" ${cmd_args[@]+"${cmd_args[@]}"}
 	;;
 report)
 	up
-	report "$@"
+	report ${cmd_args[@]+"${cmd_args[@]}"}
 	;;
 render)
 	render
@@ -439,7 +611,8 @@ down)
 	client_compose down
 	;;
 *)
-	sed -n '2,64p' "$0" | sed 's/^# \{0,1\}//'
+	# The comment at the top, up to the first line that is not one.
+	awk 'NR > 1 && !/^#/ { exit } NR > 1 { sub(/^# ?/, ""); print }' "$0"
 	exit 2
 	;;
 esac

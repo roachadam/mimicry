@@ -5,6 +5,7 @@ import (
 	"os"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/roachadam/mimicry/internal/bench/scenario"
@@ -41,6 +42,29 @@ var multiRoutes = []multiRoute{
 	},
 }
 
+// name is the route as -multi-proxy-routes names it: h2-connect-auth.
+func (rt multiRoute) name() string {
+	return string(rt.Proto) + "-" + string(rt.Proxy)
+}
+
+// routesNamed are the routes among names, in report order; none named is
+// all of them.
+func routesNamed(names []string) []multiRoute {
+	if len(names) == 0 {
+		return multiRoutes
+	}
+
+	var out []multiRoute
+
+	for _, rt := range multiRoutes {
+		if slices.Contains(names, rt.name()) {
+			out = append(out, rt)
+		}
+	}
+
+	return out
+}
+
 // multiServer is layer 6's server.
 const multiServer = "nginx"
 
@@ -48,6 +72,44 @@ const multiServer = "nginx"
 var multiBodies = []int{
 	site.KB,
 	100 * site.KB,
+}
+
+// bodiesNamed are the sizes among bodies that names name (scenario.SizeName);
+// none named is all of them.
+func bodiesNamed(bodies []int, names []string) []int {
+	if len(names) == 0 {
+		return bodies
+	}
+
+	var out []int
+
+	for _, b := range bodies {
+		if slices.Contains(names, scenario.SizeName(b)) {
+			out = append(out, b)
+		}
+	}
+
+	return out
+}
+
+// proxyScope is the routes and sizes the proxy variant runs: h2-connect-auth
+// at 1KB.
+func proxyScope(st settings) string {
+	rts := routesNamed(st.MultiProxyRoutes)
+	routes := make([]string, 0, len(rts))
+
+	for _, rt := range rts {
+		routes = append(routes, rt.name())
+	}
+
+	bodies := bodiesNamed(multiBodies, st.MultiProxyBodies)
+	sizes := make([]string, 0, len(bodies))
+
+	for _, b := range bodies {
+		sizes = append(sizes, scenario.SizeName(b))
+	}
+
+	return strings.Join(routes, ", ") + " at " + strings.Join(sizes, ", ")
 }
 
 // multiPoint is one multi-client point's outcome. Run labels the build it
@@ -96,13 +158,15 @@ var multiVariants = []string{
 	variantClient,
 }
 
-// multiSetting is one run of every route under a variant, each route and
+// multiSetting is one run of its routes under a variant, each route and
 // body in every renew mode ("" for the variants that keep their clients).
 type multiSetting struct {
-	rotate int
-	renews []scenario.Renew
-	bodies []int
-	window time.Duration
+	variant string
+	routes  []multiRoute
+	rotate  int
+	renews  []scenario.Renew
+	bodies  []int
+	window  time.Duration
 	// n is the clients per point; 0 is -multi-n.
 	n int
 }
@@ -122,22 +186,28 @@ func (rn *runner) multiSettings() []multiSetting {
 		switch v {
 		case variantFixed:
 			out = append(out, multiSetting{
-				renews: keepClients,
-				bodies: multiBodies,
-				window: st.Window,
+				variant: v,
+				routes:  multiRoutes,
+				renews:  keepClients,
+				bodies:  multiBodies,
+				window:  st.Window,
 			})
 
 		case variantProxy:
 			out = append(out, multiSetting{
-				rotate: st.MultiRotate,
-				renews: keepClients,
-				bodies: multiBodies,
-				window: max(st.Window, st.MultiProxyWindow),
+				variant: v,
+				routes:  routesNamed(st.MultiProxyRoutes),
+				rotate:  st.MultiRotate,
+				renews:  keepClients,
+				bodies:  bodiesNamed(multiBodies, st.MultiProxyBodies),
+				window:  max(st.Window, st.MultiProxyWindow),
 			})
 
 		case variantClient:
 			out = append(out, multiSetting{
-				rotate: st.MultiRotate,
+				variant: v,
+				routes:  multiRoutes,
+				rotate:  st.MultiRotate,
 				renews: []scenario.Renew{
 					scenario.RenewDropped,
 					scenario.RenewClosed,
@@ -150,11 +220,12 @@ func (rn *runner) multiSettings() []multiSetting {
 		}
 	}
 
-	// The second client count: the fixed and proxy variants' 1 KB points
-	// again, for memory per client as a slope and an intercept.
+	// The second client count: the 1 KB points of the variants
+	// -multi-n2-variants names again, for memory per client as a slope
+	// and an intercept.
 	if st.MultiN2 > 0 {
 		for _, ms := range slices.Clone(out) {
-			if len(ms.renews) == 1 && ms.renews[0] == "" {
+			if slices.Contains(st.n2Variants(), ms.variant) && slices.Contains(ms.bodies, site.KB) {
 				ms.bodies = []int{
 					site.KB,
 				}
@@ -173,7 +244,7 @@ func (rn *runner) multi() []multiPoint {
 	var out []multiPoint
 
 	for _, ms := range rn.multiSettings() {
-		for _, rt := range multiRoutes {
+		for _, rt := range ms.routes {
 			if !slices.Contains(rn.st.Protos, string(rt.Proto)) {
 				continue
 			}
@@ -228,7 +299,7 @@ func (rn *runner) multi() []multiPoint {
 						if rt.Proto == target.H3 && os.Getenv("BENCH_SERVER") != "" {
 							mp.NA = "HTTP/3 through SOCKS5 needs the proxy's UDP relay ports, which a remote server stack does not publish"
 						} else {
-							o := rn.do(j, rn.st.Warmup+ms.window+5*time.Minute)
+							o := rn.do(j, condition{}, rn.st.Warmup+ms.window+5*time.Minute)
 
 							mp.Result, mp.NA, mp.Error = o.Multi, o.NA, o.Error
 						}

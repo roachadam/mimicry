@@ -14,7 +14,7 @@ moon run :test-full         # every supported profile, not only each browser's n
 ```
 
 - `:test` runs `go test -race ./...`. moon replays a cached result only when none of its inputs changed: the Go sources and the data the tests read (`testdata` directories, `profiles/data`; for the harness also the library's sources and profiles).
-- `moon run bench:micro` (layers 1-2) and `bench:run` (every layer and a report in `internal/bench/reports/`) need Docker and are never part of `:test`; `:vet` and `:lint` cover the bench module.
+- `moon run bench:micro` (layers 1-2) and `bench:run` (the default run, layers 1-4 and 6 trimmed to many clients with small requests; `BENCH_FULL=1` for every layer and the full matrix; a report in `internal/bench/reports/`) need Docker and are never part of `:test`; `:vet` and `:lint` cover the bench module.
 - `MIMICRY_PROFILES` picks the profiles the harness's tests check (`internal/harness/internal/testprofiles`, decision 0035): unset, each browser's newest; `all` (what `:test-full` sets), every supported one; or a comma-separated list of built-in names and profile file paths (`MIMICRY_PROFILES=safari-26-macos`, `MIMICRY_PROFILES=/abs/path/chrome-157-macos.json`).
 - Run `:test-full` before a release, after a full refresh, and after a change that could differ between versions of a browser.
 - The MacBook sleeps on battery with the lid closed, which freezes tests: run long suites under `caffeinate -i` on AC power, or cross-compile the test binaries (`go test -c`) and run them on the Mac mini (your ssh alias), which has no Go.

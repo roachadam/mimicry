@@ -191,23 +191,28 @@ func (r *report) multiTables(w writer) {
 		r.clientTables(w, keys, points)
 	}
 
-	if r.Settings.MultiN2 > 0 {
+	if len(r.Settings.n2Ran()) > 0 {
 		r.memoryFit(w)
 	}
 }
 
-// memoryFit writes the fixed and proxy variants' 1 KB memory per client
-// as a slope and an intercept over the two client counts: the live heap
-// in all (per client × N) at -multi-n and -multi-n2.
+// memoryFit writes the 1 KB memory per client of the variants run at both
+// counts (-multi-n2-variants) as a slope and an intercept over the two
+// client counts: the live heap in all (per client × N) at -multi-n and
+// -multi-n2.
 func (r *report) memoryFit(w writer) {
 	st := r.Settings
 
 	w("### Memory per client and fixed, over %d and %d clients\n\n", st.MultiN2, st.MultiN)
-	w("The fixed and proxy variants' 1 KB points at both client counts: the live heap beyond what the process held before ")
+	w("The %s 1 KB points at both client counts: the live heap beyond what the process held before ", strings.Join(st.n2Ran(), " and "))
 	w("the clients (KB per client × clients) and the goroutines, fitted against the count. The slope is per client, the ")
-	w("intercept what the process holds once whatever the count (divided by the clients in the tables above). With proxy ")
-	w("rotation the plateau's live heap is used. ‡: mimicry's HTTP/3 clients each keep the HTTP/2 connection they learnt ")
-	w("Alt-Svc on.\n\n")
+	w("intercept what the process holds once whatever the count (divided by the clients in the tables above).")
+
+	if slices.Contains(st.n2Ran(), variantProxy) {
+		w(" With proxy rotation the plateau's live heap is used.")
+	}
+
+	w(" ‡: mimicry's HTTP/3 clients each keep the HTTP/2 connection they learnt Alt-Svc on.\n\n")
 	w("| setup | client | live KB/client | fixed KB | goroutines/client | fixed goroutines |\n|---|---|---:|---:|---:|---:|\n")
 
 	type key struct {

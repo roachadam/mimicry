@@ -75,19 +75,17 @@ func worker(in io.Reader, out io.Writer) error {
 	return json.NewEncoder(out).Encode(o)
 }
 
-func runJob(j job) outcome {
+// setup is j's client, server, protocol and proxy; the error names a
+// client or server there is none of.
+func (j job) setup() (scenario.Setup, error) {
 	f, err := clients.Named(j.Client)
 	if err != nil {
-		return outcome{
-			Error: err.Error(),
-		}
+		return scenario.Setup{}, err
 	}
 
 	srv, err := target.ServerNamed(j.Server)
 	if err != nil {
-		return outcome{
-			Error: err.Error(),
-		}
+		return scenario.Setup{}, err
 	}
 
 	su := scenario.Setup{
@@ -104,11 +102,24 @@ func runJob(j job) outcome {
 		su.ProxyUser = target.ProxyUser + "-page-" + j.Tag
 	}
 
+	return su, nil
+}
+
+func runJob(j job) outcome {
+	su, err := j.setup()
+	if err != nil {
+		return outcome{
+			Error: err.Error(),
+		}
+	}
+
 	if err := su.Supported(); err != nil {
 		return outcome{
 			NA: err.Error(),
 		}
 	}
+
+	f := su.Client
 
 	prof := profiler{
 		dir:  "",
