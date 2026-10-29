@@ -173,6 +173,7 @@ func (k *packetKey) initVersion(version uint32, suite uint16, secret []byte) {
 	default:
 		panic("BUG: unknown cipher suite")
 	}
+
 	k.iv = hkdfExpandLabel(h.New, secret, labels.iv, nil, k.aead.NonceSize())
 }
 
@@ -318,6 +319,7 @@ func (k *updatingKeys) initVersion(version uint32, suite uint16, secret []byte) 
 	k.hdr.initVersion(version, suite, secret)
 	// Initialize pkt[1] with secret_0, and then call update to generate secret_1.
 	k.pkt[1].initVersion(version, suite, secret)
+
 	k.nextSecret = secret
 	k.update()
 }
@@ -514,6 +516,7 @@ func versionLabels(version uint32) packetLabels {
 	if version == quicVersion2 {
 		return packetLabels{"quicv2 key", "quicv2 iv", "quicv2 hp", "quicv2 ku"}
 	}
+
 	return packetLabels{"quic key", "quic iv", "quic hp", "quic ku"}
 }
 
@@ -534,13 +537,16 @@ func initialKeysVersion(cid []byte, side connSide, version uint32) fixedKeyPair 
 	if version == quicVersion2 {
 		salt = initialSaltV2
 	}
+
 	initialSecret := hkdf.Extract(sha256.New, cid, salt)
 	var clientKeys fixedKeys
 	clientSecret := hkdfExpandLabel(sha256.New, initialSecret, "client in", nil, sha256.Size)
 	clientKeys.initVersion(version, tls.TLS_AES_128_GCM_SHA256, clientSecret)
+
 	var serverKeys fixedKeys
 	serverSecret := hkdfExpandLabel(sha256.New, initialSecret, "server in", nil, sha256.Size)
 	serverKeys.initVersion(version, tls.TLS_AES_128_GCM_SHA256, serverSecret)
+
 	if side == clientSide {
 		return fixedKeyPair{r: serverKeys, w: clientKeys}
 	} else {

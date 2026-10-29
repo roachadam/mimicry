@@ -1,0 +1,205 @@
+{
+  "date": "2026-10-29",
+  "name": "h3ack-netem-10m64-3",
+  "env": {
+    "host": "Mac",
+    "hostCpu": "Apple M3 Pro, 12 cores, 36 GB",
+    "hostOs": "macOS 27.0.1, Battery Power",
+    "docker": "orbstack context, OrbStack, server 29.8.2, 12 CPUs, 16818667520 bytes",
+    "mode": "local: both stacks on one Docker host, one Docker network",
+    "kernel": "7.2.12-orbstack-00394-gbecdd6130068",
+    "clientCpus": 4,
+    "gomaxprocs": 4,
+    "goVersion": "go1.27.3",
+    "mimicryCommit": "a257958 + uncommitted changes",
+    "cpusets": "client 0-3, servers 4-11, proxy 10-11",
+    "servers": [
+      {
+        "name": "nginx",
+        "software": "nginx/1.31.8",
+        "cpus": 8
+      },
+      {
+        "name": "go",
+        "software": "net/http and quic-go v0.64.1 (go1.27.3)",
+        "cpus": 8
+      }
+    ],
+    "clients": [
+      {
+        "name": "net/http",
+        "module": "std",
+        "version": "go1.27.3",
+        "profile": "none (Go's own TLS and HTTP/2; quic-go for HTTP/3)"
+      },
+      {
+        "name": "mimicry",
+        "module": "github.com/roachadam/mimicry",
+        "version": "(devel)",
+        "profile": "chrome-156-macos"
+      },
+      {
+        "name": "tls-client",
+        "module": "github.com/bogdanfinn/tls-client",
+        "version": "v1.17.1",
+        "profile": "Chrome_152_PSK"
+      },
+      {
+        "name": "httpcloak",
+        "module": "github.com/sardanioss/httpcloak",
+        "version": "v1.7.3",
+        "profile": "chrome-latest (chrome-155-linux)"
+      },
+      {
+        "name": "azuretls",
+        "module": "github.com/Noooste/azuretls-client",
+        "version": "v1.13.2",
+        "profile": "chrome (GetLastChromeVersion)"
+      },
+      {
+        "name": "mimicry-ack20",
+        "module": "github.com/roachadam/mimicry",
+        "version": "(devel)",
+        "profile": "chrome-156-macos"
+      }
+    ],
+    "netem": "",
+    "proxyDelay": "5ms on the proxy's outgoing packets"
+  },
+  "settings": {
+    "window": 60000000000,
+    "warmup": 30000000000,
+    "layers": [
+      3
+    ],
+    "clients": [
+      "mimicry",
+      "mimicry-ack20",
+      "tls-client"
+    ],
+    "servers": [
+      "nginx"
+    ],
+    "reduced": [
+      "go"
+    ],
+    "protos": [
+      "h3"
+    ],
+    "concurrency": [
+      64
+    ],
+    "idleN": 50,
+    "reps": 5,
+    "netem": true,
+    "loadNetem": [
+      "rtt80-loss1"
+    ],
+    "bodies": [
+      "10MB"
+    ],
+    "multiN": 200,
+    "multiVariants": [
+      "fixed",
+      "proxy",
+      "client"
+    ],
+    "multiRotate": 10,
+    "multiClientWindow": 20000000000
+  },
+  "load": [
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-10MB",
+      "conc": 64,
+      "client": "mimicry",
+      "condition": "rtt80-loss1",
+      "result": {
+        "requests": 0,
+        "errors": 64,
+        "firstError": "context deadline exceeded (Client.Timeout or context cancellation while reading body)",
+        "mismatches": 0,
+        "seconds": 60.08855206,
+        "rps": 0,
+        "mbps": 0.33391540172186335,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "clientCores": 0.019854697094526728,
+        "cpuPerRequest": 0,
+        "bytesPerRequest": 0,
+        "allocsPerRequest": 0,
+        "gcs": 0,
+        "gcPauseMs": 0,
+        "gcPauseMaxMs": 0,
+        "heapPeakMb": 6.324392,
+        "goroutines": 76,
+        "serverCpu": 0.0012408603210399942,
+        "discarded": "no request completed: context deadline exceeded (Client.Timeout or context cancellation while reading body)"
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-10MB",
+      "conc": 64,
+      "client": "mimicry-ack20",
+      "condition": "rtt80-loss1",
+      "result": {
+        "requests": 0,
+        "errors": 64,
+        "firstError": "context deadline exceeded (Client.Timeout or context cancellation while reading body)",
+        "mismatches": 0,
+        "seconds": 60.086558667,
+        "rps": 0,
+        "mbps": 0.34499587694618405,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "clientCores": 0.01763049879210018,
+        "cpuPerRequest": 0,
+        "bytesPerRequest": 0,
+        "allocsPerRequest": 0,
+        "gcs": 0,
+        "gcPauseMs": 0,
+        "gcPauseMaxMs": 0,
+        "heapPeakMb": 6.20444,
+        "goroutines": 76,
+        "serverCpu": 0.0010314661277820588,
+        "discarded": "no request completed: context deadline exceeded (Client.Timeout or context cancellation while reading body)"
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-10MB",
+      "conc": 64,
+      "client": "tls-client",
+      "condition": "rtt80-loss1",
+      "result": {
+        "requests": 0,
+        "errors": 64,
+        "firstError": "H3_REQUEST_CANCELLED (local) (Client.Timeout or context cancellation while reading body)",
+        "mismatches": 0,
+        "seconds": 60.104116917,
+        "rps": 0,
+        "mbps": 0.38535842780927554,
+        "p50": 0,
+        "p95": 0,
+        "p99": 0,
+        "clientCores": 0.012497263723835639,
+        "cpuPerRequest": 0,
+        "bytesPerRequest": 0,
+        "allocsPerRequest": 0,
+        "gcs": 0,
+        "gcPauseMs": 0,
+        "gcPauseMaxMs": 0,
+        "heapPeakMb": 10.596232,
+        "goroutines": 144,
+        "serverCpu": 0.0008688152771982602,
+        "discarded": "no request completed: H3_REQUEST_CANCELLED (local) (Client.Timeout or context cancellation while reading body)"
+      }
+    }
+  ]
+}

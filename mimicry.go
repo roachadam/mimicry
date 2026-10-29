@@ -220,6 +220,17 @@ type Config struct {
 	// needs privileges. The wire is the same either way. Negative is an
 	// error.
 	UDPReadBufferSize int
+	// HTTP3ACKEvery, when set, acknowledges every HTTP3ACKEvery-th
+	// ack-eliciting QUIC packet after the browser's warm-up, instead of the
+	// profile's rate (Chrome: every 10th). Zero keeps the browser's. It
+	// must be at least the profile's rate and at most 64; every other ACK
+	// rule stays the browser's (the warm-up, max_ack_delay, an immediate
+	// ACK for a gap). Fewer ACKs cost a busy server less: against one nginx
+	// worker saturated by a single client's downloads, every 20 ran 25%
+	// faster than Chrome's every 10 at 10 MB and 22% at 100 KB, but a
+	// single download from an idle server ran 27% slower (decision 0043).
+	// The server sees the rate, so it is not the browser's.
+	HTTP3ACKEvery int
 	// Pins pins hosts to public keys: a request to a covered host goes only
 	// on a connection whose verified chain matches one of the Pin's values,
 	// else it fails with a *PinError before anything is sent. NewTransport
@@ -277,7 +288,11 @@ type Transport struct {
 	clock      clockwork.Clock
 }
 
-// NewTransport builds a Transport from cfg.
+// NewTransport builds a Transport from cfg. Building one takes about
+// 1.4–2.8 ms (the multi-client benchmark, 2026-10-28), most of it encoding
+// and hashing the profile to share one copy between Transports built from
+// equal profiles: build Transports up front, one per proxy, and reuse
+// them, rather than one per request.
 func NewTransport(cfg Config) (*Transport, error) {
 	if cfg.Profile == nil {
 		return nil, errors.New("mimicry: Config.Profile is required")
@@ -333,6 +348,7 @@ func NewTransport(cfg Config) (*Transport, error) {
 			IdleConnTimeout:   cfg.IdleConnTimeout,
 			HTTP3OverSOCKS5:   cfg.HTTP3OverSOCKS5,
 			UDPReadBufferSize: cfg.UDPReadBufferSize,
+			HTTP3ACKEvery:     cfg.HTTP3ACKEvery,
 			BrowserProxyAuth:  cfg.BrowserProxyAuth,
 			VerifyConnection:  t.verifier(cfg.VerifyConnection),
 		}
@@ -375,7 +391,8 @@ func closeIdle(e engine) {
 // redirects as far as the browser does (20, or the profile's
 // redirects.navigationLimit for navigations); a custom CheckRedirect
 // sees hops as http.Client built them. Its Timeout is Config.Timeout's
-// (30 s by default).
+// (30 s by default). It costs what NewTransport does: build clients up
+// front and reuse them.
 func NewClient(cfg Config) (*http.Client, error) {
 	t, err := NewTransport(cfg)
 	if err != nil {

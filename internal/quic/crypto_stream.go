@@ -63,6 +63,7 @@ func (s *cryptoStream) handleCrypto(off int64, b []byte, f func([]byte) error) e
 	err := s.in.read(s.in.start, size, f)
 	s.in.discardBefore(s.inset[0].end)
 	s.in.releaseIfEmpty() // mimicry
+
 	return err
 }
 

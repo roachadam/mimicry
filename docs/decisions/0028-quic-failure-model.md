@@ -170,3 +170,20 @@ of the give-up (`zeroRttHolds` 4 s, `hold` 5 s), and on a failed attempt at
 once instead of at the race delay. The QUIC connections, the race delays
 and everything a server that answers sees are unchanged;
 `TestHTTP3EdgeMatchesBrowser` checks both modes.
+
+Amended (2026-10-28, the user's call): an attempt counts toward
+`brokenAfter` only once its first datagram has gone out
+(`quic.DialConfig.OnFirstDatagram`). Under load (the harness's `-race`
+suites, a busy host) a Safari attempt could lose its 88–129 ms race while
+the process was still building its hello; dropped then, it had put nothing
+on the network, yet counted as a failure, and two such marked the origin
+broken for the Transport's life. A local CPU stall is not a network
+failure, and no capture can show a browser's attempt that sent nothing, so
+nothing measured changes. Such an attempt leaves no trace: the next request
+starts another, and a request still goes on TCP at the race delay as
+before, so an origin whose attempts never get a datagram out is never
+marked broken but costs each request the race delay. An attempt that sent
+and then failed counts exactly as before.
+`TestQUICAttemptCountsOnlyOnceItSent` (internal/engine/native) checks both;
+`TestQUICInterop`'s impaired-handshake rows hold the sessions that reach the
+relay to `brokenAfter`.

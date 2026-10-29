@@ -133,6 +133,9 @@ type dialSpec struct {
 	// 0-RTT, it sends before the control and QPACK streams where the
 	// profile does (HTTP3.EarlyRequestFirst).
 	pending bool
+	// sent, when set, is set once the dial's first datagram goes out
+	// (quic.DialConfig.OnFirstDatagram).
+	sent *atomic.Bool
 }
 
 // origin is what the engine knows of an origin's HTTP/3, by route key.
@@ -887,6 +890,10 @@ func (e *Engine) runAttempt(ctx context.Context, o *origin, r route, a *attempt,
 		}
 	}
 
+	var sent atomic.Bool
+
+	spec.sent = &sent
+
 	c, err := e.connectH3(ctx, r, spec)
 	ours := err == nil
 
@@ -915,7 +922,14 @@ func (e *Engine) runAttempt(ctx context.Context, o *origin, r route, a *attempt,
 	}
 
 	if err != nil {
-		e.failed(o, a.resumed)
+		// An attempt dropped before its first datagram (the race over
+		// while a loaded process built its hello) put nothing on the
+		// network: it says nothing of the path and does not count
+		// (decision 0028's amendment).
+		if sent.Load() {
+			e.failed(o, a.resumed)
+		}
+
 		q.mu.Unlock()
 		close(a.done)
 
@@ -1072,7 +1086,7 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 	}
 
 	dc := quic.DialConfig{
-		Profile:   e.profile.QUIC,
+		Profile:   e.quicProfile,
 		CachedRTT: rtt,
 		OnToken: func(t []byte) {
 			q.mu.Lock()
@@ -1081,6 +1095,12 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 			e.originState(r).token = t
 		},
 	}
+	if spec.sent != nil {
+		dc.OnFirstDatagram = func() {
+			spec.sent.Store(true)
+		}
+	}
+
 	if e.profile.QUIC.Tokens {
 		dc.Token = token
 	}

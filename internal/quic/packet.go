@@ -96,9 +96,11 @@ func longPacketTypeBits(version uint32, ptype packetType) byte {
 	default:
 		bits = longPacketTypeInitial
 	}
+
 	if version == quicVersion2 {
 		bits = (bits + 1<<4) & 0x30
 	}
+
 	return bits
 }
 
@@ -168,6 +170,7 @@ func getPacketType(b []byte) packetType {
 	if b[0]&fixedBit != fixedBit {
 		return packetTypeInvalid
 	}
+
 	// mimicry: v2 rotates the type bits (RFC 9369, section 3.2).
 	if binary.BigEndian.Uint32(b[1:5]) == quicVersion2 {
 		return longPacketTypesV2[b[0]&0x30>>4]

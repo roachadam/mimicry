@@ -55,6 +55,7 @@ func newClientPath(p *profile.QUIC) clientPath {
 			cp.closeReason = d.CloseReason
 		}
 	}
+
 	return cp
 }
 
@@ -91,26 +92,33 @@ func (c *Conn) clientPathTimer() time.Time {
 	if !c.handshakeConfirmed.isSet() || !c.isAlive() {
 		return time.Time{}
 	}
+
 	var t time.Time
 	if d := c.degradeDelay(); d > 0 {
 		if cc.pathState.degraded && c.loss.spaces[appDataSpace].maxAcked > cc.pathState.degradedAcked {
 			// The server answered since: watch again.
 			cc.pathState.degraded = false
 		}
+
 		if sent := c.oldestUnacked(); sent != nil && !cc.pathState.degraded && !cc.pathState.moving {
 			t = sent.time.Add(d)
 		}
 	}
+
 	if cc.keepAlive.Load() {
 		ps := &cc.pathState
+
 		c.clientQuietSince()
+
 		if every := c.keepAliveEvery(); every > 0 {
 			t = firstTime(t, ps.pingSince.Add(time.Duration(ps.pings+1)*every))
 		}
+
 		if cc.path.closeAfter > 0 {
 			t = firstTime(t, ps.quietSince.Add(cc.path.closeAfter))
 		}
 	}
+
 	return t
 }
 
@@ -122,6 +130,7 @@ func (c *Conn) keepAliveEvery() time.Duration {
 	if half := c.idle.idleDuration / 2; every > 0 && half > 0 {
 		every = min(every, half)
 	}
+
 	return every
 }
 
@@ -132,6 +141,7 @@ func (c *Conn) degradeDelay() time.Duration {
 	if n <= 0 {
 		return 0
 	}
+
 	return time.Duration(n) * c.loss.ptoBasePeriod()
 }
 
@@ -142,12 +152,17 @@ func (c *Conn) clientQuietSince() {
 	cc := c.client
 	ps := &cc.pathState
 	recv := c.acks[appDataSpace].maxRecvTime
+
 	var since time.Time
+
 	if ns := cc.keepAliveSince.Load(); ns > 0 {
 		since = time.Unix(0, ns)
 	}
+
 	ps.quietSince = later(recv, since)
+
 	var from time.Time
+
 	switch cc.path.keepAliveFrom {
 	case profile.KeepAliveFromSent:
 		from = ps.lastSent
@@ -158,9 +173,11 @@ func (c *Conn) clientQuietSince() {
 		if ps.firstSent.After(recv) {
 			from = ps.firstSent
 		}
+
 	default:
 		from = recv
 	}
+
 	from = later(from, since)
 	if !from.Equal(ps.pingSince) {
 		ps.pingSince = from
@@ -173,6 +190,7 @@ func later(a, b time.Time) time.Time {
 	if b.After(a) {
 		return b
 	}
+
 	return a
 }
 
@@ -182,6 +200,7 @@ func (c *Conn) clientSent(now time.Time) {
 	if !ps.lastSent.After(c.acks[appDataSpace].maxRecvTime) {
 		ps.firstSent = now
 	}
+
 	ps.lastSent = now
 }
 
@@ -194,6 +213,7 @@ func (c *Conn) oldestUnacked() *sentPacket {
 			return sent
 		}
 	}
+
 	return nil
 }
 
@@ -203,6 +223,7 @@ func (c *Conn) clientPathAdvance(now time.Time) {
 	if !c.handshakeConfirmed.isSet() || !c.isAlive() {
 		return
 	}
+
 	if d := c.degradeDelay(); d > 0 && !cc.pathState.degraded && !cc.pathState.moving {
 		if sent := c.oldestUnacked(); sent != nil && !now.Before(sent.time.Add(d)) {
 			cc.pathState.degraded = true
@@ -210,21 +231,28 @@ func (c *Conn) clientPathAdvance(now time.Time) {
 			c.clientMove()
 		}
 	}
+
 	if !cc.keepAlive.Load() {
 		return
 	}
+
 	ps := &cc.pathState
+
 	c.clientQuietSince()
+
 	if cc.path.closeAfter > 0 && !now.Before(ps.quietSince.Add(cc.path.closeAfter)) {
 		c.setFinalError(ErrPathDegraded)
 		c.enterClosing(now, localTransportError{
 			code:   errNo,
 			reason: cc.path.closeReason,
 		})
+
 		return
 	}
+
 	if every := c.keepAliveEvery(); every > 0 && !now.Before(ps.pingSince.Add(time.Duration(ps.pings+1)*every)) {
 		ps.pings++
+
 		ps.ping = true
 	}
 }
@@ -236,10 +264,13 @@ func (c *Conn) appendClientKeepAlive() bool {
 	if !ps.ping {
 		return true
 	}
+
 	if !c.w.sent.ackEliciting && !c.w.appendPingFrame() {
 		return false
 	}
+
 	ps.ping = false
+
 	return true
 }
 
@@ -251,21 +282,27 @@ func (c *Conn) clientMove() {
 	if ps.socket == nil || ps.newPath == nil || len(c.connIDState.remote) < 2 {
 		return
 	}
+
 	ps.moving = true
+
 	newPath := ps.newPath
+
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), clientMoveTimeout)
 		defer cancel()
+
 		pc, err := newPath(ctx)
 		// The loop owns pc once the message runs; until then, this.
 		ran := make(chan struct{})
 		c.sendMsg(func(now time.Time, c *Conn) {
 			defer close(ran)
+
 			c.client.pathState.moving = false
 			if err == nil {
 				c.clientMigrate(now, pc)
 			}
 		})
+
 		select {
 		case <-ran:
 		case <-c.donec:
@@ -291,26 +328,34 @@ const clientMoveTimeout = 5 * time.Second
 func (c *Conn) clientMigrate(now time.Time, pc net.PacketConn) {
 	cc := c.client
 	ps := &cc.pathState
+
 	if !c.isAlive() || len(c.connIDState.remote) < 2 {
 		_ = pc.Close()
 		return
 	}
+
 	npc, err := wrapPacketConn(pc)
 	if err != nil {
 		_ = pc.Close()
 		return
 	}
+
 	ps.socket.swap(npc)
+
 	c.path.local = unmapAddrPort(npc.LocalAddr())
 	c.connIDState.retireActiveRemote()
+
 	if _, err := rand.Read(ps.challenge[:]); err != nil {
 		return
 	}
+
 	c.sendPathProbe(now, func() bool {
 		if !c.w.appendPathChallengeFrame(ps.challenge) {
 			return false
 		}
+
 		c.w.appendPaddingTo(cc.p.DatagramSize)
+
 		return true
 	})
 	c.sendPathProbe(now, c.w.appendPingFrame)
@@ -323,22 +368,32 @@ func (c *Conn) sendPathProbe(now time.Time, add func() bool) {
 	if !ok {
 		return
 	}
+
 	c.w.reset(c.loss.maxSendSize())
+
 	pnum := c.clientPacketNumber(now, appDataSpace)
 	pnumMaxAcked := c.loss.spaces[appDataSpace].maxAcked
 	c.w.start1RTTPacket(pnum, pnumMaxAcked, dstConnID)
+
 	if !add() {
 		c.w.abandonPacket()
+
 		return
 	}
+
 	c.w.spin = c.spinBit()
+
 	sent := c.w.finish1RTTPacket(pnum, pnumMaxAcked, dstConnID, &c.keysAppData)
+
 	c.w.spin = false
+
 	if sent == nil {
 		return
 	}
+
 	c.client.packetNumberUsed(pnum)
 	c.packetSent(now, appDataSpace, sent)
+
 	_ = c.endpoint.sendDatagram(datagram{
 		b:    c.w.datagram(),
 		path: pathAddrs{peer: c.path.peer},
@@ -358,8 +413,10 @@ func (c *Conn) clientPathResponse(data pathChallengeData) {
 // next one takes over, the old one is retired (RETIRE_CONNECTION_ID).
 func (s *connIDState) retireActiveRemote() {
 	seq := s.remote[0].seq
+
 	s.remote = s.remote[1:]
 	s.remoteRetiring.add(seq, seq+1)
+
 	s.needSend = true
 }
 
@@ -368,6 +425,7 @@ func wrapPacketConn(pc net.PacketConn) (packetConn, error) {
 	if uc, ok := pc.(*net.UDPConn); ok {
 		return newNetUDPConn(uc)
 	}
+
 	return newNetPacketConn(pc)
 }
 
@@ -383,21 +441,28 @@ type swapPacketConn struct {
 func (s *swapPacketConn) current() (packetConn, int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	return s.cur, s.gen
 }
 
 // swap makes pc the socket and closes the old one.
 func (s *swapPacketConn) swap(pc packetConn) {
 	s.mu.Lock()
+
 	if s.closed {
 		s.mu.Unlock()
+
 		_ = pc.Close()
+
 		return
 	}
+
 	old := s.cur
+
 	s.cur = pc
 	s.gen++
 	s.mu.Unlock()
+
 	_ = old.Close()
 }
 
@@ -405,9 +470,12 @@ func (s *swapPacketConn) Read(f func(*datagram)) error {
 	for {
 		pc, gen := s.current()
 		err := pc.Read(f)
+
 		s.mu.Lock()
+
 		again := !s.closed && s.gen != gen
 		s.mu.Unlock()
+
 		if !again {
 			return err
 		}
@@ -421,9 +489,12 @@ func (s *swapPacketConn) Write(d datagram) error {
 
 func (s *swapPacketConn) Close() error {
 	s.mu.Lock()
+
 	s.closed = true
+
 	pc := s.cur
 	s.mu.Unlock()
+
 	return pc.Close()
 }
 

@@ -1,0 +1,199 @@
+{
+  "date": "2026-10-29",
+  "name": "h3ack-netem-10m-3",
+  "env": {
+    "host": "Mac",
+    "hostCpu": "Apple M3 Pro, 12 cores, 36 GB",
+    "hostOs": "macOS 27.0.1, Battery Power",
+    "docker": "orbstack context, OrbStack, server 29.8.2, 12 CPUs, 16818667520 bytes",
+    "mode": "local: both stacks on one Docker host, one Docker network",
+    "kernel": "7.2.12-orbstack-00394-gbecdd6130068",
+    "clientCpus": 4,
+    "gomaxprocs": 4,
+    "goVersion": "go1.27.3",
+    "mimicryCommit": "a257958 + uncommitted changes",
+    "cpusets": "client 0-3, servers 4-11, proxy 10-11",
+    "servers": [
+      {
+        "name": "nginx",
+        "software": "nginx/1.31.8",
+        "cpus": 8
+      },
+      {
+        "name": "go",
+        "software": "net/http and quic-go v0.64.1 (go1.27.3)",
+        "cpus": 8
+      }
+    ],
+    "clients": [
+      {
+        "name": "net/http",
+        "module": "std",
+        "version": "go1.27.3",
+        "profile": "none (Go's own TLS and HTTP/2; quic-go for HTTP/3)"
+      },
+      {
+        "name": "mimicry",
+        "module": "github.com/roachadam/mimicry",
+        "version": "(devel)",
+        "profile": "chrome-156-macos"
+      },
+      {
+        "name": "tls-client",
+        "module": "github.com/bogdanfinn/tls-client",
+        "version": "v1.17.1",
+        "profile": "Chrome_152_PSK"
+      },
+      {
+        "name": "httpcloak",
+        "module": "github.com/sardanioss/httpcloak",
+        "version": "v1.7.3",
+        "profile": "chrome-latest (chrome-155-linux)"
+      },
+      {
+        "name": "azuretls",
+        "module": "github.com/Noooste/azuretls-client",
+        "version": "v1.13.2",
+        "profile": "chrome (GetLastChromeVersion)"
+      },
+      {
+        "name": "mimicry-ack20",
+        "module": "github.com/roachadam/mimicry",
+        "version": "(devel)",
+        "profile": "chrome-156-macos"
+      }
+    ],
+    "netem": "",
+    "proxyDelay": "5ms on the proxy's outgoing packets"
+  },
+  "settings": {
+    "window": 180000000000,
+    "warmup": 60000000000,
+    "layers": [
+      3
+    ],
+    "clients": [
+      "mimicry",
+      "mimicry-ack20",
+      "tls-client"
+    ],
+    "servers": [
+      "nginx"
+    ],
+    "reduced": [
+      "go"
+    ],
+    "protos": [
+      "h3"
+    ],
+    "concurrency": [
+      1
+    ],
+    "idleN": 50,
+    "reps": 5,
+    "netem": true,
+    "loadNetem": [
+      "rtt80-loss1"
+    ],
+    "bodies": [
+      "10MB"
+    ],
+    "multiN": 200,
+    "multiVariants": [
+      "fixed",
+      "proxy",
+      "client"
+    ],
+    "multiRotate": 10,
+    "multiClientWindow": 20000000000
+  },
+  "load": [
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-10MB",
+      "conc": 1,
+      "client": "mimicry",
+      "condition": "rtt80-loss1",
+      "result": {
+        "requests": 6,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 180.191424203,
+        "rps": 0.026845842079247735,
+        "mbps": 0.2814990570408928,
+        "p50": 35701.915648,
+        "p95": 37849.399296,
+        "p99": 37849.399296,
+        "clientCores": 0.018637712726087035,
+        "cpuPerRequest": 694249.5106344338,
+        "bytesPerRequest": 37281.25718234051,
+        "allocsPerRequest": 324.7618719417166,
+        "gcs": 2,
+        "gcPauseMs": 3.070374,
+        "gcPauseMaxMs": 2.711749,
+        "heapPeakMb": 6.444192,
+        "goroutines": 13,
+        "serverCpu": 0.0011396671673378172
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-10MB",
+      "conc": 1,
+      "client": "mimicry-ack20",
+      "condition": "rtt80-loss1",
+      "result": {
+        "requests": 6,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 180.191761125,
+        "rps": 0.026639121421178316,
+        "mbps": 0.27933143383333475,
+        "p50": 36238.78656,
+        "p95": 38386.270208,
+        "p99": 38386.270208,
+        "clientCores": 0.01611368900482519,
+        "cpuPerRequest": 604888.1549079423,
+        "bytesPerRequest": 44796.93152810819,
+        "allocsPerRequest": 329.15636656130687,
+        "gcs": 2,
+        "gcPauseMs": 1.543958,
+        "gcPauseMaxMs": 1.343833,
+        "heapPeakMb": 6.080824,
+        "goroutines": 13,
+        "serverCpu": 0.0009127609329813081
+      }
+    },
+    {
+      "server": "nginx",
+      "proto": "h3",
+      "op": "bytes-10MB",
+      "conc": 1,
+      "client": "tls-client",
+      "condition": "rtt80-loss1",
+      "result": {
+        "requests": 5,
+        "errors": 0,
+        "mismatches": 0,
+        "seconds": 180.1962305,
+        "rps": 0.023590303516304763,
+        "mbps": 0.2473622609991278,
+        "p50": 43218.108416,
+        "p95": 44291.85024,
+        "p99": 44291.85024,
+        "clientCores": 0.010467749490464506,
+        "cpuPerRequest": 443731.0220798803,
+        "bytesPerRequest": 714994.8491788226,
+        "allocsPerRequest": 24169.091784004606,
+        "gcs": 2,
+        "gcPauseMs": 0.220583,
+        "gcPauseMaxMs": 0.137375,
+        "heapPeakMb": 7.006032,
+        "goroutines": 18,
+        "serverCpu": 0.0006649480106632973
+      }
+    }
+  ]
+}

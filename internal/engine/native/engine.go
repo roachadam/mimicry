@@ -103,6 +103,11 @@ type Config struct {
 	// UDPReadBufferSize is the receive buffer QUIC sockets ask for; zero
 	// keeps the OS's default, negative is an error.
 	UDPReadBufferSize int
+	// HTTP3ACKEvery, when set, is how many ack-eliciting packets a QUIC
+	// connection acknowledges at once after the profile's warm-up, in place
+	// of the profile's quic.ack.every; at least that, at most maxACKEvery
+	// (decision 0043).
+	HTTP3ACKEvery int
 	// BrowserProxyAuth gives an HTTP proxy the URL's credentials as the
 	// profile's browser does: only once the proxy has answered 407
 	// (proxy.connectCredentials, forwardCredentials). Otherwise they go
@@ -124,10 +129,13 @@ type Engine struct {
 	// engine holding the same profile.
 	*compiled
 	profile *profile.Profile
-	clock   clockwork.Clock
-	rootCAs *x509.CertPool
-	dialer  *dial.Dialer
-	proxy   func(*http.Request) (*url.URL, error)
+	// quicProfile is what QUIC connections dial with: the profile's QUIC
+	// section, or a copy with Config.HTTP3ACKEvery's ACK rate.
+	quicProfile *profile.QUIC
+	clock       clockwork.Clock
+	rootCAs     *x509.CertPool
+	dialer      *dial.Dialer
+	proxy       func(*http.Request) (*url.URL, error)
 	// lookup returns a host's addresses, for coalescing on lookup.
 	lookup func(ctx context.Context, host string) ([]netip.Addr, error)
 	// verify is Config.VerifyConnection.
@@ -185,6 +193,11 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 		return nil, fmt.Errorf("mimicry: Config.UDPReadBufferSize %d is negative", cfg.UDPReadBufferSize)
 	}
 
+	quicProfile, err := ackOverride(p.QUIC, cfg.HTTP3ACKEvery)
+	if err != nil {
+		return nil, err
+	}
+
 	var coalesce profile.Coalescing
 	if cfg.Coalesce {
 		coalesce = p.Connections.Coalesce
@@ -203,10 +216,11 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 	c := compile(p)
 	plan := c.plan
 	e := &Engine{
-		compiled: c,
-		profile:  p,
-		clock:    clock,
-		rootCAs:  cfg.RootCAs,
+		compiled:    c,
+		profile:     p,
+		quicProfile: quicProfile,
+		clock:       clock,
+		rootCAs:     cfg.RootCAs,
 		dialer: &dial.Dialer{
 			Timeout:           timeout,
 			DialContext:       cfg.DialContext,

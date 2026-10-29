@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/roachadam/mimicry/internal/bench/clients"
+	"github.com/roachadam/mimicry/internal/bench/site"
 	"github.com/roachadam/mimicry/internal/bench/target"
 )
 
@@ -85,8 +86,10 @@ func Load(ctx context.Context, su Setup, spec LoadSpec) (LoadResult, error) {
 	}
 	defer c.Close()
 
+	// Warm onto the protocol with 1 KB bodies: three of the op's own could
+	// take longer than Warm allows (10 MB under netem's loss).
 	req := spec.Op.Request(su.Server, su.Proto)
-	if err := Warm(ctx, c, req, su.Proto); err != nil {
+	if err := Warm(ctx, c, GetBytes(site.KB).Request(su.Server, su.Proto), su.Proto); err != nil {
 		res.Discarded = err.Error()
 
 		return res, nil

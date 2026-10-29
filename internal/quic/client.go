@@ -11,6 +11,7 @@ import (
 	"math/rand/v2"
 	"net"
 	"net/netip"
+	"slices"
 	"sync/atomic"
 	"time"
 
@@ -41,6 +42,10 @@ type DialConfig struct {
 	// OnToken, if set, is called with each NEW_TOKEN token the server sends
 	// (a copy), on the connection's goroutine: it must not block.
 	OnToken func([]byte)
+	// OnFirstDatagram, if set, is called once, when the connection hands
+	// its first datagram to the socket, on the connection's goroutine: it
+	// must not block. A connection dropped before that never calls it.
+	OnFirstDatagram func()
 	// CachedRTT is the smoothed RTT of the connection whose ticket Hello
 	// resumes (Conn.SmoothedRTT), for a profile that sends it when resuming
 	// (Chrome's initial_rtt); zero leaves that parameter out.
@@ -78,43 +83,54 @@ func Dial(ctx context.Context, pc net.PacketConn, peer netip.AddrPort, cfg DialC
 	if err == nil && cc.path.degradePTOs > 0 && cfg.NewPath == nil {
 		err = errors.New("quic: the profile moves to a new port on a degrading path: DialConfig.NewPath is required")
 	}
+
 	if err != nil {
 		_ = pc.Close()
 		return nil, err
 	}
+
 	sock, err := wrapPacketConn(pc)
 	if err != nil {
 		_ = pc.Close()
 		return nil, err
 	}
+
 	if cc.path.degradePTOs > 0 {
 		sw := &swapPacketConn{
 			cur: sock,
 		}
+
 		cc.pathState.socket, cc.pathState.newPath = sw, cfg.NewPath
 		sock = sw
 	}
+
 	e := newSoleEndpoint(sock) //nolint:contextcheck // the endpoint runs for the connection's lifetime, not Dial's
+
 	peer = netip.AddrPortFrom(peer.Addr().Unmap(), peer.Port())
 	config.client = cc
+
 	c, err := e.newConn(time.Now(), config, clientSide, newServerConnIDs{}, cfg.TLS.ServerName, peer) //nolint:contextcheck // as newSoleEndpoint
 	if err != nil {
 		_ = e.Close(ctx)
 		return nil, err
 	}
+
 	if c.client.early {
 		return c, nil
 	}
+
 	if err := c.waitReady(ctx); err != nil {
 		if ctx.Err() != nil {
 			// A browser drops an attempt it no longer waits for without
 			// a word (Safari's when its TCP connection won the race).
 			c.exit()
 		}
+
 		// Otherwise the connection ended itself and sends its own close
 		// (Firefox's 0x53f8 after a version negotiation).
 		return nil, err
 	}
+
 	return c, nil
 }
 
@@ -171,6 +187,7 @@ func (c *Conn) SmoothedRTT() time.Duration {
 	}); err != nil {
 		return 0
 	}
+
 	return <-ch
 }
 
@@ -217,6 +234,7 @@ func (c *Conn) KeepAlive(on bool) {
 	if on && !c.client.keepAlive.Load() {
 		c.client.keepAliveSince.Store(time.Now().UnixNano())
 	}
+
 	c.client.keepAlive.Store(on)
 	c.wake()
 }
@@ -237,6 +255,8 @@ type clientState struct {
 	// token is sent in Initial packets.
 	token   []byte
 	onToken func([]byte)
+	// onFirstDatagram is DialConfig.OnFirstDatagram, nil once called.
+	onFirstDatagram func()
 	// scid and dcid are the client's Source Connection ID and the first
 	// Initial's Destination Connection ID.
 	scid []byte
@@ -348,74 +368,96 @@ func newClientConfig(cfg DialConfig) (*clientState, *Config, error) {
 	case p.SCIDLength > maxConnIDLen || p.DCIDLength < 8 || p.DCIDLength > maxConnIDLen:
 		return nil, nil, fmt.Errorf("quic: connection ID lengths %d/%d", p.DCIDLength, p.SCIDLength)
 	}
+
 	var seed [32]byte
 	if _, err := cryptorand.Read(seed[:]); err != nil {
 		return nil, nil, err
 	}
+
 	rng := rand.New(rand.NewChaCha8(seed)) //nolint:gosec // per-connection draws, seeded from crypto/rand
 	cc := &clientState{
-		p:            p,
-		hello:        cfg.Hello,
-		onToken:      cfg.OnToken,
-		rng:          rng,
-		ackDelay:     -1,
-		confirmed:    make(chan struct{}),
-		finishedSent: make(chan struct{}),
-		version:      quicVersion1,
+		p:               p,
+		hello:           cfg.Hello,
+		onToken:         cfg.OnToken,
+		onFirstDatagram: cfg.OnFirstDatagram,
+		rng:             rng,
+		ackDelay:        -1,
+		confirmed:       make(chan struct{}),
+		finishedSent:    make(chan struct{}),
+		version:         quicVersion1,
 	}
+
 	cc.sentVersionInfo, cc.available = clientVersions(p)
+
 	switch cfg.Version {
 	case 0, quicVersion1:
 	case quicVersion2:
 		if !cc.offers(quicVersion2) {
 			return nil, nil, errors.New("quic: version 2 for a profile that does not offer it")
 		}
+
 		cc.version = quicVersion2
+
 	default:
 		return nil, nil, fmt.Errorf("quic: version %#x", cfg.Version)
 	}
+
 	cc.originalVersion = cc.version
 	cc.afterVN = cfg.AfterVersionNegotiation
+
 	if p.Tokens && len(cfg.Token) > 0 {
 		cc.token = cloneBytes(cfg.Token)
 	}
+
 	for _, e := range cfg.Hello.Extensions {
 		if _, ok := e.(*tls.UtlsPreSharedKeyExtension); ok {
 			cc.resumed = true
 		}
 	}
+
 	dcidLen := p.DCIDLength
 	if p.DCIDLengthRule == profile.DCIDLengthBiased {
 		v := rng.IntN(256)
+
 		dcidLen = max(p.DCIDLength, 5+(v&(v>>4)))
 	}
+
 	cc.dcid = randomBytes(rng, dcidLen)
 	cc.scid = randomBytes(rng, p.SCIDLength)
+
 	switch p.PacketNumbers {
 	case profile.PacketNumbersShared:
 		cc.nextPN = 1
 		cc.initialPN = 1
+
 	case profile.PacketNumbersRandomInitial:
 		a, b := rng.IntN(256), rng.IntN(256)
+
 		cc.initialPN = packetNumber(1 + (a & 0x1f) + (max(b, 224)-224)*32)
+
 	case profile.PacketNumbersPerSpace:
 	default:
 		return nil, nil, fmt.Errorf("quic: packet numbers %q", p.PacketNumbers)
 	}
+
 	if p.AckDelay == profile.AckDelayConstant {
 		if p.AckDelayConstant == nil {
 			return nil, nil, errors.New("quic: constant ACK delay without a range")
 		}
+
 		cc.ackDelay = unscaledAckDelay(drawRange(rng, *p.AckDelayConstant))
 	}
+
 	params, err := marshalProfileParams(p, cc.scid, cc.resumed, cfg.CachedRTT, cc.version, rng)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	cc.params = params
 	if cc.local, err = unmarshalTransportParams(params); err != nil {
 		return nil, nil, fmt.Errorf("quic: profile transport parameters: %w", err)
 	}
+
 	config := &Config{
 		TLSConfig:            cfg.TLS,
 		MaxBidiRemoteStreams: limitOrNegative(cc.local.initialMaxStreamsBidi),
@@ -430,9 +472,11 @@ func newClientConfig(cfg DialConfig) (*clientState, *Config, error) {
 		// No max_idle_timeout: no local limit (the peer's applies).
 		config.MaxIdleTimeout = -1
 	}
+
 	if err := cc.applyLoss(p, cfg, config); err != nil {
 		return nil, nil, err
 	}
+
 	return cc, config, nil
 }
 
@@ -461,14 +505,16 @@ func limitOrNegative(v int64) int64 {
 	if v == 0 {
 		return -1
 	}
+
 	return v
 }
 
 func randomBytes(rng *rand.Rand, n int) []byte {
 	b := make([]byte, n)
 	for i := range b {
-		b[i] = byte(rng.Uint32()) //nolint:gosec // a random byte: truncation is the point
+		b[i] = byte(rng.Uint32()) // a random byte: truncation is the point
 	}
+
 	return b
 }
 
@@ -482,6 +528,7 @@ func (c *Conn) localConnIDLen() int {
 	if c.client != nil {
 		return len(c.client.scid)
 	}
+
 	return connIDLen
 }
 
@@ -506,8 +553,10 @@ func (c *Conn) clientPeerClosed(now time.Time, frameType uint64) {
 		c.enterClosing(now, closeReply{
 			frameType: frameType,
 		})
+
 		return
 	}
+
 	c.enterDraining(now)
 }
 
@@ -537,20 +586,25 @@ func (c *Conn) handleExtensionFrame(_ time.Time, ptype packetType, b []byte) int
 	if cc == nil || ptype&(packetType0RTT|packetType1RTT) == 0 {
 		return -1
 	}
+
 	typ, n := quicwire.ConsumeVarint(b)
 	if n < 0 {
 		return -1
 	}
+
 	switch {
 	case (typ == frameTypeDatagram || typ == frameTypeDatagramWithLen) && cc.announces(paramMaxDatagramFrameSize):
 		if typ == frameTypeDatagram {
 			return len(b)
 		}
+
 		_, m := quicwire.ConsumeVarintBytes(b[n:])
 		if m < 0 {
 			return -1
 		}
+
 		return n + m
+
 	case typ == frameTypeImmediateAck && cc.announcesAny(minAckDelayParams):
 		return n
 	case typ == frameTypeAckFrequency && cc.announcesAny(minAckDelayParams):
@@ -561,10 +615,13 @@ func (c *Conn) handleExtensionFrame(_ time.Time, ptype packetType, b []byte) int
 			if m < 0 {
 				return -1
 			}
+
 			n += m
 		}
+
 		return n
 	}
+
 	return -1
 }
 
@@ -575,16 +632,12 @@ func (cc *clientState) announces(id profile.TransportParameterID) bool {
 			return tp.Value == nil || *tp.Value != 0
 		}
 	}
+
 	return false
 }
 
 func (cc *clientState) announcesAny(ids []profile.TransportParameterID) bool {
-	for _, id := range ids {
-		if cc.announces(id) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(ids, cc.announces)
 }
 
 // localActiveConnIDLimit is the active_connection_id_limit the connection
@@ -593,6 +646,7 @@ func (c *Conn) localActiveConnIDLimit() int {
 	if c.client != nil {
 		return int(c.client.local.activeConnIDLimit)
 	}
+
 	return activeConnIDLimit
 }
 
@@ -608,6 +662,8 @@ func newSoleEndpoint(pc packetConn) *Endpoint {
 	}
 	e.resetGen.init([32]byte{})
 	e.connsMap.init()
+
 	go e.listen()
+
 	return e
 }

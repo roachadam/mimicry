@@ -75,9 +75,11 @@ func (s *connIDState) initClient(c *Conn) error {
 	if err != nil {
 		return err
 	}
+
 	if c.client != nil {
 		locid = c.client.scid // mimicry: the profile's length, drawn by Dial
 	}
+
 	s.local = append(s.local, connID{
 		seq: 0,
 		cid: locid,
@@ -93,6 +95,7 @@ func (s *connIDState) initClient(c *Conn) error {
 	if err != nil {
 		return err
 	}
+
 	if c.client != nil {
 		remid = c.client.dcid // mimicry
 	}
@@ -187,6 +190,7 @@ func (s *connIDState) issueLocalIDs(c *Conn) error {
 			toIssue = 0
 		}
 	}
+
 	for i := range s.local {
 		if s.local[i].seq != -1 {
 			toIssue--
@@ -499,9 +503,11 @@ func (c *Conn) newConnID(seq int64) ([]byte, error) {
 	if c.testHooks != nil {
 		return c.testHooks.newConnID(seq)
 	}
+
 	if c.client != nil {
 		return newRandomConnIDLen(len(c.client.scid)) // mimicry
 	}
+
 	return newRandomConnID(seq)
 }
 

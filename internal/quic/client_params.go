@@ -32,6 +32,7 @@ func marshalProfileParams(p *profile.QUIC, scid []byte, resumed bool, rtt time.D
 		if tp.Resumed && !resumed {
 			continue
 		}
+
 		e := tpEntry{
 			id:   uint64(tp.ID),
 			last: tp.Last,
@@ -42,29 +43,38 @@ func marshalProfileParams(p *profile.QUIC, scid []byte, resumed bool, rtt time.D
 			// section 18.1).
 			e.id = 27 + 31*rng.Uint64N((quicwire.MaxVarint-27)/31+1)
 			e.value = randomBytes(rng, rng.IntN(tp.MaxLength+1))
+
 		case tp.ID == profile.TPInitialSourceConnectionID:
 			e.value = scid
 		case tp.ID == profile.TPInitialRTT:
 			if rtt <= 0 {
 				continue
 			}
-			e.value = quicwire.AppendVarint(nil, uint64(rtt.Microseconds())) //nolint:gosec // rtt > 0
+
+			e.value = quicwire.AppendVarint(nil, uint64(rtt.Microseconds()))
+
 		case tp.ID == profile.TPVersionInformation:
 			v, err := versionInformation(tp, version, rng)
 			if err != nil {
 				return nil, err
 			}
+
 			e.value = v
+
 		case tp.Value != nil:
 			if *tp.Value > quicwire.MaxVarint {
 				return nil, fmt.Errorf("quic: transport parameter %s value %d is not a varint", tp.ID, *tp.Value)
 			}
+
 			e.value = quicwire.AppendVarint(nil, *tp.Value)
+
 		default:
 			e.value = tp.Data
 		}
+
 		entries = append(entries, e)
 	}
+
 	var movable, last []tpEntry
 	for _, e := range entries {
 		if e.last {
@@ -73,25 +83,31 @@ func marshalProfileParams(p *profile.QUIC, scid []byte, resumed bool, rtt time.D
 			movable = append(movable, e)
 		}
 	}
+
 	switch p.TransportParameterOrder {
 	case profile.TransportParameterOrderFixed:
 	case profile.TransportParameterOrderShuffled:
 		rng.Shuffle(len(movable), func(i, j int) {
 			movable[i], movable[j] = movable[j], movable[i]
 		})
+
 	case profile.TransportParameterOrderRotated:
 		if len(movable) > 0 {
 			k := rng.IntN(len(movable))
+
 			movable = append(movable[k:], movable[:k]...)
 		}
+
 	default:
 		return nil, fmt.Errorf("quic: transport parameter order %q", p.TransportParameterOrder)
 	}
+
 	var b []byte
 	for _, e := range append(movable, last...) {
 		b = quicwire.AppendVarint(b, e.id)
 		b = quicwire.AppendVarintBytes(b, e.value)
 	}
+
 	return b, nil
 }
 
@@ -103,6 +119,7 @@ func versionInformation(tp *profile.TransportParameter, version uint32, rng *ran
 	if len(tp.Versions) == 0 {
 		return nil, fmt.Errorf("quic: version_information without versions")
 	}
+
 	versions := make([]uint32, len(tp.Versions))
 	for i, v := range tp.Versions {
 		versions[i] = uint32(v)
@@ -110,19 +127,23 @@ func versionInformation(tp *profile.TransportParameter, version uint32, rng *ran
 			versions[i] = rng.Uint32()&0xf0f0f0f0 | 0x0a0a0a0a
 		}
 	}
+
 	if version != quicVersion1 {
 		versions[0] = version
 	}
+
 	if tp.ShuffleVersions {
 		available := versions[1:]
 		rng.Shuffle(len(available), func(i, j int) {
 			available[i], available[j] = available[j], available[i]
 		})
 	}
+
 	b := make([]byte, 0, 4*len(versions))
 	for _, v := range versions {
 		b = binary.BigEndian.AppendUint32(b, v)
 	}
+
 	return b, nil
 }
 
@@ -145,6 +166,7 @@ func recallParams(extra [][]byte) (transportParameters, bool) {
 			return p, err == nil
 		}
 	}
+
 	return transportParameters{}, false
 }
 
@@ -156,12 +178,15 @@ func (c *Conn) applyRememberedParams(p transportParameters) error {
 	// The windows first, under tableMu: a stream may open as soon as
 	// setMax allows it, and reads them then.
 	c.streams.tableMu.Lock()
+
 	c.streams.peerInitialMaxStreamDataRemote[bidiStream] = p.initialMaxStreamDataBidiRemote
 	c.streams.peerInitialMaxStreamDataRemote[uniStream] = p.initialMaxStreamDataUni
 	c.streams.tableMu.Unlock()
 	c.streams.outflow.setMaxData(p.initialMaxData)
 	c.streams.localLimit[bidiStream].setMax(p.initialMaxStreamsBidi)
 	c.streams.localLimit[uniStream].setMax(p.initialMaxStreamsUni)
+
 	c.streams.peerInitialMaxStreamDataBidiLocal = p.initialMaxStreamDataBidiLocal
+
 	return c.connIDState.setPeerActiveConnIDLimit(c, defaultParamActiveConnIDLimit)
 }

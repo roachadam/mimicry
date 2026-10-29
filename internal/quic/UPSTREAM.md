@@ -71,7 +71,8 @@ the mechanical import rewrites.
 4. **Package docs.** `doc.go` gains a short "mimicry" section pointing
    here. `qlog`, `quicwire` and `testcert` are unchanged.
 5. **Browser clients (`Dial`).** New files `client.go` (`Dial`,
-   `DialConfig`, `Cork`/`Uncork`, `HoldFinished`/`ReleaseFinished`,
+   `DialConfig` (`OnFirstDatagram`: the send path calls it once the first
+   datagram goes out), `Cork`/`Uncork`, `HoldFinished`/`ReleaseFinished`,
    `EarlyData`, `HandshakeComplete`, `FinishedSent` (closed once the
    datagram with the client's Finished went: a request held for the
    handshake that must not share it waits for it), `Done`/`Err`,
@@ -442,9 +443,29 @@ needs the close to fall between a PTO and its probe; and
 ## Lint
 
 `.golangci.yml` excludes `internal/quic/` from every linter but depguard
-(about 500 findings in upstream's style: unchecked `Close` errors,
-`math/rand`, `%v` on errors, unused test helpers, `init` functions).
+(about 450 findings in upstream's style: unchecked `Close` errors,
+`math/rand`, `%v` on errors, unused test helpers, `init` functions; and
+about 4,200 of wsl's and nlreturn's blank lines).
 Formatters still run on it. mimicry's own lines here are checked by hand:
 run the linter with that exclusion removed and confirm no finding is on a
 line this file lists or marks `mimicry:`. Code mimicry adds later goes in
 its own files where it can, so the check stays small.
+
+How: a copy of `.golangci.yml` in the repo root without the
+`^internal/quic/` rule (so `${config-path}` still resolves), never
+committed, passed with `--config` to the pinned golangci-lint on
+`./internal/quic/...`, with `GOOS=linux` too (`udp_batch_linux.go`); and
+gopls `check` (the version `.moon/scripts/gopls-check.sh` pins) on the
+package's files. mimicry's lines are the files upstream lacks and the
+lines a diff against upstream's at the recorded commit adds or changes.
+
+Last check: 2026-10-28, at `c1d31df`. 898 findings on mimicry's lines
+(darwin), fixed: 889 blank lines (wsl, nlreturn), two switches made
+exhaustive, two loops as `slices.Contains`, the type assertion on
+`closeReply` as `errors.As`, the `unsafe` header read in `nextCmsg` given
+its reason; and on Linux `nextCmsg`'s length check without a conversion
+that is redundant there, and `udp_batch_linux.go`'s blank lines, its
+`unsafe` reads given their reasons (the port's now without one) and its
+fallback's nil error. Six `//nolint:gosec` directives were unused (G115
+is off everywhere) and are gone. Now none on mimicry's lines, on either
+platform; gopls reports none there either.

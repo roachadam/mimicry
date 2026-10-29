@@ -192,6 +192,7 @@ func (c *Conn) maybeSend(now time.Time) (next time.Time) {
 func (c *Conn) packetSent(now time.Time, space numberSpace, sent *sentPacket) {
 	c.idleHandlePacketSent(now, sent)
 	c.loss.packetSent(now, c.log, space, sent)
+
 	if c.client != nil && sent.ackEliciting && space == appDataSpace {
 		c.clientSent(now) // mimicry: what the keep-alives count from
 	}
@@ -199,11 +200,12 @@ func (c *Conn) packetSent(now time.Time, space numberSpace, sent *sentPacket) {
 
 func (c *Conn) appendFrames(now time.Time, space numberSpace, pnum packetNumber, limit ccLimit) {
 	if c.lifetime.localErr != nil {
-		if _, ok := c.lifetime.localErr.(closeReply); ok {
+		if errors.As(c.lifetime.localErr, new(closeReply)) {
 			// mimicry: a reply to the peer's close goes with an ACK
 			// (Firefox).
 			c.appendAckFrame(now, space)
 		}
+
 		c.appendConnectionCloseFrame(now, space, c.lifetime.localErr)
 		return
 	}
@@ -241,6 +243,7 @@ func (c *Conn) appendFrames(now time.Time, space numberSpace, pnum packetNumber,
 			// Either we are willing to send an ACK-only packet,
 			// or we've added additional frames.
 			c.acks[space].sentAck()
+
 			if c.client != nil {
 				// mimicry: the browser's rule, not quiche's PING.
 				c.clientAckOnly(space)
@@ -304,6 +307,7 @@ func (c *Conn) appendFrames(now time.Time, space numberSpace, pnum packetNumber,
 			if c.client != nil {
 				size = c.client.p.DatagramSize // mimicry: as its Initial datagrams (Chrome)
 			}
+
 			defer c.w.appendPaddingTo(size)
 		}
 
@@ -415,6 +419,7 @@ func (c *Conn) appendAckFrame(now time.Time, space numberSpace) bool {
 			d = c.client.ackDelay
 		}
 	}
+
 	return c.w.appendAckFrame(seen, d, c.acks[space].ecn)
 }
 

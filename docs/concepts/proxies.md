@@ -93,6 +93,13 @@ connections go when the garbage collector finds it, and those in flight
 then at the idle timeout (90 s, `Config.IdleConnTimeout`) after they
 end.
 
+A new client takes about 1.4–2.8 ms to build, most of it encoding and
+hashing the profile so that clients built from equal profiles share one
+copy (the
+[multi-client benchmark](../../internal/bench/reports/multiclient-rotation-2026-10-28.md#new-client-alone)):
+build clients up front, one per proxy, and reuse each for its proxy's
+requests rather than building one per request.
+
 ## WebSockets
 
 `Transport.DialWebSocket` goes through the proxy as the browser's socket

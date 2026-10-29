@@ -43,6 +43,7 @@ func newGate() gate {
 // It reports whether the condition is set.
 func (g *gate) lock() (set bool) {
 	g.mu.Lock()
+
 	return g.set
 }
 
@@ -51,10 +52,13 @@ func (g *gate) lock() (set bool) {
 func (g *gate) waitAndLock(ctx context.Context) error {
 	for {
 		g.mu.Lock()
+
 		if g.set {
 			return nil
 		}
+
 		g.mu.Unlock()
+
 		select {
 		case <-g.wake:
 		case <-ctx.Done():
@@ -71,7 +75,9 @@ func (g *gate) lockIfSet() (acquired bool) {
 	if g.set {
 		return true
 	}
+
 	g.mu.Unlock()
+
 	return false
 }
 
@@ -79,6 +85,7 @@ func (g *gate) lockIfSet() (acquired bool) {
 func (g *gate) unlock(set bool) {
 	g.set = set
 	g.mu.Unlock()
+
 	if set {
 		select {
 		case g.wake <- struct{}{}:

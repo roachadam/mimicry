@@ -122,7 +122,10 @@ idle timeout for a fresh one, at 5 s with an Initial application close in
 attempts in a row (`brokenAfter`: Chrome and Firefox 1, Safari 2,
 resumed ones counting for Safari only) leave the origin on TCP for the
 rest of the Transport's life: no browser tried again within a page
-(Chrome's source has a 5-minute back-off, not measured). Firefox answers
+(Chrome's source has a 5-minute back-off, not measured). An attempt
+counts once its first datagram has gone out: one dropped before (a loaded
+process still building its hello when the race ended) put nothing on the
+network and leaves no trace ([decision 0028](../decisions/0028-quic-failure-model.md)). Firefox answers
 Version Negotiation with a new connection in v2 at once, which it closes
 with 0x53f8 when the server's transport parameters lack
 `version_information`; that counts as one failed attempt. Chrome's source
@@ -208,7 +211,10 @@ after the browser's algorithm rather than a sampled distribution:
 - **Long transfers** (`h3-download`, 50 MiB): acknowledgements as the
   browser spaces them (`quic.ack`: Chrome every 10th packet after its
   first 100, every 2nd before; Firefox and Safari every 2nd, batched over
-  what has arrived); credit from fixed windows, the limit set to bytes
+  what has arrived; `Config.HTTP3ACKEvery` acknowledges less often, not as
+  the browser does, for a server whose one worker a client saturates:
+  [decision 0043](../decisions/0043-http3-ack-rate-opt-in.md)); credit
+  from fixed windows, the limit set to bytes
   consumed plus the window once a share of it is used, consumption
   counted packet by packet as the data arrived, whatever the reader
   takes at once (`quic.credit`:

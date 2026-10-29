@@ -17,6 +17,7 @@ func (c *Conn) streamCreditDue(window, added int64) bool {
 	if c.client.p.Credit.StreamDivisor > 0 {
 		return added >= window/int64(c.client.p.Credit.StreamDivisor)
 	}
+
 	return shouldUpdateFlowControl(window, added)
 }
 
@@ -26,6 +27,7 @@ func (s *Stream) clientReceived() {
 	if len(s.inset) == 0 || s.inset[0].start != 0 {
 		return
 	}
+
 	if e := s.inset[0].end; len(s.inends) == 0 || e > s.inends[len(s.inends)-1] {
 		s.inends = append(s.inends, e)
 	}
@@ -38,10 +40,13 @@ func (s *Stream) clientReceived() {
 // credit is kept in increds. s.ingate must be held.
 func (s *Stream) clientConsumed(pos int64) {
 	s.increds = s.increds[:0]
+
 	i := 0
+
 	for ; i < len(s.inends) && s.inends[i] <= pos; i++ {
 		s.clientCredit(s.inends[i])
 	}
+
 	s.inends = s.inends[:copy(s.inends, s.inends[i:])]
 	s.clientCredit(pos)
 }
@@ -51,11 +56,14 @@ func (s *Stream) clientCredit(end int64) {
 	if end <= s.incounted {
 		return
 	}
+
 	s.increds = append(s.increds, end-s.incounted)
 	s.incounted = end
+
 	if s.insize != -1 && s.insize <= s.inwin {
 		return
 	}
+
 	if limit := end + s.inmaxbuf; s.conn.streamCreditDue(s.inmaxbuf, limit-max(s.inwin, s.inlimit)) {
 		s.inlimit = limit
 		s.insendmax.setUnsent()
@@ -75,6 +83,7 @@ func (c *Conn) clientConnCreditDue(credit int64) bool {
 	case cr.ConnectionDivisor > 0:
 		return credit >= c.config.maxConnReadBufferSize()/int64(cr.ConnectionDivisor)
 	}
+
 	return shouldUpdateFlowControl(c.config.maxConnReadBufferSize(), credit)
 }
 
@@ -91,16 +100,21 @@ func (c *Conn) appendWindowMaxData(w *packetWriter, pnum packetNumber) {
 	if !c.streamWindowCredit() {
 		return
 	}
+
 	in := &c.streams.inflow
 	limit := in.usedLimit + c.client.local.initialMaxStreamDataBidiLocal
+
 	if limit <= in.sentLimit {
 		return
 	}
+
 	in.newLimit = limit
 	if !w.appendMaxDataFrame(limit) {
 		in.sent.setUnsent()
+
 		return
 	}
+
 	in.sentLimit = limit
 	in.sent.setSent(pnum)
 }
@@ -112,5 +126,6 @@ func (acks *ackState) clientAckEvery(largest packetNumber) int {
 	if acks.warmupPackets > 0 && largest < packetNumber(acks.warmupPackets) {
 		return acks.warmupEvery
 	}
+
 	return acks.every
 }

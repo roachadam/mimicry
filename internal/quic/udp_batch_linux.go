@@ -36,7 +36,7 @@ var controlSize = syscall.CmsgSpace(12) + syscall.CmsgSpace(20) + syscall.CmsgSp
 func (c *netUDPConn) readBatch(f func(*datagram)) (ok bool, err error) {
 	rc, err := c.c.SyscallConn()
 	if err != nil {
-		return false, nil
+		return false, nil //nolint:nilerr // no raw access: Read reads one at a time
 	}
 
 	var (
@@ -55,16 +55,19 @@ func (c *netUDPConn) readBatch(f func(*datagram)) (ok bool, err error) {
 			}
 
 			d := dgrams[i]
+
 			iovs[i].Base = &d.b[0]
 			iovs[i].SetLen(len(d.b))
 
 			h := &hdrs[i].hdr
-			h.Name = (*byte)(unsafe.Pointer(&names[i]))
+
+			h.Name = (*byte)(unsafe.Pointer(&names[i])) //nolint:gosec // G103: the msghdr points at the slot's sockaddr, as the kernel's ABI has it
 			h.Namelen = uint32(unsafe.Sizeof(names[i]))
 			h.Iov = &iovs[i]
 			h.Iovlen = 1
 			h.Control = &control[i*controlSize]
 			h.SetControllen(controlSize)
+
 			h.Flags = 0
 			hdrs[i].len = 0
 		}
@@ -79,12 +82,13 @@ func (c *netUDPConn) readBatch(f func(*datagram)) (ok bool, err error) {
 		err := rc.Read(func(fd uintptr) bool {
 			fill()
 
-			r, _, e := syscall.Syscall6(syscall.SYS_RECVMMSG, fd, uintptr(unsafe.Pointer(&hdrs[0])), recvBatch, 0, 0, 0)
+			r, _, e := syscall.Syscall6(syscall.SYS_RECVMMSG, fd, uintptr(unsafe.Pointer(&hdrs[0])), recvBatch, 0, 0, 0) //nolint:gosec // G103: recvmmsg's array of headers
 			if e == syscall.EAGAIN {
 				// Nothing to read: while the socket waits, as an idle
 				// connection's does, it holds one buffer, not a batch.
 				for i := 1; i < recvBatch; i++ {
 					dgrams[i].recycle()
+
 					dgrams[i] = nil
 				}
 
@@ -114,6 +118,7 @@ func (c *netUDPConn) readBatch(f func(*datagram)) (ok bool, err error) {
 			}
 
 			d := dgrams[i]
+
 			dgrams[i] = nil
 
 			d.b = d.b[:size]
@@ -132,14 +137,16 @@ func (c *netUDPConn) readBatch(f func(*datagram)) (ok bool, err error) {
 // package names it).
 func sockaddrAddrPort(sa *syscall.RawSockaddrInet6) netip.AddrPort {
 	port := func(p uint16) uint16 {
-		b := (*[2]byte)(unsafe.Pointer(&p))
+		// p is in network byte order: its bytes as stored.
+		var b [2]byte
+		binary.NativeEndian.PutUint16(b[:], p)
 
 		return binary.BigEndian.Uint16(b[:])
 	}
 
 	switch sa.Family {
 	case syscall.AF_INET:
-		sa4 := (*syscall.RawSockaddrInet4)(unsafe.Pointer(sa))
+		sa4 := (*syscall.RawSockaddrInet4)(unsafe.Pointer(sa)) //nolint:gosec // G103: a sockaddr_in in a sockaddr_in6's room, as Family says
 
 		return netip.AddrPortFrom(netip.AddrFrom4(sa4.Addr), port(sa4.Port))
 

@@ -74,6 +74,7 @@ Related:
 | [0040](decisions/0040-idle-connection-cleanup.md) | Idle HTTP/2 and HTTP/3 connections close; unused proxies and dropped Transports let theirs go | Accepted; amended: `Config.IdleConnTimeout` |
 | [0041](decisions/0041-default-request-timeout.md) | `NewClient` times requests out after 30 s | Accepted |
 | [0042](decisions/0042-http2-opening-records.md) | The HTTP/2 opening is cut into TLS records as the browser cuts it (`http2.openingRecords`) | Accepted |
+| [0043](decisions/0043-http3-ack-rate-opt-in.md) | An opt-in lower HTTP/3 ACK rate: `Config.HTTP3ACKEvery` (Chrome's every 10 by default) | Accepted |
 
 New records copy [`decisions/template.md`](decisions/template.md).
 

@@ -51,7 +51,8 @@ import (
 // server through a seeded impairing relay (udprelay), via the public
 // Transport so dial, pool and retry paths are exercised. Each case checks
 // responses byte for byte, HTTP/3 use and its time limit. It covers the
-// failures no browser capture reaches.
+// failures no browser capture reaches. Only the cases that check the race
+// between QUIC and TCP keep the profile's race delay (interopCase.race).
 func TestQUICInterop(t *testing.T) {
 	pki := newInteropPKI(t)
 	for _, name := range testProfiles(t) {
@@ -102,6 +103,13 @@ type interopCase struct {
 	limit time.Duration
 	// zeroRTT: the case needs a profile that resumes QUIC with 0-RTT.
 	zeroRTT bool
+	// race: the case checks how a request races QUIC against TCP under
+	// its impairment (warmImpaired), at the profile's race delay. Every
+	// other case gives the profile interopRaceDelay instead: what they
+	// check needs the QUIC connection, and a handshake slowed by a
+	// loaded machine must not lose it to TCP (Safari then drops the
+	// attempt, and two such losses break the origin).
+	race bool
 	// server configures the first backend, the one the relay starts
 	// with.
 	server backendOpts
@@ -113,6 +121,9 @@ type interopCase struct {
 const (
 	kib = 1 << 10
 	mib = 1 << 20
+	// interopRaceDelay is the race delay, in ms, of every case that does
+	// not check the race (interopCase.race): no handshake loses it.
+	interopRaceDelay = 5000
 )
 
 // lossy is the transfer-loss impairment at drop probability p: reordering,
@@ -482,6 +493,7 @@ var interopCases = []interopCase{
 	{
 		name:  "handshake-loss",
 		limit: 40 * time.Second,
+		race:  true,
 		run: func(e *interopEnv) {
 			e.relay.SetBoth(udprelay.Impairment{
 				Drop: 0.3,
@@ -521,6 +533,7 @@ var interopCases = []interopCase{
 	{
 		name:  "handshake-corruption",
 		limit: 30 * time.Second,
+		race:  true,
 		run: func(e *interopEnv) {
 			e.relay.SetBoth(udprelay.Impairment{
 				Corrupt: 0.2,
@@ -537,11 +550,12 @@ var interopCases = []interopCase{
 	{
 		name:  "handshake-ack-loss",
 		limit: 15 * time.Second,
+		race:  true,
 		run: func(e *interopEnv) {
 			// The client's second Initial datagram is lost, and so is
-			// every datagram of the server's that carries only ACKs: the
-			// rest of the ClientHello must come with the PTO probes, as
-			// loss detection would need those ACKs.
+			// every handshake datagram of the server's that carries only
+			// ACKs: the rest of the ClientHello must come with the PTO
+			// probes, as loss detection would need those ACKs.
 			e.relay.Set(udprelay.ToServer, udprelay.Impairment{
 				DropAt: []int{
 					1,
@@ -1003,6 +1017,13 @@ func newInteropEnv(t *testing.T, p *profile.Profile, pki *interopPKI, c interopC
 
 	_, _ = h.Write([]byte(p.Name + "/" + c.name))
 
+	if fb := &p.HTTP3.Discovery.Fallback; !c.race && fb.TCPDelayMillis != nil {
+		fb.TCPDelayMillis = &profile.Range{
+			Min: interopRaceDelay,
+			Max: interopRaceDelay,
+		}
+	}
+
 	e := &interopEnv{
 		t:        t,
 		ctx:      ctx,
@@ -1256,8 +1277,9 @@ func (e *interopEnv) warm() connInfo {
 
 // warmImpaired is warm for a case that impairs the handshake. A profile
 // with Fallback.AbandonOnTCP (Safari) loses the race whenever the handshake
-// needs a probe and gives up after BrokenAfter attempts: then every request
-// must go over TCP and it returns false. Otherwise it returns true.
+// needs a probe and gives up after BrokenAfter attempts that reached the
+// relay (one dropped before its first datagram does not count): then every
+// request must go over TCP and it returns false. Otherwise it returns true.
 func (e *interopEnv) warmImpaired() bool {
 	e.t.Helper()
 
@@ -1268,8 +1290,12 @@ func (e *interopEnv) warmImpaired() bool {
 		return true
 	}
 
-	// The race, and the TCP handshake after it.
+	// The race, and the TCP handshake after it, net of this process's
+	// stalls.
 	limit := time.Duration(fb.TCPDelayMillis.Max)*time.Millisecond + 500*time.Millisecond
+
+	stalls.watch()
+
 	for e.relay.Stats().Sessions < fb.BrokenAfter {
 		start := time.Now()
 
@@ -1284,8 +1310,11 @@ func (e *interopEnv) warmImpaired() bool {
 			return true
 		}
 
-		if d := time.Since(start); d > limit {
-			e.t.Errorf("a request took %v over TCP: it waited past the race (%v)", d, limit)
+		end := time.Now()
+
+		d, stalled := end.Sub(start), stalls.stalled(start, end)
+		if d-stalled > limit {
+			e.t.Errorf("a request took %v over TCP, %v of it with the process stalled: it waited past the race (%v)", d, stalled, limit)
 		}
 
 		select {
@@ -2052,6 +2081,12 @@ func interopHandler(b *backend) http.Handler {
 
 		case "/reject":
 			if sc != nil && b.rejected.CompareAndSwap(false, true) {
+				// Unprocessed, so no response (RFC 9114, 4.1.1).
+				// HTTPStream flushes a 200 HEADERS first, which a client
+				// would read before the reset when it goes out first;
+				// a write deadline already past keeps it off the stream.
+				_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(-time.Second))
+
 				str := h3Stream(w)
 				str.CancelWrite(h3RequestRejected)
 				str.CancelRead(h3RequestRejected)

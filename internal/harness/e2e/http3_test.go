@@ -181,10 +181,18 @@ const h3ScriptTurn = 10 * time.Millisecond
 // ending a page, and fetch('/done') from the last page.
 func runH3Page(t *testing.T, p *profile.Profile, sc *server.Scenario, browser *capture.Page) *capture.Page {
 	t.Helper()
+
+	return runH3PageWith(t, p, sc, browser, nil)
+}
+
+// runH3PageWith is runH3Page with the client's Config changed by config,
+// when not nil.
+func runH3PageWith(t *testing.T, p *profile.Profile, sc *server.Scenario, browser *capture.Page, config func(*mimicry.Config)) *capture.Page {
+	t.Helper()
 	// Its connections' ACK delays are held net of the process's stalls.
 	stalls.watch()
 
-	s := startPage(t, p, sc)
+	s := startPageWith(t, p, sc, config)
 	s.planEvery()
 
 	steps := h3Steps(sc)

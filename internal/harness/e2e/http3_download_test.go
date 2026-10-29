@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/roachadam/mimicry"
 	"github.com/roachadam/mimicry/internal/harness/internal/capture"
 	"github.com/roachadam/mimicry/internal/harness/internal/quictrace"
 	"github.com/roachadam/mimicry/internal/harness/internal/server"
@@ -80,6 +81,46 @@ func TestHTTP3DownloadMatchesBrowser(t *testing.T) {
 			}
 
 			afterDownload(t, got)
+		})
+	}
+}
+
+// Config.HTTP3ACKEvery changes the ACK cadence on the wire (decision 0043):
+// the h3-download page with every 20 acknowledges every 20th packet after
+// the warm-up, by the same check as the profile's rule above, held to the
+// changed rate. Profiles that batch their ACKs are left out: their ACKs
+// advance by however many packets arrived, so a count is not a cadence.
+func TestHTTP3ACKEvery(t *testing.T) {
+	const every = 20
+
+	for _, name := range testProfiles(t) {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			p, err := loadProfile(name)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if p.QUIC == nil || p.QUIC.Ack.Batched || p.QUIC.Ack.Every >= every {
+				t.Skip("the profile batches its ACKs, or acknowledges no more often")
+			}
+
+			want := h3Captures(t, p, server.H3Download)
+			got := runH3PageWith(t, p, server.H3Download, want[0], func(cfg *mimicry.Config) {
+				cfg.HTTP3ACKEvery = every
+			})
+
+			rule := *p.QUIC
+
+			rule.Ack.Every = every
+
+			violations, summary := bulkRuleViolations(&rule, downloadConn(t, got))
+			for _, v := range violations {
+				t.Errorf("mimicry with HTTP3ACKEvery %d: %s", every, v)
+			}
+
+			t.Logf("mimicry with HTTP3ACKEvery %d: %s", every, summary)
 		})
 	}
 }

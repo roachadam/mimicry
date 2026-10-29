@@ -39,7 +39,11 @@ type settings struct {
 	IdleN       int           `json:"idleN"`
 	Reps        int           `json:"reps"`
 	Netem       bool          `json:"netem"`
-	ProfileDir  string        `json:"profileDir,omitempty"`
+	// LoadNetem are the network conditions layer 3 runs under (none: the
+	// network as it is), Bodies the response sizes it runs (none: all).
+	LoadNetem  []string `json:"loadNetem,omitempty"`
+	Bodies     []string `json:"bodies,omitempty"`
+	ProfileDir string   `json:"profileDir,omitempty"`
 	// MultiN is layer 6's clients (routines) per point, MultiVariants its
 	// variants, MultiRotate the requests per proxy identity (or client)
 	// in the rotating ones, MultiClientWindow the client-rotation
@@ -98,6 +102,8 @@ func run(args []string) error {
 	idleN := fs.Int("idle-n", 50, "clients per idle-memory measurement")
 	reps := fs.Int("reps", 5, "page loads per setup and network condition")
 	useNetem := fs.Bool("netem", true, "shape the client's network for layer 5 (off: the network as it is, e.g. a remote server over Ethernet)")
+	loadNetem := fs.String("load-netem", "", "layer 3: network conditions to run the load points under (e.g. rtt80-loss1; empty: the network as it is)")
+	bodyList := fs.String("bodies", "", "layer 3: response sizes to run (e.g. 100KB,10MB; empty: all)")
 	multiN := fs.Int("multi-n", 200, "layer 6: clients per point, each through a proxy identity of its own")
 	multiVariantList := fs.String("multi-variants", strings.Join(multiVariants, ","),
 		"layer 6: variants (fixed: one identity per client; proxy: a client moves to a new identity; client: a routine replaces its client, dropped and then closed)")
@@ -126,11 +132,19 @@ func run(args []string) error {
 		IdleN:             *idleN,
 		Reps:              *reps,
 		Netem:             *useNetem,
+		LoadNetem:         names(*loadNetem, nil),
+		Bodies:            names(*bodyList, nil),
 		ProfileDir:        *profileDir,
 		MultiN:            *multiN,
 		MultiVariants:     names(*multiVariantList, multiVariants),
 		MultiRotate:       *multiRotate,
 		MultiClientWindow: *multiClientWindow,
+	}
+
+	for _, c := range st.LoadNetem {
+		if _, ok := conditionNamed(c); !ok {
+			return fmt.Errorf("-load-netem: no condition %q", c)
+		}
 	}
 
 	for _, v := range st.MultiVariants {
@@ -219,17 +233,46 @@ func (rn *runner) clients() []clients.Factory {
 
 // loadPoint is one load point's outcome.
 type loadPoint struct {
-	Server string               `json:"server"`
-	Proto  target.Proto         `json:"proto"`
-	Op     string               `json:"op"`
-	Conc   int                  `json:"conc"`
-	Client string               `json:"client"`
-	Result *scenario.LoadResult `json:"result,omitempty"`
-	NA     string               `json:"na,omitempty"`
-	Error  string               `json:"error,omitempty"`
+	Server string       `json:"server"`
+	Proto  target.Proto `json:"proto"`
+	Op     string       `json:"op"`
+	Conc   int          `json:"conc"`
+	Client string       `json:"client"`
+	// Condition is the netem condition the point ran under, empty for
+	// the network as it is.
+	Condition string               `json:"condition,omitempty"`
+	Result    *scenario.LoadResult `json:"result,omitempty"`
+	NA        string               `json:"na,omitempty"`
+	Error     string               `json:"error,omitempty"`
 }
 
 func (rn *runner) load() []loadPoint {
+	if len(rn.st.LoadNetem) == 0 {
+		return rn.loadUnder(condition{})
+	}
+
+	shaper := newNetem(rn.ctx, "eth0")
+	defer shaper.restore(context.WithoutCancel(rn.ctx))
+
+	var out []loadPoint
+
+	for _, name := range rn.st.LoadNetem {
+		cond, _ := conditionNamed(name)
+		if err := shaper.apply(rn.ctx, cond); err != nil {
+			fmt.Fprintln(os.Stderr, "bench: netem:", err)
+
+			continue
+		}
+
+		out = append(out, rn.loadUnder(cond)...)
+	}
+
+	return out
+}
+
+// loadUnder runs the load points with the network under cond (already
+// applied).
+func (rn *runner) loadUnder(cond condition) []loadPoint {
 	var out []loadPoint
 
 	for _, srv := range rn.st.Servers {
@@ -245,6 +288,10 @@ func (rn *runner) load() []loadPoint {
 			}
 
 			for _, body := range bodies {
+				if len(rn.st.Bodies) > 0 && !slices.Contains(rn.st.Bodies, scenario.SizeName(body)) {
+					continue
+				}
+
 				op := scenario.GetBytes(body)
 
 				for _, c := range conc {
@@ -263,23 +310,28 @@ func (rn *runner) load() []loadPoint {
 							Warmup:      rn.st.Warmup,
 							Window:      rn.st.Window,
 							ProfileDir:  rn.st.ProfileDir,
-							ProfileName: fmt.Sprintf("load-%s-%s-%s-c%d", srv, p, op.Name, c),
+							ProfileName: fmt.Sprintf("load-%s-%s-%s-c%d%s", srv, p, op.Name, c, cond.Name),
 						}
 						udp := readUDPErrors()
 						o := rn.do(j, rn.st.Warmup+rn.st.Window+3*time.Minute)
 
 						lp := loadPoint{
-							Server: srv,
-							Proto:  p,
-							Op:     op.Name,
-							Conc:   c,
-							Client: f.Name,
-							Result: o.Load,
-							NA:     o.NA,
-							Error:  o.Error,
+							Server:    srv,
+							Proto:     p,
+							Op:        op.Name,
+							Conc:      c,
+							Client:    f.Name,
+							Condition: cond.Name,
+							Result:    o.Load,
+							NA:        o.NA,
+							Error:     o.Error,
 						}
 
 						msg := lp.summary()
+						if cond.Netem {
+							msg = cond.Name + ": " + msg
+						}
+
 						if p == target.H3 {
 							msg += readUDPErrors().since(udp)
 						}
@@ -865,4 +917,15 @@ func (r *report) write(dir string) error {
 	md := r.markdown()
 
 	return errors.Join(os.WriteFile(base+".md", []byte(md), 0o644)) //nolint:gosec // a report, meant to be read
+}
+
+// conditionNamed is the netem condition called name.
+func conditionNamed(name string) (condition, bool) {
+	for _, c := range conditions {
+		if c.Name == name {
+			return c, true
+		}
+	}
+
+	return condition{}, false
 }

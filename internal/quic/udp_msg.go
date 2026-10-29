@@ -152,9 +152,12 @@ func parseControl(d *datagram, control []byte) {
 			return
 		}
 	}
+
 	for b := control; len(b) >= syscall.SizeofCmsghdr; {
 		h, data, rest, _ := nextCmsg(b)
+
 		b = rest
+
 		switch h.Level {
 		case syscall.IPPROTO_IP:
 			switch h.Type {
@@ -191,13 +194,18 @@ func parseControl(d *datagram, control []byte) {
 // false when the header's length is impossible. A trailing fragment
 // shorter than a header is left in rest, as the callers' loops skip it.
 func nextCmsg(b []byte) (h syscall.Cmsghdr, data, rest []byte, ok bool) {
-	h = *(*syscall.Cmsghdr)(unsafe.Pointer(&b[0]))
+	h = *(*syscall.Cmsghdr)(unsafe.Pointer(&b[0])) //nolint:gosec // G103: the header read in place, as syscall.ParseSocketControlMessage does
+
 	hdr := syscall.CmsgLen(0)
-	if uint64(h.Len) < syscall.SizeofCmsghdr || uint64(h.Len) > uint64(len(b)) {
+
+	n := int(h.Len) // uint32 or uint64 by platform: a length that wraps negative fails
+	if n < syscall.SizeofCmsghdr || n > len(b) {
 		return h, nil, nil, false
 	}
-	next := min(syscall.CmsgSpace(int(h.Len)-hdr), len(b))
-	return h, b[hdr:h.Len], b[next:], true
+
+	next := min(syscall.CmsgSpace(n-hdr), len(b))
+
+	return h, b[hdr:n], b[next:], true
 }
 
 // IPV6_TCLASS is specified by RFC 3542 as an int.

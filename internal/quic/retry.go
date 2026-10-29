@@ -38,10 +38,12 @@ func newRetryAEAD(key []byte) cipher.AEAD {
 	if err != nil {
 		panic(err)
 	}
+
 	aead, err := cipher.NewGCM(c)
 	if err != nil {
 		panic(err)
 	}
+
 	return aead
 }
 
@@ -237,10 +239,13 @@ func parseRetryPacket(b, origDstConnID []byte) (p retryPacket, ok bool) {
 	// Use this to validate the packet integrity tag.
 	pseudo := quicwire.AppendUint8Bytes(nil, origDstConnID)
 	pseudo = append(pseudo, b[:len(b)-retryIntegrityTagLength]...)
+
 	aead, nonce := retryAEAD, retryNonce
+
 	if lp.version == quicVersion2 { // mimicry: v2's tag
 		aead, nonce = retryAEADV2, retryNonceV2
 	}
+
 	wantTag := aead.Seal(nil, nonce, nil, pseudo)
 	if !bytes.Equal(gotTag, wantTag) {
 		return retryPacket{}, false

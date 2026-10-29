@@ -307,6 +307,7 @@ func newTestConnForConn(t *testing.T, endpoint *testEndpoint, conn *Conn, cids n
 		// mimicry: a browser profile's client offers h3 only.
 		peerQUICConfig.TLSConfig.NextProtos = []string{"h3"}
 	}
+
 	if conn.side == clientSide {
 		tc.peerTLSConn = tls.QUICServer(peerQUICConfig)
 	} else {
@@ -1025,8 +1026,10 @@ func (tc *testConnHooks) handleTLSEvent(e tls.QUICEvent) {
 	v := cmp.Or(tc.version, quicVersion1) // mimicry: v2 labels
 	setAppDataKey := func(suite uint16, secret []byte, k *test1RTTKeys) {
 		k.hdr.initVersion(v, suite, secret)
+
 		for i := 0; i < len(k.pkt); i++ {
 			k.pkt[i].initVersion(v, suite, secret)
+
 			secret = updateSecretVersion(v, suite, secret)
 		}
 	}

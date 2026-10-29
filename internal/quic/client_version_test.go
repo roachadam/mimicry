@@ -24,6 +24,7 @@ import (
 // whose transport parameters opts may change.
 func newProfileTestConn(t *testing.T, name string, opts ...any) *testConn {
 	t.Helper()
+
 	return newProfileTestConnVersion(t, name, 0, opts...)
 }
 
@@ -31,6 +32,7 @@ func newProfileTestConn(t *testing.T, name string, opts ...any) *testConn {
 // (DialConfig.Version).
 func newProfileTestConnVersion(t *testing.T, name string, version uint32, opts ...any) *testConn {
 	t.Helper()
+
 	return newProfileTestConnDial(t, name, DialConfig{Version: version}, opts...)
 }
 
@@ -38,21 +40,27 @@ func newProfileTestConnVersion(t *testing.T, name string, version uint32, opts .
 // AfterVersionNegotiation.
 func newProfileTestConnDial(t *testing.T, name string, cfg DialConfig, opts ...any) *testConn {
 	t.Helper()
+
 	prof, err := profiles.ByName(name)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	spec, err := handshake.Spec(fingerprint.Compile(prof).QUICHello())
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	tlsConfig := newTestTLSConfig(clientSide)
+
 	tlsConfig.ServerName = "example.com"
 	cfg.Profile, cfg.Hello, cfg.TLS = prof.QUIC, spec, tlsConfig
+
 	cc, _, err := newClientConfig(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	opts = append([]any{
 		func(c *Config) {
 			c.TLSConfig = tlsConfig
@@ -62,6 +70,7 @@ func newProfileTestConnDial(t *testing.T, name string, cfg DialConfig, opts ...a
 			p.originalDstConnID = cc.dcid
 		},
 	}, opts...)
+
 	return newTestConn(t, clientSide, opts...)
 }
 
@@ -73,6 +82,7 @@ func serverVersionInfo(chosen uint32, available ...uint32) func(*transportParame
 		for _, v := range available {
 			b = binary.BigEndian.AppendUint32(b, v)
 		}
+
 		p.versionInfo = b
 	}
 }
@@ -81,6 +91,7 @@ func serverVersionInfo(chosen uint32, available ...uint32) func(*transportParame
 // the synthetic server's Initial keys and Version field.
 func (tc *testConn) serverUpgrades() {
 	keys := initialKeysVersion(tc.conn.client.dcid, serverSide, quicVersion2)
+
 	tc.keysInitial = keys
 	tc.version = quicVersion2
 }
@@ -89,11 +100,13 @@ func (tc *testConn) serverUpgrades() {
 // packets' Version fields.
 func (tc *testConn) readFlight() (versions []uint32) {
 	tc.t.Helper()
+
 	for {
 		d := tc.readDatagram()
 		if d == nil {
 			return versions
 		}
+
 		for _, p := range d.packets {
 			if p.ptype != packetType1RTT {
 				versions = append(versions, p.version)
@@ -106,6 +119,7 @@ func (tc *testConn) readFlight() (versions []uint32) {
 // releases the client's Finished (Dial's cork).
 func (tc *testConn) serverFlight() {
 	defer tc.conn.Uncork()
+
 	tc.writeFrames(packetTypeInitial,
 		debugFrameCrypto{data: tc.cryptoDataIn[tls.QUICEncryptionLevelInitial]})
 	tc.writeFrames(packetTypeHandshake,
@@ -123,29 +137,36 @@ func testVersionUpgradeToV2(t *testing.T) {
 			t.Fatalf("first flight in version %#x, want 1", v)
 		}
 	}
+
 	tc.serverUpgrades()
 	tc.serverFlight()
+
 	versions := tc.readFlight()
 	if len(versions) == 0 {
 		t.Fatal("client sent no long header packet after the server's flight")
 	}
+
 	for _, v := range versions {
 		if v != quicVersion2 {
 			t.Fatalf("client answered in version %#x, want v2", v)
 		}
 	}
+
 	if got := tc.conn.client.version; got != quicVersion2 {
 		t.Fatalf("version in use %#x, want v2", got)
 	}
+
 	if !tc.conn.keysAppData.canRead() {
 		t.Fatal("handshake did not complete in v2")
 	}
+
 	// 1-RTT in v2: the client's were read with v2's keys (readFlight), and
 	// the server's HANDSHAKE_DONE is. Given to the connection directly:
 	// the test endpoint routes short headers on 8-byte connection IDs.
 	d := tc.newDatagramWithFrames(packetType1RTT, debugFrameHandshakeDone{})
 	tc.conn.sendMsg(&datagram{b: encodeTestPacket(t, tc, d.packets[0], 0), path: tc.path})
 	synctest.Wait()
+
 	if !tc.conn.handshakeConfirmed.isSet() {
 		t.Fatal("HANDSHAKE_DONE in a v2 1-RTT packet not processed")
 	}
@@ -166,6 +187,7 @@ func TestVersionUpgradeMismatchedVersionInfo(t *testing.T) {
 				tc.serverUpgrades()
 				tc.serverFlight()
 				tc.readFlight()
+
 				var e localTransportError
 				if err := tc.conn.waitReady(canceledContext()); !errors.As(err, &e) || e.code != errVersionNegotiationDraft {
 					t.Fatalf("waitReady = %v, want VERSION_NEGOTIATION_ERROR", err)
@@ -183,14 +205,17 @@ func TestVersionNoUpgradeWithoutV2(t *testing.T) {
 				tc.readFlight()
 				tc.serverUpgrades()
 				tc.serverFlight()
+
 				for _, v := range tc.readFlight() {
 					if v != quicVersion1 {
 						t.Fatalf("client sent version %#x, want 1", v)
 					}
 				}
+
 				if got := tc.conn.client.version; got != quicVersion1 {
 					t.Fatalf("version in use %#x, want 1", got)
 				}
+
 				if tc.conn.keysHandshake.canRead() {
 					t.Fatal("client processed the server's v2 Initial")
 				}
@@ -207,6 +232,7 @@ func TestVersion2Vectors(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		return b
 	}
 	cid := unhex("8394c8f03e515708")
@@ -219,19 +245,25 @@ func TestVersion2Vectors(t *testing.T) {
 	if got := getPacketType(server); got != packetTypeInitial {
 		t.Fatalf("server packet type %v, want Initial", got)
 	}
+
 	keys := initialKeysVersion(cid, clientSide, quicVersion2)
 	p, n := parseLongHeaderPacket(server, keys.r, 0)
+
 	if n != len(server) {
 		t.Fatalf("server Initial: parsed %d of %d bytes", n, len(server))
 	}
+
 	if p.num != 1 || p.version != quicVersion2 || !bytes.HasPrefix(p.payload, unhex("02000000000600405a020000560303ee")) {
 		t.Fatalf("server Initial: pnum %d, version %#x, payload %x", p.num, p.version, p.payload[:16])
 	}
+
 	// The client's Initial header protection and type bits, A.2.
 	var w packetWriter
 	w.reset(1500)
+
 	lp := longPacket{ptype: packetTypeInitial, version: quicVersion2, num: 2, dstConnID: cid}
 	w.startProtectedLongHeaderPacket(-1<<62, lp)
+
 	w.b = append(w.b, unhex(`060040f1010000ed0303ebf8fa56f129 39b9584a3896472ec40bb863cfd3e868
 		04fe3a47f06a2b69484c000004130113 02010000c000000010000e00000b6578
 		616d706c652e636f6dff01000100000a 00080006001d00170018001000070005
@@ -242,26 +274,34 @@ func TestVersion2Vectors(t *testing.T) {
 		75300901100f088394c8f03e51570806 048000ffff`)...)
 	w.appendPaddingTo(1200)
 	w.finishProtectedLongHeaderPacket(-1<<62, keys.w, lp)
+
 	if got, want := w.datagram()[:22], unhex("d76b3343cf088394c8f03e5157080000449ea0c95e82"); !bytes.Equal(got, want) {
 		t.Errorf("client Initial header %x, want %x", got, want)
 	}
+
 	// A.4: the Retry, with v2's integrity tag.
 	retry := unhex("cf6b3343cf0008f067a5502a4262b5746f6b656ec8646ce8bfe33952d955543665dcc7b6")
 	if got := getPacketType(retry); got != packetTypeRetry {
 		t.Fatalf("Retry type %v", got)
 	}
+
 	if rp, ok := parseRetryPacket(retry, cid); !ok || rp.version != quicVersion2 || string(rp.token) != "token" {
 		t.Fatalf("Retry: ok %v, %+v", ok, rp)
 	}
+
 	// A.5: ChaCha20 1-RTT keys and the key update secret.
 	secret := unhex("9ac312a7f877468ebe69422748ad00a15443f18203a07d6060f688f30f21632b")
+
 	var k fixedKeys
 	k.initVersion(quicVersion2, tls.TLS_CHACHA20_POLY1305_SHA256, secret)
+
 	pkt := unhex("5558b1c60ae7b6b932bc27d786f4bc2bb20f2162ba")
 	pay, num, err := k.unprotect(pkt, 1, 654360563)
+
 	if err != nil || num != 654360564 || !bytes.Equal(pay, []byte{1}) {
 		t.Fatalf("ChaCha20 packet: %x %d %v", pay, num, err)
 	}
+
 	if got, want := updateSecretVersion(quicVersion2, tls.TLS_CHACHA20_POLY1305_SHA256, secret), unhex("c69374c49e3d2a9466fa689e49d476db5d0dfbc87d32ceeaa6343fd0ae4c7d88"); !bytes.Equal(got, want) {
 		t.Errorf("ku %x, want %x", got, want)
 	}
@@ -276,16 +316,20 @@ func testVersionStartInV2(t *testing.T) {
 	tc := newProfileTestConnVersion(t, profiles.Firefox().Name, quicVersion2,
 		serverVersionInfo(quicVersion2, quicVersion2, quicVersion1))
 	tc.serverUpgrades() // the flight must open with v2's Initial keys
+
 	for _, v := range tc.readFlight() {
 		if v != quicVersion2 {
 			t.Fatalf("first flight in version %#x, want v2", v)
 		}
 	}
+
 	if vi := tc.conn.client.local.versionInfo; len(vi) < 4 || binary.BigEndian.Uint32(vi) != quicVersion2 {
 		t.Fatalf("version_information %x, want chosen v2", vi)
 	}
+
 	tc.serverFlight()
 	tc.readFlight()
+
 	if !tc.conn.keysAppData.canRead() {
 		t.Fatal("handshake did not complete in v2")
 	}
@@ -296,6 +340,7 @@ func TestTicketVersion(t *testing.T) {
 	if got := TicketVersion(extra); got != quicVersion2 {
 		t.Errorf("TicketVersion = %#x, want v2", got)
 	}
+
 	if got := TicketVersion(nil); got != quicVersion1 {
 		t.Errorf("TicketVersion(nil) = %#x, want 1", got)
 	}
@@ -322,11 +367,15 @@ func TestVersionNegotiationRetryVersion(t *testing.T) {
 					path: tc.path,
 				})
 				synctest.Wait()
+
 				err := tc.conn.waitReady(canceledContext())
+
 				var vn *VersionNegotiationError
+
 				if !errors.As(err, &vn) || !errors.Is(err, ErrVersionNegotiation) {
 					t.Fatalf("waitReady = %v, want a VersionNegotiationError", err)
 				}
+
 				got, ok := RetryVersion(err, tc.conn.client.p, quicVersion1)
 				if got != tt.want || ok != tt.ok {
 					t.Fatalf("RetryVersion = %#x, %v; want %#x, %v", got, ok, tt.want, tt.ok)
@@ -355,6 +404,7 @@ func TestVersionAfterNegotiation(t *testing.T) {
 				tc := newProfileTestConnDial(t, profiles.Firefox().Name,
 					DialConfig{Version: quicVersion2, AfterVersionNegotiation: true}, tt.vi)
 				tc.serverUpgrades()
+
 				p := tc.readPacket()
 				// A second Version Negotiation packet is ignored.
 				tc.conn.sendMsg(&datagram{
@@ -364,12 +414,17 @@ func TestVersionAfterNegotiation(t *testing.T) {
 				tc.readFlight()
 				tc.serverFlight()
 				tc.readFlight()
+
 				err := tc.conn.waitReady(canceledContext())
+
 				var e localTransportError
+
 				gotFail := errors.As(err, &e) && e.code == errVersionNegotiationDraft
+
 				if gotFail != tt.fail {
 					t.Fatalf("waitReady = %v; want VERSION_NEGOTIATION_ERROR %v", err, tt.fail)
 				}
+
 				if !tt.fail && !tc.conn.keysAppData.canRead() {
 					t.Fatal("handshake did not complete")
 				}

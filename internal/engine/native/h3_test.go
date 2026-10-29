@@ -378,3 +378,86 @@ func TestRaceAfterGoAwayWaitsForTheTCPResponse(t *testing.T) {
 		t.Fatal("no GOAWAY on the race's TCP connection")
 	}
 }
+
+// A QUIC attempt dropped before its first datagram (a loaded process's race
+// over before the hello was built) counts toward Fallback.BrokenAfter as
+// nothing: it put nothing on the network. One dropped after its first
+// datagram counts as before (decision 0028's amendment). Safari: dropped
+// attempts, broken after 2.
+func TestQUICAttemptCountsOnlyOnceItSent(t *testing.T) {
+	e := newTestEngine(t, options{
+		profile: profiles.Safari(),
+	})
+
+	pc, err := (&net.ListenConfig{}).ListenPacket(t.Context(), "udp", ":0")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() {
+		_ = pc.Close()
+	})
+
+	port := uint16(pc.LocalAddr().(*net.UDPAddr).Port) //nolint:forcetypeassert // a UDP socket
+
+	const target = "https://localhost/"
+
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, target, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	r, err := e.route(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	q := e.quic
+	q.alts.Learn(r.alt, r.host, []string{fmt.Sprintf(`h3=":%d"; ma=3600`, port)})
+
+	attempt := func(spec dialSpec) *attempt {
+		q.mu.Lock()
+		defer q.mu.Unlock()
+
+		spec.port = port
+
+		return e.startAttempt(e.originState(r), r, spec)
+	}
+	failures := func() (int, bool) {
+		q.mu.Lock()
+		defer q.mu.Unlock()
+
+		o := e.originState(r)
+
+		return o.failures, o.broken
+	}
+
+	// Dropped while held back, before its dial starts: nothing sent, as
+	// often as BrokenAfter.
+	never := make(chan struct{})
+	for range e.profile.HTTP3.Discovery.Fallback.BrokenAfter {
+		a := attempt(dialSpec{
+			after: never,
+		})
+		a.cancel()
+		<-a.done
+	}
+
+	if n, broken := failures(); n != 0 || broken {
+		t.Fatalf("after attempts that sent nothing: %d failures, broken %v; want none", n, broken)
+	}
+
+	// Dropped once its first datagram reached the server: one failure.
+	a := attempt(dialSpec{})
+
+	if _, _, err := pc.ReadFrom(make([]byte, 2048)); err != nil {
+		t.Fatal(err)
+	}
+
+	a.cancel()
+	<-a.done
+
+	if n, broken := failures(); n != 1 || broken {
+		t.Fatalf("after an attempt that sent its hello: %d failures, broken %v; want 1, not broken", n, broken)
+	}
+}

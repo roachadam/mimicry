@@ -30,9 +30,11 @@ func (c *Conn) handleDatagram(now time.Time, dgram *datagram) (handled bool) {
 	}
 	for len(buf) > 0 {
 		var n int
+
 		if c.client != nil {
 			c.clientUpgrade(buf) // mimicry: QUIC v2
 		}
+
 		ptype := getPacketType(buf)
 		switch ptype {
 		case packetTypeInitial:
@@ -100,6 +102,7 @@ func (c *Conn) handleLongHeader(now time.Time, dgram *datagram, ptype packetType
 		})
 		return -1
 	}
+
 	if p.version != c.quicVersion() { // mimicry: v2
 		// The peer has changed versions on us mid-handshake?
 		c.abort(now, localTransportError{
@@ -141,6 +144,7 @@ func (c *Conn) handle1RTT(now time.Time, dgram *datagram, buf []byte) int {
 	}
 
 	pnumMax := c.acks[appDataSpace].largestSeen()
+
 	p, err := parse1RTTPacket(buf, &c.keysAppData, c.localConnIDLen(), pnumMax) // mimicry: local CID length
 	if err != nil {
 		// A localTransportError terminates the connection.
@@ -177,6 +181,7 @@ func (c *Conn) handle1RTT(now time.Time, dgram *datagram, buf []byte) int {
 		cc.spinRecv = buf[0]&spinBitMask != 0
 		cc.spinSeen = true
 	}
+
 	c.acks[appDataSpace].receive(now, appDataSpace, p.num, ackEliciting, dgram.ecn)
 	return len(buf)
 }
@@ -217,6 +222,7 @@ func (c *Conn) handleRetry(now time.Time, pkt []byte) {
 	if c.client != nil {
 		c.client.initialCID = cloneBytes(p.srcConnID) // mimicry: v2's Initial keys
 	}
+
 	// We need to resend any data we've already sent in Initial packets.
 	// We must not reuse already sent packet numbers.
 	c.loss.discardPackets(initialSpace, c.log, c.handleAckOrLoss)
@@ -245,8 +251,10 @@ func (c *Conn) handleVersionNegotiation(now time.Time, pkt []byte) {
 	if len(c.connIDState.remote) < 1 || !bytes.Equal(c.connIDState.remote[0].cid, srcConnID) {
 		return // Source Connection ID doesn't match what we sent
 	}
+
 	if c.client != nil {
 		c.clientVersionNegotiation(now, versions) // mimicry: RFC 9368
+
 		return
 	}
 	for len(versions) >= 4 {
@@ -343,11 +351,14 @@ func (c *Conn) handleFrames(now time.Time, dgram *datagram, ptype packetType, sp
 			if !frameOK(c, ptype, ___1) {
 				return
 			}
+
 			token, tn := consumeNewTokenFrame(payload)
 			if tn >= 0 {
 				c.handleNewToken(token) // mimicry
 			}
+
 			n = tn
+
 		case 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f: // STREAM
 			if !frameOK(c, ptype, __01) {
 				return
@@ -611,9 +622,11 @@ func (c *Conn) handleConnectionCloseTransportFrame(now time.Time, payload []byte
 		return -1
 	}
 	c.handlePeerConnectionClose(now, peerTransportError{code: code, reason: reason})
+
 	if c.client != nil {
 		c.clientPeerClosed(now, frameTypeConnectionCloseTransport) // mimicry
 	}
+
 	return n
 }
 
@@ -623,9 +636,11 @@ func (c *Conn) handleConnectionCloseApplicationFrame(now time.Time, payload []by
 		return -1
 	}
 	c.handlePeerConnectionClose(now, &ConnectionCloseError{Code: code, Reason: reason})
+
 	if c.client != nil {
 		c.clientPeerClosed(now, frameTypeConnectionCloseApplication) // mimicry
 	}
+
 	return n
 }
 

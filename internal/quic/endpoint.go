@@ -249,11 +249,13 @@ func (e *Endpoint) connDrained(c *Conn) {
 	})
 	e.connsMu.Lock()
 	defer e.connsMu.Unlock()
+
 	if e.sole {
 		// mimicry: the endpoint's only connection is gone: release the
 		// socket below.
 		e.closing = true
 	}
+
 	delete(e.conns, c)
 	if e.closing && len(e.conns) == 0 {
 		e.packetConn.Close()
@@ -274,14 +276,17 @@ func (e *Endpoint) listen() {
 		// endpoint closed it: the connection ends now, as its path is
 		// gone, instead of idling out.
 		e.connsMu.Lock()
+
 		closing := e.closing
 		e.connsMu.Unlock()
+
 		if c := e.soleConn.Load(); c != nil && !closing {
 			c.sendMsg(func(now time.Time, c *Conn) {
 				c.abortImmediately(now, fmt.Errorf("quic: the connection's socket failed: %w", err))
 			})
 		}
 	}
+
 	e.acceptQueue.close(fmt.Errorf("packet connection closed: %v", err))
 }
 
@@ -293,8 +298,10 @@ func (e *Endpoint) handleDatagram(m *datagram) {
 		} else {
 			m.recycle()
 		}
+
 		return
 	}
+
 	dstConnID, ok := dstConnIDForDatagram(m.b)
 	if !ok {
 		m.recycle()

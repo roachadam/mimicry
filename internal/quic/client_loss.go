@@ -95,9 +95,11 @@ func (cc *clientState) applyLoss(p *profile.QUIC, cfg DialConfig, config *Config
 		ackDelay:    l.PTOAckDelay,
 		abandon0RTT: l.AbandonClose == profile.CloseZeroRTT,
 	}
+
 	if l.CachedRTT && cc.resumed && cfg.CachedRTT > 0 {
 		cl.cachedRTT = cfg.CachedRTT
 	}
+
 	switch l.Probe {
 	case profile.ProbeOnePacket:
 		cl.layout, cl.probes = probeOldest, 1
@@ -107,25 +109,30 @@ func (cc *clientState) applyLoss(p *profile.QUIC, cfg DialConfig, config *Config
 	default:
 		return fmt.Errorf("quic: probe %q", l.Probe)
 	}
+
 	g := l.Fresh
 	if cc.resumed {
 		g = l.Resumed
 	}
+
 	switch g.Close {
 	case profile.CloseTransport:
 		cl.giveUpClose = giveUpClose{
 			send:   true,
 			reason: g.Reason,
 		}
+
 	case profile.CloseApplication:
 		cl.giveUpClose = giveUpClose{
 			send: true,
 			app:  true,
 		}
+
 	case "":
 	default:
 		return fmt.Errorf("quic: give-up close %q", g.Close)
 	}
+
 	cl.giveUpClose.size = g.DatagramSize
 	// Without a give-up of its own the handshake lasts as long as the
 	// connection may stay idle (Firefox's fresh attempts); Safari's is
@@ -135,12 +142,15 @@ func (cc *clientState) applyLoss(p *profile.QUIC, cfg DialConfig, config *Config
 	} else if cc.local.maxIdleTimeout > 0 {
 		config.HandshakeTimeout = cc.local.maxIdleTimeout
 	}
+
 	cc.loss = cl
 	cc.path = newClientPath(p)
 	cc.downgradeErr = errVersionNegotiationError
+
 	if e := p.VersionNegotiation.DowngradeError; e != 0 {
 		cc.downgradeErr = transportError(e)
 	}
+
 	return nil
 }
 
@@ -150,14 +160,17 @@ func (cc *clientState) applyLoss(p *profile.QUIC, cfg DialConfig, config *Config
 // anything is sent.
 func (c *Conn) clientInitLoss(now time.Time) {
 	cc := c.client
+
 	cc.started = now
 	cc.probedThrough = -1
 	c.loss.ptoAckDelay = cc.loss.ackDelay
+
 	switch {
 	case cc.loss.cachedRTT > 0:
 		// RFC 9002, section 6.2.2: rttvar half the cached RTT.
 		c.loss.rtt.smoothedRTT = cc.loss.cachedRTT
 		c.loss.rtt.rttvar = cc.loss.cachedRTT / 2
+
 	case cc.loss.initialPTO > 0:
 		c.loss.firstPTO = cc.loss.initialPTO
 	}
@@ -169,19 +182,25 @@ func (c *Conn) clientInitLoss(now time.Time) {
 // ClientHello's tail would otherwise wait on loss detection forever.
 func (c *Conn) clientPTOExpired() {
 	cc := c.client
+
 	c.loss.ptoProbes = cc.loss.probes
+
 	if cc.loss.skip {
 		cc.skipNext = true
 	}
+
 	if c.clientPlanProbe() {
 		return
 	}
+
 	for space := range c.crypto {
 		s := &c.crypto[space]
 		if s.out.start == s.out.end {
 			continue
 		}
+
 		s.outunsent.add(s.out.start, s.out.end)
+
 		for _, a := range s.outacked {
 			s.outunsent.sub(a.start, a.end)
 		}
@@ -193,11 +212,15 @@ func (c *Conn) clientPTOExpired() {
 // in-order path.
 func (c *Conn) clientPlanProbe() bool {
 	cc := c.client
-	if cc.loss.layout == probeUnacked || !c.keysInitial.canWrite() || c.keysHandshake.canWrite() ||
+	if !c.keysInitial.canWrite() || c.keysHandshake.canWrite() ||
 		c.loss.spaces[initialSpace].maxAcked >= 0 || len(c.crypto[initialSpace].outacked) > 0 {
 		return false
 	}
+
 	switch cc.loss.layout {
+	case probeUnacked:
+		return false
+
 	case probeFlight:
 		if cc.firstFlight == nil {
 			// The packets in flight at the first PTO are the first
@@ -208,6 +231,7 @@ func (c *Conn) clientPlanProbe() bool {
 				if sent.state != sentPacketSent {
 					continue
 				}
+
 				if frames := sentCryptoFrames(sent); len(frames) > 0 {
 					cc.firstFlight = append(cc.firstFlight, plannedPacket{
 						frames: frames,
@@ -215,20 +239,27 @@ func (c *Conn) clientPlanProbe() bool {
 				}
 			}
 		}
+
 		if len(cc.firstFlight) == 0 {
 			return false
 		}
+
 		cc.flight = append(cc.flight[:0], cc.firstFlight...)
 		c.loss.ptoProbes = len(cc.flight)
+
 		return true
+
 	case probeOldest:
 		pp, ok := c.planOldestProbe()
 		if !ok {
 			return false
 		}
+
 		cc.flight = append(cc.flight[:0], pp)
+
 		return true
 	}
+
 	return false
 }
 
@@ -238,25 +269,33 @@ func (c *Conn) clientPlanProbe() bool {
 func (c *Conn) planOldestProbe() (plannedPacket, bool) {
 	cc := c.client
 	s := &c.loss.spaces[initialSpace]
+
 	for i := range s.size {
 		sent := s.nth(i)
 		if sent.state != sentPacketSent || sent.num <= cc.probedThrough {
 			continue
 		}
+
 		frames := sentCryptoFrames(sent)
 		if len(frames) == 0 {
 			continue
 		}
+
 		cc.probedThrough = sent.num
+
 		pn := c.loss.nextNumber(initialSpace)
+
 		if cc.p.PacketNumbers == profile.PacketNumbersShared {
 			pn = cc.nextPN
 		}
+
 		if cc.loss.skip {
 			pn++
 		}
+
 		return cc.chaosProtect(frames, cc.initialRoom(packetNumberLength(pn, -1)), c.crypto[initialSpace].out.end)
 	}
+
 	return plannedPacket{}, false
 }
 
@@ -267,6 +306,7 @@ func sentCryptoFrames(sent *sentPacket) []plannedFrame {
 	defer func() {
 		sent.n = n
 	}()
+
 	var frames []plannedFrame
 	for !sent.done() {
 		switch sent.next() {
@@ -274,15 +314,18 @@ func sentCryptoFrames(sent *sentPacket) []plannedFrame {
 			sent.nextInt()
 		case frameTypeCrypto:
 			start, end := sent.nextRange()
+
 			frames = append(frames, plannedFrame{
 				kind: frameTypeCrypto,
 				off:  start,
 				n:    end - start,
 			})
+
 		default:
 			return nil
 		}
 	}
+
 	return frames
 }
 
@@ -291,11 +334,15 @@ func sentCryptoFrames(sent *sentPacket) []plannedFrame {
 func (c *Conn) clientGiveUp(now time.Time) {
 	cc := c.client
 	g := cc.loss.giveUpClose
+
 	if !g.send {
 		c.abortImmediately(now, ErrHandshakeTimeout)
+
 		return
 	}
+
 	c.setFinalError(ErrHandshakeTimeout)
+
 	var err error
 	if g.app {
 		err = &ConnectionCloseError{
@@ -303,12 +350,15 @@ func (c *Conn) clientGiveUp(now time.Time) {
 		}
 	} else {
 		elapsed := strconv.FormatInt(now.Sub(cc.started).Microseconds(), 10)
+
 		err = localTransportError{
 			code:   errNo,
 			reason: strings.ReplaceAll(g.reason, "{elapsed_us}", elapsed),
 		}
 	}
+
 	cc.closeSize = g.size
+
 	c.enterClosing(now, err)
 }
 
@@ -325,12 +375,15 @@ func (c *Conn) Abandon() {
 			c.enterClosing(now, localTransportError{
 				code: errNo,
 			})
+
 		case cc.loss.abandon0RTT && cc.earlyOK.Load() && !c.keysAppData.canWrite():
 			cc.closeOnly0RTT = true
+
 			c.setFinalError(errConnClosed)
 			c.enterClosing(now, &ConnectionCloseError{
 				Code: h3NoError,
 			})
+
 		default:
 			c.abortImmediately(now, errConnClosed)
 		}

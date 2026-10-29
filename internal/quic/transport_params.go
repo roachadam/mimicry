@@ -163,6 +163,7 @@ func marshalTransportParameters(p transportParameters) []byte {
 		b = quicwire.AppendVarint(b, paramRetrySourceConnectionID)
 		b = quicwire.AppendVarintBytes(b, v)
 	}
+
 	if v := p.versionInfo; v != nil { // mimicry: set by tests' servers only
 		b = quicwire.AppendVarint(b, paramVersionInformation)
 		b = quicwire.AppendVarintBytes(b, v)
@@ -283,6 +284,7 @@ func unmarshalTransportParams(params []byte) (transportParameters, error) {
 			// non-nil when present, even empty.
 			p.versionInfo = append([]byte{}, val...)
 			n = len(val)
+
 		default:
 			n = len(val)
 		}

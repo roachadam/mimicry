@@ -143,8 +143,8 @@ func prefixAll(prefix string, s []string) []string {
 // ratio returns the geometric mean of mimicry's metric over other's on p.
 func (r *report) ratio(p target.Proto, other string, get func(*scenario.LoadResult) float64) (float64, int) {
 	type key struct {
-		server, op string
-		conc       int
+		server, op, cond string
+		conc             int
 	}
 
 	mine := map[key]*scenario.LoadResult{}
@@ -162,6 +162,7 @@ func (r *report) ratio(p target.Proto, other string, get func(*scenario.LoadResu
 		k := key{
 			server: lp.Server,
 			op:     lp.Op,
+			cond:   lp.Condition,
 			conc:   lp.Conc,
 		}
 
@@ -405,6 +406,7 @@ func (r *report) loadTables(w writer) {
 		server string
 		proto  target.Proto
 		op     string
+		cond   string
 	}
 
 	var groups []group
@@ -414,6 +416,7 @@ func (r *report) loadTables(w writer) {
 			server: lp.Server,
 			proto:  lp.Proto,
 			op:     lp.Op,
+			cond:   lp.Condition,
 		}
 		if !slices.Contains(groups, g) {
 			groups = append(groups, g)
@@ -421,12 +424,17 @@ func (r *report) loadTables(w writer) {
 	}
 
 	for _, g := range groups {
-		w("### %s, %s, %s\n\n", g.server, g.proto.Wire(), strings.TrimPrefix(g.op, "bytes-"))
+		under := ""
+		if c, ok := conditionNamed(g.cond); ok && c.Netem {
+			under = ", " + c.String()
+		}
+
+		w("### %s, %s, %s%s\n\n", g.server, g.proto.Wire(), strings.TrimPrefix(g.op, "bytes-"), under)
 		w("| client | conc | req/s | MB/s | p50 | p95 | p99 | CPU µs/req | cores | B/req | allocs/req | GC | GC pause ms | heap MB | goroutines | srv |\n")
 		w("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
 
 		for _, lp := range r.Load {
-			if lp.Server != g.server || lp.Proto != g.proto || lp.Op != g.op {
+			if lp.Server != g.server || lp.Proto != g.proto || lp.Op != g.op || lp.Condition != g.cond {
 				continue
 			}
 

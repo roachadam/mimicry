@@ -1,8 +1,12 @@
 package e2e
 
 import (
+	"fmt"
 	"sync"
 	"time"
+
+	"github.com/roachadam/mimicry/internal/harness/internal/capture"
+	"github.com/roachadam/mimicry/profile"
 )
 
 // stalls measures how long a loaded machine held this whole process: a
@@ -76,4 +80,48 @@ func (w *stallWatch) stalled(from, to time.Time) time.Duration {
 	}
 
 	return d
+}
+
+// raceStall reports the first QUIC attempt on page whose race against TCP
+// this process's stalls decided, not mimicry: the server answered it within
+// the profile's race delay net of the stalls before its answer, but that
+// answer, with the stalls after it while the delay ran, came at or past the
+// delay. A request racing it may then have gone on TCP (and Safari dropped
+// the attempt) where, unstalled, it would have waited for QUIC. A capture
+// read from a file (no Start) has none.
+func raceStall(p *profile.Profile, page *capture.Page) (string, bool) {
+	lo, hi := raceDelay(p)
+	if lo == 0 || page.Start.IsZero() {
+		return "", false
+	}
+
+	for i, c := range page.QUIC {
+		if len(c.Server) == 0 {
+			continue
+		}
+
+		answer := c.Server[0].Micros / 1000
+		before := int64(stalledIn(page, c.Millis, answer))
+		after := int64(stalledIn(page, c.Millis+answer, hi-answer))
+
+		if answer-before < lo && answer+after >= lo {
+			return fmt.Sprintf("QUIC connection %d (%s): its server answered after %d ms, %d of them with the process stalled, and the process stalled %d ms more within the race delay (%d..%d ms)", i+1, c.Host, answer, before, after, lo, hi), true
+		}
+	}
+
+	return "", false
+}
+
+// raceDelay is how long, in ms, a request waits for an unanswered QUIC
+// attempt before it goes on TCP: the profile's race delay, else its first
+// probe timeout (how long fast fallback waits on a resumed attempt); zero
+// where nothing waits.
+func raceDelay(p *profile.Profile) (lo, hi int64) {
+	if r := p.HTTP3.Discovery.Fallback.TCPDelayMillis; r != nil {
+		return int64(r.Min), int64(r.Max)
+	}
+
+	ms := int64(p.QUIC.Loss.InitialPTOMillis)
+
+	return ms, ms
 }

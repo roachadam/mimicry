@@ -48,6 +48,7 @@ func (c *Conn) handleStreamBytesReadOffLoop(n int64) {
 	if n == 0 || c.streamWindowCredit() { // mimicry: the limit follows what arrived
 		return
 	}
+
 	if c.client != nil {
 		// mimicry: the limit is set where the share was crossed; what is
 		// read after counts towards the next (clientConsumed).
@@ -58,6 +59,7 @@ func (c *Conn) handleStreamBytesReadOffLoop(n int64) {
 				c.streams.inflow.sent.setUnsent()
 			})
 		}
+
 		return
 	}
 	if c.shouldUpdateFlowControl(c.streams.inflow.credit.Add(n)) {
@@ -80,6 +82,7 @@ func (c *Conn) handleStreamBytesReadOnLoop(n int64) {
 	if c.streamWindowCredit() {
 		return // mimicry: the limit follows what arrived
 	}
+
 	if c.shouldUpdateFlowControl(c.streams.inflow.credit.Add(n)) {
 		c.sendMaxDataUpdate()
 	}
@@ -99,6 +102,7 @@ func (c *Conn) shouldUpdateFlowControl(credit int64) bool {
 	if c.client != nil {
 		return c.clientConnCreditDue(credit) // mimicry
 	}
+
 	return shouldUpdateFlowControl(c.config.maxConnReadBufferSize(), credit)
 }
 
@@ -125,6 +129,7 @@ func (c *Conn) appendMaxDataFrame(w *packetWriter, pnum packetNumber, pto bool) 
 			// (mimicry: a client's limit was set at its crossing.)
 			c.streams.inflow.newLimit += c.streams.inflow.credit.Swap(0)
 		}
+
 		if !w.appendMaxDataFrame(c.streams.inflow.newLimit) {
 			return false
 		}

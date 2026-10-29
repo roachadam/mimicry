@@ -565,6 +565,7 @@ func (c *lossState) ptoBasePeriod() time.Duration {
 	if c.firstPTO > 0 && c.rtt.minRTT < 0 {
 		return c.firstPTO // mimicry: the profile's, until an RTT sample
 	}
+
 	// https://www.rfc-editor.org/rfc/rfc9002.html#section-6.2.1
 	pto := c.rtt.smoothedRTT + max(4*c.rtt.rttvar, timerGranularity)
 	if c.handshakeConfirmed || c.ptoAckDelay { // mimicry: ptoAckDelay

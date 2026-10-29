@@ -888,12 +888,14 @@ These matter most under decision 0029:
     control. So the default buffer stays the OS's.
   - Detection: none (it is the browser's ACK rate). User-visible: bulk
     downloads from a single-worker HTTP/3 server are somewhat slower.
-  - Close: none planned: fewer ACKs would no longer be Chrome's; an
-    opt-in lower ACK rate under decision 0037 is the option. Flow-control
-    frames sent past the client's congestion window would remove the 7 MB
-    stall (RFC 9002 says MUST NOT; medium).
-  - Source: `internal/quic/UPSTREAM.md` change 15; the bench's HTTP/3
-    rows; `internal/dial/dial.go` (the buffer measurements).
+  - Close: by default none: fewer ACKs are not Chrome's.
+    `Config.HTTP3ACKEvery` is the opt-in
+    ([decision 0043](decisions/0043-http3-ack-rate-opt-in.md)). Sending
+    flow-control frames past the client's congestion window would remove
+    the 7 MB buffer's stall (RFC 9002 says MUST NOT; medium).
+  - Source: [decision 0043](decisions/0043-http3-ack-rate-opt-in.md);
+    `internal/quic/UPSTREAM.md` change 15; the bench's HTTP/3 rows;
+    `internal/dial/dial.go` (the buffer measurements).
 - **HTTP/3 receive path runs on about one core** (all; performance).
   - Differs: nothing on the wire. The endpoint's reader hands each
     datagram to the connection's loop through a channel; under bulk load
@@ -1727,17 +1729,67 @@ it.
 
 ## Tooling and tests
 
-- **Rare flake: `TestQUICInterop/chrome-156-macos/handshake-ack-loss`.**
-  Once, in a full harness `-race` run (2026-10-27): "warming up: context
-  deadline exceeded" after 15 s (relay dropped 30 server datagrams). 40
-  reruns of the row passed. Chrome gives up a fresh attempt at 4 s, so a
-  loaded machine may lose the race with the relay's drop schedule. Small.
-- **Rare flake: `TestQUICInterop/chrome-155-macos/stream-reset`.** Once,
-  on the Mac mini (2026-10-26), the `GET /reject` request that quic-go
-  resets with H3_REQUEST_REJECTED (0x10b) came back as an error instead of
-  being retried; 80 reruns of the row then passed. Possibly a race
-  between the reset and the retry decision in `internal/h3` or the engine.
-  Unrun so far: the row in a loop under `-race` and CPU load. Small.
+- **Load flakes in `TestQUICInterop`: one left open** (investigated
+  2026-10-28 on the Mac mini at load 14–20, `-race`, every profile).
+  Fixed:
+  - `handshake-ack-loss` (Chrome, Firefox; 3 in 120): the relay's
+    `MinSize` dropped every small server datagram, 1-RTT ones too;
+    quic-go sometimes sent a response's end in a 23–39 B packet, every
+    resend as small (server qlogs), so the request hung to the deadline.
+    `MinSize` now drops small long header datagrams only (the handshake
+    ACKs the row is about). 0 in 300 since. The row catches a client
+    whose probes never resend the ClientHello's tail with either rule.
+  - `handshake-ack-loss` (Safari): "a request took 667 ms over TCP: it
+    waited past the race (629 ms)"; the check is now net of the stalls.
+    And "no QUIC attempt" (1 in 40): an attempt the race abandoned before
+    its first datagram (a process too loaded to build its hello in 88 ms)
+    counted toward `brokenAfter` but never reached the relay, so the origin
+    broke with one relay session. Reproduced exactly by delaying the second
+    dial 300 ms. `runAttempt` cannot hang (every wait ends with the
+    attempt's context, a timer or the connection). Fixed in the engine:
+    such an attempt no longer counts (decision 0028's amendment,
+    `TestQUICAttemptCountsOnlyOnceItSent`); the delayed-dial reproduction
+    passes.
+  - `stream-reset` (Chrome 155, 1 in 100): `http3.HTTPStreamer.HTTPStream`
+    flushed a 200 HEADERS before the server's `H3_REQUEST_REJECTED`, so the
+    client sometimes read a response and then the reset in its body. The
+    server now sets a past write deadline first, so no HEADERS go out (a
+    50 ms pause before the reset failed every run before, none after; a
+    client that does not resend a rejected request still fails). mimicry's
+    handling of a 0x10b after HEADERS (the response delivered, its body
+    failing) is left: RFC 9114, 4.1.1 says such a partial response should
+    not be used and that a server sends the code only for requests it did
+    not process.
+  - `stream-reset` (Safari 26/27, 8 in 200): a handshake slowed by load
+    lost Safari's 88–129 ms race, the attempt was dropped (`abandonOnTcp`)
+    and two such losses broke the origin. Every case but those that check
+    the race (`handshake-loss`, `handshake-corruption`,
+    `handshake-ack-loss`: `interopCase.race`) now runs with a 5 s race
+    delay. 0 in 80 since.
+  Open: `stream-reset` (Firefox, 1 in 40 since): `GET /reject`'s resend went
+  over HTTP/1.1. Firefox has no race delay; fast fallback gives its resumed
+  0-RTT attempt its first PTO (`earlyLimit`), which a loaded handshake
+  outlasts. `BrowserQUICFallback` for such cases would lift it, at the
+  cost of slower failure paths in them. Small.
+- **Load flakes in the HTTP/3 page tests.**
+  - `TestHTTP3EdgeMatchesBrowser/safari-26-macos/h3-early/fast` failed once
+    (2026-10-28, `:test-full`): a 101 ms stall let Safari's 88–109 ms race
+    timer fire before the server's answer was read, so `delete.so` went
+    on a TCP connection the browser never opened. A page whose race the
+    stalls decided (`raceStall`: answered within the race delay net of
+    the stalls, at or past it with them) now runs again, up to three
+    times; the last run is compared whatever happened (a race delay of
+    zero still fails). Three such runs at once on the loaded mini failed
+    most runs anyway, mostly on times out of range net of the stalls:
+    that load is past what the page timings can hold.
+  - `TestHTTP3MatchesBrowser/chrome-156-macos/h3-discovery`, seen three
+    times by other agents: resumed connections' 0-RTT packets with the
+    request's STREAM(0) before the control stream's PRIORITY_UPDATE
+    (Chrome: `STREAM(2) | STREAM(2) STREAM(0)`). Not reproduced yet;
+    both are flushed under one Cork, control first, so the request must
+    have reached `queueMeta` (resent data, or a stream opened with no
+    window) or the data ring's head moved past the control stream.
+  Small to medium.
 - **Load flake: `TestResumptionMatchesBrowser/firefox-158-macos/resume-tls12`.**
   Once, in a full harness `go test -race` run (2026-10-26):
   `h1.kinds-a.test` 5 connections, 2 resumed where every sample has 1;

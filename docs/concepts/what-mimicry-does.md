@@ -45,7 +45,7 @@ connection, no DNS lookup, no cookie touched, no preflight cached
 | [Retries on another connection](#retries-on-another-connection) | the same request again | none |
 | [A 30 s request timeout](#a-30-s-request-timeout) | none (a request gives up) | `Config.Timeout`; the client's `Timeout` |
 | [HTTP/2 coalescing](#http2-coalescing) | a DNS lookup; Firefox: a connection opened and declined | `Config.DisableCoalescing` (`Config.Resolver` answers the lookup) |
-| [HTTP/3](#http3-alt-svc-and-the-switch) | a QUIC connection beside TCP, GOAWAY on TCP (Firefox); with a shared or saved Alt-Svc cache, QUIC from a new Transport's first request | `Config.DisableHTTP3`; `Config.AltSvc`; `Config.UDPReadBufferSize` (receive buffer) |
+| [HTTP/3](#http3-alt-svc-and-the-switch) | a QUIC connection beside TCP, GOAWAY on TCP (Firefox); with a shared or saved Alt-Svc cache, QUIC from a new Transport's first request | `Config.DisableHTTP3`; `Config.AltSvc`; `Config.UDPReadBufferSize` (receive buffer); `Config.HTTP3ACKEvery` (fewer ACKs, not the browser's) |
 | [QUIC failure and TCP fallback](#when-quic-fails-tcp-racing-and-fallback) | TCP connections racing QUIC; by default, sooner than the browser's when QUIC fails | `Config.DisableHTTP3`; `Config.BrowserQUICFallback` |
 | [Keep-alive and housekeeping](#keep-alive-pings-and-housekeeping-frames) | PING, WINDOW_UPDATE, ACK frames | none |
 | [TLS resumption and 0-RTT](#tls-session-resumption-and-0-rtt) | none (a different ClientHello); a request answered `425 Too Early` sent again | none; `Config.DisableHTTP3` stops 0-RTT |
@@ -322,12 +322,20 @@ as the browser starts an origin whose alternative it knows (Chrome and
 Safari: QUIC first, TCP after the race delay; Firefox: TCP, validating
 QUIC beside it). See [HTTP/3](http3.md#alternatives-a-transport-did-not-learn-itself).
 No option changes the discovery rule or forgets broken origins.
-`Config.UDPReadBufferSize` sizes each QUIC socket's receive buffer: the
-default is fastest on short, clean paths; raise it (2 to 8 MB) for
-high-bandwidth, lossy or long ones, where a burst can overflow the default
-and every datagram dropped costs a retransmission. Linux grants at most
-`net.core.rmem_max` (often 208 KB) unless the host raises it; mimicry asks
-and never fails for less.
+`Config.UDPReadBufferSize` sizes each QUIC socket's receive buffer. A
+larger one trades drops for a queue: it helps on high-bandwidth, lossy or
+long paths, where a burst can overflow the default and every datagram
+dropped costs a retransmission, but it can slow many concurrent transfers
+(see its documentation). Linux grants at most `net.core.rmem_max` (often
+208 KB) unless the host raises it; mimicry asks and never fails for less.
+`Config.HTTP3ACKEvery` acknowledges every Nth QUIC packet after the
+browser's warm-up instead of the profile's rate (Chrome: every 10th).
+Against a server whose one worker a single client saturates (nginx serves
+a connection from one worker, and its cost follows the datagrams the
+client sends it), every 20 ran 25% faster at 10 MB and 22% at 100 KB, 64
+at once, but a single download from an idle server ran 27% slower; the
+server sees a rate no browser sends
+([decision 0043](../decisions/0043-http3-ack-rate-opt-in.md)).
 
 ## When QUIC fails: TCP racing and fallback
 

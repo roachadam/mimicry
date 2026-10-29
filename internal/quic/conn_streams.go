@@ -76,6 +76,7 @@ func (c *Conn) streamsCleanup() {
 	// table, so none misses connHasClosed.
 	c.streams.tableMu.Lock()
 	defer c.streams.tableMu.Unlock()
+
 	c.streams.tableClosed = true
 	for _, s := range c.streams.streams {
 		if s.s != nil {
@@ -129,9 +130,11 @@ func (c *Conn) newLocalStream(ctx context.Context, styp streamType) (*Stream, er
 	// in the table for the walk.
 	c.streams.tableMu.Lock()
 	defer c.streams.tableMu.Unlock()
+
 	if c.streams.tableClosed {
 		return nil, errConnClosed
 	}
+
 	s.outwin = c.streams.peerInitialMaxStreamDataRemote[styp]
 	c.streams.streams[s.id] = maybeStream{s}
 	return s, nil
@@ -154,6 +157,7 @@ const (
 func (c *Conn) streamForID(id streamID) *Stream {
 	c.streams.tableMu.Lock() // mimicry: see tableMu
 	defer c.streams.tableMu.Unlock()
+
 	return c.streams.streams[id].s
 }
 
@@ -180,8 +184,10 @@ func (c *Conn) streamForFrame(now time.Time, id streamID, ftype streamFrameType)
 	}
 
 	c.streams.tableMu.Lock() // mimicry: see tableMu
+
 	ms, isOpen := c.streams.streams[id]
 	c.streams.tableMu.Unlock()
+
 	if ms.s != nil {
 		return ms.s
 	}
@@ -220,6 +226,7 @@ func (c *Conn) streamForFrame(now time.Time, id streamID, ftype streamFrameType)
 	// with the same initiator and type and a lower number.
 	// Add a nil entry to the streams map for each implicitly created stream.
 	c.streams.tableMu.Lock() // mimicry: see tableMu
+
 	for n := newStreamID(id.initiator(), id.streamType(), prevOpened); n < id; n += 4 {
 		c.streams.streams[n] = maybeStream{}
 	}
@@ -228,12 +235,14 @@ func (c *Conn) streamForFrame(now time.Time, id streamID, ftype streamFrameType)
 	s := newStream(c, id)
 	s.inmaxbuf = c.config.maxStreamReadBufferSize()
 	s.inwin = c.config.maxStreamReadBufferSize()
+
 	if c.client != nil {
 		// mimicry: the window the client's transport parameters gave
 		// streams of this type.
 		s.inmaxbuf = c.client.streamWindow(id.streamType(), false)
 		s.inwin = s.inmaxbuf
 	}
+
 	if id.streamType() == bidiStream {
 		s.outmaxbuf = c.config.maxStreamWriteBufferSize()
 		s.outwin = c.streams.peerInitialMaxStreamDataBidiLocal
@@ -242,6 +251,7 @@ func (c *Conn) streamForFrame(now time.Time, id streamID, ftype streamFrameType)
 	s.outUnlock()
 
 	c.streams.tableMu.Lock() // mimicry: see tableMu
+
 	c.streams.streams[id] = maybeStream{s}
 	c.streams.tableMu.Unlock()
 	c.streams.queue.put(s)
@@ -369,6 +379,7 @@ func (c *Conn) appendStreamFrames(w *packetWriter, pnum packetNumber, pto bool) 
 		if state&(streamInDone|streamOutDone) == streamInDone|streamOutDone {
 			// Stream is finished, remove it from the conn.
 			state = s.state.set(streamConnRemoved, streamQueueMeta|streamConnRemoved)
+
 			c.streams.tableMu.Lock() // mimicry: see tableMu
 			delete(c.streams.streams, s.id)
 			c.streams.tableMu.Unlock()
@@ -453,8 +464,10 @@ func (c *Conn) appendStreamFramesPTO(w *packetWriter, pnum packetNumber) bool {
 	}
 	c.streams.sendMu.Lock()
 	defer c.streams.sendMu.Unlock()
+
 	c.streams.tableMu.Lock() // mimicry: see tableMu
 	defer c.streams.tableMu.Unlock()
+
 	for _, ms := range c.streams.streams {
 		s := ms.s
 		if s == nil {

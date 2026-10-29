@@ -17,6 +17,7 @@ func TestParseControl(t *testing.T) {
 	var good []byte
 
 	good, tos := appendCmsg(good, syscall.IPPROTO_IP, syscall.IP_TOS, 1)
+
 	tos[0] = byte(ecnCE)
 
 	good, pkt := appendCmsg(good, syscall.IPPROTO_IP, syscall.IP_PKTINFO, 12)
@@ -26,6 +27,7 @@ func TestParseControl(t *testing.T) {
 	// The second header claims more than the buffer holds.
 	bad := append([]byte(nil), good...)
 	second := syscall.CmsgSpace(1)
+
 	bad[second] = 0xff
 
 	for _, tc := range []struct {
@@ -41,6 +43,7 @@ func TestParseControl(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			d := &datagram{}
 			parseControl(d, tc.control)
+
 			if d.ecn != tc.ecn || d.path.local.Addr() != tc.local {
 				t.Errorf("ecn %v local %v, want %v %v", d.ecn, d.path.local.Addr(), tc.ecn, tc.local)
 			}

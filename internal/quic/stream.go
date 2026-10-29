@@ -195,6 +195,7 @@ func newStream(c *Conn, id streamID) *Stream {
 	// mimicry: locked in place, as a gate holds a sync.Mutex (gate.go).
 	s.ingate.lock()
 	s.outgate.lock()
+
 	if !s.IsReadOnly() {
 		s.outdone = make(chan struct{})
 	}
@@ -275,6 +276,7 @@ func (s *Stream) Read(b []byte) (n int, err error) {
 		s.discardReadIn()
 		s.releaseIdleIn()
 		s.inUnlock()
+
 		if err := s.ingate.waitAndLock(s.inctx); err != nil {
 			return 0, err
 		}
@@ -291,11 +293,14 @@ func (s *Stream) Read(b []byte) (n int, err error) {
 			// mimicry: credit in the steps the frames arrived in.
 			s.clientConsumed(s.in.start + int64(len(s.inbuf)))
 			s.inUnlock()
+
 			for _, n := range s.increds {
 				s.conn.handleStreamBytesReadOffLoop(n)
 			}
+
 			return
 		}
+
 		s.inUnlock()
 		s.conn.handleStreamBytesReadOffLoop(bytesRead) // must be done with ingate unlocked
 	}()
@@ -340,6 +345,7 @@ func (s *Stream) Read(b []byte) (n int, err error) {
 		s.inbufmu.Unlock()
 		bytesRead += int64(len(s.inbuf))
 	}
+
 	if s.conn.client == nil && (s.insize == -1 || s.insize > s.inwin) {
 		newWindow := s.in.start + int64(len(s.inbuf)) + s.inmaxbuf
 		addedWindow := newWindow - s.inwin
@@ -760,6 +766,7 @@ func (s *Stream) discardReadIn() {
 	if s.inbufoff > 0 {
 		s.in.discardBefore(s.in.start + int64(s.inbufoff))
 		s.inbufmu.Lock()
+
 		s.inbufoff = 0
 		s.inbuf = nil
 		s.inbufmu.Unlock()
@@ -928,9 +935,11 @@ func (s *Stream) handleData(off int64, b []byte, fin bool) error {
 	}
 	s.in.writeAt(b, off)
 	s.inset.add(off, end)
+
 	if s.conn.client != nil {
 		s.clientReceived() // mimicry
 	}
+
 	if fin {
 		s.insize = end
 		// The peer has enough flow control window to send the entire stream.
@@ -1112,6 +1121,7 @@ func (s *Stream) appendInFramesLocked(w *packetWriter, pnum packetNumber, pto bo
 			// crossed (clientConsumed), whatever was read since.
 			maxStreamData = s.inlimit
 		}
+
 		if !w.appendMaxStreamDataFrame(s.id, maxStreamData) {
 			return false
 		}

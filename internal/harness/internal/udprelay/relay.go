@@ -44,8 +44,11 @@ type Impairment struct {
 	// MaxSize drops every datagram larger than it (a path MTU); zero
 	// means no cap.
 	MaxSize int
-	// MinSize drops every datagram smaller than it: a peer's datagrams
-	// that carry nothing but ACKs, say.
+	// MinSize drops every datagram smaller than it that starts with a
+	// long header packet (Initial, 0-RTT, Handshake): a peer's handshake
+	// datagrams that carry nothing but ACKs, say. A 1-RTT datagram passes
+	// whatever its size: a small one may carry the end of a stream, and
+	// so would every resend of it.
 	MinSize int
 	// DropAt drops the datagrams at these positions in the direction's
 	// sequence, per client (the first is 0).
@@ -331,7 +334,8 @@ func (r *Relay) forward(s *session, d Dir, b []byte) {
 	n := s.seen[d]
 	s.seen[d]++
 
-	if im.Blackhole || drop < im.Drop || (im.MaxSize > 0 && len(b) > im.MaxSize) || len(b) < im.MinSize || slices.Contains(im.DropAt, n) {
+	small := len(b) < im.MinSize && b[0]&0x80 != 0
+	if im.Blackhole || drop < im.Drop || (im.MaxSize > 0 && len(b) > im.MaxSize) || small || slices.Contains(im.DropAt, n) {
 		r.stats.Dropped[d]++
 		r.mu.Unlock()
 

@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/roachadam/mimicry"
 	"github.com/roachadam/mimicry/internal/bench/target"
@@ -42,7 +43,8 @@ func mimicryClient() Factory {
 // otherwise. mimicry-nocoalescing gives each host its own HTTP/2
 // connection where Chrome shares one (DisableCoalescing); mimicry-conns16
 // and -conns64 open up to 16 and 64 HTTP/1.1 connections per host
-// (MaxConnsPerHost) instead of Chrome's 6.
+// (MaxConnsPerHost) instead of Chrome's 6; mimicry-ack20 acknowledges
+// every 20th QUIC packet instead of Chrome's 10th (HTTP3ACKEvery).
 func Variants() []Factory {
 	variant := func(name string, set func(*mimicry.Config)) Factory {
 		f := mimicryClient()
@@ -62,6 +64,9 @@ func Variants() []Factory {
 		}),
 		variant("mimicry-conns64", func(c *mimicry.Config) {
 			c.MaxConnsPerHost = 64
+		}),
+		variant("mimicry-ack20", func(c *mimicry.Config) {
+			c.HTTP3ACKEvery = 20
 		}),
 	}
 }
@@ -101,6 +106,9 @@ func newMimicry(o Options, set func(*mimicry.Config)) (Client, error) {
 		Profile:      profiles.Chrome(),
 		RootCAs:      o.RootCAs,
 		DisableHTTP3: o.Proto != target.H3,
+		// tls-client's 120 s, not NewClient's 30 s: a 10 MB body under
+		// netem's loss takes longer than 30 s.
+		Timeout: 120 * time.Second,
 	}
 	if o.Returning {
 		cfg.AltSvc = returningAltSvc()

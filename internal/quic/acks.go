@@ -79,6 +79,7 @@ func (acks *ackState) receive(now time.Time, space numberSpace, num packetNumber
 			if acks.maxDelay > 0 {
 				delay = acks.maxDelay // mimicry
 			}
+
 			acks.nextAck = now.Add(delay)
 		}
 		if num > acks.maxAckEliciting {
@@ -176,9 +177,11 @@ func (acks *ackState) mustAckImmediately(space numberSpace, num packetNumber, ec
 	if acks.seen.max() > 100 {
 		packetsBeforeAck = 10
 	}
+
 	if acks.every > 0 {
 		packetsBeforeAck = acks.clientAckEvery(acks.seen.max()) // mimicry
 	}
+
 	return acks.unackedAckEliciting >= packetsBeforeAck
 }
 

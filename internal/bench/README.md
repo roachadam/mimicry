@@ -228,13 +228,16 @@ Arguments after `run` or `report` go to `bench run`: `-window` and `-warmup`
 per load point (10 s and 3 s; layer 6 uses them too), `-layers 3,4,5,6`, `-clients`, `-servers
 nginx,go`, `-reduced go` (servers that get bodies 1KB/100KB and concurrency
 1/64 only), `-protos h1,h2,h3` (layers 3, 5 and 6), `-conc 1,16,64,256`, `-idle-n 50`,
-`-reps 5`, `-netem=false`, `-multi-n 200`, `-multi-variants fixed,proxy,client`,
+`-reps 5`, `-netem=false`, `-load-netem rtt80-loss1` (layer 3 under these
+netem conditions instead of the network as it is, offloads off as in layer 5,
+the condition in each point's heading), `-bodies 100KB,10MB` (layer 3's sizes;
+default all), `-multi-n 200`, `-multi-variants fixed,proxy,client`,
 `-multi-rotate 10` and `-multi-client-window 20s` (layer 6), `-name bench` (the report's file name
 before the date), `-profile <dir>`. `-clients` also takes mimicry
 variants that runs leave out otherwise, each with one `Config` option set
 (`clients.Variants`): `mimicry-nocoalescing` (`DisableCoalescing`, a
 connection per host where Chrome coalesces), `mimicry-conns16` and
-`mimicry-conns64` (`MaxConnsPerHost`). Each HTTP/3 load point's (and
+`mimicry-conns64` (`MaxConnsPerHost`), `mimicry-ack20` (`HTTP3ACKEvery` 20). Each HTTP/3 load point's (and
 layer 6 point's) log
 line also gives how much the client container's UDP receive errors grew
 during it (`/proc/net/snmp`: `RcvbufErrors`, datagrams dropped on a full

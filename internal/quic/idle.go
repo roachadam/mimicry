@@ -102,11 +102,13 @@ func (c *Conn) restartIdleTimer(now time.Time) {
 	c.idle.nextTimeout = c.idle.idleTimeout
 	c.idle.shouldSendKeepAlive = false
 	keepAlive := c.config.keepAlivePeriod()
+
 	if c.client != nil {
 		// mimicry: the client's keep-alives are its profile's
 		// (clientPathTimer).
 		keepAlive = 0
 	}
+
 	switch {
 	case !c.handshakeConfirmed.isSet():
 		// We do not send keep-alives before the handshake is complete.
@@ -135,6 +137,7 @@ func (c *Conn) appendKeepAlive() bool {
 	if c.client != nil {
 		return c.appendClientKeepAlive() // mimicry
 	}
+
 	if !c.idle.shouldSendKeepAlive {
 		return true
 	}
@@ -174,8 +177,10 @@ func (c *Conn) idleAdvance(now time.Time) (shouldExit bool) {
 			if c.client != nil {
 				// mimicry: as the profile's browser gives up.
 				c.clientGiveUp(now)
+
 				return false
 			}
+
 			c.abort(now, errHandshakeTimeout)
 			return false
 		}

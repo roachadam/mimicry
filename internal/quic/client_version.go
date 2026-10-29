@@ -47,6 +47,7 @@ func RetryVersion(err error, p *profile.QUIC, from uint32) (uint32, bool) {
 	if !p.VersionNegotiation.Retry || !errors.As(err, &vn) {
 		return 0, false
 	}
+
 	return chooseVersion(clientAvailable(p), vn.Versions, from)
 }
 
@@ -58,6 +59,7 @@ func chooseVersion(available, offered []uint32, from uint32) (uint32, bool) {
 			return v, true
 		}
 	}
+
 	return 0, false
 }
 
@@ -75,6 +77,7 @@ func (c *Conn) clientVersionNegotiation(now time.Time, b []byte) {
 	if c.client.afterVN {
 		return
 	}
+
 	var versions []uint32
 	for ; len(b) >= 4; b = b[4:] {
 		v := binary.BigEndian.Uint32(b)
@@ -83,8 +86,10 @@ func (c *Conn) clientVersionNegotiation(now time.Time, b []byte) {
 			// lists the QUIC version selected by the client."
 			return
 		}
+
 		versions = append(versions, v)
 	}
+
 	c.abortImmediately(now, &VersionNegotiationError{Versions: versions})
 }
 
@@ -107,24 +112,22 @@ func clientVersions(p *profile.QUIC) (sent bool, available []uint32) {
 		if tp.ID != profile.TPVersionInformation || len(tp.Versions) == 0 {
 			continue
 		}
+
 		for _, v := range tp.Versions[1:] {
 			if v != profile.GREASEVersion {
 				available = append(available, uint32(v))
 			}
 		}
+
 		return true, available
 	}
+
 	return false, nil
 }
 
 // offers reports whether the client lists version v as available.
 func (cc *clientState) offers(v uint32) bool {
-	for _, a := range cc.available {
-		if a == v {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(cc.available, v)
 }
 
 // quicVersion is the connection's QUIC version: a client's negotiated one,
@@ -133,6 +136,7 @@ func (c *Conn) quicVersion() uint32 {
 	if c.client != nil {
 		return c.client.version
 	}
+
 	return quicVersion1
 }
 
@@ -150,11 +154,13 @@ func (c *Conn) clientUpgrade(buf []byte) {
 		!c.keysInitial.canRead() || c.keysHandshake.canRead() {
 		return
 	}
+
 	keys := initialKeysVersion(cc.initialCID, c.side, quicVersion2)
 	// A copy: removing the protection works in place.
 	if _, n := parseLongHeaderPacket(cloneBytes(buf), keys.r, c.acks[initialSpace].largestSeen()); n < 0 {
 		return
 	}
+
 	cc.version = quicVersion2
 	c.keysInitial = keys
 }
@@ -174,17 +180,21 @@ func (c *Conn) clientCheckVersionInfo(p transportParameters) error {
 				reason: "no version_information after a version change",
 			}
 		}
+
 		return nil
 	}
+
 	vi := p.versionInfo
 	if len(vi) < 4 || len(vi)%4 != 0 {
 		return localTransportError{code: errTransportParameter, reason: "malformed version_information"}
 	}
+
 	for b := vi; len(b) > 0; b = b[4:] {
 		if binary.BigEndian.Uint32(b) == 0 {
 			return localTransportError{code: errTransportParameter, reason: "version 0 in version_information"}
 		}
 	}
+
 	chosen := binary.BigEndian.Uint32(vi)
 	switch {
 	case cc.sentVersionInfo && !cc.offers(chosen):
@@ -192,6 +202,7 @@ func (c *Conn) clientCheckVersionInfo(p transportParameters) error {
 	case chosen != cc.version:
 		return localTransportError{code: cc.downgradeErr, reason: "server's chosen version is not the version in use"}
 	}
+
 	if cc.afterVN {
 		// The server's Available Versions must lead the client to the
 		// version it reacted with: no forged packet downgraded it.
@@ -199,10 +210,12 @@ func (c *Conn) clientCheckVersionInfo(p transportParameters) error {
 		for b := vi[4:]; len(b) > 0; b = b[4:] {
 			offered = append(offered, binary.BigEndian.Uint32(b))
 		}
+
 		if v, ok := chooseVersion(cc.available, append(offered, chosen), 0); len(offered) == 0 || !ok || v != cc.version {
 			return localTransportError{code: cc.downgradeErr, reason: "server's available versions do not match the Version Negotiation"}
 		}
 	}
+
 	return nil
 }
 
@@ -226,5 +239,6 @@ func TicketVersion(extra [][]byte) uint32 {
 			return binary.BigEndian.Uint32(b)
 		}
 	}
+
 	return quicVersion1
 }

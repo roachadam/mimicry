@@ -40,8 +40,10 @@ const h3PageHost = "www.h3-a.test"
 //     the GOAWAY sent, how many were declined.
 //
 // Times lie within the samples' range widened by edgeSlack, plus this
-// process's stalls (compareTimes). Known differences are in h3EdgeGaps and
-// h3EdgeSchedulingGaps. Each page runs twice: with
+// process's stalls (compareTimes); a page whose race between QUIC and TCP
+// the stalls decided (raceStall) runs again, up to edgeRuns times in all,
+// as such a run compares nothing of mimicry's. Known differences are in
+// h3EdgeGaps and h3EdgeSchedulingGaps. Each page runs twice: with
 // Config.BrowserQUICFallback ("browser"), where that is all that differs,
 // and with the fast default ("fast"), whose differences besides are
 // exactly h3EdgeFastGaps: requests that stop waiting on a QUIC attempt
@@ -76,9 +78,25 @@ func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
 
 					want := h3Captures(t, p, sc)
 					skip, unused := edgeGapsFor(t, capture.Source(p, sc.Name)+"/"+sc.Name, fast)
-					got := runH3Schedule(t, p, sc, want[0], skip, func(cfg *mimicry.Config) {
+					config := func(cfg *mimicry.Config) {
 						cfg.BrowserQUICFallback = !fast
-					})
+					}
+
+					got := runH3Schedule(t, p, sc, want[0], skip, config)
+					// A race this process's stalls decided measured the
+					// stall: the page runs again, and the last run is
+					// compared whatever happened in it.
+					for run := 1; run < edgeRuns; run++ {
+						why, stalled := raceStall(p, got)
+						if !stalled {
+							break
+						}
+
+						t.Logf("run %d: the process's stalls decided %s; running the page again", run, why)
+
+						got = runH3Schedule(t, p, sc, want[0], skip, config)
+					}
+
 					compareEdge(t, p, got, want, skip)
 					unused()
 				})
@@ -86,6 +104,10 @@ func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
 		}
 	}
 }
+
+// edgeRuns bounds how often TestHTTP3EdgeMatchesBrowser runs a page whose
+// race the process's stalls decided; the last run is compared as it is.
+const edgeRuns = 3
 
 // h3EdgeGaps are known differences, by profile, scenario and feature (as
 // compareEdge labels it): the feature is not compared. A listed gap that

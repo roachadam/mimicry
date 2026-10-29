@@ -159,12 +159,14 @@ func newConn(now time.Time, side connSide, cids newServerConnIDs, peerHostname s
 	// TODO: PMTU discovery.
 	c.logConnectionStarted(cids.originalDstConnID, peerAddr)
 	c.keysAppData.init()
+
 	maxDatagramSize := smallestMaxDatagramSize
 	if c.client != nil {
 		// mimicry: the browser's datagram size, numbering, ACK delay;
 		// held until the application's first writes (Dial).
 		maxDatagramSize = c.client.p.DatagramSize
 		c.cork.Store(1)
+
 		if !c.client.p.KeyUpdate.Initiate {
 			// No key update of its own: no browser started one in 50
 			// MiB (capture h3-download); they follow the server's.
@@ -172,15 +174,20 @@ func newConn(now time.Time, side connSide, cids newServerConnIDs, peerHostname s
 			c.keysAppData.updateAfter = maxPacketNumber
 		}
 	}
+
 	c.loss.init(c.side, maxDatagramSize, now)
+
 	if c.client != nil {
 		c.loss.spaces[initialSpace].nextNum = c.client.initialPN
+
 		a := &c.acks[appDataSpace]
+
 		a.maxDelay = c.client.maxAckDelay()
 		a.every = c.client.p.Ack.Every
 		a.warmupPackets, a.warmupEvery = c.client.p.Ack.WarmupPackets, c.client.p.Ack.WarmupEvery
 		c.clientInitLoss(now)
 	}
+
 	c.streamsInit()
 	c.lifetimeInit()
 	c.restartIdleTimer(now)
@@ -213,6 +220,7 @@ func newConn(now time.Time, side connSide, cids newServerConnIDs, peerHostname s
 	if c.testHooks != nil {
 		c.testHooks.init(true)
 	}
+
 	if e.sole {
 		e.soleConn.Store(c) // mimicry: before the loop sends anything
 	}
@@ -258,6 +266,7 @@ func (c *Conn) confirmHandshake(now time.Time) {
 		// to the received state, indicating that the handshake is confirmed and we
 		// don't need to send anything.
 		c.handshakeConfirmed.setReceived()
+
 		if c.client != nil {
 			// mimicry: Conn.Confirmed.
 			close(c.client.confirmed)
@@ -291,16 +300,20 @@ func (c *Conn) receiveTransportParameters(p transportParameters) error {
 	if err := c.connIDState.validateTransportParameters(c, isRetry, p); err != nil {
 		return err
 	}
+
 	if c.client != nil {
 		// mimicry: version_information, and streams opened in 0-RTT.
 		if err := c.clientCheckVersionInfo(p); err != nil {
 			return err
 		}
+
 		defer c.clientApplyPeerWindows(p)
 	}
+
 	// mimicry: the windows first, under tableMu (conn_streams.go): a
 	// stream may open as soon as setMax allows it, and reads them then.
 	c.streams.tableMu.Lock()
+
 	c.streams.peerInitialMaxStreamDataRemote[bidiStream] = p.initialMaxStreamDataBidiRemote
 	c.streams.peerInitialMaxStreamDataRemote[uniStream] = p.initialMaxStreamDataUni
 	c.streams.tableMu.Unlock()
@@ -386,6 +399,7 @@ func (c *Conn) loop(now time.Time) {
 				nextTimeout = firstTime(nextTimeout, c.loss.timer)
 				nextTimeout = firstTime(nextTimeout, c.acks[appDataSpace].nextAck)
 			}
+
 			if c.client != nil {
 				// mimicry: keep-alives, a degrading or dead path.
 				nextTimeout = firstTime(nextTimeout, c.clientPathTimer())
@@ -425,6 +439,7 @@ func (c *Conn) loop(now time.Time) {
 			// acknowledge at their rate (QUICAck).
 			readMore = c.client != nil && len(c.msgc) > 0 &&
 				(c.client.p.Ack.Batched || !c.handshakeConfirmed.isSet())
+
 		case timerEvent:
 			// A connection timer has expired.
 			if c.idleAdvance(now) {
@@ -432,15 +447,19 @@ func (c *Conn) loop(now time.Time) {
 				c.abortImmediately(now, errIdleTimeout)
 				return
 			}
+
 			pto := c.loss.ptoExpired
 			c.loss.advance(now, c.handleAckOrLoss)
+
 			if c.client != nil && !pto && c.loss.ptoExpired {
 				// mimicry: the client's probes, as its profile sends them.
 				c.clientPTOExpired()
 			}
+
 			if c.client != nil {
 				c.clientPathAdvance(now)
 			}
+
 			if c.lifetimeAdvance(now) {
 				// The connection has completed the draining period,
 				// and may be shut down.
