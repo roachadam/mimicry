@@ -1,0 +1,23 @@
+# Version updates for the GitHub Actions the workflows and the shared setup
+# action (.github/actions/setup) use, once a week, all in one pull request.
+#
+# No gomod entry, on purpose: the Go modules are pinned. The bench measures
+# exact versions of the clients it compares mimicry with, and mimicry pins
+# its uTLS fork (github.com/roachadam/utls) at a commit of the fork's main.
+# Moving a pin is a deliberate change, never a routine bump. Security fixes
+# for Go modules still come: the repository's Dependabot security updates
+# (Settings > Code security) open those pull requests for every go.mod and
+# need no entry here.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    # / covers .github/workflows; a composite action's directory is listed.
+    directories: ['/', '/.github/actions/*']
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+    # Dependabot adds the colon: "ci: ...".
+    commit-message:
+      prefix: ci
