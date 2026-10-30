@@ -173,6 +173,8 @@ func changedProfile(t *testing.T, p *profile.Profile) *profile.Profile {
 // sharedRoundTrip sends a request of kind to url through tr and reads the
 // response.
 func sharedRoundTrip(t *testing.T, tr *Transport, url string, kind Kind) {
+	t.Helper()
+
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, url, nil)
 	if err != nil {
 		t.Error(err)

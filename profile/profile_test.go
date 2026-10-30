@@ -171,6 +171,8 @@ func TestValidate(t *testing.T) {
 		{
 			name: "repeated key share group",
 			mutate: func(t *testing.T, p *Profile) {
+				t.Helper()
+
 				ks := &p.TLS.Extensions[extIndex(t, p, ExtKeyShare)]
 
 				ks.KeyShares = append(ks.KeyShares, 0x001d)
@@ -203,6 +205,8 @@ func TestValidate(t *testing.T) {
 		{
 			name: "payload on a generated extension",
 			mutate: func(t *testing.T, p *Profile) {
+				t.Helper()
+
 				p.TLS.Extensions[extIndex(t, p, ExtServerName)].Data = Bytes{
 					0x00,
 				}
@@ -213,6 +217,8 @@ func TestValidate(t *testing.T) {
 		{
 			name: "typed extension without its field",
 			mutate: func(t *testing.T, p *Profile) {
+				t.Helper()
+
 				p.TLS.Extensions[extIndex(t, p, ExtSupportedVersions)].Versions = nil
 			},
 			path: "tls.extensions[13]",
@@ -221,6 +227,8 @@ func TestValidate(t *testing.T) {
 		{
 			name: "typed extension with the wrong field",
 			mutate: func(t *testing.T, p *Profile) {
+				t.Helper()
+
 				p.TLS.Extensions[extIndex(t, p, ExtALPN)].ALPS = []string{
 					"h2",
 				}
@@ -231,6 +239,8 @@ func TestValidate(t *testing.T) {
 		{
 			name: "typed field on a data extension",
 			mutate: func(t *testing.T, p *Profile) {
+				t.Helper()
+
 				p.TLS.Extensions[extIndex(t, p, 0x0005)].Groups = []Code{
 					0x001d,
 				}
@@ -241,6 +251,8 @@ func TestValidate(t *testing.T) {
 		{
 			name: "key share outside supported_groups",
 			mutate: func(t *testing.T, p *Profile) {
+				t.Helper()
+
 				ks := &p.TLS.Extensions[extIndex(t, p, ExtKeyShare)]
 
 				ks.KeyShares = append(ks.KeyShares, 0x0019)
@@ -291,6 +303,8 @@ func TestValidate(t *testing.T) {
 		{
 			name: "key share without lengths",
 			mutate: func(t *testing.T, p *Profile) {
+				t.Helper()
+
 				p.TLS.Extensions[extIndex(t, p, ExtKeyShare)].KeyShareLengths = nil
 			},
 			path: "tls.extensions[11]",
@@ -299,6 +313,8 @@ func TestValidate(t *testing.T) {
 		{
 			name: "fewer key share lengths than key shares",
 			mutate: func(t *testing.T, p *Profile) {
+				t.Helper()
+
 				ks := &p.TLS.Extensions[extIndex(t, p, ExtKeyShare)]
 
 				ks.KeyShareLengths = ks.KeyShareLengths[:2]
@@ -309,6 +325,8 @@ func TestValidate(t *testing.T) {
 		{
 			name: "key share length not its group's",
 			mutate: func(t *testing.T, p *Profile) {
+				t.Helper()
+
 				p.TLS.Extensions[extIndex(t, p, ExtKeyShare)].KeyShareLengths[2] = 33
 			},
 			path: "tls.extensions[11].keyShareLengths[2]",
@@ -317,6 +335,8 @@ func TestValidate(t *testing.T) {
 		{
 			name: "empty GREASE key share",
 			mutate: func(t *testing.T, p *Profile) {
+				t.Helper()
+
 				p.TLS.Extensions[extIndex(t, p, ExtKeyShare)].KeyShareLengths[0] = 0
 			},
 			path: "tls.extensions[11].keyShareLengths[0]",
@@ -325,6 +345,8 @@ func TestValidate(t *testing.T) {
 		{
 			name: "key share for a group without key generation",
 			mutate: func(t *testing.T, p *Profile) {
+				t.Helper()
+
 				p.TLS.Extensions[extIndex(t, p, ExtSupportedGroups)].Groups = append(p.TLS.Extensions[extIndex(t, p, ExtSupportedGroups)].Groups, 0x0100)
 
 				ks := &p.TLS.Extensions[extIndex(t, p, ExtKeyShare)]
@@ -338,6 +360,8 @@ func TestValidate(t *testing.T) {
 		{
 			name: "ECH without its shape",
 			mutate: func(t *testing.T, p *Profile) {
+				t.Helper()
+
 				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH = nil
 			},
 			path: "tls.extensions[16]",
@@ -346,6 +370,8 @@ func TestValidate(t *testing.T) {
 		{
 			name: "ECH shape on another extension",
 			mutate: func(t *testing.T, p *Profile) {
+				t.Helper()
+
 				p.TLS.Extensions[extIndex(t, p, ExtALPN)].ECH = p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH
 			},
 			path: "tls.extensions[7]",
@@ -354,6 +380,8 @@ func TestValidate(t *testing.T) {
 		{
 			name: "ECH without cipher suites",
 			mutate: func(t *testing.T, p *Profile) {
+				t.Helper()
+
 				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.CipherSuites = nil
 			},
 			path: "tls.extensions[16].ech.cipherSuites",
@@ -362,6 +390,8 @@ func TestValidate(t *testing.T) {
 		{
 			name: "ECH AEAD uTLS cannot name",
 			mutate: func(t *testing.T, p *Profile) {
+				t.Helper()
+
 				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.CipherSuites[0].AEAD = 0xffff
 			},
 			path: "tls.extensions[16].ech.cipherSuites[0]",
@@ -370,6 +400,8 @@ func TestValidate(t *testing.T) {
 		{
 			name: "ECH KDF uTLS cannot name",
 			mutate: func(t *testing.T, p *Profile) {
+				t.Helper()
+
 				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.CipherSuites[0].KDF = 0
 			},
 			path: "tls.extensions[16].ech.cipherSuites[0]",
@@ -378,6 +410,8 @@ func TestValidate(t *testing.T) {
 		{
 			name: "ECH cipher suites out of order",
 			mutate: func(t *testing.T, p *Profile) {
+				t.Helper()
+
 				ech := p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH
 
 				ech.CipherSuites = []HPKESuite{
@@ -397,6 +431,8 @@ func TestValidate(t *testing.T) {
 		{
 			name: "ECH encapsulated key not X25519's",
 			mutate: func(t *testing.T, p *Profile) {
+				t.Helper()
+
 				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.EncLength = 65
 			},
 			path: "tls.extensions[16].ech.encLength",
@@ -405,6 +441,8 @@ func TestValidate(t *testing.T) {
 		{
 			name: "ECH without payload lengths",
 			mutate: func(t *testing.T, p *Profile) {
+				t.Helper()
+
 				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.PayloadLengths = nil
 			},
 			path: "tls.extensions[16].ech.payloadLengths",
@@ -413,6 +451,8 @@ func TestValidate(t *testing.T) {
 		{
 			name: "ECH payload no longer than the tag",
 			mutate: func(t *testing.T, p *Profile) {
+				t.Helper()
+
 				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.PayloadLengths[0] = 16
 			},
 			path: "tls.extensions[16].ech.payloadLengths[0]",
@@ -421,6 +461,8 @@ func TestValidate(t *testing.T) {
 		{
 			name: "ECH payload lengths repeated",
 			mutate: func(t *testing.T, p *Profile) {
+				t.Helper()
+
 				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.PayloadLengths[1] = 176
 			},
 			path: "tls.extensions[16].ech.payloadLengths[1]",
@@ -824,6 +866,8 @@ func TestValidate(t *testing.T) {
 		{
 			name: "TLS 1.2 only",
 			mutate: func(t *testing.T, p *Profile) {
+				t.Helper()
+
 				p.TLS.Extensions[extIndex(t, p, ExtSupportedVersions)].Versions = []Code{
 					0x0303,
 				}
@@ -870,6 +914,8 @@ func TestValidate(t *testing.T) {
 		{
 			name: "status_request body uTLS does not send",
 			mutate: func(t *testing.T, p *Profile) {
+				t.Helper()
+
 				p.TLS.Extensions[extIndex(t, p, ExtStatusRequest)].Data = Bytes{
 					1, 0,
 				}
@@ -880,6 +926,8 @@ func TestValidate(t *testing.T) {
 		{
 			name: "extended_master_secret with a body",
 			mutate: func(t *testing.T, p *Profile) {
+				t.Helper()
+
 				p.TLS.Extensions[extIndex(t, p, ExtExtendedMasterSecret)].Data = Bytes{
 					0,
 				}

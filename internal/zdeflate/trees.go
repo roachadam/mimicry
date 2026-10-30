@@ -101,7 +101,7 @@ func buildStatic() *staticTables {
 	t.lengthCode[length-1] = uint8(code)
 
 	dist := 0
-	for code = 0; code < 16; code++ {
+	for code := range 16 {
 		t.baseDist[code] = dist
 		for range 1 << extraDBits[code] {
 			t.distCode[dist] = uint8(code)
@@ -110,7 +110,7 @@ func buildStatic() *staticTables {
 	}
 
 	dist >>= 7 // from here on, distances are divided by 128
-	for ; code < dCodes; code++ {
+	for code := 16; code < dCodes; code++ {
 		t.baseDist[code] = dist << 7
 		for range 1 << (extraDBits[code] - 7) {
 			t.distCode[256+dist] = uint8(code)

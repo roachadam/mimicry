@@ -16,7 +16,7 @@ func TestQPACKRFC9204Examples(t *testing.T) {
 	type step struct {
 		name string
 		// encoder is encoder stream bytes, section a field section's,
-		// decoder decoder stream bytes; one per step.
+		// decoder the decoder stream bytes; one per step.
 		encoder, section, decoder string
 		wantEncoder               []EncoderInstruction
 		wantFields                []FieldLine

@@ -172,7 +172,7 @@ func TestEncoderOutputAlwaysDecodes(t *testing.T) {
 	}
 }
 
-// decodes decodes request i's section and returns its Required Insert
+// decodes runs the decoder over request i's section and returns its Required Insert
 // Count.
 func decodes(t *testing.T, d *Decoder, i int, block []byte, want []Field) uint64 {
 	t.Helper()

@@ -277,7 +277,9 @@ func (p *proxy) usage(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	_ = json.NewEncoder(w).Encode(out)
+	if err := json.NewEncoder(w).Encode(out); err != nil {
+		log.Printf("proxy: stats: %v", err)
+	}
 }
 
 // connect serves HTTP CONNECT on c. With auth set, a request without valid

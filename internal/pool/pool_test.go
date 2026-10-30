@@ -153,11 +153,15 @@ type fixture struct {
 }
 
 func newFixture(t *testing.T) *fixture {
+	t.Helper()
+
 	return newFixtureIdle(t, idleTimeout)
 }
 
 // newFixtureIdle is newFixture with the pool's IdleTimeout set to idle.
 func newFixtureIdle(t *testing.T, idle time.Duration) *fixture {
+	t.Helper()
+
 	f := &fixture{
 		t: t,
 		clock: &testClock{

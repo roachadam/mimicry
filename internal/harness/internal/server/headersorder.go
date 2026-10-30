@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/json"
 	"slices"
 	"strings"
 	"time"
@@ -212,7 +211,7 @@ func headersDocument(origin func(string) string) []byte {
 		steps[i].URL = origin(steps[i].Host) + "/h/" + steps[i].Label
 	}
 
-	list, _ := json.Marshal(steps)
+	list := mustJSON(steps)
 
 	return htmlPage("headers-order", "", "<script>(async () => {\nconst steps = "+string(list)+";\n"+headersScript+"\n})();</script>\n")
 }

@@ -2,6 +2,7 @@ package server
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"net"
 	"slices"
@@ -195,6 +196,18 @@ func cookieDeletions(set []string) []string {
 	}
 
 	return out
+}
+
+// mustJSON is v as JSON for a page's script. The pages marshal values their
+// own code builds (strings, numbers, slices and structs of them), which
+// cannot fail; a failure is a bug in the page.
+func mustJSON(v any) []byte {
+	b, err := json.Marshal(v)
+	if err != nil {
+		panic("server: page JSON: " + err.Error())
+	}
+
+	return b
 }
 
 // htmlPage is a page titled "mimicry <title>" with head and body as given.

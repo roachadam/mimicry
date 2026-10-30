@@ -22,12 +22,12 @@ import (
 // Op is one of the request shapes the micro and load scenarios send.
 type Op struct {
 	// Name is how results name it: GET, POST or bytes-<size>.
-	Name   string
-	Method string
-	Path   string
-	Body   []byte
+	Name   string `json:"name"`
+	Method string `json:"method"`
+	Path   string `json:"path"`
+	Body   []byte `json:"body,omitempty"`
 	// ContentType goes with Body.
-	ContentType string
+	ContentType string `json:"contentType,omitempty"`
 }
 
 // GetJSON is GET /json, a small JSON response.

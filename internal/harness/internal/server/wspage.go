@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/json"
 	"fmt"
 	"net"
 	"slices"
@@ -630,7 +629,7 @@ func (p wsPage) statements(i int, ports portPair) []string {
 			continue
 		}
 
-		protocols, _ := json.Marshal(append([]string{}, s.Protocols...))
+		protocols := mustJSON(append([]string{}, s.Protocols...))
 		sends := make([]string, len(s.Sends))
 
 		for k, m := range s.Sends {

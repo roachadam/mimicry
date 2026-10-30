@@ -6,7 +6,7 @@ mimicry is a Go HTTP client that reproduces real browsers' network fingerprints,
 
 ## Commands
 
-Go and moon are pinned in `.prototools`. golangci-lint is pinned in `.moon/tasks/go.yml` and run with `go run`, so it is built with the pinned Go: run it through moon, never a system install. `:lint` then runs gopls's analyzers (`.moon/scripts/gopls-check.sh`, gopls pinned there): anything an editor underlines fails lint.
+Go and moon are pinned in `.prototools`. golangci-lint is pinned in `.moon/tasks/go.yml` and run with `go run`, so it is built with the pinned Go: run it through moon, never a system install. `:lint` then runs gopls's analyzers (`.moon/scripts/gopls-check.sh`, gopls pinned there): anything an editor underlines fails lint. Last, `.moon/scripts/deadcode-check.sh` runs deadcode (pinned there) with `-test`: a function no test or main reaches fails lint if it is in an `internal/` package (except upstream's `internal/quic`); the public API and cmd entry points may be unreached. Beyond the standard set, `.golangci.yml` enables (among others) bidichk, asciicheck, durationcheck, nilnesserr, reassign, usetesting, fatcontext, exptostd, mirror, nosprintfhostport, gocheckcompilerdirectives, testableexamples, dupword, thelper, recvcheck, errchkjson, musttag, predeclared, errname and intrange.
 
 ```sh
 moon run :vet :lint :test   # the gate, every project (mimicry:test or harness:test for one)

@@ -176,6 +176,8 @@ func TestClientHelloAgreesWithStdlib(t *testing.T) {
 	clients = append(clients, client{
 		name: "crypto/tls",
 		handshake: func(t *testing.T, conn net.Conn) []byte {
+			t.Helper()
+
 			c := tls.Client(conn, &tls.Config{
 				ServerName: "localhost",
 				RootCAs:    ts.pool,
@@ -201,6 +203,8 @@ func TestClientHelloAgreesWithStdlib(t *testing.T) {
 		clients = append(clients, client{
 			name: id.Str(),
 			handshake: func(t *testing.T, conn net.Conn) []byte {
+				t.Helper()
+
 				// uTLS frees its hello once a TLS 1.3 handshake is done,
 				// so the bytes come from the wire: its first write.
 				rec := &firstWrite{

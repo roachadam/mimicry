@@ -921,7 +921,7 @@ func edgeFeatures(page *capture.Page) (f features, ms, stalled map[string]int) {
 }
 
 // stalledIn is how long this process was stalled (stalls) within the d ms
-// of page's clock from from on; 0 for a capture read from a file (the
+// of page's clock starting at from; 0 for a capture read from a file (the
 // browser's), which has no Start.
 func stalledIn(page *capture.Page, from, d int64) int {
 	if page.Start.IsZero() || d <= 0 {

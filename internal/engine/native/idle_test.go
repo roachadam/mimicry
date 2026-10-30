@@ -440,6 +440,8 @@ type proxyNet struct {
 }
 
 func newProxyNet(t *testing.T) *proxyNet {
+	t.Helper()
+
 	return &proxyNet{
 		t:      t,
 		dialed: map[string]int{},

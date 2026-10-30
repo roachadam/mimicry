@@ -38,6 +38,8 @@ type fakeNet struct {
 }
 
 func newFakeNet(t *testing.T, servers ...func(ctx context.Context, conn net.Conn) error) *fakeNet {
+	t.Helper()
+
 	n := &fakeNet{
 		t:       t,
 		ctx:     t.Context(),
@@ -302,6 +304,8 @@ func (l *oneConnListener) Addr() net.Addr {
 // get sends a GET on t's context. It does not fail t, so goroutines may
 // call it.
 func get(t *testing.T, e *Engine, target string) (*http.Response, error) {
+	t.Helper()
+
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, target, nil)
 	if err != nil {
 		return nil, err
@@ -328,6 +332,8 @@ func readAll(t *testing.T, resp *http.Response) string {
 // postOnce POSTs data in a body that cannot be sent twice: it has no
 // GetBody. It does not fail t.
 func postOnce(t *testing.T, e *Engine, target, data string) (*http.Response, error) {
+	t.Helper()
+
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, target, io.NopCloser(strings.NewReader(data)))
 	if err != nil {
 		return nil, err

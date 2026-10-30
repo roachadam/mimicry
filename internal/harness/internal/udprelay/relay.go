@@ -527,20 +527,21 @@ type item struct {
 
 type items []item
 
-func (h items) Len() int {
-	return len(h)
+func (h *items) Len() int {
+	return len(*h)
 }
 
-func (h items) Less(i, j int) bool {
-	if !h[i].due.Equal(h[j].due) {
-		return h[i].due.Before(h[j].due)
+func (h *items) Less(i, j int) bool {
+	a, b := &(*h)[i], &(*h)[j]
+	if !a.due.Equal(b.due) {
+		return a.due.Before(b.due)
 	}
 
-	return h[i].seq < h[j].seq
+	return a.seq < b.seq
 }
 
-func (h items) Swap(i, j int) {
-	h[i], h[j] = h[j], h[i]
+func (h *items) Swap(i, j int) {
+	(*h)[i], (*h)[j] = (*h)[j], (*h)[i]
 }
 
 func (h *items) Push(x any) {

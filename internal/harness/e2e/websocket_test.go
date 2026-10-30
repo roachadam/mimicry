@@ -447,6 +447,8 @@ func runSocket(t *testing.T, s *pageSession, tr *mimicry.Transport, page *url.UR
 
 // checkSocket compares mimicry's socket st (got, run) with every sample's.
 func checkSocket(t *testing.T, p *profile.Profile, st server.WebSocketStep, steps []server.WebSocketPageStep, got *capture.Page, want []*capture.Page, run *socketRun) {
+	t.Helper()
+
 	if run == nil {
 		t.Fatal("the step did not run")
 	}

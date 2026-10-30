@@ -329,6 +329,8 @@ func TestPins(t *testing.T) {
 				{
 					url: "https://www.shop.test/",
 					before: func(t *testing.T, tr *mimicry.Transport, _ []mimicry.CertPin) {
+						t.Helper()
+
 						if err := mimicry.SetPins(tr, pin("www.shop.test", other)); err != nil {
 							t.Fatal(err)
 						}

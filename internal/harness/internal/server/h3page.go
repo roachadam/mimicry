@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -338,7 +337,7 @@ func (p h3Page) document(path, port string) []byte {
 		}
 	}
 
-	stepsJSON, _ := json.Marshal(steps)
+	stepsJSON := mustJSON(steps)
 	done := "fetch('/done');"
 
 	if p.doneHost != "" {

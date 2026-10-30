@@ -7,6 +7,8 @@ import (
 // newLimitedFixture is newFixture with at most max exclusive connections
 // per key.
 func newLimitedFixture(t *testing.T, limit int) *fixture {
+	t.Helper()
+
 	f := newFixture(t)
 
 	f.pool = New[*fakeShared, *fakeExclusive](Config{

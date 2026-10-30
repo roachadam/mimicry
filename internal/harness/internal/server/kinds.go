@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/json"
 	"fmt"
 	"net"
 	"slices"
@@ -457,7 +456,7 @@ func (p kindsPage) document(port string) []byte {
 		steps[i].URL = url(steps[i])
 	}
 
-	stepsJSON, _ := json.Marshal(steps) //nolint:gosec // Credentials is fetch()'s credentials mode, not a secret
+	stepsJSON := mustJSON(steps)
 	script := strings.NewReplacer(
 		"__STEPS__", string(stepsJSON),
 		"__FORM__", strconv.Quote(p.scheme()+net.JoinHostPort(kindsHost, port)+"/k/"+kindsFormLabel),
@@ -523,7 +522,7 @@ document.body.appendChild(f); f.submit();
 // kindsLanding is where the form POST lands: it deletes every host's
 // cookies and asks for /done.
 func kindsLanding(origin func(string) string) []byte {
-	cleanup, _ := json.Marshal([]string{
+	cleanup := mustJSON([]string{
 		origin(kindsHost) + "/cleanup",
 		origin(kindsSameSite) + "/cleanup",
 		origin(kindsCrossSite) + "/cleanup",

@@ -279,7 +279,7 @@ func tcpGoAways(page *capture.Page) (goAways, replaced int) {
 }
 
 // nextDials are when the first TCP and the first QUIC connection to host
-// after after started, -1 for none.
+// at or later than after started, -1 for none.
 func nextDials(page *capture.Page, host string, after int64) (tcp, quic int64) {
 	tcp, quic = -1, -1
 	for _, c := range page.Connections {

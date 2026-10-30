@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"net"
@@ -522,7 +521,7 @@ func (rp *replay) document(doc int, port string) []byte {
 		return a.At - b.At
 	})
 
-	jobsJSON, _ := json.Marshal(jobs)
+	jobsJSON := mustJSON(jobs)
 
 	var cleanup []string
 
@@ -534,7 +533,7 @@ func (rp *replay) document(doc int, port string) []byte {
 		slices.Sort(cleanup)
 	}
 
-	cleanupJSON, _ := json.Marshal(cleanup)
+	cleanupJSON := mustJSON(cleanup)
 	script := strings.NewReplacer(
 		"__JOBS__", string(jobsJSON),
 		"__TOP__", strconv.FormatBool(doc == rp.top),

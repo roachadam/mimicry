@@ -303,6 +303,16 @@ linters:
       # Codepoint enums (TLS extensions, transport parameters, SETTINGS) are
       # open sets; their switches handle a few values and default the rest.
       default-signifies-exhaustive: true
+    dupword:
+      # Byte dumps in comments repeat bytes: deflate's sync flush tail is
+      # "00 00 ff ff".
+      ignore:
+        - "00"
+        - ff
+    thelper:
+      # A testing.TB parameter is named t like the *testing.T ones.
+      tb:
+        name: false
     nolintlint:
       require-specific: true
       require-explanation: true
@@ -337,6 +347,27 @@ linters:
     - wsl_v5          # whitespace: statement grouping and blank lines
     - tagalign        # struct tags aligned, json first
     - tagliatelle     # struct tag key case (json camelCase)
+    # --- added checks ---
+    - bidichk         # no dangerous unicode bidi characters
+    - asciicheck      # identifiers are ASCII
+    - durationcheck   # no duration multiplied by duration
+    - nilnesserr      # no returning a nil error after checking another
+    - reassign        # no reassigning other packages' variables
+    - usetesting      # t.TempDir/t.Context/t.Setenv over os equivalents
+    - fatcontext      # no context growing in loops
+    - exptostd        # x/exp functions that are in the stdlib now
+    - mirror          # bytes/string function pairs without conversions
+    - nosprintfhostport # net.JoinHostPort, not Sprintf, for host:port
+    - gocheckcompilerdirectives # //go: directives are valid
+    - testableexamples # examples have output comments
+    - dupword         # no duplicated words in comments and strings
+    - thelper         # test helpers call t.Helper()
+    - recvcheck       # a type's receivers are consistently values or pointers
+    - errchkjson      # json encoding errors are checked
+    - musttag         # marshaled structs have tags
+    - predeclared     # no shadowing of predeclared identifiers
+    - errname         # error types end in Error, sentinels start with Err
+    - intrange        # range over int where possible
   exclusions:
     # internal/quic is a copy of golang.org/x/net/quic (decision 0027) in
     # upstream's style, which these linters fault in ~500 places (unchecked
@@ -378,6 +409,26 @@ linters:
           - gocritic
           - prealloc
           - revive
+          - bidichk
+          - asciicheck
+          - durationcheck
+          - nilnesserr
+          - reassign
+          - usetesting
+          - fatcontext
+          - exptostd
+          - mirror
+          - nosprintfhostport
+          - gocheckcompilerdirectives
+          - testableexamples
+          - dupword
+          - thelper
+          - recvcheck
+          - errchkjson
+          - musttag
+          - predeclared
+          - errname
+          - intrange
       # Tests close bodies through helpers and t.Cleanup, which bodyclose cannot
       # follow; product code is still checked.
       - path: _test\.go

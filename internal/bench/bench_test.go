@@ -26,6 +26,8 @@ import (
 // servers are the servers to run against: BENCH_SERVERS (comma-separated
 // names), else both.
 func servers(b *testing.B) []target.Server {
+	b.Helper()
+
 	names := os.Getenv("BENCH_SERVERS")
 	if names == "" {
 		return target.Servers
@@ -55,6 +57,8 @@ func benchName(f clients.Factory) string {
 // (bench.sh rotates it between its passes, so no client always runs
 // first or last), else clients.All's.
 func benchClients(b *testing.B) []clients.Factory {
+	b.Helper()
+
 	list := os.Getenv("BENCH_CLIENTS")
 	if list == "" {
 		return clients.All()
@@ -145,6 +149,8 @@ func BenchmarkRequest(b *testing.B) {
 }
 
 func benchRequest(b *testing.B, su scenario.Setup, op scenario.Op) {
+	b.Helper()
+
 	if err := su.Supported(); err != nil {
 		b.Skip("n/a: ", err)
 	}
@@ -216,6 +222,8 @@ func BenchmarkConnect(b *testing.B) {
 }
 
 func benchFull(b *testing.B, su scenario.Setup) {
+	b.Helper()
+
 	if err := su.Supported(); err != nil {
 		b.Skip("n/a: ", err)
 	}
@@ -276,6 +284,8 @@ func benchFull(b *testing.B, su scenario.Setup) {
 }
 
 func benchResumed(b *testing.B, su scenario.Setup) {
+	b.Helper()
+
 	if err := su.Supported(); err != nil {
 		b.Skip("n/a: ", err)
 	}

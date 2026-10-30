@@ -1174,15 +1174,15 @@ func (e *interopEnv) altSvcServer() string {
 // connInfo is what a backend tells about the connection a response went
 // on (the X-Info header).
 type connInfo struct {
-	Backend string
+	Backend string `json:"backend"`
 	// Conn numbers the backend's connections.
-	Conn     int64
-	Resumed  bool
-	Used0RTT bool
+	Conn     int64 `json:"conn"`
+	Resumed  bool  `json:"resumed"`
+	Used0RTT bool  `json:"used0Rtt"`
 	// Early: the request arrived before the handshake completed.
-	Early  bool
-	Cipher uint16
-	Remote string
+	Early  bool   `json:"early"`
+	Cipher uint16 `json:"cipher"`
+	Remote string `json:"remote"`
 }
 
 // send sends req as a fetch() from the origin's page.
@@ -2035,7 +2035,13 @@ func interopHandler(b *backend) http.Handler {
 		if sc != nil {
 			info = infoOf(b, sc)
 
-			j, _ := json.Marshal(info)
+			j, err := json.Marshal(info)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+
+				return
+			}
+
 			w.Header().Set("X-Info", string(j))
 		}
 

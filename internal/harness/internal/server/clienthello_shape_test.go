@@ -247,6 +247,8 @@ func TestParseClientHelloSeesEveryShapeChange(t *testing.T) {
 			mutations = append(mutations, helloMutation{
 				name: fmt.Sprintf("key share %d one byte shorter", i+1),
 				mutate: func(t *testing.T, h helloParts) helloParts {
+					t.Helper()
+
 					return h.withExtension(t, extKeyShare, func(data []byte) []byte {
 						return keyShares(data, func(j, n int) int {
 							if j == i {
@@ -299,6 +301,8 @@ func countShares(data []byte) int {
 func echMutations() []helloMutation {
 	ech := func(f func(data []byte) []byte) func(t *testing.T, h helloParts) helloParts {
 		return func(t *testing.T, h helloParts) helloParts {
+			t.Helper()
+
 			return h.withExtension(t, extECH, f)
 		}
 	}
