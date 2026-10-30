@@ -1,13 +1,14 @@
-# Lint and tests. A pull request runs lint, the library's tests and the
-# harness tests of the tiers its paths call for (.github/harness-shards.txt:
-# core always; protocol and gen when it touches their paths, below); a push
-# to main, the nightly run and a run by hand run every tier, main's too
-# (the timing-heavy HTTP/3 edge and QUIC interop tests: their regressions
-# show after the merge). release.yml calls it with full: true before a
-# release (every tier, every profile). ci-ok is the one check to require:
-# it passes when every job passed, or when a pull request touches only docs
-# and the jobs were skipped. Each job stays under 15 minutes; the harness
-# tests are split into shards (.github/scripts/harness-shard.sh).
+# Lint, tests and govulncheck. A pull request runs lint, govulncheck, the
+# library's tests and the harness tests of the tiers its paths call for
+# (.github/harness-shards.txt: core always; protocol and gen when it touches
+# their paths, below); a push to main, the nightly run and a run by hand run
+# every tier, main's too (the timing-heavy HTTP/3 edge and QUIC interop
+# tests: their regressions show after the merge). release.yml calls it with
+# full: true before a release (every tier, every profile). ci-ok is the one
+# check to require: it passes when every job passed, or when a pull request
+# touches only docs and the jobs were skipped. Each job stays under 15
+# minutes; the harness tests are split into shards
+# (.github/scripts/harness-shard.sh). CodeQL is codeql.yml.
 name: CI
 
 on:
@@ -58,7 +59,7 @@ jobs:
       shards: ${{ steps.filter.outputs.shards }}
     steps:
       - if: github.event_name == 'pull_request'
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 2
           persist-credentials: false
@@ -105,7 +106,7 @@ jobs:
     timeout-minutes: 15
     steps:
       # moon diffs against the base branch (origin/main), so it needs history.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           filter: blob:none
@@ -136,7 +137,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.full && 75 || 15 }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
@@ -154,6 +155,38 @@ jobs:
           go build ./...
           go vet ./...
 
+  # Known vulnerabilities (the Go vulnerability database) in each module, its
+  # dependencies and the Go standard library. It fails only on one the code
+  # can reach (a call path to the vulnerable symbol) and lists the rest; the
+  # nightly run catches one published after a merge. govulncheck is pinned
+  # here and built with the pinned Go.
+  vuln:
+    name: vuln
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GOVULNCHECK: golang.org/x/vuln/cmd/govulncheck@v1.9.0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          cache: vuln
+          save: ${{ github.ref == 'refs/heads/main' }}
+      - name: govulncheck (library)
+        run: go run "$GOVULNCHECK" ./...
+      - name: govulncheck (harness)
+        working-directory: internal/harness
+        run: go run "$GOVULNCHECK" ./...
+      - name: govulncheck (bench)
+        working-directory: internal/bench
+        env:
+          GOWORK: 'off'
+        run: go run "$GOVULNCHECK" ./...
+
   # The tiers changes picked, in its number of shards.
   test-harness:
     name: test-harness (${{ matrix.shard }})
@@ -166,7 +199,7 @@ jobs:
       matrix:
         shard: ${{ fromJSON(needs.changes.outputs.shards) }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
@@ -176,7 +209,7 @@ jobs:
           save: ${{ github.ref == 'refs/heads/main' && matrix.shard == 1 }}
       # The h3-v2 scenario's server (TestHTTP3EdgeMatchesBrowser, tier main).
       - if: contains(needs.changes.outputs.tiers, 'main')
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.13'
       - if: contains(needs.changes.outputs.tiers, 'main')
@@ -190,7 +223,7 @@ jobs:
   # is no job, only fewer shards, so a skipped job is a docs-only change.
   ci-ok:
     name: ci-ok
-    needs: [changes, lint, test-root, test-harness]
+    needs: [changes, lint, test-root, vuln, test-harness]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 15

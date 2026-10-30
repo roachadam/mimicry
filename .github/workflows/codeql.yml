@@ -1,0 +1,82 @@
+# CodeQL code scanning (advanced setup: the repository's default setup must
+# stay off), results in the Security tab. Two languages: go (the three
+# modules: the library, internal/harness, internal/bench) and actions (the
+# workflows and the shared setup action). Not javascript or python: the
+# repo's only such files are small test helpers (the bench's nginx njs
+# script, internal/bench/docker/nginx/bench.js, and the harness's aioquic
+# HTTP/3 scenario server, internal/harness/internal/server/aioquic_h3.py).
+# Runs on every pull request, every push to main and weekly, so a query added
+# to CodeQL reaches code nobody changed. Each job stays under 15 minutes.
+name: CodeQL
+
+on:
+  # Not on a pull request that only changes docs or bench reports: CodeQL
+  # analyses code, and it is not a required check.
+  pull_request:
+    paths-ignore: ['**/*.md', 'docs/**', 'internal/bench/reports/**']
+  push:
+    branches: [main]
+  schedule:
+    - cron: '41 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A new push to a pull request cancels its running analysis.
+concurrency:
+  group: codeql-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # The Go in .prototools, never a download go.mod asks for.
+  GOTOOLCHAIN: local
+
+jobs:
+  analyze:
+    name: analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # manual: CodeQL traces the go build below, one per module.
+          - language: go
+            build-mode: manual
+          - language: actions
+            build-mode: none
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Before init, so CodeQL finds the pinned Go. CodeQL traces the go
+      # binary itself, and proto's shim fails under its tracer ("nul byte
+      # found in provided data" in a local run), so the pinned Go's own bin
+      # goes first on PATH.
+      - if: matrix.language == 'go'
+        uses: ./.github/actions/setup
+        with:
+          cache: codeql
+          save: ${{ github.ref == 'refs/heads/main' }}
+      - if: matrix.language == 'go'
+        run: echo "$(go env GOROOT)/bin" >>"$GITHUB_PATH"
+      - uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+      # Linux builds of the non-test packages: tests and other platforms'
+      # files (the harness's Windows-only capture host) are not analysed.
+      - if: matrix.build-mode == 'manual'
+        name: go build (library, harness, bench)
+        run: |
+          go build ./...
+          (cd internal/harness && go build ./...)
+          (cd internal/bench && GOWORK=off go build ./...)
+      - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          category: /language:${{ matrix.language }}
