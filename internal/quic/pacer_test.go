@@ -17,7 +17,7 @@ func TestPacerStartup(t *testing.T) {
 	}
 	p.init(t)
 	t.Logf("# initial burst permits sending ten packets")
-	for i := 0; i < 10; i++ {
+	for range 10 { // mimicry: modernize
 		p.sendPacket(1000)
 	}
 
@@ -40,7 +40,7 @@ func TestPacerStartup(t *testing.T) {
 
 	t.Logf("# window does not grow to more than burst limit")
 	p.advance(1 * time.Second)
-	for i := 0; i < 11; i++ {
+	for range 11 { // mimicry: modernize
 		p.sendPacket(1000)
 	}
 	p.wantSendDelay(8 * time.Millisecond)
@@ -54,7 +54,7 @@ func TestPacerTimerGranularity(t *testing.T) {
 	}
 	p.init(t)
 	t.Logf("# consume initial burst")
-	for i := 0; i < 11; i++ {
+	for range 11 { // mimicry: modernize
 		p.sendPacket(1000)
 	}
 	p.wantSendDelay(8 * time.Millisecond)
@@ -80,7 +80,7 @@ func TestPacerChangingRate(t *testing.T) {
 	}
 	p.init(t)
 	t.Logf("# consume initial burst")
-	for i := 0; i < 11; i++ {
+	for range 11 { // mimicry: modernize
 		p.sendPacket(1000)
 	}
 	p.wantSendDelay(8 * time.Millisecond)
@@ -115,7 +115,7 @@ func TestPacerTimeReverses(t *testing.T) {
 	}
 	p.init(t)
 	t.Logf("# consume initial burst")
-	for i := 0; i < 11; i++ {
+	for range 11 { // mimicry: modernize
 		p.sendPacket(1000)
 	}
 	p.wantSendDelay(8 * time.Millisecond)
@@ -136,11 +136,11 @@ func TestPacerZeroRTT(t *testing.T) {
 	}
 	p.init(t)
 	t.Logf("# with rtt 0, the pacer does not limit sending")
-	for i := 0; i < 20; i++ {
+	for range 20 { // mimicry: modernize
 		p.sendPacket(1000)
 	}
 	p.advance(1 * time.Second)
-	for i := 0; i < 20; i++ {
+	for range 20 { // mimicry: modernize
 		p.sendPacket(1000)
 	}
 }
@@ -154,7 +154,7 @@ func TestPacerZeroCongestionWindow(t *testing.T) {
 	p.init(t)
 	p.cwnd = 0
 	t.Logf("# with cwnd 0, the pacer does not limit sending")
-	for i := 0; i < 20; i++ {
+	for range 20 { // mimicry: modernize
 		p.sendPacket(1000)
 	}
 }

@@ -1007,10 +1007,10 @@ func (tc *testConnHooks) init(first bool) {
 func (tc *testConnHooks) handleTLSEvent(e tls.QUICEvent) {
 	checkKey := func(typ string, secrets *[numberSpaceCount]keySecret, e tls.QUICEvent) {
 		var space numberSpace
-		switch {
-		case e.Level == tls.QUICEncryptionLevelHandshake:
+		switch e.Level { // mimicry: modernize, was switch { case e.Level == …
+		case tls.QUICEncryptionLevelHandshake:
 			space = handshakeSpace
-		case e.Level == tls.QUICEncryptionLevelApplication:
+		case tls.QUICEncryptionLevelApplication: // mimicry: modernize
 			space = appDataSpace
 		default:
 			tc.t.Errorf("unexpected encryption level %v", e.Level)
@@ -1027,7 +1027,7 @@ func (tc *testConnHooks) handleTLSEvent(e tls.QUICEvent) {
 	setAppDataKey := func(suite uint16, secret []byte, k *test1RTTKeys) {
 		k.hdr.initVersion(v, suite, secret)
 
-		for i := 0; i < len(k.pkt); i++ {
+		for i := range len(k.pkt) { // mimicry: modernize
 			k.pkt[i].initVersion(v, suite, secret)
 
 			secret = updateSecretVersion(v, suite, secret)

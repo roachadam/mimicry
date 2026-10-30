@@ -60,7 +60,7 @@ func TestParseLongHeaderPacket(t *testing.T) {
 	}
 
 	// Parse truncated versions of the packet; every attempt should fail.
-	for i := 0; i < len(pkt); i++ {
+	for i := range pkt { // mimicry: modernize
 		if _, n := parseLongHeaderPacket(pkt[:i], initialServerKeys, 0); n != -1 {
 			t.Fatalf("parse truncated long header packet: n=%v, want -1\ninput: %x", n, pkt[:i])
 		}

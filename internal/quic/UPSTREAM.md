@@ -422,15 +422,27 @@ the mechanical import rewrites.
     poisoned under `-race`), whose readers now wait with every buffer
     returned.
 
-17. **Tests in current Go idiom** (`bench_test.go`, `idle_test.go`;
-    marked `mimicry:`). gopls' bloop and SA1004 hints, fixed in the tests
-    only. The four benchmarks' timed loops use `b.Loop()` (setup stays
-    before it). `b.Loop` leaves `b.N` at 0 until the loop ends, so the
-    server goroutines of `BenchmarkThroughput` and
-    `BenchmarkStreamCreation` no longer count `b.N` streams: they accept
-    until a context canceled when the benchmark returns. The two
-    `time.Sleep(1)` in `idle_test.go` (fake time, one step past the
-    timeout) read `time.Sleep(time.Nanosecond)`; same duration.
+17. **Tests in current Go idiom** (the package's `_test.go` files,
+    `qlog/json_writer_test.go`; marked `mimicry:`). gopls' hints
+    (`-severity=hint`), fixed in the tests only. The four benchmarks'
+    timed loops use `b.Loop()` (setup stays before it). `b.Loop` leaves
+    `b.N` at 0 until the loop ends, so the server goroutines of
+    `BenchmarkThroughput` and `BenchmarkStreamCreation` no longer count
+    `b.N` streams: they accept until a context canceled when the benchmark
+    returns. The two `time.Sleep(1)` in `idle_test.go` (fake time, one
+    step past the timeout) read `time.Sleep(time.Nanosecond)`; same
+    duration. The rest is the modernize analyzer's own rewrite
+    (`go run golang.org/x/tools/go/analysis/passes/modernize/cmd/modernize
+    -fix -test`, its non-test edits discarded), one `mimicry: modernize`
+    marker per site: range over int, `WaitGroup.Go`, `bytes.SplitSeq`,
+    no `test := test` copies, no embedded field type in `conn_id_test.go`'s
+    literals; plus a tagged switch in `conn_test.go`. Hints left: in the
+    tests, unused helpers (`wantDatagram`, `setSmoothedRTT`,
+    `newPacerTest`, `sendDelay`, `testSidesAndStreamTypesSynctest`), kept
+    as upstream has them; in non-test code, the same kinds the tests had
+    (range over int in `packet_protection.go`, embedded field types in
+    `conn_id.go`, `string +=` in a loop in `frame_debug.go`), an unused
+    `updateSecret` and unused parameters, left as upstream's.
 
 ## Tests
 

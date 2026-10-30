@@ -106,8 +106,7 @@ func TestRangesetAdd(t *testing.T) {
 		set:  rangeset[int64]{{100, 200}, {300, 400}, {500, 600}, {700, 800}, {900, 1000}},
 		add:  i64range[int64]{300, 850},
 		want: rangeset[int64]{{100, 200}, {300, 850}, {900, 1000}},
-	}} {
-		test := test
+	}} { // mimicry: modernize, dropped test := test
 		t.Run(test.desc, func(t *testing.T) {
 			got := test.set
 			got.add(test.add.start, test.add.end)
@@ -176,8 +175,7 @@ func TestRangesetSub(t *testing.T) {
 		set:  rangeset[int64]{{0, 100}},
 		sub:  i64range[int64]{0, 100},
 		want: rangeset[int64]{},
-	}} {
-		test := test
+	}} { // mimicry: modernize, dropped test := test
 		t.Run(test.desc, func(t *testing.T) {
 			got := test.set
 			got.sub(test.sub.start, test.sub.end)
@@ -194,7 +192,7 @@ func TestRangesetContains(t *testing.T) {
 	var s rangeset[int64]
 	s.add(10, 20)
 	s.add(30, 40)
-	for i := int64(0); i < 50; i++ {
+	for i := range int64(50) { // mimicry: modernize
 		want := (i >= 10 && i < 20) || (i >= 30 && i < 40)
 		if got := s.contains(i); got != want {
 			t.Errorf("%v.contains(%v) = %v, want %v", s, i, got, want)

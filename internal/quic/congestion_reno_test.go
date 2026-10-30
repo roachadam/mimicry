@@ -124,7 +124,7 @@ func TestRenoRecoveryToCongestionAvoidance(t *testing.T) {
 	test.packetBatchEnd(initialSpace)
 	test.wantVar("congestion_pending_acks", 1000)
 
-	for i := 0; i < 6; i++ {
+	for range 6 { // mimicry: modernize
 		p := test.packetSent(initialSpace, 1000)
 		test.packetAcked(initialSpace, p)
 	}
@@ -363,7 +363,7 @@ func TestRenoCanSend(t *testing.T) {
 
 	t.Logf("controller permits sending until congestion window is full")
 	var packets []*sentPacket
-	for i := 0; i < 10; i++ {
+	for i := range 10 { // mimicry: modernize
 		test.wantVar("bytes_in_flight", i*1200)
 		test.wantCanSend(true)
 		p := test.packetSent(initialSpace, 1200)

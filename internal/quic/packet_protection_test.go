@@ -118,8 +118,7 @@ func TestPacketProtection(t *testing.T) {
 		prot: unhex(`
 			4cfe4189655e5cd55c41f69080575d79 99c25a5bfb
 		`),
-	}} {
-		test := test
+	}} { // mimicry: modernize, dropped test := test
 		t.Run(test.name, func(t *testing.T) {
 			pnumLen := int(test.hdr[0]&0x03) + 1
 			pnumOff := len(test.hdr) - pnumLen

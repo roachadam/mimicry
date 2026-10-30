@@ -37,14 +37,12 @@ func wantJSONRecord(t *testing.T, w *jsonWriter, want string) {
 func TestJSONWriterWriteConcurrentRecords(t *testing.T) {
 	w := newTestJSONWriter()
 	var wg sync.WaitGroup
-	for i := 0; i < 3; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 3 { // mimicry: modernize
+		wg.Go(func() {
 			w.writeRecordStart()
 			w.writeInt64Field("field", 0)
 			w.writeRecordEnd()
-		}()
+		})
 	}
 	wg.Wait()
 	wantJSONRecord(t, w, strings.Join([]string{

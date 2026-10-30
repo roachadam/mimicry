@@ -212,7 +212,7 @@ func TestStreamLimitSendUpdatesMaxStreams(t *testing.T) {
 		tc.handshake()
 		tc.ignoreFrame(frameTypeAck)
 		var streams []*Stream
-		for i := 0; i < 4; i++ {
+		for i := range 4 { // mimicry: modernize
 			tc.writeFrames(packetType1RTT, debugFrameStream{
 				id:  newStreamID(clientSide, styp, int64(i)),
 				fin: true,

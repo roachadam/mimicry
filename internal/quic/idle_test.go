@@ -198,7 +198,7 @@ func testIdleLongTermKeepAliveSent(t *testing.T) {
 	tc.writeFrames(packetType1RTT, debugFramePing{})
 	tc.writeFrames(packetType1RTT, debugFramePing{})
 	tc.wantFrameType("conn acks received pings", packetType1RTT, debugFrameAck{})
-	for i := 0; i < 10; i++ {
+	for i := range 10 { // mimicry: modernize
 		tc.wantIdle("conn has nothing more to send")
 		if got, want := tc.timeUntilEvent(), keepAlivePeriod; got != want {
 			t.Errorf("i=%v conn timeout=%v, want %v (keepalive timeout)", i, got, want)
@@ -221,7 +221,7 @@ func testIdleLongTermKeepAliveReceived(t *testing.T) {
 		c.MaxIdleTimeout = idleTimeout
 	})
 	tc.handshake()
-	for i := 0; i < 10; i++ {
+	for i := range 10 { // mimicry: modernize
 		time.Sleep(idleTimeout - 1*time.Second)
 		tc.writeFrames(packetType1RTT, debugFramePing{})
 		if got, want := tc.timeUntilEvent(), maxAckDelay-timerGranularity; got != want {

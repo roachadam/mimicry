@@ -146,7 +146,7 @@ func FuzzPacketNumber(f *testing.F) {
 
 		// Check that the decoded packet number's least significant bits match the input.
 		var mask packetNumber
-		for i := 0; i < len(in); i++ {
+		for range in { // mimicry: modernize
 			mask = (mask << 8) | 0xff
 		}
 		if truncatedIn != decoded&mask {

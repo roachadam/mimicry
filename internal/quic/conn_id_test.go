@@ -51,10 +51,8 @@ func testConnIDClientHandshake(t *testing.T) {
 		t.Errorf("local ids: %v, want %v", fmtConnIDList(got), fmtConnIDList(wantLocal))
 	}
 	wantRemote := []remoteConnID{{
-		connID: connID{
-			cid: testPeerConnID(0),
-			seq: 0,
-		},
+		cid: testPeerConnID(0), // mimicry: modernize
+		seq: 0,
 	}}
 	if got := tc.conn.connIDState.remote; !remoteConnIDListEqual(got, wantRemote) {
 		t.Errorf("remote ids: %v, want %v", fmtRemoteConnIDList(got), fmtRemoteConnIDList(wantRemote))
@@ -102,10 +100,8 @@ func testConnIDServerHandshake(t *testing.T) {
 		t.Errorf("local ids: %v, want %v", fmtConnIDList(got), fmtConnIDList(wantLocal))
 	}
 	wantRemote := []remoteConnID{{
-		connID: connID{
-			cid: testPeerConnID(0),
-			seq: 0,
-		},
+		cid: testPeerConnID(0), // mimicry: modernize
+		seq: 0,
 	}}
 	if got := tc.conn.connIDState.remote; !remoteConnIDListEqual(got, wantRemote) {
 		t.Errorf("remote ids: %v, want %v", fmtRemoteConnIDList(got), fmtRemoteConnIDList(wantRemote))
@@ -374,7 +370,7 @@ func testConnIDPeerDoesNotAcknowledgeRetirement(t *testing.T) {
 	tc.ignoreFrame(frameTypeRetireConnectionID)
 
 	// Send a number of NEW_CONNECTION_ID frames, each retiring an old one.
-	for seq := int64(0); seq < 7; seq++ {
+	for seq := range int64(7) { // mimicry: modernize
 		tc.writeFrames(packetType1RTT,
 			debugFrameNewConnectionID{
 				seq:           seq + 2,
@@ -400,7 +396,7 @@ func testConnIDRepeatedNewConnectionIDFrame(t *testing.T) {
 	tc.handshake()
 	tc.ignoreFrame(frameTypeAck)
 
-	for i := 0; i < 4; i++ {
+	for range 4 { // mimicry: modernize
 		tc.writeFrames(packetType1RTT,
 			debugFrameNewConnectionID{
 				seq:           2,
@@ -517,7 +513,7 @@ func testConnIDRepeatedRetireConnectionIDFrame(t *testing.T) {
 	tc.handshake()
 	tc.ignoreFrame(frameTypeAck)
 
-	for i := 0; i < 4; i++ {
+	for range 4 { // mimicry: modernize
 		tc.writeFrames(packetType1RTT,
 			debugFrameRetireConnectionID{
 				seq: 0,

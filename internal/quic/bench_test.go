@@ -65,7 +65,7 @@ func throughput(b *testing.B, totalBytes int64) {
 				panic(fmt.Errorf("Discard: %v", err))
 			}
 		}()
-		for j := 0; j < chunks; j++ {
+		for range chunks { // mimicry: modernize
 			_, err := cconn.Write(buf)
 			if err != nil {
 				b.Fatalf("Write: %v", err)
@@ -83,9 +83,7 @@ func BenchmarkReadByte(b *testing.B) {
 	var wg sync.WaitGroup
 	defer wg.Wait()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() { // mimicry: modernize
 		buf := make([]byte, 1<<20)
 		sconn, err := srv.AcceptStream(context.Background())
 		if err != nil {
@@ -97,7 +95,7 @@ func BenchmarkReadByte(b *testing.B) {
 			}
 			sconn.Flush()
 		}
-	}()
+	})
 
 	b.SetBytes(1)
 	cconn, err := cli.NewStream(context.Background())
@@ -120,9 +118,7 @@ func BenchmarkWriteByte(b *testing.B) {
 	var wg sync.WaitGroup
 	defer wg.Wait()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() { // mimicry: modernize
 		sconn, err := srv.AcceptStream(context.Background())
 		if err != nil {
 			panic(fmt.Errorf("AcceptStream: %v", err))
@@ -131,7 +127,7 @@ func BenchmarkWriteByte(b *testing.B) {
 		if n != int64(b.N) || err != nil {
 			b.Errorf("server io.Copy() = %v, %v; want %v, nil", n, err, b.N)
 		}
-	}()
+	})
 
 	b.SetBytes(1)
 	cconn, err := cli.NewStream(context.Background())

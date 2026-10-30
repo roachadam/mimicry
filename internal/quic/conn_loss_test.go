@@ -72,7 +72,7 @@ func (tc *testConn) triggerLossOrPTO(ptype packetType, pto bool) {
 	// reordering threshold, and it will be declared lost.
 	const lossThreshold = 3
 	var num packetNumber
-	for i := 0; i < lossThreshold; i++ {
+	for range lossThreshold { // mimicry: modernize
 		tc.conn.ping(spaceForPacketType(ptype))
 		d := tc.readDatagram()
 		if d == nil {
@@ -503,7 +503,7 @@ func testLostMaxStreamsFrameNotMostRecent(t *testing.T) {
 	})
 	tc.handshake()
 	tc.ignoreFrame(frameTypeAck)
-	for i := int64(0); i < 2; i++ {
+	for i := range int64(2) { // mimicry: modernize
 		tc.writeFrames(packetType1RTT, debugFrameStream{
 			id:  newStreamID(clientSide, uniStream, i),
 			fin: true,

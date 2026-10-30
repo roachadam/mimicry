@@ -245,7 +245,7 @@ func testStreamsWriteQueueFairness(t *testing.T) {
 	// We verify that all streams can make progress.
 	data := make([]byte, dataLen)
 	var streams []*Stream
-	for i := 0; i < numStreams; i++ {
+	for range numStreams { // mimicry: modernize
 		s, err := tc.conn.NewStream(ctx)
 		if err != nil {
 			t.Fatal(err)
@@ -517,11 +517,9 @@ func TestStreamsCreateConcurrency(t *testing.T) {
 	var wg sync.WaitGroup
 	const concurrency = 10
 	const streams = 10
-	for i := 0; i < concurrency; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for j := 0; j < streams; j++ {
+	for range concurrency { // mimicry: modernize
+		wg.Go(func() {
+			for range streams {
 				s, err := cli.NewStream(context.Background())
 				if err != nil {
 					t.Errorf("NewStream: %v", err)
@@ -534,7 +532,7 @@ func TestStreamsCreateConcurrency(t *testing.T) {
 				}
 				s.Close()
 			}
-		}()
+		})
 	}
 	wg.Wait()
 

@@ -554,7 +554,7 @@ func TestStreamReceiveDuplicateDataDoesNotViolateLimits(t *testing.T) {
 		})
 		tc.handshake()
 		tc.ignoreFrame(frameTypeAck)
-		for i := 0; i < 3; i++ {
+		for i := range 3 { // mimicry: modernize
 			tc.writeFrames(packetType1RTT, debugFrameStream{
 				id:   newStreamID(clientSide, styp, 0),
 				off:  0,
@@ -1387,7 +1387,7 @@ func TestStreamPeerStopSendingForActiveStream(t *testing.T) {
 	// https://www.rfc-editor.org/rfc/rfc9000#section-3.5-4
 	testStreamTypesSynctest(t, "", func(t *testing.T, styp streamType) {
 		tc, s := newTestConnAndLocalStream(t, serverSide, styp, permissiveTransportParameters)
-		for i := 0; i < 4; i++ {
+		for i := range 4 { // mimicry: modernize
 			s.Write([]byte{byte(i)})
 			s.Flush()
 			tc.wantFrame("write sends a STREAM frame to peer",
@@ -1764,7 +1764,7 @@ func permissiveTransportParameters(p *transportParameters) {
 
 func makeTestData(n int) []byte {
 	b := make([]byte, n)
-	for i := 0; i < n; i++ {
+	for i := range n { // mimicry: modernize
 		b[i] = byte(i)
 	}
 	return b

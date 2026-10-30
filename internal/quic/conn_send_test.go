@@ -27,7 +27,7 @@ func testAckElicitingAck(t *testing.T) {
 	tc := newTestConn(t, clientSide, permissiveTransportParameters)
 	tc.handshake()
 	const count = 100
-	for i := 0; i < count; i++ {
+	for range count { // mimicry: modernize
 		time.Sleep(1 * time.Millisecond)
 		tc.writeFrames(packetType1RTT,
 			debugFramePing{},
@@ -62,7 +62,7 @@ func testSendPacketNumberSize(t *testing.T) {
 
 	// Desynchronize the packet numbers the conn is sending and the ones it is receiving,
 	// by having the conn send a number of unacked packets.
-	for i := 0; i < 16; i++ {
+	for range 16 { // mimicry: modernize
 		recvPing()
 	}
 

@@ -19,7 +19,7 @@ func TestAcksDisallowDuplicate(t *testing.T) {
 	for i, pnum := range receive {
 		acks.receive(now, appDataSpace, pnum, true, ecnNotECT)
 		seen[pnum] = true
-		for ppnum := packetNumber(0); ppnum < 11; ppnum++ {
+		for ppnum := range packetNumber(11) { // mimicry: modernize
 			if got, want := acks.shouldProcess(ppnum), !seen[ppnum]; got != want {
 				t.Fatalf("after receiving %v: acks.shouldProcess(%v) = %v, want %v", receive[:i+1], ppnum, got, want)
 			}

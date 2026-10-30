@@ -23,7 +23,7 @@ func TestMain(m *testing.M) {
 	}
 	buf := make([]byte, 2<<20)
 	buf = buf[:runtime.Stack(buf, true)]
-	for _, g := range bytes.Split(buf, []byte("\n\n")) {
+	for g := range bytes.SplitSeq(buf, []byte("\n\n")) { // mimicry: modernize
 		id, _, _ := bytes.Cut(g, []byte("["))
 		skip = append(skip, id)
 	}
@@ -45,7 +45,7 @@ func TestMain(m *testing.M) {
 		buf := make([]byte, 2<<20)
 		buf = buf[:runtime.Stack(buf, true)]
 		leaked := false
-		for _, g := range bytes.Split(buf, []byte("\n\n")) {
+		for g := range bytes.SplitSeq(buf, []byte("\n\n")) { // mimicry: modernize
 			leaked = true
 			for _, s := range skip {
 				if bytes.Contains(g, s) {

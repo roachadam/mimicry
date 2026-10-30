@@ -10,7 +10,7 @@ func TestSentPacketListSlidingWindow(t *testing.T) {
 	// Record 1000 sent packets, acking everything outside the most recent 10.
 	list := &sentPacketList{}
 	const window = 10
-	for i := packetNumber(0); i < 1000; i++ {
+	for i := range packetNumber(1000) { // mimicry: modernize
 		list.add(&sentPacket{num: i})
 		if i < window {
 			continue
@@ -47,7 +47,7 @@ func TestSentPacketListGrows(t *testing.T) {
 	// Record 1000 sent packets.
 	list := &sentPacketList{}
 	const count = 1000
-	for i := packetNumber(0); i < count; i++ {
+	for i := range packetNumber(count) { // mimicry: modernize
 		list.add(&sentPacket{num: i})
 	}
 	if got, want := list.start(), packetNumber(0); got != want {
@@ -59,7 +59,7 @@ func TestSentPacketListGrows(t *testing.T) {
 	if got, want := list.size, count; got != want {
 		t.Fatalf("list.size = %v, want %v", got, want)
 	}
-	for i := packetNumber(0); i < count; i++ {
+	for i := range packetNumber(count) { // mimicry: modernize
 		sent := list.num(i)
 		if sent == nil {
 			t.Fatalf("packet %v not in list", i)
@@ -77,11 +77,11 @@ func TestSentPacketListCleanAll(t *testing.T) {
 	list := &sentPacketList{}
 	// Record 10 sent packets.
 	const count = 10
-	for i := packetNumber(0); i < count; i++ {
+	for i := range packetNumber(count) { // mimicry: modernize
 		list.add(&sentPacket{num: i})
 	}
 	// Mark all the packets as acked.
-	for i := packetNumber(0); i < count; i++ {
+	for i := range packetNumber(count) { // mimicry: modernize
 		list.num(i).state = sentPacketAcked
 	}
 	list.clean()
