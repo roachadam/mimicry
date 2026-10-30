@@ -1261,6 +1261,28 @@ These matter most under decision 0029:
     [EVIDENCE.md, Redirects](../profiles/EVIDENCE.md#redirects);
     [cors-edge report](../internal/harness/reports/cors-edge-2026-10-24.md);
     [redirects2 report](../internal/harness/reports/redirects2-2026-10-24.md).
+- **`cookie` slot on hops captured without cookies** (all).
+  - Differs: a redirect variant's list is what the browser sent on the
+    captured hops; where those carried no cookie, the list has no `cookie`
+    slot, and mimicry sends the jar's cookies after it (after `priority`
+    in Chrome's lists, after `te` in Firefox's). `nav-redirect-cookie`
+    measured the slot on a typed navigation's same-origin hop for Chrome
+    156 on macOS and Firefox 158 (where the first leg has it). Still
+    without a slot: navigation hops to another origin or site and a page's
+    or a form's hops (every profile); fetch and image hops of the
+    conditions the `cookies` page did not redirect with cookies; Chrome 156
+    on Windows (no one at that machine), Chrome 155, Safari 27 (its capture
+    takes over this Mac's screen) and Safari 26 (`missingCaptures`).
+  - Shows: a redirect that sets or meets cookies: login and SSO flows.
+  - Detection: medium; navigation header order on common flows.
+    User-visible: no.
+  - Close: `nav-redirect-cookie` on the Windows machine and for Safari;
+    for the other hops, cookies set on every capture host before the
+    `nav-redirect-*` and `redirects2` pages run (a recapture of each);
+    or, once captures agree everywhere, a rule placing the slot as the
+    first leg does. Medium.
+  - Source: [EVIDENCE.md, Redirects](../profiles/EVIDENCE.md#redirects);
+    `missingCaptures` in [`proxy_test.go`](../internal/harness/e2e/proxy_test.go).
 - **`navigationSite` on longer chains** (all).
   - Differs: how `sec-fetch-site` counts a navigation's chain was measured
     on one chain (to another site and back). Longer chains follow the rule

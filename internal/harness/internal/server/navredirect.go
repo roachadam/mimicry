@@ -31,6 +31,18 @@ var (
 		NavRedirectStep{Label: "nav.cs", Host: navrHost, Status: 302, Next: navrCrossSite})
 	NavRedirectHTTP = navRedirect("nav-redirect-http", "a typed http:// navigation (a port without TLS) answered 301 to https:// of its host",
 		NavRedirectStep{Label: "nav.http", Host: navrHost, Plain: true, Status: 301, Next: navrHost})
+	NavRedirectCookie = navRedirect("nav-redirect-cookie", "a typed navigation answered 302 within its origin, the 302 setting three cookies the hop carries",
+		NavRedirectStep{
+			Label:  "cookie.so",
+			Host:   navrHost,
+			Status: 302,
+			Next:   navrHost,
+			SetCookies: []string{
+				"zeta=1; Path=/",
+				"alpha=2; Path=/",
+				"mid=3; Path=/",
+			},
+		})
 )
 
 // NavRedirectPage is the nav-redirect-page scenario: script navigations
@@ -206,16 +218,19 @@ var NavRedirects = []*Scenario{
 	NavRedirectPage,
 	NavRedirectForm,
 	NavRedirectClick,
+	NavRedirectCookie,
 }
 
 // NavRedirectStep is a nav-redirect page: /p/<Label> on Host (plain HTTP
-// if Plain) answered Status to https:// Next /p/<Label>.hop1.
+// if Plain) answered Status to https:// Next /p/<Label>.hop1, with a
+// Set-Cookie for each of SetCookies.
 type NavRedirectStep struct {
-	Label  string
-	Host   string
-	Plain  bool
-	Status int
-	Next   string
+	Label      string
+	Host       string
+	Plain      bool
+	Status     int
+	Next       string
+	SetCookies []string
 }
 
 // StartPath is the start URL's path.
@@ -288,15 +303,23 @@ func (p navRedirectPage) answer(req request) response {
 			port = req.ports.tls
 		}
 
+		headers := []hpack.HeaderField{
+			{
+				Name:  "location",
+				Value: "https://" + net.JoinHostPort(s.Next, port) + s.HopPath(),
+			},
+		}
+		for _, c := range s.SetCookies {
+			headers = append(headers, hpack.HeaderField{
+				Name:  "set-cookie",
+				Value: c,
+			})
+		}
+
 		return response{
 			status:      s.Status,
 			contentType: "text/html; charset=utf-8",
-			headers: []hpack.HeaderField{
-				{
-					Name:  "location",
-					Value: "https://" + net.JoinHostPort(s.Next, port) + s.HopPath(),
-				},
-			},
+			headers:     headers,
 		}
 
 	case host == s.Next && path == s.HopPath() && !plain:

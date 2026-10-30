@@ -359,10 +359,12 @@ kindsgen's captures, and what each gives the profile:
   `site: none`) and a page's (`nav-redirect-page`, `nav-redirect-form`,
   `nav-redirect-click`; the label's sites). A clicked navigation
   (`nav-redirect-click`) is grouped with the script's of its condition, so
-  its variant gains the `sec-fetch-user` slot; their orders must merge. A
-  request one sample sent in a form no condition explains (browser state)
-  is left out only if pinned in `sampleGaps` with why, and a pinned one
-  missing from its capture is an error;
+  its variant gains the `sec-fetch-user` slot; their orders must merge.
+  Likewise `nav-redirect-cookie`'s hop, which carries the cookies its 302
+  set, is grouped with `nav-redirect-so`'s, so that variant gains the
+  `cookie` slot. A request one sample sent in a form no condition explains
+  (browser state) is left out only if pinned in `sampleGaps` with why, and
+  a pinned one missing from its capture is an error;
 - `<name>.headers-order.pagetrace.json.gz`: `context.headerTable`, and
   fetch/XHR requests with headers the page set;
 - `<name>.websocket.pagetrace.json.gz` and

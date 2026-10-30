@@ -20,6 +20,7 @@ import (
 	"github.com/roachadam/mimicry/internal/harness/internal/diff"
 	"github.com/roachadam/mimicry/internal/harness/internal/proxy"
 	"github.com/roachadam/mimicry/internal/harness/internal/server"
+	"github.com/roachadam/mimicry/internal/harness/internal/testprofiles"
 	"github.com/roachadam/mimicry/profile"
 	"github.com/roachadam/mimicry/profiles"
 )
@@ -515,6 +516,15 @@ var missingCaptures = map[string]string{
 	// events, which need Accessibility access; the second Mac's
 	// captures run over ssh, which has none.
 	"safari-26-macos.nav-redirect-click.pagetrace.json.gz": "Safari 26 clicks were never captured (no Accessibility access over ssh)",
+	// nav-redirect-cookie came after these profiles' captures; Chrome 156
+	// on macOS and Firefox 158 have it (docs/backlog.md).
+	"chrome-155-macos.nav-redirect-cookie.pagetrace.json.gz":   "nav-redirect-cookie was added after Chrome 155 was captured",
+	"chrome-156-windows.nav-redirect-cookie.pagetrace.json.gz": "nav-redirect-cookie was added after Chrome 156 on Windows was captured",
+	"safari-26-macos.nav-redirect-cookie.pagetrace.json.gz":    "nav-redirect-cookie was added after Safari 26 was captured",
+	"safari-27-macos.nav-redirect-cookie.pagetrace.json.gz":    "nav-redirect-cookie was added after Safari 27 was captured",
+	// TestInheritedProfile's synthetic profile inherits only the scenarios
+	// chrome-155-macos has captures of.
+	testprofiles.InheritingName + ".nav-redirect-cookie.pagetrace.json.gz": "chrome-155-macos, whose captures it inherits, has none",
 }
 
 // nthOK is the CONNECT the proxy let through n-th, from 0.
