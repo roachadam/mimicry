@@ -10,6 +10,7 @@ require (
 	github.com/quic-go/quic-go v0.64.1
 	github.com/roachadam/mimicry v0.0.0-00010101000000-000000000000
 	github.com/sardanioss/httpcloak v1.7.3
+	golang.org/x/sys v0.49.0
 )
 
 require (
@@ -50,7 +51,6 @@ require (
 	golang.org/x/net v0.61.0 // indirect
 	golang.org/x/perf v0.0.0-20261009192801-be2c69fb417e // indirect
 	golang.org/x/sync v0.24.0 // indirect
-	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/tools v0.51.0 // indirect
 )

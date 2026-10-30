@@ -1,18 +1,9 @@
 package main
 
 import (
-	"encoding/binary"
 	"net"
-	"syscall"
-	"unsafe"
-)
 
-// struct tcp_info (linux/tcp.h): tcpi_bytes_acked and tcpi_bytes_received
-// are u64s at these offsets (Linux 4.1 and later).
-const (
-	tcpInfoBytesAcked    = 120
-	tcpInfoBytesReceived = 128
-	tcpInfoSize          = 256
+	"golang.org/x/sys/unix"
 )
 
 // tunnelBytes returns what a tunnel relayed, from its server-side socket:
@@ -30,21 +21,16 @@ func tunnelBytes(server net.Conn) (up, down int64) {
 	}
 
 	var (
-		buf   [tcpInfoSize]byte
-		size  = uint32(len(buf))
-		errno syscall.Errno
+		info    *unix.TCPInfo
+		sockErr error
 	)
 
 	err = raw.Control(func(fd uintptr) {
-		_, _, errno = syscall.Syscall6(syscall.SYS_GETSOCKOPT, fd, syscall.IPPROTO_TCP, syscall.TCP_INFO,
-			uintptr(unsafe.Pointer(&buf[0])), uintptr(unsafe.Pointer(&size)), 0)
+		info, sockErr = unix.GetsockoptTCPInfo(int(fd), unix.IPPROTO_TCP, unix.TCP_INFO)
 	})
-	if err != nil || errno != 0 || size < tcpInfoBytesReceived+8 {
+	if err != nil || sockErr != nil {
 		return 0, 0
 	}
 
-	up = int64(binary.NativeEndian.Uint64(buf[tcpInfoBytesAcked:]))
-	down = int64(binary.NativeEndian.Uint64(buf[tcpInfoBytesReceived:]))
-
-	return up, down
+	return int64(info.Bytes_acked), int64(info.Bytes_received)
 }
