@@ -40,7 +40,7 @@ connection, no DNS lookup, no cookie touched, no preflight cached
 | [Redirects](#redirects) | one request per hop | `http.Client.CheckRedirect` |
 | [CORS preflights](#cors-preflights) | an `OPTIONS` before some cross-origin `Fetch`/`XHR` | `Exact`; `Request.NoCORS` (fetch only) |
 | [Cookies](#cookies) | none (headers only) | `Config.Cookies`; a `Cookie` header on the request; `Request.Credentials` |
-| [Response decoding](#response-decoding) | none | set `Accept-Encoding` yourself |
+| [Response decoding](#response-decoding) | none | `Config.DisableDecompression` |
 | [Connection reuse and limits](#connection-reuse-and-limits) | fewer connections, queued requests; idle ones closed after 90 s | `Transport.CloseIdleConnections`; `Config.MaxConnsPerHost`; `Config.IdleConnTimeout` |
 | [Retries on another connection](#retries-on-another-connection) | the same request again | none |
 | [A 30 s request timeout](#a-30-s-request-timeout) | none (a request gives up) | `Config.Timeout`; the client's `Timeout` |
@@ -155,15 +155,21 @@ them is one of the things anti-bot systems check.
 
 ## Response decoding
 
-**What happens.** When the profile sends `Accept-Encoding` and you did
-not set it, the response body is decompressed (gzip, deflate, Brotli,
-zstd, as the profile asks) and `Content-Encoding` and `Content-Length`
-are removed. HEAD, 204, 304 and empty responses are left as they are.
-Nothing changes on the wire.
+**What happens.** A response body whose `Content-Encoding` is gzip,
+deflate, Brotli (`br`) or zstd is decompressed as you read it, and
+`Content-Encoding` and `Content-Length` are removed (`ContentLength` is
+-1). It does not matter who set `Accept-Encoding`: setting it yourself,
+on the request or in `Config.Headers`, changes only what the request
+sends, never whether the body is decoded. Any other encoding, and
+several stacked (`gzip, br`), come back raw with their headers; HEAD,
+204, 304 and empty responses are left as they are. The decompressor
+starts on the first `Read`, so a caller that only looks at the status
+starts none. Nothing changes on the wire
+([decision 0046](../decisions/0046-response-decompression.md)).
 
-**To turn it off.** Set `Accept-Encoding` yourself, on the request or in
-`Config.Headers`. Set it to the profile's own value to keep the wire
-identical and get the raw body.
+**To turn it off.** `Config.DisableDecompression` returns every body
+exactly as the server sent it, `Content-Encoding` and `Content-Length`
+intact, for the whole client.
 
 ## Connection reuse and limits
 

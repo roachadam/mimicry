@@ -75,6 +75,7 @@ Related:
 | [0043](decisions/0043-http3-ack-rate-opt-in.md) | HTTP/3 keeps Chrome's ACK rate; `Config.HTTP3ACKEvery` lowers it on request | Accepted |
 | [0044](decisions/0044-profile-fingerprint.md) | Transports find their shared profile by a hash of its content, not its JSON | Accepted |
 | [0045](decisions/0045-udp-receive-buffer-default.md) | QUIC sockets ask for Chrome's 1 MB receive buffer by default (`Config.UDPReadBufferSize`) | Accepted |
+| [0046](decisions/0046-response-decompression.md) | Responses are decoded whoever set `Accept-Encoding`; `Config.DisableDecompression` keeps them raw | Accepted |
 
 New records copy [`decisions/template.md`](decisions/template.md).
 

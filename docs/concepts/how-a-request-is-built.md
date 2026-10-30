@@ -196,12 +196,14 @@ untouched.
 ## 4. The response comes back
 
 With a jar and a credentialed request, the response's `Set-Cookie` lines
-go to the jar with the request's context ([cookies](cookies.md)). When the
-profile sends `Accept-Encoding` and the caller did not set it (on the
-request or in `Config.Headers`), the body is decoded and
-`Content-Encoding` and `Content-Length` removed, as a browser would; HEAD
-responses, 204 and 304 responses and those with `Content-Length: 0` are
-returned untouched. A navigation that succeeded becomes the transport's
+go to the jar with the request's context ([cookies](cookies.md)). A body
+in gzip, deflate, Brotli or zstd is decoded (whoever set
+`Accept-Encoding`) and `Content-Encoding` and `Content-Length` removed, as
+a browser would, unless `Config.DisableDecompression`; other and stacked
+encodings, HEAD responses, 204 and 304 responses and those with
+`Content-Length: 0` are returned untouched
+([0046](../decisions/0046-response-decompression.md)). A navigation that
+succeeded becomes the transport's
 last navigation.
 
 ## 5. Seeing it before it is sent

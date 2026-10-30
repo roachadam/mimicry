@@ -62,6 +62,7 @@ client.CheckRedirect = func(*http.Request, []*http.Request) error {
 | `WithPreHook`, `WithPostHook`, `WithDebug`, `WithBandwidthTracker` | `Transport.Plan(req)` shows what a request would send, without sending it (see [below](#seeing-what-will-be-sent)); otherwise none: wrap the `http.RoundTripper`, or `cookies.Config.OnSetCookie` for cookies |
 | `CloseIdleConnections()` | `Transport.CloseIdleConnections()` (`client.CloseIdleConnections()`); `Config.IdleConnTimeout` for how long an idle connection stays (90 s by default, every protocol) |
 | a new client per proxy, or `SetProxy` closing the old one's connections | `Config.MaxIdleProxies` (1 keeps only the latest proxy's idle connections; by default the 16 most recent and any used in the last 10 s) |
+| `WithTransportOptions(&TransportOptions{DisableCompression: true})` | `Config.DisableDecompression` (raw bodies; by default bodies are decoded whoever sets `accept-encoding`) |
 
 `NewClient` returns a plain `*http.Client`, so anything that takes one
 (an SDK, a login library) works unchanged; with tls-client such code has
@@ -142,9 +143,6 @@ browser's (`Transport.Plan` lists the first two: [below](#seeing-what-will-be-se
   request does not send is an error (`ErrPlacement`), not a silent
   change. A request with `HeaderOrderKey` takes no `Config` placements
   (`ExampleConfig_headerPlacement`, [0030](../decisions/0030-header-placement.md)).
-- **Do not set `Accept-Encoding`.** Setting it yourself turns off
-  decompression (you asked for the raw body); tls-client codebases set it
-  on every request.
 - **Overriding `User-Agent`** (in `Config.Headers` or on the request)
   leaves `sec-ch-ua`, the TLS hello and HTTP/2 settings the profile's.
   Pick the profile whose browser you want to be instead.
@@ -297,9 +295,21 @@ if errors.As(err, &pe) {
 ## Bodies, errors and retries
 
 The response is a standard `*http.Response`: read and close the body (a
-fork that pre-reads the body into a string needs a small helper). It is
-decompressed as the browser's `Accept-Encoding` asks (gzip, deflate,
-Brotli, zstd), unless you set `Accept-Encoding` yourself.
+fork that pre-reads the body into a string needs a small helper). A body
+in gzip, deflate, Brotli or zstd is decompressed as you read it, with
+`Content-Encoding` and `Content-Length` removed, whoever set
+`Accept-Encoding`: an `accept-encoding` left in a ported header literal
+changes what goes on the wire, never whether the body is decoded. Other
+encodings, and several stacked, come back raw with their headers.
+`Config.DisableDecompression` returns every body exactly as sent
+([0046](../decisions/0046-response-decompression.md)).
+
+tls-client decides differently: over HTTP/1.1 it decodes only when it
+added `accept-encoding` itself or yours contains the substring `gzip`
+(`br, zstd` comes back compressed), over HTTP/2 whenever the response is
+encoded, and `TransportOptions.DisableCompression` turns both off.
+azuretls decodes every response it knows the encoding of, as mimicry
+does, and `Session.DisableAutoDecompression` is its switch.
 
 Errors are returned, not encoded as a status code. Worth testing for:
 

@@ -3,6 +3,7 @@ package mimicry
 import (
 	"bytes"
 	"compress/gzip"
+	"compress/zlib"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -12,6 +13,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -104,60 +106,222 @@ func get(t *testing.T, client *http.Client, url string, header http.Header) (*ht
 	return resp, string(b)
 }
 
+// A body in one encoding mimicry decodes is decoded whoever set
+// Accept-Encoding, which changes only what goes on the wire; with
+// DisableDecompression, in an encoding it does not decode, or in several,
+// the body is the server's bytes and its headers are intact. A status read
+// alone never starts a decompressor.
 func TestDecompression(t *testing.T) {
 	const text = "hello, compressed world"
 
-	encode := map[string]func(io.Writer) io.WriteCloser{
-		"gzip": func(w io.Writer) io.WriteCloser {
-			return gzip.NewWriter(w)
-		},
-		"br": func(w io.Writer) io.WriteCloser {
-			bw, err := brrr.NewWriter(w, 5)
+	encode := func(t *testing.T, enc string, b []byte) []byte {
+		t.Helper()
+
+		var (
+			buf bytes.Buffer
+			w   io.WriteCloser
+		)
+
+		switch enc {
+		case "gzip":
+			w = gzip.NewWriter(&buf)
+		case "deflate":
+			w = zlib.NewWriter(&buf)
+		case "br":
+			bw, err := brrr.NewWriter(&buf, 5)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			return bw
-		},
-		"zstd": func(w io.Writer) io.WriteCloser {
-			zw, err := zstd.NewWriter(w)
+			w = bw
+
+		case "zstd":
+			zw, err := zstd.NewWriter(&buf)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			return zw
-		},
-	}
-	ts := server(t, true, func(w http.ResponseWriter, r *http.Request) {
-		enc := r.URL.Query().Get("enc")
-
-		var buf bytes.Buffer
-
-		cw := encode[enc](&buf)
-
-		_, _ = io.WriteString(cw, text)
-		_ = cw.Close()
-
-		w.Header().Set("Content-Encoding", enc)
-
-		_, _ = w.Write(buf.Bytes())
-	})
-	client := &http.Client{Transport: ts.tr}
-
-	for enc := range encode {
-		resp, body := get(t, client, ts.url+"/?enc="+enc, nil)
-		if body != text || resp.Header.Get("Content-Encoding") != "" {
-			t.Errorf("%s: body %q, Content-Encoding %q", enc, body, resp.Header.Get("Content-Encoding"))
+			w = zw
 		}
+
+		_, _ = w.Write(b)
+		if err := w.Close(); err != nil {
+			t.Fatal(err)
+		}
+
+		return buf.Bytes()
 	}
 
-	// A caller that set Accept-Encoding gets the encoded body.
-	resp, body := get(t, client, ts.url+"/?enc=gzip", http.Header{
-		"Accept-Encoding": {"gzip"},
-	})
-	if body == text || resp.Header.Get("Content-Encoding") != "gzip" {
-		t.Errorf("caller's Accept-Encoding: body decoded anyway")
+	chrome := profiles.Chrome()
+
+	type answer struct {
+		encs []string
+		wire []byte
 	}
+
+	var (
+		next atomic.Pointer[answer]
+		sent atomic.Pointer[string]
+	)
+
+	ts := server(t, true, func(w http.ResponseWriter, r *http.Request) {
+		ae := r.Header.Get("Accept-Encoding")
+		sent.Store(&ae)
+
+		a := next.Load()
+
+		w.Header()["Content-Encoding"] = a.encs
+		_, _ = w.Write(a.wire)
+	})
+
+	for _, tc := range []struct {
+		name string
+		// encs are the response's Content-Encoding lines, applied in order.
+		encs []string
+		// label replaces encs on the response, the body still encoded by encs.
+		label []string
+		// headers are Config.Headers; header the request's own.
+		headers http.Header
+		header  http.Header
+		raw     bool
+		// wantAE, when set, is the Accept-Encoding the server receives.
+		wantAE  string
+		decoded bool
+	}{
+		{name: "gzip", encs: []string{"gzip"}, decoded: true},
+		{name: "deflate", encs: []string{"deflate"}, decoded: true},
+		{name: "br", encs: []string{"br"}, decoded: true},
+		{name: "zstd", encs: []string{"zstd"}, decoded: true},
+		{name: "x-gzip", encs: []string{"gzip"}, label: []string{"X-Gzip"}, decoded: true},
+		{
+			name:    "request's Accept-Encoding",
+			encs:    []string{"gzip"},
+			header:  http.Header{"Accept-Encoding": {"gzip"}},
+			wantAE:  "gzip",
+			decoded: true,
+		},
+		{
+			name:    "Config.Headers Accept-Encoding",
+			encs:    []string{"br"},
+			headers: http.Header{"accept-encoding": {"identity"}},
+			wantAE:  "identity",
+			decoded: true,
+		},
+		{name: "DisableDecompression", encs: []string{"zstd"}, raw: true},
+		{name: "unknown encoding", encs: []string{"gzip"}, label: []string{"dcb"}},
+		{name: "stacked, one line", encs: []string{"gzip", "br"}, label: []string{"gzip, br"}},
+		{name: "stacked, two lines", encs: []string{"gzip", "br"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			wire := []byte(text)
+			for _, enc := range tc.encs {
+				wire = encode(t, enc, wire)
+			}
+
+			labels := tc.encs
+			if tc.label != nil {
+				labels = tc.label
+			}
+
+			next.Store(&answer{
+				encs: labels,
+				wire: wire,
+			})
+
+			tr, err := NewTransport(Config{
+				Profile:              chrome,
+				RootCAs:              ts.pool,
+				Headers:              tc.headers,
+				DisableDecompression: tc.raw,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			t.Cleanup(tr.CloseIdleConnections)
+
+			resp, body := get(t, &http.Client{Transport: tr}, ts.url+"/", tc.header)
+
+			if gotAE := *sent.Load(); tc.wantAE != "" && gotAE != tc.wantAE {
+				t.Errorf("sent Accept-Encoding %q, want %q", gotAE, tc.wantAE)
+			}
+
+			gotEnc := resp.Header.Values("Content-Encoding")
+			gotLen := resp.Header.Get("Content-Length")
+
+			if tc.decoded {
+				if body != text || len(gotEnc) != 0 || gotLen != "" || resp.ContentLength != -1 || !resp.Uncompressed {
+					t.Errorf("body %q, Content-Encoding %q, Content-Length %q (%d), Uncompressed %v; want %q decoded, both headers removed, -1",
+						body, gotEnc, gotLen, resp.ContentLength, resp.Uncompressed, text)
+				}
+
+				return
+			}
+
+			wantLen := strconv.Itoa(len(wire))
+			if body != string(wire) || !slices.Equal(gotEnc, labels) || gotLen != wantLen || resp.ContentLength != int64(len(wire)) || resp.Uncompressed {
+				t.Errorf("body %q, Content-Encoding %q, Content-Length %q (%d), Uncompressed %v; want the %d raw bytes, %q, %s",
+					body, gotEnc, gotLen, resp.ContentLength, resp.Uncompressed, len(wire), labels, wantLen)
+			}
+		})
+	}
+
+	// The decompressor reads the body as it opens: a caller that reads
+	// only the status and closes must not have it read anything.
+	t.Run("status only", func(t *testing.T) {
+		for _, enc := range []string{"gzip", "deflate", "br", "zstd"} {
+			src := &countingBody{
+				r: bytes.NewReader(encode(t, enc, []byte(text))),
+			}
+			tr := fakeTransport(t, Config{}, &fakeEngine{
+				answer: func(req *http.Request) *http.Response {
+					return &http.Response{
+						StatusCode:    http.StatusOK,
+						Header:        http.Header{"Content-Encoding": {enc}},
+						Body:          src,
+						ContentLength: -1,
+						Request:       req,
+					}
+				},
+			})
+
+			resp, err := tr.RoundTrip(newRequest(t, "https://a.test/"))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if resp.StatusCode != http.StatusOK || !resp.Uncompressed {
+				t.Fatalf("%s: status %d, Uncompressed %v", enc, resp.StatusCode, resp.Uncompressed)
+			}
+
+			if err := resp.Body.Close(); err != nil {
+				t.Errorf("%s: close: %v", enc, err)
+			}
+
+			if src.reads != 0 || !src.closed {
+				t.Errorf("%s: body read %d times, closed %v; want none, closed", enc, src.reads, src.closed)
+			}
+		}
+	})
+}
+
+// countingBody counts its Reads and records its Close.
+type countingBody struct {
+	r      io.Reader
+	reads  int
+	closed bool
+}
+
+func (b *countingBody) Read(p []byte) (int, error) {
+	b.reads++
+
+	return b.r.Read(p)
+}
+
+func (b *countingBody) Close() error {
+	b.closed = true
+
+	return nil
 }
 
 // fakeEngine records the requests it is sent and answers each with

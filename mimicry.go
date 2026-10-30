@@ -113,6 +113,15 @@ type Config struct {
 	// NewTransport leaves cookies to the caller. A request's own Cookie
 	// header (or an empty one) overrides the jar.
 	Cookies *cookies.Jar
+	// DisableDecompression returns response bodies exactly as the server
+	// sent them, Content-Encoding and Content-Length intact. By default a
+	// body whose Content-Encoding is gzip, deflate, br or zstd is decoded
+	// (when first read) and those two headers removed, whoever set
+	// Accept-Encoding: setting it yourself changes what the request
+	// sends, never whether the response is decoded. Other encodings,
+	// several stacked ("gzip, br") included, come back raw with their
+	// headers; so do HEAD, 204, 304 and empty responses (decision 0046).
+	DisableDecompression bool
 	// DisableHTTP3 keeps every request on TCP. Otherwise a profile with an
 	// http3 section moves to HTTP/3 as its browser does (Alt-Svc, profile
 	// http3.discovery), never through a proxy unless HTTP3OverSOCKS5 says
@@ -296,8 +305,8 @@ type Transport struct {
 	// pins are Config.Pins by host, in an allocation of their own: the
 	// engine's verifier reads them without holding t.
 	pins *pins.Set
-	// decode is true when the profile sends Accept-Encoding by default.
-	decode bool
+	// raw is Config.DisableDecompression.
+	raw bool
 	// lastNav is the URL of the last navigation sent: the page other kinds
 	// come from by default.
 	lastNav atomic.Pointer[url.URL]
@@ -349,6 +358,7 @@ func NewTransport(cfg Config) (*Transport, error) {
 		jar:              cfg.Cookies,
 		placements:       places,
 		pins:             &pinned,
+		raw:              cfg.DisableDecompression,
 		clock:            clockwork.NewRealClock(),
 	}
 	if t.engine == nil {
@@ -387,12 +397,6 @@ func NewTransport(cfg Config) (*Transport, error) {
 	// keep the engine reachable, never t), so t can become unreachable
 	// while connections are open: they close then.
 	runtime.AddCleanup(t, closeIdle, t.engine)
-
-	for _, h := range p.Headers {
-		if strings.EqualFold(h.Name, "accept-encoding") {
-			t.decode = true
-		}
-	}
 
 	return t, nil
 }
@@ -456,8 +460,8 @@ func followRedirects(*http.Request, []*http.Request) error {
 
 // RoundTrip implements http.RoundTripper. It sends req as its kind (As,
 // With; a navigation by default) from its page, with Config.Headers added.
-// If the profile sends Accept-Encoding and the caller did not set it, the
-// body is decoded and Content-Encoding and Content-Length are removed.
+// A gzip, deflate, br or zstd body is decoded and Content-Encoding and
+// Content-Length removed, unless Config.DisableDecompression.
 // Response.TLS is the connection's state.
 //
 // Redirects go out as the browser sends them: 301/302 keep a PUT, DELETE
@@ -466,7 +470,6 @@ func followRedirects(*http.Request, []*http.Request) error {
 // returns a *CORSError instead, unless Request.IgnoreCORS.
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	r, exact := madeAs(req)
-	callerSet := hasHeader(req.Header, "Accept-Encoding") || hasHeader(t.headers, "Accept-Encoding")
 	req, o, err := t.outgoing(req, r, exact, toSend)
 
 	if err == nil && o.preflight != nil {
@@ -500,7 +503,7 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 	}
 
-	return t.finish(req, r, exact, callerSet, resp, err)
+	return t.finish(req, r, exact, resp, err)
 }
 
 // out is how a request goes out: how it was resolved, its header
@@ -793,16 +796,22 @@ func (t *Transport) hopPreflight(req *http.Request, could bool) (bool, error) {
 
 // finish records the last navigation and decodes the body, as RoundTrip
 // describes.
-func (t *Transport) finish(req *http.Request, r Request, exact, callerSet bool, resp *http.Response, err error) (*http.Response, error) {
+func (t *Transport) finish(req *http.Request, r Request, exact bool, resp *http.Response, err error) (*http.Response, error) {
 	if err == nil && r.Kind == Navigate && !exact {
 		t.lastNav.Store(req.URL)
 	}
 
-	if err != nil || !t.decode || callerSet || !hasBody(req, resp) {
+	if err != nil || t.raw || !hasBody(req, resp) {
 		return resp, err
 	}
 
-	enc := strings.ToLower(strings.TrimSpace(resp.Header.Get("Content-Encoding")))
+	// Several encodings, on one line or several, are not decoded.
+	encs := resp.Header.Values("Content-Encoding")
+	if len(encs) != 1 {
+		return resp, nil
+	}
+
+	enc := strings.ToLower(strings.TrimSpace(encs[0]))
 
 	var open func(io.Reader) (io.ReadCloser, error)
 
