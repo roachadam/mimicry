@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-30
-- Commits: see the commit that adds this record
+- Commits: `bd84413` (the twins, their captures, the profiles); `ffb1a95` (the first, `nav-redirect-cookie`, which they replace)
 
 **Summary.** Where a redirect hop places the `cookie` header is measured by
 cookie twins of the redirect scenarios: `redirects2-cookies`,
