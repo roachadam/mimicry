@@ -12,6 +12,7 @@
 //	bench wait             wait until the servers and the proxy answer
 //	bench worker           one measurement with one client, spec on stdin
 //	bench offloads         a server's or the proxy's sidecar: their segmentation offloads, off under netem
+//	bench charts [flags]   docs/performance.md's SVG charts from a merged report's JSON (-in) and its micro output
 //
 // Every measurement runs in a worker process of its own, so one client's
 // heap, goroutines and GC never mix with another's.
@@ -48,6 +49,8 @@ func main() {
 		err = waitReady(time.Minute)
 	case "offloads":
 		err = offloadsAgent()
+	case "charts":
+		err = charts(os.Args[2:])
 	default:
 		usage()
 	}
@@ -59,7 +62,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: bench run [flags] | bench render [flags] | bench merge [flags] label=report.json... | bench merge -passes [flags] pass.json... | bench microstat | bench wait | bench worker | bench offloads")
+	fmt.Fprintln(os.Stderr, "usage: bench run [flags] | bench render [flags] | bench merge [flags] label=report.json... | bench merge -passes [flags] pass.json... | bench charts [flags] | bench microstat | bench wait | bench worker | bench offloads")
 	os.Exit(2)
 }
 

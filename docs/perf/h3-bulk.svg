@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 485" width="860" height="485" role="img" aria-label="Where mimicry is slower: HTTP/3 bulk downloads, many at once">
+<title>Where mimicry is slower: HTTP/3 bulk downloads, many at once</title>
+<style>
+.bg{fill:#ffffff;stroke:#d1d9e0}
+text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans",Helvetica,Arial,sans-serif;fill:#1f2328}
+.m{fill:#59636e}
+.b{font-weight:600}
+.grid{stroke:#d1d9e0;stroke-width:1}
+.axis{stroke:#818b98;stroke-width:1}
+.one{stroke:#1f2328;stroke-width:1.2;stroke-dasharray:4 3}
+.wh{stroke:#1f2328;stroke-width:1.2}
+.brk{stroke:#ffffff;stroke-width:3}
+.mim{fill:#0072b2}
+.tls{fill:#e9c27a}
+.clk{fill:#8fcbb8}
+.azr{fill:#dcadc8}
+.oth{fill:#c3c9d0}
+.ref{fill:url(#hatch);stroke:#6e7781;stroke-width:1.2}
+.hl{stroke:#6e7781;stroke-width:1.6}
+@media (prefers-color-scheme:dark){
+.bg{fill:#0d1117;stroke:#3d444d}
+text{fill:#f0f6fc}
+.m{fill:#9198a1}
+.grid{stroke:#2f353d}
+.axis{stroke:#656c76}
+.one{stroke:#f0f6fc}
+.wh{stroke:#f0f6fc}
+.brk{stroke:#0d1117}
+.mim{fill:#56b4e9}
+.tls{fill:#8f7034}
+.clk{fill:#3f7d6b}
+.azr{fill:#86587a}
+.oth{fill:#4b535d}
+.ref{stroke:#8b949e}
+.hl{stroke:#8b949e}
+}
+</style>
+<defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" class="hl"/></pattern></defs>
+<rect x="0.5" y="0.5" width="859" height="484" rx="8" class="bg"/>
+<text x="24.0" y="36.0" font-size="19.0" class="b">Where mimicry is slower: HTTP/3 bulk downloads, many at once</text>
+<text x="24.0" y="60.0" font-size="13.0" class="m">GET 100 KB from nginx over one HTTP/3 connection. mimicry asks for Chrome&#39;s 1 MB UDP receive buffer; the quic-go</text>
+<text x="24.0" y="78.0" font-size="13.0" class="m">clients ask for 7 MB and force it (the client had CAP_NET_ADMIN). nginx serves the connection from one worker, which</text>
+<text x="24.0" y="96.0" font-size="13.0" class="m">ran near a full core for every client at 64 at once. At 64 at once mimicry&#39;s socket dropped 447 datagrams on a full</text>
+<text x="24.0" y="114.0" font-size="13.0" class="m">receive buffer; the others none.</text>
+<rect x="24.0" y="132.0" width="12.0" height="12.0" class="mim"/>
+<text x="41.0" y="142.0" font-size="12.0">mimicry</text>
+<rect x="108.0" y="132.0" width="12.0" height="12.0" class="tls"/>
+<text x="125.0" y="142.0" font-size="12.0">tls-client</text>
+<rect x="212.2" y="132.0" width="12.0" height="12.0" class="clk"/>
+<text x="229.2" y="142.0" font-size="12.0">httpcloak</text>
+<rect x="309.7" y="132.0" width="12.0" height="12.0" class="azr"/>
+<text x="326.7" y="142.0" font-size="12.0">azuretls</text>
+<rect x="400.5" y="132.0" width="12.0" height="12.0" class="ref"/>
+<text x="417.5" y="142.0" font-size="12.0">net/http (reference)</text>
+<text x="24.0" y="184.0"><tspan font-size="14.0" class="b">Requests per second</tspan><tspan font-size="12.0" class="m" dx="10">100 KB responses&#39; worth of body bytes per second; higher is better</tspan></text>
+<line x1="68.0" y1="380.0" x2="836.0" y2="380.0" class="grid"/>
+<text x="62.0" y="384.0" font-size="10.5" text-anchor="end" class="m">0</text>
+<line x1="68.0" y1="337.5" x2="836.0" y2="337.5" class="grid"/>
+<text x="62.0" y="341.5" font-size="10.5" text-anchor="end" class="m">2,500</text>
+<line x1="68.0" y1="295.0" x2="836.0" y2="295.0" class="grid"/>
+<text x="62.0" y="299.0" font-size="10.5" text-anchor="end" class="m">5,000</text>
+<line x1="68.0" y1="252.5" x2="836.0" y2="252.5" class="grid"/>
+<text x="62.0" y="256.5" font-size="10.5" text-anchor="end" class="m">7,500</text>
+<line x1="68.0" y1="210.0" x2="836.0" y2="210.0" class="grid"/>
+<text x="62.0" y="214.0" font-size="10.5" text-anchor="end" class="m">10,000</text>
+<line x1="68.0" y1="380.0" x2="836.0" y2="380.0" class="axis"/>
+<rect x="172.0" y="291.5" width="32.0" height="88.5" class="mim"/>
+<line x1="188.0" y1="303.9" x2="188.0" y2="290.4" class="wh"/>
+<line x1="184.0" y1="303.9" x2="192.0" y2="303.9" class="wh"/>
+<line x1="184.0" y1="290.4" x2="192.0" y2="290.4" class="wh"/>
+<text x="188.0" y="285.4" font-size="10.5" text-anchor="middle">5,208</text>
+<rect x="208.0" y="304.2" width="32.0" height="75.8" class="tls"/>
+<line x1="224.0" y1="306.2" x2="224.0" y2="304.1" class="wh"/>
+<line x1="220.0" y1="306.2" x2="228.0" y2="306.2" class="wh"/>
+<line x1="220.0" y1="304.1" x2="228.0" y2="304.1" class="wh"/>
+<text x="224.0" y="299.1" font-size="10.5" text-anchor="middle">4,458</text>
+<rect x="244.0" y="318.2" width="32.0" height="61.8" class="clk"/>
+<line x1="260.0" y1="326.5" x2="260.0" y2="318.1" class="wh"/>
+<line x1="256.0" y1="326.5" x2="264.0" y2="326.5" class="wh"/>
+<line x1="256.0" y1="318.1" x2="264.0" y2="318.1" class="wh"/>
+<text x="260.0" y="313.1" font-size="10.5" text-anchor="middle">3,636</text>
+<rect x="280.0" y="317.1" width="32.0" height="62.9" class="azr"/>
+<line x1="296.0" y1="329.9" x2="296.0" y2="316.9" class="wh"/>
+<line x1="292.0" y1="329.9" x2="300.0" y2="329.9" class="wh"/>
+<line x1="292.0" y1="316.9" x2="300.0" y2="316.9" class="wh"/>
+<text x="296.0" y="311.9" font-size="10.5" text-anchor="middle">3,698</text>
+<rect x="316.0" y="296.6" width="32.0" height="83.4" class="ref"/>
+<line x1="332.0" y1="309.0" x2="332.0" y2="295.7" class="wh"/>
+<line x1="328.0" y1="309.0" x2="336.0" y2="309.0" class="wh"/>
+<line x1="328.0" y1="295.7" x2="336.0" y2="295.7" class="wh"/>
+<text x="332.0" y="290.7" font-size="10.5" text-anchor="middle">4,904</text>
+<text x="260.0" y="398.0" font-size="12.0" text-anchor="middle">1 at once</text>
+<rect x="556.0" y="305.1" width="32.0" height="74.9" class="mim"/>
+<line x1="572.0" y1="305.1" x2="572.0" y2="303.6" class="wh"/>
+<line x1="568.0" y1="305.1" x2="576.0" y2="305.1" class="wh"/>
+<line x1="568.0" y1="303.6" x2="576.0" y2="303.6" class="wh"/>
+<text x="572.0" y="298.6" font-size="10.5" text-anchor="middle">4,408</text>
+<rect x="592.0" y="250.8" width="32.0" height="129.2" class="tls"/>
+<line x1="608.0" y1="252.4" x2="608.0" y2="247.0" class="wh"/>
+<line x1="604.0" y1="252.4" x2="612.0" y2="252.4" class="wh"/>
+<line x1="604.0" y1="247.0" x2="612.0" y2="247.0" class="wh"/>
+<text x="608.0" y="242.0" font-size="10.5" text-anchor="middle">7,598</text>
+<rect x="628.0" y="235.2" width="32.0" height="144.8" class="clk"/>
+<line x1="644.0" y1="237.8" x2="644.0" y2="234.1" class="wh"/>
+<line x1="640.0" y1="237.8" x2="648.0" y2="237.8" class="wh"/>
+<line x1="640.0" y1="234.1" x2="648.0" y2="234.1" class="wh"/>
+<text x="644.0" y="229.1" font-size="10.5" text-anchor="middle">8,516</text>
+<rect x="664.0" y="254.5" width="32.0" height="125.5" class="azr"/>
+<line x1="680.0" y1="260.2" x2="680.0" y2="246.6" class="wh"/>
+<line x1="676.0" y1="260.2" x2="684.0" y2="260.2" class="wh"/>
+<line x1="676.0" y1="246.6" x2="684.0" y2="246.6" class="wh"/>
+<text x="680.0" y="241.6" font-size="10.5" text-anchor="middle">7,383</text>
+<rect x="700.0" y="252.0" width="32.0" height="128.0" class="ref"/>
+<line x1="716.0" y1="260.2" x2="716.0" y2="252.0" class="wh"/>
+<line x1="712.0" y1="260.2" x2="720.0" y2="260.2" class="wh"/>
+<line x1="712.0" y1="252.0" x2="720.0" y2="252.0" class="wh"/>
+<text x="716.0" y="247.0" font-size="10.5" text-anchor="middle">7,527</text>
+<text x="644.0" y="398.0" font-size="12.0" text-anchor="middle">64 at once</text>
+<text x="644.0" y="413.0" font-size="12.0" text-anchor="middle">nginx&#39;s worker the limit</text>
+<text x="24.0" y="432.0" font-size="11.0" class="m">Linux host (Intel Core i5-13500), 20 cores, Linux 6.18.38; the client on 4 CPUs (GOMAXPROCS 4); nginx/1.31.8.</text>
+<text x="24.0" y="447.0" font-size="11.0" class="m">mimicry db43d4a, 2026-10-29. Bars: each value&#39;s median over 3 passes; whiskers: its range.</text>
+<text x="24.0" y="462.0" font-size="11.0" class="m">Source: internal/bench/reports/linux-final-2026-10-29/final-2026-10-29.json.</text>
+</svg>
