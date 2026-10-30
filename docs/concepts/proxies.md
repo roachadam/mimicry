@@ -1,7 +1,7 @@
 # Proxies
 
-Set `Config.Proxy` to send requests through an HTTP or SOCKS5 proxy. It takes
-the same function as `http.Transport.Proxy`:
+Set `Config.Proxy` to send requests through an HTTP or SOCKS5 proxy. It
+takes the same function as `http.Transport.Proxy`:
 
 ```go
 client, err := mimicry.NewClient(mimicry.Config{
@@ -10,134 +10,106 @@ client, err := mimicry.NewClient(mimicry.Config{
 })
 ```
 
-Returning a nil URL sends that request directly.
+If the function returns a nil URL, that request goes directly.
 
 ## What each side sees
 
-The server sees exactly what it would without the proxy: the profile's
-ClientHello, HTTP/2 settings and headers, tunnelled byte for byte.
+The server sees what it would see without the proxy. The browser's
+ClientHello, HTTP/2 settings and headers pass through the tunnel unchanged.
 
-The proxy sees what the profile's browser sends a proxy, from captures
-([decision 0014](../decisions/0014-proxies.md)):
+The proxy sees what the browser sends a proxy:
 
-- `http://` proxy, `https` request: a CONNECT tunnel with the browser's
-  headers (Chrome: `Host`, `Proxy-Connection`, `User-Agent`; Firefox:
-  `User-Agent`, `Proxy-Connection`, `Connection`, `Host`; Safari: `Host`,
-  `Proxy-Connection`, `Connection`).
-- `http://` proxy, `http` request: the request itself in absolute form
-  (`GET http://host/path HTTP/1.1`), Chrome's with `Proxy-Connection` in place
-  of `Connection`.
-- `socks5://` or `socks5h://` proxy: the browsers' SOCKS5 handshake, offering
-  no authentication and sending the host name for the proxy to resolve. Both
-  schemes behave alike.
+- **`http://` proxy, `https` request:** a CONNECT tunnel with the
+  browser's headers. Chrome sends `Host`, `Proxy-Connection`,
+  `User-Agent`. Firefox sends `User-Agent`, `Proxy-Connection`,
+  `Connection`, `Host`. Safari sends `Host`, `Proxy-Connection`,
+  `Connection`.
+- **`http://` proxy, `http` request:** the whole request, with the full
+  URL in the request line (`GET http://host/path HTTP/1.1`). Chrome sends
+  `Proxy-Connection` instead of `Connection`.
+- **`socks5://` or `socks5h://` proxy:** the browser's SOCKS5 handshake.
+  It offers no authentication and sends the host name for the proxy to
+  resolve. Both schemes behave the same.
 
 ## Credentials
 
-Put them in the URL (`http://user:pass@proxy:3128`). By default they go
-with the first request: the first CONNECT carries `Proxy-Authorization`
-(Basic), in the profile's header list for a CONNECT with credentials, and
-so does a plain-HTTP request sent to the proxy whole, placed where the
-browser places it when it sends it unasked. A new proxy URL, which every
-rotating identity is, costs no extra round trip. Only the proxy sees
-that the credentials came before it asked for them: what reaches the
-server through the tunnel is the same bytes either way
-([decision 0039](../decisions/0039-proxy-credentials-up-front.md)). A
-proxy that answers them with 407 fails the request (a `*ProxyError`).
+Put credentials in the URL: `http://user:pass@proxy:3128`. Only Basic
+authentication is supported.
 
-`Config.BrowserProxyAuth` uses them the way the profile's browser does:
+By default the first CONNECT, or the first plain-HTTP request, carries a
+`Proxy-Authorization` header where the browser places it. So a new proxy
+URL costs no extra round trip. Only the proxy can tell; the server sees
+the same bytes. A 407 answer fails the request with a `*ProxyError`.
 
-- Chrome and Firefox: the first request to a proxy goes without, the
-  proxy's 407 is answered on the same connection (or a new connection if
-  the proxy closed it), and every later request to that proxy sends them
+`Config.BrowserProxyAuth` sends credentials the way the browser does:
+
+- **Chrome and Firefox:** the first request to a proxy goes without them.
+  The proxy's 407 is answered, and later requests to that proxy send them
   unasked.
-- Safari: every CONNECT goes without and is answered after its 407 (on the
-  same connection, or a new connection if the proxy closed it, in a
-  different header order); plain-HTTP requests carry
-  them from the first. Once Safari has answered a 407 to a plain-HTTP
-  request, it also puts `Proxy-Authorization` on requests inside its
-  tunnels, where the server reads it; mimicry never does (see the
-  [backlog](../backlog.md#proxies)).
+- **Safari:** every CONNECT goes without them and is answered after the
+  407. Plain-HTTP requests carry them from the start.
 
-Set it where what the proxy sees matters as much as what the site sees
-(the harness does, to compare against the captures).
+Each 407 is answered on the same connection, or a new one if the proxy
+closed it.
 
-Only Basic authentication is supported. SOCKS5 credentials, which no
-browser sends, are offered when the URL has them; that part is visibly
-yours.
+One difference remains: after a 407 on a plain-HTTP request, Safari also
+sends `Proxy-Authorization` inside its tunnels, where the server reads it.
+mimicry never does (see the [backlog](../backlog.md#proxies)).
+
+SOCKS5 credentials are sent when the URL has them. No browser sends
+SOCKS5 credentials, so this is a fingerprint no browser produces.
 
 ## Connections
 
-Each proxy URL has its own connections and TLS sessions (the pool key
-includes the proxy); nothing is shared with other proxies or with direct
-requests. Firefox resumes no session through an HTTP proxy's CONNECT
-tunnel (none of its connections through one did; through SOCKS5 they
-resume), and a Firefox profile does the same (`proxy.connectNoResume`).
-`Config.DialContext`, when set, opens the connection to the
-proxy. `Config.DialTimeout` bounds the connect to the proxy together with
-the proxy's handshake (CONNECT or SOCKS5), and the TLS handshake with the
-server separately; the request's context bounds both.
+Each proxy URL has its own connections and TLS sessions. Nothing is
+shared with other proxies or with direct requests. Proxied requests never
+coalesce onto another host's HTTP/2 connection.
 
-### Rotating
+Firefox never resumes a TLS session through an HTTP proxy's tunnel, and a
+Firefox profile does the same. Through SOCKS5 it resumes.
 
-Rotating within one Transport (changing what `Config.Proxy` returns)
-keeps cookies and the page. Each new proxy URL opens new connections, and
-those of the proxies left behind close before their idle timeout once
-they are not among the 16 proxies used most recently and have not been
-used for 10 s (a sweep checks, so 10–20 s after their last request).
-Round-robin over up to 16 proxies, or over more when each comes round
-within 10 s, keeps every connection
-([decision 0040](../decisions/0040-idle-connection-cleanup.md)).
+`Config.DialContext`, when set, opens the connection to the proxy.
+`Config.DialTimeout` bounds two steps separately: reaching the proxy plus
+its handshake, then the TLS handshake with the server. The request's
+context bounds both.
 
-That default favours a list used in turn. `Config.MaxIdleProxies`
-replaces the rule with a strict count: the N most recently used proxies
-keep their idle connections, and one pushed out of them has its idle
-connections closed at once. 1 keeps only the latest proxy's, as
-azuretls does (it closes the old proxy's connections on `SetProxy`);
-round-robin over more proxies than the count opens a connection per
-request. In the benchmark (100 clients, a new identity every 10 requests,
-about every 120 ms, over 30 s), the default kept every identity of the
-last 10 s: 70 tunnels and a live heap of 1.67–1.70 MB per client, against
-azuretls's 67 KB; 4 kept 3.9 tunnels and 360–365 KB, 1 kept 0.9 and
-304–306 KB, at the same requests/s and CPU per request. The heap still
-grew about 9 KB per client per second either way: each identity's TLS
-session ticket stays until it expires and the pool remembers its
-connection key for 90 s
-([performance](../performance.md#proxy-rotation),
-[proxyidle report](../../internal/bench/reports/focus-2026-10-29/ctor/after/proxyidle-2026-10-29.md)).
+### Rotating proxies
 
-Rotating by client (a new `NewClient` per identity, the old one dropped):
-call `CloseIdleConnections` on the client you drop, so its connections
-close at once. A dropped client that is not closed lets its idle
-connections go when the garbage collector finds it, and those in flight
-then at the idle timeout (90 s, `Config.IdleConnTimeout`) after they
-end.
+To rotate within one client, change what `Config.Proxy` returns. Cookies
+and the page are kept. Each new proxy URL opens new connections.
 
-A new client takes about 0.25 ms to build in a tight loop (0.3 ms cold),
-most of it copying the built-in profile and reading all of it to find
-the copy clients built from equal profiles share
-([decision 0044](../decisions/0044-profile-fingerprint.md)): build
-clients up front, one per proxy, and reuse each for its proxy's requests
-rather than building one per request.
+Connections to old proxies close early once both are true:
 
-## WebSockets
+- the proxy is not among the 16 used most recently, and
+- it has not been used for 10 s.
 
-`Transport.DialWebSocket` goes through the proxy as the browser's socket
-does: a `wss://` socket as a stream on the host's HTTP/2 connection inside
-its tunnel when the server allows extended CONNECT, else in a tunnel of
-its own; a `ws://` socket through an HTTP proxy in a CONNECT tunnel
-(Chrome, Firefox) or sent to the proxy whole as `GET ws://…` (Safari).
-Credentials go as on the other tunnels and plain-HTTP requests: from the
-first by default, the browser's way with `Config.BrowserProxyAuth`
-(Safari's forwarded `ws://` handshake carries them unasked either way);
-`ws://` through SOCKS5 is `ErrNotMeasured`. See
-[WebSockets](websockets.md#through-a-proxy).
+A sweep checks this, so they close 10–20 s after their last request. A
+round-robin over up to 16 proxies keeps every connection open. So does a
+larger list where each proxy comes round within 10 s.
+
+`Config.MaxIdleProxies` replaces this rule with a strict count. The N most
+recently used proxies keep their idle connections. A proxy pushed out of
+them has its idle connections closed at once. With 1, only the latest
+proxy's connections stay, like azuretls's `SetProxy`. A round-robin over
+more proxies than the count opens a new connection per request. For the
+memory each setting costs, see [performance](../performance.md#many-clients-through-proxies).
+
+To rotate by client instead, build a new client per identity. Call
+`CloseIdleConnections` on the client you drop so its connections close at
+once. Otherwise they close only when the garbage collector finds the
+client, or at the idle timeout.
+
+Building a client is not free. Build one client per proxy up front, and
+reuse it for that proxy's requests.
+
+WebSockets also go through the proxy; see
+[WebSockets through a proxy](websockets.md#through-a-proxy).
 
 ## HTTP/3 through SOCKS5
 
-By default a request through a proxy goes on TCP, as in the browser,
-which does not use HTTP/3 through a proxy. `Config.HTTP3OverSOCKS5` lets
-requests through a `socks5://` or `socks5h://` proxy use HTTP/3 as they
-would without it:
+Browsers do not use HTTP/3 through a proxy, so by default proxied requests
+go over TCP. `Config.HTTP3OverSOCKS5` lets requests through a `socks5://`
+or `socks5h://` proxy use HTTP/3 as they would without a proxy:
 
 ```go
 client, err := mimicry.NewClient(mimicry.Config{
@@ -147,41 +119,35 @@ client, err := mimicry.NewClient(mimicry.Config{
 })
 ```
 
-Each QUIC connection gets its own UDP association with the proxy (SOCKS5
-UDP ASSOCIATE, RFC 1928): a control connection authenticated as the TCP
-connections are (`Config.DialContext` opens it), and a UDP socket that
-sends only to the proxy's relay. Its datagrams name the host for the
-proxy to resolve, for both schemes, as the TCP connections do. The SOCKS5
-header is only between mimicry and the proxy: the site receives the
-profile's QUIC datagrams unchanged, from the proxy's address. Alt-Svc,
-each browser's switch and race, 0-RTT and the fallback to TCP work as
-without a proxy; connections, session tickets and which origins failed
-stay per proxy URL, while the alternatives servers advertise are shared
-with direct requests (they are the origin's, and a saved `AltSvcCache`
-never holds a proxy URL).
+Each QUIC connection gets its own UDP relay from the proxy (SOCKS5 UDP
+ASSOCIATE). Its control connection authenticates like the TCP
+connections, and `Config.DialContext` opens it. The proxy resolves the
+host name, for both schemes. The site receives the browser's QUIC packets
+unchanged, from the proxy's address.
+
+Alt-Svc, 0-RTT and the fallback to TCP work as without a proxy.
+Connections, session tickets and failed origins are kept per proxy URL;
+advertised HTTP/3 endpoints are shared with direct requests.
 
 When the proxy fails:
 
-- It refuses UDP ASSOCIATE (many SOCKS5 proxies have no UDP relay): it
-  is asked once, and every request through that proxy URL goes on TCP
-  from then on.
-- It drops an association (closes its control connection): that QUIC
-  connection ends at once, and its requests go on TCP through the proxy
-  as on any failed connection; the next connection asks for a new
-  association.
-- It accepts the association but relays nothing: each origin's QUIC
-  attempts fail like a server that never answers, the request going on
-  TCP after the race delay, until the origin is marked broken.
+- **It refuses the UDP relay** (many SOCKS5 proxies have none): it is asked
+  once, and every later request through that proxy URL uses TCP.
+- **It drops the relay:** that QUIC connection ends at once, and its
+  requests retry over TCP. The next connection asks for a new relay.
+- **It relays nothing:** QUIC fails as with a server that never answers.
+  Requests go over TCP after a short delay, until the origin is marked
+  as not supporting HTTP/3.
 
-No datagram goes to the site directly while a request goes through a
-proxy: through an `http://` proxy, or without the option, no UDP is sent
-at all ([decision 0038](../decisions/0038-http3-over-socks5.md)).
+While a request goes through a proxy, no packet goes to the site
+directly. Through an `http://` proxy, or without the option, no UDP is
+sent at all.
 
 ## When the proxy fails
 
-A request the proxy fails returns a `*mimicry.ProxyError`, so a rotation
-loop can tell a dead or refusing proxy from a site refusing the request
-(a WebSocket's dial too):
+A request the proxy fails returns a `*mimicry.ProxyError`. A rotation loop
+can use it to tell a dead proxy from a site refusing the request. This
+includes WebSocket dials.
 
 ```go
 resp, err := client.Do(req)
@@ -191,28 +157,37 @@ if errors.As(err, &pe) {
 }
 ```
 
-It covers everything before the server is reached: the connect to the
-proxy, a CONNECT answered other than 2xx (a 407 to the URL's
-credentials, or when it has none; with `BrowserProxyAuth`, once they were
-given as the browser gives them), a
-SOCKS5 handshake the proxy refused (no acceptable method, rejected
-credentials, a refused connection), and the deadline passing on the way
-(`errors.Is(err, context.DeadlineExceeded)` still holds). A plain-HTTP
-request sent to the proxy whole returns one only for a failed connect or a
-final 407; any other answer is the response, since it cannot be told from
-the server's. `ProxyError.Proxy` is the proxy's URL without its password,
-which `Error()` never shows; `StatusCode` and `Header` are the proxy's
-answer (0 and nil for SOCKS5, or when it gave none). Failures after the
-tunnel is up (the TLS handshake with the server, the request) are the
-server's. See `ExampleConfig_proxy`.
+It covers every failure before the server is reached:
+
+- the connection to the proxy fails;
+- a CONNECT is answered with anything but 2xx, including a 407;
+- the SOCKS5 handshake is refused;
+- the deadline passes. `errors.Is(err, context.DeadlineExceeded)` still
+  holds.
+
+For a plain-HTTP request sent to the proxy, only a failed connection or a
+final 407 is a `ProxyError`. Any other answer is returned as the
+response, because it cannot be told apart from the server's.
+
+`ProxyError.Proxy` is the proxy's URL without its password; `Error()`
+never shows the password. `StatusCode` and `Header` are the proxy's
+answer: 0 and nil for SOCKS5 or when it gave none. Failures after the
+tunnel is up are the server's, not the proxy's. See
+`ExampleConfig_proxy`.
 
 ## Limits
 
 - `https://` proxies (TLS to the proxy) are not supported.
 - Chrome's speculative extra connections to the proxy are not made.
-- HTTP/3 goes only through SOCKS5 proxies (`Config.HTTP3OverSOCKS5`):
-  CONNECT-UDP (MASQUE) through an `http://` proxy is not supported.
-- A CONNECT answer whose header is longer than 64 KiB fails the request
-  (a `*mimicry.ProxyError`).
+- HTTP/3 goes only through SOCKS5 proxies. HTTP/3 through an `http://`
+  proxy (CONNECT-UDP, MASQUE) is not supported.
+- A CONNECT answer with a header over 64 KiB fails the request with a
+  `*mimicry.ProxyError`.
 - A request whose host is not a valid `Host` header is refused before
-  anything is dialled, proxy or not.
+  anything is dialled.
+
+Background: decisions [0014](../decisions/0014-proxies.md),
+[0038](../decisions/0038-http3-over-socks5.md),
+[0039](../decisions/0039-proxy-credentials-up-front.md),
+[0040](../decisions/0040-idle-connection-cleanup.md),
+[0044](../decisions/0044-profile-fingerprint.md).

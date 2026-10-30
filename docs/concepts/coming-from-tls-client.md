@@ -1,18 +1,17 @@
 # Coming from tls-client
 
-For users of [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client)
-(and its forks) with `bogdanfinn/fhttp`: how the usual patterns of an
-automation codebase map onto mimicry, what gets easier, and what is
-missing or awkward. The runnable versions of the mimicry snippets are the
-package examples (`example_test.go`, `cookies/example_test.go`).
+This page is for users of [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client)
+and its forks. It shows how the usual patterns map onto mimicry, what gets
+easier, and what is missing. Runnable versions of the mimicry snippets are
+in `example_test.go` and `cookies/example_test.go`.
 
 The short version: with tls-client you describe the browser yourself on
-every request (header literals, `HeaderOrderKey`, `sec-fetch-*`), and the
-library supplies the TLS and HTTP/2 fingerprint. With mimicry you say
-what kind of request it is and which page makes it, and the profile
-supplies the headers, their order and values, the cookies, redirects,
-preflights, connection reuse and HTTP/3, all as the browser does them.
-Most of the porting work is deleting header code.
+every request. You write the header values, `HeaderOrderKey` and the
+`sec-fetch-*` headers; the library supplies the TLS and HTTP/2
+fingerprint. With mimicry you say what kind of request it is and which
+page makes it. The profile, a recorded description of one browser
+version, supplies everything else as the browser does it. Most of the
+porting work is deleting header code.
 
 ## Building a client
 
@@ -45,28 +44,31 @@ client.CheckRedirect = func(*http.Request, []*http.Request) error {
 
 | tls-client | mimicry |
 |---|---|
-| `WithClientProfile(profiles.Chrome_133)` | `Config.Profile` (`profiles.Chrome()` for the newest Chrome, `profiles.Chrome155MacOS()` or `profiles.ByName("chrome-155-macos")` for a fixed version, or your own JSON through `profile.Parse`) |
-| `WithRandomTLSExtensionOrder()` | nothing: the profile shuffles where its browser does (Chrome) and keeps the order where it does not (Safari, Firefox over TCP) |
-| `WithTimeoutSeconds(n)` | `Config.Timeout` (`NewClient`'s `http.Client.Timeout`, 30 s by default as in tls-client; negative for none), or the request's context; `Config.DialTimeout` for connecting |
-| `WithNotFollowRedirects()`, `SetFollowRedirect` | `http.Client.CheckRedirect` returning `http.ErrUseLastResponse` |
+| `WithClientProfile(profiles.Chrome_133)` | `Config.Profile`: `profiles.Chrome()` for the newest, `profiles.ByName("chrome-155-macos")` for a fixed version, `profile.Parse` for your own JSON |
+| `WithRandomTLSExtensionOrder()` | nothing: the profile shuffles only where its browser does |
+| `WithTimeoutSeconds(n)` | `Config.Timeout` (30 s by default; negative for none) or the request's context; `Config.DialTimeout` for connecting |
+| `WithNotFollowRedirects()`, `SetFollowRedirect` | `CheckRedirect` returning `http.ErrUseLastResponse` |
 | `WithCustomRedirectFunc(f)` | `http.Client.CheckRedirect` |
-| `WithCookieJar(jar)`, `SetCookieJar` | `Config.Cookies` (a `*cookies.Jar`); not the client's `Jar`. `Transport.Cookies()` returns `NewClient`'s own |
+| `WithCookieJar(jar)`, `SetCookieJar` | `Config.Cookies` (a `*cookies.Jar`), not the client's `Jar` |
 | `WithProxyUrl`, `SetProxy` | `Config.Proxy`, a function of the request |
-| `WithDisableHttp3()`, `WithProtocolRacing()` | `Config.DisableHTTP3`; racing is the profile's |
-| `WithDialer`, `WithDialContext`, `WithLocalAddr` | `Config.DialContext` (TCP only: QUIC does not use it) |
+| `WithDisableHttp3()`, `WithProtocolRacing()` | `Config.DisableHTTP3`; racing follows the profile |
+| `WithDialer`, `WithDialContext`, `WithLocalAddr` | `Config.DialContext` (TCP only) |
 | `WithDefaultHeaders(h)` | `Config.Headers` |
-| `WithInsecureSkipVerify()`, `WithCharlesProxy` | `Config.RootCAs` holding the intercepting proxy's CA, plus `Config.Proxy` |
-| `WithCertificatePinning`, `WithCertificatePinner` | `Config.Pins` (`sha256/<base64>` pins as tls-client takes them, hex, or certificate fingerprints; `FetchPins` or `go run github.com/roachadam/mimicry/cmd/pins URL` lists a site's), `Config.VerifyConnection` for your own check; `resp.TLS` on every response |
+| `WithInsecureSkipVerify()`, `WithCharlesProxy` | `Config.RootCAs` with the intercepting proxy's CA, plus `Config.Proxy` |
+| `WithCertificatePinning`, `WithCertificatePinner` | `Config.Pins` (same `sha256/<base64>` format); `Config.VerifyConnection` for your own check |
 | `WithForceHttp1()` | none |
-| `WithServerNameOverwrite`, `WithDisableIPV4/6`, `WithConnectHeaders` | none (`DialContext` can choose the address family) |
-| `WithPreHook`, `WithPostHook`, `WithDebug`, `WithBandwidthTracker` | `Transport.Plan(req)` shows what a request would send, without sending it (see [below](#seeing-what-will-be-sent)); otherwise none: wrap the `http.RoundTripper`, or `cookies.Config.OnSetCookie` for cookies |
-| `CloseIdleConnections()` | `Transport.CloseIdleConnections()` (`client.CloseIdleConnections()`); `Config.IdleConnTimeout` for how long an idle connection stays (90 s by default, every protocol) |
-| a new client per proxy, or `SetProxy` closing the old one's connections | `Config.MaxIdleProxies` (1 keeps only the latest proxy's idle connections; by default the 16 most recent and any used in the last 10 s) |
-| `WithTransportOptions(&TransportOptions{DisableCompression: true})` | `Config.DisableDecompression` (raw bodies; by default bodies are decoded whoever sets `accept-encoding`) |
+| `WithServerNameOverwrite`, `WithDisableIPV4/6`, `WithConnectHeaders` | none (`DialContext` can pick the address family) |
+| `WithPreHook`, `WithPostHook`, `WithDebug`, `WithBandwidthTracker` | `Transport.Plan(req)` to preview a request; otherwise wrap the `http.RoundTripper` |
+| `CloseIdleConnections()` | `client.CloseIdleConnections()`; `Config.IdleConnTimeout` |
+| a new client per proxy | `Config.MaxIdleProxies` |
+| `TransportOptions{DisableCompression: true}` | `Config.DisableDecompression` |
 
-`NewClient` returns a plain `*http.Client`, so anything that takes one
-(an SDK, a login library) works unchanged; with tls-client such code has
-to accept tls-client's own interface.
+To list a site's pins, run `go run github.com/roachadam/mimicry/cmd/pins URL`
+or call `FetchPins`.
+
+`NewClient` returns a plain `*http.Client`. Anything that takes one, such
+as an SDK or a login library, works unchanged. With tls-client such code
+has to accept tls-client's own interface.
 
 ## Headers: the biggest change
 
@@ -142,7 +144,7 @@ browser's (`Transport.Plan` lists the first two: [below](#seeing-what-will-be-se
   (one): the rest stays the browser's order, and a header or anchor the
   request does not send is an error (`ErrPlacement`), not a silent
   change. A request with `HeaderOrderKey` takes no `Config` placements
-  (`ExampleConfig_headerPlacement`, [0030](../decisions/0030-header-placement.md)).
+  (see `ExampleConfig_headerPlacement`).
 - **Overriding `User-Agent`** (in `Config.Headers` or on the request)
   leaves `sec-ch-ua`, the TLS hello and HTTP/2 settings the profile's.
   Pick the profile whose browser you want to be instead.
@@ -152,99 +154,68 @@ browser's (`Transport.Plan` lists the first two: [below](#seeing-what-will-be-se
 
 ## Seeing what will be sent
 
-`Transport.Plan(req)` works out everything `RoundTrip` would send for
-`req` now and sends nothing: no connection, no lookup, the jar and the
-preflight cache untouched. It takes `RoundTrip`'s own path, the
-connections' header writers included, so what it shows is what goes on
-the wire:
+`Transport.Plan(req)` shows everything a request would send, without
+sending it. It also names the headers you set over the browser's values
+(`Plan.Overrides`) and the profile headers a `HeaderOrderKey` drops. See
+[how a request is built](how-a-request-is-built.md) for the details.
 
 ```go
 tr := client.Transport.(*mimicry.Transport)
 plan, err := tr.Plan(mimicry.As(api, mimicry.Fetch))
 if err != nil {
-	return err // ErrNotMeasured, ErrPlacement: RoundTrip would fail the same way
+	return err // RoundTrip would fail the same way
 }
 for _, o := range plan.Overrides {
 	log.Printf("%s: the browser sends %q, this request %q", o.Name, o.Mimicry, o.Caller)
 }
-log.Print(plan) // variant, protocol, preflight, every line per protocol
 ```
-
-A plan has the kind and the profile list it takes (`Variant`, with the
-request's `Condition`), the header lines over HTTP/2, HTTP/1.1 and HTTP/3
-(each with its own error where that protocol cannot carry the request,
-such as a variant measured over HTTP/2 only), the protocol it would take
-given the open connections (`Protocol`, as `resp.Proto` names it; empty
-when the server decides on connecting), the CORS preflight if one would go
-first, the headers you set over computed ones (`Overrides`) and the
-profile headers a `HeaderOrderKey` drops (`Dropped`). See
-`ExampleTransport_Plan` and [decision 0034](../decisions/0034-request-plans.md).
 
 ## Navigations, fetches and the page
 
-tls-client has no notion of a page; mimicry's Transport remembers its last
-navigation, and every other kind comes from it unless `Request.From` says
-otherwise. So the order of calls matters the way it does in a browser:
-load the product page, then call its API. Calling the API cold sends it as
-a fetch from its own origin.
+tls-client has no notion of a page. mimicry's Transport remembers its last
+navigation, and every other request comes from that page unless
+`Request.From` says otherwise. So the order of calls matters as it does
+in a browser: load the product page, then call its API. Calling the API
+cold sends it as a fetch from its own origin.
 
-That state is per Transport, so a Transport is one tab: parallel tasks
-each use their own (`NewClient` per task), or set `From` on every request.
+That state is per Transport, so a Transport is one tab. Parallel tasks
+each use their own client, or set `From` on every request.
 
 ## Redirects
 
-tls-client codebases usually turn redirects off and read `Location`
-themselves, because following them with tls-client's defaults changes the
-headers. In mimicry redirects are followed as the browser follows them:
-each hop with its own `sec-fetch-site`, `Origin` and `Referer`, cookies
-stored and sent per hop, 303 and POST-301/302 to GET, PUT/DELETE/PATCH
-kept on 301/302, the browser's redirect limit, CORS checks on fetch hops.
-The chain is on the response:
-
-```go
-resp, err := client.Do(mimicry.With(checkout, mimicry.Request{From: cartURL}))
-for r := resp.Request; r.Response != nil; r = r.Response.Request {
-	fmt.Println(r.Response.Request.Method, r.Response.Request.URL, "→", r.Response.Status)
-}
-```
-
-Turning following off (`CheckRedirect` returning `http.ErrUseLastResponse`)
-still works, but then the next request you make for the `Location` is
-your own navigation, not the browser's redirect hop.
+tls-client codebases usually turn redirects off and follow `Location`
+themselves. mimicry follows redirects as the browser does, so you can
+leave them on. See [redirects](what-mimicry-does.md#redirects). If you
+turn following off, your next request for the `Location` is a new
+navigation, not the browser's redirect hop.
 
 ## Cookies
 
 | tls-client | mimicry |
 |---|---|
-| `client.GetCookies(u)` | `jar.String(domain)`: the cookies for a name and the names under it as a header string; `jar.Cookies(cookies.Request{URL: u, Method: "GET", Navigation: true})`: exactly what the browser would send to `u` (`jar.Peek`: the same, leaving last-access times as they were); `jar.All()` for everything |
-| `client.SetCookies(u, []*http.Cookie{...})` | `jar.SetHTTPCookies(u, cs)`, through the browser's rules as a response from `u`, with an error naming each cookie refused; `jar.Set(cookies.Cookie{...})` stores one as given; `jar.SetCookies(cookies.Request{URL: u, ...}, rawSetCookieLines)` for lines a response carried |
-| a `Cookie` header string kept in a database | `jar.SetString(domain, header)` (or `cookies.FromString`) for that name and every name under it, `jar.SetHostString(host, header)` for one host, in; `jar.String(domain)` out (see `ExampleJar_SetString`) |
-| a new jar to clear | `jar.Clear()`, `jar.ClearSession()`, `jar.Delete(func(*cookies.Cookie) bool)` |
-| `SetCookieJar(shared)` on another client | the same `*cookies.Jar` in each `Config.Cookies` |
-| persistence: your own serialisation | `jar.WriteJSON`/`ReadJSON` (every attribute), `WriteNetscape`/`ReadNetscape` (curl's cookies.txt) |
+| `client.GetCookies(u)` | `jar.String(domain)` as a header string; `jar.Cookies(cookies.Request{...})` for exactly what the browser would send to a URL; `jar.All()` |
+| `client.SetCookies(u, cs)` | `jar.SetHTTPCookies(u, cs)`, applying the browser's rules; `jar.Set(cookies.Cookie{...})` to store one as given |
+| a `Cookie` header string kept in a database | `jar.SetString(domain, header)` in; `jar.String(domain)` out |
+| a new jar to clear | `jar.Clear()`, `jar.ClearSession()`, `jar.Delete(f)` |
+| `SetCookieJar(shared)` | the same `*cookies.Jar` in each `Config.Cookies` |
+| your own serialisation | `jar.WriteJSON`/`ReadJSON`, `WriteNetscape`/`ReadNetscape` |
 
-What mimicry adds: the cookies go as the profile's browser sends them
-(SameSite with its defaults, third-party and partitioned cookies,
-prefixes, order, the per-site limit, values byte for byte), on redirect
-hops too; the jar is safe for concurrent use and can be shared across
-Transports, which is the way to visit several sites with one identity
-(one Transport per site, one jar).
+The jar sends cookies as the profile's browser does, on redirect hops too.
+It is safe for concurrent use. To visit several sites with one identity,
+use one Transport per site and share one jar. The jar `NewClient` made is
+`client.Transport.(*mimicry.Transport).Cookies()`.
 
-The jar `NewClient` made is `client.Transport.(*mimicry.Transport).Cookies()`.
-A header string carries no attributes, so `SetString` makes each pair a
-cookie for exactly the domain you pass (`amazon.com` reaches every host
-under it, `www.amazon.com` only that host and below); pass the name the
-source cookies were for. Cookies whose path or other attributes matter go
-in with `Set`, `SetHTTPCookies` or `ReadJSON`. The rules (`SetHostString`,
-prefixes, `cookies.AnySite`, the lossy `jar.CookieJar()`) are in
-[cookies](cookies.md#using-it).
+A header string carries no attributes. `SetString` makes each pair a
+cookie for exactly the domain you pass: `shop.example` reaches every host
+under it, `www.shop.example` only that host and below. Cookies whose path
+or other attributes matter go in with `Set`, `SetHTTPCookies` or
+`ReadJSON`. See [cookies](cookies.md#using-it).
 
 ## Proxies and rotation
 
-A tls-client codebase rotates either with `SetProxy` (which rebuilds the
-transport) or, more often, by building a new client with the next proxy
-and carrying the cookies over. In mimicry `Config.Proxy` is consulted for
-every request, so rotation is changing what it returns:
+A tls-client codebase rotates with `SetProxy` or by building a new client
+and carrying the cookies over. In mimicry `Config.Proxy` is called for
+every request, so rotating means changing what it returns:
 
 ```go
 var current atomic.Pointer[url.URL]
@@ -259,30 +230,8 @@ client, err := mimicry.NewClient(mimicry.Config{
 current.Store(proxies.Next())
 ```
 
-Each proxy gets its own connections and TLS sessions; the jar and the last
-page stay. A rotating client that should not keep earlier proxies'
-connections open sets `Config.MaxIdleProxies` (1: only the latest). A
-per-request choice is the same function reading the request (its
-context, its host). Credentials go with the first CONNECT (and the first
-request sent to the proxy whole), placed as the browser places them; the
-CONNECT lines and SOCKS5 bytes are the browser's. `Config.BrowserProxyAuth`
-waits for the proxy's 407 first, as the browsers do (Chrome and Firefox
-once per proxy URL, Safari on every tunnel); only the proxy sees the
-difference ([decision 0039](../decisions/0039-proxy-credentials-up-front.md)).
-
-Limits: `http`, `socks5` and `socks5h` proxies only (no `https://`
-proxies), Basic authentication only, HTTP/3 through SOCKS5 proxies only
-and only with `Config.HTTP3OverSOCKS5` (tls-client v1.17 carries HTTP/3
-through SOCKS5 too, measured in `internal/bench/reports/multiclient-2026-10-28.md`;
-mimicry never sends a datagram around a proxy), and `ws://` through
-SOCKS5 is never measured (`ErrNotMeasured`).
-
-A proxy that fails a request returns a `*mimicry.ProxyError`: unreachable,
-CONNECT refused (`StatusCode`, `Header`), credentials rejected after the
-browser's flow (407), a SOCKS5 refusal, or too slow (`errors.Is(err,
-context.DeadlineExceeded)` still holds). Its `Proxy` has the password
-removed, and so has its text. That is the rotation signal, as against the
-site refusing the request (see `ExampleConfig_proxy`):
+The jar and the last page stay across proxies. A proxy failure returns a
+`*mimicry.ProxyError`, which is your signal to rotate:
 
 ```go
 resp, err := client.Do(req)
@@ -292,89 +241,65 @@ if errors.As(err, &pe) {
 }
 ```
 
+Supported proxy types, credentials, idle connections and HTTP/3 through
+SOCKS5 are covered in [proxies](proxies.md).
+
 ## Bodies, errors and retries
 
-The response is a standard `*http.Response`: read and close the body (a
-fork that pre-reads the body into a string needs a small helper). A body
-in gzip, deflate, Brotli or zstd is decompressed as you read it, with
-`Content-Encoding` and `Content-Length` removed, whoever set
-`Accept-Encoding`: an `accept-encoding` left in a ported header literal
-changes what goes on the wire, never whether the body is decoded. Other
-encodings, and several stacked, come back raw with their headers.
-`Config.DisableDecompression` returns every body exactly as sent
-([0046](../decisions/0046-response-decompression.md)).
+The response is a standard `*http.Response`: read and close the body.
+Compressed bodies are decoded for you, even if a ported header literal
+set `Accept-Encoding`. tls-client decodes in fewer cases. See
+[what mimicry does](what-mimicry-does.md) for the rules and
+`Config.DisableDecompression`.
 
-tls-client decides differently: over HTTP/1.1 it decodes only when it
-added `accept-encoding` itself or yours contains the substring `gzip`
-(`br, zstd` comes back compressed), over HTTP/2 whenever the response is
-encoded, and `TransportOptions.DisableCompression` turns both off.
-azuretls decodes every response it knows the encoding of, as mimicry
-does, and `Session.DisableAutoDecompression` is its switch.
+Errors are returned, not encoded as a status code. Worth checking for:
 
-Errors are returned, not encoded as a status code. Worth testing for:
+- timeouts: a `net.Error` with `Timeout()` true, or the context's error;
+- `mimicry.ErrNotMeasured`: the profile cannot describe the request, so
+  nothing was sent. This is a programming error; do not retry;
+- `*mimicry.CORSError`: the browser would not have sent the request;
+- `*mimicry.ProxyError`: the proxy failed, not the site;
+- `*mimicry.PinError`: the certificate matched none of `Config.Pins`.
 
-- timeouts: a `net.Error` whose `Timeout()` is true for
-  `http.Client.Timeout`, the context's error for a context deadline;
-- `errors.Is(err, mimicry.ErrNotMeasured)`: the profile cannot describe
-  the request (nothing was sent); a programming or profile-choice error,
-  not something to retry;
-- `errors.As(err, &corsErr)` with a `*mimicry.CORSError`: the browser
-  would not have sent it (a refused preflight or redirect);
-- `errors.As(err, &proxyErr)` with a `*mimicry.ProxyError`: the proxy
-  failed, not the site (see above);
-- `errors.As(err, &pinErr)` with a `*mimicry.PinError`: the host's
-  certificate chain matched none of `Config.Pins` (nothing was sent).
-
-mimicry retries on another connection only where the browser would (a
-request nothing of which was sent, an idempotent one on a connection the
-server closed); application-level retries (403, 429, challenge pages) stay
+mimicry retries on another connection only where the browser would.
+Application-level retries, such as on 403, 429 or challenge pages, stay
 yours.
 
 ## WebSockets
 
 tls-client codebases use a separate WebSocket library with its own TLS
-stack (or tls-client's dialer). mimicry opens sockets through the same
-Transport, from the page, with the browser's handshake, cookies, hello and
-framing:
+stack. mimicry opens sockets through the same Transport, with the
+browser's handshake, cookies and TLS:
 
 ```go
 tr := client.Transport.(*mimicry.Transport)
 ws, _, err := tr.DialWebSocket(ctx, "wss://www.shop.example/live", mimicry.WebSocketOptions{})
 ```
 
-## Where mimicry is weaker for automating user actions on sites
+See [WebSockets](websockets.md).
 
-1. **The profile catalogue.** Five desktop profiles, all macOS (Chrome
-   155 and 156, Firefox 158, Safari 26 and 27): no iOS Safari, no Android
-   Chrome, no Windows. New versions come from `cmd/refresh`; older ones
-   stay, marked deprecated. A site whose mobile endpoints
-   or app traffic you imitate, or a session tied to a user agent minted
-   elsewhere (a solver, a harvested browser), needs a matching profile,
-   and making one takes the harness and a real browser capture.
-   `profile.Parse` loads your own JSON, but nothing helps you write it
-   (see [the backlog](../backlog.md#tooling-and-tests): more profiles,
-   and a way to make them).
-2. **Proxy limits.** `https://` proxies are unsupported, and a `ws://`
-   WebSocket through a SOCKS5 proxy is `ErrNotMeasured`.
-3. **Cookie scope from a string is a name you choose.** A header string
-   carries no scope, so `SetString` needs the domain the cookies were for
-   (`amazon.com` for the whole site, `www.amazon.com` for that host and
-   below) and seeds a non-`Secure` session cookie per pair; a source
-   browser's path-scoped or `Secure` cookies need `Set` or JSON to keep
-   their attributes, and asking what goes to one URL still takes a
-   `cookies.Request`.
-4. **Runtime `ErrNotMeasured` that depends on the server.** A variant
-   measured over HTTP/2 only fails on a server that speaks only
-   HTTP/1.1. `Plan` shows it up front as the HTTP/1.1 lines' error, but
-   which protocol a new connection takes is still the server's answer.
-5. **Verbosity in small places.** `NewRequestWithContext` plus `As`/`With`
-   on every call, and the type assertion to reach `NewClient`'s Transport
-   (`DialWebSocket`, `Cookies`, `Plan`). (Moving one header is a `Place` in
-   `HeaderPlacement`, not a full `HeaderOrderKey` list.)
-6. **Missing switches** that browsers do not have either: forcing
-   HTTP/1.1, skipping verification, overriding the SNI, binding a local
-   address for QUIC.
+## Performance
 
-(Seeing what will be sent was weakness 3 here until `Transport.Plan`.)
-A hook that logs each request's plan as it is sent is a
-[backlog](../backlog.md#tooling-and-tests) candidate.
+Speed and memory compared with tls-client are in
+[performance](../performance.md).
+
+## Where mimicry is weaker
+
+- **Few profiles.** Five desktop macOS profiles: Chrome, Firefox and
+  Safari. No iOS, Android or Windows. Making a new one needs a real
+  browser capture; see [refreshing profiles](../refreshing-profiles.md).
+- **Proxy limits.** No `https://` proxies; see [proxies](proxies.md).
+- **Cookie strings need a domain.** `SetString` needs the domain the
+  cookies were for, and stores session cookies without `Secure`.
+- **Some errors depend on the server.** A request the profile describes
+  only over HTTP/2 fails with `ErrNotMeasured` on an HTTP/1.1-only
+  server. `Plan` shows this in advance.
+- **More typing.** `As` or `With` on every call, and a type assertion to
+  reach the Transport.
+- **Missing switches** browsers lack too: forcing HTTP/1.1, skipping
+  verification, overriding the SNI.
+
+Background: [0030](../decisions/0030-header-placement.md),
+[0034](../decisions/0034-request-plans.md),
+[0039](../decisions/0039-proxy-credentials-up-front.md),
+[0046](../decisions/0046-response-decompression.md).

@@ -1,19 +1,27 @@
-// Package mimicry is an HTTP client that reproduces real browsers' network
-// fingerprints: TLS ClientHello, HTTP/2 frames and header order, HTTP/1.1
-// header lines, and HTTP/3 where the browser uses it. Transport is an
-// http.RoundTripper; browser profiles live in the profile and profiles
-// packages.
+// Package mimicry is an HTTP client that looks like a real browser on the
+// network: the same TLS handshake, HTTP/2 and HTTP/3 settings, and headers
+// in the same order. Use it to automate user actions on sites that check
+// them.
 //
-// A request is a top-level navigation unless As or With says otherwise; the
-// profile supplies the kind's headers, order and priority, and the page
-// decides sec-fetch-site, Origin and Referer. Defaults reproduce the browser
-// exactly; every deviation is the caller's, and asking for what the profile
-// never measured is an error wrapping ErrNotMeasured, not a guess.
+//	client, err := mimicry.NewClient(mimicry.Config{
+//		Profile: profiles.Chrome(),
+//	})
+//	if err != nil {
+//		return err
+//	}
+//	resp, err := client.Get("https://shop.example/") // a page load
 //
-//	page, _ := http.NewRequest("GET", "https://example.com/", nil)
-//	client.Do(page) // a navigation, as typed into the address bar
-//	api, _ := http.NewRequest("GET", "https://api.example.com/v1", nil)
-//	client.Do(mimicry.As(api, mimicry.Fetch)) // fetch() from the last page
+// A request is a page load, as if typed into the address bar, unless you
+// say otherwise. To send it as a script on the last page would (fetch, XHR,
+// an image), wrap it with As or With:
+//
+//	req, _ := http.NewRequest("GET", "https://shop.example/api/cart", nil)
+//	resp, err = client.Do(mimicry.As(req, mimicry.Fetch))
+//
+// Defaults match the browser; Config fields that change that say so. A
+// profile holds only what was recorded from the real browser: asking for
+// anything else fails with ErrNotMeasured instead of guessing. Guides are in
+// the repository's docs directory.
 package mimicry
 
 import (
@@ -55,219 +63,124 @@ type engine interface {
 
 // Config configures a Transport.
 type Config struct {
-	// Profile is the browser to impersonate. Required. NewTransport
-	// validates it and keeps a copy, so later changes to it have no effect.
+	// Essentials and network.
+
+	// Profile is the browser to impersonate, such as profiles.Chrome().
+	// Required. NewTransport keeps a copy, so later changes to it have no
+	// effect.
 	Profile *profile.Profile
-	// RootCAs verifies servers; nil uses the system roots.
+	// RootCAs verifies servers. Nil, the default, uses the system roots.
 	RootCAs *x509.CertPool
-	// DialTimeout bounds TCP connects and TLS handshakes; zero means 30
-	// seconds.
+	// DialTimeout bounds each TCP connect and TLS handshake. Zero means
+	// 30 seconds.
 	DialTimeout time.Duration
-	// Timeout is the http.Client.Timeout NewClient sets: zero means 30
-	// seconds (as tls-client, httpcloak and azuretls default to), negative
-	// means none. It covers the whole request, redirects and reading the
-	// body included, so raise it for large downloads or slow proxies; with
-	// it, a request whose server or connection stops mid-response fails
-	// after it instead of waiting forever. The returned client's Timeout
-	// may be changed afterwards. NewTransport ignores it: a caller
-	// building its own http.Client sets that client's Timeout (or a
-	// context deadline), as with net/http.
+	// Timeout is the Timeout of the client NewClient returns. It covers the
+	// whole request, redirects and body included. Zero means 30 seconds;
+	// negative means none. Raise it for large downloads or slow proxies.
+	// NewTransport ignores it: set your own http.Client's Timeout instead.
 	Timeout time.Duration
-	// DialContext opens TCP connections (to the proxy, if any), as
-	// http.Transport's does; TLS and above stay the profile's. Nil uses
-	// net.Dialer.
+	// DialContext opens TCP connections, to the proxy if there is one, as
+	// in http.Transport. TLS stays the browser's. Nil uses net.Dialer.
 	DialContext func(ctx context.Context, network, addr string) (net.Conn, error)
-	// Resolver looks host names up, for dialing when DialContext is nil and,
-	// for profiles that coalesce on lookup (Chrome, Safari), to reuse
-	// another host's HTTP/2 connection to the same address when its
-	// certificate covers the host (unless DisableCoalescing). Nil uses
-	// net.DefaultResolver. Set it with DialContext when DialContext maps
-	// hosts to addresses DNS does not give.
+	// Resolver looks up host names. Nil uses net.DefaultResolver. Set it
+	// alongside DialContext when DialContext sends hosts to addresses DNS
+	// does not give, so connection sharing between hosts stays correct.
 	Resolver *net.Resolver
-	// Proxy returns the proxy for a request, as http.Transport's does; nil,
-	// or a nil URL, connects directly. Schemes: "http" (CONNECT for https,
-	// whole requests for http), "socks5" and "socks5h" (the proxy resolves
-	// names either way). The proxy sees what the profile's proxy section
-	// says the browser sends (a profile without one cannot use proxies);
-	// URL credentials go with the first request (see BrowserProxyAuth).
-	// Each proxy URL has connections of its own; those of a proxy no
-	// longer used close early (see Transport). A failed proxy returns a
-	// *ProxyError.
+	// Proxy picks the proxy for each request, as in http.Transport. Nil,
+	// the default, connects directly. Supported schemes are "http",
+	// "socks5" and "socks5h"; a failed proxy returns a *ProxyError. See
+	// docs/concepts/proxies.md.
 	Proxy func(*http.Request) (*url.URL, error)
-	// Headers are the caller's own headers (an API key, say), added to every
-	// request where its kind places page-set headers. They override the
-	// profile's defaults and computed headers and yield to the request's
-	// own; a key with no values suppresses a default. CORS preflights get
-	// only those their kind's list names. Authorization and Cookie are
-	// dropped once a redirect chain leaves the origin.
+
+	// Headers and cookies.
+
+	// Headers are your own headers, such as an API key, added to every
+	// request where the browser places headers a page sets. They override
+	// the browser's defaults; the request's own headers override them. A
+	// key with no values removes a default. Default: none.
 	Headers http.Header
-	// HeaderPlacement moves headers within the profile's order on every
-	// caller request, redirect hops included, before Request.HeaderPlacement.
-	// It skips CORS preflights, WebSocket handshakes, and requests with
-	// their own order (Exact, HeaderOrderKey). NewTransport rejects an
-	// invalid Place (ErrPlacement); a missing header or anchor fails the
-	// request.
+	// HeaderPlacement moves headers within the browser's order on every
+	// request you send, redirect hops included; CORS preflights, WebSocket
+	// handshakes and Exact requests keep the browser's order. Default:
+	// none. NewTransport rejects an invalid Place with ErrPlacement.
 	HeaderPlacement []Place
-	// Cookies is the jar requests send from and responses store to, under
-	// the profile's cookie rules. When nil, NewClient creates one and
-	// NewTransport leaves cookies to the caller. A request's own Cookie
-	// header (or an empty one) overrides the jar.
+	// Cookies is the cookie jar requests use. When nil, NewClient creates
+	// one and NewTransport sends no cookies. Set it to share or seed
+	// cookies.
 	Cookies *cookies.Jar
-	// DisableDecompression returns response bodies exactly as the server
-	// sent them, Content-Encoding and Content-Length intact. By default a
-	// body whose Content-Encoding is gzip, deflate, br or zstd is decoded
-	// (when first read) and those two headers removed, whoever set
-	// Accept-Encoding: setting it yourself changes what the request
-	// sends, never whether the response is decoded. Other encodings,
-	// several stacked ("gzip, br") included, come back raw with their
-	// headers; so do HEAD, 204, 304 and empty responses (decision 0046).
+
+	// Responses.
+
+	// DisableDecompression returns bodies exactly as the server sent them.
+	// By default gzip, deflate, br and zstd bodies are decoded, and
+	// Content-Encoding and Content-Length removed. Other or stacked
+	// encodings always come back raw.
 	DisableDecompression bool
-	// DisableHTTP3 keeps every request on TCP. Otherwise a profile with an
-	// http3 section moves to HTTP/3 as its browser does (Alt-Svc, profile
-	// http3.discovery), never through a proxy unless HTTP3OverSOCKS5 says
-	// so, falling back to TCP when QUIC fails. QUIC dials the Resolver's
-	// address directly, not DialContext.
+
+	// HTTP/3 and connections. Each of these defaults to what the browser
+	// does, except BrowserQUICFallback and BrowserProxyAuth: there the
+	// default is faster, and setting the field restores the browser.
+
+	// DisableHTTP3 keeps every request on TCP. By default a request moves
+	// to HTTP/3 when the browser would, falling back to TCP if QUIC fails.
+	// Note that QUIC ignores DialContext. See docs/concepts/http3.md.
 	DisableHTTP3 bool
-	// AltSvc, when set, keeps the HTTP/3 alternatives servers advertise
-	// (Alt-Svc), shared with every Transport given the same cache, as a
-	// browser's tabs share them; AltSvcCache saves and loads them, as
-	// browsers keep them across restarts. A request to an origin found in
-	// it goes as the profile's browser sends one to an origin whose
-	// alternative it knows (profile http3.discovery): Chrome and Safari
-	// start on QUIC, racing TCP after their delay (about 300 and 100 ms) as
-	// for any new connection; Firefox validates the alternative in the
-	// background beside the request, which goes on TCP, and moves the
-	// requests after to HTTP/3 once it is up. Nil keeps them per
-	// Transport, learnt from its own responses.
+	// AltSvc stores the HTTP/3 servers have advertised, shared by every
+	// Transport given the same cache, like a browser's tabs. Save and load
+	// it to keep it across runs. Nil, the default, keeps one per Transport.
 	AltSvc *AltSvcCache
-	// BrowserQUICFallback keeps the browser's timing where QUIC fails,
-	// stalls included: Chrome holds every request behind an unanswered
-	// 0-RTT connection until it gives up (4 s), Firefox those made while
-	// it re-validates after the server's close (5 s), and a failed attempt
-	// holds its request until the race delay. By default those requests go
-	// on TCP once the profile's race delay (Chrome about 300 ms; Firefox,
-	// which has none, its 300 ms first probe timeout) has passed with no answer,
-	// and at once when the attempt failed; the QUIC connection itself
-	// carries on as the browser's, and a connection whose server answers
-	// goes exactly as with this set (decision 0036).
+	// BrowserQUICFallback copies the browser's slow fallback when QUIC
+	// stalls or fails: requests wait as long as the browser's do. By
+	// default they move to TCP after the browser's race delay, or at once
+	// on failure. Connections that work are the same either way.
 	BrowserQUICFallback bool
-	// BrowserProxyAuth gives an http proxy the URL's credentials as the
-	// profile's browser does: only once the proxy has answered 407 (Chrome
-	// and Firefox then send them unasked to that proxy URL; Safari waits
-	// for a 407 on every tunnel), one round trip more for each new proxy
-	// URL. By default the first CONNECT, and the first request sent to the
-	// proxy whole, carry them, placed where the browser places them when
-	// it sends them unasked. Only the proxy sees the difference: what
-	// reaches the server through it is the same either way (decision
-	// 0039).
+	// BrowserProxyAuth sends an http proxy the URL's credentials only after
+	// it answers 407, as browsers do. By default the first request sends
+	// them, saving a round trip per new proxy. Only the proxy sees the
+	// difference.
 	BrowserProxyAuth bool
 	// DisableCoalescing gives every host its own HTTP/2 connection. By
-	// default a request goes, as the profile's browser sends it, on another
-	// host's connection whose certificate covers it at the same address
-	// (profile connections.coalesce: Chrome and Safari after a DNS lookup;
-	// Firefox after opening a connection of its own and closing it with a
-	// GOAWAY). One connection for a site's hosts shares one TCP congestion
-	// window: faster on a clean network, where it saves the other hosts'
-	// handshakes, much slower on a lossy one (warm page loads about twice
-	// as slow at 1% loss). With it set, a server hosting several of a
-	// site's hosts sees one connection per host where the browser opens
-	// one (decision 0037). Requests through a proxy never coalesce.
+	// default a host shares another host's connection when the browser
+	// would. Sharing is faster on clean networks; set this on lossy ones.
 	DisableCoalescing bool
-	// MaxConnsPerHost is the most HTTP/1.1 connections open at once to one
-	// host (and port, partition and proxy); requests beyond it wait, first
-	// come, first served. Zero means the profile's connections.http1PerHost,
-	// 6 in every browser. A browser never has more than 6 open to one host:
-	// a server that counts a client's concurrent HTTP/1.1 connections sees
-	// a value above 6 as not a browser. HTTP/2 and HTTP/3 use one
-	// connection per host whatever it says. Negative is an error.
+	// MaxConnsPerHost limits open HTTP/1.1 connections to one host; extra
+	// requests wait their turn. Zero means the browser's limit, 6. A higher
+	// value does not look like a browser. Negative is an error.
 	MaxConnsPerHost int
-	// IdleConnTimeout is how long an idle connection is kept before
-	// mimicry closes it: HTTP/1.1 since its last response, HTTP/2 and
-	// HTTP/3 since their last request ended. Zero means 90 seconds
-	// (decision 0040); negative means mimicry never closes an idle
-	// connection itself, leaving it to the server, the proxy, QUIC's idle
-	// timeout (the profile's, 30 s in Chrome and Firefox) or
-	// CloseIdleConnections. A longer timeout reuses more connections
-	// (no new handshake after a pause) at the cost of memory, a goroutine
-	// per HTTP/2 or HTTP/3 connection, and, through a proxy, the proxy's
-	// connection slots; servers and proxies often close idle connections
-	// after 60 to 120 seconds anyway. Whatever it says, the connections of
-	// a proxy no longer used close early (MaxIdleProxies), and those of a
-	// dropped Transport when it is collected.
+	// IdleConnTimeout is how long an unused connection stays open. Zero
+	// means 90 seconds; negative means mimicry never closes idle
+	// connections itself. Longer reuses more connections at the cost of
+	// memory.
 	IdleConnTimeout time.Duration
-	// MaxIdleProxies is how many proxies keep their idle connections when
-	// requests go through several (Config.Proxy returning another URL, as
-	// when rotating identities): the MaxIdleProxies most recently used
-	// keep theirs, and a proxy pushed out of them has its idle connections
-	// closed at once, a later request through it dialing anew. 1 keeps
-	// only the proxy of the latest request, as clients whose SetProxy
-	// closes the old proxy's connections do. Zero is the default: the 16
-	// most recently used, and any other used in the last 10 seconds (its
-	// connections close 10 to 20 s after its last use). The default keeps
-	// a proxy list used in turn warm, over up to 16 at any pace or over
-	// more while each comes round within 10 s, but a client rotating to a
-	// new identity every few requests holds every identity of the last 10
-	// s. A count bounds the connections, though each identity's TLS
-	// session ticket still stays
-	// until it expires; round-robin over more proxies than the count
-	// dials on every request. Negative is an error (decision 0040).
+	// MaxIdleProxies is how many recently used proxies keep their idle
+	// connections. Zero means the 16 most recent, plus any used in the last
+	// 10 seconds. Set 1 to close a proxy's connections as soon as you
+	// switch away from it. Negative is an error.
 	MaxIdleProxies int
-	// HTTP3OverSOCKS5 lets requests through a socks5 or socks5h proxy use
-	// HTTP/3 as they would without it (Alt-Svc, 0-RTT, fallback to TCP),
-	// over a SOCKS5 UDP association with the proxy (RFC 1928, section 7):
-	// one per QUIC connection, naming the host for the proxy to resolve,
-	// as its TCP connections do, with the URL's credentials. The server
-	// receives the same datagrams as without the proxy. A proxy that
-	// refuses UDP ASSOCIATE is asked once: its requests stay on TCP from
-	// then on. One that drops an association (closes its control
-	// connection) ends that QUIC connection, and its requests go on TCP
-	// as on any failed connection. Browsers never use HTTP/3 through a
-	// proxy, so by default, and through an http proxy always, requests
-	// stay on TCP. Either way no datagram goes to the server directly
-	// (decision 0038).
+	// HTTP3OverSOCKS5 lets requests through a SOCKS5 proxy use HTTP/3.
+	// Browsers never use HTTP/3 through a proxy, so by default those
+	// requests stay on TCP. A proxy that refuses UDP keeps them on TCP.
 	HTTP3OverSOCKS5 bool
 	// UDPReadBufferSize is the receive buffer, in bytes, each HTTP/3
-	// connection's UDP socket asks the OS for (SO_RCVBUF), a SOCKS5
-	// association's included. Zero asks for 1 MB, what Chrome asks for;
-	// negative keeps the OS's default (208 KB on Linux, 768 KB on macOS).
-	// It is a request: the OS may grant less, and the connection never
-	// fails for it. Linux caps it at net.core.rmem_max without an error and
-	// grants twice what it allows, so on a stock host (rmem_max 212992)
-	// any request above 208 KB gets 416 KB; only a host that raises the
-	// cap (sysctl -w net.core.rmem_max=8388608) gets the full 1 MB (2 MB
-	// granted) or more. mimicry never uses SO_RCVBUFFORCE, which needs
-	// privileges. A larger buffer trades drops for a queue: what it holds
-	// delays everything behind it, the client's flow-control updates
-	// included. Raise it (2 to 8 MB) for
-	// high-bandwidth, lossy or long paths with few streams at once, where
-	// a burst can overflow it: each datagram dropped there is lost as if on
-	// the network, costing a retransmission and congestion window. The
-	// wire is the same either way (decision 0045).
+	// connection asks the OS for. Zero asks for 1 MB, as Chrome does;
+	// negative keeps the OS default. The OS may grant less. Raise it for
+	// fast, long or lossy paths; nothing changes on the wire.
 	UDPReadBufferSize int
-	// HTTP3ACKEvery, when set, acknowledges every HTTP3ACKEvery-th
-	// ack-eliciting QUIC packet after the browser's warm-up, instead of the
-	// profile's rate (Chrome: every 10th). Zero keeps the browser's. It
-	// must be at least the profile's rate and at most 64, and a profile
-	// without a quic section rejects any non-zero value; every other ACK
-	// rule stays the browser's (the warm-up, max_ack_delay, an immediate
-	// ACK for a gap). Fewer ACKs cost a busy server less: against one nginx
-	// worker saturated by a single client's downloads, every 20 ran 25%
-	// faster than Chrome's every 10 at 10 MB and 22% at 100 KB, but a
-	// single download from an idle server ran 27% slower (decision 0043).
-	// The server sees the rate, so it is not the browser's.
+	// HTTP3ACKEvery acknowledges every Nth QUIC packet instead of the
+	// browser's rate, such as Chrome's every 10th. Zero, the default, keeps
+	// the browser's. It must be between the browser's rate and 64. Fewer
+	// ACKs help a busy server, but the server can see the difference.
 	HTTP3ACKEvery int
-	// Pins pins hosts to public keys: a request to a covered host goes only
-	// on a connection whose verified chain matches one of the Pin's values,
-	// else it fails with a *PinError before anything is sent. NewTransport
-	// rejects a malformed Pin; FetchPins lists a site's pins.
+
+	// Certificate checks.
+
+	// Pins pins hosts to public keys: a request to a pinned host fails
+	// with a *PinError unless the certificate chain matches. Default: none.
+	// FetchPins lists a site's pins.
 	Pins []Pin
 	// VerifyConnection, when set, checks each connection after certificate
-	// verification and Pins; an error fails the request before anything is
-	// sent. It runs on every TLS and QUIC handshake, resumed ones included
-	// (crypto/tls VerifyConnection semantics, not VerifyPeerCertificate's),
-	// and before coalescing another host onto an HTTP/2 connection, with
-	// ServerName set to that host; an error there opens a new connection.
-	// The state has no ExportKeyingMaterial.
+	// verification and Pins, as crypto/tls's VerifyConnection does. An
+	// error fails the request before anything is sent. Default: none.
 	VerifyConnection func(tls.ConnectionState) error
 
 	// engine replaces the pure-Go engine (tests only).
@@ -281,17 +194,11 @@ type Config struct {
 // requests come from its last navigation unless they set Request.From.
 // Parallel tasks should each use their own Transport, or set Request.From.
 //
-// Call CloseIdleConnections when you discard a Transport (or the client
-// NewClient built on it), as when a new client takes over with a new
-// proxy identity: its idle connections close at once and the others
-// once their requests finish. Otherwise an idle
-// connection closes after Config.IdleConnTimeout, 90 s by default (HTTP/3
-// ones at QUIC's idle timeout if that is sooner), and a Transport no
-// longer reachable closes its idle
-// connections once the garbage collector finds it. Within a Transport, a
-// proxy no longer used loses its idle connections early: by default once
-// it is not among the 16 proxies used most recently and has not been used
-// for 10 s, or as Config.MaxIdleProxies says (decision 0040).
+// Call CloseIdleConnections when you discard a Transport, or the client
+// built on it. Otherwise idle connections close after
+// Config.IdleConnTimeout, and those of an unreachable Transport close when
+// it is garbage collected. A proxy no longer used loses its idle
+// connections early; see Config.MaxIdleProxies.
 type Transport struct {
 	engine  engine
 	profile *profile.Profile
@@ -315,11 +222,9 @@ type Transport struct {
 	clock      clockwork.Clock
 }
 
-// NewTransport builds a Transport from cfg. Building one takes about
-// 0.25 ms (decision 0044), most of it reading the whole
-// profile to find the copy Transports built from equal profiles share:
-// build Transports up front, one per proxy, and reuse
-// them, rather than one per request.
+// NewTransport builds a Transport from cfg. Building one is not free: build
+// Transports up front, one per proxy, and reuse them rather than building
+// one per request.
 func NewTransport(cfg Config) (*Transport, error) {
 	if cfg.Profile == nil {
 		return nil, errors.New("mimicry: Config.Profile is required")

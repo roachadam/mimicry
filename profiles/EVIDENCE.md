@@ -1,38 +1,65 @@
 # Evidence ledger
 
-Every claim the built-in profiles make, where it comes from, and what keeps
-it true. Profiles: `chrome-155-macos`, `firefox-158-macos`, `safari-27-macos`
-(captured on the capture Mac), `safari-26-macos` (captured on a Mac mini used
-for captures, macOS 26.2), `chrome-156-macos` (quick refresh on the Mac mini,
-2026-10-26; see below). Last fully reviewed 2026-10-24; rows since updated
-with the 2026-10-28 captures, and the "Not covered" list rechecked against
-the code on 2026-10-29.
+This file lists every claim the built-in profiles make, where it comes
+from, and what keeps it true. A claim is one profile field, such as the
+TLS cipher list or a cookie rule.
 
-**`chrome-156-macos`** has no column of its own in the tables below; read its
-class from `chrome-155-macos`'s column by this rule. Rows whose evidence is a
-quick-refresh scenario (`page`, `http1`, `kinds`, `kinds-http1`, `kinds-plain`,
-`websocket`, `websocket-h2`, `h3-discovery`, `h3-page`) are its own **W**,
-from its own captures: three samples for `page`, `h3-discovery` and `h3-page`
-(the TLS and QUIC hellos, where Chrome shuffles), one sample for the others;
-`resume` is its own too (two samples, 2026-10-28, for the HTTP/2 opening's
-TLS records), and its resumption rows are its own **W**. Every other row is
-`I: from chrome-155` with chrome-155's class (its
-`capturesFrom`). The refresh found no difference beyond the user agent and
-`sec-ch-ua` ([report](../internal/harness/reports/refresh-chrome-156-macos-2026-10-26.md)),
-and `realcheck` showed none against the real Chrome 156.
+**Covered:** `chrome-155-macos`, `chrome-156-macos`, `firefox-158-macos`,
+`safari-27-macos` and `safari-26-macos`. Safari 27 was captured on macOS 27;
+Safari 26 on a second Mac kept on macOS 26.
 
-## Evidence classes
+**Headline:** about 85% of the classed cells in the tables below are **W** or
+**W+** (seen on the wire). The rest are fitted, copied, measured on another
+kind of request, or not captured. No claim rests on browser source code alone.
+
+**Classes**, one line each:
+
+- **W**: seen on the wire, three samples, identical unless noted.
+- **W+**: **W**, and stable across the other server scenarios.
+- **F**: fitted rule, verified by re-encoding every captured header block.
+- **K**: measured on a different kind of request.
+- **C**: copied from another profile, not measured for this one.
+- **I**: inherited from an earlier version's captures.
+- **—**: does not apply to this browser.
+
+**Reading a row:** the first column names the profile field. Each browser
+column gives the class, then the measured value and sample counts. The last
+column names the test that fails if the profile and the captures drift
+apart. "Known gap" marks a difference mimicry does not imitate.
+
+Last fully reviewed 2026-10-24. Rows were updated with the 2026-10-28
+captures. The "Not covered" list was rechecked against the code on
+2026-10-29.
+
+## How rows are classed
 
 | Code | Meaning |
 |---|---|
-| **W** | Seen on the wire: the browser against our capture server, three samples (three browser launches for Chrome and Firefox), identical across samples unless the row says otherwise. Captures in `internal/harness/testdata/captures/`. |
+| **W** | Seen on the wire: the browser against mimicry's capture server, three samples (three browser launches for Chrome and Firefox), identical across samples unless the row says otherwise. Captures in `internal/harness/testdata/captures/`. |
 | **W+** | **W**, and also stable across the server scenarios (`set-cookie`, `large-settings`, `small-limits`, `huge-table`, `explicit-table`, `slow-idle`, `http1`) and, where noted, the six replayed real pages. |
 | **F** | Fitted: not visible as such on the wire. A rule chosen to explain the traces, then verified by re-encoding every captured header block byte for byte (`TestHPACKReproducesBrowserBlocks`). |
 | **K** | Measured on a different kind of request than the profile describes (e.g. on `fetch()` uploads, used for navigations). |
 | **C** | Copied from another profile, not measured for this one. |
-| **I** | Inherited: checked against an earlier version's captures of the scenario (the profile's `capturesFrom`, decision 0035), with only version tokens in header values rewritten to this version's (`capture.Rewriter`): the test passes for this profile, but this version's own traffic was not captured for it. Written `I: from chrome-155` followed by the class the row has in that version's column (`I: from chrome-155 (W+)`); a row whose scenario a quick refresh recaptured keeps its own class. A full refresh replaces every **I** with the class its new captures earn. |
+| **I** | Inherited: checked against an earlier version's captures (the profile's `capturesFrom`, decision 0035), with only version tokens in header values rewritten (`capture.Rewriter`). The test passes for this profile, but this version's own traffic was not captured. Written with the source version's class: `I: from chrome-155 (W+)`. |
 
-A new version's column is filled from the scenarios its captures come from: every row whose evidence is a scenario in its `capturesFrom` is **I**; rows from the scenarios a quick refresh recaptures (the fingerprint layer, `server.QuickScenarios`) get their own class. Deprecated profiles (`"deprecated": true`, older than the newest five versions) keep their columns as they were last reviewed.
+A new version's column starts as **I** for every row whose evidence is a
+scenario in its `capturesFrom`. Rows from the scenarios a quick refresh
+recaptures (the fingerprint layer, `server.QuickScenarios`) get their own
+class. A full refresh replaces every **I** with the class its new captures
+earn. Deprecated profiles (`"deprecated": true`, older than the newest five
+versions) keep their columns as last reviewed.
+
+**`chrome-156-macos`** (quick refresh, 2026-10-26) has no column of its own.
+Read its class from `chrome-155-macos`'s column. Rows whose evidence is a
+quick-refresh scenario (`page`, `http1`, `kinds`, `kinds-http1`,
+`kinds-plain`, `websocket`, `websocket-h2`, `h3-discovery`, `h3-page`) are
+its own **W**: three samples for `page`, `h3-discovery` and `h3-page` (the
+TLS and QUIC hellos, where Chrome shuffles), one for the others. `resume` is
+its own too (two samples, 2026-10-28), so its resumption rows are its own
+**W**. Every other row is `I: from chrome-155`. The refresh found no
+difference beyond the user agent and `sec-ch-ua`
+([report](../internal/harness/reports/refresh-chrome-156-macos-2026-10-26.md)),
+and `realcheck` showed none against the real Chrome 156.
 
 No claim rests on browser source code or on another client's presets alone:
 those were leads only. Where another client disagreed with the wire, the wire
@@ -62,7 +89,7 @@ its bytes), never hand-edited, into the profile and the capture
 (`TestRegenerateReproducesProfiles` in `internal/harness/cmd/hellogen`). It
 also generates `http2.openingRecords` (below). `<name>.clienthello`
 holds one ClientHello per line. Lines 1–3 are the 2026-10-24 retakes (3
-browser launches, TLS records starting 0x16; Safari 26 from the Mac mini).
+browser launches, TLS records starting 0x16; Safari 26 from the second Mac, on macOS 26).
 The older lines are bare handshake messages (starting 0x01): the previous
 committed capture (`ae99c76`; Safari 26: `184b9a8`) and, for Chrome 155,
 Firefox 158 and Safari 27, earlier captures restored from git history
@@ -93,7 +120,7 @@ or a refusal.
 | `quic` (the hello sent over QUIC: `cipherSuites`, `sessionIdLength`, `extensionOrder`, `last`, `drop`, `replace`, `transportParametersBefore`, `resumedEchPayloadLengths`) | W (`h3-discovery`, `h3-page`, with and without `-h3-local-roots`: 33 QUIC connections, 9 resumed): TLS 1.3 suites without GREASE; session ID 0; shuffled, no GREASE extension; drops GREASE, `ec_point_formats`, SCT, EMS, `renegotiation_info`, `session_ticket`, `status_request`; replaces ALPS and ALPN (`h3`), key shares and groups (no GREASE), signature algorithms (no ML-DSA, `0201` added), `supported_versions` `0304`; ECH from the TLS sets (9 resumed showed 144 and 240 of the four) | W (33, 9 resumed): suites `1301 1303 1302`; shuffled with `quic_transport_parameters`, then `encrypted_client_hello` last; drops `ec_point_formats`, `session_ticket`, SCT; replaces ALPN, `supported_versions`, signature algorithms (`0203` 4th), `compress_certificate` `0001 0003 0002`; resumed ECH payload 432 (TCP 400) | W (3): GREASE + TLS 1.3 suites; fixed: TCP's order without EMS, `renegotiation_info`, `ec_point_formats`, `quic_transport_parameters` before `compress_certificate`; ALPN `h3`, `supported_versions` GREASE `0304` | W (3): as Safari 27 | Generated by `hellogen` from every QUIC connection's ClientHello, which it diffs against the TLS hello with these changes (order exactly when fixed; `last` and `pre_shared_key` at the end when shuffled; a resumed hello also without `resumption.drop`, with `earlyData` 0x002a) and refuses any other difference. Safari never resumed over QUIC. The transport parameters' body is `quic.transportParameters` (below) |
 | `quic.versionNegotiation` (the hello of a connection retried after Version Negotiation: `drop`, `replace`, `padding`) | — (no retry) | W (`h3-vn`, 3 connections retried in v2): the full QUIC hello without `compress_certificate` and GREASE ECH; groups and key shares without X25519MLKEM768 (key share X25519 only, 32 B); padding (0x0015) after `quic_transport_parameters`, last, the hello 512 bytes (NSS's 256–511 → 512); shuffled as the full one | — (no retry) | — | Generated by `hellogen` from every h3-vn connection that followed a Version Negotiation in another version, diffed against the full QUIC hello; any other difference is refused. Required iff `quic.versionNegotiation.retry` |
 
-Cross-checked outside our server: Firefox 158's JA3, and Safari 27's JA3, JA4
+Cross-checked outside mimicry's capture server: Firefox 158's JA3, and Safari 27's JA3, JA4
 and Akamai fingerprints, match what tls.peet.ws reports for the same
 browsers.
 
@@ -104,7 +131,7 @@ browsers.
 | `settings` (ids, values, order) | W+ | W+ | W+ | `TestProfilesMatchCaptures` |
 | `windowUpdate` (connection credit after the preface) | W+ | W+ | W+ | `TestProfilesMatchCaptures` |
 | `priorities` (PRIORITY frames at connection start) | W: none | W: none | W: none | `TestProfilesMatchCaptures` |
-| `openingRecords` (how the preface, SETTINGS, WINDOW_UPDATE and the first request's frames are cut into TLS records, when the request is waiting as the connection opens) | Chrome 155: W (chrome-155: Chrome for Testing 155.0.8059.84, same network stack as branded; other fields from branded captures. `resume` 2026-10-28, 2 samples, all 14 connections: `chrome-155-macos.resume.chrome-for-testing.pagetrace.json.gz`, which feeds this field alone): `[preface SETTINGS WINDOW_UPDATE] [HEADERS]`. Chrome 156: W (`resume` 2026-10-28, 2 samples, all 14 HTTP/2 connections, fresh and resumed, several opened while the page's was live): the same | W (`resume`, 2 samples: 7 connections; 2 more end mid-record at the page's `/done`, which stops the trace): `[preface SETTINGS WINDOW_UPDATE] [HEADERS WINDOW_UPDATE]`; later requests' HEADERS and stream WINDOW_UPDATE share a record too | W, both (`resume` 2026-10-28, 2 samples each, 12 connections each; Safari 27.0.1 on the capture Mac): `[preface SETTINGS WINDOW_UPDATE HEADERS]`, one record | Generated by `hellogen` (`capture.OpeningRecords`) from every HTTP/2 trace that kept its records (the capture server reads the record stream under TLS since 2026-10-28: `records`, TLS 1.3 only), skipping connections whose SETTINGS ACK went before the first HEADERS: the browser opened them ahead of the request, which mimicry never does (Firefox: 5 of 14, the same cut with the ACK alone between; Safari 27 and 26: the tab's first connection, 2 of 14 each, the opening alone, HEADERS after the ACK). It refuses connections that disagree. Testing-build captures (`<name>.<scenario>.chrome-for-testing.pagetrace.json.gz`, taken with `cmd/capture -chrome-app`) are no scenario's capture: `capture.Files` and `ScenarioOf` skip them, so only this field reads them. `TestConnectionMatchesBrowserTrace` compares mimicry's cut with it. A request's frames go out in one write (`internal/h2`): Firefox's HEADERS and stream WINDOW_UPDATE share a record on every request captured; a header block long enough for CONTINUATION is not captured. Decision 0042 |
+| `openingRecords` (how the preface, SETTINGS, WINDOW_UPDATE and the first request's frames are cut into TLS records, when the request is waiting as the connection opens) | Chrome 155: W (chrome-155: Chrome for Testing 155.0.8059.84, same network stack as branded; other fields from branded captures. `resume` 2026-10-28, 2 samples, all 14 connections: `chrome-155-macos.resume.chrome-for-testing.pagetrace.json.gz`, which feeds this field alone): `[preface SETTINGS WINDOW_UPDATE] [HEADERS]`. Chrome 156: W (`resume` 2026-10-28, 2 samples, all 14 HTTP/2 connections, fresh and resumed, several opened while the page's was live): the same | W (`resume`, 2 samples: 7 connections; 2 more end mid-record at the page's `/done`, which stops the trace): `[preface SETTINGS WINDOW_UPDATE] [HEADERS WINDOW_UPDATE]`; later requests' HEADERS and stream WINDOW_UPDATE share a record too | W, both (`resume` 2026-10-28, 2 samples each, 12 connections each; Safari 27.0.1 on macOS 27): `[preface SETTINGS WINDOW_UPDATE HEADERS]`, one record | Generated by `hellogen` (`capture.OpeningRecords`) from every HTTP/2 trace that kept its records (the capture server reads the record stream under TLS since 2026-10-28: `records`, TLS 1.3 only), skipping connections whose SETTINGS ACK went before the first HEADERS: the browser opened them ahead of the request, which mimicry never does (Firefox: 5 of 14, the same cut with the ACK alone between; Safari 27 and 26: the tab's first connection, 2 of 14 each, the opening alone, HEADERS after the ACK). It refuses connections that disagree. Testing-build captures (`<name>.<scenario>.chrome-for-testing.pagetrace.json.gz`, taken with `cmd/capture -chrome-app`) are no scenario's capture: `capture.Files` and `ScenarioOf` skip them, so only this field reads them. `TestConnectionMatchesBrowserTrace` compares mimicry's cut with it. A request's frames go out in one write (`internal/h2`): Firefox's HEADERS and stream WINDOW_UPDATE share a record on every request captured; a header block long enough for CONTINUATION is not captured. Decision 0042 |
 | `headersPriority` | W: exclusive, weight 255 | W: weight 41 | W: none | `TestProfilesMatchCaptures` |
 | `chainPriorities` (each request depends exclusively on the newest stream still open at the nearest weight at or above its own, Chromium's lists; a stream leaves them at the peer's END_STREAM or a reset, whether or not its body was read) | W (every Chrome HTTP/2 trace, replays included: 3006 of 11795 HEADERS of Chrome 155 and 156 depend on a stream, never one of lower weight, and every connection fits the rule; the newest open stream regardless of weight cannot fit 9 of Chrome 155's 1622 connections. A stream is still a parent after 3 MB of its response arrived, `replay-nike.com`, so not at its response headers, and none is once the page has the whole response; that the moment is its END_STREAM, not the body's reading, is Chromium's code, `SpdyStream::OnDataReceived`: [INFERENCE]) | W: never (stream 0, not exclusive) | W: never (no priority) | `TestChainedPrioritiesMatchBrowserTraces` (every trace's requests sent again, each stream ended after the last that depends on it, half with their bodies unread); `TestEndedStreamLeavesChainBeforeDelivery` (unit: a stream leaves the chain before its end reaches the caller) |
 | `pseudoHeaderOrder` | W+ | W+ | W+ | `TestProfilesMatchCaptures` |
@@ -159,7 +186,7 @@ and `TestCookiesEdge2MatchesBrowser`
 `TestKindsMatchBrowserTraces` (every kinds request's cookies) and
 `TestCookiesMatchBrowserTrace` (crumbs, HPACK representation); the shared
 RFC 6265bis rules by `cookies` unit tests. Safari 26 (captured on the
-Mac mini, 2026-10-24): W from its own `set-cookie`, `cookies`,
+second Mac, on macOS 26, 2026-10-24): W from its own `set-cookie`, `cookies`,
 `cookies-edge` and `cookies-edge2` captures, all as Safari 27 except `redirects`: **`chain`**
 (Safari 26 sends cookies on cross-site → same-site redirect hops; 27 blocks
 them), and `secureLoopback`: **`false`**.
@@ -379,7 +406,7 @@ mimicry never ends it within the capture).
 samples per browser and scenario, unforced and (Chrome, Firefox) with
 `-h3-local-roots` ([report](../internal/harness/reports/http3-2026-10-25.md)):
 Chrome and Firefox 33 QUIC connections each (21 completed handshakes, 12
-full and 9 resumed; the 12 unforced ones refused our CA and show the first
+full and 9 resumed; the 12 unforced ones refused the capture server's CA and show the first
 flight only), Safari 27 and 26 3 each (`h3-discovery` only: Safari opened
 no QUIC connection in `h3-page`). Generated, never hand-edited: `h3gen`
 derives `quic` and `http3` (but `headers`, `high`, `low`), `kindsgen` those
@@ -580,6 +607,252 @@ bullets below that later work has closed:
   Safari's HTTPS upgrade attempt (TLS on the same port) before a
   plain-HTTP request, Chrome's HTTPS-Upgrades on port 80, and HSTS:
   requests go to the URL given.
+
+## What checks each behaviour
+
+Per concept page, the tests and captures behind it. Facts already in a row
+above are linked, not repeated.
+
+### Cookies
+
+The edge-case rows (`knoeq`, `=x`, `__Http-` and `__Host-Http-`) are the
+`nameless`, `emptyName` and `httpPrefix` rows under [Cookies](#cookies)
+([decision 0012](../docs/decisions/0012-cookie-rules-in-profiles.md)).
+What the jar does not model is listed in
+[Not covered by any claim](#not-covered-by-any-claim). Safari's store-or-send
+blocking and the end of Chrome's two-minute window are in the `thirdParty`
+and `laxAllowsUnsafeSeconds` rows.
+
+### CORS preflights
+
+Rows: [CORS preflights](#cors-preflights) and [Redirects](#redirects).
+
+- `TestKindsMatchBrowserTraces` compares every preflight of the kinds page
+  with the browser's: lists, values and weight over HTTP/2, HTTP/1.1 and
+  plain HTTP, and that mimicry sends none where the browser did not.
+- `TestCORSMatchesBrowser` replays the `cors` page. On each connection to
+  the cross-site host, the same requests and preflights must arrive in the
+  same order as the browser's. The refused steps must return a
+  `*CORSError`.
+- `TestCORSEdgeMatchesBrowser` replays the `cors-edge` page the same way,
+  on every connection: a cross-site redirect without
+  `Access-Control-Allow-Origin` (no next request), PUT, DELETE and POST
+  answered 301, 302 and 303 (method, body length, `Origin`), and a chain
+  of 25 redirects (the 21st URL never requested).
+- `TestRedirects2MatchesBrowser` and `TestNavRedirectsMatchBrowser` replay
+  the `redirects2` and `nav-redirect-*` pages: redirects of every kind and
+  the navigation chain's limit.
+- Unit tests in `preflight_test.go` cover when a preflight is sent (the
+  safelist, and which `Config.Headers` a preflight carries), the expiry
+  with a fake clock, and the refusal rules. The cache's pruning
+  (`internal/cors`) has no test of its own. Of the redirect rules, only
+  the credentials' (`TestConfigCredentialsStayBehindCrossOriginRedirects`)
+  is tested outside the e2e replays above.
+
+### How a request is built
+
+In `internal/harness/e2e`: `TestProfilesMatchCaptures` (first request),
+`TestHTTP1MatchesBrowserTrace`, `TestCookiesMatchBrowserTrace`,
+`TestKindsMatchBrowserTraces` (every request of the kinds page and its
+preflights, redirects, connection sharing),
+`TestCookiesScenarioMatchesBrowser` (the cookies page),
+`TestCORSMatchesBrowser` (the preflight cache and refusals),
+`TestConnectionsMatchBrowser` (the per-host HTTP/1.1 cap and coalescing,
+with `Config.DisableCoalescing` and without) and
+`TestHPACKReproducesBrowserBlocks`.
+
+The page replays of the kinds, headers-order, cors, cors-edge, redirects2,
+nav-redirect, cookies, cookies-edge and h3 pages also plan every request
+just before sending it and check the plan against what the server
+received (`checkPlans`).
+
+Outside the e2e suite: the resolver's rules by unit tests in the root's
+`request_test.go`, `mimicry_test.go` and `preflight_test.go`; the pool's by
+`internal/pool`'s, with fake connections and a fake clock;
+`Config.MaxConnsPerHost` by `internal/engine/native`'s `TestMaxConnsPerHost`,
+with fake servers. Header placement by `TestHeaderPlacement`
+(`placement_test.go`): each placed request against the same one unplaced,
+over HTTP/1.1 and a raw HTTP/2 peer, and its error paths. Over HTTP/3 by
+`TestHeaderPlacementOverHTTP3` in `internal/engine/native`, against a QUIC
+server decoding the field sections.
+
+### HTTP/3
+
+Rows: [QUIC and HTTP/3](#quic-and-http3),
+[Failure, version negotiation, long transfers](#failure-version-negotiation-long-transfers)
+and [Early data](#early-data). Each per-browser value of the QUIC
+connection (first flight, packet numbers, transport parameters, ACKs,
+credit, key updates, versions, 0-RTT) is a row there.
+
+**Where the profile data comes from.** The h3 captures
+(`internal/harness/testdata/captures/<name>.h3-{discovery,page}*`) feed
+three generators, run in this order: `hellogen` (`tls.quic`), `h3gen`
+(`quic`, and `http3` but its header lists and priorities), `kindsgen`
+(`http3.headers`, `http3.high`, `http3.low`, and the kinds the h3 pages
+add). `hellogen` and `h3gen` also read the `h3-blackhole`, `h3-broken`,
+`h3-vn`, `h3-download`, `h3-early` and `h3-too-early` captures
+(`server.H3EdgeCaptures`): `hellogen` for `tls.quic.versionNegotiation`,
+`h3gen` for `quic.loss`, `quic.keepAlive`, `quic.ack`, `quic.credit`,
+`quic.keyUpdate`, `quic.versionNegotiation`, `http3.discovery.fallback` and
+`http3.earlyData`. Each refuses a sample its rule does not describe.
+
+**Tests.**
+
+- `TestHTTP3MatchesBrowser` walks both h3 pages through mimicry for every
+  profile. It compares each request's transport, each QUIC connection and
+  its HTTP/3 layer with every browser sample. What the browser draws per
+  connection is held to the profile's rule, for mimicry's connections and
+  every browser connection alike. So the test is deterministic, and a rule
+  the captures contradict fails.
+- `TestHTTP3EdgeMatchesBrowser` (`internal/harness/e2e/http3_edge_test.go`)
+  walks the `h3-blackhole`, `h3-broken`, `h3-vn`, (with aioquic) `h3-v2`,
+  `h3-early` and `h3-too-early` pages through mimicry on the browser's
+  schedule. Per request it compares every connection it went on and how
+  long it was held. On a connection that sent 0-RTT it compares each
+  stream (in 0-RTT, held with or after the Finished, or sent again after a
+  425). Per QUIC attempt it compares versions, the server's answer,
+  datagrams and give-up, and when the attempt and each TCP connection
+  started after the request that caused them (the race), within the
+  samples' range. A migration must send the browser's probes first and
+  come 4 of the connection's own PTOs after the request, for mimicry and
+  every browser sample, so it holds on a loaded machine too. Each page runs
+  with `Config.BrowserQUICFallback` and with the fast default. The
+  default's differences are listed one by one (`h3EdgeFastGaps`), all on
+  pages where QUIC fails, and each must appear.
+- `TestHTTP3DownloadMatchesBrowser` replays `h3-download`. It holds
+  mimicry's acknowledgements and key phases to the profile's rules, which
+  every sample must follow too, and its credit increases to the range of
+  the browser's. Where the connection limit follows what arrived (Safari),
+  how far it moves is timing, so mimicry and every sample are held to the
+  rule instead (the limit against what the client's ACKs acknowledged,
+  plus the window).
+- `TestQPACKReproducesBrowserSections` re-encodes every captured field
+  list and must reproduce the browser's bytes.
+- `TestQUICInterop` (`internal/harness/e2e/quic_interop_test.go`) runs
+  every profile against quic-go's HTTP/3 server through a seeded relay
+  (`internal/harness/internal/udprelay`: loss, reordering, duplication,
+  corruption, delay, blackholes, a small MTU, NAT rebinding). It covers the
+  handshake, large and concurrent transfers, Retry, resumption and 0-RTT
+  (accepted, rejected, and answered 425 Too Early), ChaCha20, key updates,
+  the anti-amplification limit, GOAWAY, idle and server closes, stream
+  resets, tiny flow control windows, and a new Transport sharing or
+  loading an `AltSvcCache` (its first request on QUIC for Chrome and
+  Safari, with no TCP connection). It also covers HTTP/3 through SOCKS5
+  proxies (`socks5*` rows: no datagram around the proxy, the same first
+  flight as directly, a dropped or refused association). Each case is
+  checked byte for byte and against a time limit.
+
+**Measured detail behind the rows.**
+
+- 0-RTT methods (`http3.earlyData.methods`: GET, HEAD, OPTIONS): a request
+  with another method made while the handshake runs waits and leaves in
+  1-RTT. Firefox sends it in the datagram with its Finished
+  (`heldWithFinished`; 31 of 35, the rest a thread's timing). Chrome sends
+  it in a datagram of its own 0.05–2.1 ms after. A `425 Too Early` is
+  retried on the same connection, new stream, in 1-RTT after the Finished
+  (`retryTooEarly`; 12 of 12 per browser), never on a new one.
+- Long transfers (`h3-download`, 50 MiB): Firefox's batched ACKs cover 2–7
+  packets, Chrome's exactly 10 in 97% of ACKs. Safari raises stream credit
+  as its application reads (62 B to 2.1 MB apart, median about 1 MB), its
+  connection limit first at 15.2–15.9 MB. No browser started a key update
+  in 3,476–8,619 packets sent and 37,000 received.
+- After a GOAWAY, Firefox races (`raceAfterGoaway`): the request goes on a
+  new TCP connection, and a 0-RTT QUIC connection follows 6–9 ms later,
+  carrying only its control and QPACK streams. In every sample the TCP
+  request and Firefox's GOAWAY on it (3–4 ms after the request) were out
+  before QUIC's first datagram, 1 ms after the GOAWAY. So mimicry starts
+  that QUIC connection no earlier than the request's response on TCP.
+  Firefox's restart with a saved validated alternative was not captured.
+
+**Fallback** (`http3.discovery.fallback`), measured against servers that
+answer nothing, go silent mid-request, close and then answer nothing, or
+speak only QUIC v2
+([report](../internal/harness/reports/http3-edge-2026-10-25.md); captures
+`h3-blackhole`, `h3-broken`, `h3-vn`). This is what mimicry does with
+`Config.BrowserQUICFallback`; by default it shortens the holds.
+
+- **Chrome (`race`):** a request that needs a QUIC connection waits for
+  the attempt 300 ms (`tcpDelayMs`; 305–306 measured), then goes on TCP
+  while the attempt runs on. A request sent in 0-RTT, and every request
+  after it, waits for that attempt with no TCP until it gives up
+  (`zeroRttHolds`: 4.0 s). Then a fresh attempt and TCP start together,
+  and requests made while it runs go on TCP at once.
+- **Firefox (`background`):** an attempt never holds a request, except
+  those made while its resumed attempt after the server's close is pending
+  (`hold`). They go on it in 0-RTT, and to a new TCP connection when it
+  gives up (5 s). After a failed resumed attempt or a dead connection, a
+  request at least `revalidateMs` later validates afresh beside TCP.
+  `revalidateMs` (797–3,020 ms) is bounded by the captures: a request 0.8 s
+  after a failure did not start a fresh attempt, one 3.05 s after did.
+- **Safari (`race`):** QUIC first, TCP after 100 ms (`tcpDelayMs`,
+  88–129 ms measured: Safari 26 88–109, Safari 27 100–129). The attempt is
+  dropped once the request goes on TCP (`abandonOnTcp`).
+
+Failed attempts in a row (`brokenAfter`: Chrome and Firefox 1, Safari 2,
+resumed ones counting for Safari only) leave the origin on TCP for the rest
+of the Transport's life: no browser tried again within a page (Chrome's
+5-minute back-off is from its source, not measured). An attempt counts
+once its first datagram has gone out
+([decision 0028](../docs/decisions/0028-quic-failure-model.md)). Firefox
+answers Version Negotiation with a new connection in v2 at once, and closes
+it with 0x53f8 when the server's transport parameters lack
+`version_information`; that counts as one failed attempt. Chrome's source
+delays its TCP job by 1.5 × the origin's smoothed RTT when it expects QUIC
+to work; no loopback capture can tell that from no delay, so it is not
+modelled.
+
+A live connection whose path stops answering: Chrome migrates
+(`quic.loss.pathDegrading`, row above; a socket from
+`quic.DialConfig.NewPath`). When that path dies too, Chrome closes with
+`85:Network blackhole detected` and sends the stuck request on TCP (not
+modelled). Safari closes after 12 s and sends the pending requests again on
+a new connection 7–15 ms later (`pending` quic, `reconnectMs`: Safari 26
+7–9, Safari 27 10–15). Firefox keeps probing until its 30 s idle timeout,
+then sends them all on TCP (`pending` tcp), opening a TCP connection for
+each and declining all but the first.
+
+### Proxies
+
+Rows: [Proxies](#proxies). Idle tunnels per rotated identity are a
+performance setting, not a profile claim; their memory cost is measured in
+the [proxyidle report](../internal/bench/reports/focus-2026-10-29/ctor/after/proxyidle-2026-10-29.md).
+
+### WebSockets
+
+Rows: [WebSockets](#websockets), the proxy rows under [Proxies](#proxies)
+(`connectNoResume`, `websocket.plain`, `websocket.credentials`) and the
+WebSocket rows under
+[Behaviour in code, not in profiles](#behaviour-in-code-not-in-profiles).
+Capture reports: [websocket](../internal/harness/reports/websocket-2026-10-24.md),
+[proxy-websocket](../internal/harness/reports/proxy-websocket-2026-10-26.md),
+[websocket-deflate](../internal/harness/reports/websocket-deflate-2026-10-26.md)
+(Firefox hangs on `client_max_window_bits=8`: the `windowBits8` row).
+
+`TestWebSocketsMatchBrowser` replays every socket of both capture pages,
+and of the three proxy pages through the capture proxy, and compares them
+with every browser sample: transport and TLS hello; what reached the proxy
+(CONNECT, SOCKS5, or the handshake sent whole); handshake lines or fields;
+every frame, including the compressed bytes; pongs and HTTP/2 DATA
+packing; how the transport ends. Those proxy pages run with
+`Config.BrowserProxyAuth`. The page with proxy credentials runs again
+without it (`/upfront`): the sockets must still be the browser's, every
+CONNECT must carry the credentials, and none may be answered 407
+([decision 0039](../docs/decisions/0039-proxy-credentials-up-front.md)).
+
+`TestDeflateReproducesBrowserMessages` replays every captured message
+through the profile's compressor and names the first byte that differs.
+
+Not in a row: Safari 26 also sends a cross-site host's unpartitioned Lax
+and None cookies on sockets. Safari's `ws://` handshake sent whole through
+a proxy carries credentials after `Accept-Encoding`, as its other
+plain-HTTP requests do; Safari 26 copies Safari 27 there (not captured).
+
+### Refreshing profiles
+
+`TestDeriveReproducesProfiles` (in `cmd/refresh`) derives every built-in
+profile from its own captures and requires it unchanged. The last quick
+refresh is the
+[Chrome 156 report](../internal/harness/reports/refresh-chrome-156-macos-2026-10-26.md).
 
 ## Keeping it true
 

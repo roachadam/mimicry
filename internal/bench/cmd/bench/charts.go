@@ -20,8 +20,10 @@ import (
 
 // charts writes the SVG charts of docs/performance.md from a report merged
 // from passes (bench merge -passes) and the raw micro benchmark output it
-// names, beside it: every number drawn is in the JSON or the micro file,
-// medians with each value's range over the passes as whiskers. The output
+// names, beside it: every number drawn is in the JSON or the micro file, a
+// median over the passes or runs. Each panel compares the clients at one
+// point in natural units, a horizontal bar per client sorted best first, so
+// that the eye reads who is ahead without decoding a ratio. The output
 // depends on the input alone, so the committed charts change only with the
 // report.
 func charts(args []string) error {
@@ -65,24 +67,24 @@ func charts(args []string) error {
 		draw func() (string, error)
 	}{
 		{
-			name: "relative.svg",
-			draw: cs.relative,
+			name: "throughput.svg",
+			draw: cs.throughput,
+		},
+		{
+			name: "cpu.svg",
+			draw: cs.cpu,
 		},
 		{
 			name: "proxies.svg",
 			draw: cs.proxies,
 		},
 		{
-			name: "rotation.svg",
-			draw: cs.rotation,
+			name: "dropped-clients.svg",
+			draw: cs.dropped,
 		},
 		{
-			name: "micro.svg",
-			draw: cs.microChart,
-		},
-		{
-			name: "h3-bulk.svg",
-			draw: cs.h3Bulk,
+			name: "weak-spots.svg",
+			draw: cs.weakSpots,
 		},
 	} {
 		svg, err := c.draw()
@@ -109,49 +111,46 @@ type chartSet struct {
 const (
 	chartW    = 860.0
 	chartPadX = 24.0
-	// Text sizes: the title, subtitles and labels, small labels.
-	sizeTitle = 19.0
-	sizeText  = 13.0
-	sizeLabel = 12.0
-	sizeSmall = 10.5
+	// Text sizes: the title, subtitles, row headings, labels, small labels.
+	sizeTitle   = 19.0
+	sizeText    = 13.0
+	sizeHeading = 14.0
+	sizeLabel   = 12.0
+	sizeSmall   = 11.0
+	// A bar's height and the distance from one bar to the next.
+	barH     = 13.0
+	barPitch = 18.0
+	// The gap between a grid's columns.
+	colGap = 28.0
 )
 
 // chartStyle colours the charts for light and dark pages: an SVG shown as
 // an image cannot read the page's CSS, so it follows the reader's colour
 // scheme itself, on a background of its own. mimicry is the one saturated
-// colour (Okabe-Ito blue); the other impersonating clients are muted tints
-// of Okabe-Ito's orange, green and purple; net/http, the reference, is
-// hatched.
+// colour (Okabe-Ito blue); the other impersonating clients are one muted
+// grey; net/http, the reference, is hatched.
 const chartStyle = `<style>
 .bg{fill:#ffffff;stroke:#d1d9e0}
 text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans",Helvetica,Arial,sans-serif;fill:#1f2328}
 .m{fill:#59636e}
 .b{font-weight:600}
-.grid{stroke:#d1d9e0;stroke-width:1}
-.axis{stroke:#818b98;stroke-width:1}
-.one{stroke:#1f2328;stroke-width:1.2;stroke-dasharray:4 3}
-.wh{stroke:#1f2328;stroke-width:1.2}
+.a{fill:#0072b2}
+.base{stroke:#818b98;stroke-width:1}
+.sep{stroke:#d1d9e0;stroke-width:1}
 .brk{stroke:#ffffff;stroke-width:3}
 .mim{fill:#0072b2}
-.tls{fill:#e9c27a}
-.clk{fill:#8fcbb8}
-.azr{fill:#dcadc8}
-.oth{fill:#c3c9d0}
-.ref{fill:url(#hatch);stroke:#6e7781;stroke-width:1.2}
-.hl{stroke:#6e7781;stroke-width:1.6}
+.oth{fill:#bcc3cb}
+.ref{fill:url(#hatch);stroke:#6e7781;stroke-width:1}
+.hl{stroke:#6e7781;stroke-width:1.5}
 @media (prefers-color-scheme:dark){
 .bg{fill:#0d1117;stroke:#3d444d}
 text{fill:#f0f6fc}
 .m{fill:#9198a1}
-.grid{stroke:#2f353d}
-.axis{stroke:#656c76}
-.one{stroke:#f0f6fc}
-.wh{stroke:#f0f6fc}
+.a{fill:#56b4e9}
+.base{stroke:#656c76}
+.sep{stroke:#2f353d}
 .brk{stroke:#0d1117}
 .mim{fill:#56b4e9}
-.tls{fill:#8f7034}
-.clk{fill:#3f7d6b}
-.azr{fill:#86587a}
 .oth{fill:#4b535d}
 .ref{stroke:#8b949e}
 .hl{stroke:#8b949e}
@@ -192,7 +191,7 @@ func (c *canvas) line(x1, y1, x2, y2 float64, class string) {
 // element so that the browser spaces them.
 func (c *canvas) pair(x, y, size float64, heading, note string) {
 	fmt.Fprintf(&c.b, `<text x="%.1f" y="%.1f"><tspan font-size="%.1f" class="b">%s</tspan>`+
-		`<tspan font-size="%.1f" class="m" dx="10">%s</tspan></text>`+"\n",
+		`<tspan font-size="%.1f" class="m" dx="8">%s</tspan></text>`+"\n",
 		x, y, size, html.EscapeString(heading), sizeLabel, html.EscapeString(note))
 }
 
@@ -213,37 +212,56 @@ func (c *canvas) finish(h float64, title string) string {
 	return b.String()
 }
 
-// header draws a chart's title and subtitle and returns the y below them.
-func header(c *canvas, title, subtitle string) float64 {
+// header draws a chart's title, subtitle and key, and returns the y below
+// them.
+func (cs *chartSet) header(c *canvas, title, subtitle string) float64 {
 	c.text(chartPadX, 36, sizeTitle, "", "b", title)
 
 	y := 60.0
-	for _, l := range wrap(subtitle, 118) {
+	for _, l := range wrap(subtitle, chartW-2*chartPadX, sizeText) {
 		c.text(chartPadX, y, sizeText, "", "m", l)
 
 		y += 18
 	}
 
-	return y
+	return cs.key(c, y+8)
 }
 
-// legend draws a swatch per client and returns the y below it.
-func legend(c *canvas, y float64, clients []string) float64 {
-	x := chartPadX
+// key draws the colours' meaning and returns the y below it.
+func (cs *chartSet) key(c *canvas, y float64) float64 {
+	var others []string
 
-	for _, name := range clients {
-		label := name
-		if name == referenceClient {
-			label += " (reference)"
+	for _, name := range cs.chartClients() {
+		if name != "mimicry" && name != referenceClient {
+			others = append(others, name)
 		}
-
-		c.rect(x, y-10, 12, 12, clientClass(name))
-		c.text(x+17, y, sizeLabel, "", "", label)
-
-		x += 17 + textWidth(label, sizeLabel) + 20
 	}
 
-	return y + 14
+	x := chartPadX
+
+	for _, k := range []struct {
+		class, label string
+	}{
+		{
+			class: "mim",
+			label: "mimicry",
+		},
+		{
+			class: "oth",
+			label: strings.Join(others, ", "),
+		},
+		{
+			class: "ref",
+			label: referenceClient + ", Go's standard client, as the reference",
+		},
+	} {
+		c.rect(x, y-10, 12, 12, k.class)
+		c.text(x+17, y, sizeLabel, "", "", k.label)
+
+		x += 17 + textWidth(k.label, sizeLabel) + 22
+	}
+
+	return y + 16
 }
 
 // caption draws the machine, the run and the source under a chart and
@@ -272,32 +290,36 @@ func (cs *chartSet) caption(c *canvas, y float64, what string) float64 {
 		"Source: internal/bench/reports/" + cs.source + ".",
 	}
 
-	y += 6
+	c.line(chartPadX, y, chartW-chartPadX, y, "sep")
+
+	y += 18
 	for _, l := range lines {
-		for _, w := range wrap(l, 135) {
-			c.text(chartPadX, y, 11, "", "m", w)
+		for _, w := range wrap(l, chartW-2*chartPadX, sizeSmall) {
+			c.text(chartPadX, y, sizeSmall, "", "m", w)
 
 			y += 15
 		}
 	}
 
-	return y + 8
+	return y + 6
 }
 
 // passesNote says what a layer 3 or 6 value is.
 func (cs *chartSet) passesNote() string {
-	return fmt.Sprintf("Bars: each value's median over %d passes; whiskers: its range.", cs.r.Passes)
+	return fmt.Sprintf("Each bar: the median of %d passes. Ranges overlap: the two values' lowest-to-highest over the passes do "+
+		"(the report gives every range).", cs.r.Passes)
 }
 
-// wrap breaks s into lines of at most n characters, at spaces.
-func wrap(s string, n int) []string {
+// wrap breaks s into lines that fit w at size, at spaces. Prose runs
+// narrower than textWidth's estimate, which is a label's (digits).
+func wrap(s string, w, size float64) []string {
 	var (
 		out  []string
 		line string
 	)
 
-	for w := range strings.FieldsSeq(s) {
-		if line != "" && len(line)+1+len(w) > n {
+	for word := range strings.FieldsSeq(s) {
+		if line != "" && float64(len([]rune(line+" "+word)))*size*0.5 > w {
 			out = append(out, line)
 			line = ""
 		}
@@ -306,7 +328,7 @@ func wrap(s string, n int) []string {
 			line += " "
 		}
 
-		line += w
+		line += word
 	}
 
 	if line != "" {
@@ -321,17 +343,11 @@ func textWidth(s string, size float64) float64 {
 	return float64(len([]rune(s))) * size * 0.56
 }
 
-// clientClass is a client's CSS class (its colour).
+// clientClass is a client's bar class (its colour).
 func clientClass(name string) string {
 	switch name {
 	case "mimicry":
 		return "mim"
-	case "tls-client":
-		return "tls"
-	case "httpcloak":
-		return "clk"
-	case "azuretls":
-		return "azr"
 	case referenceClient:
 		return "ref"
 	}
@@ -340,7 +356,8 @@ func clientClass(name string) string {
 }
 
 // chartClients is the report's clients in the charts' order: mimicry, the
-// other impersonating clients, then the reference.
+// other impersonating clients, then the reference. Bars are sorted by
+// value; this order breaks ties.
 func (cs *chartSet) chartClients() []string {
 	out := []string{"mimicry"}
 
@@ -405,145 +422,6 @@ func figure(v float64) string {
 	return thousands(v)
 }
 
-// bar is one client's value in a group; na draws "n/a".
-type bar struct {
-	client string
-	v      float64
-	lo, hi float64
-	ranged bool
-	na     bool
-}
-
-// group is a cluster of bars under one label (lines).
-type group struct {
-	label []string
-	bars  []bar
-}
-
-// panel is a bar chart of groups: a title, a unit, and the plot's height.
-type panel struct {
-	title, unit string
-	h           float64
-	groups      []group
-}
-
-// panelHeight is a panel's height around its plot: title, headroom for
-// the value labels, and two lines of group labels.
-const (
-	panelTop    = 40.0
-	panelBottom = 46.0
-)
-
-// draw draws p from y across the chart's width and returns the y below it.
-// Values more than 5 times the panel's median are drawn cut, with their
-// value, so one outlier does not flatten the rest.
-func (p panel) draw(c *canvas, y float64) float64 {
-	c.pair(chartPadX, y+14, 14, p.title, p.unit)
-
-	var vals []float64
-
-	for _, g := range p.groups {
-		for _, b := range g.bars {
-			if !b.na {
-				vals = append(vals, b.v)
-			}
-		}
-	}
-
-	limit := 5 * median(vals)
-	top := 0.0
-
-	for _, v := range vals {
-		if v <= limit {
-			top = math.Max(top, v)
-		}
-	}
-
-	scaleMax, step := axisScale(top)
-
-	x0 := chartPadX + 44
-	x1 := chartW - chartPadX
-	y0 := y + panelTop
-	y1 := y0 + p.h
-
-	ypos := func(v float64) float64 {
-		return y1 - math.Min(v, scaleMax)/scaleMax*p.h
-	}
-
-	for t := 0.0; t <= scaleMax+step/2; t += step {
-		c.line(x0, ypos(t), x1, ypos(t), "grid")
-		c.text(x0-6, ypos(t)+4, sizeSmall, "end", "m", tick(t, step))
-	}
-
-	c.line(x0, y1, x1, y1, "axis")
-
-	gw := (x1 - x0) / float64(len(p.groups))
-
-	for gi, g := range p.groups {
-		gx := x0 + gw*float64(gi)
-		bw := math.Min(32, (gw-24)/float64(len(g.bars))-4)
-		left := gx + (gw-float64(len(g.bars))*(bw+4)+4)/2
-
-		for bi, b := range g.bars {
-			bx := left + float64(bi)*(bw+4)
-			cx := bx + bw/2
-
-			if b.na {
-				c.text(cx, y1-5, sizeSmall, "middle", "m", "n/a")
-
-				continue
-			}
-
-			c.rect(bx, ypos(b.v), bw, y1-ypos(b.v), clientClass(b.client))
-
-			labelY := ypos(b.v) - 5
-
-			switch {
-			case b.v > scaleMax:
-				// Cut: a gap across the bar near the top.
-				cy := y0 + 10
-				c.line(bx-2, cy+3, bx+bw+2, cy-3, "brk")
-				c.line(bx-2, cy+9, bx+bw+2, cy+3, "brk")
-
-			case b.ranged:
-				c.line(cx, ypos(b.lo), cx, ypos(b.hi), "wh")
-				c.line(cx-4, ypos(b.lo), cx+4, ypos(b.lo), "wh")
-				c.line(cx-4, ypos(b.hi), cx+4, ypos(b.hi), "wh")
-
-				labelY = math.Min(labelY, ypos(b.hi)-5)
-			}
-
-			c.text(cx, labelY, sizeSmall, "middle", "", figure(b.v))
-		}
-
-		for li, l := range g.label {
-			c.text(gx+gw/2, y1+18+float64(li)*15, sizeLabel, "middle", "", l)
-		}
-	}
-
-	return y1 + panelBottom
-}
-
-// axisScale picks an axis maximum at or above v and a tick step: 3 to 5
-// ticks of 1, 2, 2.5 or 5 times a power of ten.
-func axisScale(v float64) (scaleMax, step float64) {
-	if v <= 0 {
-		return 1, 0.25
-	}
-
-	raw := v / 4
-	mag := math.Pow(10, math.Floor(math.Log10(raw)))
-
-	for _, m := range []float64{1, 2, 2.5, 5, 10} {
-		step = m * mag
-		if step >= raw {
-			break
-		}
-	}
-
-	return math.Ceil(v/step-1e-9) * step, step
-}
-
 // median is the middle of v, the mean of the two middle values for an even
 // count (benchstat's median).
 func median(v []float64) float64 {
@@ -561,186 +439,6 @@ func median(v []float64) float64 {
 	return (s[len(s)/2-1] + s[len(s)/2]) / 2
 }
 
-// relative draws mimicry's geometric mean ratios against each client per
-// protocol, as the report's summary computes them: requests/s as mimicry's
-// over the other's, CPU per request as the other's over mimicry's, so that
-// right of 1 is mimicry ahead in both.
-func (cs *chartSet) relative() (string, error) {
-	if len(cs.r.Load) == 0 {
-		return "", errors.New("no load points")
-	}
-
-	others := cs.chartClients()[1:]
-
-	type row struct {
-		other    string
-		rps, cpu float64
-	}
-
-	type block struct {
-		proto target.Proto
-		n     int
-		rows  []row
-	}
-
-	var (
-		blocks []block
-		lo, hi = 1.0, 1.0
-	)
-
-	for _, p := range target.Protos {
-		bl := block{
-			proto: p,
-		}
-
-		for _, o := range others {
-			rps, n := ratio(cs.r.Load, p, o, func(l *scenario.LoadResult) float64 {
-				return l.RPS
-			}, false)
-			cpu, _ := ratio(cs.r.Load, p, o, func(l *scenario.LoadResult) float64 {
-				return l.CPUPerRequest
-			}, false)
-
-			if n == 0 || cpu == 0 {
-				continue
-			}
-
-			bl.n = n
-			bl.rows = append(bl.rows, row{
-				other: o,
-				rps:   rps,
-				cpu:   1 / cpu,
-			})
-			lo = math.Min(lo, math.Min(rps, 1/cpu))
-			hi = math.Max(hi, math.Max(rps, 1/cpu))
-		}
-
-		if len(bl.rows) > 0 {
-			blocks = append(blocks, bl)
-		}
-	}
-
-	lo = math.Min(0.75, lo/1.15)
-	hi = math.Max(2, hi*1.3)
-
-	var c canvas
-
-	title := "mimicry against the other clients, per protocol"
-	y := header(&c, title, fmt.Sprintf(
-		"Geometric mean over each protocol's load points (nginx; %s bodies; %s requests at once) of mimicry's value against "+
-			"the other client's, from each point's median over %d passes. Right of 1 is mimicry ahead. Server-bound points, "+
-			"and HTTP/1.1 above %d at once (where mimicry queues, as Chrome does), are left out.",
-		spacedAll(cs.r.Settings.Bodies, " and "), joinInts(cs.r.Settings.Concurrency, " and "), cs.r.Passes, mimicryH1Limit))
-
-	const (
-		labelX = chartPadX + 150
-		panelW = 300.0
-		gap    = 50.0
-		rowH   = 21.0
-		headH  = 26.0
-	)
-
-	px := []float64{labelX + 16, labelX + 16 + panelW + gap}
-	titles := [][2]string{
-		{"Requests per second", "mimicry ÷ other"},
-		{"CPU per request", "other ÷ mimicry"},
-	}
-
-	y += 14
-	for i, t := range titles {
-		c.pair(px[i], y, 14, t[0], t[1])
-	}
-
-	y += 12
-
-	xpos := func(i int, v float64) float64 {
-		return px[i] + math.Log(v/lo)/math.Log(hi/lo)*panelW
-	}
-
-	rows := 0
-	for _, bl := range blocks {
-		rows += len(bl.rows)
-	}
-
-	plotTop := y
-	plotBottom := y + float64(len(blocks))*headH + float64(rows)*rowH + 6
-
-	var ticks []float64
-
-	for _, t := range []float64{0.5, 0.75, 1, 1.5, 2, 3, 4, 5} {
-		if t >= lo && t <= hi {
-			ticks = append(ticks, t)
-		}
-	}
-
-	for i := range px {
-		for _, t := range ticks {
-			class := "grid"
-			if t == 1 {
-				class = "one"
-			}
-
-			c.line(xpos(i, t), plotTop, xpos(i, t), plotBottom, class)
-			c.text(xpos(i, t), plotBottom+15, sizeSmall, "middle", "m", strconv.FormatFloat(t, 'f', -1, 64)+"×")
-		}
-
-		c.text(xpos(i, 1)-6, plotBottom+32, sizeSmall, "end", "m", "◀ other ahead")
-		c.text(xpos(i, 1)+6, plotBottom+32, sizeSmall, "", "m", "mimicry ahead ▶")
-	}
-
-	y = plotTop
-
-	for _, bl := range blocks {
-		y += headH
-		c.pair(chartPadX, y-8, sizeText, protoName(bl.proto), fmt.Sprintf("%d load points", bl.n))
-
-		for _, rw := range bl.rows {
-			label := "vs " + rw.other
-			if rw.other == referenceClient {
-				label += " (ref.)"
-			}
-
-			c.text(labelX, y+14, sizeLabel, "end", "", label)
-
-			for i, v := range []float64{rw.rps, rw.cpu} {
-				a, b := xpos(i, 1), xpos(i, v)
-				c.rect(math.Min(a, b), y+4, math.Abs(b-a), 13, barClass(rw.other))
-
-				if v >= 1 {
-					c.text(b+5, y+15, sizeSmall, "", "", fmt.Sprintf("%.2f×", v))
-				} else {
-					c.text(b-5, y+15, sizeSmall, "end", "", fmt.Sprintf("%.2f×", v))
-				}
-			}
-
-			y += rowH
-		}
-	}
-
-	h := cs.caption(&c, plotBottom+46, "Bars hatched: net/http, the reference (Go's own TLS; quic-go for HTTP/3).")
-
-	return c.finish(h, title), nil
-}
-
-// barClass is the ratio bars' class: mimicry's colour, hatched against the
-// reference.
-func barClass(other string) string {
-	if other == referenceClient {
-		return "ref"
-	}
-
-	return "mim"
-}
-
-// tick formats an axis tick, with decimals only for a fractional step.
-func tick(v, step float64) string {
-	if step < 1 {
-		return strconv.FormatFloat(v, 'f', -1, 64)
-	}
-
-	return thousands(v)
-}
-
 // unitSuffix splits a size or duration as the reports write it: 1KB, 5ms.
 var unitSuffix = regexp.MustCompile(`^([0-9.]+)([A-Za-zµ]+)$`)
 
@@ -749,63 +447,526 @@ func spaced(s string) string {
 	return unitSuffix.ReplaceAllString(s, "$1 $2")
 }
 
-func spacedAll(v []string, sep string) string {
-	s := make([]string, len(v))
-	for i, x := range v {
-		s[i] = spaced(x)
+// atOnce names a concurrency.
+func atOnce(conc int) string {
+	if conc == 1 {
+		return "one request at a time"
 	}
 
-	return strings.Join(s, sep)
+	return fmt.Sprintf("%d requests at once", conc)
 }
 
-func joinInts(v []int, sep string) string {
-	s := make([]string, len(v))
-	for i, n := range v {
-		s[i] = strconv.Itoa(n)
-	}
-
-	return strings.Join(s, sep)
+// metric is how a panel's values read: the unit after each value, which
+// direction is better, and the words that compare mimicry with another
+// client.
+type metric struct {
+	unit  string
+	lower bool
+	// more, less and times are formats of mimicry against another client:
+	// a percentage or a factor, then the other client's name.
+	more, less, times string
 }
 
-// multiGroups builds a group per route from the first-count layer 6 points
-// that match: get returns a value and its range key ("" for none).
-func (cs *chartSet) multiGroups(match func(mp multiPoint) bool, get func(r *scenario.MultiResult) (float64, string)) []group {
-	out := make([]group, 0, len(multiRoutes))
-
-	for _, rt := range multiRoutes {
-		g := group{
-			label: []string{protoName(rt.Proto), proxyName(rt.Proxy)},
-		}
-
-		for _, name := range cs.chartClients() {
-			b := bar{
-				client: name,
-				na:     true,
-			}
-
-			for _, mp := range cs.r.Multi {
-				if mp.Proto != rt.Proto || mp.Proxy != rt.Proxy || mp.Client != name || mp.N != cs.r.Settings.MultiN ||
-					mp.Run != "" || !mp.valid() || !match(mp) {
-					continue
-				}
-
-				v, key := get(mp.Result)
-
-				b.v = v
-				b.na = false
-
-				if r, ok := mp.Ranges[key]; ok && key != "" {
-					b.lo, b.hi, b.ranged = r[0], r[1], true
-				}
-			}
-
-			g.bars = append(g.bars, b)
-		}
-
-		out = append(out, g)
+var (
+	requestsPerSecond = metric{
+		more:  "%s more than %s",
+		less:  "%s fewer than %s",
+		times: "%s times as many as %s",
 	}
+	cpuMicros = metric{
+		unit:  " µs",
+		lower: true,
+		more:  "%s more CPU than %s",
+		less:  "%s less CPU than %s",
+		times: "%s times the CPU of %s",
+	}
+	memoryKB = metric{
+		unit:  " KB",
+		lower: true,
+		more:  "%s more memory than %s",
+		less:  "%s less memory than %s",
+		times: "%s times the memory of %s",
+	}
+	memoryMB = metric{
+		unit:  " MB",
+		lower: true,
+		more:  "%s more memory than %s",
+		less:  "%s less memory than %s",
+		times: "%s times the memory of %s",
+	}
+	tunnels = metric{
+		lower: true,
+		more:  "%s more than %s",
+		less:  "%s fewer than %s",
+		times: "%s times as many as %s",
+	}
+	buildMicros = metric{
+		unit:  " µs",
+		lower: true,
+		more:  "%s slower than %s",
+		less:  "%s faster than %s",
+		times: "%s times as long as %s",
+	}
+)
+
+// hbar is one client's value in a panel: a median and, from merged passes,
+// its range; na, when set, is shown instead of a bar.
+type hbar struct {
+	client string
+	v      float64
+	lo, hi float64
+	ranged bool
+	na     string
+}
+
+// cell is one panel: a title with a note after it, a bar per client, and
+// notes under the comparison.
+type cell struct {
+	title, note string
+	m           metric
+	bars        []hbar
+	foot        []string
+}
+
+// better says whether a ranks before b.
+func (m metric) better(a, b hbar) bool {
+	if m.lower {
+		return a.v < b.v
+	}
+
+	return a.v > b.v
+}
+
+// sorted is the cell's bars best first, those without a value last.
+func (cl cell) sorted() []hbar {
+	out := slices.Clone(cl.bars)
+
+	slices.SortStableFunc(out, func(a, b hbar) int {
+		switch {
+		case a.na != "" && b.na != "":
+			return 0
+		case a.na != "":
+			return 1
+		case b.na != "":
+			return -1
+		case cl.m.better(a, b):
+			return -1
+		case cl.m.better(b, a):
+			return 1
+		}
+
+		return 0
+	})
 
 	return out
+}
+
+// summary compares mimicry with the best of the other impersonating
+// clients in words: "mimicry: 26% less CPU than tls-client", with "(ranges
+// overlap)" when the two values' ranges over the passes or runs do.
+func (cl cell) summary() string {
+	var me, best *hbar
+
+	for i := range cl.bars {
+		b := &cl.bars[i]
+
+		switch {
+		case b.na != "":
+		case b.client == "mimicry":
+			me = b
+		case b.client == referenceClient:
+		case best == nil || cl.m.better(*b, *best):
+			best = b
+		}
+	}
+
+	if me == nil || best == nil || best.v <= 0 {
+		return ""
+	}
+
+	r := me.v / best.v
+	pct := strconv.FormatFloat(math.Round(math.Abs(r-1)*100), 'f', 0, 64) + "%"
+
+	var s string
+
+	switch {
+	case pct == "0%":
+		s = "level with " + best.client
+	case r >= 2:
+		s = fmt.Sprintf(cl.m.times, factor(r), best.client)
+	case r > 1:
+		s = fmt.Sprintf(cl.m.more, pct, best.client)
+	default:
+		s = fmt.Sprintf(cl.m.less, pct, best.client)
+	}
+
+	if me.ranged && best.ranged && me.lo <= best.hi && best.lo <= me.hi {
+		s += " (ranges overlap)"
+	}
+
+	return "mimicry: " + s
+}
+
+// factor writes a ratio of 2 or more in words' precision: 2.6, 13, 740.
+func factor(r float64) string {
+	if r < 10 {
+		return strconv.FormatFloat(r, 'f', 1, 64)
+	}
+
+	return thousands(r)
+}
+
+// cutAt is how far a cut bar's break sits along the plot, and how far the
+// next-longest bar reaches.
+const (
+	cutAt      = 0.86
+	cutNextMax = 0.72
+)
+
+// scale returns the value at the plot's full width and the client whose
+// bar is cut: another client's value more than 4 times every other one's
+// is drawn past a break, so that it does not squash the rest. mimicry's
+// bar is never cut.
+func (cl cell) scale(bars []hbar) (top float64, cut string) {
+	var vals []hbar
+
+	for _, b := range bars {
+		if b.na == "" {
+			vals = append(vals, b)
+		}
+	}
+
+	slices.SortStableFunc(vals, func(a, b hbar) int {
+		switch {
+		case a.v > b.v:
+			return -1
+		case a.v < b.v:
+			return 1
+		}
+
+		return 0
+	})
+
+	if len(vals) == 0 {
+		return 1, ""
+	}
+
+	if len(vals) > 1 && vals[0].client != "mimicry" && vals[1].v > 0 && vals[0].v > 4*vals[1].v {
+		return vals[1].v / cutNextMax, vals[0].client
+	}
+
+	if vals[0].v <= 0 {
+		return 1, ""
+	}
+
+	return vals[0].v, ""
+}
+
+// draw draws the cell at x, y, w wide, and returns the y below it.
+func (cl cell) draw(c *canvas, x, y, w float64) float64 {
+	if textWidth(cl.title, sizeHeading)*1.05+8+textWidth(cl.note, sizeLabel) <= w {
+		c.pair(x, y+14, sizeHeading, cl.title, cl.note)
+
+		y += 26
+	} else {
+		c.text(x, y+14, sizeHeading, "", "b", cl.title)
+		c.text(x, y+31, sizeLabel, "", "m", cl.note)
+
+		y += 42
+	}
+
+	bars := cl.sorted()
+	top, cut := cl.scale(bars)
+
+	labels := make([]string, len(bars))
+	nameW, valueW := 0.0, 0.0
+
+	for i, b := range bars {
+		nameW = math.Max(nameW, textWidth(b.client, sizeLabel))
+
+		switch {
+		case b.na != "":
+			labels[i] = b.na
+		case b.client == cut:
+			labels[i] = figure(b.v) + cl.m.unit + " (cut)"
+		default:
+			labels[i] = figure(b.v) + cl.m.unit
+		}
+
+		if b.na == "" {
+			valueW = math.Max(valueW, textWidth(labels[i], sizeSmall))
+		}
+	}
+
+	x0 := x + nameW + 8
+	span := w - (x0 - x) - valueW - 8
+
+	for i, b := range bars {
+		by := y + float64(i)*barPitch
+		ty := by + barH - 3
+
+		nameClass, valueClass := "", ""
+		if b.client == "mimicry" {
+			nameClass, valueClass = "b a", "b"
+		}
+
+		c.text(x0-6, ty, sizeLabel, "end", nameClass, b.client)
+
+		if b.na != "" {
+			c.text(x0+6, ty, sizeSmall, "", "m", b.na)
+
+			continue
+		}
+
+		bw := math.Max(1, span*b.v/top)
+		if b.client == cut {
+			bw = span
+		}
+
+		c.rect(x0, by, bw, barH, clientClass(b.client))
+
+		if b.client == cut {
+			bx := x0 + span*cutAt
+			c.line(bx-3, by+barH+2, bx+1, by-2, "brk")
+			c.line(bx+3, by+barH+2, bx+7, by-2, "brk")
+		}
+
+		c.text(x0+bw+5, ty, sizeSmall, "", valueClass, labels[i])
+	}
+
+	c.line(x0, y-3, x0, y+float64(len(bars)-1)*barPitch+barH+3, "base")
+
+	y += float64(len(bars)-1)*barPitch + barH + 18
+
+	if s := cl.summary(); s != "" {
+		for _, l := range wrap(s, w, sizeLabel) {
+			c.text(x, y, sizeLabel, "", "b", l)
+
+			y += 16
+		}
+	}
+
+	for _, f := range cl.foot {
+		for _, l := range wrap(f, w, sizeSmall) {
+			c.text(x, y, sizeSmall, "", "m", l)
+
+			y += 14
+		}
+	}
+
+	return y
+}
+
+// gridRow is a row of cells under a heading ("" for none).
+type gridRow struct {
+	heading string
+	cells   []cell
+}
+
+// grid draws rows of cols cells across the chart from y, a line between
+// rows, and returns the y below them.
+func grid(c *canvas, y float64, cols int, rows []gridRow) float64 {
+	w := (chartW - 2*chartPadX - colGap*float64(cols-1)) / float64(cols)
+
+	for i, r := range rows {
+		if i > 0 {
+			c.line(chartPadX, y, chartW-chartPadX, y, "sep")
+
+			y += 14
+		}
+
+		if r.heading != "" {
+			c.text(chartPadX, y+16, sizeHeading+1, "", "b", r.heading)
+
+			y += 30
+		}
+
+		bottom := y
+
+		for ci, cl := range r.cells {
+			bottom = math.Max(bottom, cl.draw(c, chartPadX+float64(ci)*(w+colGap), y, w))
+		}
+
+		y = bottom + 8
+	}
+
+	return y
+}
+
+// loadCell is one layer 3 point (nginx, the network as it is) as a cell:
+// get returns a value of a result and key names its range.
+func (cs *chartSet) loadCell(title string, p target.Proto, op string, conc int, m metric,
+	get func(*scenario.LoadResult) float64, key string,
+) cell {
+	cl := cell{
+		title: title,
+		note:  direction(m),
+		m:     m,
+	}
+
+	bound := serverBoundKeys(cs.r.Load)
+	isBound := false
+
+	for _, name := range cs.chartClients() {
+		b := hbar{
+			client: name,
+			na:     "n/a",
+		}
+
+		for _, lp := range cs.r.Load {
+			if lp.Server != "nginx" || lp.Proto != p || lp.Op != "bytes-"+op || lp.Conc != conc || lp.Client != name ||
+				lp.Condition != "" || !lp.valid() {
+				continue
+			}
+
+			b.v, b.na = get(lp.Result), ""
+
+			if r, ok := lp.Ranges[key]; ok {
+				b.lo, b.hi, b.ranged = r[0], r[1], true
+			}
+
+			isBound = isBound || bound[lp.key()]
+		}
+
+		cl.bars = append(cl.bars, b)
+	}
+
+	if p == target.H1 && conc > mimicryH1Limit {
+		cl.foot = append(cl.foot, fmt.Sprintf("mimicry keeps Chrome's %d connections per host and queues the rest.", mimicryH1Limit))
+	}
+
+	if isBound {
+		cl.foot = append(cl.foot, "nginx was the limit here, not the clients.")
+	}
+
+	return cl
+}
+
+// direction is a panel's note: which way is better.
+func direction(m metric) string {
+	if m.lower {
+		return "lower is better"
+	}
+
+	return "higher is better"
+}
+
+// loadGrid is layer 3 as rows of cells, a row per body size and
+// concurrency, a cell per protocol.
+func (cs *chartSet) loadGrid(m metric, get func(*scenario.LoadResult) float64, key string) []gridRow {
+	rows := make([]gridRow, 0, len(cs.r.Settings.Bodies)*len(cs.r.Settings.Concurrency))
+
+	for _, op := range cs.r.Settings.Bodies {
+		for _, conc := range cs.r.Settings.Concurrency {
+			row := gridRow{
+				heading: "GET " + spaced(op) + ", " + atOnce(conc),
+			}
+
+			for _, p := range target.Protos {
+				row.cells = append(row.cells, cs.loadCell(protoName(p), p, op, conc, m, get, key))
+			}
+
+			rows = append(rows, row)
+		}
+	}
+
+	return rows
+}
+
+// throughput draws layer 3's requests per second.
+func (cs *chartSet) throughput() (string, error) {
+	if len(cs.r.Load) == 0 {
+		return "", errors.New("no load points")
+	}
+
+	var c canvas
+
+	title := "Requests per second, one client: higher is better"
+	y := cs.header(&c, title,
+		"One warm client sends GET to nginx over each protocol. In each panel the clients are sorted best first; under it, "+
+			"mimicry against the best of the other impersonating clients.")
+
+	y = grid(&c, y+12, len(target.Protos), cs.loadGrid(requestsPerSecond, func(r *scenario.LoadResult) float64 {
+		return r.RPS
+	}, "rps"))
+
+	h := cs.caption(&c, y, cs.passesNote())
+
+	return c.finish(h, title), nil
+}
+
+// cpu draws layer 3's CPU per request.
+func (cs *chartSet) cpu() (string, error) {
+	if len(cs.r.Load) == 0 {
+		return "", errors.New("no load points")
+	}
+
+	var c canvas
+
+	title := "CPU per request, one client: lower is better"
+	y := cs.header(&c, title,
+		"The client process's user and system time per response, in microseconds, at the same points as the requests per "+
+			"second. In each panel the clients are sorted best first; under it, mimicry against the best of the other "+
+			"impersonating clients.")
+
+	y = grid(&c, y+12, len(target.Protos), cs.loadGrid(cpuMicros, func(r *scenario.LoadResult) float64 {
+		return r.CPUPerRequest
+	}, "cpuPerRequest"))
+
+	h := cs.caption(&c, y, cs.passesNote())
+
+	return c.finish(h, title), nil
+}
+
+// multiCell is one layer 6 route's points that match as a cell: get
+// returns a value of a result and its range key ("" for none).
+func (cs *chartSet) multiCell(title string, m metric, rt multiRoute, match func(mp multiPoint) bool,
+	get func(r *scenario.MultiResult) (float64, string),
+) cell {
+	cl := cell{
+		title: title,
+		note:  direction(m),
+		m:     m,
+	}
+
+	for _, name := range cs.chartClients() {
+		b := hbar{
+			client: name,
+			na:     "n/a",
+		}
+
+		for _, mp := range cs.r.Multi {
+			if mp.Proto != rt.Proto || mp.Proxy != rt.Proxy || mp.Client != name || mp.N != cs.r.Settings.MultiN ||
+				mp.Run != "" || !match(mp) {
+				continue
+			}
+
+			if !mp.valid() {
+				if mp.NA != "" && rt.Proto == target.H3 {
+					b.na = "no HTTP/3 through a proxy"
+				}
+
+				continue
+			}
+
+			v, key := get(mp.Result)
+
+			b.v, b.na = v, ""
+
+			if r, ok := mp.Ranges[key]; ok && key != "" {
+				b.lo, b.hi, b.ranged = r[0], r[1], true
+			}
+		}
+
+		cl.bars = append(cl.bars, b)
+	}
+
+	return cl
+}
+
+// routeName is a layer 6 route as a row heading.
+func routeName(rt multiRoute) string {
+	return protoName(rt.Proto) + " through " + proxyName(rt.Proxy)
 }
 
 // proxies draws layer 6 with a fixed identity per client at 1 KB: CPU per
@@ -817,51 +978,45 @@ func (cs *chartSet) proxies() (string, error) {
 
 	var c canvas
 
-	title := fmt.Sprintf("%d clients, each through a proxy identity of its own", cs.r.Settings.MultiN)
-	y := header(&c, title, fmt.Sprintf(
+	title := fmt.Sprintf("%d clients, each through a proxy identity of its own: lower is better", cs.r.Settings.MultiN)
+	y := cs.header(&c, title, fmt.Sprintf(
 		"%d clients of one library in one process, each with its own proxy credentials, each sending GET 1 KB to nginx one "+
-			"request at a time; the proxy delays everything it sends by %s. Requests per second are nearly the same for every "+
-			"client (the proxy's delay sets the pace), so what differs is what each request and each client costs.",
+			"request at a time; the proxy delays everything it sends by %s, so requests per second are nearly the same for "+
+			"every client and what differs is what each request and each client costs.",
 		cs.r.Settings.MultiN, spaced(firstOr(strings.Fields(cs.r.Env.ProxyDelay), "?"))))
 
-	y = legend(&c, y+10, cs.chartClients())
+	rows := make([]gridRow, 0, len(multiRoutes))
 
-	y = panel{
-		title: "CPU per request",
-		unit:  "µs, the process's user + system time; lower is better",
-		h:     150,
-		groups: cs.multiGroups(fixed1KB, func(r *scenario.MultiResult) (float64, string) {
-			return r.CPUPerRequest, "cpuPerRequest"
-		}),
-	}.draw(&c, y+14)
+	for _, rt := range multiRoutes {
+		rows = append(rows, gridRow{
+			heading: routeName(rt),
+			cells: []cell{
+				cs.multiCell("CPU per request", cpuMicros, rt, fixed1KB, func(r *scenario.MultiResult) (float64, string) {
+					return r.CPUPerRequest, "cpuPerRequest"
+				}),
+				cs.multiCell("Live heap per client", memoryKB, rt, fixed1KB, func(r *scenario.MultiResult) (float64, string) {
+					return r.LiveKBPerClient, "liveKbPerClient"
+				}),
+			},
+		})
+	}
 
-	y = panel{
-		title: "Live heap per client",
-		unit:  "KB at steady state; lower is better",
-		h:     150,
-		groups: cs.multiGroups(fixed1KB, func(r *scenario.MultiResult) (float64, string) {
-			return r.LiveKBPerClient, "liveKbPerClient"
-		}),
-	}.draw(&c, y+4)
+	y = grid(&c, y+12, 2, rows)
 
-	h := cs.caption(&c, y, cs.passesNote()+" A cut bar is off the scale. net/http has no HTTP/3 through a proxy.")
+	h := cs.caption(&c, y, cs.passesNote()+
+		" A bar with a gap, marked (cut), is too long for the panel: its value is printed. net/http's HTTP/3 (quic-go) has no proxy setting.")
 
 	return c.finish(h, title), nil
 }
 
-// rotation draws layer 6's client rotation with the old clients dropped:
+// dropped draws layer 6's client rotation with the old clients dropped:
 // what they leave open at the proxy and the process's memory.
-func (cs *chartSet) rotation() (string, error) {
+func (cs *chartSet) dropped() (string, error) {
 	dropped := func(mp multiPoint) bool {
 		return mp.Renew == scenario.RenewDropped
 	}
 
-	var (
-		c       canvas
-		rotate  int
-		window  = cs.r.Settings.MultiClientWindow
-		routine = cs.r.Settings.MultiN
-	)
+	rotate := 0
 
 	for _, mp := range cs.r.Multi {
 		if mp.Renew == scenario.RenewDropped {
@@ -869,42 +1024,44 @@ func (cs *chartSet) rotation() (string, error) {
 		}
 	}
 
-	title := "A new client per identity, the old one dropped without closing it"
-	y := header(&c, title, fmt.Sprintf(
+	var c canvas
+
+	title := "Clients dropped without closing them: lower is better"
+	y := cs.header(&c, title, fmt.Sprintf(
 		"%d routines, each building a new client (its library's constructor, new proxy credentials) every %d requests and "+
-			"dropping the old one, as code that makes a client per proxy and never closes it does; GET 1 KB to nginx through "+
-			"the proxy for %s. mimicry's pool closes what a dropped client left idle; the others keep it open until it times out.",
-		routine, rotate, spaced(window.String())))
+			"dropping the old one without closing it, for %s, GET 1 KB to nginx through the proxy. mimicry's pool closes what "+
+			"a dropped client left idle; the others keep it open until it times out.",
+		cs.r.Settings.MultiN, rotate, spaced(cs.r.Settings.MultiClientWindow.String())))
 
-	y = legend(&c, y+10, cs.chartClients())
+	rows := make([]gridRow, 0, len(multiRoutes))
 
-	y = panel{
-		title: "Tunnels left open at the proxy",
-		unit:  "per routine at the window's end (one is the current client's); lower is better",
-		h:     140,
-		groups: cs.multiGroups(dropped, func(r *scenario.MultiResult) (float64, string) {
-			if r.End == nil || r.Clients == 0 {
-				return 0, ""
-			}
+	for _, rt := range multiRoutes {
+		rows = append(rows, gridRow{
+			heading: routeName(rt),
+			cells: []cell{
+				cs.multiCell("Tunnels open, per routine", tunnels, rt, dropped, func(r *scenario.MultiResult) (float64, string) {
+					if r.End == nil || r.Clients == 0 {
+						return 0, ""
+					}
 
-			return float64(r.End.OpenTunnels+r.End.OpenAssociations) / float64(r.Clients), ""
-		}),
-	}.draw(&c, y+14)
+					return float64(r.End.OpenTunnels+r.End.OpenAssociations) / float64(r.Clients), ""
+				}),
+				cs.multiCell("Process memory", memoryMB, rt, dropped, func(r *scenario.MultiResult) (float64, string) {
+					if r.End == nil {
+						return 0, ""
+					}
 
-	y = panel{
-		title: "Process memory",
-		unit:  "MB resident at the window's end; lower is better",
-		h:     140,
-		groups: cs.multiGroups(dropped, func(r *scenario.MultiResult) (float64, string) {
-			if r.End == nil {
-				return 0, ""
-			}
+					return r.End.RSSMB, "end.rssMb"
+				}),
+			},
+		})
+	}
 
-			return r.End.RSSMB, "end.rssMb"
-		}),
-	}.draw(&c, y+4)
+	y = grid(&c, y+12, 2, rows)
 
-	h := cs.caption(&c, y, cs.passesNote()+" Tunnels: UDP associations included, no whiskers. net/http has no HTTP/3 through a proxy.")
+	h := cs.caption(&c, y, cs.passesNote()+
+		" At the window's end: tunnels and UDP associations open at the proxy (one is the current client's), and resident memory."+
+		" net/http's HTTP/3 (quic-go) has no proxy setting.")
 
 	return c.finish(h, title), nil
 }
@@ -951,8 +1108,8 @@ func readMicro(path string) (microSet, error) {
 }
 
 // microBar is a client's bar for a benchmark: the median over its runs,
-// whiskers their range, scaled by div; n/a when it never ran.
-func (cs *chartSet) microBar(name, unit, client string, div float64) bar {
+// its range, scaled by div; n/a when it never ran.
+func (cs *chartSet) microBar(name, unit, client string, div float64) hbar {
 	short := client
 	if client == referenceClient {
 		short = "nethttp"
@@ -960,13 +1117,13 @@ func (cs *chartSet) microBar(name, unit, client string, div float64) bar {
 
 	v := cs.micro[name+"/client="+short][unit]
 	if len(v) == 0 {
-		return bar{
+		return hbar{
 			client: client,
-			na:     true,
+			na:     "n/a",
 		}
 	}
 
-	return bar{
+	return hbar{
 		client: client,
 		v:      median(v) / div,
 		lo:     slices.Min(v) / div,
@@ -975,133 +1132,78 @@ func (cs *chartSet) microBar(name, unit, client string, div float64) bar {
 	}
 }
 
-// microChart draws layers 1 and 2: allocations per request on a warm
-// connection, and the time to a first response on a new one.
-func (cs *chartSet) microChart() (string, error) {
-	groups := func(bench, unit string, div float64) []group {
-		out := make([]group, 0, len(target.Protos))
+// weakSpots draws where mimicry is slower: HTTP/3 bulk downloads many at
+// once (one at a time beside it), HTTP/1.1 many at once to one host, and
+// building a client.
+func (cs *chartSet) weakSpots() (string, error) {
+	rps := func(r *scenario.LoadResult) float64 {
+		return r.RPS
+	}
 
-		for _, p := range target.Protos {
-			g := group{
-				label: []string{protoName(p)},
-			}
+	bulk := cs.r.Settings.Bodies[len(cs.r.Settings.Bodies)-1]
+	small := cs.r.Settings.Bodies[0]
+	many := cs.r.Settings.Concurrency[len(cs.r.Settings.Concurrency)-1]
 
-			for _, name := range cs.chartClients() {
-				g.bars = append(g.bars, cs.microBar(fmt.Sprintf(bench, p), unit, name, div))
-			}
+	h3One := cs.loadCell(fmt.Sprintf("HTTP/3, %s, one at a time", spaced(bulk)), target.H3, bulk, 1, requestsPerSecond, rps, "rps")
+	h3Many := cs.loadCell(fmt.Sprintf("HTTP/3, %s, %d at once", spaced(bulk), many), target.H3, bulk, many, requestsPerSecond, rps, "rps")
+	h1Many := cs.loadCell(fmt.Sprintf("HTTP/1.1, %s, %d at once", spaced(small), many), target.H1, small, many, requestsPerSecond, rps, "rps")
 
-			out = append(out, g)
+	for _, cl := range []*cell{&h3One, &h3Many, &h1Many} {
+		cl.note = "requests/s, higher is better"
+	}
+
+	h1Many.foot = append(h1Many.foot, "Config.MaxConnsPerHost lifts the limit.")
+
+	for _, lp := range cs.r.Load {
+		if lp.Server == "nginx" && lp.Proto == target.H3 && lp.Op == "bytes-"+bulk && lp.Conc == many && lp.Client == "mimicry" &&
+			lp.Condition == "" && lp.valid() && lp.UDP != nil && lp.UDP.RcvbufErrors > 0 {
+			h3Many.foot = append([]string{fmt.Sprintf(
+				"mimicry's socket dropped %s datagrams on a full receive buffer (Chrome's 1 MB, which it asks for); "+
+					"the quic-go clients force 7 MB and dropped none.", thousands(float64(lp.UDP.RcvbufErrors)))}, h3Many.foot...)
 		}
-
-		return out
 	}
 
-	runs := 0
-	for _, v := range cs.micro {
-		runs = max(runs, len(v["ns/op"]))
-	}
+	const build = "BenchmarkNewClient/proto=h2/proxy=none"
 
+	runs := len(cs.micro[build+"/client=mimicry"]["ns/op"])
 	if runs == 0 {
-		return "", errors.New("no micro results")
+		return "", errors.New("no BenchmarkNewClient results")
+	}
+
+	ctor := cell{
+		title: "Building a client",
+		note:  "µs, lower is better",
+		m:     buildMicros,
+		foot: []string{fmt.Sprintf(
+			"The constructor and Close in a loop, no request (HTTP/2, no proxy); the median of %d runs. "+
+				"Build clients up front or one per identity, not one per request.", runs)},
+	}
+
+	for _, name := range cs.chartClients() {
+		ctor.bars = append(ctor.bars, cs.microBar(build, "ns/op", name, 1000))
 	}
 
 	var c canvas
 
-	title := "One request, and one new connection"
-	y := header(&c, title,
-		"Go benchmarks against nginx, one client at a time. A warm connection: GET /json, the allocations the client makes "+
-			"per request. A new connection: GET /json on a new client, the full TLS (or QUIC) handshake included. mimicry "+
-			"has no HTTP/3 row there: a new client starts on TCP and moves to HTTP/3 after the server's Alt-Svc, as Chrome does.")
+	title := "Where mimicry is slower"
+	y := cs.header(&c, title,
+		"Three points from the requests per second, and Go's benchmark of building a client. One bulk HTTP/3 download at "+
+			"a time, mimicry leads; with many at once, it trails.")
 
-	y = legend(&c, y+10, cs.chartClients())
-
-	y = panel{
-		title:  "Allocations per request",
-		unit:   "warm connection, GET; lower is better",
-		h:      140,
-		groups: groups("BenchmarkRequest/server=nginx/proto=%s/method=GET", "allocs/op", 1),
-	}.draw(&c, y+14)
-
-	y = panel{
-		title:  "New connection, full handshake",
-		unit:   "µs to the first response; lower is better",
-		h:      140,
-		groups: groups("BenchmarkConnect/server=nginx/proto=%s/handshake=full", "ns/op", 1000),
-	}.draw(&c, y+4)
-
-	h := cs.caption(&c, y, fmt.Sprintf(
-		"Bars: the median of %d runs (-count 1 each, the clients in another order each run); whiskers: their range. A cut bar is off the scale.",
-		runs))
-
-	return c.finish(h, title), nil
-}
-
-// h3Bulk draws the weak spot: HTTP/3 with 100 KB bodies, one at a time and
-// many at once.
-func (cs *chartSet) h3Bulk() (string, error) {
-	groups := make([]group, 0, len(cs.r.Settings.Concurrency))
-
-	drops := ""
-
-	for _, conc := range cs.r.Settings.Concurrency {
-		g := group{
-			label: []string{fmt.Sprintf("%d at once", conc)},
-		}
-
-		bound := false
-
-		for _, name := range cs.chartClients() {
-			b := bar{
-				client: name,
-				na:     true,
-			}
-
-			for _, lp := range cs.r.Load {
-				if lp.Server != "nginx" || lp.Proto != target.H3 || lp.Op != "bytes-100KB" || lp.Conc != conc ||
-					lp.Client != name || lp.Condition != "" || !lp.valid() {
-					continue
-				}
-
-				b.v, b.na = lp.Result.RPS, false
-
-				if r, ok := lp.Ranges["rps"]; ok {
-					b.lo, b.hi, b.ranged = r[0], r[1], true
-				}
-
-				bound = bound || lp.Result.ServerBound != ""
-
-				if name == "mimicry" && lp.UDP != nil && lp.UDP.RcvbufErrors > 0 {
-					drops = fmt.Sprintf(" At %d at once mimicry's socket dropped %s datagrams on a full receive buffer; the others none.",
-						conc, thousands(float64(lp.UDP.RcvbufErrors)))
-				}
-			}
-
-			g.bars = append(g.bars, b)
-		}
-
-		if bound {
-			g.label = append(g.label, "nginx's worker the limit")
-		}
-
-		groups = append(groups, g)
-	}
-
-	var c canvas
-
-	title := "Where mimicry is slower: HTTP/3 bulk downloads, many at once"
-	y := header(&c, title,
-		"GET 100 KB from nginx over one HTTP/3 connection. mimicry asks for Chrome's 1 MB UDP receive buffer; the quic-go "+
-			"clients ask for 7 MB and force it (the client had CAP_NET_ADMIN). nginx serves the connection from one worker, "+
-			"which ran near a full core for every client at 64 at once."+drops)
-
-	y = legend(&c, y+10, cs.chartClients())
-
-	y = panel{
-		title:  "Requests per second",
-		unit:   "100 KB responses' worth of body bytes per second; higher is better",
-		h:      170,
-		groups: groups,
-	}.draw(&c, y+14)
+	y = grid(&c, y+12, 2, []gridRow{
+		{
+			cells: []cell{
+				h3One,
+				h3Many,
+			},
+		},
+		{
+			cells: []cell{
+				h1Many,
+				ctor,
+			},
+		},
+	})
 
 	h := cs.caption(&c, y, cs.passesNote())
 

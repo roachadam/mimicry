@@ -75,7 +75,7 @@ cfg := mimicry.Config{
 
 ## Captures and refreshing profiles
 
-Bring a profile up to the installed browser with `go run ./cmd/refresh -browser chrome,firefox -mode quick` (in `internal/harness/`; `-dry-run` first). It captures, derives, regenerates and tests, but never touches git: review its report, update `profiles/EVIDENCE.md` and `docs/backlog.md`, then commit. See [Refreshing profiles](docs/concepts/refreshing-profiles.md).
+Bring a profile up to the installed browser with `go run ./cmd/refresh -browser chrome,firefox -mode quick` (in `internal/harness/`; `-dry-run` first). It captures, derives, regenerates and tests, but never touches git: review its report, update `profiles/EVIDENCE.md` and `docs/backlog.md`, then commit. See [Refreshing profiles](docs/refreshing-profiles.md).
 
 Everything about captures (the capture tool, scenarios, per-browser setup, the generators, `tracestat`, `diff`, `clientcapture`, `interop`, `realcheck`) is in [docs/capturing.md](docs/capturing.md). Two rules matter here:
 

@@ -212,7 +212,7 @@ These matter most under decision 0029:
   (Chrome 155).
   - Differs: possibly nothing. `http2.openingRecords` for chrome-155
     comes from Chrome for Testing 155.0.8059.84 (the branded Chrome on
-    the capture Macs is 156), which shares the branded build's network
+    the capture machines is 156), which shares the branded build's network
     stack: `[preface SETTINGS WINDOW_UPDATE] [HEADERS]`, as branded
     Chrome 156. Every other chrome-155 field is from branded captures.
   - Shows: every new HTTP/2 connection (record count and sizes).
@@ -366,7 +366,7 @@ These matter most under decision 0029:
   - Close: HTTPS records in the DNS stub, captures, and a resolver that
     asks for them (shared with [real ECH](#tls-and-below)); medium to
     large.
-  - Source: [concepts/http3.md, Not measured](concepts/http3.md#not-measured);
+  - Source: [concepts/http3.md, Not supported](concepts/http3.md#not-supported);
     [http3 report](../internal/harness/reports/http3-2026-10-25.md);
     [decision 0026](decisions/0026-http3-capture.md).
 - **A returning browser's first request** (all; Firefox most).
@@ -384,7 +384,7 @@ These matter most under decision 0029:
     may use HTTP/3. User-visible: Firefox's first page loads on TCP.
   - Close: captures of each browser restarted with a saved alternative
     (a profile directory kept between two runs); medium.
-  - Source: [concepts/http3.md](concepts/http3.md#alternatives-a-transport-did-not-learn-itself).
+  - Source: [concepts/http3.md](concepts/http3.md#sharing-what-a-transport-learned).
 - **Dead-path waits** (Firefox, Safari).
   - Differs: nothing; listed as a stall. A request pending on a live QUIC
     connection whose path stops answering waits as the browser's does:
@@ -398,7 +398,7 @@ These matter most under decision 0029:
     PTOs, as Chrome's `pathDegrading`) and a rule for when to resend;
     medium. Firefox's migration is the other half: see Migration by
     Firefox and Safari, below.
-  - Source: [concepts/http3.md, fast fallback](concepts/http3.md#fast-fallback-the-default).
+  - Source: [concepts/http3.md, If QUIC is blocked](concepts/http3.md#if-quic-is-blocked).
 - **Safari over HTTP/3** (Safari 27, 26).
   - Differs: only Safari's `fetch()` was measured over HTTP/3, so its
     other kinds (navigations included) stay on TCP where Safari would use
@@ -412,7 +412,7 @@ These matter most under decision 0029:
     against a server offering a QPACK table; medium. Its unmeasured loss
     and close values are listed below (Safari's handshake loss timing,
     Safari's other unmeasured QUIC values).
-  - Source: [concepts/http3.md, Not measured](concepts/http3.md#not-measured);
+  - Source: [concepts/http3.md, Not supported](concepts/http3.md#not-supported);
     [http3 report](../internal/harness/reports/http3-2026-10-25.md);
     [EVIDENCE.md, QUIC and HTTP/3](../profiles/EVIDENCE.md#quic-and-http3).
 - **Safari's QUIC resumption and 0-RTT** (Safari 27, 26).
@@ -556,7 +556,7 @@ These matter most under decision 0029:
     hours. User-visible: no.
   - Close: a capture spanning several pages and minutes; small, slow to
     run.
-  - Source: [concepts/http3.md](concepts/http3.md#when-quic-fails);
+  - Source: [concepts/http3.md](concepts/http3.md#if-quic-is-blocked);
     [http3-edge report](../internal/harness/reports/http3-edge-2026-10-25.md);
     [decision 0028](decisions/0028-quic-failure-model.md).
 - **Captures with locally trusted roots** (Chrome, Firefox).
@@ -641,7 +641,7 @@ These matter most under decision 0029:
   - Shows: servers that send Retry under load.
   - Detection: low to medium. User-visible: no.
   - Close: a capture against a Retry-forcing server; small to medium.
-  - Source: [concepts/http3.md, Not measured](concepts/http3.md#not-measured);
+  - Source: [concepts/http3.md, Not supported](concepts/http3.md#not-supported);
     [http3-edge report](../internal/harness/reports/http3-edge-2026-10-25.md).
 - **PMTU probing, ECN and DATAGRAM frames** (all).
   - Differs: not measured; loopback shows none of them. The QUIC stack
@@ -650,7 +650,7 @@ These matter most under decision 0029:
   - Detection: low to medium; ECN counts and PMTU probes are visible to a
     QUIC-aware edge. User-visible: no.
   - Close: captures over a real network path; medium.
-  - Source: [concepts/http3.md, Not measured](concepts/http3.md#not-measured);
+  - Source: [concepts/http3.md, Not supported](concepts/http3.md#not-supported);
     `internal/quic/doc.go`.
 - **A server's QPACK dynamic table in responses** (all).
   - Differs: no capture server used one, so the decoder side (decoder
@@ -658,7 +658,7 @@ These matter most under decision 0029:
   - Shows: servers that compress response headers with a dynamic table.
   - Detection: low to medium. User-visible: no.
   - Close: a capture against such a server; medium.
-  - Source: [concepts/http3.md, Not measured](concepts/http3.md#not-measured).
+  - Source: [concepts/http3.md, Not supported](concepts/http3.md#not-supported).
 - **Safari closes QUIC on the server's GOAWAY** (Safari 27, 26).
   - Differs: Safari closes its QUIC connection itself when the server's
     HTTP/3 GOAWAY arrives; mimicry does not.
@@ -682,7 +682,7 @@ These matter most under decision 0029:
   - Differs: Chrome's 0-RTT reconnection after 35 s idle carried no
     NEW_TOKEN token in 2 of 3 samples, though the first connection had
     received one. Chrome 156 presents it even less: on 3 of 9
-    reconnections whose host had given it one (captured on the Mac mini;
+    reconnections whose host had given it one (captured on a second Mac kept on macOS 26;
     3 of 6 in a check on the other Mac), which ones varying between
     samples. mimicry always presents the token.
   - Shows: QUIC reconnections after idle.
@@ -690,8 +690,8 @@ These matter most under decision 0029:
   - Close: captures of Chrome's token cache rules; medium.
   - Source: `sampleGaps` in `internal/harness/cmd/h3gen/load.go`;
     `profile/quic.go` (`Tokens`).
-- **Chrome's late PRIORITY_UPDATE on the Mac mini** (Chrome 156).
-  - Differs: in 3 of the mini's `h3-discovery` samples the server read a
+- **Chrome's late PRIORITY_UPDATE on macOS 26** (Chrome 156).
+  - Differs: in 3 of the second Mac's `h3-discovery` samples the server read a
     request's PRIORITY_UPDATE 1 ms after its HEADERS (another datagram);
     everywhere else, and in a 2-sample check on the other Mac, it came
     first. mimicry sends it first (both are flushed under one cork,
@@ -721,7 +721,7 @@ These matter most under decision 0029:
   - Shows: the race on real networks (tens of milliseconds).
   - Detection: low (timing). User-visible: no.
   - Close: a capture over a real network; medium.
-  - Source: [concepts/http3.md](concepts/http3.md#when-quic-fails);
+  - Source: [concepts/http3.md](concepts/http3.md#if-quic-is-blocked);
     [decision 0028](decisions/0028-quic-failure-model.md). A saved
     alternative's smoothed RTT is the same rule (a returning browser's
     first request, above).
@@ -733,7 +733,7 @@ These matter most under decision 0029:
     30 s idle timeout, then TCP).
   - Close: a capture under NAT rebinding; medium. Firefox's dead-path
     wait is listed above (dead-path waits).
-  - Source: [concepts/http3.md, Not measured](concepts/http3.md#not-measured).
+  - Source: [concepts/http3.md, Not supported](concepts/http3.md#not-supported).
 - **Long and slow transfers** (all).
   - Differs: key updates beyond 37,000 received packets and credit growth
     beyond 50 MiB or at lower bandwidth are not measured. mimicry never
@@ -760,7 +760,7 @@ These matter most under decision 0029:
   - Shows: servers with short idle timeouts.
   - Detection: low. User-visible: no.
   - Close: a short-idle capture; small.
-  - Source: [concepts/http3.md](concepts/http3.md#under-loss-and-failure);
+  - Source: [profiles/EVIDENCE.md](../profiles/EVIDENCE.md#failure-version-negotiation-long-transfers);
     [decision 0028](decisions/0028-quic-failure-model.md).
 - **Safari's other unmeasured QUIC values** (Safari).
   - Differs: its ACK-only run limit, `zeroRtt`, `closeReply`, handshake
@@ -1084,7 +1084,7 @@ These matter most under decision 0029:
   - Detection: low to medium; cookie order. User-visible: no.
   - Close: a `cookies-edge` step; small.
   - Source: [cookies report](../internal/harness/reports/cookies-2026-10-24.md);
-    [concepts/cookies.md](concepts/cookies.md#not-modelled).
+    [concepts/cookies.md](concepts/cookies.md#the-rules).
 - **Limits and eviction** (all).
   - Differs: no total jar limit; Chrome's priority-aware and
     `Secure`-aware eviction within the per-site limit is not modelled; the
@@ -1097,7 +1097,7 @@ These matter most under decision 0029:
   - Close: `cookies-edge` captures with priorities, `Secure` mixes and
     staggered setting; medium.
   - Source: [cookies-edge report](../internal/harness/reports/cookies-edge-2026-10-24.md);
-    [concepts/cookies.md](concepts/cookies.md#not-modelled).
+    [concepts/cookies.md](concepts/cookies.md#the-rules).
 - **Chrome's two-minute Lax window** (Chrome).
   - Differs: the end of the window in which a cookie without `SameSite`
     goes on a cross-site POST is Chromium's documented 120 s, not
@@ -1107,14 +1107,14 @@ These matter most under decision 0029:
   - Detection: low. User-visible: no.
   - Close: a timed capture; small.
   - Source: [cookies report](../internal/harness/reports/cookies-2026-10-24.md);
-    [concepts/cookies.md](concepts/cookies.md#not-modelled).
+    [concepts/cookies.md](concepts/cookies.md#the-rules).
 - **`Expires` and the server's clock** (all).
   - Differs: `Expires` is judged by the local clock, with no correction
     for the server's `Date` header.
   - Shows: servers with skewed clocks setting near-term expiries.
   - Detection: low. User-visible: no.
   - Close: a capture with a skewed `Date`; small.
-  - Source: [concepts/cookies.md](concepts/cookies.md#not-modelled).
+  - Source: [concepts/cookies.md](concepts/cookies.md#the-rules).
 - **Safari's third-party cookies: stored or not sent** (Safari).
   - Differs: whether Safari refuses unpartitioned third-party cookies when
     storing or when sending is not visible; the jar does both.
@@ -1123,7 +1123,7 @@ These matter most under decision 0029:
   - Close: a capture that later visits the third party first-party;
     small.
   - Source: [decision 0012](decisions/0012-cookie-rules-in-profiles.md);
-    [concepts/cookies.md](concepts/cookies.md#not-modelled).
+    [concepts/cookies.md](concepts/cookies.md#the-rules).
 - **WebSocket handshake cookies** (all).
   - Differs: not captured: a `Strict` cookie on a cross-site socket (the
     jar withholds it, Safari 26 included), the socket host's own partition
@@ -1152,7 +1152,7 @@ These matter most under decision 0029:
   - Detection: none (local targets only). User-visible: no.
   - Close: a loopback probe with addresses; small.
   - Source: [decision 0015](decisions/0015-non-secure-origins.md);
-    [concepts/cookies.md](concepts/cookies.md#not-modelled).
+    [concepts/cookies.md](concepts/cookies.md#the-rules).
 - **Chrome and nameless `__Http-` values** (Chrome).
   - Differs: whether Chrome refuses a nameless cookie whose value starts
     with `__Http-` is not captured; the jar does not.
@@ -1686,7 +1686,7 @@ it.
 - **0-RTT while keeping HTTP/3**: no switch. A request the profile's
   browser holds (any method but GET, HEAD and OPTIONS) waits for the
   handshake, and a `425 Too Early` is retried as the browser does; see
-  [what mimicry does](concepts/what-mimicry-does.md#tls-session-resumption-and-0-rtt).
+  [what mimicry does](concepts/what-mimicry-does.md#tls-resumption-and-0-rtt).
 - **Skipping a CORS preflight while keeping the profile's headers**:
   `Exact` skips it, but drops the profile's headers too; `NoCORS` changes
   the request's mode.
@@ -1699,7 +1699,7 @@ it.
 ## Tooling and tests
 
 - **Load flake in `TestQUICInterop`: `stream-reset` (Firefox)** (1 in 40,
-  on a loaded Mac mini with `-race`): `GET /reject`'s resend went over
+  on a loaded machine with `-race`): `GET /reject`'s resend went over
   HTTP/1.1. Firefox has no race delay; fast fallback gives its resumed
   0-RTT attempt its first PTO (`earlyLimit`), which a loaded handshake
   outlasts. `BrowserQUICFallback` for such cases would lift it, at the
@@ -1749,12 +1749,12 @@ it.
   Source: [kinds report](../internal/harness/reports/kinds-2026-10-23.md);
   [`http3_test.go`](../internal/harness/e2e/http3_test.go).
 - **Capture ergonomics**: browsers come to the front during captures.
-  `cmd/refresh` runs Chrome and Firefox on the Mac mini, so only Safari 27
+  `cmd/refresh` runs Chrome and Firefox on a second Mac kept on macOS 26, so only Safari 27
   still takes the capturing Mac's screen (options: `open -g`, batching
-  runs); closing Safari's tab by AppleScript times out on the Mac mini.
+  runs); closing Safari's tab by AppleScript times out on that second Mac.
   Source: [capturing.md](capturing.md).
 - **Parallel refresh: covered-window timer throttling.** `cmd/refresh`
-  captures Chrome and Firefox at once on the Mac mini in quick mode.
+  captures Chrome and Firefox at once on the second Mac in quick mode.
   Nothing a capture depends on is shared (ports, servers, no focus or
   system mouse), but whether a browser throttles the timers of a window
   entirely covered by the other's is unchecked; it would stretch the
@@ -1821,5 +1821,5 @@ it.
     a capture setup and a refresh (large); a guide to making a profile
     from your own captures with `cmd/refresh` (medium). Each needs a
     decision record.
-  - Source: [coming from tls-client](concepts/coming-from-tls-client.md#where-mimicry-is-weaker-for-automating-user-actions-on-sites);
+  - Source: [coming from tls-client](concepts/coming-from-tls-client.md#where-mimicry-is-weaker);
     [decision 0035](decisions/0035-version-policy-and-capture-inheritance.md).

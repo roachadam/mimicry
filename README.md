@@ -2,254 +2,41 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/roachadam/mimicry.svg)](https://pkg.go.dev/github.com/roachadam/mimicry)
 
-mimicry is a Go HTTP client that sends requests as Chrome, Firefox or Safari
-on macOS send them, matched byte for byte against captures of the real
-browsers: TLS, HTTP/2, HTTP/3 over QUIC, the headers and their order for
-each kind of request, cookies, redirects, CORS preflights, WebSockets and
-proxies. It is an `http.RoundTripper` behind a plain `*http.Client`: you say
-what kind of request it is and which page makes it, and the browser profile
-supplies the rest.
-
-## Install
+mimicry is a Go HTTP client that sends requests the way Chrome, Firefox and Safari on macOS send them.
 
 ```sh
-go get github.com/roachadam/mimicry
+go get github.com/roachadam/mimicry   # Go 1.27.3 or later
 ```
 
-Requires Go 1.27.3 or later (`go.mod`).
-
-## Quickstart
-
-Load a product page, call the shop's API from it with `fetch()`, then add
-to cart with a JSON POST:
-
 ```go
-package main
-
-import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"log"
-	"net/http"
-	"strings"
-
-	"github.com/roachadam/mimicry"
-	"github.com/roachadam/mimicry/profiles"
-)
-
-func main() {
-	client, err := mimicry.NewClient(mimicry.Config{
-		Profile: profiles.Chrome(), // the newest built-in Chrome
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	// client.Timeout is 30 s (Config.Timeout); a context deadline works too.
-	ctx := context.Background()
-
-	// A request with no kind is a top-level navigation: a URL typed into
-	// the address bar. Bodies come back decompressed.
-	page, _ := http.NewRequestWithContext(ctx, http.MethodGet, "https://www.shop.example/p/42", nil)
-	resp, err := client.Do(page)
-	if err != nil {
-		log.Fatal(err)
-	}
-	resp.Body.Close()
-
-	// fetch() from that page: Referer, Origin, sec-fetch-* and cookies
-	// follow from the page the client last navigated to.
-	api, _ := http.NewRequestWithContext(ctx, http.MethodGet, "https://www.shop.example/api/stock/42", nil)
-	resp, err = client.Do(mimicry.As(api, mimicry.Fetch))
-	if err != nil {
-		log.Fatal(err)
-	}
-	var stock struct{ InStock bool }
-	err = json.NewDecoder(resp.Body).Decode(&stock)
-	resp.Body.Close()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// A JSON POST from the same page. Set only what the page's script
-	// sets; the browser's own headers go around them, in its order.
-	add, _ := http.NewRequestWithContext(ctx, http.MethodPost, "https://www.shop.example/api/cart",
-		strings.NewReader(`{"sku":42,"qty":1}`))
-	add.Header.Set("Content-Type", "application/json")
-	add.Header.Set("X-CSRF-Token", "token-from-the-page")
-	resp, err = client.Do(mimicry.As(add, mimicry.Fetch))
-	if err != nil {
-		log.Fatal(err)
-	}
-	resp.Body.Close()
-	fmt.Println(stock.InStock, resp.Status)
-}
-```
-
-Other kinds (`Script`, `Style`, `Image`, `Font`, `XHR`, `Beacon` and more)
-work the same way; `mimicry.With` takes a `mimicry.Request` for the rest:
-the page making the request (`From`, say a form POST from the cart page),
-credentials mode, `crossorigin`, `fetchpriority`. Runnable versions against
-a local stand-in shop: `ExampleNewClient`, `ExampleAs`, `ExampleAs_addToCart`
-and `ExampleWith` (checkout and its 303) in [`example_test.go`](example_test.go).
-
-## Common tasks
-
-Snippets assume a `client` from `NewClient` and a `ctx`; examples named are
-in [`example_test.go`](example_test.go) unless stated.
-
-**Cookies.** `NewClient` gives the Transport a jar that follows the
-profile's cookie rules (SameSite, partitions, prefixes, order). Seed and
-save sessions as Cookie header strings:
-
-```go
-jar := client.Transport.(*mimicry.Transport).Cookies()
-// For shop.example and every name under it; then for one host only.
-if err := jar.SetString("shop.example", "session=s1; cart=c9"); err != nil {
+client, err := mimicry.NewClient(mimicry.Config{
+	Profile: profiles.Chrome(), // the newest built-in Chrome
+})
+if err != nil {
 	log.Fatal(err)
 }
-if err := jar.SetHostString("checkout.shop.example", "step=2"); err != nil {
-	log.Fatal(err)
-}
-saved := jar.String("shop.example") // later: save the session
-```
 
-`String` loses paths, expiry and attributes; `WriteJSON`/`ReadJSON` keep
-them. `jar.SetString(cookies.AnySite, "debug=1")` sends a cookie to every
-site, which no browser does: every host the jar talks to receives it.
-Transports can share a jar through `Config.Cookies`. Examples:
-`ExampleConfig_cookies`, `ExampleConfig_sharedJar`; `ExampleJar_SetString`,
-`ExampleJar_SetHostString`, `ExampleJar_SetString_anySite` in
-[`cookies/example_test.go`](cookies/example_test.go). See
-[docs/concepts/cookies.md](docs/concepts/cookies.md).
-
-**Proxies and rotation.** `Config.Proxy` is a function of the request, as
-in `http.Transport`: `http`, `socks5` and `socks5h` proxies, credentials in
-the URL, sent with the first request (`Config.BrowserProxyAuth` waits for
-the proxy's 407, as the browser does). A failure that is the proxy's, not
-the site's, is a `*mimicry.ProxyError`:
-
-```go
-var current atomic.Int64 // index into proxies, your []*url.URL
-client, err := mimicry.NewClient(mimicry.Config{
-	Profile: profiles.Chrome(),
-	Proxy: func(*http.Request) (*url.URL, error) {
-		return proxies[current.Load()%int64(len(proxies))], nil
-	},
-})
+// A plain request is a page load, as if typed into the address bar.
+page, _ := http.NewRequest("GET", "https://www.shop.example/p/42", nil)
+resp, err := client.Do(page)
 // ...
-resp, err := client.Do(req)
-var pe *mimicry.ProxyError
-if errors.As(err, &pe) {
-	current.Add(1) // unreachable, refused the tunnel or the credentials: next proxy
-}
+
+// fetch() from that page: Origin, Referer, sec-fetch-* and cookies follow.
+api, _ := http.NewRequest("GET", "https://www.shop.example/api/stock/42", nil)
+resp, err = client.Do(mimicry.As(api, mimicry.Fetch))
 ```
 
-Cookies and the last page stay the Transport's; each proxy has its own
-connections, and those of a proxy no longer used close once 16 others
-have been used since and it has been unused for 10 s
-(`Config.MaxIdleProxies` keeps fewer: 1 closes the old proxy's at once,
-for rotating identities). To rotate by
-client instead, call `CloseIdleConnections` on the one you drop. Requests
-through a proxy stay on TCP, as in the browser;
-`Config.HTTP3OverSOCKS5` lets SOCKS5 proxies carry HTTP/3 (a UDP
-association per QUIC connection), and no datagram ever goes around the
-proxy. Example: `ExampleConfig_proxy`; see
-[docs/concepts/proxies.md](docs/concepts/proxies.md).
+How it differs from tls-client and similar libraries:
 
-**Certificate pins.** `go run github.com/roachadam/mimicry/cmd/pins
-https://www.shop.example/` (or `mimicry.FetchPins`) prints a site's chain
-with its pins and marks the intermediate to pin; add a backup key:
+- **The whole browser, not just the TLS hello.** You say what a request is: a page load, a `fetch()` or an image. mimicry supplies the headers and their order, cookies, redirects, CORS preflights, HTTP/2 and HTTP/3.
+- **Captured from real browsers and checked against them.** Each profile is built from captures of the real browser. Tests replay those captures on every change.
+- **Faster.** Against tls-client it serves 9–49% more requests per second and uses 15–28% less CPU per request. It is a plain `*http.Client`.
 
-```go
-client, err := mimicry.NewClient(mimicry.Config{
-	Profile: profiles.Chrome(),
-	Pins: []mimicry.Pin{
-		{
-			Host:              "shop.example",
-			IncludeSubdomains: true,
-			SPKI:              []string{"sha256/<intermediate>", "sha256/<backup>"},
-		},
-	},
-})
-```
+[Coming from tls-client](docs/concepts/coming-from-tls-client.md) · [What it sends](docs/concepts/what-mimicry-does.md) · [Performance](docs/performance.md) · [Docs](docs/README.md)
 
-A connection matching no pin fails with a `*mimicry.PinError` before
-anything is sent; `Config.VerifyConnection` adds your own check on every
-handshake, resumed ones included. Example: `ExampleConfig_pins`.
+## Supported browsers
 
-**Your own headers and where they go.** A request's own headers go where
-the browser puts headers a page sets; `Config.Headers` go on every request.
-To move one header and keep the browser's order for the rest, use a `Place`,
-for every request or for one:
-
-```go
-client, err := mimicry.NewClient(mimicry.Config{
-	Profile:         profiles.Chrome(),
-	Headers:         http.Header{"X-Api-Key": {"k3y"}},
-	HeaderPlacement: []mimicry.Place{{Header: "X-Api-Key", After: "User-Agent"}},
-})
-// ...
-resp, err := client.Do(mimicry.With(req, mimicry.Request{
-	Kind:            mimicry.Fetch,
-	HeaderPlacement: []mimicry.Place{{Header: "X-CSRF-Token", Before: "Accept"}},
-}))
-```
-
-A `Place` whose header or anchor the request does not send fails with
-`mimicry.ErrPlacement`, and nothing is sent. `req.Header[mimicry.HeaderOrderKey]`
-(as in fhttp) replaces the whole order instead, and profile headers it does
-not name are not sent. A header set to nil (`req.Header["Referer"] = nil`)
-suppresses the profile's; `mimicry.Exact(req)` sends only your own.
-Examples: `ExampleConfig_headerPlacement`, `ExampleHeaderOrderKey`; see
-[docs/concepts/how-a-request-is-built.md](docs/concepts/how-a-request-is-built.md).
-
-**Seeing what will be sent.** `Transport.Plan` works out a request's header
-lines for each protocol, the protocol it would take, its CORS preflight and
-the headers you set in place of the browser's (`Plan.Overrides`, where
-header literals copied from older code show up), without sending anything
-or changing any state; it fails as `RoundTrip` would (`ErrNotMeasured`,
-`ErrPlacement`, ...). Example: `ExampleTransport_Plan`.
-
-**WebSockets.** `DialWebSocket` opens a socket from the Transport's last
-page as the browser does: handshake, cookies, compression and framing, as a
-stream on the host's HTTP/2 connection where the server allows it.
-Example: `ExampleTransport_DialWebSocket`; see
-[docs/concepts/websockets.md](docs/concepts/websockets.md).
-
-**HTTP/3.** On by default: once a site advertises it (`Alt-Svc`), requests
-move to HTTP/3 when and how the profile's browser moves them. Share one
-`mimicry.NewAltSvcCache()` between Transports through `Config.AltSvc`, and
-save it with `WriteJSON`, so a returning Transport starts a known site on
-HTTP/3 as a restarted browser does (`ExampleAltSvcCache`). Where QUIC
-fails, requests fall back to TCP sooner than the browser's 4–5 s holds;
-`Config.BrowserQUICFallback` keeps the browser's timing. On networks
-that block UDP, `mimicry.Config{Profile: profiles.Firefox(), DisableHTTP3: true}`
-keeps everything on TCP. Example: `ExampleConfig_disableHTTP3`; see
-[docs/concepts/http3.md](docs/concepts/http3.md).
-
-**`ErrNotMeasured`.** A profile describes only what its browser was captured
-doing. Ask for anything else (an `<img fetchpriority="high">`, a request
-kind or proxy setup the profile lacks) and the request fails with an error
-wrapping `mimicry.ErrNotMeasured` that names what is missing; nothing is
-sent. mimicry refuses rather than guesses because a guessed header order or
-value is a request no real browser sends, which is what detection looks
-for. An error tells you; a guess would not.
-
-```go
-hero := mimicry.Request{Kind: mimicry.Image, Priority: mimicry.PriorityHigh}
-resp, err := client.Do(mimicry.With(req, hero))
-if errors.Is(err, mimicry.ErrNotMeasured) {
-	hero.Priority = mimicry.PriorityAuto // drop what was not measured
-	resp, err = client.Do(mimicry.With(req, hero))
-}
-```
-
-Example: `ExampleErrNotMeasured`.
-
-## Supported browsers and versions
-
-| Profile (`profiles.Names()`) | Accessor | Status |
+| Profile | Accessor | Status |
 |---|---|---|
 | `chrome-156-macos` | `profiles.Chrome()`, `profiles.Chrome156MacOS()` | supported |
 | `chrome-155-macos` | `profiles.Chrome155MacOS()` | supported |
@@ -257,147 +44,75 @@ Example: `ExampleErrNotMeasured`.
 | `safari-27-macos` | `profiles.Safari()`, `profiles.Safari27MacOS()` | supported |
 | `safari-26-macos` | `profiles.Safari26MacOS()` | supported |
 
-`profiles.Chrome()`, `Firefox()` and `Safari()` return the newest built-in
-version and move to each new one as it is added; a versioned accessor or
-`profiles.ByName("chrome-155-macos")` stays put. The newest five versions of
-each browser on each platform are supported (`profiles.Supported()`); older
-ones stay in the module, deprecated and no longer refreshed
-([decision 0035](docs/decisions/0035-version-policy-and-capture-inheritance.md)).
-None is deprecated yet. Chrome 156 is a quick refresh: its fingerprint layer
-(TLS, HTTP/2, HTTP/3, every request kind's headers, WebSockets) is captured
-from Chrome 156, the rest checked against Chrome 155's captures
-([EVIDENCE.md](profiles/EVIDENCE.md)).
+`profiles.Chrome()`, `Firefox()` and `Safari()` always return the newest built-in version. A versioned accessor, or `profiles.ByName("chrome-155-macos")`, stays on one version; the newest five versions of each browser are supported.
 
-## What mimicry does beyond your requests
+## Common tasks
 
-As a browser does, mimicry adds traffic around your requests: redirect hops
-(followed by `http.Client`, sent as the browser sends them, up to its
-limit), CORS preflights before the cross-origin `fetch()` and XHR calls
-that need one (a refused one is a `*mimicry.CORSError`, and the request is
-not sent), and connection-level traffic: reuse and HTTP/2 coalescing,
-retries on another connection, QUIC attempts and their TCP races, TLS
-resumption and 0-RTT, PING, WINDOW_UPDATE and ACK frames, proxy CONNECTs
-and credential retries.
+The runnable examples are in [`example_test.go`](example_test.go).
 
-It never fetches a page's subresources or parses HTML, runs scripts (so
-analytics, beacons and sensor data go only if you send them), preconnects
-or prefetches, upgrades `http://` to `https://` or applies HSTS, caches
-responses, looks up DNS HTTPS records, or opens a WebSocket you did not ask
-for. [docs/concepts/what-mimicry-does.md](docs/concepts/what-mimicry-does.md)
-lists each behaviour, why the browser does it, and the option that changes it.
+- **Other request kinds.** `Script`, `Style`, `Image`, `XHR` and more work like `Fetch`. `mimicry.With` sets the page a request comes from, credentials and priority. Example: `ExampleAs_addToCart`, a JSON POST to a cart.
+- **Cookies.** `NewClient` gives the client a cookie jar that follows the browser's rules. Seed a session with `jar.SetString("shop.example", "session=s1")`; save one with `WriteJSON`. See [Cookies](docs/concepts/cookies.md).
+- **Proxies and rotation.** `Config.Proxy` picks a proxy per request, as in `http.Transport`; `http`, `socks5` and `socks5h` proxies work, with credentials in the URL. A failure caused by the proxy is a `*mimicry.ProxyError`, so you know to switch. Changing proxy keeps the cookies and the current page. Set `Config.MaxIdleProxies` to 1 to close the old proxy's connections as soon as you switch. See [Proxies](docs/concepts/proxies.md).
+- **Your own headers.** Headers you set go where a page's script would put them. `Config.Headers` adds headers to every request; `Config.HeaderPlacement` moves one. See [How a request is built](docs/concepts/how-a-request-is-built.md).
+- **Certificate pins.** `go run github.com/roachadam/mimicry/cmd/pins https://www.shop.example/` prints a site's pins. Put them in `Config.Pins`. Example: `ExampleConfig_pins`.
+- **Requests a profile can't describe.** A profile only holds what its browser was captured doing. Ask for anything else and the request fails with `mimicry.ErrNotMeasured`, before anything is sent. A guessed header would be a request no browser sends. Example: `ExampleErrNotMeasured`.
 
-## Deliberate deviations from the browser, and how to turn them off
+WebSockets and HTTP/3 need no setup; see [WebSockets](docs/concepts/websockets.md) and [HTTP/3](docs/concepts/http3.md).
 
-With no options, mimicry sends what the browser sends, with two
-exceptions, where the browser's behaviour costs time a user notices and
-the difference is unlikely to be checked by anti-bot systems; a `Config`
-field gives the browser's behaviour back. Two defaults are mimicry's own,
-not the browser's: a 30 s total timeout on the client `NewClient` returns
-(`Config.Timeout`, [decision 0041](docs/decisions/0041-default-request-timeout.md))
-and closing connections idle for 90 s (`Config.IdleConnTimeout`,
-[decision 0040](docs/decisions/0040-idle-connection-cleanup.md)).
+## Deviations from the browser
 
-| Deviation | What a server can see | The browser's behaviour |
+By default mimicry behaves like the browser, except for these four defaults:
+
+| Default | Why | To get the browser's behaviour |
 |---|---|---|
-| **Shorter waits when QUIC fails.** Requests go on TCP after the race delay instead of waiting 4–5 s on a QUIC connection the server never answers ([decision 0036](docs/decisions/0036-fast-quic-fallback.md)). | only on networks or servers where QUIC fails: an earlier TCP connection | `Config.BrowserQUICFallback` |
-| **Proxy credentials from the first request.** The first CONNECT (and the first request sent to an `http://` proxy whole) carries `Proxy-Authorization`, placed where the browser places it when it sends it unasked, instead of waiting for the proxy's 407: one round trip less for every new proxy URL, as each rotating identity is (every tunnel, with a Safari profile) ([decision 0039](docs/decisions/0039-proxy-credentials-up-front.md)). | nothing: only the proxy sees it; the site gets the same bytes through the tunnel | `Config.BrowserProxyAuth` |
+| Falls back to TCP soon when QUIC fails | Browsers can wait 4–5 s ([0036](docs/decisions/0036-fast-quic-fallback.md)) | `Config.BrowserQUICFallback` |
+| Sends proxy credentials with the first request | Saves a round trip; only the proxy sees it ([0039](docs/decisions/0039-proxy-credentials-up-front.md)) | `Config.BrowserProxyAuth` |
+| 30 s total timeout per request | A stuck request fails instead of hanging ([0041](docs/decisions/0041-default-request-timeout.md)) | `Config.Timeout` |
+| Closes connections idle for 90 s | Bounds memory ([0040](docs/decisions/0040-idle-connection-cleanup.md)) | `Config.IdleConnTimeout` |
 
-Four options go the other way, off by default because they do what no
-browser does; each trades fidelity for speed or reach:
+These options do what no browser does. They are off by default:
 
-| Deviation, when you turn it on | What a server can see | Option |
+| Option | What it does | What a server can see |
 |---|---|---|
-| **No HTTP/2 coalescing**: each host gets its own connection, where browsers share one between hosts whose certificate and address match. Faster on lossy networks, where one shared congestion window slows every host; slower on clean ones, so leave it off there ([decision 0037](docs/decisions/0037-coalescing-opt-out.md)). | a server hosting several of a site's hosts at one address under one certificate sees a connection per host where Chrome, Firefox and Safari end with one (low to medium risk) | `Config.DisableCoalescing` |
-| **More than 6 HTTP/1.1 connections per host**, for faster bulk requests to an HTTP/1.1-only server ([decision 0037](docs/decisions/0037-coalescing-opt-out.md)). | more than 6 concurrent HTTP/1.1 connections from one client to one host | `Config.MaxConnsPerHost` |
-| **HTTP/3 through SOCKS5 proxies**, over a UDP association per QUIC connection, for sites that serve HTTP/3; a proxy that refuses UDP leaves everything on TCP, and no datagram ever goes around the proxy ([decision 0038](docs/decisions/0038-http3-over-socks5.md)). | HTTP/3 from a proxy's address, which browsers never send through a proxy; the QUIC itself is the profile's, unchanged | `Config.HTTP3OverSOCKS5` |
-| **Fewer QUIC acknowledgements**: every Nth ack-eliciting packet after the browser's warm-up instead of the profile's rate (Chrome every 10th, Firefox and Safari every 2nd), for bulk HTTP/3 downloads from a busy server; a single download from a server with CPU to spare runs slower ([decision 0043](docs/decisions/0043-http3-ack-rate-opt-in.md)). | an ACK rate no browser of the profile's has, on every HTTP/3 connection (low risk: it needs QUIC-level timing) | `Config.HTTP3ACKEvery` |
+| `Config.DisableCoalescing` | One HTTP/2 connection per host; faster on lossy networks ([0037](docs/decisions/0037-coalescing-opt-out.md)) | More connections than a browser opens |
+| `Config.MaxConnsPerHost` | More than 6 HTTP/1.1 connections per host ([0037](docs/decisions/0037-coalescing-opt-out.md)) | More connections than a browser opens |
+| `Config.HTTP3OverSOCKS5` | HTTP/3 through SOCKS5 proxies ([0038](docs/decisions/0038-http3-over-socks5.md)) | HTTP/3 from a proxy address |
+| `Config.HTTP3ACKEvery` | Fewer QUIC acknowledgements, for bulk downloads ([0043](docs/decisions/0043-http3-ack-rate-opt-in.md)) | An unusual ACK rate |
 
-## Evidence and limits
+mimicry also sends what a browser sends around your requests. That covers redirect hops, CORS preflights before cross-origin `fetch()` calls, and connection traffic such as reuse, retries and TLS resumption. It never loads a page's images or scripts, runs JavaScript, prefetches or caches responses. Analytics and sensor data go only if you send them. [What mimicry does](docs/concepts/what-mimicry-does.md) lists each behaviour, why the browser does it, and the option that changes it.
 
-Each profile is one complete JSON file in `profiles/data/`, derived from
-captures of the real browser: the `internal/harness/` module drives Chrome, Firefox
-and Safari on macOS against its own capture server, usually three samples
-per scenario. Its tests replay the captures through mimicry and fail on any
-difference not pinned as a known gap: the ClientHello, HTTP/2 and HTTP/3
-frames, every request kind's header lines, HPACK and QPACK blocks re-encoded
-byte for byte, cookies, CORS, redirects, connections, proxies, WebSockets,
-QUIC. [`profiles/EVIDENCE.md`](profiles/EVIDENCE.md) lists every claim a
-profile makes, its evidence and the test that keeps it true;
-[`docs/backlog.md`](docs/backlog.md) lists every known difference from the
-browsers and how likely it is to be detected.
+## Limits
 
-Limits that matter in practice:
+- **macOS profiles only.** There are no Windows, Linux, iOS or Android profiles.
+- **The TCP/IP fingerprint is your host's.** The operating system sends the first TCP packet, not mimicry. A macOS profile sent from Linux carries a Linux one; through a proxy, the server sees the proxy's.
+- **One Transport per browsing session and per site.** A Transport acts as one browser tab. Give parallel tasks and different sites a Transport each; they can share a cookie jar.
+- **HTTP/3 ignores `Config.DialContext`.** QUIC sends UDP to the address `Config.Resolver` returns.
+- **Proxied requests use HTTP/1.1 or HTTP/2,** as in browsers, unless `Config.HTTP3OverSOCKS5` is on. `https://` proxies are not supported.
 
-- **macOS profiles only.** No Windows, Linux, iOS or Android profiles.
-- **The TCP/IP fingerprint is your host's.** The SYN (TTL, window size, TCP
-  options) comes from the operating system mimicry runs on: a macOS profile
-  sent from Linux has a Linux SYN, which p0f-style checks compare with the
-  User-Agent. Through a proxy the server sees the proxy's.
-- **One Transport per browsing session, and per site.** A Transport is one
-  browser tab: requests of other kinds come from its last navigation unless
-  they set `Request.From`, so parallel tasks need a Transport (or
-  `NewClient`) each. Browsers also partition connections by top-level site
-  and mimicry does not, so give each site its own Transport; they can share
-  a jar (`ExampleConfig_sharedJar`).
-- **HTTP/3 ignores `Config.DialContext`.** QUIC sends UDP to the address
-  `Config.Resolver` gives (through the SOCKS5 association with
-  `HTTP3OverSOCKS5`); `DialContext` dials TCP only.
-- **HTTP/3 goes through a proxy only with `Config.HTTP3OverSOCKS5`**
-  (SOCKS5; browsers never do): by default proxied requests use HTTP/2 or
-  HTTP/1.1. `https://` proxies (TLS to the proxy) are not supported.
+Every claim a profile makes, with its evidence and test, is in [`profiles/EVIDENCE.md`](profiles/EVIDENCE.md). Known differences from the browsers are in [`docs/backlog.md`](docs/backlog.md).
 
 ## Performance
 
-Against `net/http`, tls-client, httpcloak and azuretls on one Linux machine
-(i5-13500, the client on 4 cores, nginx, 3 passes, medians;
-[the full breakdown](docs/performance.md)):
+Measured on a Linux host, Intel Core i5-13500, against `net/http`, tls-client, httpcloak and azuretls:
 
-- 1.09–2.55× the requests per second of tls-client, httpcloak and azuretls,
-  at 0.40–0.85× their CPU per request (geometric means per protocol);
-  within about 10% of `net/http` on both.
-- 74–85 allocations per request on a warm connection, against 109–414 for
-  the other impersonating clients.
-- 100 clients, each through its own proxy identity: 33–43 µs of CPU per
-  request and 36–38 KB of heap per client over HTTP/1.1 and HTTP/2,
-  against 40–112 µs and 56–2,098 KB.
-- A client dropped without being closed leaves nothing open: 1.1–1.7
-  tunnels per routine and 71–131 MB in all, against 74–126 tunnels and
-  465–2,804 MB.
+- 9–155% more requests per second than the other impersonating clients, with 15–60% less CPU per request. It stays within about 10% of `net/http`.
+- 100 clients, each through its own proxy: 36–38 KB of heap per client over HTTP/1.1 and HTTP/2, against 56–2,098 KB for the others.
+- A client dropped without closing leaves about one tunnel open; the others leave 74–126.
 
-![mimicry's requests per second and CPU per request against each client, per protocol](docs/perf/relative.svg)
-
-![Tunnels left open and process memory when old clients are dropped without closing them](docs/perf/rotation.svg)
+![Requests per second for each client at every load point, per protocol, mimicry highlighted](docs/perf/throughput.svg)
 
 Where it is slower:
 
-- **HTTP/3 bulk downloads, many at once:** 4,408 against 7,383–8,516
-  requests/s at 100 KB, 64 at once.
-- **Building a client** takes about 235 µs (the others 0.2–36 µs): build
-  clients up front, not one per request.
-- **Proxy rotation through `Config.Proxy`** keeps old identities' idle
-  connections for 10 s: 1.7 MB and 70 tunnels per client at a new identity
-  every 10 requests. `Config.MaxIdleProxies` caps it.
-- **HTTP/1.1** keeps Chrome's 6 connections per host, so more requests at
-  once queue (`Config.MaxConnsPerHost` lifts it).
+- **Many HTTP/3 bulk downloads at once:** 4,408 requests/s against 7,383–8,516.
+- **Building a client** takes about 235 µs. Build clients up front, not one per request.
+- **Rotating proxies** keeps old proxies' idle connections for 10 s. `Config.MaxIdleProxies` caps it.
+- **HTTP/1.1** opens at most 6 connections per host, so extra requests queue.
 
-## Coming from tls-client
-
-With tls-client you write each request's browser headers and their order
-yourself; with mimicry you say what kind of request it is and which page
-makes it, and most of a port is deleting header code.
-[docs/concepts/coming-from-tls-client.md](docs/concepts/coming-from-tls-client.md)
-maps tls-client's options, headers, cookies, redirects and proxy rotation
-onto mimicry, and says where mimicry is weaker.
+Details and method: [docs/performance.md](docs/performance.md).
 
 ## Development
 
-[`AGENTS.md`](AGENTS.md) has the conventions and commands
-(`moon run :test :vet :lint`). `internal/harness/` is a separate module that captures
-the browsers and checks the profiles against them
-([docs/capturing.md](docs/capturing.md)); its `go run ./cmd/refresh`
-brings a profile up to the installed browser version
-([docs/concepts/refreshing-profiles.md](docs/concepts/refreshing-profiles.md)).
-[`docs/README.md`](docs/README.md) indexes the decisions and concept docs.
+[`AGENTS.md`](AGENTS.md) has the conventions and commands. [`docs/refreshing-profiles.md`](docs/refreshing-profiles.md) explains how profiles are captured and brought up to date. [`docs/README.md`](docs/README.md) indexes the concept pages and decisions.
 
 ## Licence
 

@@ -1,271 +1,185 @@
 # How a request is built
 
-What happens between `client.Do(req)` and bytes on the wire. The code is
-the reference (the root's `mimicry.go`, `request.go`,
-`resolve.go`, `redirect.go` and `plan.go`; `internal/cors` and the rest of
-`internal/`).
+What happens between `client.Do(req)` and bytes on the wire. Users mostly
+need §1 (how to describe a request) and §5 (how to see what will be sent).
+The rest is for contributors; the code is the reference (`mimicry.go`,
+`request.go`, `resolve.go`, `redirect.go`, `plan.go` and `internal/`).
+
+Two words recur on this page:
+
+- A **kind** is what made the request in the browser: a navigation, a
+  `fetch()`, an image, a stylesheet, a font, a frame, a beacon, and so on.
+  Each kind sends its own headers in its own order.
+- A **variant** is another header list the browser uses for the same kind
+  in a particular situation, such as a POST, a cross-site URL or a
+  redirect.
 
 ## 1. The request says how it is made
 
 A plain request is a top-level navigation, as if typed into the address
-bar. `mimicry.As(req, mimicry.Fetch)` or `mimicry.With(req,
-mimicry.Request{…})` say otherwise: the kind, the page it comes from
-(`From`), fetchpriority, crossorigin attribute, credentials mode, no-cors,
-the stylesheet loading it. See [decision 0005](../decisions/0005-request-kinds-api.md).
+bar. To make it something else, use `mimicry.As(req, mimicry.Fetch)` or
+`mimicry.With(req, mimicry.Request{…})`. These set the kind and, where it
+applies:
 
-A Transport (and the client `NewClient` builds on one) is one browsing
-entity, like one browser tab: a request of another kind than a navigation
-without `From` comes from the transport's last navigation, whichever
-goroutine made it (or, before any, from the request's own origin). Tasks
-browsing in parallel use a client each, or set `From`.
+- the page the request comes from (`From`);
+- fetchpriority and the crossorigin attribute;
+- the credentials mode, or no-cors;
+- the stylesheet that loads a font or image.
 
-A navigation without `From` is typed into the address bar, so it must be a
-GET or HEAD: a POST navigation comes from a page's form and needs `From`
-(an API call is a `Fetch`). Combinations no browser makes are errors before
-anything is sent: a no-cors fetch with a method other than GET, HEAD or
-POST, a beacon that is not a POST, a `Stylesheet` on anything but a font or
-an image, a crossorigin attribute on a kind without one, a credentials mode
-on anything but Fetch and XHR.
+A Transport is one browsing entity, like one browser tab. A request that
+is not a navigation and has no `From` comes from the transport's last
+navigation, whichever goroutine made it. Before any navigation, it comes
+from the request's own origin. Tasks that browse in parallel should use
+one client each, or set `From`.
+
+A navigation without `From` is typed into the address bar, so it must be
+a GET or HEAD. A POST navigation comes from a form and needs `From`. An
+API call is a `Fetch`.
+
+Combinations no browser makes are errors before anything is sent:
+
+- a no-cors fetch with a method other than GET, HEAD or POST;
+- a beacon that is not a POST;
+- a stylesheet set on anything but a font or an image;
+- a crossorigin attribute on a kind that has none;
+- a credentials mode on anything but Fetch and XHR.
 
 ## 2. The transport resolves it against the profile
 
-`Transport.RoundTrip` turns the request into a plan (`resolve`, in the
-root's `resolve.go`):
+`Transport.RoundTrip` turns the request into a plan (`resolve.go`):
 
-1. **Add `Config.Headers`.** Each one the request does not set itself (in
-   any case) is added first, so from here on it counts as a header the
-   page set: for the variant, for credentials and for the preflight. Once
-   the redirect chain has left an origin, `Authorization` and `Cookie`
-   from `Config.Headers` are no longer added, even if the chain comes back;
-   ones the request sets itself follow `http.Client`.
-2. **Pick the lists.** The navigation's (`headers`, `http1`) or the kind's
-   (`kinds.<kind>`); then the variant matching the request's method, its
-   URL's relation to the page, whether it is CORS-checked, whether it
-   carries a header the page set (one the list does not name: `pageSet`),
-   whether it follows a redirect (and then whether the redirect went to
-   another origin, `crossOriginRedirect`, for a navigation whether to
-   another site, `crossSiteRedirect`, and whether the request it
-   answered carried `Origin`, `originBeforeRedirect`)
-   ([0006](../decisions/0006-header-order-variants.md)), and whether its URL
-   is a non-secure origin (plain `http://` to anything but loopback, which
-   takes the browser's non-secure lists:
-   [0015](../decisions/0015-non-secure-origins.md)).
-   A list holds names in order, default values, and slots (empty values)
-   for headers that depend on the request. A combination no variant
-   matches takes the kind's default order (for a non-secure request, its
-   non-secure default), except a redirect's request of a kind whose
-   redirects were captured (fetch, images): that is `ErrNotMeasured`. A
-   user's navigation (one that keeps the profile's `Sec-Fetch-User`: a
-   typed URL, a clicked link or submit button; a script's suppresses it
-   with a nil header) whose variant has no `sec-fetch-user` slot was
-   measured only on a script's, so it is `ErrNotMeasured` too, and over
-   HTTP/1.1 where the HTTP/1.1 list has no slot.
+1. **Add `Config.Headers`.** Each one the request does not set itself is
+   added. From here on it counts as a header the page set. Once a redirect
+   chain has left an origin, `Authorization` and `Cookie` from
+   `Config.Headers` are no longer added.
+2. **Pick the header list.** A *list* is the browser's header names in
+   order, with blanks (*slots*) for values that depend on the request.
+   Each kind has a default list and variants. The variant depends on the
+   method, how the URL relates to the page, CORS, page-set headers,
+   redirects, or a non-secure URL (plain `http://` to anything but
+   loopback). If no variant matches, the default list is used. Two cases
+   fail with `ErrNotMeasured` instead:
+   - a redirected fetch or image request that matches no variant;
+   - a user's navigation (typed URL, clicked link or button) whose list
+     has no `Sec-Fetch-User` slot, because the browser was only seen
+     sending that list from scripts.
 3. **Compute what the page decides** and fill the slots:
-   - `sec-fetch-site`: same-origin, same-site (public suffix list,
-     schemeful) or cross-site; after a redirect, the most distant relation
-     along the chain (`http.Client` sets `req.Response` on each hop, which
-     is how the chain is found); for a navigation under
-     `redirects.navigationSite` `restart` (Safari 27), only from its last
-     redirect to another site on.
-   - `sec-fetch-mode`: the kind's, `cors` with a crossorigin attribute,
-     `no-cors` for a no-cors fetch.
-   - Credentials: navigations, frames, beacons and no-cors elements send
-     cookies; CORS element requests only same-origin (unless
-     use-credentials); fetch and XHR by their credentials mode. Without
-     credentials the `Cookie` header is removed.
-   - `Origin`: on non-GET/HEAD, on CORS requests to another origin, on
-     same-origin CORS element requests where the browser does
-     (`context.sameOriginElementOrigin`); `null` once a redirect chain is
-     tainted, and for a navigation (a form POST kept by a 307 or 308) by
-     `redirects.navigationOrigin`: also once any redirect left its origin
-     (Chrome, Safari).
-   - `Referer`: strict-origin-when-cross-origin from the page (or the
-     stylesheet, where the browser does), applied hop by hop, so a chain
-     that left the page's origin sends only the origin from then on;
+   - `Sec-Fetch-Site`: same-origin, same-site or cross-site. After a
+     redirect, the most distant relation along the chain.
+   - `Sec-Fetch-Mode`: the kind's mode, `cors` with a crossorigin
+     attribute, `no-cors` for a no-cors fetch.
+   - `Cookie`: sent or removed by the browser's credentials rules
+     ([cookies](cookies.md)).
+   - `Origin`: on non-GET/HEAD requests and on CORS requests to another
+     origin; `null` where the browser sends it after redirects.
+   - `Referer`: strict-origin-when-cross-origin, applied hop by hop.
      `http.Client`'s redirect Referer is discarded.
-   - `sec-fetch-storage-access`: on credentialed cross-site requests, the
-     browser's value.
-   - `priority` and HTTP/2 weight: the kind's, or its measured
-     fetchpriority high/low.
-   - A connection partition: Chrome's credential-less requests and
-     cross-site frames ([0011](../decisions/0011-connection-partitioning.md)).
+   - `Priority` and the HTTP/2 weight: the kind's, or its fetchpriority's.
+   - A connection partition: Chrome keeps credential-less requests and
+     cross-site frames on separate connections.
 4. **Layer the request's own headers.** They win over the profile's
-   defaults and `Config.Headers`; a header set to `nil` suppresses a
-   default; `HeaderOrderKey` replaces the order, so a profile default it
-   does not name is not sent (headers the request sets that it does not
-   name still go, after the named ones). `Config.HeaderPlacement` and then
-   `Request.HeaderPlacement` (`Place`: one header directly after or before
-   another) ride along to the connection, which applies them last
-   ([0030](../decisions/0030-header-placement.md)); a request that sets
-   `HeaderOrderKey` takes no `Config` placements, and with placements of
-   its own is an error (`ErrPlacement`), as is an invalid `Place`.
-5. **Preflight it if the browser would.** A cross-origin `fetch()` or XHR
-   with a non-safelisted method or header first gets an `OPTIONS`
-   preflight (the `preflight` kind), unless a cached answer allows it. The
-   preflight carries only the `Config.Headers` the preflight kind's lists
-   name (a User-Agent or Accept-Language override), never others such as
-   an API key. An answer that does not allow the request stops it with
-   `*CORSError` ([CORS preflights](cors-preflights.md),
-   [0017](../decisions/0017-cors-preflights.md)).
+   defaults and `Config.Headers`. A header set to `nil` suppresses a
+   default. `HeaderOrderKey` replaces the order, and a profile default it
+   does not name is not sent. `Config.HeaderPlacement` and
+   `Request.HeaderPlacement` move one header directly before or after
+   another; the connection applies them last. A request with
+   `HeaderOrderKey` ignores `Config` placements, and combining it with its
+   own placements is an error (`ErrPlacement`).
+5. **Preflight it if the browser would.** See
+   [CORS preflights](cors-preflights.md).
 
-`Exact(req)` skips steps 2, 3 and 5: only the request's own headers and
-`Config.Headers` are sent, in `HeaderOrderKey`'s order or sorted by name,
-without `Config.HeaderPlacement` (a `Request.HeaderPlacement` is an
-error).
+`Exact(req)` skips steps 2, 3 and 5. Only the request's own headers and
+`Config.Headers` are sent, in `HeaderOrderKey`'s order or sorted by name.
 
-What the profile never measured is an error wrapping
-`mimicry.ErrNotMeasured`, not a guess
-([0008](../decisions/0008-unmeasured-is-an-error.md)): a kind the profile
-lacks; a fetchpriority the kind has no measurement for; a non-secure
-request with neither a matching variant nor a non-secure default; a request
-that sends Origin when no variant matches and the fallback list has no
-Origin slot (a same-site form POST navigation, for one); a CORS preflight
-for a profile without `context.preflightCache`; a variant measured over
-HTTP/2 only (no `http1` list) sent on an HTTP/1.1 connection.
+What the browser was never seen doing is an error wrapping
+`mimicry.ErrNotMeasured`, not a guess. Examples: a kind the profile lacks,
+a fetchpriority it has no data for, or a variant seen only over HTTP/2 but
+sent over HTTP/1.1.
 
 ## 3. The connection writes it
 
-The plan and the partition ride on the request context to the engine
-(`internal/engine/native`). It refuses a host that is not a valid Host
-header before dialling, picks the request's proxy, and asks the pool
-(`internal/pool`) for a connection by key: scheme, host and port,
-partition, and proxy. Per key the pool holds one shared HTTP/2 connection,
-the idle HTTP/1.1 ones, and the dial in progress, which concurrent
-requests wait for and share, its error included. Once a key's server is
-known to speak HTTP/1.1 only, requests dial in parallel up to the
-profile's `connections.http1PerHost` (6 in every browser), or
-`Config.MaxConnsPerHost` when set; more wait, first come first served, for
-a connection to come back. An idle HTTP/1.1
-connection is checked without blocking before reuse (closed by the peer,
-or holding bytes nobody asked for: it is closed instead). Every idle
-connection, HTTP/1.1, HTTP/2 or HTTP/3, closes after
-`Config.IdleConnTimeout` (90 s by default; HTTP/1.1 counts from its last
-response, the others from their last request's end); a key with no
-connections forgets what was learned about it (HTTP/1.1 only) after 90 s.
-A proxy no longer used loses its idle connections early (by default once
-it is not among the 16 used most recently and unused for 10 s;
-`Config.MaxIdleProxies`), and a Transport the garbage collector finds
-unreachable closes its idle connections
-([decision 0040](../decisions/0040-idle-connection-cleanup.md)).
+The engine (`internal/engine/native`) rejects an invalid host, picks the
+proxy, and asks the pool for a connection. Connection reuse, the per-host
+limit, coalescing and idle timeouts are described in
+[what mimicry does](what-mimicry-does.md); proxies in
+[proxies](proxies.md).
 
-A request to a host with no HTTP/2 connection of its own may take another
-host's (coalescing), as the profile's `connections.coalesce` says: one in
-the same partition, to the same port, not through a proxy, whose
-certificate covers the host and passes `Config.Pins` and
-`Config.VerifyConnection` for it. With `lookup` (Chrome, Safari) the host is
-looked up (`Config.Resolver`) and the connection must reach one of its
-addresses: no new connection is opened. With `connect` (Firefox) the host
-is dialled and handshaked first; if another connection reaches the same
-address, the new one sends its preface and GOAWAY and closes, and the
-request goes on the other. With `Config.DisableCoalescing` nothing is
-coalesced: each host dials its own connection
-([decision 0037](../decisions/0037-coalescing-opt-out.md)).
+A new connection is dialled, through the proxy if there is one, and
+handshaked with the profile's ClientHello. Its certificate is checked
+against `Config.RootCAs`, then `Config.Pins` and `Config.VerifyConnection`.
+A request of which nothing was sent is retried on another connection. The
+request is then written:
 
-A new connection is dialled (`internal/dial`, `Config.DialContext`, through
-the proxy if there is one; a proxy's failure is a `*ProxyError`) and
-handshaked with the profile's ClientHello (`internal/handshake`), its
-certificate verified against `Config.RootCAs`, then `Config.Pins` and
-`Config.VerifyConnection` (every handshake, resumed ones and QUIC's
-included; [decision 0032](../decisions/0032-certificate-pinning.md));
-`Config.DialTimeout` bounds the connect and, separately, the handshake. A
-request nothing of which was sent goes again on another connection. The
-response's `TLS` is the connection's state. The request goes to:
+- **HTTP/2** (`internal/h2`): pseudo-headers in the browser's order, the
+  plan's headers, cookies split as the browser splits them, HPACK encoded
+  as the browser encodes, and the stream priority.
+- **HTTP/1.1** (`internal/h1`): the plan's HTTP/1.1 list, names cased as
+  the browser sends them. Headers the profile does not name keep the
+  caller's spelling.
+- **HTTP/3** (`internal/h3`): as HTTP/2, with the browser's HTTP/3 header
+  changes and QPACK.
 
-- HTTP/2 (`internal/h2`): pseudo-headers in the profile's order, then the
-  plan's headers through `internal/headerorder` (page-set headers where the
-  list's `*` puts them), cookies split per the profile, HPACK encoded by the
-  profile's policy, HEADERS priority with the plan's weight (for Chrome,
-  `chainPriorities`: depending exclusively on the newest stream still
-  open at the nearest weight at or above it, as Chromium's lists do).
-- HTTP/1.1 (`internal/h1`): the plan's HTTP/1.1 list, names cased as the
-  browser sends them, Host and framing placed; headers the profile does not
-  name keep the caller's spelling. A plan from a variant without an
-  `http1` list is refused here (`ErrNotMeasured`).
-- HTTP/3 (`internal/h3`): as HTTP/2, with the profile's `http3.headers`
-  changes (dropped headers, `alt-used`) and QPACK.
-
-Each writer then applies the request's header placements
-(`headerorder.Place`) to the lines it is about to send, whatever put them
-there: the profile's list with its page-set run, cookies, framing, and over
-HTTP/1.1 Host and Connection too (not `Proxy-Authorization`, which goes
-where the browser puts it afterwards). Pseudo-headers are never placed. A
-header or anchor the request does not send fails it with `ErrPlacement`
-before anything of it is written. Without placements the lines are
-untouched.
+Each writer applies header placements last, to every line it is about to
+send. Pseudo-headers are never placed. A placement naming a header the
+request does not send fails with `ErrPlacement` before anything is
+written.
 
 ## 4. The response comes back
 
-With a jar and a credentialed request, the response's `Set-Cookie` lines
-go to the jar with the request's context ([cookies](cookies.md)). A body
-in gzip, deflate, Brotli or zstd is decoded (whoever set
-`Accept-Encoding`) and `Content-Encoding` and `Content-Length` removed, as
-a browser would, unless `Config.DisableDecompression`; other and stacked
-encodings, HEAD responses, 204 and 304 responses and those with
-`Content-Length: 0` are returned untouched
-([0046](../decisions/0046-response-decompression.md)). A navigation that
-succeeded becomes the transport's
-last navigation.
+With a cookie jar, the response's `Set-Cookie` lines go to the jar
+([cookies](cookies.md)). A body in gzip, deflate, Brotli or zstd is
+decoded, as a browser would, unless `Config.DisableDecompression` is set.
+A navigation that succeeded becomes the transport's last navigation.
 
 ## 5. Seeing it before it is sent
 
-`Transport.Plan(req)` takes the same path as `RoundTrip`, steps 1 to 3
-down to each connection's writer, and stops before anything goes out
-([0034](../decisions/0034-request-plans.md)). It returns:
+`Transport.Plan(req)` builds the request exactly as `RoundTrip` would and
+stops before anything goes out. Use it to check a ported request, or to
+log what will be sent.
 
-- the kind, the profile's list it took (`Variant`, a path in the
-  profile's JSON such as `kinds.fetch.variants[4]`, or
-  `kinds.fetch.headers` when no variant matched) and the request's
-  `Condition` (method, site, `corsChecked`, `pageSet`, the redirect
-  flags, `insecure`);
-- the header lines over HTTP/2, HTTP/1.1 and HTTP/3 (when the Transport
-  speaks it), each as its writer would put them on the wire:
-  pseudo-headers, Host, Connection and framing, casing, cookies from the
-  jar, placements; or, per protocol, the error that protocol would give
-  (`ErrNotMeasured` for a variant measured over HTTP/2 only, sent over
-  HTTP/1.1) or why the request never goes there;
-- `Protocol`: the one the request would take now, named as `resp.Proto`
-  names it, from the open connections and the Alt-Svc seen (as `quicFor`
-  decides), or empty when the server's ALPN answer, a QUIC attempt the
-  request would wait for, or a DNS lookup (coalescing) decides it;
-- `Preflight`: the CORS preflight's own plan when one would be sent (nil
-  when none is needed or the cache allows the request);
-- `Overrides`: headers the request or `Config.Headers` set in place of a
-  profile default, a computed value (`Referer`, `Origin`,
-  `sec-fetch-*`) or the jar's cookies; `Dropped`: profile headers a
+```go
+tr := client.Transport.(*mimicry.Transport)
+
+plan, err := tr.Plan(mimicry.As(req, mimicry.Fetch))
+if err != nil {
+	log.Fatal(err) // the error RoundTrip would return
+}
+fmt.Println(plan) // every field, ready for a log
+```
+
+A `Plan` holds:
+
+- `Kind`, and `Variant`: the list it used, as a path in the profile's
+  JSON, such as `kinds.fetch.variants[4]` or `kinds.fetch.headers`.
+- `Condition`: why that variant matched. Its names are `pageSet` (a header
+  the page set), `corsChecked`, `crossOriginRedirect`,
+  `crossSiteRedirect`, `originBeforeRedirect` and `insecure`, plus the
+  method and site.
+- `HTTP2`, `HTTP1` and `HTTP3`: the header lines each protocol would
+  write, including Host, framing, casing, cookies and placements. Where a
+  protocol would fail, its `Err` says why.
+- `Protocol`: the protocol the request would take now, named as
+  `resp.Proto` names it. It is empty when only the server's answer can
+  decide.
+- `Preflight`: the CORS preflight's own plan, or nil when none is sent.
+- `Overrides`: headers you set in place of a profile default, a computed
+  value or the jar's cookies. `Dropped`: profile headers your
   `HeaderOrderKey` leaves out.
 
-Plan changes nothing: it dials nothing and looks nothing up, reads the
-jar with `Peek` (no last-access times, expired cookies left), and leaves
-the last navigation, the preflight cache, connections and Alt-Svc state as
-they were. Its error is the one `RoundTrip` would return before sending:
-`ErrNotMeasured`, `ErrPlacement`, a request no browser makes, or a
-protocol error when every protocol the request may take now fails. A
-`*CORSError` is the server's answer, so Plan never returns one. A plan is
-a snapshot: a response setting cookies, a connection opened or closed, or
-a navigation in between changes what goes out. `Plan.String()` prints it
-all for a log (`ExampleTransport_Plan`).
+Plan changes nothing. It dials nothing, looks nothing up, and leaves the
+cookie jar, last navigation, preflight cache and connections as they
+were. It returns the error `RoundTrip` would return before sending, but
+never a `*CORSError`, since that is the server's answer. A plan is a
+snapshot: a response that sets cookies, or a navigation in between,
+changes what goes out. See `ExampleTransport_Plan` for a full example.
 
-## 6. What checks it
-
-`internal/harness/e2e`: `TestProfilesMatchCaptures` (first request),
-`TestHTTP1MatchesBrowserTrace`, `TestCookiesMatchBrowserTrace`,
-`TestKindsMatchBrowserTraces` (every request of the kinds page and its
-preflights, redirects, connection sharing),
-`TestCookiesScenarioMatchesBrowser` (the cookies page),
-`TestCORSMatchesBrowser` (the preflight cache and refusals),
-`TestConnectionsMatchBrowser` (the per-host HTTP/1.1 cap and coalescing,
-with `Config.DisableCoalescing` and without),
-`TestHPACKReproducesBrowserBlocks`. The page replays of the kinds,
-headers-order, cors, cors-edge, redirects2, nav-redirect, cookies,
-cookies-edge and h3 pages also plan every request just before sending it
-and check the plan against what the server received (`checkPlans`). The
-resolver's rules by unit tests in the root's `request_test.go`,
-`mimicry_test.go` and `preflight_test.go`; the pool's by
-`internal/pool`'s, with fake connections and a fake clock;
-`Config.MaxConnsPerHost` by `internal/engine/native`'s
-`TestMaxConnsPerHost`, with fake servers. Header placement
-by `TestHeaderPlacement` (`placement_test.go`): each placed request against
-the same one unplaced, over HTTP/1.1 and a raw HTTP/2 peer, and its error
-paths; over HTTP/3 by `TestHeaderPlacementOverHTTP3` in
-`internal/engine/native`, against a QUIC server decoding the field
-sections.
+Background: decisions [0005](../decisions/0005-request-kinds-api.md),
+[0006](../decisions/0006-header-order-variants.md),
+[0008](../decisions/0008-unmeasured-is-an-error.md),
+[0011](../decisions/0011-connection-partitioning.md),
+[0015](../decisions/0015-non-secure-origins.md),
+[0017](../decisions/0017-cors-preflights.md),
+[0030](../decisions/0030-header-placement.md),
+[0032](../decisions/0032-certificate-pinning.md),
+[0034](../decisions/0034-request-plans.md),
+[0046](../decisions/0046-response-decompression.md).

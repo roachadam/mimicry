@@ -1,12 +1,14 @@
 # Capturing browsers and deriving profiles
 
+For contributors capturing browsers; users don't need this page.
+
 How the `internal/harness/` module captures the real browsers, how a profile's
 generated sections are derived from those captures, and the harness's other
 tools. Commands run in `internal/harness/`, and paths are relative to it,
 unless they say otherwise (`profiles/data/` and `cmd/profilegen` are at the
 repository root). For the routine
 job of bringing a profile up to a new browser version, use `cmd/refresh`
-([Refreshing profiles](concepts/refreshing-profiles.md)); this page is what
+([Refreshing profiles](refreshing-profiles.md)); this page is what
 it runs underneath and what to do by hand. Why captures are the evidence:
 [decision 0003](decisions/0003-evidence-rule.md); HTTP/3:
 [decision 0026](decisions/0026-http3-capture.md); versions and inherited
@@ -30,7 +32,7 @@ samples to tell). Any other difference between samples fails the capture:
 it is randomness a profile cannot describe and needs investigating.
 `-summary FILE` appends a JSON line per written scenario (profile name,
 user agent, samples, seconds); `-preflight` prints what a capture on the
-capture Mac needs (browser versions, console user, CA trust, resolver, aioquic,
+capture machine needs (browser versions, console user, CA trust, resolver, aioquic,
 Safari's proxy) as JSON and exits.
 
 The capture page loads like a site: a stylesheet, an image and a script on
@@ -46,7 +48,7 @@ The profile JSON still comes from the first request only.
 Chrome starts on `about:blank` and gets the capture URL 5 s later: a fresh
 profile rebuilds its certificate verifiers within seconds of launch and
 retires every open connection, which a long-running browser never shows a
-server (on the Mac mini used for captures, warm: rebuilds at 0.4–3 s after launch). A cold
+server (on a warm Mac, rebuilds come 0.4–3 s after launch). A cold
 Mac can take longer: a single-host page whose finishing connection does not
 start with the navigation (`/`) moved connection partway, and the tool
 takes that sample again, up to twice, rather than record a subresource as
@@ -95,9 +97,10 @@ its headers ([decision 0042](decisions/0042-http2-opening-records.md)).
 
   To undo: `security remove-trusted-cert` with the same file, then delete
   the directory.
-- **The Mac mini** (reached as your ssh alias, `cmd/refresh -mini`; Chrome, Firefox and Safari 26) has
+- **The second Mac** (a Mac kept on macOS 26, reachable over ssh; pass its
+  ssh alias with `cmd/refresh -mini`; Chrome, Firefox and Safari 26) has
   no Go: `cmd/refresh` cross-compiles `cmd/capture` and `cmd/realcheck` for
-  darwin/arm64 and copies them to `~/mimicry-capture/refresh-<stamp>/`
+  darwin/arm64 and copies them to a `refresh-<stamp>/` directory
   there. It needs, once: its ssh user logged in at its screen (Screen
   Sharing is enough; browsers opened over ssh show on that session), its
   own capture CA trusted there (`security add-trusted-cert` as above, at
@@ -160,7 +163,7 @@ there). Chrome is clicked over the DevTools protocol
 their throwaway profiles. Safari is clicked through the system's mouse
 events (`CGEventPost`, after its window is brought to the front), which
 needs Accessibility access for the app running the tool; an ssh session has
-none, so a Mac driven over ssh (the Mac mini) cannot take this scenario. The mouse moves to
+none, so a Mac driven over ssh (such as the second Mac) cannot take this scenario. The mouse moves to
 Safari's window: leave the machine alone while it runs.
 
 ### Proxy scenarios

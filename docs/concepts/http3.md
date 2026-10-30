@@ -1,375 +1,147 @@
 # HTTP/3
 
-mimicry speaks HTTP/3 over QUIC where the profile's browser would: to an
-origin that advertised it, moving to it when and how that browser moves,
-with the browser's packets, transport parameters, SETTINGS and field
-sections. See decisions [0026](../decisions/0026-http3-capture.md) (how the
-browsers were captured), [0027](../decisions/0027-quic-base.md) (the
-QUIC stack) and [0028](../decisions/0028-quic-failure-model.md) (how it
-fails), and the
-[capture report](../../internal/harness/reports/http3-2026-10-25.md).
+mimicry speaks HTTP/3 over QUIC where the profile's browser would. It moves
+a site to HTTP/3 when and how that browser does. Its QUIC packets and
+HTTP/3 settings and headers match the browser's.
 
-It is on by default for a profile with `quic` and `http3` sections (every
-built-in one). `Config.DisableHTTP3` keeps every request on TCP.
+HTTP/3 is on by default for every built-in profile. Set
+`Config.DisableHTTP3` to keep every request on TCP.
 
 ## When a request goes over HTTP/3
 
-Only `https://` requests sent directly or, with `Config.HTTP3OverSOCKS5`,
-through a SOCKS5 proxy (never through an `http://` proxy; see
-[Proxies](proxies.md#http3-through-socks5)), of a kind the profile
-measured over HTTP/3, to an origin whose response carried
-`Alt-Svc: h3=…` that has not expired. Then the profile's
-`http3.discovery` decides:
+A request can use HTTP/3 only when all of these hold:
 
-- **Chrome (`next_request`):** the first request after the Alt-Svc still
-  goes on HTTP/2, and starts the QUIC connection beside it; the requests
-  after that use HTTP/3 once it is up. The HTTP/2 connection stays open,
-  unused.
-- **Firefox (`on_alt_svc`):** the response carrying Alt-Svc starts the
-  QUIC connection at once, as a validation in the background: requests
-  go on TCP until it is up, never waiting for it. Once it is up, every
-  HTTP/2 connection to the origin gets a GOAWAY (`goawayTcp`), once the
-  request that opened it has its response: one still being established
-  as QUIC came up gets it too.
-- **Safari (`new_connection`):** HTTP/3 only for a request that needs a
-  new connection; a live HTTP/2 connection is kept, whatever Alt-Svc says.
+- it is an `https://` request;
+- it is sent directly, or through a SOCKS5 proxy with
+  `Config.HTTP3OverSOCKS5` (see [Proxies](proxies.md#http3-through-socks5));
+- the site earlier answered with an `Alt-Svc: h3=…` header that has not
+  expired. This header tells the browser the site also speaks HTTP/3.
 
-Once an origin has used HTTP/3, a request finding no QUIC connection
-dials a new one, resumed with 0-RTT where the profile resumes, even with
-an HTTP/2 connection open, with one exception: after the server sent
-GOAWAY, Firefox **races** (`raceAfterGoaway`). The request goes on a new
-TCP connection, and a 0-RTT QUIC connection follows 6–9 ms later,
-carrying only its control and QPACK streams. In every sample the TCP
-connection is up, the request sent and Firefox's GOAWAY on it out
-(3–4 ms after the request, which the capture's local server answers at
-once) before QUIC's first datagram, 1 ms after the GOAWAY. So mimicry
-starts that QUIC connection no earlier than the request's response on
-TCP, however long the TCP handshake takes. On any machine load the
-order stays the same. The TCP connection gets its GOAWAY once its
-request is answered. Every HTTP/2 connection established while an
-origin's QUIC connection is up gets one too. The Alt-Svc of the response
-that came with a GOAWAY starts nothing. QUIC resolves the host through
-`Config.Resolver`; `Config.DialContext` has no part in it (through a
-SOCKS5 proxy the proxy resolves it, and `DialContext` opens the
-association's control connection).
+Requests the profile has no HTTP/3 data for stay on TCP.
 
-### Alternatives a Transport did not learn itself
+Each browser then switches in its own way:
 
-A Transport keeps the alternatives it learns to itself unless
-`Config.AltSvc` gives it an `AltSvcCache`: Transports given the same one
-share every alternative any of them learns (or a `clear` removes), as a
-browser's tabs do, and `WriteJSON`/`ReadJSON` save and load it, as
-Chrome (HTTP server properties) and Firefox (alternate services) keep
-theirs across restarts. An origin found there is one whose alternative
-the Transport knows: its first request goes by the rules above as if the
-Transport had learnt it, so nothing appears on the wire that a Transport
-which learnt it itself would not send.
+- **Chrome** sends the next request on HTTP/2 and opens a QUIC connection
+  beside it. Later requests use HTTP/3 once it is up.
+- **Firefox** opens a QUIC connection as soon as it sees the header.
+  Requests stay on TCP until it is up, then move to HTTP/3. Firefox then
+  closes its HTTP/2 connections to the site.
+- **Safari** uses HTTP/3 only when a request needs a new connection. It
+  keeps using a live HTTP/2 connection.
 
-- **Chrome and Safari:** the request needs a new connection and there is
-  no HTTP/2 one, so it goes as a request that needs a QUIC connection
-  does ([below](#when-quic-fails)): a fresh QUIC connection, with TCP
-  racing it after 300 ms (Chrome) or 100 ms (Safari) if it is not up. On
-  a working network the page starts on HTTP/3.
-- **Firefox:** the Transport learns the alternative at the first request,
-  which starts the background validation an `Alt-Svc` response would
-  start and itself goes on TCP; the requests after it move once QUIC is
-  up (and the HTTP/2 connection gets its GOAWAY). Firefox's own restart
-  with a validated alternative it saved was not captured; its source (a
-  lead, not evidence) sends the first request on HTTP/3 directly.
+Once a site has used HTTP/3, a request that finds no QUIC connection opens
+a new one. One exception: after the server closes a connection, Firefox
+sends the next request on a new TCP connection and opens QUIC after it.
 
-Only alternatives are shared: whether an origin's QUIC failed (broken),
-session tickets (so a returning Transport's first QUIC connection is a
-full handshake, no 0-RTT, as after a browser restart) and connections
-stay per Transport. Entries are keyed as the pool is (origin and
-connection partition), not by top-level site, which browsers also key
-them by; top-level-site partitioning is deferred
-([decision 0011](../decisions/0011-connection-partitioning.md)), so one
-cache shared by Transports used for unrelated sites tells each the
-others' alternatives.
+QUIC looks up the host through `Config.Resolver`. `Config.DialContext` is
+not used for QUIC.
 
-## When QUIC fails
+## Sharing what a Transport learned
 
-What a request does while its origin's QUIC connection is not up, and
-when an attempt or a live connection fails, is
-`http3.discovery.fallback`, measured against servers that answer nothing,
-go silent mid-request, close and then answer nothing, or speak only QUIC
-v2 ([report](../../internal/harness/reports/http3-edge-2026-10-25.md); captures
-`h3-blackhole`, `h3-broken`, `h3-vn`). That is what mimicry does with
-`Config.BrowserQUICFallback`; by default it shortens the holds, below:
+By default, each Transport keeps the `Alt-Svc` entries it learns to itself.
+To share them, give several Transports the same `AltSvcCache` through
+`Config.AltSvc`. They then share entries the way a browser's tabs do.
+`WriteJSON` and `ReadJSON` save and load the cache, as browsers keep it
+across restarts.
 
-- **Chrome (`race`):** a request that needs a QUIC connection waits for
-  the attempt 300 ms (`tcpDelayMs`; 305–306 measured), then goes on TCP
-  while the attempt runs on. A request sent in 0-RTT, and every request
-  after it, waits for that attempt with no TCP until it gives up
-  (`zeroRttHolds`: 4.0 s); then a fresh attempt and TCP start together,
-  and the requests made while it runs go on TCP at once.
-- **Firefox (`background`):** an attempt never holds a request, but for
-  those made while its resumed attempt after the server's close is
-  pending (`hold`): they go on it in 0-RTT and to a new TCP connection
-  when it gives up (5 s). After a failed resumed attempt or a dead
-  connection, a request at least `revalidateMs` later validates afresh
-  beside TCP.
-- **Safari (`race`):** QUIC first, TCP after 100 ms (`tcpDelayMs`,
-  88–129 ms measured: Safari 26 88–109, Safari 27 100–129), and the attempt is dropped once the request goes
-  on TCP (`abandonOnTcp`).
+A Transport that finds a site in the cache acts as if it had learned the
+entry itself:
 
-An attempt fails when it gives up (`quic.loss`: Chrome at 4 s with an
-Initial CONNECTION_CLOSE padded to 1250 bytes; Firefox silently at its
-idle timeout for a fresh one, at 5 s with an Initial application close in
-255 bytes for a resumed one), gets Version Negotiation it does not retry
-(Chrome, Safari), or is dropped (Safari's, with a 0-RTT close if it sent
-0-RTT). Failed
-attempts in a row (`brokenAfter`: Chrome and Firefox 1, Safari 2,
-resumed ones counting for Safari only) leave the origin on TCP for the
-rest of the Transport's life: no browser tried again within a page
-(Chrome's source has a 5-minute back-off, not measured). An attempt
-counts once its first datagram has gone out: one dropped before (a loaded
-process still building its hello when the race ended) put nothing on the
-network and leaves no trace ([decision 0028](../decisions/0028-quic-failure-model.md)). Firefox answers
-Version Negotiation with a new connection in v2 at once, which it closes
-with 0x53f8 when the server's transport parameters lack
-`version_information`; that counts as one failed attempt. Chrome's source
-also delays its TCP job by 1.5 × the origin's smoothed RTT when it expects
-QUIC to work; no loopback capture can tell that from no delay, so it is not
-modelled. Firefox's re-validation (`revalidateMs`, 797–3,020 ms) is
-bounded by the captures: a request 0.8 s after a failure did not start a
-fresh attempt, one 3.05 s after did.
+- **Chrome and Safari** open a QUIC connection for the first request. If it
+  is not up quickly, they also try TCP. On a working network the first page
+  loads over HTTP/3.
+- **Firefox** sends the first request on TCP and checks QUIC in the
+  background. Later requests move to HTTP/3 once it is up.
 
-A live connection whose path stops answering: Chrome moves to a new UDP
-port once its oldest unacknowledged packet is 4 of its PTOs old
-(`quic.loss.pathDegrading`, migrate; a socket from the engine's dialer,
-`quic.DialConfig.NewPath`, which such a profile requires) and carries on
-(when that path dies too, Chrome closes with `85:Network blackhole
-detected` and sends the stuck request on TCP; not modelled); Safari closes
-it after 12 s and sends the pending requests again on a new connection
-7–15 ms later (`pending` quic, `reconnectMs`: Safari 26 7–9, Safari 27
-10–15); Firefox keeps probing and sending requests
-on it until its 30 s idle timeout, then sends them all on TCP (`pending`
-tcp), opening a TCP connection for each and declining all but the first.
+Only the `Alt-Svc` entries are shared. Each Transport keeps its own
+connections, session tickets and list of sites where QUIC failed. So a
+Transport's first QUIC connection is a full handshake, as after a browser
+restart.
 
-### Fast fallback (the default)
+Entries are keyed by site, not by the page that made the request. Browsers
+also key them by that page. So one cache shared between Transports used
+for unrelated sites lets each see the others' entries.
 
-Without `Config.BrowserQUICFallback`, two of the waits above end sooner
-([decision 0036](../decisions/0036-fast-quic-fallback.md)); everything else,
-the race delays included, is as above:
+## If QUIC is blocked
 
-- **An unanswered 0-RTT connection holds requests only until the race
-  delay.** A request on a resumed connection whose handshake the server
-  has not answered goes on TCP once the profile's `tcpDelayMs` (Chrome
-  305–306 ms) has passed since the connection started, or for a profile
-  without one its `quic.loss.initialPtoMs` (Firefox 300 ms), instead of at
-  the give-up (Chrome's `zeroRttHolds`, 4 s; Firefox's `hold`, 5 s).
-  Requests made after that go on TCP at once. A request already sent in
-  0-RTT stays on the QUIC connection, as the browser's would, and its
-  answer is dropped; one waiting for the handshake (a POST) is withdrawn
-  unsent. The QUIC connection carries on as the browser's: its probes,
-  give-up and close, and what follows them (Chrome's fresh attempt beside
-  TCP, Firefox's re-validation) are unchanged. If its handshake completes
-  late after all, later requests use it, and a Firefox profile then sends
-  GOAWAY on the HTTP/2 connection the requests went to (`goawayTcp`); that
-  connection gets none while the QUIC connection is overdue.
-- **A failed attempt holds nothing.** A request waiting for an attempt
-  that failed before the race delay (Version Negotiation not retried)
-  goes on TCP at once instead of when the delay ends.
+Some networks drop UDP, so QUIC never connects. Each browser then falls
+back to TCP after a wait. mimicry has two modes for this.
 
-A connection whose server answers its handshake within the race delay is
-untouched, so a working network looks the same in both modes. A path
-slower than that (round trips over about 300 ms, or a resumed handshake's
-first flight lost) sends the request on TCP as well, where the browser
-would have waited. The dead-path waits (Firefox's 30 s, Safari's 12 s) keep
-the browser's timing: their requests were sent and the path may recover,
-so sending them again early would show the server a duplicate (backlog).
+**Default (fast fallback).** mimicry keeps each browser's first wait before
+trying TCP. It does not wait longer than that, even where the browser
+would. A resumed connection that gets no answer stops holding requests at
+that point. A failed attempt sends the request to TCP at once. On a
+working network both modes look the same.
 
-## The QUIC connection
+**`Config.BrowserQUICFallback`.** mimicry waits exactly as long as the
+browser does, including its longer holds. Use it when the exact timing of
+the fallback matters more than speed.
 
-Every connection has a UDP socket of its own, as browsers do (through a
-SOCKS5 proxy, a UDP association of its own). What the
-browser does is profile data (`quic`, `tls.quic`), each value a rule named
-after the browser's algorithm rather than a sampled distribution:
+| Browser | First try | Falls back to TCP | Longer hold (`BrowserQUICFallback` only) |
+| --- | --- | --- | --- |
+| Chrome | QUIC | after about 300 ms, while QUIC keeps trying | a resumed connection holds requests until it gives up, after 4 s |
+| Firefox | TCP, QUIC checked in the background | never waits for QUIC | requests on a resumed connection after a server close wait up to 5 s |
+| Safari | QUIC | after about 100 ms, dropping the QUIC attempt | none |
 
-- **First flight:** the QUIC ClientHello (`tls.quic`: the TLS hello with
-  the browser's QUIC changes), cut into Initial packets as the browser
-  does (`crypto.split`):
-  - Chrome: quiche's chaos protection, the hello's head and tail in one
-    packet and its middle in the other, split further, with PINGs and
-    scattered PADDING, all shuffled;
-  - Firefox: neqo's SNI slicing, the hello cut in the middle of the
-    server name, the tail piece first; the datagram padded with trailing
-    zeros;
-  - Safari: in order, 999 bytes in the first packet, PADDING at the end.
-- **Packet numbers and connection IDs:** Chrome one counter from 1 over
-  every space; Firefox a random first Initial number and a biased random
-  DCID length, and four NEW_CONNECTION_IDs; Safari each space from 0.
-- **Transport parameters:** the browser's set and values, in its order
-  (fixed, shuffled per connection, or Safari's rotation, Safari 26's with
-  `0xff080808` last), GREASE where it sends one, Chrome's `initial_rtt`
-  when resuming.
-- **Afterwards:** coalescing as the browser does, its ACK delays (Safari a
-  constant per connection), Chrome's MAX_DATA after 19 ACK-only packets,
-  the spin bit (Chrome 0, Firefox random, Safari spinning), NEW_TOKEN
-  tokens, Firefox's reply to the server's CONNECTION_CLOSE. An idle
-  connection ends silently at its idle timeout; mimicry also closes one
-  idle for `Config.IdleConnTimeout` (90 s by default) if that comes first
-  ([decision 0040](../decisions/0040-idle-connection-cleanup.md)).
-- **Receive buffer:** each connection's UDP socket asks the OS for 1 MB
-  (SO_RCVBUF), as Chrome does; `Config.UDPReadBufferSize` changes it, a
-  negative value keeps the OS's default. Nothing on the wire depends on
-  it; it trades dropped datagrams under load for a queue
-  ([decision 0045](../decisions/0045-udp-receive-buffer-default.md)).
-- **Long transfers** (`h3-download`, 50 MiB): acknowledgements as the
-  browser spaces them (`quic.ack`: Chrome every 10th packet after its
-  first 100, every 2nd before; Firefox and Safari every 2nd, batched over
-  what has arrived; `Config.HTTP3ACKEvery` acknowledges less often, not as
-  the browser does, for a server whose one worker a client saturates:
-  [decision 0043](../decisions/0043-http3-ack-rate-opt-in.md)); credit
-  from fixed windows, the limit set to bytes
-  consumed plus the window once a share of it is used, consumption
-  counted packet by packet as the data arrived, whatever the reader
-  takes at once (`quic.credit`:
-  Chrome half of 6 MiB per stream and of 15 MiB per connection, Firefox a
-  quarter of 12 and 24 MiB, Safari half of 2 MiB per stream, its
-  connection limit the sum of its streams'); no key update of its own
-  (`quic.keyUpdate`): each browser only follows the server's (so against
-  a server that never updates, a connection's keys outlive AES-GCM's
-  2^23-packet limit after about 10 GB sent).
-  Measured detail: Firefox's batched ACKs cover 2–7 packets, Chrome's
-  exactly 10 in 97% of ACKs; Safari raises stream credit as its
-  application reads (62 B to 2.1 MB apart, median about 1 MB), its
-  connection limit first at 15.2–15.9 MB, Safari 27 sending a quarter to
-  a third of the raises in other packets; no browser started a key
-  update in 3,476–8,619 packets sent and 37,000 received.
-- **Versions:** Firefox lists v2 in `version_information` and moves to it
-  when the server upgrades it compatibly (RFC 9368), then resumes that
-  origin in v2; it answers Version Negotiation that lists v2 with a new
-  connection in v2 (`quic.versionNegotiation`). Chrome and Safari stay
-  on v1.
-- **0-RTT:** a connection resumes a ticket from the origin's last one and
-  sends its first requests in 0-RTT, where the profile does (Chrome,
-  Firefox), but only those whose method the browser sends there
-  (`http3.earlyData.methods`: GET, HEAD and OPTIONS). Any other request
-  made while the handshake runs (a POST, PUT, DELETE, a form submission)
-  waits for it and leaves in 1-RTT: Firefox's in the datagram with its
-  Finished (`heldWithFinished`; 31 of 35, the rest a thread's timing),
-  Chrome's in a datagram of its own 0.05–2.1 ms after it. A GET and a
-  POST made together split: the GET in 0-RTT, the POST held. A Firefox
-  connection dialled for a held request sends its control and QPACK
-  streams in 0-RTT without it. A request the server answers `425 Too
-  Early` (RFC 8470) goes again on the same connection, new stream, in
-  1-RTT after the Finished (`retryTooEarly`; 12 of 12 per browser),
-  never on a new one. Safari does the same but holds until the handshake
-  is confirmed, and resumes QUIC after closing a connection itself
-  (`h3-broken`) or after one idled out (`h3-early`); mimicry does not
-  model Safari's resumption: its connections are all fresh.
+After one failed attempt (two for Safari), mimicry keeps that site on TCP
+for the rest of the Transport's life, as the browsers do. Firefox tries
+QUIC again a few seconds later.
 
-## HTTP/3 framing and QPACK
+If a live connection stops answering, each browser reacts differently:
 
-From `http3`: the SETTINGS and GREASE setting and frame, which
-unidirectional streams open and when (with the Finished, after it, or at
-the first QPACK insert), the QPACK encoder's strategy and Huffman rule
-(Chrome indexes every field, Firefox inserts only names missing from the
-static table, Safari uses the static table only), PRIORITY_UPDATE before
-each request with a priority (Chrome), DATA frame sizes (Firefox caps
-them at 32768 bytes, the first at 32224), and Safari's
-first request waiting until the handshake is confirmed
-(`requestsAfterConfirmed`). Header lists are the request's HTTP/2 list,
-with Firefox's HTTP/3 changes (`http3.headers`: pseudo-header order
-`:method :scheme :authority :path`, no `te`, `alt-used` placed per kind,
-its value the alternative's host with `:<port>` unless the port is 443).
-A priority measured only over HTTP/3 (`http3.high`, `http3.low`) is
-`ErrNotMeasured` over TCP.
+- Chrome moves the connection to a new UDP port and carries on.
+- Safari closes it after 12 s and sends the waiting requests again on a
+  new QUIC connection.
+- Firefox keeps trying until its 30 s idle timeout, then sends the
+  requests on TCP.
 
-## Not measured
+mimicry keeps these waits in both modes. The requests were already sent,
+so resending them early would show the server duplicates. While a request
+waits on a quiet connection, mimicry sends PINGs as the browser does. An
+idle connection with no request waiting still closes silently.
 
-PMTU probing, ECN, DATAGRAM frames, Retry from the browser's side,
-discovery through DNS HTTPS records, a server that uses QPACK's dynamic
-table in responses, migration by Firefox or Safari (none seen), credit
-growth beyond 50 MiB or at lower bandwidth, key updates beyond 37,000
-received packets, how long an origin stays broken beyond a page, what
-Safari does after more than two failed attempts, a browser restarted with
-the alternatives it saved, and a NEW_TOKEN from a v2
-connection used by a later one; for Safari also its resumption (above),
-QPACK with a dynamic table and any request kind but `fetch()` over
-HTTP/3. Kinds the profile has no HTTP/3 data for stay on TCP. Each item,
-with its detection relevance and what closing it takes, is in the
-[backlog](../backlog.md#http3-and-quic).
+## Settings
 
-## Where the profile data comes from
+- `Config.DisableHTTP3` keeps every request on TCP.
+- `Config.HTTP3OverSOCKS5` sends HTTP/3 through a SOCKS5 proxy. See
+  [Proxies](proxies.md#http3-through-socks5).
+- `Config.UDPReadBufferSize` sets how much each QUIC socket asks the OS to
+  buffer. The default is 1 MB, as Chrome uses. A negative value keeps the
+  OS default. A bigger buffer drops fewer packets under load. It changes
+  nothing on the wire.
+- `Config.HTTP3ACKEvery` acknowledges packets less often than the browser
+  does. Use it only for a server that a fast client overloads. It makes
+  the traffic differ from the browser's.
 
-The h3 captures (`internal/harness/testdata/captures/<name>.h3-{discovery,page}*`)
-feed three generators, run in this order: `hellogen` (`tls.quic`),
-`h3gen` (`quic`, `http3` but its header lists and priorities), `kindsgen`
-(`http3.headers`, `http3.high`, `http3.low`, and the kinds the h3 pages
-add). `hellogen` and `h3gen` also read the `h3-blackhole`, `h3-broken`,
-`h3-vn`, `h3-download`, `h3-early` and `h3-too-early` captures
-(`server.H3EdgeCaptures`): hellogen for `tls.quic.versionNegotiation`
-(Firefox's other hello after Version Negotiation), h3gen for
-`quic.loss`, `quic.keepAlive`, `quic.ack`, `quic.credit`,
-`quic.keyUpdate`, `quic.versionNegotiation`,
-`http3.discovery.fallback` and `http3.earlyData`. Each refuses a sample
-its rule does not describe.
+Idle QUIC connections close as described in
+[What mimicry does](what-mimicry-does.md).
 
-## What checks it
+**0-RTT.** When reconnecting to a site, Chrome and Firefox profiles send
+their first GET, HEAD and OPTIONS requests in 0-RTT, before the handshake
+finishes. Other requests, such as a POST, wait for the handshake, and a
+request the server answers `425 Too Early` is sent again on the same
+connection.
 
-- `TestHTTP3MatchesBrowser` walks both h3 pages through mimicry for every
-  profile and compares each request's transport, each QUIC connection and
-  its HTTP/3 layer with every browser sample. What the browser draws per
-  connection is held to the profile's rule, for mimicry's connections and
-  for every browser connection alike, so the test is deterministic and a
-  rule the captures contradict fails.
-- `TestHTTP3EdgeMatchesBrowser` (`internal/harness/e2e/http3_edge_test.go`) walks
-  the `h3-blackhole`, `h3-broken`, `h3-vn`, (with aioquic) `h3-v2`,
-  `h3-early` and `h3-too-early` pages through mimicry on the browser's
-  schedule and compares, per request, every connection it went on, how
-  long it was held and, on a connection that sent 0-RTT, each of its
-  streams (in 0-RTT, held with or after the Finished, or sent again after
-  a 425), per QUIC attempt its versions, what the server answered, its
-  datagrams and give-up, and when it and each TCP connection started
-  after the request that caused them (the race), within the samples'
-  range. A migration must send the browser's probes first and come 4 of
-  the connection's own PTOs after the request, for mimicry and every
-  browser sample, so it holds on a loaded machine too. Each page runs
-  with `Config.BrowserQUICFallback` and with the fast default; the
-  default's differences are listed one by one (`h3EdgeFastGaps`), all on
-  pages where QUIC fails, and each must appear.
-- `TestHTTP3DownloadMatchesBrowser` replays `h3-download` and holds
-  mimicry's acknowledgements and key phases to the profile's rules, which
-  every sample must follow too, and its credit increases to the range of
-  the browser's; where the connection limit follows what arrived
-  (Safari), how far it moves is timing, so mimicry and every sample are
-  held to the rule instead (the limit against what the client's ACKs
-  acknowledged, plus the window).
-- `TestQPACKReproducesBrowserSections` re-encodes every captured field
-  list and must reproduce the browser's bytes.
-- `TestQUICInterop` (`internal/harness/e2e/quic_interop_test.go`) runs every
-  profile against quic-go's HTTP/3 server through a seeded relay
-  (`internal/harness/internal/udprelay`: loss, reordering, duplication,
-  corruption, delay, blackholes, a small MTU, NAT rebinding): handshake,
-  large and concurrent transfers, Retry, resumption and 0-RTT (accepted,
-  rejected, and answered 425 Too Early), ChaCha20, key updates, the
-  anti-amplification limit, GOAWAY, idle and server closes, stream resets,
-  tiny flow control windows, and a new Transport sharing or loading an
-  `AltSvcCache` (its first request on QUIC for Chrome and Safari, with no
-  TCP connection), and HTTP/3 through SOCKS5 proxies (`socks5*` rows: no
-  datagram around the proxy, the same first flight as directly, a
-  dropped or refused association), each checked byte for byte and
-  against a time limit.
+## Not supported
 
-## Under loss and failure
+- Safari profiles never resume a QUIC connection: every one is a full
+  handshake.
+- Finding HTTP/3 through DNS HTTPS records. Only the `Alt-Svc` header is
+  used.
+- Connection migration for Firefox and Safari, path MTU probing, ECN and
+  DATAGRAM frames.
+- Retrying a site after it is marked as failing. It stays on TCP for the
+  Transport's life.
+- Keying shared `Alt-Svc` entries by the page that made the request.
 
-Measured where a server stopped answering (`quic.loss`,
-`quic.keepAlive`); beyond that, RFC 9002:
+The [backlog](../backlog.md#http3-and-quic) lists each gap and what closing
+it takes.
 
-- An unanswered handshake probes after 300 ms (Chrome, Firefox; from the
-  origin's last RTT when it has one), doubling: Chrome sends one
-  1250-byte Initial with the next share of its ClientHello and skips a
-  packet number before each probe, Firefox its whole first flight again.
-  Safari's probes were never seen (TCP won first).
-- While a request waits on a quiet connection it sends PINGs
-  (`quic.keepAlive`: Chrome and Firefox after 15 s, Safari every 2 s, or
-  half the negotiated idle timeout if that is shorter); an idle connection
-  still ends silently.
-- A replayable request whose connection ended before its response (the
-  server's CONNECTION_CLOSE crossing it) goes again on a new connection,
-  as over a reused HTTP/1.1 connection; one whose connection died as
-  [When QUIC fails](#when-quic-fails) says goes where the profile sends
-  it.
+Background: [0026](../decisions/0026-http3-capture.md) (how the browsers
+were captured), [0027](../decisions/0027-quic-base.md) (the QUIC stack),
+[0028](../decisions/0028-quic-failure-model.md) (failures and connection
+behaviour), [0036](../decisions/0036-fast-quic-fallback.md) (fast
+fallback), [0011](../decisions/0011-connection-partitioning.md)
+(partitioning), [0043](../decisions/0043-http3-ack-rate-opt-in.md) (ACK
+rate), [0045](../decisions/0045-udp-receive-buffer-default.md) (receive
+buffer).
