@@ -69,7 +69,9 @@ Combinations no browser makes are errors before anything is sent:
    - `Sec-Fetch-Mode`: the kind's mode, `cors` with a crossorigin
      attribute, `no-cors` for a no-cors fetch.
    - `Cookie`: sent or removed by the browser's credentials rules
-     ([cookies](cookies.md)).
+     ([cookies](cookies.md)), in the list's `cookie` slot; a redirect hop
+     the captures never saw carrying cookies has none, and the jar's
+     cookies go after its list ([backlog](../backlog.md#redirects)).
    - `Origin`: on non-GET/HEAD requests and on CORS requests to another
      origin; `null` where the browser sends it after redirects.
    - `Referer`: strict-origin-when-cross-origin, applied hop by hop.

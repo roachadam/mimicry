@@ -258,7 +258,7 @@ func (c *Conn) writeFrame(ctx context.Context, opcode, rsv byte, payload []byte,
 	head := len(frame)
 
 	frame = append(frame, payload...)
-	MaskBytes(h.Mask, 0, frame[head:])
+	MaskBytes(h.Mask, frame[head:])
 
 	if err := c.t.Send(ctx, c.parts(frame, head, opcode, reply), end); err != nil {
 		// Part of the frame may be on the wire: nothing can follow it.

@@ -40,7 +40,7 @@ sending it through the proxy's UDP relay.)
   udpbara (httpcloak) does: QUIC keeps a real `*net.UDPConn`, a goroutine
   copies between it and the relay socket. udpbara needs it because
   quic-go demands a `*net.UDPConn`. (b) A `net.PacketConn` wrapping the
-  relay socket, given to our QUIC copy (chosen): `internal/quic` already
+  relay socket, given to mimicry's QUIC copy (chosen): `internal/quic` already
   takes any `net.PacketConn` (upstream's `netPacketConn`, used for anything
   but a `*net.UDPConn`), so it needs no change for it. What (b) loses is
   what a relay makes meaningless: ECN marks and the local address (the

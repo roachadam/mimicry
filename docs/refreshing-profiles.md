@@ -2,22 +2,24 @@
 
 Browsers ship a new version every few weeks. `profiles.Chrome()`,
 `profiles.Firefox()` and `profiles.Safari()` always mean the newest
-built-in version. The newest five versions per browser are supported.
+built-in macOS version, and `profiles.ChromeWindows()` the newest Chrome
+on Windows. The newest five versions per browser and platform are supported.
 Older ones stay in the repository, marked deprecated. Keeping up is one
 command, run in `internal/harness/`:
 
 ```sh
-go run ./cmd/refresh -browser chrome,firefox -mode quick   # both at once, on the second Mac
+go run ./cmd/refresh -browser chrome,firefox -mode quick -mini <alias>   # both at once, on the second Mac
 go run ./cmd/refresh -browser safari -mode quick           # Safari 27, on the Mac you run it on
-go run ./cmd/refresh -browser safari-mini -mode full       # Safari 26, on the second Mac
-go run ./cmd/refresh -browser chrome -dry-run              # the plan only
+go run ./cmd/refresh -browser safari-mini -mode full -mini <alias>       # Safari 26, on the second Mac
+go run ./cmd/refresh -browser chrome -dry-run -mini <alias>           # the plan only
 go run ./cmd/refresh -browser chrome-windows -windows <alias>   # Chrome on a Windows machine
 ```
 
 The setup assumes two Macs: the one you work on, and a second Mac kept on
-macOS 26, reachable over ssh. Pass its ssh alias with `-mini` (default
-`mac-mini`). Chrome on Windows needs a Windows machine reachable over
-ssh: pass your ssh alias for it with `-windows` (no default).
+macOS 26, reachable over ssh. Pass your ssh alias for it with `-mini` (no
+default; chrome, firefox and safari-mini need it). Chrome on Windows needs
+a Windows machine reachable over ssh: pass your ssh alias for it with
+`-windows` (no default).
 
 ## Two modes
 
@@ -55,7 +57,8 @@ quick mode: a rule that changes in a quickly refreshed version goes
 unnoticed until the next full refresh.
 
 Tests split the same way. By default the e2e suite runs the newest profile
-per browser; a full run (`moon run :test-full`) covers every supported one.
+per browser and platform; a full run (`moon run :test-full`) covers every
+supported one.
 
 ## Where each browser runs
 
@@ -81,8 +84,11 @@ with `-serial`.
 ### The Windows machine
 
 It needs, once: OpenSSH Server (PowerShell as its shell is fine), Chrome,
-and an administrator account that is also logged in at the machine's
-screen (the console). Go is not needed. The preflight checks each of these.
+Python with aioquic (`python -m pip install --user aioquic`, for the
+scenarios that need it), and an administrator account that is also
+logged in at the machine's screen (the console). Go is not needed. The
+preflight checks each of these, and that `certutil` and `schtasks` are
+on PATH.
 
 The tool cross-compiles for windows/amd64, copies the binaries to
 `%USERPROFILE%\mimicry-capture\refresh-<stamp>\` and runs each step there
@@ -105,13 +111,15 @@ so a packet and the other side's answer often share a timestamp (tests
 that order both sides take the server's first on a tie), and quic-go's
 NEW_TOKEN tokens are 89 or 90 bytes by the loopback RTT they encode (tests
 compare whether a token is sent, not its length). The report names the
-machines by role (this Mac, the Mac mini, the Windows PC), never by their
+machines by role (this Mac, the second Mac, the Windows PC), never by their
 ssh aliases.
 
 ## What a run does
 
 1. **Preflight.** On each machine it checks the installed browser version,
-   the console user, and whether the capture CA is trusted. It also checks
+   the console user, and whether the capture CA is trusted (on Windows,
+   which trusts the CA only during a capture: administrator rights,
+   `certutil` and `schtasks` instead). It also checks
    `/etc/resolver/test` (Safari), python3 with aioquic and Safari's proxy
    script (full mode). Finally it checks whether Gatekeeper still has to
    approve a fresh browser's first launch, a dialog nobody at an ssh
@@ -169,4 +177,6 @@ What the tool runs underneath, and how to capture by hand:
 [Capturing browsers](capturing.md).
 
 Background: [decision 0035](decisions/0035-version-policy-and-capture-inheritance.md),
-[example refresh report](../internal/harness/reports/refresh-chrome-156-macos-2026-10-26.md).
+[decision 0047](decisions/0047-windows-profiles.md),
+[example refresh report](../internal/harness/reports/refresh-chrome-156-macos-2026-10-26.md),
+[Windows refresh report](../internal/harness/reports/refresh-chrome-156-windows-2026-10-29.md).

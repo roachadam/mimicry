@@ -1,9 +1,9 @@
 // Layers 1 and 2 of the benchmark, as Go benchmarks: the cost of one request
-// on a warm connection (BenchmarkRequest) and of one request on a new
-// connection (BenchmarkConnect), for every client, protocol and server.
-// They need the server stack and run in the client container (README.md):
-// moon run bench:micro runs them -count=10 and summarises them with
-// benchstat. Names are key=value so benchstat can pivot: -col /client.
+// on a warm connection (BenchmarkRequest), of one request on a new
+// connection (BenchmarkConnect) and of building a client (BenchmarkNewClient),
+// for every client, protocol and server. They need the server stack and run
+// in the client container (README.md): moon run bench:micro runs BENCH_COUNT
+// (6) passes of -count 1 and summarises them with benchstat. Names are key=value so benchstat can pivot: -col /client.
 //
 // A sub-benchmark the client cannot run is skipped with "n/a: why"; one
 // whose requests did not all go over the protocol under test (or, for

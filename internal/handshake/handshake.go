@@ -49,7 +49,7 @@ func Client(ctx context.Context, conn net.Conn, hello fingerprint.Hello, cfg Con
 		return nil, "", err
 	}
 
-	tlsConn := utls.UClient(conn, tlsConfig(cfg), utls.HelloCustom)
+	tlsConn := utls.UClient(conn, TLSConfig(cfg), utls.HelloCustom)
 	if err := tlsConn.ApplyPreset(spec); err != nil {
 		_ = conn.Close()
 		return nil, "", fmt.Errorf("handshake: applying ClientHello: %w", err)
@@ -96,14 +96,10 @@ func State(cs utls.ConnectionState) *tls.ConnectionState {
 	}
 }
 
-// QUICConfig is the TLS configuration of a QUIC handshake: cfg's server
-// name, roots and ticket cache, which QUIC uses for its 0-RTT tickets too.
-func QUICConfig(cfg Config) *utls.Config {
-	return tlsConfig(cfg)
-}
-
-// tlsConfig is the uTLS configuration for cfg.
-func tlsConfig(cfg Config) *utls.Config {
+// TLSConfig is the uTLS configuration for cfg: its server name, roots and
+// ticket cache, which QUIC uses for its 0-RTT tickets too. Both TCP and
+// QUIC handshakes use it.
+func TLSConfig(cfg Config) *utls.Config {
 	config := &utls.Config{
 		ServerName: cfg.ServerName,
 		RootCAs:    cfg.RootCAs,

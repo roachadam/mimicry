@@ -172,7 +172,7 @@ func (w *packetWriter) finish1RTTPacket(pnum, pnumMaxAcked packetNumber, dstConn
 	hdr = append(hdr, 0x40|byte(pnumLen-1))
 
 	if w.spin {
-		hdr[len(hdr)-1] |= spinBitMask // mimicry
+		hdr[len(hdr)-1] |= spinBitMask // mimicry: client
 	}
 
 	hdr = append(hdr, dstConnID...)

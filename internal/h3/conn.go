@@ -22,6 +22,7 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
+	"github.com/roachadam/mimicry/internal/headerorder"
 	"github.com/roachadam/mimicry/internal/qpack"
 	"github.com/roachadam/mimicry/internal/quic"
 	"github.com/roachadam/mimicry/internal/quic/quicwire"
@@ -407,16 +408,6 @@ func (c *Conn) finish() {
 
 	for _, f := range fs {
 		f()
-	}
-}
-
-// Err is why the QUIC connection ended (quic.Conn.Err); nil before Done.
-func (c *Conn) Err() error {
-	select {
-	case <-c.done:
-		return c.qc.Err()
-	default:
-		return nil
 	}
 }
 
@@ -1433,7 +1424,7 @@ func response(fields []qpack.Field) (*http.Response, error) {
 			}
 
 			resp.StatusCode = code
-			resp.Status = statusLine(code, f.Value)
+			resp.Status = headerorder.StatusLine(f.Value, code)
 
 			continue
 		}
@@ -1462,29 +1453,6 @@ func response(fields []qpack.Field) (*http.Response, error) {
 	}
 
 	return resp, nil
-}
-
-// statusLine is a response's Status ("200 OK"), without building the
-// common ones.
-func statusLine(code int, value string) string {
-	switch code {
-	case http.StatusOK:
-		return "200 OK"
-	case http.StatusNoContent:
-		return "204 No Content"
-	case http.StatusPartialContent:
-		return "206 Partial Content"
-	case http.StatusMovedPermanently:
-		return "301 Moved Permanently"
-	case http.StatusFound:
-		return "302 Found"
-	case http.StatusNotModified:
-		return "304 Not Modified"
-	case http.StatusNotFound:
-		return "404 Not Found"
-	}
-
-	return value + " " + http.StatusText(code)
 }
 
 // body is a response body: the DATA frames of its stream.

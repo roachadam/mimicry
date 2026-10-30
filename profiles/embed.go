@@ -45,7 +45,7 @@ var decoded = func() map[string]func() (*profile.Profile, error) {
 // validated by the generator and by this package's tests, so a failure here
 // is a build defect.
 func load(name string) *profile.Profile {
-	p, err := parse(name)
+	p, err := ByName(name)
 	if err != nil {
 		panic(err)
 	}
@@ -53,7 +53,9 @@ func load(name string) *profile.Profile {
 	return p
 }
 
-func parse(name string) (*profile.Profile, error) {
+// ByName returns a fresh copy of the built-in profile called name, for example
+// "chrome-155-macos".
+func ByName(name string) (*profile.Profile, error) {
 	get, ok := decoded[name]
 	if !ok {
 		return nil, fmt.Errorf("profiles: %q is not a built-in profile", name)
@@ -166,12 +168,6 @@ func plain(t reflect.Type) bool {
 	plains.Store(t, p)
 
 	return p
-}
-
-// ByName returns a fresh copy of the built-in profile called name, for example
-// "chrome-155-macos".
-func ByName(name string) (*profile.Profile, error) {
-	return parse(name)
 }
 
 // Names lists every built-in profile, deprecated ones included.

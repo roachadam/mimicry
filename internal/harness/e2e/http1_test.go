@@ -12,7 +12,6 @@ import (
 	"github.com/roachadam/mimicry"
 	"github.com/roachadam/mimicry/cookies"
 	"github.com/roachadam/mimicry/internal/harness/internal/capture"
-	"github.com/roachadam/mimicry/internal/harness/internal/server"
 )
 
 // Over HTTP/1.1, mimicry's two navigations (a typed URL, then /nav from the
@@ -20,10 +19,7 @@ import (
 // values. Sec-Fetch-User is suppressed (script navigation); the authority is
 // normalised.
 func TestHTTP1MatchesBrowserTrace(t *testing.T) {
-	sc, err := server.ScenarioByName("http1")
-	if err != nil {
-		t.Fatal(err)
-	}
+	sc := scenario(t, "http1")
 
 	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {

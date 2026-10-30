@@ -20,7 +20,9 @@
 //
 // Defaults match the browser; Config fields that change that say so. A
 // profile holds only what was recorded from the real browser: asking for
-// anything else fails with ErrNotMeasured instead of guessing. Guides are in
+// anything else fails with ErrNotMeasured instead of guessing. Built-in
+// profiles are in package profiles: Chrome, Firefox and Safari on macOS, and
+// Chrome on Windows (profiles.ChromeWindows). Guides are in
 // the repository's docs directory.
 package mimicry
 
@@ -100,9 +102,9 @@ type Config struct {
 	// key with no values removes a default. Default: none.
 	Headers http.Header
 	// HeaderPlacement moves headers within the browser's order on every
-	// request you send, redirect hops included; CORS preflights, WebSocket
-	// handshakes and Exact requests keep the browser's order. Default:
-	// none. NewTransport rejects an invalid Place with ErrPlacement.
+	// request you send, redirect hops included. CORS preflights and
+	// WebSocket handshakes keep the browser's order; Exact and
+	// HeaderOrderKey requests keep their own. Default: none. NewTransport rejects an invalid Place with ErrPlacement.
 	HeaderPlacement []Place
 	// Cookies is the cookie jar requests use. When nil, NewClient creates
 	// one and NewTransport sends no cookies. Set it to share or seed
@@ -118,8 +120,9 @@ type Config struct {
 	DisableDecompression bool
 
 	// HTTP/3 and connections. Each of these defaults to what the browser
-	// does, except BrowserQUICFallback and BrowserProxyAuth: there the
-	// default is faster, and setting the field restores the browser.
+	// does, except BrowserQUICFallback and BrowserProxyAuth, where the
+	// default is faster and setting the field restores the browser, and
+	// IdleConnTimeout's 90 seconds.
 
 	// DisableHTTP3 keeps every request on TCP. By default a request moves
 	// to HTTP/3 when the browser would, falling back to TCP if QUIC fails.
@@ -532,6 +535,20 @@ func (t *Transport) cookieLine(s *sending, u use) string {
 	return cookies.Header(t.jar.Cookies(s.cookies))
 }
 
+// pageFor is the page a request to target is sent from when the caller
+// names none: the last navigation, or target's origin root before one.
+func (t *Transport) pageFor(target *url.URL) *url.URL {
+	if from := t.lastNav.Load(); from != nil {
+		return from
+	}
+
+	return &url.URL{
+		Scheme: target.Scheme,
+		Host:   target.Host,
+		Path:   "/",
+	}
+}
+
 // prepare returns how to send req, made as r describes (or Exact), and
 // its CORS preflight when it needs one that no cached answer spares.
 func (t *Transport) prepare(req *http.Request, r Request, exact bool) (*sending, *preflightSend, error) {
@@ -546,14 +563,7 @@ func (t *Transport) prepare(req *http.Request, r Request, exact bool) (*sending,
 
 	from := r.From
 	if from == nil && r.Kind != Navigate {
-		from = t.lastNav.Load()
-		if from == nil {
-			from = &url.URL{
-				Scheme: req.URL.Scheme,
-				Host:   req.URL.Host,
-				Path:   "/",
-			}
-		}
+		from = t.pageFor(req.URL)
 	}
 
 	s, err := resolve(t.profile, req, r, from, t.headers)

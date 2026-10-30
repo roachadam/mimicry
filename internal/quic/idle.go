@@ -135,7 +135,7 @@ func (c *Conn) restartIdleTimer(now time.Time) {
 
 func (c *Conn) appendKeepAlive() bool {
 	if c.client != nil {
-		return c.appendClientKeepAlive() // mimicry
+		return c.appendClientKeepAlive() // mimicry: client
 	}
 
 	if !c.idle.shouldSendKeepAlive {

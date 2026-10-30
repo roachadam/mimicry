@@ -20,7 +20,7 @@ Each option considered, with what it would cost and what it gets wrong.
 
 ## Decision
 
-What we chose.
+What was chosen.
 
 ## Evidence
 

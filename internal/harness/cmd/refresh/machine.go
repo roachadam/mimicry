@@ -28,7 +28,7 @@ const (
 type target struct {
 	// browser is the capture tool's name for it (-browsers).
 	browser string
-	// remote is where it runs over ssh: remoteMini (the Mac mini, -mini),
+	// remote is where it runs over ssh: remoteMini (the second Mac, -mini),
 	// remoteWindows (a Windows PC, -windows), or "" for this Mac.
 	remote string
 }
@@ -95,7 +95,7 @@ func (m *machine) role() string {
 	case m.windows:
 		return "the Windows PC"
 	default:
-		return "the Mac mini"
+		return "the second Mac"
 	}
 }
 

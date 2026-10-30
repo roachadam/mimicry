@@ -115,7 +115,7 @@ func (c *lossState) reset(now time.Time, maxDatagramSize int) {
 	// Reset PTO timer and backoff.
 	c.ptoBackoffCount = 0
 	c.ptoExpired = false
-	c.ptoProbes = 0
+	c.ptoProbes = 0 // mimicry: probes of the expired PTO
 	c.scheduleTimer(now)
 	// Mark previously-sent packets as not contributing to congestion control.
 	c.appDataEpoch = c.spaces[appDataSpace].nextNum
@@ -254,7 +254,7 @@ func (c *lossState) packetSent(now time.Time, log *slog.Logger, space numberSpac
 				c.ptoProbes--
 			} else {
 				c.ptoExpired = false // reset expired PTO timer after sending probe
-				c.ptoProbes = 0
+				c.ptoProbes = 0      // mimicry: the last probe sent
 			}
 		}
 		c.scheduleTimer(now)

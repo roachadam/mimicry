@@ -1,7 +1,7 @@
 $schema: 'https://moonrepo.dev/schemas/workspace.json'
 
-# The repo is local-only for now, so change detection compares against the
-# local branch. Switch to 'origin/main' once it has a remote and CI.
+# Change detection compares against the local main branch; use 'origin/main'
+# once CI runs moon on pull requests.
 vcs:
   defaultBranch: 'main'
 

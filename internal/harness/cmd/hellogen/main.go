@@ -34,7 +34,7 @@ func main() {
 }
 
 func run() error {
-	captures := flag.String("captures", "testdata/captures", "directory with the profile's <name>.clienthello and <name>.json")
+	captures := flag.String("captures", "testdata/captures", "directory of captures (testdata/captures, or a refresh overlay); the profile's name picks its files")
 	path := flag.String("profile", "", "profile JSON to update (required); its name picks the captures")
 
 	flag.Parse()

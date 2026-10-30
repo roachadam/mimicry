@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -129,7 +130,7 @@ func deriveTable(kinds ...[]*request) (*profile.HeaderTable, error) {
 		}
 	}
 
-	own, extras := sortedKeys(ownSet), sortedKeys(extraSet)
+	own, extras := slices.Sorted(maps.Keys(ownSet)), slices.Sorted(maps.Keys(extraSet))
 	explained := func(t *profile.HeaderTable, cs []tableCase) int {
 		return slices.IndexFunc(cs, func(c tableCase) bool {
 			return !tableExplains(t, c.base, c.sent, c.pageOrder)
@@ -328,17 +329,6 @@ func lowerAll(names []string) []string {
 	for i, n := range names {
 		out[i] = strings.ToLower(n)
 	}
-
-	return out
-}
-
-func sortedKeys(m map[string]bool) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-
-	slices.Sort(out)
 
 	return out
 }

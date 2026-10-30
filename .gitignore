@@ -7,27 +7,15 @@
 # moon
 .moon/cache/
 
-# Build output (go build in a cmd directory writes a binary named after it)
+# Build output: `go build` in a cmd directory writes a binary named after it
 bin/
-/internal/harness/interop
-/cmd/pins/pins
-/cmd/profilegen/profilegen
-/internal/bench/cmd/bench/bench
-/internal/bench/cmd/proxy/proxy
-/internal/bench/cmd/server/server
-/internal/bench/cmd/setup/setup
-/internal/harness/cmd/capture/capture
-/internal/harness/cmd/clientcapture/clientcapture
-/internal/harness/cmd/diff/diff
-/internal/harness/cmd/h3gen/h3gen
-/internal/harness/cmd/hellogen/hellogen
-/internal/harness/cmd/interop/interop
-/internal/harness/cmd/kindsgen/kindsgen
-/internal/harness/cmd/pageshape/pageshape
-/internal/harness/cmd/realcheck/realcheck
-/internal/harness/cmd/refresh/refresh
-/internal/harness/cmd/tracestat/tracestat
+**/cmd/*/*
+!**/cmd/*/*.*
+!**/cmd/*/*/
 *.test
+
+# Profiler output from the bench README's profiling recipe
+/internal/bench/reports/**/*.pprof
 
 # TLS key logs, qlogs, packet captures and Chrome net-logs: they hold
 # session secrets or real traffic

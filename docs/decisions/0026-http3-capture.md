@@ -32,10 +32,10 @@ this: it hands over decoded requests.
   with a static-table-only QPACK decoder, so a server that allows a dynamic
   table (Google's does, 64 KiB) cannot be offered, and it does not expose
   the client's control stream or QPACK instructions.
-- **Our own QUIC stack.** Full control, but a second implementation of
+- **The harness's own QUIC stack.** Full control, but a second implementation of
   loss recovery, flow control and TLS to keep correct for a server whose
   only job is to make browsers finish.
-- **quic-go for the transport, everything else recorded by us** (chosen).
+- **quic-go for the transport, everything else recorded by the harness** (chosen).
 
 ## Decision
 
@@ -53,10 +53,10 @@ library is untouched) and records from below it:
   Initial decryption is checked against RFC 9001 appendix A's sample
   packets. The server accepts 0-RTT, so a resuming browser shows what it
   sends before its handshake completes.
-- HTTP/3 is our own, on quic-go's streams: the server's SETTINGS come from
+- HTTP/3 is the harness's own, on quic-go's streams: the server's SETTINGS come from
   the scenario, every client stream's bytes are parsed as they are read
   (control frames, QPACK encoder and decoder instructions, request frames),
-  and field sections are decoded by our QPACK decoder with a dynamic table,
+  and field sections are decoded by the harness's QPACK decoder with a dynamic table,
   checked against RFC 9204 appendix B. Responses use the static table only.
 - The QUIC listener shares the TLS port number (Alt-Svc `h3=":port"`), and
   each host's certificate is the one its TCP connections get.

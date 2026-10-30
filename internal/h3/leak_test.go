@@ -87,7 +87,7 @@ func TestRequestsReuseStreamBuffers(t *testing.T) {
 	// of what is put back), 8 KB more for each direction whose buffers are
 	// allocated anew.
 	bound := uint64(12 << 10)
-	if raceEnabled() {
+	if testutil.RaceEnabled() {
 		bound = 20 << 10
 	}
 
@@ -101,29 +101,13 @@ func TestRequestsReuseStreamBuffers(t *testing.T) {
 	objects := (after.Mallocs - before.Mallocs) / n
 
 	objBound := uint64(51)
-	if raceEnabled() {
+	if testutil.RaceEnabled() {
 		objBound = 60
 	}
 
 	if objects > objBound {
 		t.Fatalf("%d allocations per request on a warm connection, want at most %d", objects, objBound)
 	}
-}
-
-// raceEnabled reports whether the test binary was built with -race.
-func raceEnabled() bool {
-	info, ok := debug.ReadBuildInfo()
-	if !ok {
-		return false
-	}
-
-	for _, s := range info.Settings {
-		if s.Key == "-race" {
-			return s.Value == "true"
-		}
-	}
-
-	return false
 }
 
 // get makes n GET requests on c one after another, each read to its end.
@@ -213,7 +197,7 @@ func rawH3(t *testing.T) *Conn {
 	qc, err := quic.Dial(t.Context(), cpc, ep.LocalAddr(), quic.DialConfig{
 		Profile: p.QUIC,
 		Hello:   spec,
-		TLS: handshake.QUICConfig(handshake.Config{
+		TLS: handshake.TLSConfig(handshake.Config{
 			ServerName: "localhost",
 			RootCAs:    roots,
 		}),

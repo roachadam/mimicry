@@ -145,10 +145,9 @@ func unexpected(err error) error {
 	return err
 }
 
-// MaskBytes masks (or unmasks) p in place with key, p starting at offset
-// pos of the payload.
-func MaskBytes(key [4]byte, pos int, p []byte) {
+// MaskBytes masks (or unmasks) payload p in place with key.
+func MaskBytes(key [4]byte, p []byte) {
 	for i := range p {
-		p[i] ^= key[(pos+i)&3]
+		p[i] ^= key[i&3]
 	}
 }

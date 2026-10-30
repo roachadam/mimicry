@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"regexp"
 	"slices"
 	"strconv"
@@ -184,7 +185,7 @@ func (fs *fieldList) impersonate(root any) {
 			continue
 		}
 
-		for _, k := range sortedKeys(m) {
+		for _, k := range slices.Sorted(maps.Keys(m)) {
 			switch k {
 			case "headers", "header_order":
 				continue
@@ -206,7 +207,7 @@ func (fs *fieldList) impersonate(root any) {
 	}
 
 	if q, _ := get(root, "quic").(map[string]any); q != nil {
-		for _, k := range sortedKeys(q) {
+		for _, k := range slices.Sorted(maps.Keys(q)) {
 			fs.add("quic."+k, canon(q[k]))
 		}
 	}
@@ -509,17 +510,6 @@ func get(v any, path string) any {
 	}
 
 	return v
-}
-
-func sortedKeys(m map[string]any) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-
-	slices.Sort(keys)
-
-	return keys
 }
 
 // sortedJA3 is a JA3 string with its extension list sorted, which a

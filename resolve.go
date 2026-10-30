@@ -68,7 +68,7 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 		}
 
 		if kind = p.Kinds[name]; kind == nil {
-			return nil, fmt.Errorf("%w: profile %s has no %s requests", headerorder.ErrNotMeasured, p.Name, r.Kind)
+			return nil, fmt.Errorf("%w: profile %s has no %s requests", ErrNotMeasured, p.Name, r.Kind)
 		}
 
 		if r.CrossOrigin != CrossOriginNone && !slices.Contains(elements, r.Kind) {
@@ -272,7 +272,7 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 		}
 
 		if u == nil {
-			return nil, fmt.Errorf("%w: profile %s has no measured fetchpriority %s for %s requests", headerorder.ErrNotMeasured, p.Name, map[Priority]string{PriorityHigh: "high", PriorityLow: "low"}[r.Priority], r.Kind)
+			return nil, fmt.Errorf("%w: profile %s has no measured fetchpriority %s for %s requests", ErrNotMeasured, p.Name, map[Priority]string{PriorityHigh: "high", PriorityLow: "low"}[r.Priority], r.Kind)
 		}
 
 		values["priority"] = u.Priority
@@ -357,7 +357,7 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 		if cond.Redirected && !table.Redirected {
 			// The captures do not show the table ordering a redirect's
 			// request: only a capture of this condition says how.
-			return nil, fmt.Errorf("%w: profile %s has no %s request after a redirect with headers the page set for method %q, site %q, non-secure %v", headerorder.ErrNotMeasured, p.Name, r.Kind, cond.Method, cond.Site, cond.Insecure)
+			return nil, fmt.Errorf("%w: profile %s has no %s request after a redirect with headers the page set for method %q, site %q, non-secure %v", ErrNotMeasured, p.Name, r.Kind, cond.Method, cond.Site, cond.Insecure)
 		}
 
 		// The browser's header table places the page's headers among its
@@ -377,7 +377,7 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 		// The kind's redirects were captured, and browsers order a
 		// redirect's request by how it was made (Safari rebuilds it
 		// whole): no other list is this one.
-		return nil, fmt.Errorf("%w: profile %s has no %s request after a redirect for method %q, site %q, CORS-checked %v, page-set headers %v, cross-origin redirect %v, cross-site redirect %v, Origin before the redirect %v, method changed by the redirect %v, non-secure before the redirect %v, non-secure %v", headerorder.ErrNotMeasured, p.Name, r.Kind, cond.Method, cond.Site, cond.CORSChecked, cond.PageSet, cond.CrossOriginRedirect, cond.CrossSiteRedirect, cond.OriginBeforeRedirect, cond.MethodChangedByRedirect, cond.InsecureBeforeRedirect, cond.Insecure)
+		return nil, fmt.Errorf("%w: profile %s has no %s request after a redirect for method %q, site %q, CORS-checked %v, page-set headers %v, cross-origin redirect %v, cross-site redirect %v, Origin before the redirect %v, method changed by the redirect %v, non-secure before the redirect %v, non-secure %v", ErrNotMeasured, p.Name, r.Kind, cond.Method, cond.Site, cond.CORSChecked, cond.PageSet, cond.CrossOriginRedirect, cond.CrossSiteRedirect, cond.OriginBeforeRedirect, cond.MethodChangedByRedirect, cond.InsecureBeforeRedirect, cond.Insecure)
 	}
 
 	// user: a user's navigation (a typed URL, a link, a clicked form),
@@ -386,7 +386,7 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 	if user && !placesHeader(variants[i].Headers, "sec-fetch-user") {
 		// The variant was measured on navigations without it (a
 		// script's): where the browser places it is not measured.
-		return nil, fmt.Errorf("%w: profile %s has no %s navigation sending Sec-Fetch-User (a typed URL, a link or a clicked form) for site %q, redirected %v, cross-origin redirect %v; a script's navigation suppresses it (a nil Sec-Fetch-User header)", headerorder.ErrNotMeasured, p.Name, methodOf(req), cond.Site, cond.Redirected, cond.CrossOriginRedirect)
+		return nil, fmt.Errorf("%w: profile %s has no %s navigation sending Sec-Fetch-User (a typed URL, a link or a clicked form) for site %q, redirected %v, cross-origin redirect %v; a script's navigation suppresses it (a nil Sec-Fetch-User header)", ErrNotMeasured, p.Name, methodOf(req), cond.Site, cond.Redirected, cond.CrossOriginRedirect)
 	}
 
 	measured := i >= 0
@@ -395,7 +395,7 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 			return v.Insecure && v.Method == "" && v.Site == "" && !v.CORSChecked && !v.PageSet && !v.Redirected
 		})
 		if i < 0 {
-			return nil, fmt.Errorf("%w: profile %s has no %s request to a non-secure origin (http://) for method %q, site %q, CORS-checked %v, page-set headers %v, redirected %v", headerorder.ErrNotMeasured, p.Name, r.Kind, cond.Method, cond.Site, cond.CORSChecked, cond.PageSet, cond.Redirected)
+			return nil, fmt.Errorf("%w: profile %s has no %s request to a non-secure origin (http://) for method %q, site %q, CORS-checked %v, page-set headers %v, redirected %v", ErrNotMeasured, p.Name, r.Kind, cond.Method, cond.Site, cond.CORSChecked, cond.PageSet, cond.Redirected)
 		}
 	}
 
@@ -422,7 +422,7 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 		if !slices.ContainsFunc(placing, func(hd profile.Header) bool {
 			return strings.EqualFold(hd.Name, "origin")
 		}) {
-			return nil, fmt.Errorf("%w: profile %s has no %s request with Origin for method %q, site %q, CORS-checked %v, page-set headers %v, redirected %v, non-secure %v", headerorder.ErrNotMeasured, p.Name, r.Kind, cond.Method, cond.Site, cond.CORSChecked, cond.PageSet, cond.Redirected, cond.Insecure)
+			return nil, fmt.Errorf("%w: profile %s has no %s request with Origin for method %q, site %q, CORS-checked %v, page-set headers %v, redirected %v, non-secure %v", ErrNotMeasured, p.Name, r.Kind, cond.Method, cond.Site, cond.CORSChecked, cond.PageSet, cond.Redirected, cond.Insecure)
 		}
 	}
 
@@ -648,7 +648,7 @@ func originOf(p *profile.Profile, ctx *profile.Context, req *http.Request, r Req
 		// it sent goes on is the browser's (Safari: it does). Measured
 		// on fetch(); XHR, the same CORS-mode request, follows it.
 		if p.Redirects == nil {
-			return "", fmt.Errorf("%w: profile %s has no redirects rules, for a %s redirected to a GET", headerorder.ErrNotMeasured, p.Name, r.Kind)
+			return "", fmt.Errorf("%w: profile %s has no redirects rules, for a %s redirected to a GET", ErrNotMeasured, p.Name, r.Kind)
 		}
 
 		send = p.Redirects.MethodChangeOrigin == profile.RedirectOriginKeep
@@ -660,7 +660,7 @@ func originOf(p *profile.Profile, ctx *profile.Context, req *http.Request, r Req
 		// A navigation that kept its Origin (a form POST answered 307 or
 		// 308) after a redirect to another origin: the browser's rule.
 		if p.Redirects == nil {
-			return "", fmt.Errorf("%w: profile %s has no redirects rules, for a navigation's Origin after a redirect to another origin", headerorder.ErrNotMeasured, p.Name)
+			return "", fmt.Errorf("%w: profile %s has no redirects rules, for a navigation's Origin after a redirect to another origin", ErrNotMeasured, p.Name)
 		}
 
 		tainted = p.Redirects.NavigationOrigin == profile.RedirectNavOriginCrossOrigin

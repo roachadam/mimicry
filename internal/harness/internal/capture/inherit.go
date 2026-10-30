@@ -213,12 +213,6 @@ func NewRewriter(from, to *profile.Profile) *Rewriter {
 	return r
 }
 
-// NormalizeVersion rewrites value, a header value or line captured under
-// from's version, to to's (NewRewriter).
-func NormalizeVersion(value string, from, to *profile.Profile) string {
-	return NewRewriter(from, to).Value(value)
-}
-
 // headerValue returns p's navigation's value of the header name, from its
 // HTTP/2 list or else its HTTP/1.1 one; "" if it sends none.
 func headerValue(p *profile.Profile, name string) string {

@@ -210,7 +210,7 @@ func TestHeaderPlacementOverHTTP3(t *testing.T) {
 	// Every TCP dial fails: requests go on the QUIC connection or fail.
 	e := newTestEngine(t, options{
 		dial: func(context.Context, string, string) (net.Conn, error) {
-			return nil, errors.New("no TCP in this test")
+			return nil, errNoTCP
 		},
 	})
 	rec := &h3Recorder{

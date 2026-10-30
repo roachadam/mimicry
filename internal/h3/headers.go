@@ -122,24 +122,23 @@ func buildHead(p *profile.Profile, altHost, altPort string, req *http.Request, l
 		":scheme":    req.URL.Scheme,
 		":path":      path,
 	}
-	h := req.Header.Clone()
-
-	if h == nil {
-		h = http.Header{}
-	}
-
 	plan := headerorder.PlanFrom(req.Context())
+
+	// A body's length is the one declared, never the caller's header:
+	// unknown, or not sent by the browser, it is none, not even a profile
+	// default.
+	var sets []headerorder.Set
+
 	if length != 0 {
-		for name := range h {
-			if strings.EqualFold(name, "Content-Length") {
-				delete(h, name)
-			}
+		set := headerorder.Set{
+			Name: "content-length",
+		}
+		if length > 0 && (plan == nil || !plan.NoContentLength) {
+			set.Value = strconv.FormatInt(length, 10)
 		}
 
-		if length > 0 && (plan == nil || !plan.NoContentLength) {
-			h.Set("Content-Length", strconv.FormatInt(length, 10))
-		} else {
-			h["Content-Length"] = nil
+		sets = []headerorder.Set{
+			set,
 		}
 	}
 
@@ -151,7 +150,7 @@ func buildHead(p *profile.Profile, altHost, altPort string, req *http.Request, l
 		list, table = plan.Headers, plan.Table
 	}
 
-	ordered := headerorder.Build(nil, list, h, nil, func(name string) bool {
+	ordered := headerorder.Build(nil, list, req.Header, sets, func(name string) bool {
 		return hopByHop[name]
 	}, table)
 	hd := p.HTTP3.Headers

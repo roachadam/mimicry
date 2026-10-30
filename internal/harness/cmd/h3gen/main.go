@@ -25,7 +25,7 @@ func main() {
 }
 
 func run() error {
-	captures := flag.String("captures", "testdata/captures", "directory with the profile's h3-discovery and h3-page captures")
+	captures := flag.String("captures", "testdata/captures", "directory of captures (testdata/captures, or a refresh overlay); the profile's name picks its files")
 	path := flag.String("profile", "", "profile JSON to update (required); its name picks the captures")
 
 	flag.Parse()

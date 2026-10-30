@@ -12,15 +12,14 @@ import (
 // server properties, Firefox's alternate services). A Transport finding an
 // origin's alternative in it moves to HTTP/3 as its browser does once it
 // knows one, so a new Transport's first request to an origin a previous
-// Transport learnt can go over HTTP/3 (Config.AltSvc says per browser).
+// Transport learnt can go over HTTP/3 (docs/concepts/http3.md says per browser).
 //
 // An entry lives until its ma (max-age; 24 hours without one) or a
 // "clear" from its origin. Only the alternatives are shared: which origins
 // failed over QUIC, connections and session tickets stay each Transport's.
 // Entries are kept per connection partition (anonymous requests and
 // cross-site frames apart), not per top-level site: browsers partition
-// them by top-level site too, which mimicry does not model (decision
-// 0011). Create one with NewAltSvcCache; it is safe for concurrent use.
+// them by top-level site too, which mimicry does not model. Create one with NewAltSvcCache; it is safe for concurrent use.
 type AltSvcCache struct {
 	c *altsvc.Cache
 }

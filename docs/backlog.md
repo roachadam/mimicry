@@ -417,8 +417,7 @@ These matter most under decision 0029:
     against a server offering a QPACK table; medium. Its unmeasured loss
     and close values are listed below (Safari's handshake loss timing,
     Safari's other unmeasured QUIC values).
-  - Source: [concepts/http3.md, Not supported](concepts/http3.md#not-supported);
-    [http3 report](../internal/harness/reports/http3-2026-10-25.md);
+  - Source: [http3 report](../internal/harness/reports/http3-2026-10-25.md);
     [EVIDENCE.md, QUIC and HTTP/3](../profiles/EVIDENCE.md#quic-and-http3).
 - **Safari's QUIC resumption and 0-RTT** (Safari 27, 26).
   - Differs: Safari resumes QUIC with 0-RTT after closing a connection
@@ -577,8 +576,8 @@ These matter most under decision 0029:
 - **HTTP/3 header lists not captured with cookies** (all).
   - Differs: no cookie went over HTTP/3 in the captures, so the `cookie`
     slot in every browser's HTTP/3 lists, and Firefox's `alt-used` place
-    relative to it, are assumed. The XHR POST over HTTP/3 is copied from
-    its HTTP/2 list (Chrome, Firefox).
+    relative to it, are assumed. The XHR POST over HTTP/3 was measured on
+    `h3-page` without cookies (Chrome, Firefox); Safari's is its HTTP/2 list.
   - Shows: credentialed requests over HTTP/3, which is most of them on a
     shop.
   - Detection: medium; header order. User-visible: no.
@@ -647,8 +646,7 @@ These matter most under decision 0029:
   - Shows: servers that send Retry under load.
   - Detection: low to medium. User-visible: no.
   - Close: a capture against a Retry-forcing server; small to medium.
-  - Source: [concepts/http3.md, Not supported](concepts/http3.md#not-supported);
-    [http3-edge report](../internal/harness/reports/http3-edge-2026-10-25.md).
+  - Source: [http3-edge report](../internal/harness/reports/http3-edge-2026-10-25.md).
 - **PMTU probing, ECN and DATAGRAM frames** (all).
   - Differs: not measured; loopback shows none of them. The QUIC stack
     does no path MTU discovery and ignores ECN feedback.
@@ -664,7 +662,7 @@ These matter most under decision 0029:
   - Shows: servers that compress response headers with a dynamic table.
   - Detection: low to medium. User-visible: no.
   - Close: a capture against such a server; medium.
-  - Source: [concepts/http3.md, Not supported](concepts/http3.md#not-supported).
+  - Source: [EVIDENCE.md, QUIC and HTTP/3](../profiles/EVIDENCE.md#quic-and-http3).
 - **Safari closes QUIC on the server's GOAWAY** (Safari 27, 26).
   - Differs: Safari closes its QUIC connection itself when the server's
     HTTP/3 GOAWAY arrives; mimicry does not.
@@ -689,8 +687,8 @@ These matter most under decision 0029:
   - Differs: Chrome's 0-RTT reconnection after 35 s idle carried no
     NEW_TOKEN token in 2 of 3 samples, though the first connection had
     received one. Chrome 156 presents it even less: on 3 of 9
-    reconnections whose host had given it one (captured on a second Mac kept on macOS 26;
-    3 of 6 in a check on the other Mac), which ones varying between
+    reconnections whose host had given it one (captured on the second Mac, on macOS 26;
+    3 of 6 in a check on the Mac you run it on), which ones varying between
     samples. Chrome 156 on Windows the same: 3 of 9 in `h3-discovery`,
     15 of 27 in `h3-early`, 12 of 27 in `h3-too-early`. mimicry always
     presents the token.
@@ -703,7 +701,7 @@ These matter most under decision 0029:
   - Differs: in 3 of the second Mac's `h3-discovery` samples, and in 1 of
     the Windows PC's, the server read a request's PRIORITY_UPDATE 1 ms
     after its HEADERS (another datagram); everywhere else, and in a
-    2-sample check on the other Mac, it came first. mimicry sends it
+    2-sample check on the Mac you run it on, it came first. mimicry sends it
     first (both are flushed under one cork, control stream first), though
     one test flake showed otherwise (see load flakes in the HTTP/3 page
     tests, under [Tooling and tests](#tooling-and-tests)). Chrome's packet
@@ -900,12 +898,23 @@ These matter most under decision 0029:
     1 KB and 64 at once a request waited about 50 µs for the start lock,
     and these two locks are most of the remaining contention.
   - Detection: none. User-visible: no (HTTP/3 at 1 KB ran 30-40% above
-    tls-client after change 15).
+    tls-client after `internal/quic/UPSTREAM.md` change 15).
   - Close: decode sections that use no dynamic table without the lock
     (per-call scratch); start requests already queued under one cork
     (medium).
   - Source: the bench's HTTP/3 1 KB rows
     ([bench README](../internal/bench/README.md)).
+- **Fast QUIC fallback, by default** (all).
+  - Differs: when a QUIC attempt goes unanswered, mimicry moves the
+    request to TCP after its race delay or first probe timeout; Chrome
+    and Firefox hold it on the QUIC attempt until they give up (4–5 s),
+    and Safari waits out its 100 ms race delay after Version Negotiation.
+  - Shows: sites where QUIC is blocked or broken.
+  - Detection: low; request timing on failure paths only. User-visible:
+    no (faster).
+  - Close: `Config.BrowserQUICFallback` restores the browsers' waits.
+  - Source: `h3EdgeFastGaps` in [`http3_edge_test.go`](../internal/harness/e2e/http3_edge_test.go);
+    [decision 0036](decisions/0036-fast-quic-fallback.md).
 
 ## Headers and request kinds
 
@@ -1065,7 +1074,7 @@ These matter most under decision 0029:
 - **Layout-driven image priorities** (Firefox, Chrome).
   - Differs: Firefox gives some images in the HTML `u=4` (weight 13) where
     the kind sends `u=5, i`; Chrome raises a visible markup image, or its
-    redirect hop, to `u=1` (Chrome 156's `redirects2-cookies`: on more of
+    redirect hop, to `u=1` (Chrome 156's `redirects2-cookies` on macOS: on more of
     them, in some samples). Both depend on layout.
   - Shows: images in the page's markup.
   - Detection: low; it depends on layout, so vendors cannot expect a
@@ -1100,6 +1109,14 @@ These matter most under decision 0029:
     POST navigation takes a variant.
   - Detection: none. User-visible: no.
   - Source: [EVIDENCE.md, Request headers](../profiles/EVIDENCE.md#request-headers).
+- **Stacked and unknown content encodings** (all).
+  - Differs: a response with an encoding mimicry does not decode, or
+    several stacked (`gzip, br` on one line or on several), comes back
+    raw with its `Content-Encoding`; browsers decode stacked encodings.
+  - Shows: rare servers that encode twice.
+  - Detection: none. User-visible: yes, the caller gets encoded bytes.
+  - Close: decode each listed encoding in turn; small.
+  - Source: [decision 0046](decisions/0046-response-decompression.md).
 
 ## Cookies
 
@@ -1240,7 +1257,7 @@ These matter most under decision 0029:
   - Detection: low. User-visible: no.
   - Close: grant Terminal Accessibility access on the second Mac and run
     the capture from Terminal there; small.
-  - Source: `missingCaptures` in [`proxy_test.go`](../internal/harness/e2e/proxy_test.go);
+  - Source: `missingCaptures` in [`captures_test.go`](../internal/harness/e2e/captures_test.go);
     [nav-click report](../internal/harness/reports/nav-click-2026-10-26.md).
 - **Other hop combinations not captured** (all; Safari has the most).
   - Differs: once a kind's redirects were captured, a hop in a condition
@@ -1275,7 +1292,7 @@ These matter most under decision 0029:
   - Close: by deprecation; or the twins captured with Chrome for Testing
     155, if its hop lists match the brand's; small.
   - Source: [EVIDENCE.md, Redirects](../profiles/EVIDENCE.md#redirects);
-    `missingCaptures` in [`proxy_test.go`](../internal/harness/e2e/proxy_test.go).
+    `missingCaptures` in [`captures_test.go`](../internal/harness/e2e/captures_test.go).
 - **`cookie` slot on hops no twin carries cookies on** (all).
   - Differs: a hop variant whose captured hops carried no cookie has no
     `cookie` slot, and mimicry sends the jar's cookies after its list. The
@@ -1305,7 +1322,7 @@ These matter most under decision 0029:
   - Differs: when a navigation hits its redirect limit, Chrome's error page
     reloads the last URL a second later (`cache-control: max-age=0`) and
     follows the rest of the chain, on macOS and Windows alike. mimicry
-    returns the error. In one sample of Chrome 156's `redirects2-cookies`
+    returns the error. In one sample of Chrome 156's `redirects2-cookies` on macOS
     the reload went on a new connection, and `/done` after it; the test
     compares `www.redir-a.test`'s connections as one there
     (`redirectsMerged`).
@@ -1586,8 +1603,8 @@ These matter most under decision 0029:
   - Detection: none. User-visible: memory only, for very long sessions
     across many hosts or proxies.
   - Source: [decision 0020](decisions/0020-connection-pool-package.md).
-    What stays once a proxy is swept is the next entry but one
-    (per-identity memory, under [Proxies](#proxies)).
+    What stays once a proxy is swept is under [Proxies](#proxies):
+    per-identity memory after a proxy is swept.
 
 ## Proxies
 
@@ -1668,7 +1685,7 @@ These matter most under decision 0029:
     were never taken (`missingCaptures`).
   - Shows: a Safari 26 profile through an authenticating proxy.
   - Detection: low; only the proxy sees it. User-visible: no.
-  - Close: the three captures on the macOS 26 machine, which need a
+  - Close: the three captures on the second Mac, which need a
     person at its screen for the proxy login dialog; small.
   - Source: [`proxy_test.go`](../internal/harness/e2e/proxy_test.go);
     [proxies report](../internal/harness/reports/proxies-2026-10-24.md);
@@ -1822,9 +1839,9 @@ it.
   Source: [kinds report](../internal/harness/reports/kinds-2026-10-23.md);
   [`http3_test.go`](../internal/harness/e2e/http3_test.go).
 - **Capture ergonomics**: browsers come to the front during captures.
-  `cmd/refresh` runs Chrome and Firefox on a second Mac kept on macOS 26, so only Safari 27
+  `cmd/refresh` runs Chrome and Firefox on the second Mac, so only Safari 27
   still takes the capturing Mac's screen (options: `open -g`, batching
-  runs); closing Safari's tab by AppleScript times out on that second Mac.
+  runs); closing Safari's tab by AppleScript times out on the second Mac.
   Source: [capturing.md](capturing.md).
 - **Parallel refresh: covered-window timer throttling.** `cmd/refresh`
   captures Chrome and Firefox at once on the second Mac in quick mode.

@@ -20,7 +20,7 @@ tls-client's (10 MB bodies, 64 at once, fast bench 2026-10-28: 97 against
 opposite directions. The Chrome profile acknowledges every 10th packet.
 quic-go's tracker reads as acknowledging every 2nd (`packetsBeforeAck = 2`),
 so quic-go should send five times as many ACKs and be the slower one, yet it
-is faster. Before choosing anything we needed the real cause, and whether it
+is faster. Before choosing anything the real cause was needed, and whether it
 is a mimicry bug or Chrome's own behaviour.
 
 ## Evidence

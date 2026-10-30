@@ -4,7 +4,7 @@ mimicry against the real browsers on this Mac (Chrome 155.0.8059.85,
 Firefox 158.0.1, Safari 27.0.1, macOS 27.0.1) and Safari 26.2 on the Mac
 mini (macOS 26.2), as public fingerprinting services see them, plus a
 handful of homepages behind bot-management vendors. Tool:
-`go run ./cmd/realcheck` (in `harness/`; see `docs/capturing.md`). Raw
+`go run ./cmd/realcheck` (in `internal/harness/`; see `docs/capturing.md`). Raw
 answers stayed in `$TMPDIR` (they hold the public IP).
 
 ## Method

@@ -70,13 +70,13 @@ scenario/           warm-up, load, idle memory and page-load measurements
 site/               what the servers serve: payloads, JSON, the page
 target/             host names, ports, protocols, the CA, server stats
 stats/              /_stats: a container's CPU time from cgroup v2
-cmd/bench/          layers 3-6: `bench run` (orchestrator), `bench worker`, `bench wait`, `bench merge` (builds side by side, or `-passes`: medians and ranges), `bench microstat` (benchstat without its flagged geomeans), `bench charts` (docs/performance.md's SVGs from a merged report's JSON); `bench offloads` (the sidecar)
+cmd/bench/          layers 3-6: `bench run` (orchestrator), `bench worker`, `bench wait`, `bench render` (a report's Markdown from its JSON), `bench merge` (builds side by side, or `-passes`: medians and ranges), `bench microstat` (benchstat without its flagged geomeans), `bench charts` (docs/performance.md's SVGs from a merged report's JSON); `bench offloads` (the sidecar on the client's Docker host)
 cmd/server/         the Go server (net/http + quic-go http3)
 cmd/proxy/          CONNECT (with/without Basic auth) and SOCKS5 (CONNECT, UDP ASSOCIATE) proxy, counting per user
 cmd/setup/          the CA (once), the server certificate, nginx's files
 docker/             Dockerfile, compose.server.yml (+ compose.server.nopublish.yml for BENCH_PUBLISH=0), compose.client.yml (+ compose.client.udpstock.yml), proxy-entrypoint.sh (the proxy's netem delay), nginx config
 scripts/bench.sh    drives both stacks; the moon tasks call it
-reports/            bench-<date>.md/.json (and its -passN, -udpstock-passN parts), micro-<date>.txt and -benchstat.txt, host-<date>.txt (host load per pass); a run kept apart gets a subdirectory (linux-final-2026-10-29/, linux-2026-10-29/, focus-2026-10-29/, after-fixes/, coalescing/, conns-per-host/), with its run.log
+reports/            bench-<date>.md/.json (and its -passN, -udpstock-passN parts), micro-<date>.txt and -benchstat.txt, host-<date>.txt (host load per pass); a run kept apart gets a subdirectory (linux-final-2026-10-29/, linux-2026-10-29/, focus-2026-10-29/, after-fixes/, coalescing/, conns-per-host/)
 ```
 
 Two compose stacks. **Server** (`docker/compose.server.yml`): nginx 1.31
@@ -296,8 +296,8 @@ the five clients by default), reversed, then rotated by half (and by one more fo
 pass after). Layers 4 and 5 run in the first pass only. Each pass writes
 `<name>-passN-<date>.json` and `.md`; `bench merge -passes` then writes
 `<name>-<date>`: every layer 3 and 6 point is the median of each of its
-values over the passes it was valid in (the lower middle one with an even
-count), with each value's range (lowest–highest) beside it in the tables;
+values over the passes it was valid in (the mean of the middle two with an
+even count), with each value's range (lowest–highest) beside it in the tables;
 the summary's geomeans are over the medians; a best is bold only where its
 range lies outside every other impersonating client's. A pass that finds a
 point server-bound makes it server-bound in the merge. Give the clients
@@ -395,7 +395,7 @@ measured streaming). Environment: `BENCH_PASSES`, `BENCH_UDP_STOCK_PASSES`,
 and `GOMAXPROCS` (`BENCH_CLIENT_CPUS`, `BENCH_SERVER_CPUS`,
 `BENCH_PROXY_CPUS`, `BENCH_CLIENT_PROCS`, `BENCH_SERVER_PROCS`,
 `BENCH_PROXY_PROCS` (the proxy's, 2)), `BENCH_PROXY_DELAY` (5ms),
-`BENCH_HOST_LABEL` (the report's name for the machine; by default its OS
+`BENCH_DATE` (the date in report names; by default today), `BENCH_MIMICRY_COMMIT` (the commit the report names; by default `HEAD`), `BENCH_HOST_LABEL` (the report's name for the machine; by default its OS
 and CPU model, never the hostname), `BENCH_ALLOW_BATTERY`, `BENCH_SKIP_BUILD`.
 
 `BENCH_FAST=1` stays as a quick smoke mode, not for comparison (the
@@ -468,8 +468,8 @@ its warm-up and window, stretched as `scenario.LoadSpec` would for an
 assumed 400 MB/s; a layer 6 point its warm-up and window, plus 1.5 s for
 client rotation's new clients alone; a page-load set its loads at the
 condition's RTT and loss; each worker 0.5 s more, and a job the client
-cannot run 0.2 s. Those constants come from the job timestamps in a
-2026-10-29 run's log. Micro (`micro_seconds` in `scripts/bench.sh`) is its
+cannot run 0.2 s. Those constants come from the job timestamps of the
+2026-10-29 runs. Micro (`micro_seconds` in `scripts/bench.sh`) is its
 rows times their `-benchtime` plus a fifth and 0.1 s, Connect rows 11 ms per
 iteration plus 0.3 s, and 5 s per pass (the 2026-10-27 micro log took about
 1.3 s per 1 s row). Setup counts as 3 min and each container 15 s. The
@@ -536,8 +536,8 @@ how many other containers use 1% CPU or more, with their total CPU
 
 ## Running against a remote server
 
-The server stack can run on another Docker host (a Linux server, the Mac
-mini) with the client here, over real Ethernet. One setting points the client
+The server stack can run on another Docker host (a Linux server, another
+Mac) with the client here, over real Ethernet. One setting points the client
 at it, `BENCH_SERVER=<server address>`, plus how to reach its Docker daemon:
 
 ```sh
@@ -604,8 +604,9 @@ comparable with later ones on that point.
 - **Ingress redirect removed with its condition.** Until 2026-10-29 the
   redirect stayed after its condition, and `ifb0` without its netem queues
   32 packets: the condition without netem, and every layer after layer 5 in
-  the same run, went through that queue. In `bench-2026-10-29`, the first
-  full run with layer 6, every 100 KB point of layer 6 ran at 115-522
+  the same run, went through that queue. In `bench-2026-10-29` as first
+  committed (396bdbf; the report in `reports/` is its rerun after this
+  fix), the first full run with layer 6, every 100 KB point of layer 6 ran at 115-522
   requests/s, against 1,891-7,206 in `multiclient-2026-10-28` (layer 6
   alone), and 2.4-3.0% of mimicry's HTTP/3 requests with rotation went on
   HTTP/2; replayed, the queue dropped 4.6-4.7% of the packets to the client

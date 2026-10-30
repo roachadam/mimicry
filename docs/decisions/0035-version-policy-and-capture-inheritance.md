@@ -1,6 +1,6 @@
 # 0035: Newest-version accessors, five supported versions, inherited captures
 
-- Status: Accepted; amended by 0047
+- Status: Accepted; amended 2026-10-29 by [0047](0047-windows-profiles.md) (accessors and version count per platform)
 - Date: 2026-10-26
 - Commits: `2c913bf`
 
@@ -171,7 +171,8 @@ scenario chrome-155 captured except the default page.
 - An inherited capture keeps the source version's byte lengths, for
   instance where a version goes from 99 to 100. Comparisons of encoded
   bytes run against the source's own blocks, so they stay consistent.
-- By default the harness runs three profiles, not every supported one. A
+- By default the harness runs the newest profile of each browser on each
+  platform (four today), not every supported one. A
   regression only an older supported version shows (Chrome 155 and Safari 26 today) is
   caught by `:test-full`, not `:test`.
 - Deprecated profiles are not tested unless named in `MIMICRY_PROFILES`.

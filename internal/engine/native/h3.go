@@ -1190,7 +1190,7 @@ func (e *Engine) dialQUIC(ctx context.Context, r route, port uint16, hello finge
 	}
 
 	dc.Hello = spec
-	dc.TLS = handshake.QUICConfig(cfg)
+	dc.TLS = handshake.TLSConfig(cfg)
 	dc.NewPath = func(ctx context.Context) (net.PacketConn, error) {
 		// The same peer from a new local port (Chrome's migration).
 		pc, _, err := listen(ctx, peer.Addr().String(), peer.Port())

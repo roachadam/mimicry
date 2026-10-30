@@ -100,7 +100,7 @@ func (c *Conn) sendMaxDataUpdate() {
 
 func (c *Conn) shouldUpdateFlowControl(credit int64) bool {
 	if c.client != nil {
-		return c.clientConnCreditDue(credit) // mimicry
+		return c.clientConnCreditDue(credit) // mimicry: client
 	}
 
 	return shouldUpdateFlowControl(c.config.maxConnReadBufferSize(), credit)

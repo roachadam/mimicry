@@ -160,9 +160,3 @@ func entrySize(name, value string) uint64 {
 func AppendSectionAck(dst []byte, stream uint64) []byte {
 	return appendInt(dst, 0x80, 7, stream)
 }
-
-// AppendStreamCancel appends a decoder stream Stream Cancellation for
-// stream (RFC 9204, 4.4.2).
-func AppendStreamCancel(dst []byte, stream uint64) []byte {
-	return appendInt(dst, 0x40, 6, stream)
-}

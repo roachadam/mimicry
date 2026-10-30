@@ -514,7 +514,7 @@ func (sl silenced) clientClose() (*quictrace.Frame, float64) {
 // and whether it migrates, closes, or waits for the idle timeout.
 func (s *edgeSet) pathDegrading(q *profile.QUIC, e *collector) *profile.QUICPathDegrading {
 	var out *profile.QUICPathDegrading
-	for i, sl := range s.silencedConns(e) {
+	for i, sl := range s.silenced {
 		var got *profile.QUICPathDegrading
 
 		at := sl.p.at
@@ -643,7 +643,7 @@ func (s *edgeSet) keepAlive(e *collector) profile.QUICKeepAlive {
 
 	var ats []string
 
-	for _, sl := range s.silencedConns(e) {
+	for _, sl := range s.silenced {
 		ds := sl.a.c.Datagrams
 		found := false
 

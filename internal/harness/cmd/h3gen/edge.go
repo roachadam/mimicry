@@ -63,8 +63,7 @@ func (r edgeReq) delay() int64 {
 
 // name is r's label without its query.
 func (r edgeReq) name() string {
-	name, _, _ := strings.Cut(r.label, "?")
-	return name
+	return nameOf(r.label)
 }
 
 // attempt is one QUIC connection of an edge page, as the client tried
@@ -150,6 +149,10 @@ func (a *attempt) end() float64 {
 type edgeSet struct {
 	pages []*edgePage
 	set   *captureSet
+	// silenced and downloaded are silencedConns and downloads, computed
+	// once by deriveEdge so that each bad sample is reported once.
+	silenced   []silenced
+	downloaded []download
 }
 
 // loadEdge reads the edge captures set's profile is checked against
@@ -401,6 +404,9 @@ func deriveEdge(s *edgeSet, q *profile.QUIC, h *profile.HTTP3) error {
 	if err := e.err(); err != nil {
 		return err
 	}
+
+	s.silenced = s.silencedConns(e)
+	s.downloaded = s.downloads(e)
 
 	q.Loss = s.loss(q, e)
 	q.KeepAlive = s.keepAlive(e)

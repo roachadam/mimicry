@@ -346,6 +346,8 @@ func (s *Stream) Read(b []byte) (n int, err error) {
 		bytesRead += int64(len(s.inbuf))
 	}
 
+	// mimicry: a client sets MAX_STREAM_DATA at its profile's share
+	// (client_flow.go), not on Read.
 	if s.conn.client == nil && (s.insize == -1 || s.insize > s.inwin) {
 		newWindow := s.in.start + int64(len(s.inbuf)) + s.inmaxbuf
 		addedWindow := newWindow - s.inwin
@@ -937,7 +939,7 @@ func (s *Stream) handleData(off int64, b []byte, fin bool) error {
 	s.inset.add(off, end)
 
 	if s.conn.client != nil {
-		s.clientReceived() // mimicry
+		s.clientReceived() // mimicry: client
 	}
 
 	if fin {

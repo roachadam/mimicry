@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/roachadam/mimicry/cookies"
 	"github.com/roachadam/mimicry/internal/engine/native"
 	"github.com/roachadam/mimicry/internal/headerorder"
 	"github.com/roachadam/mimicry/internal/pool"
@@ -94,14 +93,7 @@ func (t *Transport) DialWebSocket(ctx context.Context, rawURL string, opts WebSo
 
 	from := opts.From
 	if from == nil {
-		from = t.lastNav.Load()
-		if from == nil {
-			from = &url.URL{
-				Scheme: target.Scheme,
-				Host:   target.Host,
-				Path:   "/",
-			}
-		}
+		from = t.pageFor(target)
 	}
 
 	if from.Scheme == "https" && !site.Trustworthy(u) {
@@ -140,10 +132,8 @@ func (t *Transport) DialWebSocket(ctx context.Context, rawURL string, opts WebSo
 	}
 
 	h := s.header
-	if t.jar != nil && s.credentialed && !hasHeader(h, "Cookie") {
-		if line := cookies.Header(t.jar.Cookies(s.cookies)); line != "" {
-			h.Set("Cookie", line)
-		}
+	if line := t.cookieLine(s, toSend); line != "" {
+		h.Set("Cookie", line)
 	}
 
 	key, err := ws.NewKey(rand.Reader)

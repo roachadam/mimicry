@@ -1713,7 +1713,7 @@ func (c *Conn) onHeaders(f *http2.MetaHeadersFrame) {
 		Body:          &s.body,
 	}
 	if cl := h.Get("Content-Length"); cl != "" {
-		if n, err := strconv.ParseInt(cl, 10, 64); err == nil {
+		if n, err := strconv.ParseInt(cl, 10, 64); err == nil && n >= 0 {
 			resp.ContentLength = n
 		}
 	}

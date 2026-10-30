@@ -40,12 +40,8 @@ func (k headerKey) isSet() bool {
 	return k.hp != nil
 }
 
-func (k *headerKey) init(suite uint16, secret []byte) {
-	k.initVersion(quicVersion1, suite, secret)
-}
-
-// initVersion is init with the labels of a QUIC version. mimicry: v2
-// (RFC 9369, section 3.3.2).
+// initVersion sets the key from secret with the labels of a QUIC version.
+// mimicry: v2 (RFC 9369, section 3.3.2); replaces upstream's init.
 func (k *headerKey) initVersion(version uint32, suite uint16, secret []byte) {
 	h, keySize := hashForSuite(suite)
 	hpKey := hkdfExpandLabel(h.New, secret, versionLabels(version).hp, nil, keySize)
@@ -155,11 +151,8 @@ type packetKey struct {
 	iv   []byte      // IV used to construct the AEAD nonce.
 }
 
-func (k *packetKey) init(suite uint16, secret []byte) {
-	k.initVersion(quicVersion1, suite, secret)
-}
-
-// initVersion is init with the labels of a QUIC version (mimicry: v2).
+// initVersion sets the key from secret with the labels of a QUIC version
+// (mimicry: v2; replaces upstream's init).
 func (k *packetKey) initVersion(version uint32, suite uint16, secret []byte) {
 	// https://www.rfc-editor.org/rfc/rfc9001#section-5.1
 	h, keySize := hashForSuite(suite)
@@ -334,12 +327,8 @@ func (k *updatingKeys) update() {
 	k.pkt[1].initVersion(k.version, k.suite, k.nextSecret)
 }
 
-func updateSecret(suite uint16, secret []byte) (nextSecret []byte) {
-	return updateSecretVersion(quicVersion1, suite, secret)
-}
-
-// updateSecretVersion is updateSecret with the labels of a QUIC version
-// (mimicry: v2).
+// updateSecretVersion is the next key-update secret with the labels of a
+// QUIC version (mimicry: v2; replaces upstream's updateSecret).
 func updateSecretVersion(version uint32, suite uint16, secret []byte) (nextSecret []byte) {
 	h, _ := hashForSuite(suite)
 	return hkdfExpandLabel(h.New, secret, versionLabels(version).ku, nil, len(secret))

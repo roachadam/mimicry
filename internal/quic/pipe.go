@@ -46,7 +46,7 @@ func newPipebuf() *pipebuf {
 func (b *pipebuf) recycle() {
 	b.off = 0
 	b.next = nil
-	poisonPipebuf(b.b) // mimicry
+	poisonPipebuf(b.b) // mimicry: client
 	pipebufPool.Put(b)
 }
 

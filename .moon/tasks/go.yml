@@ -40,7 +40,7 @@ tasks:
   # golangci-lint is pinned here and built with the pinned Go: a binary built
   # with an older Go cannot read the standard library's export data (Homebrew's
   # v2.13.2 fails on Go 1.27.3). It walks up to the repo-root .golangci.yml.
-  # --allow-parallel-runners: moon lints both modules at once. Then gopls's
+  # --allow-parallel-runners: moon lints the three modules at once. Then gopls's
   # own analyzers (what an editor underlines; not all are in golangci-lint).
   lint:
     script: 'go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 run --allow-parallel-runners && bash $workspaceRoot/.moon/scripts/gopls-check.sh'

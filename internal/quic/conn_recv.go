@@ -354,7 +354,7 @@ func (c *Conn) handleFrames(now time.Time, dgram *datagram, ptype packetType, sp
 
 			token, tn := consumeNewTokenFrame(payload)
 			if tn >= 0 {
-				c.handleNewToken(token) // mimicry
+				c.handleNewToken(token) // mimicry: client
 			}
 
 			n = tn
@@ -624,7 +624,7 @@ func (c *Conn) handleConnectionCloseTransportFrame(now time.Time, payload []byte
 	c.handlePeerConnectionClose(now, peerTransportError{code: code, reason: reason})
 
 	if c.client != nil {
-		c.clientPeerClosed(now, frameTypeConnectionCloseTransport) // mimicry
+		c.clientPeerClosed(now, frameTypeConnectionCloseTransport) // mimicry: client
 	}
 
 	return n
@@ -638,7 +638,7 @@ func (c *Conn) handleConnectionCloseApplicationFrame(now time.Time, payload []by
 	c.handlePeerConnectionClose(now, &ConnectionCloseError{Code: code, Reason: reason})
 
 	if c.client != nil {
-		c.clientPeerClosed(now, frameTypeConnectionCloseApplication) // mimicry
+		c.clientPeerClosed(now, frameTypeConnectionCloseApplication) // mimicry: client
 	}
 
 	return n

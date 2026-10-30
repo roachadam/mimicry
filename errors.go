@@ -56,7 +56,7 @@ func (e *CORSError) Error() string {
 // other answers are the response. Failures inside an open tunnel are the
 // server's, not a ProxyError.
 //
-// A proxy-rotation loop tests for it with errors.As (see decision 0033).
+// A proxy-rotation loop tests for it with errors.As (see docs/concepts/proxies.md).
 // It wraps the cause, so errors.Is(err, context.DeadlineExceeded) works.
 type ProxyError struct {
 	// Proxy is the proxy's URL with its password removed (the username

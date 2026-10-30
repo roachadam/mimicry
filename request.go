@@ -309,7 +309,7 @@ func placements(field string, ps []Place) ([]headerorder.Placement, error) {
 		}
 
 		if reason != "" {
-			return nil, fmt.Errorf("%w: %s[%d] (Header %q, After %q, Before %q): %s", headerorder.ErrPlacement, field, i, p.Header, p.After, p.Before, reason)
+			return nil, fmt.Errorf("%w: %s[%d] (Header %q, After %q, Before %q): %s", ErrPlacement, field, i, p.Header, p.After, p.Before, reason)
 		}
 
 		out = append(out, headerorder.Placement{

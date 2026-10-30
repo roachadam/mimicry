@@ -61,7 +61,7 @@ func (f *fakeTransport) frames(t *testing.T) []Message {
 		}
 
 		payload, _ := io.ReadAll(r)
-		MaskBytes(h.Mask, 0, payload)
+		MaskBytes(h.Mask, payload)
 
 		out = append(out, Message{
 			Opcode:  h.Opcode,

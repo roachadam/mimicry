@@ -27,28 +27,22 @@ import (
 	"github.com/roachadam/mimicry/profiles"
 )
 
-// server starts a TLS server for localhost speaking HTTP/2 when h2 is set and
-// HTTP/1.1 otherwise. It counts accepted connections.
+// testServer is a test server and a Transport that trusts it.
 type testServer struct {
-	url   string
-	srv   *httptest.Server
-	conns *atomic.Int32
-	tr    *Transport
-	pool  *x509.CertPool
+	url  string
+	srv  *httptest.Server
+	tr   *Transport
+	pool *x509.CertPool
 }
 
+// server starts a TLS server for localhost speaking HTTP/2 when h2 is set and
+// HTTP/1.1 otherwise.
 func server(t *testing.T, h2 bool, handler http.HandlerFunc) testServer {
 	t.Helper()
 
 	cert, pool := testutil.Certificate(t, "localhost")
 	srv := httptest.NewUnstartedServer(handler)
-	conns := &atomic.Int32{}
 
-	srv.Config.ConnState = func(_ net.Conn, s http.ConnState) {
-		if s == http.StateNew {
-			conns.Add(1)
-		}
-	}
 	srv.EnableHTTP2 = h2
 	srv.TLS = &tls.Config{
 		Certificates: []tls.Certificate{
@@ -71,11 +65,10 @@ func server(t *testing.T, h2 bool, handler http.HandlerFunc) testServer {
 	t.Cleanup(tr.CloseIdleConnections)
 
 	return testServer{
-		url:   "https://localhost:" + port,
-		srv:   srv,
-		conns: conns,
-		tr:    tr,
-		pool:  pool,
+		url:  "https://localhost:" + port,
+		srv:  srv,
+		tr:   tr,
+		pool: pool,
 	}
 }
 

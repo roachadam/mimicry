@@ -158,11 +158,14 @@ the mechanical import rewrites.
    Upstream has no v2: it speaks version 1 only and its server never
    upgrades. Every connection starts in version 1; its wire does not
    change unless the server answers in v2.
-   - `packet_protection.go`: `initVersion` beside `init` on `headerKey`,
-     `packetKey`, `fixedKeys` and `updatingKeys` (which keeps its
-     version for key updates), `updateSecretVersion`,
-     `initialKeysVersion`: v2's salt and `quicv2 key/iv/hp/ku` labels
-     (`versionLabels`). The upstream functions are the version 1 case.
+   - `packet_protection.go`: `initVersion` beside `init` on `fixedKeys`
+     and `updatingKeys` (which keeps its version for key updates),
+     `updateSecretVersion`, `initialKeysVersion`: v2's salt and
+     `quicv2 key/iv/hp/ku` labels (`versionLabels`). The upstream
+     functions are the version 1 case. `headerKey.init`, `packetKey.init`
+     and `updateSecret` are removed: with `initVersion` and
+     `updateSecretVersion` nothing calls them (`fixedKeys.init` and
+     `updatingKeys.init` stay for the tests).
    - `packet.go`: `getPacketType` reads v2's rotated type bits when the
      Version field is v2; `longPacketTypeBits` encodes them
      (`packet_writer.go`).
@@ -441,8 +444,8 @@ the mechanical import rewrites.
     `newPacerTest`, `sendDelay`, `testSidesAndStreamTypesSynctest`), kept
     as upstream has them; in non-test code, the same kinds the tests had
     (range over int in `packet_protection.go`, embedded field types in
-    `conn_id.go`, `string +=` in a loop in `frame_debug.go`), an unused
-    `updateSecret` and unused parameters, left as upstream's.
+    `conn_id.go`, `string +=` in a loop in `frame_debug.go`) and unused
+    parameters, left as upstream's.
 
 ## Tests
 

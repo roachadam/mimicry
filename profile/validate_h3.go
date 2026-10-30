@@ -2,6 +2,7 @@ package profile
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 )
@@ -184,11 +185,14 @@ func (c *checker) checkQUICLoss(q *QUIC) {
 		c.add(path+".probe", "%q must be empty, %q or %q", l.Probe, ProbeFlight, ProbeOnePacket)
 	}
 
-	for name, g := range map[string]QUICGiveUp{
+	giveUps := map[string]QUICGiveUp{
 		"fresh":   l.Fresh,
 		"resumed": l.Resumed,
-	} {
+	}
+	for _, name := range slices.Sorted(maps.Keys(giveUps)) {
+		g := giveUps[name]
 		at := path + "." + name
+
 		switch {
 		case g.AfterMillis < 0:
 			c.add(at+".afterMs", "must not be negative")
@@ -230,11 +234,13 @@ func (c *checker) checkQUICCrypto(cr *QUICCrypto) {
 
 	switch cr.Split {
 	case CryptoSplitShuffle:
-		for name, r := range map[string]*Range{
+		ranges := map[string]*Range{
 			"head":        cr.Head,
 			"addedFrames": cr.AddedFrames,
 			"pings":       cr.Pings,
-		} {
+		}
+		for _, name := range slices.Sorted(maps.Keys(ranges)) {
+			r := ranges[name]
 			if r == nil || r.Min < 0 || r.Max < r.Min {
 				c.add(path+"."+name, "is required with %q, 0 <= min <= max", CryptoSplitShuffle)
 			}
@@ -555,11 +561,14 @@ func (c *checker) checkHTTP3(p *Profile) {
 	c.checkEarlyData(p)
 	c.checkH3Headers(p)
 
-	for level, m := range map[string]map[string]string{
+	levels := map[string]map[string]string{
 		"high": h.High,
 		"low":  h.Low,
-	} {
-		for kind, value := range m {
+	}
+	for _, level := range slices.Sorted(maps.Keys(levels)) {
+		m := levels[level]
+		for _, kind := range slices.Sorted(maps.Keys(m)) {
+			value := m[kind]
 			at := path + "." + level + "." + kind
 			k := p.Kinds[kind]
 
@@ -763,8 +772,10 @@ func (c *checker) checkH3Headers(p *Profile) {
 		check(path+".altUsedNavigation", hd.AltUsedNavigation, p.Headers)
 	}
 
-	for kind, anchor := range hd.AltUsed {
+	for _, kind := range slices.Sorted(maps.Keys(hd.AltUsed)) {
+		anchor := hd.AltUsed[kind]
 		k := p.Kinds[kind]
+
 		if k == nil {
 			c.add(path+".altUsed."+kind, "is not a kind of the profile")
 

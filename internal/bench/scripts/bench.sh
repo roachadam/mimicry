@@ -26,7 +26,7 @@
 #   BENCH_SERVER_CONTEXT=<ctx>     ... reached through this docker context
 #                                  (or DOCKER_HOST=ssh://… for the server steps)
 #   BENCH_CLIENT_CPUS, BENCH_SERVER_CPUS, BENCH_PROXY_CPUS   cpusets (0-3, 4-11, 10-11)
-#   BENCH_CLIENT_PROCS, BENCH_SERVER_PROCS                    GOMAXPROCS (4, 8)
+#   BENCH_CLIENT_PROCS, BENCH_SERVER_PROCS, BENCH_PROXY_PROCS GOMAXPROCS (4, 8, 2)
 #   BENCH_PROXY_DELAY              delay on the proxy's packets (5ms)
 #   BENCH_PROXY_DELAY_MODE         how: netem (on the proxy's eth0) or proxy
 #                                  (the proxy's in-process delay line); the
@@ -39,6 +39,10 @@
 #                                  net/http, mimicry, tls-client, httpcloak,
 #                                  azuretls; also takes clients.Variants)
 #   BENCH_NAME                     the report's name before the date (bench)
+#   BENCH_DATE                     the date in the report's name (today); render
+#                                  needs it for another day's report
+#   BENCH_MIMICRY_COMMIT           the commit the report names (HEAD, plus
+#                                  " + uncommitted changes" if the tree differs)
 #   BENCH_PASSES                   layers 3-6: passes, each an invocation of its
 #                                  own, the clients' order A, reversed, rotated
 #                                  (run: 3; report: 1); layers 4 and 5 run in

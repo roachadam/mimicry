@@ -42,7 +42,7 @@ path ran.
 ## Options
 
 - One merged list per kind, accepting mismatches. Rejected: visible.
-- Per-request-label lists. Too specific to our capture page.
+- Per-request-label lists. Too specific to mimicry's capture page.
 - A default order plus variants keyed by the conditions that pick the path.
 
 ## Decision

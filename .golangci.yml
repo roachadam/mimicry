@@ -1,6 +1,6 @@
 version: "2"
 
-# Runs per Go module (repo root and internal/harness/) through the moon `lint`
+# Runs per Go module (repo root, internal/harness/ and internal/bench/) through the moon `lint`
 # task; see .moon/tasks/go.yml.
 linters:
   # "standard" = errcheck, govet, ineffassign, staticcheck, unused.

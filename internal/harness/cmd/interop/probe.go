@@ -141,7 +141,7 @@ func (pr *prober) dial(ctx context.Context, host string, peer netip.AddrPort, im
 		return nil, err
 	}
 
-	tlsConfig := handshake.QUICConfig(cfg)
+	tlsConfig := handshake.TLSConfig(cfg)
 
 	var keyLog io.Writer
 

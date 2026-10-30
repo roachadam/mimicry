@@ -14,6 +14,18 @@ it runs underneath and what to do by hand. Why captures are the evidence:
 [decision 0026](decisions/0026-http3-capture.md); versions and inherited
 captures: [decision 0035](decisions/0035-version-policy-and-capture-inheritance.md).
 
+| Tool | What it does | Run by `cmd/refresh` |
+|---|---|---|
+| `cmd/refresh` | Brings a profile up to a new browser version, end to end | (itself) |
+| `cmd/capture` | Captures the installed browsers against the capture server | yes |
+| `cmd/hellogen` → `cmd/h3gen` → `cmd/kindsgen` | Derive a profile's generated sections from its captures | yes |
+| `cmd/realcheck` | Compares mimicry with the real browsers through public fingerprinting services | yes (`-realcheck`) |
+| `cmd/pageshape` | Records a replayed real page's shape | no; investigation |
+| `cmd/tracestat` | Lists features a capture's samples disagree on | no; investigation |
+| `cmd/diff` | Diffs two single-connection captures | no; investigation |
+| `cmd/clientcapture` | Captures any other client | no; investigation |
+| `cmd/interop` | Runs QUIC and HTTP/3 against other implementations | no; investigation |
+
 ## The capture tool
 
 `moon run harness:capture` launches every installed browser (Chrome,
@@ -424,8 +436,8 @@ same traces.
   ordinary homepage GETs (Alt-Svc discovery through the public API, then a
   fresh and a resumed QUIC connection). `-servers`, `-cases`, `-sites` and
   `-profiles` narrow a run; `-addr PORT -setup DIR` reruns the cases
-  against a container started by hand. Results go to
-  `reports/quic-interop-<date>.md`.
+  against a container started by hand. Output goes to a temporary
+  directory; copy it to `reports/quic-interop-<date>.md` to keep a run.
 - `go run ./cmd/realcheck` (opt-in, never part of `go test`; needs the
   network) compares mimicry with the real browsers as public
   fingerprinting services see them: every supported profile (or those
@@ -441,9 +453,10 @@ same traces.
   batch. Answers go to `-out` (default `$TMPDIR/mimicry-realcheck`; it holds
   this machine's public IP, never commit it), and each run compares
   everything there, field by field, into `compare.md` and
-  `compare-full.md`: a browser `browser-<name>-<major>` against the profile
-  `<name>-<major>-macos`, with per-connection randomness the profile models
+  `compare-full.md`: a browser `browser-<name>-<major>-<platform>` (the
+  platform realcheck runs on) against the profile
+  `<name>-<major>-<platform>`, with per-connection randomness the profile models
   (shuffled extension and transport parameter order, GREASE ECH lengths and
   suites, random packet numbers) told apart from differences.
-  `-echo=false -sites=false -profiles none` only compares. Results go to
-  `reports/realcheck-<date>.md`.
+  `-echo=false -sites=false -profiles none` only compares. Copy
+  `compare.md` to `reports/realcheck-<date>.md` to keep a run.

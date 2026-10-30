@@ -44,7 +44,7 @@ client.CheckRedirect = func(*http.Request, []*http.Request) error {
 
 | tls-client | mimicry |
 |---|---|
-| `WithClientProfile(profiles.Chrome_133)` | `Config.Profile`: `profiles.Chrome()` for the newest, `profiles.ByName("chrome-155-macos")` for a fixed version, `profile.Parse` for your own JSON |
+| `WithClientProfile(profiles.Chrome_133)` | `Config.Profile`: `profiles.Chrome()` for the newest Chrome on macOS, `profiles.ChromeWindows()` for the newest on Windows, `profiles.ByName("chrome-155-macos")` for a fixed version, `profile.Parse` for your own JSON |
 | `WithRandomTLSExtensionOrder()` | nothing: the profile shuffles only where its browser does |
 | `WithTimeoutSeconds(n)` | `Config.Timeout` (30 s by default; negative for none) or the request's context; `Config.DialTimeout` for connecting |
 | `WithNotFollowRedirects()`, `SetFollowRedirect` | `CheckRedirect` returning `http.ErrUseLastResponse` |
@@ -147,7 +147,8 @@ browser's (`Transport.Plan` lists the first two: [below](#seeing-what-will-be-se
   (see `ExampleConfig_headerPlacement`).
 - **Overriding `User-Agent`** (in `Config.Headers` or on the request)
   leaves `sec-ch-ua`, the TLS hello and HTTP/2 settings the profile's.
-  Pick the profile whose browser you want to be instead.
+  Pick the profile whose browser you want to be instead
+  (`profiles.ChromeWindows()` for Chrome on Windows).
 - **A POST navigation needs its page.** A form POST is
   `mimicry.With(req, mimicry.Request{From: formPage})`; without `From` a
   navigation is a typed URL, which is GET or HEAD only.

@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/roachadam/mimicry.svg)](https://pkg.go.dev/github.com/roachadam/mimicry)
 
-mimicry is a Go HTTP client that sends requests the way Chrome, Firefox and Safari on macOS send them.
+mimicry is a Go HTTP client that sends requests the way Chrome, Firefox and Safari on macOS, and Chrome on Windows, send them.
 
 > [!WARNING]
 > **Pre-release.** mimicry is tested against real browser captures and
@@ -50,6 +50,8 @@ How it differs from tls-client and similar libraries:
 | `firefox-158-macos` | `profiles.Firefox()`, `profiles.Firefox158MacOS()` | supported |
 | `safari-27-macos` | `profiles.Safari()`, `profiles.Safari27MacOS()` | supported |
 | `safari-26-macos` | `profiles.Safari26MacOS()` | supported |
+
+`chrome-156-windows` was captured from Chrome 156 on Windows 10 (x64); Windows 11 and ARM are not captured yet ([backlog](docs/backlog.md#tooling-and-tests)).
 
 `profiles.Chrome()`, `Firefox()` and `Safari()` always return the newest built-in macOS version, `profiles.ChromeWindows()` the newest Chrome on Windows ([0047](docs/decisions/0047-windows-profiles.md)). A versioned accessor, or `profiles.ByName("chrome-155-macos")`, stays on one version; the newest five versions of each browser on each platform are supported.
 
@@ -102,7 +104,7 @@ Every claim a profile makes, with its evidence and test, is in [`profiles/EVIDEN
 
 Measured on a Linux host, Intel Core i5-13500, against `net/http`, tls-client, httpcloak and azuretls:
 
-- 9–155% more requests per second than the other impersonating clients, with 15–60% less CPU per request. It stays within about 10% of `net/http`.
+- 9–155% more requests per second than the other impersonating clients, with 15–60% less CPU per request. It runs between 11% slower and 8% faster than `net/http`.
 - 100 clients, each through its own proxy: 36–38 KB of heap per client over HTTP/1.1 and HTTP/2, against 56–2,098 KB for the others.
 - A client dropped without closing leaves about one tunnel open; the others leave 74–126.
 
@@ -112,7 +114,7 @@ Where it is slower:
 
 - **Many HTTP/3 bulk downloads at once:** 4,408 requests/s against 7,383–8,516.
 - **Building a client** takes about 235 µs. Build clients up front, not one per request.
-- **Rotating proxies** keeps old proxies' idle connections for 10 s. `Config.MaxIdleProxies` caps it.
+- **Rotating proxies** keeps the 16 most recent proxies' idle connections (1.7 MB per client in the benchmark); `Config.MaxIdleProxies` of 1 brings it to 304 KB.
 - **HTTP/1.1** opens at most 6 connections per host, so extra requests queue.
 
 Details and method: [docs/performance.md](docs/performance.md).

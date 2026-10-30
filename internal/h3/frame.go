@@ -35,7 +35,6 @@ const (
 // 6).
 const (
 	codeNoError                  = 0x100
-	codeGeneralProtocolError     = 0x101
 	codeInternalError            = 0x102
 	codeStreamCreationError      = 0x103
 	codeClosedCriticalStream     = 0x104
@@ -46,7 +45,6 @@ const (
 	codeMissingSettings          = 0x10a
 	codeRequestRejected          = 0x10b
 	codeRequestCancelled         = 0x10c
-	codeMessageError             = 0x10e
 	codeQPACKDecompressionFailed = 0x200
 	codeQPACKEncoderStreamError  = 0x201
 	codeQPACKDecoderStreamError  = 0x202

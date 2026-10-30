@@ -10,8 +10,7 @@ mimicry sends no request you did not ask for, apart from redirect hops and
 CORS preflights. Everything else is connection-level traffic, as a browser
 makes it.
 
-Two defaults differ from the browser, because the browser's way costs
-noticeable time and is unlikely to be checked:
+Four defaults differ from the browser ([README](../../README.md#deviations-from-the-browser)): the 30 s request timeout, the 90 s idle close, and these two, because the browser's way costs noticeable time and is unlikely to be checked:
 - when QUIC fails, mimicry falls back to TCP sooner
   (`Config.BrowserQUICFallback` restores the browser's waits);
 - proxy credentials go with the first request instead of after the proxy's

@@ -198,20 +198,15 @@ func bothShares(exts []profile.Extension) bool {
 	return false
 }
 
-// HasQUIC reports whether the profile speaks QUIC (Profile.QUIC).
-func (p *Plan) HasQUIC() bool {
-	return p.quic != nil
-}
-
 // QUICHello returns a new QUIC connection's ClientHello (profile tls.quic),
-// a shuffled one in a fresh order. Only for a plan that HasQUIC.
+// a shuffled one in a fresh order. Only for a profile with QUIC.
 func (p *Plan) QUICHello() Hello {
 	return p.quicHello(p.quic.fresh, rand.IntN)
 }
 
 // ResumedQUICHello returns a new QUIC connection's ClientHello offering a
 // ticket: early_data when the browser sends 0-RTT, pre_shared_key last.
-// Only for a plan that HasQUIC and Resumes.
+// Only for a profile with QUIC, and a plan that Resumes.
 func (p *Plan) ResumedQUICHello() Hello {
 	return p.quicHello(p.quic.resumed, rand.IntN)
 }

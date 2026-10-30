@@ -112,7 +112,7 @@ func (d *Dialer) ListenUDP(ctx context.Context, host string, port uint16) (net.P
 		}
 
 		if len(addrs) == 0 {
-			return nil, netip.AddrPort{}, fmt.Errorf("dial: no address for %s", host)
+			return nil, netip.AddrPort{}, fmt.Errorf("mimicry: no address for %s", host)
 		}
 
 		addr = addrs[0]
@@ -175,19 +175,14 @@ const (
 	SchemeSOCKS5H = "socks5h"
 )
 
-// CheckProxy reports whether the profile can go through p.
+// CheckProxy reports whether p is a proxy URL the dialer can use. The
+// engine checks that the profile describes the proxy protocol.
 func (d *Dialer) CheckProxy(p *url.URL) error {
 	switch {
 	case p.Scheme != SchemeHTTP && p.Scheme != SchemeSOCKS5 && p.Scheme != SchemeSOCKS5H:
 		return fmt.Errorf("mimicry: proxy scheme %q is not supported (http, socks5, socks5h)", p.Scheme)
 	case p.Host == "":
 		return fmt.Errorf("mimicry: proxy URL %q has no host", p.Redacted())
-	case d.Proxy == nil:
-		return errors.New("mimicry: the profile does not describe how its browser talks to proxies (not measured)")
-	case p.Scheme != SchemeHTTP && d.Proxy.SOCKS5 == nil:
-		return errors.New("mimicry: the profile does not describe its browser's SOCKS5 handshake (not measured)")
-	case p.Scheme == SchemeHTTP && p.User != nil && d.Proxy.ConnectAuth == nil:
-		return errors.New("mimicry: the profile does not describe how its browser gives a proxy credentials (not measured)")
 	}
 
 	return nil

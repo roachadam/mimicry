@@ -39,7 +39,7 @@ alternate between resumed and full.
 - uTLS's session cache as is: tickets are reused across connections, and
   the hello is whatever the spec says, so Firefox's dropped extension and
   single use would be wrong.
-- Our own store, with the hello built for the connection before the
+- mimicry's own store, with the hello built for the connection before the
   handshake.
 
 ## Decision

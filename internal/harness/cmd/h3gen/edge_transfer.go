@@ -101,7 +101,7 @@ func mode(vs []int) (value, count int) {
 // batched at the smallest advance covering 5% with under 1% shorter.
 func (s *edgeSet) ack(e *collector) profile.QUICAck {
 	var out profile.QUICAck
-	for i, d := range s.downloads(e) {
+	for i, d := range s.downloaded {
 		adv := d.advances()
 		if len(adv) < 1000 {
 			edgeErr(e, d.p.at, "only %d ACKs during the download", len(adv))
@@ -205,7 +205,7 @@ func (s *edgeSet) credit(q *profile.QUIC, e *collector) profile.QUICCredit {
 		msdSteps, mdSteps, ahead []float64
 	)
 
-	for _, d := range s.downloads(e) {
+	for _, d := range s.downloaded {
 		l := limits{
 			at: d.p.at,
 		}
@@ -380,7 +380,7 @@ func badStep(frame string, limits []float64, window float64, div int) string {
 // own, as many times, and in its next packet.
 func (s *edgeSet) keyUpdate(e *collector) profile.QUICKeyUpdate {
 	var out profile.QUICKeyUpdate
-	for _, d := range s.downloads(e) {
+	for _, d := range s.downloaded {
 		client := phaseChanges(d.a.c.Datagrams, d.a)
 		server := phaseChanges(d.a.c.Server, d.a)
 

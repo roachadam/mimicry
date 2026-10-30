@@ -40,11 +40,6 @@ func NewDecoder(maxCapacity uint64) *Decoder {
 	}
 }
 
-// Inserted is how many entries the encoder stream has inserted.
-func (d *Decoder) Inserted() uint64 {
-	return d.t.inserted()
-}
-
 // OnEncoderStream applies the peer's encoder stream bytes. An instruction
 // cut short is kept for the next call.
 func (d *Decoder) OnEncoderStream(b []byte) error {

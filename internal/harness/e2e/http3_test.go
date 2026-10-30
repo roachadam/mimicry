@@ -602,10 +602,11 @@ func compareDraws(t *testing.T, p *profile.Profile, page *capture.Page) {
 	}
 }
 
-func mapEach[T any](pages []*capture.Page, f func(*capture.Page) T) []T {
-	out := make([]T, len(pages))
-	for i, p := range pages {
-		out[i] = f(p)
+// mapEach is f of each of in.
+func mapEach[S, T any](in []S, f func(S) T) []T {
+	out := make([]T, len(in))
+	for i, s := range in {
+		out[i] = f(s)
 	}
 
 	return out
@@ -1344,11 +1345,6 @@ func helloWithoutParams(h *profile.TLS, p *profile.Profile) profile.TLS {
 	out.ExtensionOrder = p.TLS.QUIC.ExtensionOrder
 
 	return out
-}
-
-// testPorts normalises the capture ports in values.
-func normalisePort(s string) string {
-	return testPort.ReplaceAllString(s, ".test:PORT")
 }
 
 // h3Features describe the HTTP/3 layer: unidirectional streams,

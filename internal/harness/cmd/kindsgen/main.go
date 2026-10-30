@@ -3,10 +3,11 @@
 //
 //	go run ./cmd/kindsgen -captures testdata/captures -profile ../../profiles/data/chrome-155-macos.json
 //
-// It reads the profile's kinds, cookies, cors, redirects, nav-redirect,
-// headers-order and websocket page captures (or the inherited ones,
-// rewritten to the profile's version). It refuses to write when the
-// captures disagree or a request was captured over one protocol only.
+// It reads the profile's kinds, cookies, cors, cors-edge-cookies, redirects2,
+// nav-redirect, headers-order, websocket, h3-discovery and h3-page page
+// captures (or the inherited ones, rewritten to the profile's version). It
+// refuses to write when the captures disagree or a request was captured
+// over one protocol only.
 package main
 
 import (
@@ -25,7 +26,7 @@ func main() {
 }
 
 func run() error {
-	captures := flag.String("captures", "testdata/captures", "directory with the profile's kinds, kinds-http1, kinds-plain, cookies and cors page captures (<name>.<scenario>.pagetrace.json.gz)")
+	captures := flag.String("captures", "testdata/captures", "directory of captures (testdata/captures, or a refresh overlay); the profile's name picks its files")
 	path := flag.String("profile", "", "profile JSON to update (required); its name picks the captures")
 
 	flag.Parse()

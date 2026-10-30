@@ -19,7 +19,7 @@ send.
 
 ## Decision
 
-Evidence ranks: a real browser's wire capture against our capture server,
+Evidence ranks: a real browser's wire capture against mimicry's capture server,
 stable across samples (and scenarios) > browser source > other clients
 (leads only). Every profile claim is recorded with its evidence class and
 the test that keeps it true in [`profiles/EVIDENCE.md`](../../profiles/EVIDENCE.md);

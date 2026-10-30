@@ -1,6 +1,6 @@
 # Refresh of chrome-156-macos, 2026-10-26
 
-chrome 156.0.8078.48 on the Mac mini, quick mode: new profile, copied from chrome-155-macos. Made by `go run ./cmd/refresh` (staging `harness/.refresh/20261026-213734`).
+chrome 156.0.8078.48 on the second Mac, quick mode: new profile, copied from chrome-155-macos. Made by `go run ./cmd/refresh` (staging `internal/harness/.refresh/20261026-213734`).
 
 ## Captures
 
@@ -107,9 +107,9 @@ No chrome profile beyond the newest 5 supported ones; none deprecated.
 
 ## Verification
 
-Tests (`MIMICRY_PROFILES=chrome-156-macos go test -count=1 ./e2e/ ./cmd/hellogen/ ./cmd/h3gen/ ./cmd/kindsgen/ (harness), go test -count=1 ./profiles/ ./cmd/profilegen/ (library)`, 3m48s): passed. Output: `harness/.refresh/20261026-213734/chrome/tests.log`.
+Tests (`MIMICRY_PROFILES=chrome-156-macos go test -count=1 ./e2e/ ./cmd/hellogen/ ./cmd/h3gen/ ./cmd/kindsgen/ (harness), go test -count=1 ./profiles/ ./cmd/profilegen/ (library)`, 3m48s): passed. Output: `internal/harness/.refresh/20261026-213734/chrome/tests.log`.
 
-realcheck (`realcheck -browsers chrome -profiles chrome-156-macos (on the Mac mini)`, 1m23s): ran. Output: `harness/.refresh/20261026-213734/chrome/realcheck/compare.md`.
+realcheck (`realcheck -browsers chrome -profiles chrome-156-macos (on the second Mac)`, 1m23s): ran. Output: `internal/harness/.refresh/20261026-213734/chrome/realcheck/compare.md`.
 
 ```
 # Echo endpoints: browser vs mimicry

@@ -20,7 +20,6 @@ import (
 	"github.com/roachadam/mimicry/internal/harness/internal/diff"
 	"github.com/roachadam/mimicry/internal/harness/internal/proxy"
 	"github.com/roachadam/mimicry/internal/harness/internal/server"
-	"github.com/roachadam/mimicry/internal/harness/internal/testprofiles"
 	"github.com/roachadam/mimicry/profile"
 	"github.com/roachadam/mimicry/profiles"
 )
@@ -310,7 +309,7 @@ func TestUnmeasuredProxyIsAnError(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if _, err := tr.RoundTrip(req); err == nil || !strings.Contains(err.Error(), "not measured") {
+			if _, err := tr.RoundTrip(req); !errors.Is(err, mimicry.ErrNotMeasured) {
 				t.Fatalf("got %v, want an error saying it is not measured", err)
 			}
 		})
@@ -489,56 +488,6 @@ func (s *proxySession) checkTunnelledHello(p *profile.Profile) {
 	}
 }
 
-func scenario(t *testing.T, name string) *server.Scenario {
-	t.Helper()
-
-	sc, err := server.ScenarioByName(name)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return sc
-}
-
-// missingCaptures are the captures known not to exist, and why; a test
-// needing one is skipped. Any other missing capture fails. Keyed by the file
-// of the profile that holds the scenario's captures, so a profile that
-// inherits the scenario (capturesFrom) inherits the entry too.
-var missingCaptures = withTwinsMissing(map[string]string{
-	"safari-26-macos.proxy-auth.proxytrace.json":    "Safari 26 proxy credentials were never captured",
-	"safari-26-macos.proxy-plain-auth.h1trace.json": "Safari 26 proxy credentials were never captured",
-	// Safari answers a proxy's 407 only with credentials macOS holds: a
-	// com.apple.proxy.http.global device profile and the system's login
-	// dialog, which need a person at the screen (docs/capturing.md). Safari 26's
-	// socket credential rules are copied from Safari 27's capture.
-	"safari-26-macos.proxy-websocket-auth.pagetrace.json.gz": "Safari 26 WebSockets through a proxy with credentials were never captured (macOS proxy credentials need a person at the screen); its rules are copied from Safari 27's",
-	// The capture tool clicks in Safari through the system's mouse
-	// events, which need Accessibility access; the second Mac's
-	// captures run over ssh, which has none.
-	"safari-26-macos.nav-redirect-click.pagetrace.json.gz":         "Safari 26 clicks were never captured (no Accessibility access over ssh)",
-	"safari-26-macos.nav-redirect-click-cookies.pagetrace.json.gz": "Safari 26 clicks were never captured (no Accessibility access over ssh)",
-}, map[string]string{
-	// The cookie twins (server.CookieTwins) came after Chrome 155, which
-	// is no longer installable as branded Chrome; capturesFrom names only
-	// an older version, so it cannot inherit Chrome 156's (docs/backlog.md).
-	"chrome-155-macos": "the cookie twins came after Chrome 155, no longer installable as branded Chrome",
-	// TestInheritedProfile's synthetic profile inherits only the scenarios
-	// chrome-155-macos has captures of.
-	testprofiles.InheritingName: "chrome-155-macos, whose captures it inherits, has none",
-})
-
-// withTwinsMissing adds to missing an entry for each cookie twin
-// (server.CookieTwins) of each profile in profiles, with why.
-func withTwinsMissing(missing, profiles map[string]string) map[string]string {
-	for name, why := range profiles {
-		for _, sc := range server.CookieTwins {
-			missing[name+"."+sc.Name+".pagetrace.json.gz"] = why
-		}
-	}
-
-	return missing
-}
-
 // nthOK is the CONNECT the proxy let through n-th, from 0.
 func nthOK(sample []capture.ProxyRequest, n int) capture.ProxyRequest {
 	for _, r := range sample {
@@ -567,16 +516,6 @@ func credentialed(sample []capture.H1Request, path string) *capture.H1Request {
 	}
 
 	return nil
-}
-
-// portless replaces ports after .test hosts.
-func portless(lines []string) []string {
-	out := make([]string, len(lines))
-	for i, l := range lines {
-		out[i] = testPort.ReplaceAllString(l, ".test:PORT")
-	}
-
-	return out
 }
 
 // socksPortless drops a SOCKS5 request's port (its last two bytes, hex).

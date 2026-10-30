@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -660,8 +659,6 @@ type kindsSent struct {
 	weight uint8
 }
 
-var testPort = regexp.MustCompile(`\.test:\d+`)
-
 // requestFields returns page's first request for path (its preflight, when
 // preflight; never one after a redirect), or nil.
 func requestFields(page *capture.Page, path string, h1, preflight bool) *kindsSent {
@@ -676,7 +673,7 @@ func requestFields(page *capture.Page, path string, h1, preflight bool) *kindsSe
 
 			s := &kindsSent{}
 			for _, l := range r.Headers {
-				s.lines = append(s.lines, testPort.ReplaceAllString(l, ".test:PORT"))
+				s.lines = append(s.lines, normalisePort(l))
 			}
 
 			return s
@@ -700,7 +697,7 @@ func requestFields(page *capture.Page, path string, h1, preflight bool) *kindsSe
 					method = ins.Value
 				case ins.Name == "" || strings.HasPrefix(ins.Name, ":"):
 				default:
-					s.lines = append(s.lines, ins.Name+": "+testPort.ReplaceAllString(ins.Value, ".test:PORT"))
+					s.lines = append(s.lines, ins.Name+": "+normalisePort(ins.Value))
 				}
 			}
 

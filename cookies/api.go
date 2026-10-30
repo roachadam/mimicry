@@ -59,12 +59,21 @@ func (j *Jar) entries() []entry {
 // and a zero Created is now. It replaces a cookie with the same name,
 // domain, path and partition.
 func (j *Jar) Set(c Cookie) error {
-	if err := checkPair(c.Name, c.Value); err != nil {
+	if err := j.setCookie(c); err != nil {
 		return fmt.Errorf("cookies: %w", err)
 	}
 
+	return nil
+}
+
+// setCookie is Set with errors not prefixed, for callers that add their own.
+func (j *Jar) setCookie(c Cookie) error {
+	if err := checkPair(c.Name, c.Value); err != nil {
+		return err
+	}
+
 	if c.Domain == "" {
-		return errors.New("cookies: Domain is required")
+		return errors.New("a Domain is required")
 	}
 
 	c.Domain = strings.ToLower(strings.TrimPrefix(c.Domain, "."))
@@ -554,8 +563,8 @@ func (j *Jar) ReadJSON(r io.Reader) error {
 	}
 
 	for i, c := range cs {
-		if err := j.Set(c); err != nil {
-			return fmt.Errorf("cookie %d: %w", i, err)
+		if err := j.setCookie(c); err != nil {
+			return fmt.Errorf("cookies: cookie %d: %w", i, err)
 		}
 	}
 
@@ -641,7 +650,7 @@ func (j *Jar) ReadNetscape(r io.Reader) error {
 			c.Expires = time.Unix(expires, 0)
 		}
 
-		if err := j.Set(c); err != nil {
+		if err := j.setCookie(c); err != nil {
 			return fmt.Errorf("cookies: line %d: %w", n, err)
 		}
 	}

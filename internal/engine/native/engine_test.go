@@ -99,10 +99,8 @@ type options struct {
 	onWait      func(key string)
 	// maxConns is Config.MaxConnsPerHost.
 	maxConns int
-	// profile defaults to Chrome 155's; certHosts, the names on the test
-	// servers' certificate, to localhost.
-	profile   *profile.Profile
-	certHosts []string
+	// profile defaults to profiles.Chrome().
+	profile *profile.Profile
 	// clock defaults to the real one; proxy is Config.Proxy.
 	clock clockwork.Clock
 	proxy func(*http.Request) (*url.URL, error)
@@ -116,14 +114,7 @@ type options struct {
 func newTestEngine(t *testing.T, o options) *Engine {
 	t.Helper()
 
-	hosts := o.certHosts
-	if hosts == nil {
-		hosts = []string{
-			"localhost",
-		}
-	}
-
-	cert, roots := testutil.Certificate(t, hosts...)
+	cert, roots := testutil.Certificate(t, "localhost")
 	serverCert.Store(&cert)
 
 	p := o.profile

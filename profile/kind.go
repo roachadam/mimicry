@@ -35,11 +35,6 @@ const (
 	KindWebSocket = "websocket"
 )
 
-// Kinds returns every kind a profile may describe, in a stable order.
-func Kinds() []string {
-	return slices.Clone(kinds)
-}
-
 var kinds = []string{
 	KindFrame,
 	KindScript,
@@ -279,7 +274,9 @@ func (c *checker) checkKinds(p *Profile) {
 
 		c.checkVariants(path+".variants", k.Variants, true)
 
-		for which, u := range map[string]*Urgency{"high": k.High, "low": k.Low} {
+		urgencies := map[string]*Urgency{"high": k.High, "low": k.Low}
+		for _, which := range slices.Sorted(maps.Keys(urgencies)) {
+			u := urgencies[which]
 			if u != nil && u.Priority == "" && u.Weight == 0 {
 				c.add(fmt.Sprintf("%s.%s", path, which), "changes nothing; leave it out")
 			}

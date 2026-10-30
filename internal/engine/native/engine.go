@@ -527,6 +527,15 @@ func (e *Engine) route(req *http.Request) (route, error) {
 		return r, err
 	}
 
+	switch px := e.profile.Proxy; {
+	case px == nil:
+		return r, fmt.Errorf("%w: profile %s does not describe how its browser talks to proxies (proxy)", headerorder.ErrNotMeasured, e.profile.Name)
+	case p.Scheme != dial.SchemeHTTP && px.SOCKS5 == nil:
+		return r, fmt.Errorf("%w: profile %s does not describe its browser's SOCKS5 handshake (proxy.socks5)", headerorder.ErrNotMeasured, e.profile.Name)
+	case p.Scheme == dial.SchemeHTTP && p.User != nil && px.ConnectAuth == nil:
+		return r, fmt.Errorf("%w: profile %s does not describe how its browser gives a proxy credentials (proxy.connectAuth)", headerorder.ErrNotMeasured, e.profile.Name)
+	}
+
 	r.proxy = p
 	r.forward = p.Scheme == dial.SchemeHTTP && req.URL.Scheme == "http"
 

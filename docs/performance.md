@@ -20,7 +20,8 @@ which has every table, every load point and each value's range.
   second, while sending Chrome's TLS, HTTP/2, HTTP/3 and headers.
 - **Light with many proxied clients.** With 100 clients, each through its
   own proxy, mimicry used 36–38 KB of memory per client over HTTP/1.1 and
-  HTTP/2. The others used 56–2,098 KB.
+  HTTP/2 at 1 KB. The other impersonating clients used 56–2,098 KB;
+  `net/http` used 31–42 KB.
 - **Dropped clients clean up.** Clients thrown away without `Close` left
   mimicry's process at 71–131 MB. The others grew to 465–2,804 MB in 10 s.
 - **Slower in four places**, covered in
@@ -143,10 +144,13 @@ Known limits:
 - One machine and one server. There was no real network between client and
   server.
 - nginx was the limit at four load points. Those points are left out of
-  the findings but stay in the full report.
+  the summary figures but stay in the full report; two of them (HTTP/1.1 at
+  1 KB and HTTP/3 at 100 KB, both 64 at once) are described in
+  [Where mimicry is slower](#where-mimicry-is-slower).
 - Linux gave mimicry a 2 MB UDP buffer here; on a stock host every client
   gets 416 KB.
-- Windows are short. Differences of a few percent are within the ranges.
+- Measurement windows are short (5 s). Differences of a few percent are
+  within the ranges.
 
 The report's
 [fairness notes](../internal/bench/reports/linux-final-2026-10-29/final-2026-10-29.md#fairness-notes)
@@ -155,8 +159,10 @@ details.
 
 ## Reproduce
 
-You need a Linux host with Docker and a copy of the repository. Go is not
-needed; the images build it. The run above used:
+You need a Linux host with Docker and a copy of the repository, checked
+out at `e28df4c` to measure the same code (`BENCH_MIMICRY_COMMIT` only
+labels the report). Go is not needed; the images build it. The run above
+used:
 
 ```sh
 BENCH_NAME=final BENCH_MIMICRY_COMMIT=e28df4c BENCH_PUBLISH=0 \

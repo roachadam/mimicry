@@ -119,7 +119,8 @@ func newNetem(ctx context.Context, dev string) *netem {
 // them, or takes the redirect away. Only a netem condition has it: ifb0
 // without its netem queues at most 32 packets (pfifo_fast at its
 // txqueuelen), which dropped about 5% of the packets to the client under
-// layer 6's load when the redirect outlived layer 5 (bench-2026-10-29).
+// layer 6's load when the redirect outlived layer 5 (bench-2026-10-29
+// before its rerun, 396bdbf).
 func (n *netem) redirect(ctx context.Context, on bool) error {
 	_ = sh(ctx, "tc", "qdisc", "del", "dev", n.dev, "ingress")
 

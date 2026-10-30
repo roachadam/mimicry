@@ -29,7 +29,7 @@ get harder to read with every rule added.
 The library has one purpose: automating ordinary user actions on
 websites (searching, adding to a cart, checking out) without being
 flagged by anti-bot systems such as Cloudflare, Akamai, DataDome, HUMAN
-and Kasada. We needed a rule for deciding which differences are worth
+and Kasada. A rule was needed for deciding which differences are worth
 closing.
 
 ## Options

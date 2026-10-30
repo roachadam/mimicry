@@ -49,7 +49,7 @@ type Deflate struct {
 	ClientMaxWindowBits int
 }
 
-var errExtension = errors.New("ws: the server's Sec-WebSocket-Extensions")
+var errExtension = errors.New("mimicry: the server's Sec-WebSocket-Extensions")
 
 // ParseExtensions reads the server's Sec-WebSocket-Extensions answer to our
 // offer: nil for none, the accepted permessage-deflate, or an error for

@@ -1,9 +1,9 @@
 // Command refresh brings a browser's built-in profile up to the version
 // installed where that browser is captured (chrome, firefox and safari-mini
-// on the Mac mini via -mini, safari here, chrome-windows on a Windows PC via
+// on the second Mac via -mini, safari here, chrome-windows on a Windows PC via
 // -windows):
 //
-//	go run ./cmd/refresh -browser chrome,firefox -mode quick   # in internal/harness/
+//	go run ./cmd/refresh -browser chrome,firefox -mode quick -mini <alias>   # in internal/harness/
 //	go run ./cmd/refresh -browser chrome-windows -windows <alias>
 //
 // Per browser it preflights, captures into a staging directory, derives the
@@ -65,7 +65,7 @@ func run() error {
 	browsers := flag.String("browser", "", "comma-separated browsers to refresh: chrome, firefox (on -mini), safari (this Mac), safari-mini (the mini's Safari), chrome-windows (on -windows)")
 
 	flag.StringVar(&cfg.mode, "mode", modeQuick, "quick (the fingerprint layer; the rest inherited from the previous version) or full (every scenario and replay)")
-	flag.StringVar(&cfg.mini, "mini", "mac-mini", "your ssh alias for the Mac mini (chrome, firefox, safari-mini)")
+	flag.StringVar(&cfg.mini, "mini", "", "your ssh alias for the second Mac (chrome, firefox, safari-mini)")
 	flag.StringVar(&cfg.windows, "windows", "", "your ssh alias for the Windows PC (chrome-windows; required for it)")
 	flag.BoolVar(&cfg.keep, "keep", false, "leave the run's working directory on the Windows PC (the capture CA is removed regardless)")
 	flag.StringVar(&cfg.staging, "staging", ".refresh", "directory for staged builds, captures, profiles and logs (a new subdirectory per run)")
@@ -104,10 +104,12 @@ func run() error {
 		}
 
 		switch {
+		case mini && cfg.mini == "":
+			return errors.New("-browser chrome, firefox and safari-mini need -mini <your ssh alias for the second Mac>")
 		case windows && cfg.windows == "":
 			return errors.New("-browser chrome-windows needs -windows <your ssh alias for the Windows PC>")
 		case windows && mini && cfg.windows == cfg.mini:
-			return fmt.Errorf("-windows and -mini are both %q: the Windows PC and the Mac mini are two machines", cfg.mini)
+			return fmt.Errorf("-windows and -mini are both %q: the Windows PC and the second Mac are two machines", cfg.mini)
 		}
 	}
 

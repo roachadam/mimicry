@@ -148,8 +148,8 @@ func mergeHosts(rows [][]string, hosts map[string]string) [][]string {
 	return out
 }
 
-// runRedirectsPage makes the requests of page sc (redirects2, or
-// nav-redirect-page) through mimicry as profile p, as the page does
+// runRedirectsPage makes the requests of page sc (redirects2, or one of
+// the nav-redirect pages) through mimicry as profile p, as the page does
 // (steps), and returns the server's capture.
 func runRedirectsPage(t *testing.T, p *profile.Profile, sc *server.Scenario, steps []server.Redirects2Step) *capture.Page {
 	t.Helper()

@@ -107,8 +107,8 @@ const (
 	RedirectScript = "script"
 )
 
-// Redirects2Step is one request of the redirects2 page (or of
-// nav-redirect-page, which has navigations only): to /p/<Label> on Host,
+// Redirects2Step is one request of the redirects2 page (or of the
+// nav-redirect pages, which have navigations only): to /p/<Label> on Host,
 // answered Status with a Location to /p/<Label>.hop1 on HopHost, which is
 // answered the same way up to .hop<Hops>, which is answered 200.
 type Redirects2Step struct {

@@ -9,17 +9,13 @@ import (
 	"testing"
 
 	"github.com/roachadam/mimicry/internal/harness/internal/h2trace"
-	"github.com/roachadam/mimicry/internal/harness/internal/server"
 )
 
 // Cookies a server sets come back through mimicry's jar as the browser sent
 // them: same crumbs, order, HPACK representation and Huffman use. Table
 // indices are ignored: the browser's earlier requests filled its table.
 func TestCookiesMatchBrowserTrace(t *testing.T) {
-	sc, err := server.ScenarioByName("set-cookie")
-	if err != nil {
-		t.Fatal(err)
-	}
+	sc := scenario(t, "set-cookie")
 
 	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {

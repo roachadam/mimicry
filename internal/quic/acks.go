@@ -77,7 +77,7 @@ func (acks *ackState) receive(now time.Time, space numberSpace, num packetNumber
 			// https://www.rfc-editor.org/rfc/rfc9000#section-18.2-4.28.1
 			delay := maxAckDelay - timerGranularity
 			if acks.maxDelay > 0 {
-				delay = acks.maxDelay // mimicry
+				delay = acks.maxDelay // mimicry: client
 			}
 
 			acks.nextAck = now.Add(delay)
@@ -179,7 +179,7 @@ func (acks *ackState) mustAckImmediately(space numberSpace, num packetNumber, ec
 	}
 
 	if acks.every > 0 {
-		packetsBeforeAck = acks.clientAckEvery(acks.seen.max()) // mimicry
+		packetsBeforeAck = acks.clientAckEvery(acks.seen.max()) // mimicry: client
 	}
 
 	return acks.unackedAckEliciting >= packetsBeforeAck

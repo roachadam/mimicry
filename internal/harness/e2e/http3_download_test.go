@@ -74,10 +74,10 @@ func TestHTTP3DownloadMatchesBrowser(t *testing.T) {
 			}
 
 			t.Logf("mimicry: %s", summary)
-			compareCredit(t, "MAX_STREAM_DATA", streamCredit(c), mapEachConn(refs, streamCredit))
+			compareCredit(t, "MAX_STREAM_DATA", streamCredit(c), mapEach(refs, streamCredit))
 
 			if !byWindow {
-				compareCredit(t, "MAX_DATA", connCredit(c), mapEachConn(refs, connCredit))
+				compareCredit(t, "MAX_DATA", connCredit(c), mapEach(refs, connCredit))
 			}
 
 			afterDownload(t, got)
@@ -146,15 +146,6 @@ func downloadConn(t *testing.T, page *capture.Page) *quictrace.Conn {
 
 // downloadPackets is fewer packets than 50 MiB takes (about 37,000).
 const downloadPackets = 30000
-
-func mapEachConn(conns []*quictrace.Conn, f func(*quictrace.Conn) []uint64) [][]uint64 {
-	out := make([][]uint64, 0, len(conns))
-	for _, c := range conns {
-		out = append(out, f(c))
-	}
-
-	return out
-}
 
 // bulkEvent is one 1-RTT packet of the connection, either side's, by when
 // the recorder saw it.

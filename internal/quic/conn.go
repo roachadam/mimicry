@@ -98,7 +98,7 @@ func newConn(now time.Time, side connSide, cids newServerConnIDs, peerHostname s
 		config:               config,
 		donec:                make(chan struct{}),
 		peerAckDelayExponent: -1,
-		client:               config.client, // mimicry
+		client:               config.client, // mimicry: client
 	}
 	defer func() {
 		// If we hit an error in newConn, close donec so tests don't get stuck waiting for it.
@@ -177,6 +177,8 @@ func newConn(now time.Time, side connSide, cids newServerConnIDs, peerHostname s
 
 	c.loss.init(c.side, maxDatagramSize, now)
 
+	// mimicry: the client's first packet number, ACK frequency and loss
+	// settings from its profile.
 	if c.client != nil {
 		c.loss.spaces[initialSpace].nextNum = c.client.initialPN
 

@@ -51,7 +51,7 @@ func matchCookiesEdgePage(t *testing.T, sc *server.Scenario, steps []server.Cook
 
 				for i, w := range want {
 					if wc, _ := edgeCookie(w, st, plain[st.Label]); wc != g {
-						t.Errorf("%s: Cookie\n%q\nbrowser sample %d:\n%q", st.Label, g, i, wc)
+						t.Errorf("%s: Cookie\n%q\nbrowser sample %d:\n%q", st.Label, g, i+1, wc)
 					}
 				}
 			}
@@ -74,7 +74,7 @@ func edgeSchemes(t *testing.T, pages []*capture.Page, steps []server.CookiesEdge
 			_, h2 := edgeCookie(page, st, false)
 
 			if h1 == h2 {
-				t.Fatalf("%s: browser sample %d sent it over plain HTTP %v and HTTPS %v", st.Label, i, h1, h2)
+				t.Fatalf("%s: browser sample %d sent it over plain HTTP %v and HTTPS %v", st.Label, i+1, h1, h2)
 			}
 
 			if prev, ok := out[st.Label]; ok && prev != h1 {
@@ -213,4 +213,12 @@ func runCookiesEdgePage(t *testing.T, p *profile.Profile, sc *server.Scenario, s
 	}
 
 	return s.finish(page.ResolveReference(&url.URL{Path: "/done"}).String())
+}
+
+// Every step of the cookies-edge2 page through mimicry sends each sample's
+// Cookie header: SameSite across schemes of one host, nameless cookies and
+// __Http- prefixes. Its http:// steps go to a plain-only port, as the
+// browsers sent them.
+func TestCookiesEdge2MatchesBrowser(t *testing.T) {
+	matchCookiesEdgePage(t, server.CookiesEdge2, server.CookiesEdge2Steps())
 }

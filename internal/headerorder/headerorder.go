@@ -47,7 +47,7 @@ type Plan struct {
 	// LowerOwn sends the headers the lists do not name lowercase over
 	// HTTP/1.1 (fetch()), not as the caller spelled them.
 	LowerOwn bool
-	// NoContentLength sends a body over HTTP/2 without content-length:
+	// NoContentLength sends a body over HTTP/2 and HTTP/3 without content-length:
 	// the request's measured list has none (Safari's redirected bodies
 	// after a preflight).
 	NoContentLength bool

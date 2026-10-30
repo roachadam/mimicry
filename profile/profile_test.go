@@ -1476,7 +1476,8 @@ func removeExtension(p *Profile, typ Code) {
 	})
 }
 
-// validProxy returns a proxy section TestValidateAcceptsLimits shows valid.
+// validProxy returns a proxy section with no problem of its own; each
+// TestValidate case breaks one thing.
 func validProxy() *Proxy {
 	return &Proxy{
 		Connect: []Header{

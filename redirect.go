@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/roachadam/mimicry/internal/cors"
-	"github.com/roachadam/mimicry/internal/headerorder"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -48,7 +47,7 @@ func browserHop(p *profile.Profile, req *http.Request, nav bool, u use) (*http.R
 		case p.Redirects != nil:
 			limit = p.Redirects.NavigationLimit
 		case n > navigationRedirects:
-			return nil, fmt.Errorf("%w: profile %s has no redirects rules, for a navigation's redirect %d (every browser follows %d)", headerorder.ErrNotMeasured, p.Name, n, navigationRedirects)
+			return nil, fmt.Errorf("%w: profile %s has no redirects rules, for a navigation's redirect %d (every browser follows %d)", ErrNotMeasured, p.Name, n, navigationRedirects)
 		}
 	}
 

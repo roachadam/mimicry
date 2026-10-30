@@ -97,7 +97,7 @@ type entry[S Shared, E Exclusive] struct {
 	// progress, or for a connection once MaxExclusive are busy.
 	waiters []*waiter[E]
 	// evict forgets the entry once it has had no connections for
-	// IdleTimeout; nil while it has some.
+	// KeyTimeout; nil while it has some.
 	evict clockwork.Timer
 	// expire closes the shared connection once it has been idle for
 	// IdleTimeout: armed while there is one, it looks again when the

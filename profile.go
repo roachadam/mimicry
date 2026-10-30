@@ -40,7 +40,7 @@ func snapshot(p *profile.Profile) (*profile.Profile, error) {
 
 	data, err := json.Marshal(p)
 	if err != nil {
-		return nil, fmt.Errorf("profile: %w", err)
+		return nil, fmt.Errorf("mimicry: %w", err)
 	}
 
 	decoded, err := profile.Parse(data)

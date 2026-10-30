@@ -1,6 +1,6 @@
 // Package profile defines a browser profile, split by concern (TLS, HTTP/2,
 // HTTP/1.1, headers by request kind, cookies, proxies, redirects, connection
-// sharing), and loads and validates it from JSON, the format the harness
+// sharing, WebSocket, QUIC, HTTP/3), and loads and validates it from JSON, the format the harness
 // writes browser captures in. It imports only the standard library.
 package profile
 

@@ -1,4 +1,4 @@
-# 0009: Our own cookie jar, driven by the transport
+# 0009: mimicry's own cookie jar, driven by the transport
 
 - Status: Accepted
 - Date: 2026-10-23 (designed), 2026-10-24 (built: `373c0ca`, `e7627c0`; review fixes 2026-10-24)

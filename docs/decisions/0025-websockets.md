@@ -51,7 +51,7 @@ browsers, three samples each:
 
 - **A byte stream** (`net/http`'s 101 body, a `net.Conn`). The caller
   would frame, so the frames would not be the browser's.
-- **An adapter to an existing Go WebSocket library.** Its API, and our
+- **An adapter to an existing Go WebSocket library.** Its API, and mimicry's
   framing behind it: more surface, someone else's semantics.
 - **A message-level connection** that owns framing, as the JavaScript
   `WebSocket` does (chosen; the maintainer's decision).

@@ -97,7 +97,7 @@ func (s *connIDState) initClient(c *Conn) error {
 	}
 
 	if c.client != nil {
-		remid = c.client.dcid // mimicry
+		remid = c.client.dcid // mimicry: client
 	}
 	s.remote = append(s.remote, remoteConnID{
 		connID: connID{
@@ -391,6 +391,7 @@ func (s *connIDState) handleNewConnID(c *Conn, seq, retire int64, cid []byte, re
 	//
 	// Set a limit of three times the active_connection_id_limit for
 	// the total number of remote connection IDs we keep retirement state for.
+	// mimicry: the limit sent, not upstream's constant.
 	if s.remoteRetiring.size()+s.remoteRetiringSent.size() > 3*int64(c.localActiveConnIDLimit()) {
 		return localTransportError{
 			code:   errConnectionIDLimit,
@@ -505,7 +506,7 @@ func (c *Conn) newConnID(seq int64) ([]byte, error) {
 	}
 
 	if c.client != nil {
-		return newRandomConnIDLen(len(c.client.scid)) // mimicry
+		return newRandomConnIDLen(len(c.client.scid)) // mimicry: client
 	}
 
 	return newRandomConnID(seq)

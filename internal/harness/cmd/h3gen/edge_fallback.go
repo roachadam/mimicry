@@ -512,7 +512,7 @@ func (s *edgeSet) revalidate(e *collector) *profile.Range {
 			}
 		}
 
-		for _, sl := range s.silencedConns(e) {
+		for _, sl := range s.silenced {
 			if sl.p == p && sl.a.c.Close != nil && sl.a.c.Close.By == "idle" {
 				events = append(events, event{
 					host: sl.a.c.Host,
@@ -555,7 +555,7 @@ func (s *edgeSet) revalidate(e *collector) *profile.Range {
 // new QUIC connection.
 func (s *edgeSet) pending(out *profile.Fallback, e *collector) {
 	var reconnects []int
-	for i, sl := range s.silencedConns(e) {
+	for i, sl := range s.silenced {
 		p := sl.p
 		host := sl.a.c.Host
 		cl, died := sl.clientClose()

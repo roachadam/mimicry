@@ -93,8 +93,9 @@ blocks them. Rows in [EVIDENCE.md, Redirects](../../profiles/EVIDENCE.md#redirec
   after the list (`missingCaptures`, backlog).
 - Hops no twin reaches with cookies keep no slot: cross-site
   subresources with credentials (`credentials: "include"`,
-  `withCredentials`, `crossorigin="use-credentials"`) and hops from
-  `http://` (backlog).
+  `withCredentials`, `crossorigin="use-credentials"`), hops from
+  `http://`, and Safari 27's image hop to another origin of the page's
+  site (backlog).
 - A refresh recaptures twins as it does their originals; a new redirect
   scenario gets a twin when its hops can carry cookies.
 

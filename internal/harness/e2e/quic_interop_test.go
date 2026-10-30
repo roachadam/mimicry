@@ -2380,11 +2380,3 @@ func runChildBackend(dir string) int {
 
 	return 0
 }
-
-func TestMain(m *testing.M) {
-	if dir := os.Getenv(interopChildEnv); dir != "" {
-		os.Exit(runChildBackend(dir))
-	}
-
-	os.Exit(m.Run())
-}

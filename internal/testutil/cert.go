@@ -1,4 +1,5 @@
-// Package testutil holds test certificates shared by mimicry's tests.
+// Package testutil holds test certificates and helpers shared by mimicry's
+// tests.
 package testutil
 
 import (

@@ -8,13 +8,13 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"runtime/debug"
 	"testing"
 
 	"golang.org/x/net/http2"
 
 	"github.com/roachadam/mimicry/internal/qpack"
 	"github.com/roachadam/mimicry/internal/quic"
+	"github.com/roachadam/mimicry/internal/testutil"
 )
 
 // h1Response is what serveH1Requests answers every request with.
@@ -233,7 +233,7 @@ func serveH3Requests(sc *quic.Conn) {
 // messages). The TCP servers allocate nothing per request; the HTTP/3
 // server's QUIC stack does, and is counted.
 func TestWarmRequestAllocations(t *testing.T) {
-	race := raceBuild()
+	race := testutil.RaceEnabled()
 
 	for _, tc := range []struct {
 		name string
@@ -332,22 +332,6 @@ func TestWarmRequestAllocations(t *testing.T) {
 			}
 		})
 	}
-}
-
-// raceBuild reports whether the test binary was built with -race.
-func raceBuild() bool {
-	info, ok := debug.ReadBuildInfo()
-	if !ok {
-		return false
-	}
-
-	for _, s := range info.Settings {
-		if s.Key == "-race" {
-			return s.Value == "true"
-		}
-	}
-
-	return false
 }
 
 // errNoTCP fails the HTTP/3 row's TCP dials: its requests go on QUIC only.

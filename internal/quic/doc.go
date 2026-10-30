@@ -35,8 +35,11 @@
 // Known limitations include:
 //
 //   - Performance is untuned.
-//   - 0-RTT is not supported.
-//   - Address migration is not supported.
+//   - 0-RTT is not supported (mimicry: Dial clients send 0-RTT; see
+//     UPSTREAM.md).
+//   - Address migration is not supported (mimicry: a Dial client moves to a
+//     new local port when its path degrades, as Chrome does; see
+//     UPSTREAM.md).
 //   - Server preferred addresses are not supported.
 //   - The latency spin bit is not supported (mimicry: browser clients set it;
 //     see UPSTREAM.md).

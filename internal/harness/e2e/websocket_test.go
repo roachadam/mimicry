@@ -763,10 +763,7 @@ func checkStreamConnection(t *testing.T, steps []server.WebSocketPageStep, got *
 	}
 }
 
-var (
-	wsKey   = regexp.MustCompile(`(?i)^(sec-websocket-key: ).*`)
-	wsPorts = regexp.MustCompile(`\.test:\d+`)
-)
+var wsKey = regexp.MustCompile(`(?i)^(sec-websocket-key: ).*`)
 
 // handshakeLines is ws's handshake: its request and header lines
 // (HTTP/1.1, key elided), or its fields in order with how cookies are
@@ -814,11 +811,7 @@ func handshakeLines(page *capture.Page, ws *capture.WebSocket) string {
 		}
 	}
 
-	for i, l := range lines {
-		lines[i] = wsPorts.ReplaceAllString(l, ".test:PORT")
-	}
-
-	return strings.Join(lines, "\n")
+	return strings.Join(portless(lines), "\n")
 }
 
 // checkSocketHello compares the socket connection's TLS hello with the
