@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-28
-- Commits: `970e210`
+- Commits: `1d9e67f`
 
 **Summary.** By default a request stops waiting on an unanswered 0-RTT
 QUIC connection at the profile's race delay (about 300 ms), and on a

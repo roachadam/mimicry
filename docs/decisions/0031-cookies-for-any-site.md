@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-26
-- Commits: `10ed0b2` (first design), `7395438` (`SetHostString`, the scope rework)
+- Commits: `cb00df5` (first design), `3cbe5a3` (`SetHostString`, the scope rework)
 
 **Summary.** The cookie jar is reachable (`Transport.Cookies()`) and takes
 and gives `Cookie` header strings: `SetString` stores Domain cookies of
@@ -41,7 +41,7 @@ and visible in the caller's code.
   the site's own Domain cookies reach, and the caller has to call it once
   per host. Kept as `SetHostString`, beside the Domain form.
 - **A Domain cookie of the name's registrable domain** (first landed in
-  10ed0b2, then reversed). `www.amazon.com` became `amazon.com`, so the
+  cb00df5, then reversed). `www.amazon.com` became `amazon.com`, so the
   cookies reached `api.amazon.com` too: a scope the caller did not ask for
   and no browser would give a cookie set for `www.amazon.com`, and no way
   to say "this host and below". A caller who wants the whole site names

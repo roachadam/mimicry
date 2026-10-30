@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-26 (`DialWebSocket` errors through proxies); amended 2026-10-28 by [0039](0039-proxy-credentials-up-front.md) (credentials up front, a 407 final at once)
 - Date: 2026-10-26
-- Commits: `10ed0b2`; amendments `b9a697d`, `deb482e` (0039)
+- Commits: `cb00df5`; amendments `ff2ad07`, `145b90b` (0039)
 
 **Summary.** Every failure before the server is reached through a proxy
 (connect, CONNECT refusal, SOCKS5 refusal, deadline, a final 407) is a

@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-25
-- Commits: `faf3ef1`
+- Commits: `c6ed145`
 
 **Summary.** The capture harness serves QUIC with quic-go but records the
 client's own datagrams below it, decrypting and parsing every packet and frame

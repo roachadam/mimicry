@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-26 (`navigationOrigin`, and user navigations' `Sec-Fetch-User`, from the `nav-redirect-*` captures)
 - Date: 2026-10-24
-- Commits: `fd5e825`; amended in `0a4a442`
+- Commits: `62d9b2a`; amended in `f40c311`
 
 **Summary.** The Transport corrects each redirect hop that `http.Client`
 builds so it follows the browser's rules: Fetch method and body rules, the

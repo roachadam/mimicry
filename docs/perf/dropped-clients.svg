@@ -190,7 +190,7 @@ text{fill:#f0f6fc}
 <text x="444.0" y="900.0" font-size="12.0" class="b">mimicry: 91% less memory than azuretls</text>
 <line x1="24.0" y1="924.0" x2="836.0" y2="924.0" class="sep"/>
 <text x="24.0" y="942.0" font-size="11.0" class="m">Linux host (Intel Core i5-13500), 20 cores, Linux 6.18.38; the client on 4 CPUs (GOMAXPROCS 4); nginx/1.31.8.</text>
-<text x="24.0" y="957.0" font-size="11.0" class="m">mimicry a454c2a, 2026-10-29. Each bar: the median of 3 passes. Ranges overlap: the two values&#39; lowest-to-highest over the passes do (the report</text>
+<text x="24.0" y="957.0" font-size="11.0" class="m">mimicry e28df4c, 2026-10-29. Each bar: the median of 3 passes. Ranges overlap: the two values&#39; lowest-to-highest over the passes do (the report</text>
 <text x="24.0" y="972.0" font-size="11.0" class="m">gives every range). At the window&#39;s end: tunnels and UDP associations open at the proxy (one is the current client&#39;s), and resident memory.</text>
 <text x="24.0" y="987.0" font-size="11.0" class="m">net/http&#39;s HTTP/3 (quic-go) has no proxy setting.</text>
 <text x="24.0" y="1002.0" font-size="11.0" class="m">Source: internal/bench/reports/linux-final-2026-10-29/final-2026-10-29.json.</text>

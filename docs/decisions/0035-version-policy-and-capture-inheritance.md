@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-26
-- Commits: `d7e1c83`
+- Commits: `2c913bf`
 
 **Summary.** `profiles.Chrome()`, `Firefox()` and `Safari()` return the
 newest built-in version; the newest five versions per browser and platform

@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-24 by [0021](0021-page-headers-hash-table-order.md) (page-set headers placed by name)
 - Date: 2026-10-24
-- Commits: `f841faa`, `b4f5f79`; extended in `438c5aa` (`pageSet`, variants measured over HTTP/2 only)
+- Commits: `157e4c6`, `3fa3983`; extended in `96bdaa0` (`pageSet`, variants measured over HTTP/2 only)
 
 **Summary.** The maintainer's decision is that each request kind has a
 default header order plus variants keyed by measured conditions (method,

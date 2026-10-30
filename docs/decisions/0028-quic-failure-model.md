@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-28 by [0036](0036-fast-quic-fallback.md) (holds shortened by default); amended 2026-10-28 (`brokenAfter` counts only attempts that sent a datagram)
 - Date: 2026-10-25
-- Commits: `1559e36`; amendments `970e210` (0036), `4cca5f9` (`brokenAfter`)
+- Commits: `4e8c207`; amendments `1d9e67f` (0036), `f5772cb` (`brokenAfter`)
 
 **Summary.** Each browser's QUIC and HTTP/3 failure behaviour (when it
 races TCP, gives up and closes, migrates or closes a dead path, keeps

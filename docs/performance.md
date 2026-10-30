@@ -159,7 +159,7 @@ You need a Linux host with Docker and a copy of the repository. Go is not
 needed; the images build it. The run above used:
 
 ```sh
-BENCH_NAME=final BENCH_MIMICRY_COMMIT=a454c2a BENCH_PUBLISH=0 \
+BENCH_NAME=final BENCH_MIMICRY_COMMIT=e28df4c BENCH_PUBLISH=0 \
   BENCH_CLIENT_CPUS=0,2,4,6 BENCH_SERVER_CPUS=8-11 BENCH_SERVER_PROCS=4 BENCH_PROXY_CPUS=12-15 \
   nohup internal/bench/scripts/bench.sh run > run.log 2>&1 &
 ```

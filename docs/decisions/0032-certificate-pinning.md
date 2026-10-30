@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-26
-- Commits: `10ed0b2`
+- Commits: `cb00df5`
 
 **Summary.** `Config.Pins` and `Config.VerifyConnection` check the server's
 certificate on every TLS and QUIC handshake, resumed ones included, and

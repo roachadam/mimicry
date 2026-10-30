@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-24
-- Commits: `3fab2cc`
+- Commits: `790a8e3`
 
 **Summary.** A request goes to exactly the URL given: mimicry makes no
 HTTPS upgrade attempts and keeps no HSTS state, because silently changing

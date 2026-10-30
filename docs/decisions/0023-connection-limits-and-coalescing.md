@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-28 by [0037](0037-coalescing-opt-out.md) (options to disable coalescing and change the HTTP/1.1 limit)
 - Date: 2026-10-24
-- Commits: `fd5e825`
+- Commits: `62d9b2a`
 
 **Summary.** Each profile's required `connections` section sets the per-host
 HTTP/1.1 limit (6 in every browser) and how HTTP/2 connections are shared

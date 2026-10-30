@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-24
-- Commits: `f841faa`
+- Commits: `157e4c6`
 
 **Summary.** The maintainer's decision is to keep the navigation as the
 profile's top-level base request (`headers`, `http1`, `http2`) instead of

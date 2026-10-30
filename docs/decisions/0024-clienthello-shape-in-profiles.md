@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-27 (`x25519Reuse` added); amended 2026-10-28 (`x25519Reuse` checked on every hello with both shares)
 - Date: 2026-10-24
-- Commits: `fd5e825`
+- Commits: `62d9b2a`
 
 **Summary.** The ClientHello's whole shape (record and legacy versions,
 session-ID and key-share lengths, each browser's own GREASE ECH, and

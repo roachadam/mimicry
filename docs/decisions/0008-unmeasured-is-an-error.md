@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-24
-- Commits: `71c7c36`; extended in `438c5aa`
+- Commits: `9594737`; extended in `96bdaa0`
 
 **Summary.** The maintainer's decision is that asking for a request that
 was never captured, or one no browser can make, returns an error wrapping

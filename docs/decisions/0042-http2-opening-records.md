@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-28
-- Commits: `8ca60c2`
+- Commits: `fc62d65`
 
 **Summary.** HTTP/2's opening frames and first request are now grouped
 into TLS records as each browser groups them, from a profile field

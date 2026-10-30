@@ -46,7 +46,7 @@ The 2 points where the server was the limit for at least one client; requests/s 
 | Mode | local: both stacks on one Docker host, one Docker network |
 | CPU sets | client 0-3, servers 4-11, proxy 10-11; the client sees 4 CPUs, GOMAXPROCS 4 |
 | Go | go1.27.3 (clients and the Go server) |
-| mimicry | 9696132 + uncommitted changes |
+| mimicry | df5a13f + uncommitted changes |
 | Server nginx | nginx/1.31.8, 8 CPUs |
 | Server go | net/http and quic-go v0.64.1 (go1.27.3), 8 CPUs |
 | Proxy delay | 5ms on the proxy's outgoing packets |

@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-28
-- Commits: `50e9489`
+- Commits: `c1cd089`
 
 **Summary.** `Config.HTTP3OverSOCKS5` (off by default) lets requests
 through a SOCKS5 proxy use HTTP/3 via UDP ASSOCIATE, with the profile's

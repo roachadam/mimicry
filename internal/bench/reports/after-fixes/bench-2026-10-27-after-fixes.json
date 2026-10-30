@@ -10,7 +10,7 @@
     "clientCpus": 4,
     "gomaxprocs": 4,
     "goVersion": "go1.27.3",
-    "mimicryCommit": "d5aa90e",
+    "mimicryCommit": "dbec7d1",
     "cpusets": "client 0-3, servers 4-11, proxy 10-11",
     "servers": [
       {

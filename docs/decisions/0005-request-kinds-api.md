@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-28 by [0036](0036-fast-quic-fallback.md) (fast QUIC fallback by default) and [0039](0039-proxy-credentials-up-front.md) (proxy credentials up front by default)
 - Date: 2026-10-23 (designed), 2026-10-24 (built)
-- Commits: `f841faa`, `71c7c36`, `b4f5f79`
+- Commits: `157e4c6`, `9594737`, `3fa3983`
 
 **Summary.** The maintainer's decision is that callers state how a request
 is made (a kind such as `Script`, `Image` or `Fetch`, and the page it comes

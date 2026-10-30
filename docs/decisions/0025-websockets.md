@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-26 (`windowBits8`; WebSockets through proxies measured)
 - Date: 2026-10-24
-- Commits: `a3b014e`; amendments `0a4a442`, `b9a697d`
+- Commits: `1dd1d09`; amendments `f40c311`, `ff2ad07`
 
 **Summary.** mimicry provides message-level WebSockets
 (`(*Transport).DialWebSocket`, returning a `*WebSocket` with `ReadMessage`,

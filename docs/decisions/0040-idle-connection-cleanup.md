@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-28 (`Config.IdleConnTimeout`, `pool.Shared.OnClose` instead of a watcher goroutine); amended 2026-10-29 (`Config.MaxIdleProxies`)
 - Date: 2026-10-28
-- Commits: `deb482e`; amendments `722e27e` (IdleConnTimeout), `a454c2a` (MaxIdleProxies)
+- Commits: `145b90b`; amendments `8b681d0` (IdleConnTimeout), `e28df4c` (MaxIdleProxies)
 
 **Summary.** Idle HTTP/2 and HTTP/3 connections now close after 90 s like
 HTTP/1.1, proxies outside the 16 most recently used (and unused for 10 s)
@@ -240,7 +240,7 @@ realistic pattern (a new client per identity) is benchmarked.
 
 ## Amendment 2026-10-29: Config.MaxIdleProxies
 
-- **Problem.** In the benchmark at `9696132`
+- **Problem.** In the benchmark at `df5a13f`
   ([linux-2026-10-29](../../internal/bench/reports/linux-2026-10-29/bench-2026-10-29.md))
   a client rotating to a new identity
   every 10 requests (about every 120 ms) kept 1.8 MB of live heap and 76

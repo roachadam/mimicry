@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-26
-- Commits: `7ef7099`
+- Commits: `33fb830`
 
 **Summary.** `Transport.Plan(req)` returns what a request would send
 without sending it or changing any state: per-protocol request lines and

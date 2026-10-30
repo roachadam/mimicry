@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-28 by [0040](0040-idle-connection-cleanup.md) (rotating proxies within one Transport) and 2026-10-29 by [0044](0044-profile-fingerprint.md) (cheap clients)
 - Date: 2026-10-24
-- Commits: `438c5aa`
+- Commits: `96bdaa0`
 
 **Summary.** A Transport (or a client from `NewClient`) is one browsing
 entity: one browser profile used by one task, with its own last navigation,

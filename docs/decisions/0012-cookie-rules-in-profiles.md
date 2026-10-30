@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-24
-- Commits: `2bf48f3`, `4dd6279`
+- Commits: `373c0ca`, `e7627c0`
 
 **Summary.** Each browser's cookie behaviour (SameSite defaults,
 third-party cookies, redirects, ordering, limits and more) is a `cookies`

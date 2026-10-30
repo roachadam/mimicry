@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-24 (top-level-site partitioning measured, not modelled); amended 2026-10-25 by [0029](0029-scope-what-gets-modelled.md) (top-level-site partition deferred); amended 2026-10-28 (the shared Alt-Svc cache is not partitioned by site either)
 - Date: 2026-10-24
-- Commits: `b4f5f79`
+- Commits: `3fa3983`
 
 **Summary.** Which requests share a connection is modelled only where a
 rule was measured: Chrome's separate connections for credential-less

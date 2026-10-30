@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-26
-- Commits: `10ed0b2`
+- Commits: `cb00df5`
 
 **Summary.** `mimicry.Place{Header, After | Before}`, on
 `Config.HeaderPlacement` or `Request.HeaderPlacement`, moves one named

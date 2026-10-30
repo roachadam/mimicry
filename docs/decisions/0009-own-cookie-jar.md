@@ -1,7 +1,7 @@
 # 0009: Our own cookie jar, driven by the transport
 
 - Status: Accepted
-- Date: 2026-10-23 (designed), 2026-10-24 (built: `2bf48f3`, `4dd6279`; review fixes 2026-10-24)
+- Date: 2026-10-23 (designed), 2026-10-24 (built: `373c0ca`, `e7627c0`; review fixes 2026-10-24)
 
 **Summary.** The maintainer's decision is a cookie jar of mimicry's own
 (`mimicry/cookies`), wired into the transport by `NewClient`, that reads raw

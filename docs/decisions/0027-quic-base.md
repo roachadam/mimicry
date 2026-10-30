@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-27 (fix our copy, don't wait for upstream)
 - Date: 2026-10-25
-- Commits: `33f98da` (adds `internal/quic`), `b22fca7`
+- Commits: `f98f5e9` (adds `internal/quic`), `acfc4f6`
 
 **Summary.** mimicry's QUIC is a copy of `golang.org/x/net/quic` in
 `internal/quic`, using the uTLS fork and changed to build packets per profile,

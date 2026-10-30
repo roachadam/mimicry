@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-28
-- Commits: `deb482e`
+- Commits: `145b90b`
 
 **Summary.** The maintainer's decision: by default an HTTP proxy gets the
 URL's credentials on the first CONNECT or forwarded request, placed where

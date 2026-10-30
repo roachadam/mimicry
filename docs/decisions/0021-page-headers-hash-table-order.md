@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-24
-- Commits: `fd5e825`
+- Commits: `62d9b2a`
 
 **Summary.** Headers a page sets itself (`fetch()`, `setRequestHeader`) are
 ordered by modelling each browser's header hash table (Blink's in Chrome,

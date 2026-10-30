@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-24
-- Commits: `7cd1229`, `ca970f8`
+- Commits: `d29d30f`, `89b05bc`
 
 **Summary.** mimicry resumes TLS sessions as the profile's browser does,
 from its own ticket store rather than uTLS's cache: Chrome and Firefox use

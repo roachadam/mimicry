@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-24
-- Commits: `d3eb402`
+- Commits: `046198b`
 
 **Summary.** The maintainer's decision is that cross-origin `Fetch` and
 `XHR` requests that need one get an `OPTIONS` preflight as the browser

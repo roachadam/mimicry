@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-28
-- Commits: `50e9489`
+- Commits: `c1cd089`
 
 **Summary.** mimicry keeps the browsers' HTTP/2 coalescing by default and
 adds `Config.DisableCoalescing` to give every host its own connection,

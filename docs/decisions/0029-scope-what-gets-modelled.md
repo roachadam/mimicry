@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-28 by [0036](0036-fast-quic-fallback.md) (fast failure-path timing by default) and [0037](0037-coalescing-opt-out.md) (faster defaults for costly, low-risk behaviours)
 - Date: 2026-10-25
-- Commits: `fa2e0fa`
+- Commits: `9f32f39`
 
 **Summary.** The maintainer's decision is to model a browser behaviour only
 if an anti-bot vendor plausibly checks it (TLS hello, HTTP/2 and HTTP/3

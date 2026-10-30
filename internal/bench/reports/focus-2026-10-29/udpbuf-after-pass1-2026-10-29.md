@@ -46,7 +46,7 @@ The 2 points where the server was the limit for at least one client; requests/s 
 | Mode | local: both stacks on one Docker host, one Docker network |
 | CPU sets | client 0,2,4,6, servers 8-11, proxy 12-15; the client sees 4 CPUs, GOMAXPROCS 4 |
 | Go | go1.27.3 (clients and the Go server) |
-| mimicry | 9696132 + UDP buffer default 1 MB (Chrome request; negative = OS default) |
+| mimicry | df5a13f + UDP buffer default 1 MB (Chrome request; negative = OS default) |
 | Server nginx | nginx/1.31.8, 4 CPUs |
 | Server go | net/http and quic-go v0.64.1 (go1.27.3), 4 CPUs |
 | Proxy delay | 5ms on everything the proxy sends, in the proxy (a delay line per direction; the host has no netem) |

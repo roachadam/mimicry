@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-28 by [0040](0040-idle-connection-cleanup.md) (idle timeout for every protocol, `Config.IdleConnTimeout`, a separate `KeyTimeout`, `Shared.OnClose`)
 - Date: 2026-10-24
-- Commits: `438c5aa`
+- Commits: `96bdaa0`
 
 **Summary.** The connection pool moved out of the engine into `internal/pool`,
 keyed by scheme, host, port, partition and proxy, with liveness checks, shared

@@ -272,7 +272,7 @@ text{fill:#f0f6fc}
 <text x="584.0" y="956.0" font-size="11.0" class="m">nginx was the limit here, not the clients.</text>
 <line x1="24.0" y1="1006.0" x2="836.0" y2="1006.0" class="sep"/>
 <text x="24.0" y="1024.0" font-size="11.0" class="m">Linux host (Intel Core i5-13500), 20 cores, Linux 6.18.38; the client on 4 CPUs (GOMAXPROCS 4); nginx/1.31.8.</text>
-<text x="24.0" y="1039.0" font-size="11.0" class="m">mimicry a454c2a, 2026-10-29. Each bar: the median of 3 passes. Ranges overlap: the two values&#39; lowest-to-highest over the passes do (the report</text>
+<text x="24.0" y="1039.0" font-size="11.0" class="m">mimicry e28df4c, 2026-10-29. Each bar: the median of 3 passes. Ranges overlap: the two values&#39; lowest-to-highest over the passes do (the report</text>
 <text x="24.0" y="1054.0" font-size="11.0" class="m">gives every range).</text>
 <text x="24.0" y="1069.0" font-size="11.0" class="m">Source: internal/bench/reports/linux-final-2026-10-29/final-2026-10-29.json.</text>
 </svg>

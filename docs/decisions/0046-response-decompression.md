@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-29
-- Commits: `9039936`
+- Commits: `ec2c23e`
 
 **Summary.** A response body in gzip, deflate, Brotli or zstd is decoded
 by default, whether the profile or the caller set `Accept-Encoding`: the

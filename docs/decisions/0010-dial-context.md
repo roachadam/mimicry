@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-24
-- Commits: `71c7c36`
+- Commits: `9594737`
 
 **Summary.** `Config.DialContext`, shaped like `http.Transport`'s, opens
 the TCP connection, while TLS and everything above stay the profile's, so

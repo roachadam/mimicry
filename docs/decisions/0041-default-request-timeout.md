@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-28
-- Commits: `722e27e`
+- Commits: `8b681d0`
 
 **Summary.** `NewClient` sets a 30 s total timeout per request by default
 through `Config.Timeout` (negative means none); `NewTransport` ignores

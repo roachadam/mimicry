@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-24
-- Commits: `d66173e`
+- Commits: `8056623`
 
 **Summary.** Requests to non-secure (`http://`, non-loopback) URLs use
 header lists captured from browsers over plain HTTP, per kind, because the
