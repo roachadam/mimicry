@@ -131,10 +131,6 @@ func (c *Conn) maybeSendClient(now time.Time) (next time.Time) {
 				c.w.appendPaddingTo(closeSize)
 			}
 
-			if logPackets {
-				logSentPacket(c, packetTypeInitial, pnum, p.srcConnID, p.dstConnID, c.w.payload())
-			}
-
 			if c.logEnabled(QLogLevelPacket) && len(c.w.payload()) > 0 {
 				c.logPacketSent(packetTypeInitial, pnum, p.srcConnID, p.dstConnID, c.w.packetLen(), c.w.payload())
 			}
@@ -166,10 +162,6 @@ func (c *Conn) maybeSendClient(now time.Time) (next time.Time) {
 			}
 			c.w.startProtectedLongHeaderPacket(pnumMaxAcked, p)
 			c.appendFrames(now, handshakeSpace, pnum, spaceLimit)
-
-			if logPackets {
-				logSentPacket(c, packetTypeHandshake, pnum, p.srcConnID, p.dstConnID, c.w.payload())
-			}
 
 			if c.logEnabled(QLogLevelPacket) && len(c.w.payload()) > 0 {
 				c.logPacketSent(packetTypeHandshake, pnum, p.srcConnID, p.dstConnID, c.w.packetLen(), c.w.payload())
@@ -204,10 +196,6 @@ func (c *Conn) maybeSendClient(now time.Time) (next time.Time) {
 			c.w.startProtectedLongHeaderPacket(pnumMaxAcked, p)
 			c.appendFrames(now, appDataSpace, pnum, limit)
 
-			if logPackets {
-				logSentPacket(c, packetType0RTT, pnum, p.srcConnID, p.dstConnID, c.w.payload())
-			}
-
 			if c.logEnabled(QLogLevelPacket) && len(c.w.payload()) > 0 {
 				c.logPacketSent(packetType0RTT, pnum, p.srcConnID, p.dstConnID, c.w.packetLen(), c.w.payload())
 			}
@@ -233,10 +221,6 @@ func (c *Conn) maybeSendClient(now time.Time) (next time.Time) {
 				c.w.appendPaddingTo(closeSize)
 
 				paddedIn1RTT = true
-			}
-
-			if logPackets {
-				logSentPacket(c, packetType1RTT, pnum, nil, dstConnID, c.w.payload())
 			}
 
 			if c.logEnabled(QLogLevelPacket) && len(c.w.payload()) > 0 {

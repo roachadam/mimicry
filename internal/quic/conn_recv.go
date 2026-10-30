@@ -116,9 +116,7 @@ func (c *Conn) handleLongHeader(now time.Time, dgram *datagram, ptype packetType
 		return n
 	}
 
-	if logPackets {
-		logInboundLongPacket(c, p)
-	}
+	// mimicry: the GODEBUG packet logger is removed (UPSTREAM.md change 19)
 	if c.logEnabled(QLogLevelPacket) {
 		c.logLongPacketReceived(p, buf[:n])
 	}
@@ -168,9 +166,6 @@ func (c *Conn) handle1RTT(now time.Time, dgram *datagram, buf []byte) int {
 		return len(buf)
 	}
 
-	if logPackets {
-		logInboundShortPacket(c, p)
-	}
 	if c.logEnabled(QLogLevelPacket) {
 		c.log1RTTPacketReceived(p, buf)
 	}
