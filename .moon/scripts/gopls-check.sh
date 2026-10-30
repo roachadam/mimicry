@@ -8,8 +8,14 @@ set -euo pipefail
 files=$(go list -f '{{$d := .Dir}}{{range .GoFiles}}{{$d}}/{{.}} {{end}}{{range .TestGoFiles}}{{$d}}/{{.}} {{end}}{{range .XTestGoFiles}}{{$d}}/{{.}} {{end}}' ./... | tr ' ' '\n' | grep -v '/internal/quic/' | grep . || true)
 [ -z "$files" ] && exit 0
 
+gopls=golang.org/x/tools/gopls@v0.24.0
+# Build (and, on a cold module cache, download) gopls first: go run's
+# "go: downloading" lines go to stderr, which the check below captures, so
+# they would otherwise be counted as diagnostics.
+go run "$gopls" version >/dev/null
+
 # shellcheck disable=SC2086 # one argument per file
-out=$(go run golang.org/x/tools/gopls@v0.24.0 check -severity=hint $files 2>&1)
+out=$(go run "$gopls" check -severity=hint $files 2>&1)
 if [ -n "$out" ]; then
 	echo "$out"
 	echo "gopls check: $(echo "$out" | wc -l | tr -d ' ') diagnostics" >&2
