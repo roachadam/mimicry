@@ -72,6 +72,7 @@ linters:
             - github.com/roachadam/mimicry/profile$
             - github.com/roachadam/mimicry/profiles$
             - github.com/sardanioss/httpcloak
+            - golang.org/x/sys/unix$
         internal/cors:
           files:
             - ${config-path}/internal/cors/*.go
