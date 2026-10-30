@@ -4,6 +4,12 @@
 
 mimicry is a Go HTTP client that sends requests the way Chrome, Firefox and Safari on macOS send them.
 
+> [!WARNING]
+> **Pre-release.** mimicry is tested against real browser captures and
+> benchmarked, but it is not production ready yet: the API may change
+> without notice before 1.0, and it has not been used at scale. Pin a
+> version and test it on your own workload first.
+
 ```sh
 go get github.com/roachadam/mimicry   # Go 1.27.3 or later
 ```
