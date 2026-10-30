@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-26 (WebSockets through proxies, Firefox's tunnels, Safari's WebSockets with credentials); amended 2026-10-28 by [0038](0038-http3-over-socks5.md) (HTTP/3 through SOCKS5 on request); amended 2026-10-28 by [0039](0039-proxy-credentials-up-front.md) (credentials up front by default) and [0040](0040-idle-connection-cleanup.md) (unused proxies' connections close; `MaxIdleProxies`)
 - Date: 2026-10-24
-- Commits: `0bcacae`, `86d5731`, `4884d93`
+- Commits: `cd06fd0`, `d116108`, `9f79d93`
 
 ## Problem
 

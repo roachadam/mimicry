@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-24 by [0021](0021-page-headers-hash-table-order.md) (page-set headers placed by name)
 - Date: 2026-10-24
-- Commits: `31bcd28`, `031ec2b`; extended in `ea769bc` (`pageSet`, variants measured over HTTP/2 only)
+- Commits: `f841faa`, `b4f5f79`; extended in `438c5aa` (`pageSet`, variants measured over HTTP/2 only)
 
 ## Problem
 

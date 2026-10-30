@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-28 by [0036](0036-fast-quic-fallback.md) (holds shortened by default); amended 2026-10-28 (`brokenAfter` counts only attempts that sent a datagram)
 - Date: 2026-10-25
-- Commits: `4dd8d5b`; amendments `5c76160` (0036), `e1883f5` (`brokenAfter`)
+- Commits: `1559e36`; amendments `970e210` (0036), `4cca5f9` (`brokenAfter`)
 
 ## Problem
 

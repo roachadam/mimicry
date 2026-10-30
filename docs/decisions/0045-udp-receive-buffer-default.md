@@ -2,11 +2,11 @@
 
 - Status: Accepted
 - Date: 2026-10-29
-- Commits: `db43d4a`
+- Commits: `a454c2a`
 
 ## Problem
 
-The benchmark at `c1f37ab` on the Linux test host (`internal/bench/reports/linux-2026-10-29/`)
+The benchmark at `9696132` on the Linux test host (`internal/bench/reports/linux-2026-10-29/`)
 had mimicry at 4,316 req/s for HTTP/3, 100 KB bodies, 64 at once, with 2,814
 datagrams dropped on a full receive buffer (`RcvbufErrors`). The other
 clients ran at 7,400-8,600 req/s and dropped none. They are quic-go and its
@@ -117,11 +117,11 @@ at once ran 85,284 against 76,917. Other rows were unchanged.
   11-18% faster with no drops. The cost is the p99 at 100 KB c256. On
   stock Linux it gets 416 KB, so it changes little there.
 
-The final benchmark at `db43d4a`
+The final benchmark at `a454c2a`
 ([linux-final-2026-10-29](../../internal/bench/reports/linux-final-2026-10-29/final-2026-10-29.md),
 layer 3, HTTP/3, nginx, 100 KB c64) reproduced the drop and not the speed:
 mimicry at 4,408 (4,405-4,492) req/s with 447 drops, against 4,316 and 2,814
-drops at `c1f37ab`: about 2% faster, 84% fewer drops.
+drops at `9696132`: about 2% faster, 84% fewer drops.
 
 `SO_RCVBUFFORCE` stays out at any size: it needs `CAP_NET_ADMIN`, and a
 library should not take more than the host's administrator allows.
@@ -140,7 +140,7 @@ error is ignored.
   stock Linux hosts get 416 KB; macOS gets 1 MB. That is up to 2 MB of
   kernel memory per connection, and only while datagrams are queued.
 - The 100 KB c64 gap to the quic-go clients stays: 4,408 req/s in the
-  final benchmark (`db43d4a`) against 7,383-8,516. Closing it needs the receive path faster, or the
+  final benchmark (`a454c2a`) against 7,383-8,516. Closing it needs the receive path faster, or the
   c256 stall removed so that a larger buffer is safe. Both are in the
   backlog.
 - The bench's `mimicry-udpos` measures the old default. `mimicry-udp208k`

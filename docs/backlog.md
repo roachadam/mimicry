@@ -482,8 +482,8 @@ These matter most under decision 0029:
     client had received every server packet, had its own acknowledged
     and no PTO armed: the server stopped sending. Why is not established.
   - Shows: benchmark layer 6 (rotation, HTTP/3 through SOCKS5, dropped
-    clients) at 196526b: once in the first run; then 0 in 10 points at
-    ab07883, and with the client on 1 CPU in 3 of 30 points (one request
+    clients) at 2489a92: once in the first run; then 0 in 10 points at
+    deb482e, and with the client on 1 CPU in 3 of 30 points (one request
     in about 87,000 each). Not seen against quic-go under 2–15% loss.
   - Detection: none. User-visible: yes, a request without a deadline
     hangs; `NewClient`'s client times out after 30 s by default
@@ -519,7 +519,7 @@ These matter most under decision 0029:
 - **nginx refuses about 1 in 6,000 Chrome handshakes: "missing transport
   parameters"** (Chrome).
   - Differs: unknown. In about 23,600 Chrome-profile handshakes through
-    the benchmark's SOCKS5 proxy at ab07883, nginx closed 4 with
+    the benchmark's SOCKS5 proxy at deb482e, nginx closed 4 with
     CRYPTO_ERROR 0x16d ("missing transport parameters") on the first
     round trip, 40–47 ms in. Every hello carries
     `quic_transport_parameters` (`startClientTLS` sets it before
@@ -1704,7 +1704,7 @@ it.
   0-RTT attempt its first PTO (`earlyLimit`), which a loaded handshake
   outlasts. `BrowserQUICFallback` for such cases would lift it, at the
   cost of slower failure paths in them. Small. (The other load flakes
-  found with it were fixed in e1883f5.)
+  found with it were fixed in 4cca5f9.)
 - **Load flake in `TestHTTP3MatchesBrowser/chrome-156-macos/h3-discovery`**
   (seen three times): resumed connections' 0-RTT packets with the
   request's STREAM(0) before the control stream's PRIORITY_UPDATE

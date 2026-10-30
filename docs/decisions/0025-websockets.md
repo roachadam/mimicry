@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-26 (`windowBits8`; WebSockets through proxies measured)
 - Date: 2026-10-24
-- Commits: `5ff16c9`; amendments `806c93c`, `fc3964e`
+- Commits: `a3b014e`; amendments `0a4a442`, `b9a697d`
 
 ## Problem
 

@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-28 (`Config.IdleConnTimeout`, `pool.Shared.OnClose` instead of a watcher goroutine); amended 2026-10-29 (`Config.MaxIdleProxies`)
 - Date: 2026-10-28
-- Commits: `ab07883`; amendments `fdc9b6f` (IdleConnTimeout), `db43d4a` (MaxIdleProxies)
+- Commits: `deb482e`; amendments `722e27e` (IdleConnTimeout), `a454c2a` (MaxIdleProxies)
 
 ## Problem
 
@@ -229,7 +229,7 @@ realistic pattern (a new client per identity) is benchmarked.
 
 ## Amendment 2026-10-29: Config.MaxIdleProxies
 
-- **Problem.** In the benchmark at `c1f37ab`
+- **Problem.** In the benchmark at `9696132`
   ([linux-2026-10-29](../../internal/bench/reports/linux-2026-10-29/bench-2026-10-29.md))
   a client rotating to a new identity
   every 10 requests (about every 120 ms) kept 1.8 MB of live heap and 76

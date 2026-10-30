@@ -64,9 +64,9 @@ also generates `http2.openingRecords` (below). `<name>.clienthello`
 holds one ClientHello per line. Lines 1–3 are the 2026-10-24 retakes (3
 browser launches, TLS records starting 0x16; Safari 26 from the Mac mini).
 The older lines are bare handshake messages (starting 0x01): the previous
-committed capture (`99f3392`; Safari 26: `be160f0`) and, for Chrome 155,
+committed capture (`ae99c76`; Safari 26: `184b9a8`) and, for Chrome 155,
 Firefox 158 and Safari 27, earlier captures restored from git history
-(`9c54bb5`, `568aba5`, `75c9b6d`, then `2da6c05` or `053a3f7`). So the
+(`9e63c05`, `eb2ed10`, `bd345b0`, then `5c9aa07` or `fc69e6e`). So the
 full-hello shape rests on 8 hellos per browser (4 for Safari 26), plus
 every page-capture connection with a recorded shape (Chrome 118 full and 21
 TLS 1.3 resumed hellos, Firefox 111 and 21, each Safari 120 full);

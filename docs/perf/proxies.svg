@@ -277,7 +277,7 @@ text{fill:#f0f6fc}
 <text x="740.0" y="600.0" font-size="12.0" text-anchor="middle">HTTP/3</text>
 <text x="740.0" y="615.0" font-size="12.0" text-anchor="middle">SOCKS5 (socks5h, user/pass)</text>
 <text x="24.0" y="634.0" font-size="11.0" class="m">Linux host (Intel Core i5-13500), 20 cores, Linux 6.18.38; the client on 4 CPUs (GOMAXPROCS 4); nginx/1.31.8.</text>
-<text x="24.0" y="649.0" font-size="11.0" class="m">mimicry db43d4a, 2026-10-29. Bars: each value&#39;s median over 3 passes; whiskers: its range. A cut bar is off the scale. net/http has no</text>
+<text x="24.0" y="649.0" font-size="11.0" class="m">mimicry a454c2a, 2026-10-29. Bars: each value&#39;s median over 3 passes; whiskers: its range. A cut bar is off the scale. net/http has no</text>
 <text x="24.0" y="664.0" font-size="11.0" class="m">HTTP/3 through a proxy.</text>
 <text x="24.0" y="679.0" font-size="11.0" class="m">Source: internal/bench/reports/linux-final-2026-10-29/final-2026-10-29.json.</text>
 </svg>

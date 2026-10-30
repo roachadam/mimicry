@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-29 by [0044](0044-profile-fingerprint.md) (the validated copy is shared between equal profiles)
 - Date: 2026-10-24
-- Commits: `ea769bc`
+- Commits: `438c5aa`
 
 ## Problem
 

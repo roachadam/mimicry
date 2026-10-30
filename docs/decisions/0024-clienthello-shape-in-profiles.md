@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-27 (`x25519Reuse` added); amended 2026-10-28 (`x25519Reuse` checked on every hello with both shares)
 - Date: 2026-10-24
-- Commits: `02903e5`
+- Commits: `fd5e825`
 
 ## Problem
 

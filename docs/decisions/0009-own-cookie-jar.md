@@ -1,7 +1,7 @@
 # 0009: Our own cookie jar, driven by the transport
 
 - Status: Accepted
-- Date: 2026-10-23 (designed), 2026-10-24 (built: `a09ce1f`, `31f727b`; review fixes 2026-10-24)
+- Date: 2026-10-23 (designed), 2026-10-24 (built: `2bf48f3`, `4dd6279`; review fixes 2026-10-24)
 
 ## Problem
 

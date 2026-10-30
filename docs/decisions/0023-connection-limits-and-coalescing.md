@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-28 by [0037](0037-coalescing-opt-out.md) (options to disable coalescing and change the HTTP/1.1 limit)
 - Date: 2026-10-24
-- Commits: `02903e5`
+- Commits: `fd5e825`
 
 ## Problem
 

@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-26
-- Commits: `68e2255` (first design), `2242345` (`SetHostString`, the scope rework)
+- Commits: `10ed0b2` (first design), `7395438` (`SetHostString`, the scope rework)
 
 ## Problem
 
@@ -31,7 +31,7 @@ and visible in the caller's code.
   the site's own Domain cookies reach, and the caller has to call it once
   per host. Kept as `SetHostString`, beside the Domain form.
 - **A Domain cookie of the name's registrable domain** (first landed in
-  68e2255, then reversed). `www.amazon.com` became `amazon.com`, so the
+  10ed0b2, then reversed). `www.amazon.com` became `amazon.com`, so the
   cookies reached `api.amazon.com` too: a scope the caller did not ask for
   and no browser would give a cookie set for `www.amazon.com`, and no way
   to say "this host and below". A caller who wants the whole site names

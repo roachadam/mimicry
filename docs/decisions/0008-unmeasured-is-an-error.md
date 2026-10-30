@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-24
-- Commits: `f445dc1`; extended in `ea769bc`
+- Commits: `71c7c36`; extended in `438c5aa`
 
 ## Problem
 

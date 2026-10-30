@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-28 by [0036](0036-fast-quic-fallback.md) (fast QUIC fallback by default) and [0039](0039-proxy-credentials-up-front.md) (proxy credentials up front by default)
 - Date: 2026-10-23 (designed), 2026-10-24 (built)
-- Commits: `31bcd28`, `f445dc1`, `031ec2b`
+- Commits: `f841faa`, `71c7c36`, `b4f5f79`
 
 ## Problem
 

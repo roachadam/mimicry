@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-28 by [0040](0040-idle-connection-cleanup.md) (rotating proxies within one Transport) and 2026-10-29 by [0044](0044-profile-fingerprint.md) (cheap clients)
 - Date: 2026-10-24
-- Commits: `ea769bc`
+- Commits: `438c5aa`
 
 ## Problem
 

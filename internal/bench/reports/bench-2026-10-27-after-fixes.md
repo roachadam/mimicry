@@ -1,6 +1,6 @@
 # mimicry benchmark after the performance fixes, 2026-10-27
 
-A focused rerun after commit 9cc4fac (HTTP/3 stream leak fixed: `finish` closes the read side; HTTP/2 response chunks and request-body buffers pooled; about half the per-request allocations removed), against the first report, [`bench-2026-10-27.md`](bench-2026-10-27.md) (commit 3f2bb93 plus the benchmark, before the fixes).
+A focused rerun after commit d5aa90e (HTTP/3 stream leak fixed: `finish` closes the read side; HTTP/2 response chunks and request-body buffers pooled; about half the per-request allocations removed), against the first report, [`bench-2026-10-27.md`](bench-2026-10-27.md) (commit 8465ee8 plus the benchmark, before the fixes).
 
 Re-measured: mimicry and net/http only. Layer 1 (`BenchmarkRequest`, both servers, every protocol, GET and POST, `-count=10`, `-benchtime 1s`); layer 3 (the same load points as the first report: nginx full matrix, the Go server reduced to 1 KB/100 KB at concurrency 1 and 64; 2 s warm-up, 5 s window); layer 4 (idle memory, 50 clients, nginx). tls-client, httpcloak and azuretls are carried over from the first report: their code did not change. Same Mac, same CPU sets (client 0-3, GOMAXPROCS 4; servers 4-11), same image apart from the library. Raw data: `after-fixes/bench-2026-10-27-after-fixes.json`, `micro-2026-10-27-after-fixes.txt`.
 

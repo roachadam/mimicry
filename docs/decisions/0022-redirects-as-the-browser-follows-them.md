@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-26 (`navigationOrigin`, and user navigations' `Sec-Fetch-User`, from the `nav-redirect-*` captures)
 - Date: 2026-10-24
-- Commits: `02903e5`; amended in `806c93c`
+- Commits: `fd5e825`; amended in `0a4a442`
 
 ## Problem
 

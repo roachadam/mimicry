@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-29
-- Commits: `db43d4a`
+- Commits: `a454c2a`
 
 ## Problem
 
@@ -11,7 +11,7 @@ Transports built from equal profiles share one decoded, validated copy
 find the shared copy, `NewTransport` encoded the caller's profile to JSON
 (about 140 KB compact for Chrome 156) and hashed it with SHA-256, every
 time, whether or not a copy already existed. That was most of building a
-client: in the benchmark at `c1f37ab`
+client: in the benchmark at `9696132`
 ([linux-2026-10-29](../../internal/bench/reports/linux-2026-10-29/bench-2026-10-29.md),
 the Linux test host, i5-13500) `BenchmarkNewClient` took 595 µs, 294 KB and 1,109 allocations
 for mimicry against 1.3 µs for tls-client and 0.3–0.8 µs for azuretls, and
@@ -85,12 +85,12 @@ of what it was before.
   about 70, SHA-256 about 25).
 - The Linux test host (i5-13500), isolated runs
   ([focus-2026-10-29/ctor](../../internal/bench/reports/focus-2026-10-29/ctor/),
-  before = c1f37ab, after = c1f37ab plus this change only),
+  before = 9696132, after = 9696132 plus this change only),
   `BenchmarkNewClient` (10 passes, mimicry; HTTP/1.1 and HTTP/2, with and
   without SOCKS5): 594–597 µs → 235–241 µs (−60%), 292–295 KB → 122 KB,
   1,109–1,113 → 874–878 allocations. tls-client 1.3–1.8 µs, azuretls
   0.3–0.9 µs, unchanged.
-- Confirmed in the final benchmark at `db43d4a`
+- Confirmed in the final benchmark at `a454c2a`
   ([linux-final-2026-10-29](../../internal/bench/reports/linux-final-2026-10-29/final-2026-10-29.md),
   micro benchmarks): `BenchmarkNewClient` 235–237 µs, 122–125 KB and
   874–882 allocations for mimicry across protocols and proxies.

@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-28 by [0040](0040-idle-connection-cleanup.md) (idle timeout for every protocol, `Config.IdleConnTimeout`, a separate `KeyTimeout`, `Shared.OnClose`)
 - Date: 2026-10-24
-- Commits: `ea769bc`
+- Commits: `438c5aa`
 
 ## Problem
 

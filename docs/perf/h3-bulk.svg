@@ -118,6 +118,6 @@ text{fill:#f0f6fc}
 <text x="644.0" y="398.0" font-size="12.0" text-anchor="middle">64 at once</text>
 <text x="644.0" y="413.0" font-size="12.0" text-anchor="middle">nginx&#39;s worker the limit</text>
 <text x="24.0" y="432.0" font-size="11.0" class="m">Linux host (Intel Core i5-13500), 20 cores, Linux 6.18.38; the client on 4 CPUs (GOMAXPROCS 4); nginx/1.31.8.</text>
-<text x="24.0" y="447.0" font-size="11.0" class="m">mimicry db43d4a, 2026-10-29. Bars: each value&#39;s median over 3 passes; whiskers: its range.</text>
+<text x="24.0" y="447.0" font-size="11.0" class="m">mimicry a454c2a, 2026-10-29. Bars: each value&#39;s median over 3 passes; whiskers: its range.</text>
 <text x="24.0" y="462.0" font-size="11.0" class="m">Source: internal/bench/reports/linux-final-2026-10-29/final-2026-10-29.json.</text>
 </svg>

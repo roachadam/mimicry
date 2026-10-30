@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-28 by [0036](0036-fast-quic-fallback.md) (fast failure-path timing by default) and [0037](0037-coalescing-opt-out.md) (faster defaults for costly, low-risk behaviours)
 - Date: 2026-10-25
-- Commits: `0e76f62`
+- Commits: `fa2e0fa`
 
 ## Problem
 

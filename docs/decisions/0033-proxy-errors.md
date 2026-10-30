@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-26 (`DialWebSocket` errors through proxies); amended 2026-10-28 by [0039](0039-proxy-credentials-up-front.md) (credentials up front, a 407 final at once)
 - Date: 2026-10-26
-- Commits: `68e2255`; amendments `fc3964e`, `ab07883` (0039)
+- Commits: `10ed0b2`; amendments `b9a697d`, `deb482e` (0039)
 
 ## Problem
 

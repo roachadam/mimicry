@@ -131,6 +131,6 @@ text{fill:#f0f6fc}
 <rect x="582.2" y="453.0" width="15.8" height="13.0" class="ref"/>
 <text x="577.2" y="464.0" font-size="10.5" text-anchor="end">0.92×</text>
 <text x="24.0" y="528.0" font-size="11.0" class="m">Linux host (Intel Core i5-13500), 20 cores, Linux 6.18.38; the client on 4 CPUs (GOMAXPROCS 4); nginx/1.31.8.</text>
-<text x="24.0" y="543.0" font-size="11.0" class="m">mimicry db43d4a, 2026-10-29. Bars hatched: net/http, the reference (Go&#39;s own TLS; quic-go for HTTP/3).</text>
+<text x="24.0" y="543.0" font-size="11.0" class="m">mimicry a454c2a, 2026-10-29. Bars hatched: net/http, the reference (Go&#39;s own TLS; quic-go for HTTP/3).</text>
 <text x="24.0" y="558.0" font-size="11.0" class="m">Source: internal/bench/reports/linux-final-2026-10-29/final-2026-10-29.json.</text>
 </svg>

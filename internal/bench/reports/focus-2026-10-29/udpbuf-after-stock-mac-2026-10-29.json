@@ -11,7 +11,7 @@
     "clientCpus": 4,
     "gomaxprocs": 4,
     "goVersion": "go1.27.3",
-    "mimicryCommit": "c1f37ab + UDP buffer default 1 MB",
+    "mimicryCommit": "9696132 + UDP buffer default 1 MB",
     "cpusets": "client 0-3, servers 4-11, proxy 10-11",
     "servers": [
       {

@@ -2,7 +2,7 @@
 
 - Status: Accepted; amended 2026-10-27 (fix our copy, don't wait for upstream)
 - Date: 2026-10-25
-- Commits: `3351958` (adds `internal/quic`), `ce1a1b3`
+- Commits: `33f98da` (adds `internal/quic`), `b22fca7`
 
 ## Problem
 

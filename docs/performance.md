@@ -47,7 +47,7 @@ Chrome's do.
 | | |
 |---|---|
 | Date | 2026-10-29, three passes from 22:43 to 00:00 UTC ([host log](../internal/bench/reports/linux-final-2026-10-29/host-2026-10-29.txt)) |
-| mimicry | `db43d4a` (the report is committed in `0bbd6b7`) |
+| mimicry | `a454c2a` (the report is committed in `49790c8`) |
 | Machine | a Linux test host: Intel i5-13500 (6 P-cores, 8 E-cores), Linux 6.18.38, Docker 29.5.3 directly on the host |
 | Client | one container: CPUs 0, 2, 4 and 6 (one thread of each of four P-cores, their siblings idle), `GOMAXPROCS` 4, Go 1.27.3 |
 | Servers | nginx 1.31.8 on CPUs 8–11 (four workers); the proxy on 12–15 (E-cores), adding 5 ms to everything it sends |
@@ -366,7 +366,7 @@ Linux host with Docker, a copy of the repository at the commit, no Go
 needed (the images build it). The run above:
 
 ```sh
-BENCH_NAME=final BENCH_MIMICRY_COMMIT=db43d4a BENCH_PUBLISH=0 \
+BENCH_NAME=final BENCH_MIMICRY_COMMIT=a454c2a BENCH_PUBLISH=0 \
   BENCH_CLIENT_CPUS=0,2,4,6 BENCH_SERVER_CPUS=8-11 BENCH_SERVER_PROCS=4 BENCH_PROXY_CPUS=12-15 \
   nohup internal/bench/scripts/bench.sh run > run.log 2>&1 &
 ```
