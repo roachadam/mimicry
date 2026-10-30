@@ -4,6 +4,15 @@
 - Date: 2026-10-24
 - Commits: `b4f5f79`
 
+**Summary.** Which requests share a connection is modelled only where a
+rule was measured: Chrome's separate connections for credential-less
+requests and cross-site frames, Safari's one per host; Firefox's grouping
+is a known gap, as guessing it would be wrong elsewhere. As amended,
+partitioning by top-level site is measured but deferred (0029), and the
+Alt-Svc cache is not partitioned by site either, so callers visiting
+unrelated sites use one Transport (and Alt-Svc cache) per site, sharing a
+cookie jar if they want one store.
+
 ## Problem
 
 Browsers do not always reuse a connection to the same host: which requests

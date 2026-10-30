@@ -4,6 +4,14 @@
 - Date: 2026-10-25
 - Commits: `33f98da` (adds `internal/quic`), `b22fca7`
 
+**Summary.** mimicry's QUIC is a copy of `golang.org/x/net/quic` in
+`internal/quic`, using the uTLS fork and changed to build packets per profile,
+while HTTP/3 and QPACK are mimicry's own, as the maintainer's decision. No Go
+QUIC library exposes the packet-building controls, and x/net/quic is smaller
+and changes far less than quic-go. It is internal with no public API; since
+the 2026-10-27 amendment the copy is fixed locally rather than waiting for
+upstream, and every local change is recorded in `internal/quic/UPSTREAM.md`.
+
 ## Problem
 
 HTTP/3 runs on QUIC. The HTTP/3 captures

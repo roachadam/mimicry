@@ -4,6 +4,14 @@
 - Date: 2026-10-28
 - Commits: `50e9489`
 
+**Summary.** `Config.HTTP3OverSOCKS5` (off by default) lets requests
+through a SOCKS5 proxy use HTTP/3 via UDP ASSOCIATE, with the profile's
+QUIC unchanged; through any proxy, no datagram ever goes around it. It
+gives parity with other impersonating clients while the default stays the
+browsers' TCP-only behaviour behind a proxy. A library user who enables
+it reaches HTTP/3 sites from the proxy's address, which no browser behind
+a proxy does.
+
 ## Problem
 
 Requests through a proxy always went on TCP: browsers do not use HTTP/3

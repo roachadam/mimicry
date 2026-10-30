@@ -4,6 +4,15 @@
 - Date: 2026-10-24
 - Commits: `fd5e825`
 
+**Summary.** Headers a page sets itself (`fetch()`, `setRequestHeader`) are
+ordered by modelling each browser's header hash table (Blink's in Chrome,
+CFNetwork's in Safari) in profile `context.headerTable`; Firefox keeps a fixed
+slot. The `headers-order` capture showed one fixed slot was wrong for most
+names in Chrome and Safari, and a table model covers names never captured. Any
+custom header now lands where the browser puts it, but XHR order cannot be
+given (page headers go in name order) and a redirected request with page
+headers and no captured variant is `ErrNotMeasured`.
+
 ## Problem
 
 A header the page sets itself (`fetch()` headers, `setRequestHeader`) had

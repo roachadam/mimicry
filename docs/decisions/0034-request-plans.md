@@ -4,6 +4,16 @@
 - Date: 2026-10-26
 - Commits: `7ef7099`
 
+**Summary.** `Transport.Plan(req)` returns what a request would send
+without sending it or changing any state: per-protocol request lines and
+headers (each with its own error), the protocol it would take now, the
+kind, profile variant, preflight, overrides and dropped headers. It is
+built from the same functions `RoundTrip` sends with, so the preview cannot
+drift from the wire, which makes porting and debugging header problems
+possible before anything goes out. A plan is a snapshot: cookies,
+connections or a cached preflight that change before `RoundTrip` change
+what is sent.
+
 ## Problem
 
 What a request sends exists only on the wire. tls-client users print their

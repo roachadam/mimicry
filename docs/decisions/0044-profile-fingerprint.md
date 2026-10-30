@@ -4,6 +4,14 @@
 - Date: 2026-10-29
 - Commits: `a454c2a`
 
+**Summary.** Transports built from equal profiles now find their shared
+copy by SHA-256 of a compact binary walk of the profile, instead of
+encoding it to JSON every time. The JSON encoding was most of the cost of
+building a client; the walk still reads the whole profile, so a profile
+changed after use never gets the old copy. For a library user,
+`NewTransport` is about 2.5 times faster with less allocation, though
+building clients up front, one per proxy, remains the advice.
+
 ## Problem
 
 Transports built from equal profiles share one decoded, validated copy

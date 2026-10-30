@@ -4,6 +4,17 @@
 - Date: 2026-10-25
 - Commits: `1559e36`; amendments `970e210` (0036), `4cca5f9` (`brokenAfter`)
 
+**Summary.** Each browser's QUIC and HTTP/3 failure behaviour (when it
+races TCP, gives up and closes, migrates or closes a dead path, keeps
+alive, and when it treats an origin as broken) is profile data derived from
+the edge captures, so a server sees the browser's own reaction and requests
+no longer stall behind a dead QUIC dial. An origin marked broken stays on
+TCP for the Transport's life, and no key update is started by the client.
+Since 0036 the long holds on unanswered or failed attempts are shortened by
+default, with this record's exact timing kept as
+`Config.BrowserQUICFallback`; and only attempts that put a datagram on the
+network count toward `brokenAfter`.
+
 ## Problem
 
 Until now mimicry's QUIC failed as x/net/quic does (decision

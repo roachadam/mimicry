@@ -4,6 +4,15 @@
 - Date: 2026-10-24
 - Commits: `cd06fd0`, `d116108`, `9f79d93`
 
+**Summary.** `Config.Proxy` (the `http.Transport` shape) sends through
+HTTP and SOCKS5 proxies with each browser's measured CONNECT headers,
+SOCKS5 handshake and plain-HTTP framing, so neither proxy nor server sees
+Go's defaults; connections and TLS sessions are never shared between
+proxies. As amended, WebSockets go through proxies as measured,
+credentials go up front by default (the browser's challenge-first flow is
+`Config.BrowserProxyAuth`, 0039), HTTP/3 through SOCKS5 is opt-in (0038),
+and unused proxies' idle connections close (`MaxIdleProxies`, 0040).
+
 ## Problem
 
 Callers send through HTTP and SOCKS5 proxies. A proxy sees the client's

@@ -4,6 +4,14 @@
 - Date: 2026-10-24
 - Commits: `d3eb402`
 
+**Summary.** The maintainer's decision is that cross-origin `Fetch` and
+`XHR` requests that need one get an `OPTIONS` preflight as the browser
+sends it, cached as the browser caches it, and are refused with
+`*CORSError` when the answer does not allow them, because a request with no
+preflight before it is one no browser sends. Such requests cost a round
+trip more and can fail; `Request.IgnoreCORS` sends them anyway, and
+`Exact` requests are never preflighted.
+
 ## Problem
 
 Before a cross-origin `fetch()` or XHR with a method other than GET, HEAD

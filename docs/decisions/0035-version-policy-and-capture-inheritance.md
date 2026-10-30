@@ -4,6 +4,16 @@
 - Date: 2026-10-26
 - Commits: `d7e1c83`
 
+**Summary.** `profiles.Chrome()`, `Firefox()` and `Safari()` return the
+newest built-in version; the newest five versions per browser and platform
+are supported and older ones are marked deprecated. A new version
+recaptures only the fingerprint layer and inherits other scenarios'
+captures by reference (`capturesFrom`), with version strings rewritten in
+comparisons, so profiles can ship each release instead of going stale. For
+a library user, the unversioned accessors track new versions, while a
+rule changed inside an inherited scenario can go unseen until the next
+full refresh.
+
 ## Problem
 
 Chrome and Firefox ship a new major version about every four weeks, and

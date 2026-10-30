@@ -4,6 +4,16 @@
 - Date: 2026-10-26
 - Commits: `10ed0b2` (first design), `7395438` (`SetHostString`, the scope rework)
 
+**Summary.** The cookie jar is reachable (`Transport.Cookies()`) and takes
+and gives `Cookie` header strings: `SetString` stores Domain cookies of
+exactly the name given, `SetHostString` host-only ones, `String` reads them
+back, and `SetHTTPCookies` passes `http.Cookie`s through the browser's
+`Set-Cookie` rules. Moving session cookies between tools was a loop every
+codebase wrote differently, sometimes storing cookies no browser would
+accept. Nothing changes on the wire unless the caller seeds cookies, and a
+cookie sent to every site is possible only through the explicit
+`cookies.AnySite` constant.
+
 ## Problem
 
 Automating user actions on sites moves cookies between tools: a `Cookie` header string

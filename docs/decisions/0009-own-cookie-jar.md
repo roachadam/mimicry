@@ -3,6 +3,15 @@
 - Status: Accepted
 - Date: 2026-10-23 (designed), 2026-10-24 (built: `2bf48f3`, `4dd6279`; review fixes 2026-10-24)
 
+**Summary.** The maintainer's decision is a cookie jar of mimicry's own
+(`mimicry/cookies`), wired into the transport by `NewClient`, that reads raw
+`Set-Cookie` lines and writes the `Cookie` header byte for byte with the
+request's kind and page in hand. The reason is that `http.Client.Jar` never
+sees that context and `net/http` alters some cookie values, both visible
+differences from a browser. For a library user, cookies follow the
+browser's rules from the profile, with a rich API (seeding, import/export,
+rejection hooks) and an `http.CookieJar` adapter documented as lossy.
+
 ## Problem
 
 Cookies are where every other client differs from browsers

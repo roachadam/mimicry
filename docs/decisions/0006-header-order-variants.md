@@ -4,6 +4,16 @@
 - Date: 2026-10-24
 - Commits: `f841faa`, `b4f5f79`; extended in `438c5aa` (`pageSet`, variants measured over HTTP/2 only)
 
+**Summary.** The maintainer's decision is that each request kind has a
+default header order plus variants keyed by measured conditions (method,
+site relation, CORS, page-set headers, redirects, non-secure), because
+captures showed browsers order one kind's headers differently depending on
+the code path that built them. For a library user, requests get the exact
+order the browser used in that situation, and a redirect hop or combination
+that was never captured is an `ErrNotMeasured` error rather than a guess;
+since 0021, headers the page set are placed by name in the browser's
+hash-table order.
+
 ## Problem
 
 The plan was one header list per kind, with empty "slots" for headers that

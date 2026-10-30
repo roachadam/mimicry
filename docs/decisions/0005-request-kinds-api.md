@@ -4,6 +4,17 @@
 - Date: 2026-10-23 (designed), 2026-10-24 (built)
 - Commits: `f841faa`, `71c7c36`, `b4f5f79`
 
+**Summary.** The maintainer's decision is that callers state how a request
+is made (a kind such as `Script`, `Image` or `Fetch`, and the page it comes
+from) and the profile supplies the headers, order and priority, with the
+rule that defaults reproduce the browser exactly and every deviation is
+visibly the caller's. The reason is that sending every request as a
+navigation, or guessing the kind from headers, is detectable when automating
+user actions on sites. Since 0036 and 0039 two defaults deviate, each with
+an option restoring the browser's behaviour: a faster QUIC fallback
+(`Config.BrowserQUICFallback`) and proxy credentials sent up front
+(`Config.BrowserProxyAuth`).
+
 ## Problem
 
 Browsers send a script, an image, a `fetch()` or a frame with different

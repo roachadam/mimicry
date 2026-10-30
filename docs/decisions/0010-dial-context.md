@@ -4,6 +4,13 @@
 - Date: 2026-10-24
 - Commits: `71c7c36`
 
+**Summary.** `Config.DialContext`, shaped like `http.Transport`'s, opens
+the TCP connection, while TLS and everything above stay the profile's, so
+callers can pin hosts to addresses or bring their own network code through
+the one dial path. Through a proxy it opens the connection to the proxy.
+Host lookups do not go through it: a `DialContext` that maps hosts to
+addresses needs a `Config.Resolver` that agrees with it.
+
 ## Problem
 
 The kinds end-to-end test serves `www.kinds-a.test`, `static.kinds-a.test`

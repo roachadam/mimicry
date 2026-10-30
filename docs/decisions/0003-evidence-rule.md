@@ -3,6 +3,14 @@
 - Status: Accepted; amended 2026-10-26 by [0035](0035-version-policy-and-capture-inheritance.md) (evidence class inherited)
 - Date: 2026-10-21
 
+**Summary.** The maintainer's decision is that a real browser's wire
+captures are the evidence for every profile claim, ranked above browser
+source and other clients, because presets, blog posts and source often
+disagree with what browsers actually send. For a library user, each value a
+profile sends is recorded with its evidence class and a test in
+`profiles/EVIDENCE.md`; since 0035 a new version may inherit an earlier
+version's captures for a scenario, marked as class I.
+
 ## Problem
 
 Fingerprint claims are easy to copy and hard to check. Other clients'

@@ -3,6 +3,13 @@
 - Status: Accepted; amended 2026-10-26 by [0035](0035-version-policy-and-capture-inheritance.md) (values are still never inherited; a scenario's captures can be)
 - Date: 2026-10-23
 
+**Summary.** The maintainer's decision is one complete, self-contained JSON
+profile per browser, version and platform, with no inheritance between
+files, because inheritance hides what a profile sends and lets unmeasured
+values ride along. For a library user, every value a profile sends is in its
+own file and checked against captures; since 0035 a scenario's captures
+(never its values) can come from an earlier version until its own are taken.
+
 ## Problem
 
 Profiles share most values across versions and platforms. Inheritance would

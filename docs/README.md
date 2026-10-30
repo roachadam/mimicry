@@ -66,15 +66,15 @@ Related:
 | [0034](decisions/0034-request-plans.md) | Request plans: RoundTrip's path, without sending | Accepted |
 | [0035](decisions/0035-version-policy-and-capture-inheritance.md) | Newest-version accessors, five supported versions, inherited captures | Accepted |
 | [0036](decisions/0036-fast-quic-fallback.md) | Fast QUIC fallback by default, the browser's timing on request | Accepted |
-| [0037](decisions/0037-coalescing-opt-out.md) | HTTP/2 coalescing stays the browser's; `DisableCoalescing` and `MaxConnsPerHost` for speed | Accepted |
-| [0038](decisions/0038-http3-over-socks5.md) | HTTP/3 through SOCKS5 proxies on request (UDP ASSOCIATE), never a datagram around the proxy | Accepted |
+| [0037](decisions/0037-coalescing-opt-out.md) | HTTP/2 coalescing stays the browser's; `DisableCoalescing` and `MaxConnsPerHost` as opt-outs | Accepted |
+| [0038](decisions/0038-http3-over-socks5.md) | HTTP/3 through SOCKS5 on request (`HTTP3OverSOCKS5`); never a datagram around a proxy | Accepted |
 | [0039](decisions/0039-proxy-credentials-up-front.md) | Proxy credentials from the first request by default, the browser's challenge on request | Accepted |
-| [0040](decisions/0040-idle-connection-cleanup.md) | Idle HTTP/2 and HTTP/3 connections close; unused proxies and dropped Transports let theirs go | Accepted; amended: `Config.IdleConnTimeout` and `pool.Shared.OnClose`; `Config.MaxIdleProxies` |
-| [0041](decisions/0041-default-request-timeout.md) | `NewClient` times requests out after 30 s | Accepted |
-| [0042](decisions/0042-http2-opening-records.md) | The HTTP/2 opening is cut into TLS records as the browser cuts it (`http2.openingRecords`) | Accepted |
-| [0043](decisions/0043-http3-ack-rate-opt-in.md) | An opt-in lower HTTP/3 ACK rate: `Config.HTTP3ACKEvery` (Chrome's every 10 by default) | Accepted |
-| [0044](decisions/0044-profile-fingerprint.md) | Transports find their shared profile by a fingerprint of its content, not its JSON | Accepted |
-| [0045](decisions/0045-udp-receive-buffer-default.md) | QUIC sockets ask for Chrome's 1 MB receive buffer by default (`Config.UDPReadBufferSize`; negative keeps the OS's) | Accepted |
+| [0040](decisions/0040-idle-connection-cleanup.md) | Idle connections close: HTTP/2 and HTTP/3 after 90 s, unused proxies', dropped Transports' | Accepted; amended: `Config.IdleConnTimeout` and `pool.Shared.OnClose`; `Config.MaxIdleProxies` |
+| [0041](decisions/0041-default-request-timeout.md) | `NewClient` times requests out after 30 s (`Config.Timeout`) | Accepted |
+| [0042](decisions/0042-http2-opening-records.md) | The HTTP/2 opening is grouped into TLS records as the browser groups it | Accepted |
+| [0043](decisions/0043-http3-ack-rate-opt-in.md) | HTTP/3 keeps Chrome's ACK rate; `Config.HTTP3ACKEvery` lowers it on request | Accepted |
+| [0044](decisions/0044-profile-fingerprint.md) | Transports find their shared profile by a hash of its content, not its JSON | Accepted |
+| [0045](decisions/0045-udp-receive-buffer-default.md) | QUIC sockets ask for Chrome's 1 MB receive buffer by default (`Config.UDPReadBufferSize`) | Accepted |
 
 New records copy [`decisions/template.md`](decisions/template.md).
 

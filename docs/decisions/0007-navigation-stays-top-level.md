@@ -4,6 +4,13 @@
 - Date: 2026-10-24
 - Commits: `f841faa`
 
+**Summary.** The maintainer's decision is to keep the navigation as the
+profile's top-level base request (`headers`, `http1`, `http2`) instead of
+moving it into `kinds.navigate`, because every capture, tool and comparison
+already treats it as the profile's request. For a library user nothing
+changes: `Navigate` is the default kind and behaves like any other kind,
+with its own variants such as a form POST.
+
 ## Problem
 
 With request kinds in the profile, the navigation could move into

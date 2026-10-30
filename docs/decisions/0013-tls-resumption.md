@@ -4,6 +4,14 @@
 - Date: 2026-10-24
 - Commits: `7cd1229`, `ca970f8`
 
+**Summary.** mimicry resumes TLS sessions as the profile's browser does,
+from its own ticket store rather than uTLS's cache: Chrome and Firefox use
+each TLS 1.3 ticket once with their own resumed hello, follow their TLS 1.2
+ticket policy, and Safari never resumes. A client that always does a full
+handshake is visible and slower; for a library user, later connections now
+resume with no configuration, with tickets kept per host, partition and
+proxy.
+
 ## Problem
 
 Every mimicry connection was a full handshake. Browsers resume on later

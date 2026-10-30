@@ -4,6 +4,15 @@
 - Date: 2026-10-26
 - Commits: `10ed0b2`; amendments `b9a697d`, `deb482e` (0039)
 
+**Summary.** Every failure before the server is reached through a proxy
+(connect, CONNECT refusal, SOCKS5 refusal, deadline, a final 407) is a
+`*mimicry.ProxyError` carrying the status, header and cause, with the
+password removed from the proxy URL. A rotation loop can then tell a bad
+proxy from a site's refusal with `errors.As` instead of matching text. It
+covers requests, preflights, redirects, `FetchPins` and (amended)
+`DialWebSocket`; since 0039 credentials go out up front by default, so a
+407 is final at once unless `Config.BrowserProxyAuth` is set.
+
 ## Problem
 
 A rotation loop has to tell "this proxy is dead, slow or refusing me"

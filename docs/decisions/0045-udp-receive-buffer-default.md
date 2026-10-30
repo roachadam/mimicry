@@ -4,6 +4,14 @@
 - Date: 2026-10-29
 - Commits: `a454c2a`
 
+**Summary.** QUIC sockets now ask for a 1 MB receive buffer by default,
+Chrome's own value, best effort and without `SO_RCVBUFFORCE`; a negative
+`Config.UDPReadBufferSize` keeps the OS default. The OS default dropped
+datagrams under load, while larger buffers (2 MB, 7 MB) stalled
+downloads at high concurrency. For a library user nothing changes on the
+wire; HTTP/3 drops fewer datagrams where the host allows the buffer, and
+on stock Linux the kernel caps it at 416 KB.
+
 ## Problem
 
 The benchmark at `9696132` on the Linux test host (`internal/bench/reports/linux-2026-10-29/`)

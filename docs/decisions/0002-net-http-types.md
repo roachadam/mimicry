@@ -3,6 +3,14 @@
 - Status: Accepted
 - Date: 2026-10-20
 
+**Summary.** The maintainer's decision is that mimicry is an
+`http.RoundTripper` and `NewClient` returns a plain `*http.Client`, with
+header order and request kinds carried on the side rather than in a forked
+`net/http`. The reason is to work with the Go ecosystem: anything that takes
+an `http.Client` works, including middleware and other libraries, while a
+few `net/http` behaviours (redirect `Referer`, cookie values) are worked
+around inside the transport.
+
 ## Problem
 
 Users want a client that works with the Go ecosystem; header order and

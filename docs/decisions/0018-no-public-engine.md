@@ -4,6 +4,13 @@
 - Date: 2026-10-24
 - Commits: `438c5aa`
 
+**Summary.** The public `Config.Engine` hook was removed, because no
+outside engine could get the header plan, partitions or proxy settings,
+and exporting them would freeze internals as public API. Library users
+have no hook for another TLS stack; `NewTransport` validates the profile,
+and as amended by 0044, Transports built from equal profiles share one
+validated copy.
+
 ## Problem
 
 `Config.Engine` let a caller replace the pure-Go engine. Nothing outside

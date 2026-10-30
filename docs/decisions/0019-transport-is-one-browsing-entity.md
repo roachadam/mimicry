@@ -4,6 +4,15 @@
 - Date: 2026-10-24
 - Commits: `438c5aa`
 
+**Summary.** A Transport (or a client from `NewClient`) is one browsing
+entity: one browser profile used by one task, with its own last navigation,
+cookies, caches, tickets and connections. This is the maintainer's decision,
+because that state is one browser's and sharing it across tasks would mix one
+site's `Origin`, `Referer` and cookie partitions into another's. For
+automating user actions on sites, use one client per task (cheap since 0044,
+which shares the decoded profile); a Transport may also rotate proxies, whose
+unused connections close early since 0040.
+
 ## Problem
 
 A request of a kind other than `Navigate` without `Request.From` comes from

@@ -4,6 +4,17 @@
 - Date: 2026-10-28
 - Commits: `deb482e`; amendments `722e27e` (IdleConnTimeout), `a454c2a` (MaxIdleProxies)
 
+**Summary.** Idle HTTP/2 and HTTP/3 connections now close after 90 s like
+HTTP/1.1, proxies outside the 16 most recently used (and unused for 10 s)
+have their idle connections closed, and a Transport dropped without
+`CloseIdleConnections` closes its idle connections once garbage
+collected. The maintainer's decision was that idle connections get
+cleaned up, since rotating proxies or clients otherwise kept connections
+and goroutines alive. Amendments added `Config.IdleConnTimeout` (negative
+turns the idle timeout off) and `Config.MaxIdleProxies` (keep only the N
+most recent proxies' connections, no time grace), so a library user can
+tune both.
+
 ## Problem
 
 The pool ([0020](0020-connection-pool-package.md)) closed idle HTTP/1.1

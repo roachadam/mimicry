@@ -4,6 +4,15 @@
 - Date: 2026-10-28
 - Commits: `50e9489`
 
+**Summary.** mimicry keeps the browsers' HTTP/2 coalescing by default and
+adds `Config.DisableCoalescing` to give every host its own connection,
+plus `Config.MaxConnsPerHost` to change the HTTP/1.1 per-host limit of 6.
+Measured, coalescing is faster on clean networks and only slower under
+packet loss, so the browser-exact default is also the faster one there. A
+library user on a lossy network can turn coalescing off, and one pushing
+an HTTP/1.1-only server hard can raise the limit, each at a detection
+risk the record spells out.
+
 ## Problem
 
 Every browser shares one HTTP/2 connection between hosts whose

@@ -4,6 +4,15 @@
 - Date: 2026-10-28
 - Commits: `deb482e`
 
+**Summary.** The maintainer's decision: by default an HTTP proxy gets the
+URL's credentials on the first CONNECT or forwarded request, placed where
+the browser places them, instead of after a 407; the browser's challenge
+flow stays available as `Config.BrowserProxyAuth`. The challenge cost a
+round trip per new proxy URL (per tunnel with Safari), which rotating
+identities pay constantly, and only the proxy can see the difference. For
+a library user, new proxy identities connect a round trip sooner, and
+rejected credentials fail on the first request.
+
 ## Problem
 
 Decision [0014](0014-proxies.md) gives an HTTP proxy the URL's

@@ -3,6 +3,14 @@
 - Status: Accepted; amended 2026-10-25 by [0027](0027-quic-base.md) (`internal/quic` imports uTLS too)
 - Date: 2026-10-23 (HTTP/2 re-decided after reviewing sardanioss/net)
 
+**Summary.** The maintainer's decision is to write mimicry's own HTTP/1.1
+and HTTP/2 clients on x/net's exported framer and HPACK decoder, with TLS
+from a thinly forked uTLS, because an HTTP/2 fingerprint runs through most
+of the client and is a few lines in our own code but a deep patch in a fork.
+For a library user this means every connection layer is shaped by the
+profile's data, not by a forked `net/http`; since 0027, the QUIC package
+uses the same uTLS fork.
+
 ## Problem
 
 A browser's fingerprint lives in three layers: the TLS ClientHello, the

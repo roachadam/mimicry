@@ -4,6 +4,14 @@
 - Date: 2026-10-24
 - Commits: `2bf48f3`, `4dd6279`
 
+**Summary.** Each browser's cookie behaviour (SameSite defaults,
+third-party cookies, redirects, ordering, limits and more) is a `cookies`
+section of named policies in the profile, each value a measured browser
+behaviour, because the browsers differ in kind and hard-coding them would
+make every new version a code change. The section is required and
+validated; rules all browsers share stay in code, and a jar used without
+a profile follows RFC 6265bis only.
+
 ## Problem
 
 The jar (0009) must reproduce each browser's cookie behaviour. The

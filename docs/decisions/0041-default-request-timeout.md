@@ -4,6 +4,13 @@
 - Date: 2026-10-28
 - Commits: `722e27e`
 
+**Summary.** `NewClient` sets a 30 s total timeout per request by default
+through `Config.Timeout` (negative means none); `NewTransport` ignores
+it. A server that stalls mid-response on a live connection otherwise hung
+a request forever, and 30 s matches the other impersonating clients. A
+library user doing large downloads or using slow proxies should raise it;
+it is invisible on the wire.
+
 ## Problem
 
 A request whose server stops sending mid-response, while keeping the

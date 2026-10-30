@@ -4,6 +4,13 @@
 - Date: 2026-10-24
 - Commits: `d66173e`
 
+**Summary.** Requests to non-secure (`http://`, non-loopback) URLs use
+header lists captured from browsers over plain HTTP, per kind, because the
+secure lists (client hints, `Sec-Fetch-*`, Brotli) give a client away at
+once. Plain requests, direct or through a proxy, are now the browser's; a
+custom profile without non-secure variants gets an error for them rather
+than the secure lists.
+
 ## Problem
 
 mimicry sent `http://` requests with the headers browsers send only to

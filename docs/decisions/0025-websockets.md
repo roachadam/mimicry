@@ -4,6 +4,16 @@
 - Date: 2026-10-24
 - Commits: `a3b014e`; amendments `0a4a442`, `b9a697d`
 
+**Summary.** mimicry provides message-level WebSockets
+(`(*Transport).DialWebSocket`, returning a `*WebSocket` with `ReadMessage`,
+`WriteMessage` and `Close`) and owns the handshake, masking, per-browser
+compression, HTTP/2 DATA packing and close, as the maintainer's decision. The
+handshake and framing are fingerprints, so handing the caller a byte stream
+would get every frame wrong. Sockets look like the browser's in every measured
+respect; the 2026-10-26 amendments added `windowBits8` and measured proxies,
+leaving `ws://` through SOCKS5 and subprotocols on non-secure sockets as
+`ErrNotMeasured`.
+
 ## Problem
 
 A WebSocket is a handshake (HTTP/1.1 Upgrade, or an HTTP/2 extended

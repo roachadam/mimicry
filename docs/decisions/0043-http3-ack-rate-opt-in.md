@@ -4,6 +4,14 @@
 - Date: 2026-10-29
 - Commits: `4cca5f9`
 
+**Summary.** HTTP/3 keeps Chrome's ACK rate (every 10th packet) by
+default, and `Config.HTTP3ACKEvery` (from the profile's rate up to 64)
+lets a caller acknowledge less often. Slower bulk downloads against nginx
+were traced to nginx being ACK-clocked on one saturated worker, not to a
+mimicry bug, and the ACK rate is visible to the server. A library user
+downloading large bodies from such a server can set it (20 measured to
+match or beat tls-client) at the cost of an ACK cadence no browser sends.
+
 ## Problem
 
 Against nginx, mimicry's HTTP/3 bulk downloads ran up to about 25% below

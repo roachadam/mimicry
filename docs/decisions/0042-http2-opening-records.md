@@ -4,6 +4,15 @@
 - Date: 2026-10-28
 - Commits: `8ca60c2`
 
+**Summary.** HTTP/2's opening frames and first request are now grouped
+into TLS records as each browser groups them, from a profile field
+(`http2.openingRecords`) generated from captures, instead of one record
+per frame. Record sizes at connection start are visible on the path
+without decryption, and every measured browser sends one or two records
+where mimicry sent four or five. A library user gets this with every
+supported profile: fewer records per connection, about 600 bytes more
+memory per HTTP/2 connection.
+
 ## Problem
 
 `internal/h2` wrote the client preface, SETTINGS, the connection

@@ -4,6 +4,15 @@
 - Date: 2026-10-26
 - Commits: `10ed0b2`
 
+**Summary.** `mimicry.Place{Header, After | Before}`, on
+`Config.HeaderPlacement` or `Request.HeaderPlacement`, moves one named
+header next to another while keeping the rest of the profile's computed
+order, instead of replacing the whole order with `HeaderOrderKey`. Moving
+one header no longer means hand-keeping a full list that silently goes
+stale when the profile, kind or variant changes. A placement whose header
+or anchor the request does not send is an error and nothing is sent, so a
+`Config` placement should only name anchors every request carries.
+
 ## Problem
 
 Some servers expect a header of the caller's own (an API key, a CSRF

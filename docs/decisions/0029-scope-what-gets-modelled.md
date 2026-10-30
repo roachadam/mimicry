@@ -4,6 +4,17 @@
 - Date: 2026-10-25
 - Commits: `fa2e0fa`
 
+**Summary.** The maintainer's decision is to model a browser behaviour only
+if an anti-bot vendor plausibly checks it (TLS hello, HTTP/2 and HTTP/3
+fingerprints, headers, cookies, request flow) or a user would notice it (a
+stall, a failure, a wrong result); everything else goes to the backlog.
+The library's purpose is automating user actions on sites without being
+flagged, and modelling every captured difference would never end. For a
+library user, failure paths always end within a bounded time but need not
+match the browser's timing; amended by 0036 and 0037, a costly, low-risk
+behaviour gets the faster default with a `Config` option for the
+browser's.
+
 ## Problem
 
 Captures keep turning up differences between mimicry and the browsers.

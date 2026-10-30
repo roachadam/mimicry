@@ -4,6 +4,14 @@
 - Date: 2026-10-24
 - Commits: `71c7c36`; extended in `438c5aa`
 
+**Summary.** The maintainer's decision is that asking for a request that
+was never captured, or one no browser can make, returns an error wrapping
+`mimicry.ErrNotMeasured` instead of guessing values, because a silent guess
+may be wrong and fingerprinted later. For a library user, such requests fail
+at once naming what is missing (test with `errors.Is`), documented measured
+fallbacks are still used, and an incomplete or invalid profile is rejected
+by `NewTransport`.
+
 ## Problem
 
 Some combinations were never captured: `fetchpriority=high` on a script, a

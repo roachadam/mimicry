@@ -4,6 +4,15 @@
 - Date: 2026-10-24
 - Commits: `fd5e825`
 
+**Summary.** The ClientHello's whole shape (record and legacy versions,
+session-ID and key-share lengths, each browser's own GREASE ECH, and
+`x25519Reuse`) is required profile data, derived by hellogen and checked
+against every capture. The parser had dropped these per-browser constants, so
+a wrong hello passed e2e and every profile sent BoringSSL's ECH. Every hello
+mimicry sends, TCP and QUIC, resumed or not, now matches the browser in these
+values; the amendments added `x25519Reuse` and checked it on every hello with
+both shares.
+
 ## Problem
 
 The capture parser kept extension types, cipher suites and similar

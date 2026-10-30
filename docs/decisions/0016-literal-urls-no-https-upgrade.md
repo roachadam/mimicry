@@ -4,6 +4,13 @@
 - Date: 2026-10-24
 - Commits: `3fab2cc`
 
+**Summary.** A request goes to exactly the URL given: mimicry makes no
+HTTPS upgrade attempts and keeps no HSTS state, because silently changing
+the URL fetched is something no HTTP client does and the browsers'
+upgrade behaviour is not fully measured. Callers should use `https://`
+URLs for sites that serve HTTPS; an `http://` request is sent as the
+browser would send it, but a browser would usually have gone to HTTPS.
+
 ## Problem
 
 Browsers often never send a plain-HTTP request for an `http://` URL:

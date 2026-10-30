@@ -4,6 +4,15 @@
 - Date: 2026-10-28
 - Commits: `970e210`
 
+**Summary.** By default a request stops waiting on an unanswered 0-RTT
+QUIC connection at the profile's race delay (about 300 ms), and on a
+failed attempt at once, then goes on TCP; the browser's longer holds from
+0028 stay available as `Config.BrowserQUICFallback`. It is the maintainer's
+decision: the fastest behaviour that stays unfingerprintable, since the
+change shows only where QUIC fails and every healthy-server behaviour is
+unchanged. Requests no longer stall 4-5 s behind a dead 0-RTT attempt, but
+waits on a live connection whose path died keep the browser's timing.
+
 ## Problem
 
 Decision [0028](0028-quic-failure-model.md) made each browser's QUIC

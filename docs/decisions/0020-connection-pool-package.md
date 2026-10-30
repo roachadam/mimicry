@@ -4,6 +4,15 @@
 - Date: 2026-10-24
 - Commits: `438c5aa`
 
+**Summary.** The connection pool moved out of the engine into `internal/pool`,
+keyed by scheme, host, port, partition and proxy, with liveness checks, shared
+dials, graceful GOAWAY handling and forgetting idle keys. The main reason was
+that most of the engine's bugs lived in the mixed pool code, which had no unit
+tests. For a library user the pool is internal; since the 0040 amendment idle
+connections of every protocol close after `Config.IdleConnTimeout` (90 s by
+default), while TLS tickets and proxy credentials outlive the key as in
+browsers.
+
 ## Problem
 
 The pool lived inside `internal/engine/native/engine.go`, mixed with

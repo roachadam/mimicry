@@ -7,6 +7,9 @@
 - Date: YYYY-MM-DD
 - Commits: `abc1234` (the commits that landed it)
 
+**Summary.** Two or three sentences: what was decided, the main reason, and
+what it means for a user of the library now (amendments, superseded status).
+
 ## Problem
 
 What needed deciding, and why it mattered.

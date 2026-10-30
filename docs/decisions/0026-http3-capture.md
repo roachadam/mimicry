@@ -4,6 +4,14 @@
 - Date: 2026-10-25
 - Commits: `faf3ef1`
 
+**Summary.** The capture harness serves QUIC with quic-go but records the
+client's own datagrams below it, decrypting and parsing every packet and frame
+itself, and runs its own HTTP/3 and QPACK decoder with a dynamic table. A QUIC
+library's server API and qlog hide the bytes, padding, control streams and
+QPACK use that make up a browser's HTTP/3 fingerprint. This is harness-only,
+so library users see it only as the evidence behind mimicry's HTTP/3 profiles;
+captures with locally trusted roots are named `.local-roots`.
+
 ## Problem
 
 Before mimicry can speak HTTP/3 as a browser does, the capture server must

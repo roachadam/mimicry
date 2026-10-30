@@ -4,6 +4,14 @@
 - Date: 2026-10-24
 - Commits: `fd5e825`
 
+**Summary.** Each profile's required `connections` section sets the per-host
+HTTP/1.1 limit (6 in every browser) and how HTTP/2 connections are shared
+between hosts: Chrome and Safari reuse one by lookup, Firefox connects and
+then declines the new connection. The `connections` capture measured this,
+while mimicry had opened unlimited HTTP/1.1 connections and never coalesced.
+Browser behaviour stays the default; since 0037 `Config.DisableCoalescing` and
+`Config.MaxConnsPerHost` can change it.
+
 ## Problem
 
 mimicry opened as many HTTP/1.1 connections as requests needed, and never

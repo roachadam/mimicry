@@ -4,6 +4,16 @@
 - Date: 2026-10-24
 - Commits: `fd5e825`; amended in `0a4a442`
 
+**Summary.** The Transport corrects each redirect hop that `http.Client`
+builds so it follows the browser's rules: Fetch method and body rules, the
+browser's redirect limits, CORS refusal of a 3xx (`*CORSError`), and per-
+profile `Origin`, `Sec-Fetch-Site` and Referer handling. Go's own rules differ
+on the wire (PUT/DELETE turned into GET, 10 hops), and fixing hops in the
+Transport needs no new API. Any `http.Client` wrapping a Transport redirects
+as the browser does; since the 2026-10-26 amendment form POSTs' `Origin` and
+user navigations' `Sec-Fetch-User` are modelled too, and a redirected body
+without `GetBody` is an error.
+
 ## Problem
 
 `http.Client` follows redirects by Go's rules:

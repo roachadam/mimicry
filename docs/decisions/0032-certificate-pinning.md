@@ -4,6 +4,15 @@
 - Date: 2026-10-26
 - Commits: `10ed0b2`
 
+**Summary.** `Config.Pins` and `Config.VerifyConnection` check the server's
+certificate on every TLS and QUIC handshake, resumed ones included, and
+before a request reuses another host's coalesced connection; a mismatch
+fails the dial with a `*PinError` before anything is sent. The point is to
+notice an intercepting proxy before credentials or cookies pass through it,
+without changing a byte on the wire. `resp.TLS` is now set, and
+`FetchPins` with `cmd/pins` shows which keys to pin (an intermediate plus a
+backup is recommended).
+
 ## Problem
 
 Automation code pins the sites it talks to, to notice an intercepting
