@@ -2,31 +2,38 @@
 # Splits the harness module's tests (internal/harness) into shards that CI
 # runs as parallel jobs, and runs one shard.
 #
-#   harness-shard.sh <shard> <total>   run shard <shard> (1 to <total>)
-#   harness-shard.sh plan <total>      print every shard's go test commands
+#   harness-shard.sh <tiers> <shard> <total>   run shard <shard> (1 to <total>)
+#   harness-shard.sh <tiers> plan <total>      print every shard's go test commands
 #
-# Each top-level test (go test -list) is a unit weighed in
-# .github/harness-shards.txt (2 seconds if not listed there). A weight line
-# naming Test/regex makes that slice of Test's subtests a unit of its own;
-# the subtests no slice matches are one more unit. A line naming TestA|TestB
-# keeps those tests in one unit (they share a costly setup that whichever
-# runs first pays). Units are dealt heaviest first (ties by name) to the
-# shard with the least work so far (ties: the lower shard), so the split
-# depends only on the test list and the weights, and a new test always lands
-# in some shard. A shard runs its units with
-# go test -race -count=1 -v (so the log has each test's duration, for the
-# weights) and -timeout $TEST_TIMEOUT (default 30m);
-# MIMICRY_PROFILES passes through to the tests.
+# <tiers> picks the tests: a comma-separated list of the tiers in
+# .github/harness-shards.txt (core, protocol, gen, main), or all. Each
+# top-level test (go test -list) is a unit weighed in that file (2 seconds
+# and tier core if not listed there). A weight line naming Test/regex makes
+# that slice of Test's subtests a unit of its own; the subtests no slice
+# matches are one more unit. A test's units all have its tier. A line
+# naming TestA|TestB keeps those tests in one unit when the chosen tiers
+# include them all (they share a costly setup that whichever runs first
+# pays); otherwise each runs as its own unit. The chosen tiers' units are
+# dealt heaviest first (ties by name) to the shard with the least work so
+# far (ties: the lower shard), so the split depends only on the test list,
+# the weights and the tiers, and a new test always lands in some shard. A
+# shard runs its units with go test -race -count=1 -v (so the log has each
+# test's duration, for the weights) and -timeout $TEST_TIMEOUT (default
+# 30m); MIMICRY_PROFILES passes through to the tests.
 set -euo pipefail
 
 usage() {
-	echo "usage: $0 <shard> <total> | plan <total>" >&2
+	echo "usage: $0 <tiers> <shard> <total> | <tiers> plan <total>" >&2
+	echo "  <tiers>: comma-separated core, protocol, gen, main; or all" >&2
 	exit 2
 }
 
-[ $# -eq 2 ] || usage
-shard=$1
-total=$2
+[ $# -eq 3 ] || usage
+tiers=$1
+shard=$2
+total=$3
+[ "$tiers" = all ] && tiers=core,protocol,gen,main
+[[ $tiers =~ ^(core|protocol|gen|main)(,(core|protocol|gen|main))*$ ]] || usage
 [[ $total =~ ^[1-9][0-9]*$ ]] || usage
 if [ "$shard" != plan ]; then
 	[[ $shard =~ ^[1-9][0-9]*$ ]] && [ "$shard" -le "$total" ] || usage
@@ -54,7 +61,7 @@ tests=$(go test -race -list '.*' ./... | awk -v module="$module" '
 
 # The shard's go test runs, one per line: package, -run, -skip (tabs). The
 # plan goes to stderr, so it is in the job's log.
-runs=$(echo "$tests" | awk -v shard="$shard" -v total="$total" -v weights=".github/harness-shards.txt" '
+runs=$(echo "$tests" | awk -v shard="$shard" -v total="$total" -v tiers="$tiers" -v weights=".github/harness-shards.txt" '
 	function add(w, pkg, test, run, skip) {
 		units++
 		uw[units] = w + 0
@@ -70,26 +77,66 @@ runs=$(echo "$tests" | awk -v shard="$shard" -v total="$total" -v weights=".gith
 		}
 		return (upkg[a] " " urun[a]) < (upkg[b] " " urun[b])
 	}
+	# a test has one tier, whichever of its lines names it
+	function settier(key, t) {
+		if ((key in tier) && tier[key] != t) {
+			printf "%s puts %s in tiers %s and %s: give its lines one\n", weights, key, tier[key], t > "/dev/stderr"
+			bad = 1
+		}
+		tier[key] = t
+	}
+	# whether the test is in a chosen tier
+	function chosen(key) {
+		return ((key in tier) ? tier[key] : "core") in want
+	}
+	# whether every member of the group (pkg, TestA|TestB) is chosen
+	function wholegroup(pkg, g,    n, members, k) {
+		n = split(g, members, "|")
+		for (k = 1; k <= n; k++) {
+			if (!chosen(pkg " " members[k])) {
+				return 0
+			}
+		}
+		return 1
+	}
+	BEGIN {
+		known["core"] = known["protocol"] = known["gen"] = known["main"] = 1
+		n = split(tiers, list, ",")
+		for (k = 1; k <= n; k++) {
+			want[list[k]] = 1
+		}
+	}
 	FNR == NR {
 		if ($0 ~ /^[ \t]*(#|$)/) {
 			next
 		}
-		slash = index($3, "/")
-		if (!slash && index($3, "|")) {
-			n = split($3, members, "|")
-			for (k = 1; k <= n; k++) {
-				listed[$2 " " members[k]] = $3
-				group[$2 " " members[k]] = $3
+		slash = index($4, "/")
+		if (!slash && index($4, "|")) {
+			# each member has the tier of a line of its own (or core)
+			if ($2 != "-") {
+				printf "%s: a group has tier -, its members their own: %s\n", weights, $0 > "/dev/stderr"
+				bad = 1
 			}
-			weight[$2 " " $3] = $1
+			n = split($4, members, "|")
+			for (k = 1; k <= n; k++) {
+				listed[$3 " " members[k]] = $4
+				group[$3 " " members[k]] = $4
+			}
+			weight[$3 " " $4] = $1
 			next
 		}
-		key = $2 " " (slash ? substr($3, 1, slash - 1) : $3)
-		listed[key] = $3
+		if (!($2 in known)) {
+			printf "%s: unknown tier %s (core, protocol, gen, main): %s\n", weights, $2, $0 > "/dev/stderr"
+			bad = 1
+			next
+		}
+		key = $3 " " (slash ? substr($4, 1, slash - 1) : $4)
+		listed[key] = $4
+		settier(key, $2)
 		if (slash) {
 			k = ++nslices[key]
 			slicew[key, k] = $1
-			slicere[key, k] = substr($3, slash + 1)
+			slicere[key, k] = substr($4, slash + 1)
 		} else {
 			weight[key] = $1
 		}
@@ -98,7 +145,10 @@ runs=$(echo "$tests" | awk -v shard="$shard" -v total="$total" -v weights=".gith
 	{
 		key = $1 " " $2
 		found[key] = 1
-		if (key in group) {
+		if (!chosen(key)) {
+			next
+		}
+		if ((key in group) && wholegroup($1, group[key])) {
 			# the group is one unit, added with its first member
 			if (!(($1 " " group[key]) in added)) {
 				added[$1 " " group[key]] = 1
@@ -154,7 +204,7 @@ runs=$(echo "$tests" | awk -v shard="$shard" -v total="$total" -v weights=".gith
 			if (shard != "plan" && s != shard) {
 				continue
 			}
-			printf "# shard %d/%d: about %d s of tests\n", s, total, load[s] > "/dev/stderr"
+			printf "# shard %d/%d (%s): about %d s of tests\n", s, total, tiers, load[s] > "/dev/stderr"
 			# whole tests of a package go in one go test run; each slice
 			# and the rest of a sliced test in their own
 			delete whole

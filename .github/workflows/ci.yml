@@ -1,15 +1,22 @@
-# Lint and tests on every pull request and every push to main; release.yml
-# calls it with full: true before a release. ci-ok is the one check to
-# require: it passes when every job passed, or when a pull request touches
-# only docs and the jobs were skipped. Each job stays under 15 minutes; the
-# harness tests are split into shards (.github/scripts/harness-shard.sh,
-# .github/harness-shards.txt).
+# Lint and tests. A pull request runs lint, the library's tests and the
+# harness tests of the tiers its paths call for (.github/harness-shards.txt:
+# core always; protocol and gen when it touches their paths, below); a push
+# to main, the nightly run and a run by hand run every tier, main's too
+# (the timing-heavy HTTP/3 edge and QUIC interop tests: their regressions
+# show after the merge). release.yml calls it with full: true before a
+# release (every tier, every profile). ci-ok is the one check to require:
+# it passes when every job passed, or when a pull request touches only docs
+# and the jobs were skipped. Each job stays under 15 minutes; the harness
+# tests are split into shards (.github/scripts/harness-shard.sh).
 name: CI
 
 on:
   pull_request:
   push:
     branches: [main]
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
   workflow_call:
     inputs:
       full:
@@ -36,13 +43,19 @@ env:
 
 jobs:
   # Whether a pull request touches more than docs (*.md, docs/, bench
-  # reports): nothing in lint or the tests reads those.
+  # reports): nothing in lint or the tests reads those. And which tiers of
+  # the harness tests it runs, in how many shards: each tier's are about
+  # 250 s of tests per shard (bash .github/scripts/harness-shard.sh <tiers>
+  # plan <shards> prints the split), so a shard takes about 5 minutes with
+  # its setup.
   changes:
     name: changes
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
       code: ${{ steps.filter.outputs.code }}
+      tiers: ${{ steps.filter.outputs.tiers }}
+      shards: ${{ steps.filter.outputs.shards }}
     steps:
       - if: github.event_name == 'pull_request'
         uses: actions/checkout@v7
@@ -50,20 +63,39 @@ jobs:
           fetch-depth: 2
           persist-credentials: false
       - id: filter
+        env:
+          # The HTTP/2, HTTP/3, QUIC and engine code, what the protocol
+          # tier's tests replay it with (the scenario server, the trace
+          # decoders, the profiles), and the Go and module versions.
+          PROTOCOL_PATHS: '^(internal/(h2|h3|quic|qpack|hpack|engine|pool|dial|handshake|fingerprint|proxy)/|profile/|profiles/data/|internal/harness/e2e/|internal/harness/internal/(server|h2trace|quictrace)/|(internal/harness/)?go\.(mod|sum)$|go\.work(\.sum)?$|\.prototools$)'
+          # The generators, what they read (captures, capture parsing) and
+          # what they must reproduce (the profiles).
+          GEN_PATHS: '^(internal/harness/cmd/(hellogen|h3gen|kindsgen)/|internal/harness/internal/capture/|internal/harness/testdata/captures/|profiles/data/|profile/)'
         run: |
           if [ "$GITHUB_EVENT_NAME" != pull_request ]; then
-            echo "code=true" >>"$GITHUB_OUTPUT"
-            exit 0
-          fi
-          # A pull request checks out its merge commit: the first parent is
-          # the base branch, so HEAD^1..HEAD is the pull request's change.
-          changed=$(git diff --name-only HEAD^1 HEAD)
-          echo "$changed"
-          if echo "$changed" | grep -Ev '\.md$|^docs/|^internal/bench/reports/' | grep -q .; then
-            echo "code=true" >>"$GITHUB_OUTPUT"
+            code=true tiers=core,protocol,gen,main shards=7
           else
-            echo "code=false" >>"$GITHUB_OUTPUT"
+            # A pull request checks out its merge commit: the first parent
+            # is the base branch, so HEAD^1..HEAD is the pull request's
+            # change.
+            changed=$(git diff --name-only HEAD^1 HEAD)
+            echo "$changed"
+            files=$(echo "$changed" | grep -Ev '\.md$|^docs/|^internal/bench/reports/|^$' || true)
+            code=false tiers=core shards=2
+            [ -z "$files" ] || code=true
+            if echo "$files" | grep -Eq "$PROTOCOL_PATHS"; then
+              tiers+=,protocol shards=$((shards + 3))
+            fi
+            if echo "$files" | grep -Eq "$GEN_PATHS"; then
+              tiers+=,gen shards=$((shards + 3))
+            fi
           fi
+          echo "code changed: $code; harness tiers: $tiers in $shards shards"
+          {
+            echo "code=$code"
+            echo "tiers=$tiers"
+            echo "shards=[$(seq "$shards" | paste -sd , -)]"
+          } >>"$GITHUB_OUTPUT"
 
   lint:
     name: lint
@@ -122,6 +154,7 @@ jobs:
           go build ./...
           go vet ./...
 
+  # The tiers changes picked, in its number of shards.
   test-harness:
     name: test-harness (${{ matrix.shard }})
     needs: changes
@@ -131,7 +164,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7]
+        shard: ${{ fromJSON(needs.changes.outputs.shards) }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -141,15 +174,20 @@ jobs:
           cache: test-harness
           # The shards share one cache; the first saves it.
           save: ${{ github.ref == 'refs/heads/main' && matrix.shard == 1 }}
-      # The h3-v2 scenario's server (TestHTTP3EdgeMatchesBrowser).
-      - uses: actions/setup-python@v7
+      # The h3-v2 scenario's server (TestHTTP3EdgeMatchesBrowser, tier main).
+      - if: contains(needs.changes.outputs.tiers, 'main')
+        uses: actions/setup-python@v7
         with:
           python-version: '3.13'
-      - run: pip install aioquic==1.7.0
-      - name: harness tests, shard ${{ matrix.shard }} of ${{ strategy.job-total }}
-        run: bash .github/scripts/harness-shard.sh ${{ matrix.shard }} ${{ strategy.job-total }}
+      - if: contains(needs.changes.outputs.tiers, 'main')
+        run: pip install aioquic==1.7.0
+      - name: harness tests (${{ needs.changes.outputs.tiers }}), shard ${{ matrix.shard }} of ${{ strategy.job-total }}
+        env:
+          TIERS: ${{ needs.changes.outputs.tiers }}
+        run: bash .github/scripts/harness-shard.sh "$TIERS" ${{ matrix.shard }} ${{ strategy.job-total }}
 
-  # The check branch protection requires.
+  # The check branch protection requires. A tier a pull request leaves out
+  # is no job, only fewer shards, so a skipped job is a docs-only change.
   ci-ok:
     name: ci-ok
     needs: [changes, lint, test-root, test-harness]

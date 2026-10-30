@@ -46,6 +46,9 @@ Include:
   package boundaries.
 
   CI runs lint and tests on every pull request; it must be green to merge.
+  A pull request runs the library's tests and the fast end-to-end replays,
+  plus the slow HTTP/2, HTTP/3 and generator tests when it touches that
+  code; main and a nightly run add every test, the timing-heavy ones too.
 
 Using AI tools is fine. What matters is that you understand the change and
 it meets the points above.
