@@ -422,6 +422,16 @@ the mechanical import rewrites.
     poisoned under `-race`), whose readers now wait with every buffer
     returned.
 
+17. **Tests in current Go idiom** (`bench_test.go`, `idle_test.go`;
+    marked `mimicry:`). gopls' bloop and SA1004 hints, fixed in the tests
+    only. The four benchmarks' timed loops use `b.Loop()` (setup stays
+    before it). `b.Loop` leaves `b.N` at 0 until the loop ends, so the
+    server goroutines of `BenchmarkThroughput` and
+    `BenchmarkStreamCreation` no longer count `b.N` streams: they accept
+    until a context canceled when the benchmark returns. The two
+    `time.Sleep(1)` in `idle_test.go` (fake time, one step past the
+    timeout) read `time.Sleep(time.Nanosecond)`; same duration.
+
 ## Tests
 
 The tests are upstream's own, kept as the proof that the copy and the TLS

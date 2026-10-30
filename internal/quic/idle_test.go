@@ -135,7 +135,7 @@ func TestIdleTimeoutExpires(t *testing.T) {
 			if err := tc.conn.Wait(ctx); err != context.Canceled {
 				t.Fatalf("conn.Wait() = %v, want Canceled", err)
 			}
-			time.Sleep(1)
+			time.Sleep(time.Nanosecond) // mimicry: was time.Sleep(1)
 			tc.wantIdle("connection exits after timeout")
 			if err := tc.conn.Wait(ctx); err != errIdleTimeout {
 				t.Fatalf("conn.Wait() = %v, want errIdleTimeout", err)
@@ -174,7 +174,7 @@ func TestIdleTimeoutKeepAlive(t *testing.T) {
 			}
 			time.Sleep(test.wantTimeout - 1)
 			tc.wantIdle("connection is idle prior to timeout")
-			time.Sleep(1)
+			time.Sleep(time.Nanosecond) // mimicry: was time.Sleep(1)
 			tc.wantFrameType("keep-alive ping is sent", packetType1RTT,
 				debugFramePing{})
 		})

@@ -31,12 +31,16 @@ func throughput(b *testing.B, totalBytes int64) {
 
 	var wg sync.WaitGroup
 	defer wg.Wait()
+	// mimicry: b.Loop leaves b.N at 0 until the loop ends, so the server
+	// accepts until the context is canceled after the client's loop.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	wg.Go(func() {
 		buf := make([]byte, bufsize)
-		for i := 0; i < b.N; i++ {
-			sconn, err := srv.AcceptStream(context.Background())
+		for {
+			sconn, err := srv.AcceptStream(ctx)
 			if err != nil {
-				panic(fmt.Errorf("AcceptStream: %v", err))
+				return
 			}
 			if _, err := io.CopyBuffer(sconn, sconn, buf); err != nil {
 				panic(fmt.Errorf("CopyBuffer: %v", err))
@@ -48,7 +52,7 @@ func throughput(b *testing.B, totalBytes int64) {
 	b.SetBytes(totalBytes)
 	buf := make([]byte, bufsize)
 	chunks := int(math.Ceil(float64(totalBytes) / float64(len(buf))))
-	for i := 0; i < b.N; i++ {
+	for b.Loop() { // mimicry: was for i := 0; i < b.N; i++
 		cconn, err := cli.NewStream(context.Background())
 		if err != nil {
 			b.Fatalf("NewStream: %v", err)
@@ -101,7 +105,7 @@ func BenchmarkReadByte(b *testing.B) {
 		b.Fatalf("NewStream: %v", err)
 	}
 	cconn.Flush()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() { // mimicry: was for i := 0; i < b.N; i++
 		_, err := cconn.ReadByte()
 		if err != nil {
 			b.Fatalf("ReadByte: %v", err)
@@ -135,7 +139,7 @@ func BenchmarkWriteByte(b *testing.B) {
 		b.Fatalf("NewStream: %v", err)
 	}
 	cconn.Flush()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() { // mimicry: was for i := 0; i < b.N; i++; the server reads b.N after Close, once the loop has set it
 		if err := cconn.WriteByte(0); err != nil {
 			b.Fatalf("WriteByte: %v", err)
 		}
@@ -148,18 +152,22 @@ func BenchmarkStreamCreation(b *testing.B) {
 
 	var wg sync.WaitGroup
 	defer wg.Wait()
+	// mimicry: b.Loop leaves b.N at 0 until the loop ends, so the server
+	// accepts until the context is canceled after the client's loop.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	wg.Go(func() {
-		for i := 0; i < b.N; i++ {
-			sconn, err := srv.AcceptStream(context.Background())
+		for {
+			sconn, err := srv.AcceptStream(ctx)
 			if err != nil {
-				panic(fmt.Errorf("AcceptStream: %v", err))
+				return
 			}
 			sconn.Close()
 		}
 	})
 
 	buf := make([]byte, 1)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() { // mimicry: was for i := 0; i < b.N; i++
 		cconn, err := cli.NewStream(context.Background())
 		if err != nil {
 			b.Fatalf("NewStream: %v", err)
