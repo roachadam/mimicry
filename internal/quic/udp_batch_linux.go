@@ -6,7 +6,9 @@ package quic
 // change 13), up to recvBatch per system call; upstream reads one per
 // recvmsg. Each still goes to f, and so to the conn's loop, one at a time.
 // The batch is read with raw recvmmsg rather than x/net/ipv4's ReadBatch,
-// which allocates an address per message.
+// which allocates an address per message. A read takes as many buffers
+// from the pool as the traffic has needed, not a whole batch each time the
+// socket wakes (UPSTREAM.md change 18).
 
 import (
 	"encoding/binary"
@@ -43,14 +45,21 @@ func (c *netUDPConn) readBatch(f func(*datagram)) (ok bool, err error) {
 		hdrs    [recvBatch]mmsghdr
 		iovs    [recvBatch]syscall.Iovec
 		names   [recvBatch]syscall.RawSockaddrInet6
-		dgrams  [recvBatch]*datagram
 		control = make([]byte, recvBatch*controlSize)
+		// dgrams[:held] hold the buffers the last read left unfilled, at
+		// the front, for the next read.
+		dgrams [recvBatch]*datagram
+		held   int
+		// want is how many datagrams the next recvmmsg may return; got,
+		// how many have been read since the socket last woke.
+		want = recvBatch
+		got  int
 	)
 
-	// fill gives every empty slot a buffer and resets the headers.
-	fill := func() {
-		for i := range hdrs {
-			if dgrams[i] == nil {
+	// arm gives the first want slots a buffer and resets their headers.
+	arm := func() {
+		for i := range want {
+			if i >= held {
 				dgrams[i] = newDatagram()
 			}
 
@@ -71,6 +80,8 @@ func (c *netUDPConn) readBatch(f func(*datagram)) (ok bool, err error) {
 			h.Flags = 0
 			hdrs[i].len = 0
 		}
+
+		held = max(held, want)
 	}
 
 	for {
@@ -80,16 +91,26 @@ func (c *netUDPConn) readBatch(f func(*datagram)) (ok bool, err error) {
 		)
 
 		err := rc.Read(func(fd uintptr) bool {
-			fill()
+			arm()
 
-			r, _, e := syscall.Syscall6(syscall.SYS_RECVMMSG, fd, uintptr(unsafe.Pointer(&hdrs[0])), recvBatch, 0, 0, 0) //nolint:gosec // G103: recvmmsg's array of headers
+			r, _, e := syscall.Syscall6(syscall.SYS_RECVMMSG, fd, uintptr(unsafe.Pointer(&hdrs[0])), uintptr(want), 0, 0, 0) //nolint:gosec // G103: recvmmsg's array of headers
 			if e == syscall.EAGAIN {
 				// Nothing to read: while the socket waits, as an idle
 				// connection's does, it holds one buffer, not a batch.
-				for i := 1; i < recvBatch; i++ {
+				for i := 1; i < held; i++ {
 					dgrams[i].recycle()
 
 					dgrams[i] = nil
+				}
+
+				held = 1
+
+				// The next wake-up reads as many as this one did, and one
+				// more, so the read that takes them all is short and the
+				// next finds the socket empty with the buffer it left.
+				if got > 0 {
+					want = min(got+1, recvBatch)
+					got = 0
 				}
 
 				return false
@@ -112,14 +133,16 @@ func (c *netUDPConn) readBatch(f func(*datagram)) (ok bool, err error) {
 		}
 
 		for i := range n {
-			size := int(hdrs[i].len)
-			if size == 0 {
-				continue // as Read: an empty datagram is dropped
-			}
-
 			d := dgrams[i]
 
 			dgrams[i] = nil
+
+			size := int(hdrs[i].len)
+			if size == 0 {
+				d.recycle() // as Read: an empty datagram is dropped
+
+				continue
+			}
 
 			d.b = d.b[:size]
 			d.path = pathAddrs{
@@ -128,6 +151,21 @@ func (c *netUDPConn) readBatch(f func(*datagram)) (ok bool, err error) {
 			}
 			parseControl(d, control[i*controlSize:][:hdrs[i].hdr.Controllen])
 			f(d)
+		}
+
+		// The buffers the read left unfilled move to the front. A full
+		// read may have left more queued: the next takes twice as many.
+		// A short one emptied the socket: the next, most likely finding
+		// it empty, takes only what is left.
+		held = copy(dgrams[:], dgrams[n:held])
+		clear(dgrams[held:])
+
+		got += n
+
+		if n == want {
+			want = min(2*want, recvBatch)
+		} else {
+			want = max(held, 1)
 		}
 	}
 }

@@ -83,9 +83,12 @@ func TestRequestsReuseStreamBuffers(t *testing.T) {
 
 	after := mem()
 	perRequest := (after.TotalAlloc - before.TotalAlloc) / n
-	// About 7 KB here (17 KB with -race, whose sync.Pool drops a quarter
+	// About 7 KB here (19 KB with -race, whose sync.Pool drops a quarter
 	// of what is put back), 8 KB more for each direction whose buffers are
-	// allocated anew.
+	// allocated anew. Linux measures what macOS does since its batched
+	// receive stopped cycling a whole batch through the pool at each
+	// wake-up (24 KB with -race before: internal/quic's UPSTREAM.md
+	// change 18).
 	bound := uint64(12 << 10)
 	if testutil.RaceEnabled() {
 		bound = 20 << 10

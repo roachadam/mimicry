@@ -365,11 +365,12 @@ the mechanical import rewrites.
     messages parsed (change 11), so the ACK rules see the queue they saw.
     macOS keeps `recvmsg`. At 100 KB and 64 at once req/s rose from about
     6,000 to 6,300 (bench 2026-10-27, noisy). While `recvmmsg` finds nothing (EAGAIN), the
-    batch's buffers but one go back to the pool, refilled when the socket
-    is readable again: an idle connection's socket held 8 (12 KB) while it
-    waited (change 16). Covered by upstream's tests and the e2e suite run
-    in a Linux container (`TestHTTP3*MatchesBrowser`, `TestQUICInterop`):
-    on macOS, where the gate runs, this path is not built.
+    batch's buffers but one go back to the pool, refilled as the traffic
+    needs them (change 18): an idle connection's socket held 8 (12 KB)
+    while it waited (change 16). Covered by upstream's tests and the e2e
+    suite run in a Linux container (`TestHTTP3*MatchesBrowser`,
+    `TestQUICInterop`), and by CI, on Linux: on a Mac this path is not
+    built.
 
 14. **A client's socket failing ends its connection** (`endpoint.go`'s
     `listen`). Upstream's listen loop returns on a read error and leaves
@@ -446,6 +447,33 @@ the mechanical import rewrites.
     (range over int in `packet_protection.go`, embedded field types in
     `conn_id.go`, `string +=` in a loop in `frame_debug.go`) and unused
     parameters, left as upstream's.
+
+18. **A batch takes the buffers the traffic needs** (`udp_batch_linux.go`).
+    Change 13 armed all 8 slots each time the socket woke and returned 7
+    to the pool at the EAGAIN that ends the wake-up: a warm HTTP/3
+    request (two wake-ups, client and server, two datagrams) took 16
+    buffers from `datagramPool` for the 2 it used. Nothing allocated
+    without `-race`, but `-race`'s `sync.Pool` drops a quarter of what is
+    put back, so on Linux `internal/h3`'s `TestRequestsReuseStreamBuffers`
+    measured 24.4 KB and 59 objects a request (18.9 KB and 53 on macOS)
+    and `internal/engine/native`'s `TestWarmRequestAllocations/http3` 68
+    allocations (61 on macOS); the profile put the difference on
+    `datagramPool`'s `New` (7.6 MB over the test against 1.0 MB on
+    macOS). Now a read leaves the buffers it did not fill at the front for
+    the next read; after a full read the next may return twice as many
+    (up to 8), after a short one (the socket emptied) only what is left;
+    and a wake-up arms one more than the previous wake-up read, so the
+    read that takes them all is short and leaves the buffer the EAGAIN
+    read uses. An idle socket still
+    holds one. Warm requests (Linux container, 20,000 in a row): 2.08
+    pool gets a request (16.02 before), the same 4 `recvmmsg` calls (2 of
+    them EAGAIN), 61 allocations and 18.8 KB with `-race` as on macOS, 52
+    and 7.1 KB without (unchanged, either OS); time per request within
+    noise. Bulk (`BenchmarkThroughput`'s transfer, 4 MiB): gets per
+    datagram 1.19 to 1.04, `recvmmsg` calls per datagram 0.18-0.19 to
+    0.18-0.20 as a burst larger than the last ramps up, throughput within
+    noise (370-405 MB/s both). Covered by those two tests under `-race`
+    on Linux, which fail without it.
 
 ## Tests
 
