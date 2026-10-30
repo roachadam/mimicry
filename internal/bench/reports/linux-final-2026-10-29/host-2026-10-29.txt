@@ -1,0 +1,24 @@
+2026-10-29T17:52:54Z before micro: load average 1.59 2.00 1.79; other containers at 1% CPU or more: 2, 5.82% CPU together
+2026-10-29T18:03:55Z before bench-pass1: load average 2.23 2.54 2.26; other containers at 1% CPU or more: 3, 9.32% CPU together
+2026-10-29T18:31:04Z before bench-pass2: load average 1.67 3.19 3.34; other containers at 1% CPU or more: 3, 10.14% CPU together
+2026-10-29T18:57:04Z before bench-pass3: load average 1.19 2.42 3.04; other containers at 1% CPU or more: 2, 6.29% CPU together
+2026-10-29T19:22:04Z end: load average 1.59 3.33 3.78; other containers at 1% CPU or more: 4, 9.52% CPU together
+2026-10-29T20:32:18Z before udpbuf-before-pass1: load average 1.13 1.48 1.67; other containers at 1% CPU or more: 3, 299.49% CPU together
+2026-10-29T20:35:53Z before udpbuf-before-pass2: load average 2.74 2.68 2.16; other containers at 1% CPU or more: 3, 7.97% CPU together
+2026-10-29T20:38:10Z before udpbuf-before-pass1: load average 3.17 2.99 2.35; other containers at 1% CPU or more: 3, 9.90% CPU together
+2026-10-29T20:42:29Z before udpbuf-before-pass2: load average 3.23 3.78 2.88; other containers at 1% CPU or more: 3, 14.86% CPU together
+2026-10-29T20:46:47Z before udpbuf-before-pass3: load average 5.09 4.66 3.47; other containers at 1% CPU or more: 4, 107.91% CPU together
+2026-10-29T20:51:05Z end: load average 2.71 3.79 3.42; other containers at 1% CPU or more: 3, 9.97% CPU together
+2026-10-29T20:53:04Z before udpbuf-curve-pass1: load average 1.74 3.09 3.20; other containers at 1% CPU or more: 5, 14.24% CPU together
+2026-10-29T20:55:57Z before udpbuf-curve-pass2: load average 2.81 3.48 3.38; other containers at 1% CPU or more: 3, 8.84% CPU together
+2026-10-29T20:58:50Z before udpbuf-curve-pass3: load average 4.06 4.07 3.65; other containers at 1% CPU or more: 3, 375.97% CPU together
+2026-10-29T21:01:44Z end: load average 3.24 4.08 3.76; other containers at 1% CPU or more: 2, 6.83% CPU together
+2026-10-29T21:36:06Z before udpbuf-after-pass1: load average 3.62 3.47 3.55; other containers at 1% CPU or more: 3, 7.27% CPU together
+2026-10-29T21:41:07Z before udpbuf-after-pass2: load average 3.72 3.62 3.59; other containers at 1% CPU or more: 3, 10.70% CPU together
+2026-10-29T21:46:08Z before udpbuf-after-pass3: load average 2.60 3.78 3.72; other containers at 1% CPU or more: 4, 12.56% CPU together
+2026-10-29T21:51:09Z end: load average 3.62 4.76 4.26; other containers at 1% CPU or more: 4, 13.79% CPU together
+2026-10-29T22:32:08Z before micro: load average 3.19 1.62 1.54; other containers at 1% CPU or more: 3, 6.29% CPU together
+2026-10-29T22:43:07Z before final-pass1: load average 2.49 2.62 2.17; other containers at 1% CPU or more: 5, 15.32% CPU together
+2026-10-29T23:10:15Z before final-pass2: load average 4.14 3.56 3.37; other containers at 1% CPU or more: 4, 14.40% CPU together
+2026-10-29T23:35:14Z before final-pass3: load average 1.27 2.72 3.30; other containers at 1% CPU or more: 1, 2.50% CPU together
+2026-10-30T00:00:07Z end: load average 1.53 3.04 3.43; other containers at 1% CPU or more: 2, 3.88% CPU together

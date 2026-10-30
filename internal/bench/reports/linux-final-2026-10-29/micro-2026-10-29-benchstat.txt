@@ -1,0 +1,73 @@
+goos: linux
+goarch: amd64
+pkg: github.com/roachadam/mimicry/internal/bench
+cpu: 13th Gen Intel(R) Core(TM) i5-13500
+                                                  │   nethttp    │                   mimicry                    │              tls-client               │                httpcloak                 │                azuretls                 │
+                                                  │    sec/op    │     sec/op       vs base                     │    sec/op      vs base                │     sec/op      vs base                  │    sec/op      vs base                  │
+NewClient/proto=h1/proxy=none-4                     281.6n ± 26%   234867.0n ± 11%   +83319.29% (p=0.002 n=6)     1328.5n ± 18%  +371.85% (p=0.002 n=6)   36242.0n ± 10%  +12772.31% (p=0.002 n=6)    315.2n ± 14%   +11.97% (p=0.041 n=6)
+NewClient/proto=h1/proxy=socks5-4                   553.6n ± 12%   236022.0n ±  6%   +42534.03% (p=0.002 n=6)     1766.5n ±  2%  +219.09% (p=0.002 n=6)   37363.0n ±  3%   +6649.10% (p=0.002 n=6)    937.9n ± 14%   +69.41% (p=0.002 n=6)
+NewClient/proto=h2/proxy=none-4                     591.2n ± 23%   237049.0n ±  7%   +39996.24% (p=0.002 n=6)     1325.5n ±  7%  +124.21% (p=0.002 n=6)   35916.0n ±  6%   +5975.10% (p=0.002 n=6)    322.9n ± 24%   -45.37% (p=0.002 n=6)
+NewClient/proto=h2/proxy=socks5-4                   896.3n ± 12%   235572.0n ± 11%   +26182.72% (p=0.002 n=6)     1801.0n ±  8%  +100.94% (p=0.002 n=6)   36506.5n ± 13%   +3973.02% (p=0.002 n=6)    931.4n ± 12%    +3.92% (p=0.041 n=6)
+NewClient/proto=h3/proxy=none-4                     216.5n ±  6%   236720.5n ±  1%  +109239.72% (p=0.002 n=6)     1438.0n ±  2%  +564.20% (p=0.002 n=6)   35855.0n ±  1%  +16461.20% (p=0.002 n=6)    825.1n ±  5%  +281.11% (p=0.002 n=6)
+NewClient/proto=h3/proxy=socks5-4                                   236.232µ ±  1%                                 2.155µ ±  1%                            36.632µ ±  1%                              1.438µ ±  2%
+Request/server=nginx/proto=h1/method=GET-4          31.15µ ±  2%      34.75µ ±  2%      +11.55% (p=0.002 n=6)      39.78µ ±  3%   +27.72% (p=0.002 n=6)     57.07µ ±  2%     +83.23% (p=0.002 n=6)    54.12µ ±  2%   +73.77% (p=0.002 n=6)
+Request/server=nginx/proto=h1/method=POST-4         33.01µ ±  1%      36.42µ ±  2%      +10.35% (p=0.002 n=6)      42.56µ ±  2%   +28.92% (p=0.002 n=6)     62.72µ ±  3%     +90.01% (p=0.002 n=6)    62.88µ ±  2%   +90.50% (p=0.002 n=6)
+Request/server=nginx/proto=h2/method=GET-4          34.44µ ±  3%      37.99µ ±  5%      +10.30% (p=0.002 n=6)      45.61µ ±  2%   +32.41% (p=0.002 n=6)     55.54µ ±  2%     +61.24% (p=0.002 n=6)    76.05µ ±  1%  +120.80% (p=0.002 n=6)
+Request/server=nginx/proto=h2/method=POST-4         48.46µ ±  4%      52.85µ ±  2%       +9.05% (p=0.002 n=6)      60.18µ ±  5%   +24.17% (p=0.002 n=6)     64.61µ ±  3%     +33.32% (p=0.002 n=6)    94.00µ ±  6%   +93.96% (p=0.002 n=6)
+Request/server=nginx/proto=h3/method=GET-4          47.22µ ±  4%      49.06µ ±  3%       +3.91% (p=0.015 n=6)      64.90µ ±  3%   +37.44% (p=0.002 n=6)    112.09µ ±  3%    +137.40% (p=0.002 n=6)    71.06µ ±  4%   +50.50% (p=0.002 n=6)
+Request/server=nginx/proto=h3/method=POST-4         62.82µ ±  3%      60.60µ ±  1%       -3.53% (p=0.002 n=6)      85.66µ ±  1%   +36.37% (p=0.002 n=6)    118.95µ ±  5%     +89.37% (p=0.002 n=6)    91.13µ ±  2%   +45.08% (p=0.002 n=6)
+Connect/server=nginx/proto=h1/handshake=full-4      921.2µ ±  2%     1014.7µ ±  2%      +10.15% (p=0.002 n=6)     1052.9µ ±  5%   +14.30% (p=0.002 n=6)    1124.1µ ±  4%     +22.03% (p=0.002 n=6)   1077.1µ ±  7%   +16.92% (p=0.002 n=6)
+Connect/server=nginx/proto=h1/handshake=resumed-4   675.4µ ±  2%      754.9µ ±  3%      +11.77% (p=0.002 n=6)      842.4µ ±  3%   +24.72% (p=0.002 n=6)     881.0µ ±  2%     +30.44% (p=0.002 n=6)
+Connect/server=nginx/proto=h2/handshake=full-4      960.4µ ±  2%     1066.0µ ±  3%      +10.99% (p=0.002 n=6)     1093.9µ ±  3%   +13.90% (p=0.002 n=6)    1177.7µ ±  2%     +22.62% (p=0.002 n=6)   1112.5µ ±  4%   +15.83% (p=0.002 n=6)
+Connect/server=nginx/proto=h2/handshake=resumed-4   728.3µ ±  3%      793.7µ ±  2%       +8.97% (p=0.002 n=6)      863.9µ ±  3%   +18.62% (p=0.002 n=6)     898.6µ ±  2%     +23.39% (p=0.002 n=6)
+Connect/server=nginx/proto=h3/handshake=full-4      1.153m ±  3%                                                   1.203m ±  2%    +4.39% (p=0.002 n=6)     6.910m ±  2%    +499.38% (p=0.002 n=6)    1.347m ± 26%   +16.85% (p=0.002 n=6)
+Connect/server=nginx/proto=h3/handshake=resumed-4   887.5µ ± 10%      931.7µ ± 13%       +4.98% (p=0.041 n=6)      900.4µ ± 40%         ~ (p=0.180 n=6)    6093.1µ ±  2%    +586.55% (p=0.002 n=6)
+
+                                                  │   nethttp    │                  mimicry                   │              tls-client               │               httpcloak                │                azuretls                 │
+                                                  │     B/op     │      B/op       vs base                    │     B/op       vs base                │     B/op       vs base                 │     B/op       vs base                  │
+NewClient/proto=h1/proxy=none-4                      1169.0 ± 0%    124825.0 ± 1%  +10577.93% (p=0.002 n=6)       3840.0 ± 0%  +228.49% (p=0.002 n=6)    36457.0 ± 0%  +3018.65% (p=0.002 n=6)      744.0 ± 0%   -36.36% (p=0.002 n=6)
+NewClient/proto=h1/proxy=socks5-4                   1.353Ki ± 0%   122.430Ki ± 1%   +8951.88% (p=0.002 n=6)      4.281Ki ± 0%  +216.53% (p=0.002 n=6)   36.235Ki ± 0%  +2579.03% (p=0.002 n=6)    1.688Ki ± 0%   +24.77% (p=0.002 n=6)
+NewClient/proto=h2/proxy=none-4                      1969.0 ± 0%    125381.5 ± 0%   +6267.78% (p=0.002 n=6)       3840.0 ± 0%   +95.02% (p=0.002 n=6)    36457.0 ± 0%  +1751.55% (p=0.002 n=6)      744.0 ± 0%   -62.21% (p=0.002 n=6)
+NewClient/proto=h2/proxy=socks5-4                   2.134Ki ± 0%   122.206Ki ± 1%   +5627.16% (p=0.002 n=6)      4.281Ki ± 0%  +100.64% (p=0.002 n=6)   36.234Ki ± 0%  +1598.12% (p=0.002 n=6)    1.688Ki ± 0%   -20.92% (p=0.002 n=6)
+NewClient/proto=h3/proxy=none-4                       864.0 ± 0%    125175.5 ± 0%  +14387.91% (p=0.002 n=6)       4224.0 ± 0%  +388.89% (p=0.002 n=6)    36457.0 ± 0%  +4119.56% (p=0.002 n=6)     2840.0 ± 0%  +228.70% (p=0.002 n=6)
+NewClient/proto=h3/proxy=socks5-4                                  122.923Ki ± 1%                                4.844Ki ± 0%                           36.235Ki ± 0%                             3.734Ki ± 0%
+Request/server=nginx/proto=h1/method=GET-4          5.169Ki ± 0%     7.994Ki ± 0%     +54.66% (p=0.002 n=6)     10.797Ki ± 0%  +108.89% (p=0.002 n=6)   15.954Ki ± 0%   +208.65% (p=0.002 n=6)   13.080Ki ± 0%  +153.05% (p=0.002 n=6)
+Request/server=nginx/proto=h1/method=POST-4         6.305Ki ± 0%     9.377Ki ± 0%     +48.72% (p=0.002 n=6)     12.627Ki ± 0%  +100.26% (p=0.002 n=6)   14.700Ki ± 0%   +133.14% (p=0.002 n=6)   13.629Ki ± 0%  +116.15% (p=0.002 n=6)
+Request/server=nginx/proto=h2/method=GET-4          6.597Ki ± 0%     8.324Ki ± 0%     +26.19% (p=0.002 n=6)     15.062Ki ± 0%  +128.33% (p=0.002 n=6)   14.942Ki ± 0%   +126.51% (p=0.002 n=6)   23.094Ki ± 0%  +250.09% (p=0.002 n=6)
+Request/server=nginx/proto=h2/method=POST-4         7.828Ki ± 0%     9.600Ki ± 0%     +22.63% (p=0.002 n=6)     19.212Ki ± 0%  +145.42% (p=0.002 n=6)   14.222Ki ± 0%    +81.67% (p=0.002 n=6)   24.482Ki ± 0%  +212.75% (p=0.002 n=6)
+Request/server=nginx/proto=h3/method=GET-4          9.526Ki ± 0%    10.561Ki ± 0%     +10.86% (p=0.002 n=6)     18.257Ki ± 0%   +91.65% (p=0.002 n=6)   24.512Ki ± 0%   +157.31% (p=0.002 n=6)   20.943Ki ± 0%  +119.84% (p=0.002 n=6)
+Request/server=nginx/proto=h3/method=POST-4         18.43Ki ± 0%     12.24Ki ± 0%     -33.62% (p=0.002 n=6)      28.83Ki ± 0%   +56.42% (p=0.002 n=6)    31.57Ki ± 0%    +71.28% (p=0.002 n=6)    29.31Ki ± 0%   +58.98% (p=0.002 n=6)
+Connect/server=nginx/proto=h1/handshake=full-4      100.8Ki ± 1%     116.6Ki ± 1%     +15.60% (p=0.002 n=6)      137.9Ki ± 0%   +36.75% (p=0.002 n=6)    460.7Ki ± 0%   +356.89% (p=0.002 n=6)    128.1Ki ± 1%   +27.04% (p=0.002 n=6)
+Connect/server=nginx/proto=h1/handshake=resumed-4   96.82Ki ± 0%    122.44Ki ± 0%     +26.46% (p=0.002 n=6)     116.42Ki ± 0%   +20.25% (p=0.002 n=6)   437.21Ki ± 0%   +351.56% (p=0.002 n=6)
+Connect/server=nginx/proto=h2/handshake=full-4      112.0Ki ± 0%     118.8Ki ± 0%      +6.05% (p=0.002 n=6)      151.3Ki ± 0%   +35.13% (p=0.002 n=6)    164.7Ki ± 0%    +47.09% (p=0.002 n=6)    149.9Ki ± 0%   +33.80% (p=0.002 n=6)
+Connect/server=nginx/proto=h2/handshake=resumed-4   106.0Ki ± 0%     124.4Ki ± 0%     +17.38% (p=0.002 n=6)      130.4Ki ± 0%   +23.02% (p=0.002 n=6)    144.0Ki ± 0%    +35.89% (p=0.002 n=6)
+Connect/server=nginx/proto=h3/handshake=full-4      174.0Ki ± 0%                                                 194.3Ki ± 0%   +11.67% (p=0.002 n=6)    238.3Ki ± 0%    +36.95% (p=0.002 n=6)    204.7Ki ± 0%   +17.63% (p=0.002 n=6)
+Connect/server=nginx/proto=h3/handshake=resumed-4   173.2Ki ± 0%     182.2Ki ± 0%      +5.19% (p=0.002 n=6)      185.5Ki ± 0%    +7.11% (p=0.002 n=6)    247.4Ki ± 0%    +42.81% (p=0.002 n=6)
+
+                                                  │   nethttp   │                 mimicry                 │             tls-client              │               httpcloak               │               azuretls                │
+                                                  │  allocs/op  │  allocs/op    vs base                   │  allocs/op   vs base                │  allocs/op    vs base                 │  allocs/op   vs base                  │
+NewClient/proto=h1/proxy=none-4                     10.000 ± 0%   874.000 ± 0%  +8640.00% (p=0.002 n=6)     54.000 ± 0%  +440.00% (p=0.002 n=6)   231.000 ± 0%  +2210.00% (p=0.002 n=6)    6.000 ± 0%   -40.00% (p=0.002 n=6)
+NewClient/proto=h1/proxy=socks5-4                    14.00 ± 0%    878.00 ± 0%  +6171.43% (p=0.002 n=6)      64.00 ± 0%  +357.14% (p=0.002 n=6)    239.00 ± 0%  +1607.14% (p=0.002 n=6)    16.00 ± 0%   +14.29% (p=0.002 n=6)
+NewClient/proto=h2/proxy=none-4                     19.000 ± 0%   874.000 ± 0%  +4500.00% (p=0.002 n=6)     54.000 ± 0%  +184.21% (p=0.002 n=6)   231.000 ± 0%  +1115.79% (p=0.002 n=6)    6.000 ± 0%   -68.42% (p=0.002 n=6)
+NewClient/proto=h2/proxy=socks5-4                    23.00 ± 0%    878.00 ± 0%  +3717.39% (p=0.002 n=6)      64.00 ± 0%  +178.26% (p=0.002 n=6)    239.00 ± 0%   +939.13% (p=0.002 n=6)    16.00 ± 0%   -30.43% (p=0.002 n=6)
+NewClient/proto=h3/proxy=none-4                      9.000 ± 0%   882.000 ± 0%  +9700.00% (p=0.002 n=6)     57.000 ± 0%  +533.33% (p=0.002 n=6)   231.000 ± 0%  +2466.67% (p=0.002 n=6)   16.000 ± 0%   +77.78% (p=0.002 n=6)
+NewClient/proto=h3/proxy=socks5-4                                  886.00 ± 0%                               69.00 ± 0%                            239.00 ± 0%                             26.00 ± 0%
+Request/server=nginx/proto=h1/method=GET-4           69.00 ± 0%     74.00 ± 0%     +7.25% (p=0.002 n=6)     111.00 ± 0%   +60.87% (p=0.002 n=6)    214.00 ± 0%   +210.14% (p=0.002 n=6)   260.00 ± 0%  +276.81% (p=0.002 n=6)
+Request/server=nginx/proto=h1/method=POST-4          78.00 ± 0%     88.00 ± 0%    +12.82% (p=0.002 n=6)     118.00 ± 0%   +51.28% (p=0.002 n=6)    213.00 ± 0%   +173.08% (p=0.002 n=6)   290.50 ± 0%  +272.44% (p=0.002 n=6)
+Request/server=nginx/proto=h2/method=GET-4           64.00 ± 0%     80.00 ± 0%    +25.00% (p=0.002 n=6)     141.00 ± 0%  +120.31% (p=0.002 n=6)    109.00 ± 0%    +70.31% (p=0.002 n=6)   413.50 ± 0%  +546.09% (p=0.002 n=6)
+Request/server=nginx/proto=h2/method=POST-4          74.00 ± 0%     92.00 ± 0%    +24.32% (p=0.002 n=6)     153.00 ± 0%  +106.76% (p=0.002 n=6)    121.00 ± 0%    +63.51% (p=0.002 n=6)   460.00 ± 0%  +521.62% (p=0.002 n=6)
+Request/server=nginx/proto=h3/method=GET-4          143.00 ± 0%     85.00 ± 0%    -40.56% (p=0.002 n=6)     225.00 ± 0%   +57.34% (p=0.002 n=6)    337.00 ± 0%   +135.66% (p=0.002 n=6)   293.00 ± 0%  +104.90% (p=0.002 n=6)
+Request/server=nginx/proto=h3/method=POST-4          151.0 ± 0%     103.0 ± 0%    -31.79% (p=0.002 n=6)      234.0 ± 0%   +54.97% (p=0.002 n=6)     333.0 ± 0%   +120.53% (p=0.002 n=6)    302.0 ± 0%  +100.00% (p=0.002 n=6)
+Connect/server=nginx/proto=h1/handshake=full-4       730.0 ± 0%     921.0 ± 0%    +26.16% (p=0.002 n=6)     1089.0 ± 0%   +49.18% (p=0.002 n=6)    1153.0 ± 0%    +57.95% (p=0.002 n=6)   1121.5 ± 0%   +53.63% (p=0.002 n=6)
+Connect/server=nginx/proto=h1/handshake=resumed-4    645.0 ± 0%     795.0 ± 0%    +23.26% (p=0.002 n=6)      946.0 ± 0%   +46.67% (p=0.002 n=6)     972.0 ± 0%    +50.70% (p=0.002 n=6)
+Connect/server=nginx/proto=h2/handshake=full-4       816.0 ± 0%     971.0 ± 0%    +19.00% (p=0.002 n=6)     1187.0 ± 0%   +45.47% (p=0.002 n=6)    1155.0 ± 0%    +41.54% (p=0.002 n=6)   1364.0 ± 0%   +67.16% (p=0.002 n=6)
+Connect/server=nginx/proto=h2/handshake=resumed-4    720.0 ± 0%     845.0 ± 0%    +17.36% (p=0.002 n=6)     1030.0 ± 0%   +43.06% (p=0.002 n=6)     974.5 ± 0%    +35.35% (p=0.002 n=6)
+Connect/server=nginx/proto=h3/handshake=full-4      1.536k ± 0%                                             1.706k ± 0%   +11.07% (p=0.002 n=6)    2.061k ± 0%    +34.18% (p=0.002 n=6)   1.901k ± 0%   +23.76% (p=0.002 n=6)
+Connect/server=nginx/proto=h3/handshake=resumed-4   1.439k ± 0%    1.488k ± 0%     +3.41% (p=0.002 n=6)     1.557k ± 0%    +8.20% (p=0.002 n=6)    1.955k ± 0%    +35.86% (p=0.002 n=6)
+
+                                                  │   nethttp    │              mimicry               │             tls-client             │             httpcloak              │
+                                                  │  unresumed   │ unresumed   vs base                │ unresumed   vs base                │ unresumed   vs base                │
+Connect/server=nginx/proto=h1/handshake=resumed-4   0.000 ± 0%     0.000 ± 0%       ~ (p=1.000 n=6) ¹   0.000 ± 0%       ~ (p=1.000 n=6) ¹   0.000 ± 0%       ~ (p=1.000 n=6) ¹
+Connect/server=nginx/proto=h2/handshake=resumed-4   0.000 ± 0%     0.000 ± 0%       ~ (p=1.000 n=6) ¹   0.000 ± 0%       ~ (p=1.000 n=6) ¹   0.000 ± 0%       ~ (p=1.000 n=6) ¹
+Connect/server=nginx/proto=h3/handshake=resumed-4   0.000 ± 0%     0.000 ± 0%       ~ (p=1.000 n=6) ¹   0.000 ± 0%       ~ (p=1.000 n=6) ¹   0.000 ± 0%       ~ (p=1.000 n=6) ¹
+¹ all samples are equal
