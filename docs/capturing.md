@@ -70,8 +70,12 @@ its headers ([decision 0042](decisions/0042-http2-opening-records.md)).
   exception (or, for pages across several hosts, trusts the system's
   roots). Nothing on the system changes.
 - **Safari** cannot be isolated: it opens a tab in the user's own window
-  (closed afterwards). It must have **no content blocker or other extension
-  enabled** while capturing (they block requests and strip cookies) and
+  (closed afterwards), so leave a Safari window open: with none, closing
+  the first sample's tab closes its window, and the next sample opened
+  nothing (2026-10-30, Safari 27: "no request within 1m30s"; a sample cut
+  short that way can leave its cookies for the next run). It must have
+  **no content blocker or other extension enabled** while capturing (they
+  block requests and strip cookies) and
   default privacy settings. It resolves through the system, so the capture
   tool runs a DNS stub answering `*.test` with 127.0.0.1
   (`internal/dnsstub`), reached through `/etc/resolver/test`, created once:
@@ -359,12 +363,16 @@ kindsgen's captures, and what each gives the profile:
   `site: none`) and a page's (`nav-redirect-page`, `nav-redirect-form`,
   `nav-redirect-click`; the label's sites). A clicked navigation
   (`nav-redirect-click`) is grouped with the script's of its condition, so
-  its variant gains the `sec-fetch-user` slot; their orders must merge.
-  Likewise `nav-redirect-cookie`'s hop, which carries the cookies its 302
-  set, is grouped with `nav-redirect-so`'s, so that variant gains the
-  `cookie` slot. A request one sample sent in a form no condition explains
-  (browser state) is left out only if pinned in `sampleGaps` with why, and
-  a pinned one missing from its capture is an error;
+  its variant gains the `sec-fetch-user` slot; their orders must merge. A
+  request one sample sent in a form no condition explains (browser state)
+  is left out only if pinned in `sampleGaps` with why, and a pinned one
+  missing from its capture is an error;
+- the cookie twins (decision 0048, optional): `<name>.cors-edge-cookies`,
+  `<name>.redirects2-cookies` and `<name>.nav-redirect-*-cookies`, each its
+  original with cookies set on the hosts its hops go to. Their requests
+  are read with their original's and grouped by the same conditions, so a
+  hop variant gains the `cookie` slot where the twin's hops carried
+  cookies; their orders must merge;
 - `<name>.headers-order.pagetrace.json.gz`: `context.headerTable`, and
   fetch/XHR requests with headers the page set;
 - `<name>.websocket.pagetrace.json.gz` and

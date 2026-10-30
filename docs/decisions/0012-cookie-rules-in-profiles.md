@@ -1,6 +1,6 @@
 # 0012: Browser cookie rules as a profile section
 
-- Status: Accepted
+- Status: Accepted; amended 2026-10-30 by [0048](0048-cookie-twins.md) (`block_after_cross_site` blocks subresources only)
 - Date: 2026-10-24
 - Commits: `373c0ca`, `e7627c0`
 
@@ -107,3 +107,14 @@ for it, deliberately.
 ## Revisit when
 
 A capture shows a behaviour no value describes.
+
+## Amendment 2026-10-30: `block_after_cross_site` blocks subresources only
+
+The cookie twins of [0048](0048-cookie-twins.md) redirected Safari 27's
+navigations through another site with cookies on every host: each hop
+carried its cookies (`nav-redirect-{page,form,click}-cookies`: a form's or
+link's hop to another site, within it and back to the page's site, three
+samples each). The cookies page's images, which measured the rule, stay
+blocked after a cross-site hop. The jar now applies
+`block_after_cross_site` to subresources only; a navigation's hops judge
+SameSite by their own URL.

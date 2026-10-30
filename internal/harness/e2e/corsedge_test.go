@@ -16,79 +16,80 @@ import (
 	"github.com/roachadam/mimicry/internal/harness/internal/server"
 )
 
-// The cors-edge page's fetches through mimicry follow redirects as the
-// browser did, in order on each connection: the CORS check of a cross-site
-// redirect (*CORSError), method and body on 301/302/303, the 20-redirect
-// limit; every request with the browser's header lines and weight.
+// The cors-edge page's fetches, and its cookie twin's, through mimicry
+// follow redirects as the browser did, in order on each connection: the
+// CORS check of a cross-site redirect (*CORSError), method and body on
+// 301/302/303, the 20-redirect limit; every request with the browser's
+// header lines and weight (the twin's same-origin hops with the cookie
+// slot).
 func TestCORSEdgeMatchesBrowser(t *testing.T) {
 	for _, name := range testProfiles(t) {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+		for _, sc := range []*server.Scenario{server.CORSEdge, server.CORSEdgeCookies} {
+			t.Run(name+"/"+sc.Name, func(t *testing.T) {
+				t.Parallel()
 
-			p, err := loadProfile(name)
-			if err != nil {
-				t.Fatal(err)
-			}
+				p, err := loadProfile(name)
+				if err != nil {
+					t.Fatal(err)
+				}
 
-			want, err := loadPages(t, p, "cors-edge", ".pagetrace.json.gz")
-			if err != nil {
-				t.Fatal(err)
-			}
+				want := loadSamples[*capture.Page](t, p, sc.Name, ".pagetrace.json.gz")
 
-			s := startPage(t, p, server.CORSEdge)
-			s.planEvery()
+				s := startPage(t, p, sc)
+				s.planEvery()
 
-			// As NewClient: the Transport stops chains where browsers do,
-			// not http.Client's default 10.
-			s.client.CheckRedirect = func(*http.Request, []*http.Request) error {
-				return nil
-			}
+				// As NewClient: the Transport stops chains where browsers do,
+				// not http.Client's default 10.
+				s.client.CheckRedirect = func(*http.Request, []*http.Request) error {
+					return nil
+				}
 
-			hosts, _, _ := server.CORSEdge.MultiHost()
-			page := s.url(hosts[0], "/")
-			s.send(http.MethodGet, page, mimicry.Request{}, nil, "")
+				hosts, _, _ := sc.MultiHost()
+				page := s.url(hosts[0], "/")
+				s.send(http.MethodGet, page, mimicry.Request{}, nil, "")
 
-			from, err := url.Parse(page)
-			if err != nil {
-				t.Fatal(err)
-			}
+				from, err := url.Parse(page)
+				if err != nil {
+					t.Fatal(err)
+				}
 
-			for _, st := range server.CORSEdgeSteps() {
-				err := corsEdgeFetch(t, s, from, st)
+				for _, st := range server.CORSEdgeSteps() {
+					err := corsEdgeFetch(t, s, from, st)
 
-				var cerr *mimicry.CORSError
+					var cerr *mimicry.CORSError
 
-				switch {
-				case st.NoACAO:
-					if !errors.As(err, &cerr) || !cerr.Redirect {
-						t.Errorf("%s: got %v, want a redirect's *mimicry.CORSError", st.Label, err)
+					switch {
+					case st.NoACAO:
+						if !errors.As(err, &cerr) || !cerr.Redirect {
+							t.Errorf("%s: got %v, want a redirect's *mimicry.CORSError", st.Label, err)
+						}
+
+					case st.Hops > 20:
+						if err == nil || !strings.Contains(err.Error(), "stopped after 20 redirects") {
+							t.Errorf("%s: got %v, want stopped after 20 redirects", st.Label, err)
+						}
+
+					case err != nil:
+						t.Errorf("%s: %v", st.Label, err)
 					}
+				}
 
-				case st.Hops > 20:
-					if err == nil || !strings.Contains(err.Error(), "stopped after 20 redirects") {
-						t.Errorf("%s: got %v, want stopped after 20 redirects", st.Label, err)
+				done := s.finish(s.url(hosts[0], "/done"))
+				got := corsEdgeConnections(done)
+
+				for i, w := range want {
+					if wc := corsEdgeConnections(w); !slices.EqualFunc(got, wc, slices.Equal) {
+						t.Errorf("sample %d: connections differ:\n got %q\nwant %q", i+1, got, wc)
 					}
-
-				case err != nil:
-					t.Errorf("%s: %v", st.Label, err)
 				}
-			}
 
-			done := s.finish(s.url(hosts[0], "/done"))
-			got := corsEdgeConnections(done)
-
-			for i, w := range want {
-				if wc := corsEdgeConnections(w); !slices.EqualFunc(got, wc, slices.Equal) {
-					t.Errorf("sample %d: connections differ:\n got %q\nwant %q", i+1, got, wc)
+				for _, path := range corsEdgePaths(want[0]) {
+					for _, preflight := range []bool{false, true} {
+						comparePath(t, done, want, path, false, false, preflight)
+					}
 				}
-			}
-
-			for _, path := range corsEdgePaths(want[0]) {
-				for _, preflight := range []bool{false, true} {
-					comparePath(t, done, want, path, false, false, preflight)
-				}
-			}
-		})
+			})
+		}
 	}
 }
 

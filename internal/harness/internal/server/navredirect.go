@@ -3,6 +3,8 @@ package server
 import (
 	"fmt"
 	"net"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -31,16 +33,69 @@ var (
 		NavRedirectStep{Label: "nav.cs", Host: navrHost, Status: 302, Next: navrCrossSite})
 	NavRedirectHTTP = navRedirect("nav-redirect-http", "a typed http:// navigation (a port without TLS) answered 301 to https:// of its host",
 		NavRedirectStep{Label: "nav.http", Host: navrHost, Plain: true, Status: 301, Next: navrHost})
-	NavRedirectCookie = navRedirect("nav-redirect-cookie", "a typed navigation answered 302 within its origin, the 302 setting three cookies the hop carries",
+)
+
+// The typed navigations' cookie twins: each is its original (named without
+// "-cookies") but for its cookie handling, so its hop's header list differs
+// from the original's only by the cookie slot. The first leg's redirect sets
+// the cookies the hop carries; the landing page's /done deletes them, as
+// Safari keeps its cookies from one sample to the next.
+var (
+	// NavRedirectSOCookies: three cookies of the hop's host, as httpbin's
+	// /cookies/set answers (no SameSite: Lax, sent on a top-level GET).
+	NavRedirectSOCookies = navRedirect("nav-redirect-so-cookies", "nav-redirect-so, its 301 setting three cookies of its host the hop carries",
 		NavRedirectStep{
-			Label:  "cookie.so",
+			Label:  "nav.so",
 			Host:   navrHost,
-			Status: 302,
+			Status: 301,
 			Next:   navrHost,
 			SetCookies: []string{
 				"zeta=1; Path=/",
 				"alpha=2; Path=/",
 				"mid=3; Path=/",
+			},
+		})
+	// NavRedirectSSCookies: a cookie of the site, set by its apex for the
+	// www host the hop goes to.
+	NavRedirectSSCookies = navRedirect("nav-redirect-ss-cookies", "nav-redirect-ss, its 301 setting a cookie of the site the hop carries",
+		NavRedirectStep{
+			Label:  "nav.ss",
+			Host:   navrSite,
+			Status: 301,
+			Next:   navrHost,
+			SetCookies: []string{
+				siteCookie(navrSite),
+			},
+		})
+	// NavRedirectHTTPCookies: a cookie set over http://, so neither Secure
+	// nor SameSite=None (Lax by default, sent on a top-level GET): the hop
+	// to https:// of the host carries it unless the browser binds cookies
+	// to their scheme.
+	NavRedirectHTTPCookies = navRedirect("nav-redirect-http-cookies", "nav-redirect-http, its 301 setting a cookie of its host",
+		NavRedirectStep{
+			Label:  "nav.http",
+			Host:   navrHost,
+			Plain:  true,
+			Status: 301,
+			Next:   navrHost,
+			SetCookies: []string{
+				"rc_http=1; Path=/",
+			},
+		})
+	// NavRedirectCSCookies is nav-redirect-cs's hop with a cookie: one of
+	// the other site needs the browser to have met that site, so the typed
+	// navigation starts there, and its 302 sets the cookie, goes to the
+	// page's site and back. Both hops go to another site (the conditions of
+	// nav-redirect-cs's hop); the second carries the cookie.
+	NavRedirectCSCookies = navRedirect("nav-redirect-cs-cookies", "a typed navigation answered 302 to another site and 302 back, the first 302 setting a cookie of its site the second hop carries",
+		NavRedirectStep{
+			Label:  "nav.cs",
+			Host:   navrCrossSite,
+			Status: 302,
+			Next:   navrHost,
+			Then:   navrCrossSite,
+			SetCookies: []string{
+				siteCookie(navrCrossApex),
 			},
 		})
 )
@@ -177,6 +232,16 @@ var NavRedirectClick = &Scenario{
 	},
 }
 
+// The page navigations' cookie twins: each is its original (named without
+// "-cookies") but for its cookie handling (redirects2Page.cookies), so its
+// requests' header lists differ from the original's only by the cookie
+// slot.
+var (
+	NavRedirectPageCookies  = cookieTwin(NavRedirectPage)
+	NavRedirectFormCookies  = cookieTwin(NavRedirectForm)
+	NavRedirectClickCookies = cookieTwin(NavRedirectClick)
+)
+
 // NavRedirectClickSteps returns the nav-redirect-click page's
 // navigations, in order, each clicked (so with user activation) on a page
 // of its own on www.navr-a.test: GETs redirected between each pair of
@@ -209,7 +274,8 @@ func NavRedirectClickSteps() []Redirects2Step {
 	return append(steps, link("link-302.cs-so", navrCrossSite, navrHost, 302))
 }
 
-// NavRedirects are the nav-redirect scenarios.
+// NavRedirects are the nav-redirect scenarios: the originals, then their
+// cookie twins.
 var NavRedirects = []*Scenario{
 	NavRedirectSO,
 	NavRedirectSS,
@@ -218,18 +284,27 @@ var NavRedirects = []*Scenario{
 	NavRedirectPage,
 	NavRedirectForm,
 	NavRedirectClick,
-	NavRedirectCookie,
+	NavRedirectSOCookies,
+	NavRedirectSSCookies,
+	NavRedirectCSCookies,
+	NavRedirectHTTPCookies,
+	NavRedirectPageCookies,
+	NavRedirectFormCookies,
+	NavRedirectClickCookies,
 }
 
 // NavRedirectStep is a nav-redirect page: /p/<Label> on Host (plain HTTP
 // if Plain) answered Status to https:// Next /p/<Label>.hop1, with a
-// Set-Cookie for each of SetCookies.
+// Set-Cookie for each of SetCookies; with Then, .hop1 is answered Status
+// again to https:// Then /p/<Label>.hop2. The last hop's page asks for
+// /done, which deletes SetCookies.
 type NavRedirectStep struct {
 	Label      string
 	Host       string
 	Plain      bool
 	Status     int
 	Next       string
+	Then       string
 	SetCookies []string
 }
 
@@ -238,9 +313,29 @@ func (s NavRedirectStep) StartPath() string {
 	return "/p/" + s.Label
 }
 
-// HopPath is the redirect target's path.
-func (s NavRedirectStep) HopPath() string {
-	return "/p/" + s.Label + ".hop1"
+// HopPaths are the redirect targets' paths, in order.
+func (s NavRedirectStep) HopPaths() []string {
+	out := []string{
+		s.hopPath(1),
+	}
+	if s.Then != "" {
+		out = append(out, s.hopPath(2))
+	}
+
+	return out
+}
+
+// LastHost is the host the navigation lands on.
+func (s NavRedirectStep) LastHost() string {
+	if s.Then != "" {
+		return s.Then
+	}
+
+	return s.Next
+}
+
+func (s NavRedirectStep) hopPath(n int) string {
+	return "/p/" + s.Label + ".hop" + strconv.Itoa(n)
 }
 
 // NavRedirectStep returns a nav-redirect scenario's page; ok is false for
@@ -265,8 +360,10 @@ func navRedirect(name, doc string, step NavRedirectStep) *Scenario {
 	hosts := []string{
 		step.Host,
 	}
-	if step.Next != step.Host {
-		hosts = append(hosts, step.Next)
+	for _, h := range []string{step.Next, step.Then} {
+		if h != "" && !slices.Contains(hosts, h) {
+			hosts = append(hosts, h)
+		}
 	}
 
 	return &Scenario{
@@ -295,36 +392,56 @@ func (p navRedirectPage) answer(req request) response {
 	plain := req.ports.plain != "" && port == req.ports.plain
 	s := p.step
 
-	switch {
-	case path == "/done":
-		return response{status: 200, contentType: "text/plain", body: []byte("ok\n")}
-	case host == s.Host && path == s.StartPath() && plain == s.Plain:
-		if req.ports.tls != "" {
-			port = req.ports.tls
-		}
+	if req.ports.tls != "" {
+		port = req.ports.tls
+	}
 
-		headers := []hpack.HeaderField{
-			{
-				Name:  "location",
-				Value: "https://" + net.JoinHostPort(s.Next, port) + s.HopPath(),
-			},
-		}
-		for _, c := range s.SetCookies {
-			headers = append(headers, hpack.HeaderField{
-				Name:  "set-cookie",
-				Value: c,
-			})
-		}
+	redirect := func(to string, n int, cookies []string) response {
+		headers := append(make([]hpack.HeaderField, 0, 1+len(cookies)), hpack.HeaderField{
+			Name:  "location",
+			Value: "https://" + net.JoinHostPort(to, port) + s.hopPath(n),
+		})
 
 		return response{
 			status:      s.Status,
 			contentType: "text/html; charset=utf-8",
-			headers:     headers,
+			headers:     append(headers, setCookies(cookies)...),
 		}
+	}
+	hops := s.HopPaths()
 
-	case host == s.Next && path == s.HopPath() && !plain:
+	switch {
+	case path == "/done":
+		return response{status: 200, contentType: "text/plain", body: []byte("ok\n"), headers: setCookies(cookieDeletions(s.SetCookies))}
+	case host == s.Host && path == s.StartPath() && plain == s.Plain:
+		return redirect(s.Next, 1, s.SetCookies)
+	case s.Then != "" && host == s.Next && path == hops[0] && !plain:
+		return redirect(s.Then, 2, nil)
+	case host == s.LastHost() && path == hops[len(hops)-1] && !plain:
 		return htmlResponse(htmlPage("nav-redirect", "", "<script>fetch(\"/done\");</script>\n"))
 	}
 
 	return response{status: 404, contentType: "text/plain", body: []byte("not found\n")}
+}
+
+// setCookies are a Set-Cookie field for each of cookies.
+func setCookies(cookies []string) []hpack.HeaderField {
+	out := make([]hpack.HeaderField, 0, len(cookies))
+	for _, c := range cookies {
+		out = append(out, hpack.HeaderField{
+			Name:  "set-cookie",
+			Value: c,
+		})
+	}
+
+	return out
+}
+
+// siteCookie is the cookie a cookie twin sets for a site (its registrable
+// domain): sent on any request to the site's hosts that carries cookies
+// (Secure, SameSite=None: cross-site POST navigations too).
+func siteCookie(site string) string {
+	name, _, _ := strings.Cut(site, ".")
+
+	return "rc_" + name + "=1; Domain=" + site + "; Path=/; Secure; SameSite=None"
 }

@@ -653,6 +653,9 @@
           "name": "referer"
         },
         {
+          "name": "cookie"
+        },
+        {
           "name": "upgrade-insecure-requests",
           "value": "1"
         },
@@ -716,6 +719,9 @@
           "name": "origin"
         },
         {
+          "name": "cookie"
+        },
+        {
           "name": "upgrade-insecure-requests",
           "value": "1"
         },
@@ -765,6 +771,9 @@
         },
         {
           "name": "referer"
+        },
+        {
+          "name": "cookie"
         },
         {
           "name": "upgrade-insecure-requests",
@@ -821,6 +830,9 @@
           "name": "referer"
         },
         {
+          "name": "cookie"
+        },
+        {
           "name": "upgrade-insecure-requests",
           "value": "1"
         },
@@ -885,6 +897,9 @@
           "name": "origin"
         },
         {
+          "name": "cookie"
+        },
+        {
           "name": "upgrade-insecure-requests",
           "value": "1"
         },
@@ -935,6 +950,9 @@
         },
         {
           "name": "referer"
+        },
+        {
+          "name": "cookie"
         },
         {
           "name": "upgrade-insecure-requests",
@@ -989,6 +1007,9 @@
         },
         {
           "name": "referer"
+        },
+        {
+          "name": "cookie"
         },
         {
           "name": "upgrade-insecure-requests",
@@ -1053,6 +1074,9 @@
         },
         {
           "name": "origin"
+        },
+        {
+          "name": "cookie"
         },
         {
           "name": "upgrade-insecure-requests",
@@ -1110,6 +1134,9 @@
           "name": "referer"
         },
         {
+          "name": "cookie"
+        },
+        {
           "name": "upgrade-insecure-requests",
           "value": "1"
         },
@@ -1175,6 +1202,9 @@
           "name": "origin"
         },
         {
+          "name": "cookie"
+        },
+        {
           "name": "upgrade-insecure-requests",
           "value": "1"
         },
@@ -1228,6 +1258,9 @@
           "name": "referer"
         },
         {
+          "name": "cookie"
+        },
+        {
           "name": "upgrade-insecure-requests",
           "value": "1"
         },
@@ -1281,6 +1314,9 @@
           "name": "referer"
         },
         {
+          "name": "cookie"
+        },
+        {
           "name": "upgrade-insecure-requests",
           "value": "1"
         },
@@ -1331,6 +1367,9 @@
         },
         {
           "name": "referer"
+        },
+        {
+          "name": "cookie"
         },
         {
           "name": "upgrade-insecure-requests",
@@ -1387,304 +1426,7 @@
           "name": "referer"
         },
         {
-          "name": "upgrade-insecure-requests",
-          "value": "1"
-        },
-        {
-          "name": "sec-fetch-dest",
-          "value": "document"
-        },
-        {
-          "name": "sec-fetch-mode",
-          "value": "navigate"
-        },
-        {
-          "name": "sec-fetch-site"
-        },
-        {
-          "name": "sec-fetch-user",
-          "value": "?1"
-        },
-        {
-          "name": "priority",
-          "value": "u=0, i"
-        },
-        {
-          "name": "te",
-          "value": "trailers"
-        }
-      ]
-    },
-    {
-      "site": "same-site",
-      "redirected": true,
-      "crossOriginRedirect": true,
-      "originBeforeRedirect": true,
-      "methodChangedByRedirect": true,
-      "headers": [
-        {
-          "name": "user-agent",
-          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
-        },
-        {
-          "name": "accept",
-          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-        },
-        {
-          "name": "accept-language",
-          "value": "en-US,en;q=0.9"
-        },
-        {
-          "name": "accept-encoding",
-          "value": "gzip, deflate, br, zstd"
-        },
-        {
-          "name": "referer"
-        },
-        {
-          "name": "upgrade-insecure-requests",
-          "value": "1"
-        },
-        {
-          "name": "sec-fetch-dest",
-          "value": "document"
-        },
-        {
-          "name": "sec-fetch-mode",
-          "value": "navigate"
-        },
-        {
-          "name": "sec-fetch-site"
-        },
-        {
-          "name": "sec-fetch-user",
-          "value": "?1"
-        },
-        {
-          "name": "priority",
-          "value": "u=0, i"
-        },
-        {
-          "name": "te",
-          "value": "trailers"
-        }
-      ]
-    },
-    {
-      "method": "POST",
-      "site": "same-site",
-      "corsChecked": true,
-      "redirected": true,
-      "crossOriginRedirect": true,
-      "originBeforeRedirect": true,
-      "headers": [
-        {
-          "name": "user-agent",
-          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
-        },
-        {
-          "name": "accept",
-          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-        },
-        {
-          "name": "accept-language",
-          "value": "en-US,en;q=0.9"
-        },
-        {
-          "name": "accept-encoding",
-          "value": "gzip, deflate, br, zstd"
-        },
-        {
-          "name": "content-type"
-        },
-        {
-          "name": "content-length"
-        },
-        {
-          "name": "referer"
-        },
-        {
-          "name": "origin"
-        },
-        {
-          "name": "upgrade-insecure-requests",
-          "value": "1"
-        },
-        {
-          "name": "sec-fetch-dest",
-          "value": "document"
-        },
-        {
-          "name": "sec-fetch-mode",
-          "value": "navigate"
-        },
-        {
-          "name": "sec-fetch-site"
-        },
-        {
-          "name": "sec-fetch-user",
-          "value": "?1"
-        },
-        {
-          "name": "priority",
-          "value": "u=0, i"
-        },
-        {
-          "name": "te",
-          "value": "trailers"
-        }
-      ]
-    },
-    {
-      "method": "POST",
-      "site": "same-site",
-      "corsChecked": true,
-      "headers": [
-        {
-          "name": "user-agent",
-          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
-        },
-        {
-          "name": "accept",
-          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-        },
-        {
-          "name": "accept-language",
-          "value": "en-US,en;q=0.9"
-        },
-        {
-          "name": "accept-encoding",
-          "value": "gzip, deflate, br, zstd"
-        },
-        {
-          "name": "content-type"
-        },
-        {
-          "name": "content-length"
-        },
-        {
-          "name": "origin"
-        },
-        {
-          "name": "referer"
-        },
-        {
-          "name": "upgrade-insecure-requests",
-          "value": "1"
-        },
-        {
-          "name": "sec-fetch-dest",
-          "value": "document"
-        },
-        {
-          "name": "sec-fetch-mode",
-          "value": "navigate"
-        },
-        {
-          "name": "sec-fetch-site"
-        },
-        {
-          "name": "sec-fetch-user",
-          "value": "?1"
-        },
-        {
-          "name": "priority",
-          "value": "u=0, i"
-        },
-        {
-          "name": "te",
-          "value": "trailers"
-        }
-      ]
-    },
-    {
-      "site": "same-site",
-      "redirected": true,
-      "originBeforeRedirect": true,
-      "methodChangedByRedirect": true,
-      "headers": [
-        {
-          "name": "user-agent",
-          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
-        },
-        {
-          "name": "accept",
-          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-        },
-        {
-          "name": "accept-language",
-          "value": "en-US,en;q=0.9"
-        },
-        {
-          "name": "accept-encoding",
-          "value": "gzip, deflate, br, zstd"
-        },
-        {
-          "name": "referer"
-        },
-        {
-          "name": "upgrade-insecure-requests",
-          "value": "1"
-        },
-        {
-          "name": "sec-fetch-dest",
-          "value": "document"
-        },
-        {
-          "name": "sec-fetch-mode",
-          "value": "navigate"
-        },
-        {
-          "name": "sec-fetch-site"
-        },
-        {
-          "name": "sec-fetch-user",
-          "value": "?1"
-        },
-        {
-          "name": "priority",
-          "value": "u=0, i"
-        },
-        {
-          "name": "te",
-          "value": "trailers"
-        }
-      ]
-    },
-    {
-      "method": "POST",
-      "site": "same-site",
-      "corsChecked": true,
-      "redirected": true,
-      "originBeforeRedirect": true,
-      "headers": [
-        {
-          "name": "user-agent",
-          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
-        },
-        {
-          "name": "accept",
-          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-        },
-        {
-          "name": "accept-language",
-          "value": "en-US,en;q=0.9"
-        },
-        {
-          "name": "accept-encoding",
-          "value": "gzip, deflate, br, zstd"
-        },
-        {
-          "name": "content-type"
-        },
-        {
-          "name": "content-length"
-        },
-        {
-          "name": "referer"
-        },
-        {
-          "name": "origin"
+          "name": "cookie"
         },
         {
           "name": "upgrade-insecure-requests",
@@ -1721,6 +1463,321 @@
       "crossOriginRedirect": true,
       "originBeforeRedirect": true,
       "methodChangedByRedirect": true,
+      "headers": [
+        {
+          "name": "user-agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
+        },
+        {
+          "name": "accept",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        },
+        {
+          "name": "accept-language",
+          "value": "en-US,en;q=0.9"
+        },
+        {
+          "name": "accept-encoding",
+          "value": "gzip, deflate, br, zstd"
+        },
+        {
+          "name": "referer"
+        },
+        {
+          "name": "cookie"
+        },
+        {
+          "name": "upgrade-insecure-requests",
+          "value": "1"
+        },
+        {
+          "name": "sec-fetch-dest",
+          "value": "document"
+        },
+        {
+          "name": "sec-fetch-mode",
+          "value": "navigate"
+        },
+        {
+          "name": "sec-fetch-site"
+        },
+        {
+          "name": "sec-fetch-user",
+          "value": "?1"
+        },
+        {
+          "name": "priority",
+          "value": "u=0, i"
+        },
+        {
+          "name": "te",
+          "value": "trailers"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "site": "same-site",
+      "corsChecked": true,
+      "redirected": true,
+      "crossOriginRedirect": true,
+      "originBeforeRedirect": true,
+      "headers": [
+        {
+          "name": "user-agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
+        },
+        {
+          "name": "accept",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        },
+        {
+          "name": "accept-language",
+          "value": "en-US,en;q=0.9"
+        },
+        {
+          "name": "accept-encoding",
+          "value": "gzip, deflate, br, zstd"
+        },
+        {
+          "name": "content-type"
+        },
+        {
+          "name": "content-length"
+        },
+        {
+          "name": "referer"
+        },
+        {
+          "name": "origin"
+        },
+        {
+          "name": "cookie"
+        },
+        {
+          "name": "upgrade-insecure-requests",
+          "value": "1"
+        },
+        {
+          "name": "sec-fetch-dest",
+          "value": "document"
+        },
+        {
+          "name": "sec-fetch-mode",
+          "value": "navigate"
+        },
+        {
+          "name": "sec-fetch-site"
+        },
+        {
+          "name": "sec-fetch-user",
+          "value": "?1"
+        },
+        {
+          "name": "priority",
+          "value": "u=0, i"
+        },
+        {
+          "name": "te",
+          "value": "trailers"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "site": "same-site",
+      "corsChecked": true,
+      "headers": [
+        {
+          "name": "user-agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
+        },
+        {
+          "name": "accept",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        },
+        {
+          "name": "accept-language",
+          "value": "en-US,en;q=0.9"
+        },
+        {
+          "name": "accept-encoding",
+          "value": "gzip, deflate, br, zstd"
+        },
+        {
+          "name": "content-type"
+        },
+        {
+          "name": "content-length"
+        },
+        {
+          "name": "origin"
+        },
+        {
+          "name": "referer"
+        },
+        {
+          "name": "cookie"
+        },
+        {
+          "name": "upgrade-insecure-requests",
+          "value": "1"
+        },
+        {
+          "name": "sec-fetch-dest",
+          "value": "document"
+        },
+        {
+          "name": "sec-fetch-mode",
+          "value": "navigate"
+        },
+        {
+          "name": "sec-fetch-site"
+        },
+        {
+          "name": "sec-fetch-user",
+          "value": "?1"
+        },
+        {
+          "name": "priority",
+          "value": "u=0, i"
+        },
+        {
+          "name": "te",
+          "value": "trailers"
+        }
+      ]
+    },
+    {
+      "site": "same-site",
+      "redirected": true,
+      "originBeforeRedirect": true,
+      "methodChangedByRedirect": true,
+      "headers": [
+        {
+          "name": "user-agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
+        },
+        {
+          "name": "accept",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        },
+        {
+          "name": "accept-language",
+          "value": "en-US,en;q=0.9"
+        },
+        {
+          "name": "accept-encoding",
+          "value": "gzip, deflate, br, zstd"
+        },
+        {
+          "name": "referer"
+        },
+        {
+          "name": "cookie"
+        },
+        {
+          "name": "upgrade-insecure-requests",
+          "value": "1"
+        },
+        {
+          "name": "sec-fetch-dest",
+          "value": "document"
+        },
+        {
+          "name": "sec-fetch-mode",
+          "value": "navigate"
+        },
+        {
+          "name": "sec-fetch-site"
+        },
+        {
+          "name": "sec-fetch-user",
+          "value": "?1"
+        },
+        {
+          "name": "priority",
+          "value": "u=0, i"
+        },
+        {
+          "name": "te",
+          "value": "trailers"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "site": "same-site",
+      "corsChecked": true,
+      "redirected": true,
+      "originBeforeRedirect": true,
+      "headers": [
+        {
+          "name": "user-agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
+        },
+        {
+          "name": "accept",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        },
+        {
+          "name": "accept-language",
+          "value": "en-US,en;q=0.9"
+        },
+        {
+          "name": "accept-encoding",
+          "value": "gzip, deflate, br, zstd"
+        },
+        {
+          "name": "content-type"
+        },
+        {
+          "name": "content-length"
+        },
+        {
+          "name": "referer"
+        },
+        {
+          "name": "origin"
+        },
+        {
+          "name": "cookie"
+        },
+        {
+          "name": "upgrade-insecure-requests",
+          "value": "1"
+        },
+        {
+          "name": "sec-fetch-dest",
+          "value": "document"
+        },
+        {
+          "name": "sec-fetch-mode",
+          "value": "navigate"
+        },
+        {
+          "name": "sec-fetch-site"
+        },
+        {
+          "name": "sec-fetch-user",
+          "value": "?1"
+        },
+        {
+          "name": "priority",
+          "value": "u=0, i"
+        },
+        {
+          "name": "te",
+          "value": "trailers"
+        }
+      ]
+    },
+    {
+      "site": "same-site",
+      "redirected": true,
+      "crossOriginRedirect": true,
+      "originBeforeRedirect": true,
+      "methodChangedByRedirect": true,
       "crossSiteRedirect": true,
       "headers": [
         {
@@ -1741,6 +1798,9 @@
         },
         {
           "name": "referer"
+        },
+        {
+          "name": "cookie"
         },
         {
           "name": "upgrade-insecure-requests",
@@ -1807,6 +1867,9 @@
         },
         {
           "name": "origin"
+        },
+        {
+          "name": "cookie"
         },
         {
           "name": "upgrade-insecure-requests",
@@ -1863,6 +1926,9 @@
           "name": "referer"
         },
         {
+          "name": "cookie"
+        },
+        {
           "name": "upgrade-insecure-requests",
           "value": "1"
         },
@@ -1913,6 +1979,9 @@
         },
         {
           "name": "referer"
+        },
+        {
+          "name": "cookie"
         },
         {
           "name": "upgrade-insecure-requests",
@@ -1966,6 +2035,9 @@
         },
         {
           "name": "referer"
+        },
+        {
+          "name": "cookie"
         },
         {
           "name": "upgrade-insecure-requests",
@@ -2022,6 +2094,9 @@
         },
         {
           "name": "referer"
+        },
+        {
+          "name": "cookie"
         },
         {
           "name": "upgrade-insecure-requests",
@@ -2088,6 +2163,118 @@
         },
         {
           "name": "origin"
+        },
+        {
+          "name": "cookie"
+        },
+        {
+          "name": "upgrade-insecure-requests",
+          "value": "1"
+        },
+        {
+          "name": "sec-fetch-dest",
+          "value": "document"
+        },
+        {
+          "name": "sec-fetch-mode",
+          "value": "navigate"
+        },
+        {
+          "name": "sec-fetch-site"
+        },
+        {
+          "name": "sec-fetch-user",
+          "value": "?1"
+        },
+        {
+          "name": "priority",
+          "value": "u=0, i"
+        },
+        {
+          "name": "te",
+          "value": "trailers"
+        }
+      ]
+    },
+    {
+      "site": "none",
+      "redirected": true,
+      "crossOriginRedirect": true,
+      "crossSiteRedirect": true,
+      "headers": [
+        {
+          "name": "user-agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
+        },
+        {
+          "name": "accept",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        },
+        {
+          "name": "accept-language",
+          "value": "en-US,en;q=0.9"
+        },
+        {
+          "name": "accept-encoding",
+          "value": "gzip, deflate, br, zstd"
+        },
+        {
+          "name": "cookie"
+        },
+        {
+          "name": "upgrade-insecure-requests",
+          "value": "1"
+        },
+        {
+          "name": "sec-fetch-dest",
+          "value": "document"
+        },
+        {
+          "name": "sec-fetch-mode",
+          "value": "navigate"
+        },
+        {
+          "name": "sec-fetch-site"
+        },
+        {
+          "name": "sec-fetch-user",
+          "value": "?1"
+        },
+        {
+          "name": "priority",
+          "value": "u=0, i"
+        },
+        {
+          "name": "te",
+          "value": "trailers"
+        }
+      ]
+    },
+    {
+      "site": "none",
+      "redirected": true,
+      "crossOriginRedirect": true,
+      "insecureBeforeRedirect": true,
+      "crossSiteRedirect": true,
+      "headers": [
+        {
+          "name": "user-agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
+        },
+        {
+          "name": "accept",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        },
+        {
+          "name": "accept-language",
+          "value": "en-US,en;q=0.9"
+        },
+        {
+          "name": "accept-encoding",
+          "value": "gzip, deflate, br, zstd"
+        },
+        {
+          "name": "cookie"
         },
         {
           "name": "upgrade-insecure-requests",
@@ -2174,7 +2361,6 @@
       "site": "none",
       "redirected": true,
       "crossOriginRedirect": true,
-      "crossSiteRedirect": true,
       "headers": [
         {
           "name": "user-agent",
@@ -2193,106 +2379,7 @@
           "value": "gzip, deflate, br, zstd"
         },
         {
-          "name": "upgrade-insecure-requests",
-          "value": "1"
-        },
-        {
-          "name": "sec-fetch-dest",
-          "value": "document"
-        },
-        {
-          "name": "sec-fetch-mode",
-          "value": "navigate"
-        },
-        {
-          "name": "sec-fetch-site"
-        },
-        {
-          "name": "sec-fetch-user",
-          "value": "?1"
-        },
-        {
-          "name": "priority",
-          "value": "u=0, i"
-        },
-        {
-          "name": "te",
-          "value": "trailers"
-        }
-      ]
-    },
-    {
-      "site": "none",
-      "redirected": true,
-      "crossOriginRedirect": true,
-      "insecureBeforeRedirect": true,
-      "crossSiteRedirect": true,
-      "headers": [
-        {
-          "name": "user-agent",
-          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
-        },
-        {
-          "name": "accept",
-          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-        },
-        {
-          "name": "accept-language",
-          "value": "en-US,en;q=0.9"
-        },
-        {
-          "name": "accept-encoding",
-          "value": "gzip, deflate, br, zstd"
-        },
-        {
-          "name": "upgrade-insecure-requests",
-          "value": "1"
-        },
-        {
-          "name": "sec-fetch-dest",
-          "value": "document"
-        },
-        {
-          "name": "sec-fetch-mode",
-          "value": "navigate"
-        },
-        {
-          "name": "sec-fetch-site"
-        },
-        {
-          "name": "sec-fetch-user",
-          "value": "?1"
-        },
-        {
-          "name": "priority",
-          "value": "u=0, i"
-        },
-        {
-          "name": "te",
-          "value": "trailers"
-        }
-      ]
-    },
-    {
-      "site": "none",
-      "redirected": true,
-      "crossOriginRedirect": true,
-      "headers": [
-        {
-          "name": "user-agent",
-          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0"
-        },
-        {
-          "name": "accept",
-          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-        },
-        {
-          "name": "accept-language",
-          "value": "en-US,en;q=0.9"
-        },
-        {
-          "name": "accept-encoding",
-          "value": "gzip, deflate, br, zstd"
+          "name": "cookie"
         },
         {
           "name": "upgrade-insecure-requests",
@@ -4100,6 +4187,9 @@
               "name": "origin"
             },
             {
+              "name": "cookie"
+            },
+            {
               "name": "sec-fetch-dest",
               "value": "empty"
             },
@@ -4143,6 +4233,9 @@
             },
             {
               "name": "referer"
+            },
+            {
+              "name": "cookie"
             },
             {
               "name": "sec-fetch-dest",
@@ -4200,6 +4293,9 @@
               "name": "origin"
             },
             {
+              "name": "cookie"
+            },
+            {
               "name": "sec-fetch-dest",
               "value": "empty"
             },
@@ -4241,6 +4337,9 @@
             },
             {
               "name": "referer"
+            },
+            {
+              "name": "cookie"
             },
             {
               "name": "sec-fetch-dest",
@@ -4347,6 +4446,9 @@
               "name": "origin"
             },
             {
+              "name": "cookie"
+            },
+            {
               "name": "sec-fetch-dest",
               "value": "empty"
             },
@@ -4389,6 +4491,9 @@
             },
             {
               "name": "referer"
+            },
+            {
+              "name": "cookie"
             },
             {
               "name": "sec-fetch-dest",
@@ -4444,6 +4549,9 @@
             },
             {
               "name": "origin"
+            },
+            {
+              "name": "cookie"
             },
             {
               "name": "sec-fetch-dest",
@@ -6094,6 +6202,9 @@
               "name": "referer"
             },
             {
+              "name": "cookie"
+            },
+            {
               "name": "sec-fetch-dest",
               "value": "image"
             },
@@ -6136,6 +6247,9 @@
             },
             {
               "name": "referer"
+            },
+            {
+              "name": "cookie"
             },
             {
               "name": "sec-fetch-dest",
@@ -6850,6 +6964,9 @@
               "name": "referer"
             },
             {
+              "name": "cookie"
+            },
+            {
               "name": "sec-fetch-dest",
               "value": "image"
             },
@@ -6892,6 +7009,9 @@
             },
             {
               "name": "referer"
+            },
+            {
+              "name": "cookie"
             },
             {
               "name": "sec-fetch-dest",

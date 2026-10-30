@@ -69,13 +69,14 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0021](decisions/0021-page-headers-hash-table-order.md) | Page-set headers in the browser's hash-table order | Accepted |
 | [0022](decisions/0022-redirects-as-the-browser-follows-them.md) | Redirects follow the browser's rules, inside the Transport | Amended |
 | [0030](decisions/0030-header-placement.md) | Header placement: move one header, keep the browser's order | Accepted |
+| [0048](decisions/0048-cookie-twins.md) | Cookie twins of the redirect scenarios measure each hop's `cookie` slot | Accepted |
 
 ### Cookies
 
 | # | Decision | Status |
 |---|---|---|
 | [0009](decisions/0009-own-cookie-jar.md) | mimicry's own cookie jar, driven by the transport | Accepted |
-| [0012](decisions/0012-cookie-rules-in-profiles.md) | Browser cookie rules as a profile section | Accepted |
+| [0012](decisions/0012-cookie-rules-in-profiles.md) | Browser cookie rules as a profile section | Amended by 0048 |
 | [0031](decisions/0031-cookies-for-any-site.md) | Seeding cookies from strings, and cookies for any site | Accepted |
 
 ### Connections and TLS

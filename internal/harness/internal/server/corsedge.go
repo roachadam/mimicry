@@ -9,19 +9,37 @@ import (
 	"golang.org/x/net/http2/hpack"
 )
 
+// corsEdgeHosts are the cors-edge page's hosts, its twin's too.
+var corsEdgeHosts = fixedHosts{
+	names: []string{
+		kindsHost,
+		kindsCrossSite,
+	},
+	runFor: 20 * time.Second,
+}
+
 // CORSEdge is the cors-edge scenario: what each browser does with
 // redirects of fetch(), from the kinds page's origin (see CORSEdgeSteps).
 var CORSEdge = &Scenario{
 	Name: "cors-edge",
 	Doc:  "fetch() redirects: a CORS redirect without Access-Control-Allow-Origin, PUT, DELETE and POST answered 301, 302 and 303, and the redirect limit",
 	multi: corsEdgePage{
-		fixedHosts: fixedHosts{
-			names: []string{
-				kindsHost,
-				kindsCrossSite,
-			},
-			runFor: 20 * time.Second,
-		},
+		fixedHosts: corsEdgeHosts,
+	},
+}
+
+// CORSEdgeCookies is cors-edge's cookie twin: the same page but for its
+// cookie handling (corsEdgePage.cookies), so its requests' header lists
+// differ from cors-edge's only by the cookie slot: its same-origin fetch()
+// hops (PUT, DELETE and POST answered 301 to 303, the chain) carry the
+// page's site's cookie; its cross-site fetches send none (cross-origin
+// without credentials).
+var CORSEdgeCookies = &Scenario{
+	Name: "cors-edge-cookies",
+	Doc:  CORSEdge.Doc + "; its cookie twin: the page sets a cookie of its site (/, deleted by /done)",
+	multi: corsEdgePage{
+		fixedHosts: corsEdgeHosts,
+		cookies:    true,
 	},
 }
 
@@ -80,8 +98,12 @@ func CORSEdgeSteps() []CORSEdgeStep {
 	})
 }
 
+// corsEdgePage serves the cors-edge page; with cookies (its cookie twin), /
+// sets a cookie of the page's site (siteCookie) and /done deletes it, as
+// Safari keeps its cookies from one sample to the next.
 type corsEdgePage struct {
 	fixedHosts
+	cookies bool
 }
 
 func (p corsEdgePage) answer(req request) response {
@@ -89,12 +111,17 @@ func (p corsEdgePage) answer(req request) response {
 	origin := originOn("https://", port)
 	path, _, _ := strings.Cut(req.path, "?")
 
+	var cookies []string
+	if p.cookies {
+		cookies = []string{siteCookie(siteOf(kindsHost))}
+	}
+
 	if host == kindsHost && path == "/" {
-		return response{status: 200, contentType: "text/html; charset=utf-8", body: htmlPage("cors-edge", "", "<script>"+corsEdgeScript(origin)+"</script>\n")}
+		return response{status: 200, contentType: "text/html; charset=utf-8", body: htmlPage("cors-edge", "", "<script>"+corsEdgeScript(origin)+"</script>\n"), headers: setCookies(cookies)}
 	}
 
 	if path == "/done" {
-		return response{status: 200, contentType: "text/plain", body: []byte("ok\n")}
+		return response{status: 200, contentType: "text/plain", body: []byte("ok\n"), headers: setCookies(cookieDeletions(cookies))}
 	}
 
 	notFound := response{status: 404, contentType: "text/plain", body: []byte("not found\n")}

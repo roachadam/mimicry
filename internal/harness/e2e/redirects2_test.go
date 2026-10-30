@@ -21,54 +21,55 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// The redirects2 page through mimicry, step by step, sends the browser's
-// requests on each connection with its header lines and weight: CORS checks
-// on redirects (*mimicry.CORSError), methods and bodies on 301 to 308 hops,
-// the hop preflight, the navigation limit (Chrome 19, others 20).
+// The redirects2 page and its cookie twin through mimicry, step by step,
+// send the browser's requests on each connection with its header lines and
+// weight: CORS checks on redirects (*mimicry.CORSError), methods and bodies
+// on 301 to 308 hops, the hop preflight, the navigation limit (Chrome 19,
+// others 20); the twin, the cookie slot of each hop that carries cookies.
 //
 // Left out: the watchdog worker's script, /done's header lines, and Chrome's
 // error-page reload after the limit (browser UI; redirectsReload).
 func TestRedirects2MatchesBrowser(t *testing.T) {
 	for _, name := range testProfiles(t) {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+		for _, sc := range []*server.Scenario{server.Redirects2, server.Redirects2Cookies} {
+			t.Run(name+"/"+sc.Name, func(t *testing.T) {
+				t.Parallel()
 
-			p, err := loadProfile(name)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			want, err := loadPages(t, p, "redirects2", ".pagetrace.json.gz")
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			steps := server.Redirects2Steps()
-			done := runRedirectsPage(t, p, server.Redirects2, steps)
-			apart := redirectsApart(server.Redirects2, steps)
-			// Gaps are pinned for the captures, so by the profile that holds them.
-			src := capture.Source(p, "redirects2")
-			got := mergeHosts(redirectsConnections(t, done, false, apart), redirectsMerged[src])
-			wantRows := redirectsConnections(t, want[0], redirectsReload[src], apart)
-
-			for i, w := range want {
-				if d := rowsDiff(got, mergeHosts(redirectsConnections(t, w, redirectsReload[src], apart), redirectsMerged[src])); d != "" {
-					t.Errorf("sample %d: connections differ: %s", i+1, d)
-				}
-			}
-
-			for _, path := range redirectsPaths(wantRows) {
-				if why, ok := redirectsLineGaps[src][path]; ok {
-					t.Logf("%s: not compared: %s", path, why)
-
-					continue
+				p, err := loadProfile(name)
+				if err != nil {
+					t.Fatal(err)
 				}
 
-				for _, preflight := range []bool{false, true} {
-					comparePath(t, done, want, path, false, false, preflight)
+				want := loadSamples[*capture.Page](t, p, sc.Name, ".pagetrace.json.gz")
+
+				steps, _ := sc.RedirectSteps()
+				done := runRedirectsPage(t, p, sc, steps)
+				apart := redirectsApart(sc, steps)
+				// Gaps are pinned for the captures, so by the profile that
+				// holds them; the twin's are its original's.
+				src := capture.Source(p, sc.Name)
+				got := mergeHosts(redirectsConnections(t, done, false, apart), redirectsMerged[src])
+				wantRows := redirectsConnections(t, want[0], redirectsReload[src], apart)
+
+				for i, w := range want {
+					if d := rowsDiff(got, mergeHosts(redirectsConnections(t, w, redirectsReload[src], apart), redirectsMerged[src])); d != "" {
+						t.Errorf("sample %d: connections differ: %s", i+1, d)
+					}
 				}
-			}
-		})
+
+				for _, path := range redirectsPaths(wantRows) {
+					if why, ok := redirectsLineGaps[src][path]; ok {
+						t.Logf("%s: not compared: %s", path, why)
+
+						continue
+					}
+
+					for _, preflight := range []bool{false, true} {
+						comparePath(t, done, want, path, false, false, preflight)
+					}
+				}
+			})
+		}
 	}
 }
 
@@ -77,6 +78,7 @@ func TestRedirects2MatchesBrowser(t *testing.T) {
 // out, and must show one.
 var redirectsReload = map[string]bool{
 	"chrome-155-macos":   true,
+	"chrome-156-macos":   true, // its own capture: redirects2-cookies
 	"chrome-156-windows": true,
 }
 
@@ -89,6 +91,12 @@ var redirectsMerged = map[string]map[string]string{
 		// went on two connections, while www.redir-b.test's requests of
 		// both sorts shared one (every sample).
 		"www.redir-c.test": "credentialed and credential-less hops on connections of their own, on this host only",
+	},
+	"chrome-156-macos": {
+		// redirects2-cookies: in one sample of three the error page's
+		// reload of nav-chain.so (browser UI, redirectsReload) went on a
+		// new connection, which /done then took.
+		"www.redir-a.test": "after the error page's reload on a connection of its own (one sample), /done on that one",
 	},
 }
 
@@ -104,6 +112,14 @@ var redirectsLineGaps = map[string]map[string]string{
 	},
 	"chrome-155-macos": {
 		"/p/img-markup.ss.hop1": "the hop of a markup image goes at u=1 (weight 219), raised once layout found it visible",
+	},
+	// Its own capture is redirects2-cookies's (redirects2's is
+	// chrome-155-macos's): the same layout priority, on more of the
+	// markup images, in some samples.
+	"chrome-156-macos": {
+		"/p/img-markup.so.hop1": "markup images and their hops go at u=1 (weight 219) in some samples, raised once layout found them visible",
+		"/p/img-markup.ss":      "markup images and their hops go at u=1 (weight 219) in some samples, raised once layout found them visible",
+		"/p/img-markup.ss.hop1": "markup images and their hops go at u=1 (weight 219) in some samples, raised once layout found them visible",
 	},
 }
 
@@ -364,11 +380,12 @@ func TestNavRedirectsMatchBrowser(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				if landed.Path != step.HopPath() {
-					t.Errorf("landed on %s, want %s", landed, step.HopPath())
+				hops := step.HopPaths()
+				if landed.Path != hops[len(hops)-1] {
+					t.Errorf("landed on %s, want %s", landed, hops[len(hops)-1])
 				}
 
-				done := s.finish(s.url(step.Next, "/done"))
+				done := s.finish(s.url(step.LastHost(), "/done"))
 				// /done is the landing page's own fetch, not the
 				// navigation's: Safari sends it on a connection of its own.
 				noDone := func(rows [][]string) [][]string {
@@ -393,7 +410,10 @@ func TestNavRedirectsMatchBrowser(t *testing.T) {
 				}
 
 				comparePath(t, done, want, step.StartPath(), false, step.Plain, false)
-				comparePath(t, done, want, step.HopPath(), false, false, false)
+
+				for _, hop := range hops {
+					comparePath(t, done, want, hop, false, false, false)
+				}
 			})
 		}
 	}
@@ -421,8 +441,9 @@ func redirectsPaths(rows [][]string) []string {
 // redirectsConnections lists page's HTTP/2 connections (host and requests in
 // stream order, as corsEdgeConnections), then its HTTP/1.1 ones, without the
 // watchdog script. With reload, the error page's reload chain is dropped and
-// must exist. Steps in apart are listed per host, not per connection: the
-// browser partitions by top-level site and mimicry does not (a gap).
+// must exist; it may go on a connection of its own (Chrome 156). Steps in
+// apart are listed per host, not per connection: the browser partitions by
+// top-level site and mimicry does not (a gap).
 func redirectsConnections(t *testing.T, page *capture.Page, reload bool, apart map[string]bool) [][]string {
 	t.Helper()
 
@@ -434,10 +455,13 @@ func redirectsConnections(t *testing.T, page *capture.Page, reload bool, apart m
 
 	var movedHosts []string
 
+	// Paths seen on any connection: a reload repeats one, on its first
+	// request's connection or a new one.
+	seen := map[string]bool{}
+	chain := ""
+
 	for _, rows := range corsEdgeConnections(page) {
 		kept := []string{rows[0]}
-		seen := map[string]bool{}
-		chain := ""
 
 		for _, row := range rows[1:] {
 			fields := strings.Fields(row)

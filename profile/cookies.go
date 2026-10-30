@@ -85,8 +85,9 @@ const (
 	// RedirectsChain treats a request as cross-site when any URL of its
 	// redirect chain is (Firefox).
 	RedirectsChain = "chain"
-	// RedirectsBlockAfterCrossSite sends no cookies on a request reached
-	// through a cross-site hop (Safari).
+	// RedirectsBlockAfterCrossSite sends no cookies on a subresource
+	// request reached through a cross-site hop; a navigation's hops carry
+	// theirs (Safari 27).
 	RedirectsBlockAfterCrossSite = "block_after_cross_site"
 
 	// NamelessValue makes "knoeq" a cookie with an empty name and value

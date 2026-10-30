@@ -504,7 +504,7 @@ func scenario(t *testing.T, name string) *server.Scenario {
 // needing one is skipped. Any other missing capture fails. Keyed by the file
 // of the profile that holds the scenario's captures, so a profile that
 // inherits the scenario (capturesFrom) inherits the entry too.
-var missingCaptures = map[string]string{
+var missingCaptures = withTwinsMissing(map[string]string{
 	"safari-26-macos.proxy-auth.proxytrace.json":    "Safari 26 proxy credentials were never captured",
 	"safari-26-macos.proxy-plain-auth.h1trace.json": "Safari 26 proxy credentials were never captured",
 	// Safari answers a proxy's 407 only with credentials macOS holds: a
@@ -515,16 +515,28 @@ var missingCaptures = map[string]string{
 	// The capture tool clicks in Safari through the system's mouse
 	// events, which need Accessibility access; the second Mac's
 	// captures run over ssh, which has none.
-	"safari-26-macos.nav-redirect-click.pagetrace.json.gz": "Safari 26 clicks were never captured (no Accessibility access over ssh)",
-	// nav-redirect-cookie came after these profiles' captures; Chrome 156
-	// on macOS and Firefox 158 have it (docs/backlog.md).
-	"chrome-155-macos.nav-redirect-cookie.pagetrace.json.gz":   "nav-redirect-cookie was added after Chrome 155 was captured",
-	"chrome-156-windows.nav-redirect-cookie.pagetrace.json.gz": "nav-redirect-cookie was added after Chrome 156 on Windows was captured",
-	"safari-26-macos.nav-redirect-cookie.pagetrace.json.gz":    "nav-redirect-cookie was added after Safari 26 was captured",
-	"safari-27-macos.nav-redirect-cookie.pagetrace.json.gz":    "nav-redirect-cookie was added after Safari 27 was captured",
+	"safari-26-macos.nav-redirect-click.pagetrace.json.gz":         "Safari 26 clicks were never captured (no Accessibility access over ssh)",
+	"safari-26-macos.nav-redirect-click-cookies.pagetrace.json.gz": "Safari 26 clicks were never captured (no Accessibility access over ssh)",
+}, map[string]string{
+	// The cookie twins (server.CookieTwins) came after Chrome 155, which
+	// is no longer installable as branded Chrome; capturesFrom names only
+	// an older version, so it cannot inherit Chrome 156's (docs/backlog.md).
+	"chrome-155-macos": "the cookie twins came after Chrome 155, no longer installable as branded Chrome",
 	// TestInheritedProfile's synthetic profile inherits only the scenarios
 	// chrome-155-macos has captures of.
-	testprofiles.InheritingName + ".nav-redirect-cookie.pagetrace.json.gz": "chrome-155-macos, whose captures it inherits, has none",
+	testprofiles.InheritingName: "chrome-155-macos, whose captures it inherits, has none",
+})
+
+// withTwinsMissing adds to missing an entry for each cookie twin
+// (server.CookieTwins) of each profile in profiles, with why.
+func withTwinsMissing(missing, profiles map[string]string) map[string]string {
+	for name, why := range profiles {
+		for _, sc := range server.CookieTwins {
+			missing[name+"."+sc.Name+".pagetrace.json.gz"] = why
+		}
+	}
+
+	return missing
 }
 
 // nthOK is the CONNECT the proxy let through n-th, from 0.

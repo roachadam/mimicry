@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"golang.org/x/net/http2/hpack"
+	"golang.org/x/net/publicsuffix"
 )
 
 // The redirects2 page's hosts: its own, one of its site, a cross-site one,
@@ -38,6 +39,48 @@ var Redirects2 = &Scenario{
 		},
 		steps: Redirects2Steps(),
 	},
+}
+
+// Redirects2Cookies is redirects2's cookie twin: the same page but for its
+// cookie handling (redirects2Page.cookies), so its requests' header lists
+// differ from redirects2's only by the cookie slot. Its image, same-origin
+// fetch() and navigation hops carry cookies; its other subresources send
+// none (cross-origin without credentials, or to a site no navigation
+// reached yet).
+var Redirects2Cookies = cookieTwin(Redirects2)
+
+// CookieTwins are the redirect scenarios' cookie twins: each its original
+// (named without "-cookies") but for cookies set on the hosts its hops go
+// to, to measure where each hop places the cookie.
+var CookieTwins = []*Scenario{
+	Redirects2Cookies,
+	CORSEdgeCookies,
+	NavRedirectSOCookies,
+	NavRedirectSSCookies,
+	NavRedirectCSCookies,
+	NavRedirectHTTPCookies,
+	NavRedirectPageCookies,
+	NavRedirectFormCookies,
+	NavRedirectClickCookies,
+}
+
+// cookieTwin returns a copy of sc, a page served as the redirects2 page is,
+// named <name>-cookies, whose pages set cookies (redirects2Page.cookies).
+func cookieTwin(sc *Scenario) *Scenario {
+	page, ok := sc.multi.(redirects2Page)
+	if !ok {
+		panic(sc.Name + " is not served as the redirects2 page is")
+	}
+
+	page.cookies = true
+
+	twin := *sc
+
+	twin.Name = sc.Name + "-cookies"
+	twin.Doc = sc.Doc + "; its cookie twin: the page sets a cookie of its site (/, deleted by /done), and each navigation's response on another site sets that site's (deleted by the site's last one)"
+	twin.multi = page
+
+	return &twin
 }
 
 // Values of Redirects2Step.Kind: how the page makes the step's first
@@ -253,10 +296,17 @@ func Redirects2Steps() []Redirects2Step {
 }
 
 // redirects2Page serves steps (Redirects2Steps, or NavRedirectPageSteps)
-// from its first host, the page's.
+// from its first host, the page's. With cookies (a cookie twin), / sets a
+// cookie of the page's site (siteCookie) and /done deletes it; every
+// response to a navigation's request on another site sets that site's
+// cookie, but for the site's last such request, whose response deletes
+// it, as Safari keeps its cookies from one sample to the next. Only
+// navigations set the other sites' cookies: there they are first-party
+// cookies, which every browser keeps.
 type redirects2Page struct {
 	fixedHosts
-	steps []Redirects2Step
+	steps   []Redirects2Step
+	cookies bool
 }
 
 func (p redirects2Page) answer(req request) response {
@@ -268,11 +318,22 @@ func (p redirects2Page) answer(req request) response {
 
 	switch {
 	case path == "/done":
-		return response{status: 200, contentType: "text/plain", body: []byte("ok\n")}
+		r := response{status: 200, contentType: "text/plain", body: []byte("ok\n")}
+		if p.cookies {
+			r.headers = setCookies(cookieDeletions([]string{siteCookie(siteOf(home))}))
+		}
+
+		return r
+
 	case host == home && path == watchdogPath:
 		return watchdogResponse()
 	case host == home && path == "/":
-		return htmlResponse(redirRootPage(steps, origin))
+		r := htmlResponse(redirRootPage(steps, origin))
+		if p.cookies {
+			r.headers = setCookies([]string{siteCookie(siteOf(home))})
+		}
+
+		return r
 	}
 
 	if label, ok := strings.CutPrefix(path, "/s/"); ok {
@@ -329,7 +390,11 @@ func (p redirects2Page) answer(req request) response {
 	}
 
 	if hop == s.Hops {
-		return redirLast(steps, i, home, req.method, cors, origin)
+		r := redirLast(steps, i, home, req.method, cors, origin)
+
+		r.headers = append(slices.Clone(r.headers), p.navCookies(host, i, hop)...)
+
+		return r
 	}
 
 	r := response{status: s.Status, contentType: "text/plain"}
@@ -345,8 +410,60 @@ func (p redirects2Page) answer(req request) response {
 		Name:  "location",
 		Value: origin(s.HopHost()) + "/p/" + s.Label + ".hop" + strconv.Itoa(hop+1),
 	})
+	r.headers = append(r.headers, p.navCookies(host, i, hop)...)
 
 	return r
+}
+
+// navCookies are the Set-Cookie fields of a cookie twin's response to a
+// navigation step's request (step i; hop 0 for its first leg) on host of
+// another site than the page's: its site's cookie, or its deletion on the
+// site's last navigation request (lastNav). None otherwise.
+func (p redirects2Page) navCookies(host string, i, hop int) []hpack.HeaderField {
+	s := siteOf(host)
+	if !p.cookies || !p.steps[i].Nav() || s == siteOf(p.names[0]) {
+		return nil
+	}
+
+	c := []string{siteCookie(s)}
+	if li, lh := p.lastNav(s); li == i && lh == hop {
+		c = cookieDeletions(c)
+	}
+
+	return setCookies(c)
+}
+
+// lastNav is the last navigation request of the page to a host of site:
+// its step and hop (0 for the first leg).
+func (p redirects2Page) lastNav(site string) (step, hop int) {
+	step, hop = -1, -1
+
+	for i, st := range p.steps {
+		if !st.Nav() {
+			continue
+		}
+
+		if siteOf(st.Host) == site {
+			step, hop = i, 0
+		}
+
+		if siteOf(st.HopHost()) == site {
+			step, hop = i, st.Hops
+		}
+	}
+
+	return step, hop
+}
+
+// siteOf is host's site, its registrable domain (navr-a.test for
+// www.navr-a.test and the apex alike).
+func siteOf(host string) string {
+	s, err := publicsuffix.EffectiveTLDPlusOne(host)
+	if err != nil {
+		return host
+	}
+
+	return s
 }
 
 func htmlResponse(body []byte) response {

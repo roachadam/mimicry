@@ -24,7 +24,11 @@ type pages struct {
 	cookies, cors, corsEdge, redirects2 []*capture.Page
 	headers                             []*capture.Page
 	websocket, websocketH2              []*capture.Page
-	// navRedirects are the nav-redirect-<x> pages, possibly none.
+	// redirects2Cookies and corsEdgeCookies are redirects2's and
+	// cors-edge's cookie twins, possibly none.
+	redirects2Cookies, corsEdgeCookies []*capture.Page
+	// navRedirects are the nav-redirect-<x> pages (cookie twins too),
+	// possibly none.
 	navRedirects []scenarioPages
 }
 
@@ -78,8 +82,13 @@ func loadPages(dir string, p *profile.Profile) (*pages, error) {
 		return nil, err
 	}
 
+	twins := map[string]*[]*capture.Page{
+		server.Redirects2Cookies.Name: &out.redirects2Cookies,
+		server.CORSEdgeCookies.Name:   &out.corsEdgeCookies,
+	}
+
 	files = slices.DeleteFunc(files, func(f capture.File) bool {
-		return !strings.HasPrefix(f.Scenario, "nav-redirect-")
+		return !strings.HasPrefix(f.Scenario, "nav-redirect-") && twins[f.Scenario] == nil
 	})
 	// In scenario order, whichever profile each comes from.
 	slices.SortStableFunc(files, func(a, b capture.File) int {
@@ -90,6 +99,12 @@ func loadPages(dir string, p *profile.Profile) (*pages, error) {
 		got, err := loadFile(f)
 		if err != nil {
 			return nil, err
+		}
+
+		if into := twins[f.Scenario]; into != nil {
+			*into = got
+
+			continue
 		}
 
 		out.navRedirects = append(out.navRedirects, scenarioPages{
@@ -409,19 +424,28 @@ func collect(pg *pages) ([]*request, error) {
 		}
 	}
 
-	edge, err := corsEdgeRequests(pg.corsEdge)
+	// The twin's samples follow its original's.
+	edge, err := corsEdgeRequests(slices.Concat(pg.corsEdge, pg.corsEdgeCookies))
 	if err != nil {
 		errs = append(errs, err)
 	}
 
 	out = append(out, edge...)
 
-	r2, err := redirects2Requests(pg.redirects2)
-	if err != nil {
-		errs = append(errs, err)
-	}
+	for _, sc := range []struct {
+		name    string
+		samples []*capture.Page
+	}{
+		{name: server.Redirects2.Name, samples: pg.redirects2},
+		{name: server.Redirects2Cookies.Name, samples: pg.redirects2Cookies},
+	} {
+		r2, err := redirects2Requests(sc.name, sc.samples)
+		if err != nil {
+			errs = append(errs, err)
+		}
 
-	out = append(out, r2...)
+		out = append(out, r2...)
+	}
 
 	navs, err := navRedirectRequests(pg.p, pg.navRedirects)
 	if err != nil {
@@ -533,12 +557,13 @@ func corsEdgeRequests(samples []*capture.Page) ([]*request, error) {
 	return out, errors.Join(errs...)
 }
 
-// redirects2Requests returns the redirects2 page's requests
-// (server.Redirects2Steps), each with base "redir-<step kind>".
-// A navigation's GET first leg is skipped: a script navigation is not the
-// profile's. A repeated path is skipped with the rest of its step:
-// Chrome's error page reloads a navigation its redirect limit stopped.
-func redirects2Requests(samples []*capture.Page) ([]*request, error) {
+// redirects2Requests returns the requests of the redirects2 page or its
+// cookie twin (scenario; server.Redirects2Steps), each with base
+// "redir-<step kind>". A navigation's GET first leg is skipped: a script
+// navigation is not the profile's. A repeated path is skipped with the rest
+// of its step: Chrome's error page reloads a navigation its redirect limit
+// stopped.
+func redirects2Requests(scenario string, samples []*capture.Page) ([]*request, error) {
 	steps := map[string]server.Redirects2Step{}
 	for _, st := range server.Redirects2Steps() {
 		steps[st.Label] = st
@@ -559,7 +584,7 @@ func redirects2Requests(samples []*capture.Page) ([]*request, error) {
 			st, ok := steps[label]
 
 			if !ok {
-				errs = append(errs, fmt.Errorf("redirects2 sample %d: %s is no step", si+1, q.path))
+				errs = append(errs, fmt.Errorf("%s sample %d: %s is no step", scenario, si+1, q.path))
 				continue
 			}
 
@@ -579,7 +604,7 @@ func redirects2Requests(samples []*capture.Page) ([]*request, error) {
 			qs = append(qs, q)
 		}
 
-		errs = append(errs, linkRedirects("redirects2", qs, previousHop))
+		errs = append(errs, linkRedirects(scenario, qs, previousHop))
 		for _, q := range qs {
 			st := steps[q.label]
 			if q.method == "OPTIONS" {

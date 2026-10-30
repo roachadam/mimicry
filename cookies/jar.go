@@ -185,7 +185,10 @@ func (j *Jar) contextOf(r Request) context {
 		}
 	}
 
-	if j.rules.Redirects == profile.RedirectsBlockAfterCrossSite {
+	// A navigation through a cross-site hop still carries its cookies
+	// (Safari 27: every nav-redirect-*-cookies hop to or back from another
+	// site); its subresources' do not (the cookies page's images).
+	if j.rules.Redirects == profile.RedirectsBlockAfterCrossSite && !r.Navigation {
 		for _, u := range r.Redirects {
 			if !j.sameSite(u, ref) {
 				c.blocked = true

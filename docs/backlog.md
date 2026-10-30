@@ -1064,8 +1064,9 @@ These matter most under decision 0029:
     [EVIDENCE.md, Request kinds](../profiles/EVIDENCE.md#request-kinds).
 - **Layout-driven image priorities** (Firefox, Chrome).
   - Differs: Firefox gives some images in the HTML `u=4` (weight 13) where
-    the kind sends `u=5, i`; Chrome raises a visible markup image's
-    redirect hop to `u=1`. Both depend on layout.
+    the kind sends `u=5, i`; Chrome raises a visible markup image, or its
+    redirect hop, to `u=1` (Chrome 156's `redirects2-cookies`: on more of
+    them, in some samples). Both depend on layout.
   - Shows: images in the page's markup.
   - Detection: low; it depends on layout, so vendors cannot expect a
     value. User-visible: no.
@@ -1229,12 +1230,13 @@ These matter most under decision 0029:
 ## Redirects
 
 - **Safari 26's clicked navigations** (Safari 26).
-  - Differs: not captured: the capture tool clicks in Safari through the
-    system's mouse events, which need Accessibility access, and the
-    second Mac's captures run over ssh, which has none
-    (`missingCaptures`). Safari sends no `Sec-Fetch-User`, and Safari 27's
-    clicked navigations were sent as its script's, so Safari 26's follow
-    its script's captures (`nav-redirect-page`, `nav-redirect-form`).
+  - Differs: not captured (`nav-redirect-click` and its cookie twin): the
+    capture tool clicks in Safari through the system's mouse events, which
+    need Accessibility access, and the second Mac's captures run over ssh,
+    which has none (`missingCaptures`). Safari sends no `Sec-Fetch-User`,
+    and Safari 27's clicked navigations were sent as its script's, so
+    Safari 26's follow its script's captures (`nav-redirect-page`,
+    `nav-redirect-form` and their twins).
   - Detection: low. User-visible: no.
   - Close: grant Terminal Accessibility access on the second Mac and run
     the capture from Terminal there; small.
@@ -1261,28 +1263,35 @@ These matter most under decision 0029:
     [EVIDENCE.md, Redirects](../profiles/EVIDENCE.md#redirects);
     [cors-edge report](../internal/harness/reports/cors-edge-2026-10-24.md);
     [redirects2 report](../internal/harness/reports/redirects2-2026-10-24.md).
-- **`cookie` slot on hops captured without cookies** (all).
-  - Differs: a redirect variant's list is what the browser sent on the
-    captured hops; where those carried no cookie, the list has no `cookie`
-    slot, and mimicry sends the jar's cookies after it (after `priority`
-    in Chrome's lists, after `te` in Firefox's). `nav-redirect-cookie`
-    measured the slot on a typed navigation's same-origin hop for Chrome
-    156 on macOS and Firefox 158 (where the first leg has it). Still
-    without a slot: navigation hops to another origin or site and a page's
-    or a form's hops (every profile); fetch and image hops of the
-    conditions the `cookies` page did not redirect with cookies; Chrome 156
-    on Windows (no one at that machine), Chrome 155, Safari 27 (its capture
-    takes over this Mac's screen) and Safari 26 (`missingCaptures`).
-  - Shows: a redirect that sets or meets cookies: login and SSO flows.
-  - Detection: medium; navigation header order on common flows.
+- **Chrome 155's hop `cookie` slot** (Chrome 155).
+  - Differs: the cookie twins (decision 0048) came after Chrome 155, which
+    is no longer installable as branded Chrome and cannot inherit Chrome
+    156's captures (`capturesFrom` names an older version). Its hop
+    variants have no `cookie` slot, so a hop carrying cookies sends them
+    after the list (after `priority`).
+  - Shows: a redirect that sets or meets cookies, as Chrome 155.
+  - Detection: medium; navigation header order on login flows.
     User-visible: no.
-  - Close: `nav-redirect-cookie` on the Windows machine and for Safari;
-    for the other hops, cookies set on every capture host before the
-    `nav-redirect-*` and `redirects2` pages run (a recapture of each);
-    or, once captures agree everywhere, a rule placing the slot as the
-    first leg does. Medium.
+  - Close: by deprecation; or the twins captured with Chrome for Testing
+    155, if its hop lists match the brand's; small.
   - Source: [EVIDENCE.md, Redirects](../profiles/EVIDENCE.md#redirects);
     `missingCaptures` in [`proxy_test.go`](../internal/harness/e2e/proxy_test.go).
+- **`cookie` slot on hops no twin carries cookies on** (all).
+  - Differs: a hop variant whose captured hops carried no cookie has no
+    `cookie` slot, and mimicry sends the jar's cookies after its list. The
+    twins (decision 0048) leave three kinds of hop without: cross-site
+    subresources with credentials (`credentials: "include"`,
+    `withCredentials`, `crossorigin="use-credentials"`; the captured ones
+    went without, or to a site never visited), hops from `http://`
+    (`insecureBeforeRedirect` image and fetch hops), and Safari 27's image
+    hop to another origin of the page's site.
+  - Shows: credentialed cross-site API calls and trackers that redirect;
+    plain-HTTP subresources redirected to HTTPS.
+  - Detection: low to medium. User-visible: no.
+  - Close: a credentialed cross-site step on `redirects2-cookies` after a
+    navigation to that site, and a `kinds-plain` twin; small to medium.
+  - Source: [EVIDENCE.md, Redirects](../profiles/EVIDENCE.md#redirects);
+    [decision 0048](decisions/0048-cookie-twins.md).
 - **`navigationSite` on longer chains** (all).
   - Differs: how `sec-fetch-site` counts a navigation's chain was measured
     on one chain (to another site and back). Longer chains follow the rule
@@ -1296,14 +1305,17 @@ These matter most under decision 0029:
   - Differs: when a navigation hits its redirect limit, Chrome's error page
     reloads the last URL a second later (`cache-control: max-age=0`) and
     follows the rest of the chain, on macOS and Windows alike. mimicry
-    returns the error.
+    returns the error. In one sample of Chrome 156's `redirects2-cookies`
+    the reload went on a new connection, and `/done` after it; the test
+    compares `www.redir-a.test`'s connections as one there
+    (`redirectsMerged`).
   - Shows: navigation chains longer than 19 redirects.
   - Detection: low. User-visible: yes, an error where Chrome would carry
     on; deferred as browser UI.
   - Close: by decision 0022, not planned.
   - Source: [decision 0022](decisions/0022-redirects-as-the-browser-follows-them.md);
     [redirects2 report](../internal/harness/reports/redirects2-2026-10-24.md);
-    `redirectsReload` in [`redirects2_test.go`](../internal/harness/e2e/redirects2_test.go).
+    `redirectsReload`, `redirectsMerged` in [`redirects2_test.go`](../internal/harness/e2e/redirects2_test.go).
 - **`hopPreflight` to another cross-site origin** (Firefox, Safari).
   - Differs: measured only for a hop to the same cross-site origin.
   - Detection: low. User-visible: no.

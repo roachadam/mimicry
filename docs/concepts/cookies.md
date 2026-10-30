@@ -134,7 +134,7 @@ Where browsers differ, the jar follows the profile:
 | No SameSite | Lax, but sent on a cross-site form POST for 2 minutes | None | None |
 | `SameSite=None` without `Secure` | rejected | rejected | kept |
 | Third-party requests | `SameSite=None` cookies sent; `Partitioned` ones kept per top-level site | every cookie kept per top-level site | only `Partitioned` cookies |
-| After a redirect | judged by the URL alone | judged by the whole chain | nothing after a cross-site hop |
+| After a redirect | judged by the URL alone | judged by the whole chain | Safari 27: a subresource sends nothing after a cross-site hop, a navigation sends its cookies; Safari 26: judged by the whole chain |
 | UTF-8 values | as received | as received | re-encoded as Latin-1 |
 | Order | longer path first, then older | same | `Partitioned` first, then longer path, then name |
 | `http://` and `https://` of one host | different sites | same site | same site |
