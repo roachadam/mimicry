@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-26
-- Commits: (where it landed)
+- Commits: `68e2255`
 
 ## Problem
 

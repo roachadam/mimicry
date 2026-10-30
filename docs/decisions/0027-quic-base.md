@@ -1,8 +1,8 @@
 # 0027: QUIC from a copy of x/net/quic; HTTP/3 and QPACK our own
 
-- Status: Accepted
+- Status: Accepted; amended 2026-10-27 (fix our copy, don't wait for upstream)
 - Date: 2026-10-25
-- Commits: (the commit that adds `internal/quic`)
+- Commits: `3351958` (adds `internal/quic`), `ce1a1b3`
 
 ## Problem
 
@@ -53,7 +53,7 @@ Copy `x/net/quic` at x/net v0.61.0 (commit `c1d31df`) into
 
 Upstream fixes are taken by diffing upstream between commits and applying
 what is relevant. HTTP/3 and QPACK are written in mimicry, as HTTP/2 and
-HPACK are. (The user's choice, 2026-10-25.)
+HPACK are. (The maintainer's decision, 2026-10-25.)
 
 ## Consequences
 
@@ -73,7 +73,7 @@ HPACK are. (The user's choice, 2026-10-25.)
 
 ## Amendment 2026-10-27: fix our copy, don't wait for upstream
 
-Diverging from x/net/quic is accepted (the user's choice). A problem
+Diverging from x/net/quic is accepted (the maintainer's decision). A problem
 found in the copy (a bug, or a cost that shows in the benchmarks) is
 fixed here now rather than waiting for an upstream fix; upstream's
 changes are still reviewed periodically and taken where relevant. Every

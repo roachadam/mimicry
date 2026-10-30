@@ -206,40 +206,14 @@ Examples: `ExampleConfig_headerPlacement`, `ExampleHeaderOrderKey`; see
 
 **Seeing what will be sent.** `Transport.Plan` works out a request's header
 lines for each protocol, the protocol it would take, its CORS preflight and
-the headers you set in place of the browser's, without sending anything or
-changing any state:
-
-```go
-plan, err := client.Transport.(*mimicry.Transport).Plan(mimicry.As(api, mimicry.Fetch))
-if err != nil {
-	log.Fatal(err) // what RoundTrip would fail with: ErrNotMeasured, ErrPlacement, ...
-}
-fmt.Println(plan) // kind, variant, protocol, overrides, preflight, lines
-for _, o := range plan.Overrides {
-	fmt.Printf("%s: you replaced %q with %q\n", o.Name, o.Mimicry, o.Caller)
-}
-```
-
-`Overrides` is where header literals copied from older code show up.
-Example: `ExampleTransport_Plan`.
+the headers you set in place of the browser's (`Plan.Overrides`, where
+header literals copied from older code show up), without sending anything
+or changing any state; it fails as `RoundTrip` would (`ErrNotMeasured`,
+`ErrPlacement`, ...). Example: `ExampleTransport_Plan`.
 
 **WebSockets.** `DialWebSocket` opens a socket from the Transport's last
 page as the browser does: handshake, cookies, compression and framing, as a
 stream on the host's HTTP/2 connection where the server allows it.
-
-```go
-tr := client.Transport.(*mimicry.Transport)
-ws, _, err := tr.DialWebSocket(ctx, "wss://www.shop.example/live", mimicry.WebSocketOptions{})
-if err != nil {
-	log.Fatal(err)
-}
-defer ws.Close(1000, "")
-if err := ws.WriteMessage(ctx, mimicry.TextMessage, []byte(`{"subscribe":"queue"}`)); err != nil {
-	log.Fatal(err)
-}
-_, msg, err := ws.ReadMessage(ctx)
-```
-
 Example: `ExampleTransport_DialWebSocket`; see
 [docs/concepts/websockets.md](docs/concepts/websockets.md).
 
@@ -317,7 +291,11 @@ lists each behaviour, why the browser does it, and the option that changes it.
 With no options, mimicry sends what the browser sends, with two
 exceptions, where the browser's behaviour costs time a user notices and
 the difference is unlikely to be checked by anti-bot systems; a `Config`
-field gives the browser's behaviour back:
+field gives the browser's behaviour back. Two defaults are mimicry's own,
+not the browser's: a 30 s total timeout on the client `NewClient` returns
+(`Config.Timeout`, [decision 0041](docs/decisions/0041-default-request-timeout.md))
+and closing connections idle for 90 s (`Config.IdleConnTimeout`,
+[decision 0040](docs/decisions/0040-idle-connection-cleanup.md)).
 
 | Deviation | What a server can see | The browser's behaviour |
 |---|---|---|
@@ -329,10 +307,10 @@ browser does; each trades fidelity for speed or reach:
 
 | Deviation, when you turn it on | What a server can see | Option |
 |---|---|---|
-| **No HTTP/2 coalescing**: each host gets its own connection, where browsers share one between hosts whose certificate and address match. Set it on lossy networks: one connection for a site's hosts shares one congestion window, and warm page loads at 1% loss took half as long without it. On clean networks coalescing is faster (it saves the other hosts' handshakes: 0.36 s of a cold load at 80 ms), so leave it off there. Requests through a proxy never coalesce anyway ([decision 0037](docs/decisions/0037-coalescing-opt-out.md)). | a server hosting several of a site's hosts at one address under one certificate sees a connection per host where Chrome, Firefox and Safari end with one (low to medium risk) | `Config.DisableCoalescing` |
-| **More than 6 HTTP/1.1 connections per host**, for faster bulk requests to an HTTP/1.1-only server (at 64 concurrent requests, 16 connections gave 1.5–2.1× the requests/s, 64 gave 1.7–2.6×; decision 0037). | more than 6 concurrent HTTP/1.1 connections from one client to one host | `Config.MaxConnsPerHost` |
-| **HTTP/3 through SOCKS5 proxies**, over a UDP association per QUIC connection (RFC 1928), for sites that serve HTTP/3 reached from the proxy's address. Many SOCKS5 proxies relay no UDP: one that refuses is asked once, then everything goes on TCP. No datagram ever goes around the proxy ([decision 0038](docs/decisions/0038-http3-over-socks5.md)). | HTTP/3 from a proxy's address, which browsers never send through a proxy; the QUIC itself is the profile's, unchanged | `Config.HTTP3OverSOCKS5` |
-| **Fewer QUIC acknowledgements**: every Nth ack-eliciting packet after the browser's warm-up instead of Chrome's every 10th, for bulk HTTP/3 downloads from a server whose one worker a single client saturates (nginx: every 20 ran 25% faster at 10 MB and 22% at 100 KB, 64 at once). A single download from a server with CPU to spare runs slower (27% at 10 MB) ([decision 0043](docs/decisions/0043-http3-ack-rate-opt-in.md)). | an ACK rate no browser of the profile's has, on every HTTP/3 connection (low risk: it needs QUIC-level timing) | `Config.HTTP3ACKEvery` |
+| **No HTTP/2 coalescing**: each host gets its own connection, where browsers share one between hosts whose certificate and address match. Faster on lossy networks, where one shared congestion window slows every host; slower on clean ones, so leave it off there ([decision 0037](docs/decisions/0037-coalescing-opt-out.md)). | a server hosting several of a site's hosts at one address under one certificate sees a connection per host where Chrome, Firefox and Safari end with one (low to medium risk) | `Config.DisableCoalescing` |
+| **More than 6 HTTP/1.1 connections per host**, for faster bulk requests to an HTTP/1.1-only server ([decision 0037](docs/decisions/0037-coalescing-opt-out.md)). | more than 6 concurrent HTTP/1.1 connections from one client to one host | `Config.MaxConnsPerHost` |
+| **HTTP/3 through SOCKS5 proxies**, over a UDP association per QUIC connection, for sites that serve HTTP/3; a proxy that refuses UDP leaves everything on TCP, and no datagram ever goes around the proxy ([decision 0038](docs/decisions/0038-http3-over-socks5.md)). | HTTP/3 from a proxy's address, which browsers never send through a proxy; the QUIC itself is the profile's, unchanged | `Config.HTTP3OverSOCKS5` |
+| **Fewer QUIC acknowledgements**: every Nth ack-eliciting packet after the browser's warm-up instead of the profile's rate (Chrome every 10th, Firefox and Safari every 2nd), for bulk HTTP/3 downloads from a busy server; a single download from a server with CPU to spare runs slower ([decision 0043](docs/decisions/0043-http3-ack-rate-opt-in.md)). | an ACK rate no browser of the profile's has, on every HTTP/3 connection (low risk: it needs QUIC-level timing) | `Config.HTTP3ACKEvery` |
 
 ## Evidence and limits
 
@@ -362,10 +340,45 @@ Limits that matter in practice:
   and mimicry does not, so give each site its own Transport; they can share
   a jar (`ExampleConfig_sharedJar`).
 - **HTTP/3 ignores `Config.DialContext`.** QUIC sends UDP to the address
-  `Config.Resolver` gives; `DialContext` dials TCP only.
-- **HTTP/3 never goes through a proxy**, as in the browsers: proxied
-  requests use HTTP/2 or HTTP/1.1. `https://` proxies (TLS to the proxy) are
-  not supported.
+  `Config.Resolver` gives (through the SOCKS5 association with
+  `HTTP3OverSOCKS5`); `DialContext` dials TCP only.
+- **HTTP/3 goes through a proxy only with `Config.HTTP3OverSOCKS5`**
+  (SOCKS5; browsers never do): by default proxied requests use HTTP/2 or
+  HTTP/1.1. `https://` proxies (TLS to the proxy) are not supported.
+
+## Performance
+
+Against `net/http`, tls-client, httpcloak and azuretls on one Linux machine
+(i5-13500, the client on 4 cores, nginx, 3 passes, medians;
+[the full breakdown](docs/performance.md)):
+
+- 1.09–2.55× the requests per second of tls-client, httpcloak and azuretls,
+  at 0.40–0.85× their CPU per request (geometric means per protocol);
+  within about 10% of `net/http` on both.
+- 74–85 allocations per request on a warm connection, against 109–414 for
+  the other impersonating clients.
+- 100 clients, each through its own proxy identity: 33–43 µs of CPU per
+  request and 36–38 KB of heap per client over HTTP/1.1 and HTTP/2,
+  against 40–112 µs and 56–2,098 KB.
+- A client dropped without being closed leaves nothing open: 1.1–1.7
+  tunnels per routine and 71–131 MB in all, against 74–126 tunnels and
+  465–2,804 MB.
+
+![mimicry's requests per second and CPU per request against each client, per protocol](docs/perf/relative.svg)
+
+![Tunnels left open and process memory when old clients are dropped without closing them](docs/perf/rotation.svg)
+
+Where it is slower:
+
+- **HTTP/3 bulk downloads, many at once:** 4,408 against 7,383–8,516
+  requests/s at 100 KB, 64 at once.
+- **Building a client** takes about 235 µs (the others 0.2–36 µs): build
+  clients up front, not one per request.
+- **Proxy rotation through `Config.Proxy`** keeps old identities' idle
+  connections for 10 s: 1.7 MB and 70 tunnels per client at a new identity
+  every 10 requests. `Config.MaxIdleProxies` caps it.
+- **HTTP/1.1** keeps Chrome's 6 connections per host, so more requests at
+  once queue (`Config.MaxConnsPerHost` lifts it).
 
 ## Coming from tls-client
 

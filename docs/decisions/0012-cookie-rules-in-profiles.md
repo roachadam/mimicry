@@ -18,8 +18,9 @@ in kind, not only in degree:
   cross-site and keys `Partitioned` ones by top-level site; Firefox keeps
   every cookie of a cross-site context in a jar per top-level site; Safari
   allows only `Partitioned` cookies there;
-- redirects: Chrome judges SameSite by the request URL alone, Firefox by
-  the whole chain, Safari sends nothing after a cross-site hop;
+- redirects: Chrome judges SameSite by the request URL alone, Firefox and
+  Safari 26 by the whole chain, Safari 27 sends nothing after a cross-site
+  hop;
 - a cookie without `=`: an empty name in Chrome (sent as `knoeq`), a name
   in Firefox (`knoeq=`), dropped by Safari;
 - Safari re-encodes UTF-8 values as if Latin-1;
@@ -45,10 +46,12 @@ in kind, not only in degree:
 | `laxAllowsUnsafeSeconds` | Chrome's exception window (120) |
 | `noneRequiresSecure` | bool |
 | `thirdParty` | `samesite` (Chrome), `partition_all` (Firefox), `partitioned_only` (Safari) |
+| `websocketUnpartitioned` | a cross-site WebSocket handshake also gets its host's unpartitioned Lax and None cookies (Safari 26) |
 | `redirects` | `ignore` (Chrome), `chain` (Firefox, Safari 26), `block_after_cross_site` (Safari 27) |
 | `nameless` | `value` (Chrome), `name` (Firefox), `drop` (Safari) |
 | `latin1Values` | bool (Safari) |
 | `order` | `rfc` (Chrome, Firefox), `domain_name` (Safari) |
+| `partitionedFirst` | a request's `Partitioned` cookies go before its unpartitioned ones (Safari) |
 | `newValueRenews` | a cookie whose value changes moves to the end of its order (Chrome) |
 | `samesiteScheme` | `schemeful` (Chrome), `schemeless` (Firefox, Safari) |
 | `hostPrefixPath` | `attribute`: `__Host-` needs `Path=/` as sent (Chrome, Firefox); `stored`: the stored path, default included (Safari) |

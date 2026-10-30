@@ -1,8 +1,8 @@
 # 0020: The connection pool is its own package
 
-- Status: Accepted
+- Status: Accepted; amended 2026-10-28 by [0040](0040-idle-connection-cleanup.md) (idle timeout for every protocol, `Config.IdleConnTimeout`, a separate `KeyTimeout`, `Shared.OnClose`)
 - Date: 2026-10-24
-- Commits: (the 2026-10-24 review commit)
+- Commits: `ea769bc`
 
 ## Problem
 
@@ -59,15 +59,24 @@ ledger. Proxy-credential state grows with every proxy used.
 
 ## Revisit when
 
-- HTTP/3 needs a second multiplexed connection type per key: the pool's
-  type parameters are where it goes.
-- A capture measures a browser's idle timeout, ticket lifetime or
-  per-host connection cap.
+A capture measures a browser's idle timeout, ticket lifetime or per-host
+connection cap.
 
-Amended (2026-10-28, [0040](0040-idle-connection-cleanup.md)): the idle
-timeout covers the shared connections too, HTTP/2 and HTTP/3, counted
-from their last request's end (`Shared.IdleSince`, closed with
-`Shared.Expire`), and `ExpireKey` closes a key's idle connections early,
-for a proxy the Transport no longer uses. With proxy credentials sent up
-front by default ([0039](0039-proxy-credentials-up-front.md)), the
-credential state grows only with `Config.BrowserProxyAuth`.
+## Amendment 2026-10-28: every protocol, and its own settings
+
+- HTTP/3 has a pool of its own, the same type with QUIC connections as
+  the shared kind (`pool.Pool[*quicConn, noExclusive]`).
+- The idle timeout covers the shared connections too, HTTP/2 and HTTP/3,
+  counted from their last request's end (`Shared.IdleSince`, closed with
+  `Shared.Expire`). `ExpireKey` closes a key's idle connections early, for
+  a proxy the Transport no longer uses
+  ([0040](0040-idle-connection-cleanup.md)).
+- The 90 s is now the default of `Config.IdleConnTimeout` (negative: idle
+  connections never close for their idleness). Forgetting a key is a
+  separate `KeyTimeout`, fixed at 90 s, so a shorter idle timeout does not
+  forget an HTTP/1.1-only server sooner.
+- A shared connection tells the pool it has closed through
+  `Shared.OnClose`; no goroutine watches it.
+- With proxy credentials sent up front by default
+  ([0039](0039-proxy-credentials-up-front.md)), the credential state grows
+  only with `Config.BrowserProxyAuth`.

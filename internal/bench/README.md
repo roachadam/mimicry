@@ -7,7 +7,13 @@ profile: [`bogdanfinn/tls-client`](https://github.com/bogdanfinn/tls-client),
 [`Noooste/azuretls-client`](https://github.com/Noooste/azuretls-client). Their
 versions are pinned in `go.mod`; this is a module of its own so none of them
 ever reaches the library's or the harness's dependencies. Reports are in
-[`reports/`](reports/).
+[`reports/`](reports/); [`docs/performance.md`](../../docs/performance.md)
+sums up the latest run, with charts that `bench charts` draws from its JSON:
+
+```sh
+cd internal/bench
+GOWORK=off go run ./cmd/bench charts -in reports/linux-final-2026-10-29/final-2026-10-29.json -out ../../docs/perf
+```
 
 ## What it measures
 
@@ -28,20 +34,8 @@ A load point's throughput is the response body bytes that arrive inside
 its window, counted as the client reads them: MB/s, and requests/s as
 responses' worth of those bytes (CPU and allocations per request divide by
 the same), wherever the requests started and ended. Its latencies are the
-requests in flight during the window. Counting the requests that ended
-inside the window made bulk points depend on where the window fell: nginx
-shares a connection's bandwidth evenly between streams, so with Chrome's
-stream windows all 256 of mimicry's 10 MB requests end together, about
-every 4 s, and the fast run's 3 s window held a whole round or a few
-stragglers (4 to 72 requests/s between runs of the same throughput).
-
-Counting bytes was not enough for long requests either: a fixed 3 s window
-at 10 MB and 256 at once held one round or less, so the per-request
-allocations of a client whose costs come at a request's start (mimicry
-over HTTP/3: 96 allocations per request at c1 and c64, 10-20 at c256)
-depended on how many requests started inside it, and the buffering
-clients (httpcloak, azuretls), whose bodies count only once whole, got
-0, 1 or 2 rounds' worth. So both phases stretch (`scenario.LoadSpec`): the
+requests in flight during the window. Both phases stretch for long
+requests (`scenario.LoadSpec`): the
 warm-up runs at least `-warmup` and until a request per concurrent one has
 completed and it has lasted twice their median latency; the window runs
 at least `-window` and five warm-up medians, and until 3 requests per
@@ -50,15 +44,14 @@ concurrent one have started and finished inside it (up to `-max-window`,
 warm-up and window it ran, and how many requests started inside the
 window and how many of them finished there; the table gives the window.
 Small bodies are unaffected: they meet the rule within the minimum window.
+Why both rules exist is in [Methodology changes](#methodology-changes).
 
 A point is **server-bound** when the server reaches 90% of its CPU set or
 one nginx worker 90% of a core (nginx's `/_stats` reports each worker's CPU
 time from `/proc/<pid>/schedstat`; one connection is one worker's). It is
 not discarded: it stays in the tables, marked §, for every client if any
 client's run of it was server-bound, and every pair's summary leaves it
-out (a separate summary covers those points). Before, a point above 90%
-was discarded for the client that reached it only, which dropped the
-fastest client's point from its own geomean.
+out (a separate summary covers those points).
 
 Every measured response is checked against the protocol under test as the
 server saw it (`x-proto`); a measurement with one response on another
@@ -77,13 +70,13 @@ scenario/           warm-up, load, idle memory and page-load measurements
 site/               what the servers serve: payloads, JSON, the page
 target/             host names, ports, protocols, the CA, server stats
 stats/              /_stats: a container's CPU time from cgroup v2
-cmd/bench/          layers 3-6: `bench run` (orchestrator), `bench worker`, `bench wait`, `bench merge` (builds side by side, or `-passes`: medians and ranges), `bench microstat` (benchstat without its flagged geomeans); `bench offloads` (the sidecar)
+cmd/bench/          layers 3-6: `bench run` (orchestrator), `bench worker`, `bench wait`, `bench merge` (builds side by side, or `-passes`: medians and ranges), `bench microstat` (benchstat without its flagged geomeans), `bench charts` (docs/performance.md's SVGs from a merged report's JSON); `bench offloads` (the sidecar)
 cmd/server/         the Go server (net/http + quic-go http3)
 cmd/proxy/          CONNECT (with/without Basic auth) and SOCKS5 (CONNECT, UDP ASSOCIATE) proxy, counting per user
 cmd/setup/          the CA (once), the server certificate, nginx's files
-docker/             Dockerfile, compose.server.yml, compose.client.yml (+ compose.client.udpstock.yml), nginx config
+docker/             Dockerfile, compose.server.yml (+ compose.server.nopublish.yml for BENCH_PUBLISH=0), compose.client.yml (+ compose.client.udpstock.yml), proxy-entrypoint.sh (the proxy's netem delay), nginx config
 scripts/bench.sh    drives both stacks; the moon tasks call it
-reports/            bench-<date>.md/.json (and its -passN, -udpstock-passN parts), micro-<date>.txt and -benchstat.txt
+reports/            bench-<date>.md/.json (and its -passN, -udpstock-passN parts), micro-<date>.txt and -benchstat.txt, host-<date>.txt (host load per pass); a run kept apart gets a subdirectory (linux-final-2026-10-29/, linux-2026-10-29/, focus-2026-10-29/, after-fixes/, coalescing/, conns-per-host/), with its run.log
 ```
 
 Two compose stacks. **Server** (`docker/compose.server.yml`): nginx 1.31
@@ -111,10 +104,8 @@ datagrams, bytes each way: `/_proxy?prefix=…` on the stats port), which
 layers 5 and 6 check their clients against. It relays tunnels with plain
 `io.Copy` between the two TCP connections, which Linux splices, and reads a
 tunnel's bytes from its server-side socket's `TCP_INFO` (`tcpi_bytes_received`
-down, `tcpi_bytes_acked` up), live while it is open and once more at close;
-from 2026-10-28 to the audit fixes it copied through a counting reader
-instead (32 KB copies through user space), so the proxy rows of those
-reports are not comparable with others'. A UDP association gets a relay
+down, `tcpi_bytes_acked` up), live while it is open and once more at close.
+A UDP association gets a relay
 socket on the address the client
 reached the proxy at, ephemeral and not published: HTTP/3 through SOCKS5
 needs the client on the proxy's Docker network, so with `BENCH_SERVER` its
@@ -127,7 +118,7 @@ ms), so a round trip through it gains about 10 ms. `BENCH_PROXY_DELAY_MODE`
 says how: `netem` on the proxy container's `eth0`
 (`docker/proxy-entrypoint.sh`), or `proxy`, the proxy's own delay line
 (`cmd/proxy/delay.go`) for Docker hosts whose kernel has no `sch_netem`
-(that host's). The delay line holds each relayed chunk (up to 32 KB) and
+(the Linux test host's). The delay line holds each relayed chunk (up to 32 KB) and
 datagram, both ways, for the delay after it was read, in a queue per
 direction (64 chunks, then the reader waits), so throughput stays and only
 latency grows; it also holds the dial to the server and the handshake
@@ -135,14 +126,8 @@ replies, as netem holds the SYN, SYN-ACK and replies. TCP's ACKs are not
 held, so each leg's congestion control sees its bare RTT; tunnels go
 through user space instead of splicing. `bench.sh` probes the Docker host
 for netem and picks `netem` where it works, else `proxy`; the report's
-Environment says which. Checked on the Mac (OrbStack, netem available,
-2026-10-29): layer 6, fixed identities, 50 clients, 1 KB and 100 KB over
-HTTP/1.1, HTTP/2 (CONNECT with auth, SOCKS5) and HTTP/3 (SOCKS5), net/http
-and mimicry, 5 s windows, run netem, proxy, netem, proxy: over the 14
-points the delay line's requests/s were 1.025× netem's and its p50 latency
-0.974× (geometric means; p50 14-18 ms either way, p99 within each other's
-range), while the two netem runs alone differed 5.8% per point (RMS of the
-log ratio). On battery, both modes under the same conditions.
+Environment says which. The two modes agree within run-to-run noise
+([Methodology changes](#methodology-changes)).
 
 **Client** (`docker/compose.client.yml`): one container with every client,
 its own CPU set, a fixed `GOMAXPROCS`, `NET_ADMIN` for netem, the CA volume
@@ -162,27 +147,14 @@ condition layer 5 turns TSO, GSO and GRO off on the client's `eth0` and,
 through the `offloads` sidecar, on the host's end of the client's veth,
 which then cuts every packet to the client into MSS-sized segments; the
 condition without netem, and layers 1-4, run with the offloads as Docker
-set them. Checked with tcpdump in the client container, a mimicry HTTP/2
-page-load set under RTT 20 ms and 1% loss: with the offloads on, the
-client's `eth0` received packets of 4.8 KB on average, up to 49 KB; with
-them off, 1.4 KB on average and none over 1500 bytes (MSS 1448 plus
-headers). Reports from before 2026-10-28 ran netem with them on. The
-report's environment says they are off, and names any interface it could
-not change.
+set them. The report's environment says they are off, and names any
+interface it could not change.
 
 **Ingress shaping lasts only as long as its condition.** The incoming half
 of a condition is netem on `ifb0`, with `eth0`'s incoming packets
 redirected to it; the redirect is set with each netem condition and taken
 off with it, and `ifb0` is deleted when layer 5 (or layer 3 under
-`-load-netem`) ends. Until 2026-10-29 the redirect stayed after its
-condition, and `ifb0` without its netem queues 32 packets: the condition
-without netem, and every layer after layer 5 in the same run, went through
-that queue. In `bench-2026-10-29`, the first full run with layer 6, every
-100 KB point of layer 6 ran at 115-522 requests/s, against 1,891-7,206 in
-`multiclient-2026-10-28` (layer 6 alone), and 2.4-3.0% of mimicry's HTTP/3
-requests with rotation went on HTTP/2; replayed, the queue dropped 4.6-4.7%
-of the packets to the client during those points, and 0.02-0.07% of the
-requests went on HTTP/2 without it.
+`-load-netem`) ends.
 
 ## Many clients through proxies (layer 6)
 
@@ -313,9 +285,8 @@ holds it to mimicry's public API).
 
 **Power.** On macOS the script keeps the machine awake (`caffeinate -i`) and
 refuses to measure (`micro`, `run`, `report`) unless `pmset -g batt` reports
-AC power and `pmset -g` reports `lowpowermode 0`: the two 2026-10-29 runs were
-on battery, and identical code spread 4-11% per point (log-SD) between
-them. `BENCH_ALLOW_BATTERY=1` overrides it for smoke runs; the report's
+AC power and `pmset -g` reports `lowpowermode 0`.
+`BENCH_ALLOW_BATTERY=1` overrides it for smoke runs; the report's
 Environment records the power state either way (`Power`).
 
 **Passes.** Layers 3 and 6 run as `BENCH_PASSES` separate invocations of
@@ -348,12 +319,12 @@ and 6 over HTTP/3 only with the client container's `rmem_max` and
 `rmem_default` at 212992 and `NET_ADMIN` dropped
 (`docker/compose.client.udpstock.yml`, layered over the client compose
 file): setting the sysctls alone changes nothing for the quic-go clients.
-Both sysctls are per network namespace in OrbStack's kernel. the Linux test host's
-(6.18.38) keeps them global and runc refuses to set them in a
-container (`open sysctl net.core.rmem_max file: reopen fd 8: permission
-denied`), so there the stock passes fail; run them on the Mac, or measure
-mimicry's stock share with `mimicry-udp208k` (asking for 208 KB gets the
-416 KB stock Linux grants any larger request). Without `NET_ADMIN` there is no
+Both sysctls are per network namespace in OrbStack's kernel. The Linux
+test host's kernel (i5-13500, Linux 6.18) keeps them global and runc
+refuses to set them in a container (`open sysctl net.core.rmem_max file:
+reopen fd 8: permission denied`), so there the stock passes fail; run them
+on the Mac, or measure mimicry's stock share with `mimicry-udp208k` (asking
+for 208 KB gets the 416 KB stock Linux grants any larger request). Without `NET_ADMIN` there is no
 netem, so the stock passes cannot include layer 5 or `-load-netem`
 (`bench run` refuses them). The merged report ends with a section
 comparing the two: the summary at stock buffers, and each HTTP/3 point's
@@ -422,8 +393,10 @@ measured streaming). Environment: `BENCH_PASSES`, `BENCH_UDP_STOCK_PASSES`,
 (one `-bench` pattern), `BENCH_SERVERS` (micro: `nginx`), `BENCH_FULL`,
 `BENCH_FAST`, the CPU sets
 and `GOMAXPROCS` (`BENCH_CLIENT_CPUS`, `BENCH_SERVER_CPUS`,
-`BENCH_PROXY_CPUS`, `BENCH_CLIENT_PROCS`, `BENCH_SERVER_PROCS`),
-`BENCH_PROXY_DELAY` (5ms), `BENCH_ALLOW_BATTERY`, `BENCH_SKIP_BUILD`.
+`BENCH_PROXY_CPUS`, `BENCH_CLIENT_PROCS`, `BENCH_SERVER_PROCS`,
+`BENCH_PROXY_PROCS` (the proxy's, 2)), `BENCH_PROXY_DELAY` (5ms),
+`BENCH_HOST_LABEL` (the report's name for the machine; by default its OS
+and CPU model, never the hostname), `BENCH_ALLOW_BATTERY`, `BENCH_SKIP_BUILD`.
 
 `BENCH_FAST=1` stays as a quick smoke mode, not for comparison (the
 default run took over its old settings: 100 layer 6 clients, 25 for the
@@ -521,7 +494,7 @@ cost):
 | Concurrency 16 and 256 | mimicry's 6-per-host HTTP/1.1 queue, contention at high concurrency | `-conc 1,16,64,256` |
 | The Go server | net/http and quic-go's server instead of nginx (layer 3 gives it the reduced matrix, `-reduced`) | `-servers nginx,go`; `BENCH_SERVERS=nginx,go` for micro |
 | Layer 5 page loads | page loads under netem and through the proxies (first pass only) | `-layers 3,4,5,6` |
-| Stock UDP buffers | HTTP/3 at stock Linux's 208 KB receive buffer, without `NET_ADMIN` | `BENCH_UDP_STOCK_PASSES=1` (run), `BENCH_UDP_STOCK=1` (report) |
+| Stock UDP buffers | HTTP/3 at stock Linux's buffers (208 KB for a socket that asks for nothing, 416 KB for one that asks), without `NET_ADMIN` | `BENCH_UDP_STOCK_PASSES=1` (run), `BENCH_UDP_STOCK=1` (report) |
 | Proxy rotation everywhere | the proxy variant on every route and at 100 KB | `-multi-proxy-routes all -multi-proxy-bodies all` |
 | Proxy rotation's memory fit | its 1 KB points again at `-multi-n2` | `-multi-n2-variants fixed,proxy` |
 | 200 clients per layer 6 point | twice the clients, the second count 50 | `-multi-n 200 -multi-n2 50` |
@@ -533,14 +506,14 @@ The variants were never in a run's default clients; they stay opt-in.
 
 ## Running on a Linux host
 
-Both stacks can run on a Linux Docker host instead of the Mac (a Linux
-server: Docker directly on the host, so the CPU sets are real cores). Copy
+Both stacks can run on a Linux Docker host instead of the Mac (a Linux test
+host (i5-13500, Linux 6.18): Docker directly on the host, so the CPU sets are real cores). Copy
 the repository there and run `bench.sh` on it; it needs bash, Docker with
 Compose, and no Go (the images build Go themselves). Without `.git` give
 the commit:
 
 ```sh
-BENCH_MIMICRY_COMMIT=153cf05 BENCH_PUBLISH=0 \
+BENCH_MIMICRY_COMMIT=<commit> BENCH_PUBLISH=0 \
   BENCH_CLIENT_CPUS=0,2,4,6 BENCH_SERVER_CPUS=8-11 BENCH_SERVER_PROCS=4 BENCH_PROXY_CPUS=12-15 \
   nohup internal/bench/scripts/bench.sh run > bench.log 2>&1 &
 ```
@@ -548,23 +521,24 @@ BENCH_MIMICRY_COMMIT=153cf05 BENCH_PUBLISH=0 \
 On the i5-13500 the client gets one thread of each of four P-cores (CPUs
 0, 2, 4 and 6; their SMT siblings 1, 3, 5 and 7 left idle), nginx the next
 two P-cores' four threads (8-11), the proxy four E-cores (12-15). Only the
-benchmark's containers are pinned: the host's other VMs and containers
+benchmark's containers are pinned: the host's other workloads
 float over every CPU, which shows up as noise. `BENCH_PUBLISH=0` publishes
 no port (the client reaches the servers on the `mimicry-bench` network), so
 the host's own services keep theirs. `pmset` and `caffeinate` are macOS
-only. Without netem in the host's kernel (that host's kernel has neither `sch_netem` nor
-`ifb`) the proxy's delay is the in-process one (Proxy delay, above), the
+only. Without netem in the host's kernel (that host's kernel has neither
+`sch_netem` nor `ifb`) the proxy's delay is the in-process one (Proxy delay, above), the
 offloads sidecar does not start, and a run asking for netem (layer 5,
 `-load-netem`) stops at once; the default run (layers 3, 4, 6) needs none.
 Before each pass and at the end the script records the load average and
-every other container at 1% CPU or more (`docker stats`), in the pass's
-Environment and in `reports/host-<date>.txt`.
+how many other containers use 1% CPU or more, with their total CPU
+(`docker stats`; no names), in the pass's Environment and in
+`reports/host-<date>.txt`.
 
 ## Running against a remote server
 
 The server stack can run on another Docker host (a Linux server, the Mac
 mini) with the client here, over real Ethernet. One setting points the client
-at it, `BENCH_SERVER=<its IP>`, plus how to reach its Docker daemon:
+at it, `BENCH_SERVER=<server address>`, plus how to reach its Docker daemon:
 
 ```sh
 docker context create bench-server --docker host=ssh://user@server   # once
@@ -585,6 +559,60 @@ optional on a real network: `-netem=false` runs layer 5 on the network as it
 is (and the proxy scenario there); leave it on to add delay and loss on top.
 `DOCKER_HOST=ssh://…` works in place of a context. `bench.sh down` with the
 same settings stops the remote stack.
+
+## Methodology changes
+
+What changed in the method, and why; reports from before a change are not
+comparable with later ones on that point.
+
+- **Counting bytes, not requests (load points).** A window used to count
+  the requests that ended inside it. That made bulk points depend on where
+  the window fell: nginx shares a connection's bandwidth evenly between
+  streams, so with Chrome's stream windows all 256 of mimicry's 10 MB
+  requests end together, about every 4 s, and the fast run's 3 s window
+  held a whole round or a few stragglers (4 to 72 requests/s between runs
+  of the same throughput).
+- **Stretched windows.** Counting bytes was not enough for long requests: a
+  fixed 3 s window at 10 MB and 256 at once held one round or less, so the
+  per-request allocations of a client whose costs come at a request's start
+  (mimicry over HTTP/3: 96 allocations per request at c1 and c64, 10-20 at
+  c256) depended on how many requests started inside it, and the buffering
+  clients (httpcloak, azuretls), whose bodies count only once whole, got 0,
+  1 or 2 rounds' worth. Hence `scenario.LoadSpec`'s rules above.
+- **Server-bound points kept.** A point above 90% used to be discarded for
+  the client that reached it only, which dropped the fastest client's point
+  from its own geomean. Now it is marked § for every client and left out of
+  the pair summaries.
+- **Proxy byte counts.** From 2026-10-28 to the audit fixes the proxy copied
+  through a counting reader (32 KB copies through user space) instead of
+  splicing and reading `TCP_INFO`, so the proxy rows of those reports are not
+  comparable with others'.
+- **Delay line checked against netem** (the Mac, OrbStack, 2026-10-29):
+  layer 6, fixed identities, 50 clients, 1 KB and 100 KB over HTTP/1.1,
+  HTTP/2 (CONNECT with auth, SOCKS5) and HTTP/3 (SOCKS5), net/http and
+  mimicry, 5 s windows, run netem, proxy, netem, proxy: over the 14 points
+  the delay line's requests/s were 1.025× netem's and its p50 latency 0.974×
+  (geometric means; p50 14-18 ms either way, p99 within each other's range),
+  while the two netem runs alone differed 5.8% per point (RMS of the log
+  ratio). On battery, both modes under the same conditions.
+- **Offloads off under netem** (from 2026-10-28; earlier reports ran netem
+  with them on). Checked with tcpdump in the client container, a mimicry
+  HTTP/2 page-load set under RTT 20 ms and 1% loss: with the offloads on,
+  the client's `eth0` received packets of 4.8 KB on average, up to 49 KB;
+  with them off, 1.4 KB on average and none over 1500 bytes (MSS 1448 plus
+  headers).
+- **Ingress redirect removed with its condition.** Until 2026-10-29 the
+  redirect stayed after its condition, and `ifb0` without its netem queues
+  32 packets: the condition without netem, and every layer after layer 5 in
+  the same run, went through that queue. In `bench-2026-10-29`, the first
+  full run with layer 6, every 100 KB point of layer 6 ran at 115-522
+  requests/s, against 1,891-7,206 in `multiclient-2026-10-28` (layer 6
+  alone), and 2.4-3.0% of mimicry's HTTP/3 requests with rotation went on
+  HTTP/2; replayed, the queue dropped 4.6-4.7% of the packets to the client
+  during those points, and 0.02-0.07% of the requests went on HTTP/2
+  without it.
+- **AC power required on macOS.** The two 2026-10-29 runs were on battery,
+  and identical code spread 4-11% per point (log-SD) between them.
 
 ## Profiling mimicry
 

@@ -1,8 +1,8 @@
 # 0029: Model what anti-bot systems check or users notice
 
-- Status: Accepted
+- Status: Accepted; amended 2026-10-28 by [0036](0036-fast-quic-fallback.md) (fast failure-path timing by default) and [0037](0037-coalescing-opt-out.md) (faster defaults for costly, low-risk behaviours)
 - Date: 2026-10-25
-- Commits: (where it landed)
+- Commits: `0e76f62`
 
 ## Problem
 
@@ -63,7 +63,7 @@ written down in [the backlog](../backlog.md) with what differs, when it
 shows on the wire, how relevant it is to detection, and what closing it
 would take, so later hardening can pick it up.
 
-(The user's call, 2026-10-25.)
+(The maintainer's decision, 2026-10-25.)
 
 ## Evidence
 
@@ -105,14 +105,18 @@ moves up the backlog), or the library gets a use beyond automating
 ordinary user actions, such as research that needs the browsers' failure
 paths reproduced.
 
-Applied (2026-10-28, [0036](0036-fast-quic-fallback.md)): failure-path
+## Amendment 2026-10-28: faster failure-path timing
+
+By [0036](0036-fast-quic-fallback.md): failure-path
 timing may be faster than the browser's by default when it is a stall a
 user notices and is visible only where QUIC fails; the browser's timing
 stays available as an option (`Config.BrowserQUICFallback`). The test that
 it is visible only there is an e2e replay in both modes, with every
 difference listed (`h3EdgeFastGaps`).
 
-The user's rule, recorded in [0037](0037-coalescing-opt-out.md)
+## Amendment 2026-10-28: faster defaults for costly, low-risk behaviours
+
+The rule, recorded in [0037](0037-coalescing-opt-out.md)
 (2026-10-28): when a browser behaviour costs significant performance and
 is a low-ish detection risk, the default is the faster setting, documented
 plainly, with a `Config` option for the browser's. HTTP/2 coalescing was

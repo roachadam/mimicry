@@ -1,8 +1,8 @@
 # 0019: A Transport is one browsing entity
 
-- Status: Accepted
+- Status: Accepted; amended 2026-10-28 by [0040](0040-idle-connection-cleanup.md) (rotating proxies within one Transport) and 2026-10-29 by [0044](0044-profile-fingerprint.md) (cheap clients)
 - Date: 2026-10-24
-- Commits: (the 2026-10-24 review commit)
+- Commits: `ea769bc`
 
 ## Problem
 
@@ -30,7 +30,8 @@ A Transport (or a client from `NewClient`) is one browsing entity: one
 browser profile used by one task, like a tab with its own cookies, caches
 and connections. Work in parallel uses one client per task, typically
 with one proxy each. The last-navigation default stays. This is documented
-on `Transport`, `Request.From` and `As`. (The user's call, 2026-10-24.)
+on `Transport`, `Request.From` and `As`. (The maintainer's decision,
+2026-10-24.)
 
 ## Consequences
 
@@ -42,3 +43,12 @@ mixed pages, and must pass `From` explicitly to avoid it.
 
 Users need many tabs of one browser profile: same jar, separate pages.
 Measure what browsers share between tabs first.
+
+## Amendment 2026-10-29: rotating proxies, cheap clients
+
+Since [0040](0040-idle-connection-cleanup.md), rotating proxies within one
+Transport is also supported: the connections of proxies no longer used
+close early (`Config.MaxIdleProxies`), so a Transport does not hold every
+identity it has used. Since [0044](0044-profile-fingerprint.md), a new
+client shares its decoded profile with the others built from the same
+one, so one client per task costs little.

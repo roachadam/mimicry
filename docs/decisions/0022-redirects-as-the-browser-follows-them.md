@@ -1,8 +1,8 @@
 # 0022: Redirects follow the browser's rules, inside the Transport
 
-- Status: Accepted
+- Status: Accepted; amended 2026-10-26 (`navigationOrigin`, and user navigations' `Sec-Fetch-User`, from the `nav-redirect-*` captures)
 - Date: 2026-10-24
-- Commits: (the wave-3 commit)
+- Commits: `02903e5`; amended in `806c93c`
 
 ## Problem
 
@@ -57,14 +57,7 @@ Transport's limit is the only one. Profile `redirects` holds:
 - `navigationSite`: a navigation hop's `Sec-Fetch-Site` after a
   redirect to another site: the whole chain's (`chain`: Chrome, Firefox,
   Safari 26) or only from that redirect on (`restart`: Safari 27, whose
-  page navigation sent to another site and back is `same-origin`);
-- `navigationOrigin` (added 2026-10-26): when a form POST's `Origin`,
-  kept by a 307 or 308, becomes `null`: once any redirect went to another
-  origin than the URL before it (`cross_origin`: Chrome, Safari), or only
-  once the chain is tainted as the Fetch standard has it (`taint`:
-  Firefox). mimicry sent the page's origin before the `nav-redirect-form`
-  and `nav-redirect-click` captures showed this; the Fetch standard's
-  rule alone (one code path) would have been wrong for three profiles.
+  page navigation sent to another site and back is `same-origin`).
 
 Hop header order is chosen by redirect conditions on variants (0006);
 a navigation's also by `crossSiteRedirect` (Safari puts `Referer`
@@ -73,17 +66,6 @@ it). Typed navigations take site `none`. Each hop's Referer applies the
 policy to the Referer the request before sent, so a chain that left the
 page's origin sends only the origin back on it (every browser). A hop
 the captures do not cover is `ErrNotMeasured` (0008).
-
-A user's navigation (a clicked link or submit button, a typed URL) sends
-`Sec-Fetch-User` on its first leg and every hop; a script's sends none,
-and its caller says so with a nil `Sec-Fetch-User` header. The captures
-(`nav-redirect-click`, the capture tool clicking as a user does) show a
-click ordered as the script's navigation of the same condition with
-that one header added (Chrome, Firefox) or nothing added (Safari), so
-kindsgen merges both into one variant with a `sec-fetch-user` slot
-rather than adding an activation condition. A user's navigation whose
-variant has no slot (measured on a script's only) is `ErrNotMeasured`,
-and over HTTP/1.1 where its HTTP/1.1 list has none.
 
 ## Evidence
 
@@ -115,3 +97,25 @@ accepts it and logs it.
 - Styles, fonts and preloads redirected without
   `Access-Control-Allow-Origin`: the CORS check is assumed from the spec
   there, not captured.
+
+## Amendment 2026-10-26: form POSTs and clicked links
+
+Profile `redirects` gains:
+- `navigationOrigin`: when a form POST's `Origin`,
+  kept by a 307 or 308, becomes `null`: once any redirect went to another
+  origin than the URL before it (`cross_origin`: Chrome, Safari), or only
+  once the chain is tainted as the Fetch standard has it (`taint`:
+  Firefox). mimicry sent the page's origin before the `nav-redirect-form`
+  and `nav-redirect-click` captures showed this; the Fetch standard's
+  rule alone (one code path) would have been wrong for three profiles.
+
+A user's navigation (a clicked link or submit button, a typed URL) sends
+`Sec-Fetch-User` on its first leg and every hop; a script's sends none,
+and its caller says so with a nil `Sec-Fetch-User` header. The captures
+(`nav-redirect-click`, the capture tool clicking as a user does) show a
+click ordered as the script's navigation of the same condition with
+that one header added (Chrome, Firefox) or nothing added (Safari), so
+kindsgen merges both into one variant with a `sec-fetch-user` slot
+rather than adding an activation condition. A user's navigation whose
+variant has no slot (measured on a script's only) is `ErrNotMeasured`,
+and over HTTP/1.1 where its HTTP/1.1 list has none.

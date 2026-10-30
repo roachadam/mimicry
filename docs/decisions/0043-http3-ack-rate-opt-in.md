@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-29
-- Commits: (where it lands)
+- Commits: `e1883f5`
 
 ## Problem
 
@@ -16,6 +16,10 @@ is faster. Before choosing anything we needed the real cause, and whether it
 is a mimicry bug or Chrome's own behaviour.
 
 ## Evidence
+
+Everything below was measured on the M3 Pro laptop under OrbStack (Docker
+in a Linux VM), before [0045](0045-udp-receive-buffer-default.md): mimicry's
+QUIC socket had the OS's default receive buffer.
 
 Measured with a throwaway harness in the bench's client container against
 the bench's nginx (one connection, 10 MB bodies, 64 at once, 4 s windows).
@@ -68,8 +72,8 @@ its cgroup.
   420k datagrams/s even though tls-client sends twice mimicry's ACKs;
   nginx's per-stream work is the limit there.
 
-Fast bench, HTTP/3, 2026-10-29: req/s (MB/s for 10 MB), mimicry /
-`mimicry-ack20` / tls-client:
+Fast bench, HTTP/3, 2026-10-29 (an uncommitted run; no report holds these
+numbers): req/s (MB/s for 10 MB), mimicry / `mimicry-ack20` / tls-client:
 
 | point | mimicry | ack20 | tls-client |
 |---|---|---|---|
@@ -88,7 +92,9 @@ every 20 ran 27% slower: 1,104–1,118 MB/s with Chrome's rule against
 (9–11% of its CPU set); presumably fewer ACKs only clock its window out later (not measured further).
 
 On a lossy path (RTT 80 ms, 1% loss, `bench run -layers 3 -protos h3
--servers nginx -load-netem rtt80-loss1`, 2026-10-28/29), every 20 is as
+-servers nginx -load-netem rtt80-loss1`, 2026-10-28/29; reports
+`internal/bench/reports/h3ack-netem-*`, for example
+[10 MB c64, run 1](../../internal/bench/reports/h3ack-netem-10m64-1-2026-10-28.md)), every 20 is as
 fast or faster. MB/s, median (range) of three runs; 100 KB at 30 s
 warm-up and 60 s windows (c1: 5 s and 10 s), 10 MB c1 at 60 s and 180 s,
 10 MB c64 at 30 s and 60 s:
@@ -149,3 +155,12 @@ whatever the rate, and at 10 MB c64 the ranges overlap.
 - **Loss:** a sender's loss detection works from gaps (a packet threshold
   of 3 and a time threshold), not from how often ACKs come. With every 20,
   nginx's socket saw no extra receive errors in the measurements above.
+
+## Revisit when
+
+- A capture shows Chrome changing its ACK rate (another `quic.ack.every`,
+  or ACK frequency negotiation), or another browser's rate costs the same.
+- The comparison is repeated with the 1 MB receive buffer (0045) on the
+  Linux test host and the gap to tls-client closes or grows.
+- A vendor is seen reading a client's ACK cadence: the option's risk goes
+  up.

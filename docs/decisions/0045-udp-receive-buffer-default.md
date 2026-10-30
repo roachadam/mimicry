@@ -2,18 +2,19 @@
 
 - Status: Accepted
 - Date: 2026-10-29
-- Commits: (where it lands)
+- Commits: `db43d4a`
 
 ## Problem
 
-The final benchmark on the Linux test host (Linux, `internal/bench/reports/linux-2026-10-29/`)
+The benchmark at `c1f37ab` on the Linux test host (`internal/bench/reports/linux-2026-10-29/`)
 had mimicry at 4,316 req/s for HTTP/3, 100 KB bodies, 64 at once, with 2,814
 datagrams dropped on a full receive buffer (`RcvbufErrors`). The other
 clients ran at 7,400-8,600 req/s and dropped none. They are quic-go and its
 forks, which ask for a 7 MB buffer and force it past `net.core.rmem_max`
 with `SO_RCVBUFFORCE` when the process has `CAP_NET_ADMIN` (the bench's
-client container does). mimicry asked for nothing (`Config.UDPReadBufferSize`
-0) and kept the OS's default, 208 KB on Linux. An earlier Mac run had found
+client container does). mimicry, before this change, asked for nothing
+(`Config.UDPReadBufferSize` 0) and kept the OS's default, 208 KB on Linux.
+An earlier Mac run had found
 7 MB halving 100 KB at 256 at once, so a bigger default was not obviously
 better. That needed checking on Linux, after the gate fix
 (`internal/quic/UPSTREAM.md` change 15).
@@ -28,24 +29,25 @@ container (`reports/focus-2026-10-29/udpbuf-granted.txt`). Linux grants
 twice the request, up to twice `rmem_max`, and never errors. A socket that
 asks for nothing gets `rmem_default`.
 
-- the Linux test host (kernel 6.18.38) has a host `rmem_max` of 16 MB and
+- The Linux test host (kernel 6.18) has a host `rmem_max` of 16 MB and
   `rmem_default` 212992. Asking for 1 MB got 2 MB, 2 MB got 4 MB, and 7 MB
   got 14 MB.
 - On stock Linux (both at 212992, OrbStack, no `NET_ADMIN`), any request
   got 425984 (416 KB). `SO_RCVBUFFORCE` failed with EPERM.
 - So on a stock host, every default above 208 KB gets the same 416 KB. Only
   a host that raised `rmem_max` gets more.
-- the Linux test host's kernel keeps both sysctls global. runc refuses to set them in a
+- The test host's kernel keeps both sysctls global. runc refuses to set them in a
   container (`open sysctl net.core.rmem_max file: reopen fd 8: permission
   denied`), so the stock-buffer passes can't run there. Instead,
   `mimicry-udp208k` (asking for 212992, so granted 416 KB) stands in for
-  stock Linux on the Linux test host. The full stock case, all clients, ran on the Mac.
+  stock Linux on that host. The full stock case, all clients, ran on the
+  M3 Pro laptop.
 
 **What Chrome asks for.** Chromium sets
 `SetReceiveBufferSize(kQuicSocketReceiveBufferSize)` on every QUIC socket.
 The constant is `1024 * 1024` in `net/quic/quic_context.h`, used in
-`quic_session_pool.cc` (chromium/src main at 7038dfb4ec29). On this Mac, a
-Chromium-based app's live QUIC socket (to port 443) showed
+`quic_session_pool.cc` (chromium/src main at 7038dfb4ec29). On the M3 Pro
+laptop, a Chromium-based desktop app's live QUIC socket (to port 443) showed
 `rhiwat` 1048576 in `netstat -anvp udp`, against 786896 (macOS's default)
 on Chrome's mDNS sockets. This is source and one observation, not a
 capture. It decides nothing about the wire; it only says the browser's own
@@ -84,12 +86,12 @@ and 3,522 at c256.
 - **1 MB held at c256.** Its medians were 2-4% above the OS
   default, but one pass of the curve run fell to 2,781. Its p99 rose from
   82-88 ms to 132-133 ms in both runs: the queue the buffer holds.
-- **At equal buffers mimicry still drops more.** On the Mac at stock
+- **At equal buffers mimicry still drops more.** On the M3 Pro laptop at stock
   values (every client 416 KB), at 100 KB c64 mimicry dropped 14.7-17.2k
   datagrams and net/http 5.4-5.6k. So the gap left at 1 MB is the receive path
   (backlog: "HTTP/3 receive path runs on about one core"), not the buffer.
 
-**Stock Linux, all clients** (Mac, OrbStack, `BENCH_UDP_STOCK=1`, 1 pass
+**Stock Linux, all clients** (M3 Pro laptop, OrbStack, `BENCH_UDP_STOCK=1`, 1 pass
 each; `udpbuf-before-stock-mac`, `udpbuf-after-stock-mac`). Keep these
 apart from the Linux test host's numbers. mimicry's 1 MB gets 416 KB there, like every
 other client. 100 KB at 64 and 256 at once was server-bound (nginx's worker
@@ -110,10 +112,16 @@ at once ran 85,284 against 76,917. Other rows were unchanged.
 - **512 KB.** No measurable gain at 100 KB, and it would shrink macOS's
   768 KB default.
 - **1 MB, best effort, no `SO_RCVBUFFORCE`** (chosen). It is Chrome's own
-  request. It never failed a row in the benchmarks. 100 KB c64 runs 10-13%
-  faster with 81-94% fewer drops, and 1 KB c256 runs 11-18% faster with no
-  drops. The cost is the p99 at 100 KB c256. On stock Linux it gets 416 KB,
-  so it changes little there.
+  request. It never failed a row in the benchmarks. In the runs above
+  100 KB c64 ran 10-13% faster with 81-94% fewer drops, and 1 KB c256
+  11-18% faster with no drops. The cost is the p99 at 100 KB c256. On
+  stock Linux it gets 416 KB, so it changes little there.
+
+The final benchmark at `db43d4a`
+([linux-final-2026-10-29](../../internal/bench/reports/linux-final-2026-10-29/final-2026-10-29.md),
+layer 3, HTTP/3, nginx, 100 KB c64) reproduced the drop and not the speed:
+mimicry at 4,408 (4,405-4,492) req/s with 447 drops, against 4,316 and 2,814
+drops at `c1f37ab`: about 2% faster, 84% fewer drops.
 
 `SO_RCVBUFFORCE` stays out at any size: it needs `CAP_NET_ADMIN`, and a
 library should not take more than the host's administrator allows.
@@ -131,8 +139,8 @@ error is ignored.
 - Hosts that raised `rmem_max` get a 2 MB buffer per QUIC connection;
   stock Linux hosts get 416 KB; macOS gets 1 MB. That is up to 2 MB of
   kernel memory per connection, and only while datagrams are queued.
-- The 100 KB c64 gap to the quic-go clients narrows but stays: 4,725
-  against about 7,600. Closing it needs the receive path faster, or the
+- The 100 KB c64 gap to the quic-go clients stays: 4,408 req/s in the
+  final benchmark (`db43d4a`) against 7,383-8,516. Closing it needs the receive path faster, or the
   c256 stall removed so that a larger buffer is safe. Both are in the
   backlog.
 - The bench's `mimicry-udpos` measures the old default. `mimicry-udp208k`

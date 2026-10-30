@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-28
-- Commits: (where it landed)
+- Commits: `5c76160`
 
 ## Problem
 
@@ -15,14 +15,16 @@ server's close is pending until it gives up (5 s; the requests waited
 3.0–7.2 s in the `h3-broken` captures, `hold`); a request whose attempt
 failed outright (Version Negotiation not retried) still waits out the race
 delay before going on TCP. mimicry is used to automate ordinary user actions
-([0029](0029-scope-what-gets-modelled.md)), and the user asked for the
-fastest behaviour that stays unfingerprintable, with the browser's exact
-timing kept as an option.
+([0029](0029-scope-what-gets-modelled.md)), and the maintainer's decision
+was the fastest behaviour that stays unfingerprintable, with the browser's
+exact timing kept as an option.
 
 The defaults rule ([0005](0005-request-kinds-api.md), AGENTS.md: "defaults
 are the browser") says every deviation is one the caller asks for. This
 decision makes one deviation the default, so it has to say why it cannot
-be seen.
+be seen. ([0037](0037-coalescing-opt-out.md) later stated the general
+rule this decision follows: a costly, low-risk browser behaviour gets the
+faster default and an option for the browser's.)
 
 ## Options
 

@@ -123,5 +123,10 @@ them with every browser sample:
 - pongs and HTTP/2 DATA packing;
 - how the transport ends.
 
+Those proxy pages run with `Config.BrowserProxyAuth`; the page with proxy
+credentials runs again without it (`/upfront`): the sockets must still be
+the browser's, every CONNECT must carry the credentials, and none may be
+answered 407 ([decision 0039](../decisions/0039-proxy-credentials-up-front.md)).
+
 `TestDeflateReproducesBrowserMessages` replays every captured message
 through the profile's compressor and names the first byte that differs.

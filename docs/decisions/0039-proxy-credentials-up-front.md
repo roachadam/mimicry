@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-28
-- Commits: (where it landed)
+- Commits: `ab07883`
 
 ## Problem
 
@@ -25,11 +25,11 @@ first request on a new identity through CONNECT behind every other client
 over HTTP/2 at 1 KB (p50 58.5 ms against 50.1–54.8 ms); through SOCKS5,
 which has no challenge, it was within 3 ms of the best.
 
-The user's rule (decision [0037](0037-coalescing-opt-out.md)): a browser
+The rule (decision [0037](0037-coalescing-opt-out.md)): a browser
 behaviour that costs significant performance at a low-ish detection risk
 defaults to the faster setting, documented plainly, with a `Config`
-option for the browser's. The user's call (2026-10-28): credentials go up
-front by default, and the browser's flow stays an option.
+option for the browser's. The maintainer's decision (2026-10-28):
+credentials go up front by default, and the browser's flow stays an option.
 
 ## Options
 
@@ -113,8 +113,7 @@ reaches the sites.
 ## Consequences
 
 - A new proxy URL's first tunnel, or forwarded request, costs no extra
-  round trip; with a Safari profile no tunnel does. The benchmark's
-  rotation rows lose the ‡ on CONNECT.
+  round trip; with a Safari profile no tunnel does.
 - The proxy never sees the challenge flow unless `BrowserProxyAuth` is
   set; code measuring what a proxy sees (the harness) sets it.
 - A proxy URL with credentials the proxy rejects fails on its first

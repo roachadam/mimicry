@@ -38,7 +38,8 @@
 //   - 0-RTT is not supported.
 //   - Address migration is not supported.
 //   - Server preferred addresses are not supported.
-//   - The latency spin bit is not supported.
+//   - The latency spin bit is not supported (mimicry: browser clients set it;
+//     see UPSTREAM.md).
 //   - Stream send/receive windows are configurable,
 //     but are fixed and do not adapt to available throughput.
 //   - Path MTU discovery is not implemented.

@@ -1,6 +1,6 @@
 # 0005: Request kinds: defaults exact, deviations visible
 
-- Status: Accepted
+- Status: Accepted; amended 2026-10-28 by [0036](0036-fast-quic-fallback.md) (fast QUIC fallback by default) and [0039](0039-proxy-credentials-up-front.md) (proxy credentials up front by default)
 - Date: 2026-10-23 (designed), 2026-10-24 (built)
 - Commits: `31bcd28`, `f445dc1`, `031ec2b`
 
@@ -83,12 +83,13 @@ the kinds' lists to an outside engine, was removed
 A browser behaviour depends on something `Request` cannot express (user
 activation, the top-level site of a frame's own requests).
 
-Exception (2026-10-28, [0036](0036-fast-quic-fallback.md)): where QUIC
-fails, requests by default wait less than the browser's do;
-`Config.BrowserQUICFallback` asks for the browser's timing. Nothing a
-server that answers sees differs.
+## Amendment 2026-10-28: two default deviations
 
-Exception (2026-10-28, [0039](0039-proxy-credentials-up-front.md)): an
-HTTP proxy gets the URL's credentials on the first request, not after its
-407; `Config.BrowserProxyAuth` asks for the browser's flow. Only the
-proxy sees the difference.
+Two defaults deviate from the browser, each with an option that restores
+it:
+- where QUIC fails, requests by default wait less than the browser's do;
+  `Config.BrowserQUICFallback` asks for the browser's timing. Nothing a
+  server that answers sees differs ([0036](0036-fast-quic-fallback.md));
+- an HTTP proxy gets the URL's credentials on the first request, not after
+  its 407; `Config.BrowserProxyAuth` asks for the browser's flow. Only the
+  proxy sees the difference ([0039](0039-proxy-credentials-up-front.md)).

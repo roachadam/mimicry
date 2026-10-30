@@ -9,7 +9,7 @@ command, run in `internal/harness/`:
 
 ```sh
 go run ./cmd/refresh -browser chrome,firefox -mode quick   # both at once, on the Mac mini
-go run ./cmd/refresh -browser safari -mode quick           # Safari 27, on this Mac
+go run ./cmd/refresh -browser safari -mode quick           # Safari 27, on the Mac you run it on
 go run ./cmd/refresh -browser safari-mini -mode full       # Safari 26, on the mini
 go run ./cmd/refresh -browser chrome -dry-run              # the plan only
 ```
@@ -57,8 +57,8 @@ per browser; a full run (`moon run :test-full`) covers every supported one.
 
 | `-browser` | Machine | Notes |
 |---|---|---|
-| `chrome`, `firefox` | the Mac mini (`-mini`, your ssh alias) | at once in quick mode (`-serial` to not), one after the other in full mode |
-| `safari` | this Mac | opens tabs in your own Safari window |
+| `chrome`, `firefox` | the Mac mini (`-mini`: your ssh alias for it, default `mac-mini`) | at once in quick mode (`-serial` to not), one after the other in full mode |
+| `safari` | the Mac you run it on | opens tabs in your own Safari window |
 | `safari-mini` | the Mac mini | Safari 26: the mini stays on macOS 26 |
 
 The mini has no Go: the tool cross-compiles `cmd/capture` (and later
@@ -74,10 +74,10 @@ depends on: each capture tool process has its own servers on free ports;
 the DNS stub and the proxy script on fixed ports serve only Safari; no quick
 scenario clicks or needs a dialog answered (Chrome's and Firefox's clicks
 and proxy credentials go over DevTools and WebDriver BiDi anyway, not the
-system's mouse). Not yet checked: whether a browser window entirely covered
-by the other's throttles its page's timers, which would stretch the pauses
-of `h3-discovery` and the WebSocket pages; if their e2e tests fail on timing
-after a parallel run, recapture them with `-serial`.
+system's mouse). Whether a fully covered window throttles its page's
+timers is not yet checked ([backlog](../backlog.md#tooling-and-tests)); if `h3-discovery` or
+WebSocket e2e tests fail on timing after a parallel run, recapture them
+with `-serial`.
 
 ## What a run does
 

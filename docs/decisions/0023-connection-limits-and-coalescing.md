@@ -1,8 +1,8 @@
 # 0023: Per-host HTTP/1.1 limit and HTTP/2 coalescing, per browser
 
-- Status: Accepted
+- Status: Accepted; amended 2026-10-28 by [0037](0037-coalescing-opt-out.md) (options to disable coalescing and change the HTTP/1.1 limit)
 - Date: 2026-10-24
-- Commits: (the wave-3 commit)
+- Commits: `02903e5`
 
 ## Problem
 
@@ -54,7 +54,9 @@ difference.
 A capture varies the address, the port, the partition or a proxy, or a
 browser's limit changes.
 
-Amended (2026-10-28, [0037](0037-coalescing-opt-out.md)): coalescing as
+## Amendment 2026-10-28: coalescing and the limit can be changed
+
+By [0037](0037-coalescing-opt-out.md): coalescing as
 above stays the default; `Config.DisableCoalescing` gives every host its
 own HTTP/2 connection (no lookup, and for Firefox no connection opened and
 declined), faster on lossy networks. `Config.MaxConnsPerHost` changes

@@ -1,6 +1,6 @@
 # 0004: One complete profile file per browser version, no inheritance
 
-- Status: Accepted; amended by [0035](0035-version-policy-and-capture-inheritance.md) (values are still never inherited; a scenario's captures can be)
+- Status: Accepted; amended 2026-10-26 by [0035](0035-version-policy-and-capture-inheritance.md) (values are still never inherited; a scenario's captures can be)
 - Date: 2026-10-23
 
 ## Problem
@@ -19,14 +19,14 @@ make files small.
 
 `profiles/data/<browser>-<version>-<platform>.json`, complete and
 self-contained, validated by `profile.Parse` (strict: unknown fields are
-errors); typed Go variables are generated from them.
+errors); accessor functions are generated from them (`profiles.gen.go`).
 
 ## Consequences
 
 Inheritance hides what a profile sends and lets unmeasured values ride
 along silently; complete files keep every claim visible and checked
 against that version's own capture. Files are long (Safari 27 with its
-request kinds is ~4,700 lines), which is fine for data.
+request kinds is about 11,800 lines), which is fine for data.
 
 A new version starts as a copy of the previous one; whatever a capture
 cannot show stays marked copied in the ledger until its own captures pass.

@@ -142,14 +142,10 @@ them is one of the things anti-bot systems check.
   inspect, seed or persist it, and passing your own shares it between
   Transports.
 - Cookies you seed (`Set`, `SetString`, `SetHostString`,
-  `SetHTTPCookies`) go only where a browser's cookie of that scope would:
-  `SetString`'s to the name given and the names under it (its `Domain`,
-  never widened to the site), `SetHostString`'s to one host. Their name
-  prefixes get what browsers require without being asked: a `__Host-`
-  cookie is stored host-only on the name given, `Secure`, path `/`; a
-  `__Secure-` one `Secure`. `cookies.AnySite` as `SetString`'s domain
-  sends them to every site instead, a deviation no browser makes (decision
-  [0031](../decisions/0031-cookies-for-any-site.md)).
+  `SetHTTPCookies`) go only where a browser's cookie of that scope would,
+  their name prefixes' requirements applied; `cookies.AnySite` sends them
+  to every site instead, a deviation no browser makes
+  ([cookies](cookies.md), [decision 0031](../decisions/0031-cookies-for-any-site.md)).
 - `NewTransport` with a nil `Config.Cookies` keeps no cookies: an
   `http.Client` `Jar` or your own `Cookie` headers are then up to you.
 - A request that sets its own `Cookie` header sends that instead; one set
@@ -180,14 +176,11 @@ partition and proxy:
   `Config.MaxConnsPerHost` changes it); further requests wait, first
   come, first served.
 - An idle connection is closed 90 s after its last request ended
-  (`Config.IdleConnTimeout` changes it; an HTTP/1.1 one is also checked
-  before reuse). An HTTP/2 connection closes
-  as the browser lets one go: Firefox's with GOAWAY first (as it sends on
-  its HTTP/2 connection once HTTP/3 is up), Chrome's and Safari's with
-  the close alone. An HTTP/3 connection ends silently, as at a QUIC idle
-  timeout; Chrome's and Firefox's usually end sooner at their own 30 s.
-  A host with no connections is forgotten 90 s later. None of these
-  values is measured in a browser
+  (`Config.IdleConnTimeout`): HTTP/2 as the browser lets one go
+  (Firefox's with GOAWAY first), HTTP/3 silently, if QUIC's own idle
+  timeout (30 s in Chrome and Firefox) has not ended it first. A host with
+  no connections is forgotten 90 s later. None of these values is
+  measured in a browser
   ([decision 0040](../decisions/0040-idle-connection-cleanup.md)).
 - An HTTP/2 connection also closes when the server closes it or a Chrome
   idle PING goes unanswered.
@@ -203,24 +196,18 @@ page opens, are visible to the server.
 
 **To turn it off or change it.** `Transport.CloseIdleConnections` closes
 idle HTTP/1.1 connections, and HTTP/2 and HTTP/3 connections with nothing
-in flight. `Config.MaxConnsPerHost` raises or lowers the HTTP/1.1 limit
-per host: more connections finish many parallel requests to an
-HTTP/1.1-only server sooner, but no browser has more than 6 open to one
-host, so a server counting a client's concurrent connections sees more
-as not a browser. `Config.IdleConnTimeout` sets the idle timeout for
-HTTP/1.1, HTTP/2 and HTTP/3 alike: longer reuses connections across
-longer pauses (no new handshake) but keeps their memory, a goroutine
-per HTTP/2 or HTTP/3 connection and, through a proxy, the proxy's
-connection slots; negative leaves idle connections to the server, the
-proxy, QUIC's own idle timeout (30 s in Chrome and Firefox) or
-`CloseIdleConnections`. Servers and proxies often close idle
-connections after 60–120 s anyway. Whatever it is set to, an unused
-proxy's connections close early (see [Proxies](#proxies)) and a dropped
-Transport's when it is collected. The partition rules have no option.
-A Transport no longer reachable closes its idle connections when
-the garbage collector finds it; call `CloseIdleConnections` on a client
-you discard to close them at once. Connections are never partitioned by
-top-level site: a Transport
+in flight; call it on a client you discard (otherwise its idle
+connections close when the garbage collector finds its Transport).
+`Config.MaxConnsPerHost` changes the HTTP/1.1 limit per host: no browser
+has more than 6 open to one host, so a server counting a client's
+concurrent connections sees more as not a browser.
+`Config.IdleConnTimeout` sets the idle timeout for every protocol: longer
+reuses connections across longer pauses at the cost of memory and,
+through a proxy, its connection slots; negative leaves idle connections
+to the server, the proxy, QUIC's own idle timeout or
+`CloseIdleConnections`. Whatever it says, an unused proxy's connections
+close early (see [Proxies](#proxies)). The partition rules have no
+option. Connections are never partitioned by top-level site: a Transport
 is one browsing session ([decision 0019](../decisions/0019-transport-is-one-browsing-entity.md)),
 so when visiting unrelated sites that share third-party hosts, use one
 Transport per site (they can share one jar through `Config.Cookies`).
@@ -276,98 +263,68 @@ covers the host, on the same port and partition, not through a proxy:
 an address sees one connection from them.
 
 **To turn it off.** `Config.DisableCoalescing` gives every host its own
-connection: no lookup, no declined connection. It pays on lossy
-networks: one connection for a whole site puts every response behind one
-TCP congestion window, and at 1% packet loss warm page loads took half as
-long without coalescing. On clean networks coalescing is the faster (it
-saves the other hosts' handshakes and slow starts: 0.36 s of a cold load
-at an 80 ms round trip), so leave it on there
-([decision 0037](../decisions/0037-coalescing-opt-out.md)). With it set, a
-server (or CDN) hosting several of a site's hosts at one address under one
-certificate sees a connection per host where Chrome, Safari and Firefox
-end with one. `Config.Resolver` answers the lookup; a failed lookup only
-means a new connection.
+connection: no lookup, no declined connection. It pays on lossy networks
+and costs on clean ones; a server hosting several of a site's hosts at
+one address under one certificate then sees a connection per host where
+the browser ends with one
+([decision 0037](../decisions/0037-coalescing-opt-out.md)).
+`Config.Resolver` answers the lookup; a failed lookup only means a new
+connection.
 
 ## HTTP/3: Alt-Svc and the switch
 
 **What happens.** HTTP/3 is on by default for every built-in profile.
 mimicry learns that an origin speaks HTTP/3 only from an `Alt-Svc: h3=…`
-header on that origin's own responses (same host; the port may differ),
-kept until its `ma` expires, by default per Transport. With
-`Config.AltSvc`, Transports share one `AltSvcCache`, which can be saved
-and loaded, as a browser shares its alternatives between tabs and keeps
-them across restarts. Requests sent through a proxy never use HTTP/3,
-unless `Config.HTTP3OverSOCKS5` lets a SOCKS5 proxy carry it
-([below](#proxies)). Then each browser moves the origin as it does:
-- **Chrome:** the next request still goes on HTTP/2 and starts a QUIC
-  connection beside it; requests after that use HTTP/3 once it is up. The
-  HTTP/2 connection stays open, unused.
-- **Firefox:** the response carrying `Alt-Svc` starts a QUIC connection at
-  once, in the background; requests stay on TCP until it is up. Then each
-  HTTP/2 connection to the origin gets a GOAWAY from mimicry.
-- **Safari:** only a request that needs a new connection uses HTTP/3; a
-  live HTTP/2 connection is kept.
+header on that origin's own responses, kept until its `ma` expires, per
+Transport unless `Config.AltSvc` gives Transports one shared cache (which
+can be saved and loaded, as a browser keeps its alternatives across
+restarts). A request through a proxy uses HTTP/3 only with
+`Config.HTTP3OverSOCKS5` and a SOCKS5 proxy ([below](#proxies)). Each
+browser then moves the origin its own way: Chrome from the request after
+the Alt-Svc, Firefox at once in the background (then GOAWAY on its HTTP/2
+connections), Safari only for a request that needs a new connection. See
+[HTTP/3](http3.md#when-a-request-goes-over-http3).
 
-QUIC goes over UDP to the address `Config.Resolver` gives for the host.
-`Config.DialContext` plays no part in it, so traffic you route through
-`DialContext` does not cover HTTP/3. See [HTTP/3](http3.md).
+Sent directly, QUIC goes over UDP to the address `Config.Resolver` gives
+for the host, and `Config.DialContext` plays no part in it: traffic you
+route through `DialContext` does not cover direct HTTP/3. Through a
+SOCKS5 proxy, `DialContext` opens the UDP association's control
+connection and the proxy resolves the host.
 
 **Why.** A browser that has seen `Alt-Svc` moves to HTTP/3, and a site
 behind a CDN sees which protocol its visitors use.
 
 **To turn it off or change it.** `Config.DisableHTTP3` keeps every
 request on TCP. `Config.AltSvc` shares, saves, loads and clears what
-Transports learnt: a new Transport whose cache knows an origin starts it
-as the browser starts an origin whose alternative it knows (Chrome and
-Safari: QUIC first, TCP after the race delay; Firefox: TCP, validating
-QUIC beside it). See [HTTP/3](http3.md#alternatives-a-transport-did-not-learn-itself).
+Transports learnt; a new Transport whose cache knows an origin starts it
+as the browser would ([HTTP/3](http3.md#alternatives-a-transport-did-not-learn-itself)).
 No option changes the discovery rule or forgets broken origins.
-`Config.UDPReadBufferSize` sizes each QUIC socket's receive buffer: by
-default mimicry asks for 1 MB, as Chrome does; negative keeps the OS's
-default. A larger one trades drops for a queue: it helps on
-high-bandwidth, lossy or long paths, where a burst can overflow the buffer
-and every datagram dropped costs a retransmission, but it can slow many
-concurrent transfers (see its documentation). Linux grants at most twice
-`net.core.rmem_max` (stock: 416 KB for any request above 208 KB) unless
-the host raises it; mimicry asks and never fails for less
-([decision 0045](../decisions/0045-udp-receive-buffer-default.md)).
-`Config.HTTP3ACKEvery` acknowledges every Nth QUIC packet after the
-browser's warm-up instead of the profile's rate (Chrome: every 10th).
-Against a server whose one worker a single client saturates (nginx serves
-a connection from one worker, and its cost follows the datagrams the
-client sends it), every 20 ran 25% faster at 10 MB and 22% at 100 KB, 64
-at once, but a single download from an idle server ran 27% slower; the
+`Config.UDPReadBufferSize` sizes each QUIC socket's receive buffer (by
+default 1 MB, what Chrome asks for; nothing on the wire depends on it:
+[decision 0045](../decisions/0045-udp-receive-buffer-default.md)).
+`Config.HTTP3ACKEvery` acknowledges less often than the browser, which
+helps against a server whose one worker a client saturates, but the
 server sees a rate no browser sends
 ([decision 0043](../decisions/0043-http3-ack-rate-opt-in.md)).
 
 ## When QUIC fails: TCP racing and fallback
 
 **What happens.** While an origin's QUIC connection is not up, each
-browser races or falls back to TCP in its own way (the profile's
-`http3.discovery.fallback`):
-- **Chrome:** a request waits 300 ms for the QUIC attempt, then goes on
-  TCP while the attempt continues.
-- **Firefox:** requests never wait (except while a resumed attempt after
-  the server's close is pending), and the attempt runs in the background.
-  When a QUIC connection dies with requests pending, Firefox opens a TCP
-  connection per pending request, sends them all on the first, and
-  declines the others; mimicry does the same.
-- **Safari:** QUIC first, TCP 100 ms later, and the QUIC attempt is
-  dropped once the request goes on TCP.
-
-After the profile's number of failed attempts in a row, the origin stays
-on TCP for the Transport's life. A live Chrome connection whose path stops
-answering moves to a new UDP port. See
-[HTTP/3, when QUIC fails](http3.md#when-quic-fails).
+browser races or falls back to TCP its own way (the profile's
+`http3.discovery.fallback`): Chrome waits 300 ms for the attempt, then
+goes on TCP; Firefox never waits and validates QUIC in the background;
+Safari tries QUIC first, TCP 100 ms later, and drops the attempt. After
+the profile's number of failed attempts in a row, the origin stays on TCP
+for the Transport's life.
 
 By default two waits are shorter than the browser's: a request on a
 resumed (0-RTT) connection whose server has not answered goes on TCP
-after the race delay (Chrome 305 ms; Firefox 300 ms, its first probe
-timeout) instead of when the attempt gives up (Chrome 4 s, Firefox 5 s),
-and a request whose attempt failed outright goes on TCP at once instead of
-at the race delay. A connection whose server answers is unaffected
-([fast fallback](http3.md#fast-fallback-the-default),
-[decision 0036](../decisions/0036-fast-quic-fallback.md)).
+after the race delay instead of when the attempt gives up (Chrome 4 s,
+Firefox 5 s), and a request whose attempt failed outright goes on TCP at
+once. A connection whose server answers is unaffected. See
+[HTTP/3, when QUIC fails](http3.md#when-quic-fails),
+[fast fallback](http3.md#fast-fallback-the-default) and
+[decision 0036](../decisions/0036-fast-quic-fallback.md).
 
 **Why.** A request must not stall behind a QUIC path that a firewall
 blocks, and each browser's way out is visible as its connection pattern.
@@ -389,7 +346,7 @@ for the race itself.
   5 s however little was read.
 - **HTTP/2 records:** a new connection's preface, SETTINGS and
   WINDOW_UPDATE go out in one TLS record, the first request's frames in
-  the next (Chrome, Firefox 158) or in the same one (Safari 27 and 26),
+  the next (Chrome, Firefox) or in the same one (Safari),
   as the profile's `http2.openingRecords` says; a request's HEADERS and
   Firefox's stream WINDOW_UPDATE always share a record
   ([decision 0042](../decisions/0042-http2-opening-records.md)).
@@ -420,18 +377,13 @@ browser did. Over QUIC, Chrome and Firefox profiles resume and send their
 first requests in 0-RTT; Safari's QUIC connections are always fresh. See
 [decision 0013](../decisions/0013-tls-resumption.md).
 
-In 0-RTT go only the methods the profile's browser sends there (GET, HEAD
-and OPTIONS, `http3.earlyData.methods`). A request with any other method
-(a POST, PUT or DELETE, a form submission) made while a resumed
-connection's handshake is in progress waits for it and leaves in 1-RTT:
-for Firefox in the datagram that carries the client's Finished, for
-Chrome in one of its own right after it. A request mimicry sent in 0-RTT
-that the server answers `425 Too Early` (RFC 8470) goes again on the same
-connection once the handshake is complete, and you get the response to
-that; you see the 425 only if the request's body cannot be read again
-(no `GetBody`). Chrome, Firefox and Safari all did both on the
-`h3-early` and `h3-too-early` pages
-([report](../../internal/harness/reports/h3-early-2026-10-26.md)).
+Only the methods the profile's browser sends in 0-RTT go there (GET, HEAD
+and OPTIONS, `http3.earlyData.methods`); any other request made while the
+handshake runs waits for it and leaves in 1-RTT, as the browser's does. A
+request answered `425 Too Early` (RFC 8470) goes again on the same
+connection once the handshake is complete; you see the 425 only if its
+body cannot be read again (no `GetBody`). See
+[HTTP/3](http3.md#the-quic-connection).
 
 **Why.** A client that never resumes looks unlike a browser on its second
 connection, and is slower. Browsers keep requests that change state out
@@ -464,41 +416,24 @@ opens a socket by itself.
 an HTTP proxy's CONNECT tunnel or a SOCKS5 handshake, and an `http://`
 request goes to an HTTP proxy whole. The proxy sees the profile's
 browser's CONNECT lines and SOCKS5 bytes; the server sees what it would
-without the proxy. With credentials in the proxy URL, the first CONNECT
-and the first request sent to the proxy whole carry them, placed where
-the browser places them unasked: one round trip less than the browser
-for each new proxy URL, and only the proxy sees it
-([decision 0039](../decisions/0039-proxy-credentials-up-front.md)). With
-`Config.BrowserProxyAuth`, as the browser: Chrome and Firefox send the
-first request without them, answer the 407 once on the same
-connection, and send them unasked from then on; Safari waits for a 407 on
-every CONNECT, and sends them on plain-HTTP requests from the first.
-Each proxy has its own connections and TLS tickets (a Firefox profile
-resumes no session through an HTTP proxy's CONNECT tunnel, as Firefox
-does not), and by default HTTP/3 is never used through a proxy, as in
-the browser. With `Config.HTTP3OverSOCKS5`, requests through a SOCKS5
-proxy use HTTP/3 as directly, each QUIC connection over a UDP
-association with the proxy (a control connection and datagrams to its
-relay); a proxy that refuses one is asked once. Through a proxy no
-datagram ever goes to the server directly. A proxy that fails a request
-(unreachable, refusing the tunnel or the credentials, too slow) returns a
-`*ProxyError`, so a rotation loop can move on; nothing more is sent
-through it for that request. When you rotate proxies within a Transport,
-the idle connections of a proxy that is not among the 16 used most
-recently and has not been used for 10 s close early, or those of every
-proxy beyond the `Config.MaxIdleProxies` most recent, at once
-([rotating](proxies.md#rotating)). See
-[proxies](proxies.md#when-the-proxy-fails).
+without the proxy. Credentials in the proxy URL go with the first CONNECT
+or request, saving the browser's 407 round trip, which only the proxy can
+see ([decision 0039](../decisions/0039-proxy-credentials-up-front.md)).
+Each proxy has its own connections and TLS tickets. HTTP/3 goes through a
+proxy only with `Config.HTTP3OverSOCKS5`, each QUIC connection over a
+SOCKS5 UDP association; no datagram then goes to the server directly. A
+proxy that fails a request returns a `*ProxyError`, so a rotation loop
+can move on. When you rotate proxies within a Transport, the idle
+connections of proxies no longer used close early
+([rotating](proxies.md#rotating)). See [Proxies](proxies.md).
 
 **To turn it off or change it.** `Config.Proxy`; a nil URL sends that
 request directly. `Config.BrowserProxyAuth` waits for the proxy's 407 as
 the browser does. `Config.HTTP3OverSOCKS5` lets SOCKS5 proxies carry
 HTTP/3 ([proxies](proxies.md#http3-through-socks5),
 [decision 0038](../decisions/0038-http3-over-socks5.md)).
-`Config.MaxIdleProxies` sets how many proxies keep their idle
-connections: fewer bounds a rotating client's memory, and round-robin
-over more proxies than it dials on every request
-([decision 0040](../decisions/0040-idle-connection-cleanup.md)).
+`Config.MaxIdleProxies` sets how many proxies keep their idle connections
+([rotating](proxies.md#rotating)).
 
 ## Certificate pins and checks
 

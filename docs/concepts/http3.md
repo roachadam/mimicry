@@ -110,7 +110,7 @@ v2 ([report](../../internal/harness/reports/http3-edge-2026-10-25.md); captures
   connection, a request at least `revalidateMs` later validates afresh
   beside TCP.
 - **Safari (`race`):** QUIC first, TCP after 100 ms (`tcpDelayMs`,
-  89–129 ms measured), and the attempt is dropped once the request goes
+  88–129 ms measured: Safari 26 88–109, Safari 27 100–129), and the attempt is dropped once the request goes
   on TCP (`abandonOnTcp`).
 
 An attempt fails when it gives up (`quic.loss`: Chrome at 4 s with an
@@ -131,9 +131,9 @@ with 0x53f8 when the server's transport parameters lack
 `version_information`; that counts as one failed attempt. Chrome's source
 also delays its TCP job by 1.5 × the origin's smoothed RTT when it expects
 QUIC to work; no loopback capture can tell that from no delay, so it is not
-modelled. Firefox's re-validation (`revalidateMs`) is bounded by the
-captures: a request 0.8 s after a failure did not start a fresh attempt,
-one 3.05 s after did.
+modelled. Firefox's re-validation (`revalidateMs`, 797–3,020 ms) is
+bounded by the captures: a request 0.8 s after a failure did not start a
+fresh attempt, one 3.05 s after did.
 
 A live connection whose path stops answering: Chrome moves to a new UDP
 port once its oldest unacknowledged packet is 4 of its PTOs old
@@ -142,7 +142,8 @@ port once its oldest unacknowledged packet is 4 of its PTOs old
 (when that path dies too, Chrome closes with `85:Network blackhole
 detected` and sends the stuck request on TCP; not modelled); Safari closes
 it after 12 s and sends the pending requests again on a new connection
-8–16 ms later (`pending` quic); Firefox keeps probing and sending requests
+7–15 ms later (`pending` quic, `reconnectMs`: Safari 26 7–9, Safari 27
+10–15); Firefox keeps probing and sending requests
 on it until its 30 s idle timeout, then sends them all on TCP (`pending`
 tcp), opening a TCP connection for each and declining all but the first.
 
@@ -207,7 +208,14 @@ after the browser's algorithm rather than a sampled distribution:
   constant per connection), Chrome's MAX_DATA after 19 ACK-only packets,
   the spin bit (Chrome 0, Firefox random, Safari spinning), NEW_TOKEN
   tokens, Firefox's reply to the server's CONNECTION_CLOSE. An idle
-  connection ends silently at its idle timeout.
+  connection ends silently at its idle timeout; mimicry also closes one
+  idle for `Config.IdleConnTimeout` (90 s by default) if that comes first
+  ([decision 0040](../decisions/0040-idle-connection-cleanup.md)).
+- **Receive buffer:** each connection's UDP socket asks the OS for 1 MB
+  (SO_RCVBUF), as Chrome does; `Config.UDPReadBufferSize` changes it, a
+  negative value keeps the OS's default. Nothing on the wire depends on
+  it; it trades dropped datagrams under load for a queue
+  ([decision 0045](../decisions/0045-udp-receive-buffer-default.md)).
 - **Long transfers** (`h3-download`, 50 MiB): acknowledgements as the
   browser spaces them (`quic.ack`: Chrome every 10th packet after its
   first 100, every 2nd before; Firefox and Safari every 2nd, batched over
@@ -253,7 +261,7 @@ after the browser's algorithm rather than a sampled distribution:
   (`h3-broken`) or after one idled out (`h3-early`); mimicry does not
   model Safari's resumption: its connections are all fresh.
 
-## HTTP/3
+## HTTP/3 framing and QPACK
 
 From `http3`: the SETTINGS and GREASE setting and frame, which
 unidirectional streams open and when (with the Finished, after it, or at

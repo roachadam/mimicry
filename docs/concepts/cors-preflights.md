@@ -107,9 +107,11 @@ How the next request goes out, every browser alike:
   GET. mimicry sends it again from the request's `GetBody` (set by
   `http.NewRequest` for in-memory bodies); without one, following such a
   redirect is an error;
-- a chain stops after 20 redirects: the 21st URL is never requested, and
-  `client.Do` returns an error. `NewClient`'s client lifts `http.Client`'s
-  default limit of 10; a client of your own keeps its `CheckRedirect`.
+- a fetch's chain stops after 20 redirects: the 21st URL is never
+  requested, and `client.Do` returns an error. A navigation's chain stops
+  at the profile's `redirects.navigationLimit` (Chrome 19, Firefox and
+  Safari 20). `NewClient`'s client lifts `http.Client`'s default limit of
+  10; a client of your own keeps its `CheckRedirect`.
 
 Where browsers differ, the profile says (`redirects.methodChangeOrigin`):
 the GET a redirect makes of a same-origin POST, PUT or DELETE `fetch()`
@@ -154,8 +156,12 @@ new URL too (after its redirect passed the CORS check).
   `Access-Control-Allow-Origin` (no next request), PUT, DELETE and POST
   answered 301, 302 and 303 (method, body length, `Origin`), and a chain
   of 25 redirects (the 21st URL never requested).
-- Unit tests in `preflight_test.go` cover the safelist, the expiry with a
-  fake clock, the refusal rules, the cache's pruning, and which
-  `Config.Headers` a preflight carries; `redirect_test.go` the redirect
-  methods and bodies, the limit, the CORS check's rules and the `Origin`
-  rule.
+- `TestRedirects2MatchesBrowser` and `TestNavRedirectsMatchBrowser` replay
+  the `redirects2` and `nav-redirect-*` pages: redirects of every kind and
+  the navigation chain's limit.
+- Unit tests in `preflight_test.go` cover when a preflight is sent (the
+  safelist, and which `Config.Headers` a preflight carries), the expiry
+  with a fake clock, and the refusal rules. The cache's pruning
+  (`internal/cors`) has no test of its own; of the redirect rules, only
+  the credentials' (`TestConfigCredentialsStayBehindCrossOriginRedirects`)
+  is tested outside the e2e replays above.

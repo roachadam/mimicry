@@ -1,6 +1,6 @@
 # 0011: Model connection partitioning only where a rule is measured
 
-- Status: Accepted
+- Status: Accepted; amended 2026-10-24 (top-level-site partitioning measured, not modelled); amended 2026-10-25 by [0029](0029-scope-what-gets-modelled.md) (top-level-site partition deferred); amended 2026-10-28 (the shared Alt-Svc cache is not partitioned by site either)
 - Date: 2026-10-24
 - Commits: `031ec2b`
 
@@ -34,7 +34,9 @@ connection and logs Firefox's difference as a known gap.
 A capture designed for it (more hosts, orders, timings) explains Firefox's
 grouping; or a cross-site frame's own requests are modelled.
 
-Measured since (2026-10-24, `redirects2`): every browser sends a
+## Amendment 2026-10-24: partitioning by top-level site, measured
+
+The `redirects2` captures show every browser sending a
 navigation to another site on a connection of its own, not on one the
 previous page used. That is partitioning by top-level site. It is not
 modelled: it changes the pool key for every request a page makes, and
@@ -42,7 +44,9 @@ needs its own capture (which requests of a page share the top-level key,
 per browser) and decision. `TestRedirects2MatchesBrowser` compares those
 requests apart from their connections and lists the gap.
 
-Deferred (2026-10-25, [0029](0029-scope-what-gets-modelled.md)): no
+## Amendment 2026-10-25: top-level-site partition deferred
+
+By [0029](0029-scope-what-gets-modelled.md), no
 top-level-site partition until a capture or a vendor shows it matters
 for detection. A Transport represents one browsing session
 ([0019](0019-transport-is-one-browsing-entity.md)). Callers who visit
@@ -53,7 +57,9 @@ carries requests from two top-level sites; passing the same jar in
 has (the jar keys partitioned cookies by top-level site itself). The gap
 is listed in [the backlog](../backlog.md#connections-and-pool).
 
-The same holds for `Config.AltSvc` (2026-10-28): a shared `AltSvcCache`
+## Amendment 2026-10-28: the Alt-Svc cache
+
+The same holds for `Config.AltSvc`: a shared `AltSvcCache`
 keys alternatives by origin and connection partition, not by top-level
 site, where browsers that partition their HTTP server properties
 (Chrome's network anonymization key) would keep one site's apart from

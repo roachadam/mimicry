@@ -1,8 +1,8 @@
 # 0033: Proxy failures are a *ProxyError
 
-- Status: Accepted
+- Status: Accepted; amended 2026-10-26 (`DialWebSocket` errors through proxies); amended 2026-10-28 by [0039](0039-proxy-credentials-up-front.md) (credentials up front, a 407 final at once)
 - Date: 2026-10-26
-- Commits: (where it landed)
+- Commits: `68e2255`; amendments `fc3964e`, `ab07883` (0039)
 
 ## Problem
 
@@ -76,7 +76,9 @@ must switch (the text changed: "mimicry: proxy URL: cause").
 
 `https://` proxies land (a TLS failure to the proxy belongs here too).
 
-Amended (2026-10-28, [0039](0039-proxy-credentials-up-front.md)): by
+## Amendment 2026-10-28: credentials up front
+
+By [0039](0039-proxy-credentials-up-front.md): by
 default credentials go on the first request, so a 407 to them is final at
 once; the browser's flow, with its first 407 answered, is
 `Config.BrowserProxyAuth`. `TestProxyErrors` has both.

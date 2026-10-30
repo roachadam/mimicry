@@ -1,6 +1,6 @@
 # 0001: Own HTTP/1.1 and HTTP/2 stack; uTLS as a thin fork
 
-- Status: Accepted
+- Status: Accepted; amended 2026-10-25 by [0027](0027-quic-base.md) (`internal/quic` imports uTLS too)
 - Date: 2026-10-23 (HTTP/2 re-decided after reviewing sardanioss/net)
 
 ## Problem
@@ -26,7 +26,8 @@ each, and something we can keep up to date.
 
 - TLS: uTLS, forked thinly as `github.com/roachadam/utls` (a public library
   cannot use `replace`, so the fork needs its own module path). Only
-  `internal/handshake` imports it. The fork carries a short, tested patch
+  `internal/handshake` imports it (and, since 0027, `internal/quic`; see
+  the amendment). The fork carries a short, tested patch
   list (`utls/PATCHES.md`), rebuilt weekly on upstream `master`.
 - HTTP/2: ours (`internal/h2`) on `golang.org/x/net/http2`'s exported
   `Framer` and `hpack` decoder; our own HPACK encoder (`internal/hpack`),
@@ -53,3 +54,9 @@ harness checks against browser traces. Upgrading x/net is cheap.
 
 x/net exposes hooks for header order and HPACK policy, or our HTTP/2 client
 accumulates bugs a mature stack would not have.
+
+## Amendment 2026-10-25: `internal/quic` imports uTLS
+
+QUIC's handshake runs on the uTLS fork's QUIC API, so `internal/quic`, our
+copy of `golang.org/x/net/quic`, imports the fork too
+([0027](0027-quic-base.md)). No other non-test package does.

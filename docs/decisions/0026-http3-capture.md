@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-25
-- Commits: (the HTTP/3 capture commit)
+- Commits: `b1fc876`
 
 ## Problem
 

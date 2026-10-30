@@ -1,8 +1,8 @@
 # 0024: The ClientHello's whole shape is profile data
 
-- Status: Accepted
+- Status: Accepted; amended 2026-10-27 (`x25519Reuse` added); amended 2026-10-28 (`x25519Reuse` checked on every hello with both shares)
 - Date: 2026-10-24
-- Commits: (the wave-3 commit)
+- Commits: `02903e5`
 
 ## Problem
 

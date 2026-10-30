@@ -1,10 +1,8 @@
 # 0028: QUIC and HTTP/3 fail as each browser's do
 
-- Status: Accepted
+- Status: Accepted; amended 2026-10-28 by [0036](0036-fast-quic-fallback.md) (holds shortened by default); amended 2026-10-28 (`brokenAfter` counts only attempts that sent a datagram)
 - Date: 2026-10-25
-- Commits: (the commit that adds `quic.loss`, `quic.keepAlive`, `quic.ack`,
-  `quic.credit`, `quic.keyUpdate`, `quic.versionNegotiation` and
-  `http3.discovery.fallback`)
+- Commits: `4dd8d5b`; amendments `5c76160` (0036), `e1883f5` (`brokenAfter`)
 
 ## Problem
 
@@ -28,11 +26,10 @@ browser does; a model had to choose which of it to reproduce, and how.
   request behind an unvalidated QUIC connection and Safari drops its attempt
   when TCP connects: a server sees a different client.
 - **Per-browser fallback as profile data** (`http3.discovery.fallback`),
-  derived by h3gen from the captures and checked against every sample: the
-  mode (`race`: wait `tcpDelayMs`, then TCP; `background`: never wait;
-  plus Chrome's `zeroRttHolds` and Firefox's `hold`), `abandonOnTcp`,
-  `brokenAfter`, `brokenCountsResumed`, `revalidateMs`, `pending`.
-  More engine code, one rule per browser behaviour seen.
+  derived by h3gen from the captures and checked against every sample:
+  the mode, the delays and holds, when an attempt is abandoned, when an
+  origin counts as broken, and where pending requests go. More engine
+  code, one rule per browser behaviour seen.
 - **How long an origin stays broken**: Chrome's source backs off for 5
   minutes (doubling); no capture shows a browser trying QUIC again for an
   origin within a page. Either model the 5 minutes from source, or keep it
@@ -62,13 +59,15 @@ ClientHello's shape profile data.
   waiting, at once beside a fresh attempt after a failed 0-RTT one) and holds
   every request behind a 0-RTT attempt until it gives up; Firefox validates
   in the background and holds only requests made while its resumed
-  re-validation after a server's close is pending; Safari races with a
-  100 ms head start and drops the attempt when the request goes on TCP.
+  re-validation after a server's close is pending; Safari races with an
+  88–129 ms head start (`tcpDelayMs`, by version) and drops the attempt
+  when the request goes on TCP.
   Requests pending on a dead connection go where the browser sent them
   (`pending`: TCP for Chrome and Firefox, a new QUIC connection for Safari).
 - **Broken for the Transport's life.** After `brokenAfter` failed attempts
-  in a row (Chrome and Firefox 1, Safari 2 with resumed ones counting) the
-  origin stays on TCP until the Transport is closed. The 5 minutes are
+  in a row (Chrome and Firefox 1, Safari 2 with resumed ones counting; since
+  the 2026-10-28 amendment below, only attempts that sent a datagram count)
+  the origin stays on TCP until the Transport is closed. The 5 minutes are
   source, not measured; a Transport is one browsing entity (decision
   [0019](0019-transport-is-one-browsing-entity.md)), and a page-length
   capture is all the evidence there is.
@@ -119,7 +118,7 @@ ClientHello's shape profile data.
 - `TestQUICInterop`: the blackhole and rebinding rows with Chrome's
   migration; the impaired-handshake rows hold Safari to its race (an
   attempt that needs a probe loses to TCP, and the origin is broken after
-  two).
+  two that sent a datagram; see the amendment below).
 - Keep-alive cap: the browsers' periods were measured against the capture
   server's 60 s idle timeout, where the cap never applies; the interop rows
   with a 1 s and a 4 s server idle timeout need it, and Firefox's neqo keeps
@@ -162,7 +161,9 @@ ClientHello's shape profile data.
 - Chrome's blackhole close or Safari's resumption is captured often enough
   to model.
 
-Amended (2026-10-28, [0036](0036-fast-quic-fallback.md)): the timing above
+## Amendment 2026-10-28: fast fallback by default
+
+By [0036](0036-fast-quic-fallback.md): the timing above
 is now `Config.BrowserQUICFallback`. By default a request stops waiting on
 an unanswered 0-RTT connection at the profile's race delay (Chrome
 305–306 ms; Firefox, without one, its 300 ms first probe timeout) instead
@@ -171,7 +172,9 @@ once instead of at the race delay. The QUIC connections, the race delays
 and everything a server that answers sees are unchanged;
 `TestHTTP3EdgeMatchesBrowser` checks both modes.
 
-Amended (2026-10-28, the user's call): an attempt counts toward
+## Amendment 2026-10-28: an attempt counts once it has sent
+
+The maintainer's decision: an attempt counts toward
 `brokenAfter` only once its first datagram has gone out
 (`quic.DialConfig.OnFirstDatagram`). Under load (the harness's `-race`
 suites, a busy host) a Safari attempt could lose its 88–129 ms race while

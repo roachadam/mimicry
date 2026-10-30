@@ -687,7 +687,7 @@ func ExampleConfig_proxy() {
 // HTTP/3 is on by default: once a site advertises it (Alt-Svc), requests
 // move to it as the profile's browser moves them. DisableHTTP3 keeps
 // everything on TCP, for networks that block UDP. (Requests through a
-// proxy never use HTTP/3.)
+// proxy stay on TCP unless HTTP3OverSOCKS5 lets a SOCKS5 proxy carry it.)
 func ExampleConfig_disableHTTP3() {
 	shop := startShop(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Alt-Svc", `h3=":443"; ma=86400`)

@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-28
-- Commits: (where it landed)
+- Commits: `e1ecfda`
 
 ## Problem
 

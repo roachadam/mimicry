@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-28
-- Commits: (where it landed)
+- Commits: `e1ecfda`
 
 ## Problem
 
@@ -17,7 +17,7 @@ every response shares one congestion window. In the benchmark's page loads
 under packet loss mimicry was up to twice as slow as clients that open a
 connection per host; the investigation traced it to that connection.
 
-The user's rule (2026-10-28): **when a browser behaviour costs significant
+The maintainer's rule (2026-10-28): **when a browser behaviour costs significant
 performance and is a low-ish detection risk, the default is the faster
 setting, documented plainly, with a `Config` option for the browser-exact
 behaviour** (decision [0036](0036-fast-quic-fallback.md) is the case it
@@ -36,7 +36,7 @@ to raise it.
   clean networks for a gain on lossy ones, and depart from all three
   browsers on every site whose hosts share a certificate and an address.
 - **Keep coalescing, add an opt-out, `Config.DisableCoalescing`**
-  (chosen; the user's call, 2026-10-28). The default stays browser-exact,
+  (chosen; the maintainer's decision, 2026-10-28). The default stays browser-exact,
   and faster where the network is clean; a caller on a lossy network
   turns it off. Named like `DisableHTTP3`: a switch that departs from the
   browser on request.
@@ -113,7 +113,7 @@ two-sided Mann-Whitney test; HTTP/2:
   `DisableCoalescing`'s, so with it mimicry behaves like them there.
 
 The cost of coalescing depends on the network, and on a clean one the
-browser's behaviour is the faster: it does not meet the user's rule, so
+browser's behaviour is the faster: it does not meet the rule, so
 the default stays the browser's.
 
 **Detection risk of `DisableCoalescing`: low to medium.** Only a server

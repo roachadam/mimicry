@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-26
-- Commits: (where it landed)
+- Commits: `94826f0`
 
 ## Problem
 
@@ -13,8 +13,8 @@ Safari one with each macOS. Until now each new version needed:
   takeover per browser (the refresh plan's estimate, not measured);
 - a rename of `profiles.Chrome155MacOS()` in about 25 files of examples,
   docs and tests;
-- one more full run of the e2e suite. With the four profiles of today it
-  takes 259 s on this Mac without `-race`.
+- one more full run of the e2e suite, which took over four minutes without
+  `-race` with the four profiles of the time.
 
 kindsgen refuses a profile without all ten of its captures, and every e2e
 test fails on a missing capture. So a profile could not ship until its
@@ -162,7 +162,7 @@ scenario chrome-155 captured except the default page.
   instance where a version goes from 99 to 100. Comparisons of encoded
   bytes run against the source's own blocks, so they stay consistent.
 - By default the harness runs three profiles, not every supported one. A
-  regression only an older supported version shows (Safari 26 today) is
+  regression only an older supported version shows (Chrome 155 and Safari 26 today) is
   caught by `:test-full`, not `:test`.
 - Deprecated profiles are not tested unless named in `MIMICRY_PROFILES`.
 

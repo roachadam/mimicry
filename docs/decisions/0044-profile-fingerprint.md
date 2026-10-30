@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-29
-- Commits: (where it landed)
+- Commits: `db43d4a`
 
 ## Problem
 
@@ -11,14 +11,14 @@ Transports built from equal profiles share one decoded, validated copy
 find the shared copy, `NewTransport` encoded the caller's profile to JSON
 (about 140 KB compact for Chrome 156) and hashed it with SHA-256, every
 time, whether or not a copy already existed. That was most of building a
-client: in the final benchmark
+client: in the benchmark at `c1f37ab`
 ([linux-2026-10-29](../../internal/bench/reports/linux-2026-10-29/bench-2026-10-29.md),
-i5-13500) `BenchmarkNewClient` took 595 µs, 294 KB and 1,109 allocations
+the Linux test host, i5-13500) `BenchmarkNewClient` took 595 µs, 294 KB and 1,109 allocations
 for mimicry against 1.3 µs for tls-client and 0.3–0.8 µs for azuretls, and
 in client rotation (a new client every 10 requests) mimicry used 201–216
 µs of CPU per request against tls-client's 123–145.
 
-On the Mac (M3 Pro, `profiles.Chrome()` then `NewTransport`, the bench
+On the M3 Pro laptop (`profiles.Chrome()` then `NewTransport`, the bench
 adapter's constructor) the 506 µs split as: the accessor's deep copy 122
 µs, `json.Marshal` 296 µs, SHA-256 of its 140 KB 47 µs, the rest about
 40 µs.
@@ -46,7 +46,7 @@ of what it was before.
   package and every caller that builds or edits a profile. Out of
   proportion.
 - **Compare with `reflect.DeepEqual` against a copy found by name**: exact,
-  but 109 µs and 158 allocations on the Mac (its visited map), plus a list
+  but 109 µs and 158 allocations on the M3 Pro laptop (its visited map), plus a list
   of candidates per name to keep. No faster than hashing.
 - **A generated hasher** (code emitted per profile type): the fastest
   (no reflection), but a second generator to keep in step with the
@@ -83,13 +83,17 @@ of what it was before.
   572 KB, 1,118 allocations before; 197 µs, 147 KB, 867 after. The
   accessor 122 → 90 µs, finding the shared copy 343 → 100 µs (the walk
   about 70, SHA-256 about 25).
-- the Linux test host (i5-13500, Linux), isolated runs
+- The Linux test host (i5-13500), isolated runs
   ([focus-2026-10-29/ctor](../../internal/bench/reports/focus-2026-10-29/ctor/),
   before = c1f37ab, after = c1f37ab plus this change only),
   `BenchmarkNewClient` (10 passes, mimicry; HTTP/1.1 and HTTP/2, with and
   without SOCKS5): 594–597 µs → 235–241 µs (−60%), 292–295 KB → 122 KB,
   1,109–1,113 → 874–878 allocations. tls-client 1.3–1.8 µs, azuretls
   0.3–0.9 µs, unchanged.
+- Confirmed in the final benchmark at `db43d4a`
+  ([linux-final-2026-10-29](../../internal/bench/reports/linux-final-2026-10-29/final-2026-10-29.md),
+  micro benchmarks): `BenchmarkNewClient` 235–237 µs, 122–125 KB and
+  874–882 allocations for mimicry across protocols and proxies.
 - Same host, layer 6 client rotation (100 routines, a new client every 10
   requests, HTTP/2 through CONNECT and SOCKS5, dropped and closed, 3
   passes): CPU per request 208–213 µs → 157–158 µs (tls-client 131–138,
@@ -112,7 +116,7 @@ of what it was before.
 ## Consequences
 
 - Building a client costs a walk and a hash of the profile instead of a
-  JSON encoding: about 2.5× faster on the Mac, with a quarter of the
+  JSON encoding: about 2.5× faster on the M3 Pro laptop, with a quarter of the
   allocation, still far more than clients that copy nothing (tls-client,
   azuretls). Building clients up front, one per proxy, remains the advice.
 - A profile type may hold only data the walk writes (enforced by the

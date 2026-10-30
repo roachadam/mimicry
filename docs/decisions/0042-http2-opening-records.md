@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-28
-- Commits: (where it landed)
+- Commits: `7b89e50`
 
 ## Problem
 
@@ -66,11 +66,11 @@ The capture server could not see records at all: crypto/tls hides them.
 
 ## Evidence
 
-`resume` captures, 2 samples each, 2026-10-28 (Mac mini; [EVIDENCE.md,
+`resume` captures, 2 samples each, 2026-10-28 (a Mac mini used for captures, except where noted; [EVIDENCE.md,
 HTTP/2 connection](../../profiles/EVIDENCE.md#http2-connection)):
 - Chrome 156: 14 of 14 connections `[preface SETTINGS WINDOW_UPDATE]
   [HEADERS]`, fresh and resumed.
-- Chrome 155: Chrome for Testing 155.0.8059.84 (the mini, `resume`, 2
+- Chrome 155: Chrome for Testing 155.0.8059.84 (the Mac mini, `resume`, 2
   samples): 14 of 14 the same as Chrome 156. Regenerating chrome-155
   changed `http2.openingRecords` alone.
 - Firefox 158: 7 connections `[preface SETTINGS WINDOW_UPDATE] [HEADERS
@@ -81,7 +81,7 @@ HTTP/2 connection](../../profiles/EVIDENCE.md#http2-connection)):
   ACK, then HEADERS. Staged `kinds` and `nav-redirect-page` captures
   (not committed) show navigations and subresources on new connections
   joined, only the tab's first apart.
-- Safari 27.0.1 (this Mac, `resume`, 2 samples): the same as 26, 12
+- Safari 27.0.1 (the M3 Pro laptop, `resume`, 2 samples): the same as 26, 12
   connections joined, the tab's first 2 apart.
 
 `TestConnectionMatchesBrowserTrace` compares mimicry's cut; with the cut
@@ -91,13 +91,15 @@ request frames written apart it fails for Firefox.
 `BenchmarkOpen` (`internal/h2`, New and one GET against a scripted peer,
 M3 Pro): writes per new connection Chrome 5 → 3, Firefox 6 → 3, Safari 26
 5 → 2 (the SETTINGS ACK included); allocations 48/48/47 → 47/47/46;
-+~600 B per connection (the buffer).
+about 600 B more per connection: `connWriter`'s 512-byte buffer and its
+other fields, inside `Conn`.
 
 ## Consequences
 
 Two to four fewer records per new connection, each a seal, a syscall and
-22 bytes saved. Each HTTP/2 connection holds 512 more bytes. A Safari
-connection with no request yet holds its preface back until the request
+22 bytes saved. Each HTTP/2 connection holds about 600 more bytes (the
+512-byte buffer and its bookkeeping). A Safari connection with no request
+yet holds its preface back until the request
 or a GOAWAY.
 
 ## Revisit when

@@ -19,7 +19,7 @@ pseudo-header order are not expressible in `net/http`.
 
 mimicry is an `http.RoundTripper` (`Transport`) and `NewClient` returns an
 `*http.Client`. Header order comes from the profile; `HeaderOrderKey`, a
-pseudo-header with an invalid name (so it can never be sent), overrides it
+header key with an invalid name (so it can never be sent), overrides it
 per request. Request kinds travel on the request context (`As`, `With`,
 `Exact`). Pseudo-header order comes only from the profile.
 

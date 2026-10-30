@@ -33,7 +33,7 @@ test left them out.
 
 ## Decision
 
-Option 3, the user's choice.
+Option 3, the maintainer's decision.
 
 - **When.** A `Fetch` (not `NoCORS`) or `XHR` request to another origin
   than its own gets a preflight. Its own origin is the page's, or `null`

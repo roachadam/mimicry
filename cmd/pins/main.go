@@ -2,7 +2,7 @@
 // profile's browser, with each certificate's pins, and marks the one to
 // pin (mimicry.FetchPins; no request is sent):
 //
-//	go run github.com/roachadam/mimicry/cmd/pins URL [-profile name]
+//	go run github.com/roachadam/mimicry/cmd/pins URL [-profile name] [-timeout 30s]
 //
 // It recommends the intermediate nearest the root, which rotates less
 // than the leaf. Pin a backup key too.
@@ -30,7 +30,7 @@ func main() {
 	}
 }
 
-// run parses args (the URL and -profile, in either order) and prints the
+// run parses args (the URL, -profile and -timeout, in any order) and prints the
 // chain to out.
 func run(args []string, out io.Writer) error {
 	fs := flag.NewFlagSet("pins", flag.ContinueOnError)

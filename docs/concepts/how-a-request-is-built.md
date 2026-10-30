@@ -1,7 +1,7 @@
 # How a request is built
 
-What happens between `client.Do(req)` and bytes on the wire. Rough draft;
-the code is the reference (the root's `mimicry.go`, `request.go`,
+What happens between `client.Do(req)` and bytes on the wire. The code is
+the reference (the root's `mimicry.go`, `request.go`,
 `resolve.go`, `redirect.go` and `plan.go`; `internal/cors` and the rest of
 `internal/`).
 
@@ -137,8 +137,16 @@ profile's `connections.http1PerHost` (6 in every browser), or
 `Config.MaxConnsPerHost` when set; more wait, first come first served, for
 a connection to come back. An idle HTTP/1.1
 connection is checked without blocking before reuse (closed by the peer,
-or holding bytes nobody asked for: it is closed instead) and closed after
-90 s idle; a key with no connections is forgotten after the same time.
+or holding bytes nobody asked for: it is closed instead). Every idle
+connection, HTTP/1.1, HTTP/2 or HTTP/3, closes after
+`Config.IdleConnTimeout` (90 s by default; HTTP/1.1 counts from its last
+response, the others from their last request's end); a key with no
+connections forgets what was learned about it (HTTP/1.1 only) after 90 s.
+A proxy no longer used loses its idle connections early (by default once
+it is not among the 16 used most recently and unused for 10 s;
+`Config.MaxIdleProxies`), and a Transport the garbage collector finds
+unreachable closes its idle connections
+([decision 0040](../decisions/0040-idle-connection-cleanup.md)).
 
 A request to a host with no HTTP/2 connection of its own may take another
 host's (coalescing), as the profile's `connections.coalesce` says: one in

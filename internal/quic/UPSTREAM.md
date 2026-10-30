@@ -21,7 +21,7 @@ runner (`internal/quic/cmd/interop`), which the package does not import.
 
 ## Syncing
 
-Policy (the user's, 2026-10-27; decision 0027's amendment): we diverge
+Policy (the maintainer's, 2026-10-27; decision 0027's amendment): we diverge
 from upstream where it pays. A problem in the copy is fixed here now, not
 left for an upstream fix; upstream's changes are reviewed periodically
 (the steps below) and taken where relevant, merged around ours. Every
@@ -323,10 +323,10 @@ the mechanical import rewrites.
     `streamsState.tableMu`; `conn.go`'s `receiveTransportParameters`,
     `client_params.go`, `client_tls.go`). Upstream's `newLocalStream`
     registers the stream with a round trip to the connection's loop
-    (`runOnLoop`), which waits behind every datagram queued for the loop:
-    on a busy connection each HTTP/3 request start (serialized by h3's
-    `startMu` to keep stream IDs in order) waited about 19 µs for it, half
-    of all the time requests spent blocked at 1 KB and 64 at once. Now
+    (`runOnLoop`), which waits behind every datagram queued for the loop,
+    so on a busy connection each HTTP/3 request start (serialized by h3's
+    `startMu`) waited for it: about 19 µs at 1 KB and 64 at once (bench
+    2026-10-27). Now
     `tableMu` guards `streams`, `peerInitialMaxStreamDataRemote` and
     `tableClosed`; `newLocalStream` reads the window and inserts under it
     from the caller's goroutine, and every loop-side access takes it
@@ -360,9 +360,8 @@ the mechanical import rewrites.
     `x/net/ipv4`'s `ReadBatch`, which allocates an address per message.
     Each datagram still goes to the loop alone, with its own control
     messages parsed (change 11), so the ACK rules see the queue they saw.
-    macOS keeps `recvmsg`. Receive was 13% of the client's CPU at 100 KB
-    and 64 at once (bench 2026-10-27); with batches, req/s rose from about
-    6,000 to 6,300 (noisy). While `recvmmsg` finds nothing (EAGAIN), the
+    macOS keeps `recvmsg`. At 100 KB and 64 at once req/s rose from about
+    6,000 to 6,300 (bench 2026-10-27, noisy). While `recvmmsg` finds nothing (EAGAIN), the
     batch's buffers but one go back to the pool, refilled when the socket
     is readable again: an idle connection's socket held 8 (12 KB) while it
     waited (change 16). Covered by upstream's tests and the e2e suite run
@@ -381,7 +380,7 @@ the mechanical import rewrites.
     `net.PacketConn` already (upstream's `netPacketConn`, used for
     anything but a `*net.UDPConn`: no control messages, one datagram per
     read), so the association needs no other change here. Covered by
-    `TestHTTP3ThroughSOCKS5`'s teardown case, which fails without it.
+    `TestQUICInterop`'s `socks5-teardown` row, which fails without it.
 
 15. **A gate's waiter takes it when it runs** (`gate.go`; `stream.go`'s
     `newStream`). Upstream's gate is two one-slot channels whose token a
@@ -389,23 +388,20 @@ the mechanical import rewrites.
     owned the gate before it was scheduled. The conn's loop, delivering
     the next STREAM frame for a stream whose reader it had just woken,
     then blocked in `handleData`'s `ingate.lock` until that reader had run
-    and unlocked: under HTTP/3 load (nginx in Docker, 1 KB at 64 at once)
-    the loop spent 53% of its time there (block profile) and 5% waiting
-    for datagrams, and the whole connection ran on about one core whatever
-    GOMAXPROCS was (1.04 cores of 4; GOMAXPROCS=1 was faster). The gate
+    and unlocked, so under HTTP/3 load the whole connection ran on about
+    one core. The gate
     is now a `sync.Mutex`, the condition under it, and a one-slot wake
     channel that `unlock` signals when it sets the condition: a woken
     `waitAndLock` takes the mutex once it runs and looks again, as a
     `sync.Mutex` waiter does; `lockIfSet` stays non-blocking (`TryLock`).
     A gate holds a mutex, so `newStream` locks its two gates in place
-    instead of copying locked ones (`newLockedGate` is gone). Measured in
-    the same setup, at 1 KB: 38,000 to 65,000 requests/s, client CPU per
-    request 27 to 22 µs; at 100 KB, 6,700 to 7,500, where nginx's worker
-    is then the limit. The profile's wire rules are unchanged (datagram
-    sizes, ACK frequency, credit, PINGs); only timing moves: under load
-    the loop, no longer stalled, finds more requests queued for each
-    packet (client datagrams per request at 1 KB, 64 at once: 0.53 to
-    0.26). Covered by upstream's `gate_test.go` and every stream test.
+    instead of copying locked ones (`newLockedGate` is gone). At 1 KB and
+    64 at once (nginx in Docker): 38,000 to 65,000 requests/s; the receive
+    buffer was tuned after it (decision
+    [0045](../../docs/decisions/0045-udp-receive-buffer-default.md)). The
+    profile's wire rules are unchanged (datagram sizes, ACK frequency,
+    credit, PINGs); only timing moves: under load the loop, no longer
+    stalled, finds more requests queued for each packet. Covered by upstream's `gate_test.go` and every stream test.
 
 16. **Idle streams hold no buffer** (`pipe.go`: `releaseIfEmpty`;
     `stream.go`: `releaseIdleIn`, `outUnlockNoQueue`, `Read`;
@@ -443,7 +439,7 @@ needs the close to fall between a PTO and its probe; and
 ## Lint
 
 `.golangci.yml` excludes `internal/quic/` from every linter but depguard
-(about 450 findings in upstream's style: unchecked `Close` errors,
+(hundreds of findings in upstream's style: unchecked `Close` errors,
 `math/rand`, `%v` on errors, unused test helpers, `init` functions; and
 about 4,200 of wsl's and nlreturn's blank lines).
 Formatters still run on it. mimicry's own lines here are checked by hand:

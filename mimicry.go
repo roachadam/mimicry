@@ -125,7 +125,7 @@ type Config struct {
 	// browsers keep them across restarts. A request to an origin found in
 	// it goes as the profile's browser sends one to an origin whose
 	// alternative it knows (profile http3.discovery): Chrome and Safari
-	// start on QUIC, racing TCP after their delay (300 and 100 ms) as
+	// start on QUIC, racing TCP after their delay (about 300 and 100 ms) as
 	// for any new connection; Firefox validates the alternative in the
 	// background beside the request, which goes on TCP, and moves the
 	// requests after to HTTP/3 once it is up. Nil keeps them per
@@ -136,8 +136,8 @@ type Config struct {
 	// 0-RTT connection until it gives up (4 s), Firefox those made while
 	// it re-validates after the server's close (5 s), and a failed attempt
 	// holds its request until the race delay. By default those requests go
-	// on TCP once the profile's race delay (Chrome 300 ms; Firefox, which
-	// has none, its 300 ms first probe timeout) has passed with no answer,
+	// on TCP once the profile's race delay (Chrome about 300 ms; Firefox,
+	// which has none, its 300 ms first probe timeout) has passed with no answer,
 	// and at once when the attempt failed; the QUIC connection itself
 	// carries on as the browser's, and a connection whose server answers
 	// goes exactly as with this set (decision 0036).
@@ -198,9 +198,8 @@ type Config struct {
 	// a proxy list used in turn warm, over up to 16 at any pace or over
 	// more while each comes round within 10 s, but a client rotating to a
 	// new identity every few requests holds every identity of the last 10
-	// s (about 76 at a new one every 120 ms, 1.8 MB, in the benchmark).
-	// A count bounds the connections (1: 300 KB per client after 30 s,
-	// 4: 360 KB), though each identity's TLS session ticket still stays
+	// s. A count bounds the connections, though each identity's TLS
+	// session ticket still stays
 	// until it expires; round-robin over more proxies than the count
 	// dials on every request. Negative is an error (decision 0040).
 	MaxIdleProxies int
@@ -228,13 +227,9 @@ type Config struct {
 	// any request above 208 KB gets 416 KB; only a host that raises the
 	// cap (sysctl -w net.core.rmem_max=8388608) gets the full 1 MB (2 MB
 	// granted) or more. mimicry never uses SO_RCVBUFFORCE, which needs
-	// privileges. A larger buffer trades drops for a queue: in the HTTP/3
-	// benchmark (Linux, rmem_max raised, one host, nginx) 1 MB ran 100 KB
-	// bodies at 64 at once 10-13% faster than the OS's default and 1 KB at
-	// 256 at once 11-18% faster; 7 MB, quic-go's, ran 100 KB at 64 at once
-	// 1.8 times as fast as 1 MB, but at 256 at once at half the rate (2 MB
-	// too, in some runs): what it holds delays everything behind it, the
-	// client's flow-control updates included. Raise it (2 to 8 MB) for
+	// privileges. A larger buffer trades drops for a queue: what it holds
+	// delays everything behind it, the client's flow-control updates
+	// included. Raise it (2 to 8 MB) for
 	// high-bandwidth, lossy or long paths with few streams at once, where
 	// a burst can overflow it: each datagram dropped there is lost as if on
 	// the network, costing a retransmission and congestion window. The
@@ -243,7 +238,8 @@ type Config struct {
 	// HTTP3ACKEvery, when set, acknowledges every HTTP3ACKEvery-th
 	// ack-eliciting QUIC packet after the browser's warm-up, instead of the
 	// profile's rate (Chrome: every 10th). Zero keeps the browser's. It
-	// must be at least the profile's rate and at most 64; every other ACK
+	// must be at least the profile's rate and at most 64, and a profile
+	// without a quic section rejects any non-zero value; every other ACK
 	// rule stays the browser's (the warm-up, max_ack_delay, an immediate
 	// ACK for a gap). Fewer ACKs cost a busy server less: against one nginx
 	// worker saturated by a single client's downloads, every 20 ran 25%
@@ -278,9 +274,11 @@ type Config struct {
 //
 // Call CloseIdleConnections when you discard a Transport (or the client
 // NewClient built on it), as when a new client takes over with a new
-// proxy identity: its connections close at once. Otherwise an idle
+// proxy identity: its idle connections close at once and the others
+// once their requests finish. Otherwise an idle
 // connection closes after Config.IdleConnTimeout, 90 s by default (HTTP/3
-// ones at QUIC's idle timeout if that is sooner), and a Transport no longer reachable closes its idle
+// ones at QUIC's idle timeout if that is sooner), and a Transport no
+// longer reachable closes its idle
 // connections once the garbage collector finds it. Within a Transport, a
 // proxy no longer used loses its idle connections early: by default once
 // it is not among the 16 proxies used most recently and has not been used
@@ -309,9 +307,9 @@ type Transport struct {
 }
 
 // NewTransport builds a Transport from cfg. Building one takes about
-// 0.25 ms (BenchmarkNewClient, i5-13500), most of it reading the whole
-// profile to find the copy Transports built from equal profiles share
-// (decision 0044): build Transports up front, one per proxy, and reuse
+// 0.25 ms (decision 0044), most of it reading the whole
+// profile to find the copy Transports built from equal profiles share:
+// build Transports up front, one per proxy, and reuse
 // them, rather than one per request.
 func NewTransport(cfg Config) (*Transport, error) {
 	if cfg.Profile == nil {

@@ -16,7 +16,9 @@ does is visible, and slower.
 connection with one ticket, never the same ticket twice, so of three
 connections opened together only one resumes. Their resumed ClientHello is
 the full one plus `pre_shared_key` last; Firefox also leaves
-`session_ticket` out. Neither sends 0-RTT data. Safari never resumes.
+`session_ticket` out. Neither sends 0-RTT data over TCP (QUIC 0-RTT is
+captured and modelled: `quic.zeroRtt`, [0026](0026-http3-capture.md)).
+Safari never resumes.
 
 From a TLS 1.2-only server (`resume-tls12`), both put the ticket in the
 full hello's `session_ticket`; Chrome reuses a TLS 1.2 ticket for every
@@ -64,5 +66,5 @@ resume page through mimicry.
 
 ## Revisit when
 
-A browser is captured using 0-RTT, several tickets at once, or session-ID
-(not ticket) resumption with a server that issues no tickets.
+A browser is captured using 0-RTT over TCP, several tickets at once, or
+session-ID (not ticket) resumption with a server that issues no tickets.

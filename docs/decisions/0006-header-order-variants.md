@@ -1,8 +1,8 @@
 # 0006: Header order: a default per kind plus measured variants
 
-- Status: Accepted
+- Status: Accepted; amended 2026-10-24 by [0021](0021-page-headers-hash-table-order.md) (page-set headers placed by name)
 - Date: 2026-10-24
-- Commits: `31bcd28`, `031ec2b`; extended in the 2026-10-24 review (`pageSet`, variants measured over HTTP/2 only)
+- Commits: `31bcd28`, `031ec2b`; extended in `ea769bc` (`pageSet`, variants measured over HTTP/2 only)
 
 ## Problem
 
@@ -85,3 +85,9 @@ One already has: Chrome and Safari place a page-set header by its name
 (`x-a` and `x-b` land elsewhere than `x-mimicry`), which one `*` slot cannot
 express. Until a capture of many names finds the rule, every page-set
 header goes where `X-Mimicry` went, a gap listed in the ledger.
+
+## Amendment 2026-10-24: page-set headers by name
+
+Resolved by [0021](0021-page-headers-hash-table-order.md): page-set
+headers now go in the browser's hash-table order
+(`context.headerTable`), not all in the one `*` slot.

@@ -1,6 +1,6 @@
 # 0014: Proxies as the browser uses them
 
-- Status: Accepted
+- Status: Accepted; amended 2026-10-26 (WebSockets through proxies, Firefox's tunnels, Safari's WebSockets with credentials); amended 2026-10-28 by [0038](0038-http3-over-socks5.md) (HTTP/3 through SOCKS5 on request); amended 2026-10-28 by [0039](0039-proxy-credentials-up-front.md) (credentials up front by default) and [0040](0040-idle-connection-cleanup.md) (unused proxies' connections close; `MaxIdleProxies`)
 - Date: 2026-10-24
 - Commits: `0bcacae`, `86d5731`, `4884d93`
 
@@ -24,7 +24,7 @@ server sees. Decision 0010 left proxies to compose with `Config.DialContext`.
 - For credentials, preemptive from the first request (one round trip saved)
   against challenge-first: browsers never send credentials a proxy has not
   asked for, so preemptive-first would be visibly the caller's. Not chosen as a
-  default; no option for it yet.
+  default then; now the default ([0039](0039-proxy-credentials-up-front.md)).
 
 ## Decision
 
@@ -69,14 +69,21 @@ the request's own flow), and tunnels that change nothing. Ledger section
 
 ## Consequences
 
-- The first request to an authenticating proxy costs a round trip, as in
-  the browser; with a Safari profile every tunnel does.
+- With `BrowserProxyAuth`, the first request to an authenticating proxy
+  costs a round trip, as in the browser; with a Safari profile every tunnel
+  does.
 - Safari's credential rules come from Safari 27, measured once macOS itself
   had been given the credentials through its own login dialog (the report
   lists the setups that did not work); Safari 26 copies them.
 - Plain-HTTP requests through a proxy are framed as the browser frames them,
   with the browser's non-secure header set ([0015](0015-non-secure-origins.md)).
 - Chrome's speculative preconnects to the proxy are not made.
+
+## Revisit when
+
+Safari 26's credential flow is measured, a profile changes how Safari gets
+proxy credentials, an https proxy is needed, or a browser is captured
+offering SOCKS5 authentication.
 
 ## Amendment 2026-10-26: WebSockets, and Firefox's tunnels
 
@@ -128,7 +135,7 @@ proxies over UDP associations, naming the host for the proxy to resolve
 as the TCP path does, and no datagram ever goes around a proxy
 ([0038](0038-http3-over-socks5.md)).
 
-## Amendment 2026-10-28: credentials up front by default
+## Amendment 2026-10-28: credentials up front by default, and idle proxies
 
 The credential flow above is now `Config.BrowserProxyAuth`. By default a
 proxy URL's credentials go on the first CONNECT (with `connectAuth`) and
@@ -136,11 +143,7 @@ the first request sent to the proxy whole (placed by `forwardAuth` as
 unasked), so a new proxy URL costs no 407 round trip; a 407 to them is
 final. Only the proxy sees the difference
 ([0039](0039-proxy-credentials-up-front.md)). Connections of a proxy
-no longer used close early ([0040](0040-idle-connection-cleanup.md)).
-
-## Revisit when
-
-Safari 26's credential flow is measured, a profile changes how Safari gets
-proxy credentials,
-an https proxy is needed, a browser is captured offering SOCKS5
-authentication, or a caller needs credentials sent from the first request.
+no longer used close early: by default the 16 most recently used proxies,
+and any used in the last 10 seconds, keep their idle connections;
+`Config.MaxIdleProxies` changes the count
+([0040](0040-idle-connection-cleanup.md)).

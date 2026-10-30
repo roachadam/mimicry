@@ -47,10 +47,12 @@ proxy that answers them with 407 fails the request (a `*ProxyError`).
 `Config.BrowserProxyAuth` uses them the way the profile's browser does:
 
 - Chrome and Firefox: the first request to a proxy goes without, the
-  proxy's 407 is answered on the same connection, and every later request
-  to that proxy sends them unasked.
+  proxy's 407 is answered on the same connection (or a new connection if
+  the proxy closed it), and every later request to that proxy sends them
+  unasked.
 - Safari: every CONNECT goes without and is answered after its 407 (on the
-  same connection, in a different header order); plain-HTTP requests carry
+  same connection, or a new connection if the proxy closed it, in a
+  different header order); plain-HTTP requests carry
   them from the first. Once Safari has answered a 407 to a plain-HTTP
   request, it also puts `Proxy-Authorization` on requests inside its
   tunnels, where the server reads it; mimicry never does (see the
@@ -86,23 +88,22 @@ Round-robin over up to 16 proxies, or over more when each comes round
 within 10 s, keeps every connection
 ([decision 0040](../decisions/0040-idle-connection-cleanup.md)).
 
-That default favours a list used in turn. A client that rotates to a new
-identity every few requests keeps every identity of the last 10 s: in
-the benchmark (a new one every 10 requests, about every 120 ms) 76
-tunnels and 1.8 MB per client, where azuretls, which closes the old
-proxy's connections on `SetProxy`, kept 64 KB. `Config.MaxIdleProxies`
+That default favours a list used in turn. `Config.MaxIdleProxies`
 replaces the rule with a strict count: the N most recently used proxies
 keep their idle connections, and one pushed out of them has its idle
 connections closed at once. 1 keeps only the latest proxy's, as
-azuretls does; round-robin over more proxies than the count opens a
-connection per request. In the benchmark (100 clients, a new identity
-every 10 requests over 30 s), the live heap per client was 1.67–1.70 MB
-by default (70 tunnels open), 360–365 KB with 4 (3.9 tunnels) and 304–306
-KB with 1 (0.9), at the same requests/s and CPU per request; it still
+azuretls does (it closes the old proxy's connections on `SetProxy`);
+round-robin over more proxies than the count opens a connection per
+request. In the benchmark (100 clients, a new identity every 10 requests,
+about every 120 ms, over 30 s), the default kept every identity of the
+last 10 s: 70 tunnels and a live heap of 1.67–1.70 MB per client, against
+azuretls's 67 KB; 4 kept 3.9 tunnels and 360–365 KB, 1 kept 0.9 and
+304–306 KB, at the same requests/s and CPU per request. The heap still
 grew about 9 KB per client per second either way: each identity's TLS
 session ticket stays until it expires and the pool remembers its
 connection key for 90 s
-([proxyidle report](../../internal/bench/reports/focus-2026-10-29/ctor/after/proxyidle-2026-10-29.md)).
+([performance](../performance.md#proxy-rotation),
+[proxyidle report](../../internal/bench/reports/focus-2026-10-29/ctor/after/proxyidle-2026-10-29.md)).
 
 Rotating by client (a new `NewClient` per identity, the old one dropped):
 call `CloseIdleConnections` on the client you drop, so its connections

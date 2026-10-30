@@ -24,7 +24,9 @@ matching, the last attribute winning); where browsers differ, the
 profile's `cookies` section decides (0012). `New` validates those rules
 and returns an error.
 
-API: every attribute plus the raw line; `Set` without a URL; `All`;
+API: every attribute plus the raw line; `Set` without a URL; `SetString`
+and `SetHostString`, a `Cookie` header's pairs for a domain or one host
+([0031](0031-cookies-for-any-site.md)); `All`;
 `Delete` by match; `Clear`, `ClearExpired`, `ClearSession`; `Clone`; JSON
 and Netscape import/export; `Cookies(Request)` (what a request would send,
 in browser order); an `OnSetCookie` hook reporting each rejection and why.

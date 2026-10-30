@@ -60,7 +60,8 @@ client.CheckRedirect = func(*http.Request, []*http.Request) error {
 | `WithForceHttp1()` | none |
 | `WithServerNameOverwrite`, `WithDisableIPV4/6`, `WithConnectHeaders` | none (`DialContext` can choose the address family) |
 | `WithPreHook`, `WithPostHook`, `WithDebug`, `WithBandwidthTracker` | `Transport.Plan(req)` shows what a request would send, without sending it (see [below](#seeing-what-will-be-sent)); otherwise none: wrap the `http.RoundTripper`, or `cookies.Config.OnSetCookie` for cookies |
-| `CloseIdleConnections()` | `Transport.CloseIdleConnections()` (`client.CloseIdleConnections()`) |
+| `CloseIdleConnections()` | `Transport.CloseIdleConnections()` (`client.CloseIdleConnections()`); `Config.IdleConnTimeout` for how long an idle connection stays (90 s by default, every protocol) |
+| a new client per proxy, or `SetProxy` closing the old one's connections | `Config.MaxIdleProxies` (1 keeps only the latest proxy's idle connections; by default the 16 most recent and any used in the last 10 s) |
 
 `NewClient` returns a plain `*http.Client`, so anything that takes one
 (an SDK, a login library) works unchanged; with tls-client such code has
@@ -218,7 +219,7 @@ your own navigation, not the browser's redirect hop.
 | tls-client | mimicry |
 |---|---|
 | `client.GetCookies(u)` | `jar.String(domain)`: the cookies for a name and the names under it as a header string; `jar.Cookies(cookies.Request{URL: u, Method: "GET", Navigation: true})`: exactly what the browser would send to `u` (`jar.Peek`: the same, leaving last-access times as they were); `jar.All()` for everything |
-| `client.SetCookies(u, []*http.Cookie{...})` | `jar.SetHTTPCookies(u, cs)`, through the browser's rules as a response from `u`, with an error naming each cookie refused; `jar.Set(cookies.Cookie{...})` stores one as given; `jar.SetCookies(req, rawSetCookieLines)` for lines a response carried |
+| `client.SetCookies(u, []*http.Cookie{...})` | `jar.SetHTTPCookies(u, cs)`, through the browser's rules as a response from `u`, with an error naming each cookie refused; `jar.Set(cookies.Cookie{...})` stores one as given; `jar.SetCookies(cookies.Request{URL: u, ...}, rawSetCookieLines)` for lines a response carried |
 | a `Cookie` header string kept in a database | `jar.SetString(domain, header)` (or `cookies.FromString`) for that name and every name under it, `jar.SetHostString(host, header)` for one host, in; `jar.String(domain)` out (see `ExampleJar_SetString`) |
 | a new jar to clear | `jar.Clear()`, `jar.ClearSession()`, `jar.Delete(func(*cookies.Cookie) bool)` |
 | `SetCookieJar(shared)` on another client | the same `*cookies.Jar` in each `Config.Cookies` |
@@ -232,22 +233,13 @@ Transports, which is the way to visit several sites with one identity
 (one Transport per site, one jar).
 
 The jar `NewClient` made is `client.Transport.(*mimicry.Transport).Cookies()`.
-`SetString` makes each pair a cookie whose `Domain` is exactly the name you
-pass, as a browser reads one: `amazon.com` reaches `www.`, `api.` and
-`smile.amazon.com`, `www.amazon.com` reaches `www.amazon.com` but not
-`api.amazon.com`; nothing widens it to the site. Pass the name the source
-cookies were for. Path `/`, not `Secure`, the profile's SameSite default,
-since a header string carries no attributes; `SetHostString` stores
-host-only cookies (one host, IP addresses too). A public suffix or an IP
-address as `SetString`'s domain is an error. `__Host-` cookies are stored
-as browsers require (host-only on the name given, `Secure`, path `/`) and
-`__Secure-` ones `Secure`. Cookies whose path or other attributes matter
-go in with `Set`, `SetHTTPCookies` or `ReadJSON`. One cookie for every
-site is not something a browser has, so it takes `cookies.AnySite` as the
-domain, written out in your code ([decision 0031](../decisions/0031-cookies-for-any-site.md)):
-every host the Transport talks to receives it, trackers included.
-`jar.CookieJar()` exists for code that wants an `http.CookieJar`, but is
-lossy and treats every request as a typed navigation.
+A header string carries no attributes, so `SetString` makes each pair a
+cookie for exactly the domain you pass (`amazon.com` reaches every host
+under it, `www.amazon.com` only that host and below); pass the name the
+source cookies were for. Cookies whose path or other attributes matter go
+in with `Set`, `SetHTTPCookies` or `ReadJSON`. The rules (`SetHostString`,
+prefixes, `cookies.AnySite`, the lossy `jar.CookieJar()`) are in
+[cookies](cookies.md#using-it).
 
 ## Proxies and rotation
 
@@ -270,18 +262,22 @@ current.Store(proxies.Next())
 ```
 
 Each proxy gets its own connections and TLS sessions; the jar and the last
-page stay. A per-request choice is the same function reading the request
-(its context, its host). Credentials go as the browser sends them (Chrome
-and Firefox wait for the 407, then send them unasked; Safari waits every
-time), and the CONNECT lines and SOCKS5 bytes are the browser's.
+page stay. A rotating client that should not keep earlier proxies'
+connections open sets `Config.MaxIdleProxies` (1: only the latest). A
+per-request choice is the same function reading the request (its
+context, its host). Credentials go with the first CONNECT (and the first
+request sent to the proxy whole), placed as the browser places them; the
+CONNECT lines and SOCKS5 bytes are the browser's. `Config.BrowserProxyAuth`
+waits for the proxy's 407 first, as the browsers do (Chrome and Firefox
+once per proxy URL, Safari on every tunnel); only the proxy sees the
+difference ([decision 0039](../decisions/0039-proxy-credentials-up-front.md)).
 
 Limits: `http`, `socks5` and `socks5h` proxies only (no `https://`
 proxies), Basic authentication only, HTTP/3 through SOCKS5 proxies only
 and only with `Config.HTTP3OverSOCKS5` (tls-client v1.17 carries HTTP/3
 through SOCKS5 too, measured in `internal/bench/reports/multiclient-2026-10-28.md`;
-mimicry never sends a datagram around a proxy), and two WebSocket cases
-never measured (`ErrNotMeasured`): a Safari profile with proxy credentials,
-and `ws://` through SOCKS5.
+mimicry never sends a datagram around a proxy), and `ws://` through
+SOCKS5 is never measured (`ErrNotMeasured`).
 
 A proxy that fails a request returns a `*mimicry.ProxyError`: unreachable,
 CONNECT refused (`StatusCode`, `Header`), credentials rejected after the
@@ -336,19 +332,20 @@ tr := client.Transport.(*mimicry.Transport)
 ws, _, err := tr.DialWebSocket(ctx, "wss://www.shop.example/live", mimicry.WebSocketOptions{})
 ```
 
-## Where mimicry is weaker, ranked for retail automation
+## Where mimicry is weaker for automating user actions on sites
 
 1. **The profile catalogue.** Five desktop profiles, all macOS (Chrome
    155 and 156, Firefox 158, Safari 26 and 27): no iOS Safari, no Android
-   Chrome, no Windows. New versions come from `cmd/refresh` (the latest
-   five per browser are kept). A site whose mobile endpoints
+   Chrome, no Windows. New versions come from `cmd/refresh`; older ones
+   stay, marked deprecated. A site whose mobile endpoints
    or app traffic you imitate, or a session tied to a user agent minted
    elsewhere (a solver, a harvested browser), needs a matching profile,
    and making one takes the harness and a real browser capture.
-   `profile.Parse` loads your own JSON, but nothing helps you write it.
-2. **Proxy limits.** `https://` proxies are unsupported, and a WebSocket
-   through a proxy is `ErrNotMeasured` for a Safari profile with proxy
-   credentials and for `ws://` through SOCKS5.
+   `profile.Parse` loads your own JSON, but nothing helps you write it
+   (see [the backlog](../backlog.md#tooling-and-tests): more profiles,
+   and a way to make them).
+2. **Proxy limits.** `https://` proxies are unsupported, and a `ws://`
+   WebSocket through a SOCKS5 proxy is `ErrNotMeasured`.
 3. **Cookie scope from a string is a name you choose.** A header string
    carries no scope, so `SetString` needs the domain the cookies were for
    (`amazon.com` for the whole site, `www.amazon.com` for that host and
@@ -369,14 +366,5 @@ ws, _, err := tr.DialWebSocket(ctx, "wss://www.shop.example/live", mimicry.WebSo
    address for QUIC.
 
 (Seeing what will be sent was weakness 3 here until `Transport.Plan`.)
-
-## Proposed adjustments
-
-Candidates, not decisions; each would need a decision record.
-
-1. **A `Config.OnRequest` hook** called with each request's plan as it
-   is sent, for logging without calling `Plan` yourself.
-2. **More profiles, and a way to make them.** iOS Safari and Android
-   Chrome first, then Windows Chrome; the planned `profilegen derive` to
-   start a new version from the last, and documentation of what a user
-   capture needs to become a profile.
+A hook that logs each request's plan as it is sent is a
+[backlog](../backlog.md#tooling-and-tests) candidate.

@@ -1,6 +1,6 @@
 # Cookies
 
-Rough draft. Reference: `cookies/` (the package), [decision 0009](../decisions/0009-own-cookie-jar.md)
+Reference: `cookies/` (the package), [decision 0009](../decisions/0009-own-cookie-jar.md)
 (why our own jar), [decision 0012](../decisions/0012-cookie-rules-in-profiles.md)
 (the profile's rules), [the measurements](../../internal/harness/reports/cookies-2026-10-24.md).
 
@@ -126,7 +126,7 @@ Where browsers differ, from the profile (`cookies` in the JSON):
 | `knoeq` (no `=`) | value: sent `knoeq` | name: sent `knoeq=` | dropped |
 | `=x` (empty name) | value: sent `x`; `=__Secure-x`, `= __Host-x`, `=__secure-x` rejected | dropped | dropped |
 | UTF-8 values | as received | as received | re-encoded as Latin-1 |
-| Order | longer path, then older | same | longer path, `Domain` cookies first, then name |
+| Order | longer path, then older | same | `Partitioned` cookies first, then each group by longer path, `Domain` cookies first, then name |
 | A cookie replaced with a new value | becomes the newest (moves in the order) | keeps its creation time | (order is by name) |
 | SameSite across `http://` and `https://` of one host | cross-site (schemeful) | same-site | same-site |
 | `__Host-` without `Path` (default path `/`) | rejected: needs the attribute | rejected | kept |

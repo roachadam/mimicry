@@ -25,6 +25,12 @@ configured proxy must be defined to compose, not to race. Since
 [0014](0014-proxies.md) they do: `DialContext` opens the connection to the
 proxy, and the tunnel through it is the profile's.
 
+Host lookups are not the dial's: profiles that coalesce HTTP/2 connections
+on lookup (Chrome, Safari) resolve hosts through `Config.Resolver`, never
+through `DialContext` ([0023](0023-connection-limits-and-coalescing.md),
+[0037](0037-coalescing-opt-out.md)). A `DialContext` that maps hosts to
+addresses DNS does not give needs a `Resolver` that agrees with it.
+
 ## Revisit when
 
 A caller needs to dial the server's address itself while also using a

@@ -1,8 +1,8 @@
 # 0025: WebSockets as each browser opens and frames them
 
-- Status: Accepted
+- Status: Accepted; amended 2026-10-26 (`windowBits8`; WebSockets through proxies measured)
 - Date: 2026-10-24
-- Commits: (the WebSocket commit)
+- Commits: `5ff16c9`; amendments `806c93c`, `fc3964e`
 
 ## Problem
 
@@ -44,7 +44,7 @@ browsers, three samples each:
 - **An adapter to an existing Go WebSocket library.** Its API, and our
   framing behind it: more surface, someone else's semantics.
 - **A message-level connection** that owns framing, as the JavaScript
-  `WebSocket` does (the user's choice).
+  `WebSocket` does (chosen; the maintainer's decision).
 
 ## Decision
 

@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-24
-- Commits: (the wave-3 commit)
+- Commits: `02903e5`
 
 ## Problem
 

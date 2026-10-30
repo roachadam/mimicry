@@ -1,8 +1,8 @@
 # 0040: Idle HTTP/2 and HTTP/3 connections close; unused proxies and dropped Transports let theirs go
 
-- Status: Accepted
+- Status: Accepted; amended 2026-10-28 (`Config.IdleConnTimeout`, `pool.Shared.OnClose` instead of a watcher goroutine); amended 2026-10-29 (`Config.MaxIdleProxies`)
 - Date: 2026-10-28
-- Commits: (where it landed)
+- Commits: `ab07883`; amendments `fdc9b6f` (IdleConnTimeout), `db43d4a` (MaxIdleProxies)
 
 ## Problem
 
@@ -26,8 +26,8 @@ idle timeout. Each proxy URL has connections of its own
   Transport's connections and their goroutines alive for the same time:
   for HTTP/2, without bound.
 
-The user asked for idle connections to be cleaned up, and for the
-realistic pattern (a new client per identity) to be benchmarked.
+The maintainer's decision: idle connections are cleaned up, and the
+realistic pattern (a new client per identity) is benchmarked.
 
 ## Options
 
@@ -171,9 +171,10 @@ realistic pattern (a new client per identity) to be benchmarked.
 
 ## Consequences
 
-- No connection or goroutine outlives 90 s of idleness, and a rotating
-  client keeps at most its 16 most recent proxies' idle connections
-  beyond 10–20 s.
+- By default (no `Config.IdleConnTimeout` below zero, no
+  `Config.MaxIdleProxies`; see the amendments), no connection or goroutine
+  outlives 90 s of idleness, and a rotating client keeps at most its 16
+  most recent proxies' idle connections beyond 10–20 s.
 - A server whose own idle timeout is longer than 90 s sees mimicry close
   an idle HTTP/2 connection at 90 s, where the browser's time is not
   measured; listed in the backlog with the HTTP/1.1 value.
@@ -183,7 +184,7 @@ realistic pattern (a new client per identity) to be benchmarked.
   connections only at the idle timeout after they end.
 - `Transport` documents `CloseIdleConnections` for discarded clients.
 
-## Amendment: Config.IdleConnTimeout, and no watcher goroutine
+## Amendment 2026-10-28: Config.IdleConnTimeout, and no watcher goroutine
 
 - **`Config.IdleConnTimeout`.** The 90 s stays the default (zero); a
   positive value replaces it for HTTP/1.1, HTTP/2 and HTTP/3 alike, and a
@@ -226,9 +227,11 @@ realistic pattern (a new client per identity) to be benchmarked.
   (`internal/pool`) HTTP/1.1 and shared connections kept, and
   `CloseIdle` still closing them.
 
-## Amendment: Config.MaxIdleProxies (2026-10-29)
+## Amendment 2026-10-29: Config.MaxIdleProxies
 
-- **Problem.** In the final benchmark a client rotating to a new identity
+- **Problem.** In the benchmark at `c1f37ab`
+  ([linux-2026-10-29](../../internal/bench/reports/linux-2026-10-29/bench-2026-10-29.md))
+  a client rotating to a new identity
   every 10 requests (about every 120 ms) kept 1.8 MB of live heap and 76
   tunnels after 30 s, against azuretls's 64 KB (its `SetProxy` closes
   the old proxy's connections). The count (16) hardly mattered: the 10 s
@@ -264,7 +267,7 @@ realistic pattern (a new client per identity) to be benchmarked.
   still grew about 9 KB per client per second: each identity's TLS
   session ticket stays until it expires (the server's lifetime) and the
   pool remembers each connection key for 90 s (`KeyTimeout`), about 1.4
-  KB per identity (a heap profile diff over 400 identities on the Mac).
+  KB per identity (a heap profile diff over 400 identities on the M3 Pro laptop).
   So 1 does not reach azuretls's 67 KB; forgetting a swept proxy's
   tickets and keys is left open (backlog).
 - **Default kept**: the rotating client pays memory only (no CPU, rate or

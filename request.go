@@ -124,6 +124,8 @@ const (
 // Request describes how a page makes a request, for With. The zero value
 // is a typed-URL navigation.
 type Request struct {
+	// Kind is the kind of request the page makes (Navigate, Fetch, Image,
+	// ...): it picks the profile's headers, their order and values.
 	Kind Kind
 	// From is the page making the request: it decides sec-fetch-site,
 	// Origin and Referer. Nil means none for a navigation (a typed URL),

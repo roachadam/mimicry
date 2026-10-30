@@ -2,7 +2,9 @@
 
 How the `internal/harness/` module captures the real browsers, how a profile's
 generated sections are derived from those captures, and the harness's other
-tools. Commands run in `internal/harness/` unless they say otherwise. For the routine
+tools. Commands run in `internal/harness/`, and paths are relative to it,
+unless they say otherwise (`profiles/data/` and `cmd/profilegen` are at the
+repository root). For the routine
 job of bringing a profile up to a new browser version, use `cmd/refresh`
 ([Refreshing profiles](concepts/refreshing-profiles.md)); this page is what
 it runs underneath and what to do by hand. Why captures are the evidence:
@@ -14,7 +16,7 @@ captures: [decision 0035](decisions/0035-version-policy-and-capture-inheritance.
 
 `moon run harness:capture` launches every installed browser (Chrome,
 Firefox, Safari) against an in-process capture server and writes new
-captures to `internal/harness/testdata/captures/`. It never overwrites; delete a
+captures to `testdata/captures/`. It never overwrites; delete a
 capture to retake it. Use visible windows for captures you commit: headless
 Chrome reports `HeadlessChrome` in its user agent. moon skips this task
 when `CI=true`.
@@ -27,8 +29,8 @@ extension order, the capture records `"extensionOrder": "shuffled"`
 samples to tell). Any other difference between samples fails the capture:
 it is randomness a profile cannot describe and needs investigating.
 `-summary FILE` appends a JSON line per written scenario (profile name,
-user agent, samples, seconds); `-preflight` prints what a capture on this
-Mac needs (browser versions, console user, CA trust, resolver, aioquic,
+user agent, samples, seconds); `-preflight` prints what a capture on the
+capture Mac needs (browser versions, console user, CA trust, resolver, aioquic,
 Safari's proxy) as JSON and exits.
 
 The capture page loads like a site: a stylesheet, an image and a script on
@@ -44,11 +46,19 @@ The profile JSON still comes from the first request only.
 Chrome starts on `about:blank` and gets the capture URL 5 s later: a fresh
 profile rebuilds its certificate verifiers within seconds of launch and
 retires every open connection, which a long-running browser never shows a
-server (on the Mac mini, warm: rebuilds at 0.4–3 s after launch). A cold
+server (on the Mac mini used for captures, warm: rebuilds at 0.4–3 s after launch). A cold
 Mac can take longer: a single-host page whose finishing connection does not
 start with the navigation (`/`) moved connection partway, and the tool
 takes that sample again, up to twice, rather than record a subresource as
 the profile's request.
+
+`-chrome-app PATH` captures another Chrome build than
+`/Applications/Google Chrome.app`: Chrome for Testing, for a version no
+longer installable as the brand. Name such a capture
+`<name>.<scenario>.chrome-for-testing.pagetrace.json.gz`. The tools that
+list a profile's captures skip it; only hellogen's `http2.openingRecords`
+reads it, since the testing build shares the brand's network stack but not
+its headers ([decision 0042](decisions/0042-http2-opening-records.md)).
 
 ## Browser setup
 
@@ -85,7 +95,7 @@ the profile's request.
 
   To undo: `security remove-trusted-cert` with the same file, then delete
   the directory.
-- **The Mac mini** (your ssh alias; Chrome, Firefox and Safari 26) has
+- **The Mac mini** (reached as your ssh alias, `cmd/refresh -mini`; Chrome, Firefox and Safari 26) has
   no Go: `cmd/refresh` cross-compiles `cmd/capture` and `cmd/realcheck` for
   darwin/arm64 and copies them to `~/mimicry-capture/refresh-<stamp>/`
   there. It needs, once: its ssh user logged in at its screen (Screen
@@ -150,12 +160,12 @@ there). Chrome is clicked over the DevTools protocol
 their throwaway profiles. Safari is clicked through the system's mouse
 events (`CGEventPost`, after its window is brought to the front), which
 needs Accessibility access for the app running the tool; an ssh session has
-none, so the second Mac cannot take this scenario. The mouse moves to
+none, so a Mac driven over ssh (the Mac mini) cannot take this scenario. The mouse moves to
 Safari's window: leave the machine alone while it runs.
 
 ### Proxy scenarios
 
-Proxy scenarios (`proxy-*`) put the capture proxy (`internal/harness/internal/proxy`:
+Proxy scenarios (`proxy-*`) put the capture proxy (`internal/proxy`:
 HTTP CONNECT, absolute-form, SOCKS5, all recorded) in front of the server;
 a scenario with a plain port gets what goes to that port (tunnels and
 absolute-form requests) on the server's plain side, as if the proxy had
@@ -170,8 +180,8 @@ changes no networking prefs), as a user typing into the login dialog.
 Safari takes its proxy from the system: point the active network service at
 the tool's PAC script once, which proxies only `*.test`, and turn it off
 after (the first run after setting it may time out while Safari fetches the
-script; run again; on these Macs `networksetup` changed it without
-`sudo`):
+script; run again). The commands below use `sudo`; an administrator
+account may not need it:
 
 ```sh
 sudo networksetup -setautoproxyurl <service> http://127.0.0.1:15356/mimicry.pac
@@ -273,7 +283,7 @@ built-in through `profiles.ByName`, which parses it
 (`TestCapturesFromNamesCapturedScenarios`). Captures record one connection
 and are not complete profiles, so the harness loads them with
 `profile.Decode`. A profile without a matching capture in
-`internal/harness/testdata/captures/` is not finished.
+`testdata/captures/` is not finished.
 
 A new version starts as a copy of the previous one
 ([decision 0004](decisions/0004-complete-profile-files.md)): replace every
@@ -289,8 +299,11 @@ three generators in this order, each with
 `-profile ../../profiles/data/<name>.json` and each refusing a sample its rule
 does not describe:
 
-1. `go run ./cmd/hellogen`: the ClientHello's shape; also `tls.quic`, the
-   QUIC ClientHello, from every h3 connection's hello,
+1. `go run ./cmd/hellogen`: the ClientHello's shape; also
+   `http2.openingRecords`, how the browser cuts a new HTTP/2 connection's
+   opening into TLS records (from every connection whose first request was
+   waiting as it opened, testing-build captures included; decision 0042),
+   `tls.quic`, the QUIC ClientHello, from every h3 connection's hello,
    `tls.quic.versionNegotiation`, Firefox's other hello after Version
    Negotiation, from the `h3-vn` captures, and `tls.websocketH1` from the
    `websocket` capture.
@@ -384,7 +397,7 @@ same traces.
   captures any other client: it runs the command three times, each against
   a fresh server, keeps each run's first connection that carried a
   request, and writes the combined capture (logging, not failing, when the
-  client varies where browsers do not). `internal/harness/reports/` holds
+  client varies where browsers do not). `reports/` holds
   comparisons made with it; date them, name the client versions, and keep
   the captures in `testdata/clients/`.
 - `go run ./cmd/interop -local` or `-public` (opt-in, never part of
@@ -397,7 +410,7 @@ same traces.
   fresh and a resumed QUIC connection). `-servers`, `-cases`, `-sites` and
   `-profiles` narrow a run; `-addr PORT -setup DIR` reruns the cases
   against a container started by hand. Results go to
-  `internal/harness/reports/quic-interop-<date>.md`.
+  `reports/quic-interop-<date>.md`.
 - `go run ./cmd/realcheck` (opt-in, never part of `go test`; needs the
   network) compares mimicry with the real browsers as public
   fingerprinting services see them: every supported profile (or those
@@ -418,4 +431,4 @@ same traces.
   (shuffled extension and transport parameter order, GREASE ECH lengths and
   suites, random packet numbers) told apart from differences.
   `-echo=false -sites=false -profiles none` only compares. Results go to
-  `internal/harness/reports/realcheck-<date>.md`.
+  `reports/realcheck-<date>.md`.

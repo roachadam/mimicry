@@ -26,8 +26,9 @@ workspace:
     exclude: ['test', 'test-full']
 
 tasks:
-  # Layers 1-2: go test -bench in the client container, -count 10, then
-  # benchstat; writes reports/micro-<date>.txt and -benchstat.txt.
+  # Layers 1-2: go test -bench in the client container, BENCH_COUNT (6)
+  # passes of -count 1, then benchstat; writes reports/micro-<date>.txt and
+  # -benchstat.txt.
   micro:
     description: 'Benchmark layers 1-2 (per request, per connection) with benchstat'
     command: 'bash scripts/bench.sh micro'

@@ -2,11 +2,11 @@
 
 - Status: Accepted
 - Date: 2026-10-26
-- Commits: `68e2255` (first design), then the commit that adds `SetHostString` (the scope rework)
+- Commits: `68e2255` (first design), `2242345` (`SetHostString`, the scope rework)
 
 ## Problem
 
-Retail automation moves cookies between tools: a `Cookie` header string
+Automating user actions on sites moves cookies between tools: a `Cookie` header string
 kept in a database, a solver's `[]*http.Cookie`, a harvested browser's
 session. With bogdanfinn/tls-client these go in with
 `client.SetCookies(u, cookies)` and come out with `client.GetCookies(u)`
@@ -18,7 +18,7 @@ every codebase wrote the same loop and made the choices differently.
 
 Some codebases also send one cookie value to every host (a flag, an
 experiment bucket, a token a proxy layer reads). No browser has such a
-cookie. The rule for deviations (the user's): defaults reproduce the
+cookie. The rule for deviations: defaults reproduce the
 browser exactly; a deliberate deviation is allowed but must be explicit
 and visible in the caller's code.
 

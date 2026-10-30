@@ -1,8 +1,8 @@
 # Backlog: known gaps and deferred work
 
 Every known way mimicry differs from the browsers it imitates, every
-behaviour no capture has measured yet, and every open item from reviews
-and handoffs, in one place. By
+behaviour no capture has measured yet, and every open item from reviews,
+in one place. By
 [decision 0029](decisions/0029-scope-what-gets-modelled.md), a behaviour is
 modelled only if an anti-bot vendor plausibly checks it or a user would
 notice it (a stall, a failure, an error). Everything else waits here until
@@ -11,10 +11,12 @@ there is a reason to close it.
 The ledger ([`profiles/EVIDENCE.md`](../profiles/EVIDENCE.md)) stays the
 record of what the profiles claim and the evidence behind each claim. This
 file is the to-do list. The pinned gap tables in the tests and generators
-(`sampleGaps`, `partitionGaps`, `headersOrderGaps`, `redirectsLineGaps`,
-`h3Gaps`, `h3EdgeGaps`, `h3EdgeSchedulingGaps`, `h3PriorityGaps`,
-`raceCookieLabels`, `missingCaptures`) say which differences the tests
-tolerate; each one appears here too.
+say which differences the tests tolerate; each one appears here too:
+`sampleGaps` (h3gen and kindsgen), `partitionGaps`, `headersOrderGaps`,
+`connectionsPreconnects`, `redirectsLineGaps`, `redirectsMerged`,
+`redirectsReload`, `h3Gaps`, `h3EdgeGaps`, `h3EdgeSchedulingGaps`,
+`h3EdgeFastGaps`, `h3PriorityGaps`, `raceCookieLabels` and
+`missingCaptures`.
 
 ## How to read an entry
 
@@ -30,9 +32,8 @@ tolerate; each one appears here too.
   wrong result.
 - **Close:** the capture or change it needs, and a rough size (small: a
   day or less; medium: a few days; large: a week or more).
-- **Source:** where the gap is recorded. `HANDOFF.md` and
-  `REVIEW-2026-10-24.md` are working notes kept beside the repository, not
-  in it.
+- **Source:** where the gap is recorded in this repository: a decision, a
+  report, the ledger or the test that pins it.
 
 Within each area, entries that are plausibly detection-relevant or
 user-visible come first. When an item is closed, delete it here and update
@@ -64,7 +65,7 @@ These matter most under decision 0029:
     scope. Running on macOS, or through a proxy on macOS, is the
     practical fix.
   - Source: [EVIDENCE.md, Not covered](../profiles/EVIDENCE.md#not-covered-by-any-claim)
-    ("TLS and below"); HANDOFF.md (TCP/IP fingerprint).
+    ("TLS and below").
 - **Real ECH** (Chrome, Firefox).
   - Differs: mimicry always sends GREASE ECH. A browser that finds an ECH
     config in the site's DNS HTTPS record sends real ECH instead.
@@ -75,7 +76,7 @@ These matter most under decision 0029:
     [DNS discovery of HTTP/3](#http3-and-quic)), a capture against an ECH
     server, and the inner-hello layout per browser; large.
   - Source: [EVIDENCE.md, Not covered](../profiles/EVIDENCE.md#not-covered-by-any-claim)
-    ("ECH payloads"); HANDOFF.md (ECH, study later).
+    ("ECH payloads").
 - **Firefox's resumed GREASE ECH payload size** (Firefox).
   - Differs: the profile fixes the payload of a resumed hello at 400
     bytes (432 over QUIC), measured against the capture server's tickets.
@@ -99,7 +100,7 @@ These matter most under decision 0029:
   - Close: a `websocket` capture against a host with no earlier
     connection; small.
   - Source: [EVIDENCE.md, TLS ClientHello](../profiles/EVIDENCE.md#tls-clienthello)
-    and Not covered (WebSockets); HANDOFF.md (step 13).
+    and Not covered (WebSockets).
 - **HelloRetryRequest cookie position** (Chrome).
   - Differs: the uTLS fork (patch 2) puts the cookie extension of the
     second hello at a random unpinned position. BoringSSL places it by
@@ -112,7 +113,7 @@ These matter most under decision 0029:
   - Close: the fingerprint plan picks the cookie's slot in its
     permutation, and a fork hook places it there; small to medium.
   - Source: [EVIDENCE.md, Behaviour in code](../profiles/EVIDENCE.md#behaviour-in-code-not-in-profiles);
-    `internal/fingerprint/plan.go`; HANDOFF.md (known gaps).
+    `internal/fingerprint/plan.go`.
 - **Resumption forms never captured** (all).
   - Differs: 0-RTT over TCP TLS, several tickets in use at once, and
     session-ID resumption with a server that issues no tickets. mimicry
@@ -131,7 +132,7 @@ These matter most under decision 0029:
   - Close: a long-running `resume-tls12` capture; small, slow to run.
   - Source: [decision 0013](decisions/0013-tls-resumption.md);
     [EVIDENCE.md, Not covered](../profiles/EVIDENCE.md#not-covered-by-any-claim)
-    (Connections); `internal/handshake/tickets.go`; REVIEW B4.
+    (Connections); `internal/handshake/tickets.go`.
 - **The resumed hello's record version** (all).
   - Differs: assumed to be 0x0301, like the full hello, because uTLS
     writes both alike. Every browser capture agrees, but mimicry's own
@@ -184,16 +185,26 @@ These matter most under decision 0029:
   - Close: a `kinds-plain` run with cookies set; small.
   - Source: [EVIDENCE.md, Not covered](../profiles/EVIDENCE.md#not-covered-by-any-claim)
     (Headers).
-- **The 90 s idle timeout** (all).
-  - Differs: an idle HTTP/1.1 connection is closed after 90 s, and a host
-    with no connections is forgotten after 90 s (including that it speaks
-    HTTP/1.1 only). Neither value is measured. HTTP/2 and HTTP/3 use the
-    same value: see "How long an idle HTTP/2 connection stays open".
-  - Shows: sessions with pauses longer than 90 s.
+- **Idle timeouts** (all).
+  - Differs: an idle connection is closed after `Config.IdleConnTimeout`
+    (90 s by default) on every protocol: HTTP/1.1 and HTTP/2 after their
+    last request ended (Firefox profiles send GOAWAY first, as Firefox
+    lets its HTTP/2 connection go once HTTP/3 is up; Chrome and Safari
+    close alone), and HTTP/3 silently when QUIC's own idle timeout is
+    longer (Safari's). A host with no connections is forgotten after the
+    same time (including that it speaks HTTP/1.1 only). No capture shows
+    a browser closing an idle connection (the longest gap captured is
+    35 s), so the value and Chrome's and Safari's way of closing are not
+    measured.
+  - Shows: sessions with pauses longer than 90 s, against servers that
+    keep idle connections longer.
   - Detection: low. User-visible: no.
-  - Close: a `slow-idle`-style capture over HTTP/1.1; small.
-  - Source: [EVIDENCE.md, Not covered](../profiles/EVIDENCE.md#not-covered-by-any-claim)
-    (Connections); [decision 0020](decisions/0020-connection-pool-package.md).
+  - Close: a long idle capture per browser, over HTTP/1.1 and HTTP/2
+    (a `slow-idle`-style capture); small, slow to run.
+  - Source: [decision 0040](decisions/0040-idle-connection-cleanup.md);
+    [decision 0020](decisions/0020-connection-pool-package.md);
+    [EVIDENCE.md, Not covered](../profiles/EVIDENCE.md#not-covered-by-any-claim)
+    (Connections).
 
 ## HTTP/2
 
@@ -226,7 +237,9 @@ These matter most under decision 0029:
     26 `kinds` and `nav-redirect-page`, staged 2026-10-28) is as common.
     User-visible: no.
   - Close: a `Config` option to connect ahead of the first request
-    (preconnect), with the browser's delay; medium.
+    (preconnect), with the browser's delay; medium. Chrome's extra
+    connection per page is the same mechanism: see
+    [Chrome's preconnect](#connections-and-pool).
   - Source: [EVIDENCE.md, HTTP/2 connection](../profiles/EVIDENCE.md#http2-connection)
     (`openingRecords`); [decision 0042](decisions/0042-http2-opening-records.md).
 - **Chrome's re-prioritisation** (Chrome).
@@ -274,20 +287,6 @@ These matter most under decision 0029:
   - Detection: low. User-visible: no.
   - Close: captures to find the cause; medium.
   - Source: `h3EdgeGaps` in [`http3_edge_test.go`](../internal/harness/e2e/http3_edge_test.go).
-- **How long an idle HTTP/2 connection stays open, and how it closes**
-  (all).
-  - Differs: mimicry closes an HTTP/2 connection 90 s after its last
-    request ended (Firefox profiles with GOAWAY first, as Firefox lets its
-    HTTP/2 connection go once HTTP/3 is up; Chrome and Safari with the
-    close alone), and an HTTP/3 connection silently at 90 s when QUIC's
-    own idle timeout is longer (Safari's). No capture shows a browser
-    closing an idle HTTP/2 connection (the longest gap captured is 35 s);
-    the value and Chrome's and Safari's way of closing are not measured.
-  - Shows: sessions with pauses longer than 90 s, against servers that
-    keep idle connections longer.
-  - Detection: low. User-visible: no.
-  - Close: a long idle capture per browser; small, slow to run.
-  - Source: [decision 0040](decisions/0040-idle-connection-cleanup.md).
 - **An HTTP/2 PING keep-alive** (considered, not added).
   - Differs: nothing; tls-client sets net/http2's `ReadIdleTimeout`,
     which PINGs an idle connection every interval to keep it open and
@@ -296,7 +295,7 @@ These matter most under decision 0029:
     idle connection are wire traffic no browser sends in that pattern.
   - Shows: would show to servers counting PINGs on idle connections.
   - Detection: medium if added. User-visible: a dead idle connection is
-    found by the next request on it, not before.
+    found by the next request on it, not before (see the next entry).
   - Close: add only if a browser is captured doing it.
   - Source: [decision 0040](decisions/0040-idle-connection-cleanup.md)
     (Amendment).
@@ -308,9 +307,9 @@ These matter most under decision 0029:
   - Detection: none (it is the browser's behaviour). User-visible: yes,
     a request stalls until its context ends.
   - Close: nothing to capture. `NewClient`'s 30 s `Config.Timeout`
-    bounds it; a Transport used directly needs a request deadline.
-  - Source: HANDOFF.md (HTTP/2 health checks);
-    [EVIDENCE.md, HTTP/2 connection](../profiles/EVIDENCE.md#http2-connection)
+    bounds it; a Transport used directly needs a request deadline. A
+    periodic PING keep-alive is not added (previous entry).
+  - Source: [EVIDENCE.md, HTTP/2 connection](../profiles/EVIDENCE.md#http2-connection)
     (`idlePingMs`).
 - **Upload DATA chunking after the first 64 KiB** (all; Firefox
   entirely).
@@ -322,8 +321,7 @@ These matter most under decision 0029:
   - Detection: low. User-visible: no.
   - Close: upload captures of several sizes, and a chunking model;
     medium.
-  - Source: [EVIDENCE.md, Behaviour in code](../profiles/EVIDENCE.md#behaviour-in-code-not-in-profiles);
-    HANDOFF.md (known gaps).
+  - Source: [EVIDENCE.md, Behaviour in code](../profiles/EVIDENCE.md#behaviour-in-code-not-in-profiles).
 - **Credit return timing** (Firefox, Safari).
   - Differs: mimicry returns credit at the profile's threshold. Firefox's
     stream credit follows how fast the page reads (16 KiB to 4 MiB);
@@ -333,8 +331,7 @@ These matter most under decision 0029:
   - Shows: large downloads.
   - Detection: low. User-visible: no.
   - Close: model read-paced credit from a download capture; medium.
-  - Source: [EVIDENCE.md, HTTP/2 connection](../profiles/EVIDENCE.md#http2-connection);
-    HANDOFF.md (known gaps).
+  - Source: [EVIDENCE.md, HTTP/2 connection](../profiles/EVIDENCE.md#http2-connection).
 - **REFUSED_STREAM** (Chrome).
   - Differs: mimicry stops using a connection on REFUSED_STREAM and sends
     the request on another. Chrome retries on the same session
@@ -380,7 +377,7 @@ These matter most under decision 0029:
     captured restarting with a saved alternative. Firefox's source (a
     lead) marks saved alternatives validated and sends the first request
     on HTTP/3 directly; Chrome's delays its TCP job by 1.5 × a saved
-    smoothed RTT ([decision 0028](decisions/0028-quic-failure-model.md)).
+    smoothed RTT (see Chrome's TCP delay from the smoothed RTT, below).
     Broken alternatives (Chrome saves them too) are not shared or saved.
   - Shows: a returning visit through a shared or loaded cache.
   - Detection: low; Firefox's first request goes on TCP where the browser
@@ -399,7 +396,8 @@ These matter most under decision 0029:
   - Detection: none. User-visible: a stall of up to 30 s.
   - Close: a dead-path signal for Firefox (no acknowledgement for N
     PTOs, as Chrome's `pathDegrading`) and a rule for when to resend;
-    medium.
+    medium. Firefox's migration is the other half: see Migration by
+    Firefox and Safari, below.
   - Source: [concepts/http3.md, fast fallback](concepts/http3.md#fast-fallback-the-default).
 - **Safari over HTTP/3** (Safari 27, 26).
   - Differs: only Safari's `fetch()` was measured over HTTP/3, so its
@@ -411,7 +409,9 @@ These matter most under decision 0029:
   - Detection: medium; Safari's page loads look like TCP-only clients.
     User-visible: no.
   - Close: an `h3-page` capture where Safari uses QUIC for more kinds,
-    against a server offering a QPACK table; medium.
+    against a server offering a QPACK table; medium. Its unmeasured loss
+    and close values are listed below (Safari's handshake loss timing,
+    Safari's other unmeasured QUIC values).
   - Source: [concepts/http3.md, Not measured](concepts/http3.md#not-measured);
     [http3 report](../internal/harness/reports/http3-2026-10-25.md);
     [EVIDENCE.md, QUIC and HTTP/3](../profiles/EVIDENCE.md#quic-and-http3).
@@ -475,54 +475,25 @@ These matter most under decision 0029:
   - Source: `h3EdgeGaps` in [`http3_edge_test.go`](../internal/harness/e2e/http3_edge_test.go).
 - **A response that stops mid-stream on a live HTTP/3 connection** (all;
   seen with Chrome's profile against nginx).
-  - Differs: unknown whether a browser does the same. A request waits
-    in `h3` (`readResponse` or `body.Read`, in `quic.Stream.Read`) with
-    no bound but its context. The server sent part of the response
-    stream and then nothing more for 60+ s, while it went on
-    acknowledging the keep-alive PINGs that a waiting request sends
-    (`quic.Conn.KeepAlive`), so the connection never idles out. Client
-    state when it was stuck (one case): stream 12 had received [0, 765)
-    of about 1,226 bytes, with no FIN and nothing missing in between. The
-    client had seen every server packet number with no gap ([0, 10), then
-    [0, 12) after two PINGs), had all its own packets acknowledged, and
-    had no PTO armed. So the server stopped sending; the client lost
-    nothing it can see. In another case the server stopped 10 bytes into
-    the response's HEADERS. Why the server (nginx 1.31.8, OpenSSL 3.5.7)
-    holds the rest back is not established: a congestion or flow-control
-    state on its side, or something in the client's ACKs or credit that
-    triggers one, are candidates.
-  - Shows: benchmark layer 6, client rotation, HTTP/3 through SOCKS5,
-    dropped clients, at 196526b (before decision 0040). It was stuck once
-    in the first run at 4 CPUs. Rerunning the setup did not reproduce
-    it: 0 stuck in 14 points at 4 CPUs (7 dropped, 7 closed; one pair
-    was the whole original sequence under host CPU load), 0 in 2 at
-    2 CPUs, and 0 in 10 points at HEAD. With the client container on
-    1 CPU (`BENCH_CLIENT_CPUS=0 BENCH_CLIENT_PROCS=1`, dropped clients)
-    it was stuck in 3 of 30 points, each time one request among about
-    87,000.
-    Not seen in-process against quic-go
-    (`TestQUICInterop`-style stress: rotation through the test SOCKS5
-    relay, 2–15% loss, dropped, closed and direct), where the longest
-    request was 38 s at 15% loss.
+  - Differs: unknown whether a browser does the same. The server (nginx
+    1.31.8, OpenSSL 3.5.7) sent part of a response and then nothing for
+    60+ s while acknowledging the waiting request's keep-alive PINGs
+    (`quic.Conn.KeepAlive`), so the connection never idles out. The
+    client had received every server packet, had its own acknowledged
+    and no PTO armed: the server stopped sending. Why is not established.
+  - Shows: benchmark layer 6 (rotation, HTTP/3 through SOCKS5, dropped
+    clients) at 196526b: once in the first run; then 0 in 10 points at
+    ab07883, and with the client on 1 CPU in 3 of 30 points (one request
+    in about 87,000 each). Not seen against quic-go under 2–15% loss.
   - Detection: none. User-visible: yes, a request without a deadline
     hangs; `NewClient`'s client times out after 30 s by default
-    (`Config.Timeout`), a Transport used directly needs a context
-    deadline or its own client's `Timeout`.
-  - Close: capture both sides of a stuck connection: a qlog of the client
-    and nginx's debug log, or a decrypted capture at the proxy, from the
-    1-CPU repro. The H3Stall investigation's stall watch and receive ring
-    (`quic.Stream`/`Conn` state dumped after 10 s of a stuck read) were
-    throwaway instrumentation. Medium.
+    (`Config.Timeout`).
+  - Close: capture both sides of a stuck connection (a client qlog and
+    nginx's debug log, or a decrypted capture at the proxy) from the
+    1-CPU repro; medium.
   - Source: [multiclient-rotation report](../internal/bench/reports/multiclient-rotation-2026-10-28.md)
-    ("Possible mimicry stall"); the H3Stall investigation (2026-10-28).
-    That report guessed that connections live as long as the dialling
-    request's context. That is not so: nothing in the QUIC, h3 or SOCKS5
-    dial binds to it (`startAttempt` dials on a background context;
-    `ListenUDPVia` stops watching its context once the association is
-    up). Sampled every second after the window, the dropped clients'
-    12,000 associations and 120,000 goroutines go away at QUIC's 30 s
-    idle timeout, over the following 20 s, at the rate they were opened.
-    In that first run the end was read 60 s later, after the cancel.
+    (Layer 6, "Errors, protocol and load": routines stuck a minute after
+    the window).
 - **nginx drops Chrome's port migration** (Chrome).
   - Differs: nothing; mimicry migrates as Chrome does. When a path counts
     as degrading (4 PTOs without an ACK), the connection moves to a new
@@ -539,15 +510,16 @@ These matter most under decision 0029:
   - Shows: a path that stops acknowledging for 4 PTOs, a loaded client
     process included, against such an nginx.
   - Detection: none. User-visible: yes, a 30 s stall per migration (the
-    browser's own wait there was 54–61 s, `Chrome's blackhole detection`
-    below).
+    browser's own wait there was 54–61 s: see Chrome's blackhole
+    detection, below).
   - Close: a capture of Chrome migrating against nginx; nothing in
     mimicry unless the browser is seen to behave differently. Small.
-  - Source: the H3Stall investigation (2026-10-28).
+  - Source: the benchmark's HTTP/3 rows through SOCKS5 (no report
+    records the forced-migration runs).
 - **nginx refuses about 1 in 6,000 Chrome handshakes: "missing transport
   parameters"** (Chrome).
   - Differs: unknown. In about 23,600 Chrome-profile handshakes through
-    the benchmark's SOCKS5 proxy at HEAD, nginx closed 4 with
+    the benchmark's SOCKS5 proxy at ab07883, nginx closed 4 with
     CRYPTO_ERROR 0x16d ("missing transport parameters") on the first
     round trip, 40–47 ms in. Every hello carries
     `quic_transport_parameters` (`startClientTLS` sets it before
@@ -558,15 +530,20 @@ These matter most under decision 0029:
     origin is broken for the Transport, and its requests stay on TCP.
   - Close: capture a failing first flight (decrypted at the proxy) and
     replay it against nginx; small to medium.
-  - Source: the H3Stall investigation (2026-10-28).
+  - Source: the benchmark's HTTP/3 rows through SOCKS5 (no report
+    records it).
 - **Chrome's blackhole detection** (Chrome).
   - Differs: when the path Chrome migrated to dies too, Chrome closes
-    with `85:Network blackhole detected` and sends the stuck request
-    again on a new TCP connection. mimicry keeps waiting on QUIC.
-  - Shows: a server or path that goes silent mid-connection.
-  - Detection: low (failure path). User-visible: yes, the request hangs
-    until its context ends instead of recovering over TCP.
-  - Close: model it from `h3-broken`, already captured; medium.
+    with `85:Network blackhole detected` after 54–61 s and sends the
+    stuck request again on a new TCP connection. mimicry waits for QUIC's
+    30 s idle timeout, then sends it on TCP (`pending: tcp`), without
+    Chrome's close.
+  - Shows: a server or path that goes silent mid-connection (see nginx
+    drops Chrome's port migration, above).
+  - Detection: low (failure path). User-visible: no; mimicry recovers
+    sooner than Chrome.
+  - Close: model the close and its timing from `h3-broken`, already
+    captured; medium.
   - Source: `h3EdgeGaps` in [`http3_edge_test.go`](../internal/harness/e2e/http3_edge_test.go);
     [decision 0028](decisions/0028-quic-failure-model.md).
 - **How long an origin stays broken** (all; Chrome by source).
@@ -625,7 +602,7 @@ These matter most under decision 0029:
     medium. Check the two 30 s runs' traces with the key log first
     (small).
   - Source: [quic-interop report](../internal/harness/reports/quic-interop-2026-10-25.md);
-    `profile/quic.go`.
+    `internal/quic/client_loss.go` (`initialPTO`).
 - **Firefox's v2 resumption against older lsquic** (Firefox).
   - Differs: on www.litespeedtech.com a resumed v2 connection fails:
     lsquic sends a Retry with v1 type bits, mimicry never sees it, and the
@@ -657,8 +634,7 @@ These matter most under decision 0029:
     be kwik's bug, not decrypted to confirm).
   - Detection: none. User-visible: yes, occasionally, as in Chrome.
   - Close: nothing, except confirming the kwik trace (small).
-  - Source: [quic-interop report](../internal/harness/reports/quic-interop-2026-10-25.md);
-    HANDOFF.md (step 18).
+  - Source: [quic-interop report](../internal/harness/reports/quic-interop-2026-10-25.md).
 - **Retry from the browser's side** (all).
   - Differs: no capture shows a browser answering a server's Retry.
     mimicry follows the QUIC stack's RFC 9000 path.
@@ -701,8 +677,7 @@ These matter most under decision 0029:
     match.
   - Close: resumed-probe rules from `h3-broken`, already captured;
     medium.
-  - Source: `h3EdgeGaps` in [`http3_edge_test.go`](../internal/harness/e2e/http3_edge_test.go);
-    HANDOFF.md (step 18).
+  - Source: `h3EdgeGaps` in [`http3_edge_test.go`](../internal/harness/e2e/http3_edge_test.go).
 - **Chrome's NEW_TOKEN cache** (Chrome).
   - Differs: Chrome's 0-RTT reconnection after 35 s idle carried no
     NEW_TOKEN token in 2 of 3 samples, though the first connection had
@@ -713,13 +688,17 @@ These matter most under decision 0029:
   - Shows: QUIC reconnections after idle.
   - Detection: low. User-visible: no.
   - Close: captures of Chrome's token cache rules; medium.
-  - Source: `sampleGaps` in `internal/harness/cmd/h3gen/load.go`; `profile/quic.go`.
+  - Source: `sampleGaps` in `internal/harness/cmd/h3gen/load.go`;
+    `profile/quic.go` (`Tokens`).
 - **Chrome's late PRIORITY_UPDATE on the Mac mini** (Chrome 156).
   - Differs: in 3 of the mini's `h3-discovery` samples the server read a
     request's PRIORITY_UPDATE 1 ms after its HEADERS (another datagram);
     everywhere else, and in a 2-sample check on the other Mac, it came
-    first. mimicry always sends it first. Likely the slower Mac's packet
-    flushing (unconfirmed).
+    first. mimicry sends it first (both are flushed under one cork,
+    control stream first), though one test flake showed otherwise (see
+    load flakes in the HTTP/3 page tests, under
+    [Tooling and tests](#tooling-and-tests)). Likely the slower Mac's
+    packet flushing (unconfirmed).
   - Shows: HTTP/3 requests on a busy or slow client.
   - Detection: low. User-visible: no.
   - Close: the datagram each frame came in, or more samples on both Macs;
@@ -743,14 +722,17 @@ These matter most under decision 0029:
   - Detection: low (timing). User-visible: no.
   - Close: a capture over a real network; medium.
   - Source: [concepts/http3.md](concepts/http3.md#when-quic-fails);
-    [decision 0028](decisions/0028-quic-failure-model.md).
+    [decision 0028](decisions/0028-quic-failure-model.md). A saved
+    alternative's smoothed RTT is the same rule (a returning browser's
+    first request, above).
 - **Migration by Firefox and Safari** (Firefox, Safari).
   - Differs: neither was seen migrating, so neither profile does. Chrome's
     port migration is modelled.
   - Shows: NAT rebinding or a path dying mid-connection.
   - Detection: low. User-visible: possibly a stall (Firefox waits for its
     30 s idle timeout, then TCP).
-  - Close: a capture under NAT rebinding; medium.
+  - Close: a capture under NAT rebinding; medium. Firefox's dead-path
+    wait is listed above (dead-path waits).
   - Source: [concepts/http3.md, Not measured](concepts/http3.md#not-measured).
 - **Long and slow transfers** (all).
   - Differs: key updates beyond 37,000 received packets and credit growth
@@ -770,7 +752,7 @@ These matter most under decision 0029:
   - Shows: sending rate on long transfers.
   - Detection: low. User-visible: no.
   - Close: real-network captures; large.
-  - Source: HANDOFF.md (step 18); [decision 0027](decisions/0027-quic-base.md).
+  - Source: [decision 0027](decisions/0027-quic-base.md).
 - **Keep-alive against a short server idle timeout** (all).
   - Differs: against a server idle timeout under 30 s, mimicry pings at
     half of it while a request waits; what browsers do there is not
@@ -785,7 +767,8 @@ These matter most under decision 0029:
     give-up and probe kind were never seen (TCP won first).
   - Shows: lossy networks and server closes.
   - Detection: low. User-visible: no.
-  - Close: h3-edge captures where QUIC wins; medium.
+  - Close: h3-edge captures where QUIC wins; medium. See also Safari's
+    handshake loss timing and Safari over HTTP/3, above.
   - Source: [EVIDENCE.md, QUIC and HTTP/3](../profiles/EVIDENCE.md#quic-and-http3);
     `internal/quic/client_loss.go`.
 - **`requestsAfterConfirmed` for Chrome and Firefox** (Chrome,
@@ -816,18 +799,17 @@ These matter most under decision 0029:
     the host name); the profile's rule covers fresh hellos.
   - Detection: low. User-visible: no.
   - Close: more resumed samples; small.
-  - Source: HANDOFF.md (step 18).
+  - Source: [EVIDENCE.md, QUIC and HTTP/3](../profiles/EVIDENCE.md#quic-and-http3)
+    (`quic.crypto`).
 - **Gaps in the QUIC stack** (all).
   - Differs: the server's `preferred_address` is not used; its
-    `stateless_reset_token`, `max_udp_payload_size` and
-    `disable_active_migration` are parsed but not acted on (Chrome-style
-    migration does not appear to check the last: [INFERENCE] from
-    `client_path.go`); no STREAMS_BLOCKED is sent.
+    `max_udp_payload_size` and `disable_active_migration` are parsed but
+    not acted on (Chrome-style migration does not appear to check the
+    last: [INFERENCE] from `client_path.go`); no STREAMS_BLOCKED is sent.
   - Shows: servers that rely on those features.
-  - Detection: low. User-visible: possibly; a stateless reset is not
-    recognised, so the connection waits for its idle timeout.
+  - Detection: low. User-visible: no.
   - Close: medium.
-  - Source: `internal/quic/doc.go`;
+  - Source: `internal/quic/client_path.go`, `internal/quic/conn_id.go`;
     [`internal/quic/UPSTREAM.md`](../internal/quic/UPSTREAM.md).
 - **Opaque transport parameters** (Firefox, Safari).
   - Differs: nothing on the wire; what Firefox's `0x1d` and Safari 26's
@@ -852,76 +834,37 @@ These matter most under decision 0029:
     [EVIDENCE.md, QUIC and HTTP/3](../profiles/EVIDENCE.md#quic-and-http3).
 - **HTTP/3 bulk throughput against nginx** (Chrome; performance).
   - Differs: nothing on the wire. nginx serves a connection from one
-    worker, one core, and at 100 KB and 10 MB that worker is saturated,
-    so throughput is one core over nginx's CPU per byte, which follows the
-    datagrams the client sends it. nginx is ACK-clocked: after each ACK
-    it sends what the ACK released in one GSO write (the client's veth
-    receives 10-segment bursts from Chrome's ACK every 10 packets, 20 for
-    every 20, 32 for quic-go), and each client datagram costs it about
-    4 µs (fit over the runs below). Measured at 10 MB and 64 at once
-    (2026-10-28, 4 s windows; server datagrams per client datagram, then
-    MB/s): mimicry as Chrome 9.95, 996; every 20 (overlay, not kept)
-    19.8, 1329; every 2 (overlay) 2.0, 498, nginx's socket overflowing
-    (+25,000 `RcvbufErrors`); tls-client 9.2 to 22.4 between runs, 959
-    to 1342, nginx's CPU per byte equal to mimicry's at equal ratios. At
-    100 KB the same: 7,908 req/s as Chrome, 9,616 every 20, tls-client
-    8,697. quic-go's every-2 rule (`packetsBeforeAck`) only queues the
-    ACK; it goes out once the loop has handled up to 32 queued packets
-    (`maxPacketsToProcess`), hence its larger, varying ratio. Chrome's
-    every 10 is captured (97% of its h3-download ACKs advance by exactly
-    10), the ACK Delay field is 0-8 µs (no RTT inflation), MAX_DATA leaves
-    at its crossing: no deviation from Chrome. At 256 at once both clients
-    get about 420k datagrams/s (tls-client sending twice as many ACKs):
-    nginx's per-stream work, not ACKs. The fast bench's "collapse" there
-    (2-5 requests/s against 64) was the benchmark counting requests that
-    ended inside its 3 s window: nginx shares the bandwidth evenly between
-    Chrome's 6 MB-window streams, so all 256 end together about every 4 s.
-    It now counts the bytes that arrive in the window (58 against 57
-    requests/s). Drops: a few thousand `RcvbufErrors` per point, most at
-    the connection's start
-    (nginx's slow start against the default ~450 KB buffer), then
-    0.1-0.6%. On Linux (the Linux test host, 2026-10-29, `rmem_max` raised, so
-    granted twice the request), the buffer splits by concurrency at
-    100 KB. At 64 at once, the OS's 208 KB ran about 4,300 req/s, 1 MB
-    (now the default, Chrome's) 4,725-4,864, 2 MB 5,957-6,901, and 7 MB
-    7,794-8,653 (tls-client about 7,500). At 256 at once, 7 MB fell to
-    1,736-2,682 and 2 MB in two runs of three, against about 3,550: the
-    client answers its backlog in ACK bursts that overflow nginx's socket
-    (11% of its datagrams), its congestion window falls to two packets,
-    and MAX_DATA waits behind it (up to 45 ms) while nginx idles on flow
-    control (256 × 100 KB exceeds Chrome's 15 MB connection window).
-    So the default stays at 1 MB
-    ([decision 0045](decisions/0045-udp-receive-buffer-default.md)).
+    saturated worker and is ACK-clocked, so its throughput follows the
+    datagrams the client sends: Chrome's ACK every 10 packets (captured)
+    costs bulk throughput against clients that ACK less often. A larger
+    receive buffer helps at 64 requests at once but overflows nginx's
+    socket with ACK bursts at 256, so the default stays at Chrome's 1 MB.
+    The measurements are in decisions 0043 and 0045.
   - Detection: none (it is the browser's ACK rate). User-visible: bulk
     downloads from a single-worker HTTP/3 server are somewhat slower.
   - Close: by default none: fewer ACKs are not Chrome's.
-    `Config.HTTP3ACKEvery` is the opt-in
-    ([decision 0043](decisions/0043-http3-ack-rate-opt-in.md)). Sending
-    flow-control frames past the client's congestion window would remove
-    the larger buffers' stall, and a larger default with it (RFC 9002
-    says MUST NOT; medium).
+    `Config.HTTP3ACKEvery` is the opt-in. Sending flow-control frames
+    past the client's congestion window would remove the larger buffers'
+    stall, and a larger default with it (RFC 9002 says MUST NOT; medium).
   - Source: decisions [0043](decisions/0043-http3-ack-rate-opt-in.md)
     and [0045](decisions/0045-udp-receive-buffer-default.md);
-    `internal/quic/UPSTREAM.md` change 15; the bench's HTTP/3 rows;
     `internal/bench/reports/focus-2026-10-29/udpbuf-*`.
 - **HTTP/3 receive path runs on about one core** (all; performance).
   - Differs: nothing on the wire. The endpoint's reader hands each
     datagram to the connection's loop through a channel; under bulk load
     the two run one after the other on one P while the stream readers the
     loop wakes, one per STREAM frame, fill the others (execution trace:
-    the reader goroutine runnable but waiting 66% of the time). A
-    connection takes about 650-740k datagrams/s; from the Go server at
-    10 MB and 64 at once mimicry got 634k against tls-client's 693k, and
-    491k with a 7 MB buffer. A mutex queue that woke the reader only once
-    half drained (prototype) changed nothing. At equal buffers (stock
-    Linux's 416 KB, every client) mimicry still dropped about three times
-    net/http's datagrams at 100 KB and 64 at once (14.7-17.2k against
-    5.4-5.6k): presumably most of what keeps it under the quic-go clients there
-    (4,725 against about 7,600 req/s on the Linux test host at 1 MB).
+    the reader runnable but waiting 66% of the time). A connection takes
+    about 650-740k datagrams/s (mimicry 634k against tls-client's 693k
+    from the Go server at 10 MB, 64 at once). At equal buffers (416 KB)
+    mimicry dropped about three times net/http's datagrams at 100 KB, 64
+    at once: presumably most of what keeps it under the quic-go clients
+    there (4,725 against about 7,600 req/s on a Linux test host
+    (i5-13500) at 1 MB).
   - Detection: none. User-visible: no (about 1 GB/s per connection).
   - Close: wake a stream's reader once per datagram batch, not per frame
     (medium).
-  - Source: harness profiles, 2026-10-28; `udpbuf-*-stock-mac` in
+  - Source: `udpbuf-*-stock-mac` in
     `internal/bench/reports/focus-2026-10-29/`.
 - **HTTP/3 request starts are serialized per connection** (all;
   performance).
@@ -936,8 +879,8 @@ These matter most under decision 0029:
   - Close: decode sections that use no dynamic table without the lock
     (per-call scratch); start requests already queued under one cork
     (medium).
-  - Source: block and mutex profiles of the bench's HTTP/3 1 KB point,
-    2026-10-28.
+  - Source: the bench's HTTP/3 1 KB rows
+    ([bench README](../internal/bench/README.md)).
 
 ## Headers and request kinds
 
@@ -1052,8 +995,8 @@ These matter most under decision 0029:
   - Source: `resolve.go` (`resolve`);
     [how a request is built](concepts/how-a-request-is-built.md).
 - **`fetchpriority` on other kinds** (all).
-  - Differs: high and low priorities are measured for `Fetch` (both) and
-    `InjectedImage` (high) only. Asking for one on another kind returns
+  - Differs: high and low priorities are measured for `Fetch` and
+    `InjectedImage` only. Asking for one on another kind returns
     `ErrNotMeasured`.
   - Shows: only when a caller sets `Request.Priority` on another kind.
   - Detection: none. User-visible: yes, an error.
@@ -1171,8 +1114,7 @@ These matter most under decision 0029:
   - Shows: servers with skewed clocks setting near-term expiries.
   - Detection: low. User-visible: no.
   - Close: a capture with a skewed `Date`; small.
-  - Source: [concepts/cookies.md](concepts/cookies.md#not-modelled);
-    REVIEW D1.
+  - Source: [concepts/cookies.md](concepts/cookies.md#not-modelled).
 - **Safari's third-party cookies: stored or not sent** (Safari).
   - Differs: whether Safari refuses unpartitioned third-party cookies when
     storing or when sending is not visible; the jar does both.
@@ -1563,7 +1505,7 @@ These matter most under decision 0029:
     compared on replays.
   - Detection: low. User-visible: no.
   - Close: compare mimicry against the replays; medium.
-  - Source: HANDOFF.md (replays).
+  - Source: [capturing.md, Real-page replays](capturing.md#real-page-replays).
 - **Unexplained extra connections in the WebSocket captures** (Firefox,
   Chrome).
   - Differs: Firefox opened 2–3 extra HTTP/2 connections that sent only
@@ -1581,8 +1523,9 @@ These matter most under decision 0029:
     connections are not kept ([decision 0040](decisions/0040-idle-connection-cleanup.md)).
   - Detection: none. User-visible: memory only, for very long sessions
     across many hosts or proxies.
-  - Source: [decision 0020](decisions/0020-connection-pool-package.md);
-    REVIEW B9.
+  - Source: [decision 0020](decisions/0020-connection-pool-package.md).
+    What stays once a proxy is swept is the next entry but one
+    (per-identity memory, under [Proxies](#proxies)).
 
 ## Proxies
 
@@ -1614,7 +1557,9 @@ These matter most under decision 0029:
   - Close: forget a swept proxy's tickets, pool keys and dialer entries
     when `MaxIdleProxies` is set (a returning identity then makes a full
     handshake); small, with a benchmark of the plateau over minutes.
-  - Source: [decision 0040](decisions/0040-idle-connection-cleanup.md#amendment-configmaxidleproxies-2026-10-29).
+  - Source: [decision 0040](decisions/0040-idle-connection-cleanup.md)
+    (amendment: `Config.MaxIdleProxies`); see also
+    [state kept per key](#connections-and-pool).
 - **Proxy credentials before the 407, by default** (all browsers).
   - Differs: the first CONNECT, and the first request sent to the proxy
     whole, carry `Proxy-Authorization` where the browser waits for the
@@ -1733,10 +1678,6 @@ it.
   one HTTP/3 connection per host, and no total limit, are fixed;
   `Config.MaxConnsPerHost` changes only the per-host HTTP/1.1 limit, and
   `Config.DisableCoalescing` turns coalescing off.
-- **Idle timeouts**: the 90 s idle timeout (every protocol), and the
-  rule that closes a proxy's idle connections once it is not among the
-  16 used most recently and unused for 10 s, are fixed.
-  `Transport.CloseIdleConnections` is the only control.
 - **Chrome's idle PING and credit timer**: fixed by the profile.
 - **Broken origins**: an origin whose QUIC failed stays on TCP for the
   Transport's life and cannot be read or reset, other than with a new
@@ -1757,107 +1698,45 @@ it.
 
 ## Tooling and tests
 
-- **Load flakes in `TestQUICInterop`: one left open** (investigated
-  2026-10-28 on the Mac mini at load 14–20, `-race`, every profile).
-  Fixed:
-  - `handshake-ack-loss` (Chrome, Firefox; 3 in 120): the relay's
-    `MinSize` dropped every small server datagram, 1-RTT ones too;
-    quic-go sometimes sent a response's end in a 23–39 B packet, every
-    resend as small (server qlogs), so the request hung to the deadline.
-    `MinSize` now drops small long header datagrams only (the handshake
-    ACKs the row is about). 0 in 300 since. The row catches a client
-    whose probes never resend the ClientHello's tail with either rule.
-  - `handshake-ack-loss` (Safari): "a request took 667 ms over TCP: it
-    waited past the race (629 ms)"; the check is now net of the stalls.
-    And "no QUIC attempt" (1 in 40): an attempt the race abandoned before
-    its first datagram (a process too loaded to build its hello in 88 ms)
-    counted toward `brokenAfter` but never reached the relay, so the origin
-    broke with one relay session. Reproduced exactly by delaying the second
-    dial 300 ms. `runAttempt` cannot hang (every wait ends with the
-    attempt's context, a timer or the connection). Fixed in the engine:
-    such an attempt no longer counts (decision 0028's amendment,
-    `TestQUICAttemptCountsOnlyOnceItSent`); the delayed-dial reproduction
-    passes.
-  - `stream-reset` (Chrome 155, 1 in 100): `http3.HTTPStreamer.HTTPStream`
-    flushed a 200 HEADERS before the server's `H3_REQUEST_REJECTED`, so the
-    client sometimes read a response and then the reset in its body. The
-    server now sets a past write deadline first, so no HEADERS go out (a
-    50 ms pause before the reset failed every run before, none after; a
-    client that does not resend a rejected request still fails). mimicry's
-    handling of a 0x10b after HEADERS (the response delivered, its body
-    failing) is left: RFC 9114, 4.1.1 says such a partial response should
-    not be used and that a server sends the code only for requests it did
-    not process.
-  - `stream-reset` (Safari 26/27, 8 in 200): a handshake slowed by load
-    lost Safari's 88–129 ms race, the attempt was dropped (`abandonOnTcp`)
-    and two such losses broke the origin. Every case but those that check
-    the race (`handshake-loss`, `handshake-corruption`,
-    `handshake-ack-loss`: `interopCase.race`) now runs with a 5 s race
-    delay. 0 in 80 since.
-  Open: `stream-reset` (Firefox, 1 in 40 since): `GET /reject`'s resend went
-  over HTTP/1.1. Firefox has no race delay; fast fallback gives its resumed
+- **Load flake in `TestQUICInterop`: `stream-reset` (Firefox)** (1 in 40,
+  on a loaded Mac mini with `-race`): `GET /reject`'s resend went over
+  HTTP/1.1. Firefox has no race delay; fast fallback gives its resumed
   0-RTT attempt its first PTO (`earlyLimit`), which a loaded handshake
   outlasts. `BrowserQUICFallback` for such cases would lift it, at the
-  cost of slower failure paths in them. Small.
-- **Load flakes in the HTTP/3 page tests.**
-  - `TestHTTP3EdgeMatchesBrowser/safari-26-macos/h3-early/fast` failed once
-    (2026-10-28, `:test-full`): a 101 ms stall let Safari's 88–109 ms race
-    timer fire before the server's answer was read, so `delete.so` went
-    on a TCP connection the browser never opened. A page whose race the
-    stalls decided (`raceStall`: answered within the race delay net of
-    the stalls, at or past it with them) now runs again, up to three
-    times; the last run is compared whatever happened (a race delay of
-    zero still fails). Three such runs at once on the loaded mini failed
-    most runs anyway, mostly on times out of range net of the stalls:
-    that load is past what the page timings can hold.
-  - `TestHTTP3MatchesBrowser/chrome-156-macos/h3-discovery`, seen three
-    times by other agents: resumed connections' 0-RTT packets with the
-    request's STREAM(0) before the control stream's PRIORITY_UPDATE
-    (Chrome: `STREAM(2) | STREAM(2) STREAM(0)`). Not reproduced yet;
-    both are flushed under one Cork, control first, so the request must
-    have reached `queueMeta` (resent data, or a stream opened with no
-    window) or the data ring's head moved past the control stream.
-  Small to medium.
+  cost of slower failure paths in them. Small. (The other load flakes
+  found with it were fixed in e1883f5.)
+- **Load flake in `TestHTTP3MatchesBrowser/chrome-156-macos/h3-discovery`**
+  (seen three times): resumed connections' 0-RTT packets with the
+  request's STREAM(0) before the control stream's PRIORITY_UPDATE
+  (Chrome: `STREAM(2) | STREAM(2) STREAM(0)`). Not reproduced yet; both
+  are flushed under one cork, control first, so the request must have
+  reached `queueMeta` (resent data, or a stream opened with no window) or
+  the data ring's head moved past the control stream. Small to medium.
 - **Load flake: `TestResumptionMatchesBrowser/firefox-158-macos/resume-tls12`.**
   Once, in a full harness `go test -race` run (2026-10-26):
   `h1.kinds-a.test` 5 connections, 2 resumed where every sample has 1;
   the next two full runs passed. Likely a TLS 1.2 ticket that arrived
   (or did not) before the next HTTP/1.1 connection dialled, under load.
   Not investigated yet. Small.
-- **Tests on a sleeping Mac.** A laptop on battery with its lid closed
-  sleeps mid-run; the monotonic clock stops, so the e2e tests (and their
-  `-timeout`) freeze rather than fail. Run long suites on AC power with
-  `caffeinate -i`, or on the Mac mini (cross-compile with
-  `GOOS=darwin GOARCH=arm64 go test -race -c` and run each binary in its
-  package directory).
-- **Stale text in the ledger.** Parts of
-  [EVIDENCE.md, Not covered](../profiles/EVIDENCE.md#not-covered-by-any-claim)
-  have since been closed: page-set headers in one `*` slot (decision 0021
-  modelled Chrome's and Safari's hash-table order), the CORS check on a
-  redirect (done: `*CORSError` with `Redirect`), "redirects follow Go's
-  `http.Client`, at most 10 hops" (done: decision 0022), and "HTTP/3"
-  under TLS and below (done: decisions 0026–0028). The ledger's "Last
-  reviewed 2026-10-24" predates its QUIC rows. Small.
 - **Checks that are unit-only or missing.** Each small:
-  - the navigation's slots over HTTP/2 (see [HTTP/2](#http2));
-  - the coalescing conditions;
+  - the navigation's slots over HTTP/2;
+  - the coalescing conditions (see
+    [coalescing conditions](#connections-and-pool));
   - the preflight's `Config.Headers` rule;
   - dropping a ticket whose certificate expired;
   - a server raising MAX_FRAME_SIZE (`large-settings`);
-  - Firefox's WebSocket transport end and the 10 s close fallback;
+  - Firefox's WebSocket transport end and the 10 s close fallback (see
+    [Firefox's transport end](#websockets));
   - most WebSocket `ErrNotMeasured` cases;
   - the header order of the request rows only the `cors` capture shows
     (`TestCORSMatchesBrowser` compares method, path, cookies and
     `Access-Control-Request-*`, not order).
 
-  Source: [EVIDENCE.md](../profiles/EVIDENCE.md); HANDOFF.md
-  (untested).
+  Source: [EVIDENCE.md](../profiles/EVIDENCE.md).
 - **The QUIC recorder groups datagrams by client address**, so a
   migrating client would show as two. Source:
   [decision 0026](decisions/0026-http3-capture.md).
 - **Flaky or unexplained runs**:
-  - the full e2e suite failed once in 4 runs (`SmallCaps`), then ran
-    clean 6 times;
   - one Safari `http1` run in six had samples whose first requests
     differed (the diff was not kept);
   - Safari can fail the first sample of the scenario after
@@ -1867,39 +1746,38 @@ it.
   - Safari 27's `h3-page` capture holds a second TCP connection from
     another system client (a capture artefact).
 
-  Source: HANDOFF.md; [kinds report](../internal/harness/reports/kinds-2026-10-23.md);
+  Source: [kinds report](../internal/harness/reports/kinds-2026-10-23.md);
   [`http3_test.go`](../internal/harness/e2e/http3_test.go).
 - **Capture ergonomics**: browsers come to the front during captures.
   `cmd/refresh` runs Chrome and Firefox on the Mac mini, so only Safari 27
-  still takes this Mac's screen (options: `open -g`, batching runs); closing
-  Safari's tab by AppleScript times out on the Mac mini. Source:
-  HANDOFF.md.
-- **Parallel quick refreshes on the mini, timers unchecked.** `cmd/refresh`
-  captures Chrome and Firefox at once in quick mode. Nothing a capture
-  depends on is shared (ports, servers, no focus or system mouse), but
-  whether a browser throttles the timers of a window entirely covered by
-  the other's is unchecked; it would stretch the pauses of `h3-discovery`
-  and the WebSocket pages. Closing it: one parallel quick run compared with
-  a `-serial` one (page timings in the h3 captures). Detection relevance
-  low (timing of the capture, not of mimicry); small.
+  still takes the capturing Mac's screen (options: `open -g`, batching
+  runs); closing Safari's tab by AppleScript times out on the Mac mini.
+  Source: [capturing.md](capturing.md).
+- **Parallel refresh: covered-window timer throttling.** `cmd/refresh`
+  captures Chrome and Firefox at once on the Mac mini in quick mode.
+  Nothing a capture depends on is shared (ports, servers, no focus or
+  system mouse), but whether a browser throttles the timers of a window
+  entirely covered by the other's is unchecked; it would stretch the
+  pauses of `h3-discovery` and the WebSocket pages. Closing it: one
+  parallel quick run compared with a `-serial` one (page timings in the
+  h3 captures); until then, if those e2e tests fail on timing after a
+  parallel run, recapture with `-serial`. Detection relevance low
+  (timing of the capture, not of mimicry); small.
 - **Planned tools not built**: browser captures as a scheduled GitHub
   Action, and server-stack handshake checks (Go, OpenSSL, BoringSSL,
   nginx).
-  The uTLS sync job cannot open pull requests while "Allow GitHub Actions
-  to create and approve pull requests" is off. Source: HANDOFF.md.
 - **`internal/quic` maintenance**: the upstream sync from x/net is manual,
   the linters other than depguard are off for the package (mimicry's lines
-  there are checked by hand), upstream's single PTO probe still applies to
-  profiles that do not lay out their own probes, and `UPSTREAM.md` does
-  not yet say the interop command dials through a wrapped `PacketConn`
+  there are checked by hand), and `UPSTREAM.md` does not yet say the
+  interop command dials through a wrapped `PacketConn`
   (`udp_packetconn.go`). Source:
   [`internal/quic/UPSTREAM.md`](../internal/quic/UPSTREAM.md);
   [quic-interop report](../internal/harness/reports/quic-interop-2026-10-25.md).
-- **Review items not done** (REVIEW-2026-10-24): one internal request
-  value, splitting the server package and moving the Fetch-standard logic
-  to an internal package (S2–S4, not done by the user's decision to limit
-  the refactor); `origin()` knows default ports for `http` and `https`
-  only (C14, harmless while WebSocket URLs are mapped first).
+- **Refactors not done**: one internal request value, splitting the
+  server package and moving the Fetch-standard logic to an internal
+  package (left out to limit the refactor); `origin()` knows default
+  ports for `http` and `https` only (harmless while WebSocket URLs are
+  mapped first).
 - **The clients comparison is not independent evidence**: mimicry's
   profiles come from the same captures, and the comparison stops after
   the second request and has no HTTP/3. Source:
@@ -1922,7 +1800,26 @@ it.
   hint, a new header) fails every inherited comparison until recaptured
   or taught to the rewriter. Small. Source:
   [decision 0035](decisions/0035-version-policy-and-capture-inheritance.md).
-- **Pinned outliers**: `sampleGaps` (h3gen, kindsgen), `h3Gaps`,
-  `h3EdgeGaps`, `h3PriorityGaps`, `headersOrderGaps`, `partitionGaps`,
-  `redirectsLineGaps`, `raceCookieLabels` and `missingCaptures`. Each is
-  described in its area above.
+- **A per-request hook with the plan** (API).
+  - Differs: nothing on the wire. Logging what each request sent takes a
+    `Transport.Plan` call of your own, or a wrapping `http.RoundTripper`;
+    tls-client users have pre- and post-request hooks. A `Config.OnRequest`
+    called with each request's plan as it is sent would cover it.
+  - Detection: none. User-visible: convenience only.
+  - Close: a decision record, then the hook; small.
+  - Source: [coming from tls-client](concepts/coming-from-tls-client.md#building-a-client)
+    (`WithPreHook`, `WithPostHook`).
+- **More profiles, and a way to make them** (catalogue).
+  - Differs: the five profiles are desktop macOS ones (Chrome, Firefox,
+    Safari). There is no iOS Safari, Android Chrome or Windows profile,
+    and nothing documents how a capture of your own becomes a profile.
+  - Shows: sites whose mobile endpoints or app traffic a caller imitates,
+    or sessions tied to a user agent from elsewhere.
+  - Detection: high where a non-macOS client is expected (every request
+    carries the platform). User-visible: no profile to pick.
+  - Close: iOS Safari and Android Chrome first, then Windows Chrome, each
+    a capture setup and a refresh (large); a guide to making a profile
+    from your own captures with `cmd/refresh` (medium). Each needs a
+    decision record.
+  - Source: [coming from tls-client](concepts/coming-from-tls-client.md#where-mimicry-is-weaker-for-automating-user-actions-on-sites);
+    [decision 0035](decisions/0035-version-policy-and-capture-inheritance.md).

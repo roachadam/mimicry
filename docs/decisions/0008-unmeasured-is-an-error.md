@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-24
-- Commits: `f445dc1`; extended in the 2026-10-24 review
+- Commits: `f445dc1`; extended in `ea769bc`
 
 ## Problem
 
