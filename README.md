@@ -121,7 +121,7 @@ Details and method: [docs/performance.md](docs/performance.md).
 
 ## Development
 
-[`AGENTS.md`](AGENTS.md) has the conventions and commands. [`docs/refreshing-profiles.md`](docs/refreshing-profiles.md) explains how profiles are captured and brought up to date. [`docs/README.md`](docs/README.md) indexes the concept pages and decisions.
+Contributions are welcome: see [`CONTRIBUTING.md`](CONTRIBUTING.md). [`AGENTS.md`](AGENTS.md) has the conventions and commands. [`docs/refreshing-profiles.md`](docs/refreshing-profiles.md) explains how profiles are captured and brought up to date. [`docs/README.md`](docs/README.md) indexes the concept pages and decisions.
 
 ## Licence
 
