@@ -148,9 +148,9 @@ const DefaultUDPReadBufferSize = 1 << 20
 // KB, so 416 KB granted, the kernel doubling it) without an error, and a
 // failure leaves the OS's default. No SO_RCVBUFFORCE: it needs privileges.
 //
-// 1 MB because more is not faster across the board (bench 2026-10-29,
-// the Linux test host, Linux, rmem_max 16 MB, nginx, HTTP/3, 3 passes; decision
-// 0045): against the OS's default (208 KB), a 1 MB request (2 MB
+// 1 MB because more is not faster across the board (bench 2026-10-29 on
+// a Linux test host, Intel i5-13500, rmem_max 16 MB, nginx, HTTP/3, 3
+// passes; decision 0045): against the OS's default (208 KB), a 1 MB request (2 MB
 // granted) ran 100 KB bodies at 64 at once 10-13% faster and 1 KB at 256
 // 11-18% faster, with no drops at 1 KB; 2 MB and 7 MB ran 100 KB at 64 at
 // once 40-100% faster, but at 256 at once 7 MB ran at about half the rate

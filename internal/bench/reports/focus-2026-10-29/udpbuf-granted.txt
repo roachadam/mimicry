@@ -1,4 +1,4 @@
-the Linux test host 6.18.38, client container (compose.client.yml, NET_ADMIN), Go SO_RCVBUF probe:
+Linux host (i5-13500) 6.18.38, client container (compose.client.yml, NET_ADMIN), Go SO_RCVBUF probe:
 /proc/sys/net/core/rmem_max 16777216
 /proc/sys/net/core/rmem_default 212992
 default: 212992

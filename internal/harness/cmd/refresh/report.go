@@ -44,7 +44,7 @@ func (rep *report) write() (string, error) {
 	}
 
 	fmt.Fprintf(&b, "%s %s on %s, %s mode: %s. Made by `go run ./cmd/refresh` (staging `%s`).\n\n",
-		p.Browser, p.Installed, rep.run.machine(p), rep.run.Mode, how, rep.run.Dir)
+		p.Browser, p.Installed, rep.run.machine(p), rep.run.Mode, how, harnessPath(rep.run.Dir))
 
 	b.WriteString("## Captures\n\n")
 	fmt.Fprintf(&b, "Every capture names %s with one user agent, and the browser's version was %s before and after the run.\n\n", p.Name, p.Installed)
@@ -145,7 +145,7 @@ func (rep *report) write() (string, error) {
 			status = "ran"
 		}
 
-		fmt.Fprintf(&b, "%s (`%s`, %s): %s. Output: `%s`.\n\n", s.title, s.res.command, s.res.duration.Round(time.Second), status, s.res.output)
+		fmt.Fprintf(&b, "%s (`%s`, %s): %s. Output: `%s`.\n\n", s.title, s.res.command, s.res.duration.Round(time.Second), status, harnessPath(s.res.output))
 
 		if strings.TrimSpace(s.res.summary) != "" {
 			fmt.Fprintf(&b, "```\n%s\n```\n\n", strings.TrimSpace(s.res.summary))
@@ -166,6 +166,23 @@ func (rep *report) write() (string, error) {
 	}
 
 	return path, os.WriteFile(path, []byte(b.String()), 0o600)
+}
+
+// harnessPath is p relative to internal/harness (refresh's working
+// directory), so a report names no path outside the repository; p itself
+// when it lies outside.
+func harnessPath(p string) string {
+	wd, err := os.Getwd()
+	if err != nil {
+		return p
+	}
+
+	rel, err := filepath.Rel(wd, p)
+	if err != nil || !filepath.IsAbs(p) || strings.HasPrefix(rel, "..") {
+		return p
+	}
+
+	return rel
 }
 
 // writeDiff lists every value of the new profile that differs from the

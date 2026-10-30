@@ -880,6 +880,8 @@ func (d udpDelta) String() string {
 
 // env describes where the benchmark ran.
 type env struct {
+	// Host is a generic label for the machine (BENCH_HOST_LABEL, e.g.
+	// "Linux host (Intel Core i5-13500)"), never its hostname.
 	Host          string       `json:"host"`
 	HostCPU       string       `json:"hostCpu"`
 	HostOS        string       `json:"hostOs"`
@@ -897,9 +899,10 @@ type env struct {
 	ProxyDelay    string       `json:"proxyDelay"`
 	// Power is the host's power source and Low Power Mode (macOS pmset).
 	Power string `json:"power,omitempty"`
-	// HostLoad is a Linux host's load average and its other containers'
-	// CPU use when the pass started (bench.sh; reports/host-<date>.txt
-	// has every pass's and the end's).
+	// HostLoad is a Linux host's load average and how many of its other
+	// containers used 1% CPU or more, with their total, when the pass
+	// started (bench.sh; reports/host-<date>.txt has every pass's and the
+	// end's).
 	HostLoad string `json:"hostLoad,omitempty"`
 	// RmemMax and RmemDefault are the client container's
 	// net.core.rmem_max and rmem_default: the most a UDP socket may ask
@@ -914,6 +917,14 @@ type env struct {
 	// quic-go and its forks force their 7 MB past rmem_max
 	// (SO_RCVBUFFORCE); nil when unknown.
 	NetAdmin *bool `json:"netAdmin,omitempty"`
+}
+
+// kernelVersion is the kernel's release without its local suffix
+// ("6.18.38", not "6.18.38-<distribution>"); empty off Linux.
+func kernelVersion() string {
+	v, _, _ := strings.Cut(strings.TrimSpace(readFile("/proc/sys/kernel/osrelease")), "-")
+
+	return v
 }
 
 // capNetAdmin reads whether this process has CAP_NET_ADMIN (bit 12 of
@@ -955,12 +966,12 @@ type clientInfo struct {
 // client, and the variants among selected.
 func environment(ctx context.Context, selected []string) env {
 	e := env{
-		Host:          getenv("BENCH_HOST", "unknown"),
+		Host:          getenv("BENCH_HOST_LABEL", "unknown"),
 		HostCPU:       getenv("BENCH_HOST_CPU", "unknown"),
 		HostOS:        getenv("BENCH_HOST_OS", "unknown"),
 		Docker:        getenv("BENCH_DOCKER", "unknown"),
 		Mode:          "local: both stacks on one Docker host, one Docker network",
-		Kernel:        strings.TrimSpace(readFile("/proc/sys/kernel/osrelease")),
+		Kernel:        kernelVersion(),
 		ClientCPUs:    runtime.NumCPU(),
 		GOMAXPROCS:    runtime.GOMAXPROCS(0),
 		GoVersion:     runtime.Version(),

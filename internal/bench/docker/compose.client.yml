@@ -41,7 +41,7 @@ services:
       SSL_CERT_FILE: /data/ca/ca.pem
       BENCH_SERVER: "${BENCH_SERVER:-}"
       BENCH_SERVERS: "${BENCH_SERVERS:-}"
-      BENCH_HOST: "${BENCH_HOST:-}"
+      BENCH_HOST_LABEL: "${BENCH_HOST_LABEL:-}"
       BENCH_HOST_CPU: "${BENCH_HOST_CPU:-}"
       BENCH_HOST_OS: "${BENCH_HOST_OS:-}"
       BENCH_HOST_POWER: "${BENCH_HOST_POWER:-}"

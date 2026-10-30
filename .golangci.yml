@@ -293,8 +293,8 @@ linters:
     gosec:
       excludes:
         # File paths are built by our own code and tests (capture names come
-        # from parsed browser identities), never from untrusted input. Same
-        # policy as our other projects.
+        # from parsed browser identities), never from untrusted input, so
+        # G304's file-inclusion warning does not apply.
         - G304
         # Integer conversions are bounded by wire formats and checked where
         # input is untrusted; the per-line suppressions were noise.

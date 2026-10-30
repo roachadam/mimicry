@@ -50,6 +50,9 @@
 #   BENCH_UDP_STOCK=1              report: the whole report at stock UDP buffers
 #                                  (layers 3 and 6 only: no netem, see below)
 #   BENCH_COUNT                    micro: passes of -count 1 (6)
+#   BENCH_HOST_LABEL               the report's name for this machine (default:
+#                                  the OS and CPU model, e.g. "Linux host
+#                                  (i5-13500)"; never the hostname)
 #   BENCH_BENCHTIME                micro: BenchmarkRequest's and
 #                                  BenchmarkNewClient's -benchtime (1s)
 #   BENCH_CONNECT_BENCHTIME        micro: BenchmarkConnect's -benchtime (200x: each
@@ -74,22 +77,24 @@
 # tls-client, httpcloak, azuretls) ask for a 7 MB UDP receive buffer and,
 # when rmem_max cuts it, retry with SO_RCVBUFFORCE, which NET_ADMIN lets
 # through: in the normal passes they get 7 MB whatever rmem_max says, and
-# mimicry gets rmem_default. The stock passes (docker/compose.client.udpstock.yml)
-# set both sysctls to 212992 and drop NET_ADMIN, so every client gets the
-# stock 208 KB; without NET_ADMIN there is no netem, so they cannot include
-# layer 5 or -load-netem (bench run refuses).
+# mimicry, which asks for 1 MB (Config.UDPReadBufferSize, decision 0045),
+# gets what rmem_max allows of it. The stock passes
+# (docker/compose.client.udpstock.yml) set both sysctls to 212992 and drop
+# NET_ADMIN, so every client that asks gets twice that, 416 KB; without
+# NET_ADMIN there is no netem, so they cannot include layer 5 or
+# -load-netem (bench run refuses).
 #
 # netem: run and report probe the Docker host once (a throwaway container
 # adding a netem qdisc on its own loopback). Without it (a kernel without
-# sch_netem, that host's), the proxy's delay is the in-process one, the
+# sch_netem), the proxy's delay is the in-process one, the
 # offloads sidecar (only for netem, on the host's network) is not started,
 # and a run asking for netem (layer 5 without -netem=false, -load-netem)
 # stops before measuring.
 #
 # On Linux it records the host's load before each pass and at the end: the
-# load average and the CPU use of every container not the benchmark's
-# (docker stats), into the report's Environment (the pass's start) and
-# reports/host-<date>.txt (all of them).
+# load average and how many containers not the benchmark's use 1% CPU or
+# more, with their total (docker stats; no names), into the report's
+# Environment (the pass's start) and reports/host-<date>.txt (all of them).
 #
 # On macOS it keeps the machine awake (caffeinate -i) for its whole run, and
 # refuses to measure unless the Mac is on AC power with Low Power Mode off,
@@ -182,16 +187,24 @@ case "$cmd" in
 micro | run | report) check_power ;;
 esac
 
+# The report names the machine by BENCH_HOST_LABEL, never its hostname, and
+# leaves out the kernel's local version suffix and, on Linux, the Docker
+# host's distribution name.
 if [[ "$(uname -s)" == Darwin ]]; then
-	BENCH_HOST_CPU="${BENCH_HOST_CPU:-$(sysctl -n machdep.cpu.brand_string), $(sysctl -n hw.ncpu) cores, $(($(sysctl -n hw.memsize) / 1073741824)) GB}"
+	cpu_model="$(sysctl -n machdep.cpu.brand_string)"
+	BENCH_HOST_CPU="${BENCH_HOST_CPU:-$cpu_model, $(sysctl -n hw.ncpu) cores, $(($(sysctl -n hw.memsize) / 1073741824)) GB}"
 	BENCH_HOST_OS="${BENCH_HOST_OS:-macOS $(sw_vers -productVersion)}"
+	BENCH_HOST_LABEL="${BENCH_HOST_LABEL:-Mac ($cpu_model)}"
+	docker_os='{{.OperatingSystem}}'
 else
-	BENCH_HOST_CPU="${BENCH_HOST_CPU:-$(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | xargs), $(nproc) cores}"
-	BENCH_HOST_OS="${BENCH_HOST_OS:-$(uname -sr)}"
+	cpu_model="$(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | xargs)"
+	BENCH_HOST_CPU="${BENCH_HOST_CPU:-$cpu_model, $(nproc) cores}"
+	BENCH_HOST_OS="${BENCH_HOST_OS:-$(uname -s) $(uname -r | cut -d- -f1)}"
+	BENCH_HOST_LABEL="${BENCH_HOST_LABEL:-Linux host ($(sed -E 's/\((R|TM)\)//g; s/[0-9]+th Gen //; s/ [0-9]+-Core Processor$//; s/  +/ /g' <<<"$cpu_model"))}"
+	docker_os='{{.OSType}}/{{.Architecture}}'
 fi
-export BENCH_HOST_CPU BENCH_HOST_OS
-export BENCH_HOST="${BENCH_HOST:-$(hostname -s)}"
-export BENCH_DOCKER="${BENCH_DOCKER:-$(docker context show) context, $(docker info --format '{{.OperatingSystem}}, server {{.ServerVersion}}, {{.NCPU}} CPUs, {{.MemTotal}} bytes')}"
+export BENCH_HOST_CPU BENCH_HOST_OS BENCH_HOST_LABEL
+export BENCH_DOCKER="${BENCH_DOCKER:-$(docker info --format "$docker_os, server {{.ServerVersion}}, {{.NCPU}} CPUs, {{.MemTotal}} bytes")}"
 export BENCH_MIMICRY_COMMIT="${BENCH_MIMICRY_COMMIT:-$(git -C "$here" rev-parse --short HEAD)$(git -C "$here" diff --quiet HEAD -- . ../../ 2>/dev/null || echo ' + uncommitted changes')}"
 
 server_docker=(docker)
@@ -318,15 +331,16 @@ check_netem() {
 	fi
 }
 
-# host_load prints a Linux host's load average and the busiest containers
-# that are not the benchmark's, by CPU (docker stats, one sample); nothing
-# on macOS, whose Docker runs in a VM.
+# host_load prints a Linux host's load average and how many containers that
+# are not the benchmark's use 1% CPU or more, with their total CPU (docker
+# stats, one sample; never their names); nothing on macOS, whose Docker
+# runs in a VM.
 host_load() {
 	[[ "$(uname -s)" == Linux ]] || return 0
 	local others
 	others="$(docker stats --no-stream --format '{{.Name}} {{.CPUPerc}}' 2>/dev/null |
-		awk '$1 !~ /^mimicry-bench/ { c = $2; sub(/%/, "", c); if (c + 0 >= 1) print c, $1 }' |
-		sort -rn | awk '{ printf "%s%s %s%%", (NR > 1 ? ", " : ""), $2, $1 }')"
+		awk '$1 !~ /^mimicry-bench/ { c = $2; sub(/%/, "", c); if (c + 0 >= 1) { n++; t += c } }
+			END { if (n) printf "%d, %.2f%% CPU together", n, t }')"
 	echo "load average $(cut -d' ' -f1-3 /proc/loadavg); other containers at 1% CPU or more: ${others:-none}"
 }
 
@@ -395,7 +409,7 @@ micro() {
 	done
 
 	client_compose run --rm client sh -c "benchstat -col /client $raw | bench microstat > $stat"
-	echo "bench: wrote $reports/$raw and $reports/$stat"
+	echo "bench: wrote reports/$raw and reports/$stat"
 }
 
 # preset_args prints BENCH_FULL's or BENCH_FAST's flags for bench run, one
@@ -500,7 +514,7 @@ report() {
 	if ((passes <= 1 && stock_passes == 0)); then
 		pass "$name" "$(clients_base)" -layers "$layers" ${rest[@]+"${rest[@]}"}
 		note_load "end"
-		echo "bench: wrote $reports/$name-$date.md and .json"
+		echo "bench: wrote reports/$name-$date.md and .json"
 		return
 	fi
 
@@ -542,13 +556,13 @@ report() {
 	note_load "end"
 	client_compose run --rm client bench merge -passes -out /reports -name "$name" -date "$date" \
 		${stock_arg[@]+"${stock_arg[@]}"} "${jsons[@]}"
-	echo "bench: wrote $reports/$name-$date.md and .json from ${jsons[*]} ${stock[*]:-}"
+	echo "bench: wrote reports/$name-$date.md and .json from ${jsons[*]} ${stock[*]:-}"
 }
 
 render() {
 	client_compose run --rm client bench render -json "$name-$date.json" \
 		-micro "micro-$date-benchstat.txt" -micro-raw "micro-$date.txt"
-	echo "bench: rewrote $reports/$name-$date.md"
+	echo "bench: rewrote reports/$name-$date.md"
 }
 
 # plan_of <args...> prints bench run -plan's listing for one pass: its jobs

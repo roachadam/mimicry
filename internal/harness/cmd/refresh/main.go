@@ -61,7 +61,7 @@ func run() error {
 	browsers := flag.String("browser", "", "comma-separated browsers to refresh: chrome, firefox (on -mini), safari (this Mac), safari-mini (the mini's Safari)")
 
 	flag.StringVar(&cfg.mode, "mode", modeQuick, "quick (the fingerprint layer; the rest inherited from the previous version) or full (every scenario and replay)")
-	flag.StringVar(&cfg.mini, "mini", "mac-mini", "ssh host of the Mac mini")
+	flag.StringVar(&cfg.mini, "mini", "mac-mini", "your ssh alias for the Mac mini (chrome, firefox, safari-mini)")
 	flag.StringVar(&cfg.staging, "staging", ".refresh", "directory for staged builds, captures, profiles and logs (a new subdirectory per run)")
 	flag.StringVar(&cfg.scenarios, "scenarios", "", "capture these name:samples instead of the mode's set (with -capture-only, to try the tool)")
 	flag.BoolVar(&cfg.yes, "yes", false, "do not ask before capturing")
