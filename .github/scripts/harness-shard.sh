@@ -14,7 +14,8 @@
 # shard with the least work so far (ties: the lower shard), so the split
 # depends only on the test list and the weights, and a new test always lands
 # in some shard. A shard runs its units with
-# go test -race -count=1 and -timeout $TEST_TIMEOUT (default 30m);
+# go test -race -count=1 -v (so the log has each test's duration, for the
+# weights) and -timeout $TEST_TIMEOUT (default 30m);
 # MIMICRY_PROFILES passes through to the tests.
 set -euo pipefail
 
@@ -192,7 +193,7 @@ runs=$(echo "$tests" | awk -v shard="$shard" -v total="$total" -v weights=".gith
 failed=0
 while IFS=$'\t' read -r -u 3 pkg run skip; do
 	[ -n "$pkg" ] || continue
-	args=(-race -count=1 -timeout "${TEST_TIMEOUT:-30m}" -run "$run")
+	args=(-race -count=1 -v -timeout "${TEST_TIMEOUT:-30m}" -run "$run")
 	[ -n "$skip" ] && args+=(-skip "$skip")
 	echo "+ go test ${args[*]} $pkg"
 	go test "${args[@]}" "$pkg" || failed=1

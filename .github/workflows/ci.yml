@@ -30,7 +30,9 @@ env:
   GOTOOLCHAIN: local
   # Empty: each browser's newest profiles; all: every supported one.
   MIMICRY_PROFILES: ${{ inputs.full && 'all' || '' }}
-  TEST_TIMEOUT: ${{ inputs.full && '60m' || '13m' }}
+  # Per go test run; a shard's setup takes about 2 of the job's 15 minutes,
+  # so a hung test panics (listing what was running) before the job dies.
+  TEST_TIMEOUT: ${{ inputs.full && '60m' || '12m' }}
 
 jobs:
   # Whether a pull request touches more than docs (*.md, docs/, bench
@@ -129,7 +131,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5]
+        shard: [1, 2, 3, 4, 5, 6, 7]
     steps:
       - uses: actions/checkout@v7
         with:
