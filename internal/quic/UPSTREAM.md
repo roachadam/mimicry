@@ -477,6 +477,15 @@ the mechanical import rewrites.
     noise (370-405 MB/s both). Covered by those two tests under `-race`
     on Linux, which fail without it.
 
+19. **No GODEBUG packet logger** (`log.go` deleted; `conn_recv.go`,
+    `conn_send.go`, one `mimicry:` marker each; `client_send.go`). Under
+    `GODEBUG=quiclogpackets=1` upstream prints every packet sent and
+    received, with its decrypted frames, to stdout; a SOCKS5 proxy
+    password carried in a stream could land there. CodeQL flagged it
+    (go/clear-text-logging). qlog covers debugging, so the logger and its
+    `if logPackets` sites are gone; `frame_debug.go`'s `parseDebugFrame`
+    stays, qlog uses it.
+
 ## Tests
 
 The tests are upstream's own, kept as the proof that the copy and the TLS

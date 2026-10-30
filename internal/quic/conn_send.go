@@ -74,9 +74,7 @@ func (c *Conn) maybeSend(now time.Time) (next time.Time) {
 			}
 			c.w.startProtectedLongHeaderPacket(pnumMaxAcked, p)
 			c.appendFrames(now, initialSpace, pnum, limit)
-			if logPackets {
-				logSentPacket(c, packetTypeInitial, pnum, p.srcConnID, p.dstConnID, c.w.payload())
-			}
+			// mimicry: the GODEBUG packet logger is removed (UPSTREAM.md change 19)
 			if c.logEnabled(QLogLevelPacket) && len(c.w.payload()) > 0 {
 				c.logPacketSent(packetTypeInitial, pnum, p.srcConnID, p.dstConnID, c.w.packetLen(), c.w.payload())
 			}
@@ -105,9 +103,6 @@ func (c *Conn) maybeSend(now time.Time) (next time.Time) {
 			}
 			c.w.startProtectedLongHeaderPacket(pnumMaxAcked, p)
 			c.appendFrames(now, handshakeSpace, pnum, limit)
-			if logPackets {
-				logSentPacket(c, packetTypeHandshake, pnum, p.srcConnID, p.dstConnID, c.w.payload())
-			}
 			if c.logEnabled(QLogLevelPacket) && len(c.w.payload()) > 0 {
 				c.logPacketSent(packetTypeHandshake, pnum, p.srcConnID, p.dstConnID, c.w.packetLen(), c.w.payload())
 			}
@@ -134,9 +129,6 @@ func (c *Conn) maybeSend(now time.Time) (next time.Time) {
 				// padding we need to add it inside the 1-RTT packet.
 				c.w.appendPaddingTo(paddedInitialDatagramSize)
 				pad = false
-			}
-			if logPackets {
-				logSentPacket(c, packetType1RTT, pnum, nil, dstConnID, c.w.payload())
 			}
 			if c.logEnabled(QLogLevelPacket) && len(c.w.payload()) > 0 {
 				c.logPacketSent(packetType1RTT, pnum, nil, dstConnID, c.w.packetLen(), c.w.payload())
