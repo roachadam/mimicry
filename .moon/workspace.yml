@@ -1,7 +1,9 @@
 $schema: 'https://moonrepo.dev/schemas/workspace.json'
 
-# Change detection compares against the local main branch; use 'origin/main'
-# once CI runs moon on pull requests.
+# Change detection compares against main. In CI moon takes the base from the
+# pull request (GITHUB_BASE_REF) and tries origin/<base> first, then this
+# branch the same way, so 'main' works there too: the lint job checks out the
+# full history (.github/workflows/ci.yml).
 vcs:
   defaultBranch: 'main'
 

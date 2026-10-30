@@ -1,0 +1,35 @@
+# A v* tag runs the full gate (lint, and the tests against every supported
+# profile, as `moon run :vet :lint :test-full` does), then opens a draft
+# GitHub Release with generated notes for the maintainer to finish. No
+# binaries: mimicry is a library.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+
+jobs:
+  gate:
+    name: gate
+    uses: ./.github/workflows/ci.yml
+    with:
+      full: true
+
+  draft:
+    name: draft release
+    needs: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --generate-notes --verify-tag

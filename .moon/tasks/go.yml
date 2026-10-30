@@ -17,15 +17,17 @@ fileGroups:
 tasks:
   # The harness checks each browser's newest profile (decision 0035), or
   # those MIMICRY_PROFILES names; test-full checks every supported one.
+  # The harness's e2e package alone takes over 10 minutes (go test's default
+  # timeout), mostly real-time waits replaying the captures' timing.
   test:
-    command: 'go test -race ./...'
+    command: 'go test -race -timeout 30m ./...'
     toolchain: 'system'
     inputs:
       - '@group(sources)'
       - '@group(testdata)'
       - '$MIMICRY_PROFILES'
   test-full:
-    command: 'go test -race ./...'
+    command: 'go test -race -timeout 60m ./...'
     toolchain: 'system'
     env:
       MIMICRY_PROFILES: 'all'

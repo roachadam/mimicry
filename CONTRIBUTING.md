@@ -45,6 +45,8 @@ Include:
   [`AGENTS.md`](AGENTS.md) explains the commands, the code style and the
   package boundaries.
 
+  CI runs lint and tests on every pull request; it must be green to merge.
+
 Using AI tools is fine. What matters is that you understand the change and
 it meets the points above.
 

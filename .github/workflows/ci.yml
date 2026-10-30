@@ -1,0 +1,169 @@
+# Lint and tests on every pull request and every push to main; release.yml
+# calls it with full: true before a release. ci-ok is the one check to
+# require: it passes when every job passed, or when a pull request touches
+# only docs and the jobs were skipped. Each job stays under 15 minutes; the
+# harness tests are split into shards (.github/scripts/harness-shard.sh,
+# .github/harness-shards.txt).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_call:
+    inputs:
+      full:
+        description: Test every supported profile (MIMICRY_PROFILES=all, :test-full), with longer timeouts.
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# A new push to a pull request cancels its running checks; other runs queue.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}-${{ inputs.full && 'full' || 'gate' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # The Go in .prototools, never a download go.mod asks for.
+  GOTOOLCHAIN: local
+  # Empty: each browser's newest profiles; all: every supported one.
+  MIMICRY_PROFILES: ${{ inputs.full && 'all' || '' }}
+  TEST_TIMEOUT: ${{ inputs.full && '60m' || '13m' }}
+
+jobs:
+  # Whether a pull request touches more than docs (*.md, docs/, bench
+  # reports): nothing in lint or the tests reads those.
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - if: github.event_name == 'pull_request'
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - id: filter
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != pull_request ]; then
+            echo "code=true" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # A pull request checks out its merge commit: the first parent is
+          # the base branch, so HEAD^1..HEAD is the pull request's change.
+          changed=$(git diff --name-only HEAD^1 HEAD)
+          echo "$changed"
+          if echo "$changed" | grep -Ev '\.md$|^docs/|^internal/bench/reports/' | grep -q .; then
+            echo "code=true" >>"$GITHUB_OUTPUT"
+          else
+            echo "code=false" >>"$GITHUB_OUTPUT"
+          fi
+
+  lint:
+    name: lint
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # moon diffs against the base branch (origin/main), so it needs history.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          cache: lint
+          save: ${{ github.ref == 'refs/heads/main' }}
+      - name: moon run :vet :lint
+        run: moon run :vet :lint
+      # The harness has Windows-only files (the capture host, the browser
+      # sessions) that the host's lint never loads. golangci-lint is built
+      # for the host at the version .moon/tasks/go.yml pins, then lints the
+      # Windows build.
+      - name: harness for Windows (build, vet, golangci-lint)
+        working-directory: internal/harness
+        run: |
+          GOOS=windows go build ./...
+          GOOS=windows go vet ./...
+          pkg=$(grep -o 'github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v[0-9.]*' "$GITHUB_WORKSPACE/.moon/tasks/go.yml")
+          GOBIN="$RUNNER_TEMP/bin" go install "$pkg"
+          GOOS=windows "$RUNNER_TEMP/bin/golangci-lint" run
+
+  test-root:
+    name: test-root
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.full && 75 || 15 }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          cache: test-root
+          save: ${{ github.ref == 'refs/heads/main' }}
+      - name: go test -race ./... (library)
+        run: go test -race -count=1 -timeout "$TEST_TIMEOUT" ./...
+      # Never tested (its benchmarks need Docker); it must still build.
+      - name: bench builds and vets
+        working-directory: internal/bench
+        env:
+          GOWORK: 'off'
+        run: |
+          go build ./...
+          go vet ./...
+
+  test-harness:
+    name: test-harness (${{ matrix.shard }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.full && 75 || 15 }}
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          cache: test-harness
+          # The shards share one cache; the first saves it.
+          save: ${{ github.ref == 'refs/heads/main' && matrix.shard == 1 }}
+      # The h3-v2 scenario's server (TestHTTP3EdgeMatchesBrowser).
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - run: pip install aioquic==1.7.0
+      - name: harness tests, shard ${{ matrix.shard }} of ${{ strategy.job-total }}
+        run: bash .github/scripts/harness-shard.sh ${{ matrix.shard }} ${{ strategy.job-total }}
+
+  # The check branch protection requires.
+  ci-ok:
+    name: ci-ok
+    needs: [changes, lint, test-root, test-harness]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - env:
+          CODE: ${{ needs.changes.outputs.code }}
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "code changed: ${CODE:-unknown}; job results: $RESULTS"
+          for result in $RESULTS; do
+            case $result in
+            success) ;;
+            skipped) [ "$CODE" = false ] || exit 1 ;;
+            *) exit 1 ;;
+            esac
+          done

@@ -1,0 +1,38 @@
+# How long the harness module's slow tests take on a GitHub runner (4 vCPU,
+# go test -race, the default MIMICRY_PROFILES), in seconds. Read by
+# .github/scripts/harness-shard.sh to split the tests into CI shards; a test
+# not listed counts as 2 seconds. Estimated from runs on an M-series Mac:
+# tests that compute (the generators, decoding the page captures) take about
+# twice as long on the runner, tests that wait out timers (HTTP/3, the
+# connection traces) about as long.
+#
+# A slow test needs a line here, or the shard it lands in can run past the
+# 15-minute limit: `bash .github/scripts/harness-shard.sh plan 5` prints the
+# split. `Test/regex` runs a slice of a test's subtests as its own unit (a
+# test whose subtests alone take longer than a shard should); the subtests no
+# slice matches run as one more unit. `TestA|TestB` keeps tests in one unit.
+#
+# seconds  package          test[/subtests]
+355        ./cmd/hellogen   TestRegenerateReproducesProfiles/^chrome-
+165        ./cmd/hellogen   TestRegenerateReproducesProfiles/^firefox-
+160        ./cmd/hellogen   TestRegenerateReproducesProfiles/^safari-
+155        ./cmd/hellogen   TestRegenerateReadsInheritedCaptures
+100        ./cmd/h3gen      TestRegenerateReproducesProfiles
+25         ./cmd/h3gen      TestRegenerateReadsInheritedCaptures
+30         ./cmd/kindsgen   TestRegenerateReproducesProfiles
+9          ./cmd/kindsgen   TestRegenerateReadsInheritedCaptures
+240        ./e2e            TestHTTP3EdgeMatchesBrowser
+# Both replay every page capture, decoded once per test binary (pagesOnce,
+# nearly all of their time): apart, each would decode them.
+240        ./e2e            TestChainedPrioritiesMatchBrowserTraces|TestHPACKReproducesBrowserBlocks
+115        ./e2e            TestConnectionMatchesBrowserTrace
+110        ./e2e            TestInheritedProfile
+60         ./e2e            TestHTTP3MatchesBrowser
+40         ./e2e            TestWebSocketsMatchBrowser
+35         ./e2e            TestHTTP3DownloadMatchesBrowser
+30         ./e2e            TestHTTP3ACKEvery
+20         ./e2e            TestQUICInterop
+10         ./e2e            TestCORSMatchesBrowser
+10         ./e2e            TestDeflateReproducesBrowserMessages
+10         ./e2e            TestResumptionMatchesBrowser
+8          ./e2e            TestConnectionsMatchBrowser
