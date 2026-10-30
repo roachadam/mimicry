@@ -54,16 +54,18 @@ These matter most under decision 0029:
 - **The TCP/IP fingerprint** (all browsers).
   - Differs: the SYN (TTL, window size, MSS, TCP options and their order)
     is the host operating system's. A profile claiming macOS, sent from
-    Linux, has a Linux SYN. Through a proxy, the server sees the proxy's
-    SYN instead.
+    Linux, has a Linux SYN; `chrome-156-windows` sent from a Mac has a
+    macOS SYN (the systems' default TTLs alone differ, 128 against 64).
+    Through a proxy, the server sees the proxy's SYN instead. No capture
+    measured the SYN on either platform.
   - Shows: every direct connection.
   - Detection: high when the host OS differs from the profile's
     (p0f-style checks compare the SYN with the User-Agent); none when
-    running on macOS. User-visible: no.
+    running on the profile's platform. User-visible: no.
   - Close: socket options through `net.Dialer.Control` for TTL and
     window (medium). An exact SYN needs raw sockets, which is out of
-    scope. Running on macOS, or through a proxy on macOS, is the
-    practical fix.
+    scope. Running on the profile's platform, or through a proxy on it,
+    is the practical fix.
   - Source: [EVIDENCE.md, Not covered](../profiles/EVIDENCE.md#not-covered-by-any-claim)
     ("TLS and below").
 - **Real ECH** (Chrome, Firefox).
@@ -279,10 +281,13 @@ These matter most under decision 0029:
     small to medium.
   - Source: [EVIDENCE.md, Not covered](../profiles/EVIDENCE.md#not-covered-by-any-claim)
     (HTTP/2); `internal/h2/conn.go`.
-- **Chrome moves an idle origin to a new TCP connection** (Chrome).
-  - Differs: once an origin's HTTP/3 broke, Chrome moved its requests to a
-    new TCP connection after 6–10 s idle on the last one. mimicry keeps
-    using its HTTP/2 connection. Why Chrome does this is not captured.
+- **Chrome moves an idle origin to a new TCP connection** (Chrome on
+  macOS).
+  - Differs: once an origin's HTTP/3 broke, Chrome on macOS moved its
+    requests to a new TCP connection after 6–10 s idle on the last one.
+    mimicry keeps using its HTTP/2 connection, as Chrome 156 on Windows
+    did in all 3 `h3-broken` samples. Why Chrome on macOS does this is not
+    captured.
   - Shows: after an HTTP/3 failure, pauses of 6 s or more.
   - Detection: low. User-visible: no.
   - Close: captures to find the cause; medium.
@@ -534,7 +539,8 @@ These matter most under decision 0029:
     records it).
 - **Chrome's blackhole detection** (Chrome).
   - Differs: when the path Chrome migrated to dies too, Chrome closes
-    with `85:Network blackhole detected` after 54–61 s and sends the
+    with `85:Network blackhole detected` after 54–61 s (on Windows too,
+    60.5 s after the connection started in every sample) and sends the
     stuck request again on a new TCP connection. mimicry waits for QUIC's
     30 s idle timeout, then sends it on TCP (`pending: tcp`), without
     Chrome's close.
@@ -668,8 +674,9 @@ These matter most under decision 0029:
   - Source: `h3EdgeGaps` in [`http3_edge_test.go`](../internal/harness/e2e/http3_edge_test.go).
 - **Resumed attempts' probes** (Chrome, Firefox).
   - Differs: Chrome's resumed attempt first probes with 4 Initials (the
-    whole hello, cut afresh) and later sends lone 0-RTT datagrams;
-    mimicry sends one Initial per probe and no lone 0-RTT datagrams.
+    whole hello, cut afresh; on Windows 2 in 1 of 3 samples) and later
+    sends lone 0-RTT datagrams; mimicry sends one Initial per probe and no
+    lone 0-RTT datagrams.
     Firefox's resumed probes vary (pairs from a cached 3 ms RTT, lone
     40-byte 0-RTT datagrams); mimicry replays its whole first flight.
   - Shows: a resumed QUIC attempt to a server that does not answer.
@@ -684,27 +691,45 @@ These matter most under decision 0029:
     received one. Chrome 156 presents it even less: on 3 of 9
     reconnections whose host had given it one (captured on a second Mac kept on macOS 26;
     3 of 6 in a check on the other Mac), which ones varying between
-    samples. mimicry always presents the token.
+    samples. Chrome 156 on Windows the same: 3 of 9 in `h3-discovery`,
+    15 of 27 in `h3-early`, 12 of 27 in `h3-too-early`. mimicry always
+    presents the token.
   - Shows: QUIC reconnections after idle.
   - Detection: low. User-visible: no.
   - Close: captures of Chrome's token cache rules; medium.
   - Source: `sampleGaps` in `internal/harness/cmd/h3gen/load.go`;
     `profile/quic.go` (`Tokens`).
-- **Chrome's late PRIORITY_UPDATE on macOS 26** (Chrome 156).
-  - Differs: in 3 of the second Mac's `h3-discovery` samples the server read a
-    request's PRIORITY_UPDATE 1 ms after its HEADERS (another datagram);
-    everywhere else, and in a 2-sample check on the other Mac, it came
-    first. mimicry sends it first (both are flushed under one cork,
-    control stream first), though one test flake showed otherwise (see
-    load flakes in the HTTP/3 page tests, under
-    [Tooling and tests](#tooling-and-tests)). Likely the slower Mac's
-    packet flushing (unconfirmed).
+- **Chrome's late PRIORITY_UPDATE** (Chrome 156, macOS 26 and Windows).
+  - Differs: in 3 of the second Mac's `h3-discovery` samples, and in 1 of
+    the Windows PC's, the server read a request's PRIORITY_UPDATE 1 ms
+    after its HEADERS (another datagram); everywhere else, and in a
+    2-sample check on the other Mac, it came first. mimicry sends it
+    first (both are flushed under one cork, control stream first), though
+    one test flake showed otherwise (see load flakes in the HTTP/3 page
+    tests, under [Tooling and tests](#tooling-and-tests)). Chrome's packet
+    flushing under load, likely (unconfirmed; seen on two machines now).
   - Shows: HTTP/3 requests on a busy or slow client.
   - Detection: low. User-visible: no.
-  - Close: the datagram each frame came in, or more samples on both Macs;
-    small.
+  - Close: the datagram each frame came in, or more samples on each
+    machine; small.
   - Source: `sampleGaps` (`priorityUpdate <path>`) in
     `internal/harness/cmd/h3gen/load.go`.
+- **The `h3-early` pair's POST on Windows** (Chrome on Windows; replay
+  timing).
+  - Differs: nothing measured in mimicry's rules. Chrome on Windows made
+    the pair's POST 4–6 ms after its GET, by when the resumed connection
+    the GET started had finished its handshake on loopback, so the POST
+    went in 1-RTT (5 of 6 samples; on macOS it came within 3 ms of the
+    Finished and was held for it). The e2e replay makes both requests in
+    the same millisecond, so mimicry's POST is held for the handshake as
+    `http3.earlyData` says, and the edge test cannot tell which request
+    started the connection.
+  - Shows: an unsafe request made just after a GET on a resumed QUIC
+    connection.
+  - Detection: none. User-visible: no.
+  - Close: replay each step at the browser's own issue times, and a
+    faster loopback handshake under `-race`; medium.
+  - Source: `h3EdgeSchedulingGaps` in [`http3_edge_test.go`](../internal/harness/e2e/http3_edge_test.go).
 - **ACK_FREQUENCY and IMMEDIATE_ACK** (Firefox advertises
   `min_ack_delay`).
   - Differs: no capture server sent them; mimicry ignores both frames.
@@ -1248,13 +1273,15 @@ These matter most under decision 0029:
 - **Chrome's error-page reload** (Chrome).
   - Differs: when a navigation hits its redirect limit, Chrome's error page
     reloads the last URL a second later (`cache-control: max-age=0`) and
-    follows the rest of the chain. mimicry returns the error.
+    follows the rest of the chain, on macOS and Windows alike. mimicry
+    returns the error.
   - Shows: navigation chains longer than 19 redirects.
   - Detection: low. User-visible: yes, an error where Chrome would carry
     on; deferred as browser UI.
   - Close: by decision 0022, not planned.
   - Source: [decision 0022](decisions/0022-redirects-as-the-browser-follows-them.md);
-    [redirects2 report](../internal/harness/reports/redirects2-2026-10-24.md).
+    [redirects2 report](../internal/harness/reports/redirects2-2026-10-24.md);
+    `redirectsReload` in [`redirects2_test.go`](../internal/harness/e2e/redirects2_test.go).
 - **`hopPreflight` to another cross-site origin** (Firefox, Safari).
   - Differs: measured only for a hop to the same cross-site origin.
   - Detection: low. User-visible: no.
@@ -1429,8 +1456,9 @@ These matter most under decision 0029:
     [redirects2 report](../internal/harness/reports/redirects2-2026-10-24.md).
 - **Chrome's preconnect** (Chrome).
   - Differs: Chrome opens one more TLS connection to the page's host (a
-    handshake, no request) on every page load, and sometimes uses it
-    later (after a GOAWAY, in 2 of 3 samples). Through a proxy these show
+    handshake, no request) on every page load, on macOS and Windows, and
+    sometimes uses it later (after a GOAWAY, in 2 of 3 samples). Through
+    a proxy these show
     as extra CONNECTs that only get a 407. mimicry makes no speculative
     connections.
   - Shows: every Chrome page load.
@@ -1821,16 +1849,31 @@ it.
   - Source: [coming from tls-client](concepts/coming-from-tls-client.md#building-a-client)
     (`WithPreHook`, `WithPostHook`).
 - **More profiles, and a way to make them** (catalogue).
-  - Differs: the five profiles are desktop macOS ones (Chrome, Firefox,
-    Safari). There is no iOS Safari, Android Chrome or Windows profile,
-    and nothing documents how a capture of your own becomes a profile.
+  - Differs: the profiles are desktop ones: five on macOS (Chrome,
+    Firefox, Safari) and Chrome on Windows
+    ([decision 0047](decisions/0047-windows-profiles.md)). There is no iOS
+    Safari, Android Chrome, Linux, or Windows Firefox or Edge profile, and
+    nothing documents how a capture of your own becomes a profile.
   - Shows: sites whose mobile endpoints or app traffic a caller imitates,
     or sessions tied to a user agent from elsewhere.
-  - Detection: high where a non-macOS client is expected (every request
-    carries the platform). User-visible: no profile to pick.
-  - Close: iOS Safari and Android Chrome first, then Windows Chrome, each
-    a capture setup and a refresh (large); a guide to making a profile
-    from your own captures with `cmd/refresh` (medium). Each needs a
-    decision record.
+  - Detection: high where another platform's client is expected (every
+    request carries the platform). User-visible: no profile to pick.
+  - Close: iOS Safari and Android Chrome first, then Firefox and Edge on
+    Windows, each a capture setup and a refresh (large); a guide to making
+    a profile from your own captures with `cmd/refresh` (medium). Each
+    needs a decision record.
   - Source: [coming from tls-client](concepts/coming-from-tls-client.md#where-mimicry-is-weaker);
     [decision 0035](decisions/0035-version-policy-and-capture-inheritance.md).
+- **Chrome on Windows from one machine** (Chrome on Windows).
+  - Differs: not measured. `chrome-156-windows` comes from one Windows 10
+    PC (x64, English), on loopback. Chrome's user agent says
+    `Windows NT 10.0` on Windows 11 too by its source (a lead, not
+    evidence); no Windows 11 or ARM capture shows what else might differ.
+    The platform version a site can ask for with `Accept-CH`
+    (`sec-ch-ua-platform-version`) is not captured on any platform, and
+    mimicry sends no high-entropy hints.
+  - Shows: every request, if Windows 11 or ARM differs; sites that ask
+    for high-entropy client hints.
+  - Detection: low. User-visible: no.
+  - Close: a refresh on a Windows 11 PC; small once the machine exists.
+  - Source: [decision 0047](decisions/0047-windows-profiles.md).

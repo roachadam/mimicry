@@ -1086,8 +1086,11 @@ func flightFeatures(c *quictrace.Conn) features {
 				f.cat[ip+" scid length"] = strconv.Itoa(*pk.SCIDLength)
 			}
 
+			// Whether a token is sent is the client's; its length is the
+			// server's: quic-go's tokens carry its RTT estimate as an
+			// ASN.1 integer, 89 or 90 B on loopback by the RTT measured.
 			if pk.TokenLength != nil {
-				f.num[ip+" token length"] = *pk.TokenLength
+				f.cat[ip+" token"] = strconv.FormatBool(*pk.TokenLength > 0)
 			}
 		}
 	}

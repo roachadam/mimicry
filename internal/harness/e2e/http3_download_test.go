@@ -166,7 +166,11 @@ type bulkEvent struct {
 }
 
 // bulkEvents are the connection's 1-RTT packets in order: the client's
-// (opened) and the server's (header protection removed).
+// (opened) and the server's (header protection removed). Packets the
+// recorder saw at the same microsecond go server first: the client can
+// only follow what reached it, and on Windows the recorder's clock moves
+// in steps of about 0.5 ms, so a key update and the client's reply to it
+// often share one.
 func bulkEvents(c *quictrace.Conn) []bulkEvent {
 	var out []bulkEvent
 
@@ -186,8 +190,8 @@ func bulkEvents(c *quictrace.Conn) []bulkEvent {
 			}
 		}
 	}
-	add(c.Datagrams, true)
 	add(c.Server, false)
+	add(c.Datagrams, true)
 	slices.SortStableFunc(out, func(a, b bulkEvent) int {
 		return int(a.micros - b.micros)
 	})

@@ -99,6 +99,15 @@ first `chrome-windows` refresh captures every scenario and replay whatever
 `-mode` (unless `-scenarios` is given), starting from the macOS profile of
 the same version. Later ones follow `-mode`.
 
+Two things differ in what the Windows captures record, whatever the
+browser does: the recorder's clock there moves in steps of about 0.5 ms,
+so a packet and the other side's answer often share a timestamp (tests
+that order both sides take the server's first on a tie), and quic-go's
+NEW_TOKEN tokens are 89 or 90 bytes by the loopback RTT they encode (tests
+compare whether a token is sent, not its length). The report names the
+machines by role (this Mac, the Mac mini, the Windows PC), never by their
+ssh aliases.
+
 ## What a run does
 
 1. **Preflight.** On each machine it checks the installed browser version,

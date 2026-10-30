@@ -1,0 +1,80 @@
+[
+  [
+    {
+      "kind": "connect",
+      "conn": 14,
+      "status": 200,
+      "target": "capture.mimicry.test:55703",
+      "lines": [
+        "CONNECT capture.mimicry.test:55703 HTTP/1.1",
+        "Host: capture.mimicry.test:55703",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 15,
+      "status": 200,
+      "target": "capture.mimicry.test:55703",
+      "lines": [
+        "CONNECT capture.mimicry.test:55703 HTTP/1.1",
+        "Host: capture.mimicry.test:55703",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 14,
+      "status": 200,
+      "target": "capture.mimicry.test:55724",
+      "lines": [
+        "CONNECT capture.mimicry.test:55724 HTTP/1.1",
+        "Host: capture.mimicry.test:55724",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 15,
+      "status": 200,
+      "target": "capture.mimicry.test:55724",
+      "lines": [
+        "CONNECT capture.mimicry.test:55724 HTTP/1.1",
+        "Host: capture.mimicry.test:55724",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 14,
+      "status": 200,
+      "target": "capture.mimicry.test:55744",
+      "lines": [
+        "CONNECT capture.mimicry.test:55744 HTTP/1.1",
+        "Host: capture.mimicry.test:55744",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 15,
+      "status": 200,
+      "target": "capture.mimicry.test:55744",
+      "lines": [
+        "CONNECT capture.mimicry.test:55744 HTTP/1.1",
+        "Host: capture.mimicry.test:55744",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+      ]
+    }
+  ]
+]

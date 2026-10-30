@@ -23,9 +23,13 @@ import (
 // connectionsPreconnects are the connections a browser opened on the
 // connections page and never used, which mimicry does not open: host,
 // one entry per connection. Chrome preconnects to the page's host once
-// more (a handshake, no HTTP/2 preface, in every sample).
+// more (a handshake, no HTTP/2 preface, in every sample, on macOS and
+// Windows).
 var connectionsPreconnects = map[string][]string{
 	"chrome-155-macos": {
+		"www.conns-a.test",
+	},
+	"chrome-156-windows": {
 		"www.conns-a.test",
 	},
 }

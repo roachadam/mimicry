@@ -21,6 +21,11 @@ var headersOrderGaps = map[string][]string{
 		"letters-rev.xhr.cs", "around-rev.xhr.cs",
 		"letters-rev.xhr.h1", "around-rev.xhr.h1",
 	},
+	"chrome-156-windows": {
+		"letters-rev.xhr.so", "around-rev.xhr.so",
+		"letters-rev.xhr.cs", "around-rev.xhr.cs",
+		"letters-rev.xhr.h1", "around-rev.xhr.h1",
+	},
 	"firefox-158-macos": {
 		"pair-ba.xhr.so", "letters-rev.xhr.so", "around-rev.xhr.so", "case.xhr.so",
 		"pair-ba.xhr.cs", "letters-rev.xhr.cs", "around-rev.xhr.cs", "case.xhr.cs",

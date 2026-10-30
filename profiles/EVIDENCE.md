@@ -4,9 +4,10 @@ This file lists every claim the built-in profiles make, where it comes
 from, and what keeps it true. A claim is one profile field, such as the
 TLS cipher list or a cookie rule.
 
-**Covered:** `chrome-155-macos`, `chrome-156-macos`, `firefox-158-macos`,
-`safari-27-macos` and `safari-26-macos`. Safari 27 was captured on macOS 27;
-Safari 26 on a second Mac kept on macOS 26.
+**Covered:** `chrome-155-macos`, `chrome-156-macos`, `chrome-156-windows`,
+`firefox-158-macos`, `safari-27-macos` and `safari-26-macos`. Safari 27 was
+captured on macOS 27; Safari 26 on a second Mac kept on macOS 26; Chrome
+156 on Windows on a Windows 10 PC.
 
 **Headline:** about 85% of the classed cells in the tables below are **W** or
 **W+** (seen on the wire). The rest are fitted, copied, measured on another
@@ -28,8 +29,8 @@ column names the test that fails if the profile and the captures drift
 apart. "Known gap" marks a difference mimicry does not imitate.
 
 Last fully reviewed 2026-10-24. Rows were updated with the 2026-10-28
-captures. The "Not covered" list was rechecked against the code on
-2026-10-29.
+captures, and `chrome-156-windows` added with its 2026-10-29 captures. The
+"Not covered" list was rechecked against the code on 2026-10-29.
 
 ## How rows are classed
 
@@ -60,6 +61,47 @@ its own too (two samples, 2026-10-28), so its resumption rows are its own
 difference beyond the user agent and `sec-ch-ua`
 ([report](../internal/harness/reports/refresh-chrome-156-macos-2026-10-26.md)),
 and `realcheck` showed none against the real Chrome 156.
+
+**`chrome-156-windows`** (2026-10-29, Chrome 156.0.8078.80 on Windows 10,
+[report](../internal/harness/reports/refresh-chrome-156-windows-2026-10-29.md);
+[decision 0047](../docs/decisions/0047-windows-profiles.md)) has no column
+of its own either. It inherits nothing: every scenario and replay was
+captured on Windows, three samples each, so each row is its own, with the
+class and value of `chrome-155-macos`'s column, and the same tests keep it
+true. Where Windows differs:
+
+- **The platform:** `user-agent` says `Windows NT 10.0; Win64; x64` and
+  `sec-ch-ua-platform` `"Windows"`, in every header list (the navigation,
+  HTTP/1.1, every kind and variant).
+- **`http3.discovery.fallback.tcpDelayMs`:** 307–314 ms (macOS 305–306).
+- **The GREASE transport parameter's `maxLength`:** 14 (macOS 15): the
+  longest seen; Chrome draws the length per connection.
+- **One gap fewer than on macOS:** Chrome on macOS moved a broken
+  origin's requests to a new TCP connection after 6–10 s idle (pinned
+  there, `h3EdgeGaps`); Chrome on Windows kept its connection in all three
+  `h3-broken` samples, as mimicry does.
+- **Pinned as on macOS:** NEW_TOKEN presented on 3 of 9 `h3-discovery`
+  reconnections (`h3gen`'s `sampleGaps`; `quic.tokens` true, as macOS),
+  one PRIORITY_UPDATE read 1 ms after its HEADERS (1 of 3 samples), the
+  preconnect (`connectionsPreconnects`), the XHR header order
+  (`headersOrderGaps`), the error-page reload (`redirectsReload`), the
+  blackhole resend and resumed probes (`h3EdgeGaps`; the first resumed
+  probe 2 Initials in 1 of 3 samples, 4 in the others) and the fast
+  fallback's differences (`h3EdgeFastGaps`).
+- **Timing only:** the pair's POST in `h3-early` and `h3-too-early` came
+  4–6 ms after its GET, after the resumed handshake, and went in 1-RTT (5
+  of 6; `h3EdgeSchedulingGaps`); one migration's PATH_RESPONSE went
+  before its RETIRE_CONNECTION_ID, the server's challenge having arrived
+  first (`h3gen` counts the client's own datagrams); QUIC give-ups 1–15
+  ms after 4.0 s (macOS 0–4).
+- **The recorder on Windows:** its clock moves in steps of about 0.5 ms,
+  so packets of both sides often share a timestamp (the download test
+  orders such ties server first), and quic-go's NEW_TOKEN tokens were 89
+  or 90 bytes by the loopback RTT they encode (the tests compare whether a
+  token is sent, not its length).
+
+`realcheck` on the Windows PC found no difference between Chrome and
+`chrome-156-windows` on the echo endpoints.
 
 No claim rests on browser source code or on another client's presets alone:
 those were leads only. Where another client disagreed with the wire, the wire
@@ -852,7 +894,9 @@ plain-HTTP requests do; Safari 26 copies Safari 27 there (not captured).
 `TestDeriveReproducesProfiles` (in `cmd/refresh`) derives every built-in
 profile from its own captures and requires it unchanged. The last quick
 refresh is the
-[Chrome 156 report](../internal/harness/reports/refresh-chrome-156-macos-2026-10-26.md).
+[Chrome 156 report](../internal/harness/reports/refresh-chrome-156-macos-2026-10-26.md);
+the first full refresh on Windows the
+[Chrome 156 on Windows report](../internal/harness/reports/refresh-chrome-156-windows-2026-10-29.md).
 
 ## Keeping it true
 

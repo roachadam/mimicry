@@ -114,21 +114,30 @@ const edgeRuns = 3
 // no longer appears fails.
 var h3EdgeGaps = func() map[string]string {
 	gaps := map[string]string{
-		"chrome-155-macos/h3-broken edge request /h3/silence.so sent":                       "the server never answers the silenced request (the scenario drops it); Chrome sent it again over a new TCP connection 54–61 s later, when it closed its migrated connection with '85:Network blackhole detected' after keep-alive PINGs there went unanswered (report http3-edge-2026-10-25, corrections), a rule no profile field holds; mimicry's waits on its QUIC connection",
-		"chrome-155-macos/h3-broken edge request /h3/silence.so delay ms":                   "as its sending",
-		"chrome-155-macos/h3-broken edge TCP www.h3-a.test #2 goaway":                       "the TCP connection that carried Chrome's late resend of silence.so",
-		"chrome-155-macos/h3-broken edge TCP www.h3-a.test #2 trigger":                      "as its goaway",
-		"chrome-155-macos/h3-broken edge TCP www.h3-a.test #2 after its trigger ms":         "as its goaway",
-		"chrome-155-macos/h3-broken edge TCP www.h3-b.test #3 goaway":                       "Chrome moved h3-b's requests to a new TCP connection after 6–10 s idle on its last one (closed4–closed6, in every sample once the origin was broken), not captured why; mimicry keeps its HTTP/2 connection",
+		"chrome-155-macos/h3-broken edge TCP www.h3-b.test #3 goaway":                       "Chrome on macOS moved h3-b's requests to a new TCP connection after 6–10 s idle on its last one (closed4–closed6, in every sample once the origin was broken), not captured why; mimicry keeps its HTTP/2 connection, as Chrome on Windows did in every sample",
 		"chrome-155-macos/h3-broken edge TCP www.h3-b.test #3 after its trigger ms":         "as its goaway",
-		"chrome-155-macos/h3-broken edge QUIC www.h3-b.test #2 datagrams":                   "Chrome's resumed attempt probes first with 4 Initials (its whole resumed hello, cut afresh) and sends lone 0-RTT datagrams later (+0.4 s, +2.0/3.0 s); quic.loss's one_packet probe sends one Initial per PTO and says nothing of the 0-RTT ones (13 datagrams, Chrome 16; timing and give-up match)",
-		"chrome-155-macos/h3-broken edge QUIC www.h3-b.test #2 Initial packet number steps": "as its datagrams: the browser's first resumed probe is 4 Initials (steps 4 1 1 1, mimicry's 4 alone); every other step, the skip before each probe and none before the close, matches",
+		"chrome-155-macos/h3-broken edge QUIC www.h3-b.test #2 Initial packet number steps": "as its datagrams: the browser's first resumed probe is 4 Initials (steps 4 1 1 1, mimicry's 4 alone); every other step, the skip before each probe and none before the close, matches. On Windows the samples disagree (4 Initials in 2, 2 in the other), so the step is not compared there",
 		"firefox-158-macos/h3-blackhole edge TCP www.h3-a.test #1 goaway":                   "Firefox answers the server's HTTP/2 GOAWAY with one of its own (NO_ERROR) at once, on every page; no profile field models it (an HTTP/2 rule, outside HTTP/3's)",
 		"firefox-158-macos/h3-blackhole edge TCP www.h3-a.test #2 goaway":                   "as TCP #1's",
 		"firefox-158-macos/h3-vn edge TCP www.h3-a.test #1 goaway":                          "as h3-blackhole's",
 		"firefox-158-macos/h3-broken edge QUIC www.h3-b.test #2 datagrams":                  "Firefox's resumed probes vary between samples (pairs every PTO from a ~3 ms cached RTT, the 3-packet resumed first flight not repeated, lone 40-B 0-RTT datagrams); quic.loss's flight probe replays all 3 first-flight packets per PTO, and the profile has no resumed-probe rule; give-up time and close match",
 		"firefox-158-macos/h3-too-early edge TCP www.h3-a.test declined":                    "beside 3–4 of its 4 retries after 425 Too Early per sample (which ones varies), Firefox also opened a TCP connection to the host and closed it before any request; the retry itself goes on the QUIC connection, as mimicry's does. No profile field holds when Firefox opens these (report h3-early-2026-10-26)",
 	}
+	// Chrome's on both platforms: the late resend of the silenced request
+	// and the resumed attempt's probes.
+	for _, name := range []string{"chrome-155-macos", "chrome-156-windows"} {
+		for k, why := range map[string]string{
+			"edge request /h3/silence.so sent":               "the server never answers the silenced request (the scenario drops it); Chrome sent it again over a new TCP connection 54–61 s later, when it closed its migrated connection with '85:Network blackhole detected' after keep-alive PINGs there went unanswered (report http3-edge-2026-10-25, corrections; Chrome on Windows the same, 60.5 s after the connection started), a rule no profile field holds; mimicry's waits on its QUIC connection",
+			"edge request /h3/silence.so delay ms":           "as its sending",
+			"edge TCP www.h3-a.test #2 goaway":               "the TCP connection that carried Chrome's late resend of silence.so",
+			"edge TCP www.h3-a.test #2 trigger":              "as its goaway",
+			"edge TCP www.h3-a.test #2 after its trigger ms": "as its goaway",
+			"edge QUIC www.h3-b.test #2 datagrams":           "Chrome's resumed attempt probes first with its whole resumed hello, cut afresh (4 Initials; 2 in 1 of the 3 Windows samples), and sends lone 0-RTT datagrams later (+2.0/3.0 s); quic.loss's one_packet probe sends one Initial per PTO and says nothing of the 0-RTT ones (12–13 datagrams, Chrome 14–16; timing and give-up match)",
+		} {
+			gaps[name+"/h3-broken "+k] = why
+		}
+	}
+
 	// Safari resumed QUIC with 0-RTT after closing a connection itself
 	// (its path's close, its own close on the server's GOAWAY), which no
 	// profile section describes (Safari has no tls.resumption); mimicry's
@@ -197,7 +206,14 @@ var h3EdgeGaps = func() map[string]string {
 // process's scheduling, keyed as h3EdgeGaps: skipped as those are, but
 // not required to appear.
 var h3EdgeSchedulingGaps = func() map[string]string {
+	const pair = "Chrome on Windows made the pair's POST 4–6 ms after its GET, whose resumed connection had started at once and, on loopback, finished its handshake by then: the GET is the trigger and the POST went in 1-RTT (5 of 6 samples; on macOS it came within 3 ms of the Finished and was held for it). mimicry's replay makes both in the same millisecond, so its POST is held for the handshake (http3.earlyData) and is the later trigger as this process schedules the two"
+
 	gaps := map[string]string{}
+	for _, sc := range []string{"h3-early", "h3-too-early"} {
+		gaps["chrome-156-windows/"+sc+" edge QUIC www.h3-a.test #6 trigger"] = pair
+		gaps["chrome-156-windows/"+sc+" edge request /h3/pair-post.so streams"] = pair
+	}
+
 	for _, name := range []string{"safari-26-macos", "safari-27-macos"} {
 		for _, sc := range []string{"h3-early", "h3-too-early"} {
 			gaps[name+"/"+sc+" edge QUIC www.h3-a.test #6 trigger"] = "Safari made the pair's GET and POST together (0–1 ms apart) 5–9 ms before its connection started, so the POST is the later trigger; mimicry's GET starts its connection at once, before or after its POST is made as this process schedules the two"
@@ -212,24 +228,31 @@ var h3EdgeSchedulingGaps = func() map[string]string {
 // and only on a page where QUIC fails (decision 0036).
 var h3EdgeFastGaps = func() map[string]string {
 	const (
-		chromeHold = "fast fallback: Chrome holds closed1.cs in 0-RTT on its resumed attempt until it gives up (4.0 s, zeroRttHolds), then sends it on TCP; mimicry's goes on TCP once the server has not answered for the race delay (305 ms)"
+		chromeHold = "fast fallback: Chrome holds closed1.cs in 0-RTT on its resumed attempt until it gives up (4.0 s, zeroRttHolds), then sends it on TCP; mimicry's goes on TCP once the server has not answered for the race delay (tcpDelayMs, about 305 ms)"
 		chromeNext = "fast fallback: closed2.cs, made while Chrome's 0-RTT attempt is unanswered, waits for it with no TCP and triggers the fresh attempt and TCP after the give-up; mimicry's goes on the TCP connection closed1.cs opened, and the fresh attempt follows the next request after the give-up, closed3.cs"
 		firefox    = "fast fallback: Firefox holds closed2.cs on its unanswered resumed attempt until it gives up (5 s, hold); mimicry's goes on TCP once the server has not answered for its first probe timeout (300 ms), opening the TCP connection closed3.cs would have"
 		safari     = "fast fallback: Safari's request waits out its 100 ms race delay after Version Negotiation ended its attempt; mimicry's goes on TCP at once"
 	)
 
 	gaps := map[string]string{
-		"chrome-155-macos/h3-broken edge request /h3/closed1.cs delay ms":            chromeHold,
-		"chrome-155-macos/h3-broken edge TCP www.h3-b.test #2 trigger":               chromeHold,
-		"chrome-155-macos/h3-broken edge TCP www.h3-b.test #2 after its trigger ms":  chromeHold,
-		"chrome-155-macos/h3-broken edge TCP www.h3-b.test #2 after QUIC #2 ms":      chromeHold,
-		"chrome-155-macos/h3-broken edge TCP www.h3-b.test #2 after QUIC #3 ms":      chromeHold,
-		"chrome-155-macos/h3-broken edge request /h3/closed2.cs delay ms":            chromeNext,
-		"chrome-155-macos/h3-broken edge QUIC www.h3-b.test #3 trigger":              chromeNext,
-		"chrome-155-macos/h3-broken edge QUIC www.h3-b.test #3 after its trigger ms": chromeNext,
-		"firefox-158-macos/h3-broken edge request /h3/closed2.cs delay ms":           firefox,
-		"firefox-158-macos/h3-broken edge TCP www.h3-b.test #3 trigger":              firefox,
+		"firefox-158-macos/h3-broken edge request /h3/closed2.cs delay ms": firefox,
+		"firefox-158-macos/h3-broken edge TCP www.h3-b.test #3 trigger":    firefox,
 	}
+	for _, name := range []string{"chrome-155-macos", "chrome-156-windows"} {
+		for k, why := range map[string]string{
+			"edge request /h3/closed1.cs delay ms":            chromeHold,
+			"edge TCP www.h3-b.test #2 trigger":               chromeHold,
+			"edge TCP www.h3-b.test #2 after its trigger ms":  chromeHold,
+			"edge TCP www.h3-b.test #2 after QUIC #2 ms":      chromeHold,
+			"edge TCP www.h3-b.test #2 after QUIC #3 ms":      chromeHold,
+			"edge request /h3/closed2.cs delay ms":            chromeNext,
+			"edge QUIC www.h3-b.test #3 trigger":              chromeNext,
+			"edge QUIC www.h3-b.test #3 after its trigger ms": chromeNext,
+		} {
+			gaps[name+"/h3-broken "+k] = why
+		}
+	}
+
 	for _, name := range []string{"safari-26-macos", "safari-27-macos"} {
 		for _, k := range []string{
 			"edge request /h3/vn-3.so delay ms",

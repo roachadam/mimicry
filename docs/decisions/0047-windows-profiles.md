@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-29
-- Commits: pending (fill in when it lands)
+- Commits: `8b8aa7e` (naming, accessors, the harness on Windows); first profile, `chrome-156-windows`: pending (fill in when it lands)
 
 **Summary.** Built-in profiles can now be for Windows as well as macOS,
 named `<browser>-<major>-windows`, captured from a real Chrome window on a
@@ -85,11 +85,31 @@ For the newest-version accessors, the options were:
 
 ## Evidence
 
-None yet: this record sets the naming and the rules; the first
-`chrome-*-windows` capture and its ledger column in `profiles/EVIDENCE.md`
-are the evidence for the profile itself. `cmd/profilegen`'s
-`TestGenerateWindows` shows `ChromeWindows()` and the versioned accessors
-generated from a Windows file, with `Chrome()` still on macOS.
+`chrome-156-windows`: every scenario and replay, three samples each, from
+Chrome 156.0.8078.80 on a Windows 10 PC on 2026-10-29
+([report](../../internal/harness/reports/refresh-chrome-156-windows-2026-10-29.md);
+[ledger](../../profiles/EVIDENCE.md)). Beyond the two values known before
+capturing (the user agent and `sec-ch-ua-platform`), the generators found
+only `http3.discovery.fallback.tcpDelayMs` 307–314 ms (macOS 305–306) and
+the GREASE transport parameter's longest length, 14 (macOS 15, drawn per
+connection). The TLS and QUIC hellos, the HTTP/2 preface, every header
+list, kind and variant, and the cookie, CORS, redirect, proxy, connection,
+WebSocket, early-data and failure rules came out as macOS's. One behaviour
+differs where mimicry was already right: Chrome on Windows kept a broken
+origin's TCP connection after idle where Chrome on macOS moved to a new
+one. Chrome's intermittent NEW_TOKEN reuse, its preconnect, its error-page
+reload, its blackhole resend and its resumed probes showed on Windows as
+on macOS and are pinned the same way. `realcheck` on the Windows PC found
+no difference between Chrome and the profile on the echo endpoints.
+`cmd/profilegen`'s `TestGenerateWindows` shows `ChromeWindows()` and the
+versioned accessors generated from a Windows file, with `Chrome()` still
+on macOS.
+
+Two things about the captures themselves, not the browser: the recorder's
+clock on Windows moves in steps of about 0.5 ms, so the download test
+orders packets of both sides that share a timestamp server first; and
+quic-go's tokens there were 89 or 90 bytes by the loopback RTT they
+encode, so the tests compare whether a token is sent, not its length.
 
 ## Consequences
 
@@ -101,9 +121,10 @@ generated from a Windows file, with `Chrome()` still on macOS.
   a user logged on at its console.
 - Until the first Windows capture, there is no Windows accessor; code
   using one does not compile, rather than failing at run time.
-- The harness tests by default check `Chrome()`, `Firefox()` and
-  `Safari()`; a Windows profile is checked by `:test-full` or by naming
-  it in `MIMICRY_PROFILES`.
+- The harness tests by default check each browser's newest profile on
+  each platform (`internal/harness/internal/testprofiles`), so
+  `chrome-156-windows` is checked with `Chrome()`, `Firefox()` and
+  `Safari()` by every `:test` run.
 
 ## Revisit when
 

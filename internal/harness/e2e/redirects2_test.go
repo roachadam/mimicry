@@ -76,7 +76,8 @@ func TestRedirects2MatchesBrowser(t *testing.T) {
 // its redirect limit stopped (nav-chain.so): their rows leave the reload
 // out, and must show one.
 var redirectsReload = map[string]bool{
-	"chrome-155-macos": true,
+	"chrome-155-macos":   true,
+	"chrome-156-windows": true,
 }
 
 // redirectsMerged are hosts whose connections are compared as one, per

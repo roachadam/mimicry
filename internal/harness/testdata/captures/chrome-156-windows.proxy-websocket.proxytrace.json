@@ -1,0 +1,224 @@
+[
+  [
+    {
+      "kind": "connect",
+      "conn": 14,
+      "status": 200,
+      "target": "www.ws-a.test:57673",
+      "lines": [
+        "CONNECT www.ws-a.test:57673 HTTP/1.1",
+        "Host: www.ws-a.test:57673",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 15,
+      "status": 200,
+      "target": "www.ws-a.test:57673",
+      "lines": [
+        "CONNECT www.ws-a.test:57673 HTTP/1.1",
+        "Host: www.ws-a.test:57673",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 18,
+      "status": 200,
+      "target": "h1.ws-a.test:57673",
+      "lines": [
+        "CONNECT h1.ws-a.test:57673 HTTP/1.1",
+        "Host: h1.ws-a.test:57673",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 19,
+      "status": 200,
+      "target": "h1.ws-a.test:57673",
+      "lines": [
+        "CONNECT h1.ws-a.test:57673 HTTP/1.1",
+        "Host: h1.ws-a.test:57673",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 21,
+      "status": 200,
+      "target": "h1.ws-a.test:57673",
+      "lines": [
+        "CONNECT h1.ws-a.test:57673 HTTP/1.1",
+        "Host: h1.ws-a.test:57673",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 24,
+      "status": 200,
+      "target": "www.ws-a.test:57675",
+      "lines": [
+        "CONNECT www.ws-a.test:57675 HTTP/1.1",
+        "Host: www.ws-a.test:57675",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 14,
+      "status": 200,
+      "target": "www.ws-a.test:57704",
+      "lines": [
+        "CONNECT www.ws-a.test:57704 HTTP/1.1",
+        "Host: www.ws-a.test:57704",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 15,
+      "status": 200,
+      "target": "www.ws-a.test:57704",
+      "lines": [
+        "CONNECT www.ws-a.test:57704 HTTP/1.1",
+        "Host: www.ws-a.test:57704",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 18,
+      "status": 200,
+      "target": "h1.ws-a.test:57704",
+      "lines": [
+        "CONNECT h1.ws-a.test:57704 HTTP/1.1",
+        "Host: h1.ws-a.test:57704",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 19,
+      "status": 200,
+      "target": "h1.ws-a.test:57704",
+      "lines": [
+        "CONNECT h1.ws-a.test:57704 HTTP/1.1",
+        "Host: h1.ws-a.test:57704",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 21,
+      "status": 200,
+      "target": "h1.ws-a.test:57704",
+      "lines": [
+        "CONNECT h1.ws-a.test:57704 HTTP/1.1",
+        "Host: h1.ws-a.test:57704",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 24,
+      "status": 200,
+      "target": "www.ws-a.test:57706",
+      "lines": [
+        "CONNECT www.ws-a.test:57706 HTTP/1.1",
+        "Host: www.ws-a.test:57706",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 14,
+      "status": 200,
+      "target": "www.ws-a.test:57735",
+      "lines": [
+        "CONNECT www.ws-a.test:57735 HTTP/1.1",
+        "Host: www.ws-a.test:57735",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 15,
+      "status": 200,
+      "target": "www.ws-a.test:57735",
+      "lines": [
+        "CONNECT www.ws-a.test:57735 HTTP/1.1",
+        "Host: www.ws-a.test:57735",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 18,
+      "status": 200,
+      "target": "h1.ws-a.test:57735",
+      "lines": [
+        "CONNECT h1.ws-a.test:57735 HTTP/1.1",
+        "Host: h1.ws-a.test:57735",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 19,
+      "status": 200,
+      "target": "h1.ws-a.test:57735",
+      "lines": [
+        "CONNECT h1.ws-a.test:57735 HTTP/1.1",
+        "Host: h1.ws-a.test:57735",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 21,
+      "status": 200,
+      "target": "h1.ws-a.test:57735",
+      "lines": [
+        "CONNECT h1.ws-a.test:57735 HTTP/1.1",
+        "Host: h1.ws-a.test:57735",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 24,
+      "status": 200,
+      "target": "www.ws-a.test:57737",
+      "lines": [
+        "CONNECT www.ws-a.test:57737 HTTP/1.1",
+        "Host: www.ws-a.test:57737",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+      ]
+    }
+  ]
+]

@@ -53,7 +53,7 @@ func (rep *report) write() (string, error) {
 	}
 
 	fmt.Fprintf(&b, "%s %s on %s, %s: %s. Made by `go run ./cmd/refresh` (staging `%s`).\n\n",
-		p.Browser, p.Installed, rep.run.machine(p), mode, how, harnessPath(rep.run.Dir))
+		p.Browser, p.Installed, rep.run.machine(p).role(), mode, how, harnessPath(rep.run.Dir))
 
 	b.WriteString("## Captures\n\n")
 	fmt.Fprintf(&b, "Every capture names %s with one user agent, and the browser's version was %s before and after the run.\n\n", p.Name, p.Installed)

@@ -563,7 +563,9 @@ func (s *edgeSet) pathDegrading(q *profile.QUIC, e *collector) *profile.QUICPath
 
 // migration checks sl's move to a new port (padded PATH_CHALLENGE, then
 // RETIRE_CONNECTION_ID, nothing more on the old path) and derives after
-// how many probe timeouts it came.
+// how many probe timeouts it came. A datagram answering the server's
+// PATH_CHALLENGE is the server's timing, not part of the move: it can
+// come before the RETIRE_CONNECTION_ID or after it.
 func migration(q *profile.QUIC, sl silenced, first int, at string, e *collector) *profile.QUICPathDegrading {
 	ds := sl.a.c.Datagrams
 	d := &ds[first]
@@ -573,9 +575,17 @@ func migration(q *profile.QUIC, sl silenced, first int, at string, e *collector)
 	}
 
 	retired := false
-	for i := first; i < min(first+4, len(ds)); i++ {
+	for i, burst := first, 0; i < len(ds) && burst < 4; i++ {
+		reply, retire := false, false
 		for j := range ds[i].Packets {
-			retired = retired || hasFrame(&ds[i].Packets[j], quictrace.FrameRetireConnectionID)
+			reply = reply || hasFrame(&ds[i].Packets[j], quictrace.FramePathResponse)
+			retire = retire || hasFrame(&ds[i].Packets[j], quictrace.FrameRetireConnectionID)
+		}
+
+		retired = retired || retire
+
+		if !reply {
+			burst++
 		}
 	}
 

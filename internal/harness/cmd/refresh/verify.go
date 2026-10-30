@@ -132,7 +132,7 @@ func (r *refreshRun) runRealcheck(ctx context.Context, p *plan) *result {
 	}
 
 	res := &result{
-		command: fmt.Sprintf("realcheck -browsers %s -profiles %s (on %s)", p.Browser, p.Name, m),
+		command: fmt.Sprintf("realcheck -browsers %s -profiles %s (on %s)", p.Browser, p.Name, m.role()),
 		output:  filepath.Join(local, "compare.md"),
 	}
 	start := time.Now()

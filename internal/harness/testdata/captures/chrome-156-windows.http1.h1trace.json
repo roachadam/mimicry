@@ -1,0 +1,566 @@
+[
+  [
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET / HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55648",
+        "Connection: keep-alive",
+        "sec-ch-ua: \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+        "sec-ch-ua-mobile: ?0",
+        "sec-ch-ua-platform: \"Windows\"",
+        "Upgrade-Insecure-Requests: 1",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "Sec-Fetch-Site: none",
+        "Sec-Fetch-Mode: navigate",
+        "Sec-Fetch-User: ?1",
+        "Sec-Fetch-Dest: document",
+        "Accept-Encoding: gzip, deflate, br, zstd",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET /style.css HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55648",
+        "Connection: keep-alive",
+        "sec-ch-ua-platform: \"Windows\"",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "sec-ch-ua: \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+        "sec-ch-ua-mobile: ?0",
+        "Accept: text/css,*/*;q=0.1",
+        "Sec-Fetch-Site: same-origin",
+        "Sec-Fetch-Mode: no-cors",
+        "Sec-Fetch-Dest: style",
+        "Referer: https://capture.mimicry.test:55648/",
+        "Accept-Encoding: gzip, deflate, br, zstd",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 2,
+      "host": "capture.mimicry.test",
+      "line": "GET /img.png HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55648",
+        "Connection: keep-alive",
+        "sec-ch-ua-platform: \"Windows\"",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "sec-ch-ua: \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+        "sec-ch-ua-mobile: ?0",
+        "Accept: image/jxl,image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "Sec-Fetch-Site: same-origin",
+        "Sec-Fetch-Mode: no-cors",
+        "Sec-Fetch-Dest: image",
+        "Referer: https://capture.mimicry.test:55648/",
+        "Accept-Encoding: gzip, deflate, br, zstd",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET /app.js HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55648",
+        "Connection: keep-alive",
+        "sec-ch-ua-platform: \"Windows\"",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "sec-ch-ua: \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+        "sec-ch-ua-mobile: ?0",
+        "Accept: */*",
+        "Sec-Fetch-Site: same-origin",
+        "Sec-Fetch-Mode: no-cors",
+        "Sec-Fetch-Dest: script",
+        "Referer: https://capture.mimicry.test:55648/",
+        "Accept-Encoding: gzip, deflate, br, zstd",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET /big HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55648",
+        "Connection: keep-alive",
+        "sec-ch-ua-platform: \"Windows\"",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "sec-ch-ua: \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+        "sec-ch-ua-mobile: ?0",
+        "Accept: */*",
+        "Sec-Fetch-Site: same-origin",
+        "Sec-Fetch-Mode: cors",
+        "Sec-Fetch-Dest: empty",
+        "Referer: https://capture.mimicry.test:55648/",
+        "Accept-Encoding: gzip, deflate, br, zstd",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "POST /upload HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55648",
+        "Connection: keep-alive",
+        "Content-Length: 200000",
+        "sec-ch-ua-platform: \"Windows\"",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "sec-ch-ua: \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+        "sec-ch-ua-mobile: ?0",
+        "Accept: */*",
+        "Origin: https://capture.mimicry.test:55648",
+        "Sec-Fetch-Site: same-origin",
+        "Sec-Fetch-Mode: cors",
+        "Sec-Fetch-Dest: empty",
+        "Referer: https://capture.mimicry.test:55648/",
+        "Accept-Encoding: gzip, deflate, br, zstd",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET /again HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55648",
+        "Connection: keep-alive",
+        "sec-ch-ua-platform: \"Windows\"",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "sec-ch-ua: \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+        "x-mimicry-huffman: {^}~",
+        "sec-ch-ua-mobile: ?0",
+        "Accept: */*",
+        "Sec-Fetch-Site: same-origin",
+        "Sec-Fetch-Mode: cors",
+        "Sec-Fetch-Dest: empty",
+        "Referer: https://capture.mimicry.test:55648/",
+        "Accept-Encoding: gzip, deflate, br, zstd",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET /nav HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55648",
+        "Connection: keep-alive",
+        "sec-ch-ua: \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+        "sec-ch-ua-mobile: ?0",
+        "sec-ch-ua-platform: \"Windows\"",
+        "Upgrade-Insecure-Requests: 1",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "Sec-Fetch-Site: same-origin",
+        "Sec-Fetch-Mode: navigate",
+        "Sec-Fetch-Dest: document",
+        "Referer: https://capture.mimicry.test:55648/",
+        "Accept-Encoding: gzip, deflate, br, zstd",
+        "Accept-Language: en-US,en;q=0.9",
+        "Cookie: mimicry_a=1; mimicry_b=2"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET /done HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55648",
+        "Connection: keep-alive",
+        "sec-ch-ua-platform: \"Windows\"",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "sec-ch-ua: \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+        "sec-ch-ua-mobile: ?0",
+        "Accept: */*",
+        "Sec-Fetch-Site: same-origin",
+        "Sec-Fetch-Mode: cors",
+        "Sec-Fetch-Dest: empty",
+        "Referer: https://capture.mimicry.test:55648/nav",
+        "Accept-Encoding: gzip, deflate, br, zstd",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    }
+  ],
+  [
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET / HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55667",
+        "Connection: keep-alive",
+        "sec-ch-ua: \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+        "sec-ch-ua-mobile: ?0",
+        "sec-ch-ua-platform: \"Windows\"",
+        "Upgrade-Insecure-Requests: 1",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "Sec-Fetch-Site: none",
+        "Sec-Fetch-Mode: navigate",
+        "Sec-Fetch-User: ?1",
+        "Sec-Fetch-Dest: document",
+        "Accept-Encoding: gzip, deflate, br, zstd",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET /style.css HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55667",
+        "Connection: keep-alive",
+        "sec-ch-ua-platform: \"Windows\"",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "sec-ch-ua: \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+        "sec-ch-ua-mobile: ?0",
+        "Accept: text/css,*/*;q=0.1",
+        "Sec-Fetch-Site: same-origin",
+        "Sec-Fetch-Mode: no-cors",
+        "Sec-Fetch-Dest: style",
+        "Referer: https://capture.mimicry.test:55667/",
+        "Accept-Encoding: gzip, deflate, br, zstd",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 2,
+      "host": "capture.mimicry.test",
+      "line": "GET /img.png HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55667",
+        "Connection: keep-alive",
+        "sec-ch-ua-platform: \"Windows\"",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "sec-ch-ua: \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+        "sec-ch-ua-mobile: ?0",
+        "Accept: image/jxl,image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "Sec-Fetch-Site: same-origin",
+        "Sec-Fetch-Mode: no-cors",
+        "Sec-Fetch-Dest: image",
+        "Referer: https://capture.mimicry.test:55667/",
+        "Accept-Encoding: gzip, deflate, br, zstd",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET /app.js HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55667",
+        "Connection: keep-alive",
+        "sec-ch-ua-platform: \"Windows\"",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "sec-ch-ua: \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+        "sec-ch-ua-mobile: ?0",
+        "Accept: */*",
+        "Sec-Fetch-Site: same-origin",
+        "Sec-Fetch-Mode: no-cors",
+        "Sec-Fetch-Dest: script",
+        "Referer: https://capture.mimicry.test:55667/",
+        "Accept-Encoding: gzip, deflate, br, zstd",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET /big HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55667",
+        "Connection: keep-alive",
+        "sec-ch-ua-platform: \"Windows\"",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "sec-ch-ua: \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+        "sec-ch-ua-mobile: ?0",
+        "Accept: */*",
+        "Sec-Fetch-Site: same-origin",
+        "Sec-Fetch-Mode: cors",
+        "Sec-Fetch-Dest: empty",
+        "Referer: https://capture.mimicry.test:55667/",
+        "Accept-Encoding: gzip, deflate, br, zstd",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "POST /upload HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55667",
+        "Connection: keep-alive",
+        "Content-Length: 200000",
+        "sec-ch-ua-platform: \"Windows\"",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "sec-ch-ua: \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+        "sec-ch-ua-mobile: ?0",
+        "Accept: */*",
+        "Origin: https://capture.mimicry.test:55667",
+        "Sec-Fetch-Site: same-origin",
+        "Sec-Fetch-Mode: cors",
+        "Sec-Fetch-Dest: empty",
+        "Referer: https://capture.mimicry.test:55667/",
+        "Accept-Encoding: gzip, deflate, br, zstd",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET /again HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55667",
+        "Connection: keep-alive",
+        "sec-ch-ua-platform: \"Windows\"",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "sec-ch-ua: \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+        "x-mimicry-huffman: {^}~",
+        "sec-ch-ua-mobile: ?0",
+        "Accept: */*",
+        "Sec-Fetch-Site: same-origin",
+        "Sec-Fetch-Mode: cors",
+        "Sec-Fetch-Dest: empty",
+        "Referer: https://capture.mimicry.test:55667/",
+        "Accept-Encoding: gzip, deflate, br, zstd",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET /nav HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55667",
+        "Connection: keep-alive",
+        "sec-ch-ua: \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+        "sec-ch-ua-mobile: ?0",
+        "sec-ch-ua-platform: \"Windows\"",
+        "Upgrade-Insecure-Requests: 1",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "Sec-Fetch-Site: same-origin",
+        "Sec-Fetch-Mode: navigate",
+        "Sec-Fetch-Dest: document",
+        "Referer: https://capture.mimicry.test:55667/",
+        "Accept-Encoding: gzip, deflate, br, zstd",
+        "Accept-Language: en-US,en;q=0.9",
+        "Cookie: mimicry_a=1; mimicry_b=2"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET /done HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55667",
+        "Connection: keep-alive",
+        "sec-ch-ua-platform: \"Windows\"",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "sec-ch-ua: \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+        "sec-ch-ua-mobile: ?0",
+        "Accept: */*",
+        "Sec-Fetch-Site: same-origin",
+        "Sec-Fetch-Mode: cors",
+        "Sec-Fetch-Dest: empty",
+        "Referer: https://capture.mimicry.test:55667/nav",
+        "Accept-Encoding: gzip, deflate, br, zstd",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    }
+  ],
+  [
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET / HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55683",
+        "Connection: keep-alive",
+        "sec-ch-ua: \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+        "sec-ch-ua-mobile: ?0",
+        "sec-ch-ua-platform: \"Windows\"",
+        "Upgrade-Insecure-Requests: 1",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "Sec-Fetch-Site: none",
+        "Sec-Fetch-Mode: navigate",
+        "Sec-Fetch-User: ?1",
+        "Sec-Fetch-Dest: document",
+        "Accept-Encoding: gzip, deflate, br, zstd",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET /style.css HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55683",
+        "Connection: keep-alive",
+        "sec-ch-ua-platform: \"Windows\"",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "sec-ch-ua: \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+        "sec-ch-ua-mobile: ?0",
+        "Accept: text/css,*/*;q=0.1",
+        "Sec-Fetch-Site: same-origin",
+        "Sec-Fetch-Mode: no-cors",
+        "Sec-Fetch-Dest: style",
+        "Referer: https://capture.mimicry.test:55683/",
+        "Accept-Encoding: gzip, deflate, br, zstd",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 2,
+      "host": "capture.mimicry.test",
+      "line": "GET /img.png HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55683",
+        "Connection: keep-alive",
+        "sec-ch-ua-platform: \"Windows\"",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "sec-ch-ua: \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+        "sec-ch-ua-mobile: ?0",
+        "Accept: image/jxl,image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "Sec-Fetch-Site: same-origin",
+        "Sec-Fetch-Mode: no-cors",
+        "Sec-Fetch-Dest: image",
+        "Referer: https://capture.mimicry.test:55683/",
+        "Accept-Encoding: gzip, deflate, br, zstd",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET /app.js HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55683",
+        "Connection: keep-alive",
+        "sec-ch-ua-platform: \"Windows\"",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "sec-ch-ua: \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+        "sec-ch-ua-mobile: ?0",
+        "Accept: */*",
+        "Sec-Fetch-Site: same-origin",
+        "Sec-Fetch-Mode: no-cors",
+        "Sec-Fetch-Dest: script",
+        "Referer: https://capture.mimicry.test:55683/",
+        "Accept-Encoding: gzip, deflate, br, zstd",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET /big HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55683",
+        "Connection: keep-alive",
+        "sec-ch-ua-platform: \"Windows\"",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "sec-ch-ua: \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+        "sec-ch-ua-mobile: ?0",
+        "Accept: */*",
+        "Sec-Fetch-Site: same-origin",
+        "Sec-Fetch-Mode: cors",
+        "Sec-Fetch-Dest: empty",
+        "Referer: https://capture.mimicry.test:55683/",
+        "Accept-Encoding: gzip, deflate, br, zstd",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "POST /upload HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55683",
+        "Connection: keep-alive",
+        "Content-Length: 200000",
+        "sec-ch-ua-platform: \"Windows\"",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "sec-ch-ua: \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+        "sec-ch-ua-mobile: ?0",
+        "Accept: */*",
+        "Origin: https://capture.mimicry.test:55683",
+        "Sec-Fetch-Site: same-origin",
+        "Sec-Fetch-Mode: cors",
+        "Sec-Fetch-Dest: empty",
+        "Referer: https://capture.mimicry.test:55683/",
+        "Accept-Encoding: gzip, deflate, br, zstd",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET /again HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55683",
+        "Connection: keep-alive",
+        "sec-ch-ua-platform: \"Windows\"",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "sec-ch-ua: \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+        "x-mimicry-huffman: {^}~",
+        "sec-ch-ua-mobile: ?0",
+        "Accept: */*",
+        "Sec-Fetch-Site: same-origin",
+        "Sec-Fetch-Mode: cors",
+        "Sec-Fetch-Dest: empty",
+        "Referer: https://capture.mimicry.test:55683/",
+        "Accept-Encoding: gzip, deflate, br, zstd",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET /nav HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55683",
+        "Connection: keep-alive",
+        "sec-ch-ua: \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+        "sec-ch-ua-mobile: ?0",
+        "sec-ch-ua-platform: \"Windows\"",
+        "Upgrade-Insecure-Requests: 1",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "Sec-Fetch-Site: same-origin",
+        "Sec-Fetch-Mode: navigate",
+        "Sec-Fetch-Dest: document",
+        "Referer: https://capture.mimicry.test:55683/",
+        "Accept-Encoding: gzip, deflate, br, zstd",
+        "Accept-Language: en-US,en;q=0.9",
+        "Cookie: mimicry_a=1; mimicry_b=2"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET /done HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55683",
+        "Connection: keep-alive",
+        "sec-ch-ua-platform: \"Windows\"",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "sec-ch-ua: \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+        "sec-ch-ua-mobile: ?0",
+        "Accept: */*",
+        "Sec-Fetch-Site: same-origin",
+        "Sec-Fetch-Mode: cors",
+        "Sec-Fetch-Dest: empty",
+        "Referer: https://capture.mimicry.test:55683/nav",
+        "Accept-Encoding: gzip, deflate, br, zstd",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    }
+  ]
+]

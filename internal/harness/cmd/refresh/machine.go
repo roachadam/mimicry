@@ -86,6 +86,19 @@ func (m *machine) String() string {
 	return m.host
 }
 
+// role names m in a report, which is committed: by what it is, never by
+// its ssh alias, which is the maintainer's own name for the machine.
+func (m *machine) role() string {
+	switch {
+	case m.host == "":
+		return "this Mac"
+	case m.windows:
+		return "the Windows PC"
+	default:
+		return "the Mac mini"
+	}
+}
+
 var sshOptions = []string{
 	"-o", "BatchMode=yes",
 	"-o", "ConnectTimeout=15",

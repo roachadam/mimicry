@@ -46,11 +46,12 @@ How it differs from tls-client and similar libraries:
 |---|---|---|
 | `chrome-156-macos` | `profiles.Chrome()`, `profiles.Chrome156MacOS()` | supported |
 | `chrome-155-macos` | `profiles.Chrome155MacOS()` | supported |
+| `chrome-156-windows` | `profiles.ChromeWindows()`, `profiles.Chrome156Windows()` | supported |
 | `firefox-158-macos` | `profiles.Firefox()`, `profiles.Firefox158MacOS()` | supported |
 | `safari-27-macos` | `profiles.Safari()`, `profiles.Safari27MacOS()` | supported |
 | `safari-26-macos` | `profiles.Safari26MacOS()` | supported |
 
-`profiles.Chrome()`, `Firefox()` and `Safari()` always return the newest built-in version. A versioned accessor, or `profiles.ByName("chrome-155-macos")`, stays on one version; the newest five versions of each browser are supported.
+`profiles.Chrome()`, `Firefox()` and `Safari()` always return the newest built-in macOS version, `profiles.ChromeWindows()` the newest Chrome on Windows ([0047](docs/decisions/0047-windows-profiles.md)). A versioned accessor, or `profiles.ByName("chrome-155-macos")`, stays on one version; the newest five versions of each browser on each platform are supported.
 
 ## Common tasks
 
@@ -89,8 +90,8 @@ mimicry also sends what a browser sends around your requests. That covers redire
 
 ## Limits
 
-- **macOS profiles only.** There are no Windows, Linux, iOS or Android profiles.
-- **The TCP/IP fingerprint is your host's.** The operating system sends the first TCP packet, not mimicry. A macOS profile sent from Linux carries a Linux one; through a proxy, the server sees the proxy's.
+- **macOS and Windows desktop profiles only.** Chrome, Firefox and Safari on macOS; only Chrome on Windows. There are no Linux, iOS or Android profiles.
+- **The TCP/IP fingerprint is your host's.** The operating system sends the first TCP packet, not mimicry. A macOS profile sent from Linux carries a Linux one, a Windows profile sent from a Mac a macOS one; through a proxy, the server sees the proxy's.
 - **One Transport per browsing session and per site.** A Transport acts as one browser tab. Give parallel tasks and different sites a Transport each; they can share a cookie jar.
 - **HTTP/3 ignores `Config.DialContext`.** QUIC sends UDP to the address `Config.Resolver` returns.
 - **Proxied requests use HTTP/1.1 or HTTP/2,** as in browsers, unless `Config.HTTP3OverSOCKS5` is on. `https://` proxies are not supported.

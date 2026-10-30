@@ -4,7 +4,7 @@
 // -windows):
 //
 //	go run ./cmd/refresh -browser chrome,firefox -mode quick   # in internal/harness/
-//	go run ./cmd/refresh -browser chrome-windows -windows gpudesktop
+//	go run ./cmd/refresh -browser chrome-windows -windows <alias>
 //
 // Per browser it preflights, captures into a staging directory, derives the
 // new profile and runs the generators, installs it, and verifies it with the
