@@ -24,7 +24,7 @@ func (r *report) stockSection(w writer) {
 	w("The HTTP/3 points again with the client container's `net.core.rmem_max` and `rmem_default` at %s and %s ", stock.RmemMax, stock.RmemDefault)
 	w("(stock Linux; `BENCH_UDP_STOCK=1`, %d pass(es)), against the rest of this report's (%s and %s here). At stock ", max(r.StockPasses, 1),
 		granted.RmemMax, granted.RmemDefault)
-	w("values the quic-go clients' 7 MB request and mimicry's 1 MB (`Config.UDPReadBufferSize` 0) are both cut to ")
+	w("values the quic-go clients' 7 MB request and mimicry's 1 MB (`Config.HTTP3ReadBufferSize` 0) are both cut to ")
 	w("rmem_max, and every client asking gets twice that, 416 KB. UDP: datagrams the client's kernel ")
 	w("dropped on a full receive buffer during the point (`RcvbufErrors`), granted / stock.\n\n")
 

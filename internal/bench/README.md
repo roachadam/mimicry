@@ -310,7 +310,7 @@ buffer; when `net.core.rmem_max` cuts it, they retry with `SO_RCVBUFFORCE`,
 which succeeds for a process with `CAP_NET_ADMIN`. The client container has
 `NET_ADMIN` in every normal pass (netem needs it), so there they get their
 7 MB whatever `rmem_max` says; mimicry asks for Chrome's 1 MB
-(`Config.UDPReadBufferSize` 0) without forcing it, and Linux grants twice
+(`Config.HTTP3ReadBufferSize` 0) without forcing it, and Linux grants twice
 a request up to `rmem_max` (2 MB where it is raised). On stock Linux
 (`rmem_max` and `rmem_default` 212992, an unprivileged process) a socket
 that asks for nothing gets 208 KB and every client that asks gets 416 KB.
@@ -381,7 +381,7 @@ runs leave out
 otherwise (`clients.Variants`): `mimicry-nocoalescing`
 (`DisableCoalescing`, a connection per host where Chrome coalesces),
 `mimicry-conns16` and `mimicry-conns64` (`MaxConnsPerHost`),
-`mimicry-ack20` (`HTTP3ACKEvery` 20), `mimicry-udpos` (`UDPReadBufferSize`
+`mimicry-ack20` (`HTTP3ACKEvery` 20), `mimicry-udpos` (`HTTP3ReadBufferSize`
 -1, the OS's default), `mimicry-udp208k`, `-udp512k`, `-udp2m` and
 `-udp7m` (208 KB, 512 KB, 2 MB and 7 MB), `mimicry-proxies4` and
 `mimicry-proxies1` (`MaxIdleProxies` 4 and 1: the 4 most recent proxies'

@@ -121,7 +121,7 @@ func headerList(h http.Header, name string) []string {
 	return out
 }
 
-// PreflightHeaders returns the Config.Headers (config) a CORS preflight
+// PreflightHeaders returns the Config.Header (config) a CORS preflight
 // gets: those its kind's header lists name, such as a User-Agent or
 // Accept-Language override, so it goes as the request does; never the
 // page's own, such as an API key, which a preflight never carries.

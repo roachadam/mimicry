@@ -104,11 +104,11 @@ type options struct {
 	// clock defaults to the real one; proxy is Config.Proxy.
 	clock clockwork.Clock
 	proxy func(*http.Request) (*url.URL, error)
-	// idleConnTimeout is Config.IdleConnTimeout, udpReadBufferSize
-	// Config.UDPReadBufferSize and maxIdleProxies Config.MaxIdleProxies.
-	idleConnTimeout   time.Duration
-	udpReadBufferSize int
-	maxIdleProxies    int
+	// idleConnTimeout is Config.IdleConnTimeout, http3ReadBufferSize
+	// Config.HTTP3ReadBufferSize and maxIdleProxies Config.MaxIdleProxies.
+	idleConnTimeout     time.Duration
+	http3ReadBufferSize int
+	maxIdleProxies      int
 }
 
 func newTestEngine(t *testing.T, o options) *Engine {
@@ -128,16 +128,16 @@ func newTestEngine(t *testing.T, o options) *Engine {
 	}
 
 	e, err := newEngine(Config{
-		Profile:           p,
-		RootCAs:           roots,
-		DialTimeout:       o.dialTimeout,
-		DialContext:       o.dial,
-		Proxy:             o.proxy,
-		Coalesce:          true,
-		MaxConnsPerHost:   o.maxConns,
-		IdleConnTimeout:   o.idleConnTimeout,
-		UDPReadBufferSize: o.udpReadBufferSize,
-		MaxIdleProxies:    o.maxIdleProxies,
+		Profile:             p,
+		RootCAs:             roots,
+		DialTimeout:         o.dialTimeout,
+		DialContext:         o.dial,
+		Proxy:               o.proxy,
+		Coalesce:            true,
+		MaxConnsPerHost:     o.maxConns,
+		IdleConnTimeout:     o.idleConnTimeout,
+		HTTP3ReadBufferSize: o.http3ReadBufferSize,
+		MaxIdleProxies:      o.maxIdleProxies,
 	}, clock, o.onWait)
 	if err != nil {
 		t.Fatal(err)

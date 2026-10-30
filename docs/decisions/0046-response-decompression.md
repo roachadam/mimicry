@@ -15,7 +15,7 @@ client.
 ## Problem
 
 mimicry decoded a response only when the profile sent `Accept-Encoding`
-and the caller had not set it, on the request or in `Config.Headers`
+and the caller had not set it, on the request or in `Config.Header`
 (net/http's rule: whoever asks for compression decodes it). The use case
 is automating user actions on sites, mostly ported from tls-client, whose
 codebases set `accept-encoding` on every request as part of the browser's
@@ -69,7 +69,7 @@ Browsers decode every encoding they advertise and never hand a page
 compressed bytes, so decoding changes nothing on the wire and is no
 fingerprint question. The other clients' rules are from their source,
 cited above. `TestDecompression` in the root package covers the rule: a
-request's and `Config.Headers`' `Accept-Encoding` reach the server and
+request's and `Config.Header`' `Accept-Encoding` reach the server and
 the body is still decoded; `DisableDecompression`, an unknown encoding
 and stacked ones give the server's bytes with `Content-Encoding` and
 `Content-Length`; a status read alone never reads the body.

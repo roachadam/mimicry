@@ -47,7 +47,7 @@ Option 3, the maintainer's decision.
   than its own gets a preflight. Its own origin is the page's, or `null`
   after a tainted redirect chain. It needs a method other than GET, HEAD and
   POST, or a CORS-unsafe header. The Fetch standard's lists decide which
-  headers are unsafe: the header the page set, or `Config.Headers`, by name
+  headers are unsafe: the header the page set, or `Config.Header`, by name
   and value. Forbidden headers and User-Agent never count.
 - **What.** The profile's `preflight` kind is derived like every other kind.
   `Access-Control-Request-Method` is the request's method.
@@ -66,7 +66,7 @@ Option 3, the maintainer's decision.
   method only without credentials). Every unsafe header must be allowed,
   with `*` covering headers only without credentials and never
   `Authorization`. Otherwise the result is `*CORSError` and no request.
-- **Headers.** The preflight carries the `Config.Headers` its own lists
+- **Headers.** The preflight carries the `Config.Header` its own lists
   name (a User-Agent or Accept-Language override, as the request carries
   them), never page headers such as an API key.
 - **Redirects.** Each hop comes back through `RoundTrip`, so a redirected

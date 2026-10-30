@@ -119,7 +119,7 @@ func TestRefusedRequests(t *testing.T) {
 		{name: "beacon GET", method: http.MethodGet, r: &Request{Kind: Beacon}},
 		{name: "stylesheet script", method: http.MethodGet, r: &Request{Kind: Script, Stylesheet: css}},
 		{name: "stylesheet navigation", method: http.MethodGet, r: &Request{Kind: Navigate, Stylesheet: css}},
-		{name: "preflight", method: http.MethodOptions, r: &Request{Kind: kindPreflight}},
+		{name: "preflight", method: http.MethodOptions, r: &Request{Kind: Preflight}},
 		{name: "navigation POST without From", method: http.MethodPost, url: "https://a.test/submit", body: strings.NewReader("a=1")},
 		{name: "form POST without its variant", profile: noFormPost, method: http.MethodPost, url: "https://www.a.test/submit", body: strings.NewReader("a=1"), r: &Request{}, notMeasured: true},
 		{name: "clicked form POST measured only by script", profile: scriptFormPost, method: http.MethodPost, url: "https://www.a.test/submit", body: strings.NewReader("a=1"), r: &Request{}, notMeasured: true},
@@ -256,5 +256,19 @@ func TestHTTP2OnlyVariantOverHTTP1(t *testing.T) {
 
 	if n := served.Load(); n != 0 {
 		t.Errorf("server saw %d requests, want none", n)
+	}
+}
+
+// TestAsPreflight checks a request made as a Preflight is refused: only
+// the transport sends preflights.
+func TestAsPreflight(t *testing.T) {
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodOptions, "https://api.a.test/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tr := fakeTransport(t, Config{}, &fakeEngine{})
+	if err := send(t, tr, As(req, Preflight)); err == nil || !strings.Contains(err.Error(), "as a Preflight") {
+		t.Errorf("got %v, want the refused Preflight", err)
 	}
 }

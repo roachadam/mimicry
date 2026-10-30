@@ -924,7 +924,7 @@ These matter most under decision 0029:
     location and the client's time zone.
   - Shows: every request.
   - Detection: medium when it does not fit the exit IP. User-visible: no.
-  - Close: document the override (`Config.Headers` with an
+  - Close: document the override (`Config.Header` with an
     `Accept-Language`, which preflights carry too), or make it a profile
     parameter; small.
   - Source: [EVIDENCE.md, Request headers](../profiles/EVIDENCE.md#request-headers).
@@ -1366,9 +1366,9 @@ These matter most under decision 0029:
   - Detection: none. User-visible: rarely.
   - Close: a capture; small.
   - Source: [EVIDENCE.md, Redirects](../profiles/EVIDENCE.md#redirects).
-- **`Config.Headers` credentials after a chain leaves its origin**
+- **`Config.Header` credentials after a chain leaves its origin**
   (all).
-  - Differs: `Authorization` and `Cookie` from `Config.Headers` stop once a
+  - Differs: `Authorization` and `Cookie` from `Config.Header` stop once a
     chain has left an origin, following the Fetch standard. Browsers have
     no counterpart to capture.
   - Detection: none. User-visible: no.
@@ -1812,7 +1812,7 @@ it.
   - the navigation's slots over HTTP/2;
   - the coalescing conditions (see
     [coalescing conditions](#connections-and-pool));
-  - the preflight's `Config.Headers` rule;
+  - the preflight's `Config.Header` rule;
   - dropping a ticket whose certificate expired;
   - a server raising MAX_FRAME_SIZE (`large-settings`);
   - Firefox's WebSocket transport end and the 10 s close fallback (see

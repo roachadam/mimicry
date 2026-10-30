@@ -105,10 +105,10 @@ type Config struct {
 	// as they would without the proxy. Otherwise, and through any other
 	// proxy, they stay on TCP (browsers never use HTTP/3 through a proxy).
 	HTTP3OverSOCKS5 bool
-	// UDPReadBufferSize is the receive buffer QUIC sockets ask for: zero
-	// asks for dial.DefaultUDPReadBufferSize (Chrome's), negative keeps the
+	// HTTP3ReadBufferSize is the receive buffer QUIC sockets ask for: zero
+	// asks for dial.DefaultHTTP3ReadBufferSize (Chrome's), negative keeps the
 	// OS's default.
-	UDPReadBufferSize int
+	HTTP3ReadBufferSize int
 	// HTTP3ACKEvery, when set, is how many ack-eliciting packets a QUIC
 	// connection acknowledges at once after the profile's warm-up, in place
 	// of the profile's quic.ack.every; at least that, at most maxACKEvery
@@ -233,13 +233,13 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 		clock:       clock,
 		rootCAs:     cfg.RootCAs,
 		dialer: &dial.Dialer{
-			Timeout:           timeout,
-			DialContext:       cfg.DialContext,
-			Resolver:          cfg.Resolver,
-			Proxy:             p.Proxy,
-			UserAgent:         userAgent(p),
-			BrowserAuth:       cfg.BrowserProxyAuth,
-			UDPReadBufferSize: cfg.UDPReadBufferSize,
+			Timeout:             timeout,
+			DialContext:         cfg.DialContext,
+			Resolver:            cfg.Resolver,
+			Proxy:               p.Proxy,
+			UserAgent:           userAgent(p),
+			BrowserAuth:         cfg.BrowserProxyAuth,
+			HTTP3ReadBufferSize: cfg.HTTP3ReadBufferSize,
 		},
 		proxy:           cfg.Proxy,
 		lookup:          lookupFunc(cfg.Resolver),

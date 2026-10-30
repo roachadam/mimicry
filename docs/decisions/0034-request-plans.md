@@ -19,7 +19,7 @@ what is sent.
 What a request sends exists only on the wire. tls-client users print their
 own header literal; in mimicry the final lines are computed (0005, 0006,
 0021, 0030): the kind's list or a variant, values the page decides, the
-jar's cookies, `Config.Headers`, placements, then each connection's writer
+jar's cookies, `Config.Header`, placements, then each connection's writer
 (HTTP/1.1 casing, Host and framing; HTTP/2 and HTTP/3 pseudo-headers,
 split cookies, `alt-used`). Porting is guesswork against a capture proxy,
 and the porting traps (a copied `sec-fetch-site` or `Referer` silently
@@ -77,7 +77,7 @@ What else a plan says: the kind; `Variant`, a JSON path into the profile
 `Condition`, the request's condition in `profile.Variant`'s JSON names,
 so a fallback to the kind's own list shows; `Preflight`, a plan of its
 own, nil when none is needed or the cache allows the request;
-`Overrides` (a header the caller or `Config.Headers` set in place of a
+`Overrides` (a header the caller or `Config.Header` set in place of a
 profile default, a computed value or the jar's cookies:
 `headerorder.Replaced`, Build's rules reported) and `Dropped` (profile
 headers `HeaderOrderKey` leaves out); `String` for logs.

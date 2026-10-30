@@ -96,11 +96,11 @@ type Config struct {
 
 	// Headers and cookies.
 
-	// Headers are your own headers, such as an API key, added to every
+	// Header holds your own headers, such as an API key, added to every
 	// request where the browser places headers a page sets. They override
 	// the browser's defaults; the request's own headers override them. A
 	// key with no values removes a default. Default: none.
-	Headers http.Header
+	Header http.Header
 	// HeaderPlacement moves headers within the browser's order on every
 	// request you send, redirect hops included. CORS preflights and
 	// WebSocket handshakes keep the browser's order; Exact and
@@ -164,11 +164,11 @@ type Config struct {
 	// Browsers never use HTTP/3 through a proxy, so by default those
 	// requests stay on TCP. A proxy that refuses UDP keeps them on TCP.
 	HTTP3OverSOCKS5 bool
-	// UDPReadBufferSize is the receive buffer, in bytes, each HTTP/3
+	// HTTP3ReadBufferSize is the receive buffer, in bytes, each HTTP/3
 	// connection asks the OS for. Zero asks for 1 MB, as Chrome does;
 	// negative keeps the OS default. The OS may grant less. Raise it for
 	// fast, long or lossy paths; nothing changes on the wire.
-	UDPReadBufferSize int
+	HTTP3ReadBufferSize int
 	// HTTP3ACKEvery acknowledges every Nth QUIC packet instead of the
 	// browser's rate, such as Chrome's every 10th. Zero, the default, keeps
 	// the browser's. It must be between the browser's rate and 64. Fewer
@@ -205,7 +205,7 @@ type Config struct {
 type Transport struct {
 	engine  engine
 	profile *profile.Profile
-	// headers are Config.Headers, keys canonical; preflightHeaders those
+	// headers are Config.Header, keys canonical; preflightHeaders those
 	// of them CORS preflights get (cors.PreflightHeaders).
 	headers          http.Header
 	preflightHeaders http.Header
@@ -241,8 +241,8 @@ func NewTransport(cfg Config) (*Transport, error) {
 		return nil, err
 	}
 
-	headers := make(http.Header, len(cfg.Headers))
-	for k, v := range cfg.Headers {
+	headers := make(http.Header, len(cfg.Header))
+	for k, v := range cfg.Header {
 		k = http.CanonicalHeaderKey(k)
 		// A copy, and a key with no values stays present: it suppresses.
 		headers[k] = append(headers[k], v...)
@@ -271,23 +271,23 @@ func NewTransport(cfg Config) (*Transport, error) {
 	}
 	if t.engine == nil {
 		ncfg := native.Config{
-			Profile:           p,
-			RootCAs:           cfg.RootCAs,
-			DialTimeout:       cfg.DialTimeout,
-			DialContext:       cfg.DialContext,
-			Resolver:          cfg.Resolver,
-			Proxy:             cfg.Proxy,
-			DisableHTTP3:      cfg.DisableHTTP3,
-			BrowserFallback:   cfg.BrowserQUICFallback,
-			Coalesce:          !cfg.DisableCoalescing,
-			MaxConnsPerHost:   cfg.MaxConnsPerHost,
-			IdleConnTimeout:   cfg.IdleConnTimeout,
-			MaxIdleProxies:    cfg.MaxIdleProxies,
-			HTTP3OverSOCKS5:   cfg.HTTP3OverSOCKS5,
-			UDPReadBufferSize: cfg.UDPReadBufferSize,
-			HTTP3ACKEvery:     cfg.HTTP3ACKEvery,
-			BrowserProxyAuth:  cfg.BrowserProxyAuth,
-			VerifyConnection:  t.verifier(cfg.VerifyConnection),
+			Profile:             p,
+			RootCAs:             cfg.RootCAs,
+			DialTimeout:         cfg.DialTimeout,
+			DialContext:         cfg.DialContext,
+			Resolver:            cfg.Resolver,
+			Proxy:               cfg.Proxy,
+			DisableHTTP3:        cfg.DisableHTTP3,
+			BrowserFallback:     cfg.BrowserQUICFallback,
+			Coalesce:            !cfg.DisableCoalescing,
+			MaxConnsPerHost:     cfg.MaxConnsPerHost,
+			IdleConnTimeout:     cfg.IdleConnTimeout,
+			MaxIdleProxies:      cfg.MaxIdleProxies,
+			HTTP3OverSOCKS5:     cfg.HTTP3OverSOCKS5,
+			HTTP3ReadBufferSize: cfg.HTTP3ReadBufferSize,
+			HTTP3ACKEvery:       cfg.HTTP3ACKEvery,
+			BrowserProxyAuth:    cfg.BrowserProxyAuth,
+			VerifyConnection:    t.verifier(cfg.VerifyConnection),
 		}
 		if cfg.AltSvc != nil {
 			ncfg.AltSvc = cfg.AltSvc.c
@@ -367,7 +367,7 @@ func followRedirects(*http.Request, []*http.Request) error {
 }
 
 // RoundTrip implements http.RoundTripper. It sends req as its kind (As,
-// With; a navigation by default) from its page, with Config.Headers added.
+// With; a navigation by default) from its page, with Config.Header added.
 // A gzip, deflate, br or zstd body is decoded and Content-Encoding and
 // Content-Length removed, unless Config.DisableDecompression.
 // Response.TLS is the connection's state.
@@ -556,8 +556,13 @@ func (t *Transport) prepare(req *http.Request, r Request, exact bool) (*sending,
 		return exactSending(req, r.From, t.headers), nil, nil
 	}
 
-	if r.Kind == kindPreflight || r.Kind == kindWebSocket {
-		// The transport's own: callers never make one.
+	if r.Kind == Preflight {
+		// The transport's own: it sends one when the request needs it.
+		return nil, nil, errors.New("mimicry: a request cannot be sent as a Preflight: the transport sends preflights itself")
+	}
+
+	if r.Kind == kindWebSocket {
+		// DialWebSocket's own: callers never make one.
 		return nil, nil, fmt.Errorf("mimicry: unknown request kind %d", int(r.Kind))
 	}
 
@@ -638,7 +643,7 @@ func (t *Transport) preflightFor(req *http.Request, r Request, from *url.URL, cr
 	}
 
 	s, err := resolve(t.profile, pre, Request{
-		Kind: kindPreflight,
+		Kind: Preflight,
 	}, from, t.preflightHeaders)
 	if err != nil {
 		return true, nil, err

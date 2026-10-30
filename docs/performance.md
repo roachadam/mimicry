@@ -94,7 +94,7 @@ second.
 once, mimicry served 4,408 requests per second. The others served
 7,383–8,516. mimicry asks the OS for a 1 MB UDP receive buffer, as Chrome
 does, and its socket dropped datagrams when the buffer filled. The other
-clients force a 7 MB buffer. Raise `Config.UDPReadBufferSize` for bulk
+clients force a 7 MB buffer. Raise `Config.HTTP3ReadBufferSize` for bulk
 HTTP/3 downloads. In focused runs, 2 MB gave 5,957–6,901 requests per
 second ([decision 0045](decisions/0045-udp-receive-buffer-default.md)).
 

@@ -37,9 +37,10 @@ type WebSocketOptions struct {
 	// Protocols are the subprotocols asked for (Sec-WebSocket-Protocol),
 	// in order; none sends no header.
 	Protocols []string
-	// Header holds headers of the caller's own, added to the handshake
-	// after the profile's (no page can set a WebSocket's headers). A key
-	// with no values suppresses a profile default.
+	// Header holds extra headers for this handshake only, added after the
+	// profile's and Config.Header (which apply to every request, this
+	// handshake included). After the handshake, a WebSocket carries frames,
+	// not headers. A key with no values suppresses a profile default.
 	Header http.Header
 }
 

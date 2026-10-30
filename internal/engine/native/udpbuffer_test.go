@@ -10,12 +10,12 @@ import (
 	"github.com/roachadam/mimicry/internal/dial"
 )
 
-// Config.UDPReadBufferSize reaches a QUIC connection's socket: zero asks
-// for dial.DefaultUDPReadBufferSize (Chrome's 1 MB), a size asks for it,
+// Config.HTTP3ReadBufferSize reaches a QUIC connection's socket: zero asks
+// for dial.DefaultHTTP3ReadBufferSize (Chrome's 1 MB), a size asks for it,
 // each getting what the OS grants a socket asking the same (a reference
 // socket), more than the OS's default; one above the OS's cap still
 // dials, and a negative size leaves the OS's default.
-func TestUDPReadBufferSize(t *testing.T) {
+func TestHTTP3ReadBufferSize(t *testing.T) {
 	def := readBuffer(t, listenUDP(t))
 
 	for _, tc := range []struct {
@@ -31,7 +31,7 @@ func TestUDPReadBufferSize(t *testing.T) {
 	}{
 		{
 			name: "default",
-			ask:  dial.DefaultUDPReadBufferSize,
+			ask:  dial.DefaultHTTP3ReadBufferSize,
 			more: true,
 		},
 		{
@@ -52,7 +52,7 @@ func TestUDPReadBufferSize(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			e := newTestEngine(t, options{
-				udpReadBufferSize: tc.size,
+				http3ReadBufferSize: tc.size,
 			})
 
 			pc, _, err := e.dialer.ListenUDP(t.Context(), "127.0.0.1", 443)

@@ -173,7 +173,7 @@ func TestDecompression(t *testing.T) {
 		encs []string
 		// label replaces encs on the response, the body still encoded by encs.
 		label []string
-		// headers are Config.Headers; header the request's own.
+		// headers are Config.Header; header the request's own.
 		headers http.Header
 		header  http.Header
 		raw     bool
@@ -194,7 +194,7 @@ func TestDecompression(t *testing.T) {
 			decoded: true,
 		},
 		{
-			name:    "Config.Headers Accept-Encoding",
+			name:    "Config.Header Accept-Encoding",
 			encs:    []string{"br"},
 			headers: http.Header{"accept-encoding": {"identity"}},
 			wantAE:  "identity",
@@ -224,7 +224,7 @@ func TestDecompression(t *testing.T) {
 			tr, err := NewTransport(Config{
 				Profile:              chrome,
 				RootCAs:              ts.pool,
-				Headers:              tc.headers,
+				Header:               tc.headers,
 				DisableDecompression: tc.raw,
 			})
 			if err != nil {
@@ -535,7 +535,7 @@ func anyRedirectOrder(p *profile.Profile) *profile.Profile {
 	return p
 }
 
-// Authorization and Cookie from Config.Headers stay behind once a
+// Authorization and Cookie from Config.Header stay behind once a
 // redirect chain leaves an origin, even when it comes back; same-origin
 // redirects keep them. (Typed navigations' redirects are not measured:
 // their order is beside the point here.)
@@ -562,7 +562,7 @@ func TestConfigCredentialsStayBehindCrossOriginRedirects(t *testing.T) {
 
 	client, err := NewClient(Config{
 		Profile: anyRedirectOrder(profiles.Chrome()),
-		Headers: http.Header{
+		Header: http.Header{
 			"Authorization": {"Bearer secret"},
 			"Cookie":        {"sid=1"},
 		},

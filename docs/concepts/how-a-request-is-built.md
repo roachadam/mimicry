@@ -48,10 +48,10 @@ Combinations no browser makes are errors before anything is sent:
 
 `Transport.RoundTrip` turns the request into a plan (`resolve.go`):
 
-1. **Add `Config.Headers`.** Each one the request does not set itself is
+1. **Add `Config.Header`.** Each one the request does not set itself is
    added. From here on it counts as a header the page set. Once a redirect
    chain has left an origin, `Authorization` and `Cookie` from
-   `Config.Headers` are no longer added.
+   `Config.Header` are no longer added.
 2. **Pick the header list.** A *list* is the browser's header names in
    order, with blanks (*slots*) for values that depend on the request.
    Each kind has a default list and variants. The variant depends on the
@@ -80,7 +80,7 @@ Combinations no browser makes are errors before anything is sent:
    - A connection partition: Chrome keeps credential-less requests and
      cross-site frames on separate connections.
 4. **Layer the request's own headers.** They win over the profile's
-   defaults and `Config.Headers`. A header set to `nil` suppresses a
+   defaults and `Config.Header`. A header set to `nil` suppresses a
    default. `HeaderOrderKey` replaces the order, and a profile default it
    does not name is not sent. `Config.HeaderPlacement` and
    `Request.HeaderPlacement` move one header directly before or after
@@ -91,7 +91,7 @@ Combinations no browser makes are errors before anything is sent:
    [CORS preflights](cors-preflights.md).
 
 `Exact(req)` skips steps 2, 3 and 5. Only the request's own headers and
-`Config.Headers` are sent, in `HeaderOrderKey`'s order or sorted by name.
+`Config.Header` are sent, in `HeaderOrderKey`'s order or sorted by name.
 
 What the browser was never seen doing is an error wrapping
 `mimicry.ErrNotMeasured`, not a guess. Examples: a kind the profile lacks,
@@ -163,7 +163,8 @@ A `Plan` holds:
 - `Protocol`: the protocol the request would take now, named as
   `resp.Proto` names it. It is empty when only the server's answer can
   decide.
-- `Preflight`: the CORS preflight's own plan, or nil when none is sent.
+- `Preflight`: the CORS preflight's own plan, its `Kind` `mimicry.Preflight`,
+  or nil when none is sent.
 - `Overrides`: headers you set in place of a profile default, a computed
   value or the jar's cookies. `Dropped`: profile headers your
   `HeaderOrderKey` leaves out.

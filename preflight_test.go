@@ -70,7 +70,7 @@ func corsTransport(t *testing.T, e *corsEngine, extra http.Header) *Transport {
 	tr, err := NewTransport(Config{
 		Profile: profiles.Chrome(),
 		engine:  e,
-		Headers: extra,
+		Header:  extra,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -132,7 +132,7 @@ func TestPreflightWhenNeeded(t *testing.T) {
 		{name: "long Accept", target: cross, h: http.Header{"Accept": {strings.Repeat("a", 129)}}, r: Request{Kind: Fetch}, want: "OPTIONS /x GET accept"},
 		{name: "simple range", target: cross, h: http.Header{"Range": {"bytes=0-99"}}, r: Request{Kind: Fetch}},
 		{name: "suffix range", target: cross, h: http.Header{"Range": {"bytes=-99"}}, r: Request{Kind: Fetch}, want: "OPTIONS /x GET range"},
-		{name: "Config.Headers are the page's", target: cross, extra: http.Header{"X-Api-Key": {"k"}}, r: Request{Kind: Fetch}, want: "OPTIONS /x GET x-api-key"},
+		{name: "Config.Header are the page's", target: cross, extra: http.Header{"X-Api-Key": {"k"}}, r: Request{Kind: Fetch}, want: "OPTIONS /x GET x-api-key"},
 		{name: "no-cors", target: cross, h: http.Header{"X-A": {"1"}}, r: Request{Kind: Fetch, NoCORS: true}},
 		{name: "not fetch or XHR", target: cross, h: http.Header{"X-A": {"1"}}, r: Request{Kind: Image, CrossOrigin: CrossOriginAnonymous}},
 	} {

@@ -35,7 +35,7 @@ to change one line.
 - **A second pseudo-header** (`HeaderPlaceKey`, values like
   `x-api-key>user-agent`). Fits `net/http` request literals, but a
   string syntax to parse, nothing typed, and it cannot be set once for
-  every request without also riding in `Config.Headers`, where it would
+  every request without also riding in `Config.Header`, where it would
   count as a page-set header.
 - **Profile-relative positions** (an index, "first", "last"). An index
   means a different place in every kind and variant; first and last are
@@ -65,7 +65,7 @@ For `HeaderOrderKey` together with placements:
 names in any case), `Config.HeaderPlacement []Place` and
 `Request.HeaderPlacement []Place`. The connection builds the request's
 header lines as before, the profile's order with page-set placement,
-defaults, suppressions, `Config.Headers`, cookies, framing and (HTTP/3)
+defaults, suppressions, `Config.Header`, cookies, framing and (HTTP/3)
 dropped headers and `alt-used` all applied, then moves each named header,
 `Config`'s placements first and then the request's, in slice order, to
 directly after the last line of its anchor or before the first. A header
@@ -87,7 +87,7 @@ Errors wrap `mimicry.ErrPlacement`:
 - `RoundTrip`, before anything is sent: the same for
   `Request.HeaderPlacement`, and request placements on an `Exact` request
   or one that sets `HeaderOrderKey` (on the request or in
-  `Config.Headers`).
+  `Config.Header`).
 - `RoundTrip`, from the connection: a header or anchor the request does
   not send. The request is not sent; its CORS preflight may have been.
   Over HTTP/1.1 the connection it would have used is closed, as for any

@@ -18,7 +18,7 @@ After a redirect from one origin to a third, the request's origin becomes
 `null`. From then on, every URL counts as another origin.
 
 Only headers the page could set count: the request's own and
-`Config.Headers`. Headers only a browser sets (`Cookie`, `Referer`,
+`Config.Header`. Headers only a browser sets (`Cookie`, `Referer`,
 `Sec-*`, `User-Agent`, …) never count. The safelist is narrow:
 
 - `Accept`, `Accept-Language` and `Content-Language` with plain values;
@@ -53,7 +53,7 @@ headers that depend on the request are:
 
 A preflight never carries cookies, even for `CredentialsInclude`.
 
-Of `Config.Headers`, a preflight carries only the ones the browser puts on
+Of `Config.Header`, a preflight carries only the ones the browser puts on
 a preflight. An override of `User-Agent` or `Accept-Language` goes on it;
 an API key never does. The request's own headers are never on it; they are
 only named in `Access-Control-Request-Headers`.

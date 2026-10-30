@@ -210,7 +210,7 @@ which protocol its visitors use.
 - `Config.DisableHTTP3` keeps every request on TCP.
 - `Config.AltSvc` shares, saves and loads what Transports learnt, so a new
   Transport can start on HTTP/3 as a restarted browser does.
-- `Config.UDPReadBufferSize` sizes the receive buffer; nothing on the wire
+- `Config.HTTP3ReadBufferSize` sizes the receive buffer; nothing on the wire
   depends on it.
 - `Config.HTTP3ACKEvery` sends fewer ACKs. This helps with an overloaded
   server, but no browser does it.

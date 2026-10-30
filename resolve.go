@@ -16,7 +16,7 @@ import (
 )
 
 // resolve returns how to send req as r describes it, from page from (nil:
-// none), with config (Config.Headers, keys canonical) added.
+// none), with config (Config.Header, keys canonical) added.
 func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, config http.Header) (*sending, error) {
 	h := req.Header.Clone()
 	if h == nil {
@@ -32,7 +32,7 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 	// insecureBefore: the request a redirect answered went to a non-secure
 	// URL (http:// upgraded to https://).
 	insecureBefore := len(chain) > 1 && !site.Trustworthy(chain[len(chain)-2])
-	// Config.Headers count as the page's from here on: for the variant,
+	// Config.Header count as the page's from here on: for the variant,
 	// credentials and the preflight.
 	addHeaders(h, config, chain)
 
@@ -171,7 +171,7 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 	// crossorigin="use-credentials"; navigations, frames and beacons always.
 	var credentialed bool
 	switch {
-	case r.Kind == kindPreflight:
+	case r.Kind == Preflight:
 		// A preflight never carries credentials (Fetch standard), as
 		// every browser's captures show.
 		credentialed = false
@@ -213,7 +213,7 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 		values["sec-fetch-storage-access"] = ctx.StorageAccess
 	}
 
-	if r.Kind == kindPreflight {
+	if r.Kind == Preflight {
 		// Safari sends an empty preflight's length; lists without the
 		// slot drop it.
 		values["content-length"] = "0"
@@ -297,7 +297,7 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 	// secure lists.
 	set := pageSet(h, list)
 	switch r.Kind {
-	case kindPreflight:
+	case Preflight:
 		// A preflight carries the page's headers by name only
 		// (Access-Control-Request-Headers): Safari orders one that does
 		// otherwise (kinds and cors pages, against redirects2's PATCH).
@@ -322,7 +322,7 @@ func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, co
 		CORSChecked: (sendOrigin || set) && r.Kind != kindWebSocket,
 		PageSet:     set,
 		// A preflight for a redirect's next URL is a request of its own.
-		Redirected: redirected && r.Kind != kindPreflight,
+		Redirected: redirected && r.Kind != Preflight,
 		Insecure:   insecure,
 	}
 	if req.Method != http.MethodGet {

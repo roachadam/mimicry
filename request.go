@@ -41,9 +41,11 @@ const (
 	Beacon                     // navigator.sendBeacon
 )
 
-// kindPreflight is the CORS preflight the transport sends before a request
-// that needs one; callers never make it.
-const kindPreflight Kind = -1
+// Preflight is the kind of a CORS preflight, the OPTIONS request the
+// transport sends before a request that needs one. It appears only in
+// plans (the Kind of Plan.Preflight): the transport makes preflights
+// itself, and a request sent As or With Preflight fails.
+const Preflight Kind = -1
 
 // kindWebSocket is a WebSocket's opening handshake, which DialWebSocket
 // makes; callers never make it as a request.
@@ -65,7 +67,7 @@ var profileKinds = map[Kind]string{
 	Fetch:          profile.KindFetch,
 	XHR:            profile.KindXHR,
 	Beacon:         profile.KindBeacon,
-	kindPreflight:  profile.KindPreflight,
+	Preflight:      profile.KindPreflight,
 	kindWebSocket:  profile.KindWebSocket,
 }
 
@@ -176,7 +178,7 @@ func With(req *http.Request, r Request) *http.Request {
 }
 
 // Exact returns a shallow copy of req that sends exactly its own headers,
-// in its own order (HeaderOrderKey) or sorted by name, plus Config.Headers:
+// in its own order (HeaderOrderKey) or sorted by name, plus Config.Header:
 // no profile headers and nothing computed. TLS, HTTP/2 and the cookie jar
 // still follow the profile.
 func Exact(req *http.Request) *http.Request {
@@ -221,7 +223,7 @@ type sending struct {
 }
 
 // exactSending returns how to send req as Exact does: exactly its own
-// headers plus config (Config.Headers, keys canonical), in its own order,
+// headers plus config (Config.Header, keys canonical), in its own order,
 // keeping cookies as a navigation from page.
 func exactSending(req *http.Request, page *url.URL, config http.Header) *sending {
 	h := req.Header.Clone()

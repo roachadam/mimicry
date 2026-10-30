@@ -45,11 +45,11 @@ type Dialer struct {
 	// them unasked (ConnectAuth, ForwardAuth): only the proxy sees the
 	// difference (decision 0039).
 	BrowserAuth bool
-	// UDPReadBufferSize is the receive buffer a QUIC socket asks for
+	// HTTP3ReadBufferSize is the receive buffer a QUIC socket asks for
 	// (SetReadBuffer; the OS may grant less): zero asks for
-	// DefaultUDPReadBufferSize, negative leaves the OS's default (see
+	// DefaultHTTP3ReadBufferSize, negative leaves the OS's default (see
 	// setReadBuffer).
-	UDPReadBufferSize int
+	HTTP3ReadBufferSize int
 
 	// asked holds the proxies (by URL) that have asked for credentials:
 	// browsers send them unasked from then on.
@@ -89,7 +89,7 @@ func (d *Dialer) dial(ctx context.Context, addr string) (net.Conn, error) {
 // ListenUDP resolves host with Resolver and opens a UDP socket for a QUIC
 // connection to its first address at port, returned with the socket. It
 // honours ctx, bounded by Timeout. The socket asks for the receive buffer
-// UDPReadBufferSize says and keeps what the OS grants.
+// HTTP3ReadBufferSize says and keeps what the OS grants.
 func (d *Dialer) ListenUDP(ctx context.Context, host string, port uint16) (net.PacketConn, netip.AddrPort, error) {
 	if d.Timeout > 0 {
 		var cancel context.CancelFunc
@@ -138,12 +138,12 @@ func (d *Dialer) ListenUDP(ctx context.Context, host string, port uint16) (net.P
 	return pc, netip.AddrPortFrom(addr, port), nil
 }
 
-// DefaultUDPReadBufferSize is the receive buffer a QUIC socket asks for
+// DefaultHTTP3ReadBufferSize is the receive buffer a QUIC socket asks for
 // by default: Chrome's (kQuicSocketReceiveBufferSize, net/quic/
 // quic_context.h, set on every QUIC socket it opens).
-const DefaultUDPReadBufferSize = 1 << 20
+const DefaultHTTP3ReadBufferSize = 1 << 20
 
-// setReadBuffer asks for uc's receive buffer as UDPReadBufferSize says.
+// setReadBuffer asks for uc's receive buffer as HTTP3ReadBufferSize says.
 // Best effort: Linux caps the request at net.core.rmem_max (stock: 208
 // KB, so 416 KB granted, the kernel doubling it) without an error, and a
 // failure leaves the OS's default. No SO_RCVBUFFORCE: it needs privileges.
@@ -158,9 +158,9 @@ const DefaultUDPReadBufferSize = 1 << 20
 // bursts that overflow nginx's socket, its congestion window falls and
 // MAX_DATA waits behind it while nginx idles on flow control.
 func (d *Dialer) setReadBuffer(uc *net.UDPConn) {
-	size := d.UDPReadBufferSize
+	size := d.HTTP3ReadBufferSize
 	if size == 0 {
-		size = DefaultUDPReadBufferSize
+		size = DefaultHTTP3ReadBufferSize
 	}
 
 	if size > 0 {
@@ -302,7 +302,7 @@ func (d *Dialer) socksMethods(p *url.URL) ([]byte, error) {
 // lives as long as its control connection (proxy.Association). A failure
 // is a *ProxyError; a refusal of UDP ASSOCIATE is remembered
 // (UDPRefused). It honours ctx, bounded by Timeout; the socket asks for
-// the receive buffer UDPReadBufferSize says, as ListenUDP's does.
+// the receive buffer HTTP3ReadBufferSize says, as ListenUDP's does.
 func (d *Dialer) ListenUDPVia(ctx context.Context, p *url.URL, host string, port uint16) (net.PacketConn, netip.AddrPort, error) {
 	if d.Timeout > 0 {
 		var cancel context.CancelFunc

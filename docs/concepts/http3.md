@@ -105,7 +105,7 @@ idle connection with no request waiting still closes silently.
 - `Config.DisableHTTP3` keeps every request on TCP.
 - `Config.HTTP3OverSOCKS5` sends HTTP/3 through a SOCKS5 proxy. See
   [Proxies](proxies.md#http3-through-socks5).
-- `Config.UDPReadBufferSize` sets how much each QUIC socket asks the OS to
+- `Config.HTTP3ReadBufferSize` sets how much each QUIC socket asks the OS to
   buffer. The default is 1 MB, as Chrome uses. A negative value keeps the
   OS default. A bigger buffer drops fewer packets under load. It changes
   nothing on the wire.

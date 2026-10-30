@@ -3,6 +3,7 @@
 - Status: Accepted
 - Date: 2026-10-29
 - Commits: `e28df4c`
+- Amended 2026-10-30: `Config.UDPReadBufferSize` is renamed `Config.HTTP3ReadBufferSize`.
 
 **Summary.** QUIC sockets now ask for a 1 MB receive buffer by default,
 Chrome's own value, best effort and without `SO_RCVBUFFORCE`; a negative

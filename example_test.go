@@ -484,7 +484,7 @@ func ExampleConfig_sharedJar() {
 	// jar: www.outlet.test outlet_visitor
 }
 
-// Headers of your own: Config.Headers on every request, the request's own
+// Headers of your own: Config.Header on every request, the request's own
 // on one, and HeaderOrderKey to set the order yourself. The shop speaks
 // HTTP/1.1 so its handler can print lines in arrival order.
 func ExampleHeaderOrderKey() {
@@ -505,7 +505,7 @@ func ExampleHeaderOrderKey() {
 	client, err := mimicry.NewClient(mimicry.Config{
 		Profile: profiles.Chrome155MacOS(),
 		// On every request, in the place of the profile's own value.
-		Headers: http.Header{
+		Header: http.Header{
 			"Accept-Language": {"de-DE,de;q=0.9"},
 		},
 		// Only to reach the local stand-in shop; nil for real sites.
@@ -1128,7 +1128,7 @@ func ExampleConfig_headerPlacement() {
 
 	client, err := mimicry.NewClient(mimicry.Config{
 		Profile: profiles.Chrome155MacOS(),
-		Headers: http.Header{
+		Header: http.Header{
 			"X-Api-Key": {"k3y"},
 		},
 		// Without it the key would go where Chrome puts a page's own

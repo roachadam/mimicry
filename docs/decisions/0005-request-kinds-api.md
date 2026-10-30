@@ -56,7 +56,7 @@ visibly the caller's.** Precedence, lowest first:
    `sec-fetch-mode`, `Origin`, `Referer` (strict-origin-when-cross-origin),
    `sec-fetch-storage-access`, credentials (cookies dropped when the mode
    sends none), recomputed along a redirect chain;
-3. `Config.Headers`, the caller's own headers for every request (an API
+3. `Config.Header`, the caller's own headers for every request (an API
    key), distinct from profile defaults. They count as headers the page
    set (variant choice, preflights, credentials); their `Authorization`
    and `Cookie` are dropped once a redirect chain crossed origins;

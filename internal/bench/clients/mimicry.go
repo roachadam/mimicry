@@ -45,7 +45,7 @@ func mimicryClient() Factory {
 // (MaxConnsPerHost) instead of Chrome's 6; mimicry-ack20 acknowledges
 // every 20th QUIC packet instead of Chrome's 10th (HTTP3ACKEvery);
 // mimicry-udpos keeps the OS's default UDP receive buffer
-// (UDPReadBufferSize negative) instead of Chrome's 1 MB request;
+// (HTTP3ReadBufferSize negative) instead of Chrome's 1 MB request;
 // mimicry-udp208k, -udp512k, -udp2m and -udp7m ask for 208 KB (stock
 // Linux's rmem_max: what stock Linux grants a larger request too, where
 // the sysctl cannot be set per container), 512 KB, 2 MB and quic-go's 7 MB.
@@ -78,19 +78,19 @@ func Variants() []Factory {
 			c.HTTP3ACKEvery = 20
 		}),
 		variant("mimicry-udpos", func(c *mimicry.Config) {
-			c.UDPReadBufferSize = -1
+			c.HTTP3ReadBufferSize = -1
 		}),
 		variant("mimicry-udp208k", func(c *mimicry.Config) {
-			c.UDPReadBufferSize = 212992
+			c.HTTP3ReadBufferSize = 212992
 		}),
 		variant("mimicry-udp512k", func(c *mimicry.Config) {
-			c.UDPReadBufferSize = 512 << 10
+			c.HTTP3ReadBufferSize = 512 << 10
 		}),
 		variant("mimicry-udp2m", func(c *mimicry.Config) {
-			c.UDPReadBufferSize = 2 << 20
+			c.HTTP3ReadBufferSize = 2 << 20
 		}),
 		variant("mimicry-udp7m", func(c *mimicry.Config) {
-			c.UDPReadBufferSize = quicGoReadBuffer
+			c.HTTP3ReadBufferSize = quicGoReadBuffer
 		}),
 		variant("mimicry-proxies4", func(c *mimicry.Config) {
 			c.MaxIdleProxies = 4

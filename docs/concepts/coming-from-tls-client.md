@@ -53,7 +53,7 @@ client.CheckRedirect = func(*http.Request, []*http.Request) error {
 | `WithProxyUrl`, `SetProxy` | `Config.Proxy`, a function of the request |
 | `WithDisableHttp3()`, `WithProtocolRacing()` | `Config.DisableHTTP3`; racing follows the profile |
 | `WithDialer`, `WithDialContext`, `WithLocalAddr` | `Config.DialContext` (TCP only) |
-| `WithDefaultHeaders(h)` | `Config.Headers` |
+| `WithDefaultHeaders(h)`, `WithHeaders`, azuretls `Headers` (session defaults) | `Config.Header` for every request; `req.Header` for one request |
 | `WithInsecureSkipVerify()`, `WithCharlesProxy` | `Config.RootCAs` with the intercepting proxy's CA, plus `Config.Proxy` |
 | `WithCertificatePinning`, `WithCertificatePinner` | `Config.Pins` (same `sha256/<base64>` format); `Config.VerifyConnection` for your own check |
 | `WithForceHttp1()` | none |
@@ -145,7 +145,7 @@ browser's (`Transport.Plan` lists the first two: [below](#seeing-what-will-be-se
   request does not send is an error (`ErrPlacement`), not a silent
   change. A request with `HeaderOrderKey` takes no `Config` placements
   (see `ExampleConfig_headerPlacement`).
-- **Overriding `User-Agent`** (in `Config.Headers` or on the request)
+- **Overriding `User-Agent`** (in `Config.Header` or on the request)
   leaves `sec-ch-ua`, the TLS hello and HTTP/2 settings the profile's.
   Pick the profile whose browser you want to be instead
   (`profiles.ChromeWindows()` for Chrome on Windows).

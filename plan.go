@@ -25,8 +25,8 @@ type Plan struct {
 	// browser sends it (a PUT answered 301 stays a PUT).
 	Method string
 	URL    *url.URL
-	// Kind is the request's kind: Navigate by default; for a Preflight,
-	// the preflight's own ("preflight").
+	// Kind is the request's kind: Navigate by default; Preflight in
+	// Plan.Preflight's plan.
 	Kind Kind
 	// Variant is the JSON path of the profile lists the request takes:
 	// "headers", "variants[2]", "kinds.fetch.headers" or
@@ -52,7 +52,7 @@ type Plan struct {
 	// cached answer allows it. Whether its answer allows the request
 	// only the server can say.
 	Preflight *Plan
-	// Overrides are the headers the request or Config.Headers set in
+	// Overrides are the headers the request or Config.Header set in
 	// place of a value the profile or mimicry would have sent: a default,
 	// a computed header (Referer, Origin, sec-fetch-*), or the jar's
 	// cookies.
@@ -132,7 +132,7 @@ func (t *Transport) Plan(req *http.Request) (*Plan, error) {
 	var pre *Plan
 	if pf := o.preflight; pf != nil {
 		pre = t.plan(Request{
-			Kind: kindPreflight,
+			Kind: Preflight,
 		}, false, pf.s)
 		if err := pre.fill(e, pf.req); err != nil {
 			return nil, err

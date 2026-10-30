@@ -580,8 +580,8 @@ code, not captured (browsers always have the body).
 | Uploads read in 65535-byte chunks | W for the first 64 KiB of Chrome and Safari uploads; later chunks and all of Firefox's are not modelled | `TestConnectionMatchesBrowserTrace` (largest frame only) |
 | HTTP/1.1-only servers get parallel connections at once; HTTP/2 candidates wait for the first | W (`resume`: three parallel requests, three connections opened together) | `TestResumptionMatchesBrowser` |
 | END_STREAM on an upload's last DATA frame (body of known length), no empty frame after | W (the capture page's upload, every profile, every sample) | `TestDataFrameCap` |
-| `Config.Headers`' Authorization and Cookie are not sent once a redirect chain has left an origin | The Fetch standard (Authorization on a cross-origin redirect); not captured | `TestConfigCredentialsStayBehindCrossOriginRedirects` |
-| A CORS preflight carries only the `Config.Headers` the preflight kind's lists name (a User-Agent or Accept-Language override), never others such as an API key | Follows the request it precedes; not captured (browsers have no `Config.Headers`) | no test |
+| `Config.Header`' Authorization and Cookie are not sent once a redirect chain has left an origin | The Fetch standard (Authorization on a cross-origin redirect); not captured | `TestConfigCredentialsStayBehindCrossOriginRedirects` |
+| A CORS preflight carries only the `Config.Header` the preflight kind's lists name (a User-Agent or Accept-Language override), never others such as an API key | Follows the request it precedes; not captured (browsers have no `Config.Header`) | no test |
 | HelloRetryRequest cookie placed at a random non-pinned position (uTLS fork patch 2) | **not Chrome's mechanism**: Chrome places it by its per-handshake permutation | known gap |
 | WebSocket messages go as one frame each | W for Firefox and Safari (every message); Chrome sends the 71680-byte text whole in 3 of 6 samples, split 65464 + 6216 in the others: mimicry always sends the whole form | `TestWebSocketsMatchBrowser` |
 | `ws://` from an `https://` page is refused before connecting | W: Chrome throws `SecurityError`; Firefox and Safari fail and no handshake reaches the server | `TestWebSocketsMatchBrowser` (`mixed`, every profile, both scenarios: the dial errors and no handshake reached the server) |
@@ -689,7 +689,7 @@ Rows: [CORS preflights](#cors-preflights) and [Redirects](#redirects).
   the `redirects2` and `nav-redirect-*` pages: redirects of every kind and
   the navigation chain's limit.
 - Unit tests in `preflight_test.go` cover when a preflight is sent (the
-  safelist, and which `Config.Headers` a preflight carries), the expiry
+  safelist, and which `Config.Header` a preflight carries), the expiry
   with a fake clock, and the refusal rules. The cache's pruning
   (`internal/cors`) has no test of its own. Of the redirect rules, only
   the credentials' (`TestConfigCredentialsStayBehindCrossOriginRedirects`)

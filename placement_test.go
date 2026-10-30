@@ -179,7 +179,7 @@ func TestHeaderPlacement(t *testing.T) {
 	tests := []struct {
 		name string
 		h2   bool
-		// headers are Config.Headers; config Config.HeaderPlacement.
+		// headers are Config.Header; config Config.HeaderPlacement.
 		headers http.Header
 		config  []mimicry.Place
 		// header is the request's own; request its HeaderPlacement.
@@ -433,7 +433,7 @@ func TestHeaderPlacement(t *testing.T) {
 			send := func(path string, config, request []mimicry.Place) error {
 				tr, err := mimicry.NewTransport(mimicry.Config{
 					Profile:         profiles.Chrome(),
-					Headers:         tt.headers,
+					Header:          tt.headers,
 					HeaderPlacement: config,
 					RootCAs:         s.RootCAs,
 					DialContext:     s.DialContext,

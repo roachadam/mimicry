@@ -81,7 +81,7 @@
 # tls-client, httpcloak, azuretls) ask for a 7 MB UDP receive buffer and,
 # when rmem_max cuts it, retry with SO_RCVBUFFORCE, which NET_ADMIN lets
 # through: in the normal passes they get 7 MB whatever rmem_max says, and
-# mimicry, which asks for 1 MB (Config.UDPReadBufferSize, decision 0045),
+# mimicry, which asks for 1 MB (Config.HTTP3ReadBufferSize, decision 0045),
 # gets what rmem_max allows of it. The stock passes
 # (docker/compose.client.udpstock.yml) set both sysctls to 212992 and drop
 # NET_ADMIN, so every client that asks gets twice that, 416 KB; without
