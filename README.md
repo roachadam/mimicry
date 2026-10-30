@@ -388,6 +388,13 @@ brings a profile up to the installed browser version
 
 ## Licence
 
-MIT, see [`LICENSE`](LICENSE). Code bundled from other projects and the Go
-dependencies are listed, with their licences, in
-[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+MIT, see [`LICENSE`](LICENSE). Some code is copied from other projects and
+keeps its own licence, with the notice next to it:
+
+| Path | From | Licence |
+|---|---|---|
+| `internal/quic/` | `golang.org/x/net` v0.61.0, modified ([`UPSTREAM.md`](internal/quic/UPSTREAM.md)) | BSD-3-Clause and patent grant: [`LICENSE`](internal/quic/LICENSE), [`PATENTS`](internal/quic/PATENTS) |
+| `internal/zdeflate/` | zlib 1.3.1, Chromium's zlib and zlib-rs 0.6.3, ported to Go and altered | zlib licence and BSD-3-Clause: [`LICENSE-zlib`](internal/zdeflate/LICENSE-zlib), [`LICENSE-chromium`](internal/zdeflate/LICENSE-chromium), [`LICENSE-zlib-rs`](internal/zdeflate/LICENSE-zlib-rs) |
+
+Every Go dependency is under a permissive licence (MIT, BSD-3-Clause or
+Apache-2.0); see `go.mod`.

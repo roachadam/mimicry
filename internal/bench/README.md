@@ -608,6 +608,6 @@ Write an adapter in `clients/` (configure the newest Chrome profile, the CA
 pool, the protocol switches it has; report the response's protocol and
 whether its TLS session was resumed from the servers' `x-proto` and
 `x-tls-resumed` headers), add it to `clients.All`, pin its newest version in
-`go.mod`, add it to the `internal/bench` depguard rule and to
-`THIRD_PARTY_NOTICES.md`, and describe anything unequal about it in the
+`go.mod`, add it to the `internal/bench` depguard rule, check its licence
+is permissive, and describe anything unequal about it in the
 report's fairness notes (`cmd/bench/report.go`).

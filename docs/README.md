@@ -24,9 +24,8 @@ Related:
 - [`capturing.md`](capturing.md): capturing the browsers, deriving a
   profile's generated sections, and the harness's other tools.
 - [`AGENTS.md`](../AGENTS.md): working conventions.
-- [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md): code bundled from
-  other projects and the Go dependencies, with their licences (mimicry
-  itself is MIT, [`LICENSE`](../LICENSE)).
+- [Licence](../README.md#licence): mimicry is MIT; the code copied from
+  other projects and its licences.
 
 ## Decisions
 
