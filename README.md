@@ -126,3 +126,9 @@ keeps its own licence, with the notice next to it:
 
 Every Go dependency is under a permissive licence (MIT, BSD-3-Clause or
 Apache-2.0); see `go.mod`.
+
+Thanks to [tls-client](https://github.com/bogdanfinn/tls-client),
+[uTLS](https://github.com/refraction-networking/utls),
+[httpcloak](https://github.com/sardanioss/httpcloak) and
+[azuretls-client](https://github.com/Noooste/azuretls-client) for the ideas
+and groundwork that inspired this project.
