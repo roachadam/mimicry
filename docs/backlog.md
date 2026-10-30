@@ -1698,6 +1698,17 @@ it.
 
 ## Tooling and tests
 
+- **POST and uploads are barely benchmarked.** Only layer 1 sends a POST
+  (`POST /echo`, small JSON, one warm request; mimicry is the fastest
+  impersonating client there on HTTP/1.1, HTTP/2 and HTTP/3). Missing:
+  POST under load in layer 3 (1 KB, 100 KB and 1 MB bodies at 1 and 64
+  at once, on all three protocols: requests/s, upload MB/s, CPU and
+  allocations per request); a GET-then-POST route in layer 6 (an
+  add-to-cart flow); and one POST on a resumed HTTP/3 connection, where
+  mimicry holds unsafe methods until the handshake ends as browsers do
+  (time to response). Needs a `POST /sink` endpoint on both bench servers
+  that reads the body and returns a small response (`/echo` sends the
+  body back, mixing upload with download). Medium.
 - **Load flake in `TestQUICInterop`: `stream-reset` (Firefox)** (1 in 40,
   on a loaded machine with `-race`): `GET /reject`'s resend went over
   HTTP/1.1. Firefox has no race delay; fast fallback gives its resumed
