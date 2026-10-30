@@ -243,8 +243,9 @@ var interopCases = []interopCase{
 		limit: 30 * time.Second,
 		run: func(e *interopEnv) {
 			e.warm()
-			e.parallel(20, func(e *interopEnv, i int) {
-				e.download(256*kib, uint64(100+i))
+			e.parallel(20, func(i int) error {
+				_, _, err := e.tryDownload(256*kib, uint64(100+i), -1, nil)
+				return err
 			})
 		},
 	},
@@ -291,15 +292,16 @@ var interopCases = []interopCase{
 
 			info, _ := e.download(256*kib, 6)
 			if !info.Used0RTT || !info.Early {
-				e.t.Errorf("the request on the resumed connection was not sent in 0-RTT (accepted %t, before the handshake completed %t)", info.Used0RTT, info.Early)
+				e.t.Errorf("the request on the resumed connection was not sent in 0-RTT (accepted %t, arrived in 0-RTT packets %t)", info.Used0RTT, info.Early)
 			}
 
 			e.upload(256*kib, 7)
 			// Requests that find the connection while its handshake is
 			// still in progress, from goroutines of their own.
 			e.newConnection()
-			e.parallel(8, func(e *interopEnv, i int) {
-				e.download(16*kib, uint64(400+i))
+			e.parallel(8, func(i int) error {
+				_, _, err := e.tryDownload(16*kib, uint64(400+i), -1, nil)
+				return err
 			})
 		},
 	},
@@ -360,7 +362,7 @@ var interopCases = []interopCase{
 			}
 
 			if resp.StatusCode != http.StatusOK || info.Early || !info.Used0RTT {
-				e.t.Errorf("want a 200 on the resumed connection, after its handshake; got status %d, %+v", resp.StatusCode, info)
+				e.t.Errorf("want a 200 on the resumed connection, sent again in 1-RTT; got status %d, %+v", resp.StatusCode, info)
 			}
 
 			if n := b.conns.Load() - conns; n != 1 {
@@ -515,8 +517,9 @@ var interopCases = []interopCase{
 			e.relay.SetBoth(lossy(0.05))
 			e.download(2*mib, 16)
 			e.upload(1*mib, 17)
-			e.parallel(10, func(e *interopEnv, i int) {
-				e.download(64*kib, uint64(200+i))
+			e.parallel(10, func(i int) error {
+				_, _, err := e.tryDownload(64*kib, uint64(200+i), -1, nil)
+				return err
 			})
 		},
 	},
@@ -626,8 +629,16 @@ var interopCases = []interopCase{
 			// The chain is over three times the client's first flight,
 			// so the server stops at its limit (quic-go checks it before
 			// each packet, so it may pass 3 by one packet) and the client
-			// must keep the handshake going for the rest.
-			if a := e.relay.Stats().Amplification; a < 2.5 {
+			// must keep the handshake going for the rest. Counted by the
+			// server: the relay cannot tell when the server has taken in
+			// the packet validating the address, and would stop counting
+			// while the rest of the server's flight is still coming.
+			e.server.mu.Lock()
+
+			a := e.server.amplification
+			e.server.mu.Unlock()
+
+			if a < 2.5 {
 				e.t.Errorf("the server sent %.2f times what it received before the address was validated: the chain did not reach the limit", a)
 			}
 		},
@@ -796,14 +807,15 @@ var interopCases = []interopCase{
 			e.warm()
 			e.upload(2*mib, 32)
 			e.download(1*mib, 33)
-			e.parallel(20, func(e *interopEnv, i int) {
+			e.parallel(20, func(i int) error {
 				if i%2 == 0 {
-					e.upload(64*kib, uint64(300+i))
-
-					return
+					_, err := e.tryUpload(64*kib, uint64(300+i))
+					return err
 				}
 
-				e.download(64*kib, uint64(300+i))
+				_, _, err := e.tryDownload(64*kib, uint64(300+i), -1, nil)
+
+				return err
 			})
 		},
 	},
@@ -1179,7 +1191,7 @@ type connInfo struct {
 	Conn     int64 `json:"conn"`
 	Resumed  bool  `json:"resumed"`
 	Used0RTT bool  `json:"used0Rtt"`
-	// Early: the request arrived before the handshake completed.
+	// Early: the request's first bytes arrived in a 0-RTT packet.
 	Early  bool   `json:"early"`
 	Cipher uint16 `json:"cipher"`
 	Remote string `json:"remote"`
@@ -1224,16 +1236,26 @@ func (e *interopEnv) do(method, path string, body []byte) (*http.Response, []byt
 func (e *interopEnv) h3(resp *http.Response, what string) connInfo {
 	e.t.Helper()
 
+	info, err := h3Info(resp, what)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+
+	return info
+}
+
+// h3Info is h3 returning its failure.
+func h3Info(resp *http.Response, what string) (connInfo, error) {
 	if resp.ProtoMajor != 3 {
-		e.t.Fatalf("%s went over %s, not HTTP/3", what, resp.Proto)
+		return connInfo{}, fmt.Errorf("%s went over %s, not HTTP/3", what, resp.Proto)
 	}
 
 	var info connInfo
 	if err := json.Unmarshal([]byte(resp.Header.Get("X-Info")), &info); err != nil {
-		e.t.Fatalf("%s: X-Info: %v", what, err)
+		return connInfo{}, fmt.Errorf("%s: X-Info: %w", what, err)
 	}
 
-	return info
+	return info, nil
 }
 
 // get sends GET path, which must succeed over HTTP/3.
@@ -1396,23 +1418,36 @@ func (e *interopEnv) download(n int, seed uint64) (connInfo, []byte) {
 func (e *interopEnv) downloadWith(n int, seed uint64, at int, fn func()) (connInfo, []byte) {
 	e.t.Helper()
 
-	what := fmt.Sprintf("download of %d bytes", n)
-
-	req, err := http.NewRequestWithContext(e.ctx, http.MethodGet, fmt.Sprintf("%s/bytes?n=%d&seed=%d", e.origin, n, seed), nil)
+	info, got, err := e.tryDownload(n, seed, at, fn)
 	if err != nil {
 		e.t.Fatal(err)
 	}
 
+	return info, got
+}
+
+// tryDownload is downloadWith returning its failure.
+func (e *interopEnv) tryDownload(n int, seed uint64, at int, fn func()) (connInfo, []byte, error) {
+	what := fmt.Sprintf("download of %d bytes", n)
+
+	req, err := http.NewRequestWithContext(e.ctx, http.MethodGet, fmt.Sprintf("%s/bytes?n=%d&seed=%d", e.origin, n, seed), nil)
+	if err != nil {
+		return connInfo{}, nil, err
+	}
+
 	resp, err := e.send(req)
 	if err != nil {
-		e.t.Fatalf("%s: %v", what, err)
+		return connInfo{}, nil, fmt.Errorf("%s: %w", what, err)
 	}
 
 	defer func() {
 		_ = resp.Body.Close()
 	}()
 
-	info := e.h3(resp, what)
+	info, err := h3Info(resp, what)
+	if err != nil {
+		return connInfo{}, nil, err
+	}
 
 	var r io.Reader = resp.Body
 
@@ -1426,56 +1461,76 @@ func (e *interopEnv) downloadWith(n int, seed uint64, at int, fn func()) (connIn
 
 	got, err := io.ReadAll(r)
 	if err != nil {
-		e.t.Fatalf("%s: after %d bytes: %v", what, len(got), err)
+		return connInfo{}, nil, fmt.Errorf("%s: after %d bytes: %w", what, len(got), err)
 	}
 
 	if want := interopBytes(n, seed); !bytes.Equal(got, want) {
-		e.t.Fatalf("%s: got %d bytes, %s", what, len(got), firstDiff(got, want))
+		return connInfo{}, nil, fmt.Errorf("%s: got %d bytes, %s", what, len(got), firstDiff(got, want))
 	}
 
-	return info, got
+	return info, got, nil
 }
 
 // upload posts n bytes of seed's stream and checks the server's digest.
 func (e *interopEnv) upload(n int, seed uint64) connInfo {
 	e.t.Helper()
 
-	what := fmt.Sprintf("upload of %d bytes", n)
-	data := interopBytes(n, seed)
-
-	resp, body, err := e.do(http.MethodPost, "/upload", data)
+	info, err := e.tryUpload(n, seed)
 	if err != nil {
-		e.t.Fatalf("%s: %v", what, err)
-	}
-
-	info := e.h3(resp, what)
-	sum := sha256.Sum256(data)
-
-	if want := fmt.Sprintf("%d %x", n, sum); string(body) != want {
-		e.t.Fatalf("%s: the server read %q, want %q", what, body, want)
+		e.t.Fatal(err)
 	}
 
 	return info
 }
 
-// parallel runs fn for 0 to n-1 at once, each with the case's env in a
-// subtest of its own, and waits for them.
-func (e *interopEnv) parallel(n int, fn func(e *interopEnv, i int)) {
+// tryUpload is upload returning its failure.
+func (e *interopEnv) tryUpload(n int, seed uint64) (connInfo, error) {
+	what := fmt.Sprintf("upload of %d bytes", n)
+	data := interopBytes(n, seed)
+
+	resp, body, err := e.do(http.MethodPost, "/upload", data)
+	if err != nil {
+		return connInfo{}, fmt.Errorf("%s: %w", what, err)
+	}
+
+	info, err := h3Info(resp, what)
+	if err != nil {
+		return connInfo{}, err
+	}
+
+	sum := sha256.Sum256(data)
+
+	if want := fmt.Sprintf("%d %x", n, sum); string(body) != want {
+		return connInfo{}, fmt.Errorf("%s: the server read %q, want %q", what, body, want)
+	}
+
+	return info, nil
+}
+
+// parallel runs fn for 0 to n-1 at once, on goroutines of their own, and
+// fails the test with each error they return once all have. Not parallel
+// subtests: those wait for a -parallel slot (GOMAXPROCS of them) behind
+// every other case of the test, so on a small machine they would start
+// neither at once nor before the case's deadline.
+func (e *interopEnv) parallel(n int, fn func(i int) error) {
 	e.t.Helper()
-	// Subtests, so each may fail on its own goroutine; Run returns once
-	// they all have.
-	e.t.Run("parallel", func(t *testing.T) {
-		for i := range n {
-			t.Run(strconv.Itoa(i), func(t *testing.T) {
-				t.Parallel()
 
-				sub := *e
+	errs := make([]error, n)
 
-				sub.t = t
-				fn(&sub, i)
-			})
+	var wg sync.WaitGroup
+	for i := range n {
+		wg.Go(func() {
+			errs[i] = fn(i)
+		})
+	}
+
+	wg.Wait()
+
+	for i, err := range errs {
+		if err != nil {
+			e.t.Errorf("request %d: %v", i, err)
 		}
-	})
+	}
 }
 
 // rebinding moves the client's apparent port (or address) in the middle of
@@ -1602,9 +1657,12 @@ type backend struct {
 	// keyUpdates counts the 1-RTT key updates the server started.
 	keyUpdates atomic.Int64
 	// ends are how the server's connections ended, for a failure's
-	// message.
-	mu   sync.Mutex
-	ends []string
+	// message; amplification is the largest ratio, over its connections,
+	// of the bytes the server sent to the bytes it had received while the
+	// client's address was unvalidated (connTrace).
+	mu            sync.Mutex
+	ends          []string
+	amplification float64
 	// closed is closed when /close has closed its connection.
 	closed    chan struct{}
 	closeOnce sync.Once
@@ -1728,6 +1786,11 @@ func startBackend(opts backendOpts, cert tls.Certificate, ticketKey [32]byte) (*
 
 	tr := &quic.Transport{
 		Conn: pc,
+		ConnContext: func(ctx context.Context, _ *quic.ClientInfo) (context.Context, error) {
+			return context.WithValue(ctx, connTraceKey{}, &connTrace{
+				streams: map[quic.StreamID]*streamStart{},
+			}), nil
+		},
 	}
 	if opts.retry {
 		tr.VerifySourceAddress = func(net.Addr) bool {
@@ -1744,9 +1807,12 @@ func startBackend(opts backendOpts, cert tls.Certificate, ticketKey [32]byte) (*
 	b.srv = &http3.Server{
 		Handler: interopHandler(b),
 		ConnContext: func(ctx context.Context, c *quic.Conn) context.Context {
+			ct, _ := c.Context().Value(connTraceKey{}).(*connTrace)
+
 			return context.WithValue(ctx, serverConnKey{}, &serverConn{
 				qc: c,
 				id: b.conns.Add(1),
+				ct: ct,
 			})
 		},
 	}
@@ -1934,20 +2000,25 @@ func (b *backend) shutdown() {
 // updates and keeps how each connection ended, and writes every event to
 // $QLOGDIR when it is set.
 func (b *backend) tracer(ctx context.Context, isClient bool, id quic.ConnectionID) qlogwriter.Trace {
+	ct, _ := ctx.Value(connTraceKey{}).(*connTrace)
+
 	return &serverTrace{
 		b:     b,
+		ct:    ct,
 		inner: qlog.DefaultConnectionTracer(ctx, isClient, id),
 	}
 }
 
 type serverTrace struct {
 	b     *backend
+	ct    *connTrace
 	inner qlogwriter.Trace
 }
 
 func (t *serverTrace) AddProducer() qlogwriter.Recorder {
 	r := &serverRecorder{
-		b: t.b,
+		b:  t.b,
+		ct: t.ct,
 	}
 	if t.inner != nil {
 		r.inner = t.inner.AddProducer()
@@ -1962,6 +2033,7 @@ func (t *serverTrace) SupportsSchemas(schema string) bool {
 
 type serverRecorder struct {
 	b     *backend
+	ct    *connTrace
 	inner qlogwriter.Recorder
 }
 
@@ -1973,14 +2045,31 @@ func (r *serverRecorder) RecordEvent(ev qlogwriter.Event) {
 		}
 
 	case qlog.PacketReceived:
-		if ev.Header.PacketType != qlog.PacketType1RTT {
-			break
-		}
+		r.ct.received(ev.Raw.Length, ev.Header.PacketType == qlog.PacketTypeHandshake)
 
 		for _, f := range ev.Frames {
-			if _, ok := f.Frame.(*qlog.StreamDataBlockedFrame); ok {
-				r.b.streamBlocked.Add(1)
+			switch f := f.Frame.(type) {
+			case *qlog.StreamFrame:
+				if f.Offset == 0 {
+					r.ct.started(f.StreamID, ev.Header.PacketType == qlog.PacketType0RTT)
+				}
+
+			case *qlog.StreamDataBlockedFrame:
+				if ev.Header.PacketType == qlog.PacketType1RTT {
+					r.b.streamBlocked.Add(1)
+				}
 			}
+		}
+
+	case qlog.PacketDropped:
+		r.ct.received(ev.Raw.Length, false)
+
+	case qlog.PacketSent:
+		if a, ok := r.ct.sent(ev.Raw.Length); ok {
+			r.b.mu.Lock()
+
+			r.b.amplification = max(r.b.amplification, a)
+			r.b.mu.Unlock()
 		}
 
 	case qlog.ConnectionClosed:
@@ -2008,6 +2097,109 @@ type serverConnKey struct{}
 type serverConn struct {
 	qc *quic.Conn
 	id int64
+	ct *connTrace
+}
+
+type connTraceKey struct{}
+
+// connTrace is what a server connection's qlog saw: in which packets each
+// stream began, and the bytes the server received and sent before the
+// client's address was validated.
+type connTrace struct {
+	mu      sync.Mutex
+	streams map[quic.StreamID]*streamStart
+	// validated: a Handshake packet from the client has been processed,
+	// which validates its address (RFC 9000, section 8.1). Until then
+	// in and out count the bytes the server received and sent, as its
+	// anti-amplification limit does.
+	validated bool
+	in, out   int
+}
+
+// received counts n bytes received: a packet, a Handshake packet when
+// handshake, or what the server dropped of a datagram (a padding of zeros
+// after the packets, as Firefox sends).
+func (c *connTrace) received(n int, handshake bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if handshake {
+		c.validated = true
+	}
+
+	if !c.validated {
+		c.in += n
+	}
+}
+
+// sent counts a packet of n bytes sent. Before the client's address is
+// validated it returns the ratio of the bytes sent to the bytes received
+// so far, and true.
+func (c *connTrace) sent(n int) (float64, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.validated || c.in == 0 {
+		return 0, false
+	}
+
+	c.out += n
+
+	return float64(c.out) / float64(c.in), true
+}
+
+// streamStart is how a stream began: done is closed once its first bytes
+// (offset 0) have arrived, in a 0-RTT packet when zeroRTT.
+type streamStart struct {
+	done    chan struct{}
+	zeroRTT bool
+}
+
+// start returns id's streamStart.
+func (c *connTrace) start(id quic.StreamID) *streamStart {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	s := c.streams[id]
+	if s == nil {
+		s = &streamStart{
+			done: make(chan struct{}),
+		}
+		c.streams[id] = s
+	}
+
+	return s
+}
+
+// started records that id's first bytes arrived, in a 0-RTT packet or
+// not; a retransmission of them changes nothing.
+func (c *connTrace) started(id quic.StreamID, zeroRTT bool) {
+	s := c.start(id)
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	select {
+	case <-s.done:
+	default:
+		s.zeroRTT = zeroRTT
+		close(s.done)
+	}
+}
+
+// inZeroRTT reports whether id's first bytes arrived in a 0-RTT packet.
+// quic-go hands a packet's frames to its streams before it logs the
+// packet, so a handler reading the request may have to wait for the log;
+// false if ctx ends first.
+func (c *connTrace) inZeroRTT(ctx context.Context, id quic.StreamID) bool {
+	s := c.start(id)
+
+	select {
+	case <-s.done:
+		return s.zeroRTT
+	case <-ctx.Done():
+		return false
+	}
 }
 
 // HTTP/3 error codes (RFC 9114, section 8.1).
@@ -2025,7 +2217,7 @@ const (
 //	/reset?n=        n bytes, then the stream reset (H3_REQUEST_CANCELLED)
 //	/reject          H3_REQUEST_REJECTED on the backend's first one
 //	/close           a response, then CONNECTION_CLOSE (H3_NO_ERROR)
-//	/too-early       425 Too Early if it arrived before the handshake completed
+//	/too-early       425 Too Early if it arrived in 0-RTT
 func interopHandler(b *backend) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sc, _ := r.Context().Value(serverConnKey{}).(*serverConn)
@@ -2033,7 +2225,7 @@ func interopHandler(b *backend) http.Handler {
 		var info connInfo
 
 		if sc != nil {
-			info = infoOf(b, sc)
+			info = infoOf(b, sc, r)
 
 			j, err := json.Marshal(info)
 			if err != nil {
@@ -2129,8 +2321,8 @@ func interopHandler(b *backend) http.Handler {
 	})
 }
 
-// infoOf is sc's connInfo, as of now.
-func infoOf(b *backend, sc *serverConn) connInfo {
+// infoOf is sc's connInfo, as of now, for request r.
+func infoOf(b *backend, sc *serverConn, r *http.Request) connInfo {
 	cs := sc.qc.ConnectionState()
 	info := connInfo{
 		Backend:  b.name,
@@ -2141,11 +2333,14 @@ func infoOf(b *backend, sc *serverConn) connInfo {
 		Remote:   sc.qc.RemoteAddr().String(),
 	}
 
-	select {
-	case <-sc.qc.HandshakeComplete():
-	default:
-		info.Early = true
+	// Every request on the backend's HTTP/3 server has a body that knows
+	// its stream, GET's included.
+	str, ok := r.Body.(interface{ StreamID() quic.StreamID })
+	if !ok {
+		panic(fmt.Sprintf("infoOf: the request's body (%T) knows no stream", r.Body))
 	}
+
+	info.Early = sc.ct.inZeroRTT(r.Context(), str.StreamID())
 
 	return info
 }

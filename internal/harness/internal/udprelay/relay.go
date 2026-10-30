@@ -74,11 +74,6 @@ type Stats struct {
 	Dropped   [2]int
 	// Retries counts the server's Retry packets.
 	Retries int
-	// Amplification is the largest ratio, over any session, of the bytes
-	// the server sent to the bytes it had been sent before the client's
-	// first Handshake packet reached it (the address is unvalidated
-	// until then; RFC 9000, section 8.1, allows 3).
-	Amplification float64
 }
 
 // Relay forwards datagrams between the clients that send to its address
@@ -108,11 +103,6 @@ type session struct {
 	rng [2]*rand.Rand
 	// seen counts each direction's datagrams (Impairment.DropAt).
 	seen [2]int
-	// Amplification accounting until the client's first Handshake packet
-	// has been forwarded.
-	validated   bool
-	clientBytes int
-	serverBytes int
 }
 
 // New starts a relay to target on an IPv4 loopback port; the seed decides
@@ -379,8 +369,6 @@ func (r *Relay) send(s *session, d Dir, p []byte) {
 
 	r.stats.Forwarded[d]++
 
-	types := longTypes(p)
-
 	var (
 		up *net.UDPConn
 		to netip.AddrPort
@@ -388,31 +376,15 @@ func (r *Relay) send(s *session, d Dir, p []byte) {
 
 	switch d {
 	case ToServer:
-		if !s.validated {
-			s.clientBytes += len(p)
-			for _, t := range types {
-				if t == typeHandshake {
-					s.validated = true
-				}
-			}
-		}
-
 		up, to = s.up, s.target.IPv4
 		if s.v6 {
 			to = s.target.IPv6
 		}
 
 	case ToClient:
-		for _, t := range types {
+		for _, t := range longTypes(p) {
 			if t == typeRetry {
 				r.stats.Retries++
-			}
-		}
-
-		if !s.validated {
-			s.serverBytes += len(p)
-			if s.clientBytes > 0 {
-				r.stats.Amplification = max(r.stats.Amplification, float64(s.serverBytes)/float64(s.clientBytes))
 			}
 		}
 	}
@@ -429,9 +401,8 @@ func (r *Relay) send(s *session, d Dir, p []byte) {
 
 // Long header packet types (RFC 9000, section 17.2).
 const (
-	typeInitial   = 0
-	typeHandshake = 2
-	typeRetry     = 3
+	typeInitial = 0
+	typeRetry   = 3
 )
 
 // longTypes returns the types of the long header packets coalesced at the

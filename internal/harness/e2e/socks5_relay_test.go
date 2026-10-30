@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -541,7 +542,13 @@ func connectProxy(t *testing.T) *url.URL {
 
 // udpTap forwards datagrams between its clients and target, recording
 // each client's first flight: the sizes of the datagrams it sent before
-// the first answer.
+// it heard from the server. Those are the datagrams that start with a long
+// header to the DCID of the client's first one: once an answer reaches it,
+// the client sends to the server's connection ID instead (RFC 9000 section
+// 7.2). Not the datagrams that reach the tap before the server's first
+// answer: the server can acknowledge a flight's first datagram at once,
+// and the rest, relayed by a proxy or read by the tap in their own time,
+// can come after the acknowledgement.
 type udpTap struct {
 	pc *net.UDPConn
 
@@ -551,9 +558,10 @@ type udpTap struct {
 }
 
 type tapFlight struct {
-	up       *net.UDPConn
-	sizes    []int
-	answered bool
+	up *net.UDPConn
+	// dcid is the DCID of the client's first datagram.
+	dcid  []byte
+	sizes []int
 }
 
 // newUDPTap starts a tap to target, stopped when the test ends.
@@ -611,6 +619,11 @@ func newUDPTap(t *testing.T, target netip.AddrPort) *udpTap {
 				f = &tapFlight{
 					up: up,
 				}
+
+				if dcid, ok := longHeaderDCID(buf[:n]); ok {
+					f.dcid = slices.Clone(dcid)
+				}
+
 				tap.flights[from] = f
 				tap.order = append(tap.order, from)
 
@@ -622,11 +635,6 @@ func newUDPTap(t *testing.T, target netip.AddrPort) *udpTap {
 							return
 						}
 
-						tap.mu.Lock()
-
-						f.answered = true
-						tap.mu.Unlock()
-
 						if _, err := pc.WriteToUDPAddrPort(back[:n], from); err != nil {
 							return
 						}
@@ -634,7 +642,7 @@ func newUDPTap(t *testing.T, target netip.AddrPort) *udpTap {
 				})
 			}
 
-			if !f.answered {
+			if dcid, ok := longHeaderDCID(buf[:n]); ok && f.dcid != nil && bytes.Equal(dcid, f.dcid) {
 				f.sizes = append(f.sizes, n)
 			}
 
@@ -645,6 +653,17 @@ func newUDPTap(t *testing.T, target netip.AddrPort) *udpTap {
 	})
 
 	return tap
+}
+
+// longHeaderDCID returns the DCID of the long-header packet at the start
+// of b; ok is false when b starts with no long header (RFC 9000 section
+// 17.2).
+func longHeaderDCID(b []byte) (dcid []byte, ok bool) {
+	if len(b) < 6 || b[0]&0x80 == 0 || len(b) < 6+int(b[5]) {
+		return nil, false
+	}
+
+	return b[6 : 6+int(b[5])], true
 }
 
 // port is the tap's port on the loopback address.
