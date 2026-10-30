@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-29
-- Commits: `8b8aa7e` (naming, accessors, the harness on Windows); first profile, `chrome-156-windows`: pending (fill in when it lands)
+- Commits: `8b8aa7e` (naming, accessors, the harness on Windows); `b22f0a2` (the first profile, `chrome-156-windows`)
 
 **Summary.** Built-in profiles can now be for Windows as well as macOS,
 named `<browser>-<major>-windows`, captured from a real Chrome window on a
