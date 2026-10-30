@@ -30,7 +30,7 @@ moon run :test-full         # every supported profile, not only each browser's n
 - **Docs in the same commit.** A change that makes, changes or reverses a design decision adds or updates its record in `docs/decisions/` (copy `template.md`, next number, add it to the index in `docs/README.md`); write the reasoning while it is fresh: the options rejected and the evidence matter more than polish. A feature that lands updates its concept doc in `docs/concepts/`. A profile change that adds, removes or re-sources a claim updates its row in `profiles/EVIDENCE.md`. A gap found or pinned (a new `sampleGaps`-style entry, a known-gap row in EVIDENCE.md) is added to `docs/backlog.md`; a gap closed is removed there, with its ledger row and pin.
 - **Licensing.** mimicry is MIT (`LICENSE`), every module included. Code copied or ported from another project keeps its upstream licence and copyright notice next to it (a `LICENSE` file in the package, or `LICENSE-<project>` when a package draws on several; per-file headers kept), says in its package comment that it is a copy or an altered version and of what (`internal/zdeflate`: `deflate.go`; `internal/quic`: upstream's `doc.go`), and gets a row in the README's Licence table in the same commit. Only permissive licences (MIT, BSD, Apache-2.0, zlib, ISC), for dependencies too.
 - **Clean cutover.** When something replaces something, migrate every caller and delete the old path: no shims, aliases or compatibility wrappers. (Deprecated profiles are the one deliberate exception, decision 0035.)
-- **Git.** Don't push or tag without the maintainer.
+- **Git.** The repository is on GitHub (`github.com/roachadam/mimicry`). Never push, tag or open a pull request without the maintainer's explicit go.
 
 ## Package boundaries
 
