@@ -8,7 +8,7 @@
 # about the sum of their subtests over 4, far longer than on a many-core Mac.
 #
 # A slow test needs a line here, or the shard it lands in can run past the
-# 15-minute limit: `bash .github/scripts/harness-shard.sh plan 8` prints the
+# 15-minute limit: `bash .github/scripts/harness-shard.sh plan 7` prints the
 # split. `Test/regex` runs a slice of a test's subtests as its own unit (a
 # test whose subtests alone take longer than a shard should); the subtests no
 # slice matches run as one more unit. `TestA|TestB` keeps tests in one unit.
