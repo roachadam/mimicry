@@ -39,6 +39,10 @@ type refreshRun struct {
 	// mode too.
 	Serial bool    `json:"serial,omitempty"`
 	Plans  []*plan `json:"plans"`
+	// Scenarios is -scenarios, which replaces the mode's set.
+	Scenarios string `json:"scenarios,omitempty"`
+	// Keep leaves the Windows PC's working directory in place (-keep).
+	Keep bool `json:"-"`
 }
 
 // plan is what the run does for one browser.
@@ -47,6 +51,13 @@ type plan struct {
 	Browser string `json:"browser"`
 	// Host is the ssh host the browser runs on, "" for this Mac.
 	Host string `json:"host,omitempty"`
+	// Platform is the profile's platform: platformMacOS ("" in runs saved
+	// before Windows) or platformWindows.
+	Platform string `json:"platform,omitempty"`
+	// NewPlatform is the first profile of the browser on Platform: copied
+	// from another platform's, so it captures every scenario and
+	// inherits nothing.
+	NewPlatform bool `json:"newPlatform,omitempty"`
 	// Installed is the browser's version where it runs.
 	Installed string `json:"installed"`
 	// Name and Version (the major) are the profile's.
@@ -112,6 +123,13 @@ type preflightReport struct {
 	Resolver    bool   `json:"resolver"`
 	Aioquic     string `json:"aioquic"`
 	SafariProxy string `json:"safariProxy"`
+	// Set on Windows only: Platform is "windows", Admin whether the ssh
+	// user is an administrator (certutil needs it), Certutil its path, and
+	// Missing everything that stops a capture there.
+	Platform string   `json:"platform,omitempty"`
+	Admin    bool     `json:"admin,omitempty"`
+	Certutil string   `json:"certutil,omitempty"`
+	Missing  []string `json:"missing,omitempty"`
 }
 
 // machine is where p's browser runs.
@@ -123,15 +141,36 @@ func (r *refreshRun) machine(p *plan) *machine {
 	}
 
 	return &machine{
-		host: p.Host,
-		dir:  "mimicry-capture/refresh-" + r.Stamp,
+		host:    p.Host,
+		dir:     "mimicry-capture/refresh-" + r.Stamp,
+		windows: p.Platform == platformWindows,
 	}
+}
+
+// windowsDir is m.dir as Windows names it.
+func (m *machine) windowsDir() string {
+	return `%USERPROFILE%\` + strings.ReplaceAll(m.dir, "/", `\`) + `\`
+}
+
+// captureArgs are the capture tool's arguments every run of it on m
+// takes: on Windows, the capture CA in the working directory, so nothing
+// stays in the user's profile.
+func (m *machine) captureArgs(args ...string) []string {
+	if m.windows {
+		args = append(args, "-ca-dir", "ca")
+	}
+
+	return args
 }
 
 // bin is the path of the tool's binary name on m.
 func (m *machine) bin(name string) string {
 	if m.host == "" {
 		return filepath.Join(m.dir, name)
+	}
+
+	if m.windows {
+		return `.\` + name + ".exe"
 	}
 
 	return "./" + name
@@ -166,17 +205,10 @@ func (r *refreshRun) blocked() bool {
 	})
 }
 
-// preflight builds the capture tool, runs its -preflight where each
-// browser runs and plans each browser's refresh.
+// preflight builds the capture tool for each platform, runs its
+// -preflight where each browser runs and plans each browser's refresh.
 func (r *refreshRun) preflight(ctx context.Context, cfg config) error {
 	if err := os.MkdirAll(r.Dir, 0o750); err != nil {
-		return err
-	}
-
-	log.Printf("building the capture tool")
-
-	bin, err := build(ctx, r.Dir, "capture")
-	if err != nil {
 		return err
 	}
 
@@ -185,16 +217,22 @@ func (r *refreshRun) preflight(ctx context.Context, cfg config) error {
 		return err
 	}
 
+	bins := map[bool]string{}
 	reports := map[string]*preflightReport{}
+
 	for _, name := range cfg.targets {
 		t := targets[name]
 		p := &plan{
-			Target:  name,
-			Browser: t.browser,
+			Target:   name,
+			Browser:  t.browser,
+			Platform: t.platform(),
 		}
 
-		if t.onMini {
+		switch t.remote {
+		case remoteMini:
 			p.Host = cfg.mini
+		case remoteWindows:
+			p.Host = cfg.windows
 		}
 
 		r.Plans = append(r.Plans, p)
@@ -203,6 +241,22 @@ func (r *refreshRun) preflight(ctx context.Context, cfg config) error {
 
 		if !ok {
 			m := r.machine(p)
+
+			bin, built := bins[m.windows]
+			if !built {
+				if m.windows {
+					log.Printf("building the capture tool for windows/amd64")
+				} else {
+					log.Printf("building the capture tool")
+				}
+
+				if bin, err = build(ctx, r.Dir, "capture", m.windows); err != nil {
+					return err
+				}
+
+				bins[m.windows] = bin
+			}
+
 			if err := m.put(ctx, bin); err != nil {
 				return err
 			}
@@ -225,7 +279,7 @@ func (r *refreshRun) preflight(ctx context.Context, cfg config) error {
 }
 
 func runPreflight(ctx context.Context, m *machine) (*preflightReport, error) {
-	out, err := m.output(ctx, m.bin("capture"), "-preflight")
+	out, err := m.output(ctx, m.bin("capture"), m.captureArgs("-preflight")...)
 	if err != nil {
 		return nil, err
 	}
@@ -285,6 +339,10 @@ func major(version string) (int, bool) {
 // planTarget fills in p from the preflight of its machine.
 func (r *refreshRun) planTarget(p *plan, rep *preflightReport, builtins map[string]*profile.Profile, cfg config) error {
 	m := r.machine(p)
+	if m.windows {
+		// Everything the PC lacks, even with no browser to plan.
+		r.checkWindows(p, rep)
+	}
 
 	p.Installed = rep.installedVersion(p.Browser)
 
@@ -300,32 +358,82 @@ func (r *refreshRun) planTarget(p *plan, rep *preflightReport, builtins map[stri
 	}
 
 	p.Version = strconv.Itoa(v)
-	p.Name = p.Browser + "-" + p.Version + "-macos"
+	p.Name = p.Browser + "-" + p.Version + "-" + p.Platform
 
 	if _, ok := builtins[p.Name]; ok {
 		p.InPlace = true
 		p.Previous = p.Name
 	} else {
-		newest := 0
-		for _, b := range builtins {
-			bv, err := strconv.Atoi(b.Version)
-			if err != nil || b.Browser != p.Browser || b.Platform != "macos" {
-				continue
-			}
+		var newest int
 
-			if bv > newest {
-				newest = bv
-				p.Previous = b.Name
-			}
-		}
+		p.Previous, newest = newestProfile(builtins, p.Browser, p.Platform)
 
 		switch {
+		case p.Previous == "" && p.Platform != platformMacOS:
+			// The first profile on the platform starts from the macOS one of
+			// its version, or the newest macOS one: everything it keeps is
+			// recaptured or regenerated.
+			p.Previous = p.Browser + "-" + p.Version + "-" + platformMacOS
+			if builtins[p.Previous] == nil {
+				p.Previous, _ = newestProfile(builtins, p.Browser, platformMacOS)
+			}
+
+			if p.Previous == "" {
+				p.Problems = append(p.Problems, fmt.Sprintf("no built-in %s profile to start %s from", p.Browser, p.Name))
+			} else {
+				p.NewPlatform = true
+			}
+
 		case p.Previous == "":
 			p.Problems = append(p.Problems, fmt.Sprintf("no built-in %s profile to start %s from", p.Browser, p.Name))
 		case newest > v:
 			p.Problems = append(p.Problems, fmt.Sprintf("%s %s on %s is older than the newest profile, %s: update it", p.Browser, p.Installed, m, p.Previous))
 		}
 	}
+
+	if !m.windows {
+		r.checkMac(p, rep)
+	}
+
+	if err := r.planCaptures(p, rep, cfg); err != nil {
+		return err
+	}
+
+	if !p.NewPlatform {
+		p.CapturesFrom = inherit(p, builtins)
+	}
+
+	if p.Browser != "safari" {
+		p.Warnings = append(p.Warnings, fmt.Sprintf("%s updates itself; an update applied between two launches splits the run, which the tool then refuses (every capture must name %s, and the version must still be %s afterwards)",
+			p.Browser, p.Name, p.Installed))
+	}
+
+	return nil
+}
+
+// newestProfile is the built-in profile of browser on platform with the
+// highest version, and that version; "" if there is none.
+func newestProfile(builtins map[string]*profile.Profile, browser, platform string) (string, int) {
+	name, newest := "", 0
+
+	for _, b := range builtins {
+		bv, err := strconv.Atoi(b.Version)
+		if err != nil || b.Browser != browser || b.Platform != platform {
+			continue
+		}
+
+		if bv > newest {
+			newest = bv
+			name = b.Name
+		}
+	}
+
+	return name, newest
+}
+
+// checkMac adds what a capture on a Mac needs and rep lacks to p.
+func (r *refreshRun) checkMac(p *plan, rep *preflightReport) {
+	m := r.machine(p)
 
 	for _, b := range rep.Browsers {
 		if b.Name == p.Browser && b.Unapproved {
@@ -352,18 +460,27 @@ func (r *refreshRun) planTarget(p *plan, rep *preflightReport, builtins map[stri
 			p.Warnings = append(p.Warnings, msg+" (only Safari needs it)")
 		}
 	}
+}
 
-	if err := r.planCaptures(p, rep, cfg); err != nil {
-		return err
+// checkWindows adds what a capture on a Windows PC needs and rep lacks to
+// p, and what happens to that PC. The capture CA is trusted only during a
+// capture and the test hosts reach Chrome through its own flags, so
+// neither is checked.
+func (r *refreshRun) checkWindows(p *plan, rep *preflightReport) {
+	m := r.machine(p)
+
+	if rep.Platform != platformWindows {
+		p.Problems = append(p.Problems, fmt.Sprintf("the capture tool's preflight on %s does not report Windows (platform %q)", m, rep.Platform))
 	}
 
-	p.CapturesFrom = inherit(p, builtins)
-	if p.Browser != "safari" {
-		p.Warnings = append(p.Warnings, fmt.Sprintf("%s updates itself; an update applied between two launches splits the run, which the tool then refuses (every capture must name %s, and the version must still be %s afterwards)",
-			p.Browser, p.Name, p.Installed))
+	for _, s := range rep.Missing {
+		p.Problems = append(p.Problems, fmt.Sprintf("%s: %s", m, s))
 	}
 
-	return nil
+	p.Manual = append(p.Manual,
+		fmt.Sprintf("%s logged in at %s's screen and the PC left alone: capture opens a visible Chrome on that desktop through a one-shot scheduled task (never headless), so an ssh session's own desktop is never used", rep.User, m),
+		fmt.Sprintf("capture adds its CA to %s's LocalMachine Root store (certutil -addstore Root) when it starts and deletes it (certutil -delstore Root) when it stops, both in capture.log; refresh then runs capture -cleanup there (the CA, leftover mimicry-capture-* scheduled tasks), even after a failure or ctrl-C", m),
+		fmt.Sprintf("Chrome reaches the capture hosts through --host-resolver-rules: no hosts file or DNS change on %s", m))
 }
 
 // onMachine is a command line run on host ("" here).
@@ -402,9 +519,11 @@ func (r *refreshRun) planCaptures(p *plan, rep *preflightReport, cfg config) err
 			})
 		}
 
-	case r.Mode == modeQuick:
+	case r.Mode == modeQuick && !p.NewPlatform:
 		set = server.QuickScenarios
 	default:
+		// Full mode, or the first profile on a platform, which has no
+		// earlier one there to inherit from.
 		set = server.FullScenarios()
 
 		replays, err := replayScenarios()
@@ -433,7 +552,12 @@ func (r *refreshRun) planCaptures(p *plan, rep *preflightReport, cfg config) err
 			continue
 
 		case sc.NeedsAioquic() && rep.Aioquic != "":
-			p.Problems = append(p.Problems, fmt.Sprintf("%s needs python3 with aioquic on %s: %s; install it with\n    %s", sc.Name, r.machine(p), rep.Aioquic, onMachine(p.Host, "python3 -m pip install --user aioquic")))
+			install := onMachine(p.Host, "python3 -m pip install --user aioquic")
+			if r.machine(p).windows {
+				install = "python -m pip install --user aioquic   # in PowerShell on " + p.Host
+			}
+
+			p.Problems = append(p.Problems, fmt.Sprintf("%s needs python3 with aioquic on %s: %s; install it with\n    %s", sc.Name, r.machine(p), rep.Aioquic, install))
 		}
 
 		// Chrome and Firefox refuse QUIC with the capture CA's
@@ -618,6 +742,20 @@ func (r *refreshRun) planText() string {
 			fmt.Fprintf(&w, ", new profile %s from %s\n", p.Name, p.Previous)
 		}
 
+		if p.NewPlatform {
+			if r.Scenarios == "" {
+				fmt.Fprintf(&w, "  first %s profile on %s: nothing there to inherit, so it captures the full set (every scenario and replay) whatever -mode, and inherits nothing; the generators redo what it keeps of %s from its captures\n",
+					p.Browser, p.Platform, p.Previous)
+			} else {
+				fmt.Fprintf(&w, "  first %s profile on %s: nothing there to inherit, so it inherits nothing; -scenarios replaces the full set it would capture, and the scenarios left out have no capture for %s\n",
+					p.Browser, p.Platform, p.Name)
+			}
+		}
+
+		if m := r.machine(p); m.windows {
+			r.windowsSteps(&w, p, m)
+		}
+
 		for _, c := range p.Captures {
 			fmt.Fprintf(&w, "  capture %-34s %d sample(s), about %s\n", c.label(), c.Samples, c.Estimate.Round(time.Second))
 		}
@@ -671,6 +809,33 @@ func (r *refreshRun) planText() string {
 		total.Round(time.Second))
 
 	return w.String()
+}
+
+// windowsSteps is what the run does on p's Windows PC m, for the plan.
+func (r *refreshRun) windowsSteps(w *strings.Builder, p *plan, m *machine) {
+	files := `capture.exe`
+	if slices.ContainsFunc(p.Captures, func(c planned) bool {
+		return strings.HasPrefix(c.Scenario, "replay-")
+	}) {
+		files += ` and testdata\pages`
+	}
+
+	fate := "removed"
+	if r.Keep {
+		fate = "kept (-keep)"
+	}
+
+	name := p.Name
+	if name == "" {
+		name = p.Browser + "-<major>-" + platformWindows
+	}
+
+	fmt.Fprintf(w, "  on %s (Windows over ssh; each step a powershell -NoProfile command) in %s:\n", m, m.windowsDir())
+	fmt.Fprintf(w, "    1. built here for windows/amd64 and copied there by scp: %s (realcheck.exe after install); capture.exe -preflight ran there\n", files)
+	fmt.Fprintf(w, "    2. capture.exe -browsers %s -ca-dir ca -browser-data browser-data: the unforced scenarios, then the -h3-local-roots ones; Chrome opens on the logged-in user's desktop through a one-shot scheduled task\n", p.Browser)
+	fmt.Fprintf(w, "    3. the captures (%s.*) copied back after each run (tar there, scp) into %s, checked, and once derived installed into %s\n",
+		name, r.stagedCaptures(p), capturesDir)
+	fmt.Fprintf(w, "    4. at the end, even after a failure or ctrl-C: whatever runs from that directory stopped, capture.exe -cleanup (the capture CA out of the Root store, leftover scheduled tasks deleted), the directory %s\n", fate)
 }
 
 // schedule groups the plans by machine (each machine's run at once), and

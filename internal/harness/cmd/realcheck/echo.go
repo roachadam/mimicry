@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -298,22 +299,87 @@ func runBrowser(ctx context.Context, b *browser.Browser, out string, echo, doSit
 }
 
 // browserClient names a driven browser's answers browser-<name>-<major
-// version> (from its application bundle), compared with the profile
-// <name>-<major>-macos.
+// version>-<platform>, compared with the profile of that name without
+// "browser-". realcheck drives only browsers installed on the machine it
+// runs on, so a Windows profile is checked by running realcheck on Windows.
+// The major version comes from the executable's version resource (Windows),
+// else the macOS application bundle, else a version-named directory beside
+// the executable (Chrome's layout on Windows), else its --version.
 func browserClient(b *browser.Browser) string {
 	name := "browser-" + b.Name
-	if b.App == "" {
+
+	major := browserMajor(b)
+	if major == "" {
 		return name
 	}
 
-	out, err := exec.Command("plutil", "-extract", "CFBundleShortVersionString", "raw", filepath.Join(b.App, "Contents", "Info.plist")).Output() //nolint:noctx,gosec // a local file of a known application
+	return name + "-" + major + "-" + hostPlatform()
+}
+
+// hostPlatform is the profile platform of the machine realcheck runs on.
+func hostPlatform() string {
+	switch runtime.GOOS {
+	case "darwin":
+		return "macos"
+	default:
+		return runtime.GOOS
+	}
+}
+
+// browserMajor returns b's major version, or "" when it cannot tell.
+func browserMajor(b *browser.Browser) string {
+	if v, err := b.Version(context.Background()); err == nil {
+		if major, ok := dottedMajor(v); ok {
+			return major
+		}
+	}
+
+	if b.App != "" {
+		out, err := exec.Command("plutil", "-extract", "CFBundleShortVersionString", "raw", filepath.Join(b.App, "Contents", "Info.plist")).Output() //nolint:noctx,gosec // a local file of a known application
+		if err != nil {
+			return ""
+		}
+
+		major, _, _ := strings.Cut(strings.TrimSpace(string(out)), ".")
+
+		return major
+	}
+
+	if b.Path == "" {
+		return ""
+	}
+
+	if entries, err := os.ReadDir(filepath.Dir(b.Path)); err == nil {
+		for _, e := range entries {
+			if major, ok := dottedMajor(e.Name()); e.IsDir() && ok {
+				return major
+			}
+		}
+	}
+
+	out, err := exec.Command(b.Path, "--version").Output() //nolint:noctx,gosec // a known browser executable
 	if err != nil {
-		return name
+		return ""
 	}
 
-	major, _, _ := strings.Cut(strings.TrimSpace(string(out)), ".")
+	fields := strings.Fields(string(out))
+	if len(fields) == 0 {
+		return ""
+	}
 
-	return name + "-" + major
+	major, _ := dottedMajor(fields[len(fields)-1])
+
+	return major
+}
+
+// dottedMajor returns the first part of a version such as 156.0.7000.12.
+func dottedMajor(s string) (string, bool) {
+	major, rest, ok := strings.Cut(s, ".")
+	if !ok || major == "" || rest == "" || strings.Trim(major, "0123456789") != "" {
+		return "", false
+	}
+
+	return major, true
 }
 
 // save writes v as indented JSON to path.

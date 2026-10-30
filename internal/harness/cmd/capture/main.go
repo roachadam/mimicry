@@ -84,11 +84,18 @@ func run() error {
 	preflight := flag.Bool("preflight", false, "print what a capture here needs as JSON (browsers and versions, console user, capture CA trust, /etc/resolver/test, aioquic) and exit")
 
 	flag.StringVar(&browser.ChromeApp, "chrome-app", browser.ChromeApp, "the Chrome application to capture on macOS (another build: Chrome for Testing)")
+	flag.StringVar(&browser.DataDir, "browser-data", "", "directory for the browsers' throwaway profile directories (default: the system's temporary directory); on Windows both Chrome, on the console user's desktop, and this tool use it")
+
+	cleanup := flag.Bool("cleanup", false, "Windows: remove what a killed run left (every capture CA in the machine's Root store, the tool's scheduled tasks, Chrome processes under -browser-data) and exit")
 
 	flag.Parse()
 
 	if *preflight {
 		return printPreflight(*caDir)
+	}
+
+	if *cleanup {
+		return cleanUp(browser.DataDir)
 	}
 
 	if *samples < 1 {
@@ -124,6 +131,9 @@ func run() error {
 	browsers := browser.Find()
 	if *only != "" {
 		names := strings.Split(*only, ",")
+		if err := browser.Supported(names); err != nil {
+			return err
+		}
 
 		browsers = slices.DeleteFunc(browsers, func(b *browser.Browser) bool {
 			return !slices.Contains(names, b.Name)
@@ -136,6 +146,19 @@ func run() error {
 
 	if err := os.MkdirAll(*out, 0o750); err != nil {
 		return err
+	}
+
+	if browser.DataDir != "" {
+		dir, err := filepath.Abs(browser.DataDir)
+		if err != nil {
+			return err
+		}
+
+		if err := os.MkdirAll(dir, 0o750); err != nil {
+			return err
+		}
+
+		browser.DataDir = dir
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -160,6 +183,14 @@ func run() error {
 		return err
 	}
 
+	// On Windows: checks the PC and trusts the CA until the run ends.
+	release, err := prepareHost(ctx, ca)
+	if err != nil {
+		return err
+	}
+
+	defer release()
+
 	opts := options{
 		headless:     *headless,
 		samples:      *samples,
@@ -176,18 +207,7 @@ func run() error {
 		log.Printf("warning: one sample of the default scenario cannot tell whether a browser shuffles its extensions; its capture says %q", profile.ExtensionOrderFixed)
 	}
 
-	// Safari resolves through the system: the stub answers its *.test
-	// lookups (Chrome and Firefox map the names themselves).
-	dns, err := (&net.ListenConfig{}).ListenPacket(ctx, "udp", dnsstub.Addr)
-	if err != nil {
-		log.Printf("DNS stub for *.test on %s: %v; Safari will not reach the capture hosts", dnsstub.Addr, err)
-	} else {
-		go func() {
-			if err := dnsstub.Serve(ctx, dns); err != nil {
-				log.Printf("DNS stub: %v", err)
-			}
-		}()
-	}
+	startDNSStub(ctx)
 
 	proxied := slices.ContainsFunc(scenarios, func(sc *server.Scenario) bool {
 		return sc.Proxy != ""

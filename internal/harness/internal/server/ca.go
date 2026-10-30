@@ -48,6 +48,10 @@ type CA struct {
 	CertPath string
 }
 
+// CACommonName is the subject common name of every capture CA, by which a
+// trusted copy can be found in a certificate store.
+const CACommonName = "mimicry capture CA (local, .test)"
+
 // DefaultCADir is where the capture CA lives unless told otherwise:
 // <user config dir>/mimicry/capture-ca, outside any repository.
 func DefaultCADir() (string, error) {
@@ -109,7 +113,7 @@ func createCA(dir, certPath, keyPath string, domains []string, now time.Time) (*
 	tmpl := &x509.Certificate{
 		SerialNumber: serial,
 		Subject: pkix.Name{
-			CommonName: "mimicry capture CA (local, .test)",
+			CommonName: CACommonName,
 		},
 		NotBefore:                   now.Add(-time.Hour),
 		NotAfter:                    now.AddDate(5, 0, 0),

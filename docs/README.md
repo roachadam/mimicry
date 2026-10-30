@@ -52,8 +52,9 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0004](decisions/0004-complete-profile-files.md) | One complete profile file per browser version | Amended by 0035 |
 | [0008](decisions/0008-unmeasured-is-an-error.md) | Asking for what was never measured is an error | Accepted |
 | [0024](decisions/0024-clienthello-shape-in-profiles.md) | The ClientHello's whole shape is profile data | Amended |
-| [0035](decisions/0035-version-policy-and-capture-inheritance.md) | Newest-version accessors, five supported versions, inherited captures | Accepted |
+| [0035](decisions/0035-version-policy-and-capture-inheritance.md) | Newest-version accessors, five supported versions, inherited captures | Amended by 0047 |
 | [0044](decisions/0044-profile-fingerprint.md) | Transports find a shared profile by a hash of its content | Accepted |
+| [0047](decisions/0047-windows-profiles.md) | Windows profiles: `chrome-<major>-windows` and `ChromeWindows()` | Accepted |
 
 ### Requests and headers
 

@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -140,76 +139,11 @@ const chromeWarmup = 5 * time.Second
 // -chrome-app points it at another build (Chrome for Testing).
 var ChromeApp = "/Applications/Google Chrome.app"
 
-var macOSApps = map[string]string{
-	"firefox": "/Applications/Firefox.app",
-	"safari":  "/Applications/Safari.app",
-}
-
-var linuxCommands = map[string][]string{
-	"chrome": {
-		"google-chrome-stable",
-		"google-chrome",
-	},
-	"firefox": {
-		"firefox",
-	},
-}
-
-// Find returns the supported browsers installed here: Chrome, Firefox, then
-// Safari.
-func Find() []*Browser {
-	var found []*Browser
-	for _, name := range []string{"chrome", "firefox", "safari"} {
-		b := &Browser{
-			Name: name,
-		}
-
-		app := macOSApps[name]
-		if name == "chrome" {
-			app = ChromeApp
-		}
-
-		if app != "" {
-			if _, err := os.Stat(app); err == nil {
-				b.App = app
-			}
-		}
-
-		if b.App == "" {
-			for _, cmd := range linuxCommands[name] {
-				if p, err := exec.LookPath(cmd); err == nil {
-					b.Path = p
-					break
-				}
-			}
-		}
-
-		if b.App == "" && b.Path == "" {
-			continue
-		}
-
-		switch name {
-		case "chrome":
-			b.prepare = chromeArgs
-			b.warmup = chromeWarmup
-			b.binary = b.Path
-
-			if b.App != "" {
-				// The executable is named after the application.
-				b.binary = filepath.Join(b.App, "Contents", "MacOS", strings.TrimSuffix(filepath.Base(b.App), ".app"))
-			}
-
-		case "firefox":
-			b.prepare = firefoxProfile
-		case "safari":
-			b.Shared = true
-		}
-
-		found = append(found, b)
-	}
-
-	return found
-}
+// DataDir is where the browsers' throwaway profile directories are made;
+// "" is the system's temporary directory. On Windows the browser runs in the
+// console user's session and the capture tool reads the profile from an
+// ssh session, so cmd/capture puts it under the run's directory.
+var DataDir string
 
 // URL is where b goes for t.
 func (b *Browser) URL(t Target) string {
@@ -218,10 +152,13 @@ func (b *Browser) URL(t Target) string {
 
 // Session is a running browser.
 type Session struct {
-	cmd  *exec.Cmd
+	proc *os.Process
 	dir  string
 	app  bool
-	done chan struct{}
+	// release frees what the platform's launch holds beyond the process
+	// (Windows: its scheduled task); nil when there is nothing.
+	release func() error
+	done    chan struct{}
 	// tabURL is set for a shared browser: Close closes its tabs on this URL
 	// rather than stopping the user's browser.
 	tabURL string
@@ -264,7 +201,7 @@ func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, 
 		return s, nil
 	}
 
-	dir, err := os.MkdirTemp("", "mimicry-"+b.Name+"-")
+	dir, err := os.MkdirTemp(DataDir, "mimicry-"+b.Name+"-")
 	if err != nil {
 		return nil, err
 	}
@@ -349,44 +286,7 @@ func (b *Browser) handOff(ctx context.Context, s *Session, dir, url string) erro
 		return ctx.Err()
 	}
 
-	if out, err := exec.CommandContext(ctx, b.binary, "--user-data-dir="+dir, url).CombinedOutput(); err != nil { //nolint:gosec // the binary is a known browser location; dir is our own
-		return fmt.Errorf("handing %s the capture URL: %w: %s", b.Name, err, strings.TrimSpace(string(out)))
-	}
-
-	return nil
-}
-
-// start launches b with args on the profile directory dir, which the
-// session removes when it closes (and start, if it fails).
-func (b *Browser) start(ctx context.Context, dir string, args []string) (*Session, error) {
-	var cmd *exec.Cmd
-	if b.App != "" {
-		// -n: a new instance even if the user's browser is open. -W: open
-		// exits when the browser does, so Wait tracks its lifetime.
-		cmd = exec.CommandContext(ctx, "open", append([]string{"-n", "-W", "-a", b.App, "--args"}, args...)...) //nolint:gosec // the app is a known browser location
-	} else {
-		cmd = exec.CommandContext(ctx, b.Path, args...) //nolint:gosec // the path is a known browser location
-	}
-
-	if err := cmd.Start(); err != nil {
-		_ = os.RemoveAll(dir)
-		return nil, fmt.Errorf("starting %s: %w", b.Name, err)
-	}
-
-	s := &Session{
-		cmd:  cmd,
-		dir:  dir,
-		app:  b.App != "",
-		done: make(chan struct{}),
-	}
-
-	go func() {
-		_ = cmd.Wait()
-
-		close(s.done)
-	}()
-
-	return s, nil
+	return b.handTo(ctx, dir, url)
 }
 
 // Close stops the browser, killing it if it has not exited within five
@@ -437,34 +337,12 @@ func (s *Session) quit() error {
 		}
 	}
 
-	return os.RemoveAll(s.dir)
-}
-
-// stop signals the browser. A browser started through open(1) is not our
-// child, so it is found by its profile directory, which no other process uses.
-func (s *Session) stop(kill bool) {
-	if s.app {
-		signal := "-TERM"
-		if kill {
-			signal = "-KILL"
-		}
-
-		_ = exec.Command("pkill", signal, "-f", s.dir).Run() //nolint:noctx,gosec // must run after the caller's context ends; s.dir is our own temp directory
-		if kill {
-			_ = s.cmd.Process.Kill()
-		}
-
-		return
+	var err error
+	if s.release != nil {
+		err = s.release()
 	}
 
-	if kill {
-		_ = s.cmd.Process.Kill()
-		return
-	}
-
-	if err := s.cmd.Process.Signal(os.Interrupt); err != nil && !errors.Is(err, os.ErrProcessDone) {
-		_ = s.cmd.Process.Kill()
-	}
+	return errors.Join(err, s.removeProfile())
 }
 
 func chromeArgs(dir string, t Target, headless bool) ([]string, error) {
@@ -498,90 +376,4 @@ func chromeArgs(dir string, t Target, headless bool) ([]string, error) {
 	}
 
 	return args, nil
-}
-
-// firefoxProfile writes prefs that map the capture hosts to 127.0.0.1 and
-// silence first-run pages, plus a certificate exception for the server (or,
-// with HostCerts, trust in the system roots).
-func firefoxProfile(dir string, t Target, headless bool) ([]string, error) {
-	prefs := []string{
-		`user_pref("network.dns.localDomains", "` + strings.Join(append([]string{t.Host}, t.Hosts...), ",") + `");`,
-		`user_pref("network.dns.disableIPv6", true);`,
-		`user_pref("browser.shell.checkDefaultBrowser", false);`,
-		`user_pref("browser.startup.homepage_override.mstone", "ignore");`,
-		`user_pref("browser.aboutwelcome.enabled", false);`,
-		`user_pref("datareporting.policy.dataSubmissionEnabled", false);`,
-		`user_pref("toolkit.telemetry.reportingpolicy.firstRun", false);`,
-	}
-	if t.HostCerts {
-		prefs = append(prefs, `user_pref("security.enterprise_roots.enabled", true);`)
-	}
-
-	if t.H3LocalRoots {
-		prefs = append(prefs, `user_pref("network.http.http3.disable_when_third_party_roots_found", false);`)
-	}
-
-	if t.Proxy != nil {
-		host, port := t.Proxy.Hostname(), t.Proxy.Port()
-
-		prefs = append(prefs, `user_pref("network.proxy.type", 1);`)
-
-		switch t.Proxy.Scheme {
-		case "socks5":
-			prefs = append(prefs,
-				`user_pref("network.proxy.socks", "`+host+`");`,
-				`user_pref("network.proxy.socks_port", `+port+`);`,
-				`user_pref("network.proxy.socks_version", 5);`,
-			)
-
-		default:
-			prefs = append(prefs,
-				`user_pref("network.proxy.http", "`+host+`");`,
-				`user_pref("network.proxy.http_port", `+port+`);`,
-				`user_pref("network.proxy.ssl", "`+host+`");`,
-				`user_pref("network.proxy.ssl_port", `+port+`);`,
-			)
-		}
-	}
-
-	if t.debugPort != 0 {
-		// Otherwise the remote agent applies automation prefs that change
-		// networking (speculative connections, captive-portal checks).
-		prefs = append(prefs, `user_pref("remote.prefs.recommended", false);`)
-	}
-
-	if err := os.WriteFile(filepath.Join(dir, "user.js"), []byte(strings.Join(prefs, "\n")+"\n"), 0o600); err != nil {
-		return nil, err
-	}
-
-	if err := os.WriteFile(filepath.Join(dir, "cert_override.txt"), []byte(firefoxOverride(t)), 0o600); err != nil {
-		return nil, err
-	}
-
-	args := []string{
-		"--profile", dir,
-		"--new-instance",
-	}
-	if t.debugPort != 0 {
-		args = append(args, "--remote-debugging-port", strconv.Itoa(t.debugPort), "--remote-allow-origins", debugOrigin)
-	}
-
-	if headless {
-		args = append(args, "--headless")
-	}
-
-	return args, nil
-}
-
-// firefoxOverride is a cert_override.txt accepting the server certificate for
-// the target's host and port.
-func firefoxOverride(t Target) string {
-	pairs := make([]string, len(t.CertSHA256))
-	for i, b := range t.CertSHA256 {
-		pairs[i] = fmt.Sprintf("%02X", b)
-	}
-
-	return "# PSM Certificate Override Settings file\n" +
-		"# This is a generated file!  Do not edit.\n" +
-		t.Host + ":" + strconv.Itoa(t.Port) + ":\tOID.2.16.840.1.101.3.4.2.1\t" + strings.Join(pairs, ":") + "\t\n"
 }

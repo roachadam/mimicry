@@ -1,8 +1,10 @@
 // Command refresh brings a browser's built-in profile up to the version
 // installed where that browser is captured (chrome, firefox and safari-mini
-// on the Mac mini via -mini, safari here):
+// on the Mac mini via -mini, safari here, chrome-windows on a Windows PC via
+// -windows):
 //
 //	go run ./cmd/refresh -browser chrome,firefox -mode quick   # in internal/harness/
+//	go run ./cmd/refresh -browser chrome-windows -windows gpudesktop
 //
 // Per browser it preflights, captures into a staging directory, derives the
 // new profile and runs the generators, installs it, and verifies it with the
@@ -44,6 +46,8 @@ type config struct {
 	mode        string
 	mini        string
 	staging     string
+	windows     string
+	keep        bool
 	scenarios   string
 	yes         bool
 	dryRun      bool
@@ -58,10 +62,12 @@ type config struct {
 func run() error {
 	var cfg config
 
-	browsers := flag.String("browser", "", "comma-separated browsers to refresh: chrome, firefox (on -mini), safari (this Mac), safari-mini (the mini's Safari)")
+	browsers := flag.String("browser", "", "comma-separated browsers to refresh: chrome, firefox (on -mini), safari (this Mac), safari-mini (the mini's Safari), chrome-windows (on -windows)")
 
 	flag.StringVar(&cfg.mode, "mode", modeQuick, "quick (the fingerprint layer; the rest inherited from the previous version) or full (every scenario and replay)")
 	flag.StringVar(&cfg.mini, "mini", "mac-mini", "your ssh alias for the Mac mini (chrome, firefox, safari-mini)")
+	flag.StringVar(&cfg.windows, "windows", "", "your ssh alias for the Windows PC (chrome-windows; required for it)")
+	flag.BoolVar(&cfg.keep, "keep", false, "leave the run's working directory on the Windows PC (the capture CA is removed regardless)")
 	flag.StringVar(&cfg.staging, "staging", ".refresh", "directory for staged builds, captures, profiles and logs (a new subdirectory per run)")
 	flag.StringVar(&cfg.scenarios, "scenarios", "", "capture these name:samples instead of the mode's set (with -capture-only, to try the tool)")
 	flag.BoolVar(&cfg.yes, "yes", false, "do not ask before capturing")
@@ -85,10 +91,23 @@ func run() error {
 
 	if *browsers != "" {
 		cfg.targets = strings.Split(*browsers, ",")
+
+		var mini, windows bool
 		for _, t := range cfg.targets {
-			if _, ok := targets[t]; !ok {
+			tg, ok := targets[t]
+			if !ok {
 				return fmt.Errorf("-browser %q: one of %s", t, strings.Join(slices.Sorted(maps.Keys(targets)), ", "))
 			}
+
+			mini = mini || tg.remote == remoteMini
+			windows = windows || tg.remote == remoteWindows
+		}
+
+		switch {
+		case windows && cfg.windows == "":
+			return errors.New("-browser chrome-windows needs -windows <your ssh alias for the Windows PC>")
+		case windows && mini && cfg.windows == cfg.mini:
+			return fmt.Errorf("-windows and -mini are both %q: the Windows PC and the Mac mini are two machines", cfg.mini)
 		}
 	}
 
@@ -105,6 +124,9 @@ func run() error {
 			return err
 		}
 
+		r.Keep = cfg.keep
+		defer r.cleanWindows(ctx)
+
 		return r.finish(ctx, cfg)
 	}
 
@@ -114,12 +136,18 @@ func run() error {
 	}
 
 	r := &refreshRun{
-		Dir:    dir,
-		Mode:   cfg.mode,
-		Mini:   cfg.mini,
-		Stamp:  filepath.Base(dir),
-		Serial: cfg.serial,
+		Dir:       dir,
+		Mode:      cfg.mode,
+		Mini:      cfg.mini,
+		Stamp:     filepath.Base(dir),
+		Serial:    cfg.serial,
+		Scenarios: cfg.scenarios,
+		Keep:      cfg.keep,
 	}
+	// The Windows PCs' working directories go, and the capture CA with
+	// them, however the run ends.
+	defer r.cleanWindows(ctx)
+
 	if err := r.preflight(ctx, cfg); err != nil {
 		return err
 	}
@@ -155,6 +183,31 @@ func run() error {
 	}
 
 	return r.finish(ctx, cfg)
+}
+
+// cleanWindows runs machine.cleanWindows once on each Windows PC of the
+// run, after an interruption too, logging to cleanup-<host>.log in staging.
+func (r *refreshRun) cleanWindows(ctx context.Context) {
+	ctx = context.WithoutCancel(ctx)
+
+	done := map[string]bool{}
+
+	for _, p := range r.Plans {
+		m := r.machine(p)
+		if !m.windows || done[m.host] {
+			continue
+		}
+
+		done[m.host] = true
+
+		log.Printf("cleaning up on %s", m)
+
+		if err := m.cleanWindows(ctx, filepath.Join(r.Dir, "cleanup-"+m.host+".log"), r.Keep); err != nil {
+			dir := `$env:USERPROFILE\` + strings.ReplaceAll(m.dir, "/", `\`)
+			log.Printf("cleaning up on %s failed (%v); there, in an administrator PowerShell:\n    cd %s; .\\capture.exe -cleanup -browser-data browser-data; cd ~; Remove-Item -Recurse -Force %s",
+				m, err, dir, dir)
+		}
+	}
 }
 
 // confirm asks on standard output and reads the answer from in.

@@ -33,6 +33,11 @@ func fromCapture(prev *profile.Profile, name, version string, captured *profile.
 	p.Deprecated = false
 	p.CapturesFrom = capturesFrom
 
+	// The first profile on a platform is copied from another platform's.
+	if captured.Platform != "" {
+		p.Platform = captured.Platform
+	}
+
 	t := &p.TLS
 	ct := captured.TLS
 
@@ -70,6 +75,10 @@ func fromCapture(prev *profile.Profile, name, version string, captured *profile.
 
 	if prev.HTTP1 != nil {
 		if h1 == nil {
+			if prev.Platform != p.Platform {
+				return nil, fmt.Errorf("no http1 capture for %s: the HTTP/1.1 lines of %s carry %s's user agent and platform headers; capture http1", name, prev.Name, prev.Platform)
+			}
+
 			rw := capture.NewRewriter(prev, p)
 			for i := range p.HTTP1.Headers {
 				p.HTTP1.Headers[i].Value = rw.Value(p.HTTP1.Headers[i].Value)

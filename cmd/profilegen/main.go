@@ -1,7 +1,8 @@
 // Command profilegen generates profiles/profiles.gen.go from
 // profiles/data/*.json: accessors per profile and per browser's newest
-// version, and the name lists. It refuses invalid or misnamed files and
-// sets that break the version policy (decision 0035).
+// version on each platform (Chrome on macOS, ChromeWindows on Windows;
+// decision 0047), and the name lists. It refuses invalid or misnamed files
+// and sets that break the version policy (decision 0035).
 //
 // Run it with go generate ./profiles.
 package main
@@ -78,15 +79,15 @@ func generate(dir string) ([]byte, error) {
 			return nil, fmt.Errorf("%s: %w", f, err)
 		}
 
+		major, _, _ := strings.Cut(p.Version, ".")
+		if want := p.Browser + "-" + major + "-" + p.Platform; p.Name != want {
+			return nil, fmt.Errorf("%s: profile %s is %s %s on %s; it must be named %s", f, p.Name, p.Browser, p.Version, p.Platform, want)
+		}
+
 		profiles = append(profiles, p)
 	}
 
 	if err := checkPolicy(profiles); err != nil {
-		return nil, err
-	}
-
-	latest, err := newest(profiles)
-	if err != nil {
 		return nil, err
 	}
 
@@ -95,13 +96,20 @@ func generate(dir string) ([]byte, error) {
 	b.WriteString("package profiles\n\n")
 	b.WriteString("import \"github.com/roachadam/mimicry/profile\"\n\n")
 
-	for _, browser := range slices.Sorted(maps.Keys(latest)) {
-		p := latest[browser]
-		fmt.Fprintf(&b, "// %s returns a fresh copy of the newest %s profile, now %s (%s %s on %s).\n",
-			browserFunc(browser), browser, p.Name, p.Browser, p.Version, p.Platform)
+	latest := newest(profiles)
+	for _, f := range slices.SortedFunc(maps.Keys(latest), compareFamilies) {
+		p := latest[f]
+		if f.platform == defaultPlatform {
+			fmt.Fprintf(&b, "// %s returns a fresh copy of the newest %s profile, now %s (%s %s on %s).\n",
+				f.accessor(), f.browser, p.Name, p.Browser, p.Version, p.Platform)
+		} else {
+			fmt.Fprintf(&b, "// %s returns a fresh copy of the newest %s profile on %s, now %s (%s %s on %s).\n",
+				f.accessor(), f.browser, f.platform, p.Name, p.Browser, p.Version, p.Platform)
+		}
+
 		b.WriteString("// It moves to each new version as that version is added; use a\n")
 		b.WriteString("// versioned accessor where a version must stay fixed.\n")
-		fmt.Fprintf(&b, "func %s() *profile.Profile {\n\treturn load(%q)\n}\n\n", browserFunc(browser), p.Name)
+		fmt.Fprintf(&b, "func %s() *profile.Profile {\n\treturn load(%q)\n}\n\n", f.accessor(), p.Name)
 	}
 
 	for _, p := range profiles {
@@ -110,7 +118,7 @@ func generate(dir string) ([]byte, error) {
 
 		if p.Deprecated {
 			fmt.Fprintf(&b, "//\n// Deprecated: %s %s is older than the newest %d versions of %s on %s;\n// it is no longer refreshed. Use %s.\n",
-				p.Browser, p.Version, supportedVersions, p.Browser, p.Platform, browserFunc(p.Browser))
+				p.Browser, p.Version, supportedVersions, p.Browser, p.Platform, familyOf(p).accessor())
 		}
 
 		fmt.Fprintf(&b, "func %s() *profile.Profile {\n\treturn load(%q)\n}\n\n", funcName(p.Name), p.Name)
@@ -191,27 +199,60 @@ func checkPolicy(profiles []*profile.Profile) error {
 	return nil
 }
 
-// newest returns each browser's newest profile, refusing a browser whose
-// newest version exists on several platforms: its accessor could not say
-// which it means.
-func newest(profiles []*profile.Profile) (map[string]*profile.Profile, error) {
-	latest := make(map[string]*profile.Profile)
-	for _, p := range profiles {
-		cur, ok := latest[p.Browser]
-		if !ok {
-			latest[p.Browser] = p
-			continue
+// defaultPlatform is the platform whose newest profiles the unqualified
+// accessors (Chrome) return. Other platforms' newest profiles have their
+// own accessors (ChromeWindows); see decision 0047.
+const defaultPlatform = "macos"
+
+// family is one browser on one platform: the unit of the version policy
+// and of a newest-version accessor.
+type family struct {
+	browser, platform string
+}
+
+func familyOf(p *profile.Profile) family {
+	return family{browser: p.Browser, platform: p.Platform}
+}
+
+// accessor names the family's newest-version accessor: "Chrome" on the
+// default platform, "ChromeWindows" on Windows.
+func (f family) accessor() string {
+	if f.platform == defaultPlatform {
+		return browserFunc(f.browser)
+	}
+
+	return browserFunc(f.browser) + platformFunc(f.platform)
+}
+
+// compareFamilies orders families by browser, the default platform first.
+func compareFamilies(a, b family) int {
+	if c := strings.Compare(a.browser, b.browser); c != 0 {
+		return c
+	}
+
+	if (a.platform == defaultPlatform) != (b.platform == defaultPlatform) {
+		if a.platform == defaultPlatform {
+			return -1
 		}
 
-		switch c := compareVersions(p.Version, cur.Version); {
-		case c > 0:
-			latest[p.Browser] = p
-		case c == 0:
-			return nil, fmt.Errorf("%s and %s are both the newest %s; %s() cannot choose", cur.Name, p.Name, p.Browser, browserFunc(p.Browser))
+		return 1
+	}
+
+	return strings.Compare(a.platform, b.platform)
+}
+
+// newest returns each family's newest profile. checkPolicy has refused two
+// profiles of one version in a family, so there is no tie.
+func newest(profiles []*profile.Profile) map[family]*profile.Profile {
+	latest := make(map[family]*profile.Profile)
+	for _, p := range profiles {
+		f := familyOf(p)
+		if cur, ok := latest[f]; !ok || compareVersions(p.Version, cur.Version) > 0 {
+			latest[f] = p
 		}
 	}
 
-	return latest, nil
+	return latest
 }
 
 // parseVersion splits a version ("155", "26.1") into its numbers.
@@ -248,6 +289,17 @@ var platforms = map[string]string{
 	"macos":    "MacOS",
 	"ios":      "IOS",
 	"chromeos": "ChromeOS",
+	"windows":  "Windows",
+}
+
+// platformFunc spells a platform for an accessor's name: "macos" →
+// "MacOS", "windows" → "Windows".
+func platformFunc(platform string) string {
+	if p, ok := platforms[platform]; ok {
+		return p
+	}
+
+	return strings.ToUpper(platform[:1]) + platform[1:]
 }
 
 // funcName turns "chrome-155-macos" into "Chrome155MacOS". The name is a
@@ -256,14 +308,7 @@ var platforms = map[string]string{
 func funcName(name string) string {
 	var b strings.Builder
 	for part := range strings.SplitSeq(name, "-") {
-		if p, ok := platforms[part]; ok {
-			b.WriteString(p)
-
-			continue
-		}
-
-		b.WriteString(strings.ToUpper(part[:1]))
-		b.WriteString(part[1:])
+		b.WriteString(platformFunc(part))
 	}
 
 	return b.String()

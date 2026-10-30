@@ -108,6 +108,8 @@ its headers ([decision 0042](decisions/0042-http2-opening-records.md)).
   mode), and each newly installed browser's first launch approved by
   Gatekeeper (open it once at the screen, or `xattr -d
   com.apple.quarantine` the app). The preflight checks each of these.
+- **The Windows machine** (Chrome on Windows, `cmd/refresh -windows`): its
+  setup is in [Refreshing profiles](refreshing-profiles.md#the-windows-machine).
 
 ## Scenarios
 

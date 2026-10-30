@@ -26,7 +26,7 @@ import (
 const captureDir = "../testdata/captures/"
 
 // testProfiles names the profiles each test checks: the newest of each
-// browser, every supported one with MIMICRY_PROFILES=all, or those it lists
+// browser on each platform, every supported one with MIMICRY_PROFILES=all, or those it lists
 // (testprofiles, decision 0035).
 func testProfiles(t testing.TB) []string {
 	t.Helper()

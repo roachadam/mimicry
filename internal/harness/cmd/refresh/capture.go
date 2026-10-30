@@ -114,13 +114,18 @@ func (r *refreshRun) capturePlan(ctx context.Context, p *plan) error {
 			continue
 		}
 
-		args := []string{
+		args := m.captureArgs(
 			"-browsers", p.Browser,
 			"-out", out,
 			"-summary", summary,
 			"-pages", pages,
 			"-scenarios", strings.Join(entries, ","),
+		)
+		if m.windows {
+			// Chrome's throwaway profiles in the working directory.
+			args = append(args, "-browser-data", "browser-data")
 		}
+
 		if forced {
 			args = append(args, "-h3-local-roots")
 		}
@@ -142,7 +147,7 @@ func (r *refreshRun) capturePlan(ctx context.Context, p *plan) error {
 
 	p.Finished = time.Now()
 
-	data, err := m.output(ctx, "cat", summary)
+	data, err := m.readFile(ctx, summary)
 	if err != nil {
 		return err
 	}

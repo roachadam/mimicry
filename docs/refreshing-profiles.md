@@ -11,11 +11,13 @@ go run ./cmd/refresh -browser chrome,firefox -mode quick   # both at once, on th
 go run ./cmd/refresh -browser safari -mode quick           # Safari 27, on the Mac you run it on
 go run ./cmd/refresh -browser safari-mini -mode full       # Safari 26, on the second Mac
 go run ./cmd/refresh -browser chrome -dry-run              # the plan only
+go run ./cmd/refresh -browser chrome-windows -windows <alias>   # Chrome on a Windows machine
 ```
 
 The setup assumes two Macs: the one you work on, and a second Mac kept on
 macOS 26, reachable over ssh. Pass its ssh alias with `-mini` (default
-`mac-mini`).
+`mac-mini`). Chrome on Windows needs a Windows machine reachable over
+ssh: pass your ssh alias for it with `-windows` (no default).
 
 ## Two modes
 
@@ -62,6 +64,7 @@ per browser; a full run (`moon run :test-full`) covers every supported one.
 | `chrome`, `firefox` | the second Mac (`-mini`) | at once in quick mode (`-serial` to not), one after the other in full mode |
 | `safari` | the Mac you run it on | opens tabs in your own Safari window |
 | `safari-mini` | the second Mac | Safari 26, since that Mac stays on macOS 26 |
+| `chrome-windows` | the Windows machine (`-windows`) | profiles `chrome-<major>-windows`, for `profiles.ChromeWindows()`; the first one captures the full set |
 
 The second Mac needs no Go. The tool cross-compiles `cmd/capture` and
 `cmd/realcheck` for darwin/arm64, copies them over and runs them over ssh.
@@ -74,6 +77,27 @@ It is not yet checked whether a fully covered window throttles its page's
 timers ([backlog](backlog.md#tooling-and-tests)). If `h3-discovery` or
 WebSocket e2e tests fail on timing after a parallel run, recapture them
 with `-serial`.
+
+### The Windows machine
+
+It needs, once: OpenSSH Server (PowerShell as its shell is fine), Chrome,
+and an administrator account that is also logged in at the machine's
+screen (the console). Go is not needed. The preflight checks each of these.
+
+The tool cross-compiles for windows/amd64, copies the binaries to
+`%USERPROFILE%\mimicry-capture\refresh-<stamp>\` and runs each step there
+through `powershell -NoProfile`. `capture` opens a visible Chrome on the
+logged-in desktop through a one-shot scheduled task, trusts the run's
+capture CA in the machine's Root store only while it runs (`certutil`),
+and maps the test hosts with `--host-resolver-rules`: no DNS or hosts-file
+change. However the run ends, the tool then runs `capture -cleanup` (the
+CA, leftover scheduled tasks) and removes the directory (`-keep` keeps
+it).
+
+Profiles inherit captures only from the same browser and platform, so the
+first `chrome-windows` refresh captures every scenario and replay whatever
+`-mode` (unless `-scenarios` is given), starting from the macOS profile of
+the same version. Later ones follow `-mode`.
 
 ## What a run does
 

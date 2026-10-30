@@ -1,6 +1,6 @@
 # 0035: Newest-version accessors, five supported versions, inherited captures
 
-- Status: Accepted
+- Status: Accepted; amended by 0047
 - Date: 2026-10-26
 - Commits: `2c913bf`
 
@@ -183,3 +183,7 @@ scenario chrome-155 captured except the default page.
   into the quick tier.
 - A vendor is found checking behaviour that only inherited scenarios
   cover.
+
+## Amendments
+
+- 0047: the newest-version accessors `Chrome()`, `Firefox()` and `Safari()` are macOS; other platforms get `<Browser><Platform>()` (`ChromeWindows()`), and the tests' default set is the newest profile of each browser on each platform.

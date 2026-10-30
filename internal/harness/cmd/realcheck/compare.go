@@ -15,7 +15,8 @@ import (
 )
 
 // pair is a driven browser's answers and the built-in profile they are
-// compared with: browser-<name>-<major> with <name>-<major>-macos.
+// compared with: browser-<name>-<major>-<platform> with
+// <name>-<major>-<platform>.
 type pair struct {
 	browser string
 	profile string
@@ -231,7 +232,7 @@ func compare(out string) error {
 		if after, ok := strings.CutPrefix(c, "browser-"); ok {
 			ps = append(ps, pair{
 				browser: c,
-				profile: after + "-macos",
+				profile: after,
 			})
 		}
 	}

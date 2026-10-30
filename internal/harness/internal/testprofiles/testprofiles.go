@@ -2,7 +2,7 @@
 // (decision 0035) and builds the synthetic profile that proves capture
 // inheritance.
 //
-// By default it picks the newest profile of each browser;
+// By default it picks the newest profile of each browser on each platform;
 // MIMICRY_PROFILES=all picks every supported one, and a comma-separated list
 // picks built-in names or paths to .json profile files.
 package testprofiles
@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -42,11 +43,7 @@ func choose(env string) (*selection, error) {
 	}
 	switch env = strings.TrimSpace(env); env {
 	case "":
-		for _, p := range []*profile.Profile{profiles.Chrome(), profiles.Firefox(), profiles.Safari()} {
-			s.names = append(s.names, p.Name)
-		}
-
-		slices.Sort(s.names)
+		s.names = newest(profiles.Supported())
 
 		return s, nil
 
@@ -82,6 +79,41 @@ func choose(env string) (*selection, error) {
 	}
 
 	return s, nil
+}
+
+// newest keeps, of names <browser>-<major>-<platform>, the highest major of
+// each browser and platform, sorted.
+func newest(names []string) []string {
+	type key struct{ browser, platform string }
+
+	best := map[key]int{}
+	pick := map[key]string{}
+
+	for _, n := range names {
+		parts := strings.Split(n, "-")
+		if len(parts) != 3 {
+			continue
+		}
+
+		v, err := strconv.Atoi(parts[1])
+		if err != nil {
+			continue
+		}
+
+		k := key{parts[0], parts[2]}
+		if _, ok := pick[k]; !ok || v > best[k] {
+			best[k], pick[k] = v, n
+		}
+	}
+
+	out := make([]string, 0, len(pick))
+	for _, n := range pick {
+		out = append(out, n)
+	}
+
+	slices.Sort(out)
+
+	return out
 }
 
 // Names lists the profiles to check, as MIMICRY_PROFILES says.

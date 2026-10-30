@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -90,7 +89,7 @@ end tell`)
 		return l, nil
 	}
 
-	dir, err := os.MkdirTemp("", "mimicry-live-"+b.Name+"-")
+	dir, err := os.MkdirTemp(DataDir, "mimicry-live-"+b.Name+"-")
 	if err != nil {
 		return nil, err
 	}
@@ -530,18 +529,4 @@ func osascript(ctx context.Context, script string) (string, error) {
 // system's C APIs) and returns its output, trimmed.
 func osascriptJS(ctx context.Context, script string) (string, error) {
 	return runOSA(ctx, "JavaScript", script)
-}
-
-// runOSA runs script in OSA language lang.
-func runOSA(ctx context.Context, lang, script string) (string, error) {
-	out, err := exec.CommandContext(ctx, "osascript", "-l", lang, "-e", script).Output() //nolint:gosec // our own scripts
-	if err != nil {
-		if ee, ok := errors.AsType[*exec.ExitError](err); ok {
-			return "", fmt.Errorf("osascript: %w: %s", err, strings.TrimSpace(string(ee.Stderr)))
-		}
-
-		return "", err
-	}
-
-	return strings.TrimRight(string(out), "\n"), nil
 }
