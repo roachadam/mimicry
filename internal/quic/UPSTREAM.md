@@ -72,7 +72,9 @@ the mechanical import rewrites.
    here. `qlog`, `quicwire` and `testcert` are unchanged.
 5. **Browser clients (`Dial`).** New files `client.go` (`Dial`,
    `DialConfig` (`OnFirstDatagram`: the send path calls it once the first
-   datagram goes out), `Cork`/`Uncork`, `HoldFinished`/`ReleaseFinished`,
+   datagram goes out; a `Dial` its context drops returns once the
+   connection has stopped, so its caller sees whether it was called),
+   `Cork`/`Uncork`, `HoldFinished`/`ReleaseFinished`,
    `EarlyData`, `HandshakeComplete`, `FinishedSent` (closed once the
    datagram with the client's Finished went: a request held for the
    handshake that must not share it waits for it), `Done`/`Err`,

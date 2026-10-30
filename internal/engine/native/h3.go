@@ -894,7 +894,14 @@ func (e *Engine) runAttempt(ctx context.Context, o *origin, r route, a *attempt,
 
 	spec.sent = &sent
 
-	c, err := e.connectH3(ctx, r, spec)
+	// Dropped while held back: no dial, so nothing goes out.
+	var c *quicConn
+
+	err := ctx.Err()
+	if err == nil {
+		c, err = e.connectH3(ctx, r, spec)
+	}
+
 	ours := err == nil
 
 	if ours {

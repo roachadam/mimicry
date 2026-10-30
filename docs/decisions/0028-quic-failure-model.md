@@ -201,3 +201,15 @@ and then failed counts exactly as before.
 `TestQUICAttemptCountsOnlyOnceItSent` (internal/engine/native) checks both;
 `TestQUICInterop`'s impaired-handshake rows hold the sessions that reach the
 relay to `brokenAfter`.
+
+Two races broke the rule, fixed on 2026-10-30 after the test failed 45
+times in 300 `-race` runs on Linux (CI's ubuntu runners; none in 300 on
+macOS). `quic.Dial`, dropped by its context, returned without waiting for
+the connection's loop, which could still be sending the first datagram,
+so an attempt that had sent did not count. It now returns once the
+connection has stopped. And an attempt dropped while held back (a race
+delay, or behind another attempt) went on to dial with its context
+already canceled, so a hello could go out after the drop. It no longer
+dials. With only the first fix, 14 of 2,000 runs counted such an attempt.
+With both, none failed in 1,000 runs on Linux with `-race`, 1,000 without,
+or 300 on macOS with `-race`.

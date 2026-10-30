@@ -44,7 +44,8 @@ type DialConfig struct {
 	OnToken func([]byte)
 	// OnFirstDatagram, if set, is called once, when the connection hands
 	// its first datagram to the socket, on the connection's goroutine: it
-	// must not block. A connection dropped before that never calls it.
+	// must not block. A connection dropped before that never calls it. A
+	// Dial that fails has returned only once it was called, if it will be.
 	OnFirstDatagram func()
 	// CachedRTT is the smoothed RTT of the connection whose ticket Hello
 	// resumes (Conn.SmoothedRTT), for a profile that sends it when resuming
@@ -123,7 +124,11 @@ func Dial(ctx context.Context, pc net.PacketConn, peer netip.AddrPort, cfg DialC
 		if ctx.Err() != nil {
 			// A browser drops an attempt it no longer waits for without
 			// a word (Safari's when its TCP connection won the race).
+			// Dial returns once the connection has stopped: the loop may
+			// be sending its first datagram, and the caller learns
+			// whether it did (OnFirstDatagram) only once that is over.
 			c.exit()
+			<-c.lifetime.donec
 		}
 
 		// Otherwise the connection ended itself and sends its own close
