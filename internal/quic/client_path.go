@@ -71,6 +71,10 @@ type clientPathState struct {
 	degraded      bool
 	degradedAcked packetNumber
 	moving        bool
+	// migrationDisabled: the server sent disable_active_migration (RFC
+	// 9000, section 18.2), so a degrading path is marked but the client
+	// stays on it.
+	migrationDisabled bool
 	// challenge is the PATH_CHALLENGE sent on the new path.
 	challenge pathChallengeData
 	// quietSince is the last packet received (or the request, if later),
@@ -276,10 +280,13 @@ func (c *Conn) appendClientKeepAlive() bool {
 
 // clientMove starts the move to a new local port (Chrome's port
 // migration): a new socket, opened off the loop; clientMigrate switches
-// to it. A connection without a spare connection ID of the server's stays.
+// to it. A connection without a spare connection ID of the server's stays,
+// as does one whose server disabled migration (Chrome 102 and later: its
+// MaybeMigrateToDifferentPortOnPathDegrading returns, "Migration disabled
+// by config"); it keeps its keep-alives, probes and idle timeout.
 func (c *Conn) clientMove() {
 	ps := &c.client.pathState
-	if ps.socket == nil || ps.newPath == nil || len(c.connIDState.remote) < 2 {
+	if ps.migrationDisabled || ps.socket == nil || ps.newPath == nil || len(c.connIDState.remote) < 2 {
 		return
 	}
 
