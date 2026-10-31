@@ -496,7 +496,9 @@ the mechanical import rewrites.
     timeout" without a profile). A local close with a recorded cause
     (the timeout, `abort`'s error) now resets the stream with it as the
     peer's close does; a direction the caller closed first, and a close
-    without a cause (`Abort`, `Close`), report as before.
+    without a cause (`Abort`, `Close`), report as before until the drain
+    period ends. Then the connection is done and `connHasClosed` runs
+    again as for a peer's close, upstream's too.
     Test: `stream_close_cause_test.go` (`TestStreamErrorAfterLocalClose`).
 
 ## Sockets
