@@ -6,6 +6,7 @@ package headerorder
 import (
 	"context"
 	"errors"
+	"maps"
 	"net/http"
 	"slices"
 	"strings"
@@ -84,6 +85,36 @@ type Field struct {
 type Set struct {
 	Name  string
 	Value string
+}
+
+// WithoutFraming returns h without the headers that frame a message
+// (Content-Length, Connection, Transfer-Encoding), in any spelling: the
+// connection builds them from the request, as net/http does. It is h
+// itself when h has none, else a copy.
+func WithoutFraming(h http.Header) http.Header {
+	found := false
+	for k := range h {
+		if Framing(k) {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return h
+	}
+
+	out := h.Clone()
+	maps.DeleteFunc(out, func(k string, _ []string) bool {
+		return Framing(k)
+	})
+
+	return out
+}
+
+// Framing reports a header name WithoutFraming drops, in any case.
+func Framing(name string) bool {
+	return strings.EqualFold(name, "content-length") || strings.EqualFold(name, "connection") || strings.EqualFold(name, "transfer-encoding")
 }
 
 // Build appends the headers to send for a request with headers h to dst

@@ -245,6 +245,23 @@ func skipHeader(name string) bool {
 	return framing[name]
 }
 
+// closing reports a request that closes its connection: req.Close, or a
+// caller's Connection: close, honoured as net/http does. Other Connection
+// values in the map are ignored for the profile's.
+func closing(req *http.Request) bool {
+	if req.Close {
+		return true
+	}
+
+	for k, v := range req.Header {
+		if strings.EqualFold(k, "connection") && httpguts.HeaderValuesContainsToken(v, "close") {
+			return true
+		}
+	}
+
+	return false
+}
+
 // SetDone sets what RoundTrip calls exactly once per request, when the
 // body is read to the end or closed or the request fails; reusable
 // reports whether c may carry another. Set once per connection, so a
@@ -299,7 +316,7 @@ func (c *Conn) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 
 	b.ReadCloser = resp.Body
-	b.reusable = !resp.Close && !req.Close && resp.StatusCode != http.StatusSwitchingProtocols
+	b.reusable = !resp.Close && !closing(req) && resp.StatusCode != http.StatusSwitchingProtocols
 	// A response with no body is complete as soon as it is read.
 	b.eof = req.Method == http.MethodHead || resp.ContentLength == 0 ||
 		resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusNotModified
@@ -397,7 +414,8 @@ func (w Writer) build(req *http.Request, framing http.Header) (Head, error) {
 	}
 
 	target := req.URL.RequestURI()
-	reqHeader := req.Header
+	// Framing comes from the request, never the caller's map.
+	reqHeader := headerorder.WithoutFraming(req.Header)
 	auth := ""
 
 	if w.forward != nil {
@@ -445,6 +463,12 @@ func (w Writer) build(req *http.Request, framing http.Header) (Head, error) {
 		h.Set("Host", host)
 		maps.Copy(h, framing)
 
+		if closing(req) && slices.ContainsFunc(h1Order, func(hd profile.Header) bool {
+			return hd.Name == "connection"
+		}) {
+			h.Set("Connection", "close")
+		}
+
 		fields = headerorder.Build(fields, h1Order, h, nil, func(string) bool {
 			return false
 		}, table)
@@ -456,6 +480,10 @@ func (w Writer) build(req *http.Request, framing http.Header) (Head, error) {
 			Name:  "connection",
 			Value: "keep-alive",
 		})
+		if closing(req) {
+			fields[1].Value = "close"
+		}
+
 		for k, v := range framing {
 			fields = append(fields, headerorder.Field{
 				Name:  strings.ToLower(k),
