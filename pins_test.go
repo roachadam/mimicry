@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"io"
 	"net"
 	"net/http"
 	"slices"
@@ -602,6 +603,18 @@ func TestPins(t *testing.T) {
 				resp, err := client.Do(req)
 				if err == nil {
 					state = resp.TLS
+					// Read to EOF before closing. The shop's responses
+					// are empty (HEADERS with END_STREAM), and closing an
+					// empty body counts it complete: the stream lingers
+					// for its end instead of being reset. HTTP/2's read
+					// loop ends it, and the connection counts the request
+					// done, only after RoundTrip has returned the
+					// response; the body's EOF comes from that end.
+					// Closed before it, the next step's
+					// CloseIdleConnections could find the request still
+					// in flight and keep the connection, and the step
+					// reused it instead of resuming.
+					_, err = io.Copy(io.Discard, resp.Body)
 					_ = resp.Body.Close()
 				}
 
