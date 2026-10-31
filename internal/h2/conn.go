@@ -112,6 +112,8 @@ type Conn struct {
 	// draining: no new stream may start, but those in flight run on. The
 	// connection closes when the last one ends.
 	draining bool
+	// goneAway: c wrote a GOAWAY (GoAway or the profile's reply).
+	goneAway bool
 	// Peer settings.
 	maxFrameSize  uint32
 	initialWindow int32
@@ -378,6 +380,7 @@ func (c *Conn) GoAway() {
 	}
 
 	c.draining = true
+	c.goneAway = true
 
 	idle := c.active == 0
 	// Counted as a stream until the frame is written, so the last stream
@@ -1877,6 +1880,15 @@ func (c *Conn) onReset(f *http2.RSTStreamFrame) {
 func (c *Conn) onGoAway(f *http2.GoAwayFrame) {
 	c.mu.Lock()
 
+	// The profile's reply, unless a GOAWAY already went out.
+	reply := c.h2.GoAwayReply != "" && !c.goneAway && c.err == nil
+	if reply {
+		// Counted as a stream until the reply is written, as in GoAway.
+		c.active++
+
+		c.goneAway = true
+	}
+
 	c.draining = true
 
 	var refused []*stream
@@ -1891,6 +1903,19 @@ func (c *Conn) onGoAway(f *http2.GoAwayFrame) {
 	c.cond.Broadcast()
 	c.mu.Unlock()
 
+	if reply {
+		c.wmu.Lock()
+
+		_ = c.fr.WriteGoAway(0, errCode(c.h2.GoAwayReply), nil)
+		c.wmu.Unlock()
+		c.mu.Lock()
+
+		c.active--
+
+		idle = c.active == 0
+		c.mu.Unlock()
+	}
+
 	for _, s := range refused {
 		c.endStream(s, ending{
 			err: fmt.Errorf("%w: GOAWAY after stream %d", ErrConnUnusable, f.LastStreamID),
@@ -1900,4 +1925,15 @@ func (c *Conn) onGoAway(f *http2.GoAwayFrame) {
 	if idle {
 		_ = c.conn.Close()
 	}
+}
+
+// errCode is the error code named name (profile.HTTP2.GoAwayReply).
+func errCode(name string) http2.ErrCode {
+	for code := http2.ErrCodeNo; code <= http2.ErrCodeHTTP11Required; code++ {
+		if code.String() == name {
+			return code
+		}
+	}
+
+	return http2.ErrCodeInternal
 }

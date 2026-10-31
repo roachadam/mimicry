@@ -324,6 +324,8 @@ does not describe:
    `http2.openingRecords`, how the browser cuts a new HTTP/2 connection's
    opening into TLS records (from every connection whose first request was
    waiting as it opened, testing-build captures included; decision 0042),
+   `http2.goawayReply`, the GOAWAY sent on the server's, from every HTTP/2
+   connection the capture server sent GOAWAY on,
    `tls.quic`, the QUIC ClientHello, from every h3 connection's hello,
    `tls.quic.versionNegotiation`, Firefox's other hello after Version
    Negotiation, from the `h3-vn` captures, and `tls.websocketH1` from the

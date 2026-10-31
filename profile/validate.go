@@ -638,6 +638,10 @@ func (c *checker) checkHTTP2(h *HTTP2) {
 		c.add("http2.firstStreamId", "must be an odd stream ID below 2^31")
 	}
 
+	if h.GoAwayReply != "" && !slices.Contains(errorCodes, h.GoAwayReply) {
+		c.add("http2.goawayReply", "must be an RFC 9113 error code name: %s", strings.Join(errorCodes, ", "))
+	}
+
 	for _, v := range []struct {
 		path  string
 		value uint32
