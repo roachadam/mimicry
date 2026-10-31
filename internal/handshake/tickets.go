@@ -114,6 +114,14 @@ func (t *Tickets) Has(key string) bool {
 	return ok && !s.expired(t.clock.Now())
 }
 
+// Drop forgets key's ticket, if any.
+func (t *Tickets) Drop(key string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	delete(t.m, key)
+}
+
 // expired reports whether uTLS would decline the ticket at now.
 func (s ticket) expired(now time.Time) bool {
 	return !s.expires.IsZero() && now.After(s.expires)

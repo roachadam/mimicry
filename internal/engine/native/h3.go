@@ -237,6 +237,19 @@ func (e *Engine) originState(r route) *origin {
 	return o
 }
 
+// h3Dialing reports whether the origin whose route key is key has a QUIC
+// attempt running, which pools a connection once it ends.
+func (e *Engine) h3Dialing(key string) bool {
+	q := e.quic
+
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	o := q.origins[key]
+
+	return o != nil && o.attempt != nil
+}
+
 // alternative returns the port of r's HTTP/3 alternative if it may be used
 // now: advertised, unexpired and, with o its origin state (nil: none yet),
 // not broken. e.quic.mu must be held.
@@ -1109,7 +1122,9 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 			q.mu.Lock()
 			defer q.mu.Unlock()
 
-			e.originState(r).token = t
+			// o, not originState: a proxy swept since (forgetProxy)
+			// is not brought back.
+			o.token = t
 		},
 	}
 	if spec.sent != nil {
@@ -1175,7 +1190,7 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 		}
 	}
 
-	go e.watchH3(r, qcn)
+	go e.watchH3(o, qcn)
 
 	return qcn, nil
 }
@@ -1217,11 +1232,11 @@ func (e *Engine) dialQUIC(ctx context.Context, r route, port uint16, hello finge
 	return quic.Dial(ctx, pc, peer, dc)
 }
 
-// watchH3 keeps c's smoothed RTT for the origin's next connection
-// (Chrome's initial_rtt), sampled until c ends. Then, if c is the origin's
-// last connection, it keeps only whether c went away: a closed connection
-// stays out of the origin's state.
-func (e *Engine) watchH3(r route, c *quicConn) {
+// watchH3 keeps c's smoothed RTT for o's next connection (Chrome's
+// initial_rtt), sampled until c ends. Then, if c is o's last connection,
+// it keeps only whether c went away: a closed connection stays out of the
+// origin's state.
+func (e *Engine) watchH3(o *origin, c *quicConn) {
 	t := e.clock.NewTicker(time.Second)
 	defer t.Stop()
 
@@ -1230,7 +1245,7 @@ func (e *Engine) watchH3(r route, c *quicConn) {
 		if rtt > 0 {
 			e.quic.mu.Lock()
 
-			e.originState(r).rtt = rtt
+			o.rtt = rtt
 			e.quic.mu.Unlock()
 		}
 
@@ -1238,7 +1253,7 @@ func (e *Engine) watchH3(r route, c *quicConn) {
 		case <-c.qc.Done():
 			e.quic.mu.Lock()
 
-			if o := e.quic.origins[r.key]; o != nil && o.last == c {
+			if o.last == c {
 				o.last, o.wentAway = nil, c.GoneAway()
 			}
 

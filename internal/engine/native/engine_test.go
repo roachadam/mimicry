@@ -107,10 +107,14 @@ type options struct {
 	clock clockwork.Clock
 	proxy func(*http.Request) (*url.URL, error)
 	// idleConnTimeout is Config.IdleConnTimeout, http3ReadBufferSize
-	// Config.HTTP3ReadBufferSize and maxIdleProxies Config.MaxIdleProxies.
+	// Config.HTTP3ReadBufferSize, maxIdleProxies Config.MaxIdleProxies,
+	// browserProxyAuth Config.BrowserProxyAuth and http3OverSOCKS5
+	// Config.HTTP3OverSOCKS5.
 	idleConnTimeout     time.Duration
 	http3ReadBufferSize int
 	maxIdleProxies      int
+	browserProxyAuth    bool
+	http3OverSOCKS5     bool
 }
 
 func newTestEngine(t *testing.T, o options) *Engine {
@@ -140,6 +144,8 @@ func newTestEngine(t *testing.T, o options) *Engine {
 		IdleConnTimeout:     o.idleConnTimeout,
 		HTTP3ReadBufferSize: o.http3ReadBufferSize,
 		MaxIdleProxies:      o.maxIdleProxies,
+		BrowserProxyAuth:    o.browserProxyAuth,
+		HTTP3OverSOCKS5:     o.http3OverSOCKS5,
 	}, clock, o.onWait)
 	if err != nil {
 		t.Fatal(err)
@@ -241,15 +247,23 @@ func serveH2(ctx context.Context, conn net.Conn) error {
 		return err
 	}
 
+	serveH2On(ctx, tc, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, "ok")
+	}))
+
+	return nil
+}
+
+// serveH2On serves tc, a TLS connection past its handshake, with net/http's
+// HTTP/2 server and h until the connection closes.
+func serveH2On(ctx context.Context, tc *tls.Conn, h http.Handler) {
 	closed := make(chan struct{})
 
 	var once sync.Once
 
 	srv := &http.Server{
 		ReadHeaderTimeout: 10 * time.Second,
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			_, _ = io.WriteString(w, "ok")
-		}),
+		Handler:           h,
 		BaseContext: func(net.Listener) context.Context {
 			return ctx
 		},
@@ -267,8 +281,6 @@ func serveH2(ctx context.Context, conn net.Conn) error {
 		ctx:    ctx,
 		closed: closed,
 	})
-
-	return nil
 }
 
 // oneConnListener hands out conn once, then blocks until it has closed
