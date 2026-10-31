@@ -2,6 +2,8 @@ package server
 
 import (
 	"math/rand/v2"
+	"slices"
+	"strconv"
 	"sync"
 	"time"
 
@@ -71,6 +73,66 @@ func H3DownloadSteps() []H3Step {
 		h3Fetch(h3Host, "after2.so", 1000),
 		last,
 	}
+}
+
+// H3StreamsBlocked is the h3-streams-blocked scenario: a QUIC server that
+// allows 2 concurrent bidirectional streams, raising the limit as each
+// stream ends (quic-go's MAX_STREAMS), and bursts of fetches held back
+// H3BlockedDelay each, so the browser reaches the limit. The
+// unidirectional limit stays quic-go's 100 (RFC 9114 needs at least 3).
+// See H3StreamsBlockedSteps.
+var H3StreamsBlocked = &Scenario{
+	Name: "h3-streams-blocked",
+	Doc:  "HTTP/3 from a server allowing 2 concurrent bidirectional streams, raised as each ends, against two bursts of 6 fetches held back 300 ms each: whether, how often and with which limit each browser sends STREAMS_BLOCKED, and whether waiting requests queue on the connection or go elsewhere",
+	multi: h3Page{
+		fixedHosts: fixedHosts{
+			names: []string{
+				h3Host,
+			},
+			runFor: 20 * time.Second,
+		},
+		steps: H3StreamsBlockedSteps,
+	},
+	h3: &h3Server{
+		maxStreams: 2,
+	},
+}
+
+// H3BlockedDelay holds back each burst response of the h3-streams-blocked
+// page, so its streams stay open while the rest wait.
+const H3BlockedDelay = 300 * time.Millisecond
+
+// H3StreamsBlockedSteps lists the h3-streams-blocked page's requests on a
+// fixed schedule (NoWait): a warm-up, a GOAWAY moving Safari to HTTP/3, a
+// fetch, then two bursts of 6 fetches started together (a1–a6, b1–b6, 2 s
+// apart), each answered after H3BlockedDelay, and a last fetch.
+func H3StreamsBlockedSteps() []H3Step {
+	goAway := h3Fetch(h3Host, "goaway.so", 1000)
+
+	goAway.GoAwayTCP = true
+
+	burst := func(prefix string, pause int) []H3Step {
+		out := make([]H3Step, 6)
+		for i := range out {
+			out[i] = h3Fetch(h3Host, prefix+strconv.Itoa(i+1)+".so", 0)
+			out[i].Delay = H3BlockedDelay
+		}
+
+		out[0].PauseMillis = pause
+
+		return out
+	}
+	last := h3Fetch(h3Host, "last.so", 2000)
+
+	last.NoWait = false
+
+	return slices.Concat([]H3Step{
+		h3Fetch(h3Host, "warm.so", 0),
+		goAway,
+		h3Fetch(h3Host, "fetch1.so", 1500),
+	}, burst("a", 1500), burst("b", 2000), []H3Step{
+		last,
+	})
 }
 
 // H3Blackhole is the h3-blackhole scenario: every response advertises

@@ -666,6 +666,7 @@ A difference closed is removed here, with its pinned gap entry.
 - **`requestsAfterConfirmed`** (Chrome, Firefox): no request waited for a full handshake; detection low; an immediate-request scenario.
 - **Firefox v2 edges** (Firefox): a v2 connection's NEW_TOKEN not passed on; a v2-only server sending `version_information` untested; the resumed hello's SNI cut varies; detection low; more samples.
 - **QUIC stack gaps** (all): the server's `preferred_address` is not used, its `max_udp_payload_size` not acted on; detection low ([UPSTREAM.md](../internal/quic/UPSTREAM.md)).
+- **STREAMS_BLOCKED** (all; captured from Chrome 156 on macOS, Firefox 158, Safari 27): when a request waits for the server's stream limit, Chrome sends one per waiting request and one or two more with each new limit it uses up, even with none left waiting (15 per `h3-streams-blocked` page), Firefox one per limit a request waited at (8), Safari one per limit a new request found reached, none for requests still waiting after a new limit (2); bidirectional only, never resent (nothing lost on loopback); mimicry sends none, its requests queue on the connection as the browsers' do; only against servers allowing few streams; detection low; [issue #4](https://github.com/roachadam/mimicry/issues/4) ([report](../internal/harness/reports/h3-streams-blocked-2026-10-31.md), `h3EdgeGaps`).
 - **Opaque transport parameters** (Firefox, Safari 26): `0x1d` and `0xff080808` sent verbatim, meaning unknown; Safari 27 stopped sending the latter; detection none; source research.
 
 **Request headers and kinds**
@@ -837,15 +838,19 @@ add). `hellogen` and `h3gen` also read the `h3-blackhole`, `h3-broken`,
   out: whether a connection probes is when its server answered.
 - `TestHTTP3EdgeMatchesBrowser` (`internal/harness/e2e/http3_edge_test.go`)
   walks the `h3-blackhole`, `h3-broken`, `h3-vn`, (with aioquic) `h3-v2`,
-  `h3-early` and `h3-too-early` pages through mimicry on the browser's
-  schedule. Per request it compares every connection it went on and how
-  long it was held. On a connection that sent 0-RTT it compares each
-  stream (in 0-RTT, held with or after the Finished, or sent again after a
-  425). Per QUIC attempt it compares versions, the server's answer,
-  datagrams and give-up, and when the attempt and each TCP connection
-  started after the request that caused them (the race), within the
-  samples' range. A migration must send the browser's probes first and
-  come 4 of the connection's own PTOs after the request, for mimicry and
+  `h3-early`, `h3-too-early` and `h3-streams-blocked` pages through
+  mimicry on the browser's schedule. Per request it compares every
+  connection it went on and how long it was held. On a connection that
+  sent 0-RTT it compares each stream (in 0-RTT, held with or after the
+  Finished, or sent again after a 425). Per host it compares the
+  STREAMS_BLOCKED frames sent and their limits; on `h3-streams-blocked`,
+  each burst's waits for the stream limit, sorted, since the replay makes
+  a burst's requests together (`compareBurstWaits`). Per QUIC attempt it
+  compares versions, the server's answer, datagrams and give-up, and when
+  the attempt and each TCP connection started after the request that
+  caused them (the race), within the samples' range. A migration must
+  send the browser's probes first and come 4 of the connection's own
+  PTOs after the request, for mimicry and
   every browser sample, so it holds on a loaded machine too. Each page runs
   with `Config.BrowserQUICFallback` and with the fast default. The
   default's differences are listed one by one (`h3EdgeFastGaps`), all on

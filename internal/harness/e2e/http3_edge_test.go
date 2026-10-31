@@ -29,13 +29,15 @@ import (
 const h3PageHost = "www.h3-a.test"
 
 // Every request of the h3-blackhole, h3-broken, h3-vn, h3-v2 (where python3
-// has aioquic), h3-early and h3-too-early pages through mimicry on the
-// browser's schedule, against every sample:
+// has aioquic), h3-early, h3-too-early and h3-streams-blocked pages through
+// mimicry on the browser's schedule, against every sample:
 //
 //   - per request: its connections in order, its delay, and on a 0-RTT
 //     connection how each stream went (earlyStream);
 //   - per QUIC attempt: resumption, versions, the server's answer, how it
 //     ended, path moves (checkPathMoves), give-up datagrams, its trigger;
+//   - per host: the STREAMS_BLOCKED frames sent there, and their limits;
+//     on h3-streams-blocked, each burst's waits sorted (compareBurstWaits);
 //   - per TCP connection: its trigger, its race against the QUIC attempt,
 //     the GOAWAY sent, how many were declined.
 //
@@ -51,7 +53,7 @@ const h3PageHost = "www.h3-a.test"
 // healthy page has none. Subtests run in parallel (about 75 s).
 func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
 	for _, name := range testProfiles(t) {
-		for _, sc := range []*server.Scenario{server.H3Blackhole, server.H3Broken, server.H3VN, server.H3V2, server.H3Early, server.H3TooEarly} {
+		for _, sc := range []*server.Scenario{server.H3Blackhole, server.H3Broken, server.H3VN, server.H3V2, server.H3Early, server.H3TooEarly, server.H3StreamsBlocked} {
 			for _, fast := range []bool{false, true} {
 				mode := "browser"
 				if fast {
@@ -98,6 +100,11 @@ func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
 					}
 
 					compareEdge(t, p, got, want, skip)
+
+					if sc == server.H3StreamsBlocked {
+						compareBurstWaits(t, got, want, skip)
+					}
+
 					unused()
 				})
 			}
@@ -120,6 +127,22 @@ var h3EdgeGaps = func() map[string]string {
 		"firefox-158-macos/h3-broken edge QUIC www.h3-b.test #2 datagrams":                  "Firefox's resumed probes vary between samples (pairs every PTO from a ~3 ms cached RTT, the 3-packet resumed first flight not repeated, lone 40-B 0-RTT datagrams); quic.loss's flight probe replays all 3 first-flight packets per PTO, and the profile has no resumed-probe rule; give-up time and close match",
 		"firefox-158-macos/h3-too-early edge TCP www.h3-a.test declined":                    "beside 3–4 of its 4 retries after 425 Too Early per sample (which ones varies), Firefox also opened a TCP connection to the host and closed it before any request; the retry itself goes on the QUIC connection, as mimicry's does. No profile field holds when Firefox opens these (report h3-early-2026-10-26)",
 	}
+	// The h3-streams-blocked page (report h3-streams-blocked-2026-10-31):
+	// every browser sends STREAMS_BLOCKED when a request waits for the
+	// server's stream limit, each on its own spacing; mimicry sends none
+	// (issue #4). Chrome's limits vary between samples, so only its count
+	// is compared.
+	const noStreamsBlocked = "mimicry sends no STREAMS_BLOCKED when a request waits for the server's stream limit (issue #4; report h3-streams-blocked-2026-10-31); its requests queue on the connection as the browser's do"
+	for _, k := range []string{
+		"chrome-156-macos/h3-streams-blocked edge QUIC www.h3-a.test STREAMS_BLOCKED",
+		"firefox-158-macos/h3-streams-blocked edge QUIC www.h3-a.test STREAMS_BLOCKED",
+		"firefox-158-macos/h3-streams-blocked edge QUIC www.h3-a.test STREAMS_BLOCKED limits",
+		"safari-27-macos/h3-streams-blocked edge QUIC www.h3-a.test STREAMS_BLOCKED",
+		"safari-27-macos/h3-streams-blocked edge QUIC www.h3-a.test STREAMS_BLOCKED limits",
+	} {
+		gaps[k] = noStreamsBlocked
+	}
+
 	// Chrome's on both platforms: the late resend of the silenced request
 	// and the resumed attempt's probes.
 	for _, name := range []string{"chrome-155-macos", "chrome-156-windows"} {
@@ -214,6 +237,24 @@ var h3EdgeSchedulingGaps = func() map[string]string {
 	for _, name := range []string{"safari-26-macos", "safari-27-macos"} {
 		for _, sc := range []string{"h3-early", "h3-too-early"} {
 			gaps[name+"/"+sc+" edge QUIC www.h3-a.test #6 trigger"] = "Safari made the pair's GET and POST together (0–1 ms apart) 5–9 ms before its connection started, so the POST is the later trigger; mimicry's GET starts its connection at once, before or after its POST is made as this process schedules the two"
+		}
+	}
+
+	// The h3-streams-blocked bursts: the page makes each burst's six
+	// fetches one after another (Chrome and Firefox 0–6 ms apart, Safari
+	// in the same millisecond), and every browser gives the waiting ones
+	// streams in that order: two at once, two after ~300 ms, two after
+	// ~600 ms. The replay starts the six together, each on its own
+	// goroutine, so which of them waits is this process's scheduling.
+	// How many wait and how long is compared without the order
+	// (compareBurstWaits), and each request still goes on the QUIC
+	// connection (its "sent").
+	const burstOrder = "the replay makes the burst's six requests together, so which of them waits for the server's stream limit is this process's scheduling (the waits themselves, sorted, are compared: compareBurstWaits); the browser made them in order and gave them streams in that order"
+	for _, name := range []string{"chrome-156-macos", "firefox-158-macos", "safari-27-macos"} {
+		for _, burst := range []string{"a", "b"} {
+			for i := 1; i <= 6; i++ {
+				gaps[fmt.Sprintf("%s/h3-streams-blocked edge request /h3/%s%d.so delay ms", name, burst, i)] = burstOrder
+			}
 		}
 	}
 
@@ -873,6 +914,30 @@ func edgeFeatures(page *capture.Page) (f features, ms, stalled map[string]int) {
 		}
 	}
 
+	// The STREAMS_BLOCKED frames sent to each host, over all its
+	// connections (a browser's connection may be retired before use).
+	for host, conns := range v.quic {
+		var limits []string
+		for _, c := range conns {
+			for _, d := range c.Datagrams {
+				for _, pk := range d.Packets {
+					for _, fr := range pk.Frames {
+						if fr.Type == quictrace.FrameStreamsBlocked {
+							limits = append(limits, streamsBlockedLimit(fr))
+						}
+					}
+				}
+			}
+		}
+
+		if len(limits) > 0 {
+			k := "QUIC " + host + " STREAMS_BLOCKED"
+
+			f.num[k] = len(limits)
+			f.cat[k+" limits"] = strings.Join(limits, " ")
+		}
+	}
+
 	for host, traces := range v.tcp {
 		for j, tr := range traces {
 			k := fmt.Sprintf("TCP %s #%d", host, j+1)
@@ -915,6 +980,17 @@ func edgeFeatures(page *capture.Page) (f features, ms, stalled map[string]int) {
 	}
 
 	return f, ms, stalled
+}
+
+// streamsBlockedLimit is a STREAMS_BLOCKED frame's type and limit: "bidi 4"
+// (frame type 0x16) or "uni 4" (0x17).
+func streamsBlockedLimit(fr quictrace.Frame) string {
+	kind := "bidi"
+	if fr.Code == 0x17 {
+		kind = "uni"
+	}
+
+	return fmt.Sprintf("%s %d", kind, fr.Max)
 }
 
 // stalledIn is how long this process was stalled (stalls) within the d ms
@@ -1210,6 +1286,131 @@ func compareEdge(t *testing.T, p *profile.Profile, got *capture.Page, want []*ca
 	if len(retries) > 0 && len(vnRetries(got)) == 0 {
 		t.Error("no connection retried after Version Negotiation; the browser retried")
 	}
+}
+
+// compareBurstWaits holds the h3-streams-blocked page's bursts to the
+// browser's without their order: each burst's delays (from the request
+// made to its arrival) sorted, the k-th shortest of mimicry's to the range
+// of the samples' k-th shortest. Which request of a burst waits is the
+// replay's scheduling (h3EdgeSchedulingGaps); how many wait and for how
+// long is the server's stream limit against the client's queueing. The
+// samples put two at 0–3 ms, two at 284–330 ms and two at 572–632 ms in
+// every burst.
+//
+// A wait may lie edgeSlack outside the samples' range (net of this
+// process's stalls, as compareTimes), and later by burstACKSlack per
+// response it waited out: quic-go raises the limit once the client has
+// acknowledged the responses, which a client holds back up to its ACK
+// delay when both arrive in one packet (Chrome 26–30 ms; whether they do is
+// the server's timing). A client opening all six at once, or waiting a
+// MAX_STREAMS more, is 300 ms out.
+func compareBurstWaits(t *testing.T, got *capture.Page, want []*capture.Page, skip func(string) bool) {
+	t.Helper()
+
+	bursts := streamsBlockedBursts()
+	gms, stalled := burstWaits(got, bursts)
+	refs := make([]map[string]int, 0, len(want))
+
+	for _, w := range want {
+		ms, _ := burstWaits(w, bursts)
+
+		refs = append(refs, ms)
+	}
+
+	wave := int(server.H3BlockedDelay.Milliseconds())
+	for _, k := range slices.Sorted(maps.Keys(refs[0])) {
+		label := "edge " + k + " ms"
+		lo, hi := refs[0][k], refs[0][k]
+
+		for _, r := range refs {
+			v, ok := r[k]
+			if !ok {
+				t.Fatalf("%s: a browser sample has none", label)
+			}
+
+			lo, hi = min(lo, v), max(hi, v)
+		}
+
+		g, ok := gms[k]
+		slack := edgeSlack(hi)
+		late := hi + slack + (lo+wave/2)/wave*burstACKSlack
+
+		switch {
+		case skip(label):
+		case !ok:
+			t.Errorf("%s: none, the browser's %d..%d", label, lo, hi)
+		case g < lo-slack || g > late && g-stalled[k] > late:
+			t.Errorf("%s: %d (%d of it with the process stalled), the browser's %d..%d (from %d to %d)", label, g, stalled[k], lo, hi, lo-slack, late)
+		default:
+			t.Logf("%s: %d (browser %d..%d)", label, g, lo, hi)
+		}
+	}
+}
+
+// burstACKSlack is how much later than the browser's a wait in an
+// h3-streams-blocked burst may come per response it waited out: the most a
+// client held back its ACK of the responses that freed a stream (Chrome,
+// 26–30 ms).
+const burstACKSlack = 30
+
+// streamsBlockedBursts are the h3-streams-blocked page's bursts, each its
+// requests' paths: a step whose response is held back starts one when it
+// has a pause, and the held-back steps after it without one join it.
+func streamsBlockedBursts() map[string][]string {
+	bursts := map[string][]string{}
+
+	var name string
+	for _, st := range server.H3StreamsBlockedSteps() {
+		if st.Delay == 0 {
+			continue
+		}
+
+		if st.PauseMillis > 0 {
+			name = fmt.Sprintf("burst %d", len(bursts)+1)
+		}
+
+		bursts[name] = append(bursts[name], st.Path())
+	}
+
+	return bursts
+}
+
+// burstWaits are page's delays of each burst's requests, sorted: "burst 1
+// wait 1" the shortest. stalled is how long this process was stalled
+// within each (0 for the browser's).
+func burstWaits(page *capture.Page, bursts map[string][]string) (ms, stalled map[string]int) {
+	_, delays, stalls := edgeFeatures(page)
+
+	ms, stalled = map[string]int{}, map[string]int{}
+
+	type wait struct {
+		ms, stalled int
+	}
+
+	for name, paths := range bursts {
+		var waits []wait
+		for _, path := range paths {
+			k := "request " + path + " delay"
+			if d, ok := delays[k]; ok {
+				waits = append(waits, wait{
+					ms:      d,
+					stalled: stalls[k],
+				})
+			}
+		}
+
+		slices.SortFunc(waits, func(a, b wait) int {
+			return a.ms - b.ms
+		})
+
+		for i, w := range waits {
+			k := fmt.Sprintf("%s wait %d", name, i+1)
+
+			ms[k], stalled[k] = w.ms, w.stalled
+		}
+	}
+
+	return ms, stalled
 }
 
 // vnRetries are page's QUIC connections that follow one the server

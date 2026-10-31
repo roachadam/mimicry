@@ -297,6 +297,9 @@ func (s *Server) serveQUIC(ctx context.Context, sc *Scenario, log *pageLog, issu
 		Allow0RTT: true,
 		// nil is quic-go's own (versions 1 and 2, preferring 1).
 		Versions: slices.Clone(sc.h3.versions),
+		// Zero is quic-go's default, 100; quic-go raises the limit with
+		// MAX_STREAMS as each stream ends.
+		MaxIncomingStreams: sc.h3.maxStreams,
 	}
 
 	if sc.h3.tooEarly {

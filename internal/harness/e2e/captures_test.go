@@ -216,6 +216,12 @@ var missingCaptures = withTwinsMissing(map[string]string{
 	// remotely over ssh have none.
 	"safari-26-macos.nav-redirect-click.pagetrace.json.gz":         "Safari 26 clicks were never captured (no Accessibility access over ssh)",
 	"safari-26-macos.nav-redirect-click-cookies.pagetrace.json.gz": "Safari 26 clicks were never captured (no Accessibility access over ssh)",
+	// h3-streams-blocked (2026-10-31) was captured on the capture Mac
+	// only, from Chrome 156, Firefox 158 and Safari 27.
+	"chrome-155-macos.h3-streams-blocked.pagetrace.json.gz":               "h3-streams-blocked came after Chrome 155, no longer installable as branded Chrome",
+	testprofiles.InheritingName + ".h3-streams-blocked.pagetrace.json.gz": "chrome-155-macos, whose captures it inherits, has none",
+	"chrome-156-windows.h3-streams-blocked.pagetrace.json.gz":             "h3-streams-blocked was captured on macOS only (2026-10-31); not yet on the Windows PC",
+	"safari-26-macos.h3-streams-blocked.pagetrace.json.gz":                "h3-streams-blocked was captured with Safari 27 only (2026-10-31); not yet on the macOS 26 Mac",
 }, map[string]string{
 	// The cookie twins (server.CookieTwins) came after Chrome 155, which
 	// is no longer installable as branded Chrome; capturesFrom names only

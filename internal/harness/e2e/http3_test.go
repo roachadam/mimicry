@@ -137,13 +137,22 @@ func TestHTTP3MarkupMatchesBrowserWhenSlow(t *testing.T) {
 
 // h3Captures loads the browser's capture of sc p is checked against: the
 // -h3-local-roots one where it exists (Chrome, Firefox), else the unforced
-// one (Safari), rewritten to p's version where inherited.
+// one (Safari), rewritten to p's version where inherited. As loadSamples,
+// it skips the test when the capture is one of missingCaptures.
 func h3Captures(t *testing.T, p *profile.Profile, sc *server.Scenario) []*capture.Page {
 	t.Helper()
 
 	rest := ".local-roots.pagetrace.json.gz"
 	if path, _, _ := capturePath(t, p, sc.Name, rest); !exists(path) {
 		rest = ".pagetrace.json.gz"
+	}
+
+	if path, file, _ := capturePath(t, p, sc.Name, rest); !exists(path) {
+		if why, ok := missingCaptures[file]; ok {
+			t.Skipf("no capture %s: %s", file, why)
+		}
+	} else if why, ok := missingCaptures[file]; ok {
+		t.Fatalf("capture %s exists but is listed missing (%s)", file, why)
 	}
 
 	pages, err := loadPages(t, p, sc.Name, rest)
@@ -177,6 +186,8 @@ func h3Steps(sc *server.Scenario) []server.H3Step {
 		return server.H3DownloadSteps()
 	case server.H3Early, server.H3TooEarly:
 		return server.H3EarlySteps()
+	case server.H3StreamsBlocked:
+		return server.H3StreamsBlockedSteps()
 	}
 
 	return server.H3DiscoverySteps()
