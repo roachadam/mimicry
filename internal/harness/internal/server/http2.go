@@ -567,6 +567,7 @@ func (s *h2conn) onData(f *http2.DataFrame, senders *sync.WaitGroup, emit func()
 func (s *h2conn) respond(id uint32, st *request, senders *sync.WaitGroup, emit func()) {
 	delete(s.streams, id)
 	s.log.request(s.c)
+	s.log.arrived(st.path)
 	s.scenario.noteWSResult(s.log, *st, s.host)
 
 	r := s.scenario.answer(*st)

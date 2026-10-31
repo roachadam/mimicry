@@ -2,8 +2,10 @@ package e2e
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"maps"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -11,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -79,6 +82,56 @@ func TestHTTP3MatchesBrowser(t *testing.T) {
 				unused()
 			})
 		}
+	}
+}
+
+// markupLag is the pause TestHTTP3MarkupMatchesBrowserWhenSlow puts between
+// a page's markup requests: far longer than a QUIC handshake on loopback,
+// as a loaded machine may take between them.
+const markupLag = 100 * time.Millisecond
+
+// The h3-discovery page's markup requests through mimicry with markupLag
+// between them, as a loaded machine may send them: each still goes over
+// the protocol and connection the browser's did, Chrome's over HTTP/2
+// though the first starts a QUIC connection beside it, and reaches the
+// server at once (sendMarkup).
+func TestHTTP3MarkupMatchesBrowserWhenSlow(t *testing.T) {
+	for _, name := range testProfiles(t) {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			// Its markup's arrival times are held net of the process's
+			// stalls (sendMarkup).
+			stalls.watch()
+
+			p, err := loadProfile(name)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			sc := server.H3Discovery
+			want := h3Captures(t, p, sc)
+			steps := h3Steps(sc)
+			host := steps[0].Host
+			s := startPage(t, p, sc)
+
+			page, err := url.Parse(s.url(host, "/"))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			s.send(http.MethodGet, page.String(), mimicry.Request{}, nil, "")
+			pause(t, firstPageDelay(want[0], host, steps))
+
+			markup, _ := pageSteps(steps, "/", sentOrder(want[0]))
+			sendMarkup(s, markup, page, markupLag)
+
+			gotT := transports(finishH3Page(s, page))
+			skip, _ := gapsFor(t, capture.Source(p, sc.Name)+"/"+sc.Name)
+
+			for _, st := range markup {
+				compareTransport(t, st.Path(), gotT, want, skip)
+			}
+		})
 	}
 }
 
@@ -207,40 +260,16 @@ func runH3PageWith(t *testing.T, p *profile.Profile, sc *server.Scenario, browse
 	s.send(http.MethodGet, page.String(), mimicry.Request{}, nil, "")
 
 	for path := "/"; path != ""; {
-		var markup, scripted []server.H3Step
-		for _, st := range steps {
-			switch {
-			case st.Page != path:
-			case st.Tag != "":
-				markup = append(markup, st)
-			default:
-				scripted = append(scripted, st)
-			}
-		}
-
-		slices.SortStableFunc(markup, func(a, b server.H3Step) int {
-			return order[a.Path()] - order[b.Path()]
-		})
-
+		markup, scripted := pageSteps(steps, path, order)
 		if path == "/" {
-			select {
-			case <-time.After(firstPageDelay(browser, host, steps)):
-			case <-t.Context().Done():
-				t.Fatal(t.Context().Err())
-			}
+			pause(t, firstPageDelay(browser, host, steps))
 		}
 
-		for _, st := range markup {
-			sendH3Step(s, st, page)
-		}
+		sendMarkup(s, markup, page, 0)
 
 		next := ""
 		for _, st := range scripted {
-			select {
-			case <-time.After(time.Duration(st.PauseMillis) * time.Millisecond):
-			case <-t.Context().Done():
-				t.Fatal(t.Context().Err())
-			}
+			pause(t, time.Duration(st.PauseMillis)*time.Millisecond)
 
 			if st.Kind == "navigate" {
 				target := s.url(st.Host, st.Path())
@@ -266,6 +295,228 @@ func runH3PageWith(t *testing.T, p *profile.Profile, sc *server.Scenario, browse
 		path = next
 	}
 
+	return finishH3Page(s, page)
+}
+
+// pageSteps are the steps of the page at path: its markup's, in the order
+// the browser sent them (sentOrder), and its script's.
+func pageSteps(steps []server.H3Step, path string, order map[string]int) (markup, scripted []server.H3Step) {
+	for _, st := range steps {
+		switch {
+		case st.Page != path:
+		case st.Tag != "":
+			markup = append(markup, st)
+		default:
+			scripted = append(scripted, st)
+		}
+	}
+
+	slices.SortStableFunc(markup, func(a, b server.H3Step) int {
+		return order[a.Path()] - order[b.Path()]
+	})
+
+	return markup, scripted
+}
+
+// pause waits d, failing t if its context ends first.
+func pause(t *testing.T, d time.Duration) {
+	t.Helper()
+
+	select {
+	case <-time.After(d):
+	case <-t.Context().Done():
+		t.Fatal(t.Context().Err())
+	}
+}
+
+// markupArrival bounds how long a markup request may take to reach the
+// server once made, net of the process's stalls (sendMarkup): one
+// loopback trip on a loaded machine, well short of what a request waiting
+// for the QUIC attempt beside it takes (Chrome's race delay,
+// http3.discovery.fallback.tcpDelayMs 305–306). It does not keep the
+// hold shorter than Chrome's first PTO (quic.loss.initialPtoMs 300): a
+// held connection that probes is left out of packetFeatures.
+const markupArrival = 150 * time.Millisecond
+
+// sendMarkup makes a page's markup requests as the browser's parser does:
+// each as soon as the one before reached the server, without waiting for
+// its response, pausing between before each but the first. Chrome's
+// h3-discovery markup went out 0–2 ms apart, all before the QUIC
+// connection the first started beside them was up (its Finished 0–9 ms
+// after the last, 6 of 6 samples on macOS and Windows), so over HTTP/2.
+// On a loaded machine mimicry's handshake could beat a later one, which
+// would then rightly go over HTTP/3, so the server answers no QUIC client
+// that appears meanwhile until the server has received them all
+// (quicHold). Each must reach the server within markupArrival: the hold
+// would otherwise hide a request that waits for QUIC, which the browser's
+// did not.
+func sendMarkup(s *pageSession, markup []server.H3Step, page *url.URL, between time.Duration) {
+	t := s.t
+	t.Helper()
+	s.quic.hold()
+
+	defer s.quic.release()
+
+	var wg sync.WaitGroup
+
+	errs := make(chan error, len(markup))
+
+	for i, st := range markup {
+		if i > 0 {
+			pause(t, between)
+		}
+
+		arrived := s.expect(st.Path())
+		method, r, h := h3StepRequest(st, page)
+		start := time.Now()
+
+		wg.Go(func() {
+			if err := s.do(method, s.url(st.Host, st.Path()), r, h, st.Body); err != nil {
+				errs <- fmt.Errorf("%s: %w", st.Path(), err)
+			}
+		})
+
+		select {
+		case <-arrived:
+		case err := <-errs:
+			t.Fatal(err)
+		case <-t.Context().Done():
+			t.Fatal(t.Context().Err())
+		}
+
+		if d := time.Since(start) - stalls.stalled(start, time.Now()); d > markupArrival {
+			t.Errorf("%s reached the server %v after it was made (net of stalls), more than %v: it waited (for QUIC?) where the browser's went at once", st.Path(), d.Round(time.Millisecond), markupArrival)
+		}
+	}
+
+	s.quic.release()
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		t.Fatal(err)
+	}
+}
+
+// quicHold is a page session's QUIC server socket. While it holds, what the
+// server sends a client whose first datagram came meanwhile waits until
+// release, so no QUIC connection started meanwhile completes its
+// handshake; clients from before go on as usual.
+type quicHold struct {
+	net.PacketConn
+
+	mu      sync.Mutex
+	holding bool
+	// known are the clients that sent anything; fresh those whose first
+	// datagram came while holding.
+	known map[string]bool
+	fresh map[string]bool
+	held  []heldDatagram
+}
+
+// heldDatagram is a datagram quicHold holds and its destination.
+type heldDatagram struct {
+	b    []byte
+	addr net.Addr
+}
+
+func newQUICHold(pc net.PacketConn) *quicHold {
+	return &quicHold{
+		PacketConn: pc,
+		known:      map[string]bool{},
+		fresh:      map[string]bool{},
+	}
+}
+
+func (h *quicHold) hold() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	h.holding = true
+}
+
+// release sends what h held, in order, and holds nothing more.
+func (h *quicHold) release() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	h.holding = false
+	for _, d := range h.held {
+		// One lost is QUIC's to recover, as any on the wire.
+		_, _ = h.PacketConn.WriteTo(d.b, d.addr)
+	}
+
+	h.held = nil
+	clear(h.fresh)
+}
+
+func (h *quicHold) ReadFrom(p []byte) (int, net.Addr, error) {
+	n, addr, err := h.PacketConn.ReadFrom(p)
+	if err != nil {
+		return n, addr, err
+	}
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if k := addr.String(); !h.known[k] {
+		h.known[k] = true
+		h.fresh[k] = h.holding
+	}
+
+	return n, addr, nil
+}
+
+func (h *quicHold) WriteTo(p []byte, addr net.Addr) (int, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if h.holding && h.fresh[addr.String()] {
+		h.held = append(h.held, heldDatagram{
+			b:    slices.Clone(p),
+			addr: addr,
+		})
+
+		return len(p), nil
+	}
+
+	return h.PacketConn.WriteTo(p, addr)
+}
+
+// SetReadBuffer, SetWriteBuffer and SyscallConn are the socket's, so the
+// server sets h up as it would the socket.
+func (h *quicHold) SetReadBuffer(n int) error {
+	c, ok := h.PacketConn.(interface{ SetReadBuffer(n int) error })
+	if !ok {
+		return errors.New("socket has no read buffer to set")
+	}
+
+	return c.SetReadBuffer(n)
+}
+
+func (h *quicHold) SetWriteBuffer(n int) error {
+	c, ok := h.PacketConn.(interface{ SetWriteBuffer(n int) error })
+	if !ok {
+		return errors.New("socket has no write buffer to set")
+	}
+
+	return c.SetWriteBuffer(n)
+}
+
+func (h *quicHold) SyscallConn() (syscall.RawConn, error) {
+	c, ok := h.PacketConn.(syscall.Conn)
+	if !ok {
+		return nil, errors.New("socket has no syscall connection")
+	}
+
+	return c.SyscallConn()
+}
+
+// finishH3Page ends s's h3 page at page as its script does, with
+// fetch('/done'), and returns the page's capture, having checked the plans
+// of its requests where s plans them (planEvery).
+func finishH3Page(s *pageSession, page *url.URL) *capture.Page {
+	s.t.Helper()
 	// The page's script asks for /done a few milliseconds after the last
 	// response (2–3 ms in the captures); mimicry has no script turn, and
 	// the server snapshots every connection when /done arrives, so a
@@ -282,13 +533,15 @@ func runH3PageWith(t *testing.T, p *profile.Profile, sc *server.Scenario, browse
 		select {
 		case c := <-s.captures:
 			if c.Finished && c.Page != nil {
-				s.checkPlans(c.Page)
+				if s.planning != nil {
+					s.checkPlans(c.Page)
+				}
 
 				return c.Page
 			}
 
 		case <-time.After(10 * time.Second):
-			t.Fatal("no page capture")
+			s.t.Fatal("no page capture")
 		}
 	}
 }
@@ -496,22 +749,8 @@ func compareH3Page(t *testing.T, p *profile.Profile, got *capture.Page, want []*
 	t.Helper()
 
 	gotT := transports(got)
-	for path, w := range transports(want[0]) {
-		var forms []string
-		for _, sample := range want {
-			if x, ok := transports(sample)[path]; ok && !slices.Contains(forms, x.String()) {
-				forms = append(forms, x.String())
-			}
-		}
-
-		g, ok := gotT[path]
-		switch {
-		case (!ok || !slices.Contains(forms, g.String())) && skip("transport "+path):
-		case !ok:
-			t.Errorf("%s: not sent (browser: %s)", path, w)
-		case !slices.Contains(forms, g.String()):
-			t.Errorf("%s: went %s, browser %s", path, g, strings.Join(forms, " or "))
-		}
+	for path := range transports(want[0]) {
+		compareTransport(t, path, gotT, want, skip)
 	}
 
 	for path := range gotT {
@@ -550,6 +789,28 @@ func compareH3Page(t *testing.T, p *profile.Profile, got *capture.Page, want []*
 	}
 
 	compareDraws(t, p, got)
+}
+
+// compareTransport holds how path went in mimicry's page (gotT, its
+// transports) to how it went in the browser's samples (want).
+func compareTransport(t *testing.T, path string, gotT map[string]h3Transport, want []*capture.Page, skip func(string) bool) {
+	t.Helper()
+
+	var forms []string
+	for _, sample := range want {
+		if x, ok := transports(sample)[path]; ok && !slices.Contains(forms, x.String()) {
+			forms = append(forms, x.String())
+		}
+	}
+
+	g, ok := gotT[path]
+	switch {
+	case (!ok || !slices.Contains(forms, g.String())) && skip("transport "+path):
+	case !ok:
+		t.Errorf("%s: not sent (browser: %s)", path, strings.Join(forms, " or "))
+	case !slices.Contains(forms, g.String()):
+		t.Errorf("%s: went %s, browser %s", path, g, strings.Join(forms, " or "))
+	}
 }
 
 // compareDraws: what the profile draws per connection from so many values
@@ -1160,12 +1421,36 @@ func paramFeatures(c *quictrace.Conn) features {
 // types sent at all and credit values. ACK delays and the spin bit are
 // random per connection or timing, and so is whether PADDING is sent at
 // all (where a datagram's padding goes): quicRuleViolations checks those.
+// The first flight is flightFeatures', connFeatures' (0-RTT) and the
+// rules': whether its Initials carry a PING at all is chance, none where
+// the CRYPTO cuts use up a packet's padding (CryptoSplitShuffle), as in an
+// Initial of Chrome's own (chrome-155-macos h3-discovery.local-roots
+// sample 1, chrome-156-windows h3-early.local-roots sample 2). A probe in
+// an Initial or Handshake packet, one bringing nothing new (only PING,
+// PADDING and data already sent: RFC 9002, 6.2.4), is left out too: it
+// says the server answered the handshake late, which on a loaded machine
+// (or with the markup's hold, sendMarkup) is timing, as firstFlight leaves
+// it out. 1-RTT ones count: a PING there is a keep-alive or a probe after
+// the handshake, which the browser's samples show or not.
 func packetFeatures(c *quictrace.Conn) features {
 	f := newFeatures()
 	types := map[string]bool{}
+	flight := len(firstFlight(c))
 
-	for _, d := range c.Datagrams {
-		for _, pk := range d.Packets {
+	var sent sentData
+
+	for di := range c.Datagrams {
+		for pi := range c.Datagrams[di].Packets {
+			pk := &c.Datagrams[di].Packets[pi]
+			handshake := pk.Type == quictrace.PacketInitial || pk.Type == quictrace.PacketHandshake
+			probe := di >= flight && handshake && !bringsNew(pk, &sent)
+
+			sent.addPacket(pk)
+
+			if di < flight || probe {
+				continue
+			}
+
 			for _, fr := range pk.Frames {
 				types[fr.Type] = true
 				switch fr.Type {
@@ -1184,6 +1469,19 @@ func packetFeatures(c *quictrace.Conn) features {
 	}
 
 	return f
+}
+
+// bringsNew reports whether pk carries a frame other than PING and PADDING
+// that sent has not seen.
+func bringsNew(pk *quictrace.Packet, sent *sentData) bool {
+	for fi := range pk.Frames {
+		fr := &pk.Frames[fi]
+		if fr.Type != quictrace.FramePing && fr.Type != quictrace.FramePadding && !sent.repeats(pk, fr) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // connFeatures describe a connection against the browser's at its place:

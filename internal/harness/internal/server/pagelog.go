@@ -32,6 +32,15 @@ type pageLog struct {
 	results    []capture.WSResult
 	// quic is what the UDP socket received (the h3 scenarios).
 	quic quicLog
+	// onRequest is Server.OnRequest.
+	onRequest func(path string)
+}
+
+// arrived reports a request that arrived whole to Server.OnRequest.
+func (l *pageLog) arrived(path string) {
+	if l.onRequest != nil {
+		l.onRequest(path)
+	}
 }
 
 // connection records a connection whose handshake completed: its

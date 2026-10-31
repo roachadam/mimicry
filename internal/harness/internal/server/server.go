@@ -32,6 +32,10 @@ type Server struct {
 	// connections), or else when the connection ends. It is called from the
 	// connection's goroutine.
 	OnCapture func(*capture.Capture)
+	// OnRequest, if set, is called with each request's path (and query) once
+	// the request has arrived whole, before it is answered, over any
+	// protocol. It is called from the connection's goroutine.
+	OnRequest func(path string)
 	// Logf receives connection errors. Nil discards them.
 	Logf func(format string, args ...any)
 	// ConnTimeout bounds each connection. Zero means one minute.
@@ -75,7 +79,8 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 	}
 
 	log := &pageLog{
-		start: time.Now(),
+		start:     time.Now(),
+		onRequest: s.OnRequest,
 	}
 
 	if sc.plainPort && s.PlainListener == nil {

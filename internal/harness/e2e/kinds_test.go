@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -453,6 +454,13 @@ type pageSession struct {
 	quicReady chan struct{}
 	// planning plans every request sent, once planEvery is called.
 	planning *planning
+	// quic is the server's QUIC socket, for the h3 pages' markup
+	// (sendMarkup); nil for scenarios without HTTP/3.
+	quic *quicHold
+	// arrivals are the channels expect returned, by path, until the
+	// server receives a request for it.
+	arrivalsMu sync.Mutex
+	arrivals   map[string]chan struct{}
 }
 
 func startPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *pageSession {
@@ -492,7 +500,8 @@ func startPageWith(t *testing.T, p *profile.Profile, sc *server.Scenario, config
 		OnCapture: func(c *capture.Capture) {
 			s.captures <- c
 		},
-		Logf: t.Logf,
+		OnRequest: s.arrived,
+		Logf:      t.Logf,
 	}
 
 	if sc.PlainPort() {
@@ -505,7 +514,8 @@ func startPageWith(t *testing.T, p *profile.Profile, sc *server.Scenario, config
 
 	if pc != nil {
 		// QUIC on the TLS port's UDP twin, which the Alt-Svc names.
-		srv.PacketConn = pc
+		s.quic = newQUICHold(pc)
+		srv.PacketConn = s.quic
 	}
 
 	if sc.NeedsAioquic() {
@@ -608,6 +618,13 @@ func (s *pageSession) url(host, path string) string {
 func (s *pageSession) send(method, target string, r mimicry.Request, h http.Header, body string) {
 	s.t.Helper()
 
+	if err := s.do(method, target, r, h, body); err != nil {
+		s.t.Fatal(err)
+	}
+}
+
+// do is send, returning its error, for a goroutine other than the test's.
+func (s *pageSession) do(method, target string, r mimicry.Request, h http.Header, body string) error {
 	var rd io.Reader
 	if body != "" {
 		rd = strings.NewReader(body)
@@ -615,18 +632,48 @@ func (s *pageSession) send(method, target string, r mimicry.Request, h http.Head
 
 	req, err := http.NewRequestWithContext(s.t.Context(), method, target, rd)
 	if err != nil {
-		s.t.Fatal(err)
+		return err
 	}
 
 	maps.Copy(req.Header, h)
 
 	resp, err := s.client.Do(mimicry.With(req, r))
 	if err != nil {
-		s.t.Fatal(err)
+		return err
 	}
 
 	_, _ = io.Copy(io.Discard, resp.Body)
-	_ = resp.Body.Close()
+
+	return resp.Body.Close()
+}
+
+// expect returns a channel closed once the server has received a request
+// for path (whole, before answering it), counting from now.
+func (s *pageSession) expect(path string) <-chan struct{} {
+	ch := make(chan struct{})
+
+	s.arrivalsMu.Lock()
+	defer s.arrivalsMu.Unlock()
+
+	if s.arrivals == nil {
+		s.arrivals = map[string]chan struct{}{}
+	}
+
+	s.arrivals[path] = ch
+
+	return ch
+}
+
+// arrived is the server's OnRequest: it closes what expect returned for
+// path.
+func (s *pageSession) arrived(path string) {
+	s.arrivalsMu.Lock()
+	defer s.arrivalsMu.Unlock()
+
+	if ch, ok := s.arrivals[path]; ok {
+		close(ch)
+		delete(s.arrivals, path)
+	}
 }
 
 // finish asks for done and returns the page capture, having checked the
