@@ -53,6 +53,11 @@ type HTTP2 struct {
 	// received sends a PING after its HEADERS (Chromium: 10000); one
 	// unanswered as long again closes the connection. Zero sends none.
 	IdlePingMillis uint32 `json:"idlePingMs,omitempty"`
+	// GoAwayReply is the error code, by its RFC 9113 name ("NO_ERROR"), of
+	// the GOAWAY sent at once when the server's GOAWAY arrives, as Firefox
+	// does. Empty sends none. hellogen derives it from the connections the
+	// capture server sent GOAWAY on.
+	GoAwayReply string `json:"goawayReply,omitempty"`
 	// SplitCookie sends each cookie as its own header field (RFC 9113,
 	// 8.2.3), as every captured browser does, instead of one joined field.
 	SplitCookie bool `json:"splitCookie,omitempty"`
@@ -69,6 +74,24 @@ const (
 	OpeningPriority     = "PRIORITY"
 	OpeningHeaders      = "HEADERS"
 )
+
+// errorCodes are RFC 9113's error code names (section 7), in code order.
+var errorCodes = []string{
+	"NO_ERROR",
+	"PROTOCOL_ERROR",
+	"INTERNAL_ERROR",
+	"FLOW_CONTROL_ERROR",
+	"SETTINGS_TIMEOUT",
+	"STREAM_CLOSED",
+	"FRAME_SIZE_ERROR",
+	"REFUSED_STREAM",
+	"CANCEL",
+	"COMPRESSION_ERROR",
+	"CONNECT_ERROR",
+	"ENHANCE_YOUR_CALM",
+	"INADEQUATE_SECURITY",
+	"HTTP_1_1_REQUIRED",
+}
 
 // Opening is what a new connection sends first, in order, as
 // OpeningRecords lists it: the preface, SETTINGS, the connection

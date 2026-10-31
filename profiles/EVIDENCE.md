@@ -132,7 +132,7 @@ sets, from every connection of every page capture that recorded its hello's
 shape (and checks `x25519Reuse` against every page and QUIC hello that kept
 its bytes), never hand-edited, into the profile and the capture
 (`TestRegenerateReproducesProfiles` in `internal/harness/cmd/hellogen`). It
-also generates `http2.openingRecords` (below). `<name>.clienthello`
+also generates `http2.openingRecords` and `http2.goawayReply` (below). `<name>.clienthello`
 holds one ClientHello per line. Lines 1–3 are the 2026-10-24 retakes (3
 browser launches, TLS records starting 0x16; Safari 26 from the second Mac, on macOS 26).
 The older lines are bare handshake messages (starting 0x01): the previous
@@ -185,6 +185,7 @@ browsers.
 | `streamUpdateThreshold`, `connectionUpdateThreshold` | W | W | W | `TestConnectionMatchesBrowserTrace`: every increment within the browser's own observed range ± one frame. Firefox's `streamUpdateThreshold` is range-checked only: its stream credit follows the page's reads, and the range it spans is too wide to pin the threshold. Safari's connection overshoot is timing-driven; only the range is matched. |
 | `windowUpdateIntervalMs` (credit returned after 5 s however little) | W (`slow-idle`) | — | — | `TestWindowUpdateInterval` (unit, fake clock) |
 | `idlePingMs` (PING after 10 s idle, close if unanswered) | W (`slow-idle`) | — (never pings) | — (never pings) | `TestIdlePing` (unit, fake clock) |
+| `goawayReply` (a GOAWAY sent at once on the server's; `hellogen` derives it from every HTTP/2 connection the capture server sent GOAWAY on: `h3-*`, `resume`, `resume-tls12`, `proxy-auth`) | W: none (72 connections) | W: NO_ERROR (60 of 60, no debug data; 48 on pages without HTTP/3, so not `goawayTcp`; the trace keeps no last stream ID, mimicry sends 0) | W: none (27: 78, 26: 60) | `TestHTTP3EdgeMatchesBrowser` (the GOAWAY on each TCP connection of the h3 pages), `TestGoAwayReply` (unit: idle, stream in flight, none) |
 | `splitCookie` (one HPACK field per cookie) | W+ | W+ | W+ | `TestCookiesMatchBrowserTrace` |
 
 ## HPACK

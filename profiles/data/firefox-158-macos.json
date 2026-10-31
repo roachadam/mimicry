@@ -307,6 +307,7 @@
     "maxDataFrame": 16000,
     "streamUpdateThreshold": 4194304,
     "connectionUpdateThreshold": 4194304,
+    "goawayReply": "NO_ERROR",
     "splitCookie": true,
     "hpack": {
       "withoutIndexing": [

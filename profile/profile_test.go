@@ -526,6 +526,14 @@ func TestValidate(t *testing.T) {
 			want: "odd stream ID",
 		},
 		{
+			name: "unknown GOAWAY reply code",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.HTTP2.GoAwayReply = "NO_ERR"
+			},
+			path: "http2.goawayReply",
+			want: "RFC 9113 error code name",
+		},
+		{
 			name: "chained priorities without a priority",
 			mutate: func(_ *testing.T, p *Profile) {
 				p.HTTP2.ChainPriorities = true
