@@ -1,6 +1,6 @@
 # 0021: Page-set headers in the browser's hash-table order
 
-- Status: Accepted
+- Status: Accepted; amended 2026-10-30 (no API for the page's header order)
 - Date: 2026-10-24
 - Commits: `62d9b2a`
 
@@ -77,3 +77,15 @@ Chrome's captured redirected fetch does not follow the table.
 
 - A browser version changes its header container or hash.
 - A caller needs XHR order: add a `Request` field for the page's order.
+
+## Amendment 2026-10-30: no API for the page's header order
+
+No new API for the page's header order for now (the maintainer's
+decision, 2026-10-30). Headers a page set on an XHR (or a Firefox
+`fetch()` given an object literal) go in name order; Firefox's run in the
+page's order can be placed by hand with `Request.HeaderPlacement`
+([decision 0030](0030-header-placement.md); see
+[how a request is built](../concepts/how-a-request-is-built.md#the-order-of-the-pages-own-headers-xhr)).
+A key listing the page's headers in order, from which mimicry would also
+fill Chrome's and Safari's hash tables, waits for callers finding
+placements too clumsy.

@@ -486,6 +486,25 @@ the mechanical import rewrites.
     `if logPackets` sites are gone; `frame_debug.go`'s `parseDebugFrame`
     stays, qlog uses it.
 
+## Sockets
+
+`udp_packetconn.go` is upstream's, unchanged: `netPacketConn` wraps any
+`net.PacketConn`. It reads one datagram per `ReadFrom` into a buffer from
+`datagramPool`, writes with `WriteTo`, and reports the socket's bound
+address as its local one (none when that is unspecified); a datagram
+whose sender address does not parse is dropped. It has no control
+messages (no ECN, no local address per datagram) and no batched receive
+(change 13). Upstream calls it mostly useful for tests.
+
+`Dial`, and a migration's new path (`wrapPacketConn` in `client_path.go`),
+use it for every socket that is not a `*net.UDPConn`, as `NewEndpoint`
+does. The engine's direct connections pass a `*net.UDPConn` and take
+`udp_msg.go`'s path. Two callers go through `netPacketConn` instead: the
+SOCKS5 association (`proxy.Association`, change 14) and the interop
+command (`internal/harness/cmd/interop`), whose `tap` wraps its UDP
+socket to impair and count datagrams. The interop command's results
+therefore do not cover the control messages or the batched receive.
+
 ## Tests
 
 The tests are upstream's own, kept as the proof that the copy and the TLS

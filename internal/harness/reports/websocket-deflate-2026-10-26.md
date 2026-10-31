@@ -72,4 +72,5 @@ exceeds a DATA frame: compressed messages of 1030 to 8107 bytes show it
 `websocket.compression`, `uncompressed`, `window_bits_8` (profiles),
 `ws.Compressor`, Firefox's 1000-byte header rule, and
 `client_max_window_bits` accepted unoffered. Firefox's hang is not
-reproduced: mimicry fails the dial and ends the transport (backlog).
+reproduced: mimicry fails the dial and ends the transport
+([EVIDENCE.md, Not covered](../../../profiles/EVIDENCE.md#not-covered-by-any-claim)).

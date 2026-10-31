@@ -17,8 +17,7 @@ A request whose server stops sending mid-response, while keeping the
 connection alive (it answers keep-alive PINGs), waited until the caller's
 context ended, or forever without a deadline. The multi-client benchmark
 hit this against nginx over HTTP/3 (3 in about 87,000 requests on one
-CPU; [backlog](../backlog.md), "A response that stops mid-stream on a live
-HTTP/3 connection"). `DialTimeout` covers only connecting.
+CPU; [#5](https://github.com/roachadam/mimicry/issues/5)). `DialTimeout` covers only connecting.
 
 ## Options
 
@@ -41,7 +40,7 @@ net/http's Transport has none.
 
 - The stalls: benchmark layer 6 with the client on 1 CPU, 3 of 30 points
   ([multiclient-rotation report](../../internal/bench/reports/multiclient-rotation-2026-10-28.md);
-  the backlog entry above has the analysis). Nothing about them is
+  [#5](https://github.com/roachadam/mimicry/issues/5) has the analysis). Nothing about them is
   captured from a browser, and nothing here changes what is sent.
 - `TestClientTimeout` (root, `idle_test.go`): `NewClient`'s
   `http.Client.Timeout` is 30 s by default and none when negative; with
@@ -59,5 +58,5 @@ net/http's Transport has none.
 - Callers routinely hit the 30 s on large downloads or slow proxies, and a
   read-idle timeout (time since the last byte, not since the start) would
   serve them better.
-- The mid-stream stall in the backlog is explained and fixed in the
+- The mid-stream stall ([#5](https://github.com/roachadam/mimicry/issues/5)) is explained and fixed in the
   engine, so the default no longer has a known stall to bound.

@@ -14,7 +14,6 @@
 ## Evaluating it
 
 - [Performance](performance.md): speed and memory compared with `net/http` and other clients.
-- [Backlog](backlog.md): known gaps and what closing each one takes.
 - [Profile evidence](../profiles/EVIDENCE.md): what each built-in profile claims, and the test that checks it.
 - [Licence](../README.md#licence): mimicry is MIT; code copied from other projects keeps its licence.
 

@@ -144,7 +144,8 @@ A third-party request is one whose site differs from its page's. A
 top-level navigation's site is its own. Lax cookies go cross-site only on
 top-level navigations with a safe method such as GET.
 
-Some cases are not modelled yet; the [backlog](../backlog.md#cookies)
+Some cases are not modelled yet;
+[EVIDENCE.md, Not covered](../../profiles/EVIDENCE.md#not-covered-by-any-claim)
 lists them.
 
 Background: [decision 0009](../decisions/0009-own-cookie-jar.md) (why an

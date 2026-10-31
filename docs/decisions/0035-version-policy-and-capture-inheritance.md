@@ -1,6 +1,6 @@
 # 0035: Newest-version accessors, five supported versions, inherited captures
 
-- Status: Accepted; amended 2026-10-29 by [0047](0047-windows-profiles.md) (accessors and version count per platform)
+- Status: Accepted; amended 2026-10-29 by [0047](0047-windows-profiles.md) (accessors and version count per platform); amended 2026-10-30 (no guide to making profiles yet)
 - Date: 2026-10-26
 - Commits: `2c913bf`
 
@@ -163,7 +163,7 @@ scenario chrome-155 captured except the default page.
   - running a full refresh before a release;
   - running one when the quick capture shows a change beyond version
     strings;
-  - running one periodically (backlog: Tooling and tests).
+  - running one periodically (no period is set).
 - A version-string change outside the user agent and `sec-ch-ua` would show
   as a failure in an inherited comparison. Examples are a new client hint
   sent by default, or the version moving into another header. That is
@@ -188,3 +188,10 @@ scenario chrome-155 captured except the default page.
 ## Amendments
 
 - 0047: the newest-version accessors `Chrome()`, `Firefox()` and `Safari()` are macOS; other platforms get `<Browser><Platform>()` (`ChromeWindows()`), and the tests' default set is the newest profile of each browser on each platform.
+
+## Amendment 2026-10-30: profiles from a caller's own captures
+
+A guide to making a profile from a caller's own captures with
+`cmd/refresh` is not planned until the profile format is declared stable
+for callers (the maintainer's decision, 2026-10-30). New built-in profiles
+are tracked in [#11](https://github.com/roachadam/mimicry/issues/11).

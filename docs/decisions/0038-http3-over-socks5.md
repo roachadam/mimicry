@@ -35,7 +35,7 @@ sending it through the proxy's UDP relay.)
   proxy, from the proxy's address.
 - **MASQUE (CONNECT-UDP, RFC 9298) through an HTTP proxy.** The standard
   way, and what an HTTP proxy would need; few proxy providers offer it.
-  Deferred ([backlog](../backlog.md#proxies)).
+  Deferred ([Proxies, Limits](../concepts/proxies.md#limits)).
 - **How QUIC runs over the association.** (a) A local socket pair, as
   udpbara (httpcloak) does: QUIC keeps a real `*net.UDPConn`, a goroutine
   copies between it and the relay socket. udpbara needs it because

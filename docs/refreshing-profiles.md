@@ -47,7 +47,9 @@ Every other scenario is inherited from the browser's previous version. The
 profile's `capturesFrom` field names, per scenario, the profile holding its
 captures. Generators and e2e tests read those captures instead, with the
 version tokens in header values rewritten to the new version. Any other
-difference still fails. A quick refresh of one browser takes under ten
+difference still fails: a browser that starts sending its version
+elsewhere by default (a new client hint) fails every inherited comparison
+until recaptured or taught to `capture.Rewriter`. A quick refresh of one browser takes under ten
 minutes of capturing.
 
 **Full** recaptures every scenario and replay, three samples each. Run it
@@ -77,7 +79,7 @@ Each Mac's one-time setup (capture CA, resolver, aioquic, Gatekeeper) is in
 [Capturing browsers](capturing.md#browser-setup).
 
 It is not yet checked whether a fully covered window throttles its page's
-timers ([backlog](backlog.md#tooling-and-tests)). If `h3-discovery` or
+timers. If `h3-discovery` or
 WebSocket e2e tests fail on timing after a parallel run, recapture them
 with `-serial`.
 
@@ -165,7 +167,8 @@ replaces the mode's scenario set, to try the tool on one scenario.
 ## What stays manual
 
 - Reviewing the report and any generator refusal; new gap entries.
-- The evidence ledger (`profiles/EVIDENCE.md`) and the backlog.
+- The evidence ledger (`profiles/EVIDENCE.md`), new gaps in its Not
+  covered by any claim section included.
 - Safari's proxy-credential scenarios (a person types the credentials) and,
   on the second Mac, its click scenario (no Accessibility over ssh). Safari's
   full refresh leaves them out, so the profile keeps or inherits them.

@@ -5,7 +5,7 @@
 // Tests check the profiles MIMICRY_PROFILES selects (testprofiles, decision
 // 0035), against their own captures or those capturesFrom names. Gap tables
 // are keyed by the profile that took the capture and listed in
-// docs/backlog.md; a pinned gap that stops appearing fails, except in four
+// profiles/EVIDENCE.md (Not covered by any claim); a pinned gap that stops appearing fails, except in four
 // tables that never check that they were used: redirectsLineGaps (it only
 // logs), redirectsMerged, connectionsPreconnects and raceCookieLabels.
 // Timer-driven behaviour is tested in internal/h2 with a fake clock, not
@@ -219,7 +219,7 @@ var missingCaptures = withTwinsMissing(map[string]string{
 }, map[string]string{
 	// The cookie twins (server.CookieTwins) came after Chrome 155, which
 	// is no longer installable as branded Chrome; capturesFrom names only
-	// an older version, so it cannot inherit Chrome 156's (docs/backlog.md).
+	// an older version, so it cannot inherit Chrome 156's (profiles/EVIDENCE.md, Not covered).
 	"chrome-155-macos": "the cookie twins came after Chrome 155, no longer installable as branded Chrome",
 	// TestInheritedProfile's synthetic profile inherits only the scenarios
 	// chrome-155-macos has captures of.

@@ -188,7 +188,7 @@ realistic pattern (a new client per identity) is benchmarked.
   most recent proxies' idle connections beyond 10–20 s.
 - A server whose own idle timeout is longer than 90 s sees mimicry close
   an idle HTTP/2 connection at 90 s, where the browser's time is not
-  measured; listed in the backlog with the HTTP/1.1 value.
+  measured ([EVIDENCE.md, Not covered](../../profiles/EVIDENCE.md#not-covered-by-any-claim)).
 - Round-robin over more than 16 proxies, each used less often than every
   10 s, opens a connection per request beyond the most recent 16.
 - A Transport collected while requests are in flight closes their
@@ -232,7 +232,9 @@ realistic pattern (a new client per identity) is benchmarked.
 - **An HTTP/2 PING keep-alive** (net/http2's `ReadIdleTimeout`, which
   tls-client sets) was considered and not added: periodic PINGs on an
   idle connection are wire traffic no browser sends in that pattern
-  (only Chrome's single idle PING is captured). Listed in the backlog.
+  (only Chrome's single idle PING is captured). Without it, a connection
+  that died silently is found by the next request on it, as in Firefox and
+  Safari; `Config.Timeout` (30 s) bounds that request.
 - Tests: `TestIdleConnectionsExpire` covers the default, 30 s and
   negative for HTTP/2 and HTTP/3; `TestNegativeIdleTimeoutKeepsIdleConnections`
   (`internal/pool`) HTTP/1.1 and shared connections kept, and
@@ -280,7 +282,8 @@ realistic pattern (a new client per identity) is benchmarked.
   pool remembers each connection key for 90 s (`KeyTimeout`), about 1.4
   KB per identity (a heap profile diff over 400 identities on the M3 Pro laptop).
   So 1 does not reach azuretls's 67 KB; forgetting a swept proxy's
-  tickets and keys is left open (backlog).
+  tickets and keys is tracked in
+  [#6](https://github.com/roachadam/mimicry/issues/6).
 - **Default kept**: the rotating client pays memory only (no CPU, rate or
   latency cost), and a list used in turn keeps its connections.
 - Tests: `TestUnusedProxiesCloseTheirConnections` gains rows for 4 and 1

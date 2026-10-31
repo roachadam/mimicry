@@ -121,6 +121,11 @@ encode, so the tests compare whether a token is sent, not its length.
   a user logged on at its console.
 - Until the first Windows capture, there is no Windows accessor; code
   using one does not compile, rather than failing at run time.
+- Windows 11 and ARM are not captured: the profile is from one Windows 10
+  PC (x64). Chrome's user agent says `Windows NT 10.0` on Windows 11 too
+  (from its source, a lead), and `sec-ch-ua-platform-version`, which a site
+  can ask for with `Accept-CH`, is captured on no platform; a Windows 11
+  refresh closes it.
 - The harness tests by default check each browser's newest profile on
   each platform (`internal/harness/internal/testprofiles`), so
   `chrome-156-windows` is checked with `Chrome()`, `Firefox()` and

@@ -340,7 +340,7 @@ samples per browser, every profile including Safari 26, all identical
 | A fetch() chain stops after 20 redirects; `redirects.navigationLimit`: a navigation after 19 (Chrome) or 20 (Firefox, Safari 27, 26) | W (`cors-edge` `chain.so`; `redirects2` `nav-chain.so`, 25 redirects: Chrome requested `.hop19` last, the others `.hop20`) | `TestCORSEdgeMatchesBrowser`, `TestRedirects2MatchesBrowser` | Hand-edited. Chrome's error page reloads `.hop19` a second later (`cache-control: max-age=0`) and follows the rest: browser UI, not reproduced. Firefox's and Safari's pages were finished by the watchdog worker. Frames keep 20 (not measured) |
 | `redirects.hopPreflight`: `inherit` (Firefox, Safari 27, 26: the GET a preflighted cross-site PATCH answered 303 became is preflighted, `access-control-request-method: GET`), `own` (Chrome: not) | W (`redirects2` `m-patch-303.cs.hop1`) | `TestRedirects2MatchesBrowser` | Hand-edited. Only measured for a hop to the same cross-site origin |
 | Navigation redirects are ordered by variants: Chrome moves `sec-ch-ua*` after `sec-fetch-dest` on every hop and keeps `cache-control: max-age=0` after a form POST; Firefox swaps `referer`/`origin` on a 307/308 POST hop; Safari rebuilds every hop, a typed one (`site: none`) otherwise than a page's, one from `http://` (`insecureBeforeRedirect`) with `upgrade-insecure-requests`, and a hop to another site than the URL before it (`crossSiteRedirect`, navigations only) with `referer` before `sec-fetch-dest` (after it on a hop within a site: apex→www, www→static, a form's within a cross-site origin). Variant conditions `methodChangedByRedirect` (Chrome re-adds Origin after `sec-fetch-*` on a fetch() hop the redirect turned into a GET), `insecureBeforeRedirect` and `crossSiteRedirect` are new. A user's navigation (a clicked link or submit button, a typed URL) is ordered as a script's with `sec-fetch-user: ?1` between `sec-fetch-mode` and `sec-fetch-dest` (Chrome) or after `sec-fetch-site` (Firefox), on its first leg and every hop; Safari sends none and orders a click as a script | W (`redirects2`: form POSTs, `nav-chain.so`; `nav-redirect-{so,ss,cs,http}`: typed navigations redirected within the origin, apex→www, to another site, http→https; `nav-redirect-page`: a page's script and form navigations redirected to another origin; `nav-redirect-form`: form POSTs by script answered 301–308 between every pair of relations; `nav-redirect-click`: the same clicked, and clicked links answered 301/302 from and to every relation (the capture tool's real clicks: DevTools `Input.dispatchMouseEvent`, BiDi `input.performActions`, Safari the system's mouse events); 3 samples each, every clicked request's header names a script's plus `sec-fetch-user`; Safari's first sample of `nav-302.cs-so.hop1` left out, see below) | `TestRedirects2MatchesBrowser`, `TestNavRedirectsMatchBrowser` (a click sent as a script's fails it); kindsgen `TestRegenerateReproducesProfiles` | Derived by kindsgen. A user's navigation in a condition measured only on a script's is `ErrNotMeasured`, and over HTTP/1.1 where that list has no `Sec-Fetch-User` slot (Firefox's form POST: no clicked form was captured over HTTP/1.1). Safari 26's clicks not captured (`missingCaptures`) |
-| A redirect hop carrying cookies has the `cookie` slot of its variant: Chrome 156 (macOS, Windows) between `accept-language` and `priority` on every hop (navigations, images, fetch()); Firefox 158 after `referer` (or `origin`) and before `upgrade-insecure-requests` on navigations, before `sec-fetch-dest` on images and fetch(), after `accept-encoding` on a typed navigation's hop; Safari 27, 26 last, after `accept-encoding` | W (the cookie twins of decision 0048, 3 samples each, all alike: `nav-redirect-{so,ss,cs,http,page,form,click}-cookies`, `redirects2-cookies`, `cors-edge-cookies`; Safari 26 without clicks; every twin request's other header names its original's; Chrome 156.0.8078.79 through powhttp on httpbin.org's `/cookies/set` → `/cookies` sent Chrome's order) | `TestNavRedirectsMatchBrowser`, `TestRedirects2MatchesBrowser`, `TestCORSEdgeMatchesBrowser` (a variant without the slot sends the cookies after its list: after `priority` (Chrome), `te` (Firefox), and fails them); kindsgen `TestRegenerateReproducesProfiles` | Derived by kindsgen, each twin's hops merged into its original's conditions. Chrome 155 lacks the slot on these hops: the twins came after it, Chrome 155 is no longer installable as branded Chrome, and it cannot inherit Chrome 156's captures (`missingCaptures`). Safari 26's clicked hops not captured (`missingCaptures`). Hops no twin reaches with cookies keep no slot: cross-site subresources with credentials, hops from `http://`, and Safari 27's image hop to another origin of the page's site (backlog) |
+| A redirect hop carrying cookies has the `cookie` slot of its variant: Chrome 156 (macOS, Windows) between `accept-language` and `priority` on every hop (navigations, images, fetch()); Firefox 158 after `referer` (or `origin`) and before `upgrade-insecure-requests` on navigations, before `sec-fetch-dest` on images and fetch(), after `accept-encoding` on a typed navigation's hop; Safari 27, 26 last, after `accept-encoding` | W (the cookie twins of decision 0048, 3 samples each, all alike: `nav-redirect-{so,ss,cs,http,page,form,click}-cookies`, `redirects2-cookies`, `cors-edge-cookies`; Safari 26 without clicks; every twin request's other header names its original's; Chrome 156.0.8078.79 through powhttp on httpbin.org's `/cookies/set` → `/cookies` sent Chrome's order) | `TestNavRedirectsMatchBrowser`, `TestRedirects2MatchesBrowser`, `TestCORSEdgeMatchesBrowser` (a variant without the slot sends the cookies after its list: after `priority` (Chrome), `te` (Firefox), and fails them); kindsgen `TestRegenerateReproducesProfiles` | Derived by kindsgen, each twin's hops merged into its original's conditions. Chrome 155 lacks the slot on these hops: the twins came after it, Chrome 155 is no longer installable as branded Chrome, and it cannot inherit Chrome 156's captures (`missingCaptures`). Safari 26's clicked hops not captured (`missingCaptures`). Hops no twin reaches with cookies keep no slot: cross-site subresources with credentials, hops from `http://`, and Safari 27's image hop to another origin of the page's site ([Not covered](#not-covered-by-any-claim)) |
 | A navigation hop's `Referer` applies the policy to the `Referer` the request before it sent: once a chain left the page's origin, only the origin, even back on it; `redirects.navigationSite`: after a redirect to another site, `sec-fetch-site` counts the whole chain (`chain`: Chrome, Firefox, Safari 26) or only the URLs from that redirect on (`restart`: Safari 27, `same-origin` on `nav-302.cs-so.hop1`) | W (`nav-redirect-page`: `nav-302.cs-so.hop1`, `nav-301.ss-so.hop1`, every browser) | `TestNavRedirectsMatchBrowser` (setting Safari 27 to `chain` fails it) | `navigationSite` hand-edited, measured on one hop (a chain to another site and back); longer chains follow the rule unmeasured. Each Safari's first (cold) sample sent that hop on a new connection, ordered as a hop within a site (Safari 27: with `cross-site`): browser state, left out by kindsgen (`sampleGaps`) and accepted (logged) by the test |
 | `redirects.navigationOrigin`: a form POST's `Origin` kept by a 307/308 becomes `null` once any redirect went to another origin than the URL before it (`cross_origin`: Chrome, Safari 27, 26), or once the chain is tainted as the Fetch standard has it, a redirect from another origin than the page's to a third (`taint`: Firefox, which keeps the page's origin from the page's origin to static.navr-a.test or another site) | W (`nav-redirect-form`, `nav-redirect-click`: `*-30{7,8}.{so-ss,so-cs,ss-so,cs-ss,cs-so}.hop1` `null` or not, `*-30{7,8}.{so,ss,cs}.hop1` the page's origin, every browser, 3 samples) | `TestNavRedirectsMatchBrowser` (setting Chrome to `taint` fails it) | Hand-edited. Measured on one hop; longer chains follow the rule unmeasured |
 | Safari sends no `content-length` on a body redirected after a preflight (cross-site PATCH, POST 307/308 hops); its preflight without `access-control-request-headers` starts `sec-fetch-site, origin` | W (`redirects2` `m-patch-*.cs`, `m-post-30{7,8}.cs`) | `TestRedirects2MatchesBrowser` | Plan `NoContentLength` (HTTP/2); preflight variant `pageSet` means "asks for headers" |
@@ -595,64 +595,139 @@ code, not captured (browsers always have the body).
 
 ## Not covered by any claim
 
-What a profile does not describe, so mimicry does not imitate it. Each
-item, with when it shows, its detection relevance and what closing it
-takes, is in the [backlog](../docs/backlog.md), which also notes the
-bullets below that later work has closed:
+Known differences from the browsers, and behaviour no capture measured,
+with no work planned. Each line says when it shows, how likely a vendor is
+to see it (detection), and what closing it would take. By
+[decision 0029](../docs/decisions/0029-scope-what-gets-modelled.md), one
+is closed when a vendor is seen checking it or a caller notices it; open
+work is tracked as [GitHub issues](https://github.com/roachadam/mimicry/issues).
+A difference closed is removed here, with its pinned gap entry.
 
-- Headers: a same-site form POST
-  navigation (not captured: an error); where Cookie goes on a non-secure
-  origin (no browser sent one on the `kinds-plain` page); `FontFace`
-  loads; `crossorigin` stylesheets.
-- CORS: preflight Max-Age caps (honoured as sent), partitioning of the
-  preflight cache by top-level site, and preflights from cross-site frames.
-- Cookies: total limits, and Chrome's priority and `Secure`-aware eviction
-  within the per-site limit; adjusting `Expires` for the server's `Date`;
-  whether Chrome refuses a nameless value starting with `__Http-`;
-  loopback hosts other than `localhost`; Safari's `__Host-` with a default
-  path other than `/`; the order between Safari's `Domain` cookies of
-  different levels.
-- Connections: Firefox's connections for credential-less requests (their
-  own to the same-site host, shared to the page's own and the cross-site
-  host, in every sample; no rule found); connections for what a cross-site
-  frame itself loads; Chrome's preconnects (one more handshake to the
-  page's host, no request, on the connections page as on the kinds pages);
-  whether the per-host cap holds over plain HTTP and per proxy route too
-  (measured over HTTPS; mimicry applies it to both: [INFERENCE]); Chrome's
-  total and per-proxy limits; coalescing through a proxy (mimicry never
-  does); the 90 s after which an idle connection is closed (HTTP/1.1,
-  HTTP/2, and HTTP/3 where QUIC's own idle timeout is longer), and how
-  Chrome and Safari close an idle HTTP/2 connection (mimicry: the close
-  alone; Firefox profiles GOAWAY first, as its `goawayTcp`); the TLS 1.2
-  ticket lifetime.
-- HTTP/2: Chrome's mid-load re-prioritisation of a script (and so how it
-  moves the stream in its dependency lists); a stream whose response ended
-  mid-upload, which Chromium keeps in its lists until the upload's
-  END_STREAM ([INFERENCE], from its source); an upload
-  of unknown length ends with an empty END_STREAM DATA frame; a
-  REFUSED_STREAM makes mimicry stop using the connection (Chrome retries
-  on the same session: [INFERENCE], from its source); on errors, RST_STREAM
-  before the credit for discarded bytes, and GOAWAY before closing
-  ([INFERENCE], from Chromium's source; never captured).
-- TLS and below: ECH payloads; the TCP/IP fingerprint.
-- WebSockets: Firefox's compressor and its transport ending; Safari's
-  compression threshold between 6 and 4095 bytes; a `Strict` cookie on
-  Safari 26's cross-site socket; protocols on a `ws://` socket from an
-  `http://` page; a full-handshake socket hello for Chrome and Firefox;
-  DATA frames cut short by flow-control windows (they vary between
-  samples); what Firefox
-  and Safari do with `ws://` from an `https://` page beyond failing
-  (whether they try `wss://` on the plain port is only in the server's
-  log).
-- Proxies: Chrome's speculative preconnects to a proxy; `https://`
-  proxies; Safari 26's credential flow, WebSockets included (never
-  captured, copied from Safari 27); Safari's `Proxy-Authorization` inside
-  tunnels once its credential state is on (see the Proxies table); and
-  `ws://` through SOCKS5 for any browser (refused, `ErrNotMeasured`).
-- By decision ([0016](../docs/decisions/0016-literal-urls-no-https-upgrade.md)):
-  Safari's HTTPS upgrade attempt (TLS on the same port) before a
-  plain-HTTP request, Chrome's HTTPS-Upgrades on port 80, and HSTS:
-  requests go to the URL given.
+**TLS and below**
+
+- **TCP/IP fingerprint** (all): the SYN is the host OS's (or the proxy's); detection high when the OS differs from the profile's, none on it; not planned ([0029, amendment](../docs/decisions/0029-scope-what-gets-modelled.md#amendment-2026-10-30-the-tcpip-fingerprint)).
+- **Real ECH** (Chrome, Firefox): always GREASE ECH, where a browser that finds an ECH config in DNS sends real ECH; detection medium; needs DNS HTTPS lookups and an ECH capture.
+- **Firefox's resumed GREASE ECH size** (Firefox): fixed at 400 bytes (432 over QUIC), measured against one ticket size; detection low; a `resume` capture with other ticket sizes ([report](../internal/harness/reports/hello-record-2026-10-24.md)).
+- **A WebSocket's full hello** (Chrome, Firefox): `tls.websocketH1` captured resumed only; first socket with no ticket; detection low; a `websocket` capture on a fresh host.
+- **HelloRetryRequest cookie position** (Chrome): the uTLS fork places it at random, BoringSSL by the hello's permutation; detection low; a slot in the fingerprint plan.
+- **Resumption forms** (all): TCP 0-RTT, several tickets at once, session-ID resumption never captured; mimicry uses one single-use ticket per key; detection low; `resume` captures.
+- **TLS 1.2 ticket lifetime** (Chrome, Firefox): used until the certificate expires; long TLS 1.2 sessions; detection low; a long `resume-tls12` capture.
+- **Resumed hello record version** (all): assumed 0x0301, not compared; detection none; add it to the resumed-hello diff.
+
+**HTTP/1.1**
+
+- **HTTPS upgrades and HSTS** (Safari, Chrome): by [decision 0016](../docs/decisions/0016-literal-urls-no-https-upgrade.md) requests go to the URL given, with no TLS attempt first; detection low to medium; captures on ports 80 and 443, then an opt-in option ([report](../internal/harness/reports/plain-http-2026-10-24.md)).
+- **`Cookie` on a non-secure origin** (all): its slot in plain-HTTP lists is not measured; detection medium on plain-HTTP targets; a `kinds-plain` run with cookies.
+- **Idle close** (all): 90 s on every protocol; how and when browsers close an idle connection is not captured (longest gap 35 s); detection low; a long idle capture ([0040](../docs/decisions/0040-idle-connection-cleanup.md)).
+
+**HTTP/2**
+
+- **Chrome 155's opening records** (Chrome 155): from Chrome for Testing, not branded Chrome; detection none expected; a branded `resume` capture.
+- **A connection opened before its request** (Safari, Firefox): the browser sends the opening alone and HEADERS after the server's SETTINGS; mimicry sends at once; detection low to medium; not planned ([0042, amendment](../docs/decisions/0042-http2-opening-records.md#amendment-2026-10-30-preconnected-connections)).
+- **Chrome's re-prioritisation** (Chrome): a PRIORITY frame mid-load, and a mid-upload stream kept in its lists ([INFERENCE]); never sent; detection medium; model `OnStreamUpdate` against the page traces.
+- **Upload of unknown length** (all): ends with an empty END_STREAM DATA frame; streamed bodies; detection low to medium; a streaming-upload capture.
+- **Idle origin moved to new TCP** (Chrome on macOS): after a broken HTTP/3 origin, a new TCP connection after 6–10 s idle; detection low; captures to find the cause ([`h3EdgeGaps`](../internal/harness/e2e/http3_edge_test.go)).
+- **Upload DATA chunking** (all; Firefox entirely): 65535-byte chunks match only the first chunk; uploads over 64 KiB; detection low; upload captures of several sizes.
+- **Credit return timing** (Firefox, Safari): returned at the profile's threshold, not paced by reads; large downloads; detection low; a read-paced model.
+- **REFUSED_STREAM** (Chrome): mimicry moves to another connection, Chrome retries on the same ([INFERENCE]); detection low; a refusing scenario.
+- **Error-path frame order** (Chrome): RST_STREAM before discarded credit, GOAWAY before close ([INFERENCE]); not checked; detection low; error injection.
+
+**QUIC and HTTP/3**
+
+- **DNS HTTPS discovery** (all): only `Alt-Svc` is read; first visit to sites with HTTPS records; detection medium; records in the DNS stub and a resolver ([report](../internal/harness/reports/http3-2026-10-25.md)).
+- **A returning browser's first request** (all; Firefox most): a saved alternative starts like any known one; no browser captured restarting; detection low; restart captures.
+- **Dead-path waits** (Firefox, Safari): a sent request on a silent path waits as the browser's does (30 s, 12 s); detection none; a dead-path signal and a resend rule.
+- **Safari's other kinds** (Safari): only `fetch()` measured over HTTP/3, so other kinds stay on TCP; also its QPACK table, PRIORITY_UPDATE, bodies, close reply; detection medium; a fuller `h3-page` capture.
+- **Firefox's declined TCP beside a 425** (Firefox): it opens and drops a TCP connection on most 425 retries; detection low; more samples ([`h3EdgeGaps`](../internal/harness/e2e/http3_edge_test.go)).
+- **When Firefox's held request leaves** (Firefox): with its Finished in 31 of 35, after it in 4; mimicry always with it; detection low; thread timing, nothing likely (`sampleGaps`).
+- **Safari's OPTIONS fetch** (Safari): not in its kinds captures, so refused (`ErrNotMeasured`); detection low; an OPTIONS fetch on the kinds page ([`h3EdgeGaps`](../internal/harness/e2e/http3_edge_test.go)).
+- **nginx drops Chrome's port migration** (Chrome): nginx answers nothing on the new path, so a 30 s stall; mimicry migrates as Chrome; detection none; a capture of Chrome doing it.
+- **Chrome's blackhole close** (Chrome): Chrome closes after 54–61 s and resends on TCP; mimicry falls back at 30 s; detection low; not planned ([0028, amendment](../docs/decisions/0028-quic-failure-model.md#amendment-2026-10-30-blackhole-detection-and-resumed-probes)).
+- **Resumed attempts' probes** (Chrome, Firefox): Chrome's 4 Initials and lone 0-RTT datagrams, Firefox's varied probes; only to a silent server; detection low; not planned (same amendment).
+- **How long an origin stays broken** (all): for the Transport's life; Chrome's source backs off 5 min; detection low to medium; a multi-page, minutes-long capture.
+- **Locally trusted roots** (Chrome, Firefox): HTTP/3 captured with QUIC forced; a public root may race differently; detection unknown; a capture with a public certificate.
+- **HTTP/3 lists with cookies** (all): no cookie went over HTTP/3, so its slot (and Firefox's `alt-used` beside it) is assumed; detection medium; `h3-page` with cookies.
+- **Firefox's `alt-used` on credential-less requests** (Firefox): its source omits it there; never compared; detection low; those kinds in `h3-page`.
+- **Safari's handshake loss timing** (Safari): probes and give-up are the stack's defaults; heavy loss; detection low; a capture with QUIC blackholed and no TCP ([report](../internal/harness/reports/quic-interop-2026-10-25.md)).
+- **Firefox's v2 resumption against old lsquic** (Firefox): lsquic's v1-typed Retry stalls it until TCP; real Firefox there not captured; detection low.
+- **Server bugs browsers hit too** (Chrome): lsquic before 4.10, nghttp3's PRIORITY_UPDATE limit, kwik on 0-RTT; as in Chrome; detection none. One unexplained close by www.akamai.com (Safari 26), not reproduced.
+- **Retry** (all): no browser captured answering a Retry; detection low to medium; a Retry-forcing server.
+- **PMTU probing, ECN, DATAGRAM, ACK_FREQUENCY** (all): not done or ignored; not measured; real paths; detection low to medium; real-network captures.
+- **Server QPACK dynamic table** (all): the decoder side is not measured; detection low to medium; such a server.
+- **Chrome's NEW_TOKEN cache** (Chrome): Chrome often omits a token it has (3 of 9); mimicry always presents it; detection low; token-cache captures (`sampleGaps`).
+- **Chrome's late PRIORITY_UPDATE** (Chrome 156): sometimes 1 ms after HEADERS under load; mimicry sends it first; detection low; more samples (`sampleGaps`).
+- **`h3-early` POST on Windows** (Chrome on Windows): the replay makes both requests at once, so mimicry's POST is held; detection none; replay at the browser's issue times (`h3EdgeSchedulingGaps`).
+- **Chrome's TCP delay from the smoothed RTT** (Chrome): 1.5 × RTT, invisible on loopback; detection low; a real-network capture.
+- **Migration by Firefox and Safari** (Firefox, Safari): never seen, never done; NAT rebinding; detection low; a rebinding capture.
+- **Long and slow transfers** (all): key updates past 37,000 packets and credit past 50 MiB not measured; no client key update; detection low; longer captures.
+- **Keep-alive with a short server idle timeout** (all): PINGs at half of it; detection low; a short-idle capture.
+- **`requestsAfterConfirmed`** (Chrome, Firefox): no request waited for a full handshake; detection low; an immediate-request scenario.
+- **Firefox v2 edges** (Firefox): a v2 connection's NEW_TOKEN not passed on; a v2-only server sending `version_information` untested; the resumed hello's SNI cut varies; detection low; more samples.
+- **QUIC stack gaps** (all): the server's `preferred_address` is not used, its `max_udp_payload_size` not acted on; detection low ([UPSTREAM.md](../internal/quic/UPSTREAM.md)).
+- **Opaque transport parameters** (Firefox, Safari 26): `0x1d` and `0xff080808` sent verbatim, meaning unknown; Safari 27 stopped sending the latter; detection none; source research.
+
+**Request headers and kinds**
+
+- **Page header order** (all; XHR, Firefox's object-literal `fetch()`): name order, not the page's; detection medium; `Request.HeaderPlacement` by hand, no new API ([0021, amendment](../docs/decisions/0021-page-headers-hash-table-order.md#amendment-2026-10-30-no-api-for-the-pages-header-order)).
+- **Safari's common names** (Safari): page-set `Authorization`, `Cache-Control` may enter its hash table among its own; only `content-type` captured; detection medium; a `headers-order` capture.
+- **Chrome's `content-type` role** (Chrome): page header or its own, unresolved; Blink's source followed; detection low to medium; a `headers-order` capture.
+- **Requests from a cross-site frame** (all): their top-level site, headers and preflights are not modelled; detection medium; a frame capture and an API.
+- **`Sec-Fetch-User` on frames and HTTP/1.1** (Chrome, Firefox): either accepted on frames; Firefox's clicked form POST over HTTP/1.1 refused; detection medium; a clicked form on `kinds-http1`.
+- **Pages below `/`** (all): the full-path `Referer` follows the standard, not a capture; detection medium if wrong; a deep kinds page.
+- **`FontFace` loads and `crossorigin` stylesheets** (all): no kind; detection low to medium; add both to the kinds page.
+- **Layout-driven image priorities** (Firefox, Chrome): layout changes them (`u=4`, `u=1`); detection low (`redirectsLineGaps`, `h3Gaps`, `h3PriorityGaps`).
+- **Safari 26's font cookie race** (Safari 26): it sent a font before a cookie was set; detection none (`raceCookieLabels`).
+- **Edges from source only** (Safari, all): Safari's hash tables past 1732 names or for names over 96 characters; the navigation's `content-length` slot, which no request reaches; detection none.
+
+**Cookies**
+
+- **Safari's `Domain` cookies of two levels** (Safari): order a guess; shop cookies; detection low to medium; a `cookies-edge` step.
+- **Limits and eviction** (all): no total limit; Chrome's priority and `Secure`-aware eviction not modelled; 180 → 150 from source; partitions counted apart; detection low; `cookies-edge` captures.
+- **Unmeasured rules** (all): Chrome's 120 s Lax window end; `Expires` by the local clock; Safari refusing third-party cookies on store or send; Safari's partition against path length; `__Host-` from a deep path; loopback hosts other than `localhost`; Chrome and nameless `__Http-` values; detection low or none; a capture each, small.
+- **WebSocket handshake cookies** (all): a `Strict` cookie on a cross-site socket, the host's partition cookie, `Set-Cookie` on the upgrade; detection low; a fuller `websocket` capture.
+
+**CORS**
+
+- **Preflight `Max-Age` caps** (all): honoured as sent; browsers cap it (2 h, 24 h, 10 min, by source); detection low to medium; a long session.
+- **Safelist and refusal edges** (all): from the Fetch standard, not captures; detection low; a fuller `cors` page.
+- **Preflight cache keys** (Chrome): keying by top-level site not measured; a hop's preflight over plain HTTP not tested; detection low; small captures.
+
+**Redirects**
+
+- **Safari 26's clicked navigations** (Safari 26): not captured; follow its script's; detection low (`missingCaptures`).
+- **Chrome 155's hop `cookie` slot** (Chrome 155): no twin captures, so cookies go after the list; detection medium; ends with its deprecation.
+- **`cookie` slot on hops no twin carried cookies on** (all): credentialed cross-site hops, hops from `http://`, Safari 27's same-site image hop; detection low to medium ([0048](../docs/decisions/0048-cookie-twins.md)).
+- **Chrome's error-page reload** (Chrome): reloads after the redirect limit; mimicry returns the error, by [decision 0022](../docs/decisions/0022-redirects-as-the-browser-follows-them.md); detection low (`redirectsReload`).
+- **Unmeasured chain rules** (all): `navigationSite` on longer chains; `hopPreflight` to another cross-site origin; CORS checks of style, font and preload redirects; Safari's `keep` Origin through a third origin; the frame redirect limit; detection low to medium; a `redirects2` step each.
+- **Safari's cold first sample** (Safari): a hop on a new connection with another order; detection low (`sampleGaps` in kindsgen).
+
+**WebSockets**
+
+- **Firefox and an 8-bit window** (Firefox): Firefox hangs, mimicry fails the dial as Safari; detection none ([report](../internal/harness/reports/websocket-deflate-2026-10-26.md)).
+- **Firefox's transport end** (Firefox): Firefox never ended one; mimicry ends it 10 s after the close; detection low; a longer capture.
+- **Chrome's stream end after a close** (Chrome): Chrome drops it after 2 s, mimicry resets after 10 s; servers that leave it open; detection low.
+- **Chrome's fragmented large message** (Chrome): split in some samples, one frame in mimicry; detection low; more sizes.
+- **Firefox's HTTP/2 DATA segmenting** (Firefox): the header counted into 16000 bytes, and flow-control cuts, not modelled; detection low.
+- **`ws://` from an `https://` page** (Firefox, Safari): refused as the browser fails it; whether they try `wss://` first is only in the server's log; detection low.
+- **Modelled, unexplained** (Firefox, Safari 26): Firefox's socket hello drops `compress_certificate`; Safari 26 sends a cross-site host's Lax and None cookies on cross-site sockets; detection none.
+- **Safari's compression threshold** (Safari): between 6 and 4095 bytes, not measured; detection low.
+
+**Connections**
+
+- **No top-level-site partition** (all): a third-party host reached from two sites shares a connection, a cross-site socket may share its host's own, and a shared `AltSvcCache` spans sites; detection medium; one Transport per site ([0011](../docs/decisions/0011-connection-partitioning.md)).
+- **Chrome's preconnect** (Chrome): one more handshake to the page's host per page load (through a proxy, extra CONNECTs); detection low to medium; not planned ([0023, amendment](../docs/decisions/0023-connection-limits-and-coalescing.md#amendment-2026-10-30-no-preconnects)).
+- **Firefox's credential-less connections** (Firefox): their own connection to some hosts, no rule found; detection low to medium (`partitionGaps`).
+- **Tabs** (all): a Transport is one session; what tabs share is not measured; detection medium if misused ([0019](../docs/decisions/0019-transport-is-one-browsing-entity.md)).
+- **Coalescing conditions** (all): address, port, partition and proxy never varied, and mimicry never coalesces through a proxy; detection low to medium; a fuller `connections` capture.
+- **Limits beyond the per-host cap** (all): the 6 per host applied to plain HTTP and per proxy route ([INFERENCE]); Chrome's 256 total and 32 per proxy, Firefox's 900, and priority queueing not modelled; detection low.
+- **Connections per page** (all): not compared against the replays; extra unused connections in the WebSocket captures not analysed; detection low.
+
+**Proxies**
+
+- **Safari's `Proxy-Authorization` inside tunnels** (Safari): sent to servers once its credential state is on; mimicry never does; detection low; captures of the trigger and a decision on sending proxy credentials to servers ([report](../internal/harness/reports/proxy-websocket-2026-10-26.md)).
+- **Safari 26's credential flow** (Safari 26): copied from Safari 27, never captured; detection low (`missingCaptures`).
+- **Challenge state per proxy** (all): shared by tunnels and forwarded requests ([INFERENCE]); detection low; a mixed capture.
+- **Chrome's preconnects to the proxy**: see Chrome's preconnect above.
 
 ## What checks each behaviour
 
