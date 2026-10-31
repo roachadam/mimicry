@@ -984,6 +984,9 @@ func (c *Conn) start(ctx context.Context, hd head, end, mayEarly bool) (s *quic.
 		defer release()
 	}
 
+	// The request counts from now for the profile's STREAMS_BLOCKED,
+	// though requests open their streams one at a time.
+	c.qc.ExpectStream()
 	c.startMu.Lock()
 	defer c.startMu.Unlock()
 

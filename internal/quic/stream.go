@@ -78,7 +78,13 @@ type Stream struct {
 	outblocked   sentVal         // set when a write to the stream is blocked by flow control
 	outreset     sentVal         // set by Reset
 	outresetcode uint64          // reset code to send in RESET_STREAM
-	outdone      chan struct{}   // closed when all data sent
+	// mimicry: blockedMax is the STREAMS_BLOCKED limit the stream's
+	// opening carries (client_streams.go), 0 once sent or for none;
+	// blockedDue sends it before the next STREAM frame, else right after
+	// the first.
+	blockedMax int64
+	blockedDue bool
+	outdone    chan struct{} // closed when all data sent
 
 	// Buffers used for fast path; mutex-guarded, but uncontended in normal operations.
 	inbufmu  sync.Mutex
@@ -895,6 +901,8 @@ func (s *Stream) outUnlockNoQueue() streamState {
 	case s.outreset.shouldSend(): // RESET_STREAM
 		state = streamOutSendMeta
 	case s.outreset.isSet(): // RESET_STREAM sent but not acknowledged
+	case s.blockedMax > 0 && s.blockedDue && s.outopened.isSet(): // mimicry: STREAMS_BLOCKED
+		state = streamOutSendMeta
 	case s.outblocked.shouldSend(): // STREAM_DATA_BLOCKED
 		state = streamOutSendMeta
 	case len(s.outunsent) > 0: // STREAM frame with data
@@ -1184,6 +1192,15 @@ func (s *Stream) appendOutFramesLocked(w *packetWriter, pnum packetNumber, pto b
 		shouldSend := size > 0 || // have data to send
 			s.outopened.shouldSendPTO(pto) || // should open the stream
 			(fin && s.outclosed.shouldSendPTO(pto)) // should close the stream
+		// mimicry: the STREAMS_BLOCKED the stream's opening carries goes
+		// before its STREAM frame (Firefox), or after it (Chrome; first in
+		// the next packet if this one is full).
+		if s.blockedMax > 0 && s.blockedDue && s.outopened.isSet() {
+			if !w.appendStreamsBlockedFrame(bidiStream, s.blockedMax) {
+				return false
+			}
+			s.blockedMax = 0
+		}
 		if !shouldSend {
 			return true
 		}
@@ -1205,6 +1222,13 @@ func (s *Stream) appendOutFramesLocked(w *packetWriter, pnum packetNumber, pto b
 		// never held it: never resent, as a probe sends no second frame.
 		if fin && int64(len(b)) == size {
 			s.outclosed.setSent(pnum)
+		}
+		if s.blockedMax > 0 {
+			s.blockedDue = true
+			if !w.appendStreamsBlockedFrame(bidiStream, s.blockedMax) {
+				return false
+			}
+			s.blockedMax = 0
 		}
 		if pto {
 			return true

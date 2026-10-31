@@ -191,6 +191,10 @@ func newConn(now time.Time, side connSide, cids newServerConnIDs, peerHostname s
 	}
 
 	c.streamsInit()
+	if c.client != nil {
+		// mimicry: the profile's STREAMS_BLOCKED rule.
+		c.streams.localLimit[bidiStream].blocked = newStreamsBlocked(c.client.p.StreamsBlocked)
+	}
 	c.lifetimeInit()
 	c.restartIdleTimer(now)
 	c.skip.init(c)

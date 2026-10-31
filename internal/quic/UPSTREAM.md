@@ -514,6 +514,38 @@ the mechanical import rewrites.
     unchanged. Only a profile that migrates (Chrome) is affected.
     Test: `client_path_test.go` (`TestClientPathDegradingMove`).
 
+22. **STREAMS_BLOCKED by the browser's rule** (`profile.QUIC`'s
+    `streamsBlocked`; capture h3-streams-blocked). Upstream never sends
+    the frame (`localStreamLimits.open`'s TODO) and panics if a sent
+    packet carrying one is acknowledged or lost. New file
+    `client_streams.go`; with no `Config.client`, or a profile without
+    the rule, every path is upstream's.
+    - `Conn.ExpectStream` counts a request from when it is made: HTTP/3
+      opens its requests' streams one at a time, so at most one waits in
+      `NewStream`. A request made with the streams the limit allows all
+      taken queues one with the limit (each such request, or the first
+      at a limit), sent in a packet of its own (`conn_send.go`'s
+      `appendFrames`: only into a packet with nothing ack-eliciting yet,
+      and nothing after it).
+    - `stream_limits.go`: `localStreamLimits.blocked`; `open` counts the
+      request as given its stream (`streamOpened`), or gone if it fails,
+      and returns what its opening carries: a waiting request that takes
+      the last stream a raised limit allows sends one with that limit,
+      right after its first STREAM frame (Chrome), or right before it
+      while another request still waits (Firefox). `conn_streams.go`'s
+      `newLocalStream` hands it to the stream; `stream.go`:
+      `Stream.blockedMax`/`blockedDue`, appended in
+      `appendOutFramesLocked` (in the next packet, first, if the STREAM
+      frame filled this one; `outUnlockNoQueue` keeps such a stream
+      queued).
+    - Loss (`packet_writer.go`: the frame records its limit;
+      `conn_loss.go`'s `handleAckOrLoss`): a lost one is sent again, in
+      a packet of its own, while the limit is still the server's and a
+      request still waits, as upstream resends STREAM_DATA_BLOCKED (RFC
+      9000, section 13.3). No capture lost one: not measured.
+    - `conn.go`: `newConn` sets the rule for a client's bidirectional
+      streams. Unidirectional streams send none (no browser did).
+
 ## Sockets
 
 `udp_packetconn.go` is upstream's, unchanged: `netPacketConn` wraps any

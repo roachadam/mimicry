@@ -17,12 +17,13 @@ import (
 
 // Edge scenario names.
 const (
-	scenarioBlackhole = "h3-blackhole"
-	scenarioBroken    = "h3-broken"
-	scenarioVN        = "h3-vn"
-	scenarioDownload  = "h3-download"
-	scenarioEarly     = "h3-early"
-	scenarioTooEarly  = "h3-too-early"
+	scenarioBlackhole      = "h3-blackhole"
+	scenarioBroken         = "h3-broken"
+	scenarioVN             = "h3-vn"
+	scenarioDownload       = "h3-download"
+	scenarioEarly          = "h3-early"
+	scenarioTooEarly       = "h3-too-early"
+	scenarioStreamsBlocked = "h3-streams-blocked"
 )
 
 // flightGapMicros separates a connection's client datagrams into
@@ -391,8 +392,10 @@ func edgeErr(e *collector, at, format string, args ...any) {
 }
 
 // deriveEdge fills in what only the edge captures show: q's loss
-// recovery, keep-alive, acknowledgement, credit, key update and version
-// negotiation rules, and h's fallback and early data.
+// recovery, keep-alive, acknowledgement, credit, key update, version
+// negotiation and STREAMS_BLOCKED rules, and h's fallback and early data.
+// Only h3-streams-blocked may be missing: quic.streamsBlocked is then not
+// measured.
 func deriveEdge(s *edgeSet, q *profile.QUIC, h *profile.HTTP3) error {
 	e := &collector{}
 	for _, sc := range []string{scenarioBlackhole, scenarioBroken, scenarioVN, scenarioDownload, scenarioEarly, scenarioTooEarly} {
@@ -414,6 +417,7 @@ func deriveEdge(s *edgeSet, q *profile.QUIC, h *profile.HTTP3) error {
 	q.Credit = s.credit(q, e)
 	q.KeyUpdate = s.keyUpdate(e)
 	q.VersionNegotiation = s.versionNegotiation(e)
+	q.StreamsBlocked = s.streamsBlocked(e)
 	h.Discovery.Fallback = s.fallback(q, &h.Discovery, e)
 	h.EarlyData = s.earlyData(q, e)
 

@@ -75,13 +75,33 @@ its icons over HTTP/2. Neither touches the bursts.
 
 ## 3. In mimicry
 
-No modelling in this change. mimicry's `internal/quic` sends no
-STREAMS_BLOCKED (`localStreamLimits.open`, its TODO), and its HTTP/3
-requests wait for the limit on the connection, as the browsers' do.
-`TestHTTP3EdgeMatchesBrowser` now replays this page for every profile
-with the capture and compares, per host, the STREAMS_BLOCKED frames sent
-(count, and limits where the samples agree); mimicry's none is pinned in
-`h3EdgeGaps` for Chrome (count), Firefox and Safari (count and limits).
+Modelled ([issue #4](https://github.com/roachadam/mimicry/issues/4)):
+h3gen derives `quic.streamsBlocked` from these captures (`edge_blocked.go`):
+Chrome `every_request` and `always`, Firefox `first_request` and
+`waiting`, Safari `first_request` alone. Profiles without the capture
+(Chrome 155, Chrome 156 on Windows, Safari 26) have none and send none.
+mimicry's `internal/quic` counts each HTTP/3 request from when it is made
+(`Conn.ExpectStream`), sends the frames a request made at the limit
+sends in packets of their own, and the frame a waiting request's stream
+carries before or after its STREAM frame (`client_streams.go`;
+UPSTREAM.md change 22). Its HTTP/3 requests wait for the limit on the
+connection, as the browsers' do.
+
+`TestHTTP3EdgeMatchesBrowser` replays this page for every profile with
+the capture and compares, per host, the frames sent alone (count and
+limits: Chrome 4 4 4 4 10 10 10 10, Firefox 5 11, Safari 3 9, each
+matched) and those sent with a stream (limit and place; as sets where the
+samples differ, `compareStreamsBlockedWith`: Chrome's 6, 8, 12 and 14,
+each sample's last in its packet, are required, its 5, 7, 11 and 13
+allowed, and mimicry sent both forms over runs). Firefox's are pinned in
+`h3EdgeGaps`: Firefox acknowledged each response at once, so quic-go
+raised the limit one stream at a time, where mimicry acknowledges two
+responses together and gets raises of two, after which the same rule
+sends 7 and 13 (6 7 8 and 12 13 14 in the browser; a gap in mimicry's
+ACK rule, not in this one; giving the replay the browser's 4–6 ms
+spacing did not change it). Its frames sent alone, and that none of its
+frames with a stream goes beyond Firefox's, are still compared.
+
 The replay makes each burst's six requests together, so which of them
 waits is the test process's scheduling: each request's own delay is in
 `h3EdgeSchedulingGaps`. What is compared instead is each burst's delays
@@ -103,6 +123,13 @@ time (0, ~325, ~650, … ~1640 ms) and every profile failed
 third to sixth waits near 0 ms, below the lower bounds of 221–237 ms and
 493–523 ms.
 
-The gap is a line in
-[EVIDENCE.md, Not covered](../../../profiles/EVIDENCE.md#not-covered-by-any-claim);
-the work is [issue #4](https://github.com/roachadam/mimicry/issues/4).
+Mutations of the model, each failing the test: Chrome sending once per
+limit (2 frames alone, the browser's 8); no frame after a raise (Chrome's
+6, 8, 12, 14 missing); Firefox's sent without another request still
+waiting (9 and 15, beyond the browser's); Safari sending after a raise
+(5, 7, 11, 13, beyond).
+
+The ACK difference, the profiles without the capture, and Chrome's
+PADDING before the frame in its 29-byte packets (mimicry's goes after)
+are lines in
+[EVIDENCE.md, Not covered](../../../profiles/EVIDENCE.md#not-covered-by-any-claim).

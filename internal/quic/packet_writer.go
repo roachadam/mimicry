@@ -473,6 +473,7 @@ func (w *packetWriter) appendStreamsBlockedFrame(typ streamType, max int64) (add
 	w.b = append(w.b, ftype)
 	w.b = quicwire.AppendVarint(w.b, uint64(max))
 	w.sent.appendAckElicitingFrame(ftype)
+	w.sent.appendInt(uint64(max)) // mimicry: for its loss (conn_loss.go)
 	return true
 }
 

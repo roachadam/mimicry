@@ -107,7 +107,7 @@ func (c *Conn) NewSendOnlyStream(ctx context.Context) (*Stream, error) {
 }
 
 func (c *Conn) newLocalStream(ctx context.Context, styp streamType) (*Stream, error) {
-	num, err := c.streams.localLimit[styp].open(ctx, c)
+	num, blocked, err := c.streams.localLimit[styp].open(ctx, c)
 	if err != nil {
 		return nil, err
 	}
@@ -118,6 +118,8 @@ func (c *Conn) newLocalStream(ctx context.Context, styp streamType) (*Stream, er
 		s.inmaxbuf = c.config.maxStreamReadBufferSize()
 		s.inwin = c.config.maxStreamReadBufferSize()
 	}
+	// mimicry: the STREAMS_BLOCKED its opening carries (client_streams.go).
+	s.blockedMax, s.blockedDue = blocked.limit, blocked.before
 	s.inUnlock()
 	s.outUnlock()
 

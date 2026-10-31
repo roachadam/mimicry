@@ -111,3 +111,4 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0036](decisions/0036-fast-quic-fallback.md) | Fast QUIC fallback by default, the browser's timing on request | Accepted |
 | [0043](decisions/0043-http3-ack-rate-opt-in.md) | HTTP/3 keeps Chrome's ACK rate unless configured | Accepted |
 | [0045](decisions/0045-udp-receive-buffer-default.md) | QUIC sockets ask for Chrome's 1 MB receive buffer by default | Accepted |
+| [0049](decisions/0049-streams-blocked.md) | STREAMS_BLOCKED as each browser sends it | Accepted |
