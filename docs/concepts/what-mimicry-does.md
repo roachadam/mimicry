@@ -155,7 +155,9 @@ them, is visible to the server.
 - `Config.IdleConnTimeout` changes the 90 s. A negative value leaves idle
   connections open until the server or proxy closes them.
 - `Transport.CloseIdleConnections` closes idle connections now. Call it on
-  a client you discard.
+  a client you discard. A connection is idle once every response on it is
+  read to its end and its body closed; over HTTP/2, a response whose
+  server has yet to end its stream stays busy until it does (at most 10 s).
 - A Transport is one browsing session. To visit unrelated sites, use one
   Transport per site; they can share a cookie jar.
 
