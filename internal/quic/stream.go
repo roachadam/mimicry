@@ -719,10 +719,14 @@ func (s *Stream) connHasClosed() {
 	// Otherwise, we the peer initiated the close.
 	// This only matters for the error we're going to return from stream operations.
 	localClose := s.conn.lifetime.state == connStateClosing
+	// mimicry: a local close with a cause (the handshake timeout, an internal
+	// error) reports it as the peer's close does. A direction the caller
+	// closed, or a close without one (Abort, Close), reads as closed.
+	cause := localClose && s.conn.finalError() != nil
 
 	s.ingate.lock()
 	if !s.inset.isrange(0, s.insize) && s.inresetcode == -1 {
-		if localClose {
+		if localClose && (!cause || s.inclosed.isSet()) {
 			s.inclosed.set()
 		} else {
 			s.inresetcode = streamResetByConnClose
@@ -732,6 +736,10 @@ func (s *Stream) connHasClosed() {
 
 	s.outgate.lock()
 	if localClose {
+		if cause && !s.outclosed.isSet() && !s.outreset.isSet() {
+			s.outresetcode = streamResetByConnClose
+		}
+
 		s.outclosed.set()
 		s.outreset.set()
 	} else {
