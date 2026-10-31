@@ -115,6 +115,8 @@ type options struct {
 	maxIdleProxies      int
 	browserProxyAuth    bool
 	http3OverSOCKS5     bool
+	// browserDialDelay is Config.BrowserDialDelay.
+	browserDialDelay bool
 }
 
 func newTestEngine(t *testing.T, o options) *Engine {
@@ -146,6 +148,7 @@ func newTestEngine(t *testing.T, o options) *Engine {
 		MaxIdleProxies:      o.maxIdleProxies,
 		BrowserProxyAuth:    o.browserProxyAuth,
 		HTTP3OverSOCKS5:     o.http3OverSOCKS5,
+		BrowserDialDelay:    o.browserDialDelay,
 	}, clock, o.onWait)
 	if err != nil {
 		t.Fatal(err)

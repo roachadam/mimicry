@@ -71,7 +71,7 @@ func regenerate(data []byte, dir string) ([]byte, error) {
 			kept = *p.HTTP3
 		}
 
-		if p.QUIC, err = deriveQUIC(set, p); err != nil {
+		if p.QUIC, err = deriveQUIC(set); err != nil {
 			return nil, fmt.Errorf("quic: %w", err)
 		}
 

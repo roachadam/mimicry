@@ -391,11 +391,11 @@ func edgeErr(e *collector, at, format string, args ...any) {
 	e.errs = append(e.errs, fmt.Errorf("%s: %s", at, fmt.Sprintf(format, args...)))
 }
 
-// deriveEdge fills in what only the edge captures show: q's loss
-// recovery, keep-alive, acknowledgement, credit, key update, version
-// negotiation and STREAMS_BLOCKED rules, and h's fallback and early data.
-// Only h3-streams-blocked may be missing: quic.streamsBlocked is then not
-// measured.
+// deriveEdge fills in what only the edge captures show, or show too: q's
+// 0-RTT, loss recovery, keep-alive, acknowledgement, credit, key update,
+// version negotiation and STREAMS_BLOCKED rules, and h's dial delay,
+// fallback, early data and close on GOAWAY. Only h3-streams-blocked may
+// be missing: quic.streamsBlocked is then not measured.
 func deriveEdge(s *edgeSet, q *profile.QUIC, h *profile.HTTP3) error {
 	e := &collector{}
 	for _, sc := range []string{scenarioBlackhole, scenarioBroken, scenarioVN, scenarioDownload, scenarioEarly, scenarioTooEarly} {
@@ -411,6 +411,8 @@ func deriveEdge(s *edgeSet, q *profile.QUIC, h *profile.HTTP3) error {
 	s.silenced = s.silencedConns(e)
 	s.downloaded = s.downloads(e)
 
+	q.ZeroRTT = s.zeroRTT(q, e)
+
 	q.Loss = s.loss(q, e)
 	q.KeepAlive = s.keepAlive(e)
 	q.Ack = s.ack(e)
@@ -419,7 +421,10 @@ func deriveEdge(s *edgeSet, q *profile.QUIC, h *profile.HTTP3) error {
 	q.VersionNegotiation = s.versionNegotiation(e)
 	q.StreamsBlocked = s.streamsBlocked(e)
 	h.Discovery.Fallback = s.fallback(q, &h.Discovery, e)
-	h.EarlyData = s.earlyData(q, e)
+	h.Discovery.DialDelayMillis, h.Discovery.ResumedDialDelayMillis = s.dialDelays(e)
+	h.EarlyData = s.earlyData(q, h, e)
+	h.EarlyStreamsWithRequest = s.earlyStreamsWithRequest(h, e)
+	h.CloseOnGoAway = s.closeOnGoAway(e)
 
 	return e.err()
 }

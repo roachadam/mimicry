@@ -8,11 +8,13 @@ import (
 	"net"
 	"net/http"
 	"runtime"
+	"slices"
 	"sync"
 	"testing"
 	"time"
 	"weak"
 
+	"github.com/jonboulle/clockwork"
 	utls "github.com/roachadam/utls"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/hpack"
@@ -492,5 +494,79 @@ func TestQUICAttemptCountsOnlyOnceItSent(t *testing.T) {
 
 	if n, broken := failures(); n != 1 || broken {
 		t.Fatalf("after an attempt that sent its hello: %d failures, broken %v; want 1, not broken", n, broken)
+	}
+}
+
+// With Config.BrowserDialDelay a dial a request waits for is held back
+// one of the profile's measured delays, fresh or resumed, except the
+// reconnection after a dead connection, whose own wait (reconnectMs) is
+// the whole of it while it lasts: a dial long after it is an ordinary one
+// again. By default no dial is held back (decision 0050). Safari: fresh
+// and resumed delays above 0.
+func TestDialDelayAfterReconnect(t *testing.T) {
+	clock := clockwork.NewFakeClockAt(time.Now())
+	engine := func(browser bool) *Engine {
+		return newTestEngine(t, options{
+			profile:          profiles.Safari(),
+			clock:            clock,
+			browserDialDelay: browser,
+		})
+	}
+	browser, fast := engine(true), engine(false)
+	d := browser.profile.HTTP3.Discovery
+
+	for _, tc := range []struct {
+		name string
+		e    *Engine
+		// reconnect is origin.reconnect relative to now; zero for none.
+		reconnect time.Duration
+		resumed   bool
+		want      []int
+	}{
+		{
+			name: "fresh",
+			e:    browser,
+			want: d.DialDelayMillis,
+		},
+		{
+			name:    "resumed",
+			e:       browser,
+			resumed: true,
+			want:    d.ResumedDialDelayMillis,
+		},
+		{
+			name:      "the reconnection, at its time",
+			e:         browser,
+			reconnect: -time.Millisecond,
+			resumed:   true,
+		},
+		{
+			name:      "long after a reconnect time no dial took",
+			e:         browser,
+			reconnect: -time.Minute,
+			resumed:   true,
+			want:      d.ResumedDialDelayMillis,
+		},
+		{
+			name:    "by default",
+			e:       fast,
+			resumed: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			o := &origin{}
+			if tc.reconnect != 0 {
+				o.reconnect = clock.Now().Add(tc.reconnect)
+			}
+
+			got := tc.e.dialDelay(o, tc.resumed)
+
+			switch {
+			case len(tc.want) == 0 && got != 0:
+				t.Errorf("held back %v, want none", got)
+			case len(tc.want) > 0 && !slices.Contains(tc.want, int(got/time.Millisecond)):
+				t.Errorf("held back %v, want one of %v ms", got, tc.want)
+			}
+		})
 	}
 }

@@ -66,9 +66,9 @@ func newProber(p *profile.Profile, roots *x509.CertPool, dir string, seed uint64
 }
 
 // resumes reports whether the profile resumes QUIC sessions (with 0-RTT):
-// Chrome and Firefox, not Safari.
+// every browser captured.
 func (pr *prober) resumes() bool {
-	return pr.plan.Resumes() && pr.p.QUIC.ZeroRTT
+	return pr.p.QUIC.ZeroRTT
 }
 
 type probeConn struct {

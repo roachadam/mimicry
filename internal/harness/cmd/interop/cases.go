@@ -392,7 +392,7 @@ func multiplexPath(i int) string {
 func runResumption(ctx context.Context, e *caseEnv, r *result, zeroRTT bool) {
 	pr := e.prober()
 	if !pr.resumes() {
-		r.Outcome, r.Note = na, "the profile never resumes QUIC (Safari)"
+		r.Outcome, r.Note = na, "the profile never resumes QUIC (quic.zeroRtt false)"
 		return
 	}
 

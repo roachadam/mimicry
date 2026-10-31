@@ -82,6 +82,10 @@ type Config struct {
 	// one, the first probe timeout) has passed with no answer, and at once
 	// when the attempt failed.
 	BrowserFallback bool
+	// BrowserDialDelay holds a QUIC dial a request waits for back as the
+	// browser does (http3.discovery.dialDelayMs, resumedDialDelayMs).
+	// Otherwise it starts at once (decision 0050).
+	BrowserDialDelay bool
 	// Coalesce shares HTTP/2 connections between hosts as the profile says
 	// (connections.coalesce). Otherwise each host has its own connection:
 	// no lookup for another host's, and no connection opened and declined.
@@ -156,6 +160,8 @@ type Engine struct {
 	quic *quicState
 	// browserFallback is Config.BrowserFallback.
 	browserFallback bool
+	// browserDialDelay is Config.BrowserDialDelay.
+	browserDialDelay bool
 	// coalesce is the profile's connections.coalesce with Config.Coalesce,
 	// else empty: never.
 	coalesce profile.Coalescing
@@ -243,13 +249,14 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 			BrowserAuth:         cfg.BrowserProxyAuth,
 			HTTP3ReadBufferSize: cfg.HTTP3ReadBufferSize,
 		},
-		proxy:           cfg.Proxy,
-		lookup:          lookupFunc(cfg.Resolver),
-		verify:          cfg.VerifyConnection,
-		browserFallback: cfg.BrowserFallback,
-		coalesce:        coalesce,
-		h3SOCKS5:        cfg.HTTP3OverSOCKS5,
-		expireGoAway:    p.HTTP3 != nil && p.HTTP3.Discovery.GoAwayTCP,
+		proxy:            cfg.Proxy,
+		lookup:           lookupFunc(cfg.Resolver),
+		verify:           cfg.VerifyConnection,
+		browserFallback:  cfg.BrowserFallback,
+		browserDialDelay: cfg.BrowserDialDelay,
+		coalesce:         coalesce,
+		h3SOCKS5:         cfg.HTTP3OverSOCKS5,
+		expireGoAway:     p.HTTP3 != nil && p.HTTP3.Discovery.GoAwayTCP,
 		proxies: proxyUse{
 			keep:     keep,
 			remember: remember,

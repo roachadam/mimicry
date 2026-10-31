@@ -31,8 +31,9 @@ type TLS struct {
 	// hellogen derives it from the captured hellos' key bytes.
 	X25519Reuse bool `json:"x25519Reuse,omitempty"`
 	// Resumption is how the browser resumes a TLS 1.3 session on a new
-	// connection to a server it holds a ticket for. Nil: it does not
-	// (Safari), and every connection is a full handshake.
+	// TCP connection to a server it holds a ticket for. Nil: it does not
+	// (Safari), and every TCP connection is a full handshake. Over QUIC
+	// the browser resumes as QUIC.ZeroRTT says.
 	Resumption *Resumption `json:"resumption,omitempty"`
 	// WebSocketH1 is how the hello of a WebSocket's own HTTP/1.1
 	// connection differs from this one. Required with Profile.WebSocket;

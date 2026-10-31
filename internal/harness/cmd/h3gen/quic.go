@@ -13,7 +13,7 @@ import (
 
 // deriveQUIC derives the quic section from every connection, checking
 // each value against all of them.
-func deriveQUIC(s *captureSet, p *profile.Profile) (*profile.QUIC, error) {
+func deriveQUIC(s *captureSet) (*profile.QUIC, error) {
 	q := &profile.QUIC{
 		Version: 1,
 	}
@@ -42,7 +42,6 @@ func deriveQUIC(s *captureSet, p *profile.Profile) (*profile.QUIC, error) {
 	q.AckOnlyLimit, q.AckOnlyFrame = ackOnly(s, e)
 	q.SpinBit = spinBit(s)
 	q.Tokens = tokens(s, e)
-	q.ZeroRTT = zeroRTT(s, p, e)
 	q.CloseReply = closeReply(s, e)
 
 	return q, e.err()

@@ -48,12 +48,18 @@ const h3PageHost = "www.h3-a.test"
 // the stalls decided (raceStall) runs again, up to edgeRuns times in all,
 // as such a run compares nothing of mimicry's. Known differences are in
 // h3EdgeGaps and h3EdgeSchedulingGaps. Each page runs twice: with
-// Config.BrowserQUICFallback ("browser"), where that is all that differs,
-// and with the fast default ("fast"), whose differences besides are
-// exactly h3EdgeFastGaps: requests that stop waiting on a QUIC attempt
-// the server has not answered, and the TCP connections they open. A
-// healthy page has none. Subtests run in parallel (about 75 s).
+// Config.BrowserQUICFallback and Config.BrowserDialDelay ("browser"),
+// where that is all that differs, and with the fast default ("fast"),
+// whose differences besides are exactly h3EdgeFastGaps: requests that
+// stop waiting on a QUIC attempt the server has not answered, and the TCP
+// connections they open (a healthy page has none), and dials that start
+// at once (checkDialDelays). Subtests run in parallel (about 75 s).
 func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
+	dials := &dialRecord{}
+	t.Cleanup(func() {
+		dials.compare(t)
+	})
+
 	for _, name := range testProfiles(t) {
 		for _, sc := range []*server.Scenario{server.H3Blackhole, server.H3Broken, server.H3VN, server.H3V2, server.H3Early, server.H3TooEarly, server.H3StreamsBlocked} {
 			for _, fast := range []bool{false, true} {
@@ -84,6 +90,7 @@ func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
 					skip, unused := edgeGapsFor(t, capture.Source(p, sc.Name)+"/"+sc.Name, fast)
 					config := func(cfg *mimicry.Config) {
 						cfg.BrowserQUICFallback = !fast
+						cfg.BrowserDialDelay = !fast
 					}
 
 					got := runH3Schedule(t, p, sc, want[0], skip, config)
@@ -102,6 +109,7 @@ func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
 					}
 
 					compareEdge(t, p, got, want, skip)
+					dials.add(name, p, !fast, checkDialDelays(t, p, got, !fast))
 
 					if sc == server.H3StreamsBlocked {
 						compareBurstWaits(t, got, want, skip)
@@ -149,56 +157,19 @@ var h3EdgeGaps = func() map[string]string {
 		}
 	}
 
-	// Safari resumed QUIC with 0-RTT after closing a connection itself
-	// (its path's close, its own close on the server's GOAWAY), which no
-	// profile section describes (Safari has no tls.resumption); mimicry's
-	// reconnections are fresh, so the replayed requests go in 1-RTT and
-	// the attempt after the close sends no 0-RTT close when dropped.
-	// Safari also closes a QUIC connection itself on the server's GOAWAY,
-	// which no profile field describes.
+	// Safari's OPTIONS fetch: the h3-early pages make one, its kinds
+	// captures none.
 	for _, name := range []string{"safari-26-macos", "safari-27-macos"} {
-		const resumed = "Safari resumed this QUIC connection with 0-RTT after closing the last itself; no profile section describes Safari's resumption, so mimicry's is fresh"
-		for _, k := range []string{
-			"edge QUIC www.h3-a.test #2",
-			"edge QUIC www.h3-b.test #2",
-			"edge QUIC www.h3-b.test #2 datagrams",
-			"edge QUIC www.h3-b.test #2 last datagram ms",
-		} {
-			gaps[name+"/h3-broken "+k] = resumed
-		}
-
-		for _, l := range []string{"silence", "silent1", "silent2", "silent3", "silent4", "silent5", "silent6"} {
-			gaps[name+"/h3-broken edge request /h3/"+l+".so sent"] = "replayed in 0-RTT on Safari's resumed connection; " + resumed
-			gaps[name+"/h3-broken edge request /h3/"+l+".so streams"] = "as its sending"
-		}
-
-		gaps[name+"/h3-broken edge QUIC www.h3-b.test #1 closed by"] = "Safari closes a QUIC connection itself when the server's GOAWAY arrives; no profile field describes it"
-		// On the h3-early pages Safari resumes with 0-RTT after an idle
-		// timeout too, by the method rule Chrome's profile holds (GET,
-		// HEAD and OPTIONS early, the rest held for HANDSHAKE_DONE; a 425
-		// sent again on its connection); mimicry's Safari connections are
-		// fresh, so none of it shows.
-		const (
-			idleResumed = "Safari resumed this QUIC connection with 0-RTT after the last idled out (GET, HEAD and OPTIONS in 0-RTT, the other methods held until HANDSHAKE_DONE, a 425 sent again on the connection: report h3-early-2026-10-26); no profile section describes Safari's resumption, so mimicry's is fresh"
-			noOptions   = "Safari's profile has no OPTIONS fetch (none in its kinds captures; kindsgen does not read the h3-early pages), so mimicry refuses it (ErrNotMeasured) and its form.so navigation goes on QUIC #9, not #10"
-		)
+		const noOptions = "Safari's profile has no OPTIONS fetch (none in its kinds captures; kindsgen does not read the h3-early pages), so mimicry refuses it (ErrNotMeasured) and its form.so navigation goes on QUIC #9, not #10"
 
 		for _, sc := range []string{"h3-early", "h3-too-early"} {
-			for i := 2; i <= 8; i++ {
-				gaps[fmt.Sprintf("%s/%s edge QUIC www.h3-a.test #%d", name, sc, i)] = idleResumed
-			}
-
-			for _, l := range []string{"post", "put", "delete", "xhr-post", "pair-get", "pair-post", "get", "head", "form"} {
-				gaps[name+"/"+sc+" edge request /h3/"+l+".so sent"] = idleResumed
-				gaps[name+"/"+sc+" edge request /h3/"+l+".so streams"] = idleResumed
-			}
-
 			for _, k := range []string{
 				"request /h3/options.so not measured",
 				"request /h3/options.so sent",
 				"request /h3/options.so streams",
 				"request /h3/options.so delay ms",
-				"QUIC www.h3-a.test #9",
+				"request /h3/form.so sent",
+				"request /h3/form.so streams",
 				"QUIC www.h3-a.test #9 closed by",
 				"QUIC www.h3-a.test #9 trigger",
 				"QUIC www.h3-a.test #10",
@@ -227,7 +198,7 @@ var h3EdgeSchedulingGaps = func() map[string]string {
 
 	for _, name := range []string{"safari-26-macos", "safari-27-macos"} {
 		for _, sc := range []string{"h3-early", "h3-too-early"} {
-			gaps[name+"/"+sc+" edge QUIC www.h3-a.test #6 trigger"] = "Safari made the pair's GET and POST together (0–1 ms apart) 5–9 ms before its connection started, so the POST is the later trigger; mimicry's GET starts its connection at once, before or after its POST is made as this process schedules the two"
+			gaps[name+"/"+sc+" edge QUIC www.h3-a.test #6 trigger"] = "Safari made the pair's GET and POST together (0–1 ms apart) 5–9 ms before its connection started, so the POST is the later trigger; mimicry's replay makes both in the same millisecond, before its resumedDialDelayMs dial, so which counts as the later is this process's scheduling"
 		}
 	}
 
@@ -1284,8 +1255,11 @@ func checkPathMoves(t *testing.T, p *profile.Profile, who string, page *capture.
 // compareEdge holds mimicry's page to every browser sample, the ClientHello
 // and transport parameters of a connection retried after Version
 // Negotiation to the browser's retries (Firefox's: another hello than its
-// first flight's, tls.quic.versionNegotiation), and mimicry's and every
-// sample's moves to a new path to the profile's rule (checkPathMoves).
+// first flight's, tls.quic.versionNegotiation), each resumed connection's
+// ClientHello to the browser's resumed ones (tls.quic.earlyDataBefore),
+// mimicry's and every sample's moves to a new path to the profile's rule
+// (checkPathMoves), and mimicry's held requests to requestsAfterConfirmed
+// (checkHeldConfirmed).
 func compareEdge(t *testing.T, p *profile.Profile, got *capture.Page, want []*capture.Page, skip func(string) bool) {
 	t.Helper()
 
@@ -1327,6 +1301,267 @@ func compareEdge(t *testing.T, p *profile.Profile, got *capture.Page, want []*ca
 	if len(retries) > 0 && len(vnRetries(got)) == 0 {
 		t.Error("no connection retried after Version Negotiation; the browser retried")
 	}
+
+	// A resumed connection's hello (Safari resumes only on these pages):
+	// each of mimicry's matches some resumed one of the browser's.
+	resumed := make([]*quictrace.Conn, 0, len(want))
+	for _, w := range want {
+		resumed = append(resumed, resumedConns(w)...)
+	}
+
+	for _, c := range resumedConns(got) {
+		t.Run("resumed hello", func(t *testing.T) {
+			if len(resumed) == 0 {
+				t.Fatal("the browser resumed no connection")
+			}
+
+			compareHello(t, p, c, resumed)
+		})
+	}
+
+	checkHeldConfirmed(t, p, got)
+}
+
+// checkHeldConfirmed holds mimicry's requests held out of 0-RTT to
+// http3.requestsAfterConfirmed: each one's stream reaches the server after
+// the server's answer to the client's Finished (its first datagram after
+// the Finished arrived: ACK and HANDSHAKE_DONE), as h3gen reads the
+// browser's.
+func checkHeldConfirmed(t *testing.T, p *profile.Profile, got *capture.Page) {
+	t.Helper()
+
+	h := p.HTTP3
+	if !h.RequestsAfterConfirmed || h.EarlyData == nil {
+		return
+	}
+
+	for _, c := range got.QUIC {
+		if !c.EarlyData || c.H3 == nil {
+			continue
+		}
+
+		finished, _ := c.FinishedDatagram()
+		starts := c.StreamStarts()
+
+		for _, r := range c.H3.Requests {
+			s, ok := starts[r.Stream]
+			if !ok || s.PacketType != quictrace.Packet1RTT || slices.Contains(h.EarlyData.Methods, r.Method) {
+				continue
+			}
+
+			if !afterConfirmation(c, finished, s.Datagram) {
+				t.Errorf("%s on QUIC %s left before the handshake was confirmed (requestsAfterConfirmed)", r.Path, c.Host)
+			}
+		}
+	}
+}
+
+// afterConfirmation reports whether c's client datagram sent arrived
+// after the server answered its Finished (datagram finished): after the
+// server's first datagram sent once the Finished had arrived.
+func afterConfirmation(c *quictrace.Conn, finished, sent int) bool {
+	if finished < 0 || sent >= len(c.Datagrams) {
+		return false
+	}
+
+	at := c.Datagrams[finished].Micros
+	for _, d := range c.Server {
+		if d.Micros > at {
+			return c.Datagrams[sent].Micros > d.Micros
+		}
+	}
+
+	return false
+}
+
+// dialClock is the browsers' dial delays' resolution, as h3gen reads them
+// (dialClockMillis): the ?t= clock's rounding. dialWindow bounds how long
+// after its trigger a dial was the trigger's (h3gen's dialWindowMillis);
+// a later one followed something else (a reconnection).
+const (
+	dialClock  = 3
+	dialWindow = 50
+)
+
+// checkDialDelays holds mimicry's QUIC dials to the profile's dial delays
+// (http3.discovery.dialDelayMs, resumedDialDelayMs), each measured from
+// the request to its host that triggered it, net of this process's
+// stalls where an upper bound is held. With Config.BrowserDialDelay
+// (browser): none starts sooner than the samples' least delay less the
+// issue time's rounding (triggerSlack); their median, given 5, no sooner
+// than the samples' median less triggerSlack; and some starts more than
+// dialClock after its trigger, once the page has enough dials that none
+// doing so would be a 1-in-10,000 draw from the samples. By default: the
+// dials start at once, their median no more than dialClock +
+// triggerSlack after the trigger, which tells a delay whose samples'
+// median lies beyond that (Safari's) from none. The race detector slows
+// mimicry's own dial setup (its hello and keys) by 5–12 ms, about the
+// browsers' delay, so under it the default goes unchecked here; the
+// modes' difference (dialRecord, from the delays returned) holds both
+// with or without it.
+func checkDialDelays(t *testing.T, p *profile.Profile, got *capture.Page, browser bool) [2][]int64 {
+	t.Helper()
+
+	d := p.HTTP3.Discovery
+	v := viewEdge(got)
+	samples := [2][]int{d.DialDelayMillis, d.ResumedDialDelayMillis}
+
+	// Per kind (fresh, resumed): each dial's delay, raw and net of stalls.
+	var raw, net [2][]int64
+
+	for host, conns := range v.quic {
+		for i, c := range conns {
+			kind := 0
+			if c.Resumed {
+				kind = 1
+			}
+
+			s := samples[kind]
+
+			tr := v.trigger(c.Millis)
+			if len(s) == 0 || tr == nil || tr.delay < 0 || !slices.ContainsFunc(tr.sent, func(s string) bool {
+				return strings.Contains(s, " "+host+" ")
+			}) || slices.ContainsFunc(v.tcp[host], func(tcp *h2trace.Trace) bool {
+				// TCP dialled first: Discovery.RaceAfterGoAway's dial, on
+				// the TCP response (Firefox), as h3gen leaves it out.
+				return tcp.Millis >= tr.issued && tcp.Millis < c.Millis
+			}) {
+				continue
+			}
+
+			delay := c.Millis - tr.issued
+			if browser && delay < int64(s[0]-triggerSlack) {
+				t.Errorf("QUIC %s #%d started %d ms after %s, before the profile's least dial delay (%d ms)", host, i+1, delay, tr.label, s[0])
+			}
+
+			if delay <= dialWindow {
+				raw[kind] = append(raw[kind], delay)
+				net[kind] = append(net[kind], delay-int64(stalledIn(got, tr.issued, delay)))
+			}
+		}
+	}
+
+	for kind, s := range samples {
+		ds := net[kind]
+		if len(s) == 0 || len(ds) == 0 {
+			continue
+		}
+
+		slices.Sort(ds)
+
+		if !browser {
+			if m := ds[len(ds)/2]; !raceEnabled && m > dialClock+triggerSlack {
+				t.Errorf("dials (resumed %v) held back by default: their median started %d ms after its trigger", kind == 1, m)
+			}
+
+			continue
+		}
+
+		// The chance that every dial drew no more than dialClock.
+		under := float64(len(s)-len(slices.DeleteFunc(slices.Clone(s), func(v int) bool {
+			return v <= dialClock
+		}))) / float64(len(s))
+		if ds[len(ds)-1] <= dialClock && math.Pow(under, float64(len(ds))) < 1e-4 {
+			t.Errorf("none of %d dials (resumed %v) started more than %d ms after its trigger, net of stalls; the profile's delays are %v ms", len(ds), kind == 1, dialClock, s)
+		}
+
+		// A stall only lengthens a delay: the median, stalls in, holds
+		// to the samples' less the issue time's rounding.
+		rs := slices.Sorted(slices.Values(raw[kind]))
+		if m := rs[len(rs)/2]; len(rs) >= 5 && m < int64(s[len(s)/2]-triggerSlack) {
+			t.Errorf("the median of %d dials (resumed %v) started %d ms after its trigger, before the samples' median of %d ms", len(rs), kind == 1, m, s[len(s)/2])
+		}
+	}
+
+	return raw
+}
+
+// dialRecord gathers each profile's dial delays (checkDialDelays), per
+// mode and kind, across the edge pages, to compare the modes once every
+// page has run (compare): mimicry's own dial setup takes about as long as
+// the browsers' delay (more under the race detector), which the
+// difference of the two modes' medians cancels.
+type dialRecord struct {
+	mu sync.Mutex
+	// by is per profile name: samples, then each mode's (fast, browser)
+	// delays by kind (fresh, resumed).
+	by map[string]*profileDials
+}
+
+type profileDials struct {
+	samples [2][]int
+	delays  [2][2][]int64
+}
+
+// add records name's page's delays in its mode.
+func (r *dialRecord) add(name string, p *profile.Profile, browser bool, raw [2][]int64) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.by == nil {
+		r.by = map[string]*profileDials{}
+	}
+
+	pd := r.by[name]
+	if pd == nil {
+		d := p.HTTP3.Discovery
+
+		pd = &profileDials{
+			samples: [2][]int{d.DialDelayMillis, d.ResumedDialDelayMillis},
+		}
+		r.by[name] = pd
+	}
+
+	mode := 0
+	if browser {
+		mode = 1
+	}
+
+	for kind := range raw {
+		pd.delays[mode][kind] = append(pd.delays[mode][kind], raw[kind]...)
+	}
+}
+
+// compare holds, per profile and kind with samples and 8 dials or more in
+// each mode, the browser mode's median delay above the fast one's by at
+// least half the samples' median: the delay is applied with
+// Config.BrowserDialDelay and not by default.
+func (r *dialRecord) compare(t *testing.T) {
+	t.Helper()
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	median := func(vs []int64) int64 {
+		vs = slices.Sorted(slices.Values(vs))
+		return vs[len(vs)/2]
+	}
+
+	for _, name := range slices.Sorted(maps.Keys(r.by)) {
+		pd := r.by[name]
+		for kind, s := range pd.samples {
+			fast, browser := pd.delays[0][kind], pd.delays[1][kind]
+			if len(s) == 0 || len(fast) < 8 || len(browser) < 8 {
+				continue
+			}
+
+			if diff, want := median(browser)-median(fast), int64(s[len(s)/2]/2); diff < want {
+				t.Errorf("%s: the dials (resumed %v) start %d ms later with BrowserDialDelay than without (medians of %d and %d dials); the samples' median is %d ms, so at least %d", name, kind == 1, diff, len(browser), len(fast), s[len(s)/2], want)
+			}
+		}
+	}
+}
+
+// resumedConns are page's QUIC connections that offered a session.
+func resumedConns(page *capture.Page) []*quictrace.Conn {
+	var out []*quictrace.Conn
+	for _, c := range page.QUIC {
+		if c.Resumed {
+			out = append(out, c)
+		}
+	}
+
+	return out
 }
 
 // compareBurstWaits holds the h3-streams-blocked page's bursts to the

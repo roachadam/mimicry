@@ -23,10 +23,11 @@ type quicConn struct {
 }
 
 // quicHello derives tls.quic, how QUIC ClientHellos differ from p.TLS, from
-// every connection in p's h3 captures. Full hellos must all differ alike;
+// every connection in p's h3 captures and every resumed one in its edge
+// captures (Safari resumed only there). Full hellos must all differ alike;
 // their order is fixed or shuffled with trailing extensions kept last.
-// Resumed hellos must follow p.TLS.Resumption plus early_data. Nil without
-// h3 captures.
+// Resumed hellos must follow p.TLS.Resumption, where TLS resumes, plus
+// early_data. Nil without h3 captures.
 func quicHello(dir string, p *profile.Profile) (*profile.QUICHello, error) {
 	t := &p.TLS
 	conns, err := quicConns(dir, p)
@@ -72,7 +73,7 @@ func quicHello(dir string, p *profile.Profile) (*profile.QUICHello, error) {
 
 	order(out, full, resumed)
 
-	if len(resumed) > 0 && t.Resumption != nil && extension(t, profile.ExtEncryptedClientHello) != nil {
+	if len(resumed) > 0 && extension(t, profile.ExtEncryptedClientHello) != nil {
 		for _, c := range resumed {
 			if e := extension(c.hello, profile.ExtEncryptedClientHello); e != nil {
 				out.ResumedECHPayloadLengths = append(out.ResumedECHPayloadLengths, e.ECH.PayloadLengths...)
@@ -84,8 +85,8 @@ func quicHello(dir string, p *profile.Profile) (*profile.QUICHello, error) {
 		out.ResumedECHPayloadLengths = slices.Compact(out.ResumedECHPayloadLengths)
 		// As for full hellos, lengths within the TLS hello's resumed set use that
 		// set: few samples show only part of it.
-		if within(out.ResumedECHPayloadLengths, t.Resumption.ECHPayloadLengths) {
-			out.ResumedECHPayloadLengths = slices.Clone(t.Resumption.ECHPayloadLengths)
+		if r := t.Resumption; r != nil && within(out.ResumedECHPayloadLengths, r.ECHPayloadLengths) {
+			out.ResumedECHPayloadLengths = slices.Clone(r.ECHPayloadLengths)
 		}
 	}
 
@@ -104,15 +105,21 @@ func quicHello(dir string, p *profile.Profile) (*profile.QUICHello, error) {
 }
 
 // quicConns reads every QUIC connection's ClientHello from the h3
-// captures, in file, sample and connection order.
+// captures, then every resumed one's from the edge captures, in file,
+// sample and connection order.
 func quicConns(dir string, p *profile.Profile) ([]quicConn, error) {
 	files, err := server.H3ProfileCaptures(dir, p)
 	if err != nil {
 		return nil, err
 	}
 
+	edge, err := server.H3EdgeCaptures(dir, p)
+	if err != nil {
+		return nil, err
+	}
+
 	var out []quicConn
-	for _, f := range files {
+	for i, f := range slices.Concat(files, edge) {
 		path := f.Path
 
 		pages, err := capture.LoadPages(path)
@@ -122,6 +129,10 @@ func quicConns(dir string, p *profile.Profile) ([]quicConn, error) {
 
 		for si, page := range pages {
 			for ci, c := range page.QUIC {
+				if i >= len(files) && !c.Resumed {
+					continue
+				}
+
 				at := fmt.Sprintf("%s: sample %d, QUIC connection %d", path, si+1, ci+1)
 				if c.Hello == nil {
 					return nil, fmt.Errorf("%s: no ClientHello: %s", at, c.HelloError)
@@ -221,8 +232,11 @@ func within[T comparable](s, of []T) bool {
 
 // order sets out's extension order: fixed if every full hello's is the
 // same, with quic_transport_parameters placed before the extension that
-// follows it; otherwise shuffled, with Last the extensions every hello,
-// full or resumed (pre_shared_key aside), ends with.
+// follows it, and a resumed hello's early_data before the extension that
+// follows it in the first resumed hello (none where pre_shared_key does);
+// otherwise shuffled, with Last the extensions every hello, full or
+// resumed (pre_shared_key aside), ends with. checkQUICHello holds every
+// hello to the order.
 func order(out *profile.QUICHello, full, resumed []quicConn) {
 	first := typesOf(full[0].hello, false)
 	fixed := true
@@ -237,6 +251,13 @@ func order(out *profile.QUICHello, full, resumed []quicConn) {
 		out.ExtensionOrder = profile.ExtensionOrderFixed
 		if i := slices.Index(first, profile.ExtQUICTransportParameters); i >= 0 && i+1 < len(first) {
 			out.TransportParametersBefore = &first[i+1]
+		}
+
+		if len(resumed) > 0 {
+			got := typesOf(resumed[0].hello, true)
+			if i := slices.Index(got, profile.ExtEarlyData); i >= 0 && i+1 < len(got) {
+				out.EarlyDataBefore = &got[i+1]
+			}
 		}
 
 		return
@@ -278,8 +299,9 @@ func typesOf(h *profile.TLS, noPSK bool) []profile.Code {
 // expectedQUICHello is the QUIC hello q describes, from t, in t's order
 // with quic_transport_parameters (body tp) added, before
 // q.TransportParametersBefore or else last, and q.Last moved last; resumed,
-// without t.Resumption.Drop, with early_data before the moved ones and
-// pre_shared_key last.
+// without t.Resumption.Drop where TLS resumes, with early_data before
+// q.EarlyDataBefore or else before the moved ones, and pre_shared_key
+// last.
 func expectedQUICHello(t *profile.TLS, q *profile.QUICHello, tp []byte, resumed bool) *profile.TLS {
 	out := profile.TLS{
 		LegacyVersion:      t.LegacyVersion,
@@ -304,13 +326,21 @@ func expectedQUICHello(t *profile.TLS, q *profile.QUICHello, tp []byte, resumed 
 		out.Extensions = append(out.Extensions, e)
 	}
 
+	early := profile.Extension{
+		Type: profile.ExtEarlyData,
+	}
+
 	for _, e := range t.Extensions {
-		if slices.Contains(q.Drop, e.Type) || resumed && slices.Contains(t.Resumption.Drop, e.Type) {
+		if slices.Contains(q.Drop, e.Type) || resumed && t.Resumption != nil && slices.Contains(t.Resumption.Drop, e.Type) {
 			continue
 		}
 
 		if b := q.TransportParametersBefore; b != nil && e.Type == *b {
 			add(params)
+		}
+
+		if b := q.EarlyDataBefore; resumed && b != nil && e.Type == *b {
+			add(early)
 		}
 
 		for _, r := range q.Replace {
@@ -333,10 +363,8 @@ func expectedQUICHello(t *profile.TLS, q *profile.QUICHello, tp []byte, resumed 
 		add(params)
 	}
 
-	if resumed {
-		out.Extensions = append(out.Extensions, profile.Extension{
-			Type: profile.ExtEarlyData,
-		})
+	if resumed && q.EarlyDataBefore == nil {
+		out.Extensions = append(out.Extensions, early)
 	}
 
 	slices.SortStableFunc(last, func(a, b profile.Extension) int {
@@ -357,10 +385,6 @@ func expectedQUICHello(t *profile.TLS, q *profile.QUICHello, tp []byte, resumed 
 // describe: contents as diff.Compare does, its order exactly when fixed,
 // and with q.Last (then pre_shared_key) at its end when shuffled.
 func checkQUICHello(t *profile.TLS, q *profile.QUICHello, c quicConn) error {
-	if c.resumed && t.Resumption == nil {
-		return errors.New("resumed, but the profile does not resume sessions")
-	}
-
 	var tp []byte
 	if e := extension(c.hello, profile.ExtQUICTransportParameters); e != nil {
 		tp = e.Data

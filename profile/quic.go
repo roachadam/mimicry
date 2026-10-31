@@ -73,8 +73,12 @@ type QUIC struct {
 	SpinBit string `json:"spinBit"`
 	// Tokens sends the server's last NEW_TOKEN token on a new connection.
 	Tokens bool `json:"tokens,omitempty"`
-	// ZeroRTT sends a resumed connection's first requests in 0-RTT. False
-	// with TLS.Resumption: not measured.
+	// ZeroRTT resumes QUIC connections with a ticket an earlier QUIC
+	// connection to the origin received, and sends a resumed connection's
+	// first requests in 0-RTT (HTTP3.EarlyData). False: every QUIC
+	// connection is a full handshake (resuming without 0-RTT was never
+	// captured). Independent of TLS.Resumption, which is TCP's: Safari
+	// resumes over QUIC only.
 	ZeroRTT bool `json:"zeroRtt,omitempty"`
 	// CloseReply answers the server's CONNECTION_CLOSE with a NO_ERROR
 	// CONNECTION_CLOSE (frame type 0x1d) plus ACK; otherwise silence.
@@ -631,9 +635,9 @@ func (v *QUICVersion) UnmarshalText(text []byte) error {
 // QUICHello is how a browser's QUIC ClientHello differs from its TLS one
 // (Profile.TLS): TLS's extensions without Drop, Replace applied, plus
 // quic_transport_parameters, ordered per ExtensionOrder. A resumed hello
-// also applies TLS.Resumption.Drop, adds early_data with QUIC.ZeroRTT,
-// and ends with pre_shared_key. Required with Profile.QUIC; derived by
-// internal/harness/cmd/hellogen.
+// (QUIC.ZeroRTT) also applies TLS.Resumption.Drop where TLS resumes,
+// adds early_data, and ends with pre_shared_key. Required with
+// Profile.QUIC; derived by internal/harness/cmd/hellogen.
 type QUICHello struct {
 	// CipherSuites replaces TLS.CipherSuites. Required.
 	CipherSuites []Code `json:"cipherSuites"`
@@ -655,8 +659,12 @@ type QUICHello struct {
 	// TransportParametersBefore is the extension quic_transport_parameters
 	// precedes in a fixed order. Required with ExtensionOrderFixed.
 	TransportParametersBefore *Code `json:"transportParametersBefore,omitempty"`
+	// EarlyDataBefore is the extension early_data precedes in a resumed
+	// hello of a fixed order (Safari: supported_versions); nil puts it
+	// after the others, before Last.
+	EarlyDataBefore *Code `json:"earlyDataBefore,omitempty"`
 	// ResumedECHPayloadLengths are GREASE ECH's payload lengths in a
-	// resumed hello. Required with TLS.Resumption and
+	// resumed hello. Required with QUIC.ZeroRTT and
 	// encrypted_client_hello.
 	ResumedECHPayloadLengths []uint16 `json:"resumedEchPayloadLengths,omitempty"`
 	// VersionNegotiation is how the hello of a connection retried after

@@ -32,7 +32,7 @@ var pseudoH3 = []string{
 // may come first: hellogen writes it before h3gen writes the others.
 func (c *checker) checkH3(p *Profile) {
 	if p.TLS.QUIC != nil {
-		c.checkQUICHello(&p.TLS)
+		c.checkQUICHello(p)
 	}
 
 	switch {
@@ -53,7 +53,7 @@ func (c *checker) checkH3(p *Profile) {
 		c.add("tls.quic", "is required with quic")
 	}
 
-	c.checkQUIC(p.QUIC, p.TLS.Resumption != nil)
+	c.checkQUIC(p.QUIC)
 
 	if p.TLS.QUIC != nil && (p.TLS.QUIC.VersionNegotiation != nil) != p.QUIC.VersionNegotiation.Retry {
 		c.add("tls.quic.versionNegotiation", "is required with quic.versionNegotiation.retry, and only then")
@@ -62,7 +62,7 @@ func (c *checker) checkH3(p *Profile) {
 	c.checkHTTP3(p)
 }
 
-func (c *checker) checkQUIC(q *QUIC, resumes bool) {
+func (c *checker) checkQUIC(q *QUIC) {
 	const path = "quic"
 	if q.Version != quicVersion1 {
 		c.add(path+".version", "%d must be 1: QUIC version 1 is the only one implemented", q.Version)
@@ -119,10 +119,6 @@ func (c *checker) checkQUIC(q *QUIC, resumes bool) {
 
 	if !slices.Contains([]string{SpinBitZero, SpinBitRandom, SpinBitSpin}, q.SpinBit) {
 		c.add(path+".spinBit", "%q must be %q, %q or %q", q.SpinBit, SpinBitZero, SpinBitRandom, SpinBitSpin)
-	}
-
-	if q.ZeroRTT && !resumes {
-		c.add(path+".zeroRtt", "needs tls.resumption: 0-RTT resumes a session")
 	}
 
 	if (q.AckOnlyLimit > 0) != (q.AckOnlyFrame != "") || q.AckOnlyLimit < 0 || q.AckOnlyFrame != "" && q.AckOnlyFrame != AckOnlyMaxData {
@@ -393,8 +389,11 @@ func (c *checker) checkTransportParameter(at string, q *QUIC, tp TransportParame
 	}
 }
 
-// checkQUICHello checks tls.quic against the hello it changes.
-func (c *checker) checkQUICHello(t *TLS) {
+// checkQUICHello checks tls.quic against the hello it changes, and its
+// resumed hello against quic.zeroRtt once quic is written (h3gen runs
+// after hellogen).
+func (c *checker) checkQUICHello(p *Profile) {
+	t := &p.TLS
 	h := t.QUIC
 
 	const path = "tls.quic"
@@ -452,9 +451,17 @@ func (c *checker) checkQUICHello(t *TLS) {
 			c.add(path+".transportParametersBefore", "is required with a fixed order: an extension the hello sends")
 		}
 
+		if b := h.EarlyDataBefore; b != nil && (*b == ExtQUICTransportParameters || !present(*b)) {
+			c.add(path+".earlyDataBefore", "%s is not an extension the hello sends", *b)
+		}
+
 	case ExtensionOrderShuffled:
 		if h.TransportParametersBefore != nil {
 			c.add(path+".transportParametersBefore", "applies only to a fixed order")
+		}
+
+		if h.EarlyDataBefore != nil {
+			c.add(path+".earlyDataBefore", "applies only to a fixed order")
 		}
 
 		c.checkUnique(path+".last", h.Last)
@@ -469,12 +476,15 @@ func (c *checker) checkQUICHello(t *TLS) {
 		c.add(path+".extensionOrder", "%q must be %q or %q", h.ExtensionOrder, ExtensionOrderFixed, ExtensionOrderShuffled)
 	}
 
+	// hellogen writes the resumed hello's fields from the resumed hellos
+	// before h3gen writes quic.zeroRtt from the same connections, so only
+	// a zeroRtt profile's missing ones are an error.
 	ech := t.extension(ExtEncryptedClientHello) != nil && !dropped[ExtEncryptedClientHello]
 	switch {
-	case t.Resumption != nil && ech:
+	case p.QUIC != nil && p.QUIC.ZeroRTT && ech:
 		c.checkPayloadLengths(path+".resumedEchPayloadLengths", h.ResumedECHPayloadLengths)
-	case len(h.ResumedECHPayloadLengths) > 0:
-		c.add(path+".resumedEchPayloadLengths", "applies only to a hello that resumes and sends encrypted_client_hello")
+	case len(h.ResumedECHPayloadLengths) > 0 && !ech:
+		c.add(path+".resumedEchPayloadLengths", "applies only to a hello that sends encrypted_client_hello")
 	}
 
 	if r := h.VersionNegotiation; r != nil {
@@ -602,6 +612,18 @@ func (c *checker) checkHTTP3(p *Profile) {
 		c.add(path+".discovery.raceDelayMs", "is required with raceAfterGoaway, and only then: 0 <= min <= max")
 	}
 
+	if s := d.DialDelayMillis; !slices.IsSorted(s) || len(s) > 0 && s[0] < 0 {
+		c.add(path+".discovery.dialDelayMs", "must be sorted delays of 0 ms or more")
+	}
+
+	if s := d.ResumedDialDelayMillis; !slices.IsSorted(s) || len(s) > 0 && (s[0] < 0 || !p.QUIC.ZeroRTT) {
+		c.add(path+".discovery.resumedDialDelayMs", "applies only with quic.zeroRtt: sorted delays of 0 ms or more")
+	}
+
+	if h.EarlyStreamsWithRequest && (h.EarlyRequestFirst || !p.QUIC.ZeroRTT) {
+		c.add(path+".earlyStreamsWithRequest", "needs quic.zeroRtt, and not earlyRequestFirst")
+	}
+
 	c.checkFallback(p)
 }
 
@@ -641,6 +663,10 @@ func (c *checker) checkEarlyData(p *Profile) {
 		case slices.Contains(d.Methods[:i], m):
 			c.add(at, "repeats %q", m)
 		}
+	}
+
+	if d.HeldWithFinished && p.HTTP3.RequestsAfterConfirmed {
+		c.add(path+".heldWithFinished", "contradicts http3.requestsAfterConfirmed: a held request leaves once the handshake is confirmed, after the Finished")
 	}
 }
 

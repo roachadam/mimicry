@@ -112,3 +112,4 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0043](decisions/0043-http3-ack-rate-opt-in.md) | HTTP/3 keeps Chrome's ACK rate unless configured | Accepted |
 | [0045](decisions/0045-udp-receive-buffer-default.md) | QUIC sockets ask for Chrome's 1 MB receive buffer by default | Accepted |
 | [0049](decisions/0049-streams-blocked.md) | STREAMS_BLOCKED as each browser sends it | Accepted |
+| [0050](decisions/0050-quic-resumption-and-dial-delays.md) | QUIC resumption by `quic.zeroRtt` alone; dial delays per kind; close on GOAWAY | Accepted |

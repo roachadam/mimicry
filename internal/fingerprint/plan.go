@@ -83,8 +83,8 @@ func (p *Plan) Hello() Hello {
 	return p.hello(rand.IntN)
 }
 
-// Resumes reports whether the browser resumes sessions (profile
-// tls.resumption).
+// Resumes reports whether the browser resumes sessions over TCP (profile
+// tls.resumption); over QUIC, quic.zeroRtt says.
 func (p *Plan) Resumes() bool {
 	return p.tls.Resumption != nil
 }

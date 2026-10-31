@@ -40,7 +40,7 @@ func compileQUIC(p *profile.Profile) *quicPlan {
 		sessionIDLength: q.SessionIDLength,
 		fresh:           compileQUICHello(p, false),
 	}
-	if p.TLS.Resumption != nil {
+	if p.QUIC.ZeroRTT {
 		plan.resumed = compileQUICHello(p, true)
 	}
 
@@ -94,8 +94,9 @@ func compileQUICRetry(fresh quicHello, r *profile.QUICHelloRetry) quicHello {
 
 // compileQUICHello lays out the QUIC hello's extensions from TLS's, with
 // tls.quic's drops, replaced bodies and quic_transport_parameters placed as
-// the profile says; a resumed hello adds early_data where the browser sends
-// 0-RTT and ends with pre_shared_key.
+// the profile says; a resumed hello leaves out what a resumed TLS hello
+// does, adds early_data where the browser puts it and ends with
+// pre_shared_key.
 func compileQUICHello(p *profile.Profile, resumed bool) quicHello {
 	q := p.TLS.QUIC
 	shuffled := q.ExtensionOrder == profile.ExtensionOrderShuffled
@@ -107,12 +108,16 @@ func compileQUICHello(p *profile.Profile, resumed bool) quicHello {
 
 	placed := false
 
+	early := profile.Extension{
+		Type: profile.ExtEarlyData,
+	}
+
 	for _, e := range p.TLS.Extensions {
 		if slices.Contains(q.Drop, e.Type) || e.Type == profile.ExtPreSharedKey {
 			continue
 		}
 
-		if resumed && slices.Contains(p.TLS.Resumption.Drop, e.Type) {
+		if resumed && p.TLS.Resumption != nil && slices.Contains(p.TLS.Resumption.Drop, e.Type) {
 			continue
 		}
 
@@ -134,6 +139,10 @@ func compileQUICHello(p *profile.Profile, resumed bool) quicHello {
 			placed = true
 		}
 
+		if resumed && !shuffled && q.EarlyDataBefore != nil && e.Type == *q.EarlyDataBefore {
+			exts = append(exts, early)
+		}
+
 		exts = append(exts, e)
 	}
 
@@ -141,10 +150,8 @@ func compileQUICHello(p *profile.Profile, resumed bool) quicHello {
 		exts = append(exts, tp)
 	}
 
-	if resumed && p.QUIC.ZeroRTT {
-		exts = append(exts, profile.Extension{
-			Type: profile.ExtEarlyData,
-		})
+	if resumed && (shuffled || q.EarlyDataBefore == nil) {
+		exts = append(exts, early)
 	}
 
 	h := quicHello{}
@@ -205,8 +212,8 @@ func (p *Plan) QUICHello() Hello {
 }
 
 // ResumedQUICHello returns a new QUIC connection's ClientHello offering a
-// ticket: early_data when the browser sends 0-RTT, pre_shared_key last.
-// Only for a profile with QUIC, and a plan that Resumes.
+// ticket: early_data where the browser puts it, pre_shared_key last. Only
+// for a profile with QUIC.ZeroRTT.
 func (p *Plan) ResumedQUICHello() Hello {
 	return p.quicHello(p.quic.resumed, rand.IntN)
 }

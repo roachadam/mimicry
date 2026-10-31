@@ -210,9 +210,11 @@ func New(qc *quic.Conn, p *profile.Profile, opts Options) (*Conn, error) {
 
 	early := qc.EarlyData()
 	switch {
-	case early && opts.Pending && h.EarlyRequestFirst:
-		// The request goes first; its start opens the streams after it,
-		// and uncorks.
+	case early && opts.Pending && (h.EarlyRequestFirst || h.EarlyStreamsWithRequest):
+		// The request's start opens the streams, after it
+		// (EarlyRequestFirst) or before it in its packet, and uncorks; a
+		// request held for the handshake opens them alone
+		// (awaitHandshake).
 		return c, nil
 	case !early && !h.StreamsWithFinished:
 		// The Finished leaves alone; the streams follow.
@@ -711,7 +713,8 @@ func (c *Conn) applySettings(b []byte) error {
 }
 
 // goAway records the server's GOAWAY: requests on streams from id on
-// were not processed.
+// were not processed. Where the profile closes on GOAWAY (Safari), the
+// connection closes once no request is left on it.
 func (c *Conn) goAway(id uint64) {
 	c.mu.Lock()
 
@@ -726,6 +729,7 @@ func (c *Conn) goAway(id uint64) {
 		}
 	}
 
+	closing := c.closingLocked()
 	c.mu.Unlock()
 
 	// The server will not answer them (RFC 9114, 5.2): they go on another
@@ -733,6 +737,17 @@ func (c *Conn) goAway(id uint64) {
 	for _, r := range refused {
 		r.cancel()
 	}
+
+	if closing {
+		_ = c.Close()
+	}
+}
+
+// closingLocked reports whether the connection closes now: the server
+// has sent GOAWAY, the profile closes on it (HTTP3.CloseOnGoAway), and no
+// request is in flight. c.mu must be held.
+func (c *Conn) closingLocked() bool {
+	return c.goaway && c.h3.CloseOnGoAway && c.active == 0
 }
 
 // rejected reports whether the server's GOAWAY covers stream id.
@@ -821,12 +836,18 @@ func (c *Conn) reserve() bool {
 
 func (c *Conn) release() {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 
 	c.active--
 	if c.active == 0 {
 		c.idleSince = c.clock.Now()
 		c.qc.KeepAlive(false)
+	}
+
+	closing := c.closingLocked()
+	c.mu.Unlock()
+
+	if closing {
+		_ = c.Close()
 	}
 }
 
@@ -1015,11 +1036,14 @@ func (c *Conn) start(ctx context.Context, hd head, end, mayEarly bool) (s *quic.
 	c.encMu.Unlock()
 
 	headers := appendFrame(nil, frameHeaders, block)
-	// Dial's cork is still held when the request goes before the streams
-	// (0-RTT, EarlyRequestFirst); the Uncork below releases it.
+	// Dial's cork is still held when the request goes in the streams'
+	// packet (0-RTT: before them with EarlyRequestFirst, after them with
+	// EarlyStreamsWithRequest); the Uncork below releases it.
 	opened := c.opened
 	if opened {
 		c.qc.Cork()
+	} else if c.h3.EarlyStreamsWithRequest {
+		c.openStreams()
 	}
 
 	pu := c.h3.PriorityUpdate && hd.priority != ""
@@ -1085,7 +1109,8 @@ func (c *Conn) start(ctx context.Context, hd head, end, mayEarly bool) (s *quic.
 // awaitHandshake holds a request the profile does not send in 0-RTT
 // (EarlyData.Methods) until the handshake completes or the connection or ctx
 // ends. release, called once the request is written, lets it leave with the
-// client's Finished (HeldWithFinished) or after the Finished's datagram
+// client's Finished (HeldWithFinished), once the handshake is confirmed
+// (RequestsAfterConfirmed: Safari) or after the Finished's datagram
 // (FinishedSent), never sharing it otherwise. A connection dialled for it
 // (Options.Pending) first sends its streams in 0-RTT without it.
 func (c *Conn) awaitHandshake(ctx context.Context) (release func(), err error) {
@@ -1093,13 +1118,17 @@ func (c *Conn) awaitHandshake(ctx context.Context) (release func(), err error) {
 
 	ready := c.qc.FinishedSent()
 
-	if c.h3.EarlyData.HeldWithFinished {
+	switch {
+	case c.h3.EarlyData.HeldWithFinished:
 		// Held first, so a handshake that completes meanwhile cannot send
 		// the Finished without the request.
 		c.qc.HoldFinished()
 
 		release = c.qc.ReleaseFinished
 		ready = c.qc.HandshakeComplete()
+
+	case c.h3.RequestsAfterConfirmed:
+		ready = c.qc.Confirmed()
 	}
 
 	select {
