@@ -71,7 +71,8 @@ Combinations no browser makes are errors before anything is sent:
    - `Cookie`: sent or removed by the browser's credentials rules
      ([cookies](cookies.md)), in the list's `cookie` slot; a redirect hop
      the captures never saw carrying cookies has none, and the jar's
-     cookies go after its list ([backlog](../backlog.md#redirects)).
+     cookies go after its list
+     ([EVIDENCE.md, Not covered](../../profiles/EVIDENCE.md#not-covered-by-any-claim)).
    - `Origin`: on non-GET/HEAD requests and on CORS requests to another
      origin; `null` where the browser sends it after redirects.
    - `Referer`: strict-origin-when-cross-origin, applied hop by hop.
@@ -97,6 +98,34 @@ What the browser was never seen doing is an error wrapping
 `mimicry.ErrNotMeasured`, not a guess. Examples: a kind the profile lacks,
 a fetchpriority it has no data for, or a variant seen only over HTTP/2 but
 sent over HTTP/1.1.
+
+### The order of the page's own headers (XHR)
+
+`http.Header` keeps no order, so mimicry takes the headers a page sets
+as set in name order, as `fetch()` does. An XHR keeps the order its
+script called `setRequestHeader` in, and the browsers differ in how much
+that shows:
+
+- **Firefox** sends the page's headers as one run, in that order. Set
+  the order with a placement:
+
+  ```go
+  req.Header.Set("X-Token", token)
+  req.Header.Set("X-App", "shop")
+  // Firefox's script set X-Token first; in name order X-App would lead.
+  req = mimicry.With(req, mimicry.Request{
+  	Kind:            mimicry.XHR,
+  	HeaderPlacement: []mimicry.Place{{Header: "X-Token", Before: "X-App"}},
+  })
+  ```
+
+- **Chrome and Safari** place each header by its name in a hash table,
+  so the order the page set them changes the result only when names
+  collide, which takes many page headers. Leave these unplaced: moving
+  one makes an order the browser never sends.
+
+Don't use `HeaderOrderKey` for this: it replaces the whole order, and a
+profile header it doesn't name, such as `sec-ch-ua`, is not sent.
 
 ## 3. The connection writes it
 
@@ -175,6 +204,33 @@ were. It returns the error `RoundTrip` would return before sending, but
 never a `*CORSError`, since that is the server's answer. A plan is a
 snapshot: a response that sets cookies, or a navigation in between,
 changes what goes out. See `ExampleTransport_Plan` for a full example.
+
+## Limits
+
+- **Headers you set are sent as set**, including names a page may not set
+  (`Cookie`, `Origin`, `Sec-Fetch-*`, `Proxy-Authorization`), as in other
+  HTTP clients (the maintainer's decision): an override is deliberate.
+  `Host` is replaced by the URL's host. A caller-set `Content-Length` or
+  `Connection` can break the request's framing; building those from the
+  request is tracked in [#3](https://github.com/roachadam/mimicry/issues/3).
+- **`Accept-Language` is the capture machine's** setting, not a browser
+  constant. Vendors compare it with the exit IP's location; set your own
+  with `Config.Header` (preflights carry it too).
+- **No HTTP cache.** Nothing adds `If-None-Match` or `If-Modified-Since`;
+  set them yourself to look like a returning visitor.
+- **`ErrNotMeasured`** also comes from: a same-site form POST navigation; a
+  variant measured over HTTP/2 only (the cross-site form POST navigation,
+  PUT fetches, redirected-image variants, the XHR POST) sent over
+  HTTP/1.1; Firefox's clicked form POST over HTTP/1.1; `Request.Priority`
+  on a kind other than `Fetch` and `InjectedImage`; a priority measured
+  only over HTTP/3 sent over TCP (custom profiles); an `http://` request
+  or a redirect hop in a condition no capture showed; Safari's `fetch()`
+  with method OPTIONS.
+- **No kind** for `FontFace().load()` or `crossorigin` stylesheets.
+- **`Config.Header`'s `Authorization` and `Cookie`** stop once a redirect
+  chain has left their origin, as the Fetch standard says.
+- **`CheckRedirect` and `via`** show the hops as `http.Client` built them (a
+  PUT answered 301 shows as a GET); the requests sent are the browser's.
 
 Background: decisions [0005](../decisions/0005-request-kinds-api.md),
 [0006](../decisions/0006-header-order-variants.md),

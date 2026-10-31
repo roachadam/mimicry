@@ -16,8 +16,9 @@ Four defaults differ from the browser ([README](../../README.md#deviations-from-
 - proxy credentials go with the first request instead of after the proxy's
   407 (`Config.BrowserProxyAuth` restores the browser's way).
 
-Where no option exists, the [backlog](../backlog.md#options-that-do-not-exist)
-lists it as a candidate. To see what a request will send without sending
+Where no option exists, none is planned: browsers have no such switch
+either, so none is needed to look like one, and one is added only if a
+caller asks. To see what a request will send without sending
 it, use [`Transport.Plan`](how-a-request-is-built.md#5-seeing-it-before-it-is-sent).
 
 ## At a glance
@@ -307,8 +308,8 @@ and nothing else. It never:
   HTML;
 - runs scripts, so no analytics, beacons or sensor data go out unless you
   send them;
-- preconnects, prefetches or prerenders (see the
-  [backlog](../backlog.md#connections-and-pool));
+- preconnects, prefetches or prerenders (see
+  [decision 0023](../decisions/0023-connection-limits-and-coalescing.md#amendment-2026-10-30-no-preconnects));
 - upgrades `http://` to `https://` or applies HSTS;
 - caches or revalidates responses;
 - looks up DNS HTTPS records;

@@ -530,7 +530,7 @@ func checkSocket(t *testing.T, p *profile.Profile, st server.WebSocketStep, step
 	checkMasks(t, g)
 
 	// Chrome splits a large message into a frame and a continuation in some
-	// samples, by chance (backlog: Chrome's fragmented large message); mimicry
+	// samples, by chance (profiles/EVIDENCE.md, Not covered: Chrome's fragmented large message); mimicry
 	// sends it whole, which each sample also offers with its split messages
 	// joined, so one sample is enough.
 	forms := len(want)

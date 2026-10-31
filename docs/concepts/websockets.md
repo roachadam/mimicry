@@ -85,5 +85,14 @@ the browser does:
 - **Safari:** closes the connection, or resets the stream, at once.
 - **Firefox:** waits for the server to close. mimicry gives up after 10 s.
 
+## Limits
+
+- `ws://` through a SOCKS5 proxy is refused (`ErrNotMeasured`).
+- `WebSocketOptions.Protocols` is refused (`ErrNotMeasured`) where the
+  profile's handshake list has no place for `Sec-WebSocket-Protocol`, such
+  as `ws://` from an `http://` page.
+- Reads are bounded at 64 MiB per message and 64 queued messages: safety
+  bounds, not browser values.
+
 Background: decisions [0025](../decisions/0025-websockets.md) and
 [0039](../decisions/0039-proxy-credentials-up-front.md).

@@ -1,6 +1,6 @@
 # 0023: Per-host HTTP/1.1 limit and HTTP/2 coalescing, per browser
 
-- Status: Accepted; amended 2026-10-28 by [0037](0037-coalescing-opt-out.md) (options to disable coalescing and change the HTTP/1.1 limit)
+- Status: Accepted; amended 2026-10-28 by [0037](0037-coalescing-opt-out.md) (options to disable coalescing and change the HTTP/1.1 limit); amended 2026-10-30 (no preconnects)
 - Date: 2026-10-24
 - Commits: `62d9b2a`
 
@@ -70,3 +70,16 @@ own HTTP/2 connection (no lookup, and for Firefox no connection opened and
 declined), faster on lossy networks. `Config.MaxConnsPerHost` changes
 `http1PerHost`'s limit (zero keeps the profile's 6).
 `TestConnectionsMatchBrowser` checks both modes.
+
+## Amendment 2026-10-30: no preconnects
+
+Chrome opens one more TLS connection to the page's host on every page
+load (a handshake, no request), on macOS and Windows, and sometimes uses
+it later; through a proxy these show as extra CONNECTs that get only a
+407. mimicry makes no speculative connections, and modelling Chrome's is
+not planned (the maintainer's decision, 2026-10-30): the difference is a
+connection count per page, noisy behind shared or rotating addresses, and
+it would cost an extra, mostly unused handshake per page load (through a
+proxy, the 407s too). The difference stays pinned in
+`connections_test.go`. Reopen if a vendor is seen counting connections per
+page.

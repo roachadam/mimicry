@@ -90,12 +90,12 @@ blocks them. Rows in [EVIDENCE.md, Redirects](../../profiles/EVIDENCE.md#redirec
 - Hop variants of navigations, images and same-origin fetch() carry the
   slot for Chrome 156 (macOS and Windows), Firefox 158, Safari 27 and 26.
 - Chrome 155 keeps the old lists: its hops with cookies still put them
-  after the list (`missingCaptures`, backlog).
+  after the list (`missingCaptures`; [EVIDENCE.md, Not covered](../../profiles/EVIDENCE.md#not-covered-by-any-claim)).
 - Hops no twin reaches with cookies keep no slot: cross-site
   subresources with credentials (`credentials: "include"`,
   `withCredentials`, `crossorigin="use-credentials"`), hops from
   `http://`, and Safari 27's image hop to another origin of the page's
-  site (backlog).
+  site ([EVIDENCE.md, Not covered](../../profiles/EVIDENCE.md#not-covered-by-any-claim)).
 - A refresh recaptures twins as it does their originals; a new redirect
   scenario gets a twin when its hops can carry cookies.
 

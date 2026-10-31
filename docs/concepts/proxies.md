@@ -54,7 +54,8 @@ closed it.
 
 One difference remains: after a 407 on a plain-HTTP request, Safari also
 sends `Proxy-Authorization` inside its tunnels, where the server reads it.
-mimicry never does (see the [backlog](../backlog.md#proxies)).
+mimicry never does
+([EVIDENCE.md, Not covered](../../profiles/EVIDENCE.md#not-covered-by-any-claim)).
 
 SOCKS5 credentials are sent when the URL has them. No browser sends
 SOCKS5 credentials, so this is a fingerprint no browser produces.
@@ -177,10 +178,18 @@ tunnel is up are the server's, not the proxy's. See
 
 ## Limits
 
-- `https://` proxies (TLS to the proxy) are not supported.
+- `https://` proxies (TLS to the proxy) are not supported
+  ([decision 0014](../decisions/0014-proxies.md#amendment-2026-10-30-https-proxies)).
+- Proxy authentication is Basic only; a proxy asking for Digest, NTLM or
+  Negotiate fails the request.
+- `Config.DialContext` opens the connection to the proxy, so it cannot
+  also pin the server's address.
 - Chrome's speculative extra connections to the proxy are not made.
 - HTTP/3 goes only through SOCKS5 proxies. HTTP/3 through an `http://`
   proxy (CONNECT-UDP, MASQUE) is not supported.
+- A SOCKS5 proxy that accepts UDP ASSOCIATE but relays nothing is not
+  remembered: each origin waits up to the race delay per request until
+  it is marked as not supporting HTTP/3.
 - A CONNECT answer with a header over 64 KiB fails the request with a
   `*mimicry.ProxyError`.
 - A request whose host is not a valid `Host` header is refused before

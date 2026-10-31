@@ -134,8 +134,8 @@ connection.
   Transport's life.
 - Keying shared `Alt-Svc` entries by the page that made the request.
 
-The [backlog](../backlog.md#http3-and-quic) lists each gap and what closing
-it takes.
+Known differences from the browsers are listed in
+[EVIDENCE.md, Not covered](../../profiles/EVIDENCE.md#not-covered-by-any-claim).
 
 Background: [0026](../decisions/0026-http3-capture.md) (how the browsers
 were captured), [0027](../decisions/0027-quic-base.md) (the QUIC stack),

@@ -1,6 +1,6 @@
 # 0028: QUIC and HTTP/3 fail as each browser's do
 
-- Status: Accepted; amended 2026-10-28 by [0036](0036-fast-quic-fallback.md) (holds shortened by default); amended 2026-10-28 (`brokenAfter` counts only attempts that sent a datagram)
+- Status: Accepted; amended 2026-10-28 by [0036](0036-fast-quic-fallback.md) (holds shortened by default); amended 2026-10-28 (`brokenAfter` counts only attempts that sent a datagram); amended 2026-10-30 (blackhole detection and resumed probes not modelled)
 - Date: 2026-10-25
 - Commits: `4e8c207`; amendments `1d9e67f` (0036), `f5772cb` (`brokenAfter`)
 
@@ -213,3 +213,20 @@ already canceled, so a hello could go out after the drop. It no longer
 dials. With only the first fix, 14 of 2,000 runs counted such an attempt.
 With both, none failed in 1,000 runs on Linux with `-race`, 1,000 without,
 or 300 on macOS with `-race`.
+
+## Amendment 2026-10-30: blackhole detection and resumed probes
+
+Two failure-path behaviours captured in `h3-broken` are not modelled (the
+maintainer's decision, 2026-10-30); both stay pinned in `h3EdgeGaps`:
+
+- **Chrome's blackhole detection.** When the path Chrome migrated to dies
+  too, it closes with `85:Network blackhole detected` after 54–61 s and
+  resends the stuck request on TCP. mimicry falls back after QUIC's 30 s
+  idle timeout. The default 30 s request timeout and fast fallback end the
+  request first, and a silent path hides the close from the server.
+- **Resumed attempts' probes.** Chrome's resumed attempt probes with 4
+  Initials and later lone 0-RTT datagrams; Firefox's probes vary. mimicry
+  sends one Initial per probe, or replays its first flight. It shows only
+  against a server that stopped answering, and the give-up times match.
+
+Reopen if a vendor is seen reading failure-path probes or closes.

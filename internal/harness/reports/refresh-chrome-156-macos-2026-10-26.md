@@ -152,5 +152,5 @@ Differences:
 ## To do by hand
 
 - Review the changes above; a hand-written section copied from the previous profile is unverified until the e2e tests pass against its inherited or new captures.
-- `profiles/EVIDENCE.md`: add the profile's column (inherited rows marked as decision 0035 says), and `docs/backlog.md` for any new gap pinned.
+- `profiles/EVIDENCE.md`: add the profile's column (inherited rows marked as decision 0035 says), and a line in its Not covered by any claim for any new gap pinned.
 - Gap tables keyed by profile name (generators' `sampleGaps`, the e2e tests' gap maps) apply to inherited scenarios through `captures_from`; a scenario recaptured for this version needs its own entry if the oddity recurs.

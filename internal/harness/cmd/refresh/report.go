@@ -163,7 +163,7 @@ func (rep *report) write() (string, error) {
 
 	b.WriteString("## To do by hand\n\n")
 	b.WriteString("- Review the changes above; a hand-written section copied from the previous profile is unverified until the e2e tests pass against its inherited or new captures.\n")
-	b.WriteString("- `profiles/EVIDENCE.md`: add the profile's column (inherited rows marked as decision 0035 says), and `docs/backlog.md` for any new gap pinned.\n")
+	b.WriteString("- `profiles/EVIDENCE.md`: add the profile's column (inherited rows marked as decision 0035 says), and a line in its Not covered by any claim for any new gap pinned.\n")
 
 	if !p.InPlace {
 		b.WriteString("- Gap tables keyed by profile name (generators' `sampleGaps`, the e2e tests' gap maps) apply to inherited scenarios through `capturesFrom`; a scenario recaptured for this version needs its own entry if the oddity recurs.\n")

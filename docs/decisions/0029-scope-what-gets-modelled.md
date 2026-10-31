@@ -1,13 +1,14 @@
 # 0029: Model what anti-bot systems check or users notice
 
-- Status: Accepted; amended 2026-10-28 by [0036](0036-fast-quic-fallback.md) (fast failure-path timing by default) and [0037](0037-coalescing-opt-out.md) (faster defaults for costly, low-risk behaviours)
+- Status: Accepted; amended 2026-10-28 by [0036](0036-fast-quic-fallback.md) (fast failure-path timing by default) and [0037](0037-coalescing-opt-out.md) (faster defaults for costly, low-risk behaviours); amended 2026-10-30 (the TCP/IP fingerprint; no backlog)
 - Date: 2026-10-25
 - Commits: `9f32f39`
 
 **Summary.** The maintainer's decision is to model a browser behaviour only
 if an anti-bot vendor plausibly checks it (TLS hello, HTTP/2 and HTTP/3
 fingerprints, headers, cookies, request flow) or a user would notice it (a
-stall, a failure, a wrong result); everything else goes to the backlog.
+stall, a failure, a wrong result); everything else is deferred and recorded (amended
+2026-10-30: no backlog file).
 The library's purpose is automating user actions on sites without being
 flagged, and modelling every captured difference would never end. For a
 library user, failure paths always end within a bounded time but need not
@@ -70,17 +71,17 @@ Model a behaviour only if one of these holds:
 Everything else is deferred: failure-path timing, probe layouts, credit
 timing on long transfers, behaviour in states that only a broken network
 or an unusual server produces. A deferred item is not forgotten. It is
-written down in [the backlog](../backlog.md) with what differs, when it
-shows on the wire, how relevant it is to detection, and what closing it
-would take, so later hardening can pick it up.
+written down with what differs, when it shows on the wire, how relevant
+it is to detection, and what closing it would take, so later hardening
+can pick it up (where: the amendment of 2026-10-30, below).
 
 (The maintainer's decision, 2026-10-25.)
 
 ## Evidence
 
 Nothing new was captured for this decision. It follows from the captures
-taken so far and the gaps they left. The backlog lists more than a
-hundred such gaps; most are rated low or none for detection. The
+taken so far and the gaps they left. More than a hundred such gaps are
+recorded; most are rated low or none for detection. The
 existing work already leans this way: decision
 [0011](0011-connection-partitioning.md) models Firefox's connection
 grouping only where a rule is measured, and decision
@@ -98,7 +99,9 @@ error-page reload alone as browser UI.
   lower the bar for how it is modelled.
 - The e2e tests keep their pinned gap tables (`sampleGaps`,
   `partitionGaps`, `h3EdgeGaps` and the others). A pinned gap is now
-  expected to be in the backlog too.
+  expected to be recorded too
+  ([EVIDENCE.md, Not covered](../../profiles/EVIDENCE.md#not-covered-by-any-claim),
+  a decision or an issue).
 - Deferring makes some failure paths behave unlike the browser (a QUIC
   attempt that never gets an answer, a WebSocket whose server never
   closes it). Those paths still have to end: every one is bounded by a
@@ -106,13 +109,12 @@ error-page reload alone as browser UI.
 - [`docs/concepts/what-mimicry-does.md`](../concepts/what-mimicry-does.md)
   lists everything mimicry does on the wire besides the caller's own
   requests. Any new automatic behaviour has to be added there, together
-  with the option that turns it off or the backlog entry saying there is
-  none.
+  with the option that turns it off or a note that there is none.
 
 ## Revisit when
 
 A vendor is seen flagging something this rule deferred (a deferred item
-moves up the backlog), or the library gets a use beyond automating
+becomes an issue), or the library gets a use beyond automating
 ordinary user actions, such as research that needs the browsers' failure
 paths reproduced.
 
@@ -134,3 +136,37 @@ plainly, with a `Config` option for the browser's. HTTP/2 coalescing was
 weighed against it and kept: it is faster on clean networks and slower
 only under loss, so the browser's stays the default and
 `Config.DisableCoalescing` turns it off.
+
+## Amendment 2026-10-30: the TCP/IP fingerprint
+
+The SYN (TTL, window size, MSS, TCP options and their order) is the host
+operating system's, or the proxy's. Imitating the profile's is not
+planned (the maintainer's decision, 2026-10-30): socket options through
+`net.Dialer.Control` reach TTL, window and MSS but not the window scale,
+the option order or TCP timestamps, so a SYN from another OS still differs
+under a full p0f-style check, and through a proxy the server sees the
+proxy's SYN anyway. Running on the profile's platform, or through a proxy
+on it, is the practical fix. On macOS, tls.peet.ws's p0f signature was the
+same for the browsers and mimicry
+([realcheck report](../../internal/harness/reports/realcheck-2026-10-25.md)).
+Reopen if a SYN option can be set that closes the full check.
+
+## Amendment 2026-10-30: no backlog
+
+The backlog file is retired. A deferred item now goes where its reader
+looks:
+
+- work planned: a [GitHub issue](https://github.com/roachadam/mimicry/issues);
+- a decision (including "not planned"): a decision record, or an
+  amendment to the one it belongs to, with what would reopen it;
+- a limit a caller notices (an error, an unsupported feature, an API
+  constraint): the matching guide's Limits or Not supported section in
+  `docs/concepts/`;
+- a known fingerprint difference or unmeasured edge with no planned
+  work: one line in
+  [EVIDENCE.md, Not covered by any claim](../../profiles/EVIDENCE.md#not-covered-by-any-claim),
+  with when it shows, its detection relevance and what closing it takes.
+
+A pinned gap in the tests' tables appears in one of those places. A
+behaviour mimicry adds on its own with no option to turn it off gets no
+option unless a caller asks: browsers have no such switch either.

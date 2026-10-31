@@ -85,8 +85,8 @@ and 3,522 at c256.
 
 - **The c256 stall holds on Linux.** At 7 MB, nginx's worker fell to
   25-33% of a core, against 98-99% everywhere else. 2 MB fell the same way
-  in two runs of three. The mechanism is the one the backlog records
-  ("HTTP/3 bulk throughput against nginx"). The client answers its backlog
+  in two runs of three. The mechanism is the ACK clocking of
+  [0043](0043-http3-ack-rate-opt-in.md). The client answers its backlog
   in bursts that overflow nginx's socket. Its congestion window falls, and
   its MAX_DATA waits behind it while nginx idles on flow control. At 256
   bodies of 100 KB, 25 MB is in flight against Chrome's 15 MB connection
@@ -98,7 +98,7 @@ and 3,522 at c256.
 - **At equal buffers mimicry still drops more.** On the M3 Pro laptop at stock
   values (every client 416 KB), at 100 KB c64 mimicry dropped 14.7-17.2k
   datagrams and net/http 5.4-5.6k. So the gap left at 1 MB is the receive path
-  (backlog: "HTTP/3 receive path runs on about one core"), not the buffer.
+  ([#7](https://github.com/roachadam/mimicry/issues/7)), not the buffer.
 
 **Stock Linux, all clients** (M3 Pro laptop, OrbStack, `BENCH_UDP_STOCK=1`, 1 pass
 each; `udpbuf-before-stock-mac`, `udpbuf-after-stock-mac`). Keep these
@@ -150,8 +150,8 @@ error is ignored.
   kernel memory per connection, and only while datagrams are queued.
 - The 100 KB c64 gap to the quic-go clients stays: 4,408 req/s in the
   final benchmark (`e28df4c`) against 7,383-8,516. Closing it needs the receive path faster, or the
-  c256 stall removed so that a larger buffer is safe. Both are in the
-  backlog.
+  c256 stall removed so that a larger buffer is safe. Both are tracked in
+  [#7](https://github.com/roachadam/mimicry/issues/7).
 - The bench's `mimicry-udpos` measures the old default. `mimicry-udp208k`
   stands in for stock Linux on hosts that cannot set the sysctls per
   container.

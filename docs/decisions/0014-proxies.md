@@ -1,6 +1,6 @@
 # 0014: Proxies as the browser uses them
 
-- Status: Accepted; amended 2026-10-26 (WebSockets through proxies, Firefox's tunnels, Safari's WebSockets with credentials); amended 2026-10-28 by [0038](0038-http3-over-socks5.md) (HTTP/3 through SOCKS5 on request); amended 2026-10-28 by [0039](0039-proxy-credentials-up-front.md) (credentials up front by default) and [0040](0040-idle-connection-cleanup.md) (unused proxies' connections close; `MaxIdleProxies`)
+- Status: Accepted; amended 2026-10-26 (WebSockets through proxies, Firefox's tunnels, Safari's WebSockets with credentials); amended 2026-10-28 by [0038](0038-http3-over-socks5.md) (HTTP/3 through SOCKS5 on request); amended 2026-10-28 by [0039](0039-proxy-credentials-up-front.md) (credentials up front by default) and [0040](0040-idle-connection-cleanup.md) (unused proxies' connections close; `MaxIdleProxies`); amended 2026-10-30 (`https://` proxies not planned)
 - Date: 2026-10-24
 - Commits: `fb21232`, `e906da5`, `4af5b8d`
 
@@ -134,7 +134,7 @@ requires `forwardCredentials: always`: no browser was measured answering
 a challenge to a handshake sent whole. The capture also shows Safari
 putting `Proxy-Authorization` on requests inside its tunnels, to the
 server, once it has answered a challenge to a plain-HTTP request; that is
-not modelled (backlog, Proxies).
+not modelled ([EVIDENCE.md, Not covered](../../profiles/EVIDENCE.md#not-covered-by-any-claim)).
 
 ## Amendment 2026-10-28: HTTP/3 through SOCKS5
 
@@ -156,3 +156,10 @@ no longer used close early: by default the 16 most recently used proxies,
 and any used in the last 10 seconds, keep their idle connections;
 `Config.MaxIdleProxies` changes the count
 ([0040](0040-idle-connection-cleanup.md)).
+
+## Amendment 2026-10-30: https:// proxies
+
+TLS to the proxy stays unsupported until a caller needs it (the
+maintainer's decision, 2026-10-30). The limit is documented in
+[Proxies](../concepts/proxies.md#limits). Adding it takes an
+implementation and a capture of each browser's TLS to the proxy.

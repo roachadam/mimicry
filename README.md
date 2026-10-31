@@ -51,7 +51,7 @@ How it differs from tls-client and similar libraries:
 | `safari-27-macos` | `profiles.Safari()`, `profiles.Safari27MacOS()` | supported |
 | `safari-26-macos` | `profiles.Safari26MacOS()` | supported |
 
-`chrome-156-windows` was captured from Chrome 156 on Windows 10 (x64); Windows 11 and ARM are not captured yet ([backlog](docs/backlog.md#tooling-and-tests)).
+`chrome-156-windows` was captured from Chrome 156 on Windows 10 (x64); Windows 11 and ARM are not captured yet ([0047](docs/decisions/0047-windows-profiles.md#consequences)).
 
 `profiles.Chrome()`, `Firefox()` and `Safari()` always return the newest built-in macOS version, `profiles.ChromeWindows()` the newest Chrome on Windows ([0047](docs/decisions/0047-windows-profiles.md)). A versioned accessor, or `profiles.ByName("chrome-155-macos")`, stays on one version; the newest five versions of each browser on each platform are supported.
 
@@ -98,7 +98,7 @@ mimicry also sends what a browser sends around your requests. That covers redire
 - **HTTP/3 ignores `Config.DialContext`.** QUIC sends UDP to the address `Config.Resolver` returns.
 - **Proxied requests use HTTP/1.1 or HTTP/2,** as in browsers, unless `Config.HTTP3OverSOCKS5` is on. `https://` proxies are not supported.
 
-Every claim a profile makes, with its evidence and test, is in [`profiles/EVIDENCE.md`](profiles/EVIDENCE.md). Known differences from the browsers are in [`docs/backlog.md`](docs/backlog.md).
+Every claim a profile makes, with its evidence and test, is in [`profiles/EVIDENCE.md`](profiles/EVIDENCE.md). Known differences from the browsers are in its [Not covered by any claim](profiles/EVIDENCE.md#not-covered-by-any-claim) section; planned work is in [GitHub issues](https://github.com/roachadam/mimicry/issues).
 
 ## Performance
 

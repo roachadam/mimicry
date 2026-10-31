@@ -1,6 +1,6 @@
 # 0042: The HTTP/2 opening is cut into TLS records as the browser cuts it
 
-- Status: Accepted
+- Status: Accepted; amended 2026-10-30 (preconnected connections)
 - Date: 2026-10-28
 - Commits: `fc62d65`
 
@@ -36,8 +36,8 @@ The capture server could not see records at all: crypto/tls hides them.
   per record, what it carries. Chosen.
 - A field per scenario (connections the browser opened ahead of the
   request, or not): mimicry never opens a connection ahead of a request,
-  so only the "request waiting" cut is ever sent; the other is a backlog
-  gap (preconnect).
+  so only the "request waiting" cut is ever sent; the other is not planned
+  (amendment 2026-10-30, below).
 
 ## Decision
 
@@ -115,3 +115,14 @@ or a GOAWAY.
 
 A capture shows a browser cutting the opening by timing rather than by
 structure.
+
+## Amendment 2026-10-30: preconnected connections
+
+A browser that opens a connection before it has the request (Safari's
+first connection for a URL opened from outside the page; Firefox
+likewise) sends the opening alone, acknowledges the server's SETTINGS,
+then sends HEADERS in a record of its own. mimicry always has the request
+when it connects. A preconnect option is not planned (the maintainer's
+decision, 2026-10-30): a navigation from another page, which mimicry
+already matches, is as common. Reopen if a vendor is seen checking the
+ACK-before-HEADERS order.
