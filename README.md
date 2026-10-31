@@ -97,6 +97,7 @@ mimicry also sends what a browser sends around your requests. That covers redire
 - **One Transport per browsing session and per site.** A Transport acts as one browser tab. Give parallel tasks and different sites a Transport each; they can share a cookie jar.
 - **HTTP/3 ignores `Config.DialContext`.** QUIC sends UDP to the address `Config.Resolver` returns.
 - **Proxied requests use HTTP/1.1 or HTTP/2,** as in browsers, unless `Config.HTTP3OverSOCKS5` is on. `https://` proxies are not supported.
+- **Headers you set are sent exactly as set,** even ones a page could not set (`Cookie`, `Origin`, `Sec-Fetch-*`, `Proxy-Authorization`), which can make a request look less like the browser's. Framing headers are the exception: `Content-Length`, `Connection` and `Transfer-Encoding` are built from the request, as `net/http` does. Over HTTP/1.1, `Connection: close` is honoured: it is sent in the browser's slot and the connection is closed after the response.
 
 Every claim a profile makes, with its evidence and test, is in [`profiles/EVIDENCE.md`](profiles/EVIDENCE.md). Known differences from the browsers are in its [Not covered by any claim](profiles/EVIDENCE.md#not-covered-by-any-claim) section; planned work is in [GitHub issues](https://github.com/roachadam/mimicry/issues).
 

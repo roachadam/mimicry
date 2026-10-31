@@ -99,7 +99,9 @@ type Config struct {
 	// Header holds your own headers, such as an API key, added to every
 	// request where the browser places headers a page sets. They override
 	// the browser's defaults; the request's own headers override them. A
-	// key with no values removes a default. Default: none.
+	// key with no values removes a default. Content-Length, Connection and
+	// Transfer-Encoding are built from the request, except that
+	// Connection: close is honoured over HTTP/1.1. Default: none.
 	Header http.Header
 	// HeaderPlacement moves headers within the browser's order on every
 	// request you send, redirect hops included. CORS preflights and
