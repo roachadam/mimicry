@@ -546,6 +546,28 @@ the mechanical import rewrites.
     - `conn.go`: `newConn` sets the rule for a client's bidirectional
       streams. Unidirectional streams send none (no browser did).
 
+23. **The UDP tests' dual-stack port** (`udp_test.go`: `runUDPTest`,
+    `listenDualStackForIPv4`, `udpTest.recv`; marked `mimicry:`). On macOS
+    an ephemeral dual-stack bind (`ListenUDP("udp", nil)`) ignores IPv4
+    sockets: it takes a port another socket, any process's, has on
+    127.0.0.1 or 0.0.0.0 (with 4,000 such sockets held, 4,924 of 20,000
+    binds did), and a datagram to 127.0.0.1 on that port goes to the IPv4
+    socket. Every other bind avoids taken ports, and Linux checks this one
+    too. So `udp4/udp/unspec` waited forever on a datagram another socket
+    had read (issue #25): with three root suites running in parallel
+    (load average 13-29 on 12 cores), 16 of 400 runs of the package's
+    tests hung, all in that subtest (9 `TestUDPSourceUnspecified`, 2
+    `TestUDPSourceSpecified`, 5 `TestUDPECN`); with every fourth port of
+    the range held on 127.0.0.1, 8 of 20 runs of the `TestUDP` tests
+    (each port a missing datagram was sent to was a held one). Resending
+    would not help: every copy goes to the same socket. That subtest's
+    socket now gets its port from an IPv4 wildcard bind held until the
+    dual-stack socket is bound beside it; once bound, macOS refuses the
+    port to IPv4 binds (Linux refuses the bind beside, and the ephemeral
+    bind is used, as before). Under the same loads: 0 of 400, and 20 of 20
+    pass. The tests wait 10 s for a datagram, then fail naming the
+    address, instead of hanging until the test binary's timeout.
+
 ## Sockets
 
 `udp_packetconn.go` is upstream's, unchanged: `netPacketConn` wraps any

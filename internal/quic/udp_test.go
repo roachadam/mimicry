@@ -11,6 +11,7 @@ import (
 	"net/netip"
 	"runtime"
 	"testing"
+	"time"
 )
 
 func TestUDPSourceUnspecified(t *testing.T) {
@@ -24,7 +25,8 @@ func TestUDPSourceUnspecified(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("Write: %v", err)
 		}
-		got := <-test.dgramc
+
+		got := test.recv(t) // mimicry: not <-test.dgramc
 		if !bytes.Equal(got.b, data) {
 			t.Errorf("got datagram {%x}, want {%x}", got.b, data)
 		}
@@ -44,7 +46,8 @@ func TestUDPSourceSpecified(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("Write: %v", err)
 		}
-		got := <-test.dgramc
+
+		got := test.recv(t) // mimicry: not <-test.dgramc
 		if !bytes.Equal(got.b, data) {
 			t.Errorf("got datagram {%x}, want {%x}", got.b, data)
 		}
@@ -90,7 +93,8 @@ func TestUDPECN(t *testing.T) {
 			}); err != nil {
 				t.Fatalf("Write: %v", err)
 			}
-			got := <-test.dgramc
+
+			got := test.recv(t) // mimicry: not <-test.dgramc
 			if got.ecn != ecn {
 				t.Errorf("sending ECN bits %x, got %x", ecn, got.ecn)
 			}
@@ -103,6 +107,57 @@ type udpTest struct {
 	dst     *netUDPConn
 	dstAddr netip.AddrPort
 	dgramc  chan *datagram
+}
+
+// mimicry: udpRecvTimeout bounds recv's wait. A loopback datagram arrives
+// at once; the bound is for the read goroutine starved under load.
+const udpRecvTimeout = 10 * time.Second
+
+// mimicry: recv returns the next datagram dst read, and fails the test if
+// none comes within udpRecvTimeout, instead of hanging until the test
+// binary's timeout.
+func (u udpTest) recv(t *testing.T) *datagram {
+	t.Helper()
+
+	select {
+	case d := <-u.dgramc:
+		return d
+	case <-time.After(udpRecvTimeout):
+		t.Fatalf("no datagram to %v within %v", u.dstAddr, udpRecvTimeout)
+
+		return nil
+	}
+}
+
+// mimicry: listenDualStackForIPv4 binds a dual-stack socket ([::]) on a
+// port no IPv4 socket has, for a test sending it IPv4 datagrams. On macOS
+// an ephemeral dual-stack bind ignores IPv4 sockets: it can take the port
+// of any process's socket bound to 127.0.0.1 or 0.0.0.0, and the datagrams
+// sent to 127.0.0.1 on it then go to that socket, never to this one. An
+// IPv4 wildcard bind takes a port no IPv4 or dual-stack socket has and
+// keeps other IPv4 binds off it until the dual-stack socket has it; from
+// then on, macOS gives no IPv4 bind that port either. Linux refuses the
+// dual-stack bind beside the IPv4 one, and never gives an ephemeral
+// dual-stack bind a port an IPv4 socket has, so there the ephemeral bind
+// is used.
+func listenDualStackForIPv4() (*net.UDPConn, error) {
+	hold, err := net.ListenUDP("udp4", &net.UDPAddr{})
+	if err != nil {
+		return nil, err
+	}
+
+	addr, _ := hold.LocalAddr().(*net.UDPAddr)
+	c, err := net.ListenUDP("udp", &net.UDPAddr{
+		Port: addr.Port,
+	})
+
+	_ = hold.Close()
+
+	if err != nil {
+		return net.ListenUDP("udp", nil)
+	}
+
+	return c, nil
 }
 
 // runUDPTest calls f with a pair of UDPConns in a matrix of network variations:
@@ -153,7 +208,15 @@ func runUDPTest(t *testing.T, f func(t *testing.T, u udpTest)) {
 			if test.dstAddr != "" {
 				dstAddr = netip.AddrPortFrom(netip.MustParseAddr(test.dstAddr), 0)
 			}
-			dstConn, err := net.ListenUDP(test.dstNet, net.UDPAddrFromAddrPort(dstAddr))
+
+			// mimicry: see listenDualStackForIPv4.
+			var dstConn *net.UDPConn
+			if test.dstNet == "udp" && !dstAddr.IsValid() && srcAddr.Addr().Is4() {
+				dstConn, err = listenDualStackForIPv4()
+			} else {
+				dstConn, err = net.ListenUDP(test.dstNet, net.UDPAddrFromAddrPort(dstAddr))
+			}
+
 			if err != nil {
 				t.Skipf("ListenUDP(%q, nil) = %v", test.dstNet, err)
 			}
