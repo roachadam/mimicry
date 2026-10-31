@@ -352,7 +352,16 @@ hellogen and h3gen read the edge captures too (`server.H3EdgeCaptures`:
 for a profile without an `h3-streams-blocked` capture; every other edge
 capture is required), `http3.discovery.fallback` and `http3.earlyData`
 (which methods go in 0-RTT, where a held request leaves, the retry after
-425); kindsgen reads only `h3-discovery` and `h3-page`
+425), `http3.earlyStreamsWithRequest` (the handshake streams in the
+0-RTT request's packet), `http3.closeOnGoaway` (the browser closes a
+connection the server sent GOAWAY on, also from `h3-discovery`),
+`http3.discovery.dialDelayMs` and `resumedDialDelayMs` (how long after
+the request that waits for it a fresh or resumed dial starts), and
+`quic.zeroRtt` from the resumed connections of both sets; where the h3
+captures have none (Safari) it holds the edge captures' resumed first
+flights to the full handshakes' rules. hellogen checks every resumed
+QUIC hello of the edge captures and derives `tls.quic.earlyDataBefore`
+from them. kindsgen reads only `h3-discovery` and `h3-page`
 (`server.H3ProfileCaptures`). Each
 generator has its own `TestRegenerateReproducesProfiles`, which fails while
 a committed profile differs from what it derives from the committed

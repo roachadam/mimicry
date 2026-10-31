@@ -22,9 +22,15 @@ type HTTP3 struct {
 	// EarlyRequestFirst puts a 0-RTT request's stream before the
 	// unidirectional streams on a connection dialled for it.
 	EarlyRequestFirst bool `json:"earlyRequestFirst,omitempty"`
+	// EarlyStreamsWithRequest sends the handshake-time streams in the
+	// 0-RTT packet of the request a connection was dialled for, before
+	// it (Safari); otherwise they leave first, in a packet of their own
+	// (Chrome). Not with EarlyRequestFirst.
+	EarlyStreamsWithRequest bool `json:"earlyStreamsWithRequest,omitempty"`
 	// RequestsAfterConfirmed holds a request waiting for a full handshake
 	// until the handshake is confirmed (HANDSHAKE_DONE acked), not the
-	// client's Finished (Safari).
+	// client's Finished (Safari); so too a request held out of 0-RTT
+	// (EarlyData.Methods).
 	RequestsAfterConfirmed bool `json:"requestsAfterConfirmed,omitempty"`
 	// EarlyData is which requests go in 0-RTT and how 425 is handled.
 	// Required with quic.zeroRtt, and only then.
@@ -35,6 +41,11 @@ type HTTP3 struct {
 	// control stream before each request carrying a priority header, in
 	// the same packet (Chrome).
 	PriorityUpdate bool `json:"priorityUpdate,omitempty"`
+	// CloseOnGoAway closes the connection (CONNECTION_CLOSE, H3_NO_ERROR)
+	// as soon as the server's GOAWAY has arrived and no request on it is
+	// open (Safari); otherwise it stays open until the server closes it or
+	// it idles out.
+	CloseOnGoAway bool `json:"closeOnGoaway,omitempty"`
 	// MaxDataFrame caps a request body's DATA frames and FirstDataFrame
 	// the first one. Zero sends the body in one DATA frame.
 	MaxDataFrame   int `json:"maxDataFrame,omitempty"`
@@ -57,7 +68,8 @@ type H3EarlyData struct {
 	// the handshake wait for it and go in 1-RTT.
 	Methods []string `json:"methods"`
 	// HeldWithFinished sends a held request in the client's Finished
-	// datagram; otherwise in its own right after it.
+	// datagram; otherwise in its own right after it, or with
+	// RequestsAfterConfirmed once the handshake is confirmed.
 	HeldWithFinished bool `json:"heldWithFinished,omitempty"`
 	// RetryTooEarly resends a 0-RTT request answered 425 Too Early (RFC
 	// 8470) in 1-RTT on the same connection; otherwise the 425 stands.
@@ -176,6 +188,17 @@ type Discovery struct {
 	RaceAfterGoAway bool `json:"raceAfterGoaway,omitempty"`
 	// RaceDelayMillis is the range of the delay between the two dials.
 	RaceDelayMillis *Range `json:"raceDelayMs,omitempty"`
+	// DialDelayMillis are the browser's measured delays (whole ms, sorted)
+	// from the request that waits for it to a new fresh QUIC connection's
+	// first datagram (Safari); ResumedDialDelayMillis a resumed one's
+	// (Safari, Firefox). A dial draws one, so delays come as often as in
+	// the captures. Empty: at once. Applied only with
+	// Config.BrowserDialDelay (decision 0050); Fallback.TCPDelayMillis
+	// counts from the dial. Not the reconnection after a dead connection
+	// (Fallback.ReconnectMillis), nor a dial no request waits for (an
+	// Alt-Svc validation, Chrome's beside its request on TCP).
+	DialDelayMillis        []int `json:"dialDelayMs,omitempty"`
+	ResumedDialDelayMillis []int `json:"resumedDialDelayMs,omitempty"`
 	// Fallback is what requests do while QUIC to their origin is not up,
 	// when it fails, and when a live QUIC connection dies.
 	Fallback Fallback `json:"fallback"`
@@ -188,8 +211,10 @@ type Discovery struct {
 type Fallback struct {
 	// Mode is FallbackRace or FallbackBackground.
 	Mode string `json:"mode"`
-	// TCPDelayMillis: with FallbackRace, a request waiting for a non-0-RTT
-	// attempt falls back this long after it started waiting.
+	// TCPDelayMillis: with FallbackRace, a request waiting for an attempt
+	// whose handshake has not completed, 0-RTT ones included unless
+	// ZeroRTTHolds, falls back this long after the attempt it started
+	// started, or after it began waiting on one already running.
 	TCPDelayMillis *Range `json:"tcpDelayMs,omitempty"`
 	// ZeroRTTHolds: a 0-RTT request and those after it wait with no TCP
 	// until the attempt gives up; then a fresh attempt and TCP start

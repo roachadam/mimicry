@@ -81,7 +81,7 @@ the fallback matters more than speed.
 | --- | --- | --- | --- |
 | Chrome | QUIC | after about 300 ms, while QUIC keeps trying | a resumed connection holds requests until it gives up, after 4 s |
 | Firefox | TCP, QUIC checked in the background | never waits for QUIC | requests on a resumed connection after a server close wait up to 5 s |
-| Safari | QUIC | after about 100 ms, dropping the QUIC attempt | none |
+| Safari | QUIC | after about 100 ms, dropping the QUIC attempt (a resumed one too, with a 0-RTT close) | none |
 
 After one failed attempt (two for Safari), mimicry keeps that site on TCP
 for the rest of the Transport's life, as the browsers do. Firefox tries
@@ -93,7 +93,7 @@ If a live connection stops answering, each browser reacts differently:
   the server's transport parameters forbid it (`disable_active_migration`);
   then it stays on the old port.
 - Safari closes it after 12 s and sends the waiting requests again on a
-  new QUIC connection.
+  new QUIC connection, resumed with 0-RTT.
 - Firefox keeps trying until its 30 s idle timeout, then sends the
   requests on TCP.
 
@@ -114,15 +114,30 @@ idle connection with no request waiting still closes silently.
 - `Config.HTTP3ACKEvery` acknowledges packets less often than the browser
   does. Use it only for a server that a fast client overloads. It makes
   the traffic differ from the browser's.
+- `Config.BrowserDialDelay` starts a new QUIC connection a request waits
+  for as late as the browser does: Safari 3–11 ms after the request
+  (rarely up to 28), Firefox's resumed ones 4–9 ms (rarely 34). By
+  default it starts at once. The delay comes before the connection's
+  first packet, so a server sees only that it came a few milliseconds
+  sooner.
 
 Idle QUIC connections close as described in
 [What mimicry does](what-mimicry-does.md).
 
-**0-RTT.** When reconnecting to a site, Chrome and Firefox profiles send
-their first GET, HEAD and OPTIONS requests in 0-RTT, before the handshake
-finishes. Other requests, such as a POST, wait for the handshake, and a
-request the server answers `425 Too Early` is sent again on the same
-connection.
+**0-RTT.** When reconnecting to a site, every profile resumes the last
+QUIC session and sends its first GET, HEAD and OPTIONS requests in 0-RTT,
+before the handshake finishes. Safari does so over QUIC only: its TCP
+connections never resume. Other requests, such as a POST, wait for the
+handshake (Safari's until the server confirms it), and a request the
+server answers `425 Too Early` is sent again on the same connection.
+Safari and Firefox start such a connection a few milliseconds after the
+request that needs it (Safari: a fresh one too); mimicry does with
+`Config.BrowserDialDelay` (Settings).
+
+**The server's GOAWAY.** Safari closes the connection itself as soon as
+the server's GOAWAY has arrived and no request is left on it; the next
+request resumes a new one. Chrome and Firefox leave it for the server to
+close.
 
 **A server's stream limit.** A request made while the server allows no
 more streams waits on its connection, as in the browsers. While it waits,
@@ -139,8 +154,6 @@ send none.
 
 ## Not supported
 
-- Safari profiles never resume a QUIC connection: every one is a full
-  handshake.
 - Finding HTTP/3 through DNS HTTPS records. Only the `Alt-Svc` header is
   used.
 - Connection migration for Firefox and Safari, path MTU probing, ECN and
@@ -159,4 +172,6 @@ behaviour), [0036](../decisions/0036-fast-quic-fallback.md) (fast
 fallback), [0011](../decisions/0011-connection-partitioning.md)
 (partitioning), [0043](../decisions/0043-http3-ack-rate-opt-in.md) (ACK
 rate), [0045](../decisions/0045-udp-receive-buffer-default.md) (receive
-buffer), [0049](../decisions/0049-streams-blocked.md) (STREAMS_BLOCKED).
+buffer), [0049](../decisions/0049-streams-blocked.md) (STREAMS_BLOCKED),
+[0050](../decisions/0050-quic-resumption-and-dial-delays.md) (QUIC
+resumption, dial delays, close on GOAWAY).

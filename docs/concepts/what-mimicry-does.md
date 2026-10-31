@@ -35,6 +35,7 @@ it, use [`Transport.Plan`](how-a-request-is-built.md#5-seeing-it-before-it-is-se
 | [HTTP/2 coalescing](#http2-coalescing) | a DNS lookup; Firefox: one declined connection | `Config.DisableCoalescing` |
 | [HTTP/3](#http3) | a QUIC connection beside TCP | `Config.DisableHTTP3`; `Config.AltSvc` |
 | [QUIC failure](#when-quic-fails) | TCP connections racing QUIC | `Config.BrowserQUICFallback` |
+| [QUIC dial delay](#a-new-quic-connection-starts-at-once) | none: a dial a few ms sooner than Safari's and Firefox's | `Config.BrowserDialDelay` |
 | [Keep-alive and housekeeping](#keep-alive-and-housekeeping-frames) | PING, WINDOW_UPDATE, ACK frames | none |
 | [TLS resumption and 0-RTT](#tls-resumption-and-0-rtt) | a `425 Too Early` request sent again | `Config.DisableHTTP3` stops 0-RTT |
 | [WebSockets](#websockets) | only when you call `DialWebSocket` | don't call it |
@@ -235,6 +236,21 @@ systems are not known to time that path.
 **How to change it.** `Config.BrowserQUICFallback` keeps the browser's
 waits. `Config.DisableHTTP3` skips QUIC.
 
+## A new QUIC connection starts at once
+
+**What happens.** Safari waits 3–11 ms after a request before it starts
+the QUIC connection that request waits for, and Firefox 4–9 ms before a
+resumed one. mimicry starts it at once by default. The connection's
+packets are the same; only when its first one leaves differs.
+
+**Why.** The delay costs every such request that much and comes before
+any packet: a server sees nothing of it but a few milliseconds' timing,
+less than a network's jitter
+([0050](../decisions/0050-quic-resumption-and-dial-delays.md)).
+
+**How to change it.** `Config.BrowserDialDelay` waits as the browser
+does, drawing from the delays its captures measured.
+
 ## Keep-alive and housekeeping frames
 
 **What happens.** Each profile sends the frames its browser sends:
@@ -255,10 +271,10 @@ None of this is background traffic on an idle connection.
 
 **What happens.** Chrome and Firefox profiles resume TLS sessions on later
 connections to the same host. Safari never resumes over TCP. No TCP
-connection sends early (0-RTT) data. Over QUIC, Chrome and Firefox send
-their first GET, HEAD or OPTIONS requests early; other methods wait for
-the handshake. A request answered `425 Too Early` is sent again once the
-handshake completes.
+connection sends early (0-RTT) data. Over QUIC every profile resumes, and
+sends its first GET, HEAD or OPTIONS requests early; other methods wait
+for the handshake. A request answered `425 Too Early` is sent again once
+the handshake completes.
 
 **Why.** A client that never resumes looks unlike a browser, and is
 slower.

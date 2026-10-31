@@ -122,9 +122,9 @@ type Config struct {
 	DisableDecompression bool
 
 	// HTTP/3 and connections. Each of these defaults to what the browser
-	// does, except BrowserQUICFallback and BrowserProxyAuth, where the
-	// default is faster and setting the field restores the browser, and
-	// IdleConnTimeout's 90 seconds.
+	// does, except BrowserQUICFallback, BrowserDialDelay and
+	// BrowserProxyAuth, where the default is faster and setting the field
+	// restores the browser, and IdleConnTimeout's 90 seconds.
 
 	// DisableHTTP3 keeps every request on TCP. By default a request moves
 	// to HTTP/3 when the browser would, falling back to TCP if QUIC fails.
@@ -139,6 +139,11 @@ type Config struct {
 	// default they move to TCP after the browser's race delay, or at once
 	// on failure. Connections that work are the same either way.
 	BrowserQUICFallback bool
+	// BrowserDialDelay holds a new QUIC connection a request waits for
+	// back before its first packet, as the browser does: Safari's 3–10 ms
+	// (resumed 5–11, rarely more), Firefox's resumed 4–9 ms. By default it
+	// starts at once; the packets are the same, only sent sooner.
+	BrowserDialDelay bool
 	// BrowserProxyAuth sends an http proxy the URL's credentials only after
 	// it answers 407, as browsers do. By default the first request sends
 	// them, saving a round trip per new proxy. Only the proxy sees the
@@ -285,6 +290,7 @@ func NewTransport(cfg Config) (*Transport, error) {
 			Proxy:               cfg.Proxy,
 			DisableHTTP3:        cfg.DisableHTTP3,
 			BrowserFallback:     cfg.BrowserQUICFallback,
+			BrowserDialDelay:    cfg.BrowserDialDelay,
 			Coalesce:            !cfg.DisableCoalescing,
 			MaxConnsPerHost:     cfg.MaxConnsPerHost,
 			IdleConnTimeout:     cfg.IdleConnTimeout,

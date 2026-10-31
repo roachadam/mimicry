@@ -70,9 +70,10 @@ type quicConn struct {
 	// decided (Fallback.PendingTCP).
 	died  sync.Once
 	toTCP bool
-	// earlyUntil, with fast fallback, ends the wait of requests on it,
-	// resumed, for a handshake the server has not answered
-	// (Engine.earlyWait). Zero: no end but the connection's.
+	// earlyUntil ends the wait of requests on it, resumed, for a handshake
+	// the server has not answered (Engine.earlyWait): with fast fallback,
+	// or a browser racing its 0-RTT attempts. Zero: no end but the
+	// connection's.
 	earlyUntil time.Time
 	// tls is the connection's TLS state once its handshake is complete,
 	// which responses carry (state).
@@ -113,6 +114,8 @@ type attempt struct {
 	together bool
 	// resumed: it offers a ticket.
 	resumed bool
+	// delay is how long its dial was held back (dialSpec.delay).
+	delay time.Duration
 	// cancel drops the dial (Fallback.AbandonOnTCP).
 	cancel context.CancelFunc
 }
@@ -121,7 +124,8 @@ type attempt struct {
 type dialSpec struct {
 	// port is the alternative's: the origin's host at port.
 	port uint16
-	// delay holds the dial back (Firefox's race after a GOAWAY).
+	// delay holds the dial back: Discovery.DialDelayMillis or
+	// ResumedDialDelayMillis, or Firefox's race after a GOAWAY.
 	delay time.Duration
 	// after, when set, holds the dial back until it is closed too: the
 	// race's TCP request has its response (Firefox's race after a
@@ -169,7 +173,8 @@ type origin struct {
 	// later. Zero: none.
 	revalidate time.Time
 	// reconnect (Fallback.PendingQUIC): no dial starts before then, after
-	// a live connection died.
+	// a live connection died; a dial up to reconnectSlack after it starts
+	// at once, without the dial delay (dialDelay).
 	reconnect time.Time
 	// token is the server's last NEW_TOKEN; rtt the last connection's
 	// smoothed RTT.
@@ -440,6 +445,8 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 	var a *attempt
 
 	hold := false
+	// held: the request started a, whose dial is held back that long.
+	var held time.Duration
 
 	switch e.pickWay(o, tcpOpen) {
 	case wayGoAwayRace:
@@ -500,6 +507,7 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 				ticket:  e.takeTicket(r),
 				pending: true,
 			})
+			held = a.delay
 		}
 
 	case wayBeside:
@@ -535,7 +543,7 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 		}
 	}
 
-	c, err = e.await(ctx, a)
+	c, err = e.await(ctx, a, held)
 
 	return c, nil, err
 }
@@ -545,9 +553,13 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 // with fast fallback, until the delay with browser timing. With
 // ZeroRTTHolds a 0-RTT request waits for the handshake; with AbandonOnTCP
 // the attempt is dropped.
-func (e *Engine) await(ctx context.Context, a *attempt) (*quicConn, error) {
+//
+// held is how long the attempt's dial is held back for a request that
+// started it (Discovery.DialDelayMillis): TCPDelayMillis counts from the
+// dial.
+func (e *Engine) await(ctx context.Context, a *attempt, held time.Duration) (*quicConn, error) {
 	fb := e.profile.HTTP3.Discovery.Fallback
-	delay := drawMillis(fb.TCPDelayMillis)
+	delay := held + drawMillis(fb.TCPDelayMillis)
 
 	if a.together {
 		delay = 0
@@ -610,9 +622,10 @@ func (e *Engine) hasTicket(r route) bool {
 }
 
 // resumesQUIC reports whether the profile resumes QUIC connections: with
-// 0-RTT, every time (Safari never did).
+// 0-RTT, every time (quic.zeroRtt; Safari too, though it never resumes
+// over TCP).
 func (e *Engine) resumesQUIC() bool {
-	return e.plan.Resumes() && e.profile.QUIC.ZeroRTT
+	return e.profile.QUIC.ZeroRTT
 }
 
 // dropTicket forgets r's QUIC session ticket: a fresh validation follows a
@@ -635,11 +648,12 @@ func millis(n int) time.Duration {
 	return time.Duration(n) * time.Millisecond
 }
 
-// earlyLimit is how long fast fallback lets requests wait on a resumed
-// connection for its server's first answer: the profile's race delay
-// (Chrome's, which ZeroRTTHolds otherwise stretches to the give-up), else
-// its first probe timeout (Firefox: no race delay; it probes then). Zero:
-// no limit.
+// earlyLimit is how long requests may wait on a resumed connection for its
+// server's first answer, with fast fallback or where the browser races its
+// 0-RTT attempts too (FallbackRace without ZeroRTTHolds: Safari): the
+// profile's race delay (Chrome's, which ZeroRTTHolds otherwise stretches
+// to the give-up), else its first probe timeout (Firefox: no race delay;
+// it probes then). Zero: no limit.
 func (e *Engine) earlyLimit() time.Duration {
 	if d := drawMillis(e.profile.HTTP3.Discovery.Fallback.TCPDelayMillis); d > 0 {
 		return d
@@ -649,9 +663,10 @@ func (e *Engine) earlyLimit() time.Duration {
 }
 
 // earlyWait is how much longer a request may wait on c for a handshake its
-// server has not answered: c resumed in 0-RTT with fast fallback, until
-// c.earlyUntil. limited is false where the request waits as the browser's
-// does: browser timing, or c's handshake is complete.
+// server has not answered: c resumed in 0-RTT, until c.earlyUntil (fast
+// fallback, or a browser racing 0-RTT attempts). limited is false where
+// the request waits on c for as long as it lives: c's handshake is
+// complete, or the browser's 0-RTT attempt holds its requests.
 func (e *Engine) earlyWait(c *quicConn) (wait time.Duration, limited bool) {
 	if c.earlyUntil.IsZero() || c.handshook.Load() {
 		return 0, false
@@ -688,11 +703,12 @@ func (e *Engine) roundTripH3(r route, c *quicConn, req *http.Request) (*http.Res
 	return e.h3Result(r, c, req, resp, err)
 }
 
-// roundTripEarly is roundTripH3 on c, resumed and unanswered, with fast
-// fallback: when neither the response nor the handshake has come within
-// wait, req goes on TCP. A request sent in 0-RTT stays on c, as the
-// browser's would until c gives up, its answer dropped; one held for the
-// handshake (Conn.EarlyMethod) is withdrawn unsent.
+// roundTripEarly is roundTripH3 on c, resumed and unanswered (earlyWait):
+// when neither the response nor the handshake has come within wait, req
+// goes on TCP. A request sent in 0-RTT stays on c, as the browser's would
+// until c gives up, its answer dropped, unless the profile drops c then
+// (AbandonOnTCP: Safari's 0-RTT close); one held for the handshake
+// (Conn.EarlyMethod) is withdrawn unsent.
 func (e *Engine) roundTripEarly(r route, c *quicConn, req *http.Request, wait time.Duration) (*http.Response, bool, error) {
 	type result struct {
 		resp *http.Response
@@ -739,6 +755,10 @@ func (e *Engine) roundTripEarly(r route, c *quicConn, req *http.Request, wait ti
 
 			if !c.EarlyMethod(req.Method) {
 				cancel()
+			}
+
+			if e.profile.HTTP3.Discovery.Fallback.AbandonOnTCP {
+				c.qc.Abandon()
 			}
 
 			go func() {
@@ -867,23 +887,65 @@ func (e *Engine) declineExtra(r route, req *http.Request, pending int) {
 }
 
 // startAttempt starts dialling r's origin as spec says, outside any
-// request; the connection goes in the pool for the requests after.
+// request; the connection goes in the pool for the requests after. A dial
+// a request waits for (spec.pending) is held back dialDelay first.
 // e.quic.mu must be held.
 func (e *Engine) startAttempt(o *origin, r route, spec dialSpec) *attempt {
+	if spec.pending {
+		spec.delay = e.dialDelay(o, spec.ticket != nil)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	a := &attempt{
 		done:     make(chan struct{}),
 		together: o.together,
 		resumed:  spec.ticket != nil,
+		delay:    spec.delay,
 		cancel:   cancel,
 	}
 
-	o.together = false
+	o.together, o.reconnect = false, time.Time{}
 	o.attempt = a
 
 	go e.runAttempt(ctx, o, r, a, spec)
 
 	return a
+}
+
+// reconnectSlack is how long after origin.reconnect a dial still counts
+// as the reconnection: the waiting requests' retries arrive together, the
+// first at the reconnect time.
+const reconnectSlack = 50 * time.Millisecond
+
+// dialDelay is how long a dial a request waits for is held back with
+// Config.BrowserDialDelay: a draw from Discovery.DialDelayMillis, or
+// ResumedDialDelayMillis when it resumes (drawSample); none for the
+// reconnection after a dead connection, whose wait
+// (Fallback.ReconnectMillis) is the whole of it, while it lasts
+// (origin.reconnect, reconnectSlack). By default none (decision 0050).
+// e.quic.mu must be held.
+func (e *Engine) dialDelay(o *origin, resumed bool) time.Duration {
+	if !e.browserDialDelay || !o.reconnect.IsZero() && !e.clock.Now().After(o.reconnect.Add(reconnectSlack)) {
+		return 0
+	}
+
+	d := e.profile.HTTP3.Discovery
+	if resumed {
+		return drawSample(d.ResumedDialDelayMillis)
+	}
+
+	return drawSample(d.DialDelayMillis)
+}
+
+// drawSample draws one of the browser's measured delays (whole
+// milliseconds), spread over its millisecond: a delay as frequent as in
+// the captures, outliers included. Zero for none.
+func drawSample(ms []int) time.Duration {
+	if len(ms) == 0 {
+		return 0
+	}
+
+	return millis(ms[rand.IntN(len(ms))]) + time.Duration(rand.Int64N(int64(time.Millisecond))) //nolint:gosec // timing needs no secrecy
 }
 
 // runAttempt is a's dial, which ends it: the connection is pooled, or
@@ -1106,7 +1168,7 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 	}
 	hello := e.plan.QUICHello()
 
-	if e.plan.Resumes() && e.profile.QUIC.ZeroRTT {
+	if e.resumesQUIC() {
 		cfg.Tickets, cfg.TicketKey = q.tickets, key
 		if cfg.Ticket = spec.ticket; cfg.Ticket != nil {
 			hello = e.plan.ResumedQUICHello()
@@ -1179,12 +1241,14 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 		resumed:   cfg.Ticket != nil,
 		handshake: make(chan struct{}),
 	}
+	fb := e.profile.HTTP3.Discovery.Fallback
+
 	switch {
 	case !qcn.resumed:
 		qcn.handshook.Store(true)
 		close(qcn.handshake)
 
-	case !e.browserFallback:
+	case !e.browserFallback || fb.Mode == profile.FallbackRace && !fb.ZeroRTTHolds:
 		if d := e.earlyLimit(); d > 0 {
 			qcn.earlyUntil = start.Add(d)
 		}

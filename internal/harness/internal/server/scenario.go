@@ -283,6 +283,19 @@ func (sc *Scenario) GoesAway(host, path string) bool {
 	}).closeAfter
 }
 
+// GoesAwayH3 reports whether the server sends GOAWAY (then, a second
+// later, CONNECTION_CLOSE) on the HTTP/3 connection that carried a GET of
+// path (with its query) on host.
+func (sc *Scenario) GoesAwayH3(host, path string) bool {
+	r := sc.answer(request{
+		method: "GET",
+		host:   host,
+		path:   path,
+	})
+
+	return r.closeAfter && !r.tcpOnly
+}
+
 func (sc *Scenario) answer(r request) response {
 	r.ports = sc.ports
 	if sc.multi != nil {

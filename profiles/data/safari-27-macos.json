@@ -166,7 +166,8 @@
           ]
         }
       ],
-      "transportParametersBefore": "0x001b"
+      "transportParametersBefore": "0x001b",
+      "earlyDataBefore": "0x002b"
     }
   },
   "http2": {
@@ -11843,6 +11844,7 @@
       "max": 29
     },
     "spinBit": "spin",
+    "zeroRtt": true,
     "loss": {
       "fresh": {},
       "resumed": {},
@@ -11896,12 +11898,107 @@
         "open": "handshake"
       }
     ],
+    "earlyStreamsWithRequest": true,
     "requestsAfterConfirmed": true,
+    "earlyData": {
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "retryTooEarly": true
+    },
     "qpack": {
       "huffman": "always"
     },
+    "closeOnGoaway": true,
     "discovery": {
       "switch": "new_connection",
+      "dialDelayMs": [
+        3,
+        4,
+        4,
+        4,
+        5,
+        6,
+        6,
+        6,
+        6,
+        6,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        9,
+        9,
+        9,
+        10,
+        10,
+        10,
+        10
+      ],
+      "resumedDialDelayMs": [
+        5,
+        5,
+        6,
+        6,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        10,
+        10,
+        10,
+        10,
+        10,
+        10,
+        10,
+        10,
+        11,
+        11,
+        11,
+        22
+      ],
       "fallback": {
         "mode": "race",
         "tcpDelayMs": {

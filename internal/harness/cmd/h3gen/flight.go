@@ -199,30 +199,6 @@ func earlierToken(s *captureSet, c *conn) bool {
 	return false
 }
 
-// zeroRTT: every resumed connection sent 0-RTT packets, or none did.
-func zeroRTT(s *captureSet, p *profile.Profile, e *collector) bool {
-	early, resumed := 0, 0
-	for _, c := range s.conns {
-		if c.resumed {
-			resumed++
-
-			if c.c.EarlyData {
-				early++
-			}
-		}
-	}
-
-	if resumed > 0 && p.TLS.Resumption == nil {
-		e.add(s.conns[0], "connections resume, but tls.resumption is empty")
-	}
-
-	if early != 0 && early != resumed {
-		e.add(s.conns[0], "%d of %d resumed connections sent 0-RTT", early, resumed)
-	}
-
-	return resumed > 0 && early == resumed
-}
-
 // closeReply: every completed connection the server closed got the
 // client's transport CONNECTION_CLOSE NO_ERROR for frame type 0x1d in
 // reply, or none did.

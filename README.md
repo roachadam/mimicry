@@ -70,11 +70,12 @@ WebSockets and HTTP/3 need no setup; see [WebSockets](docs/concepts/websockets.m
 
 ## Deviations from the browser
 
-By default mimicry behaves like the browser, except for these five defaults:
+By default mimicry behaves like the browser, except for these six defaults:
 
 | Default | Why | To get the browser's behaviour |
 |---|---|---|
 | Falls back to TCP soon when QUIC fails | Browsers can wait 4–5 s ([0036](docs/decisions/0036-fast-quic-fallback.md)) | `Config.BrowserQUICFallback` |
+| Starts a new QUIC connection a request waits for at once | Safari waits 3–11 ms before every such dial, Firefox 4–9 ms before resumed ones; the delay comes before any packet ([0050](docs/decisions/0050-quic-resumption-and-dial-delays.md)) | `Config.BrowserDialDelay` |
 | Sends proxy credentials with the first request | Saves a round trip; only the proxy sees it ([0039](docs/decisions/0039-proxy-credentials-up-front.md)) | `Config.BrowserProxyAuth` |
 | 30 s total timeout per request | A stuck request fails instead of hanging ([0041](docs/decisions/0041-default-request-timeout.md)) | `Config.Timeout` |
 | Closes connections idle for 90 s | Bounds memory ([0040](docs/decisions/0040-idle-connection-cleanup.md)) | `Config.IdleConnTimeout` |
