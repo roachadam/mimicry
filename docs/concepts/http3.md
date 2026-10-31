@@ -152,6 +152,32 @@ mimicry sends STREAMS_BLOCKED as the profile's browser does:
 Profiles without that capture (Chrome 155, Chrome on Windows, Safari 26)
 send none.
 
+## Limits
+
+**nginx and Chrome's GREASE transport parameter.** Chrome adds a
+transport parameter with a random reserved ID (31 × N + 27, N anywhere in
+the varint range) and 0–15 random bytes to every QUIC handshake, and so
+does mimicry with a Chrome profile. nginx (1.31.8, and its source to
+date) looks up a parameter it does not know by the ID's low 16 bits only,
+so when those are 0x0001–0x000f it reads the random bytes as that
+parameter. Against nginx this shows as:
+
+- about 1 in 12,000 handshakes refused with CRYPTO_ERROR 0x16d "missing
+  transport parameters"; the site then stays on TCP, as after any failed
+  QUIC attempt;
+- about 1 in 80,000 connections closed by mimicry right after the
+  handshake with CONNECTION_ID_LIMIT_ERROR: nginx has read a larger
+  `active_connection_id_limit` and sends more connection IDs than the 2
+  allowed;
+- about 1 in 200,000 connections (each of ten 1 KB requests) where nginx
+  has read a flow-control window of a few bytes: it stops mid-response
+  and waits for credit that never comes, so the request waits for
+  `Config.Timeout` (30 s with `NewClient`) or the caller's deadline.
+
+Chrome draws the parameter the same way (the IDs in its captures span the
+whole range), so it meets the same failures; mimicry keeps Chrome's draw.
+[#5](https://github.com/roachadam/mimicry/issues/5) has the analysis.
+
 ## Not supported
 
 - Finding HTTP/3 through DNS HTTPS records. Only the `Alt-Svc` header is

@@ -41,7 +41,11 @@ net/http's Transport has none.
 - The stalls: benchmark layer 6 with the client on 1 CPU, 3 of 30 points
   ([multiclient-rotation report](../../internal/bench/reports/multiclient-rotation-2026-10-28.md);
   [#5](https://github.com/roachadam/mimicry/issues/5) has the analysis). Nothing about them is
-  captured from a browser, and nothing here changes what is sent.
+  captured from a browser, and nothing here changes what is sent. Their
+  cause, found later: nginx reads Chrome's random GREASE transport
+  parameter as a flow-control window of a few bytes, about once in
+  200,000 connections, and Chrome draws that parameter as mimicry does
+  ([HTTP/3, Limits](../concepts/http3.md#limits)).
 - `TestClientTimeout` (root, `idle_test.go`): `NewClient`'s
   `http.Client.Timeout` is 30 s by default and none when negative; with
   200 ms, reading the body of an HTTP/2 response whose server sent half
@@ -58,5 +62,6 @@ net/http's Transport has none.
 - Callers routinely hit the 30 s on large downloads or slow proxies, and a
   read-idle timeout (time since the last byte, not since the start) would
   serve them better.
-- The mid-stream stall ([#5](https://github.com/roachadam/mimicry/issues/5)) is explained and fixed in the
-  engine, so the default no longer has a known stall to bound.
+- nginx reads transport parameter IDs whole (the mid-stream stall,
+  [#5](https://github.com/roachadam/mimicry/issues/5)), so the default no
+  longer has a known stall to bound.
