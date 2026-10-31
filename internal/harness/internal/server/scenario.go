@@ -272,6 +272,16 @@ func ScenarioByName(name string) (*Scenario, error) {
 	return nil, fmt.Errorf("unknown scenario %q (have %s)", name, strings.Join(names, ", "))
 }
 
+// GoesAway reports whether the server sends GOAWAY on the HTTP/2
+// connection that carried a GET of path (with its query) on host.
+func (sc *Scenario) GoesAway(host, path string) bool {
+	return sc.answer(request{
+		method: "GET",
+		host:   host,
+		path:   path,
+	}).closeAfter
+}
+
 func (sc *Scenario) answer(r request) response {
 	r.ports = sc.ports
 	if sc.multi != nil {
