@@ -96,9 +96,11 @@ type Config struct {
 	// way (proxyUse).
 	IdleConnTimeout time.Duration
 	// MaxIdleProxies, when set, is how many of the most recently used
-	// proxies keep their idle connections, the others' closing as soon as
-	// they fall out (proxyUse); zero means keepProxies, or any proxy used
-	// in the last proxyUnused. Negative is an error.
+	// proxies keep their idle connections and their TLS sessions, 407s
+	// and HTTP/3 state (forgetProxy), the others losing both as soon as
+	// they fall out (proxyUse). Zero means keepProxies for connections
+	// and rememberProxies for state, or any proxy used in the last
+	// proxyUnused. Negative is an error.
 	MaxIdleProxies int
 	// HTTP3OverSOCKS5 lets requests through a socks5 or socks5h proxy use
 	// HTTP/3, over a SOCKS5 UDP association with the proxy (ListenUDPVia),
@@ -219,9 +221,9 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 		return nil, fmt.Errorf("mimicry: Config.MaxIdleProxies %d is negative", cfg.MaxIdleProxies)
 	}
 
-	keep, grace := keepProxies, proxyUnused
+	keep, remember, grace := keepProxies, rememberProxies, proxyUnused
 	if cfg.MaxIdleProxies > 0 {
-		keep, grace = cfg.MaxIdleProxies, 0
+		keep, remember, grace = cfg.MaxIdleProxies, cfg.MaxIdleProxies, 0
 	}
 
 	c := compile(p)
@@ -249,9 +251,10 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 		h3SOCKS5:        cfg.HTTP3OverSOCKS5,
 		expireGoAway:    p.HTTP3 != nil && p.HTTP3.Discovery.GoAwayTCP,
 		proxies: proxyUse{
-			keep:  keep,
-			grace: grace,
-			byURL: map[string]*proxyKeys{},
+			keep:     keep,
+			remember: remember,
+			grace:    grace,
+			byURL:    map[string]*proxyKeys{},
 		},
 		pool: pool.New[*shared, *h1.Conn](pool.Config{
 			Clock:        clock,
@@ -311,12 +314,17 @@ func (e *Engine) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 		}
 	}()
 
-	r, req, unasked, err := e.begin(req)
+	r, err := e.begin(req)
 	if err != nil {
 		return nil, err
 	}
 
+	// Before the proxy's 407 state is read: the sweep forgets no proxy
+	// with a request in flight.
 	e.usedProxy(r)
+	defer e.doneProxy(r)
+
+	req, unasked := e.withUnasked(req, r)
 
 	answered := false
 	for attempt := 1; ; attempt++ {
@@ -383,30 +391,34 @@ func (e *Engine) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 	}
 }
 
-// begin checks req's URL, picks its route and returns req as the
-// connection writes it, with any proxy credentials the browser sends
-// unasked. RoundTrip and Plan both start here.
-func (e *Engine) begin(req *http.Request) (r route, out *http.Request, unasked string, err error) {
+// begin checks req's URL and picks its route. RoundTrip and Plan both
+// start here, then add the proxy's credentials with withUnasked.
+func (e *Engine) begin(req *http.Request) (route, error) {
 	switch {
 	case req.URL == nil || req.URL.Host == "":
-		return route{}, req, "", errors.New("mimicry: request has no host")
+		return route{}, errors.New("mimicry: request has no host")
 	case req.URL.Scheme != "https" && req.URL.Scheme != "http":
-		return route{}, req, "", fmt.Errorf("mimicry: unsupported scheme %q", req.URL.Scheme)
+		return route{}, fmt.Errorf("mimicry: unsupported scheme %q", req.URL.Scheme)
 	case !httpguts.ValidHostHeader(req.URL.Host):
-		return route{}, req, "", fmt.Errorf("mimicry: invalid host %q", req.URL.Host)
+		return route{}, fmt.Errorf("mimicry: invalid host %q", req.URL.Host)
 	}
 
-	if r, err = e.route(req); err != nil {
-		return route{}, req, "", err
+	return e.route(req)
+}
+
+// withUnasked returns req as the connection writes it on r, with any proxy
+// credentials the browser sends unasked, and those credentials.
+func (e *Engine) withUnasked(req *http.Request, r route) (*http.Request, string) {
+	if !r.forward {
+		return req, ""
 	}
 
-	if r.forward {
-		if unasked = e.dialer.ForwardAuthorization(r.proxy); unasked != "" {
-			req = withProxyAuth(req.Context(), req, unasked)
-		}
+	unasked := e.dialer.ForwardAuthorization(r.proxy)
+	if unasked != "" {
+		req = withProxyAuth(req.Context(), req, unasked)
 	}
 
-	return r, req, unasked, nil
+	return req, unasked
 }
 
 // tcpRefusal is the error of a request on TCP that its plan says was

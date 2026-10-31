@@ -374,6 +374,14 @@ func (d *Dialer) UDPRefused(p *url.URL) bool {
 	return ok
 }
 
+// Forget drops what d has learned of the proxy whose URL is via
+// (url.URL.String): that it asked for credentials, or refused a UDP
+// association. It is then a proxy d has never used.
+func (d *Dialer) Forget(via string) {
+	d.asked.Delete(via)
+	d.udpRefused.Delete(via)
+}
+
 // dialRelay opens a UDP socket connected to relay, the address p's answer
 // to UDP ASSOCIATE on ctrl gave: an unspecified IP there is the proxy's,
 // the address ctrl reached.

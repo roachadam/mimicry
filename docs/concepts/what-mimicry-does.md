@@ -140,7 +140,8 @@ exactly as the server sent it.
 - HTTP/1.1 connections carry one request at a time. At most 6 are open
   to one host, as in every browser. Further requests wait their turn.
 - An idle connection closes 90 s after its last request. Through
-  rotating proxies, idle connections can close sooner: see
+  rotating proxies, idle connections can close sooner, and a proxy long
+  out of use loses its TLS sessions too: see
   [Proxies](proxies.md#rotating-proxies).
 - Chrome profiles keep requests without credentials and cross-site frames
   on separate connections, as Chrome does.

@@ -70,7 +70,7 @@ WebSockets and HTTP/3 need no setup; see [WebSockets](docs/concepts/websockets.m
 
 ## Deviations from the browser
 
-By default mimicry behaves like the browser, except for these four defaults:
+By default mimicry behaves like the browser, except for these five defaults:
 
 | Default | Why | To get the browser's behaviour |
 |---|---|---|
@@ -78,6 +78,7 @@ By default mimicry behaves like the browser, except for these four defaults:
 | Sends proxy credentials with the first request | Saves a round trip; only the proxy sees it ([0039](docs/decisions/0039-proxy-credentials-up-front.md)) | `Config.BrowserProxyAuth` |
 | 30 s total timeout per request | A stuck request fails instead of hanging ([0041](docs/decisions/0041-default-request-timeout.md)) | `Config.Timeout` |
 | Closes connections idle for 90 s | Bounds memory ([0040](docs/decisions/0040-idle-connection-cleanup.md)) | `Config.IdleConnTimeout` |
+| Forgets a proxy's TLS sessions and proxy-auth state once it is out of the 1,024 most recently used and unused for 10 s (its connections close sooner, past the 16 most recent) | Bounds memory when rotating proxies; a browser uses one proxy ([0040](docs/decisions/0040-idle-connection-cleanup.md)) | None; a proxy used again after that makes a full handshake. `Config.MaxIdleProxies` keeps fewer |
 
 These options do what no browser does. They are off by default:
 

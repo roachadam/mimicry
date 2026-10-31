@@ -53,10 +53,12 @@ type Plan struct {
 // looks up and changes nothing; its error is one RoundTrip would return
 // for any protocol. See decision 0034.
 func (e *Engine) Plan(req *http.Request) (*Plan, error) {
-	r, req, _, err := e.begin(req)
+	r, err := e.begin(req)
 	if err != nil {
 		return nil, err
 	}
+
+	req, _ = e.withUnasked(req, r)
 
 	p := &Plan{
 		Protocols: e.protocolsNow(req, r),
