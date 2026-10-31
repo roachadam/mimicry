@@ -530,11 +530,15 @@ func pageSet(h http.Header, list []profile.Header) bool {
 
 // pageHeader reports whether name is a header the page set itself: one
 // list does not name, other than those any request may carry (cookie, the
-// body's type and length) and HeaderOrderKey.
+// body's type, framing the connection builds) and HeaderOrderKey.
 func pageHeader(name string, list []profile.Header) bool {
+	if headerorder.Framing(name) {
+		return false
+	}
+
 	lower := strings.ToLower(name)
 	switch lower {
-	case "cookie", "content-type", "content-length", strings.ToLower(headerorder.Key):
+	case "cookie", "content-type", strings.ToLower(headerorder.Key):
 		return false
 	}
 

@@ -654,7 +654,7 @@ func buildHead(dst []hpack.Field, headers []profile.Header, h2p *profile.HTTP2, 
 	// Room for the usual list on the stack; head.fields is the copy kept.
 	var buf [32]headerorder.Field
 
-	ordered, err := headerorder.Place(headerorder.Build(buf[:0], list, req.Header, sets, skipHeader, table), headerorder.PlacementsFrom(req.Context()))
+	ordered, err := headerorder.Place(headerorder.Build(buf[:0], list, headerorder.WithoutFraming(req.Header), sets, skipHeader, table), headerorder.PlacementsFrom(req.Context()))
 	if err != nil {
 		return requestHead{}, err
 	}

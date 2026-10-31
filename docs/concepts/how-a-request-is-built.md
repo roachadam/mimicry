@@ -81,9 +81,15 @@ Combinations no browser makes are errors before anything is sent:
    - A connection partition: Chrome keeps credential-less requests and
      cross-site frames on separate connections.
 4. **Layer the request's own headers.** They win over the profile's
-   defaults and `Config.Header`. A header set to `nil` suppresses a
-   default. `HeaderOrderKey` replaces the order, and a profile default it
-   does not name is not sent. `Config.HeaderPlacement` and
+   defaults and `Config.Header`, except framing: `Content-Length`,
+   `Connection` and `Transfer-Encoding` in a header map are ignored, and
+   the connection builds them from the request (`req.ContentLength`, the
+   body, the protocol), as `net/http` does. Over HTTP/1.1,
+   `Connection: close` (or `req.Close`) is honoured: it goes in the
+   profile's `Connection` slot and the connection closes after the
+   response. A header set to `nil`
+   suppresses a default. `HeaderOrderKey` replaces the order, and a
+   profile default it does not name is not sent. `Config.HeaderPlacement` and
    `Request.HeaderPlacement` move one header directly before or after
    another; the connection applies them last. A request with
    `HeaderOrderKey` ignores `Config` placements, and combining it with its
@@ -210,9 +216,9 @@ changes what goes out. See `ExampleTransport_Plan` for a full example.
 - **Headers you set are sent as set**, including names a page may not set
   (`Cookie`, `Origin`, `Sec-Fetch-*`, `Proxy-Authorization`), as in other
   HTTP clients (the maintainer's decision): an override is deliberate.
-  `Host` is replaced by the URL's host. A caller-set `Content-Length` or
-  `Connection` can break the request's framing; building those from the
-  request is tracked in [#3](https://github.com/roachadam/mimicry/issues/3).
+  `Host` is replaced by the URL's host, and `Content-Length`,
+  `Connection` and `Transfer-Encoding` are built from the request (step
+  4); an override can make a request look less like the browser's.
 - **`Accept-Language` is the capture machine's** setting, not a browser
   constant. Vendors compare it with the exit IP's location; set your own
   with `Config.Header` (preflights carry it too).
