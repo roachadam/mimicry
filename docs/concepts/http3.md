@@ -89,7 +89,9 @@ QUIC again a few seconds later.
 
 If a live connection stops answering, each browser reacts differently:
 
-- Chrome moves the connection to a new UDP port and carries on.
+- Chrome moves the connection to a new UDP port and carries on, unless
+  the server's transport parameters forbid it (`disable_active_migration`);
+  then it stays on the old port.
 - Safari closes it after 12 s and sends the waiting requests again on a
   new QUIC connection.
 - Firefox keeps trying until its 30 s idle timeout, then sends the

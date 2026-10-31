@@ -230,3 +230,20 @@ maintainer's decision, 2026-10-30); both stay pinned in `h3EdgeGaps`:
   against a server that stopped answering, and the give-up times match.
 
 Reopen if a vendor is seen reading failure-path probes or closes.
+
+## Amendment 2026-10-31: a server that disables migration
+
+Chrome's port migration now stays put when the server's transport
+parameters carry `disable_active_migration`. RFC 9000, section 18.2 says
+the client MUST NOT migrate then, and Chrome 102 and later does not: its
+`MaybeMigrateToDifferentPortOnPathDegrading` returns with "Migration
+disabled by config" (Chromium source at 156.0.8078.85, a lead; no capture
+server has sent the parameter, and quic-go cannot). The path is still
+marked degraded, so the move is not tried again until the server answers;
+keep-alives, probes and the idle timeout are unchanged. What Chrome does
+after declining (its probes, when it closes, where the stuck request
+goes) is not captured and is listed in EVIDENCE.md's Not covered by any
+claim. `TestClientPathDegradingMove` (`internal/quic`) checks both ways.
+
+Reopen if a capture of Chrome against a server sending the parameter
+shows it moving, or shows what it does instead.
