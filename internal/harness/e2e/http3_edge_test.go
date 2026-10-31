@@ -36,8 +36,10 @@ const h3PageHost = "www.h3-a.test"
 //     connection how each stream went (earlyStream);
 //   - per QUIC attempt: resumption, versions, the server's answer, how it
 //     ended, path moves (checkPathMoves), give-up datagrams, its trigger;
-//   - per host: the STREAMS_BLOCKED frames sent there, and their limits;
-//     on h3-streams-blocked, each burst's waits sorted (compareBurstWaits);
+//   - per host: the STREAMS_BLOCKED frames sent there, those sent alone
+//     and their limits, and those sent with a stream, their limits and
+//     place (compareStreamsBlockedWith); on h3-streams-blocked, each
+//     burst's waits sorted (compareBurstWaits);
 //   - per TCP connection: its trigger, its race against the QUIC attempt,
 //     the GOAWAY sent, how many were declined.
 //
@@ -103,6 +105,7 @@ func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
 
 					if sc == server.H3StreamsBlocked {
 						compareBurstWaits(t, got, want, skip)
+						compareStreamsBlockedWith(t, got, want, skip)
 					}
 
 					unused()
@@ -126,21 +129,9 @@ var h3EdgeGaps = func() map[string]string {
 		"chrome-155-macos/h3-broken edge QUIC www.h3-b.test #2 Initial packet number steps": "as its datagrams: the browser's first resumed probe is 4 Initials (steps 4 1 1 1, mimicry's 4 alone); every other step, the skip before each probe and none before the close, matches. On Windows the samples disagree (4 Initials in 2, 2 in the other), so the step is not compared there",
 		"firefox-158-macos/h3-broken edge QUIC www.h3-b.test #2 datagrams":                  "Firefox's resumed probes vary between samples (pairs every PTO from a ~3 ms cached RTT, the 3-packet resumed first flight not repeated, lone 40-B 0-RTT datagrams); quic.loss's flight probe replays all 3 first-flight packets per PTO, and the profile has no resumed-probe rule; give-up time and close match",
 		"firefox-158-macos/h3-too-early edge TCP www.h3-a.test declined":                    "beside 3–4 of its 4 retries after 425 Too Early per sample (which ones varies), Firefox also opened a TCP connection to the host and closed it before any request; the retry itself goes on the QUIC connection, as mimicry's does. No profile field holds when Firefox opens these (report h3-early-2026-10-26)",
-	}
-	// The h3-streams-blocked page (report h3-streams-blocked-2026-10-31):
-	// every browser sends STREAMS_BLOCKED when a request waits for the
-	// server's stream limit, each on its own spacing; mimicry sends none
-	// (issue #4). Chrome's limits vary between samples, so only its count
-	// is compared.
-	const noStreamsBlocked = "mimicry sends no STREAMS_BLOCKED when a request waits for the server's stream limit (issue #4; report h3-streams-blocked-2026-10-31); its requests queue on the connection as the browser's do"
-	for _, k := range []string{
-		"chrome-156-macos/h3-streams-blocked edge QUIC www.h3-a.test STREAMS_BLOCKED",
-		"firefox-158-macos/h3-streams-blocked edge QUIC www.h3-a.test STREAMS_BLOCKED",
-		"firefox-158-macos/h3-streams-blocked edge QUIC www.h3-a.test STREAMS_BLOCKED limits",
-		"safari-27-macos/h3-streams-blocked edge QUIC www.h3-a.test STREAMS_BLOCKED",
-		"safari-27-macos/h3-streams-blocked edge QUIC www.h3-a.test STREAMS_BLOCKED limits",
-	} {
-		gaps[k] = noStreamsBlocked
+		// Firefox's STREAMS_BLOCKED rule, which this page shows, is
+		// quic.streamsBlocked; what differs is how far each raise goes.
+		"firefox-158-macos/h3-streams-blocked edge QUIC www.h3-a.test STREAMS_BLOCKED with streams": "Firefox acknowledged each burst response 0.1–2.3 ms after it came (most after an ACK-only packet from the server), so quic-go raised the limit by one per response, and by quic.streamsBlocked's waiting rule Firefox sent one with each stream but a burst's last (6 7 8, 12 13 14). mimicry acknowledges the first two responses together (the replay makes the burst's requests together, Firefox 4–6 ms apart; with the browser's spacing it still does, quic.ack counting ack-eliciting packets only: tried 2026-10-31), so the server raises by two at once, and by the same rule mimicry sends one per such raise while a request waits (7, 13). The frames it sends alone match (5, 11)",
 	}
 
 	// Chrome's on both platforms: the late resend of the silenced request
@@ -915,26 +906,39 @@ func edgeFeatures(page *capture.Page) (f features, ms, stalled map[string]int) {
 	}
 
 	// The STREAMS_BLOCKED frames sent to each host, over all its
-	// connections (a browser's connection may be retired before use).
+	// connections (a browser's connection may be retired before use):
+	// those sent in a packet without a request's STREAM frame (a request
+	// made at the limit), and those sent with a stream's
+	// (streamsBlockedWith: a waiting request's, once the limit was
+	// raised).
 	for host, conns := range v.quic {
-		var limits []string
+		var alone, with []string
 		for _, c := range conns {
 			for _, d := range c.Datagrams {
 				for _, pk := range d.Packets {
-					for _, fr := range pk.Frames {
-						if fr.Type == quictrace.FrameStreamsBlocked {
-							limits = append(limits, streamsBlockedLimit(fr))
+					for i, fr := range pk.Frames {
+						if fr.Type != quictrace.FrameStreamsBlocked {
+							continue
+						}
+
+						if w, ok := streamsBlockedWith(pk.Frames, i); ok {
+							with = append(with, w)
+						} else {
+							alone = append(alone, streamsBlockedLimit(fr))
 						}
 					}
 				}
 			}
 		}
 
-		if len(limits) > 0 {
-			k := "QUIC " + host + " STREAMS_BLOCKED"
+		k := "QUIC " + host + " STREAMS_BLOCKED"
+		if len(alone) > 0 {
+			f.num[k+" alone"] = len(alone)
+			f.cat[k+" alone limits"] = strings.Join(alone, " ")
+		}
 
-			f.num[k] = len(limits)
-			f.cat[k+" limits"] = strings.Join(limits, " ")
+		if len(with) > 0 {
+			f.cat[k+" with streams"] = strings.Join(with, ", ")
 		}
 	}
 
@@ -991,6 +995,43 @@ func streamsBlockedLimit(fr quictrace.Frame) string {
 	}
 
 	return fmt.Sprintf("%s %d", kind, fr.Max)
+}
+
+// streamsBlockedWith describes the STREAMS_BLOCKED frames[i] in a packet
+// carrying a request's STREAM frame, by its limit and where it sits:
+// "bidi 6 after stream 5" (right after the STREAM frame of the stream that
+// took the limit up, the last before it), "bidi 6 before stream 5" (the
+// first after it), else "bidi 6 with streams". False in a packet with no
+// request's STREAM frame.
+func streamsBlockedWith(frames []quictrace.Frame, i int) (string, bool) {
+	fr := frames[i]
+	l := streamsBlockedLimit(fr)
+
+	var prev, next *uint64
+
+	for j, f := range frames {
+		if f.Type != quictrace.FrameStream || f.Stream == nil || *f.Stream%4 != 0 {
+			continue
+		}
+
+		switch {
+		case j < i:
+			prev = f.Stream
+		case next == nil:
+			next = f.Stream
+		}
+	}
+
+	switch {
+	case prev == nil && next == nil:
+		return "", false
+	case fr.Max > 0 && prev != nil && *prev/4 == fr.Max-1:
+		return fmt.Sprintf("%s after stream %d", l, fr.Max-1), true
+	case fr.Max > 0 && next != nil && *next/4 == fr.Max-1:
+		return fmt.Sprintf("%s before stream %d", l, fr.Max-1), true
+	}
+
+	return l + " with streams", true
 }
 
 // stalledIn is how long this process was stalled (stalls) within the d ms
@@ -1352,6 +1393,131 @@ func compareBurstWaits(t *testing.T, got *capture.Page, want []*capture.Page, sk
 // client held back its ACK of the responses that freed a stream (Chrome,
 // 26–30 ms).
 const burstACKSlack = 30
+
+// compareStreamsBlockedWith holds the STREAMS_BLOCKED that mimicry's
+// waiting requests sent with their streams to the samples' as sets, which
+// also hold where the samples differ (compareFeatures compares the list
+// whole where they agree): each one every sample sent last in its packet
+// mimicry sends too ("with streams", the feature's own label), and each of
+// mimicry's some sample sent, at most as often ("beyond the browser's",
+// kept when the first is pinned). A browser's waiting streams leave in one
+// packet per raise, ending with the frame for the limit the raise ended
+// at. Chrome sent that one after the last stream of each raise (6, 8, 12,
+// 14) in every sample, and one after the first of the two in 9 of 12
+// raises (5, 7, 11, 13: the limit of the raise's first MAX_STREAMS
+// frame); mimicry's first comes as its waiting request opens its stream
+// before or after its loop has read the second frame
+// (profile.StreamsBlockedRaiseAlways).
+func compareStreamsBlockedWith(t *testing.T, got *capture.Page, want []*capture.Page, skip func(string) bool) {
+	t.Helper()
+
+	g, _ := streamsBlockedWithPackets(got)
+	every, most := map[string]map[string]bool{}, map[string]map[string]int{}
+
+	for i, w := range want {
+		all, last := streamsBlockedWithPackets(w)
+		for host, c := range all {
+			if most[host] == nil {
+				most[host] = map[string]int{}
+			}
+
+			for s, n := range c {
+				most[host][s] = max(most[host][s], n)
+			}
+		}
+
+		for host := range every {
+			maps.DeleteFunc(every[host], func(s string, _ bool) bool {
+				return last[host][s] == 0
+			})
+		}
+
+		if i == 0 {
+			for host, c := range last {
+				every[host] = map[string]bool{}
+				for s := range c {
+					every[host][s] = true
+				}
+			}
+		}
+	}
+
+	hosts := slices.Sorted(maps.Keys(g))
+	for h := range most {
+		if !slices.Contains(hosts, h) {
+			hosts = append(hosts, h)
+		}
+	}
+
+	for _, host := range hosts {
+		var missing, beyond []string
+
+		for _, s := range slices.Sorted(maps.Keys(every[host])) {
+			if g[host][s] == 0 {
+				missing = append(missing, fmt.Sprintf("no %s, which every browser sample sent last in its packet", s))
+			}
+		}
+
+		for _, s := range slices.Sorted(maps.Keys(g[host])) {
+			if g[host][s] > most[host][s] {
+				beyond = append(beyond, fmt.Sprintf("%s %d times, the browser's at most %d", s, g[host][s], most[host][s]))
+			}
+		}
+
+		label := "edge QUIC " + host + " STREAMS_BLOCKED with streams"
+		mine := strings.Join(slices.Sorted(maps.Keys(g[host])), ", ")
+
+		for l, diffs := range map[string][]string{
+			label:                            missing,
+			label + ", beyond the browser's": beyond,
+		} {
+			if len(diffs) > 0 && !skip(l) {
+				t.Errorf("%s: %s (mimicry's: %s)", l, strings.Join(diffs, "; "), mine)
+			}
+		}
+
+		t.Logf("%s: %s", label, mine)
+	}
+}
+
+// streamsBlockedWithPackets counts the STREAMS_BLOCKED that page's
+// requests sent with their streams (streamsBlockedWith), by host: all of
+// them, and those last in their packet.
+func streamsBlockedWithPackets(page *capture.Page) (all, last map[string]map[string]int) {
+	all, last = map[string]map[string]int{}, map[string]map[string]int{}
+
+	for host, conns := range viewEdge(page).quic {
+		for _, c := range conns {
+			for _, d := range c.Datagrams {
+				for _, pk := range d.Packets {
+					end := ""
+
+					for i, fr := range pk.Frames {
+						if fr.Type != quictrace.FrameStreamsBlocked {
+							continue
+						}
+
+						if w, ok := streamsBlockedWith(pk.Frames, i); ok {
+							if all[host] == nil {
+								all[host], last[host] = map[string]int{}, map[string]int{}
+							}
+
+							all[host][w]++
+
+							end = w
+						}
+					}
+
+					if end != "" {
+						last[host][end]++
+					}
+				}
+			}
+		}
+	}
+
+	return all, last
+}
 
 // streamsBlockedBursts are the h3-streams-blocked page's bursts, each its
 // requests' paths: a step whose response is held back starts one when it

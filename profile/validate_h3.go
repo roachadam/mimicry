@@ -151,6 +151,16 @@ func (c *checker) checkQUIC(q *QUIC, resumes bool) {
 	if vn.Retry && len(otherVersions(q)) == 0 {
 		c.add(path+".versionNegotiation.retry", "needs version_information offering a version besides 1")
 	}
+
+	if sb := q.StreamsBlocked; sb != nil {
+		if !slices.Contains([]string{StreamsBlockedEveryRequest, StreamsBlockedFirstRequest}, sb.AtRequest) {
+			c.add(path+".streamsBlocked.atRequest", "%q must be %q or %q", sb.AtRequest, StreamsBlockedEveryRequest, StreamsBlockedFirstRequest)
+		}
+
+		if !slices.Contains([]string{"", StreamsBlockedRaiseAlways, StreamsBlockedRaiseWaiting}, sb.AfterRaise) {
+			c.add(path+".streamsBlocked.afterRaise", "%q must be empty, %q or %q", sb.AfterRaise, StreamsBlockedRaiseAlways, StreamsBlockedRaiseWaiting)
+		}
+	}
 }
 
 // otherVersions are the versions besides 1 that q's version_information

@@ -11870,6 +11870,9 @@
     },
     "versionNegotiation": {
       "retry": false
+    },
+    "streamsBlocked": {
+      "atRequest": "first_request"
     }
   },
   "http3": {

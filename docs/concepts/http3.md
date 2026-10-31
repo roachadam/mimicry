@@ -124,6 +124,19 @@ finishes. Other requests, such as a POST, wait for the handshake, and a
 request the server answers `425 Too Early` is sent again on the same
 connection.
 
+**A server's stream limit.** A request made while the server allows no
+more streams waits on its connection, as in the browsers. While it waits,
+mimicry sends STREAMS_BLOCKED as the profile's browser does:
+
+- **Chrome:** one per request made at the limit, and one after each
+  stream that uses up a raised limit.
+- **Firefox:** one for the first request made at a limit, and one with a
+  stream that uses up a raised limit while another request still waits.
+- **Safari:** one for the first request made at a limit only.
+
+Profiles without that capture (Chrome 155, Chrome on Windows, Safari 26)
+send none.
+
 ## Not supported
 
 - Safari profiles never resume a QUIC connection: every one is a full
@@ -146,4 +159,4 @@ behaviour), [0036](../decisions/0036-fast-quic-fallback.md) (fast
 fallback), [0011](../decisions/0011-connection-partitioning.md)
 (partitioning), [0043](../decisions/0043-http3-ack-rate-opt-in.md) (ACK
 rate), [0045](../decisions/0045-udp-receive-buffer-default.md) (receive
-buffer).
+buffer), [0049](../decisions/0049-streams-blocked.md) (STREAMS_BLOCKED).

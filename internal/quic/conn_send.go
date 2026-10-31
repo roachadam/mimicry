@@ -310,6 +310,12 @@ func (c *Conn) appendFrames(now time.Time, space numberSpace, pnum packetNumber,
 			return
 		}
 
+		// mimicry: a STREAMS_BLOCKED a request made at the stream
+		// limit queued goes in a packet of its own (client_streams.go).
+		if !c.w.sent.ackEliciting && c.appendStreamsBlocked() {
+			return
+		}
+
 		if !c.appendKeepAlive() {
 			return
 		}

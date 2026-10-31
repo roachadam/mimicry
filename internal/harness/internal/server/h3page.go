@@ -77,10 +77,10 @@ func H3ProfileCaptures(dir string, p *profile.Profile) ([]capture.File, error) {
 
 // H3EdgeCaptures is H3ProfileCaptures for the edge scenarios h3gen reads
 // (loss recovery, fallback, version negotiation, credit, key updates, early
-// data). h3-v2 is left out: only internal/quic and internal/harness/e2e
-// check it.
+// data, STREAMS_BLOCKED). h3-v2 is left out: only internal/quic and
+// internal/harness/e2e check it.
 func H3EdgeCaptures(dir string, p *profile.Profile) ([]capture.File, error) {
-	return existingCaptures(dir, p, H3Blackhole, H3Broken, H3VN, H3Download, H3Early, H3TooEarly)
+	return existingCaptures(dir, p, H3Blackhole, H3Broken, H3VN, H3Download, H3Early, H3TooEarly, H3StreamsBlocked)
 }
 
 // existingCaptures returns p's existing captures of scenarios in dir,

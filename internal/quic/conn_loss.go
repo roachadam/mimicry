@@ -72,6 +72,14 @@ func (c *Conn) handleAckOrLoss(space numberSpace, sent *sentPacket, fate packetF
 			c.streams.remoteLimit[bidiStream].sendMax.ackLatestOrLoss(sent.num, fate)
 		case frameTypeMaxStreamsUni:
 			c.streams.remoteLimit[uniStream].sendMax.ackLatestOrLoss(sent.num, fate)
+		case frameTypeStreamsBlockedBidi, frameTypeStreamsBlockedUni:
+			// mimicry: a client's, by its profile's rule
+			// (client_streams.go); sent again if lost while still
+			// blocked at its limit.
+			limit := int64(sent.nextInt())
+			if fate == packetLost && f == frameTypeStreamsBlockedBidi {
+				c.streams.localLimit[bidiStream].streamsBlockedLost(limit)
+			}
 		case frameTypeNewConnectionID:
 			seq := int64(sent.nextInt())
 			c.connIDState.ackOrLossNewConnectionID(sent.num, seq, fate)

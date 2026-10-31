@@ -9889,6 +9889,10 @@
     "versionNegotiation": {
       "retry": true,
       "downgradeError": "0x53f8"
+    },
+    "streamsBlocked": {
+      "atRequest": "first_request",
+      "afterRaise": "waiting"
     }
   },
   "http3": {

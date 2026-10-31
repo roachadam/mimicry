@@ -292,8 +292,8 @@ clock, and every QUIC connection also records the server's datagrams
 versions, Retry integrity checked, 1-RTT headers unmasked), its transport
 parameters, and datagrams from another client port (`path`, a migration).
 Chrome and Firefox need `-h3-local-roots` for all but `h3-blackhole` (no
-certificate ever arrives). hellogen and h3gen read all but `h3-v2` and
-`h3-streams-blocked` (`server.H3EdgeCaptures`);
+certificate ever arrives). hellogen and h3gen read all but `h3-v2`
+(`server.H3EdgeCaptures`);
 `TestHTTP3EdgeMatchesBrowser` and `TestHTTP3DownloadMatchesBrowser`
 replay them. Results:
 [http3-edge](../internal/harness/reports/http3-edge-2026-10-25.md),
@@ -345,12 +345,15 @@ does not describe:
 
 hellogen and h3gen read the edge captures too (`server.H3EdgeCaptures`:
 `h3-blackhole`, `h3-broken`, `h3-vn`, `h3-download`, `h3-early`,
-`h3-too-early`), from which h3gen derives `quic.loss` (probes, give-ups,
-abandon closes, path degrading), `quic.keepAlive`, `quic.ack`,
-`quic.credit`, `quic.keyUpdate`, `quic.versionNegotiation`,
-`http3.discovery.fallback` and `http3.earlyData` (which methods go in
-0-RTT, where a held request leaves, the retry after 425); kindsgen reads
-only `h3-discovery` and `h3-page` (`server.H3ProfileCaptures`). Each
+`h3-too-early`, `h3-streams-blocked`), from which h3gen derives
+`quic.loss` (probes, give-ups, abandon closes, path degrading),
+`quic.keepAlive`, `quic.ack`, `quic.credit`, `quic.keyUpdate`,
+`quic.versionNegotiation`, `quic.streamsBlocked` (left out, not measured,
+for a profile without an `h3-streams-blocked` capture; every other edge
+capture is required), `http3.discovery.fallback` and `http3.earlyData`
+(which methods go in 0-RTT, where a held request leaves, the retry after
+425); kindsgen reads only `h3-discovery` and `h3-page`
+(`server.H3ProfileCaptures`). Each
 generator has its own `TestRegenerateReproducesProfiles`, which fails while
 a committed profile differs from what it derives from the committed
 captures. `go generate ./profiles` refreshes the accessors afterwards.

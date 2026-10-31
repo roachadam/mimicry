@@ -10236,6 +10236,10 @@
     },
     "versionNegotiation": {
       "retry": false
+    },
+    "streamsBlocked": {
+      "atRequest": "every_request",
+      "afterRaise": "always"
     }
   },
   "http3": {

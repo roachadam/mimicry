@@ -20,6 +20,9 @@ type localStreamLimits struct {
 	gate   gate
 	max    int64 // peer-provided MAX_STREAMS
 	opened int64 // number of streams opened by us, -1 when conn is closed
+	// mimicry: the profile's STREAMS_BLOCKED rule (client_streams.go),
+	// nil without one and for unidirectional streams.
+	blocked *streamsBlocked
 }
 
 func (lim *localStreamLimits) init() {
@@ -27,18 +30,27 @@ func (lim *localStreamLimits) init() {
 }
 
 // open creates a new local stream, blocking until MAX_STREAMS quota is available.
-func (lim *localStreamLimits) open(ctx context.Context, c *Conn) (num int64, err error) {
-	// TODO: Send a STREAMS_BLOCKED when blocked.
+//
+// mimicry: upstream's TODO (send a STREAMS_BLOCKED when blocked) is the
+// profile's rule: a request is counted from when it is made
+// (Conn.ExpectStream, which may queue one), and the stream it opens may
+// carry one (openingBlocked).
+func (lim *localStreamLimits) open(ctx context.Context, c *Conn) (num int64, blocked openingBlocked, err error) {
 	if err := lim.gate.waitAndLock(ctx); err != nil {
-		return 0, err
+		lim.gate.lock()
+		lim.streamFailed()
+		lim.unlock()
+
+		return 0, openingBlocked{}, err
 	}
 	defer lim.unlock()
 	if lim.opened < 0 {
-		return 0, errConnClosed
+		lim.streamFailed()
+		return 0, openingBlocked{}, errConnClosed
 	}
 	num = lim.opened
 	lim.opened++
-	return num, nil
+	return num, lim.streamOpened(), nil
 }
 
 // unlock is a wrapper around lim.gate.unlock. This should be used in lieu of
