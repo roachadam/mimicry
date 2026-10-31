@@ -65,6 +65,7 @@ func (e *Engine) OpenWebSocket(req *http.Request, key string) (*WebSocket, error
 		}
 
 		e.usedProxy(r)
+		defer e.doneProxy(r)
 	}
 
 	if req.URL.Scheme == "https" {

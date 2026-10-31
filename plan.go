@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/net/http/httpguts"
+
 	"github.com/roachadam/mimicry/cookies"
 	"github.com/roachadam/mimicry/internal/engine/native"
 	"github.com/roachadam/mimicry/internal/headerorder"
@@ -55,7 +57,8 @@ type Plan struct {
 	// Overrides are the headers the request or Config.Header set in
 	// place of a value the profile or mimicry would have sent: a default,
 	// a computed header (Referer, Origin, sec-fetch-*), or the jar's
-	// cookies.
+	// cookies. A Connection: close (or req.Close) is one over HTTP/1.1
+	// only: HTTP/2 and HTTP/3 send no Connection.
 	Overrides []Override
 	// Dropped are the headers the profile would have sent that the
 	// request's HeaderOrderKey does not name, so are not sent; lowercase.
@@ -133,13 +136,13 @@ func (t *Transport) Plan(req *http.Request) (*Plan, error) {
 	if pf := o.preflight; pf != nil {
 		pre = t.plan(Request{
 			Kind: Preflight,
-		}, false, pf.s)
+		}, false, pf.req, pf.s)
 		if err := pre.fill(e, pf.req); err != nil {
 			return nil, err
 		}
 	}
 
-	p := t.plan(r, exact, o.s)
+	p := t.plan(r, exact, req, o.s)
 	if err := p.fill(e, t.ready(req, o, toPlan)); err != nil {
 		return nil, err
 	}
@@ -149,15 +152,17 @@ func (t *Transport) Plan(req *http.Request) (*Plan, error) {
 	return p, nil
 }
 
-// plan starts the plan of a request made as r (or exact) and resolved as
-// s: its lists, condition and overrides. Call it before ready adds the
+// plan starts the plan of req, made as r (or exact) and resolved as s:
+// its lists, condition and overrides. Call it before ready adds the
 // jar's cookies to s's headers.
-func (t *Transport) plan(r Request, exact bool, s *sending) *Plan {
+func (t *Transport) plan(r Request, exact bool, req *http.Request, s *sending) *Plan {
 	p := &Plan{
 		Kind: r.Kind,
 	}
 	if exact {
-		p.Overrides = t.cookieOverride(s, nil)
+		p.Overrides = t.connectionOverride(req, exact, s, nil)
+		p.Overrides = t.cookieOverride(s, p.Overrides)
+
 		return p
 	}
 
@@ -185,8 +190,10 @@ func (t *Transport) plan(r Request, exact bool, s *sending) *Plan {
 		}
 	}
 
+	// The connection builds framing from the request, never the header map.
+	header := headerorder.WithoutFraming(s.header)
 	for _, list := range lists {
-		replaced, dropped := headerorder.Replaced(list, s.header)
+		replaced, dropped := headerorder.Replaced(list, header)
 		for _, rp := range replaced {
 			if !slices.ContainsFunc(p.Overrides, func(o Override) bool {
 				return o.Name == rp.Name
@@ -206,9 +213,61 @@ func (t *Transport) plan(r Request, exact bool, s *sending) *Plan {
 		}
 	}
 
+	p.Overrides = t.connectionOverride(req, exact, s, p.Overrides)
 	p.Overrides = t.cookieOverride(s, p.Overrides)
 
 	return p
+}
+
+// connectionOverride adds a close (a caller's Connection: close, or
+// req.Close) that HTTP/1.1 sends in place of the list's value: the
+// profile's Connection slot, or keep-alive where no HTTP/1.1 list
+// applies (as h1 writes it). A list without the slot sends neither.
+func (t *Transport) connectionOverride(req *http.Request, exact bool, s *sending, overrides []Override) []Override {
+	var caller []string
+
+	for k, v := range s.header {
+		if strings.EqualFold(k, "connection") && httpguts.HeaderValuesContainsToken(v, "close") {
+			caller = v
+			break
+		}
+	}
+
+	if caller == nil && req.Close {
+		caller = []string{"close"}
+	}
+
+	if caller == nil {
+		return overrides
+	}
+
+	var h1 []profile.Header
+
+	switch {
+	case exact:
+	case s.plan != nil:
+		h1 = s.plan.HTTP1
+	case t.profile.HTTP1 != nil:
+		h1 = t.profile.HTTP1.Headers
+	}
+
+	mimicry := "keep-alive"
+	if len(h1) > 0 {
+		i := slices.IndexFunc(h1, func(hd profile.Header) bool {
+			return strings.EqualFold(hd.Name, "connection")
+		})
+		if i < 0 {
+			return overrides
+		}
+
+		mimicry = h1[i].Value
+	}
+
+	return append(overrides, Override{
+		Name:    "connection",
+		Mimicry: mimicry,
+		Caller:  caller,
+	})
 }
 
 // cookieOverride adds to overrides the request's own Cookie header where

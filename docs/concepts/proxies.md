@@ -95,6 +95,17 @@ proxy's connections stay, like azuretls's `SetProxy`. A round-robin over
 more proxies than the count opens a new connection per request. For the
 memory each setting costs, see [performance](../performance.md#many-clients-through-proxies).
 
+What mimicry learned through a proxy lasts longer than its connections:
+its TLS sessions, its 407 and its refused UDP relay, and its sites' HTTP/3
+state stay for the 1,024 proxies used most recently (and any used in the
+last 10 s), about 1–2 KB each. One of them used again opens a new
+connection that resumes its TLS session (0-RTT over HTTP/3) and sends
+its credentials at once. A proxy beyond them is forgotten and, used again
+later, starts like a new proxy: a full TLS handshake, and the 407 again
+with `Config.BrowserProxyAuth`. With `Config.MaxIdleProxies` a proxy
+pushed out is forgotten at once. Sessions are never shared between
+proxies.
+
 To rotate by client instead, build a new client per identity. Call
 `CloseIdleConnections` on the client you drop so its connections close at
 once. Otherwise they close only when the garbage collector finds the

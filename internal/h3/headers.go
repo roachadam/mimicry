@@ -150,7 +150,7 @@ func buildHead(p *profile.Profile, altHost, altPort string, req *http.Request, l
 		list, table = plan.Headers, plan.Table
 	}
 
-	ordered := headerorder.Build(nil, list, req.Header, sets, func(name string) bool {
+	ordered := headerorder.Build(nil, list, headerorder.WithoutFraming(req.Header), sets, func(name string) bool {
 		return hopByHop[name]
 	}, table)
 	hd := p.HTTP3.Headers

@@ -154,8 +154,11 @@ type origin struct {
 	// dials one, resumed with 0-RTT where the profile does, even with an
 	// HTTP/2 connection open, and waits for it as Fallback says.
 	used bool
-	// last is its last HTTP/3 connection, to tell why it ended.
-	last *quicConn
+	// last is its last HTTP/3 connection while it is open, to tell why it
+	// ended; once it has ended, wentAway says whether the server sent
+	// GOAWAY on it, and the connection is let go (watchH3).
+	last     *quicConn
+	wentAway bool
 	// attempt is the QUIC connection being dialled to it; nil when none.
 	attempt *attempt
 	// together (Fallback.ZeroRTTHolds): its 0-RTT attempt gave up, so the
@@ -232,6 +235,19 @@ func (e *Engine) originState(r route) *origin {
 	}
 
 	return o
+}
+
+// h3Dialing reports whether the origin whose route key is key has a QUIC
+// attempt running, which pools a connection once it ends.
+func (e *Engine) h3Dialing(key string) bool {
+	q := e.quic
+
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	o := q.origins[key]
+
+	return o != nil && o.attempt != nil
 }
 
 // alternative returns the port of r's HTTP/3 alternative if it may be used
@@ -355,7 +371,7 @@ func (e *Engine) pickWay(o *origin, tcpOpen bool) way {
 	fb := d.Fallback
 
 	switch {
-	case d.RaceAfterGoAway && o.last != nil && o.last.GoneAway():
+	case d.RaceAfterGoAway && (o.wentAway || o.last != nil && o.last.GoneAway()):
 		return wayGoAwayRace
 	case !o.revalidate.IsZero():
 		return wayRevalidate
@@ -430,7 +446,7 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 		// On TCP; a resumed QUIC connection follows RaceDelayMillis later, never
 		// before the TCP response (the order in every Firefox sample), and later
 		// requests wait for it (Fallback.Hold).
-		o.last = nil
+		o.last, o.wentAway = nil, false
 		if o.attempt == nil {
 			race = make(chan struct{})
 			e.startAttempt(o, r, dialSpec{
@@ -951,7 +967,14 @@ func (e *Engine) runAttempt(ctx context.Context, o *origin, r route, a *attempt,
 		return
 	}
 
-	o.last = c
+	select {
+	case <-c.qc.Done():
+		// Ended already, before watchH3 could see it as the last.
+		o.last, o.wentAway = nil, c.GoneAway()
+	default:
+		o.last, o.wentAway = c, false
+	}
+
 	if !c.resumed {
 		e.succeeded(o)
 	}
@@ -1099,7 +1122,9 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 			q.mu.Lock()
 			defer q.mu.Unlock()
 
-			e.originState(r).token = t
+			// o, not originState: a proxy swept since (forgetProxy)
+			// is not brought back.
+			o.token = t
 		},
 	}
 	if spec.sent != nil {
@@ -1165,7 +1190,7 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 		}
 	}
 
-	go e.watchH3(r, qc)
+	go e.watchH3(o, qcn)
 
 	return qcn, nil
 }
@@ -1207,24 +1232,35 @@ func (e *Engine) dialQUIC(ctx context.Context, r route, port uint16, hello finge
 	return quic.Dial(ctx, pc, peer, dc)
 }
 
-// watchH3 keeps the connection's smoothed RTT for the origin's next
-// connection (Chrome's initial_rtt), sampled until it ends.
-func (e *Engine) watchH3(r route, qc *quic.Conn) {
+// watchH3 keeps c's smoothed RTT for o's next connection (Chrome's
+// initial_rtt), sampled until c ends. Then, if c is o's last connection,
+// it keeps only whether c went away: a closed connection stays out of the
+// origin's state.
+func (e *Engine) watchH3(o *origin, c *quicConn) {
 	t := e.clock.NewTicker(time.Second)
 	defer t.Stop()
 
 	for {
-		rtt := qc.SmoothedRTT()
+		rtt := c.qc.SmoothedRTT()
 		if rtt > 0 {
 			e.quic.mu.Lock()
 
-			e.originState(r).rtt = rtt
+			o.rtt = rtt
 			e.quic.mu.Unlock()
 		}
 
 		select {
-		case <-qc.Done():
+		case <-c.qc.Done():
+			e.quic.mu.Lock()
+
+			if o.last == c {
+				o.last, o.wentAway = nil, c.GoneAway()
+			}
+
+			e.quic.mu.Unlock()
+
 			return
+
 		case <-t.Chan():
 		}
 	}

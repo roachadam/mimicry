@@ -3,6 +3,8 @@ package native
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -631,5 +633,394 @@ func TestUnusedProxiesCloseTheirConnections(t *testing.T) {
 				t.Fatalf("closed %v, want %v", closed, want)
 			}
 		})
+	}
+}
+
+// identityProxies are HTTP or SOCKS5 proxies in front of one https server,
+// recording by proxy address what each connection to them did: CONNECT,
+// with credentials or not (an HTTP proxy answers 407 without), UDP
+// ASSOCIATE (a SOCKS5 proxy refuses it) and whether the TLS handshake
+// through the tunnel resumed.
+type identityProxies struct {
+	t      *testing.T
+	socks5 bool
+	// tls is the server's, one for every connection so that its tickets
+	// resume.
+	tls  func() *tls.Config
+	mu   sync.Mutex
+	seen map[string][]string
+}
+
+func newIdentityProxies(t *testing.T, socks5 bool) *identityProxies {
+	t.Helper()
+
+	return &identityProxies{
+		t:      t,
+		socks5: socks5,
+		tls: sync.OnceValue(func() *tls.Config {
+			return &tls.Config{
+				Certificates: []tls.Certificate{
+					*serverCert.Load(),
+				},
+				NextProtos: []string{
+					"h2",
+					"http/1.1",
+				},
+			}
+		}),
+		seen: map[string][]string{},
+	}
+}
+
+func (p *identityProxies) dial(_ context.Context, _, addr string) (net.Conn, error) {
+	client, server := net.Pipe()
+
+	p.t.Cleanup(func() {
+		_ = client.Close()
+		_ = server.Close()
+	})
+
+	go p.serve(addr, server)
+
+	return client, nil
+}
+
+// serve opens the tunnel on conn, then answers its requests over HTTP/2
+// with 200 "ok" and an HTTP/3 alternative.
+func (p *identityProxies) serve(addr string, conn net.Conn) {
+	defer func() {
+		_ = conn.Close()
+	}()
+
+	open := p.connect
+	if p.socks5 {
+		open = p.socks
+	}
+
+	// The client writes nothing more before the tunnel's answer: br holds
+	// none of the TLS handshake.
+	if err := open(addr, bufio.NewReader(conn), conn); err != nil {
+		return
+	}
+
+	tc := tls.Server(conn, p.tls())
+	if err := tc.HandshakeContext(p.t.Context()); err != nil {
+		return
+	}
+
+	if tc.ConnectionState().DidResume {
+		p.record(addr, "TLS resumed")
+	} else {
+		p.record(addr, "TLS")
+	}
+
+	serveH2On(p.t.Context(), tc, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Alt-Svc", `h3=":443"`)
+
+		_, _ = io.WriteString(w, "ok")
+	}))
+}
+
+// connect answers CONNECTs on conn: 407 without credentials, 200 with.
+func (p *identityProxies) connect(addr string, br *bufio.Reader, conn net.Conn) error {
+	for {
+		req, err := http.ReadRequest(br)
+		if err != nil {
+			return err
+		}
+
+		if req.Header.Get("Proxy-Authorization") != "" {
+			p.record(addr, "CONNECT with credentials")
+
+			_, err := io.WriteString(conn, "HTTP/1.1 200 Connection established\r\n\r\n")
+
+			return err
+		}
+
+		p.record(addr, "CONNECT")
+
+		if _, err := io.WriteString(conn, "HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm=\"test\"\r\nContent-Length: 0\r\n\r\n"); err != nil {
+			return err
+		}
+	}
+}
+
+// socks answers a SOCKS5 handshake on conn (RFC 1928; RFC 1929's username
+// and password, when offered, accepted): CONNECT succeeds, UDP ASSOCIATE
+// is refused (command not supported).
+func (p *identityProxies) socks(addr string, br *bufio.Reader, conn net.Conn) error {
+	head := make([]byte, 2)
+	if _, err := io.ReadFull(br, head); err != nil {
+		return err
+	}
+
+	methods := make([]byte, head[1])
+	if _, err := io.ReadFull(br, methods); err != nil {
+		return err
+	}
+
+	method := byte(0x00)
+	if slices.Contains(methods, 0x02) {
+		method = 0x02
+	}
+
+	if _, err := conn.Write([]byte{0x05, method}); err != nil {
+		return err
+	}
+
+	if method == 0x02 {
+		// Its version, then the username and the password, each after
+		// its length.
+		if _, err := br.ReadByte(); err != nil {
+			return err
+		}
+
+		for range 2 {
+			n, err := br.ReadByte()
+			if err != nil {
+				return err
+			}
+
+			if _, err := br.Discard(int(n)); err != nil {
+				return err
+			}
+		}
+
+		if _, err := conn.Write([]byte{0x01, 0x00}); err != nil {
+			return err
+		}
+	}
+
+	// Version, command, reserved, address type; the address and port.
+	req := make([]byte, 4)
+	if _, err := io.ReadFull(br, req); err != nil {
+		return err
+	}
+
+	skip := 4
+
+	switch req[3] {
+	case 0x03:
+		n, err := br.ReadByte()
+		if err != nil {
+			return err
+		}
+
+		skip = int(n)
+
+	case 0x04:
+		skip = 16
+	}
+
+	if _, err := br.Discard(skip + 2); err != nil {
+		return err
+	}
+
+	if req[1] == 0x03 {
+		p.record(addr, "UDP ASSOCIATE")
+
+		_, _ = conn.Write([]byte{0x05, 0x07, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
+
+		return errors.New("UDP ASSOCIATE refused")
+	}
+
+	p.record(addr, "CONNECT")
+
+	_, err := conn.Write([]byte{0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
+
+	return err
+}
+
+func (p *identityProxies) record(addr, what string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.seen[addr] = append(p.seen[addr], what)
+}
+
+// take returns, sorted, what connections to the proxy at addr did since
+// the last take.
+func (p *identityProxies) take(addr string) []string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	seen := p.seen[addr]
+	delete(p.seen, addr)
+	slices.Sort(seen)
+
+	return seen
+}
+
+// A Transport rotating through proxy identities keeps what it learned
+// through the recent ones only. One that falls out of the rememberProxies
+// most recent (with MaxIdleProxies, out of that many) comes back as a new
+// proxy would, with a full TLS handshake and, through an HTTP proxy with
+// BrowserProxyAuth, the 407 again, through a SOCKS5 one with
+// HTTP3OverSOCKS5, UDP ASSOCIATE asked again; and no HTTP/3 origin state
+// is left of it. By default one out of the keepProxies most recent but
+// within rememberProxies loses its connections only: it comes back on a
+// new connection that resumes and keeps what its proxy said, as the live
+// one does past the idle timeout. Fake clock; rememberProxies is lowered
+// to keepProxies+4 to keep the rotation short.
+func TestSweptProxiesAreForgotten(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		socks5 bool
+		// kept and fresh are what the proxy sees, sorted, of a request on
+		// a new connection through an identity whose state was kept, and
+		// through one that was forgotten.
+		kept, fresh []string
+	}{
+		{
+			name: "HTTP proxy",
+			kept: []string{
+				"CONNECT with credentials",
+				"TLS resumed",
+			},
+			fresh: []string{
+				"CONNECT",
+				"CONNECT with credentials",
+				"TLS",
+			},
+		},
+		{
+			name:   "SOCKS5 proxy refusing UDP",
+			socks5: true,
+			kept: []string{
+				"CONNECT",
+				"TLS resumed",
+			},
+			fresh: []string{
+				"CONNECT",
+				"TLS",
+				"UDP ASSOCIATE",
+			},
+		},
+	} {
+		for _, maxIdle := range []int{0, 1} {
+			t.Run(fmt.Sprintf("%s, MaxIdleProxies %d", tc.name, maxIdle), func(t *testing.T) {
+				testSweptProxiesAreForgotten(t, tc.socks5, maxIdle, tc.kept, tc.fresh)
+			})
+		}
+	}
+}
+
+// testSweptProxiesAreForgotten is one case of TestSweptProxiesAreForgotten:
+// 4 identities more than are remembered are used in turn, then each
+// remembered one out of the most recent, the last one and the forgotten
+// ones come back, the first ones' requests looking to the proxy as kept
+// says, the forgotten ones' as fresh says.
+func testSweptProxiesAreForgotten(t *testing.T, socks5 bool, maxIdle int, kept, fresh []string) {
+	t.Helper()
+
+	const forgotten = 4
+
+	// uTLS times tickets by the real clock: start there.
+	clock := clockwork.NewFakeClockAt(time.Now())
+	proxies := newIdentityProxies(t, socks5)
+
+	var current atomic.Pointer[url.URL]
+
+	e := newTestEngine(t, options{
+		dial:  proxies.dial,
+		clock: clock,
+		proxy: func(*http.Request) (*url.URL, error) {
+			return current.Load(), nil
+		},
+		maxIdleProxies:   maxIdle,
+		browserProxyAuth: true,
+		http3OverSOCKS5:  true,
+	})
+	if maxIdle == 0 {
+		e.proxies.remember = keepProxies + 4
+	}
+
+	keep, remember := e.proxies.keep, e.proxies.remember
+	identities := remember + forgotten
+
+	through := func(i int) []string {
+		t.Helper()
+
+		scheme := "http"
+		if socks5 {
+			scheme = "socks5h"
+		}
+
+		current.Store(&url.URL{
+			Scheme: scheme,
+			User:   url.UserPassword(fmt.Sprintf("user%d", i), "secret"),
+			Host:   proxyAddr(i),
+		})
+
+		resp, err := get(t, e, "https://localhost/")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		readAll(t, resp)
+		clock.Advance(time.Nanosecond)
+
+		return proxies.take(proxyAddr(i))
+	}
+
+	for i := range identities {
+		through(i)
+	}
+
+	deadline := time.Now().Add(5 * time.Second)
+
+	for {
+		e.proxies.mu.Lock()
+
+		known, closed := len(e.proxies.byURL), 0
+		for _, pk := range e.proxies.byURL {
+			if pk.closed {
+				closed++
+			}
+		}
+
+		e.proxies.mu.Unlock()
+
+		if known == remember && closed == remember-keep {
+			break
+		}
+
+		if time.Now().After(deadline) {
+			t.Fatalf("%d proxies known, %d of them closed; want the %d remembered, %d closed", known, closed, remember, remember-keep)
+		}
+
+		time.Sleep(time.Millisecond)
+		clock.Advance(time.Second)
+	}
+
+	e.quic.mu.Lock()
+
+	origins := len(e.quic.origins)
+	e.quic.mu.Unlock()
+
+	if origins > remember {
+		t.Errorf("HTTP/3 state kept for %d origins, want the %d remembered proxies' only", origins, remember)
+	}
+
+	// Remembered, connections closed: a new connection, resumed.
+	for i := forgotten; i < identities-keep; i++ {
+		if got := through(i); !slices.Equal(got, kept) {
+			t.Errorf("through remembered proxy %d: %q, want %q", i, got, kept)
+		}
+	}
+
+	// Past the idle timeout: the live proxies' connections close, what
+	// they learned stays.
+	clock.Advance(2 * time.Minute)
+	e.CloseIdleConnections()
+
+	if got := through(identities - 1); !slices.Equal(got, kept) {
+		t.Errorf("through the live proxy: %q, want %q", got, kept)
+	}
+
+	for i := range forgotten {
+		if got := through(i); !slices.Equal(got, fresh) {
+			t.Errorf("through forgotten proxy %d: %q, want %q", i, got, fresh)
+		}
 	}
 }

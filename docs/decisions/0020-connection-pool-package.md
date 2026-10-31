@@ -1,6 +1,6 @@
 # 0020: The connection pool is its own package
 
-- Status: Accepted; amended 2026-10-28 by [0040](0040-idle-connection-cleanup.md) (idle timeout for every protocol, `Config.IdleConnTimeout`, a separate `KeyTimeout`, `Shared.OnClose`)
+- Status: Accepted; amended 2026-10-28 by [0040](0040-idle-connection-cleanup.md) (idle timeout for every protocol, `Config.IdleConnTimeout`, a separate `KeyTimeout`, `Shared.OnClose`); amended 2026-10-30 by [0040](0040-idle-connection-cleanup.md#amendment-2026-10-30-per-proxy-state-kept-for-the-most-recent-proxies) (a proxy out of the 1,024 most recent loses its tickets and credential state)
 - Date: 2026-10-24
 - Commits: `96bdaa0`
 
@@ -56,6 +56,10 @@ TLS tickets and proxy credentials are **not** forgotten with the key:
   `resume` capture);
 - they send proxy credentials unasked on later connections (the `proxy`
   captures).
+
+(Since 2026-10-30, a proxy out of the 1,024 most recently used, and
+unused for 10 s, loses them; with `Config.MaxIdleProxies`, one out of
+that many: [0040](0040-idle-connection-cleanup.md#amendment-2026-10-30-per-proxy-state-kept-for-the-most-recent-proxies).)
 
 Expired TLS 1.3 tickets are dropped, so an expired ticket never yields the
 resumed ClientHello shape. TLS 1.2 ticket lifetime is unmeasured.

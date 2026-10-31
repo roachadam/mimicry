@@ -496,8 +496,23 @@ the mechanical import rewrites.
     timeout" without a profile). A local close with a recorded cause
     (the timeout, `abort`'s error) now resets the stream with it as the
     peer's close does; a direction the caller closed first, and a close
-    without a cause (`Abort`, `Close`), report as before.
+    without a cause (`Abort`, `Close`), report as before until the drain
+    period ends. Then the connection is done and `connHasClosed` runs
+    again as for a peer's close, upstream's too.
     Test: `stream_close_cause_test.go` (`TestStreamErrorAfterLocalClose`).
+
+21. **The server's `disable_active_migration`** (`conn.go`'s
+    `receiveTransportParameters`: stored for a client, its TODO removed;
+    `client_path.go`: `clientPathState.migrationDisabled`,
+    checked in `clientMove`). Upstream parses the parameter and ignores
+    it. A client whose server sent it never moves to a new port on a
+    degrading path: RFC 9000, section 18.2 forbids it, and Chrome 102
+    and later does not (`MaybeMigrateToDifferentPortOnPathDegrading`,
+    "Migration disabled by config"; source, not captured). The path is
+    still marked degraded, so the watch does not fire again until the
+    server answers; keep-alives, probes and the idle timeout are
+    unchanged. Only a profile that migrates (Chrome) is affected.
+    Test: `client_path_test.go` (`TestClientPathDegradingMove`).
 
 ## Sockets
 
@@ -531,8 +546,10 @@ uses it corrupts data silently, and only many streams at once, ending every
 way, reach the paths; `stream_fin_test.go` (change 10): a stall that
 needs the close to fall between a PTO and its probe;
 `udp_msg_parse_test.go` (change 11): the receive path's allocation bound;
-and `stream_close_cause_test.go` (change 20): a handshake that stops
-short of confirmed.
+`stream_close_cause_test.go` (change 20): a handshake that stops short of
+confirmed; and `client_path_test.go` (change 21): no capture server can
+send `disable_active_migration` (quic-go has no setting for it), so
+`TestQUICInterop` cannot reach it.
 
 ## Lint
 

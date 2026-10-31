@@ -310,6 +310,10 @@ func (c *Conn) receiveTransportParameters(p transportParameters) error {
 		}
 
 		defer c.clientApplyPeerWindows(p)
+
+		// mimicry: disable_active_migration; the client never moves
+		// (clientMove).
+		c.client.pathState.migrationDisabled = p.disableActiveMigration
 	}
 
 	// mimicry: the windows first, under tableMu (conn_streams.go): a
@@ -342,7 +346,6 @@ func (c *Conn) receiveTransportParameters(p transportParameters) error {
 	}
 	// TODO: stateless_reset_token
 	// TODO: max_udp_payload_size
-	// TODO: disable_active_migration
 	// TODO: preferred_address
 	return nil
 }

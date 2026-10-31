@@ -99,7 +99,9 @@ type Config struct {
 	// Header holds your own headers, such as an API key, added to every
 	// request where the browser places headers a page sets. They override
 	// the browser's defaults; the request's own headers override them. A
-	// key with no values removes a default. Default: none.
+	// key with no values removes a default. Content-Length, Connection and
+	// Transfer-Encoding are built from the request, except that
+	// Connection: close is honoured over HTTP/1.1. Default: none.
 	Header http.Header
 	// HeaderPlacement moves headers within the browser's order on every
 	// request you send, redirect hops included. CORS preflights and
@@ -157,8 +159,12 @@ type Config struct {
 	IdleConnTimeout time.Duration
 	// MaxIdleProxies is how many recently used proxies keep their idle
 	// connections. Zero means the 16 most recent, plus any used in the last
-	// 10 seconds. Set 1 to close a proxy's connections as soon as you
-	// switch away from it. Negative is an error.
+	// 10 seconds; what mimicry learned through a proxy (its TLS sessions,
+	// a 407, a refused UDP relay) is then kept for the 1,024 most recent.
+	// Set 1 to close a proxy's connections as soon as you switch away from
+	// it: with a count, a proxy pushed out loses its connections and what
+	// it taught at once, and used again starts like a new proxy. Negative
+	// is an error.
 	MaxIdleProxies int
 	// HTTP3OverSOCKS5 lets requests through a SOCKS5 proxy use HTTP/3.
 	// Browsers never use HTTP/3 through a proxy, so by default those
