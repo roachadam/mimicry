@@ -48,11 +48,22 @@ func pending(t *testing.T, waiters ...<-chan result) {
 func TestWaitersAreServedInOrder(t *testing.T) {
 	f := newLimitedFixture(t, 1)
 	c := f.dialExclusive("a")
+
+	c.handedOff = make(chan struct{}, 1)
+
 	first := f.getWaiting(t.Context(), "a")
 	second := f.getWaiting(t.Context(), "a")
-	f.pool.Release("a", c, true)
+	// release hands c to the oldest waiter, which checks it once Release
+	// has let the pool's lock go.
+	release := func() {
+		f.pool.Release("a", c, true)
+
+		c.handedOff <- struct{}{}
+	}
+
+	release()
 	want(t, <-first, FoundExclusive)
 	pending(t, second)
-	f.pool.Release("a", c, true)
+	release()
 	want(t, <-second, FoundExclusive)
 }

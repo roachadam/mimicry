@@ -105,9 +105,18 @@ type fakeExclusive struct {
 	usable atomic.Bool
 	checks atomic.Int32
 	closed chan struct{}
+	// handedOff, when set, holds Usable until the test sends on it once
+	// Release has returned: Release wakes the waiting Get it hands the
+	// connection to with the pool's lock still held, and that Get's
+	// goroutine checks the connection.
+	handedOff chan struct{}
 }
 
 func (c *fakeExclusive) Usable() bool {
+	if c.handedOff != nil {
+		<-c.handedOff
+	}
+
 	checkUnlocked(c.t, c.pool, "Usable")
 	c.checks.Add(1)
 
@@ -131,7 +140,9 @@ func (c *fakeExclusive) isClosed() bool {
 }
 
 // checkUnlocked fails the test if the pool's lock is held while a
-// connection does I/O. Tests that use it run the pool from one goroutine.
+// connection does I/O. Tests that use it run the pool from one goroutine
+// at a time, so a lock it finds held is the caller's: a Get that Release
+// wakes checks only once Release has returned (fakeExclusive.handedOff).
 func checkUnlocked(t *testing.T, p *Pool[*fakeShared, *fakeExclusive], what string) {
 	t.Helper()
 
