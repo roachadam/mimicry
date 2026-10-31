@@ -486,6 +486,19 @@ the mechanical import rewrites.
     `if logPackets` sites are gone; `frame_debug.go`'s `parseDebugFrame`
     stays, qlog uses it.
 
+20. **A local close's cause on its streams** (`stream.go`,
+    `connHasClosed`). Upstream resets a stream with the connection's
+    error only when the peer closed it; closed locally, a read failed
+    with `read from closed stream` and a write with `write to reset
+    stream: stream error code 0`. So a request sent before the handshake
+    completed (0-RTT) failed, once the handshake timed out, without its
+    cause (`ErrHandshakeTimeout`, or CONNECTION_REFUSED "handshake
+    timeout" without a profile). A local close with a recorded cause
+    (the timeout, `abort`'s error) now resets the stream with it as the
+    peer's close does; a direction the caller closed first, and a close
+    without a cause (`Abort`, `Close`), report as before.
+    Test: `stream_close_cause_test.go` (`TestStreamErrorAfterLocalClose`).
+
 ## Sockets
 
 `udp_packetconn.go` is upstream's, unchanged: `netPacketConn` wraps any
@@ -516,8 +529,10 @@ cannot be checked anywhere but on the synthetic peer. So are
 `stream_buffers_test.go` (change 9): a buffer released while a stream still
 uses it corrupts data silently, and only many streams at once, ending every
 way, reach the paths; `stream_fin_test.go` (change 10): a stall that
-needs the close to fall between a PTO and its probe; and
-`udp_msg_parse_test.go` (change 11): the receive path's allocation bound.
+needs the close to fall between a PTO and its probe;
+`udp_msg_parse_test.go` (change 11): the receive path's allocation bound;
+and `stream_close_cause_test.go` (change 20): a handshake that stops
+short of confirmed.
 
 ## Lint
 
