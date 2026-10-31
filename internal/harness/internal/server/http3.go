@@ -632,6 +632,8 @@ func (h *h3conn) firstRequest(fields []quictrace.FieldLine) {
 // respond answers a finished request as the scenario says; /done hands
 // the page over first.
 func (h *h3conn) respond(str *quic.Stream, st request) {
+	h.log.arrived(st.path)
+
 	r := h.sc.answer(st)
 	if h.early != nil && h.early.early(int64(str.StreamID())) {
 		// Too early (RFC 8470), with the body it would have had: a

@@ -156,6 +156,8 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 		}
 
 		ask.uploaded = int(uploaded)
+		log.arrived(ask.path)
+
 		if !foreign {
 			sc.noteWSResult(log, ask, host)
 		}

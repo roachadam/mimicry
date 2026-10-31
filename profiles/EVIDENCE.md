@@ -825,7 +825,15 @@ add). `hellogen` and `h3gen` also read the `h3-blackhole`, `h3-broken`,
   its HTTP/3 layer with every browser sample. What the browser draws per
   connection is held to the profile's rule, for mimicry's connections and
   every browser connection alike. So the test is deterministic, and a rule
-  the captures contradict fails.
+  the captures contradict fails. A page's markup requests go out as
+  Chrome's parser sent them, each once the one before reached the server,
+  and the server answers no QUIC client that appears meanwhile until they
+  all have: Chrome's went before the QUIC connection the first started was
+  up, so over HTTP/2, an order a loaded machine would otherwise lose. Each
+  must reach the server within 150 ms, so a request that waits for QUIC
+  still fails (`TestHTTP3MarkupMatchesBrowserWhenSlow` sends them 100 ms
+  apart). Frame types are compared after the first flight, probes left
+  out: whether a connection probes is when its server answered.
 - `TestHTTP3EdgeMatchesBrowser` (`internal/harness/e2e/http3_edge_test.go`)
   walks the `h3-blackhole`, `h3-broken`, `h3-vn`, (with aioquic) `h3-v2`,
   `h3-early` and `h3-too-early` pages through mimicry on the browser's
