@@ -7,9 +7,11 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
+	"weak"
 
 	utls "github.com/roachadam/utls"
 	"golang.org/x/net/http2"
@@ -292,6 +294,37 @@ func dialQUIC(t *testing.T, e *Engine, target string, port uint16) (route, *atte
 	<-a.done
 
 	return r, a
+}
+
+// An origin keeps whether its last HTTP/3 connection went away, not the
+// connection: once closed, the connection (about 100 KB with its buffers)
+// is freed, however many origins, or proxies, a Transport has used.
+func TestOriginLetsItsClosedConnectionGo(t *testing.T) {
+	e := newTestEngine(t, options{})
+	port, conns := quicServerConns(t)
+
+	conn := func() weak.Pointer[quicConn] {
+		_, a := dialQUIC(t, e, "https://localhost/", port)
+		if a.conn == nil {
+			t.Fatal("the QUIC attempt failed")
+		}
+
+		return weak.Make(a.conn)
+	}()
+
+	next(t, conns, "QUIC connection at the server")
+	e.CloseIdleConnections()
+
+	deadline := time.Now().Add(5 * time.Second)
+
+	for conn.Value() != nil {
+		if time.Now().After(deadline) {
+			t.Fatal("the closed HTTP/3 connection is still reachable")
+		}
+
+		runtime.GC()
+		time.Sleep(10 * time.Millisecond)
+	}
 }
 
 // After the server's GOAWAY, Firefox's next request goes on TCP and the
