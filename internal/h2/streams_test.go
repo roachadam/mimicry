@@ -370,3 +370,77 @@ func TestGoAwayDrains(t *testing.T) {
 	pr.closed()
 	waitDone(t, c)
 }
+
+// A caller who has closed a complete response body finds the connection
+// idle, even while the read loop has yet to end the stream: the frame that
+// carried the body's end also ended it (an empty body's HEADERS, or the
+// last DATA). A body whose END_STREAM is still to come keeps the stream
+// counted, as the server does, until it arrives; nothing is reset.
+func TestClosedCompleteBodyIdlesConnection(t *testing.T) {
+	cases := []struct {
+		name string
+		body []byte
+		// separate sends END_STREAM in its own empty DATA frame, after
+		// the caller closes the body.
+		separate bool
+	}{
+		{name: "headers end the stream"},
+		{name: "last data ends the stream", body: []byte("hello")},
+		{name: "separate end stream", body: []byte("hello"), separate: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c, pr := newPeer(t, profiles.Safari(), clockwork.NewFakeClock())
+			result := roundTripAsync(c, get(t, "/"))
+			h := pr.headers()
+
+			release := make(chan struct{})
+
+			c.onPeerEndHook = func() { <-release }
+
+			pr.respond(h.StreamID, len(tc.body), tc.body, !tc.separate)
+
+			r := <-result
+			if r.err != nil {
+				t.Fatal(r.err)
+			}
+
+			if _, err := io.ReadFull(r.resp.Body, make([]byte, len(tc.body))); err != nil {
+				t.Fatal(err)
+			}
+
+			_ = r.resp.Body.Close()
+
+			_, idle := c.IdleSince()
+
+			if !tc.separate {
+				close(release)
+
+				if !idle {
+					t.Fatal("connection busy after its complete body was closed")
+				}
+			} else {
+				if idle {
+					t.Fatal("connection idle while its stream awaits END_STREAM")
+				}
+
+				if err := pr.fr.WriteData(h.StreamID, true, nil); err != nil {
+					t.Fatal(err)
+				}
+
+				close(release)
+			}
+
+			frames := pr.sync()
+
+			if _, idle := c.IdleSince(); !idle {
+				t.Fatal("connection busy after the stream ended")
+			}
+
+			if hasReset(frames, h.StreamID, http2.ErrCodeCancel) {
+				t.Fatalf("finished stream %d was reset: %v", h.StreamID, frames)
+			}
+		})
+	}
+}

@@ -151,6 +151,10 @@ type Conn struct {
 	// onHeadersHook is set by tests only. It runs in the read loop before
 	// a response is delivered.
 	onHeadersHook func()
+	// onPeerEndHook is set by tests only. It runs in the read loop when a
+	// response's HEADERS or DATA frame ends the stream, after the frame's
+	// content reaches the caller and before the stream ends.
+	onPeerEndHook func()
 }
 
 type stream struct {
@@ -1277,11 +1281,27 @@ func (c *Conn) bodyClosed(s *stream, complete bool, discarded int) {
 // instead of resetting the stream: browsers never reset a finished
 // response, and many servers send END_STREAM in a separate empty DATA
 // frame. A peer that never ends it is reset after lingerTimeout.
+//
+// If the frame that delivered the body's end also ended the stream, the
+// read loop is about to end it; ending it here instead means a caller who
+// has closed a complete body finds the connection idle. A stream still
+// waiting for END_STREAM stays counted: the peer still counts it against
+// its MAX_CONCURRENT_STREAMS.
 func (c *Conn) linger(s *stream) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 
 	if s.done {
+		c.mu.Unlock()
+
+		return
+	}
+
+	if s.peerEnded {
+		c.mu.Unlock()
+		c.endStream(s, ending{
+			err: io.EOF,
+		})
+
 		return
 	}
 
@@ -1290,6 +1310,7 @@ func (c *Conn) linger(s *stream) {
 	s.linger = c.clock.AfterFunc(lingerTimeout, func() {
 		c.reset(s, http2.ErrCodeCancel, errBodyClosed)
 	})
+	c.mu.Unlock()
 }
 
 // reset sends RST_STREAM with code and ends the stream with err.
@@ -1738,6 +1759,10 @@ func (c *Conn) onHeaders(f *http2.MetaHeadersFrame) {
 	c.mu.Unlock()
 
 	if f.StreamEnded() {
+		if c.onPeerEndHook != nil {
+			c.onPeerEndHook()
+		}
+
 		c.endStream(s, ending{
 			err: io.EOF,
 		})
@@ -1806,6 +1831,10 @@ func (c *Conn) onData(f *http2.DataFrame) error {
 	}
 
 	if f.StreamEnded() {
+		if c.onPeerEndHook != nil {
+			c.onPeerEndHook()
+		}
+
 		c.endStream(s, ending{
 			err: io.EOF,
 		})
