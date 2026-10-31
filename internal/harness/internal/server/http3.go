@@ -801,6 +801,8 @@ func (h *h3conn) snapshot() (*quictrace.H3, *quictrace.Close) {
 //   - aioquic: serve with aioquic (serveAioquic), which upgrades compatibly to v2.
 //   - idleTimeout: max_idle_timeout (zero: h3IdleTimeout).
 //   - tooEarly: answer requests on 0-RTT streams with 425 (earlyStreams).
+//   - maxStreams: concurrent bidirectional streams a client may open
+//     (quic-go's MaxIncomingStreams; zero: its 100).
 type h3Server struct {
 	settings    [][2]uint64
 	blackhole   bool
@@ -808,6 +810,7 @@ type h3Server struct {
 	aioquic     bool
 	idleTimeout time.Duration
 	tooEarly    bool
+	maxStreams  int64
 }
 
 // setting is the value of one of the server's settings, 0 if it sends

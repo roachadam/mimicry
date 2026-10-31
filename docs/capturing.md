@@ -252,7 +252,7 @@ it in the page's `conditions` and names the capture
 Alt-Svc unless the certificate verified, so it needs the capture CA trusted
 by the system, as Safari does (the tool warns).
 
-Failure, version, transfer and early-data scenarios:
+Failure, version, transfer, early-data and stream-limit scenarios:
 
 - `h3-blackhole`: Alt-Svc names a UDP port that records every datagram and
   answers none.
@@ -278,6 +278,11 @@ Failure, version, transfer and early-data scenarios:
   request whose stream started in a 0-RTT packet, read from quic-go's
   per-packet trace (`earlyStreams`), as its HTTP/3 layer only exposes a racy
   `HandshakeComplete`.
+- `h3-streams-blocked`: quic-go allowing 2 concurrent bidirectional
+  streams (`initial_max_streams_bidi` 2, raised by MAX_STREAMS as each
+  stream ends; unidirectional left at 100), and two bursts of 6 fetches
+  answered 300 ms late each, so the page waits on the limit: the
+  browser's STREAMS_BLOCKED and where waiting requests go.
 
 Their steps start on a fixed schedule whatever the browser takes
 (`H3Step.NoWait`; each URL carries `?t=`, the script's
@@ -287,11 +292,13 @@ clock, and every QUIC connection also records the server's datagrams
 versions, Retry integrity checked, 1-RTT headers unmasked), its transport
 parameters, and datagrams from another client port (`path`, a migration).
 Chrome and Firefox need `-h3-local-roots` for all but `h3-blackhole` (no
-certificate ever arrives). hellogen and h3gen read all but `h3-v2`
-(`server.H3EdgeCaptures`); `TestHTTP3EdgeMatchesBrowser` and
-`TestHTTP3DownloadMatchesBrowser` replay them. Results:
+certificate ever arrives). hellogen and h3gen read all but `h3-v2` and
+`h3-streams-blocked` (`server.H3EdgeCaptures`);
+`TestHTTP3EdgeMatchesBrowser` and `TestHTTP3DownloadMatchesBrowser`
+replay them. Results:
 [http3-edge](../internal/harness/reports/http3-edge-2026-10-25.md),
-[h3-early](../internal/harness/reports/h3-early-2026-10-26.md).
+[h3-early](../internal/harness/reports/h3-early-2026-10-26.md),
+[h3-streams-blocked](../internal/harness/reports/h3-streams-blocked-2026-10-31.md).
 
 ## Deriving a profile
 
