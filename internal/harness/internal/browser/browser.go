@@ -1,5 +1,5 @@
 // Package browser launches real release builds of Chrome, Firefox and Safari
-// against the capture server.
+// against the capture server, and sends Safari on an iPhone to it.
 package browser
 
 import (
@@ -18,9 +18,13 @@ import (
 // Target is the capture server browsers connect to.
 type Target struct {
 	// Host is the capture hostname, under .test, so browsers send
-	// server_name. Chrome and Firefox map it to 127.0.0.1 themselves; Safari
+	// server_name. Chrome and Firefox map it to Addr themselves; Safari
 	// resolves it through the capture tool's DNS stub.
 	Host string
+	// Addr is the address the capture hosts resolve to and the server
+	// listens on: 127.0.0.1, or this machine's address on the network for
+	// a browser on another device (cmd/capture -listen).
+	Addr string
 	Port int
 	// Hosts are the other hostnames a replayed page reaches, all served
 	// on Port.
@@ -54,6 +58,9 @@ type Target struct {
 	// ClickTitle.
 	debugPort int
 }
+
+// Loopback is Target.Addr unless the capture tool serves the network.
+const Loopback = "127.0.0.1"
 
 // h3UnusedPort is the port of the origins Chrome forces QUIC on: one the
 // page never uses, so nothing is forced but the hosts may use a local root.
@@ -108,9 +115,11 @@ func (t Target) url(host string) string {
 	return scheme + host + ":" + strconv.Itoa(t.Port) + path
 }
 
-// Browser is an installed browser that can be launched against a Target.
+// Browser is a browser that can be launched against a Target: one installed
+// here, or Safari on an iPhone (IOSSafari).
 type Browser struct {
-	// Name matches capture.ParseUserAgent's browser names.
+	// Name is how cmd/capture's -browsers names it; capture.ParseUserAgent
+	// names its user agent as Agent says.
 	Name string
 	// Path is the executable, used where there is no App.
 	Path string
@@ -127,6 +136,8 @@ type Browser struct {
 	// capture URL this much later through a second invocation of binary.
 	warmup time.Duration
 	binary string
+	// ios, when set, is Safari on an iPhone reached over the network.
+	ios *iosSafari
 }
 
 // chromeWarmup is how long a fresh Chrome profile settles before the capture
@@ -150,6 +161,16 @@ func (b *Browser) URL(t Target) string {
 	return t.url(t.Host)
 }
 
+// Agent is the browser and platform capture.ParseUserAgent finds in b's
+// user agent; platform "" is any.
+func (b *Browser) Agent() (name, platform string) {
+	if b.ios != nil {
+		return "safari", "ios"
+	}
+
+	return b.Name, ""
+}
+
 // Session is a running browser.
 type Session struct {
 	proc *os.Process
@@ -166,17 +187,25 @@ type Session struct {
 	// clicker the one clicking (Target.ClickTitle).
 	devtools io.Closer
 	clicker  io.Closer
+	// device marks a session on another device, which Close leaves alone
+	// but for remote, the WebDriver session when there is one.
+	device bool
+	remote io.Closer
 }
 
 // Open launches b on t. Chrome and Firefox get a new profile directory and
 // their own instance; headless hides their windows. Safari opens a tab in the
 // user's own window, ignores headless, and must trust the server's
-// certificate.
+// certificate. Safari on an iPhone is sent to t by its driver.
 func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, error) {
 	// Safari takes its proxy from the system PAC script and asks for proxy
 	// credentials in a dialog, which someone at the screen fills in.
 	if t.ProxyAuth != nil && t.ClickTitle != "" {
 		return nil, errors.New("a capture both answering proxy challenges and clicking is not supported")
+	}
+
+	if b.ios != nil {
+		return b.ios.open(ctx, b.URL(t), t)
 	}
 
 	if b.Shared {
@@ -290,7 +319,8 @@ func (b *Browser) handOff(ctx context.Context, s *Session, dir, url string) erro
 }
 
 // Close stops the browser, killing it if it has not exited within five
-// seconds, and removes its profile. For Safari it closes the capture tab.
+// seconds, and removes its profile. For Safari it closes the capture tab; on
+// an iPhone it ends the WebDriver session, if any.
 func (s *Session) Close() error {
 	var clickErr error
 	if s.clicker != nil {
@@ -304,9 +334,18 @@ func (s *Session) Close() error {
 	return errors.Join(clickErr, s.quit())
 }
 
-// quit closes Safari's capture tab, or stops the browser and removes its
-// profile.
+// quit closes Safari's capture tab, ends a device's WebDriver session, or
+// stops the browser and removes its profile.
 func (s *Session) quit() error {
+	if s.device {
+		if s.remote != nil {
+			return s.remote.Close()
+		}
+
+		// Opened by hand: the tab on the phone is the maintainer's.
+		return nil
+	}
+
 	if s.tabURL != "" {
 		script := `tell application "Safari" to close (every tab of every window whose URL starts with "` + s.tabURL + `")`
 		if out, err := exec.Command("osascript", "-e", script).CombinedOutput(); err != nil { //nolint:noctx,gosec // must run after the caller's context ends; the URL is ours
@@ -348,7 +387,7 @@ func (s *Session) quit() error {
 func chromeArgs(dir string, t Target, headless bool) ([]string, error) {
 	rules := make([]string, 0, 1+len(t.Hosts))
 	for _, h := range append([]string{t.Host}, t.Hosts...) {
-		rules = append(rules, "MAP "+h+" 127.0.0.1")
+		rules = append(rules, "MAP "+h+" "+t.Addr)
 	}
 
 	args := []string{

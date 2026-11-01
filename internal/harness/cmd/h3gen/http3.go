@@ -9,6 +9,7 @@ import (
 	"golang.org/x/net/http2/hpack"
 
 	"github.com/roachadam/mimicry/internal/harness/internal/quictrace"
+	"github.com/roachadam/mimicry/internal/harness/internal/server"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -234,14 +235,17 @@ func uniStreams(done []*conn, e *collector) []profile.H3UniStream {
 	return out
 }
 
-// openRule is when stream id opens: at the handshake, or on the first
-// request using the dynamic table and only where one does.
+// openRule is when stream id opens: at the handshake; on the first
+// request using the dynamic table and only where one does; or, for an
+// encoder that never inserts, as the server's SETTINGS allow a dynamic
+// table, with Set Dynamic Table Capacity to the server's maximum, and
+// only where they do.
 func openRule(done []*conn, id, typ uint64, e *collector) string {
 	if typ == quictrace.StreamControl {
 		return profile.H3OpenAtHandshake
 	}
 
-	handshake, insert := true, true
+	handshake, insert, settings := true, true, typ == quictrace.StreamQPACKEncoder
 	for _, c := range done {
 		first := firstFrames(c)
 		ctl, hasCtl := first[2]
@@ -270,6 +274,10 @@ func openRule(done []*conn, id, typ uint64, e *collector) string {
 
 			insert = insert && req.datagram == at.datagram && req.packet == at.packet
 		}
+
+		allowed := serverTableCapacity(c)
+
+		settings = settings && inserting == nil && opened == (allowed > 0) && (!opened || announcesOnly(c, id, allowed))
 	}
 
 	switch {
@@ -277,11 +285,42 @@ func openRule(done []*conn, id, typ uint64, e *collector) string {
 		return profile.H3OpenAtHandshake
 	case insert:
 		return profile.H3OpenOnFirstInsert
+	case settings:
+		return profile.H3OpenOnSettings
 	}
 
-	e.add(done[0], "stream %d opens neither at the handshake nor with the first insert", id)
+	e.add(done[0], "stream %d opens neither at the handshake, with the first insert, nor on the server's SETTINGS", id)
 
 	return ""
+}
+
+// serverTableCapacity is the dynamic table capacity c's server allowed
+// (its scenario's SETTINGS_QPACK_MAX_TABLE_CAPACITY), 0 for none.
+func serverTableCapacity(c *conn) uint64 {
+	sc, err := server.ScenarioByName(c.scenario)
+	if err != nil {
+		return 0
+	}
+
+	for _, s := range sc.H3Settings() {
+		if s[0] == quictrace.SettingQPACKMaxTableCapacity {
+			return s[1]
+		}
+	}
+
+	return 0
+}
+
+// announcesOnly reports whether c's stream id carried only one Set
+// Dynamic Table Capacity, to capacity.
+func announcesOnly(c *conn, id, capacity uint64) bool {
+	for _, st := range c.c.H3.Streams {
+		if st.ID == id {
+			return len(st.Encoder) == 1 && st.Encoder[0].Op == quictrace.OpSetCapacity && st.Encoder[0].Capacity == capacity
+		}
+	}
+
+	return false
 }
 
 // streamsWithFinished: on every completed full handshake without 0-RTT,
@@ -354,7 +393,9 @@ const pendingRequestMillis = 20
 
 // requestsAfterConfirmed: whether a waiting first request leaves only after
 // acknowledging a server packet sent after the client's Finished (Safari's
-// HANDSHAKE_DONE). Not measured without a waiting request.
+// HANDSHAKE_DONE): newer than the client's first 1-RTT packet after the
+// Finished acknowledged, so never in that packet (Safari on an iPhone sends
+// it there). Not measured without a waiting request.
 func requestsAfterConfirmed(done []*conn, e *collector) bool {
 	var vs []bool
 	for _, c := range done {
@@ -363,14 +404,15 @@ func requestsAfterConfirmed(done []*conn, e *collector) bool {
 		}
 
 		finished := int64(-1)
-		acked := int64(-1)
+		first, newer := true, false
+		base := int64(-1)
 
 		for _, pk := range c.packets() {
 			if pk.p.Type == quictrace.PacketHandshake && hasFrame(pk.p, quictrace.FrameCrypto) && finished < 0 {
 				finished = pk.d.Micros
 			}
 
-			if pk.p.Type != quictrace.Packet1RTT {
+			if pk.p.Type != quictrace.Packet1RTT || finished < 0 {
 				continue
 			}
 
@@ -387,14 +429,18 @@ func requestsAfterConfirmed(done []*conn, e *collector) bool {
 			}
 
 			if request {
-				if finished >= 0 && pk.d.Micros-finished <= pendingRequestMillis*1000 {
-					vs = append(vs, largest > acked)
+				if pk.d.Micros-finished <= pendingRequestMillis*1000 {
+					vs = append(vs, !first && (newer || largest > base))
 				}
 
 				break
 			}
 
-			acked = max(acked, largest)
+			if first {
+				base, first = largest, false
+			} else if largest > base {
+				newer = true
+			}
 		}
 	}
 

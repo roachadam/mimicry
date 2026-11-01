@@ -1,6 +1,6 @@
 # 0047: Windows profiles, starting with Chrome
 
-- Status: Accepted
+- Status: Accepted; amended 2026-11-01 by [0051](0051-ios-safari-over-the-network.md) (a platform sharing another's network stack inherits from it)
 - Date: 2026-10-29
 - Commits: `8b8aa7e` (naming, accessors, the harness on Windows); `b22f0a2` (the first profile, `chrome-156-windows`)
 
@@ -138,3 +138,14 @@ encode, so the tests compare whether a token is sent, not its length.
 - Most callers ask for Windows: the unqualified accessors could then move
   to Windows, which would be a breaking change for every caller of
   `Chrome()`.
+
+## Amendment 2026-11-01: inheritance from the platform sharing the network stack
+
+[Decision 0051](0051-ios-safari-over-the-network.md): an iOS Safari
+profile may inherit a scenario from macOS Safari's profile of its own or
+an earlier version (`internal/platform.Stack`), with the user agent
+mapped whole, where the iPhone's own captures show no difference in that
+scenario's area; its first profile is therefore not a full capture.
+Windows is unchanged: Chrome on Windows shares no other platform's
+captures, and a Windows capture never stands in for a macOS one, nor the
+other way.

@@ -1,6 +1,6 @@
 # 0035: Newest-version accessors, five supported versions, inherited captures
 
-- Status: Accepted; amended 2026-10-29 by [0047](0047-windows-profiles.md) (accessors and version count per platform); amended 2026-10-30 (no guide to making profiles yet)
+- Status: Accepted; amended 2026-10-29 by [0047](0047-windows-profiles.md) (accessors and version count per platform); amended 2026-10-30 (no guide to making profiles yet); amended 2026-11-01 by [0051](0051-ios-safari-over-the-network.md) (inheritance from the platform sharing the network stack)
 - Date: 2026-10-26
 - Commits: `2c913bf`
 
@@ -188,6 +188,7 @@ scenario chrome-155 captured except the default page.
 ## Amendments
 
 - 0047: the newest-version accessors `Chrome()`, `Firefox()` and `Safari()` are macOS; other platforms get `<Browser><Platform>()` (`ChromeWindows()`), and the tests' default set is the newest profile of each browser on each platform.
+- 0051: a profile on a platform sharing another's network stack (`internal/platform.Stack`: Safari on iOS, macOS) may also inherit from that platform's profiles of its own or an earlier version, where its own captures show no difference in the area; `cmd/profilegen` checks platform and version, `profile.Validate` only the browser, and `capture.Rewriter` maps the user agent whole.
 
 ## Amendment 2026-10-30: profiles from a caller's own captures
 

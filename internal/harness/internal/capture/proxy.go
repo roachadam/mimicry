@@ -18,6 +18,9 @@ type ProxyRequest struct {
 	// messages, hex encoded.
 	Greeting string `json:"greeting,omitempty"`
 	Request  string `json:"request,omitempty"`
+	// Driver is how the capture tool sent Safari on an iPhone to the
+	// page (browser.IOSDriver); empty for other browsers.
+	Driver string `json:"driver,omitempty"`
 }
 
 // Values of ProxyRequest.Kind.

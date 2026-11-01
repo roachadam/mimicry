@@ -48,6 +48,15 @@ func TestCheckPolicyRefuses(t *testing.T) {
 
 		return out
 	}
+	safari := func(version int, platform string) *profile.Profile {
+		return &profile.Profile{
+			Name:     fmt.Sprintf("safari-%d-%s", version, platform),
+			Browser:  "safari",
+			Version:  strconv.Itoa(version),
+			Platform: platform,
+		}
+	}
+
 	for _, tc := range []struct {
 		name     string
 		profiles func() []*profile.Profile
@@ -126,6 +135,22 @@ func TestCheckPolicyRefuses(t *testing.T) {
 			},
 			want: "chrome-151-windows: capturesFrom.cookies: chrome-150-macos is not chrome on windows",
 		},
+		{
+			name: "inherited from a newer version of the platform sharing the stack",
+			profiles: func() []*profile.Profile {
+				ps := []*profile.Profile{
+					safari(27, "ios"),
+					safari(28, "macos"),
+				}
+
+				ps[0].CapturesFrom = map[string]string{
+					"cookies": "safari-28-macos",
+				}
+
+				return ps
+			},
+			want: "safari-27-ios: capturesFrom.cookies: safari-28-macos is a newer version",
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			err := checkPolicy(tc.profiles())
@@ -143,6 +168,20 @@ func TestCheckPolicyRefuses(t *testing.T) {
 	// supported.
 	if err := checkPolicy(append(versions(5, 0), onWindows(versions(5, 0))...)); err != nil {
 		t.Fatalf("checkPolicy(five on macOS, five on Windows) = %v", err)
+	}
+
+	// Safari on iOS inherits from macOS Safari of its own version, whose
+	// network stack it shares (decision 0051).
+	ios := []*profile.Profile{
+		safari(27, "macos"),
+		safari(27, "ios"),
+	}
+
+	ios[1].CapturesFrom = map[string]string{
+		"cookies": "safari-27-macos",
+	}
+	if err := checkPolicy(ios); err != nil {
+		t.Fatalf("checkPolicy(safari-27-ios inheriting from safari-27-macos) = %v", err)
 	}
 }
 

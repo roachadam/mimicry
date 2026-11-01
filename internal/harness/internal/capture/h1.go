@@ -27,6 +27,10 @@ type H1Request struct {
 	Line string `json:"line"`
 	// Headers are the header lines, verbatim ("User-Agent: ...").
 	Headers []string `json:"headers"`
+	// Driver is how the capture tool sent Safari on an iPhone to the
+	// page (browser.IOSDriver: devicectl, manual or safaridriver) in an
+	// HTTP/1.1 trace's requests; empty for other browsers and in a page.
+	Driver string `json:"driver,omitempty"`
 }
 
 // Page is a whole page load across every connection and host it used:
@@ -44,6 +48,11 @@ type Page struct {
 	// Conditions are browser settings the capture tool changed from their
 	// defaults, each saying why (cmd/capture's -h3-local-roots).
 	Conditions []string `json:"conditions,omitempty"`
+	// Driver is how the capture tool sent Safari on an iPhone to the page
+	// (browser.IOSDriver): devicectl and manual are the phone's own
+	// Safari, safaridriver its automation window. Empty for other
+	// browsers and in captures made before it was kept.
+	Driver string `json:"driver,omitempty"`
 	// Start is the zero of the page's millisecond times, on the recording
 	// process's clock. Not stored: zero in a capture read from a file.
 	Start time.Time `json:"-"`

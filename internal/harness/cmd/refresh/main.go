@@ -1,10 +1,11 @@
 // Command refresh brings a browser's built-in profile up to the version
 // installed where that browser is captured (chrome, firefox and safari-mini
 // on the second Mac via -mini, safari here, chrome-windows on a Windows PC via
-// -windows):
+// -windows, safari-ios on an iPhone this Mac serves via -listen):
 //
 //	go run ./cmd/refresh -browser chrome,firefox -mode quick -mini <alias>   # in internal/harness/
 //	go run ./cmd/refresh -browser chrome-windows -windows <alias>
+//	go run ./cmd/refresh -browser safari-ios -listen <this Mac's IPv4>
 //
 // Per browser it preflights, captures into a staging directory, derives the
 // new profile and runs the generators, installs it, and verifies it with the
@@ -22,6 +23,7 @@ import (
 	"fmt"
 	"log"
 	"maps"
+	"net/netip"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -48,6 +50,8 @@ type config struct {
 	staging     string
 	windows     string
 	keep        bool
+	listen      string
+	iosDevice   string
 	scenarios   string
 	yes         bool
 	dryRun      bool
@@ -62,11 +66,13 @@ type config struct {
 func run() error {
 	var cfg config
 
-	browsers := flag.String("browser", "", "comma-separated browsers to refresh: chrome, firefox (on -mini), safari (this Mac), safari-mini (the mini's Safari), chrome-windows (on -windows)")
+	browsers := flag.String("browser", "", "comma-separated browsers to refresh: chrome, firefox (on -mini), safari (this Mac), safari-mini (the mini's Safari), chrome-windows (on -windows), safari-ios (the iPhone, served on -listen)")
 
 	flag.StringVar(&cfg.mode, "mode", modeQuick, "quick (the fingerprint layer; the rest inherited from the previous version) or full (every scenario and replay)")
 	flag.StringVar(&cfg.mini, "mini", "", "your ssh alias for the second Mac (chrome, firefox, safari-mini)")
 	flag.StringVar(&cfg.windows, "windows", "", "your ssh alias for the Windows PC (chrome-windows; required for it)")
+	flag.StringVar(&cfg.listen, "listen", "", "this Mac's IPv4 address on the iPhone's Wi-Fi network (safari-ios; required for it)")
+	flag.StringVar(&cfg.iosDevice, "ios-device", "", "the iPhone's UDID (safari-ios; default: the paired iPhone connected to this Mac)")
 	flag.BoolVar(&cfg.keep, "keep", false, "leave the run's working directory on the Windows PC (the capture CA is removed regardless)")
 	flag.StringVar(&cfg.staging, "staging", ".refresh", "directory for staged builds, captures, profiles and logs (a new subdirectory per run)")
 	flag.StringVar(&cfg.scenarios, "scenarios", "", "capture these name:samples instead of the mode's set (with -capture-only, to try the tool)")
@@ -92,7 +98,7 @@ func run() error {
 	if *browsers != "" {
 		cfg.targets = strings.Split(*browsers, ",")
 
-		var mini, windows bool
+		var mini, windows, iphone bool
 		for _, t := range cfg.targets {
 			tg, ok := targets[t]
 			if !ok {
@@ -101,11 +107,16 @@ func run() error {
 
 			mini = mini || tg.remote == remoteMini
 			windows = windows || tg.remote == remoteWindows
+			iphone = iphone || tg.platform() == platformIOS
 		}
 
 		switch {
 		case mini && cfg.mini == "":
 			return errors.New("-browser chrome, firefox and safari-mini need -mini <your ssh alias for the second Mac>")
+		case iphone && cfg.listen == "":
+			return errors.New("-browser safari-ios needs -listen <this Mac's IPv4 address on the iPhone's Wi-Fi network> (ipconfig getifaddr en0)")
+		case iphone && !lanIPv4(cfg.listen):
+			return fmt.Errorf("-listen %q: want this Mac's IPv4 address on the iPhone's network", cfg.listen)
 		case windows && cfg.windows == "":
 			return errors.New("-browser chrome-windows needs -windows <your ssh alias for the Windows PC>")
 		case windows && mini && cfg.windows == cfg.mini:
@@ -145,6 +156,8 @@ func run() error {
 		Serial:    cfg.serial,
 		Scenarios: cfg.scenarios,
 		Keep:      cfg.keep,
+		Listen:    cfg.listen,
+		IOSDevice: cfg.iosDevice,
 	}
 	// The Windows PCs' working directories go, and the capture CA with
 	// them, however the run ends.
@@ -226,6 +239,14 @@ func confirm(in *os.File) bool {
 	return answer == "y" || answer == "yes"
 }
 
+// lanIPv4 reports whether s is an IPv4 address another device on the
+// network can reach: neither loopback nor unspecified.
+func lanIPv4(s string) bool {
+	a, err := netip.ParseAddr(s)
+
+	return err == nil && a.Is4() && !a.IsLoopback() && !a.IsUnspecified()
+}
+
 // finish derives, installs, verifies and reports each staged profile, one
 // at a time: they share profiles/data and go generate.
 func (r *refreshRun) finish(ctx context.Context, cfg config) error {
@@ -267,7 +288,8 @@ func (r *refreshRun) finishPlan(ctx context.Context, cfg config, p *plan) error 
 			rep.tests = r.runTests(ctx, p)
 		}
 
-		if cfg.realcheck {
+		// realcheck drives the browsers on this Mac, not the iPhone's.
+		if cfg.realcheck && p.Platform != platformIOS {
 			rep.realcheck = r.runRealcheck(ctx, p)
 		}
 	}

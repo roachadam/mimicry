@@ -38,6 +38,16 @@ func fromCapture(prev *profile.Profile, name, version string, captured *profile.
 		p.Platform = captured.Platform
 	}
 
+	if p.Platform == platformIOS && prev.Platform != platformIOS && p.Proxy != nil {
+		// Safari on iOS answers no proxy's 407 (decision 0051): it keeps
+		// macOS Safari's placement of credentials, sent with the first
+		// request, but no challenge flow, nor credentials for sockets.
+		p.Proxy.ConnectCredentials, p.Proxy.ForwardCredentials = "", ""
+		if p.Proxy.WebSocket != nil {
+			p.Proxy.WebSocket.Credentials = false
+		}
+	}
+
 	t := &p.TLS
 	ct := captured.TLS
 

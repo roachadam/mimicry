@@ -27,6 +27,10 @@ type Trace struct {
 	// (TLS 1.3 only; absent in older captures and over TLS 1.2): how it
 	// cut its opening flight and first request into records.
 	Records []Record `json:"records,omitempty"`
+	// Driver is how the capture tool sent Safari on an iPhone to the page
+	// (cmd/capture's -ios-driver), in an h2trace file's connections;
+	// empty for other browsers and in a page.
+	Driver string `json:"driver,omitempty"`
 }
 
 // Record is one TLS record the client sent.

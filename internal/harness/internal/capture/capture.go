@@ -68,6 +68,27 @@ func (c *Capture) Complete() bool {
 	return len(c.Profile.Headers) > 0
 }
 
+// SetDriver records in c's traces how the capture tool sent Safari on an
+// iPhone to the page (browser.IOSDriver), so each capture file says it: the
+// page, the HTTP/2 trace, and every HTTP/1.1 and proxy request.
+func (c *Capture) SetDriver(driver string) {
+	if c.Page != nil {
+		c.Page.Driver = driver
+	}
+
+	if c.Trace != nil {
+		c.Trace.Driver = driver
+	}
+
+	for i := range c.H1 {
+		c.H1[i].Driver = driver
+	}
+
+	for i := range c.Proxy {
+		c.Proxy[i].Driver = driver
+	}
+}
+
 // HasExtension reports whether the ClientHello carried an extension of typ.
 func (c *Capture) HasExtension(typ profile.Code) bool {
 	for _, e := range c.Profile.TLS.Extensions {

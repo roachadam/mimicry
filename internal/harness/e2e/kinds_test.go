@@ -196,7 +196,8 @@ func withoutRaceCookie(lines []string) []string {
 // partitionGaps are the known, unmodelled connection differences on the
 // kinds page, label to "mimicry with X, browser with Y". Firefox gives
 // credential-less requests their own connection to the same-site host only;
-// no rule found.
+// no rule found. The iPhone sends a beacon, cookies and all, on its
+// credential-less connection to the host (3 of 3).
 var partitionGaps = map[string]map[string]string{
 	"firefox-158-macos": {
 		"script-cors.ss":  "mimicry with script.ss, browser with script-cors.ss",
@@ -209,6 +210,11 @@ var partitionGaps = map[string]map[string]string{
 		"fetch-high.ss":   "mimicry with script.ss, browser with script-cors.ss",
 		"fetch-low.ss":    "mimicry with script.ss, browser with script-cors.ss",
 		"xhr.ss":          "mimicry with script.ss, browser with script-cors.ss",
+	},
+	"safari-27-ios": {
+		"beacon.so": "mimicry with style-head.so, browser with fetch-omit.so",
+		"beacon.ss": "mimicry with script.ss, browser with script-cors.ss",
+		"beacon.cs": "mimicry with script-async.cs, browser with script-cors.cs",
 	},
 }
 

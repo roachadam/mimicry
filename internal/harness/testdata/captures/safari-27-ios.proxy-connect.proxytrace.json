@@ -1,0 +1,47 @@
+[
+  [
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 200,
+      "target": "capture.mimicry.test:62650",
+      "lines": [
+        "CONNECT capture.mimicry.test:62650 HTTP/1.1",
+        "Host: capture.mimicry.test:62650",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "safaridriver"
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 200,
+      "target": "capture.mimicry.test:62694",
+      "lines": [
+        "CONNECT capture.mimicry.test:62694 HTTP/1.1",
+        "Host: capture.mimicry.test:62694",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "safaridriver"
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 200,
+      "target": "capture.mimicry.test:62736",
+      "lines": [
+        "CONNECT capture.mimicry.test:62736 HTTP/1.1",
+        "Host: capture.mimicry.test:62736",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "safaridriver"
+    }
+  ]
+]

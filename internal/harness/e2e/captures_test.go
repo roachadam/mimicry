@@ -5,9 +5,10 @@
 // Tests check the profiles MIMICRY_PROFILES selects (testprofiles, decision
 // 0035), against their own captures or those capturesFrom names. Gap tables
 // are keyed by the profile that took the capture and listed in
-// profiles/EVIDENCE.md (Not covered by any claim); a pinned gap that stops appearing fails, except in four
+// profiles/EVIDENCE.md (Not covered by any claim); a pinned gap that stops appearing fails, except in five
 // tables that never check that they were used: redirectsLineGaps (it only
-// logs), redirectsMerged, connectionsPreconnects and raceCookieLabels.
+// logs), redirectsSampleGaps, redirectsMerged, connectionsPreconnects and
+// raceCookieLabels.
 // Timer-driven behaviour is tested in internal/h2 with a fake clock, not
 // here.
 package e2e
@@ -18,6 +19,7 @@ import (
 	"io/fs"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -76,11 +78,13 @@ func capturePath(t testing.TB, p *profile.Profile, scenario, rest string) (strin
 }
 
 // loadPages reads p's page capture of scenario as loadSamples does, rewritten
-// to p's version where inherited.
+// to p's version where inherited, skipping the test when the capture is
+// one known missing (missingWhy).
 func loadPages(t testing.TB, p *profile.Profile, scenario, rest string) ([]*capture.Page, error) {
 	t.Helper()
 
-	path, _, rw := capturePath(t, p, scenario, rest)
+	path, file, rw := capturePath(t, p, scenario, rest)
+	skipIfMissing(t, path, file)
 
 	pages, err := capture.LoadPages(path)
 	if err != nil {
@@ -97,7 +101,8 @@ func loadPages(t testing.TB, p *profile.Profile, scenario, rest string) ([]*capt
 func loadH2Traces(t testing.TB, p *profile.Profile, scenario string) ([]*h2trace.Trace, error) {
 	t.Helper()
 
-	path, _, rw := capturePath(t, p, scenario, ".h2trace.json")
+	path, file, rw := capturePath(t, p, scenario, ".h2trace.json")
+	skipIfMissing(t, path, file)
 
 	traces, err := h2trace.Load(path)
 	if err != nil {
@@ -135,13 +140,7 @@ func loadSamples[T any](t *testing.T, p *profile.Profile, scenario, rest string)
 		data, err = os.ReadFile(path)
 	}
 
-	if why, ok := missingCaptures[file]; ok {
-		if err == nil {
-			t.Fatalf("capture %s exists but is listed missing (%s)", file, why)
-		}
-
-		t.Skipf("no capture %s: %s", file, why)
-	}
+	skipIfMissing(t, path, file)
 
 	if errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("no capture %s", file)
@@ -197,6 +196,68 @@ func scenario(t *testing.T, name string) *server.Scenario {
 	}
 
 	return sc
+}
+
+// skipIfMissing skips the test when file, at path, is a capture known not
+// to exist (missingWhy), and fails it when such a capture exists.
+func skipIfMissing(t testing.TB, path, file string) {
+	t.Helper()
+
+	why, ok := missingWhy(file)
+	if !ok {
+		return
+	}
+
+	if exists(path) {
+		t.Fatalf("capture %s exists but is listed missing (%s)", file, why)
+	}
+
+	t.Skipf("no capture %s: %s", file, why)
+}
+
+// missingWhy says why file, a capture keyed as missingCaptures, does not
+// exist; false for one that should. Besides missingCaptures, an iPhone
+// profile's (<browser>-<major>-ios) capture of a scenario it neither
+// captures (server.IOSScenarios) nor inherits is missing: decision 0051.
+func missingWhy(file string) (string, bool) {
+	if why, ok := missingCaptures[file]; ok {
+		return why, true
+	}
+
+	name, rest, _ := strings.Cut(file, ".")
+	if !strings.HasSuffix(name, "-ios") {
+		return "", false
+	}
+
+	scenario, _, _ := strings.Cut(rest, ".")
+	if slices.ContainsFunc(server.IOSScenarios(), func(s server.Planned) bool {
+		return s.Scenario.Name == scenario
+	}) {
+		return "", false
+	}
+
+	sc, err := server.ScenarioByName(scenario)
+	if err != nil {
+		// The default scenario's files carry no scenario name
+		// (safari-27-ios.h2trace.json); a replay's does.
+		if !strings.HasPrefix(scenario, "replay-") {
+			return "", false
+		}
+
+		return "not taken on the iPhone, nor inherited: a replay's CORS requests are in macOS Safari's header order (decision 0051)", true
+	}
+
+	for _, why := range []string{sc.UnsupportedOnIOS(), sc.NotInheritedOnIOS()} {
+		if why != "" {
+			return "not taken on the iPhone, nor inherited: " + why, true
+		}
+	}
+
+	if sc.Clicks() {
+		return "the iPhone's clicks need someone tapping (docs/capturing.md, Safari on an iPhone)", true
+	}
+
+	return "not captured on the iPhone (server.IOSScenarios), nor inherited (decision 0051)", true
 }
 
 // missingCaptures are the captures known not to exist, and why; a test

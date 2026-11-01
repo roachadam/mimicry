@@ -89,6 +89,12 @@ func deriveTable(kinds ...[]*request) (*profile.HeaderTable, error) {
 						}
 					}
 
+					if r.tableGap {
+						// It names the table's own headers, but its
+						// order is a known difference (headersGaps).
+						continue
+					}
+
 					order, ok := baseOrder(groups, r, list, h1)
 					if !ok {
 						continue

@@ -5,9 +5,10 @@ from, and what keeps it true. A claim is one profile field, such as the
 TLS cipher list or a cookie rule.
 
 **Covered:** `chrome-155-macos`, `chrome-156-macos`, `chrome-156-windows`,
-`firefox-158-macos`, `safari-27-macos` and `safari-26-macos`. Safari 27 was
-captured on macOS 27; Safari 26 on a second Mac kept on macOS 26; Chrome
-156 for Windows on Windows 10.
+`firefox-158-macos`, `safari-27-macos`, `safari-26-macos` and
+`safari-27-ios`. Safari 27 was captured on macOS 27; Safari 26 on a second
+Mac kept on macOS 26; Chrome 156 for Windows on Windows 10; Safari 27.2 for
+iOS on an iPhone on iOS 27.2.
 
 **Headline:** about 85% of the classed cells in the tables below are **W** or
 **W+** (seen on the wire). The rest are fitted, copied, measured on another
@@ -29,8 +30,9 @@ column names the test that fails if the profile and the captures drift
 apart. "Known gap" marks a difference mimicry does not imitate.
 
 Last fully reviewed 2026-10-24. Rows were updated with the 2026-10-28
-captures, `chrome-156-windows` added with its 2026-10-29 captures, and the
-redirect rows with the 2026-10-30 cookie twins (0048). The
+captures, `chrome-156-windows` added with its 2026-10-29 captures, the
+redirect rows with the 2026-10-30 cookie twins (0048), and `safari-27-ios`
+with its 2026-11-01 captures (0051). The
 "Not covered" list was rechecked against the code on 2026-10-29.
 
 ## How rows are classed
@@ -105,6 +107,60 @@ true. Where Windows differs:
 
 `realcheck` on the Windows PC found no difference between Chrome and
 `chrome-156-windows` on the echo endpoints.
+
+**`safari-27-ios`** (2026-11-01, Safari 27.2 on an iPhone 15 Pro, iOS
+27.2, over Wi-Fi,
+[report](../internal/harness/reports/refresh-safari-27-ios-2026-11-01.md);
+[decision 0051](../docs/decisions/0051-ios-safari-over-the-network.md)) has
+no column of its own either. Rows whose evidence is one of the iPhone's
+scenarios (`server.IOSScenarios`: `page`, `kinds`, `kinds-http1`,
+`cookies`, `cors`, `cors-edge` and its twin, `redirects2` and its twin,
+`headers-order`, `http1`, `h3-discovery`, `h3-page`, `resume`,
+`websocket`, `websocket-h2`, `proxy-connect`, `proxy-plain`; three samples
+each, in the phone's own Safari but for the default page's scenarios) are
+its own, with the class of `safari-27-macos`'s column. Rows from
+`cookies-edge`, `cookies-edge2`, `kinds-plain`, `nav-redirect-{so,ss,cs,http}`
+and their twins, `set-cookie` and `slow-idle` are `I: from
+safari-27-macos`. Rows from any other scenario are not measured for it:
+their tests skip it (`missingWhy` in the e2e tests). Where the iPhone
+differs:
+
+- **The platform:** `user-agent` is `Mozilla/5.0 (iPhone; CPU iPhone OS
+  18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko)
+  Version/27.2 Mobile/15E148 Safari/604.1` in every list.
+- **Accept, Sec-Fetch-Site, Origin:** added in that order in every
+  request but preflights; macOS Safari 27.0.1 adds Sec-Fetch-Site first
+  in GETs and Origin before Sec-Fetch-Site in same-origin requests with a
+  body. Every kind's lists and variants are the iPhone's (kindsgen).
+- **QUIC and HTTP/3:** every fresh hello ends its transport parameters
+  with `0xff080808 = 9`; the QPACK encoder stream opens on the server's
+  SETTINGS with only Set Dynamic Table Capacity (`uniStreams` open
+  `settings`); QPACK Huffman is `shorter`; the first request of a full
+  handshake goes with the Finished (`requestsAfterConfirmed` false).
+- **Connections:** credential-less requests on connections of their own
+  (`context.anonymousConnections`, as Chrome's).
+- **C: from safari-27-macos:** `http3.discovery.fallback`,
+  `quic.keepAlive`, `quic.ack` and `quic.credit`, kept by h3gen without
+  edge captures for a profile sharing macOS's network stack
+  (`internal/platform.Stack`). The iPhone's success path agrees (after the server's
+  GOAWAY, the next request on a new QUIC connection, no TCP raced, 3 of
+  3); its failure handling was never captured. An iPhone `h3-blackhole`
+  and `h3-broken` run through devicectl replaces them.
+- **Not measured:** QUIC loss, key update, 0-RTT, dial delays and close
+  on GOAWAY (no edge captures); the proxy 407 flow
+  (`connectCredentials`, `forwardCredentials` empty: `BrowserProxyAuth`
+  is `ErrNotMeasured`); credentials keep macOS Safari 27's placement, the
+  iPhone's proxy requests being otherwise byte-identical.
+- **Pinned:** the beacon on the credential-less connection
+  (`partitionGaps`) and over HTTP/3 (`h3Gaps`); `headers-order` steps
+  with 26 or more page-set names and XHR's repeated name (kindsgen's
+  `headersGaps`, `headersOrderGaps`); markup image priorities raised by
+  layout (`redirectsLineGaps`); two `redirects2` samples whose Safari
+  skipped the 25-redirect navigation it had just failed
+  (`redirectsSampleGaps`); one `h3-discovery` sample whose idle ran 69 s
+  (h3gen's `sampleGaps`).
+
+realcheck does not run for it: it drives browsers on the Mac.
 
 No claim rests on browser source code or on another client's presets alone:
 those were leads only. Where another client disagreed with the wire, the wire
@@ -681,6 +737,7 @@ A difference closed is removed here, with its pinned gap entry.
 - **Chrome 155's opening records** (Chrome 155): from Chrome for Testing, not branded Chrome; detection none expected; a branded `resume` capture.
 - **A connection opened before its request** (Safari, Firefox): the browser sends the opening alone and HEADERS after the server's SETTINGS; mimicry sends at once; detection low to medium; not planned ([0042, amendment](../docs/decisions/0042-http2-opening-records.md#amendment-2026-10-30-preconnected-connections)).
 - **Chrome's re-prioritisation** (Chrome): a PRIORITY frame mid-load, and a mid-upload stream kept in its lists ([INFERENCE]); never sent; detection medium; model `OnStreamUpdate` against the page traces.
+- **Several requests in the opening record** (Safari on iOS): with three requests waiting as a connection opened, the iPhone put all three HEADERS in the opening's TLS record; `http2.openingRecords` describes the first request's only; detection low; a capture with requests of known count waiting, and a record rule for them.
 - **Upload of unknown length** (all): ends with an empty END_STREAM DATA frame; streamed bodies; detection low to medium; a streaming-upload capture.
 - **Idle origin moved to new TCP** (Chrome on macOS): after a broken HTTP/3 origin, a new TCP connection after 6–10 s idle; detection low; captures to find the cause ([`h3EdgeGaps`](../internal/harness/e2e/http3_edge_test.go)).
 - **Upload DATA chunking** (all; Firefox entirely): 65535-byte chunks match only the first chunk; uploads over 64 KiB; detection low; upload captures of several sizes.
@@ -697,6 +754,8 @@ A difference closed is removed here, with its pinned gap entry.
 - **Firefox's declined TCP beside a 425** (Firefox): it opens and drops a TCP connection on most 425 retries; detection low; more samples ([`h3EdgeGaps`](../internal/harness/e2e/http3_edge_test.go)).
 - **When Firefox's held request leaves** (Firefox): with its Finished in 31 of 35, after it in 4; mimicry always with it; detection low; thread timing, nothing likely (`sampleGaps`).
 - **Safari's OPTIONS fetch** (Safari): not in its kinds captures, so refused (`ErrNotMeasured`); detection low; an OPTIONS fetch on the kinds page ([`h3EdgeGaps`](../internal/harness/e2e/http3_edge_test.go)).
+- **Safari on iOS's beacon over HTTP/3** (Safari on iOS): the iPhone sent `h3-page`'s beacon on a QUIC connection of its own beside the page's HTTP/2 one (3 of 3); mimicry keeps it on TCP, Safari's kinds being measured over HTTP/3 for `fetch()` only; detection low; a fuller `h3-page` capture (`h3Gaps`).
+- **Safari on iOS's QUIC failure rules** (Safari on iOS): fallback, keep-alive, acknowledgement and credit copied from Safari 27 on macOS (**C**); loss, key update, 0-RTT, dial delays and close on GOAWAY not measured (the stack's defaults, no 0-RTT); detection low; the iPhone's edge captures through devicectl.
 - **Safari's close on GOAWAY with requests open** (Safari): every captured GOAWAY found no request open, and Safari closed at once; with requests open mimicry waits for them, then closes (an assumption, decision 0050); detection low; a GOAWAY that leaves a request in flight.
 - **Safari's pair on a 0-RTT connection** (Safari): with a GET and a POST made together, Safari sent the control stream alone, then the GET (6 of 6); mimicry sends the GET in the control stream's packet, as for a lone GET (`earlyStreamsWithRequest`); detection low; more samples to say what decides it.
 - **Chrome 156 Windows's GREASE transport parameter** (Chrome on Windows): 3 resumed hellos of its edge captures carry a 15-byte one, beyond the profile's 14, which the `h3-discovery` and `h3-page` connections set; detection low; derive the maximum from the edge captures too (h3gen reads them for resumed first flights only where the h3 captures have none).
@@ -728,12 +787,13 @@ A difference closed is removed here, with its pinned gap entry.
 - **STREAMS_BLOCKED where not captured** (Chrome 155, Chrome 156 on Windows, Safari 26): no `h3-streams-blocked` capture (`missingCaptures`), and none can inherit another's (decision 0035: from an older version of the same browser and platform only), so `quic.streamsBlocked` is not measured and they send none; only against servers allowing few streams; detection low; the capture on the Windows PC and the macOS 26 Mac.
 - **Firefox's ACK of a lone response** (Firefox): Firefox acknowledged each `h3-streams-blocked` burst response 0.1–2.3 ms after it came, most of them after an ACK-only packet from the server (that it counts that packet towards its every-2 rule is [INFERENCE]); mimicry's `quic.ack` counts ack-eliciting packets only and acknowledges two responses together. Against quic-go, which raises its stream limit per stream acknowledged, the limit then rises by two and mimicry sends one STREAMS_BLOCKED per two waiting streams (7, 13) where Firefox sends one per stream (6 7 8, 12 13 14); detection low; a capture of Firefox's ACKs at low rates to find which packets it counts ([`h3EdgeGaps`](../internal/harness/e2e/http3_edge_test.go)).
 - **Chrome's small-packet padding** (Chrome): Chrome's 29-byte 1-RTT packets (a lone PING, RETIRE_CONNECTION_ID or STREAMS_BLOCKED) carry their PADDING before the frame; mimicry's STREAMS_BLOCKED packet is the same 29 bytes with it after (upstream's header-protection minimum; its other small packets likewise, [INFERENCE]); seen only by the server, after decryption; detection low; where Chrome pads, from its small packets.
-- **Opaque transport parameters** (Firefox, Safari 26): `0x1d` and `0xff080808` sent verbatim, meaning unknown; Safari 27 stopped sending the latter; detection none; source research.
+- **Opaque transport parameters** (Firefox, Safari 26, Safari on iOS): `0x1d` and `0xff080808` sent verbatim, meaning unknown; Safari 27 on macOS stopped sending the latter, Safari 27.2 on iOS sends it (= 9, last); detection none; source research.
 
 **Request headers and kinds**
 
 - **Page header order** (all; XHR, Firefox's object-literal `fetch()`): name order, not the page's; detection medium; `Request.HeaderPlacement` by hand, no new API ([0021, amendment](../docs/decisions/0021-page-headers-hash-table-order.md#amendment-2026-10-30-no-api-for-the-pages-header-order)).
 - **Safari's common names** (Safari): page-set `Authorization`, `Cache-Control` may enter its hash table among its own; only `content-type` captured; detection medium; a `headers-order` capture.
+- **Safari on iOS's large page-set header sets** (Safari on iOS): with 26 or more page-set names its order is not CFNetwork's table as modelled, and its XHR puts a name set twice elsewhere; mimicry orders them as on macOS; detection low (`headersGaps` in kindsgen, `headersOrderGaps`).
 - **Chrome's `content-type` role** (Chrome): page header or its own, unresolved; Blink's source followed; detection low to medium; a `headers-order` capture.
 - **Requests from a cross-site frame** (all): their top-level site, headers and preflights are not modelled; detection medium; a frame capture and an API.
 - **`Sec-Fetch-User` on frames and HTTP/1.1** (Chrome, Firefox): either accepted on frames; Firefox's clicked form POST over HTTP/1.1 refused; detection medium; a clicked form on `kinds-http1`.
@@ -781,6 +841,7 @@ A difference closed is removed here, with its pinned gap entry.
 - **No top-level-site partition** (all): a third-party host reached from two sites shares a connection, a cross-site socket may share its host's own, and a shared `AltSvcCache` spans sites; detection medium; one Transport per site ([0011](../docs/decisions/0011-connection-partitioning.md)).
 - **Chrome's preconnect** (Chrome): one more handshake to the page's host per page load (through a proxy, extra CONNECTs); detection low to medium; not planned ([0023, amendment](../docs/decisions/0023-connection-limits-and-coalescing.md#amendment-2026-10-30-no-preconnects)).
 - **Firefox's credential-less connections** (Firefox): their own connection to some hosts, no rule found; detection low to medium (`partitionGaps`).
+- **Safari on iOS's beacon connection** (Safari on iOS): its beacon, cookies and all, goes on the credential-less connection; mimicry sends it on the credentialed one; detection low; a rule for which kinds share that pool (`partitionGaps`).
 - **Tabs** (all): a Transport is one session; what tabs share is not measured; detection medium if misused ([0019](../docs/decisions/0019-transport-is-one-browsing-entity.md)).
 - **Coalescing conditions** (all): address, port, partition and proxy never varied, and mimicry never coalesces through a proxy; detection low to medium; a fuller `connections` capture.
 - **Limits beyond the per-host cap** (all): the 6 per host applied to plain HTTP and per proxy route ([INFERENCE]); Chrome's 256 total and 32 per proxy, Firefox's 900, and priority queueing not modelled; detection low.
@@ -790,6 +851,8 @@ A difference closed is removed here, with its pinned gap entry.
 
 - **Safari's `Proxy-Authorization` inside tunnels** (Safari): sent to servers once its credential state is on; mimicry never does; detection low; captures of the trigger and a decision on sending proxy credentials to servers ([report](../internal/harness/reports/proxy-websocket-2026-10-26.md)).
 - **Safari 26's credential flow** (Safari 26): copied from Safari 27, never captured; detection low (`missingCaptures`).
+- **Safari on iOS's 407 flow** (Safari on iOS): the iPhone answered no proxy's 407, even with the Wi-Fi proxy's credentials set; credentials go up front, and `BrowserProxyAuth` is `ErrNotMeasured`; detection low; none planned ([0051](../docs/decisions/0051-ios-safari-over-the-network.md)).
+- **Safari's CONNECTs beside a plain-HTTP page** (Safari; most on iOS): through an HTTP proxy, with the page at `http://`, Safari also sent CONNECTs to the capture host, each on a connection of its own (answered 502 by the capture proxy): one per sample on macOS, four on the iPhone, heads identical; mimicry sends none; detection low; a capture where the CONNECT is answered, to see what it is for.
 - **Challenge state per proxy** (all): shared by tunnels and forwarded requests ([INFERENCE]); detection low; a mixed capture.
 - **Chrome's preconnects to the proxy**: see Chrome's preconnect above.
 
@@ -1054,7 +1117,9 @@ profile from its own captures and requires it unchanged. The last quick
 refresh is the
 [Chrome 156 report](../internal/harness/reports/refresh-chrome-156-macos-2026-10-26.md);
 the first full refresh on Windows the
-[Chrome 156 on Windows report](../internal/harness/reports/refresh-chrome-156-windows-2026-10-29.md).
+[Chrome 156 on Windows report](../internal/harness/reports/refresh-chrome-156-windows-2026-10-29.md);
+the first on an iPhone the
+[Safari 27 on iOS report](../internal/harness/reports/refresh-safari-27-ios-2026-11-01.md).
 
 ## Keeping it true
 

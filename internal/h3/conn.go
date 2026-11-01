@@ -178,6 +178,11 @@ func New(qc *quic.Conn, p *profile.Profile, opts Options) (*Conn, error) {
 
 	go c.serve()
 
+	// Held from here, so the server's SETTINGS (H3OpenOnSettings) write
+	// the encoder stream only once its stream exists.
+	c.startMu.Lock()
+	defer c.startMu.Unlock()
+
 	ctx := context.Background()
 	// Every stream ID the profile takes, in order, before anything is
 	// written.
@@ -204,9 +209,6 @@ func New(qc *quic.Conn, p *profile.Profile, opts Options) (*Conn, error) {
 
 		return nil, errors.New("h3: the profile opens no control stream")
 	}
-
-	c.startMu.Lock()
-	defer c.startMu.Unlock()
 
 	early := qc.EarlyData()
 	switch {
@@ -236,9 +238,10 @@ func New(qc *quic.Conn, p *profile.Profile, opts Options) (*Conn, error) {
 // Without a measured encoder (Safari) it never uses the dynamic table.
 func QPACKConfig(h *profile.HTTP3) qpack.Config {
 	cfg := qpack.Config{
-		Strategy:      qpack.StrategyStatic,
-		HuffmanAlways: h.QPACK.Huffman == profile.HuffmanAlways,
-		MaxCapacity:   maxQPACKCapacity,
+		Strategy:         qpack.StrategyStatic,
+		HuffmanAlways:    h.QPACK.Huffman == profile.HuffmanAlways,
+		MaxCapacity:      maxQPACKCapacity,
+		AnnounceCapacity: encoderOnSettings(h),
 	}
 	switch h.QPACK.Encoder {
 	case profile.QPACKIndexAll:
@@ -248,6 +251,18 @@ func QPACKConfig(h *profile.HTTP3) qpack.Config {
 	}
 
 	return cfg
+}
+
+// encoderOnSettings reports whether the profile opens the encoder stream
+// on the server's SETTINGS (profile.H3OpenOnSettings).
+func encoderOnSettings(h *profile.HTTP3) bool {
+	for _, u := range h.UniStreams {
+		if u.Type == profile.H3StreamQPACKEncoder && u.Open == profile.H3OpenOnSettings {
+			return true
+		}
+	}
+
+	return false
 }
 
 // waitSettings waits briefly for the server's SETTINGS, which arrive with
@@ -704,10 +719,28 @@ func (c *Conn) applySettings(b []byte) error {
 
 	c.encMu.Lock()
 	c.enc.SetPeerSettings(capacity, blocked)
+
+	var announce []byte
+	if capacity > 0 && encoderOnSettings(c.h3) {
+		announce = c.enc.TakeCapacity()
+	}
+
 	c.encMu.Unlock()
 	c.settingsOnce.Do(func() {
 		close(c.settings)
 	})
+
+	if len(announce) > 0 {
+		// The encoder stream opens with Set Dynamic Table Capacity as the
+		// SETTINGS arrive, not with the next request; off this goroutine,
+		// which must not wait for a request holding startMu.
+		go func() {
+			c.startMu.Lock()
+			defer c.startMu.Unlock()
+
+			c.writeEncoder(announce, false)
+		}()
+	}
 
 	return nil
 }

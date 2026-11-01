@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/netip"
 	"os/exec"
 	"os/user"
 	"path/filepath"
@@ -176,9 +177,16 @@ func cleanUp(dataDir string) error {
 	return err
 }
 
-// startDNSStub does nothing on Windows: only Safari needs the stub, and
-// Chrome maps the capture hosts itself.
-func startDNSStub(context.Context) {}
+// startDNSStub starts nothing on Windows: only Safari needs the stub, and
+// Chrome maps the capture hosts itself. Serving a device on the network
+// (-listen, for Safari on an iPhone) is for the Mac.
+func startDNSStub(_ context.Context, _ netip.Addr, clients netip.Prefix) error {
+	if clients.IsValid() {
+		return errors.New("-listen serves a device on the network from a Mac; not on Windows")
+	}
+
+	return nil
+}
 
 // consoleUser is the user logged on at the console, "" when nobody is.
 func consoleUser(ctx context.Context) (string, error) {

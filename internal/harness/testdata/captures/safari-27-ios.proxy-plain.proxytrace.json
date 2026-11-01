@@ -1,0 +1,164 @@
+[
+  [
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 502,
+      "target": "capture.mimicry.test:62781",
+      "lines": [
+        "CONNECT capture.mimicry.test:62781 HTTP/1.1",
+        "Host: capture.mimicry.test:62781",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "safaridriver"
+    },
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 502,
+      "target": "capture.mimicry.test:62781",
+      "lines": [
+        "CONNECT capture.mimicry.test:62781 HTTP/1.1",
+        "Host: capture.mimicry.test:62781",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "safaridriver"
+    },
+    {
+      "kind": "connect",
+      "conn": 3,
+      "status": 502,
+      "target": "capture.mimicry.test:62781",
+      "lines": [
+        "CONNECT capture.mimicry.test:62781 HTTP/1.1",
+        "Host: capture.mimicry.test:62781",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "safaridriver"
+    },
+    {
+      "kind": "connect",
+      "conn": 4,
+      "status": 502,
+      "target": "capture.mimicry.test:62781",
+      "lines": [
+        "CONNECT capture.mimicry.test:62781 HTTP/1.1",
+        "Host: capture.mimicry.test:62781",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "safaridriver"
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 502,
+      "target": "capture.mimicry.test:62825",
+      "lines": [
+        "CONNECT capture.mimicry.test:62825 HTTP/1.1",
+        "Host: capture.mimicry.test:62825",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "safaridriver"
+    },
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 502,
+      "target": "capture.mimicry.test:62825",
+      "lines": [
+        "CONNECT capture.mimicry.test:62825 HTTP/1.1",
+        "Host: capture.mimicry.test:62825",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "safaridriver"
+    },
+    {
+      "kind": "connect",
+      "conn": 3,
+      "status": 502,
+      "target": "capture.mimicry.test:62825",
+      "lines": [
+        "CONNECT capture.mimicry.test:62825 HTTP/1.1",
+        "Host: capture.mimicry.test:62825",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "safaridriver"
+    },
+    {
+      "kind": "connect",
+      "conn": 4,
+      "status": 502,
+      "target": "capture.mimicry.test:62825",
+      "lines": [
+        "CONNECT capture.mimicry.test:62825 HTTP/1.1",
+        "Host: capture.mimicry.test:62825",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "safaridriver"
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 502,
+      "target": "capture.mimicry.test:62874",
+      "lines": [
+        "CONNECT capture.mimicry.test:62874 HTTP/1.1",
+        "Host: capture.mimicry.test:62874",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "safaridriver"
+    },
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 502,
+      "target": "capture.mimicry.test:62874",
+      "lines": [
+        "CONNECT capture.mimicry.test:62874 HTTP/1.1",
+        "Host: capture.mimicry.test:62874",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "safaridriver"
+    },
+    {
+      "kind": "connect",
+      "conn": 3,
+      "status": 502,
+      "target": "capture.mimicry.test:62874",
+      "lines": [
+        "CONNECT capture.mimicry.test:62874 HTTP/1.1",
+        "Host: capture.mimicry.test:62874",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "safaridriver"
+    },
+    {
+      "kind": "connect",
+      "conn": 4,
+      "status": 502,
+      "target": "capture.mimicry.test:62874",
+      "lines": [
+        "CONNECT capture.mimicry.test:62874 HTTP/1.1",
+        "Host: capture.mimicry.test:62874",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "safaridriver"
+    }
+  ]
+]

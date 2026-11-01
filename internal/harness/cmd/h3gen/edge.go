@@ -395,10 +395,34 @@ func edgeErr(e *collector, at, format string, args ...any) {
 // 0-RTT, loss recovery, keep-alive, acknowledgement, credit, key update,
 // version negotiation and STREAMS_BLOCKED rules, and h's dial delay,
 // fallback, early data and close on GOAWAY. Only h3-streams-blocked may
-// be missing: quic.streamsBlocked is then not measured.
-func deriveEdge(s *edgeSet, q *profile.QUIC, h *profile.HTTP3) error {
+// be missing: quic.streamsBlocked is then not measured. A profile whose
+// browser shares another platform's network stack (internal/platform.Stack:
+// Safari on iOS, decision 0051) may have none of the edge captures: its
+// fallback, keep-alive, acknowledgement and credit rules then stay as
+// copied from the profile it started from (prev, prevFallback), and the
+// rest is not measured and left empty; any other profile must have them.
+func deriveEdge(s *edgeSet, q *profile.QUIC, h *profile.HTTP3, prev profile.QUIC, prevFallback profile.Fallback, sharesStack bool) error {
+	required := []string{scenarioBlackhole, scenarioBroken, scenarioVN, scenarioDownload, scenarioEarly, scenarioTooEarly}
+	if sharesStack && !slices.ContainsFunc(append(slices.Clone(required), scenarioStreamsBlocked), func(sc string) bool {
+		return len(s.scenario(sc)) > 0
+	}) {
+		q.KeepAlive, q.Ack, q.Credit = prev.KeepAlive, prev.Ack, prev.Credit
+		h.Discovery.Fallback = prevFallback
+		q.ZeroRTT = false
+		q.Loss = profile.QUICLoss{}
+		q.KeyUpdate = profile.QUICKeyUpdate{}
+		q.VersionNegotiation = profile.QUICVersionNegotiation{}
+		q.StreamsBlocked = nil
+		h.Discovery.DialDelayMillis, h.Discovery.ResumedDialDelayMillis = nil, nil
+		h.EarlyData = nil
+		h.EarlyStreamsWithRequest = false
+		h.CloseOnGoAway = false
+
+		return nil
+	}
+
 	e := &collector{}
-	for _, sc := range []string{scenarioBlackhole, scenarioBroken, scenarioVN, scenarioDownload, scenarioEarly, scenarioTooEarly} {
+	for _, sc := range required {
 		if len(s.scenario(sc)) == 0 {
 			edgeErr(e, s.set.name, "no %s capture", sc)
 		}

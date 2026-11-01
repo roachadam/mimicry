@@ -7,15 +7,18 @@ import (
 	"log"
 	"maps"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/roachadam/mimicry/internal/harness/internal/browser"
 	"github.com/roachadam/mimicry/internal/harness/internal/capture"
 	"github.com/roachadam/mimicry/internal/harness/internal/pageshape"
 	"github.com/roachadam/mimicry/internal/harness/internal/server"
+	"github.com/roachadam/mimicry/internal/platform"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -43,16 +46,24 @@ type refreshRun struct {
 	Scenarios string `json:"scenarios,omitempty"`
 	// Keep leaves the Windows PC's working directory in place (-keep).
 	Keep bool `json:"-"`
+	// Listen is this Mac's address on the iPhone's network (-listen) and
+	// IOSDevice the iPhone's UDID (-ios-device, "" for any), for
+	// safari-ios.
+	Listen    string `json:"listen,omitempty"`
+	IOSDevice string `json:"iosDevice,omitempty"`
 }
 
 // plan is what the run does for one browser.
 type plan struct {
 	Target  string `json:"target"`
 	Browser string `json:"browser"`
+	// Tool is the capture tool's name for the browser when it is not
+	// Browser (target.tool).
+	Tool string `json:"tool,omitempty"`
 	// Host is the ssh host the browser runs on, "" for this Mac.
 	Host string `json:"host,omitempty"`
 	// Platform is the profile's platform: platformMacOS ("" in runs saved
-	// before Windows) or platformWindows.
+	// before Windows), platformWindows or platformIOS.
 	Platform string `json:"platform,omitempty"`
 	// NewPlatform is the first profile of the browser on Platform: copied
 	// from another platform's, so it captures every scenario and
@@ -78,6 +89,15 @@ type plan struct {
 	Measured []summaryLine `json:"measured,omitempty"`
 	Started  time.Time     `json:"started"`
 	Finished time.Time     `json:"finished"`
+}
+
+// tool is the capture tool's name for p's browser (-browsers).
+func (p *plan) tool() string {
+	if p.Tool != "" {
+		return p.Tool
+	}
+
+	return p.Browser
 }
 
 // planned is one scenario to capture.
@@ -106,6 +126,8 @@ type summaryLine struct {
 	Samples   int     `json:"samples"`
 	Seconds   float64 `json:"seconds"`
 	File      string  `json:"file"`
+	// Driver is the iPhone's (browser.IOSDriver), empty for other browsers.
+	Driver string `json:"driver,omitempty"`
 }
 
 // preflightReport is the capture tool's -preflight output.
@@ -135,9 +157,15 @@ type preflightReport struct {
 // machine is where p's browser runs.
 func (r *refreshRun) machine(p *plan) *machine {
 	if p.Host == "" {
-		return &machine{
+		m := &machine{
 			dir: r.Dir,
 		}
+		if p.Platform == platformIOS {
+			m.iphone = true
+			m.iosDevice = r.IOSDevice
+		}
+
+		return m
 	}
 
 	return &machine{
@@ -154,10 +182,14 @@ func (m *machine) windowsDir() string {
 
 // captureArgs are the capture tool's arguments every run of it on m
 // takes: on Windows, the capture CA in the working directory, so nothing
-// stays in the user's profile.
+// stays in the user's profile; for the iPhone, its UDID when given.
 func (m *machine) captureArgs(args ...string) []string {
 	if m.windows {
 		args = append(args, "-ca-dir", "ca")
+	}
+
+	if m.iosDevice != "" {
+		args = append(args, "-ios-device", m.iosDevice)
 	}
 
 	return args
@@ -225,6 +257,7 @@ func (r *refreshRun) preflight(ctx context.Context, cfg config) error {
 		p := &plan{
 			Target:   name,
 			Browser:  t.browser,
+			Tool:     t.tool,
 			Platform: t.platform(),
 		}
 
@@ -237,11 +270,11 @@ func (r *refreshRun) preflight(ctx context.Context, cfg config) error {
 
 		r.Plans = append(r.Plans, p)
 
-		rep, ok := reports[p.Host]
+		// The iPhone's preflight runs on this Mac too, with its UDID.
+		m := r.machine(p)
 
+		rep, ok := reports[m.String()]
 		if !ok {
-			m := r.machine(p)
-
 			bin, built := bins[m.windows]
 			if !built {
 				if m.windows {
@@ -267,7 +300,7 @@ func (r *refreshRun) preflight(ctx context.Context, cfg config) error {
 				return err
 			}
 
-			reports[p.Host] = rep
+			reports[m.String()] = rep
 		}
 
 		if err := r.planTarget(p, rep, builtins, cfg); err != nil {
@@ -344,10 +377,15 @@ func (r *refreshRun) planTarget(p *plan, rep *preflightReport, builtins map[stri
 		r.checkWindows(p, rep)
 	}
 
-	p.Installed = rep.installedVersion(p.Browser)
+	p.Installed = rep.installedVersion(p.tool())
 
 	if p.Installed == "" {
-		p.Problems = append(p.Problems, fmt.Sprintf("%s is not installed on %s", p.Browser, m))
+		if m.iphone {
+			p.Problems = append(p.Problems, "no paired iPhone is connected to this Mac (xcrun devicectl list devices; -ios-device picks one by UDID): connect it by cable, unlock it and trust this Mac")
+		} else {
+			p.Problems = append(p.Problems, fmt.Sprintf("%s is not installed on %s", p.Browser, m))
+		}
+
 		return nil
 	}
 
@@ -391,7 +429,10 @@ func (r *refreshRun) planTarget(p *plan, rep *preflightReport, builtins map[stri
 		}
 	}
 
-	if !m.windows {
+	switch {
+	case m.iphone:
+		r.checkIPhone(p)
+	case !m.windows:
 		r.checkMac(p, rep)
 	}
 
@@ -399,7 +440,11 @@ func (r *refreshRun) planTarget(p *plan, rep *preflightReport, builtins map[stri
 		return err
 	}
 
-	if !p.NewPlatform {
+	// The first profile on a platform inherits nothing, unless the
+	// platform shares another's network stack (Safari on iOS, decision
+	// 0051): it then inherits what it does not capture from that
+	// platform's profile it starts from.
+	if !p.NewPlatform || platform.Stack(p.Browser, p.Platform) != "" {
 		p.CapturesFrom = inherit(p, builtins)
 	}
 
@@ -483,6 +528,27 @@ func (r *refreshRun) checkWindows(p *plan, rep *preflightReport) {
 		fmt.Sprintf("Chrome reaches the capture hosts through --host-resolver-rules: no hosts file or DNS change on %s", m))
 }
 
+// checkIPhone adds to p what a capture of Safari on the iPhone needs: what
+// this Mac can check, and what only someone holding the phone can set.
+// The capture tool serves the iPhone on r.Listen, and a DNS stub there,
+// for the run only.
+func (r *refreshRun) checkIPhone(p *plan) {
+	if err := exec.Command("xcrun", "--find", "devicectl").Run(); err != nil { //nolint:noctx // a quick local query while planning
+		p.Problems = append(p.Problems, "devicectl, which opens each capture URL in the iPhone's Safari, is not available on this Mac (it comes with Xcode: xcrun devicectl)")
+	}
+
+	out, err := exec.Command("/usr/libexec/ApplicationFirewall/socketfilterfw", "--getglobalstate").Output() //nolint:noctx // a quick local query while planning
+	if err == nil && !strings.Contains(string(out), "State = 0") {
+		p.Warnings = append(p.Warnings, "the macOS firewall is on: it must let the capture tool (built afresh each run) accept the iPhone's connections; allow it when macOS asks, or turn the firewall off for the run")
+	}
+
+	p.Manual = append(p.Manual,
+		"once (docs/capturing.md, Safari on an iPhone): the capture CA installed and fully trusted on the iPhone; Settings > Apps > Safari: no content blocker or other extension; iCloud Private Relay off",
+		fmt.Sprintf("before capturing: the iPhone on this Mac's Wi-Fi network, Limit IP Address Tracking off for it, and its DNS (Settings > Wi-Fi > (i) > Configure DNS > Manual) %s alone; afterwards, DNS back to Automatic: without the capture tool running the iPhone has no DNS", r.Listen),
+		"while capturing: the iPhone connected by cable, unlocked, Auto-Lock Never, on power and left alone but for the proxy settings; devicectl opens each sample's URL in the phone's own Safari, bringing it to the front, and its tabs stay open (close them afterwards)",
+	)
+}
+
 // onMachine is a command line run on host ("" here).
 func onMachine(host, line string) string {
 	if host == "" {
@@ -519,6 +585,11 @@ func (r *refreshRun) planCaptures(p *plan, rep *preflightReport, cfg config) err
 			})
 		}
 
+	case r.machine(p).iphone:
+		// Whatever -mode: the fingerprint layer and the rules checked
+		// against macOS Safari's captures, which the rest is inherited
+		// from (decision 0051).
+		set = server.IOSScenarios()
 	case r.Mode == modeQuick && !p.NewPlatform:
 		set = server.QuickScenarios
 	default:
@@ -540,14 +611,26 @@ func (r *refreshRun) planCaptures(p *plan, rep *preflightReport, cfg config) err
 	}
 
 	shared := p.Browser == "safari"
+	iphone := r.machine(p).iphone
+
 	for _, s := range set {
 		sc := s.Scenario
+		why := sc.UnsupportedOnIOS()
+
 		switch {
+		case iphone && why != "":
+			p.Warnings = append(p.Warnings, fmt.Sprintf("skipping %s, unsupported on the iPhone: %s", sc.Name, why))
+			continue
+
+		case iphone && sc.Clicks():
+			p.Warnings = append(p.Warnings, fmt.Sprintf("skipping %s: %s (docs/capturing.md, Safari on an iPhone)", sc.Name, browser.IOSNoTaps))
+			continue
+
 		case shared && p.Host != "" && sc.Clicks():
 			p.Warnings = append(p.Warnings, fmt.Sprintf("skipping %s: Safari is clicked through the system's mouse events, which an ssh session cannot send; the profile keeps or inherits what it has", sc.Name))
 			continue
 
-		case shared && sc.ProxyAuth:
+		case shared && !iphone && sc.ProxyAuth:
 			p.Warnings = append(p.Warnings, fmt.Sprintf("skipping %s: Safari's proxy credentials need the com.apple.proxy.http.global device profile and a person typing them (docs/capturing.md, Proxy scenarios); the profile keeps or inherits what it has, capture it by hand", sc.Name))
 			continue
 
@@ -577,7 +660,7 @@ func (r *refreshRun) planCaptures(p *plan, rep *preflightReport, cfg config) err
 				Scenario:   sc.Name,
 				Samples:    s.Samples,
 				LocalRoots: lr,
-				Estimate:   estimate(sc, p.Browser, s.Samples),
+				Estimate:   estimate(sc, p.tool(), s.Samples),
 			}
 
 			p.Captures = append(p.Captures, c)
@@ -598,13 +681,42 @@ func (r *refreshRun) planCaptures(p *plan, rep *preflightReport, cfg config) err
 		}
 	})
 
+	if iphone {
+		// The direct scenarios first, unattended; then the proxy ones:
+		// the capture tool asks for the iPhone's proxy setting and waits
+		// for Enter.
+		proxied := map[string]bool{}
+
+		for _, s := range set {
+			proxied[s.Scenario.Name] = s.Scenario.Proxy != ""
+		}
+
+		slices.SortStableFunc(p.Captures, func(a, b planned) int {
+			switch {
+			case proxied[a.Scenario] == proxied[b.Scenario]:
+				return 0
+			case proxied[a.Scenario]:
+				return 1
+			default:
+				return -1
+			}
+		})
+
+		if slices.ContainsFunc(p.Captures, func(c planned) bool {
+			return proxied[c.Scenario]
+		}) {
+			p.Manual = append(p.Manual, fmt.Sprintf("after the direct scenarios, someone at the iPhone: the capture tool stops before the proxy scenarios, prints what to enter (Settings > Wi-Fi > (i) > Configure Proxy > Manual, server %s, port %d, Authentication off) and waits for Enter here; afterwards Configure Proxy > Off",
+				r.Listen, browser.IOSProxyPort))
+		}
+	}
+
 	if !slices.ContainsFunc(p.Captures, func(c planned) bool {
 		return c.Scenario == capture.DefaultScenario
 	}) && !cfg.captureOnly {
 		return fmt.Errorf("%s: the default scenario (%s) must be captured: the profile comes from it", p.Target, capture.DefaultScenario)
 	}
 
-	if shared {
+	if shared && !iphone {
 		p.Manual = append(p.Manual, fmt.Sprintf("Safari on %s: no content blocker or other extension enabled, default privacy settings; it opens tabs in your own window", r.machine(p)))
 		if slices.ContainsFunc(set, func(s server.Planned) bool {
 			return s.Scenario.Proxy != ""
@@ -662,9 +774,11 @@ func replayScenarios() ([]*server.Scenario, error) {
 }
 
 // estimate is a ceiling on how long samples of sc take: each launches the
-// browser (Chrome waits out its warm-up first) and runs the page for its
-// length, or about 8 s for the single-host pages (slow-idle: 30 s).
-func estimate(sc *server.Scenario, browser string, samples int) time.Duration {
+// browser (Chrome waits out its warm-up first; the iPhone's Safari gets a
+// safaridriver and a WebDriver session) and runs the page for its length,
+// or about 8 s for the single-host pages (slow-idle: 30 s). tool is the
+// capture tool's name for the browser.
+func estimate(sc *server.Scenario, tool string, samples int) time.Duration {
 	page := 8 * time.Second
 	if _, length, multi := sc.MultiHost(); multi {
 		page = length
@@ -675,8 +789,12 @@ func estimate(sc *server.Scenario, browser string, samples int) time.Duration {
 	}
 
 	launch := 6 * time.Second
-	if browser == "chrome" {
+
+	switch tool {
+	case "chrome":
 		launch += 5 * time.Second
+	case browser.IOSSafariName:
+		launch = 15 * time.Second
 	}
 
 	return time.Duration(samples) * (page + launch)
@@ -684,7 +802,9 @@ func estimate(sc *server.Scenario, browser string, samples int) time.Duration {
 
 // inherit is capturesFrom for p: every scenario it does not capture, and
 // every replay, from the profile holding the previous profile's captures
-// of it. The default scenario is always captured.
+// of it. The default scenario is always captured; on iOS a scenario whose
+// macOS captures differ from the iPhone's (Scenario.NotInheritedOnIOS) is
+// not inherited.
 func inherit(p *plan, builtins map[string]*profile.Profile) map[string]string {
 	prev := builtins[p.Previous]
 	if prev == nil {
@@ -698,12 +818,23 @@ func inherit(p *plan, builtins map[string]*profile.Profile) map[string]string {
 
 	names := make([]string, 0, len(server.Scenarios))
 	for _, sc := range server.Scenarios {
+		if p.Platform == platformIOS && sc.NotInheritedOnIOS() != "" {
+			continue
+		}
+
 		names = append(names, sc.Name)
 	}
 
 	if replays, err := filepath.Glob(filepath.Join(pagesDir, "*.json")); err == nil {
 		for _, f := range replays {
-			names = append(names, "replay-"+strings.TrimSuffix(filepath.Base(f), ".json"))
+			name := "replay-" + strings.TrimSuffix(filepath.Base(f), ".json")
+			if p.Platform == platformIOS {
+				if sc, err := scenarioFor(name); err != nil || sc.NotInheritedOnIOS() != "" {
+					continue
+				}
+			}
+
+			names = append(names, name)
 		}
 	}
 
@@ -742,18 +873,26 @@ func (r *refreshRun) planText() string {
 			fmt.Fprintf(&w, ", new profile %s from %s\n", p.Name, p.Previous)
 		}
 
-		if p.NewPlatform {
-			if r.Scenarios == "" {
-				fmt.Fprintf(&w, "  first %s profile on %s: nothing there to inherit, so it captures the full set (every scenario and replay) whatever -mode, and inherits nothing; the generators redo what it keeps of %s from its captures\n",
-					p.Browser, p.Platform, p.Previous)
-			} else {
-				fmt.Fprintf(&w, "  first %s profile on %s: nothing there to inherit, so it inherits nothing; -scenarios replaces the full set it would capture, and the scenarios left out have no capture for %s\n",
-					p.Browser, p.Platform, p.Name)
-			}
+		switch stack := platform.Stack(p.Browser, p.Platform); {
+		case stack != "":
+			fmt.Fprintf(&w, "  %s on %s shares %s's network stack (decision 0051): it captures the %s set whatever -mode, and inherits every other scenario and replay from %s %s's captures\n",
+				p.Browser, p.Platform, stack, p.Platform, stack, p.Browser)
+
+		case p.NewPlatform && r.Scenarios == "":
+			fmt.Fprintf(&w, "  first %s profile on %s: nothing there to inherit, so it captures the full set (every scenario and replay) whatever -mode, and inherits nothing; the generators redo what it keeps of %s from its captures\n",
+				p.Browser, p.Platform, p.Previous)
+
+		case p.NewPlatform:
+			fmt.Fprintf(&w, "  first %s profile on %s: nothing there to inherit, so it inherits nothing; -scenarios replaces the full set it would capture, and the scenarios left out have no capture for %s\n",
+				p.Browser, p.Platform, p.Name)
 		}
 
-		if m := r.machine(p); m.windows {
+		switch m := r.machine(p); {
+		case m.windows:
 			r.windowsSteps(&w, p, m)
+		case m.iphone:
+			fmt.Fprintf(&w, "  on the iPhone, served from this Mac: capture -browsers %s -listen %s -ios-driver %s: the capture servers and a DNS stub (port 53, forwarding other names to this Mac's resolver) on %s for the run; devicectl opens each sample's URL in the phone's own Safari, over USB; realcheck is not run (it drives browsers on this Mac)\n",
+				p.tool(), r.Listen, browser.IOSDevicectl, r.Listen)
 		}
 
 		for _, c := range p.Captures {

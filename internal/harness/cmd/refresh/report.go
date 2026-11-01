@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/roachadam/mimicry/internal/harness/internal/capture"
+	"github.com/roachadam/mimicry/internal/platform"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -44,7 +45,14 @@ func (rep *report) write() (string, error) {
 	}
 
 	mode := rep.run.Mode + " mode"
-	if p.NewPlatform {
+
+	switch stack := platform.Stack(p.Browser, p.Platform); {
+	case stack != "":
+		how += ", inheriting what it does not capture from " + stack + " " + p.Browser + "'s captures, whose network stack it shares (decision 0051)"
+
+		mode = p.Platform + " set"
+
+	case p.NewPlatform:
 		how += ", the first on " + p.Platform + " (nothing inherited)"
 
 		if rep.run.Scenarios == "" {
@@ -62,7 +70,16 @@ func (rep *report) write() (string, error) {
 		fmt.Fprintf(&b, "User agent: `%s`\n\n", p.Measured[0].UserAgent)
 	}
 
-	b.WriteString("| Scenario | Samples | Measured | Estimated |\n|---|---|---|---|\n")
+	// The iPhone's captures say how the phone was sent to each page.
+	drivers := slices.ContainsFunc(p.Measured, func(l summaryLine) bool {
+		return l.Driver != ""
+	})
+
+	if drivers {
+		b.WriteString("| Scenario | Samples | Driver | Measured | Estimated |\n|---|---|---|---|---|\n")
+	} else {
+		b.WriteString("| Scenario | Samples | Measured | Estimated |\n|---|---|---|---|\n")
+	}
 
 	measured := map[string]summaryLine{}
 
@@ -81,16 +98,25 @@ func (rep *report) write() (string, error) {
 
 	var estimated time.Duration
 	for _, c := range p.Captures {
-		m := "not captured"
+		m, driver := "not captured", ""
 		if l, ok := measured[c.label()]; ok {
-			m = (time.Duration(l.Seconds) * time.Second).String()
+			m, driver = (time.Duration(l.Seconds) * time.Second).String(), l.Driver
 		}
 
 		estimated += c.Estimate
-		fmt.Fprintf(&b, "| %s | %d | %s | %s |\n", c.label(), c.Samples, m, c.Estimate.Round(time.Second))
+
+		if drivers {
+			fmt.Fprintf(&b, "| %s | %d | %s | %s | %s |\n", c.label(), c.Samples, driver, m, c.Estimate.Round(time.Second))
+		} else {
+			fmt.Fprintf(&b, "| %s | %d | %s | %s |\n", c.label(), c.Samples, m, c.Estimate.Round(time.Second))
+		}
 	}
 
-	fmt.Fprintf(&b, "| total | | %s | %s |\n\n", (time.Duration(total) * time.Second).String(), estimated.Round(time.Second))
+	if drivers {
+		fmt.Fprintf(&b, "| total | | | %s | %s |\n\n", (time.Duration(total) * time.Second).String(), estimated.Round(time.Second))
+	} else {
+		fmt.Fprintf(&b, "| total | | %s | %s |\n\n", (time.Duration(total) * time.Second).String(), estimated.Round(time.Second))
+	}
 
 	if !p.Started.IsZero() && !p.Finished.IsZero() {
 		fmt.Fprintf(&b, "Wall time of the capture run (launches, copies and checks included): %s.\n\n", p.Finished.Sub(p.Started).Round(time.Second))

@@ -43,6 +43,9 @@ type Config struct {
 	// MaxCapacity caps the dynamic table capacity the encoder sets,
 	// whatever the peer allows.
 	MaxCapacity uint64
+	// AnnounceCapacity sets the capacity under StrategyStatic too, which
+	// never inserts (Safari on iOS).
+	AnnounceCapacity bool
 }
 
 // Field is a header field to encode, or one decoded.
@@ -151,13 +154,14 @@ func NewEncoder(cfg Config) *Encoder {
 // SetPeerSettings applies the peer's SETTINGS_QPACK_MAX_TABLE_CAPACITY
 // and SETTINGS_QPACK_BLOCKED_STREAMS: the table's capacity becomes the
 // smallest of the peer's, the configured maximum and none for
-// StrategyStatic, set by the encoder stream's first instruction.
+// StrategyStatic (unless AnnounceCapacity), set by the encoder stream's
+// first instruction.
 func (e *Encoder) SetPeerSettings(maxCapacity, blockedStreams uint64) {
 	e.peerMax, e.maxBlocked = maxCapacity, blockedStreams
 
 	capacity := min(maxCapacity, e.cfg.MaxCapacity)
 
-	if e.cfg.Strategy == StrategyStatic {
+	if e.cfg.Strategy == StrategyStatic && !e.cfg.AnnounceCapacity {
 		capacity = 0
 	}
 

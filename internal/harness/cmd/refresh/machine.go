@@ -14,11 +14,14 @@ import (
 	"strings"
 	"sync"
 	"unicode/utf16"
+
+	"github.com/roachadam/mimicry/internal/harness/internal/browser"
 )
 
 const (
 	platformMacOS   = "macos"
 	platformWindows = "windows"
+	platformIOS     = "ios"
 
 	remoteMini    = "mini"
 	remoteWindows = "windows"
@@ -26,17 +29,26 @@ const (
 
 // target is a browser the tool refreshes and where it runs.
 type target struct {
-	// browser is the capture tool's name for it (-browsers).
+	// browser is the profile's browser and, unless tool is set, the
+	// capture tool's name for it (-browsers).
 	browser string
+	// tool is the capture tool's name for the browser when it is not
+	// browser: browser.IOSSafariName, Safari on an iPhone served from this
+	// Mac over the network.
+	tool string
 	// remote is where it runs over ssh: remoteMini (the second Mac, -mini),
-	// remoteWindows (a Windows PC, -windows), or "" for this Mac.
+	// remoteWindows (a Windows PC, -windows), or "" for this Mac (and the
+	// iPhone it serves).
 	remote string
 }
 
 // platform is the profile platform of the browser's captures.
 func (t target) platform() string {
-	if t.remote == remoteWindows {
+	switch {
+	case t.remote == remoteWindows:
 		return platformWindows
+	case t.tool == browser.IOSSafariName:
+		return platformIOS
 	}
 
 	return platformMacOS
@@ -62,6 +74,10 @@ var targets = map[string]target{
 		browser: "safari",
 		remote:  remoteMini,
 	},
+	"safari-ios": {
+		browser: "safari",
+		tool:    browser.IOSSafariName,
+	},
 }
 
 // machine is where a browser runs: this Mac, or a host reached over ssh,
@@ -76,10 +92,18 @@ type machine struct {
 	// windows is a Windows PC: its ssh shell is PowerShell, the tool's
 	// binaries are windows/amd64 .exe files.
 	windows bool
+	// iphone is the iPhone this Mac serves over the network: the capture
+	// tool runs here and opens each URL in its Safari through devicectl
+	// over USB. iosDevice is its UDID (-ios-device), "" for the one there.
+	iphone    bool
+	iosDevice string
 }
 
 func (m *machine) String() string {
-	if m.host == "" {
+	switch {
+	case m.iphone:
+		return "the iPhone"
+	case m.host == "":
 		return "this Mac"
 	}
 
@@ -90,6 +114,8 @@ func (m *machine) String() string {
 // its ssh alias, which is the maintainer's own name for the machine.
 func (m *machine) role() string {
 	switch {
+	case m.iphone:
+		return "the iPhone, served from this Mac"
 	case m.host == "":
 		return "this Mac"
 	case m.windows:
@@ -234,6 +260,8 @@ func (m *machine) readFile(ctx context.Context, name string) ([]byte, error) {
 // stream runs name with args on m, logging every line it prints prefixed
 // with prefix and appending it to logFile. Interrupted, it also stops what
 // it started on a remote host, which ssh without a terminal leaves running.
+// For the iPhone it reads this tool's standard input: the capture tool
+// waits there for Enter once someone has changed the phone's proxy.
 func (m *machine) stream(ctx context.Context, prefix, logFile, name string, args ...string) error {
 	// On Windows, standard error joins the output as plain lines.
 	var cmd *exec.Cmd
@@ -241,6 +269,10 @@ func (m *machine) stream(ctx context.Context, prefix, logFile, name string, args
 		cmd = powershell(ctx, m.host, m.psRun(name, args, true))
 	} else {
 		cmd = m.command(ctx, name, args...)
+	}
+
+	if m.iphone {
+		cmd.Stdin = os.Stdin
 	}
 
 	return m.streamCmd(ctx, prefix, logFile, name, cmd)
