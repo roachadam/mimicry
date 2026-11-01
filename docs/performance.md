@@ -5,15 +5,18 @@ that impersonate browsers:
 [tls-client](https://github.com/bogdanfinn/tls-client) v1.17.1,
 [httpcloak](https://github.com/sardanioss/httpcloak) v1.7.3 and
 [azuretls](https://github.com/Noooste/azuretls-client) v1.13.2. Each sends
-its newest Chrome profile. Every number comes from the
+its newest Chrome profile. Every download number comes from the
 [full report](../internal/bench/reports/linux-final-2026-10-29/final-2026-10-29.md),
-which has every table, every load point and each value's range.
+which has every table, every load point and each value's range; every
+upload number from the
+[upload report](../internal/bench/reports/linux-uploads-2026-10-31/uploads-2026-10-31.md),
+run the same way two days later.
 
 ## Findings
 
-- **Faster than the other impersonating clients.** mimicry served 9–54%
-  more requests per second over HTTP/1.1, 36–155% more over HTTP/2 and
-  34–127% more over HTTP/3.
+- **Faster than the other impersonating clients at downloads.** mimicry
+  served 9–54% more requests per second over HTTP/1.1, 36–155% more over
+  HTTP/2 and 34–127% more over HTTP/3.
 - **Cheaper per request.** It used 15–60% less CPU per request than those
   clients.
 - **Close to `net/http`.** It ranged from 11% fewer to 8% more requests per
@@ -24,7 +27,14 @@ which has every table, every load point and each value's range.
   `net/http` used 31–42 KB.
 - **Dropped clients clean up.** Clients thrown away without `Close` left
   mimicry's process at 71–131 MB. The others grew to 465–2,804 MB in 10 s.
-- **Slower in four places**, covered in
+- **Uploads: close over HTTP/2, slower over HTTP/1.1 and HTTP/3.** Over
+  HTTP/2 mimicry uploaded within 6% of the best other impersonating client
+  to nginx, and up to 13% behind tls-client to the Go server. Over
+  HTTP/1.1 it uploaded 22–65% less than the other clients and used 1.2–2.9
+  times their CPU per upload; over HTTP/3 (to the Go server) 19–77% less,
+  at 1.3–3.3 times their CPU. Points where the server was the limit are
+  left out.
+- **Slower in six places**, covered in
   [Where mimicry is slower](#where-mimicry-is-slower).
 
 ![Requests per second for each client at every load point, per protocol, mimicry highlighted](perf/throughput.svg)
@@ -86,6 +96,44 @@ second.
 
 ![Tunnels left open at the proxy and process memory per client library when old clients are dropped without closing them, per route](perf/dropped-clients.svg)
 
+### Uploads
+
+One warm client POSTs 64 KB or 10 MB to `/sink`, one at a time or 64 at
+once, over each protocol. The server reads each body, discards it and
+answers with the length it read; a response with any other length counts
+as an error. No client sent a short body: every response in the run
+reported the full length. MB/s counts request body bytes.
+
+nginx reads HTTP/3 request bodies slowly: with 10 MB bodies one at a time,
+one nginx worker was at a full core at 52–70 MB/s, so over HTTP/3 the
+nginx points measure nginx. The same uploads to the Go server (net/http,
+and quic-go for HTTP/3) tell the clients apart there:
+
+![Upload throughput for each client to the Go server, per body size, concurrency and protocol, mimicry highlighted](perf/uploads-go.svg)
+
+Over HTTP/2 the clients were close. To nginx at 64 KB, one at a time,
+mimicry uploaded 609 MB/s; the others 488–632 MB/s and `net/http`
+744 MB/s. To the Go server it was 4–13% behind tls-client at three of
+the four points (841 against 961 MB/s at 64 KB, 64 at once). Over
+HTTP/1.1 mimicry was the slowest at every point: 496 MB/s
+at 64 KB against 658–708 MB/s, and 715 MB/s at 10 MB to the Go server
+against 1,909–2,042 MB/s. Over HTTP/3 to the Go server it uploaded
+196–223 MB/s against 242–987 MB/s. The same points to nginx are in
+[uploads.svg](perf/uploads.svg); CPU per upload is below.
+
+![CPU per upload for each client to nginx, per body size, concurrency and protocol, mimicry highlighted](perf/uploads-cpu.svg)
+
+Through the proxy, 100 clients each uploading 64 KB one at a time all
+reached about the same requests per second, as for downloads. mimicry
+used 85 µs of CPU per upload over HTTP/2 through CONNECT, against
+93–121 µs for the other impersonating clients and 78 µs for `net/http`,
+and held the least memory per client (59 KB; the other impersonating
+clients 146–1,742 KB, `net/http` 120 KB).
+Over HTTP/3 through SOCKS5 it uploaded the most: 2,261 requests per second
+against 1,933–1,985. Over HTTP/1.1 it used 129 µs per upload against
+90–99 µs. At 10 MB over HTTP/3 through SOCKS5 no client finished an
+upload inside the 5 s window (100 bodies at once through nginx's HTTP/3).
+
 ### Where mimicry is slower
 
 ![Where mimicry is slower: HTTP/3 at 100 KB one at a time and 64 at once, HTTP/1.1 at 1 KB 64 at once, and building a client](perf/weak-spots.svg)
@@ -116,6 +164,26 @@ benchmark that was 1.7 MB and 70 tunnels per client. Setting
 `Config.MaxIdleProxies` to 1 brought it to 304 KB, at the same speed
 ([decision 0040](decisions/0040-idle-connection-cleanup.md#amendment-2026-10-29-configmaxidleproxies)).
 
+**HTTP/1.1 uploads.** mimicry uploaded 22–65% less than the other clients
+over HTTP/1.1 and used 1.2–2.9 times their CPU per upload, at the points
+where the server was not the limit: at 10 MB, one
+at a time to the Go server, 715 MB/s and 14.3 ms of CPU against
+1,909–2,042 MB/s and 5.0–5.3 ms. A CPU profile of that point (a short
+local run) puts nearly all of mimicry's time in writing the body:
+`internal/h1` copies it through a 4 KB buffered writer straight onto the
+TLS connection, so every 4 KB becomes its own TLS record and its own
+`write` system call (about 2,650 allocations per 10 MB upload, against
+77–651 for the others). `net/http` copies 32 KB at a time. Not fixed
+here.
+
+**HTTP/3 uploads.** To the Go server mimicry uploaded 196–223 MB/s over
+HTTP/3 at every point; the others 242–987 MB/s, 2.9–4.4 times as much at
+10 MB and at 64 KB with 64 at once. It used 1.3–3.3 times their CPU per
+upload (67 ms per 10 MB one at a time, against 31–32 ms). A CPU profile
+(a short local run) puts two-thirds of its time in one `sendmsg` system
+call per QUIC packet; quic-go, which the others use, hands Linux several
+packets per call (UDP GSO). Not fixed here.
+
 ## How it was measured
 
 The run used a Linux host with an Intel Core i5-13500. The client ran in
@@ -143,10 +211,14 @@ Known limits:
 
 - One machine and one server. There was no real network between client and
   server.
-- nginx was the limit at four load points. Those points are left out of
-  the summary figures but stay in the full report; two of them (HTTP/1.1 at
-  1 KB and HTTP/3 at 100 KB, both 64 at once) are described in
+- nginx was the limit at four download points and at most HTTP/3 upload
+  points. Those points are left out of the summary figures but stay in the
+  full reports; two of the download points (HTTP/1.1 at 1 KB and HTTP/3 at
+  100 KB, both 64 at once) are described in
   [Where mimicry is slower](#where-mimicry-is-slower).
+- An upload's bytes are counted spread evenly over its duration: no
+  library reports when it wrote each byte. Each verified upload's share
+  inside the window is counted.
 - Linux gave mimicry a 2 MB UDP buffer here; on a stock host every client
   gets 416 KB.
 - Measurement windows are short (5 s). Differences of a few percent are
@@ -181,4 +253,21 @@ To redraw the charts from the report:
 ```sh
 cd internal/bench
 GOWORK=off go run ./cmd/bench charts -in reports/linux-final-2026-10-29/final-2026-10-29.json -out ../../docs/perf
+```
+
+The upload run used the same settings, with the Go server added and only
+uploads measured (about 2 h 15 min):
+
+```sh
+BENCH_NAME=uploads BENCH_PASSES=3 BENCH_MIMICRY_COMMIT=7448b5d BENCH_PUBLISH=0 \
+  BENCH_CLIENT_CPUS=0,2,4,6 BENCH_SERVER_CPUS=8-11 BENCH_SERVER_PROCS=4 BENCH_PROXY_CPUS=12-15 \
+  nohup internal/bench/scripts/bench.sh report -layers 3,6 -micro "" -uploads all -downloads=false \
+  -servers nginx,go -multi-variants fixed -multi-n2 0 > uploads.log 2>&1 &
+```
+
+and its charts:
+
+```sh
+cd internal/bench
+GOWORK=off go run ./cmd/bench charts -uploads -in reports/linux-uploads-2026-10-31/uploads-2026-10-31.json -out ../../docs/perf
 ```

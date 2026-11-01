@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -133,6 +134,9 @@ type Response struct {
 	Resumed bool
 	// Bytes is the body's length as read.
 	Bytes int64
+	// Received is the request body length the server says it read (its
+	// X-Sink-Bytes header, POST /sink), or -1 without one.
+	Received int64
 }
 
 // Options configure a client.
@@ -254,6 +258,27 @@ func (f Factory) Supports(p target.Proto, proxy target.ProxyKind) error {
 	}
 
 	return nil
+}
+
+// CheckSent returns an error unless the server read all sent request
+// body bytes (POST /sink): a client that truncated or never finished the
+// body.
+func CheckSent(resp Response, sent int) error {
+	if resp.Received != int64(sent) {
+		return fmt.Errorf("the server read %d of the %d body bytes sent", resp.Received, sent)
+	}
+
+	return nil
+}
+
+// receivedHeader reads the servers' X-Sink-Bytes value, -1 without one.
+func receivedHeader(v string) int64 {
+	n, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64)
+	if err != nil {
+		return -1
+	}
+
+	return n
 }
 
 // resumedHeader reads the servers' x-tls-resumed value.

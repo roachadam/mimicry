@@ -21,13 +21,19 @@ import (
 
 // Op is one of the request shapes the micro and load scenarios send.
 type Op struct {
-	// Name is how results name it: GET, POST or bytes-<size>.
+	// Name is how results name it: GET, POST, bytes-<size> or
+	// upload-<size>.
 	Name   string `json:"name"`
 	Method string `json:"method"`
 	Path   string `json:"path"`
 	Body   []byte `json:"body,omitempty"`
 	// ContentType goes with Body.
 	ContentType string `json:"contentType,omitempty"`
+	// Upload, for an upload, is the request body's length: Request sends
+	// that many payload bytes (site.Payload), so a job carries the size
+	// rather than the bytes, and the server must say it read them all
+	// (clients.CheckSent).
+	Upload int `json:"upload,omitempty"`
 }
 
 // GetJSON is GET /json, a small JSON response.
@@ -55,6 +61,17 @@ func GetBytes(n int) Op {
 	}
 }
 
+// PostSink is POST /sink with n payload bytes: an upload.
+func PostSink(n int) Op {
+	return Op{
+		Name:        "upload-" + SizeName(n),
+		Method:      "POST",
+		Path:        site.SinkPath,
+		ContentType: "application/octet-stream",
+		Upload:      n,
+	}
+}
+
 // SizeName returns a body size as 1KB, 100KB, 10MB.
 func SizeName(n int) string {
 	switch {
@@ -69,12 +86,48 @@ func SizeName(n int) string {
 
 // Request returns op's request to server s over p.
 func (op Op) Request(s target.Server, p target.Proto) *clients.Request {
+	body := op.Body
+	if op.Upload > 0 {
+		body = site.Payload(op.Upload)
+	}
+
 	return &clients.Request{
 		Method:      op.Method,
 		URL:         s.URL(p, "www", op.Path),
-		Body:        op.Body,
+		Body:        body,
 		ContentType: op.ContentType,
 	}
+}
+
+// warmRequest is the request a client warms up onto the protocol with
+// before op's load: GET 1 KB for an upload (three 10 MB uploads per client
+// could take longer than Warm allows), else op's own.
+func (op Op) warmRequest(s target.Server, p target.Proto) *clients.Request {
+	if op.Upload > 0 {
+		return GetBytes(site.KB).Request(s, p)
+	}
+
+	return op.Request(s, p)
+}
+
+// moved is the body bytes a successful response to op moved: the request
+// body for an upload, else the response body.
+func (op Op) moved(resp clients.Response) int64 {
+	if op.Upload > 0 {
+		return int64(op.Upload)
+	}
+
+	return resp.Bytes
+}
+
+// sentAll returns an error unless resp says the server read all of an
+// upload's body; nil for other ops.
+func (op Op) sentAll(resp clients.Response) error {
+	if op.Upload == 0 {
+		return nil
+	}
+
+	return clients.CheckSent(resp, op.Upload)
 }
 
 // Setup is a client to measure and what it talks to.

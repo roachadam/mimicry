@@ -159,13 +159,15 @@ var multiVariants = []string{
 }
 
 // multiSetting is one run of its routes under a variant, each route and
-// body in every renew mode ("" for the variants that keep their clients).
+// body (GET each of bodies, then POST each of uploads) in every renew mode
+// ("" for the variants that keep their clients).
 type multiSetting struct {
 	variant string
 	routes  []multiRoute
 	rotate  int
 	renews  []scenario.Renew
 	bodies  []int
+	uploads []scenario.Op
 	window  time.Duration
 	// n is the clients per point; 0 is -multi-n.
 	n int
@@ -190,6 +192,7 @@ func (rn *runner) multiSettings() []multiSetting {
 				routes:  multiRoutes,
 				renews:  keepClients,
 				bodies:  multiBodies,
+				uploads: uploadOps(st.Uploads),
 				window:  st.Window,
 			})
 
@@ -220,6 +223,18 @@ func (rn *runner) multiSettings() []multiSetting {
 		}
 	}
 
+	if st.NoDownloads {
+		var kept []multiSetting
+
+		for _, ms := range out {
+			if ms.bodies = nil; len(ms.uploads) > 0 {
+				kept = append(kept, ms)
+			}
+		}
+
+		out = kept
+	}
+
 	// The second client count: the 1 KB points of the variants
 	// -multi-n2-variants names again, for memory per client as a slope
 	// and an intercept.
@@ -229,6 +244,7 @@ func (rn *runner) multiSettings() []multiSetting {
 				ms.bodies = []int{
 					site.KB,
 				}
+				ms.uploads = nil
 				ms.n = st.MultiN2
 				out = append(out, ms)
 			}
@@ -236,6 +252,16 @@ func (rn *runner) multiSettings() []multiSetting {
 	}
 
 	return out
+}
+
+// ops are ms's requests: GET each of bodies, then each upload.
+func (ms multiSetting) ops() []scenario.Op {
+	out := make([]scenario.Op, 0, len(ms.bodies)+len(ms.uploads))
+	for _, body := range ms.bodies {
+		out = append(out, scenario.GetBytes(body))
+	}
+
+	return append(out, ms.uploads...)
 }
 
 // multi runs layer 6: for each variant's settings, route and body, every
@@ -249,9 +275,7 @@ func (rn *runner) multi() []multiPoint {
 				continue
 			}
 
-			for _, body := range ms.bodies {
-				op := scenario.GetBytes(body)
-
+			for _, op := range ms.ops() {
 				for _, renew := range ms.renews {
 					for _, f := range rn.clients() {
 						if rn.ctx.Err() != nil {

@@ -71,7 +71,8 @@ type MultiResult struct {
 	Mismatches int64   `json:"mismatches"`
 	Seconds    float64 `json:"seconds"`
 	RPS        float64 `json:"rps"`
-	// MBps is response body megabytes (10^6) per second.
+	// MBps is response body megabytes (10^6) per second; request body
+	// megabytes for an upload.
 	MBps float64 `json:"mbps"`
 	// Latencies of every request, in milliseconds.
 	P50 float64 `json:"p50"`
@@ -206,7 +207,8 @@ type sender struct {
 	identity int
 	sent     int
 	// used are the identities that got a response, in order; bytes the
-	// body bytes received over the whole run (warm-up and window).
+	// body bytes received (sent, for an upload) over the whole run
+	// (warm-up and window).
 	used  []int
 	bytes int64
 
@@ -310,7 +312,7 @@ func Multi(ctx context.Context, su Setup, spec MultiSpec) (MultiResult, error) {
 		}
 	}
 
-	if err := warmAll(ctx, senders, req, su.Proto); err != nil {
+	if err := warmAll(ctx, senders, spec.Op.warmRequest(su.Server, su.Proto), su.Proto); err != nil {
 		res.Discarded = err.Error()
 
 		return res, nil
@@ -346,7 +348,7 @@ func Multi(ctx context.Context, su Setup, spec MultiSpec) (MultiResult, error) {
 		wg.Go(func() {
 			defer running.Add(-1)
 
-			s.run(runCtx, &phase, req, su, rot, window, fresh, built)
+			s.run(runCtx, &phase, spec.Op, req, su, rot, window, fresh, built)
 		})
 	}
 
@@ -489,7 +491,7 @@ func Multi(ctx context.Context, su Setup, spec MultiSpec) (MultiResult, error) {
 	if usageErr != nil {
 		res.ProxyCheck = "reading the proxy's usage: " + usageErr.Error()
 	} else {
-		res.ProxyCheck = proxyCheck(senders, usage.Users, user, su.Proto == target.H3)
+		res.ProxyCheck = proxyCheck(senders, usage.Users, user, su.Proto == target.H3, spec.Op.Upload > 0)
 	}
 
 	if spec.Renew != "" {
@@ -735,12 +737,12 @@ type rotation struct {
 	build    func(identity int) (clients.Client, error)
 }
 
-// run sends req one at a time until phase says stop, moving to a new
-// identity every rot.every requests when it is set. Latencies of requests
+// run sends req (op's) one at a time until phase says stop, moving to a
+// new identity every rot.every requests when it is set. Latencies of requests
 // completing in the window go to window, those of each identity's first
 // request (from the switch on) to fresh as well, and with renew the
 // constructor's time to built.
-func (s *sender) run(ctx context.Context, phase *atomic.Int32, req *clients.Request, su Setup, rot rotation,
+func (s *sender) run(ctx context.Context, phase *atomic.Int32, op Op, req *clients.Request, su Setup, rot rotation,
 	window, fresh, built *lockedHist,
 ) {
 	for phase.Load() != phaseStop && ctx.Err() == nil {
@@ -765,8 +767,8 @@ func (s *sender) run(ctx context.Context, phase *atomic.Int32, req *clients.Requ
 
 		s.sent++
 
-		if err == nil && resp.Status == 200 {
-			s.bytes += resp.Bytes
+		if err == nil && resp.Status == 200 && op.sentAll(resp) == nil {
+			s.bytes += op.moved(resp)
 
 			if s.used[len(s.used)-1] != s.identity {
 				s.used = append(s.used, s.identity)
@@ -790,10 +792,13 @@ func (s *sender) run(ctx context.Context, phase *atomic.Int32, req *clients.Requ
 				s.firstErr = clients.Check(resp, su.Proto).Error()
 			}
 
+		case op.sentAll(resp) != nil:
+			s.fail(phase, op.sentAll(resp).Error())
+
 		default:
 			s.requests++
 
-			s.body += resp.Bytes
+			s.body += op.moved(resp)
 
 			window.record(d)
 
@@ -855,9 +860,9 @@ func (s *sender) fail(phase *atomic.Int32, msg string) {
 // proxyCheck checks, against what the proxy relayed per user, that every
 // sender went through it: each identity it got a response on opened a
 // tunnel or an association, the proxy relayed it at least the body bytes
-// it received, and over HTTP/3 it had an association that carried
+// it received (sent, for an upload), and over HTTP/3 it had an association that carried
 // datagrams. It returns what failed, or "".
-func proxyCheck(senders []*sender, users map[string]target.ProxyUse, user func(client, identity int) string, h3 bool) string {
+func proxyCheck(senders []*sender, users map[string]target.ProxyUse, user func(client, identity int) string, h3, upload bool) string {
 	var unseen, short, noUDP, first int
 
 	firstWhat := ""
@@ -883,7 +888,13 @@ func proxyCheck(senders []*sender, users map[string]target.ProxyUse, user func(c
 			}
 		}
 
-		if all.BytesDown < s.bytes {
+		switch {
+		case upload && all.BytesUp < s.bytes:
+			short++
+
+			note(i, fmt.Sprintf("sent %d body bytes, the proxy relayed %d from it", s.bytes, all.BytesUp))
+
+		case !upload && all.BytesDown < s.bytes:
 			short++
 
 			note(i, fmt.Sprintf("received %d body bytes, the proxy relayed it %d", s.bytes, all.BytesDown))
@@ -900,7 +911,7 @@ func proxyCheck(senders []*sender, users map[string]target.ProxyUse, user func(c
 		return ""
 	}
 
-	return fmt.Sprintf("%d identities with responses unseen by the proxy, %d clients relayed fewer bytes than they received, "+
+	return fmt.Sprintf("%d identities with responses unseen by the proxy, %d clients relayed fewer bytes than their bodies moved, "+
 		"%d HTTP/3 clients without relayed datagrams (client %d: %s)", unseen, short, noUDP, first, firstWhat)
 }
 

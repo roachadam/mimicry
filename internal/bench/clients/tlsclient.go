@@ -107,10 +107,11 @@ func (c *tlsClientAdapter) Do(ctx context.Context, r *Request) (Response, error)
 	n, err := drain(resp.Body, r.Arrivals)
 
 	return Response{
-		Status:  resp.StatusCode,
-		Proto:   protoOf(resp.Header.Get("X-Proto"), resp.Proto),
-		Resumed: resumedHeader(resp.Header.Get("X-Tls-Resumed")),
-		Bytes:   n,
+		Status:   resp.StatusCode,
+		Proto:    protoOf(resp.Header.Get("X-Proto"), resp.Proto),
+		Resumed:  resumedHeader(resp.Header.Get("X-Tls-Resumed")),
+		Bytes:    n,
+		Received: receivedHeader(resp.Header.Get("X-Sink-Bytes")),
 	}, err
 }
 

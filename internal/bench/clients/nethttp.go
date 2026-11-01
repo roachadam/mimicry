@@ -145,10 +145,11 @@ func doStd(client *http.Client, req *http.Request, a *Arrivals) (Response, error
 	n, err := drain(resp.Body, a)
 
 	return Response{
-		Status:  resp.StatusCode,
-		Proto:   protoOf(resp.Header.Get("X-Proto"), resp.Proto),
-		Resumed: resumedHeader(resp.Header.Get("X-Tls-Resumed")),
-		Bytes:   n,
+		Status:   resp.StatusCode,
+		Proto:    protoOf(resp.Header.Get("X-Proto"), resp.Proto),
+		Resumed:  resumedHeader(resp.Header.Get("X-Tls-Resumed")),
+		Bytes:    n,
+		Received: receivedHeader(resp.Header.Get("X-Sink-Bytes")),
 	}, err
 }
 

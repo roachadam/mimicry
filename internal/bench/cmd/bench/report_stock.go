@@ -53,7 +53,7 @@ func (r *report) stockSection(w writer) {
 
 			gp, ok := mine[stockKey(sp)]
 
-			setup := fmt.Sprintf("%s, %s, c%d", sp.Server, strings.TrimPrefix(sp.Op, "bytes-"), sp.Conc)
+			setup := fmt.Sprintf("%s, %s, c%d", sp.Server, opLabel(sp.Op), sp.Conc)
 
 			if !ok || !gp.valid() || !sp.valid() {
 				w("| %s | %s | %s / %s ||||\n", setup, sp.Client, oneLine(validOr(gp, ok)), oneLine(validOr(sp, true)))

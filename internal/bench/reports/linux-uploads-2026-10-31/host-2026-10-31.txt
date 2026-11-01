@@ -1,0 +1,4 @@
+2026-10-31T22:08:56Z before uploads-pass1: load average 0.68 1.20 1.39; other containers at 1% CPU or more: 3, 9.60% CPU together
+2026-10-31T22:53:13Z before uploads-pass2: load average 6.45 5.87 4.60; other containers at 1% CPU or more: 6, 20.69% CPU together
+2026-10-31T23:37:24Z before uploads-pass3: load average 7.21 5.84 4.56; other containers at 1% CPU or more: 5, 12.47% CPU together
+2026-11-01T00:21:51Z end: load average 5.81 5.25 4.31; other containers at 1% CPU or more: 6, 16.72% CPU together

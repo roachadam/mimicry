@@ -348,10 +348,23 @@ func (r *report) environment(w writer) {
 			bodies = strings.Join(st.Bodies, ", ")
 		}
 
+		if st.NoDownloads {
+			bodies = "none (uploads only)"
+		}
+
 		w("| Concurrency | %v; servers %s; bodies %s", st.Concurrency, strings.Join(st.Servers, ", "), bodies)
 
-		if reduced := slices.DeleteFunc(slices.Clone(st.Reduced), func(s string) bool { return !slices.Contains(st.Servers, s) }); len(reduced) > 0 {
+		reduced := slices.DeleteFunc(slices.Clone(st.Reduced), func(s string) bool { return !slices.Contains(st.Servers, s) })
+		if len(reduced) > 0 && !st.NoDownloads {
 			w(" (reduced matrix on %s: 1 and 64, bodies 1KB and 100KB)", strings.Join(reduced, ", "))
+		}
+
+		if len(st.Uploads) > 0 {
+			w("; uploads (POST /sink) %s", strings.Join(st.Uploads, ", "))
+
+			if len(reduced) > 0 {
+				w(" (on %s at 1 and 64 only)", strings.Join(reduced, ", "))
+			}
 		}
 
 		w(" |\n")
@@ -379,6 +392,14 @@ func (r *report) environment(w writer) {
 
 		if slices.Contains(variants, variantFixed) || slices.Contains(variants, variantProxy) {
 			w("; %v measured", st.Window)
+		}
+
+		if slices.Contains(variants, variantFixed) && len(st.Uploads) > 0 {
+			w("; fixed identities also upload (POST /sink) %s", strings.Join(st.Uploads, ", "))
+
+			if st.NoDownloads {
+				w(", without downloads")
+			}
 		}
 
 		if slices.Contains(variants, variantProxy) {
@@ -411,6 +432,16 @@ func (r *report) environment(w writer) {
 	w("\n")
 }
 
+// opLabel is an op as a heading: a download's body size (GET /bytes/{n}),
+// or "upload <size>" (POST /sink).
+func opLabel(op string) string {
+	if size, ok := strings.CutPrefix(op, "upload-"); ok {
+		return "upload " + size
+	}
+
+	return strings.TrimPrefix(op, "bytes-")
+}
+
 func firstOr(s []string, def string) string {
 	if len(s) == 0 {
 		return def
@@ -418,6 +449,18 @@ func firstOr(s []string, def string) string {
 
 	return s[0]
 }
+
+// uploadNote is the fairness note of a report with uploads.
+const uploadNote = "**Uploads.** An upload POSTs a fixed incompressible body (the payload `/bytes/{n}` serves) to `/sink`, " +
+	"which reads it to its end, discards it and answers with the length it read (`X-Sink-Bytes`; nginx through njs, the " +
+	"body read into memory first, the Go server with `io.Copy` to `io.Discard`). A response whose length differs from the " +
+	"body's counts as an error, as does any other failure. Each client gets the body as its users give it: a `[]byte` for " +
+	"azuretls, a `*bytes.Reader` for the others, so every client sends a `Content-Length` and streams the body from memory " +
+	"without copying it first. MB/s and requests/s count request body bytes: the windows' rules are the downloads', but no " +
+	"adapter can count the bytes as its library writes them without changing how it sends (a wrapped body loses its " +
+	"length), so each verified request's body is spread evenly over its duration and the part inside the window counted. " +
+	"Clients are warmed onto the protocol with GET 1 KB. In layer 6 an upload point counts the requests completed in the " +
+	"window, as its downloads do, and the proxy check holds each client to the bytes it sent (the proxy's upstream count)."
 
 func (r *report) fairness(w writer) {
 	w("## Fairness notes\n\n")
@@ -499,6 +542,10 @@ func (r *report) fairness(w writer) {
 		machineNote(r.Env),
 	}
 
+	if len(r.Settings.Uploads) > 0 {
+		notes = append(notes, uploadNote)
+	}
+
 	for _, n := range notes {
 		w("- %s\n", n)
 	}
@@ -569,6 +616,11 @@ func (r *report) loadTables(w writer) {
 	w("dropped on a full receive buffer during an HTTP/3 point. ‡: browser-faithful by design. †: httpcloak's library limit ")
 	w("of 6 idle HTTP/1.1 connections per host. §: server-bound (for at least one client at that point), left out of the summary.")
 
+	if len(r.Settings.Uploads) > 0 {
+		w(" Upload rows (upload <size>) POST that many bytes to /sink: their req/s and MB/s count request body bytes, each ")
+		w("verified request's spread evenly over its duration, and B and allocs divide by the same (fairness notes, Uploads).")
+	}
+
 	if r.Passes > 1 {
 		w(" Each value is the median of %d passes, req/s, p99, CPU and allocations with their range (lowest–highest); the best ", r.Passes)
 		w("impersonating client's req/s and CPU are **bold** where its range lies outside every other's.")
@@ -612,7 +664,7 @@ func loadTableSet(w writer, points []loadPoint) {
 
 		udp := g.proto == target.H3
 
-		w("### %s, %s, %s%s\n\n", g.server, g.proto.Wire(), strings.TrimPrefix(g.op, "bytes-"), under)
+		w("### %s, %s, %s%s\n\n", g.server, g.proto.Wire(), opLabel(g.op), under)
 		w("| client | conc | req/s | MB/s | p50 | p95 | p99 | CPU µs/req | cores | B/req | allocs/req | GC | GC pause ms | heap MB | goroutines | win s | srv |")
 
 		if udp {

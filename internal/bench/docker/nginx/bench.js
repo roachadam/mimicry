@@ -1,5 +1,6 @@
 // njs handlers for the benchmark's nginx: POST /echo returns the request
-// body; /_stats the container's CPU time (cgroup v2) and CPU count, as the
+// body; POST /sink its length (X-Sink-Bytes and {"bytes":n}), as the Go
+// server's /sink does; /_stats the container's CPU time (cgroup v2) and CPU count, as the
 // Go server's /_stats does (internal/bench/stats), and each nginx process's
 // CPU time by PID: nginx serves a connection from one worker on one core,
 // so a worker near a core's worth is the limit whatever the container's
@@ -9,6 +10,22 @@ import fs from 'fs';
 function echo(r) {
     r.headersOut['Content-Type'] = r.headersIn['Content-Type'] || 'application/octet-stream';
     r.return(200, r.requestText || '');
+}
+
+// sink answers with the request body's length. nginx has read it into
+// memory (client_body_buffer_size is above every upload); a body nginx
+// spilled to a file has no requestBuffer, and is an error rather than a
+// length of 0.
+function sink(r) {
+    var body = r.requestBuffer;
+    if (body === undefined && r.headersIn['Content-Length'] !== undefined && r.headersIn['Content-Length'] !== '0') {
+        r.return(500, 'request body not in memory');
+        return;
+    }
+    var n = body === undefined ? 0 : body.length;
+    r.headersOut['Content-Type'] = 'application/json';
+    r.headersOut['X-Sink-Bytes'] = String(n);
+    r.return(200, '{"bytes":' + n + '}');
 }
 
 function countCPUs(list) {
@@ -88,4 +105,4 @@ function stats(r) {
     }));
 }
 
-export default {echo, stats};
+export default {echo, sink, stats};
