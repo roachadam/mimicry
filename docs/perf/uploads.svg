@@ -1,0 +1,287 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 1138" width="860" height="1138" role="img" aria-label="Upload throughput, one client: higher is better">
+<title>Upload throughput, one client: higher is better</title>
+<style>
+.bg{fill:#ffffff;stroke:#d1d9e0}
+text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans",Helvetica,Arial,sans-serif;fill:#1f2328}
+.m{fill:#59636e}
+.b{font-weight:600}
+.a{fill:#0072b2}
+.base{stroke:#818b98;stroke-width:1}
+.sep{stroke:#d1d9e0;stroke-width:1}
+.brk{stroke:#ffffff;stroke-width:3}
+.mim{fill:#0072b2}
+.oth{fill:#bcc3cb}
+.ref{fill:url(#hatch);stroke:#6e7781;stroke-width:1}
+.hl{stroke:#6e7781;stroke-width:1.5}
+@media (prefers-color-scheme:dark){
+.bg{fill:#0d1117;stroke:#3d444d}
+text{fill:#f0f6fc}
+.m{fill:#9198a1}
+.a{fill:#56b4e9}
+.base{stroke:#656c76}
+.sep{stroke:#2f353d}
+.brk{stroke:#0d1117}
+.mim{fill:#56b4e9}
+.oth{fill:#4b535d}
+.ref{stroke:#8b949e}
+.hl{stroke:#8b949e}
+}
+</style>
+<defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" class="hl"/></pattern></defs>
+<rect x="0.5" y="0.5" width="859" height="1137" rx="8" class="bg"/>
+<text x="24.0" y="36.0" font-size="19.0" class="b">Upload throughput, one client: higher is better</text>
+<text x="24.0" y="60.0" font-size="13.0" class="m">One warm client POSTs a body to nginx over each protocol; MB/s is request body megabytes (10^6) per second, every body</text>
+<text x="24.0" y="78.0" font-size="13.0" class="m">checked against the length the server read. In each panel the clients are sorted best first; under it, mimicry against the</text>
+<text x="24.0" y="96.0" font-size="13.0" class="m">best of the other impersonating clients.</text>
+<rect x="24.0" y="112.0" width="12.0" height="12.0" class="mim"/>
+<text x="41.0" y="122.0" font-size="12.0">mimicry</text>
+<rect x="110.0" y="112.0" width="12.0" height="12.0" class="oth"/>
+<text x="127.0" y="122.0" font-size="12.0">tls-client, httpcloak, azuretls</text>
+<rect x="357.4" y="112.0" width="12.0" height="12.0" class="ref"/>
+<text x="374.4" y="122.0" font-size="12.0">net/http, Go&#39;s standard client, as the reference</text>
+<text x="24.0" y="166.0" font-size="15.0" class="b">POST 64 KB, one request at a time</text>
+<text x="24.0" y="194.0"><tspan font-size="14.0" class="b">HTTP/1.1</tspan><tspan font-size="12.0" class="m" dx="8">higher is better</tspan></text>
+<text x="93.2" y="216.0" font-size="12.0" text-anchor="end">net/http</text>
+<rect x="99.2" y="206.0" width="119.5" height="13.0" class="ref"/>
+<text x="223.7" y="216.0" font-size="11.0">831 MB/s</text>
+<text x="93.2" y="234.0" font-size="12.0" text-anchor="end">tls-client</text>
+<rect x="99.2" y="224.0" width="101.9" height="13.0" class="oth"/>
+<text x="206.1" y="234.0" font-size="11.0">708 MB/s</text>
+<text x="93.2" y="252.0" font-size="12.0" text-anchor="end">httpcloak</text>
+<rect x="99.2" y="242.0" width="95.0" height="13.0" class="oth"/>
+<text x="199.2" y="252.0" font-size="11.0">660 MB/s</text>
+<text x="93.2" y="270.0" font-size="12.0" text-anchor="end">azuretls</text>
+<rect x="99.2" y="260.0" width="94.6" height="13.0" class="oth"/>
+<text x="198.8" y="270.0" font-size="11.0">658 MB/s</text>
+<text x="93.2" y="288.0" font-size="12.0" text-anchor="end" class="b a">mimicry</text>
+<rect x="99.2" y="278.0" width="71.3" height="13.0" class="mim"/>
+<text x="175.5" y="288.0" font-size="11.0" class="b">496 MB/s</text>
+<line x1="99.2" y1="203.0" x2="99.2" y2="294.0" class="base"/>
+<text x="24.0" y="309.0" font-size="12.0" class="b">mimicry: 30% less than tls-client</text>
+<text x="304.0" y="194.0"><tspan font-size="14.0" class="b">HTTP/2</tspan><tspan font-size="12.0" class="m" dx="8">higher is better</tspan></text>
+<text x="373.2" y="216.0" font-size="12.0" text-anchor="end">net/http</text>
+<rect x="379.2" y="206.0" width="119.5" height="13.0" class="ref"/>
+<text x="503.7" y="216.0" font-size="11.0">743 MB/s</text>
+<text x="373.2" y="234.0" font-size="12.0" text-anchor="end">httpcloak</text>
+<rect x="379.2" y="224.0" width="101.7" height="13.0" class="oth"/>
+<text x="485.9" y="234.0" font-size="11.0">632 MB/s</text>
+<text x="373.2" y="252.0" font-size="12.0" text-anchor="end" class="b a">mimicry</text>
+<rect x="379.2" y="242.0" width="97.9" height="13.0" class="mim"/>
+<text x="482.1" y="252.0" font-size="11.0" class="b">609 MB/s</text>
+<text x="373.2" y="270.0" font-size="12.0" text-anchor="end">tls-client</text>
+<rect x="379.2" y="260.0" width="97.8" height="13.0" class="oth"/>
+<text x="482.0" y="270.0" font-size="11.0">608 MB/s</text>
+<text x="373.2" y="288.0" font-size="12.0" text-anchor="end">azuretls</text>
+<rect x="379.2" y="278.0" width="78.5" height="13.0" class="oth"/>
+<text x="462.7" y="288.0" font-size="11.0">488 MB/s</text>
+<line x1="379.2" y1="203.0" x2="379.2" y2="294.0" class="base"/>
+<text x="304.0" y="309.0" font-size="12.0" class="b">mimicry: 4% less than httpcloak</text>
+<text x="584.0" y="194.0"><tspan font-size="14.0" class="b">HTTP/3</tspan><tspan font-size="12.0" class="m" dx="8">higher is better</tspan></text>
+<text x="653.2" y="216.0" font-size="12.0" text-anchor="end">net/http</text>
+<rect x="659.2" y="206.0" width="119.5" height="13.0" class="ref"/>
+<text x="783.7" y="216.0" font-size="11.0">223 MB/s</text>
+<text x="653.2" y="234.0" font-size="12.0" text-anchor="end">tls-client</text>
+<rect x="659.2" y="224.0" width="110.5" height="13.0" class="oth"/>
+<text x="774.7" y="234.0" font-size="11.0">207 MB/s</text>
+<text x="653.2" y="252.0" font-size="12.0" text-anchor="end">azuretls</text>
+<rect x="659.2" y="242.0" width="106.2" height="13.0" class="oth"/>
+<text x="770.4" y="252.0" font-size="11.0">198 MB/s</text>
+<text x="653.2" y="270.0" font-size="12.0" text-anchor="end" class="b a">mimicry</text>
+<rect x="659.2" y="260.0" width="101.0" height="13.0" class="mim"/>
+<text x="765.2" y="270.0" font-size="11.0" class="b">189 MB/s</text>
+<text x="653.2" y="288.0" font-size="12.0" text-anchor="end">httpcloak</text>
+<rect x="659.2" y="278.0" width="91.3" height="13.0" class="oth"/>
+<text x="755.5" y="288.0" font-size="11.0">171 MB/s</text>
+<line x1="659.2" y1="203.0" x2="659.2" y2="294.0" class="base"/>
+<text x="584.0" y="309.0" font-size="12.0" class="b">mimicry: 9% less than tls-client</text>
+<line x1="24.0" y1="333.0" x2="836.0" y2="333.0" class="sep"/>
+<text x="24.0" y="363.0" font-size="15.0" class="b">POST 64 KB, 64 requests at once</text>
+<text x="24.0" y="391.0"><tspan font-size="14.0" class="b">HTTP/1.1</tspan><tspan font-size="12.0" class="m" dx="8">higher is better</tspan></text>
+<text x="93.2" y="413.0" font-size="12.0" text-anchor="end">net/http</text>
+<rect x="99.2" y="403.0" width="107.2" height="13.0" class="ref"/>
+<text x="211.4" y="413.0" font-size="11.0">3,208 MB/s</text>
+<text x="93.2" y="431.0" font-size="12.0" text-anchor="end">tls-client</text>
+<rect x="99.2" y="421.0" width="88.3" height="13.0" class="oth"/>
+<text x="192.5" y="431.0" font-size="11.0">2,643 MB/s</text>
+<text x="93.2" y="449.0" font-size="12.0" text-anchor="end">azuretls</text>
+<rect x="99.2" y="439.0" width="83.7" height="13.0" class="oth"/>
+<text x="187.9" y="449.0" font-size="11.0">2,506 MB/s</text>
+<text x="93.2" y="467.0" font-size="12.0" text-anchor="end">httpcloak</text>
+<rect x="99.2" y="457.0" width="67.7" height="13.0" class="oth"/>
+<text x="171.9" y="467.0" font-size="11.0">2,027 MB/s</text>
+<text x="93.2" y="485.0" font-size="12.0" text-anchor="end" class="b a">mimicry</text>
+<rect x="99.2" y="475.0" width="54.3" height="13.0" class="mim"/>
+<text x="158.5" y="485.0" font-size="11.0" class="b">1,626 MB/s</text>
+<line x1="99.2" y1="400.0" x2="99.2" y2="491.0" class="base"/>
+<text x="24.0" y="506.0" font-size="12.0" class="b">mimicry: 38% less than tls-client</text>
+<text x="24.0" y="522.0" font-size="11.0" class="m">mimicry keeps Chrome&#39;s 6 connections per host</text>
+<text x="24.0" y="536.0" font-size="11.0" class="m">and queues the rest.</text>
+<text x="24.0" y="550.0" font-size="11.0" class="m">nginx was the limit here, not the clients.</text>
+<text x="304.0" y="391.0"><tspan font-size="14.0" class="b">HTTP/2</tspan><tspan font-size="12.0" class="m" dx="8">higher is better</tspan></text>
+<text x="373.2" y="413.0" font-size="12.0" text-anchor="end">tls-client</text>
+<rect x="379.2" y="403.0" width="107.2" height="13.0" class="oth"/>
+<text x="491.4" y="413.0" font-size="11.0">1,050 MB/s</text>
+<text x="373.2" y="431.0" font-size="12.0" text-anchor="end">net/http</text>
+<rect x="379.2" y="421.0" width="102.0" height="13.0" class="ref"/>
+<text x="486.2" y="431.0" font-size="11.0">1,000 MB/s</text>
+<text x="373.2" y="449.0" font-size="12.0" text-anchor="end" class="b a">mimicry</text>
+<rect x="379.2" y="439.0" width="101.2" height="13.0" class="mim"/>
+<text x="485.4" y="449.0" font-size="11.0" class="b">992 MB/s</text>
+<text x="373.2" y="467.0" font-size="12.0" text-anchor="end">httpcloak</text>
+<rect x="379.2" y="457.0" width="95.2" height="13.0" class="oth"/>
+<text x="479.4" y="467.0" font-size="11.0">933 MB/s</text>
+<text x="373.2" y="485.0" font-size="12.0" text-anchor="end">azuretls</text>
+<rect x="379.2" y="475.0" width="65.0" height="13.0" class="oth"/>
+<text x="449.2" y="485.0" font-size="11.0">637 MB/s</text>
+<line x1="379.2" y1="400.0" x2="379.2" y2="491.0" class="base"/>
+<text x="304.0" y="506.0" font-size="12.0" class="b">mimicry: 6% less than tls-client (ranges</text>
+<text x="304.0" y="522.0" font-size="12.0" class="b">overlap)</text>
+<text x="584.0" y="391.0"><tspan font-size="14.0" class="b">HTTP/3</tspan><tspan font-size="12.0" class="m" dx="8">higher is better</tspan></text>
+<text x="653.2" y="413.0" font-size="12.0" text-anchor="end">net/http</text>
+<rect x="659.2" y="403.0" width="119.5" height="13.0" class="ref"/>
+<text x="783.7" y="413.0" font-size="11.0">295 MB/s</text>
+<text x="653.2" y="431.0" font-size="12.0" text-anchor="end">azuretls</text>
+<rect x="659.2" y="421.0" width="117.8" height="13.0" class="oth"/>
+<text x="782.0" y="431.0" font-size="11.0">291 MB/s</text>
+<text x="653.2" y="449.0" font-size="12.0" text-anchor="end">tls-client</text>
+<rect x="659.2" y="439.0" width="116.8" height="13.0" class="oth"/>
+<text x="781.0" y="449.0" font-size="11.0">288 MB/s</text>
+<text x="653.2" y="467.0" font-size="12.0" text-anchor="end">httpcloak</text>
+<rect x="659.2" y="457.0" width="105.6" height="13.0" class="oth"/>
+<text x="769.8" y="467.0" font-size="11.0">261 MB/s</text>
+<text x="653.2" y="485.0" font-size="12.0" text-anchor="end" class="b a">mimicry</text>
+<rect x="659.2" y="475.0" width="90.4" height="13.0" class="mim"/>
+<text x="754.6" y="485.0" font-size="11.0" class="b">223 MB/s</text>
+<line x1="659.2" y1="400.0" x2="659.2" y2="491.0" class="base"/>
+<text x="584.0" y="506.0" font-size="12.0" class="b">mimicry: 23% less than azuretls</text>
+<text x="584.0" y="522.0" font-size="11.0" class="m">nginx was the limit here, not the clients.</text>
+<line x1="24.0" y1="572.0" x2="836.0" y2="572.0" class="sep"/>
+<text x="24.0" y="602.0" font-size="15.0" class="b">POST 10 MB, one request at a time</text>
+<text x="24.0" y="630.0"><tspan font-size="14.0" class="b">HTTP/1.1</tspan><tspan font-size="12.0" class="m" dx="8">higher is better</tspan></text>
+<text x="93.2" y="652.0" font-size="12.0" text-anchor="end">httpcloak</text>
+<rect x="99.2" y="642.0" width="107.2" height="13.0" class="oth"/>
+<text x="211.4" y="652.0" font-size="11.0">1,576 MB/s</text>
+<text x="93.2" y="670.0" font-size="12.0" text-anchor="end">tls-client</text>
+<rect x="99.2" y="660.0" width="100.7" height="13.0" class="oth"/>
+<text x="204.9" y="670.0" font-size="11.0">1,480 MB/s</text>
+<text x="93.2" y="688.0" font-size="12.0" text-anchor="end">azuretls</text>
+<rect x="99.2" y="678.0" width="99.9" height="13.0" class="oth"/>
+<text x="204.1" y="688.0" font-size="11.0">1,469 MB/s</text>
+<text x="93.2" y="706.0" font-size="12.0" text-anchor="end">net/http</text>
+<rect x="99.2" y="696.0" width="96.9" height="13.0" class="ref"/>
+<text x="201.1" y="706.0" font-size="11.0">1,424 MB/s</text>
+<text x="93.2" y="724.0" font-size="12.0" text-anchor="end" class="b a">mimicry</text>
+<rect x="99.2" y="714.0" width="47.8" height="13.0" class="mim"/>
+<text x="152.0" y="724.0" font-size="11.0" class="b">703 MB/s</text>
+<line x1="99.2" y1="639.0" x2="99.2" y2="730.0" class="base"/>
+<text x="24.0" y="745.0" font-size="12.0" class="b">mimicry: 55% less than httpcloak</text>
+<text x="24.0" y="761.0" font-size="11.0" class="m">nginx was the limit here, not the clients.</text>
+<text x="304.0" y="630.0"><tspan font-size="14.0" class="b">HTTP/2</tspan><tspan font-size="12.0" class="m" dx="8">higher is better</tspan></text>
+<text x="373.2" y="652.0" font-size="12.0" text-anchor="end">azuretls</text>
+<rect x="379.2" y="642.0" width="107.2" height="13.0" class="oth"/>
+<text x="491.4" y="652.0" font-size="11.0">1,257 MB/s</text>
+<text x="373.2" y="670.0" font-size="12.0" text-anchor="end">tls-client</text>
+<rect x="379.2" y="660.0" width="106.1" height="13.0" class="oth"/>
+<text x="490.3" y="670.0" font-size="11.0">1,244 MB/s</text>
+<text x="373.2" y="688.0" font-size="12.0" text-anchor="end">httpcloak</text>
+<rect x="379.2" y="678.0" width="105.8" height="13.0" class="oth"/>
+<text x="490.0" y="688.0" font-size="11.0">1,241 MB/s</text>
+<text x="373.2" y="706.0" font-size="12.0" text-anchor="end">net/http</text>
+<rect x="379.2" y="696.0" width="104.8" height="13.0" class="ref"/>
+<text x="489.0" y="706.0" font-size="11.0">1,230 MB/s</text>
+<text x="373.2" y="724.0" font-size="12.0" text-anchor="end" class="b a">mimicry</text>
+<rect x="379.2" y="714.0" width="96.3" height="13.0" class="mim"/>
+<text x="480.5" y="724.0" font-size="11.0" class="b">1,130 MB/s</text>
+<line x1="379.2" y1="639.0" x2="379.2" y2="730.0" class="base"/>
+<text x="304.0" y="745.0" font-size="12.0" class="b">mimicry: 10% less than azuretls (ranges</text>
+<text x="304.0" y="761.0" font-size="12.0" class="b">overlap)</text>
+<text x="304.0" y="777.0" font-size="11.0" class="m">nginx was the limit here, not the clients.</text>
+<text x="584.0" y="630.0"><tspan font-size="14.0" class="b">HTTP/3</tspan><tspan font-size="12.0" class="m" dx="8">higher is better</tspan></text>
+<text x="653.2" y="652.0" font-size="12.0" text-anchor="end">azuretls</text>
+<rect x="659.2" y="642.0" width="125.7" height="13.0" class="oth"/>
+<text x="789.9" y="652.0" font-size="11.0">70 MB/s</text>
+<text x="653.2" y="670.0" font-size="12.0" text-anchor="end">tls-client</text>
+<rect x="659.2" y="660.0" width="125.5" height="13.0" class="oth"/>
+<text x="789.7" y="670.0" font-size="11.0">70 MB/s</text>
+<text x="653.2" y="688.0" font-size="12.0" text-anchor="end">net/http</text>
+<rect x="659.2" y="678.0" width="124.6" height="13.0" class="ref"/>
+<text x="788.8" y="688.0" font-size="11.0">69 MB/s</text>
+<text x="653.2" y="706.0" font-size="12.0" text-anchor="end" class="b a">mimicry</text>
+<rect x="659.2" y="696.0" width="102.5" height="13.0" class="mim"/>
+<text x="766.7" y="706.0" font-size="11.0" class="b">57 MB/s</text>
+<text x="653.2" y="724.0" font-size="12.0" text-anchor="end">httpcloak</text>
+<rect x="659.2" y="714.0" width="94.2" height="13.0" class="oth"/>
+<text x="758.4" y="724.0" font-size="11.0">52 MB/s</text>
+<line x1="659.2" y1="639.0" x2="659.2" y2="730.0" class="base"/>
+<text x="584.0" y="745.0" font-size="12.0" class="b">mimicry: 18% less than azuretls</text>
+<text x="584.0" y="761.0" font-size="11.0" class="m">nginx was the limit here, not the clients.</text>
+<line x1="24.0" y1="799.0" x2="836.0" y2="799.0" class="sep"/>
+<text x="24.0" y="829.0" font-size="15.0" class="b">POST 10 MB, 64 requests at once</text>
+<text x="24.0" y="857.0"><tspan font-size="14.0" class="b">HTTP/1.1</tspan><tspan font-size="12.0" class="m" dx="8">higher is better</tspan></text>
+<text x="93.2" y="879.0" font-size="12.0" text-anchor="end">azuretls</text>
+<rect x="99.2" y="869.0" width="107.2" height="13.0" class="oth"/>
+<text x="211.4" y="879.0" font-size="11.0">4,463 MB/s</text>
+<text x="93.2" y="897.0" font-size="12.0" text-anchor="end">httpcloak</text>
+<rect x="99.2" y="887.0" width="100.5" height="13.0" class="oth"/>
+<text x="204.7" y="897.0" font-size="11.0">4,185 MB/s</text>
+<text x="93.2" y="915.0" font-size="12.0" text-anchor="end">tls-client</text>
+<rect x="99.2" y="905.0" width="95.1" height="13.0" class="oth"/>
+<text x="199.3" y="915.0" font-size="11.0">3,957 MB/s</text>
+<text x="93.2" y="933.0" font-size="12.0" text-anchor="end">net/http</text>
+<rect x="99.2" y="923.0" width="94.1" height="13.0" class="ref"/>
+<text x="198.3" y="933.0" font-size="11.0">3,918 MB/s</text>
+<text x="93.2" y="951.0" font-size="12.0" text-anchor="end" class="b a">mimicry</text>
+<rect x="99.2" y="941.0" width="61.0" height="13.0" class="mim"/>
+<text x="165.2" y="951.0" font-size="11.0" class="b">2,541 MB/s</text>
+<line x1="99.2" y1="866.0" x2="99.2" y2="957.0" class="base"/>
+<text x="24.0" y="972.0" font-size="12.0" class="b">mimicry: 43% less than azuretls (ranges</text>
+<text x="24.0" y="988.0" font-size="12.0" class="b">overlap)</text>
+<text x="24.0" y="1004.0" font-size="11.0" class="m">mimicry keeps Chrome&#39;s 6 connections per host</text>
+<text x="24.0" y="1018.0" font-size="11.0" class="m">and queues the rest.</text>
+<text x="24.0" y="1032.0" font-size="11.0" class="m">nginx was the limit here, not the clients.</text>
+<text x="304.0" y="857.0"><tspan font-size="14.0" class="b">HTTP/2</tspan><tspan font-size="12.0" class="m" dx="8">higher is better</tspan></text>
+<text x="373.2" y="879.0" font-size="12.0" text-anchor="end">tls-client</text>
+<rect x="379.2" y="869.0" width="107.2" height="13.0" class="oth"/>
+<text x="491.4" y="879.0" font-size="11.0">1,990 MB/s</text>
+<text x="373.2" y="897.0" font-size="12.0" text-anchor="end">httpcloak</text>
+<rect x="379.2" y="887.0" width="105.4" height="13.0" class="oth"/>
+<text x="489.6" y="897.0" font-size="11.0">1,958 MB/s</text>
+<text x="373.2" y="915.0" font-size="12.0" text-anchor="end">net/http</text>
+<rect x="379.2" y="905.0" width="105.3" height="13.0" class="ref"/>
+<text x="489.5" y="915.0" font-size="11.0">1,955 MB/s</text>
+<text x="373.2" y="933.0" font-size="12.0" text-anchor="end">azuretls</text>
+<rect x="379.2" y="923.0" width="102.8" height="13.0" class="oth"/>
+<text x="487.0" y="933.0" font-size="11.0">1,908 MB/s</text>
+<text x="373.2" y="951.0" font-size="12.0" text-anchor="end" class="b a">mimicry</text>
+<rect x="379.2" y="941.0" width="102.5" height="13.0" class="mim"/>
+<text x="486.7" y="951.0" font-size="11.0" class="b">1,903 MB/s</text>
+<line x1="379.2" y1="866.0" x2="379.2" y2="957.0" class="base"/>
+<text x="304.0" y="972.0" font-size="12.0" class="b">mimicry: 4% less than tls-client (ranges</text>
+<text x="304.0" y="988.0" font-size="12.0" class="b">overlap)</text>
+<text x="304.0" y="1004.0" font-size="11.0" class="m">nginx was the limit here, not the clients.</text>
+<text x="584.0" y="857.0"><tspan font-size="14.0" class="b">HTTP/3</tspan><tspan font-size="12.0" class="m" dx="8">higher is better</tspan></text>
+<text x="653.2" y="879.0" font-size="12.0" text-anchor="end">azuretls</text>
+<rect x="659.2" y="869.0" width="125.7" height="13.0" class="oth"/>
+<text x="789.9" y="879.0" font-size="11.0">16 MB/s</text>
+<text x="653.2" y="897.0" font-size="12.0" text-anchor="end">net/http</text>
+<rect x="659.2" y="887.0" width="125.6" height="13.0" class="ref"/>
+<text x="789.8" y="897.0" font-size="11.0">16 MB/s</text>
+<text x="653.2" y="915.0" font-size="12.0" text-anchor="end" class="b a">mimicry</text>
+<rect x="659.2" y="905.0" width="125.1" height="13.0" class="mim"/>
+<text x="789.3" y="915.0" font-size="11.0" class="b">16 MB/s</text>
+<text x="653.2" y="933.0" font-size="12.0" text-anchor="end">tls-client</text>
+<rect x="659.2" y="923.0" width="124.5" height="13.0" class="oth"/>
+<text x="788.7" y="933.0" font-size="11.0">16 MB/s</text>
+<text x="653.2" y="951.0" font-size="12.0" text-anchor="end">httpcloak</text>
+<rect x="659.2" y="941.0" width="92.3" height="13.0" class="oth"/>
+<text x="756.5" y="951.0" font-size="11.0">12 MB/s</text>
+<line x1="659.2" y1="866.0" x2="659.2" y2="957.0" class="base"/>
+<text x="584.0" y="972.0" font-size="12.0" class="b">mimicry: level with azuretls (ranges</text>
+<text x="584.0" y="988.0" font-size="12.0" class="b">overlap)</text>
+<text x="584.0" y="1004.0" font-size="11.0" class="m">nginx was the limit here, not the clients.</text>
+<line x1="24.0" y1="1054.0" x2="836.0" y2="1054.0" class="sep"/>
+<text x="24.0" y="1072.0" font-size="11.0" class="m">Linux host (Intel Core i5-13500), 20 cores, Linux 6.18.38; the client on 4 CPUs (GOMAXPROCS 4); nginx/1.31.8.</text>
+<text x="24.0" y="1087.0" font-size="11.0" class="m">mimicry 7448b5d, 2026-10-31. Each bar: the median of 3 passes. Ranges overlap: the two values&#39; lowest-to-highest over the passes do (the report</text>
+<text x="24.0" y="1102.0" font-size="11.0" class="m">gives every range).</text>
+<text x="24.0" y="1117.0" font-size="11.0" class="m">Source: internal/bench/reports/linux-uploads-2026-10-31/uploads-2026-10-31.json.</text>
+</svg>

@@ -52,6 +52,11 @@ type settings struct {
 	LoadNetem  []string `json:"loadNetem,omitempty"`
 	Bodies     []string `json:"bodies,omitempty"`
 	ProfileDir string   `json:"profileDir,omitempty"`
+	// Uploads are the request body sizes layers 3 and 6 (its fixed
+	// variant) POST to /sink besides their downloads (none: no uploads);
+	// NoDownloads leaves the downloads out of both layers.
+	Uploads     []string `json:"uploads,omitempty"`
+	NoDownloads bool     `json:"noDownloads,omitempty"`
 	// MultiN is layer 6's clients (routines) per point, MultiVariants its
 	// variants, MultiRotate the requests per proxy identity (or client)
 	// in the rotating ones, MultiProxyWindow the proxy-rotation variant's
@@ -160,6 +165,8 @@ func run(args []string) error {
 	useNetem := fs.Bool("netem", true, "shape the client's network for layer 5 (off: the network as it is, e.g. a remote server over Ethernet)")
 	loadNetem := fs.String("load-netem", "", "layer 3: network conditions to run the load points under (e.g. rtt80-loss1; empty: the network as it is)")
 	bodyList := fs.String("bodies", "1KB,100KB", "layer 3: response sizes to run (1KB, 100KB, 10MB; all: every size)")
+	uploadList := fs.String("uploads", "", "layers 3 and 6 (fixed identities): request body sizes to POST to /sink (64KB, 10MB; all: both; empty: no uploads)")
+	downloads := fs.Bool("downloads", true, "layers 3 and 6: run the downloads (false: only the -uploads points)")
 	multiN := fs.Int("multi-n", 100, "layer 6: clients per point, each through a proxy identity of its own")
 	multiN2 := fs.Int("multi-n2", 25, "layer 6: a second client count for -multi-n2-variants' 1 KB points, for memory per client as a slope (0: none)")
 	multiN2Variants := fs.String("multi-n2-variants", variantFixed, "layer 6: the variants whose 1 KB points run again at -multi-n2 (fixed, proxy)")
@@ -203,6 +210,8 @@ func run(args []string) error {
 		LoadNetem:         names(*loadNetem, nil),
 		Bodies:            subset(*bodyList),
 		ProfileDir:        *profileDir,
+		Uploads:           uploadSizes(*uploadList),
+		NoDownloads:       !*downloads,
 		MultiN:            *multiN,
 		MultiN2:           *multiN2,
 		MultiN2Variants:   names(*multiN2Variants, nil),
@@ -396,13 +405,15 @@ func (rn *runner) loadUnder(cond condition) []loadPoint {
 				continue
 			}
 
+			var ops []scenario.Op
+
 			for _, body := range bodies {
-				if len(rn.st.Bodies) > 0 && !slices.Contains(rn.st.Bodies, scenario.SizeName(body)) {
-					continue
+				if !rn.st.NoDownloads && (len(rn.st.Bodies) == 0 || slices.Contains(rn.st.Bodies, scenario.SizeName(body))) {
+					ops = append(ops, scenario.GetBytes(body))
 				}
+			}
 
-				op := scenario.GetBytes(body)
-
+			for _, op := range append(ops, uploadOps(rn.st.Uploads)...) {
 				for _, c := range conc {
 					for _, f := range rn.clients() {
 						if rn.ctx.Err() != nil {
@@ -1114,6 +1125,34 @@ func names(s string, def []string) []string {
 	return out
 }
 
+// uploadSizes is -uploads: all is every size (site.Uploads), empty none.
+func uploadSizes(s string) []string {
+	if strings.TrimSpace(s) != "all" {
+		return names(s, nil)
+	}
+
+	out := make([]string, 0, len(site.Uploads))
+	for _, n := range site.Uploads {
+		out = append(out, scenario.SizeName(n))
+	}
+
+	return out
+}
+
+// uploadOps are the upload ops among sizes (site.Uploads, by
+// scenario.SizeName), in site.Uploads' order.
+func uploadOps(sizes []string) []scenario.Op {
+	var out []scenario.Op
+
+	for _, n := range site.Uploads {
+		if slices.Contains(sizes, scenario.SizeName(n)) {
+			out = append(out, scenario.PostSink(n))
+		}
+	}
+
+	return out
+}
+
 // subset is a comma-separated list of names; "all" (or none) is nil, which
 // its flags read as every one.
 func subset(s string) []string {
@@ -1133,6 +1172,14 @@ func (st settings) check() error {
 
 	if err := checkSizes("-multi-proxy-bodies", st.MultiProxyBodies, multiBodies); err != nil {
 		return err
+	}
+
+	if err := checkSizes("-uploads", st.Uploads, site.Uploads); err != nil {
+		return err
+	}
+
+	if st.NoDownloads && len(st.Uploads) == 0 {
+		return errors.New("-downloads=false without -uploads: nothing to measure in layers 3 and 6")
 	}
 
 	for _, r := range st.MultiProxyRoutes {

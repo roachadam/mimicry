@@ -21,7 +21,7 @@ GOWORK=off go run ./cmd/bench charts -in reports/linux-final-2026-10-29/final-20
 |---|---|---|
 | 1 | One request on a warm connection: ns/op, B/op, allocs/op; GET /json and POST /echo (small JSON); HTTP/1.1, HTTP/2, HTTP/3 | `bench_test.go` `BenchmarkRequest`, 6 passes of `-count 1`, benchstat |
 | 2 | One request on a new connection: full handshake (a new client each time) and resumed (connections closed, session cache kept; up to 1% + 1 misses tolerated and counted as `unresumed`); the constructor alone in a tight loop | `bench_test.go` `BenchmarkConnect`, `BenchmarkNewClient` |
-| 3 | Throughput and latency: requests/s, p50/p95/p99, MB/s, client CPU per request, allocations, GC, peak heap, at concurrency 1/16/64/256, bodies 1 KB/100 KB/10 MB (the default run: 1 and 64, 1 KB and 100 KB), a window after a warm-up, both stretched for long requests; the server's CPU per nginx worker; UDP receive drops per HTTP/3 point | `cmd/bench` |
+| 3 | Throughput and latency: requests/s, p50/p95/p99, MB/s, client CPU per request, allocations, GC, peak heap, at concurrency 1/16/64/256, bodies 1 KB/100 KB/10 MB (the default run: 1 and 64, 1 KB and 100 KB), a window after a warm-up, both stretched for long requests; the server's CPU per nginx worker; UDP receive drops per HTTP/3 point; uploads (POST 64 KB and 10 MB to `/sink`) with `-uploads` | `cmd/bench` |
 | 4 | Memory: heap, goroutines and goroutine stacks (`StackInuse`) per client and per idle connection, at two client counts (10 and 50) so the report separates per connection (slope) from fixed (intercept); GC under load is in layer 3 | `cmd/bench` |
 | 5 | Realistic network: a page load (one HTML + 30 subresources over www, static and api) under `tc netem` (RTT 20 and 80 ms, loss 0 and 1%), cold and warm, 10 times (20 under loss); over HTTP/3, mimicry also as a returning browser (new Transports sharing an Alt-Svc cache an earlier visit filled); the same through a CONNECT proxy (with and without Basic auth) and SOCKS5, the proxy with its own delay, each setup checked against the proxy's per-user counts | `cmd/bench` |
 | 6 | Many clients, one proxy identity each: N clients (100) in one process, each its own Transport or session with its own proxy credentials, each sending GET 1 KB or 100 KB to nginx one request at a time; HTTP/2 and HTTP/1.1 through CONNECT with Basic auth, HTTP/2 and HTTP/3 through SOCKS5 (socks5h, username and password). Requests/s, p50/p99, CPU and allocations per request, heap per client at steady state and peak, goroutines and stack per client, errors; a rotation variant (a new identity every K requests, 10, over a 30 s window; the default run: HTTP/2 through CONNECT, 1 KB) adds new-connection latency, handshakes/s, the cost per new identity and where memory levels off; client rotation (a new client every K requests, dropped or closed); 1 KB again at a second N (25) for memory per client as slope and intercept | `cmd/bench` |
@@ -45,6 +45,31 @@ warm-up and window it ran, and how many requests started inside the
 window and how many of them finished there; the table gives the window.
 Small bodies are unaffected: they meet the rule within the minimum window.
 Why both rules exist is in [Methodology changes](#methodology-changes).
+
+**Uploads.** `-uploads 64KB,10MB` (`all`) adds upload points to layer 3
+and to layer 6's fixed identities: each request POSTs that many bytes of
+the fixed payload to `/sink`, which reads the body to its end, discards it
+and answers with the length it read (`X-Sink-Bytes`); a response with any
+other length is an error, so a client that truncates a body cannot count.
+`-downloads=false` leaves the downloads out of both layers. The clients
+are warmed onto the protocol with GET 1 KB. MB/s and requests/s count
+request body bytes; since no adapter can count them as its library writes
+them without changing how the library sends (a wrapped body loses its
+length), layer 3 spreads each verified request's body evenly over its
+duration and counts the part inside the window (`scenario.sentInside`);
+layer 6 counts completed requests, as its downloads do, and its proxy
+check compares each client's sent bytes with what the proxy relayed
+upstream. nginx reads an upload into memory before its njs handler sees
+it (`client_body_buffer_size` 32 MB). Over HTTP/3 nginx's QUIC receive
+path is the limit (one worker at a core's worth at 52–70 MB/s with 10 MB
+bodies one at a time in `linux-uploads-2026-10-31`), so run `-servers nginx,go` for
+HTTP/3 uploads the clients can be told apart on (layer 6 uses nginx
+only, so its HTTP/3 uploads are nginx's limit). The uploads-only run:
+
+```sh
+BENCH_PASSES=3 BENCH_NAME=uploads internal/bench/scripts/bench.sh report -layers 3,6 -micro "" \
+  -uploads all -downloads=false -servers nginx,go -multi-variants fixed -multi-n2 0
+```
 
 A point is **server-bound** when the server reaches 90% of its CPU set or
 one nginx worker 90% of a core (nginx's `/_stats` reports each worker's CPU
@@ -76,7 +101,7 @@ cmd/proxy/          CONNECT (with/without Basic auth) and SOCKS5 (CONNECT, UDP A
 cmd/setup/          the CA (once), the server certificate, nginx's files
 docker/             Dockerfile, compose.server.yml (+ compose.server.nopublish.yml for BENCH_PUBLISH=0), compose.client.yml (+ compose.client.udpstock.yml), proxy-entrypoint.sh (the proxy's netem delay), nginx config
 scripts/bench.sh    drives both stacks; the moon tasks call it
-reports/            bench-<date>.md/.json (and its -passN, -udpstock-passN parts), micro-<date>.txt and -benchstat.txt, host-<date>.txt (host load per pass); a run kept apart gets a subdirectory (linux-final-2026-10-29/, linux-2026-10-29/, focus-2026-10-29/, after-fixes/, coalescing/, conns-per-host/)
+reports/            bench-<date>.md/.json (and its -passN, -udpstock-passN parts), micro-<date>.txt and -benchstat.txt, host-<date>.txt (host load per pass); a run kept apart gets a subdirectory (linux-final-2026-10-29/, linux-uploads-2026-10-31/, linux-2026-10-29/, focus-2026-10-29/, after-fixes/, coalescing/, conns-per-host/)
 ```
 
 Two compose stacks. **Server** (`docker/compose.server.yml`): nginx 1.31
@@ -91,7 +116,7 @@ servers serve the same endpoints with the same bytes and headers:
 
 | Port | nginx | Go | |
 |---|---|---|---|
-| TLS h2 + h1, UDP h3, `Alt-Svc` | 8443 | 9443 | `/bytes/{n}`, `/json`, `POST /echo`, `/page/…` |
+| TLS h2 + h1, UDP h3, `Alt-Svc` | 8443 | 9443 | `/bytes/{n}`, `/json`, `POST /echo`, `POST /sink`, `/page/…` |
 | TLS http/1.1 only, no `Alt-Svc` | 8444 | 9444 | the same |
 | plain HTTP | 8080 | 9080 | `/_stats`: CPU time, CPUs, connections (Go), each worker's CPU time (nginx) |
 
@@ -368,7 +393,9 @@ them too), `-max-window 120s`, `-layers 3,4,6`, `-servers nginx` (or
 `nginx,go`), `-reduced go` (servers that get bodies 1KB/100KB and
 concurrency 1/64 only), `-protos h1,h2,h3` (layers 3, 5 and 6), `-conc
 1,64`, `-bodies 1KB,100KB` (layer 3's sizes; `all` for 1KB, 100KB and
-10MB), `-idle-n 10,50`, `-reps 10`, `-reps-loss 20`, `-netem=false`,
+10MB), `-uploads` (none; `64KB`, `10MB` or `all`: uploads in layers 3
+and 6), `-downloads=false` (uploads only), `-idle-n 10,50`, `-reps 10`,
+`-reps-loss 20`, `-netem=false`,
 `-load-netem rtt80-loss1` (layer 3 under these netem conditions instead of
 the network as it is, offloads off as in layer 5, the condition in each
 point's heading), `-multi-n 100`, `-multi-n2 25`, `-multi-n2-variants

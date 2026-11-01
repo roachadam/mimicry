@@ -57,7 +57,9 @@ const (
 
 // LoadResult is what a load point measured. Throughput is the response
 // body bytes that arrived inside the window (MBps), and RPS the responses'
-// worth of them per second; the per-request figures (CPU, allocations)
+// worth of them per second (for an upload, the request body bytes sent
+// inside it: each verified request's body spread evenly over its
+// duration, the part inside the window counted); the per-request figures (CPU, allocations)
 // divide by that worth. The samples (Requests, latencies, errors) are the
 // requests in flight during the window: ended inside it or after it,
 // wherever they started.
@@ -68,7 +70,8 @@ type LoadResult struct {
 	Mismatches int64   `json:"mismatches"`
 	Seconds    float64 `json:"seconds"`
 	RPS        float64 `json:"rps"`
-	// MBps is response body megabytes (10^6) per second.
+	// MBps is response body megabytes (10^6) per second; request body
+	// megabytes for an upload.
 	MBps float64 `json:"mbps"`
 	// Latencies, in milliseconds.
 	P50 float64 `json:"p50"`
@@ -148,6 +151,8 @@ func Load(ctx context.Context, su Setup, spec LoadSpec) (LoadResult, error) {
 		}
 	}()
 
+	upload := spec.Op.Upload > 0
+
 	// Warm onto the protocol with 1 KB bodies: three of the op's own could
 	// take longer than Warm allows (10 MB under netem's loss).
 	req := spec.Op.Request(su.Server, su.Proto)
@@ -178,6 +183,10 @@ func Load(ctx context.Context, su Setup, spec LoadSpec) (LoadResult, error) {
 		// complete the requests that started and finished in the window.
 		arrived  clients.Arrivals
 		complete atomic.Int64
+		// spans, for an upload, are the measured requests' start and
+		// end (UnixNano): what they sent inside the window is
+		// interpolated from them.
+		spans [][2]int64
 	}
 
 	workers := make([]*worker, spec.Concurrency)
@@ -260,11 +269,21 @@ func Load(ctx context.Context, su Setup, spec LoadSpec) (LoadResult, error) {
 						w.firstErr = clients.Check(resp, su.Proto).Error()
 					}
 
+				case spec.Op.sentAll(resp) != nil:
+					w.errors++
+					if w.firstErr == "" {
+						w.firstErr = spec.Op.sentAll(resp).Error()
+					}
+
 				default:
 					w.requests++
 
-					w.bytes += resp.Bytes
+					w.bytes += spec.Op.moved(resp)
 					w.h.record(d)
+
+					if upload {
+						w.spans = append(w.spans, [2]int64{start.UnixNano(), start.Add(d).UnixNano()})
+					}
 				}
 			}
 		})
@@ -385,6 +404,18 @@ func Load(ctx context.Context, su Setup, spec LoadSpec) (LoadResult, error) {
 
 	var bytes int64
 
+	window := after.at.Sub(before.at)
+	inWindow := float64(arrivedAfter - arrivedBefore)
+
+	if upload {
+		var spans [][2]int64
+		for _, w := range workers {
+			spans = append(spans, w.spans...)
+		}
+
+		inWindow = sentInside(spans, before.at.UnixNano(), after.at.UnixNano(), spec.Op.Upload)
+	}
+
 	for _, w := range workers {
 		total.merge(&w.h)
 
@@ -398,9 +429,6 @@ func Load(ctx context.Context, su Setup, spec LoadSpec) (LoadResult, error) {
 			res.FirstError = w.firstErr
 		}
 	}
-
-	window := after.at.Sub(before.at)
-	inWindow := float64(arrivedAfter - arrivedBefore)
 
 	res.Seconds = window.Seconds()
 	res.MBps = inWindow / 1e6 / res.Seconds
@@ -442,6 +470,31 @@ func Load(ctx context.Context, su Setup, spec LoadSpec) (LoadResult, error) {
 	res.Discarded = discard(res)
 
 	return res, nil
+}
+
+// sentInside is the request body bytes that uploads of size bytes, each
+// from spans' start to its end (UnixNano), sent between open and closed:
+// each body spread evenly over its request, the part inside the window
+// counted. No adapter can count the bytes as its library writes them
+// without changing how the library sends (a wrapped body loses its
+// length: chunked HTTP/1.1, or a copy into memory first), and a body is
+// most of an upload's time, so this is what reached the server inside
+// the window to within a response's time.
+func sentInside(spans [][2]int64, open, closed int64, size int) float64 {
+	var sent float64
+
+	for _, sp := range spans {
+		start, end := sp[0], sp[1]
+		if end <= start {
+			continue
+		}
+
+		if in := min(end, closed) - max(start, open); in > 0 {
+			sent += float64(size) * float64(in) / float64(end-start)
+		}
+	}
+
+	return sent
 }
 
 // boundBy says why a server at cpu (share of its CPUs) with its busiest

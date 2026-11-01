@@ -41,9 +41,9 @@ func (k multiKey) label() string {
 		// The client-rotation section names its body and rotation once.
 		s = fmt.Sprintf("%s, %s, %s", k.proto.Wire(), proxyName(k.proxy), k.renew)
 	case k.rotate > 0:
-		s = fmt.Sprintf("%s, %s, %s, rotating every %d", k.proto.Wire(), proxyName(k.proxy), strings.TrimPrefix(k.op, "bytes-"), k.rotate)
+		s = fmt.Sprintf("%s, %s, %s, rotating every %d", k.proto.Wire(), proxyName(k.proxy), opLabel(k.op), k.rotate)
 	default:
-		s = fmt.Sprintf("%s, %s, %s", k.proto.Wire(), proxyName(k.proxy), strings.TrimPrefix(k.op, "bytes-"))
+		s = fmt.Sprintf("%s, %s, %s", k.proto.Wire(), proxyName(k.proxy), opLabel(k.op))
 	}
 
 	if k.run != "" {
@@ -320,6 +320,11 @@ func (r *report) identityTables(w writer, keys []multiKey, points map[multiKey]m
 	w("identity every %d requests: new credentials, so a new tunnel (or UDP association) and a new handshake, as a ", st.MultiRotate)
 	w("rotating residential proxy forces. The proxy adds %s; its CPU set is in Environment. ", r.Env.ProxyDelay)
 	w("The best impersonating client in each row is **bold**; net/http is the reference, never bolded.")
+
+	if len(st.Uploads) > 0 {
+		w(" Upload rows (upload <size>) POST that many bytes to /sink instead, one request at a time, and count the ")
+		w("requests completed in the window whose bodies the server read whole.")
+	}
 
 	if r.Passes > 1 {
 		w(" Each value is the median of %d passes with its range (lowest–highest); a best is bold only where its range lies ", r.Passes)
@@ -618,7 +623,17 @@ func (r *report) renderMultiTables(w writer, tables []multiTable, keys []multiKe
 		}
 	}
 
+	rotated := slices.ContainsFunc(keys, func(k multiKey) bool {
+		return include(k) && k.rotate > 0
+	})
+
 	for _, t := range tables {
+		// A run without rotation (-multi-variants fixed) has none of
+		// these rows.
+		if t.rotationOnly && !rotated {
+			continue
+		}
+
 		w("### %s\n\n%s\n\n", t.title, t.intro)
 		w("| setup | %s |\n|---|%s\n", strings.Join(heads, " | "), strings.Repeat("---:|", len(cols)))
 

@@ -100,10 +100,11 @@ func (c *httpcloakAdapter) Do(ctx context.Context, r *Request) (Response, error)
 	n, err := drain(resp.Body, r.Arrivals)
 
 	return Response{
-		Status:  resp.StatusCode,
-		Proto:   protoOf(first(resp.Headers["x-proto"]), resp.Protocol),
-		Resumed: resumedHeader(first(resp.Headers["x-tls-resumed"])),
-		Bytes:   n,
+		Status:   resp.StatusCode,
+		Proto:    protoOf(first(resp.Headers["x-proto"]), resp.Protocol),
+		Resumed:  resumedHeader(first(resp.Headers["x-tls-resumed"])),
+		Bytes:    n,
+		Received: receivedHeader(first(resp.Headers["x-sink-bytes"])),
 	}, err
 }
 

@@ -29,6 +29,20 @@ var Bodies = []int{
 	10 * MB,
 }
 
+// Uploads are the upload scenarios' request body sizes, POSTed to
+// SinkPath: an API call with a payload, and a file.
+var Uploads = []int{
+	64 * KB,
+	10 * MB,
+}
+
+// SinkPath is the endpoint that reads a request body to its end, discards
+// it and answers with how many bytes it read, in the X-Sink-Bytes header
+// and as {"bytes":n}. No digest: hashing 10 MB bodies in nginx's njs at
+// load would make the server the limit; the length catches a truncated
+// body, and TLS a corrupted one.
+const SinkPath = "/sink"
+
 // JSON is the small JSON document GET /json returns.
 const JSON = `{"id":1842,"name":"benchmark","tags":["fast","small","json"],"active":true,"score":0.9183,"owner":{"id":77,"login":"bench"},"updated":"2026-10-27T12:00:00Z"}`
 

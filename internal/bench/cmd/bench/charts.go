@@ -30,6 +30,7 @@ func charts(args []string) error {
 	fs := flag.NewFlagSet("charts", flag.ExitOnError)
 	in := fs.String("in", "", "a merged report's JSON (reports/<dir>/<name>-<date>.json)")
 	out := fs.String("out", "../../docs/perf", "directory for the SVGs")
+	uploads := fs.Bool("uploads", false, "draw only the upload charts (uploads.svg, uploads-go.svg, uploads-cpu.svg), from a report with uploads and no micro results")
 
 	_ = fs.Parse(args)
 
@@ -43,29 +44,72 @@ func charts(args []string) error {
 		return err
 	}
 
-	if r.MicroRaw == "" {
-		return errors.New("the report names no raw micro output (microRaw)")
-	}
-
-	micro, err := readMicro(filepath.Join(filepath.Dir(*in), r.MicroRaw))
-	if err != nil {
-		return err
-	}
-
 	cs := chartSet{
 		r:      &r,
-		micro:  micro,
 		source: filepath.Base(filepath.Dir(*in)) + "/" + filepath.Base(*in),
+	}
+
+	var all []chart
+
+	if *uploads {
+		all = []chart{
+			{
+				name: "uploads.svg",
+				draw: func() (string, error) {
+					return cs.uploadThroughput("nginx")
+				},
+			},
+			{
+				name: "uploads-go.svg",
+				draw: func() (string, error) {
+					return cs.uploadThroughput("go")
+				},
+			},
+			{
+				name: "uploads-cpu.svg",
+				draw: cs.uploadCPU,
+			},
+		}
+	} else {
+		if r.MicroRaw == "" {
+			return errors.New("the report names no raw micro output (microRaw)")
+		}
+
+		cs.micro, err = readMicro(filepath.Join(filepath.Dir(*in), r.MicroRaw))
+		if err != nil {
+			return err
+		}
+
+		all = downloadCharts(&cs)
 	}
 
 	if err := os.MkdirAll(*out, 0o750); err != nil {
 		return err
 	}
 
-	for _, c := range []struct {
-		name string
-		draw func() (string, error)
-	}{
+	for _, c := range all {
+		svg, err := c.draw()
+		if err != nil {
+			return fmt.Errorf("%s: %w", c.name, err)
+		}
+
+		if err := os.WriteFile(filepath.Join(*out, c.name), []byte(svg), 0o644); err != nil { //nolint:gosec // a chart, meant to be read
+			return err
+		}
+	}
+
+	return nil
+}
+
+// chart is one SVG file and what draws it.
+type chart struct {
+	name string
+	draw func() (string, error)
+}
+
+// downloadCharts are the charts of a run's downloads, layers 2 to 6.
+func downloadCharts(cs *chartSet) []chart {
+	return []chart{
 		{
 			name: "throughput.svg",
 			draw: cs.throughput,
@@ -86,18 +130,7 @@ func charts(args []string) error {
 			name: "weak-spots.svg",
 			draw: cs.weakSpots,
 		},
-	} {
-		svg, err := c.draw()
-		if err != nil {
-			return fmt.Errorf("%s: %w", c.name, err)
-		}
-
-		if err := os.WriteFile(filepath.Join(*out, c.name), []byte(svg), 0o644); err != nil { //nolint:gosec // a chart, meant to be read
-			return err
-		}
 	}
-
-	return nil
 }
 
 // chartSet draws one report's charts.
@@ -473,6 +506,12 @@ var (
 		less:  "%s fewer than %s",
 		times: "%s times as many as %s",
 	}
+	megabytesPerSecond = metric{
+		unit:  " MB/s",
+		more:  "%s more than %s",
+		less:  "%s less than %s",
+		times: "%s times as much as %s",
+	}
 	cpuMicros = metric{
 		unit:  " µs",
 		lower: true,
@@ -793,9 +832,9 @@ func grid(c *canvas, y float64, cols int, rows []gridRow) float64 {
 	return y
 }
 
-// loadCell is one layer 3 point (nginx, the network as it is) as a cell:
-// get returns a value of a result and key names its range.
-func (cs *chartSet) loadCell(title string, p target.Proto, op string, conc int, m metric,
+// loadCell is one layer 3 point (on server, the network as it is) as a
+// cell: get returns a value of a result and key names its range.
+func (cs *chartSet) loadCell(title, server string, p target.Proto, op string, conc int, m metric,
 	get func(*scenario.LoadResult) float64, key string,
 ) cell {
 	cl := cell{
@@ -814,7 +853,7 @@ func (cs *chartSet) loadCell(title string, p target.Proto, op string, conc int, 
 		}
 
 		for _, lp := range cs.r.Load {
-			if lp.Server != "nginx" || lp.Proto != p || lp.Op != "bytes-"+op || lp.Conc != conc || lp.Client != name ||
+			if lp.Server != server || lp.Proto != p || lp.Op != op || lp.Conc != conc || lp.Client != name ||
 				lp.Condition != "" || !lp.valid() {
 				continue
 			}
@@ -836,10 +875,19 @@ func (cs *chartSet) loadCell(title string, p target.Proto, op string, conc int, 
 	}
 
 	if isBound {
-		cl.foot = append(cl.foot, "nginx was the limit here, not the clients.")
+		cl.foot = append(cl.foot, serverLabel(server)+" was the limit here, not the clients.")
 	}
 
 	return cl
+}
+
+// serverLabel names a layer 3 server in a chart.
+func serverLabel(server string) string {
+	if server == "go" {
+		return "The Go server"
+	}
+
+	return server
 }
 
 // direction is a panel's note: which way is better.
@@ -851,19 +899,26 @@ func direction(m metric) string {
 	return "higher is better"
 }
 
-// loadGrid is layer 3 as rows of cells, a row per body size and
-// concurrency, a cell per protocol.
+// loadGrid is layer 3's downloads as rows of cells, a row per body size
+// and concurrency, a cell per protocol.
 func (cs *chartSet) loadGrid(m metric, get func(*scenario.LoadResult) float64, key string) []gridRow {
-	rows := make([]gridRow, 0, len(cs.r.Settings.Bodies)*len(cs.r.Settings.Concurrency))
+	return cs.opGrid("nginx", "GET ", "bytes-", cs.r.Settings.Bodies, m, get, key)
+}
 
-	for _, op := range cs.r.Settings.Bodies {
+// opGrid is layer 3's ops prefix+size for each of sizes on server as rows
+// of cells, a row per size and concurrency (headed verb and the size), a
+// cell per protocol.
+func (cs *chartSet) opGrid(server, verb, prefix string, sizes []string, m metric, get func(*scenario.LoadResult) float64, key string) []gridRow {
+	rows := make([]gridRow, 0, len(sizes)*len(cs.r.Settings.Concurrency))
+
+	for _, size := range sizes {
 		for _, conc := range cs.r.Settings.Concurrency {
 			row := gridRow{
-				heading: "GET " + spaced(op) + ", " + atOnce(conc),
+				heading: verb + spaced(size) + ", " + atOnce(conc),
 			}
 
 			for _, p := range target.Protos {
-				row.cells = append(row.cells, cs.loadCell(protoName(p), p, op, conc, m, get, key))
+				row.cells = append(row.cells, cs.loadCell(protoName(p), server, p, prefix+size, conc, m, get, key))
 			}
 
 			rows = append(rows, row)
@@ -889,6 +944,60 @@ func (cs *chartSet) throughput() (string, error) {
 	y = grid(&c, y+12, len(target.Protos), cs.loadGrid(requestsPerSecond, func(r *scenario.LoadResult) float64 {
 		return r.RPS
 	}, "rps"))
+
+	h := cs.caption(&c, y, cs.passesNote())
+
+	return c.finish(h, title), nil
+}
+
+// uploadThroughput draws layer 3's uploads to server: request body
+// megabytes per second.
+func (cs *chartSet) uploadThroughput(server string) (string, error) {
+	if len(cs.r.Settings.Uploads) == 0 {
+		return "", errors.New("no upload points")
+	}
+
+	var c canvas
+
+	name := "nginx"
+	if server == "go" {
+		name = "the Go server (net/http, quic-go)"
+	}
+
+	title := "Upload throughput, one client: higher is better"
+	y := cs.header(&c, title, fmt.Sprintf(
+		"One warm client POSTs a body to %s over each protocol; MB/s is request body megabytes (10^6) per second, "+
+			"every body checked against the length the server read. In each panel the clients are sorted best first; under "+
+			"it, mimicry against the best of the other impersonating clients.", name))
+
+	y = grid(&c, y+12, len(target.Protos), cs.opGrid(server, "POST ", "upload-", cs.r.Settings.Uploads, megabytesPerSecond,
+		func(r *scenario.LoadResult) float64 {
+			return r.MBps
+		}, "mbps"))
+
+	h := cs.caption(&c, y, cs.passesNote())
+
+	return c.finish(h, title), nil
+}
+
+// uploadCPU draws layer 3's uploads' CPU per request.
+func (cs *chartSet) uploadCPU() (string, error) {
+	if len(cs.r.Settings.Uploads) == 0 {
+		return "", errors.New("no upload points")
+	}
+
+	var c canvas
+
+	title := "CPU per upload, one client: lower is better"
+	y := cs.header(&c, title,
+		"The client process's user and system time per upload, in microseconds, at the same points as the nginx upload "+
+			"throughput. In each panel the clients are sorted best first; under it, mimicry against the best of the other "+
+			"impersonating clients.")
+
+	y = grid(&c, y+12, len(target.Protos), cs.opGrid("nginx", "POST ", "upload-", cs.r.Settings.Uploads, cpuMicros,
+		func(r *scenario.LoadResult) float64 {
+			return r.CPUPerRequest
+		}, "cpuPerRequest"))
 
 	h := cs.caption(&c, y, cs.passesNote())
 
@@ -1144,9 +1253,11 @@ func (cs *chartSet) weakSpots() (string, error) {
 	small := cs.r.Settings.Bodies[0]
 	many := cs.r.Settings.Concurrency[len(cs.r.Settings.Concurrency)-1]
 
-	h3One := cs.loadCell(fmt.Sprintf("HTTP/3, %s, one at a time", spaced(bulk)), target.H3, bulk, 1, requestsPerSecond, rps, "rps")
-	h3Many := cs.loadCell(fmt.Sprintf("HTTP/3, %s, %d at once", spaced(bulk), many), target.H3, bulk, many, requestsPerSecond, rps, "rps")
-	h1Many := cs.loadCell(fmt.Sprintf("HTTP/1.1, %s, %d at once", spaced(small), many), target.H1, small, many, requestsPerSecond, rps, "rps")
+	h3One := cs.loadCell(fmt.Sprintf("HTTP/3, %s, one at a time", spaced(bulk)), "nginx", target.H3, "bytes-"+bulk, 1, requestsPerSecond, rps, "rps")
+	h3Many := cs.loadCell(fmt.Sprintf("HTTP/3, %s, %d at once", spaced(bulk), many), "nginx", target.H3, "bytes-"+bulk, many, requestsPerSecond,
+		rps, "rps")
+	h1Many := cs.loadCell(fmt.Sprintf("HTTP/1.1, %s, %d at once", spaced(small), many), "nginx", target.H1, "bytes-"+small, many,
+		requestsPerSecond, rps, "rps")
 
 	for _, cl := range []*cell{&h3One, &h3Many, &h1Many} {
 		cl.note = "requests/s, higher is better"

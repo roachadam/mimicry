@@ -188,7 +188,7 @@ func estimate(j job, cond condition) (time.Duration, bool) {
 		// scenario.LoadSpec: the warm-up until twice the median latency (up
 		// to a minute), the window until five of them (up to MaxWindow),
 		// then the requests in flight drain.
-		bytes := float64(j.Conc * bodySize(j.Op.Path))
+		bytes := float64(j.Conc * max(bodySize(j.Op.Path), j.Op.Upload))
 		lat := cond.RTT + time.Duration(bytes/planThroughput*float64(time.Second))
 		warm := min(max(j.Warmup, 2*lat), time.Minute)
 		win := min(max(j.Window, 5*lat), j.MaxWindow)

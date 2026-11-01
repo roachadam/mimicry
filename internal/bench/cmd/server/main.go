@@ -6,6 +6,7 @@
 //	/bytes/{n}     n fixed incompressible bytes
 //	/json          a small JSON document
 //	POST /echo     the request body back
+//	POST /sink     the request body's length (X-Sink-Bytes, {"bytes":n}), the body discarded
 //	/page/...      the page's HTML and subresources
 //
 // Every response says whether its TLS session was resumed (x-tls-resumed:
@@ -207,6 +208,18 @@ func handler() http.Handler {
 		}
 
 		write(w, r, ct, body)
+	})
+
+	mux.HandleFunc("POST "+site.SinkPath, func(w http.ResponseWriter, r *http.Request) {
+		n, err := io.Copy(io.Discard, r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+
+			return
+		}
+
+		w.Header().Set("X-Sink-Bytes", strconv.FormatInt(n, 10))
+		write(w, r, "application/json", []byte(`{"bytes":`+strconv.FormatInt(n, 10)+`}`))
 	})
 
 	for _, res := range site.Resources() {
