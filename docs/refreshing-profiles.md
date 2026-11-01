@@ -13,13 +13,16 @@ go run ./cmd/refresh -browser safari -mode quick           # Safari 27, on the M
 go run ./cmd/refresh -browser safari-mini -mode full -mini <alias>       # Safari 26, on the second Mac
 go run ./cmd/refresh -browser chrome -dry-run -mini <alias>           # the plan only
 go run ./cmd/refresh -browser chrome-windows -windows <alias>   # Chrome on a Windows machine
+go run ./cmd/refresh -browser safari-ios -listen <mac-ip>   # Safari on an iPhone, served from this Mac
 ```
 
 The setup assumes two Macs: the one you work on, and a second Mac kept on
 macOS 26, reachable over ssh. Pass your ssh alias for it with `-mini` (no
 default; chrome, firefox and safari-mini need it). Chrome on Windows needs
 a Windows machine reachable over ssh: pass your ssh alias for it with
-`-windows` (no default).
+`-windows` (no default). Safari on iOS needs an iPhone connected to this
+Mac by cable and on its Wi-Fi network: pass this Mac's IPv4 address on
+that network with `-listen`.
 
 ## Two modes
 
@@ -70,6 +73,7 @@ supported one.
 | `safari` | the Mac you run it on | opens tabs in your own Safari window |
 | `safari-mini` | the second Mac | Safari 26, since that Mac stays on macOS 26 |
 | `chrome-windows` | the Windows machine (`-windows`) | profiles `chrome-<major>-windows`, for `profiles.ChromeWindows()`; the first one captures the full set |
+| `safari-ios` | the iPhone, served from this Mac (`-listen`) | profiles `safari-<major>-ios`; the iPhone set whatever `-mode`, the rest inherited from macOS Safari |
 
 The second Mac needs no Go. The tool cross-compiles `cmd/capture` and
 `cmd/realcheck` for darwin/arm64, copies them over and runs them over ssh.
@@ -115,6 +119,36 @@ NEW_TOKEN tokens are 89 or 90 bytes by the loopback RTT they encode (tests
 compare whether a token is sent, not its length). The report names the
 machines by role (this Mac, the second Mac, the Windows PC), never by their
 ssh aliases.
+
+### The iPhone
+
+Safari on iOS is captured from an iPhone (not an iPad, whose Safari sends
+a Mac user agent) connected to this Mac by cable and on the same Wi-Fi
+network ([decision 0051](decisions/0051-ios-safari-over-the-network.md)).
+The capture tool runs here, serving the captures on `-listen` with a DNS
+stub on port 53 for the run, and opens each sample's URL in the phone's
+own Safari through devicectl over USB. Its one-time setup (the capture
+CA, Safari's settings) and what each run needs (the phone's DNS pointed
+at this Mac, unlocked, Auto-Lock Never) are in
+[Capturing browsers](capturing.md#safari-on-an-iphone); the plan lists
+them. Safari's version is the phone's iOS version, which the preflight
+reads with `xcrun devicectl list devices` (`-ios-device <udid>` picks one
+of several iPhones).
+
+Whatever `-mode`, the iPhone captures `server.IOSScenarios`, three
+samples each: the fingerprint layer and the scenarios the generators
+derive from, unattended, then `proxy-connect` and `proxy-plain`, for
+which the capture tool asks someone to set the phone's Wi-Fi proxy and
+waits for Enter on refresh's standard input (see [Capturing
+browsers](capturing.md#safari-on-an-iphone)); about a quarter of an hour,
+someone at the phone only for the proxy settings.
+A scenario is inherited from the captures of the macOS Safari profile it
+starts from (`capturesFrom`, `internal/platform.Stack`) only where the
+iPhone's own captures show no difference in its area;
+`Scenario.NotInheritedOnIOS` keeps the others out, and the profile does
+not measure them. realcheck is not run: it drives browsers on this Mac.
+The report names the phone by role (the iPhone), never by its device
+name or UDID.
 
 ## What a run does
 

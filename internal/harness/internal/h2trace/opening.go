@@ -15,15 +15,17 @@ const (
 // Opening returns how the client cut the start of the connection into TLS
 // records, as profile http2.openingRecords lists it: per record, the
 // preface and each frame starting in it (a SETTINGS ACK as "SETTINGS_ACK"),
-// through the record carrying the first request's HEADERS and the
-// WINDOW_UPDATE for its stream right after it. Nil for a trace without
-// records.
+// through the first request's HEADERS and the WINDOW_UPDATE for its stream
+// right after it; frames after those in the same record (other requests'
+// HEADERS) are left out. Nil for a trace without records.
 //
 // ready reports whether that request was waiting as the connection opened:
 // its HEADERS came before the client acknowledged the server's SETTINGS,
-// which takes a round trip. A browser that opened the connection ahead of
-// the request (Safari and Firefox for the page the capture tool opens)
-// writes the opening alone.
+// which takes a round trip, and in the millisecond the preface did. A
+// browser that opened the connection ahead of the request (Safari and
+// Firefox for the page the capture tool opens; Safari on an iPhone for the
+// URL devicectl hands it, a few to a hundred milliseconds early) writes the
+// opening alone.
 func Opening(tr *Trace) (records [][]string, ready bool, err error) {
 	if len(tr.Records) == 0 {
 		return nil, false, nil
@@ -37,6 +39,10 @@ func Opening(tr *Trace) (records [][]string, ready bool, err error) {
 		}
 
 		if f.Type == "HEADERS" {
+			if f.Millis > tr.Frames[0].Millis {
+				ready = false
+			}
+
 			last = i
 			if i+1 < len(tr.Frames) && tr.Frames[i+1].Type == "WINDOW_UPDATE" && tr.Frames[i+1].Stream == f.Stream {
 				last = i + 1
@@ -72,7 +78,12 @@ func Opening(tr *Trace) (records [][]string, ready bool, err error) {
 				name = "SETTINGS_ACK"
 			}
 
-			names = append(names, name)
+			// Through the first request's frames: other requests waiting
+			// as the connection opened may share its record (Safari on
+			// iOS), which the profile does not describe.
+			if !end {
+				names = append(names, name)
+			}
 
 			size += frameHeaderLen + int(f.Length)
 

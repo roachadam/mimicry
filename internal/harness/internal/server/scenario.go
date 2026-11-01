@@ -273,6 +273,95 @@ func ScenarioByName(name string) (*Scenario, error) {
 	return nil, fmt.Errorf("unknown scenario %q (have %s)", name, strings.Join(names, ", "))
 }
 
+// UnsupportedOnIOS says why Safari on an iPhone, served from a Mac over
+// the network (cmd/capture -listen), cannot take sc; "" when it can.
+func (sc *Scenario) UnsupportedOnIOS() string {
+	switch {
+	case sc.ProxyAuth:
+		return iosNoProxyAuth
+	case sc.Proxy == ProxySOCKS5:
+		return "the iPhone's Wi-Fi proxy setting takes an HTTP proxy only"
+	case sc == CookiesEdge:
+		return "its lo-* steps navigate to http://localhost, which on the iPhone is the phone itself, so the page stops there"
+	}
+
+	return ""
+}
+
+// iosNoProxyAuth is why the proxy-credential scenarios are neither
+// captured on the iPhone nor inherited from macOS Safari.
+const iosNoProxyAuth = "Safari on iOS 27.2 never answers a proxy's Basic 407 with the Wi-Fi proxy's credentials: every CONNECT (Safari's and the system's) came without Proxy-Authorization, on a new connection each, and Safari failed with NSURLErrorDomain -1013, so macOS Safari's challenge flow cannot stand in"
+
+// AutomationDiffersOnIOS says why safaridriver's automation window on an
+// iPhone does not stand in for the phone's own Safari in sc, "" when it
+// does (decision 0051). It orders headers otherwise: Origin before
+// Sec-Fetch-Site in requests with a body, redirect hops and the
+// service-worker script in another order than the phone's own Safari
+// (by-hand captures); and a redirect page's watchdog service worker never
+// ended a page there. Only the default page, plain or through the proxy,
+// was seen to match.
+func (sc *Scenario) AutomationDiffersOnIOS() string {
+	if slices.Contains(iosAutomationMatches, sc.Name) {
+		return ""
+	}
+
+	return "safaridriver's automation window orders headers otherwise than the phone's own Safari (Origin before Sec-Fetch-Site with a body, redirect hops, service-worker scripts) and never runs a redirect page's watchdog; use -ios-driver devicectl"
+}
+
+// iosAutomationMatches are the scenarios whose safaridriver captures
+// match the phone's own Safari's: the default page (cmd/diff, by hand and
+// through safaridriver) and its loads over HTTP/1.1 and through the proxy.
+var iosAutomationMatches = []string{
+	"http1",
+	"page",
+	"proxy-connect",
+	"proxy-plain",
+}
+
+// NotInheritedOnIOS says why an iOS Safari profile does not inherit macOS
+// Safari's captures of sc it does not capture itself, "" when it does
+// (decision 0051): where the iPhone's own captures differ in that area.
+func (sc *Scenario) NotInheritedOnIOS() string {
+	switch {
+	case sc.ProxyAuth:
+		return iosNoProxyAuth
+	case sc.HTTP3() && sc != H3Discovery && sc != H3Page:
+		return "macOS Safari's QUIC hellos lack the transport parameter 0xff080808 every one of the iPhone's sends (h3-discovery, h3-page), so its HTTP/3 failure paths are not the iPhone's; not captured on the iPhone yet"
+	case strings.HasPrefix(sc.Name, "replay-") || slices.Contains(iosCORSOrder, sc.Name):
+		return "its CORS-mode requests carry macOS Safari 27's header order (sec-fetch-site, accept, origin), where the iPhone's put accept first (kinds); not captured on the iPhone yet"
+	case sc == Connections:
+		return "the iPhone keeps uncredentialed requests on connections of their own (kinds, cors), so macOS Safari's connection reuse is not the iPhone's; not captured on the iPhone yet"
+	}
+
+	return ""
+}
+
+// iosCORSOrder are the scenarios whose macOS Safari 27 captures hold
+// CORS-mode requests (origin and sec-fetch-site), in macOS Safari's order;
+// the replays hold them too.
+var iosCORSOrder = []string{
+	"cors-edge",
+	"cors-edge-cookies",
+	"explicit-table",
+	"headers-order",
+	"huge-table",
+	"kinds-http1",
+	"large-settings",
+	"nav-redirect-click",
+	"nav-redirect-click-cookies",
+	"nav-redirect-form",
+	"nav-redirect-form-cookies",
+	"nav-redirect-page",
+	"nav-redirect-page-cookies",
+	"proxy-socks5",
+	"proxy-websocket",
+	"proxy-websocket-socks5",
+	"redirects2",
+	"redirects2-cookies",
+	"resume-tls12",
+	"small-limits",
+}
+
 // GoesAway reports whether the server sends GOAWAY on the HTTP/2
 // connection that carried a GET of path (with its query) on host.
 func (sc *Scenario) GoesAway(host, path string) bool {

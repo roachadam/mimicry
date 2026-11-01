@@ -22,9 +22,11 @@ type Profile struct {
 	// versions of its browser on its platform. See decision 0035.
 	Deprecated bool `json:"deprecated,omitempty"`
 	// CapturesFrom names, per capture scenario ("cookies", "h3-page"), the
-	// earlier profile whose captures the harness checks this one against,
-	// because the scenario was not recaptured. Only the harness reads it.
-	// See decision 0035.
+	// profile whose captures the harness checks this one against, because
+	// the scenario was not recaptured: an earlier version of its browser on
+	// its platform, or its own or an earlier version on the platform whose
+	// network stack it shares (Safari on iOS: macOS). Only the harness
+	// reads it. See decisions 0035 and 0051.
 	CapturesFrom map[string]string `json:"capturesFrom,omitempty"`
 
 	TLS TLS `json:"tls"`

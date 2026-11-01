@@ -128,8 +128,9 @@ func (p *Profile) Validate() error {
 var scenarioName = regexp.MustCompile(`^[a-z0-9]+([.-][a-z0-9]+)*$`)
 
 // checkCapturesFrom checks that each Profile.CapturesFrom scenario names
-// another browser-version-platform profile of the same browser and
-// platform. Whether it exists is for cmd/profilegen and the harness.
+// another browser-version-platform profile of the same browser. Whether
+// it exists, and its platform and version, are for cmd/profilegen and the
+// harness (decisions 0035, 0051).
 func (c *checker) checkCapturesFrom(p *Profile) {
 	for _, sc := range slices.Sorted(maps.Keys(p.CapturesFrom)) {
 		path := "capturesFrom." + sc
@@ -144,8 +145,8 @@ func (c *checker) checkCapturesFrom(p *Profile) {
 			c.add(path, "%q must be a profile name, as chrome-155-macos", from)
 		case from == p.Name:
 			c.add(path, "names the profile itself; leave the scenario out instead")
-		case !strings.HasPrefix(from, p.Browser+"-") || !strings.HasSuffix(from, "-"+p.Platform):
-			c.add(path, "%q is not a %s profile on %s: captures are inherited only from an earlier version of the same browser and platform", from, p.Browser, p.Platform)
+		case !strings.HasPrefix(from, p.Browser+"-"):
+			c.add(path, "%q is not a %s profile: captures are inherited only from the same browser", from, p.Browser)
 		}
 	}
 }
@@ -847,12 +848,19 @@ func (c *checker) checkProxy(p *Proxy, headers []Header) {
 			c.add("proxy.connectAuth", "must place Proxy-Authorization")
 		}
 
-		if p.ConnectCredentials != CredentialsAfterChallenge && p.ConnectCredentials != CredentialsOnChallenge {
-			c.add("proxy.connectCredentials", "must be %q or %q", CredentialsAfterChallenge, CredentialsOnChallenge)
-		}
+		// Both empty: the browser's answer to a 407 was not measured.
+		switch {
+		case p.ConnectCredentials == "" && p.ForwardCredentials == "":
+		case p.ConnectCredentials == "" || p.ForwardCredentials == "":
+			c.add("proxy", "connectCredentials and forwardCredentials are measured together, or neither")
+		default:
+			if p.ConnectCredentials != CredentialsAfterChallenge && p.ConnectCredentials != CredentialsOnChallenge {
+				c.add("proxy.connectCredentials", "must be %q or %q", CredentialsAfterChallenge, CredentialsOnChallenge)
+			}
 
-		if p.ForwardCredentials != CredentialsAfterChallenge && p.ForwardCredentials != CredentialsAlways {
-			c.add("proxy.forwardCredentials", "must be %q or %q", CredentialsAfterChallenge, CredentialsAlways)
+			if p.ForwardCredentials != CredentialsAfterChallenge && p.ForwardCredentials != CredentialsAlways {
+				c.add("proxy.forwardCredentials", "must be %q or %q", CredentialsAfterChallenge, CredentialsAlways)
+			}
 		}
 	}
 

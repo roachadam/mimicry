@@ -157,12 +157,16 @@ func Files(dir string, p *profile.Profile, suffix string) ([]File, error) {
 
 // Rewriter brings captures taken under one browser version to another's by
 // changing only the version tokens in header values, so any other
-// difference still shows. A nil Rewriter changes nothing.
+// difference still shows; from another platform (Safari on macOS for one on
+// iOS, internal/platform) it also changes the user agent whole. A nil
+// Rewriter changes nothing.
 type Rewriter struct {
 	tokens   *regexp.Regexp
 	replace  map[string]string
 	chFrom   string
 	chTo     string
+	uaFrom   string
+	uaTo     string
 	fromName string
 	toName   string
 }
@@ -178,7 +182,8 @@ var versionTokens = map[string][]string{
 // NewRewriter returns the Rewriter from the captures of from to to's
 // version, nil if from is nil or the same profile. Tokens come from each
 // profile's user-agent; sec-ch-ua, whose brand order also changes with the
-// major version, is mapped whole.
+// major version, is mapped whole, and so is user-agent when from is on
+// another platform.
 func NewRewriter(from, to *profile.Profile) *Rewriter {
 	if from == nil || from.Name == to.Name {
 		return nil
@@ -192,6 +197,10 @@ func NewRewriter(from, to *profile.Profile) *Rewriter {
 		toName:   to.Name,
 	}
 	fromUA, toUA := headerValue(from, "user-agent"), headerValue(to, "user-agent")
+
+	if from.Platform != to.Platform {
+		r.uaFrom, r.uaTo = fromUA, toUA
+	}
 
 	var patterns []string
 
@@ -250,6 +259,10 @@ func (r *Rewriter) Value(s string) string {
 
 	if r.chFrom != "" && r.chTo != "" && r.chFrom != r.chTo {
 		s = strings.ReplaceAll(s, r.chFrom, r.chTo)
+	}
+
+	if r.uaFrom != "" && r.uaTo != "" && r.uaFrom != r.uaTo {
+		s = strings.ReplaceAll(s, r.uaFrom, r.uaTo)
 	}
 
 	if r.tokens != nil {

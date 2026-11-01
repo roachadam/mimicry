@@ -50,10 +50,13 @@ How it differs from tls-client and similar libraries:
 | `firefox-158-macos` | `profiles.Firefox()`, `profiles.Firefox158MacOS()` | supported |
 | `safari-27-macos` | `profiles.Safari()`, `profiles.Safari27MacOS()` | supported |
 | `safari-26-macos` | `profiles.Safari26MacOS()` | supported |
+| `safari-27-ios` | `profiles.SafariIOS()`, `profiles.Safari27IOS()` | supported |
 
 `chrome-156-windows` was captured from Chrome 156 on Windows 10 (x64); Windows 11 and ARM are not captured yet ([0047](docs/decisions/0047-windows-profiles.md#consequences)).
 
-`profiles.Chrome()`, `Firefox()` and `Safari()` always return the newest built-in macOS version, `profiles.ChromeWindows()` the newest Chrome on Windows ([0047](docs/decisions/0047-windows-profiles.md)). A versioned accessor, or `profiles.ByName("chrome-155-macos")`, stays on one version; the newest five versions of each browser on each platform are supported.
+`safari-27-ios` was captured from Safari 27.2 on an iPhone (iOS 27.2) over Wi-Fi: its fingerprint (TLS and QUIC hellos, HTTP/2, every request kind's headers) is the iPhone's own; a few areas are macOS Safari 27's or not measured, as [0051](docs/decisions/0051-ios-safari-over-the-network.md) lists.
+
+`profiles.Chrome()`, `Firefox()` and `Safari()` always return the newest built-in macOS version, `profiles.ChromeWindows()` the newest Chrome on Windows ([0047](docs/decisions/0047-windows-profiles.md)) and `profiles.SafariIOS()` the newest Safari on iOS. A versioned accessor, or `profiles.ByName("chrome-155-macos")`, stays on one version; the newest five versions of each browser on each platform are supported.
 
 ## Common tasks
 
@@ -94,7 +97,7 @@ mimicry also sends what a browser sends around your requests. That covers redire
 
 ## Limits
 
-- **macOS and Windows desktop profiles only.** Chrome, Firefox and Safari on macOS; only Chrome on Windows. There are no Linux, iOS or Android profiles.
+- **Desktop profiles, and Safari on iOS.** Chrome, Firefox and Safari on macOS; only Chrome on Windows; Safari on iPhone, with gaps ([0051](docs/decisions/0051-ios-safari-over-the-network.md)). There are no Linux, iPad or Android profiles.
 - **The TCP/IP fingerprint is your host's.** The operating system sends the first TCP packet, not mimicry. A macOS profile sent from Linux carries a Linux one, a Windows profile sent from a Mac a macOS one; through a proxy, the server sees the proxy's.
 - **One Transport per browsing session and per site.** A Transport acts as one browser tab. Give parallel tasks and different sites a Transport each; they can share a cookie jar.
 - **HTTP/3 ignores `Config.DialContext`.** QUIC sends UDP to the address `Config.Resolver` returns.

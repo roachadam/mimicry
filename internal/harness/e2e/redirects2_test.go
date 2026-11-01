@@ -40,14 +40,14 @@ func TestRedirects2MatchesBrowser(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				want := loadSamples[*capture.Page](t, p, sc.Name, ".pagetrace.json.gz")
+				// Gaps are pinned for the captures, so by the profile that
+				// holds them; the twin's are its original's.
+				src := capture.Source(p, sc.Name)
+				want := withoutSampleGaps(t, src+"/"+sc.Name, loadSamples[*capture.Page](t, p, sc.Name, ".pagetrace.json.gz"))
 
 				steps, _ := sc.RedirectSteps()
 				done := runRedirectsPage(t, p, sc, steps)
 				apart := redirectsApart(sc, steps)
-				// Gaps are pinned for the captures, so by the profile that
-				// holds them; the twin's are its original's.
-				src := capture.Source(p, sc.Name)
 				got := mergeHosts(redirectsConnections(t, done, false, apart), redirectsMerged[src])
 				wantRows := redirectsConnections(t, want[0], redirectsReload[src], apart)
 
@@ -71,6 +71,37 @@ func TestRedirects2MatchesBrowser(t *testing.T) {
 			})
 		}
 	}
+}
+
+// redirectsSampleGaps are samples left out, as "<profile>/<scenario> sample
+// N", with why: browser state from an earlier sample, not the page.
+var redirectsSampleGaps = map[string]string{
+	"safari-27-ios/redirects2 sample 2": iosNavChainSkipped,
+	"safari-27-ios/redirects2 sample 3": iosNavChainSkipped,
+}
+
+// iosNavChainSkipped is why two of the iPhone's redirects2 samples are left
+// out.
+const iosNavChainSkipped = "opened by hand in the same Safari after sample 1, whose 25-redirect navigation ended on Safari's error page, the iPhone never requested nav-chain.so again; the watchdog asked for /done (redirects2-cookies, a fresh run, requested it in all three)"
+
+// withoutSampleGaps returns want without the samples redirectsSampleGaps
+// leaves out for name ("<profile>/<scenario>"), logging each.
+func withoutSampleGaps(t *testing.T, name string, want []*capture.Page) []*capture.Page {
+	t.Helper()
+
+	var out []*capture.Page
+
+	for i, w := range want {
+		if why, ok := redirectsSampleGaps[fmt.Sprintf("%s sample %d", name, i+1)]; ok {
+			t.Logf("sample %d left out: %s", i+1, why)
+
+			continue
+		}
+
+		out = append(out, w)
+	}
+
+	return out
 }
 
 // redirectsReload are the browsers whose error page reloads a navigation
@@ -120,6 +151,13 @@ var redirectsLineGaps = map[string]map[string]string{
 		"/p/img-markup.so.hop1": "markup images and their hops go at u=1 (weight 219) in some samples, raised once layout found them visible",
 		"/p/img-markup.ss":      "markup images and their hops go at u=1 (weight 219) in some samples, raised once layout found them visible",
 		"/p/img-markup.ss.hop1": "markup images and their hops go at u=1 (weight 219) in some samples, raised once layout found them visible",
+	},
+	// Markup images in some samples go at u=3, raised by layout.
+	"safari-27-ios": {
+		"/p/img-markup.so":      "markup images and their hops go at u=3 in some samples (5 of 12 requests), raised once layout found them visible",
+		"/p/img-markup.so.hop1": "markup images and their hops go at u=3 in some samples (5 of 12 requests), raised once layout found them visible",
+		"/p/img-markup.ss":      "markup images and their hops go at u=3 in some samples (5 of 12 requests), raised once layout found them visible",
+		"/p/img-markup.ss.hop1": "markup images and their hops go at u=3 in some samples (5 of 12 requests), raised once layout found them visible",
 	},
 }
 

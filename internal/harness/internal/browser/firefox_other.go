@@ -12,8 +12,13 @@ import (
 
 // firefoxProfile writes prefs that map the capture hosts to 127.0.0.1 and
 // silence first-run pages, plus a certificate exception for the server (or,
-// with HostCerts, trust in the system roots).
+// with HostCerts, trust in the system roots). network.dns.localDomains maps
+// to loopback only, so t.Addr must be Loopback.
 func firefoxProfile(dir string, t Target, headless bool) ([]string, error) {
+	if t.Addr != Loopback {
+		return nil, fmt.Errorf("firefox maps the capture hosts to loopback only (network.dns.localDomains), not %s: capture it without -listen", t.Addr)
+	}
+
 	prefs := []string{
 		`user_pref("network.dns.localDomains", "` + strings.Join(append([]string{t.Host}, t.Hosts...), ",") + `");`,
 		`user_pref("network.dns.disableIPv6", true);`,

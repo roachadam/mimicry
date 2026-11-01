@@ -147,7 +147,9 @@ type Config struct {
 	// BrowserProxyAuth sends an http proxy the URL's credentials only after
 	// it answers 407, as browsers do. By default the first request sends
 	// them, saving a round trip per new proxy. Only the proxy sees the
-	// difference.
+	// difference. A profile that did not measure the 407 flow
+	// (safari-27-ios: the iPhone never answers one) makes a request
+	// through a proxy with credentials ErrNotMeasured.
 	BrowserProxyAuth bool
 	// DisableCoalescing gives every host its own HTTP/2 connection. By
 	// default a host shares another host's connection when the browser

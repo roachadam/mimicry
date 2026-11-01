@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/roachadam/mimicry/internal/platform"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -65,10 +66,19 @@ func regenerate(data []byte, dir string) ([]byte, error) {
 	if len(set.conns) == 0 {
 		p.QUIC, p.HTTP3 = nil, nil
 	} else {
-		// http3.headers, high and low are kindsgen's.
-		var kept profile.HTTP3
+		// http3.headers, high and low are kindsgen's; without edge
+		// captures, deriveEdge keeps the rules copied before (prev).
+		var (
+			kept profile.HTTP3
+			prev profile.QUIC
+		)
+
 		if p.HTTP3 != nil {
 			kept = *p.HTTP3
+		}
+
+		if p.QUIC != nil {
+			prev = *p.QUIC
 		}
 
 		if p.QUIC, err = deriveQUIC(set); err != nil {
@@ -86,7 +96,8 @@ func regenerate(data []byte, dir string) ([]byte, error) {
 			return nil, err
 		}
 
-		if err := deriveEdge(edge, p.QUIC, p.HTTP3); err != nil {
+		sharesStack := platform.Stack(p.Browser, p.Platform) != ""
+		if err := deriveEdge(edge, p.QUIC, p.HTTP3, prev, kept.Discovery.Fallback, sharesStack); err != nil {
 			return nil, fmt.Errorf("h3 edge captures: %w", err)
 		}
 

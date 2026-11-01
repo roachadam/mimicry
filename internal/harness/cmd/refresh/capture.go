@@ -15,6 +15,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/roachadam/mimicry/internal/harness/internal/browser"
+	"github.com/roachadam/mimicry/internal/harness/internal/capture"
+	"github.com/roachadam/mimicry/internal/harness/internal/server"
 )
 
 // stagedCaptures is where p's captures are staged.
@@ -102,6 +106,7 @@ func (r *refreshRun) capturePlan(ctx context.Context, p *plan) error {
 	}
 
 	p.Started = time.Now()
+
 	for _, forced := range []bool{false, true} {
 		var entries []string
 		for _, c := range p.Captures {
@@ -115,7 +120,7 @@ func (r *refreshRun) capturePlan(ctx context.Context, p *plan) error {
 		}
 
 		args := m.captureArgs(
-			"-browsers", p.Browser,
+			"-browsers", p.tool(),
 			"-out", out,
 			"-summary", summary,
 			"-pages", pages,
@@ -124,6 +129,10 @@ func (r *refreshRun) capturePlan(ctx context.Context, p *plan) error {
 		if m.windows {
 			// Chrome's throwaway profiles in the working directory.
 			args = append(args, "-browser-data", "browser-data")
+		}
+
+		if m.iphone {
+			args = append(args, "-listen", r.Listen, "-ios-driver", string(browser.IOSDevicectl))
 		}
 
 		if forced {
@@ -181,8 +190,9 @@ func parseSummary(data []byte) ([]summaryLine, error) {
 }
 
 // checkCaptures refuses a run whose captures do not all name p's profile
-// with one user agent, that misses a planned scenario, or during which the
-// browser was updated.
+// with one user agent, that misses a planned scenario, during which the
+// browser was updated, or whose iPhone captures came from safaridriver's
+// automation window where it does not stand in for the phone's own Safari.
 func (r *refreshRun) checkCaptures(ctx context.Context, p *plan) error {
 	var problems []string
 
@@ -195,6 +205,15 @@ func (r *refreshRun) checkCaptures(ctx context.Context, p *plan) error {
 
 		if l.Name != p.Name {
 			problems = append(problems, fmt.Sprintf("scenario %s was captured as %s, not %s", l.Scenario, l.Name, p.Name))
+		}
+
+		name := l.Scenario
+		if name == "" {
+			name = capture.DefaultScenario
+		}
+
+		if sc, err := server.ScenarioByName(name); l.Driver == string(browser.IOSSafaridriver) && err == nil && sc.AutomationDiffersOnIOS() != "" {
+			problems = append(problems, fmt.Sprintf("scenario %s was captured through safaridriver: %s", l.Scenario, sc.AutomationDiffersOnIOS()))
 		}
 	}
 
@@ -222,7 +241,7 @@ func (r *refreshRun) checkCaptures(ctx context.Context, p *plan) error {
 		return err
 	}
 
-	if v := rep.installedVersion(p.Browser); v != p.Installed {
+	if v := rep.installedVersion(p.tool()); v != p.Installed {
 		problems = append(problems, fmt.Sprintf("%s is %s on %s now, %s when the run started: it updated during the run; capture again", p.Browser, v, r.machine(p), p.Installed))
 	}
 

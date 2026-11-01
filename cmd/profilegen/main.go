@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/roachadam/mimicry/internal/platform"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -181,15 +182,23 @@ func checkPolicy(profiles []*profile.Profile) error {
 	}
 
 	for _, p := range profiles {
+		stack := platform.Stack(p.Browser, p.Platform)
+
 		for _, sc := range slices.Sorted(maps.Keys(p.CapturesFrom)) {
 			from, ok := byName[p.CapturesFrom[sc]]
+			shared := ok && stack != "" && from.Platform == stack
+
 			switch {
 			case !ok:
 				return fmt.Errorf("%s: capturesFrom.%s: %q is not a built-in profile", p.Name, sc, p.CapturesFrom[sc])
-			case from.Browser != p.Browser || from.Platform != p.Platform:
+			case from.Browser != p.Browser || (from.Platform != p.Platform && !shared):
 				return fmt.Errorf("%s: capturesFrom.%s: %s is not %s on %s", p.Name, sc, from.Name, p.Browser, p.Platform)
-			case compareVersions(from.Version, p.Version) >= 0:
+			case !shared && compareVersions(from.Version, p.Version) >= 0:
 				return fmt.Errorf("%s: capturesFrom.%s: %s is not an older version", p.Name, sc, from.Name)
+			case shared && compareVersions(from.Version, p.Version) > 0:
+				// The platform sharing the stack: its same version, or an
+				// older one (decision 0051).
+				return fmt.Errorf("%s: capturesFrom.%s: %s is a newer version", p.Name, sc, from.Name)
 			case from.CapturesFrom[sc] != "":
 				return fmt.Errorf("%s: capturesFrom.%s: %s inherits that scenario itself; name %s, which holds the captures", p.Name, sc, from.Name, from.CapturesFrom[sc])
 			}

@@ -140,7 +140,7 @@ func TestValidate(t *testing.T) {
 				}
 			},
 			path: "capturesFrom.cookies",
-			want: "is not a chrome profile on test",
+			want: "is not a chrome profile: captures are inherited only from the same browser",
 		},
 		{
 			name: "captures inherited for a malformed scenario",

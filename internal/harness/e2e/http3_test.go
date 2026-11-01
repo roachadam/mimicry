@@ -147,14 +147,6 @@ func h3Captures(t *testing.T, p *profile.Profile, sc *server.Scenario) []*captur
 		rest = ".pagetrace.json.gz"
 	}
 
-	if path, file, _ := capturePath(t, p, sc.Name, rest); !exists(path) {
-		if why, ok := missingCaptures[file]; ok {
-			t.Skipf("no capture %s: %s", file, why)
-		}
-	} else if why, ok := missingCaptures[file]; ok {
-		t.Fatalf("capture %s exists but is listed missing (%s)", file, why)
-	}
-
 	pages, err := loadPages(t, p, sc.Name, rest)
 	if err != nil {
 		t.Fatal(err)
@@ -893,7 +885,14 @@ var h3Gaps = map[string]string{
 	"firefox-158-macos/h3-discovery HTTP/3 /h3/markup-image2.so header list": "Firefox gave the second page's only image u=4, i (its kind's u=5, i): a layout-driven image priority, pinned in kindsgen's h3PriorityGaps too",
 	"firefox-158-macos/h3-discovery HTTP/3 /h3/markup-image2.so field lines": "as its header list",
 	"safari-27-macos/h3-page TCP www.h3-a.test #2 goaway":                    "not the page's traffic: a second TCP connection repeating GET /h3/kinds.so with another user agent (Mac OS X 10_11_1), no referer and sec-fetch-site none, another system client (report http3-2026-10-25, section 4)",
+	// Safari's kinds over HTTP/3 are measured for fetch() only.
+	"safari-27-ios/h3-page transport /h3/beacon.so":                                   iosBeacon,
+	"safari-27-ios/h3-page QUIC www.h3-a.test QUIC #1 starts with its TCP connection": iosBeacon,
+	"safari-27-ios/h3-page QUIC www.h3-a.test connections":                            iosBeacon,
 }
+
+// iosBeacon is the iPhone's beacon gap (h3Gaps).
+const iosBeacon = "the iPhone sent the beacon over HTTP/3, on a QUIC connection of its own beside the page's HTTP/2 one (3 of 3); Safari's kinds other than fetch() are not measured over HTTP/3, so mimicry keeps it on TCP"
 
 // gapsFor returns the check compareFeatures skips known gaps with, and a
 // function that fails the test for each of the profile's gaps not seen.

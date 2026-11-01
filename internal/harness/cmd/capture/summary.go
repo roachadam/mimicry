@@ -19,6 +19,10 @@ type summaryLine struct {
 	Seconds   float64 `json:"seconds"`
 	// File is the first file written, in the output directory.
 	File string `json:"file"`
+	// Driver is how Safari on an iPhone was sent to the URLs
+	// (browser.IOSDriver), empty for other browsers: devicectl and manual
+	// are the phone's own Safari, safaridriver its automation window.
+	Driver string `json:"driver,omitempty"`
 }
 
 // appendSummary appends l to path as one JSON line; no path, no summary.

@@ -227,6 +227,13 @@ linters:
             - $gostd
             - github.com/roachadam/mimicry/profile$
             - golang.org/x/net/http2/hpack
+        internal/platform:
+          files:
+            - ${config-path}/internal/platform/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
         internal/pool:
           files:
             - ${config-path}/internal/pool/*.go

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"slices"
 	"strings"
@@ -312,7 +313,9 @@ func stubResolver(t *testing.T) *net.Resolver {
 
 	go func() {
 		// Serve stops as the test ends, before its cleanups run.
-		done <- dnsstub.Serve(t.Context(), pc)
+		done <- dnsstub.Serve(t.Context(), pc, dnsstub.Config{
+			Answer: netip.AddrFrom4([4]byte{127, 0, 0, 1}),
+		})
 	}()
 
 	t.Cleanup(func() {

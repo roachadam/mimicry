@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/roachadam/mimicry/internal/harness/internal/quictrace"
 	"github.com/roachadam/mimicry/internal/harness/internal/server"
 	"github.com/roachadam/mimicry/profile"
 )
@@ -341,6 +342,12 @@ func h3Requests(dir string, p *profile.Profile) ([]h3Request, error) {
 				}
 
 				for _, r := range c.H3.Requests {
+					if sentEarly(r.Section.Fields) {
+						// Sent in 0-RTT: the 0-RTT rules' (h3gen), not the
+						// kinds'.
+						continue
+					}
+
 					at := fmt.Sprintf("%s: sample %d, QUIC connection %d, %s", filepath.Base(path), si+1, ci+1, r.Path)
 
 					kind, err := h3Kind(steps, r.Path)
@@ -381,6 +388,15 @@ func h3Requests(dir string, p *profile.Profile) ([]h3Request, error) {
 	}
 
 	return out, errors.Join(errs...)
+}
+
+// sentEarly reports whether a request's fields mark it sent in 0-RTT:
+// Safari adds early-data: 1 to those (RFC 8470), which an h3-discovery
+// page sends when an idle QUIC connection is resumed.
+func sentEarly(fields []quictrace.FieldLine) bool {
+	return slices.ContainsFunc(fields, func(f quictrace.FieldLine) bool {
+		return f.Name == "early-data"
+	})
 }
 
 // h3Kind is the kind of the h3 pages' request for path: its step's, the

@@ -65,6 +65,45 @@ func FullScenarios() []Planned {
 	return out
 }
 
+// IOSScenarios are what a refresh captures of Safari on an iPhone, three
+// samples each (decision 0051): the fingerprint layer, and the scenarios
+// kindsgen and the rules are derived from, from which the profile inherits
+// every other scenario but those NotInheritedOnIOS keeps out. The direct
+// scenarios come first, then the proxy ones, for which someone sets the
+// iPhone's Wi-Fi proxy by hand.
+func IOSScenarios() []Planned {
+	names := []string{
+		"page",
+		"kinds",
+		"kinds-http1",
+		"cookies",
+		"cors",
+		"cors-edge",
+		"cors-edge-cookies",
+		"redirects2",
+		"redirects2-cookies",
+		"headers-order",
+		"http1",
+		"h3-discovery",
+		"h3-page",
+		"resume",
+		"websocket",
+		"websocket-h2",
+		"proxy-connect",
+		"proxy-plain",
+	}
+	out := make([]Planned, len(names))
+
+	for i, name := range names {
+		out[i] = Planned{
+			Scenario: scenarioNamed(name),
+			Samples:  3,
+		}
+	}
+
+	return out
+}
+
 // scenarioNamed is ScenarioByName for a name Scenarios is known to hold.
 func scenarioNamed(name string) *Scenario {
 	sc, err := ScenarioByName(name)

@@ -106,8 +106,8 @@ type H3Grease struct {
 type H3UniStream struct {
 	// Type is H3StreamControl, H3StreamQPACKEncoder or H3StreamQPACKDecoder.
 	Type string `json:"type"`
-	// Open is when it is opened: H3OpenAtHandshake, H3OpenOnFirstInsert or
-	// H3OpenNever.
+	// Open is when it is opened: H3OpenAtHandshake, H3OpenOnFirstInsert,
+	// H3OpenOnSettings or H3OpenNever.
 	Open string `json:"open"`
 }
 
@@ -126,6 +126,12 @@ const (
 	// H3OpenOnFirstInsert opens the encoder stream with the first request
 	// that inserts into the dynamic table.
 	H3OpenOnFirstInsert = "first_insert"
+	// H3OpenOnSettings opens the encoder stream once the server's SETTINGS
+	// allow a dynamic table, carrying only Set Dynamic Table Capacity to
+	// the server's maximum (at most 64 KiB), and never where they do not:
+	// a browser that announces the table and inserts nothing (Safari on
+	// iOS, without a qpack.encoder; seen with a 64 KiB server only).
+	H3OpenOnSettings = "settings"
 	// H3OpenNever reserves the stream ID and never sends on it.
 	H3OpenNever = "never"
 )

@@ -14,7 +14,9 @@ import (
 
 // headersOrderGaps are the headers-order steps mimicry cannot match: an XHR
 // whose page set headers out of name order, which the browser follows. An
-// http.Header has no order, so mimicry sorts by name as fetch() does.
+// http.Header has no order, so mimicry sorts by name as fetch() does. On
+// the iPhone also the steps with 26 or more page-set names, and XHR's
+// repeated name: kindsgen's headersGaps.
 var headersOrderGaps = map[string][]string{
 	"chrome-155-macos": {
 		"letters-rev.xhr.so", "around-rev.xhr.so",
@@ -40,6 +42,12 @@ var headersOrderGaps = map[string][]string{
 		"letters-rev.xhr.so", "around-rev.xhr.so", "case.xhr.so",
 		"around-rev.xhr.cs", "case.xhr.cs",
 		"around-rev.xhr.h1", "case.xhr.h1",
+	},
+	"safari-27-ios": {
+		"letters.fetch.so", "letters.xhr.so", "letters-rev.fetch.so", "letters-rev.xhr.so",
+		"around.fetch.so", "around.xhr.so", "around-rev.fetch.so", "around-rev.xhr.so",
+		"around.fetch.cs", "around.xhr.cs", "around-rev.fetch.cs", "around-rev.xhr.cs", "case.xhr.cs",
+		"around.fetch.h1", "around.xhr.h1", "around-rev.fetch.h1", "around-rev.xhr.h1", "case.xhr.h1",
 	},
 }
 

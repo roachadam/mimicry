@@ -51,7 +51,10 @@ func discovery(s *captureSet, e *collector) profile.Discovery {
 		for _, host := range hosts(page) {
 			sw, err := switchRule(page, host, goaway)
 			if err != nil {
-				e.errs = append(e.errs, fmt.Errorf("%s, %s: %w", dp.at, host, err))
+				if !s.pinned(dp.at + ", " + host + ": switch") {
+					e.errs = append(e.errs, fmt.Errorf("%s, %s: %w", dp.at, host, err))
+				}
+
 				continue
 			}
 

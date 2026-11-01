@@ -13,6 +13,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
 	"net/textproto"
 	"net/url"
 	"slices"
@@ -51,6 +52,10 @@ type Proxy struct {
 	// carry: one without it is recorded and answered 407 (Basic), keeping
 	// the connection open for the retry.
 	Auth string
+	// Clients, when valid, are the addresses served (the -listen network,
+	// for a proxy the iPhone's Wi-Fi settings name, which passes other
+	// hosts through): connections from elsewhere are closed unanswered.
+	Clients netip.Prefix
 	// Logf receives connection errors. Nil discards them.
 	Logf func(format string, args ...any)
 
@@ -119,6 +124,16 @@ func (p *Proxy) Serve(ctx context.Context, ln net.Listener) error {
 			return err
 		}
 
+		if p.Clients.IsValid() && !p.Clients.Contains(remoteAddr(conn)) {
+			if p.Logf != nil {
+				p.Logf("%s: not on the capture's network, refused", conn.RemoteAddr())
+			}
+
+			_ = conn.Close()
+
+			continue
+		}
+
 		wg.Go(func() {
 			if err := p.handle(ctx, conn); err != nil {
 				_ = conn.Close()
@@ -128,6 +143,16 @@ func (p *Proxy) Serve(ctx context.Context, ln net.Listener) error {
 			}
 		})
 	}
+}
+
+// remoteAddr is conn's peer address, unmapped; invalid for a connection
+// not over TCP.
+func remoteAddr(conn net.Conn) netip.Addr {
+	if a, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
+		return a.AddrPort().Addr().Unmap()
+	}
+
+	return netip.Addr{}
 }
 
 func (p *Proxy) handle(ctx context.Context, conn net.Conn) error {

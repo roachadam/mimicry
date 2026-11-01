@@ -66,3 +66,44 @@ func TestWriteNeverOverwrites(t *testing.T) {
 		t.Error("second Write changed the existing capture")
 	}
 }
+
+// A capture is named from its user agent: Safari on an iPhone must not take
+// the macOS profile's name, whose Safari version it shares.
+func TestParseUserAgent(t *testing.T) {
+	for _, tc := range []struct {
+		ua                         string
+		browser, version, platform string
+	}{
+		{
+			// Safari 27.2 on iOS 27.2, captured 2026-11-01: iOS keeps
+			// saying 18_7 in the user agent.
+			ua:       "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1",
+			browser:  "safari",
+			version:  "27",
+			platform: "ios",
+		},
+		{
+			ua:       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
+			browser:  "safari",
+			version:  "27",
+			platform: "macos",
+		},
+	} {
+		c := &Capture{
+			Profile: profile.Profile{
+				Headers: []profile.Header{
+					{
+						Name:  "user-agent",
+						Value: tc.ua,
+					},
+				},
+			},
+		}
+		c.Identify()
+
+		want := tc.browser + "-" + tc.version + "-" + tc.platform
+		if c.Profile.Browser != tc.browser || c.Profile.Version != tc.version || c.Profile.Platform != tc.platform || c.Profile.Name != want {
+			t.Errorf("%s: identified as %s (%s, %s, %s), want %s", tc.ua, c.Profile.Name, c.Profile.Browser, c.Profile.Version, c.Profile.Platform, want)
+		}
+	}
+}

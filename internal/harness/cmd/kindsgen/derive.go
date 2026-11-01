@@ -159,6 +159,9 @@ type request struct {
 	pageOrder []string
 	// Origin does not make a WebSocket handshake CORS-checked.
 	websocket bool
+	// tableGap is a headersGaps request: it only names the browser's
+	// headers that enter the header table.
+	tableGap bool
 }
 
 // labelSite is the site relation a kinds page label names: so, ss or cs.
@@ -454,7 +457,7 @@ func collect(pg *pages) ([]*request, error) {
 
 	out = append(out, navs...)
 
-	hdrs, err := headersRequests(pg.headers)
+	hdrs, err := headersRequests(pg.p, pg.headers)
 	if err != nil {
 		errs = append(errs, err)
 	}
@@ -768,10 +771,35 @@ func navRedirectRequests(p *profile.Profile, pages []scenarioPages) ([]*request,
 	return out, errors.Join(errs...)
 }
 
+// headersGaps are, per profile, headers-order steps ("<set>.<api>", every
+// site) whose orders the header table does not explain, recorded as known
+// differences (profiles/EVIDENCE.md): they still say which of the
+// browser's names enter the table (deriveTable), and nothing else.
+// Inheriting profiles leave them out too.
+var headersGaps = map[string]map[string]string{
+	"safari-27-ios": {
+		"letters.fetch":     iosLargeTable,
+		"letters.xhr":       iosLargeTable,
+		"letters-rev.fetch": iosLargeTable,
+		"letters-rev.xhr":   iosLargeTable,
+		"around.fetch":      iosLargeTable,
+		"around.xhr":        iosLargeTable,
+		"around-rev.fetch":  iosLargeTable,
+		"around-rev.xhr":    iosLargeTable,
+		"case.xhr": "the iPhone's XHR puts the name set twice (x-dup) where no setRequestHeader order puts it in CFNetwork's table, " +
+			"before x-mixed and x-upper (macOS Safari: after x-mixed)",
+	},
+}
+
+// iosLargeTable is why the iPhone's headers-order steps with 26 or more
+// page-set names are gaps.
+const iosLargeTable = "with 26 or more page-set names (the table grown past 23 buckets) the iPhone's order is not CFNetwork's table as modelled, " +
+	"from any insertion order of its own names; up to 4 page-set names it is"
+
 // headersRequests returns the headers-order page's fetches and XHRs with
-// page-set headers (server.HeadersSteps), base hdr-fetch or hdr-xhr.
-// OPTIONS belong to the preflight kind.
-func headersRequests(samples []*capture.Page) ([]*request, error) {
+// page-set headers (server.HeadersSteps), base hdr-fetch or hdr-xhr; p's
+// headersGaps are marked tableGap. OPTIONS belong to the preflight kind.
+func headersRequests(p *profile.Profile, samples []*capture.Page) ([]*request, error) {
 	steps := map[string]server.HeadersStep{}
 	for _, st := range server.HeadersSteps() {
 		steps[st.Label] = st
@@ -782,6 +810,9 @@ func headersRequests(samples []*capture.Page) ([]*request, error) {
 		errs []error
 	)
 
+	gaps := headersGaps[capture.Source(p, server.HeadersOrder.Name)]
+	seen := map[string]bool{}
+
 	add := func(q *request, si int) {
 		st, ok := steps[q.label]
 		if !ok {
@@ -790,6 +821,11 @@ func headersRequests(samples []*capture.Page) ([]*request, error) {
 		}
 
 		target := q.label[strings.LastIndex(q.label, ".")+1:]
+
+		if step := strings.TrimSuffix(q.label, "."+target); gaps[step] != "" {
+			seen[step] = true
+			q.tableGap = true
+		}
 
 		q.other = true
 		q.base = "hdr-" + st.API
@@ -828,6 +864,12 @@ func headersRequests(samples []*capture.Page) ([]*request, error) {
 				sample: si,
 				h1:     h1Fields(r.Headers),
 			}, si)
+		}
+	}
+
+	for step := range gaps {
+		if !seen[step] && len(samples) > 0 {
+			errs = append(errs, fmt.Errorf("headers-order: %s is in headersGaps but not in the capture: drop it", step))
 		}
 	}
 
@@ -964,6 +1006,11 @@ func derive(p *profile.Profile, reqs []*request) error {
 	if err != nil {
 		errs = append(errs, err)
 	}
+
+	// The table gaps named the table's own headers; nothing else.
+	reqs = slices.DeleteFunc(slices.Clone(reqs), func(r *request) bool {
+		return r.tableGap
+	})
 
 	for _, src := range kindSources {
 		own := pick(src.own, false, src.preflight)

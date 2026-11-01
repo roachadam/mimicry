@@ -764,8 +764,17 @@ func (c *checker) checkUniStreams(h *HTTP3) {
 				c.add(at+".open", "%q applies only to the encoder stream", H3OpenOnFirstInsert)
 			}
 
+		case H3OpenOnSettings:
+			if s.Type != H3StreamQPACKEncoder {
+				c.add(at+".open", "%q applies only to the encoder stream", H3OpenOnSettings)
+			}
+
+			if h.QPACK.Encoder != "" {
+				c.add(at+".open", "%q is for an encoder that never inserts: no qpack.encoder", H3OpenOnSettings)
+			}
+
 		default:
-			c.add(at+".open", "%q must be %q, %q or %q", s.Open, H3OpenAtHandshake, H3OpenOnFirstInsert, H3OpenNever)
+			c.add(at+".open", "%q must be %q, %q, %q or %q", s.Open, H3OpenAtHandshake, H3OpenOnFirstInsert, H3OpenOnSettings, H3OpenNever)
 		}
 	}
 

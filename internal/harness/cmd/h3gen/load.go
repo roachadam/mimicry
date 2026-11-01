@@ -16,7 +16,8 @@ import (
 
 // sampleGaps pin connections that differ from the rest of their browser's
 // for timing or state reasons. Keys are conn.at name plus profile field,
-// so a pin applies to every inheriting profile; values say why.
+// or an h3-discovery sample, host and "switch" for its switch rule, so a
+// pin applies to every inheriting profile; values say why.
 var sampleGaps = map[string]string{ //nolint:gosec // pinned capture gaps, not credentials
 	"chrome-155-macos.h3-discovery.local-roots: sample 2, QUIC connection 2: ackInitial":                         "Chrome acknowledged the server's Initial in 1 of its 12 completed full handshakes: quiche drops its Initial keys when it sends its first Handshake packet, and acknowledges an Initial only if one arrives before it has Handshake keys to send with (timing)",
 	"chrome-155-macos.h3-discovery.local-roots: sample 2, QUIC connection 5: tokens":                             "Chrome's reconnection to www.h3-b.test after the 35 s idle carried no NEW_TOKEN token in 2 of 3 samples, though resumed with 0-RTT; its first connection there had received one (Chrome's token cache, not modelled)",
@@ -54,6 +55,7 @@ var sampleGaps = map[string]string{ //nolint:gosec // pinned capture gaps, not c
 	"safari-27-macos.h3-download: sample 3: credit":                                                              "as sample 1: increments 63 B–2.10 MB, median 0.98 MB",
 	"safari-27-macos.h3-vn: sample 1: tcpDelayMs vn-3.so":                                                        "after an immediate Version Negotiation Safari 27 dialled TCP 202 ms after its QUIC attempt, beyond the 100–129 ms of its races elsewhere (Safari 26: 92–106 ms, within its range); three samples cannot say why",
 	"safari-27-macos.h3-vn: sample 2: tcpDelayMs vn-3.so":                                                        "as sample 1: 139 ms",
+	"safari-27-ios.h3-discovery: sample 3, www.h3-b.test: switch":                                                "opened by hand, the page's idle spell lasted 69 s instead of 35 s (samples 1 and 2: 49 s and 35 s; timers held back on the phone, timing), so www.h3-b.test's HTTP/2 connection had been idle 78 s and was gone [INFERENCE: closed by the phone, unrecorded], and xafter-idle.cs went on a new connection, over QUIC: the new-connection rule, without the GOAWAY this check looks for; at 52 s idle (sample 1) the connection was still used",
 }
 
 // conn is one captured QUIC connection.
@@ -143,7 +145,11 @@ func load(dir string, p *profile.Profile) (*captureSet, error) {
 // gap reports whether c's difference in feature is pinned, and marks the
 // pin used.
 func (s *captureSet) gap(c *conn, feature string) bool {
-	key := c.at + ": " + feature
+	return s.pinned(c.at + ": " + feature)
+}
+
+// pinned reports whether sampleGaps pins key, and marks the pin used.
+func (s *captureSet) pinned(key string) bool {
 	if _, ok := sampleGaps[key]; !ok {
 		return false
 	}

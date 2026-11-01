@@ -15,12 +15,14 @@ type Proxy struct {
 	// proxy URL with credentials is an error.
 	ConnectAuth []Header `json:"connectAuth,omitempty"`
 	// ConnectCredentials is when a CONNECT carries credentials:
-	// CredentialsAfterChallenge or CredentialsOnChallenge. Required with
-	// ConnectAuth.
+	// CredentialsAfterChallenge or CredentialsOnChallenge. Empty, with
+	// ConnectAuth: the browser's answer to a proxy's 407 is not measured
+	// (Safari on iOS answers none), so credentials go with the first
+	// request and a challenge flow (Config.BrowserProxyAuth) is an error.
 	ConnectCredentials CredentialTiming `json:"connectCredentials,omitempty"`
 	// ForwardCredentials is when a plain-HTTP request sent to a proxy
-	// carries them: CredentialsAfterChallenge or CredentialsAlways.
-	// Required with ConnectAuth.
+	// carries them: CredentialsAfterChallenge or CredentialsAlways. Empty
+	// as ConnectCredentials, and only with it.
 	ForwardCredentials CredentialTiming `json:"forwardCredentials,omitempty"`
 	// ForwardConnection, when set, is the header that carries Connection's
 	// value, in its place, on a plain-HTTP request sent to a proxy
