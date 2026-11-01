@@ -7,12 +7,32 @@
 # moon
 .moon/cache/
 
-# Build output: `go build` in a cmd directory writes a binary named after it
+# Build output. `go build` names the binary after the command and writes it
+# where it runs: in the cmd's own directory, or in the module root for
+# `go build ./cmd/<name>`. A new command adds its name here.
 bin/
+*.exe
+*.test
 **/cmd/*/*
 !**/cmd/*/*.*
 !**/cmd/*/*/
-*.test
+/pins
+/profilegen
+/internal/harness/capture
+/internal/harness/clientcapture
+/internal/harness/diff
+/internal/harness/h3gen
+/internal/harness/hellogen
+/internal/harness/interop
+/internal/harness/kindsgen
+/internal/harness/pageshape
+/internal/harness/realcheck
+/internal/harness/refresh
+/internal/harness/tracestat
+/internal/bench/bench
+/internal/bench/proxy
+/internal/bench/server
+/internal/bench/setup
 
 # Profiler output from the bench README's profiling recipe
 /internal/bench/reports/**/*.pprof
