@@ -325,12 +325,12 @@ func (sc *Scenario) NotInheritedOnIOS() string {
 	switch {
 	case sc.ProxyAuth:
 		return iosNoProxyAuth
-	case sc.HTTP3() && sc != H3Discovery && sc != H3Page:
-		return "macOS Safari's QUIC hellos lack the transport parameter 0xff080808 every one of the iPhone's sends (h3-discovery, h3-page), so its HTTP/3 failure paths are not the iPhone's; not captured on the iPhone yet"
+	case sc.HTTP3() && sc != H3Discovery && sc != H3Page && sc != H3Blackhole && sc != H3Broken:
+		return "macOS Safari's QUIC hellos differ from the iPhone's in the transport parameter 0xff080808 (27: only the iPhone sends it; 26: only macOS), and its ACK delay, so its HTTP/3 edges are not the iPhone's; not captured on the iPhone yet"
 	case strings.HasPrefix(sc.Name, "replay-") || slices.Contains(iosCORSOrder, sc.Name):
-		return "its CORS-mode requests carry macOS Safari 27's header order (sec-fetch-site, accept, origin), where the iPhone's put accept first (kinds); not captured on the iPhone yet"
+		return "its CORS-mode requests carry macOS Safari's header order (sec-fetch-site, accept, origin), where the iPhone's put accept first (kinds, Safari 26 and 27); not captured on the iPhone yet"
 	case sc == Connections:
-		return "the iPhone keeps uncredentialed requests on connections of their own (kinds, cors), so macOS Safari's connection reuse is not the iPhone's; not captured on the iPhone yet"
+		return "the iPhone's connection reuse is not macOS Safari's (27: uncredentialed requests on connections of their own, kinds, cors); not captured on the iPhone yet"
 	}
 
 	return ""

@@ -1,12 +1,14 @@
 package e2e
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"net/http"
 	"net/url"
@@ -16,10 +18,12 @@ import (
 	"time"
 
 	"github.com/roachadam/mimicry"
+	"github.com/roachadam/mimicry/cookies"
 	"github.com/roachadam/mimicry/internal/harness/internal/capture"
 	"github.com/roachadam/mimicry/internal/harness/internal/diff"
 	"github.com/roachadam/mimicry/internal/harness/internal/proxy"
 	"github.com/roachadam/mimicry/internal/harness/internal/server"
+	"github.com/roachadam/mimicry/internal/harness/internal/testprofiles"
 	"github.com/roachadam/mimicry/profile"
 	"github.com/roachadam/mimicry/profiles"
 )
@@ -28,7 +32,8 @@ import (
 // captures through the capture proxy, with Config.BrowserProxyAuth:
 // CONNECT lines, SOCKS5 bytes, the credential flow (challenge, retry on
 // the same connection, unasked after), and absolute-form plain-HTTP
-// requests. A tunnel carries the profile's direct ClientHello. By
+// requests, every one of the capture page's. A tunnel carries the
+// profile's direct ClientHello. By
 // default ("auth-upfront", "plain-auth-upfront") the credentials go on
 // the first request, where the browser places them on its credentialed
 // ones, with no 407 round trip; the tunnel is unchanged (decision 0039).
@@ -148,11 +153,43 @@ func TestProxyMatchesBrowser(t *testing.T) {
 			t.Run("plain", func(t *testing.T) {
 				want := loadSamples[[]capture.H1Request](t, p, "proxy-plain", ".h1trace.json")
 				s := startProxied(t, p, scenario(t, "proxy-plain"), nil, true)
-				s.get("http", server.CaptureHost, "/")
+				s.page()
 
 				got := s.h1()
-				if g, w := forwarded(got[0]), forwarded(want[0][0]); !slices.Equal(g, w) {
-					t.Errorf("forwarded request:\n got %q\nwant %q", g, w)
+				for _, r := range want[0] {
+					if !slices.ContainsFunc(got, func(g capture.H1Request) bool {
+						return portless([]string{g.Line})[0] == portless([]string{r.Line})[0]
+					}) {
+						t.Errorf("mimicry made no %s", portless([]string{r.Line})[0])
+					}
+				}
+
+				seen := map[string]bool{}
+
+				for _, g := range got {
+					if slices.ContainsFunc(want, func(sample []capture.H1Request) bool {
+						return slices.ContainsFunc(sample, func(w capture.H1Request) bool {
+							return slices.Equal(forwarded(g), forwarded(w))
+						})
+					}) {
+						continue
+					}
+
+					line := portless([]string{g.Line})[0]
+					if why, ok := proxyPlainGaps[name+" "+line]; ok {
+						seen[name+" "+line] = true
+						t.Logf("known gap: %s: %s", line, why)
+
+						continue
+					}
+
+					t.Errorf("forwarded request:\n got %q\nwant %q", forwarded(g), forwardedLike(want[0], g))
+				}
+
+				for k := range proxyPlainGaps {
+					if strings.HasPrefix(k, name+" ") && !seen[k] {
+						t.Errorf("listed gap %q no longer appears", k)
+					}
 				}
 			})
 			t.Run("plain-auth", func(t *testing.T) {
@@ -210,6 +247,38 @@ func TestProxyMatchesBrowser(t *testing.T) {
 		})
 	}
 }
+
+// proxyPlainGaps are forwarded plain-HTTP requests of the capture page
+// known to differ from every sample, as "<profile> <request line>" (ports
+// as PORT), with why: the request is not compared. A listed gap that no
+// longer appears fails.
+var proxyPlainGaps = func() map[string]string {
+	const (
+		nav    = "GET http://capture.mimicry.test:PORT/nav HTTP/1.1"
+		upload = "POST http://capture.mimicry.test:PORT/upload HTTP/1.1"
+		// linkNav: kinds-plain navigates from its plain page only by
+		// form POST, so no profile list measures a GET navigation from a
+		// plain-HTTP page.
+		linkNav = "the page's script navigation to /nav, from a plain-HTTP page: no profile list measures one (kinds-plain's plain navigations are the typed page and a form POST), so mimicry sends the typed navigation's list, which has no Referer and, for Safari, Cookie after Connection (macOS Safari: the typed order as well)"
+		// safariUpload: kinds-plain's POST fetches all carry a
+		// Content-Type.
+		safariUpload = "Safari put Content-Length after Accept on the page's upload, whose body has no Content-Type; kinds-plain's POST fetches all have one, and their list puts Content-Length after Origin, as mimicry does"
+	)
+
+	gaps := map[string]string{
+		"firefox-158-macos GET http://capture.mimicry.test:PORT/app.js HTTP/1.1": "Firefox sent no Priority for the page's script, last in its body; kinds-plain's blocking script, in the head, went at u=2, the profile's one script list",
+	}
+
+	for _, name := range []string{"chrome-155-macos", testprofiles.InheritingName, "chrome-156-macos", "chrome-156-windows", "firefox-158-macos", "safari-26-macos", "safari-27-macos", "safari-26-ios", "safari-27-ios"} {
+		gaps[name+" "+nav] = linkNav
+	}
+
+	for _, name := range []string{"safari-26-macos", "safari-27-macos", "safari-26-ios", "safari-27-ios"} {
+		gaps[name+" "+upload] = safariUpload
+	}
+
+	return gaps
+}()
 
 // What a profile does not describe is an error, not a guess: a proxy without
 // a proxy section, credentials without connectAuth, and a WebSocket through
@@ -321,6 +390,7 @@ func TestUnmeasuredProxyIsAnError(t *testing.T) {
 type proxySession struct {
 	t        *testing.T
 	tr       *mimicry.Transport
+	jar      *cookies.Jar
 	proxy    *proxy.Proxy
 	port     string
 	pool     *x509.CertPool
@@ -342,6 +412,7 @@ func startProxied(t *testing.T, p *profile.Profile, sc *server.Scenario, user *u
 
 	s := &proxySession{
 		t:        t,
+		jar:      newJar(t, p),
 		pool:     x509.NewCertPool(),
 		captures: make(chan *capture.Capture, 64),
 		// Behind a proxy the port is only named, never dialled.
@@ -404,6 +475,7 @@ func startProxied(t *testing.T, p *profile.Profile, sc *server.Scenario, user *u
 	s.tr, err = mimicry.NewTransport(mimicry.Config{
 		Profile: p,
 		RootCAs: s.pool,
+		Cookies: s.jar,
 		Proxy: http.ProxyURL(&url.URL{
 			Scheme: sc.Proxy,
 			Host:   pln.Addr().String(),
@@ -423,13 +495,26 @@ func startProxied(t *testing.T, p *profile.Profile, sc *server.Scenario, user *u
 // get requests path on host over scheme and reads it.
 func (s *proxySession) get(scheme, host, path string) {
 	s.t.Helper()
+	s.send(http.MethodGet, scheme+"://"+net.JoinHostPort(host, s.port)+path, nil, mimicry.Request{}, nil)
+}
 
-	req, err := http.NewRequestWithContext(s.t.Context(), http.MethodGet, scheme+"://"+net.JoinHostPort(host, s.port)+path, nil)
+// send makes a request as r describes, with the page-set headers h, and
+// reads it.
+func (s *proxySession) send(method, target string, body []byte, r mimicry.Request, h http.Header) {
+	s.t.Helper()
+
+	req, err := http.NewRequestWithContext(s.t.Context(), method, target, bytes.NewReader(body))
 	if err != nil {
 		s.t.Fatal(err)
 	}
 
-	resp, err := s.tr.RoundTrip(req)
+	if body == nil {
+		req.Body = http.NoBody
+	}
+
+	maps.Copy(req.Header, h)
+
+	resp, err := s.tr.RoundTrip(mimicry.With(req, r))
 	if err != nil {
 		s.t.Fatal(err)
 	}
@@ -438,8 +523,56 @@ func (s *proxySession) get(scheme, host, path string) {
 	_ = resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		s.t.Fatalf("%s: %s", req.URL, resp.Status)
+		s.t.Fatalf("%s %s: %s", method, req.URL, resp.Status)
 	}
+}
+
+// page loads the capture page over plain HTTP as the browser does: the
+// navigation, its stylesheet, image and script, the script's fetches, the
+// cookies it sets, its navigation to /nav (a script's: no user
+// activation) and that page's fetch of /done.
+func (s *proxySession) page() {
+	s.t.Helper()
+
+	base := "http://" + net.JoinHostPort(server.CaptureHost, s.port)
+
+	page, err := url.Parse(base + "/")
+	if err != nil {
+		s.t.Fatal(err)
+	}
+
+	nav, err := url.Parse(base + "/nav")
+	if err != nil {
+		s.t.Fatal(err)
+	}
+
+	on := func(k mimicry.Kind, from *url.URL) mimicry.Request {
+		return mimicry.Request{
+			Kind: k,
+			From: from,
+		}
+	}
+
+	s.send(http.MethodGet, base+"/", nil, mimicry.Request{}, nil)
+	s.send(http.MethodGet, base+"/style.css", nil, on(mimicry.Style, page), nil)
+	s.send(http.MethodGet, base+"/img.png", nil, on(mimicry.Image, page), nil)
+	s.send(http.MethodGet, base+"/app.js", nil, on(mimicry.Script, page), nil)
+	s.send(http.MethodGet, base+"/big", nil, on(mimicry.Fetch, page), nil)
+	s.send(http.MethodPost, base+"/upload", make([]byte, 200_000), on(mimicry.Fetch, page), nil)
+	s.send(http.MethodGet, base+"/again", nil, on(mimicry.Fetch, page), http.Header{
+		"x-mimicry-huffman": {"{^}~"},
+	})
+	s.jar.SetCookies(cookies.Request{
+		URL:  page,
+		Page: page,
+	}, []string{
+		"mimicry_a=1; path=/nav",
+		"mimicry_b=2; path=/nav",
+	})
+	s.send(http.MethodGet, base+"/nav", nil, on(mimicry.Navigate, page), http.Header{
+		"Sec-Fetch-User": nil,
+	})
+	s.send(http.MethodGet, base+"/done", nil, on(mimicry.Fetch, nav), nil)
 }
 
 // capture closes mimicry's connections, which completes the capture of
@@ -565,6 +698,19 @@ func connectFlow(sample []capture.ProxyRequest) []string {
 // and header lines, ports replaced.
 func forwarded(r capture.H1Request) []string {
 	return portless(append([]string{r.Line}, r.Headers...))
+}
+
+// forwardedLike is the request in sample with g's request line, forwarded,
+// or nil.
+func forwardedLike(sample []capture.H1Request, g capture.H1Request) []string {
+	line := portless([]string{g.Line})[0]
+	for _, w := range sample {
+		if portless([]string{w.Line})[0] == line {
+			return forwarded(w)
+		}
+	}
+
+	return nil
 }
 
 // forwardAuthFlow describes forwarded requests as (connection, credentials),

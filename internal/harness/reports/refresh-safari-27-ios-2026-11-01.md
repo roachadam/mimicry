@@ -1,6 +1,6 @@
 # Refresh of safari-27-ios, 2026-11-01
 
-safari 27.2 on the iPhone, served from this Mac, ios set: new profile, copied from safari-27-macos, inheriting what it does not capture from macos safari's captures, whose network stack it shares (decision 0051). Made by `go run ./cmd/refresh` (staging `.refresh/20261101-130316`).
+safari 27.2 on the iPhone, served from this Mac, ios set: new profile, copied from safari-27-macos, inheriting what it does not capture from macos safari's captures, whose network stack it shares (decision 0051). Made by `go run ./cmd/refresh` (staging `.refresh/ios27-20261101`).
 
 ## Captures
 
@@ -13,6 +13,7 @@ User agent: `Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/
 | page | 3 | safaridriver | 16s | 1m9s |
 | kinds | 3 | manual | 1m14s | 1m45s |
 | kinds-http1 | 3 | manual | 1m5s | 0s |
+| kinds-plain | 3 | devicectl | 11s | 0s |
 | cookies | 3 | devicectl | 2s | 2m45s |
 | cors | 3 | devicectl | 20s | 2m15s |
 | cors-edge | 3 | manual | 50s | 0s |
@@ -28,7 +29,7 @@ User agent: `Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/
 | websocket-h2 | 3 | devicectl | 37s | 6m45s |
 | proxy-connect | 3 | safaridriver | 13s | 1m9s |
 | proxy-plain | 3 | safaridriver | 13s | 1m9s |
-| total | | | 14m52s | 32m51s |
+| total | | | 15m4s | 32m51s |
 
 ## Inherited scenarios
 
@@ -36,7 +37,6 @@ Checked against these profiles' captures, version tokens rewritten (`capturesFro
 
 - cookies-edge: safari-27-macos
 - cookies-edge2: safari-27-macos
-- kinds-plain: safari-27-macos
 - nav-redirect-cs: safari-27-macos
 - nav-redirect-cs-cookies: safari-27-macos
 - nav-redirect-http: safari-27-macos
@@ -50,15 +50,16 @@ Checked against these profiles' captures, version tokens rewritten (`capturesFro
 
 ## Changes from safari-27-macos
 
-Version strings, rewritten in the previous profile before comparing (`capture.NewRewriter`):
+Version strings and the navigation's accept-encoding, rewritten in the previous profile before comparing (`capture.NewRewriter`):
 
 - user-agent: `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15` → `Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1`
+- accept-encoding: `gzip, deflate, br, zstd` → `gzip, deflate, br, zstd`
 
 Lists the browser shuffles on every connection (the QUIC transport parameters, their shuffled versions) are compared as sets.
 
 ### Name, version, inheritance
 
-- `capturesFrom`: (none) → `{"cookies-edge":"safari-27-macos","cookies-edge2":"safari-27-macos","kinds-plain":"safari-27-macos","nav-redirect-cs":"safari-27-macos","nav-redirect-cs-cookies":"safari-27-macos","nav-redirect-http":"safari-27-macos","nav-redirect-http-cookies":"safari-27-macos","nav-redirect-so":"safari-27-macos",…`
+- `capturesFrom`: (none) → `{"cookies-edge":"safari-27-macos","cookies-edge2":"safari-27-macos","nav-redirect-cs":"safari-27-macos","nav-redirect-cs-cookies":"safari-27-macos","nav-redirect-http":"safari-27-macos","nav-redirect-http-cookies":"safari-27-macos","nav-redirect-so":"safari-27-macos","nav-redirect-so-cookies":"safar…`
 - `name`: `"safari-27-macos"` → `"safari-27-ios"`
 - `platform`: `"macos"` → `"ios"`
 
@@ -101,6 +102,18 @@ No change.
 - `kinds.async_script.variants[2].http1[1].value`: (none) → `"*/*"`
 - `kinds.async_script.variants[2].http1[2].name`: `"Accept"` → `"Sec-Fetch-Site"`
 - `kinds.async_script.variants[2].http1[2].value`: `"*/*"` → (none)
+- `kinds.async_script.variants[4].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.async_script.variants[4].http1[2].value`: `"*/*"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.async_script.variants[4].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.async_script.variants[4].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"*/*"`
+- `kinds.async_script.variants[5].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.async_script.variants[5].http1[2].value`: `"*/*"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.async_script.variants[5].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.async_script.variants[5].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"*/*"`
+- `kinds.async_script.variants[7].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.async_script.variants[7].http1[2].value`: `"*/*"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.async_script.variants[7].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.async_script.variants[7].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"*/*"`
 - `kinds.beacon.headers[2].name`: `"origin"` → `"sec-fetch-site"`
 - `kinds.beacon.headers[3].name`: `"sec-fetch-site"` → `"origin"`
 - `kinds.beacon.http1[3].name`: `"Origin"` → `"Sec-Fetch-Site"`
@@ -130,6 +143,18 @@ No change.
 - `kinds.defer_script.variants[2].http1[1].value`: (none) → `"*/*"`
 - `kinds.defer_script.variants[2].http1[2].name`: `"Accept"` → `"Sec-Fetch-Site"`
 - `kinds.defer_script.variants[2].http1[2].value`: `"*/*"` → (none)
+- `kinds.defer_script.variants[4].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.defer_script.variants[4].http1[2].value`: `"*/*"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.defer_script.variants[4].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.defer_script.variants[4].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"*/*"`
+- `kinds.defer_script.variants[5].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.defer_script.variants[5].http1[2].value`: `"*/*"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.defer_script.variants[5].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.defer_script.variants[5].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"*/*"`
+- `kinds.defer_script.variants[7].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.defer_script.variants[7].http1[2].value`: `"*/*"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.defer_script.variants[7].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.defer_script.variants[7].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"*/*"`
 - `kinds.fetch.variants[0].headers[2].name`: `"origin"` → `"sec-fetch-site"`
 - `kinds.fetch.variants[0].headers[3].name`: `"sec-fetch-site"` → `"origin"`
 - `kinds.fetch.variants[0].http1[3].name`: `"Origin"` → `"Sec-Fetch-Site"`
@@ -179,6 +204,18 @@ No change.
 - `kinds.fetch.variants[23].methodChangedByRedirect`: (none) → `true`
 - `kinds.fetch.variants[24].methodChangedByRedirect`: `true` → (none)
 - `kinds.fetch.variants[24].site`: `"cross-site"` → `"same-site"`
+- `kinds.fetch.variants[26].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.fetch.variants[26].http1[2].value`: `"*/*"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.fetch.variants[26].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.fetch.variants[26].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"*/*"`
+- `kinds.fetch.variants[29].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.fetch.variants[29].http1[2].value`: `"*/*"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.fetch.variants[29].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.fetch.variants[29].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"*/*"`
+- `kinds.fetch.variants[32].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.fetch.variants[32].http1[2].value`: `"*/*"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.fetch.variants[32].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.fetch.variants[32].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"*/*"`
 - `kinds.font.variants[0].headers[0].name`: `"sec-fetch-site"` → `"accept"`
 - `kinds.font.variants[0].headers[0].value`: (none) → `"*/*"`
 - `kinds.font.variants[0].headers[1].name`: `"accept"` → `"sec-fetch-site"`
@@ -187,6 +224,30 @@ No change.
 - `kinds.font.variants[0].http1[1].value`: (none) → `"*/*"`
 - `kinds.font.variants[0].http1[2].name`: `"Accept"` → `"Sec-Fetch-Site"`
 - `kinds.font.variants[0].http1[2].value`: `"*/*"` → (none)
+- `kinds.font.variants[2].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.font.variants[2].http1[2].value`: `"*/*"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.font.variants[2].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.font.variants[2].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"*/*"`
+- `kinds.font.variants[3].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.font.variants[3].http1[2].value`: `"*/*"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.font.variants[3].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.font.variants[3].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"*/*"`
+- `kinds.font.variants[4].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.font.variants[4].http1[2].value`: `"*/*"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.font.variants[4].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.font.variants[4].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"*/*"`
+- `kinds.frame.variants[0].http1[2].name`: `"Accept"` → `"Upgrade-Insecure-Requests"`
+- `kinds.frame.variants[0].http1[2].value`: `"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"` → `"1"`
+- `kinds.frame.variants[0].http1[3].name`: `"Upgrade-Insecure-Requests"` → `"Accept"`
+- `kinds.frame.variants[0].http1[3].value`: `"1"` → `"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"`
+- `kinds.frame.variants[1].http1[2].name`: `"Accept"` → `"Upgrade-Insecure-Requests"`
+- `kinds.frame.variants[1].http1[2].value`: `"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"` → `"1"`
+- `kinds.frame.variants[1].http1[3].name`: `"Upgrade-Insecure-Requests"` → `"Accept"`
+- `kinds.frame.variants[1].http1[3].value`: `"1"` → `"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"`
+- `kinds.frame.variants[2].http1[2].name`: `"Accept"` → `"Upgrade-Insecure-Requests"`
+- `kinds.frame.variants[2].http1[2].value`: `"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"` → `"1"`
+- `kinds.frame.variants[2].http1[3].name`: `"Upgrade-Insecure-Requests"` → `"Accept"`
+- `kinds.frame.variants[2].http1[3].value`: `"1"` → `"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"`
 - `kinds.image.variants[0].headers[0].name`: `"sec-fetch-site"` → `"accept"`
 - `kinds.image.variants[0].headers[0].value`: (none) → `"image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"`
 - `kinds.image.variants[0].headers[1].name`: `"accept"` → `"sec-fetch-site"`
@@ -283,6 +344,18 @@ No change.
 - `kinds.image.variants[7].headers[5].value`: (none) → `"en-US,en;q=0.9"`
 - `kinds.image.variants[7].headers[7].name`: `"priority"` → `"referer"`
 - `kinds.image.variants[7].headers[7].value`: `"u=5, i"` → (none)
+- `kinds.image.variants[9].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.image.variants[9].http1[2].value`: `"image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.image.variants[9].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.image.variants[9].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"`
+- `kinds.image.variants[10].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.image.variants[10].http1[2].value`: `"image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.image.variants[10].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.image.variants[10].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"`
+- `kinds.image.variants[12].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.image.variants[12].http1[2].value`: `"image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.image.variants[12].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.image.variants[12].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"`
 - `kinds.injected_image.variants[0].headers[0].name`: `"sec-fetch-site"` → `"accept"`
 - `kinds.injected_image.variants[0].headers[0].value`: (none) → `"image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"`
 - `kinds.injected_image.variants[0].headers[1].name`: `"accept"` → `"sec-fetch-site"`
@@ -379,6 +452,18 @@ No change.
 - `kinds.injected_image.variants[7].headers[5].value`: (none) → `"en-US,en;q=0.9"`
 - `kinds.injected_image.variants[7].headers[7].name`: `"priority"` → `"referer"`
 - `kinds.injected_image.variants[7].headers[7].value`: `"u=5, i"` → (none)
+- `kinds.injected_image.variants[9].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.injected_image.variants[9].http1[2].value`: `"image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.injected_image.variants[9].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.injected_image.variants[9].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"`
+- `kinds.injected_image.variants[10].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.injected_image.variants[10].http1[2].value`: `"image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.injected_image.variants[10].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.injected_image.variants[10].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"`
+- `kinds.injected_image.variants[12].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.injected_image.variants[12].http1[2].value`: `"image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.injected_image.variants[12].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.injected_image.variants[12].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"`
 - `kinds.injected_script.variants[0].headers[0].name`: `"sec-fetch-site"` → `"accept"`
 - `kinds.injected_script.variants[0].headers[0].value`: (none) → `"*/*"`
 - `kinds.injected_script.variants[0].headers[1].name`: `"accept"` → `"sec-fetch-site"`
@@ -403,6 +488,18 @@ No change.
 - `kinds.injected_script.variants[2].http1[1].value`: (none) → `"*/*"`
 - `kinds.injected_script.variants[2].http1[2].name`: `"Accept"` → `"Sec-Fetch-Site"`
 - `kinds.injected_script.variants[2].http1[2].value`: `"*/*"` → (none)
+- `kinds.injected_script.variants[4].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.injected_script.variants[4].http1[2].value`: `"*/*"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.injected_script.variants[4].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.injected_script.variants[4].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"*/*"`
+- `kinds.injected_script.variants[5].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.injected_script.variants[5].http1[2].value`: `"*/*"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.injected_script.variants[5].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.injected_script.variants[5].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"*/*"`
+- `kinds.injected_script.variants[7].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.injected_script.variants[7].http1[2].value`: `"*/*"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.injected_script.variants[7].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.injected_script.variants[7].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"*/*"`
 - `kinds.preload_font.variants[0].headers[0].name`: `"sec-fetch-site"` → `"accept"`
 - `kinds.preload_font.variants[0].headers[0].value`: (none) → `"*/*"`
 - `kinds.preload_font.variants[0].headers[1].name`: `"accept"` → `"sec-fetch-site"`
@@ -411,6 +508,18 @@ No change.
 - `kinds.preload_font.variants[0].http1[1].value`: (none) → `"*/*"`
 - `kinds.preload_font.variants[0].http1[2].name`: `"Accept"` → `"Sec-Fetch-Site"`
 - `kinds.preload_font.variants[0].http1[2].value`: `"*/*"` → (none)
+- `kinds.preload_font.variants[2].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.preload_font.variants[2].http1[2].value`: `"*/*"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.preload_font.variants[2].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.preload_font.variants[2].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"*/*"`
+- `kinds.preload_font.variants[3].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.preload_font.variants[3].http1[2].value`: `"*/*"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.preload_font.variants[3].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.preload_font.variants[3].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"*/*"`
+- `kinds.preload_font.variants[4].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.preload_font.variants[4].http1[2].value`: `"*/*"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.preload_font.variants[4].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.preload_font.variants[4].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"*/*"`
 - `kinds.preload_script.variants[0].headers[0].name`: `"sec-fetch-site"` → `"accept"`
 - `kinds.preload_script.variants[0].headers[0].value`: (none) → `"*/*"`
 - `kinds.preload_script.variants[0].headers[1].name`: `"accept"` → `"sec-fetch-site"`
@@ -435,6 +544,18 @@ No change.
 - `kinds.preload_script.variants[2].http1[1].value`: (none) → `"*/*"`
 - `kinds.preload_script.variants[2].http1[2].name`: `"Accept"` → `"Sec-Fetch-Site"`
 - `kinds.preload_script.variants[2].http1[2].value`: `"*/*"` → (none)
+- `kinds.preload_script.variants[4].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.preload_script.variants[4].http1[2].value`: `"*/*"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.preload_script.variants[4].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.preload_script.variants[4].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"*/*"`
+- `kinds.preload_script.variants[5].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.preload_script.variants[5].http1[2].value`: `"*/*"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.preload_script.variants[5].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.preload_script.variants[5].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"*/*"`
+- `kinds.preload_script.variants[7].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.preload_script.variants[7].http1[2].value`: `"*/*"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.preload_script.variants[7].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.preload_script.variants[7].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"*/*"`
 - `kinds.script.variants[0].headers[0].name`: `"sec-fetch-site"` → `"accept"`
 - `kinds.script.variants[0].headers[0].value`: (none) → `"*/*"`
 - `kinds.script.variants[0].headers[1].name`: `"accept"` → `"sec-fetch-site"`
@@ -459,6 +580,30 @@ No change.
 - `kinds.script.variants[2].http1[1].value`: (none) → `"*/*"`
 - `kinds.script.variants[2].http1[2].name`: `"Accept"` → `"Sec-Fetch-Site"`
 - `kinds.script.variants[2].http1[2].value`: `"*/*"` → (none)
+- `kinds.script.variants[4].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.script.variants[4].http1[2].value`: `"*/*"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.script.variants[4].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.script.variants[4].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"*/*"`
+- `kinds.script.variants[5].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.script.variants[5].http1[2].value`: `"*/*"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.script.variants[5].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.script.variants[5].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"*/*"`
+- `kinds.script.variants[7].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.script.variants[7].http1[2].value`: `"*/*"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.script.variants[7].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.script.variants[7].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"*/*"`
+- `kinds.style.variants[0].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.style.variants[0].http1[2].value`: `"text/css,*/*;q=0.1"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.style.variants[0].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.style.variants[0].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"text/css,*/*;q=0.1"`
+- `kinds.style.variants[1].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.style.variants[1].http1[2].value`: `"text/css,*/*;q=0.1"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.style.variants[1].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.style.variants[1].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"text/css,*/*;q=0.1"`
+- `kinds.style.variants[2].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.style.variants[2].http1[2].value`: `"text/css,*/*;q=0.1"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.style.variants[2].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.style.variants[2].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"text/css,*/*;q=0.1"`
 - `kinds.xhr.variants[0].headers[0].name`: `"sec-fetch-site"` → `"accept"`
 - `kinds.xhr.variants[0].headers[0].value`: (none) → `"*/*"`
 - `kinds.xhr.variants[0].headers[1].name`: `"accept"` → `"sec-fetch-site"`
@@ -477,6 +622,10 @@ No change.
 - `kinds.xhr.variants[1].http1[2].name`: `"Accept"` → `"Sec-Fetch-Site"`
 - `kinds.xhr.variants[1].http1[2].value`: `"*/*"` → (none)
 - `kinds.xhr.variants[1].site`: `"same-site"` → `"cross-site"`
+- `kinds.xhr.variants[3].http1[2].name`: `"Accept"` → `"User-Agent"`
+- `kinds.xhr.variants[3].http1[2].value`: `"*/*"` → `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"`
+- `kinds.xhr.variants[3].http1[3].name`: `"User-Agent"` → `"Accept"`
+- `kinds.xhr.variants[3].http1[3].value`: `"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"` → `"*/*"`
 - `kinds.xhr.variants[6].headers[2].name`: `"origin"` → `"sec-fetch-site"`
 - `kinds.xhr.variants[6].headers[3].name`: `"sec-fetch-site"` → `"origin"`
 - `quic.ackDelay`: `"constant"` → `"actual"`

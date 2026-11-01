@@ -181,8 +181,33 @@ var h3EdgeGaps = func() map[string]string {
 		}
 	}
 
+	// The iPhone (decision 0051): its first blackholed attempt sends a
+	// second Initial pair before TCP takes over, the first of it an
+	// unpadded 1038-byte datagram; quic.loss is not measured for it. Its
+	// reconnections after h3-broken's silence resume with 0-RTT, which is
+	// not measured for it either.
+	for _, k := range []string{"datagrams", "Initial packet number steps"} {
+		gaps["safari-26-ios/h3-blackhole edge QUIC www.h3-a.test #1 "+k] = iosProbes
+	}
+
+	for _, k := range []string{"QUIC www.h3-a.test #2", "QUIC www.h3-b.test #2", "QUIC www.h3-b.test #2 datagrams"} {
+		gaps["safari-26-ios/h3-broken edge "+k] = iosZeroRTT
+	}
+
+	for _, r := range []string{"silence", "silent1", "silent2", "silent3", "silent4", "silent5", "silent6"} {
+		gaps["safari-26-ios/h3-broken edge request /h3/"+r+".so sent"] = iosZeroRTT
+		gaps["safari-26-ios/h3-broken edge request /h3/"+r+".so streams"] = iosZeroRTT
+	}
+
 	return gaps
 }()
+
+// iosProbes and iosZeroRTT are why the iPhone's failure pair differs
+// (h3EdgeGaps).
+const (
+	iosProbes  = "the iPhone sent a second Initial pair 50–140 ms into its first blackholed attempt, before TCP took over (macOS Safari's was dropped first), the pair's first an unpadded Initial in a 1038-byte datagram (RFC 9000 asks 1200); quic.loss, which would hold the probes, is not measured for the iPhone, whose timing over Wi-Fi the captures cannot pin"
+	iosZeroRTT = "the iPhone resumed its reconnections with 0-RTT, the waiting requests in it (as macOS Safari); 0-RTT is not measured for it (no h3-early, and its resumed Initials come unpadded, 1129 bytes), so mimicry reconnects with a full handshake"
+)
 
 // h3EdgeSchedulingGaps are known differences that show or not by this
 // process's scheduling, keyed as h3EdgeGaps: skipped as those are, but
@@ -1259,7 +1284,10 @@ func checkPathMoves(t *testing.T, p *profile.Profile, who string, page *capture.
 // ClientHello to the browser's resumed ones (tls.quic.earlyDataBefore),
 // mimicry's and every sample's moves to a new path to the profile's rule
 // (checkPathMoves), and mimicry's held requests to requestsAfterConfirmed
-// (checkHeldConfirmed).
+// (checkHeldConfirmed). Times are not compared against samples captured
+// over a network (Safari on an iPhone, its pages' driver set): the
+// server's clock puts the phone's packets a path's delay late, which h3gen
+// does not measure either (its ranges stay copied, decision 0051).
 func compareEdge(t *testing.T, p *profile.Profile, got *capture.Page, want []*capture.Page, skip func(string) bool) {
 	t.Helper()
 
@@ -1275,7 +1303,15 @@ func compareEdge(t *testing.T, p *profile.Profile, got *capture.Page, want []*ca
 	}
 
 	compareFeatures(t, "edge", gf, refs, skip)
-	compareTimes(t, gms, stalled, refMS, skip)
+
+	if slices.ContainsFunc(want, func(w *capture.Page) bool {
+		return w.Driver != ""
+	}) {
+		t.Logf("times not compared: the browser's samples were captured over a network (driver %s)", want[0].Driver)
+	} else {
+		compareTimes(t, gms, stalled, refMS, skip)
+	}
+
 	checkPathMoves(t, p, "mimicry", got)
 
 	for i, w := range want {

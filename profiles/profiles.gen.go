@@ -59,6 +59,11 @@ func Firefox158MacOS() *profile.Profile {
 	return load("firefox-158-macos")
 }
 
+// Safari26IOS returns a fresh copy of the safari-26-ios profile (safari 26 on ios).
+func Safari26IOS() *profile.Profile {
+	return load("safari-26-ios")
+}
+
 // Safari26MacOS returns a fresh copy of the safari-26-macos profile (safari 26 on macos).
 func Safari26MacOS() *profile.Profile {
 	return load("safari-26-macos")
@@ -79,6 +84,7 @@ var names = []string{
 	"chrome-156-macos",
 	"chrome-156-windows",
 	"firefox-158-macos",
+	"safari-26-ios",
 	"safari-26-macos",
 	"safari-27-ios",
 	"safari-27-macos",
@@ -89,6 +95,7 @@ var supported = []string{
 	"chrome-156-macos",
 	"chrome-156-windows",
 	"firefox-158-macos",
+	"safari-26-ios",
 	"safari-26-macos",
 	"safari-27-ios",
 	"safari-27-macos",

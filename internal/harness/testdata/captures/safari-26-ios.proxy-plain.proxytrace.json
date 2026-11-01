@@ -1,0 +1,164 @@
+[
+  [
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 502,
+      "target": "capture.mimicry.test:58193",
+      "lines": [
+        "CONNECT capture.mimicry.test:58193 HTTP/1.1",
+        "Host: capture.mimicry.test:58193",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "devicectl"
+    },
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 502,
+      "target": "capture.mimicry.test:58193",
+      "lines": [
+        "CONNECT capture.mimicry.test:58193 HTTP/1.1",
+        "Host: capture.mimicry.test:58193",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "devicectl"
+    },
+    {
+      "kind": "connect",
+      "conn": 3,
+      "status": 502,
+      "target": "capture.mimicry.test:58193",
+      "lines": [
+        "CONNECT capture.mimicry.test:58193 HTTP/1.1",
+        "Host: capture.mimicry.test:58193",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "devicectl"
+    },
+    {
+      "kind": "connect",
+      "conn": 4,
+      "status": 502,
+      "target": "capture.mimicry.test:58193",
+      "lines": [
+        "CONNECT capture.mimicry.test:58193 HTTP/1.1",
+        "Host: capture.mimicry.test:58193",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "devicectl"
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 502,
+      "target": "capture.mimicry.test:58197",
+      "lines": [
+        "CONNECT capture.mimicry.test:58197 HTTP/1.1",
+        "Host: capture.mimicry.test:58197",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "devicectl"
+    },
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 502,
+      "target": "capture.mimicry.test:58197",
+      "lines": [
+        "CONNECT capture.mimicry.test:58197 HTTP/1.1",
+        "Host: capture.mimicry.test:58197",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "devicectl"
+    },
+    {
+      "kind": "connect",
+      "conn": 3,
+      "status": 502,
+      "target": "capture.mimicry.test:58197",
+      "lines": [
+        "CONNECT capture.mimicry.test:58197 HTTP/1.1",
+        "Host: capture.mimicry.test:58197",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "devicectl"
+    },
+    {
+      "kind": "connect",
+      "conn": 4,
+      "status": 502,
+      "target": "capture.mimicry.test:58197",
+      "lines": [
+        "CONNECT capture.mimicry.test:58197 HTTP/1.1",
+        "Host: capture.mimicry.test:58197",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "devicectl"
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 502,
+      "target": "capture.mimicry.test:58201",
+      "lines": [
+        "CONNECT capture.mimicry.test:58201 HTTP/1.1",
+        "Host: capture.mimicry.test:58201",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "devicectl"
+    },
+    {
+      "kind": "connect",
+      "conn": 2,
+      "status": 502,
+      "target": "capture.mimicry.test:58201",
+      "lines": [
+        "CONNECT capture.mimicry.test:58201 HTTP/1.1",
+        "Host: capture.mimicry.test:58201",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "devicectl"
+    },
+    {
+      "kind": "connect",
+      "conn": 3,
+      "status": 502,
+      "target": "capture.mimicry.test:58201",
+      "lines": [
+        "CONNECT capture.mimicry.test:58201 HTTP/1.1",
+        "Host: capture.mimicry.test:58201",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "devicectl"
+    },
+    {
+      "kind": "connect",
+      "conn": 4,
+      "status": 502,
+      "target": "capture.mimicry.test:58201",
+      "lines": [
+        "CONNECT capture.mimicry.test:58201 HTTP/1.1",
+        "Host: capture.mimicry.test:58201",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "devicectl"
+    }
+  ]
+]

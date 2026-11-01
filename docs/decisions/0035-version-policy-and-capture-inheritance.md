@@ -111,6 +111,10 @@ captures.
   - the whole `sec-ch-ua` value, from the source profile's to this one's.
     Chrome's brand order and GREASE brand change with the major version
     as well as its numbers.
+  - the whole `accept-encoding` value where it is the source profile's
+    navigation value, to this one's (added 2026-11-01 for
+    `safari-26-ios`: Safari 26.6.2 on the iPhone adds `zstd` to macOS
+    Safari 26.2's; plain HTTP's value, without `br`, stays).
 - It rewrites decoded HTTP/2 and HTTP/3 field values, HTTP/1.1 and CONNECT
   lines, and QPACK insert values.
 - Bytes compared as sent stay as captured: HPACK and QPACK reproduction,

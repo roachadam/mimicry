@@ -202,7 +202,10 @@ them, logged): the proxy-credential scenarios (Safari on iOS answers no
 proxy only) and `cookies-edge` (its `lo-*` steps navigate to
 `http://localhost`, the phone itself, so the page stops there). The click
 scenarios need `manual`. Wi-Fi adds latency and loss that the loopback
-captures never see, which the HTTP/3 and timing scenarios can show.
+captures never see, which the HTTP/3 and timing scenarios can show: from
+`h3-blackhole` and `h3-broken` the iPhone's profile takes the structure,
+its windows widened for the path, and keeps macOS Safari's timing
+(decision 0051).
 
 Once on the phone (as for the Macs, the trust persists):
 

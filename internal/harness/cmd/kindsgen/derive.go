@@ -777,6 +777,17 @@ func navRedirectRequests(p *profile.Profile, pages []scenarioPages) ([]*request,
 // browser's names enter the table (deriveTable), and nothing else.
 // Inheriting profiles leave them out too.
 var headersGaps = map[string]map[string]string{
+	"safari-26-ios": {
+		"letters.fetch":     iosLargeTable,
+		"letters.xhr":       iosLargeTable,
+		"letters-rev.fetch": iosLargeTable,
+		"letters-rev.xhr":   iosLargeTable,
+		"around.fetch":      iosLargeTable,
+		"around.xhr":        iosLargeTable,
+		"around-rev.fetch":  iosLargeTable,
+		"around-rev.xhr":    iosLargeTable,
+		"case.xhr":          iosRepeatedName,
+	},
 	"safari-27-ios": {
 		"letters.fetch":     iosLargeTable,
 		"letters.xhr":       iosLargeTable,
@@ -786,10 +797,13 @@ var headersGaps = map[string]map[string]string{
 		"around.xhr":        iosLargeTable,
 		"around-rev.fetch":  iosLargeTable,
 		"around-rev.xhr":    iosLargeTable,
-		"case.xhr": "the iPhone's XHR puts the name set twice (x-dup) where no setRequestHeader order puts it in CFNetwork's table, " +
-			"before x-mixed and x-upper (macOS Safari: after x-mixed)",
+		"case.xhr":          iosRepeatedName,
 	},
 }
+
+// iosRepeatedName is why the iPhone's case.xhr steps are gaps.
+const iosRepeatedName = "the iPhone's XHR puts the name set twice (x-dup) where no setRequestHeader order puts it in CFNetwork's table, " +
+	"before x-mixed and x-upper (macOS Safari: after x-mixed)"
 
 // iosLargeTable is why the iPhone's headers-order steps with 26 or more
 // page-set names are gaps.

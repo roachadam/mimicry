@@ -78,6 +78,7 @@ func TestRedirects2MatchesBrowser(t *testing.T) {
 var redirectsSampleGaps = map[string]string{
 	"safari-27-ios/redirects2 sample 2": iosNavChainSkipped,
 	"safari-27-ios/redirects2 sample 3": iosNavChainSkipped,
+	"safari-26-ios/redirects2 sample 2": "after sample 1, whose 25-redirect navigation ended on Safari's error page, the iPhone never requested nav-chain.so in sample 2 (sample 3 and every redirects2-cookies sample did); the watchdog asked for /done",
 }
 
 // iosNavChainSkipped is why two of the iPhone's redirects2 samples are left
