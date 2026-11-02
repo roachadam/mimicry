@@ -127,7 +127,7 @@ func (r *refreshRun) capturePlan(ctx context.Context, p *plan) error {
 			"-scenarios", strings.Join(entries, ","),
 		)
 		if m.windows {
-			// Chrome's throwaway profiles in the working directory.
+			// The browser's throwaway profiles in the working directory.
 			args = append(args, "-browser-data", "browser-data")
 		}
 

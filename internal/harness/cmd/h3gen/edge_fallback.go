@@ -301,9 +301,16 @@ func closedHost(p *edgePage) (string, float64, error) {
 
 // afterClose derives what h3-broken's requests after the server's close
 // show: whether a 0-RTT attempt holds them (ZeroRTTHolds, its fresh retry
-// and TCP together) or a re-validation does (Hold).
+// and TCP together) or a re-validation does (Hold). A sample pinned for
+// "hold" is left out.
 func (s *edgeSet) afterClose(d *profile.Discovery, out *profile.Fallback, e *collector) {
-	for i, p := range s.scenario(scenarioBroken) {
+	seen := false
+
+	for _, p := range s.scenario(scenarioBroken) {
+		if s.gap(p.at, "hold") {
+			continue
+		}
+
 		host, closed, err := closedHost(p)
 		if err != nil {
 			edgeErr(e, p.at, "%v", err)
@@ -352,11 +359,11 @@ func (s *edgeSet) afterClose(d *profile.Discovery, out *profile.Fallback, e *col
 			s.checkArrivals(p, host, float64(a.start), end, end, 20, "held by the attempt after the close", e)
 		}
 
-		if i > 0 && (holds != out.ZeroRTTHolds || hold != out.Hold) {
+		if seen && (holds != out.ZeroRTTHolds || hold != out.Hold) {
 			edgeErr(e, p.at, "zeroRttHolds %v hold %v, others %v %v", holds, hold, out.ZeroRTTHolds, out.Hold)
 		}
 
-		out.ZeroRTTHolds, out.Hold = holds, hold
+		out.ZeroRTTHolds, out.Hold, seen = holds, hold, true
 	}
 }
 
@@ -550,9 +557,17 @@ func (s *edgeSet) revalidate(e *collector) *profile.Range {
 	}
 }
 
+// clientIdleLateMillis bounds how long after the server's idle record of a
+// connection the client's own idle timer, which sends nothing, can expire:
+// Firefox on Windows sent the requests waiting on its silenced connection
+// to TCP 73–470 ms after it (6 of 9 samples; macOS 7–22 ms).
+const clientIdleLateMillis = 1000
+
 // pending derives where the requests waiting on the silenced connection
 // went when it died: TCP (a connection per request, within 20 ms) or a
-// new QUIC connection.
+// new QUIC connection. A client that died idle, sending nothing, died at
+// its own timer's expiry: the waiting requests' first TCP connection, if
+// it came within clientIdleLateMillis of the server's idle record.
 func (s *edgeSet) pending(out *profile.Fallback, e *collector) {
 	var reconnects []int
 	for i, sl := range s.silenced {
@@ -568,6 +583,9 @@ func (s *edgeSet) pending(out *profile.Fallback, e *collector) {
 			}
 
 			died = float64(sl.a.c.Close.Millis)
+			if tcp := p.tcpHellos(host, died-1, died+clientIdleLateMillis); len(tcp) > 0 && len(p.attemptsTo(host, died, float64(tcp[0]))) == 0 {
+				died = float64(tcp[0])
+			}
 		}
 
 		var waiting []edgeReq

@@ -18,9 +18,11 @@ import (
 
 // On Windows a capture runs over ssh as an administrator: it trusts the
 // capture CA in the machine's Root store for the run (Chrome trusts the
-// machine's roots, so it also takes HTTP/3 through Alt-Svc) and opens Chrome
-// on the console user's desktop through scheduled tasks. Chrome maps the
-// capture hosts with --host-resolver-rules, so DNS is never touched.
+// machine's roots, so it also takes HTTP/3 through Alt-Svc; Firefox imports
+// them, security.enterprise_roots.enabled) and opens the browser on the
+// console user's desktop through scheduled tasks. Chrome maps the capture
+// hosts with --host-resolver-rules and Firefox with network.dns.localDomains
+// in its throwaway profile, so DNS is never touched.
 
 // windowsHost is what a capture needs of this PC.
 type windowsHost struct {
@@ -31,8 +33,8 @@ type windowsHost struct {
 	admin bool
 	// certutil and schtasks are the tools' paths, "" when absent.
 	certutil, schtasks string
-	// chrome is chrome.exe's path, "" when Chrome is not installed.
-	chrome string
+	// browsers are the supported browsers installed here (browser.Find).
+	browsers []string
 }
 
 // checkHost looks at this PC.
@@ -58,8 +60,8 @@ func checkHost(ctx context.Context) (windowsHost, error) {
 	h.certutil, _ = exec.LookPath("certutil.exe")
 	h.schtasks, _ = exec.LookPath("schtasks.exe")
 
-	if found := browser.Find(); len(found) > 0 {
-		h.chrome = found[0].Path
+	for _, b := range browser.Find() {
+		h.browsers = append(h.browsers, b.Name)
 	}
 
 	return h, nil
@@ -76,7 +78,7 @@ func (h windowsHost) problems() []string {
 	case h.console == "":
 		p = append(p, browser.ErrNoConsoleUser.Error())
 	case !strings.EqualFold(h.console, h.user):
-		p = append(p, fmt.Sprintf("the console session belongs to %s, not %s: Chrome opens on the console user's desktop as that user and must share the run's directory with this tool; log on at the screen as %s", h.console, h.user, h.user))
+		p = append(p, fmt.Sprintf("the console session belongs to %s, not %s: the browser opens on the console user's desktop as that user and must share the run's directory with this tool; log on at the screen as %s", h.console, h.user, h.user))
 	}
 
 	if h.certutil == "" {
@@ -84,11 +86,11 @@ func (h windowsHost) problems() []string {
 	}
 
 	if h.schtasks == "" {
-		p = append(p, "schtasks.exe is not on PATH (Windows ships it in System32): it opens Chrome on the console user's desktop")
+		p = append(p, "schtasks.exe is not on PATH (Windows ships it in System32): it opens the browser on the console user's desktop")
 	}
 
-	if h.chrome == "" {
-		p = append(p, "Chrome is not installed: looked for "+strings.Join(browser.ChromeLocations(), ", "))
+	if len(h.browsers) == 0 {
+		p = append(p, "neither Chrome nor Firefox is installed: looked for "+strings.Join(append(browser.Locations("chrome"), browser.Locations("firefox")...), ", "))
 	}
 
 	return p
@@ -141,7 +143,7 @@ func untrust(ctx context.Context, certutil, thumb string) error {
 	return nil
 }
 
-// cleanUp is -cleanup: it removes what a killed run left behind: Chrome
+// cleanUp is -cleanup: it removes what a killed run left behind: browser
 // processes on profiles under dataDir, the tool's scheduled tasks, and every
 // capture CA (found by its subject, whichever directory it came from) in the
 // machine's Root store. It does nothing, successfully, when nothing is left.
@@ -178,8 +180,8 @@ func cleanUp(dataDir string) error {
 }
 
 // startDNSStub starts nothing on Windows: only Safari needs the stub, and
-// Chrome maps the capture hosts itself. Serving a device on the network
-// (-listen, for Safari on an iPhone) is for the Mac.
+// Chrome and Firefox map the capture hosts themselves. Serving a device on
+// the network (-listen, for Safari on an iPhone) is for the Mac.
 func startDNSStub(_ context.Context, _ netip.Addr, clients netip.Prefix) error {
 	if clients.IsValid() {
 		return errors.New("-listen serves a device on the network from a Mac; not on Windows")
@@ -193,7 +195,7 @@ func consoleUser(ctx context.Context) (string, error) {
 	return browser.ConsoleUser(ctx)
 }
 
-// describeExecutable reports Chrome's executable and its product version.
+// describeExecutable reports the browser's executable and its product version.
 func describeExecutable(ctx context.Context, b *browser.Browser, pb *preflightBrowser) error {
 	pb.App = b.Path
 
@@ -205,7 +207,7 @@ func describeExecutable(ctx context.Context, b *browser.Browser, pb *preflightBr
 }
 
 // preflightPlatform adds what a Windows capture needs: elevation, a console
-// user who runs the tool, certutil, schtasks and Chrome.
+// user who runs the tool, certutil, schtasks and Chrome or Firefox.
 func preflightPlatform(ctx context.Context, r *preflightReport) error {
 	h, err := checkHost(ctx)
 	if err != nil {

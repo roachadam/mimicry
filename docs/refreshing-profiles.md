@@ -2,8 +2,9 @@
 
 Browsers ship a new version every few weeks. `profiles.Chrome()`,
 `profiles.Firefox()` and `profiles.Safari()` always mean the newest
-built-in macOS version, and `profiles.ChromeWindows()` the newest Chrome
-on Windows. The newest five versions per browser and platform are supported.
+built-in macOS version, and `profiles.ChromeWindows()` and
+`profiles.FirefoxWindows()` the newest Chrome and Firefox on Windows. The
+newest five versions per browser and platform are supported.
 Older ones stay in the repository, marked deprecated. Keeping up is one
 command, run in `internal/harness/`:
 
@@ -12,15 +13,15 @@ go run ./cmd/refresh -browser chrome,firefox -mode quick -mini <alias>   # both 
 go run ./cmd/refresh -browser safari -mode quick           # Safari 27, on the Mac you run it on
 go run ./cmd/refresh -browser safari-mini -mode full -mini <alias>       # Safari 26, on the second Mac
 go run ./cmd/refresh -browser chrome -dry-run -mini <alias>           # the plan only
-go run ./cmd/refresh -browser chrome-windows -windows <alias>   # Chrome on a Windows machine
+go run ./cmd/refresh -browser chrome-windows,firefox-windows -windows <alias>   # Chrome, then Firefox, on a Windows machine
 go run ./cmd/refresh -browser safari-ios -listen <mac-ip>   # Safari on an iPhone, served from this Mac
 ```
 
 The setup assumes two Macs: the one you work on, and a second Mac kept on
 macOS 26, reachable over ssh. Pass your ssh alias for it with `-mini` (no
-default; chrome, firefox and safari-mini need it). Chrome on Windows needs
-a Windows machine reachable over ssh: pass your ssh alias for it with
-`-windows` (no default). Safari on iOS needs an iPhone connected to this
+default; chrome, firefox and safari-mini need it). Chrome and Firefox on
+Windows need a Windows machine reachable over ssh: pass your ssh alias for
+it with `-windows` (no default). Safari on iOS needs an iPhone connected to this
 Mac by cable and on its Wi-Fi network: pass this Mac's IPv4 address on
 that network with `-listen`.
 
@@ -73,6 +74,7 @@ supported one.
 | `safari` | the Mac you run it on | opens tabs in your own Safari window |
 | `safari-mini` | the second Mac | Safari 26, since that Mac stays on macOS 26 |
 | `chrome-windows` | the Windows machine (`-windows`) | profiles `chrome-<major>-windows`, for `profiles.ChromeWindows()`; the first one captures the full set |
+| `firefox-windows` | the Windows machine (`-windows`) | profiles `firefox-<major>-windows`, for `profiles.FirefoxWindows()`; the first one captures the full set; after `chrome-windows` when both are named, never at once |
 | `safari-ios` | the iPhone, served from this Mac (`-listen`) | profiles `safari-<major>-ios`; the iPhone set whatever `-mode`, the rest inherited from macOS Safari |
 
 The second Mac needs no Go. The tool cross-compiles `cmd/capture` and
@@ -89,27 +91,56 @@ with `-serial`.
 
 ### The Windows machine
 
-It needs, once: OpenSSH Server (PowerShell as its shell is fine), Chrome,
-Python with aioquic (`python -m pip install --user aioquic`, for the
-scenarios that need it), and an administrator account that is also
+It needs, once: OpenSSH Server (PowerShell as its shell is fine), the
+browsers (Chrome; Firefox from Mozilla's installer, with its updates turned
+off, below), Python with aioquic (`python -m pip install --user aioquic`,
+for the scenarios that need it), and an administrator account that is also
 logged in at the machine's screen (the console). Go is not needed. The
-preflight checks each of these, and that `certutil` and `schtasks` are
-on PATH.
+preflight checks each of these, and that `certutil` and `schtasks` are on
+PATH.
 
 The tool cross-compiles for windows/amd64, copies the binaries to
 `%USERPROFILE%\mimicry-capture\refresh-<stamp>\` and runs each step there
-through `powershell -NoProfile`. `capture` opens a visible Chrome on the
-logged-in desktop through a one-shot scheduled task, trusts the run's
-capture CA in the machine's Root store only while it runs (`certutil`),
-and maps the test hosts with `--host-resolver-rules`: no DNS or hosts-file
-change. However the run ends, the tool then runs `capture -cleanup` (the
-CA, leftover scheduled tasks) and removes the directory (`-keep` keeps
-it).
+through `powershell -NoProfile`. `capture` opens a visible Chrome or
+Firefox on the logged-in desktop through a one-shot scheduled task, trusts
+the run's capture CA in the machine's Root store only while it runs
+(`certutil`, which asks nothing on screen; Firefox imports it from there,
+`security.enterprise_roots.enabled`, as on macOS from the keychain), and
+maps the test hosts with Chrome's
+`--host-resolver-rules` or, in Firefox's throwaway profile,
+`network.dns.localDomains` (the macOS Firefox profile, unchanged): no DNS
+or hosts-file change. Firefox's `firefox.exe` is a launcher that starts
+the browser process and exits, so the tool starts it with
+`-wait-for-browser` and ends the launcher with its process tree. However
+the run ends, the tool then runs `capture -cleanup` (the CA, leftover
+scheduled tasks) and removes the directory (`-keep` keeps it). Each
+capture run removes the CA as it ends, so the PC's browsers take turns,
+in quick mode too.
 
-Profiles inherit captures only from the same browser and platform, so the
-first `chrome-windows` refresh captures every scenario and replay whatever
-`-mode` (unless `-scenarios` is given), starting from the macOS profile of
-the same version. Later ones follow `-mode`.
+Firefox updates itself between launches, which splits a run (the tool then
+refuses it). Install the exact version from Mozilla's archive
+(`archive.mozilla.org/pub/firefox/releases/<version>/win64/en-US/`,
+checked against the release's `SHA256SUMS`) silently, with an INI file
+turning off the maintenance service and the default-browser agent
+(`"Firefox Setup <version>.exe" /S /INI=<file>`), then add an enterprise
+policy, `distribution\policies.json` in its install directory:
+
+```json
+{
+  "policies": {
+    "DisableAppUpdate": true
+  }
+}
+```
+
+To capture a new version, install it over the old one the same way; the
+policy stays.
+
+Profiles inherit captures only from the same browser and platform, so a
+browser's first refresh on Windows (`chrome-windows`, `firefox-windows`)
+captures every scenario and replay whatever `-mode` (unless `-scenarios`
+is given), starting from the macOS profile of the same version. Later ones
+follow `-mode`.
 
 Two things differ in what the Windows captures record, whatever the
 browser does: the recorder's clock there moves in steps of about 0.5 ms,

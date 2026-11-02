@@ -194,28 +194,40 @@ func withoutRaceCookie(lines []string) []string {
 }
 
 // partitionGaps are the known, unmodelled connection differences on the
-// kinds page, label to "mimicry with X, browser with Y". Firefox gives
-// credential-less requests their own connection to the same-site host only;
-// no rule found. The iPhone sends a beacon, cookies and all, on its
-// credential-less connection to the host (3 of 3).
+// kinds page, label to "mimicry with X, browser with Y": a sample may show
+// one or not, and one no sample shows fails. Firefox gives credential-less
+// requests their own connection to the same-site host only (every macOS
+// sample, 2 of 3 on Windows); no rule found. The iPhone sends a beacon,
+// cookies and all, on its credential-less connection to the host (3 of 3).
 var partitionGaps = map[string]map[string]string{
-	"firefox-158-macos": {
-		"script-cors.ss":  "mimicry with script.ss, browser with script-cors.ss",
-		"image-cors.ss":   "mimicry with script.ss, browser with script-cors.ss",
-		"fetch.ss":        "mimicry with script.ss, browser with script-cors.ss",
-		"fetch-omit.ss":   "mimicry with script.ss, browser with script-cors.ss",
-		"fetch-nocors.ss": "mimicry with script.ss, browser with script-cors.ss",
-		"fetch-json.ss":   "mimicry with script.ss, browser with script-cors.ss",
-		"fetch-custom.ss": "mimicry with script.ss, browser with script-cors.ss",
-		"fetch-high.ss":   "mimicry with script.ss, browser with script-cors.ss",
-		"fetch-low.ss":    "mimicry with script.ss, browser with script-cors.ss",
-		"xhr.ss":          "mimicry with script.ss, browser with script-cors.ss",
-	},
+	"firefox-158-macos":   firefoxPartitionGaps,
+	"firefox-158-windows": firefoxPartitionGaps,
 	"safari-27-ios": {
 		"beacon.so": "mimicry with style-head.so, browser with fetch-omit.so",
 		"beacon.ss": "mimicry with script.ss, browser with script-cors.ss",
 		"beacon.cs": "mimicry with script-async.cs, browser with script-cors.cs",
 	},
+}
+
+// partitionGapsInSome are the sources whose partitionGaps show in only some
+// samples (Windows Firefox: 2 of 3); elsewhere a listed gap must show in
+// every sample.
+var partitionGapsInSome = map[string]bool{
+	"firefox-158-windows": true,
+}
+
+// firefoxPartitionGaps are Firefox's (macOS and Windows alike).
+var firefoxPartitionGaps = map[string]string{
+	"script-cors.ss":  "mimicry with script.ss, browser with script-cors.ss",
+	"image-cors.ss":   "mimicry with script.ss, browser with script-cors.ss",
+	"fetch.ss":        "mimicry with script.ss, browser with script-cors.ss",
+	"fetch-omit.ss":   "mimicry with script.ss, browser with script-cors.ss",
+	"fetch-nocors.ss": "mimicry with script.ss, browser with script-cors.ss",
+	"fetch-json.ss":   "mimicry with script.ss, browser with script-cors.ss",
+	"fetch-custom.ss": "mimicry with script.ss, browser with script-cors.ss",
+	"fetch-high.ss":   "mimicry with script.ss, browser with script-cors.ss",
+	"fetch-low.ss":    "mimicry with script.ss, browser with script-cors.ss",
+	"xhr.ss":          "mimicry with script.ss, browser with script-cors.ss",
 }
 
 // checkConnections compares which requests share a connection: for each
@@ -228,29 +240,38 @@ func checkConnections(t *testing.T, source string, got *capture.Page, want []*ca
 
 	g := connGroups(got, labels)
 	known := partitionGaps[source]
+	seen := map[string]int{}
 
 	for i, page := range want {
 		w := connGroups(page, labels)
-		diffs := map[string]string{}
 
 		for _, l := range labels {
-			if g[l] != w[l] {
-				diffs[l] = "mimicry with " + g[l] + ", browser with " + w[l]
+			if g[l] == w[l] {
+				continue
 			}
-		}
 
-		for _, l := range labels {
-			d, isDiff := diffs[l]
-			k, isKnown := known[l]
-
-			switch {
-			case isDiff && d != k:
+			d := "mimicry with " + g[l] + ", browser with " + w[l]
+			if k, isKnown := known[l]; !isKnown || d != k {
 				t.Errorf("connections, sample %d: %s: %s", i+1, l, d)
-			case !isDiff && isKnown:
-				t.Errorf("connections, sample %d: %s: known gap %q no longer seen", i+1, l, k)
-			case isDiff:
-				t.Logf("connections, sample %d: %s: known gap: %s", i+1, l, d)
+
+				continue
 			}
+
+			seen[l]++
+
+			t.Logf("connections, sample %d: %s: known gap: %s", i+1, l, d)
+		}
+	}
+
+	for _, l := range labels {
+		k, isKnown := known[l]
+
+		switch {
+		case !isKnown:
+		case seen[l] == 0:
+			t.Errorf("connections: %s: known gap %q no longer seen", l, k)
+		case seen[l] < len(want) && !partitionGapsInSome[source]:
+			t.Errorf("connections: %s: known gap %q seen in %d of %d samples, listed for every sample", l, k, seen[l], len(want))
 		}
 	}
 }

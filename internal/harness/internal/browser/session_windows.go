@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -18,72 +19,114 @@ import (
 	"unicode/utf16"
 )
 
-// On Windows only Chrome is captured. A process started from an ssh session
-// runs in that session, which has no desktop, so Chrome is started through a
-// one-shot scheduled task that runs as the user logged on at the console with
-// their interactive token: its window shows on their desktop. The profile
-// directory (DataDir) is shared by the two sessions: Chrome writes
-// DevToolsActivePort there and the capture tool reads it.
+// On Windows Chrome and Firefox are captured. A process started from an ssh
+// session runs in that session, which has no desktop, so the browser is
+// started through a one-shot scheduled task that runs as the user logged on
+// at the console with their interactive token: its window shows on their
+// desktop. The profile directory (DataDir) is shared by the two sessions:
+// the capture tool writes Firefox's prefs there, and Chrome writes
+// DevToolsActivePort there for the capture tool to read.
 
 // TaskPrefix starts the name of every scheduled task the capture tool
 // registers; Cleanup deletes the ones a killed run left.
 const TaskPrefix = "mimicry-capture-"
 
 // ErrNoConsoleUser is a launch with nobody logged on at the console.
-var ErrNoConsoleUser = errors.New("nobody is logged on at this PC's console: Chrome must open on a logged-on desktop; log on at the screen (as the user running the capture tool) and run again")
+var ErrNoConsoleUser = errors.New("nobody is logged on at this PC's console: the browser must open on a logged-on desktop; log on at the screen (as the user running the capture tool) and run again")
+
+// windowsBrowser is a browser captured on Windows and its executable under
+// an installation root.
+type windowsBrowser struct {
+	name string
+	exe  string
+}
+
+// windowsBrowsers are the browsers captured on Windows, in Find's order.
+var windowsBrowsers = []windowsBrowser{
+	{
+		name: "chrome",
+		exe:  `Google\Chrome\Application\chrome.exe`,
+	},
+	{
+		name: "firefox",
+		exe:  `Mozilla Firefox\firefox.exe`,
+	},
+}
 
 // Supported reports whether every named browser can be captured here: on
-// Windows, Chrome only.
+// Windows, Chrome and Firefox.
 func Supported(names []string) error {
 	var errs []error
 
 	for _, n := range names {
-		if n != "chrome" {
-			errs = append(errs, fmt.Errorf("%s is not supported on Windows: the Windows capture covers Chrome only", n))
+		if !slices.ContainsFunc(windowsBrowsers, func(b windowsBrowser) bool {
+			return b.name == n
+		}) {
+			errs = append(errs, fmt.Errorf("%s is not supported on Windows: the Windows capture covers Chrome and Firefox", n))
 		}
 	}
 
 	return errors.Join(errs...)
 }
 
-// ChromeLocations are where Find looks for chrome.exe, in order: the
-// machine-wide installations (64-bit, then 32-bit) and the per-user one.
-func ChromeLocations() []string {
+// Locations are where Find looks for the named browser's executable, in
+// order: the machine-wide installations (64-bit, then 32-bit) and the
+// per-user one.
+func Locations(name string) []string {
 	var paths []string
 
-	for _, env := range []string{"ProgramFiles", "ProgramFiles(x86)", "LOCALAPPDATA"} {
-		if dir := os.Getenv(env); dir != "" {
-			paths = append(paths, filepath.Join(dir, "Google", "Chrome", "Application", "chrome.exe"))
+	for _, b := range windowsBrowsers {
+		if b.name != name {
+			continue
+		}
+
+		for _, env := range []string{"ProgramFiles", "ProgramFiles(x86)", "LOCALAPPDATA"} {
+			if dir := os.Getenv(env); dir != "" {
+				paths = append(paths, filepath.Join(dir, b.exe))
+			}
 		}
 	}
 
 	return paths
 }
 
-// Find returns the supported browsers installed here: Chrome, the first of
-// ChromeLocations that exists.
+// Find returns the supported browsers installed here, Chrome then Firefox,
+// each at the first of its Locations that exists.
 func Find() []*Browser {
-	for _, p := range ChromeLocations() {
-		if _, err := os.Stat(p); err != nil {
-			continue
-		}
+	var found []*Browser
 
-		return []*Browser{
-			{
-				Name:    "chrome",
-				Path:    p,
-				prepare: chromeArgs,
-				warmup:  chromeWarmup,
-				binary:  p,
-			},
+	for _, wb := range windowsBrowsers {
+		for _, p := range Locations(wb.name) {
+			if _, err := os.Stat(p); err != nil {
+				continue
+			}
+
+			b := &Browser{
+				Name: wb.name,
+				Path: p,
+			}
+
+			switch wb.name {
+			case "chrome":
+				b.prepare = chromeArgs
+				b.warmup = chromeWarmup
+				b.binary = p
+
+			case "firefox":
+				b.prepare = firefoxProfile
+			}
+
+			found = append(found, b)
+
+			break
 		}
 	}
 
-	return nil
+	return found
 }
 
 // Version is the installed browser's version, from its executable's
-// version resource (chrome.exe: "156.0.8078.76").
+// version resource (chrome.exe: "156.0.8078.76"; firefox.exe: "158.0.1").
 func (b *Browser) Version(ctx context.Context) (string, error) {
 	v, err := PowerShell(ctx, `(Get-Item -LiteralPath `+PSQuote(b.Path)+`).VersionInfo.ProductVersion`)
 	if err != nil {
@@ -122,8 +165,15 @@ func (b *Browser) handTo(ctx context.Context, dir, url string) error {
 
 // start launches b with args on the profile directory dir on the console
 // user's desktop, which the session removes when it closes (and start, if
-// it fails).
+// it fails). Firefox's executable is a launcher process that starts the
+// browser process and exits; -wait-for-browser keeps it until the browser
+// exits, so the process found, waited on and ended with its tree lives as
+// long as the browser.
 func (b *Browser) start(ctx context.Context, dir string, args []string) (*Session, error) {
+	if b.Name == "firefox" {
+		args = append([]string{"-wait-for-browser"}, args...)
+	}
+
 	task, err := runInteractive(ctx, b.Path, args)
 	if err != nil {
 		_ = os.RemoveAll(dir)
@@ -427,17 +477,18 @@ func taskNote(name string) string {
 }
 
 // findBrowser waits for the browser process exe started on profile
-// directory dir: the one whose command line names dir and is not a helper
-// (--type=). The process is in another session, but its user's.
+// directory dir: the first started whose command line names dir and is not
+// a helper (Chrome's --type=, Firefox's -contentproc); for Firefox, the
+// launcher process. The process is in another session, but its user's.
 func findBrowser(ctx context.Context, exe, dir string) (*os.Process, error) {
 	ctx, cancel := context.WithTimeout(ctx, taskStartupDeadline)
 	defer cancel()
 
-	// dir ends the --user-data-dir argument: a space or the closing quote
-	// follows it.
+	// dir ends the profile argument (--user-data-dir, --profile): a space
+	// or the closing quote follows it.
 	script := `$d = ` + PSQuote(dir) + `
 Get-CimInstance Win32_Process -Filter ` + PSQuote("Name = '"+filepath.Base(exe)+"'") + ` |
-	Where-Object { $_.CommandLine -and ($_.CommandLine.Contains($d + ' ') -or $_.CommandLine.Contains($d + '"')) -and -not $_.CommandLine.Contains('--type=') } |
+	Where-Object { $_.CommandLine -and ($_.CommandLine.Contains($d + ' ') -or $_.CommandLine.Contains($d + '"')) -and -not $_.CommandLine.Contains('--type=') -and -not $_.CommandLine.Contains('-contentproc') } |
 	Sort-Object CreationDate | Select-Object -First 1 -ExpandProperty ProcessId`
 
 	for {

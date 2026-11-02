@@ -409,8 +409,8 @@ func carriedBlocked(bc *blockedConn, waited []uint64, firstNum uint64, at string
 // afterRaise is the quic.streamsBlocked.afterRaise carried shows: none;
 // after the STREAM frame of each packet's last waiting stream, the
 // burst's last too, others' optional (StreamsBlockedRaiseAlways); or
-// before that of every waiting stream but the last
-// (StreamsBlockedRaiseWaiting).
+// before that of every waiting stream but the last and those opened in
+// one packet with the next (StreamsBlockedRaiseWaiting).
 func afterRaise(bc *blockedConn, waited []uint64, carried map[uint64]string, at string, e *collector) (string, bool) {
 	if len(carried) == 0 {
 		return "", true
@@ -444,8 +444,12 @@ func afterRaise(bc *blockedConn, waited []uint64, carried map[uint64]string, at 
 
 	for i, n := range waited {
 		_, ok := carried[n]
-		if still := i < len(waited)-1; ok != still {
-			edgeErr(e, at, "STREAMS_BLOCKED before stream %d: %v, a request still waiting: %v", n, ok, still)
+		// A waiting stream opened in one packet with the next was not at
+		// the limit: the raises that arrived together let both through
+		// (Firefox on Windows, 1 of 6 bursts).
+		still := i < len(waited)-1 && bc.opened[waited[i+1]] != bc.opened[n]
+		if ok != still {
+			edgeErr(e, at, "STREAMS_BLOCKED before stream %d: %v, a request still waiting at the limit: %v", n, ok, still)
 
 			return "", false
 		}

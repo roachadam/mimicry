@@ -28,11 +28,8 @@ var headersOrderGaps = map[string][]string{
 		"letters-rev.xhr.cs", "around-rev.xhr.cs",
 		"letters-rev.xhr.h1", "around-rev.xhr.h1",
 	},
-	"firefox-158-macos": {
-		"pair-ba.xhr.so", "letters-rev.xhr.so", "around-rev.xhr.so", "case.xhr.so",
-		"pair-ba.xhr.cs", "letters-rev.xhr.cs", "around-rev.xhr.cs", "case.xhr.cs",
-		"pair-ba.xhr.h1", "letters-rev.xhr.h1", "around-rev.xhr.h1", "case.xhr.h1",
-	},
+	"firefox-158-macos":   firefoxHeadersOrderGaps,
+	"firefox-158-windows": firefoxHeadersOrderGaps,
 	"safari-26-macos": {
 		"letters-rev.xhr.so", "around-rev.xhr.so", "case.xhr.so",
 		"around-rev.xhr.cs", "case.xhr.cs",
@@ -45,6 +42,13 @@ var headersOrderGaps = map[string][]string{
 	},
 	"safari-26-ios": iosHeadersOrderGaps,
 	"safari-27-ios": iosHeadersOrderGaps,
+}
+
+// firefoxHeadersOrderGaps are Firefox's (macOS and Windows alike).
+var firefoxHeadersOrderGaps = []string{
+	"pair-ba.xhr.so", "letters-rev.xhr.so", "around-rev.xhr.so", "case.xhr.so",
+	"pair-ba.xhr.cs", "letters-rev.xhr.cs", "around-rev.xhr.cs", "case.xhr.cs",
+	"pair-ba.xhr.h1", "letters-rev.xhr.h1", "around-rev.xhr.h1", "case.xhr.h1",
 }
 
 // iosHeadersOrderGaps are the iPhone's (Safari 26 and 27 alike).

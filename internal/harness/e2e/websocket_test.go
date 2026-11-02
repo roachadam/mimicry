@@ -99,7 +99,7 @@ func runWebSocketScenario(t *testing.T, name string, sc *server.Scenario, browse
 	got, seen := runWebSocketPage(t, s, sockets, steps)
 	for _, st := range sockets {
 		t.Run(st.Label, func(t *testing.T) {
-			checkSocket(t, p, st, steps, got, want, seen[st.Label])
+			checkSocket(t, p, st, steps, got, want, seen[st.Label], webSocketEndGaps[capture.Source(p, sc.Name)+"/"+sc.Name+" "+st.Label])
 
 			if px != nil && browserAuth {
 				checkProxyRoute(t, st, px.Requests(), got, wantProxy, want)
@@ -445,8 +445,10 @@ func runSocket(t *testing.T, s *pageSession, tr *mimicry.Transport, page *url.UR
 	return run
 }
 
-// checkSocket compares mimicry's socket st (got, run) with every sample's.
-func checkSocket(t *testing.T, p *profile.Profile, st server.WebSocketStep, steps []server.WebSocketPageStep, got *capture.Page, want []*capture.Page, run *socketRun) {
+// checkSocket compares mimicry's socket st (got, run) with every sample's;
+// endGap, if not empty, is why how its transport ends is a known gap
+// (webSocketEndGaps).
+func checkSocket(t *testing.T, p *profile.Profile, st server.WebSocketStep, steps []server.WebSocketPageStep, got *capture.Page, want []*capture.Page, run *socketRun, endGap string) {
 	t.Helper()
 
 	if run == nil {
@@ -552,7 +554,26 @@ func checkSocket(t *testing.T, p *profile.Profile, st server.WebSocketStep, step
 	anyForm(t, "pongs", strings.Join(clientFrames(g, true), "\n"), func(i int) string {
 		return strings.Join(clientFrames(samples[i], true), "\n")
 	}, len(want))
-	checkEnd(t, g, samples)
+
+	switch problems := endProblems(g, samples); {
+	case endGap == "":
+		for _, pr := range problems {
+			t.Error(pr)
+		}
+
+	case len(problems) == 0:
+		t.Errorf("known gap %q no longer appears", endGap)
+	default:
+		t.Logf("known gap: %s: %s", strings.Join(problems, "; "), endGap)
+	}
+}
+
+// webSocketEndGaps are sockets whose transport ends unlike the browser's,
+// by "<profile>/<scenario> <label>" (the profile that took the capture),
+// with why: endProblems' findings are logged, not failed. A listed gap
+// that no longer appears fails.
+var webSocketEndGaps = map[string]string{
+	"firefox-158-windows/websocket-h2 cs-protocols": "Firefox on Windows put this cross-site socket on an HTTP/2 connection of its own (no top-level-site partition in mimicry) and ended its stream with RST_STREAM CANCEL 1.0 s after the close handshake (every sample), its other HTTP/2 sockets never (the server ended them at 3 s); no profile field holds a stream end that depends on the connection, so closeH2 stays unmeasured and mimicry leaves the stream to the server",
 }
 
 // joinFragments returns ws with each fragmented client message (a data frame
@@ -1060,17 +1081,16 @@ func checkDATA(t *testing.T, p *profile.Profile, got *capture.Page, g *capture.W
 	}
 }
 
-// checkEnd checks who ended mimicry's transport and how, against every
-// sample: the client, as long after its last frame as the browser (a
+// endProblems is how mimicry's transport ended unlike every sample's: the
+// client should end it as long after its last frame as the browser (a
 // little later allowed, for a loaded machine), or, where no sample shows
-// the client ending it (Firefox), never the client.
-func checkEnd(t *testing.T, g *capture.WebSocket, samples []*capture.WebSocket) {
-	t.Helper()
-
+// the client ending it, never; and the stream end should be one a sample
+// shows.
+func endProblems(g *capture.WebSocket, samples []*capture.WebSocket) []string {
 	client := 0
 	low, high := int64(-1), int64(0)
 
-	var ends []string
+	var ends, problems []string
 
 	for _, w := range samples {
 		if !slices.Contains(ends, w.StreamEnd) {
@@ -1093,23 +1113,25 @@ func checkEnd(t *testing.T, g *capture.WebSocket, samples []*capture.WebSocket) 
 	}
 
 	if !slices.Contains(ends, g.StreamEnd) {
-		t.Errorf("the stream ended with %q, want %q", g.StreamEnd, ends)
+		problems = append(problems, fmt.Sprintf("the stream ended with %q, want %q", g.StreamEnd, ends))
 	}
 
 	switch client {
 	case 0:
 		if g.ClosedBy == "client" {
-			t.Errorf("mimicry ended the transport %d ms after its last frame; the browser never did", endDelay(g))
+			problems = append(problems, fmt.Sprintf("mimicry ended the transport %d ms after its last frame; the browser never did", endDelay(g)))
 		}
 
 	case len(samples):
 		if d := endDelay(g); g.ClosedBy != "client" || d < low-50 || d > high+250 {
-			t.Errorf("transport ended by %q %d ms after the client's last frame, want the client after %d to %d ms", g.ClosedBy, d, low, high)
+			problems = append(problems, fmt.Sprintf("transport ended by %q %d ms after the client's last frame, want the client after %d to %d ms", g.ClosedBy, d, low, high))
 		}
 
 	default:
-		t.Errorf("the browser's samples disagree on who ends the transport")
+		problems = append(problems, "the browser's samples disagree on who ends the transport")
 	}
+
+	return problems
 }
 
 // endDelay is how long after its last frame ws's transport ended.

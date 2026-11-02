@@ -131,8 +131,9 @@ for the keychain on screen.
   mode), and each newly installed browser's first launch approved by
   Gatekeeper (open it once at the screen, or `xattr -d
   com.apple.quarantine` the app). The preflight checks each of these.
-- **The Windows machine** (Chrome on Windows, `cmd/refresh -windows`): its
-  setup is in [Refreshing profiles](refreshing-profiles.md#the-windows-machine).
+- **The Windows machine** (Chrome and Firefox on Windows, `cmd/refresh
+  -windows`): its setup is in
+  [Refreshing profiles](refreshing-profiles.md#the-windows-machine).
 - **Safari on an iPhone** (`ios-safari`): served from the Mac over the
   network; see [below](#safari-on-an-iphone).
 

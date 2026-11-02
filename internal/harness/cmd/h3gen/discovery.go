@@ -148,7 +148,7 @@ func requests(page *capture.Page, host string) []sent {
 	conns := tracedConns(page)
 
 	for i, tr := range page.H2 {
-		if tr.Host != host || i >= len(conns) {
+		if tr.Host != host || conns[i] == nil {
 			continue
 		}
 
@@ -190,15 +190,27 @@ func requests(page *capture.Page, host string) []sent {
 	return out
 }
 
-// tracedConns are the page's TCP connections that carry an HTTP/2 trace,
-// in the traces' order: those with requests (a preconnect that never sent
-// its preface has none).
-func tracedConns(page *capture.Page) []capture.Connection {
-	var out []capture.Connection
-	for _, c := range page.Connections {
-		if c.Protocol == "h2" && c.Requests > 0 {
-			out = append(out, c)
+// tracedConns are the TCP connections behind the page's HTTP/2 traces, one
+// per trace in the traces' order: the h2 connections with requests, in
+// order, for the traces with requests; nil for a trace without any. A
+// preconnect that never sent its preface has no trace; one that sent its
+// preface and closed at once, unused (Firefox's second connection to a
+// host on Windows), has one without requests.
+func tracedConns(page *capture.Page) []*capture.Connection {
+	var used []*capture.Connection
+	for i := range page.Connections {
+		if c := &page.Connections[i]; c.Protocol == "h2" && c.Requests > 0 {
+			used = append(used, c)
 		}
+	}
+
+	out := make([]*capture.Connection, len(page.H2))
+	for i, tr := range page.H2 {
+		if len(tr.Requests) == 0 || len(used) == 0 {
+			continue
+		}
+
+		out[i], used = used[0], used[1:]
 	}
 
 	return out
@@ -255,10 +267,15 @@ func switchRule(page *capture.Page, host, goaway string) (string, error) {
 
 // tcpGoAways counts the HTTP/2 connections that sent GOAWAY, and those a
 // QUIC connection to their host replaced (one started while they were
-// open: after their first request).
+// open: after their first request). A connection that carried no request
+// is neither: its GOAWAY closed it unused.
 func tcpGoAways(page *capture.Page) (goAways, replaced int) {
 	conns := tracedConns(page)
 	for i, tr := range page.H2 {
+		if len(tr.Requests) == 0 {
+			continue
+		}
+
 		for _, f := range tr.Frames {
 			if f.Type == "GOAWAY" {
 				goAways++
@@ -266,7 +283,7 @@ func tcpGoAways(page *capture.Page) (goAways, replaced int) {
 			}
 		}
 
-		if i >= len(conns) {
+		if conns[i] == nil {
 			continue
 		}
 
