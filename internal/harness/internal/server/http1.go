@@ -20,12 +20,21 @@ import (
 
 // serveHTTP1 answers HTTP/1.1 requests on conn as sc says and records each
 // verbatim into c.H1 and the page log. On /done, c gets the whole page load
-// and emit hands it over. host is the connection's server name.
-func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, log *pageLog, emit func()) error {
+// and emit hands it over. host is the connection's server name. rlog, if
+// not nil, keeps every one of the client's TLS records under conn
+// (recordLog.all), and each request gets how they carried it.
+func serveHTTP1(conn net.Conn, rlog *recordLog, host string, c *capture.Capture, sc *Scenario, log *pageLog, emit func()) error {
 	id := log.newConn()
-	br := bufio.NewReader(conn)
+	in := &countingReader{
+		r: conn,
+	}
+	br := bufio.NewReader(in)
 
 	for {
+		// start is where the request begins in the client's application
+		// data.
+		start := in.n - br.Buffered()
+
 		line, err := readLine(br)
 		if err != nil {
 			return err
@@ -129,6 +138,8 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 			}
 		}
 
+		head := in.n - br.Buffered() - start
+
 		var uploaded int64
 		switch {
 		case chunked:
@@ -156,6 +167,18 @@ func serveHTTP1(conn net.Conn, host string, c *capture.Capture, sc *Scenario, lo
 		}
 
 		ask.uploaded = int(uploaded)
+
+		if rlog != nil && index >= 0 {
+			// The body as sent: chunked framing included.
+			body := in.n - br.Buffered() - start - head
+			u := rlog.upload(start, head, body)
+			log.setUpload(index, u)
+
+			if !c.Finished {
+				c.H1[len(c.H1)-1].Upload = u
+			}
+		}
+
 		log.arrived(ask.path)
 
 		if !foreign {

@@ -1,8 +1,9 @@
 // Command hellogen derives the shape of a browser's ClientHello (record and
 // legacy versions, session ID length, key share lengths and X25519 key
-// reuse, ECH), how it cuts a new HTTP/2 connection's opening into TLS
-// records and how it answers a server's GOAWAY from its captures, and
-// writes them into the profile and the capture's JSON.
+// reuse, ECH), how it cuts a new HTTP/2 connection's opening and an
+// HTTP/1.1 upload into TLS records and how it answers a server's GOAWAY
+// from its captures, and writes them into the profile and the capture's
+// JSON.
 //
 //	go run ./cmd/hellogen -captures testdata/captures -profile ../../profiles/data/chrome-155-macos.json
 //
@@ -113,6 +114,12 @@ func regenerate(data, captured []byte, dir string) ([]byte, []byte, error) {
 
 		if p.HTTP2.GoAwayReply, err = goAwayReply(dir, p); err != nil {
 			return nil, nil, fmt.Errorf("http2.goawayReply: %w", err)
+		}
+	}
+
+	if p.HTTP1 != nil {
+		if p.HTTP1.UploadRecords, err = capture.UploadRecords(dir, p); err != nil {
+			return nil, nil, fmt.Errorf("http1.uploadRecords: %w", err)
 		}
 	}
 

@@ -104,6 +104,9 @@ end tell`)
 			"--user-data-dir=" + dir,
 			"--no-first-run",
 			"--no-default-browser-check",
+			// As chromeArgs: no keychain prompt, nothing on the wire.
+			"--use-mock-keychain",
+			"--password-store=basic",
 			"--remote-debugging-port=0",
 			"--remote-allow-origins=" + debugOrigin,
 			"about:blank",

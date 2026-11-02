@@ -101,7 +101,7 @@ cmd/proxy/          CONNECT (with/without Basic auth) and SOCKS5 (CONNECT, UDP A
 cmd/setup/          the CA (once), the server certificate, nginx's files
 docker/             Dockerfile, compose.server.yml (+ compose.server.nopublish.yml for BENCH_PUBLISH=0), compose.client.yml (+ compose.client.udpstock.yml), proxy-entrypoint.sh (the proxy's netem delay), nginx config
 scripts/bench.sh    drives both stacks; the moon tasks call it
-reports/            bench-<date>.md/.json (and its -passN, -udpstock-passN parts), micro-<date>.txt and -benchstat.txt, host-<date>.txt (host load per pass); a run kept apart gets a subdirectory (linux-final-2026-10-29/, linux-uploads-2026-10-31/, linux-2026-10-29/, focus-2026-10-29/, after-fixes/, coalescing/, conns-per-host/)
+reports/            bench-<date>.md/.json (and its -passN, -udpstock-passN parts), micro-<date>.txt and -benchstat.txt, host-<date>.txt (host load per pass); a run kept apart gets a subdirectory (linux-final-2026-10-29/, linux-uploads-2026-11-01/, linux-uploads-2026-10-31/, linux-2026-10-29/, focus-2026-10-29/, after-fixes/, coalescing/, conns-per-host/)
 ```
 
 Two compose stacks. **Server** (`docker/compose.server.yml`): nginx 1.31

@@ -43,7 +43,7 @@ func TestHTTP1RejectsBareLF(t *testing.T) {
 			}()
 
 			c := &capture.Capture{}
-			err := serveHTTP1(srv, "x.test", c, DefaultScenario, &pageLog{}, func() {})
+			err := serveHTTP1(srv, nil, "x.test", c, DefaultScenario, &pageLog{}, func() {})
 
 			_ = srv.Close()
 

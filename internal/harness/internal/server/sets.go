@@ -67,7 +67,8 @@ func FullScenarios() []Planned {
 
 // IOSScenarios are what a refresh captures of Safari on an iPhone, three
 // samples each (decision 0051): the fingerprint layer, the scenarios
-// kindsgen and the rules are derived from, and the QUIC failure pair
+// kindsgen and the rules are derived from, how uploads are cut into TLS
+// records (http1-upload, h2-upload), and the QUIC failure pair
 // (h3-blackhole, h3-broken: the fallback, loss and keep-alive rules), from
 // which the profile inherits every other scenario but those
 // NotInheritedOnIOS keeps out. The direct scenarios come first, then the
@@ -86,6 +87,8 @@ func IOSScenarios() []Planned {
 		"redirects2-cookies",
 		"headers-order",
 		"http1",
+		"http1-upload",
+		"h2-upload",
 		"h3-discovery",
 		"h3-page",
 		"resume",

@@ -257,7 +257,10 @@ does, drawing from the delays its captures measured.
 - HTTP/2: Chrome pings a connection that was quiet for 10 s before using
   it. Firefox and Safari never ping. Every profile answers the server and
   returns flow-control credit as its browser does.
-- TLS: frames are grouped into TLS records as the browser groups them.
+- TLS: frames are grouped into TLS records as the browser groups them,
+  and an HTTP/1.1 request with a body is cut into full 16 KiB records,
+  its head apart from the body or not as the browser sends it. No
+  connection starts with small records.
 - QUIC: PINGs keep a quiet connection alive while a request waits. ACKs
   follow each browser's rules.
 
@@ -354,4 +357,5 @@ Background: decisions
 [0042](../decisions/0042-http2-opening-records.md),
 [0043](../decisions/0043-http3-ack-rate-opt-in.md),
 [0045](../decisions/0045-udp-receive-buffer-default.md),
-[0046](../decisions/0046-response-decompression.md).
+[0046](../decisions/0046-response-decompression.md),
+[0052](../decisions/0052-http1-upload-records.md).

@@ -99,6 +99,15 @@ func (p *Profile) Validate() error {
 
 	if p.HTTP1 != nil {
 		c.checkHTTP1Headers("http1.headers", p.HTTP1.Headers, false)
+
+		if u := p.HTTP1.UploadRecords; u != nil {
+			switch {
+			case u.JoinUpTo < 0 || u.JoinUpTo > MaxRecord:
+				c.add("http1.uploadRecords.joinUpTo", "must be 0 to %d", MaxRecord)
+			case u.JoinUpTo > 0 && !u.HeadApart:
+				c.add("http1.uploadRecords.joinUpTo", "needs headApart: one stream joins head and body always")
+			}
+		}
 	}
 
 	c.checkVariants("variants", p.Variants, false)

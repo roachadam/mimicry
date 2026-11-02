@@ -9,8 +9,11 @@ its newest Chrome profile. Every download number comes from the
 [full report](../internal/bench/reports/linux-final-2026-10-29/final-2026-10-29.md),
 which has every table, every load point and each value's range; every
 upload number from the
-[upload report](../internal/bench/reports/linux-uploads-2026-10-31/uploads-2026-10-31.md),
-run the same way two days later.
+[upload report](../internal/bench/reports/linux-uploads-2026-11-01/uploads-2026-11-01.md),
+run the same way with the HTTP/1.1 upload fix of
+[decision 0052](decisions/0052-http1-upload-records.md); the
+[earlier upload report](../internal/bench/reports/linux-uploads-2026-10-31/uploads-2026-10-31.md)
+is the run before it.
 
 ## Findings
 
@@ -27,14 +30,16 @@ run the same way two days later.
   `net/http` used 31–42 KB.
 - **Dropped clients clean up.** Clients thrown away without `Close` left
   mimicry's process at 71–131 MB. The others grew to 465–2,804 MB in 10 s.
-- **Uploads: close over HTTP/2, slower over HTTP/1.1 and HTTP/3.** Over
-  HTTP/2 mimicry uploaded within 6% of the best other impersonating client
-  to nginx, and up to 13% behind tls-client to the Go server. Over
-  HTTP/1.1 it uploaded 22–65% less than the other clients and used 1.2–2.9
-  times their CPU per upload; over HTTP/3 (to the Go server) 19–77% less,
-  at 1.3–3.3 times their CPU. Points where the server was the limit are
-  left out.
-- **Slower in six places**, covered in
+- **Uploads: fastest of the impersonating clients over HTTP/1.1, close
+  over HTTP/2, slower over HTTP/3.** Over HTTP/1.1 mimicry uploaded
+  4–34% more than the other clients at 64 KB one at a time, with the
+  least CPU per upload; at 10 MB one at a time to the Go server it was
+  3% behind httpcloak and ahead of the rest. Over HTTP/2 it uploaded
+  within 3% of the best other impersonating client to nginx, and 4–18%
+  behind tls-client at three of the four points to the Go server. Over
+  HTTP/3 (to the Go server) it uploaded 20–77% less, at 1.3–3.3 times
+  their CPU. Points where the server was the limit are left out.
+- **Slower in five places**, covered in
   [Where mimicry is slower](#where-mimicry-is-slower).
 
 ![Requests per second for each client at every load point, per protocol, mimicry highlighted](perf/throughput.svg)
@@ -111,28 +116,50 @@ and quic-go for HTTP/3) tell the clients apart there:
 
 ![Upload throughput for each client to the Go server, per body size, concurrency and protocol, mimicry highlighted](perf/uploads-go.svg)
 
+Over HTTP/1.1, at the points where the server was not the limit,
+mimicry uploaded the most at 64 KB one at a time: 846 MB/s to nginx
+against 633–817 MB/s, 826 MB/s to the Go server against 632–796 MB/s, at
+73 µs of CPU per upload against 78–102 µs. At 10 MB one at a time to the
+Go server it uploaded 2,001 MB/s: httpcloak 2,072 MB/s (3% more, outside
+mimicry's range), the others 1,907–1,978 MB/s; its 5.1 ms of CPU per
+upload was 3% over httpcloak's 4.9 ms and under the others' 5.1–5.3 ms.
+With 64 at once to the Go server at 64 KB mimicry queues on its 6
+connections, as Chrome does: 2,814 MB/s against 2,237–2,572 MB/s for the
+other impersonating clients and 3,502 MB/s for `net/http`. It made 86–92
+allocations per upload at every size (`net/http` 77–82, the others
+119–631). In the
+[earlier run](../internal/bench/reports/linux-uploads-2026-10-31/uploads-2026-10-31.md),
+before [decision 0052](decisions/0052-http1-upload-records.md), mimicry
+was the slowest at every one of these points: 496 MB/s and 134 µs at
+64 KB, 715 MB/s and 14.3 ms at 10 MB, about 2,650 allocations per 10 MB
+upload.
+
 Over HTTP/2 the clients were close. To nginx at 64 KB, one at a time,
-mimicry uploaded 609 MB/s; the others 488–632 MB/s and `net/http`
-744 MB/s. To the Go server it was 4–13% behind tls-client at three of
-the four points (841 against 961 MB/s at 64 KB, 64 at once). Over
-HTTP/1.1 mimicry was the slowest at every point: 496 MB/s
-at 64 KB against 658–708 MB/s, and 715 MB/s at 10 MB to the Go server
-against 1,909–2,042 MB/s. Over HTTP/3 to the Go server it uploaded
-196–223 MB/s against 242–987 MB/s. The same points to nginx are in
-[uploads.svg](perf/uploads.svg); CPU per upload is below.
+mimicry uploaded 608 MB/s; the others 488–622 MB/s and `net/http`
+738 MB/s. To the Go server it was behind tls-client at three of the four
+points: 4% at 64 KB one at a time (453 against 473 MB/s), 10% at 10 MB
+one at a time (1,463 against 1,622 MB/s) and 18% at 64 KB with 64 at
+once (772 against 943 MB/s; in the earlier run 841 against 961). Its
+allocations per 10 MB upload to nginx fell from about 900 to 96, with
+uTLS's small first records gone. Over HTTP/3 to the Go server it
+uploaded 195–222 MB/s against 244–955 MB/s, as in the earlier run. The
+same points to nginx are in [uploads.svg](perf/uploads.svg); CPU per
+upload is below.
 
 ![CPU per upload for each client to nginx, per body size, concurrency and protocol, mimicry highlighted](perf/uploads-cpu.svg)
 
 Through the proxy, 100 clients each uploading 64 KB one at a time all
 reached about the same requests per second, as for downloads. mimicry
-used 85 µs of CPU per upload over HTTP/2 through CONNECT, against
-93–121 µs for the other impersonating clients and 78 µs for `net/http`,
-and held the least memory per client (59 KB; the other impersonating
-clients 146–1,742 KB, `net/http` 120 KB).
-Over HTTP/3 through SOCKS5 it uploaded the most: 2,261 requests per second
-against 1,933–1,985. Over HTTP/1.1 it used 129 µs per upload against
-90–99 µs. At 10 MB over HTTP/3 through SOCKS5 no client finished an
-upload inside the 5 s window (100 bodies at once through nginx's HTTP/3).
+used 86 µs of CPU per upload over HTTP/2 through CONNECT, against
+94–123 µs for the other impersonating clients and 80 µs for `net/http`,
+and held the least memory per client (60 KB; the other impersonating
+clients 146–1,703 KB, `net/http` 121 KB).
+Over HTTP/3 through SOCKS5 it uploaded the most: 2,268 requests per second
+against 1,893–1,976. Over HTTP/1.1 at 64 KB it used the least CPU per
+upload, 72 µs against 80–99 µs (129 µs in the earlier run); at 10 MB
+3,703 µs against 3,484–3,920 µs. At 10 MB over HTTP/3 through SOCKS5 no
+client finished an upload inside the 5 s window (100 bodies at once
+through nginx's HTTP/3).
 
 ### Where mimicry is slower
 
@@ -164,22 +191,10 @@ benchmark that was 1.7 MB and 70 tunnels per client. Setting
 `Config.MaxIdleProxies` to 1 brought it to 304 KB, at the same speed
 ([decision 0040](decisions/0040-idle-connection-cleanup.md#amendment-2026-10-29-configmaxidleproxies)).
 
-**HTTP/1.1 uploads.** mimicry uploaded 22–65% less than the other clients
-over HTTP/1.1 and used 1.2–2.9 times their CPU per upload, at the points
-where the server was not the limit: at 10 MB, one
-at a time to the Go server, 715 MB/s and 14.3 ms of CPU against
-1,909–2,042 MB/s and 5.0–5.3 ms. A CPU profile of that point (a short
-local run) puts nearly all of mimicry's time in writing the body:
-`internal/h1` copies it through a 4 KB buffered writer straight onto the
-TLS connection, so every 4 KB becomes its own TLS record and its own
-`write` system call (about 2,650 allocations per 10 MB upload, against
-77–651 for the others). `net/http` copies 32 KB at a time. Not fixed
-here.
-
-**HTTP/3 uploads.** To the Go server mimicry uploaded 196–223 MB/s over
-HTTP/3 at every point; the others 242–987 MB/s, 2.9–4.4 times as much at
+**HTTP/3 uploads.** To the Go server mimicry uploaded 195–222 MB/s over
+HTTP/3 at every point; the others 244–955 MB/s, 2.9–4.3 times as much at
 10 MB and at 64 KB with 64 at once. It used 1.3–3.3 times their CPU per
-upload (67 ms per 10 MB one at a time, against 31–32 ms). A CPU profile
+upload (68 ms per 10 MB one at a time, against 31–32 ms). A CPU profile
 (a short local run) puts two-thirds of its time in one `sendmsg` system
 call per QUIC packet; quic-go, which the others use, hands Linux several
 packets per call (UDP GSO). Not fixed here.
@@ -256,10 +271,11 @@ GOWORK=off go run ./cmd/bench charts -in reports/linux-final-2026-10-29/final-20
 ```
 
 The upload run used the same settings, with the Go server added and only
-uploads measured (about 2 h 15 min):
+uploads measured (about 2 h 15 min), checked out at the commit that adds
+its report:
 
 ```sh
-BENCH_NAME=uploads BENCH_PASSES=3 BENCH_MIMICRY_COMMIT=7448b5d BENCH_PUBLISH=0 \
+BENCH_NAME=uploads BENCH_PASSES=3 BENCH_MIMICRY_COMMIT=h1-upload-records BENCH_PUBLISH=0 \
   BENCH_CLIENT_CPUS=0,2,4,6 BENCH_SERVER_CPUS=8-11 BENCH_SERVER_PROCS=4 BENCH_PROXY_CPUS=12-15 \
   nohup internal/bench/scripts/bench.sh report -layers 3,6 -micro "" -uploads all -downloads=false \
   -servers nginx,go -multi-variants fixed -multi-n2 0 > uploads.log 2>&1 &
@@ -269,5 +285,5 @@ and its charts:
 
 ```sh
 cd internal/bench
-GOWORK=off go run ./cmd/bench charts -uploads -in reports/linux-uploads-2026-10-31/uploads-2026-10-31.json -out ../../docs/perf
+GOWORK=off go run ./cmd/bench charts -uploads -in reports/linux-uploads-2026-11-01/uploads-2026-11-01.json -out ../../docs/perf
 ```

@@ -438,7 +438,10 @@
         "name": "Priority",
         "value": "u=0, i"
       }
-    ]
+    ],
+    "uploadRecords": {
+      "headApart": false
+    }
   },
   "variants": [
     {

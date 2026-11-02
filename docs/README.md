@@ -91,6 +91,7 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0037](decisions/0037-coalescing-opt-out.md) | Options to disable HTTP/2 coalescing and change the per-host limit | Accepted |
 | [0040](decisions/0040-idle-connection-cleanup.md) | Idle connections close after a timeout | Amended |
 | [0042](decisions/0042-http2-opening-records.md) | The HTTP/2 opening is grouped into TLS records as the browser does | Accepted |
+| [0052](decisions/0052-http1-upload-records.md) | HTTP/1.1 requests are cut into TLS records as the browser does; no dynamic record sizing | Accepted |
 
 ### Proxies and WebSockets
 

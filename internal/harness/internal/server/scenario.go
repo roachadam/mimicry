@@ -31,6 +31,11 @@ type Scenario struct {
 	// HTTP1 offers only http/1.1 in ALPN, so browsers load the page over
 	// HTTP/1.1.
 	HTTP1 bool
+	// recordUploads keeps every TLS record a client sends (TLS 1.3): each
+	// HTTP/1.1 request gets how they carried it (capture.H1Upload), an
+	// HTTP/2 trace all its records (h2trace.Trace.Records); the traces
+	// are written gzipped (capture.Capture.Gzip).
+	recordUploads bool
 	// Proxy, when set, has the browser reach the server through the
 	// capture proxy: ProxyHTTP or ProxySOCKS5.
 	Proxy string
@@ -179,6 +184,8 @@ var Scenarios = []*Scenario{
 		Doc:   "the server offers only HTTP/1.1: header casing and order, cookies and connections over HTTP/1.1",
 		HTTP1: true,
 	},
+	HTTP1Upload,
+	H2Upload,
 	{
 		Name:  "proxy-connect",
 		Doc:   "the capture page through an HTTP proxy: each CONNECT request, and the tunnelled connection against the direct one",

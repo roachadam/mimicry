@@ -222,7 +222,10 @@ func Inheriting(edit func([]byte) []byte) ([]byte, error) {
 
 	from := map[string]string{}
 	for _, f := range files {
-		if sc, ok := capture.ScenarioOf(source, f); ok && sc != capture.DefaultScenario {
+		// A scenario chrome-155 has from its testing build alone
+		// (http1-upload) is inherited too: its record cut is checked
+		// through it.
+		if sc, ok := capture.ScenarioOf(source, strings.Replace(f, ".chrome-for-testing", "", 1)); ok && sc != capture.DefaultScenario {
 			from[sc] = source
 		}
 	}

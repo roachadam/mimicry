@@ -296,6 +296,22 @@ browsers.
 | `goawayReply` (a GOAWAY sent at once on the server's; `hellogen` derives it from every HTTP/2 connection the capture server sent GOAWAY on: `h3-*`, `resume`, `resume-tls12`, `proxy-auth`) | W: none (72 connections) | W: NO_ERROR (60 of 60, no debug data; 48 on pages without HTTP/3, so not `goawayTcp`; the trace keeps no last stream ID, mimicry sends 0) | W: none (27: 78, 26: 60) | `TestHTTP3EdgeMatchesBrowser` (the GOAWAY on each TCP connection of the h3 pages), `TestGoAwayReply` (unit: idle, stream in flight, none) |
 | `splitCookie` (one HPACK field per cookie) | W+ | W+ | W+ | `TestCookiesMatchBrowserTrace` |
 
+## HTTP/1.1 uploads and TLS records
+
+[Decision 0052](../docs/decisions/0052-http1-upload-records.md).
+`http1-upload` and `h2-upload`, 3 samples each, 2026-11-01, every profile
+its own: this Mac (Chrome 156, Firefox 158, Safari 27), Chrome for Testing
+155.0.8059.84 for Chrome 155 (`chrome-155-macos.http1-upload.chrome-for-testing.h1trace.json.gz`,
+which feeds this field alone, as in 0042), Chrome 156 on the Windows 10 PC,
+Safari 26.2 on the second Mac and Safari 27.2 and 26 on the two iPhones.
+`hellogen` derives `http1.uploadRecords` from them (`capture.UploadRecords`).
+
+| Claim | Chrome 155, 156 (macOS, Windows) | Firefox 158 | Safari 27 / 26 (macOS, iOS) | Checked by |
+|---|---|---|---|---|
+| `http1.uploadRecords.headApart` (the head in a record of its own; every record 16384 bytes but the head's or the body's last) | W: true (every upload over 1400 B, 10 MiB on a new connection and reused, Blob, FormData, form POST) | W: false: head and body one stream, 16384-byte records from the head's first byte, the last the remainder | W: true, from a 1-byte body up | `TestUploadRecordsMatchBrowser`, `TestRegenerateReproducesProfiles` |
+| `http1.uploadRecords.joinUpTo` (head and body together in one record up to this size) | W: 1400 (1400 joined, 1401 apart, in 1-byte steps; Blob and File bodies never joined: Not covered) | — (one stream: up to 16384) | — (never) | `TestUploadRecordsMatchBrowser` |
+| No dynamic record sizing (full records from a connection's first byte; code, `internal/handshake`) | W: 16384 from the first body byte, HTTP/1.1 on a new connection and HTTP/2 under 1 KB in | W: HTTP/1.1 the same; HTTP/2 records follow its 16000-byte DATA frames | W: as Chrome | `TestUploadRecordsMatchBrowser` (fails with sizing on) |
+
 ## HPACK
 
 All rows **F**, checked by `TestHPACKReproducesBrowserBlocks`: every header
@@ -792,6 +808,9 @@ A difference closed is removed here, with its pinned gap entry.
 - **Upload of unknown length** (all): ends with an empty END_STREAM DATA frame; streamed bodies; detection low to medium; a streaming-upload capture.
 - **Idle origin moved to new TCP** (Chrome on macOS): after a broken HTTP/3 origin, a new TCP connection after 6–10 s idle; detection low; captures to find the cause ([`h3EdgeGaps`](../internal/harness/e2e/http3_edge_test.go)).
 - **Upload DATA chunking** (all; Firefox entirely): 65535-byte chunks match only the first chunk; uploads over 64 KiB; detection low; upload captures of several sizes.
+- **Blob and File bodies joined with the head** (Chrome): Chrome sends a Blob or File body apart from its head even when the two fit 1400 bytes (`http1-upload`'s `/up/blob-100`, `-500`); mimicry cannot tell a Blob from bytes and joins every small body up to `http1.uploadRecords.joinUpTo`; small file uploads over HTTP/1.1; detection low; none planned (decision 0052).
+- **Chunked HTTP/1.1 request bodies** (all): no browser sends one from a page (Chrome and Safari refuse a ReadableStream body over HTTP/1.1, Firefox sends its string form); mimicry's chunked body, which a caller asks for with an unknown length, goes out with its head as one stream in 16 KiB writes; detection low; none planned (decision 0052).
+- **HTTP/2 upload records** (all): browsers' upload records follow their DATA frames and flow control (`h2-upload`), which mimicry's HTTP/2 writer was not compared against record by record; large HTTP/2 uploads; detection low; an e2e comparison of `h2-upload`'s records.
 - **Credit return timing** (Firefox, Safari): returned at the profile's threshold, not paced by reads; large downloads; detection low; a read-paced model.
 - **REFUSED_STREAM** (Chrome): mimicry moves to another connection, Chrome retries on the same ([INFERENCE]); detection low; a refusing scenario.
 - **Error-path frame order** (Chrome): RST_STREAM before discarded credit, GOAWAY before close ([INFERENCE]); not checked; detection low; error injection.
