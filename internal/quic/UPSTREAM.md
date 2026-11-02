@@ -363,8 +363,9 @@ the mechanical import rewrites.
     one datagram per `recvmsg`; on Linux `readBatch` reads up to 8 per
     `recvmmsg` (quic-go's batch), with raw `recvmmsg` rather than
     `x/net/ipv4`'s `ReadBatch`, which allocates an address per message.
-    Each datagram still goes to the loop alone, with its own control
-    messages parsed (change 11), so the ACK rules see the queue they saw.
+    Each datagram still has its own control messages parsed (change 11);
+    a read's datagrams go to the loop together, which handles them one
+    at a time (change 26), so the ACK rules see the queue they saw.
     macOS keeps `recvmsg`. At 100 KB and 64 at once req/s rose from about
     6,000 to 6,300 (bench 2026-10-27, noisy). While `recvmmsg` finds nothing (EAGAIN), the
     batch's buffers but one go back to the pool, refilled as the traffic
@@ -568,15 +569,83 @@ the mechanical import rewrites.
     pass. The tests wait 10 s for a datagram, then fail naming the
     address, instead of hanging until the test binary's timeout.
 
+Changes 24 to 26 take CPU out of the connection's loop, the one goroutine
+that builds, encrypts and sends every packet and handles every datagram
+received (issue #7). None changes what is sent or when: the same packets,
+in the same order, with the same ACK and send-pass rules. Each was
+measured alone on `d056807` and all three together (2026-11-02, the Linux
+bench host, an i5-13500: the client on CPUs 0, 2, 4 and 6 with
+`GOMAXPROCS` 4, the servers on 8-11; `bench run -layers 3 -protos h3`,
+10 s windows, 3 passes with the builds in a rotated order, medians with
+each pass's range).
+
+24. **A cursor in the send pipe** (`pipe.go`: `pipe.last`, set by `read`,
+    cleared by `discardBefore` and `release` with the buffer it names).
+    Upstream's `read` walks a stream's 4 KB buffers from the window's start
+    for every packet: the unacknowledged part of an upload's send buffer
+    is hundreds of buffers, so a CPU profile put 12-20% of the loop on
+    uploads there. It now starts at the buffer the last read ended in
+    when the read starts there or later, as a stream's sends do; a
+    retransmission from before it walks from the start, as before. HTTP/3
+    uploads of 10 MB to the Go server, one at a time: 213.8 to 237.9 MB/s
+    (ranges 211.8-214.3 and 234.0-239.4), 67.0 to 61.7 ms of CPU per
+    upload; 64 at once 218.9 to 233.6 MB/s, 64.7 to 61.5 ms. 64 KB bodies
+    (16 buffers at most) and the downloads below were unchanged.
+
+25. **The oldest unacknowledged packet tracked** (`sent_packet_list.go`:
+    `sentPacketList.unackedFrom`, `oldestAckEliciting`; `client_path.go`'s
+    `oldestUnacked`). The client's path watch (change 8's paths: when a
+    degrading path moves) asks for the oldest ack-eliciting 1-RTT packet
+    in flight on every loop iteration and scanned the sent-packet list
+    from its start each time. A download's ACK-only packets stay in the
+    list, sent, until a later ACK declares them lost, so the scan was
+    16-18% of the loop on downloads. A packet that is not ack-eliciting
+    and in flight never becomes one (a packet's state only leaves sent;
+    the other two are set before it is added), so the search goes on from
+    where the last one stopped. 100 KB, 64 at once, from nginx with a 7 MB
+    receive buffer:
+    215.1 to 201.3 µs of CPU per request (ranges 214.6-215.3 and
+    200.7-203.4) at the same server-bound 8,400-8,456 requests/s. At the
+    1 MB default (7 passes; the drops make it noisy) 268 to 252 µs and
+    4,975 to 5,282 requests/s, the ranges overlapping.
+
+26. **A read's datagrams to the loop in one message** (new
+    `dgram_batch.go`; `endpoint.go`: `packetConn.Read` gives each read's
+    datagrams at once, `listen`; `conn.go`'s `loop`; every `Read`:
+    `udp_batch_linux.go` gives a `recvmmsg` read's, the others a read of
+    one). The reader handed each datagram of a `recvmmsg` read to the
+    loop through its channel on its own, about 7% of the process's CPU
+    on downloads, and blocked on the full channel for each. Now a `Dial`
+    endpoint's reader hands the connection the whole read as one
+    `datagramBatch`; the loop takes each datagram where it would have
+    waited for its next message, after its timers and its send pass, so
+    each is handled as if it had come alone, in order. A browser that
+    batches its ACKs (`QUICAck.Batched`), and every browser before the
+    handshake is confirmed, reads on while datagrams are queued: a
+    read's datagrams not yet handled count as queued, which before
+    depended on whether the reader had put the next one in the channel
+    yet. Chrome sends after every datagram, as before. An endpoint with
+    several connections (upstream's server) still routes each datagram
+    alone. 100 KB, 64 at once, from nginx with a 7 MB buffer: 215.1 to
+    198.6 µs of CPU per request (197.6-199.0) and 8,400 to 8,741
+    requests/s (ranges 8,306-8,430 and 8,536-8,764); at the 1 MB default
+    (7 passes) 268 to 247 µs and 4,975 to 5,650 requests/s, the ranges
+    overlapping. Uploads were unchanged, and 64 at once still drop the
+    server's ACKs (680,000-865,000 per window, 790,000-842,000 before):
+    the loop itself is full there. All three changes together: 188.7 µs
+    and 8,704 requests/s at 7 MB, 236.6 µs and 5,717 at 1 MB, 236.4 and
+    232.9 MB/s for 10 MB uploads.
+
 ## Sockets
 
-`udp_packetconn.go` is upstream's, unchanged: `netPacketConn` wraps any
-`net.PacketConn`. It reads one datagram per `ReadFrom` into a buffer from
-`datagramPool`, writes with `WriteTo`, and reports the socket's bound
-address as its local one (none when that is unspecified); a datagram
-whose sender address does not parse is dropped. It has no control
-messages (no ECN, no local address per datagram) and no batched receive
-(change 13). Upstream calls it mostly useful for tests.
+`udp_packetconn.go` is upstream's but for `Read`'s signature (change 26:
+each datagram goes to the endpoint as a read of one): `netPacketConn`
+wraps any `net.PacketConn`. It reads one datagram per `ReadFrom` into a
+buffer from `datagramPool`, writes with `WriteTo`, and reports the
+socket's bound address as its local one (none when that is unspecified);
+a datagram whose sender address does not parse is dropped. It has no
+control messages (no ECN, no local address per datagram) and no batched
+receive (change 13). Upstream calls it mostly useful for tests.
 
 `Dial`, and a migration's new path (`wrapPacketConn` in `client_path.go`),
 use it for every socket that is not a `*net.UDPConn`, as `NewEndpoint`
@@ -601,9 +670,12 @@ way, reach the paths; `stream_fin_test.go` (change 10): a stall that
 needs the close to fall between a PTO and its probe;
 `udp_msg_parse_test.go` (change 11): the receive path's allocation bound;
 `stream_close_cause_test.go` (change 20): a handshake that stops short of
-confirmed; and `client_path_test.go` (change 21): no capture server can
+confirmed; `client_path_test.go` (change 21): no capture server can
 send `disable_active_migration` (quic-go has no setting for it), so
-`TestQUICInterop` cannot reach it.
+`TestQUICInterop` cannot reach it; and `loop_cpu_test.go` (changes 24 to
+26): each shortcut against the slow way it replaced, on the paths no
+capture steers (retransmission and acks inside the send buffer, loss and
+key updates under the path watch, a read's datagrams arriving at once).
 
 ## Lint
 
@@ -634,3 +706,8 @@ that is redundant there, and `udp_batch_linux.go`'s blank lines, its
 fallback's nil error. Six `//nolint:gosec` directives were unused (G115
 is off everywhere) and are gone. Now none on mimicry's lines, on either
 platform; gopls reports none there either.
+
+Changes 24 to 26, 2026-11-02, on their lines (darwin, linux, windows):
+blank lines (wsl, nlreturn), `udp_test.go`'s `Read` error discarded
+explicitly, and reasons on the batch pool's type assertion and the tests'
+seeded generators. Now none there; gopls reports none there either.

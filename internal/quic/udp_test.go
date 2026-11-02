@@ -229,8 +229,11 @@ func runUDPTest(t *testing.T, f func(t *testing.T, u udpTest)) {
 			dgramc := make(chan *datagram)
 			go func() {
 				defer close(dgramc)
-				dst.Read(func(dgram *datagram) {
-					dgramc <- dgram
+
+				_ = dst.Read(func(dgrams []*datagram) { // mimicry: Read's batches
+					for _, dgram := range dgrams {
+						dgramc <- dgram
+					}
 				})
 			}()
 			t.Cleanup(func() {

@@ -383,6 +383,15 @@ func (c *Conn) loop(now time.Time) {
 	// queued is processed, as browsers read what arrived before answering
 	// (Firefox's Initial and Handshake ACKs in one datagram).
 	readMore := false
+	// mimicry: batch holds a read's datagrams not yet handled
+	// (dgram_batch.go): each is taken where the loop would wait for its
+	// next message, so it is handled as if it had come alone.
+	var batch *datagramBatch
+	defer func() {
+		if batch != nil {
+			batch.recycle()
+		}
+	}()
 
 	for c.lifetime.state != connStateDone {
 		// mimicry: a client with a profile sends as its browser does.
@@ -432,7 +441,23 @@ func (c *Conn) loop(now time.Time) {
 				timer.Reset(nextTimeout.Sub(now))
 				lastTimeout = nextTimeout
 			}
-			m = <-c.msgc
+
+			if batch == nil { // mimicry: or the next of a read's datagrams
+				m = <-c.msgc
+				if b, ok := m.(*datagramBatch); ok {
+					batch = b
+				}
+			}
+
+			if batch != nil {
+				d, more := batch.take()
+				if !more {
+					batch = nil
+				}
+
+				m = d
+			}
+
 			now = time.Now()
 		}
 		switch m := m.(type) {
@@ -446,7 +471,7 @@ func (c *Conn) loop(now time.Time) {
 			// Once the handshake is confirmed, only a browser that
 			// batches its ACKs reads on before answering; the others
 			// acknowledge at their rate (QUICAck).
-			readMore = c.client != nil && len(c.msgc) > 0 &&
+			readMore = c.client != nil && (batch != nil || len(c.msgc) > 0) && // mimicry: a read's datagrams count as queued
 				(c.client.p.Ack.Batched || !c.handshakeConfirmed.isSet())
 
 		case timerEvent:

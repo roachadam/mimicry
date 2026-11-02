@@ -4,7 +4,8 @@ package quic
 
 // mimicry: received datagrams are read in batches with recvmmsg (UPSTREAM.md
 // change 13), up to recvBatch per system call; upstream reads one per
-// recvmsg. Each still goes to f, and so to the conn's loop, one at a time.
+// recvmsg. Each read's datagrams go to f together, and so to the conn's loop
+// in one message (change 26), which still handles them one at a time.
 // The batch is read with raw recvmmsg rather than x/net/ipv4's ReadBatch,
 // which allocates an address per message. A read takes as many buffers
 // from the pool as the traffic has needed, not a whole batch each time the
@@ -35,7 +36,7 @@ var controlSize = syscall.CmsgSpace(12) + syscall.CmsgSpace(20) + syscall.CmsgSp
 // readBatch reads datagrams until an error, as Read does, recvBatch at a
 // time. ok is false when the socket gives no raw access; Read reads one at
 // a time then.
-func (c *netUDPConn) readBatch(f func(*datagram)) (ok bool, err error) {
+func (c *netUDPConn) readBatch(f func([]*datagram)) (ok bool, err error) {
 	rc, err := c.c.SyscallConn()
 	if err != nil {
 		return false, nil //nolint:nilerr // no raw access: Read reads one at a time
@@ -50,6 +51,8 @@ func (c *netUDPConn) readBatch(f func(*datagram)) (ok bool, err error) {
 		// the front, for the next read.
 		dgrams [recvBatch]*datagram
 		held   int
+		// read holds the datagrams a read filled, for f.
+		read [recvBatch]*datagram
 		// want is how many datagrams the next recvmmsg may return; got,
 		// how many have been read since the socket last woke.
 		want = recvBatch
@@ -132,6 +135,8 @@ func (c *netUDPConn) readBatch(f func(*datagram)) (ok bool, err error) {
 			return true, errno
 		}
 
+		k := 0
+
 		for i := range n {
 			d := dgrams[i]
 
@@ -150,7 +155,14 @@ func (c *netUDPConn) readBatch(f func(*datagram)) (ok bool, err error) {
 				peer:  unmapAddrPort(sockaddrAddrPort(&names[i])),
 			}
 			parseControl(d, control[i*controlSize:][:hdrs[i].hdr.Controllen])
-			f(d)
+
+			read[k] = d
+			k++
+		}
+
+		if k > 0 {
+			f(read[:k])
+			clear(read[:k])
 		}
 
 		// The buffers the read left unfilled move to the front. A full
