@@ -9881,7 +9881,8 @@
     },
     "ack": {
       "every": 2,
-      "batched": true
+      "batched": true,
+      "afterRtt": true
     },
     "credit": {
       "streamDivisor": 4,

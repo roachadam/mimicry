@@ -172,3 +172,129 @@ whatever the rate, and at 10 MB c64 the ranges overlap.
   Linux test host and the gap to tls-client closes or grows.
 - A vendor is seen reading a client's ACK cadence: the option's risk goes
   up.
+
+## Amendment 2026-11-02: Firefox's ACK after a quiet spell (`quic.ack.afterRtt`)
+
+**Summary.** Firefox acknowledges a packet at once when it comes a while
+after its last ACK, where `quic.ack` (every 2nd packet, batched) held it
+for the 20 ms ACK delay. The profile field `quic.ack.afterRtt`, derived
+by h3gen, says so, and a client with it sends a pending ACK as soon as a
+smoothed RTT has passed since its last ACK (issue #40). Both Firefox
+profiles have it; Chrome's and Safari's captures do not show it.
+
+**The issue's hypothesis was a different rule.** #40 read Firefox's
+immediate ACKs as "two packets of any kind since the last ACK", counting
+the server's ACK-only packets. The captures cannot decrypt the server's
+packets, so which ones are ACK-only is itself an inference from their
+size and timing. Counting ACK-only packets explains the two-packet ACKs
+#40 cites, but not the lone ones, and the two-packet ACKs fit the time
+rule too.
+
+**Evidence** (h3gen, `quictrace.LoneACKs`, over every edge capture). A
+lone ACK is a client ACK-only packet whose only new packet is one server
+1-RTT packet, so that packet elicited it. "Late": the server sent it 5 ms
+or more after the client's previous ACK reached it. "At once": the ACK
+reached the server within 3 ms of the packet.
+
+| profile | late, at once | sooner, at once |
+|---|---|---|
+| Firefox 158, macOS | 70 of 70 | 72 of 215 |
+| Firefox 158, Windows | 76 of 76 | 56 of 212 |
+| Chrome 155 (macOS) | 27 of 44 | 249 of 323 |
+| Chrome 156, Windows | 14 of 36 | 197 of 314 |
+| Safari 27, macOS | 23 of 28 | 236 of 288 |
+| Safari 26, macOS | 24 of 27 | 229 of 252 |
+
+- Firefox's sooner ones that waited waited for the 20 ms ACK delay. The
+  12 macOS ones the server sent before Firefox's previous ACK reached it
+  and that were still acknowledged at once all had a missing packet in
+  their ranges (RFC 9000's immediate ACK of a gap, already modelled).
+- Over every h3 capture (at once read from the ACK Delay field, under
+  3 ms), counting ACK-only packets leaves 144 of macOS's 262 lone ACKs
+  at once unexplained (Windows 195 of 426). Its two-packet cases, one
+  response with ACK-only packets around it, were at once 40 of 40 (Windows
+  122 of 122); in 34 (99) the response came 3.7 ms or more after the last
+  ACK, so the time rule sends them at once too. The other 6 came within
+  0.4 ms of the last ACK (Windows 23 within 2.3 ms, its timestamps step
+  by 0.5 ms), where at loopback RTTs neither rule is ruled out.
+- **Source, not evidence:** neqo (Firefox's QUIC stack), `tracking.rs`:
+  `RecvdPackets::ack_now` sends a pending ACK when its timer is due or
+  when `last_ack_time + rtt <= now`, `rtt` being the path's smoothed RTT
+  (`rtt().estimate()`); `unacknowledged_count` counts ack-eliciting
+  packets only, against a tolerance of 1 (every 2nd). The check runs
+  whenever neqo builds a packet, so after each batch of datagrams read;
+  the ACK timer itself stays the ACK delay.
+- **Measured vs inferred.** Measured: a lone packet arriving well after
+  the last ACK is acknowledged at once, and one arriving right after it
+  waits. Inferred, from the source: that the threshold is one smoothed
+  RTT. The captures run over loopback (RTT 0.04–1 ms), so they cannot
+  tell one smoothed RTT from a fixed gap below about 0.5 ms, or from any
+  gap at all; mimicry follows the source there rather than fit a number
+  to loopback.
+
+**At real RTTs** (tens of ms), where it matters most: a response that
+comes a round trip after the request finds the last ACK more than a
+smoothed RTT old, so its first packet is acknowledged when it arrives
+rather than up to 20 ms later. Within a bulk transfer, ACKs go every
+2nd packet, far more often than once per RTT, so the rule never fires;
+a lone packet arriving within an RTT of the last ACK still waits for the
+ACK delay. On loopback almost any pause qualifies.
+
+**Options.**
+
+- Count ACK-only packets toward every 2 (#40's hypothesis): fits the
+  two-packet ACKs only, and no capture favours it.
+- A fixed gap (for example 1 ms) fitted to the loopback captures: no
+  measured value to fit, and at real RTTs it would fire inside bulk
+  transfers (packets 1 ms apart), where Firefox's rule does not.
+- One smoothed RTT since the last ACK, as neqo's code says (chosen).
+
+**Implementation.** `internal/quic`: `ackState.afterRTT` and `lastAck`
+(set by `sentAck`, which now takes the time); `clientAckAfterRTT` makes
+the send path treat a pending ACK as due once `lastAck` plus the smoothed
+RTT has passed. The ACK timer is unchanged, so it only fires when the
+connection sends anyway, a packet's arrival above all, as neqo's.
+Profiles without the field (Chrome, Safari) behave as before.
+
+**Replay.** `h3-streams-blocked`'s burst waits on macOS came 28–64 ms
+after Firefox's (322 and 644 ms against 290–294 and 580–602); now 301–302
+and 602–603, the rest the replay's own scheduling. The
+STREAMS_BLOCKED pattern (mimicry's 7, 13 against Firefox's 6 7 8,
+12 13 14) stays pinned: the replay sends a burst's first two requests in
+one packet, Firefox 3.2–5.7 ms apart, so the server raises its limit by
+two; with the requests 5 ms apart mimicry sends Firefox's pattern, and
+without the rule it still does not; whether the replay's first two share
+a packet is this process's scheduling, so the pin may not show.
+`TestHTTP3EdgeMatchesBrowser` (`afterRTTRecord`) holds each Firefox
+profile's late lone packets, over all its edge pages, to an ACK at once:
+at most 5% (at least one) may wait, as a stall under -race can lift the
+smoothed RTT past 5 ms, and a profile with none fails as unexercised.
+In one run 38 of 38 (Windows) and 37 of 37 (macOS) went at once; with
+the rule switched off, 0 of 28 did, and the test failed.
+
+**Cost** (the Linux host of [performance](../performance.md), its
+harness, nginx, HTTP/3, Firefox's profile with the field on and off in
+one build, clients interleaved; median and range; 7 passes at 1 KB and
+100 KB, 3 at 10 MB; datagrams are the client's UDP datagrams sent per
+request in the window, nearly all ACK-only):
+
+| point | off: req/s (MB/s) | on | off: CPU per request | on | off: datagrams per request | on |
+|---|---|---|---|---|---|---|
+| 1 KB, 64 at once | 89,291 (85,959–92,391) | 89,059 (72,622–93,741) | 34 µs | 34 µs | 0.65 | 0.65 |
+| 100 KB, 64 at once | 7,670 (5,839–8,602) | 8,375 (6,243–10,039) | 200 µs | 186 µs | 4.58 | 4.01 |
+| 100 KB, 64 at once, 7 MB buffer | 9,719 (8,559–10,038) | 9,652 (7,778–10,064) | 173 µs | 177 µs | 2.64 | 2.64 |
+| 10 MB, one at a time | 791 MB/s (782–804) | 797 MB/s (793–800) | 14.1 ms | 14.0 ms | 237 | 237 |
+
+No point moved beyond its range; at the 1 MB default the drops make
+100 KB noisy both ways, as before. ACKs per download, against Firefox's
+own: the h3-download replay (50 MiB at the capture's pace, about
+10 MB/s) sends 9,857–10,600 ACKs with the rule and 10,467–10,586
+without, 3.5–3.8 packets each; Firefox sent 6,520–7,363 (5.0–5.7 each),
+on Windows 2,272–6,345. At the bench's 800 MB/s mimicry reads larger
+batches and sends 237 per 10 MB (31 packets each) either way. The rule
+adds no ACK to a steady download; the gap to Firefox's rate in the
+replay is the batching's, and predates it.
+
+**Revisit when** a capture over a real network (RTT of tens of ms)
+shows where the threshold lies, or a Firefox version changes neqo's
+`ack_now`.
