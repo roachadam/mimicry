@@ -67,6 +67,10 @@ var targets = map[string]target{
 		browser: "firefox",
 		remote:  remoteMini,
 	},
+	"firefox-windows": {
+		browser: "firefox",
+		remote:  remoteWindows,
+	},
 	"safari": {
 		browser: "safari",
 	},
@@ -333,7 +337,7 @@ func (m *machine) streamCmd(ctx context.Context, prefix, logFile, name string, c
 }
 
 // psStopUnder stops every process on a Windows host run from $d or naming
-// it on its command line (Chrome's user data directory is in it).
+// it on its command line (the browser's profile directory is in it).
 const psStopUnder = `Get-CimInstance Win32_Process | Where-Object {
   ($_.ExecutablePath -and $_.ExecutablePath.StartsWith($d, [System.StringComparison]::OrdinalIgnoreCase)) -or
   ($_.CommandLine -and $_.CommandLine.IndexOf($d, [System.StringComparison]::OrdinalIgnoreCase) -ge 0)

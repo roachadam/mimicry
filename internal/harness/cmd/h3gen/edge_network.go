@@ -19,7 +19,7 @@ func (s *edgeSet) deriveFailurePair(q *profile.QUIC, h *profile.HTTP3) error {
 	e := &collector{}
 
 	s.silenced = s.silencedConns(e)
-	q.KeepAlive = s.keepAlive(e)
+	q.KeepAlive = s.keepAlive(q.KeepAlive.From, e)
 	q.Loss = profile.QUICLoss{
 		PathDegrading: s.pathDegrading(q, e),
 	}

@@ -135,12 +135,34 @@ func TestConnectionMatchesBrowserTrace(t *testing.T) {
 			}
 
 			for _, where := range []string{"conn", "/big"} {
+				gap := creditGaps[capture.Source(p, capture.DefaultScenario)+" "+where]
+				outside := false
+
 				for _, inc := range got.Credit[where] {
-					if inc+frame < low[where] || inc > high[where]+frame {
-						t.Errorf("%s credit increment %d, outside the browser's %d..%d (± one frame)", where, inc, low[where], high[where])
+					if inc+frame >= low[where] && inc <= high[where]+frame {
+						continue
 					}
+
+					outside = true
+
+					if gap == "" {
+						t.Errorf("%s credit increment %d, outside the browser's %d..%d (± one frame)", where, inc, low[where], high[where])
+					} else {
+						t.Logf("known gap: %s credit increment %d, outside the browser's %d..%d: %s", where, inc, low[where], high[where], gap)
+					}
+				}
+
+				if gap != "" && !outside {
+					t.Errorf("known gap %q no longer appears", gap)
 				}
 			}
 		})
 	}
+}
+
+// creditGaps are credit increments mimicry sends outside the browser's
+// range, by "<profile> <where>" (the profile that took the capture), with
+// why: logged, not failed. A listed gap that no longer appears fails.
+var creditGaps = map[string]string{
+	"firefox-158-windows /big": "Firefox returns /big's stream credit as the page reads it: its largest increment was 3.56 MB in 3 Windows samples (with 16–557 KB steps between), while 2 of 3 macOS samples of the same Firefox sent 4 MiB, mimicry's step; how fast the page reads is the machine's, not a rule",
 }

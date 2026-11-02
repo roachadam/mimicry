@@ -118,12 +118,8 @@ var redirectsReload = map[string]bool{
 // browser, with why: connection choices no rule explains yet (gaps, not
 // redirect rules).
 var redirectsMerged = map[string]map[string]string{
-	"firefox-158-macos": {
-		// Its credential-less fetch-acao hop and credentialed cred-acac hop
-		// went on two connections, while www.redir-b.test's requests of
-		// both sorts shared one (every sample).
-		"www.redir-c.test": "credentialed and credential-less hops on connections of their own, on this host only",
-	},
+	"firefox-158-macos":   firefoxRedirectsMerged,
+	"firefox-158-windows": firefoxRedirectsMerged,
 	"chrome-156-macos": {
 		// redirects2-cookies: in one sample of three the error page's
 		// reload of nav-chain.so (browser UI, redirectsReload) went on a
@@ -136,12 +132,8 @@ var redirectsMerged = map[string]map[string]string{
 // browser, with why: priorities that depend on layout, not on how the
 // request was made or redirected.
 var redirectsLineGaps = map[string]map[string]string{
-	"firefox-158-macos": {
-		"/p/img-markup.so":      "markup images here get priority u=4 (weight 13), the kinds page's u=5",
-		"/p/img-markup.so.hop1": "markup images here get priority u=4 (weight 13), the kinds page's u=5",
-		"/p/img-markup.ss":      "markup images here get priority u=4 (weight 13), the kinds page's u=5",
-		"/p/img-markup.ss.hop1": "markup images here get priority u=4 (weight 13), the kinds page's u=5",
-	},
+	"firefox-158-macos":   firefoxRedirectsLineGaps,
+	"firefox-158-windows": firefoxRedirectsLineGaps,
 	"chrome-155-macos": {
 		"/p/img-markup.ss.hop1": "the hop of a markup image goes at u=1 (weight 219), raised once layout found it visible",
 	},
@@ -160,6 +152,23 @@ var redirectsLineGaps = map[string]map[string]string{
 		"/p/img-markup.ss":      "markup images and their hops go at u=3 in some samples (5 of 12 requests), raised once layout found them visible",
 		"/p/img-markup.ss.hop1": "markup images and their hops go at u=3 in some samples (5 of 12 requests), raised once layout found them visible",
 	},
+}
+
+// firefoxRedirectsMerged are Firefox's redirectsMerged (macOS and Windows
+// alike): its credential-less fetch-acao hop and credentialed cred-acac hop
+// went on two connections, while www.redir-b.test's requests of both sorts
+// shared one (every sample).
+var firefoxRedirectsMerged = map[string]string{
+	"www.redir-c.test": "credentialed and credential-less hops on connections of their own, on this host only",
+}
+
+// firefoxRedirectsLineGaps are Firefox's redirectsLineGaps (macOS and
+// Windows alike).
+var firefoxRedirectsLineGaps = map[string]string{
+	"/p/img-markup.so":      "markup images here get priority u=4 (weight 13), the kinds page's u=5",
+	"/p/img-markup.so.hop1": "markup images here get priority u=4 (weight 13), the kinds page's u=5",
+	"/p/img-markup.ss":      "markup images here get priority u=4 (weight 13), the kinds page's u=5",
+	"/p/img-markup.ss.hop1": "markup images here get priority u=4 (weight 13), the kinds page's u=5",
 }
 
 // mergeHosts joins the connections of each host in hosts into one, in

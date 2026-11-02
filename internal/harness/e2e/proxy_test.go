@@ -265,11 +265,12 @@ var proxyPlainGaps = func() map[string]string {
 		safariUpload = "Safari put Content-Length after Accept on the page's upload, whose body has no Content-Type; kinds-plain's POST fetches all have one, and their list puts Content-Length after Origin, as mimicry does"
 	)
 
-	gaps := map[string]string{
-		"firefox-158-macos GET http://capture.mimicry.test:PORT/app.js HTTP/1.1": "Firefox sent no Priority for the page's script, last in its body; kinds-plain's blocking script, in the head, went at u=2, the profile's one script list",
+	gaps := map[string]string{}
+	for _, name := range []string{"firefox-158-macos", "firefox-158-windows"} {
+		gaps[name+" GET http://capture.mimicry.test:PORT/app.js HTTP/1.1"] = "Firefox sent no Priority for the page's script, last in its body; kinds-plain's blocking script, in the head, went at u=2, the profile's one script list"
 	}
 
-	for _, name := range []string{"chrome-155-macos", testprofiles.InheritingName, "chrome-156-macos", "chrome-156-windows", "firefox-158-macos", "safari-26-macos", "safari-27-macos", "safari-26-ios", "safari-27-ios"} {
+	for _, name := range []string{"chrome-155-macos", testprofiles.InheritingName, "chrome-156-macos", "chrome-156-windows", "firefox-158-macos", "firefox-158-windows", "safari-26-macos", "safari-27-macos", "safari-26-ios", "safari-27-ios"} {
 		gaps[name+" "+nav] = linkNav
 	}
 

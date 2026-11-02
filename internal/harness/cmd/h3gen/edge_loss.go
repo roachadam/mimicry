@@ -365,6 +365,10 @@ func giveUp(q *profile.QUIC, us []unanswered, feature string, s *edgeSet, e *col
 	for _, u := range us {
 		f := u.a.closeFlight()
 		if f == nil {
+			if s.gap(u.at(), feature) {
+				continue
+			}
+
 			silent++
 
 			if end := u.a.end() - float64(u.a.start); end >= idle {
@@ -634,8 +638,12 @@ func migration(q *profile.QUIC, sl silenced, first int, at string, e *collector)
 
 // keepAlive derives the keep-alive PING period and its start moment: the
 // candidate every sample puts within 50 ms of one period. PINGs within
-// 5 ms of another datagram are probes, not keep-alives.
-func (s *edgeSet) keepAlive(e *collector) profile.QUICKeepAlive {
+// 5 ms of another datagram are probes, not keep-alives. Where the samples
+// fit several moments alike, prev, the moment the profile has (measured on
+// captures that tell them apart: Firefox on Windows's last received
+// datagram came 2.0 s before its idle timer's restart in every sample, as
+// macOS's did not), is kept if it is one of them.
+func (s *edgeSet) keepAlive(prev string, e *collector) profile.QUICKeepAlive {
 	var out profile.QUICKeepAlive
 
 	froms := []string{profile.KeepAliveFromSent, profile.KeepAliveFromIdle, profile.KeepAliveFromReceived}
@@ -697,6 +705,9 @@ func (s *edgeSet) keepAlive(e *collector) profile.QUICKeepAlive {
 	late := func(d float64, period int, slack float64) bool {
 		return d < float64(period)-1 || d > float64(period)+50+slack
 	}
+
+	var fitting []profile.QUICKeepAlive
+
 	for _, from := range froms {
 		ds := deltas[from]
 		period := roundTo(slices.Min(ds), 100)
@@ -713,19 +724,28 @@ func (s *edgeSet) keepAlive(e *collector) profile.QUICKeepAlive {
 			}
 		}
 
-		if !fits {
-			continue
+		if fits {
+			fitting = append(fitting, profile.QUICKeepAlive{
+				PeriodMillis: period,
+				From:         from,
+			})
 		}
-
-		if out.From != "" {
-			edgeErr(e, s.set.name, "keep-alive PINGs fit counting from %q and from %q", out.From, from)
-		}
-
-		out.PeriodMillis, out.From = period, from
 	}
 
-	if out.From == "" {
+	switch i := slices.IndexFunc(fitting, func(k profile.QUICKeepAlive) bool {
+		return k.From == prev
+	}); {
+	case len(fitting) == 0:
 		edgeErr(e, s.set.name, "keep-alive PINGs fit no moment they count from: %v", deltas)
+
+		return out
+
+	case len(fitting) == 1:
+		out = fitting[0]
+	case i >= 0:
+		out = fitting[i]
+	default:
+		edgeErr(e, s.set.name, "keep-alive PINGs fit counting from each of %v, the profile's %q none of them", fitting, prev)
 
 		return out
 	}
@@ -810,7 +830,17 @@ func (s *edgeSet) versionNegotiation(e *collector) profile.QUICVersionNegotiatio
 			break
 		}
 
-		later := p.attemptsTo(a.c.Host, float64(a.start)+1, math.Inf(1))
+		// Every later attempt to the host, by arrival: on Windows the
+		// recorder's clock moves in steps of about 0.5 ms, so the retry
+		// can share the first attempt's millisecond.
+		var later []*attempt
+
+		for _, b := range p.attempts[vn+1:] {
+			if b.c.Host == a.c.Host {
+				later = append(later, b)
+			}
+		}
+
 		if len(later) > 0 {
 			r := later[0]
 

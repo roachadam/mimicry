@@ -1,6 +1,6 @@
 # 0023: Per-host HTTP/1.1 limit and HTTP/2 coalescing, per browser
 
-- Status: Accepted; amended 2026-10-28 by [0037](0037-coalescing-opt-out.md) (options to disable coalescing and change the HTTP/1.1 limit); amended 2026-10-30 (no preconnects)
+- Status: Accepted; amended 2026-10-28 by [0037](0037-coalescing-opt-out.md) (options to disable coalescing and change the HTTP/1.1 limit); amended 2026-10-30 (no preconnects); amended 2026-11-01 (Firefox on Windows's unused connection)
 - Date: 2026-10-24
 - Commits: `62d9b2a`
 
@@ -83,3 +83,17 @@ it would cost an extra, mostly unused handshake per page load (through a
 proxy, the 407s too). The difference stays pinned in
 `connections_test.go`. Reopen if a vendor is seen counting connections per
 page.
+
+## Amendment 2026-11-01: Firefox on Windows's unused connection
+
+Firefox on Windows opens a second TCP connection to a page's host 0–27
+ms after the first, sends its HTTP/2 preface on it and closes it with
+GOAWAY, unused: in 131 of the 135 samples of pages it opened directly
+over HTTPS, in none through a proxy, and never on macOS
+([decision 0047, amendment](0047-windows-profiles.md#amendment-2026-11-01-firefox-on-windows)).
+Its full handshake also leaves Firefox one more TLS 1.2 ticket for the
+host, so one more later connection resumes. Not modelled, for the reasons
+above: a connection count per page, and an extra handshake per page load
+for every caller. The e2e tests leave it out of the browser's pages
+(`unusedOpenings`), and the resumption count it changes is pinned
+(`resumeCountGaps`). Reopen with Chrome's preconnect.

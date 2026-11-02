@@ -53,7 +53,7 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0024](decisions/0024-clienthello-shape-in-profiles.md) | The ClientHello's whole shape is profile data | Amended |
 | [0035](decisions/0035-version-policy-and-capture-inheritance.md) | Newest-version accessors, five supported versions, inherited captures | Amended by 0047, 0051 |
 | [0044](decisions/0044-profile-fingerprint.md) | Transports find a shared profile by a hash of its content | Accepted |
-| [0047](decisions/0047-windows-profiles.md) | Windows profiles: `chrome-<major>-windows` and `ChromeWindows()` | Amended by 0051 |
+| [0047](decisions/0047-windows-profiles.md) | Windows profiles: `<browser>-<major>-windows`, `ChromeWindows()` and `FirefoxWindows()` | Amended by 0051; amended (Firefox on Windows) |
 | [0051](decisions/0051-ios-safari-over-the-network.md) | Safari on an iPhone: the fingerprint captured on the iPhone, from the Mac; inherited from macOS Safari only where no difference shows | Accepted |
 
 ### Requests and headers

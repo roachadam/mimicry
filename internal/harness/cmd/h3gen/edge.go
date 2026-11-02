@@ -276,7 +276,7 @@ func edgeRequests(page *capture.Page) []edgeReq {
 
 	for i, tr := range page.H2 {
 		base := tr.Millis
-		if base == 0 && i < len(conns) {
+		if base == 0 && conns[i] != nil {
 			base = conns[i].Millis
 		}
 
@@ -465,7 +465,7 @@ func deriveEdge(s *edgeSet, q *profile.QUIC, h *profile.HTTP3, prev profile.QUIC
 	q.ZeroRTT = s.zeroRTT(q, e)
 
 	q.Loss = s.loss(q, e)
-	q.KeepAlive = s.keepAlive(e)
+	q.KeepAlive = s.keepAlive(prev.KeepAlive.From, e)
 	q.Ack = s.ack(e)
 	q.Credit = s.credit(q, e)
 	q.KeyUpdate = s.keyUpdate(e)

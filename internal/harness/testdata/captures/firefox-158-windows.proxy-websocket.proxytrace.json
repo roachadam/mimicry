@@ -1,0 +1,203 @@
+[
+  [
+    {
+      "kind": "connect",
+      "conn": 5,
+      "status": 200,
+      "target": "www.ws-a.test:33834",
+      "lines": [
+        "CONNECT www.ws-a.test:33834 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:33834"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 7,
+      "status": 200,
+      "target": "h1.ws-a.test:33834",
+      "lines": [
+        "CONNECT h1.ws-a.test:33834 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:33834"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 9,
+      "status": 200,
+      "target": "h1.ws-a.test:33834",
+      "lines": [
+        "CONNECT h1.ws-a.test:33834 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:33834"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 10,
+      "status": 200,
+      "target": "h1.ws-a.test:33834",
+      "lines": [
+        "CONNECT h1.ws-a.test:33834 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:33834"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 14,
+      "status": 200,
+      "target": "www.ws-a.test:33836",
+      "lines": [
+        "CONNECT www.ws-a.test:33836 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:33836"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 5,
+      "status": 200,
+      "target": "www.ws-a.test:33888",
+      "lines": [
+        "CONNECT www.ws-a.test:33888 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:33888"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 7,
+      "status": 200,
+      "target": "h1.ws-a.test:33888",
+      "lines": [
+        "CONNECT h1.ws-a.test:33888 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:33888"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 8,
+      "status": 200,
+      "target": "h1.ws-a.test:33888",
+      "lines": [
+        "CONNECT h1.ws-a.test:33888 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:33888"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 10,
+      "status": 200,
+      "target": "h1.ws-a.test:33888",
+      "lines": [
+        "CONNECT h1.ws-a.test:33888 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:33888"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 14,
+      "status": 200,
+      "target": "www.ws-a.test:33890",
+      "lines": [
+        "CONNECT www.ws-a.test:33890 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:33890"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 5,
+      "status": 200,
+      "target": "www.ws-a.test:33942",
+      "lines": [
+        "CONNECT www.ws-a.test:33942 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:33942"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 7,
+      "status": 200,
+      "target": "h1.ws-a.test:33942",
+      "lines": [
+        "CONNECT h1.ws-a.test:33942 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:33942"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 9,
+      "status": 200,
+      "target": "h1.ws-a.test:33942",
+      "lines": [
+        "CONNECT h1.ws-a.test:33942 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:33942"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 10,
+      "status": 200,
+      "target": "h1.ws-a.test:33942",
+      "lines": [
+        "CONNECT h1.ws-a.test:33942 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:33942"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 13,
+      "status": 200,
+      "target": "www.ws-a.test:33944",
+      "lines": [
+        "CONNECT www.ws-a.test:33944 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:33944"
+      ]
+    }
+  ]
+]

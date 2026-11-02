@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"io"
@@ -19,6 +20,7 @@ import (
 	"github.com/roachadam/mimicry/internal/harness/internal/dnsstub"
 	"github.com/roachadam/mimicry/internal/harness/internal/h2trace"
 	"github.com/roachadam/mimicry/internal/harness/internal/server"
+	"github.com/roachadam/mimicry/profile"
 )
 
 // connectionsPreconnects are the connections a browser opened on the
@@ -33,6 +35,63 @@ var connectionsPreconnects = map[string][]string{
 	"chrome-156-windows": {
 		"www.conns-a.test",
 	},
+}
+
+// unusedOpenings are the browsers that open a second TCP connection to a
+// page's first host as the page starts, send the HTTP/2 preface on it and
+// close it with GOAWAY, unused: Firefox on Windows, 0–27 ms after the
+// first, in 131 of the 135 samples of its pages opened directly over HTTPS
+// (none through a proxy; Firefox on macOS never). mimicry opens none, as
+// it makes no preconnects (decision 0023, amendment 2026-10-30). Keyed by
+// the profile that took the capture; dropUnusedOpenings leaves the
+// connection out of the browser's pages where tests count or number
+// connections.
+var unusedOpenings = map[string]bool{
+	"firefox-158-windows": true,
+}
+
+// unusedOpeningMillis bounds how long after the page's first connection to
+// its host the unused one opens (Firefox on Windows: 0–27 ms).
+const unusedOpeningMillis = 50
+
+// dropUnusedOpenings removes from each of pages, p's capture of scenario,
+// the unused opening connection (unusedOpenings) where the browser opened
+// one: the first connection to the page's first host that carried no
+// request and opened within unusedOpeningMillis of the first, from its
+// connections and its HTTP/2 traces.
+func dropUnusedOpenings(p *profile.Profile, scenario string, pages []*capture.Page) {
+	if !unusedOpenings[capture.Source(p, scenario)] {
+		return
+	}
+
+	for _, page := range pages {
+		if len(page.Connections) == 0 {
+			continue
+		}
+
+		first := slices.MinFunc(page.Connections, func(a, b capture.Connection) int {
+			return cmp.Compare(a.Millis, b.Millis)
+		})
+		if i := slices.IndexFunc(page.Connections, func(c capture.Connection) bool {
+			return c.Host == first.Host && c.Requests == 0 && c.Millis-first.Millis <= unusedOpeningMillis
+		}); i >= 0 {
+			page.Connections = slices.Delete(page.Connections, i, i+1)
+		}
+
+		var opened int64 = -1
+
+		for _, tr := range page.H2 {
+			if tr.Host == first.Host && (opened < 0 || tr.Millis < opened) {
+				opened = tr.Millis
+			}
+		}
+
+		if i := slices.IndexFunc(page.H2, func(tr *h2trace.Trace) bool {
+			return tr.Host == first.Host && len(tr.Requests) == 0 && tr.Millis-opened <= unusedOpeningMillis
+		}); i >= 0 {
+			page.H2 = slices.Delete(page.H2, i, i+1)
+		}
+	}
 }
 
 // The connections page through mimicry opens the browser's connections.
@@ -56,6 +115,8 @@ func TestConnectionsMatchBrowser(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
+			dropUnusedOpenings(p, "connections", want)
 
 			for _, disabled := range []bool{false, true} {
 				mode := "browser"

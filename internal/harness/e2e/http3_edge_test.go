@@ -139,7 +139,11 @@ var h3EdgeGaps = func() map[string]string {
 		"firefox-158-macos/h3-too-early edge TCP www.h3-a.test declined":                    "beside 3–4 of its 4 retries after 425 Too Early per sample (which ones varies), Firefox also opened a TCP connection to the host and closed it before any request; the retry itself goes on the QUIC connection, as mimicry's does. No profile field holds when Firefox opens these (report h3-early-2026-10-26)",
 		// Firefox's STREAMS_BLOCKED rule, which this page shows, is
 		// quic.streamsBlocked; what differs is how far each raise goes.
-		"firefox-158-macos/h3-streams-blocked edge QUIC www.h3-a.test STREAMS_BLOCKED with streams": "Firefox acknowledged each burst response 0.1–2.3 ms after it came (most after an ACK-only packet from the server), so quic-go raised the limit by one per response, and by quic.streamsBlocked's waiting rule Firefox sent one with each stream but a burst's last (6 7 8, 12 13 14). mimicry acknowledges the first two responses together (the replay makes the burst's requests together, Firefox 4–6 ms apart; with the browser's spacing it still does, quic.ack counting ack-eliciting packets only: tried 2026-10-31), so the server raises by two at once, and by the same rule mimicry sends one per such raise while a request waits (7, 13). The frames it sends alone match (5, 11)",
+		"firefox-158-macos/h3-streams-blocked edge QUIC www.h3-a.test STREAMS_BLOCKED with streams":   "Firefox acknowledged each burst response 0.1–2.3 ms after it came (most after an ACK-only packet from the server), so quic-go raised the limit by one per response, and by quic.streamsBlocked's waiting rule Firefox sent one with each stream but a burst's last (6 7 8, 12 13 14). mimicry acknowledges the first two responses together (the replay makes the burst's requests together, Firefox 4–6 ms apart; with the browser's spacing it still does, quic.ack counting ack-eliciting packets only: tried 2026-10-31), so the server raises by two at once, and by the same rule mimicry sends one per such raise while a request waits (7, 13). The frames it sends alone match (5, 11)",
+		"firefox-158-windows/h3-streams-blocked edge QUIC www.h3-a.test STREAMS_BLOCKED with streams": "as Firefox on macOS's (firefox-158-macos's entry; Firefox's ACK of a lone response, profiles/EVIDENCE.md): 6 7 8, 12 13 14 in 2 of 3 samples; in the other the server's last two raises of each burst came in one batch and Firefox opened both waiting streams in one packet with none (6 7, 12 13); mimicry's 7, 13",
+		"firefox-158-windows/h3-too-early edge TCP www.h3-a.test declined":                            "as firefox-158-macos's: beside its retries after 425 Too Early Firefox opened TCP connections to the host and closed them before any request (3 per sample on Windows, the unused opening connection left out); no profile field holds when Firefox opens these",
+		"firefox-158-windows/h3-broken edge QUIC www.h3-b.test #2 datagrams":                          "as firefox-158-macos's: Firefox's resumed probes vary between samples, and the profile has no resumed-probe rule; give-up time and close match",
+		"firefox-158-windows/h3-broken edge TCP www.h3-a.test #2 after its trigger ms":                "not the network: Firefox on Windows's page made keep2.cs, this connection's trigger, 4.9 s after silent5.so where the page waits 2 s (every sample; its later timers 3.7–5.5 s late too, Firefox on macOS's on time), so the connection that carries the silenced requests came 3.9–4.4 s after it, not mimicry's 7.0 s; the connection itself starts when the silenced QUIC connection dies, as the requests' delays (compared) show",
 	}
 
 	// Chrome's on both platforms: the late resend of the silenced request
@@ -213,12 +217,17 @@ const (
 // process's scheduling, keyed as h3EdgeGaps: skipped as those are, but
 // not required to appear.
 var h3EdgeSchedulingGaps = func() map[string]string {
-	const pair = "Chrome on Windows made the pair's POST 4–6 ms after its GET, whose resumed connection had started at once and, on loopback, finished its handshake by then: the GET is the trigger and the POST went in 1-RTT (5 of 6 samples; on macOS it came within 3 ms of the Finished and was held for it). mimicry's replay makes both in the same millisecond, so its POST is held for the handshake (http3.earlyData) and is the later trigger as this process schedules the two"
+	const (
+		pair        = "Chrome on Windows made the pair's POST 4–6 ms after its GET, whose resumed connection had started at once and, on loopback, finished its handshake by then: the GET is the trigger and the POST went in 1-RTT (5 of 6 samples; on macOS it came within 3 ms of the Finished and was held for it). mimicry's replay makes both in the same millisecond, so its POST is held for the handshake (http3.earlyData) and is the later trigger as this process schedules the two"
+		firefoxPair = "Firefox on Windows made the pair's POST 4 ms after its GET, whose resumed connection (the GET in its 0-RTT) sent its Finished 1.1–2.9 ms after it started: the POST went in 1-RTT after the Finished (6 of 6 samples; on macOS, the Finished 2.8–4.6 ms in, it went in the Finished's datagram in 4 of 6). mimicry's replay makes both in the same millisecond, so its POST is held for the handshake and goes with the Finished (http3.earlyData), and which of the two is the later trigger is this process's scheduling"
+	)
 
 	gaps := map[string]string{}
 	for _, sc := range []string{"h3-early", "h3-too-early"} {
 		gaps["chrome-156-windows/"+sc+" edge QUIC www.h3-a.test #6 trigger"] = pair
 		gaps["chrome-156-windows/"+sc+" edge request /h3/pair-post.so streams"] = pair
+		gaps["firefox-158-windows/"+sc+" edge QUIC www.h3-a.test #6 trigger"] = firefoxPair
+		gaps["firefox-158-windows/"+sc+" edge request /h3/pair-post.so streams"] = firefoxPair
 	}
 
 	for _, name := range []string{"safari-26-macos", "safari-27-macos"} {
@@ -237,7 +246,7 @@ var h3EdgeSchedulingGaps = func() map[string]string {
 	// (compareBurstWaits), and each request still goes on the QUIC
 	// connection (its "sent").
 	const burstOrder = "the replay makes the burst's six requests together, so which of them waits for the server's stream limit is this process's scheduling (the waits themselves, sorted, are compared: compareBurstWaits); the browser made them in order and gave them streams in that order"
-	for _, name := range []string{"chrome-156-macos", "firefox-158-macos", "safari-27-macos"} {
+	for _, name := range []string{"chrome-156-macos", "firefox-158-macos", "firefox-158-windows", "safari-27-macos"} {
 		for _, burst := range []string{"a", "b"} {
 			for i := 1; i <= 6; i++ {
 				gaps[fmt.Sprintf("%s/h3-streams-blocked edge request /h3/%s%d.so delay ms", name, burst, i)] = burstOrder
@@ -256,12 +265,14 @@ var h3EdgeFastGaps = func() map[string]string {
 		chromeHold = "fast fallback: Chrome holds closed1.cs in 0-RTT on its resumed attempt until it gives up (4.0 s, zeroRttHolds), then sends it on TCP; mimicry's goes on TCP once the server has not answered for the race delay (tcpDelayMs, about 305 ms)"
 		chromeNext = "fast fallback: closed2.cs, made while Chrome's 0-RTT attempt is unanswered, waits for it with no TCP and triggers the fresh attempt and TCP after the give-up; mimicry's goes on the TCP connection closed1.cs opened, and the fresh attempt follows the next request after the give-up, closed3.cs"
 		firefox    = "fast fallback: Firefox holds closed2.cs on its unanswered resumed attempt until it gives up (5 s, hold); mimicry's goes on TCP once the server has not answered for its first probe timeout (300 ms), opening the TCP connection closed3.cs would have"
+		firefoxWin = "fast fallback: Firefox on Windows held closed2.cs and closed3.cs on its unanswered resumed attempt until it gave up (9.8–10.2 s, hold; 2 of 3 samples, the third pinned in h3gen), and the TCP connection then opened came 4.8–5.2 s after closed3.cs; mimicry's closed2.cs goes on TCP once the server has not answered for its first probe timeout (300 ms), opening that connection at once"
 		safari     = "fast fallback: Safari's request waits out its 100 ms race delay after Version Negotiation ended its attempt; mimicry's goes on TCP at once"
 	)
 
 	gaps := map[string]string{
-		"firefox-158-macos/h3-broken edge request /h3/closed2.cs delay ms": firefox,
-		"firefox-158-macos/h3-broken edge TCP www.h3-b.test #3 trigger":    firefox,
+		"firefox-158-macos/h3-broken edge request /h3/closed2.cs delay ms":             firefox,
+		"firefox-158-macos/h3-broken edge TCP www.h3-b.test #3 trigger":                firefox,
+		"firefox-158-windows/h3-broken edge TCP www.h3-b.test #3 after its trigger ms": firefoxWin,
 	}
 	for _, name := range []string{"chrome-155-macos", "chrome-156-windows"} {
 		for k, why := range map[string]string{

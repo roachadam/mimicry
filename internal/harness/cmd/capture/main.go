@@ -98,9 +98,9 @@ func run() error {
 	iosCAProfile := flag.String("ios-ca-profile", "", "write the capture CA as an iOS configuration profile to this file and exit; with -listen, serve it to the iPhone over the network until interrupted")
 
 	flag.StringVar(&browser.ChromeApp, "chrome-app", browser.ChromeApp, "the Chrome application to capture on macOS (another build: Chrome for Testing)")
-	flag.StringVar(&browser.DataDir, "browser-data", "", "directory for the browsers' throwaway profile directories (default: the system's temporary directory); on Windows both Chrome, on the console user's desktop, and this tool use it")
+	flag.StringVar(&browser.DataDir, "browser-data", "", "directory for the browsers' throwaway profile directories (default: the system's temporary directory); on Windows both the browser, on the console user's desktop, and this tool use it")
 
-	cleanup := flag.Bool("cleanup", false, "Windows: remove what a killed run left (every capture CA in the machine's Root store, the tool's scheduled tasks, Chrome processes under -browser-data) and exit")
+	cleanup := flag.Bool("cleanup", false, "Windows: remove what a killed run left (every capture CA in the machine's Root store, the tool's scheduled tasks, browser processes under -browser-data) and exit")
 
 	flag.Parse()
 

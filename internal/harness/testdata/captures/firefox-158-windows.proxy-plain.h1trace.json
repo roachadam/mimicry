@@ -1,0 +1,425 @@
+[
+  [
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:31265/ HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:31265",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Connection: keep-alive",
+        "Upgrade-Insecure-Requests: 1",
+        "Priority: u=0, i"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:31265/img.png HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:31265",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: image/avif,image/jxl,image/webp,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Connection: keep-alive",
+        "Referer: http://capture.mimicry.test:31265/",
+        "Priority: u=5, i"
+      ]
+    },
+    {
+      "conn": 2,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:31265/style.css HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:31265",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: text/css,*/*;q=0.1",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Connection: keep-alive",
+        "Referer: http://capture.mimicry.test:31265/",
+        "Priority: u=2"
+      ]
+    },
+    {
+      "conn": 3,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:31265/app.js HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:31265",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Connection: keep-alive",
+        "Referer: http://capture.mimicry.test:31265/"
+      ]
+    },
+    {
+      "conn": 3,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:31265/big HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:31265",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Referer: http://capture.mimicry.test:31265/",
+        "Connection: keep-alive",
+        "Priority: u=4"
+      ]
+    },
+    {
+      "conn": 3,
+      "host": "capture.mimicry.test",
+      "line": "POST http://capture.mimicry.test:31265/upload HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:31265",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Referer: http://capture.mimicry.test:31265/",
+        "Content-Length: 200000",
+        "Origin: http://capture.mimicry.test:31265",
+        "Connection: keep-alive",
+        "Priority: u=4"
+      ]
+    },
+    {
+      "conn": 3,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:31265/again HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:31265",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Referer: http://capture.mimicry.test:31265/",
+        "x-mimicry-huffman: {^}~",
+        "Connection: keep-alive",
+        "Priority: u=4"
+      ]
+    },
+    {
+      "conn": 3,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:31265/nav HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:31265",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Connection: keep-alive",
+        "Referer: http://capture.mimicry.test:31265/",
+        "Cookie: mimicry_a=1; mimicry_b=2",
+        "Upgrade-Insecure-Requests: 1",
+        "Priority: u=0, i"
+      ]
+    },
+    {
+      "conn": 3,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:31265/done HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:31265",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Referer: http://capture.mimicry.test:31265/nav",
+        "Connection: keep-alive",
+        "Priority: u=4"
+      ]
+    }
+  ],
+  [
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:31282/ HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:31282",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Connection: keep-alive",
+        "Upgrade-Insecure-Requests: 1",
+        "Priority: u=0, i"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:31282/img.png HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:31282",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: image/avif,image/jxl,image/webp,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Connection: keep-alive",
+        "Referer: http://capture.mimicry.test:31282/",
+        "Priority: u=5, i"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:31282/app.js HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:31282",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Connection: keep-alive",
+        "Referer: http://capture.mimicry.test:31282/"
+      ]
+    },
+    {
+      "conn": 2,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:31282/style.css HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:31282",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: text/css,*/*;q=0.1",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Connection: keep-alive",
+        "Referer: http://capture.mimicry.test:31282/",
+        "Priority: u=2"
+      ]
+    },
+    {
+      "conn": 2,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:31282/big HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:31282",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Referer: http://capture.mimicry.test:31282/",
+        "Connection: keep-alive",
+        "Priority: u=4"
+      ]
+    },
+    {
+      "conn": 2,
+      "host": "capture.mimicry.test",
+      "line": "POST http://capture.mimicry.test:31282/upload HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:31282",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Referer: http://capture.mimicry.test:31282/",
+        "Content-Length: 200000",
+        "Origin: http://capture.mimicry.test:31282",
+        "Connection: keep-alive",
+        "Priority: u=4"
+      ]
+    },
+    {
+      "conn": 2,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:31282/again HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:31282",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Referer: http://capture.mimicry.test:31282/",
+        "x-mimicry-huffman: {^}~",
+        "Connection: keep-alive",
+        "Priority: u=4"
+      ]
+    },
+    {
+      "conn": 2,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:31282/nav HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:31282",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Connection: keep-alive",
+        "Referer: http://capture.mimicry.test:31282/",
+        "Cookie: mimicry_a=1; mimicry_b=2",
+        "Upgrade-Insecure-Requests: 1",
+        "Priority: u=0, i"
+      ]
+    },
+    {
+      "conn": 2,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:31282/done HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:31282",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Referer: http://capture.mimicry.test:31282/nav",
+        "Connection: keep-alive",
+        "Priority: u=4"
+      ]
+    }
+  ],
+  [
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:31300/ HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:31300",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Connection: keep-alive",
+        "Upgrade-Insecure-Requests: 1",
+        "Priority: u=0, i"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:31300/img.png HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:31300",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: image/avif,image/jxl,image/webp,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Connection: keep-alive",
+        "Referer: http://capture.mimicry.test:31300/",
+        "Priority: u=5, i"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:31300/style.css HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:31300",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: text/css,*/*;q=0.1",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Connection: keep-alive",
+        "Referer: http://capture.mimicry.test:31300/",
+        "Priority: u=2"
+      ]
+    },
+    {
+      "conn": 2,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:31300/app.js HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:31300",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Connection: keep-alive",
+        "Referer: http://capture.mimicry.test:31300/"
+      ]
+    },
+    {
+      "conn": 2,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:31300/big HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:31300",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Referer: http://capture.mimicry.test:31300/",
+        "Connection: keep-alive",
+        "Priority: u=4"
+      ]
+    },
+    {
+      "conn": 2,
+      "host": "capture.mimicry.test",
+      "line": "POST http://capture.mimicry.test:31300/upload HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:31300",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Referer: http://capture.mimicry.test:31300/",
+        "Content-Length: 200000",
+        "Origin: http://capture.mimicry.test:31300",
+        "Connection: keep-alive",
+        "Priority: u=4"
+      ]
+    },
+    {
+      "conn": 2,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:31300/again HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:31300",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Referer: http://capture.mimicry.test:31300/",
+        "x-mimicry-huffman: {^}~",
+        "Connection: keep-alive",
+        "Priority: u=4"
+      ]
+    },
+    {
+      "conn": 2,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:31300/nav HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:31300",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Connection: keep-alive",
+        "Referer: http://capture.mimicry.test:31300/",
+        "Cookie: mimicry_a=1; mimicry_b=2",
+        "Upgrade-Insecure-Requests: 1",
+        "Priority: u=0, i"
+      ]
+    },
+    {
+      "conn": 2,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:31300/done HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:31300",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+        "Accept: */*",
+        "Accept-Language: en-US,en;q=0.9",
+        "Accept-Encoding: gzip, deflate",
+        "Referer: http://capture.mimicry.test:31300/nav",
+        "Connection: keep-alive",
+        "Priority: u=4"
+      ]
+    }
+  ]
+]

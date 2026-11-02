@@ -44,7 +44,7 @@ client.CheckRedirect = func(*http.Request, []*http.Request) error {
 
 | tls-client | mimicry |
 |---|---|
-| `WithClientProfile(profiles.Chrome_133)` | `Config.Profile`: `profiles.Chrome()` for the newest Chrome on macOS, `profiles.ChromeWindows()` for the newest on Windows, `profiles.ByName("chrome-155-macos")` for a fixed version, `profile.Parse` for your own JSON |
+| `WithClientProfile(profiles.Chrome_133)` | `Config.Profile`: `profiles.Chrome()` for the newest Chrome on macOS, `profiles.ChromeWindows()` or `profiles.FirefoxWindows()` for the newest Chrome or Firefox on Windows, `profiles.ByName("chrome-155-macos")` for a fixed version, `profile.Parse` for your own JSON |
 | `WithRandomTLSExtensionOrder()` | nothing: the profile shuffles only where its browser does |
 | `WithTimeoutSeconds(n)` | `Config.Timeout` (30 s by default; negative for none) or the request's context; `Config.DialTimeout` for connecting |
 | `WithNotFollowRedirects()`, `SetFollowRedirect` | `CheckRedirect` returning `http.ErrUseLastResponse` |
@@ -148,7 +148,8 @@ browser's (`Transport.Plan` lists the first two: [below](#seeing-what-will-be-se
 - **Overriding `User-Agent`** (in `Config.Header` or on the request)
   leaves `sec-ch-ua`, the TLS hello and HTTP/2 settings the profile's.
   Pick the profile whose browser you want to be instead
-  (`profiles.ChromeWindows()` for Chrome on Windows).
+  (`profiles.ChromeWindows()` for Chrome on Windows, `profiles.FirefoxWindows()`
+  for Firefox).
 - **A POST navigation needs its page.** A form POST is
   `mimicry.With(req, mimicry.Request{From: formPage})`; without `From` a
   navigation is a typed URL, which is GET or HEAD only.
@@ -286,8 +287,8 @@ Speed and memory compared with tls-client are in
 
 ## Where mimicry is weaker
 
-- **Few profiles.** Six desktop profiles (Chrome, Firefox and Safari on
-  macOS, Chrome on Windows) and two of Safari on iPhone, whose HTTP/3
+- **Few profiles.** Seven desktop profiles (Chrome, Firefox and Safari on
+  macOS, Chrome and Firefox on Windows) and two of Safari on iPhone, whose HTTP/3
   failure timing and challenge-answering proxy credentials are not
   measured. No
   Android or Linux, and no Firefox or Edge on Windows. Making a new one

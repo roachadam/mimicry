@@ -509,8 +509,8 @@ func (r *refreshRun) checkMac(p *plan, rep *preflightReport) {
 
 // checkWindows adds what a capture on a Windows PC needs and rep lacks to
 // p, and what happens to that PC. The capture CA is trusted only during a
-// capture and the test hosts reach Chrome through its own flags, so
-// neither is checked.
+// capture and the test hosts reach the browser through its own flags or
+// prefs, so neither is checked.
 func (r *refreshRun) checkWindows(p *plan, rep *preflightReport) {
 	m := r.machine(p)
 
@@ -522,10 +522,15 @@ func (r *refreshRun) checkWindows(p *plan, rep *preflightReport) {
 		p.Problems = append(p.Problems, fmt.Sprintf("%s: %s", m, s))
 	}
 
+	hosts := "Chrome reaches the capture hosts through --host-resolver-rules"
+	if p.Browser == "firefox" {
+		hosts = "Firefox reaches the capture hosts through network.dns.localDomains in its throwaway profile and trusts the capture CA from the Root store (security.enterprise_roots.enabled)"
+	}
+
 	p.Manual = append(p.Manual,
-		fmt.Sprintf("%s logged in at %s's screen and the PC left alone: capture opens a visible Chrome on that desktop through a one-shot scheduled task (never headless), so an ssh session's own desktop is never used", rep.User, m),
+		fmt.Sprintf("%s logged in at %s's screen and the PC left alone: capture opens a visible %s on that desktop through a one-shot scheduled task (never headless), so an ssh session's own desktop is never used", rep.User, m, p.Browser),
 		fmt.Sprintf("capture adds its CA to %s's LocalMachine Root store (certutil -addstore Root) when it starts and deletes it (certutil -delstore Root) when it stops, both in capture.log; refresh then runs capture -cleanup there (the CA, leftover mimicry-capture-* scheduled tasks), even after a failure or ctrl-C", m),
-		fmt.Sprintf("Chrome reaches the capture hosts through --host-resolver-rules: no hosts file or DNS change on %s", m))
+		fmt.Sprintf("%s: no hosts file or DNS change on %s", hosts, m))
 }
 
 // checkIPhone adds to p what a capture of Safari on the iPhone needs: what
@@ -971,7 +976,7 @@ func (r *refreshRun) windowsSteps(w *strings.Builder, p *plan, m *machine) {
 
 	fmt.Fprintf(w, "  on %s (Windows over ssh; each step a powershell -NoProfile command) in %s:\n", m, m.windowsDir())
 	fmt.Fprintf(w, "    1. built here for windows/amd64 and copied there by scp: %s (realcheck.exe after install); capture.exe -preflight ran there\n", files)
-	fmt.Fprintf(w, "    2. capture.exe -browsers %s -ca-dir ca -browser-data browser-data: the unforced scenarios, then the -h3-local-roots ones; Chrome opens on the logged-in user's desktop through a one-shot scheduled task\n", p.Browser)
+	fmt.Fprintf(w, "    2. capture.exe -browsers %s -ca-dir ca -browser-data browser-data: the unforced scenarios, then the -h3-local-roots ones; %s opens on the logged-in user's desktop through a one-shot scheduled task\n", p.Browser, p.Browser)
 	fmt.Fprintf(w, "    3. the captures (%s.*) copied back after each run (tar there, scp) into %s, checked, and once derived installed into %s\n",
 		name, r.stagedCaptures(p), capturesDir)
 	fmt.Fprintf(w, "    4. at the end, even after a failure or ctrl-C: whatever runs from that directory stopped, capture.exe -cleanup (the capture CA out of the Root store, leftover scheduled tasks deleted), the directory %s\n", fate)
@@ -979,14 +984,17 @@ func (r *refreshRun) windowsSteps(w *strings.Builder, p *plan, m *machine) {
 
 // schedule groups the plans by machine (each machine's run at once), and
 // each machine's into steps run one after the other, each step's plans at
-// once: Chrome and Firefox together in quick mode, anything else alone.
+// once: Chrome and Firefox together on a Mac in quick mode, anything else
+// alone. A Windows PC's browsers take turns: each capture run trusts the CA
+// in the Root store only while it runs, and removing it as one run ends
+// would pull it from under the other.
 func (r *refreshRun) schedule() map[string][][]*plan {
 	out := map[string][][]*plan{}
 	for _, p := range r.Plans {
 		steps := out[p.Host]
 		i := -1
 
-		if r.Mode == modeQuick && !r.Serial && p.Browser != "safari" {
+		if r.Mode == modeQuick && !r.Serial && p.Browser != "safari" && p.Platform != platformWindows {
 			i = slices.IndexFunc(steps, func(step []*plan) bool {
 				return step[0].Browser != "safari"
 			})

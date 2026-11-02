@@ -5,11 +5,11 @@ from, and what keeps it true. A claim is one profile field, such as the
 TLS cipher list or a cookie rule.
 
 **Covered:** `chrome-155-macos`, `chrome-156-macos`, `chrome-156-windows`,
-`firefox-158-macos`, `safari-27-macos`, `safari-26-macos`, `safari-27-ios`
-and `safari-26-ios`. Safari 27 was captured on macOS 27; Safari 26 on a
-second Mac kept on macOS 26; Chrome 156 for Windows on Windows 10; Safari
-27.2 for iOS on an iPhone on iOS 27.2, Safari 26.6.2 on a second iPhone on
-iOS 26.7.1.
+`firefox-158-macos`, `firefox-158-windows`, `safari-27-macos`,
+`safari-26-macos`, `safari-27-ios` and `safari-26-ios`. Safari 27 was
+captured on macOS 27; Safari 26 on a second Mac kept on macOS 26; Chrome
+156 and Firefox 158 for Windows on Windows 10; Safari 27.2 for iOS on an
+iPhone on iOS 27.2, Safari 26.6.2 on a second iPhone on iOS 26.7.1.
 
 **Headline:** about 85% of the classed cells in the tables below are **W** or
 **W+** (seen on the wire). The rest are fitted, copied, measured on another
@@ -32,9 +32,10 @@ apart. "Known gap" marks a difference mimicry does not imitate.
 
 Last fully reviewed 2026-10-24. Rows were updated with the 2026-10-28
 captures, `chrome-156-windows` added with its 2026-10-29 captures, the
-redirect rows with the 2026-10-30 cookie twins (0048), and `safari-27-ios`
-and `safari-26-ios` with their 2026-11-01 captures (0051). The
-"Not covered" list was rechecked against the code on 2026-10-29.
+redirect rows with the 2026-10-30 cookie twins (0048), `safari-27-ios`
+and `safari-26-ios` with their 2026-11-01 captures (0051), and
+`firefox-158-windows` with its 2026-11-01 captures. The "Not covered"
+list was rechecked against the code on 2026-10-29.
 
 ## How rows are classed
 
@@ -108,6 +109,76 @@ true. Where Windows differs:
 
 `realcheck` on the Windows PC found no difference between Chrome and
 `chrome-156-windows` on the echo endpoints.
+
+**`firefox-158-windows`** (2026-11-01, Firefox 158.0.1 on Windows 10,
+[report](../internal/harness/reports/refresh-firefox-158-windows-2026-11-01.md);
+[decision 0047, amendment](../docs/decisions/0047-windows-profiles.md#amendment-2026-11-01-firefox-on-windows))
+has no column of its own either. It inherits nothing: every scenario and
+replay was captured on Windows, three samples each, so each row is its
+own, with the class and value of `firefox-158-macos`'s column, and the
+same tests keep it true. The ClientHello, the HTTP/2 preface and SETTINGS,
+every header list and every kind are macOS Firefox's but for the
+platform. Where Windows differs:
+
+- **The platform:** `user-agent` says `Windows NT 10.0; Win64; x64` in
+  every header list (the script kinds' variants come in another order,
+  the same set).
+- **W, `websocket.closeH1`:** `after_wait`, `closeWaitMs` 1000: Firefox
+  closed the TCP connection of every HTTP/1.1 socket (`websocket`,
+  `websocket-h2`'s `plain-so`, the three proxied pages) 1002–1095 ms after
+  the close handshake, before the server's 3 s. macOS's captures recorded
+  no transport end, so `firefox-158-macos` leaves it unmeasured.
+- **W, from the edge captures (h3gen):** `revalidateMs` 47–5675 (macOS
+  797–3020); `raceDelayMs` 3 (6–9); no `resumedDialDelayMs` (it dialled
+  at once; macOS 0–34 ms); `quic.loss.cachedRtt` false (the resumed
+  attempt after the server's close first probed 1.7–1.9 s after its first
+  flight, macOS's 3 ms in) and `quic.loss.resumed.afterMs` 9800 (macOS
+  5000); `http3.firstDataFrame` 32228 (32224).
+- **The unused opening connection:** a second TCP connection to the
+  page's host 0–27 ms after the first, its HTTP/2 preface then GOAWAY, in
+  131 of the 135 samples of pages opened directly over HTTPS (none
+  through a proxy, none on macOS). Not modelled, as Chrome's preconnect is
+  not (Not covered, below); the tests leave it out of the browser's pages
+  (`unusedOpenings`). Its full handshake left Firefox one more TLS 1.2
+  ticket, so on `resume-tls12` one more connection to the page's host
+  resumed (5/3 in every sample, macOS and mimicry 5/2: `resumeCountGaps`).
+- **Pinned as on macOS:** the XHR header order (`headersOrderGaps`), the
+  credential-less connections (`partitionGaps`; 2 of 3 Windows samples),
+  `www.redir-c.test`'s connections and the markup images' priority
+  (`redirectsMerged`, `redirectsLineGaps`), the FontFace load (`h3Gaps`),
+  the plain-HTTP page's script and link navigation (`proxyPlainGaps`),
+  the resumed probes, the TCP connections beside a 425 and the
+  STREAMS_BLOCKED per raise (`h3EdgeGaps`), the burst order
+  (`h3EdgeSchedulingGaps`) and the fast fallback (`h3EdgeFastGaps`).
+- **Pinned on Windows only:** one first Initial's packet number (242) in
+  1 byte, 1 of 5 draws of 128 or more (`h3Gaps`); `/big`'s largest credit
+  increment 3.56 MB, below mimicry's 4 MiB, which 2 of 3 macOS samples
+  sent (`creditGaps`); the cross-site HTTP/2 socket's end
+  (`webSocketEndGaps`); in h3gen's `sampleGaps`, one `h3-broken` sample
+  whose Firefox opened 14 QUIC connections beside the page's and closed
+  each within 5 ms (one `h3-download` sample did the same for 7
+  requests), whose resumed attempt probed from a cached RTT and ended
+  silently at 4.5 s with nothing held; the resumed give-up at 10.2 s in
+  one sample (9.8 s in the other); a keep-alive PING 97 ms late; and one
+  MAX_STREAM_DATA 2.4% above 3 MiB.
+- **Timing only:** the pair's POST in `h3-early` and `h3-too-early` came
+  4 ms after its GET, after the resumed handshake's Finished, and went in
+  1-RTT (6 of 6; `h3EdgeSchedulingGaps`); the requests waiting on a
+  silenced QUIC connection went to TCP 73–470 ms after the server's idle
+  record (macOS 7–22 ms; h3gen times them from the client's own death);
+  the page's timers fired late (`h3-broken`'s keep2.cs 4.9 s after
+  silent5.so where the page waits 2 s, later ones 3.7–5.5 s late, every
+  sample; macOS on time), so one connection's time after its trigger is
+  pinned (`h3EdgeGaps`).
+- **The recorder on Windows:** as for Chrome, its clock moves in steps of
+  about 0.5 ms (h3gen finds a retry after Version Negotiation that shares
+  the first attempt's millisecond).
+
+`realcheck` on the Windows PC found no difference between Firefox and
+`firefox-158-windows` on the echo endpoints that answered
+(browserleaks' HTTP/2 page, impersonate.pro over HTTP/2 and HTTP/3: the
+TLS and QUIC hellos, HTTP/2 and HTTP/3); tls.peet.ws refused connections
+that day, and browserleaks' TLS page gave the browser no JSON.
 
 **`safari-27-ios`** (2026-11-01, Safari 27.2 on an iPhone 15 Pro, iOS
 27.2, over Wi-Fi,
@@ -302,11 +373,12 @@ browsers.
 `http1-upload` and `h2-upload`, 3 samples each, 2026-11-01, every profile
 its own: this Mac (Chrome 156, Firefox 158, Safari 27), Chrome for Testing
 155.0.8059.84 for Chrome 155 (`chrome-155-macos.http1-upload.chrome-for-testing.h1trace.json.gz`,
-which feeds this field alone, as in 0042), Chrome 156 on the Windows 10 PC,
-Safari 26.2 on the second Mac and Safari 27.2 and 26 on the two iPhones.
+which feeds this field alone, as in 0042), Chrome 156 and Firefox 158 on
+the Windows 10 PC, Safari 26.2 on the second Mac and Safari 27.2 and 26 on
+the two iPhones.
 `hellogen` derives `http1.uploadRecords` from them (`capture.UploadRecords`).
 
-| Claim | Chrome 155, 156 (macOS, Windows) | Firefox 158 | Safari 27 / 26 (macOS, iOS) | Checked by |
+| Claim | Chrome 155, 156 (macOS, Windows) | Firefox 158 (macOS, Windows) | Safari 27 / 26 (macOS, iOS) | Checked by |
 |---|---|---|---|---|
 | `http1.uploadRecords.headApart` (the head in a record of its own; every record 16384 bytes but the head's or the body's last) | W: true (every upload over 1400 B, 10 MiB on a new connection and reused, Blob, FormData, form POST) | W: false: head and body one stream, 16384-byte records from the head's first byte, the last the remainder | W: true, from a 1-byte body up | `TestUploadRecordsMatchBrowser`, `TestRegenerateReproducesProfiles` |
 | `http1.uploadRecords.joinUpTo` (head and body together in one record up to this size) | W: 1400 (1400 joined, 1401 apart, in 1-byte steps; Blob and File bodies never joined: Not covered) | — (one stream: up to 16384) | — (never) | `TestUploadRecordsMatchBrowser` |
@@ -558,8 +630,9 @@ claim below: `extensions` on the handshake; RSV1 and compressed bytes
 (frames within the cap exactly, Safari's 2 / 4 / payload replies
 included; larger ones within the cap, header alone where the browser's
 was); the transport's end (who ends it, how, and the delay after the
-last client frame within the browser's range plus 250 ms; Firefox:
-mimicry never ends it within the capture).
+last client frame within the browser's range plus 250 ms; where no
+sample shows the client ending it, mimicry must not within the capture;
+known differences in `webSocketEndGaps`).
 
 | Claim (`websocket.…`) | Chrome 155 | Firefox 158 | Safari 27 | Safari 26 |
 |---|---|---|---|---|
@@ -568,8 +641,8 @@ mimicry never ends it within the capture).
 | `uncompressed` | W: `never` (empty → RSV1 `00`; incompressible and tie-length messages compressed, longer) | W: `empty_or_longer` (empty raw; with `client_no_context_takeover`, a message whose compressed form is longer raw, an equal one compressed; with takeover, longer ones compressed) | W: `empty_or_not_shorter` (empty raw, context kept; a message whose compressed form is not shorter raw, equal included, the context then restarting: the last message's bytes need the reset) | W: same as 27 |
 | `windowBits8` | W: `as_9` (bytes equal to the 9-bit socket's) | not captured (source): `fail`: Firefox hangs (zlib-rs refuses −8; `HandleExtensions` deadlocks on `mCompressorMutex`, seen as a page that never finishes); the page skips the socket and mimicry fails the dial, a known difference | W: `fail` (onopen, then no frame and RST_STREAM NO_ERROR / TCP closed at once; 1006) | W: same as 27 |
 | `h2Data` (DATA cap: `http2.maxDataFrame`) | W: `together` (DATA up to 16375, header and payload in one) | W: `header_alone` (a payload over 1000 bytes, `kCopyBreak` in `WebSocketChannel.h`: its 8- or 14-byte header alone, then the payload in DATA of at most 16000; compressed messages of 1030–8107 bytes show the 1000 rule) | W: `split_control` (DATA up to 16374; the pong and the close reply as 2 / 4 / payload DATA frames, its own close whole) | W: same as 27 |
-| `closeH1`, `closeWaitMs` | W: `after_wait`, 2000 (TCP closed 2001–2016 ms after the handshake, the close handshake done by 5 ms; the server waits 3 s) | W: not measured (`""`): no transport end in any of 30 sockets | W: `at_once` (0–5 ms; `plain-so` 14–21 ms, at once after its frames) | W: same |
-| `closeH2` | W: `end_stream` (END_STREAM on the close frame's DATA, its own or its reply) | W: not measured (`""`): neither END_STREAM nor RST_STREAM | W: `rst_stream` (RST_STREAM NO_ERROR after the close echo) | W: same |
+| `closeH1`, `closeWaitMs` | W: `after_wait`, 2000 (TCP closed 2001–2016 ms after the handshake, the close handshake done by 5 ms; the server waits 3 s) | W: macOS not measured (`""`): no transport end in any of 30 sockets; Windows `after_wait`, 1000 (TCP closed 1002–1095 ms after, every HTTP/1.1 socket of `websocket`, `websocket-h2` and the proxied pages, 3 samples each) | W: `at_once` (0–5 ms; `plain-so` 14–21 ms, at once after its frames) | W: same |
+| `closeH2` | W: `end_stream` (END_STREAM on the close frame's DATA, its own or its reply) | W: not measured (`""`): neither END_STREAM nor RST_STREAM (on Windows the server ended every HTTP/2 socket at 3 s but `cs-protocols`', which Firefox reset with RST_STREAM CANCEL 1.0 s after the close, on a connection of its own: pinned) | W: `rst_stream` (RST_STREAM NO_ERROR after the close echo) | W: same |
 
 ## QUIC and HTTP/3
 
@@ -811,7 +884,7 @@ A difference closed is removed here, with its pinned gap entry.
 - **Blob and File bodies joined with the head** (Chrome): Chrome sends a Blob or File body apart from its head even when the two fit 1400 bytes (`http1-upload`'s `/up/blob-100`, `-500`); mimicry cannot tell a Blob from bytes and joins every small body up to `http1.uploadRecords.joinUpTo`; small file uploads over HTTP/1.1; detection low; none planned (decision 0052).
 - **Chunked HTTP/1.1 request bodies** (all): no browser sends one from a page (Chrome and Safari refuse a ReadableStream body over HTTP/1.1, Firefox sends its string form); mimicry's chunked body, which a caller asks for with an unknown length, goes out with its head as one stream in 16 KiB writes; detection low; none planned (decision 0052).
 - **HTTP/2 upload records** (all): browsers' upload records follow their DATA frames and flow control (`h2-upload`), which mimicry's HTTP/2 writer was not compared against record by record; large HTTP/2 uploads; detection low; an e2e comparison of `h2-upload`'s records.
-- **Credit return timing** (Firefox, Safari): returned at the profile's threshold, not paced by reads; large downloads; detection low; a read-paced model.
+- **Credit return timing** (Firefox, Safari): returned at the profile's threshold, not paced by reads; large downloads; detection low; a read-paced model. Firefox on Windows's largest `/big` stream increment was 3.56 MB in 3 samples, below mimicry's 4 MiB step, which 2 of 3 macOS samples sent (`creditGaps`).
 - **REFUSED_STREAM** (Chrome): mimicry moves to another connection, Chrome retries on the same ([INFERENCE]); detection low; a refusing scenario.
 - **Error-path frame order** (Chrome): RST_STREAM before discarded credit, GOAWAY before close ([INFERENCE]); not checked; detection low; error injection.
 
@@ -834,6 +907,10 @@ A difference closed is removed here, with its pinned gap entry.
 - **Chrome after declining to move** (Chrome): a server's `disable_active_migration` keeps Chrome on its degrading path ([Chromium source](https://chromium.googlesource.com/chromium/src/+/refs/tags/156.0.8078.85/net/quic/quic_chromium_client_session.cc#3282), a lead; [RFC 9000 §18.2](https://www.rfc-editor.org/rfc/rfc9000#section-18.2)), and mimicry stays with its keep-alives, probes and idle timeout; what Chrome does then (probes, close timing, where the stuck request goes) is not captured; detection low; a Chrome `h3-broken` capture against a server sending the parameter.
 - **Chrome's blackhole close** (Chrome): Chrome closes after 54–61 s and resends on TCP; mimicry falls back at 30 s; detection low; not planned ([0028, amendment](../docs/decisions/0028-quic-failure-model.md#amendment-2026-10-30-blackhole-detection-and-resumed-probes)).
 - **Resumed attempts' probes** (Chrome, Firefox): Chrome's 4 Initials and lone 0-RTT datagrams, Firefox's varied probes; only to a silent server; detection low; not planned (same amendment).
+- **Firefox on Windows's short-lived QUIC connections** (Firefox on Windows): in 2 of its 36 HTTP/3 page samples (`h3-broken`, `h3-download`) Firefox opened a QUIC connection beside the page's for each request (14 and 7) and closed each within 5 ms, H3_NO_ERROR, unused; mimicry opens none; detection low; more samples to find when (h3gen's `sampleGaps`).
+- **Firefox on Windows's resumed attempt** (Firefox on Windows): after the server's close, its resumed attempt first probed 1.7–1.9 s after its first flight (`cachedRtt` false) and gave up at 9.8 s or 10.2 s, or (1 of 3 samples) probed from a cached RTT and ended silently at 4.5 s with nothing held (6 further samples: 9.8, 9.8, 10.2, 10.3, 5.0 s and one silent end); mimicry gives up at 9.8 s; only to a silent server; detection low; more samples to find what decides (h3gen's `sampleGaps`).
+- **Firefox on Windows's late timers** (Firefox on Windows): its keep-alive PING came 15.00–15.39 s after its idle timer restarted, 4 of 9 samples more than 50 ms late, and requests waiting on a silenced connection moved to TCP 73–470 ms after the server's idle record (macOS 7–22 ms); mimicry's timers fire on time; detection none; nothing likely (h3gen's `sampleGaps`).
+- **A first Initial's packet number in 1 byte** (Firefox on Windows): 1 of 5 draws of 128 or more (242) went in 1 byte, the rest, macOS's too, in the 2 RFC 9000's appendix A.2 asks, as mimicry; detection low; more samples (`h3Gaps`).
 - **How long an origin stays broken** (all): for the Transport's life; Chrome's source backs off 5 min; detection low to medium; a multi-page, minutes-long capture.
 - **Locally trusted roots** (Chrome, Firefox): HTTP/3 captured with QUIC forced; a public root may race differently; detection unknown; a capture with a public certificate.
 - **HTTP/3 lists with cookies** (all): no cookie went over HTTP/3, so its slot (and Firefox's `alt-used` beside it) is assumed; detection medium; `h3-page` with cookies.
@@ -846,7 +923,7 @@ A difference closed is removed here, with its pinned gap entry.
 - **Server QPACK dynamic table** (all): the decoder side is not measured; detection low to medium; such a server.
 - **Chrome's NEW_TOKEN cache** (Chrome): Chrome often omits a token it has (3 of 9); mimicry always presents it; detection low; token-cache captures (`sampleGaps`).
 - **Chrome's late PRIORITY_UPDATE** (Chrome 156): sometimes 1 ms after HEADERS under load; mimicry sends it first; detection low; more samples (`sampleGaps`).
-- **`h3-early` POST on Windows** (Chrome on Windows): the replay makes both requests at once, so mimicry's POST is held; detection none; replay at the browser's issue times (`h3EdgeSchedulingGaps`).
+- **`h3-early` POST on Windows** (Chrome and Firefox on Windows): the replay makes both requests at once, so mimicry's POST is held; detection none; replay at the browser's issue times (`h3EdgeSchedulingGaps`).
 - **Chrome's TCP delay from the smoothed RTT** (Chrome): 1.5 × RTT, invisible on loopback; detection low; a real-network capture.
 - **Migration by Firefox and Safari** (Firefox, Safari): never seen, never done; NAT rebinding; detection low; a rebinding capture.
 - **Long and slow transfers** (all): key updates past 37,000 packets and credit past 50 MiB not measured; no client key update; detection low; longer captures.
@@ -855,7 +932,7 @@ A difference closed is removed here, with its pinned gap entry.
 - **Firefox v2 edges** (Firefox): a v2 connection's NEW_TOKEN not passed on; a v2-only server sending `version_information` untested; the resumed hello's SNI cut varies; detection low; more samples.
 - **QUIC stack gaps** (all): the server's `preferred_address` is not used, its `max_udp_payload_size` not acted on; detection low ([UPSTREAM.md](../internal/quic/UPSTREAM.md)).
 - **STREAMS_BLOCKED where not captured** (Chrome 155, Chrome 156 on Windows, Safari 26): no `h3-streams-blocked` capture (`missingCaptures`), and none can inherit another's (decision 0035: from an older version of the same browser and platform only), so `quic.streamsBlocked` is not measured and they send none; only against servers allowing few streams; detection low; the capture on the Windows PC and the macOS 26 Mac.
-- **Firefox's ACK of a lone response** (Firefox): Firefox acknowledged each `h3-streams-blocked` burst response 0.1–2.3 ms after it came, most of them after an ACK-only packet from the server (that it counts that packet towards its every-2 rule is [INFERENCE]); mimicry's `quic.ack` counts ack-eliciting packets only and acknowledges two responses together. Against quic-go, which raises its stream limit per stream acknowledged, the limit then rises by two and mimicry sends one STREAMS_BLOCKED per two waiting streams (7, 13) where Firefox sends one per stream (6 7 8, 12 13 14); detection low; a capture of Firefox's ACKs at low rates to find which packets it counts ([`h3EdgeGaps`](../internal/harness/e2e/http3_edge_test.go)).
+- **Firefox's ACK of a lone response** (Firefox, macOS and Windows): Firefox acknowledges at once once two 1-RTT packets have come from the server since its last ACK, it seems counting ACK-only ones: every such ACK in the `h3-streams-blocked` captures (38 of 38 on macOS) and in Windows's `h3-streams-blocked`, `h3-page` and `h3-discovery` (175 of 176) left within 3 ms, while after a lone packet most waited for the ACK delay (that it counts ACK-only packets is [INFERENCE]: the captures cannot decrypt the server's packets). mimicry's `quic.ack` counts ack-eliciting packets only, so after an ACK-only packet it holds the next response's ACK for its ACK delay. Against quic-go, which raises its stream limit per stream acknowledged, mimicry's waiting requests then get their streams 10–35 ms after Firefox's at a burst's first raise and 20–60 ms after at its second (within `compareBurstWaits`' 30 ms per raise), and the limit rises by two, so mimicry sends one STREAMS_BLOCKED per two waiting streams (7, 13) where Firefox sends one per stream (6 7 8, 12 13 14); the server sees the ACK timing of any response after an ACK-only packet; detection low; `quic.ack` counting every packet received, derived by h3gen, for both Firefox profiles ([`h3EdgeGaps`](../internal/harness/e2e/http3_edge_test.go)).
 - **Chrome's small-packet padding** (Chrome): Chrome's 29-byte 1-RTT packets (a lone PING, RETIRE_CONNECTION_ID or STREAMS_BLOCKED) carry their PADDING before the frame; mimicry's STREAMS_BLOCKED packet is the same 29 bytes with it after (upstream's header-protection minimum; its other small packets likewise, [INFERENCE]); seen only by the server, after decryption; detection low; where Chrome pads, from its small packets.
 - **Opaque transport parameters** (Firefox, Safari 26, Safari on iOS): `0x1d` and `0xff080808` sent verbatim, meaning unknown; Safari 27 on macOS stopped sending the latter, Safari 27.2 on iOS sends it (= 9, last); detection none; source research.
 
@@ -898,7 +975,7 @@ A difference closed is removed here, with its pinned gap entry.
 **WebSockets**
 
 - **Firefox and an 8-bit window** (Firefox): Firefox hangs, mimicry fails the dial as Safari; detection none ([report](../internal/harness/reports/websocket-deflate-2026-10-26.md)).
-- **Firefox's transport end** (Firefox): Firefox never ended one; mimicry ends it 10 s after the close; detection low; a longer capture.
+- **Firefox's transport end** (Firefox): on macOS Firefox never ended one, so mimicry ends it 10 s after the close; on Windows its HTTP/1.1 ones are modelled (`closeH1`), its HTTP/2 streams it left to the server but one: the cross-site socket on a connection of its own, which it reset with RST_STREAM CANCEL 1.0 s after the close (every sample; `webSocketEndGaps`); detection low; a longer macOS capture, and a rule for which HTTP/2 sockets Firefox ends.
 - **Chrome's stream end after a close** (Chrome): Chrome drops it after 2 s, mimicry resets after 10 s; servers that leave it open; detection low.
 - **Chrome's fragmented large message** (Chrome): split in some samples, one frame in mimicry; detection low; more sizes.
 - **Firefox's HTTP/2 DATA segmenting** (Firefox): the header counted into 16000 bytes, and flow-control cuts, not modelled; detection low.
@@ -910,7 +987,8 @@ A difference closed is removed here, with its pinned gap entry.
 
 - **No top-level-site partition** (all): a third-party host reached from two sites shares a connection, a cross-site socket may share its host's own, and a shared `AltSvcCache` spans sites; detection medium; one Transport per site ([0011](../docs/decisions/0011-connection-partitioning.md)).
 - **Chrome's preconnect** (Chrome): one more handshake to the page's host per page load (through a proxy, extra CONNECTs); detection low to medium; not planned ([0023, amendment](../docs/decisions/0023-connection-limits-and-coalescing.md#amendment-2026-10-30-no-preconnects)).
-- **Firefox's credential-less connections** (Firefox): their own connection to some hosts, no rule found; detection low to medium (`partitionGaps`).
+- **Firefox on Windows's unused opening connection** (Firefox on Windows): a second TCP connection to the page's host 0–27 ms after the first, its HTTP/2 preface and GOAWAY, unused (131 of 135 page samples opened directly over HTTPS, none through a proxy); its handshake leaves Firefox one more TLS 1.2 ticket, so one more connection resumes (`resume-tls12`: 5/3 to the page's host, mimicry 5/2); detection low to medium; not planned, as Chrome's preconnect ([0023, amendment](../docs/decisions/0023-connection-limits-and-coalescing.md#amendment-2026-11-01-firefox-on-windowss-unused-connection); `unusedOpenings`, `resumeCountGaps`).
+- **Firefox's credential-less connections** (Firefox): their own connection to some hosts (every macOS sample, 2 of 3 on Windows), no rule found; detection low to medium (`partitionGaps`).
 - **Safari on iOS's beacon connection** (Safari 27 on iOS): its beacon, cookies and all, goes on the credential-less connection; mimicry sends it on the credentialed one; detection low; a rule for which kinds share that pool (`partitionGaps`).
 - **Tabs** (all): a Transport is one session; what tabs share is not measured; detection medium if misused ([0019](../docs/decisions/0019-transport-is-one-browsing-entity.md)).
 - **Coalescing conditions** (all): address, port, partition and proxy never varied, and mimicry never coalesces through a proxy; detection low to medium; a fuller `connections` capture.
@@ -1116,10 +1194,11 @@ speak only QUIC v2
 - **Firefox (`background`):** an attempt never holds a request, except
   those made while its resumed attempt after the server's close is pending
   (`hold`). They go on it in 0-RTT, and to a new TCP connection when it
-  gives up (5 s). After a failed resumed attempt or a dead connection, a
-  request at least `revalidateMs` later validates afresh beside TCP.
-  `revalidateMs` (797–3,020 ms) is bounded by the captures: a request 0.8 s
-  after a failure did not start a fresh attempt, one 3.05 s after did.
+  gives up (5 s; Firefox on Windows 9.8 s). After a failed resumed attempt
+  or a dead connection, a request at least `revalidateMs` later validates
+  afresh beside TCP. `revalidateMs` (797–3,020 ms; Windows 47–5,675) is
+  bounded by the captures: a request 0.8 s after a failure did not start
+  a fresh attempt, one 3.05 s after did (on macOS).
 - **Safari (`race`):** QUIC first, TCP after 100 ms (`tcpDelayMs`,
   88–129 ms measured: Safari 26 88–109, Safari 27 100–129). The attempt is
   dropped once the request goes on TCP (`abandonOnTcp`).
@@ -1190,7 +1269,9 @@ profile from its own captures and requires it unchanged. The last quick
 refresh is the
 [Chrome 156 report](../internal/harness/reports/refresh-chrome-156-macos-2026-10-26.md);
 the first full refresh on Windows the
-[Chrome 156 on Windows report](../internal/harness/reports/refresh-chrome-156-windows-2026-10-29.md);
+[Chrome 156 on Windows report](../internal/harness/reports/refresh-chrome-156-windows-2026-10-29.md)
+(Firefox's: the
+[Firefox 158 on Windows report](../internal/harness/reports/refresh-firefox-158-windows-2026-11-01.md));
 the first on an iPhone the
 [Safari 27 on iOS report](../internal/harness/reports/refresh-safari-27-ios-2026-11-01.md).
 

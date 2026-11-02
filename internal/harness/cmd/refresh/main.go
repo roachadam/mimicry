@@ -1,10 +1,11 @@
 // Command refresh brings a browser's built-in profile up to the version
 // installed where that browser is captured (chrome, firefox and safari-mini
-// on the second Mac via -mini, safari here, chrome-windows on a Windows PC via
-// -windows, safari-ios on an iPhone this Mac serves via -listen):
+// on the second Mac via -mini, safari here, chrome-windows and
+// firefox-windows on a Windows PC via -windows, safari-ios on an iPhone this
+// Mac serves via -listen):
 //
 //	go run ./cmd/refresh -browser chrome,firefox -mode quick -mini <alias>   # in internal/harness/
-//	go run ./cmd/refresh -browser chrome-windows -windows <alias>
+//	go run ./cmd/refresh -browser chrome-windows,firefox-windows -windows <alias>
 //	go run ./cmd/refresh -browser safari-ios -listen <this Mac's IPv4>
 //
 // Per browser it preflights, captures into a staging directory, derives the
@@ -66,11 +67,11 @@ type config struct {
 func run() error {
 	var cfg config
 
-	browsers := flag.String("browser", "", "comma-separated browsers to refresh: chrome, firefox (on -mini), safari (this Mac), safari-mini (the mini's Safari), chrome-windows (on -windows), safari-ios (the iPhone, served on -listen)")
+	browsers := flag.String("browser", "", "comma-separated browsers to refresh: chrome, firefox (on -mini), safari (this Mac), safari-mini (the mini's Safari), chrome-windows, firefox-windows (on -windows), safari-ios (the iPhone, served on -listen)")
 
 	flag.StringVar(&cfg.mode, "mode", modeQuick, "quick (the fingerprint layer; the rest inherited from the previous version) or full (every scenario and replay)")
 	flag.StringVar(&cfg.mini, "mini", "", "your ssh alias for the second Mac (chrome, firefox, safari-mini)")
-	flag.StringVar(&cfg.windows, "windows", "", "your ssh alias for the Windows PC (chrome-windows; required for it)")
+	flag.StringVar(&cfg.windows, "windows", "", "your ssh alias for the Windows PC (chrome-windows, firefox-windows; required for them)")
 	flag.StringVar(&cfg.listen, "listen", "", "this Mac's IPv4 address on the iPhone's Wi-Fi network (safari-ios; required for it)")
 	flag.StringVar(&cfg.iosDevice, "ios-device", "", "the iPhone's UDID (safari-ios; default: the paired iPhone connected to this Mac)")
 	flag.BoolVar(&cfg.keep, "keep", false, "leave the run's working directory on the Windows PC (the capture CA is removed regardless)")
@@ -118,7 +119,7 @@ func run() error {
 		case iphone && !lanIPv4(cfg.listen):
 			return fmt.Errorf("-listen %q: want this Mac's IPv4 address on the iPhone's network", cfg.listen)
 		case windows && cfg.windows == "":
-			return errors.New("-browser chrome-windows needs -windows <your ssh alias for the Windows PC>")
+			return errors.New("-browser chrome-windows and firefox-windows need -windows <your ssh alias for the Windows PC>")
 		case windows && mini && cfg.windows == cfg.mini:
 			return fmt.Errorf("-windows and -mini are both %q: the Windows PC and the second Mac are two machines", cfg.mini)
 		}

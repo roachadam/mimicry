@@ -1,0 +1,92 @@
+[
+  [
+    {
+      "kind": "socks5",
+      "conn": 8,
+      "target": "www.ws-a.test:34286",
+      "greeting": "050100",
+      "request": "050100030d7777772e77732d612e7465737485ee"
+    },
+    {
+      "kind": "socks5",
+      "conn": 18,
+      "target": "h1.ws-a.test:34286",
+      "greeting": "050100",
+      "request": "050100030c68312e77732d612e7465737485ee"
+    },
+    {
+      "kind": "socks5",
+      "conn": 19,
+      "target": "h1.ws-a.test:34286",
+      "greeting": "050100",
+      "request": "050100030c68312e77732d612e7465737485ee"
+    },
+    {
+      "kind": "socks5",
+      "conn": 20,
+      "target": "h1.ws-a.test:34286",
+      "greeting": "050100",
+      "request": "050100030c68312e77732d612e7465737485ee"
+    }
+  ],
+  [
+    {
+      "kind": "socks5",
+      "conn": 8,
+      "target": "www.ws-a.test:34353",
+      "greeting": "050100",
+      "request": "050100030d7777772e77732d612e746573748631"
+    },
+    {
+      "kind": "socks5",
+      "conn": 18,
+      "target": "h1.ws-a.test:34353",
+      "greeting": "050100",
+      "request": "050100030c68312e77732d612e746573748631"
+    },
+    {
+      "kind": "socks5",
+      "conn": 19,
+      "target": "h1.ws-a.test:34353",
+      "greeting": "050100",
+      "request": "050100030c68312e77732d612e746573748631"
+    },
+    {
+      "kind": "socks5",
+      "conn": 20,
+      "target": "h1.ws-a.test:34353",
+      "greeting": "050100",
+      "request": "050100030c68312e77732d612e746573748631"
+    }
+  ],
+  [
+    {
+      "kind": "socks5",
+      "conn": 8,
+      "target": "www.ws-a.test:34455",
+      "greeting": "050100",
+      "request": "050100030d7777772e77732d612e746573748697"
+    },
+    {
+      "kind": "socks5",
+      "conn": 18,
+      "target": "h1.ws-a.test:34455",
+      "greeting": "050100",
+      "request": "050100030c68312e77732d612e746573748697"
+    },
+    {
+      "kind": "socks5",
+      "conn": 19,
+      "target": "h1.ws-a.test:34455",
+      "greeting": "050100",
+      "request": "050100030c68312e77732d612e746573748697"
+    },
+    {
+      "kind": "socks5",
+      "conn": 20,
+      "target": "h1.ws-a.test:34455",
+      "greeting": "050100",
+      "request": "050100030c68312e77732d612e746573748697"
+    }
+  ]
+]

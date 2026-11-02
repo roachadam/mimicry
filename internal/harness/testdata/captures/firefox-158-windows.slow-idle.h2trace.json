@@ -1,0 +1,2651 @@
+[
+  {
+    "frames": [
+      {
+        "ms": 0,
+        "type": "SETTINGS",
+        "length": 24
+      },
+      {
+        "ms": 0,
+        "type": "WINDOW_UPDATE",
+        "length": 4,
+        "increment": 12517377
+      },
+      {
+        "ms": 0,
+        "type": "HEADERS",
+        "stream": 3,
+        "flags": 37,
+        "length": 292,
+        "priority": {
+          "dependsOn": 0,
+          "exclusive": false,
+          "weight": 41
+        }
+      },
+      {
+        "ms": 0,
+        "type": "WINDOW_UPDATE",
+        "stream": 3,
+        "length": 4,
+        "increment": 12451840
+      },
+      {
+        "ms": 0,
+        "type": "SETTINGS",
+        "flags": 1,
+        "length": 0
+      },
+      {
+        "ms": 77,
+        "type": "HEADERS",
+        "stream": 5,
+        "flags": 37,
+        "length": 97,
+        "priority": {
+          "dependsOn": 0,
+          "exclusive": false,
+          "weight": 21
+        }
+      },
+      {
+        "ms": 77,
+        "type": "WINDOW_UPDATE",
+        "stream": 5,
+        "length": 4,
+        "increment": 12451840
+      },
+      {
+        "ms": 77,
+        "type": "HEADERS",
+        "stream": 7,
+        "flags": 37,
+        "length": 36,
+        "priority": {
+          "dependsOn": 0,
+          "exclusive": false,
+          "weight": 21
+        }
+      },
+      {
+        "ms": 77,
+        "type": "WINDOW_UPDATE",
+        "stream": 7,
+        "length": 4,
+        "increment": 12451840
+      },
+      {
+        "ms": 82,
+        "type": "HEADERS",
+        "stream": 9,
+        "flags": 37,
+        "length": 102,
+        "priority": {
+          "dependsOn": 0,
+          "exclusive": false,
+          "weight": 11
+        }
+      },
+      {
+        "ms": 86,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 12451840
+      },
+      {
+        "ms": 109,
+        "type": "HEADERS",
+        "stream": 11,
+        "flags": 37,
+        "length": 40,
+        "priority": {
+          "dependsOn": 0,
+          "exclusive": false,
+          "weight": 21
+        }
+      },
+      {
+        "ms": 109,
+        "type": "WINDOW_UPDATE",
+        "stream": 11,
+        "length": 4,
+        "increment": 12451840
+      },
+      {
+        "ms": 26705,
+        "type": "HEADERS",
+        "stream": 13,
+        "flags": 37,
+        "length": 25,
+        "priority": {
+          "dependsOn": 0,
+          "exclusive": false,
+          "weight": 21
+        }
+      },
+      {
+        "ms": 26706,
+        "type": "WINDOW_UPDATE",
+        "stream": 13,
+        "length": 4,
+        "increment": 12451840
+      },
+      {
+        "ms": 26707,
+        "type": "HEADERS",
+        "stream": 15,
+        "flags": 37,
+        "length": 24,
+        "priority": {
+          "dependsOn": 0,
+          "exclusive": false,
+          "weight": 21
+        }
+      }
+    ],
+    "requests": [
+      {
+        "stream": 3,
+        "path": "/",
+        "block": "82048163419320eb4db6157a4d498967a5d25426e3207c0fff877abcd07f66a281b0dae053fae46aa43f8429a77a8102e0fb5391aa71afb53cb8d7da9677b816de5c1fda988a4ea76040080010054c26b0b29fcb016de5c153b0497ca589d34d1f43aeba0c41a4c7a98f33a69a3fdf9a68fa1d75d0620d263d4c79a68fbed00177febe58f9fbed00177b518b2d4b70ddf45abefb4005df50929bd9abfa5242cb40d25fa523b3e94f684c9f4092b6b9ac1c8558d520a4b6c2ad617b5a54251f810f408a4148b4a549275a42a13f8690e4b692d49f408a4148b4a549275a93c85f86a87dcd30d25f408a4148b4a549275906497f83a8f517408a4148b4a549275ad416cf82ff034086aec31ec327d785b6007d286f4082497f864d833505b11f",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "without",
+            "index": 4,
+            "name": ":path",
+            "value": "/",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "index": 1,
+            "name": ":authority",
+            "value": "capture.mimicry.test:30909",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "incremental",
+            "index": 58,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "index": 19,
+            "name": "accept",
+            "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "index": 17,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "index": 16,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "name": "upgrade-insecure-requests",
+            "value": "1",
+            "huffmanName": true,
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-dest",
+            "value": "document",
+            "huffmanName": true,
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-mode",
+            "value": "navigate",
+            "huffmanName": true,
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-site",
+            "value": "none",
+            "huffmanName": true,
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-user",
+            "value": "?1",
+            "huffmanName": true,
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "name": "priority",
+            "value": "u=0, i",
+            "huffmanName": true,
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "name": "te",
+            "value": "trailers",
+            "huffmanName": true,
+            "huffmanValue": true
+          }
+        ]
+      },
+      {
+        "stream": 5,
+        "path": "/style.css",
+        "block": "8205876109f541572211c987c87f088e497ca582211f5f2c7cfdf6800b87c7c673999d29ad17186083ad36d855e93526259e9749509b8c81f03ec77f0684427d505f7f0685a8eb10f6237f068840e92ac7b0d31aaf7f0583b6017fc4",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "without",
+            "index": 5,
+            "name": ":path",
+            "value": "/style.css",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 73,
+            "name": ":authority",
+            "value": "capture.mimicry.test:30909"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 72,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0"
+          },
+          {
+            "rep": "incremental",
+            "index": 71,
+            "name": "accept",
+            "value": "text/css,*/*;q=0.1",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "incremental",
+            "index": 51,
+            "name": "referer",
+            "value": "https://capture.mimicry.test:30909/",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "index": 69,
+            "name": "sec-fetch-dest",
+            "value": "style",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "index": 69,
+            "name": "sec-fetch-mode",
+            "value": "no-cors",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "index": 69,
+            "name": "sec-fetch-site",
+            "value": "same-origin",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "index": 68,
+            "name": "priority",
+            "value": "u=2",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 68,
+            "name": "te",
+            "value": "trailers"
+          }
+        ]
+      },
+      {
+        "stream": 7,
+        "path": "/app.js",
+        "block": "8205866075d6bf447fcf87ce7f0e83f963e7cdccc37f0b84412c3569c2c1c6",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "without",
+            "index": 5,
+            "name": ":path",
+            "value": "/app.js",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 79,
+            "name": ":authority",
+            "value": "capture.mimicry.test:30909"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 78,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0"
+          },
+          {
+            "rep": "incremental",
+            "index": 77,
+            "name": "accept",
+            "value": "*/*",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 77,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 76,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 67,
+            "name": "referer",
+            "value": "https://capture.mimicry.test:30909/"
+          },
+          {
+            "rep": "incremental",
+            "index": 74,
+            "name": "sec-fetch-dest",
+            "value": "script",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 66,
+            "name": "sec-fetch-mode",
+            "value": "no-cors"
+          },
+          {
+            "rep": "indexed",
+            "index": 65,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": "te",
+            "value": "trailers"
+          }
+        ]
+      },
+      {
+        "stream": 9,
+        "path": "/img.png",
+        "block": "82058660d4ccbd754dd187d07f10bd352398ac0fb9a5fa352398ac74f347d1a91cc563c163afe8d48e62b15d537d1a91cc5611de6ff7e69a3e8d48e62b1f3f7da002ef7d7cb1f3f7da002edfcfcec57f0d84352398bfc4c37f0a85b606fe9437c9",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "without",
+            "index": 5,
+            "name": ":path",
+            "value": "/img.png",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 81,
+            "name": ":authority",
+            "value": "capture.mimicry.test:30909"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 80,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0"
+          },
+          {
+            "rep": "incremental",
+            "index": 79,
+            "name": "accept",
+            "value": "image/avif,image/jxl,image/webp,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 79,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 78,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 69,
+            "name": "referer",
+            "value": "https://capture.mimicry.test:30909/"
+          },
+          {
+            "rep": "incremental",
+            "index": 76,
+            "name": "sec-fetch-dest",
+            "value": "image",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 68,
+            "name": "sec-fetch-mode",
+            "value": "no-cors"
+          },
+          {
+            "rep": "indexed",
+            "index": 67,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "incremental",
+            "index": 73,
+            "name": "priority",
+            "value": "u=5, i",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 73,
+            "name": "te",
+            "value": "trailers"
+          }
+        ]
+      },
+      {
+        "stream": 11,
+        "path": "/slow",
+        "block": "82058461141fc7d487d3c2d1d0c77f0f842d35a7d77f0f8321ec47c67f0d83b606bfcc",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "without",
+            "index": 5,
+            "name": ":path",
+            "value": "/slow",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 84,
+            "name": ":authority",
+            "value": "capture.mimicry.test:30909"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 83,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0"
+          },
+          {
+            "rep": "indexed",
+            "index": 66,
+            "name": "accept",
+            "value": "*/*"
+          },
+          {
+            "rep": "indexed",
+            "index": 81,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 80,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "referer",
+            "value": "https://capture.mimicry.test:30909/"
+          },
+          {
+            "rep": "incremental",
+            "index": 78,
+            "name": "sec-fetch-dest",
+            "value": "empty",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "index": 78,
+            "name": "sec-fetch-mode",
+            "value": "cors",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "incremental",
+            "index": 76,
+            "name": "priority",
+            "value": "u=4",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 76,
+            "name": "te",
+            "value": "trailers"
+          }
+        ]
+      },
+      {
+        "stream": 13,
+        "path": "/again",
+        "block": "82058560730cd57fd787d6c5d4d3cac0bfc7becc",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "without",
+            "index": 5,
+            "name": ":path",
+            "value": "/again",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 87,
+            "name": ":authority",
+            "value": "capture.mimicry.test:30909"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 86,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0"
+          },
+          {
+            "rep": "indexed",
+            "index": 69,
+            "name": "accept",
+            "value": "*/*"
+          },
+          {
+            "rep": "indexed",
+            "index": 84,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 83,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 74,
+            "name": "referer",
+            "value": "https://capture.mimicry.test:30909/"
+          },
+          {
+            "rep": "indexed",
+            "index": 64,
+            "name": "sec-fetch-dest",
+            "value": "empty"
+          },
+          {
+            "rep": "indexed",
+            "index": 63,
+            "name": "sec-fetch-mode",
+            "value": "cors"
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "indexed",
+            "index": 62,
+            "name": "priority",
+            "value": "u=4"
+          },
+          {
+            "rep": "indexed",
+            "index": 76,
+            "name": "te",
+            "value": "trailers"
+          }
+        ]
+      },
+      {
+        "stream": 15,
+        "path": "/done",
+        "block": "8205846243d45fd787d6c5d4d3cac0bfc7becc",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "without",
+            "index": 5,
+            "name": ":path",
+            "value": "/done",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 87,
+            "name": ":authority",
+            "value": "capture.mimicry.test:30909"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 86,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0"
+          },
+          {
+            "rep": "indexed",
+            "index": 69,
+            "name": "accept",
+            "value": "*/*"
+          },
+          {
+            "rep": "indexed",
+            "index": 84,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 83,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 74,
+            "name": "referer",
+            "value": "https://capture.mimicry.test:30909/"
+          },
+          {
+            "rep": "indexed",
+            "index": 64,
+            "name": "sec-fetch-dest",
+            "value": "empty"
+          },
+          {
+            "rep": "indexed",
+            "index": 63,
+            "name": "sec-fetch-mode",
+            "value": "cors"
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "indexed",
+            "index": 62,
+            "name": "priority",
+            "value": "u=4"
+          },
+          {
+            "rep": "indexed",
+            "index": 76,
+            "name": "te",
+            "value": "trailers"
+          }
+        ]
+      }
+    ],
+    "records": [
+      {
+        "size": 70,
+        "preface": true,
+        "frames": [
+          0,
+          1
+        ]
+      },
+      {
+        "size": 314,
+        "frames": [
+          2,
+          3
+        ]
+      },
+      {
+        "size": 9,
+        "frames": [
+          4
+        ]
+      },
+      {
+        "size": 119,
+        "frames": [
+          5,
+          6
+        ]
+      },
+      {
+        "size": 58,
+        "frames": [
+          7,
+          8
+        ]
+      },
+      {
+        "size": 124,
+        "frames": [
+          9,
+          10
+        ]
+      },
+      {
+        "size": 62,
+        "frames": [
+          11,
+          12
+        ]
+      },
+      {
+        "size": 47,
+        "frames": [
+          13,
+          14
+        ]
+      },
+      {
+        "size": 46,
+        "frames": [
+          15
+        ]
+      }
+    ]
+  },
+  {
+    "frames": [
+      {
+        "ms": 0,
+        "type": "SETTINGS",
+        "length": 24
+      },
+      {
+        "ms": 0,
+        "type": "WINDOW_UPDATE",
+        "length": 4,
+        "increment": 12517377
+      },
+      {
+        "ms": 0,
+        "type": "HEADERS",
+        "stream": 3,
+        "flags": 37,
+        "length": 292,
+        "priority": {
+          "dependsOn": 0,
+          "exclusive": false,
+          "weight": 41
+        }
+      },
+      {
+        "ms": 0,
+        "type": "WINDOW_UPDATE",
+        "stream": 3,
+        "length": 4,
+        "increment": 12451840
+      },
+      {
+        "ms": 0,
+        "type": "SETTINGS",
+        "flags": 1,
+        "length": 0
+      },
+      {
+        "ms": 77,
+        "type": "HEADERS",
+        "stream": 5,
+        "flags": 37,
+        "length": 97,
+        "priority": {
+          "dependsOn": 0,
+          "exclusive": false,
+          "weight": 21
+        }
+      },
+      {
+        "ms": 77,
+        "type": "WINDOW_UPDATE",
+        "stream": 5,
+        "length": 4,
+        "increment": 12451840
+      },
+      {
+        "ms": 77,
+        "type": "HEADERS",
+        "stream": 7,
+        "flags": 37,
+        "length": 36,
+        "priority": {
+          "dependsOn": 0,
+          "exclusive": false,
+          "weight": 21
+        }
+      },
+      {
+        "ms": 77,
+        "type": "WINDOW_UPDATE",
+        "stream": 7,
+        "length": 4,
+        "increment": 12451840
+      },
+      {
+        "ms": 82,
+        "type": "HEADERS",
+        "stream": 9,
+        "flags": 37,
+        "length": 102,
+        "priority": {
+          "dependsOn": 0,
+          "exclusive": false,
+          "weight": 11
+        }
+      },
+      {
+        "ms": 82,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 12451840
+      },
+      {
+        "ms": 112,
+        "type": "HEADERS",
+        "stream": 11,
+        "flags": 37,
+        "length": 40,
+        "priority": {
+          "dependsOn": 0,
+          "exclusive": false,
+          "weight": 21
+        }
+      },
+      {
+        "ms": 113,
+        "type": "WINDOW_UPDATE",
+        "stream": 11,
+        "length": 4,
+        "increment": 12451840
+      },
+      {
+        "ms": 26705,
+        "type": "HEADERS",
+        "stream": 13,
+        "flags": 37,
+        "length": 25,
+        "priority": {
+          "dependsOn": 0,
+          "exclusive": false,
+          "weight": 21
+        }
+      },
+      {
+        "ms": 26707,
+        "type": "WINDOW_UPDATE",
+        "stream": 13,
+        "length": 4,
+        "increment": 12451840
+      },
+      {
+        "ms": 26707,
+        "type": "HEADERS",
+        "stream": 15,
+        "flags": 37,
+        "length": 24,
+        "priority": {
+          "dependsOn": 0,
+          "exclusive": false,
+          "weight": 21
+        }
+      }
+    ],
+    "requests": [
+      {
+        "stream": 3,
+        "path": "/",
+        "block": "82048163419320eb4db6157a4d498967a5d25426e3207d97ff877abcd07f66a281b0dae053fae46aa43f8429a77a8102e0fb5391aa71afb53cb8d7da9677b816de5c1fda988a4ea76040080010054c26b0b29fcb016de5c153b0497ca589d34d1f43aeba0c41a4c7a98f33a69a3fdf9a68fa1d75d0620d263d4c79a68fbed00177febe58f9fbed00177b518b2d4b70ddf45abefb4005df50929bd9abfa5242cb40d25fa523b3e94f684c9f4092b6b9ac1c8558d520a4b6c2ad617b5a54251f810f408a4148b4a549275a42a13f8690e4b692d49f408a4148b4a549275a93c85f86a87dcd30d25f408a4148b4a549275906497f83a8f517408a4148b4a549275ad416cf82ff034086aec31ec327d785b6007d286f4082497f864d833505b11f",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "without",
+            "index": 4,
+            "name": ":path",
+            "value": "/",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "index": 1,
+            "name": ":authority",
+            "value": "capture.mimicry.test:30939",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "incremental",
+            "index": 58,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "index": 19,
+            "name": "accept",
+            "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "index": 17,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "index": 16,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "name": "upgrade-insecure-requests",
+            "value": "1",
+            "huffmanName": true,
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-dest",
+            "value": "document",
+            "huffmanName": true,
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-mode",
+            "value": "navigate",
+            "huffmanName": true,
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-site",
+            "value": "none",
+            "huffmanName": true,
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-user",
+            "value": "?1",
+            "huffmanName": true,
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "name": "priority",
+            "value": "u=0, i",
+            "huffmanName": true,
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "name": "te",
+            "value": "trailers",
+            "huffmanName": true,
+            "huffmanValue": true
+          }
+        ]
+      },
+      {
+        "stream": 5,
+        "path": "/style.css",
+        "block": "8205876109f541572211c987c87f088e497ca582211f5f2c7cfdf6800b87c7c673999d29ad17186083ad36d855e93526259e9749509b8c81f65f637f0684427d505f7f0685a8eb10f6237f068840e92ac7b0d31aaf7f0583b6017fc4",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "without",
+            "index": 5,
+            "name": ":path",
+            "value": "/style.css",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 73,
+            "name": ":authority",
+            "value": "capture.mimicry.test:30939"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 72,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0"
+          },
+          {
+            "rep": "incremental",
+            "index": 71,
+            "name": "accept",
+            "value": "text/css,*/*;q=0.1",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "incremental",
+            "index": 51,
+            "name": "referer",
+            "value": "https://capture.mimicry.test:30939/",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "index": 69,
+            "name": "sec-fetch-dest",
+            "value": "style",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "index": 69,
+            "name": "sec-fetch-mode",
+            "value": "no-cors",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "index": 69,
+            "name": "sec-fetch-site",
+            "value": "same-origin",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "index": 68,
+            "name": "priority",
+            "value": "u=2",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 68,
+            "name": "te",
+            "value": "trailers"
+          }
+        ]
+      },
+      {
+        "stream": 7,
+        "path": "/app.js",
+        "block": "8205866075d6bf447fcf87ce7f0e83f963e7cdccc37f0b84412c3569c2c1c6",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "without",
+            "index": 5,
+            "name": ":path",
+            "value": "/app.js",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 79,
+            "name": ":authority",
+            "value": "capture.mimicry.test:30939"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 78,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0"
+          },
+          {
+            "rep": "incremental",
+            "index": 77,
+            "name": "accept",
+            "value": "*/*",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 77,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 76,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 67,
+            "name": "referer",
+            "value": "https://capture.mimicry.test:30939/"
+          },
+          {
+            "rep": "incremental",
+            "index": 74,
+            "name": "sec-fetch-dest",
+            "value": "script",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 66,
+            "name": "sec-fetch-mode",
+            "value": "no-cors"
+          },
+          {
+            "rep": "indexed",
+            "index": 65,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": "te",
+            "value": "trailers"
+          }
+        ]
+      },
+      {
+        "stream": 9,
+        "path": "/img.png",
+        "block": "82058660d4ccbd754dd187d07f10bd352398ac0fb9a5fa352398ac74f347d1a91cc563c163afe8d48e62b15d537d1a91cc5611de6ff7e69a3e8d48e62b1f3f7da002ef7d7cb1f3f7da002edfcfcec57f0d84352398bfc4c37f0a85b606fe9437c9",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "without",
+            "index": 5,
+            "name": ":path",
+            "value": "/img.png",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 81,
+            "name": ":authority",
+            "value": "capture.mimicry.test:30939"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 80,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0"
+          },
+          {
+            "rep": "incremental",
+            "index": 79,
+            "name": "accept",
+            "value": "image/avif,image/jxl,image/webp,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 79,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 78,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 69,
+            "name": "referer",
+            "value": "https://capture.mimicry.test:30939/"
+          },
+          {
+            "rep": "incremental",
+            "index": 76,
+            "name": "sec-fetch-dest",
+            "value": "image",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 68,
+            "name": "sec-fetch-mode",
+            "value": "no-cors"
+          },
+          {
+            "rep": "indexed",
+            "index": 67,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "incremental",
+            "index": 73,
+            "name": "priority",
+            "value": "u=5, i",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 73,
+            "name": "te",
+            "value": "trailers"
+          }
+        ]
+      },
+      {
+        "stream": 11,
+        "path": "/slow",
+        "block": "82058461141fc7d487d3c2d1d0c77f0f842d35a7d77f0f8321ec47c67f0d83b606bfcc",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "without",
+            "index": 5,
+            "name": ":path",
+            "value": "/slow",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 84,
+            "name": ":authority",
+            "value": "capture.mimicry.test:30939"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 83,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0"
+          },
+          {
+            "rep": "indexed",
+            "index": 66,
+            "name": "accept",
+            "value": "*/*"
+          },
+          {
+            "rep": "indexed",
+            "index": 81,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 80,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "referer",
+            "value": "https://capture.mimicry.test:30939/"
+          },
+          {
+            "rep": "incremental",
+            "index": 78,
+            "name": "sec-fetch-dest",
+            "value": "empty",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "index": 78,
+            "name": "sec-fetch-mode",
+            "value": "cors",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "incremental",
+            "index": 76,
+            "name": "priority",
+            "value": "u=4",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 76,
+            "name": "te",
+            "value": "trailers"
+          }
+        ]
+      },
+      {
+        "stream": 13,
+        "path": "/again",
+        "block": "82058560730cd57fd787d6c5d4d3cac0bfc7becc",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "without",
+            "index": 5,
+            "name": ":path",
+            "value": "/again",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 87,
+            "name": ":authority",
+            "value": "capture.mimicry.test:30939"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 86,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0"
+          },
+          {
+            "rep": "indexed",
+            "index": 69,
+            "name": "accept",
+            "value": "*/*"
+          },
+          {
+            "rep": "indexed",
+            "index": 84,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 83,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 74,
+            "name": "referer",
+            "value": "https://capture.mimicry.test:30939/"
+          },
+          {
+            "rep": "indexed",
+            "index": 64,
+            "name": "sec-fetch-dest",
+            "value": "empty"
+          },
+          {
+            "rep": "indexed",
+            "index": 63,
+            "name": "sec-fetch-mode",
+            "value": "cors"
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "indexed",
+            "index": 62,
+            "name": "priority",
+            "value": "u=4"
+          },
+          {
+            "rep": "indexed",
+            "index": 76,
+            "name": "te",
+            "value": "trailers"
+          }
+        ]
+      },
+      {
+        "stream": 15,
+        "path": "/done",
+        "block": "8205846243d45fd787d6c5d4d3cac0bfc7becc",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "without",
+            "index": 5,
+            "name": ":path",
+            "value": "/done",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 87,
+            "name": ":authority",
+            "value": "capture.mimicry.test:30939"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 86,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0"
+          },
+          {
+            "rep": "indexed",
+            "index": 69,
+            "name": "accept",
+            "value": "*/*"
+          },
+          {
+            "rep": "indexed",
+            "index": 84,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 83,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 74,
+            "name": "referer",
+            "value": "https://capture.mimicry.test:30939/"
+          },
+          {
+            "rep": "indexed",
+            "index": 64,
+            "name": "sec-fetch-dest",
+            "value": "empty"
+          },
+          {
+            "rep": "indexed",
+            "index": 63,
+            "name": "sec-fetch-mode",
+            "value": "cors"
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "indexed",
+            "index": 62,
+            "name": "priority",
+            "value": "u=4"
+          },
+          {
+            "rep": "indexed",
+            "index": 76,
+            "name": "te",
+            "value": "trailers"
+          }
+        ]
+      }
+    ],
+    "records": [
+      {
+        "size": 70,
+        "preface": true,
+        "frames": [
+          0,
+          1
+        ]
+      },
+      {
+        "size": 314,
+        "frames": [
+          2,
+          3
+        ]
+      },
+      {
+        "size": 9,
+        "frames": [
+          4
+        ]
+      },
+      {
+        "size": 119,
+        "frames": [
+          5,
+          6
+        ]
+      },
+      {
+        "size": 58,
+        "frames": [
+          7,
+          8
+        ]
+      },
+      {
+        "size": 124,
+        "frames": [
+          9,
+          10
+        ]
+      },
+      {
+        "size": 62,
+        "frames": [
+          11,
+          12
+        ]
+      },
+      {
+        "size": 47,
+        "frames": [
+          13,
+          14
+        ]
+      },
+      {
+        "size": 46,
+        "frames": [
+          15
+        ]
+      }
+    ]
+  },
+  {
+    "frames": [
+      {
+        "ms": 0,
+        "type": "SETTINGS",
+        "length": 24
+      },
+      {
+        "ms": 0,
+        "type": "WINDOW_UPDATE",
+        "length": 4,
+        "increment": 12517377
+      },
+      {
+        "ms": 1,
+        "type": "SETTINGS",
+        "flags": 1,
+        "length": 0
+      },
+      {
+        "ms": 1,
+        "type": "HEADERS",
+        "stream": 3,
+        "flags": 37,
+        "length": 292,
+        "priority": {
+          "dependsOn": 0,
+          "exclusive": false,
+          "weight": 41
+        }
+      },
+      {
+        "ms": 2,
+        "type": "WINDOW_UPDATE",
+        "stream": 3,
+        "length": 4,
+        "increment": 12451840
+      },
+      {
+        "ms": 84,
+        "type": "HEADERS",
+        "stream": 5,
+        "flags": 37,
+        "length": 97,
+        "priority": {
+          "dependsOn": 0,
+          "exclusive": false,
+          "weight": 21
+        }
+      },
+      {
+        "ms": 84,
+        "type": "WINDOW_UPDATE",
+        "stream": 5,
+        "length": 4,
+        "increment": 12451840
+      },
+      {
+        "ms": 84,
+        "type": "HEADERS",
+        "stream": 7,
+        "flags": 37,
+        "length": 36,
+        "priority": {
+          "dependsOn": 0,
+          "exclusive": false,
+          "weight": 21
+        }
+      },
+      {
+        "ms": 84,
+        "type": "WINDOW_UPDATE",
+        "stream": 7,
+        "length": 4,
+        "increment": 12451840
+      },
+      {
+        "ms": 84,
+        "type": "HEADERS",
+        "stream": 9,
+        "flags": 37,
+        "length": 102,
+        "priority": {
+          "dependsOn": 0,
+          "exclusive": false,
+          "weight": 11
+        }
+      },
+      {
+        "ms": 84,
+        "type": "WINDOW_UPDATE",
+        "stream": 9,
+        "length": 4,
+        "increment": 12451840
+      },
+      {
+        "ms": 108,
+        "type": "HEADERS",
+        "stream": 11,
+        "flags": 37,
+        "length": 40,
+        "priority": {
+          "dependsOn": 0,
+          "exclusive": false,
+          "weight": 21
+        }
+      },
+      {
+        "ms": 108,
+        "type": "WINDOW_UPDATE",
+        "stream": 11,
+        "length": 4,
+        "increment": 12451840
+      },
+      {
+        "ms": 26703,
+        "type": "HEADERS",
+        "stream": 13,
+        "flags": 37,
+        "length": 25,
+        "priority": {
+          "dependsOn": 0,
+          "exclusive": false,
+          "weight": 21
+        }
+      },
+      {
+        "ms": 26705,
+        "type": "WINDOW_UPDATE",
+        "stream": 13,
+        "length": 4,
+        "increment": 12451840
+      },
+      {
+        "ms": 26705,
+        "type": "HEADERS",
+        "stream": 15,
+        "flags": 37,
+        "length": 24,
+        "priority": {
+          "dependsOn": 0,
+          "exclusive": false,
+          "weight": 21
+        }
+      }
+    ],
+    "requests": [
+      {
+        "stream": 3,
+        "path": "/",
+        "block": "82048163419320eb4db6157a4d498967a5d25426e3207dc73f877abcd07f66a281b0dae053fae46aa43f8429a77a8102e0fb5391aa71afb53cb8d7da9677b816de5c1fda988a4ea76040080010054c26b0b29fcb016de5c153b0497ca589d34d1f43aeba0c41a4c7a98f33a69a3fdf9a68fa1d75d0620d263d4c79a68fbed00177febe58f9fbed00177b518b2d4b70ddf45abefb4005df50929bd9abfa5242cb40d25fa523b3e94f684c9f4092b6b9ac1c8558d520a4b6c2ad617b5a54251f810f408a4148b4a549275a42a13f8690e4b692d49f408a4148b4a549275a93c85f86a87dcd30d25f408a4148b4a549275906497f83a8f517408a4148b4a549275ad416cf82ff034086aec31ec327d785b6007d286f4082497f864d833505b11f",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "without",
+            "index": 4,
+            "name": ":path",
+            "value": "/",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "index": 1,
+            "name": ":authority",
+            "value": "capture.mimicry.test:30966",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "incremental",
+            "index": 58,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "index": 19,
+            "name": "accept",
+            "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "index": 17,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "index": 16,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "name": "upgrade-insecure-requests",
+            "value": "1",
+            "huffmanName": true,
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-dest",
+            "value": "document",
+            "huffmanName": true,
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-mode",
+            "value": "navigate",
+            "huffmanName": true,
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-site",
+            "value": "none",
+            "huffmanName": true,
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "name": "sec-fetch-user",
+            "value": "?1",
+            "huffmanName": true,
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "name": "priority",
+            "value": "u=0, i",
+            "huffmanName": true,
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "name": "te",
+            "value": "trailers",
+            "huffmanName": true,
+            "huffmanValue": true
+          }
+        ]
+      },
+      {
+        "stream": 5,
+        "path": "/style.css",
+        "block": "8205876109f541572211c987c87f088e497ca582211f5f2c7cfdf6800b87c7c673999d29ad17186083ad36d855e93526259e9749509b8c81f71c637f0684427d505f7f0685a8eb10f6237f068840e92ac7b0d31aaf7f0583b6017fc4",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "without",
+            "index": 5,
+            "name": ":path",
+            "value": "/style.css",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 73,
+            "name": ":authority",
+            "value": "capture.mimicry.test:30966"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 72,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0"
+          },
+          {
+            "rep": "incremental",
+            "index": 71,
+            "name": "accept",
+            "value": "text/css,*/*;q=0.1",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "incremental",
+            "index": 51,
+            "name": "referer",
+            "value": "https://capture.mimicry.test:30966/",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "index": 69,
+            "name": "sec-fetch-dest",
+            "value": "style",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "index": 69,
+            "name": "sec-fetch-mode",
+            "value": "no-cors",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "index": 69,
+            "name": "sec-fetch-site",
+            "value": "same-origin",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "index": 68,
+            "name": "priority",
+            "value": "u=2",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 68,
+            "name": "te",
+            "value": "trailers"
+          }
+        ]
+      },
+      {
+        "stream": 7,
+        "path": "/app.js",
+        "block": "8205866075d6bf447fcf87ce7f0e83f963e7cdccc37f0b84412c3569c2c1c6",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "without",
+            "index": 5,
+            "name": ":path",
+            "value": "/app.js",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 79,
+            "name": ":authority",
+            "value": "capture.mimicry.test:30966"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 78,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0"
+          },
+          {
+            "rep": "incremental",
+            "index": 77,
+            "name": "accept",
+            "value": "*/*",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 77,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 76,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 67,
+            "name": "referer",
+            "value": "https://capture.mimicry.test:30966/"
+          },
+          {
+            "rep": "incremental",
+            "index": 74,
+            "name": "sec-fetch-dest",
+            "value": "script",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 66,
+            "name": "sec-fetch-mode",
+            "value": "no-cors"
+          },
+          {
+            "rep": "indexed",
+            "index": 65,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": "te",
+            "value": "trailers"
+          }
+        ]
+      },
+      {
+        "stream": 9,
+        "path": "/img.png",
+        "block": "82058660d4ccbd754dd187d07f10bd352398ac0fb9a5fa352398ac74f347d1a91cc563c163afe8d48e62b15d537d1a91cc5611de6ff7e69a3e8d48e62b1f3f7da002ef7d7cb1f3f7da002edfcfcec57f0d84352398bfc4c37f0a85b606fe9437c9",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "without",
+            "index": 5,
+            "name": ":path",
+            "value": "/img.png",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 81,
+            "name": ":authority",
+            "value": "capture.mimicry.test:30966"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 80,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0"
+          },
+          {
+            "rep": "incremental",
+            "index": 79,
+            "name": "accept",
+            "value": "image/avif,image/jxl,image/webp,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 79,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 78,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 69,
+            "name": "referer",
+            "value": "https://capture.mimicry.test:30966/"
+          },
+          {
+            "rep": "incremental",
+            "index": 76,
+            "name": "sec-fetch-dest",
+            "value": "image",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 68,
+            "name": "sec-fetch-mode",
+            "value": "no-cors"
+          },
+          {
+            "rep": "indexed",
+            "index": 67,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "incremental",
+            "index": 73,
+            "name": "priority",
+            "value": "u=5, i",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 73,
+            "name": "te",
+            "value": "trailers"
+          }
+        ]
+      },
+      {
+        "stream": 11,
+        "path": "/slow",
+        "block": "82058461141fc7d487d3c2d1d0c77f0f842d35a7d77f0f8321ec47c67f0d83b606bfcc",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "without",
+            "index": 5,
+            "name": ":path",
+            "value": "/slow",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 84,
+            "name": ":authority",
+            "value": "capture.mimicry.test:30966"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 83,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0"
+          },
+          {
+            "rep": "indexed",
+            "index": 66,
+            "name": "accept",
+            "value": "*/*"
+          },
+          {
+            "rep": "indexed",
+            "index": 81,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 80,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "referer",
+            "value": "https://capture.mimicry.test:30966/"
+          },
+          {
+            "rep": "incremental",
+            "index": 78,
+            "name": "sec-fetch-dest",
+            "value": "empty",
+            "huffmanValue": true
+          },
+          {
+            "rep": "incremental",
+            "index": 78,
+            "name": "sec-fetch-mode",
+            "value": "cors",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 70,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "incremental",
+            "index": 76,
+            "name": "priority",
+            "value": "u=4",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 76,
+            "name": "te",
+            "value": "trailers"
+          }
+        ]
+      },
+      {
+        "stream": 13,
+        "path": "/again",
+        "block": "82058560730cd57fd787d6c5d4d3cac0bfc7becc",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "without",
+            "index": 5,
+            "name": ":path",
+            "value": "/again",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 87,
+            "name": ":authority",
+            "value": "capture.mimicry.test:30966"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 86,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0"
+          },
+          {
+            "rep": "indexed",
+            "index": 69,
+            "name": "accept",
+            "value": "*/*"
+          },
+          {
+            "rep": "indexed",
+            "index": 84,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 83,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 74,
+            "name": "referer",
+            "value": "https://capture.mimicry.test:30966/"
+          },
+          {
+            "rep": "indexed",
+            "index": 64,
+            "name": "sec-fetch-dest",
+            "value": "empty"
+          },
+          {
+            "rep": "indexed",
+            "index": 63,
+            "name": "sec-fetch-mode",
+            "value": "cors"
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "indexed",
+            "index": 62,
+            "name": "priority",
+            "value": "u=4"
+          },
+          {
+            "rep": "indexed",
+            "index": 76,
+            "name": "te",
+            "value": "trailers"
+          }
+        ]
+      },
+      {
+        "stream": 15,
+        "path": "/done",
+        "block": "8205846243d45fd787d6c5d4d3cac0bfc7becc",
+        "instructions": [
+          {
+            "rep": "indexed",
+            "index": 2,
+            "name": ":method",
+            "value": "GET"
+          },
+          {
+            "rep": "without",
+            "index": 5,
+            "name": ":path",
+            "value": "/done",
+            "huffmanValue": true
+          },
+          {
+            "rep": "indexed",
+            "index": 87,
+            "name": ":authority",
+            "value": "capture.mimicry.test:30966"
+          },
+          {
+            "rep": "indexed",
+            "index": 7,
+            "name": ":scheme",
+            "value": "https"
+          },
+          {
+            "rep": "indexed",
+            "index": 86,
+            "name": "user-agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0"
+          },
+          {
+            "rep": "indexed",
+            "index": 69,
+            "name": "accept",
+            "value": "*/*"
+          },
+          {
+            "rep": "indexed",
+            "index": 84,
+            "name": "accept-language",
+            "value": "en-US,en;q=0.9"
+          },
+          {
+            "rep": "indexed",
+            "index": 83,
+            "name": "accept-encoding",
+            "value": "gzip, deflate, br, zstd"
+          },
+          {
+            "rep": "indexed",
+            "index": 74,
+            "name": "referer",
+            "value": "https://capture.mimicry.test:30966/"
+          },
+          {
+            "rep": "indexed",
+            "index": 64,
+            "name": "sec-fetch-dest",
+            "value": "empty"
+          },
+          {
+            "rep": "indexed",
+            "index": 63,
+            "name": "sec-fetch-mode",
+            "value": "cors"
+          },
+          {
+            "rep": "indexed",
+            "index": 71,
+            "name": "sec-fetch-site",
+            "value": "same-origin"
+          },
+          {
+            "rep": "indexed",
+            "index": 62,
+            "name": "priority",
+            "value": "u=4"
+          },
+          {
+            "rep": "indexed",
+            "index": 76,
+            "name": "te",
+            "value": "trailers"
+          }
+        ]
+      }
+    ],
+    "records": [
+      {
+        "size": 70,
+        "preface": true,
+        "frames": [
+          0,
+          1
+        ]
+      },
+      {
+        "size": 9,
+        "frames": [
+          2
+        ]
+      },
+      {
+        "size": 314,
+        "frames": [
+          3,
+          4
+        ]
+      },
+      {
+        "size": 119,
+        "frames": [
+          5,
+          6
+        ]
+      },
+      {
+        "size": 58,
+        "frames": [
+          7,
+          8
+        ]
+      },
+      {
+        "size": 124,
+        "frames": [
+          9,
+          10
+        ]
+      },
+      {
+        "size": 62,
+        "frames": [
+          11,
+          12
+        ]
+      },
+      {
+        "size": 47,
+        "frames": [
+          13,
+          14
+        ]
+      },
+      {
+        "size": 46,
+        "frames": [
+          15
+        ]
+      }
+    ]
+  }
+]

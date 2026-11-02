@@ -55,10 +55,28 @@ func TestHTTP3MatchesBrowser(t *testing.T) {
 				t.Fatal("the profile has no quic section")
 			}
 
+			skips := map[string]func(string) bool{}
+
+			var unused []func()
+
 			for _, c := range capturedConns(t, p) {
-				for _, v := range quicRuleViolations(p, c.c, t.Logf) {
-					t.Errorf("%s: the profile's rule does not describe the browser: %s", c.at, v)
+				skip, ok := skips[c.source]
+				if !ok {
+					var u func()
+
+					skip, u = gapsFor(t, c.source+"/rules")
+					skips[c.source], unused = skip, append(unused, u)
 				}
+
+				for _, v := range quicRuleViolations(p, c.c, t.Logf) {
+					if !skip(c.at + ": " + v) {
+						t.Errorf("%s: the profile's rule does not describe the browser: %s", c.at, v)
+					}
+				}
+			}
+
+			for _, u := range unused {
+				u()
 			}
 		})
 
@@ -137,8 +155,10 @@ func TestHTTP3MarkupMatchesBrowserWhenSlow(t *testing.T) {
 
 // h3Captures loads the browser's capture of sc p is checked against: the
 // -h3-local-roots one where it exists (Chrome, Firefox), else the unforced
-// one (Safari), rewritten to p's version where inherited. As loadSamples,
-// it skips the test when the capture is one of missingCaptures.
+// one (Safari), rewritten to p's version where inherited, without the
+// browser's unused opening connection (dropUnusedOpenings). As
+// loadSamples, it skips the test when the capture is one of
+// missingCaptures.
 func h3Captures(t *testing.T, p *profile.Profile, sc *server.Scenario) []*capture.Page {
 	t.Helper()
 
@@ -151,6 +171,8 @@ func h3Captures(t *testing.T, p *profile.Profile, sc *server.Scenario) []*captur
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	dropUnusedOpenings(p, sc.Name, pages)
 
 	return pages
 }
@@ -880,11 +902,17 @@ func mapEach[S, T any](in []S, f func(S) T) []T {
 // labels it): the feature is not compared. A listed gap that no longer
 // appears fails.
 var h3Gaps = map[string]string{
-	"firefox-158-macos/h3-page HTTP/3 /h3/font.so header list":               "FontFace loads are no request kind of mimicry's (the kinds test skips them too): its Font kind is a stylesheet's @font-face load, which Firefox sends with accept-encoding identity",
+	"firefox-158-macos/h3-page HTTP/3 /h3/font.so header list":               firefoxFont,
 	"firefox-158-macos/h3-page HTTP/3 /h3/font.so field lines":               "as its header list",
+	"firefox-158-windows/h3-page HTTP/3 /h3/font.so header list":             firefoxFont,
+	"firefox-158-windows/h3-page HTTP/3 /h3/font.so field lines":             "as its header list",
 	"firefox-158-macos/h3-discovery HTTP/3 /h3/markup-image2.so header list": "Firefox gave the second page's only image u=4, i (its kind's u=5, i): a layout-driven image priority, pinned in kindsgen's h3PriorityGaps too",
 	"firefox-158-macos/h3-discovery HTTP/3 /h3/markup-image2.so field lines": "as its header list",
-	"safari-27-macos/h3-page TCP www.h3-a.test #2 goaway":                    "not the page's traffic: a second TCP connection repeating GET /h3/kinds.so with another user agent (Mac OS X 10_11_1), no referer and sec-fetch-site none, another system client (report http3-2026-10-25, section 4)",
+	// Firefox draws its first Initial's packet number from 1 to 1024; one
+	// of 5 Windows draws of 128 or more went in 1 byte, the others (and
+	// macOS's 4) in the 2 RFC 9000's appendix A.2 asks.
+	"firefox-158-windows/rules h3-page.local-roots sample 2 connection 1 (www.h3-a.test): packet numbers: the first Initial's 242 in 1 bytes, not 2": "Firefox on Windows sent this first Initial's packet number 242 in 1 byte (the other 4 of 5 draws of 128 or more in 2, as quic.packetNumbers' rule says, macOS's 4 too); mimicry encodes it as the rule says",
+	"safari-27-macos/h3-page TCP www.h3-a.test #2 goaway": "not the page's traffic: a second TCP connection repeating GET /h3/kinds.so with another user agent (Mac OS X 10_11_1), no referer and sec-fetch-site none, another system client (report http3-2026-10-25, section 4)",
 	// Safari's kinds over HTTP/3 are measured for fetch() only.
 	"safari-27-ios/h3-page transport /h3/beacon.so":                                   iosBeacon,
 	"safari-27-ios/h3-page QUIC www.h3-a.test QUIC #1 starts with its TCP connection": iosBeacon,
@@ -893,6 +921,9 @@ var h3Gaps = map[string]string{
 
 // iosBeacon is the iPhone's beacon gap (h3Gaps).
 const iosBeacon = "the iPhone sent the beacon over HTTP/3, on a QUIC connection of its own beside the page's HTTP/2 one (3 of 3); Safari's kinds other than fetch() are not measured over HTTP/3, so mimicry keeps it on TCP"
+
+// firefoxFont is Firefox's FontFace gap (h3Gaps), on macOS and Windows.
+const firefoxFont = "FontFace loads are no request kind of mimicry's (the kinds test skips them too): its Font kind is a stylesheet's @font-face load, which Firefox sends with accept-encoding identity"
 
 // gapsFor returns the check compareFeatures skips known gaps with, and a
 // function that fails the test for each of the profile's gaps not seen.
@@ -1119,10 +1150,11 @@ func quicHosts(page *capture.Page) features {
 }
 
 // capturedConn is a QUIC connection of a browser's capture, with where it
-// is.
+// is and the profile that took it (the key of its h3Gaps).
 type capturedConn struct {
-	at string
-	c  *quictrace.Conn
+	at     string
+	source string
+	c      *quictrace.Conn
 }
 
 // capturedConns are every QUIC connection of the h3 captures p is checked
@@ -1143,11 +1175,13 @@ func capturedConns(t *testing.T, p *profile.Profile) []capturedConn {
 				t.Fatal(err)
 			}
 
-			for i, p := range pages {
-				for j, c := range p.QUIC {
+			source := capture.Source(p, sc)
+			for i, page := range pages {
+				for j, c := range page.QUIC {
 					out = append(out, capturedConn{
-						at: fmt.Sprintf("%s%s sample %d connection %d (%s)", sc, cond, i+1, j+1, c.Host),
-						c:  c,
+						at:     fmt.Sprintf("%s%s sample %d connection %d (%s)", sc, cond, i+1, j+1, c.Host),
+						source: source,
+						c:      c,
 					})
 				}
 			}
