@@ -98,7 +98,8 @@ func mode(vs []int) (value, count int) {
 
 // ack derives the bulk acknowledgement rule from every download: exact if
 // one advance makes up 90% of ACKs after Chrome's warm-up run, else
-// batched at the smallest advance covering 5% with under 1% shorter.
+// batched at the smallest advance covering 5% with under 1% shorter; and
+// AfterRTT from every edge connection (lone).
 func (s *edgeSet) ack(e *collector) profile.QUICAck {
 	var out profile.QUICAck
 	for i, d := range s.downloaded {
@@ -162,7 +163,32 @@ func (s *edgeSet) ack(e *collector) profile.QUICAck {
 		out = got
 	}
 
+	out.AfterRTT = afterRTT(s.lone())
+
 	return out
+}
+
+// afterRTT reports a client that acknowledges a lone packet at once when
+// it comes long after its last ACK and mostly waits when not: at least 20
+// late, 95% of them at once, and under half of the soon ones. Firefox's
+// captures pass both (70 of 70 late, 72 of 215 soon; Windows 76 of 76, 56
+// of 212); Chrome's and Safari's fail both (27 of 44 late at once and 249
+// of 323 soon; Safari 23 of 28 and 236 of 288).
+func afterRTT(n quictrace.LoneACKs) bool {
+	return n.Late >= 20 && n.LateAtOnce*100 >= n.Late*95 && n.SoonAtOnce*2 < n.Soon
+}
+
+// lone counts quictrace.LoneACKs on every edge connection the server's
+// packets were recorded on.
+func (s *edgeSet) lone() quictrace.LoneACKs {
+	var n quictrace.LoneACKs
+	for _, p := range s.pages {
+		for _, a := range p.attempts {
+			n.Add(a.c)
+		}
+	}
+
+	return n
 }
 
 // creditSlack is how far past window / divisor an update may come: the

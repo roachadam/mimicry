@@ -636,6 +636,27 @@ each pass's range).
     and 8,704 requests/s at 7 MB, 236.6 µs and 5,717 at 1 MB, 236.4 and
     232.9 MB/s for 10 MB uploads.
 
+27. **A pending ACK sent a smoothed RTT after the last** (`acks.go`:
+    `ackState.afterRTT`, `lastAck`, and `sentAck` takes the time, which
+    `acks_test.go` passes;
+    `conn_send.go`'s `appendFrames` asks `clientAckAfterRTT`, in
+    `client_flow.go`; `conn.go` sets it from `QUICAck.AfterRTT`). A
+    client whose profile says so (Firefox, decision 0043's 2026-11-02
+    amendment) treats an ACK the ack-eliciting packets made pending as
+    due once a smoothed RTT has passed since it last sent one, as neqo's
+    `RecvdPackets::ack_now`; so a packet arriving after a quiet spell is
+    acknowledged when the connection next sends, its arrival above all,
+    not at max_ack_delay. The ACK timer is unchanged. Without the field
+    (upstream's paths, Chrome, Safari) nothing changes. Firefox's
+    profile, field on against off, 7 passes on the Linux host's nginx
+    (10 MB: 3): 1 KB 64 at once 89,059 against 89,291 requests/s, 34 µs
+    of CPU per request each; 100 KB 64 at once 8,375 against 7,670
+    (ranges overlapping), 186 against 200 µs; with a 7 MB buffer 9,652
+    against 9,719, 177 against 173 µs; 10 MB one at a time 797 against
+    791 MB/s. Datagrams sent per request were the same (0.65, 2.64 at
+    7 MB, 237 per 10 MB) but at 100 KB with the 1 MB buffer (4.01
+    against 4.58).
+
 ## Sockets
 
 `udp_packetconn.go` is upstream's but for `Read`'s signature (change 26:

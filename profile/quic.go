@@ -282,6 +282,11 @@ type QUICAck struct {
 	// Batched waits until arrived packets are all read, so one ACK may
 	// cover more than Every; otherwise exactly Every.
 	Batched bool `json:"batched,omitempty"`
+	// AfterRTT also acknowledges at once, while an acknowledgement is
+	// pending, once a smoothed RTT has passed since the last ACK sent: a
+	// lone packet arriving after a quiet spell is acknowledged when it
+	// arrives, not at max_ack_delay (Firefox).
+	AfterRTT bool `json:"afterRtt,omitempty"`
 }
 
 // QUICCredit is how a client returns flow-control credit. Its windows are

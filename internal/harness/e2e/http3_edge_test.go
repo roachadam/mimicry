@@ -40,6 +40,8 @@ const h3PageHost = "www.h3-a.test"
 //     and their limits, and those sent with a stream, their limits and
 //     place (compareStreamsBlockedWith); on h3-streams-blocked, each
 //     burst's waits sorted (compareBurstWaits);
+//   - per profile with quic.ack.afterRtt, over all its pages: the lone
+//     packets acknowledged at once after a quiet spell (afterRTTRecord);
 //   - per TCP connection: its trigger, its race against the QUIC attempt,
 //     the GOAWAY sent, how many were declined.
 //
@@ -56,12 +58,14 @@ const h3PageHost = "www.h3-a.test"
 // at once (checkDialDelays). Subtests run in parallel (about 75 s).
 func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
 	dials := &dialRecord{}
+	lone := &afterRTTRecord{}
 	t.Cleanup(func() {
 		dials.compare(t)
+		lone.compare(t)
 	})
 
 	for _, name := range testProfiles(t) {
-		for _, sc := range []*server.Scenario{server.H3Blackhole, server.H3Broken, server.H3VN, server.H3V2, server.H3Early, server.H3TooEarly, server.H3StreamsBlocked} {
+		for _, sc := range h3EdgeScenarios {
 			for _, fast := range []bool{false, true} {
 				mode := "browser"
 				if fast {
@@ -109,6 +113,7 @@ func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
 					}
 
 					compareEdge(t, p, got, want, skip)
+					lone.add(name, p, got)
 					dials.add(name, p, !fast, checkDialDelays(t, p, got, !fast))
 
 					if sc == server.H3StreamsBlocked {
@@ -122,6 +127,10 @@ func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
 		}
 	}
 }
+
+// h3EdgeScenarios are the scenarios TestHTTP3EdgeMatchesBrowser replays,
+// each in the browser's mode and the fast one.
+var h3EdgeScenarios = []*server.Scenario{server.H3Blackhole, server.H3Broken, server.H3VN, server.H3V2, server.H3Early, server.H3TooEarly, server.H3StreamsBlocked}
 
 // edgeRuns bounds how often TestHTTP3EdgeMatchesBrowser runs a page whose
 // race the process's stalls decided; the last run is compared as it is.
@@ -137,13 +146,9 @@ var h3EdgeGaps = func() map[string]string {
 		"chrome-155-macos/h3-broken edge QUIC www.h3-b.test #2 Initial packet number steps": "as its datagrams: the browser's first resumed probe is 4 Initials (steps 4 1 1 1, mimicry's 4 alone); every other step, the skip before each probe and none before the close, matches. On Windows the samples disagree (4 Initials in 2, 2 in the other), so the step is not compared there",
 		"firefox-158-macos/h3-broken edge QUIC www.h3-b.test #2 datagrams":                  "Firefox's resumed probes vary between samples (pairs every PTO from a ~3 ms cached RTT, the 3-packet resumed first flight not repeated, lone 40-B 0-RTT datagrams); quic.loss's flight probe replays all 3 first-flight packets per PTO, and the profile has no resumed-probe rule; give-up time and close match",
 		"firefox-158-macos/h3-too-early edge TCP www.h3-a.test declined":                    "beside 3–4 of its 4 retries after 425 Too Early per sample (which ones varies), Firefox also opened a TCP connection to the host and closed it before any request; the retry itself goes on the QUIC connection, as mimicry's does. No profile field holds when Firefox opens these (report h3-early-2026-10-26)",
-		// Firefox's STREAMS_BLOCKED rule, which this page shows, is
-		// quic.streamsBlocked; what differs is how far each raise goes.
-		"firefox-158-macos/h3-streams-blocked edge QUIC www.h3-a.test STREAMS_BLOCKED with streams":   "Firefox acknowledged each burst response 0.1–2.3 ms after it came (most after an ACK-only packet from the server), so quic-go raised the limit by one per response, and by quic.streamsBlocked's waiting rule Firefox sent one with each stream but a burst's last (6 7 8, 12 13 14). mimicry acknowledges the first two responses together (the replay makes the burst's requests together, Firefox 4–6 ms apart; with the browser's spacing it still does, quic.ack counting ack-eliciting packets only: tried 2026-10-31), so the server raises by two at once, and by the same rule mimicry sends one per such raise while a request waits (7, 13). The frames it sends alone match (5, 11)",
-		"firefox-158-windows/h3-streams-blocked edge QUIC www.h3-a.test STREAMS_BLOCKED with streams": "as Firefox on macOS's (firefox-158-macos's entry; Firefox's ACK of a lone response, profiles/EVIDENCE.md): 6 7 8, 12 13 14 in 2 of 3 samples; in the other the server's last two raises of each burst came in one batch and Firefox opened both waiting streams in one packet with none (6 7, 12 13); mimicry's 7, 13",
-		"firefox-158-windows/h3-too-early edge TCP www.h3-a.test declined":                            "as firefox-158-macos's: beside its retries after 425 Too Early Firefox opened TCP connections to the host and closed them before any request (3 per sample on Windows, the unused opening connection left out); no profile field holds when Firefox opens these",
-		"firefox-158-windows/h3-broken edge QUIC www.h3-b.test #2 datagrams":                          "as firefox-158-macos's: Firefox's resumed probes vary between samples, and the profile has no resumed-probe rule; give-up time and close match",
-		"firefox-158-windows/h3-broken edge TCP www.h3-a.test #2 after its trigger ms":                "not the network: Firefox on Windows's page made keep2.cs, this connection's trigger, 4.9 s after silent5.so where the page waits 2 s (every sample; its later timers 3.7–5.5 s late too, Firefox on macOS's on time), so the connection that carries the silenced requests came 3.9–4.4 s after it, not mimicry's 7.0 s; the connection itself starts when the silenced QUIC connection dies, as the requests' delays (compared) show",
+		"firefox-158-windows/h3-too-early edge TCP www.h3-a.test declined":                  "as firefox-158-macos's: beside its retries after 425 Too Early Firefox opened TCP connections to the host and closed them before any request (3 per sample on Windows, the unused opening connection left out); no profile field holds when Firefox opens these",
+		"firefox-158-windows/h3-broken edge QUIC www.h3-b.test #2 datagrams":                "as firefox-158-macos's: Firefox's resumed probes vary between samples, and the profile has no resumed-probe rule; give-up time and close match",
+		"firefox-158-windows/h3-broken edge TCP www.h3-a.test #2 after its trigger ms":      "not the network: Firefox on Windows's page made keep2.cs, this connection's trigger, 4.9 s after silent5.so where the page waits 2 s (every sample; its later timers 3.7–5.5 s late too, Firefox on macOS's on time), so the connection that carries the silenced requests came 3.9–4.4 s after it, not mimicry's 7.0 s; the connection itself starts when the silenced QUIC connection dies, as the requests' delays (compared) show",
 	}
 
 	// Chrome's on both platforms: the late resend of the silenced request
@@ -252,6 +257,14 @@ var h3EdgeSchedulingGaps = func() map[string]string {
 				gaps[fmt.Sprintf("%s/h3-streams-blocked edge request /h3/%s%d.so delay ms", name, burst, i)] = burstOrder
 			}
 		}
+	}
+
+	// Firefox's STREAMS_BLOCKED rule, which this page shows, is
+	// quic.streamsBlocked; what differs is how far each raise goes, by
+	// whether the replay's first two requests of a burst share a packet.
+	const firefoxBlocked = "the replay's request spacing, not the ACKs: Firefox sent each burst's first two requests 3.2–5.7 ms apart (Windows 3.7–5.2), so quic-go answered them in two packets, Firefox acknowledged each at once (quic.ack.afterRtt) and quic-go raised the limit by one per response; by quic.streamsBlocked's waiting rule Firefox sent one with each stream but a burst's last (6 7 8, 12 13 14; on Windows in 2 of 3 samples, the third's last two raises came in one batch and it opened both waiting streams in one packet with none: 6 7, 12 13). The replay makes the burst's requests together; when this process puts the first two in one packet, quic-go answers both in one and raises by two, and by the same rule mimicry sends one per raise (7, 13); when it does not, mimicry sends Firefox's. With the requests 5 ms apart it sends Firefox's every time (without afterRTT still 7, 13: tried 2026-11-02). The frames it sends alone match (5, 11)"
+	for _, name := range []string{"firefox-158-macos", "firefox-158-windows"} {
+		gaps[name+"/h3-streams-blocked edge QUIC www.h3-a.test STREAMS_BLOCKED with streams"] = firefoxBlocked
 	}
 
 	return gaps
@@ -1675,6 +1688,74 @@ func compareBurstWaits(t *testing.T, got *capture.Page, want []*capture.Page, sk
 // client held back its ACK of the responses that freed a stream (Chrome,
 // 26–30 ms).
 const burstACKSlack = 30
+
+// afterRTTRecord holds every profile with quic.ack.afterRtt to it, over
+// all its edge pages together: the lone packets the server sent
+// quictrace.LateMicros or more after mimicry's previous ACK reached it are
+// acknowledged at once (quictrace.LoneACKs), as Firefox acknowledged every
+// one in the edge captures (70 of 70 on macOS, 76 of 76 on Windows;
+// h3gen). A page holds only 1–9 such packets, so the count is over the
+// profile's pages, and at least one must occur, or the rule went
+// unexercised. A stall under -race can lift mimicry's smoothed RTT past
+// the gap and hold one (1 of 2 once in 6 runs), so at most 5% (at least
+// one) may wait; without the rule none goes at once. The ones sent sooner
+// are not compared: whether they wait depends on the RTT.
+type afterRTTRecord struct {
+	mu    sync.Mutex
+	byID  map[string]*quictrace.LoneACKs
+	pages map[string]int
+}
+
+// add counts got's lone packets for name, when its profile has the rule.
+func (r *afterRTTRecord) add(name string, p *profile.Spec, got *capture.Page) {
+	if !p.QUIC.Ack.AfterRTT {
+		return
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.byID == nil {
+		r.byID = map[string]*quictrace.LoneACKs{}
+		r.pages = map[string]int{}
+	}
+
+	r.pages[name]++
+
+	n := r.byID[name]
+	if n == nil {
+		n = &quictrace.LoneACKs{}
+		r.byID[name] = n
+	}
+
+	for _, c := range got.QUIC {
+		n.Add(c)
+	}
+}
+
+// compare reports each profile's count against the browser's.
+func (r *afterRTTRecord) compare(t *testing.T) {
+	t.Helper()
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for name, n := range r.byID {
+		held := n.Late - n.LateAtOnce
+		allowed := max(1, n.Late/20)
+
+		switch {
+		case n.Late == 0 && r.pages[name] < len(h3EdgeScenarios)*2:
+			t.Logf("%s: quic.ack.afterRtt: no lone packet after a quiet spell in the %d edge pages run (of %d); not compared", name, r.pages[name], len(h3EdgeScenarios)*2)
+		case n.Late == 0:
+			t.Errorf("%s: quic.ack.afterRtt: no lone packet after a quiet spell in any edge page; the rule went unexercised", name)
+		case held > allowed:
+			t.Errorf("%s: quic.ack.afterRtt: %d of %d lone packets after a quiet spell acknowledged at once (at most %d may wait), the browser's every one", name, n.LateAtOnce, n.Late, allowed)
+		default:
+			t.Logf("%s: quic.ack.afterRtt: %d of %d lone packets after a quiet spell acknowledged at once", name, n.LateAtOnce, n.Late)
+		}
+	}
+}
 
 // compareStreamsBlockedWith holds the STREAMS_BLOCKED that mimicry's
 // waiting requests sent with their streams to the samples' as sets, which

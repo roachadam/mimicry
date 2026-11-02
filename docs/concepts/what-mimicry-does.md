@@ -262,7 +262,10 @@ does, drawing from the delays its captures measured.
   its head apart from the body or not as the browser sends it. No
   connection starts with small records.
 - QUIC: PINGs keep a quiet connection alive while a request waits. ACKs
-  follow each browser's rules.
+  follow each browser's rules: Chrome acknowledges every 10th packet after
+  a warm-up, Firefox and Safari every 2nd, a batch at a time, and Firefox
+  also acknowledges at once a packet that comes more than a round trip
+  after its last ACK.
 
 None of this is background traffic on an idle connection.
 

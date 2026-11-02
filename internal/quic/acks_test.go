@@ -161,7 +161,7 @@ func TestAcksSent(t *testing.T) {
 				acks.receive(start, test.space, p.pnum, p.ackEliciting, ecnNotECT)
 			}
 			t.Logf("send an ACK frame")
-			acks.sentAck()
+			acks.sentAck(start)
 			for _, p := range test.packets {
 				t.Logf("receive %v.%v, ack-eliciting=%v", test.space, p.pnum, p.ackEliciting)
 				acks.receive(start, test.space, p.pnum, p.ackEliciting, ecnNotECT)

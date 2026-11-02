@@ -1,5 +1,7 @@
 package quic
 
+import "time"
+
 // mimicry: how a client connection returns flow-control credit and how
 // often it acknowledges, as its profile's browser does (profile.QUIC.Credit
 // and Ack). Not in upstream; see UPSTREAM.md.
@@ -128,4 +130,16 @@ func (acks *ackState) clientAckEvery(largest packetNumber) int {
 	}
 
 	return acks.every
+}
+
+// clientAckAfterRTT reports whether a client whose profile acknowledges
+// after an RTT (QUICAck.AfterRTT) sends a pending ACK in space now: a
+// smoothed RTT has passed since its last. Like any ACK it goes when the
+// connection next sends, a packet's arrival above all; the ACK timer stays
+// max_ack_delay.
+func (c *Conn) clientAckAfterRTT(now time.Time, space numberSpace) bool {
+	a := &c.acks[space]
+
+	return a.afterRTT && !a.nextAck.IsZero() && !a.lastAck.IsZero() &&
+		!now.Before(a.lastAck.Add(c.loss.rtt.smoothedRTT))
 }

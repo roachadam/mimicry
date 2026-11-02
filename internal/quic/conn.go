@@ -187,6 +187,7 @@ func newConn(now time.Time, side connSide, cids newServerConnIDs, peerHostname s
 		a.maxDelay = c.client.maxAckDelay()
 		a.every = c.client.p.Ack.Every
 		a.warmupPackets, a.warmupEvery = c.client.p.Ack.WarmupPackets, c.client.p.Ack.WarmupEvery
+		a.afterRTT = c.client.p.Ack.AfterRTT
 		c.clientInitLoss(now)
 	}
 

@@ -36,6 +36,11 @@ type ackState struct {
 	// client with a profile acknowledges, warmupEvery until warmupPackets
 	// have arrived (clientAckEvery).
 	every, warmupPackets, warmupEvery int
+	// mimicry: afterRTT, when set, also sends a pending ACK once a
+	// smoothed RTT has passed since lastAck, the last ACK sent
+	// (clientAckAfterRTT).
+	afterRTT bool
+	lastAck  time.Time
 }
 
 type ecnCounts struct {
@@ -206,9 +211,10 @@ func (acks *ackState) acksToSend(now time.Time) (nums rangeset[packetNumber], ac
 }
 
 // sentAck records that an ACK frame has been sent.
-func (acks *ackState) sentAck() {
+func (acks *ackState) sentAck(now time.Time) { // mimicry: now, for lastAck
 	acks.nextAck = time.Time{}
 	acks.unackedAckEliciting = 0
+	acks.lastAck = now
 }
 
 // handleAck records that an ack has been received for a ACK frame we sent

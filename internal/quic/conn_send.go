@@ -202,11 +202,11 @@ func (c *Conn) appendFrames(now time.Time, space numberSpace, pnum packetNumber,
 		return
 	}
 
-	shouldSendAck := c.acks[space].shouldSendAck(now)
+	shouldSendAck := c.acks[space].shouldSendAck(now) || c.clientAckAfterRTT(now, space) // mimicry: clientAckAfterRTT
 	if limit != ccOK {
 		// ACKs are not limited by congestion control.
 		if shouldSendAck && c.appendAckFrame(now, space) {
-			c.acks[space].sentAck()
+			c.acks[space].sentAck(now)
 		}
 		return
 	}
@@ -234,7 +234,7 @@ func (c *Conn) appendFrames(now time.Time, space numberSpace, pnum packetNumber,
 			}
 			// Either we are willing to send an ACK-only packet,
 			// or we've added additional frames.
-			c.acks[space].sentAck()
+			c.acks[space].sentAck(now)
 
 			if c.client != nil {
 				// mimicry: the browser's rule, not quiche's PING.
