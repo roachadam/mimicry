@@ -63,15 +63,15 @@ func TestTransportsShareProfile(t *testing.T) {
 	}
 
 	// A copy from Spec, changed once the Transports are built.
-	read := profiles.Chrome().Spec()
+	read := profiles.ChromeMacOS().Spec()
 
 	equal := []profile.Profile{
-		profiles.Chrome(),
+		profiles.ChromeMacOS(),
 		// Equal to the last copy of its name: found by name.
-		profiles.Chrome().With(func(*profile.Spec) {}),
+		profiles.ChromeMacOS().With(func(*profile.Spec) {}),
 		// Unequal to the last copy of its name, the edit's: found by
 		// fingerprint.
-		profiles.Chrome().With(func(s *profile.Spec) {
+		profiles.ChromeMacOS().With(func(s *profile.Spec) {
 			s.Headers[0].Value = "changed"
 		}).With(func(s *profile.Spec) {
 			s.Headers[0].Value = read.Headers[0].Value
@@ -146,17 +146,17 @@ func TestTransportsShareProfile(t *testing.T) {
 			},
 		},
 	} {
-		if p := profiles.Chrome().With(nil); transportProfile(t, p) != shared {
+		if p := profiles.ChromeMacOS().With(nil); transportProfile(t, p) != shared {
 			t.Fatal("an unedited profile did not get the shared copy")
 		}
 
-		want := profiles.Chrome().Spec()
+		want := profiles.ChromeMacOS().Spec()
 		tc.edit(want)
 
 		// The edit keeps its Spec and changes it once its copy is made.
 		var kept *profile.Spec
 
-		got := transportProfile(t, profiles.Chrome().With(func(s *profile.Spec) {
+		got := transportProfile(t, profiles.ChromeMacOS().With(func(s *profile.Spec) {
 			tc.edit(s)
 
 			kept = s
@@ -176,7 +176,7 @@ func TestTransportsShareProfile(t *testing.T) {
 
 		// A Transport keeps its copy shared, its Profile gone.
 		tr, err := NewTransport(Config{
-			Profile: profiles.Chrome().With(tc.edit),
+			Profile: profiles.ChromeMacOS().With(tc.edit),
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -184,7 +184,7 @@ func TestTransportsShareProfile(t *testing.T) {
 
 		runtime.GC()
 
-		if again := transportProfile(t, profiles.Chrome().With(tc.edit)); again != tr.profile {
+		if again := transportProfile(t, profiles.ChromeMacOS().With(tc.edit)); again != tr.profile {
 			t.Fatalf("a profile with a changed %s got a new copy while a Transport held one", tc.name)
 		}
 	}
@@ -208,7 +208,7 @@ func TestNewTransportRejectsProfile(t *testing.T) {
 		t.Error("NewTransport built a Transport from the zero Profile")
 	}
 
-	broken := profiles.Chrome().With(func(s *profile.Spec) {
+	broken := profiles.ChromeMacOS().With(func(s *profile.Spec) {
 		s.Name = ""
 		s.Browser = ""
 	})

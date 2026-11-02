@@ -55,7 +55,7 @@ func server(t *testing.T, h2 bool, handler http.HandlerFunc) testServer {
 	_, port, _ := net.SplitHostPort(srv.Listener.Addr().String())
 
 	tr, err := NewTransport(Config{
-		Profile: profiles.Chrome(),
+		Profile: profiles.ChromeMacOS(),
 		RootCAs: pool,
 	})
 	if err != nil {
@@ -145,7 +145,7 @@ func TestDecompression(t *testing.T) {
 		return buf.Bytes()
 	}
 
-	chrome := profiles.Chrome()
+	chrome := profiles.ChromeMacOS()
 
 	type answer struct {
 		encs []string
@@ -352,7 +352,7 @@ func fakeTransport(t *testing.T, cfg Config, e *fakeEngine) *Transport {
 	t.Helper()
 
 	if cfg.Profile == (profile.Profile{}) {
-		cfg.Profile = profiles.Chrome()
+		cfg.Profile = profiles.ChromeMacOS()
 	}
 
 	cfg.engine = e
@@ -498,7 +498,7 @@ func TestDecodeErrors(t *testing.T) {
 		}
 
 		client, err := NewClient(Config{
-			Profile: anyRedirectOrder(profiles.Chrome()),
+			Profile: anyRedirectOrder(profiles.ChromeMacOS()),
 			engine:  e,
 		})
 		if err != nil {
@@ -561,7 +561,7 @@ func TestConfigCredentialsStayBehindCrossOriginRedirects(t *testing.T) {
 	}
 
 	client, err := NewClient(Config{
-		Profile: anyRedirectOrder(profiles.Chrome()),
+		Profile: anyRedirectOrder(profiles.ChromeMacOS()),
 		Header: http.Header{
 			"Authorization": {"Bearer secret"},
 			"Cookie":        {"sid=1"},

@@ -25,7 +25,7 @@ func TestAltUsedPort(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		fields := placeAltUsed(profiles.Firefox().Spec(), altUsedValue("www.example.com", tt.port), []headerorder.Field{
+		fields := placeAltUsed(profiles.FirefoxMacOS().Spec(), altUsedValue("www.example.com", tt.port), []headerorder.Field{
 			{
 				Name:  "user-agent",
 				Value: "x",

@@ -18,7 +18,7 @@ your own jar and pass it in:
 
 ```go
 jar, err := cookies.New(cookies.Config{
-	Rules: profiles.Chrome().Spec().Cookies,
+	Rules: profiles.ChromeMacOS().Spec().Cookies,
 	OnSetCookie: func(e cookies.Event) {
 		if e.Rejected != "" {
 			log.Printf("%s dropped %q: %s", e.URL, e.Line, e.Rejected)
@@ -29,7 +29,7 @@ if err != nil {
 	return err
 }
 client, err := mimicry.NewClient(mimicry.Config{
-	Profile: profiles.Chrome(),
+	Profile: profiles.ChromeMacOS(),
 	Cookies: jar,
 })
 ```

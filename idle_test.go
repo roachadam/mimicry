@@ -70,7 +70,7 @@ func TestDroppedTransportClosesItsConnections(t *testing.T) {
 
 	func() {
 		client, err := mimicry.NewClient(mimicry.Config{
-			Profile:     profiles.Chrome(),
+			Profile:     profiles.ChromeMacOS(),
 			RootCAs:     roots,
 			DialContext: dial,
 			// The engine holds a check built from the Transport's pins:
@@ -173,7 +173,7 @@ func TestClientTimeout(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			client, err := mimicry.NewClient(mimicry.Config{
-				Profile:     profiles.Chrome(),
+				Profile:     profiles.ChromeMacOS(),
 				RootCAs:     roots,
 				DialContext: dial,
 				Timeout:     tc.timeout,

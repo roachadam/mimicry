@@ -132,7 +132,7 @@ func TestVersionUpgradeToV2(t *testing.T) {
 	synctest.Test(t, testVersionUpgradeToV2)
 }
 func testVersionUpgradeToV2(t *testing.T) {
-	tc := newProfileTestConn(t, profiles.Firefox().Name(),
+	tc := newProfileTestConn(t, profiles.FirefoxMacOS().Name(),
 		serverVersionInfo(quicVersion2, quicVersion2, quicVersion1))
 	for _, v := range tc.readFlight() {
 		if v != quicVersion1 {
@@ -184,7 +184,7 @@ func TestVersionUpgradeMismatchedVersionInfo(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
-				tc := newProfileTestConn(t, profiles.Firefox().Name(), tt.vi)
+				tc := newProfileTestConn(t, profiles.FirefoxMacOS().Name(), tt.vi)
 				tc.readFlight()
 				tc.serverUpgrades()
 				tc.serverFlight()
@@ -200,7 +200,7 @@ func TestVersionUpgradeMismatchedVersionInfo(t *testing.T) {
 }
 
 func TestVersionNoUpgradeWithoutV2(t *testing.T) {
-	for _, name := range []string{profiles.Chrome().Name(), profiles.Safari().Name()} {
+	for _, name := range []string{profiles.ChromeMacOS().Name(), profiles.SafariMacOS().Name()} {
 		t.Run(name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
 				tc := newProfileTestConn(t, name)
@@ -315,7 +315,7 @@ func TestVersionStartInV2(t *testing.T) {
 	synctest.Test(t, testVersionStartInV2)
 }
 func testVersionStartInV2(t *testing.T) {
-	tc := newProfileTestConnVersion(t, profiles.Firefox().Name(), quicVersion2,
+	tc := newProfileTestConnVersion(t, profiles.FirefoxMacOS().Name(), quicVersion2,
 		serverVersionInfo(quicVersion2, quicVersion2, quicVersion1))
 	tc.serverUpgrades() // the flight must open with v2's Initial keys
 
@@ -357,8 +357,8 @@ func TestVersionNegotiationRetryVersion(t *testing.T) {
 		want uint32
 		ok   bool
 	}{
-		{profiles.Firefox().Name(), quicVersion2, true},
-		{profiles.Chrome().Name(), 0, false},
+		{profiles.FirefoxMacOS().Name(), quicVersion2, true},
+		{profiles.ChromeMacOS().Name(), 0, false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
@@ -403,7 +403,7 @@ func TestVersionAfterNegotiation(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
-				tc := newProfileTestConnDial(t, profiles.Firefox().Name(),
+				tc := newProfileTestConnDial(t, profiles.FirefoxMacOS().Name(),
 					DialConfig{Version: quicVersion2, AfterVersionNegotiation: true}, tt.vi)
 				tc.serverUpgrades()
 

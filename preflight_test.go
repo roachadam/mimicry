@@ -68,7 +68,7 @@ func corsTransport(t *testing.T, e *corsEngine, extra http.Header) *Transport {
 	t.Helper()
 
 	tr, err := NewTransport(Config{
-		Profile: profiles.Chrome(),
+		Profile: profiles.ChromeMacOS(),
 		engine:  e,
 		Header:  extra,
 	})

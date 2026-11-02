@@ -1,7 +1,7 @@
 # Refreshing profiles
 
-Browsers ship a new version every few weeks. `profiles.Chrome()`,
-`profiles.Firefox()` and `profiles.Safari()` always mean the newest
+Browsers ship a new version every few weeks. `profiles.ChromeMacOS()`,
+`profiles.FirefoxMacOS()` and `profiles.SafariMacOS()` always mean the newest
 built-in macOS version, and `profiles.ChromeWindows()` and
 `profiles.FirefoxWindows()` the newest Chrome and Firefox on Windows. The
 newest five versions per browser and platform are supported.

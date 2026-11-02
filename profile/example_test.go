@@ -14,7 +14,7 @@ import (
 // Profile copies nothing. With never fails: an edit that leaves the profile
 // invalid is the error of the client built from it.
 func ExampleProfile_With() {
-	mine := profiles.Chrome().With(func(s *profile.Spec) {
+	mine := profiles.ChromeMacOS().With(func(s *profile.Spec) {
 		s.Name = "my-chrome"
 	})
 
@@ -28,7 +28,7 @@ func ExampleProfile_With() {
 
 	fmt.Println(mine.Name())
 
-	broken := profiles.Chrome().With(func(s *profile.Spec) {
+	broken := profiles.ChromeMacOS().With(func(s *profile.Spec) {
 		s.Name = ""
 	})
 

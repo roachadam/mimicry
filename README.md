@@ -16,7 +16,7 @@ go get github.com/roachadam/mimicry   # Go 1.27.3 or later
 
 ```go
 client, err := mimicry.NewClient(mimicry.Config{
-	Profile: profiles.Chrome(), // the newest built-in Chrome
+	Profile: profiles.ChromeMacOS(), // the newest built-in Chrome
 })
 if err != nil {
 	log.Fatal(err)
@@ -44,12 +44,12 @@ How it differs from tls-client and similar libraries:
 
 | Profile | Accessor | Status |
 |---|---|---|
-| `chrome-156-macos` | `profiles.Chrome()`, `profiles.Chrome156MacOS()` | supported |
+| `chrome-156-macos` | `profiles.ChromeMacOS()`, `profiles.Chrome156MacOS()` | supported |
 | `chrome-155-macos` | `profiles.Chrome155MacOS()` | supported |
 | `chrome-156-windows` | `profiles.ChromeWindows()`, `profiles.Chrome156Windows()` | supported |
-| `firefox-158-macos` | `profiles.Firefox()`, `profiles.Firefox158MacOS()` | supported |
+| `firefox-158-macos` | `profiles.FirefoxMacOS()`, `profiles.Firefox158MacOS()` | supported |
 | `firefox-158-windows` | `profiles.FirefoxWindows()`, `profiles.Firefox158Windows()` | supported |
-| `safari-27-macos` | `profiles.Safari()`, `profiles.Safari27MacOS()` | supported |
+| `safari-27-macos` | `profiles.SafariMacOS()`, `profiles.Safari27MacOS()` | supported |
 | `safari-26-macos` | `profiles.Safari26MacOS()` | supported |
 | `safari-27-ios` | `profiles.SafariIOS()`, `profiles.Safari27IOS()` | supported |
 | `safari-26-ios` | `profiles.Safari26IOS()` | supported |
@@ -58,9 +58,9 @@ How it differs from tls-client and similar libraries:
 
 `safari-27-ios` was captured from Safari 27.2 on an iPhone (iOS 27.2) over Wi-Fi, `safari-26-ios` from Safari 26.6.2 on an iPhone (iOS 26.7.1): their fingerprints (TLS and QUIC hellos, HTTP/2, every request kind's headers) are the iPhones' own; a few areas are macOS Safari's or not measured, as [0051](docs/decisions/0051-ios-safari-over-the-network.md) lists.
 
-`profiles.Chrome()`, `Firefox()` and `Safari()` always return the newest built-in macOS version, `profiles.ChromeWindows()` and `profiles.FirefoxWindows()` the newest Chrome and Firefox on Windows ([0047](docs/decisions/0047-windows-profiles.md)) and `profiles.SafariIOS()` the newest Safari on iOS. A versioned accessor, or `profiles.ByName("chrome-155-macos")`, stays on one version; the newest five versions of each browser on each platform are supported.
+`profiles.ChromeMacOS()`, `FirefoxMacOS()` and `SafariMacOS()` always return the newest built-in macOS version, `profiles.ChromeWindows()` and `profiles.FirefoxWindows()` the newest Chrome and Firefox on Windows ([0047](docs/decisions/0047-windows-profiles.md)) and `profiles.SafariIOS()` the newest Safari on iOS. A versioned accessor, or `profiles.ByName("chrome-155-macos")`, stays on one version; the newest five versions of each browser on each platform are supported.
 
-A profile is a read-only `profile.Profile`, checked once and shared by every client built from it, so building a client copies nothing (about 1–2 µs). To change one, edit a copy once and reuse it: `profiles.Chrome().With(func(s *profile.Spec) { ... })` (an invalid edit is `NewClient`'s error); `profile.Parse` reads your own JSON. To read what a profile sends, or save it with `profile.Encode`, take a copy of its data with `Spec()`; requests never need it. Examples: `ExampleProfile_With` and `ExampleProfile_Spec` in [`profile/example_test.go`](profile/example_test.go).
+A profile is a read-only `profile.Profile`, checked once and shared by every client built from it, so building a client copies nothing (about 1–2 µs). To change one, edit a copy once and reuse it: `profiles.ChromeMacOS().With(func(s *profile.Spec) { ... })` (an invalid edit is `NewClient`'s error); `profile.Parse` reads your own JSON. To read what a profile sends, or save it with `profile.Encode`, take a copy of its data with `Spec()`; requests never need it. Examples: `ExampleProfile_With` and `ExampleProfile_Spec` in [`profile/example_test.go`](profile/example_test.go).
 
 ## Common tasks
 

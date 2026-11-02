@@ -4,10 +4,10 @@ package profiles
 
 import "github.com/roachadam/mimicry/profile"
 
-// Chrome returns the newest chrome profile, now chrome-156-macos (chrome 156 on macos).
+// ChromeMacOS returns the newest chrome profile on macos, now chrome-156-macos (chrome 156 on macos).
 // It moves to each new version as that version is added; use a
 // versioned accessor where a version must stay fixed.
-func Chrome() profile.Profile {
+func ChromeMacOS() profile.Profile {
 	return load("chrome-156-macos")
 }
 
@@ -18,10 +18,10 @@ func ChromeWindows() profile.Profile {
 	return load("chrome-156-windows")
 }
 
-// Firefox returns the newest firefox profile, now firefox-158-macos (firefox 158 on macos).
+// FirefoxMacOS returns the newest firefox profile on macos, now firefox-158-macos (firefox 158 on macos).
 // It moves to each new version as that version is added; use a
 // versioned accessor where a version must stay fixed.
-func Firefox() profile.Profile {
+func FirefoxMacOS() profile.Profile {
 	return load("firefox-158-macos")
 }
 
@@ -32,10 +32,10 @@ func FirefoxWindows() profile.Profile {
 	return load("firefox-158-windows")
 }
 
-// Safari returns the newest safari profile, now safari-27-macos (safari 27 on macos).
+// SafariMacOS returns the newest safari profile on macos, now safari-27-macos (safari 27 on macos).
 // It moves to each new version as that version is added; use a
 // versioned accessor where a version must stay fixed.
-func Safari() profile.Profile {
+func SafariMacOS() profile.Profile {
 	return load("safari-27-macos")
 }
 

@@ -101,7 +101,7 @@ type options struct {
 	onWait      func(key string)
 	// maxConns is Config.MaxConnsPerHost.
 	maxConns int
-	// profile defaults to profiles.Chrome()'s.
+	// profile defaults to profiles.ChromeMacOS()'s.
 	profile *profile.Spec
 	// clock defaults to the real one; proxy is Config.Proxy.
 	clock clockwork.Clock
@@ -127,7 +127,7 @@ func newTestEngine(t *testing.T, o options) *Engine {
 
 	p := o.profile
 	if p == nil {
-		p = profiles.Chrome().Spec()
+		p = profiles.ChromeMacOS().Spec()
 	}
 
 	clock := o.clock

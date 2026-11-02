@@ -34,7 +34,7 @@ func main() {
 // chain to out.
 func run(args []string, out io.Writer) error {
 	fs := flag.NewFlagSet("pins", flag.ContinueOnError)
-	name := fs.String("profile", profiles.Chrome().Name(), "the browser profile whose TLS hello to send")
+	name := fs.String("profile", profiles.ChromeMacOS().Name(), "the browser profile whose TLS hello to send")
 	timeout := fs.Duration("timeout", 30*time.Second, "how long to wait for the connection")
 
 	fs.Usage = func() {

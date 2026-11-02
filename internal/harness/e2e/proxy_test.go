@@ -339,7 +339,7 @@ func TestUnmeasuredProxyIsAnError(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			p := profiles.Chrome().With(func(s *profile.Spec) {
+			p := profiles.ChromeMacOS().With(func(s *profile.Spec) {
 				if tc.strip != nil {
 					s.Proxy = tc.strip(s.Proxy)
 				}
