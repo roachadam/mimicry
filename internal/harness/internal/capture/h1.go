@@ -6,7 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/roachadam/mimicry/internal/harness/internal/h2trace"
@@ -31,6 +33,37 @@ type H1Request struct {
 	// page (browser.IOSDriver: devicectl, manual or safaridriver) in an
 	// HTTP/1.1 trace's requests; empty for other browsers and in a page.
 	Driver string `json:"driver,omitempty"`
+	// Upload is how the request went out in TLS records, in scenarios
+	// that record it (TLS 1.3 only); nil otherwise.
+	Upload *H1Upload `json:"upload,omitempty"`
+}
+
+// H1Upload is how a client cut one HTTP/1.1 request, its head and body,
+// into TLS records.
+type H1Upload struct {
+	// Offset is how many bytes of application data the client had sent
+	// on the connection before the request; Head and Body are the
+	// request head's and body's lengths.
+	Offset int `json:"offset"`
+	Head   int `json:"head"`
+	Body   int `json:"body"`
+	// Lead is how much of the first record came before the request, and
+	// Trail how much of the last came after it.
+	Lead  int `json:"lead,omitempty"`
+	Trail int `json:"trail,omitempty"`
+	// Records are the records that carried the request, from the one
+	// holding its first byte to the one holding its last, in order, as
+	// runs of records of one content length.
+	Records []RecordRun `json:"records"`
+}
+
+// RecordRun is a run of consecutive TLS records of one content length.
+type RecordRun struct {
+	Size  int `json:"size"`
+	Count int `json:"count"`
+	// Millis is when the run's last record arrived at the server, from
+	// the request's first record.
+	Millis float64 `json:"ms"`
 }
 
 // Page is a whole page load across every connection and host it used:
@@ -134,6 +167,27 @@ func LoadPages(path string) ([]*Page, error) {
 	}
 
 	return pages, nil
+}
+
+// ReadTrace reads a trace file written by Write, gunzipped when its name
+// ends in .gz.
+func ReadTrace(path string) ([]byte, error) {
+	data, err := os.ReadFile(path)
+	if err != nil || !strings.HasSuffix(path, ".gz") {
+		return data, err
+	}
+
+	r, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+
+	out, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+
+	return out, nil
 }
 
 func gzipped(data []byte) ([]byte, error) {

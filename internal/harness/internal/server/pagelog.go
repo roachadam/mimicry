@@ -108,6 +108,15 @@ func (l *pageLog) add(r capture.H1Request) int {
 	return len(l.requests) - 1
 }
 
+// setUpload records how the HTTP/1.1 request at index went out in TLS
+// records.
+func (l *pageLog) setUpload(index int, u *capture.H1Upload) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	l.requests[index].Upload = u
+}
+
 func (l *pageLog) snapshot() []capture.H1Request {
 	l.mu.Lock()
 	defer l.mu.Unlock()

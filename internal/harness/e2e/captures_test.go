@@ -129,7 +129,7 @@ func loadSamples[T any](t *testing.T, p *profile.Profile, scenario, rest string)
 		err  error
 	)
 
-	if strings.HasSuffix(file, ".gz") {
+	if strings.HasSuffix(file, ".pagetrace.json.gz") {
 		var pages []*capture.Page
 
 		pages, err = capture.LoadPages(path)
@@ -137,7 +137,7 @@ func loadSamples[T any](t *testing.T, p *profile.Profile, scenario, rest string)
 			data, err = json.Marshal(pages)
 		}
 	} else {
-		data, err = os.ReadFile(path)
+		data, err = capture.ReadTrace(path)
 	}
 
 	skipIfMissing(t, path, file)

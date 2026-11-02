@@ -34,8 +34,14 @@ import (
 // Conn is a client HTTP/1.1 connection carrying one request at a time.
 type Conn struct {
 	conn net.Conn
-	br   *bufio.Reader
-	bw   *bufio.Writer
+	// out is conn's Write alone, so a body copied through a bufio.Writer
+	// over it is cut by the buffer, never handed to the connection's
+	// ReadFrom.
+	out io.Writer
+	br  *bufio.Reader
+	// bw is a request's buffered writer (writers), over out, while
+	// writeRequest runs.
+	bw *bufio.Writer
 	// w writes its request heads.
 	w Writer
 	// tls is the connection's TLS state, which responses carry; nil for
@@ -43,6 +49,21 @@ type Conn struct {
 	tls *tls.ConnectionState
 	// done is told how each request ended (SetDone).
 	done func(reusable bool)
+}
+
+// writers hold a request on its way out: profile.MaxRecord bytes, so
+// each full buffer leaves as one write, and over TLS as one full record,
+// as every captured browser cuts an upload. Pooled, so an idle
+// connection holds none.
+var writers = sync.Pool{
+	New: func() any {
+		return bufio.NewWriterSize(nil, profile.MaxRecord)
+	},
+}
+
+// writerOnly hides a writer's other methods (net.TCPConn's ReadFrom).
+type writerOnly struct {
+	io.Writer
 }
 
 // Writer builds request heads as a profile's browser writes them over
@@ -54,6 +75,9 @@ type Writer struct {
 	// and the same with lowercase names (for headerorder).
 	h1      []profile.Header
 	h1Order []profile.Header
+	// uploads is how a request with a body is cut into TLS records
+	// (profile http1.uploadRecords); nil: one stream.
+	uploads *profile.UploadRecords
 	// forward, when set, writes requests whole for an HTTP proxy
 	// (Forward).
 	forward *profile.Proxy
@@ -66,9 +90,20 @@ func NewWriter(p *profile.Profile) Writer {
 	}
 	if p.HTTP1 != nil {
 		w.h1, w.h1Order = p.HTTP1.Headers, lowerList(p.HTTP1.Headers)
+		w.uploads = p.HTTP1.UploadRecords
 	}
 
 	return w
+}
+
+// headApart reports whether a request whose head is head bytes and whose
+// body is n bytes (Content-Length) sends its head in a record of its own,
+// as profile http1.uploadRecords says; otherwise head and body are one
+// stream.
+func (w Writer) headApart(head int, n int64) bool {
+	u := w.uploads
+
+	return u != nil && u.HeadApart && (u.JoinUpTo == 0 || int64(head)+n > int64(u.JoinUpTo))
 }
 
 // Forward returns w writing requests to an HTTP proxy as the profile's
@@ -85,9 +120,11 @@ func (w Writer) Forward(p *profile.Proxy) Writer {
 func New(conn net.Conn, w Writer) *Conn {
 	return &Conn{
 		conn: conn,
-		br:   bufio.NewReader(conn),
-		bw:   bufio.NewWriter(conn),
-		w:    w,
+		out: writerOnly{
+			Writer: conn,
+		},
+		br: bufio.NewReader(conn),
+		w:  w,
 	}
 }
 
@@ -562,30 +599,58 @@ func (w Writer) build(req *http.Request, framing http.Header) (Head, error) {
 	return h, nil
 }
 
+// writeRequest writes req's head and body through a pooled writer of
+// profile.MaxRecord bytes: each full buffer is one write, so over TLS each
+// record but a head's or body's last is full, as browsers cut uploads.
+// The head goes alone first where the profile says (Writer.headApart);
+// otherwise head and body are one stream.
 func (c *Conn) writeRequest(req *http.Request) error {
 	h, chunked, err := c.w.head(req)
 	if err != nil {
 		return err
 	}
 
+	c.bw = writers.Get().(*bufio.Writer) //nolint:forcetypeassert // the pool holds only this type
+	c.bw.Reset(c.out)
+
+	defer func() {
+		c.bw.Reset(nil)
+		writers.Put(c.bw)
+
+		c.bw = nil
+	}()
+
 	if err := c.writeLine(h.Line, "", ""); err != nil {
 		return err
 	}
 
+	headLen := len(h.Line) + len("\r\n\r\n")
 	for _, f := range h.Fields {
 		if err := c.writeLine(f.Name, ": ", f.Value); err != nil {
 			return err
 		}
+
+		headLen += len(f.Name) + len(": \r\n") + len(f.Value)
 	}
 
 	if _, err := c.bw.WriteString("\r\n"); err != nil {
 		return err
 	}
 
-	if req.Body != nil && req.Body != http.NoBody {
-		if err := c.writeBody(req, chunked); err != nil {
+	if req.Body == nil || req.Body == http.NoBody {
+		return c.bw.Flush()
+	}
+
+	// A chunked body is never a browser's over HTTP/1.1: it stays one
+	// stream with its head.
+	if !chunked && c.w.headApart(headLen, req.ContentLength) {
+		if err := c.bw.Flush(); err != nil {
 			return err
 		}
+	}
+
+	if err := c.writeBody(req, chunked); err != nil {
+		return err
 	}
 
 	return c.bw.Flush()
@@ -612,7 +677,8 @@ func (c *Conn) writeLine(name, sep, value string) error {
 }
 
 // writeBody writes req's body: chunked, or exactly ContentLength bytes,
-// failing when the body is shorter or longer.
+// failing when the body is shorter or longer. The buffered writer reads
+// the body into its free space and writes each full buffer.
 func (c *Conn) writeBody(req *http.Request, chunked bool) error {
 	if chunked {
 		cw := httputil.NewChunkedWriter(c.bw)

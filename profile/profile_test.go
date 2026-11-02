@@ -690,6 +690,41 @@ func TestValidate(t *testing.T) {
 			want: "must place Host",
 		},
 		{
+			name: "upload join limit past a record",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.HTTP1 = &HTTP1{
+					Headers: []Header{
+						{
+							Name: "Host",
+						},
+					},
+					UploadRecords: &UploadRecords{
+						HeadApart: true,
+						JoinUpTo:  MaxRecord + 1,
+					},
+				}
+			},
+			path: "http1.uploadRecords.joinUpTo",
+			want: "must be 0 to 16384",
+		},
+		{
+			name: "upload join limit on one stream",
+			mutate: func(_ *testing.T, p *Profile) {
+				p.HTTP1 = &HTTP1{
+					Headers: []Header{
+						{
+							Name: "Host",
+						},
+					},
+					UploadRecords: &UploadRecords{
+						JoinUpTo: 1400,
+					},
+				}
+			},
+			path: "http1.uploadRecords.joinUpTo",
+			want: "needs headApart",
+		},
+		{
 			name: "uppercase header",
 			mutate: func(_ *testing.T, p *Profile) {
 				p.Headers[2].Name = "User-Agent"

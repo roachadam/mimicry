@@ -58,6 +58,11 @@ type Capture struct {
 	Finished bool
 	// Scenario names how the server answered (server.Scenario).
 	Scenario string
+	// Gzip writes the HTTP/2 and HTTP/1.1 traces gzipped
+	// (<name>.<scenario>.h2trace.json.gz, .h1trace.json.gz): they hold
+	// every TLS record the client sent (server.Scenario's
+	// recordUploads), thousands per upload.
+	Gzip bool
 }
 
 // DefaultScenario names the capture page profiles come from.
@@ -359,13 +364,18 @@ func outputsOf(dir string, c *Capture) ([]output, error) {
 		}
 	}
 
+	gz := ""
+	if c.Gzip {
+		gz = ".gz"
+	}
+
 	for _, trace := range []struct {
 		path    string
 		samples any
 		present bool
 	}{
-		{prefix + ".h2trace.json", h2, len(h2) > 0},
-		{prefix + ".h1trace.json", h1, len(h1) > 0},
+		{prefix + ".h2trace.json" + gz, h2, len(h2) > 0},
+		{prefix + ".h1trace.json" + gz, h1, len(h1) > 0},
 		// Replayed pages are tens of MiB of repetitive JSON.
 		{prefix + ".pagetrace.json.gz", pages, len(pages) > 0},
 		{prefix + ".proxytrace.json", proxy, len(proxy) > 0},

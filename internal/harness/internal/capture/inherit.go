@@ -45,6 +45,8 @@ func Inherited(p *profile.Profile, scenario string) (string, *Rewriter, error) {
 // another.
 var suffixes = []string{
 	".pagetrace.json.gz",
+	".h2trace.json.gz",
+	".h1trace.json.gz",
 	".h2trace.json",
 	".h1trace.json",
 	".proxytrace.json",

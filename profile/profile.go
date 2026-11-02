@@ -75,7 +75,31 @@ type HTTP1 struct {
 	// ("User-Agent", "sec-ch-ua"). Host takes the request's host, and
 	// Content-Length the body's length; values work as in Profile.Headers.
 	Headers []Header `json:"headers"`
+	// UploadRecords is how the browser cuts a request with a body into
+	// TLS records; hellogen derives it from the http1-upload captures.
+	// Nil: not measured, and the request goes out as one stream in full
+	// records, as with HeadApart false.
+	UploadRecords *UploadRecords `json:"uploadRecords,omitempty"`
 }
+
+// UploadRecords is how a browser cuts an HTTP/1.1 request with a body
+// into TLS records. Every record is full (MaxRecord bytes of content) but
+// the last of the head or of the body.
+type UploadRecords struct {
+	// HeadApart sends the head in a record of its own, the body starting
+	// a new one (Chrome, Safari); false sends head and body as one
+	// stream, cut into full records from the head's first byte (Firefox).
+	HeadApart bool `json:"headApart"`
+	// JoinUpTo, with HeadApart, sends a request whose head and body
+	// together are at most this many bytes in one record (Chrome: 1400);
+	// 0: never.
+	JoinUpTo int `json:"joinUpTo,omitempty"`
+}
+
+// MaxRecord is the most content a TLS record carries (RFC 8446, section
+// 5.1): every record of an upload is this full but the last of the head
+// or body, in every captured browser.
+const MaxRecord = 16384
 
 // Parse decodes a profile from JSON, as Decode, and validates it.
 func Parse(data []byte) (*Profile, error) {

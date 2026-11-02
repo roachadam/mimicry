@@ -263,6 +263,7 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 
 	c := &capture.Capture{
 		Scenario: sc.Name,
+		Gzip:     sc.recordUploads,
 	}
 	if p, ok := conn.(interface{ ProxyConn() int }); ok {
 		// A connection the capture proxy let through.
@@ -307,7 +308,7 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 
 	if plain {
 		c.Protocol = "http/1.1"
-		if err := serveHTTP1(conn, "", c, sc, log, emit); !isClosed(err) {
+		if err := serveHTTP1(conn, nil, "", c, sc, log, emit); !isClosed(err) {
 			return err
 		}
 
@@ -333,6 +334,7 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 
 	rlog := &recordLog{
 		Conn: conn,
+		all:  sc.recordUploads,
 	}
 	tlsConn := tls.Server(&replayConn{
 		Conn: rlog,
@@ -350,14 +352,18 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 	c.Protocol = state.NegotiatedProtocol
 	log.connection(c, state.ServerName, state.DidResume, helloAt)
 
+	if state.Version != tls.VersionTLS13 {
+		rlog = nil
+	}
+
 	if c.Protocol == "h2" {
-		if state.Version != tls.VersionTLS13 {
+		err = serveHTTP2(tlsConn, rlog, state.ServerName, c, sc, log, emit)
+	} else {
+		if !sc.recordUploads {
 			rlog = nil
 		}
 
-		err = serveHTTP2(tlsConn, rlog, state.ServerName, c, sc, log, emit)
-	} else {
-		err = serveHTTP1(tlsConn, state.ServerName, c, sc, log, emit)
+		err = serveHTTP1(tlsConn, rlog, state.ServerName, c, sc, log, emit)
 	}
 
 	if isClosed(err) {

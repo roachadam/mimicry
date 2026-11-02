@@ -105,6 +105,10 @@ func TLSConfig(cfg Config) *utls.Config {
 		RootCAs:    cfg.RootCAs,
 		// Without a ticket to resume, the hello has no pre_shared_key.
 		PreferSkipResumptionOnNilExtension: true,
+		// Full records from a connection's first byte: no captured
+		// browser starts small and grows, over HTTP/1.1 or HTTP/2
+		// (decision 0052). QUIC ignores it.
+		DynamicRecordSizingDisabled: true,
 	}
 
 	var cache *connCache

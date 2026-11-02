@@ -1,6 +1,11 @@
 package server
 
-import "net"
+import (
+	"net"
+	"time"
+
+	"github.com/roachadam/mimicry/internal/harness/internal/capture"
+)
 
 const (
 	recordTypeApplicationData = 23
@@ -25,6 +30,10 @@ const (
 type recordLog struct {
 	net.Conn
 
+	// all keeps every application data record, with when its header
+	// arrived (at), not only the opening's: how the client cuts request
+	// bodies (Scenario.recordUploads).
+	all bool
 	// header collects a record header across reads; left is what remains
 	// of the current record's payload.
 	header [recordHeaderLen]byte
@@ -34,6 +43,7 @@ type recordLog struct {
 	finished bool
 	// records are the application data records' content lengths, in order.
 	records []int
+	at      []time.Time
 }
 
 func (l *recordLog) Read(p []byte) (int, error) {
@@ -75,7 +85,10 @@ func (l *recordLog) scan(b []byte) {
 			continue
 		}
 
-		if len(l.records) < openingRecords {
+		if l.all {
+			l.records = append(l.records, l.left-tls13Overhead)
+			l.at = append(l.at, time.Now())
+		} else if len(l.records) < openingRecords {
 			l.records = append(l.records, l.left-tls13Overhead)
 		}
 	}
@@ -94,4 +107,56 @@ func (l *recordLog) place(offset int) int {
 	}
 
 	return -1
+}
+
+// upload returns how the records carried the client's application data
+// from offset (the connection's first byte after the handshake is 0) for
+// head and then body bytes, all of which have arrived: the records from
+// the one holding the first byte to the one holding the last, as runs of
+// equal size. Nil when they are not all kept.
+func (l *recordLog) upload(offset, head, body int) *capture.H1Upload {
+	first := l.place(offset)
+	last := l.place(offset + head + body - 1)
+
+	if !l.all || first < 0 || last < 0 {
+		return nil
+	}
+
+	u := &capture.H1Upload{
+		Offset: offset,
+		Head:   head,
+		Body:   body,
+	}
+
+	start := 0
+	for _, n := range l.records[:first] {
+		start += n
+	}
+
+	end := start
+	for _, n := range l.records[first : last+1] {
+		end += n
+	}
+
+	u.Lead = offset - start
+	u.Trail = end - (offset + head + body)
+
+	for i := first; i <= last; i++ {
+		ms := float64(l.at[i].Sub(l.at[first]).Microseconds()) / 1000
+		if n := len(u.Records); n > 0 && u.Records[n-1].Size == l.records[i] {
+			u.Records[n-1].Count++
+
+			u.Records[n-1].Millis = ms
+
+			continue
+		}
+
+		u.Records = append(u.Records, capture.RecordRun{
+			Size:   l.records[i],
+			Count:  1,
+			Millis: ms,
+		})
+	}
+
+	return u
 }

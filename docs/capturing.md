@@ -69,10 +69,17 @@ the profile's request.
 `-chrome-app PATH` captures another Chrome build than
 `/Applications/Google Chrome.app`: Chrome for Testing, for a version no
 longer installable as the brand. Name such a capture
-`<name>.<scenario>.chrome-for-testing.pagetrace.json.gz`. The tools that
-list a profile's captures skip it; only hellogen's `http2.openingRecords`
-reads it, since the testing build shares the brand's network stack but not
-its headers ([decision 0042](decisions/0042-http2-opening-records.md)).
+`<name>.<scenario>.chrome-for-testing.<suffix>`
+(`.pagetrace.json.gz`, `.h1trace.json.gz`). The tools that list a
+profile's captures skip it; only hellogen's `http2.openingRecords` and
+`http1.uploadRecords` read it, since the testing build shares the brand's
+network stack but not its headers
+([decision 0042](decisions/0042-http2-opening-records.md),
+[0052](decisions/0052-http1-upload-records.md)). Every Chrome launch gets
+`--use-mock-keychain` and `--password-store=basic`: they change only how
+Chrome encrypts its stored cookies and passwords, never the wire, and keep
+a testing build (which has no login-keychain item of its own) from asking
+for the keychain on screen.
 
 ## Browser setup
 
@@ -264,9 +271,15 @@ finding. The `http1` scenario offers only `http/1.1` in ALPN and writes
 `<name>.http1.h1trace.json` instead: per sample, every request of the page
 load across the browser's connections, request line and header lines
 verbatim, with the connection each came on. The HTTP/1.1 recorder rejects a
-line that does not end in CRLF instead of recording it as if it did. Add a
-scenario when a behaviour might depend on the server; reuse the default
-page wherever possible.
+line that does not end in CRLF instead of recording it as if it did. The
+upload scenarios (`http1-upload`, `h2-upload`) keep every TLS record the
+client sends, not only the first 16: per HTTP/1.1 request, its head and
+body lengths and the records that carried it as runs of one size with
+their arrival times; per HTTP/2 connection, every record with the frames
+starting in it. Their traces are gzipped (`.h1trace.json.gz`,
+`.h2trace.json.gz`; [decision 0052](decisions/0052-http1-upload-records.md)).
+Add a scenario when a behaviour might depend on the server; reuse the
+default page wherever possible.
 
 ### Real-page replays
 
@@ -461,8 +474,11 @@ does not describe:
    connection the capture server sent GOAWAY on,
    `tls.quic`, the QUIC ClientHello, from every h3 connection's hello,
    `tls.quic.versionNegotiation`, Firefox's other hello after Version
-   Negotiation, from the `h3-vn` captures, and `tls.websocketH1` from the
-   `websocket` capture.
+   Negotiation, from the `h3-vn` captures, `tls.websocketH1` from the
+   `websocket` capture, and `http1.uploadRecords`, how the browser cuts
+   an HTTP/1.1 request with a body into TLS records, from every request
+   of the `http1-upload` capture (testing-build captures included;
+   decision 0052).
 2. `go run ./cmd/h3gen`: `quic`, and `http3` but for kindsgen's header lists
    and priorities. It checks every value against every connection and pins
    the few samples that differ in `sampleGaps`.

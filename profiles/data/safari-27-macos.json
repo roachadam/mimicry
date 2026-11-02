@@ -318,7 +318,10 @@
         "name": "Connection",
         "value": "keep-alive"
       }
-    ]
+    ],
+    "uploadRecords": {
+      "headApart": true
+    }
   },
   "variants": [
     {

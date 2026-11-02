@@ -394,6 +394,13 @@ func chromeArgs(dir string, t Target, headless bool) ([]string, error) {
 		"--user-data-dir=" + dir,
 		"--no-first-run",
 		"--no-default-browser-check",
+		// Local storage encryption only (cookies and passwords at rest),
+		// never on the wire: a build without its own login-keychain item
+		// (Chrome for Testing) otherwise asks for the keychain on screen.
+		// --use-mock-keychain is macOS's, --password-store=basic Linux's;
+		// other platforms ignore them.
+		"--use-mock-keychain",
+		"--password-store=basic",
 		"--host-resolver-rules=" + strings.Join(rules, ","),
 		// Certificate checks happen after the ClientHello and do not change it.
 		"--ignore-certificate-errors",

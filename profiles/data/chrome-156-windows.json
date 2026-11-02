@@ -443,7 +443,11 @@
       {
         "name": "Cookie"
       }
-    ]
+    ],
+    "uploadRecords": {
+      "headApart": true,
+      "joinUpTo": 1400
+    }
   },
   "variants": [
     {
