@@ -155,7 +155,14 @@ mimicry uploaded 608 MB/s; the others 488–622 MB/s and `net/http`
 738 MB/s. To the Go server it was behind tls-client at three of the four
 points: 4% at 64 KB one at a time (453 against 473 MB/s), 10% at 10 MB
 one at a time (1,463 against 1,622 MB/s) and 18% at 64 KB with 64 at
-once (772 against 943 MB/s; in the earlier run 841 against 961). Its
+once (772 against 943 MB/s; in the earlier run 841 against 961). The
+difference is the DATA frames mimicry sends as Chrome does, 16,375 bytes
+at most: the Go server gives credit back for every 8 KB it reads, so
+smaller frames bring about 8 times as many WINDOW_UPDATE records back to
+read. Sending tls-client's 512 KB frames instead (a throwaway test),
+mimicry matched or passed it at every Go server point. nginx gives credit
+once per request, so frame size makes no difference there. Chrome itself
+sends more small frames than mimicry does (`profiles/EVIDENCE.md`). Its
 allocations per 10 MB upload to nginx fell from about 900 to 96, with
 uTLS's small first records gone. Over HTTP/3 to the Go server it
 uploaded 195–222 MB/s against 244–955 MB/s, as in the earlier run. The
@@ -207,7 +214,12 @@ HTTP/3 at every point; the others 244–955 MB/s, 2.9–4.3 times as much at
 upload (68 ms per 10 MB one at a time, against 31–32 ms). A CPU profile
 (a short local run) puts two-thirds of its time in one `sendmsg` system
 call per QUIC packet; quic-go, which the others use, hands Linux several
-packets per call (UDP GSO). Not fixed here.
+packets per call (UDP GSO). Chrome 156 on Linux sends one packet per call
+as mimicry does, and batching would make IP IDs repeat and send packets
+back to back, so mimicry keeps Chrome's way
+([#7](https://github.com/roachadam/mimicry/issues/7)). Since this run, the
+connection loop's CPU savings (#38) raised 10 MB one at a time to
+238 MB/s.
 
 ## How it was measured
 
