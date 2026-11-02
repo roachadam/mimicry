@@ -8,36 +8,42 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// Every accessor returns a fresh copy of one profile decoded once per name:
-// each copy must be the embedded file exactly, and a caller changing
-// everything in its copy must not reach the next caller's.
-func TestCopiesShareNothing(t *testing.T) {
+// Every accessor returns one profile, parsed once per name, which must be
+// the embedded file exactly; each Spec of it is a copy, and a caller
+// changing everything in one must reach neither the profile nor the next
+// copy.
+func TestSpecsShareNothing(t *testing.T) {
 	for _, name := range Names() {
 		b, err := data.ReadFile("data/" + name + ".json")
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		file, err := profile.Parse(b)
+		file, err := profile.Decode(b)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if p := load(name); !reflect.DeepEqual(p, file) {
-			t.Errorf("%s: the copy differs from the embedded file", name)
+		p := load(name)
+		if p != load(name) {
+			t.Errorf("%s: the accessor built its profile again", name)
 		}
 
-		want := encode(t, load(name))
+		if !reflect.DeepEqual(p.Spec(), file) {
+			t.Errorf("%s: the profile differs from the embedded file", name)
+		}
 
-		poison(reflect.ValueOf(load(name)).Elem())
+		want := encode(t, p.Spec())
 
-		if got := encode(t, load(name)); !bytes.Equal(got, want) {
-			t.Errorf("%s: changing one copy changed the next", name)
+		poison(reflect.ValueOf(p.Spec()).Elem())
+
+		if got := encode(t, p.Spec()); !bytes.Equal(got, want) {
+			t.Errorf("%s: changing one copy changed the profile", name)
 		}
 	}
 }
 
-func encode(t *testing.T, p *profile.Profile) []byte {
+func encode(t *testing.T, p *profile.Spec) []byte {
 	t.Helper()
 
 	b, err := profile.Encode(p)

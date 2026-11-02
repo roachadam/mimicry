@@ -84,7 +84,7 @@ type conn struct {
 type captureSet struct {
 	// name is the profile's, p the profile.
 	name  string
-	p     *profile.Profile
+	p     *profile.Spec
 	conns []*conn
 	// pages are the h3-discovery captures' samples in which some QUIC
 	// connection completed its handshake, with their file's name.
@@ -99,7 +99,7 @@ type discoveryPage struct {
 
 // load reads the h3 captures p is checked against, as captured: h3gen
 // measures the browser's field encoding, so nothing is rewritten.
-func load(dir string, p *profile.Profile) (*captureSet, error) {
+func load(dir string, p *profile.Spec) (*captureSet, error) {
 	files, err := server.H3ProfileCaptures(dir, p)
 	if err != nil {
 		return nil, err

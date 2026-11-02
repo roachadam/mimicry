@@ -456,8 +456,8 @@ func TestSafariIOSProxyCredentials(t *testing.T) {
 
 	defer shop.Close()
 
-	for _, p := range []*profile.Profile{profiles.Safari27IOS(), profiles.Safari26IOS()} {
-		t.Run(p.Name, func(t *testing.T) {
+	for _, p := range []profile.Profile{profiles.Safari27IOS(), profiles.Safari26IOS()} {
+		t.Run(p.Name(), func(t *testing.T) {
 			px := startProxy(shop, "alice", "right")
 
 			defer px.Close()

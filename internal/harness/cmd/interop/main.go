@@ -196,7 +196,7 @@ func selectProfiles(list string) ([]namedProfile, error) {
 			return nil, err
 		}
 
-		if p.QUIC == nil || p.HTTP3 == nil {
+		if s := p.Spec(); s.QUIC == nil || s.HTTP3 == nil {
 			continue
 		}
 

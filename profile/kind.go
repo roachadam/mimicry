@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// Request kinds a profile describes besides the navigation (Profile.Headers,
+// Request kinds a profile describes besides the navigation (Spec.Headers,
 // HTTP1 and HTTP2.HeadersPriority). Each is one way a page makes a request,
 // named after the HTML or JavaScript that makes it.
 const (
@@ -61,7 +61,7 @@ const OtherHeaders = "*"
 
 // Kind is how a browser sends one kind of request.
 type Kind struct {
-	// Headers over HTTP/2, in order, as Profile.Headers: default values,
+	// Headers over HTTP/2, in order, as Spec.Headers: default values,
 	// and slots (empty values) for headers that depend on the request
 	// (referer, origin, cookie, sec-fetch-site, content-type, ...). This
 	// is the order of a same-origin GET that is not CORS-checked.
@@ -249,7 +249,7 @@ const (
 // Once the profile has an HTTP/1.1 navigation, every kind needs its HTTP/1.1
 // list: without one, its requests would go out in a guessed order (decision
 // 0008).
-func (c *checker) checkKinds(p *Profile) {
+func (c *checker) checkKinds(p *Spec) {
 	for _, name := range slices.Sorted(maps.Keys(p.Kinds)) {
 		k := p.Kinds[name]
 		path := "kinds." + name
@@ -289,7 +289,7 @@ func (c *checker) checkKinds(p *Profile) {
 // checkHeaderTable checks the context's header table: a known hash, names
 // once each, and in every fetch() and XHR list it orders (one without an
 // OtherHeaders slot) its names as one run, the table's place.
-func (c *checker) checkHeaderTable(p *Profile) {
+func (c *checker) checkHeaderTable(p *Spec) {
 	if p.Context == nil || p.Context.HeaderTable == nil {
 		return
 	}

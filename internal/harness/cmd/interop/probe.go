@@ -31,7 +31,7 @@ import (
 // hides: version, Retry, 0-RTT acceptance, cipher, key updates, errors.
 // One prober holds one origin's state.
 type prober struct {
-	p     *profile.Profile
+	p     *profile.Spec
 	plan  *fingerprint.Plan
 	roots *x509.CertPool
 	// tickets are QUIC session tickets, kept under ticketKey.
@@ -52,7 +52,8 @@ type prober struct {
 // ticketKey is the key the prober's tickets are kept under: one origin.
 const ticketKey = "interop h3"
 
-func newProber(p *profile.Profile, roots *x509.CertPool, dir string, seed uint64) *prober {
+func newProber(named profile.Profile, roots *x509.CertPool, dir string, seed uint64) *prober {
+	p := named.Spec()
 	pr := &prober{
 		p:       p,
 		plan:    fingerprint.Compile(p),

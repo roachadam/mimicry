@@ -44,7 +44,7 @@ client.CheckRedirect = func(*http.Request, []*http.Request) error {
 
 | tls-client | mimicry |
 |---|---|
-| `WithClientProfile(profiles.Chrome_133)` | `Config.Profile`: `profiles.Chrome()` for the newest Chrome on macOS, `profiles.ChromeWindows()` or `profiles.FirefoxWindows()` for the newest Chrome or Firefox on Windows, `profiles.ByName("chrome-155-macos")` for a fixed version, `profile.Parse` for your own JSON |
+| `WithClientProfile(profiles.Chrome_133)` | `Config.Profile`: `profiles.Chrome()` for the newest Chrome on macOS, `profiles.ChromeWindows()` or `profiles.FirefoxWindows()` for the newest Chrome or Firefox on Windows, `profiles.ByName("chrome-155-macos")` for a fixed version, `profile.Parse` for your own JSON, `profiles.Chrome().With(edit)` for an edited copy (build it once and reuse it; per-client headers go in `Config.Header`) |
 | `WithRandomTLSExtensionOrder()` | nothing: the profile shuffles only where its browser does |
 | `WithTimeoutSeconds(n)` | `Config.Timeout` (30 s by default; negative for none) or the request's context; `Config.DialTimeout` for connecting |
 | `WithNotFollowRedirects()`, `SetFollowRedirect` | `CheckRedirect` returning `http.ErrUseLastResponse` |

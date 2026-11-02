@@ -74,8 +74,8 @@ func choose(env string) (*selection, error) {
 			return nil, fmt.Errorf("%s: %s: %w", Env, item, err)
 		}
 
-		s.names = append(s.names, p.Name)
-		s.files[p.Name] = data
+		s.names = append(s.names, p.Name())
+		s.files[p.Name()] = data
 	}
 
 	return s, nil
@@ -126,25 +126,24 @@ func Names() ([]string, error) {
 	return slices.Clone(s.names), nil
 }
 
-// Load returns a fresh copy of the profile to check called name, and its
-// JSON: a built-in profile's file in profiles/data, or the file
-// MIMICRY_PROFILES named.
-func Load(name string) (*profile.Profile, []byte, error) {
+// Load returns the profile to check called name, and its JSON: a built-in
+// profile's file in profiles/data, or the file MIMICRY_PROFILES named.
+func Load(name string) (profile.Profile, []byte, error) {
 	s, err := selected()
 	if err != nil {
-		return nil, nil, err
+		return profile.Profile{}, nil, err
 	}
 
 	data, ok := s.files[name]
 	if !ok {
 		if data, err = builtinJSON(name); err != nil {
-			return nil, nil, err
+			return profile.Profile{}, nil, err
 		}
 	}
 
 	p, err := profile.Parse(data)
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s: %w", name, err)
+		return profile.Profile{}, nil, fmt.Errorf("%s: %w", name, err)
 	}
 
 	return p, data, nil
@@ -230,7 +229,7 @@ func Inheriting(edit func([]byte) []byte) ([]byte, error) {
 		}
 	}
 
-	q, err := profile.Parse(data)
+	q, err := profile.Decode(data)
 	if err != nil {
 		return nil, err
 	}

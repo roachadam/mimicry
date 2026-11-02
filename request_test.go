@@ -80,32 +80,29 @@ func TestRefusedRequests(t *testing.T) {
 	}
 
 	css := page.JoinPath("style.css")
-	noFormPost := func() *profile.Profile {
-		p := profiles.Chrome()
-
-		p.Variants = slices.DeleteFunc(p.Variants, func(v profile.Variant) bool {
-			return v.Method == http.MethodPost && !v.Insecure
+	noFormPost := func() profile.Profile {
+		return profiles.Chrome().With(func(s *profile.Spec) {
+			s.Variants = slices.DeleteFunc(s.Variants, func(v profile.Variant) bool {
+				return v.Method == http.MethodPost && !v.Insecure
+			})
 		})
-
-		return p
 	}
 	// scriptFormPost: form POSTs measured only as a script submits them,
 	// without Sec-Fetch-User.
-	scriptFormPost := func() *profile.Profile {
-		p := profiles.Chrome()
-		for i, v := range p.Variants {
-			if v.Method == http.MethodPost {
-				p.Variants[i].Headers = slices.DeleteFunc(slices.Clone(v.Headers), func(h profile.Header) bool {
-					return h.Name == "sec-fetch-user"
-				})
+	scriptFormPost := func() profile.Profile {
+		return profiles.Chrome().With(func(s *profile.Spec) {
+			for i, v := range s.Variants {
+				if v.Method == http.MethodPost {
+					s.Variants[i].Headers = slices.DeleteFunc(v.Headers, func(h profile.Header) bool {
+						return h.Name == "sec-fetch-user"
+					})
+				}
 			}
-		}
-
-		return p
+		})
 	}
 	for _, tc := range []struct {
 		name    string
-		profile func() *profile.Profile
+		profile func() profile.Profile
 		method  string
 		url     string
 		body    io.Reader
@@ -210,7 +207,7 @@ func TestHTTP2OnlyVariantOverHTTP1(t *testing.T) {
 
 	for _, tc := range []struct {
 		name string
-		p    *profile.Profile
+		p    profile.Profile
 		page string
 	}{
 		// A cross-site form POST: every profile measured it over HTTP/2

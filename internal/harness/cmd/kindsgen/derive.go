@@ -19,7 +19,7 @@ import (
 // pages are the captures kindsgen reads for a profile, one page per sample.
 // Inherited captures are rewritten to the profile's version.
 type pages struct {
-	p                                   *profile.Profile
+	p                                   *profile.Spec
 	kinds, kindsH1, plain               []*capture.Page
 	cookies, cors, corsEdge, redirects2 []*capture.Page
 	headers                             []*capture.Page
@@ -40,7 +40,7 @@ type scenarioPages struct {
 
 // loadPages reads p's captures from dir: its own, or for inherited
 // scenarios the source profile's, rewritten to p's version.
-func loadPages(dir string, p *profile.Profile) (*pages, error) {
+func loadPages(dir string, p *profile.Spec) (*pages, error) {
 	out := &pages{
 		p: p,
 	}
@@ -675,7 +675,7 @@ var sampleGaps = map[string]map[sampleGap]string{
 // relation "none" throughout. Otherwise it takes the label's relation.
 // Secure GET first legs, other paths and sampleGaps are left out; each
 // sampleGap must exist in its capture.
-func navRedirectRequests(p *profile.Profile, pages []scenarioPages) ([]*request, error) {
+func navRedirectRequests(p *profile.Spec, pages []scenarioPages) ([]*request, error) {
 	var (
 		out  []*request
 		errs []error
@@ -813,7 +813,7 @@ const iosLargeTable = "with 26 or more page-set names (the table grown past 23 b
 // headersRequests returns the headers-order page's fetches and XHRs with
 // page-set headers (server.HeadersSteps), base hdr-fetch or hdr-xhr; p's
 // headersGaps are marked tableGap. OPTIONS belong to the preflight kind.
-func headersRequests(p *profile.Profile, samples []*capture.Page) ([]*request, error) {
+func headersRequests(p *profile.Spec, samples []*capture.Page) ([]*request, error) {
 	steps := map[string]server.HeadersStep{}
 	for _, st := range server.HeadersSteps() {
 		steps[st.Label] = st
@@ -991,7 +991,7 @@ var (
 	navigations = []string{"form-post", "c-nav-post", "redir-" + server.RedirectForm, "redir-" + server.RedirectNavigate, navRedirectBase}
 )
 
-func derive(p *profile.Profile, reqs []*request) error {
+func derive(p *profile.Spec, reqs []*request) error {
 	// pick selects TLS or plain requests, preflights or the rest.
 	pick := func(bases []string, plain, preflight bool) []*request {
 		var out []*request
@@ -1613,7 +1613,7 @@ func sampleContext(reqs []*request, sample int) (*profile.Context, error) {
 // POSTs: their orders, with the navigation's values, and the POSTs' own for
 // headers only they send. navs may hold plain-HTTP navigations too (the
 // page and its form POST), which become non-secure variants.
-func navigationVariants(p *profile.Profile, navs []*request) error {
+func navigationVariants(p *profile.Spec, navs []*request) error {
 	secure := slices.DeleteFunc(slices.Clone(navs), func(r *request) bool {
 		return r.plain
 	})

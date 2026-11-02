@@ -159,7 +159,7 @@ func TestHTTP3MarkupMatchesBrowserWhenSlow(t *testing.T) {
 // browser's unused opening connection (dropUnusedOpenings). As
 // loadSamples, it skips the test when the capture is one of
 // missingCaptures.
-func h3Captures(t *testing.T, p *profile.Profile, sc *server.Scenario) []*capture.Page {
+func h3Captures(t *testing.T, p *profile.Spec, sc *server.Scenario) []*capture.Page {
 	t.Helper()
 
 	rest := ".local-roots.pagetrace.json.gz"
@@ -257,7 +257,7 @@ const h3ScriptTurn = 10 * time.Millisecond
 // navigation to /, then each page's markup requests in the order browser
 // sent them, then its script's steps after their pauses, a navigation
 // ending a page, and fetch('/done') from the last page.
-func runH3Page(t *testing.T, p *profile.Profile, sc *server.Scenario, browser *capture.Page) *capture.Page {
+func runH3Page(t *testing.T, p *profile.Spec, sc *server.Scenario, browser *capture.Page) *capture.Page {
 	t.Helper()
 
 	return runH3PageWith(t, p, sc, browser, nil)
@@ -265,7 +265,7 @@ func runH3Page(t *testing.T, p *profile.Profile, sc *server.Scenario, browser *c
 
 // runH3PageWith is runH3Page with the client's Config changed by config,
 // when not nil.
-func runH3PageWith(t *testing.T, p *profile.Profile, sc *server.Scenario, browser *capture.Page, config func(*mimicry.Config)) *capture.Page {
+func runH3PageWith(t *testing.T, p *profile.Spec, sc *server.Scenario, browser *capture.Page, config func(*mimicry.Config)) *capture.Page {
 	t.Helper()
 	// Its connections' ACK delays are held net of the process's stalls.
 	stalls.watch()
@@ -770,7 +770,7 @@ func quicConn(page *capture.Page, host string, n int) *quictrace.Conn {
 }
 
 // compareH3Page compares mimicry's page with every browser sample.
-func compareH3Page(t *testing.T, p *profile.Profile, got *capture.Page, want []*capture.Page, flights map[bool][]*quictrace.Conn, skip func(string) bool) {
+func compareH3Page(t *testing.T, p *profile.Spec, got *capture.Page, want []*capture.Page, flights map[bool][]*quictrace.Conn, skip func(string) bool) {
 	t.Helper()
 
 	gotT := transports(got)
@@ -843,7 +843,7 @@ func compareTransport(t *testing.T, path string, gotT map[string]h3Transport, wa
 // shuffled transport parameters, its CRYPTO layout) differs between
 // mimicry's connections of a page. The rules hold each draw to the
 // profile's range; this catches the same draw on every connection.
-func compareDraws(t *testing.T, p *profile.Profile, page *capture.Page) {
+func compareDraws(t *testing.T, p *profile.Spec, page *capture.Page) {
 	t.Helper()
 
 	draws := map[string][]string{}
@@ -1160,7 +1160,7 @@ type capturedConn struct {
 // capturedConns are every QUIC connection of the h3 captures p is checked
 // against, unforced and -h3-local-roots, failed handshakes included,
 // rewritten to p's version where inherited.
-func capturedConns(t *testing.T, p *profile.Profile) []capturedConn {
+func capturedConns(t *testing.T, p *profile.Spec) []capturedConn {
 	t.Helper()
 
 	var out []capturedConn
@@ -1193,7 +1193,7 @@ func capturedConns(t *testing.T, p *profile.Profile) []capturedConn {
 
 // flightRefs are every QUIC connection of the profile's h3 captures, by
 // whether it resumed: what the first flight is held to.
-func flightRefs(t *testing.T, p *profile.Profile) map[bool][]*quictrace.Conn {
+func flightRefs(t *testing.T, p *profile.Spec) map[bool][]*quictrace.Conn {
 	t.Helper()
 
 	out := map[bool][]*quictrace.Conn{}
@@ -1207,7 +1207,7 @@ func flightRefs(t *testing.T, p *profile.Profile) map[bool][]*quictrace.Conn {
 // compareQUICConn compares one of mimicry's QUIC connections with the
 // browser's at the same place (refs), its first flight with flights, and
 // holds it to the profile's rules.
-func compareQUICConn(t *testing.T, p *profile.Profile, got *quictrace.Conn, refs, flights []*quictrace.Conn, skip func(string) bool) {
+func compareQUICConn(t *testing.T, p *profile.Spec, got *quictrace.Conn, refs, flights []*quictrace.Conn, skip func(string) bool) {
 	t.Helper()
 
 	for _, v := range quicRuleViolations(p, got, t.Logf) {
@@ -1610,7 +1610,7 @@ func derefCode(c *uint64) uint64 {
 // transport parameters are compared apart): it must have no differences
 // from at least one of them, and reuse its X25519 key across key shares
 // as theirs with both shares do (read from the hellos' bytes).
-func compareHello(t *testing.T, p *profile.Profile, got *quictrace.Conn, flights []*quictrace.Conn) {
+func compareHello(t *testing.T, p *profile.Spec, got *quictrace.Conn, flights []*quictrace.Conn) {
 	t.Helper()
 
 	if got.Hello == nil {
@@ -1629,7 +1629,7 @@ func compareHello(t *testing.T, p *profile.Profile, got *quictrace.Conn, flights
 		}
 	}
 
-	g := profile.Profile{
+	g := profile.Spec{
 		TLS: helloWithoutParams(got.Hello, p),
 	}
 
@@ -1640,7 +1640,7 @@ func compareHello(t *testing.T, p *profile.Profile, got *quictrace.Conn, flights
 			continue
 		}
 
-		want := profile.Profile{
+		want := profile.Spec{
 			TLS: helloWithoutParams(w.Hello, p),
 		}
 		d := diff.Compare(&want, &g)
@@ -1663,7 +1663,7 @@ func compareHello(t *testing.T, p *profile.Profile, got *quictrace.Conn, flights
 // ECH's cipher suite and payload length left out (picked per connection;
 // quicRuleViolations holds them to the profile's), and the extension
 // order the profile's QUIC hello has.
-func helloWithoutParams(h *profile.TLS, p *profile.Profile) profile.TLS {
+func helloWithoutParams(h *profile.TLS, p *profile.Spec) profile.TLS {
 	out := *h
 
 	out.Extensions = slices.Clone(h.Extensions)

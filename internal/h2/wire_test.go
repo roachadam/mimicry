@@ -36,7 +36,7 @@ type peer struct {
 
 // peerConfig sets up a client against a raw server peer.
 type peerConfig struct {
-	profile *profile.Profile
+	profile *profile.Spec
 	clock   clockwork.Clock
 	// wrap, if set, wraps the client's end of the pipe.
 	wrap func(net.Conn) net.Conn
@@ -44,7 +44,7 @@ type peerConfig struct {
 
 // newPeer connects a client for p to a raw server peer over net.Pipe. Frames
 // the client sends arrive on peer.frames, preface excluded.
-func newPeer(t *testing.T, p *profile.Profile, clock clockwork.Clock) (*Conn, *peer) {
+func newPeer(t *testing.T, p *profile.Spec, clock clockwork.Clock) (*Conn, *peer) {
 	t.Helper()
 
 	return newPeerWith(t, peerConfig{
@@ -294,7 +294,7 @@ func roundTripAsync(c *Conn, req *http.Request) <-chan responseOrError {
 // A body read to its declared length and then closed waits for the server's
 // END_STREAM instead of resetting the stream; one closed early is reset.
 func TestClosingFullyReadBodyDoesNotReset(t *testing.T) {
-	c, pr := newPeer(t, profiles.Chrome(), clockwork.NewRealClock())
+	c, pr := newPeer(t, profiles.Chrome().Spec(), clockwork.NewRealClock())
 
 	result := roundTripAsync(c, get(t, "/full"))
 	h := pr.headers()
@@ -349,7 +349,7 @@ func TestClosingFullyReadBodyDoesNotReset(t *testing.T) {
 // harness checks chaining against traces
 // (TestChainedPrioritiesMatchBrowserTraces).
 func TestEndedStreamLeavesChainBeforeDelivery(t *testing.T) {
-	c, pr := newPeer(t, profiles.Chrome(), clockwork.NewRealClock())
+	c, pr := newPeer(t, profiles.Chrome().Spec(), clockwork.NewRealClock())
 	first := roundTripAsync(c, get(t, "/1"))
 	h1 := pr.headers()
 
@@ -394,7 +394,7 @@ func TestEndedStreamLeavesChainBeforeDelivery(t *testing.T) {
 // Request bodies go out in DATA frames cut at the profile's cap from
 // 65535-byte chunks, with END_STREAM on the last data frame, as captured.
 func TestDataFrameCap(t *testing.T) {
-	p := profiles.Chrome()
+	p := profiles.Chrome().Spec()
 	c, pr := newPeer(t, p, clockwork.NewRealClock())
 	// Room for the whole upload, as the capture server allows.
 	if err := pr.fr.WriteWindowUpdate(0, 1<<20); err != nil {
@@ -450,7 +450,7 @@ func TestDataFrameCap(t *testing.T) {
 // connection first, as in the slow-idle captures.
 func TestWindowUpdateInterval(t *testing.T) {
 	clock := clockwork.NewFakeClockAt(time.Date(2026, 10, 23, 0, 0, 0, 0, time.UTC))
-	c, pr := newPeer(t, profiles.Chrome(), clock)
+	c, pr := newPeer(t, profiles.Chrome().Spec(), clock)
 	result := roundTripAsync(c, get(t, "/slow"))
 	h := pr.headers()
 
@@ -489,7 +489,7 @@ func TestWindowUpdateInterval(t *testing.T) {
 			t.Fatalf("no credit returned after 5 s; got %v", got)
 		}
 
-		if wu, ok := f.(*http2.WindowUpdateFrame); ok && wu.Increment != profiles.Chrome().HTTP2.WindowUpdate {
+		if wu, ok := f.(*http2.WindowUpdateFrame); ok && wu.Increment != profiles.Chrome().Spec().HTTP2.WindowUpdate {
 			got = append(got, fmt.Sprintf("%d+%d", wu.StreamID, wu.Increment))
 		}
 	}
@@ -506,7 +506,7 @@ func TestWindowUpdateInterval(t *testing.T) {
 // sends no PING.
 func TestIdlePing(t *testing.T) {
 	clock := clockwork.NewFakeClockAt(time.Date(2026, 10, 23, 0, 0, 0, 0, time.UTC))
-	c, pr := newPeer(t, profiles.Chrome(), clock)
+	c, pr := newPeer(t, profiles.Chrome().Spec(), clock)
 	clock.Advance(11 * time.Second)
 
 	first := roundTripAsync(c, get(t, "/1"))
@@ -554,7 +554,7 @@ func TestIdlePing(t *testing.T) {
 	}
 
 	safari := clockwork.NewFakeClockAt(time.Date(2026, 10, 23, 0, 0, 0, 0, time.UTC))
-	sc, spr := newPeer(t, profiles.Safari(), safari)
+	sc, spr := newPeer(t, profiles.Safari().Spec(), safari)
 	safari.Advance(30 * time.Second)
 
 	res := roundTripAsync(sc, get(t, "/"))
@@ -575,7 +575,7 @@ func TestIdlePing(t *testing.T) {
 // When the server closes the connection, a request already sent fails
 // with a non-retryable error, since it may have been processed.
 func TestInFlightRequestNotRetriedOnClose(t *testing.T) {
-	c, pr := newPeer(t, profiles.Chrome(), clockwork.NewRealClock())
+	c, pr := newPeer(t, profiles.Chrome().Spec(), clockwork.NewRealClock())
 
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "https://example.com/pay", strings.NewReader("x"))
 	if err != nil {

@@ -227,9 +227,9 @@ func TestIdleConnectionsExpire(t *testing.T) {
 			events := make(chan string, 8)
 			n := newFakeNet(t, serveH2Events(events), serveH2Events(events))
 
-			p := profiles.Chrome()
+			p := profiles.Chrome().Spec()
 			if tc.firefox {
-				p = profiles.Firefox()
+				p = profiles.Firefox().Spec()
 			}
 
 			e := newTestEngine(t, options{

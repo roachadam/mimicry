@@ -58,7 +58,7 @@ func generate(dir string) ([]byte, error) {
 
 	slices.Sort(files)
 
-	var profiles []*profile.Profile
+	var profiles []*profile.Spec
 	for _, f := range files {
 		name := strings.TrimSuffix(filepath.Base(f), ".json")
 
@@ -67,10 +67,12 @@ func generate(dir string) ([]byte, error) {
 			return nil, err
 		}
 
-		p, err := profile.Parse(data)
+		parsed, err := profile.Parse(data)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", f, err)
 		}
+
+		p := parsed.Spec()
 
 		if p.Name != name {
 			return nil, fmt.Errorf("%s: profile is named %q; the file must be %s.json", f, p.Name, p.Name)
@@ -101,20 +103,20 @@ func generate(dir string) ([]byte, error) {
 	for _, f := range slices.SortedFunc(maps.Keys(latest), compareFamilies) {
 		p := latest[f]
 		if f.platform == defaultPlatform {
-			fmt.Fprintf(&b, "// %s returns a fresh copy of the newest %s profile, now %s (%s %s on %s).\n",
+			fmt.Fprintf(&b, "// %s returns the newest %s profile, now %s (%s %s on %s).\n",
 				f.accessor(), f.browser, p.Name, p.Browser, p.Version, p.Platform)
 		} else {
-			fmt.Fprintf(&b, "// %s returns a fresh copy of the newest %s profile on %s, now %s (%s %s on %s).\n",
+			fmt.Fprintf(&b, "// %s returns the newest %s profile on %s, now %s (%s %s on %s).\n",
 				f.accessor(), f.browser, f.platform, p.Name, p.Browser, p.Version, p.Platform)
 		}
 
 		b.WriteString("// It moves to each new version as that version is added; use a\n")
 		b.WriteString("// versioned accessor where a version must stay fixed.\n")
-		fmt.Fprintf(&b, "func %s() *profile.Profile {\n\treturn load(%q)\n}\n\n", f.accessor(), p.Name)
+		fmt.Fprintf(&b, "func %s() profile.Profile {\n\treturn load(%q)\n}\n\n", f.accessor(), p.Name)
 	}
 
 	for _, p := range profiles {
-		fmt.Fprintf(&b, "// %s returns a fresh copy of the %s profile (%s %s on %s).\n",
+		fmt.Fprintf(&b, "// %s returns the %s profile (%s %s on %s).\n",
 			funcName(p.Name), p.Name, p.Browser, p.Version, p.Platform)
 
 		if p.Deprecated {
@@ -122,7 +124,7 @@ func generate(dir string) ([]byte, error) {
 				p.Browser, p.Version, supportedVersions, p.Browser, p.Platform, familyOf(p).accessor())
 		}
 
-		fmt.Fprintf(&b, "func %s() *profile.Profile {\n\treturn load(%q)\n}\n\n", funcName(p.Name), p.Name)
+		fmt.Fprintf(&b, "func %s() profile.Profile {\n\treturn load(%q)\n}\n\n", funcName(p.Name), p.Name)
 	}
 
 	b.WriteString("var names = []string{\n")
@@ -149,9 +151,9 @@ func generate(dir string) ([]byte, error) {
 // platform, the newest supportedVersions versions are not deprecated and
 // every older one is; each inherited scenario names an older built-in
 // profile that holds its own captures of it.
-func checkPolicy(profiles []*profile.Profile) error {
-	byName := make(map[string]*profile.Profile, len(profiles))
-	families := make(map[string][]*profile.Profile)
+func checkPolicy(profiles []*profile.Spec) error {
+	byName := make(map[string]*profile.Spec, len(profiles))
+	families := make(map[string][]*profile.Spec)
 
 	for _, p := range profiles {
 		byName[p.Name] = p
@@ -163,7 +165,7 @@ func checkPolicy(profiles []*profile.Profile) error {
 
 	for _, key := range slices.Sorted(maps.Keys(families)) {
 		family := families[key]
-		slices.SortFunc(family, func(a, b *profile.Profile) int {
+		slices.SortFunc(family, func(a, b *profile.Spec) int {
 			return compareVersions(b.Version, a.Version)
 		})
 
@@ -219,7 +221,7 @@ type family struct {
 	browser, platform string
 }
 
-func familyOf(p *profile.Profile) family {
+func familyOf(p *profile.Spec) family {
 	return family{browser: p.Browser, platform: p.Platform}
 }
 
@@ -252,8 +254,8 @@ func compareFamilies(a, b family) int {
 
 // newest returns each family's newest profile. checkPolicy has refused two
 // profiles of one version in a family, so there is no tie.
-func newest(profiles []*profile.Profile) map[family]*profile.Profile {
-	latest := make(map[family]*profile.Profile)
+func newest(profiles []*profile.Spec) map[family]*profile.Spec {
+	latest := make(map[family]*profile.Spec)
 	for _, p := range profiles {
 		f := familyOf(p)
 		if cur, ok := latest[f]; !ok || compareVersions(p.Version, cur.Version) > 0 {

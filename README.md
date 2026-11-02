@@ -60,6 +60,8 @@ How it differs from tls-client and similar libraries:
 
 `profiles.Chrome()`, `Firefox()` and `Safari()` always return the newest built-in macOS version, `profiles.ChromeWindows()` and `profiles.FirefoxWindows()` the newest Chrome and Firefox on Windows ([0047](docs/decisions/0047-windows-profiles.md)) and `profiles.SafariIOS()` the newest Safari on iOS. A versioned accessor, or `profiles.ByName("chrome-155-macos")`, stays on one version; the newest five versions of each browser on each platform are supported.
 
+A profile is a read-only `profile.Profile`, checked once and shared by every client built from it, so building a client copies nothing (about 1–2 µs). To change one, edit a copy once and reuse it: `profiles.Chrome().With(func(s *profile.Spec) { ... })` (an invalid edit is `NewClient`'s error); `profile.Parse` reads your own JSON. To read what a profile sends, or save it with `profile.Encode`, take a copy of its data with `Spec()`; requests never need it. Examples: `ExampleProfile_With` and `ExampleProfile_Spec` in [`profile/example_test.go`](profile/example_test.go).
+
 ## Common tasks
 
 The runnable examples are in [`example_test.go`](example_test.go).
@@ -67,7 +69,7 @@ The runnable examples are in [`example_test.go`](example_test.go).
 - **Other request kinds.** `Script`, `Style`, `Image`, `XHR` and more work like `Fetch`. `mimicry.With` sets the page a request comes from, credentials and priority. Example: `ExampleAs_addToCart`, a JSON POST to a cart.
 - **Cookies.** `NewClient` gives the client a cookie jar that follows the browser's rules. Seed a session with `jar.SetString("shop.example", "session=s1")`; save one with `WriteJSON`. See [Cookies](docs/concepts/cookies.md).
 - **Proxies and rotation.** `Config.Proxy` picks a proxy per request, as in `http.Transport`; `http`, `socks5` and `socks5h` proxies work, with credentials in the URL. A failure caused by the proxy is a `*mimicry.ProxyError`, so you know to switch. Changing proxy keeps the cookies and the current page. Set `Config.MaxIdleProxies` to 1 to close the old proxy's connections as soon as you switch. See [Proxies](docs/concepts/proxies.md).
-- **Your own headers.** Headers you set go where a page's script would put them. `Config.Header` adds headers to every request; `Config.HeaderPlacement` moves one. See [How a request is built](docs/concepts/how-a-request-is-built.md).
+- **Your own headers.** Headers you set go where a page's script would put them. `Config.Header` adds headers to every request; `Config.HeaderPlacement` moves one. Headers that differ per identity (`Accept-Language`, a user agent) belong there, not in a profile edited per client. See [How a request is built](docs/concepts/how-a-request-is-built.md).
 - **Certificate pins.** `go run github.com/roachadam/mimicry/cmd/pins https://www.shop.example/` prints a site's pins. Put them in `Config.Pins`. Example: `ExampleConfig_pins`.
 - **Requests a profile can't describe.** A profile only holds what its browser was captured doing. Ask for anything else and the request fails with `mimicry.ErrNotMeasured`, before anything is sent. A guessed header would be a request no browser sends. Example: `ExampleErrNotMeasured`.
 
@@ -121,7 +123,6 @@ Measured on a Linux host, Intel Core i5-13500, against `net/http`, tls-client, h
 Where it is slower:
 
 - **Many HTTP/3 bulk downloads at once:** 4,408 requests/s against 7,383–8,516.
-- **Building a client** takes about 235 µs. Build clients up front, not one per request.
 - **Rotating proxies** keeps the 16 most recent proxies' idle connections (1.7 MB per client in the benchmark); `Config.MaxIdleProxies` of 1 brings it to 304 KB.
 - **HTTP/1.1** opens at most 6 connections per host, so extra requests queue.
 

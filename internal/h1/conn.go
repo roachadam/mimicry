@@ -84,7 +84,7 @@ type Writer struct {
 }
 
 // NewWriter returns the Writer for profile p.
-func NewWriter(p *profile.Profile) Writer {
+func NewWriter(p *profile.Spec) Writer {
 	w := Writer{
 		headers: p.Headers,
 	}

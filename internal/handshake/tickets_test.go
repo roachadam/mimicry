@@ -42,7 +42,7 @@ func ticketFrom(t *testing.T, tickets *Tickets, key string, validity time.Durati
 		_, _ = srv.Write([]byte("x"))
 	}()
 
-	conn, _, err := Client(t.Context(), client, fingerprint.Compile(profiles.Chrome()).Hello(), Config{
+	conn, _, err := Client(t.Context(), client, fingerprint.Compile(profiles.Chrome().Spec()).Hello(), Config{
 		ServerName: "localhost",
 		RootCAs:    roots,
 		Tickets:    tickets,

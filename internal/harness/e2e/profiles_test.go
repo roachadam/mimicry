@@ -24,7 +24,7 @@ import (
 // captureClient runs a capture server answering as sc and returns its base
 // URL, a mimicry transport for p trusting it, and the channel its captures
 // arrive on.
-func captureClient(t *testing.T, p *profile.Profile, sc *server.Scenario) (string, *mimicry.Transport, <-chan *capture.Capture) {
+func captureClient(t *testing.T, p *profile.Spec, sc *server.Scenario) (string, *mimicry.Transport, <-chan *capture.Capture) {
 	t.Helper()
 
 	return captureClientWith(t, p, sc, nil)
@@ -32,7 +32,7 @@ func captureClient(t *testing.T, p *profile.Profile, sc *server.Scenario) (strin
 
 // captureClientWith is captureClient with jar as the transport's cookie
 // jar (nil: none).
-func captureClientWith(t *testing.T, p *profile.Profile, sc *server.Scenario, jar *cookies.Jar) (string, *mimicry.Transport, <-chan *capture.Capture) {
+func captureClientWith(t *testing.T, p *profile.Spec, sc *server.Scenario, jar *cookies.Jar) (string, *mimicry.Transport, <-chan *capture.Capture) {
 	t.Helper()
 
 	cert, pool := testutil.Certificate(t, "localhost")
@@ -73,7 +73,7 @@ func captureClientWith(t *testing.T, p *profile.Profile, sc *server.Scenario, ja
 	_, port, _ := net.SplitHostPort(ln.Addr().String())
 
 	tr, err := mimicry.NewTransport(mimicry.Config{
-		Profile: p,
+		Profile: checked(p),
 		RootCAs: pool,
 		Cookies: jar,
 	})
@@ -87,7 +87,7 @@ func captureClientWith(t *testing.T, p *profile.Profile, sc *server.Scenario, ja
 }
 
 // newJar returns an empty cookie jar with p's cookie rules.
-func newJar(t *testing.T, p *profile.Profile) *cookies.Jar {
+func newJar(t *testing.T, p *profile.Spec) *cookies.Jar {
 	t.Helper()
 
 	j, err := cookies.New(cookies.Config{
@@ -104,7 +104,7 @@ func newJar(t *testing.T, p *profile.Profile) *cookies.Jar {
 // to a fresh server, as the browser samples were fresh launches: every one
 // a full handshake, none resuming another's session. It returns what the
 // capture server recorded.
-func captureRequests(t *testing.T, p *profile.Profile, n int) []*capture.Capture {
+func captureRequests(t *testing.T, p *profile.Spec, n int) []*capture.Capture {
 	t.Helper()
 
 	got := make([]*capture.Capture, 0, n)
@@ -135,7 +135,7 @@ func captureRequests(t *testing.T, p *profile.Profile, n int) []*capture.Capture
 }
 
 // loadCapture reads the default page's capture p is checked against.
-func loadCapture(t *testing.T, p *profile.Profile) *profile.Profile {
+func loadCapture(t *testing.T, p *profile.Spec) *profile.Spec {
 	t.Helper()
 
 	path, _, _ := capturePath(t, p, capture.DefaultScenario, ".json")

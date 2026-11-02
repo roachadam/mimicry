@@ -17,7 +17,7 @@ import (
 
 // resolve returns how to send req as r describes it, from page from (nil:
 // none), with config (Config.Header, keys canonical) added.
-func resolve(p *profile.Profile, req *http.Request, r Request, from *url.URL, config http.Header) (*sending, error) {
+func resolve(p *profile.Spec, req *http.Request, r Request, from *url.URL, config http.Header) (*sending, error) {
 	h := req.Header.Clone()
 	if h == nil {
 		h = http.Header{}
@@ -587,7 +587,7 @@ func sameCondition(v, cond profile.Variant) bool {
 // userNavigation reports whether navigation req sends Sec-Fetch-User: after
 // a redirect, if the request before did; otherwise if the profile's
 // navigation does. Never if the caller suppressed it.
-func userNavigation(p *profile.Profile, req *http.Request, redirected bool, h http.Header) bool {
+func userNavigation(p *profile.Spec, req *http.Request, redirected bool, h http.Header) bool {
 	if hasHeader(h, "Sec-Fetch-User") {
 		return false
 	}
@@ -602,7 +602,7 @@ func userNavigation(p *profile.Profile, req *http.Request, redirected bool, h ht
 // sentFetchUser reports whether navigation req, as sent, carried
 // Sec-Fetch-User: its plan's list (none: the profile's navigation) has
 // it with a value, and the caller did not suppress it.
-func sentFetchUser(p *profile.Profile, req *http.Request) bool {
+func sentFetchUser(p *profile.Spec, req *http.Request) bool {
 	list := p.Headers
 	if plan := headerorder.PlanFrom(req.Context()); plan != nil {
 		list = plan.Headers
@@ -624,7 +624,7 @@ func methodOf(req *http.Request) string {
 // methods other than GET and HEAD, and on cross-origin CORS requests (and
 // same-origin element ones where the browser sends it); "null" once the
 // redirect chain is tainted.
-func originOf(p *profile.Profile, ctx *profile.Context, req *http.Request, r Request, mode string, from *url.URL) (string, error) {
+func originOf(p *profile.Spec, ctx *profile.Context, req *http.Request, r Request, mode string, from *url.URL) (string, error) {
 	if from == nil {
 		return "", nil
 	}

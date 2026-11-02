@@ -170,7 +170,7 @@ func websocketRequests(h1Pages, h2Pages []*capture.Page) ([]*request, error) {
 // checkProtocolPlace checks that every extended CONNECT in the
 // websocket-h2 capture sends the profile's pseudo-header order with
 // :protocol after it: mimicry's rule, which no field states.
-func checkProtocolPlace(p *profile.Profile, pages []*capture.Page) error {
+func checkProtocolPlace(p *profile.Spec, pages []*capture.Page) error {
 	if p.HTTP2 == nil {
 		return errors.New("websocket: the profile has no http2 section")
 	}

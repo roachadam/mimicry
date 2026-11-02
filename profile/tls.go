@@ -36,11 +36,11 @@ type TLS struct {
 	// the browser resumes as QUIC.ZeroRTT says.
 	Resumption *Resumption `json:"resumption,omitempty"`
 	// WebSocketH1 is how the hello of a WebSocket's own HTTP/1.1
-	// connection differs from this one. Required with Profile.WebSocket;
+	// connection differs from this one. Required with Spec.WebSocket;
 	// hellogen derives it.
 	WebSocketH1 *WebSocketHello `json:"websocketH1,omitempty"`
 	// QUIC is how the hello sent over QUIC differs from this one.
-	// Required with Profile.QUIC; hellogen derives it.
+	// Required with Spec.QUIC; hellogen derives it.
 	QUIC *QUICHello `json:"quic,omitempty"`
 }
 

@@ -23,7 +23,7 @@ func dial(t *testing.T, addr string) *Conn {
 		t.Fatal(err)
 	}
 
-	c := New(conn, NewWriter(profiles.Chrome()))
+	c := New(conn, NewWriter(profiles.Chrome().Spec()))
 	t.Cleanup(func() {
 		_ = c.Close()
 	})

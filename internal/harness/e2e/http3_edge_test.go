@@ -358,7 +358,7 @@ func edgeGapsFor(t *testing.T, name string, fast bool) (skip func(key string) bo
 // on time beside the others), then fetch('/done') where browser did.
 // Unanswered requests are cancelled; an ErrNotMeasured step fails unless
 // skip pins it.
-func runH3Schedule(t *testing.T, p *profile.Profile, sc *server.Scenario, browser *capture.Page, skip func(string) bool, config func(*mimicry.Config)) *capture.Page {
+func runH3Schedule(t *testing.T, p *profile.Spec, sc *server.Scenario, browser *capture.Page, skip func(string) bool, config func(*mimicry.Config)) *capture.Page {
 	t.Helper()
 	// Its times from a request on are net of the process's stalls.
 	stalls.watch()
@@ -1250,7 +1250,7 @@ func pnSpace(typ string) string {
 // PTOs after its last request, within half a PTO (h3gen's rounding). The PTO
 // is measured from its probes, floored by tracePTO, so the rule holds under
 // load too.
-func checkPathMoves(t *testing.T, p *profile.Profile, who string, page *capture.Page) {
+func checkPathMoves(t *testing.T, p *profile.Spec, who string, page *capture.Page) {
 	t.Helper()
 
 	for i, c := range page.QUIC {
@@ -1299,7 +1299,7 @@ func checkPathMoves(t *testing.T, p *profile.Profile, who string, page *capture.
 // over a network (Safari on an iPhone, its pages' driver set): the
 // server's clock puts the phone's packets a path's delay late, which h3gen
 // does not measure either (its ranges stay copied, decision 0051).
-func compareEdge(t *testing.T, p *profile.Profile, got *capture.Page, want []*capture.Page, skip func(string) bool) {
+func compareEdge(t *testing.T, p *profile.Spec, got *capture.Page, want []*capture.Page, skip func(string) bool) {
 	t.Helper()
 
 	gf, gms, stalled := edgeFeatures(got)
@@ -1374,7 +1374,7 @@ func compareEdge(t *testing.T, p *profile.Profile, got *capture.Page, want []*ca
 // the server's answer to the client's Finished (its first datagram after
 // the Finished arrived: ACK and HANDSHAKE_DONE), as h3gen reads the
 // browser's.
-func checkHeldConfirmed(t *testing.T, p *profile.Profile, got *capture.Page) {
+func checkHeldConfirmed(t *testing.T, p *profile.Spec, got *capture.Page) {
 	t.Helper()
 
 	h := p.HTTP3
@@ -1446,7 +1446,7 @@ const (
 // browsers' delay, so under it the default goes unchecked here; the
 // modes' difference (dialRecord, from the delays returned) holds both
 // with or without it.
-func checkDialDelays(t *testing.T, p *profile.Profile, got *capture.Page, browser bool) [2][]int64 {
+func checkDialDelays(t *testing.T, p *profile.Spec, got *capture.Page, browser bool) [2][]int64 {
 	t.Helper()
 
 	d := p.HTTP3.Discovery
@@ -1541,7 +1541,7 @@ type profileDials struct {
 }
 
 // add records name's page's delays in its mode.
-func (r *dialRecord) add(name string, p *profile.Profile, browser bool, raw [2][]int64) {
+func (r *dialRecord) add(name string, p *profile.Spec, browser bool, raw [2][]int64) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

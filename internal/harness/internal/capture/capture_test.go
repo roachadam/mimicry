@@ -14,7 +14,7 @@ import (
 func TestWriteNeverOverwrites(t *testing.T) {
 	dir := t.TempDir()
 	c := &Capture{
-		Profile: profile.Profile{
+		Profile: profile.Spec{
 			Name: "chrome-155-macos",
 			Headers: []profile.Header{
 				{
@@ -90,7 +90,7 @@ func TestParseUserAgent(t *testing.T) {
 		},
 	} {
 		c := &Capture{
-			Profile: profile.Profile{
+			Profile: profile.Spec{
 				Headers: []profile.Header{
 					{
 						Name:  "user-agent",

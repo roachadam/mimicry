@@ -1001,7 +1001,7 @@ var interopCases = []interopCase{
 type interopEnv struct {
 	t      *testing.T
 	ctx    context.Context
-	p      *profile.Profile
+	p      *profile.Spec
 	pki    *interopPKI
 	relay  *udprelay.Relay
 	server *backend
@@ -1019,7 +1019,7 @@ type interopEnv struct {
 	tcpConns *atomic.Int64
 }
 
-func newInteropEnv(t *testing.T, p *profile.Profile, pki *interopPKI, c interopCase) *interopEnv {
+func newInteropEnv(t *testing.T, p *profile.Spec, pki *interopPKI, c interopCase) *interopEnv {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(t.Context(), c.limit)
@@ -1075,7 +1075,7 @@ func newInteropEnv(t *testing.T, p *profile.Profile, pki *interopPKI, c interopC
 
 	tcp := e.altSvcServer()
 	cfg := mimicry.Config{
-		Profile:     p,
+		Profile:     checked(p),
 		RootCAs:     pki.roots,
 		DialTimeout: c.limit,
 		DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {

@@ -16,7 +16,7 @@ linters:
       rules:
         stdlib-only:
           files:
-            - ${config-path}/profile/*.go
+            - ${config-path}/internal/checked/*.go
             - ${config-path}/internal/harness/internal/udprelay/*.go
             - ${config-path}/internal/pins/*.go
             - ${config-path}/internal/proxy/*.go
@@ -36,6 +36,16 @@ linters:
           deny:
             - pkg: github.com/roachadam/mimicry/internal/testutil
               desc: test helpers; import them from _test.go files only
+        # profile: the standard library, and internal/checked, through which
+        # the root package reads the Spec a Profile holds.
+        profile:
+          files:
+            - ${config-path}/profile/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/roachadam/mimicry/internal/checked$
         profiles:
           files:
             - ${config-path}/profiles/*.go

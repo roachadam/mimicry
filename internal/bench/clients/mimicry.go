@@ -31,7 +31,7 @@ func mimicryClient() Factory {
 	return Factory{
 		Name:      "mimicry",
 		Module:    "github.com/roachadam/mimicry",
-		Profile:   profiles.Chrome().Name,
+		Profile:   profiles.Chrome().Name(),
 		New:       mimicryWith(nil),
 		Returning: true,
 	}

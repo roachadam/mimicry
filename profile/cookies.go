@@ -145,7 +145,7 @@ func DefaultCookies() *Cookies {
 	}
 }
 
-// Validate checks the rules as Profile.Validate checks a profile's cookies
+// Validate checks the rules as Spec.Validate checks a profile's cookies
 // section, and returns a *ValidationError listing every problem, or nil. Nil
 // rules are an error.
 func (k *Cookies) Validate() error {

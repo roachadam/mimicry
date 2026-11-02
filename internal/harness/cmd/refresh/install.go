@@ -78,7 +78,7 @@ func deprecate(browser string) ([]string, error) {
 		return nil, err
 	}
 
-	byPlatform := map[string][]*profile.Profile{}
+	byPlatform := map[string][]*profile.Spec{}
 	for _, p := range builtins {
 		if p.Browser == browser {
 			byPlatform[p.Platform] = append(byPlatform[p.Platform], p)
@@ -87,7 +87,7 @@ func deprecate(browser string) ([]string, error) {
 
 	var marked []string
 	for _, ps := range byPlatform {
-		slices.SortFunc(ps, func(a, b *profile.Profile) int {
+		slices.SortFunc(ps, func(a, b *profile.Spec) int {
 			return versionNumber(b) - versionNumber(a)
 		})
 
@@ -118,7 +118,7 @@ func deprecate(browser string) ([]string, error) {
 
 // versionNumber is p's version as a number; profile.Validate allows digits
 // only.
-func versionNumber(p *profile.Profile) int {
+func versionNumber(p *profile.Spec) int {
 	v, _ := strconv.Atoi(p.Version)
 	return v
 }

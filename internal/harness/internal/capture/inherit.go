@@ -15,7 +15,7 @@ import (
 // Source names the profile whose captures of scenario a profile is checked
 // against: the one its capturesFrom names (decision 0035), or the profile
 // itself. cmd/profilegen refuses chains, so this never needs following.
-func Source(p *profile.Profile, scenario string) string {
+func Source(p *profile.Spec, scenario string) string {
 	if from, ok := p.CapturesFrom[scenario]; ok {
 		return from
 	}
@@ -27,7 +27,7 @@ func Source(p *profile.Profile, scenario string) string {
 // profile, the Rewriter that brings that profile's captures to p's version.
 // The other profile is a built-in one; its captures were taken under its
 // version.
-func Inherited(p *profile.Profile, scenario string) (string, *Rewriter, error) {
+func Inherited(p *profile.Spec, scenario string) (string, *Rewriter, error) {
 	source := Source(p, scenario)
 	if source == p.Name {
 		return source, nil, nil
@@ -38,7 +38,7 @@ func Inherited(p *profile.Profile, scenario string) (string, *Rewriter, error) {
 		return "", nil, fmt.Errorf("%s inherits %s: %w", p.Name, scenario, err)
 	}
 
-	return source, NewRewriter(from, p), nil
+	return source, NewRewriter(from.Spec(), p), nil
 }
 
 // suffixes are the kinds of capture file, longest first where one ends
@@ -111,7 +111,7 @@ type File struct {
 // Files lists every capture file in dir of the kind suffix (".h2trace.json")
 // that p is checked against: its own for the scenarios it does not inherit,
 // and its sources' for those it does, sorted by path.
-func Files(dir string, p *profile.Profile, suffix string) ([]File, error) {
+func Files(dir string, p *profile.Spec, suffix string) ([]File, error) {
 	names := []string{p.Name}
 	for _, from := range p.CapturesFrom {
 		if !slices.Contains(names, from) {
@@ -190,7 +190,7 @@ var versionTokens = map[string][]string{
 // another platform. accept-encoding is mapped where it is the whole value
 // of the navigation's (Safari 26.6.2 on the iPhone adds zstd to macOS
 // Safari 26.2's), not the other lists' (plain HTTP's has no br).
-func NewRewriter(from, to *profile.Profile) *Rewriter {
+func NewRewriter(from, to *profile.Spec) *Rewriter {
 	if from == nil || from.Name == to.Name {
 		return nil
 	}
@@ -232,7 +232,7 @@ func NewRewriter(from, to *profile.Profile) *Rewriter {
 
 // headerValue returns p's navigation's value of the header name, from its
 // HTTP/2 list or else its HTTP/1.1 one; "" if it sends none.
-func headerValue(p *profile.Profile, name string) string {
+func headerValue(p *profile.Spec, name string) string {
 	lists := [][]profile.Header{p.Headers}
 	if p.HTTP1 != nil {
 		lists = append(lists, p.HTTP1.Headers)

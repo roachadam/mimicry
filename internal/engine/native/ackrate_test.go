@@ -11,7 +11,7 @@ import (
 // shared profile is never written), and one below the profile's or above
 // maxACKEvery is refused.
 func TestACKOverride(t *testing.T) {
-	q := profiles.Chrome().QUIC
+	q := profiles.Chrome().Spec().QUIC
 	base := q.Ack
 
 	for _, tc := range []struct {

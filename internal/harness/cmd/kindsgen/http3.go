@@ -43,7 +43,7 @@ type h3Request struct {
 // deriveH3 derives http3.headers, http3.high, http3.low and the h3-only
 // variants (an XHR POST) from the h3 captures' HTTP/3 requests
 // (server.H3ProfileCaptures). It errors when there are none.
-func deriveH3(p *profile.Profile, dir string) error {
+func deriveH3(p *profile.Spec, dir string) error {
 	reqs, err := h3Requests(dir, p)
 	if err != nil {
 		return err
@@ -80,7 +80,7 @@ func deriveH3(p *profile.Profile, dir string) error {
 // h3Drop are the headers every measured kind's list sends that no HTTP/3
 // request carries. Headers only some lists have (sec-fetch-user, which
 // needs user activation) don't count.
-func h3Drop(p *profile.Profile, reqs []h3Request) []string {
+func h3Drop(p *profile.Spec, reqs []h3Request) []string {
 	sent := map[string]bool{}
 	kinds := map[string]bool{}
 
@@ -114,7 +114,7 @@ func h3Drop(p *profile.Profile, reqs []h3Request) []string {
 // kind's HTTP/2 list. Requests must keep their kind's order, drop the same
 // headers (Firefox: te), and add only alt-used, at a place every request
 // of the kind agrees on. Nil when the lists are the HTTP/2 ones.
-func h3Headers(p *profile.Profile, reqs []h3Request) (*profile.H3Headers, error) {
+func h3Headers(p *profile.Spec, reqs []h3Request) (*profile.H3Headers, error) {
 	var errs []error
 
 	out := &profile.H3Headers{
@@ -234,7 +234,7 @@ func (a *anchorSpan) add(list, got []string) {
 }
 
 // h2List is a kind's HTTP/2 header list, the navigation's for navigation.
-func h2List(p *profile.Profile, kind string) []profile.Header {
+func h2List(p *profile.Spec, kind string) []profile.Header {
 	if kind == navigation {
 		return p.Headers
 	}
@@ -249,7 +249,7 @@ func h2List(p *profile.Profile, kind string) []profile.Header {
 // checkH3Order checks that q's headers, alt-used and the dropped ones
 // aside, are in its kind's order: the kind's list's or one of its secure
 // variants'.
-func checkH3Order(p *profile.Profile, q h3Request, drop []string) error {
+func checkH3Order(p *profile.Spec, q h3Request, drop []string) error {
 	got := slices.DeleteFunc(slices.Clone(q.names), func(n string) bool {
 		return n == altUsed
 	})
@@ -314,7 +314,7 @@ func h3Steps() map[string]server.H3Step {
 
 // h3Requests reads every request over HTTP/3 of the h3 captures p is
 // checked against, with its kind from its page's step.
-func h3Requests(dir string, p *profile.Profile) ([]h3Request, error) {
+func h3Requests(dir string, p *profile.Spec) ([]h3Request, error) {
 	files, err := server.H3ProfileCaptures(dir, p)
 	if err != nil {
 		return nil, err
@@ -448,7 +448,7 @@ func h3Kind(steps map[string]server.H3Step, path string) (string, error) {
 // h3Priorities checks each HTTP/3 request's priority against its kind's
 // default, High or Low. Where High or Low was not measured over HTTP/2,
 // the HTTP/3 value becomes http3.high or http3.low.
-func h3Priorities(p *profile.Profile, reqs []h3Request) (high, low map[string]string, err error) {
+func h3Priorities(p *profile.Spec, reqs []h3Request) (high, low map[string]string, err error) {
 	var errs []error
 
 	measured := func(level string, got map[string]string, q h3Request, kind *profile.Kind) {
@@ -504,7 +504,7 @@ func h3Priorities(p *profile.Profile, reqs []h3Request) (high, low map[string]st
 
 // defaultPriority reports whether q's priority header (or its absence) is
 // what one of its kind's HTTP/2 lists sends by default.
-func defaultPriority(p *profile.Profile, q h3Request) bool {
+func defaultPriority(p *profile.Spec, q h3Request) bool {
 	lists := [][]profile.Header{
 		h2List(p, q.kind),
 	}
@@ -533,7 +533,7 @@ func defaultPriority(p *profile.Profile, q h3Request) bool {
 // h2Urgencies takes the h3 pages' fetchpriority requests sent over HTTP/2
 // (all of Safari's) as their kind's High and Low where unmeasured, and
 // checks them otherwise.
-func h2Urgencies(p *profile.Profile, dir string) error {
+func h2Urgencies(p *profile.Spec, dir string) error {
 	files, err := server.H3ProfileCaptures(dir, p)
 	if err != nil {
 		return err

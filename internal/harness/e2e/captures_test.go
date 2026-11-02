@@ -46,10 +46,20 @@ func testProfiles(t testing.TB) []string {
 	return names
 }
 
-// loadProfile returns a fresh copy of the profile under test called name.
-func loadProfile(name string) (*profile.Profile, error) {
+// loadProfile returns a copy of the profile under test called name.
+func loadProfile(name string) (*profile.Spec, error) {
 	p, _, err := testprofiles.Load(name)
-	return p, err
+
+	return p.Spec(), err
+}
+
+// checked returns s checked, for a client: when s is a profile under test
+// unchanged, that profile itself, since profiles of equal content share
+// one copy.
+func checked(s *profile.Spec) profile.Profile {
+	return profile.Profile{}.With(func(e *profile.Spec) {
+		*e = *s
+	})
 }
 
 // capturePath resolves p's capture of scenario (rest is what follows the
@@ -57,7 +67,7 @@ func loadProfile(name string) (*profile.Profile, error) {
 // through capturesFrom: its own, or the earlier profile's it inherits with
 // the Rewriter to its version. It returns the file name too, the key of
 // missingCaptures.
-func capturePath(t testing.TB, p *profile.Profile, scenario, rest string) (string, string, *capture.Rewriter) {
+func capturePath(t testing.TB, p *profile.Spec, scenario, rest string) (string, string, *capture.Rewriter) {
 	t.Helper()
 
 	source, rw, err := capture.Inherited(p, scenario)
@@ -80,7 +90,7 @@ func capturePath(t testing.TB, p *profile.Profile, scenario, rest string) (strin
 // loadPages reads p's page capture of scenario as loadSamples does, rewritten
 // to p's version where inherited, skipping the test when the capture is
 // one known missing (missingWhy).
-func loadPages(t testing.TB, p *profile.Profile, scenario, rest string) ([]*capture.Page, error) {
+func loadPages(t testing.TB, p *profile.Spec, scenario, rest string) ([]*capture.Page, error) {
 	t.Helper()
 
 	path, file, rw := capturePath(t, p, scenario, rest)
@@ -98,7 +108,7 @@ func loadPages(t testing.TB, p *profile.Profile, scenario, rest string) ([]*capt
 
 // loadH2Traces reads p's HTTP/2 traces of scenario, rewritten to p's version
 // where inherited (not for HPACK reproduction, which needs them as sent).
-func loadH2Traces(t testing.TB, p *profile.Profile, scenario string) ([]*h2trace.Trace, error) {
+func loadH2Traces(t testing.TB, p *profile.Spec, scenario string) ([]*h2trace.Trace, error) {
 	t.Helper()
 
 	path, file, rw := capturePath(t, p, scenario, ".h2trace.json")
@@ -119,7 +129,7 @@ func loadH2Traces(t testing.TB, p *profile.Profile, scenario string) ([]*h2trace
 // test when the capture is one of missingCaptures. T is *capture.Page for
 // page captures, []capture.ProxyRequest or []capture.H1Request for the
 // proxy's and HTTP/1.1 traces.
-func loadSamples[T any](t *testing.T, p *profile.Profile, scenario, rest string) []T {
+func loadSamples[T any](t *testing.T, p *profile.Spec, scenario, rest string) []T {
 	t.Helper()
 
 	path, file, rw := capturePath(t, p, scenario, rest)

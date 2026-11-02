@@ -44,10 +44,10 @@ The public packages are the root package, `cookies`, `profile`, `profiles` and `
 - `internal/pins`: `Config.Pins` parsed, looked up by host and matched against verified chains.
 - Outside tests, only `internal/handshake` and `internal/quic` (QUIC's TLS, decision 0027) import `github.com/roachadam/utls`.
 - Only `internal/engine/native` assembles the request path (pool → dial → handshake → h1/h2, or QUIC → h3).
-- `profile` imports the standard library only. Public packages never import from `internal/harness/`.
+- `profile` imports the standard library only, and `internal/checked`, through which the root package reads the Spec a `profile.Profile` holds. Public packages never import from `internal/harness/`.
 - Use `net/http` types in the public API; do not fork `net/http` (decision 0002). Header order comes from the profile (the navigation, or the request's kind and its variant); `HeaderOrderKey` overrides it per request and `HeaderPlacement` moves single headers within it (decision 0030). Pseudo-header order comes from the profile only.
 - One dial path (`internal/dial`), and every network step honours the context and its deadline. Never hold a lock across network I/O.
-- Profiles are read-only once a Transport holds them: Transports built from equal profiles share one decoded copy (`profile.go`), so the root and everything under `internal/` only read it (no writes, no `append` into its slices); copy first to change anything.
+- Profiles are read-only: a `profile.Profile` holds a checked Spec shared by every Profile of equal content (`profile/share.go`, decision 0044 and its amendment), which the root and everything under `internal/` only read (no writes, no `append` into its slices). To change one, `Profile.With` (or edit `Profile.Spec()`, a deep copy, in tests of internal packages).
 
 ## The uTLS fork
 

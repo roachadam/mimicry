@@ -4,90 +4,90 @@ package profiles
 
 import "github.com/roachadam/mimicry/profile"
 
-// Chrome returns a fresh copy of the newest chrome profile, now chrome-156-macos (chrome 156 on macos).
+// Chrome returns the newest chrome profile, now chrome-156-macos (chrome 156 on macos).
 // It moves to each new version as that version is added; use a
 // versioned accessor where a version must stay fixed.
-func Chrome() *profile.Profile {
+func Chrome() profile.Profile {
 	return load("chrome-156-macos")
 }
 
-// ChromeWindows returns a fresh copy of the newest chrome profile on windows, now chrome-156-windows (chrome 156 on windows).
+// ChromeWindows returns the newest chrome profile on windows, now chrome-156-windows (chrome 156 on windows).
 // It moves to each new version as that version is added; use a
 // versioned accessor where a version must stay fixed.
-func ChromeWindows() *profile.Profile {
+func ChromeWindows() profile.Profile {
 	return load("chrome-156-windows")
 }
 
-// Firefox returns a fresh copy of the newest firefox profile, now firefox-158-macos (firefox 158 on macos).
+// Firefox returns the newest firefox profile, now firefox-158-macos (firefox 158 on macos).
 // It moves to each new version as that version is added; use a
 // versioned accessor where a version must stay fixed.
-func Firefox() *profile.Profile {
+func Firefox() profile.Profile {
 	return load("firefox-158-macos")
 }
 
-// FirefoxWindows returns a fresh copy of the newest firefox profile on windows, now firefox-158-windows (firefox 158 on windows).
+// FirefoxWindows returns the newest firefox profile on windows, now firefox-158-windows (firefox 158 on windows).
 // It moves to each new version as that version is added; use a
 // versioned accessor where a version must stay fixed.
-func FirefoxWindows() *profile.Profile {
+func FirefoxWindows() profile.Profile {
 	return load("firefox-158-windows")
 }
 
-// Safari returns a fresh copy of the newest safari profile, now safari-27-macos (safari 27 on macos).
+// Safari returns the newest safari profile, now safari-27-macos (safari 27 on macos).
 // It moves to each new version as that version is added; use a
 // versioned accessor where a version must stay fixed.
-func Safari() *profile.Profile {
+func Safari() profile.Profile {
 	return load("safari-27-macos")
 }
 
-// SafariIOS returns a fresh copy of the newest safari profile on ios, now safari-27-ios (safari 27 on ios).
+// SafariIOS returns the newest safari profile on ios, now safari-27-ios (safari 27 on ios).
 // It moves to each new version as that version is added; use a
 // versioned accessor where a version must stay fixed.
-func SafariIOS() *profile.Profile {
+func SafariIOS() profile.Profile {
 	return load("safari-27-ios")
 }
 
-// Chrome155MacOS returns a fresh copy of the chrome-155-macos profile (chrome 155 on macos).
-func Chrome155MacOS() *profile.Profile {
+// Chrome155MacOS returns the chrome-155-macos profile (chrome 155 on macos).
+func Chrome155MacOS() profile.Profile {
 	return load("chrome-155-macos")
 }
 
-// Chrome156MacOS returns a fresh copy of the chrome-156-macos profile (chrome 156 on macos).
-func Chrome156MacOS() *profile.Profile {
+// Chrome156MacOS returns the chrome-156-macos profile (chrome 156 on macos).
+func Chrome156MacOS() profile.Profile {
 	return load("chrome-156-macos")
 }
 
-// Chrome156Windows returns a fresh copy of the chrome-156-windows profile (chrome 156 on windows).
-func Chrome156Windows() *profile.Profile {
+// Chrome156Windows returns the chrome-156-windows profile (chrome 156 on windows).
+func Chrome156Windows() profile.Profile {
 	return load("chrome-156-windows")
 }
 
-// Firefox158MacOS returns a fresh copy of the firefox-158-macos profile (firefox 158 on macos).
-func Firefox158MacOS() *profile.Profile {
+// Firefox158MacOS returns the firefox-158-macos profile (firefox 158 on macos).
+func Firefox158MacOS() profile.Profile {
 	return load("firefox-158-macos")
 }
 
-// Firefox158Windows returns a fresh copy of the firefox-158-windows profile (firefox 158 on windows).
-func Firefox158Windows() *profile.Profile {
+// Firefox158Windows returns the firefox-158-windows profile (firefox 158 on windows).
+func Firefox158Windows() profile.Profile {
 	return load("firefox-158-windows")
 }
 
-// Safari26IOS returns a fresh copy of the safari-26-ios profile (safari 26 on ios).
-func Safari26IOS() *profile.Profile {
+// Safari26IOS returns the safari-26-ios profile (safari 26 on ios).
+func Safari26IOS() profile.Profile {
 	return load("safari-26-ios")
 }
 
-// Safari26MacOS returns a fresh copy of the safari-26-macos profile (safari 26 on macos).
-func Safari26MacOS() *profile.Profile {
+// Safari26MacOS returns the safari-26-macos profile (safari 26 on macos).
+func Safari26MacOS() profile.Profile {
 	return load("safari-26-macos")
 }
 
-// Safari27IOS returns a fresh copy of the safari-27-ios profile (safari 27 on ios).
-func Safari27IOS() *profile.Profile {
+// Safari27IOS returns the safari-27-ios profile (safari 27 on ios).
+func Safari27IOS() profile.Profile {
 	return load("safari-27-ios")
 }
 
-// Safari27MacOS returns a fresh copy of the safari-27-macos profile (safari 27 on macos).
-func Safari27MacOS() *profile.Profile {
+// Safari27MacOS returns the safari-27-macos profile (safari 27 on macos).
+func Safari27MacOS() profile.Profile {
 	return load("safari-27-macos")
 }
 

@@ -30,7 +30,7 @@ var pseudoH3 = []string{
 // checkH3 checks the quic and http3 sections and tls.quic: present
 // together, each value known and within its protocol's limits. tls.quic
 // may come first: hellogen writes it before h3gen writes the others.
-func (c *checker) checkH3(p *Profile) {
+func (c *checker) checkH3(p *Spec) {
 	if p.TLS.QUIC != nil {
 		c.checkQUICHello(p)
 	}
@@ -392,7 +392,7 @@ func (c *checker) checkTransportParameter(at string, q *QUIC, tp TransportParame
 // checkQUICHello checks tls.quic against the hello it changes, and its
 // resumed hello against quic.zeroRtt once quic is written (h3gen runs
 // after hellogen).
-func (c *checker) checkQUICHello(p *Profile) {
+func (c *checker) checkQUICHello(p *Spec) {
 	t := &p.TLS
 	h := t.QUIC
 
@@ -516,7 +516,7 @@ func (c *checker) checkQUICHello(p *Profile) {
 	}
 }
 
-func (c *checker) checkHTTP3(p *Profile) {
+func (c *checker) checkHTTP3(p *Spec) {
 	h := p.HTTP3
 
 	const path = "http3"
@@ -632,7 +632,7 @@ func badRange(r *Range) bool {
 	return r == nil || r.Min < 0 || r.Max < r.Min
 }
 
-func (c *checker) checkEarlyData(p *Profile) {
+func (c *checker) checkEarlyData(p *Spec) {
 	const path = "http3.earlyData"
 
 	d := p.HTTP3.EarlyData
@@ -670,7 +670,7 @@ func (c *checker) checkEarlyData(p *Profile) {
 	}
 }
 
-func (c *checker) checkFallback(p *Profile) {
+func (c *checker) checkFallback(p *Spec) {
 	const path = "http3.discovery.fallback"
 
 	d := &p.HTTP3.Discovery
@@ -783,7 +783,7 @@ func (c *checker) checkUniStreams(h *HTTP3) {
 	}
 }
 
-func (c *checker) checkH3Headers(p *Profile) {
+func (c *checker) checkH3Headers(p *Spec) {
 	hd := p.HTTP3.Headers
 	if hd == nil {
 		return

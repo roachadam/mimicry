@@ -182,7 +182,7 @@ func rawH3(t *testing.T) *Conn {
 		}
 	}()
 
-	p := profiles.Chrome()
+	p := profiles.Chrome().Spec()
 	plan := fingerprint.Compile(p)
 
 	spec, err := handshake.Spec(plan.QUICHello())

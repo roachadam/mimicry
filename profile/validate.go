@@ -56,7 +56,7 @@ func (c *checker) err() error {
 	}
 }
 
-// profileName is the form of Profile.Name, which also names the built-in
+// profileName is the form of Spec.Name, which also names the built-in
 // profile's file and accessor.
 var profileName = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
@@ -64,7 +64,7 @@ var profileName = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 // nil. It rejects what is malformed, forbidden, beyond what mimicry can
 // send, or not measured (decision 0008), but not what is merely unusual:
 // real browsers do odd things a profile must reproduce.
-func (p *Profile) Validate() error {
+func (p *Spec) Validate() error {
 	c := &checker{}
 	switch {
 	case p.Name == "":
@@ -133,14 +133,14 @@ func (p *Profile) Validate() error {
 }
 
 // scenarioName is the form of a capture scenario's name, a key of
-// Profile.CapturesFrom: "cookies", "h3-page", "replay-nike.com".
+// Spec.CapturesFrom: "cookies", "h3-page", "replay-nike.com".
 var scenarioName = regexp.MustCompile(`^[a-z0-9]+([.-][a-z0-9]+)*$`)
 
-// checkCapturesFrom checks that each Profile.CapturesFrom scenario names
+// checkCapturesFrom checks that each Spec.CapturesFrom scenario names
 // another browser-version-platform profile of the same browser. Whether
 // it exists, and its platform and version, are for cmd/profilegen and the
 // harness (decisions 0035, 0051).
-func (c *checker) checkCapturesFrom(p *Profile) {
+func (c *checker) checkCapturesFrom(p *Spec) {
 	for _, sc := range slices.Sorted(maps.Keys(p.CapturesFrom)) {
 		path := "capturesFrom." + sc
 		from := p.CapturesFrom[sc]

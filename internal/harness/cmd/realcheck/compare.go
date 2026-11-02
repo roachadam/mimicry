@@ -85,7 +85,7 @@ type randomness struct {
 	pnRandom bool
 }
 
-func randomnessOf(p *profile.Profile) (randomness, error) {
+func randomnessOf(p *profile.Spec) (randomness, error) {
 	r := randomness{
 		shuffled: p.TLS.ExtensionOrder == profile.ExtensionOrderShuffled,
 	}
@@ -254,7 +254,7 @@ func compare(out string) error {
 			return err
 		}
 
-		rnd, err := randomnessOf(prof)
+		rnd, err := randomnessOf(prof.Spec())
 		if err != nil {
 			return err
 		}

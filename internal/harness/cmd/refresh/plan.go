@@ -337,13 +337,13 @@ func (rep *preflightReport) installedVersion(browser string) string {
 }
 
 // loadProfiles decodes every profile in dir, by name.
-func loadProfiles(dir string) (map[string]*profile.Profile, error) {
+func loadProfiles(dir string) (map[string]*profile.Spec, error) {
 	files, err := filepath.Glob(filepath.Join(dir, "*.json"))
 	if err != nil {
 		return nil, err
 	}
 
-	out := map[string]*profile.Profile{}
+	out := map[string]*profile.Spec{}
 	for _, f := range files {
 		data, err := os.ReadFile(f)
 		if err != nil {
@@ -370,7 +370,7 @@ func major(version string) (int, bool) {
 }
 
 // planTarget fills in p from the preflight of its machine.
-func (r *refreshRun) planTarget(p *plan, rep *preflightReport, builtins map[string]*profile.Profile, cfg config) error {
+func (r *refreshRun) planTarget(p *plan, rep *preflightReport, builtins map[string]*profile.Spec, cfg config) error {
 	m := r.machine(p)
 	if m.windows {
 		// Everything the PC lacks, even with no browser to plan.
@@ -458,7 +458,7 @@ func (r *refreshRun) planTarget(p *plan, rep *preflightReport, builtins map[stri
 
 // newestProfile is the built-in profile of browser on platform with the
 // highest version, and that version; "" if there is none.
-func newestProfile(builtins map[string]*profile.Profile, browser, platform string) (string, int) {
+func newestProfile(builtins map[string]*profile.Spec, browser, platform string) (string, int) {
 	name, newest := "", 0
 
 	for _, b := range builtins {
@@ -810,7 +810,7 @@ func estimate(sc *server.Scenario, tool string, samples int) time.Duration {
 // of it. The default scenario is always captured; on iOS a scenario whose
 // macOS captures differ from the iPhone's (Scenario.NotInheritedOnIOS) is
 // not inherited.
-func inherit(p *plan, builtins map[string]*profile.Profile) map[string]string {
+func inherit(p *plan, builtins map[string]*profile.Spec) map[string]string {
 	prev := builtins[p.Previous]
 	if prev == nil {
 		return nil

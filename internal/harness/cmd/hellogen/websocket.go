@@ -17,7 +17,7 @@ import (
 // the server refuses extended CONNECT so each wss:// socket opens its own
 // HTTP/1.1 connection. Those hellos must be p's with one ALPN list and the
 // same extensions dropped.
-func websocketHello(dir string, p *profile.Profile) (*profile.WebSocketHello, error) {
+func websocketHello(dir string, p *profile.Spec) (*profile.WebSocketHello, error) {
 	t := &p.TLS
 
 	source, _, err := capture.Inherited(p, server.WebSocket.Name)
@@ -102,7 +102,7 @@ func socketHello(t, h *profile.TLS) (*profile.WebSocketHello, error) {
 
 	got.ExtensionOrder = want.ExtensionOrder
 
-	if diffs := diff.Compare(&profile.Profile{TLS: *want}, &profile.Profile{TLS: got}); len(diffs) > 0 {
+	if diffs := diff.Compare(&profile.Spec{TLS: *want}, &profile.Spec{TLS: got}); len(diffs) > 0 {
 		lines := make([]string, len(diffs))
 		for i, d := range diffs {
 			lines[i] = d.String()

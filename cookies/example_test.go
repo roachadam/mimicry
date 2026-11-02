@@ -16,7 +16,7 @@ import (
 // each pair.
 func ExampleJar_Set() {
 	jar, err := cookies.New(cookies.Config{
-		Rules: profiles.Chrome().Cookies,
+		Rules: profiles.Chrome().Spec().Cookies,
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -75,7 +75,7 @@ func ExampleJar_Set() {
 // that name and every name under it get them, nothing wider.
 func ExampleJar_SetString() {
 	jar, err := cookies.FromString("shop.test", "session=s1; cart=c9; __Host-sid=h1", cookies.Config{
-		Rules: profiles.Chrome().Cookies,
+		Rules: profiles.Chrome().Spec().Cookies,
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -126,7 +126,7 @@ func ExampleJar_SetString() {
 // not the names under it. IP addresses, which no Domain may name, too.
 func ExampleJar_SetHostString() {
 	jar, err := cookies.New(cookies.Config{
-		Rules: profiles.Chrome().Cookies,
+		Rules: profiles.Chrome().Spec().Cookies,
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -160,7 +160,7 @@ func ExampleJar_SetHostString() {
 // and a site's own cookie of the same name goes as well.
 func ExampleJar_SetString_anySite() {
 	jar, err := cookies.New(cookies.Config{
-		Rules: profiles.Chrome().Cookies,
+		Rules: profiles.Chrome().Spec().Cookies,
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -195,7 +195,7 @@ func ExampleJar_SetString_anySite() {
 
 // Save a jar between runs and restore it, every attribute kept.
 func ExampleJar_WriteJSON() {
-	rules := profiles.Chrome().Cookies
+	rules := profiles.Chrome().Spec().Cookies
 
 	jar, err := cookies.New(cookies.Config{
 		Rules: rules,

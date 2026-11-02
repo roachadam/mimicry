@@ -39,7 +39,7 @@ func TestGoAwayAsTheLastStreamEnds(t *testing.T) {
 		release: make(chan struct{}),
 	}
 	c, pr := newPeerWith(t, peerConfig{
-		profile: profiles.Firefox(),
+		profile: profiles.Firefox().Spec(),
 		clock:   clockwork.NewRealClock(),
 		wrap: func(conn net.Conn) net.Conn {
 			gate.Conn = conn
@@ -111,7 +111,7 @@ func TestGoAwayReply(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			p := *profiles.Chrome()
+			p := *profiles.Chrome().Spec()
 			h2 := *p.HTTP2
 
 			h2.GoAwayReply = tc.reply

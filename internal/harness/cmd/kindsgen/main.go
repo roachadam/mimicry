@@ -52,10 +52,12 @@ func run() error {
 // regenerate returns the profile JSON data with its kinds, context and
 // navigation variants derived from the captures in dir.
 func regenerate(data []byte, dir string) ([]byte, error) {
-	p, err := profile.Parse(data)
+	parsed, err := profile.Parse(data)
 	if err != nil {
 		return nil, err
 	}
+
+	p := parsed.Spec()
 
 	pages, err := loadPages(dir, p)
 	if err != nil {

@@ -19,18 +19,16 @@ import (
 )
 
 // charts writes the SVG charts of docs/performance.md from a report merged
-// from passes (bench merge -passes) and the raw micro benchmark output it
-// names, beside it: every number drawn is in the JSON or the micro file, a
-// median over the passes or runs. Each panel compares the clients at one
-// point in natural units, a horizontal bar per client sorted best first, so
-// that the eye reads who is ahead without decoding a ratio. The output
-// depends on the input alone, so the committed charts change only with the
-// report.
+// from passes (bench merge -passes): every number drawn is in the JSON, a
+// median over the passes. Each panel compares the clients at one point in
+// natural units, a horizontal bar per client sorted best first, so that
+// the eye reads who is ahead without decoding a ratio. The output depends
+// on the input alone, so the committed charts change only with the report.
 func charts(args []string) error {
 	fs := flag.NewFlagSet("charts", flag.ExitOnError)
 	in := fs.String("in", "", "a merged report's JSON (reports/<dir>/<name>-<date>.json)")
 	out := fs.String("out", "../../docs/perf", "directory for the SVGs")
-	uploads := fs.Bool("uploads", false, "draw only the upload charts (uploads.svg, uploads-go.svg, uploads-cpu.svg), from a report with uploads and no micro results")
+	uploads := fs.Bool("uploads", false, "draw only the upload charts (uploads.svg, uploads-go.svg, uploads-cpu.svg), from a report with uploads")
 
 	_ = fs.Parse(args)
 
@@ -71,15 +69,6 @@ func charts(args []string) error {
 			},
 		}
 	} else {
-		if r.MicroRaw == "" {
-			return errors.New("the report names no raw micro output (microRaw)")
-		}
-
-		cs.micro, err = readMicro(filepath.Join(filepath.Dir(*in), r.MicroRaw))
-		if err != nil {
-			return err
-		}
-
 		all = downloadCharts(&cs)
 	}
 
@@ -136,7 +125,6 @@ func downloadCharts(cs *chartSet) []chart {
 // chartSet draws one report's charts.
 type chartSet struct {
 	r      *report
-	micro  microSet
 	source string
 }
 
@@ -455,23 +443,6 @@ func figure(v float64) string {
 	return thousands(v)
 }
 
-// median is the middle of v, the mean of the two middle values for an even
-// count (benchstat's median).
-func median(v []float64) float64 {
-	if len(v) == 0 {
-		return 0
-	}
-
-	s := slices.Clone(v)
-	slices.Sort(s)
-
-	if len(s)%2 == 1 {
-		return s[len(s)/2]
-	}
-
-	return (s[len(s)/2-1] + s[len(s)/2]) / 2
-}
-
 // unitSuffix splits a size or duration as the reports write it: 1KB, 5ms.
 var unitSuffix = regexp.MustCompile(`^([0-9.]+)([A-Za-zµ]+)$`)
 
@@ -538,13 +509,6 @@ var (
 		more:  "%s more than %s",
 		less:  "%s fewer than %s",
 		times: "%s times as many as %s",
-	}
-	buildMicros = metric{
-		unit:  " µs",
-		lower: true,
-		more:  "%s slower than %s",
-		less:  "%s faster than %s",
-		times: "%s times as long as %s",
 	}
 )
 
@@ -1175,75 +1139,8 @@ func (cs *chartSet) dropped() (string, error) {
 	return c.finish(h, title), nil
 }
 
-// microSet is the raw micro benchmark output: each benchmark's values by
-// unit, one per run.
-type microSet map[string]map[string][]float64
-
-// procSuffix is the GOMAXPROCS suffix go test adds to a benchmark's name.
-var procSuffix = regexp.MustCompile(`-\d+$`)
-
-// readMicro reads go test -bench output: every result line's values.
-func readMicro(path string) (microSet, error) {
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	out := microSet{}
-
-	for line := range strings.Lines(string(b)) {
-		f := strings.Fields(line)
-		if len(f) < 4 || !strings.HasPrefix(f[0], "Benchmark") {
-			continue
-		}
-
-		name := procSuffix.ReplaceAllString(f[0], "")
-
-		if out[name] == nil {
-			out[name] = map[string][]float64{}
-		}
-
-		for i := 2; i+1 < len(f); i += 2 {
-			v, err := strconv.ParseFloat(f[i], 64)
-			if err != nil {
-				return nil, fmt.Errorf("%s: %q: %w", path, line, err)
-			}
-
-			out[name][f[i+1]] = append(out[name][f[i+1]], v)
-		}
-	}
-
-	return out, nil
-}
-
-// microBar is a client's bar for a benchmark: the median over its runs,
-// its range, scaled by div; n/a when it never ran.
-func (cs *chartSet) microBar(name, unit, client string, div float64) hbar {
-	short := client
-	if client == referenceClient {
-		short = "nethttp"
-	}
-
-	v := cs.micro[name+"/client="+short][unit]
-	if len(v) == 0 {
-		return hbar{
-			client: client,
-			na:     "n/a",
-		}
-	}
-
-	return hbar{
-		client: client,
-		v:      median(v) / div,
-		lo:     slices.Min(v) / div,
-		hi:     slices.Max(v) / div,
-		ranged: true,
-	}
-}
-
 // weakSpots draws where mimicry is slower: HTTP/3 bulk downloads many at
-// once (one at a time beside it), HTTP/1.1 many at once to one host, and
-// building a client.
+// once (one at a time beside it) and HTTP/1.1 many at once to one host.
 func (cs *chartSet) weakSpots() (string, error) {
 	rps := func(r *scenario.LoadResult) float64 {
 		return r.RPS
@@ -1274,32 +1171,12 @@ func (cs *chartSet) weakSpots() (string, error) {
 		}
 	}
 
-	const build = "BenchmarkNewClient/proto=h2/proxy=none"
-
-	runs := len(cs.micro[build+"/client=mimicry"]["ns/op"])
-	if runs == 0 {
-		return "", errors.New("no BenchmarkNewClient results")
-	}
-
-	ctor := cell{
-		title: "Building a client",
-		note:  "µs, lower is better",
-		m:     buildMicros,
-		foot: []string{fmt.Sprintf(
-			"The constructor and Close in a loop, no request (HTTP/2, no proxy); the median of %d runs. "+
-				"Build clients up front or one per identity, not one per request.", runs)},
-	}
-
-	for _, name := range cs.chartClients() {
-		ctor.bars = append(ctor.bars, cs.microBar(build, "ns/op", name, 1000))
-	}
-
 	var c canvas
 
 	title := "Where mimicry is slower"
 	y := cs.header(&c, title,
-		"Three points from the requests per second, and Go's benchmark of building a client. One bulk HTTP/3 download at "+
-			"a time, mimicry leads; with many at once, it trails.")
+		"Three points from the requests per second. One bulk HTTP/3 download at a time, mimicry leads; with many at once, it "+
+			"trails.")
 
 	y = grid(&c, y+12, 2, []gridRow{
 		{
@@ -1311,7 +1188,6 @@ func (cs *chartSet) weakSpots() (string, error) {
 		{
 			cells: []cell{
 				h1Many,
-				ctor,
 			},
 		},
 	})

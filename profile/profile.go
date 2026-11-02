@@ -1,17 +1,137 @@
-// Package profile defines a browser profile, split by concern (TLS, HTTP/2,
-// HTTP/1.1, headers by request kind, cookies, proxies, redirects, connection
-// sharing, WebSocket, QUIC, HTTP/3), and loads and validates it from JSON, the format the harness
-// writes browser captures in. It imports only the standard library.
+// Package profile defines a browser profile. A Profile is one checked and
+// ready to use: a small read-only value, safe to copy and to share between
+// clients, that mimicry.Config takes. A Spec is its data, split by concern
+// (TLS, HTTP/2, HTTP/1.1, headers by request kind, cookies, proxies,
+// redirects, connection sharing, WebSocket, QUIC, HTTP/3), to read or to
+// edit through Profile.With. The package loads and validates a profile
+// from JSON, the format the harness writes browser captures in. It imports
+// only the standard library, and internal/checked, through which the root
+// package reads the Spec a Profile holds.
 package profile
 
 import (
 	"encoding/json"
 	jsonv2 "encoding/json/v2"
+	"errors"
 	"fmt"
+
+	"github.com/roachadam/mimicry/internal/checked"
 )
 
-// Profile describes one browser version on one platform.
+// Profile is a checked browser profile, ready to use: a small value with no
+// exported fields, safe to copy and to share between clients, which
+// nothing can change. The built-in profiles are in package profiles; Parse
+// reads one from JSON; With makes an edited copy. The zero Profile is no
+// profile.
+//
+// Profiles of equal content share one checked copy of it, so building a
+// client from a Profile copies and checks nothing: build each profile
+// once, and reuse it for every client.
 type Profile struct {
+	c *compiled
+}
+
+// compiled is what a Profile holds: its Spec, validated and read-only,
+// shared by every Profile of equal content; or, for an edit that left it
+// invalid, the edited Spec and the problems found, never shared. A client
+// holds the Spec, which keeps its compiled.
+type compiled struct {
+	spec Spec
+	err  error
+}
+
+// Name is the profile's name, such as "chrome-156-macos"; "" for the zero
+// Profile.
+func (p Profile) Name() string {
+	if p.c == nil {
+		return ""
+	}
+
+	return p.c.spec.Name
+}
+
+// UserAgent is the User-Agent header the profile's navigation sends; ""
+// for the zero Profile.
+func (p Profile) UserAgent() string {
+	if p.c == nil {
+		return ""
+	}
+
+	for _, h := range p.c.spec.Headers {
+		if h.Name == "user-agent" {
+			return h.Value
+		}
+	}
+
+	return ""
+}
+
+// Spec returns a deep copy of the profile's data, for reading what the
+// profile sends, saving it with Encode, or a value Name and UserAgent don't
+// cover (a standalone cookie jar's Cookies rules, say). Changing the copy
+// changes no Profile; to edit a profile, use With. A copy costs as much as
+// With, so read it once rather than per request; requests never need it.
+// The zero Profile's is empty.
+func (p Profile) Spec() *Spec {
+	s := new(Spec)
+	if p.c != nil {
+		copySpec(s, &p.c.spec)
+	}
+
+	return s
+}
+
+// With returns a copy of p with edit applied to a copy of its data,
+// checked once. With never fails: when the edited data is invalid, the
+// Profile it returns carries the problems (a *ValidationError), and
+// building a client from it returns them. Its Spec is then the edited data,
+// so a further With can fix it. On the zero Profile, edit starts from an
+// empty Spec.
+//
+// With reads the whole profile, a fraction of a millisecond; a client
+// built from its result copies nothing. Edit once and reuse the result:
+// what differs between the clients of one profile (a user agent, the
+// Accept-Language, a proxy) belongs in mimicry.Config, its Header and
+// Proxy, not in a Profile per client. Profiles With returns for equal
+// data share one copy of it.
+func (p Profile) With(edit func(*Spec)) Profile {
+	s := p.Spec()
+	if edit != nil {
+		edit(s)
+	}
+
+	return Profile{
+		c: checkEdited(s),
+	}
+}
+
+// errNoProfile is checkedSpec's error for the zero Profile.
+var errNoProfile = errors.New("profile: the zero Profile is no profile")
+
+// checkedSpec returns the validated Spec p holds, read-only, or the
+// problems With found in it. The root package reads it through
+// internal/checked.
+func checkedSpec(p Profile) (*Spec, error) {
+	switch {
+	case p.c == nil:
+		return nil, errNoProfile
+	case p.c.err != nil:
+		return nil, p.c.err
+	default:
+		return &p.c.spec, nil
+	}
+}
+
+// The root package reads a Profile's Spec through internal/checked, which
+// cannot import this package to name its type.
+var _ = func() bool {
+	checked.Spec = checkedSpec
+
+	return true
+}()
+
+// Spec is a browser profile's data: one browser version on one platform.
+type Spec struct {
 	// Name identifies the profile, for example "chrome-155-macos":
 	// lowercase letters and digits in parts joined by dashes.
 	Name     string `json:"name"`
@@ -73,7 +193,7 @@ type Profile struct {
 type HTTP1 struct {
 	// Headers of a navigation request, in order, named exactly as sent
 	// ("User-Agent", "sec-ch-ua"). Host takes the request's host, and
-	// Content-Length the body's length; values work as in Profile.Headers.
+	// Content-Length the body's length; values work as in Spec.Headers.
 	Headers []Header `json:"headers"`
 	// UploadRecords is how the browser cuts a request with a body into
 	// TLS records; hellogen derives it from the http1-upload captures.
@@ -101,25 +221,35 @@ type UploadRecords struct {
 // or body, in every captured browser.
 const MaxRecord = 16384
 
-// Parse decodes a profile from JSON, as Decode, and validates it.
-func Parse(data []byte) (*Profile, error) {
-	p, err := Decode(data)
+// Parse decodes a profile from JSON, as Decode, validates it and returns
+// it checked, sharing its copy with every Profile of equal content.
+func Parse(data []byte) (Profile, error) {
+	s, err := Decode(data)
 	if err != nil {
-		return nil, err
+		return Profile{}, err
 	}
 
-	if err := p.Validate(); err != nil {
-		return nil, err
+	if err := s.Validate(); err != nil {
+		return Profile{}, err
 	}
 
-	return p, nil
+	c, key := find(s)
+	if c == nil {
+		c = keep(key, &compiled{
+			spec: *s,
+		})
+	}
+
+	return Profile{
+		c: c,
+	}, nil
 }
 
 // Decode decodes a profile from JSON without validating it, for harness
 // captures, which lack what a complete profile needs. Unknown, miscased and
 // repeated keys and trailing data are errors.
-func Decode(data []byte) (*Profile, error) {
-	var p Profile
+func Decode(data []byte) (*Spec, error) {
+	var p Spec
 	if err := jsonv2.Unmarshal(data, &p, jsonv2.RejectUnknownMembers(true)); err != nil {
 		return nil, fmt.Errorf("profile: %w", err)
 	}
@@ -129,7 +259,7 @@ func Decode(data []byte) (*Profile, error) {
 
 // Encode writes p as indented JSON with a trailing newline. It does not
 // validate p, so captures of unusual browser behaviour can be recorded.
-func Encode(p *Profile) ([]byte, error) {
+func Encode(p *Spec) ([]byte, error) {
 	out, err := json.MarshalIndent(p, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("profile: %w", err)

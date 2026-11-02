@@ -125,7 +125,7 @@ func headerList(h http.Header, name string) []string {
 // gets: those its kind's header lists name, such as a User-Agent or
 // Accept-Language override, so it goes as the request does; never the
 // page's own, such as an API key, which a preflight never carries.
-func PreflightHeaders(p *profile.Profile, config http.Header) http.Header {
+func PreflightHeaders(p *profile.Spec, config http.Header) http.Header {
 	kind := p.Kinds[profile.KindPreflight]
 	if kind == nil {
 		return nil

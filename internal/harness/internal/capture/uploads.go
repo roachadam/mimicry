@@ -96,7 +96,7 @@ func FromFile(path string) bool {
 // profile's testing-build capture (<name>.http1-upload.chrome-for-testing
 // .h1trace.json.gz, decision 0042: the record cut is the network stack's,
 // which a testing build shares with the brand), those that exist.
-func UploadFiles(dir string, p *profile.Profile) ([]string, error) {
+func UploadFiles(dir string, p *profile.Spec) ([]string, error) {
 	source := Source(p, UploadScenario)
 
 	var out []string
@@ -129,7 +129,7 @@ func UploadFiles(dir string, p *profile.Profile) ([]string, error) {
 // in one record, which the next byte up must have split (the samples
 // measure it, not bracket it). Requests with a Blob or File body
 // (FromFile) count for the first only. Nil when no capture measured it.
-func UploadRecords(dir string, p *profile.Profile) (*profile.UploadRecords, error) {
+func UploadRecords(dir string, p *profile.Spec) (*profile.UploadRecords, error) {
 	files, err := UploadFiles(dir, p)
 	if err != nil || len(files) == 0 {
 		return nil, err

@@ -52,7 +52,7 @@ func main() {
 	os.Exit(1)
 }
 
-func load(path string) (*profile.Profile, error) {
+func load(path string) (*profile.Spec, error) {
 	data, err := os.ReadFile(path) //nolint:gosec // reading the files named on the command line is the point
 	if err != nil {
 		return nil, err

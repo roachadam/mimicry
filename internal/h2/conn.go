@@ -237,7 +237,7 @@ type ending struct {
 // New opens an HTTP/2 connection on conn, which must have negotiated "h2",
 // and sends the profile's preface. p must have HTTP2; clock drives the
 // profile's timers.
-func New(conn net.Conn, p *profile.Profile, clock clockwork.Clock) (*Conn, error) {
+func New(conn net.Conn, p *profile.Spec, clock clockwork.Clock) (*Conn, error) {
 	h2 := p.HTTP2
 	firstID := h2.FirstStreamID
 
@@ -327,7 +327,7 @@ func New(conn net.Conn, p *profile.Profile, clock clockwork.Clock) (*Conn, error
 // conn without acknowledging the server's SETTINGS. Firefox does this to a
 // connection made unnecessary by coalescing; see decision 0023. conn is
 // closed on errors too.
-func Decline(conn net.Conn, p *profile.Profile) error {
+func Decline(conn net.Conn, p *profile.Spec) error {
 	w := &connWriter{
 		conn: conn,
 	}
@@ -571,7 +571,7 @@ func bodyLength(req *http.Request) int64 {
 
 // Head returns the header list, pseudo-headers first, that a connection
 // for p sends for req, or the error RoundTrip would return before sending.
-func Head(p *profile.Profile, req *http.Request) ([]hpack.Field, error) {
+func Head(p *profile.Spec, req *http.Request) ([]hpack.Field, error) {
 	head, err := buildHead(nil, p.Headers, p.HTTP2, req, bodyLength(req), "")
 	return head.fields, err
 }

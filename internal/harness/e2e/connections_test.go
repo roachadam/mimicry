@@ -59,7 +59,7 @@ const unusedOpeningMillis = 50
 // one: the first connection to the page's first host that carried no
 // request and opened within unusedOpeningMillis of the first, from its
 // connections and its HTTP/2 traces.
-func dropUnusedOpenings(p *profile.Profile, scenario string, pages []*capture.Page) {
+func dropUnusedOpenings(p *profile.Spec, scenario string, pages []*capture.Page) {
 	if !unusedOpenings[capture.Source(p, scenario)] {
 		return
 	}

@@ -124,7 +124,7 @@ type WebSocketHello struct {
 
 // checkWebSocket checks the websocket section: the offer, known values,
 // and the websocket kind and TLS.WebSocketH1 it needs.
-func (c *checker) checkWebSocket(p *Profile) {
+func (c *checker) checkWebSocket(p *Spec) {
 	ws := p.WebSocket
 	if ws == nil {
 		return

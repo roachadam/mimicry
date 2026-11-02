@@ -339,10 +339,11 @@ func TestUnmeasuredProxyIsAnError(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			p := profiles.Chrome()
-			if tc.strip != nil {
-				p.Proxy = tc.strip(p.Proxy)
-			}
+			p := profiles.Chrome().With(func(s *profile.Spec) {
+				if tc.strip != nil {
+					s.Proxy = tc.strip(s.Proxy)
+				}
+			})
 
 			scheme := tc.scheme
 			if scheme == "" {
@@ -398,7 +399,7 @@ type proxySession struct {
 	captures chan *capture.Capture
 }
 
-func startProxied(t *testing.T, p *profile.Profile, sc *server.Scenario, user *url.Userinfo, browserAuth bool) *proxySession {
+func startProxied(t *testing.T, p *profile.Spec, sc *server.Scenario, user *url.Userinfo, browserAuth bool) *proxySession {
 	t.Helper()
 
 	ca, err := server.LoadOrCreateCA(t.TempDir(), server.CADomains, time.Now())
@@ -474,7 +475,7 @@ func startProxied(t *testing.T, p *profile.Profile, sc *server.Scenario, user *u
 	})
 
 	s.tr, err = mimicry.NewTransport(mimicry.Config{
-		Profile: p,
+		Profile: checked(p),
 		RootCAs: s.pool,
 		Cookies: s.jar,
 		Proxy: http.ProxyURL(&url.URL{
@@ -604,14 +605,14 @@ func (s *proxySession) h1() []capture.H1Request {
 
 // checkTunnelledHello checks that the ClientHello through the tunnel is
 // the profile's.
-func (s *proxySession) checkTunnelledHello(p *profile.Profile) {
+func (s *proxySession) checkTunnelledHello(p *profile.Spec) {
 	s.t.Helper()
 
 	c := s.capture()
-	got := profile.Profile{
+	got := profile.Spec{
 		TLS: c.Profile.TLS,
 	}
-	want := profile.Profile{
+	want := profile.Spec{
 		TLS: p.TLS,
 	}
 

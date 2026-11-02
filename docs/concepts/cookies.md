@@ -18,7 +18,7 @@ your own jar and pass it in:
 
 ```go
 jar, err := cookies.New(cookies.Config{
-	Rules: profiles.Chrome().Cookies,
+	Rules: profiles.Chrome().Spec().Cookies,
 	OnSetCookie: func(e cookies.Event) {
 		if e.Rejected != "" {
 			log.Printf("%s dropped %q: %s", e.URL, e.Line, e.Rejected)

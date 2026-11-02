@@ -39,7 +39,7 @@ is the run before it.
   behind tls-client at three of the four points to the Go server. Over
   HTTP/3 (to the Go server) it uploaded 20–77% less, at 1.3–3.3 times
   their CPU. Points where the server was the limit are left out.
-- **Slower in five places**, covered in
+- **Slower in four places**, covered in
   [Where mimicry is slower](#where-mimicry-is-slower).
 
 ![Requests per second for each client at every load point, per protocol, mimicry highlighted](perf/throughput.svg)
@@ -100,6 +100,22 @@ their memory grew 35–228 MB per second. mimicry's grew 1.1–2.5 MB per
 second.
 
 ![Tunnels left open at the proxy and process memory per client library when old clients are dropped without closing them, per route](perf/dropped-clients.svg)
+
+### Building a client
+
+`NewClient` takes 1.3–2.1 µs and 2.1–2.8 KB with a built-in profile, or
+with an edited one built once and reused (`BenchmarkNewClient`, same host,
+HTTP/1.1 to HTTP/3, with and without SOCKS5, 3 passes, measured after the
+report). On that host `net/http`, tls-client and azuretls took 0.3–2.8 µs
+and httpcloak 38–41 µs. A profile is checked and copied once, when it is
+built; its clients share it and copy nothing. Before that change every
+client copied and fingerprinted its profile: 245–256 µs and 126 KB
+([decision 0044, amendment](decisions/0044-profile-fingerprint.md#amendment-2026-11-02-immutable-profiles-identity-is-enough)).
+
+`Profile.With` costs about 200 µs and 120 KB a call: edit a profile once
+and reuse the result. Headers that differ per identity, such as
+`Accept-Language` or a user agent, belong in `Config.Header`, which costs
+nothing extra.
 
 ### Uploads
 
@@ -163,7 +179,7 @@ through nginx's HTTP/3).
 
 ### Where mimicry is slower
 
-![Where mimicry is slower: HTTP/3 at 100 KB one at a time and 64 at once, HTTP/1.1 at 1 KB 64 at once, and building a client](perf/weak-spots.svg)
+![Where mimicry is slower: HTTP/3 at 100 KB one at a time and 64 at once, and HTTP/1.1 at 1 KB 64 at once](perf/weak-spots.svg)
 
 **HTTP/3 bulk downloads with many requests at once.** At 100 KB and 64 at
 once, mimicry served 4,408 requests per second. The others served
@@ -178,12 +194,6 @@ second ([decision 0045](decisions/0045-udp-receive-buffer-default.md)).
 64 at once it served 90,263 requests per second; `net/http` served
 192,409. Its p99 latency was lower: 1.11 ms against 2.02 ms.
 `Config.MaxConnsPerHost` raises the limit.
-
-**Building a client.** `NewClient` takes about 235 µs and 122 KB. Most of
-that copies the browser profile and finds a shared decoded copy of it.
-`net/http`, tls-client and azuretls take 0.2–2.2 µs; httpcloak takes
-36 µs. Build clients up front, or keep one per identity, rather than one
-per request.
 
 **Memory when the proxy changes often.** When `Config.Proxy` returns a new
 identity every few requests, mimicry keeps recent idle connections. In the
