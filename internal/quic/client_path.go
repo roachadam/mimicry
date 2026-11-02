@@ -210,15 +210,7 @@ func (c *Conn) clientSent(now time.Time) {
 
 // oldestUnacked is the oldest ack-eliciting 1-RTT packet still in flight.
 func (c *Conn) oldestUnacked() *sentPacket {
-	s := &c.loss.spaces[appDataSpace]
-	for i := range s.size {
-		sent := s.nth(i)
-		if sent.state == sentPacketSent && sent.ackEliciting && sent.inFlight {
-			return sent
-		}
-	}
-
-	return nil
+	return c.loss.spaces[appDataSpace].oldestAckEliciting()
 }
 
 // clientPathAdvance acts on the path watch's timer.
@@ -473,7 +465,7 @@ func (s *swapPacketConn) swap(pc packetConn) {
 	_ = old.Close()
 }
 
-func (s *swapPacketConn) Read(f func(*datagram)) error {
+func (s *swapPacketConn) Read(f func([]*datagram)) error {
 	for {
 		pc, gen := s.current()
 		err := pc.Read(f)

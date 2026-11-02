@@ -15,6 +15,9 @@ type sentPacketList struct {
 	off     int          // offset of first packet in the buffer
 	size    int          // number of packets
 	p       []*sentPacket
+	// mimicry: unackedFrom is where oldestAckEliciting looks from: no
+	// packet before it is an ack-eliciting one in flight.
+	unackedFrom packetNumber
 }
 
 // start is the first packet in the list.
@@ -61,6 +64,33 @@ func (s *sentPacketList) num(num packetNumber) *sentPacket {
 		return nil
 	}
 	return s.nth(i)
+}
+
+// oldestAckEliciting is the oldest ack-eliciting packet in flight (sent,
+// neither acked nor lost), or nil.
+//
+// mimicry: the client's path watch asks after every event (client_path.go,
+// UPSTREAM.md change 25). A packet's state only ever leaves sentPacketSent,
+// and whether it is ack-eliciting and in flight is set before it is added,
+// so a packet that is not such a packet now never becomes one: each search
+// goes on from where the last stopped, past the ACK-only packets that
+// stay sent until a later ack declares them lost.
+func (s *sentPacketList) oldestAckEliciting() *sentPacket {
+	n := max(s.unackedFrom, s.start())
+	for ; n < s.end(); n++ {
+		sent := s.num(n)
+		if sent.state == sentPacketSent && sent.ackEliciting && sent.inFlight {
+			break
+		}
+	}
+
+	s.unackedFrom = n
+
+	if n == s.end() {
+		return nil
+	}
+
+	return s.num(n)
 }
 
 // clean removes all acked or lost packets from the head of the list.

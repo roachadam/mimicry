@@ -275,7 +275,7 @@ uploads measured (about 2 h 15 min), checked out at the commit that adds
 its report:
 
 ```sh
-BENCH_NAME=uploads BENCH_PASSES=3 BENCH_MIMICRY_COMMIT=h1-upload-records BENCH_PUBLISH=0 \
+BENCH_NAME=uploads BENCH_PASSES=3 BENCH_MIMICRY_COMMIT=d056807 BENCH_PUBLISH=0 \
   BENCH_CLIENT_CPUS=0,2,4,6 BENCH_SERVER_CPUS=8-11 BENCH_SERVER_PROCS=4 BENCH_PROXY_CPUS=12-15 \
   nohup internal/bench/scripts/bench.sh report -layers 3,6 -micro "" -uploads all -downloads=false \
   -servers nginx,go -multi-variants fixed -multi-n2 0 > uploads.log 2>&1 &

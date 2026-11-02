@@ -45,7 +45,8 @@ func (c *netPacketConn) LocalAddrFor(remote netip.AddrPort) (netip.AddrPort, err
 	return c.localAddr, nil
 }
 
-func (c *netPacketConn) Read(f func(*datagram)) error {
+func (c *netPacketConn) Read(f func([]*datagram)) error {
+	var one [1]*datagram // mimicry: Read's batch of one
 	for {
 		dgram := newDatagram()
 		n, peerAddr, err := c.c.ReadFrom(dgram.b)
@@ -57,7 +58,8 @@ func (c *netPacketConn) Read(f func(*datagram)) error {
 			continue
 		}
 		dgram.b = dgram.b[:n]
-		f(dgram)
+		one[0] = dgram
+		f(one[:])
 	}
 }
 

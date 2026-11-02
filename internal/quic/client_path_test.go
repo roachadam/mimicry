@@ -112,11 +112,19 @@ func TestClientPathDegradingMove(t *testing.T) {
 func (tc *testConn) serverOneRTT(frames ...debugFrame) {
 	tc.t.Helper()
 
+	tc.conn.sendMsg(tc.serverOneRTTDatagram(frames...))
+	synctest.Wait()
+}
+
+// serverOneRTTDatagram is serverOneRTT's datagram, not sent.
+func (tc *testConn) serverOneRTTDatagram(frames ...debugFrame) *datagram {
+	tc.t.Helper()
+
 	d := tc.newDatagramWithFrames(packetType1RTT, frames...)
 	tc.peerNextPacketNum[appDataSpace]++
-	tc.conn.sendMsg(&datagram{
+
+	return &datagram{
 		b:    encodeTestPacket(tc.t, tc, d.packets[0], 0),
 		path: tc.path,
-	})
-	synctest.Wait()
+	}
 }
