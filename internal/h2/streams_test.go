@@ -71,7 +71,7 @@ func setting(p *profile.Spec, id http2.SettingID) uint32 {
 // A request cancelled while the read loop is delivering its response
 // HEADERS fails with the context's error and leaves the read loop running.
 func TestCancelAsResponseHeadersArrive(t *testing.T) {
-	c, pr := newPeer(t, profiles.Safari().Spec(), clockwork.NewRealClock())
+	c, pr := newPeer(t, profiles.SafariMacOS().Spec(), clockwork.NewRealClock())
 	ctx, cancel := context.WithCancel(t.Context())
 	result := roundTripAsync(c, get(t, "/").WithContext(ctx))
 	h := pr.headers()
@@ -106,7 +106,7 @@ func TestCancelAsResponseHeadersArrive(t *testing.T) {
 // Response bytes nobody reads go back to the connection window; otherwise
 // a few abandoned downloads stall every later response.
 func TestClosedBodyReturnsConnectionCredit(t *testing.T) {
-	p := profiles.Safari().Spec()
+	p := profiles.SafariMacOS().Spec()
 	c, pr := newPeer(t, p, clockwork.NewRealClock())
 	window := int(setting(p, http2.SettingInitialWindowSize))
 	chunk := make([]byte, 16384)
@@ -154,7 +154,7 @@ func TestClosedBodyReturnsConnectionCredit(t *testing.T) {
 // Cancelling the request context ends a body read in progress and resets
 // the stream.
 func TestContextBoundsBodyRead(t *testing.T) {
-	c, pr := newPeer(t, profiles.Chrome().Spec(), clockwork.NewRealClock())
+	c, pr := newPeer(t, profiles.ChromeMacOS().Spec(), clockwork.NewRealClock())
 	ctx, cancel := context.WithCancel(t.Context())
 	result := roundTripAsync(c, get(t, "/").WithContext(ctx))
 	h := pr.headers()
@@ -192,7 +192,7 @@ func TestContextBoundsBodyRead(t *testing.T) {
 // A body whose length net/http could not measure (ContentLength 0, Body
 // set) is sent in DATA frames without a content-length, not dropped.
 func TestUnknownLengthBody(t *testing.T) {
-	c, pr := newPeer(t, profiles.Chrome().Spec(), clockwork.NewRealClock())
+	c, pr := newPeer(t, profiles.ChromeMacOS().Spec(), clockwork.NewRealClock())
 	req := newRequest(t, http.MethodPost, "https://example.com/post", io.NopCloser(strings.NewReader("payload")))
 
 	if req.ContentLength != 0 || req.Body == nil {
@@ -245,7 +245,7 @@ func TestUnknownLengthBody(t *testing.T) {
 // A peer that sends past the stream window we advertised gets that stream
 // reset with FLOW_CONTROL_ERROR; the connection keeps working.
 func TestStreamReceiveWindowEnforced(t *testing.T) {
-	p := profiles.Safari().Spec()
+	p := profiles.SafariMacOS().Spec()
 	c, pr := newPeer(t, p, clockwork.NewRealClock())
 	window := int(setting(p, http2.SettingInitialWindowSize))
 	result := roundTripAsync(c, get(t, "/"))
@@ -288,7 +288,7 @@ func TestStreamReceiveWindowEnforced(t *testing.T) {
 // A stream error (a zero WINDOW_UPDATE on a stream, RFC 9113, 6.9) resets
 // that stream only; the others and the connection carry on.
 func TestStreamErrorResetsOnlyItsStream(t *testing.T) {
-	c, pr := newPeer(t, profiles.Chrome().Spec(), clockwork.NewRealClock())
+	c, pr := newPeer(t, profiles.ChromeMacOS().Spec(), clockwork.NewRealClock())
 	first := roundTripAsync(c, get(t, "/1"))
 	h1 := pr.headers()
 	second := roundTripAsync(c, get(t, "/2"))
@@ -325,7 +325,7 @@ func TestStreamErrorResetsOnlyItsStream(t *testing.T) {
 // After GOAWAY, a stream past LastStreamID fails with ErrConnUnusable while
 // the others run to completion, and then the connection closes.
 func TestGoAwayDrains(t *testing.T) {
-	c, pr := newPeer(t, profiles.Chrome().Spec(), clockwork.NewRealClock())
+	c, pr := newPeer(t, profiles.ChromeMacOS().Spec(), clockwork.NewRealClock())
 	first := roundTripAsync(c, get(t, "/1"))
 	h1 := pr.headers()
 	second := roundTripAsync(c, get(t, "/2"))
@@ -391,7 +391,7 @@ func TestClosedCompleteBodyIdlesConnection(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			c, pr := newPeer(t, profiles.Safari().Spec(), clockwork.NewFakeClock())
+			c, pr := newPeer(t, profiles.SafariMacOS().Spec(), clockwork.NewFakeClock())
 			result := roundTripAsync(c, get(t, "/"))
 			h := pr.headers()
 

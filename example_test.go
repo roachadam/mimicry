@@ -99,7 +99,7 @@ func ExampleAs() {
 	defer shop.Close()
 
 	client, err := mimicry.NewClient(mimicry.Config{
-		Profile: profiles.Chrome(),
+		Profile: profiles.ChromeMacOS(),
 		// Only to reach the local stand-in shop; nil for real sites.
 		RootCAs:     shop.RootCAs,
 		DialContext: shop.DialContext,
@@ -175,7 +175,7 @@ func ExampleAs_addToCart() {
 	defer shop.Close()
 
 	client, err := mimicry.NewClient(mimicry.Config{
-		Profile: profiles.Chrome(),
+		Profile: profiles.ChromeMacOS(),
 		// Only to reach the local stand-in shop; nil for real sites.
 		RootCAs:     shop.RootCAs,
 		DialContext: shop.DialContext,
@@ -260,7 +260,7 @@ func ExampleWith() {
 	defer shop.Close()
 
 	client, err := mimicry.NewClient(mimicry.Config{
-		Profile: profiles.Chrome(),
+		Profile: profiles.ChromeMacOS(),
 		// Only to reach the local stand-in shop; nil for real sites.
 		RootCAs:     shop.RootCAs,
 		DialContext: shop.DialContext,
@@ -356,7 +356,7 @@ func ExampleConfig_cookies() {
 	// NewClient makes a jar with the profile's rules; Transport.Cookies
 	// returns it. Pass Config.Cookies to share one between Transports.
 	client, err := mimicry.NewClient(mimicry.Config{
-		Profile: profiles.Chrome(),
+		Profile: profiles.ChromeMacOS(),
 		// Only to reach the local stand-in shop; nil for real sites.
 		RootCAs:     shop.RootCAs,
 		DialContext: shop.DialContext,
@@ -426,7 +426,7 @@ func ExampleConfig_sharedJar() {
 	})
 	defer shop.Close()
 
-	p := profiles.Chrome()
+	p := profiles.ChromeMacOS()
 
 	jar, err := cookies.New(cookies.Config{
 		Rules: p.Spec().Cookies,
@@ -621,7 +621,7 @@ func ExampleConfig_proxy() {
 	}
 
 	client, err := mimicry.NewClient(mimicry.Config{
-		Profile: profiles.Chrome(),
+		Profile: profiles.ChromeMacOS(),
 		Proxy: func(*http.Request) (*url.URL, error) {
 			return current.Load(), nil
 		},
@@ -695,7 +695,7 @@ func ExampleConfig_disableHTTP3() {
 	defer shop.Close()
 
 	client, err := mimicry.NewClient(mimicry.Config{
-		Profile:      profiles.Chrome(),
+		Profile:      profiles.ChromeMacOS(),
 		DisableHTTP3: true,
 		// Only to reach the local stand-in shop; nil for real sites.
 		RootCAs:     shop.RootCAs,
@@ -739,7 +739,7 @@ func ExampleAltSvcCache() {
 	cache := mimicry.NewAltSvcCache()
 
 	client, err := mimicry.NewClient(mimicry.Config{
-		Profile: profiles.Chrome(),
+		Profile: profiles.ChromeMacOS(),
 		AltSvc:  cache,
 		// Only to reach the local stand-in shop; nil for real sites.
 		RootCAs:     shop.RootCAs,
@@ -801,7 +801,7 @@ func ExampleConfig_pins() {
 	defer shop.Close()
 
 	cfg := mimicry.Config{
-		Profile: profiles.Chrome(),
+		Profile: profiles.ChromeMacOS(),
 		// Only to reach the local stand-in shop; nil for real sites.
 		RootCAs:     shop.RootCAs,
 		DialContext: shop.DialContext,
@@ -1051,7 +1051,7 @@ func ExampleTransport_DialWebSocket() {
 	defer shop.Close()
 
 	client, err := mimicry.NewClient(mimicry.Config{
-		Profile: profiles.Chrome(),
+		Profile: profiles.ChromeMacOS(),
 		// Only to reach the local stand-in shop; nil for real sites.
 		RootCAs:     shop.RootCAs,
 		DialContext: shop.DialContext,

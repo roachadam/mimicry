@@ -16,7 +16,7 @@ Contributions are welcome: bug reports, fixes, new profiles, docs.
 Include:
 
 - the mimicry version or commit, and the Go version;
-- the profile (`profiles.Chrome()`, `chrome-156-macos`, …);
+- the profile (`profiles.ChromeMacOS()`, `chrome-156-macos`, …);
 - what you sent, what you expected, and what happened (a minimal program
   is best);
 - for a fingerprint mismatch, how you observed it (a fingerprint service,

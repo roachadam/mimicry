@@ -206,7 +206,7 @@ func TestGoAwayReachesTCPConnectionEstablishedAfterQUIC(t *testing.T) {
 	n := newFakeNet(t, answerThenWatchGoAway(headers, goaway, nil, 50*time.Millisecond))
 	dial, dialing, release := blockingDial(n, nil)
 	e := newTestEngine(t, options{
-		profile: profiles.Firefox().Spec(),
+		profile: profiles.FirefoxMacOS().Spec(),
 		dial:    dial,
 	})
 	port, _ := quicServer(t, false)
@@ -348,7 +348,7 @@ func TestRaceAfterGoAwayWaitsForTheTCPResponse(t *testing.T) {
 	t.Cleanup(answer)
 
 	e := newTestEngine(t, options{
-		profile: profiles.Firefox().Spec(),
+		profile: profiles.FirefoxMacOS().Spec(),
 		dial:    n.dial,
 	})
 	port, accepted := quicServer(t, true)
@@ -421,7 +421,7 @@ func TestRaceAfterGoAwayWaitsForTheTCPResponse(t *testing.T) {
 // attempts, broken after 2.
 func TestQUICAttemptCountsOnlyOnceItSent(t *testing.T) {
 	e := newTestEngine(t, options{
-		profile: profiles.Safari().Spec(),
+		profile: profiles.SafariMacOS().Spec(),
 	})
 
 	pc, err := (&net.ListenConfig{}).ListenPacket(t.Context(), "udp", ":0")
@@ -507,7 +507,7 @@ func TestDialDelayAfterReconnect(t *testing.T) {
 	clock := clockwork.NewFakeClockAt(time.Now())
 	engine := func(browser bool) *Engine {
 		return newTestEngine(t, options{
-			profile:          profiles.Safari().Spec(),
+			profile:          profiles.SafariMacOS().Spec(),
 			clock:            clock,
 			browserDialDelay: browser,
 		})

@@ -4,7 +4,7 @@
 // them.
 //
 //	client, err := mimicry.NewClient(mimicry.Config{
-//		Profile: profiles.Chrome(),
+//		Profile: profiles.ChromeMacOS(),
 //	})
 //	if err != nil {
 //		return err
@@ -68,7 +68,7 @@ type engine interface {
 type Config struct {
 	// Essentials and network.
 
-	// Profile is the browser to impersonate, such as profiles.Chrome(), or
+	// Profile is the browser to impersonate, such as profiles.ChromeMacOS(), or
 	// an edited copy of one (Profile.With). Required. A Profile is
 	// checked once and read-only, so building a Transport from one copies
 	// nothing: reuse it for every Transport. An edit With found invalid is

@@ -196,7 +196,7 @@ func onWindows(ps []*profile.Spec) []*profile.Spec {
 }
 
 // A Windows profile gets its own newest-version accessor and versioned one;
-// the unqualified accessor stays on macOS (decision 0047).
+// every newest-version accessor names its platform (decision 0047).
 func TestGenerateWindows(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.Mkdir(filepath.Join(dir, "data"), 0o700); err != nil {
@@ -230,7 +230,7 @@ func TestGenerateWindows(t *testing.T) {
 	}
 
 	for _, want := range []string{
-		"func Chrome() profile.Profile {\n\treturn load(\"chrome-155-macos\")\n}",
+		"func ChromeMacOS() profile.Profile {\n\treturn load(\"chrome-155-macos\")\n}",
 		"func ChromeWindows() profile.Profile {\n\treturn load(\"chrome-156-windows\")\n}",
 		"func Chrome155Windows() profile.Profile {\n\treturn load(\"chrome-155-windows\")\n}",
 		"func Chrome156Windows() profile.Profile {\n\treturn load(\"chrome-156-windows\")\n}",
@@ -240,8 +240,8 @@ func TestGenerateWindows(t *testing.T) {
 		}
 	}
 
-	if bytes.Contains(src, []byte("func ChromeMacOS()")) {
-		t.Error("generated a platform accessor for the default platform")
+	if bytes.Contains(src, []byte("func Chrome()")) {
+		t.Error("generated an accessor that does not name its platform")
 	}
 
 	// A name that does not say the profile's platform is refused.

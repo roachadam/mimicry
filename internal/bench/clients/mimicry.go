@@ -13,7 +13,7 @@ import (
 	"github.com/roachadam/mimicry/profiles"
 )
 
-// mimicryClient is mimicry with profiles.Chrome(). HTTP/1.1 is tested on the
+// mimicryClient is mimicry with profiles.ChromeMacOS(). HTTP/1.1 is tested on the
 // servers' http/1.1-only port and HTTP/2 with Config.DisableHTTP3; HTTP/3
 // has no switch: the Transport moves to it after the server's Alt-Svc, as
 // Chrome does, so callers warm up until responses come over HTTP/3.
@@ -31,7 +31,7 @@ func mimicryClient() Factory {
 	return Factory{
 		Name:      "mimicry",
 		Module:    "github.com/roachadam/mimicry",
-		Profile:   profiles.Chrome().Name(),
+		Profile:   profiles.ChromeMacOS().Name(),
 		New:       mimicryWith(nil),
 		Returning: true,
 	}
@@ -138,7 +138,7 @@ func mimicryWith(set func(*mimicry.Config)) func(Options) (Client, error) {
 
 func newMimicry(o Options, set func(*mimicry.Config)) (Client, error) {
 	cfg := mimicry.Config{
-		Profile:      profiles.Chrome(),
+		Profile:      profiles.ChromeMacOS(),
 		RootCAs:      o.RootCAs,
 		DisableHTTP3: o.Proto != target.H3,
 		// requestTimeout, not NewClient's 30 s: a 10 MB body under

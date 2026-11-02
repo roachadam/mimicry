@@ -32,7 +32,7 @@ func TestClientPathDegradingMove(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
-				tc := newProfileTestConn(t, profiles.Chrome().Name(), func(p *transportParameters) {
+				tc := newProfileTestConn(t, profiles.ChromeMacOS().Name(), func(p *transportParameters) {
 					p.disableActiveMigration = tt.disable
 					p.initialMaxData = 1 << 20
 					p.initialMaxStreamDataBidiRemote = 1 << 20

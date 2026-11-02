@@ -1,7 +1,7 @@
 // Command profilegen generates profiles/profiles.gen.go from
 // profiles/data/*.json: accessors per profile and per browser's newest
-// version on each platform (Chrome on macOS, ChromeWindows on Windows;
-// decision 0047), and the name lists. It refuses invalid or misnamed files
+// version on each platform (ChromeMacOS, ChromeWindows; decision 0047),
+// and the name lists. It refuses invalid or misnamed files
 // and sets that break the version policy (decision 0035).
 //
 // Run it with go generate ./profiles.
@@ -102,13 +102,8 @@ func generate(dir string) ([]byte, error) {
 	latest := newest(profiles)
 	for _, f := range slices.SortedFunc(maps.Keys(latest), compareFamilies) {
 		p := latest[f]
-		if f.platform == defaultPlatform {
-			fmt.Fprintf(&b, "// %s returns the newest %s profile, now %s (%s %s on %s).\n",
-				f.accessor(), f.browser, p.Name, p.Browser, p.Version, p.Platform)
-		} else {
-			fmt.Fprintf(&b, "// %s returns the newest %s profile on %s, now %s (%s %s on %s).\n",
-				f.accessor(), f.browser, f.platform, p.Name, p.Browser, p.Version, p.Platform)
-		}
+		fmt.Fprintf(&b, "// %s returns the newest %s profile on %s, now %s (%s %s on %s).\n",
+			f.accessor(), f.browser, f.platform, p.Name, p.Browser, p.Version, p.Platform)
 
 		b.WriteString("// It moves to each new version as that version is added; use a\n")
 		b.WriteString("// versioned accessor where a version must stay fixed.\n")
@@ -210,9 +205,8 @@ func checkPolicy(profiles []*profile.Spec) error {
 	return nil
 }
 
-// defaultPlatform is the platform whose newest profiles the unqualified
-// accessors (Chrome) return. Other platforms' newest profiles have their
-// own accessors (ChromeWindows); see decision 0047.
+// defaultPlatform is the platform whose families sort first; see
+// decision 0047.
 const defaultPlatform = "macos"
 
 // family is one browser on one platform: the unit of the version policy
@@ -225,13 +219,9 @@ func familyOf(p *profile.Spec) family {
 	return family{browser: p.Browser, platform: p.Platform}
 }
 
-// accessor names the family's newest-version accessor: "Chrome" on the
-// default platform, "ChromeWindows" on Windows.
+// accessor names the family's newest-version accessor: "ChromeMacOS",
+// "ChromeWindows". Every accessor names its platform (decision 0047).
 func (f family) accessor() string {
-	if f.platform == defaultPlatform {
-		return browserFunc(f.browser)
-	}
-
 	return browserFunc(f.browser) + platformFunc(f.platform)
 }
 

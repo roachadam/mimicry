@@ -81,7 +81,7 @@ func TestFramingHeadersFromRequest(t *testing.T) {
 				"Transfer-Encoding": {"chunked"},
 			}
 			config := mimicry.Config{
-				Profile:      profiles.Chrome(),
+				Profile:      profiles.ChromeMacOS(),
 				RootCAs:      s.RootCAs,
 				DialContext:  s.DialContext,
 				DisableHTTP3: true,
@@ -184,7 +184,7 @@ func TestFramingPlacementAnchors(t *testing.T) {
 	t.Cleanup(h1.Close)
 
 	tr, err := mimicry.NewTransport(mimicry.Config{
-		Profile:      profiles.Chrome(),
+		Profile:      profiles.ChromeMacOS(),
 		RootCAs:      h1.RootCAs,
 		DialContext:  h1.DialContext,
 		DisableHTTP3: true,

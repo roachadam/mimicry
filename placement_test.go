@@ -432,7 +432,7 @@ func TestHeaderPlacement(t *testing.T) {
 
 			send := func(path string, config, request []mimicry.Place) error {
 				tr, err := mimicry.NewTransport(mimicry.Config{
-					Profile:         profiles.Chrome(),
+					Profile:         profiles.ChromeMacOS(),
 					Header:          tt.headers,
 					HeaderPlacement: config,
 					RootCAs:         s.RootCAs,

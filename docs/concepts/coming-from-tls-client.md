@@ -34,7 +34,7 @@ mimicry:
 ```go
 proxyURL, _ := url.Parse("http://user:pass@proxy.example:8080")
 client, err := mimicry.NewClient(mimicry.Config{
-	Profile: profiles.Chrome(),
+	Profile: profiles.ChromeMacOS(),
 	Proxy:   http.ProxyURL(proxyURL),
 })
 client.CheckRedirect = func(*http.Request, []*http.Request) error {
@@ -44,7 +44,7 @@ client.CheckRedirect = func(*http.Request, []*http.Request) error {
 
 | tls-client | mimicry |
 |---|---|
-| `WithClientProfile(profiles.Chrome_133)` | `Config.Profile`: `profiles.Chrome()` for the newest Chrome on macOS, `profiles.ChromeWindows()` or `profiles.FirefoxWindows()` for the newest Chrome or Firefox on Windows, `profiles.ByName("chrome-155-macos")` for a fixed version, `profile.Parse` for your own JSON, `profiles.Chrome().With(edit)` for an edited copy (build it once and reuse it; per-client headers go in `Config.Header`) |
+| `WithClientProfile(profiles.Chrome_133)` | `Config.Profile`: `profiles.ChromeMacOS()` for the newest Chrome on macOS, `profiles.ChromeWindows()` or `profiles.FirefoxWindows()` for the newest Chrome or Firefox on Windows, `profiles.ByName("chrome-155-macos")` for a fixed version, `profile.Parse` for your own JSON, `profiles.ChromeMacOS().With(edit)` for an edited copy (build it once and reuse it; per-client headers go in `Config.Header`) |
 | `WithRandomTLSExtensionOrder()` | nothing: the profile shuffles only where its browser does |
 | `WithTimeoutSeconds(n)` | `Config.Timeout` (30 s by default; negative for none) or the request's context; `Config.DialTimeout` for connecting |
 | `WithNotFollowRedirects()`, `SetFollowRedirect` | `CheckRedirect` returning `http.ErrUseLastResponse` |
@@ -223,7 +223,7 @@ every request, so rotating means changing what it returns:
 var current atomic.Pointer[url.URL]
 current.Store(proxies.Next())
 client, err := mimicry.NewClient(mimicry.Config{
-	Profile: profiles.Chrome(),
+	Profile: profiles.ChromeMacOS(),
 	Proxy: func(*http.Request) (*url.URL, error) {
 		return current.Load(), nil
 	},

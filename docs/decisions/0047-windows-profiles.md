@@ -1,6 +1,6 @@
 # 0047: Windows profiles, starting with Chrome
 
-- Status: Accepted; amended 2026-11-01 by [0051](0051-ios-safari-over-the-network.md) (a platform sharing another's network stack inherits from it); amended 2026-11-01 (Firefox on Windows)
+- Status: Accepted; amended 2026-11-01 by [0051](0051-ios-safari-over-the-network.md) (a platform sharing another's network stack inherits from it); amended 2026-11-01 (Firefox on Windows); amended 2026-11-02 (accessors name their platform)
 - Date: 2026-10-29
 - Commits: `8b8aa7e` (naming, accessors, the harness on Windows); `b22f0a2` (the first profile, `chrome-156-windows`)
 
@@ -206,3 +206,16 @@ connection the network decided (the silenced QUIC connection's death) is
 not, and that one is pinned. Why the timers ran late is not captured
 ([INFERENCE]: the PC's display had been idle for days, and a browser may
 throttle a window it is told is hidden).
+
+## Amendment 2026-11-02: accessors name their platform
+
+The newest-version accessors now all name their platform, as the profile
+names and versioned accessors already did: `profiles.Chrome()`,
+`Firefox()` and `Safari()` are renamed `profiles.ChromeMacOS()`,
+`FirefoxMacOS()` and `SafariMacOS()`, beside the unchanged
+`ChromeWindows()`, `FirefoxWindows()` and `SafariIOS()`. An unqualified
+`Chrome()` read as "Chrome anywhere" once other platforms had their own
+accessors, which is the ambiguity the options above rejected for
+"newest across platforms". The old names are removed, with no aliases;
+the change is naming only and moves no profile or wire behaviour. The
+text above keeps the old names as they were when decided.

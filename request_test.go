@@ -81,7 +81,7 @@ func TestRefusedRequests(t *testing.T) {
 
 	css := page.JoinPath("style.css")
 	noFormPost := func() profile.Profile {
-		return profiles.Chrome().With(func(s *profile.Spec) {
+		return profiles.ChromeMacOS().With(func(s *profile.Spec) {
 			s.Variants = slices.DeleteFunc(s.Variants, func(v profile.Variant) bool {
 				return v.Method == http.MethodPost && !v.Insecure
 			})
@@ -90,7 +90,7 @@ func TestRefusedRequests(t *testing.T) {
 	// scriptFormPost: form POSTs measured only as a script submits them,
 	// without Sec-Fetch-User.
 	scriptFormPost := func() profile.Profile {
-		return profiles.Chrome().With(func(s *profile.Spec) {
+		return profiles.ChromeMacOS().With(func(s *profile.Spec) {
 			for i, v := range s.Variants {
 				if v.Method == http.MethodPost {
 					s.Variants[i].Headers = slices.DeleteFunc(v.Headers, func(h profile.Header) bool {
@@ -124,7 +124,7 @@ func TestRefusedRequests(t *testing.T) {
 		{name: "redirected body without GetBody", method: http.MethodPut, url: "https://www.a.test/r", body: io.NopCloser(strings.NewReader("x")), r: &Request{Kind: Fetch}, follow: true, sent: 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			p := profiles.Chrome()
+			p := profiles.ChromeMacOS()
 			if tc.profile != nil {
 				p = tc.profile()
 			}
@@ -212,10 +212,10 @@ func TestHTTP2OnlyVariantOverHTTP1(t *testing.T) {
 	}{
 		// A cross-site form POST: every profile measured it over HTTP/2
 		// only.
-		{name: "cross-site form POST", p: profiles.Chrome(), page: "https://www.a.test/form"},
+		{name: "cross-site form POST", p: profiles.ChromeMacOS(), page: "https://www.a.test/form"},
 		// Firefox's same-origin form POST over HTTP/1.1 was a script's
 		// (kinds-http1); its user's was measured over HTTP/2 only.
-		{name: "Firefox's clicked form POST", p: profiles.Firefox(), page: s.url + "/form"},
+		{name: "Firefox's clicked form POST", p: profiles.FirefoxMacOS(), page: s.url + "/form"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			page, err := url.Parse(tc.page)

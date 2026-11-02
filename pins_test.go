@@ -506,7 +506,7 @@ func TestPins(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := mimicry.Config{
-				Profile:     profiles.Chrome(),
+				Profile:     profiles.ChromeMacOS(),
 				RootCAs:     tc.shop.RootCAs,
 				DialContext: tc.shop.DialContext,
 				// The shop speaks no HTTP/3; keep the steps on TCP.
@@ -794,7 +794,7 @@ func TestPinConfigErrors(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := mimicry.NewTransport(mimicry.Config{
-				Profile: profiles.Chrome(),
+				Profile: profiles.ChromeMacOS(),
 				Pins:    tc.pins,
 			})
 			if err == nil || !strings.Contains(err.Error(), tc.want) {

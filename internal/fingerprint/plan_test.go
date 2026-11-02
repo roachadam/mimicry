@@ -21,7 +21,7 @@ func types(exts []profile.Extension) []profile.Code {
 // ShuffleChromeTLSExtensions is biased (it skips swaps touching pinned
 // slots); this catches that kind of bias.
 func TestShuffleIsUniform(t *testing.T) {
-	p := profiles.Chrome().Spec()
+	p := profiles.ChromeMacOS().Spec()
 	plan := Compile(p)
 	k := len(plan.movable)
 
@@ -63,7 +63,7 @@ func TestShuffleIsUniform(t *testing.T) {
 // per-client or per-session order is a known bug in other libraries: two
 // connections then carry an identical order.
 func TestEachConnectionGetsAFreshOrder(t *testing.T) {
-	plan := Compile(profiles.Chrome().Spec())
+	plan := Compile(profiles.ChromeMacOS().Spec())
 	seen := map[string]bool{}
 
 	for range 20 {

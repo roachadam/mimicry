@@ -5,7 +5,7 @@ takes the same function as `http.Transport.Proxy`:
 
 ```go
 client, err := mimicry.NewClient(mimicry.Config{
-	Profile: profiles.Chrome(),
+	Profile: profiles.ChromeMacOS(),
 	Proxy:   http.ProxyURL(proxyURL), // or http.ProxyFromEnvironment
 })
 ```
@@ -130,7 +130,7 @@ or `socks5h://` proxy use HTTP/3 as they would without a proxy:
 
 ```go
 client, err := mimicry.NewClient(mimicry.Config{
-	Profile:         profiles.Chrome(),
+	Profile:         profiles.ChromeMacOS(),
 	Proxy:           http.ProxyURL(socksURL), // socks5h://user:pass@proxy:1080
 	HTTP3OverSOCKS5: true,
 })

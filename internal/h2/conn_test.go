@@ -58,7 +58,7 @@ func dial(t *testing.T, srv *httptest.Server) *Conn {
 		t.Fatal(err)
 	}
 
-	p := profiles.Chrome().Spec()
+	p := profiles.ChromeMacOS().Spec()
 
 	c, err := New(tlsConn, p, clockwork.NewRealClock())
 	if err != nil {
