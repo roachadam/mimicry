@@ -50,7 +50,10 @@ type endpointTestHooks interface {
 type packetConn interface {
 	Close() error
 	LocalAddr() netip.AddrPort
-	Read(f func(*datagram)) error
+	// Read reads datagrams until an error. mimicry: f gets each read's
+	// datagrams, in order, and owns them; the slice stays Read's, reused
+	// once f returns.
+	Read(f func([]*datagram)) error
 	Write(datagram) error
 
 	// LocalAddrFor reports the local address to use to send to a remote address.
@@ -264,11 +267,27 @@ func (e *Endpoint) connDrained(c *Conn) {
 
 func (e *Endpoint) listen() {
 	defer close(e.closec)
-	err := e.packetConn.Read(func(m *datagram) {
-		if e.connsMap.updateNeeded.Load() {
-			e.connsMap.applyUpdates()
+
+	err := e.packetConn.Read(func(ms []*datagram) {
+		if e.sole {
+			// mimicry: the endpoint's only connection takes the whole
+			// read at once (dgram_batch.go).
+			if e.connsMap.updateNeeded.Load() {
+				e.connsMap.applyUpdates()
+			}
+
+			e.handleSoleDatagrams(ms)
+
+			return
 		}
-		e.handleDatagram(m)
+
+		for _, m := range ms {
+			if e.connsMap.updateNeeded.Load() {
+				e.connsMap.applyUpdates()
+			}
+
+			e.handleDatagram(m)
+		}
 	})
 	if e.sole {
 		// mimicry: the socket failed under the connection (a SOCKS5
@@ -291,17 +310,6 @@ func (e *Endpoint) listen() {
 }
 
 func (e *Endpoint) handleDatagram(m *datagram) {
-	if e.sole {
-		// mimicry: the endpoint's only connection takes everything.
-		if c := e.soleConn.Load(); c != nil {
-			c.sendMsg(m)
-		} else {
-			m.recycle()
-		}
-
-		return
-	}
-
 	dstConnID, ok := dstConnIDForDatagram(m.b)
 	if !ok {
 		m.recycle()

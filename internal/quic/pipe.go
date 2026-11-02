@@ -19,6 +19,11 @@ type pipe struct {
 	end   int64    // stream position just past the last stored byte
 	head  *pipebuf // if non-nil, then head.off + len(head.b) > start
 	tail  *pipebuf // if non-nil, then tail.off + len(tail.b) == end
+	// mimicry: last is the buffer the last read ended in, if it is still
+	// in the pipe: a stream's sends read on from where the last one ended,
+	// so read starts there instead of walking from head (UPSTREAM.md
+	// change 24).
+	last *pipebuf
 }
 
 type pipebuf struct {
@@ -115,7 +120,14 @@ func (p *pipe) read(off int64, n int, f func([]byte) error) error {
 	if off < p.start {
 		panic("invalid read range")
 	}
-	for pb := p.head; pb != nil && n > 0; pb = pb.next {
+	// mimicry: every buffer before last ends at or before last.off, so a
+	// read from there on starts at last.
+	pb := p.head
+	if p.last != nil && p.last.off <= off {
+		pb = p.last
+	}
+
+	for ; pb != nil && n > 0; pb = pb.next {
 		if off >= pb.end() {
 			continue
 		}
@@ -125,6 +137,9 @@ func (p *pipe) read(off int64, n int, f func([]byte) error) error {
 		}
 		off += int64(len(b))
 		n -= len(b)
+
+		p.last = pb // mimicry
+
 		if err := f(b); err != nil {
 			return err
 		}
@@ -164,6 +179,11 @@ func (p *pipe) discardBefore(off int64) {
 	for p.head != nil && p.head.end() < off {
 		head := p.head
 		p.head = p.head.next
+
+		if head == p.last { // mimicry
+			p.last = nil
+		}
+
 		head.recycle()
 	}
 	if p.head == nil {
@@ -193,6 +213,7 @@ func (p *pipe) release() {
 
 	p.head = nil
 	p.tail = nil
+	p.last = nil // mimicry
 }
 
 // releaseIfEmpty releases the pipe's buffers when it holds no byte: after

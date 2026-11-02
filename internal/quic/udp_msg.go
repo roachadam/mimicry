@@ -68,7 +68,7 @@ func (c *netUDPConn) LocalAddrFor(remote netip.AddrPort) (netip.AddrPort, error)
 	return localAddrFor(c.LocalAddr(), remote)
 }
 
-func (c *netUDPConn) Read(f func(*datagram)) error {
+func (c *netUDPConn) Read(f func([]*datagram)) error {
 	// mimicry: in batches where the OS can (udp_batch_linux.go).
 	if ok, err := c.readBatch(f); ok {
 		return err
@@ -88,6 +88,7 @@ func (c *netUDPConn) Read(f func(*datagram)) error {
 		syscall.CmsgSpace(ipTOSSize)+
 		syscall.CmsgSpace(ipv6TclassSize))
 
+	var one [1]*datagram // mimicry: Read's batch of one
 	for {
 		d := newDatagram()
 		n, controlLen, _, peerAddr, err := c.c.ReadMsgUDPAddrPort(d.b, control)
@@ -103,7 +104,9 @@ func (c *netUDPConn) Read(f func(*datagram)) error {
 		}
 		d.b = d.b[:n]
 		parseControl(d, control[:controlLen])
-		f(d)
+
+		one[0] = d
+		f(one[:])
 	}
 }
 

@@ -429,14 +429,16 @@ func (te *testEndpointUDPConn) LocalAddrFor(remote netip.AddrPort) (netip.AddrPo
 	return te.localAddr, nil
 }
 
-func (te *testEndpointUDPConn) Read(f func(*datagram)) error {
+func (te *testEndpointUDPConn) Read(f func([]*datagram)) error {
 	for {
 		select {
 		case d, ok := <-te.recvc:
 			if !ok {
 				return net.ErrClosed
 			}
-			f(d)
+
+			f([]*datagram{d}) // mimicry: Read's batch of one
+
 		case <-te.idlec:
 		}
 	}
