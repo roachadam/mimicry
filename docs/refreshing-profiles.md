@@ -49,7 +49,7 @@ with `-h3-local-roots`, as their committed captures do.
 Every other scenario is inherited from the browser's previous version. The
 profile's `capturesFrom` field names, per scenario, the profile holding its
 captures. Generators and e2e tests read those captures instead, with the
-version tokens in header values rewritten to the new version. Any other
+version tokens in header values (and the navigation's `accept-encoding`) rewritten to the new version. Any other
 difference still fails: a browser that starts sending its version
 elsewhere by default (a new client hint) fails every inherited comparison
 until recaptured or taught to `capture.Rewriter`. A quick refresh of one browser takes under ten
@@ -136,12 +136,13 @@ reads with `xcrun devicectl list devices` (`-ios-device <udid>` picks one
 of several iPhones).
 
 Whatever `-mode`, the iPhone captures `server.IOSScenarios`, three
-samples each: the fingerprint layer and the scenarios the generators
-derive from, unattended, then `proxy-connect` and `proxy-plain`, for
-which the capture tool asks someone to set the phone's Wi-Fi proxy and
-waits for Enter on refresh's standard input (see [Capturing
-browsers](capturing.md#safari-on-an-iphone)); about a quarter of an hour,
-someone at the phone only for the proxy settings.
+samples each: the fingerprint layer, the scenarios the generators derive
+from and the HTTP/3 failure pair (`h3-blackhole`, `h3-broken`; h3gen
+takes their structure, not their timing over Wi-Fi), unattended, then
+`proxy-connect` and `proxy-plain`, for which the capture tool asks
+someone to set the phone's Wi-Fi proxy and waits for Enter on refresh's
+standard input (see [Capturing browsers](capturing.md#safari-on-an-iphone));
+about a quarter of an hour, someone at the phone only for the proxy settings.
 A scenario is inherited from the captures of the macOS Safari profile it
 starts from (`capturesFrom`, `internal/platform.Stack`) only where the
 iPhone's own captures show no difference in its area;

@@ -6,7 +6,6 @@
   "capturesFrom": {
     "cookies-edge": "safari-27-macos",
     "cookies-edge2": "safari-27-macos",
-    "kinds-plain": "safari-27-macos",
     "nav-redirect-cs": "safari-27-macos",
     "nav-redirect-cs-cookies": "safari-27-macos",
     "nav-redirect-http": "safari-27-macos",
@@ -1452,12 +1451,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
             },
             {
               "name": "Accept-Language",
@@ -1491,12 +1490,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
             },
             {
               "name": "Accept-Language",
@@ -1569,12 +1568,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
             },
             {
               "name": "Accept-Language",
@@ -2373,12 +2372,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
             },
             {
               "name": "Accept-Language",
@@ -2412,12 +2411,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
             },
             {
               "name": "Accept-Language",
@@ -2490,12 +2489,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
             },
             {
               "name": "Accept-Language",
@@ -4177,12 +4176,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
             },
             {
               "name": "Accept-Language",
@@ -4308,12 +4307,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
             },
             {
               "name": "Accept-Language",
@@ -4431,12 +4430,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
             },
             {
               "name": "Accept-Language",
@@ -4814,12 +4813,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
             },
             {
               "name": "Accept-Language",
@@ -4853,12 +4852,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
             },
             {
               "name": "Accept-Language",
@@ -4889,12 +4888,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
             },
             {
               "name": "Accept-Language",
@@ -5017,12 +5016,12 @@
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
             },
             {
-              "name": "Accept",
-              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-            },
-            {
               "name": "Upgrade-Insecure-Requests",
               "value": "1"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
             },
             {
               "name": "Referer"
@@ -5060,12 +5059,12 @@
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
             },
             {
-              "name": "Accept",
-              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-            },
-            {
               "name": "Upgrade-Insecure-Requests",
               "value": "1"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
             },
             {
               "name": "Referer"
@@ -5103,12 +5102,12 @@
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
             },
             {
-              "name": "Accept",
-              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-            },
-            {
               "name": "Upgrade-Insecure-Requests",
               "value": "1"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
             },
             {
               "name": "Referer"
@@ -5841,12 +5840,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"
             },
             {
               "name": "Accept-Language",
@@ -5880,12 +5879,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"
             },
             {
               "name": "Accept-Language",
@@ -5958,12 +5957,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"
             },
             {
               "name": "Accept-Language",
@@ -6853,12 +6852,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"
             },
             {
               "name": "Accept-Language",
@@ -6892,12 +6891,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"
             },
             {
               "name": "Accept-Language",
@@ -6970,12 +6969,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "image/webp,image/avif,image/jxl,image/heic,image/heic-sequence,video/*;q=0.8,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"
             },
             {
               "name": "Accept-Language",
@@ -7581,12 +7580,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
             },
             {
               "name": "Accept-Language",
@@ -7620,12 +7619,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
             },
             {
               "name": "Accept-Language",
@@ -7698,12 +7697,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
             },
             {
               "name": "Accept-Language",
@@ -8303,12 +8302,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
             },
             {
               "name": "Accept-Language",
@@ -8342,12 +8341,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
             },
             {
               "name": "Accept-Language",
@@ -8378,12 +8377,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
             },
             {
               "name": "Accept-Language",
@@ -8826,12 +8825,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
             },
             {
               "name": "Accept-Language",
@@ -8865,12 +8864,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
             },
             {
               "name": "Accept-Language",
@@ -8943,12 +8942,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
             },
             {
               "name": "Accept-Language",
@@ -9474,12 +9473,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
             },
             {
               "name": "Accept-Language",
@@ -9513,12 +9512,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
             },
             {
               "name": "Accept-Language",
@@ -9591,12 +9590,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
             },
             {
               "name": "Accept-Language",
@@ -9801,12 +9800,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "text/css,*/*;q=0.1"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "text/css,*/*;q=0.1"
             },
             {
               "name": "Accept-Language",
@@ -9840,12 +9839,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "text/css,*/*;q=0.1"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "text/css,*/*;q=0.1"
             },
             {
               "name": "Accept-Language",
@@ -9879,12 +9878,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "text/css,*/*;q=0.1"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "text/css,*/*;q=0.1"
             },
             {
               "name": "Accept-Language",
@@ -10410,12 +10409,12 @@
               "name": "Referer"
             },
             {
-              "name": "Accept",
-              "value": "*/*"
-            },
-            {
               "name": "User-Agent",
               "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
             },
             {
               "name": "Accept-Language",

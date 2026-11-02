@@ -66,16 +66,18 @@ func FullScenarios() []Planned {
 }
 
 // IOSScenarios are what a refresh captures of Safari on an iPhone, three
-// samples each (decision 0051): the fingerprint layer, and the scenarios
-// kindsgen and the rules are derived from, from which the profile inherits
-// every other scenario but those NotInheritedOnIOS keeps out. The direct
-// scenarios come first, then the proxy ones, for which someone sets the
-// iPhone's Wi-Fi proxy by hand.
+// samples each (decision 0051): the fingerprint layer, the scenarios
+// kindsgen and the rules are derived from, and the QUIC failure pair
+// (h3-blackhole, h3-broken: the fallback, loss and keep-alive rules), from
+// which the profile inherits every other scenario but those
+// NotInheritedOnIOS keeps out. The direct scenarios come first, then the
+// proxy ones, for which someone sets the iPhone's Wi-Fi proxy by hand.
 func IOSScenarios() []Planned {
 	names := []string{
 		"page",
 		"kinds",
 		"kinds-http1",
+		"kinds-plain",
 		"cookies",
 		"cors",
 		"cors-edge",
@@ -89,6 +91,8 @@ func IOSScenarios() []Planned {
 		"resume",
 		"websocket",
 		"websocket-h2",
+		"h3-blackhole",
+		"h3-broken",
 		"proxy-connect",
 		"proxy-plain",
 	}

@@ -54,7 +54,7 @@ func race(p *edgePage, r *edgeReq) raceEvent {
 		label: r.name(),
 	}
 	made := float64(r.made)
-	started := p.attemptsTo(r.host, made-5, made+50)
+	started := p.attemptsTo(r.host, made-5, made+50+p.slack)
 
 	if len(started) == 0 {
 		for _, a := range p.attemptsTo(r.host, math.Inf(-1), made) {
@@ -528,7 +528,7 @@ func (s *edgeSet) revalidate(e *collector) *profile.Range {
 					continue
 				}
 
-				if as := p.attemptsTo(ev.host, made-5, made+50); len(as) > 0 && !as[0].resumed {
+				if as := p.attemptsTo(ev.host, made-5, made+50+p.slack); len(as) > 0 && !as[0].resumed {
 					upper = min(upper, int(made-ev.at))
 					break
 				}
@@ -584,7 +584,7 @@ func (s *edgeSet) pending(out *profile.Fallback, e *collector) {
 		}
 
 		got := profile.PendingTCP
-		if as := p.attemptsTo(host, died, died+50); len(as) > 0 && waiting[0].quic == as[0].index {
+		if as := p.attemptsTo(host, died, died+50+p.slack); len(as) > 0 && waiting[0].quic == as[0].index {
 			got = profile.PendingQUIC
 
 			reconnects = append(reconnects, int(float64(as[0].start)-died))
@@ -592,10 +592,10 @@ func (s *edgeSet) pending(out *profile.Fallback, e *collector) {
 
 		for _, r := range waiting {
 			switch {
-			case got == profile.PendingQUIC && (r.quic < 0 || p.attempts[r.quic] != p.attemptsTo(host, died, died+50)[0]):
+			case got == profile.PendingQUIC && (r.quic < 0 || p.attempts[r.quic] != p.attemptsTo(host, died, died+50+p.slack)[0]):
 				edgeErr(e, p.at, "%s did not go on the new QUIC connection", r.label)
-			case got == profile.PendingTCP && (r.quic >= 0 || float64(r.arrival) > died+50):
-				edgeErr(e, p.at, "%s arrived at %d, not on TCP within 50 ms of %.0f", r.label, r.arrival, died)
+			case got == profile.PendingTCP && (r.quic >= 0 || float64(r.arrival) > died+50+p.slack):
+				edgeErr(e, p.at, "%s arrived at %d, not on TCP within %.0f ms of %.0f", r.label, r.arrival, 50+p.slack, died)
 			}
 		}
 

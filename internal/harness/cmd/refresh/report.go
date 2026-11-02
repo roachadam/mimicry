@@ -250,9 +250,9 @@ func (rep *report) writeDiff(b *strings.Builder) error {
 
 	rw := capture.NewRewriter(rep.previous, cur)
 
-	b.WriteString("Version strings, rewritten in the previous profile before comparing (`capture.NewRewriter`):\n\n")
+	b.WriteString("Version strings and the navigation's accept-encoding, rewritten in the previous profile before comparing (`capture.NewRewriter`):\n\n")
 
-	for _, name := range []string{"user-agent", "sec-ch-ua"} {
+	for _, name := range []string{"user-agent", "sec-ch-ua", "accept-encoding"} {
 		if old, now := navigationValue(rep.previous, name), navigationValue(cur, name); old != "" || now != "" {
 			fmt.Fprintf(b, "- %s: `%s` → `%s`\n", name, old, now)
 		}

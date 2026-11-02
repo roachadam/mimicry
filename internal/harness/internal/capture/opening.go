@@ -15,8 +15,8 @@ import (
 // in p's captures in dir, and its own testing-build captures, whose
 // records were kept and whose first request was waiting as it opened
 // (h2trace.Opening): they must all agree. Connections the browser opened
-// ahead of their request are left out: mimicry never does. Nil when no
-// connection measured it.
+// ahead of their request are left out: mimicry never does; so are those
+// openingGaps pins. Nil when no connection measured it.
 func OpeningRecords(dir string, p *profile.Profile) ([][]string, error) {
 	var (
 		traces []*h2trace.Trace
@@ -36,7 +36,7 @@ func OpeningRecords(dir string, p *profile.Profile) ([][]string, error) {
 
 		for i, tr := range loaded {
 			traces = append(traces, tr)
-			at = append(at, fmt.Sprintf("%s: sample %d", f.Path, i+1))
+			at = append(at, fmt.Sprintf("%s: sample %d", filepath.Base(f.Path), i+1))
 		}
 	}
 
@@ -63,7 +63,7 @@ func OpeningRecords(dir string, p *profile.Profile) ([][]string, error) {
 		for i, page := range loaded {
 			for j, tr := range page.H2 {
 				traces = append(traces, tr)
-				at = append(at, fmt.Sprintf("%s: sample %d, HTTP/2 connection %d", f.Path, i+1, j+1))
+				at = append(at, fmt.Sprintf("%s: sample %d, HTTP/2 connection %d", filepath.Base(f.Path), i+1, j+1))
 			}
 		}
 	}
@@ -73,10 +73,17 @@ func OpeningRecords(dir string, p *profile.Profile) ([][]string, error) {
 		wantAt string
 	)
 
+	pinned := map[string]bool{}
+
 	for i, tr := range traces {
 		got, ready, err := h2trace.Opening(tr)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", at[i], err)
+		}
+
+		if _, ok := openingGaps[at[i]]; ok {
+			pinned[at[i]] = true
+			continue
 		}
 
 		if !ready {
@@ -94,7 +101,24 @@ func OpeningRecords(dir string, p *profile.Profile) ([][]string, error) {
 		}
 	}
 
+	for key := range openingGaps {
+		file, _, _ := strings.Cut(key, ":")
+		if !pinned[key] && slices.ContainsFunc(at, func(a string) bool {
+			return strings.HasPrefix(a, file+":")
+		}) {
+			return nil, fmt.Errorf("openingGaps pins %q, which no longer appears: remove it", key)
+		}
+	}
+
 	return want, nil
+}
+
+// openingGaps are connections OpeningRecords leaves out, by capture file
+// and position, with why: a first request ready only just after the
+// opening was written, in the preface's millisecond, which the trace's
+// timing cannot tell from a waiting one.
+var openingGaps = map[string]string{
+	"safari-26-ios.h3-broken.pagetrace.json.gz: sample 1, HTTP/2 connection 1": "the page's navigation, which devicectl hands Safari, went in a record of its own after the opening, in the preface's millisecond (the other samples' came 34 and 101 ms later); a waiting request goes with the opening (every other connection)",
 }
 
 // testingPages lists the testing-build page captures in dir p is checked

@@ -43,12 +43,16 @@ var headersOrderGaps = map[string][]string{
 		"around-rev.xhr.cs", "case.xhr.cs",
 		"around-rev.xhr.h1", "case.xhr.h1",
 	},
-	"safari-27-ios": {
-		"letters.fetch.so", "letters.xhr.so", "letters-rev.fetch.so", "letters-rev.xhr.so",
-		"around.fetch.so", "around.xhr.so", "around-rev.fetch.so", "around-rev.xhr.so",
-		"around.fetch.cs", "around.xhr.cs", "around-rev.fetch.cs", "around-rev.xhr.cs", "case.xhr.cs",
-		"around.fetch.h1", "around.xhr.h1", "around-rev.fetch.h1", "around-rev.xhr.h1", "case.xhr.h1",
-	},
+	"safari-26-ios": iosHeadersOrderGaps,
+	"safari-27-ios": iosHeadersOrderGaps,
+}
+
+// iosHeadersOrderGaps are the iPhone's (Safari 26 and 27 alike).
+var iosHeadersOrderGaps = []string{
+	"letters.fetch.so", "letters.xhr.so", "letters-rev.fetch.so", "letters-rev.xhr.so",
+	"around.fetch.so", "around.xhr.so", "around-rev.fetch.so", "around-rev.xhr.so",
+	"around.fetch.cs", "around.xhr.cs", "around-rev.fetch.cs", "around-rev.xhr.cs", "case.xhr.cs",
+	"around.fetch.h1", "around.xhr.h1", "around-rev.fetch.h1", "around-rev.xhr.h1", "case.xhr.h1",
 }
 
 // Every request of the headers-order page, made as the page's fetch() or

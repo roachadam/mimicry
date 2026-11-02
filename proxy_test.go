@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/roachadam/mimicry"
+	"github.com/roachadam/mimicry/profile"
 	"github.com/roachadam/mimicry/profiles"
 )
 
@@ -444,7 +445,7 @@ func TestProxyErrors(t *testing.T) {
 	}
 }
 
-// TestSafariIOSProxyCredentials: safari-27-ios measured no proxy 407 flow
+// TestSafariIOSProxyCredentials: Safari on iOS measured no proxy 407 flow
 // (the iPhone never answers one, decision 0051). A proxy with credentials
 // works by default, the credentials going with the first CONNECT;
 // BrowserProxyAuth is ErrNotMeasured, and nothing reaches the proxy.
@@ -455,54 +456,58 @@ func TestSafariIOSProxyCredentials(t *testing.T) {
 
 	defer shop.Close()
 
-	px := startProxy(shop, "alice", "right")
+	for _, p := range []*profile.Profile{profiles.Safari27IOS(), profiles.Safari26IOS()} {
+		t.Run(p.Name, func(t *testing.T) {
+			px := startProxy(shop, "alice", "right")
 
-	defer px.Close()
+			defer px.Close()
 
-	get := func(browserAuth bool) error {
-		tr, err := mimicry.NewTransport(mimicry.Config{
-			Profile:          profiles.SafariIOS(),
-			Proxy:            http.ProxyURL(px.URL),
-			RootCAs:          shop.RootCAs,
-			BrowserProxyAuth: browserAuth,
+			get := func(browserAuth bool) error {
+				tr, err := mimicry.NewTransport(mimicry.Config{
+					Profile:          p,
+					Proxy:            http.ProxyURL(px.URL),
+					RootCAs:          shop.RootCAs,
+					BrowserProxyAuth: browserAuth,
+				})
+				if err != nil {
+					return err
+				}
+
+				req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "https://www.shop.test/", nil)
+				if err != nil {
+					return err
+				}
+
+				resp, err := tr.RoundTrip(req)
+				if err != nil {
+					return err
+				}
+
+				_ = resp.Body.Close()
+
+				if resp.StatusCode != http.StatusOK {
+					t.Errorf("got %s, want 200", resp.Status)
+				}
+
+				return nil
+			}
+
+			if err := get(false); err != nil {
+				t.Fatalf("by default: %v", err)
+			}
+
+			want := []string{"CONNECT www.shop.test:443 as alice: 200"}
+			if got := px.Log(); !slices.Equal(got, want) {
+				t.Errorf("proxy was asked %q, want %q", got, want)
+			}
+
+			if err := get(true); !errors.Is(err, mimicry.ErrNotMeasured) {
+				t.Errorf("BrowserProxyAuth: got %v, want ErrNotMeasured", err)
+			}
+
+			if got := px.Log(); !slices.Equal(got, want) {
+				t.Errorf("with BrowserProxyAuth the proxy was asked %q", got[len(want):])
+			}
 		})
-		if err != nil {
-			return err
-		}
-
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "https://www.shop.test/", nil)
-		if err != nil {
-			return err
-		}
-
-		resp, err := tr.RoundTrip(req)
-		if err != nil {
-			return err
-		}
-
-		_ = resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			t.Errorf("got %s, want 200", resp.Status)
-		}
-
-		return nil
-	}
-
-	if err := get(false); err != nil {
-		t.Fatalf("by default: %v", err)
-	}
-
-	want := []string{"CONNECT www.shop.test:443 as alice: 200"}
-	if got := px.Log(); !slices.Equal(got, want) {
-		t.Errorf("proxy was asked %q, want %q", got, want)
-	}
-
-	if err := get(true); !errors.Is(err, mimicry.ErrNotMeasured) {
-		t.Errorf("BrowserProxyAuth: got %v, want ErrNotMeasured", err)
-	}
-
-	if got := px.Log(); !slices.Equal(got, want) {
-		t.Errorf("with BrowserProxyAuth the proxy was asked %q", got[len(want):])
 	}
 }

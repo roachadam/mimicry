@@ -38,7 +38,17 @@ type edgePage struct {
 	page     *capture.Page
 	reqs     []edgeReq
 	attempts []*attempt
+	// slack widens the edge checks' windows for a page captured over a
+	// network (networkSlackMillis), whose client events reach the server a
+	// path's delay late; 0 over loopback.
+	slack float64
 }
+
+// networkSlackMillis is how much later than over loopback the server sees
+// a client's timed packets over Wi-Fi (Safari on an iPhone, cmd/capture
+// -listen): the round trip and the phone's radio waking, 15–150 ms in the
+// iPhone's captures.
+const networkSlackMillis = 200
 
 // edgeReq is one request of an edge page.
 type edgeReq struct {
@@ -181,6 +191,11 @@ func loadEdge(dir string, set *captureSet) (*edgeSet, error) {
 				at:       fmt.Sprintf("%s: sample %d", base, si+1),
 				scenario: scenario,
 				page:     page,
+			}
+
+			if page.Driver != "" {
+				// Safari on an iPhone, over Wi-Fi.
+				ep.slack = networkSlackMillis
 			}
 
 			ep.reqs = edgeRequests(page)
@@ -400,12 +415,17 @@ func edgeErr(e *collector, at, format string, args ...any) {
 // Safari on iOS, decision 0051) may have none of the edge captures: its
 // fallback, keep-alive, acknowledgement and credit rules then stay as
 // copied from the profile it started from (prev, prevFallback), and the
-// rest is not measured and left empty; any other profile must have them.
+// rest is not measured and left empty; or only the failure pair
+// (h3-blackhole, h3-broken), for deriveFailurePair. Any other profile must
+// have them all.
 func deriveEdge(s *edgeSet, q *profile.QUIC, h *profile.HTTP3, prev profile.QUIC, prevFallback profile.Fallback, sharesStack bool) error {
 	required := []string{scenarioBlackhole, scenarioBroken, scenarioVN, scenarioDownload, scenarioEarly, scenarioTooEarly}
-	if sharesStack && !slices.ContainsFunc(append(slices.Clone(required), scenarioStreamsBlocked), func(sc string) bool {
+	has := func(sc string) bool {
 		return len(s.scenario(sc)) > 0
-	}) {
+	}
+	rest := slices.ContainsFunc([]string{scenarioVN, scenarioDownload, scenarioEarly, scenarioTooEarly, scenarioStreamsBlocked}, has)
+
+	if sharesStack && !rest {
 		q.KeepAlive, q.Ack, q.Credit = prev.KeepAlive, prev.Ack, prev.Credit
 		h.Discovery.Fallback = prevFallback
 		q.ZeroRTT = false
@@ -417,6 +437,13 @@ func deriveEdge(s *edgeSet, q *profile.QUIC, h *profile.HTTP3, prev profile.QUIC
 		h.EarlyData = nil
 		h.EarlyStreamsWithRequest = false
 		h.CloseOnGoAway = false
+
+		switch {
+		case has(scenarioBlackhole) && has(scenarioBroken):
+			return s.deriveFailurePair(q, h)
+		case has(scenarioBlackhole) || has(scenarioBroken):
+			return fmt.Errorf("%s: h3-blackhole and h3-broken come together", s.set.name)
+		}
 
 		return nil
 	}

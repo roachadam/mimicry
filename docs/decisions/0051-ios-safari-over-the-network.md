@@ -1,6 +1,6 @@
 # 0051: Safari on an iPhone: the fingerprint captured on the iPhone, from the Mac
 
-- Status: Accepted
+- Status: Accepted; amended 2026-11-01 (`safari-26-ios`, the measured failure pair)
 - Date: 2026-11-01
 - Commits: the one adding `safari-27-ios` ([#11](https://github.com/roachadam/mimicry/issues/11))
 
@@ -89,15 +89,18 @@ changes `Sec-Fetch-*`).
   -browser safari-ios -listen <mac-ip>` plans, captures (devicectl),
   derives, installs and tests.
 - **What the iPhone captures** (`server.IOSScenarios`, three samples
-  each): `page`, `kinds`, `kinds-http1`, `cookies`, `cors`, `cors-edge`,
-  `cors-edge-cookies`, `redirects2`, `redirects2-cookies`,
-  `headers-order`, `http1`, `h3-discovery`, `h3-page`, `resume`,
-  `websocket`, `websocket-h2`, `proxy-connect`, `proxy-plain`.
+  each): `page`, `kinds`, `kinds-http1`, `kinds-plain`, `cookies`,
+  `cors`, `cors-edge`, `cors-edge-cookies`, `redirects2`,
+  `redirects2-cookies`, `headers-order`, `http1`, `h3-discovery`,
+  `h3-page`, `resume`, `websocket`, `websocket-h2`, `h3-blackhole`,
+  `h3-broken`, `proxy-connect`, `proxy-plain` (`kinds-plain` and the
+  failure pair added with Safari 26: amendment below).
 - **Inherited from `safari-27-macos`** (no difference seen in their
   areas; `capturesFrom`, with the user agent mapped whole by
-  `capture.Rewriter`): `cookies-edge`, `cookies-edge2`, `kinds-plain`,
+  `capture.Rewriter`): `cookies-edge`, `cookies-edge2`,
   `nav-redirect-{so,ss,cs,http}` and their cookie twins, `set-cookie`,
-  `slow-idle`. `internal/platform.Stack` says Safari on iOS may inherit
+  `slow-idle` (`kinds-plain` too until the iPhone captured it: amendment
+  below). `internal/platform.Stack` says Safari on iOS may inherit
   from Safari on macOS of its own or an earlier version; `cmd/profilegen`
   enforces it, and `profile.Validate` checks only that an inherited
   capture is the same browser's (kept out of the public package).
@@ -196,8 +199,8 @@ phone's own Safari; `cookies`, `cors`, `headers-order`, `resume`,
   in every request but the preflights (`kinds`: `accept,
   sec-fetch-site, origin`); macOS Safari 27.0.1 adds Sec-Fetch-Site
   first in GETs and Origin before Sec-Fetch-Site in same-origin requests
-  with a body [INFERENCE: the 27.0.1 → 27.2 build could explain it as
-  well as the platform].
+  with a body (the iPhone's Safari 26.6.2 has the iPhone's order and
+  macOS Safari 26.2 macOS's, so it is the platform's: amendment below).
 - QUIC (`h3-discovery`, `h3-page`): every client hello's transport
   parameters end with `0xff080808 = 9` after the rotated set; macOS
   Safari 27's carry none. In `h3-page` the encoder stream (id 6) carried
@@ -252,20 +255,125 @@ phone's own Safari; `cookies`, `cors`, `headers-order`, `resume`,
 - A capture through safaridriver is no evidence for the phone's own
   Safari beyond the default page: the capture tool refuses the rest.
 - Behaviour only the not-measured or not-inherited scenarios show is not
-  claimed for iOS: HTTP/3 failure handling (copied), connection reuse,
-  the replays, most redirect pages. Their e2e tests skip `safari-27-ios`.
-- An iPhone `h3-blackhole` and `h3-broken` run, unattended through
-  devicectl, would measure the copied fallback rule; the rest of the
-  edge set the QUIC loss and 0-RTT rules.
+  claimed for iOS: HTTP/3 failure handling (copied for 27), connection
+  reuse, the replays, most redirect pages. Their e2e tests skip the iOS
+  profiles.
+- The iPhone's `h3-blackhole` and `h3-broken`, run unattended through
+  devicectl from Safari 26 on (amendment below), measure the fallback
+  rule's structure; the rest of the edge set the QUIC loss and 0-RTT
+  rules.
 
 ## Revisit when
 
 - An iPhone capture of a not-inherited scenario: it joins the iPhone set
   and its rows their classes.
-- A macOS Safari 27.2 capture shows the iPhone's order of Accept,
-  Sec-Fetch-Site and Origin: the order is the version's, not the
-  platform's, and the scenarios it kept out can be inherited again.
+- The iPhone's order of Accept, Sec-Fetch-Site and Origin shows on macOS
+  Safari: the scenarios it kept out can be inherited again (Safari 26
+  and 27 on the iPhone both have it, both macOS versions not).
 - devicectl stops opening URLs in the phone's own Safari, or something
   can tap the phone's pages (the click scenarios).
 - Manual DNS proves unreliable (an encrypted DNS profile), or a wired
   network path becomes available for the timing scenarios.
+
+## Amendment 2026-11-01: Safari 26 on the iPhone, and the failure pair measured
+
+`safari-26-ios` is Safari 26.6.2 on an iPhone (iOS 26.7.1, user agent
+`iPhone OS 18_7`), captured through devicectl over Wi-Fi as above. Its
+previous profile is `safari-26-macos` (a profile never inherits from a
+newer version, [0035](0035-version-policy-and-capture-inheritance.md)),
+and the rule is the same: inherited only where the iPhone's captures show
+no difference.
+
+The iPhone set (`server.IOSScenarios`) now has `h3-blackhole`,
+`h3-broken` and `kinds-plain`, all unattended. `safari-27-ios` was
+captured before the failure pair and keeps its copied fallback rules;
+`kinds-plain` was taken on both iPhones (2026-11-01, devicectl) and both
+profiles derived again from it.
+
+`kinds-plain` had been inherited, and the iPhones' own `proxy-plain`
+contradicted it: over plain HTTP the iPhone (Safari 26 and 27 alike)
+puts User-Agent right after Host on the typed navigation, after Referer
+on subresources and fetches, and Upgrade-Insecure-Requests before Accept
+on a link navigation; macOS Safari 27 puts User-Agent after Accept on
+subresources, macOS Safari 26 after Accept everywhere. `TestProxyMatchesBrowser`
+had compared only the first forwarded request, which agreed for 27; it
+now replays the whole capture page through the proxy and compares every
+forwarded request (known differences in `proxyPlainGaps`). For
+`safari-26-ios`, macOS Safari 26's typed plain-HTTP navigation (Upgrade-Insecure-Requests,
+Accept, then User-Agent) is in `nav-redirect-http`, its twin and
+`cookies-edge2`, so those three are not inherited either; macOS Safari
+27's agrees with the iPhone, so `safari-27-ios` keeps them.
+`NotInheritedOnIOS` does not know the source version: a later refresh
+of `safari-26-ios` would list them again, and its plan must leave them
+out by hand.
+
+### Compared with macOS Safari 26.2
+
+- Same: the TLS ClientHello and HTTP/2 preface, the QUIC hello's TLS
+  part, QPACK (Huffman always, no encoder stream), the beacon on HTTP/2,
+  three connections on `kinds`.
+- `accept-encoding` adds `zstd` [INFERENCE: 26.6.2's, not the
+  platform's; Safari 27 has it on both].
+- The CORS-mode header order is the iPhone's (Accept, Sec-Fetch-Site,
+  Origin), as on Safari 27.2: the order is the platform's, not the
+  version's.
+- QUIC: no `0xff080808` (macOS 26 ends with `0xff080808 = 07`), ACK
+  delay a constant 39–45 ms (macOS 9–27), spin bit random (macOS
+  spins). The 0-RTT and early-data rules stay not measured, as for
+  Safari 27 on the iPhone (no `h3-early` on the iPhone). The first
+  request of a full handshake goes with the Finished
+  (`requestsAfterConfirmed` false), as on Safari 27 on the iPhone.
+- The proxy's `CONNECT`s: four per page, as Safari 27 on the iPhone
+  (macOS: one).
+- Plain HTTP: the iPhone's order, as Safari 27's on the iPhone (above).
+- WebSocket: a cross-site handshake carries only the partitioned cookie,
+  as Safari 27 (macOS Safari 26 sent the unpartitioned ones too:
+  `cookies.websocketUnpartitioned`, taken out of the hand-written
+  section).
+
+### Compared with Safari 27.2 on the iPhone
+
+- Same: the TLS ClientHello, HTTP/2, the navigation headers (user agent
+  aside), the CORS order, the proxy's `CONNECT`s, the random spin bit.
+- Safari 27's own: `0xff080808 = 9` and `max_idle_timeout`, address
+  validation tokens, QPACK's encoder stream and Huffman "shorter", the
+  actual ACK delay, uncredentialed requests on connections of their own
+  (Safari 26: one pool, three connections on `kinds`). The scenarios
+  inherited from macOS (cookies, redirects) carry each version's rules.
+
+### The failure pair
+
+In all three samples of each, the structure is macOS Safari 26's: the
+QUIC attempt after the GOAWAY, then TCP, the attempt dropped; pending
+requests moved to a new 0-RTT attempt; a keep-alive 2000 ms after the
+last packet received; the "keepalive limit reached" close 12 s after it;
+after the server's close a 0-RTT attempt, TCP, a fresh attempt 2 s later
+and TCP again. This confirms the rules `safari-27-ios` copies from macOS
+Safari 27.
+
+h3gen derives `quic.keepAlive`, `quic.loss.pathDegrading` and
+`http3.closeOnGoaway` from the iPhone (W) and checks the fallback's mode,
+`abandonOnTcp` and `pending` against the copied rule. Its timing ranges
+(`tcpDelayMs`, `reconnectMs`, `brokenAfter`, `brokenCountsResumed`) stay
+macOS Safari 26's (C): the server's clock puts the phone's packets a
+path's delay late (SETTINGS ACK 6–13 ms over Wi-Fi, 0–1 on loopback), so
+QUIC start to TCP hello was 110–158 ms on the first attempt (macOS
+101–107), 35–89 on the second (89–109) and 15–135 to reconnect (7–9).
+To hold the structure to windows of tens of milliseconds, h3gen adds
+200 ms to windows that mix the server's and the client's clocks, only
+for pages whose `driver` is set; loopback captures regenerate unchanged.
+The rest of `quic.loss` and 0-RTT stay not measured, for three
+differences the pair shows and no field models:
+
+- (a) in `h3-blackhole` the iPhone sends a second Initial pair 50–140 ms
+  into its attempt (macOS: none before TCP);
+- (b) some Initials come unpadded: 1038-byte datagrams in the blackhole
+  retransmissions, one of 1129 bytes in a resumed attempt (RFC 9000 asks
+  1200; macOS always pads);
+- (c) the second attempt may race TCP almost at once (35–37 ms).
+
+The e2e edge test does not compare times against samples with a driver
+set, and lists (a), (b) and the 0-RTT reconnections as gaps. One
+`h3-broken` sample's first HTTP/2 connection has the navigation in a
+record of its own written within the preface's millisecond, so its
+opening records are pinned as a gap (`openingGaps`), not decided.

@@ -434,8 +434,8 @@ func giveUp(q *profile.QUIC, us []unanswered, feature string, s *edgeSet, e *col
 			edgeErr(e, c.u.at(), "%s: closed %+v, others %+v", feature, g, out)
 		}
 
-		if (c.at < float64(out.AfterMillis)-1 || c.at > float64(out.AfterMillis)+20) && !s.gap(c.u.at(), feature) {
-			edgeErr(e, c.u.at(), "%s: gave up %.1f ms in, not within 20 ms of %d", feature, c.at, out.AfterMillis)
+		if (c.at < float64(out.AfterMillis)-1 || c.at > float64(out.AfterMillis)+20+c.u.p.slack) && !s.gap(c.u.at(), feature) {
+			edgeErr(e, c.u.at(), "%s: gave up %.1f ms in, not within %.0f ms of %d", feature, c.at, 20+c.u.p.slack, out.AfterMillis)
 		}
 	}
 
@@ -535,8 +535,8 @@ func (s *edgeSet) pathDegrading(q *profile.QUIC, e *collector) *profile.QUICPath
 				CloseReason: cl.Reason,
 			}
 
-			if d := closedAt - last; d < float64(got.AfterMillis) || d > float64(got.AfterMillis)+50 {
-				edgeErr(e, at, "closed %.1f ms after the last datagram received, not within 50 ms of %d", d, got.AfterMillis)
+			if d := closedAt - last; d < float64(got.AfterMillis) || d > float64(got.AfterMillis)+50+sl.p.slack {
+				edgeErr(e, at, "closed %.1f ms after the last datagram received, not within %.0f ms of %d", d, 50+sl.p.slack, got.AfterMillis)
 			}
 
 		case sl.a.c.Close == nil || sl.a.c.Close.By != "idle":
@@ -641,7 +641,13 @@ func (s *edgeSet) keepAlive(e *collector) profile.QUICKeepAlive {
 	froms := []string{profile.KeepAliveFromSent, profile.KeepAliveFromIdle, profile.KeepAliveFromReceived}
 	deltas := map[string][]float64{}
 
-	var ats []string
+	// ats name each PING's sample; slacks are its page's network slack,
+	// which only a delta from a datagram the server sent (received)
+	// carries: the client's own datagrams reach the server equally late.
+	var (
+		ats    []string
+		slacks []float64
+	)
 
 	for _, sl := range s.silenced {
 		ds := sl.a.c.Datagrams
@@ -673,6 +679,7 @@ func (s *edgeSet) keepAlive(e *collector) profile.QUICKeepAlive {
 			deltas[profile.KeepAliveFromIdle] = append(deltas[profile.KeepAliveFromIdle], t-idle)
 			deltas[profile.KeepAliveFromReceived] = append(deltas[profile.KeepAliveFromReceived], t-received)
 			ats = append(ats, sl.p.at)
+			slacks = append(slacks, sl.p.slack)
 			found = true
 
 			break
@@ -687,8 +694,8 @@ func (s *edgeSet) keepAlive(e *collector) profile.QUICKeepAlive {
 		return out
 	}
 
-	late := func(d float64, period int) bool {
-		return d < float64(period)-1 || d > float64(period)+50
+	late := func(d float64, period int, slack float64) bool {
+		return d < float64(period)-1 || d > float64(period)+50+slack
 	}
 	for _, from := range froms {
 		ds := deltas[from]
@@ -696,7 +703,12 @@ func (s *edgeSet) keepAlive(e *collector) profile.QUICKeepAlive {
 		fits := true
 
 		for i, d := range ds {
-			if _, pinned := sampleGaps[ats[i]+": keepAlive"]; late(d, period) && !pinned {
+			slack := 0.0
+			if from == profile.KeepAliveFromReceived {
+				slack = slacks[i]
+			}
+
+			if _, pinned := sampleGaps[ats[i]+": keepAlive"]; late(d, period, slack) && !pinned {
 				fits = false
 			}
 		}
@@ -719,7 +731,12 @@ func (s *edgeSet) keepAlive(e *collector) profile.QUICKeepAlive {
 	}
 
 	for i, d := range deltas[out.From] {
-		if late(d, out.PeriodMillis) {
+		slack := 0.0
+		if out.From == profile.KeepAliveFromReceived {
+			slack = slacks[i]
+		}
+
+		if late(d, out.PeriodMillis, slack) {
 			s.gap(ats[i], "keepAlive")
 		}
 	}

@@ -156,10 +156,10 @@ func Files(dir string, p *profile.Profile, suffix string) ([]File, error) {
 }
 
 // Rewriter brings captures taken under one browser version to another's by
-// changing only the version tokens in header values, so any other
-// difference still shows; from another platform (Safari on macOS for one on
-// iOS, internal/platform) it also changes the user agent whole. A nil
-// Rewriter changes nothing.
+// changing only the version tokens in header values, and accept-encoding,
+// which a version may extend, so any other difference still shows; from
+// another platform (Safari on macOS for one on iOS, internal/platform) it
+// also changes the user agent whole. A nil Rewriter changes nothing.
 type Rewriter struct {
 	tokens   *regexp.Regexp
 	replace  map[string]string
@@ -167,6 +167,8 @@ type Rewriter struct {
 	chTo     string
 	uaFrom   string
 	uaTo     string
+	aeFrom   string
+	aeTo     string
 	fromName string
 	toName   string
 }
@@ -183,7 +185,9 @@ var versionTokens = map[string][]string{
 // version, nil if from is nil or the same profile. Tokens come from each
 // profile's user-agent; sec-ch-ua, whose brand order also changes with the
 // major version, is mapped whole, and so is user-agent when from is on
-// another platform.
+// another platform. accept-encoding is mapped where it is the whole value
+// of the navigation's (Safari 26.6.2 on the iPhone adds zstd to macOS
+// Safari 26.2's), not the other lists' (plain HTTP's has no br).
 func NewRewriter(from, to *profile.Profile) *Rewriter {
 	if from == nil || from.Name == to.Name {
 		return nil
@@ -193,6 +197,8 @@ func NewRewriter(from, to *profile.Profile) *Rewriter {
 		replace:  make(map[string]string),
 		chFrom:   headerValue(from, "sec-ch-ua"),
 		chTo:     headerValue(to, "sec-ch-ua"),
+		aeFrom:   headerValue(from, "accept-encoding"),
+		aeTo:     headerValue(to, "accept-encoding"),
 		fromName: from.Name,
 		toName:   to.Name,
 	}
@@ -265,6 +271,8 @@ func (r *Rewriter) Value(s string) string {
 		s = strings.ReplaceAll(s, r.uaFrom, r.uaTo)
 	}
 
+	s = r.acceptEncoding(s)
+
 	if r.tokens != nil {
 		s = r.tokens.ReplaceAllStringFunc(s, func(m string) string {
 			if to, ok := r.replace[m]; ok {
@@ -273,6 +281,25 @@ func (r *Rewriter) Value(s string) string {
 
 			return m
 		})
+	}
+
+	return s
+}
+
+// acceptEncoding maps s, an accept-encoding value or line whose value is the
+// navigation's of the captures' profile, to the profile's.
+func (r *Rewriter) acceptEncoding(s string) string {
+	if r.aeFrom == "" || r.aeTo == "" || r.aeFrom == r.aeTo {
+		return s
+	}
+
+	if s == r.aeFrom {
+		return r.aeTo
+	}
+
+	name, value, ok := strings.Cut(s, ": ")
+	if ok && strings.EqualFold(name, "accept-encoding") && value == r.aeFrom {
+		return name + ": " + r.aeTo
 	}
 
 	return s
