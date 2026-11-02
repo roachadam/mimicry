@@ -25,7 +25,7 @@ var compiledByProfile sync.Map // weak.Pointer[profile.Profile] → weak.Pointer
 
 // compile returns p's compiled, shared with every engine holding p, which
 // must not change once an engine holds it (New takes ownership).
-func compile(p *profile.Profile) *compiled {
+func compile(p *profile.Spec) *compiled {
 	key := weak.Make(p)
 	if v, ok := compiledByProfile.Load(key); ok {
 		if c := compiledOf(v); c != nil {
@@ -74,7 +74,7 @@ func compiledOf(v any) *compiled {
 
 // compiledEntry is a compiledByProfile entry, for its cleanup.
 type compiledEntry struct {
-	key weak.Pointer[profile.Profile]
+	key weak.Pointer[profile.Spec]
 	wc  weak.Pointer[compiled]
 }
 

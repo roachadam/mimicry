@@ -17,7 +17,7 @@ import (
 // (h2trace.Opening): they must all agree. Connections the browser opened
 // ahead of their request are left out: mimicry never does; so are those
 // openingGaps pins. Nil when no connection measured it.
-func OpeningRecords(dir string, p *profile.Profile) ([][]string, error) {
+func OpeningRecords(dir string, p *profile.Spec) ([][]string, error) {
 	var (
 		traces []*h2trace.Trace
 		at     []string
@@ -124,7 +124,7 @@ var openingGaps = map[string]string{
 // testingPages lists the testing-build page captures in dir p is checked
 // against: its own for the scenarios it does not inherit, its sources'
 // for those it does.
-func testingPages(dir string, p *profile.Profile) ([]File, error) {
+func testingPages(dir string, p *profile.Spec) ([]File, error) {
 	const suffix = forTesting + ".pagetrace.json.gz"
 
 	names := []string{p.Name}

@@ -82,7 +82,7 @@ type Options struct {
 // safe for concurrent use.
 type Conn struct {
 	qc      *quic.Conn
-	p       *profile.Profile
+	p       *profile.Spec
 	h3      *profile.HTTP3
 	altHost string
 	altPort string
@@ -138,7 +138,7 @@ type Conn struct {
 // which has HTTP3 and QUIC sections. It opens the profile's handshake
 // streams (after the request, for opts.Pending in 0-RTT where the profile
 // sends it first) and serves the server's streams until qc ends.
-func New(qc *quic.Conn, p *profile.Profile, opts Options) (*Conn, error) {
+func New(qc *quic.Conn, p *profile.Spec, opts Options) (*Conn, error) {
 	h := p.HTTP3
 
 	clock := opts.Clock

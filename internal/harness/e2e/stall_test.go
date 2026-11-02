@@ -89,7 +89,7 @@ func (w *stallWatch) stalled(from, to time.Time) time.Duration {
 // delay. A request racing it may then have gone on TCP (and Safari dropped
 // the attempt) where, unstalled, it would have waited for QUIC. A capture
 // read from a file (no Start) has none.
-func raceStall(p *profile.Profile, page *capture.Page) (string, bool) {
+func raceStall(p *profile.Spec, page *capture.Page) (string, bool) {
 	lo, hi := raceDelay(p)
 	if lo == 0 || page.Start.IsZero() {
 		return "", false
@@ -116,7 +116,7 @@ func raceStall(p *profile.Profile, page *capture.Page) (string, bool) {
 // attempt before it goes on TCP: the profile's race delay, else its first
 // probe timeout (how long fast fallback waits on a resumed attempt); zero
 // where nothing waits.
-func raceDelay(p *profile.Profile) (lo, hi int64) {
+func raceDelay(p *profile.Spec) (lo, hi int64) {
 	if r := p.HTTP3.Discovery.Fallback.TCPDelayMillis; r != nil {
 		return int64(r.Min), int64(r.Max)
 	}

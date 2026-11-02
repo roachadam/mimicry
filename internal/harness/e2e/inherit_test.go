@@ -170,7 +170,7 @@ func TestCapturesFromNamesCapturedScenarios(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		for sc, from := range p.CapturesFrom {
+		for sc, from := range p.Spec().CapturesFrom {
 			if sc == capture.DefaultScenario {
 				t.Errorf("%s: capturesFrom.%s: the default page is never inherited", name, sc)
 

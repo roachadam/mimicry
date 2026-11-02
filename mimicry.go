@@ -49,6 +49,7 @@ import (
 	brrr "github.com/molecule-man/go-brrr"
 
 	"github.com/roachadam/mimicry/cookies"
+	"github.com/roachadam/mimicry/internal/checked"
 	"github.com/roachadam/mimicry/internal/cors"
 	"github.com/roachadam/mimicry/internal/engine/native"
 	"github.com/roachadam/mimicry/internal/headerorder"
@@ -67,10 +68,12 @@ type engine interface {
 type Config struct {
 	// Essentials and network.
 
-	// Profile is the browser to impersonate, such as profiles.Chrome().
-	// Required. NewTransport keeps a copy, so later changes to it have no
-	// effect.
-	Profile *profile.Profile
+	// Profile is the browser to impersonate, such as profiles.Chrome(), or
+	// an edited copy of one (Profile.With). Required. A Profile is
+	// checked once and read-only, so building a Transport from one copies
+	// nothing: reuse it for every Transport. An edit With found invalid is
+	// NewTransport's error, a *profile.ValidationError.
+	Profile profile.Profile
 	// RootCAs verifies servers. Nil, the default, uses the system roots.
 	RootCAs *x509.CertPool
 	// DialTimeout bounds each TCP connect and TLS handshake. Zero means
@@ -101,7 +104,12 @@ type Config struct {
 	// the browser's defaults; the request's own headers override them. A
 	// key with no values removes a default. Content-Length, Connection and
 	// Transfer-Encoding are built from the request, except that
-	// Connection: close is honoured over HTTP/1.1. Default: none.
+	// Connection: close is honoured over HTTP/1.1. Default: none. Headers
+	// that differ between the clients of one profile (an Accept-Language,
+	// a user agent) belong here, not in a profile edited per client. A
+	// User-Agent set here does not reach an HTTP proxy, whose CONNECT
+	// carries the profile's; edit the profile (Profile.With) to change
+	// both.
 	Header http.Header
 	// HeaderPlacement moves headers within the browser's order on every
 	// request you send, redirect hops included. CORS preflights and
@@ -217,7 +225,7 @@ type Config struct {
 // connections early; see Config.MaxIdleProxies.
 type Transport struct {
 	engine  engine
-	profile *profile.Profile
+	profile *profile.Spec
 	// headers are Config.Header, keys canonical; preflightHeaders those
 	// of them CORS preflights get (cors.PreflightHeaders).
 	headers          http.Header
@@ -238,18 +246,31 @@ type Transport struct {
 	clock      clockwork.Clock
 }
 
-// NewTransport builds a Transport from cfg. Building one is not free: build
-// Transports up front, one per proxy, and reuse them rather than building
-// one per request.
+// specOf returns the checked, read-only Spec a profile.Profile holds, or
+// the problems Profile.With found in it (internal/checked). It is resolved
+// at package initialisation, which panics if the two packages ever disagree
+// on its type, so no build with a mismatch gets past its first test.
+var specOf = func() func(profile.Profile) (*profile.Spec, error) {
+	f, ok := checked.Spec.(func(profile.Profile) (*profile.Spec, error))
+	if !ok {
+		panic("mimicry: internal/checked.Spec has an unexpected type")
+	}
+
+	return f
+}()
+
+// NewTransport builds a Transport from cfg. It shares the profile and
+// copies nothing of it, about a microsecond; but a Transport is one
+// browsing entity, with its own connections, sessions and cookies: build
+// one per identity or proxy and reuse it, rather than one per request.
 func NewTransport(cfg Config) (*Transport, error) {
-	if cfg.Profile == nil {
+	if cfg.Profile == (profile.Profile{}) {
 		return nil, errors.New("mimicry: Config.Profile is required")
 	}
 
-	// A validated copy, shared with the engine and with other Transports
-	// built from an equal profile, so later changes to the caller's
-	// profile have no effect.
-	p, err := snapshot(cfg.Profile)
+	// The checked, read-only Spec cfg.Profile holds, shared with the
+	// engine and with every Transport built from an equal profile.
+	p, err := specOf(cfg.Profile)
 	if err != nil {
 		return nil, err
 	}
@@ -336,8 +357,8 @@ func closeIdle(e engine) {
 // redirects as far as the browser does (20, or the profile's
 // redirects.navigationLimit for navigations); a custom CheckRedirect
 // sees hops as http.Client built them. Its Timeout is Config.Timeout's
-// (30 s by default). It costs what NewTransport does: build clients up
-// front and reuse them.
+// (30 s by default). It costs what NewTransport does: build one per
+// identity or proxy and reuse it.
 func NewClient(cfg Config) (*http.Client, error) {
 	t, err := NewTransport(cfg)
 	if err != nil {

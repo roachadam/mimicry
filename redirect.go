@@ -33,7 +33,7 @@ var bodyHeaders = []string{"Content-Encoding", "Content-Language", "Content-Loca
 // they carry across hops. A chain past the browser's limit (p's, for a
 // navigation) is an error. Only when sending is the body reopened; a plan
 // gets an unread body.
-func browserHop(p *profile.Profile, req *http.Request, nav bool, u use) (*http.Request, error) {
+func browserHop(p *profile.Spec, req *http.Request, nav bool, u use) (*http.Request, error) {
 	prev := req.Response.Request
 	if prev == nil {
 		return req, nil

@@ -873,5 +873,5 @@ func groupResults(srv server, group []caseDef, profiles []namedProfile, testcase
 // namedProfile is a built-in profile and its name.
 type namedProfile struct {
 	name string
-	p    *profile.Profile
+	p    profile.Profile
 }

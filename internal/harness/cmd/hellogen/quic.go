@@ -28,7 +28,7 @@ type quicConn struct {
 // their order is fixed or shuffled with trailing extensions kept last.
 // Resumed hellos must follow p.TLS.Resumption, where TLS resumes, plus
 // early_data. Nil without h3 captures.
-func quicHello(dir string, p *profile.Profile) (*profile.QUICHello, error) {
+func quicHello(dir string, p *profile.Spec) (*profile.QUICHello, error) {
 	t := &p.TLS
 	conns, err := quicConns(dir, p)
 
@@ -107,7 +107,7 @@ func quicHello(dir string, p *profile.Profile) (*profile.QUICHello, error) {
 // quicConns reads every QUIC connection's ClientHello from the h3
 // captures, then every resumed one's from the edge captures, in file,
 // sample and connection order.
-func quicConns(dir string, p *profile.Profile) ([]quicConn, error) {
+func quicConns(dir string, p *profile.Spec) ([]quicConn, error) {
 	files, err := server.H3ProfileCaptures(dir, p)
 	if err != nil {
 		return nil, err
@@ -204,7 +204,7 @@ func replacements(out *profile.QUICHello, t *profile.TLS, full []quicConn) error
 
 // render is an extension as JSON, for comparing bodies.
 func render(e profile.Extension) string {
-	p := profile.Profile{
+	p := profile.Spec{
 		TLS: profile.TLS{
 			Extensions: []profile.Extension{
 				e,
@@ -398,7 +398,7 @@ func checkQUICHello(t *profile.TLS, q *profile.QUICHello, c quicConn) error {
 
 	var lines []string
 
-	for _, d := range diff.Compare(&profile.Profile{TLS: *want}, &profile.Profile{TLS: got}) {
+	for _, d := range diff.Compare(&profile.Spec{TLS: *want}, &profile.Spec{TLS: got}) {
 		lines = append(lines, d.String())
 	}
 

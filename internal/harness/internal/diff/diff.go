@@ -67,7 +67,7 @@ func render(v any) string {
 // order only pinned extensions' positions are compared. tls.x25519Reuse is
 // not: hellos parsed before it was recorded say false whatever their
 // keys, so the callers compare it from the hellos' bytes.
-func Compare(want, got *profile.Profile) []Difference {
+func Compare(want, got *profile.Spec) []Difference {
 	d := &differ{}
 	d.compareTLS(&want.TLS, &got.TLS)
 	d.compareHTTP2(want.HTTP2, got.HTTP2)

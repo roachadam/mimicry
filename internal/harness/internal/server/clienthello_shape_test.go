@@ -275,9 +275,9 @@ func TestParseClientHelloSeesEveryShapeChange(t *testing.T) {
 					return
 				}
 
-				diffs := diff.Compare(&profile.Profile{
+				diffs := diff.Compare(&profile.Spec{
 					TLS: original,
-				}, &profile.Profile{
+				}, &profile.Spec{
 					TLS: mutated,
 				})
 				if len(diffs) == 0 {

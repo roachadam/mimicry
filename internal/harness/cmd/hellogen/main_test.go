@@ -39,7 +39,7 @@ func TestRegenerateReproducesProfiles(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			captured := read(t, filepath.Join(captures, capture.Source(p, capture.DefaultScenario)+".json"))
+			captured := read(t, filepath.Join(captures, capture.Source(p.Spec(), capture.DefaultScenario)+".json"))
 
 			got, gotCapture, err := regenerate(data, captured, captures)
 			if err != nil {

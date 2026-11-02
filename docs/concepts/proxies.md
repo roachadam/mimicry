@@ -111,8 +111,13 @@ To rotate by client instead, build a new client per identity. Call
 once. Otherwise they close only when the garbage collector finds the
 client, or at the idle timeout.
 
-Building a client is not free. Build one client per proxy up front, and
-reuse it for that proxy's requests.
+Building a client costs about a microsecond: its profile is checked once
+and shared. Still build one client per identity, and reuse it for that
+identity's requests. Headers that differ per identity (`Accept-Language`,
+a user agent) go in its `Config.Header`; a profile edited with
+`Profile.With` per client costs about 200 µs each. A User-Agent set in
+`Config.Header` does not reach an HTTP proxy: the CONNECT carries the
+profile's, as the browser's carries its own user agent and not a page's.
 
 WebSockets also go through the proxy; see
 [WebSockets through a proxy](websockets.md#through-a-proxy).

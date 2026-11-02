@@ -163,7 +163,7 @@ type shape struct {
 // derive parses every sample of the default page's .clienthello and
 // combines them, then folds in the GREASE ECH choices of every page
 // capture's connections.
-func derive(dir string, p *profile.Profile) (*shape, error) {
+func derive(dir string, p *profile.Spec) (*shape, error) {
 	path := filepath.Join(dir, capture.Source(p, capture.DefaultScenario)+".clienthello")
 
 	hellos, err := capture.ReadClientHellos(path)
@@ -331,10 +331,10 @@ func apply(t *profile.TLS, sh *shape) error {
 		r.ECHPayloadLengths = sh.resumedECHLengths
 	}
 
-	want := profile.Profile{
+	want := profile.Spec{
 		TLS: *derived,
 	}
-	got := profile.Profile{
+	got := profile.Spec{
 		TLS: *t,
 	}
 

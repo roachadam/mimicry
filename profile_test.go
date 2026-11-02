@@ -2,27 +2,30 @@ package mimicry
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"net/http"
-	"reflect"
 	"runtime"
 	"slices"
 	"sync"
 	"testing"
+	"weak"
 
 	"github.com/roachadam/mimicry/profile"
 	"github.com/roachadam/mimicry/profiles"
 )
 
-// Transports built from equal profiles share one decoded profile: a
+// Transports built from equal profiles share one checked profile: a
 // Transport writing into it would corrupt every other one, racing with
 // their requests. Many Transports send concurrently over HTTP/1.1 and
 // HTTP/2 (navigations, fetches, redirects; run with -race); the shared copy
-// must be byte for byte what it was, unaffected by later changes to the
-// caller's profile, and dropped once no Transport holds it. Equal profiles
-// from separate accessor calls share it; a profile changed anywhere (in
-// place after its Transports were built, or deep in a map, a list or a
-// pointer) gets a copy of its own holding the change, never the stale one.
+// must be byte for byte what it was, unaffected by later changes to a Spec
+// the caller holds, an edit's included. Profiles of equal content share it
+// whether With finds it by name or by fingerprint (an edit undone); a
+// profile edited anywhere (deep in a map, a list or a pointer) gets a copy
+// of its own holding the edit, never the unedited one, and keeps it while
+// a Transport holds it; it goes once neither a Profile nor a Transport
+// does.
 func TestTransportsShareProfile(t *testing.T) {
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/redirect" {
@@ -34,7 +37,6 @@ func TestTransportsShareProfile(t *testing.T) {
 		_, _ = io.WriteString(w, "ok")
 	}
 
-	p := profiles.Chrome()
 	// Chrome's profile measures fetches and redirect hops over HTTP/2 only.
 	servers := []struct {
 		srv   testServer
@@ -60,12 +62,28 @@ func TestTransportsShareProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// A copy from Spec, changed once the Transports are built.
+	read := profiles.Chrome().Spec()
+
+	equal := []profile.Profile{
+		profiles.Chrome(),
+		// Equal to the last copy of its name: found by name.
+		profiles.Chrome().With(func(*profile.Spec) {}),
+		// Unequal to the last copy of its name, the edit's: found by
+		// fingerprint.
+		profiles.Chrome().With(func(s *profile.Spec) {
+			s.Headers[0].Value = "changed"
+		}).With(func(s *profile.Spec) {
+			s.Headers[0].Value = read.Headers[0].Value
+		}),
+	}
+
 	var wg sync.WaitGroup
 
-	for _, s := range servers {
-		for range 8 {
+	for i, s := range servers {
+		for j := range 8 {
 			tr, err := NewTransport(Config{
-				Profile: p,
+				Profile: equal[(i+j)%len(equal)],
 				RootCAs: s.srv.pool,
 			})
 			if err != nil {
@@ -88,8 +106,7 @@ func TestTransportsShareProfile(t *testing.T) {
 		}
 	}
 
-	// The caller's later changes reach no Transport.
-	p.Headers[0].Value = "changed"
+	read.Headers[0].Value = "changed"
 
 	wg.Wait()
 
@@ -102,30 +119,73 @@ func TestTransportsShareProfile(t *testing.T) {
 		t.Error("requests or the caller's changes wrote into the shared profile")
 	}
 
-	// A changed profile gets its own copy, which goes with the last
-	// Transport holding it.
-	key := fingerprint(p)
+	// Each edit is compared first with the last copy of its name, then by
+	// fingerprint: back to Chrome's before each, both must see the edit.
+	gone := make([]weak.Pointer[profile.Spec], 0, 3)
 
-	if changedProfile(t, p) == shared {
-		t.Fatal("a profile changed in place got the copy built before the change")
-	}
-
-	for name, change := range map[string]func(*profile.Profile){
-		"map entry": func(c *profile.Profile) {
-			c.Kinds["fetch"].Headers[0].Value = "changed"
+	for _, tc := range []struct {
+		name string
+		edit func(*profile.Spec)
+	}{
+		{
+			name: "map entry",
+			edit: func(s *profile.Spec) {
+				s.Kinds["fetch"].Headers[0].Value = "changed"
+			},
 		},
-		"list order": func(c *profile.Profile) {
-			c.TLS.CipherSuites[1], c.TLS.CipherSuites[2] = c.TLS.CipherSuites[2], c.TLS.CipherSuites[1]
+		{
+			name: "list order",
+			edit: func(s *profile.Spec) {
+				s.TLS.CipherSuites[1], s.TLS.CipherSuites[2] = s.TLS.CipherSuites[2], s.TLS.CipherSuites[1]
+			},
 		},
-		"pointer": func(c *profile.Profile) {
-			c.Redirects = nil
+		{
+			name: "pointer",
+			edit: func(s *profile.Spec) {
+				s.Redirects = nil
+			},
 		},
 	} {
-		c := profiles.Chrome()
-		change(c)
+		if p := profiles.Chrome().With(nil); transportProfile(t, p) != shared {
+			t.Fatal("an unedited profile did not get the shared copy")
+		}
 
-		if changedProfile(t, c) == shared {
-			t.Errorf("a profile with a changed %s got the unchanged one's copy", name)
+		want := profiles.Chrome().Spec()
+		tc.edit(want)
+
+		// The edit keeps its Spec and changes it once its copy is made.
+		var kept *profile.Spec
+
+		got := transportProfile(t, profiles.Chrome().With(func(s *profile.Spec) {
+			tc.edit(s)
+
+			kept = s
+		}))
+
+		kept.Headers[0].Value = "changed"
+
+		if got == shared {
+			t.Fatalf("a profile with a changed %s got the unchanged one's copy", tc.name)
+		}
+
+		if !bytes.Equal(encode(t, got), encode(t, want)) {
+			t.Fatalf("the copy of a profile with a changed %s is not the edited profile", tc.name)
+		}
+
+		gone = append(gone, weak.Make(got))
+
+		// A Transport keeps its copy shared, its Profile gone.
+		tr, err := NewTransport(Config{
+			Profile: profiles.Chrome().With(tc.edit),
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		runtime.GC()
+
+		if again := transportProfile(t, profiles.Chrome().With(tc.edit)); again != tr.profile {
+			t.Fatalf("a profile with a changed %s got a new copy while a Transport held one", tc.name)
 		}
 	}
 
@@ -133,17 +193,56 @@ func TestTransportsShareProfile(t *testing.T) {
 		runtime.GC()
 		runtime.Gosched()
 
-		if _, ok := snapshots.Load(key); !ok {
+		if gone[0].Value() == nil && gone[1].Value() == nil && gone[2].Value() == nil {
 			return
 		}
 	}
 
-	t.Error("a profile's shared copy outlived every Transport holding it")
+	t.Error("a profile's shared copy outlived every Profile and Transport holding it")
 }
 
-// changedProfile builds a Transport from p, a changed profile, and returns
-// the Transport's copy of p, which must be p as changed.
-func changedProfile(t *testing.T, p *profile.Profile) *profile.Profile {
+// The zero Profile, and a profile With left invalid, build no Transport;
+// the latter returns every problem found, and stays editable.
+func TestNewTransportRejectsProfile(t *testing.T) {
+	if _, err := NewTransport(Config{}); err == nil {
+		t.Error("NewTransport built a Transport from the zero Profile")
+	}
+
+	broken := profiles.Chrome().With(func(s *profile.Spec) {
+		s.Name = ""
+		s.Browser = ""
+	})
+
+	_, err := NewTransport(Config{
+		Profile: broken,
+	})
+
+	verr, ok := errors.AsType[*profile.ValidationError](err)
+	if !ok {
+		t.Fatalf("NewTransport error = %v, want a *ValidationError", err)
+	}
+
+	for _, path := range []string{"name", "browser"} {
+		if !slices.ContainsFunc(verr.Problems, func(p profile.Problem) bool {
+			return p.Path == path
+		}) {
+			t.Errorf("NewTransport error = %v, want a problem at %s", err, path)
+		}
+	}
+
+	fixed := broken.With(func(s *profile.Spec) {
+		s.Name = "fixed"
+		s.Browser = "chrome"
+	})
+	if _, err := NewTransport(Config{
+		Profile: fixed,
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// transportProfile builds a Transport from p and returns its copy of p.
+func transportProfile(t *testing.T, p profile.Profile) *profile.Spec {
 	t.Helper()
 
 	tr, err := NewTransport(Config{
@@ -153,21 +252,19 @@ func changedProfile(t *testing.T, p *profile.Profile) *profile.Profile {
 		t.Fatal(err)
 	}
 
-	want, err := profile.Encode(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	got, err := profile.Encode(tr.profile)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !bytes.Equal(got, want) {
-		t.Fatal("the Transport's copy is not the changed profile")
-	}
-
 	return tr.profile
+}
+
+// encode is profile.Encode, failing t on an error.
+func encode(t *testing.T, s *profile.Spec) []byte {
+	t.Helper()
+
+	b, err := profile.Encode(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return b
 }
 
 // sharedRoundTrip sends a request of kind to url through tr and reads the
@@ -201,49 +298,4 @@ func sharedRoundTrip(t *testing.T, tr *Transport, url string, kind Kind) {
 	if _, err := io.ReadAll(resp.Body); err != nil {
 		t.Error(err)
 	}
-}
-
-// fingerprint panics on a kind it cannot write and never ends on a cyclic
-// value: a field of such a type added to a profile would crash NewTransport
-// for every caller whose profile sets it, which the built-in profiles,
-// leaving many pointers nil, may never reach. Every type a profile holds
-// must be one fingerprint writes, its maps keyed by strings or integers,
-// and no type may contain itself.
-func TestFingerprintCoversProfile(t *testing.T) {
-	var check func(reflect.Type, []reflect.Type)
-
-	check = func(typ reflect.Type, path []reflect.Type) {
-		if slices.Contains(path, typ) {
-			t.Errorf("%v contains itself", typ)
-
-			return
-		}
-
-		path = append(path, typ)
-
-		switch typ.Kind() {
-		case reflect.Pointer, reflect.Slice, reflect.Array:
-			check(typ.Elem(), path)
-		case reflect.Map:
-			switch typ.Key().Kind() {
-			case reflect.String, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-				reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-			default:
-				t.Errorf("%v is keyed by a %v", typ, typ.Key().Kind())
-			}
-
-			check(typ.Elem(), path)
-
-		case reflect.Struct:
-			for f := range typ.Fields() {
-				check(f.Type, path)
-			}
-
-		case reflect.Interface, reflect.Chan, reflect.Func, reflect.UnsafePointer, reflect.Complex64, reflect.Complex128:
-			t.Errorf("a profile holds a %v (%v)", typ.Kind(), path)
-		default:
-		}
-	}
-
-	check(reflect.TypeFor[profile.Profile](), nil)
 }

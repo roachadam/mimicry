@@ -8,15 +8,14 @@ import (
 	"github.com/roachadam/mimicry/profiles"
 )
 
-// Pick the profile a task names in its configuration. Each call returns a
-// fresh copy.
+// Pick the profile a task names in its configuration.
 func ExampleByName() {
 	p, err := profiles.ByName("safari-27-macos")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println(p.Browser, p.Version, p.Platform)
+	fmt.Println(p.Name())
 
 	if _, err := mimicry.NewClient(mimicry.Config{
 		Profile: p,
@@ -28,6 +27,6 @@ func ExampleByName() {
 	fmt.Println(err)
 
 	// Output:
-	// safari 27 macos
+	// safari-27-macos
 	// profiles: "chrome-133" is not a built-in profile
 }

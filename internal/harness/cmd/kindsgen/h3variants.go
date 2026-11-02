@@ -23,7 +23,7 @@ type h3Candidate struct {
 // POST). HTTP/3 requests are compared in HTTP/2 form: alt-used removed,
 // dropped headers (Firefox's te) restored. Samples must agree. The
 // variant has no HTTP/1.1 list (not measured).
-func h3Variants(p *profile.Profile, dir string, reqs []h3Request, drop []string) error {
+func h3Variants(p *profile.Spec, dir string, reqs []h3Request, drop []string) error {
 	var cands []h3Candidate
 	for _, q := range reqs {
 		if q.method == "" || q.method == "GET" || q.kind == navigation {
@@ -177,7 +177,7 @@ func insertAfterPredecessor(fields, list []profile.Header, name string) []profil
 }
 
 // h2Candidates are the h3 pages' non-GET requests over HTTP/2.
-func h2Candidates(p *profile.Profile, dir string) ([]h3Candidate, error) {
+func h2Candidates(p *profile.Spec, dir string) ([]h3Candidate, error) {
 	files, err := server.H3ProfileCaptures(dir, p)
 	if err != nil {
 		return nil, err

@@ -27,7 +27,7 @@ type Fingerprints struct {
 const legacyVersion = 0x0303
 
 // Compute returns the fingerprints of p.
-func Compute(p *profile.Profile) Fingerprints {
+func Compute(p *profile.Spec) Fingerprints {
 	f := Fingerprints{
 		JA4: ja4(&p.TLS),
 	}

@@ -54,7 +54,7 @@ const maxAttempts = 5
 type Config struct {
 	// Profile is the browser to imitate. New takes ownership: it must be
 	// valid (profile.Parse or Validate) and never changed afterwards.
-	Profile *profile.Profile
+	Profile *profile.Spec
 	RootCAs *x509.CertPool
 	// DialTimeout bounds the connect (through a proxy: to the proxy, and the
 	// proxy's handshake) and, separately, the TLS handshake, on top of the
@@ -140,7 +140,7 @@ type Engine struct {
 	// compiled holds the plan and the HTTP/1.1 writer, shared with every
 	// engine holding the same profile.
 	*compiled
-	profile *profile.Profile
+	profile *profile.Spec
 	// quicProfile is what QUIC connections dial with: the profile's QUIC
 	// section, or a copy with Config.HTTP3ACKEvery's ACK rate.
 	quicProfile *profile.QUIC
@@ -590,7 +590,7 @@ func poolKey(scheme, host, port, partition string) (key, addr string) {
 }
 
 // userAgent is the profile's User-Agent value.
-func userAgent(p *profile.Profile) string {
+func userAgent(p *profile.Spec) string {
 	for _, h := range p.Headers {
 		if h.Name == "user-agent" {
 			return h.Value

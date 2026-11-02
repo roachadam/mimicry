@@ -223,7 +223,7 @@ func runWebSocketPage(t *testing.T, s *pageSession, sockets []server.WebSocketSt
 // proxy URL's scheme, with user's credentials, given the browser's way
 // when browserAuth (Config.BrowserProxyAuth). The server's ports are only
 // named, never dialled.
-func startProxiedPage(t *testing.T, p *profile.Profile, sc *server.Scenario, user *url.Userinfo, browserAuth bool) (*pageSession, *proxy.Proxy) {
+func startProxiedPage(t *testing.T, p *profile.Spec, sc *server.Scenario, user *url.Userinfo, browserAuth bool) (*pageSession, *proxy.Proxy) {
 	t.Helper()
 
 	ca, err := server.LoadOrCreateCA(t.TempDir(), server.CADomains, time.Now())
@@ -295,7 +295,7 @@ func startProxiedPage(t *testing.T, p *profile.Profile, sc *server.Scenario, use
 	pool.AddCert(ca.Cert)
 
 	tr, err := mimicry.NewTransport(mimicry.Config{
-		Profile: p,
+		Profile: checked(p),
 		RootCAs: pool,
 		Cookies: newJar(t, p),
 		Proxy: http.ProxyURL(&url.URL{
@@ -448,7 +448,7 @@ func runSocket(t *testing.T, s *pageSession, tr *mimicry.Transport, page *url.UR
 // checkSocket compares mimicry's socket st (got, run) with every sample's;
 // endGap, if not empty, is why how its transport ends is a known gap
 // (webSocketEndGaps).
-func checkSocket(t *testing.T, p *profile.Profile, st server.WebSocketStep, steps []server.WebSocketPageStep, got *capture.Page, want []*capture.Page, run *socketRun, endGap string) {
+func checkSocket(t *testing.T, p *profile.Spec, st server.WebSocketStep, steps []server.WebSocketPageStep, got *capture.Page, want []*capture.Page, run *socketRun, endGap string) {
 	t.Helper()
 
 	if run == nil {
@@ -840,7 +840,7 @@ func handshakeLines(page *capture.Page, ws *capture.WebSocket) string {
 // checkSocketHello compares the socket connection's TLS hello with the
 // browser's, merging GREASE ECH choices across samples: those are random
 // draws, checked by TestProfilesMatchCaptures and TestResumptionMatchesBrowser.
-func checkSocketHello(t *testing.T, p *profile.Profile, got *capture.Page, g *capture.WebSocket, want []*capture.Page, samples []*capture.WebSocket) {
+func checkSocketHello(t *testing.T, p *profile.Spec, got *capture.Page, g *capture.WebSocket, want []*capture.Page, samples []*capture.WebSocket) {
 	t.Helper()
 
 	hellos := make([]*profile.TLS, 0, len(want))
@@ -848,7 +848,7 @@ func checkSocketHello(t *testing.T, p *profile.Profile, got *capture.Page, g *ca
 		hellos = append(hellos, page.Connections[samples[i].Connection-1].Hello)
 	}
 
-	w := profile.Profile{
+	w := profile.Spec{
 		TLS: *mergeHellos(hellos),
 	}
 
@@ -878,7 +878,7 @@ func checkSocketHello(t *testing.T, p *profile.Profile, got *capture.Page, g *ca
 		e.ECH.PayloadLengths = slices.Compact(slices.Sorted(slices.Values(append(slices.Clone(e.ECH.PayloadLengths), lengths...))))
 	}
 
-	h := profile.Profile{
+	h := profile.Spec{
 		TLS: *got.Connections[g.Connection-1].Hello,
 	}
 
@@ -1019,7 +1019,7 @@ func headSize(f capture.WSFrame) uint32 {
 // frame fitting one DATA frame must be cut as every sample cut it; a larger
 // one must stay within the cap, header alone where every sample does so.
 // END_STREAM on the last DATA frame as in every sample.
-func checkDATA(t *testing.T, p *profile.Profile, got *capture.Page, g *capture.WebSocket, want []*capture.Page, samples []*capture.WebSocket) {
+func checkDATA(t *testing.T, p *profile.Spec, got *capture.Page, g *capture.WebSocket, want []*capture.Page, samples []*capture.WebSocket) {
 	t.Helper()
 
 	gc, order, gEnd := dataCuts(got, g)

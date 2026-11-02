@@ -13,7 +13,7 @@ import (
 // checkX25519Reuse checks tls.x25519Reuse against every ClientHello in
 // p's page captures that kept its bytes and sends both key shares: resumed
 // TCP hellos and QUIC hellos, full and resumed.
-func checkX25519Reuse(dir string, p *profile.Profile) error {
+func checkX25519Reuse(dir string, p *profile.Spec) error {
 	files, err := capture.Files(dir, p, ".pagetrace.json.gz")
 	if err != nil {
 		return err

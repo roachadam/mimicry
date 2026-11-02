@@ -22,7 +22,7 @@ import (
 // quicRuleViolations lists how c breaks p's rules for what is random per
 // connection or depends on timing; logf logs what a rule allowed only for
 // the process's stalls (stalls).
-func quicRuleViolations(p *profile.Profile, c *quictrace.Conn, logf func(format string, args ...any)) []string {
+func quicRuleViolations(p *profile.Spec, c *quictrace.Conn, logf func(format string, args ...any)) []string {
 	r := &ruleCheck{
 		p:    p,
 		q:    p.QUIC,
@@ -44,7 +44,7 @@ func quicRuleViolations(p *profile.Profile, c *quictrace.Conn, logf func(format 
 }
 
 type ruleCheck struct {
-	p    *profile.Profile
+	p    *profile.Spec
 	q    *profile.QUIC
 	c    *quictrace.Conn
 	logf func(format string, args ...any)
@@ -802,7 +802,7 @@ func (r *ruleCheck) ackDelays() {
 }
 
 // helloECH is the ECH extension the profile's QUIC hello sends.
-func helloECH(p *profile.Profile) *profile.ECH {
+func helloECH(p *profile.Spec) *profile.ECH {
 	for _, e := range p.TLS.QUIC.Replace {
 		if e.Type == profile.ExtEncryptedClientHello {
 			return e.ECH

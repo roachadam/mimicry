@@ -12,7 +12,7 @@
 //	bench wait             block until the servers and the proxy answer
 //	bench worker           one measurement with one client, spec on stdin
 //	bench offloads         a sidecar on the client's Docker host: its segmentation offloads, off under netem
-//	bench charts [flags]   docs/performance.md's SVG charts from a merged report's JSON (-in) and its micro output
+//	bench charts [flags]   docs/performance.md's SVG charts from a merged report's JSON (-in)
 //
 // Every measurement runs in a worker process of its own, so one client's
 // heap, goroutines and GC never mix with another's.

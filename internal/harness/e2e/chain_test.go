@@ -64,7 +64,7 @@ func TestChainedPrioritiesMatchBrowserTraces(t *testing.T) {
 // replayPriorities sends tr's requests again through mimicry for p, the
 // server ending each stream after the last request that depends on it, and
 // compares each request's HEADERS priority with the browser's.
-func replayPriorities(t *testing.T, p *profile.Profile, tr *h2trace.Trace) {
+func replayPriorities(t *testing.T, p *profile.Spec, tr *h2trace.Trace) {
 	t.Helper()
 
 	var heads []h2trace.Frame
@@ -255,7 +255,7 @@ type chainPeer struct {
 
 // newChainPeer opens a connection for p to a server peer over net.Pipe.
 // The clock never moves: no credit timer or idle PING fires.
-func newChainPeer(t *testing.T, p *profile.Profile) (*chainPeer, *h2.Conn) {
+func newChainPeer(t *testing.T, p *profile.Spec) (*chainPeer, *h2.Conn) {
 	t.Helper()
 
 	client, server := net.Pipe()

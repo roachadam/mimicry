@@ -43,7 +43,7 @@ func TestResumptionMatchesBrowser(t *testing.T) {
 	}
 }
 
-func checkResumption(t *testing.T, p *profile.Profile, sc *server.Scenario, want []*capture.Page, got *capture.Page) {
+func checkResumption(t *testing.T, p *profile.Spec, sc *server.Scenario, want []*capture.Page, got *capture.Page) {
 	t.Helper()
 
 	g := resumeCounts(got)
@@ -88,10 +88,10 @@ func checkResumption(t *testing.T, p *profile.Profile, sc *server.Scenario, want
 			t.Errorf("connection %d: %d TLS 1.3 tickets, TLS 1.2 ticket %q, accepted %v", i+1, c.PSKIdentities, c.Ticket, c.Accepted)
 		}
 
-		w := profile.Profile{
+		w := profile.Spec{
 			TLS: *browserResumed,
 		}
-		h := profile.Profile{
+		h := profile.Spec{
 			TLS: *c.Hello,
 		}
 
@@ -261,7 +261,7 @@ func resumeCounts(page *capture.Page) string {
 // runResumePage walks the resume page of sc through mimicry as profile p:
 // the page, then each step from it with credentials (the parallel step's
 // requests together), then /done.
-func runResumePage(t *testing.T, p *profile.Profile, sc *server.Scenario) *capture.Page {
+func runResumePage(t *testing.T, p *profile.Spec, sc *server.Scenario) *capture.Page {
 	t.Helper()
 
 	s := startPage(t, p, sc)

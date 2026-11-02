@@ -28,7 +28,7 @@ var hopByHop = map[string]bool{
 // Measured reports whether p covers a request planned as plan over HTTP/3:
 // HTTP3 and QUIC sections and, where its HTTP/3 lists add alt-used, an entry
 // for the request's kind (H3Headers.AltUsed). Other requests go on TCP.
-func Measured(p *profile.Profile, plan *headerorder.Plan) bool {
+func Measured(p *profile.Spec, plan *headerorder.Plan) bool {
 	if p.HTTP3 == nil || p.QUIC == nil {
 		return false
 	}
@@ -68,7 +68,7 @@ type head struct {
 // service at altHost and altPort (Options), sends for req (RoundTrip),
 // pseudo-headers first, built as RoundTrip builds it. An error is one
 // RoundTrip returns before sending anything.
-func Head(p *profile.Profile, altHost, altPort string, req *http.Request) ([]qpack.Field, error) {
+func Head(p *profile.Spec, altHost, altPort string, req *http.Request) ([]qpack.Field, error) {
 	hd, err := buildHead(p, altHost, altPort, req, bodyLength(req))
 	return hd.fields, err
 }
@@ -91,7 +91,7 @@ func bodyLength(req *http.Request) int64 {
 // service at altHost and altPort: pseudo-headers in the profile's HTTP/3
 // order, then the HTTP/2 list as HTTP3.Headers changes it. length is the
 // body's (0 for none, -1 unknown). A field invalid on the wire is an error.
-func buildHead(p *profile.Profile, altHost, altPort string, req *http.Request, length int64) (head, error) {
+func buildHead(p *profile.Spec, altHost, altPort string, req *http.Request, length int64) (head, error) {
 	method := req.Method
 	if method == "" {
 		method = http.MethodGet
@@ -228,7 +228,7 @@ func buildHead(p *profile.Profile, altHost, altPort string, req *http.Request, l
 // before the first field named the kind's anchor or a name after it in
 // the list the request takes (the kind's own where that lacks the
 // anchor), else last.
-func placeAltUsed(p *profile.Profile, alt string, fields []headerorder.Field, plan *headerorder.Plan) []headerorder.Field {
+func placeAltUsed(p *profile.Spec, alt string, fields []headerorder.Field, plan *headerorder.Plan) []headerorder.Field {
 	hd := p.HTTP3.Headers
 	anchor, own := hd.AltUsedNavigation, p.Headers
 

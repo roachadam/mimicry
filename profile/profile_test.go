@@ -19,7 +19,7 @@ func readValid(t *testing.T) []byte {
 	return data
 }
 
-func parseValid(t *testing.T) *Profile {
+func parseValid(t *testing.T) *Spec {
 	t.Helper()
 
 	p, err := Parse(readValid(t))
@@ -27,7 +27,7 @@ func parseValid(t *testing.T) *Profile {
 		t.Fatal(err)
 	}
 
-	return p
+	return p.Spec()
 }
 
 func TestParseRejects(t *testing.T) {
@@ -101,7 +101,7 @@ func TestParseRejects(t *testing.T) {
 	}
 }
 
-func extIndex(t *testing.T, p *Profile, typ Code) int {
+func extIndex(t *testing.T, p *Spec, typ Code) int {
 	t.Helper()
 
 	for i := range p.TLS.Extensions {
@@ -118,13 +118,13 @@ func extIndex(t *testing.T, p *Profile, typ Code) int {
 func TestValidate(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
-		mutate func(t *testing.T, p *Profile)
+		mutate func(t *testing.T, p *Spec)
 		path   string
 		want   string
 	}{
 		{
 			name: "captures inherited from itself",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.CapturesFrom = map[string]string{
 					"cookies": p.Name,
 				}
@@ -134,7 +134,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "captures inherited from another browser",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.CapturesFrom = map[string]string{
 					"cookies": "firefox-158-test",
 				}
@@ -144,7 +144,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "captures inherited for a malformed scenario",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.CapturesFrom = map[string]string{
 					"Cookies": "chrome-155-test",
 				}
@@ -154,7 +154,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "no cipher suites",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.TLS.CipherSuites = nil
 			},
 			path: "tls.cipherSuites",
@@ -162,7 +162,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "unknown extension order",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.TLS.ExtensionOrder = "random"
 			},
 			path: "tls.extensionOrder",
@@ -170,7 +170,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "repeated key share group",
-			mutate: func(t *testing.T, p *Profile) {
+			mutate: func(t *testing.T, p *Spec) {
 				t.Helper()
 
 				ks := &p.TLS.Extensions[extIndex(t, p, ExtKeyShare)]
@@ -182,7 +182,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "repeated extension",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.TLS.Extensions = append(p.TLS.Extensions, Extension{
 					Type: 0x0017,
 				})
@@ -192,7 +192,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "pre_shared_key not last",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.TLS.Extensions = append([]Extension{
 					{
 						Type: ExtPreSharedKey,
@@ -204,7 +204,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "payload on a generated extension",
-			mutate: func(t *testing.T, p *Profile) {
+			mutate: func(t *testing.T, p *Spec) {
 				t.Helper()
 
 				p.TLS.Extensions[extIndex(t, p, ExtServerName)].Data = Bytes{
@@ -216,7 +216,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "typed extension without its field",
-			mutate: func(t *testing.T, p *Profile) {
+			mutate: func(t *testing.T, p *Spec) {
 				t.Helper()
 
 				p.TLS.Extensions[extIndex(t, p, ExtSupportedVersions)].Versions = nil
@@ -226,7 +226,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "typed extension with the wrong field",
-			mutate: func(t *testing.T, p *Profile) {
+			mutate: func(t *testing.T, p *Spec) {
 				t.Helper()
 
 				p.TLS.Extensions[extIndex(t, p, ExtALPN)].ALPS = []string{
@@ -238,7 +238,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "typed field on a data extension",
-			mutate: func(t *testing.T, p *Profile) {
+			mutate: func(t *testing.T, p *Spec) {
 				t.Helper()
 
 				p.TLS.Extensions[extIndex(t, p, 0x0005)].Groups = []Code{
@@ -250,7 +250,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "key share outside supported_groups",
-			mutate: func(t *testing.T, p *Profile) {
+			mutate: func(t *testing.T, p *Spec) {
 				t.Helper()
 
 				ks := &p.TLS.Extensions[extIndex(t, p, ExtKeyShare)]
@@ -262,7 +262,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "legacyVersion other than TLS 1.2's",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.TLS.LegacyVersion = 0x0301
 			},
 			path: "tls.legacyVersion",
@@ -270,7 +270,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "no legacyVersion",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.TLS.LegacyVersion = 0
 			},
 			path: "tls.legacyVersion",
@@ -278,7 +278,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "record version other than TLS 1.0's",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.TLS.RecordVersion = 0x0303
 			},
 			path: "tls.recordVersion",
@@ -286,7 +286,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "no record version",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.TLS.RecordVersion = 0
 			},
 			path: "tls.recordVersion",
@@ -294,7 +294,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "session ID uTLS does not send",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.TLS.SessionIDLength = 0
 			},
 			path: "tls.sessionIdLength",
@@ -302,7 +302,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "key share without lengths",
-			mutate: func(t *testing.T, p *Profile) {
+			mutate: func(t *testing.T, p *Spec) {
 				t.Helper()
 
 				p.TLS.Extensions[extIndex(t, p, ExtKeyShare)].KeyShareLengths = nil
@@ -312,7 +312,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "fewer key share lengths than key shares",
-			mutate: func(t *testing.T, p *Profile) {
+			mutate: func(t *testing.T, p *Spec) {
 				t.Helper()
 
 				ks := &p.TLS.Extensions[extIndex(t, p, ExtKeyShare)]
@@ -324,7 +324,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "key share length not its group's",
-			mutate: func(t *testing.T, p *Profile) {
+			mutate: func(t *testing.T, p *Spec) {
 				t.Helper()
 
 				p.TLS.Extensions[extIndex(t, p, ExtKeyShare)].KeyShareLengths[2] = 33
@@ -334,7 +334,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "empty GREASE key share",
-			mutate: func(t *testing.T, p *Profile) {
+			mutate: func(t *testing.T, p *Spec) {
 				t.Helper()
 
 				p.TLS.Extensions[extIndex(t, p, ExtKeyShare)].KeyShareLengths[0] = 0
@@ -344,7 +344,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "key share for a group without key generation",
-			mutate: func(t *testing.T, p *Profile) {
+			mutate: func(t *testing.T, p *Spec) {
 				t.Helper()
 
 				p.TLS.Extensions[extIndex(t, p, ExtSupportedGroups)].Groups = append(p.TLS.Extensions[extIndex(t, p, ExtSupportedGroups)].Groups, 0x0100)
@@ -359,7 +359,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "ECH without its shape",
-			mutate: func(t *testing.T, p *Profile) {
+			mutate: func(t *testing.T, p *Spec) {
 				t.Helper()
 
 				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH = nil
@@ -369,7 +369,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "ECH shape on another extension",
-			mutate: func(t *testing.T, p *Profile) {
+			mutate: func(t *testing.T, p *Spec) {
 				t.Helper()
 
 				p.TLS.Extensions[extIndex(t, p, ExtALPN)].ECH = p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH
@@ -379,7 +379,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "ECH without cipher suites",
-			mutate: func(t *testing.T, p *Profile) {
+			mutate: func(t *testing.T, p *Spec) {
 				t.Helper()
 
 				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.CipherSuites = nil
@@ -389,7 +389,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "ECH AEAD uTLS cannot name",
-			mutate: func(t *testing.T, p *Profile) {
+			mutate: func(t *testing.T, p *Spec) {
 				t.Helper()
 
 				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.CipherSuites[0].AEAD = 0xffff
@@ -399,7 +399,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "ECH KDF uTLS cannot name",
-			mutate: func(t *testing.T, p *Profile) {
+			mutate: func(t *testing.T, p *Spec) {
 				t.Helper()
 
 				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.CipherSuites[0].KDF = 0
@@ -409,7 +409,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "ECH cipher suites out of order",
-			mutate: func(t *testing.T, p *Profile) {
+			mutate: func(t *testing.T, p *Spec) {
 				t.Helper()
 
 				ech := p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH
@@ -430,7 +430,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "ECH encapsulated key not X25519's",
-			mutate: func(t *testing.T, p *Profile) {
+			mutate: func(t *testing.T, p *Spec) {
 				t.Helper()
 
 				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.EncLength = 65
@@ -440,7 +440,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "ECH without payload lengths",
-			mutate: func(t *testing.T, p *Profile) {
+			mutate: func(t *testing.T, p *Spec) {
 				t.Helper()
 
 				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.PayloadLengths = nil
@@ -450,7 +450,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "ECH payload no longer than the tag",
-			mutate: func(t *testing.T, p *Profile) {
+			mutate: func(t *testing.T, p *Spec) {
 				t.Helper()
 
 				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.PayloadLengths[0] = 16
@@ -460,7 +460,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "ECH payload lengths repeated",
-			mutate: func(t *testing.T, p *Profile) {
+			mutate: func(t *testing.T, p *Spec) {
 				t.Helper()
 
 				p.TLS.Extensions[extIndex(t, p, ExtEncryptedClientHello)].ECH.PayloadLengths[1] = 176
@@ -470,7 +470,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "h2 offered without http2",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP2 = nil
 			},
 			path: "http2",
@@ -478,7 +478,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "repeated setting",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP2.Settings = append(p.HTTP2.Settings, Setting{
 					ID:    1,
 					Value: 4096,
@@ -489,7 +489,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "window update too large",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				// With the initial 65535, one past the largest window.
 				p.HTTP2.WindowUpdate = 1<<31 - 65535
 			},
@@ -498,7 +498,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "priority on itself",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP2.Priorities = []Priority{
 					{
 						StreamID:  3,
@@ -511,7 +511,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "incomplete pseudo-header order",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP2.PseudoHeaderOrder = p.HTTP2.PseudoHeaderOrder[:3]
 			},
 			path: "http2.pseudoHeaderOrder",
@@ -519,7 +519,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "even first stream ID",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP2.FirstStreamID = 2
 			},
 			path: "http2.firstStreamId",
@@ -527,7 +527,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "unknown GOAWAY reply code",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP2.GoAwayReply = "NO_ERR"
 			},
 			path: "http2.goawayReply",
@@ -535,7 +535,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "chained priorities without a priority",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP2.ChainPriorities = true
 				p.HTTP2.HeadersPriority = nil
 			},
@@ -544,7 +544,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "opening records out of order",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP2.OpeningRecords = [][]string{
 					{
 						OpeningSettings,
@@ -557,7 +557,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "request frames split across records",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP2.StreamWindowUpdate = 1
 
 				o := p.HTTP2.Opening()
@@ -572,7 +572,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "update threshold beyond any window",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP2.ConnectionUpdateThreshold = 1 << 31
 			},
 			path: "http2.connectionUpdateThreshold",
@@ -580,7 +580,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "unknown HPACK name match",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP2.HPACK = &HPACK{
 					NameMatch: "lowest",
 					Huffman:   HuffmanShorter,
@@ -591,7 +591,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "header both without indexing and never indexed",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP2.HPACK = &HPACK{
 					WithoutIndexing: []string{
 						"cookie",
@@ -608,7 +608,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "non-positive never-index length",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP2.HPACK = &HPACK{
 					NeverIndexBelow: map[string]int{
 						"cookie": 0,
@@ -623,7 +623,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "unknown size update rule",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP2.HPACK = &HPACK{
 					NameMatch:   NameMatchStaticFirst,
 					Huffman:     HuffmanShorter,
@@ -635,7 +635,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "unknown third-party policy",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Cookies = DefaultCookies()
 				p.Cookies.ThirdParty = "block_all"
 			},
@@ -644,7 +644,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "Lax exception without Lax by default",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Cookies = DefaultCookies()
 				p.Cookies.UnsetSameSite = SameSiteNone
 				p.Cookies.LaxAllowsUnsafeSeconds = 120
@@ -654,7 +654,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "HTTP/1.1 header repeated in another case",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP1 = &HTTP1{
 					Headers: []Header{
 						{
@@ -676,7 +676,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "HTTP/1.1 headers without Host",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP1 = &HTTP1{
 					Headers: []Header{
 						{
@@ -691,7 +691,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "upload join limit past a record",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP1 = &HTTP1{
 					Headers: []Header{
 						{
@@ -709,7 +709,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "upload join limit on one stream",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP1 = &HTTP1{
 					Headers: []Header{
 						{
@@ -726,7 +726,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "uppercase header",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Headers[2].Name = "User-Agent"
 			},
 			path: "headers[2]",
@@ -734,7 +734,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "repeated header",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Headers = append(p.Headers, Header{
 					Name: "accept",
 				})
@@ -744,7 +744,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "pseudo-header in headers",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Headers[0].Name = ":path"
 			},
 			path: "headers[0]",
@@ -752,7 +752,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "unknown kind",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Kinds = map[string]*Kind{
 					"eventsource": {
 						Headers: p.Headers,
@@ -764,7 +764,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "other-headers marker in the navigation",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Headers[1].Name = OtherHeaders
 			},
 			path: "headers[1]",
@@ -772,7 +772,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "variant repeating the default condition",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Variants = []Variant{
 					{
 						Headers: p.Headers,
@@ -784,7 +784,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "two variants with one condition",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				v := Variant{
 					Method:  "POST",
 					Site:    SiteCrossSite,
@@ -798,7 +798,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "variant with an unknown site",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Variants = []Variant{
 					{
 						Site:    "same-origin",
@@ -811,7 +811,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "page-set headers without corsChecked",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Variants = []Variant{
 					{
 						Method:  "POST",
@@ -825,7 +825,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "two page-set variants with one condition",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				v := Variant{
 					CORSChecked: true,
 					PageSet:     true,
@@ -839,7 +839,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "redirect conditions without redirected",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Variants = []Variant{
 					{
 						Method:               "POST",
@@ -858,7 +858,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "cross-site redirect not cross-origin",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Variants = []Variant{
 					{
 						Redirected:        true,
@@ -872,7 +872,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "cross-site redirect on a kind",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Kinds = map[string]*Kind{
 					KindImage: {
 						Headers: p.Headers,
@@ -892,7 +892,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "name with an empty part",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Name = "chrome--macos"
 			},
 			path: "name",
@@ -900,7 +900,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "name with a dot",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Name = "safari-26.1-macos"
 			},
 			path: "name",
@@ -908,7 +908,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "TLS 1.2 only",
-			mutate: func(t *testing.T, p *Profile) {
+			mutate: func(t *testing.T, p *Spec) {
 				t.Helper()
 
 				p.TLS.Extensions[extIndex(t, p, ExtSupportedVersions)].Versions = []Code{
@@ -920,7 +920,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "no supported_versions",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				removeExtension(p, ExtSupportedVersions)
 			},
 			path: "tls.extensions",
@@ -928,7 +928,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "three GREASE extensions",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.TLS.Extensions = append(p.TLS.Extensions, Extension{
 					Type: GREASE,
 				})
@@ -938,7 +938,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "first GREASE extension with a body uTLS does not send",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.TLS.Extensions[0].Data = Bytes{
 					1, 2, 3, 4,
 				}
@@ -948,7 +948,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "second GREASE extension without the body uTLS sends",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.TLS.Extensions[17].Data = nil
 			},
 			path: "tls.extensions[17]",
@@ -956,7 +956,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "status_request body uTLS does not send",
-			mutate: func(t *testing.T, p *Profile) {
+			mutate: func(t *testing.T, p *Spec) {
 				t.Helper()
 
 				p.TLS.Extensions[extIndex(t, p, ExtStatusRequest)].Data = Bytes{
@@ -968,7 +968,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "extended_master_secret with a body",
-			mutate: func(t *testing.T, p *Profile) {
+			mutate: func(t *testing.T, p *Spec) {
 				t.Helper()
 
 				p.TLS.Extensions[extIndex(t, p, ExtExtendedMasterSecret)].Data = Bytes{
@@ -980,7 +980,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "resumption leaving out key_share",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.TLS.Resumption = &Resumption{
 					Drop: []Code{
 						ExtKeyShare,
@@ -992,7 +992,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "resumption leaving out an extension twice",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.TLS.Resumption = &Resumption{
 					Drop: []Code{
 						ExtSessionTicket,
@@ -1005,7 +1005,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "resumption leaving out an extension not sent",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.TLS.Resumption = &Resumption{
 					Drop: []Code{
 						ExtDelegatedCredentials,
@@ -1017,7 +1017,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "resumption without psk_key_exchange_modes",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				removeExtension(p, ExtPSKKeyExchangeModes)
 
 				p.TLS.Resumption = &Resumption{}
@@ -1027,7 +1027,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "TLS 1.2 tickets without session_ticket",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				removeExtension(p, ExtSessionTicket)
 
 				p.TLS.Resumption = &Resumption{
@@ -1039,7 +1039,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "unknown TLS 1.2 ticket use",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.TLS.Resumption = &Resumption{
 					TLS12: "forever",
 				}
@@ -1049,7 +1049,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "TLS 1.3 resumption with GREASE ECH but no resumed payload lengths",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.TLS.Resumption = &Resumption{}
 			},
 			path: "tls.resumption.echPayloadLengths",
@@ -1057,7 +1057,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "resumed ECH payload lengths without encrypted_client_hello",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				removeExtension(p, ExtEncryptedClientHello)
 
 				p.TLS.Resumption = &Resumption{
@@ -1071,7 +1071,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "resumed ECH payload lengths unsorted",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.TLS.Resumption = &Resumption{
 					ECHPayloadLengths: []uint16{
 						400,
@@ -1084,7 +1084,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "server push enabled",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP2.Settings[1].Value = 1
 			},
 			path: "http2.settings[1]",
@@ -1092,7 +1092,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "initial window beyond the largest",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP2.Settings[2].Value = 1 << 31
 			},
 			path: "http2.settings[2]",
@@ -1100,7 +1100,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "frame size below the smallest",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP2.Settings = append(p.HTTP2.Settings, Setting{
 					ID:    5,
 					Value: 1<<14 - 1,
@@ -1111,7 +1111,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "frame size beyond the largest",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP2.Settings = append(p.HTTP2.Settings, Setting{
 					ID:    5,
 					Value: 1 << 24,
@@ -1122,7 +1122,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "stream window beyond the largest",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				// SETTINGS_INITIAL_WINDOW_SIZE is 6291456.
 				p.HTTP2.StreamWindowUpdate = 1<<31 - 6291456
 			},
@@ -1131,7 +1131,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "priority on a stream beyond 2^31",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP2.Priorities = []Priority{
 					{
 						StreamID: 1 << 31,
@@ -1143,7 +1143,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "priority depending on a stream beyond 2^31",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP2.Priorities = []Priority{
 					{
 						StreamID:  3,
@@ -1156,7 +1156,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "HTTP/2 without HPACK rules",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP2.HPACK = nil
 			},
 			path: "http2.hpack",
@@ -1164,7 +1164,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "header value with CR LF",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Headers[2].Value = "x\r\nInjected: 1"
 			},
 			path: "headers[2]",
@@ -1172,7 +1172,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "header value with NUL",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Headers[2].Value = "x\x00"
 			},
 			path: "headers[2]",
@@ -1180,7 +1180,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "header name not a token",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Headers[0].Name = "x y"
 			},
 			path: "headers[0]",
@@ -1188,7 +1188,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "connection header over HTTP/2",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Headers = append(p.Headers, Header{
 					Name:  "connection",
 					Value: "keep-alive",
@@ -1199,7 +1199,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "host header over HTTP/2",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Headers = append(p.Headers, Header{
 					Name: "host",
 				})
@@ -1209,7 +1209,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "HTTP/1.1 header value with LF",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP1 = &HTTP1{
 					Headers: []Header{
 						{
@@ -1227,7 +1227,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "HTTP/1.1 header name not a token",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP1 = &HTTP1{
 					Headers: []Header{
 						{
@@ -1244,7 +1244,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "CONNECT without Host",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Proxy = validProxy()
 				p.Proxy.Connect = p.Proxy.Connect[1:]
 			},
@@ -1253,7 +1253,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "CONNECT user agent with none in headers",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Proxy = validProxy()
 				p.Headers = slices.DeleteFunc(p.Headers, func(h Header) bool {
 					return h.Name == "user-agent"
@@ -1264,7 +1264,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "credential timing without connectAuth",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Proxy = validProxy()
 				p.Proxy.ConnectAuth = nil
 			},
@@ -1273,7 +1273,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "connectAuth without Proxy-Authorization",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Proxy = validProxy()
 				p.Proxy.ConnectAuth = p.Proxy.Connect
 			},
@@ -1282,7 +1282,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "CONNECT credentials sent always",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Proxy = validProxy()
 				p.Proxy.ConnectCredentials = CredentialsAlways
 			},
@@ -1291,7 +1291,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "forward credentials on challenge",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Proxy = validProxy()
 				p.Proxy.ForwardCredentials = CredentialsOnChallenge
 			},
@@ -1300,7 +1300,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "forward auth both after and before",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Proxy = validProxy()
 				p.Proxy.ForwardAuth.Before = "accept"
 			},
@@ -1309,7 +1309,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "forward connection not a header name",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Proxy = validProxy()
 				p.Proxy.ForwardConnection = "X\r\nY"
 			},
@@ -1318,7 +1318,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "SOCKS5 offering authentication",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Proxy = validProxy()
 				p.Proxy.SOCKS5.Methods = []int{
 					0,
@@ -1330,7 +1330,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "SOCKS5 naming targets by address",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Proxy = validProxy()
 				p.Proxy.SOCKS5.Address = "ipv4"
 			},
@@ -1339,7 +1339,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "WebSocket through a proxy, unknown ws:// way",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Proxy = validProxy()
 				p.Proxy.WebSocket = &ProxyWebSocket{
 					Plain: "absolute",
@@ -1350,7 +1350,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "WebSocket proxy credentials without connectAuth",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Proxy = validProxy()
 				p.Proxy.ConnectAuth, p.Proxy.ConnectCredentials, p.Proxy.ForwardCredentials, p.Proxy.ForwardAuth = nil, "", "", nil
 				p.Proxy.WebSocket = &ProxyWebSocket{
@@ -1363,7 +1363,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "WebSocket proxy credentials on a forwarded handshake that waits for a challenge",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Proxy = validProxy()
 				p.Proxy.WebSocket = &ProxyWebSocket{
 					Plain:       PlainWebSocketForward,
@@ -1375,7 +1375,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "nil kind",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Kinds = map[string]*Kind{
 					KindImage: nil,
 				}
@@ -1385,7 +1385,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "urgency that changes nothing",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Kinds = map[string]*Kind{
 					KindImage: {
 						Headers: p.Headers,
@@ -1398,7 +1398,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "kind without HTTP/1.1 headers when the navigation has them",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.HTTP1 = &HTTP1{
 					Headers: []Header{
 						{
@@ -1417,7 +1417,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "variant with method GET",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Variants = []Variant{
 					{
 						Method:  "GET",
@@ -1431,7 +1431,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "non-secure variant with HTTP/2 headers",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Variants = []Variant{
 					{
 						Insecure: true,
@@ -1449,7 +1449,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "non-secure variant without HTTP/1.1 headers",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Variants = []Variant{
 					{
 						Insecure: true,
@@ -1461,7 +1461,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "unknown preflight cache",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Context = &Context{
 					PreflightCache: "forever",
 				}
@@ -1471,7 +1471,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "unknown redirect origin rule",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Redirects = &Redirects{
 					MethodChangeOrigin: "sometimes",
 				}
@@ -1481,7 +1481,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "no navigation redirect limit",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Redirects = &Redirects{
 					MethodChangeOrigin: RedirectOriginDrop,
 					HopPreflight:       RedirectPreflightOwn,
@@ -1492,7 +1492,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "unknown hop preflight rule",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Redirects = &Redirects{
 					MethodChangeOrigin: RedirectOriginDrop,
 					NavigationLimit:    20,
@@ -1504,7 +1504,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "unknown navigation site rule",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Redirects = &Redirects{
 					MethodChangeOrigin: RedirectOriginDrop,
 					NavigationLimit:    20,
@@ -1517,7 +1517,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "unknown navigation origin rule",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Redirects = &Redirects{
 					MethodChangeOrigin: RedirectOriginDrop,
 					NavigationLimit:    20,
@@ -1531,7 +1531,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "no cookie rules",
-			mutate: func(_ *testing.T, p *Profile) {
+			mutate: func(_ *testing.T, p *Spec) {
 				p.Cookies = nil
 			},
 			path: "cookies",
@@ -1561,7 +1561,7 @@ func TestValidate(t *testing.T) {
 	}
 }
 
-func removeExtension(p *Profile, typ Code) {
+func removeExtension(p *Spec, typ Code) {
 	p.TLS.Extensions = slices.DeleteFunc(p.TLS.Extensions, func(e Extension) bool {
 		return e.Type == typ
 	})

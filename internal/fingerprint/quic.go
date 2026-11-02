@@ -29,7 +29,7 @@ type quicHello struct {
 }
 
 // compileQUIC compiles p's QUIC hello; nil without Profile.QUIC.
-func compileQUIC(p *profile.Profile) *quicPlan {
+func compileQUIC(p *profile.Spec) *quicPlan {
 	q := p.TLS.QUIC
 	if q == nil || p.QUIC == nil {
 		return nil
@@ -97,7 +97,7 @@ func compileQUICRetry(fresh quicHello, r *profile.QUICHelloRetry) quicHello {
 // the profile says; a resumed hello leaves out what a resumed TLS hello
 // does, adds early_data where the browser puts it and ends with
 // pre_shared_key.
-func compileQUICHello(p *profile.Profile, resumed bool) quicHello {
+func compileQUICHello(p *profile.Spec, resumed bool) quicHello {
 	q := p.TLS.QUIC
 	shuffled := q.ExtensionOrder == profile.ExtensionOrderShuffled
 	tp := profile.Extension{

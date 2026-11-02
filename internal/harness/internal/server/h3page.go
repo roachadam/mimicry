@@ -71,7 +71,7 @@ var H3Page = &Scenario{
 // H3ProfileCaptures returns p's existing h3-discovery and h3-page captures
 // in dir (own or inherited, with and without -h3-local-roots): what a
 // profile's QUIC and HTTP/3 sections are generated from.
-func H3ProfileCaptures(dir string, p *profile.Profile) ([]capture.File, error) {
+func H3ProfileCaptures(dir string, p *profile.Spec) ([]capture.File, error) {
 	return existingCaptures(dir, p, H3Discovery, H3Page)
 }
 
@@ -79,13 +79,13 @@ func H3ProfileCaptures(dir string, p *profile.Profile) ([]capture.File, error) {
 // (loss recovery, fallback, version negotiation, credit, key updates, early
 // data, STREAMS_BLOCKED). h3-v2 is left out: only internal/quic and
 // internal/harness/e2e check it.
-func H3EdgeCaptures(dir string, p *profile.Profile) ([]capture.File, error) {
+func H3EdgeCaptures(dir string, p *profile.Spec) ([]capture.File, error) {
 	return existingCaptures(dir, p, H3Blackhole, H3Broken, H3VN, H3Download, H3Early, H3TooEarly, H3StreamsBlocked)
 }
 
 // existingCaptures returns p's existing captures of scenarios in dir,
 // sorted by scenario, the -h3-local-roots one first.
-func existingCaptures(dir string, p *profile.Profile, scenarios ...*Scenario) ([]capture.File, error) {
+func existingCaptures(dir string, p *profile.Spec, scenarios ...*Scenario) ([]capture.File, error) {
 	var out []capture.File
 	for _, sc := range scenarios {
 		source, rw, err := capture.Inherited(p, sc.Name)

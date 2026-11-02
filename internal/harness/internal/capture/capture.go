@@ -19,7 +19,7 @@ import (
 type Capture struct {
 	// Profile holds the ClientHello and, once a request arrived, HTTP/2 and
 	// headers. Name, Browser, Version and Platform are filled in by Identify.
-	Profile profile.Profile
+	Profile profile.Spec
 	// ClientHello is the raw ClientHello handshake message, kept for debugging
 	// anything the profile schema does not describe.
 	ClientHello []byte

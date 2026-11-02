@@ -21,7 +21,7 @@ import (
 type report struct {
 	plan     *plan
 	run      *refreshRun
-	previous *profile.Profile
+	previous *profile.Spec
 	// derived is the derived profile's path in staging.
 	derived    string
 	installed  bool
@@ -295,7 +295,7 @@ func (rep *report) writeDiff(b *strings.Builder) error {
 
 // navigationValue is p's navigation's value of the header name, "" if it
 // sends none.
-func navigationValue(p *profile.Profile, name string) string {
+func navigationValue(p *profile.Spec, name string) string {
 	for _, h := range p.Headers {
 		if strings.EqualFold(h.Name, name) {
 			return h.Value

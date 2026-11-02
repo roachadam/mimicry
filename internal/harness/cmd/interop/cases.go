@@ -50,7 +50,7 @@ func (r *result) failf(format string, args ...any) {
 
 // caseEnv is what a case runs against.
 type caseEnv struct {
-	profile *profile.Profile
+	profile profile.Profile
 	// host is the server's name, peer its UDP address.
 	host  string
 	peer  netip.AddrPort

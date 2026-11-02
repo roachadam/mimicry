@@ -351,7 +351,7 @@ func (*fakeEngine) CloseIdleConnections() {}
 func fakeTransport(t *testing.T, cfg Config, e *fakeEngine) *Transport {
 	t.Helper()
 
-	if cfg.Profile == nil {
+	if cfg.Profile == (profile.Profile{}) {
 		cfg.Profile = profiles.Chrome()
 	}
 
@@ -521,18 +521,18 @@ func TestDecodeErrors(t *testing.T) {
 // navigation's and its kinds'), so a redirect's request takes its kind's
 // own order: for tests of the redirect rules on hops no capture shows
 // (which p refuses as not measured).
-func anyRedirectOrder(p *profile.Profile) *profile.Profile {
+func anyRedirectOrder(p profile.Profile) profile.Profile {
 	redirected := func(v profile.Variant) bool {
 		return v.Redirected
 	}
 
-	p.Variants = slices.DeleteFunc(p.Variants, redirected)
+	return p.With(func(s *profile.Spec) {
+		s.Variants = slices.DeleteFunc(s.Variants, redirected)
 
-	for _, k := range p.Kinds {
-		k.Variants = slices.DeleteFunc(k.Variants, redirected)
-	}
-
-	return p
+		for _, k := range s.Kinds {
+			k.Variants = slices.DeleteFunc(k.Variants, redirected)
+		}
+	})
 }
 
 // Authorization and Cookie from Config.Header stay behind once a

@@ -16,7 +16,7 @@ import (
 // scenario closes the connection on), or "" when it sent none on any.
 // The connections must agree. Replay pages are left out: their scenarios
 // come from page shapes, not by name.
-func goAwayReply(dir string, p *profile.Profile) (string, error) {
+func goAwayReply(dir string, p *profile.Spec) (string, error) {
 	var (
 		reply, replyAt string
 		seen           bool

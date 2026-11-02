@@ -110,10 +110,10 @@ func (c *scriptConn) SetWriteDeadline(time.Time) error {
 // A new connection's cost up to its first response: New and one GET, the
 // client's writes (TLS records) and allocations, per profile.
 func BenchmarkOpen(b *testing.B) {
-	for _, p := range []*profile.Profile{
-		profiles.Chrome156MacOS(),
-		profiles.Firefox158MacOS(),
-		profiles.Safari26MacOS(),
+	for _, p := range []*profile.Spec{
+		profiles.Chrome156MacOS().Spec(),
+		profiles.Firefox158MacOS().Spec(),
+		profiles.Safari26MacOS().Spec(),
 	} {
 		b.Run(p.Name, func(b *testing.B) {
 			firstID := p.HTTP2.FirstStreamID

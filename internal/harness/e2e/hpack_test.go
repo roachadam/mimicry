@@ -22,7 +22,7 @@ import (
 // (its own and those it inherits), by scenario, as captured: HPACK
 // reproduction compares the bytes sent, so inherited ones are not
 // rewritten to p's version.
-func scenarioTraces(t *testing.T, p *profile.Profile) map[*server.Scenario][]*h2trace.Trace {
+func scenarioTraces(t *testing.T, p *profile.Spec) map[*server.Scenario][]*h2trace.Trace {
 	t.Helper()
 
 	files, err := capture.Files(captureDir, p, ".h2trace.json")
@@ -84,7 +84,7 @@ func TestHPACKReproducesBrowserBlocks(t *testing.T) {
 // pageTraces returns every page capture p is checked against (its own and
 // those it inherits), as captured (see scenarioTraces), by file name less
 // its profile and suffix ("kinds", "h3-page.local-roots").
-func pageTraces(t *testing.T, p *profile.Profile) map[string][]*capture.Page {
+func pageTraces(t *testing.T, p *profile.Spec) map[string][]*capture.Page {
 	t.Helper()
 
 	files, err := capture.Files(captureDir, p, ".pagetrace.json.gz")

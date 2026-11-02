@@ -188,7 +188,7 @@ func echoProto(body json.RawMessage) string {
 }
 
 // echoProfile walks the endpoints with a fresh mimicry client for p.
-func echoProfile(ctx context.Context, name string, p *profile.Profile, out string) error {
+func echoProfile(ctx context.Context, name string, p profile.Profile, out string) error {
 	c, err := mimicry.NewClient(mimicry.Config{
 		Profile: p,
 	})
@@ -197,9 +197,11 @@ func echoProfile(ctx context.Context, name string, p *profile.Profile, out strin
 	}
 	defer c.CloseIdleConnections()
 
+	h3 := p.Spec().HTTP3
+
 	return visitEchoes(ctx, name, &mimicryVisitor{
 		c:           c,
-		newConnOnly: p.HTTP3 != nil && p.HTTP3.Discovery.Switch == profile.SwitchNewConnection,
+		newConnOnly: h3 != nil && h3.Discovery.Switch == profile.SwitchNewConnection,
 	}, out)
 }
 

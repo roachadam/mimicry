@@ -101,8 +101,8 @@ type options struct {
 	onWait      func(key string)
 	// maxConns is Config.MaxConnsPerHost.
 	maxConns int
-	// profile defaults to profiles.Chrome().
-	profile *profile.Profile
+	// profile defaults to profiles.Chrome()'s.
+	profile *profile.Spec
 	// clock defaults to the real one; proxy is Config.Proxy.
 	clock clockwork.Clock
 	proxy func(*http.Request) (*url.URL, error)
@@ -127,7 +127,7 @@ func newTestEngine(t *testing.T, o options) *Engine {
 
 	p := o.profile
 	if p == nil {
-		p = profiles.Chrome()
+		p = profiles.Chrome().Spec()
 	}
 
 	clock := o.clock

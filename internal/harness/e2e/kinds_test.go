@@ -427,7 +427,7 @@ func kindsRequests() []kindsRequest {
 
 // runKindsPage serves sc and makes the kinds page's requests through
 // mimicry as profile p, from the page, and returns the server's capture.
-func runKindsPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *capture.Page {
+func runKindsPage(t *testing.T, p *profile.Spec, sc *server.Scenario) *capture.Page {
 	t.Helper()
 
 	s := startPage(t, p, sc)
@@ -490,7 +490,7 @@ type pageSession struct {
 	arrivals   map[string]chan struct{}
 }
 
-func startPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *pageSession {
+func startPage(t *testing.T, p *profile.Spec, sc *server.Scenario) *pageSession {
 	t.Helper()
 
 	return startPageWith(t, p, sc, nil)
@@ -498,7 +498,7 @@ func startPage(t *testing.T, p *profile.Profile, sc *server.Scenario) *pageSessi
 
 // startPageWith is startPage with the client's Config changed by config,
 // when not nil.
-func startPageWith(t *testing.T, p *profile.Profile, sc *server.Scenario, config func(*mimicry.Config)) *pageSession {
+func startPageWith(t *testing.T, p *profile.Spec, sc *server.Scenario, config func(*mimicry.Config)) *pageSession {
 	t.Helper()
 
 	ca, err := server.LoadOrCreateCA(t.TempDir(), server.CADomains, time.Now())
@@ -572,7 +572,7 @@ func startPageWith(t *testing.T, p *profile.Profile, sc *server.Scenario, config
 	pool.AddCert(ca.Cert)
 
 	cfg := mimicry.Config{
-		Profile: p,
+		Profile: checked(p),
 		RootCAs: pool,
 		Cookies: newJar(t, p),
 		// Every capture host is this server, and resolves to its address,

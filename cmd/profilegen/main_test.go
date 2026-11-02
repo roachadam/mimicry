@@ -34,10 +34,10 @@ func TestGeneratedFileUpToDate(t *testing.T) {
 // (decision 0035), so a refresh cannot leave too many versions supported or
 // inherit captures that are not there.
 func TestCheckPolicyRefuses(t *testing.T) {
-	versions := func(n, deprecated int) []*profile.Profile {
-		out := make([]*profile.Profile, 0, n)
+	versions := func(n, deprecated int) []*profile.Spec {
+		out := make([]*profile.Spec, 0, n)
 		for i := range n {
-			out = append(out, &profile.Profile{
+			out = append(out, &profile.Spec{
 				Name:       fmt.Sprintf("chrome-%d-macos", 150+i),
 				Browser:    "chrome",
 				Version:    strconv.Itoa(150 + i),
@@ -48,8 +48,8 @@ func TestCheckPolicyRefuses(t *testing.T) {
 
 		return out
 	}
-	safari := func(version int, platform string) *profile.Profile {
-		return &profile.Profile{
+	safari := func(version int, platform string) *profile.Spec {
+		return &profile.Spec{
 			Name:     fmt.Sprintf("safari-%d-%s", version, platform),
 			Browser:  "safari",
 			Version:  strconv.Itoa(version),
@@ -59,19 +59,19 @@ func TestCheckPolicyRefuses(t *testing.T) {
 
 	for _, tc := range []struct {
 		name     string
-		profiles func() []*profile.Profile
+		profiles func() []*profile.Spec
 		want     string
 	}{
 		{
 			name: "six supported versions",
-			profiles: func() []*profile.Profile {
+			profiles: func() []*profile.Spec {
 				return versions(6, 0)
 			},
 			want: "chrome-150-macos must be deprecated",
 		},
 		{
 			name: "newest version deprecated",
-			profiles: func() []*profile.Profile {
+			profiles: func() []*profile.Spec {
 				ps := versions(2, 0)
 
 				ps[1].Deprecated = true
@@ -82,7 +82,7 @@ func TestCheckPolicyRefuses(t *testing.T) {
 		},
 		{
 			name: "inherited from a profile that is not built in",
-			profiles: func() []*profile.Profile {
+			profiles: func() []*profile.Spec {
 				ps := versions(2, 0)
 
 				ps[1].CapturesFrom = map[string]string{
@@ -95,7 +95,7 @@ func TestCheckPolicyRefuses(t *testing.T) {
 		},
 		{
 			name: "inherited from a newer version",
-			profiles: func() []*profile.Profile {
+			profiles: func() []*profile.Spec {
 				ps := versions(2, 0)
 
 				ps[0].CapturesFrom = map[string]string{
@@ -108,7 +108,7 @@ func TestCheckPolicyRefuses(t *testing.T) {
 		},
 		{
 			name: "inherited from a profile that inherits it too",
-			profiles: func() []*profile.Profile {
+			profiles: func() []*profile.Spec {
 				ps := versions(3, 0)
 
 				ps[1].CapturesFrom = map[string]string{
@@ -124,7 +124,7 @@ func TestCheckPolicyRefuses(t *testing.T) {
 		},
 		{
 			name: "inherited from another platform",
-			profiles: func() []*profile.Profile {
+			profiles: func() []*profile.Spec {
 				ps := append(versions(1, 0), onWindows(versions(2, 0))...)
 
 				ps[2].CapturesFrom = map[string]string{
@@ -137,8 +137,8 @@ func TestCheckPolicyRefuses(t *testing.T) {
 		},
 		{
 			name: "inherited from a newer version of the platform sharing the stack",
-			profiles: func() []*profile.Profile {
-				ps := []*profile.Profile{
+			profiles: func() []*profile.Spec {
+				ps := []*profile.Spec{
 					safari(27, "ios"),
 					safari(28, "macos"),
 				}
@@ -172,7 +172,7 @@ func TestCheckPolicyRefuses(t *testing.T) {
 
 	// Safari on iOS inherits from macOS Safari of its own version, whose
 	// network stack it shares (decision 0051).
-	ios := []*profile.Profile{
+	ios := []*profile.Spec{
 		safari(27, "macos"),
 		safari(27, "ios"),
 	}
@@ -186,7 +186,7 @@ func TestCheckPolicyRefuses(t *testing.T) {
 }
 
 // onWindows moves macOS profiles to Windows.
-func onWindows(ps []*profile.Profile) []*profile.Profile {
+func onWindows(ps []*profile.Spec) []*profile.Spec {
 	for _, p := range ps {
 		p.Name = strings.TrimSuffix(p.Name, "-macos") + "-windows"
 		p.Platform = "windows"
@@ -208,7 +208,7 @@ func TestGenerateWindows(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mac, err := profile.Parse(b)
+	mac, err := profile.Decode(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -230,10 +230,10 @@ func TestGenerateWindows(t *testing.T) {
 	}
 
 	for _, want := range []string{
-		"func Chrome() *profile.Profile {\n\treturn load(\"chrome-155-macos\")\n}",
-		"func ChromeWindows() *profile.Profile {\n\treturn load(\"chrome-156-windows\")\n}",
-		"func Chrome155Windows() *profile.Profile {\n\treturn load(\"chrome-155-windows\")\n}",
-		"func Chrome156Windows() *profile.Profile {\n\treturn load(\"chrome-156-windows\")\n}",
+		"func Chrome() profile.Profile {\n\treturn load(\"chrome-155-macos\")\n}",
+		"func ChromeWindows() profile.Profile {\n\treturn load(\"chrome-156-windows\")\n}",
+		"func Chrome155Windows() profile.Profile {\n\treturn load(\"chrome-155-windows\")\n}",
+		"func Chrome156Windows() profile.Profile {\n\treturn load(\"chrome-156-windows\")\n}",
 	} {
 		if !bytes.Contains(src, []byte(want)) {
 			t.Errorf("generated source lacks\n%s\n\ngot:\n%s", want, src)
@@ -258,7 +258,7 @@ func TestGenerateWindows(t *testing.T) {
 	}
 }
 
-func write(t *testing.T, path string, p *profile.Profile) {
+func write(t *testing.T, path string, p *profile.Spec) {
 	t.Helper()
 
 	b, err := profile.Encode(p)

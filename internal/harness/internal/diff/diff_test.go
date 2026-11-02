@@ -7,8 +7,8 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-func sample(order string) *profile.Profile {
-	return &profile.Profile{
+func sample(order string) *profile.Spec {
+	return &profile.Spec{
 		TLS: profile.TLS{
 			CipherSuites: []profile.Code{
 				profile.GREASE,
@@ -85,19 +85,19 @@ func TestCompare(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		order  string
-		mutate func(p *profile.Profile)
+		mutate func(p *profile.Spec)
 		want   []string
 	}{
 		{
 			name:   "identical",
 			order:  profile.ExtensionOrderShuffled,
-			mutate: func(*profile.Profile) {},
+			mutate: func(*profile.Spec) {},
 			want:   nil,
 		},
 		{
 			name:  "shuffled browser, extensions reordered",
 			order: profile.ExtensionOrderShuffled,
-			mutate: func(p *profile.Profile) {
+			mutate: func(p *profile.Spec) {
 				e := p.TLS.Extensions
 
 				e[1], e[3] = e[3], e[1]
@@ -107,7 +107,7 @@ func TestCompare(t *testing.T) {
 		{
 			name:  "fixed browser, extensions reordered",
 			order: profile.ExtensionOrderFixed,
-			mutate: func(p *profile.Profile) {
+			mutate: func(p *profile.Spec) {
 				e := p.TLS.Extensions
 
 				e[1], e[3] = e[3], e[1]
@@ -119,7 +119,7 @@ func TestCompare(t *testing.T) {
 		{
 			name:  "shuffled browser, GREASE moved",
 			order: profile.ExtensionOrderShuffled,
-			mutate: func(p *profile.Profile) {
+			mutate: func(p *profile.Spec) {
 				e := p.TLS.Extensions
 
 				e[0], e[1] = e[1], e[0]
@@ -131,7 +131,7 @@ func TestCompare(t *testing.T) {
 		{
 			name:  "extension content",
 			order: profile.ExtensionOrderShuffled,
-			mutate: func(p *profile.Profile) {
+			mutate: func(p *profile.Spec) {
 				p.TLS.Extensions[2].ALPN = []string{
 					"http/1.1",
 				}
@@ -143,7 +143,7 @@ func TestCompare(t *testing.T) {
 		{
 			name:  "second GREASE extension body",
 			order: profile.ExtensionOrderShuffled,
-			mutate: func(p *profile.Profile) {
+			mutate: func(p *profile.Spec) {
 				p.TLS.Extensions[4].Data = nil
 			},
 			want: []string{
@@ -153,7 +153,7 @@ func TestCompare(t *testing.T) {
 		{
 			name:  "missing extension",
 			order: profile.ExtensionOrderFixed,
-			mutate: func(p *profile.Profile) {
+			mutate: func(p *profile.Spec) {
 				p.TLS.Extensions = append(p.TLS.Extensions[:3], p.TLS.Extensions[4])
 			},
 			want: []string{
@@ -164,7 +164,7 @@ func TestCompare(t *testing.T) {
 		{
 			name:  "cipher order",
 			order: profile.ExtensionOrderShuffled,
-			mutate: func(p *profile.Profile) {
+			mutate: func(p *profile.Spec) {
 				c := p.TLS.CipherSuites
 
 				c[1], c[2] = c[2], c[1]
@@ -176,7 +176,7 @@ func TestCompare(t *testing.T) {
 		{
 			name:  "HTTP/2 setting value",
 			order: profile.ExtensionOrderShuffled,
-			mutate: func(p *profile.Profile) {
+			mutate: func(p *profile.Spec) {
 				p.HTTP2.Settings[0].Value = 4096
 			},
 			want: []string{
@@ -186,7 +186,7 @@ func TestCompare(t *testing.T) {
 		{
 			name:  "no HTTP/2",
 			order: profile.ExtensionOrderShuffled,
-			mutate: func(p *profile.Profile) {
+			mutate: func(p *profile.Spec) {
 				p.HTTP2 = nil
 			},
 			want: []string{
@@ -196,7 +196,7 @@ func TestCompare(t *testing.T) {
 		{
 			name:  "header value",
 			order: profile.ExtensionOrderShuffled,
-			mutate: func(p *profile.Profile) {
+			mutate: func(p *profile.Spec) {
 				p.Headers[0].Value = "test/2"
 			},
 			want: []string{
@@ -206,7 +206,7 @@ func TestCompare(t *testing.T) {
 		{
 			name:  "extra header",
 			order: profile.ExtensionOrderShuffled,
-			mutate: func(p *profile.Profile) {
+			mutate: func(p *profile.Spec) {
 				p.Headers = append(p.Headers, profile.Header{
 					Name:  "dnt",
 					Value: "1",

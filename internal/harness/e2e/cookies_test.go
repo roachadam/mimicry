@@ -71,7 +71,7 @@ func hasHeader(lines []string, name string) bool {
 }
 
 // runCookiesPage walks the cookies page through mimicry as profile p.
-func runCookiesPage(t *testing.T, p *profile.Profile) *capture.Page {
+func runCookiesPage(t *testing.T, p *profile.Spec) *capture.Page {
 	t.Helper()
 
 	s := startPage(t, p, server.Cookies)

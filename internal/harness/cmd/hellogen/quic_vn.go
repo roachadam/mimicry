@@ -16,7 +16,7 @@ import (
 // vnRetryHello derives tls.quic.versionNegotiation: how hellos retried
 // after Version Negotiation differ from the full QUIC hello. All retries
 // must differ alike. Nil without such connections.
-func vnRetryHello(dir string, p *profile.Profile, q *profile.QUICHello) (*profile.QUICHelloRetry, error) {
+func vnRetryHello(dir string, p *profile.Spec, q *profile.QUICHello) (*profile.QUICHelloRetry, error) {
 	t := &p.TLS
 	retries, err := vnRetries(dir, p)
 
@@ -133,7 +133,7 @@ func checkRetryHello(t *profile.TLS, q *profile.QUICHello, r *profile.QUICHelloR
 
 	var lines []string
 
-	for _, d := range diff.Compare(&profile.Profile{TLS: *want}, &profile.Profile{TLS: got}) {
+	for _, d := range diff.Compare(&profile.Spec{TLS: *want}, &profile.Spec{TLS: got}) {
 		lines = append(lines, d.String())
 	}
 
@@ -158,7 +158,7 @@ func checkRetryHello(t *profile.TLS, q *profile.QUICHello, r *profile.QUICHelloR
 
 // vnRetries are the h3-vn captures' connections that followed the one
 // before's Version Negotiation in another version.
-func vnRetries(dir string, p *profile.Profile) ([]quicConn, error) {
+func vnRetries(dir string, p *profile.Spec) ([]quicConn, error) {
 	files, err := server.H3EdgeCaptures(dir, p)
 	if err != nil {
 		return nil, err

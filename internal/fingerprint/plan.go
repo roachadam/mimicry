@@ -31,7 +31,7 @@ type Plan struct {
 // Compile turns p's ClientHello into a Plan. p must be valid (profile.Parse
 // or Validate), and the Plan shares its values: p must not change
 // afterwards.
-func Compile(p *profile.Profile) *Plan {
+func Compile(p *profile.Spec) *Plan {
 	plan := &Plan{
 		tls: p.TLS,
 	}

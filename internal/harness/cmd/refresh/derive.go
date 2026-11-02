@@ -22,7 +22,7 @@ import (
 // navigation headers, and the http1 navigation (h1; nil keeps prev's lines
 // with version tokens rewritten). Everything else stays prev's, to be
 // regenerated or copied.
-func fromCapture(prev *profile.Profile, name, version string, captured *profile.Profile, h1 []string, capturesFrom map[string]string) (*profile.Profile, error) {
+func fromCapture(prev *profile.Spec, name, version string, captured *profile.Spec, h1 []string, capturesFrom map[string]string) (*profile.Spec, error) {
 	p, err := clone(prev)
 	if err != nil {
 		return nil, err
@@ -194,7 +194,7 @@ func inOrderOf(order, captured []profile.Extension) ([]profile.Extension, bool) 
 	return out, true
 }
 
-func clone(p *profile.Profile) (*profile.Profile, error) {
+func clone(p *profile.Spec) (*profile.Spec, error) {
 	data, err := profile.Encode(p)
 	if err != nil {
 		return nil, err

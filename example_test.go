@@ -429,7 +429,7 @@ func ExampleConfig_sharedJar() {
 	p := profiles.Chrome()
 
 	jar, err := cookies.New(cookies.Config{
-		Rules: p.Cookies,
+		Rules: p.Spec().Cookies,
 	})
 	if err != nil {
 		panic(err)

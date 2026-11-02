@@ -378,8 +378,8 @@ func TestDatagramBatchHandledInOrder(t *testing.T) {
 		profile string
 		batched bool
 	}{
-		{"chrome", profiles.Chrome().Name, false},
-		{"firefox", profiles.Firefox().Name, true},
+		{"chrome", profiles.Chrome().Name(), false},
+		{"firefox", profiles.Firefox().Name(), true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			acks := func(batch bool) (acks [][]i64range[packetNumber], last packetNumber) {

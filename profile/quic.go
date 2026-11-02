@@ -633,11 +633,11 @@ func (v *QUICVersion) UnmarshalText(text []byte) error {
 }
 
 // QUICHello is how a browser's QUIC ClientHello differs from its TLS one
-// (Profile.TLS): TLS's extensions without Drop, Replace applied, plus
+// (Spec.TLS): TLS's extensions without Drop, Replace applied, plus
 // quic_transport_parameters, ordered per ExtensionOrder. A resumed hello
 // (QUIC.ZeroRTT) also applies TLS.Resumption.Drop where TLS resumes,
 // adds early_data, and ends with pre_shared_key. Required with
-// Profile.QUIC; derived by internal/harness/cmd/hellogen.
+// Spec.QUIC; derived by internal/harness/cmd/hellogen.
 type QUICHello struct {
 	// CipherSuites replaces TLS.CipherSuites. Required.
 	CipherSuites []Code `json:"cipherSuites"`

@@ -155,7 +155,7 @@ func edgeCookie(page *capture.Page, st server.CookiesEdgeStep, plain bool) (stri
 // credentials "include" from the last navigation's page, over plain HTTP
 // where plain says the browser used it, a Plain step on the scenario's
 // plain port if it has one.
-func runCookiesEdgePage(t *testing.T, p *profile.Profile, sc *server.Scenario, steps []server.CookiesEdgeStep, plain map[string]bool) *capture.Page {
+func runCookiesEdgePage(t *testing.T, p *profile.Spec, sc *server.Scenario, steps []server.CookiesEdgeStep, plain map[string]bool) *capture.Page {
 	t.Helper()
 
 	s := startPage(t, p, sc)

@@ -91,7 +91,7 @@ func engineFlow(ctx context.Context, cfg mimicry.Config, home, large string) ([]
 		sum.SwitchedAfter = 1
 	}
 
-	if cfg.Profile.HTTP3.Discovery.Switch == profile.SwitchNewConnection {
+	if cfg.Profile.Spec().HTTP3.Discovery.Switch == profile.SwitchNewConnection {
 		client.CloseIdleConnections()
 	}
 
