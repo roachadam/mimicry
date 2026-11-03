@@ -115,6 +115,9 @@ func TestGoAwayReply(t *testing.T) {
 			h2 := *p.HTTP2
 
 			h2.GoAwayReply = tc.reply
+			// The drain path: a profile that never measured resending a
+			// refused stream retires the connection.
+			h2.RefusedStreamSends = 0
 			p.HTTP2 = &h2
 
 			c, pr := newPeer(t, &p, clockwork.NewRealClock())

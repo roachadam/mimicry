@@ -92,13 +92,19 @@ func (e *Engine) OpenWebSocket(req *http.Request, key string) (*WebSocket, error
 					MaxData:  st.MaxData(),
 				}, nil
 
+			case errors.Is(err, h2.ErrStreamRefused):
+				// Refused: c stays usable and pooled, and the socket
+				// opens on a connection of its own, as before. No browser
+				// was measured resending a refused extended CONNECT.
+
 			case !errors.Is(err, h2.ErrConnUnusable):
 				return nil, err
-			}
 
-			// Going away before the stream opened: a connection of its
-			// own, as when the host has none.
-			e.pool.RemoveShared(r.key, c)
+			default:
+				// Going away before the stream opened: a connection of
+				// its own, as when the host has none.
+				e.pool.RemoveShared(r.key, c)
+			}
 		}
 	}
 
