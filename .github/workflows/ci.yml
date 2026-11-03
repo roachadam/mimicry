@@ -74,7 +74,7 @@ jobs:
           GEN_PATHS: '^(internal/harness/cmd/(hellogen|h3gen|kindsgen)/|internal/harness/internal/capture/|internal/harness/testdata/captures/|profiles/data/|profile/)'
         run: |
           if [ "$GITHUB_EVENT_NAME" != pull_request ]; then
-            code=true tiers=core,protocol,gen,main shards=7
+            code=true tiers=core,protocol,gen,main shards=8
           else
             # A pull request checks out its merge commit: the first parent
             # is the base branch, so HEAD^1..HEAD is the pull request's
