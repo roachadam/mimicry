@@ -247,3 +247,96 @@ claim. `TestClientPathDegradingMove` (`internal/quic`) checks both ways.
 
 Reopen if a capture of Chrome against a server sending the parameter
 shows it moving, or shows what it does instead.
+
+## Amendment 2026-11-03: what counts as an abandoned attempt
+
+Issue #60. h3gen read `abandonOnTcp` from whether an unanswered attempt
+sent an Initial in any flight after its first. Chrome on the iPhone
+retransmits its Initials and then stops once TCP takes the request, so it
+read as running on, and `chrome-157-ios` pinned `true` (decision
+[0053](0053-chrome-on-ios.md)). Reading instead "no Initial after the raced
+TCP connection's ClientHello" split desktop Chrome's and Firefox's
+attempts (6 of 9 abandoned for Chrome on macOS), but that split paired
+attempts with TCP connections opened after the attempt had already given
+up (`after-goaway2.so`'s, 20 s later; the one after a resumed attempt's
+4 s hold).
+
+Every unanswered attempt of the `h3-blackhole` and `h3-broken` captures,
+timed against the first request that waited for it and went on TCP
+(`safari-27-ios` has no failure pair; its rule is copied):
+
+| Profile | Abandoned | Ran on | No request fell back while it ran |
+|---|---|---|---|
+| `chrome-155-macos`, `chrome-156-macos` (one capture set) | 0 | 3 | 6 |
+| `chrome-156-windows` | 0 | 3 | 6 |
+| `firefox-158-macos` | 0 | 1 | 8 |
+| `firefox-158-windows` | 0 | 0 | 9 |
+| `safari-26-macos`, `safari-27-macos` | 12 each | 0 | 0 |
+| `safari-26-ios` | 12 | 0 | 0 |
+| `chrome-157-ios` | 12 | 0 | 0 |
+| `firefox-159-ios` | 11 | 0 | 1 |
+
+- **Desktop Chrome runs on** after the request goes on TCP. Its blackholed
+  attempts send their 4 s give-up close 181–194 ms after it (6 of 6). Its
+  resumed attempts hold their requests until they give up
+  (`zeroRttHolds`), so no request falls back while they run. The fresh
+  attempt that follows starts together with TCP, carrying a request the
+  resumed one held. That request does not pair with it (see below), but
+  the attempt probes 299–312, 903–918 and 2107–2123 ms after the request
+  reached the server on TCP (6 of 6).
+- **Firefox validates in the background**. Its requests go on TCP at once
+  beside the attempt, or just before it with `raceAfterGoaway`, and do not
+  wait for it. The exception is the hold after a close, which lasts until
+  the give-up. One request was held 50 ms or more while an attempt ran:
+  `fetch4.so`, 52 ms, on the open TCP connection (`h3-blackhole` sample 3
+  on macOS, 8.6 s in). Probes followed it 740 ms and 10.3 s later.
+- **Safari, and Chrome and Firefox on the iPhone, stop once the request has
+  gone on TCP.** Of 59 attempts, none sent an Initial after that request
+  reached the server. They stop when TCP succeeds, not when it starts.
+  Chrome on the iPhone probes until then: one to four retransmitted pairs,
+  and in 3 of 6 blackholed attempts the last pair came 0–8 ms after the TCP
+  ClientHello. Firefox on the iPhone sent one 31 ms after it. The 0-RTT
+  close of a resumed attempt goes out with the request, 0–4 ms after the
+  request reached the server. On loopback, Safari on macOS sends it 8–11 ms
+  after its TCP ClientHello (6 of 6).
+
+So one rule explains every attempt, and h3gen has one definition
+(`unanswered.abandoned`, `edge_loss.go`). An attempt is abandoned when two
+things hold:
+
+- a request that waited for it (50 ms or more, `backgroundMillis`) reached
+  the server over TCP while it ran, from its start and before any close it
+  sent. The request was made no more than 50 ms (plus the slack) before
+  the attempt started, the window in which h3gen's `race` pairs a request
+  with the attempt it started, or was made later. A request held by an
+  earlier attempt is not paired with this one;
+- the attempt sent no Initial packet after that request arrived, allowing
+  the page's network slack (200 ms over Wi-Fi). Once, Chrome on the
+  iPhone's last pair reached the server 1.4 ms after the request. The
+  slack only works one way: an attempt whose only later Initials fall
+  within it reads as abandoned. In the captures, that pair is the only
+  Initial inside the slack, and its attempt sent nothing after it.
+
+An attempt no request fell back from counts neither way. `abandonOnTcp` is
+true when any attempt is abandoned. h3gen refuses a profile where some
+attempts are abandoned and others ran on. The failure pair checks this
+too, and `quic.loss`'s all-or-none rule uses the same definition. Every
+profile regenerates unchanged, and `chrome-157-ios`'s pin is gone.
+
+Rejected:
+
+- **Any Initial after the first flight** (the old definition). It reads a
+  probe sent before TCP took over as running on.
+- **No Initial after the TCP ClientHello.** On the iPhone, a pair lands
+  during TCP's handshake. Safari's close comes after the ClientHello too.
+- **A second field** for "until TCP succeeds". `abandonOnTcp` already
+  drops the attempt "once the request went on TCP", and no profile needs
+  another value.
+
+Not changed: the engine drops the attempt when the request leaves for
+TCP, before its dial, not once the request is on the TCP connection. On
+loopback that is 8–11 ms early. It is listed in EVIDENCE.md's Not covered
+by any claim.
+
+Reopen if a capture shows a browser abandoning its attempt in some
+fallbacks and not in others.

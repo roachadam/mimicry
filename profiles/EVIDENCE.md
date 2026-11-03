@@ -325,13 +325,15 @@ measured for it, as for `safari-27-ios`. Where it differs from
 - **W from the iPhone's failure pair**, as `safari-26-ios`:
   `quic.keepAlive` (2000 ms after the last packet received: samples 1
   and 3, and the ~2000 ms PING cadence of sample 2, pinned),
-  `quic.loss.pathDegrading` and `http3.closeOnGoaway`; the fallback's mode
-  and `pending` checked against the copied rule. `abandonOnTcp` stays
-  true as copied: in 6 of 6 unanswered `h3-blackhole` attempts Chrome sent
-  the Initial pair and one or two retransmitted pairs 28–137 ms in, the
-  last between 29 ms before and 8 ms after the raced TCP connection's
-  ClientHello reached the server, and nothing after; h3gen's rule counts
-  an attempt abandoned only without any probe (pinned in `sampleGaps`).
+  `quic.loss.pathDegrading` and `http3.closeOnGoaway`; the fallback's mode,
+  `abandonOnTcp` and `pending` checked against the copied rule.
+  `abandonOnTcp` holds for all 12 of 12 unanswered attempts: Chrome
+  probes until the request that waited for the attempt goes on TCP, then
+  sends nothing more. In blackholed attempts that means one or two
+  retransmitted Initial pairs 28–137 ms in, the last up to 8 ms after the
+  TCP ClientHello; in `h3-broken`, up to four. A resumed attempt's 0-RTT
+  close goes out with the request
+  ([0028, amendment](../docs/decisions/0028-quic-failure-model.md#amendment-2026-11-03-what-counts-as-an-abandoned-attempt)).
 - **C: from safari-27-ios** (the profile it was derived from): the
   fallback's timing, `quic.ack` and `quic.credit`; the hand-written
   cookie, redirect, connection, WebSocket and proxy sections, each
@@ -339,8 +341,8 @@ measured for it, as for `safari-27-ios`. Where it differs from
 - **Not measured:** as for `safari-27-ios`: the rest of QUIC loss, key
   update, 0-RTT, dial delays, the proxy 407 flow.
 - **Pinned:** three first connections whose navigation devicectl handed
-  Chrome in the preface's millisecond (`openingGaps`); `abandonOnTcp` and
-  one `h3-broken` sample's keep-alive (h3gen's `sampleGaps`).
+  Chrome in the preface's millisecond (`openingGaps`); one `h3-broken`
+  sample's keep-alive (h3gen's `sampleGaps`).
 
 **`firefox-159-ios`** (2026-11-03, Firefox 159.1 on the same iPhone 15
 Pro, iOS 27.2, over Wi-Fi through devicectl;
@@ -375,10 +377,9 @@ must be `safari-27-ios`'s. Where it differs from `chrome-157-ios`:
   resumption, WebSocket handshakes and frames, the CONNECT head and the
   HTTP/1.1 and HTTP/2 upload records; `quic.ackDelay` is its own
   (h3gen).
-- **W from the iPhone's failure pair**, as `chrome-157-ios`; h3gen
-  derives `abandonOnTcp` true from Firefox's captures, without
-  `chrome-157-ios`'s pin ([#60](https://github.com/roachadam/mimicry/issues/60)
-  does not arise).
+- **W from the iPhone's failure pair**, as `chrome-157-ios`; 11 of 12
+  unanswered attempts abandoned once the request went on TCP. In the
+  twelfth, no request fell back while it ran.
 - **C: from safari-27-ios**, as for `chrome-157-ios`.
 - **Pinned:** three first connections whose navigation devicectl handed
   Firefox in the preface's millisecond (`openingGaps`); in h3gen's
@@ -845,7 +846,7 @@ field holds and the download test logs without checking.
 | `quic.credit` | W: stream and connection every half window (6 MiB, 15 MiB; steps within 2% above), windows fixed | W: every quarter (12 MiB, 24 MiB) | W: stream about half the 2 MiB window as its application reads (irregular: pinned); connection = bytes received + 2 MiB (by its ACKs: never more, the median raise within 3.3 KB; a quarter to a third of its raises from older counts, up to 1.7 MB lower, and in other packets than its MAX_STREAM_DATA) | W: as 27, but every raise after the first (two in one sample) rides with a MAX_STREAM_DATA and all but two (that sample) are on the rule; that sample grew the stream window to 3.2 MB |
 | `quic.keyUpdate` | W: follows only (none started in 3,793 packets sent, 37,050 received) | W: follows only | W: follows only | W: follows only |
 | `quic.versionNegotiation` | W: no retry; no QUIC after | W: retry in v2 1 ms after the VN; close 0x53f8 when the server's parameters lack version_information | W: no retry | W: no retry |
-| `http3.discovery.fallback` | W: `race`, TCP 305–306 ms; 0-RTT holds requests 4.0 s, then fresh QUIC + TCP together; broken after 1 fresh failure; pending → TCP | W: `background`; `hold` behind the re-validation after a close; broken after 1 fresh failure; revalidate on a request 797–3020 ms after a failure or death; pending → TCP (a connection per request) | W: `race`, TCP 100–129 ms; abandon on TCP; broken after 2, resumed counted; pending → new QUIC 10–15 ms after the close | W: as 27; TCP 88–109 ms; reconnect 7–9 ms |
+| `http3.discovery.fallback` | W: `race`, TCP 305–306 ms, the attempt running on (its give-up close 181–194 ms after the request is on TCP, 3 of 3); 0-RTT holds requests 4.0 s, then fresh QUIC + TCP together; broken after 1 fresh failure; pending → TCP | W: `background`; `hold` behind the re-validation after a close; broken after 1 fresh failure; revalidate on a request 797–3020 ms after a failure or death; pending → TCP (a connection per request) | W: `race`, TCP 100–129 ms; abandon on TCP (no Initial after the request is on TCP, 12 of 12); broken after 2, resumed counted; pending → new QUIC 10–15 ms after the close | W: as 27; TCP 88–109 ms; reconnect 7–9 ms |
 
 ### Early data
 
@@ -1007,6 +1008,7 @@ A difference closed is removed here, with its pinned gap entry.
 - **Safari on iOS's beacon over HTTP/3** (Safari 27 on iOS): the iPhone sent `h3-page`'s beacon on a QUIC connection of its own beside the page's HTTP/2 one (3 of 3; Safari 26 on the iPhone kept the page on TCP, as on macOS); mimicry keeps it on TCP, Safari's kinds being measured over HTTP/3 for `fetch()` only; detection low; a fuller `h3-page` capture (`h3Gaps`).
 - **Safari on iOS's QUIC failure rules** (Safari on iOS): for Safari 27, fallback, keep-alive, acknowledgement and credit copied from Safari 27 on macOS (**C**), loss, key update, 0-RTT, dial delays and close on GOAWAY not measured; for Safari 26, the failure pair's structure measured (**W**: keep-alive, path degrading, close on GOAWAY, the fallback's mode), its timing, acknowledgement and credit copied from Safari 26 on macOS (**C**), the rest of loss, key update, 0-RTT and dial delays not measured; the iPhone's second Initial pair in a blackholed attempt and its unpadded Initials (1038 and 1129 bytes) not imitated (the stack's defaults, no 0-RTT); detection low; the failure pair's timing over a wired path, and an iPhone `h3-early` capture.
 - **Chrome and Firefox on iOS's extra Initial probes** (Chrome and Firefox on iOS): in a blackholed QUIC attempt the iPhone's Chrome sent one or two retransmitted Initial pairs (a 1038-byte unpadded datagram and a 1200-byte one) 28–137 ms in, before or as the raced TCP connection opened, 6 of 6 attempts (the "6 Initials"; Safari 26 on the iPhone: none or one pair); Firefox on the iPhone the same in both blackholed attempts, and once in `h3-page` when the server's first flight came late (`h3Gaps`); mimicry's attempt probes as its QUIC stack does; detection low; the iPhone's loss rules over a wired path.
+- **When an abandoned attempt stops** (Safari; Chrome and Firefox on iOS): the browser drops its QUIC attempt once the request is on the TCP connection. Safari on macOS sends its 0-RTT close 8–11 ms after its TCP ClientHello and 0–2 ms after the request reached the server (6 of 6). Chrome on the iPhone sent an Initial pair 0–8 ms after the ClientHello in 3 of 6 blackholed attempts. mimicry drops the attempt as the request leaves for TCP, before its dial (`internal/engine/native`: `await`, `roundTripEarly`), so its 0-RTT close goes out before its TCP ClientHello and it probes no later than the race delay. Detection low. Closing it means dropping the attempt on the TCP connection's first request ([0028, amendment](../docs/decisions/0028-quic-failure-model.md#amendment-2026-11-03-what-counts-as-an-abandoned-attempt)).
 - **Chrome's insecure-form warning** (Chrome on iOS): before submitting a form over plain HTTP Chrome asks ("Send anyway"), Safari does not; behaviour on the screen, not on the wire, so not modelled; `kinds-plain` on the iPhone needs someone to tap it (docs/capturing.md); detection none.
 - **Firefox on iOS's HTTP/1.1-only ALPN** (Firefox on iOS): in two three-sample `http1` runs the capture tool's log showed sample 1's ClientHello offering ALPN `http/1.1` alone and sample 3's `h2, http/1.1`, in both runs; no rule found (the committed `http1` samples are single-sample runs, and its trace keeps the HTTP/1.1 requests, not the ClientHello's ALPN, so no test can check it); not imitated; detection low; an `http1` capture that records the ALPN per sample.
 - **Firefox on iOS's redirect stall** (Firefox on iOS): about one `redirects2` or `redirects2-cookies` sample in three stalled after the "too many redirects" page, even with Firefox restarted before each sample, and never opened the next URL; behaviour on the screen, not on the wire, so not modelled; the samples were taken as single-sample runs (docs/capturing.md); detection none.
