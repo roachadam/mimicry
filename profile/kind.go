@@ -72,6 +72,11 @@ type Kind struct {
 	// Variants are the orders the browser uses instead for other requests
 	// of the kind, with values as Headers'.
 	Variants []Variant `json:"variants,omitempty"`
+	// EmptyBody is how the browser sends a request of the kind whose
+	// method may carry a body when it has none. Nil: not measured, so
+	// such a request goes without content-length, its stream ended on
+	// its headers.
+	EmptyBody *EmptyBody `json:"emptyBody,omitempty"`
 	// Weight is the HEADERS frame's priority weight; the dependency and
 	// exclusivity are HTTP2.HeadersPriority's. Zero keeps
 	// HTTP2.HeadersPriority's weight.
@@ -151,6 +156,24 @@ const (
 	// redirects2 captures).
 	SiteNone = "none"
 )
+
+// EmptyBody is how a request without a body goes out over HTTP/2 and
+// HTTP/3 (the bodiless capture): fetch() POST and PUT with no body send
+// content-length: 0 in Chrome, Firefox and Safari, PATCH in Safari only.
+type EmptyBody struct {
+	// ContentLength are the methods that send content-length: 0, in
+	// the list's place for it (or Last). Other methods send none.
+	ContentLength []string `json:"contentLength,omitempty"`
+	// Last sends it after the list's other headers, before a te that
+	// ends the list (Firefox's fetch()), not where the list places
+	// content-length.
+	Last bool `json:"last,omitempty"`
+	// Data ends the stream of a request sending content-length: 0 with
+	// an empty DATA frame after its headers over HTTP/2 (Firefox), not
+	// with END_STREAM on HEADERS. Over HTTP/3 its HEADERS frame ends the
+	// stream either way.
+	Data bool `json:"data,omitempty"`
+}
 
 // Urgency is a request's priority signals.
 type Urgency struct {
@@ -273,6 +296,7 @@ func (c *checker) checkKinds(p *Spec) {
 		}
 
 		c.checkVariants(path+".variants", k.Variants, true)
+		c.checkEmptyBody(path+".emptyBody", k.EmptyBody)
 
 		urgencies := map[string]*Urgency{"high": k.High, "low": k.Low}
 		for _, which := range slices.Sorted(maps.Keys(urgencies)) {
@@ -284,6 +308,29 @@ func (c *checker) checkKinds(p *Spec) {
 	}
 
 	c.checkHeaderTable(p)
+}
+
+// checkEmptyBody checks an EmptyBody: methods named once each, in upper
+// case, none that never carries a body; Last and Data only with one.
+func (c *checker) checkEmptyBody(path string, e *EmptyBody) {
+	if e == nil {
+		return
+	}
+
+	if len(e.ContentLength) == 0 {
+		c.add(path+".contentLength", "is required")
+	}
+
+	for i, m := range e.ContentLength {
+		switch {
+		case m != strings.ToUpper(m) || !isToken(m):
+			c.add(fmt.Sprintf("%s.contentLength[%d]", path, i), "%q is not an upper-case method", m)
+		case m == http.MethodGet || m == http.MethodHead || m == http.MethodConnect:
+			c.add(fmt.Sprintf("%s.contentLength[%d]", path, i), "%s has no body to leave out", m)
+		case slices.Index(e.ContentLength, m) != i:
+			c.add(path+".contentLength", "names %s twice", m)
+		}
+	}
 }
 
 // checkHeaderTable checks the context's header table: a known hash, names

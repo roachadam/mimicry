@@ -250,7 +250,8 @@ func H3PageSteps() []H3Step {
 }
 
 // h3Page serves an h3 page's documents and steps, advertising HTTP/3 except
-// on plainHosts. With doneHost, /done goes there (a TCP-only host).
+// on plainHosts. The page starts at / on its first host. With doneHost,
+// /done goes there (a TCP-only host).
 type h3Page struct {
 	fixedHosts
 	steps      func() []H3Step
@@ -280,7 +281,7 @@ func (p h3Page) answer(req request) response {
 
 func (p h3Page) respond(host, port, path string) response {
 	switch {
-	case path == "/" && host == h3Host:
+	case path == "/" && host == p.names[0]:
 		return response{status: 200, contentType: "text/html; charset=utf-8", body: p.document("/", port)}
 	case path == "/done":
 		return response{status: 200, contentType: "text/plain", body: []byte("ok\n")}
@@ -350,8 +351,10 @@ for (const s of steps) {
   const url = s.nowait ? s.url + '?t=' + Math.round(performance.now()) : s.url;
   if (s.kind === 'navigate' && s.method === 'POST') {
     const f = document.createElement('form'); f.method = 'POST'; f.action = url;
-    const [name, value] = s.body.split('=');
-    const i = document.createElement('input'); i.name = name; i.value = value; f.appendChild(i);
+    if (s.body) {
+      const [name, value] = s.body.split('=');
+      const i = document.createElement('input'); i.name = name; i.value = value; f.appendChild(i);
+    }
     document.body.appendChild(f); f.submit(); return;
   }
   if (s.kind === 'navigate') { location.href = s.url; return; }

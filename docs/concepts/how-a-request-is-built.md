@@ -104,7 +104,12 @@ sent, as a browser's `response.url` is.
    defaults and `Config.Header`, except framing: `Content-Length`,
    `Connection` and `Transfer-Encoding` in a header map are ignored, and
    the connection builds them from the request (`req.ContentLength`, the
-   body, the protocol), as `net/http` does. Over HTTP/1.1,
+   body, the protocol), as `net/http` does. A POST or PUT with no body
+   sends `Content-Length: 0` over HTTP/2 and HTTP/3 where the profile
+   measured it (`emptyBody`: Chrome and Safari in the list's place, Safari
+   on a PATCH too; Firefox's fetch() puts it last, before `te`, and ends
+   the HTTP/2 stream with an empty DATA frame); a profile without that
+   measurement sends none. Over HTTP/1.1,
    `Connection: close` (or `req.Close`) is honoured: it goes in the
    profile's `Connection` slot and the connection closes after the
    response. A header set to `nil`

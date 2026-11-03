@@ -83,3 +83,26 @@ func Place(fields []Field, ps []Placement) ([]Field, error) {
 
 	return fields, nil
 }
+
+// ToEnd moves the field named name after the others, before a te that
+// ends fields (Firefox's content-length: 0, profile.EmptyBody.Last).
+// fields' array is reused.
+func ToEnd(fields []Field, name string) []Field {
+	i := slices.IndexFunc(fields, func(f Field) bool {
+		return f.Name == name
+	})
+	if i < 0 {
+		return fields
+	}
+
+	f := fields[i]
+
+	fields = slices.Delete(fields, i, i+1)
+
+	at := len(fields)
+	if at > 0 && fields[at-1].Name == "te" {
+		at--
+	}
+
+	return slices.Insert(fields, at, f)
+}

@@ -58,6 +58,13 @@ type HTTP2 struct {
 	// does. Empty sends none. hellogen derives it from the connections the
 	// capture server sent GOAWAY on.
 	GoAwayReply string `json:"goawayReply,omitempty"`
+	// RefusedStreamSends is how many times a request is sent, in all, while
+	// the server refuses its stream (REFUSED_STREAM): each refusal resends
+	// it on the same connection, which stays usable, and the last refusal
+	// fails the request (Chrome: 3, Firefox: 10). Zero: unmeasured, and a
+	// refused stream retires the connection, the request retried on a new
+	// one.
+	RefusedStreamSends uint32 `json:"refusedStreamSends,omitempty"`
 	// SplitCookie sends each cookie as its own header field (RFC 9113,
 	// 8.2.3), as every captured browser does, instead of one joined field.
 	SplitCookie bool `json:"splitCookie,omitempty"`

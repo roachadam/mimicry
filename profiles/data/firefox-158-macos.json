@@ -308,6 +308,7 @@
     "streamUpdateThreshold": 4194304,
     "connectionUpdateThreshold": 4194304,
     "goawayReply": "NO_ERROR",
+    "refusedStreamSends": 10,
     "splitCookie": true,
     "hpack": {
       "withoutIndexing": [
@@ -2541,6 +2542,12 @@
       ]
     }
   ],
+  "emptyBody": {
+    "contentLength": [
+      "POST"
+    ],
+    "data": true
+  },
   "kinds": {
     "async_script": {
       "headers": [
@@ -5396,6 +5403,14 @@
           ]
         }
       ],
+      "emptyBody": {
+        "contentLength": [
+          "POST",
+          "PUT"
+        ],
+        "last": true,
+        "data": true
+      },
       "weight": 21,
       "high": {
         "weight": 31

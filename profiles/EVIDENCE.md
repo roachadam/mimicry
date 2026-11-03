@@ -325,13 +325,15 @@ measured for it, as for `safari-27-ios`. Where it differs from
 - **W from the iPhone's failure pair**, as `safari-26-ios`:
   `quic.keepAlive` (2000 ms after the last packet received: samples 1
   and 3, and the ~2000 ms PING cadence of sample 2, pinned),
-  `quic.loss.pathDegrading` and `http3.closeOnGoaway`; the fallback's mode
-  and `pending` checked against the copied rule. `abandonOnTcp` stays
-  true as copied: in 6 of 6 unanswered `h3-blackhole` attempts Chrome sent
-  the Initial pair and one or two retransmitted pairs 28–137 ms in, the
-  last between 29 ms before and 8 ms after the raced TCP connection's
-  ClientHello reached the server, and nothing after; h3gen's rule counts
-  an attempt abandoned only without any probe (pinned in `sampleGaps`).
+  `quic.loss.pathDegrading` and `http3.closeOnGoaway`; the fallback's mode,
+  `abandonOnTcp` and `pending` checked against the copied rule.
+  `abandonOnTcp` holds for all 12 of 12 unanswered attempts: Chrome
+  probes until the request that waited for the attempt goes on TCP, then
+  sends nothing more. In blackholed attempts that means one or two
+  retransmitted Initial pairs 28–137 ms in, the last up to 8 ms after the
+  TCP ClientHello; in `h3-broken`, up to four. A resumed attempt's 0-RTT
+  close goes out with the request
+  ([0028, amendment](../docs/decisions/0028-quic-failure-model.md#amendment-2026-11-03-what-counts-as-an-abandoned-attempt)).
 - **C: from safari-27-ios** (the profile it was derived from): the
   fallback's timing, `quic.ack` and `quic.credit`; the hand-written
   cookie, redirect, connection, WebSocket and proxy sections, each
@@ -339,8 +341,8 @@ measured for it, as for `safari-27-ios`. Where it differs from
 - **Not measured:** as for `safari-27-ios`: the rest of QUIC loss, key
   update, 0-RTT, dial delays, the proxy 407 flow.
 - **Pinned:** three first connections whose navigation devicectl handed
-  Chrome in the preface's millisecond (`openingGaps`); `abandonOnTcp` and
-  one `h3-broken` sample's keep-alive (h3gen's `sampleGaps`).
+  Chrome in the preface's millisecond (`openingGaps`); one `h3-broken`
+  sample's keep-alive (h3gen's `sampleGaps`).
 
 **`firefox-159-ios`** (2026-11-03, Firefox 159.1 on the same iPhone 15
 Pro, iOS 27.2, over Wi-Fi through devicectl;
@@ -375,10 +377,9 @@ must be `safari-27-ios`'s. Where it differs from `chrome-157-ios`:
   resumption, WebSocket handshakes and frames, the CONNECT head and the
   HTTP/1.1 and HTTP/2 upload records; `quic.ackDelay` is its own
   (h3gen).
-- **W from the iPhone's failure pair**, as `chrome-157-ios`; h3gen
-  derives `abandonOnTcp` true from Firefox's captures, without
-  `chrome-157-ios`'s pin ([#60](https://github.com/roachadam/mimicry/issues/60)
-  does not arise).
+- **W from the iPhone's failure pair**, as `chrome-157-ios`; 11 of 12
+  unanswered attempts abandoned once the request went on TCP. In the
+  twelfth, no request fell back while it ran.
 - **C: from safari-27-ios**, as for `chrome-157-ios`.
 - **Pinned:** three first connections whose navigation devicectl handed
   Firefox in the preface's millisecond (`openingGaps`); in h3gen's
@@ -470,6 +471,7 @@ browsers.
 | `windowUpdateIntervalMs` (credit returned after 5 s however little) | W (`slow-idle`) | — | — | `TestWindowUpdateInterval` (unit, fake clock) |
 | `idlePingMs` (PING after 10 s idle, close if unanswered) | W (`slow-idle`) | — (never pings) | — (never pings) | `TestIdlePing` (unit, fake clock) |
 | `goawayReply` (a GOAWAY sent at once on the server's; `hellogen` derives it from every HTTP/2 connection the capture server sent GOAWAY on: `h3-*`, `resume`, `resume-tls12`, `proxy-auth`) | W: none (72 connections) | W: NO_ERROR (60 of 60, no debug data; 48 on pages without HTTP/3, so not `goawayTcp`; the trace keeps no last stream ID, mimicry sends 0) | W: none (27: 78, 26: 60) | `TestHTTP3EdgeMatchesBrowser` (the GOAWAY on each TCP connection of the h3 pages), `TestGoAwayReply` (unit: idle, stream in flight, none) |
+| `refusedStreamSends` (a refused stream is resent on the same connection, which stays usable and pooled; the last refusal fails the request) | Chrome 156: 3 sends. Not **W**: a live run, not a capture ([#55](https://github.com/roachadam/mimicry/issues/55), headless Chrome 156 with a temp profile on this Mac against a raw `x/net/http2` server: refused once, resent on the same connection and answered; refused always, streams 13, 15, 17 on one connection, then `Failed to fetch`, the connection serving the next requests). `chrome-156-windows`: **C** from macOS. Chrome 155: unmeasured, none (a refusal retires the connection) | 10 sends. Not **W**: the same live run ([#55](https://github.com/roachadam/mimicry/issues/55), Firefox 158: refused always, streams 15..33 on one connection, then `NetworkError`, the connection kept in use). `firefox-158-windows`: **C** from macOS | unmeasured, none (a refusal retires the connection) | `TestRefusedStreamResentOnTheConnection` (raw peer: refused always, refused once, one connection, still pooled), `TestGoAwayReply` (unit: the unmeasured path drains) |
 | `splitCookie` (one HPACK field per cookie) | W+ | W+ | W+ | `TestCookiesMatchBrowserTrace` |
 
 ## HTTP/1.1 uploads and TLS records
@@ -563,8 +565,8 @@ them), and `secureLoopback`: **`false`**.
 
 ## Request kinds
 
-Derived from the `kinds`, `kinds-http1`, `kinds-plain`, `cookies` and `cors`
-captures by `internal/harness/cmd/kindsgen` (it refuses captures that disagree), for
+Derived from the `kinds`, `kinds-http1`, `kinds-plain`, `cookies`, `cors`
+and `bodiless` captures by `internal/harness/cmd/kindsgen` (it refuses captures that disagree), for
 every profile; Safari 26's equal Safari 27's apart from its user agent and
 `accept-encoding`. `TestRegenerateReproducesProfiles` keeps the committed
 profiles equal to what kindsgen derives from the committed captures.
@@ -593,6 +595,7 @@ cookies and `Access-Control-Request-*` headers, not their header order.
 | `context.headerTable` (Chrome: `blink`, page's first, own `sec-ch-ua*`/`user-agent`, `content-type` as the page's; Safari 26/27: `cf`, own `accept`, `content-type`, `origin`, `referer`, `sec-fetch-*`, `user-agent`, `content-length` late; Firefox: none) | W (`headers-order`, all 3 samples identical; `kinds`, `kinds-http1`, `kinds-plain`, `cors` fetches re-checked) + S (Blink `hash_table.h`, `case_folding_hash.h`, rapidhash; CoreFoundation `CFBasicHash`, `__CFStrHashCharacters`) | Derived by kindsgen (`deriveTable`): every non-redirected fetch/XHR capture with page headers is reproduced from the list without them. Chrome's `content-type` role is a tie (no capture has it with another page header; Blink source says as-page). `TestHeadersOrderMatchesBrowser`, `TestRegenerateReproducesProfiles` |
 | Page headers set twice combine into one line `v1, v2` under the first spelling; fetch() sends page names lowercase over HTTP/1.1, XHR as spelled; forbidden `sec-a` dropped (mimicry does not drop it) | W (`headers-order`, `case` set and `around`, every profile) | `TestHeadersOrderMatchesBrowser` |
 | Fetch `PUT` variants `{PUT, cross-site, corsChecked}` and the same with `pageSet` | W (`cors`: `put.cs`, and the `maxage.cs` PUT with the page's header; HTTP/2 only) | Firefox, Safari 27 and 26 (Safari places `content-length` differently in the two). Chrome's PUTs merge into its base fetch order, so it has none. Derivation only (see above) |
+| `emptyBody` (navigation) and `kinds.fetch.emptyBody`: a request without a body sends `content-length: 0` for the listed methods, in the list's place or `last` (before `te`), and over HTTP/2 ends with an empty DATA frame (`data`) or END_STREAM on HEADERS; other methods send none and end on HEADERS; over HTTP/3 the HEADERS frame ends the stream | W (`bodiless`, 3 samples each, all identical. Chrome 156 macOS (`-h3-local-roots`): fetch POST and PUT and the form POST right after the pseudo-headers (the list's place), PATCH none, END_STREAM on HEADERS; the same over HTTP/3. Firefox 158 macOS (`-h3-local-roots`): fetch POST and PUT `last` with `data`, PATCH none, the form POST in its list's place with `data`; over HTTP/3 the same lists, HEADERS and FIN. Safari 27 macOS: fetch POST, PUT **and PATCH** and the form POST before `accept-language` (the list's place), END_STREAM on HEADERS; HTTP/2 only, as Safari stayed on TCP) | Derived by kindsgen (`deriveEmptyBodies`), which refuses samples, methods or protocols that disagree; `TestBodilessMatchesBrowser` (header lines and frames, HTTP/2 and HTTP/3; Safari's fetch order pinned, see Not covered). Profiles without a `bodiless` capture have no `emptyBody` and send none (see Not covered) |
 | `kinds.image`, `kinds.injected_image` variant `{same-site, redirected}` | W (`cookies`, `c-redirect.cs-ss.hop`; HTTP/2 only) | `TestCookiesScenarioMatchesBrowser` |
 | Safari 27's `cookie` slot in the redirected same-origin image lists (HTTP/2) | W (`cookies`, `c-redirect.ss-so.hop`: Safari 27 sends cookies on that hop) | `TestCookiesScenarioMatchesBrowser` |
 | Firefox's `sec-fetch-storage-access` slot in the base fetch list | W (`fetch-include.cs`: `none` on credentialed cross-site fetches) | `TestKindsMatchBrowserTraces` |
@@ -844,7 +847,7 @@ field holds and the download test logs without checking.
 | `quic.credit` | W: stream and connection every half window (6 MiB, 15 MiB; steps within 2% above), windows fixed | W: every quarter (12 MiB, 24 MiB) | W: stream about half the 2 MiB window as its application reads (irregular: pinned); connection = bytes received + 2 MiB (by its ACKs: never more, the median raise within 3.3 KB; a quarter to a third of its raises from older counts, up to 1.7 MB lower, and in other packets than its MAX_STREAM_DATA) | W: as 27, but every raise after the first (two in one sample) rides with a MAX_STREAM_DATA and all but two (that sample) are on the rule; that sample grew the stream window to 3.2 MB |
 | `quic.keyUpdate` | W: follows only (none started in 3,793 packets sent, 37,050 received) | W: follows only | W: follows only | W: follows only |
 | `quic.versionNegotiation` | W: no retry; no QUIC after | W: retry in v2 1 ms after the VN; close 0x53f8 when the server's parameters lack version_information | W: no retry | W: no retry |
-| `http3.discovery.fallback` | W: `race`, TCP 305–306 ms; 0-RTT holds requests 4.0 s, then fresh QUIC + TCP together; broken after 1 fresh failure; pending → TCP | W: `background`; `hold` behind the re-validation after a close; broken after 1 fresh failure; revalidate on a request 797–3020 ms after a failure or death; pending → TCP (a connection per request) | W: `race`, TCP 100–129 ms; abandon on TCP; broken after 2, resumed counted; pending → new QUIC 10–15 ms after the close | W: as 27; TCP 88–109 ms; reconnect 7–9 ms |
+| `http3.discovery.fallback` | W: `race`, TCP 305–306 ms, the attempt running on (its give-up close 181–194 ms after the request is on TCP, 3 of 3); 0-RTT holds requests 4.0 s, then fresh QUIC + TCP together; broken after 1 fresh failure; pending → TCP | W: `background`; `hold` behind the re-validation after a close; broken after 1 fresh failure; revalidate on a request 797–3020 ms after a failure or death; pending → TCP (a connection per request) | W: `race`, TCP 100–129 ms; abandon on TCP (no Initial after the request is on TCP, 12 of 12); broken after 2, resumed counted; pending → new QUIC 10–15 ms after the close | W: as 27; TCP 88–109 ms; reconnect 7–9 ms |
 
 ### Early data
 
@@ -991,7 +994,7 @@ A difference closed is removed here, with its pinned gap entry.
 - **Chunked HTTP/1.1 request bodies** (all): no browser sends one from a page (Chrome and Safari refuse a ReadableStream body over HTTP/1.1, Firefox sends its string form); mimicry's chunked body, which a caller asks for with an unknown length, goes out with its head as one stream in 16 KiB writes; detection low; none planned (decision 0052).
 - **HTTP/2 upload records** (all): browsers' upload records follow their DATA frames and flow control (`h2-upload`), which mimicry's HTTP/2 writer was not compared against record by record; large HTTP/2 uploads; detection low; an e2e comparison of `h2-upload`'s records.
 - **Credit return timing** (Firefox, Safari): returned at the profile's threshold, not paced by reads; large downloads; detection low; a read-paced model. Firefox on Windows's largest `/big` stream increment was 3.56 MB in 3 samples, below mimicry's 4 MiB step, which 2 of 3 macOS samples sent (`creditGaps`).
-- **REFUSED_STREAM** (Chrome): mimicry moves to another connection, Chrome retries on the same ([INFERENCE]); detection low; a refusing scenario.
+- **REFUSED_STREAM** (Safari, iOS profiles, Chrome 155): unmeasured, so a refused stream retires the connection and the request goes on a new one, where Chrome 156 and Firefox 158 resend on the same (`http2.refusedStreamSends`); a refused extended CONNECT (HTTP/2 WebSocket) opens the socket on a connection of its own in every profile; detection low; a refusing scenario.
 - **Error-path frame order** (Chrome): RST_STREAM before discarded credit, GOAWAY before close ([INFERENCE]); not checked; detection low; error injection.
 
 **QUIC and HTTP/3**
@@ -1006,6 +1009,7 @@ A difference closed is removed here, with its pinned gap entry.
 - **Safari on iOS's beacon over HTTP/3** (Safari 27 on iOS): the iPhone sent `h3-page`'s beacon on a QUIC connection of its own beside the page's HTTP/2 one (3 of 3; Safari 26 on the iPhone kept the page on TCP, as on macOS); mimicry keeps it on TCP, Safari's kinds being measured over HTTP/3 for `fetch()` only; detection low; a fuller `h3-page` capture (`h3Gaps`).
 - **Safari on iOS's QUIC failure rules** (Safari on iOS): for Safari 27, fallback, keep-alive, acknowledgement and credit copied from Safari 27 on macOS (**C**), loss, key update, 0-RTT, dial delays and close on GOAWAY not measured; for Safari 26, the failure pair's structure measured (**W**: keep-alive, path degrading, close on GOAWAY, the fallback's mode), its timing, acknowledgement and credit copied from Safari 26 on macOS (**C**), the rest of loss, key update, 0-RTT and dial delays not measured; the iPhone's second Initial pair in a blackholed attempt and its unpadded Initials (1038 and 1129 bytes) not imitated (the stack's defaults, no 0-RTT); detection low; the failure pair's timing over a wired path, and an iPhone `h3-early` capture.
 - **Chrome and Firefox on iOS's extra Initial probes** (Chrome and Firefox on iOS): in a blackholed QUIC attempt the iPhone's Chrome sent one or two retransmitted Initial pairs (a 1038-byte unpadded datagram and a 1200-byte one) 28–137 ms in, before or as the raced TCP connection opened, 6 of 6 attempts (the "6 Initials"; Safari 26 on the iPhone: none or one pair); Firefox on the iPhone the same in both blackholed attempts, and once in `h3-page` when the server's first flight came late (`h3Gaps`); mimicry's attempt probes as its QUIC stack does; detection low; the iPhone's loss rules over a wired path.
+- **When an abandoned attempt stops** (Safari; Chrome and Firefox on iOS): the browser drops its QUIC attempt once the request is on the TCP connection. Safari on macOS sends its 0-RTT close 8–11 ms after its TCP ClientHello and 0–2 ms after the request reached the server (6 of 6). Chrome on the iPhone sent an Initial pair 0–8 ms after the ClientHello in 3 of 6 blackholed attempts. mimicry drops the attempt as the request leaves for TCP, before its dial (`internal/engine/native`: `await`, `roundTripEarly`), so its 0-RTT close goes out before its TCP ClientHello and it probes no later than the race delay. Detection low. Closing it means dropping the attempt on the TCP connection's first request ([0028, amendment](../docs/decisions/0028-quic-failure-model.md#amendment-2026-11-03-what-counts-as-an-abandoned-attempt)).
 - **Chrome's insecure-form warning** (Chrome on iOS): before submitting a form over plain HTTP Chrome asks ("Send anyway"), Safari does not; behaviour on the screen, not on the wire, so not modelled; `kinds-plain` on the iPhone needs someone to tap it (docs/capturing.md); detection none.
 - **Firefox on iOS's HTTP/1.1-only ALPN** (Firefox on iOS): in two three-sample `http1` runs the capture tool's log showed sample 1's ClientHello offering ALPN `http/1.1` alone and sample 3's `h2, http/1.1`, in both runs; no rule found (the committed `http1` samples are single-sample runs, and its trace keeps the HTTP/1.1 requests, not the ClientHello's ALPN, so no test can check it); not imitated; detection low; an `http1` capture that records the ALPN per sample.
 - **Firefox on iOS's redirect stall** (Firefox on iOS): about one `redirects2` or `redirects2-cookies` sample in three stalled after the "too many redirects" page, even with Firefox restarted before each sample, and never opened the next URL; behaviour on the screen, not on the wire, so not modelled; the samples were taken as single-sample runs (docs/capturing.md); detection none.
@@ -1060,6 +1064,8 @@ A difference closed is removed here, with its pinned gap entry.
 - **Layout-driven image priorities** (Firefox, Chrome): layout changes them (`u=4`, `u=1`); detection low (`redirectsLineGaps`, `h3Gaps`, `h3PriorityGaps`).
 - **Safari 26's font cookie race** (Safari 26): it sent a font before a cookie was set; detection none (`raceCookieLabels`).
 - **Edges from source only** (Safari, all): Safari's hash tables past 1732 names or for names over 96 characters; the navigation's `content-length` slot, which no request reaches; detection none.
+- **Bodiless POST and PUT without a `bodiless` capture** (Chrome and Firefox on Windows, every iOS profile, `chrome-155-macos`, `safari-26-macos`): no `emptyBody`, so a POST or PUT with no body goes without `content-length: 0`, its stream ended on HEADERS. The `cors` captures already show every profile's cross-site fetch PUT with no body (`put.cs`, the `maxage.cs` PUT) sending `content-length: 0` (Chrome and Safari in the list's place with END_STREAM on HEADERS, Firefox last with an empty DATA frame); kindsgen does not read them for `emptyBody` yet, and POST is unmeasured there; detection medium; a `bodiless` capture per profile ([#56](https://github.com/roachadam/mimicry/issues/56)).
+- **Safari's bodiless fetch() order** (Safari 27 macOS): its fetch() POST, PUT and PATCH without a body start `sec-fetch-site, accept, origin` (its header table without `content-type`); mimicry sends the order of its lists measured with a body, `accept, origin, sec-fetch-site`, as it did before; `content-length: 0` and the framing match; detection medium; the header table applied to Safari's own headers whenever the list's measured set differs (`bodilessGaps`).
 
 **Cookies**
 
@@ -1168,7 +1174,9 @@ preflights, redirects, connection sharing),
 `TestCookiesScenarioMatchesBrowser` (the cookies page),
 `TestCORSMatchesBrowser` (the preflight cache and refusals),
 `TestConnectionsMatchBrowser` (the per-host HTTP/1.1 cap and coalescing,
-with `Config.DisableCoalescing` and without) and
+with `Config.DisableCoalescing` and without),
+`TestBodilessMatchesBrowser` (POST, PUT and PATCH without a body, over
+HTTP/2 and HTTP/3) and
 `TestHPACKReproducesBrowserBlocks`.
 
 The page replays of the kinds, headers-order, cors, cors-edge, redirects2,

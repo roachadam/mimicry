@@ -173,7 +173,12 @@ them, is visible to the server.
 attempts, when nothing of it was sent or the server refused it unread. An
 idempotent request (GET, HEAD, OPTIONS, PUT, DELETE…) is also retried when
 a reused connection had closed. A POST that may have reached the server is
-never sent twice.
+never sent twice. An HTTP/2 stream the server refuses (REFUSED_STREAM) is
+the exception: the request is resent on the same connection, which stays
+in the pool, as many times as the browser does (Chrome 156: 3 sends,
+Firefox 158: 10), then fails with the refusal. Profiles where that was not
+measured (Safari, the iOS profiles, Chrome 155) move to another connection
+as above.
 
 **Why.** Browsers do the same; a server closing an idle connection is
 normal.

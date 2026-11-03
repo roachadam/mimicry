@@ -262,6 +262,7 @@ var Scenarios = []*Scenario{
 	H3Early,
 	H3TooEarly,
 	H3StreamsBlocked,
+	Bodiless,
 }
 
 // ScenarioByName finds a scenario.

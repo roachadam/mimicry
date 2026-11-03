@@ -38,6 +38,18 @@ import (
 // connection with the same body, which RoundTrip has neither read nor closed.
 var ErrConnUnusable = errors.New("h2: connection unusable")
 
+// ErrStreamRefused is returned for a request whose stream the peer refused
+// (REFUSED_STREAM) before its body was read, when the profile resends
+// refused requests on the same connection (HTTP2.RefusedStreamSends). The
+// connection stays usable, and the body is neither read nor closed.
+var ErrStreamRefused = errors.New("h2: stream refused")
+
+// unsent reports whether err leaves the request unprocessed and its body
+// untouched, for a retry.
+func unsent(err error) bool {
+	return errors.Is(err, ErrConnUnusable) || errors.Is(err, ErrStreamRefused)
+}
+
 var (
 	// errConnLost fails requests in flight when the connection dies. They
 	// may have been processed, so they are not retried.
@@ -486,7 +498,7 @@ func skipHeader(name string) bool {
 // RoundTrip sends req on a new stream and returns the response once its
 // headers arrive. Closing the body early resets the stream, and the request
 // context bounds body reads too. req.Body is closed, except with
-// ErrConnUnusable, which leaves it unread for the retry.
+// ErrConnUnusable or ErrStreamRefused, which leave it unread for the retry.
 func (c *Conn) RoundTrip(req *http.Request) (*http.Response, error) {
 	ctx := req.Context()
 	hasBody := req.Body != nil && req.Body != http.NoBody
@@ -519,7 +531,7 @@ func (c *Conn) RoundTrip(req *http.Request) (*http.Response, error) {
 
 		// The first ending wins: a cancel may have come first.
 		r := s.response()
-		if !errors.Is(r.err, ErrConnUnusable) {
+		if !unsent(r.err) {
 			closeBody(req)
 		}
 
@@ -553,6 +565,9 @@ type requestHead struct {
 	// weight overrides the profile's HEADERS weight when not zero.
 	weight    uint8
 	endStream bool
+	// emptyData ends the stream with an empty DATA frame after the
+	// headers (profile.EmptyBody.Data).
+	emptyData bool
 }
 
 // bodyLength is the length of req's body as RoundTrip sends it: 0 for
@@ -627,10 +642,14 @@ func buildHead(dst []hpack.Field, headers []profile.Header, h2p *profile.HTTP2, 
 
 	// A body's length is the one declared, never the caller's header:
 	// unknown, or not sent by the browser, it is none, not even a profile
-	// default.
+	// default. Without a body, the plan says whether the browser sends
+	// content-length: 0 (profile.EmptyBody).
 	var sets []headerorder.Set
 
-	if length != 0 {
+	empty := length == 0 && protocol == "" && plan != nil && plan.ZeroContentLength
+
+	switch {
+	case length != 0:
 		set := headerorder.Set{
 			Name: "content-length",
 		}
@@ -641,11 +660,20 @@ func buildHead(dst []hpack.Field, headers []profile.Header, h2p *profile.HTTP2, 
 		sets = []headerorder.Set{
 			set,
 		}
+
+	case empty:
+		sets = []headerorder.Set{
+			{
+				Name:  "content-length",
+				Value: "0",
+			},
+		}
 	}
 
 	list := headers
 	head := requestHead{
-		endStream: length == 0 && protocol == "",
+		endStream: length == 0 && protocol == "" && (!empty || !plan.EmptyData),
+		emptyData: empty && plan.EmptyData,
 	}
 
 	var table *profile.HeaderTable
@@ -658,7 +686,12 @@ func buildHead(dst []hpack.Field, headers []profile.Header, h2p *profile.HTTP2, 
 	// Room for the usual list on the stack; head.fields is the copy kept.
 	var buf [32]headerorder.Field
 
-	ordered, err := headerorder.Place(headerorder.Build(buf[:0], list, headerorder.WithoutFraming(req.Header), sets, skipHeader, table), headerorder.PlacementsFrom(req.Context()))
+	built := headerorder.Build(buf[:0], list, headerorder.WithoutFraming(req.Header), sets, skipHeader, table)
+	if empty && plan.ZeroContentLengthLast {
+		built = headerorder.ToEnd(built, "content-length")
+	}
+
+	ordered, err := headerorder.Place(built, headerorder.PlacementsFrom(req.Context()))
 	if err != nil {
 		return requestHead{}, err
 	}
@@ -881,7 +914,7 @@ func (c *Conn) writeHeaders(s *stream, head requestHead) error {
 
 	// The request's frames go out in one write, joining the opening when
 	// it waits for them.
-	batch := c.w.pending || len(block) > len(first) || c.h2.StreamWindowUpdate > 0
+	batch := c.w.pending || len(block) > len(first) || c.h2.StreamWindowUpdate > 0 || head.emptyData
 
 	c.w.hold = batch
 
@@ -903,6 +936,13 @@ func (c *Conn) writeHeaders(s *stream, head requestHead) error {
 
 	if inc := c.h2.StreamWindowUpdate; inc > 0 {
 		if err := c.fr.WriteWindowUpdate(id, inc); err != nil {
+			return c.headersFailed(id, err)
+		}
+	}
+
+	if head.emptyData {
+		// After the WINDOW_UPDATE, as Firefox sends it.
+		if err := c.fr.WriteData(id, true, nil); err != nil {
 			return c.headersFailed(id, err)
 		}
 	}
@@ -1016,8 +1056,8 @@ func (c *Conn) pingTimedOut() {
 }
 
 // sendBody writes the request body on s and closes it when done. If the
-// stream already ended with ErrConnUnusable, the body is left untouched
-// for the retry.
+// stream already ended unsent (ErrConnUnusable, ErrStreamRefused), the body
+// is left untouched for the retry.
 func (c *Conn) sendBody(ctx context.Context, s *stream, body io.ReadCloser, length int64) {
 	c.mu.Lock()
 
@@ -1025,7 +1065,7 @@ func (c *Conn) sendBody(ctx context.Context, s *stream, body io.ReadCloser, leng
 		err := s.err
 		c.mu.Unlock()
 
-		if !errors.Is(err, ErrConnUnusable) {
+		if !unsent(err) {
 			_ = body.Close()
 		}
 
@@ -1336,8 +1376,9 @@ func (c *Conn) endStream(s *stream, e ending) {
 		return
 	}
 
-	if s.bodyStarted && errors.Is(err, ErrConnUnusable) {
-		// Not wrapped: it must no longer match ErrConnUnusable.
+	if s.bodyStarted && unsent(err) {
+		// Not wrapped: it must no longer match ErrConnUnusable or
+		// ErrStreamRefused.
 		err = fmt.Errorf("%w: %s", errRefusedAfterBody, err.Error())
 	}
 
@@ -1878,8 +1919,11 @@ func (c *Conn) returnConnCredit(size uint32) error {
 }
 
 // onReset ends a stream the peer reset. A refused stream was not processed
-// (RFC 9113, 8.7), so it fails with ErrConnUnusable and the connection
-// drains, closing once idle so a pool that drops it does not leak it.
+// (RFC 9113, 8.7). With the profile's RefusedStreamSends set, it fails with
+// ErrStreamRefused and the connection stays usable, for the request to be
+// resent on it, as browsers do. Unset (unmeasured), it fails with
+// ErrConnUnusable and the connection drains, closing once idle so a pool
+// that drops it does not leak it.
 func (c *Conn) onReset(f *http2.RSTStreamFrame) {
 	s := c.stream(f.StreamID)
 	if s == nil {
@@ -1891,12 +1935,16 @@ func (c *Conn) onReset(f *http2.RSTStreamFrame) {
 		Code:     f.ErrCode,
 	}
 	if f.ErrCode == http2.ErrCodeRefusedStream {
-		c.mu.Lock()
+		if c.h2.RefusedStreamSends > 0 {
+			err = fmt.Errorf("%w: %w", ErrStreamRefused, err)
+		} else {
+			c.mu.Lock()
 
-		c.draining = true
-		c.mu.Unlock()
+			c.draining = true
+			c.mu.Unlock()
 
-		err = fmt.Errorf("%w: %w", ErrConnUnusable, err)
+			err = fmt.Errorf("%w: %w", ErrConnUnusable, err)
+		}
 	}
 
 	c.endStream(s, ending{

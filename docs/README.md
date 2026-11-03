@@ -55,7 +55,7 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0044](decisions/0044-profile-fingerprint.md) | Transports find a shared profile by a hash of its content; profiles are read-only values, checked once per edit | Amended |
 | [0047](decisions/0047-windows-profiles.md) | Windows profiles: `<browser>-<major>-windows`, `ChromeWindows()` and `FirefoxWindows()` | Amended by 0051; amended (Firefox on Windows) |
 | [0051](decisions/0051-ios-safari-over-the-network.md) | Safari on an iPhone: the fingerprint captured on the iPhone, from the Mac; inherited from macOS Safari only where no difference shows | Amended by 0053 (the iPhone's header order is Safari's, not the platform's) |
-| [0053](decisions/0053-chrome-on-ios.md) | Chrome on an iPhone: its own iPhone captures; inherited from Safari of its WebKit only where no difference shows | Amended (Firefox on an iPhone) |
+| [0053](decisions/0053-chrome-on-ios.md) | Chrome on an iPhone: its own iPhone captures; inherited from Safari of its WebKit only where no difference shows | Amended (Firefox on an iPhone; `abandonOnTcp` derived) |
 
 ### Requests and headers
 
@@ -71,6 +71,7 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0022](decisions/0022-redirects-as-the-browser-follows-them.md) | Redirects follow the browser's rules, inside the Transport | Amended |
 | [0030](decisions/0030-header-placement.md) | Header placement: move one header, keep the browser's order | Accepted |
 | [0048](decisions/0048-cookie-twins.md) | Cookie twins of the redirect scenarios measure each hop's `cookie` slot | Accepted |
+| [0054](decisions/0054-empty-request-bodies.md) | Requests without a body: `content-length: 0` and the stream's end from a measured `emptyBody`, as before where none is measured | Accepted |
 
 ### Cookies
 
@@ -110,7 +111,7 @@ Each record explains why mimicry works the way it does, and what would reopen th
 |---|---|---|
 | [0026](decisions/0026-http3-capture.md) | HTTP/3 is captured from the client's own packets | Accepted |
 | [0027](decisions/0027-quic-base.md) | QUIC from a copy of x/net/quic; HTTP/3 and QPACK written for mimicry | Amended |
-| [0028](decisions/0028-quic-failure-model.md) | QUIC and HTTP/3 fail as each browser's do | Amended by 0036 |
+| [0028](decisions/0028-quic-failure-model.md) | QUIC and HTTP/3 fail as each browser's do | Amended by 0036; amended (what counts as an abandoned attempt) |
 | [0036](decisions/0036-fast-quic-fallback.md) | Fast QUIC fallback by default, the browser's timing on request | Accepted |
 | [0043](decisions/0043-http3-ack-rate-opt-in.md) | HTTP/3 keeps Chrome's ACK rate unless configured | Amended (Firefox's ACK after a quiet spell) |
 | [0045](decisions/0045-udp-receive-buffer-default.md) | QUIC sockets ask for Chrome's 1 MB receive buffer by default | Accepted |
