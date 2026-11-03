@@ -2,6 +2,7 @@ package fingerprint
 
 import (
 	"math/rand/v2"
+	"slices"
 	"testing"
 
 	"github.com/roachadam/mimicry/profile"
@@ -19,11 +20,23 @@ func types(exts []profile.Extension) []profile.Code {
 
 // The shuffle must be uniform over movable slots. uTLS's
 // ShuffleChromeTLSExtensions is biased (it skips swaps touching pinned
-// slots); this catches that kind of bias.
+// slots); this catches that kind of bias. Chrome's HelloRetryRequest
+// cookie (tls.helloRetry.cookieShuffled) is one more movable extension, so
+// the hello as a retry sends it has one movable slot more, and the cookie
+// must be uniform over them too.
 func TestShuffleIsUniform(t *testing.T) {
 	p := profiles.ChromeMacOS().Spec()
 	plan := Compile(p)
-	k := len(plan.movable)
+
+	if !plan.cookieShuffled {
+		t.Fatal("expected Chrome's shuffled HelloRetryRequest cookie")
+	}
+
+	m := plan.movable
+	slots := slices.Concat(m, []int{
+		m[len(m)-1] + 1,
+	})
+	k := len(slots)
 
 	if k < 10 {
 		t.Fatalf("only %d movable extensions; expected Chrome's shuffled set", k)
@@ -34,13 +47,13 @@ func TestShuffleIsUniform(t *testing.T) {
 	const draws = 40000
 	// counts[slot][extension type] for the movable slots.
 	counts := make(map[int]map[profile.Code]int, k)
-	for _, slot := range plan.movable {
+	for _, slot := range slots {
 		counts[slot] = map[profile.Code]int{}
 	}
 
 	for range draws {
 		h := plan.hello(rng.IntN)
-		for _, slot := range plan.movable {
+		for _, slot := range slots {
 			counts[slot][h.Extensions[slot].Type]++
 		}
 	}

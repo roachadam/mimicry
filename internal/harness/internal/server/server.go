@@ -332,6 +332,10 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 	c.Profile.TLS = t
 	c.Profile.TLS.RecordVersion = profile.Code(c.RecordVersion())
 
+	if sc.helloRetryHost != "" && serverName(msg) == sc.helloRetryHost {
+		return helloRetry(conn, sc.helloRetryHost, msg, t, helloAt, log)
+	}
+
 	rlog := &recordLog{
 		Conn: conn,
 		all:  sc.recordUploads,

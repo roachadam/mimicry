@@ -1,6 +1,6 @@
 # 0024: The ClientHello's whole shape is profile data
 
-- Status: Accepted; amended 2026-10-27 (`x25519Reuse` added); amended 2026-10-28 (`x25519Reuse` checked on every hello with both shares)
+- Status: Accepted; amended 2026-10-27 (`x25519Reuse` added); amended 2026-10-28 (`x25519Reuse` checked on every hello with both shares); amended 2026-11-03 (`helloRetry`: the HelloRetryRequest cookie's slot)
 - Date: 2026-10-24
 - Commits: `62d9b2a`
 
@@ -85,3 +85,43 @@ everything but the record version.
 Firefox's resumed payload is captured against a server issuing tickets
 of another size. The 400 bytes probably follow the ticket's size, which
 the profile cannot express yet.
+
+## Amendment 2026-11-03: the HelloRetryRequest cookie's slot
+
+A second ClientHello after a HelloRetryRequest with a cookie took the
+cookie at a random position among the extensions that are not pinned
+(uTLS fork patch). For a fixed-order browser that is a tell: one probe
+catches it in 5 of 6 tries, and two catch it outright (#61). The new `hrr`
+scenario answers every hello to one host with a HelloRetryRequest carrying a
+32-byte cookie and records the second hello:
+- **Firefox 158:** the cookie comes after `signature_algorithms`, in 95 of
+  95 retries, its fallback hellos included.
+- **Safari 27:** after `supported_versions`, in 36 of 36.
+- **Chrome 156:** 18 places in 18 retries, inside the GREASE pair.
+
+In every browser, the second hello is otherwise the first one, with a
+single key share for the requested group.
+
+`tls.helloRetry` is profile data, derived by hellogen from every retried
+connection:
+- `cookieAfter` names the extension the cookie follows, in a fixed order.
+- `cookieShuffled` puts the cookie in the connection's permutation, as one
+  more movable extension.
+
+The fingerprint plan puts an empty cookie in that slot. The uTLS fork
+writes nothing for an empty `CookieExtension` and fills it on retry (fork
+patch "Let an empty CookieExtension mark the HelloRetryRequest cookie's
+slot").
+
+Rejected:
+- **An index into the extension list:** it shifts with a dropped
+  extension, such as Firefox's fallback hellos or the WebSocket hello.
+- **A fork API taking a position:** the placeholder needs no new API, and
+  uTLS already filled a `CookieExtension` it found in the spec.
+
+A profile without an `hrr` capture leaves `helloRetry` out. It keeps the
+random placement and does not fail with `ErrNotMeasured`: the server
+chooses whether to send a HelloRetryRequest, so failing would break real
+sites for those profiles (Windows, iOS, Chrome 155, Safari 26). Over QUIC
+the placement stays random: no QUIC HelloRetryRequest with a cookie has
+been captured.

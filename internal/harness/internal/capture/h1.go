@@ -125,6 +125,10 @@ type Connection struct {
 	// RecordVersion is the record-layer version of the records that
 	// carried it; zero in captures made before it was kept.
 	RecordVersion uint16 `json:"recordVersion,omitempty"`
+	// Retry is the second ClientHello, after a HelloRetryRequest with a
+	// cookie (the hrr scenario), whose handshake the server then dropped:
+	// Protocol is empty.
+	Retry *Retry `json:"retry,omitempty"`
 }
 
 // ClientHelloBytes is ClientHello decoded; nil where it was not kept.

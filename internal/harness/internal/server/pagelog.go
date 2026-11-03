@@ -77,6 +77,22 @@ func (l *pageLog) connection(c *capture.Capture, host string, accepted bool, hel
 	}
 }
 
+// helloRetry records a connection to host answered with a
+// HelloRetryRequest: its first ClientHello msg (parsed as hello), which
+// arrived at helloAt, and the second, in retry.
+func (l *pageLog) helloRetry(host string, msg []byte, hello profile.TLS, helloAt time.Time, retry capture.Retry) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	l.connections = append(l.connections, capture.Connection{
+		Host:        host,
+		Millis:      helloAt.Sub(l.start).Milliseconds(),
+		Hello:       &hello,
+		ClientHello: hex.EncodeToString(msg),
+		Retry:       &retry,
+	})
+}
+
 // newConn numbers an HTTP/1.1 connection, from 1.
 func (l *pageLog) newConn() int {
 	l.mu.Lock()

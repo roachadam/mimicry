@@ -304,6 +304,13 @@ var missingCaptures = withTwinsMissing(map[string]string{
 	"chrome-156-windows.bodiless.pagetrace.json.gz":             "bodiless was captured on macOS only (2026-11-03); not yet on the Windows PC",
 	"firefox-158-windows.bodiless.pagetrace.json.gz":            "bodiless was captured on macOS only (2026-11-03); not yet on the Windows PC",
 	"safari-26-macos.bodiless.pagetrace.json.gz":                "bodiless was captured with Safari 27 only (2026-11-03); not yet on the macOS 26 Mac",
+	// hrr (2026-11-03) was captured from Chrome 156 and Safari 27 on the
+	// capture Mac and Firefox 158 on the macOS 26 Mac.
+	"chrome-155-macos.hrr.pagetrace.json.gz":               "hrr came after Chrome 155, no longer installable as branded Chrome",
+	testprofiles.InheritingName + ".hrr.pagetrace.json.gz": "chrome-155-macos, whose captures it inherits, has none",
+	"chrome-156-windows.hrr.pagetrace.json.gz":             "hrr was captured on macOS only (2026-11-03); not yet on the Windows PC",
+	"firefox-158-windows.hrr.pagetrace.json.gz":            "hrr was captured on macOS only (2026-11-03); not yet on the Windows PC",
+	"safari-26-macos.hrr.pagetrace.json.gz":                "hrr was captured with Safari 27 only (2026-11-03); not yet on the macOS 26 Mac",
 }, map[string]string{
 	// The cookie twins (server.CookieTwins) came after Chrome 155, which
 	// is no longer installable as branded Chrome; capturesFrom names only

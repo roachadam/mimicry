@@ -6,7 +6,7 @@ require (
 	github.com/jonboulle/clockwork v0.5.0
 	github.com/klauspost/compress v1.20.1
 	github.com/molecule-man/go-brrr v1.2.0
-	github.com/roachadam/utls v0.0.0-20261102011304-6a543d694918
+	github.com/roachadam/utls v0.0.0-20261103184840-a9135f0643b8
 	golang.org/x/crypto v0.58.0
 	golang.org/x/net v0.61.0
 )

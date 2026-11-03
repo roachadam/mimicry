@@ -48,6 +48,10 @@ var QuickScenarios = []Planned{
 		Scenario: H3Page,
 		Samples:  3,
 	},
+	{
+		Scenario: HRR,
+		Samples:  3,
+	},
 }
 
 // FullScenarios are every scenario, three samples each: a full refresh,

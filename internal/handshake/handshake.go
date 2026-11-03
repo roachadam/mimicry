@@ -251,6 +251,10 @@ func extension(e *profile.Extension) (utls.TLSExtension, error) {
 	case profile.ExtSessionTicket:
 		// Empty, or the TLS 1.2 ticket being resumed, filled by uTLS.
 		return &utls.SessionTicketExtension{}, nil
+	case profile.ExtCookie:
+		// The HelloRetryRequest cookie's slot: nothing in the first hello,
+		// the server's cookie in the second, filled by uTLS.
+		return &utls.CookieExtension{}, nil
 	case profile.ExtQUICTransportParameters:
 		// The QUIC connection's transport parameters, which it sets.
 		return &utls.QUICTransportParametersExtension{}, nil

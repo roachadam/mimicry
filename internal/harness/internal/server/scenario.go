@@ -64,6 +64,10 @@ type Scenario struct {
 	// multi, when set, serves a page across several hosts and answers every
 	// request instead (Replay and the other pages of several hosts).
 	multi multiHost
+	// helloRetryHost, when set, answers every ClientHello for that server
+	// name with a HelloRetryRequest carrying a cookie, records the second
+	// ClientHello and closes the connection (HRR).
+	helloRetryHost string
 	// h3, when set, also serves HTTP/3 over QUIC on the TLS port's UDP
 	// twin (see HTTP3), with these settings.
 	h3 *h3Server
@@ -263,6 +267,7 @@ var Scenarios = []*Scenario{
 	H3TooEarly,
 	H3StreamsBlocked,
 	Bodiless,
+	HRR,
 }
 
 // ScenarioByName finds a scenario.

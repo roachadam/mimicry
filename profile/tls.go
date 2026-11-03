@@ -42,6 +42,12 @@ type TLS struct {
 	// QUIC is how the hello sent over QUIC differs from this one.
 	// Required with Spec.QUIC; hellogen derives it.
 	QUIC *QUICHello `json:"quic,omitempty"`
+	// HelloRetry is where the ClientHello sent again after a
+	// HelloRetryRequest puts the server's cookie (RFC 8446, section
+	// 4.2.2), over TCP. hellogen derives it from the hrr scenario. Nil:
+	// not measured, and the cookie goes at a random position among the
+	// extensions that are not pinned.
+	HelloRetry *HelloRetry `json:"helloRetry,omitempty"`
 }
 
 // Resumption describes how a browser resumes sessions. A TLS 1.3 resumed
@@ -60,6 +66,18 @@ type Resumption struct {
 	// 400 instead of 240). Required when the ClientHello has
 	// encrypted_client_hello.
 	ECHPayloadLengths []uint16 `json:"echPayloadLengths,omitempty"`
+}
+
+// HelloRetry places the cookie in the ClientHello sent again after a
+// HelloRetryRequest; that hello is otherwise the first one, with the key
+// share the server asked for. Exactly one field is set.
+type HelloRetry struct {
+	// CookieAfter, with a fixed extension order, is the extension the
+	// cookie follows: the first of its type (Firefox: signature_algorithms).
+	CookieAfter *Code `json:"cookieAfter,omitempty"`
+	// CookieShuffled, with a shuffled extension order, makes the cookie
+	// one more extension the connection's permutation places (Chrome).
+	CookieShuffled bool `json:"cookieShuffled,omitempty"`
 }
 
 // Values of Resumption.TLS12.
@@ -182,6 +200,7 @@ const (
 	ExtSessionTicket              Code = 0x0023
 	ExtPreSharedKey               Code = 0x0029
 	ExtSupportedVersions          Code = 0x002b
+	ExtCookie                     Code = 0x002c
 	ExtPSKKeyExchangeModes        Code = 0x002d
 	ExtSignatureAlgorithmsCert    Code = 0x0032
 	ExtKeyShare                   Code = 0x0033

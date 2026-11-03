@@ -352,6 +352,13 @@ body lengths and the records that carried it as runs of one size with
 their arrival times; per HTTP/2 connection, every record with the frames
 starting in it. Their traces are gzipped (`.h1trace.json.gz`,
 `.h2trace.json.gz`; [decision 0052](decisions/0052-http1-upload-records.md)).
+The `hrr` scenario's page fetches three times from `www.hrr-b.test`,
+whose every connection the server answers with a HelloRetryRequest
+(raw, since crypto/tls sends no cookie): the first group the hello lists
+without a key share, and a 32-byte cookie. It records the second
+ClientHello as the connection's `retry` and closes it, so each fetch fails
+and browsers retry on fresh connections, Firefox with fallback hellos
+(no `compress_certificate`) too; every one of them counts.
 Add a scenario when a behaviour might depend on the server; reuse the
 default page wherever possible.
 
@@ -557,7 +564,10 @@ does not describe:
    `tls.quic`, the QUIC ClientHello, from every h3 connection's hello,
    `tls.quic.versionNegotiation`, Firefox's other hello after Version
    Negotiation, from the `h3-vn` captures, `tls.websocketH1` from the
-   `websocket` capture, and `http1.uploadRecords`, how the browser cuts
+   `websocket` capture, `tls.helloRetry`, where the hello sent again after
+   a HelloRetryRequest puts the cookie, from every retried connection of
+   the `hrr` capture (left out, not measured, for a profile without one),
+   and `http1.uploadRecords`, how the browser cuts
    an HTTP/1.1 request with a body into TLS records, from every request
    of the `http1-upload` capture (testing-build captures included;
    decision 0052).
