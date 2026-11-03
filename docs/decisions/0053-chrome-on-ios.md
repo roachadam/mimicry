@@ -232,3 +232,14 @@ above extends to it, unchanged but for how its WebKit generation is known.
 - Firefox on iOS's user agent carries a real iOS version: `capturedOnIOS`
   goes for it.
 - A rule for Firefox's `http1` ALPN shows in a capture that records it.
+
+## Amendment 2026-11-03: `abandonOnTcp` derived
+
+Issue #60. h3gen now counts an attempt as abandoned when a request that
+waited for it went on TCP and the attempt sent no Initial after that
+request reached the server. Before, it was abandoned only if it sent no
+probe at all. Decision [0028, amendment](0028-quic-failure-model.md#amendment-2026-11-03-what-counts-as-an-abandoned-attempt)
+has the analysis. Chrome on the iPhone abandons all 12 of its unanswered
+attempts by this definition. It probes until the request goes on TCP and
+sends nothing after, so h3gen derives `abandonOnTcp` true, and the
+`sampleGaps` pin of the failure-pair evidence above is gone.

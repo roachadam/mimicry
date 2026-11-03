@@ -32,13 +32,23 @@ func (u unanswered) at() string {
 	return fmt.Sprintf("%s, QUIC connection %d", u.p.at, u.a.index+1)
 }
 
-// abandoned: no flight after the first carries an Initial packet: the
-// client dropped the attempt before its first probe (Safari, when TCP
-// won).
+// abandoned: a request that waited for the attempt went on TCP while it
+// ran (fellBack), and the attempt sent no Initial packet after that
+// request reached the server, the page's slack allowed: the client
+// dropped it once TCP carried the request (Safari; Chrome on the iPhone,
+// after probing). An attempt that sends one, a probe or its give-up
+// close, ran on (desktop Chrome); one no request fell back from while it
+// ran (Firefox's, beside TCP; one holding its requests until it gave up)
+// is not abandoned.
 func (u unanswered) abandoned() bool {
-	for _, f := range u.a.flights[1:] {
+	at, ok := u.fellBack()
+	if !ok {
+		return false
+	}
+
+	for _, f := range u.a.flights {
 		for _, d := range f {
-			if slices.ContainsFunc(d.Packets, func(p quictrace.Packet) bool {
+			if u.a.millis(d.Micros) > at+u.p.slack && slices.ContainsFunc(d.Packets, func(p quictrace.Packet) bool {
 				return p.Type == quictrace.PacketInitial
 			}) {
 				return false
@@ -47,6 +57,30 @@ func (u unanswered) abandoned() bool {
 	}
 
 	return true
+}
+
+// fellBack is when the first request that waited for the attempt
+// (backgroundMillis or more) reached the server over TCP while it ran:
+// from its start, before any close it sent. The request was made at
+// most 50 ms (and the page's slack) before the attempt started, race's
+// window for the request that started it, or later, so a request held
+// by an earlier attempt is not paired with this one.
+func (u unanswered) fellBack() (float64, bool) {
+	end := math.Inf(1)
+	if f := u.a.closeFlight(); f != nil {
+		end = u.a.millis(f[0].Micros)
+	}
+
+	from := float64(u.a.start) - 50 - u.p.slack
+
+	for _, r := range u.p.reqs {
+		at := float64(r.arrival)
+		if r.host == u.a.c.Host && r.quic < 0 && r.made >= 0 && float64(r.made) >= from && r.delay() >= backgroundMillis && at >= float64(u.a.start) && at <= end {
+			return at, true
+		}
+	}
+
+	return 0, false
 }
 
 // unansweredAttempts are the attempts of the h3-blackhole and h3-broken
@@ -110,7 +144,7 @@ func (s *edgeSet) loss(q *profile.QUIC, e *collector) profile.QUICLoss {
 		out.Resumed = giveUp(q, resumed, "loss.resumed", s, e)
 
 	default:
-		edgeErr(e, s.set.name, "%d of %d unanswered attempts dropped before their first probe, the others not", abandoned, len(all))
+		edgeErr(e, s.set.name, "%d of %d unanswered attempts abandoned once a request went on TCP, the others not", abandoned, len(all))
 	}
 
 	out.PathDegrading = s.pathDegrading(q, e)
@@ -118,13 +152,14 @@ func (s *edgeSet) loss(q *profile.QUIC, e *collector) profile.QUICLoss {
 	return out
 }
 
-// abandonClose is what attempts dropped before their first probe sent
-// after their first flight: nothing (fresh), or one 0-RTT datagram
+// abandonClose is what abandoned attempts sent after their first flight:
+// nothing (fresh; one that probed before it was abandoned is refused,
+// as loss has no probes to model for it), or one 0-RTT datagram
 // (resumed with 0-RTT: CloseZeroRTT).
 func abandonClose(fresh, resumed []unanswered, e *collector) string {
 	for _, u := range fresh {
 		if len(u.a.flights) > 1 {
-			edgeErr(e, u.at(), "a fresh attempt dropped before its first probe sent %d more flights", len(u.a.flights)-1)
+			edgeErr(e, u.at(), "an abandoned fresh attempt sent %d more flights first", len(u.a.flights)-1)
 		}
 	}
 
@@ -136,11 +171,11 @@ func abandonClose(fresh, resumed []unanswered, e *collector) string {
 		}) {
 			got = profile.CloseZeroRTT
 		} else if len(u.a.flights) > 1 {
-			edgeErr(e, u.at(), "a dropped resumed attempt sent %d flights after its first, not one 0-RTT datagram", len(u.a.flights)-1)
+			edgeErr(e, u.at(), "an abandoned resumed attempt sent %d flights after its first, not one 0-RTT datagram", len(u.a.flights)-1)
 		}
 
 		if i > 0 && got != out {
-			edgeErr(e, u.at(), "dropped with close %q, others with %q", got, out)
+			edgeErr(e, u.at(), "abandoned with close %q, others with %q", got, out)
 		}
 
 		out = got

@@ -123,8 +123,8 @@ func (s *edgeSet) raceEvents(e *collector) []raceEvent {
 // Negotiation and its retry together.
 type failure struct {
 	resumed bool
-	// end is when it failed: its close, its last datagram if dropped
-	// before a probe, or its idle timeout.
+	// end is when it failed: its close, its last datagram if abandoned
+	// (or Version Negotiation), or its idle timeout.
 	end float64
 }
 
@@ -272,21 +272,35 @@ func (s *edgeSet) fallback(q *profile.QUIC, d *profile.Discovery, e *collector) 
 		}
 	}
 
-	fresh, resumed := s.unansweredAttempts()
-	abandoned := 0
-
-	for _, u := range append(fresh, resumed...) {
-		if u.abandoned() {
-			abandoned++
-		}
-	}
-
-	out.AbandonOnTCP = abandoned > 0
+	out.AbandonOnTCP = s.abandonOnTCP(e)
 	s.afterClose(d, &out, e)
 	s.broken(q, d, &out, e)
 	s.pending(&out, e)
 
 	return out
+}
+
+// abandonOnTCP derives Fallback.AbandonOnTCP: whether the unanswered
+// attempts a request fell back from were abandoned, all of them or none.
+func (s *edgeSet) abandonOnTCP(e *collector) bool {
+	fresh, resumed := s.unansweredAttempts()
+	abandoned, ranOn := 0, 0
+
+	for _, u := range append(fresh, resumed...) {
+		if _, fell := u.fellBack(); fell {
+			if u.abandoned() {
+				abandoned++
+			} else {
+				ranOn++
+			}
+		}
+	}
+
+	if abandoned > 0 && ranOn > 0 {
+		edgeErr(e, s.set.name, "%d unanswered attempts abandoned once a request went on TCP, %d ran on", abandoned, ranOn)
+	}
+
+	return abandoned > 0
 }
 
 // closedHost is a h3-broken sample's host whose QUIC connection the
