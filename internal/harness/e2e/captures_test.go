@@ -297,6 +297,13 @@ var missingCaptures = withTwinsMissing(map[string]string{
 	// safari-27-ios's fallback rules are copied (decision 0051).
 	"safari-27-ios.h3-blackhole.pagetrace.json.gz": "the iPhone took h3-blackhole from Safari 26 on, after Safari 27's run (decision 0051)",
 	"safari-27-ios.h3-broken.pagetrace.json.gz":    "the iPhone took h3-broken from Safari 26 on, after Safari 27's run (decision 0051)",
+	// bodiless (2026-11-03) was captured on the capture Macs only, from
+	// the newest macOS versions.
+	"chrome-155-macos.bodiless.pagetrace.json.gz":               "bodiless came after Chrome 155, no longer installable as branded Chrome",
+	testprofiles.InheritingName + ".bodiless.pagetrace.json.gz": "chrome-155-macos, whose captures it inherits, has none",
+	"chrome-156-windows.bodiless.pagetrace.json.gz":             "bodiless was captured on macOS only (2026-11-03); not yet on the Windows PC",
+	"firefox-158-windows.bodiless.pagetrace.json.gz":            "bodiless was captured on macOS only (2026-11-03); not yet on the Windows PC",
+	"safari-26-macos.bodiless.pagetrace.json.gz":                "bodiless was captured with Safari 27 only (2026-11-03); not yet on the macOS 26 Mac",
 }, map[string]string{
 	// The cookie twins (server.CookieTwins) came after Chrome 155, which
 	// is no longer installable as branded Chrome; capturesFrom names only

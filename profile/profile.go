@@ -163,6 +163,9 @@ type Spec struct {
 	// Variants are the orders the navigation takes otherwise (a form POST),
 	// as Kind.Variants.
 	Variants []Variant `json:"variants,omitempty"`
+	// EmptyBody is how the navigation sends a form POST without a body, as
+	// Kind.EmptyBody.
+	EmptyBody *EmptyBody `json:"emptyBody,omitempty"`
 	// Kinds describe the browser's other requests, by kind (KindFetch, ...).
 	Kinds map[string]*Kind `json:"kinds,omitempty"`
 	// Context is how the browser fills what depends on which page makes a

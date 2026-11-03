@@ -565,8 +565,8 @@ them), and `secureLoopback`: **`false`**.
 
 ## Request kinds
 
-Derived from the `kinds`, `kinds-http1`, `kinds-plain`, `cookies` and `cors`
-captures by `internal/harness/cmd/kindsgen` (it refuses captures that disagree), for
+Derived from the `kinds`, `kinds-http1`, `kinds-plain`, `cookies`, `cors`
+and `bodiless` captures by `internal/harness/cmd/kindsgen` (it refuses captures that disagree), for
 every profile; Safari 26's equal Safari 27's apart from its user agent and
 `accept-encoding`. `TestRegenerateReproducesProfiles` keeps the committed
 profiles equal to what kindsgen derives from the committed captures.
@@ -595,6 +595,7 @@ cookies and `Access-Control-Request-*` headers, not their header order.
 | `context.headerTable` (Chrome: `blink`, page's first, own `sec-ch-ua*`/`user-agent`, `content-type` as the page's; Safari 26/27: `cf`, own `accept`, `content-type`, `origin`, `referer`, `sec-fetch-*`, `user-agent`, `content-length` late; Firefox: none) | W (`headers-order`, all 3 samples identical; `kinds`, `kinds-http1`, `kinds-plain`, `cors` fetches re-checked) + S (Blink `hash_table.h`, `case_folding_hash.h`, rapidhash; CoreFoundation `CFBasicHash`, `__CFStrHashCharacters`) | Derived by kindsgen (`deriveTable`): every non-redirected fetch/XHR capture with page headers is reproduced from the list without them. Chrome's `content-type` role is a tie (no capture has it with another page header; Blink source says as-page). `TestHeadersOrderMatchesBrowser`, `TestRegenerateReproducesProfiles` |
 | Page headers set twice combine into one line `v1, v2` under the first spelling; fetch() sends page names lowercase over HTTP/1.1, XHR as spelled; forbidden `sec-a` dropped (mimicry does not drop it) | W (`headers-order`, `case` set and `around`, every profile) | `TestHeadersOrderMatchesBrowser` |
 | Fetch `PUT` variants `{PUT, cross-site, corsChecked}` and the same with `pageSet` | W (`cors`: `put.cs`, and the `maxage.cs` PUT with the page's header; HTTP/2 only) | Firefox, Safari 27 and 26 (Safari places `content-length` differently in the two). Chrome's PUTs merge into its base fetch order, so it has none. Derivation only (see above) |
+| `emptyBody` (navigation) and `kinds.fetch.emptyBody`: a request without a body sends `content-length: 0` for the listed methods, in the list's place or `last` (before `te`), and over HTTP/2 ends with an empty DATA frame (`data`) or END_STREAM on HEADERS; other methods send none and end on HEADERS; over HTTP/3 the HEADERS frame ends the stream | W (`bodiless`, 3 samples each, all identical. Chrome 156 macOS (`-h3-local-roots`): fetch POST and PUT and the form POST right after the pseudo-headers (the list's place), PATCH none, END_STREAM on HEADERS; the same over HTTP/3. Firefox 158 macOS (`-h3-local-roots`): fetch POST and PUT `last` with `data`, PATCH none, the form POST in its list's place with `data`; over HTTP/3 the same lists, HEADERS and FIN. Safari 27 macOS: fetch POST, PUT **and PATCH** and the form POST before `accept-language` (the list's place), END_STREAM on HEADERS; HTTP/2 only, as Safari stayed on TCP) | Derived by kindsgen (`deriveEmptyBodies`), which refuses samples, methods or protocols that disagree; `TestBodilessMatchesBrowser` (header lines and frames, HTTP/2 and HTTP/3; Safari's fetch order pinned, see Not covered). Profiles without a `bodiless` capture have no `emptyBody` and send none (see Not covered) |
 | `kinds.image`, `kinds.injected_image` variant `{same-site, redirected}` | W (`cookies`, `c-redirect.cs-ss.hop`; HTTP/2 only) | `TestCookiesScenarioMatchesBrowser` |
 | Safari 27's `cookie` slot in the redirected same-origin image lists (HTTP/2) | W (`cookies`, `c-redirect.ss-so.hop`: Safari 27 sends cookies on that hop) | `TestCookiesScenarioMatchesBrowser` |
 | Firefox's `sec-fetch-storage-access` slot in the base fetch list | W (`fetch-include.cs`: `none` on credentialed cross-site fetches) | `TestKindsMatchBrowserTraces` |
@@ -1063,6 +1064,8 @@ A difference closed is removed here, with its pinned gap entry.
 - **Layout-driven image priorities** (Firefox, Chrome): layout changes them (`u=4`, `u=1`); detection low (`redirectsLineGaps`, `h3Gaps`, `h3PriorityGaps`).
 - **Safari 26's font cookie race** (Safari 26): it sent a font before a cookie was set; detection none (`raceCookieLabels`).
 - **Edges from source only** (Safari, all): Safari's hash tables past 1732 names or for names over 96 characters; the navigation's `content-length` slot, which no request reaches; detection none.
+- **Bodiless POST and PUT without a `bodiless` capture** (Chrome and Firefox on Windows, every iOS profile, `chrome-155-macos`, `safari-26-macos`): no `emptyBody`, so a POST or PUT with no body goes without `content-length: 0`, its stream ended on HEADERS. The `cors` captures already show every profile's cross-site fetch PUT with no body (`put.cs`, the `maxage.cs` PUT) sending `content-length: 0` (Chrome and Safari in the list's place with END_STREAM on HEADERS, Firefox last with an empty DATA frame); kindsgen does not read them for `emptyBody` yet, and POST is unmeasured there; detection medium; a `bodiless` capture per profile ([#56](https://github.com/roachadam/mimicry/issues/56)).
+- **Safari's bodiless fetch() order** (Safari 27 macOS): its fetch() POST, PUT and PATCH without a body start `sec-fetch-site, accept, origin` (its header table without `content-type`); mimicry sends the order of its lists measured with a body, `accept, origin, sec-fetch-site`, as it did before; `content-length: 0` and the framing match; detection medium; the header table applied to Safari's own headers whenever the list's measured set differs (`bodilessGaps`).
 
 **Cookies**
 
@@ -1171,7 +1174,9 @@ preflights, redirects, connection sharing),
 `TestCookiesScenarioMatchesBrowser` (the cookies page),
 `TestCORSMatchesBrowser` (the preflight cache and refusals),
 `TestConnectionsMatchBrowser` (the per-host HTTP/1.1 cap and coalescing,
-with `Config.DisableCoalescing` and without) and
+with `Config.DisableCoalescing` and without),
+`TestBodilessMatchesBrowser` (POST, PUT and PATCH without a body, over
+HTTP/2 and HTTP/3) and
 `TestHPACKReproducesBrowserBlocks`.
 
 The page replays of the kinds, headers-order, cors, cors-edge, redirects2,

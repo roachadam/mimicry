@@ -111,6 +111,7 @@ func (p *Spec) Validate() error {
 	}
 
 	c.checkVariants("variants", p.Variants, false)
+	c.checkEmptyBody("emptyBody", p.EmptyBody)
 	c.checkKinds(p)
 
 	if ctx := p.Context; ctx != nil && ctx.PreflightCache != "" && ctx.PreflightCache != PreflightCacheReplace && ctx.PreflightCache != PreflightCacheMerge {

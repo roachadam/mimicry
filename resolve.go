@@ -51,10 +51,11 @@ func resolve(p *profile.Spec, req *http.Request, r Request, from *url.URL, confi
 	}
 
 	var (
-		list, h1 []profile.Header
-		variants []profile.Variant
-		weight   uint8
-		kind     *profile.Kind
+		list, h1  []profile.Header
+		variants  []profile.Variant
+		weight    uint8
+		kind      *profile.Kind
+		emptyBody *profile.EmptyBody
 	)
 	if r.Kind == Navigate {
 		if r.Priority != PriorityAuto || r.CrossOrigin != CrossOriginNone || r.Credentials != CredentialsSameOrigin || r.NoCORS {
@@ -67,7 +68,7 @@ func resolve(p *profile.Spec, req *http.Request, r Request, from *url.URL, confi
 			return nil, fmt.Errorf("mimicry: a %s navigation needs Request.From, the page whose form sends it; an API call is a Fetch", req.Method)
 		}
 
-		list, variants = p.Headers, p.Variants
+		list, variants, emptyBody = p.Headers, p.Variants, p.EmptyBody
 		if p.HTTP1 != nil {
 			h1 = p.HTTP1.Headers
 		}
@@ -99,7 +100,7 @@ func resolve(p *profile.Spec, req *http.Request, r Request, from *url.URL, confi
 			return nil, fmt.Errorf("mimicry: a beacon is a POST, not %s", req.Method)
 		}
 
-		list, h1, variants, weight = kind.Headers, kind.HTTP1, kind.Variants, kind.Weight
+		list, h1, variants, weight, emptyBody = kind.Headers, kind.HTTP1, kind.Variants, kind.Weight, kind.EmptyBody
 	}
 
 	ctx := p.Context
@@ -444,6 +445,10 @@ func resolve(p *profile.Spec, req *http.Request, r Request, from *url.URL, confi
 		return s, nil
 	}
 
+	// A POST or PUT without a body may send content-length: 0, where the
+	// list places it or last (profile.EmptyBody).
+	zero := (req.Body == nil || req.Body == http.NoBody) && emptyBody != nil && slices.Contains(emptyBody.ContentLength, methodOf(req)) && (emptyBody.Last || placesHeader(list, "content-length"))
+
 	s.plan = &headerorder.Plan{
 		Kind:    profileKinds[r.Kind],
 		Headers: fill(list, values),
@@ -460,6 +465,9 @@ func resolve(p *profile.Spec, req *http.Request, r Request, from *url.URL, confi
 		NoContentLength: measured && req.Body != nil && req.Body != http.NoBody && !slices.ContainsFunc(list, func(hd profile.Header) bool {
 			return strings.EqualFold(hd.Name, "content-length")
 		}),
+		ZeroContentLength:     zero,
+		ZeroContentLengthLast: zero && emptyBody.Last,
+		EmptyData:             zero && emptyBody.Data,
 	}
 	if len(h1) > 0 {
 		s.plan.HTTP1 = fill(h1, values)

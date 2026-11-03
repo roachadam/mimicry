@@ -2929,6 +2929,11 @@
       ]
     }
   ],
+  "emptyBody": {
+    "contentLength": [
+      "POST"
+    ]
+  },
   "kinds": {
     "async_script": {
       "headers": [
@@ -5521,6 +5526,12 @@
           ]
         }
       ],
+      "emptyBody": {
+        "contentLength": [
+          "POST",
+          "PUT"
+        ]
+      },
       "weight": 219,
       "high": {
         "priority": "u=1, i",
