@@ -34,7 +34,17 @@ func resolve(p *profile.Spec, req *http.Request, r Request, from *url.URL, confi
 	insecureBefore := len(chain) > 1 && !site.Trustworthy(chain[len(chain)-2])
 	// Config.Header count as the page's from here on: for the variant,
 	// credentials and the preflight.
-	addHeaders(h, config, chain)
+	crossed := crossedOrigin(chain)
+	addHeaders(h, config, crossed)
+
+	if crossed && r.Kind != Navigate {
+		// The Fetch standard's HTTP-redirect fetch deletes Authorization,
+		// the one CORS non-wildcard request-header name, once a redirect
+		// changes origin, before the CORS check: the page's own too, which
+		// http.Client keeps on a subdomain. (A navigation with its own
+		// headers after such a redirect is not measured.)
+		delHeader(h, "Authorization")
+	}
 
 	if r.Stylesheet != nil && r.Kind != Font && r.Kind != Image {
 		return nil, fmt.Errorf("mimicry: %s requests take no stylesheet: CSS loads fonts and images", r.Kind)
@@ -721,15 +731,22 @@ func delHeader(h http.Header, name string) {
 	}
 }
 
-// addHeaders adds the config headers h lacks. Once chain has left an
-// origin, Authorization and Cookie are dropped, as browsers drop
-// Authorization (Fetch standard) and http.Client both.
-func addHeaders(h, config http.Header, chain []*url.URL) {
-	crossed := false
+// crossedOrigin reports whether a redirect chain has gone from one origin
+// to another anywhere along it.
+func crossedOrigin(chain []*url.URL) bool {
 	for i := 1; i < len(chain); i++ {
-		crossed = crossed || !isSameOrigin(chain[i-1], chain[i])
+		if !isSameOrigin(chain[i-1], chain[i]) {
+			return true
+		}
 	}
 
+	return false
+}
+
+// addHeaders adds the config headers h lacks. Once the chain has crossed
+// an origin, Authorization and Cookie are dropped, as browsers drop
+// Authorization (Fetch standard) and http.Client both.
+func addHeaders(h, config http.Header, crossed bool) {
 	for k, v := range config {
 		if crossed && (k == "Authorization" || k == "Cookie") {
 			continue

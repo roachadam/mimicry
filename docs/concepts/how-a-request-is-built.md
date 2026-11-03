@@ -51,7 +51,9 @@ Combinations no browser makes are errors before anything is sent:
 1. **Add `Config.Header`.** Each one the request does not set itself is
    added. From here on it counts as a header the page set. Once a redirect
    chain has left an origin, `Authorization` and `Cookie` from
-   `Config.Header` are no longer added.
+   `Config.Header` are no longer added, and every request but a
+   navigation loses its own `Authorization` too (the Fetch standard's
+   HTTP-redirect fetch), before the preflight decision.
 2. **Pick the header list.** A *list* is the browser's header names in
    order, with blanks (*slots*) for values that depend on the request.
    Each kind has a default list and variants. The variant depends on the
@@ -234,7 +236,9 @@ changes what goes out. See `ExampleTransport_Plan` for a full example.
   with method OPTIONS.
 - **No kind** for `FontFace().load()` or `crossorigin` stylesheets.
 - **`Config.Header`'s `Authorization` and `Cookie`** stop once a redirect
-  chain has left their origin, as the Fetch standard says.
+  chain has left their origin, as the Fetch standard says; so does a
+  request's own `Authorization`, except on a navigation (whose page-set
+  headers after a cross-origin redirect are not measured).
 - **`CheckRedirect` and `via`** show the hops as `http.Client` built them (a
   PUT answered 301 shows as a GET); the requests sent are the browser's.
 
