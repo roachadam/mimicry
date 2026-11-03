@@ -702,20 +702,31 @@ func (e *Engine) tryOnce(ctx context.Context, req *http.Request, r route) (*http
 
 // roundTripH2 sends req on c. A request c did not send (it is going away
 // or failed) goes to another connection, and c leaves the pool, finishing
-// what it has in flight.
+// what it has in flight. A refused stream (h2.ErrStreamRefused) is resent
+// on c, which stays pooled, until the profile's RefusedStreamSends are
+// spent; the last refusal fails the request.
 func (e *Engine) roundTripH2(key string, c *shared, req *http.Request) (*http.Response, error) {
-	resp, err := c.RoundTrip(req)
-	if errors.Is(err, h2.ErrConnUnusable) {
-		e.pool.RemoveShared(key, c)
+	for sends := uint32(1); ; sends++ {
+		resp, err := c.RoundTrip(req)
+		if errors.Is(err, h2.ErrConnUnusable) {
+			e.pool.RemoveShared(key, c)
 
-		return nil, fmt.Errorf("%w: %w", errNotSent, err)
+			return nil, fmt.Errorf("%w: %w", errNotSent, err)
+		}
+
+		// c left the body unread: resend it. A cancelled context stops
+		// the resend at c's new stream; with the last refusal, RoundTrip
+		// closes the body as on every error.
+		if errors.Is(err, h2.ErrStreamRefused) && sends < e.profile.HTTP2.RefusedStreamSends {
+			continue
+		}
+
+		if err == nil {
+			resp.TLS = c.tls
+		}
+
+		return resp, err
 	}
-
-	if err == nil {
-		resp.TLS = c.tls
-	}
-
-	return resp, err
 }
 
 // newH1 wraps conn, which carries HTTP/1.1, for the route's requests.

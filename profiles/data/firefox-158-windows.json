@@ -308,6 +308,7 @@
     "streamUpdateThreshold": 4194304,
     "connectionUpdateThreshold": 4194304,
     "goawayReply": "NO_ERROR",
+    "refusedStreamSends": 10,
     "splitCookie": true,
     "hpack": {
       "withoutIndexing": [
