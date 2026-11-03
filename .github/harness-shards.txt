@@ -21,7 +21,7 @@
 # given a line here.
 #
 # A slow test needs a line here, or the shard it lands in can run past the
-# 15-minute limit: `bash .github/scripts/harness-shard.sh all plan 7` prints
+# 15-minute limit: `bash .github/scripts/harness-shard.sh all plan 8` prints
 # main's split, `... core,protocol plan 5` a pull request's (ci.yml has each
 # tier's shard count). `Test/regex` runs a slice of a test's subtests as its
 # own unit (a test whose subtests alone take longer than a shard should);
@@ -31,14 +31,18 @@
 # weights when they run apart.
 #
 # seconds  tier      package          test[/subtests]
-130        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^chrome-.*-macos
-165        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^chrome-.*-windows
-145        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^firefox-
-90         gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^safari-
-100        gen       ./cmd/hellogen   TestRegenerateReadsInheritedCaptures
-100        gen       ./cmd/h3gen      TestRegenerateReproducesProfiles
-20         gen       ./cmd/h3gen      TestRegenerateReadsInheritedCaptures
-25         gen       ./cmd/kindsgen   TestRegenerateReproducesProfiles
+# The generators' times are from main's run of 2026-11-03 (after the hrr
+# captures): hellogen takes about 200 s per desktop profile, so a slice per
+# platform; the iPhone profiles (about 35 s together) are the rest unit.
+190        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^chrome-.*-macos
+205        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^chrome-.*-windows
+200        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^firefox-.*-macos
+205        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^firefox-.*-windows
+200        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^safari-.*-macos
+175        gen       ./cmd/hellogen   TestRegenerateReadsInheritedCaptures
+190        gen       ./cmd/h3gen      TestRegenerateReproducesProfiles
+22         gen       ./cmd/h3gen      TestRegenerateReadsInheritedCaptures
+36         gen       ./cmd/kindsgen   TestRegenerateReproducesProfiles
 5          gen       ./cmd/kindsgen   TestRegenerateReadsInheritedCaptures
 # 48 subtests of about 50 s, 12 per profile: a profile's take about 300 s
 # on a 4-CPU Linux box, about 1200 s whole, so a slice per profile.
