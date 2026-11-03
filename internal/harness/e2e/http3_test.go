@@ -202,6 +202,8 @@ func h3Steps(sc *server.Scenario) []server.H3Step {
 		return server.H3EarlySteps()
 	case server.H3StreamsBlocked:
 		return server.H3StreamsBlockedSteps()
+	case server.Bodiless:
+		return server.BodilessSteps()
 	}
 
 	return server.H3DiscoverySteps()
@@ -297,13 +299,11 @@ func runH3PageWith(t *testing.T, p *profile.Spec, sc *server.Scenario, browser *
 			pause(t, time.Duration(st.PauseMillis)*time.Millisecond)
 
 			if st.Kind == "navigate" {
+				// The page navigates by script, without user activation:
+				// location.href, or a form's submit().
 				target := s.url(st.Host, st.Path())
-				// The page navigates by script, without user activation.
-				s.send(http.MethodGet, target, mimicry.Request{
-					From: page,
-				}, http.Header{
-					"Sec-Fetch-User": nil,
-				}, "")
+				method, r, h := h3StepRequest(st, page)
+				s.send(method, target, r, h, st.Body)
 
 				if page, err = url.Parse(target); err != nil {
 					t.Fatal(err)
@@ -662,7 +662,8 @@ func h3StepRequest(st server.H3Step, page *url.URL) (string, mimicry.Request, ht
 		kind = mimicry.Navigate
 		h["Sec-Fetch-User"] = nil
 
-		if st.Body != "" {
+		if st.Method == http.MethodPost {
+			// A form's enctype, with no field too.
 			h.Set("Content-Type", "application/x-www-form-urlencoded")
 		}
 

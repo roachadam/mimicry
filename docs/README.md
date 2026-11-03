@@ -71,6 +71,7 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0022](decisions/0022-redirects-as-the-browser-follows-them.md) | Redirects follow the browser's rules, inside the Transport | Amended |
 | [0030](decisions/0030-header-placement.md) | Header placement: move one header, keep the browser's order | Accepted |
 | [0048](decisions/0048-cookie-twins.md) | Cookie twins of the redirect scenarios measure each hop's `cookie` slot | Accepted |
+| [0054](decisions/0054-empty-request-bodies.md) | Requests without a body: `content-length: 0` and the stream's end from a measured `emptyBody`, as before where none is measured | Accepted |
 
 ### Cookies
 

@@ -553,6 +553,9 @@ type requestHead struct {
 	// weight overrides the profile's HEADERS weight when not zero.
 	weight    uint8
 	endStream bool
+	// emptyData ends the stream with an empty DATA frame after the
+	// headers (profile.EmptyBody.Data).
+	emptyData bool
 }
 
 // bodyLength is the length of req's body as RoundTrip sends it: 0 for
@@ -627,10 +630,14 @@ func buildHead(dst []hpack.Field, headers []profile.Header, h2p *profile.HTTP2, 
 
 	// A body's length is the one declared, never the caller's header:
 	// unknown, or not sent by the browser, it is none, not even a profile
-	// default.
+	// default. Without a body, the plan says whether the browser sends
+	// content-length: 0 (profile.EmptyBody).
 	var sets []headerorder.Set
 
-	if length != 0 {
+	empty := length == 0 && protocol == "" && plan != nil && plan.ZeroContentLength
+
+	switch {
+	case length != 0:
 		set := headerorder.Set{
 			Name: "content-length",
 		}
@@ -641,11 +648,20 @@ func buildHead(dst []hpack.Field, headers []profile.Header, h2p *profile.HTTP2, 
 		sets = []headerorder.Set{
 			set,
 		}
+
+	case empty:
+		sets = []headerorder.Set{
+			{
+				Name:  "content-length",
+				Value: "0",
+			},
+		}
 	}
 
 	list := headers
 	head := requestHead{
-		endStream: length == 0 && protocol == "",
+		endStream: length == 0 && protocol == "" && (!empty || !plan.EmptyData),
+		emptyData: empty && plan.EmptyData,
 	}
 
 	var table *profile.HeaderTable
@@ -658,7 +674,12 @@ func buildHead(dst []hpack.Field, headers []profile.Header, h2p *profile.HTTP2, 
 	// Room for the usual list on the stack; head.fields is the copy kept.
 	var buf [32]headerorder.Field
 
-	ordered, err := headerorder.Place(headerorder.Build(buf[:0], list, headerorder.WithoutFraming(req.Header), sets, skipHeader, table), headerorder.PlacementsFrom(req.Context()))
+	built := headerorder.Build(buf[:0], list, headerorder.WithoutFraming(req.Header), sets, skipHeader, table)
+	if empty && plan.ZeroContentLengthLast {
+		built = headerorder.ToEnd(built, "content-length")
+	}
+
+	ordered, err := headerorder.Place(built, headerorder.PlacementsFrom(req.Context()))
 	if err != nil {
 		return requestHead{}, err
 	}
@@ -881,7 +902,7 @@ func (c *Conn) writeHeaders(s *stream, head requestHead) error {
 
 	// The request's frames go out in one write, joining the opening when
 	// it waits for them.
-	batch := c.w.pending || len(block) > len(first) || c.h2.StreamWindowUpdate > 0
+	batch := c.w.pending || len(block) > len(first) || c.h2.StreamWindowUpdate > 0 || head.emptyData
 
 	c.w.hold = batch
 
@@ -903,6 +924,13 @@ func (c *Conn) writeHeaders(s *stream, head requestHead) error {
 
 	if inc := c.h2.StreamWindowUpdate; inc > 0 {
 		if err := c.fr.WriteWindowUpdate(id, inc); err != nil {
+			return c.headersFailed(id, err)
+		}
+	}
+
+	if head.emptyData {
+		// After the WINDOW_UPDATE, as Firefox sends it.
+		if err := c.fr.WriteData(id, true, nil); err != nil {
 			return c.headersFailed(id, err)
 		}
 	}

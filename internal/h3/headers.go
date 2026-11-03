@@ -126,10 +126,15 @@ func buildHead(p *profile.Spec, altHost, altPort string, req *http.Request, leng
 
 	// A body's length is the one declared, never the caller's header:
 	// unknown, or not sent by the browser, it is none, not even a profile
-	// default.
+	// default. Without a body, the plan says whether the browser sends
+	// content-length: 0 (profile.EmptyBody); its HEADERS frame ends the
+	// stream either way.
 	var sets []headerorder.Set
 
-	if length != 0 {
+	empty := length == 0 && plan != nil && plan.ZeroContentLength
+
+	switch {
+	case length != 0:
 		set := headerorder.Set{
 			Name: "content-length",
 		}
@@ -139,6 +144,14 @@ func buildHead(p *profile.Spec, altHost, altPort string, req *http.Request, leng
 
 		sets = []headerorder.Set{
 			set,
+		}
+
+	case empty:
+		sets = []headerorder.Set{
+			{
+				Name:  "content-length",
+				Value: "0",
+			},
 		}
 	}
 
@@ -153,6 +166,10 @@ func buildHead(p *profile.Spec, altHost, altPort string, req *http.Request, leng
 	ordered := headerorder.Build(nil, list, headerorder.WithoutFraming(req.Header), sets, func(name string) bool {
 		return hopByHop[name]
 	}, table)
+	if empty && plan.ZeroContentLengthLast {
+		ordered = headerorder.ToEnd(ordered, "content-length")
+	}
+
 	hd := p.HTTP3.Headers
 
 	if hd != nil && !exact(plan) {

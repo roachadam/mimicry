@@ -513,6 +513,14 @@ replay them. Results:
 [h3-early](../internal/harness/reports/h3-early-2026-10-26.md),
 [h3-streams-blocked](../internal/harness/reports/h3-streams-blocked-2026-10-31.md).
 
+`bodiless` makes fetch() POST, PUT and PATCH and a form POST navigation
+with no body, first on `www.h3-c.test`, which never advertises HTTP/3
+(so over HTTP/2), then on `www.h3-a.test` after a warm-up fetch and a
+navigation 2 s later (over HTTP/3 by then): whether each sends
+`content-length: 0`, where, and how the stream ends. Chrome and Firefox
+need `-h3-local-roots` for its HTTP/3 half; kindsgen derives `emptyBody`
+from it and `TestBodilessMatchesBrowser` replays it.
+
 ## Deriving a profile
 
 A built-in profile is a JSON file in `profiles/data/`; its accessors are
@@ -637,6 +645,12 @@ kindsgen's captures, and what each gives the profile:
   `kinds.xhr` POST variant, and Safari's `injected_image.low` from its
   `h3-page` requests over HTTP/2; a layout-driven priority is pinned in
   `h3PriorityGaps`.
+- `<name>.bodiless*.pagetrace.json.gz`: `emptyBody` on the navigation
+  (the form POST) and `kinds.fetch` (`deriveEmptyBodies`): the methods
+  sending `content-length: 0` with no body, its place (the list's, or
+  last before `te`) and, over HTTP/2, an empty DATA frame ending the
+  stream; samples, methods and HTTP/3 must agree. Without the capture
+  both stay unset.
 
 A variant only the cors, cors-edge or cookies capture shows was measured
 over HTTP/2 only, so it has no `http1` list, and mimicry refuses such a

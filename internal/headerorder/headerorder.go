@@ -52,6 +52,14 @@ type Plan struct {
 	// the request's measured list has none (Safari's redirected bodies
 	// after a preflight).
 	NoContentLength bool
+	// ZeroContentLength sends a request without a body over HTTP/2 and
+	// HTTP/3 with content-length: 0, in the list's place for it or, with
+	// ZeroContentLengthLast, after its other headers (before a final te);
+	// EmptyData then ends its HTTP/2 stream with an empty DATA frame
+	// rather than on HEADERS (profile.EmptyBody).
+	ZeroContentLength     bool
+	ZeroContentLengthLast bool
+	EmptyData             bool
 }
 
 type planKey struct{}
