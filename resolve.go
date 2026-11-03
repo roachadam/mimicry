@@ -110,13 +110,16 @@ func resolve(p *profile.Spec, req *http.Request, r Request, from *url.URL, confi
 	redirected := len(chain) > 1
 	if redirected {
 		// http.Client sets Referer to the previous URL when it follows a
-		// redirect; browsers keep the page's. A caller's own value stays.
+		// redirect, as the caller spelled it (the chain is canonical);
+		// browsers keep the page's. A caller's own value stays.
 		prev := *chain[len(chain)-2]
 
 		prev.User = nil
 
-		if h.Get("Referer") == prev.String() {
-			h.Del("Referer")
+		if ref, err := url.Parse(h.Get("Referer")); err == nil {
+			if c, err := canonicalURL(ref); err == nil && c.String() == prev.String() {
+				h.Del("Referer")
+			}
 		}
 	}
 

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/roachadam/mimicry/internal/site"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -100,7 +101,16 @@ func parse(line string, rules *profile.Cookies, now time.Time) (*parsed, error) 
 
 		case "domain":
 			// The last Domain wins; an empty one makes the cookie host-only.
-			p.domain = strings.ToLower(strings.TrimPrefix(val, "."))
+			// A name that is not ASCII matches in its ASCII form, as the
+			// request's host does (RFC 6265bis 5.1.2); one ToASCII refuses
+			// matches no host.
+			d := strings.TrimPrefix(val, ".")
+
+			var err error
+			if p.domain, err = site.ASCII(d); err != nil {
+				p.domain = strings.ToLower(d)
+			}
+
 		case "path":
 			// The last Path wins, even when invalid: then the cookie gets
 			// the default path.

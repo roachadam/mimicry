@@ -1,6 +1,7 @@
 // Package site computes what browsers call a site: a scheme and a
 // registrable domain (public suffix list), the unit of SameSite cookies,
-// sec-fetch-site and cookie partitions.
+// sec-fetch-site and cookie partitions; and the ASCII form of a host name
+// (ASCII), in which browsers send and match it.
 //
 // Registrable and Of are memoized per host: every request asks for them
 // several times (sec-fetch-site, the cookie jar's SameSite context), and
@@ -13,7 +14,9 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"unicode/utf8"
 
+	"golang.org/x/net/idna"
 	"golang.org/x/net/publicsuffix"
 )
 
@@ -121,4 +124,29 @@ func Loopback(host string) bool {
 // https or wss, or a loopback host.
 func Trustworthy(u *url.URL) bool {
 	return u.Scheme == "https" || u.Scheme == "wss" || Loopback(u.Hostname())
+}
+
+// toASCII is the WHATWG URL standard's domain to ASCII: UTS #46
+// nontransitional processing with CheckBidi and CheckJoiners, without
+// CheckHyphens, UseSTD3ASCIIRules or VerifyDnsLength.
+var toASCII = idna.New(
+	idna.MapForLookup(),
+	idna.BidiRule(),
+	idna.Transitional(false),
+	idna.StrictDomainName(false),
+	idna.CheckHyphens(false),
+)
+
+// ASCII returns domain as browsers send it and match cookies against:
+// lowercase, and a name with non-ASCII characters through UTS #46 ToASCII
+// ("Bücher.de" is "xn--bcher-kva.de"), an error when that fails. An ASCII
+// name is only lowercased.
+func ASCII(domain string) (string, error) {
+	for i := range len(domain) {
+		if domain[i] >= utf8.RuneSelf {
+			return toASCII.ToASCII(domain)
+		}
+	}
+
+	return strings.ToLower(domain), nil
 }

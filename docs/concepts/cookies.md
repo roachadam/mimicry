@@ -119,7 +119,9 @@ with the same context.
 
 Every browser follows the cookie standard:
 
-- `Domain` must match the host and cannot be a public suffix.
+- `Domain` must match the host and cannot be a public suffix. A `Domain`
+  with non-ASCII characters is compared in its ASCII form
+  (`bücher.example` as `xn--bcher-kva.example`), as the host is.
 - `Secure` cookies are set and sent only over HTTPS. An `http://` page
   cannot overwrite a `Secure` cookie.
 - Name plus value is at most 4096 bytes.

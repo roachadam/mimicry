@@ -87,12 +87,20 @@ func (t *Transport) DialWebSocket(ctx context.Context, rawURL string, opts WebSo
 		return nil, nil, err
 	}
 
+	if u, err = canonicalURL(u); err != nil {
+		return nil, nil, err
+	}
+
 	target, err := ws.Target(u)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	from := opts.From
+	from, err := canonicalURL(opts.From)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	if from == nil {
 		from = t.pageFor(target)
 	}

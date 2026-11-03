@@ -458,10 +458,25 @@ type out struct {
 	preflight *preflightSend
 }
 
-// outgoing works out how req goes out, up to its preflight: the browser's
-// hop for a redirect (returned in req's place, even with an error), its
-// placements, and how it is resolved. It sends nothing.
+// outgoing works out how req goes out, up to its preflight: req with its
+// URL as the browser's parser leaves it (canonicalURL), and r's page and
+// stylesheet; the browser's hop for a redirect (returned in req's place,
+// even with an error), its placements, and how it is resolved. It sends
+// nothing.
 func (t *Transport) outgoing(req *http.Request, r Request, exact bool, u use) (*http.Request, out, error) {
+	req, err := canonicalRequest(req)
+	if err != nil {
+		return req, out{}, err
+	}
+
+	if r.From, err = canonicalURL(r.From); err != nil {
+		return req, out{}, err
+	}
+
+	if r.Stylesheet, err = canonicalURL(r.Stylesheet); err != nil {
+		return req, out{}, err
+	}
+
 	if req.Response != nil {
 		next, err := browserHop(t.profile, req, exact || r.Kind == Navigate, u)
 		if err != nil {
