@@ -15,8 +15,9 @@ import (
 // headersOrderGaps are the headers-order steps mimicry cannot match: an XHR
 // whose page set headers out of name order, which the browser follows. An
 // http.Header has no order, so mimicry sorts by name as fetch() does. On
-// the iPhone also the steps with 26 or more page-set names, and XHR's
-// repeated name: kindsgen's headersGaps.
+// the iPhone's Safari also the steps with 26 or more page-set names, and
+// XHR's repeated name: kindsgen's headersGaps. Chrome on the iPhone has
+// macOS Safari's (decision 0053).
 var headersOrderGaps = map[string][]string{
 	"chrome-155-macos": {
 		"letters-rev.xhr.so", "around-rev.xhr.so",
@@ -28,20 +29,21 @@ var headersOrderGaps = map[string][]string{
 		"letters-rev.xhr.cs", "around-rev.xhr.cs",
 		"letters-rev.xhr.h1", "around-rev.xhr.h1",
 	},
+	"chrome-157-ios":      safariHeadersOrderGaps,
 	"firefox-158-macos":   firefoxHeadersOrderGaps,
 	"firefox-158-windows": firefoxHeadersOrderGaps,
-	"safari-26-macos": {
-		"letters-rev.xhr.so", "around-rev.xhr.so", "case.xhr.so",
-		"around-rev.xhr.cs", "case.xhr.cs",
-		"around-rev.xhr.h1", "case.xhr.h1",
-	},
-	"safari-27-macos": {
-		"letters-rev.xhr.so", "around-rev.xhr.so", "case.xhr.so",
-		"around-rev.xhr.cs", "case.xhr.cs",
-		"around-rev.xhr.h1", "case.xhr.h1",
-	},
-	"safari-26-ios": iosHeadersOrderGaps,
-	"safari-27-ios": iosHeadersOrderGaps,
+	"safari-26-macos":     safariHeadersOrderGaps,
+	"safari-27-macos":     safariHeadersOrderGaps,
+	"safari-26-ios":       iosHeadersOrderGaps,
+	"safari-27-ios":       iosHeadersOrderGaps,
+}
+
+// safariHeadersOrderGaps are macOS Safari's (26 and 27), and Chrome's on
+// the iPhone.
+var safariHeadersOrderGaps = []string{
+	"letters-rev.xhr.so", "around-rev.xhr.so", "case.xhr.so",
+	"around-rev.xhr.cs", "case.xhr.cs",
+	"around-rev.xhr.h1", "case.xhr.h1",
 }
 
 // firefoxHeadersOrderGaps are Firefox's (macOS and Windows alike).

@@ -11,6 +11,13 @@ func ChromeMacOS() profile.Profile {
 	return load("chrome-156-macos")
 }
 
+// ChromeIOS returns the newest chrome profile on ios, now chrome-157-ios (chrome 157 on ios).
+// It moves to each new version as that version is added; use a
+// versioned accessor where a version must stay fixed.
+func ChromeIOS() profile.Profile {
+	return load("chrome-157-ios")
+}
+
 // ChromeWindows returns the newest chrome profile on windows, now chrome-156-windows (chrome 156 on windows).
 // It moves to each new version as that version is added; use a
 // versioned accessor where a version must stay fixed.
@@ -61,6 +68,11 @@ func Chrome156Windows() profile.Profile {
 	return load("chrome-156-windows")
 }
 
+// Chrome157IOS returns the chrome-157-ios profile (chrome 157 on ios).
+func Chrome157IOS() profile.Profile {
+	return load("chrome-157-ios")
+}
+
 // Firefox158MacOS returns the firefox-158-macos profile (firefox 158 on macos).
 func Firefox158MacOS() profile.Profile {
 	return load("firefox-158-macos")
@@ -95,6 +107,7 @@ var names = []string{
 	"chrome-155-macos",
 	"chrome-156-macos",
 	"chrome-156-windows",
+	"chrome-157-ios",
 	"firefox-158-macos",
 	"firefox-158-windows",
 	"safari-26-ios",
@@ -107,6 +120,7 @@ var supported = []string{
 	"chrome-155-macos",
 	"chrome-156-macos",
 	"chrome-156-windows",
+	"chrome-157-ios",
 	"firefox-158-macos",
 	"firefox-158-windows",
 	"safari-26-ios",

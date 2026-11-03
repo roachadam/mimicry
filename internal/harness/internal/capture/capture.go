@@ -148,7 +148,8 @@ func (c *Capture) Identify() {
 }
 
 // ParseUserAgent extracts the browser, its major version and the platform from
-// a user agent string.
+// a user agent string. Chrome on iOS says CriOS/ and no Chrome/; its user
+// agent also holds Safari/, so it is matched before Safari.
 func ParseUserAgent(ua string) (browser, version, platform string) {
 	browser, version = "unknown", "unknown"
 	switch {
@@ -156,6 +157,8 @@ func ParseUserAgent(ua string) (browser, version, platform string) {
 		browser, version = "firefox", majorAfter(ua, "Firefox/")
 	case strings.Contains(ua, "Edg/"):
 		browser, version = "edge", majorAfter(ua, "Edg/")
+	case strings.Contains(ua, "CriOS/"):
+		browser, version = "chrome", majorAfter(ua, "CriOS/")
 	case strings.Contains(ua, "Chrome/"):
 		browser, version = "chrome", majorAfter(ua, "Chrome/")
 	case strings.Contains(ua, "Safari/") && strings.Contains(ua, "Version/"):

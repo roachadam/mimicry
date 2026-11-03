@@ -51,10 +51,11 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0004](decisions/0004-complete-profile-files.md) | One complete profile file per browser version | Amended by 0035 |
 | [0008](decisions/0008-unmeasured-is-an-error.md) | Asking for what was never measured is an error | Accepted |
 | [0024](decisions/0024-clienthello-shape-in-profiles.md) | The ClientHello's whole shape is profile data | Amended |
-| [0035](decisions/0035-version-policy-and-capture-inheritance.md) | Newest-version accessors, five supported versions, inherited captures | Amended by 0047, 0051 |
+| [0035](decisions/0035-version-policy-and-capture-inheritance.md) | Newest-version accessors, five supported versions, inherited captures | Amended by 0047, 0051, 0053 |
 | [0044](decisions/0044-profile-fingerprint.md) | Transports find a shared profile by a hash of its content; profiles are read-only values, checked once per edit | Amended |
 | [0047](decisions/0047-windows-profiles.md) | Windows profiles: `<browser>-<major>-windows`, `ChromeWindows()` and `FirefoxWindows()` | Amended by 0051; amended (Firefox on Windows) |
-| [0051](decisions/0051-ios-safari-over-the-network.md) | Safari on an iPhone: the fingerprint captured on the iPhone, from the Mac; inherited from macOS Safari only where no difference shows | Accepted |
+| [0051](decisions/0051-ios-safari-over-the-network.md) | Safari on an iPhone: the fingerprint captured on the iPhone, from the Mac; inherited from macOS Safari only where no difference shows | Amended by 0053 (the iPhone's header order is Safari's, not the platform's) |
+| [0053](decisions/0053-chrome-on-ios.md) | Chrome on an iPhone: its own iPhone captures; inherited from Safari of its WebKit only where no difference shows | Accepted |
 
 ### Requests and headers
 

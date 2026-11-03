@@ -75,20 +75,23 @@ func iphoneProxyAddr(addr string) string {
 // iphoneProxy asks the maintainer, and waits for Enter, whenever the next
 // scenario needs the iPhone's Wi-Fi proxy set otherwise (Manual, this
 // Mac's proxy, for the proxy scenarios; Off for the others): a setting of
-// the phone the tool cannot change. A run starts with it off. Nil for any
-// other browser.
+// the phone the tool cannot change. A run starts with it off. Nil for a
+// browser not on an iPhone.
 type iphoneProxy struct {
+	// name is the browser's (-browsers), which the prompts start with.
+	name  string
 	addr  string
 	on    bool
 	lines chan error
 }
 
 func newIPhoneProxy(b *browser.Browser, addr string) *iphoneProxy {
-	if b.Name != browser.IOSSafariName {
+	if !b.OnIPhone() {
 		return nil
 	}
 
 	return &iphoneProxy{
+		name: b.Name,
 		addr: addr,
 	}
 }
@@ -110,7 +113,7 @@ func (p *iphoneProxy) set(ctx context.Context, sc *server.Scenario) error {
 	}
 
 	log.Printf("%s: scenario %s needs another proxy setting on the iPhone. Settings > Wi-Fi > (i) on this network > Configure Proxy:\n\n%s\n\nSave, then press Enter here.",
-		browser.IOSSafariName, sc.Name, setting)
+		p.name, sc.Name, setting)
 
 	if err := p.enter(ctx); err != nil {
 		return err
@@ -128,7 +131,7 @@ func (p *iphoneProxy) finish() {
 		return
 	}
 
-	log.Printf("%s: done with the proxy: on the iPhone, Settings > Wi-Fi > (i) on this network > Configure Proxy > Off, and Save", browser.IOSSafariName)
+	log.Printf("%s: done with the proxy: on the iPhone, Settings > Wi-Fi > (i) on this network > Configure Proxy > Off, and Save", p.name)
 }
 
 // enter waits for a line on standard input, or for ctx to end.

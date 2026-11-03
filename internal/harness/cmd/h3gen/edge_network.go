@@ -9,7 +9,9 @@ import (
 // captures (Safari on an iPhone, decision 0051): the keep-alive period and
 // start, the path-degrading close, close on GOAWAY, and the fallback's
 // mode, abandonment and where pending requests go, which must be those
-// the profile copied (q and h hold the copy). The fallback's timing (the
+// the profile copied (q and h hold the copy) unless sampleGaps pins
+// "<name>.h3-blackhole: abandonOnTcp" (chrome-157-ios: probes before the
+// raced TCP connection, decision 0053). The fallback's timing (the
 // race and reconnect delays, how many failures break an origin) stays
 // copied: over Wi-Fi the server sees the phone's packets a path's delay
 // late, which swamps it, so its checks, which need loopback, are not run.
@@ -28,7 +30,8 @@ func (s *edgeSet) deriveFailurePair(q *profile.QUIC, h *profile.HTTP3) error {
 	fb := &h.Discovery.Fallback
 	got := s.fallback(q, &h.Discovery, &collector{})
 
-	if got.Mode != fb.Mode || got.AbandonOnTCP != fb.AbandonOnTCP || got.Pending != fb.Pending {
+	abandonPinned := got.AbandonOnTCP != fb.AbandonOnTCP && s.gap(s.set.name+"."+scenarioBlackhole, "abandonOnTcp")
+	if got.Mode != fb.Mode || got.AbandonOnTCP != fb.AbandonOnTCP && !abandonPinned || got.Pending != fb.Pending {
 		edgeErr(e, s.set.name, "fallback mode %q, abandonOnTcp %v, pending %q; the copied rule's are %q, %v, %q",
 			got.Mode, got.AbandonOnTCP, got.Pending, fb.Mode, fb.AbandonOnTCP, fb.Pending)
 	}

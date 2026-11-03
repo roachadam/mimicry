@@ -160,8 +160,9 @@ func Files(dir string, p *profile.Spec, suffix string) ([]File, error) {
 // Rewriter brings captures taken under one browser version to another's by
 // changing only the version tokens in header values, and accept-encoding,
 // which a version may extend, so any other difference still shows; from
-// another platform (Safari on macOS for one on iOS, internal/platform) it
-// also changes the user agent whole. A nil Rewriter changes nothing.
+// another platform (Safari on macOS for Safari or Chrome on iOS,
+// internal/platform) it also changes the user agent whole. A nil Rewriter
+// changes nothing.
 type Rewriter struct {
 	tokens   *regexp.Regexp
 	replace  map[string]string

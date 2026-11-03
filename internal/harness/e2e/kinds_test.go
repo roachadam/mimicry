@@ -202,11 +202,16 @@ func withoutRaceCookie(lines []string) []string {
 var partitionGaps = map[string]map[string]string{
 	"firefox-158-macos":   firefoxPartitionGaps,
 	"firefox-158-windows": firefoxPartitionGaps,
-	"safari-27-ios": {
-		"beacon.so": "mimicry with style-head.so, browser with fetch-omit.so",
-		"beacon.ss": "mimicry with script.ss, browser with script-cors.ss",
-		"beacon.cs": "mimicry with script-async.cs, browser with script-cors.cs",
-	},
+	"safari-27-ios":       iosPartitionGaps,
+	"chrome-157-ios":      iosPartitionGaps,
+}
+
+// iosPartitionGaps are the iPhone's (Safari 27 and Chrome on iOS alike):
+// the beacon on the credential-less connection.
+var iosPartitionGaps = map[string]string{
+	"beacon.so": "mimicry with style-head.so, browser with fetch-omit.so",
+	"beacon.ss": "mimicry with script.ss, browser with script-cors.ss",
+	"beacon.cs": "mimicry with script-async.cs, browser with script-cors.cs",
 }
 
 // partitionGapsInSome are the sources whose partitionGaps show in only some

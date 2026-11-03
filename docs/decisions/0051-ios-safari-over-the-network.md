@@ -1,6 +1,6 @@
 # 0051: Safari on an iPhone: the fingerprint captured on the iPhone, from the Mac
 
-- Status: Accepted; amended 2026-11-01 (`safari-26-ios`, the measured failure pair)
+- Status: Accepted; amended 2026-11-01 (`safari-26-ios`, the measured failure pair); amended 2026-11-02 by [0053](0053-chrome-on-ios.md) (the iPhone's header order is the Safari app's, not the platform's)
 - Date: 2026-11-01
 - Commits: the one adding `safari-27-ios` ([#11](https://github.com/roachadam/mimicry/issues/11))
 
@@ -200,7 +200,8 @@ phone's own Safari; `cookies`, `cors`, `headers-order`, `resume`,
   sec-fetch-site, origin`); macOS Safari 27.0.1 adds Sec-Fetch-Site
   first in GETs and Origin before Sec-Fetch-Site in same-origin requests
   with a body (the iPhone's Safari 26.6.2 has the iPhone's order and
-  macOS Safari 26.2 macOS's, so it is the platform's: amendment below).
+  macOS Safari 26.2 macOS's; Chrome on the same iPhone has macOS's, so
+  it is the Safari app's on iOS, not the platform's: [0053](0053-chrome-on-ios.md)).
 - QUIC (`h3-discovery`, `h3-page`): every client hello's transport
   parameters end with `0xff080808 = 9` after the rotated set; macOS
   Safari 27's carry none. In `h3-page` the encoder stream (id 6) carried
@@ -315,8 +316,9 @@ out by hand.
 - `accept-encoding` adds `zstd` [INFERENCE: 26.6.2's, not the
   platform's; Safari 27 has it on both].
 - The CORS-mode header order is the iPhone's (Accept, Sec-Fetch-Site,
-  Origin), as on Safari 27.2: the order is the platform's, not the
-  version's.
+  Origin), as on Safari 27.2: the order is iOS Safari's, not the
+  version's (nor the platform's: Chrome on the iPhone has macOS
+  Safari's, [0053](0053-chrome-on-ios.md)).
 - QUIC: no `0xff080808` (macOS 26 ends with `0xff080808 = 07`), ACK
   delay a constant 39–45 ms (macOS 9–27), spin bit random (macOS
   spins). The 0-RTT and early-data rules stay not measured, as for

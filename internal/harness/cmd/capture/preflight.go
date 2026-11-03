@@ -65,9 +65,10 @@ type preflightBrowser struct {
 	Unapproved bool `json:"unapproved,omitempty"`
 }
 
-// printPreflight prints the preflight report. Safari on a paired iPhone
-// connected to this Mac (iosDevice: its UDID, or any) is listed as
-// browser.IOSSafariName with the iPhone's iOS version, its Safari's.
+// printPreflight prints the preflight report. The browsers on a paired
+// iPhone connected to this Mac (iosDevice: its UDID, or any) are listed by
+// their browser.IOSNames with browser.IPhoneVersion: Safari's is the
+// iPhone's iOS version, Chrome's its installed app's.
 func printPreflight(caDir, iosDevice string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
@@ -104,11 +105,13 @@ func printPreflight(caDir, iosDevice string) error {
 		r.Browsers = append(r.Browsers, pb)
 	}
 
-	if v, err := browser.IPhoneSafariVersion(ctx, iosDevice); err == nil {
-		r.Browsers = append(r.Browsers, preflightBrowser{
-			Name:    browser.IOSSafariName,
-			Version: v,
-		})
+	for _, name := range browser.IOSNames() {
+		if v, err := browser.IPhoneVersion(ctx, name, iosDevice); err == nil {
+			r.Browsers = append(r.Browsers, preflightBrowser{
+				Name:    name,
+				Version: v,
+			})
+		}
 	}
 
 	if caDir == "" {

@@ -1,5 +1,5 @@
 // Package browser launches real release builds of Chrome, Firefox and Safari
-// against the capture server, and sends Safari on an iPhone to it.
+// against the capture server, and sends Safari or Chrome on an iPhone to it.
 package browser
 
 import (
@@ -43,6 +43,10 @@ type Target struct {
 	Plain bool
 	// Path is the start URL's path; "" for "/".
 	Path string
+	// Scenario is the capture scenario's name, for a browser launched
+	// otherwise for some scenarios (Chrome on an iPhone restarts for
+	// iosChromeRestarts).
+	Scenario string
 	// ProxyAuth, when set, are the credentials the browser answers proxy
 	// challenges with, as a user typing them into the login dialog.
 	ProxyAuth *url.Userinfo
@@ -116,7 +120,7 @@ func (t Target) url(host string) string {
 }
 
 // Browser is a browser that can be launched against a Target: one installed
-// here, or Safari on an iPhone (IOSSafari).
+// here, or one on an iPhone (IOS).
 type Browser struct {
 	// Name is how cmd/capture's -browsers names it; capture.ParseUserAgent
 	// names its user agent as Agent says.
@@ -136,8 +140,8 @@ type Browser struct {
 	// capture URL this much later through a second invocation of binary.
 	warmup time.Duration
 	binary string
-	// ios, when set, is Safari on an iPhone reached over the network.
-	ios *iosSafari
+	// ios, when set, is a browser on an iPhone reached over the network.
+	ios *iosBrowser
 }
 
 // chromeWarmup is how long a fresh Chrome profile settles before the capture
@@ -165,7 +169,7 @@ func (b *Browser) URL(t Target) string {
 // user agent; platform "" is any.
 func (b *Browser) Agent() (name, platform string) {
 	if b.ios != nil {
-		return "safari", "ios"
+		return b.ios.app.agent, "ios"
 	}
 
 	return b.Name, ""
@@ -196,7 +200,7 @@ type Session struct {
 // Open launches b on t. Chrome and Firefox get a new profile directory and
 // their own instance; headless hides their windows. Safari opens a tab in the
 // user's own window, ignores headless, and must trust the server's
-// certificate. Safari on an iPhone is sent to t by its driver.
+// certificate. A browser on an iPhone is sent to t by its driver.
 func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, error) {
 	// Safari takes its proxy from the system PAC script and asks for proxy
 	// credentials in a dialog, which someone at the screen fills in.
