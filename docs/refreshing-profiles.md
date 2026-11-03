@@ -16,13 +16,14 @@ go run ./cmd/refresh -browser chrome -dry-run -mini <alias>           # the plan
 go run ./cmd/refresh -browser chrome-windows,firefox-windows -windows <alias>   # Chrome, then Firefox, on a Windows machine
 go run ./cmd/refresh -browser safari-ios -listen <mac-ip>   # Safari on an iPhone, served from this Mac
 go run ./cmd/refresh -browser chrome-ios -listen <mac-ip>   # Chrome on an iPhone, served from this Mac
+go run ./cmd/refresh -browser firefox-ios -listen <mac-ip>  # Firefox on an iPhone, served from this Mac
 ```
 
 The setup assumes two Macs: the one you work on, and a second Mac kept on
 macOS 26, reachable over ssh. Pass your ssh alias for it with `-mini` (no
 default; chrome, firefox and safari-mini need it). Chrome and Firefox on
 Windows need a Windows machine reachable over ssh: pass your ssh alias for
-it with `-windows` (no default). Safari and Chrome on iOS need an iPhone
+it with `-windows` (no default). Safari, Chrome and Firefox on iOS need an iPhone
 connected to this Mac by cable and on its Wi-Fi network: pass this Mac's
 IPv4 address on that network with `-listen`.
 
@@ -78,6 +79,7 @@ supported one.
 | `firefox-windows` | the Windows machine (`-windows`) | profiles `firefox-<major>-windows`, for `profiles.FirefoxWindows()`; the first one captures the full set; after `chrome-windows` when both are named, never at once |
 | `safari-ios` | the iPhone, served from this Mac (`-listen`) | profiles `safari-<major>-ios`; the iPhone set whatever `-mode`, the rest inherited from macOS Safari |
 | `chrome-ios` | the iPhone, served from this Mac (`-listen`) | profiles `chrome-<major>-ios`; the iPhone set whatever `-mode`; one after the other with `safari-ios` when both are named, never at once |
+| `firefox-ios` | the iPhone, served from this Mac (`-listen`) | profiles `firefox-<major>-ios`; as `chrome-ios` |
 
 The second Mac needs no Go. The tool cross-compiles `cmd/capture` and
 `cmd/realcheck` for darwin/arm64, copies them over and runs them over ssh.
@@ -192,6 +194,13 @@ Someone must be at the phone during `kinds-plain` to tap "Send anyway" on
 Chrome's insecure-form warnings; the plan says so, and the capture tool
 says when. Details are in
 [Capturing browsers](capturing.md#chrome-on-an-iphone).
+
+`-browser firefox-ios` refreshes Firefox on the same iPhone the same way,
+opened through devicectl with `firefox://open-url`; nothing is asked at the
+phone but the proxy settings. Its redirect scenarios may stall a sample
+(Firefox sometimes does not open the next URL after "too many
+redirects", even restarted): take them again as single-sample runs and join the trace files, as
+[Capturing browsers](capturing.md#firefox-on-an-iphone) says.
 
 ## What a run does
 

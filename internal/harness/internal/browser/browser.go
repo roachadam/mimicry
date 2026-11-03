@@ -1,5 +1,6 @@
 // Package browser launches real release builds of Chrome, Firefox and Safari
-// against the capture server, and sends Safari or Chrome on an iPhone to it.
+// against the capture server, and sends Safari, Chrome or Firefox on an
+// iPhone to it.
 package browser
 
 import (
@@ -44,8 +45,8 @@ type Target struct {
 	// Path is the start URL's path; "" for "/".
 	Path string
 	// Scenario is the capture scenario's name, for a browser launched
-	// otherwise for some scenarios (Chrome on an iPhone restarts for
-	// iosChromeRestarts).
+	// otherwise for some scenarios (Chrome and Firefox on an iPhone
+	// restart for iosRedirectRestarts).
 	Scenario string
 	// ProxyAuth, when set, are the credentials the browser answers proxy
 	// challenges with, as a user typing them into the login dialog.

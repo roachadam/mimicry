@@ -812,7 +812,7 @@ func estimate(sc *server.Scenario, tool string, samples int) time.Duration {
 	switch tool {
 	case "chrome":
 		launch += 5 * time.Second
-	case browser.IOSSafariName, browser.IOSChromeName:
+	case browser.IOSSafariName, browser.IOSChromeName, browser.IOSFirefoxName:
 		launch = 15 * time.Second
 	}
 

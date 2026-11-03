@@ -232,6 +232,12 @@ func (s *edgeSet) fallback(q *profile.QUIC, d *profile.Discovery, e *collector) 
 			continue
 		}
 
+		if ev.wait < 0 && s.gap(ev.at, "before its attempt "+ev.label) {
+			// The request reached the server before the attempt it
+			// started: it measures no wait.
+			continue
+		}
+
 		if ev.wait < backgroundMillis {
 			if out.Mode == profile.FallbackRace {
 				edgeErr(e, ev.at, "%s waited %.0f ms for QUIC, other requests longer", ev.label, ev.wait)

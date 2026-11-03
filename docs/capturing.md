@@ -138,6 +138,8 @@ for the keychain on screen.
   network; see [below](#safari-on-an-iphone).
 - **Chrome on an iPhone** (`ios-chrome`): the same, with Chrome; see
   [below](#chrome-on-an-iphone).
+- **Firefox on an iPhone** (`ios-firefox`): the same, with Firefox; see
+  [below](#firefox-on-an-iphone).
 
 ## Safari on an iPhone
 
@@ -285,7 +287,7 @@ Safari alone, and the tool refuses it for `ios-chrome`.
   chain's "too many redirects" page, Chrome does not open the next
   sample's URL. Those two were captured that way. The other scenarios
   were captured with Chrome left running, so the tool never restarts it
-  there: a restart would be unmeasured. The rule is `iosChromeRestarts` in
+  there: a restart would be unmeasured. The rule is `iosRedirectRestarts` in
   `internal/browser/ios.go`.
 - `kinds-plain` needs someone at the phone. Chrome asks before it submits
   a form over plain HTTP (Safari does not): tap "Send anyway" on each
@@ -297,6 +299,39 @@ go run ./cmd/capture -browsers ios-chrome -listen <mac-ip> -scenarios page:3
 ```
 
 `cmd/refresh -browser chrome-ios -listen <mac-ip>` refreshes its profile
+the same way as `safari-ios`, with the same scenarios.
+
+### Firefox on an iPhone
+
+`-browsers ios-firefox` captures Firefox on the same iPhone, with the same
+setup as Chrome above. Its user agent says `FxiOS/NNN` and Safari's frozen
+`iPhone OS 18_7`; its captures are named `firefox-NNN-ios`. The preflight
+lists it with the version of the Firefox app installed on the phone.
+Only the `devicectl` and `manual` drivers take it.
+
+- `devicectl` launches `org.mozilla.ios.Firefox` with the payload
+  `firefox://open-url?url=<the capture URL, query-escaped>`.
+- Before each sample of `redirects2` and `redirects2-cookies`, devicectl
+  ends Firefox and launches it afresh, as for Chrome
+  (`iosRedirectRestarts`). Even so, about one sample in three stalled
+  after the "too many redirects" page and never opened the next URL.
+  `firefox-159-ios`'s three samples of each were taken as single-sample
+  runs (`-scenarios redirects2:1`), one run per sample, and their trace
+  files joined into one, sample after sample: a trace file is the JSON
+  array of its samples.
+- `kinds-plain` asks nothing: Firefox submits a form over plain HTTP
+  without the warning Chrome shows.
+- `http1` (`firefox-159-ios`'s three samples were single-sample runs too)
+  can't show the ClientHello's ALPN: its trace keeps HTTP/1.1 requests
+  only. In two earlier three-sample runs, the capture tool's log showed
+  sample 1's ClientHello offering `http/1.1` alone and sample 3's `h2,
+  http/1.1` ([EVIDENCE](../profiles/EVIDENCE.md), Not covered).
+
+```sh
+go run ./cmd/capture -browsers ios-firefox -listen <mac-ip> -scenarios page:3
+```
+
+`cmd/refresh -browser firefox-ios -listen <mac-ip>` refreshes its profile
 the same way as `safari-ios`, with the same scenarios.
 
 ## Scenarios

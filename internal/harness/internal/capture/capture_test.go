@@ -68,8 +68,9 @@ func TestWriteNeverOverwrites(t *testing.T) {
 }
 
 // A capture is named from its user agent: Safari on an iPhone must not take
-// the macOS profile's name, whose Safari version it shares, and Chrome on an
-// iPhone, which says CriOS/ and no Chrome/, must be recognised.
+// the macOS profile's name, whose Safari version it shares, and Chrome and
+// Firefox on an iPhone, which say CriOS/ and FxiOS/ and no Chrome/ or
+// Firefox/, must be recognised.
 func TestParseUserAgent(t *testing.T) {
 	for _, tc := range []struct {
 		ua                         string
@@ -94,6 +95,14 @@ func TestParseUserAgent(t *testing.T) {
 			ua:       "Mozilla/5.0 (iPhone; CPU iPhone OS 27_2_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/157.0.8103.24 Mobile/15E148 Safari/604.1",
 			browser:  "chrome",
 			version:  "157",
+			platform: "ios",
+		},
+		{
+			// Firefox 159.1 on iOS 27.2, captured through devicectl: Safari's
+			// frozen 18_7.
+			ua:       "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) FxiOS/159.1 Mobile/15E148 Safari/604.1",
+			browser:  "firefox",
+			version:  "159",
 			platform: "ios",
 		},
 	} {

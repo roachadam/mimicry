@@ -270,12 +270,12 @@ var proxyPlainGaps = func() map[string]string {
 		gaps[name+" GET http://capture.mimicry.test:PORT/app.js HTTP/1.1"] = "Firefox sent no Priority for the page's script, last in its body; kinds-plain's blocking script, in the head, went at u=2, the profile's one script list"
 	}
 
-	for _, name := range []string{"chrome-155-macos", testprofiles.InheritingName, "chrome-156-macos", "chrome-156-windows", "chrome-157-ios", "firefox-158-macos", "firefox-158-windows", "safari-26-macos", "safari-27-macos", "safari-26-ios", "safari-27-ios"} {
+	for _, name := range []string{"chrome-155-macos", testprofiles.InheritingName, "chrome-156-macos", "chrome-156-windows", "chrome-157-ios", "firefox-158-macos", "firefox-159-ios", "firefox-158-windows", "safari-26-macos", "safari-27-macos", "safari-26-ios", "safari-27-ios"} {
 		gaps[name+" "+nav] = linkNav
 	}
 
-	// Chrome on the iPhone is WebKit (decision 0053).
-	for _, name := range []string{"chrome-157-ios", "safari-26-macos", "safari-27-macos", "safari-26-ios", "safari-27-ios"} {
+	// Chrome and Firefox on the iPhone are WebKit (decision 0053).
+	for _, name := range []string{"chrome-157-ios", "firefox-159-ios", "safari-26-macos", "safari-27-macos", "safari-26-ios", "safari-27-ios"} {
 		gaps[name+" "+upload] = safariUpload
 	}
 

@@ -1,6 +1,6 @@
 # 0035: Newest-version accessors, five supported versions, inherited captures
 
-- Status: Accepted; amended 2026-10-29 by [0047](0047-windows-profiles.md) (accessors and version count per platform); amended 2026-10-30 (no guide to making profiles yet); amended 2026-11-01 by [0051](0051-ios-safari-over-the-network.md) (inheritance from the platform sharing the network stack); amended 2026-11-02 by [0053](0053-chrome-on-ios.md) (Chrome on iOS from Safari of its WebKit)
+- Status: Accepted; amended 2026-10-29 by [0047](0047-windows-profiles.md) (accessors and version count per platform); amended 2026-10-30 (no guide to making profiles yet); amended 2026-11-01 by [0051](0051-ios-safari-over-the-network.md) (inheritance from the platform sharing the network stack); amended 2026-11-02 by [0053](0053-chrome-on-ios.md) (Chrome on iOS from Safari of its WebKit); amended 2026-11-03 by 0053's amendment (Firefox on iOS too)
 - Date: 2026-10-26
 - Commits: `2c913bf`
 
@@ -193,7 +193,7 @@ scenario chrome-155 captured except the default page.
 
 - 0047: the newest-version accessors `Chrome()`, `Firefox()` and `Safari()` are macOS; other platforms get `<Browser><Platform>()` (`ChromeWindows()`), and the tests' default set is the newest profile of each browser on each platform.
 - 0051: a profile on a platform sharing another's network stack (`internal/platform.Stack`: Safari on iOS, macOS) may also inherit from that platform's profiles of its own or an earlier version, where its own captures show no difference in the area; `cmd/profilegen` checks platform and version, `profile.Validate` only the browser, and `capture.Rewriter` maps the user agent whole.
-- 0053: Chrome on iOS (`internal/platform.Engine`: Safari) may also inherit from Safari profiles, on iOS or macOS, of its WebKit generation (the iOS major version in its user agent, `platform.WebKitVersion`), where its own captures show no difference in the area; `profile.Validate` lets a Chrome profile on iOS name a Safari one, and `capture.Rewriter` maps the user agent whole.
+- 0053: Chrome on iOS (`internal/platform.Engine`: Safari) may also inherit from Safari profiles, on iOS or macOS, of its WebKit generation (the iOS major version in its user agent, `platform.WebKitVersion`), where its own captures show no difference in the area; `profile.Validate` lets a Chrome profile on iOS name a Safari one, and `capture.Rewriter` maps the user agent whole. Amended: Firefox on iOS too, whose frozen user agent names no WebKit; `cmd/profilegen` takes its generation from `capturedOnIOS` and checks its fingerprint against Safari of that generation.
 
 ## Amendment 2026-10-30: profiles from a caller's own captures
 

@@ -118,15 +118,22 @@ func OpeningRecords(dir string, p *profile.Spec) ([][]string, error) {
 // opening was written, in the preface's millisecond, which the trace's
 // timing cannot tell from a waiting one.
 var openingGaps = map[string]string{
-	"safari-26-ios.h3-broken.pagetrace.json.gz: sample 1, HTTP/2 connection 1":     "the page's navigation, which devicectl hands Safari, went in a record of its own after the opening, in the preface's millisecond (the other samples' came 34 and 101 ms later); a waiting request goes with the opening (every other connection)",
-	"chrome-157-ios.cookies.pagetrace.json.gz: sample 1, HTTP/2 connection 1":      chromeIOSOpening,
-	"chrome-157-ios.h3-broken.pagetrace.json.gz: sample 1, HTTP/2 connection 1":    chromeIOSOpening,
-	"chrome-157-ios.h3-discovery.pagetrace.json.gz: sample 1, HTTP/2 connection 1": chromeIOSOpening,
+	"safari-26-ios.h3-broken.pagetrace.json.gz: sample 1, HTTP/2 connection 1":      "the page's navigation, which devicectl hands Safari, went in a record of its own after the opening, in the preface's millisecond (the other samples' came 34 and 101 ms later); a waiting request goes with the opening (every other connection)",
+	"chrome-157-ios.cookies.pagetrace.json.gz: sample 1, HTTP/2 connection 1":       chromeIOSOpening,
+	"chrome-157-ios.h3-broken.pagetrace.json.gz: sample 1, HTTP/2 connection 1":     chromeIOSOpening,
+	"chrome-157-ios.h3-discovery.pagetrace.json.gz: sample 1, HTTP/2 connection 1":  chromeIOSOpening,
+	"firefox-159-ios.h2trace.json: sample 3":                                        firefoxIOSOpening,
+	"firefox-159-ios.resume.pagetrace.json.gz: sample 2, HTTP/2 connection 1":       firefoxIOSOpening,
+	"firefox-159-ios.websocket-h2.pagetrace.json.gz: sample 1, HTTP/2 connection 1": firefoxIOSOpening,
 }
 
 // chromeIOSOpening is why openingGaps pins three first connections of
 // chrome-157-ios, as safari-26-ios's h3-broken sample 1.
 const chromeIOSOpening = "the navigation devicectl hands Chrome went in a record of its own after the opening, in the preface's millisecond (samples 2 and 3 of each: after the server's SETTINGS, 19 to 47 ms later); a waiting request goes with the opening (every other connection)"
+
+// firefoxIOSOpening is why openingGaps pins three first connections of
+// firefox-159-ios, as chromeIOSOpening.
+const firefoxIOSOpening = "the navigation devicectl hands Firefox went in a record of its own after the opening, in the preface's millisecond (the other samples' came 1 to 91 ms later); a waiting request goes with the opening (every other connection)"
 
 // testingPages lists the testing-build page captures in dir p is checked
 // against: its own for the scenarios it does not inherit, its sources'

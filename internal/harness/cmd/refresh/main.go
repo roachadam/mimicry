@@ -1,12 +1,12 @@
 // Command refresh brings a browser's built-in profile up to the version
 // installed where that browser is captured (chrome, firefox and safari-mini
 // on the second Mac via -mini, safari here, chrome-windows and
-// firefox-windows on a Windows PC via -windows, safari-ios and chrome-ios on
-// an iPhone this Mac serves via -listen):
+// firefox-windows on a Windows PC via -windows, safari-ios, chrome-ios and
+// firefox-ios on an iPhone this Mac serves via -listen):
 //
 //	go run ./cmd/refresh -browser chrome,firefox -mode quick -mini <alias>   # in internal/harness/
 //	go run ./cmd/refresh -browser chrome-windows,firefox-windows -windows <alias>
-//	go run ./cmd/refresh -browser safari-ios,chrome-ios -listen <this Mac's IPv4>
+//	go run ./cmd/refresh -browser safari-ios,chrome-ios,firefox-ios -listen <this Mac's IPv4>
 //
 // Per browser it preflights, captures into a staging directory, derives the
 // new profile and runs the generators, installs it, and verifies it with the
@@ -67,13 +67,13 @@ type config struct {
 func run() error {
 	var cfg config
 
-	browsers := flag.String("browser", "", "comma-separated browsers to refresh: chrome, firefox (on -mini), safari (this Mac), safari-mini (the mini's Safari), chrome-windows, firefox-windows (on -windows), safari-ios, chrome-ios (the iPhone, served on -listen)")
+	browsers := flag.String("browser", "", "comma-separated browsers to refresh: chrome, firefox (on -mini), safari (this Mac), safari-mini (the mini's Safari), chrome-windows, firefox-windows (on -windows), safari-ios, chrome-ios, firefox-ios (the iPhone, served on -listen)")
 
 	flag.StringVar(&cfg.mode, "mode", modeQuick, "quick (the fingerprint layer; the rest inherited from the previous version) or full (every scenario and replay)")
 	flag.StringVar(&cfg.mini, "mini", "", "your ssh alias for the second Mac (chrome, firefox, safari-mini)")
 	flag.StringVar(&cfg.windows, "windows", "", "your ssh alias for the Windows PC (chrome-windows, firefox-windows; required for them)")
-	flag.StringVar(&cfg.listen, "listen", "", "this Mac's IPv4 address on the iPhone's Wi-Fi network (safari-ios, chrome-ios; required for them)")
-	flag.StringVar(&cfg.iosDevice, "ios-device", "", "the iPhone's UDID (safari-ios, chrome-ios; default: the paired iPhone connected to this Mac)")
+	flag.StringVar(&cfg.listen, "listen", "", "this Mac's IPv4 address on the iPhone's Wi-Fi network (safari-ios, chrome-ios, firefox-ios; required for them)")
+	flag.StringVar(&cfg.iosDevice, "ios-device", "", "the iPhone's UDID (safari-ios, chrome-ios, firefox-ios; default: the paired iPhone connected to this Mac)")
 	flag.BoolVar(&cfg.keep, "keep", false, "leave the run's working directory on the Windows PC (the capture CA is removed regardless)")
 	flag.StringVar(&cfg.staging, "staging", ".refresh", "directory for staged builds, captures, profiles and logs (a new subdirectory per run)")
 	flag.StringVar(&cfg.scenarios, "scenarios", "", "capture these name:samples instead of the mode's set (with -capture-only, to try the tool)")
@@ -115,7 +115,7 @@ func run() error {
 		case mini && cfg.mini == "":
 			return errors.New("-browser chrome, firefox and safari-mini need -mini <your ssh alias for the second Mac>")
 		case iphone && cfg.listen == "":
-			return errors.New("-browser safari-ios and chrome-ios need -listen <this Mac's IPv4 address on the iPhone's Wi-Fi network> (ipconfig getifaddr en0)")
+			return errors.New("-browser safari-ios, chrome-ios and firefox-ios need -listen <this Mac's IPv4 address on the iPhone's Wi-Fi network> (ipconfig getifaddr en0)")
 		case iphone && !lanIPv4(cfg.listen):
 			return fmt.Errorf("-listen %q: want this Mac's IPv4 address on the iPhone's network", cfg.listen)
 		case windows && cfg.windows == "":

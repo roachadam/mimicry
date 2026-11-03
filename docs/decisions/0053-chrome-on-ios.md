@@ -1,6 +1,6 @@
 # 0053: Chrome on an iPhone: its own iPhone captures, Safari's WebKit for the rest
 
-- Status: Accepted
+- Status: Accepted; amended 2026-11-03 (Firefox on an iPhone, `firefox-159-ios`)
 - Date: 2026-11-02
 - Commits: the one adding `chrome-157-ios` ([#57](https://github.com/roachadam/mimicry/issues/57))
 
@@ -160,3 +160,75 @@ sample (the twin with every tab closed too).
   iOS Safari.
 - h3gen's abandonment rule is redefined (an attempt that probes until
   the raced TCP connection opens and stops there): the pin goes.
+
+## Amendment 2026-11-03: Firefox on an iPhone
+
+Issue #58 asks for Firefox on iOS. `firefox-159-ios`
+(`profiles.FirefoxIOS()`) is Firefox 159.1 on the same iPhone 15 Pro (iOS
+27.2), captured through devicectl for the whole iPhone set. Firefox on iOS
+loads pages through WebKit and Apple's network stack too, so the rule
+above extends to it, unchanged but for how its WebKit generation is known.
+
+- **Policy.** `internal/platform.Engine` names Safari as the engine of
+  Firefox on iOS too, and `profile.Validate` lets a Firefox profile on iOS
+  name a Safari one. Its user agent says Safari's frozen `iPhone OS 18_7`,
+  which names no WebKit (Safari 26 and 27 both send it), so
+  `platform.WebKitVersion` reads nothing from it; `cmd/profilegen` then
+  takes the iOS major version the profile was captured on from its
+  `capturedOnIOS` table (`firefox-159-ios`: 27). A user agent with a real
+  iOS version (Chrome's) is still read. A wrong row cannot pass: for any
+  profile inheriting from Safari this way, profilegen also requires its
+  ClientHello, HTTP/2 section and QUIC transport parameters to equal those
+  of Safari of that generation on its platform (`safari-27-ios`); iOS 26
+  and 27 differ in the QUIC parameters (`0xff080808`).
+- **Inherited:** the 12 scenarios `chrome-157-ios` takes from
+  `safari-27-macos`, on the same evidence: Firefox's own captures show
+  macOS Safari 27's header order and Safari's cookie, redirect and
+  connection behaviour.
+- **Capture tool.** `cmd/capture -browsers ios-firefox` launches
+  `org.mozilla.ios.Firefox` with the payload
+  `firefox://open-url?url=<QueryEscape(url)>`, restarts it before each
+  sample of `redirects2` and its twin as for Chrome
+  (`iosRedirectRestarts`), and asks nothing at the phone.
+  `capture.ParseUserAgent` reads `FxiOS/<version>` as Firefox on iOS;
+  `cmd/refresh -browser firefox-ios` plans the same run.
+
+### Evidence
+
+2026-11-03, Firefox 159.1, three samples of each iPhone scenario
+(`proxy-connect` and `proxy-plain` in a second run).
+
+- **The same as `safari-27-ios` and `chrome-157-ios`:** the ClientHello
+  (JA4 `t13d2013h2_a09f3c656075_7f0f34a4126d`), HTTP/2 (Akamai
+  `2:0;3:100;4:2097152;9:1|10420225|0|m,s,a,p`), the QUIC transport
+  parameters and HTTP/3 SETTINGS; the failure pair's mode, abandonment
+  and pending requests (h3gen derives `abandonOnTcp` true from Firefox's
+  captures: the mismatch of issue #60 does not arise).
+- **User agent:** `Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X)
+  AppleWebKit/605.1.15 (KHTML, like Gecko) FxiOS/159.1 Mobile/15E148
+  Safari/604.1`.
+- **Header order, macOS Safari 27's:** every kind's header lists equal
+  `safari-27-macos`'s on 80 of 81 request types, the 81st (the font
+  stylesheet) only because macOS's own samples vary. Chrome on the
+  iPhone differs from macOS Safari on 6 POST and beacon types
+  (Sec-Fetch-Site before Origin); Firefox does not. No insecure-form
+  warning in `kinds-plain`.
+- **Redirects:** even restarted before each sample, Firefox stalled after
+  the "too many redirects" page in about one sample in three, so
+  `redirects2` and its twin were taken as three single-sample runs and
+  their trace files joined; `http1` too.
+- **`http1` ALPN:** in two three-sample runs the capture tool's log showed
+  sample 1's ClientHello offering `http/1.1` alone and sample 3's `h2,
+  http/1.1`. No rule explains it from the evidence at hand, and the
+  `http1` trace does not record ALPN, so it is listed in EVIDENCE's Not
+  covered, not modelled.
+- **Pinned:** three first connections whose navigation devicectl handed
+  Firefox in the preface's millisecond (`openingGaps`); one `h3-page`
+  Initial probe and one `h3-broken` request that reached the server on
+  TCP before its QUIC attempt (h3gen's `sampleGaps`).
+
+### Revisit when
+
+- Firefox on iOS's user agent carries a real iOS version: `capturedOnIOS`
+  goes for it.
+- A rule for Firefox's `http1` ALPN shows in a capture that records it.

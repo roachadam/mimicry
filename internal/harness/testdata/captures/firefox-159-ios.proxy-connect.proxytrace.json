@@ -1,0 +1,47 @@
+[
+  [
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 200,
+      "target": "capture.mimicry.test:50917",
+      "lines": [
+        "CONNECT capture.mimicry.test:50917 HTTP/1.1",
+        "Host: capture.mimicry.test:50917",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "devicectl"
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 200,
+      "target": "capture.mimicry.test:50929",
+      "lines": [
+        "CONNECT capture.mimicry.test:50929 HTTP/1.1",
+        "Host: capture.mimicry.test:50929",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "devicectl"
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 1,
+      "status": 200,
+      "target": "capture.mimicry.test:50933",
+      "lines": [
+        "CONNECT capture.mimicry.test:50933 HTTP/1.1",
+        "Host: capture.mimicry.test:50933",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive"
+      ],
+      "driver": "devicectl"
+    }
+  ]
+]

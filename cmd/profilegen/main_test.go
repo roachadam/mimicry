@@ -151,6 +151,42 @@ func TestCheckPolicyRefuses(t *testing.T) {
 			},
 			want: "safari-27-ios: capturesFrom.cookies: safari-28-macos is a newer version",
 		},
+		{
+			// firefox-159-ios's user agent names no WebKit (Safari's frozen
+			// 18_7): capturedOnIOS says 27, and its fingerprint must be
+			// safari-27-ios's, which here offers a QUIC parameter it lacks.
+			name: "a frozen user agent's WebKit fingerprint not its generation's",
+			profiles: func() []*profile.Spec {
+				ps := []*profile.Spec{
+					safari(27, "macos"),
+					safari(27, "ios"),
+					firefoxIOS(),
+				}
+
+				ps[1].QUIC = &profile.QUIC{
+					TransportParameters: []profile.TransportParameter{{ID: 0xff080808}},
+				}
+
+				return ps
+			},
+			want: "firefox-159-ios: capturesFrom.cookies: its ClientHello, HTTP/2 or QUIC transport parameters differ from safari-27-ios's, so it is not WebKit 27",
+		},
+		{
+			name: "a frozen user agent's WebKit not in capturedOnIOS",
+			profiles: func() []*profile.Spec {
+				ps := []*profile.Spec{
+					safari(27, "macos"),
+					safari(27, "ios"),
+					firefoxIOS(),
+				}
+
+				ps[2].Name = "firefox-160-ios"
+				ps[2].Version = "160"
+
+				return ps
+			},
+			want: "firefox-160-ios: capturesFrom.cookies: safari-27-macos is not safari ,",
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			err := checkPolicy(tc.profiles())
@@ -182,6 +218,30 @@ func TestCheckPolicyRefuses(t *testing.T) {
 	}
 	if err := checkPolicy(ios); err != nil {
 		t.Fatalf("checkPolicy(safari-27-ios inheriting from safari-27-macos) = %v", err)
+	}
+
+	// Firefox on iOS inherits from Safari of the WebKit it was captured on
+	// (capturedOnIOS), its fingerprint that generation's (decision 0053).
+	if err := checkPolicy([]*profile.Spec{safari(27, "macos"), safari(27, "ios"), firefoxIOS()}); err != nil {
+		t.Fatalf("checkPolicy(firefox-159-ios inheriting from safari-27-macos) = %v", err)
+	}
+}
+
+// firefoxIOS is firefox-159-ios, with Safari's frozen user agent,
+// inheriting cookies from safari-27-macos.
+func firefoxIOS() *profile.Spec {
+	return &profile.Spec{
+		Name:     "firefox-159-ios",
+		Browser:  "firefox",
+		Version:  "159",
+		Platform: "ios",
+		Headers: []profile.Header{{
+			Name:  "user-agent",
+			Value: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) FxiOS/159.1 Mobile/15E148 Safari/604.1",
+		}},
+		CapturesFrom: map[string]string{
+			"cookies": "safari-27-macos",
+		},
 	}
 }
 

@@ -69,7 +69,7 @@ func padding(s *captureSet, e *collector) (int, string) {
 				continue
 			}
 
-			if d.Size != size {
+			if d.Size != size && !s.gap(c, fmt.Sprintf("datagram %d: Initial in %d bytes", di+1, d.Size)) {
 				e.add(c, "datagram %d carries an Initial packet in %d bytes, not %d", di+1, d.Size, size)
 			}
 

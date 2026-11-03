@@ -204,10 +204,11 @@ var partitionGaps = map[string]map[string]string{
 	"firefox-158-windows": firefoxPartitionGaps,
 	"safari-27-ios":       iosPartitionGaps,
 	"chrome-157-ios":      iosPartitionGaps,
+	"firefox-159-ios":     iosPartitionGaps,
 }
 
-// iosPartitionGaps are the iPhone's (Safari 27 and Chrome on iOS alike):
-// the beacon on the credential-less connection.
+// iosPartitionGaps are the iPhone's (Safari 27, Chrome and Firefox on iOS
+// alike): the beacon on the credential-less connection.
 var iosPartitionGaps = map[string]string{
 	"beacon.so": "mimicry with style-head.so, browser with fetch-omit.so",
 	"beacon.ss": "mimicry with script.ss, browser with script-cors.ss",

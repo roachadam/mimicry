@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"slices"
@@ -17,11 +18,12 @@ import (
 	"time"
 )
 
-// IOSSafariName and IOSChromeName are how cmd/capture's -browsers names
-// Safari and Chrome on an iPhone.
+// IOSSafariName, IOSChromeName and IOSFirefoxName are how cmd/capture's
+// -browsers names Safari, Chrome and Firefox on an iPhone.
 const (
-	IOSSafariName = "ios-safari"
-	IOSChromeName = "ios-chrome"
+	IOSSafariName  = "ios-safari"
+	IOSChromeName  = "ios-chrome"
+	IOSFirefoxName = "ios-firefox"
 )
 
 // IOSNames are the browsers on an iPhone cmd/capture's -browsers names.
@@ -29,6 +31,7 @@ func IOSNames() []string {
 	return []string{
 		IOSSafariName,
 		IOSChromeName,
+		IOSFirefoxName,
 	}
 }
 
@@ -101,12 +104,21 @@ func iosAppNamed(name string) *iosApp {
 			agent:    "chrome",
 			bundle:   "com.google.chrome.ios",
 			payload:  chromePayloadURL,
-			restarts: iosChromeRestarts,
+			restarts: iosRedirectRestarts,
 			prompts: map[string]string{
 				// Chrome asks before submitting a form over plain HTTP;
 				// Safari does not.
 				"kinds-plain": `tap "Send anyway" on each of Chrome's insecure-form warnings (Chrome asks before submitting a form over plain HTTP)`,
 			},
+		}
+
+	case IOSFirefoxName:
+		return &iosApp{
+			title:    "Firefox",
+			agent:    "firefox",
+			bundle:   "org.mozilla.ios.Firefox",
+			payload:  firefoxPayloadURL,
+			restarts: iosRedirectRestarts,
 		}
 	}
 
@@ -128,14 +140,21 @@ func chromePayloadURL(url string) string {
 	return url
 }
 
-// iosChromeRestarts are the scenarios for which devicectl ends Chrome on
-// the iPhone and launches it afresh (--terminate-existing) before each
-// sample. After a redirect chain's "too many redirects" page Chrome does
-// not open the next sample's URL, so the chrome-157-ios captures of these
-// two were taken with Chrome restarted per sample; the other scenarios
-// were captured with Chrome left running, and a restart there would be
-// unmeasured.
-var iosChromeRestarts = []string{
+// firefoxPayloadURL is url in Firefox's open-url scheme
+// (firefox://open-url?url=<url, query-escaped>), which devicectl hands
+// Firefox on the iPhone.
+func firefoxPayloadURL(u string) string {
+	return "firefox://open-url?url=" + url.QueryEscape(u)
+}
+
+// iosRedirectRestarts are the scenarios for which devicectl ends Chrome or
+// Firefox on the iPhone and launches it afresh (--terminate-existing)
+// before each sample. After a redirect chain's "too many redirects" page
+// neither opens the next sample's URL, so the chrome-157-ios and
+// firefox-159-ios captures of these two were taken with the app restarted
+// per sample; the other scenarios were captured with the app left running,
+// and a restart there would be unmeasured.
+var iosRedirectRestarts = []string{
 	"redirects2",
 	"redirects2-cookies",
 }
