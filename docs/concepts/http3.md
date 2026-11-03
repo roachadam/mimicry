@@ -130,6 +130,8 @@ before the handshake finishes. Safari does so over QUIC only: its TCP
 connections never resume. Other requests, such as a POST, wait for the
 handshake (Safari's until the server confirms it), and a request the
 server answers `425 Too Early` is sent again on the same connection.
+A session whose ticket allows no early data resumes without 0-RTT, and
+its hello leaves out `early_data`, as the browsers' TLS libraries do.
 Safari and Firefox start such a connection a few milliseconds after the
 request that needs it (Safari: a fresh one too); mimicry does with
 `Config.BrowserDialDelay` (Settings).
