@@ -1525,12 +1525,22 @@ type body struct {
 	r      *requestStream
 	ctx    context.Context
 	remain uint64
-	err    error
+	// mu guards err: a decoded body's drain (the root package) may close
+	// the body while a Read is blocked.
+	mu  sync.Mutex
+	err error
+}
+
+func (b *body) failed() error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return b.err
 }
 
 func (b *body) Read(p []byte) (int, error) {
-	if b.err != nil {
-		return 0, b.err
+	if err := b.failed(); err != nil {
+		return 0, err
 	}
 
 	for b.remain == 0 {
@@ -1597,7 +1607,11 @@ func (b *body) Read(p []byte) (int, error) {
 
 // end records how the body ended and ends the request.
 func (b *body) end(err error) {
+	b.mu.Lock()
+
 	b.err = err
+	b.mu.Unlock()
+
 	if errors.Is(err, io.EOF) {
 		b.r.finish(nil)
 
@@ -1610,7 +1624,7 @@ func (b *body) end(err error) {
 // Close ends the body; one not read to its end cancels the stream
 // (H3_REQUEST_CANCELLED).
 func (b *body) Close() error {
-	if b.err == nil {
+	if b.failed() == nil {
 		b.end(errors.New("h3: response body closed"))
 	}
 

@@ -27,6 +27,8 @@
 package mimicry
 
 import (
+	"bufio"
+	"compress/flate"
 	"compress/gzip"
 	"compress/zlib"
 	"context"
@@ -41,6 +43,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -798,7 +801,7 @@ func (t *Transport) finish(req *http.Request, r Request, exact bool, resp *http.
 		}
 
 	case "deflate":
-		open = zlib.NewReader
+		open = openDeflate
 	case "br":
 		open = func(r io.Reader) (io.ReadCloser, error) {
 			return brrr.NewReader(r), nil
@@ -855,6 +858,44 @@ func (t *Transport) Cookies() *cookies.Jar {
 	return t.jar
 }
 
+// openDeflate opens a Content-Encoding: deflate body as the browsers do:
+// zlib-wrapped (RFC 1950) when its first two bytes are a zlib header (CM 8,
+// CINFO at most 7, FCHECK), raw DEFLATE (RFC 1951) otherwise, which some
+// servers send under that name.
+func openDeflate(r io.Reader) (io.ReadCloser, error) {
+	br := bufio.NewReader(r)
+
+	hdr, err := br.Peek(2)
+	if len(hdr) == 2 && hdr[0]&0x0f == 8 && hdr[0]>>4 <= 7 && (uint16(hdr[0])<<8|uint16(hdr[1]))%31 == 0 {
+		return zlib.NewReader(br)
+	}
+
+	if err != nil && !errors.Is(err, io.EOF) {
+		return nil, err
+	}
+
+	return flate.NewReader(br), nil
+}
+
+// A decoder closed after its compressed stream ended drains the rest of
+// the body in the background before closing it: Brotli and zlib stop at
+// the stream's end, often before the transport has seen the response's
+// (HTTP/2 END_STREAM in a later empty DATA frame, HTTP/1.1's terminal
+// chunk), and closing it there would cost an HTTP/2 RST_STREAM or the
+// HTTP/1.1 connection, which browsers never spend on a finished response.
+// The drain reads at most maxTrailing bytes and lasts at most drainTimeout;
+// past either, the body is closed unfinished, as before.
+//
+// drainTimeout is short: a server that splits the end from the data sends
+// it as its handler returns, milliseconds later, and a second covers that
+// over a slow link while keeping the goroutine and the stream's buffers
+// short-lived. A server that never ends the response is reset (HTTP/2,
+// HTTP/3) or loses the connection (HTTP/1.1) a second after Close.
+const (
+	maxTrailing  = 4 << 10
+	drainTimeout = time.Second
+)
+
 // decoder opens its decompressor on first Read, so RoundTrip never blocks
 // on the body.
 type decoder struct {
@@ -862,6 +903,12 @@ type decoder struct {
 	open func(io.Reader) (io.ReadCloser, error)
 	dec  io.ReadCloser
 	err  error
+	// ended: the compressed stream ended, the body may have more.
+	ended  bool
+	closed bool
+	// drained is closed when Close's background drain has closed src; nil
+	// when Close closed src itself.
+	drained chan struct{}
 }
 
 func (d *decoder) Read(p []byte) (int, error) {
@@ -878,13 +925,51 @@ func (d *decoder) Read(p []byte) (int, error) {
 		return 0, d.err
 	}
 
-	return d.dec.Read(p)
+	n, err := d.dec.Read(p)
+	if errors.Is(err, io.EOF) {
+		d.ended = true
+	}
+
+	return n, err
 }
 
+// Close closes the body at once, unless the compressed stream ended: then
+// it returns at once and drains the body in the background.
 func (d *decoder) Close() error {
+	if d.closed {
+		return nil
+	}
+
+	d.closed = true
+
 	if d.dec != nil {
 		_ = d.dec.Close()
 	}
 
-	return d.src.Close()
+	if !d.ended {
+		return d.src.Close()
+	}
+
+	d.drained = make(chan struct{})
+
+	go d.drain()
+
+	return nil
+}
+
+// drain reads src to its end, maxTrailing bytes or drainTimeout, whichever
+// comes first, and closes it. The timer's Close unblocks a Read waiting on
+// a server that never ends the response.
+func (d *decoder) drain() {
+	defer close(d.drained)
+
+	closeSrc := sync.OnceFunc(func() {
+		_ = d.src.Close()
+	})
+	timer := time.AfterFunc(drainTimeout, closeSrc)
+
+	_, _ = io.CopyN(io.Discard, d.src, maxTrailing)
+
+	timer.Stop()
+	closeSrc()
 }
