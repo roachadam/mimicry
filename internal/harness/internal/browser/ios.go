@@ -11,49 +11,153 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 )
 
-// IOSSafariName is how cmd/capture's -browsers names Safari on an iPhone.
-const IOSSafariName = "ios-safari"
+// IOSSafariName and IOSChromeName are how cmd/capture's -browsers names
+// Safari and Chrome on an iPhone.
+const (
+	IOSSafariName = "ios-safari"
+	IOSChromeName = "ios-chrome"
+)
+
+// IOSNames are the browsers on an iPhone cmd/capture's -browsers names.
+func IOSNames() []string {
+	return []string{
+		IOSSafariName,
+		IOSChromeName,
+	}
+}
 
 // IOSProxyPort is the port of the capture tool's HTTP proxy the iPhone's
 // Wi-Fi settings name for the proxy scenarios, on the Mac's address there:
 // fixed, since a person types it.
 const IOSProxyPort = 15354
 
-// IOSDriver is how the capture tool sends Safari on the iPhone to a
+// IOSDriver is how the capture tool sends a browser on the iPhone to a
 // capture URL.
 type IOSDriver string
 
 const (
-	// IOSDevicectl opens it in the phone's own Safari through Xcode's
+	// IOSDevicectl opens it in the phone's own browser through Xcode's
 	// devicectl on this Mac (process launch with a payload URL, over USB),
-	// which brings Safari to the front: nobody at the phone, and the
-	// phone's own Safari, as IOSManual's. Its tabs stay open.
+	// which brings the browser to the front: nobody at the phone, and the
+	// phone's own browser, as IOSManual's. Its tabs stay open.
 	IOSDevicectl IOSDriver = "devicectl"
-	// IOSManual has the maintainer open the URL in the phone's own Safari,
-	// as the macOS capture opens it in the user's own window, and tap where
-	// a scenario clicks.
+	// IOSManual has the maintainer open the URL in the phone's own
+	// browser, as the macOS capture opens it in the user's own window, and
+	// tap where a scenario clicks.
 	IOSManual IOSDriver = "manual"
 	// IOSSafaridriver opens it through safaridriver(1) on this Mac, which
-	// drives Safari on a paired iPhone over USB: a WebDriver session per
-	// sample, in an automation window of its own with fresh storage, whose
-	// header order is not the phone's own Safari's (decision 0051,
-	// server.Scenario.AutomationDiffersOnIOS).
+	// drives Safari (only) on a paired iPhone over USB: a WebDriver
+	// session per sample, in an automation window of its own with fresh
+	// storage, whose header order is not the phone's own Safari's
+	// (decision 0051, server.Scenario.AutomationDiffersOnIOS).
 	IOSSafaridriver IOSDriver = "safaridriver"
 )
 
-// IOSSafari is Safari on an iPhone on this Mac's network, sent to each
-// capture URL by driver. device, when set, is the UDID or CoreDevice
-// identifier of the iPhone devicectl or safaridriver must use.
-func IOSSafari(driver IOSDriver, device string) (*Browser, error) {
+// iosApp is a browser app on the iPhone.
+type iosApp struct {
+	// title names it to the maintainer; agent is the browser
+	// capture.ParseUserAgent finds in its user agent.
+	title, agent string
+	// bundle is its bundle identifier, which devicectl launches.
+	bundle string
+	// system marks the browser that comes with iOS and gives the system's
+	// version as its own (Safari); another's is the installed app's.
+	system bool
+	// safaridriver marks the browser safaridriver drives.
+	safaridriver bool
+	// payload is the URL devicectl hands it for a capture URL; nil for
+	// the URL itself.
+	payload func(url string) string
+	// restarts are the scenarios before each of whose samples devicectl
+	// ends the running app and launches it afresh.
+	restarts []string
+	// prompts are what someone at the phone answers in a scenario, by its
+	// name: the app asks on screen and the page waits for the answer.
+	prompts map[string]string
+}
+
+// iosAppNamed is the app of the iPhone browser name (IOSNames), nil for
+// another name.
+func iosAppNamed(name string) *iosApp {
+	switch name {
+	case IOSSafariName:
+		return &iosApp{
+			title:        "Safari",
+			agent:        "safari",
+			bundle:       "com.apple.mobilesafari",
+			system:       true,
+			safaridriver: true,
+		}
+
+	case IOSChromeName:
+		return &iosApp{
+			title:    "Chrome",
+			agent:    "chrome",
+			bundle:   "com.google.chrome.ios",
+			payload:  chromePayloadURL,
+			restarts: iosChromeRestarts,
+			prompts: map[string]string{
+				// Chrome asks before submitting a form over plain HTTP;
+				// Safari does not.
+				"kinds-plain": `tap "Send anyway" on each of Chrome's insecure-form warnings (Chrome asks before submitting a form over plain HTTP)`,
+			},
+		}
+	}
+
+	return nil
+}
+
+// chromePayloadURL is url in Chrome's own schemes, googlechromes:// for
+// https:// and googlechrome:// for http://: Chrome ignores a devicectl
+// payload URL with a plain https:// scheme.
+func chromePayloadURL(url string) string {
+	if rest, ok := strings.CutPrefix(url, "https://"); ok {
+		return "googlechromes://" + rest
+	}
+
+	if rest, ok := strings.CutPrefix(url, "http://"); ok {
+		return "googlechrome://" + rest
+	}
+
+	return url
+}
+
+// iosChromeRestarts are the scenarios for which devicectl ends Chrome on
+// the iPhone and launches it afresh (--terminate-existing) before each
+// sample. After a redirect chain's "too many redirects" page Chrome does
+// not open the next sample's URL, so the chrome-157-ios captures of these
+// two were taken with Chrome restarted per sample; the other scenarios
+// were captured with Chrome left running, and a restart there would be
+// unmeasured.
+var iosChromeRestarts = []string{
+	"redirects2",
+	"redirects2-cookies",
+}
+
+// IOS is the browser name (IOSNames) on an iPhone on this Mac's network,
+// sent to each capture URL by driver; IOSSafaridriver drives Safari only.
+// device, when set, is the UDID or CoreDevice identifier of the iPhone
+// devicectl or safaridriver must use.
+func IOS(name string, driver IOSDriver, device string) (*Browser, error) {
+	app := iosAppNamed(name)
+	if app == nil {
+		return nil, fmt.Errorf("%q is no browser on an iPhone (want %s)", name, strings.Join(IOSNames(), " or "))
+	}
+
 	switch driver {
 	case IOSDevicectl, IOSManual, IOSSafaridriver:
 	default:
 		return nil, fmt.Errorf("unknown iOS driver %q (want %s, %s or %s)", driver, IOSDevicectl, IOSManual, IOSSafaridriver)
+	}
+
+	if driver == IOSSafaridriver && !app.safaridriver {
+		return nil, fmt.Errorf("%s: safaridriver drives Safari only; open %s on the iPhone with -ios-driver %s or %s", name, app.title, IOSDevicectl, IOSManual)
 	}
 
 	if device != "" && driver == IOSManual {
@@ -61,21 +165,48 @@ func IOSSafari(driver IOSDriver, device string) (*Browser, error) {
 	}
 
 	return &Browser{
-		Name: IOSSafariName,
-		ios: &iosSafari{
+		Name: name,
+		ios: &iosBrowser{
+			app:    app,
 			driver: driver,
 			device: device,
 		},
 	}, nil
 }
 
-// OpenedByHand reports whether someone opens b's capture URLs: Safari on an
-// iPhone with IOSManual.
+// IOSApp names the app of the browser name (IOSNames) on the iPhone to the
+// maintainer ("Safari", "Chrome"); "" for another name.
+func IOSApp(name string) string {
+	if app := iosAppNamed(name); app != nil {
+		return app.title
+	}
+
+	return ""
+}
+
+// IOSPrompt is what someone at the iPhone must answer while the browser
+// name (IOSNames) loads scenario's page, which waits for it; "" when
+// nothing is asked.
+func IOSPrompt(name, scenario string) string {
+	if app := iosAppNamed(name); app != nil {
+		return app.prompts[scenario]
+	}
+
+	return ""
+}
+
+// OnIPhone reports whether b is a browser on an iPhone (IOS).
+func (b *Browser) OnIPhone() bool {
+	return b.ios != nil
+}
+
+// OpenedByHand reports whether someone opens b's capture URLs: a browser
+// on an iPhone with IOSManual.
 func (b *Browser) OpenedByHand() bool {
 	return b.ios != nil && b.ios.driver == IOSManual
 }
 
-// IOSDriver is how b, Safari on an iPhone, is sent to its URLs; "" for
+// IOSDriver is how b, a browser on an iPhone, is sent to its URLs; "" for
 // another browser.
 func (b *Browser) IOSDriver() IOSDriver {
 	if b.ios == nil {
@@ -91,7 +222,7 @@ func (b *Browser) Automated() bool {
 	return b.IOSDriver() == IOSSafaridriver
 }
 
-// IOSNoClicks says why b, Safari on an iPhone, cannot take the click
+// IOSNoClicks says why b, a browser on an iPhone, cannot take the click
 // scenarios; "" when it can (IOSManual: a person taps).
 func (b *Browser) IOSNoClicks() string {
 	switch b.IOSDriver() {
@@ -105,10 +236,11 @@ func (b *Browser) IOSNoClicks() string {
 	return ""
 }
 
-type iosSafari struct {
+type iosBrowser struct {
+	app    *iosApp
 	driver IOSDriver
 	device string
-	// launchID is the CoreDevice identifier devicectl launches Safari on,
+	// launchID is the CoreDevice identifier devicectl launches the app on,
 	// found on the first sample.
 	launchID string
 }
@@ -125,14 +257,14 @@ const iosSafaridriverNoClicks = "safaridriver's Element Click on the iPhone does
 // scenarios through devicectl or safaridriver, neither of which taps.
 const IOSNoTaps = "neither devicectl nor safaridriver taps a page on the iPhone (safaridriver's Element Click gives pointerdown and touchstart, no click); tap by hand with -ios-driver manual"
 
-// devicectlLaunch bounds devicectl's launch of Safari on the phone.
+// devicectlLaunch bounds devicectl's launch of the browser on the phone.
 const devicectlLaunch = time.Minute
 
 // open sends the phone to url. With IOSManual nothing happens here: the
 // capture tool prints url for the maintainer, who also taps. A proxy
 // scenario's proxy is the one the phone's Wi-Fi settings name, which the
 // capture tool has the maintainer set.
-func (s *iosSafari) open(ctx context.Context, url string, t Target) (*Session, error) {
+func (s *iosBrowser) open(ctx context.Context, url string, t Target) (*Session, error) {
 	if t.Proxy != nil && t.Proxy.Scheme != "http" {
 		return nil, fmt.Errorf("the iPhone's Wi-Fi proxy setting takes an HTTP proxy only, not %s", t.Proxy.Scheme)
 	}
@@ -149,7 +281,7 @@ func (s *iosSafari) open(ctx context.Context, url string, t Target) (*Session, e
 			return nil, errors.New(IOSNoTaps)
 		}
 
-		return sess, s.launch(ctx, url)
+		return sess, s.launch(ctx, url, slices.Contains(s.app.restarts, t.Scenario))
 
 	case IOSSafaridriver:
 	}
@@ -170,9 +302,10 @@ func (s *iosSafari) open(ctx context.Context, url string, t Target) (*Session, e
 	return sess, nil
 }
 
-// launch opens url in the phone's own Safari through devicectl, which
-// launches Safari (or brings it to the front) with url as its payload.
-func (s *iosSafari) launch(ctx context.Context, url string) error {
+// launch opens url in the phone's own browser through devicectl, which
+// launches the app (or brings it to the front) with url, in the app's
+// payload form, as its payload; restart ends the running app first.
+func (s *iosBrowser) launch(ctx context.Context, url string, restart bool) error {
 	if s.launchID == "" {
 		phone, err := pairedIPhone(ctx, s.device)
 		if err != nil {
@@ -182,29 +315,78 @@ func (s *iosSafari) launch(ctx context.Context, url string) error {
 		s.launchID = phone.id
 	}
 
+	if s.app.payload != nil {
+		url = s.app.payload(url)
+	}
+
+	args := []string{"devicectl", "device", "process", "launch", "--device", s.launchID, "--payload-url", url, "--quiet"}
+	if restart {
+		args = append(args, "--terminate-existing")
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, devicectlLaunch)
 	defer cancel()
 
-	out, err := exec.CommandContext(ctx, "xcrun", "devicectl", "device", "process", "launch", //nolint:gosec // a system tool; the device and URL are ours
-		"--device", s.launchID, "--payload-url", url, "--quiet", "com.apple.mobilesafari").CombinedOutput()
+	out, err := exec.CommandContext(ctx, "xcrun", append(args, s.app.bundle)...).CombinedOutput() //nolint:gosec // a system tool; the device and URL are ours
 	if err != nil {
-		return fmt.Errorf("devicectl could not open Safari on the iPhone (connected by cable, unlocked?): %w: %s", err, strings.TrimSpace(string(out)))
+		return fmt.Errorf("devicectl could not open %s on the iPhone (connected by cable, unlocked?): %w: %s", s.app.title, err, strings.TrimSpace(string(out)))
 	}
 
 	return nil
 }
 
-// IPhoneSafariVersion is the iOS version of the paired iPhone connected to
-// this Mac (device: its UDID or identifier; "": the only one), which is its
-// Safari's: Safari on iOS comes with the system and gives the same version
-// in its user agent. It needs Xcode's devicectl.
-func IPhoneSafariVersion(ctx context.Context, device string) (string, error) {
+// IPhoneVersion is the version of the browser name (IOSNames) on the
+// paired iPhone connected to this Mac (device: its UDID or identifier; "":
+// the only one). Safari's is the iPhone's iOS version: Safari on iOS comes
+// with the system and gives the same version in its user agent. Chrome's
+// is its app's, as devicectl lists it; an error if it is not installed.
+// It needs Xcode's devicectl.
+func IPhoneVersion(ctx context.Context, name, device string) (string, error) {
+	app := iosAppNamed(name)
+	if app == nil {
+		return "", fmt.Errorf("%q is no browser on an iPhone", name)
+	}
+
 	phone, err := pairedIPhone(ctx, device)
 	if err != nil {
 		return "", err
 	}
 
-	return phone.version, nil
+	if app.system {
+		return phone.version, nil
+	}
+
+	return appVersion(ctx, phone.id, app)
+}
+
+// appVersion is the version (CFBundleShortVersionString) of app installed
+// on the phone with CoreDevice identifier id.
+func appVersion(ctx context.Context, id string, app *iosApp) (string, error) {
+	out, err := exec.CommandContext(ctx, "xcrun", "devicectl", "device", "info", "apps", "--device", id, //nolint:gosec // a system tool; the device and bundle are ours
+		"--include-default-apps", "--bundle-id", app.bundle, "--quiet", "--json-output", "-").Output()
+	if err != nil {
+		return "", fmt.Errorf("xcrun devicectl device info apps: %w", err)
+	}
+
+	var list struct {
+		Result struct {
+			Apps []struct {
+				BundleIdentifier string `json:"bundleIdentifier"`
+				Version          string `json:"version"`
+			} `json:"apps"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(out, &list); err != nil {
+		return "", fmt.Errorf("xcrun devicectl device info apps: %w", err)
+	}
+
+	for _, a := range list.Result.Apps {
+		if a.BundleIdentifier == app.bundle && a.Version != "" {
+			return a.Version, nil
+		}
+	}
+
+	return "", fmt.Errorf("%s (%s) is not installed on the iPhone", app.title, app.bundle)
 }
 
 // iPhone is a paired iPhone devicectl lists as connected.

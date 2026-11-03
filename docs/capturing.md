@@ -136,6 +136,8 @@ for the keychain on screen.
   [Refreshing profiles](refreshing-profiles.md#the-windows-machine).
 - **Safari on an iPhone** (`ios-safari`): served from the Mac over the
   network; see [below](#safari-on-an-iphone).
+- **Chrome on an iPhone** (`ios-chrome`): the same, with Chrome; see
+  [below](#chrome-on-an-iphone).
 
 ## Safari on an iPhone
 
@@ -260,6 +262,42 @@ iPhone captures the fingerprint layer and the scenarios the generators
 derive from, and the profile inherits a scenario from macOS Safari's
 captures only where the iPhone's own show no difference in its area
 ([decision 0051](decisions/0051-ios-safari-over-the-network.md)).
+
+### Chrome on an iPhone
+
+`-browsers ios-chrome` captures Chrome on the same iPhone, with the same
+`-listen`, DNS stub, capture CA and proxy setting as Safari above. Its
+user agent says `CriOS/NNN` and no `Chrome/`; its captures are named
+`chrome-NNN-ios`. The preflight lists it with the version of the Chrome
+app installed on the phone (from devicectl's list of apps), not the iOS
+version.
+
+Only the `devicectl` and `manual` drivers take it; `safaridriver` drives
+Safari alone, and the tool refuses it for `ios-chrome`.
+
+- `devicectl` launches `com.google.chrome.ios` with the URL in Chrome's
+  own scheme: `https://host:port/path` becomes
+  `googlechromes://host:port/path`, and `http://` becomes
+  `googlechrome://`. Chrome ignores a payload URL with a plain `https://`
+  scheme.
+- Before each sample of `redirects2` and `redirects2-cookies`, devicectl
+  ends Chrome and launches it afresh (`--terminate-existing`): after the
+  chain's "too many redirects" page, Chrome does not open the next
+  sample's URL. Those two were captured that way. The other scenarios
+  were captured with Chrome left running, so the tool never restarts it
+  there: a restart would be unmeasured. The rule is `iosChromeRestarts` in
+  `internal/browser/ios.go`.
+- `kinds-plain` needs someone at the phone. Chrome asks before it submits
+  a form over plain HTTP (Safari does not): tap "Send anyway" on each
+  insecure-form warning. The tool says when, and waits 2 minutes longer.
+  Run it with someone there, or with `manual`.
+
+```sh
+go run ./cmd/capture -browsers ios-chrome -listen <mac-ip> -scenarios page:3
+```
+
+`cmd/refresh -browser chrome-ios -listen <mac-ip>` refreshes its profile
+the same way as `safari-ios`, with the same scenarios.
 
 ## Scenarios
 

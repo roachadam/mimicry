@@ -76,7 +76,7 @@ func (o options) samplesFor(sc *server.Scenario) int {
 
 func run() error {
 	out := flag.String("out", "testdata/captures", "directory to write captures to")
-	only := flag.String("browsers", "", "comma-separated browsers to capture (default: every installed one); "+browser.IOSSafariName+", Safari on an iPhone on this Mac's network, only when named here, with -listen")
+	only := flag.String("browsers", "", "comma-separated browsers to capture (default: every installed one); "+browser.IOSSafariName+" and "+browser.IOSChromeName+", Safari and Chrome on an iPhone on this Mac's network, only when named here, with -listen")
 	headless := flag.Bool("headless", false, "hide browser windows; for checking the tool only: headless Chrome reports HeadlessChrome in its user agent")
 	samples := flag.Int("samples", 3, "connections to sample per browser and scenario; the default scenario needs 2 or more to tell whether a browser shuffles its extensions")
 	caDir := flag.String("ca-dir", "", "capture CA directory (default: <user config dir>/mimicry/capture-ca)")
@@ -89,11 +89,11 @@ func run() error {
 		"the captures record the setting as a condition and are named <scenario>."+localRootsSuffix)
 	summary := flag.String("summary", "", "append one JSON line per written scenario to this file: browser, scenario, profile name, user agent, samples, seconds, files, and the iPhone's driver")
 	preflight := flag.Bool("preflight", false, "print what a capture here needs as JSON (browsers and versions, console user, capture CA trust, /etc/resolver/test, aioquic) and exit")
-	listenIP := flag.String("listen", "", "serve the captures on this IPv4 address of the Mac instead of 127.0.0.1, for a browser on another device ("+browser.IOSSafariName+"): the capture server, its UDP twin and its plain-HTTP port listen there, "+
+	listenIP := flag.String("listen", "", "serve the captures on this IPv4 address of the Mac instead of 127.0.0.1, for a browser on another device ("+browser.IOSSafariName+", "+browser.IOSChromeName+"): the capture server, its UDP twin and its plain-HTTP port listen there, "+
 		"the DNS stubs answer *.test with it, and one on its port 53, the device's DNS server, forwards other names to the Mac's resolver (/etc/resolv.conf)")
-	iosDriver := flag.String("ios-driver", string(browser.IOSDevicectl), "how "+browser.IOSSafariName+" opens each capture URL: "+string(browser.IOSDevicectl)+" (devicectl over USB opens it in the phone's own Safari; it cannot take the click scenarios), "+
-		string(browser.IOSManual)+" (printed for you to open in Safari on the iPhone, and to tap where a scenario clicks) or "+
-		string(browser.IOSSafaridriver)+" (safaridriver over USB: a WebDriver session per sample in an automation window, which only the default page's scenarios accept)")
+	iosDriver := flag.String("ios-driver", string(browser.IOSDevicectl), "how "+browser.IOSSafariName+" and "+browser.IOSChromeName+" open each capture URL: "+string(browser.IOSDevicectl)+" (devicectl over USB opens it in the phone's own browser, Chrome's through its googlechromes:// scheme; it cannot take the click scenarios), "+
+		string(browser.IOSManual)+" (printed for you to open in the browser on the iPhone, and to tap where a scenario clicks) or "+
+		string(browser.IOSSafaridriver)+" ("+browser.IOSSafariName+" only: safaridriver over USB, a WebDriver session per sample in an automation window, which only the default page's scenarios accept)")
 	iosDevice := flag.String("ios-device", "", "the UDID or identifier of the iPhone -ios-driver "+string(browser.IOSDevicectl)+" or "+string(browser.IOSSafaridriver)+" uses (default: the one paired iPhone connected)")
 	iosCAProfile := flag.String("ios-ca-profile", "", "write the capture CA as an iOS configuration profile to this file and exit; with -listen, serve it to the iPhone over the network until interrupted")
 
@@ -181,12 +181,16 @@ func run() error {
 			return !slices.Contains(names, b.Name)
 		})
 
-		if slices.Contains(names, browser.IOSSafariName) {
-			if !lan {
-				return fmt.Errorf("%s needs -listen: this Mac's address on the iPhone's network", browser.IOSSafariName)
+		for _, name := range browser.IOSNames() {
+			if !slices.Contains(names, name) {
+				continue
 			}
 
-			ios, err := browser.IOSSafari(browser.IOSDriver(*iosDriver), *iosDevice)
+			if !lan {
+				return fmt.Errorf("%s needs -listen: this Mac's address on the iPhone's network", name)
+			}
+
+			ios, err := browser.IOS(name, browser.IOSDriver(*iosDriver), *iosDevice)
 			if err != nil {
 				return err
 			}
@@ -283,8 +287,8 @@ func run() error {
 	for _, b := range browsers {
 		bopts := opts
 
-		if b.Name == browser.IOSSafariName {
-			log.Printf("%s: Safari on the iPhone must use %s as its DNS server and trust the capture CA (docs/capturing.md, Safari on an iPhone)", b.Name, addr)
+		if b.OnIPhone() {
+			log.Printf("%s: %s on the iPhone must use %s as its DNS server and trust the capture CA (docs/capturing.md, Safari on an iPhone)", b.Name, browser.IOSApp(b.Name), addr)
 		}
 
 		mode := safariProxyNone
@@ -347,7 +351,7 @@ func run() error {
 			})
 		}
 
-		if b.Name == browser.IOSSafariName {
+		if b.OnIPhone() {
 			bopts.scenarios = slices.DeleteFunc(slices.Clone(bopts.scenarios), func(sc *server.Scenario) bool {
 				why := sc.UnsupportedOnIOS()
 				if why == "" && sc.Clicks() {
@@ -574,7 +578,7 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 		case b.Shared:
 			// Safari reaches the proxy the system's PAC script names.
 			addr, port = safariProxyListen(sc, port)
-		case b.Name == browser.IOSSafariName:
+		case b.OnIPhone():
 			// The iPhone reaches the proxy its Wi-Fi settings name.
 			addr = iphoneProxyAddr(opts.addr)
 		}
@@ -592,7 +596,7 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 			Plain: sc.Plain,
 			// Safari uses the system's proxy, which with a manual proxy
 			// carries everything the Mac (or the iPhone) sends.
-			PassThrough: b.Shared || b.Name == browser.IOSSafariName,
+			PassThrough: b.Shared || b.OnIPhone(),
 			Port:        port,
 			Clients:     opts.clients,
 		}
@@ -669,6 +673,7 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 		CertSHA256: sha256.Sum256(opts.cert.Certificate[0]),
 		Proxy:      proxyURL,
 		Plain:      sc.Plain,
+		Scenario:   sc.Name,
 	}
 	if sc.ProxyAuth {
 		t.ProxyAuth = url.UserPassword(server.ProxyUser, server.ProxyPassword)
@@ -707,6 +712,14 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 		timeout += 2 * time.Minute
 	}
 
+	if prompt := browser.IOSPrompt(b.Name, sc.Name); prompt != "" {
+		// Nothing can answer the browser's question but a person at the
+		// phone.
+		log.Printf("%s: someone at the iPhone: %s", b.Name, prompt)
+
+		timeout += 2 * time.Minute
+	}
+
 	conditions := b.Conditions(t)
 	for _, c := range conditions {
 		log.Printf("%s: condition: %s", b.Name, c)
@@ -715,7 +728,7 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 	if b.OpenedByHand() {
 		timeout += 2 * time.Minute
 
-		log.Printf("%s: open this URL in Safari on the iPhone, typed or pasted into the address bar (waiting %s):\n\n    %s\n", b.Name, timeout, b.URL(t))
+		log.Printf("%s: open this URL in %s on the iPhone, typed or pasted into the address bar (waiting %s):\n\n    %s\n", b.Name, browser.IOSApp(b.Name), timeout, b.URL(t))
 
 		if t.ClickTitle != "" {
 			log.Printf("%s: tap the middle of each page that asks for a tap (its title is %q)", b.Name, t.ClickTitle)
@@ -730,7 +743,7 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 	}
 
 	c, err := await(ctx, b, captures, timeout, multi)
-	if err != nil && b.Name == browser.IOSSafariName && ctx.Err() == nil && !errors.Is(err, errPageMoved) {
+	if err != nil && b.OnIPhone() && ctx.Err() == nil && !errors.Is(err, errPageMoved) {
 		log.Printf("%s: is the iPhone on the Mac's network with %s as its only DNS server, and the capture CA fully trusted there?", b.Name, opts.addr)
 	}
 

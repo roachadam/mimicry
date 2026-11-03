@@ -45,9 +45,12 @@ resp, err = client.Do(mimicry.As(api, mimicry.Fetch))
 | | Safari | `profiles.SafariMacOS()` | `Safari27MacOS()`, `Safari26MacOS()` |
 | Windows | Chrome | `profiles.ChromeWindows()` | `Chrome156Windows()` |
 | | Firefox | `profiles.FirefoxWindows()` | `Firefox158Windows()` |
-| iPhone | Safari | `profiles.SafariIOS()` | `Safari27IOS()`, `Safari26IOS()` |
+| iPhone | Chrome | `profiles.ChromeIOS()` | `Chrome157IOS()` |
+| | Safari | `profiles.SafariIOS()` | `Safari27IOS()`, `Safari26IOS()` |
 
 The newest five versions of each browser are supported. What each profile covers, and where it falls short, is in [`profiles/EVIDENCE.md`](profiles/EVIDENCE.md).
+
+Profiles are named for the browser's version, not the operating system's. Where the operating system builds the connection (Safari, and Chrome on iPhone, which uses Apple's WebKit and network stack), a profile matches the OS it was captured on: `chrome-157-ios` was captured on iOS 27.2. Changing a profile's user agent to a newer Chrome is safe; changing its iOS version is safe within the same major version only, since iOS 26 and 27 differ over QUIC.
 
 To customise a profile, edit a copy once and reuse it:
 

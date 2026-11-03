@@ -96,7 +96,7 @@ func regenerate(data []byte, dir string) ([]byte, error) {
 			return nil, err
 		}
 
-		sharesStack := platform.Stack(p.Browser, p.Platform) != ""
+		sharesStack := platform.Stack(p.Browser, p.Platform) != "" || platform.Engine(p.Browser, p.Platform) != ""
 		if err := deriveEdge(edge, p.QUIC, p.HTTP3, prev, kept.Discovery.Fallback, sharesStack); err != nil {
 			return nil, fmt.Errorf("h3 edge captures: %w", err)
 		}

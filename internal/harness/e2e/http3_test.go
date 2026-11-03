@@ -914,9 +914,12 @@ var h3Gaps = map[string]string{
 	"firefox-158-windows/rules h3-page.local-roots sample 2 connection 1 (www.h3-a.test): packet numbers: the first Initial's 242 in 1 bytes, not 2": "Firefox on Windows sent this first Initial's packet number 242 in 1 byte (the other 4 of 5 draws of 128 or more in 2, as quic.packetNumbers' rule says, macOS's 4 too); mimicry encodes it as the rule says",
 	"safari-27-macos/h3-page TCP www.h3-a.test #2 goaway": "not the page's traffic: a second TCP connection repeating GET /h3/kinds.so with another user agent (Mac OS X 10_11_1), no referer and sec-fetch-site none, another system client (report http3-2026-10-25, section 4)",
 	// Safari's kinds over HTTP/3 are measured for fetch() only.
-	"safari-27-ios/h3-page transport /h3/beacon.so":                                   iosBeacon,
-	"safari-27-ios/h3-page QUIC www.h3-a.test QUIC #1 starts with its TCP connection": iosBeacon,
-	"safari-27-ios/h3-page QUIC www.h3-a.test connections":                            iosBeacon,
+	"safari-27-ios/h3-page transport /h3/beacon.so":                                    iosBeacon,
+	"safari-27-ios/h3-page QUIC www.h3-a.test QUIC #1 starts with its TCP connection":  iosBeacon,
+	"safari-27-ios/h3-page QUIC www.h3-a.test connections":                             iosBeacon,
+	"chrome-157-ios/h3-page transport /h3/beacon.so":                                   iosBeacon,
+	"chrome-157-ios/h3-page QUIC www.h3-a.test QUIC #1 starts with its TCP connection": iosBeacon,
+	"chrome-157-ios/h3-page QUIC www.h3-a.test connections":                            iosBeacon,
 }
 
 // iosBeacon is the iPhone's beacon gap (h3Gaps).

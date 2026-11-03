@@ -145,7 +145,9 @@ func generate(dir string) ([]byte, error) {
 // checkPolicy refuses profiles that break decision 0035: per browser and
 // platform, the newest supportedVersions versions are not deprecated and
 // every older one is; each inherited scenario names an older built-in
-// profile that holds its own captures of it.
+// profile that holds its own captures of it: the same browser's, or for a
+// browser on another's engine (Chrome on iOS) the engine's of the same
+// WebKit generation (decision 0053).
 func checkPolicy(profiles []*profile.Spec) error {
 	byName := make(map[string]*profile.Spec, len(profiles))
 	families := make(map[string][]*profile.Spec)
@@ -180,9 +182,18 @@ func checkPolicy(profiles []*profile.Spec) error {
 
 	for _, p := range profiles {
 		stack := platform.Stack(p.Browser, p.Platform)
+		engine := platform.Engine(p.Browser, p.Platform)
 
 		for _, sc := range slices.Sorted(maps.Keys(p.CapturesFrom)) {
 			from, ok := byName[p.CapturesFrom[sc]]
+			if ok && engine != "" && from.Browser == engine {
+				if err := checkEngineSource(p, from, sc); err != nil {
+					return err
+				}
+
+				continue
+			}
+
 			shared := ok && stack != "" && from.Platform == stack
 
 			switch {
@@ -203,6 +214,37 @@ func checkPolicy(profiles []*profile.Spec) error {
 	}
 
 	return nil
+}
+
+// checkEngineSource checks the scenario sc that p, a browser on another's
+// engine (internal/platform.Engine), inherits from from, a profile of that
+// engine: from is on p's platform or the one the engine's network stack is
+// shared with, its version is the WebKit generation of p's user agent, and
+// it holds its own captures of sc (decision 0053).
+func checkEngineSource(p, from *profile.Spec, sc string) error {
+	webkit := platform.WebKitVersion(userAgent(p))
+
+	switch {
+	case from.Platform != p.Platform && from.Platform != platform.Stack(from.Browser, p.Platform):
+		return fmt.Errorf("%s: capturesFrom.%s: %s is not %s on %s or the platform sharing its network stack", p.Name, sc, from.Name, from.Browser, p.Platform)
+	case webkit == "" || from.Version != webkit:
+		return fmt.Errorf("%s: capturesFrom.%s: %s is not %s %s, the WebKit of %s's user agent", p.Name, sc, from.Name, from.Browser, webkit, p.Name)
+	case from.CapturesFrom[sc] != "":
+		return fmt.Errorf("%s: capturesFrom.%s: %s inherits that scenario itself; name %s, which holds the captures", p.Name, sc, from.Name, from.CapturesFrom[sc])
+	}
+
+	return nil
+}
+
+// userAgent is p's navigation's user agent.
+func userAgent(p *profile.Spec) string {
+	for _, h := range p.Headers {
+		if strings.EqualFold(h.Name, "user-agent") {
+			return h.Value
+		}
+	}
+
+	return ""
 }
 
 // defaultPlatform is the platform whose families sort first; see

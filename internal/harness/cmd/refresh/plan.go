@@ -381,7 +381,7 @@ func (r *refreshRun) planTarget(p *plan, rep *preflightReport, builtins map[stri
 
 	if p.Installed == "" {
 		if m.iphone {
-			p.Problems = append(p.Problems, "no paired iPhone is connected to this Mac (xcrun devicectl list devices; -ios-device picks one by UDID): connect it by cable, unlock it and trust this Mac")
+			p.Problems = append(p.Problems, fmt.Sprintf("no paired iPhone with %s installed is connected to this Mac (xcrun devicectl list devices; -ios-device picks one by UDID): connect it by cable, unlock it and trust this Mac", browser.IOSApp(p.tool())))
 		} else {
 			p.Problems = append(p.Problems, fmt.Sprintf("%s is not installed on %s", p.Browser, m))
 		}
@@ -533,13 +533,15 @@ func (r *refreshRun) checkWindows(p *plan, rep *preflightReport) {
 		fmt.Sprintf("%s: no hosts file or DNS change on %s", hosts, m))
 }
 
-// checkIPhone adds to p what a capture of Safari on the iPhone needs: what
-// this Mac can check, and what only someone holding the phone can set.
-// The capture tool serves the iPhone on r.Listen, and a DNS stub there,
-// for the run only.
+// checkIPhone adds to p what a capture of a browser on the iPhone needs:
+// what this Mac can check, and what only someone holding the phone can
+// set. The capture tool serves the iPhone on r.Listen, and a DNS stub
+// there, for the run only.
 func (r *refreshRun) checkIPhone(p *plan) {
+	app := browser.IOSApp(p.tool())
+
 	if err := exec.Command("xcrun", "--find", "devicectl").Run(); err != nil { //nolint:noctx // a quick local query while planning
-		p.Problems = append(p.Problems, "devicectl, which opens each capture URL in the iPhone's Safari, is not available on this Mac (it comes with Xcode: xcrun devicectl)")
+		p.Problems = append(p.Problems, fmt.Sprintf("devicectl, which opens each capture URL in the iPhone's %s, is not available on this Mac (it comes with Xcode: xcrun devicectl)", app))
 	}
 
 	out, err := exec.Command("/usr/libexec/ApplicationFirewall/socketfilterfw", "--getglobalstate").Output() //nolint:noctx // a quick local query while planning
@@ -547,10 +549,15 @@ func (r *refreshRun) checkIPhone(p *plan) {
 		p.Warnings = append(p.Warnings, "the macOS firewall is on: it must let the capture tool (built afresh each run) accept the iPhone's connections; allow it when macOS asks, or turn the firewall off for the run")
 	}
 
+	once := "once (docs/capturing.md, Safari on an iPhone): the capture CA installed and fully trusted on the iPhone; iCloud Private Relay off"
+	if p.Browser == "safari" {
+		once += "; Settings > Apps > Safari: no content blocker or other extension"
+	}
+
 	p.Manual = append(p.Manual,
-		"once (docs/capturing.md, Safari on an iPhone): the capture CA installed and fully trusted on the iPhone; Settings > Apps > Safari: no content blocker or other extension; iCloud Private Relay off",
+		once,
 		fmt.Sprintf("before capturing: the iPhone on this Mac's Wi-Fi network, Limit IP Address Tracking off for it, and its DNS (Settings > Wi-Fi > (i) > Configure DNS > Manual) %s alone; afterwards, DNS back to Automatic: without the capture tool running the iPhone has no DNS", r.Listen),
-		"while capturing: the iPhone connected by cable, unlocked, Auto-Lock Never, on power and left alone but for the proxy settings; devicectl opens each sample's URL in the phone's own Safari, bringing it to the front, and its tabs stay open (close them afterwards)",
+		fmt.Sprintf("while capturing: the iPhone connected by cable, unlocked, Auto-Lock Never, on power and left alone but for the proxy settings; devicectl opens each sample's URL in the phone's own %s, bringing it to the front, and its tabs stay open (close them afterwards)", app),
 	)
 }
 
@@ -648,13 +655,14 @@ func (r *refreshRun) planCaptures(p *plan, rep *preflightReport, cfg config) err
 			p.Problems = append(p.Problems, fmt.Sprintf("%s needs python3 with aioquic on %s: %s; install it with\n    %s", sc.Name, r.machine(p), rep.Aioquic, install))
 		}
 
-		// Chrome and Firefox refuse QUIC with the capture CA's
-		// certificates unless told otherwise (-h3-local-roots). The
+		// Chrome and Firefox on a computer refuse QUIC with the capture
+		// CA's certificates unless told otherwise (-h3-local-roots). The
 		// committed captures keep both kinds for h3-discovery and
 		// h3-page, the unforced one for h3-blackhole (its QUIC never
-		// answers) and the forced one for the rest.
-		forced := !shared && sc.HTTP3() && sc != server.H3Blackhole
-		unforced := shared || !sc.HTTP3() || sc == server.H3Discovery || sc == server.H3Page || sc == server.H3Blackhole
+		// answers) and the forced one for the rest. A browser on the
+		// iPhone takes no such flag: unforced only.
+		forced := !shared && !iphone && sc.HTTP3() && sc != server.H3Blackhole
+		unforced := shared || iphone || !sc.HTTP3() || sc == server.H3Discovery || sc == server.H3Page || sc == server.H3Blackhole
 
 		for _, lr := range []bool{false, true} {
 			if (lr && !forced) || (!lr && !unforced) {
@@ -712,6 +720,12 @@ func (r *refreshRun) planCaptures(p *plan, rep *preflightReport, cfg config) err
 		}) {
 			p.Manual = append(p.Manual, fmt.Sprintf("after the direct scenarios, someone at the iPhone: the capture tool stops before the proxy scenarios, prints what to enter (Settings > Wi-Fi > (i) > Configure Proxy > Manual, server %s, port %d, Authentication off) and waits for Enter here; afterwards Configure Proxy > Off",
 				r.Listen, browser.IOSProxyPort))
+		}
+
+		for _, c := range p.Captures {
+			if prompt := browser.IOSPrompt(p.tool(), c.Scenario); prompt != "" {
+				p.Manual = append(p.Manual, fmt.Sprintf("during %s, someone at the iPhone: %s; the capture tool says when", c.Scenario, prompt))
+			}
 		}
 	}
 
@@ -779,10 +793,10 @@ func replayScenarios() ([]*server.Scenario, error) {
 }
 
 // estimate is a ceiling on how long samples of sc take: each launches the
-// browser (Chrome waits out its warm-up first; the iPhone's Safari gets a
-// safaridriver and a WebDriver session) and runs the page for its length,
-// or about 8 s for the single-host pages (slow-idle: 30 s). tool is the
-// capture tool's name for the browser.
+// browser (Chrome waits out its warm-up first; a browser on the iPhone is
+// opened through devicectl) and runs the page for its length, or about 8 s
+// for the single-host pages (slow-idle: 30 s). tool is the capture tool's
+// name for the browser.
 func estimate(sc *server.Scenario, tool string, samples int) time.Duration {
 	page := 8 * time.Second
 	if _, length, multi := sc.MultiHost(); multi {
@@ -798,7 +812,7 @@ func estimate(sc *server.Scenario, tool string, samples int) time.Duration {
 	switch tool {
 	case "chrome":
 		launch += 5 * time.Second
-	case browser.IOSSafariName:
+	case browser.IOSSafariName, browser.IOSChromeName:
 		launch = 15 * time.Second
 	}
 
@@ -896,8 +910,8 @@ func (r *refreshRun) planText() string {
 		case m.windows:
 			r.windowsSteps(&w, p, m)
 		case m.iphone:
-			fmt.Fprintf(&w, "  on the iPhone, served from this Mac: capture -browsers %s -listen %s -ios-driver %s: the capture servers and a DNS stub (port 53, forwarding other names to this Mac's resolver) on %s for the run; devicectl opens each sample's URL in the phone's own Safari, over USB; realcheck is not run (it drives browsers on this Mac)\n",
-				p.tool(), r.Listen, browser.IOSDevicectl, r.Listen)
+			fmt.Fprintf(&w, "  on the iPhone, served from this Mac: capture -browsers %s -listen %s -ios-driver %s: the capture servers and a DNS stub (port 53, forwarding other names to this Mac's resolver) on %s for the run; devicectl opens each sample's URL in the phone's own %s, over USB; realcheck is not run (it drives browsers on this Mac)\n",
+				p.tool(), r.Listen, browser.IOSDevicectl, r.Listen, browser.IOSApp(p.tool()))
 		}
 
 		for _, c := range p.Captures {
@@ -987,14 +1001,15 @@ func (r *refreshRun) windowsSteps(w *strings.Builder, p *plan, m *machine) {
 // once: Chrome and Firefox together on a Mac in quick mode, anything else
 // alone. A Windows PC's browsers take turns: each capture run trusts the CA
 // in the Root store only while it runs, and removing it as one run ends
-// would pull it from under the other.
+// would pull it from under the other. The iPhone's browsers take turns on
+// the one phone.
 func (r *refreshRun) schedule() map[string][][]*plan {
 	out := map[string][][]*plan{}
 	for _, p := range r.Plans {
 		steps := out[p.Host]
 		i := -1
 
-		if r.Mode == modeQuick && !r.Serial && p.Browser != "safari" && p.Platform != platformWindows {
+		if r.Mode == modeQuick && !r.Serial && p.Browser != "safari" && p.Platform != platformWindows && p.Platform != platformIOS {
 			i = slices.IndexFunc(steps, func(step []*plan) bool {
 				return step[0].Browser != "safari"
 			})

@@ -33,8 +33,8 @@ type target struct {
 	// capture tool's name for it (-browsers).
 	browser string
 	// tool is the capture tool's name for the browser when it is not
-	// browser: browser.IOSSafariName, Safari on an iPhone served from this
-	// Mac over the network.
+	// browser: one of browser.IOSNames, a browser on an iPhone served from
+	// this Mac over the network.
 	tool string
 	// remote is where it runs over ssh: remoteMini (the second Mac, -mini),
 	// remoteWindows (a Windows PC, -windows), or "" for this Mac (and the
@@ -47,7 +47,7 @@ func (t target) platform() string {
 	switch {
 	case t.remote == remoteWindows:
 		return platformWindows
-	case t.tool == browser.IOSSafariName:
+	case slices.Contains(browser.IOSNames(), t.tool):
 		return platformIOS
 	}
 
@@ -82,6 +82,10 @@ var targets = map[string]target{
 		browser: "safari",
 		tool:    browser.IOSSafariName,
 	},
+	"chrome-ios": {
+		browser: "chrome",
+		tool:    browser.IOSChromeName,
+	},
 }
 
 // machine is where a browser runs: this Mac, or a host reached over ssh,
@@ -97,8 +101,9 @@ type machine struct {
 	// binaries are windows/amd64 .exe files.
 	windows bool
 	// iphone is the iPhone this Mac serves over the network: the capture
-	// tool runs here and opens each URL in its Safari through devicectl
-	// over USB. iosDevice is its UDID (-ios-device), "" for the one there.
+	// tool runs here and opens each URL in the phone's browser through
+	// devicectl over USB. iosDevice is its UDID (-ios-device), "" for the
+	// one there.
 	iphone    bool
 	iosDevice string
 }

@@ -411,8 +411,8 @@ func edgeErr(e *collector, at, format string, args ...any) {
 // version negotiation and STREAMS_BLOCKED rules, and h's dial delay,
 // fallback, early data and close on GOAWAY. Only h3-streams-blocked may
 // be missing: quic.streamsBlocked is then not measured. A profile whose
-// browser shares another platform's network stack (internal/platform.Stack:
-// Safari on iOS, decision 0051) may have none of the edge captures: its
+// browser shares another's network stack (internal/platform.Stack and
+// Engine: Safari and Chrome on iOS, decisions 0051 and 0053) may have none of the edge captures: its
 // fallback, keep-alive, acknowledgement and credit rules then stay as
 // copied from the profile it started from (prev, prevFallback), and the
 // rest is not measured and left empty; or only the failure pair
