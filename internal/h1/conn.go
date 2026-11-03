@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 
@@ -355,8 +356,9 @@ func (c *Conn) RoundTrip(req *http.Request) (*http.Response, error) {
 	b.ReadCloser = resp.Body
 	b.reusable = !resp.Close && !closing(req) && resp.StatusCode != http.StatusSwitchingProtocols
 	// A response with no body is complete as soon as it is read.
-	b.eof = req.Method == http.MethodHead || resp.ContentLength == 0 ||
-		resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusNotModified
+	b.eof.Store(req.Method == http.MethodHead || resp.ContentLength == 0 ||
+		resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusNotModified)
+
 	resp.Body = b
 	resp.TLS = c.tls
 
@@ -716,7 +718,9 @@ func (c *Conn) writeBody(req *http.Request, chunked bool) error {
 type body struct {
 	io.ReadCloser
 	conn net.Conn
-	eof  bool
+	// eof is atomic: a decoded body's drain (the root package) may close
+	// the body while a Read is blocked.
+	eof atomic.Bool
 	// reusable: the response leaves the connection reusable once its
 	// body is read to the end.
 	reusable bool
@@ -742,7 +746,7 @@ func (b *body) finish(reusable bool) {
 func (b *body) Read(p []byte) (int, error) {
 	n, err := b.ReadCloser.Read(p)
 	if errors.Is(err, io.EOF) {
-		b.eof = true
+		b.eof.Store(true)
 	}
 
 	return n, err
@@ -751,14 +755,15 @@ func (b *body) Read(p []byte) (int, error) {
 // Close closes a body not read to its end by closing the connection, so
 // the rest, however long, is never read.
 func (b *body) Close() error {
-	if !b.eof {
+	eof := b.eof.Load()
+	if !eof {
 		_ = b.conn.Close()
 	}
 
 	err := b.ReadCloser.Close()
-	b.finish(b.reusable && b.eof)
+	b.finish(b.reusable && eof)
 
-	if !b.eof {
+	if !eof {
 		// The connection's read error from the abandoned rest is expected.
 		return nil
 	}

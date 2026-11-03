@@ -129,7 +129,12 @@ browser would send them.
 decoded as you read it. The `Content-Encoding` and `Content-Length`
 headers are removed. This depends only on the response's
 `Content-Encoding`, not on who set `Accept-Encoding`. Other or stacked
-encodings come back raw. Nothing changes on the wire.
+encodings come back raw. Nothing changes on the wire. As in Chrome and
+Firefox, deflate is read with or without its zlib header. Closing a body
+read to its end drains the rest of the response in the background (up to
+4 KB, for up to a second), so a server that ends it a moment later sees
+no HTTP/2 reset and keeps its HTTP/1.1 connection; Close itself never
+waits.
 
 **How to change it.** `Config.DisableDecompression` returns every body
 exactly as the server sent it.
