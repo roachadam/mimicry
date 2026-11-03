@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -535,61 +536,139 @@ func anyRedirectOrder(p profile.Profile) profile.Profile {
 	})
 }
 
-// Authorization and Cookie from Config.Header stay behind once a
-// redirect chain leaves an origin, even when it comes back; same-origin
-// redirects keep them. (Typed navigations' redirects are not measured:
-// their order is beside the point here.)
-func TestConfigCredentialsStayBehindCrossOriginRedirects(t *testing.T) {
-	e := &fakeEngine{
-		answer: func(req *http.Request) *http.Response {
-			next := map[string]string{
-				"https://a.test/cross": "https://b.test/back",
-				"https://b.test/back":  "https://a.test/end",
-				"https://a.test/same":  "https://a.test/end",
-			}[req.URL.String()]
-			if next == "" {
-				return nil
+// Credentials stay behind once a redirect chain leaves an origin, even
+// when it comes back; same-origin redirects keep them. Config.Header's
+// Authorization and Cookie stay behind on any kind; a fetch's own
+// Authorization as the Fetch standard's HTTP-redirect fetch says, before
+// the preflight it would need: a subdomain is another origin, which
+// http.Client's rule lets it reach (issue #51). (Typed navigations'
+// redirects are not measured: their order is beside the point here.)
+func TestCredentialsStayBehindCrossOriginRedirects(t *testing.T) {
+	next := map[string]string{
+		"https://a.test/cross": "https://b.test/back",
+		"https://b.test/back":  "https://a.test/end",
+		"https://a.test/same":  "https://a.test/end",
+		"https://a.test/sub":   "https://sub.a.test/end",
+		"https://a.test/site":  "https://b.test/end",
+	}
+	config := http.Header{
+		"Authorization": {"Bearer secret"},
+		"Cookie":        {"sid=1"},
+	}
+	own := http.Header{
+		"Authorization": {"Bearer secret"},
+	}
+
+	for _, tc := range []struct {
+		name  string
+		start string
+		// fetch: a fetch() from page https://a.test/ with its own
+		// Authorization; a typed navigation with config's otherwise.
+		fetch bool
+		// sent is each request sent: method, URL, Authorization, Cookie.
+		sent []string
+	}{
+		{
+			name:  "config, cross-origin and back",
+			start: "https://a.test/cross",
+			sent:  []string{"GET https://a.test/cross Bearer secret sid=1", "GET https://b.test/back  ", "GET https://a.test/end  "},
+		},
+		{
+			name:  "config, same-origin",
+			start: "https://a.test/same",
+			sent:  []string{"GET https://a.test/same Bearer secret sid=1", "GET https://a.test/end Bearer secret sid=1"},
+		},
+		{
+			name:  "fetch, same-origin",
+			start: "https://a.test/same",
+			fetch: true,
+			sent:  []string{"GET https://a.test/same Bearer secret ", "GET https://a.test/end Bearer secret "},
+		},
+		{
+			name:  "fetch, subdomain",
+			start: "https://a.test/sub",
+			fetch: true,
+			sent:  []string{"GET https://a.test/sub Bearer secret ", "GET https://sub.a.test/end  "},
+		},
+		{
+			name:  "fetch, cross-site",
+			start: "https://a.test/site",
+			fetch: true,
+			sent:  []string{"GET https://a.test/site Bearer secret ", "GET https://b.test/end  "},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := &fakeEngine{
+				answer: func(req *http.Request) *http.Response {
+					if req.Method == http.MethodOptions {
+						// Any preflight from the page is allowed: the
+						// test sees it sent.
+						return &http.Response{
+							StatusCode: http.StatusNoContent,
+							Header: http.Header{
+								"Access-Control-Allow-Origin":  {"https://a.test"},
+								"Access-Control-Allow-Headers": {"authorization"},
+							},
+							Body:    http.NoBody,
+							Request: req,
+						}
+					}
+
+					to := next[req.URL.String()]
+					if to == "" {
+						return nil
+					}
+
+					return &http.Response{
+						StatusCode: http.StatusFound,
+						Header:     http.Header{"Location": {to}},
+						Body:       http.NoBody,
+						Request:    req,
+					}
+				},
 			}
 
-			return &http.Response{
-				StatusCode: http.StatusFound,
-				Header:     http.Header{"Location": {next}},
-				Body:       http.NoBody,
-				Request:    req,
+			cfg := Config{
+				Profile: anyRedirectOrder(profiles.ChromeMacOS()),
+				engine:  e,
 			}
-		},
-	}
+			req := newRequest(t, tc.start)
 
-	client, err := NewClient(Config{
-		Profile: anyRedirectOrder(profiles.ChromeMacOS()),
-		Header: http.Header{
-			"Authorization": {"Bearer secret"},
-			"Cookie":        {"sid=1"},
-		},
-		engine: e,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+			if tc.fetch {
+				maps.Copy(req.Header, own)
 
-	for _, start := range []string{"https://a.test/cross", "https://a.test/same"} {
-		resp, err := client.Do(newRequest(t, start))
-		if err != nil {
-			t.Fatal(err)
-		}
+				req = With(req, Request{
+					Kind: Fetch,
+					From: &url.URL{
+						Scheme: "https",
+						Host:   "a.test",
+						Path:   "/",
+					},
+				})
+			} else {
+				cfg.Header = config
+			}
 
-		_ = resp.Body.Close()
-	}
+			client, err := NewClient(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	want := []bool{true, false, false, true, true}
-	if len(e.sent) != len(want) {
-		t.Fatalf("%d requests, want %d", len(e.sent), len(want))
-	}
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	for i, req := range e.sent {
-		auth, cookie := req.Header.Get("Authorization") != "", req.Header.Get("Cookie") != ""
-		if auth != want[i] || cookie != want[i] {
-			t.Errorf("%s (request %d): Authorization %v, Cookie %v, want %v", req.URL, i+1, auth, cookie, want[i])
-		}
+			_ = resp.Body.Close()
+
+			sent := make([]string, 0, len(e.sent))
+			for _, req := range e.sent {
+				sent = append(sent, req.Method+" "+req.URL.String()+" "+req.Header.Get("Authorization")+" "+req.Header.Get("Cookie"))
+			}
+
+			if !slices.Equal(sent, tc.sent) {
+				t.Errorf("sent\n%s\nwant\n%s", strings.Join(sent, "\n"), strings.Join(tc.sent, "\n"))
+			}
+		})
 	}
 }

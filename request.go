@@ -232,7 +232,7 @@ func exactSending(req *http.Request, page *url.URL, config http.Header) *sending
 	}
 
 	chain := append(redirectsBefore(req), req.URL)
-	addHeaders(h, config, chain)
+	addHeaders(h, config, crossedOrigin(chain))
 
 	return &sending{
 		plan:   &headerorder.Plan{},

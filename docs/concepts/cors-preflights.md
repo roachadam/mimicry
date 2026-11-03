@@ -96,8 +96,12 @@ with `Redirect` set, and the next URL is never requested.
 `Request.IgnoreCORS` follows it anyway. Same-origin and `NoCORS` requests,
 navigations and page elements are not checked.
 
-A redirected request is preflighted again for its new URL when needed. How
-redirects change the method and body, and how many are followed, is in
+A redirected request is preflighted again for its new URL when needed.
+Once a redirect has gone to another origin (a subdomain included), the
+request's `Authorization` is deleted first, as the Fetch standard's
+HTTP-redirect fetch says and Chrome was seen doing: it never reaches the
+new origin and never makes a preflight. How redirects change the method
+and body, and how many are followed, is in
 [what mimicry does](what-mimicry-does.md#redirects).
 
 ## The cache
