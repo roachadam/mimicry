@@ -138,9 +138,9 @@ var scenarioName = regexp.MustCompile(`^[a-z0-9]+([.-][a-z0-9]+)*$`)
 
 // checkCapturesFrom checks that each Spec.CapturesFrom scenario names
 // another browser-version-platform profile of the same browser, or of
-// Safari for Chrome on iOS, which loads pages through Safari's WebKit.
-// Whether it exists, and its platform and version, are for cmd/profilegen
-// and the harness (decisions 0035, 0051, 0053).
+// Safari for Chrome and Firefox on iOS, which load pages through Safari's
+// WebKit. Whether it exists, and its platform and version, are for
+// cmd/profilegen and the harness (decisions 0035, 0051, 0053).
 func (c *checker) checkCapturesFrom(p *Spec) {
 	for _, sc := range slices.Sorted(maps.Keys(p.CapturesFrom)) {
 		path := "capturesFrom." + sc
@@ -150,7 +150,7 @@ func (c *checker) checkCapturesFrom(p *Spec) {
 			c.add(path, "%q must be a capture scenario's name: lowercase letters and digits in parts joined by dashes or dots", sc)
 		}
 
-		webkit := p.Browser == "chrome" && p.Platform == "ios" && strings.HasPrefix(from, "safari-")
+		webkit := (p.Browser == "chrome" || p.Browser == "firefox") && p.Platform == "ios" && strings.HasPrefix(from, "safari-")
 
 		switch {
 		case !profileName.MatchString(from):
@@ -158,7 +158,7 @@ func (c *checker) checkCapturesFrom(p *Spec) {
 		case from == p.Name:
 			c.add(path, "names the profile itself; leave the scenario out instead")
 		case !strings.HasPrefix(from, p.Browser+"-") && !webkit:
-			c.add(path, "%q is not a %s profile: captures are inherited only from the same browser (or Safari's, for Chrome on iOS)", from, p.Browser)
+			c.add(path, "%q is not a %s profile: captures are inherited only from the same browser (or Safari's, for Chrome and Firefox on iOS)", from, p.Browser)
 		}
 	}
 }

@@ -86,6 +86,10 @@ var targets = map[string]target{
 		browser: "chrome",
 		tool:    browser.IOSChromeName,
 	},
+	"firefox-ios": {
+		browser: "firefox",
+		tool:    browser.IOSFirefoxName,
+	},
 }
 
 // machine is where a browser runs: this Mac, or a host reached over ssh,

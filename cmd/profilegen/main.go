@@ -14,6 +14,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -146,8 +147,8 @@ func generate(dir string) ([]byte, error) {
 // platform, the newest supportedVersions versions are not deprecated and
 // every older one is; each inherited scenario names an older built-in
 // profile that holds its own captures of it: the same browser's, or for a
-// browser on another's engine (Chrome on iOS) the engine's of the same
-// WebKit generation (decision 0053).
+// browser on another's engine (Chrome and Firefox on iOS) the engine's of
+// the same WebKit generation (decision 0053).
 func checkPolicy(profiles []*profile.Spec) error {
 	byName := make(map[string]*profile.Spec, len(profiles))
 	families := make(map[string][]*profile.Spec)
@@ -187,7 +188,7 @@ func checkPolicy(profiles []*profile.Spec) error {
 		for _, sc := range slices.Sorted(maps.Keys(p.CapturesFrom)) {
 			from, ok := byName[p.CapturesFrom[sc]]
 			if ok && engine != "" && from.Browser == engine {
-				if err := checkEngineSource(p, from, sc); err != nil {
+				if err := checkEngineSource(p, from, sc, byName); err != nil {
 					return err
 				}
 
@@ -219,21 +220,56 @@ func checkPolicy(profiles []*profile.Spec) error {
 // checkEngineSource checks the scenario sc that p, a browser on another's
 // engine (internal/platform.Engine), inherits from from, a profile of that
 // engine: from is on p's platform or the one the engine's network stack is
-// shared with, its version is the WebKit generation of p's user agent, and
-// it holds its own captures of sc (decision 0053).
-func checkEngineSource(p, from *profile.Spec, sc string) error {
-	webkit := platform.WebKitVersion(userAgent(p))
+// shared with, its version is p's WebKit generation (webKitOf), it holds
+// its own captures of sc, and p's ClientHello, HTTP/2 section and QUIC
+// transport parameters are those of the engine's profile of that
+// generation on p's platform, so a wrong generation cannot pass (decision
+// 0053). byName holds the built-in profiles.
+func checkEngineSource(p, from *profile.Spec, sc string, byName map[string]*profile.Spec) error {
+	webkit := webKitOf(p)
+	twin := byName[from.Browser+"-"+webkit+"-"+p.Platform]
 
 	switch {
 	case from.Platform != p.Platform && from.Platform != platform.Stack(from.Browser, p.Platform):
 		return fmt.Errorf("%s: capturesFrom.%s: %s is not %s on %s or the platform sharing its network stack", p.Name, sc, from.Name, from.Browser, p.Platform)
 	case webkit == "" || from.Version != webkit:
-		return fmt.Errorf("%s: capturesFrom.%s: %s is not %s %s, the WebKit of %s's user agent", p.Name, sc, from.Name, from.Browser, webkit, p.Name)
+		return fmt.Errorf("%s: capturesFrom.%s: %s is not %s %s, %s's WebKit (its user agent's iOS version, or capturedOnIOS)", p.Name, sc, from.Name, from.Browser, webkit, p.Name)
 	case from.CapturesFrom[sc] != "":
 		return fmt.Errorf("%s: capturesFrom.%s: %s inherits that scenario itself; name %s, which holds the captures", p.Name, sc, from.Name, from.CapturesFrom[sc])
+	case twin == nil:
+		return fmt.Errorf("%s: capturesFrom.%s: no %s %s on %s to check its WebKit generation against", p.Name, sc, from.Browser, webkit, p.Platform)
+	case !reflect.DeepEqual(p.TLS, twin.TLS) || !reflect.DeepEqual(p.HTTP2, twin.HTTP2) || !reflect.DeepEqual(transportParameters(p), transportParameters(twin)):
+		return fmt.Errorf("%s: capturesFrom.%s: its ClientHello, HTTP/2 or QUIC transport parameters differ from %s's, so it is not WebKit %s", p.Name, sc, twin.Name, webkit)
 	}
 
 	return nil
+}
+
+// capturedOnIOS is the iOS major version each engine profile whose user
+// agent names no WebKit (Safari's frozen 18_7) was captured on: its
+// WebKit generation (decision 0053).
+var capturedOnIOS = map[string]string{
+	// Firefox 159.1 on an iPhone 15 Pro on iOS 27.2 (issue #58).
+	"firefox-159-ios": "27",
+}
+
+// webKitOf is p's WebKit generation: its user agent's iOS version, or
+// where that is frozen, capturedOnIOS's; "" for neither.
+func webKitOf(p *profile.Spec) string {
+	if v := platform.WebKitVersion(userAgent(p)); v != "" {
+		return v
+	}
+
+	return capturedOnIOS[p.Name]
+}
+
+// transportParameters are p's QUIC transport parameters, nil without QUIC.
+func transportParameters(p *profile.Spec) []profile.TransportParameter {
+	if p.QUIC == nil {
+		return nil
+	}
+
+	return p.QUIC.TransportParameters
 }
 
 // userAgent is p's navigation's user agent.

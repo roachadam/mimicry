@@ -196,10 +196,14 @@ var h3EdgeGaps = func() map[string]string {
 	// reconnections after h3-broken's silence resume with 0-RTT, which is
 	// not measured for it either. Chrome on the iPhone (decision 0053)
 	// does the same, with one or two such pairs in every blackholed
-	// attempt.
-	for _, name := range []string{"safari-26-ios", "chrome-157-ios"} {
-		for _, k := range []string{"datagrams", "Initial packet number steps"} {
-			gaps[name+"/h3-blackhole edge QUIC www.h3-a.test #1 "+k] = iosProbes
+	// attempt, and so does Firefox on the iPhone. Firefox's samples differ
+	// on the first attempt's Initial packet number steps, so the test only
+	// logs them for it and it has no pin for them; the others keep theirs.
+	for _, name := range []string{"safari-26-ios", "chrome-157-ios", "firefox-159-ios"} {
+		gaps[name+"/h3-blackhole edge QUIC www.h3-a.test #1 datagrams"] = iosProbes
+
+		if name != "firefox-159-ios" {
+			gaps[name+"/h3-blackhole edge QUIC www.h3-a.test #1 Initial packet number steps"] = iosProbes
 		}
 
 		for _, k := range []string{"QUIC www.h3-a.test #2", "QUIC www.h3-b.test #2", "QUIC www.h3-b.test #2 datagrams"} {
@@ -214,6 +218,8 @@ var h3EdgeGaps = func() map[string]string {
 
 	gaps["chrome-157-ios/h3-blackhole edge QUIC www.h3-a.test #2 datagrams"] = iosProbes
 	gaps["chrome-157-ios/h3-broken edge QUIC www.h3-b.test #3 datagrams"] = iosZeroRTT
+	gaps["firefox-159-ios/h3-blackhole edge QUIC www.h3-a.test #2 datagrams"] = iosProbes
+	gaps["firefox-159-ios/h3-blackhole edge QUIC www.h3-a.test #2 Initial packet number steps"] = iosProbes
 
 	return gaps
 }()

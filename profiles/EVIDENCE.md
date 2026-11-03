@@ -6,11 +6,11 @@ TLS cipher list or a cookie rule.
 
 **Covered:** `chrome-155-macos`, `chrome-156-macos`, `chrome-156-windows`,
 `chrome-157-ios`, `firefox-158-macos`, `firefox-158-windows`,
-`safari-27-macos`, `safari-26-macos`, `safari-27-ios` and `safari-26-ios`.
-Safari 27 was captured on macOS 27; Safari 26 on a second Mac kept on
-macOS 26; Chrome 156 and Firefox 158 for Windows on Windows 10; Safari
-27.2 and Chrome 157.0.8103.24 for iOS on an iPhone on iOS 27.2, Safari
-26.6.2 on a second iPhone on iOS 26.7.1.
+`firefox-159-ios`, `safari-27-macos`, `safari-26-macos`, `safari-27-ios`
+and `safari-26-ios`. Safari 27 was captured on macOS 27; Safari 26 on a
+second Mac kept on macOS 26; Chrome 156 and Firefox 158 for Windows on
+Windows 10; Safari 27.2, Chrome 157.0.8103.24 and Firefox 159.1 for iOS on
+an iPhone on iOS 27.2, Safari 26.6.2 on a second iPhone on iOS 26.7.1.
 
 **Headline:** about 85% of the classed cells in the tables below are **W** or
 **W+** (seen on the wire). The rest are fitted, copied, measured on another
@@ -35,8 +35,9 @@ Last fully reviewed 2026-10-24. Rows were updated with the 2026-10-28
 captures, `chrome-156-windows` added with its 2026-10-29 captures, the
 redirect rows with the 2026-10-30 cookie twins (0048), `safari-27-ios`
 and `safari-26-ios` with their 2026-11-01 captures (0051),
-`firefox-158-windows` with its 2026-11-01 captures, and `chrome-157-ios`
-with its 2026-11-01 captures (0053). The "Not covered" list was rechecked
+`firefox-158-windows` with its 2026-11-01 captures, `chrome-157-ios`
+with its 2026-11-01 captures (0053), and `firefox-159-ios` with its
+2026-11-03 captures (0053, amended). The "Not covered" list was rechecked
 against the code on 2026-10-29.
 
 ## How rows are classed
@@ -340,6 +341,53 @@ measured for it, as for `safari-27-ios`. Where it differs from
 - **Pinned:** three first connections whose navigation devicectl handed
   Chrome in the preface's millisecond (`openingGaps`); `abandonOnTcp` and
   one `h3-broken` sample's keep-alive (h3gen's `sampleGaps`).
+
+**`firefox-159-ios`** (2026-11-03, Firefox 159.1 on the same iPhone 15
+Pro, iOS 27.2, over Wi-Fi through devicectl;
+[decision 0053](../docs/decisions/0053-chrome-on-ios.md), amended) is read
+as `chrome-157-ios` is. Firefox on iOS loads pages through WebKit and
+Apple's network stack. All 23 iPhone scenarios are its own (three samples
+each); `redirects2`, `redirects2-cookies` and `http1` were taken as three
+single-sample runs each and joined (docs/capturing.md), the redirect pair
+with Firefox restarted before each run. It inherits the same 12 scenarios
+as `chrome-157-ios`, `I: from safari-27-macos`. Its user agent names no
+WebKit (Safari's frozen `18_7`): that it is WebKit 27 is the capture's
+word (iOS 27.2), which `cmd/profilegen` holds it to (`capturedOnIOS`) and
+checks: its ClientHello, HTTP/2 section and QUIC transport parameters
+must be `safari-27-ios`'s. Where it differs from `chrome-157-ios`:
+
+- **User agent:** `Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X)
+  AppleWebKit/605.1.15 (KHTML, like Gecko) FxiOS/159.1 Mobile/15E148
+  Safari/604.1` in every list: Safari's frozen iOS version, unlike
+  Chrome's real one. No client hints.
+- **Header order, macOS Safari 27's** (kindsgen, 3 of 3), Chrome's too,
+  and also in the POST and beacon requests where Chrome on the iPhone
+  puts Sec-Fetch-Site before Origin (`kinds`): Firefox puts Origin first,
+  as macOS Safari 27 does. Every kind's header lists match
+  `safari-27-macos`'s but the font stylesheet's, which macOS's own
+  samples vary in; `kinds-plain` asked nothing (no insecure-form
+  warning).
+- **The same as `chrome-157-ios` and `safari-27-ios`** (**W**): the
+  ClientHello over TCP and QUIC (JA4
+  `t13d2013h2_a09f3c656075_7f0f34a4126d`), HTTP/2 SETTINGS, window and
+  HPACK (Akamai `2:0;3:100;4:2097152;9:1|10420225|0|m,s,a,p`), the QUIC
+  transport parameters and HTTP/3 SETTINGS, cookies, redirect hops,
+  resumption, WebSocket handshakes and frames, the CONNECT head and the
+  HTTP/1.1 and HTTP/2 upload records; `quic.ackDelay` is its own
+  (h3gen).
+- **W from the iPhone's failure pair**, as `chrome-157-ios`; h3gen
+  derives `abandonOnTcp` true from Firefox's captures, without
+  `chrome-157-ios`'s pin ([#60](https://github.com/roachadam/mimicry/issues/60)
+  does not arise).
+- **C: from safari-27-ios**, as for `chrome-157-ios`.
+- **Pinned:** three first connections whose navigation devicectl handed
+  Firefox in the preface's millisecond (`openingGaps`); in h3gen's
+  `sampleGaps`, one `h3-page` Initial probe (a 1038-byte unpadded
+  datagram, 35 ms in; also `h3Gaps`) and one `h3-broken` request that
+  reached the server on TCP 1 ms before the QUIC attempt it started; in
+  the e2e tests, the gaps `chrome-157-ios` shares with the Safari
+  profiles (macOS Safari's headers-order list, the iPhone's Initial
+  probes and 0-RTT reconnections, the beacon).
 
 No claim rests on browser source code or on another client's presets alone:
 those were leads only. Where another client disagreed with the wire, the wire
@@ -957,8 +1005,10 @@ A difference closed is removed here, with its pinned gap entry.
 - **Safari's OPTIONS fetch** (Safari): not in its kinds captures, so refused (`ErrNotMeasured`); detection low; an OPTIONS fetch on the kinds page ([`h3EdgeGaps`](../internal/harness/e2e/http3_edge_test.go)).
 - **Safari on iOS's beacon over HTTP/3** (Safari 27 on iOS): the iPhone sent `h3-page`'s beacon on a QUIC connection of its own beside the page's HTTP/2 one (3 of 3; Safari 26 on the iPhone kept the page on TCP, as on macOS); mimicry keeps it on TCP, Safari's kinds being measured over HTTP/3 for `fetch()` only; detection low; a fuller `h3-page` capture (`h3Gaps`).
 - **Safari on iOS's QUIC failure rules** (Safari on iOS): for Safari 27, fallback, keep-alive, acknowledgement and credit copied from Safari 27 on macOS (**C**), loss, key update, 0-RTT, dial delays and close on GOAWAY not measured; for Safari 26, the failure pair's structure measured (**W**: keep-alive, path degrading, close on GOAWAY, the fallback's mode), its timing, acknowledgement and credit copied from Safari 26 on macOS (**C**), the rest of loss, key update, 0-RTT and dial delays not measured; the iPhone's second Initial pair in a blackholed attempt and its unpadded Initials (1038 and 1129 bytes) not imitated (the stack's defaults, no 0-RTT); detection low; the failure pair's timing over a wired path, and an iPhone `h3-early` capture.
-- **Chrome on iOS's extra Initial probes** (Chrome on iOS): in a blackholed QUIC attempt the iPhone's Chrome sent one or two retransmitted Initial pairs (a 1038-byte unpadded datagram and a 1200-byte one) 28–137 ms in, before or as the raced TCP connection opened, 6 of 6 attempts (the "6 Initials"; Safari 26 on the iPhone: none or one pair); mimicry's attempt probes as its QUIC stack does; detection low; the iPhone's loss rules over a wired path.
+- **Chrome and Firefox on iOS's extra Initial probes** (Chrome and Firefox on iOS): in a blackholed QUIC attempt the iPhone's Chrome sent one or two retransmitted Initial pairs (a 1038-byte unpadded datagram and a 1200-byte one) 28–137 ms in, before or as the raced TCP connection opened, 6 of 6 attempts (the "6 Initials"; Safari 26 on the iPhone: none or one pair); Firefox on the iPhone the same in both blackholed attempts, and once in `h3-page` when the server's first flight came late (`h3Gaps`); mimicry's attempt probes as its QUIC stack does; detection low; the iPhone's loss rules over a wired path.
 - **Chrome's insecure-form warning** (Chrome on iOS): before submitting a form over plain HTTP Chrome asks ("Send anyway"), Safari does not; behaviour on the screen, not on the wire, so not modelled; `kinds-plain` on the iPhone needs someone to tap it (docs/capturing.md); detection none.
+- **Firefox on iOS's HTTP/1.1-only ALPN** (Firefox on iOS): in two three-sample `http1` runs the capture tool's log showed sample 1's ClientHello offering ALPN `http/1.1` alone and sample 3's `h2, http/1.1`, in both runs; no rule found (the committed `http1` samples are single-sample runs, and its trace keeps the HTTP/1.1 requests, not the ClientHello's ALPN, so no test can check it); not imitated; detection low; an `http1` capture that records the ALPN per sample.
+- **Firefox on iOS's redirect stall** (Firefox on iOS): about one `redirects2` or `redirects2-cookies` sample in three stalled after the "too many redirects" page, even with Firefox restarted before each sample, and never opened the next URL; behaviour on the screen, not on the wire, so not modelled; the samples were taken as single-sample runs (docs/capturing.md); detection none.
 - **Safari's close on GOAWAY with requests open** (Safari): every captured GOAWAY found no request open, and Safari closed at once; with requests open mimicry waits for them, then closes (an assumption, decision 0050); detection low; a GOAWAY that leaves a request in flight.
 - **Safari's pair on a 0-RTT connection** (Safari): with a GET and a POST made together, Safari sent the control stream alone, then the GET (6 of 6); mimicry sends the GET in the control stream's packet, as for a lone GET (`earlyStreamsWithRequest`); detection low; more samples to say what decides it.
 - **Chrome 156 Windows's GREASE transport parameter** (Chrome on Windows): 3 resumed hellos of its edge captures carry a 15-byte one, beyond the profile's 14, which the `h3-discovery` and `h3-page` connections set; detection low; derive the maximum from the edge captures too (h3gen reads them for resumed first flights only where the h3 captures have none).

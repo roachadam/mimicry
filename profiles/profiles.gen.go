@@ -32,6 +32,13 @@ func FirefoxMacOS() profile.Profile {
 	return load("firefox-158-macos")
 }
 
+// FirefoxIOS returns the newest firefox profile on ios, now firefox-159-ios (firefox 159 on ios).
+// It moves to each new version as that version is added; use a
+// versioned accessor where a version must stay fixed.
+func FirefoxIOS() profile.Profile {
+	return load("firefox-159-ios")
+}
+
 // FirefoxWindows returns the newest firefox profile on windows, now firefox-158-windows (firefox 158 on windows).
 // It moves to each new version as that version is added; use a
 // versioned accessor where a version must stay fixed.
@@ -83,6 +90,11 @@ func Firefox158Windows() profile.Profile {
 	return load("firefox-158-windows")
 }
 
+// Firefox159IOS returns the firefox-159-ios profile (firefox 159 on ios).
+func Firefox159IOS() profile.Profile {
+	return load("firefox-159-ios")
+}
+
 // Safari26IOS returns the safari-26-ios profile (safari 26 on ios).
 func Safari26IOS() profile.Profile {
 	return load("safari-26-ios")
@@ -110,6 +122,7 @@ var names = []string{
 	"chrome-157-ios",
 	"firefox-158-macos",
 	"firefox-158-windows",
+	"firefox-159-ios",
 	"safari-26-ios",
 	"safari-26-macos",
 	"safari-27-ios",
@@ -123,6 +136,7 @@ var supported = []string{
 	"chrome-157-ios",
 	"firefox-158-macos",
 	"firefox-158-windows",
+	"firefox-159-ios",
 	"safari-26-ios",
 	"safari-26-macos",
 	"safari-27-ios",

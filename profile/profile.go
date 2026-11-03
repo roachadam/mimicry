@@ -145,9 +145,9 @@ type Spec struct {
 	// profile whose captures the harness checks this one against, because
 	// the scenario was not recaptured: an earlier version of its browser on
 	// its platform, or its own or an earlier version on the platform whose
-	// network stack it shares (Safari on iOS: macOS); for Chrome on iOS,
-	// Safari of its WebKit generation. Only the harness reads it. See
-	// decisions 0035, 0051 and 0053.
+	// network stack it shares (Safari on iOS: macOS); for Chrome and
+	// Firefox on iOS, Safari of their WebKit generation. Only the harness
+	// reads it. See decisions 0035, 0051 and 0053.
 	CapturesFrom map[string]string `json:"capturesFrom,omitempty"`
 
 	TLS TLS `json:"tls"`

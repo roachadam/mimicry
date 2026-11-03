@@ -76,7 +76,7 @@ func (o options) samplesFor(sc *server.Scenario) int {
 
 func run() error {
 	out := flag.String("out", "testdata/captures", "directory to write captures to")
-	only := flag.String("browsers", "", "comma-separated browsers to capture (default: every installed one); "+browser.IOSSafariName+" and "+browser.IOSChromeName+", Safari and Chrome on an iPhone on this Mac's network, only when named here, with -listen")
+	only := flag.String("browsers", "", "comma-separated browsers to capture (default: every installed one); "+browser.IOSSafariName+", "+browser.IOSChromeName+" and "+browser.IOSFirefoxName+", Safari, Chrome and Firefox on an iPhone on this Mac's network, only when named here, with -listen")
 	headless := flag.Bool("headless", false, "hide browser windows; for checking the tool only: headless Chrome reports HeadlessChrome in its user agent")
 	samples := flag.Int("samples", 3, "connections to sample per browser and scenario; the default scenario needs 2 or more to tell whether a browser shuffles its extensions")
 	caDir := flag.String("ca-dir", "", "capture CA directory (default: <user config dir>/mimicry/capture-ca)")
@@ -89,9 +89,9 @@ func run() error {
 		"the captures record the setting as a condition and are named <scenario>."+localRootsSuffix)
 	summary := flag.String("summary", "", "append one JSON line per written scenario to this file: browser, scenario, profile name, user agent, samples, seconds, files, and the iPhone's driver")
 	preflight := flag.Bool("preflight", false, "print what a capture here needs as JSON (browsers and versions, console user, capture CA trust, /etc/resolver/test, aioquic) and exit")
-	listenIP := flag.String("listen", "", "serve the captures on this IPv4 address of the Mac instead of 127.0.0.1, for a browser on another device ("+browser.IOSSafariName+", "+browser.IOSChromeName+"): the capture server, its UDP twin and its plain-HTTP port listen there, "+
+	listenIP := flag.String("listen", "", "serve the captures on this IPv4 address of the Mac instead of 127.0.0.1, for a browser on another device ("+strings.Join(browser.IOSNames(), ", ")+"): the capture server, its UDP twin and its plain-HTTP port listen there, "+
 		"the DNS stubs answer *.test with it, and one on its port 53, the device's DNS server, forwards other names to the Mac's resolver (/etc/resolv.conf)")
-	iosDriver := flag.String("ios-driver", string(browser.IOSDevicectl), "how "+browser.IOSSafariName+" and "+browser.IOSChromeName+" open each capture URL: "+string(browser.IOSDevicectl)+" (devicectl over USB opens it in the phone's own browser, Chrome's through its googlechromes:// scheme; it cannot take the click scenarios), "+
+	iosDriver := flag.String("ios-driver", string(browser.IOSDevicectl), "how "+strings.Join(browser.IOSNames(), ", ")+" open each capture URL: "+string(browser.IOSDevicectl)+" (devicectl over USB opens it in the phone's own browser, Chrome's through its googlechromes:// scheme, Firefox's through firefox://open-url; it cannot take the click scenarios), "+
 		string(browser.IOSManual)+" (printed for you to open in the browser on the iPhone, and to tap where a scenario clicks) or "+
 		string(browser.IOSSafaridriver)+" ("+browser.IOSSafariName+" only: safaridriver over USB, a WebDriver session per sample in an automation window, which only the default page's scenarios accept)")
 	iosDevice := flag.String("ios-device", "", "the UDID or identifier of the iPhone -ios-driver "+string(browser.IOSDevicectl)+" or "+string(browser.IOSSafaridriver)+" uses (default: the one paired iPhone connected)")
