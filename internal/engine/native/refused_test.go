@@ -289,6 +289,20 @@ func (b *trackedBody) Close() error {
 	return nil
 }
 
+// closedSoon reports whether b is closed within 5 seconds.
+func closedSoon(b *trackedBody) bool {
+	deadline := time.Now().Add(5 * time.Second)
+	for !b.closed.Load() {
+		if time.Now().After(deadline) {
+			return false
+		}
+
+		time.Sleep(time.Millisecond)
+	}
+
+	return true
+}
+
 func post(ctx context.Context, e *Engine, body *trackedBody) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://localhost/up", body)
 	if err != nil {
@@ -349,7 +363,9 @@ func TestRefusedStreamWithBody(t *testing.T) {
 			t.Errorf("server received DATA %v, want %q once, on stream 5", data, payload)
 		}
 
-		if !body.closed.Load() {
+		// The body is closed by the goroutine that sent it, once its last
+		// DATA frame is written, which can be after RoundTrip returns.
+		if !closedSoon(body) {
 			t.Error("body not closed")
 		}
 	})
