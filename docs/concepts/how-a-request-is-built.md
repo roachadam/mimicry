@@ -46,7 +46,25 @@ Combinations no browser makes are errors before anything is sent:
 
 ## 2. The transport resolves it against the profile
 
-`Transport.RoundTrip` turns the request into a plan (`resolve.go`):
+`Transport.RoundTrip` turns the request into a plan (`resolve.go`).
+
+First the URL takes the form a browser's URL parser (the WHATWG URL
+standard) gives it, as do `Request.From`, `Request.Stylesheet`, every
+redirect's `Location` and a WebSocket's URL and page (`url.go`):
+
+- the host is lowercased, and a host with non-ASCII characters goes
+  through UTS #46 ToASCII (`bücher.de` is `xn--bcher-kva.de`); one that
+  fails is an error before anything is sent;
+- a port equal to the scheme's default is dropped (`:443` on `https`);
+- the query is percent-encoded with the query set (control characters,
+  space, `"`, `#`, `<`, `>` and every byte above `~`), keeping any `%XX`
+  already there. A `'` is sent as written: what each browser sends for
+  it is not measured.
+
+Everything after this sees that form: the dial, SNI, the connection pool
+and its tickets, `Host` and `:authority`, cookies, `Origin` and
+`Referer`. Your `req` is left as it is; `resp.Request.URL` is the URL
+sent, as a browser's `response.url` is.
 
 1. **Add `Config.Header`.** Each one the request does not set itself is
    added. From here on it counts as a header the page set. Once a redirect

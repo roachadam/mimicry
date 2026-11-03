@@ -1055,6 +1055,7 @@ A difference closed is removed here, with its pinned gap entry.
 - **Requests from a cross-site frame** (all): their top-level site, headers and preflights are not modelled; detection medium; a frame capture and an API.
 - **`Sec-Fetch-User` on frames and HTTP/1.1** (Chrome, Firefox): either accepted on frames; Firefox's clicked form POST over HTTP/1.1 refused; detection medium; a clicked form on `kinds-http1`.
 - **Pages below `/`** (all): the full-path `Referer` follows the standard, not a capture; detection medium if wrong; a deep kinds page.
+- **`'` in a query** (all): sent as written; the WHATWG URL standard encodes it (`%27`) for special schemes, and browsers have differed; no capture shows what each profile's browser sends; detection low; a query with `'` on the kinds page.
 - **`FontFace` loads and `crossorigin` stylesheets** (all): no kind; detection low to medium; add both to the kinds page.
 - **Layout-driven image priorities** (Firefox, Chrome): layout changes them (`u=4`, `u=1`); detection low (`redirectsLineGaps`, `h3Gaps`, `h3PriorityGaps`).
 - **Safari 26's font cookie race** (Safari 26): it sent a font before a cookie was set; detection none (`raceCookieLabels`).
