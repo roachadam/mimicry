@@ -302,6 +302,7 @@
     "connectionUpdateThreshold": 7864321,
     "windowUpdateIntervalMs": 5000,
     "idlePingMs": 10000,
+    "refusedStreamSends": 3,
     "splitCookie": true,
     "hpack": {
       "withoutIndexing": [
