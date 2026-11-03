@@ -28,6 +28,7 @@ bin/
 /internal/harness/pageshape
 /internal/harness/realcheck
 /internal/harness/refresh
+/internal/harness/releasewatch
 /internal/harness/tracestat
 /internal/bench/bench
 /internal/bench/proxy

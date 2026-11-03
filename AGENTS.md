@@ -78,7 +78,7 @@ cfg := mimicry.Config{
 
 ## Captures and refreshing profiles
 
-Bring a profile up to the installed browser with `go run ./cmd/refresh -browser chrome,firefox -mode quick` (in `internal/harness/`; `-dry-run` first). It captures, derives, regenerates and tests, but never touches git: review its report, update `profiles/EVIDENCE.md` (new gaps in its Not covered by any claim), then commit. See [Refreshing profiles](docs/refreshing-profiles.md).
+Bring a profile up to the installed browser with `go run ./cmd/refresh -browser chrome,firefox -mode quick` (in `internal/harness/`; `-dry-run` first). It captures, derives, regenerates and tests, but never touches git: review its report, update `profiles/EVIDENCE.md` (new gaps in its Not covered by any claim), then commit. See [Refreshing profiles](docs/refreshing-profiles.md). What to refresh: the weekly `.github/workflows/release-watch.yml` (`cmd/releasewatch`) keeps one issue open while a stable release or Chrome's root store trust anchors are ahead of the newest profiles ([Knowing when to refresh](docs/refreshing-profiles.md#knowing-when-to-refresh)).
 
 Everything about captures (the capture tool, scenarios, per-browser setup, the generators, `tracestat`, `diff`, `clientcapture`, `interop`, `realcheck`) is in [docs/capturing.md](docs/capturing.md). Two rules matter here:
 

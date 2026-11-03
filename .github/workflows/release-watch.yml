@@ -1,0 +1,65 @@
+# Weekly, and by hand: cmd/releasewatch (internal/harness/) compares the
+# browsers' stable releases with the newest built-in profiles (Safari's
+# minor version included), and Chromium's root store at Chrome's stable tag
+# with the newest Chrome profiles' trust anchors (0xca34). While it finds
+# something, one open issue (TITLE, labelled LABEL) holds its findings:
+# opened, or its description rewritten when they change, with a comment so
+# its subscribers hear of it; once it finds nothing, the issue is closed.
+# It never changes a profile: a refresh needs a capture
+# (docs/refreshing-profiles.md). A feed it cannot read fails the run.
+name: Release watch
+
+on:
+  schedule:
+    - cron: '29 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-watch
+
+env:
+  # The Go in .prototools, never a download go.mod asks for.
+  GOTOOLCHAIN: local
+
+jobs:
+  watch:
+    name: watch
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          cache: releasewatch
+      - name: releasewatch
+        working-directory: internal/harness
+        run: go run ./cmd/releasewatch >"$RUNNER_TEMP/findings.md"
+      - name: open, update or close the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: 'Release watch: a browser release or Chrome trust anchors the profiles are behind on'
+          LABEL: fingerprint
+          FINDINGS: ${{ runner.temp }}/findings.md
+        run: |
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label "$LABEL" --limit 200 --json number,title |
+            jq -r --arg title "$TITLE" '[.[] | select(.title == $title)][0].number // empty')
+          if [ ! -s "$FINDINGS" ]; then
+            if [ -n "$number" ]; then
+              gh issue close "$number" --repo "$GITHUB_REPOSITORY" --comment "The release watch finds nothing newer than the profiles any more."
+            fi
+            exit 0
+          fi
+          if [ -z "$number" ]; then
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --label "$LABEL" --body-file "$FINDINGS"
+          elif [ "$(gh issue view "$number" --repo "$GITHUB_REPOSITORY" --json body --jq .body | tr -d '\r')" != "$(cat "$FINDINGS")" ]; then
+            gh issue edit "$number" --repo "$GITHUB_REPOSITORY" --body-file "$FINDINGS"
+            gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "The release watch's findings changed; the description has them."
+          fi
