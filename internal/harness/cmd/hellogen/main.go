@@ -131,6 +131,10 @@ func regenerate(data, captured []byte, dir string) ([]byte, []byte, error) {
 		return nil, nil, fmt.Errorf("tls.quic: %w", err)
 	}
 
+	if p.TLS.HelloRetry, err = helloRetry(dir, p); err != nil {
+		return nil, nil, fmt.Errorf("tls.helloRetry: %w", err)
+	}
+
 	if err := apply(&c.TLS, derived); err != nil {
 		return nil, nil, fmt.Errorf("capture: %w", err)
 	}

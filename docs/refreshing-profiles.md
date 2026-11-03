@@ -69,6 +69,7 @@ anti-bot vendors read. So there are two kinds of refresh.
 | `kinds`, `kinds-http1`, `kinds-plain` | 1 each | every request type's headers over HTTP/2, HTTP/1.1 and plain HTTP |
 | `websocket`, `websocket-h2` | 1 each | WebSocket handshakes |
 | `h3-discovery`, `h3-page` | 3 each | the QUIC ClientHello, transport parameters and HTTP/3 SETTINGS |
+| `hrr` | 3 | the ClientHello sent again after a HelloRetryRequest with a cookie: where the cookie goes |
 
 Scenarios where the browser picks something per connection (extension
 order, GREASE values, ECH lengths) take three samples; the rest take one.

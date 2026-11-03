@@ -3,8 +3,9 @@
 // shares) to produce each connection's ClientHello.
 //
 // The shuffle is drawn fresh per connection and reused for a second
-// ClientHello after HelloRetryRequest. The HRR cookie's placement is a known
-// gap; see profiles/EVIDENCE.md, "Behaviour in code, not in profiles".
+// ClientHello after HelloRetryRequest, whose cookie goes in the slot the
+// profile's tls.helloRetry gives it (an empty cookie in the first hello,
+// which sends nothing).
 package fingerprint
 
 import (
@@ -21,6 +22,11 @@ type Plan struct {
 	// movable are the indexes of the extensions a shuffle may move; nil when
 	// the profile's extension order is fixed.
 	movable []int
+	// cookieAfter is the index of the extension the HelloRetryRequest
+	// cookie follows, -1 for none; cookieShuffled draws its slot among the
+	// movable ones (profile tls.helloRetry).
+	cookieAfter    int
+	cookieShuffled bool
 	// resumedECH is GREASE ECH's shape in a resumed hello; nil without
 	// resumption or ECH.
 	resumedECH *profile.ECH
@@ -33,13 +39,23 @@ type Plan struct {
 // afterwards.
 func Compile(p *profile.Spec) *Plan {
 	plan := &Plan{
-		tls: p.TLS,
+		tls:         p.TLS,
+		cookieAfter: -1,
 	}
 	if p.TLS.ExtensionOrder == profile.ExtensionOrderShuffled {
 		for i := range p.TLS.Extensions {
 			if !p.TLS.Extensions[i].Pinned() {
 				plan.movable = append(plan.movable, i)
 			}
+		}
+	}
+
+	if h := p.TLS.HelloRetry; h != nil {
+		plan.cookieShuffled = h.CookieShuffled
+		if h.CookieAfter != nil {
+			plan.cookieAfter = slices.IndexFunc(p.TLS.Extensions, func(e profile.Extension) bool {
+				return e.Type == *h.CookieAfter
+			})
 		}
 	}
 
@@ -141,7 +157,7 @@ func (p *Plan) hello(intn func(int) int) Hello {
 		SessionIDLength:    p.tls.SessionIDLength,
 		CipherSuites:       append([]profile.Code(nil), p.tls.CipherSuites...),
 		CompressionMethods: append([]uint8(nil), p.tls.CompressionMethods...),
-		Extensions:         make([]profile.Extension, len(p.tls.Extensions)),
+		Extensions:         make([]profile.Extension, len(p.tls.Extensions), len(p.tls.Extensions)+1),
 		X25519Reuse:        p.tls.X25519Reuse,
 	}
 	// Extension values share slices with the plan; they are never modified
@@ -155,6 +171,26 @@ func (p *Plan) hello(intn func(int) int) Hello {
 		j := intn(i + 1)
 
 		h.Extensions[m[i]], h.Extensions[m[j]] = h.Extensions[m[j]], h.Extensions[m[i]]
+	}
+
+	// The HelloRetryRequest cookie's slot (profile tls.helloRetry): an
+	// empty cookie, which the first hello leaves out and the second fills.
+	cookie := profile.Extension{
+		Type: profile.ExtCookie,
+	}
+
+	switch {
+	case p.cookieAfter >= 0:
+		h.Extensions = slices.Insert(h.Extensions, p.cookieAfter+1, cookie)
+	case p.cookieShuffled && len(m) > 0:
+		// One more slot among the movable ones, drawn uniformly: with the
+		// permutation above, a uniform permutation of them and the cookie.
+		at := m[len(m)-1] + 1
+		if k := intn(len(m) + 1); k < len(m) {
+			at = m[k]
+		}
+
+		h.Extensions = slices.Insert(h.Extensions, at, cookie)
 	}
 
 	return h

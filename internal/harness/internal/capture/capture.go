@@ -65,6 +65,16 @@ type Capture struct {
 	Gzip bool
 }
 
+// Retry is the second ClientHello of a connection answered with a
+// HelloRetryRequest (server.HRR) carrying a cookie.
+type Retry struct {
+	// Group is the group the HelloRetryRequest asked for.
+	Group profile.Code `json:"group"`
+	// Hello is the second ClientHello, and ClientHello it as sent, hex.
+	Hello       *profile.TLS `json:"hello"`
+	ClientHello string       `json:"clientHello"`
+}
+
 // DefaultScenario names the capture page profiles come from.
 const DefaultScenario = "page"
 

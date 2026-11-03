@@ -360,6 +360,23 @@ func (c *checker) checkTLS(t *TLS) {
 			c.add("tls.resumption.tls12", "needs session_ticket in the ClientHello")
 		}
 	}
+
+	if t.extension(ExtCookie) != nil {
+		c.add("tls.extensions", "the full ClientHello cannot carry cookie; tls.helloRetry places it in the second")
+	}
+
+	if h := t.HelloRetry; h != nil {
+		switch {
+		case (h.CookieAfter != nil) == h.CookieShuffled:
+			c.add("tls.helloRetry", "needs exactly one of cookieAfter and cookieShuffled")
+		case h.CookieShuffled && t.ExtensionOrder != ExtensionOrderShuffled:
+			c.add("tls.helloRetry.cookieShuffled", "needs a shuffled extension order")
+		case h.CookieAfter != nil && t.ExtensionOrder != ExtensionOrderFixed:
+			c.add("tls.helloRetry.cookieAfter", "needs a fixed extension order")
+		case h.CookieAfter != nil && t.extension(*h.CookieAfter) == nil:
+			c.add("tls.helloRetry.cookieAfter", "extension %s is not in the ClientHello", *h.CookieAfter)
+		}
+	}
 }
 
 // describe writes an extension body for a message.

@@ -225,6 +225,31 @@ func TestValidate(t *testing.T) {
 			want: "needs versions",
 		},
 		{
+			name: "helloRetry without a cookie rule",
+			mutate: func(t *testing.T, p *Spec) {
+				t.Helper()
+
+				p.TLS.HelloRetry = &HelloRetry{}
+			},
+			path: "tls.helloRetry",
+			want: "needs exactly one of cookieAfter and cookieShuffled",
+		},
+		{
+			name: "helloRetry cookie slot in a shuffled order",
+			mutate: func(t *testing.T, p *Spec) {
+				t.Helper()
+
+				after := ExtSignatureAlgorithms
+
+				p.TLS.ExtensionOrder = ExtensionOrderShuffled
+				p.TLS.HelloRetry = &HelloRetry{
+					CookieAfter: &after,
+				}
+			},
+			path: "tls.helloRetry.cookieAfter",
+			want: "needs a fixed extension order",
+		},
+		{
 			name: "typed extension with the wrong field",
 			mutate: func(t *testing.T, p *Spec) {
 				t.Helper()

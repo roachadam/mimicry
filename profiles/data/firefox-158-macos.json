@@ -258,6 +258,9 @@
         ],
         "padding": true
       }
+    },
+    "helloRetry": {
+      "cookieAfter": "0x000d"
     }
   },
   "http2": {

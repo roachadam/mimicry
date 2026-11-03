@@ -168,6 +168,9 @@
       ],
       "transportParametersBefore": "0x001b",
       "earlyDataBefore": "0x002b"
+    },
+    "helloRetry": {
+      "cookieAfter": "0x002b"
     }
   },
   "http2": {
