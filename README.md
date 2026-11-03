@@ -132,6 +132,7 @@ MIT, see [`LICENSE`](LICENSE). Some code is copied from other projects and keeps
 |---|---|---|
 | `internal/quic/` | `golang.org/x/net` v0.61.0, modified ([`UPSTREAM.md`](internal/quic/UPSTREAM.md)) | BSD-3-Clause and patent grant: [`LICENSE`](internal/quic/LICENSE), [`PATENTS`](internal/quic/PATENTS) |
 | `internal/zdeflate/` | zlib 1.3.1, Chromium's zlib and zlib-rs 0.6.3, ported to Go and altered | zlib licence and BSD-3-Clause: [`LICENSE-zlib`](internal/zdeflate/LICENSE-zlib), [`LICENSE-chromium`](internal/zdeflate/LICENSE-chromium), [`LICENSE-zlib-rs`](internal/zdeflate/LICENSE-zlib-rs) |
+| `internal/harness/cmd/releasewatch/testdata/root_store-152.0.7977.85.textproto` | Chromium's `net/data/ssl/chrome_root_store/root_store.textproto` at 152.0.7977.85, a test fixture, unmodified | BSD-3-Clause: [`LICENSE-chromium`](internal/harness/cmd/releasewatch/testdata/LICENSE-chromium) |
 
 Every Go dependency is under a permissive licence (MIT, BSD-3-Clause or Apache-2.0).
 

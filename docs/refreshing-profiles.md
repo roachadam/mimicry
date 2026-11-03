@@ -27,6 +27,32 @@ it with `-windows` (no default). Safari, Chrome and Firefox on iOS need an iPhon
 connected to this Mac by cable and on its Wi-Fi network: pass this Mac's
 IPv4 address on that network with `-listen`.
 
+## Knowing when to refresh
+
+A weekly workflow, [Release watch](../.github/workflows/release-watch.yml)
+(also run by hand from the Actions tab), runs `go run ./cmd/releasewatch` in
+`internal/harness/` and reports two things the profiles fall behind on:
+
+- A stable release newer than the newest profile of its browser on its
+  platform: Chrome on macOS, Windows and iOS (a new major; chromiumdash),
+  Firefox on macOS and Windows (a new major; Mozilla's product-details) and
+  Safari on macOS and iOS (any newer version with release notes, so 27.2
+  is newer than a profile at 27.0.1; Apple's Safari release notes). Mozilla
+  publishes no Firefox for iOS version, so nothing watches `firefox-*-ios`.
+- The newest Chrome profiles' trust anchors extension (0xca34) against the
+  `trust_anchor_id`s of Chromium's
+  `net/data/ssl/chrome_root_store/root_store.textproto` at that platform's
+  stable tag, naming the IDs added and removed.
+
+The alert is one open issue titled "Release watch: a browser release or
+Chrome trust anchors the profiles are behind on", labelled `fingerprint`.
+The workflow opens it, rewrites its description (with a comment, so
+subscribers hear of it) when the findings change, and closes it once it
+finds nothing. It never changes a profile: refresh as below, and the next
+run closes the issue. A feed it cannot read fails the run, which GitHub
+reports like any failed scheduled workflow. Run the command locally to see
+the same report on stdout.
+
 ## Two modes
 
 A new version rarely changes more than its version strings. Most of what a
