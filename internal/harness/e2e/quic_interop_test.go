@@ -306,6 +306,76 @@ var interopCases = []interopCase{
 		},
 	},
 	{
+		// A browser offers early_data only with a ticket that allows
+		// 0-RTT (max_early_data_size above 0): BoringSSL's
+		// should_offer_early_data, NSS's tls13_ClientAllow0Rtt, RFC 8446
+		// section 4.2.10. A's tickets allow none; B's, under the same
+		// ticket keys, do.
+		name:    "0rtt-offer-follows-ticket",
+		limit:   15 * time.Second,
+		zeroRTT: true,
+		server: backendOpts{
+			no0RTT: true,
+		},
+		run: func(e *interopEnv) {
+			e.warm()
+			e.newConnection()
+
+			info := e.get("/info")
+			if !info.Resumed || info.Used0RTT {
+				e.t.Fatalf("want A to resume without 0-RTT, got %+v", info)
+			}
+
+			without := e.backends[0].lastHello(e.t)
+
+			e.relay.SetTarget(e.backend(backendOpts{
+				name: "B",
+			}).target)
+			e.newConnection()
+
+			// A's ticket resumed at B, which issues one allowing 0-RTT.
+			if info := e.get("/info"); info.Backend != "B" || !info.Resumed || info.Used0RTT {
+				e.t.Fatalf("want B to resume A's ticket without 0-RTT, got %+v", info)
+			}
+
+			if got := e.backends[1].lastHello(e.t); slices.Contains(got, extEarlyData) {
+				e.t.Errorf("hello resuming A's ticket at B offers early_data: %v", got)
+			}
+
+			e.newConnection()
+
+			info = e.get("/info")
+			if info.Backend != "B" || !info.Resumed || !info.Used0RTT {
+				e.t.Fatalf("want B to resume with 0-RTT, got %+v", info)
+			}
+
+			with := e.backends[1].lastHello(e.t)
+
+			if slices.Contains(without, extEarlyData) || !slices.Contains(without, extPreSharedKey) {
+				e.t.Errorf("hello resuming a ticket without 0-RTT: %v, want pre_shared_key and no early_data", without)
+			}
+
+			if !slices.Contains(with, extEarlyData) || !slices.Contains(with, extPreSharedKey) {
+				e.t.Errorf("hello resuming a ticket allowing 0-RTT: %v, want pre_shared_key and early_data", with)
+			}
+
+			// Otherwise the resumed layout: the same order where the
+			// profile fixes it.
+			rest := slices.DeleteFunc(slices.Clone(with), func(t uint16) bool {
+				return t == extEarlyData
+			})
+			same := slices.Equal(rest, without)
+
+			if e.p.TLS.QUIC.ExtensionOrder == profile.ExtensionOrderShuffled {
+				same = sameSet(rest, without)
+			}
+
+			if !same {
+				e.t.Errorf("hellos differ by more than early_data: %v and %v", without, with)
+			}
+		},
+	},
+	{
 		name:    "0rtt-rejected",
 		limit:   15 * time.Second,
 		zeroRTT: true,
@@ -1663,6 +1733,8 @@ type backend struct {
 	mu            sync.Mutex
 	ends          []string
 	amplification float64
+	// hellos are the extension types of each ClientHello received.
+	hellos [][]uint16
 	// closed is closed when /close has closed its connection.
 	closed    chan struct{}
 	closeOnce sync.Once
@@ -1759,6 +1831,16 @@ func startBackend(opts backendOpts, cert tls.Certificate, ticketKey [32]byte) (*
 	tlsConf.SetSessionTicketKeys([][32]byte{
 		ticketKey,
 	})
+
+	tlsConf.GetConfigForClient = func(ch *tls.ClientHelloInfo) (*tls.Config, error) {
+		b.mu.Lock()
+
+		b.hellos = append(b.hellos, ungreased(ch.Extensions))
+
+		b.mu.Unlock()
+
+		return nil, nil //nolint:nilnil // nil keeps tlsConf (crypto/tls)
+	}
 
 	qconf := &quic.Config{
 		MaxIdleTimeout: cmp.Or(opts.idle, 30*time.Second),
@@ -2343,6 +2425,51 @@ func infoOf(b *backend, sc *serverConn, r *http.Request) connInfo {
 	info.Early = sc.ct.inZeroRTT(r.Context(), str.StreamID())
 
 	return info
+}
+
+const (
+	extPreSharedKey = 41
+	extEarlyData    = 42
+)
+
+// lastHello returns the extension types of the last ClientHello b
+// received that offered a ticket (pre_shared_key).
+func (b *backend) lastHello(t *testing.T) []uint16 {
+	t.Helper()
+
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	for _, h := range slices.Backward(b.hellos) {
+		if slices.Contains(h, extPreSharedKey) {
+			return h
+		}
+	}
+
+	t.Fatalf("backend %s received no hello offering a ticket", b.name)
+
+	return nil
+}
+
+// ungreased copies exts with every GREASE value (RFC 8701) as 0x0a0a, so
+// hellos compare whatever values they drew.
+func ungreased(exts []uint16) []uint16 {
+	out := make([]uint16, len(exts))
+	for i, t := range exts {
+		if t&0x0f0f == 0x0a0a && t>>8 == t&0xff {
+			t = 0x0a0a
+		}
+
+		out[i] = t
+	}
+
+	return out
+}
+
+// sameSet reports whether a and b hold the same extension types, in any
+// order (a shuffling profile reorders them per hello).
+func sameSet(a, b []uint16) bool {
+	return slices.Equal(slices.Sorted(slices.Values(a)), slices.Sorted(slices.Values(b)))
 }
 
 // interopPKI is the cases' certificates: a root the client trusts, the

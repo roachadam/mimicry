@@ -1171,7 +1171,7 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 	if e.resumesQUIC() {
 		cfg.Tickets, cfg.TicketKey = q.tickets, key
 		if cfg.Ticket = spec.ticket; cfg.Ticket != nil {
-			hello = e.plan.ResumedQUICHello()
+			hello = e.plan.ResumedQUICHello(cfg.Ticket.EarlyData())
 		} else {
 			rtt = 0
 		}

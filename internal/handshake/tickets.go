@@ -75,6 +75,18 @@ func (t *Ticket) Extra() [][]byte {
 	return s.Extra
 }
 
+// EarlyData reports whether the ticket allows 0-RTT: its
+// max_early_data_size is above 0. A browser offers early_data only then
+// (fingerprint.Plan.ResumedQUICHello).
+func (t *Ticket) EarlyData() bool {
+	_, s, err := t.state.ResumptionState()
+	if err != nil || s == nil {
+		return false
+	}
+
+	return s.EarlyData
+}
+
 // Take returns the ticket a new connection for key offers, or nil. TLS 1.3
 // tickets, and TLS 1.2 ones under single use, leave the store: concurrent
 // connections then resume one at a time. Expired tickets are dropped.

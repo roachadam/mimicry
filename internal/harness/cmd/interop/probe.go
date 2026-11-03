@@ -129,7 +129,7 @@ func (pr *prober) dial(ctx context.Context, host string, peer netip.AddrPort, im
 		}
 
 		if cfg.Ticket != nil {
-			hello = pr.plan.ResumedQUICHello()
+			hello = pr.plan.ResumedQUICHello(cfg.Ticket.EarlyData())
 			c.offeredPSK = true
 		} else {
 			rtt = 0
