@@ -793,6 +793,86 @@ func ExampleAltSvcCache() {
 	// saved: https://www.shop.test:443 h3 on port 443
 }
 
+// Chrome profiles answer a site's client hints opt-in as Chrome does: a
+// navigation's Accept-CH is kept for its origin (Config.ClientHintStore), and
+// later requests send the hints it asked for, with one machine's values
+// (Config.ClientHints; profiles.Machines lists the captured ones). A
+// Critical-CH hint the navigation lacked makes the client send it again.
+// See docs/concepts/client-hints.md.
+func ExampleConfig_clientHints() {
+	shop := startShop(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Printf("server: %s arch=%s platform-version=%s model=%s\n", r.URL.Path,
+			r.Header.Get("Sec-CH-UA-Arch"), r.Header.Get("Sec-CH-UA-Platform-Version"), r.Header.Get("Sec-CH-UA-Model"))
+
+		switch r.URL.Path {
+		case "/":
+			w.Header().Set("Accept-CH", "Sec-CH-UA-Arch, Sec-CH-UA-Platform-Version")
+		case "/checkout":
+			// The page needs Model to render: Chrome asks again at once.
+			w.Header().Set("Accept-CH", "Sec-CH-UA-Arch, Sec-CH-UA-Platform-Version, Sec-CH-UA-Model")
+			w.Header().Set("Critical-CH", "Sec-CH-UA-Model")
+		}
+	})
+	defer shop.Close()
+
+	// One of the captured Windows machines, picked once for this identity.
+	machine, ok := profiles.RandomMachine("windows")
+	if !ok {
+		panic("no captured Windows machine")
+	}
+
+	store := mimicry.NewClientHintStore()
+
+	client, err := mimicry.NewClient(mimicry.Config{
+		Profile:         profiles.ChromeWindows(),
+		ClientHints:     &machine,
+		ClientHintStore: store,
+		// Only to reach the local stand-in shop; nil for real sites.
+		RootCAs:     shop.RootCAs,
+		DialContext: shop.DialContext,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	get := func(path string, r mimicry.Request) {
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://www.shop.test"+path, nil)
+		if err != nil {
+			panic(err)
+		}
+
+		resp, err := client.Do(mimicry.With(req, r))
+		if err != nil {
+			panic(err)
+		}
+
+		_ = resp.Body.Close()
+	}
+
+	get("/", mimicry.Request{})
+	// The page's fetch() carries what its origin opted in to.
+	get("/api/cart", mimicry.Request{
+		Kind: mimicry.Fetch,
+	})
+	get("/checkout", mimicry.Request{})
+
+	// Saved beside the cookie jar, to resume this identity later
+	// (ReadJSON).
+	var saved bytes.Buffer
+	if err := store.WriteJSON(&saved); err != nil {
+		panic(err)
+	}
+
+	fmt.Print("saved: ", saved.String())
+
+	// Output:
+	// server: / arch= platform-version= model=
+	// server: /api/cart arch="x86" platform-version="10.0.0" model=
+	// server: /checkout arch="x86" platform-version="10.0.0" model=
+	// server: /checkout arch="x86" platform-version="10.0.0" model=""
+	// saved: {"https://www.shop.test":["sec-ch-ua-arch","sec-ch-ua-platform-version","sec-ch-ua-model"]}
+}
+
 // Certificate pinning: FetchPins lists a site's verified chain, and
 // Config.Pins pins a host to keys from it (usually the intermediate's). A
 // connection matching none fails with a *PinError before anything is sent.
