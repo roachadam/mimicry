@@ -1,6 +1,6 @@
 # 0042: The HTTP/2 opening is cut into TLS records as the browser cuts it
 
-- Status: Accepted; amended 2026-10-30 (preconnected connections)
+- Status: Accepted; amended 2026-10-30 (preconnected connections); amended 2026-11-04 (counted, kept not planned)
 - Date: 2026-10-28
 - Commits: `fc62d65`
 
@@ -126,3 +126,31 @@ when it connects. A preconnect option is not planned (the maintainer's
 decision, 2026-10-30): a navigation from another page, which mimicry
 already matches, is as common. Reopen if a vendor is seen checking the
 ACK-before-HEADERS order.
+
+## Amendment 2026-11-04: counted, kept not planned
+
+Issue [#80](https://github.com/roachadam/mimicry/issues/80) asked to
+revisit this with counts over every committed capture. What decides the
+order is whether a request waits when the connection comes up: every
+browser acknowledges the server's SETTINGS as soon as it reads them, so a
+connection whose first HEADERS leaves at once sends it before the ACK, and
+one whose request comes later sends the ACK first.
+
+- Safari 27 on macOS: the tab's first connection, for a page opened from
+  outside it, had its request 7–412 ms late (median 43) on 174 of 185;
+  1038 of its 1047 other connections sent HEADERS at once. Safari 26 on
+  macOS: 154 of 161 first connections late, 0 of 982 others. Firefox on
+  macOS: 192 of 212 first connections late.
+- Firefox on Windows, and Safari and Chrome on iOS: 32–67% of first
+  connections late, varying between samples of the same page: timing.
+- Chrome on macOS and Windows: 1 first connection late of 245.
+
+So the amendment of 2026-10-30 stands as measured: only a page opened from
+outside the tab differs. Every mimicry session starts with such a
+navigation (no `Request.From`), so a Safari or Firefox macOS profile's
+first connection to a site sends HEADERS before the ACK where the browser
+almost always sends the ACK first. Modelling it would hold that request
+until the server's SETTINGS are read, up to one round trip. The
+maintainer kept it not planned (2026-11-04): a frame-order detail no
+vendor is known to check, recorded as an intentional, known difference in
+EVIDENCE.md. Reopen on evidence of a vendor checking it.
