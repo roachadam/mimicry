@@ -5,7 +5,9 @@ Chrome sends three client hints with every secure request: `sec-ch-ua`,
 `Accept-CH`. These include the system version, CPU, screen, memory and
 network, and Chrome sends them from then on. mimicry's Chrome profiles do
 the same; Firefox and Safari ignore the opt-in, and so do their profiles.
-See [decision 0055](../decisions/0055-client-hints-opt-in.md).
+See [decision 0055](../decisions/0055-client-hints-opt-in.md), and
+`ExampleConfig_clientHints` in [`example_test.go`](../../example_test.go)
+for a runnable walk-through.
 
 ## What happens
 
