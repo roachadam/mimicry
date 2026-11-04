@@ -240,7 +240,7 @@ func fullVersionList(brands, full string) (string, bool) {
 			v = full
 		}
 
-		out[i] = m[1] + `;v="` + v + `"`
+		out[i] = m[1] + ";v=" + strconv.Quote(v)
 	}
 
 	return strings.Join(out, ", "), true
