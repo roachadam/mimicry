@@ -16,8 +16,9 @@ import (
 )
 
 // resolve returns how to send req as r describes it, from page from (nil:
-// none), with config (Config.Header, keys canonical) added.
-func resolve(p *profile.Spec, req *http.Request, r Request, from *url.URL, config http.Header) (*sending, error) {
+// none), with config (Config.Header, keys canonical) added and client hints
+// as hints says (nil: the list's).
+func resolve(p *profile.Spec, req *http.Request, r Request, from *url.URL, config http.Header, hints *hintsOut) (*sending, error) {
 	h := req.Header.Clone()
 	if h == nil {
 		h = http.Header{}
@@ -50,6 +51,10 @@ func resolve(p *profile.Spec, req *http.Request, r Request, from *url.URL, confi
 		return nil, fmt.Errorf("mimicry: %s requests take no stylesheet: CSS loads fonts and images", r.Kind)
 	}
 
+	if r.ClientHints < HintsDefault || r.ClientHints > HintsWithheld {
+		return nil, fmt.Errorf("mimicry: unknown Request.ClientHints %d", int(r.ClientHints))
+	}
+
 	var (
 		list, h1  []profile.Header
 		variants  []profile.Variant
@@ -60,6 +65,10 @@ func resolve(p *profile.Spec, req *http.Request, r Request, from *url.URL, confi
 	if r.Kind == Navigate {
 		if r.Priority != PriorityAuto || r.CrossOrigin != CrossOriginNone || r.Credentials != CredentialsSameOrigin || r.NoCORS {
 			return nil, errors.New("mimicry: a navigation takes no priority, crossorigin, credentials or mode")
+		}
+
+		if r.ClientHints != HintsDefault {
+			return nil, errors.New("mimicry: a navigation takes no Request.ClientHints: it sends what its own origin opted in to")
 		}
 
 		if from == nil && req.Method != http.MethodGet && req.Method != http.MethodHead {
@@ -417,6 +426,28 @@ func resolve(p *profile.Spec, req *http.Request, r Request, from *url.URL, confi
 		list, h1 = variants[i].Headers, variants[i].HTTP1
 	}
 
+	// The client hints the request's page opted in to join its list
+	// (decision 0055).
+	ownRun := false
+	if hints != nil {
+		nav := r.Kind == Navigate || r.Kind == Frame
+
+		var run *profile.HeaderTable
+
+		list, run = withHints(p.ClientHints, list, hints, nav, ctx.HeaderTable)
+		if len(h1) > 0 {
+			h1, _ = withHints(p.ClientHints, h1, hints, nav, ctx.HeaderTable)
+		}
+
+		if run != nil {
+			table, ownRun = run, true
+		}
+	}
+
+	if p.ClientHints != nil {
+		s.hints = sentHints(p.ClientHints, list)
+	}
+
 	s.cond, s.variant = cond, i
 	// A variant measured over HTTP/2 only has no HTTP/1.1 list, and one
 	// measured over HTTP/1.1 only on a script's navigations no slot for a
@@ -440,7 +471,7 @@ func resolve(p *profile.Spec, req *http.Request, r Request, from *url.URL, confi
 		}
 	}
 
-	if r.Kind == Navigate && i < 0 && len(values) == 0 && cond.Method == "" && !cond.Insecure {
+	if r.Kind == Navigate && i < 0 && len(values) == 0 && cond.Method == "" && !cond.Insecure && hints == nil {
 		// A typed GET navigation: the profile's own lists.
 		return s, nil
 	}
@@ -457,6 +488,7 @@ func resolve(p *profile.Spec, req *http.Request, r Request, from *url.URL, confi
 		HTTP3Only: h3Only,
 		Weight:    weight,
 		Table:     table,
+		OwnRun:    ownRun,
 		// fetch()'s Headers object lowercases names; XHR keeps the
 		// page's spelling (headers-order capture, over HTTP/1.1).
 		LowerOwn: r.Kind == Fetch,

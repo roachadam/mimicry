@@ -676,17 +676,20 @@ func buildHead(dst []hpack.Field, headers []profile.Header, h2p *profile.HTTP2, 
 		emptyData: empty && plan.EmptyData,
 	}
 
-	var table *profile.HeaderTable
+	var (
+		table  *profile.HeaderTable
+		ownRun bool
+	)
 
 	if plan != nil {
-		list, table = plan.Headers, plan.Table
+		list, table, ownRun = plan.Headers, plan.Table, plan.OwnRun
 		head.weight = plan.Weight
 	}
 
 	// Room for the usual list on the stack; head.fields is the copy kept.
 	var buf [32]headerorder.Field
 
-	built := headerorder.Build(buf[:0], list, headerorder.WithoutFraming(req.Header), sets, skipHeader, table)
+	built := headerorder.Build(buf[:0], list, headerorder.WithoutFraming(req.Header), sets, skipHeader, table, ownRun)
 	if empty && plan.ZeroContentLengthLast {
 		built = headerorder.ToEnd(built, "content-length")
 	}

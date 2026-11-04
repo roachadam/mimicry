@@ -171,6 +171,10 @@ type Spec struct {
 	// Context is how the browser fills what depends on which page makes a
 	// request. Nil: as the Fetch standard says, with no browser extras.
 	Context *Context `json:"context,omitempty"`
+	// ClientHints is how the browser answers a site's client hints opt-in.
+	// Nil: it sends only the hints its lists hold (Firefox, Safari, or the
+	// opt-in not captured).
+	ClientHints *ClientHints `json:"clientHints,omitempty"`
 	// Cookies are the browser's cookie rules. Required.
 	Cookies *Cookies `json:"cookies,omitempty"`
 	// Proxy is how the browser talks to HTTP and SOCKS5 proxies. Nil: not

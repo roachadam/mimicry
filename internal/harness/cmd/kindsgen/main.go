@@ -4,8 +4,8 @@
 //	go run ./cmd/kindsgen -captures testdata/captures -profile ../../profiles/data/chrome-155-macos.json
 //
 // It reads the profile's kinds, cookies, cors, cors-edge-cookies, redirects2,
-// nav-redirect, headers-order, websocket, h3-discovery, h3-page and
-// bodiless page captures (or the inherited ones, rewritten to the
+// nav-redirect, headers-order, websocket, h3-discovery, h3-page, bodiless
+// and client-hints page captures (or the inherited ones, rewritten to the
 // profile's version). It refuses to write when the captures disagree or a
 // request was captured over one protocol only.
 package main
@@ -75,6 +75,10 @@ func regenerate(data []byte, dir string) ([]byte, error) {
 
 	if err := deriveEmptyBodies(p, dir); err != nil {
 		return nil, fmt.Errorf("emptyBody: %w", err)
+	}
+
+	if err := deriveClientHints(p, dir); err != nil {
+		return nil, fmt.Errorf("clientHints: %w", err)
 	}
 
 	if p.Context.PreflightCache, err = preflightCache(pages.cors); err != nil {

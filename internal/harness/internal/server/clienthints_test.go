@@ -6,20 +6,25 @@ import (
 )
 
 // TestClientHintsPageChains checks that the client-hints page runs to the
-// end: every step is made by a document the page reaches (/ or an earlier
-// navigation), each document leads to at most one next navigation, no
-// two steps share a URL, and the delegation headers name the third party
-// on the page's port. A broken chain stalls every capture until its
+// end: every step is made by a document the page reaches (/, an earlier
+// navigation, or where an earlier redirect lands), each document leads to
+// at most one next navigation, no two steps share a URL, and the
+// delegation and redirect headers name the third party and the landing
+// step on the page's port. A broken chain stalls every capture until its
 // timeout.
 func TestClientHintsPageChains(t *testing.T) {
 	reached := map[string]bool{
 		"/": true,
 	}
+	landings := map[string]bool{}
 	navigates := map[string]int{}
 	urls := map[string]bool{}
 
 	for _, s := range hintSteps() {
-		if !reached[s.Page] {
+		switch {
+		case s.Page == "" && !landings[s.Label]:
+			t.Errorf("%s: made by no page, and no earlier redirect lands on it", s.Label)
+		case s.Page != "" && !reached[s.Page]:
 			t.Errorf("%s: made by %s, which no earlier step navigates to", s.Label, s.Page)
 		}
 
@@ -30,9 +35,17 @@ func TestClientHintsPageChains(t *testing.T) {
 
 		urls[url] = true
 
-		if s.Kind == "navigate" {
-			navigates[s.Page]++
+		if s.Kind != "navigate" {
+			continue
+		}
 
+		if s.Page != "" {
+			navigates[s.Page]++
+		}
+
+		if s.Redirect != "" {
+			landings[s.Redirect] = true
+		} else {
 			reached[s.Path()] = true
 		}
 	}
@@ -54,6 +67,9 @@ func TestClientHintsPageChains(t *testing.T) {
 		{chHost, "/h3/optin.nav", "accept-ch"},
 		{chCritical, "/h3/crit.nav", "critical-ch"},
 		{chHost, "/h3/clear.nav", "clear-site-data"},
+		{chSub, "/h3/r-ach-hop.nav", "accept-ch"},
+		{chSub, "/h3/r-ach-hop.nav", "location"},
+		{chHost, "/h3/r-csd.fetch", "clear-site-data"},
 	} {
 		var value string
 

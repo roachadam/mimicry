@@ -131,6 +131,9 @@ type Config struct {
 	// coalesces onto another host's HTTP/2 connection. An error fails the
 	// handshake or keeps the request off that connection.
 	VerifyConnection func(host string, cs tls.ConnectionState) error
+	// OnConnect, when set, is told each TCP connect's duration
+	// (dial.Dialer.OnConnect), which the rtt client hint estimates from.
+	OnConnect func(time.Duration)
 }
 
 // Engine is the pure-Go engine: pooled connections, one dial path, uTLS
@@ -248,6 +251,7 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 			UserAgent:           userAgent(p),
 			BrowserAuth:         cfg.BrowserProxyAuth,
 			HTTP3ReadBufferSize: cfg.HTTP3ReadBufferSize,
+			OnConnect:           cfg.OnConnect,
 		},
 		proxy:            cfg.Proxy,
 		lookup:           lookupFunc(cfg.Resolver),

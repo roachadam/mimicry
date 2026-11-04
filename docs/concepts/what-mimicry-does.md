@@ -6,9 +6,9 @@ follows redirects, sends CORS preflights, reuses connections and switches
 to HTTP/3. mimicry does them too. This page lists each one: what happens,
 why, and how to change it.
 
-mimicry sends no request you did not ask for, apart from redirect hops and
-CORS preflights. Everything else is connection-level traffic, as a browser
-makes it.
+mimicry sends no request you did not ask for, apart from redirect hops,
+CORS preflights and a navigation Chrome restarts for client hints.
+Everything else is connection-level traffic, as a browser makes it.
 
 Four defaults differ from the browser ([README](../../README.md#deviations-from-the-browser)): the 30 s request timeout, the 90 s idle close, and these two, because the browser's way costs noticeable time and is unlikely to be checked:
 - when QUIC fails, mimicry falls back to TCP sooner
@@ -28,6 +28,7 @@ it, use [`Transport.Plan`](how-a-request-is-built.md#5-seeing-it-before-it-is-se
 | [Redirects](#redirects) | one request per hop | `http.Client.CheckRedirect` |
 | [CORS preflights](#cors-preflights) | an `OPTIONS` before some cross-origin requests | `Exact`; `Request.NoCORS` |
 | [Cookies](#cookies) | none | `Config.Cookies`; a `Cookie` header; `Request.Credentials` |
+| [Client hints](#client-hints) | a navigation sent again once, on `Critical-CH` (Chrome) | `Exact`; `Config.ClientHintStore` |
 | [Response decoding](#response-decoding) | none | `Config.DisableDecompression` |
 | [Connection reuse and limits](#connection-reuse-and-limits) | fewer connections; idle ones closed after 90 s | `Config.MaxConnsPerHost`; `Config.IdleConnTimeout` |
 | [Retries](#retries-on-another-connection) | the same request again | none |
@@ -122,6 +123,29 @@ browser would send them.
 - `NewTransport` with no `Config.Cookies` keeps no cookies.
 - A `Cookie` header on the request is sent instead of the jar's.
 - `Request.Credentials` sets a `Fetch` or `XHR` request's credentials mode.
+
+## Client hints
+
+**What happens.** With a Chrome profile, a navigation's `Accept-CH` (a
+redirect's too) is stored for its origin, and later requests send the
+hints it asked for, with the captured machine's values. A GET navigation
+or redirect whose response's `Critical-CH` names a hint it did not send is
+sent again once, on the same connection; `RoundTrip` returns the second
+response. `Clear-Site-Data: "clientHints"` on any response forgets the
+origin's hints. Firefox and Safari profiles ignore all of it, as the
+browsers do. See [client hints](client-hints.md).
+
+**Why.** Bot-management vendors opt in to high-entropy hints and check
+that a Chrome answers as Chrome does.
+
+**How to change it.**
+- `Config.ClientHintStore` keeps the opt-ins: share or save it with the
+  cookie jar.
+- `Config.ClientHints` picks the machine the hints describe
+  (`profiles.Machines`, `profiles.RandomMachine`).
+- `Request.ClientHints` says whether a page delegates its hints to another
+  origin.
+- `Exact` requests neither send stored hints nor learn or restart.
 
 ## Response decoding
 

@@ -327,6 +327,10 @@ linters:
       ignore:
         - "00"
         - ff
+    misspell:
+      # ECT is the effective connection type client hint (ect), not "etc".
+      ignore-rules:
+        - ect
     thelper:
       # A testing.TB parameter is named t like the *testing.T ones.
       tb:

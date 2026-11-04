@@ -9,7 +9,8 @@ type Planned struct {
 
 // QuickScenarios are the fingerprint layer a quick refresh recaptures for
 // every new browser version: hellos, SETTINGS and request headers per
-// transport. Hellos get three samples (they vary per connection); other
+// transport, and the client hints, whose full version moves with every
+// release. Hellos get three samples (they vary per connection); other
 // scenarios inherit captures through the profile's capturesFrom.
 var QuickScenarios = []Planned{
 	{
@@ -50,6 +51,10 @@ var QuickScenarios = []Planned{
 	},
 	{
 		Scenario: HRR,
+		Samples:  3,
+	},
+	{
+		Scenario: ClientHints,
 		Samples:  3,
 	},
 }

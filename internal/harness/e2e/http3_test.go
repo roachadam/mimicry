@@ -204,6 +204,8 @@ func h3Steps(sc *server.Scenario) []server.H3Step {
 		return server.H3StreamsBlockedSteps()
 	case server.Bodiless:
 		return server.BodilessSteps()
+	case server.ClientHints:
+		return server.ClientHintsSteps()
 	}
 
 	return server.H3DiscoverySteps()
@@ -305,11 +307,17 @@ func runH3PageWith(t *testing.T, p *profile.Spec, sc *server.Scenario, browser *
 				method, r, h := h3StepRequest(st, page)
 				s.send(method, target, r, h, st.Body)
 
+				// A redirect's next document is where it lands.
+				next = st.Path()
+				if i := slices.IndexFunc(steps, func(l server.H3Step) bool {
+					return st.Redirect != "" && l.Label == st.Redirect
+				}); i >= 0 {
+					target, next = s.url(steps[i].Host, steps[i].Path()), steps[i].Path()
+				}
+
 				if page, err = url.Parse(target); err != nil {
 					t.Fatal(err)
 				}
-
-				next = st.Path()
 
 				break
 			}
@@ -619,8 +627,9 @@ func sendH3Step(s *pageSession, st server.H3Step, page *url.URL) {
 }
 
 // h3StepRequest is how the page at page makes st's request: its method,
-// how mimicry sends it (kind, page, credentials, mode, priority), and the
-// page's own headers.
+// how mimicry sends it (kind, page, credentials, mode, priority, whether
+// the page delegates its client hints: server.ClientHintsDelegation), and
+// the page's own headers.
 func h3StepRequest(st server.H3Step, page *url.URL) (string, mimicry.Request, http.Header) {
 	kinds := map[string]mimicry.Kind{
 		"script": mimicry.InjectedScript,
@@ -687,6 +696,7 @@ func h3StepRequest(st server.H3Step, page *url.URL) (string, mimicry.Request, ht
 		Credentials: map[string]mimicry.Credentials{"": mimicry.CredentialsSameOrigin, "include": mimicry.CredentialsInclude, "omit": mimicry.CredentialsOmit}[st.Credentials],
 		NoCORS:      st.Mode == "no-cors",
 		Priority:    map[string]mimicry.Priority{"": mimicry.PriorityAuto, "high": mimicry.PriorityHigh, "low": mimicry.PriorityLow}[st.Priority],
+		ClientHints: map[string]mimicry.HintDelegation{"": mimicry.HintsDefault, "delegated": mimicry.HintsDelegated, "withheld": mimicry.HintsWithheld}[server.ClientHintsDelegation(st)],
 	}, h
 }
 
@@ -708,44 +718,14 @@ func (x h3Transport) String() string {
 	return s
 }
 
-// transports maps each path (at its first sending) to how it went.
+// transports maps each path (at its first sending, wireRequests' order) to
+// how it went.
 func transports(page *capture.Page) map[string]h3Transport {
 	out := map[string]h3Transport{}
-	seen := map[string]int{}
 
-	for _, tr := range page.H2 {
-		i := seen[tr.Host]
-		seen[tr.Host]++
-
-		for _, r := range tr.Requests {
-			if _, ok := out[r.Path]; !ok {
-				out[r.Path] = h3Transport{
-					proto: "h2",
-					host:  tr.Host,
-					conn:  i,
-				}
-			}
-		}
-	}
-
-	seen = map[string]int{}
-	for _, c := range page.QUIC {
-		i := seen[c.Host]
-		seen[c.Host]++
-
-		if c.H3 == nil {
-			continue
-		}
-
-		for _, r := range c.H3.Requests {
-			if _, ok := out[r.Path]; !ok {
-				out[r.Path] = h3Transport{
-					proto: "h3",
-					host:  c.Host,
-					conn:  i,
-					early: c.EarlyData,
-				}
-			}
+	for _, w := range wireRequests(page) {
+		if _, ok := out[w.path]; !ok {
+			out[w.path] = w.via
 		}
 	}
 
@@ -933,10 +913,29 @@ var h3Gaps = map[string]string{
 	"firefox-159-ios/h3-page transport /h3/beacon.so":                                   iosBeacon,
 	"firefox-159-ios/h3-page QUIC www.h3-a.test QUIC #1 starts with its TCP connection": iosBeacon,
 	"firefox-159-ios/h3-page QUIC www.h3-a.test connections":                            iosBeacon,
+	// The client-hints page (TestClientHintsMatchesBrowser).
+	"chrome-156-macos/client-hints transport /h3/b.nav #1":              noSitePartition,
+	"chrome-156-macos/client-hints transport /h3/b.fetch #1":            noSitePartition,
+	"chrome-156-windows/client-hints transport /h3/b.nav #1":            noSitePartition,
+	"chrome-156-windows/client-hints transport /h3/b.fetch #1":          noSitePartition,
+	"firefox-159-macos/client-hints transport /h3/b.nav #1":             noSitePartition,
+	"firefox-159-macos/client-hints transport /h3/b.fetch #1":           noSitePartition,
+	"safari-27-macos/client-hints transport /h3/b.nav #1":               noSitePartition,
+	"safari-27-macos/client-hints transport /h3/b.fetch #1":             noSitePartition,
+	"chrome-156-macos/client-hints header list /h3/next.width-img #1":   noWidth,
+	"chrome-156-windows/client-hints header list /h3/next.width-img #1": noWidth,
 }
 
 // iosBeacon is the iPhone's beacon gap (h3Gaps).
 const iosBeacon = "the iPhone sent the beacon over HTTP/3, on a QUIC connection of its own beside the page's HTTP/2 one (3 of 3); Safari's kinds other than fetch() are not measured over HTTP/3, so mimicry keeps it on TCP"
+
+// noSitePartition is the client-hints page's top-level navigation to the
+// third party's gap (h3Gaps), in every browser.
+const noSitePartition = "the top-level navigation to www.ch-b.test (and its page's fetch) went on a connection of its own in every sample, partitioned by top-level site; mimicry has no top-level-site partition and reuses the connection the third party's subresources from www.ch-a.test went on (EVIDENCE.md: No top-level-site partition; decision 0011)"
+
+// noWidth is Chrome's Width gap on the client-hints page (h3Gaps): its
+// header list is otherwise the browser's (compareHintRequests).
+const noWidth = "Chrome sent width and sec-ch-width (the image's layout width from its sizes, 100 on macOS, 50 on Windows; 3 of 3 samples each) on the <img srcset sizes> of an origin that opted in; mimicry has no sizes or layout width, so sends neither, and the rest of the header list is Chrome's"
 
 // firefoxFont is Firefox's FontFace gap (h3Gaps), on macOS and Windows.
 const firefoxFont = "FontFace loads are no request kind of mimicry's (the kinds test skips them too): its Font kind is a stylesheet's @font-face load, which Firefox sends with accept-encoding identity"

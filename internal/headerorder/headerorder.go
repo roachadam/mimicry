@@ -45,6 +45,11 @@ type Plan struct {
 	// Table is the browser's header table for the page's own headers
 	// (fetch() and XHR); nil places them as the lists say.
 	Table *profile.HeaderTable
+	// OwnRun orders the list's table members by Table even when the page
+	// set no header of its own: a request carrying the client hints its
+	// page opted in to, which the list holds in the order they enter the
+	// table (decision 0055).
+	OwnRun bool
 	// LowerOwn sends the headers the lists do not name lowercase over
 	// HTTP/1.1 (fetch()), not as the caller spelled them.
 	LowerOwn bool
@@ -135,10 +140,12 @@ func Framing(name string) bool {
 //     headers go at profile.OtherHeaders, else in table order (TableOrder),
 //     else after the rest, sorted by name;
 //   - names compare case-insensitively;
-//   - skip names headers never to send (connection-level ones).
+//   - skip names headers never to send (connection-level ones);
+//   - with ownRun, table orders the list's members even when h adds no
+//     header of its own (Plan.OwnRun).
 //
 // h is only read, so a caller need not copy it to change it: sets do.
-func Build(dst []Field, prof []profile.Header, h http.Header, sets []Set, skip func(name string) bool, table *profile.HeaderTable) []Field {
+func Build(dst []Field, prof []profile.Header, h http.Header, sets []Set, skip func(name string) bool, table *profile.HeaderTable, ownRun bool) []Field {
 	// A key present with no values suppresses the profile's default: it stays
 	// in the map with nothing to send.
 	values := make(map[string][]string, len(h))
@@ -263,7 +270,7 @@ func Build(dst []Field, prof []profile.Header, h http.Header, sets []Set, skip f
 		}
 	}
 
-	tabled := tableRun(table, order, rest, func(name string) bool {
+	tabled := tableRun(table, order, rest, ownRun, func(name string) bool {
 		if skip(name) {
 			return false
 		}
@@ -399,8 +406,9 @@ func Replaced(prof []profile.Header, h http.Header) (replaced []Replacement, dro
 
 // tableRun returns the table-ordered run for a request with list order
 // and own headers rest, or nil when no table applies (no table, an
-// OtherHeaders slot, or TableOrder cannot hold the list).
-func tableRun(table *profile.HeaderTable, order, rest []string, sends func(string) bool) []string {
+// OtherHeaders slot, no header of the page's own unless ownRun, or
+// TableOrder cannot hold the list).
+func tableRun(table *profile.HeaderTable, order, rest []string, ownRun bool, sends func(string) bool) []string {
 	if table == nil || slices.Contains(order, profile.OtherHeaders) {
 		return nil
 	}
@@ -412,7 +420,7 @@ func tableRun(table *profile.HeaderTable, order, rest []string, sends func(strin
 		}
 	}
 
-	if len(page) == 0 {
+	if len(page) == 0 && !ownRun {
 		return nil
 	}
 

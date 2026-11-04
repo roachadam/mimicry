@@ -69,6 +69,7 @@ Runnable examples are in [`example_test.go`](example_test.go).
 
 - **Other request kinds:** `Script`, `Style`, `Image`, `XHR` and more work like `Fetch`. `mimicry.With` sets the page a request comes from.
 - **Cookies:** each client has a jar with the browser's rules. [Cookies](docs/concepts/cookies.md)
+- **Client hints:** Chrome profiles honour a site's `Accept-CH`, `Critical-CH` and `Clear-Site-Data` as Chrome does, with a captured machine's values. [Client hints](docs/concepts/client-hints.md)
 - **Proxies:** `http`, `socks5` and `socks5h`, chosen per request with `Config.Proxy`. [Proxies](docs/concepts/proxies.md)
 - **Your own headers:** they go where a page's script would put them. [How a request is built](docs/concepts/how-a-request-is-built.md)
 - **Certificate pins:** `go run github.com/roachadam/mimicry/cmd/pins https://example.com/`, then `Config.Pins`.

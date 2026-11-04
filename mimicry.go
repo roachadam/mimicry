@@ -123,6 +123,21 @@ type Config struct {
 	// one and NewTransport sends no cookies. Set it to share or seed
 	// cookies.
 	Cookies *cookies.Jar
+	// ClientHintStore keeps the client hints each origin opted in to
+	// (Accept-CH), which later requests then send as the browser does, a
+	// Critical-CH restart included. Nil, the default, keeps one per
+	// Transport. Set it, as Cookies, to share or save an identity's
+	// (NewClientHintStore). Profiles of browsers that ignore the opt-in
+	// (Firefox, Safari) never use it. See docs/concepts/client-hints.md.
+	ClientHintStore ClientHintStore
+	// ClientHints is the machine the client hints describe once a site
+	// opts in: its system version, CPU, screen and preferences. Nil, the
+	// default, is the profile's captured machine; profiles.Machines and
+	// profiles.RandomMachine give the other captured ones. Keep one per
+	// identity: a machine that changes is a tell. NewTransport rejects an
+	// invalid one with a *profile.ValidationError; profiles that send no
+	// opted-in hints ignore it.
+	ClientHints *profile.Machine
 
 	// Responses.
 
@@ -244,9 +259,23 @@ type Transport struct {
 	// lastNav is the URL of the last navigation sent: the page other kinds
 	// come from by default.
 	lastNav atomic.Pointer[url.URL]
+	// lastPage holds the client hints the last navigation's page loaded
+	// with, which its subresources send (pageHints).
+	lastPage atomic.Pointer[pageHints]
 	// preflights remembers successful CORS preflights; clock times them.
 	preflights cors.Cache
 	clock      clockwork.Clock
+	// hintStore and machine are Config.ClientHintStore (or the
+	// Transport's own) and Config.ClientHints (or the profile's), set
+	// when the profile sends opted-in client hints (profile.ClientHints).
+	hintStore ClientHintStore
+	machine   *profile.Machine
+	// connectRTT is the last TCP connect's duration, in nanoseconds:
+	// the rtt client hint's estimate. Its own allocation: the engine
+	// writes it without referring to t.
+	connectRTT *atomic.Int64
+	// netHints holds each noiseKey's network hint values (netHints).
+	netHints sync.Map
 }
 
 // specOf returns the checked, read-only Spec a profile.Profile holds, or
@@ -305,8 +334,28 @@ func NewTransport(cfg Config) (*Transport, error) {
 		pins:             &pinned,
 		raw:              cfg.DisableDecompression,
 		clock:            clockwork.NewRealClock(),
+		connectRTT:       new(atomic.Int64),
 	}
+	if ch := p.ClientHints; ch != nil {
+		t.hintStore, t.machine = cfg.ClientHintStore, &ch.Machine
+		if t.hintStore == nil {
+			t.hintStore = NewClientHintStore()
+		}
+
+		if m := cfg.ClientHints; m != nil {
+			if err := m.Validate(); err != nil {
+				return nil, err
+			}
+
+			own := *m
+
+			own.FormFactors = slices.Clone(m.FormFactors)
+			t.machine = &own
+		}
+	}
+
 	if t.engine == nil {
+		rtt := t.connectRTT
 		ncfg := native.Config{
 			Profile:             p,
 			RootCAs:             cfg.RootCAs,
@@ -326,7 +375,11 @@ func NewTransport(cfg Config) (*Transport, error) {
 			HTTP3ACKEvery:       cfg.HTTP3ACKEvery,
 			BrowserProxyAuth:    cfg.BrowserProxyAuth,
 			VerifyConnection:    t.verifier(cfg.VerifyConnection),
+			OnConnect: func(d time.Duration) {
+				rtt.Store(int64(d))
+			},
 		}
+
 		if cfg.AltSvc != nil {
 			ncfg.AltSvc = cfg.AltSvc.c
 		}
@@ -414,7 +467,13 @@ func followRedirects(*http.Request, []*http.Request) error {
 // or PATCH method and body, and chains stop after the browser's limit. A
 // cross-origin CORS request whose redirect does not allow its origin
 // returns a *CORSError instead, unless Request.IgnoreCORS.
+//
+// A navigation's response records its origin's client hints opt-in
+// (Config.ClientHintStore) where the browser does; one whose Critical-CH
+// names a hint the navigation did not send is sent again with it, once,
+// as Chrome restarts it, and only the second response is returned.
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
+	orig := req
 	r, exact := madeAs(req)
 	req, o, err := t.outgoing(req, r, exact, toSend)
 
@@ -441,6 +500,20 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	if err == nil && t.jar != nil && s.credentialed {
 		t.jar.SetCookies(s.cookies, resp.Header.Values("Set-Cookie"))
+	}
+
+	if err == nil && !exact {
+		t.clearHints(req, resp)
+	}
+
+	if err == nil && r.Kind == Navigate && !exact && t.learnHints(req, resp, s) {
+		// Critical-CH: the browser drops this response, a redirect's
+		// too, and asks again, on the same connection once the body is
+		// read.
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
+		_ = resp.Body.Close()
+
+		return t.RoundTrip(orig.WithContext(context.WithValue(orig.Context(), criticalRestartKey{}, true)))
 	}
 
 	if err == nil && !r.IgnoreCORS {
@@ -624,7 +697,7 @@ func (t *Transport) prepare(req *http.Request, r Request, exact bool) (*sending,
 		from = t.pageFor(req.URL)
 	}
 
-	s, err := resolve(t.profile, req, r, from, t.headers)
+	s, err := resolve(t.profile, req, r, from, t.headers, t.hintsFor(req, r, from))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -697,7 +770,7 @@ func (t *Transport) preflightFor(req *http.Request, r Request, from *url.URL, cr
 
 	s, err := resolve(t.profile, pre, Request{
 		Kind: Preflight,
-	}, from, t.preflightHeaders)
+	}, from, t.preflightHeaders, nil)
 	if err != nil {
 		return true, nil, err
 	}
@@ -767,11 +840,18 @@ func (t *Transport) hopPreflight(req *http.Request, could bool) (bool, error) {
 	return t.profile.Redirects.HopPreflight == profile.RedirectPreflightInherit, nil
 }
 
-// finish records the last navigation and decodes the body, as RoundTrip
-// describes.
+// finish records the last navigation (and its page's client hints) and
+// decodes the body, as RoundTrip describes.
 func (t *Transport) finish(req *http.Request, r Request, exact bool, resp *http.Response, err error) (*http.Response, error) {
 	if err == nil && r.Kind == Navigate && !exact {
 		t.lastNav.Store(req.URL)
+
+		if t.hintStore != nil {
+			t.lastPage.Store(&pageHints{
+				url:   req.URL.String(),
+				hints: t.hintStore.ClientHints(origin(req.URL)),
+			})
+		}
 	}
 
 	if err != nil || t.raw || !hasBody(req, resp) {
