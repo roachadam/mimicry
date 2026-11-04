@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/net/http2/hpack"
+
 	"github.com/roachadam/mimicry/internal/harness/internal/capture"
 	"github.com/roachadam/mimicry/internal/harness/internal/quictrace"
 	"github.com/roachadam/mimicry/profile"
@@ -251,12 +253,17 @@ func H3PageSteps() []H3Step {
 
 // h3Page serves an h3 page's documents and steps, advertising HTTP/3 except
 // on plainHosts. The page starts at / on its first host. With doneHost,
-// /done goes there (a TCP-only host).
+// /done goes there (a TCP-only host). With headers, each response also
+// carries what it returns for its host, port and path (without the query);
+// with head, each document's head also holds what it returns for the
+// document's path and port.
 type h3Page struct {
 	fixedHosts
 	steps      func() []H3Step
 	plainHosts []string
 	doneHost   string
+	headers    func(host, port, path string) []hpack.HeaderField
+	head       func(path, port string) string
 }
 
 func (p h3Page) answer(req request) response {
@@ -274,6 +281,10 @@ func (p h3Page) answer(req request) response {
 
 	if !slices.Contains(p.plainHosts, host) {
 		r.headers = append(r.headers, altSvc(port))
+	}
+
+	if p.headers != nil {
+		r.headers = append(r.headers, p.headers(host, port, path)...)
 	}
 
 	return r
@@ -336,6 +347,10 @@ func (p h3Page) document(path, port string) []byte {
 		default:
 			fmt.Fprintf(&head, s.Tag+"\n", s.URL)
 		}
+	}
+
+	if p.head != nil {
+		head.WriteString(p.head(path, port))
 	}
 
 	stepsJSON := mustJSON(steps)
