@@ -80,6 +80,7 @@ func discovery(s *captureSet, e *collector) profile.Discovery {
 
 				delays = append(delays, int(quic-tcp))
 
+			case s.pinned(dp.at + ", " + q.Host + ": raceAfterGoAway"):
 			default:
 				alone++
 			}

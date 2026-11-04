@@ -14,10 +14,14 @@ import (
 )
 
 // deriveHTTP3 derives the http3 section, Headers aside, from every
-// connection that completed its handshake.
+// connection that completed its handshake, but those pinned "http3":
+// closed before their control stream reached the server, they show
+// nothing of it.
 func deriveHTTP3(s *captureSet) (*profile.HTTP3, error) {
 	e := &collector{}
-	done := s.done()
+	done := slices.DeleteFunc(s.done(), func(c *conn) bool {
+		return controlStream(c) == nil && s.gap(c, "http3")
+	})
 
 	if len(done) == 0 {
 		e.add(s.conns[0], "no QUIC connection completed its handshake")

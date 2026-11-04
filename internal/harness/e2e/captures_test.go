@@ -303,6 +303,7 @@ var missingCaptures = withTwinsMissing(map[string]string{
 	testprofiles.InheritingName + ".bodiless.pagetrace.json.gz": "chrome-155-macos, whose captures it inherits, has none",
 	"chrome-156-windows.bodiless.pagetrace.json.gz":             "bodiless was captured on macOS only (2026-11-03); not yet on the Windows PC",
 	"firefox-158-windows.bodiless.pagetrace.json.gz":            "bodiless was captured on macOS only (2026-11-03); not yet on the Windows PC",
+	"firefox-159-windows.bodiless.pagetrace.json.gz":            "bodiless was captured on macOS only (2026-11-03); not yet on the Windows PC",
 	"safari-26-macos.bodiless.pagetrace.json.gz":                "bodiless was captured with Safari 27 only (2026-11-03); not yet on the macOS 26 Mac",
 	// hrr (2026-11-03) was captured from Chrome 156 and Safari 27 on the
 	// capture Mac and Firefox 158 on the macOS 26 Mac.
