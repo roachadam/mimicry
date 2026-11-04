@@ -528,6 +528,22 @@ navigation 2 s later (over HTTP/3 by then): whether each sends
 need `-h3-local-roots` for its HTTP/3 half; kindsgen derives `emptyBody`
 from it and `TestBodilessMatchesBrowser` replays it.
 
+`client-hints` starts on `www.ch-a.test` with no opt-in (the low-entropy
+baseline, and a fetch whose response's `Accept-CH` a subresource cannot
+set), then a navigation answering `Accept-CH` for every hint Chrome knows:
+its document's fetch, image, script and iframes, to its own origin,
+`sub.ch-a.test` and the third party `www.ch-b.test`, the next navigation,
+navigations to the other two, delegation to the third party through
+`Permissions-Policy` and through a `Delegate-CH` meta tag, a narrower
+`Accept-CH`, and `Clear-Site-Data: "clientHints"`. On a fresh site,
+`www.ch-k.test`, navigations answer `Critical-CH` (a hint not yet sent,
+one already sent, one `Permissions-Policy` disables, `Width`, `Save-Data`,
+an unknown one), the same answer every time, so a restart that loops
+shows; then `Clear-Site-Data: "*"`. The opt-in with `Critical-CH` follows
+over HTTP/1.1 (`www.ch-h1.test`) and HTTP/3 (`www.ch-h3.test`, as
+`bodiless`). Chrome and Firefox need `-h3-local-roots`. Not modelled yet
+([#62](https://github.com/roachadam/mimicry/issues/62)).
+
 ## Deriving a profile
 
 A built-in profile is a JSON file in `profiles/data/`; its accessors are

@@ -268,6 +268,7 @@ var Scenarios = []*Scenario{
 	H3StreamsBlocked,
 	Bodiless,
 	HRR,
+	ClientHints,
 }
 
 // ScenarioByName finds a scenario.

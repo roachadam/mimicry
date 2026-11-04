@@ -312,6 +312,17 @@ var missingCaptures = withTwinsMissing(map[string]string{
 	"chrome-156-windows.hrr.pagetrace.json.gz":             "hrr was captured on macOS only (2026-11-03); not yet on the Windows PC",
 	"firefox-158-windows.hrr.pagetrace.json.gz":            "hrr was captured on macOS only (2026-11-03); not yet on the Windows PC",
 	"safari-26-macos.hrr.pagetrace.json.gz":                "hrr was captured with Safari 27 only (2026-11-03); not yet on the macOS 26 Mac",
+	// client-hints (2026-11-03) was captured from Chrome 156 and Safari 27
+	// on the capture Mac, Chrome 156 on the Windows PC and Firefox 159 on
+	// the macOS 26 Mac. The Windows PC's Chrome was 156.0.8078.81 (its
+	// full-version hints say so); chrome-156-windows and the macOS capture
+	// are .80.
+	"chrome-155-macos.client-hints.pagetrace.json.gz":               "client-hints came after Chrome 155, no longer installable as branded Chrome",
+	testprofiles.InheritingName + ".client-hints.pagetrace.json.gz": "chrome-155-macos, whose captures it inherits, has none",
+	"firefox-158-macos.client-hints.pagetrace.json.gz":              "client-hints was captured with Firefox 159 only (2026-11-03)",
+	"firefox-158-windows.client-hints.pagetrace.json.gz":            "client-hints was captured with Firefox 159 on macOS only (2026-11-03)",
+	"firefox-159-windows.client-hints.pagetrace.json.gz":            "client-hints was captured with Firefox 159 on macOS only (2026-11-03); not yet on the Windows PC",
+	"safari-26-macos.client-hints.pagetrace.json.gz":                "client-hints was captured with Safari 27 only (2026-11-03); not yet on the macOS 26 Mac",
 }, map[string]string{
 	// The cookie twins (server.CookieTwins) came after Chrome 155, which
 	// is no longer installable as branded Chrome; capturesFrom names only
