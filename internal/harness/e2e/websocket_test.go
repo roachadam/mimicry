@@ -99,7 +99,12 @@ func runWebSocketScenario(t *testing.T, name string, sc *server.Scenario, browse
 	got, seen := runWebSocketPage(t, s, sockets, steps)
 	for _, st := range sockets {
 		t.Run(st.Label, func(t *testing.T) {
-			checkSocket(t, p, st, steps, got, want, seen[st.Label], webSocketEndGaps[capture.Source(p, sc.Name)+"/"+sc.Name+" "+st.Label])
+			gap, ok := webSocketEndGaps[p.Name+"/"+sc.Name+" "+st.Label]
+			if !ok {
+				gap = webSocketEndGaps[capture.Source(p, sc.Name)+"/"+sc.Name+" "+st.Label]
+			}
+
+			checkSocket(t, p, st, steps, got, want, seen[st.Label], gap)
 
 			if px != nil && browserAuth {
 				checkProxyRoute(t, st, px.Requests(), got, wantProxy, want)
@@ -569,12 +574,29 @@ func checkSocket(t *testing.T, p *profile.Spec, st server.WebSocketStep, steps [
 }
 
 // webSocketEndGaps are sockets whose transport ends unlike the browser's,
-// by "<profile>/<scenario> <label>" (the profile that took the capture),
+// by "<profile>/<scenario> <label>" (the profile that took the capture, or
+// the profile itself where its rule differs from the inherited capture's),
 // with why: endProblems' findings are logged, not failed. A listed gap
 // that no longer appears fails.
 var webSocketEndGaps = map[string]string{
-	"firefox-158-windows/websocket-h2 cs-protocols": "Firefox on Windows put this cross-site socket on an HTTP/2 connection of its own (no top-level-site partition in mimicry) and ended its stream with RST_STREAM CANCEL 1.0 s after the close handshake (every sample), its other HTTP/2 sockets never (the server ended them at 3 s); no profile field holds a stream end that depends on the connection, so closeH2 stays unmeasured and mimicry leaves the stream to the server",
+	"firefox-158-windows/websocket-h2 cs-protocols":        "Firefox on Windows put this cross-site socket on an HTTP/2 connection of its own (no top-level-site partition in mimicry) and ended its stream with RST_STREAM CANCEL 1.0 s after the close handshake (every sample), its other HTTP/2 sockets never (the server ended them at 3 s); no profile field holds a stream end that depends on the connection, so closeH2 stays unmeasured and mimicry leaves the stream to the server",
+	"firefox-159-macos/websocket-h2 cs-protocols":          "as firefox-158-windows's, now also on macOS (Firefox 159): its own HTTP/2 connection and RST_STREAM CANCEL 1.0 s after the close handshake, the other HTTP/2 sockets ended by the server at 3 s",
+	"firefox-159-windows/websocket-h2 cs-protocols":        "as firefox-158-windows's (Firefox 159, 1 sample)",
+	"firefox-159-macos/proxy-websocket px-h1":              firefox159ProxyEnd,
+	"firefox-159-macos/proxy-websocket px-h1-again":        firefox159ProxyEnd,
+	"firefox-159-macos/proxy-websocket px-plain":           firefox159ProxyEnd,
+	"firefox-159-macos/proxy-websocket-auth px-h1":         firefox159ProxyEnd,
+	"firefox-159-macos/proxy-websocket-auth px-h1-again":   firefox159ProxyEnd,
+	"firefox-159-macos/proxy-websocket-auth px-plain":      firefox159ProxyEnd,
+	"firefox-159-macos/proxy-websocket-socks5 px-h1":       firefox159ProxyEnd,
+	"firefox-159-macos/proxy-websocket-socks5 px-h1-again": firefox159ProxyEnd,
 }
+
+// firefox159ProxyEnd: firefox-159-macos inherits its proxied sockets from
+// firefox-158-macos, whose captures recorded no transport end; its own
+// sockets (and Firefox 158's proxied ones on Windows) close the connection
+// 1.0 s after the close handshake, as closeH1 says.
+const firefox159ProxyEnd = "inherited from firefox-158-macos's captures, which recorded no transport end; Firefox 159 on macOS closed every HTTP/1.1 socket of its own captures 1.0 s after the close handshake (14 of 14), as Firefox 158 on Windows did its proxied ones, so closeH1 is after_wait"
 
 // joinFragments returns ws with each fragmented client message (a data frame
 // without FIN and its continuations) as one frame: the first's header bits,

@@ -41,10 +41,10 @@ resp, err = client.Do(mimicry.As(api, mimicry.Fetch))
 | Platform | Browser | Newest | Pinned versions |
 |---|---|---|---|
 | macOS | Chrome | `profiles.ChromeMacOS()` | `Chrome156MacOS()`, `Chrome155MacOS()` |
-| | Firefox | `profiles.FirefoxMacOS()` | `Firefox158MacOS()` |
+| | Firefox | `profiles.FirefoxMacOS()` | `Firefox159MacOS()`, `Firefox158MacOS()` |
 | | Safari | `profiles.SafariMacOS()` | `Safari27MacOS()`, `Safari26MacOS()` |
 | Windows | Chrome | `profiles.ChromeWindows()` | `Chrome156Windows()` |
-| | Firefox | `profiles.FirefoxWindows()` | `Firefox158Windows()` |
+| | Firefox | `profiles.FirefoxWindows()` | `Firefox159Windows()`, `Firefox158Windows()` |
 | iPhone | Chrome | `profiles.ChromeIOS()` | `Chrome157IOS()` |
 | | Firefox | `profiles.FirefoxIOS()` | `Firefox159IOS()` |
 | | Safari | `profiles.SafariIOS()` | `Safari27IOS()`, `Safari26IOS()` |

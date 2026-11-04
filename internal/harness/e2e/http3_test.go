@@ -907,12 +907,20 @@ var h3Gaps = map[string]string{
 	"firefox-158-macos/h3-page HTTP/3 /h3/font.so field lines":               "as its header list",
 	"firefox-158-windows/h3-page HTTP/3 /h3/font.so header list":             firefoxFont,
 	"firefox-158-windows/h3-page HTTP/3 /h3/font.so field lines":             "as its header list",
+	"firefox-159-macos/h3-page HTTP/3 /h3/font.so header list":               firefoxFont,
+	"firefox-159-macos/h3-page HTTP/3 /h3/font.so field lines":               "as its header list",
+	"firefox-159-windows/h3-page HTTP/3 /h3/font.so header list":             firefoxFont,
+	"firefox-159-windows/h3-page HTTP/3 /h3/font.so field lines":             "as its header list",
+	"firefox-159-windows/h3-discovery transport /h3/after-goaway.so":         "in 2 of 3 samples Firefox's burst of side connections (h3gen's sampleGaps) left no TCP race after the server's close and this fetch went on a fresh QUIC connection; in the third, as in all of firefox-158-windows's, on the raced TCP connection (#3, behind the unused opening connection); mimicry races as the profile says, on TCP #2",
 	"firefox-158-macos/h3-discovery HTTP/3 /h3/markup-image2.so header list": "Firefox gave the second page's only image u=4, i (its kind's u=5, i): a layout-driven image priority, pinned in kindsgen's h3PriorityGaps too",
 	"firefox-158-macos/h3-discovery HTTP/3 /h3/markup-image2.so field lines": "as its header list",
 	// Firefox draws its first Initial's packet number from 1 to 1024; one
 	// of 5 Windows draws of 128 or more went in 1 byte, the others (and
 	// macOS's 4) in the 2 RFC 9000's appendix A.2 asks.
-	"firefox-158-windows/rules h3-page.local-roots sample 2 connection 1 (www.h3-a.test): packet numbers: the first Initial's 242 in 1 bytes, not 2": "Firefox on Windows sent this first Initial's packet number 242 in 1 byte (the other 4 of 5 draws of 128 or more in 2, as quic.packetNumbers' rule says, macOS's 4 too); mimicry encodes it as the rule says",
+	"firefox-158-windows/rules h3-page.local-roots sample 2 connection 1 (www.h3-a.test): packet numbers: the first Initial's 242 in 1 bytes, not 2":  "Firefox on Windows sent this first Initial's packet number 242 in 1 byte (the other 4 of 5 draws of 128 or more in 2, as quic.packetNumbers' rule says, macOS's 4 too); mimicry encodes it as the rule says",
+	"firefox-159-macos/rules h3-page.local-roots sample 1 connection 18 (www.h3-a.test): packet numbers: the first Initial's 213 in 1 bytes, not 2":   "as firefox-158-windows's: Firefox 159 on macOS sent this first Initial's packet number 213 in 1 byte, on a side connection of the burst h3gen's sampleGaps pins; mimicry encodes it as quic.packetNumbers' rule says",
+	"firefox-159-windows/rules h3-page sample 2 connection 2 (www.h3-b.test): packet numbers: the first Initial's 133 in 1 bytes, not 2":              "as firefox-158-windows's: Firefox on Windows sent this first Initial's packet number in 1 byte; mimicry encodes it as quic.packetNumbers' rule says",
+	"firefox-159-windows/rules h3-page.local-roots sample 2 connection 20 (www.h3-b.test): packet numbers: the first Initial's 167 in 1 bytes, not 2": "as sample 2 connection 2 of h3-page, on a side connection of the burst h3gen's sampleGaps pins",
 	"safari-27-macos/h3-page TCP www.h3-a.test #2 goaway": "not the page's traffic: a second TCP connection repeating GET /h3/kinds.so with another user agent (Mac OS X 10_11_1), no referer and sec-fetch-site none, another system client (report http3-2026-10-25, section 4)",
 	"firefox-159-ios/rules h3-page sample 1 connection 1 (www.h3-a.test): padding: datagram 3 carries an Initial packet in 1038 bytes, not 1200": "the iPhone's Initial probe (iosProbes): the server's first flight reached Firefox over Wi-Fi too late, so 35 ms in it resent its ClientHello as a 1038-byte unpadded datagram and a 1200-byte one; every other Initial of its h3-discovery and h3-page samples is 1200 bytes (h3gen's sampleGaps pins the same datagram)",
 	// Safari's kinds over HTTP/3 are measured for fetch() only.

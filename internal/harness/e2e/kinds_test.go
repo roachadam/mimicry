@@ -202,6 +202,7 @@ func withoutRaceCookie(lines []string) []string {
 var partitionGaps = map[string]map[string]string{
 	"firefox-158-macos":   firefoxPartitionGaps,
 	"firefox-158-windows": firefoxPartitionGaps,
+	"firefox-159-windows": firefox159WindowsPartitionGaps,
 	"safari-27-ios":       iosPartitionGaps,
 	"chrome-157-ios":      iosPartitionGaps,
 	"firefox-159-ios":     iosPartitionGaps,
@@ -220,6 +221,7 @@ var iosPartitionGaps = map[string]string{
 // every sample.
 var partitionGapsInSome = map[string]bool{
 	"firefox-158-windows": true,
+	"firefox-159-windows": true,
 }
 
 // firefoxPartitionGaps are Firefox's (macOS and Windows alike).
@@ -235,6 +237,19 @@ var firefoxPartitionGaps = map[string]string{
 	"fetch-low.ss":    "mimicry with script.ss, browser with script-cors.ss",
 	"xhr.ss":          "mimicry with script.ss, browser with script-cors.ss",
 }
+
+// firefox159WindowsPartitionGaps are Firefox 159 on Windows': Firefox's,
+// and in its one kinds sample the cross-site credential-less requests on
+// the connection font-css.cs opened, where mimicry puts them with
+// script-async.cs.
+var firefox159WindowsPartitionGaps = func() map[string]string {
+	gaps := maps.Clone(firefoxPartitionGaps)
+	for _, k := range []string{"font-css.cs", "script-cors.cs", "image-cors.cs", "fetch.cs", "fetch-omit.cs", "fetch-nocors.cs", "fetch-json.cs", "fetch-custom.cs", "fetch-high.cs", "fetch-low.cs", "xhr.cs"} {
+		gaps[k] = "mimicry with script-async.cs, browser with font-css.cs"
+	}
+
+	return gaps
+}()
 
 // checkConnections compares which requests share a connection: for each
 // request, the first request on its connection, in mimicry's page and in

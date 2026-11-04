@@ -18,11 +18,26 @@ const navigation = "navigation"
 // altUsed is the header Firefox adds over HTTP/3 (RFC 7838, section 5).
 const altUsed = "alt-used"
 
-// h3PriorityGaps pins h3 requests ("<profile> <path>") whose priority
-// differs from their kind's for a reason the profile does not model.
-// Inheriting profiles take the pin too. A pin that matches again is an error.
+// h3PriorityGaps pins h3 requests ("<profile> <path>", or one request by its
+// h3Request.at) whose priority differs from their kind's for a reason the
+// profile does not model. Inheriting profiles take the pin too. A pin that
+// matches again is an error.
 var h3PriorityGaps = map[string]string{
 	"firefox-158-macos /h3/markup-image2.so": "Firefox gave the second page's only image u=4, i (its kind's u=5, i): a layout-driven image priority, a known gap over HTTP/2 too (redirects2)",
+	"firefox-159-macos.h3-discovery.local-roots.pagetrace.json.gz: sample 1, QUIC connection 1, /h3/markup-image2.so":   "as firefox-158-macos's: u=4, i where its kind's is u=5, i; in samples 1 and 2 (firefox-158-macos: all three), sample 3 sent its kind's",
+	"firefox-159-macos.h3-discovery.local-roots.pagetrace.json.gz: sample 2, QUIC connection 1, /h3/markup-image2.so":   "as sample 1",
+	"firefox-159-windows.h3-discovery.local-roots.pagetrace.json.gz: sample 3, QUIC connection 1, /h3/markup-image2.so": "as firefox-159-macos's: u=4, i where its kind's is u=5, i, in 1 of 3 samples (firefox-158-windows: none)",
+}
+
+// h3AltUsedGaps pins h3 requests (their h3Request.at) whose alt-used
+// differs from their kind's for a reason the profile does not model; the
+// alt-used rule leaves them out. Inheriting profiles take the pin too. A pin
+// of a capture read whose request never matches is an error.
+var h3AltUsedGaps = map[string]string{
+	"firefox-159-macos.h3-discovery.local-roots.pagetrace.json.gz: sample 1, QUIC connection 11, /h3/after-goaway.so":   "in the samples with Firefox's burst of side connections (h3gen's sampleGaps, firefox-159-macos.h3-discovery.local-roots: sample 1, QUIC connection 3: tokens) Firefox raced no TCP after the server's close, and this fetch went on a fresh QUIC connection without alt-used; in sample 3, without the burst, and in all of firefox-158-macos's, it went on the raced TCP connection",
+	"firefox-159-macos.h3-discovery.local-roots.pagetrace.json.gz: sample 2, QUIC connection 11, /h3/after-goaway.so":   "as sample 1",
+	"firefox-159-windows.h3-discovery.local-roots.pagetrace.json.gz: sample 1, QUIC connection 10, /h3/after-goaway.so": "as firefox-159-macos's: in the burst's samples, a fresh QUIC connection without alt-used, no TCP race",
+	"firefox-159-windows.h3-discovery.local-roots.pagetrace.json.gz: sample 3, QUIC connection 11, /h3/after-goaway.so": "as sample 1",
 }
 
 // h3Request is one HTTP/3 request of the h3 captures. priority is "" when
@@ -170,9 +185,30 @@ func h3Headers(p *profile.Spec, reqs []h3Request) (*profile.H3Headers, error) {
 		return nil, errors.Join(errs...)
 	}
 
+	files, pinned := map[string]bool{}, map[string]bool{}
 	for _, q := range reqs {
-		if (anchors[q.kind] != nil) != slices.Contains(q.names, altUsed) {
+		files[strings.SplitN(q.at, ":", 2)[0]] = true
+
+		matches := (anchors[q.kind] != nil) == slices.Contains(q.names, altUsed)
+
+		if _, ok := h3AltUsedGaps[q.at]; ok {
+			pinned[q.at] = true
+
+			if matches {
+				errs = append(errs, fmt.Errorf("%s: h3AltUsedGaps pins it, but its alt-used is its kind's: remove the pin", q.at))
+			}
+
+			continue
+		}
+
+		if !matches {
 			errs = append(errs, fmt.Errorf("%s: alt-used sent by some requests of %s only", q.at, q.kind))
+		}
+	}
+
+	for at := range h3AltUsedGaps {
+		if files[strings.SplitN(at, ":", 2)[0]] && !pinned[at] {
+			errs = append(errs, fmt.Errorf("%s: h3AltUsedGaps pins it, but no such request was read: remove the pin", at))
 		}
 	}
 
@@ -481,7 +517,11 @@ func h3Priorities(p *profile.Spec, reqs []h3Request) (high, low map[string]strin
 		case "low":
 			measured("low", low, q, kind)
 		default:
-			_, pinned := h3PriorityGaps[q.source+" "+q.path]
+			_, byPath := h3PriorityGaps[q.source+" "+q.path]
+			_, byRequest := h3PriorityGaps[q.at]
+
+			pinned := byPath || byRequest
+
 			switch ok := defaultPriority(p, q); {
 			case ok && pinned:
 				errs = append(errs, fmt.Errorf("%s: h3PriorityGaps pins it, but its priority %q is its kind's: remove the pin", q.at, q.priority))

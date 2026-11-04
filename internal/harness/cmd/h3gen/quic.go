@@ -553,7 +553,9 @@ func connectionIDs(s *captureSet, e *collector) (int, string, int) {
 }
 
 // newConnectionIDs is how many NEW_CONNECTION_ID frames every completed
-// connection sent: sequence numbers from 1, SCID-long, retiring none.
+// connection sent: sequence numbers from 1, SCID-long, retiring none. A
+// pinned connection ("newConnectionIDs") may send fewer: one that closed
+// before the last of them.
 func newConnectionIDs(s *captureSet, scid int, e *collector) int {
 	count := -1
 	for _, c := range s.done() {
@@ -583,7 +585,7 @@ func newConnectionIDs(s *captureSet, scid int, e *collector) int {
 			count = len(seqs)
 		}
 
-		if len(seqs) != count {
+		if len(seqs) != count && (len(seqs) > count || !s.gap(c, "newConnectionIDs")) {
 			e.add(c, "%d NEW_CONNECTION_IDs, another connection %d", len(seqs), count)
 		}
 	}
