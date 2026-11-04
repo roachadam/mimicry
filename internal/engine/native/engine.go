@@ -61,6 +61,9 @@ type Config struct {
 	// request context's deadline. Zero means 30 seconds.
 	DialTimeout time.Duration
 	DialContext func(ctx context.Context, network, addr string) (net.Conn, error)
+	// LocalAddrs are the local addresses the engine's sockets bind to
+	// (dial.Dialer.LocalAddrs); checked by the caller.
+	LocalAddrs []netip.Addr
 	// Resolver looks host names up: for dials without DialContext, and to
 	// find another host's HTTP/2 connection a request may take
 	// (Coalesce, profile.CoalesceOnLookup). Nil uses
@@ -251,6 +254,7 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 			UserAgent:           userAgent(p),
 			BrowserAuth:         cfg.BrowserProxyAuth,
 			HTTP3ReadBufferSize: cfg.HTTP3ReadBufferSize,
+			LocalAddrs:          cfg.LocalAddrs,
 			OnConnect:           cfg.OnConnect,
 		},
 		proxy:            cfg.Proxy,

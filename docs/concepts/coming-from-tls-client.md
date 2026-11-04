@@ -52,7 +52,8 @@ client.CheckRedirect = func(*http.Request, []*http.Request) error {
 | `WithCookieJar(jar)`, `SetCookieJar` | `Config.Cookies` (a `*cookies.Jar`), not the client's `Jar` |
 | `WithProxyUrl`, `SetProxy` | `Config.Proxy`, a function of the request |
 | `WithDisableHttp3()`, `WithProtocolRacing()` | `Config.DisableHTTP3`; racing follows the profile |
-| `WithDialer`, `WithDialContext`, `WithLocalAddr` | `Config.DialContext` (TCP only) |
+| `WithDialer`, `WithDialContext` | `Config.DialContext` (TCP only) |
+| `WithLocalAddr` | `Config.LocalAddrs` (TCP and HTTP/3) |
 | `WithDefaultHeaders(h)`, `WithHeaders`, azuretls `Headers` (session defaults) | `Config.Header` for every request; `req.Header` for one request |
 | `WithInsecureSkipVerify()`, `WithCharlesProxy` | `Config.RootCAs` with the intercepting proxy's CA, plus `Config.Proxy` |
 | `WithCertificatePinning`, `WithCertificatePinner` | `Config.Pins` (same `sha256/<base64>` format); `Config.VerifyConnection` for your own check |

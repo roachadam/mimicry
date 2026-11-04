@@ -96,6 +96,7 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0040](decisions/0040-idle-connection-cleanup.md) | Idle connections close after a timeout | Amended |
 | [0042](decisions/0042-http2-opening-records.md) | The HTTP/2 opening is grouped into TLS records as the browser does | Amended (preconnected connections kept not planned) |
 | [0052](decisions/0052-http1-upload-records.md) | HTTP/1.1 requests are cut into TLS records as the browser does; no dynamic record sizing | Accepted |
+| [0056](decisions/0056-local-addresses.md) | `Config.LocalAddrs` binds TCP, HTTP/3 and SOCKS5 relays to one address per family | Accepted |
 
 ### Proxies and WebSockets
 

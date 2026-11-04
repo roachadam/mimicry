@@ -34,7 +34,9 @@ a new one. One exception: after the server closes a connection, Firefox
 sends the next request on a new TCP connection and opens QUIC after it.
 
 QUIC looks up the host through `Config.Resolver`. `Config.DialContext` is
-not used for QUIC.
+not used for QUIC: to send HTTP/3 from the address your TCP leaves from,
+set `Config.LocalAddrs` (one IPv4 and one IPv6 at most), which binds TCP,
+QUIC and SOCKS5 UDP relays alike.
 
 ## Sharing what a Transport learned
 

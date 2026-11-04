@@ -57,6 +57,11 @@ type Dialer struct {
 	// and, through a proxy, without the tunnel's setup; with DialContext,
 	// DialContext's whole call. The rtt client hint estimates from it.
 	OnConnect func(time.Duration)
+	// LocalAddrs, when set, are the local addresses the Dialer's own
+	// sockets bind to, at most one per family: TCP connects (unless
+	// DialContext opens them), QUIC's UDP sockets and SOCKS5 UDP relays.
+	// A remote address of a family with none is not used.
+	LocalAddrs []netip.Addr
 
 	// asked holds the proxies (by URL) that have asked for credentials:
 	// browsers send them unasked from then on.
@@ -96,18 +101,43 @@ func (d *Dialer) dial(ctx context.Context, addr string) (net.Conn, error) {
 	// unless Happy Eyeballs raced two addresses.
 	var started atomic.Pointer[time.Time]
 
+	network := "tcp"
 	nd := net.Dialer{
 		KeepAlive: 30 * time.Second,
 		Resolver:  d.Resolver,
-		ControlContext: func(context.Context, string, string, syscall.RawConn) error {
+		ControlContext: func(_ context.Context, network, _ string, c syscall.RawConn) error {
 			now := time.Now()
 			started.Store(&now)
 
-			return nil
+			if len(d.LocalAddrs) == 0 {
+				return nil
+			}
+
+			// Each family's socket from its own address, bound before
+			// connect(), so Happy Eyeballs still races the two as without
+			// LocalAddrs (net.Dialer.LocalAddr binds one for both).
+			local, ok := d.localFor(network == "tcp6")
+			if !ok {
+				return fmt.Errorf("mimicry: no %s address in Config.LocalAddrs", network)
+			}
+
+			return bindTo(c, local)
 		},
 	}
 
-	conn, err := nd.DialContext(ctx, "tcp", addr)
+	// With one family's address only, the other family's server
+	// addresses are not tried.
+	_, v4 := d.localFor(false)
+	_, v6 := d.localFor(true)
+
+	switch {
+	case v4 && !v6:
+		network = "tcp4"
+	case v6 && !v4:
+		network = "tcp6"
+	}
+
+	conn, err := nd.DialContext(ctx, network, addr)
 	if start := started.Load(); err == nil && start != nil && d.OnConnect != nil {
 		d.OnConnect(time.Since(*start))
 	}
@@ -115,10 +145,23 @@ func (d *Dialer) dial(ctx context.Context, addr string) (net.Conn, error) {
 	return conn, err
 }
 
+// localFor returns the local address LocalAddrs gives the IPv6 (v6) or
+// IPv4 family.
+func (d *Dialer) localFor(v6 bool) (netip.Addr, bool) {
+	for _, a := range d.LocalAddrs {
+		if a.Unmap().Is6() == v6 {
+			return a.Unmap(), true
+		}
+	}
+
+	return netip.Addr{}, false
+}
+
 // ListenUDP resolves host with Resolver and opens a UDP socket for a QUIC
-// connection to its first address at port, returned with the socket. It
-// honours ctx, bounded by Timeout. The socket asks for the receive buffer
-// HTTP3ReadBufferSize says and keeps what the OS grants.
+// connection to its first address at port (with LocalAddrs, its first of
+// a family they give, the socket bound to that family's), returned with
+// the socket. It honours ctx, bounded by Timeout. The socket asks for the
+// receive buffer HTTP3ReadBufferSize says and keeps what the OS grants.
 func (d *Dialer) ListenUDP(ctx context.Context, host string, port uint16) (net.PacketConn, netip.AddrPort, error) {
 	if d.Timeout > 0 {
 		var cancel context.CancelFunc
@@ -133,29 +176,41 @@ func (d *Dialer) ListenUDP(ctx context.Context, host string, port uint16) (net.P
 		resolver = net.DefaultResolver
 	}
 
-	addr, err := netip.ParseAddr(host)
-	if err != nil {
-		addrs, err := resolver.LookupNetIP(ctx, "ip", host)
-		if err != nil {
-			return nil, netip.AddrPort{}, err
-		}
-
-		if len(addrs) == 0 {
-			return nil, netip.AddrPort{}, fmt.Errorf("mimicry: no address for %s", host)
-		}
-
-		addr = addrs[0]
+	addrs := []netip.Addr{}
+	if a, err := netip.ParseAddr(host); err == nil {
+		addrs = append(addrs, a)
+	} else if addrs, err = resolver.LookupNetIP(ctx, "ip", host); err != nil {
+		return nil, netip.AddrPort{}, err
 	}
 
-	addr = addr.Unmap()
+	var (
+		addr  netip.Addr
+		local netip.Addr
+	)
 
-	network, local := "udp4", "0.0.0.0:0"
+	for _, a := range addrs {
+		a = a.Unmap()
+		if l, ok := d.localFor(a.Is6()); ok || len(d.LocalAddrs) == 0 {
+			addr, local = a, l
 
+			break
+		}
+	}
+
+	if !addr.IsValid() {
+		return nil, netip.AddrPort{}, fmt.Errorf("mimicry: no address for %s of the families Config.LocalAddrs gives", host)
+	}
+
+	network, bind := "udp4", "0.0.0.0:0"
 	if addr.Is6() {
-		network, local = "udp6", "[::]:0"
+		network, bind = "udp6", "[::]:0"
 	}
 
-	pc, err := (&net.ListenConfig{}).ListenPacket(ctx, network, local)
+	if local.IsValid() {
+		bind = netip.AddrPortFrom(local, 0).String()
+	}
+
+	pc, err := (&net.ListenConfig{}).ListenPacket(ctx, network, bind)
 	if err != nil {
 		return nil, netip.AddrPort{}, err
 	}
@@ -431,7 +486,25 @@ func (d *Dialer) dialRelay(ctx context.Context, ctrl net.Conn, p *url.URL, relay
 		Resolver: d.Resolver,
 	}
 
-	conn, err := nd.DialContext(ctx, "udp", net.JoinHostPort(relayHost, relayPort))
+	network := "udp"
+	if len(d.LocalAddrs) > 0 {
+		// A literal address picks its family's local address; a name
+		// goes from the first one given, over that family.
+		local := d.LocalAddrs[0].Unmap()
+		if ip, err := netip.ParseAddr(relayHost); err == nil {
+			var ok bool
+			if local, ok = d.localFor(ip.Unmap().Is6()); !ok {
+				return nil, fmt.Errorf("SOCKS5 UDP relay %s: no address of its family in Config.LocalAddrs", relay)
+			}
+		}
+
+		network, nd.LocalAddr = "udp4", net.UDPAddrFromAddrPort(netip.AddrPortFrom(local, 0))
+		if local.Is6() {
+			network = "udp6"
+		}
+	}
+
+	conn, err := nd.DialContext(ctx, network, net.JoinHostPort(relayHost, relayPort))
 	if err != nil {
 		return nil, fmt.Errorf("SOCKS5 UDP relay %s: %w", relay, err)
 	}
