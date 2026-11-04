@@ -39,8 +39,9 @@ redirect rows with the 2026-10-30 cookie twins (0048), `safari-27-ios`
 and `safari-26-ios` with their 2026-11-01 captures (0051),
 `firefox-158-windows` with its 2026-11-01 captures, `chrome-157-ios`
 with its 2026-11-01 captures (0053), `firefox-159-ios` with its
-2026-11-03 captures (0053, amended), and `firefox-159-macos` and
-`firefox-159-windows` with their 2026-11-03 quick refreshes. The "Not
+2026-11-03 captures (0053, amended), `firefox-159-macos` and
+`firefox-159-windows` with their 2026-11-03 quick refreshes, and the client
+hints rows with the 2026-11-04 `client-hints` captures (0055). The "Not
 covered" list was rechecked against the code on 2026-10-29.
 
 ## How rows are classed
@@ -664,6 +665,33 @@ cookies and `Access-Control-Request-*` headers, not their header order.
 | Referer by strict-origin-when-cross-origin; Origin per the Fetch standard; credentials per mode | W where captured, otherwise the standard | The page sits at `/`, so full URL and origin coincide except for the CSS font |
 | After a redirect: sec-fetch-site the chain's most distant relation (a navigation's: `redirects.navigationSite`), `Origin: null` once the chain is tainted, the page's Referer (not `http.Client`'s) with the policy applied to each hop in turn (origin only once the chain left the page's origin), storage access by the URL's own relation | W (`fetch-redirect`, `image-redirect`, both directions; `nav-redirect-page` for the Referer back on the page's origin) | |
 
+## Client hints
+
+`clientHints` ([decision 0055](../docs/decisions/0055-client-hints-opt-in.md)),
+derived by kindsgen from the `client-hints` captures (2026-11-04, 3 samples
+each, all identical; `.local-roots` for Chrome and Firefox). Chrome 156 on
+macOS (156.0.8078.80, macOS 27.0.1, arm) and on Windows (156.0.8078.81,
+Windows 10, x86): **W**. kindsgen refuses captures whose samples disagree
+and any captured request the model would send differently, every
+subresource's table run included. `TestClientHintsMatchesBrowser` replays
+the page through mimicry and compares every request, both sends of a
+restarted navigation included, with the samples. Firefox 159 and Safari 27
+(macOS): **W**, no `clientHints`: no hint beyond their lists, no restart.
+`chrome-156-windows` carries the full version its capture shows, .81,
+though its other captures were of .80: Chrome updates patch versions
+silently.
+
+| Claim | Evidence | Notes |
+|---|---|---|
+| `clientHints.hints`: the run a navigation or frame sends once its origin opted in, in order, where its list has the low-entropy hints | W (`next.nav`, `meta.nav`, `optin.iframe`, `h1-next.nav` over HTTP/1.1, `h3-next.nav` over HTTP/3; the shrunk sets `after-shrink.nav`, `crit-again.nav`; a redirect's hop `r-land.nav`, `r-xland.nav` (after `sec-fetch-dest`, as their variants keep `sec-ch-ua`); the form POST `r-post.nav` (after `cache-control`)) | Lowercase over HTTP/1.1 too. `sec-ch-ua-form-factor` (singular), `save-data`, `width` and `sec-ch-width` are never in the run |
+| `clientHints.tableOrder`: other requests' hints enter Blink's header table (`context.headerTable`) in this order, then `user-agent`, after the page's own headers | W (every captured fetch, image, script and `/done`: 24, 7, 6 and 4 names; `r.fetch-header` with `x-mimicry`, `r.fetch-json` with `content-type`) + S (Blink `FrameFetchContext::AddClientHintsIfNecessary`) | The navigation order does not reproduce the 24-name runs |
+| Opt-in: a navigation's `Accept-CH` replaces its origin's set, a redirect's and a form POST's included, kept across navigations without one; a subresource's `Accept-CH` is ignored | W (`base.accept-sub`, `base.after-sub`; `optin.nav`, `next.nav`; `shrink.nav`; `r-ach-hop.nav` (302) then `r-ach-land.nav`, `r-ach.fetch`; `r-post.nav` then `r-xland.nav`) | Hints Chrome cannot send on a navigation (`Sec-CH-Width`, `Save-Data`, unknown names) still replace the set |
+| Who gets them: the page's own origin all; another origin (a subdomain too) the low-entropy three; a delegated origin all; an origin left out of an explicit allowlist none | W (`optin.sub-fetch`, `optin.xo-*`, `sub.nav`, `b.nav`; `deleg.xo-*`, `meta.xo-*`; `deleg.sub-fetch`) | mimicry is told per request (`Request.ClientHints`) |
+| `Critical-CH`: one restart of a GET navigation, a redirect included, when it names a hint the response's `Accept-CH` asks for, navigations send, and the request lacked; on the same connection; the run after `clientHints.restartAfter` (`accept`) | W (`crit.nav`, `crit-add.nav`, `crit-blocked.nav`, `h1-optin.nav`, `h3-optin.nav`, the 302 `r-ach-hop.nav`: 36 of 36 on one connection; none for `crit-again.nav`, `crit-width.nav`, `crit-save-data.nav`, `crit-unknown.nav`, or the form POST `r-post.nav`) | A response's own `Permissions-Policy` does not stop it (`crit-blocked.nav` sent Model) |
+| `Clear-Site-Data: "clientHints"` and `"*"` empty the origin's set: on a navigation's response from the next request on; on a fetch's from the next navigation, while the page that made the fetch keeps its hints | W (`clear.fetch`, `after-clear.nav`; `after-star.nav`; `r-csd.fetch` then `r-after-csd.fetch` (hints kept) and `r-after-csd.nav` (none)) | mimicry keeps the last navigation's page's hints for its subresources; any other page's subresources read the store |
+| `clientHints.fullVersion` and `clientHints.machine` (but `downlink`) | W (every value of every hint sent, all samples) | Values: macOS `"27.0.1"`, `"arm"`, DPR 2, 1200 × 953; Windows `"10.0.0"`, `"x86"`, DPR 1, 1249 × 1285; both `"64"`, `""`, `?0`, `"Desktop"`, 32 GiB, `dark`, `no-preference`, `4g`. Captured on one display: with a DPR-1 display beside the Mac's, Chrome's navigations said DPR 2 and its subresources 1 |
+| `rtt` in steps of 50 ms; `downlink` in steps of 0.05 Mbps within 10% of `clientHints.machine.downlink` | W (rtt 0–100 and downlink 1.45–1.75 on both machines, fixed per host within a sample, different for a host's navigations and its subresources) | `downlink`'s centre is derived; the noise and rounding follow Chrome's (see "Not covered") |
+
 ## CORS preflights
 
 `kinds.preflight` and `context.preflightCache` ([decision 0017](../docs/decisions/0017-cors-preflights.md)),
@@ -1118,7 +1146,10 @@ A difference closed is removed here, with its pinned gap entry.
 - **Edges from source only** (Safari, all): Safari's hash tables past 1732 names or for names over 96 characters; the navigation's `content-length` slot, which no request reaches; detection none.
 - **Bodiless POST and PUT without a `bodiless` capture** (Chrome and Firefox on Windows, every iOS profile, `chrome-155-macos`, `safari-26-macos`): no `emptyBody`, so a POST or PUT with no body goes without `content-length: 0`, its stream ended on HEADERS. The `cors` captures already show every profile's cross-site fetch PUT with no body (`put.cs`, the `maxage.cs` PUT) sending `content-length: 0` (Chrome and Safari in the list's place with END_STREAM on HEADERS, Firefox last with an empty DATA frame); kindsgen does not read them for `emptyBody` yet, and POST is unmeasured there; detection medium; a `bodiless` capture per profile ([#56](https://github.com/roachadam/mimicry/issues/56)).
 - **Safari's bodiless fetch() order** (Safari 27 macOS): its fetch() POST, PUT and PATCH without a body start `sec-fetch-site, accept, origin` (its header table without `content-type`); mimicry sends the order of its lists measured with a body, `accept, origin, sec-fetch-site`, as it did before; `content-length: 0` and the framing match; detection medium; the header table applied to Safari's own headers whenever the list's measured set differs (`bodilessGaps`).
-- **Client hints opt-in** (Chrome): `Accept-CH`, `Critical-CH` and `Clear-Site-Data: "clientHints"` are ignored, so a site that opts in to high-entropy hints (`sec-ch-ua-platform-version`, `-arch`, `-full-version-list`, ...) gets only the low-entropy three and a `Critical-CH` navigation is never restarted. The `client-hints` scenario captures it (Chrome 156 macOS and Windows, Firefox 159 macOS, Safari 27 macOS; Firefox and Safari send no hint and never restart), not yet modelled; the Windows capture is Chrome 156.0.8078.81, which its full-version hints carry, where `chrome-156-windows` and the macOS capture are .80; detection high on sites that opt in (bot-management vendors); the opt-in store, the restart and the hint values per machine ([#62](https://github.com/roachadam/mimicry/issues/62)).
+- **`Width` and `Sec-CH-Width`** (Chrome): an `<img>` with `sizes` sends its layout width once the page's origin opted in (`client-hints`, `next.width-img`: 50px × DPR); mimicry has no way to say an image's width and sends neither; detection low (sizes images on opted-in sites); a request field for the width (`h3Gaps`, the `client-hints` header list of `/h3/next.width-img`).
+- **`Clear-Site-Data` on a redirect** (Chrome): emptied like any other response's, not captured; detection low ([0055](../docs/decisions/0055-client-hints-opt-in.md)).
+- **Network client hints** (Chrome): `rtt` is mimicry's last TCP connect time (QUIC connections do not update it) and `downlink` the machine's captured estimate (1.6 Mbps), each with ±10% noise and fixed per host for the Transport's life, where Chrome's network quality estimator measures HTTP round trips and throughput and changes over time; detection low ([0055](../docs/decisions/0055-client-hints-opt-in.md)).
+- **Client hints opt-in without a capture** (`chrome-155-macos`): no `clientHints`, so `Accept-CH` is ignored as before; detection high on sites that opt in; a `client-hints` capture, which Chrome 155 can no longer give (not installable as branded Chrome).
 
 **Cookies**
 

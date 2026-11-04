@@ -16,6 +16,8 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/roachadam/mimicry/internal/proxy"
@@ -50,6 +52,11 @@ type Dialer struct {
 	// DefaultHTTP3ReadBufferSize, negative leaves the OS's default (see
 	// setReadBuffer).
 	HTTP3ReadBufferSize int
+	// OnConnect, when set, is told how long each TCP connect took: from
+	// its connect() to the connection being up, so without the lookup
+	// and, through a proxy, without the tunnel's setup; with DialContext,
+	// DialContext's whole call. The rtt client hint estimates from it.
+	OnConnect func(time.Duration)
 
 	// asked holds the proxies (by URL) that have asked for credentials:
 	// browsers send them unasked from then on.
@@ -75,15 +82,37 @@ func (d *Dialer) Dial(ctx context.Context, addr string) (net.Conn, error) {
 
 func (d *Dialer) dial(ctx context.Context, addr string) (net.Conn, error) {
 	if d.DialContext != nil {
-		return d.DialContext(ctx, "tcp", addr)
+		start := time.Now()
+
+		conn, err := d.DialContext(ctx, "tcp", addr)
+		if err == nil && d.OnConnect != nil {
+			d.OnConnect(time.Since(start))
+		}
+
+		return conn, err
 	}
+
+	// started is when the last connect() began: the one that succeeded,
+	// unless Happy Eyeballs raced two addresses.
+	var started atomic.Pointer[time.Time]
 
 	nd := net.Dialer{
 		KeepAlive: 30 * time.Second,
 		Resolver:  d.Resolver,
+		ControlContext: func(context.Context, string, string, syscall.RawConn) error {
+			now := time.Now()
+			started.Store(&now)
+
+			return nil
+		},
 	}
 
-	return nd.DialContext(ctx, "tcp", addr)
+	conn, err := nd.DialContext(ctx, "tcp", addr)
+	if start := started.Load(); err == nil && start != nil && d.OnConnect != nil {
+		d.OnConnect(time.Since(*start))
+	}
+
+	return conn, err
 }
 
 // ListenUDP resolves host with Resolver and opens a UDP socket for a QUIC

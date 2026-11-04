@@ -157,15 +157,18 @@ func buildHead(p *profile.Spec, altHost, altPort string, req *http.Request, leng
 
 	list := p.Headers
 
-	var table *profile.HeaderTable
+	var (
+		table  *profile.HeaderTable
+		ownRun bool
+	)
 
 	if plan != nil {
-		list, table = plan.Headers, plan.Table
+		list, table, ownRun = plan.Headers, plan.Table, plan.OwnRun
 	}
 
 	ordered := headerorder.Build(nil, list, headerorder.WithoutFraming(req.Header), sets, func(name string) bool {
 		return hopByHop[name]
-	}, table)
+	}, table, ownRun)
 	if empty && plan.ZeroContentLengthLast {
 		ordered = headerorder.ToEnd(ordered, "content-length")
 	}

@@ -156,6 +156,11 @@ type Request struct {
 	// or any Place on a request with its own order (Exact, HeaderOrderKey),
 	// is an error wrapping ErrPlacement.
 	HeaderPlacement []Place
+	// ClientHints is whether the page shares the client hints its origin
+	// opted in to with this request, when it goes to another origin; the
+	// page's own origin always gets them. A navigation takes none: it
+	// sends what its own origin opted in to.
+	ClientHints HintDelegation
 }
 
 type requestKey struct{}
@@ -220,6 +225,10 @@ type sending struct {
 	// variants, -1 for their own lists (Plan.Variant).
 	cond    profile.Variant
 	variant int
+	// hints are the client hints the request sends, lowercase (nil for a
+	// profile without profile.ClientHints): a Critical-CH restart is for
+	// a hint it did not.
+	hints []string
 }
 
 // exactSending returns how to send req as Exact does: exactly its own

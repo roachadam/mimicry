@@ -131,7 +131,7 @@ func (t *Transport) DialWebSocket(ctx context.Context, rawURL string, opts WebSo
 
 	s, err := resolve(p, req, Request{
 		Kind: kindWebSocket,
-	}, from, t.headers)
+	}, from, t.headers, nil)
 	if err != nil {
 		return nil, nil, err
 	}

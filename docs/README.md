@@ -5,6 +5,7 @@
 - [What mimicry does on the wire](concepts/what-mimicry-does.md)
 - [How a request is built](concepts/how-a-request-is-built.md)
 - [Cookies](concepts/cookies.md)
+- [Client hints](concepts/client-hints.md)
 - [Proxies](concepts/proxies.md)
 - [CORS preflights](concepts/cors-preflights.md)
 - [WebSockets](concepts/websockets.md)
@@ -72,6 +73,7 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0030](decisions/0030-header-placement.md) | Header placement: move one header, keep the browser's order | Accepted |
 | [0048](decisions/0048-cookie-twins.md) | Cookie twins of the redirect scenarios measure each hop's `cookie` slot | Accepted |
 | [0054](decisions/0054-empty-request-bodies.md) | Requests without a body: `content-length: 0` and the stream's end from a measured `emptyBody`, as before where none is measured | Accepted |
+| [0055](decisions/0055-client-hints-opt-in.md) | Chrome's client hints opt-in: `Accept-CH` stored per origin, the `Critical-CH` restart, `Clear-Site-Data`, captured machines' values, delegation stated per request | Accepted |
 
 ### Cookies
 

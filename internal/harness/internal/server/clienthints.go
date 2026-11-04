@@ -8,6 +8,9 @@ import (
 	"time"
 
 	"golang.org/x/net/http2/hpack"
+
+	"github.com/roachadam/mimicry/internal/harness/internal/capture"
+	"github.com/roachadam/mimicry/profile"
 )
 
 // The client-hints page's hosts: the site that opts in (chHost), another
@@ -29,10 +32,10 @@ const (
 // Permissions-Policy or a Delegate-CH meta tag delegating them), narrows
 // and clears its opt-in (Clear-Site-Data), and answers navigations with
 // Critical-CH on a fresh site, over HTTP/2, HTTP/1.1 and HTTP/3. See
-// clientHintsSteps.
+// ClientHintsSteps.
 var ClientHints = &Scenario{
 	Name: "client-hints",
-	Doc:  "Accept-CH for every client hint on a navigation, then same-origin, same-site and third-party requests (subresources, fetch, iframes, navigations; Permissions-Policy and Delegate-CH delegation), Accept-CH on a subresource, a narrower Accept-CH, Clear-Site-Data \"clientHints\" and \"*\", and Critical-CH restarts (new hint, hint already sent, hints a navigation never sends) over HTTP/2, HTTP/1.1 and HTTP/3: which hints each browser sends, their values and places",
+	Doc:  "Accept-CH for every client hint on a navigation, then same-origin, same-site and third-party requests (subresources, fetch, iframes, navigations; Permissions-Policy and Delegate-CH delegation), Accept-CH on a subresource, a narrower Accept-CH, Clear-Site-Data \"clientHints\" and \"*\", and Critical-CH restarts (new hint, hint already sent, hints a navigation never sends) over HTTP/2, HTTP/1.1 and HTTP/3; then fetches with the page's own headers, redirected navigations, Accept-CH and Critical-CH on a redirect, a form POST answered with Critical-CH, and Clear-Site-Data on a fetch: which hints each browser sends, their values and places",
 	multi: h3Page{
 		fixedHosts: fixedHosts{
 			names: []string{
@@ -46,9 +49,9 @@ var ClientHints = &Scenario{
 			http1: []string{
 				chHTTP1,
 			},
-			runFor: 45 * time.Second,
+			runFor: 60 * time.Second,
 		},
-		steps: clientHintsSteps,
+		steps: ClientHintsSteps,
 		plainHosts: []string{
 			chHost,
 			chSub,
@@ -60,6 +63,13 @@ var ClientHints = &Scenario{
 		head:    clientHintsHead,
 	},
 	h3: &h3Server{},
+}
+
+// ClientHintsCaptures returns p's existing client-hints captures in dir
+// (own or inherited, with and without -h3-local-roots): what kindsgen
+// derives the profile's clientHints from.
+func ClientHintsCaptures(dir string, p *profile.Spec) ([]capture.File, error) {
+	return existingCaptures(dir, p, ClientHints)
 }
 
 // allHints are every client hint Chrome is known to accept, low-entropy
@@ -90,7 +100,7 @@ var allHints = []string{
 	"Viewport-Width",
 	"Device-Memory",
 	"Width",
-	"ECT", //nolint:misspell // the Effective Connection Type hint, not "etc"
+	"ECT",
 	"RTT",
 	"Downlink",
 	"Save-Data",
@@ -134,6 +144,15 @@ type hintStep struct {
 //   - the opt-in with Critical-CH and its requests over HTTP/1.1 (chHTTP1),
 //     and over HTTP/3 (chHTTP3, after a warm-up and a 2 s pause, as
 //     BodilessSteps), whose last document asks for /done.
+//
+// Between the two, the opt-in again on chHost (r-optin.nav), then what the
+// rest leaves out: fetches with the page's own headers; a navigation
+// redirected within the origin (r-hop.nav to r-land.nav); a form POST
+// answered with Critical-CH for a new hint (r-post.nav); a navigation
+// redirected from chSub into the opted-in origin (r-xhop.nav); a redirect
+// answering Accept-CH and Critical-CH (r-ach-hop.nav, on chSub, where
+// r-ach.fetch shows whether it was kept); and Clear-Site-Data on a fetch's
+// response (r-csd.fetch), followed by a fetch and a navigation.
 func hintSteps() []hintStep {
 	all := strings.Join(allHints, ", ")
 
@@ -166,6 +185,16 @@ func hintSteps() []hintStep {
 		return s
 	}
 
+	// land is the document a redirect lands on: a navigation no page
+	// makes.
+	land := func(label, host string) hintStep {
+		return hintStep{
+			Label: label,
+			Kind:  "navigate",
+			Host:  host,
+		}
+	}
+
 	// critical is a navigation on chCritical answering Accept-CH accept
 	// and Critical-CH critical.
 	critical := func(label, page, accept, critical string) hintStep {
@@ -182,6 +211,7 @@ func hintSteps() []hintStep {
 		shrink = "/h3/shrink.nav"
 		after  = "/h3/after-shrink.nav"
 		clr    = "/h3/clear.nav"
+		rOptin = "/h3/r-optin.nav"
 		k      = "Sec-CH-UA-Full-Version-List, Sec-CH-UA-Platform-Version, Sec-CH-UA-Arch"
 	)
 
@@ -256,7 +286,45 @@ func hintSteps() []hintStep {
 				s.clearSiteData = `"*"`
 			}),
 			nav("after-star.nav", chCritical, "/h3/clear-star.nav"),
-			with(nav("h1-optin.nav", chHTTP1, "/h3/after-star.nav"), func(s *hintStep) {
+			with(nav("r-optin.nav", chHost, "/h3/after-star.nav"), func(s *hintStep) {
+				s.acceptCH = k
+			}),
+			with(req("r.fetch-header", "fetch", chHost, rOptin), func(s *hintStep) {
+				s.Headers = map[string]string{
+					"x-mimicry": "1",
+				}
+			}),
+			with(req("r.fetch-json", "fetch", chHost, rOptin), func(s *hintStep) {
+				s.Method, s.Body = "POST", `{"a":1}`
+				s.Headers = map[string]string{
+					"content-type": "application/json",
+				}
+			}),
+			with(nav("r-hop.nav", chHost, rOptin), func(s *hintStep) {
+				s.Redirect = "r-land.nav"
+			}),
+			land("r-land.nav", chHost),
+			with(nav("r-post.nav", chHost, "/h3/r-land.nav"), func(s *hintStep) {
+				s.Method, s.Body = "POST", "a=1"
+				s.acceptCH, s.criticalCH = k+", Sec-CH-UA-Bitness", "Sec-CH-UA-Bitness"
+			}),
+			with(nav("r-xhop.nav", chSub, "/h3/r-post.nav"), func(s *hintStep) {
+				s.Redirect = "r-xland.nav"
+			}),
+			land("r-xland.nav", chHost),
+			with(nav("r-ach-hop.nav", chSub, "/h3/r-xland.nav"), func(s *hintStep) {
+				s.Redirect = "r-ach-land.nav"
+				s.acceptCH, s.criticalCH = "Sec-CH-UA-Model", "Sec-CH-UA-Model"
+			}),
+			land("r-ach-land.nav", chSub),
+			req("r-ach.fetch", "fetch", chSub, "/h3/r-ach-land.nav"),
+			nav("r-back.nav", chHost, "/h3/r-ach-land.nav"),
+			with(req("r-csd.fetch", "fetch", chHost, "/h3/r-back.nav"), func(s *hintStep) {
+				s.clearSiteData = `"clientHints"`
+			}),
+			req("r-after-csd.fetch", "fetch", chHost, "/h3/r-back.nav"),
+			nav("r-after-csd.nav", chHost, "/h3/r-back.nav"),
+			with(nav("h1-optin.nav", chHTTP1, "/h3/r-after-csd.nav"), func(s *hintStep) {
 				s.acceptCH, s.criticalCH = all, "Sec-CH-UA-Platform-Version"
 			}),
 		},
@@ -279,8 +347,9 @@ func hintSteps() []hintStep {
 	)
 }
 
-// clientHintsSteps are hintSteps as the page runs them.
-func clientHintsSteps() []H3Step {
+// ClientHintsSteps are the client-hints page's requests in order (hintSteps
+// without their responses' headers).
+func ClientHintsSteps() []H3Step {
 	hs := hintSteps()
 	out := make([]H3Step, len(hs))
 
@@ -300,6 +369,38 @@ func hintStepAt(host, path string) (hintStep, bool) {
 	}
 
 	return hintStep{}, false
+}
+
+// ClientHintsDelegation is how the document st is made from shares its
+// origin's client hints with st's request: "delegated" to the third party
+// its Permissions-Policy or Delegate-CH meta tag names, "withheld" from
+// another origin that delegation leaves out (the policy allows each hint
+// for self and the third party only), "" otherwise: same origin, a
+// navigation (the page's policy governs its own subresources and frames),
+// a document that delegates nothing, or a step of another scenario.
+func ClientHintsDelegation(st H3Step) string {
+	if _, ok := hintStepAt(st.Host, st.Path()); !ok || st.Kind == "navigate" {
+		return ""
+	}
+
+	for _, doc := range hintSteps() {
+		if doc.Kind != "navigate" || doc.Path() != st.Page {
+			continue
+		}
+
+		names := strings.Contains(doc.policy, "%[1]s") || strings.Contains(doc.delegate, "%[1]s")
+
+		switch {
+		case !names || st.Host == doc.Host:
+			return ""
+		case st.Host == chThird:
+			return "delegated"
+		default:
+			return "withheld"
+		}
+	}
+
+	return ""
 }
 
 // clientHintsHeaders are the client-hint headers of the response to path

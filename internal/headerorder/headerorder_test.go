@@ -108,7 +108,7 @@ func TestBuild(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := names(Build(nil, prof, tc.h, tc.sets, never, nil)); !slices.Equal(got, tc.want) {
+			if got := names(Build(nil, prof, tc.h, tc.sets, never, nil, false)); !slices.Equal(got, tc.want) {
 				t.Errorf("\n got %q\nwant %q", got, tc.want)
 			}
 		})

@@ -539,10 +539,21 @@ navigations to the other two, delegation to the third party through
 `www.ch-k.test`, navigations answer `Critical-CH` (a hint not yet sent,
 one already sent, one `Permissions-Policy` disables, `Width`, `Save-Data`,
 an unknown one), the same answer every time, so a restart that loops
-shows; then `Clear-Site-Data: "*"`. The opt-in with `Critical-CH` follows
-over HTTP/1.1 (`www.ch-h1.test`) and HTTP/3 (`www.ch-h3.test`, as
-`bodiless`). Chrome and Firefox need `-h3-local-roots`. Not modelled yet
-([#62](https://github.com/roachadam/mimicry/issues/62)).
+shows; then `Clear-Site-Data: "*"`. Back on `www.ch-a.test`, the opt-in
+again, then fetches with a header of the page's own and a JSON body, a
+navigation redirected within the origin, a form POST answered with
+`Critical-CH`, a navigation redirected from `sub.ch-a.test` into the
+opted-in origin, a redirect answering `Accept-CH` and `Critical-CH`, and
+`Clear-Site-Data` on a fetch, followed by a fetch and a navigation
+(redirects land on steps no page makes, `H3Step.Redirect`). The opt-in
+with `Critical-CH` follows over HTTP/1.1 (`www.ch-h1.test`) and HTTP/3
+(`www.ch-h3.test`, as `bodiless`). Chrome and Firefox need
+`-h3-local-roots`. Capture Chrome with its window on one display: beside a
+display of another DPR, its navigations and subresources report different
+DPRs, which kindsgen refuses. kindsgen derives `clientHints` from it
+([decision 0055](decisions/0055-client-hints-opt-in.md)), and
+`TestClientHintsMatchesBrowser` replays it; a quick refresh recaptures it,
+since the full version moves with every release.
 
 ## Deriving a profile
 
@@ -677,6 +688,14 @@ kindsgen's captures, and what each gives the profile:
   last before `te`) and, over HTTP/2, an empty DATA frame ending the
   stream; samples, methods and HTTP/3 must agree. Without the capture
   both stay unset.
+- `<name>.client-hints*.pagetrace.json.gz`: `clientHints`
+  (`deriveClientHints`): the hints and order of the navigation after the
+  opt-in to every hint, the header a restart's hints follow, the full
+  version and the machine's values (`downlink` the centre of every value
+  sent), and `tableOrder`, Blink's order of entry, which must reproduce
+  every captured subresource's run. Every captured request's hints must be
+  what the model sends. Without the capture, or where no hint beyond the
+  lists was sent (Firefox, Safari), it stays unset.
 
 A variant only the cors, cors-edge or cookies capture shows was measured
 over HTTP/2 only, so it has no `http1` list, and mimicry refuses such a

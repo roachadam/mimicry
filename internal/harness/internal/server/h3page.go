@@ -149,6 +149,10 @@ type H3Step struct {
 	Blackhole bool `json:"-"`
 	// Download, when set, answers with that many incompressible bytes.
 	Download int `json:"-"`
+	// Redirect, when set, answers 302 to the step with that label, which
+	// no page makes (an empty Page): a navigation's next document is that
+	// step's.
+	Redirect string `json:"-"`
 }
 
 // Path is the step's path.
@@ -303,6 +307,10 @@ func (p h3Page) respond(host, port, path string) response {
 			continue
 		}
 
+		if s.Redirect != "" {
+			return p.redirect(s.Redirect, port)
+		}
+
 		if s.Kind == "navigate" {
 			return response{status: 200, contentType: "text/html; charset=utf-8", body: p.document(path, port)}
 		}
@@ -324,6 +332,22 @@ func (p h3Page) respond(host, port, path string) response {
 	}
 
 	return response{status: 404, contentType: "text/plain", body: []byte("not found\n")}
+}
+
+// redirect answers 302 to the step labelled label.
+func (p h3Page) redirect(label, port string) response {
+	for _, s := range p.steps() {
+		if s.Label == label {
+			return response{status: 302, contentType: "text/plain", headers: []hpack.HeaderField{
+				{
+					Name:  "location",
+					Value: "https://" + net.JoinHostPort(s.Host, port) + s.Path(),
+				},
+			}}
+		}
+	}
+
+	return response{status: 500, contentType: "text/plain", body: []byte("no step " + label + "\n")}
 }
 
 // document is the page at path: its steps' markup, then a script running

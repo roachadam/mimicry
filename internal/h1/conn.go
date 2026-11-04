@@ -474,6 +474,7 @@ func (w Writer) build(req *http.Request, framing http.Header) (Head, error) {
 
 	var (
 		table    *profile.HeaderTable
+		ownRun   bool
 		lowerOwn bool
 	)
 
@@ -482,7 +483,7 @@ func (w Writer) build(req *http.Request, framing http.Header) (Head, error) {
 			return Head{}, fmt.Errorf("%w: no HTTP/1.1 header list for this request (measured over HTTP/2 only)", headerorder.ErrNotMeasured)
 		}
 
-		headers, h1Order, h1List, table, lowerOwn = plan.Headers, nil, nil, plan.Table, plan.LowerOwn
+		headers, h1Order, h1List, table, ownRun, lowerOwn = plan.Headers, nil, nil, plan.Table, plan.OwnRun, plan.LowerOwn
 		if len(plan.HTTP1) > 0 {
 			h1Order, h1List = lowerList(plan.HTTP1), plan.HTTP1
 		}
@@ -510,7 +511,7 @@ func (w Writer) build(req *http.Request, framing http.Header) (Head, error) {
 
 		fields = headerorder.Build(fields, h1Order, h, nil, func(string) bool {
 			return false
-		}, table)
+		}, table, ownRun)
 	} else {
 		fields = append(fields, headerorder.Field{
 			Name:  "host",
@@ -530,7 +531,7 @@ func (w Writer) build(req *http.Request, framing http.Header) (Head, error) {
 			})
 		}
 
-		fields = headerorder.Build(fields, headers, reqHeader, nil, skipHeader, table)
+		fields = headerorder.Build(fields, headers, reqHeader, nil, skipHeader, table, ownRun)
 	}
 
 	// The caller's placements move lines the list wrote, Host and framing
